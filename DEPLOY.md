@@ -48,6 +48,33 @@ Set them for the Production environment, then deploy (Vercel builds automaticall
 - Point the Chrome side-panel at the deployed URL: open the panel, edit the address
   bar from `http://localhost:3000` to your Vercel URL, hit **Go**.
 
+## Google sign-in (Auth.js)
+
+Google is used once `AUTH_GOOGLE_ID` is set; until then the app falls back to
+`APP_PASSWORD`, so this can be added without downtime.
+
+1. **Google Cloud Console** → create/pick a project → **APIs & Services → OAuth
+   consent screen** → **Internal** (works because ascentbuildingco.com is a
+   Workspace org; no Google verification needed).
+2. **Credentials → Create credentials → OAuth client ID → Web application.**
+   Authorized redirect URI:
+   `https://ascent-companion.vercel.app/api/auth/callback/google`
+   (add `http://localhost:3000/api/auth/callback/google` too for local dev).
+   Copy the **Client ID** and **Client secret**.
+3. **Vercel env vars** (Production):
+   | Name | Value |
+   |---|---|
+   | `AUTH_SECRET` | `openssl rand -base64 32` (a fresh one) |
+   | `AUTH_GOOGLE_ID` | the OAuth Client ID |
+   | `AUTH_GOOGLE_SECRET` | the OAuth Client secret |
+   | `ALLOWED_EMAILS` | comma-separated allowed Google emails |
+   Keep `APP_PASSWORD` for now (fallback).
+4. **Redeploy** (Vercel → Deployments → Redeploy, so the new env vars load).
+5. Test: open the app in a browser tab → **Sign in with Google**. In the side
+   panel, sign in once in a normal tab first (Google can't render in the iframe);
+   the panel then shares the session.
+6. Once it works, **remove `APP_PASSWORD`** to go Google-only.
+
 ## Notes
 
 - `APP_PASSWORD` unset ⇒ auth off (local dev convenience). Never leave it unset on a
