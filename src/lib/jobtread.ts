@@ -438,18 +438,13 @@ export interface InvoiceLine {
 
 export interface StageInvoiceInput {
   jobId: string;
-  accountId: string; // customer account
-  issueDate: string; // YYYY-MM-DD
-  lineItems: InvoiceLine[];
+  issueDate: string; // YYYY-MM-DD (last day of the billing month)
 }
 
 /**
- * Create a DRAFT customer invoice (owner reviews/sends inside JobTread).
- * Mechanism confirmed (createDocument + type:customerInvoice). Line shape mirrors
- * the vendor-bill lineItems built by ascent-appscript pushExpenditureToJobTread.
- * BUILD-TIME CHECK: on the first live draft, confirm the exact input key names
- * (jobCostItemId vs jobCostItem, costCodeId vs costCode) and whether `price`
- * auto-fills from the job fee — the create response / error will tell us.
+ * Create a DRAFT customer invoice. JobTread's create-invoice auto-pulls the job's
+ * uninvoiced Bills & Time — we pass NO line items; it populates itself. The owner
+ * reviews/sends it inside JobTread. Our staging view is just a sanity check.
  */
 export async function createDraftInvoice(cfg: PaveConfig, input: StageInvoiceInput) {
   return pave(cfg, {
@@ -458,10 +453,8 @@ export async function createDraftInvoice(cfg: PaveConfig, input: StageInvoiceInp
         type: "customerInvoice",
         status: "draft",
         jobId: input.jobId,
-        accountId: input.accountId,
         organizationId: cfg.orgId,
         issueDate: input.issueDate,
-        lineItems: input.lineItems,
       },
       createdDocument: { id: {}, type: {}, status: {} },
     },
@@ -512,13 +505,14 @@ export async function getMonthlyBills(
           size: 100,
         },
         nextPage: {},
-        nodes: { id: {}, cost: {}, fromName: {}, number: {}, externalId: {} },
+        nodes: { id: {}, cost: {}, fromName: {}, number: {}, externalId: {}, account: { name: {} } },
       },
     },
   });
   const bills = (r?.job?.documents?.nodes ?? []) as any[];
 
-  const isSunset = (b: any) => /sunset/i.test(String(b.fromName ?? ""));
+  const vendorOf = (b: any) => String(b.account?.name ?? b.fromName ?? "Vendor");
+  const isSunset = (b: any) => /sunset/i.test(vendorOf(b));
   const sunset = bills.filter(isSunset);
   const others = bills.filter((b) => !isSunset(b));
 
@@ -536,7 +530,7 @@ export async function getMonthlyBills(
     const inv = b.externalId || (b.number ? `#${b.number}` : "");
     lines.push({
       key: b.id,
-      label: `${b.fromName || "Vendor"}${inv ? ` · ${inv}` : ""}`,
+      label: `${vendorOf(b)}${inv ? ` · ${inv}` : ""}`,
       cost: b.cost ?? 0,
       billIds: [b.id],
       isSunset: false,

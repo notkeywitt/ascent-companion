@@ -82,24 +82,19 @@ function Stage() {
   const total = billable.reduce((s, l) => s + l.cost, 0);
 
   async function createInvoice() {
-    if (!opt || !customer || billable.length === 0) return;
+    if (!opt) return;
     setCreating(true);
     setMsg("");
     try {
-      const lineItems = billable.map((l) => ({
-        name: l.label,
-        cost: Math.round(l.cost * 100) / 100,
-      }));
       const res = await fetch("/api/stage", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ jobId, accountId: customer.id, issueDate: opt.lastDay, lineItems }),
+        body: JSON.stringify({ jobId, issueDate: opt.lastDay }),
       });
       const j = await res.json();
       if (!res.ok) setMsg(j.error ?? "Create failed");
-      else if (j.previewed)
-        setMsg(`Preview only — writes are OFF. Would create ${lineItems.length} lines totalling ${money(total)}.`);
-      else setMsg(`Draft invoice created${j.created?.id ? " (" + j.created.id + ")" : ""} — review & send it in JobTread.`);
+      else if (j.previewed) setMsg(j.message ?? "Preview only — writes are OFF.");
+      else setMsg(`Draft invoice created${j.created?.id ? " (" + j.created.id + ")" : ""} — JobTread pulled the uninvoiced bills; review & send it there.`);
     } catch (e) {
       setMsg(e instanceof Error ? e.message : "Network error");
     } finally {
@@ -181,16 +176,17 @@ function Stage() {
 
           <button
             onClick={createInvoice}
-            disabled={creating || !customer}
+            disabled={creating}
             className="mt-4 w-full rounded-xl bg-accent px-4 py-3 text-sm font-semibold text-white hover:bg-accent-hover disabled:opacity-50"
           >
-            {creating ? "Creating…" : `Create draft invoice · ${money(total)}`}
+            {creating ? "Creating…" : "Create draft invoice"}
           </button>
           {msg && (
             <p className="mt-2 rounded-lg bg-neutral-100 px-3 py-2 text-xs dark:bg-neutral-800">{msg}</p>
           )}
           <p className="mt-2 text-xs text-neutral-500">
-            Dates the invoice {opt?.lastDay}. Creates a <b>draft</b> — you review &amp; send it in JobTread.
+            The table above is a sanity check. Creating a <b>draft</b> invoice dated {opt?.lastDay}
+            lets JobTread pull the uninvoiced bills itself — you review &amp; send it there.
           </p>
         </>
       )}
