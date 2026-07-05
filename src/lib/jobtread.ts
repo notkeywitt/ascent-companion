@@ -116,6 +116,8 @@ export interface DraftBill {
   name?: string;
   subject?: string;
   fromName?: string; // vendor name
+  number?: string; // JobTread document number
+  externalId?: string; // the ingested ExpID / vendor invoice number
   status?: string;
   cost?: number;
   issueDate?: string;
@@ -134,7 +136,9 @@ export async function getDraftBills(cfg: PaveConfig, jobId: string): Promise<Dra
       },
     },
   });
-  const rich = { id: {}, name: {}, subject: {}, fromName: {}, status: {}, cost: {}, issueDate: {} };
+  const rich = {
+    id: {}, name: {}, subject: {}, fromName: {}, number: {}, externalId: {}, status: {}, cost: {}, issueDate: {},
+  };
   const min = { id: {}, name: {}, status: {}, cost: {}, issueDate: {} };
   let r: any;
   try {
@@ -160,6 +164,8 @@ export interface BillDetail {
     name?: string;
     subject?: string;
     fromName?: string;
+    number?: string;
+    externalId?: string;
     status?: string;
     cost?: number;
     issueDate?: string;
@@ -186,7 +192,7 @@ export async function getBillDetail(cfg: PaveConfig, docId: string): Promise<Bil
   const rich = {
     document: {
       $: { id: docId },
-      id: {}, name: {}, status: {}, cost: {}, issueDate: {}, subject: {}, fromName: {},
+      id: {}, name: {}, status: {}, cost: {}, issueDate: {}, subject: {}, fromName: {}, number: {}, externalId: {},
       ...lineSel,
     },
   };
@@ -206,6 +212,8 @@ export async function getBillDetail(cfg: PaveConfig, docId: string): Promise<Bil
       name: d.name,
       subject: d.subject,
       fromName: d.fromName,
+      number: d.number,
+      externalId: d.externalId,
       status: d.status,
       cost: d.cost,
       issueDate: d.issueDate,

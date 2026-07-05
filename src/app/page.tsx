@@ -10,6 +10,8 @@ interface Bill {
   name?: string;
   subject?: string;
   fromName?: string;
+  number?: string;
+  externalId?: string;
   status?: string;
   cost?: number;
   issueDate?: string;
@@ -20,7 +22,12 @@ const money = (n?: number) =>
     ? "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
     : "—";
 
-const billTitle = (b: Bill) => b.fromName || b.subject || "Vendor bill";
+const invoiceId = (b: Bill) => b.externalId || b.number || "";
+const billTitle = (b: Bill) => {
+  const vendor = b.fromName || b.subject || "Vendor bill";
+  const inv = invoiceId(b);
+  return inv ? `${vendor} · ${inv}` : vendor;
+};
 
 function CodingQueue() {
   const search = useSearchParams();

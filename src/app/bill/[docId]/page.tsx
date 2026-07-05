@@ -19,6 +19,8 @@ interface Header {
   name?: string;
   subject?: string;
   fromName?: string;
+  number?: string;
+  externalId?: string;
   status?: string;
   cost?: number;
   issueDate?: string;
@@ -85,8 +87,10 @@ function BillDetail() {
   }, [docId, jobId]);
 
   const total = lines?.reduce((s, l) => s + (l.cost ?? 0), 0) ?? 0;
-  const title = header?.fromName || header?.subject || header?.name || "Vendor bill";
-  const subtitle = header?.subject && header.subject !== title ? header.subject : "";
+  const invId = header?.externalId || header?.number || "";
+  const vendor = header?.fromName || header?.subject || header?.name || "Vendor bill";
+  const title = invId ? `${vendor} · ${invId}` : vendor;
+  const subtitle = header?.subject && header.subject !== vendor ? header.subject : "";
 
   // Lines with a changed cost code, quantity, or unit cost vs what's in JobTread.
   const pending = (lines ?? []).flatMap((l) => {
