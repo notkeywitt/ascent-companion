@@ -48,7 +48,9 @@ function BillDetail() {
   const [files, setFiles] = useState<FileNode[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
-  const [picked, setPicked] = useState<Record<string, string>>({}); // local-only (Phase B)
+  const [picked, setPicked] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState(false);
+  const [saveMsg, setSaveMsg] = useState("");
 
   useEffect(() => {
     let alive = true;
@@ -82,6 +84,42 @@ function BillDetail() {
   const total = lines?.reduce((s, l) => s + (l.cost ?? 0), 0) ?? 0;
   const title = header?.fromName || header?.subject || header?.name || "Vendor bill";
   const subtitle = header?.subject && header.subject !== title ? header.subject : "";
+
+  // Lines whose picked code differs from what's currently saved in JobTread.
+  const pending = (lines ?? []).flatMap((l) => {
+    const sel = picked[l.id];
+    return sel && sel !== (l.jobCostItem?.id ?? "")
+      ? [{ costItemId: l.id, jobCostItemId: sel }]
+      : [];
+  });
+
+  async function saveCoding() {
+    if (pending.length === 0) return;
+    setSaving(true);
+    setSaveMsg("");
+    try {
+      const res = await fetch("/api/code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ changes: pending }),
+      });
+      const json = await res.json();
+      if (!res.ok) setSaveMsg(json.error ?? "Save failed");
+      else if (json.previewed)
+        setSaveMsg(
+          `Preview only — writes are OFF. ${pending.length} line(s) would be recoded in JobTread.`,
+        );
+      else {
+        const ok = (json.results ?? []).filter((r: { ok: boolean }) => r.ok).length;
+        const bad = (json.results ?? []).length - ok;
+        setSaveMsg(`Saved ${ok} line(s)${bad ? `, ${bad} failed` : ""}.`);
+      }
+    } catch (e) {
+      setSaveMsg(e instanceof Error ? e.message : "Network error");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
     <main className="mx-auto max-w-xl px-4 pb-24 pt-6">
@@ -169,10 +207,30 @@ function BillDetail() {
             })}
           </ul>
 
-          <p className="mt-6 rounded-lg bg-amber-50 px-4 py-3 text-xs text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
-            Read-only preview. Saving coding back to JobTread comes next (Phase B) — we&apos;ll
-            wire it up after coordinating with the existing AppSheet flow.
-          </p>
+          <div className="mt-6 space-y-2">
+            <button
+              type="button"
+              onClick={saveCoding}
+              disabled={saving || pending.length === 0}
+              className="w-full rounded-xl bg-accent px-4 py-3 text-sm font-semibold text-white hover:bg-accent-hover disabled:opacity-40"
+            >
+              {saving
+                ? "Saving…"
+                : pending.length
+                  ? `Save coding (${pending.length})`
+                  : "No changes to save"}
+            </button>
+            {saveMsg && (
+              <p className="rounded-lg bg-neutral-100 px-3 py-2 text-xs dark:bg-neutral-800">
+                {saveMsg}
+              </p>
+            )}
+            <p className="rounded-lg bg-amber-50 px-4 py-3 text-xs text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+              Writes are OFF by default. Until we coordinate with the existing AppSheet→JobTread
+              flow, Save shows a preview and sends nothing (enable with
+              <span className="font-mono"> COMPANION_WRITES_ENABLED=true</span>).
+            </p>
+          </div>
         </>
       )}
     </main>

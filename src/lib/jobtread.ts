@@ -281,10 +281,26 @@ export async function getJobBudget(cfg: PaveConfig, jobId: string): Promise<Budg
   return items.sort((a, b) => a.number.localeCompare(b.number));
 }
 
-// TODO(coding write): set a line's jobCostItem. The Apps Script suite already
-// does this — mirror the updateCostItem / updateDocument mutation shape from
-// ascent-appscript/JobTread.js (scanAndPushCodingUpdates / pushCodingUpdate)
-// once ported. Keep the DRY_RUN gate.
+/**
+ * WRITE — re-point a bill line's coding to a budget item. Confirmed production
+ * mutation (ascent-appscript JobTread.js): updateCostItem with jobCostItemId
+ * re-points the rollup in place (no delete/recreate). Callers must gate this
+ * behind the writes-enabled flag; a customer bill is shared with the AppSheet
+ * flow, so nothing here runs until that coordination is settled.
+ */
+export async function setLineCoding(
+  cfg: PaveConfig,
+  costItemId: string,
+  jobCostItemId: string,
+): Promise<{ id: string }> {
+  const r = await pave(cfg, {
+    updateCostItem: {
+      $: { id: costItemId, jobCostItemId },
+      costItem: { $: { id: costItemId }, id: {} },
+    },
+  });
+  return { id: r?.updateCostItem?.costItem?.id ?? costItemId };
+}
 
 // ---------------------------------------------------------------------------
 // INVOICE STAGING  (confirmed mechanism: createDocument type customerInvoice;
