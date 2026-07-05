@@ -148,6 +148,54 @@ export async function getBillLines(cfg: PaveConfig, docId: string) {
   return r?.document?.costItems?.nodes ?? [];
 }
 
+export interface BudgetItem {
+  id: string; // jobCostItemId — the coding target
+  number: string; // cost code, e.g. "06 10 00" (or a free label like "Office Admin")
+  name: string;
+}
+
+/**
+ * The job's budget leaves (coding targets), for the cost-code dropdown. Mirrors
+ * the Apps Script budget mapper: paginate job.costItems, skip bill-child items
+ * (those carry a document id) and JobTread's auto "Uncategorized <code>" rollups.
+ */
+export async function getJobBudget(cfg: PaveConfig, jobId: string): Promise<BudgetItem[]> {
+  const items: BudgetItem[] = [];
+  let cursor: string | null = null;
+  for (let page = 0; page < 50; page++) {
+    const args: Record<string, unknown> = { size: 100 };
+    if (cursor) args.page = cursor;
+    const r = await pave(cfg, {
+      job: {
+        $: { id: jobId },
+        id: {},
+        costItems: {
+          $: args,
+          nextPage: {},
+          nodes: {
+            id: {},
+            name: {},
+            document: { id: {} },
+            costCode: { number: {}, name: {} },
+          },
+        },
+      },
+    });
+    const co = r?.job?.costItems ?? {};
+    for (const n of co.nodes ?? []) {
+      if (n?.document?.id) continue; // bill-child cost item, not a budget leaf
+      if (/^uncategorized\b/i.test(String(n?.name ?? "").trim())) continue;
+      const number = n?.costCode?.number?.toString().trim();
+      if (!number) continue;
+      items.push({ id: n.id, number, name: n?.costCode?.name ?? n?.name ?? "" });
+    }
+    cursor = co.nextPage ?? null;
+    if (!cursor) break;
+  }
+  // stable sort by code for the dropdown
+  return items.sort((a, b) => a.number.localeCompare(b.number));
+}
+
 // TODO(coding write): set a line's jobCostItem. The Apps Script suite already
 // does this — mirror the updateCostItem / updateDocument mutation shape from
 // ascent-appscript/JobTread.js (scanAndPushCodingUpdates / pushCodingUpdate)

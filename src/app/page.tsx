@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 
 interface Bill {
   id: string;
@@ -85,20 +86,22 @@ export default function CodingQueue() {
           </div>
           <ul className="space-y-2">
             {bills.map((b) => (
-              <li
-                key={b.id}
-                className="rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="truncate font-medium">{b.name || "Vendor bill"}</div>
-                    <div className="mt-0.5 font-mono text-xs text-neutral-500">{b.id}</div>
+              <li key={b.id}>
+                <Link
+                  href={`/bill/${b.id}?jobId=${encodeURIComponent(jobId.trim())}`}
+                  className="block rounded-xl border border-neutral-200 bg-white p-3 transition hover:border-accent dark:border-neutral-800 dark:bg-neutral-900"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="truncate font-medium">{b.name || "Vendor bill"}</div>
+                      <div className="mt-0.5 font-mono text-xs text-neutral-500">{b.id}</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-mono text-sm font-semibold">{money(b.cost)}</div>
+                      <div className="text-xs text-neutral-500">{b.issueDate || ""}</div>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <div className="font-mono text-sm font-semibold">{money(b.cost)}</div>
-                    <div className="text-xs text-neutral-500">{b.issueDate || ""}</div>
-                  </div>
-                </div>
+                </Link>
               </li>
             ))}
             {bills.length === 0 && (
