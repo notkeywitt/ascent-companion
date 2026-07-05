@@ -37,3 +37,12 @@ export const featureRequests = sqliteTable("feature_requests", {
 
 export type FeatureRequest = typeof featureRequests.$inferSelect;
 export type NewFeatureRequest = typeof featureRequests.$inferInsert;
+
+/** Extra allowed sign-in emails (on top of the ALLOWED_EMAILS env founders). */
+export const allowedUsers = sqliteTable("allowed_users", {
+  email: text("email").primaryKey(),
+  addedBy: text("added_by").notNull().default(""),
+  createdAt: text("created_at").notNull(),
+});
+
+export type AllowedUser = typeof allowedUsers.$inferSelect;

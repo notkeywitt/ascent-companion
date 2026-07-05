@@ -52,6 +52,13 @@ export async function ensureDb() {
       updated_at TEXT NOT NULL
     )
   `);
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS allowed_users (
+      email TEXT PRIMARY KEY,
+      added_by TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL
+    )
+  `);
   ensured = true;
 }
 
