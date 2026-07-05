@@ -58,13 +58,14 @@ function Stage() {
   const opt = monthOptions().find((o) => o.ym === ym);
 
   const load = useCallback(async () => {
-    if (!jobId || !opt) return;
+    const o = monthOptions().find((x) => x.ym === ym);
+    if (!jobId || !o) return;
     setLoading(true);
     setError("");
     setMsg("");
     setLines(null);
     try {
-      const res = await fetch(`/api/stage?jobId=${encodeURIComponent(jobId)}&year=${opt.year}&month=${opt.month}`);
+      const res = await fetch(`/api/stage?jobId=${encodeURIComponent(jobId)}&year=${o.year}&month=${o.month}`);
       const j = await res.json();
       if (!res.ok) setError(j.error ?? "Failed");
       else {
@@ -76,11 +77,11 @@ function Stage() {
     } finally {
       setLoading(false);
     }
-  }, [jobId, opt]);
+  }, [jobId, ym]); // stable string deps — no re-render loop
 
   useEffect(() => {
-    if (jobId && ym) load();
-  }, [jobId, ym, load]);
+    load();
+  }, [load]);
 
   const fee = 1 + (Number(markup) || 0) / 100;
   const billable = (lines ?? []).filter((l) => l.unbilled > 0);
