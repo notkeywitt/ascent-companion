@@ -183,8 +183,7 @@ function BillDetail() {
         {jobId && (
           <a
             href={`https://app.jobtread.com/jobs/${jobId}/documents/${docId}`}
-            target="_blank"
-            rel="noreferrer"
+            target="_top"
             className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-accent"
           >
             Open in JobTread ↗

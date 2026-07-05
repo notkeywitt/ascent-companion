@@ -166,8 +166,7 @@ function Stage() {
                       {l.billIds.length === 1 ? (
                         <a
                           href={`https://app.jobtread.com/jobs/${jobId}/documents/${l.billIds[0]}`}
-                          target="_blank"
-                          rel="noreferrer"
+                          target="_top"
                           className="text-accent hover:underline"
                         >
                           {l.label} ↗
