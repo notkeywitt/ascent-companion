@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { AUTH_COOKIE, tokenFor } from "@/lib/auth";
 
-const PUBLIC = ["/login", "/api/auth", "/api/login", "/api/config-check"];
+const PUBLIC = ["/login", "/api/auth", "/api/login"];
 
 export default auth(async (req) => {
   const { pathname } = req.nextUrl;
