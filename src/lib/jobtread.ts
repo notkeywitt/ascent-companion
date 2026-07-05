@@ -430,10 +430,10 @@ export async function updateLine(
  */
 export interface InvoiceLine {
   name: string;
-  jobCostItemId: string; // budget cost item this bills against (the join key)
-  costCodeId: string;
-  cost: number; // unbilled cost basis for this budget line
-  price?: number; // cost × (1 + fee). Omit to test whether JT auto-applies the job fee.
+  jobCostItemId?: string; // budget cost item (optional for per-bill lines)
+  costCodeId?: string;
+  cost: number;
+  price?: number; // omitted -> JobTread applies the job fee
 }
 
 export interface StageInvoiceInput {
@@ -468,26 +468,24 @@ export async function createDraftInvoice(cfg: PaveConfig, input: StageInvoiceInp
   });
 }
 
-export interface UnbilledLine {
-  jobCostItemId: string;
-  costCodeId: string;
-  costCodeNumber: string;
-  costCodeName: string;
-  cost: number; // approved vendor-bill cost for the month
-  invoiced: number; // already on a customer invoice for the month
-  unbilled: number; // cost − invoiced
+export interface StageLine {
+  key: string;
+  label: string; // vendor (+ invoice id), or the rolled-up Sunset group
+  cost: number;
+  billIds: string[];
+  isSunset: boolean;
 }
 export interface MonthlyStaging {
   customer: { id: string; name: string } | null;
-  lines: UnbilledLine[];
+  lines: StageLine[];
 }
 
 /**
- * Costs to invoice for a job + billing month: approved vendor-bill cost per
- * budget leaf (issueDate in the month = the billing month), minus what's already
- * on a customer invoice for that month. One grouped query per doc type.
+ * Bills to invoice for a job + billing month: approved vendor bills whose
+ * issueDate falls in the month (= the billing month). Sunset invoices are rolled
+ * into ONE line; every other bill is its own line.
  */
-export async function getMonthlyUnbilled(
+export async function getMonthlyBills(
   cfg: PaveConfig,
   jobId: string,
   year: number,
@@ -497,59 +495,54 @@ export async function getMonthlyUnbilled(
   const first = `${year}-${mm}-01`;
   const last = `${year}-${mm}-${String(new Date(year, month, 0).getDate()).padStart(2, "0")}`;
 
-  const grouped = async (docType: string, statuses: string[]): Promise<any[]> => {
-    const r = await pave(cfg, {
-      job: {
-        $: { id: jobId },
-        id: {},
-        costItems: {
-          $: {
-            where: {
-              and: [
-                [["document", "type"], docType],
-                [["document", "status"], "in", statuses],
-                [["document", "issueDate"], ">=", first],
-                [["document", "issueDate"], "<=", last],
-              ],
-            },
-            group: {
-              by: [["jobCostItem", "id"], ["costCode", "id"], ["costCode", "number"], ["costCode", "name"]],
-              aggs: { cost: { sum: "cost" } },
-            },
+  const r = await pave(cfg, {
+    job: {
+      $: { id: jobId },
+      id: {},
+      documents: {
+        $: {
+          where: {
+            and: [
+              ["type", "vendorBill"],
+              ["status", "approved"],
+              ["issueDate", ">=", first],
+              ["issueDate", "<=", last],
+            ],
           },
-          withValues: {},
+          size: 100,
         },
+        nextPage: {},
+        nodes: { id: {}, cost: {}, fromName: {}, number: {}, externalId: {} },
       },
+    },
+  });
+  const bills = (r?.job?.documents?.nodes ?? []) as any[];
+
+  const isSunset = (b: any) => /sunset/i.test(String(b.fromName ?? ""));
+  const sunset = bills.filter(isSunset);
+  const others = bills.filter((b) => !isSunset(b));
+
+  const lines: StageLine[] = [];
+  if (sunset.length) {
+    lines.push({
+      key: "sunset",
+      label: `Sunset Builders Supply (${sunset.length} invoice${sunset.length > 1 ? "s" : ""})`,
+      cost: sunset.reduce((s, b) => s + (b.cost ?? 0), 0),
+      billIds: sunset.map((b) => b.id),
+      isSunset: true,
     });
-    return r?.job?.costItems?.withValues ?? [];
-  };
-
-  const bills = await grouped("vendorBill", ["approved"]);
-  const invoices = await grouped("customerInvoice", ["approved", "pending", "draft"]);
-
-  const invByJci: Record<string, number> = {};
-  for (const row of invoices) {
-    const jci = row.jobCostItem?.id;
-    if (jci) invByJci[jci] = (invByJci[jci] ?? 0) + (row.cost ?? 0);
   }
-
-  const lines: UnbilledLine[] = bills
-    .filter((row) => row.jobCostItem?.id)
-    .map((row) => {
-      const jci = row.jobCostItem.id;
-      const cost = row.cost ?? 0;
-      const invoiced = invByJci[jci] ?? 0;
-      return {
-        jobCostItemId: jci,
-        costCodeId: row.costCode?.id ?? "",
-        costCodeNumber: row.costCode?.number ?? "",
-        costCodeName: row.costCode?.name ?? "",
-        cost,
-        invoiced,
-        unbilled: cost - invoiced,
-      };
-    })
-    .sort((a, b) => a.costCodeNumber.localeCompare(b.costCodeNumber));
+  for (const b of others) {
+    const inv = b.externalId || (b.number ? `#${b.number}` : "");
+    lines.push({
+      key: b.id,
+      label: `${b.fromName || "Vendor"}${inv ? ` · ${inv}` : ""}`,
+      cost: b.cost ?? 0,
+      billIds: [b.id],
+      isSunset: false,
+    });
+  }
+  lines.sort((a, b) => b.cost - a.cost);
 
   const c = await pave(cfg, {
     job: { $: { id: jobId }, id: {}, location: { account: { id: {}, name: {} } } },

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getMonthlyUnbilled, createDraftInvoice, type InvoiceLine } from "@/lib/jobtread";
+import { getMonthlyBills, createDraftInvoice, type InvoiceLine } from "@/lib/jobtread";
 import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
 
 // GET ?jobId=&year=&month= — the month's unbilled costs per code + customer.
@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Pass jobId, year, month" }, { status: 400 });
   }
   try {
-    const data = await getMonthlyUnbilled(getPaveConfig(), jobId, year, month);
+    const data = await getMonthlyBills(getPaveConfig(), jobId, year, month);
     return NextResponse.json(data);
   } catch (e) {
     return NextResponse.json(
@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
   const { jobId, accountId, issueDate } = body;
-  const lineItems = (body.lineItems ?? []).filter((l) => l.jobCostItemId && l.cost > 0);
+  const lineItems = (body.lineItems ?? []).filter((l) => l.name && l.cost > 0);
   if (!jobId || !accountId || !issueDate || lineItems.length === 0) {
     return NextResponse.json(
       { error: "jobId, accountId, issueDate and at least one positive line are required" },

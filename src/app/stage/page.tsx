@@ -4,20 +4,17 @@ import { Suspense, useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { JobPicker } from "@/components/JobPicker";
 
-interface UnbilledLine {
-  jobCostItemId: string;
-  costCodeId: string;
-  costCodeNumber: string;
-  costCodeName: string;
+interface StageLine {
+  key: string;
+  label: string;
   cost: number;
-  invoiced: number;
-  unbilled: number;
+  billIds: string[];
+  isSunset: boolean;
 }
 
 const money = (n: number) =>
   "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-// Billing month options: current + prior 14.
 function monthOptions() {
   const opts: { year: number; month: number; ym: string; label: string; lastDay: string }[] = [];
   const now = new Date();
@@ -41,15 +38,13 @@ function Stage() {
   const search = useSearchParams();
   const router = useRouter();
   const [jobId, setJobId] = useState(search.get("jobId") ?? "");
-  // Default to last month — the month you'd normally be billing.
   const [ym, setYm] = useState(() => {
     const d = new Date();
     d.setMonth(d.getMonth() - 1);
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
   });
-  const [markup, setMarkup] = useState("18");
   const [customer, setCustomer] = useState<{ id: string; name: string } | null>(null);
-  const [lines, setLines] = useState<UnbilledLine[] | null>(null);
+  const [lines, setLines] = useState<StageLine[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [msg, setMsg] = useState("");
@@ -77,16 +72,14 @@ function Stage() {
     } finally {
       setLoading(false);
     }
-  }, [jobId, ym]); // stable string deps — no re-render loop
+  }, [jobId, ym]);
 
   useEffect(() => {
     load();
   }, [load]);
 
-  const fee = 1 + (Number(markup) || 0) / 100;
-  const billable = (lines ?? []).filter((l) => l.unbilled > 0);
-  const totalCost = billable.reduce((s, l) => s + l.unbilled, 0);
-  const totalPrice = totalCost * fee;
+  const billable = (lines ?? []).filter((l) => l.cost > 0);
+  const total = billable.reduce((s, l) => s + l.cost, 0);
 
   async function createInvoice() {
     if (!opt || !customer || billable.length === 0) return;
@@ -94,11 +87,8 @@ function Stage() {
     setMsg("");
     try {
       const lineItems = billable.map((l) => ({
-        name: l.costCodeName || l.costCodeNumber,
-        jobCostItemId: l.jobCostItemId,
-        costCodeId: l.costCodeId,
-        cost: Math.round(l.unbilled * 100) / 100,
-        price: Math.round(l.unbilled * fee * 100) / 100,
+        name: l.label,
+        cost: Math.round(l.cost * 100) / 100,
       }));
       const res = await fetch("/api/stage", {
         method: "POST",
@@ -107,7 +97,8 @@ function Stage() {
       });
       const j = await res.json();
       if (!res.ok) setMsg(j.error ?? "Create failed");
-      else if (j.previewed) setMsg(`Preview only — writes are OFF. Would create ${lineItems.length} lines totalling ${money(totalPrice)}.`);
+      else if (j.previewed)
+        setMsg(`Preview only — writes are OFF. Would create ${lineItems.length} lines totalling ${money(total)}.`);
       else setMsg(`Draft invoice created${j.created?.id ? " (" + j.created.id + ")" : ""} — review & send it in JobTread.`);
     } catch (e) {
       setMsg(e instanceof Error ? e.message : "Network error");
@@ -124,7 +115,7 @@ function Stage() {
         </p>
         <h1 className="text-2xl font-bold tracking-tight">Stage Invoice</h1>
         <p className="mt-1 text-sm text-neutral-500">
-          Build a draft customer invoice from a billing month&apos;s unbilled costs.
+          A draft customer invoice from a billing month&apos;s bills — Sunset grouped, others itemized.
         </p>
       </header>
 
@@ -141,7 +132,6 @@ function Stage() {
           onChange={(e) => setYm(e.target.value)}
           className="rounded-lg border border-neutral-300 bg-transparent px-2 text-sm dark:border-neutral-700"
         >
-          <option value="">Month…</option>
           {monthOptions().map((o) => (
             <option key={o.ym} value={o.ym}>
               {o.label}
@@ -160,45 +150,30 @@ function Stage() {
 
       {lines && billable.length === 0 && !loading && (
         <div className="rounded-xl border border-dashed border-neutral-300 p-6 text-center text-sm text-neutral-500 dark:border-neutral-700">
-          Nothing unbilled for this job &amp; month.
+          No approved bills for this job &amp; month.
         </div>
       )}
 
       {billable.length > 0 && (
         <>
-          <div className="mb-2 flex items-center gap-2 text-sm">
-            <label className="text-neutral-500">Markup %</label>
-            <input
-              type="number"
-              value={markup}
-              onChange={(e) => setMarkup(e.target.value)}
-              className="w-20 rounded-lg border border-neutral-300 bg-transparent px-2 py-1 text-sm dark:border-neutral-700"
-            />
-          </div>
           <div className="overflow-x-auto rounded-xl border border-neutral-200 dark:border-neutral-800">
             <table className="w-full text-sm">
               <thead className="bg-neutral-50 text-left text-xs uppercase tracking-wide text-neutral-500 dark:bg-neutral-900">
                 <tr>
-                  <th className="px-3 py-2 font-medium">Cost code</th>
-                  <th className="px-3 py-2 text-right font-medium">Unbilled</th>
-                  <th className="px-3 py-2 text-right font-medium">Price</th>
+                  <th className="px-3 py-2 font-medium">Bill</th>
+                  <th className="px-3 py-2 text-right font-medium">Cost</th>
                 </tr>
               </thead>
               <tbody>
                 {billable.map((l) => (
-                  <tr key={l.jobCostItemId} className="border-t border-neutral-100 dark:border-neutral-800">
-                    <td className="px-3 py-2">
-                      <span className="font-mono text-xs text-neutral-400">{l.costCodeNumber}</span>{" "}
-                      {l.costCodeName}
-                    </td>
-                    <td className="px-3 py-2 text-right font-mono">{money(l.unbilled)}</td>
-                    <td className="px-3 py-2 text-right font-mono">{money(l.unbilled * fee)}</td>
+                  <tr key={l.key} className="border-t border-neutral-100 dark:border-neutral-800">
+                    <td className="px-3 py-2">{l.label}</td>
+                    <td className="px-3 py-2 text-right font-mono">{money(l.cost)}</td>
                   </tr>
                 ))}
                 <tr className="border-t border-neutral-200 font-semibold dark:border-neutral-700">
                   <td className="px-3 py-2">Total</td>
-                  <td className="px-3 py-2 text-right font-mono">{money(totalCost)}</td>
-                  <td className="px-3 py-2 text-right font-mono">{money(totalPrice)}</td>
+                  <td className="px-3 py-2 text-right font-mono">{money(total)}</td>
                 </tr>
               </tbody>
             </table>
@@ -209,14 +184,13 @@ function Stage() {
             disabled={creating || !customer}
             className="mt-4 w-full rounded-xl bg-accent px-4 py-3 text-sm font-semibold text-white hover:bg-accent-hover disabled:opacity-50"
           >
-            {creating ? "Creating…" : `Create draft invoice · ${money(totalPrice)}`}
+            {creating ? "Creating…" : `Create draft invoice · ${money(total)}`}
           </button>
           {msg && (
             <p className="mt-2 rounded-lg bg-neutral-100 px-3 py-2 text-xs dark:bg-neutral-800">{msg}</p>
           )}
           <p className="mt-2 text-xs text-neutral-500">
-            Dates the invoice {opt?.lastDay} (billing-month convention). Creates a <b>draft</b> —
-            you review &amp; send it in JobTread.
+            Dates the invoice {opt?.lastDay}. Creates a <b>draft</b> — you review &amp; send it in JobTread.
           </p>
         </>
       )}
