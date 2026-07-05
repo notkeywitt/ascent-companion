@@ -25,10 +25,20 @@ export async function pave<T = any>(cfg: PaveConfig, query: Record<string, unkno
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
-  const json = await res.json();
-  if (!res.ok || json?.errors) {
-    const msg = json?.errors?.map((e: any) => e.message).join("; ") ?? `HTTP ${res.status}`;
-    throw new Error(`Pave error: ${msg}`);
+  // JobTread returns plain text for some errors (e.g. a bad grant key ->
+  // "Supplied key is invalid"), so parse defensively rather than assume JSON.
+  const text = await res.text();
+  let json: any = null;
+  try {
+    json = JSON.parse(text);
+  } catch {
+    /* non-JSON response */
+  }
+  if (!res.ok || json === null || json?.errors) {
+    const msg =
+      json?.errors?.map((e: any) => e.message).join("; ") ??
+      (text ? text.slice(0, 300) : `HTTP ${res.status}`);
+    throw new Error(`Pave error (HTTP ${res.status}): ${msg}`);
   }
   return json as T;
 }
