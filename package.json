@@ -1,0 +1,23 @@
+{
+  "name": "ascent-companion",
+  "version": "0.0.1",
+  "private": true,
+  "description": "JobTread companion: invoice coding, unbilled expenses, monthly invoice staging",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "next": "^15.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0"
+  }
+}
