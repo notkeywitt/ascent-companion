@@ -15,5 +15,12 @@
   "permissions": ["sidePanel", "storage"],
   "host_permissions": [
     "https://app.jobtread.com/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["https://app.jobtread.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
   ]
 }

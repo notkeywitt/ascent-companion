@@ -6,30 +6,36 @@
   <style>
     html, body { margin: 0; padding: 0; height: 100%; background: #f4f2ed; }
     #bar {
-      display: flex; align-items: center; gap: 8px;
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
       padding: 6px 10px; font: 12px system-ui, sans-serif; color: #5c6771;
       border-bottom: 1px solid #e4e0d8; background: #faf8f4;
     }
-    #bar input {
-      flex: 1; font: 12px ui-monospace, monospace; padding: 4px 6px;
+    #bar input[type="text"] {
+      flex: 1; min-width: 120px; font: 12px ui-monospace, monospace; padding: 4px 6px;
       border: 1px solid #d6d1c7; border-radius: 6px;
     }
     #bar button {
       font: 12px system-ui, sans-serif; padding: 4px 8px; border-radius: 6px;
       border: 1px solid #d6d1c7; background: white; cursor: pointer;
     }
-    iframe { border: none; width: 100%; height: calc(100% - 33px); }
+    .follow { display: flex; align-items: center; gap: 4px; white-space: nowrap; }
+    #job { font: 11px ui-monospace, monospace; color: #10606b; white-space: nowrap; }
+    #job.none { color: #8a939b; }
+    iframe { border: none; width: 100%; height: calc(100% - 58px); }
     @media (prefers-color-scheme: dark) {
       html, body { background: #121619; }
       #bar { background: #1b2024; border-color: #2a3137; color: #9aa4ad; }
-      #bar input, #bar button { background: #20262b; border-color: #333c43; color: #eceae4; }
+      #bar input[type="text"], #bar button { background: #20262b; border-color: #333c43; color: #eceae4; }
+      #job { color: #3badbc; }
+      #job.none { color: #6e7880; }
     }
   </style>
 </head>
 <body>
   <div id="bar">
-    <span>App URL:</span>
-    <input id="url" type="text" spellcheck="false" />
+    <label class="follow"><input id="follow" type="checkbox" /> Follow JobTread</label>
+    <span id="job" class="none">no job open</span>
+    <input id="url" type="text" spellcheck="false" title="Companion app URL" />
     <button id="go">Go</button>
   </div>
   <iframe id="frame" title="Ascent Companion"></iframe>
