@@ -1,8 +1,5 @@
 import NextAuth from "next-auth";
-import { eq } from "drizzle-orm";
 import authConfig from "./auth.config";
-import { db, ensureDb } from "@/db";
-import { allowedUsers } from "@/db/schema";
 
 /** Emails always allowed (env — the founders / bootstrap). */
 export function envAllowed(): string[] {
@@ -20,7 +17,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       const email = (profile?.email ?? "").toLowerCase();
       if (!email) return false;
       if (envAllowed().includes(email)) return true;
+      // Lazy-load the DB so it never enters the auth/edge bundle.
       try {
+        const { db, ensureDb } = await import("@/db");
+        const { allowedUsers } = await import("@/db/schema");
+        const { eq } = await import("drizzle-orm");
         await ensureDb();
         const rows = await db
           .select()
