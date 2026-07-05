@@ -134,6 +134,16 @@ function BillDetail() {
           {header?.issueDate ? header.issueDate + " · " : ""}
           {docId}
         </p>
+        {jobId && (
+          <a
+            href={`https://app.jobtread.com/jobs/${jobId}/documents/${docId}`}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-accent"
+          >
+            Open in JobTread ↗
+          </a>
+        )}
       </header>
 
       {loading && <p className="text-sm text-neutral-500">Loading…</p>}

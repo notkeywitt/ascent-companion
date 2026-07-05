@@ -6,7 +6,10 @@ interface JobRef {
   id: string;
   name: string;
   number?: string;
+  customer?: string;
 }
+
+const jobLabel = (j: JobRef) => (j.customer ? `${j.customer} - ${j.name}` : j.name);
 
 /** Searchable dropdown of the org's jobs. `value` is the selected job id. */
 export function JobPicker({
@@ -40,7 +43,7 @@ export function JobPicker({
 
   const selected = jobs.find((j) => j.id === value);
   const label = selected
-    ? `${selected.number ? selected.number + " — " : ""}${selected.name}`
+    ? jobLabel(selected)
     : value
       ? value // e.g. arrived from the panel before jobs loaded
       : loading
@@ -49,7 +52,7 @@ export function JobPicker({
 
   const q = query.trim().toLowerCase();
   const filtered = q
-    ? jobs.filter((j) => `${j.number ?? ""} ${j.name}`.toLowerCase().includes(q))
+    ? jobs.filter((j) => `${j.customer ?? ""} ${j.number ?? ""} ${j.name}`.toLowerCase().includes(q))
     : jobs;
 
   return (
@@ -86,8 +89,7 @@ export function JobPicker({
                   }}
                   className="w-full px-3 py-2 text-left text-sm hover:bg-neutral-100 dark:hover:bg-neutral-800"
                 >
-                  {j.number && <span className="font-mono text-xs text-neutral-400">{j.number} </span>}
-                  {j.name}
+                  {jobLabel(j)}
                 </button>
               </li>
             ))}

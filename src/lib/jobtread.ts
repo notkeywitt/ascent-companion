@@ -285,10 +285,11 @@ export interface JobRef {
   id: string;
   name: string;
   number?: string;
+  customer?: string; // job.location.account.name
   closedOn?: string | null;
 }
 
-/** Org's jobs for the picker. Open jobs only by default, sorted by name. */
+/** Org's jobs for the picker. Open jobs only by default, sorted by customer/name. */
 export async function getJobs(cfg: PaveConfig, includeClosed = false): Promise<JobRef[]> {
   const out: JobRef[] = [];
   let cursor: string | null = null;
@@ -302,19 +303,34 @@ export async function getJobs(cfg: PaveConfig, includeClosed = false): Promise<J
         jobs: {
           $: args,
           nextPage: {},
-          nodes: { id: {}, name: {}, number: {}, closedOn: {} },
+          nodes: {
+            id: {},
+            name: {},
+            number: {},
+            closedOn: {},
+            location: { account: { name: {} } },
+          },
         },
       },
     });
     const jc = r?.organization?.jobs ?? {};
     for (const n of jc.nodes ?? []) {
       if (!includeClosed && n.closedOn) continue;
-      out.push({ id: n.id, name: n.name, number: n.number, closedOn: n.closedOn });
+      out.push({
+        id: n.id,
+        name: n.name,
+        number: n.number,
+        customer: n.location?.account?.name ?? "",
+        closedOn: n.closedOn,
+      });
     }
     cursor = jc.nextPage ?? null;
     if (!cursor) break;
   }
-  return out.sort((a, b) => (a.name ?? "").localeCompare(b.name ?? ""));
+  return out.sort(
+    (a, b) =>
+      (a.customer ?? "").localeCompare(b.customer ?? "") || (a.name ?? "").localeCompare(b.name ?? ""),
+  );
 }
 
 /**
