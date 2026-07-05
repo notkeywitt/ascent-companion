@@ -176,44 +176,6 @@ function BillDetail() {
         </div>
       )}
 
-      {/* Attached invoice image / PDF */}
-      {files.length > 0 && (
-        <div className="mb-5 space-y-2">
-          {files.map((f) =>
-            f.url && isImage(f) ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <a key={f.id} href={f.url} target="_blank" rel="noreferrer">
-                <img
-                  src={f.url}
-                  alt={f.name ?? "invoice"}
-                  className="max-h-[28rem] w-full rounded-lg border border-neutral-200 object-contain dark:border-neutral-800"
-                />
-              </a>
-            ) : f.url ? (
-              <div key={f.id}>
-                <iframe
-                  src={f.url}
-                  title={f.name ?? "invoice"}
-                  className="h-[28rem] w-full rounded-lg border border-neutral-200 dark:border-neutral-800"
-                />
-                <a
-                  href={f.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="mt-1 inline-block text-xs font-semibold text-accent"
-                >
-                  Open {f.name || "attachment"} ↗
-                </a>
-              </div>
-            ) : (
-              <span key={f.id} className="text-sm text-neutral-500">
-                {f.name}
-              </span>
-            ),
-          )}
-        </div>
-      )}
-
       {lines && (
         <>
           <div className="mb-3 flex items-baseline justify-between">
@@ -313,6 +275,44 @@ function BillDetail() {
             </p>
           </div>
         </>
+      )}
+
+      {/* Attached invoice image / PDF — at the bottom */}
+      {files.length > 0 && (
+        <div className="mt-6 space-y-2">
+          {files.map((f) =>
+            f.url && isImage(f) ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <a key={f.id} href={f.url} target="_blank" rel="noreferrer">
+                <img
+                  src={f.url}
+                  alt={f.name ?? "invoice"}
+                  className="max-h-[28rem] w-full rounded-lg border border-neutral-200 object-contain dark:border-neutral-800"
+                />
+              </a>
+            ) : f.url ? (
+              <div key={f.id}>
+                <iframe
+                  src={f.url}
+                  title={f.name ?? "invoice"}
+                  className="h-[28rem] w-full rounded-lg border border-neutral-200 dark:border-neutral-800"
+                />
+                <a
+                  href={f.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-1 inline-block text-xs font-semibold text-accent"
+                >
+                  Open {f.name || "attachment"} ↗
+                </a>
+              </div>
+            ) : (
+              <span key={f.id} className="text-sm text-neutral-500">
+                {f.name}
+              </span>
+            ),
+          )}
+        </div>
       )}
     </main>
   );

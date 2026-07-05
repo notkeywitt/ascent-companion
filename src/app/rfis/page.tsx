@@ -163,7 +163,7 @@ function Rfis() {
             placeholder={vendors.length ? "Assignee (vendor)" : "Assignee (loading vendors…)"}
             className={inputCls}
           />
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-2 gap-x-3 gap-y-3">
             <label className="text-xs text-neutral-500">
               Date sent
               <input
@@ -243,8 +243,8 @@ function Rfis() {
                     </p>
                   )}
 
-                  <div className="grid grid-cols-2 gap-2">
-                    <label className="text-[11px] text-neutral-500">
+                  <div className="grid grid-cols-2 gap-x-3 gap-y-3">
+                    <label className="flex flex-col gap-1 text-[11px] text-neutral-500">
                       Assignee
                       <input
                         list="vendors"
@@ -254,7 +254,7 @@ function Rfis() {
                         className={inputCls}
                       />
                     </label>
-                    <label className="text-[11px] text-neutral-500">
+                    <label className="flex flex-col gap-1 text-[11px] text-neutral-500">
                       Due date
                       <input
                         type="date"
@@ -263,7 +263,7 @@ function Rfis() {
                         className={inputCls}
                       />
                     </label>
-                    <label className="text-[11px] text-neutral-500">
+                    <label className="flex flex-col gap-1 text-[11px] text-neutral-500">
                       Date sent
                       <input
                         type="date"
@@ -272,7 +272,7 @@ function Rfis() {
                         className={inputCls}
                       />
                     </label>
-                    <label className="text-[11px] text-neutral-500">
+                    <label className="flex flex-col gap-1 text-[11px] text-neutral-500">
                       Date answered
                       <input
                         type="date"
