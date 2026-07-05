@@ -1,8 +1,7 @@
 "use client";
 
 import { Suspense, useCallback, useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { JobPicker } from "@/components/JobPicker";
+import { useSearchParams } from "next/navigation";
 
 interface StageLine {
   key: string;
@@ -36,8 +35,7 @@ function monthOptions() {
 
 function Stage() {
   const search = useSearchParams();
-  const router = useRouter();
-  const [jobId, setJobId] = useState(search.get("jobId") ?? "");
+  const jobId = (search.get("jobId") ?? "").trim();
   const [ym, setYm] = useState(() => {
     const d = new Date();
     d.setMonth(d.getMonth() - 1);
@@ -115,17 +113,10 @@ function Stage() {
       </header>
 
       <div className="mb-3 flex gap-2">
-        <JobPicker
-          value={jobId}
-          onChange={(id) => {
-            setJobId(id);
-            router.replace(`/stage?jobId=${encodeURIComponent(id)}`);
-          }}
-        />
         <select
           value={ym}
           onChange={(e) => setYm(e.target.value)}
-          className="rounded-lg border border-neutral-300 bg-transparent px-2 text-sm dark:border-neutral-700"
+          className="w-full rounded-lg border border-neutral-300 bg-transparent px-2 py-2 text-sm dark:border-neutral-700"
         >
           {monthOptions().map((o) => (
             <option key={o.ym} value={o.ym}>
@@ -135,6 +126,9 @@ function Stage() {
         </select>
       </div>
 
+      {!jobId && (
+        <p className="mb-3 text-sm text-neutral-500">Pick a job above to stage its invoice.</p>
+      )}
       {customer && <p className="mb-3 text-sm text-neutral-500">Customer: {customer.name}</p>}
       {loading && <p className="text-sm text-neutral-500">Loading…</p>}
       {error && (

@@ -2,8 +2,7 @@
 
 import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
-import { JobPicker } from "@/components/JobPicker";
+import { useSearchParams } from "next/navigation";
 
 interface Bill {
   id: string;
@@ -31,14 +30,7 @@ const billTitle = (b: Bill) => {
 
 function CodingQueue() {
   const search = useSearchParams();
-  const router = useRouter();
-  const [jobId, setJobId] = useState(search.get("jobId") ?? "");
-
-  function selectJob(id: string) {
-    setJobId(id);
-    router.replace(`/?jobId=${encodeURIComponent(id)}`);
-    run(id);
-  }
+  const jobId = (search.get("jobId") ?? "").trim();
   const [bills, setBills] = useState<Bill[] | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -60,12 +52,12 @@ function CodingQueue() {
     }
   }
 
-  // Auto-load if a job id arrived in the URL (e.g. coming back from a bill).
+  // Load whenever the URL's job changes (global picker writes it there).
   useEffect(() => {
-    const fromUrl = search.get("jobId");
-    if (fromUrl) run(fromUrl);
+    if (jobId) run(jobId);
+    else setBills(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [jobId]);
 
   const total = bills?.reduce((s, b) => s + (b.cost ?? 0), 0) ?? 0;
 
@@ -99,9 +91,9 @@ function CodingQueue() {
         </p>
       </header>
 
-      <div className="mb-6 flex gap-2">
-        <JobPicker value={jobId} onChange={selectJob} />
-      </div>
+      {!jobId && (
+        <p className="mb-3 text-sm text-neutral-500">Pick a job above to see its bills.</p>
+      )}
 
       {loading && <p className="mb-3 text-sm text-neutral-500">Loading…</p>}
 

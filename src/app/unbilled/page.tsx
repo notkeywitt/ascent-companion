@@ -2,8 +2,7 @@
 
 import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
-import { JobPicker } from "@/components/JobPicker";
+import { useSearchParams } from "next/navigation";
 
 interface RollupRow {
   type: string;
@@ -27,14 +26,7 @@ const money = (n?: number) =>
 
 function Unbilled() {
   const search = useSearchParams();
-  const router = useRouter();
-  const [jobId, setJobId] = useState(search.get("jobId") ?? "");
-
-  function selectJob(id: string) {
-    setJobId(id);
-    router.replace(`/unbilled?jobId=${encodeURIComponent(id)}`);
-    run(id);
-  }
+  const jobId = (search.get("jobId") ?? "").trim();
   const [rollup, setRollup] = useState<RollupRow[] | null>(null);
   const [summary, setSummary] = useState<Summary | null>(null);
   const [error, setError] = useState("");
@@ -62,10 +54,13 @@ function Unbilled() {
   }
 
   useEffect(() => {
-    const fromUrl = search.get("jobId");
-    if (fromUrl) run(fromUrl);
+    if (jobId) run(jobId);
+    else {
+      setRollup(null);
+      setSummary(null);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [jobId]);
 
   return (
     <main className="mx-auto max-w-xl px-4 pb-24 pt-6">
@@ -89,9 +84,9 @@ function Unbilled() {
         </p>
       </header>
 
-      <div className="mb-6 flex gap-2">
-        <JobPicker value={jobId} onChange={selectJob} />
-      </div>
+      {!jobId && (
+        <p className="mb-3 text-sm text-neutral-500">Pick a job above to see unbilled expenses.</p>
+      )}
 
       {loading && <p className="mb-3 text-sm text-neutral-500">Loading…</p>}
 

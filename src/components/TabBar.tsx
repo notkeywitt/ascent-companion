@@ -50,7 +50,7 @@ export function TabBar() {
   if (pathname === "/login" || pathname === "/privacy") return null;
 
   return (
-    <nav className="sticky top-0 z-10 flex items-center border-b border-black/10 bg-[#FAF7EE]/90 pr-1 backdrop-blur dark:border-white/10 dark:bg-[#1B1B17]/90">
+    <nav className="flex items-center pr-1">
       <div className="flex flex-1 gap-1 overflow-x-auto px-2">
         {TABS.map((t) => {
           const active = t.match(pathname);

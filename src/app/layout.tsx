@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
-import { TabBar } from "@/components/TabBar";
+import { AppHeader } from "@/components/AppHeader";
 
 export const metadata: Metadata = {
   title: "Ascent Companion",
@@ -27,7 +27,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className="min-h-screen antialiased">
         <Suspense fallback={null}>
-          <TabBar />
+          <AppHeader />
         </Suspense>
         {children}
       </body>
