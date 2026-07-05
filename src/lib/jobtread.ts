@@ -245,6 +245,25 @@ export async function getBillFiles(cfg: PaveConfig, docId: string): Promise<Bill
   }
 }
 
+/**
+ * WRITE — set a bill's issueDate (used to stamp its billing month as the last day
+ * of that month, matching the Apps Script convention). Never touches lineItems
+ * (updateDocument with lineItems wipes cost items — CLAUDE.md).
+ */
+export async function setBillIssueDate(
+  cfg: PaveConfig,
+  docId: string,
+  issueDate: string,
+): Promise<string> {
+  const r = await pave(cfg, {
+    updateDocument: {
+      $: { id: docId, issueDate },
+      document: { $: { id: docId }, id: {}, issueDate: {} },
+    },
+  });
+  return r?.updateDocument?.document?.issueDate ?? issueDate;
+}
+
 export interface BudgetItem {
   id: string; // jobCostItemId — the coding target
   number: string; // cost code, e.g. "06 10 00" (or a free label like "Office Admin")

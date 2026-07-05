@@ -40,6 +40,25 @@ const money = (n?: number) =>
 const isImage = (f: FileNode) =>
   /^image\//i.test(f.type ?? "") || /\.(png|jpe?g|gif|webp)$/i.test(f.name ?? "");
 
+// Billing-month options (current + prior 14 months). Value = last day of the
+// month (the issueDate convention); ym is the year-month key for matching.
+function billingMonthOptions() {
+  const opts: { value: string; ym: string; label: string }[] = [];
+  const now = new Date();
+  for (let i = 0; i < 15; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const y = d.getFullYear();
+    const m = d.getMonth() + 1;
+    const last = new Date(y, m, 0).getDate();
+    opts.push({
+      value: `${y}-${String(m).padStart(2, "0")}-${String(last).padStart(2, "0")}`,
+      ym: `${y}-${String(m).padStart(2, "0")}`,
+      label: d.toLocaleString("en-US", { month: "long", year: "numeric" }),
+    });
+  }
+  return opts;
+}
+
 function BillDetail() {
   const params = useParams<{ docId: string }>();
   const search = useSearchParams();
@@ -171,6 +190,33 @@ function BillDetail() {
             Open in JobTread ↗
           </a>
         )}
+        <div className="mt-3 flex items-center gap-2">
+          <span className="text-[10px] uppercase tracking-wide text-neutral-400">Billing month</span>
+          <select
+            value={
+              billingMonthOptions().find((o) => o.ym === (header?.issueDate ?? "").slice(0, 7))?.value ??
+              ""
+            }
+            onChange={async (e) => {
+              const issueDate = e.target.value;
+              if (!issueDate) return;
+              setHeader((h) => (h ? { ...h, issueDate } : h));
+              await fetch("/api/bill-issuedate", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ docId, issueDate }),
+              });
+            }}
+            className="rounded-lg border border-neutral-300 bg-transparent px-2 py-1 text-sm dark:border-neutral-700"
+          >
+            <option value="">— set billing month —</option>
+            {billingMonthOptions().map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </div>
       </header>
 
       {loading && <p className="text-sm text-neutral-500">Loading…</p>}
