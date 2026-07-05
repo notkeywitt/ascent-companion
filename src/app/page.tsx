@@ -77,12 +77,20 @@ function CodingQueue() {
             Ascent Companion
           </p>
           {jobId.trim() && (
-            <Link
-              href={`/unbilled?jobId=${encodeURIComponent(jobId.trim())}`}
-              className="text-xs font-semibold text-accent"
-            >
-              Unbilled →
-            </Link>
+            <div className="flex gap-3">
+              <Link
+                href={`/unbilled?jobId=${encodeURIComponent(jobId.trim())}`}
+                className="text-xs font-semibold text-accent"
+              >
+                Unbilled →
+              </Link>
+              <Link
+                href={`/stage?jobId=${encodeURIComponent(jobId.trim())}`}
+                className="text-xs font-semibold text-accent"
+              >
+                Create invoice →
+              </Link>
+            </div>
           )}
         </div>
         <h1 className="text-2xl font-bold tracking-tight">Coding Queue</h1>

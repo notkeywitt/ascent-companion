@@ -41,7 +41,12 @@ function Stage() {
   const search = useSearchParams();
   const router = useRouter();
   const [jobId, setJobId] = useState(search.get("jobId") ?? "");
-  const [ym, setYm] = useState("");
+  // Default to last month — the month you'd normally be billing.
+  const [ym, setYm] = useState(() => {
+    const d = new Date();
+    d.setMonth(d.getMonth() - 1);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  });
   const [markup, setMarkup] = useState("18");
   const [customer, setCustomer] = useState<{ id: string; name: string } | null>(null);
   const [lines, setLines] = useState<UnbilledLine[] | null>(null);
