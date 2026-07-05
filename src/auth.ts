@@ -1,5 +1,5 @@
 import NextAuth from "next-auth";
-import authConfig from "./auth.config";
+import Google from "next-auth/providers/google";
 
 /** Emails always allowed (env — the founders / bootstrap). */
 export function envAllowed(): string[] {
@@ -9,15 +9,25 @@ export function envAllowed(): string[] {
     .filter(Boolean);
 }
 
-// Full config (with the DB-backed allowlist) — used by the route handlers.
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  ...authConfig,
+  trustHost: true,
+  secret: process.env.AUTH_SECRET ?? process.env.APP_PASSWORD ?? "local-dev-only-secret",
+  providers: [
+    Google({
+      clientId: process.env.AUTH_GOOGLE_ID?.trim(),
+      clientSecret: process.env.AUTH_GOOGLE_SECRET?.trim(),
+    }),
+  ],
+  cookies: {
+    // Sent inside the Chrome side-panel iframe (third-party context).
+    sessionToken: { options: { httpOnly: true, sameSite: "none", secure: true, path: "/" } },
+  },
   callbacks: {
     async signIn({ profile }) {
       const email = (profile?.email ?? "").toLowerCase();
       if (!email) return false;
       if (envAllowed().includes(email)) return true;
-      // Lazy-load the DB so it never enters the auth/edge bundle.
+      // Lazy-load the DB so it never enters the edge/middleware bundle.
       try {
         const { db, ensureDb } = await import("@/db");
         const { allowedUsers } = await import("@/db/schema");

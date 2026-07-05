@@ -1,10 +1,6 @@
-import NextAuth from "next-auth";
 import { NextResponse } from "next/server";
-import authConfig from "@/auth.config";
+import { auth } from "@/auth";
 import { AUTH_COOKIE, tokenFor } from "@/lib/auth";
-
-// Edge middleware uses the DB-free config (no database in the edge runtime).
-const { auth } = NextAuth(authConfig);
 
 const PUBLIC = ["/login", "/api/auth", "/api/login"];
 
