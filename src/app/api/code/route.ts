@@ -1,16 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
-import { setLineCoding } from "@/lib/jobtread";
+import { updateLine } from "@/lib/jobtread";
 import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
 
 interface Change {
   costItemId: string;
-  jobCostItemId: string;
+  jobCostItemId?: string;
+  quantity?: number;
+  unitCost?: number;
 }
 
+const hasEdit = (c: Change) =>
+  c.costItemId &&
+  (c.jobCostItemId !== undefined || c.quantity !== undefined || c.unitCost !== undefined);
+
 /**
- * Phase B — save line coding to JobTread.
+ * Phase B — save bill-line edits (coding / quantity / unitCost) to JobTread.
  * DISABLED BY DEFAULT: unless COMPANION_WRITES_ENABLED=true, this writes nothing
- * and returns a preview of what *would* change, so the flow is testable safely.
+ * and returns a preview of what *would* change.
  */
 export async function POST(req: NextRequest) {
   if (!hasGrant()) {
@@ -22,9 +28,9 @@ export async function POST(req: NextRequest) {
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
-  const changes = (body.changes ?? []).filter((c) => c.costItemId && c.jobCostItemId);
+  const changes = (body.changes ?? []).filter(hasEdit);
   if (changes.length === 0) {
-    return NextResponse.json({ error: "No coding changes provided" }, { status: 400 });
+    return NextResponse.json({ error: "No line edits provided" }, { status: 400 });
   }
 
   if (!writesEnabled()) {
@@ -40,7 +46,11 @@ export async function POST(req: NextRequest) {
   const results: { costItemId: string; ok: boolean; error?: string }[] = [];
   for (const c of changes) {
     try {
-      await setLineCoding(cfg, c.costItemId, c.jobCostItemId);
+      await updateLine(cfg, c.costItemId, {
+        jobCostItemId: c.jobCostItemId,
+        quantity: c.quantity,
+        unitCost: c.unitCost,
+      });
       results.push({ costItemId: c.costItemId, ok: true });
     } catch (e) {
       results.push({

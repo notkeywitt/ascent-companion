@@ -9,6 +9,8 @@ interface Line {
   id: string;
   name?: string;
   cost?: number;
+  quantity?: number;
+  unitCost?: number;
   costCode?: { number?: string; name?: string } | null;
   jobCostItem?: { id?: string } | null;
 }
@@ -49,6 +51,7 @@ function BillDetail() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [picked, setPicked] = useState<Record<string, string>>({});
+  const [edits, setEdits] = useState<Record<string, { quantity?: string; unitCost?: string }>>({});
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState("");
 
@@ -85,12 +88,32 @@ function BillDetail() {
   const title = header?.fromName || header?.subject || header?.name || "Vendor bill";
   const subtitle = header?.subject && header.subject !== title ? header.subject : "";
 
-  // Lines whose picked code differs from what's currently saved in JobTread.
+  // Lines with a changed cost code, quantity, or unit cost vs what's in JobTread.
   const pending = (lines ?? []).flatMap((l) => {
+    const change: {
+      costItemId: string;
+      jobCostItemId?: string;
+      quantity?: number;
+      unitCost?: number;
+    } = { costItemId: l.id };
+    let changed = false;
+
     const sel = picked[l.id];
-    return sel && sel !== (l.jobCostItem?.id ?? "")
-      ? [{ costItemId: l.id, jobCostItemId: sel }]
-      : [];
+    if (sel !== undefined && sel !== (l.jobCostItem?.id ?? "")) {
+      change.jobCostItemId = sel;
+      changed = true;
+    }
+    const qStr = edits[l.id]?.quantity;
+    if (qStr !== undefined && qStr !== "" && Number(qStr) !== (l.quantity ?? 0)) {
+      change.quantity = Number(qStr);
+      changed = true;
+    }
+    const uStr = edits[l.id]?.unitCost;
+    if (uStr !== undefined && uStr !== "" && Number(uStr) !== (l.unitCost ?? 0)) {
+      change.unitCost = Number(uStr);
+      changed = true;
+    }
+    return changed ? [change] : [];
   });
 
   async function saveCoding() {
@@ -107,7 +130,7 @@ function BillDetail() {
       if (!res.ok) setSaveMsg(json.error ?? "Save failed");
       else if (json.previewed)
         setSaveMsg(
-          `Preview only — writes are OFF. ${pending.length} line(s) would be recoded in JobTread.`,
+          `Preview only — writes are OFF. ${pending.length} line(s) would be updated in JobTread.`,
         );
       else {
         const ok = (json.results ?? []).filter((r: { ok: boolean }) => r.ok).length;
@@ -193,6 +216,15 @@ function BillDetail() {
           <ul className="space-y-2">
             {lines.map((l) => {
               const current = picked[l.id] ?? l.jobCostItem?.id ?? "";
+              const qtyVal = edits[l.id]?.quantity ?? (l.quantity != null ? String(l.quantity) : "");
+              const unitVal =
+                edits[l.id]?.unitCost ?? (l.unitCost != null ? String(l.unitCost) : "");
+              const extended =
+                qtyVal !== "" && unitVal !== ""
+                  ? Number(qtyVal) * Number(unitVal)
+                  : (l.cost ?? 0);
+              const inputCls =
+                "rounded-lg border border-neutral-300 bg-transparent px-2 py-1.5 text-sm tabular-nums dark:border-neutral-700";
               return (
                 <li
                   key={l.id}
@@ -200,8 +232,37 @@ function BillDetail() {
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 font-medium">{l.name || "Line item"}</div>
-                    <div className="font-mono text-sm font-semibold">{money(l.cost)}</div>
+                    <div className="font-mono text-sm font-semibold">{money(extended)}</div>
                   </div>
+
+                  <div className="mt-2 flex items-center gap-2">
+                    <label className="flex items-center gap-1.5">
+                      <span className="text-[10px] uppercase tracking-wide text-neutral-400">Qty</span>
+                      <input
+                        type="number"
+                        inputMode="decimal"
+                        value={qtyVal}
+                        onChange={(e) =>
+                          setEdits((p) => ({ ...p, [l.id]: { ...p[l.id], quantity: e.target.value } }))
+                        }
+                        className={inputCls + " w-20"}
+                      />
+                    </label>
+                    <span className="text-neutral-400">×</span>
+                    <label className="flex items-center gap-1.5">
+                      <span className="text-[10px] uppercase tracking-wide text-neutral-400">Unit $</span>
+                      <input
+                        type="number"
+                        inputMode="decimal"
+                        value={unitVal}
+                        onChange={(e) =>
+                          setEdits((p) => ({ ...p, [l.id]: { ...p[l.id], unitCost: e.target.value } }))
+                        }
+                        className={inputCls + " w-24"}
+                      />
+                    </label>
+                  </div>
+
                   <div className="mt-2">
                     <span className="mb-1 block text-[10px] uppercase tracking-wide text-neutral-400">
                       Cost code
@@ -227,7 +288,7 @@ function BillDetail() {
               {saving
                 ? "Saving…"
                 : pending.length
-                  ? `Save coding (${pending.length})`
+                  ? `Save changes (${pending.length})`
                   : "No changes to save"}
             </button>
             {saveMsg && (

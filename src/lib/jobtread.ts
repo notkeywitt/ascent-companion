@@ -149,6 +149,8 @@ export interface BillLine {
   id: string;
   name?: string;
   cost?: number;
+  quantity?: number;
+  unitCost?: number;
   costCode?: { number?: string; name?: string } | null;
   jobCostItem?: { id?: string } | null;
 }
@@ -174,6 +176,8 @@ export async function getBillDetail(cfg: PaveConfig, docId: string): Promise<Bil
         id: {},
         name: {},
         cost: {},
+        quantity: {},
+        unitCost: {},
         costCode: { number: {}, name: {} },
         jobCostItem: { id: {} }, // ← the coding target (budget cost item)
       },
@@ -334,22 +338,23 @@ export async function getJobs(cfg: PaveConfig, includeClosed = false): Promise<J
 }
 
 /**
- * WRITE — re-point a bill line's coding to a budget item. Confirmed production
- * mutation (ascent-appscript JobTread.js): updateCostItem with jobCostItemId
- * re-points the rollup in place (no delete/recreate). Callers must gate this
- * behind the writes-enabled flag; a customer bill is shared with the AppSheet
- * flow, so nothing here runs until that coordination is settled.
+ * WRITE — update a bill line: its coding (jobCostItemId), quantity, and/or
+ * unitCost. Confirmed production mutation (ascent-appscript JobTread.js):
+ * updateCostItem accepts all three. Callers must gate this behind the
+ * writes-enabled flag; a customer bill is shared with the AppSheet flow, so
+ * nothing here runs until that coordination is settled.
  */
-export async function setLineCoding(
+export async function updateLine(
   cfg: PaveConfig,
   costItemId: string,
-  jobCostItemId: string,
+  fields: { jobCostItemId?: string; quantity?: number; unitCost?: number },
 ): Promise<{ id: string }> {
+  const $: Record<string, unknown> = { id: costItemId };
+  if (fields.jobCostItemId !== undefined) $.jobCostItemId = fields.jobCostItemId;
+  if (fields.quantity !== undefined) $.quantity = fields.quantity;
+  if (fields.unitCost !== undefined) $.unitCost = fields.unitCost;
   const r = await pave(cfg, {
-    updateCostItem: {
-      $: { id: costItemId, jobCostItemId },
-      costItem: { $: { id: costItemId }, id: {} },
-    },
+    updateCostItem: { $, costItem: { $: { id: costItemId }, id: {} } },
   });
   return { id: r?.updateCostItem?.costItem?.id ?? costItemId };
 }
