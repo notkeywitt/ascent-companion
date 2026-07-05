@@ -157,9 +157,10 @@ function Rfis() {
           />
           <input
             list="vendors"
+            autoComplete="off"
             value={form.assignee}
             onChange={(e) => setForm({ ...form, assignee: e.target.value })}
-            placeholder="Assignee (vendor)"
+            placeholder={vendors.length ? "Assignee (vendor)" : "Assignee (loading vendors…)"}
             className={inputCls}
           />
           <div className="grid grid-cols-2 gap-2">
@@ -247,6 +248,7 @@ function Rfis() {
                       Assignee
                       <input
                         list="vendors"
+                        autoComplete="off"
                         defaultValue={r.assignee}
                         onBlur={(e) => e.target.value !== r.assignee && patch(r.id, { assignee: e.target.value })}
                         className={inputCls}
