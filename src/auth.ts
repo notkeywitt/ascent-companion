@@ -17,7 +17,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   // Never crash for want of a secret: fall back to the shared password (always
   // set in prod) so deploying this before AUTH_SECRET exists is safe.
   secret: process.env.AUTH_SECRET ?? process.env.APP_PASSWORD ?? "local-dev-only-secret",
-  providers: [Google],
+  providers: [
+    Google({
+      clientId: process.env.AUTH_GOOGLE_ID,
+      clientSecret: process.env.AUTH_GOOGLE_SECRET,
+    }),
+  ],
   callbacks: {
     signIn({ profile }) {
       const list = allowedEmails();
