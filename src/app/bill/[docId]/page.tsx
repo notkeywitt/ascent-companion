@@ -186,19 +186,29 @@ function BillDetail() {
                 <img
                   src={f.url}
                   alt={f.name ?? "invoice"}
-                  className="max-h-96 w-full rounded-lg border border-neutral-200 object-contain dark:border-neutral-800"
+                  className="max-h-[28rem] w-full rounded-lg border border-neutral-200 object-contain dark:border-neutral-800"
                 />
               </a>
+            ) : f.url ? (
+              <div key={f.id}>
+                <iframe
+                  src={f.url}
+                  title={f.name ?? "invoice"}
+                  className="h-[28rem] w-full rounded-lg border border-neutral-200 dark:border-neutral-800"
+                />
+                <a
+                  href={f.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-1 inline-block text-xs font-semibold text-accent"
+                >
+                  Open {f.name || "attachment"} ↗
+                </a>
+              </div>
             ) : (
-              <a
-                key={f.id}
-                href={f.url ?? "#"}
-                target="_blank"
-                rel="noreferrer"
-                className="flex items-center gap-2 rounded-lg border border-neutral-200 px-3 py-2 text-sm hover:border-accent dark:border-neutral-800"
-              >
-                📄 {f.name || "View attachment"}
-              </a>
+              <span key={f.id} className="text-sm text-neutral-500">
+                {f.name}
+              </span>
             ),
           )}
         </div>
