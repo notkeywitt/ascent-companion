@@ -1,15 +1,13 @@
-const DEFAULT_URL = "http://localhost:3000";
-const K_URL = "ascentCompanionUrl";
+// Deployed companion app. Change here if the deploy URL ever changes.
+const APP_URL = "https://ascent-companion.vercel.app";
+
 const K_FOLLOW = "ascentFollow";
 const K_JOB = "ascentCurrentJob";
 
-const urlInput = document.getElementById("url");
-const goBtn = document.getElementById("go");
 const followChk = document.getElementById("follow");
 const jobLabel = document.getElementById("job");
 const frame = document.getElementById("frame");
 
-let appUrl = DEFAULT_URL;
 let follow = true;
 let lastLoadedJob = null;
 
@@ -18,11 +16,11 @@ function loadUrl(u) {
 }
 function loadJob(jobId) {
   lastLoadedJob = jobId;
-  loadUrl(`${appUrl.replace(/\/$/, "")}/?jobId=${encodeURIComponent(jobId)}`);
+  loadUrl(`${APP_URL}/?jobId=${encodeURIComponent(jobId)}`);
 }
 function loadHome() {
   lastLoadedJob = null;
-  loadUrl(appUrl);
+  loadUrl(APP_URL);
 }
 function setJobLabel(jobId) {
   if (jobId) {
@@ -35,10 +33,8 @@ function setJobLabel(jobId) {
 }
 
 // Initial state
-chrome.storage.local.get([K_URL, K_FOLLOW, K_JOB], (d) => {
-  appUrl = d[K_URL] || DEFAULT_URL;
+chrome.storage.local.get([K_FOLLOW, K_JOB], (d) => {
   follow = d[K_FOLLOW] !== false; // default on
-  urlInput.value = appUrl;
   followChk.checked = follow;
   const jobId = d[K_JOB] && d[K_JOB].jobId;
   setJobLabel(jobId);
@@ -46,7 +42,7 @@ chrome.storage.local.get([K_URL, K_FOLLOW, K_JOB], (d) => {
   else loadHome();
 });
 
-// React to the content script publishing a new job, or a url change elsewhere.
+// React to the content script publishing a new job.
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area !== "local") return;
   if (changes[K_JOB]) {
@@ -54,22 +50,6 @@ chrome.storage.onChanged.addListener((changes, area) => {
     setJobLabel(jobId);
     if (follow && jobId && jobId !== lastLoadedJob) loadJob(jobId);
   }
-  if (changes[K_URL]) {
-    appUrl = changes[K_URL].newValue || DEFAULT_URL;
-    urlInput.value = appUrl;
-  }
-});
-
-// Controls
-function saveUrl() {
-  appUrl = (urlInput.value || "").trim() || DEFAULT_URL;
-  chrome.storage.local.set({ [K_URL]: appUrl });
-  if (follow && lastLoadedJob) loadJob(lastLoadedJob);
-  else loadHome();
-}
-goBtn.addEventListener("click", saveUrl);
-urlInput.addEventListener("keydown", (e) => {
-  if (e.key === "Enter") saveUrl();
 });
 
 followChk.addEventListener("change", () => {

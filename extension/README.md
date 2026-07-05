@@ -14,12 +14,11 @@ JobTread's page, so it can't break when JobTread ships UI changes.
 4. Click its icon to open the side panel. It opens on *any* tab (including a
    JobTread job tab), so you can view it right next to JobTread.
 
-## Changing the app URL
+## App URL
 
-The panel has a small address bar at the top (defaults to
-`http://localhost:3000`) — edit it and hit **Go** to point at a deployed
-instance later (Cloud Run / Vercel) instead of localhost. It's remembered via
-`chrome.storage.local`.
+The panel loads the deployed app, hard-coded as `APP_URL` at the top of
+`panel.js` (`https://ascent-companion.vercel.app`). Change that one line if the
+deploy URL ever changes, then reload the extension.
 
 ## Status
 
