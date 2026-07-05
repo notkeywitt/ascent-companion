@@ -162,7 +162,20 @@ function Stage() {
               <tbody>
                 {billable.map((l) => (
                   <tr key={l.key} className="border-t border-neutral-100 dark:border-neutral-800">
-                    <td className="px-3 py-2">{l.label}</td>
+                    <td className="px-3 py-2">
+                      {l.billIds.length === 1 ? (
+                        <a
+                          href={`https://app.jobtread.com/jobs/${jobId}/documents/${l.billIds[0]}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-accent hover:underline"
+                        >
+                          {l.label} ↗
+                        </a>
+                      ) : (
+                        l.label
+                      )}
+                    </td>
                     <td className="px-3 py-2 text-right font-mono">{money(l.cost)}</td>
                   </tr>
                 ))}
