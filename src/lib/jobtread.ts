@@ -15,6 +15,7 @@ const PAVE_URL = "https://api.jobtread.com/pave";
 export interface PaveConfig {
   grantKey: string; // JT_GRANT_KEY
   orgId: string; // JT_ORG_ID, e.g. "22PXG7QcMaQ2"
+  companyName?: string; // issuer name for customer invoices (fromName)
 }
 
 /** Low-level Pave call. `query` is the Pave query object (grantKey injected here). */
@@ -455,6 +456,9 @@ export async function createDraftInvoice(cfg: PaveConfig, input: StageInvoiceInp
         jobId: input.jobId,
         organizationId: cfg.orgId,
         issueDate: input.issueDate,
+        // JobTread requires a non-null fromName on the document. A customer
+        // invoice is issued BY us, so the "from" party is our company.
+        fromName: cfg.companyName ?? "Ascent Building Co.",
       },
       createdDocument: { id: {}, type: {}, status: {} },
     },
