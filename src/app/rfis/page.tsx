@@ -11,9 +11,15 @@ interface Rfi {
   status: string;
   assignee: string;
   dueDate: string;
+  dateSent: string;
+  dateAnswered: string;
   answer: string;
   createdAt: string;
   updatedAt: string;
+}
+interface Vendor {
+  id: string;
+  name: string;
 }
 
 const STATUS = ["open", "answered", "closed"];
@@ -22,17 +28,19 @@ const statusClass: Record<string, string> = {
   answered: "text-green-700 bg-green-100 dark:text-green-300 dark:bg-green-950/50",
   closed: "text-neutral-600 bg-neutral-200 dark:text-neutral-300 dark:bg-neutral-800",
 };
+const today = () => new Date().toISOString().slice(0, 10);
 
 function Rfis() {
   const search = useSearchParams();
   const jobId = search.get("jobId") ?? "";
 
   const [rfis, setRfis] = useState<Rfi[]>([]);
+  const [vendors, setVendors] = useState<Vendor[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [open, setOpen] = useState<number | null>(null);
   const [showNew, setShowNew] = useState(false);
-  const [form, setForm] = useState({ subject: "", question: "", assignee: "", dueDate: "" });
+  const [form, setForm] = useState({ subject: "", question: "", assignee: "", dueDate: "", dateSent: "" });
 
   const load = useCallback(async () => {
     if (!jobId) return;
@@ -54,6 +62,13 @@ function Rfis() {
     load();
   }, [load]);
 
+  useEffect(() => {
+    fetch("/api/vendors")
+      .then((r) => r.json())
+      .then((j) => setVendors(j.vendors ?? []))
+      .catch(() => {});
+  }, []);
+
   async function create(e: React.FormEvent) {
     e.preventDefault();
     if (!form.subject.trim()) return;
@@ -63,7 +78,7 @@ function Rfis() {
       body: JSON.stringify({ jobId, ...form }),
     });
     if (res.ok) {
-      setForm({ subject: "", question: "", assignee: "", dueDate: "" });
+      setForm({ subject: "", question: "", assignee: "", dueDate: "", dateSent: "" });
       setShowNew(false);
       load();
     }
@@ -81,6 +96,16 @@ function Rfis() {
     }
   }
 
+  const vendorList = (
+    <datalist id="vendors">
+      {vendors.map((v) => (
+        <option key={v.id} value={v.name} />
+      ))}
+    </datalist>
+  );
+  const inputCls =
+    "w-full rounded-lg border border-neutral-300 bg-transparent px-3 py-2 text-sm dark:border-neutral-700";
+
   if (!jobId) {
     return (
       <main className="mx-auto max-w-xl px-4 pb-24 pt-6">
@@ -94,6 +119,7 @@ function Rfis() {
 
   return (
     <main className="mx-auto max-w-xl px-4 pb-24 pt-6">
+      {vendorList}
       <header className="mb-4">
         <p className="text-[11px] font-semibold uppercase tracking-widest text-neutral-500">
           Ascent Companion
@@ -120,28 +146,41 @@ function Rfis() {
             value={form.subject}
             onChange={(e) => setForm({ ...form, subject: e.target.value })}
             placeholder="Subject (required)"
-            className="w-full rounded-lg border border-neutral-300 bg-transparent px-3 py-2 text-sm dark:border-neutral-700"
+            className={inputCls}
           />
           <textarea
             value={form.question}
             onChange={(e) => setForm({ ...form, question: e.target.value })}
             placeholder="Question / details"
             rows={3}
-            className="w-full rounded-lg border border-neutral-300 bg-transparent px-3 py-2 text-sm dark:border-neutral-700"
+            className={inputCls}
           />
-          <div className="flex gap-2">
-            <input
-              value={form.assignee}
-              onChange={(e) => setForm({ ...form, assignee: e.target.value })}
-              placeholder="Assignee"
-              className="min-w-0 flex-1 rounded-lg border border-neutral-300 bg-transparent px-3 py-2 text-sm dark:border-neutral-700"
-            />
-            <input
-              type="date"
-              value={form.dueDate}
-              onChange={(e) => setForm({ ...form, dueDate: e.target.value })}
-              className="rounded-lg border border-neutral-300 bg-transparent px-3 py-2 text-sm dark:border-neutral-700"
-            />
+          <input
+            list="vendors"
+            value={form.assignee}
+            onChange={(e) => setForm({ ...form, assignee: e.target.value })}
+            placeholder="Assignee (vendor)"
+            className={inputCls}
+          />
+          <div className="grid grid-cols-2 gap-2">
+            <label className="text-xs text-neutral-500">
+              Date sent
+              <input
+                type="date"
+                value={form.dateSent}
+                onChange={(e) => setForm({ ...form, dateSent: e.target.value })}
+                className={inputCls}
+              />
+            </label>
+            <label className="text-xs text-neutral-500">
+              Due date
+              <input
+                type="date"
+                value={form.dueDate}
+                onChange={(e) => setForm({ ...form, dueDate: e.target.value })}
+                className={inputCls}
+              />
+            </label>
           </div>
           <button
             type="submit"
@@ -183,7 +222,9 @@ function Rfis() {
                   </div>
                   <div className="mt-0.5 text-xs text-neutral-500">
                     {r.assignee && <>👤 {r.assignee} </>}
-                    {r.dueDate && <>· due {r.dueDate}</>}
+                    {r.dateSent && <>· sent {r.dateSent} </>}
+                    {r.dateAnswered && <>· answered {r.dateAnswered} </>}
+                    {r.dueDate && !r.dateAnswered && <>· due {r.dueDate}</>}
                   </div>
                 </div>
                 <span
@@ -200,26 +241,70 @@ function Rfis() {
                       {r.question}
                     </p>
                   )}
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <label className="text-[11px] text-neutral-500">
+                      Assignee
+                      <input
+                        list="vendors"
+                        defaultValue={r.assignee}
+                        onBlur={(e) => e.target.value !== r.assignee && patch(r.id, { assignee: e.target.value })}
+                        className={inputCls}
+                      />
+                    </label>
+                    <label className="text-[11px] text-neutral-500">
+                      Due date
+                      <input
+                        type="date"
+                        defaultValue={r.dueDate}
+                        onChange={(e) => patch(r.id, { dueDate: e.target.value })}
+                        className={inputCls}
+                      />
+                    </label>
+                    <label className="text-[11px] text-neutral-500">
+                      Date sent
+                      <input
+                        type="date"
+                        defaultValue={r.dateSent}
+                        onChange={(e) => patch(r.id, { dateSent: e.target.value })}
+                        className={inputCls}
+                      />
+                    </label>
+                    <label className="text-[11px] text-neutral-500">
+                      Date answered
+                      <input
+                        type="date"
+                        defaultValue={r.dateAnswered}
+                        onChange={(e) => patch(r.id, { dateAnswered: e.target.value })}
+                        className={inputCls}
+                      />
+                    </label>
+                  </div>
+
                   <div>
                     <span className="mb-1 block text-[10px] uppercase tracking-wide text-neutral-400">
                       Answer
                     </span>
                     <textarea
                       defaultValue={r.answer}
-                      onBlur={(e) => {
-                        if (e.target.value !== r.answer) patch(r.id, { answer: e.target.value });
-                      }}
+                      onBlur={(e) => e.target.value !== r.answer && patch(r.id, { answer: e.target.value })}
                       placeholder="Type the answer, then click away to save…"
                       rows={3}
-                      className="w-full rounded-lg border border-neutral-300 bg-transparent px-3 py-2 text-sm dark:border-neutral-700"
+                      className={inputCls}
                     />
                   </div>
+
                   <div className="flex items-center gap-2">
                     <span className="text-xs text-neutral-500">Status</span>
                     {STATUS.map((s) => (
                       <button
                         key={s}
-                        onClick={() => patch(r.id, { status: s })}
+                        onClick={() =>
+                          patch(r.id, {
+                            status: s,
+                            ...(s === "answered" && !r.dateAnswered ? { dateAnswered: today() } : {}),
+                          })
+                        }
                         className={
                           "rounded-full px-2.5 py-1 text-xs font-semibold " +
                           (r.status === s

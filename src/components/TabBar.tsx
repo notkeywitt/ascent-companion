@@ -11,6 +11,7 @@ const TABS: { label: string; href: string; match: (p: string) => boolean }[] = [
     match: (p) => p === "/" || p.startsWith("/unbilled") || p.startsWith("/bill"),
   },
   { label: "RFIs", href: "/rfis", match: (p) => p.startsWith("/rfis") },
+  { label: "Requests", href: "/requests", match: (p) => p.startsWith("/requests") },
 ];
 
 export function TabBar() {

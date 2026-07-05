@@ -35,6 +35,8 @@ export async function POST(req: NextRequest) {
       question: (body.question ?? "").trim(),
       assignee: (body.assignee ?? "").trim(),
       dueDate: (body.dueDate ?? "").trim(),
+      dateSent: (body.dateSent ?? "").trim(),
+      dateAnswered: (body.dateAnswered ?? "").trim(),
       createdAt: now,
       updatedAt: now,
     })

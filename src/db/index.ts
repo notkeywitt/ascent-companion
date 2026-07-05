@@ -23,7 +23,31 @@ export async function ensureDb() {
       status TEXT NOT NULL DEFAULT 'open',
       assignee TEXT NOT NULL DEFAULT '',
       due_date TEXT NOT NULL DEFAULT '',
+      date_sent TEXT NOT NULL DEFAULT '',
+      date_answered TEXT NOT NULL DEFAULT '',
       answer TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )
+  `);
+  // Migrations for DBs created before these columns existed (idempotent).
+  for (const alter of [
+    "ALTER TABLE rfis ADD COLUMN date_sent TEXT NOT NULL DEFAULT ''",
+    "ALTER TABLE rfis ADD COLUMN date_answered TEXT NOT NULL DEFAULT ''",
+  ]) {
+    try {
+      await client.execute(alter);
+    } catch {
+      /* column already exists */
+    }
+  }
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS feature_requests (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      title TEXT NOT NULL,
+      detail TEXT NOT NULL DEFAULT '',
+      requester TEXT NOT NULL DEFAULT '',
+      status TEXT NOT NULL DEFAULT 'open',
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     )

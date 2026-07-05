@@ -17,7 +17,16 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
   const patch: Record<string, string> = { updatedAt: new Date().toISOString() };
-  for (const field of ["status", "answer", "assignee", "dueDate", "question", "subject"]) {
+  for (const field of [
+    "status",
+    "answer",
+    "assignee",
+    "dueDate",
+    "dateSent",
+    "dateAnswered",
+    "question",
+    "subject",
+  ]) {
     if (typeof body[field] === "string") patch[field] = body[field];
   }
   await ensureDb();

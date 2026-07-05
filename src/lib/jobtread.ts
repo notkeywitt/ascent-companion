@@ -337,6 +337,37 @@ export async function getJobs(cfg: PaveConfig, includeClosed = false): Promise<J
   );
 }
 
+export interface VendorRef {
+  id: string;
+  name: string;
+}
+
+/** Org's vendor accounts (for the RFI assignee dropdown), sorted by name. */
+export async function getVendors(cfg: PaveConfig): Promise<VendorRef[]> {
+  const out: VendorRef[] = [];
+  let cursor: string | null = null;
+  for (let page = 0; page < 20; page++) {
+    const args: Record<string, unknown> = {
+      where: { and: [["type", "vendor"]] },
+      size: 100,
+      sortBy: [{ field: "name" }],
+    };
+    if (cursor) args.page = cursor;
+    const r = await pave(cfg, {
+      organization: {
+        $: { id: cfg.orgId },
+        id: {},
+        accounts: { $: args, nextPage: {}, nodes: { id: {}, name: {} } },
+      },
+    });
+    const ac = r?.organization?.accounts ?? {};
+    for (const n of ac.nodes ?? []) out.push({ id: n.id, name: n.name });
+    cursor = ac.nextPage ?? null;
+    if (!cursor) break;
+  }
+  return out;
+}
+
 /**
  * WRITE — update a bill line: its coding (jobCostItemId), quantity, and/or
  * unitCost. Confirmed production mutation (ascent-appscript JobTread.js):
