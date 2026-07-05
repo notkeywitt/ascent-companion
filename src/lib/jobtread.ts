@@ -281,6 +281,42 @@ export async function getJobBudget(cfg: PaveConfig, jobId: string): Promise<Budg
   return items.sort((a, b) => a.number.localeCompare(b.number));
 }
 
+export interface JobRef {
+  id: string;
+  name: string;
+  number?: string;
+  closedOn?: string | null;
+}
+
+/** Org's jobs for the picker. Open jobs only by default, sorted by name. */
+export async function getJobs(cfg: PaveConfig, includeClosed = false): Promise<JobRef[]> {
+  const out: JobRef[] = [];
+  let cursor: string | null = null;
+  for (let page = 0; page < 50; page++) {
+    const args: Record<string, unknown> = { size: 100 };
+    if (cursor) args.page = cursor;
+    const r = await pave(cfg, {
+      organization: {
+        $: { id: cfg.orgId },
+        id: {},
+        jobs: {
+          $: args,
+          nextPage: {},
+          nodes: { id: {}, name: {}, number: {}, closedOn: {} },
+        },
+      },
+    });
+    const jc = r?.organization?.jobs ?? {};
+    for (const n of jc.nodes ?? []) {
+      if (!includeClosed && n.closedOn) continue;
+      out.push({ id: n.id, name: n.name, number: n.number, closedOn: n.closedOn });
+    }
+    cursor = jc.nextPage ?? null;
+    if (!cursor) break;
+  }
+  return out.sort((a, b) => (a.name ?? "").localeCompare(b.name ?? ""));
+}
+
 /**
  * WRITE — re-point a bill line's coding to a budget item. Confirmed production
  * mutation (ascent-appscript JobTread.js): updateCostItem with jobCostItemId

@@ -2,7 +2,8 @@
 
 import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { JobPicker } from "@/components/JobPicker";
 
 interface Bill {
   id: string;
@@ -23,7 +24,14 @@ const billTitle = (b: Bill) => b.fromName || b.subject || "Vendor bill";
 
 function CodingQueue() {
   const search = useSearchParams();
+  const router = useRouter();
   const [jobId, setJobId] = useState(search.get("jobId") ?? "");
+
+  function selectJob(id: string) {
+    setJobId(id);
+    router.replace(`/?jobId=${encodeURIComponent(id)}`);
+    run(id);
+  }
   const [bills, setBills] = useState<Bill[] | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -76,27 +84,11 @@ function CodingQueue() {
         </p>
       </header>
 
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          run(jobId);
-        }}
-        className="mb-6 flex gap-2"
-      >
-        <input
-          value={jobId}
-          onChange={(e) => setJobId(e.target.value)}
-          placeholder="JobTread job id, e.g. 22PXGG97EiV4"
-          className="min-w-0 flex-1 rounded-lg border border-neutral-300 bg-white px-3 py-2 font-mono text-sm outline-none focus:border-accent dark:border-neutral-700 dark:bg-neutral-900"
-        />
-        <button
-          type="submit"
-          disabled={loading}
-          className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-accent-hover disabled:opacity-50"
-        >
-          {loading ? "…" : "Load"}
-        </button>
-      </form>
+      <div className="mb-6 flex gap-2">
+        <JobPicker value={jobId} onChange={selectJob} />
+      </div>
+
+      {loading && <p className="mb-3 text-sm text-neutral-500">Loading…</p>}
 
       {error && (
         <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">

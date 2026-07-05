@@ -16,10 +16,12 @@ export async function POST(req: NextRequest) {
   }
 
   const res = NextResponse.json({ ok: true });
+  // SameSite=None so the cookie is sent when the app runs inside the Chrome
+  // side-panel iframe (a third-party context); requires Secure (prod = HTTPS).
   res.cookies.set(AUTH_COOKIE, await tokenFor(password), {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
+    secure: true,
+    sameSite: "none",
     path: "/",
     maxAge: 60 * 60 * 24 * 30, // 30 days
   });
