@@ -111,41 +111,126 @@ export function computeUnbilled(rollup: DocRollupRow[]) {
 // CODING QUEUE  (confirmed: vendorBill/draft docs; line target = jobCostItem)
 // ---------------------------------------------------------------------------
 
+export interface DraftBill {
+  id: string;
+  name?: string;
+  subject?: string;
+  fromName?: string; // vendor name
+  status?: string;
+  cost?: number;
+  issueDate?: string;
+}
+
 /** Draft vendor bills on a job — the review/coding queue. */
-export async function getDraftBills(cfg: PaveConfig, jobId: string) {
-  const r = await pave(cfg, {
+export async function getDraftBills(cfg: PaveConfig, jobId: string): Promise<DraftBill[]> {
+  const q = (nodes: Record<string, unknown>) => ({
     job: {
       $: { id: jobId },
       id: {},
       documents: {
         $: { where: { and: [["type", "vendorBill"], ["status", "draft"]] }, size: 100 },
         nextPage: {},
-        nodes: { id: {}, name: {}, status: {}, cost: {}, issueDate: {} },
+        nodes,
       },
     },
   });
+  const rich = { id: {}, name: {}, subject: {}, fromName: {}, status: {}, cost: {}, issueDate: {} };
+  const min = { id: {}, name: {}, status: {}, cost: {}, issueDate: {} };
+  let r: any;
+  try {
+    r = await pave(cfg, q(rich));
+  } catch {
+    r = await pave(cfg, q(min)); // an unconfirmed field name won't break the queue
+  }
   return r?.job?.documents?.nodes ?? [];
 }
 
-/** A bill's lines with their current coding (jobCostItem) + cost code. */
-export async function getBillLines(cfg: PaveConfig, docId: string) {
-  const r = await pave(cfg, {
-    document: {
-      $: { id: docId },
-      id: {},
-      costItems: {
-        $: { size: 100 },
-        nodes: {
-          id: {},
-          name: {},
-          cost: {},
-          costCode: { number: {}, name: {} },
-          jobCostItem: { id: {} }, // ← the coding target (budget cost item)
-        },
+export interface BillLine {
+  id: string;
+  name?: string;
+  cost?: number;
+  costCode?: { number?: string; name?: string } | null;
+  jobCostItem?: { id?: string } | null;
+}
+export interface BillDetail {
+  header: {
+    id: string;
+    name?: string;
+    subject?: string;
+    fromName?: string;
+    status?: string;
+    cost?: number;
+    issueDate?: string;
+  };
+  lines: BillLine[];
+}
+
+/** A bill's header + lines (with current coding). Rich header falls back to minimal. */
+export async function getBillDetail(cfg: PaveConfig, docId: string): Promise<BillDetail> {
+  const lineSel = {
+    costItems: {
+      $: { size: 100 },
+      nodes: {
+        id: {},
+        name: {},
+        cost: {},
+        costCode: { number: {}, name: {} },
+        jobCostItem: { id: {} }, // ← the coding target (budget cost item)
       },
     },
-  });
-  return r?.document?.costItems?.nodes ?? [];
+  };
+  const rich = {
+    document: {
+      $: { id: docId },
+      id: {}, name: {}, status: {}, cost: {}, issueDate: {}, subject: {}, fromName: {},
+      ...lineSel,
+    },
+  };
+  const min = {
+    document: { $: { id: docId }, id: {}, name: {}, status: {}, cost: {}, issueDate: {}, ...lineSel },
+  };
+  let d: any;
+  try {
+    d = (await pave(cfg, rich))?.document;
+  } catch {
+    d = (await pave(cfg, min))?.document;
+  }
+  d = d ?? {};
+  return {
+    header: {
+      id: d.id,
+      name: d.name,
+      subject: d.subject,
+      fromName: d.fromName,
+      status: d.status,
+      cost: d.cost,
+      issueDate: d.issueDate,
+    },
+    lines: d.costItems?.nodes ?? [],
+  };
+}
+
+export interface BillFile {
+  id: string;
+  name?: string;
+  type?: string;
+  url?: string;
+}
+
+/** Files attached to a bill (the invoice PDF/image). Defensive — [] on any error. */
+export async function getBillFiles(cfg: PaveConfig, docId: string): Promise<BillFile[]> {
+  try {
+    const r = await pave(cfg, {
+      document: {
+        $: { id: docId },
+        id: {},
+        files: { $: { size: 20 }, nodes: { id: {}, name: {}, type: {}, url: {} } },
+      },
+    });
+    return r?.document?.files?.nodes ?? [];
+  } catch {
+    return [];
+  }
 }
 
 export interface BudgetItem {

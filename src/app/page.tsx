@@ -1,11 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 
 interface Bill {
   id: string;
   name?: string;
+  subject?: string;
+  fromName?: string;
   status?: string;
   cost?: number;
   issueDate?: string;
@@ -16,20 +19,22 @@ const money = (n?: number) =>
     ? "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
     : "—";
 
-export default function CodingQueue() {
-  const [jobId, setJobId] = useState("");
+const billTitle = (b: Bill) => b.fromName || b.subject || "Vendor bill";
+
+function CodingQueue() {
+  const search = useSearchParams();
+  const [jobId, setJobId] = useState(search.get("jobId") ?? "");
   const [bills, setBills] = useState<Bill[] | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  async function load(e: React.FormEvent) {
-    e.preventDefault();
-    if (!jobId.trim()) return;
+  async function run(id: string) {
+    if (!id.trim()) return;
     setLoading(true);
     setError("");
     setBills(null);
     try {
-      const res = await fetch(`/api/coding-queue?jobId=${encodeURIComponent(jobId.trim())}`);
+      const res = await fetch(`/api/coding-queue?jobId=${encodeURIComponent(id.trim())}`);
       const json = await res.json();
       if (!res.ok) setError(json.error ?? "Request failed");
       else setBills(json.bills ?? []);
@@ -40,21 +45,44 @@ export default function CodingQueue() {
     }
   }
 
+  // Auto-load if a job id arrived in the URL (e.g. coming back from a bill).
+  useEffect(() => {
+    const fromUrl = search.get("jobId");
+    if (fromUrl) run(fromUrl);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const total = bills?.reduce((s, b) => s + (b.cost ?? 0), 0) ?? 0;
 
   return (
     <main className="mx-auto max-w-xl px-4 pb-24 pt-6">
       <header className="mb-5">
-        <p className="text-[11px] font-semibold uppercase tracking-widest text-neutral-500">
-          Ascent Companion
-        </p>
+        <div className="flex items-center justify-between">
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-neutral-500">
+            Ascent Companion
+          </p>
+          {jobId.trim() && (
+            <Link
+              href={`/unbilled?jobId=${encodeURIComponent(jobId.trim())}`}
+              className="text-xs font-semibold text-accent"
+            >
+              Unbilled →
+            </Link>
+          )}
+        </div>
         <h1 className="text-2xl font-bold tracking-tight">Coding Queue</h1>
         <p className="mt-1 text-sm text-neutral-500">
           Draft vendor bills waiting to be coded &amp; approved (read-only for now).
         </p>
       </header>
 
-      <form onSubmit={load} className="mb-6 flex gap-2">
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          run(jobId);
+        }}
+        className="mb-6 flex gap-2"
+      >
         <input
           value={jobId}
           onChange={(e) => setJobId(e.target.value)}
@@ -93,8 +121,10 @@ export default function CodingQueue() {
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <div className="truncate font-medium">{b.name || "Vendor bill"}</div>
-                      <div className="mt-0.5 font-mono text-xs text-neutral-500">{b.id}</div>
+                      <div className="truncate font-medium">{billTitle(b)}</div>
+                      <div className="mt-0.5 truncate text-xs text-neutral-500">
+                        {b.subject && b.subject !== billTitle(b) ? b.subject : b.id}
+                      </div>
                     </div>
                     <div className="text-right">
                       <div className="font-mono text-sm font-semibold">{money(b.cost)}</div>
@@ -113,5 +143,13 @@ export default function CodingQueue() {
         </>
       )}
     </main>
+  );
+}
+
+export default function Page() {
+  return (
+    <Suspense fallback={<main className="p-6 text-sm text-neutral-500">Loading…</main>}>
+      <CodingQueue />
+    </Suspense>
   );
 }

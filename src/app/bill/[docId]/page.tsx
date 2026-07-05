@@ -3,12 +3,8 @@
 import { Suspense, useEffect, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { CostCodeSelect, type Option } from "@/components/CostCodeSelect";
 
-interface BudgetItem {
-  id: string;
-  number: string;
-  name: string;
-}
 interface Line {
   id: string;
   name?: string;
@@ -16,11 +12,29 @@ interface Line {
   costCode?: { number?: string; name?: string } | null;
   jobCostItem?: { id?: string } | null;
 }
+interface Header {
+  id: string;
+  name?: string;
+  subject?: string;
+  fromName?: string;
+  status?: string;
+  cost?: number;
+  issueDate?: string;
+}
+interface FileNode {
+  id: string;
+  name?: string;
+  type?: string;
+  url?: string;
+}
 
 const money = (n?: number) =>
   typeof n === "number"
     ? "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
     : "—";
+
+const isImage = (f: FileNode) =>
+  /^image\//i.test(f.type ?? "") || /\.(png|jpe?g|gif|webp)$/i.test(f.name ?? "");
 
 function BillDetail() {
   const params = useParams<{ docId: string }>();
@@ -28,12 +42,13 @@ function BillDetail() {
   const docId = params.docId;
   const jobId = search.get("jobId") ?? "";
 
+  const [header, setHeader] = useState<Header | null>(null);
   const [lines, setLines] = useState<Line[] | null>(null);
-  const [budget, setBudget] = useState<BudgetItem[]>([]);
+  const [budget, setBudget] = useState<Option[]>([]);
+  const [files, setFiles] = useState<FileNode[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
-  // local-only coding edits (no writes yet — Phase B)
-  const [picked, setPicked] = useState<Record<string, string>>({});
+  const [picked, setPicked] = useState<Record<string, string>>({}); // local-only (Phase B)
 
   useEffect(() => {
     let alive = true;
@@ -48,8 +63,10 @@ function BillDetail() {
         if (!alive) return;
         if (!res.ok) setError(json.error ?? "Request failed");
         else {
+          setHeader(json.header ?? null);
           setLines(json.lines ?? []);
           setBudget(json.budget ?? []);
+          setFiles(json.files ?? []);
         }
       } catch (e) {
         if (alive) setError(e instanceof Error ? e.message : "Network error");
@@ -63,22 +80,56 @@ function BillDetail() {
   }, [docId, jobId]);
 
   const total = lines?.reduce((s, l) => s + (l.cost ?? 0), 0) ?? 0;
+  const title = header?.fromName || header?.subject || header?.name || "Vendor bill";
+  const subtitle = header?.subject && header.subject !== title ? header.subject : "";
 
   return (
     <main className="mx-auto max-w-xl px-4 pb-24 pt-6">
-      <Link href="/" className="text-sm font-semibold text-accent">
+      <Link href={`/?jobId=${encodeURIComponent(jobId)}`} className="text-sm font-semibold text-accent">
         ‹ Coding queue
       </Link>
 
       <header className="mb-4 mt-2">
-        <h1 className="text-xl font-bold tracking-tight">Code this bill</h1>
-        <p className="mt-1 font-mono text-xs text-neutral-500">{docId}</p>
+        <h1 className="text-xl font-bold tracking-tight">{title}</h1>
+        {subtitle && <p className="mt-0.5 text-sm text-neutral-500">{subtitle}</p>}
+        <p className="mt-1 font-mono text-xs text-neutral-500">
+          {header?.issueDate ? header.issueDate + " · " : ""}
+          {docId}
+        </p>
       </header>
 
       {loading && <p className="text-sm text-neutral-500">Loading…</p>}
       {error && (
         <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">
           {error}
+        </div>
+      )}
+
+      {/* Attached invoice image / PDF */}
+      {files.length > 0 && (
+        <div className="mb-5 space-y-2">
+          {files.map((f) =>
+            f.url && isImage(f) ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <a key={f.id} href={f.url} target="_blank" rel="noreferrer">
+                <img
+                  src={f.url}
+                  alt={f.name ?? "invoice"}
+                  className="max-h-96 w-full rounded-lg border border-neutral-200 object-contain dark:border-neutral-800"
+                />
+              </a>
+            ) : (
+              <a
+                key={f.id}
+                href={f.url ?? "#"}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-2 rounded-lg border border-neutral-200 px-3 py-2 text-sm hover:border-accent dark:border-neutral-800"
+              >
+                📄 {f.name || "View attachment"}
+              </a>
+            ),
+          )}
         </div>
       )}
 
@@ -103,23 +154,16 @@ function BillDetail() {
                     <div className="min-w-0 font-medium">{l.name || "Line item"}</div>
                     <div className="font-mono text-sm font-semibold">{money(l.cost)}</div>
                   </div>
-                  <label className="mt-2 block">
+                  <div className="mt-2">
                     <span className="mb-1 block text-[10px] uppercase tracking-wide text-neutral-400">
                       Cost code
                     </span>
-                    <select
+                    <CostCodeSelect
+                      options={budget}
                       value={current}
-                      onChange={(e) => setPicked((p) => ({ ...p, [l.id]: e.target.value }))}
-                      className="w-full rounded-lg border border-neutral-300 bg-neutral-50 px-2 py-2 font-mono text-xs dark:border-neutral-700 dark:bg-neutral-950"
-                    >
-                      <option value="">— uncoded —</option>
-                      {budget.map((b) => (
-                        <option key={b.id} value={b.id}>
-                          {b.number} — {b.name}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                      onChange={(id) => setPicked((p) => ({ ...p, [l.id]: id }))}
+                    />
+                  </div>
                 </li>
               );
             })}

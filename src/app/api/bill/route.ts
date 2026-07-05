@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getBillLines, getJobBudget } from "@/lib/jobtread";
+import { getBillDetail, getBillFiles, getJobBudget } from "@/lib/jobtread";
 import { getPaveConfig, hasGrant } from "@/lib/config";
 
-// Read-only: a draft bill's lines + the job's budget (for the cost-code dropdown).
+// Read-only: a draft bill's header + lines + attached files + the job's budget.
 export async function GET(req: NextRequest) {
   if (!hasGrant()) {
     return NextResponse.json(
@@ -17,8 +17,12 @@ export async function GET(req: NextRequest) {
   }
   try {
     const cfg = getPaveConfig();
-    const [lines, budget] = await Promise.all([getBillLines(cfg, docId), getJobBudget(cfg, jobId)]);
-    return NextResponse.json({ lines, budget });
+    const [detail, budget, files] = await Promise.all([
+      getBillDetail(cfg, docId),
+      getJobBudget(cfg, jobId),
+      getBillFiles(cfg, docId),
+    ]);
+    return NextResponse.json({ header: detail.header, lines: detail.lines, budget, files });
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : "Unknown error";
     return NextResponse.json({ error: message }, { status: 502 });
