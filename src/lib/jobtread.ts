@@ -148,18 +148,36 @@ export async function getBillLines(cfg: PaveConfig, docId: string) {
 // the exact lineItems shape is the one remaining detail to lock)
 // ---------------------------------------------------------------------------
 
+/**
+ * A customer-invoice line. Confirmed by reading invoice 22PYV7jiDvHs: each line
+ * mirrors a vendor-bill line — a costCode, a jobCostItem (the budget leaf), a
+ * cost basis, and a price (= cost × fee; that invoice ran a uniform 18% markup).
+ * One line per budget leaf. Input uses ids (like jobId/accountId elsewhere).
+ */
+export interface InvoiceLine {
+  name: string;
+  jobCostItemId: string; // budget cost item this bills against (the join key)
+  costCodeId: string;
+  cost: number; // unbilled cost basis for this budget line
+  price?: number; // cost × (1 + fee). Omit to test whether JT auto-applies the job fee.
+}
+
 export interface StageInvoiceInput {
   jobId: string;
   accountId: string; // customer account
   issueDate: string; // YYYY-MM-DD
-  // TODO(lineItems): confirm how unbilled costs + markup become invoice lines by
-  // reading one existing customerInvoice's line structure. Placeholder below.
-  lineItems: unknown[];
+  lineItems: InvoiceLine[];
 }
 
-/** Create a DRAFT customer invoice (owner reviews/sends inside JobTread). */
+/**
+ * Create a DRAFT customer invoice (owner reviews/sends inside JobTread).
+ * Mechanism confirmed (createDocument + type:customerInvoice). Line shape mirrors
+ * the vendor-bill lineItems built by ascent-appscript pushExpenditureToJobTread.
+ * BUILD-TIME CHECK: on the first live draft, confirm the exact input key names
+ * (jobCostItemId vs jobCostItem, costCodeId vs costCode) and whether `price`
+ * auto-fills from the job fee — the create response / error will tell us.
+ */
 export async function createDraftInvoice(cfg: PaveConfig, input: StageInvoiceInput) {
-  // Mechanism confirmed (createDocument + type). lineItems shape TODO.
   return pave(cfg, {
     createDocument: {
       $: {
@@ -175,3 +193,15 @@ export async function createDraftInvoice(cfg: PaveConfig, input: StageInvoiceInp
     },
   });
 }
+
+/**
+ * Unbilled cost per budget leaf (jobCostItem) for a job = Σ approved vendorBill
+ * cost − Σ customerInvoice cost, grouped by jobCostItem.id. This is the input to
+ * staging: one InvoiceLine per jobCostItem with a positive remainder.
+ *
+ * Implementation note: sum cost items of approved vendorBills and of customer
+ * invoices, keyed on jobCostItem.id (both carry it — confirmed). Query each
+ * document's costItems { cost, jobCostItem{id}, costCode{id,number,name}, name }
+ * and net them. (Left as the next function to implement once the app scaffolds.)
+ */
+
