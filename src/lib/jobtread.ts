@@ -468,6 +468,98 @@ export async function createDraftInvoice(cfg: PaveConfig, input: StageInvoiceInp
   });
 }
 
+export interface UnbilledLine {
+  jobCostItemId: string;
+  costCodeId: string;
+  costCodeNumber: string;
+  costCodeName: string;
+  cost: number; // approved vendor-bill cost for the month
+  invoiced: number; // already on a customer invoice for the month
+  unbilled: number; // cost − invoiced
+}
+export interface MonthlyStaging {
+  customer: { id: string; name: string } | null;
+  lines: UnbilledLine[];
+}
+
+/**
+ * Costs to invoice for a job + billing month: approved vendor-bill cost per
+ * budget leaf (issueDate in the month = the billing month), minus what's already
+ * on a customer invoice for that month. One grouped query per doc type.
+ */
+export async function getMonthlyUnbilled(
+  cfg: PaveConfig,
+  jobId: string,
+  year: number,
+  month: number,
+): Promise<MonthlyStaging> {
+  const mm = String(month).padStart(2, "0");
+  const first = `${year}-${mm}-01`;
+  const last = `${year}-${mm}-${String(new Date(year, month, 0).getDate()).padStart(2, "0")}`;
+
+  const grouped = async (docType: string, statuses: string[]): Promise<any[]> => {
+    const r = await pave(cfg, {
+      job: {
+        $: { id: jobId },
+        id: {},
+        costItems: {
+          $: {
+            where: {
+              and: [
+                [["document", "type"], docType],
+                [["document", "status"], "in", statuses],
+                [["document", "issueDate"], ">=", first],
+                [["document", "issueDate"], "<=", last],
+              ],
+            },
+            group: {
+              by: [["jobCostItem", "id"], ["costCode", "id"], ["costCode", "number"], ["costCode", "name"]],
+              aggs: { cost: { sum: "cost" } },
+            },
+          },
+          withValues: {},
+        },
+      },
+    });
+    return r?.job?.costItems?.withValues ?? [];
+  };
+
+  const bills = await grouped("vendorBill", ["approved"]);
+  const invoices = await grouped("customerInvoice", ["approved", "pending", "draft"]);
+
+  const invByJci: Record<string, number> = {};
+  for (const row of invoices) {
+    const jci = row.jobCostItem?.id;
+    if (jci) invByJci[jci] = (invByJci[jci] ?? 0) + (row.cost ?? 0);
+  }
+
+  const lines: UnbilledLine[] = bills
+    .filter((row) => row.jobCostItem?.id)
+    .map((row) => {
+      const jci = row.jobCostItem.id;
+      const cost = row.cost ?? 0;
+      const invoiced = invByJci[jci] ?? 0;
+      return {
+        jobCostItemId: jci,
+        costCodeId: row.costCode?.id ?? "",
+        costCodeNumber: row.costCode?.number ?? "",
+        costCodeName: row.costCode?.name ?? "",
+        cost,
+        invoiced,
+        unbilled: cost - invoiced,
+      };
+    })
+    .sort((a, b) => a.costCodeNumber.localeCompare(b.costCodeNumber));
+
+  const c = await pave(cfg, {
+    job: { $: { id: jobId }, id: {}, location: { account: { id: {}, name: {} } } },
+  });
+  const acc = c?.job?.location?.account;
+  const customer = acc?.id ? { id: acc.id, name: acc.name ?? "" } : null;
+
+  return { customer, lines };
+}
+
 /**
  * Unbilled cost per budget leaf (jobCostItem) for a job = Σ approved vendorBill
  * cost − Σ customerInvoice cost, grouped by jobCostItem.id. This is the input to

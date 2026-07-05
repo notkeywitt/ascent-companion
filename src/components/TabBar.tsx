@@ -10,6 +10,7 @@ const TABS: { label: string; href: string; match: (p: string) => boolean }[] = [
     href: "/",
     match: (p) => p === "/" || p.startsWith("/unbilled") || p.startsWith("/bill"),
   },
+  { label: "Invoicing", href: "/stage", match: (p) => p.startsWith("/stage") },
   { label: "RFIs", href: "/rfis", match: (p) => p.startsWith("/rfis") },
   { label: "Requests", href: "/requests", match: (p) => p.startsWith("/requests") },
   { label: "Admin", href: "/admin", match: (p) => p.startsWith("/admin") },
