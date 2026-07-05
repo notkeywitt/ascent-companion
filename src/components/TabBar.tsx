@@ -47,7 +47,7 @@ export function TabBar() {
   const jobId = search.get("jobId") ?? "";
   const qs = jobId ? `?jobId=${encodeURIComponent(jobId)}` : "";
 
-  if (pathname === "/login") return null;
+  if (pathname === "/login" || pathname === "/privacy") return null;
 
   return (
     <nav className="sticky top-0 z-10 flex items-center border-b border-black/10 bg-[#FAF7EE]/90 pr-1 backdrop-blur dark:border-white/10 dark:bg-[#1B1B17]/90">
