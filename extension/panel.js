@@ -12,7 +12,7 @@ let follow = true;
 let lastLoadedJob = null;
 
 function loadUrl(u) {
-  if (frame.src !== u) frame.src = u;
+  if (frame && frame.src !== u) frame.src = u;
 }
 function loadJob(jobId) {
   lastLoadedJob = jobId;
@@ -23,19 +23,15 @@ function loadHome() {
   loadUrl(APP_URL);
 }
 function setJobLabel(jobId) {
-  if (jobId) {
-    jobLabel.textContent = "▶ " + jobId;
-    jobLabel.classList.remove("none");
-  } else {
-    jobLabel.textContent = "no job open";
-    jobLabel.classList.add("none");
-  }
+  if (!jobLabel) return;
+  jobLabel.textContent = jobId ? "▶ " + jobId : "no job open";
+  jobLabel.classList.toggle("none", !jobId);
 }
 
 // Initial state
 chrome.storage.local.get([K_FOLLOW, K_JOB], (d) => {
   follow = d[K_FOLLOW] !== false; // default on
-  followChk.checked = follow;
+  if (followChk) followChk.checked = follow;
   const jobId = d[K_JOB] && d[K_JOB].jobId;
   setJobLabel(jobId);
   if (follow && jobId) loadJob(jobId);
@@ -52,13 +48,15 @@ chrome.storage.onChanged.addListener((changes, area) => {
   }
 });
 
-followChk.addEventListener("change", () => {
-  follow = followChk.checked;
-  chrome.storage.local.set({ [K_FOLLOW]: follow });
-  if (follow) {
-    chrome.storage.local.get(K_JOB, (d) => {
-      const jobId = d[K_JOB] && d[K_JOB].jobId;
-      if (jobId && jobId !== lastLoadedJob) loadJob(jobId);
-    });
-  }
-});
+if (followChk) {
+  followChk.addEventListener("change", () => {
+    follow = followChk.checked;
+    chrome.storage.local.set({ [K_FOLLOW]: follow });
+    if (follow) {
+      chrome.storage.local.get(K_JOB, (d) => {
+        const jobId = d[K_JOB] && d[K_JOB].jobId;
+        if (jobId && jobId !== lastLoadedJob) loadJob(jobId);
+      });
+    }
+  });
+}
