@@ -85,6 +85,7 @@ function BillDetail() {
   const [header, setHeader] = useState<Header | null>(null);
   const [lines, setLines] = useState<Line[] | null>(null);
   const [budget, setBudget] = useState<Option[]>([]);
+  const [ctc, setCtc] = useState<Record<string, { budget: number; actual: number; remaining: number }>>({});
   const [files, setFiles] = useState<FileNode[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -111,6 +112,7 @@ function BillDetail() {
           setHeader(json.header ?? null);
           setLines(json.lines ?? []);
           setBudget(json.budget ?? []);
+          setCtc(json.costToComplete ?? {});
           setFiles(json.files ?? []);
           setWrites(Boolean(json.writesEnabled));
         }
@@ -544,6 +546,28 @@ function BillDetail() {
                       value={current}
                       onChange={(id) => setPicked((p) => ({ ...p, [l.id]: id }))}
                     />
+                    {(() => {
+                      const codeNum = budget.find((o) => o.id === current)?.number;
+                      const c = codeNum ? ctc[codeNum] : undefined;
+                      if (!c) return null;
+                      return (
+                        <div className="mt-1 text-[11px]">
+                          <span className="text-neutral-500">Cost to complete: </span>
+                          <span
+                            className={
+                              "font-mono font-semibold " +
+                              (c.remaining < 0 ? "text-red-600 dark:text-red-400" : "")
+                            }
+                          >
+                            {money(c.remaining)}
+                          </span>
+                          <span className="text-neutral-400">
+                            {" "}
+                            (budget {money(c.budget)} − actual {money(c.actual)})
+                          </span>
+                        </div>
+                      );
+                    })()}
                   </div>
                 </li>
               );

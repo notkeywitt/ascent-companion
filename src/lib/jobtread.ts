@@ -359,6 +359,63 @@ export async function getJobBudget(cfg: PaveConfig, jobId: string): Promise<Budg
   return items.sort((a, b) => a.number.localeCompare(b.number));
 }
 
+export interface CostToComplete {
+  budget: number; // Σ budget-leaf cost for the code (the estimate)
+  actual: number; // Σ approved+pending vendorBill cost for the code (spent/committed)
+  remaining: number; // budget − actual (negative = over budget)
+}
+
+/**
+ * Cost to Complete per cost code = budget − actual. JobTread has no stored CTC
+ * field: budget is the sum of the code's budget-leaf cost items (document==null),
+ * actual is the sum of its approved+pending vendor-bill cost items. Keyed by cost
+ * code number. One paginated pass over the flat job.costItems connection.
+ */
+export async function getCostToComplete(
+  cfg: PaveConfig,
+  jobId: string,
+): Promise<Record<string, CostToComplete>> {
+  let nodes: any[] = [];
+  let page: string | undefined;
+  let guard = 0;
+  do {
+    const r = await pave(cfg, {
+      job: {
+        $: { id: jobId },
+        costItems: {
+          $: { size: 100, ...(page ? { page } : {}) },
+          nextPage: {},
+          nodes: { cost: {}, costCode: { number: {} }, document: { type: {}, status: {} } },
+        },
+      },
+    });
+    nodes = nodes.concat(r?.job?.costItems?.nodes ?? []);
+    page = r?.job?.costItems?.nextPage || undefined;
+  } while (page && ++guard < 50);
+
+  const budget: Record<string, number> = {};
+  const actual: Record<string, number> = {};
+  for (const n of nodes) {
+    const code = n.costCode?.number;
+    if (!code) continue;
+    const c = n.cost ?? 0;
+    if (!n.document) budget[code] = (budget[code] ?? 0) + c;
+    else if (
+      n.document.type === "vendorBill" &&
+      (n.document.status === "approved" || n.document.status === "pending")
+    ) {
+      actual[code] = (actual[code] ?? 0) + c;
+    }
+  }
+  const out: Record<string, CostToComplete> = {};
+  for (const code of new Set([...Object.keys(budget), ...Object.keys(actual)])) {
+    const b = budget[code] ?? 0;
+    const a = actual[code] ?? 0;
+    out[code] = { budget: b, actual: a, remaining: b - a };
+  }
+  return out;
+}
+
 export interface JobRef {
   id: string;
   name: string;

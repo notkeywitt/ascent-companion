@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getBillDetail, getBillFiles, getJobBudget } from "@/lib/jobtread";
+import { getBillDetail, getBillFiles, getJobBudget, getCostToComplete } from "@/lib/jobtread";
 import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
 
 // Read-only: a draft bill's header + lines + attached files + the job's budget.
@@ -17,16 +17,18 @@ export async function GET(req: NextRequest) {
   }
   try {
     const cfg = getPaveConfig();
-    const [detail, budget, files] = await Promise.all([
+    const [detail, budget, files, costToComplete] = await Promise.all([
       getBillDetail(cfg, docId),
       getJobBudget(cfg, jobId),
       getBillFiles(cfg, docId),
+      getCostToComplete(cfg, jobId),
     ]);
     return NextResponse.json({
       header: detail.header,
       lines: detail.lines,
       budget,
       files,
+      costToComplete,
       writesEnabled: writesEnabled(),
     });
   } catch (e: unknown) {
