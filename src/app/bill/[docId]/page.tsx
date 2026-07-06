@@ -140,19 +140,25 @@ function BillDetail() {
   }, [docId, jobId]);
 
   // Coding-queue order for this job, so we can step ‹ prev / next › between bills.
+  // Re-fetch on each bill (docId) so the queue only ever holds CURRENT draft
+  // bills — ones you've already processed (payable/paid) drop out, so the nav
+  // arrows skip them. The current bill is kept as an anchor even once it leaves
+  // draft, so Next still works right after you approve it.
   useEffect(() => {
     if (!jobId) return;
     let alive = true;
     fetch(`/api/coding-queue?jobId=${encodeURIComponent(jobId)}`)
       .then((r) => r.json())
       .then((j) => {
-        if (alive) setQueue((j.bills ?? []).map((b: { id: string }) => b.id));
+        if (!alive) return;
+        const drafts: string[] = (j.bills ?? []).map((b: { id: string }) => b.id);
+        setQueue(drafts.includes(docId) ? drafts : [docId, ...drafts]);
       })
       .catch(() => {});
     return () => {
       alive = false;
     };
-  }, [jobId]);
+  }, [jobId, docId]);
 
   const qIdx = queue.indexOf(docId);
   const prevId = qIdx > 0 ? queue[qIdx - 1] : null;
