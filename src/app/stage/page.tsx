@@ -2,13 +2,14 @@
 
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { JtLink } from "@/components/JtLink";
 
 interface Line {
-  code: string;
-  name: string;
-  billed: number;
-  invoiced: number;
-  remainder: number;
+  key: string;
+  label: string;
+  cost: number;
+  billIds: string[];
+  isSunset: boolean;
 }
 
 const money = (n: number) =>
@@ -42,7 +43,6 @@ function Stage() {
   const [customer, setCustomer] = useState<{ id: string; name: string } | null>(null);
   const [lines, setLines] = useState<Line[] | null>(null);
   const [total, setTotal] = useState(0);
-  const [netTotal, setNetTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [msg, setMsg] = useState("");
@@ -63,7 +63,6 @@ function Stage() {
       else {
         setLines(j.lines ?? []);
         setTotal(j.total ?? 0);
-        setNetTotal(j.netTotal ?? 0);
         setCustomer(j.customer ?? null);
       }
     } catch (e) {
@@ -92,7 +91,7 @@ function Stage() {
       else if (j.previewed) setMsg(j.message ?? "Preview only — writes are OFF.");
       else
         setMsg(
-          `Draft invoice created${j.created?.id ? " (" + j.created.id + ")" : ""} — JobTread pulled the uninvoiced cost; review & send it there.`,
+          `Draft invoice created${j.created?.id ? " (" + j.created.id + ")" : ""} — JobTread pulled the uninvoiced bills; review & send it there.`,
         );
     } catch (e) {
       setMsg(e instanceof Error ? e.message : "Network error");
@@ -100,8 +99,6 @@ function Stage() {
       setCreating(false);
     }
   }
-
-  const recodeGap = Math.abs(netTotal - total) > 0.5;
 
   return (
     <main className="mx-auto max-w-xl px-4 pb-24 pt-6">
@@ -111,8 +108,8 @@ function Stage() {
         </p>
         <h1 className="text-2xl font-bold tracking-tight">Stage Invoice</h1>
         <p className="mt-1 text-sm text-neutral-500">
-          Uninvoiced cost per code — exactly what a new draft invoice will pull. Fully-invoiced
-          codes drop off automatically.
+          Approved bills not yet on a customer invoice — Sunset grouped, others itemized. This is
+          what a new draft will pull.
         </p>
       </header>
 
@@ -146,7 +143,7 @@ function Stage() {
 
       {lines && lines.length === 0 && !loading && (
         <div className="rounded-xl border border-dashed border-neutral-300 p-6 text-center text-sm text-neutral-500 dark:border-neutral-700">
-          Nothing uninvoiced — every approved cost on this job is already on a customer invoice.
+          No uninvoiced bills — every approved bill on this job is already on a customer invoice.
         </div>
       )}
 
@@ -156,18 +153,26 @@ function Stage() {
             <table className="w-full text-sm">
               <thead className="bg-neutral-50 text-left text-xs uppercase tracking-wide text-neutral-500 dark:bg-neutral-900">
                 <tr>
-                  <th className="px-3 py-2 font-medium">Cost code</th>
-                  <th className="px-3 py-2 text-right font-medium">Uninvoiced</th>
+                  <th className="px-3 py-2 font-medium">Bill</th>
+                  <th className="px-3 py-2 text-right font-medium">Cost</th>
                 </tr>
               </thead>
               <tbody>
                 {lines.map((l) => (
-                  <tr key={l.code} className="border-t border-neutral-100 dark:border-neutral-800">
+                  <tr key={l.key} className="border-t border-neutral-100 dark:border-neutral-800">
                     <td className="px-3 py-2">
-                      <span className="font-mono text-xs text-neutral-500">{l.code}</span>{" "}
-                      {l.name}
+                      {l.billIds.length === 1 ? (
+                        <JtLink
+                          href={`https://app.jobtread.com/jobs/${jobId}/documents/${l.billIds[0]}`}
+                          className="text-accent hover:underline"
+                        >
+                          {l.label} ↗
+                        </JtLink>
+                      ) : (
+                        l.label
+                      )}
                     </td>
-                    <td className="px-3 py-2 text-right font-mono">{money(l.remainder)}</td>
+                    <td className="px-3 py-2 text-right font-mono">{money(l.cost)}</td>
                   </tr>
                 ))}
                 <tr className="border-t border-neutral-200 font-semibold dark:border-neutral-700">
@@ -177,15 +182,6 @@ function Stage() {
               </tbody>
             </table>
           </div>
-
-          {recodeGap && (
-            <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
-              Heads up: the job&apos;s net uninvoiced is {money(netTotal)}, which differs from the
-              {" "}
-              {money(total)} above. That gap means some cost was invoiced under a different code than
-              it was billed to. JobTread will reconcile on its side — treat this as a rough check.
-            </p>
-          )}
 
           <button
             onClick={createInvoice}
@@ -199,7 +195,8 @@ function Stage() {
           )}
           <p className="mt-2 text-xs text-neutral-500">
             The table is a sanity check. Creating a <b>draft</b> invoice dated {opt?.lastDay} lets
-            JobTread pull the uninvoiced cost itself — you review &amp; send it there.
+            JobTread pull these uninvoiced bills (and any uninvoiced time) itself — you review &amp;
+            send it there.
           </p>
         </>
       )}

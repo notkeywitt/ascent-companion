@@ -552,89 +552,99 @@ export async function getMonthlyBills(
 }
 
 /**
- * Uninvoiced remainder per cost code — this is what "Create draft invoice" will
- * actually pull. Confirmed (probes, 2026-07): JobTread has NO per-bill "invoiced"
- * flag; a customer invoice has one line per budget cost code with sourceCostItem
- * null. It nets per cost code: remainder = Σ approved vendorBill cost − Σ customer
- * invoice cost. Fully-invoiced codes net to 0 and drop out; that is how JT
- * "discriminates" already-invoiced cost. There is no month dimension — a new
- * invoice pulls ALL uninvoiced cost, so this is job-wide (the month only sets the
- * invoice's issueDate).
+ * Uninvoiced vendor bills for a job — the individual bills a new customer invoice
+ * will pull, mirroring JobTread's native invoice builder.
  *
- * Uses the flat job.costItems connection (nested costItems in paged documents
- * 413s) and filters out budget leaves (document == null). Invoiced counts ANY
- * customer-invoice status (draft/pending/approved) so cost already on a staged
- * draft isn't re-shown.
+ * Confirmed (probes + native-UI network capture, 2026-07): a vendor bill's
+ * `referencedDocuments` is the per-bill "already invoiced" flag. When a customer
+ * invoice pulls a bill, that bill's referencedDocuments gains a node of type
+ * customerInvoice (any status). Uninvoiced = no customerInvoice reference. This is
+ * how JT's builder discriminates — per bill, not per cost code.
+ *
+ * NOTE: referencedDocuments nested in paged documents 413s at size 100 (like
+ * costItems), but works at ≤50 — we page at 25. A bare "Create invoice" also
+ * pulls uninvoiced TIME entries, which aren't listed here yet.
  */
-export interface UninvoicedLine {
-  code: string; // costCode.number
-  name: string; // costCode.name
-  billed: number; // Σ approved vendorBill cost
-  invoiced: number; // Σ customerInvoice cost (any status)
-  remainder: number; // billed − invoiced (> 0)
+export interface UninvoicedBillLine {
+  key: string;
+  label: string; // vendor · invoice#, or the rolled-up Sunset group
+  cost: number;
+  billIds: string[];
+  isSunset: boolean;
 }
-export interface UninvoicedStaging {
+export interface UninvoicedBills {
   customer: { id: string; name: string } | null;
-  lines: UninvoicedLine[]; // positive remainders, largest first
-  total: number; // Σ shown remainders
-  netTotal: number; // job-level billed − invoiced (may differ from total if codes were recoded between bill and invoice)
+  lines: UninvoicedBillLine[];
+  total: number;
 }
 
-export async function getUninvoicedByCostCode(
+export async function getUninvoicedBills(
   cfg: PaveConfig,
   jobId: string,
-): Promise<UninvoicedStaging> {
-  let nodes: any[] = [];
+): Promise<UninvoicedBills> {
+  let bills: any[] = [];
   let page: string | undefined;
   let guard = 0;
   do {
     const r = await pave(cfg, {
       job: {
         $: { id: jobId },
-        id: {},
-        costItems: {
-          $: { size: 100, ...(page ? { page } : {}) },
+        documents: {
+          $: {
+            where: { and: [["type", "vendorBill"], ["status", "approved"]] },
+            size: 25,
+            ...(page ? { page } : {}),
+          },
           nextPage: {},
           nodes: {
+            id: {},
+            subject: {},
+            externalId: {},
+            number: {},
+            fromName: {},
             cost: {},
-            costCode: { number: {}, name: {} },
-            document: { type: {}, status: {} },
+            issueDate: {},
+            account: { name: {} },
+            referencedDocuments: { nodes: { type: {} } },
           },
         },
       },
     });
-    nodes = nodes.concat(r?.job?.costItems?.nodes ?? []);
-    page = r?.job?.costItems?.nextPage || undefined;
-  } while (page && ++guard < 50);
+    bills = bills.concat(r?.job?.documents?.nodes ?? []);
+    page = r?.job?.documents?.nextPage || undefined;
+  } while (page && ++guard < 100);
 
-  const bill = new Map<string, number>();
-  const inv = new Map<string, number>();
-  const names = new Map<string, string>();
-  for (const n of nodes) {
-    if (!n.document) continue; // budget leaf, not a bill/invoice line
-    const code = n.costCode?.number ?? "(uncoded)";
-    if (n.costCode?.name) names.set(code, n.costCode.name);
-    const c = n.cost ?? 0;
-    if (n.document.type === "vendorBill" && n.document.status === "approved") {
-      bill.set(code, (bill.get(code) ?? 0) + c);
-    } else if (n.document.type === "customerInvoice") {
-      inv.set(code, (inv.get(code) ?? 0) + c);
-    }
-  }
+  const isInvoiced = (b: any) =>
+    (b.referencedDocuments?.nodes ?? []).some((n: any) => n.type === "customerInvoice");
+  const open = bills.filter((b) => !isInvoiced(b));
 
-  const lines: UninvoicedLine[] = [];
-  let netTotal = 0;
-  for (const code of new Set([...bill.keys(), ...inv.keys()])) {
-    const b = bill.get(code) ?? 0;
-    const i = inv.get(code) ?? 0;
-    const remainder = b - i;
-    netTotal += remainder;
-    if (remainder > 0.005) {
-      lines.push({ code, name: names.get(code) ?? "", billed: b, invoiced: i, remainder });
-    }
+  const vendorOf = (b: any) => String(b.account?.name ?? b.fromName ?? "Vendor");
+  const isSunset = (b: any) => /sunset/i.test(vendorOf(b));
+  const sunset = open.filter(isSunset);
+  const others = open.filter((b) => !isSunset(b));
+
+  const lines: UninvoicedBillLine[] = [];
+  if (sunset.length) {
+    lines.push({
+      key: "sunset",
+      label: `Sunset Builders Supply (${sunset.length} invoice${sunset.length > 1 ? "s" : ""})`,
+      cost: sunset.reduce((s, b) => s + (b.cost ?? 0), 0),
+      billIds: sunset.map((b) => b.id),
+      isSunset: true,
+    });
   }
-  lines.sort((a, b) => b.remainder - a.remainder);
-  const total = lines.reduce((s, l) => s + l.remainder, 0);
+  for (const b of others) {
+    const inv = b.externalId || (b.number ? `#${b.number}` : "");
+    lines.push({
+      key: b.id,
+      label: `${vendorOf(b)}${inv ? ` · ${inv}` : ""}`,
+      cost: b.cost ?? 0,
+      billIds: [b.id],
+      isSunset: false,
+    });
+  }
+  lines.sort((a, b) => b.cost - a.cost);
+  const total = open.reduce((s, b) => s + (b.cost ?? 0), 0);
 
   const c = await pave(cfg, {
     job: { $: { id: jobId }, id: {}, location: { account: { id: {}, name: {} } } },
@@ -642,6 +652,6 @@ export async function getUninvoicedByCostCode(
   const acc = c?.job?.location?.account;
   const customer = acc?.id ? { id: acc.id, name: acc.name ?? "" } : null;
 
-  return { customer, lines, total, netTotal };
+  return { customer, lines, total };
 }
 
