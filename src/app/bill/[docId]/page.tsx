@@ -187,25 +187,43 @@ function BillDetail() {
     return changed ? [change] : [];
   });
 
+  // Re-read the bill's header from JobTread (authoritative) without disturbing
+  // in-progress line edits. Used after any header write so the toggles/status
+  // reflect JT's true state — including fields JT changes on its own (e.g.
+  // qboIsIgnored can flip when a bill is approved).
+  async function reloadHeader() {
+    try {
+      const res = await fetch(
+        `/api/bill?docId=${encodeURIComponent(docId)}&jobId=${encodeURIComponent(jobId)}`,
+      );
+      const json = await res.json();
+      if (res.ok) {
+        setHeader(json.header ?? null);
+        setWrites(Boolean(json.writesEnabled));
+      }
+    } catch {
+      /* keep optimistic state */
+    }
+  }
+
   // Optimistically patch a bill header flag (name = Bill/Expense, qboIsIgnored =
-  // Push-to-QB) and persist via /api/bill-fields.
-  async function patchBill(fields: { name?: string; qboIsIgnored?: boolean }) {
+  // Push-to-QB), persist via /api/bill-fields, then re-read JT's truth.
+  async function patchBill(fields: {
+    name?: string;
+    qboIsIgnored?: boolean;
+    qboDocumentType?: string;
+  }) {
     setHeader((h) => (h ? { ...h, ...fields } : h)); // optimistic
     try {
-      const res = await fetch("/api/bill-fields", {
+      await fetch("/api/bill-fields", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ docId, ...fields }),
       });
-      const j = await res.json().catch(() => ({}));
-      // Reconcile with what actually persisted so the toggle can't drift.
-      const applied: { name?: string; qboIsIgnored?: boolean } = {};
-      if (typeof j.name === "string") applied.name = j.name;
-      if (typeof j.qboIsIgnored === "boolean") applied.qboIsIgnored = j.qboIsIgnored;
-      if (Object.keys(applied).length) setHeader((h) => (h ? { ...h, ...applied } : h));
     } catch {
-      /* optimistic; a reload reflects the true state */
+      /* optimistic; the reload below reflects the true state */
     }
+    await reloadHeader();
   }
 
   const isExpense = (header?.name ?? "Bill") === "Expense";
@@ -236,6 +254,7 @@ function BillDetail() {
     } finally {
       setApproving(false);
     }
+    await reloadHeader(); // reflect any JT-side changes (e.g. qboIsIgnored)
   }
 
   async function saveCoding() {
@@ -387,7 +406,9 @@ function BillDetail() {
                   <button
                     key={t}
                     type="button"
-                    onClick={() => patchBill({ name: t })}
+                    onClick={() =>
+                      patchBill({ name: t, qboDocumentType: t === "Expense" ? "purchase" : "bill" })
+                    }
                     className={
                       "px-3 py-1 text-sm " +
                       (on

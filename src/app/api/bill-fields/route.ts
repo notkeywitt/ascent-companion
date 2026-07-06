@@ -8,7 +8,7 @@ export async function POST(req: NextRequest) {
   if (!hasGrant()) {
     return NextResponse.json({ error: "JT_GRANT_KEY is not set." }, { status: 400 });
   }
-  let body: { docId?: string; name?: string; qboIsIgnored?: boolean };
+  let body: { docId?: string; name?: string; qboIsIgnored?: boolean; qboDocumentType?: string };
   try {
     body = await req.json();
   } catch {
@@ -17,9 +17,13 @@ export async function POST(req: NextRequest) {
   const docId = (body.docId ?? "").trim();
   if (!docId) return NextResponse.json({ error: "docId required" }, { status: 400 });
 
-  const fields: { name?: string; qboIsIgnored?: boolean } = {};
+  const fields: { name?: string; qboIsIgnored?: boolean; qboDocumentType?: string } = {};
   if (body.name === "Bill" || body.name === "Expense") fields.name = body.name;
   if (typeof body.qboIsIgnored === "boolean") fields.qboIsIgnored = body.qboIsIgnored;
+  // QBO sync type: bill (as a bill) or purchase (as an expense).
+  if (body.qboDocumentType === "bill" || body.qboDocumentType === "purchase") {
+    fields.qboDocumentType = body.qboDocumentType;
+  }
   if (Object.keys(fields).length === 0) {
     return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
   }

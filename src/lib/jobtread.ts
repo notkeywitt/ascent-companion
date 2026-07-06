@@ -228,23 +228,24 @@ export async function getBillDetail(cfg: PaveConfig, docId: string): Promise<Bil
 
 /**
  * WRITE — set a bill's header flags. `name` is "Bill" | "Expense" (the JT doc
- * name field that flips a bill vs an expense), `qboIsIgnored` controls Push to
- * QuickBooks (ignored = NOT pushed, so Push-to-QB = !qboIsIgnored). Never touches
- * lineItems. Both fields are proven writable by the Apps Script push path.
+ * name / template), `qboDocumentType` is how it SYNCS to QuickBooks ("bill" vs
+ * "purchase" = expense) — changing name alone doesn't change the QBO type, so the
+ * Bill/Expense toggle sets both. `qboIsIgnored` controls Push to QuickBooks
+ * (ignored = NOT pushed, so Push-to-QB = !qboIsIgnored). Never touches lineItems.
  */
 export async function setBillFields(
   cfg: PaveConfig,
   docId: string,
-  fields: { name?: string; qboIsIgnored?: boolean },
-): Promise<{ name?: string; qboIsIgnored?: boolean }> {
+  fields: { name?: string; qboIsIgnored?: boolean; qboDocumentType?: string },
+): Promise<{ name?: string; qboIsIgnored?: boolean; qboDocumentType?: string }> {
   const r = await pave(cfg, {
     updateDocument: {
       $: { id: docId, ...fields },
-      document: { $: { id: docId }, id: {}, name: {}, qboIsIgnored: {} },
+      document: { $: { id: docId }, id: {}, name: {}, qboIsIgnored: {}, qboDocumentType: {} },
     },
   });
   const d = r?.updateDocument?.document ?? {};
-  return { name: d.name, qboIsIgnored: d.qboIsIgnored };
+  return { name: d.name, qboIsIgnored: d.qboIsIgnored, qboDocumentType: d.qboDocumentType };
 }
 
 export interface BillFile {
