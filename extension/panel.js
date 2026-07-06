@@ -68,15 +68,34 @@ if (followChk) {
 window.addEventListener("message", (e) => {
   if (e.origin !== APP_URL) return;
   const d = e.data || {};
-  if (d.type !== "ascentOpenJtDoc" || !d.href) return;
-  chrome.tabs.query({ active: true, lastFocusedWindow: true }, (tabs) => {
-    const t = tabs && tabs[0];
-    if (t && /:\/\/app\.jobtread\.com\//.test(t.url || "")) {
-      chrome.tabs.update(t.id, { url: d.href });
-    } else {
-      chrome.tabs.query({ url: "https://app.jobtread.com/*" }, (jt) => {
-        if (jt && jt.length) chrome.tabs.update(jt[0].id, { url: d.href, active: true });
-      });
-    }
-  });
+
+  // Navigate the docked JobTread tab to a specific document.
+  if (d.type === "ascentOpenJtDoc" && d.href) {
+    chrome.tabs.query({ active: true, lastFocusedWindow: true }, (tabs) => {
+      const t = tabs && tabs[0];
+      if (t && /:\/\/app\.jobtread\.com\//.test(t.url || "")) {
+        chrome.tabs.update(t.id, { url: d.href });
+      } else {
+        chrome.tabs.query({ url: "https://app.jobtread.com/*" }, (jt) => {
+          if (jt && jt.length) chrome.tabs.update(jt[0].id, { url: d.href, active: true });
+        });
+      }
+    });
+    return;
+  }
+
+  // Reload the docked JobTread tab so it shows a change the companion just wrote.
+  if (d.type === "ascentReloadJt") {
+    chrome.tabs.query({ active: true, lastFocusedWindow: true }, (tabs) => {
+      const t = tabs && tabs[0];
+      if (t && /:\/\/app\.jobtread\.com\//.test(t.url || "")) {
+        chrome.tabs.reload(t.id);
+      } else {
+        chrome.tabs.query({ url: "https://app.jobtread.com/*" }, (jt) => {
+          if (jt && jt.length) chrome.tabs.reload(jt[0].id);
+        });
+      }
+    });
+    return;
+  }
 });

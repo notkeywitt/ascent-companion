@@ -76,6 +76,18 @@ function driveMainWindowToDoc(jobId: string, docId: string) {
   }
 }
 
+// Ask the extension to reload the docked JobTread tab so JobTread's page shows
+// what the companion just wrote (its SPA doesn't live-update from API writes).
+function reloadJtWindow() {
+  try {
+    if (typeof window !== "undefined" && window.top !== window.self) {
+      window.parent.postMessage({ type: "ascentReloadJt" }, "*");
+    }
+  } catch {
+    /* unframed — ignore */
+  }
+}
+
 function BillDetail() {
   const params = useParams<{ docId: string }>();
   const search = useSearchParams();
@@ -226,6 +238,7 @@ function BillDetail() {
       /* optimistic; the reload below reflects the true state */
     }
     await reloadHeader();
+    reloadJtWindow(); // refresh JobTread's view of the change
   }
 
   const isExpense = (header?.name ?? "Bill") === "Expense";
@@ -309,6 +322,7 @@ function BillDetail() {
       setApproving(false);
     }
     await loadBill(); // reflect saved codes/descriptions + new status
+    reloadJtWindow(); // refresh JobTread's view
   }
 
   async function saveCoding() {
@@ -360,6 +374,7 @@ function BillDetail() {
           return n;
         });
         setSaveMsg(`Saved ${ok} line(s)${bad ? `, ${bad} failed` : ""}.`);
+        if (ok) reloadJtWindow(); // refresh JobTread's view of the codes
       }
     } catch (e) {
       setSaveMsg(e instanceof Error ? e.message : "Network error");
