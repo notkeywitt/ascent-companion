@@ -164,10 +164,14 @@ function BillDetail() {
     const sel = picked[l.id];
     if (sel !== undefined && sel !== (l.jobCostItem?.id ?? "")) {
       change.jobCostItemId = sel;
-      // Mirror the coding into the line's description = "number - name" of the
-      // cost code. Empty when uncoding.
-      const opt = budget.find((o) => o.id === sel);
-      change.description = opt ? (opt.name ? `${opt.number} - ${opt.name}` : opt.number) : "";
+      // JobTread locks a cost item's description field once the bill is payable
+      // (pending) or paid (approved) — updating it errors. So only mirror the
+      // code into the description on DRAFT bills; on payable/paid we still
+      // re-code, just without touching the description.
+      if (header?.status === "draft") {
+        const opt = budget.find((o) => o.id === sel);
+        change.description = opt ? (opt.name ? `${opt.number} - ${opt.name}` : opt.number) : "";
+      }
       changed = true;
     }
     const qStr = edits[l.id]?.quantity;
