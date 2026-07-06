@@ -7,6 +7,7 @@ interface Change {
   jobCostItemId?: string;
   quantity?: number;
   unitCost?: number;
+  description?: string;
 }
 
 const hasEdit = (c: Change) =>
@@ -50,6 +51,7 @@ export async function POST(req: NextRequest) {
         jobCostItemId: c.jobCostItemId,
         quantity: c.quantity,
         unitCost: c.unitCost,
+        description: c.description,
       });
       results.push({ costItemId: c.costItemId, ok: true });
     } catch (e) {

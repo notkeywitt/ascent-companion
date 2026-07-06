@@ -451,12 +451,13 @@ export async function getVendors(cfg: PaveConfig): Promise<VendorRef[]> {
 export async function updateLine(
   cfg: PaveConfig,
   costItemId: string,
-  fields: { jobCostItemId?: string; quantity?: number; unitCost?: number },
+  fields: { jobCostItemId?: string; quantity?: number; unitCost?: number; description?: string },
 ): Promise<{ id: string }> {
   const $: Record<string, unknown> = { id: costItemId };
   if (fields.jobCostItemId !== undefined) $.jobCostItemId = fields.jobCostItemId;
   if (fields.quantity !== undefined) $.quantity = fields.quantity;
   if (fields.unitCost !== undefined) $.unitCost = fields.unitCost;
+  if (fields.description !== undefined) $.description = fields.description;
   const r = await pave(cfg, {
     updateCostItem: { $, costItem: { $: { id: costItemId }, id: {} } },
   });

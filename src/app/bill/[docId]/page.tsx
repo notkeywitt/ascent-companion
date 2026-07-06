@@ -157,12 +157,16 @@ function BillDetail() {
       jobCostItemId?: string;
       quantity?: number;
       unitCost?: number;
+      description?: string;
     } = { costItemId: l.id };
     let changed = false;
 
     const sel = picked[l.id];
     if (sel !== undefined && sel !== (l.jobCostItem?.id ?? "")) {
       change.jobCostItemId = sel;
+      // Mirror the coding into the line's description = the cost code (matches
+      // the Apps Script convention). Empty when uncoding.
+      change.description = budget.find((o) => o.id === sel)?.number ?? "";
       changed = true;
     }
     const qStr = edits[l.id]?.quantity;
