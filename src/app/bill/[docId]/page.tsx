@@ -246,8 +246,37 @@ function BillDetail() {
           `Preview only — writes are OFF. ${pending.length} line(s) would be updated in JobTread.`,
         );
       else {
-        const ok = (json.results ?? []).filter((r: { ok: boolean }) => r.ok).length;
-        const bad = (json.results ?? []).length - ok;
+        const results = (json.results ?? []) as { costItemId: string; ok: boolean }[];
+        const okIds = new Set(results.filter((r) => r.ok).map((r) => r.costItemId));
+        const ok = okIds.size;
+        const bad = results.length - ok;
+        // Reflect the saved coding so it stops showing as an unsaved change.
+        const applied = new Map(pending.map((c) => [c.costItemId, c]));
+        setLines((prev) =>
+          prev?.map((l) => {
+            const c = applied.get(l.id);
+            if (!c || !okIds.has(l.id)) return l;
+            const quantity = c.quantity ?? l.quantity;
+            const unitCost = c.unitCost ?? l.unitCost;
+            return {
+              ...l,
+              jobCostItem: c.jobCostItemId !== undefined ? { id: c.jobCostItemId } : l.jobCostItem,
+              quantity,
+              unitCost,
+              cost: quantity != null && unitCost != null ? quantity * unitCost : l.cost,
+            };
+          }) ?? prev,
+        );
+        setPicked((p) => {
+          const n = { ...p };
+          okIds.forEach((id) => delete n[id]);
+          return n;
+        });
+        setEdits((e) => {
+          const n = { ...e };
+          okIds.forEach((id) => delete n[id]);
+          return n;
+        });
         setSaveMsg(`Saved ${ok} line(s)${bad ? `, ${bad} failed` : ""}.`);
       }
     } catch (e) {
