@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getBillDetail, getBillFiles, getJobBudget } from "@/lib/jobtread";
-import { getPaveConfig, hasGrant } from "@/lib/config";
+import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
 
 // Read-only: a draft bill's header + lines + attached files + the job's budget.
 export async function GET(req: NextRequest) {
@@ -22,7 +22,13 @@ export async function GET(req: NextRequest) {
       getJobBudget(cfg, jobId),
       getBillFiles(cfg, docId),
     ]);
-    return NextResponse.json({ header: detail.header, lines: detail.lines, budget, files });
+    return NextResponse.json({
+      header: detail.header,
+      lines: detail.lines,
+      budget,
+      files,
+      writesEnabled: writesEnabled(),
+    });
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : "Unknown error";
     return NextResponse.json({ error: message }, { status: 502 });

@@ -77,6 +77,7 @@ function BillDetail() {
   const [edits, setEdits] = useState<Record<string, { quantity?: string; unitCost?: string }>>({});
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState("");
+  const [writes, setWrites] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -95,6 +96,7 @@ function BillDetail() {
           setLines(json.lines ?? []);
           setBudget(json.budget ?? []);
           setFiles(json.files ?? []);
+          setWrites(Boolean(json.writesEnabled));
         }
       } catch (e) {
         if (alive) setError(e instanceof Error ? e.message : "Network error");
@@ -426,11 +428,17 @@ function BillDetail() {
                 {saveMsg}
               </p>
             )}
-            <p className="rounded-lg bg-amber-50 px-4 py-3 text-xs text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
-              Writes are OFF by default. Until we coordinate with the existing AppSheet→JobTread
-              flow, Save shows a preview and sends nothing (enable with
-              <span className="font-mono"> COMPANION_WRITES_ENABLED=true</span>).
-            </p>
+            {!writes ? (
+              <p className="rounded-lg bg-amber-50 px-4 py-3 text-xs text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+                Writes are OFF (COMPANION_WRITES_ENABLED not <span className="font-mono">true</span> on
+                this deploy). Save/approve show a preview and send nothing to JobTread. Set it in
+                Vercel and <b>redeploy</b>.
+              </p>
+            ) : (
+              <p className="rounded-lg bg-emerald-50 px-4 py-3 text-xs text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
+                Writes are ON — Save/approve go straight to JobTread.
+              </p>
+            )}
           </div>
         </>
       )}
