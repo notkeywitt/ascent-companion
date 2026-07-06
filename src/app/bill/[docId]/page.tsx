@@ -194,15 +194,19 @@ function BillDetail() {
       }
       changed = true;
     }
-    const qStr = edits[l.id]?.quantity;
-    if (qStr !== undefined && qStr !== "" && Number(qStr) !== (l.quantity ?? 0)) {
-      change.quantity = Number(qStr);
-      changed = true;
-    }
-    const uStr = edits[l.id]?.unitCost;
-    if (uStr !== undefined && uStr !== "" && Number(uStr) !== (l.unitCost ?? 0)) {
-      change.unitCost = Number(uStr);
-      changed = true;
+    // quantity and unitCost are locked by JobTread once the bill is payable/paid
+    // (same as description) — only send them on DRAFT bills.
+    if (header?.status === "draft") {
+      const qStr = edits[l.id]?.quantity;
+      if (qStr !== undefined && qStr !== "" && Number(qStr) !== (l.quantity ?? 0)) {
+        change.quantity = Number(qStr);
+        changed = true;
+      }
+      const uStr = edits[l.id]?.unitCost;
+      if (uStr !== undefined && uStr !== "" && Number(uStr) !== (l.unitCost ?? 0)) {
+        change.unitCost = Number(uStr);
+        changed = true;
+      }
     }
     return changed ? [change] : [];
   });
@@ -249,6 +253,8 @@ function BillDetail() {
 
   const isExpense = (header?.name ?? "Bill") === "Expense";
   const pushToQb = header?.qboIsIgnored === false;
+  // JobTread locks quantity/unitCost/description once a bill leaves draft.
+  const linesEditable = (header?.status ?? "draft") === "draft";
   const [approving, setApproving] = useState(false);
 
   // Full re-read of the bill (header + lines + budget/CTC) from JobTread.
@@ -558,6 +564,13 @@ function BillDetail() {
             <span className="font-mono text-sm font-semibold">{money(total)}</span>
           </div>
 
+          {!linesEditable && (
+            <p className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+              Qty &amp; unit cost are locked once a bill is payable/paid — you can still re-code it.
+              To edit amounts, set the bill back to Draft in JobTread.
+            </p>
+          )}
+
           <ul className="space-y-2">
             {lines.map((l) => {
               const current = picked[l.id] ?? l.jobCostItem?.id ?? "";
@@ -569,7 +582,7 @@ function BillDetail() {
                   ? Number(qtyVal) * Number(unitVal)
                   : (l.cost ?? 0);
               const inputCls =
-                "rounded-lg border border-neutral-300 bg-transparent px-2 py-1.5 text-sm tabular-nums dark:border-neutral-700";
+                "rounded-lg border border-neutral-300 bg-transparent px-2 py-1.5 text-sm tabular-nums disabled:opacity-50 disabled:cursor-not-allowed dark:border-neutral-700";
               return (
                 <li
                   key={l.id}
@@ -587,6 +600,7 @@ function BillDetail() {
                         type="number"
                         inputMode="decimal"
                         value={qtyVal}
+                        disabled={!linesEditable}
                         onChange={(e) =>
                           setEdits((p) => ({ ...p, [l.id]: { ...p[l.id], quantity: e.target.value } }))
                         }
@@ -600,6 +614,7 @@ function BillDetail() {
                         type="number"
                         inputMode="decimal"
                         value={unitVal}
+                        disabled={!linesEditable}
                         onChange={(e) =>
                           setEdits((p) => ({ ...p, [l.id]: { ...p[l.id], unitCost: e.target.value } }))
                         }
