@@ -618,6 +618,28 @@ export async function getUninvoicedBills(
     (b.referencedDocuments?.nodes ?? []).some((n: any) => n.type === "customerInvoice");
   const open = bills.filter((b) => !isInvoiced(b));
 
+  // Uninvoiced time entries — a bare invoice pulls these too, so include them so
+  // the preview total matches what JobTread will actually invoice.
+  let timeEntries: any[] = [];
+  page = undefined;
+  guard = 0;
+  do {
+    const r: any = await pave(cfg, {
+      job: {
+        $: { id: jobId },
+        timeEntries: {
+          $: { size: 50, ...(page ? { page } : {}) },
+          nextPage: {},
+          nodes: { id: {}, cost: {}, referencedDocuments: { nodes: { type: {} } } },
+        },
+      },
+    });
+    timeEntries = timeEntries.concat(r?.job?.timeEntries?.nodes ?? []);
+    page = r?.job?.timeEntries?.nextPage || undefined;
+  } while (page && ++guard < 100);
+  const openTime = timeEntries.filter((t) => !isInvoiced(t));
+  const timeCost = openTime.reduce((s, t) => s + (t.cost ?? 0), 0);
+
   const vendorOf = (b: any) => String(b.account?.name ?? b.fromName ?? "Vendor");
   const isSunset = (b: any) => /sunset/i.test(vendorOf(b));
   const sunset = open.filter(isSunset);
@@ -644,7 +666,16 @@ export async function getUninvoicedBills(
     });
   }
   lines.sort((a, b) => b.cost - a.cost);
-  const total = open.reduce((s, b) => s + (b.cost ?? 0), 0);
+  if (openTime.length) {
+    lines.push({
+      key: "time",
+      label: `Time & labor (${openTime.length} ${openTime.length > 1 ? "entries" : "entry"})`,
+      cost: timeCost,
+      billIds: [],
+      isSunset: false,
+    });
+  }
+  const total = open.reduce((s, b) => s + (b.cost ?? 0), 0) + timeCost;
 
   const c = await pave(cfg, {
     job: { $: { id: jobId }, id: {}, location: { account: { id: {}, name: {} } } },
