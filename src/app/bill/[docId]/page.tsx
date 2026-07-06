@@ -475,9 +475,7 @@ function BillDetail() {
                   <button
                     key={t}
                     type="button"
-                    onClick={() =>
-                      patchBill({ name: t, qboDocumentType: t === "Expense" ? "purchase" : "bill" })
-                    }
+                    onClick={() => patchBill({ name: t })}
                     className={
                       "px-3 py-1 text-sm " +
                       (on
