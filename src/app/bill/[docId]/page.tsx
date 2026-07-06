@@ -232,14 +232,63 @@ function BillDetail() {
   const pushToQb = header?.qboIsIgnored === false;
   const [approving, setApproving] = useState(false);
 
+  // Full re-read of the bill (header + lines + budget/CTC) from JobTread.
+  async function loadBill() {
+    try {
+      const res = await fetch(
+        `/api/bill?docId=${encodeURIComponent(docId)}&jobId=${encodeURIComponent(jobId)}`,
+      );
+      const json = await res.json();
+      if (res.ok) {
+        setHeader(json.header ?? null);
+        setLines(json.lines ?? []);
+        setBudget(json.budget ?? []);
+        setCtc(json.costToComplete ?? {});
+        setFiles(json.files ?? []);
+        setWrites(Boolean(json.writesEnabled));
+      }
+    } catch {
+      /* keep current state */
+    }
+  }
+
   // A Bill is "approved for payment" (payable) = JobTread status `pending`.
   // An Expense is already paid, so "record payment" = status `approved` (paid).
   async function approveBill() {
     const target = isExpense ? "approved" : "pending";
     setApproving(true);
+    setSaveMsg("");
     const prev = header?.status;
-    setHeader((h) => (h ? { ...h, status: target } : h));
+    setHeader((h) => (h ? { ...h, status: target } : h)); // optimistic
     try {
+      // 1. While still draft (description editable — JT locks it once payable),
+      //    persist coding and set each coded line's description to its code.
+      const changes = (lines ?? []).flatMap((l) => {
+        const current = picked[l.id] ?? l.jobCostItem?.id ?? "";
+        if (!current) return [];
+        const opt = budget.find((o) => o.id === current);
+        const change: {
+          costItemId: string;
+          jobCostItemId?: string;
+          quantity?: number;
+          unitCost?: number;
+          description?: string;
+        } = { costItemId: l.id, jobCostItemId: current };
+        if (opt) change.description = opt.name ? `${opt.number} - ${opt.name}` : opt.number;
+        const q = edits[l.id]?.quantity;
+        if (q !== undefined && q !== "") change.quantity = Number(q);
+        const u = edits[l.id]?.unitCost;
+        if (u !== undefined && u !== "") change.unitCost = Number(u);
+        return [change];
+      });
+      if (changes.length) {
+        await fetch("/api/code", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ changes }),
+        });
+      }
+      // 2. Approve (moves out of draft; description is now locked).
       const res = await fetch("/api/bill-status", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -248,7 +297,10 @@ function BillDetail() {
       const j = await res.json();
       if (!res.ok) {
         setHeader((h) => (h ? { ...h, status: prev } : h)); // revert on failure
-        setSaveMsg(j.error ?? "Failed");
+        setSaveMsg(j.error ?? "Approve failed");
+      } else {
+        setPicked({});
+        setEdits({});
       }
     } catch {
       setHeader((h) => (h ? { ...h, status: prev } : h));
@@ -256,7 +308,7 @@ function BillDetail() {
     } finally {
       setApproving(false);
     }
-    await reloadHeader(); // reflect any JT-side changes (e.g. qboIsIgnored)
+    await loadBill(); // reflect saved codes/descriptions + new status
   }
 
   async function saveCoding() {
