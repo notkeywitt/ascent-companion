@@ -1,18 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getMonthlyBills, createDraftInvoice } from "@/lib/jobtread";
+import { getUninvoicedByCostCode, createDraftInvoice } from "@/lib/jobtread";
 import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
 
-// GET ?jobId=&year=&month= — the month's unbilled costs per code + customer.
+// GET ?jobId= — uninvoiced remainder per cost code (what a new draft will pull).
 export async function GET(req: NextRequest) {
   if (!hasGrant()) return NextResponse.json({ error: "JT_GRANT_KEY is not set." }, { status: 400 });
   const jobId = req.nextUrl.searchParams.get("jobId")?.trim();
-  const year = Number(req.nextUrl.searchParams.get("year"));
-  const month = Number(req.nextUrl.searchParams.get("month"));
-  if (!jobId || !year || !month) {
-    return NextResponse.json({ error: "Pass jobId, year, month" }, { status: 400 });
+  if (!jobId) {
+    return NextResponse.json({ error: "Pass jobId" }, { status: 400 });
   }
   try {
-    const data = await getMonthlyBills(getPaveConfig(), jobId, year, month);
+    const data = await getUninvoicedByCostCode(getPaveConfig(), jobId);
     return NextResponse.json(data);
   } catch (e) {
     return NextResponse.json(

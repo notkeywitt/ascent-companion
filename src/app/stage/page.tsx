@@ -2,21 +2,20 @@
 
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { JtLink } from "@/components/JtLink";
 
-interface StageLine {
-  key: string;
-  label: string;
-  cost: number;
-  billIds: string[];
-  isSunset: boolean;
+interface Line {
+  code: string;
+  name: string;
+  billed: number;
+  invoiced: number;
+  remainder: number;
 }
 
 const money = (n: number) =>
   "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 function monthOptions() {
-  const opts: { year: number; month: number; ym: string; label: string; lastDay: string }[] = [];
+  const opts: { ym: string; label: string; lastDay: string }[] = [];
   const now = new Date();
   for (let i = 0; i < 15; i++) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
@@ -24,8 +23,6 @@ function monthOptions() {
     const m = d.getMonth() + 1;
     const last = new Date(y, m, 0).getDate();
     opts.push({
-      year: y,
-      month: m,
       ym: `${y}-${String(m).padStart(2, "0")}`,
       label: d.toLocaleString("en-US", { month: "long", year: "numeric" }),
       lastDay: `${y}-${String(m).padStart(2, "0")}-${String(last).padStart(2, "0")}`,
@@ -43,7 +40,9 @@ function Stage() {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
   });
   const [customer, setCustomer] = useState<{ id: string; name: string } | null>(null);
-  const [lines, setLines] = useState<StageLine[] | null>(null);
+  const [lines, setLines] = useState<Line[] | null>(null);
+  const [total, setTotal] = useState(0);
+  const [netTotal, setNetTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [msg, setMsg] = useState("");
@@ -52,18 +51,19 @@ function Stage() {
   const opt = monthOptions().find((o) => o.ym === ym);
 
   const load = useCallback(async () => {
-    const o = monthOptions().find((x) => x.ym === ym);
-    if (!jobId || !o) return;
+    if (!jobId) return;
     setLoading(true);
     setError("");
     setMsg("");
     setLines(null);
     try {
-      const res = await fetch(`/api/stage?jobId=${encodeURIComponent(jobId)}&year=${o.year}&month=${o.month}`);
+      const res = await fetch(`/api/stage?jobId=${encodeURIComponent(jobId)}`);
       const j = await res.json();
       if (!res.ok) setError(j.error ?? "Failed");
       else {
         setLines(j.lines ?? []);
+        setTotal(j.total ?? 0);
+        setNetTotal(j.netTotal ?? 0);
         setCustomer(j.customer ?? null);
       }
     } catch (e) {
@@ -71,14 +71,11 @@ function Stage() {
     } finally {
       setLoading(false);
     }
-  }, [jobId, ym]);
+  }, [jobId]);
 
   useEffect(() => {
     load();
   }, [load]);
-
-  const billable = (lines ?? []).filter((l) => l.cost > 0);
-  const total = billable.reduce((s, l) => s + l.cost, 0);
 
   async function createInvoice() {
     if (!opt) return;
@@ -93,13 +90,18 @@ function Stage() {
       const j = await res.json();
       if (!res.ok) setMsg(j.error ?? "Create failed");
       else if (j.previewed) setMsg(j.message ?? "Preview only — writes are OFF.");
-      else setMsg(`Draft invoice created${j.created?.id ? " (" + j.created.id + ")" : ""} — JobTread pulled the uninvoiced bills; review & send it there.`);
+      else
+        setMsg(
+          `Draft invoice created${j.created?.id ? " (" + j.created.id + ")" : ""} — JobTread pulled the uninvoiced cost; review & send it there.`,
+        );
     } catch (e) {
       setMsg(e instanceof Error ? e.message : "Network error");
     } finally {
       setCreating(false);
     }
   }
+
+  const recodeGap = Math.abs(netTotal - total) > 0.5;
 
   return (
     <main className="mx-auto max-w-xl px-4 pb-24 pt-6">
@@ -109,15 +111,19 @@ function Stage() {
         </p>
         <h1 className="text-2xl font-bold tracking-tight">Stage Invoice</h1>
         <p className="mt-1 text-sm text-neutral-500">
-          A draft customer invoice from a billing month&apos;s bills — Sunset grouped, others itemized.
+          Uninvoiced cost per code — exactly what a new draft invoice will pull. Fully-invoiced
+          codes drop off automatically.
         </p>
       </header>
 
-      <div className="mb-3 flex gap-2">
+      <div className="mb-3">
+        <label className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
+          Invoice date (billing month)
+        </label>
         <select
           value={ym}
           onChange={(e) => setYm(e.target.value)}
-          className="w-full rounded-lg border border-neutral-300 bg-transparent px-2 py-2 text-sm dark:border-neutral-700"
+          className="mt-1 w-full rounded-lg border border-neutral-300 bg-transparent px-2 py-2 text-sm dark:border-neutral-700"
         >
           {monthOptions().map((o) => (
             <option key={o.ym} value={o.ym}>
@@ -138,38 +144,30 @@ function Stage() {
         </div>
       )}
 
-      {lines && billable.length === 0 && !loading && (
+      {lines && lines.length === 0 && !loading && (
         <div className="rounded-xl border border-dashed border-neutral-300 p-6 text-center text-sm text-neutral-500 dark:border-neutral-700">
-          No approved bills for this job &amp; month.
+          Nothing uninvoiced — every approved cost on this job is already on a customer invoice.
         </div>
       )}
 
-      {billable.length > 0 && (
+      {lines && lines.length > 0 && (
         <>
           <div className="overflow-x-auto rounded-xl border border-neutral-200 dark:border-neutral-800">
             <table className="w-full text-sm">
               <thead className="bg-neutral-50 text-left text-xs uppercase tracking-wide text-neutral-500 dark:bg-neutral-900">
                 <tr>
-                  <th className="px-3 py-2 font-medium">Bill</th>
-                  <th className="px-3 py-2 text-right font-medium">Cost</th>
+                  <th className="px-3 py-2 font-medium">Cost code</th>
+                  <th className="px-3 py-2 text-right font-medium">Uninvoiced</th>
                 </tr>
               </thead>
               <tbody>
-                {billable.map((l) => (
-                  <tr key={l.key} className="border-t border-neutral-100 dark:border-neutral-800">
+                {lines.map((l) => (
+                  <tr key={l.code} className="border-t border-neutral-100 dark:border-neutral-800">
                     <td className="px-3 py-2">
-                      {l.billIds.length === 1 ? (
-                        <JtLink
-                          href={`https://app.jobtread.com/jobs/${jobId}/documents/${l.billIds[0]}`}
-                          className="text-accent hover:underline"
-                        >
-                          {l.label} ↗
-                        </JtLink>
-                      ) : (
-                        l.label
-                      )}
+                      <span className="font-mono text-xs text-neutral-500">{l.code}</span>{" "}
+                      {l.name}
                     </td>
-                    <td className="px-3 py-2 text-right font-mono">{money(l.cost)}</td>
+                    <td className="px-3 py-2 text-right font-mono">{money(l.remainder)}</td>
                   </tr>
                 ))}
                 <tr className="border-t border-neutral-200 font-semibold dark:border-neutral-700">
@@ -179,6 +177,15 @@ function Stage() {
               </tbody>
             </table>
           </div>
+
+          {recodeGap && (
+            <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+              Heads up: the job&apos;s net uninvoiced is {money(netTotal)}, which differs from the
+              {" "}
+              {money(total)} above. That gap means some cost was invoiced under a different code than
+              it was billed to. JobTread will reconcile on its side — treat this as a rough check.
+            </p>
+          )}
 
           <button
             onClick={createInvoice}
@@ -191,8 +198,8 @@ function Stage() {
             <p className="mt-2 rounded-lg bg-neutral-100 px-3 py-2 text-xs dark:bg-neutral-800">{msg}</p>
           )}
           <p className="mt-2 text-xs text-neutral-500">
-            The table above is a sanity check. Creating a <b>draft</b> invoice dated {opt?.lastDay}
-            lets JobTread pull the uninvoiced bills itself — you review &amp; send it there.
+            The table is a sanity check. Creating a <b>draft</b> invoice dated {opt?.lastDay} lets
+            JobTread pull the uninvoiced cost itself — you review &amp; send it there.
           </p>
         </>
       )}

@@ -552,13 +552,96 @@ export async function getMonthlyBills(
 }
 
 /**
- * Unbilled cost per budget leaf (jobCostItem) for a job = Σ approved vendorBill
- * cost − Σ customerInvoice cost, grouped by jobCostItem.id. This is the input to
- * staging: one InvoiceLine per jobCostItem with a positive remainder.
+ * Uninvoiced remainder per cost code — this is what "Create draft invoice" will
+ * actually pull. Confirmed (probes, 2026-07): JobTread has NO per-bill "invoiced"
+ * flag; a customer invoice has one line per budget cost code with sourceCostItem
+ * null. It nets per cost code: remainder = Σ approved vendorBill cost − Σ customer
+ * invoice cost. Fully-invoiced codes net to 0 and drop out; that is how JT
+ * "discriminates" already-invoiced cost. There is no month dimension — a new
+ * invoice pulls ALL uninvoiced cost, so this is job-wide (the month only sets the
+ * invoice's issueDate).
  *
- * Implementation note: sum cost items of approved vendorBills and of customer
- * invoices, keyed on jobCostItem.id (both carry it — confirmed). Query each
- * document's costItems { cost, jobCostItem{id}, costCode{id,number,name}, name }
- * and net them. (Left as the next function to implement once the app scaffolds.)
+ * Uses the flat job.costItems connection (nested costItems in paged documents
+ * 413s) and filters out budget leaves (document == null). Invoiced counts ANY
+ * customer-invoice status (draft/pending/approved) so cost already on a staged
+ * draft isn't re-shown.
  */
+export interface UninvoicedLine {
+  code: string; // costCode.number
+  name: string; // costCode.name
+  billed: number; // Σ approved vendorBill cost
+  invoiced: number; // Σ customerInvoice cost (any status)
+  remainder: number; // billed − invoiced (> 0)
+}
+export interface UninvoicedStaging {
+  customer: { id: string; name: string } | null;
+  lines: UninvoicedLine[]; // positive remainders, largest first
+  total: number; // Σ shown remainders
+  netTotal: number; // job-level billed − invoiced (may differ from total if codes were recoded between bill and invoice)
+}
+
+export async function getUninvoicedByCostCode(
+  cfg: PaveConfig,
+  jobId: string,
+): Promise<UninvoicedStaging> {
+  let nodes: any[] = [];
+  let page: string | undefined;
+  let guard = 0;
+  do {
+    const r = await pave(cfg, {
+      job: {
+        $: { id: jobId },
+        id: {},
+        costItems: {
+          $: { size: 100, ...(page ? { page } : {}) },
+          nextPage: {},
+          nodes: {
+            cost: {},
+            costCode: { number: {}, name: {} },
+            document: { type: {}, status: {} },
+          },
+        },
+      },
+    });
+    nodes = nodes.concat(r?.job?.costItems?.nodes ?? []);
+    page = r?.job?.costItems?.nextPage || undefined;
+  } while (page && ++guard < 50);
+
+  const bill = new Map<string, number>();
+  const inv = new Map<string, number>();
+  const names = new Map<string, string>();
+  for (const n of nodes) {
+    if (!n.document) continue; // budget leaf, not a bill/invoice line
+    const code = n.costCode?.number ?? "(uncoded)";
+    if (n.costCode?.name) names.set(code, n.costCode.name);
+    const c = n.cost ?? 0;
+    if (n.document.type === "vendorBill" && n.document.status === "approved") {
+      bill.set(code, (bill.get(code) ?? 0) + c);
+    } else if (n.document.type === "customerInvoice") {
+      inv.set(code, (inv.get(code) ?? 0) + c);
+    }
+  }
+
+  const lines: UninvoicedLine[] = [];
+  let netTotal = 0;
+  for (const code of new Set([...bill.keys(), ...inv.keys()])) {
+    const b = bill.get(code) ?? 0;
+    const i = inv.get(code) ?? 0;
+    const remainder = b - i;
+    netTotal += remainder;
+    if (remainder > 0.005) {
+      lines.push({ code, name: names.get(code) ?? "", billed: b, invoiced: i, remainder });
+    }
+  }
+  lines.sort((a, b) => b.remainder - a.remainder);
+  const total = lines.reduce((s, l) => s + l.remainder, 0);
+
+  const c = await pave(cfg, {
+    job: { $: { id: jobId }, id: {}, location: { account: { id: {}, name: {} } } },
+  });
+  const acc = c?.job?.location?.account;
+  const customer = acc?.id ? { id: acc.id, name: acc.name ?? "" } : null;
+
+  return { customer, lines, total, netTotal };
+}
 
