@@ -289,6 +289,27 @@ export async function setBillIssueDate(
   return r?.updateDocument?.document?.issueDate ?? issueDate;
 }
 
+/**
+ * WRITE — set a vendor bill's status. Confirmed writable via updateDocument.
+ * "approved" is the action behind both "Approve for payment" (Bill) and "Record
+ * payment" (Expense): approving pushes the document to QuickBooks, where payment
+ * is recorded (amountPaid is computed from QBO, not settable here). Allowlisted to
+ * the real lifecycle values so a typo can't set a bogus status.
+ */
+export async function setBillStatus(
+  cfg: PaveConfig,
+  docId: string,
+  status: "draft" | "pending" | "approved",
+): Promise<string> {
+  const r = await pave(cfg, {
+    updateDocument: {
+      $: { id: docId, status },
+      document: { $: { id: docId }, id: {}, status: {} },
+    },
+  });
+  return r?.updateDocument?.document?.status ?? status;
+}
+
 export interface BudgetItem {
   id: string; // jobCostItemId — the coding target
   number: string; // cost code, e.g. "06 10 00" (or a free label like "Office Admin")
