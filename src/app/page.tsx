@@ -21,6 +21,26 @@ const money = (n?: number) =>
     ? "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
     : "—";
 
+// In the Chrome side panel this app runs in an iframe next to a JobTread tab.
+// Clicking a queue item asks the extension to open that bill in the main
+// JobTread window; the panel itself still navigates to the coding view. No-op on
+// mobile / standalone (not framed).
+function driveMainWindowToDoc(jobId: string, docId: string) {
+  try {
+    if (typeof window !== "undefined" && window.top !== window.self && jobId) {
+      window.parent.postMessage(
+        {
+          type: "ascentOpenJtDoc",
+          href: `https://app.jobtread.com/jobs/${jobId}/documents/${docId}`,
+        },
+        "*",
+      );
+    }
+  } catch {
+    /* cross-origin / unframed — ignore */
+  }
+}
+
 const invoiceId = (b: Bill) => b.externalId || b.number || "";
 const billTitle = (b: Bill) => {
   const vendor = b.fromName || b.subject || "Vendor bill";
@@ -116,6 +136,7 @@ function CodingQueue() {
               <li key={b.id}>
                 <Link
                   href={`/bill/${b.id}?jobId=${encodeURIComponent(jobId.trim())}`}
+                  onClick={() => driveMainWindowToDoc(jobId.trim(), b.id)}
                   className="block rounded-xl border border-neutral-200 bg-white p-3 transition hover:border-accent dark:border-neutral-800 dark:bg-neutral-900"
                 >
                   <div className="flex items-start justify-between gap-3">

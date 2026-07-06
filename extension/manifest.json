@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Ascent Companion",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "JobTread companion side panel: coding queue + unbilled expenses.",
   "icons": {
     "16": "icons/icon16.png",
@@ -22,7 +22,7 @@
   "background": {
     "service_worker": "background.js"
   },
-  "permissions": ["sidePanel", "storage"],
+  "permissions": ["sidePanel", "storage", "tabs"],
   "host_permissions": [
     "https://app.jobtread.com/*"
   ],
