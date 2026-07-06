@@ -19,5 +19,6 @@ export function hasGrant(): boolean {
  * systems don't fight over the same bills.
  */
 export function writesEnabled(): boolean {
-  return process.env.COMPANION_WRITES_ENABLED === "true";
+  // Tolerate casing/whitespace ("True", " true ") — a common env-var slip.
+  return String(process.env.COMPANION_WRITES_ENABLED ?? "").trim().toLowerCase() === "true";
 }
