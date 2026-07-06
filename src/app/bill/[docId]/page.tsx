@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { CostCodeSelect, type Option } from "@/components/CostCodeSelect";
+import { JtLink } from "@/components/JtLink";
 
 interface Line {
   id: string;
@@ -181,13 +182,12 @@ function BillDetail() {
           {docId}
         </p>
         {jobId && (
-          <a
+          <JtLink
             href={`https://app.jobtread.com/jobs/${jobId}/documents/${docId}`}
-            target="_top"
             className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-accent"
           >
             Open in JobTread ↗
-          </a>
+          </JtLink>
         )}
         <div className="mt-3 flex items-center gap-2">
           <span className="text-[10px] uppercase tracking-wide text-neutral-400">Billing month</span>

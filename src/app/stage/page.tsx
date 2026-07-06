@@ -2,6 +2,7 @@
 
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { JtLink } from "@/components/JtLink";
 
 interface StageLine {
   key: string;
@@ -158,13 +159,12 @@ function Stage() {
                   <tr key={l.key} className="border-t border-neutral-100 dark:border-neutral-800">
                     <td className="px-3 py-2">
                       {l.billIds.length === 1 ? (
-                        <a
+                        <JtLink
                           href={`https://app.jobtread.com/jobs/${jobId}/documents/${l.billIds[0]}`}
-                          target="_top"
                           className="text-accent hover:underline"
                         >
                           {l.label} ↗
-                        </a>
+                        </JtLink>
                       ) : (
                         l.label
                       )}
