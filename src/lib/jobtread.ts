@@ -581,7 +581,22 @@ export interface UninvoicedBills {
 export async function getUninvoicedBills(
   cfg: PaveConfig,
   jobId: string,
+  year?: number,
+  month?: number,
 ): Promise<UninvoicedBills> {
+  // When a billing month is given, only include bills/time dated in that month.
+  // issueDate is standardized to the last day of the billing month, so a June
+  // bill (2026-06-30) falls inside June's range.
+  const inMonth = (dateStr?: string) => {
+    if (!year || !month) return true;
+    if (!dateStr) return false;
+    const mm = String(month).padStart(2, "0");
+    const first = `${year}-${mm}-01`;
+    const last = `${year}-${mm}-${String(new Date(year, month, 0).getDate()).padStart(2, "0")}`;
+    const d = String(dateStr).slice(0, 10);
+    return d >= first && d <= last;
+  };
+
   let bills: any[] = [];
   let page: string | undefined;
   let guard = 0;
@@ -616,7 +631,7 @@ export async function getUninvoicedBills(
 
   const isInvoiced = (b: any) =>
     (b.referencedDocuments?.nodes ?? []).some((n: any) => n.type === "customerInvoice");
-  const open = bills.filter((b) => !isInvoiced(b));
+  const open = bills.filter((b) => !isInvoiced(b) && inMonth(b.issueDate));
 
   // Uninvoiced time entries — a bare invoice pulls these too, so include them so
   // the preview total matches what JobTread will actually invoice.
@@ -630,14 +645,14 @@ export async function getUninvoicedBills(
         timeEntries: {
           $: { size: 50, ...(page ? { page } : {}) },
           nextPage: {},
-          nodes: { id: {}, cost: {}, referencedDocuments: { nodes: { type: {} } } },
+          nodes: { id: {}, cost: {}, startedAt: {}, referencedDocuments: { nodes: { type: {} } } },
         },
       },
     });
     timeEntries = timeEntries.concat(r?.job?.timeEntries?.nodes ?? []);
     page = r?.job?.timeEntries?.nextPage || undefined;
   } while (page && ++guard < 100);
-  const openTime = timeEntries.filter((t) => !isInvoiced(t));
+  const openTime = timeEntries.filter((t) => !isInvoiced(t) && inMonth(t.startedAt));
   const timeCost = openTime.reduce((s, t) => s + (t.cost ?? 0), 0);
 
   const vendorOf = (b: any) => String(b.account?.name ?? b.fromName ?? "Vendor");

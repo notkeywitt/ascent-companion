@@ -9,8 +9,10 @@ export async function GET(req: NextRequest) {
   if (!jobId) {
     return NextResponse.json({ error: "Pass jobId" }, { status: 400 });
   }
+  const year = Number(req.nextUrl.searchParams.get("year")) || undefined;
+  const month = Number(req.nextUrl.searchParams.get("month")) || undefined;
   try {
-    const data = await getUninvoicedBills(getPaveConfig(), jobId);
+    const data = await getUninvoicedBills(getPaveConfig(), jobId, year, month);
     return NextResponse.json(data);
   } catch (e) {
     return NextResponse.json(

@@ -57,7 +57,10 @@ function Stage() {
     setMsg("");
     setLines(null);
     try {
-      const res = await fetch(`/api/stage?jobId=${encodeURIComponent(jobId)}`);
+      const [y, m] = ym.split("-").map(Number);
+      const res = await fetch(
+        `/api/stage?jobId=${encodeURIComponent(jobId)}&year=${y}&month=${m}`,
+      );
       const j = await res.json();
       if (!res.ok) setError(j.error ?? "Failed");
       else {
@@ -70,7 +73,7 @@ function Stage() {
     } finally {
       setLoading(false);
     }
-  }, [jobId]);
+  }, [jobId, ym]);
 
   useEffect(() => {
     load();
@@ -108,8 +111,7 @@ function Stage() {
         </p>
         <h1 className="text-2xl font-bold tracking-tight">Stage Invoice</h1>
         <p className="mt-1 text-sm text-neutral-500">
-          Approved bills not yet on a customer invoice — Sunset grouped, others itemized. This is
-          what a new draft will pull.
+          Uninvoiced bills dated in the selected billing month — Sunset grouped, others itemized.
         </p>
       </header>
 
