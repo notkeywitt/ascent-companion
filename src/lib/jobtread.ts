@@ -616,7 +616,10 @@ export async function getUninvoicedBills(
         $: { id: jobId },
         documents: {
           $: {
-            where: { and: [["type", "vendorBill"], ["status", "approved"]] },
+            // Invoiceable = finalized bills not yet invoiced. Both pending
+            // (approved-for-payment/payable) and approved (paid) are billable to
+            // the customer; draft (still coding) and denied (voided) are not.
+            where: { and: [["type", "vendorBill"], ["status", "in", ["pending", "approved"]]] },
             size: 25,
             ...(page ? { page } : {}),
           },
