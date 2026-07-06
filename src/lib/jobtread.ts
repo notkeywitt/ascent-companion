@@ -447,47 +447,11 @@ export async function updateLine(
 // the exact lineItems shape is the one remaining detail to lock)
 // ---------------------------------------------------------------------------
 
-/**
- * A customer-invoice line. Confirmed by reading invoice 22PYV7jiDvHs: each line
- * mirrors a vendor-bill line — a costCode, a jobCostItem (the budget leaf), a
- * cost basis, and a price (= cost × fee; that invoice ran a uniform 18% markup).
- * One line per budget leaf. Input uses ids (like jobId/accountId elsewhere).
- */
-export interface InvoiceLine {
-  name: string;
-  jobCostItemId?: string; // budget cost item (optional for per-bill lines)
-  costCodeId?: string;
-  cost: number;
-  price?: number; // omitted -> JobTread applies the job fee
-}
-
-export interface StageInvoiceInput {
-  jobId: string;
-  issueDate: string; // YYYY-MM-DD (last day of the billing month)
-}
-
-/**
- * Create a DRAFT customer invoice. JobTread's create-invoice auto-pulls the job's
- * uninvoiced Bills & Time — we pass NO line items; it populates itself. The owner
- * reviews/sends it inside JobTread. Our staging view is just a sanity check.
- */
-export async function createDraftInvoice(cfg: PaveConfig, input: StageInvoiceInput) {
-  return pave(cfg, {
-    createDocument: {
-      $: {
-        type: "customerInvoice",
-        status: "draft",
-        jobId: input.jobId,
-        organizationId: cfg.orgId,
-        issueDate: input.issueDate,
-        // JobTread requires a non-null fromName on the document. A customer
-        // invoice is issued BY us, so the "from" party is our company.
-        fromName: cfg.companyName ?? "Ascent Building Co.",
-      },
-      createdDocument: { id: {}, type: {}, status: {} },
-    },
-  });
-}
+// NOTE: no createDraftInvoice here. Building a customer invoice from unbilled
+// items is a multi-call, server-side JobTread flow (create invoice → costGroup
+// per bill → cost items → recalc) that also sets the bill↔invoice reference; a
+// bare createDocument yields an EMPTY invoice and can't set that link, so the
+// companion deep-links to JobTread's native builder instead (see stage/page.tsx).
 
 export interface StageLine {
   key: string;

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getUninvoicedBills, createDraftInvoice } from "@/lib/jobtread";
-import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
+import { getUninvoicedBills } from "@/lib/jobtread";
+import { getPaveConfig, hasGrant } from "@/lib/config";
 
 // GET ?jobId= — individual uninvoiced bills (what a new draft will pull).
 export async function GET(req: NextRequest) {
@@ -22,36 +22,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// POST — create a bare DRAFT customer invoice; JobTread auto-pulls the job's
-// uninvoiced bills. { jobId, issueDate }. Gated by writes flag.
-export async function POST(req: NextRequest) {
-  if (!hasGrant()) return NextResponse.json({ error: "JT_GRANT_KEY is not set." }, { status: 400 });
-  let body: { jobId?: string; issueDate?: string };
-  try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
-  }
-  const jobId = (body.jobId ?? "").trim();
-  const issueDate = (body.issueDate ?? "").trim();
-  if (!jobId || !/^\d{4}-\d{2}-\d{2}$/.test(issueDate)) {
-    return NextResponse.json({ error: "jobId and YYYY-MM-DD issueDate are required" }, { status: 400 });
-  }
-  if (!writesEnabled()) {
-    return NextResponse.json({
-      previewed: true,
-      wrote: false,
-      message: "Writes are OFF. Would create a draft invoice; JobTread pulls the uninvoiced bills.",
-    });
-  }
-  try {
-    const res = await createDraftInvoice(getPaveConfig(), { jobId, issueDate });
-    const created = (res as any)?.createDocument?.createdDocument ?? null;
-    return NextResponse.json({ wrote: true, created });
-  } catch (e) {
-    return NextResponse.json(
-      { error: e instanceof Error ? e.message : "Unknown error" },
-      { status: 502 },
-    );
-  }
-}
+// NOTE: invoice CREATION is intentionally not an API write. JobTread builds an
+// invoice from unbilled items via a multi-call server-side flow that also sets
+// the bill↔invoice link; reproducing it risks double-billing. The Invoicing tab
+// instead deep-links to JobTread's native builder (see stage/page.tsx).

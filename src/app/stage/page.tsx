@@ -45,8 +45,6 @@ function Stage() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [msg, setMsg] = useState("");
-  const [creating, setCreating] = useState(false);
 
   const opt = monthOptions().find((o) => o.ym === ym);
 
@@ -54,7 +52,6 @@ function Stage() {
     if (!jobId) return;
     setLoading(true);
     setError("");
-    setMsg("");
     setLines(null);
     try {
       const [y, m] = ym.split("-").map(Number);
@@ -78,30 +75,6 @@ function Stage() {
   useEffect(() => {
     load();
   }, [load]);
-
-  async function createInvoice() {
-    if (!opt) return;
-    setCreating(true);
-    setMsg("");
-    try {
-      const res = await fetch("/api/stage", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ jobId, issueDate: opt.lastDay }),
-      });
-      const j = await res.json();
-      if (!res.ok) setMsg(j.error ?? "Create failed");
-      else if (j.previewed) setMsg(j.message ?? "Preview only — writes are OFF.");
-      else
-        setMsg(
-          `Draft invoice created${j.created?.id ? " (" + j.created.id + ")" : ""} — JobTread pulled the uninvoiced bills; review & send it there.`,
-        );
-    } catch (e) {
-      setMsg(e instanceof Error ? e.message : "Network error");
-    } finally {
-      setCreating(false);
-    }
-  }
 
   return (
     <main className="mx-auto max-w-xl px-4 pb-24 pt-6">
@@ -185,20 +158,16 @@ function Stage() {
             </table>
           </div>
 
-          <button
-            onClick={createInvoice}
-            disabled={creating}
-            className="mt-4 w-full rounded-xl bg-accent px-4 py-3 text-sm font-semibold text-white hover:bg-accent-hover disabled:opacity-50"
+          <JtLink
+            href={`https://app.jobtread.com/jobs/${jobId}/documents`}
+            className="mt-4 block w-full rounded-xl bg-accent px-4 py-3 text-center text-sm font-semibold text-white hover:bg-accent-hover"
           >
-            {creating ? "Creating…" : "Create draft invoice"}
-          </button>
-          {msg && (
-            <p className="mt-2 rounded-lg bg-neutral-100 px-3 py-2 text-xs dark:bg-neutral-800">{msg}</p>
-          )}
+            Create invoice in JobTread ↗
+          </JtLink>
           <p className="mt-2 text-xs text-neutral-500">
-            The table is a sanity check. Creating a <b>draft</b> invoice dated {opt?.lastDay} lets
-            JobTread pull these uninvoiced bills (and any uninvoiced time) itself — you review &amp;
-            send it there.
+            This is what to bill for {opt?.label ?? "the month"}. Tap to open this job in JobTread,
+            then <b>New → Customer Invoice</b> — its builder pulls exactly these uninvoiced bills
+            (and any uninvoiced time). Date it {opt?.lastDay}, review &amp; send.
           </p>
         </>
       )}
