@@ -146,13 +146,19 @@ function BillDetail() {
   // Optimistically patch a bill header flag (name = Bill/Expense, qboIsIgnored =
   // Push-to-QB) and persist via /api/bill-fields.
   async function patchBill(fields: { name?: string; qboIsIgnored?: boolean }) {
-    setHeader((h) => (h ? { ...h, ...fields } : h));
+    setHeader((h) => (h ? { ...h, ...fields } : h)); // optimistic
     try {
-      await fetch("/api/bill-fields", {
+      const res = await fetch("/api/bill-fields", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ docId, ...fields }),
       });
+      const j = await res.json().catch(() => ({}));
+      // Reconcile with what actually persisted so the toggle can't drift.
+      const applied: { name?: string; qboIsIgnored?: boolean } = {};
+      if (typeof j.name === "string") applied.name = j.name;
+      if (typeof j.qboIsIgnored === "boolean") applied.qboIsIgnored = j.qboIsIgnored;
+      if (Object.keys(applied).length) setHeader((h) => (h ? { ...h, ...applied } : h));
     } catch {
       /* optimistic; a reload reflects the true state */
     }
