@@ -170,6 +170,7 @@ export interface BillDetail {
     status?: string;
     cost?: number;
     issueDate?: string;
+    qboIsIgnored?: boolean;
   };
   lines: BillLine[];
 }
@@ -194,6 +195,7 @@ export async function getBillDetail(cfg: PaveConfig, docId: string): Promise<Bil
     document: {
       $: { id: docId },
       id: {}, name: {}, status: {}, cost: {}, issueDate: {}, subject: {}, fromName: {}, number: {}, externalId: {},
+      qboIsIgnored: {},
       ...lineSel,
     },
   };
@@ -218,9 +220,31 @@ export async function getBillDetail(cfg: PaveConfig, docId: string): Promise<Bil
       status: d.status,
       cost: d.cost,
       issueDate: d.issueDate,
+      qboIsIgnored: d.qboIsIgnored,
     },
     lines: d.costItems?.nodes ?? [],
   };
+}
+
+/**
+ * WRITE — set a bill's header flags. `name` is "Bill" | "Expense" (the JT doc
+ * name field that flips a bill vs an expense), `qboIsIgnored` controls Push to
+ * QuickBooks (ignored = NOT pushed, so Push-to-QB = !qboIsIgnored). Never touches
+ * lineItems. Both fields are proven writable by the Apps Script push path.
+ */
+export async function setBillFields(
+  cfg: PaveConfig,
+  docId: string,
+  fields: { name?: string; qboIsIgnored?: boolean },
+): Promise<{ name?: string; qboIsIgnored?: boolean }> {
+  const r = await pave(cfg, {
+    updateDocument: {
+      $: { id: docId, ...fields },
+      document: { $: { id: docId }, id: {}, name: {}, qboIsIgnored: {} },
+    },
+  });
+  const d = r?.updateDocument?.document ?? {};
+  return { name: d.name, qboIsIgnored: d.qboIsIgnored };
 }
 
 export interface BillFile {

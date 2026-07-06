@@ -25,6 +25,7 @@ interface Header {
   status?: string;
   cost?: number;
   issueDate?: string;
+  qboIsIgnored?: boolean;
 }
 interface FileNode {
   id: string;
@@ -140,6 +141,24 @@ function BillDetail() {
     return changed ? [change] : [];
   });
 
+  // Optimistically patch a bill header flag (name = Bill/Expense, qboIsIgnored =
+  // Push-to-QB) and persist via /api/bill-fields.
+  async function patchBill(fields: { name?: string; qboIsIgnored?: boolean }) {
+    setHeader((h) => (h ? { ...h, ...fields } : h));
+    try {
+      await fetch("/api/bill-fields", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ docId, ...fields }),
+      });
+    } catch {
+      /* optimistic; a reload reflects the true state */
+    }
+  }
+
+  const isExpense = (header?.name ?? "Bill") === "Expense";
+  const pushToQb = header?.qboIsIgnored === false;
+
   async function saveCoding() {
     if (pending.length === 0) return;
     setSaving(true);
@@ -215,6 +234,56 @@ function BillDetail() {
               </option>
             ))}
           </select>
+        </div>
+
+        <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2">
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] uppercase tracking-wide text-neutral-400">Type</span>
+            <div className="inline-flex overflow-hidden rounded-lg border border-neutral-300 dark:border-neutral-700">
+              {(["Bill", "Expense"] as const).map((t) => {
+                const on = (isExpense ? "Expense" : "Bill") === t;
+                return (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => patchBill({ name: t })}
+                    className={
+                      "px-3 py-1 text-sm " +
+                      (on
+                        ? "bg-accent font-semibold text-white"
+                        : "text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200")
+                    }
+                  >
+                    {t}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] uppercase tracking-wide text-neutral-400">Push to QB</span>
+            <div className="inline-flex overflow-hidden rounded-lg border border-neutral-300 dark:border-neutral-700">
+              {([["Yes", false], ["No", true]] as const).map(([lbl, ignored]) => {
+                const on = pushToQb === (lbl === "Yes");
+                return (
+                  <button
+                    key={lbl}
+                    type="button"
+                    onClick={() => patchBill({ qboIsIgnored: ignored })}
+                    className={
+                      "px-3 py-1 text-sm " +
+                      (on
+                        ? "bg-accent font-semibold text-white"
+                        : "text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200")
+                    }
+                  >
+                    {lbl}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </div>
       </header>
 
