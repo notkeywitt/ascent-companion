@@ -162,20 +162,23 @@ function BillDetail() {
   const pushToQb = header?.qboIsIgnored === false;
   const [approving, setApproving] = useState(false);
 
+  // A Bill is "approved for payment" (payable) = JobTread status `pending`.
+  // An Expense is already paid, so "record payment" = status `approved` (paid).
   async function approveBill() {
+    const target = isExpense ? "approved" : "pending";
     setApproving(true);
     const prev = header?.status;
-    setHeader((h) => (h ? { ...h, status: "approved" } : h));
+    setHeader((h) => (h ? { ...h, status: target } : h));
     try {
       const res = await fetch("/api/bill-status", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ docId, status: "approved" }),
+        body: JSON.stringify({ docId, status: target }),
       });
       const j = await res.json();
       if (!res.ok) {
         setHeader((h) => (h ? { ...h, status: prev } : h)); // revert on failure
-        setSaveMsg(j.error ?? "Approve failed");
+        setSaveMsg(j.error ?? "Failed");
       }
     } catch {
       setHeader((h) => (h ? { ...h, status: prev } : h));
@@ -315,7 +318,11 @@ function BillDetail() {
         <div className="mt-4">
           {header?.status === "approved" ? (
             <div className="inline-flex items-center gap-2 rounded-lg bg-emerald-50 px-3 py-1.5 text-sm font-semibold text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
-              ✓ {isExpense ? "Payment recorded" : "Approved for payment"}
+              ✓ Payment recorded
+            </div>
+          ) : header?.status === "pending" ? (
+            <div className="inline-flex items-center gap-2 rounded-lg bg-emerald-50 px-3 py-1.5 text-sm font-semibold text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
+              ✓ Approved for payment
             </div>
           ) : (
             <button
