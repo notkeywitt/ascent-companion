@@ -61,6 +61,21 @@ function billingMonthOptions() {
   return opts;
 }
 
+// In the side panel, ask the extension to open a bill in the docked JobTread
+// window (no-op on mobile / standalone).
+function driveMainWindowToDoc(jobId: string, docId: string) {
+  try {
+    if (typeof window !== "undefined" && window.top !== window.self && jobId) {
+      window.parent.postMessage(
+        { type: "ascentOpenJtDoc", href: `https://app.jobtread.com/jobs/${jobId}/documents/${docId}` },
+        "*",
+      );
+    }
+  } catch {
+    /* unframed — ignore */
+  }
+}
+
 function BillDetail() {
   const params = useParams<{ docId: string }>();
   const search = useSearchParams();
@@ -78,6 +93,7 @@ function BillDetail() {
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState("");
   const [writes, setWrites] = useState(false);
+  const [queue, setQueue] = useState<string[]>([]);
 
   useEffect(() => {
     let alive = true;
@@ -108,6 +124,25 @@ function BillDetail() {
       alive = false;
     };
   }, [docId, jobId]);
+
+  // Coding-queue order for this job, so we can step ‹ prev / next › between bills.
+  useEffect(() => {
+    if (!jobId) return;
+    let alive = true;
+    fetch(`/api/coding-queue?jobId=${encodeURIComponent(jobId)}`)
+      .then((r) => r.json())
+      .then((j) => {
+        if (alive) setQueue((j.bills ?? []).map((b: { id: string }) => b.id));
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [jobId]);
+
+  const qIdx = queue.indexOf(docId);
+  const prevId = qIdx > 0 ? queue[qIdx - 1] : null;
+  const nextId = qIdx >= 0 && qIdx < queue.length - 1 ? queue[qIdx + 1] : null;
 
   const total = lines?.reduce((s, l) => s + (l.cost ?? 0), 0) ?? 0;
   const invId = header?.externalId || header?.number || "";
@@ -224,9 +259,42 @@ function BillDetail() {
 
   return (
     <main className="mx-auto max-w-xl px-4 pb-24 pt-6">
-      <Link href={`/?jobId=${encodeURIComponent(jobId)}`} className="text-sm font-semibold text-accent">
-        ‹ Coding queue
-      </Link>
+      <div className="flex items-center justify-between">
+        <Link href={`/?jobId=${encodeURIComponent(jobId)}`} className="text-sm font-semibold text-accent">
+          ‹ Coding queue
+        </Link>
+        {qIdx >= 0 && queue.length > 1 && (
+          <div className="flex items-center gap-1 text-sm">
+            {prevId ? (
+              <Link
+                href={`/bill/${prevId}?jobId=${encodeURIComponent(jobId)}`}
+                onClick={() => driveMainWindowToDoc(jobId, prevId)}
+                aria-label="Previous bill"
+                className="rounded-md px-2 py-1 font-semibold text-accent hover:bg-accent/10"
+              >
+                ‹
+              </Link>
+            ) : (
+              <span className="px-2 py-1 text-neutral-300 dark:text-neutral-700">‹</span>
+            )}
+            <span className="tabular-nums text-xs text-neutral-500">
+              {qIdx + 1} / {queue.length}
+            </span>
+            {nextId ? (
+              <Link
+                href={`/bill/${nextId}?jobId=${encodeURIComponent(jobId)}`}
+                onClick={() => driveMainWindowToDoc(jobId, nextId)}
+                aria-label="Next bill"
+                className="rounded-md px-2 py-1 font-semibold text-accent hover:bg-accent/10"
+              >
+                ›
+              </Link>
+            ) : (
+              <span className="px-2 py-1 text-neutral-300 dark:text-neutral-700">›</span>
+            )}
+          </div>
+        )}
+      </div>
 
       <header className="mb-4 mt-2">
         <h1 className="text-xl font-bold tracking-tight">{title}</h1>
