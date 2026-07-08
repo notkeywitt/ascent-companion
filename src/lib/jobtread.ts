@@ -656,6 +656,197 @@ export interface UninvoicedBills {
   total: number;
 }
 
+// ---------------------------------------------------------------------------
+// BILL INGESTION  (roadmap D — the Gemini engine's JobTread write path, ported
+// from the PROVEN Apps Script pushExpenditureToJobTread / attachPdfToJobTread-
+// Document / findExistingBillByExternalId. Field-for-field parity with the
+// production payloads; do not add unverified fields here — probe first.)
+// ---------------------------------------------------------------------------
+
+/** Cost-item custom field "Cost Codes" (text) — the raw CSI the engine writes
+ *  on every coded line (same id the Apps Script push uses). */
+export const CF_COST_CODES = "22PYwxRXb8yr";
+
+export interface NewBillLine {
+  name: string; // line description (JT caps at ~255; callers pre-truncate to 250)
+  description?: string; // the raw CSI code, mirroring the Apps Script convention
+  unitCost: number;
+  quantity: number;
+  isTaxable: boolean;
+  jobCostItemId?: string; // budget coding target; omit = lands uncoded in the queue
+  costCode?: string; // raw CSI → written to the Cost Codes custom field
+}
+
+export interface CreateVendorBillArgs {
+  jobId: string;
+  accountId: string; // JT vendor account
+  vendorName: string; // fromName
+  subject: string;
+  externalId: string; // idempotency key (the companion's INV-xxxxxxxx)
+  issueDate: string; // yyyy-MM-dd
+  dueDate?: string | null; // yyyy-MM-dd; when null, dueDays applies
+  dueDays?: number | null;
+  taxAmount: number; // document-level sales tax → nonRecoverableTax
+  jobLocationName?: string;
+  jobLocationAddress?: string;
+  pushToQuickBooks?: boolean; // default true (qboIsIgnored = !push)
+  lines: NewBillLine[];
+}
+
+/**
+ * WRITE — create a draft vendor bill (createDocument type:vendorBill). No
+ * `status` arg: newly created bills land as DRAFT (the coding queue), exactly
+ * like the production Apps Script push. Tax rides in nonRecoverableTax with
+ * lines non-taxable (or taxable lines with 0 when the document shows no tax) —
+ * see computeLineTaxability in billing.ts.
+ */
+export async function createVendorBill(
+  cfg: PaveConfig,
+  args: CreateVendorBillArgs,
+): Promise<{ id: string }> {
+  const lineItems = args.lines.map((l) => {
+    const li: Record<string, unknown> = {
+      _type: "costItem",
+      name: l.name.substring(0, 250),
+      description: l.description ?? "",
+      unitCost: l.unitCost,
+      quantity: l.quantity,
+      isTaxable: l.isTaxable,
+    };
+    if (l.jobCostItemId) li.jobCostItemId = l.jobCostItemId;
+    if (l.costCode) {
+      li.customFieldValues = [{ customFieldId: CF_COST_CODES, value: l.costCode }];
+    }
+    return li;
+  });
+
+  const docArgs: Record<string, unknown> = {
+    type: "vendorBill",
+    jobId: args.jobId,
+    accountId: args.accountId,
+    name: "Bill",
+    subject: args.subject,
+    externalId: args.externalId,
+    issueDate: args.issueDate,
+    fromName: args.vendorName,
+    toName: "Ascent Building Co",
+    taxRate: 0,
+    nonRecoverableTaxName: "Tax",
+    nonRecoverableTax: args.taxAmount,
+    lineItems,
+    includeInBudget: true,
+    qboIsIgnored: !(args.pushToQuickBooks ?? true),
+    qboIsBillable: true,
+  };
+  if (args.jobLocationName) docArgs.jobLocationName = args.jobLocationName;
+  if (args.jobLocationAddress) docArgs.jobLocationAddress = args.jobLocationAddress;
+  if (args.dueDate) docArgs.dueDate = args.dueDate;
+  else docArgs.dueDays = args.dueDays ?? 30;
+
+  const r = await pave(cfg, {
+    createDocument: {
+      $: docArgs,
+      createdDocument: { id: {} },
+    },
+  });
+  const id = r?.createDocument?.createdDocument?.id;
+  if (!id) throw new Error("createDocument returned no document id.");
+  return { id };
+}
+
+/**
+ * Idempotency check (port of findExistingBillByExternalId): does the vendor
+ * account already have a document with this externalId? Pages the account's
+ * documents and matches client-side — server-side `where` on externalId 400s.
+ * Returns the existing doc id, null when absent, or throws on API failure so
+ * the caller can refuse to create (fail CLOSED, never duplicate).
+ */
+export async function findBillByExternalId(
+  cfg: PaveConfig,
+  accountId: string,
+  externalId: string,
+): Promise<string | null> {
+  const target = externalId.trim();
+  if (!target) return null;
+  let cursor: string | null = null;
+  for (let page = 0; page < 1000; page++) {
+    const args: Record<string, unknown> = { size: 50 };
+    if (cursor) args.page = cursor;
+    const r = await pave(cfg, {
+      account: {
+        $: { id: accountId },
+        documents: { $: args, nextPage: {}, nodes: { id: {}, externalId: {} } },
+      },
+    });
+    const docs = r?.account?.documents ?? {};
+    const nodes: any[] = docs.nodes ?? [];
+    for (const n of nodes) {
+      if (String(n.externalId ?? "").trim() === target) return n.id;
+    }
+    cursor = docs.nextPage ?? null;
+    if (!cursor || nodes.length === 0) break;
+  }
+  return null;
+}
+
+/** A job's name + location address, for the bill header fields. */
+export async function getJobHeaderInfo(
+  cfg: PaveConfig,
+  jobId: string,
+): Promise<{ name: string; address: string }> {
+  const r = await pave(cfg, {
+    job: { $: { id: jobId }, id: {}, name: {}, location: { address: {} } },
+  });
+  return {
+    name: r?.job?.name ?? "",
+    address: r?.job?.location?.address ?? "",
+  };
+}
+
+/**
+ * WRITE — attach an uploaded file to a document via the confirmed three-step
+ * GCS flow: createUploadRequest (requires organizationId or the file lands in
+ * the wrong bucket) → presigned PUT → createFile targetType:document.
+ */
+export async function attachFileToDocument(
+  cfg: PaveConfig,
+  docId: string,
+  bytes: Buffer,
+  mimeType: string,
+  fileName: string,
+): Promise<{ id: string }> {
+  // Step 1: createUploadRequest
+  const r1 = await pave(cfg, {
+    createUploadRequest: {
+      $: { type: mimeType, size: bytes.length, organizationId: cfg.orgId },
+      createdUploadRequest: { id: {}, url: {}, method: {}, headers: {} },
+    },
+  });
+  const up = r1?.createUploadRequest?.createdUploadRequest;
+  if (!up?.url || !up?.id) throw new Error("createUploadRequest returned no upload URL.");
+
+  // Step 2: PUT the bytes to GCS
+  const put = await fetch(up.url, {
+    method: up.method || "PUT",
+    headers: up.headers || {},
+    body: new Uint8Array(bytes),
+  });
+  if (put.status !== 200 && put.status !== 204) {
+    throw new Error(`File PUT failed with HTTP ${put.status}`);
+  }
+
+  // Step 3: createFile against the document
+  const r3 = await pave(cfg, {
+    createFile: {
+      $: { uploadRequestId: up.id, targetId: docId, targetType: "document", name: fileName },
+      createdFile: { id: {}, name: {} },
+    },
+  });
+  const fileId = r3?.createFile?.createdFile?.id;
+  if (!fileId) throw new Error("createFile returned no file id.");
+  return { id: fileId };
+}
+
 export async function getUninvoicedBills(
   cfg: PaveConfig,
   jobId: string,

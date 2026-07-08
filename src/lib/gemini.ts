@@ -1,0 +1,148 @@
+/**
+ * Gemini invoice extraction — the companion's port of the Apps Script engine
+ * (Ingestion.js callGemini + Config.js PROMPTS.appSheetExpenditure).
+ *
+ * The prompt below is TUNED against a corpus of real invoices; changes to its
+ * rules should be mirrored to/from the Apps Script original. Two deliberate
+ * deviations from the email-card variant:
+ *   1. No Project rule — the job is ALWAYS human-picked in the UI, never AI
+ *      (hard-learned rule from the email card).
+ *   2. Vendors are JobTread accounts (id + name) rather than the Vendors sheet,
+ *      so the returned "Vendor" is a JT account id.
+ *
+ * Server-side only (GEMINI_KEY). Never import from client components.
+ */
+
+export interface ExtractedItem {
+  description?: string;
+  price?: number;
+  quantity?: number;
+  line_total?: number;
+  csi?: string;
+}
+
+export interface ExtractedBill {
+  Vendor?: string; // JT account id, or "<name> NEW VENDOR" when unmatched
+  Amount?: number; // invoice grand total (subtotal + tax)
+  Tax?: number; // total sales tax
+  DueDate?: string; // yyyy-MM-dd
+  CSI?: string; // primary cost code for the whole invoice
+  items?: ExtractedItem[];
+}
+
+const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash"; // matches Apps Script CONFIG
+const MAX_RETRIES = 3;
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** The extraction prompt (port of PROMPTS.appSheetExpenditure, minus Project). */
+function buildPrompt(vendorList: string, validCSIs: string): string {
+  const csiRule = validCSIs
+    ? `MUST be EXACTLY one of: [${validCSIs}]. These are the ONLY codes available — they come from the project's active budget. If absolutely no logical match exists, use "".`
+    : `The project has no budget codes loaded — always output "".`;
+
+  return `You are a construction data parser. Extract JSON:
+{
+  "Vendor": string, "Amount": number, "Tax": number, "DueDate": "YYYY-MM-DD",
+  "CSI": string,
+  "items": [{"description": string, "price": number, "quantity": number, "line_total": number, "csi": string}]
+}
+
+RULES:
+1. 'Vendor': You MUST choose the closest matching Vendor name from this list: {${vendorList}} and return the Vendor ID. If no match is found, output the vendor found and append "NEW VENDOR".
+2. 'CSI': The primary CSI for the whole invoice. ${csiRule}
+3. 'items': Every line item. For each, 'csi' follows the same rule as 'CSI'. Do NOT create a line item for sales tax, or for Subtotal / Total / Balance Due summary rows.
+4. 'Tax': The TOTAL sales tax charged on the invoice, as a positive number (the "Tax" / "Sales Tax" / "Total Tax" summary amount). Keep it OUT of 'items'. 'Amount' is the invoice GRAND TOTAL (subtotal + tax), so the line items should sum to Amount minus Tax. If the invoice shows no tax, output 0.
+5. 'DueDate': The payment due date printed on the invoice, if any; else "".
+6. Return ONLY JSON.`;
+}
+
+/**
+ * Low-level Gemini call (port of callGemini): REST generateContent with the file
+ * inlined, retry on 429/502/503, then the same two JSON repair passes the Apps
+ * Script engine needed against real Gemini output. Returns null on failure.
+ */
+async function callGemini(prompt: string, bytes: Buffer, mimeType: string): Promise<any | null> {
+  const key = process.env.GEMINI_KEY;
+  if (!key) throw new Error("GEMINI_KEY is not set.");
+
+  const url = `https://generativelanguage.googleapis.com/v1/models/${GEMINI_MODEL}:generateContent?key=${key}`;
+  const payload = JSON.stringify({
+    contents: [
+      {
+        parts: [
+          { text: prompt },
+          { inline_data: { mime_type: mimeType, data: bytes.toString("base64") } },
+        ],
+      },
+    ],
+  });
+
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    let res: Response;
+    try {
+      res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: payload,
+      });
+    } catch (e) {
+      if (attempt >= MAX_RETRIES) return null;
+      await sleep(Math.pow(2, attempt) * 1000);
+      continue;
+    }
+
+    if (res.status === 429 || res.status === 502 || res.status === 503) {
+      if (attempt >= MAX_RETRIES) return null;
+      await sleep(Math.pow(2, attempt) * 1000);
+      continue;
+    }
+    if (!res.ok) {
+      const body = await res.text();
+      throw new Error(`Gemini HTTP ${res.status}: ${body.slice(0, 300)}`);
+    }
+
+    const json = await res.json();
+    let text: string = json?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+
+    // Strip markdown code fences if Gemini ignored "no markdown"
+    text = text.replace(/```json|```/g, "").trim();
+
+    const isArray = text.startsWith("[");
+    const match = text.match(isArray ? /\[[\s\S]*\]/ : /\{[\s\S]*\}/);
+    if (!match) return null;
+
+    let jsonStr = match[0];
+    // Repair pass 1: strip embedded control characters that crash JSON.parse
+    jsonStr = jsonStr.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "");
+    // Repair pass 2: insert missing } between adjacent objects in arrays
+    jsonStr = jsonStr.replace(/("[^"]*"|[\d.]+|true|false|null)(\s*),(\s*)\{/g, "$1$2}$2,$3{");
+
+    try {
+      return JSON.parse(jsonStr);
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+/**
+ * Extract a vendor bill from an uploaded document.
+ * @param bytes     the file's bytes
+ * @param mimeType  application/pdf or an image type
+ * @param vendors   JT vendor accounts, injected as "id": "name" pairs
+ * @param budgetCodes  the job's budget cost codes, e.g. [{number, name}]
+ */
+export async function extractBillWithGemini(
+  bytes: Buffer,
+  mimeType: string,
+  vendors: { id: string; name: string }[],
+  budgetCodes: { number: string; name: string }[],
+): Promise<ExtractedBill | null> {
+  const vendorList = vendors.map((v) => `"${v.id}": "${v.name}"`).join(", ");
+  // Same shape as the Apps Script getValidCSIString(): code + service name hint.
+  const csiList = budgetCodes.map((c) => `"${c.number}" (Matches: ${c.name})`).join(", ");
+  const out = await callGemini(buildPrompt(vendorList, csiList), bytes, mimeType);
+  return out && typeof out === "object" && !Array.isArray(out) ? (out as ExtractedBill) : null;
+}

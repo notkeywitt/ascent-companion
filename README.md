@@ -51,6 +51,12 @@ Google sign-in allowlisted to office@ / keillor@.
 - **B** Coding writes: code lines + approve bills (DRY_RUN → live).
 - **C** Invoice staging: lock lineItems shape → one-tap draft invoice.
 - **D** Retarget ingestion → `createDocument vendorBill/draft`.
+  - ✅ **Add a Bill** (`/add-bill`): manual path for when the email card isn't an option —
+    upload a photo/PDF, Gemini extracts + codes it against the job's live budget
+    (`src/lib/gemini.ts`, a port of the Apps Script engine incl. the billing-period
+    standard in `src/lib/billing.ts`), and a draft vendor bill lands in the coding
+    queue with the file attached. Gated by `COMPANION_WRITES_ENABLED`; needs `GEMINI_KEY`.
+  - ⬜ Retarget the Gmail auto-scan engine itself.
 - **E** PWA + desktop side-panel; retire AppSheet.
 
 See `../ascent-appscript/MIGRATION_PLAN.md` for the full plan.
