@@ -5,7 +5,6 @@ export function getPaveConfig(): PaveConfig {
   return {
     grantKey: process.env.JT_GRANT_KEY ?? "",
     orgId: process.env.JT_ORG_ID ?? "",
-    companyName: process.env.JT_COMPANY_NAME ?? "Ascent Building Co.",
   };
 }
 

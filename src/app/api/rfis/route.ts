@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { desc, eq } from "drizzle-orm";
 import { db, ensureDb } from "@/db";
 import { rfis } from "@/db/schema";
+import { requireAuth } from "@/lib/require-auth";
 
 // GET /api/rfis?jobId=... — list RFIs for a job (newest first).
 export async function GET(req: NextRequest) {
@@ -14,6 +15,9 @@ export async function GET(req: NextRequest) {
 
 // POST /api/rfis — create an RFI { jobId, subject, question?, assignee?, dueDate? }.
 export async function POST(req: NextRequest) {
+  if (!(await requireAuth())) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
   let body: Record<string, string>;
   try {
     body = await req.json();

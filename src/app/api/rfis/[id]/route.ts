@@ -2,9 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { db, ensureDb } from "@/db";
 import { rfis } from "@/db/schema";
+import { requireAuth } from "@/lib/require-auth";
 
 // PATCH /api/rfis/:id — update status / answer / assignee / dueDate / question.
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+  if (!(await requireAuth())) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
   const { id } = await ctx.params;
   const rfiId = Number(id);
   if (!Number.isFinite(rfiId)) {
@@ -15,6 +19,13 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     body = await req.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  }
+  const RFI_STATUSES = ["open", "answered", "closed"];
+  if (typeof body.status === "string" && !RFI_STATUSES.includes(body.status)) {
+    return NextResponse.json(
+      { error: `status must be one of ${RFI_STATUSES.join("|")}` },
+      { status: 400 },
+    );
   }
   const patch: Record<string, string> = { updatedAt: new Date().toISOString() };
   for (const field of [

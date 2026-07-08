@@ -20,8 +20,12 @@ export default auth(async (req) => {
     if (cookie && cookie === (await tokenFor(pw))) return NextResponse.next();
   }
 
-  // 3. Neither auth configured => open (local dev).
-  if (!process.env.AUTH_GOOGLE_ID && !pw) return NextResponse.next();
+  // 3. Neither auth configured => open ONLY outside production (local dev).
+  //    In production this fails CLOSED: a missing env var on a deploy must
+  //    lock the app, not expose it.
+  if (!process.env.AUTH_GOOGLE_ID && !pw && process.env.NODE_ENV !== "production") {
+    return NextResponse.next();
+  }
 
   // Otherwise block.
   if (pathname.startsWith("/api/")) {

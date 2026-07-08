@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getBillDetail, getBillFiles, getJobBudget, getCostToComplete } from "@/lib/jobtread";
+import { getBillDetail, getBillFiles, getJobBudget, getCostToComplete, scanJobCostItems } from "@/lib/jobtread";
 import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
 
 // Read-only: a draft bill's header + lines + attached files + the job's budget.
@@ -17,11 +17,16 @@ export async function GET(req: NextRequest) {
   }
   try {
     const cfg = getPaveConfig();
-    const [detail, budget, files, costToComplete] = await Promise.all([
+    // One paginated pass over job.costItems feeds BOTH budget and cost-to-
+    // complete (they used to scan the same connection twice per bill open).
+    const [detail, files, costItems] = await Promise.all([
       getBillDetail(cfg, docId),
-      getJobBudget(cfg, jobId),
       getBillFiles(cfg, docId),
-      getCostToComplete(cfg, jobId),
+      scanJobCostItems(cfg, jobId),
+    ]);
+    const [budget, costToComplete] = await Promise.all([
+      getJobBudget(cfg, jobId, costItems),
+      getCostToComplete(cfg, jobId, costItems),
     ]);
     return NextResponse.json({
       header: detail.header,

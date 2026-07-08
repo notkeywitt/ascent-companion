@@ -28,7 +28,11 @@ const statusClass: Record<string, string> = {
   answered: "text-green-700 bg-green-100 dark:text-green-300 dark:bg-green-950/50",
   closed: "text-neutral-600 bg-neutral-200 dark:text-neutral-300 dark:bg-neutral-800",
 };
-const today = () => new Date().toISOString().slice(0, 10);
+// Local date parts, not toISOString() — UTC rolls to tomorrow after ~4-5pm here.
+const today = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
 
 function Rfis() {
   const search = useSearchParams();

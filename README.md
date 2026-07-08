@@ -43,7 +43,7 @@ Google sign-in allowlisted to office@ / keillor@.
 
 ## Secrets (server-side only — see `.env.example`)
 
-`JT_GRANT_KEY`, `JT_ORG_ID`, `GEMINI_KEY`, `JT_SUNSET_VENDOR_ID`.
+`JT_GRANT_KEY`, `JT_ORG_ID` (see `.env.example` for auth and writes flags).
 
 ## Roadmap
 

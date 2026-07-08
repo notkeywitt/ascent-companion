@@ -34,10 +34,7 @@ interface FileNode {
   url?: string;
 }
 
-const money = (n?: number) =>
-  typeof n === "number"
-    ? "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-    : "—";
+import { money } from "@/lib/format";
 
 const isImage = (f: FileNode) =>
   /^image\//i.test(f.type ?? "") || /\.(png|jpe?g|gif|webp)$/i.test(f.name ?? "");
@@ -182,7 +179,9 @@ function BillDetail() {
     let changed = false;
 
     const sel = picked[l.id];
-    if (sel !== undefined && sel !== (l.jobCostItem?.id ?? "")) {
+    // sel === "" (the un-coded option) is never sent — JT rejects an empty
+    // jobCostItemId and there is no verified way to CLEAR a line's coding.
+    if (sel !== undefined && sel !== "" && sel !== (l.jobCostItem?.id ?? "")) {
       change.jobCostItemId = sel;
       // JobTread locks a cost item's description field once the bill is payable
       // (pending) or paid (approved) — updating it errors. So only mirror the
@@ -307,11 +306,30 @@ function BillDetail() {
         return [change];
       });
       if (changes.length) {
-        await fetch("/api/code", {
+        const codeRes = await fetch("/api/code", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ changes }),
         });
+        const codeJson = (await codeRes.json().catch(() => ({}))) as {
+          previewed?: boolean;
+          ok?: boolean;
+          error?: string;
+          results?: { ok: boolean }[];
+        };
+        const codeFailed =
+          !codeRes.ok || codeJson.ok === false || (codeJson.results ?? []).some((r) => !r.ok);
+        // Approving locks qty/unitCost/description — never lock in a bill whose
+        // coding didn't actually save (or was only previewed with writes OFF).
+        if (codeJson.previewed || codeFailed) {
+          setHeader((h) => (h ? { ...h, status: prev } : h));
+          setSaveMsg(
+            codeJson.previewed
+              ? "Writes are OFF — coding not saved, approve cancelled."
+              : (codeJson.error ?? "Coding save failed — approve cancelled."),
+          );
+          return;
+        }
       }
       // 2. Approve (moves out of draft; description is now locked).
       const res = await fetch("/api/bill-status", {
@@ -459,12 +477,31 @@ function BillDetail() {
             onChange={async (e) => {
               const issueDate = e.target.value;
               if (!issueDate) return;
-              setHeader((h) => (h ? { ...h, issueDate } : h));
-              await fetch("/api/bill-issuedate", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ docId, issueDate }),
-              });
+              const prevIssue = header?.issueDate;
+              setHeader((h) => (h ? { ...h, issueDate } : h)); // optimistic
+              try {
+                const res = await fetch("/api/bill-issuedate", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ docId, issueDate }),
+                });
+                const j = (await res.json().catch(() => ({}))) as {
+                  previewed?: boolean;
+                  error?: string;
+                };
+                if (!res.ok || j.previewed) {
+                  // Don't keep showing a month that was never saved.
+                  setHeader((h) => (h ? { ...h, issueDate: prevIssue } : h));
+                  setSaveMsg(
+                    j.previewed
+                      ? "Writes are OFF — billing month not saved."
+                      : (j.error ?? "Billing month save failed."),
+                  );
+                }
+              } catch {
+                setHeader((h) => (h ? { ...h, issueDate: prevIssue } : h));
+                setSaveMsg("Network error — billing month not saved.");
+              }
             }}
             className="rounded-lg border border-neutral-300 bg-transparent px-2 py-1 text-sm dark:border-neutral-700"
           >

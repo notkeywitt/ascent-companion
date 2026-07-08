@@ -9,7 +9,10 @@ export async function GET() {
   }
   try {
     const vendors = await getVendors(getPaveConfig());
-    return NextResponse.json({ vendors });
+    return NextResponse.json(
+      { vendors },
+      { headers: { "Cache-Control": "s-maxage=300, stale-while-revalidate=600" } },
+    );
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : "Unknown error";
     return NextResponse.json({ error: message }, { status: 502 });

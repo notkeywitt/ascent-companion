@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { updateLine } from "@/lib/jobtread";
 import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
+import { requireAuth } from "@/lib/require-auth";
 
 interface Change {
   costItemId: string;
@@ -20,6 +21,9 @@ const hasEdit = (c: Change) =>
  * and returns a preview of what *would* change.
  */
 export async function POST(req: NextRequest) {
+  if (!(await requireAuth())) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
   if (!hasGrant()) {
     return NextResponse.json({ error: "JT_GRANT_KEY is not set." }, { status: 400 });
   }
@@ -62,5 +66,18 @@ export async function POST(req: NextRequest) {
       });
     }
   }
-  return NextResponse.json({ previewed: false, wrote: true, results });
+  const failed = results.filter((r) => !r.ok).length;
+  if (failed) {
+    return NextResponse.json(
+      {
+        previewed: false,
+        wrote: true,
+        ok: false,
+        error: `${failed} of ${results.length} line update(s) failed`,
+        results,
+      },
+      { status: 502 },
+    );
+  }
+  return NextResponse.json({ previewed: false, wrote: true, ok: true, results });
 }

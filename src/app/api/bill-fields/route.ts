@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { setBillFields } from "@/lib/jobtread";
 import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
+import { requireAuth } from "@/lib/require-auth";
 
 // Set a bill's header flags: name ("Bill"|"Expense") and/or qboIsIgnored
 // (Push-to-QB = !qboIsIgnored). Gated by the writes flag.
 export async function POST(req: NextRequest) {
+  if (!(await requireAuth())) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
   if (!hasGrant()) {
     return NextResponse.json({ error: "JT_GRANT_KEY is not set." }, { status: 400 });
   }

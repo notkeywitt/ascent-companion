@@ -19,10 +19,7 @@ interface Summary {
   unbilled: number;
 }
 
-const money = (n?: number) =>
-  typeof n === "number"
-    ? "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-    : "—";
+import { money } from "@/lib/format";
 
 function Unbilled() {
   const search = useSearchParams();

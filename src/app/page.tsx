@@ -16,10 +16,7 @@ interface Bill {
   issueDate?: string;
 }
 
-const money = (n?: number) =>
-  typeof n === "number"
-    ? "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-    : "—";
+import { money } from "@/lib/format";
 
 // In the Chrome side panel this app runs in an iframe next to a JobTread tab.
 // Clicking a queue item asks the extension to open that bill in the main

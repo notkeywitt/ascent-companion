@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { setBillIssueDate } from "@/lib/jobtread";
 import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
+import { requireAuth } from "@/lib/require-auth";
 
 // Set a bill's issueDate (its billing month = last day). Gated by writes flag.
 export async function POST(req: NextRequest) {
+  if (!(await requireAuth())) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
   if (!hasGrant()) {
     return NextResponse.json({ error: "JT_GRANT_KEY is not set." }, { status: 400 });
   }

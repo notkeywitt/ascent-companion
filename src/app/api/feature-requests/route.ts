@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { desc } from "drizzle-orm";
 import { db, ensureDb } from "@/db";
 import { featureRequests } from "@/db/schema";
+import { requireAuth } from "@/lib/require-auth";
 
 // GET /api/feature-requests — all requests, newest first.
 export async function GET() {
@@ -12,6 +13,9 @@ export async function GET() {
 
 // POST /api/feature-requests — { title, detail?, requester? }.
 export async function POST(req: NextRequest) {
+  if (!(await requireAuth())) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
   let body: Record<string, string>;
   try {
     body = await req.json();

@@ -9,9 +9,24 @@ export function envAllowed(): string[] {
     .filter(Boolean);
 }
 
+// In production the session-signing secret must be a real secret — falling
+// back to the shared password (low entropy) or a public constant would make
+// session cookies forgeable.
+// `next build` also runs with NODE_ENV=production but without deploy env vars,
+// so only enforce at actual runtime (NEXT_PHASE is set during the build).
+const isBuildPhase = process.env.NEXT_PHASE === "phase-production-build";
+const AUTH_SECRET =
+  process.env.AUTH_SECRET ??
+  (process.env.NODE_ENV === "production" && !isBuildPhase
+    ? undefined
+    : process.env.APP_PASSWORD ?? "local-dev-only-secret");
+if (!AUTH_SECRET) {
+  throw new Error("AUTH_SECRET must be set in production (generate one with `npx auth secret`).");
+}
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
   trustHost: true,
-  secret: process.env.AUTH_SECRET ?? process.env.APP_PASSWORD ?? "local-dev-only-secret",
+  secret: AUTH_SECRET,
   providers: [
     Google({
       clientId: process.env.AUTH_GOOGLE_ID?.trim(),

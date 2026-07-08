@@ -12,8 +12,7 @@ interface Line {
   isSunset: boolean;
 }
 
-const money = (n: number) =>
-  "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+import { money } from "@/lib/format";
 
 function monthOptions() {
   const opts: { ym: string; label: string; lastDay: string }[] = [];
@@ -36,8 +35,10 @@ function Stage() {
   const search = useSearchParams();
   const jobId = (search.get("jobId") ?? "").trim();
   const [ym, setYm] = useState(() => {
-    const d = new Date();
-    d.setMonth(d.getMonth() - 1);
+    // Construct the 1st of last month directly — setMonth() on the 29th-31st
+    // overflows ("Jun 31" -> Jul 1) and defaults to the CURRENT month.
+    const now = new Date();
+    const d = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
   });
   const [customer, setCustomer] = useState<{ id: string; name: string } | null>(null);
