@@ -633,12 +633,22 @@ export async function getMonthlyBills(
  * costItems), but works at ≤50 — we page at 25. A bare "Create invoice" also
  * pulls uninvoiced TIME entries, which aren't listed here yet.
  */
+export interface UninvoicedBillRef {
+  id: string; // JT document id — links to the companion bill view + JT doc page
+  label: string; // invoice # / externalId (or vendor)
+  cost: number;
+  invoiced: boolean; // already on a customer invoice (only appears when includeInvoiced)
+}
 export interface UninvoicedBillLine {
   key: string;
   label: string; // vendor · invoice#, or the rolled-up Sunset group
   cost: number;
   billIds: string[];
   isSunset: boolean;
+  // Individual documents behind this line. A single-vendor line carries one;
+  // the Sunset group carries every Sunset bill so the UI can list them under
+  // the group total. Empty/undefined for non-document lines (e.g. Time & labor).
+  bills?: UninvoicedBillRef[];
 }
 export interface UninvoicedBills {
   customer: { id: string; name: string } | null;
@@ -651,10 +661,12 @@ export async function getUninvoicedBills(
   jobId: string,
   year?: number,
   month?: number,
+  includeInvoiced = false,
 ): Promise<UninvoicedBills> {
   // When a billing month is given, only include bills/time dated in that month.
   // issueDate is standardized to the last day of the billing month, so a June
-  // bill (2026-06-30) falls inside June's range.
+  // bill (2026-06-30) falls inside June's range. Omit year/month to span all
+  // months (the "filter by billing month" toggle off).
   const inMonth = (dateStr?: string) => {
     if (!year || !month) return true;
     if (!dateStr) return false;
@@ -702,7 +714,9 @@ export async function getUninvoicedBills(
 
   const isInvoiced = (b: any) =>
     (b.referencedDocuments?.nodes ?? []).some((n: any) => n.type === "customerInvoice");
-  const open = bills.filter((b) => !isInvoiced(b) && inMonth(b.issueDate));
+  // includeInvoiced relaxes the uninvoiced filter (shows bills already on a
+  // customer invoice too); the invoiced flag lets the UI mark them.
+  const open = bills.filter((b) => (includeInvoiced || !isInvoiced(b)) && inMonth(b.issueDate));
 
   // Uninvoiced time entries — a bare invoice pulls these too, so include them so
   // the preview total matches what JobTread will actually invoice.
@@ -723,13 +737,18 @@ export async function getUninvoicedBills(
     timeEntries = timeEntries.concat(r?.job?.timeEntries?.nodes ?? []);
     page = r?.job?.timeEntries?.nextPage || undefined;
   } while (page && ++guard < 100);
-  const openTime = timeEntries.filter((t) => !isInvoiced(t) && inMonth(t.startedAt));
+  const openTime = timeEntries.filter(
+    (t) => (includeInvoiced || !isInvoiced(t)) && inMonth(t.startedAt),
+  );
   const timeCost = openTime.reduce((s, t) => s + (t.cost ?? 0), 0);
 
   const vendorOf = (b: any) => String(b.account?.name ?? b.fromName ?? "Vendor");
   const isSunset = (b: any) => /sunset/i.test(vendorOf(b));
   const sunset = open.filter(isSunset);
   const others = open.filter((b) => !isSunset(b));
+
+  // Per-bill invoice label: externalId (Sunset invoice #) → #number → id.
+  const invLabel = (b: any) => b.externalId || (b.number ? `#${b.number}` : b.id);
 
   const lines: UninvoicedBillLine[] = [];
   if (sunset.length) {
@@ -739,6 +758,9 @@ export async function getUninvoicedBills(
       cost: sunset.reduce((s, b) => s + (b.cost ?? 0), 0),
       billIds: sunset.map((b) => b.id),
       isSunset: true,
+      bills: sunset
+        .map((b) => ({ id: b.id, label: invLabel(b), cost: b.cost ?? 0, invoiced: isInvoiced(b) }))
+        .sort((a, b) => b.cost - a.cost),
     });
   }
   for (const b of others) {
@@ -749,6 +771,7 @@ export async function getUninvoicedBills(
       cost: b.cost ?? 0,
       billIds: [b.id],
       isSunset: false,
+      bills: [{ id: b.id, label: invLabel(b), cost: b.cost ?? 0, invoiced: isInvoiced(b) }],
     });
   }
   lines.sort((a, b) => b.cost - a.cost);
