@@ -8,7 +8,8 @@ const TABS: { label: string; href: string; match: (p: string) => boolean }[] = [
   {
     label: "Billing",
     href: "/",
-    match: (p) => p === "/" || p.startsWith("/unbilled") || p.startsWith("/bill"),
+    match: (p) =>
+      p === "/" || p.startsWith("/unbilled") || p.startsWith("/bill") || p.startsWith("/add-bill"),
   },
   { label: "Invoicing", href: "/stage", match: (p) => p.startsWith("/stage") },
   { label: "RFIs", href: "/rfis", match: (p) => p.startsWith("/rfis") },

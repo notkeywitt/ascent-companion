@@ -5,7 +5,7 @@ import { JobPicker } from "@/components/JobPicker";
 
 // Routes that are scoped to a single job. The picker shows here and writes the
 // chosen job to the URL's ?jobId=, which those pages read as source of truth.
-const JOB_ROUTES = ["/", "/unbilled", "/stage", "/bill"];
+const JOB_ROUTES = ["/", "/unbilled", "/stage", "/bill", "/add-bill"];
 
 export function GlobalJobBar() {
   const pathname = usePathname();
