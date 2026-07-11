@@ -4,6 +4,8 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import { SyncNowButton } from "@/components/SyncNowButton";
+
 const TABS: { label: string; href: string; match: (p: string) => boolean }[] = [
   {
     label: "Billing",
@@ -71,6 +73,7 @@ export function TabBar() {
           );
         })}
       </div>
+      <SyncNowButton />
       <ThemeToggle />
     </nav>
   );
