@@ -80,6 +80,7 @@ export async function POST(req: NextRequest) {
   const jobId = String(form.get("jobId") ?? "").trim();
   const externalId = String(form.get("externalId") ?? "").trim();
   const vendorOverride = String(form.get("vendorId") ?? "").trim();
+  const singleLine = /^(1|true|on|yes)$/i.test(String(form.get("singleLine") ?? "").trim());
 
   if (!(file instanceof File)) {
     return NextResponse.json({ error: "No file uploaded." }, { status: 400 });
@@ -170,7 +171,7 @@ export async function POST(req: NextRequest) {
     const tax = computeLineTaxability(extracted.Tax);
     const items = extracted.items ?? [];
     let uncoded = 0;
-    const lines: NewBillLine[] = items.map((it) => {
+    let lines: NewBillLine[] = items.map((it) => {
       const csi = String(it.csi ?? "").trim();
       const target = csi ? codeToItem.get(csi) : undefined;
       if (csi && !target) uncoded++;
@@ -202,6 +203,31 @@ export async function POST(req: NextRequest) {
         isTaxable: tax.lineIsTaxable,
       });
       warnings.push("No line items extracted — created a single summary line.");
+    }
+
+    // Optional "don't itemize": collapse the extracted lines into ONE cost item at
+    // the exact net total (tax stays on nonRecoverableTax). Carries the shared cost
+    // code if every line agrees on one, otherwise leaves it uncoded to code once in
+    // the queue. For invoices with a ton of lines that don't need breaking down.
+    if (singleLine && lines.length > 1) {
+      const n = lines.length;
+      const net = lines.reduce((s, l) => s + (Number(l.unitCost) || 0) * (Number(l.quantity) || 0), 0);
+      const csis = [...new Set(lines.map((l) => l.costCode).filter(Boolean))];
+      const oneCode = csis.length === 1 ? (csis[0] as string) : undefined;
+      lines = [
+        {
+          name: `${vendor.name} ${externalId} — ${n} items (not itemized)`,
+          description: oneCode ?? "",
+          unitCost: net,
+          quantity: 1,
+          isTaxable: tax.lineIsTaxable,
+          jobCostItemId: oneCode ? codeToItem.get(oneCode)?.id : undefined,
+          costCode: oneCode,
+        },
+      ];
+      warnings.push(
+        `Collapsed ${n} extracted lines into one${oneCode ? ` (coded ${oneCode})` : " — code it in the queue"}.`,
+      );
     }
 
     const reconcile = taxReconcileWarning(extracted);
@@ -297,11 +323,40 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // ---- 9. nudge the Apps Script full sync (fire-and-forget, FAIL-SAFE) -----
+    // Kick runFullJtSync so this new bill — and any vendor just added for it —
+    // mirrors into the Expenditure sheet + Drive within ~1-2 min instead of
+    // waiting up to an hour for the scheduled run. runFullJtSync now refreshes
+    // Vendors BEFORE importing bills, so the backfilled row resolves the vendor
+    // cleanly. This must NEVER affect the bill result: any error (missing env,
+    // network, non-JSON) is swallowed — the hourly runFullJtSync is the backstop.
+    let syncKicked = false;
+    const syncUrl = process.env.APPS_SCRIPT_SYNC_URL;
+    const syncSecret = process.env.APPS_SCRIPT_SYNC_SECRET;
+    if (syncUrl && syncSecret) {
+      try {
+        const kick = await fetch(syncUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ secret: syncSecret }), // queued mode → returns ~1s
+          redirect: "follow",
+        });
+        const kickJson = (await kick.json().catch(() => null)) as { ok?: boolean } | null;
+        syncKicked = kickJson?.ok === true;
+        if (!syncKicked) {
+          warnings.push("Bill created, but the sheet/Drive sync kick didn't confirm — it'll sync on the next hourly run.");
+        }
+      } catch {
+        warnings.push("Bill created, but the sheet/Drive sync kick failed — it'll sync on the next hourly run.");
+      }
+    }
+
     return NextResponse.json({
       previewed: false,
       wrote: true,
       docId,
       fileAttached,
+      syncKicked,
       ...summary,
       warnings,
     });

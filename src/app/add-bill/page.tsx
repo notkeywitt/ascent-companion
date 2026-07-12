@@ -35,6 +35,7 @@ interface AddBillResult {
   issueDate?: string;
   dueDate?: string;
   externalId?: string;
+  syncKicked?: boolean;
   warnings?: string[];
   lines?: PreviewLine[];
 }
@@ -59,6 +60,7 @@ function AddBill() {
   const [externalId, setExternalId] = useState("");
   const [vendors, setVendors] = useState<VendorRef[]>([]);
   const [vendorId, setVendorId] = useState(""); // "" = let Gemini match
+  const [singleLine, setSingleLine] = useState(false); // collapse to one cost item
   const [needVendor, setNeedVendor] = useState(""); // 422 message when unmatched
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -97,6 +99,7 @@ function AddBill() {
       fd.set("jobId", jobId);
       fd.set("externalId", externalId);
       if (vendorId) fd.set("vendorId", vendorId);
+      if (singleLine) fd.set("singleLine", "1");
       const res = await fetch("/api/add-bill", { method: "POST", body: fd });
       const json = await res.json();
       if (res.status === 422 && json.vendorUnresolved) {
@@ -171,6 +174,23 @@ function AddBill() {
             {needVendor && <p className="mt-1 text-sm text-amber-600">{needVendor}</p>}
           </div>
 
+          <label className="flex items-start gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={singleLine}
+              disabled={busy}
+              onChange={(e) => setSingleLine(e.target.checked)}
+              className="mt-0.5 h-4 w-4 rounded border-neutral-300"
+            />
+            <span>
+              Single line — don&apos;t itemize
+              <span className="block text-xs text-neutral-500">
+                Collapse the whole invoice into one cost item at the net total (for bills with lots of
+                lines). Code it once in the queue.
+              </span>
+            </span>
+          </label>
+
           <button
             onClick={submit}
             disabled={!file || !jobId || busy || (Boolean(needVendor) && !vendorId)}
@@ -217,6 +237,11 @@ function AddBill() {
 
           {result.wrote && result.fileAttached === false && (
             <p className="mt-2 text-sm text-amber-600">File attach failed — add it in JobTread.</p>
+          )}
+          {result.wrote && result.syncKicked && (
+            <p className="mt-2 text-sm text-emerald-600">
+              Syncing to the sheet &amp; Drive now — it&apos;ll appear within a minute or two.
+            </p>
           )}
           {(result.warnings ?? []).map((w, i) => (
             <p key={i} className="mt-2 text-sm text-amber-600">
