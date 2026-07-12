@@ -42,10 +42,13 @@ function driveMainWindowToDoc(jobId: string, docId: string) {
 }
 
 const invoiceId = (b: Bill) => b.externalId || b.number || "";
+// Sunset keeps "Vendor · Invoice ID" (their invoice # is how the office tells
+// same-vendor bills apart); every other vendor shows just its name.
 const billTitle = (b: Bill) => {
   const vendor = b.fromName || b.subject || "Vendor bill";
   const inv = invoiceId(b);
-  return inv ? `${vendor} · ${inv}` : vendor;
+  const isSunset = /sunset/i.test(vendor);
+  return isSunset && inv ? `${vendor} · ${inv}` : vendor;
 };
 
 function CodingQueue() {

@@ -599,10 +599,9 @@ export async function getMonthlyBills(
     });
   }
   for (const b of others) {
-    const inv = b.externalId || (b.number ? `#${b.number}` : "");
     lines.push({
       key: b.id,
-      label: `${vendorOf(b)}${inv ? ` · ${inv}` : ""}`,
+      label: vendorOf(b),
       cost: b.cost ?? 0,
       billIds: [b.id],
       isSunset: false,
@@ -955,10 +954,9 @@ export async function getUninvoicedBills(
     });
   }
   for (const b of others) {
-    const inv = b.externalId || (b.number ? `#${b.number}` : "");
     lines.push({
       key: b.id,
-      label: `${vendorOf(b)}${inv ? ` · ${inv}` : ""}`,
+      label: vendorOf(b),
       cost: b.cost ?? 0,
       billIds: [b.id],
       isSunset: false,

@@ -167,7 +167,9 @@ function BillDetail() {
   const total = lines?.reduce((s, l) => s + (l.cost ?? 0), 0) ?? 0;
   const invId = header?.externalId || header?.number || "";
   const vendor = header?.fromName || header?.subject || header?.name || "Vendor bill";
-  const title = invId ? `${vendor} · ${invId}` : vendor;
+  // Sunset keeps "Vendor · Invoice ID"; every other vendor shows just its name.
+  const isSunsetBill = /sunset/i.test(vendor);
+  const title = isSunsetBill && invId ? `${vendor} · ${invId}` : vendor;
   const subtitle = header?.subject && header.subject !== vendor ? header.subject : "";
 
   // Lines with a changed cost code, quantity, or unit cost vs what's in JobTread.
