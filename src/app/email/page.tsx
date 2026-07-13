@@ -16,6 +16,10 @@ interface EmailRow {
   date: string; // ISO
   attachmentCount: number;
   hasPdf?: boolean; // first message has a PDF attachment (best-effort)
+  // PDF attachments of the original message, in stable order. >1 means a single
+  // vendor email carrying invoices for several jobs — the row splits into one
+  // project picker per PDF and logs a separate bill for each.
+  attachments?: { index: number; name: string }[];
   tagged?: boolean; // manually flagged "_Invoice to Log"
   labels: string[];
 }
@@ -25,11 +29,22 @@ interface ProjectItem {
   id: string;
 }
 
-interface LogResult {
+// Per-PDF outcome inside a multi-invoice log response.
+interface AttResult {
+  index: number;
   ok: boolean;
   kind?: string;
   message?: string;
   error?: string;
+}
+
+interface LogResult {
+  ok: boolean;
+  kind?: string; // single: logged|already_logged|…; multi: logged (all done) | partial
+  message?: string;
+  error?: string;
+  finalized?: boolean; // multi: thread marked Processed (every attachment logged)
+  results?: AttResult[]; // multi: one entry per attachment, keyed by index
 }
 
 // A row the office has dismissed from the active list without running the
@@ -60,6 +75,12 @@ function fmtDate(iso: string): string {
 function fmtFrom(from: string): string {
   const m = from.match(/^\s*"?([^"<]+?)"?\s*<.*>\s*$/);
   return (m ? m[1] : from).trim();
+}
+
+// Per-attachment form state key: sel/paid are shared maps, keyed by messageId
+// for single invoices and messageId#index for each PDF in a multi-invoice email.
+function attKey(messageId: string, index: number): string {
+  return `${messageId}#${index}`;
 }
 
 export default function EmailPage() {
@@ -123,29 +144,131 @@ export default function EmailPage() {
     }
   }
 
-  // Entered into JobTread by hand → tag it "processed" with the chosen job and
-  // drop it from the list. Needs a project so we know which job to tag.
-  function markProcessed(row: EmailRow) {
-    const projectId = sel[row.messageId] || "";
-    const projectLabel = projects.find((p) => p.id === projectId)?.label ?? "";
-    // TODO(server): tag the Gmail thread "Processed" and record the job so the
-    // hand-entered bill is reconciled. No server call yet — local state only.
-    setHandled((h) => ({ ...h, [row.messageId]: { type: "processed", projectLabel } }));
+  // Multi-invoice email: log one bill per PDF. Every attachment must have a
+  // project picked (the back-end marks the thread Processed only once ALL the
+  // assignments it receives log, so we send all of them together — a partial
+  // send would finalize the thread with PDFs still un-logged).
+  async function logAll(row: EmailRow) {
+    const atts = row.attachments ?? [];
+    if (busyId || atts.length === 0) return;
+    const assignments = atts.map((a) => ({
+      index: a.index,
+      projectId: sel[attKey(row.messageId, a.index)] || "",
+      paid: !!paid[attKey(row.messageId, a.index)],
+    }));
+    if (assignments.some((a) => !a.projectId)) return; // all pickers required
+    setBusyId(row.messageId);
+    setResults((r) => ({ ...r, [row.messageId]: { ok: true, message: "Logging…" } }));
+    try {
+      const res = await callEmail<LogResult>({
+        action: "logInvoice",
+        messageId: row.messageId,
+        assignments,
+      });
+      setResults((r) => ({ ...r, [row.messageId]: res }));
+    } catch (e) {
+      setResults((r) => ({
+        ...r,
+        [row.messageId]: { ok: false, error: e instanceof Error ? e.message : "Network error" },
+      }));
+    } finally {
+      setBusyId("");
+    }
   }
 
-  // Not actually an invoice → drop it from the list. No project needed.
-  function markNotRelevant(row: EmailRow) {
-    // TODO(server): tag the Gmail thread "Not an invoice" so it stops surfacing
-    // here. No server call yet — local state only.
-    setHandled((h) => ({ ...h, [row.messageId]: { type: "notRelevant" } }));
-  }
-
-  function undoHandled(messageId: string) {
-    setHandled((h) => {
-      const next = { ...h };
-      delete next[messageId];
-      return next;
+  // Clear the transient per-row result once a mark succeeds.
+  function clearResult(id: string) {
+    setResults((r) => {
+      const n = { ...r };
+      delete n[id];
+      return n;
     });
+  }
+
+  // Entered into JobTread by hand → tag the thread Processed + the chosen job
+  // and drop it from the list. Needs a project so the server knows the job.
+  async function markProcessed(row: EmailRow) {
+    const projectId = sel[row.messageId] || "";
+    if (!projectId || busyId) return;
+    const projectLabel = projects.find((p) => p.id === projectId)?.label ?? "";
+    setBusyId(row.messageId);
+    setResults((r) => ({ ...r, [row.messageId]: { ok: true, message: "Marking processed…" } }));
+    try {
+      const res = await callEmail<LogResult>({
+        action: "markProcessed",
+        messageId: row.messageId,
+        projectId,
+      });
+      if (res.ok) {
+        setHandled((h) => ({ ...h, [row.messageId]: { type: "processed", projectLabel } }));
+        clearResult(row.messageId);
+      } else {
+        setResults((r) => ({ ...r, [row.messageId]: res }));
+      }
+    } catch (e) {
+      setResults((r) => ({
+        ...r,
+        [row.messageId]: { ok: false, error: e instanceof Error ? e.message : "Network error" },
+      }));
+    } finally {
+      setBusyId("");
+    }
+  }
+
+  // Not actually an invoice → tag "Not an Invoice" and drop it from the list.
+  async function markNotRelevant(row: EmailRow) {
+    if (busyId) return;
+    setBusyId(row.messageId);
+    setResults((r) => ({ ...r, [row.messageId]: { ok: true, message: "Removing…" } }));
+    try {
+      const res = await callEmail<LogResult>({
+        action: "markNotRelevant",
+        messageId: row.messageId,
+      });
+      if (res.ok) {
+        setHandled((h) => ({ ...h, [row.messageId]: { type: "notRelevant" } }));
+        clearResult(row.messageId);
+      } else {
+        setResults((r) => ({ ...r, [row.messageId]: res }));
+      }
+    } catch (e) {
+      setResults((r) => ({
+        ...r,
+        [row.messageId]: { ok: false, error: e instanceof Error ? e.message : "Network error" },
+      }));
+    } finally {
+      setBusyId("");
+    }
+  }
+
+  // Reverse a mark on the server (removes the Gmail labels) so the row returns
+  // to the queue. Best-effort: on failure the row stays handled — the labels
+  // are still applied server-side, so the two views stay consistent.
+  async function undoHandled(row: EmailRow) {
+    const info = handled[row.messageId];
+    if (!info || busyId) return;
+    setBusyId(row.messageId);
+    try {
+      const res = await callEmail<LogResult>({
+        action: info.type === "processed" ? "markProcessed" : "markNotRelevant",
+        messageId: row.messageId,
+        projectId: sel[row.messageId] || "",
+        wasTagged: !!row.tagged,
+        undo: true,
+      });
+      if (res.ok) {
+        setHandled((h) => {
+          const next = { ...h };
+          delete next[row.messageId];
+          return next;
+        });
+        clearResult(row.messageId);
+      }
+    } catch {
+      /* leave it handled — server labels unchanged, so state stays consistent */
+    } finally {
+      setBusyId("");
+    }
   }
 
   // A row is "done" once it has logged (or was already in the system).
@@ -191,6 +314,9 @@ export default function EmailPage() {
           const result = results[row.messageId];
           const done = isDone(row.messageId);
           const busy = busyId === row.messageId;
+          const atts = row.attachments ?? [];
+          const isMulti = atts.length > 1;
+          const allAssigned = atts.every((a) => !!sel[attKey(row.messageId, a.index)]);
           return (
             <li
               key={row.messageId}
@@ -230,6 +356,96 @@ export default function EmailPage() {
                 <p className="mt-3 text-sm font-medium text-emerald-700 dark:text-emerald-400">
                   ✓ {result?.message}
                 </p>
+              ) : isMulti ? (
+                <>
+                  <p className="mt-3 text-xs font-medium text-neutral-600 dark:text-neutral-300">
+                    {atts.length} invoices in this email — assign a job to each.
+                  </p>
+                  <div className="mt-2 space-y-2">
+                    {atts.map((a) => {
+                      const k = attKey(row.messageId, a.index);
+                      const attRes = result?.results?.find((rr) => rr.index === a.index);
+                      return (
+                        <div
+                          key={k}
+                          className="rounded-lg border border-neutral-200 p-2.5 dark:border-neutral-800"
+                        >
+                          <p className="mb-1.5 truncate text-xs font-medium text-neutral-600 dark:text-neutral-300">
+                            📄 {a.name}
+                          </p>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <select
+                              value={sel[k] ?? ""}
+                              disabled={busy}
+                              onChange={(e) => setSel((s) => ({ ...s, [k]: e.target.value }))}
+                              className="min-w-0 flex-1 rounded-lg border border-neutral-300 bg-transparent p-2 text-sm dark:border-neutral-700 dark:bg-neutral-900"
+                            >
+                              <option value="">— select a project —</option>
+                              {projects.map((p) => (
+                                <option key={p.id} value={p.id}>
+                                  {p.label}
+                                </option>
+                              ))}
+                            </select>
+                            <label className="flex shrink-0 items-center gap-1.5 text-sm">
+                              <input
+                                type="checkbox"
+                                checked={!!paid[k]}
+                                disabled={busy}
+                                onChange={(e) => setPaid((p) => ({ ...p, [k]: e.target.checked }))}
+                                className="h-4 w-4 rounded border-neutral-300"
+                              />
+                              PAID
+                            </label>
+                          </div>
+                          {attRes && (
+                            <p
+                              className={
+                                "mt-1.5 text-xs " +
+                                (attRes.ok
+                                  ? "text-emerald-700 dark:text-emerald-400"
+                                  : "text-red-600")
+                              }
+                            >
+                              {attRes.ok ? "✓ " : ""}
+                              {attRes.message || attRes.error}
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                    <button
+                      onClick={() => void logAll(row)}
+                      disabled={!allAssigned || busy}
+                      className="shrink-0 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white disabled:opacity-40"
+                    >
+                      {busy ? "Logging…" : `Log all ${atts.length} invoices`}
+                    </button>
+                    <label
+                      className="flex items-center gap-1.5 text-xs text-neutral-500"
+                      title="Not an invoice — drop it from the list."
+                    >
+                      <input
+                        type="checkbox"
+                        checked={false}
+                        disabled={busy}
+                        onChange={() => markNotRelevant(row)}
+                        className="h-4 w-4 rounded border-neutral-300"
+                      />
+                      Not relevant
+                    </label>
+                  </div>
+
+                  {result && !result.ok && (
+                    <p className="mt-2 text-sm text-red-600">{result.error || result.message}</p>
+                  )}
+                  {result && result.ok && !done && result.message && (
+                    <p className="mt-2 text-sm text-amber-600">{result.message}</p>
+                  )}
+                </>
               ) : (
                 <>
                   <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -335,8 +551,9 @@ export default function EmailPage() {
                     {info.projectLabel ? ` · ${info.projectLabel}` : ""} — {row.subject}
                   </span>
                   <button
-                    onClick={() => undoHandled(row.messageId)}
-                    className="shrink-0 font-semibold text-accent"
+                    onClick={() => void undoHandled(row)}
+                    disabled={busyId === row.messageId}
+                    className="shrink-0 font-semibold text-accent disabled:opacity-40"
                   >
                     Undo
                   </button>

@@ -12,15 +12,28 @@ import { NextRequest, NextResponse } from "next/server";
 // POST /api/email { action, ... } forwards the body (secret injected) to Apps
 // Script. Supported actions:
 //   listProjects            → { ok, projects: [{label,id}] }
-//   listEmails { query?, limit? } → { ok, emails: [...] }
+//   listEmails { query?, limit? } → { ok, emails: [...] }  (emails carry an
+//                             attachments:[{index,name}] list of the PDFs)
 //   logInvoice { messageId, projectId, paid? } → { ok, kind, message, ... }
+//     OR (multi-invoice email) { messageId, assignments:[{index,projectId,paid?}] }
+//       → { ok, kind, finalized, results:[{index,ok,message,...}], message }
+//   markProcessed { messageId, projectId, undo?, wasTagged? } → { ok, kind, ... }
+//     (bill entered in JT by hand: tag Processed + the job, drop from the list)
+//   markNotRelevant { messageId, undo?, wasTagged? } → { ok, kind, ... }
+//     (not an invoice: tag "Not an Invoice", drop from the list)
 //
 // logInvoice runs Gemini inline in Apps Script (~15–45s), so allow a longer
 // function timeout than the default (the effective ceiling still depends on the
 // Vercel plan — 60s Hobby / up to 300s Pro).
 export const maxDuration = 120;
 
-const ALLOWED = new Set(["listProjects", "listEmails", "logInvoice"]);
+const ALLOWED = new Set([
+  "listProjects",
+  "listEmails",
+  "logInvoice",
+  "markProcessed",
+  "markNotRelevant",
+]);
 
 export async function POST(req: NextRequest) {
   const url = process.env.APPS_SCRIPT_SYNC_URL;
