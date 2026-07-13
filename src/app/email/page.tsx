@@ -77,6 +77,15 @@ function fmtFrom(from: string): string {
   return (m ? m[1] : from).trim();
 }
 
+// Deep-link to the Gmail conversation so the office can read the full body.
+// threadId is Gmail's own thread id (GmailThread.getId() server-side), which is
+// exactly the fragment Gmail's web UI routes on. "#all/" finds the thread in any
+// label, so it still works after the thread is marked Processed. "u/0" is the
+// first signed-in account — assumes the office Gmail is that account.
+function gmailUrl(threadId: string): string {
+  return `https://mail.google.com/mail/u/0/#all/${threadId}`;
+}
+
 // Per-attachment form state key: sel/paid are shared maps, keyed by messageId
 // for single invoices and messageId#index for each PDF in a multi-invoice email.
 function attKey(messageId: string, index: number): string {
@@ -363,6 +372,14 @@ export default function EmailPage() {
                   </span>
                 )}
               </p>
+              <a
+                href={gmailUrl(row.threadId)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-0.5 inline-flex items-center gap-1 text-xs font-medium text-accent hover:underline"
+              >
+                Open in Gmail ↗
+              </a>
               {!done && row.hasPdf === false && (
                 <p className="mt-0.5 text-xs text-amber-600">
                   No PDF — the email body will be saved as the PDF.
