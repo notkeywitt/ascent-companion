@@ -94,12 +94,6 @@ function CodingQueue() {
           {jobId.trim() && (
             <div className="flex gap-3">
               <Link
-                href={`/add-bill?jobId=${encodeURIComponent(jobId.trim())}`}
-                className="text-xs font-semibold text-accent"
-              >
-                ＋ Add bill
-              </Link>
-              <Link
                 href={`/unbilled?jobId=${encodeURIComponent(jobId.trim())}`}
                 className="text-xs font-semibold text-accent"
               >

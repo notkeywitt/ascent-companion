@@ -32,6 +32,14 @@ interface LogResult {
   error?: string;
 }
 
+// A row the office has dismissed from the active list without running the
+// full import: either it was entered into JobTread by hand ("processed",
+// tagged with the chosen job) or it isn't an invoice at all ("notRelevant").
+interface Handled {
+  type: "processed" | "notRelevant";
+  projectLabel?: string;
+}
+
 async function callEmail<T = Record<string, unknown>>(payload: Record<string, unknown>): Promise<T> {
   const res = await fetch("/api/email", {
     method: "POST",
@@ -65,6 +73,9 @@ export default function EmailPage() {
   const [paid, setPaid] = useState<Record<string, boolean>>({});
   const [busyId, setBusyId] = useState("");
   const [results, setResults] = useState<Record<string, LogResult>>({});
+  // Rows pulled out of the active list via the Processed / Not-relevant
+  // checkboxes. UI-only for now — kept in state so they can be undone.
+  const [handled, setHandled] = useState<Record<string, Handled>>({});
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -112,11 +123,40 @@ export default function EmailPage() {
     }
   }
 
+  // Entered into JobTread by hand → tag it "processed" with the chosen job and
+  // drop it from the list. Needs a project so we know which job to tag.
+  function markProcessed(row: EmailRow) {
+    const projectId = sel[row.messageId] || "";
+    const projectLabel = projects.find((p) => p.id === projectId)?.label ?? "";
+    // TODO(server): tag the Gmail thread "Processed" and record the job so the
+    // hand-entered bill is reconciled. No server call yet — local state only.
+    setHandled((h) => ({ ...h, [row.messageId]: { type: "processed", projectLabel } }));
+  }
+
+  // Not actually an invoice → drop it from the list. No project needed.
+  function markNotRelevant(row: EmailRow) {
+    // TODO(server): tag the Gmail thread "Not an invoice" so it stops surfacing
+    // here. No server call yet — local state only.
+    setHandled((h) => ({ ...h, [row.messageId]: { type: "notRelevant" } }));
+  }
+
+  function undoHandled(messageId: string) {
+    setHandled((h) => {
+      const next = { ...h };
+      delete next[messageId];
+      return next;
+    });
+  }
+
   // A row is "done" once it has logged (or was already in the system).
   const isDone = (id: string) => {
     const k = results[id]?.kind;
     return k === "logged" || k === "already_logged" || k === "already_processed";
   };
+
+  // Handled rows drop out of the active list into the tray at the bottom.
+  const visible = emails.filter((r) => !handled[r.messageId]);
+  const handledList = emails.filter((r) => handled[r.messageId]);
 
   return (
     <main className="mx-auto max-w-2xl px-4 pb-24 pt-6">
@@ -142,12 +182,12 @@ export default function EmailPage() {
 
       {loadError && <p className="mb-3 text-sm text-red-600">{loadError}</p>}
 
-      {!loading && !loadError && emails.length === 0 && (
+      {!loading && !loadError && visible.length === 0 && (
         <p className="text-sm text-neutral-500">Nothing to log — the inbox is clear.</p>
       )}
 
       <ul className="space-y-3">
-        {emails.map((row) => {
+        {visible.map((row) => {
           const result = results[row.messageId];
           const done = isDone(row.messageId);
           const busy = busyId === row.messageId;
@@ -231,6 +271,35 @@ export default function EmailPage() {
                     </button>
                   </div>
 
+                  <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-xs text-neutral-500">
+                    <label
+                      className="flex items-center gap-1.5"
+                      title="Already entered into JobTread by hand — tag it processed with the selected job and drop it from the list."
+                    >
+                      <input
+                        type="checkbox"
+                        checked={false}
+                        disabled={busy || !sel[row.messageId]}
+                        onChange={() => markProcessed(row)}
+                        className="h-4 w-4 rounded border-neutral-300 disabled:opacity-40"
+                      />
+                      Processed{sel[row.messageId] ? "" : " (pick a job first)"}
+                    </label>
+                    <label
+                      className="flex items-center gap-1.5"
+                      title="Not an invoice — drop it from the list."
+                    >
+                      <input
+                        type="checkbox"
+                        checked={false}
+                        disabled={busy}
+                        onChange={() => markNotRelevant(row)}
+                        className="h-4 w-4 rounded border-neutral-300"
+                      />
+                      Not relevant
+                    </label>
+                  </div>
+
                   {result && !result.ok && (
                     <p className="mt-2 text-sm text-red-600">{result.error || result.message}</p>
                   )}
@@ -243,6 +312,40 @@ export default function EmailPage() {
           );
         })}
       </ul>
+
+      {handledList.length > 0 && (
+        <section className="mt-6 border-t border-neutral-200 pt-3 dark:border-neutral-800">
+          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
+            Handled ({handledList.length})
+          </p>
+          <ul className="space-y-1">
+            {handledList.map((row) => {
+              const info = handled[row.messageId];
+              return (
+                <li
+                  key={row.messageId}
+                  className="flex items-center justify-between gap-3 text-xs text-neutral-500"
+                >
+                  <span className="min-w-0 truncate">
+                    {info.type === "processed" ? (
+                      <span className="text-emerald-700 dark:text-emerald-400">✓ Processed</span>
+                    ) : (
+                      <span>✕ Not relevant</span>
+                    )}
+                    {info.projectLabel ? ` · ${info.projectLabel}` : ""} — {row.subject}
+                  </span>
+                  <button
+                    onClick={() => undoHandled(row.messageId)}
+                    className="shrink-0 font-semibold text-accent"
+                  >
+                    Undo
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
     </main>
   );
 }

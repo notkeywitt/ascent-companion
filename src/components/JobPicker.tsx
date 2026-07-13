@@ -7,9 +7,12 @@ interface JobRef {
   name: string;
   number?: string;
   customer?: string;
+  address?: string;
 }
 
 const jobLabel = (j: JobRef) => (j.customer ? `${j.customer} - ${j.name}` : j.name);
+// Drop the trailing ", USA" Google tacks on — every job is domestic.
+const jobAddress = (j: JobRef) => (j.address ?? "").replace(/,\s*USA$/i, "").trim();
 
 /** Searchable dropdown of the org's jobs. `value` is the selected job id. */
 export function JobPicker({
@@ -52,7 +55,11 @@ export function JobPicker({
 
   const q = query.trim().toLowerCase();
   const filtered = q
-    ? jobs.filter((j) => `${j.customer ?? ""} ${j.number ?? ""} ${j.name}`.toLowerCase().includes(q))
+    ? jobs.filter((j) =>
+        `${j.customer ?? ""} ${j.number ?? ""} ${j.name} ${j.address ?? ""}`
+          .toLowerCase()
+          .includes(q),
+      )
     : jobs;
 
   return (
@@ -87,9 +94,12 @@ export function JobPicker({
                     onChange(j.id);
                     setOpen(false);
                   }}
-                  className="w-full px-3 py-2 text-left text-sm hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                  className="w-full px-3 py-2 text-left hover:bg-neutral-100 dark:hover:bg-neutral-800"
                 >
-                  {jobLabel(j)}
+                  <span className="block truncate text-sm">{jobLabel(j)}</span>
+                  {jobAddress(j) && (
+                    <span className="block truncate text-xs text-neutral-500">{jobAddress(j)}</span>
+                  )}
                 </button>
               </li>
             ))}

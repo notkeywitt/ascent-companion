@@ -1,20 +1,18 @@
 "use client";
 
+import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { JobPicker } from "@/components/JobPicker";
 
-// Routes that are scoped to a single job. The picker shows here and writes the
-// chosen job to the URL's ?jobId=, which those pages read as source of truth.
-const JOB_ROUTES = ["/", "/unbilled", "/stage", "/bill", "/add-bill"];
-
+// The job picker + Add-bill button live in the sticky chrome above the tab bar,
+// so they're reachable from every tab. The picker writes the chosen job to the
+// URL's ?jobId=, which the job-scoped pages (/, /unbilled, /stage, /bill,
+// /add-bill) read as their source of truth; other tabs simply ignore it.
 export function GlobalJobBar() {
   const pathname = usePathname();
   const router = useRouter();
   const search = useSearchParams();
   const jobId = search.get("jobId") ?? "";
-
-  const show = JOB_ROUTES.some((r) => (r === "/" ? pathname === "/" : pathname.startsWith(r)));
-  if (!show) return null;
 
   function onChange(id: string) {
     // Switching jobs from a specific bill returns to that job's coding queue —
@@ -23,9 +21,19 @@ export function GlobalJobBar() {
     router.replace(`${base}?jobId=${encodeURIComponent(id)}`);
   }
 
+  const addHref = jobId ? `/add-bill?jobId=${encodeURIComponent(jobId)}` : "/add-bill";
+
   return (
-    <div className="px-2 py-2">
-      <JobPicker value={jobId} onChange={onChange} />
+    <div className="flex items-center gap-2 px-2 py-2">
+      <div className="min-w-0 flex-1">
+        <JobPicker value={jobId} onChange={onChange} />
+      </div>
+      <Link
+        href={addHref}
+        className="shrink-0 whitespace-nowrap rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-accent-hover"
+      >
+        ＋ Add bill
+      </Link>
     </div>
   );
 }

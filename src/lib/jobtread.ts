@@ -421,6 +421,7 @@ export interface JobRef {
   name: string;
   number?: string;
   customer?: string; // job.location.account.name
+  address?: string; // job.location.formattedAddress (Google-normalized)
   closedOn?: string | null;
 }
 
@@ -443,7 +444,7 @@ export async function getJobs(cfg: PaveConfig, includeClosed = false): Promise<J
             name: {},
             number: {},
             closedOn: {},
-            location: { account: { name: {} } },
+            location: { account: { name: {} }, formattedAddress: {} },
           },
         },
       },
@@ -456,6 +457,7 @@ export async function getJobs(cfg: PaveConfig, includeClosed = false): Promise<J
         name: n.name,
         number: n.number,
         customer: n.location?.account?.name ?? "",
+        address: n.location?.formattedAddress ?? "",
         closedOn: n.closedOn,
       });
     }
