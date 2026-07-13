@@ -15,6 +15,8 @@ interface EmailRow {
   from: string;
   date: string; // ISO
   attachmentCount: number;
+  hasPdf?: boolean; // first message has a PDF attachment (best-effort)
+  tagged?: boolean; // manually flagged "_Invoice to Log"
   labels: string[];
 }
 
@@ -160,7 +162,14 @@ export default function EmailPage() {
               }
             >
               <div className="flex items-baseline justify-between gap-3">
-                <p className="truncate text-sm font-semibold">{row.subject}</p>
+                <p className="min-w-0 truncate text-sm font-semibold">
+                  {row.tagged && (
+                    <span className="mr-1.5 rounded bg-accent/10 px-1.5 py-0.5 align-middle text-[10px] font-semibold uppercase tracking-wide text-accent">
+                      Tagged
+                    </span>
+                  )}
+                  {row.subject}
+                </p>
                 <span className="shrink-0 text-xs text-neutral-500">{fmtDate(row.date)}</span>
               </div>
               <p className="mt-0.5 truncate text-xs text-neutral-500">
@@ -171,6 +180,11 @@ export default function EmailPage() {
                   </span>
                 )}
               </p>
+              {!done && row.hasPdf === false && (
+                <p className="mt-0.5 text-xs text-amber-600">
+                  No PDF — the email body will be saved as the PDF.
+                </p>
+              )}
 
               {done ? (
                 <p className="mt-3 text-sm font-medium text-emerald-700 dark:text-emerald-400">
