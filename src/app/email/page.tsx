@@ -185,19 +185,34 @@ export default function EmailPage() {
     });
   }
 
-  // Entered into JobTread by hand → tag the thread Processed + the chosen job
-  // and drop it from the list. Needs a project so the server knows the job.
+  // The job(s) to tag when marking a row Processed: the single-invoice picker,
+  // or every assigned per-PDF picker on a multi-invoice email (deduped).
+  function processedTargets(row: EmailRow): { ids: string[]; labels: string[] } {
+    const atts = row.attachments ?? [];
+    const raw =
+      atts.length > 1
+        ? atts.map((a) => sel[attKey(row.messageId, a.index)] || "")
+        : [sel[row.messageId] || ""];
+    const ids = Array.from(new Set(raw.filter(Boolean)));
+    const labels = ids.map((id) => projects.find((p) => p.id === id)?.label ?? "");
+    return { ids, labels };
+  }
+
+  // Entered into JobTread by hand → tag the thread Processed + the assigned
+  // job(s) and drop it from the list. Needs at least one job so the server can
+  // tag it (a multi-invoice email tags every assigned job).
   async function markProcessed(row: EmailRow) {
-    const projectId = sel[row.messageId] || "";
-    if (!projectId || busyId) return;
-    const projectLabel = projects.find((p) => p.id === projectId)?.label ?? "";
+    const { ids, labels } = processedTargets(row);
+    if (!ids.length || busyId) return;
+    const projectLabel = labels.filter(Boolean).join(", ");
     setBusyId(row.messageId);
     setResults((r) => ({ ...r, [row.messageId]: { ok: true, message: "Marking processed…" } }));
     try {
       const res = await callEmail<LogResult>({
         action: "markProcessed",
         messageId: row.messageId,
-        projectId,
+        projectId: ids[0], // back-compat with the single-project server path
+        projectIds: ids,
       });
       if (res.ok) {
         setHandled((h) => ({ ...h, [row.messageId]: { type: "processed", projectLabel } }));
@@ -249,10 +264,12 @@ export default function EmailPage() {
     if (!info || busyId) return;
     setBusyId(row.messageId);
     try {
+      const { ids } = processedTargets(row);
       const res = await callEmail<LogResult>({
         action: info.type === "processed" ? "markProcessed" : "markNotRelevant",
         messageId: row.messageId,
-        projectId: sel[row.messageId] || "",
+        projectId: ids[0] || "",
+        projectIds: ids,
         wasTagged: !!row.tagged,
         undo: true,
       });
@@ -424,19 +441,37 @@ export default function EmailPage() {
                     >
                       {busy ? "Logging…" : `Log all ${atts.length} invoices`}
                     </button>
-                    <label
-                      className="flex items-center gap-1.5 text-xs text-neutral-500"
-                      title="Not an invoice — drop it from the list."
-                    >
-                      <input
-                        type="checkbox"
-                        checked={false}
-                        disabled={busy}
-                        onChange={() => markNotRelevant(row)}
-                        className="h-4 w-4 rounded border-neutral-300"
-                      />
-                      Not relevant
-                    </label>
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-neutral-500">
+                      <label
+                        className="flex items-center gap-1.5"
+                        title="All these invoices were entered into JobTread by hand — tag the thread processed with the assigned jobs and drop it from the list."
+                      >
+                        <input
+                          type="checkbox"
+                          checked={false}
+                          disabled={busy || !atts.some((a) => sel[attKey(row.messageId, a.index)])}
+                          onChange={() => markProcessed(row)}
+                          className="h-4 w-4 rounded border-neutral-300 disabled:opacity-40"
+                        />
+                        Processed
+                        {atts.some((a) => sel[attKey(row.messageId, a.index)])
+                          ? ""
+                          : " (assign a job first)"}
+                      </label>
+                      <label
+                        className="flex items-center gap-1.5"
+                        title="Not an invoice — drop it from the list."
+                      >
+                        <input
+                          type="checkbox"
+                          checked={false}
+                          disabled={busy}
+                          onChange={() => markNotRelevant(row)}
+                          className="h-4 w-4 rounded border-neutral-300"
+                        />
+                        Not relevant
+                      </label>
+                    </div>
                   </div>
 
                   {result && !result.ok && (
