@@ -309,17 +309,11 @@ export default function EmailPage() {
 
   return (
     <main className="mx-auto max-w-2xl px-4 pb-24 pt-6">
-      <header className="mb-5 flex items-start justify-between gap-3">
-        <div>
-          <p className="text-sm text-neutral-500">
-            Unprocessed emails with attachments. Pick a project and log an invoice — same
-            one-click import as the old Gmail card.
-          </p>
-        </div>
+      <header className="mb-5 flex justify-end">
         <button
           onClick={() => void load()}
           disabled={loading}
-          className="mt-1 shrink-0 rounded-lg border border-neutral-300 px-3 py-1.5 text-sm font-semibold disabled:opacity-40 dark:border-neutral-700"
+          className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm font-semibold disabled:opacity-40 dark:border-neutral-700"
         >
           {loading ? "Loading…" : "Refresh"}
         </button>

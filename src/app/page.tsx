@@ -86,29 +86,22 @@ function CodingQueue() {
 
   return (
     <main className="mx-auto max-w-xl px-4 pb-24 pt-6">
-      <header className="mb-5">
-        <div className="flex items-start justify-between gap-3">
-          <p className="text-sm text-neutral-500">
-            Draft vendor bills waiting to be coded &amp; approved (read-only for now).
-          </p>
-          {jobId.trim() && (
-            <div className="flex shrink-0 gap-3">
-              <Link
-                href={`/unbilled?jobId=${encodeURIComponent(jobId.trim())}`}
-                className="text-xs font-semibold text-accent"
-              >
-                Unbilled →
-              </Link>
-              <Link
-                href={`/stage?jobId=${encodeURIComponent(jobId.trim())}`}
-                className="text-xs font-semibold text-accent"
-              >
-                Create invoice →
-              </Link>
-            </div>
-          )}
-        </div>
-      </header>
+      {jobId.trim() && (
+        <header className="mb-5 flex justify-end gap-3">
+          <Link
+            href={`/unbilled?jobId=${encodeURIComponent(jobId.trim())}`}
+            className="text-xs font-semibold text-accent"
+          >
+            Unbilled →
+          </Link>
+          <Link
+            href={`/stage?jobId=${encodeURIComponent(jobId.trim())}`}
+            className="text-xs font-semibold text-accent"
+          >
+            Create invoice →
+          </Link>
+        </header>
+      )}
 
       {!jobId && (
         <p className="mb-3 text-sm text-neutral-500">Pick a job above to see its bills.</p>
