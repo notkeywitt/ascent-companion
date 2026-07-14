@@ -51,7 +51,11 @@ export async function GET() {
   return callAppsScript({ action: "listNeedsProject" });
 }
 
-// POST /api/needs-project { expId, jobId } → { ok, docId, jobId, projectId } | { error }
+// POST /api/needs-project
+//   { expId, jobId }        → resolveNeedsProject → { ok, docId, jobId, projectId }
+//   { expId, dismiss:true } → dismissNeedsProject → { ok, expId }
+//     (already handled/duplicate/not a bill: stamps Status="Dismissed" so it
+//      leaves the queue; the sheet row + Drive PDF are kept.)
 export async function POST(req: NextRequest) {
   let body: Record<string, unknown> = {};
   try {
@@ -60,9 +64,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Body must be JSON." }, { status: 400 });
   }
   const expId = String(body.expId ?? "").trim();
+  if (!expId) {
+    return NextResponse.json({ error: "expId is required." }, { status: 400 });
+  }
+  if (body.dismiss === true) {
+    return callAppsScript({ action: "dismissNeedsProject", expId });
+  }
   const jobId = String(body.jobId ?? "").trim();
-  if (!expId || !jobId) {
-    return NextResponse.json({ error: "expId and jobId are required." }, { status: 400 });
+  if (!jobId) {
+    return NextResponse.json({ error: "jobId is required." }, { status: 400 });
   }
   return callAppsScript({ action: "resolveNeedsProject", expId, jobId });
 }

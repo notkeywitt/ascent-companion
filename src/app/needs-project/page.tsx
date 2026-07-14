@@ -69,6 +69,37 @@ export default function NeedsProjectPage() {
     }
   }
 
+  // Clear a row that's already been handled another way (re-imported / entered in
+  // JobTread by hand), is a duplicate, or isn't a bill. Non-destructive: the sheet
+  // row + Drive PDF stay; it just stops showing here.
+  async function dismiss(expId: string) {
+    if (
+      !window.confirm(
+        "Remove this from the queue?\n\nUse this when the bill was already imported/entered another way, is a duplicate, or isn't a bill. The sheet row and its PDF are kept — it just stops showing here.",
+      )
+    )
+      return;
+    setBusy((b) => ({ ...b, [expId]: true }));
+    setMsg((m) => ({ ...m, [expId]: "" }));
+    try {
+      const res = await fetch("/api/needs-project", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ expId, dismiss: true }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.ok) {
+        setMsg((m) => ({ ...m, [expId]: json.error ?? "Dismiss failed" }));
+      } else {
+        setItems((prev) => prev.filter((it) => it.expId !== expId));
+      }
+    } catch (e) {
+      setMsg((m) => ({ ...m, [expId]: e instanceof Error ? e.message : "Network error" }));
+    } finally {
+      setBusy((b) => ({ ...b, [expId]: false }));
+    }
+  }
+
   return (
     <main className="mx-auto max-w-2xl px-4 pb-24 pt-6">
       <header className="mb-4">
@@ -130,6 +161,15 @@ export default function NeedsProjectPage() {
                 className="shrink-0 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-accent-hover disabled:opacity-40"
               >
                 {busy[it.expId] ? "Assigning…" : "Assign"}
+              </button>
+              <button
+                type="button"
+                onClick={() => dismiss(it.expId)}
+                disabled={busy[it.expId]}
+                title="Already imported / duplicate / not a bill — remove from this queue"
+                className="shrink-0 rounded-lg border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-500 hover:text-neutral-800 disabled:opacity-40 dark:border-neutral-700 dark:hover:text-neutral-200"
+              >
+                Dismiss
               </button>
             </div>
             {msg[it.expId] && (
