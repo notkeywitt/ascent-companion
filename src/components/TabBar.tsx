@@ -8,7 +8,7 @@ import { SyncNowButton } from "@/components/SyncNowButton";
 
 const TABS: { label: string; href: string; match: (p: string) => boolean }[] = [
   {
-    label: "Billing",
+    label: "Coding Review",
     href: "/",
     match: (p) =>
       p === "/" || p.startsWith("/unbilled") || p.startsWith("/bill") || p.startsWith("/add-bill"),

@@ -111,7 +111,7 @@ function Rfis() {
       <main className="mx-auto max-w-xl px-4 pb-24 pt-6">
         <h1 className="text-2xl font-bold tracking-tight">RFIs</h1>
         <p className="mt-3 text-sm text-neutral-500">
-          Open a job in JobTread (or load one on the Billing tab) to see and create its RFIs.
+          Open a job in JobTread (or load one on the Coding Review tab) to see and create its RFIs.
         </p>
       </main>
     );
