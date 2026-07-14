@@ -41,6 +41,7 @@ const JT_HEADERS = [
 ] as const;
 
 const JOB_ID_STORE = "laborImport.jobIdMap.v1";
+const PROJECTS_MAP_STORE = "laborImport.projectsMap.v1";
 
 // A JobTread job from the read-only /api/jobs endpoint (for the picker).
 interface JobRef {
@@ -49,15 +50,6 @@ interface JobRef {
   number?: string;
   customer?: string;
 }
-
-// Loose match key so "Bill & Amy Ferron" (QB) lines up with "Bill and Amy
-// Ferron" (JT): lowercase, & → and, drop punctuation, collapse spaces.
-const normJob = (s: string) =>
-  (s ?? "")
-    .toLowerCase()
-    .replace(/&/g, " and ")
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim();
 
 // ---- CSV parsing -----------------------------------------------------------
 
@@ -155,7 +147,7 @@ interface Entry {
   idx: number;
   worker: string; // full "First Last" — the filter/label key
   userName: string; // JT first-name value emitted to the CSV
-  jobRaw: string; // QB jobcode_1 — the job filter key + Job ID map key
+  jobRaw: string; // QB jobcode_1 — the job filter key, and the join key to the Projects map
   serviceItem: string;
   start: string;
   end: string;
@@ -230,6 +222,30 @@ function buildEntries(rows: string[][]): Entry[] {
 
 // ---- CSV building ----------------------------------------------------------
 
+// Parse the exported Project Database "Projects" tab → { jobcode_1(lowercased): JobTread Job ID }.
+function parseProjectsMap(text: string): Record<string, string> {
+  const rows = parseCsv(text);
+  let h = -1;
+  for (let i = 0; i < rows.length; i++) {
+    const set = new Set(rows[i].map(norm));
+    if (set.has("jobcode_1") && set.has("jobtread job id")) {
+      h = i;
+      break;
+    }
+  }
+  if (h < 0) throw new Error("Couldn't find both 'jobcode_1' and 'JobTread Job ID' columns.");
+  const header = rows[h].map(norm);
+  const jc = header.indexOf("jobcode_1");
+  const jt = header.indexOf("jobtread job id");
+  const map: Record<string, string> = {};
+  for (let r = h + 1; r < rows.length; r++) {
+    const key = norm(rows[r][jc] ?? "");
+    const id = (rows[r][jt] ?? "").trim();
+    if (key && id) map[key] = id;
+  }
+  return map;
+}
+
 function csvField(v: string): string {
   return /[",\r\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
 }
@@ -283,11 +299,24 @@ export default function LaborImportPage() {
   const [jobsError, setJobsError] = useState("");
   const [manualJobs, setManualJobs] = useState<Set<string>>(new Set());
 
-  // Load remembered Job IDs.
+  // jobcode_1 → JobTread Job ID, loaded from the exported Projects tab CSV.
+  const [projectsMap, setProjectsMap] = useState<Record<string, string>>({});
+  const [projectsMeta, setProjectsMeta] = useState<{ name: string; count: number } | null>(null);
+  const [projectsErr, setProjectsErr] = useState("");
+
+  // Load remembered Job IDs + the remembered Projects map.
   useEffect(() => {
     try {
       const raw = localStorage.getItem(JOB_ID_STORE);
       if (raw) setJobIdMap(JSON.parse(raw));
+    } catch {}
+    try {
+      const raw = localStorage.getItem(PROJECTS_MAP_STORE);
+      if (raw) {
+        const saved = JSON.parse(raw);
+        setProjectsMap(saved.map ?? {});
+        setProjectsMeta(saved.meta ?? null);
+      }
     } catch {}
   }, []);
 
@@ -315,31 +344,6 @@ export default function LaborImportPage() {
       .catch((e) => setJobsError(e instanceof Error ? e.message : "Could not load JobTread jobs"))
       .finally(() => setJobsLoading(false));
   }, [entries, jtJobs, jobsLoading, jobsError]);
-
-  // Best-effort auto-match: for any selected job with no ID yet, fill in a
-  // confident name/customer match. Never overwrites an existing choice.
-  useEffect(() => {
-    if (!jtJobs || !entries) return;
-    setJobIdMap((prev) => {
-      let changed = false;
-      const next = { ...prev };
-      for (const job of new Set(entries.map((e) => e.jobRaw).filter(Boolean))) {
-        if ((next[job] ?? "").trim()) continue;
-        const n = normJob(job);
-        const hit = jtJobs.find((j) => normJob(j.name) === n || normJob(j.customer ?? "") === n);
-        if (hit) {
-          next[job] = hit.id;
-          changed = true;
-        }
-      }
-      if (changed) {
-        try {
-          localStorage.setItem(JOB_ID_STORE, JSON.stringify(next));
-        } catch {}
-      }
-      return changed ? next : prev;
-    });
-  }, [jtJobs, entries]);
 
   const setManual = (job: string, on: boolean) =>
     setManualJobs((prev) => {
@@ -369,6 +373,32 @@ export default function LaborImportPage() {
     }
   }
 
+  async function loadProjectsFile(file: File) {
+    setProjectsErr("");
+    try {
+      const map = parseProjectsMap(await file.text());
+      const meta = { name: file.name, count: Object.keys(map).length };
+      setProjectsMap(map);
+      setProjectsMeta(meta);
+      try {
+        localStorage.setItem(PROJECTS_MAP_STORE, JSON.stringify({ map, meta }));
+      } catch {}
+    } catch (e) {
+      setProjectsErr(e instanceof Error ? e.message : "Couldn't read that mapping CSV.");
+    }
+  }
+
+  // Effective Job ID for a QB job: a manual/dropdown override wins, else the
+  // Projects map (jobcode_1 → JobTread Job ID). idSource says which.
+  const effectiveId = (jobRaw: string) =>
+    (jobIdMap[jobRaw] ?? "").trim() || (projectsMap[norm(jobRaw)] ?? "").trim();
+  const idSource = (jobRaw: string): "manual" | "projects" | "" =>
+    (jobIdMap[jobRaw] ?? "").trim()
+      ? "manual"
+      : (projectsMap[norm(jobRaw)] ?? "").trim()
+        ? "projects"
+        : "";
+
   // Distinct jobs / workers (with counts) for the filter lists.
   const jobList = useMemo(() => tally(entries, (e) => e.jobRaw), [entries]);
   const workerList = useMemo(() => tally(entries, (e) => e.worker), [entries]);
@@ -382,16 +412,22 @@ export default function LaborImportPage() {
     [entries, selJobs, selWorkers],
   );
 
-  // Of the selected rows, which are export-ready (their job has a JT Job ID).
+  // Of the selected rows, which are export-ready (their job resolves to a JT Job ID).
   const ready = useMemo(
-    () => selected.filter((e) => (jobIdMap[e.jobRaw] ?? "").trim()),
-    [selected, jobIdMap],
+    () =>
+      selected.filter(
+        (e) => (jobIdMap[e.jobRaw] ?? "").trim() || (projectsMap[norm(e.jobRaw)] ?? "").trim(),
+      ),
+    [selected, jobIdMap, projectsMap],
   );
 
-  // Jobs currently in the filter that still need a JT Job ID.
+  // Jobs currently in the filter that still have no JT Job ID.
   const jobsNeedingId = useMemo(
-    () => [...selJobs].filter((j) => !(jobIdMap[j] ?? "").trim()).sort(),
-    [selJobs, jobIdMap],
+    () =>
+      [...selJobs]
+        .filter((j) => !((jobIdMap[j] ?? "").trim() || (projectsMap[norm(j)] ?? "").trim()))
+        .sort(),
+    [selJobs, jobIdMap, projectsMap],
   );
 
   const dropped = useMemo(
@@ -408,7 +444,7 @@ export default function LaborImportPage() {
   function doDownload() {
     if (ready.length === 0) return;
     const base = fileName.replace(/\.[^.]+$/, "") || "labor";
-    download(`${base} - JT import.csv`, buildCsv(ready, (j) => (jobIdMap[j] ?? "").trim()));
+    download(`${base} - JT import.csv`, buildCsv(ready, effectiveId));
   }
 
   return (
@@ -527,47 +563,82 @@ export default function LaborImportPage() {
           {/* Job ID mapping — only for jobs currently selected */}
           {[...selJobs].length > 0 && (
             <div className="mb-5 rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
-              <div className="mb-2 text-sm font-semibold">
-                JobTread Job IDs
-                {jobsNeedingId.length > 0 && (
-                  <span className="ml-2 font-normal text-amber-600 dark:text-amber-400">
-                    {jobsNeedingId.length} missing — those rows are held back
-                  </span>
-                )}
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                <div className="text-sm font-semibold">
+                  JobTread Job IDs
+                  {jobsNeedingId.length > 0 && (
+                    <span className="ml-2 font-normal text-amber-600 dark:text-amber-400">
+                      {jobsNeedingId.length} unmapped — those rows are held back
+                    </span>
+                  )}
+                </div>
+                <label className="cursor-pointer whitespace-nowrap text-xs font-semibold text-accent">
+                  {projectsMeta ? "Replace Projects map" : "Load Projects map (CSV)"}
+                  <input
+                    type="file"
+                    accept=".csv,text/csv"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) loadProjectsFile(f);
+                    }}
+                  />
+                </label>
               </div>
               <p className="mb-3 text-xs text-neutral-500">
-                JobTread rejects QB job names, so we emit the Job ID. Pick each QB job&apos;s matching
-                JobTread job below — confident name matches are filled in automatically.{" "}
-                {jobsLoading && "Loading JobTread jobs…"}
-                {jobsError && (
-                  <span className="text-amber-600 dark:text-amber-400">
-                    Couldn&apos;t load jobs ({jobsError}) — enter IDs manually.
+                JobTread rejects QB job names, so we emit the Job ID. IDs come from the Project
+                Database <b>Projects</b> tab (<code>jobcode_1</code> → <code>JobTread Job ID</code>) —
+                export that tab as CSV and load it.{" "}
+                {projectsMeta ? (
+                  <span className="text-accent">
+                    {projectsMeta.count} links loaded from {projectsMeta.name}.
                   </span>
+                ) : (
+                  <span className="text-amber-600 dark:text-amber-400">None loaded yet.</span>
                 )}{" "}
-                Remembered on this device.
+                Override any job below (pick from JobTread or type an ID). Remembered on this device.
+                {projectsErr && (
+                  <span className="block text-red-600 dark:text-red-400">{projectsErr}</span>
+                )}
               </p>
               <div className="space-y-2">
-                {[...selJobs].sort().map((job) => (
-                  <div key={job} className="flex items-center gap-2">
-                    <span className="w-48 shrink-0 truncate text-sm" title={job}>
-                      {job || "(blank)"}
-                    </span>
-                    <JobIdControl
-                      job={job}
-                      jtJobs={jtJobs}
-                      value={jobIdMap[job] ?? ""}
-                      manual={manualJobs.has(job)}
-                      onSet={(v) => setJobId(job, v)}
-                      onManual={(on) => setManual(job, on)}
-                    />
-                    {(jobIdMap[job] ?? "").trim() ? (
-                      <span className="text-accent">✓</span>
-                    ) : (
-                      <span className="text-amber-500">needs ID</span>
-                    )}
-                  </div>
-                ))}
+                {[...selJobs].sort().map((job) => {
+                  const src = idSource(job);
+                  return (
+                    <div key={job} className="flex items-center gap-2">
+                      <span className="w-48 shrink-0 truncate text-sm" title={job}>
+                        {job || "(blank)"}
+                      </span>
+                      <JobIdControl
+                        job={job}
+                        jtJobs={jtJobs}
+                        value={effectiveId(job)}
+                        manual={manualJobs.has(job)}
+                        onSet={(v) => setJobId(job, v)}
+                        onManual={(on) => setManual(job, on)}
+                      />
+                      <span
+                        className={
+                          "w-20 shrink-0 whitespace-nowrap text-right text-xs " +
+                          (src ? "text-accent" : "text-amber-500")
+                        }
+                      >
+                        {src === "projects" ? "✓ Projects" : src === "manual" ? "✓ manual" : "unmapped"}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
+              {(jobsLoading || jobsError) && (
+                <p className="mt-2 text-xs text-neutral-500">
+                  {jobsLoading && "Loading JobTread jobs for the picker…"}
+                  {jobsError && (
+                    <span className="text-amber-600 dark:text-amber-400">
+                      JobTread job picker unavailable ({jobsError}) — type IDs or load the Projects map.
+                    </span>
+                  )}
+                </p>
+              )}
             </div>
           )}
 
@@ -607,7 +678,7 @@ export default function LaborImportPage() {
                     <td className="px-2 py-1 whitespace-nowrap">{e.userName}</td>
                     <td className="px-2 py-1 whitespace-nowrap">{e.start}</td>
                     <td className="px-2 py-1 whitespace-nowrap">{e.end}</td>
-                    <td className="px-2 py-1 whitespace-nowrap font-mono">{jobIdMap[e.jobRaw]}</td>
+                    <td className="px-2 py-1 whitespace-nowrap font-mono">{effectiveId(e.jobRaw)}</td>
                     <td className="px-2 py-1 whitespace-nowrap">{e.serviceItem}</td>
                     <td className="max-w-[16rem] truncate px-2 py-1" title={e.notes}>
                       {e.notes}
