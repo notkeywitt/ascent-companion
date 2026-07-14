@@ -6,12 +6,21 @@ import { AppHeader } from "@/components/AppHeader";
 export const metadata: Metadata = {
   title: "Ascent Companion",
   description: "JobTread coding, unbilled expenses, and invoice staging",
+  appleWebApp: {
+    capable: true,
+    title: "Ascent",
+    statusBarStyle: "default",
+  },
 };
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#FAF7EE" },
+    { media: "(prefers-color-scheme: dark)", color: "#1B1B17" },
+  ],
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
