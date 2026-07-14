@@ -13,6 +13,7 @@ const TABS: { label: string; href: string; match: (p: string) => boolean }[] = [
     match: (p) =>
       p === "/" || p.startsWith("/unbilled") || p.startsWith("/bill") || p.startsWith("/add-bill"),
   },
+  { label: "Needs Project", href: "/needs-project", match: (p) => p.startsWith("/needs-project") },
   { label: "Invoicing", href: "/stage", match: (p) => p.startsWith("/stage") },
   { label: "Labor", href: "/labor-import", match: (p) => p.startsWith("/labor-import") },
   { label: "Email", href: "/email", match: (p) => p.startsWith("/email") },
