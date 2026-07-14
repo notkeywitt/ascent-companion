@@ -14,6 +14,13 @@ interface NeedsItem {
 const money = (n: number) =>
   "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+// The queue only lists rows with no JT Doc ID, but the page fetches once on mount
+// — a sync can link a bill to JobTread while you're looking at the stale list.
+// Both backend guards say "already in JobTread"; that means the bill is now
+// handled, so the row is simply out of date and should drop off rather than
+// showing the user an error they can't act on.
+const isStale = (err?: string) => /already in JobTread/i.test(err ?? "");
+
 // Bills ingestion held because it couldn't determine the job (e.g. a Sunset
 // "Sold-To" that names a customer with more than one job, and no PO# to
 // disambiguate). Pick the job from the PDF and assign — it pushes to JobTread
@@ -44,6 +51,8 @@ export default function NeedsProjectPage() {
     load();
   }, []);
 
+  const drop = (expId: string) => setItems((prev) => prev.filter((it) => it.expId !== expId));
+
   async function assign(expId: string) {
     const jobId = picked[expId];
     if (!jobId) return;
@@ -57,10 +66,14 @@ export default function NeedsProjectPage() {
       });
       const json = await res.json();
       if (!res.ok || !json.ok) {
+        if (isStale(json.error)) {
+          drop(expId);
+          return;
+        }
         setMsg((m) => ({ ...m, [expId]: json.error ?? "Assign failed" }));
       } else {
         // Pushed to JobTread on the chosen job — drop it from the queue.
-        setItems((prev) => prev.filter((it) => it.expId !== expId));
+        drop(expId);
       }
     } catch (e) {
       setMsg((m) => ({ ...m, [expId]: e instanceof Error ? e.message : "Network error" }));
@@ -89,9 +102,13 @@ export default function NeedsProjectPage() {
       });
       const json = await res.json();
       if (!res.ok || !json.ok) {
+        if (isStale(json.error)) {
+          drop(expId);
+          return;
+        }
         setMsg((m) => ({ ...m, [expId]: json.error ?? "Dismiss failed" }));
       } else {
-        setItems((prev) => prev.filter((it) => it.expId !== expId));
+        drop(expId);
       }
     } catch (e) {
       setMsg((m) => ({ ...m, [expId]: e instanceof Error ? e.message : "Network error" }));
@@ -103,7 +120,17 @@ export default function NeedsProjectPage() {
   return (
     <main className="mx-auto max-w-2xl px-4 pb-24 pt-6">
       <header className="mb-4">
-        <h1 className="text-xl font-bold tracking-tight">Needs Project</h1>
+        <div className="flex items-start justify-between gap-3">
+          <h1 className="text-xl font-bold tracking-tight">Needs Project</h1>
+          <button
+            type="button"
+            onClick={load}
+            disabled={loading}
+            className="shrink-0 rounded-lg border border-neutral-300 px-3 py-1.5 text-sm font-semibold text-neutral-500 hover:text-neutral-800 disabled:opacity-40 dark:border-neutral-700 dark:hover:text-neutral-200"
+          >
+            {loading ? "Refreshing…" : "Refresh"}
+          </button>
+        </div>
         <p className="mt-0.5 text-sm text-neutral-500">
           Ingested bills held because the job couldn’t be determined automatically. Open the PDF,
           pick the job, and Assign — it pushes to JobTread and re-files in Drive.
