@@ -34,7 +34,7 @@ const JT_HEADERS = [
   "Start",
   "End",
   "Job ID",
-  "Cost Item Name",
+  "Cost Item ID",
   "Notes",
   "Type",
   "Approved",
@@ -263,15 +263,36 @@ function csvField(v: string): string {
   return /[",\r\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
 }
 
-function buildCsv(entries: Entry[], jobId: (jobRaw: string) => string): string {
+/**
+ * A job's cost-code → costItemId map, resolved for one CSI. Mirrors the Apps
+ * Script resolver: exact code first, then a CSI pattern embedded in a longer
+ * label like "01 31 20 Project Management".
+ */
+function matchCostItem(byCode: Record<string, string>, rawCsi: string): string {
+  const raw = (rawCsi ?? "").trim();
+  if (!raw) return "";
+  if (byCode[raw]) return byCode[raw];
+  const m = raw.match(/\d{2}\s+\d{2}\s+\d{2}(?:\.\d+)?/);
+  if (m) {
+    const n = m[0].replace(/\s+/g, " ").trim();
+    if (byCode[n]) return byCode[n];
+  }
+  return "";
+}
+
+function buildCsv(
+  entries: Entry[],
+  resolve: (e: Entry) => { jobId: string; costItemId: string },
+): string {
   const lines = [JT_HEADERS.join(",")];
   for (const e of entries) {
+    const { jobId, costItemId } = resolve(e);
     const cells = [
       e.userName,
       e.start,
       e.end,
-      jobId(e.jobRaw),
-      e.serviceItem,
+      jobId,
+      costItemId,
       e.notes,
       DEFAULT_TYPE,
       e.approved,
@@ -316,6 +337,11 @@ export default function LaborImportPage() {
   const [projectsMap, setProjectsMap] = useState<Record<string, string>>({});
   const [projectsMeta, setProjectsMeta] = useState<{ name: string; count: number } | null>(null);
   const [projectsErr, setProjectsErr] = useState("");
+
+  // JobTread cost items are PER-JOB: { jobId: { costCode: costItemId } }.
+  const [budgets, setBudgets] = useState<Record<string, Record<string, string>>>({});
+  const [budgetsLoading, setBudgetsLoading] = useState(false);
+  const [budgetsErr, setBudgetsErr] = useState("");
 
   // Load remembered Job IDs + the remembered Projects map.
   useEffect(() => {
@@ -438,6 +464,59 @@ export default function LaborImportPage() {
   const idSource = (jobRaw: string): "manual" | "projects" | "" =>
     (jobIdMap[jobRaw] ?? "").trim() ? "manual" : projectsId(jobRaw) ? "projects" : "";
 
+  // A row's JT Cost Item ID: its CSI looked up in ITS OWN job's budget.
+  const costItemIdFor = (e: Entry) => {
+    const jid = effectiveId(e.jobRaw);
+    if (!jid) return "";
+    const byCode = budgets[jid];
+    return byCode ? matchCostItem(byCode, e.serviceItem) : "";
+  };
+
+  // The JT Job IDs we need budgets for (the selected, mapped jobs).
+  const neededJobIds = useMemo(() => {
+    const s = new Set<string>();
+    for (const j of selJobs) {
+      const id = effectiveId(j);
+      if (id) s.add(id);
+    }
+    return [...s].sort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selJobs, jobIdMap, projectsMap, jobInfo]);
+
+  // Fetch each job's cost-code → costItemId map. Jobs that fail are recorded as
+  // {} so we mark them attempted and don't spin re-fetching them.
+  useEffect(() => {
+    const missing = neededJobIds.filter((id) => !(id in budgets));
+    if (missing.length === 0) return;
+    setBudgetsLoading(true);
+    setBudgetsErr("");
+    fetch(`/api/job-budget?jobIds=${encodeURIComponent(missing.join(","))}`)
+      .then(async (r) => {
+        const j = await r.json();
+        if (!r.ok) throw new Error(j.error ?? "Failed to load job budgets");
+        return j as {
+          budgets: Record<string, Record<string, string>>;
+          errors?: Record<string, string>;
+        };
+      })
+      .then((j) => {
+        const merged: Record<string, Record<string, string>> = { ...j.budgets };
+        for (const id of Object.keys(j.errors ?? {})) merged[id] = {}; // attempted
+        setBudgets((prev) => ({ ...prev, ...merged }));
+        const firstErr = Object.values(j.errors ?? {})[0];
+        if (firstErr) setBudgetsErr(firstErr);
+      })
+      .catch((e) => {
+        setBudgetsErr(e instanceof Error ? e.message : "Could not load job budgets");
+        setBudgets((prev) => {
+          const next = { ...prev };
+          for (const id of missing) if (!(id in next)) next[id] = {};
+          return next;
+        });
+      })
+      .finally(() => setBudgetsLoading(false));
+  }, [neededJobIds, budgets]);
+
   // Distinct jobs / workers (with counts) for the filter lists.
   const jobList = useMemo(() => tally(entries, (e) => e.jobRaw), [entries]);
   const workerList = useMemo(() => tally(entries, (e) => e.worker), [entries]);
@@ -451,11 +530,19 @@ export default function LaborImportPage() {
     [entries, selJobs, selWorkers],
   );
 
-  // Of the selected rows, which are export-ready (their job resolves to a JT Job ID).
+  // Export-ready: the row's job resolves to a JT Job ID AND its CSI resolves to a
+  // cost item in that job's budget (JobTread needs both IDs).
   const ready = useMemo(
-    () => selected.filter((e) => effectiveId(e.jobRaw)),
+    () => selected.filter((e) => effectiveId(e.jobRaw) && costItemIdFor(e)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [selected, jobIdMap, projectsMap, jobInfo],
+    [selected, jobIdMap, projectsMap, jobInfo, budgets],
+  );
+
+  // Mapped to a job, but the CSI isn't a cost item in that job's budget.
+  const noCostItem = useMemo(
+    () => selected.filter((e) => effectiveId(e.jobRaw) && !costItemIdFor(e)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [selected, jobIdMap, projectsMap, jobInfo, budgets],
   );
 
   // Jobs currently in the filter that still have no JT Job ID.
@@ -479,7 +566,10 @@ export default function LaborImportPage() {
   function doDownload() {
     if (ready.length === 0) return;
     const base = fileName.replace(/\.[^.]+$/, "") || "labor";
-    download(`${base} - JT import.csv`, buildCsv(ready, effectiveId));
+    download(
+      `${base} - JT import.csv`,
+      buildCsv(ready, (e) => ({ jobId: effectiveId(e.jobRaw), costItemId: costItemIdFor(e) })),
+    );
   }
 
   return (
@@ -544,8 +634,10 @@ export default function LaborImportPage() {
             <div className="text-sm">
               <div className="font-medium">{fileName}</div>
               <div className="text-xs text-neutral-500">
-                {ready.length} ready · {selected.length - ready.length} awaiting Job ID ·{" "}
-                {dropped.length} dropped · {entries.length} total
+                {ready.length} ready · {selected.length - ready.length - noCostItem.length} awaiting
+                Job ID · {noCostItem.length} no cost item · {dropped.length} dropped ·{" "}
+                {entries.length} total
+                {budgetsLoading && " · loading job budgets…"}
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -682,6 +774,35 @@ export default function LaborImportPage() {
             </div>
           )}
 
+          {/* CSI codes that aren't a cost item in that job's JobTread budget */}
+          {noCostItem.length > 0 && (
+            <details className="mb-5 rounded-xl border border-neutral-200 bg-white p-3 text-sm dark:border-neutral-800 dark:bg-neutral-900">
+              <summary className="cursor-pointer font-medium text-neutral-600 dark:text-neutral-300">
+                {noCostItem.length} row{noCostItem.length === 1 ? "" : "s"} held back — cost code not
+                in that job&apos;s JobTread budget
+              </summary>
+              <p className="mt-2 text-xs text-neutral-500">
+                JobTread requires a cost item on every time entry, and cost items are per-job. Add
+                the code to that job&apos;s budget in JobTread (then reload this page), or fix the
+                service item in the labor report.
+              </p>
+              <ul className="mt-2 space-y-1 text-xs text-neutral-500">
+                {[
+                  ...new Set(noCostItem.map((e) => `${e.serviceItem || "(blank)"} @ ${e.jobRaw}`)),
+                ]
+                  .slice(0, 50)
+                  .map((s) => (
+                    <li key={s}>
+                      <span className="text-amber-600 dark:text-amber-400">{s}</span>
+                    </li>
+                  ))}
+              </ul>
+              {budgetsErr && (
+                <p className="mt-2 text-xs text-red-600 dark:text-red-400">{budgetsErr}</p>
+              )}
+            </details>
+          )}
+
           {/* Dropped rows */}
           {dropped.length > 0 && (
             <details className="mb-5 rounded-xl border border-neutral-200 bg-white p-3 text-sm dark:border-neutral-800 dark:bg-neutral-900">
@@ -719,7 +840,10 @@ export default function LaborImportPage() {
                     <td className="px-2 py-1 whitespace-nowrap">{e.start}</td>
                     <td className="px-2 py-1 whitespace-nowrap">{e.end}</td>
                     <td className="px-2 py-1 whitespace-nowrap font-mono">{effectiveId(e.jobRaw)}</td>
-                    <td className="px-2 py-1 whitespace-nowrap">{e.serviceItem}</td>
+                    <td className="px-2 py-1 whitespace-nowrap font-mono">
+                      {costItemIdFor(e)}
+                      <span className="ml-1 font-sans text-neutral-400">{e.serviceItem}</span>
+                    </td>
                     <td className="max-w-[16rem] truncate px-2 py-1" title={e.notes}>
                       {e.notes}
                     </td>
