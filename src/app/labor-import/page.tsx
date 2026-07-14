@@ -11,14 +11,6 @@ import { useEffect, useMemo, useState } from "react";
 
 // ---- Editable config -------------------------------------------------------
 
-// JobTread keys a worker on their FIRST NAME (the "User Name" field in the
-// importer). Where JT's first name differs from the QB `fname`, map it here
-// (keys are lowercased QB first names). Anyone not listed passes through as-is.
-const NAME_MAP: Record<string, string> = {
-  thomas: "Tommy",
-  tyler: "Ty",
-};
-
 // Job names matching this are internal overhead (not a client job) and are
 // UNCHECKED by default — "client jobs only".
 const INTERNAL_JOB = /^ascent$/i;
@@ -29,7 +21,11 @@ const DEFAULT_START_HOUR = 8;
 const DEFAULT_TYPE = "Regular Pay";
 
 // The output header row, named to match JobTread's importer fields exactly.
+// `User ID` is the one to map in JobTread — it's unambiguous. `User Name` is
+// emitted too, carrying JT's REAL display name (read from the org roster, never
+// synthesised), so mapping that column works as well.
 const JT_HEADERS = [
+  "User ID",
   "User Name",
   "Start",
   "End",
@@ -41,7 +37,8 @@ const JT_HEADERS = [
 ] as const;
 
 const JOB_ID_STORE = "laborImport.jobIdMap.v1";
-const PROJECTS_MAP_STORE = "laborImport.projectsMap.v1";
+const WORKER_ID_STORE = "laborImport.workerIdMap.v1";
+const PROJECTS_MAP_STORE = "laborImport.projectsMap.v2"; // v2: ProjectLink (multi-id), not a bare id
 
 // A JobTread job from the read-only /api/jobs endpoint (for the picker).
 interface JobRef {
@@ -49,6 +46,13 @@ interface JobRef {
   name: string;
   number?: string;
   customer?: string;
+}
+
+// A JobTread user from the read-only /api/jt-users endpoint.
+interface UserRef {
+  id: string;
+  name: string;
+  isInternal: boolean;
 }
 
 // ---- CSV parsing -----------------------------------------------------------
@@ -149,8 +153,8 @@ function synthEnd(date: string, hours: number): string {
 
 interface Entry {
   idx: number;
-  worker: string; // full "First Last" — the filter/label key
-  userName: string; // JT first-name value emitted to the CSV
+  worker: string; // full "First Last" — the filter key + the key of the worker→JT-user map
+  fname: string; // QB first name (only used to auto-match against JT display names)
   job1: string; // jobcode_1 = the CUSTOMER
   job2: string; // jobcode_2 = the specific JOB (blank when that customer has only one)
   jobRaw: string; // "Customer — Job" (or just Customer) — the filter key + Job ID map key
@@ -192,7 +196,6 @@ function buildEntries(rows: string[][]): Entry[] {
     const lname = get(row, c.lname);
     const username = get(row, c.username);
     const worker = `${fname} ${lname}`.trim() || username;
-    const userName = NAME_MAP[norm(fname)] ?? fname;
 
     // jobcode_1 is the CUSTOMER; jobcode_2 is the specific JOB (blank when the
     // customer has only one). jobcode_3 is an activity, not a job — ignored.
@@ -217,7 +220,7 @@ function buildEntries(rows: string[][]): Entry[] {
     out.push({
       idx: r,
       worker,
-      userName,
+      fname,
       job1,
       job2,
       jobRaw,
@@ -235,8 +238,19 @@ function buildEntries(rows: string[][]): Entry[] {
 
 // ---- CSV building ----------------------------------------------------------
 
-// Parse the exported Project Database "Projects" tab → { jobcode_1(lowercased): JobTread Job ID }.
-function parseProjectsMap(text: string): Record<string, string> {
+/**
+ * Every JobTread job a single `jobcode_1` points at. The Projects tab is
+ * CUSTOMER-level, so one customer can have several rows (one per JT job) — e.g.
+ * Moon Spring Farm LLC → Pole Barn + Main House. Collecting them all (instead of
+ * last-one-wins) is what lets us refuse to auto-fill an ambiguous customer.
+ */
+interface ProjectLink {
+  ids: string[]; // distinct JobTread Job IDs
+  labels: string[]; // their Project names, parallel to ids
+}
+
+// Parse the exported Project Database "Projects" tab → { jobcode_1: ProjectLink }.
+function parseProjectsMap(text: string): Record<string, ProjectLink> {
   const rows = parseCsv(text);
   let h = -1;
   for (let i = 0; i < rows.length; i++) {
@@ -250,11 +264,19 @@ function parseProjectsMap(text: string): Record<string, string> {
   const header = rows[h].map(norm);
   const jc = header.indexOf("jobcode_1");
   const jt = header.indexOf("jobtread job id");
-  const map: Record<string, string> = {};
+  const pj = header.indexOf("project");
+
+  const map: Record<string, ProjectLink> = {};
   for (let r = h + 1; r < rows.length; r++) {
     const key = keyOf(rows[r][jc] ?? "");
     const id = (rows[r][jt] ?? "").trim();
-    if (key && id) map[key] = id;
+    if (!key || !id) continue;
+    const label = pj >= 0 ? (rows[r][pj] ?? "").trim() : "";
+    const link = (map[key] ??= { ids: [], labels: [] });
+    if (!link.ids.includes(id)) {
+      link.ids.push(id);
+      link.labels.push(label || id);
+    }
   }
   return map;
 }
@@ -282,13 +304,19 @@ function matchCostItem(byCode: Record<string, string>, rawCsi: string): string {
 
 function buildCsv(
   entries: Entry[],
-  resolve: (e: Entry) => { jobId: string; costItemId: string },
+  resolve: (e: Entry) => {
+    userId: string;
+    userName: string;
+    jobId: string;
+    costItemId: string;
+  },
 ): string {
   const lines = [JT_HEADERS.join(",")];
   for (const e of entries) {
-    const { jobId, costItemId } = resolve(e);
+    const { userId, userName, jobId, costItemId } = resolve(e);
     const cells = [
-      e.userName,
+      userId,
+      userName,
       e.start,
       e.end,
       jobId,
@@ -333,8 +361,13 @@ export default function LaborImportPage() {
   const [jobsError, setJobsError] = useState("");
   const [manualJobs, setManualJobs] = useState<Set<string>>(new Set());
 
-  // jobcode_1 → JobTread Job ID, loaded from the exported Projects tab CSV.
-  const [projectsMap, setProjectsMap] = useState<Record<string, string>>({});
+  // JobTread users + the QB worker → JT user id map.
+  const [jtUsers, setJtUsers] = useState<UserRef[] | null>(null);
+  const [usersError, setUsersError] = useState("");
+  const [workerIdMap, setWorkerIdMap] = useState<Record<string, string>>({});
+
+  // jobcode_1 → the JobTread job(s) it points at, from the exported Projects tab CSV.
+  const [projectsMap, setProjectsMap] = useState<Record<string, ProjectLink>>({});
   const [projectsMeta, setProjectsMeta] = useState<{ name: string; count: number } | null>(null);
   const [projectsErr, setProjectsErr] = useState("");
 
@@ -357,7 +390,21 @@ export default function LaborImportPage() {
         setProjectsMeta(saved.meta ?? null);
       }
     } catch {}
+    try {
+      const raw = localStorage.getItem(WORKER_ID_STORE);
+      if (raw) setWorkerIdMap(JSON.parse(raw));
+    } catch {}
   }, []);
+
+  function setWorkerId(worker: string, id: string) {
+    setWorkerIdMap((prev) => {
+      const next = { ...prev, [worker]: id };
+      try {
+        localStorage.setItem(WORKER_ID_STORE, JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  }
 
   function setJobId(jobRaw: string, id: string) {
     setJobIdMap((prev) => {
@@ -383,6 +430,55 @@ export default function LaborImportPage() {
       .catch((e) => setJobsError(e instanceof Error ? e.message : "Could not load JobTread jobs"))
       .finally(() => setJobsLoading(false));
   }, [entries, jtJobs, jobsLoading, jobsError]);
+
+  // Fetch the JobTread user roster once a file is loaded.
+  useEffect(() => {
+    if (!entries || jtUsers || usersError) return;
+    fetch("/api/jt-users")
+      .then(async (r) => {
+        const j = await r.json();
+        if (!r.ok) throw new Error(j.error ?? "Failed to load JobTread users");
+        return (j.users ?? []) as UserRef[];
+      })
+      .then(setJtUsers)
+      .catch((e) =>
+        setUsersError(e instanceof Error ? e.message : "Could not load JobTread users"),
+      );
+  }, [entries, jtUsers, usersError]);
+
+  // Auto-match a worker to a JT user ONLY on an exact name hit — the QB first
+  // name ("Cedar") or full name. Anything looser would mis-key people like
+  // Tyler O'Steen → "Ty O'Steen" or Thomas Hedley → "Tommy", so those are left
+  // for a one-time pick instead of a guess.
+  useEffect(() => {
+    if (!jtUsers || !entries) return;
+    setWorkerIdMap((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      for (const e of entries) {
+        if (!e.worker || (next[e.worker] ?? "").trim()) continue;
+        const hit = jtUsers.find(
+          (u) => keyOf(u.name) === keyOf(e.fname) || keyOf(u.name) === keyOf(e.worker),
+        );
+        if (hit) {
+          next[e.worker] = hit.id;
+          changed = true;
+        }
+      }
+      if (changed) {
+        try {
+          localStorage.setItem(WORKER_ID_STORE, JSON.stringify(next));
+        } catch {}
+      }
+      return changed ? next : prev;
+    });
+  }, [jtUsers, entries]);
+
+  const userIdFor = (worker: string) => (workerIdMap[worker] ?? "").trim();
+  const userNameFor = (worker: string) => {
+    const id = userIdFor(worker);
+    return id ? (jtUsers?.find((u) => u.id === id)?.name ?? "") : "";
+  };
 
   const setManual = (job: string, on: boolean) =>
     setManualJobs((prev) => {
@@ -444,22 +540,35 @@ export default function LaborImportPage() {
     [entries],
   );
 
-  /**
-   * Job ID from the Projects map:
-   *   1. a hit on the full "Customer — Job" (works if the Projects tab ever gets
-   *      per-job jobcode_1 values), else
-   *   2. a hit on the customer alone — but ONLY when jobcode_2 is blank, i.e. a
-   *      single-job customer. The Projects tab is customer-level, so for a
-   *      multi-job customer it can't say WHICH job; we leave those unmapped for a
-   *      one-time manual pick rather than silently assign the wrong job.
-   */
-  const projectsId = (jobRaw: string) => {
-    const direct = (projectsMap[keyOf(jobRaw)] ?? "").trim();
+  // The Projects rows this job could point at: an exact "Customer — Job" hit if
+  // the tab ever gets per-job jobcode_1 values, else the customer's row(s).
+  const projectsLink = (jobRaw: string): ProjectLink | undefined => {
+    const direct = projectsMap[keyOf(jobRaw)];
     if (direct) return direct;
     const info = jobInfo.get(jobRaw);
-    if (info && !info.job2) return (projectsMap[keyOf(info.job1)] ?? "").trim();
-    return "";
+    return info ? projectsMap[keyOf(info.job1)] : undefined;
   };
+
+  /**
+   * Auto-fill ONLY when the link is unambiguous — exactly one JobTread job.
+   *
+   * The Projects tab is customer-level, so a customer with several JT jobs (Moon
+   * Spring Farm → Pole Barn + Main House; Velorum → 3 jobs) resolves to multiple
+   * ids. Picking one would silently put the hours on the wrong job's budget, so
+   * we resolve to nothing and make you choose once instead.
+   */
+  const projectsId = (jobRaw: string) => {
+    const link = projectsLink(jobRaw);
+    return link && link.ids.length === 1 ? link.ids[0] : "";
+  };
+
+  // Non-null when the customer maps to >1 JT job and you haven't picked yet.
+  const ambiguousLink = (jobRaw: string): ProjectLink | null => {
+    if ((jobIdMap[jobRaw] ?? "").trim()) return null; // already picked
+    const link = projectsLink(jobRaw);
+    return link && link.ids.length > 1 ? link : null;
+  };
+
   const effectiveId = (jobRaw: string) => (jobIdMap[jobRaw] ?? "").trim() || projectsId(jobRaw);
   const idSource = (jobRaw: string): "manual" | "projects" | "" =>
     (jobIdMap[jobRaw] ?? "").trim() ? "manual" : projectsId(jobRaw) ? "projects" : "";
@@ -530,12 +639,13 @@ export default function LaborImportPage() {
     [entries, selJobs, selWorkers],
   );
 
-  // Export-ready: the row's job resolves to a JT Job ID AND its CSI resolves to a
-  // cost item in that job's budget (JobTread needs both IDs).
+  // Export-ready: the row resolves to a JT user, a JT job, AND a cost item in
+  // that job's budget. JobTread needs all three ids.
   const ready = useMemo(
-    () => selected.filter((e) => effectiveId(e.jobRaw) && costItemIdFor(e)),
+    () =>
+      selected.filter((e) => userIdFor(e.worker) && effectiveId(e.jobRaw) && costItemIdFor(e)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [selected, jobIdMap, projectsMap, jobInfo, budgets],
+    [selected, jobIdMap, projectsMap, jobInfo, budgets, workerIdMap],
   );
 
   // Mapped to a job, but the CSI isn't a cost item in that job's budget.
@@ -543,6 +653,15 @@ export default function LaborImportPage() {
     () => selected.filter((e) => effectiveId(e.jobRaw) && !costItemIdFor(e)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [selected, jobIdMap, projectsMap, jobInfo, budgets],
+  );
+
+  // Distinct workers in the file, and those still missing a JT user.
+  const workersNeedingId = useMemo(
+    () =>
+      [...new Set(selected.map((e) => e.worker).filter(Boolean))]
+        .filter((w) => !(workerIdMap[w] ?? "").trim())
+        .sort(),
+    [selected, workerIdMap],
   );
 
   // Jobs currently in the filter that still have no JT Job ID.
@@ -568,7 +687,12 @@ export default function LaborImportPage() {
     const base = fileName.replace(/\.[^.]+$/, "") || "labor";
     download(
       `${base} - JT import.csv`,
-      buildCsv(ready, (e) => ({ jobId: effectiveId(e.jobRaw), costItemId: costItemIdFor(e) })),
+      buildCsv(ready, (e) => ({
+        userId: userIdFor(e.worker),
+        userName: userNameFor(e.worker),
+        jobId: effectiveId(e.jobRaw),
+        costItemId: costItemIdFor(e),
+      })),
     );
   }
 
@@ -634,9 +758,8 @@ export default function LaborImportPage() {
             <div className="text-sm">
               <div className="font-medium">{fileName}</div>
               <div className="text-xs text-neutral-500">
-                {ready.length} ready · {selected.length - ready.length - noCostItem.length} awaiting
-                Job ID · {noCostItem.length} no cost item · {dropped.length} dropped ·{" "}
-                {entries.length} total
+                {ready.length} ready · {selected.length - ready.length} held back (needs a user, job,
+                or cost item) · {dropped.length} dropped · {entries.length} total
                 {budgetsLoading && " · loading job budgets…"}
               </div>
             </div>
@@ -687,6 +810,58 @@ export default function LaborImportPage() {
             </FilterCard>
           </div>
 
+          {/* Worker → JobTread user */}
+          <div className="mb-5 rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
+            <div className="mb-2 text-sm font-semibold">
+              JobTread users
+              {workersNeedingId.length > 0 && (
+                <span className="ml-2 font-normal text-amber-600 dark:text-amber-400">
+                  {workersNeedingId.length} unmapped — those rows are held back
+                </span>
+              )}
+            </div>
+            <p className="mb-3 text-xs text-neutral-500">
+              JobTread matches a worker on its own display name — usually a first name
+              (&quot;Cedar&quot;), but not always (&quot;Ty O&apos;Steen&quot;). So we send the{" "}
+              <b>User ID</b> read from JobTread rather than guessing a name. Exact name matches
+              auto-fill; anyone else (Tyler → Ty, Thomas → Tommy) you pick once.
+              {usersError && (
+                <span className="block text-amber-600 dark:text-amber-400">
+                  Couldn&apos;t load JobTread users ({usersError}).
+                </span>
+              )}
+            </p>
+            <div className="space-y-2">
+              {[...new Set(selected.map((e) => e.worker).filter(Boolean))].sort().map((w) => (
+                <div key={w} className="flex items-center gap-2">
+                  <span className="w-48 shrink-0 truncate text-sm" title={w}>
+                    {w}
+                  </span>
+                  <select
+                    value={workerIdMap[w] ?? ""}
+                    onChange={(e) => setWorkerId(w, e.target.value)}
+                    className="flex-1 rounded-md border border-neutral-300 bg-transparent px-2 py-1 text-sm outline-none focus:border-accent dark:border-neutral-700"
+                  >
+                    <option value="">— pick JobTread user —</option>
+                    {(jtUsers ?? []).map((u) => (
+                      <option key={u.id} value={u.id}>
+                        {(u.isInternal ? "★ " : "") + u.name}
+                      </option>
+                    ))}
+                  </select>
+                  <span
+                    className={
+                      "w-24 shrink-0 whitespace-nowrap text-right text-xs " +
+                      (userIdFor(w) ? "text-accent" : "text-amber-500")
+                    }
+                  >
+                    {userIdFor(w) ? `✓ ${userNameFor(w)}` : "unmapped"}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+
           {/* Job ID mapping — only for jobs currently selected */}
           {[...selJobs].length > 0 && (
             <div className="mb-5 rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
@@ -723,11 +898,12 @@ export default function LaborImportPage() {
                 ) : (
                   <span className="text-amber-600 dark:text-amber-400">None loaded yet.</span>
                 )}{" "}
-                That tab is <b>customer-level</b>, so a customer with several JobTread jobs (
-                <code>jobcode_2</code> set) can&apos;t be resolved from it — those stay{" "}
-                <b>unmapped</b> so you pick the right job once, rather than us guessing wrong. The
-                dropdown floats that customer&apos;s jobs (★) to the top. Picks are remembered on this
-                device.
+                That tab is <b>customer-level</b>, so a customer with several JobTread jobs (Moon
+                Spring Farm → Pole Barn + Main House; Velorum → 3 jobs) resolves to more than one
+                job. Those are <b>never auto-filled</b> — they say <b>pick a job</b> and list the
+                candidates, so you choose once instead of us silently stamping the wrong job&apos;s
+                budget. The dropdown floats that customer&apos;s jobs (★) to the top. Picks are
+                remembered on this device.
                 {projectsErr && (
                   <span className="block text-red-600 dark:text-red-400">{projectsErr}</span>
                 )}
@@ -735,10 +911,19 @@ export default function LaborImportPage() {
               <div className="space-y-2">
                 {[...selJobs].sort().map((job) => {
                   const src = idSource(job);
+                  const amb = ambiguousLink(job);
                   return (
                     <div key={job} className="flex items-center gap-2">
                       <span className="w-48 shrink-0 truncate text-sm" title={job}>
                         {job || "(blank)"}
+                        {amb && (
+                          <span
+                            className="block truncate text-xs text-amber-600 dark:text-amber-400"
+                            title={amb.labels.join(" · ")}
+                          >
+                            {amb.ids.length} JT jobs: {amb.labels.join(" · ")}
+                          </span>
+                        )}
                       </span>
                       <JobIdControl
                         job={job}
@@ -751,11 +936,17 @@ export default function LaborImportPage() {
                       />
                       <span
                         className={
-                          "w-20 shrink-0 whitespace-nowrap text-right text-xs " +
+                          "w-24 shrink-0 whitespace-nowrap text-right text-xs " +
                           (src ? "text-accent" : "text-amber-500")
                         }
                       >
-                        {src === "projects" ? "✓ Projects" : src === "manual" ? "✓ manual" : "unmapped"}
+                        {src === "projects"
+                          ? "✓ Projects"
+                          : src === "manual"
+                            ? "✓ manual"
+                            : amb
+                              ? "pick a job"
+                              : "unmapped"}
                       </span>
                     </div>
                   );
@@ -836,7 +1027,8 @@ export default function LaborImportPage() {
               <tbody>
                 {ready.slice(0, 100).map((e) => (
                   <tr key={e.idx} className="border-t border-neutral-100 dark:border-neutral-800">
-                    <td className="px-2 py-1 whitespace-nowrap">{e.userName}</td>
+                    <td className="px-2 py-1 whitespace-nowrap font-mono">{userIdFor(e.worker)}</td>
+                    <td className="px-2 py-1 whitespace-nowrap">{userNameFor(e.worker)}</td>
                     <td className="px-2 py-1 whitespace-nowrap">{e.start}</td>
                     <td className="px-2 py-1 whitespace-nowrap">{e.end}</td>
                     <td className="px-2 py-1 whitespace-nowrap font-mono">{effectiveId(e.jobRaw)}</td>

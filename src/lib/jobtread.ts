@@ -508,6 +508,51 @@ export async function getVendors(cfg: PaveConfig): Promise<VendorRef[]> {
  * writes-enabled flag; a customer bill is shared with the AppSheet flow, so
  * nothing here runs until that coordination is settled.
  */
+export interface UserRef {
+  id: string;
+  name: string; // JobTread's DISPLAY name — what its importer matches on
+  isInternal: boolean;
+}
+
+/**
+ * Org members (JobTread users), for the labor importer's worker mapping.
+ *
+ * `user.name` is the display name JobTread matches on. It's usually just a first
+ * name ("Cedar", "Tommy", "Casey") but NOT always — "Ty O'Steen" is the full
+ * name — so it must be read from JT, never synthesised from the QB first name.
+ * `user` exposes no email, so name/id are the only handles.
+ */
+export async function getOrgUsers(cfg: PaveConfig): Promise<UserRef[]> {
+  const out: UserRef[] = [];
+  let cursor: string | null = null;
+  for (let page = 0; page < 10; page++) {
+    const args: Record<string, unknown> = { size: 100 };
+    if (cursor) args.page = cursor;
+    const r = await pave(cfg, {
+      organization: {
+        $: { id: cfg.orgId },
+        id: {},
+        memberships: {
+          $: args,
+          nextPage: {},
+          nodes: { id: {}, isInternal: {}, user: { id: {}, name: {} } },
+        },
+      },
+    });
+    const mc = r?.organization?.memberships ?? {};
+    for (const n of mc.nodes ?? []) {
+      const u = n?.user;
+      if (u?.id) out.push({ id: u.id, name: u.name ?? "", isInternal: !!n.isInternal });
+    }
+    cursor = mc.nextPage ?? null;
+    if (!cursor) break;
+  }
+  // Internal staff first (the people who log labor), then alphabetical.
+  return out.sort(
+    (a, b) => Number(b.isInternal) - Number(a.isInternal) || a.name.localeCompare(b.name),
+  );
+}
+
 export async function updateLine(
   cfg: PaveConfig,
   costItemId: string,
