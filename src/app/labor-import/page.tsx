@@ -18,7 +18,10 @@ const INTERNAL_JOB = /^ascent$/i;
 // Hours-only rows (no clock in/out) get a synthetic workday starting here.
 const DEFAULT_START_HOUR = 8;
 
-const DEFAULT_TYPE = "Regular Pay";
+// NOTE: there is deliberately no default `Type`. A time entry's type is a PAY
+// TYPE, each member has their own set, and they're job-scoped (different rates on
+// different jobs) — e.g. "Regular Pay" isn't even available to Ty O'Steen. So it
+// is chosen per (worker × job), never assumed.
 
 // The output header row, named to match JobTread's importer fields exactly.
 // `User ID` is the one to map in JobTread — it's unambiguous. `User Name` is
@@ -38,6 +41,10 @@ const JT_HEADERS = [
 
 const JOB_ID_STORE = "laborImport.jobIdMap.v1";
 const WORKER_ID_STORE = "laborImport.workerIdMap.v1";
+const TYPE_STORE = "laborImport.typeMap.v1";
+
+// A pay type is picked per worker AND per job, so key the choice on both.
+const typeKey = (worker: string, jobRaw: string) => `${worker}|||${jobRaw}`;
 const PROJECTS_MAP_STORE = "laborImport.projectsMap.v2"; // v2: ProjectLink (multi-id), not a bare id
 
 // A JobTread job from the read-only /api/jobs endpoint (for the picker).
@@ -49,10 +56,15 @@ interface JobRef {
 }
 
 // A JobTread user from the read-only /api/jt-users endpoint.
+interface PayType {
+  name: string;
+  hourlyRate?: number;
+}
 interface UserRef {
   id: string;
   name: string;
   isInternal: boolean;
+  types?: PayType[]; // that member's own pay types; absent if the grant can't read them
 }
 
 // ---- CSV parsing -----------------------------------------------------------
@@ -309,11 +321,12 @@ function buildCsv(
     userName: string;
     jobId: string;
     costItemId: string;
+    type: string;
   },
 ): string {
   const lines = [JT_HEADERS.join(",")];
   for (const e of entries) {
-    const { userId, userName, jobId, costItemId } = resolve(e);
+    const { userId, userName, jobId, costItemId, type } = resolve(e);
     const cells = [
       userId,
       userName,
@@ -322,7 +335,7 @@ function buildCsv(
       jobId,
       costItemId,
       e.notes,
-      DEFAULT_TYPE,
+      type,
       e.approved,
     ];
     lines.push(cells.map((x) => csvField(x ?? "")).join(","));
@@ -363,8 +376,11 @@ export default function LaborImportPage() {
 
   // JobTread users + the QB worker → JT user id map.
   const [jtUsers, setJtUsers] = useState<UserRef[] | null>(null);
+  const [orgTypes, setOrgTypes] = useState<string[]>([]);
   const [usersError, setUsersError] = useState("");
   const [workerIdMap, setWorkerIdMap] = useState<Record<string, string>>({});
+  // (worker|||job) → pay-type name.
+  const [typeMap, setTypeMap] = useState<Record<string, string>>({});
 
   // jobcode_1 → the JobTread job(s) it points at, from the exported Projects tab CSV.
   const [projectsMap, setProjectsMap] = useState<Record<string, ProjectLink>>({});
@@ -394,6 +410,10 @@ export default function LaborImportPage() {
       const raw = localStorage.getItem(WORKER_ID_STORE);
       if (raw) setWorkerIdMap(JSON.parse(raw));
     } catch {}
+    try {
+      const raw = localStorage.getItem(TYPE_STORE);
+      if (raw) setTypeMap(JSON.parse(raw));
+    } catch {}
   }, []);
 
   function setWorkerId(worker: string, id: string) {
@@ -401,6 +421,16 @@ export default function LaborImportPage() {
       const next = { ...prev, [worker]: id };
       try {
         localStorage.setItem(WORKER_ID_STORE, JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  }
+
+  function setType(worker: string, jobRaw: string, name: string) {
+    setTypeMap((prev) => {
+      const next = { ...prev, [typeKey(worker, jobRaw)]: name };
+      try {
+        localStorage.setItem(TYPE_STORE, JSON.stringify(next));
       } catch {}
       return next;
     });
@@ -438,9 +468,12 @@ export default function LaborImportPage() {
       .then(async (r) => {
         const j = await r.json();
         if (!r.ok) throw new Error(j.error ?? "Failed to load JobTread users");
-        return (j.users ?? []) as UserRef[];
+        return j as { users: UserRef[]; orgTypes?: string[] };
       })
-      .then(setJtUsers)
+      .then((j) => {
+        setJtUsers(j.users ?? []);
+        setOrgTypes(j.orgTypes ?? []);
+      })
       .catch((e) =>
         setUsersError(e instanceof Error ? e.message : "Could not load JobTread users"),
       );
@@ -475,9 +508,33 @@ export default function LaborImportPage() {
   }, [jtUsers, entries]);
 
   const userIdFor = (worker: string) => (workerIdMap[worker] ?? "").trim();
-  const userNameFor = (worker: string) => {
+  const jtUserFor = (worker: string) => {
     const id = userIdFor(worker);
-    return id ? (jtUsers?.find((u) => u.id === id)?.name ?? "") : "";
+    return id ? (jtUsers?.find((u) => u.id === id) ?? null) : null;
+  };
+  const userNameFor = (worker: string) => jtUserFor(worker)?.name ?? "";
+
+  /**
+   * The pay types this worker may use. Their OWN set when the grant can read it
+   * (each member has different types, at different rates); otherwise every type
+   * on the org, since we can't tell which are theirs.
+   */
+  const typeOptionsFor = (worker: string): PayType[] => {
+    const u = jtUserFor(worker);
+    if (u?.types) return u.types;
+    return orgTypes.map((name) => ({ name }));
+  };
+
+  /**
+   * A row's `type`. Chosen per (worker × job) — types are job-scoped and vary by
+   * person, so nothing is assumed. Auto-filled only when the worker has exactly
+   * one option (then there's nothing to choose).
+   */
+  const typeFor = (e: Entry) => {
+    const picked = (typeMap[typeKey(e.worker, e.jobRaw)] ?? "").trim();
+    if (picked) return picked;
+    const opts = typeOptionsFor(e.worker);
+    return opts.length === 1 ? opts[0].name : "";
   };
 
   const setManual = (job: string, on: boolean) =>
@@ -639,13 +696,34 @@ export default function LaborImportPage() {
     [entries, selJobs, selWorkers],
   );
 
-  // Export-ready: the row resolves to a JT user, a JT job, AND a cost item in
-  // that job's budget. JobTread needs all three ids.
+  // Export-ready: the row resolves to a JT user, a JT job, a cost item in that
+  // job's budget, AND a pay type. JobTread requires all four.
   const ready = useMemo(
     () =>
-      selected.filter((e) => userIdFor(e.worker) && effectiveId(e.jobRaw) && costItemIdFor(e)),
+      selected.filter(
+        (e) => userIdFor(e.worker) && effectiveId(e.jobRaw) && costItemIdFor(e) && typeFor(e),
+      ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [selected, jobIdMap, projectsMap, jobInfo, budgets, workerIdMap],
+    [selected, jobIdMap, projectsMap, jobInfo, budgets, workerIdMap, typeMap, jtUsers, orgTypes],
+  );
+
+  // (worker × job) pairs in play, and those still missing a pay type.
+  const typePairs = useMemo(() => {
+    const m = new Map<string, { worker: string; jobRaw: string }>();
+    for (const e of selected) {
+      if (!m.has(typeKey(e.worker, e.jobRaw))) {
+        m.set(typeKey(e.worker, e.jobRaw), { worker: e.worker, jobRaw: e.jobRaw });
+      }
+    }
+    return [...m.values()].sort(
+      (a, b) => a.worker.localeCompare(b.worker) || a.jobRaw.localeCompare(b.jobRaw),
+    );
+  }, [selected]);
+
+  const typesNeeded = useMemo(
+    () => typePairs.filter((p) => !typeFor({ worker: p.worker, jobRaw: p.jobRaw } as Entry)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [typePairs, typeMap, workerIdMap, jtUsers, orgTypes],
   );
 
   // Mapped to a job, but the CSI isn't a cost item in that job's budget.
@@ -692,6 +770,7 @@ export default function LaborImportPage() {
         userName: userNameFor(e.worker),
         jobId: effectiveId(e.jobRaw),
         costItemId: costItemIdFor(e),
+        type: typeFor(e),
       })),
     );
   }
@@ -965,6 +1044,75 @@ export default function LaborImportPage() {
             </div>
           )}
 
+          {/* Pay type — per worker AND per job */}
+          {typePairs.length > 0 && (
+            <div className="mb-5 rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
+              <div className="mb-2 text-sm font-semibold">
+                Pay type
+                {typesNeeded.length > 0 && (
+                  <span className="ml-2 font-normal text-amber-600 dark:text-amber-400">
+                    {typesNeeded.length} unset — those rows are held back
+                  </span>
+                )}
+              </div>
+              <p className="mb-3 text-xs text-neutral-500">
+                JobTread requires a <code>Type</code> on every time entry, and it&apos;s a{" "}
+                <b>pay rate</b>: each person has their own set, scoped per job (different rates on
+                different jobs) — so &quot;Regular Pay&quot; isn&apos;t even an option for everyone.
+                Nothing is assumed: pick one per worker × job (auto-set only when someone has a
+                single option). Remembered on this device.
+                {jtUsers && !jtUsers.some((u) => u.types) && (
+                  <span className="block text-amber-600 dark:text-amber-400">
+                    Showing all {orgTypes.length} org pay types — the JT grant can&apos;t read each
+                    member&apos;s own set (needs the <code>createTimeEntryForMembership</code> action),
+                    so pick carefully.
+                  </span>
+                )}
+              </p>
+              <div className="space-y-2">
+                {typePairs.map((p) => {
+                  const opts = typeOptionsFor(p.worker);
+                  const cur = typeFor({ worker: p.worker, jobRaw: p.jobRaw } as Entry);
+                  const mapped = !!userIdFor(p.worker);
+                  return (
+                    <div key={typeKey(p.worker, p.jobRaw)} className="flex items-center gap-2">
+                      <span
+                        className="w-48 shrink-0 truncate text-sm"
+                        title={`${p.worker} · ${p.jobRaw}`}
+                      >
+                        {p.worker}
+                        <span className="block truncate text-xs text-neutral-400">{p.jobRaw}</span>
+                      </span>
+                      <select
+                        value={typeMap[typeKey(p.worker, p.jobRaw)] ?? cur ?? ""}
+                        onChange={(e) => setType(p.worker, p.jobRaw, e.target.value)}
+                        className="flex-1 rounded-md border border-neutral-300 bg-transparent px-2 py-1 text-sm outline-none focus:border-accent dark:border-neutral-700"
+                      >
+                        <option value="">
+                          {mapped ? "— pick a pay type —" : "— map this worker first —"}
+                        </option>
+                        {opts.map((t) => (
+                          <option key={t.name} value={t.name}>
+                            {t.name +
+                              (typeof t.hourlyRate === "number" ? ` ($${t.hourlyRate}/hr)` : "")}
+                          </option>
+                        ))}
+                      </select>
+                      <span
+                        className={
+                          "w-24 shrink-0 whitespace-nowrap text-right text-xs " +
+                          (cur ? "text-accent" : "text-amber-500")
+                        }
+                      >
+                        {cur ? "✓ set" : "unset"}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* CSI codes that aren't a cost item in that job's JobTread budget */}
           {noCostItem.length > 0 && (
             <details className="mb-5 rounded-xl border border-neutral-200 bg-white p-3 text-sm dark:border-neutral-800 dark:bg-neutral-900">
@@ -1039,7 +1187,7 @@ export default function LaborImportPage() {
                     <td className="max-w-[16rem] truncate px-2 py-1" title={e.notes}>
                       {e.notes}
                     </td>
-                    <td className="px-2 py-1 whitespace-nowrap">{DEFAULT_TYPE}</td>
+                    <td className="px-2 py-1 whitespace-nowrap">{typeFor(e)}</td>
                     <td className="px-2 py-1">{e.approved}</td>
                   </tr>
                 ))}

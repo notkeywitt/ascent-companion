@@ -508,10 +508,56 @@ export async function getVendors(cfg: PaveConfig): Promise<VendorRef[]> {
  * writes-enabled flag; a customer bill is shared with the AppSheet flow, so
  * nothing here runs until that coordination is settled.
  */
+/** A time-entry pay type available to one member (its `name` is the `type` field). */
+export interface PayType {
+  name: string;
+  hourlyRate?: number;
+}
+
 export interface UserRef {
   id: string;
   name: string; // JobTread's DISPLAY name — what its importer matches on
   isInternal: boolean;
+  types?: PayType[]; // undefined when the grant can't read per-member types
+}
+
+async function fetchMembers(cfg: PaveConfig, withTypes: boolean): Promise<UserRef[]> {
+  const out: UserRef[] = [];
+  let cursor: string | null = null;
+  for (let page = 0; page < 10; page++) {
+    const args: Record<string, unknown> = { size: 100 };
+    if (cursor) args.page = cursor;
+    const nodes: Record<string, unknown> = {
+      id: {},
+      isInternal: {},
+      user: { id: {}, name: {} },
+    };
+    if (withTypes) nodes.timeEntryTypes = {};
+    const r = await pave(cfg, {
+      organization: {
+        $: { id: cfg.orgId },
+        id: {},
+        memberships: { $: args, nextPage: {}, nodes },
+      },
+    });
+    const mc = r?.organization?.memberships ?? {};
+    for (const n of mc.nodes ?? []) {
+      const u = n?.user;
+      if (!u?.id) continue;
+      out.push({
+        id: u.id,
+        name: u.name ?? "",
+        isInternal: !!n.isInternal,
+        types: withTypes ? ((n.timeEntryTypes ?? []) as PayType[]) : undefined,
+      });
+    }
+    cursor = mc.nextPage ?? null;
+    if (!cursor) break;
+  }
+  // Internal staff first (the people who log labor), then alphabetical.
+  return out.sort(
+    (a, b) => Number(b.isInternal) - Number(a.isInternal) || a.name.localeCompare(b.name),
+  );
 }
 
 /**
@@ -521,36 +567,26 @@ export interface UserRef {
  * name ("Cedar", "Tommy", "Casey") but NOT always — "Ty O'Steen" is the full
  * name — so it must be read from JT, never synthesised from the QB first name.
  * `user` exposes no email, so name/id are the only handles.
+ *
+ * `timeEntryTypes` is each member's OWN set of pay types (the time entry `type`
+ * field). Reading it requires the `createTimeEntryForMembership` action on the
+ * grant; if the grant lacks it the whole query 403s, so we retry without it and
+ * callers fall back to the org-wide type list.
  */
 export async function getOrgUsers(cfg: PaveConfig): Promise<UserRef[]> {
-  const out: UserRef[] = [];
-  let cursor: string | null = null;
-  for (let page = 0; page < 10; page++) {
-    const args: Record<string, unknown> = { size: 100 };
-    if (cursor) args.page = cursor;
-    const r = await pave(cfg, {
-      organization: {
-        $: { id: cfg.orgId },
-        id: {},
-        memberships: {
-          $: args,
-          nextPage: {},
-          nodes: { id: {}, isInternal: {}, user: { id: {}, name: {} } },
-        },
-      },
-    });
-    const mc = r?.organization?.memberships ?? {};
-    for (const n of mc.nodes ?? []) {
-      const u = n?.user;
-      if (u?.id) out.push({ id: u.id, name: u.name ?? "", isInternal: !!n.isInternal });
-    }
-    cursor = mc.nextPage ?? null;
-    if (!cursor) break;
+  try {
+    return await fetchMembers(cfg, true);
+  } catch {
+    return await fetchMembers(cfg, false);
   }
-  // Internal staff first (the people who log labor), then alphabetical.
-  return out.sort(
-    (a, b) => Number(b.isInternal) - Number(a.isInternal) || a.name.localeCompare(b.name),
-  );
+}
+
+/** Every pay-type name configured on the org — the fallback list. */
+export async function getOrgTimeEntryTypeNames(cfg: PaveConfig): Promise<string[]> {
+  const r = await pave(cfg, {
+    organization: { $: { id: cfg.orgId }, id: {}, timeEntryTypeNames: {} },
+  });
+  return (r?.organization?.timeEntryTypeNames ?? []) as string[];
 }
 
 export async function updateLine(
