@@ -114,6 +114,10 @@ function parseCsv(text: string): string[][] {
 
 const norm = (s: string) => (s ?? "").trim().toLowerCase();
 
+// Loose join key: lowercase, keep only alphanumerics. Lets a labor value line up
+// with a Projects `jobcode_1` regardless of spacing/punctuation differences.
+const keyOf = (s: string) => (s ?? "").toLowerCase().replace(/[^a-z0-9]+/g, "");
+
 /** QB Time exports sometimes carry a blank/title line before the header. Find
  * the row that actually holds the column names. */
 function findHeaderRow(rows: string[][]): number {
@@ -147,7 +151,9 @@ interface Entry {
   idx: number;
   worker: string; // full "First Last" — the filter/label key
   userName: string; // JT first-name value emitted to the CSV
-  jobRaw: string; // QB jobcode_1 — the job filter key, and the join key to the Projects map
+  job1: string; // jobcode_1 = the CUSTOMER
+  job2: string; // jobcode_2 = the specific JOB (blank when that customer has only one)
+  jobRaw: string; // "Customer — Job" (or just Customer) — the filter key + Job ID map key
   serviceItem: string;
   start: string;
   end: string;
@@ -170,6 +176,7 @@ function buildEntries(rows: string[][]): Entry[] {
     end: col("local_end_time"),
     hours: col("hours"),
     job1: col("jobcode_1"),
+    job2: col("jobcode_2"),
     service: col("service item"),
     notes: col("notes"),
     approved: col("approved_status"),
@@ -187,7 +194,11 @@ function buildEntries(rows: string[][]): Entry[] {
     const worker = `${fname} ${lname}`.trim() || username;
     const userName = NAME_MAP[norm(fname)] ?? fname;
 
-    const jobRaw = get(row, c.job1);
+    // jobcode_1 is the CUSTOMER; jobcode_2 is the specific JOB (blank when the
+    // customer has only one). jobcode_3 is an activity, not a job — ignored.
+    const job1 = get(row, c.job1);
+    const job2 = get(row, c.job2);
+    const jobRaw = job2 ? `${job1} — ${job2}` : job1;
     const serviceItem = get(row, c.service);
     const date = get(row, c.date);
     const hours = parseFloat(get(row, c.hours)) || 0;
@@ -207,6 +218,8 @@ function buildEntries(rows: string[][]): Entry[] {
       idx: r,
       worker,
       userName,
+      job1,
+      job2,
       jobRaw,
       serviceItem,
       start,
@@ -239,7 +252,7 @@ function parseProjectsMap(text: string): Record<string, string> {
   const jt = header.indexOf("jobtread job id");
   const map: Record<string, string> = {};
   for (let r = h + 1; r < rows.length; r++) {
-    const key = norm(rows[r][jc] ?? "");
+    const key = keyOf(rows[r][jc] ?? "");
     const id = (rows[r][jt] ?? "").trim();
     if (key && id) map[key] = id;
   }
@@ -364,9 +377,11 @@ export default function LaborImportPage() {
       }
       setFileName(file.name);
       setEntries(es);
-      // Default filters: every worker; every job EXCEPT internal "Ascent".
+      // Default filters: every worker; every job EXCEPT internal "Ascent" overhead
+      // (tested on jobcode_1, since the key is now "Customer — Job").
+      const internal = new Set(es.filter((e) => INTERNAL_JOB.test(e.job1)).map((e) => e.jobRaw));
       const jobs = new Set(es.map((e) => e.jobRaw).filter(Boolean));
-      setSelJobs(new Set([...jobs].filter((j) => !INTERNAL_JOB.test(j))));
+      setSelJobs(new Set([...jobs].filter((j) => !internal.has(j))));
       setSelWorkers(new Set(es.map((e) => e.worker).filter(Boolean)));
     } catch (err) {
       setParseError(err instanceof Error ? err.message : "Could not read the file.");
@@ -388,16 +403,40 @@ export default function LaborImportPage() {
     }
   }
 
-  // Effective Job ID for a QB job: a manual/dropdown override wins, else the
-  // Projects map (jobcode_1 → JobTread Job ID). idSource says which.
-  const effectiveId = (jobRaw: string) =>
-    (jobIdMap[jobRaw] ?? "").trim() || (projectsMap[norm(jobRaw)] ?? "").trim();
+  // Composite job key → its parts (customer, job).
+  const jobInfo = useMemo(() => {
+    const m = new Map<string, { job1: string; job2: string }>();
+    for (const e of entries ?? []) {
+      if (!m.has(e.jobRaw)) m.set(e.jobRaw, { job1: e.job1, job2: e.job2 });
+    }
+    return m;
+  }, [entries]);
+
+  // Internal "Ascent" overhead jobs (unchecked by default).
+  const internalJobs = useMemo(
+    () => new Set((entries ?? []).filter((e) => INTERNAL_JOB.test(e.job1)).map((e) => e.jobRaw)),
+    [entries],
+  );
+
+  /**
+   * Job ID from the Projects map:
+   *   1. a hit on the full "Customer — Job" (works if the Projects tab ever gets
+   *      per-job jobcode_1 values), else
+   *   2. a hit on the customer alone — but ONLY when jobcode_2 is blank, i.e. a
+   *      single-job customer. The Projects tab is customer-level, so for a
+   *      multi-job customer it can't say WHICH job; we leave those unmapped for a
+   *      one-time manual pick rather than silently assign the wrong job.
+   */
+  const projectsId = (jobRaw: string) => {
+    const direct = (projectsMap[keyOf(jobRaw)] ?? "").trim();
+    if (direct) return direct;
+    const info = jobInfo.get(jobRaw);
+    if (info && !info.job2) return (projectsMap[keyOf(info.job1)] ?? "").trim();
+    return "";
+  };
+  const effectiveId = (jobRaw: string) => (jobIdMap[jobRaw] ?? "").trim() || projectsId(jobRaw);
   const idSource = (jobRaw: string): "manual" | "projects" | "" =>
-    (jobIdMap[jobRaw] ?? "").trim()
-      ? "manual"
-      : (projectsMap[norm(jobRaw)] ?? "").trim()
-        ? "projects"
-        : "";
+    (jobIdMap[jobRaw] ?? "").trim() ? "manual" : projectsId(jobRaw) ? "projects" : "";
 
   // Distinct jobs / workers (with counts) for the filter lists.
   const jobList = useMemo(() => tally(entries, (e) => e.jobRaw), [entries]);
@@ -414,20 +453,16 @@ export default function LaborImportPage() {
 
   // Of the selected rows, which are export-ready (their job resolves to a JT Job ID).
   const ready = useMemo(
-    () =>
-      selected.filter(
-        (e) => (jobIdMap[e.jobRaw] ?? "").trim() || (projectsMap[norm(e.jobRaw)] ?? "").trim(),
-      ),
-    [selected, jobIdMap, projectsMap],
+    () => selected.filter((e) => effectiveId(e.jobRaw)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [selected, jobIdMap, projectsMap, jobInfo],
   );
 
   // Jobs currently in the filter that still have no JT Job ID.
   const jobsNeedingId = useMemo(
-    () =>
-      [...selJobs]
-        .filter((j) => !((jobIdMap[j] ?? "").trim() || (projectsMap[norm(j)] ?? "").trim()))
-        .sort(),
-    [selJobs, jobIdMap, projectsMap],
+    () => [...selJobs].filter((j) => !effectiveId(j)).sort(),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [selJobs, jobIdMap, projectsMap, jobInfo],
   );
 
   const dropped = useMemo(
@@ -543,7 +578,7 @@ export default function LaborImportPage() {
                   onChange={() => toggle(selJobs, job, setSelJobs)}
                   label={job || "(blank)"}
                   count={n}
-                  muted={INTERNAL_JOB.test(job)}
+                  muted={internalJobs.has(job)}
                 />
               ))}
             </FilterCard>
@@ -586,7 +621,7 @@ export default function LaborImportPage() {
                 </label>
               </div>
               <p className="mb-3 text-xs text-neutral-500">
-                JobTread rejects QB job names, so we emit the Job ID. IDs come from the Project
+                JobTread rejects QB job names, so we emit the Job ID. IDs auto-fill from the Project
                 Database <b>Projects</b> tab (<code>jobcode_1</code> → <code>JobTread Job ID</code>) —
                 export that tab as CSV and load it.{" "}
                 {projectsMeta ? (
@@ -596,7 +631,11 @@ export default function LaborImportPage() {
                 ) : (
                   <span className="text-amber-600 dark:text-amber-400">None loaded yet.</span>
                 )}{" "}
-                Override any job below (pick from JobTread or type an ID). Remembered on this device.
+                That tab is <b>customer-level</b>, so a customer with several JobTread jobs (
+                <code>jobcode_2</code> set) can&apos;t be resolved from it — those stay{" "}
+                <b>unmapped</b> so you pick the right job once, rather than us guessing wrong. The
+                dropdown floats that customer&apos;s jobs (★) to the top. Picks are remembered on this
+                device.
                 {projectsErr && (
                   <span className="block text-red-600 dark:text-red-400">{projectsErr}</span>
                 )}
@@ -611,6 +650,7 @@ export default function LaborImportPage() {
                       </span>
                       <JobIdControl
                         job={job}
+                        customer={jobInfo.get(job)?.job1 ?? ""}
                         jtJobs={jtJobs}
                         value={effectiveId(job)}
                         manual={manualJobs.has(job)}
@@ -725,6 +765,7 @@ function tally(entries: Entry[] | null, key: (e: Entry) => string): [string, num
 // list couldn't be fetched or the job is closed/unlisted).
 function JobIdControl({
   job,
+  customer,
   jtJobs,
   value,
   manual,
@@ -732,6 +773,7 @@ function JobIdControl({
   onManual,
 }: {
   job: string;
+  customer: string;
   jtJobs: JobRef[] | null;
   value: string;
   manual: boolean;
@@ -743,6 +785,15 @@ function JobIdControl({
 
   if (jtJobs && jtJobs.length > 0 && !manual) {
     const known = jtJobs.some((j) => j.id === value);
+    // Float this customer's JobTread jobs to the top — for a multi-job customer
+    // that's the short list you actually need to choose between.
+    const ck = keyOf(customer);
+    const sorted = ck
+      ? [...jtJobs].sort(
+          (a, b) =>
+            (keyOf(a.customer ?? "") === ck ? 0 : 1) - (keyOf(b.customer ?? "") === ck ? 0 : 1),
+        )
+      : jtJobs;
     return (
       <select
         value={value || ""}
@@ -756,9 +807,12 @@ function JobIdControl({
       >
         <option value="">— pick JobTread job —</option>
         {value && !known && <option value={value}>Saved: {value}</option>}
-        {jtJobs.map((j) => (
+        {sorted.map((j) => (
           <option key={j.id} value={j.id}>
-            {(j.customer ? j.customer + " — " : "") + j.name + (j.number ? " (#" + j.number + ")" : "")}
+            {(keyOf(j.customer ?? "") === ck ? "★ " : "") +
+              (j.customer ? j.customer + " — " : "") +
+              j.name +
+              (j.number ? " (#" + j.number + ")" : "")}
           </option>
         ))}
         <option value="__manual__">Enter ID manually…</option>
