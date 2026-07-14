@@ -65,23 +65,19 @@ function Unbilled() {
   return (
     <main className="mx-auto max-w-xl px-4 pb-24 pt-6">
       <header className="mb-5">
-        <div className="flex items-center justify-between">
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-neutral-500">
-            Ascent Companion
+        <div className="flex items-start justify-between gap-3">
+          <p className="text-sm text-neutral-500">
+            Approved bill cost not yet on an approved customer invoice.
           </p>
           {jobId.trim() && (
             <Link
               href={`/?jobId=${encodeURIComponent(jobId.trim())}`}
-              className="text-xs font-semibold text-accent"
+              className="shrink-0 text-xs font-semibold text-accent"
             >
               ← Coding queue
             </Link>
           )}
         </div>
-        <h1 className="text-2xl font-bold tracking-tight">Unbilled Expenses</h1>
-        <p className="mt-1 text-sm text-neutral-500">
-          Approved bill cost not yet on an approved customer invoice.
-        </p>
       </header>
 
       {!jobId && (

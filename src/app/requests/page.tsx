@@ -73,19 +73,15 @@ export default function RequestsPage() {
   return (
     <main className="mx-auto max-w-xl px-4 pb-24 pt-6">
       <header className="mb-4">
-        <p className="text-[11px] font-semibold uppercase tracking-widest text-neutral-500">
-          Ascent Companion
-        </p>
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold tracking-tight">Feature Requests</h1>
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-sm text-neutral-500">Ask for panel updates and new features.</p>
           <button
             onClick={() => setShowNew((s) => !s)}
-            className="rounded-lg bg-accent px-3 py-1.5 text-sm font-semibold text-white hover:bg-accent-hover"
+            className="shrink-0 rounded-lg bg-accent px-3 py-1.5 text-sm font-semibold text-white hover:bg-accent-hover"
           >
             {showNew ? "Cancel" : "+ Request"}
           </button>
         </div>
-        <p className="mt-0.5 text-sm text-neutral-500">Ask for panel updates and new features.</p>
       </header>
 
       {showNew && (

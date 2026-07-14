@@ -114,11 +114,7 @@ function Stage() {
   return (
     <main className="mx-auto max-w-xl px-4 pb-24 pt-6">
       <header className="mb-4">
-        <p className="text-[11px] font-semibold uppercase tracking-widest text-neutral-500">
-          Ascent Companion
-        </p>
-        <h1 className="text-2xl font-bold tracking-tight">Stage Invoice</h1>
-        <p className="mt-1 text-sm text-neutral-500">
+        <p className="text-sm text-neutral-500">
           {uninvoicedOnly ? "Uninvoiced" : "All"} bills
           {filterByMonth ? " dated in the selected billing month" : " across all months"} — Sunset
           grouped, others itemized.

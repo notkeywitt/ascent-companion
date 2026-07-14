@@ -109,8 +109,7 @@ function Rfis() {
   if (!jobId) {
     return (
       <main className="mx-auto max-w-xl px-4 pb-24 pt-6">
-        <h1 className="text-2xl font-bold tracking-tight">RFIs</h1>
-        <p className="mt-3 text-sm text-neutral-500">
+        <p className="text-sm text-neutral-500">
           Open a job in JobTread (or load one on the Coding Review tab) to see and create its RFIs.
         </p>
       </main>
@@ -121,11 +120,8 @@ function Rfis() {
     <main className="mx-auto max-w-xl px-4 pb-24 pt-6">
       {vendorList}
       <header className="mb-4">
-        <p className="text-[11px] font-semibold uppercase tracking-widest text-neutral-500">
-          Ascent Companion
-        </p>
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold tracking-tight">RFIs</h1>
+          <p className="font-mono text-xs text-neutral-500">job {jobId}</p>
           <button
             onClick={() => setShowNew((s) => !s)}
             className="rounded-lg bg-accent px-3 py-1.5 text-sm font-semibold text-white hover:bg-accent-hover"
@@ -133,7 +129,6 @@ function Rfis() {
             {showNew ? "Cancel" : "+ New RFI"}
           </button>
         </div>
-        <p className="mt-0.5 font-mono text-xs text-neutral-500">job {jobId}</p>
       </header>
 
       {showNew && (

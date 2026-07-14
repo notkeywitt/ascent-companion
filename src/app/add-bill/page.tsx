@@ -124,11 +124,7 @@ function AddBill() {
   return (
     <main className="mx-auto max-w-xl px-4 pb-24 pt-6">
       <header className="mb-5">
-        <p className="text-[11px] font-semibold uppercase tracking-widest text-neutral-500">
-          Ascent Companion
-        </p>
-        <h1 className="text-2xl font-bold tracking-tight">Add a Bill</h1>
-        <p className="mt-1 text-sm text-neutral-500">
+        <p className="text-sm text-neutral-500">
           Snap or upload an invoice — Gemini extracts and codes it, and it lands as a draft
           vendor bill in the coding queue.
         </p>

@@ -311,11 +311,7 @@ export default function EmailPage() {
     <main className="mx-auto max-w-2xl px-4 pb-24 pt-6">
       <header className="mb-5 flex items-start justify-between gap-3">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-neutral-500">
-            Ascent Companion
-          </p>
-          <h1 className="text-2xl font-bold tracking-tight">Email Inbox</h1>
-          <p className="mt-1 text-sm text-neutral-500">
+          <p className="text-sm text-neutral-500">
             Unprocessed emails with attachments. Pick a project and log an invoice — same
             one-click import as the old Gmail card.
           </p>
