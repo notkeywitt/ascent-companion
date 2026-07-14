@@ -113,6 +113,82 @@ function Stage() {
     load();
   }, [load]);
 
+  // Print by opening a self-contained document in a NEW top-level tab, then
+  // printing that. The companion is iframed by the JobTread Chrome side panel,
+  // and window.print() is silently blocked inside that sandbox — so we escape
+  // the frame with window.open("_blank") (same trick JtLink uses for links).
+  // Falls back to in-page window.print() only if the popup is blocked.
+  const printSummary = useCallback(() => {
+    if (!lines || lines.length === 0) return;
+    const esc = (s: string) =>
+      String(s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c] ?? c);
+    const monthLabel = opt?.label ?? ym;
+
+    const rowsHtml = lines
+      .map((l) => {
+        if (l.isSunset && l.bills && l.bills.length) {
+          const group = `<tr class="grp"><td>${esc(l.label)}</td><td class="num">${money(l.cost)}</td></tr>`;
+          const subs = l.bills
+            .map(
+              (b) =>
+                `<tr class="sub"><td>${esc(b.label)}</td><td class="num">${money(b.cost)}</td></tr>`,
+            )
+            .join("");
+          return group + subs;
+        }
+        return `<tr><td>${esc(l.label)}</td><td class="num">${money(l.cost)}</td></tr>`;
+      })
+      .join("");
+
+    const html = `<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>Billing Summary — ${esc(monthLabel)}</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: #000; margin: 0.6in; }
+  .brand { font-size: 20px; font-weight: 700; }
+  .doc-title { font-size: 16px; font-weight: 600; margin-top: 2px; }
+  .meta { font-size: 13px; margin-top: 10px; line-height: 1.5; }
+  .meta b { display: inline-block; min-width: 78px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 18px; font-size: 13px; }
+  th, td { padding: 6px 8px; border-bottom: 1px solid #ccc; text-align: left; }
+  th { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: #555; border-bottom: 1px solid #000; }
+  .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  tr.sub td { padding-left: 24px; color: #444; border-bottom: 1px solid #eee; }
+  tr.grp td { font-weight: 600; }
+  tr.total td { font-weight: 700; border-top: 2px solid #000; border-bottom: none; font-size: 14px; }
+  @page { margin: 0.6in; }
+</style>
+</head>
+<body onload="window.focus(); window.print();">
+  <div class="brand">Ascent Building Co.</div>
+  <div class="doc-title">Billing Summary — ${esc(monthLabel)}</div>
+  <div class="meta">
+    ${customer?.name ? `<div><b>Customer</b> ${esc(customer.name)}</div>` : ""}
+    ${job?.name ? `<div><b>Job</b> ${esc(job.name)}</div>` : ""}
+  </div>
+  <table>
+    <thead><tr><th>Bill</th><th class="num">Cost</th></tr></thead>
+    <tbody>
+      ${rowsHtml}
+      <tr class="total"><td>Total</td><td class="num">${money(total)}</td></tr>
+    </tbody>
+  </table>
+</body>
+</html>`;
+
+    const win = window.open("", "_blank");
+    if (!win) {
+      window.print(); // popup blocked — best effort (works only when unframed)
+      return;
+    }
+    win.document.open();
+    win.document.write(html);
+    win.document.close();
+  }, [lines, total, customer, job, opt, ym]);
+
   return (
     <main className="mx-auto max-w-xl px-4 pb-24 pt-6">
       <div className="mb-3 no-print">
@@ -180,7 +256,7 @@ function Stage() {
               so the office can print or Save-as-PDF this billing summary. */}
           <div className="mb-3 flex justify-end no-print">
             <button
-              onClick={() => window.print()}
+              onClick={printSummary}
               className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 transition hover:border-accent hover:text-accent dark:border-neutral-700 dark:text-neutral-300"
             >
               Print / Save PDF
