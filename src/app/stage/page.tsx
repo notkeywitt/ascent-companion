@@ -68,6 +68,7 @@ function Stage() {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
   });
   const [customer, setCustomer] = useState<{ id: string; name: string } | null>(null);
+  const [job, setJob] = useState<{ id: string; name: string } | null>(null);
   const [lines, setLines] = useState<Line[] | null>(null);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -99,6 +100,7 @@ function Stage() {
         setLines(j.lines ?? []);
         setTotal(j.total ?? 0);
         setCustomer(j.customer ?? null);
+        setJob(j.job ?? null);
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Network error");
@@ -113,7 +115,7 @@ function Stage() {
 
   return (
     <main className="mx-auto max-w-xl px-4 pb-24 pt-6">
-      <div className="mb-3">
+      <div className="mb-3 no-print">
         <label className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
           Invoice date (billing month)
         </label>
@@ -131,7 +133,7 @@ function Stage() {
         </select>
       </div>
 
-      <div className="mb-4 flex flex-wrap gap-x-5 gap-y-2">
+      <div className="mb-4 flex flex-wrap gap-x-5 gap-y-2 no-print">
         <label className="flex cursor-pointer items-center gap-2 text-sm">
           <input
             type="checkbox"
@@ -153,12 +155,14 @@ function Stage() {
       </div>
 
       {!jobId && (
-        <p className="mb-3 text-sm text-neutral-500">Pick a job above to stage its invoice.</p>
+        <p className="mb-3 text-sm text-neutral-500 no-print">Pick a job above to stage its invoice.</p>
       )}
-      {customer && <p className="mb-3 text-sm text-neutral-500">Customer: {customer.name}</p>}
-      {loading && <p className="text-sm text-neutral-500">Loading…</p>}
+      {customer && (
+        <p className="mb-3 text-sm text-neutral-500 no-print">Customer: {customer.name}</p>
+      )}
+      {loading && <p className="text-sm text-neutral-500 no-print">Loading…</p>}
       {error && (
-        <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">
+        <div className="no-print rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">
           {error}
         </div>
       )}
@@ -171,8 +175,40 @@ function Stage() {
 
       {lines && lines.length > 0 && (
         <>
+          {/* Screen-only toolbar. window.print() prints the letterhead + table
+              below (everything tagged no-print is stripped by the print CSS),
+              so the office can print or Save-as-PDF this billing summary. */}
+          <div className="mb-3 flex justify-end no-print">
+            <button
+              onClick={() => window.print()}
+              className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 transition hover:border-accent hover:text-accent dark:border-neutral-700 dark:text-neutral-300"
+            >
+              Print / Save PDF
+            </button>
+          </div>
+
+          {/* Print-only letterhead — hidden on screen, shown when printing. */}
+          <div className="mb-4 hidden print:block">
+            <div className="text-lg font-bold">Ascent Building Co.</div>
+            <div className="mt-1 text-base font-semibold">
+              Billing Summary — {opt?.label ?? ym}
+            </div>
+            <div className="mt-2 text-sm">
+              {customer?.name && (
+                <div>
+                  <span className="font-semibold">Customer:</span> {customer.name}
+                </div>
+              )}
+              {job?.name && (
+                <div>
+                  <span className="font-semibold">Job:</span> {job.name}
+                </div>
+              )}
+            </div>
+          </div>
+
           <div className="overflow-x-auto rounded-xl border border-neutral-200 dark:border-neutral-800">
-            <table className="w-full text-sm">
+            <table className="w-full text-sm print-table">
               <thead className="bg-neutral-50 text-left text-xs uppercase tracking-wide text-neutral-500 dark:bg-neutral-900">
                 <tr>
                   <th className="px-3 py-2 font-medium">Bill</th>
@@ -258,11 +294,11 @@ function Stage() {
 
           <JtLink
             href={`https://app.jobtread.com/jobs/${jobId}/documents`}
-            className="mt-4 block w-full rounded-xl bg-accent px-4 py-3 text-center text-sm font-semibold text-white hover:bg-accent-hover"
+            className="no-print mt-4 block w-full rounded-xl bg-accent px-4 py-3 text-center text-sm font-semibold text-white hover:bg-accent-hover"
           >
             Create invoice in JobTread ↗
           </JtLink>
-          <p className="mt-2 text-xs text-neutral-500">
+          <p className="mt-2 text-xs text-neutral-500 no-print">
             This is what to bill for {opt?.label ?? "the month"}. Tap to open this job in JobTread,
             then <b>New → Customer Invoice</b> — its builder pulls exactly these uninvoiced bills
             (and any uninvoiced time). Date it {opt?.lastDay}, review &amp; send.

@@ -653,6 +653,7 @@ export interface UninvoicedBillLine {
 }
 export interface UninvoicedBills {
   customer: { id: string; name: string } | null;
+  job?: { id: string; name: string };
   lines: UninvoicedBillLine[];
   total: number;
 }
@@ -978,11 +979,12 @@ export async function getUninvoicedBills(
   const total = open.reduce((s, b) => s + (b.cost ?? 0), 0) + timeCost;
 
   const c = await pave(cfg, {
-    job: { $: { id: jobId }, id: {}, location: { account: { id: {}, name: {} } } },
+    job: { $: { id: jobId }, id: {}, name: {}, location: { account: { id: {}, name: {} } } },
   });
   const acc = c?.job?.location?.account;
   const customer = acc?.id ? { id: acc.id, name: acc.name ?? "" } : null;
+  const job = { id: jobId, name: c?.job?.name ?? "" };
 
-  return { customer, lines, total };
+  return { customer, job, lines, total };
 }
 

@@ -17,3 +17,47 @@ body {
   background: #1b1b17;
   color: #ece8db;
 }
+
+/* Print layout — used by the Invoicing tab's "Print / Save PDF" button.
+   Force a clean light page regardless of the on-screen (possibly dark) theme,
+   strip the app chrome, and keep table rows from splitting across pages. */
+@media print {
+  html,
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+  @page {
+    margin: 0.6in;
+  }
+  /* Anything tagged no-print (nav chrome, filters, buttons, helper text). */
+  .no-print {
+    display: none !important;
+  }
+  /* Let the printed content use the full page width. */
+  main {
+    max-width: 100% !important;
+    padding: 0 !important;
+  }
+  /* Readable, printer-friendly table in either theme. */
+  .print-table {
+    border-color: #000 !important;
+  }
+  .print-table * {
+    color: #000 !important;
+    background: transparent !important;
+  }
+  .print-table th,
+  .print-table td {
+    border-color: #bbb !important;
+  }
+  table {
+    break-inside: auto;
+  }
+  thead {
+    display: table-header-group;
+  }
+  tr {
+    break-inside: avoid;
+  }
+}
