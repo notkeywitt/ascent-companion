@@ -5,6 +5,7 @@ import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { CostCodeSelect, type Option } from "@/components/CostCodeSelect";
 import { JtLink } from "@/components/JtLink";
+import { JobPicker } from "@/components/JobPicker";
 
 interface Line {
   id: string;
@@ -107,6 +108,7 @@ function BillDetail() {
   const [saveMsg, setSaveMsg] = useState("");
   const [writes, setWrites] = useState(false);
   const [queue, setQueue] = useState<string[]>([]);
+  const [reassignMsg, setReassignMsg] = useState("");
 
   useEffect(() => {
     let alive = true;
@@ -339,6 +341,42 @@ function BillDetail() {
     reloadJtWindow(); // refresh JobTread's view
   }
 
+  // Move this bill to a different JobTread job. JT can't move bills, so Apps
+  // Script delete+recreates it on the new job (draft only) via its reassignment
+  // guard, keeping the sheet + Drive in sync. The recreate yields a NEW docId, so
+  // on success we leave for the new job's coding queue (this bill's URL is stale).
+  async function reassignJob(targetJobId: string) {
+    if (!targetJobId || targetJobId === jobId) return;
+    if ((header?.status ?? "draft") !== "draft") {
+      setReassignMsg("Only draft bills can be moved. Set it back to Draft in JobTread first.");
+      return;
+    }
+    if (
+      !window.confirm(
+        "Move this bill to a different job?\n\nJobTread can't move bills, so it will be deleted and recreated on the new job. It stays a draft, keeps its PDF, and re-files in Drive.",
+      )
+    )
+      return;
+    setReassignMsg("Moving…");
+    try {
+      const res = await fetch("/api/reassign-job", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ docId, jobId: targetJobId }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.ok) {
+        setReassignMsg(json.error ?? "Reassign failed");
+        return;
+      }
+      reloadJtWindow(); // refresh JobTread's view (old doc gone, new one created)
+      // New docId on the new job — this page's docId is stale; go to the new queue.
+      window.location.href = `/?jobId=${encodeURIComponent(targetJobId)}`;
+    } catch (e) {
+      setReassignMsg(e instanceof Error ? e.message : "Network error");
+    }
+  }
+
   async function saveCoding() {
     if (pending.length === 0) return;
     setSaving(true);
@@ -478,6 +516,25 @@ function BillDetail() {
             ))}
           </select>
         </div>
+
+        {/* Move this bill to a different job (draft only). JT can't move bills, so
+            this delete+recreates it on the chosen job. Writes-off deploys hide it,
+            matching the rest of the page. */}
+        {writes && (header?.status ?? "draft") === "draft" && (
+          <div className="mt-3">
+            <div className="flex items-center gap-2">
+              <span className="shrink-0 text-[10px] uppercase tracking-wide text-neutral-400">
+                Move to job
+              </span>
+              <JobPicker value={jobId} onChange={reassignJob} />
+            </div>
+            {reassignMsg && (
+              <p className="mt-1 rounded-lg bg-neutral-100 px-3 py-2 text-xs dark:bg-neutral-800">
+                {reassignMsg}
+              </p>
+            )}
+          </div>
+        )}
 
         <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2">
           <div className="flex items-center gap-2">
