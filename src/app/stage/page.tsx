@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, Suspense, useCallback, useEffect, useState } from "react";
+import { Fragment, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { JtLink } from "@/components/JtLink";
@@ -102,8 +102,39 @@ function Stage() {
   // restricted to the selected billing month.
   const [uninvoicedOnly, setUninvoicedOnly] = useState(true);
   const [filterByMonth, setFilterByMonth] = useState(true);
+  // View mode: false = group by vendor/labor (default), true = roll everything up
+  // by CSI cost code. Pure client-side transform of the already-loaded lines —
+  // no reload. Drives both the panel table and the print/PDF.
+  const [groupByCsi, setGroupByCsi] = useState(false);
 
   const opt = monthOptions().find((o) => o.ym === ym);
+
+  // Aggregate every bill's CSI cost items and every time entry into one row per
+  // cost code (amount desc). A residual bucket absorbs the difference between the
+  // authoritative grand total and the sum of coded amounts (document tax, which
+  // rides in nonRecoverableTax outside line costs, plus any uncoded line/time) so
+  // the CSI-grouped total always matches the panel total.
+  const csiGrouped = useMemo<Csi[] | null>(() => {
+    if (!lines) return null;
+    const map = new Map<string, { name: string; amount: number }>();
+    let coded = 0;
+    const add = (code: string, name: string, amount: number) => {
+      if (!code) return;
+      const prev = map.get(code);
+      map.set(code, { name: name || prev?.name || "", amount: (prev?.amount ?? 0) + amount });
+      coded += amount;
+    };
+    for (const l of lines) {
+      for (const b of l.bills ?? []) for (const c of b.csi ?? []) add(c.code, c.name, c.amount);
+      for (const t of l.timeEntries ?? []) add(t.code ?? "", t.codeName ?? "", t.cost);
+    }
+    const rows = Array.from(map.entries())
+      .map(([code, v]) => ({ code, name: v.name, amount: v.amount }))
+      .sort((a, b) => b.amount - a.amount);
+    const residual = total - coded;
+    if (Math.abs(residual) > 0.005) rows.push({ code: "", name: "Uncoded / tax", amount: residual });
+    return rows;
+  }, [lines, total]);
 
   const load = useCallback(async () => {
     if (!jobId) return;
@@ -158,7 +189,15 @@ function Stage() {
         )
         .join("");
 
-    const rowsHtml = lines
+    // CSI-grouped mode: one flat row per cost code (matches the panel view).
+    const rowsHtml = groupByCsi
+      ? (csiGrouped ?? [])
+          .map(
+            (c) =>
+              `<tr><td>${esc(csiLabel(c.code, c.name))}</td><td class="num">${money(c.amount)}</td></tr>`,
+          )
+          .join("")
+      : lines
       .map((l) => {
         if (l.isSunset && l.bills && l.bills.length) {
           const group = `<tr class="grp"><td>${esc(l.label)}</td><td class="num">${money(l.cost)}</td></tr>`;
@@ -221,7 +260,7 @@ function Stage() {
     ${job?.name ? `<div><b>Job</b> ${esc(job.name)}</div>` : ""}
   </div>
   <table>
-    <thead><tr><th>Bill</th><th class="num">Cost</th></tr></thead>
+    <thead><tr><th>${groupByCsi ? "CSI Code" : "Bill"}</th><th class="num">${groupByCsi ? "Amount" : "Cost"}</th></tr></thead>
     <tbody>
       ${rowsHtml}
       <tr class="total"><td>Total</td><td class="num">${money(total)}</td></tr>
@@ -238,7 +277,7 @@ function Stage() {
     win.document.open();
     win.document.write(html);
     win.document.close();
-  }, [lines, total, customer, job, opt, ym]);
+  }, [lines, total, customer, job, opt, ym, groupByCsi, csiGrouped]);
 
   return (
     <main className="mx-auto max-w-xl px-4 pb-24 pt-6">
@@ -278,6 +317,15 @@ function Stage() {
             className="h-4 w-4 accent-accent"
           />
           Filter by billing month
+        </label>
+        <label className="flex cursor-pointer items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={groupByCsi}
+            onChange={(e) => setGroupByCsi(e.target.checked)}
+            className="h-4 w-4 accent-accent"
+          />
+          Group by CSI code
         </label>
       </div>
 
@@ -338,12 +386,24 @@ function Stage() {
             <table className="w-full text-sm print-table">
               <thead className="bg-neutral-50 text-left text-xs uppercase tracking-wide text-neutral-500 dark:bg-neutral-900">
                 <tr>
-                  <th className="px-3 py-2 font-medium">Bill</th>
-                  <th className="px-3 py-2 text-right font-medium">Cost</th>
+                  <th className="px-3 py-2 font-medium">{groupByCsi ? "CSI Code" : "Bill"}</th>
+                  <th className="px-3 py-2 text-right font-medium">
+                    {groupByCsi ? "Amount" : "Cost"}
+                  </th>
                 </tr>
               </thead>
               <tbody>
-                {lines.map((l) => {
+                {groupByCsi
+                  ? (csiGrouped ?? []).map((c) => (
+                      <tr
+                        key={c.code || "residual"}
+                        className="border-t border-neutral-100 dark:border-neutral-800"
+                      >
+                        <td className="px-3 py-2">{csiLabel(c.code, c.name)}</td>
+                        <td className="px-3 py-2 text-right font-mono">{money(c.amount)}</td>
+                      </tr>
+                    ))
+                  : lines.map((l) => {
                   const jt = (id: string) =>
                     `https://app.jobtread.com/jobs/${jobId}/documents/${id}`;
                   // A bill's label → companion bill view (+ drive JT window),
