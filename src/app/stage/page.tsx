@@ -130,7 +130,8 @@ function Stage() {
     }
     const rows = Array.from(map.entries())
       .map(([code, v]) => ({ code, name: v.name, amount: v.amount }))
-      .sort((a, b) => b.amount - a.amount);
+      // Sort by CSI code descending (numeric-aware so "26 00 00" > "06 10 10").
+      .sort((a, b) => b.code.localeCompare(a.code, undefined, { numeric: true, sensitivity: "base" }));
     const residual = total - coded;
     if (Math.abs(residual) > 0.005) rows.push({ code: "", name: "Uncoded / tax", amount: residual });
     return rows;
