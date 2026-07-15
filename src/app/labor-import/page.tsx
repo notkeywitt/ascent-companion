@@ -161,6 +161,23 @@ function synthEnd(date: string, hours: number): string {
   return `${date} ${h}:${pad2(m)}:00`;
 }
 
+/**
+ * Normalise a QB local timestamp to ISO 8601 for JobTread's importer:
+ * `2026-06-01 8:00:00` → `2026-06-01T08:00:00`. A space separator / single-digit
+ * hour isn't ISO, and JT's importer rejects it (falling back to "now").
+ *
+ * NO timezone offset on purpose. A real JT entry stores its start as
+ * `2026-07-10T13:24:00.000Z` for an afternoon session — i.e. JT keeps the local
+ * wall-clock time as-if-UTC (floating), so we hand it the local time unshifted.
+ */
+function toIso(local: string): string {
+  const t = (local ?? "").trim();
+  if (!t) return "";
+  const [d, time = ""] = t.split(/[ T]+/);
+  const [hh = "0", mm = "0", ss = "0"] = time.split(":");
+  return `${d}T${pad2(+hh)}:${pad2(+mm)}:${pad2(+ss)}`;
+}
+
 // ---- Row model -------------------------------------------------------------
 
 interface Entry {
@@ -223,6 +240,8 @@ function buildEntries(rows: string[][]): Entry[] {
       start = synthStart(date);
       end = synthEnd(date, hours);
     }
+    start = toIso(start);
+    end = toIso(end);
     const approved = /^approved$/i.test(get(row, c.approved)) ? "Yes" : "No";
 
     let invalidReason = "";
