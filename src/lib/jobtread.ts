@@ -1125,26 +1125,12 @@ export async function getUninvoicedBills(
   // Per-bill invoice label: externalId (Sunset invoice #) → #number → id.
   const invLabel = (b: any) => b.externalId || (b.number ? `#${b.number}` : b.id);
 
+  // Display order: non-Sunset invoices alphabetically by vendor (ties by cost
+  // desc), then the Time & labor group, then the Sunset group ALWAYS LAST.
+  const byLabelThenCost = (a: UninvoicedBillLine, b: UninvoicedBillLine) =>
+    a.label.localeCompare(b.label, undefined, { sensitivity: "base" }) || b.cost - a.cost;
+
   const lines: UninvoicedBillLine[] = [];
-  if (sunset.length) {
-    lines.push({
-      key: "sunset",
-      label: `Sunset Builders Supply (${sunset.length} invoice${sunset.length > 1 ? "s" : ""})`,
-      cost: sunset.reduce((s, b) => s + (b.cost ?? 0), 0),
-      billIds: sunset.map((b) => b.id),
-      isSunset: true,
-      bills: sunset
-        .map((b) => ({
-          id: b.id,
-          label: invLabel(b),
-          cost: b.cost ?? 0,
-          invoiced: isInvoiced(b),
-          status: b.status,
-          csi: csiOf(b.id),
-        }))
-        .sort((a, b) => b.cost - a.cost),
-    });
-  }
   for (const b of others) {
     lines.push({
       key: b.id,
@@ -1164,11 +1150,17 @@ export async function getUninvoicedBills(
       ],
     });
   }
-  lines.sort((a, b) => b.cost - a.cost);
+  lines.sort(byLabelThenCost);
   if (openTime.length) {
     const timeEntryDetails = openTime
       .slice()
-      .sort((a, b) => String(a.startedAt).localeCompare(String(b.startedAt)))
+      // Cluster by employee (then chronologically within each employee).
+      .sort(
+        (a, b) =>
+          String(a.user?.name ?? "").localeCompare(String(b.user?.name ?? ""), undefined, {
+            sensitivity: "base",
+          }) || String(a.startedAt).localeCompare(String(b.startedAt)),
+      )
       .map((t) => ({
         id: t.id,
         employee: t.user?.name ?? "Unknown",
@@ -1185,6 +1177,25 @@ export async function getUninvoicedBills(
       billIds: [],
       isSunset: false,
       timeEntries: timeEntryDetails,
+    });
+  }
+  if (sunset.length) {
+    lines.push({
+      key: "sunset",
+      label: `Sunset Builders Supply (${sunset.length} invoice${sunset.length > 1 ? "s" : ""})`,
+      cost: sunset.reduce((s, b) => s + (b.cost ?? 0), 0),
+      billIds: sunset.map((b) => b.id),
+      isSunset: true,
+      bills: sunset
+        .map((b) => ({
+          id: b.id,
+          label: invLabel(b),
+          cost: b.cost ?? 0,
+          invoiced: isInvoiced(b),
+          status: b.status,
+          csi: csiOf(b.id),
+        }))
+        .sort((a, b) => b.cost - a.cost),
     });
   }
   const total = open.reduce((s, b) => s + (b.cost ?? 0), 0) + timeCost;
