@@ -20,6 +20,7 @@ const TABS: { label: string; href: string; match: (p: string) => boolean }[] = [
   { label: "RFIs", href: "/rfis", match: (p) => p.startsWith("/rfis") },
   { label: "Requests", href: "/requests", match: (p) => p.startsWith("/requests") },
   { label: "Admin", href: "/admin", match: (p) => p.startsWith("/admin") },
+  { label: "Logs", href: "/logs", match: (p) => p.startsWith("/logs") },
 ];
 
 function ThemeToggle() {
