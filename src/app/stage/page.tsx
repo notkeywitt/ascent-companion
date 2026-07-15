@@ -180,6 +180,11 @@ function Stage() {
     const esc = (s: string) =>
       String(s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c] ?? c);
     const monthLabel = opt?.label ?? ym;
+    // The print window has no origin, so a relative "/icon-512.png" won't resolve —
+    // build an absolute URL to the companion's own logo asset (same-origin image,
+    // loads before the onload-triggered print).
+    const logoUrl =
+      typeof window !== "undefined" ? `${window.location.origin}/icon-512.png` : "";
 
     // CSI breakdown rows (deepest indent) under a bill.
     const csiSubs = (csi?: Csi[]) =>
@@ -237,6 +242,8 @@ function Stage() {
 <style>
   * { box-sizing: border-box; }
   body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: #000; margin: 0.6in; }
+  .head { display: flex; align-items: center; gap: 12px; }
+  .logo { width: 48px; height: 48px; border-radius: 8px; flex: none; }
   .brand { font-size: 20px; font-weight: 700; }
   .doc-title { font-size: 16px; font-weight: 600; margin-top: 2px; }
   .meta { font-size: 13px; margin-top: 10px; line-height: 1.5; }
@@ -254,8 +261,13 @@ function Stage() {
 </style>
 </head>
 <body onload="window.focus(); window.print();">
-  <div class="brand">Ascent Building Co.</div>
-  <div class="doc-title">Billing Summary — ${esc(monthLabel)}</div>
+  <div class="head">
+    ${logoUrl ? `<img class="logo" src="${logoUrl}" alt="Ascent Building Co." />` : ""}
+    <div>
+      <div class="brand">Ascent Building Co.</div>
+      <div class="doc-title">Billing Summary — ${esc(monthLabel)}</div>
+    </div>
+  </div>
   <div class="meta">
     ${customer?.name ? `<div><b>Customer</b> ${esc(customer.name)}</div>` : ""}
     ${job?.name ? `<div><b>Job</b> ${esc(job.name)}</div>` : ""}
@@ -364,23 +376,29 @@ function Stage() {
           </div>
 
           {/* Print-only letterhead — hidden on screen, shown when printing. */}
-          <div className="mb-4 hidden print:block">
-            <div className="text-lg font-bold">Ascent Building Co.</div>
-            <div className="mt-1 text-base font-semibold">
-              Billing Summary — {opt?.label ?? ym}
+          <div className="mb-4 hidden items-center gap-3 print:flex">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/icon-512.png" alt="Ascent Building Co." className="h-12 w-12 rounded-lg" />
+            <div>
+              <div className="text-lg font-bold">Ascent Building Co.</div>
+              <div className="mt-1 text-base font-semibold">
+                Billing Summary — {opt?.label ?? ym}
+              </div>
             </div>
-            <div className="mt-2 text-sm">
-              {customer?.name && (
-                <div>
-                  <span className="font-semibold">Customer:</span> {customer.name}
-                </div>
-              )}
-              {job?.name && (
-                <div>
-                  <span className="font-semibold">Job:</span> {job.name}
-                </div>
-              )}
-            </div>
+          </div>
+
+          {/* Print-only customer/job meta (letterhead body). */}
+          <div className="mb-4 hidden text-sm print:block">
+            {customer?.name && (
+              <div>
+                <span className="font-semibold">Customer:</span> {customer.name}
+              </div>
+            )}
+            {job?.name && (
+              <div>
+                <span className="font-semibold">Job:</span> {job.name}
+              </div>
+            )}
           </div>
 
           <div className="overflow-x-auto rounded-xl border border-neutral-200 dark:border-neutral-800">
