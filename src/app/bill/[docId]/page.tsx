@@ -7,6 +7,7 @@ import { CostCodeSelect, type Option } from "@/components/CostCodeSelect";
 import { JtLink } from "@/components/JtLink";
 import { JobPicker } from "@/components/JobPicker";
 import { PageTitle } from "@/components/PageTitle";
+import { BillStatusBadge } from "@/components/BillStatusBadge";
 
 interface Line {
   id: string;
@@ -478,10 +479,13 @@ function BillDetail() {
       <header className="mb-4 mt-2">
         <PageTitle>{title}</PageTitle>
         {subtitle && <p className="mt-0.5 text-sm text-neutral-500">{subtitle}</p>}
-        <p className="mt-1 font-mono text-xs text-neutral-500">
-          {header?.issueDate ? header.issueDate + " · " : ""}
-          {docId}
-        </p>
+        <div className="mt-1 flex flex-wrap items-center gap-2">
+          {header?.status && <BillStatusBadge status={header.status} />}
+          <p className="font-mono text-xs text-neutral-500">
+            {header?.issueDate ? header.issueDate + " · " : ""}
+            {docId}
+          </p>
+        </div>
         {jobId && (
           <JtLink
             href={`https://app.jobtread.com/jobs/${jobId}/documents/${docId}`}
@@ -595,6 +599,10 @@ function BillDetail() {
           ) : header?.status === "pending" ? (
             <div className="inline-flex items-center gap-2 rounded-lg bg-emerald-50 px-3 py-1.5 text-sm font-semibold text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
               ✓ Approved for payment
+            </div>
+          ) : header?.status === "denied" ? (
+            <div className="inline-flex items-center gap-2 rounded-lg bg-red-50 px-3 py-1.5 text-sm font-semibold text-red-700 dark:bg-red-950/40 dark:text-red-300">
+              ✕ Denied
             </div>
           ) : (
             <button

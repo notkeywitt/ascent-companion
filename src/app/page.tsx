@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { BillStatusBadge } from "@/components/BillStatusBadge";
 
 interface Bill {
   id: string;
@@ -133,7 +134,10 @@ function CodingQueue() {
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <div className="truncate font-medium">{billTitle(b)}</div>
+                      <div className="flex items-center gap-2">
+                        <div className="truncate font-medium">{billTitle(b)}</div>
+                        <BillStatusBadge status={b.status} />
+                      </div>
                       <div className="mt-0.5 truncate text-xs text-neutral-500">
                         {b.subject && b.subject !== billTitle(b) ? b.subject : b.id}
                       </div>

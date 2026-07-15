@@ -723,6 +723,7 @@ export interface UninvoicedBillRef {
   label: string; // invoice # / externalId (or vendor)
   cost: number;
   invoiced: boolean; // already on a customer invoice (only appears when includeInvoiced)
+  status?: string; // JT document status: pending (approved for payment) | approved (paid)
 }
 export interface UninvoicedTimeEntryRef {
   id: string;
@@ -988,6 +989,7 @@ export async function getUninvoicedBills(
             fromName: {},
             cost: {},
             issueDate: {},
+            status: {},
             account: { name: {} },
             referencedDocuments: { nodes: { type: {} } },
           },
@@ -1053,7 +1055,13 @@ export async function getUninvoicedBills(
       billIds: sunset.map((b) => b.id),
       isSunset: true,
       bills: sunset
-        .map((b) => ({ id: b.id, label: invLabel(b), cost: b.cost ?? 0, invoiced: isInvoiced(b) }))
+        .map((b) => ({
+          id: b.id,
+          label: invLabel(b),
+          cost: b.cost ?? 0,
+          invoiced: isInvoiced(b),
+          status: b.status,
+        }))
         .sort((a, b) => b.cost - a.cost),
     });
   }
@@ -1064,7 +1072,9 @@ export async function getUninvoicedBills(
       cost: b.cost ?? 0,
       billIds: [b.id],
       isSunset: false,
-      bills: [{ id: b.id, label: invLabel(b), cost: b.cost ?? 0, invoiced: isInvoiced(b) }],
+      bills: [
+        { id: b.id, label: invLabel(b), cost: b.cost ?? 0, invoiced: isInvoiced(b), status: b.status },
+      ],
     });
   }
   lines.sort((a, b) => b.cost - a.cost);

@@ -4,12 +4,14 @@ import { Fragment, Suspense, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { JtLink } from "@/components/JtLink";
+import { BillStatusBadge } from "@/components/BillStatusBadge";
 
 interface BillRef {
   id: string;
   label: string;
   cost: number;
   invoiced: boolean;
+  status?: string;
 }
 interface TimeEntryRef {
   id: string;
@@ -318,7 +320,7 @@ function Stage() {
                   // followed by an explicit JT ↗ link (works standalone too).
                   // Bills already on a customer invoice get an "invoiced" tag
                   // (only visible when the Uninvoiced-only toggle is off).
-                  const billLinks = (id: string, text: string, invoiced?: boolean) => (
+                  const billLinks = (id: string, text: string, invoiced?: boolean, status?: string) => (
                     <>
                       <Link
                         href={`/bill/${id}?jobId=${encodeURIComponent(jobId)}`}
@@ -327,6 +329,7 @@ function Stage() {
                       >
                         {text}
                       </Link>
+                      <BillStatusBadge status={status} className="ml-2" />
                       {invoiced && (
                         <span className="ml-2 rounded bg-neutral-200 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-neutral-600 dark:bg-neutral-700 dark:text-neutral-300">
                           invoiced
@@ -351,7 +354,9 @@ function Stage() {
                         </tr>
                         {l.bills.map((bl) => (
                           <tr key={bl.id} className="border-t border-neutral-50 dark:border-neutral-900/60">
-                            <td className="px-3 py-1.5 pl-6">{billLinks(bl.id, bl.label, bl.invoiced)}</td>
+                            <td className="px-3 py-1.5 pl-6">
+                              {billLinks(bl.id, bl.label, bl.invoiced, bl.status)}
+                            </td>
                             <td className="px-3 py-1.5 text-right font-mono text-neutral-600 dark:text-neutral-400">
                               {money(bl.cost)}
                             </td>
@@ -365,7 +370,9 @@ function Stage() {
                   if (l.bills && l.bills.length === 1) {
                     return (
                       <tr key={l.key} className="border-t border-neutral-100 dark:border-neutral-800">
-                        <td className="px-3 py-2">{billLinks(l.bills[0].id, l.label, l.bills[0].invoiced)}</td>
+                        <td className="px-3 py-2">
+                          {billLinks(l.bills[0].id, l.label, l.bills[0].invoiced, l.bills[0].status)}
+                        </td>
                         <td className="px-3 py-2 text-right font-mono">{money(l.cost)}</td>
                       </tr>
                     );

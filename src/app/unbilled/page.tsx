@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { billStatusLabel } from "@/components/BillStatusBadge";
 
 interface RollupRow {
   type: string;
@@ -131,7 +132,9 @@ function Unbilled() {
                 <tr key={i} className="border-t border-neutral-100 dark:border-neutral-800">
                   <td className="px-3 py-2">
                     <span className="font-medium">{r.type}</span>{" "}
-                    <span className="text-neutral-500">/ {r.status}</span>
+                    <span className="text-neutral-500">
+                      / {r.type === "vendorBill" ? billStatusLabel(r.status) : r.status}
+                    </span>
                   </td>
                   <td className="px-3 py-2 text-right font-mono">{money(r.cost)}</td>
                   <td className="px-3 py-2 text-right font-mono">
