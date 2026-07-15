@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { JobPicker } from "@/components/JobPicker";
 import { PageTitle } from "@/components/PageTitle";
 
@@ -33,6 +34,9 @@ export default function NeedsProjectPage() {
   const [picked, setPicked] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState<Record<string, boolean>>({});
   const [msg, setMsg] = useState<Record<string, string>>({});
+  // Cross-tab "bills waiting" flag — fetched independently in the background so
+  // a slow/failed JobTread count never blocks or errors the queue above.
+  const [draftBillCount, setDraftBillCount] = useState<number | null>(null);
 
   async function load() {
     setLoading(true);
@@ -50,6 +54,19 @@ export default function NeedsProjectPage() {
   }
   useEffect(() => {
     load();
+  }, []);
+
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/vendor-bill-count")
+      .then((r) => r.json())
+      .then((j) => {
+        if (alive) setDraftBillCount(typeof j.count === "number" ? j.count : null);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
   }, []);
 
   const drop = (expId: string) => setItems((prev) => prev.filter((it) => it.expId !== expId));
@@ -137,6 +154,19 @@ export default function NeedsProjectPage() {
           pick the job, and Assign — it pushes to JobTread and re-files in Drive.
         </p>
       </header>
+
+      {!!draftBillCount && (
+        <Link
+          href="/"
+          className="mb-4 flex items-center justify-between gap-3 rounded-lg bg-accent/10 px-4 py-2.5 text-sm text-accent hover:bg-accent/15"
+        >
+          <span>
+            <b className="font-semibold">{draftBillCount}</b> vendor bill
+            {draftBillCount === 1 ? "" : "s"} waiting in Coding Review across all jobs
+          </span>
+          <span className="shrink-0 font-semibold">Go to queue →</span>
+        </Link>
+      )}
 
       {loading && <p className="text-sm text-neutral-500">Loading…</p>}
       {error && (

@@ -311,6 +311,31 @@ export async function setBillStatus(
   return r?.updateDocument?.document?.status ?? status;
 }
 
+/**
+ * Org-wide count of draft vendor bills (the Coding Review queue, across every
+ * job) — a single aggregate query, confirmed live via organization.documents'
+ * `count` field (2026-07): { where: [type=vendorBill,status=draft], count: {} }.
+ * Used for a lightweight cross-tab "bills waiting" flag; never throws.
+ */
+export async function getDraftVendorBillCount(cfg: PaveConfig): Promise<number | null> {
+  try {
+    const r = await pave(cfg, {
+      organization: {
+        $: { id: cfg.orgId },
+        id: {},
+        documents: {
+          $: { where: { and: [["type", "vendorBill"], ["status", "draft"]] } },
+          count: {},
+        },
+      },
+    });
+    const count = r?.organization?.documents?.count;
+    return typeof count === "number" ? count : null;
+  } catch {
+    return null;
+  }
+}
+
 export interface BudgetItem {
   id: string; // jobCostItemId — the coding target
   number: string; // cost code, e.g. "06 10 00" (or a free label like "Office Admin")
