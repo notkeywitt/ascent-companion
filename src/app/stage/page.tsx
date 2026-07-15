@@ -11,6 +11,12 @@ interface BillRef {
   cost: number;
   invoiced: boolean;
 }
+interface TimeEntryRef {
+  id: string;
+  employee: string;
+  hours: number;
+  rate: number;
+}
 interface Line {
   key: string;
   label: string;
@@ -18,10 +24,13 @@ interface Line {
   billIds: string[];
   isSunset: boolean;
   bills?: BillRef[];
+  timeEntries?: TimeEntryRef[];
 }
 
 const money = (n: number) =>
   "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+const hoursAtRate = (t: TimeEntryRef) => `${t.hours.toFixed(2)} hrs @ ${money(t.rate)}/hr`;
 
 // Drive the adjacent JobTread window (desktop side-panel host) to a document —
 // same dual-navigation the Billing tab uses so clicking a bill opens both the
@@ -132,6 +141,16 @@ function Stage() {
             .map(
               (b) =>
                 `<tr class="sub"><td>${esc(b.label)}</td><td class="num">${money(b.cost)}</td></tr>`,
+            )
+            .join("");
+          return group + subs;
+        }
+        if (l.timeEntries && l.timeEntries.length) {
+          const group = `<tr class="grp"><td>${esc(l.label)}</td><td class="num">${money(l.cost)}</td></tr>`;
+          const subs = l.timeEntries
+            .map(
+              (t) =>
+                `<tr class="sub"><td>${esc(t.employee)}</td><td class="num">${esc(hoursAtRate(t))}</td></tr>`,
             )
             .join("");
           return group + subs;
@@ -352,7 +371,29 @@ function Stage() {
                     );
                   }
 
-                  // Non-document line (e.g. Time & labor) — no link target.
+                  // Time & labor — itemize each entry below the group total:
+                  // employee, hours, rate detail only (no per-entry cost, the
+                  // group row already carries the total).
+                  if (l.timeEntries && l.timeEntries.length) {
+                    return (
+                      <Fragment key={l.key}>
+                        <tr className="border-t border-neutral-100 dark:border-neutral-800">
+                          <td className="px-3 py-2 font-medium">{l.label}</td>
+                          <td className="px-3 py-2 text-right font-mono">{money(l.cost)}</td>
+                        </tr>
+                        {l.timeEntries.map((t) => (
+                          <tr key={t.id} className="border-t border-neutral-50 dark:border-neutral-900/60">
+                            <td className="px-3 py-1.5 pl-6">{t.employee}</td>
+                            <td className="px-3 py-1.5 text-right font-mono text-neutral-600 dark:text-neutral-400">
+                              {hoursAtRate(t)}
+                            </td>
+                          </tr>
+                        ))}
+                      </Fragment>
+                    );
+                  }
+
+                  // Non-document line with no detail to itemize — no link target.
                   return (
                     <tr key={l.key} className="border-t border-neutral-100 dark:border-neutral-800">
                       <td className="px-3 py-2">{l.label}</td>

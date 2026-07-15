@@ -715,13 +715,20 @@ export async function getMonthlyBills(
  *
  * NOTE: referencedDocuments nested in paged documents 413s at size 100 (like
  * costItems), but works at ≤50 — we page at 25. A bare "Create invoice" also
- * pulls uninvoiced TIME entries, which aren't listed here yet.
+ * pulls uninvoiced TIME entries — the "time" line's `timeEntries` carries
+ * employee/hours/rate detail for each one.
  */
 export interface UninvoicedBillRef {
   id: string; // JT document id — links to the companion bill view + JT doc page
   label: string; // invoice # / externalId (or vendor)
   cost: number;
   invoiced: boolean; // already on a customer invoice (only appears when includeInvoiced)
+}
+export interface UninvoicedTimeEntryRef {
+  id: string;
+  employee: string;
+  hours: number;
+  rate: number;
 }
 export interface UninvoicedBillLine {
   key: string;
@@ -733,6 +740,9 @@ export interface UninvoicedBillLine {
   // the Sunset group carries every Sunset bill so the UI can list them under
   // the group total. Empty/undefined for non-document lines (e.g. Time & labor).
   bills?: UninvoicedBillRef[];
+  // Individual time entries behind the Time & labor line (employee/hours/rate
+  // detail only — no per-entry cost, the group row above already has the total).
+  timeEntries?: UninvoicedTimeEntryRef[];
 }
 export interface UninvoicedBills {
   customer: { id: string; name: string } | null;
@@ -1006,7 +1016,15 @@ export async function getUninvoicedBills(
         timeEntries: {
           $: { size: 50, ...(page ? { page } : {}) },
           nextPage: {},
-          nodes: { id: {}, cost: {}, startedAt: {}, referencedDocuments: { nodes: { type: {} } } },
+          nodes: {
+            id: {},
+            cost: {},
+            startedAt: {},
+            minutes: {},
+            hourlyRate: {},
+            user: { name: {} },
+            referencedDocuments: { nodes: { type: {} } },
+          },
         },
       },
     });
@@ -1051,12 +1069,22 @@ export async function getUninvoicedBills(
   }
   lines.sort((a, b) => b.cost - a.cost);
   if (openTime.length) {
+    const timeEntryDetails = openTime
+      .slice()
+      .sort((a, b) => String(a.startedAt).localeCompare(String(b.startedAt)))
+      .map((t) => ({
+        id: t.id,
+        employee: t.user?.name ?? "Unknown",
+        hours: (t.minutes ?? 0) / 60,
+        rate: t.hourlyRate ?? 0,
+      }));
     lines.push({
       key: "time",
       label: `Time & labor (${openTime.length} ${openTime.length > 1 ? "entries" : "entry"})`,
       cost: timeCost,
       billIds: [],
       isSunset: false,
+      timeEntries: timeEntryDetails,
     });
   }
   const total = open.reduce((s, b) => s + (b.cost ?? 0), 0) + timeCost;
