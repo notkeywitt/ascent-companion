@@ -24,7 +24,9 @@ interface Vendor {
 
 const STATUS = ["open", "answered", "closed"];
 const statusClass: Record<string, string> = {
-  open: "text-amber-700 bg-amber-100 dark:text-amber-300 dark:bg-amber-950/50",
+  // "open" = needs attention → brand ochre (off-black on ochre passes AA); the
+  // other states keep distinct semantic hues.
+  open: "text-offblack bg-ochre",
   answered: "text-green-700 bg-green-100 dark:text-green-300 dark:bg-green-950/50",
   closed: "text-neutral-600 bg-neutral-200 dark:text-neutral-300 dark:bg-neutral-800",
 };

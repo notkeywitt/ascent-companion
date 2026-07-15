@@ -93,20 +93,24 @@ function Unbilled() {
       )}
 
       {summary && (
-        <div className="mb-5 rounded-2xl border border-accent/30 bg-accent/5 p-4">
-          <div className="text-[11px] font-semibold uppercase tracking-wide text-accent">
-            Unbilled (at cost)
-          </div>
-          <div className="mt-1 font-mono text-3xl font-bold">{money(summary.unbilled)}</div>
-          <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-neutral-600 dark:text-neutral-400">
-            <span>Approved bill cost</span>
-            <span className="text-right font-mono">{money(summary.billedCost)}</span>
-            <span>Invoiced (approved)</span>
-            <span className="text-right font-mono">{money(summary.invoicedCost)}</span>
-            <span>Draft invoice (staged)</span>
-            <span className="text-right font-mono">{money(summary.draftInvoiceCost)}</span>
-            <span>Draft bills (to code)</span>
-            <span className="text-right font-mono">{money(summary.draftBillCost)}</span>
+        <div className="mb-5 overflow-hidden rounded-2xl border border-accent/30 bg-accent/5">
+          {/* Ochre marquee rule — the brand's gold highlight framing the headline number. */}
+          <div className="h-1 bg-ochre" />
+          <div className="p-4">
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-accent">
+              Unbilled (at cost)
+            </div>
+            <div className="mt-1 font-mono text-3xl font-bold">{money(summary.unbilled)}</div>
+            <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-neutral-600 dark:text-neutral-400">
+              <span>Approved bill cost</span>
+              <span className="text-right font-mono">{money(summary.billedCost)}</span>
+              <span>Invoiced (approved)</span>
+              <span className="text-right font-mono">{money(summary.invoicedCost)}</span>
+              <span>Draft invoice (staged)</span>
+              <span className="text-right font-mono">{money(summary.draftInvoiceCost)}</span>
+              <span>Draft bills (to code)</span>
+              <span className="text-right font-mono">{money(summary.draftBillCost)}</span>
+            </div>
           </div>
         </div>
       )}

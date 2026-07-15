@@ -6,6 +6,7 @@ import Link from "next/link";
 import { CostCodeSelect, type Option } from "@/components/CostCodeSelect";
 import { JtLink } from "@/components/JtLink";
 import { JobPicker } from "@/components/JobPicker";
+import { PageTitle } from "@/components/PageTitle";
 
 interface Line {
   id: string;
@@ -475,7 +476,7 @@ function BillDetail() {
       </div>
 
       <header className="mb-4 mt-2">
-        <h1 className="text-xl font-bold tracking-tight">{title}</h1>
+        <PageTitle>{title}</PageTitle>
         {subtitle && <p className="mt-0.5 text-sm text-neutral-500">{subtitle}</p>}
         <p className="mt-1 font-mono text-xs text-neutral-500">
           {header?.issueDate ? header.issueDate + " · " : ""}

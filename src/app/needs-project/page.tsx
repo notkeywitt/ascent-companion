@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { JobPicker } from "@/components/JobPicker";
+import { PageTitle } from "@/components/PageTitle";
 
 interface NeedsItem {
   expId: string;
@@ -121,7 +122,7 @@ export default function NeedsProjectPage() {
     <main className="mx-auto max-w-2xl px-4 pb-24 pt-6">
       <header className="mb-4">
         <div className="flex items-start justify-between gap-3">
-          <h1 className="text-xl font-bold tracking-tight">Needs Project</h1>
+          <PageTitle>Needs Project</PageTitle>
           <button
             type="button"
             onClick={load}

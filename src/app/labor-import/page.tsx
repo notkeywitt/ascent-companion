@@ -8,6 +8,7 @@
 // match 1:1 — so we emit the ID), then download the result and drop it into JT.
 
 import { useEffect, useMemo, useState } from "react";
+import { PageTitle } from "@/components/PageTitle";
 
 // ---- Editable config -------------------------------------------------------
 
@@ -800,7 +801,7 @@ export default function LaborImportPage() {
         <p className="text-[11px] font-semibold uppercase tracking-widest text-neutral-500">
           Ascent Companion
         </p>
-        <h1 className="text-2xl font-bold tracking-tight">Labor Import</h1>
+        <PageTitle size="2xl">Labor Import</PageTitle>
         <p className="mt-1 text-sm text-neutral-500">
           Turn the monthly QuickBooks labor report into a JobTread time-entry import CSV. The file
           is processed in your browser only.

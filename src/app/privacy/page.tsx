@@ -1,3 +1,5 @@
+import { PageTitle } from "@/components/PageTitle";
+
 export const metadata = {
   title: "Privacy Policy — Ascent Companion",
 };
@@ -5,7 +7,7 @@ export const metadata = {
 export default function PrivacyPage() {
   return (
     <main className="mx-auto max-w-2xl px-5 py-10 text-sm leading-relaxed">
-      <h1 className="text-2xl font-bold tracking-tight">Privacy Policy</h1>
+      <PageTitle size="2xl">Privacy Policy</PageTitle>
       <p className="mt-1 text-neutral-500">
         Ascent Companion browser extension &amp; web app · Ascent Building Co.
       </p>

@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
+import { AscentIcon } from "@/components/AscentLogo";
 
 function Login() {
   const router = useRouter();
@@ -48,10 +49,13 @@ function Login() {
 
   return (
     <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-6">
-      <p className="text-[11px] font-semibold uppercase tracking-widest text-neutral-500">
-        Ascent Companion
+      <AscentIcon className="mb-6 h-14 w-14 rounded-md" />
+      <p className="text-[13px] font-medium uppercase tracking-[0.14em] text-offblack dark:text-cream">
+        Ascent
+        <br />
+        Building Co.
       </p>
-      <h1 className="mb-5 text-2xl font-bold tracking-tight">Sign in</h1>
+      <h1 className="mb-5 mt-4 text-2xl font-bold tracking-tight">Sign in</h1>
 
       {inIframe ? (
         <>
