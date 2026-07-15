@@ -743,18 +743,30 @@ export async function getMonthlyBills(
  * pulls uninvoiced TIME entries — the "time" line's `timeEntries` carries
  * employee/hours/rate detail for each one.
  */
+/** A CSI cost code + the amount coded to it (the breakdown behind one bill or the
+ *  code on one time entry). `code` is costCode.number — usually a CSI number, but
+ *  can be a bare label (e.g. "Office Admin"); `name` is costCode.name. */
+export interface CsiAmount {
+  code: string;
+  name: string;
+  amount: number;
+}
 export interface UninvoicedBillRef {
   id: string; // JT document id — links to the companion bill view + JT doc page
   label: string; // invoice # / externalId (or vendor)
   cost: number;
   invoiced: boolean; // already on a customer invoice (only appears when includeInvoiced)
   status?: string; // JT document status: pending (approved for payment) | approved (paid)
+  csi?: CsiAmount[]; // this bill's cost items aggregated per CSI code (amount desc)
 }
 export interface UninvoicedTimeEntryRef {
   id: string;
   employee: string;
   hours: number;
   rate: number;
+  cost: number; // the entry's coded cost (hours × rate, JT-authoritative)
+  code?: string; // costItem.costCode.number
+  codeName?: string; // costItem.costCode.name
 }
 export interface UninvoicedBillLine {
   key: string;
@@ -1050,6 +1062,7 @@ export async function getUninvoicedBills(
             minutes: {},
             hourlyRate: {},
             user: { name: {} },
+            costItem: { costCode: { number: {}, name: {} } },
             referencedDocuments: { nodes: { type: {} } },
           },
         },
@@ -1062,6 +1075,47 @@ export async function getUninvoicedBills(
     (t) => (includeInvoiced || !isInvoiced(t)) && inMonth(t.startedAt),
   );
   const timeCost = openTime.reduce((s, t) => s + (t.cost ?? 0), 0);
+
+  // Per-bill CSI breakdown. costItems nested inside paged documents 413s, so
+  // fetch the job's FLAT costItems connection instead — it still returns each
+  // bill's child cost items, every one carrying its document link (same two-phase
+  // pattern as the budget mapper). Server-side `document` filtering 400s, so join
+  // client-side by document id and aggregate the amounts per CSI cost code.
+  const openIds = new Set(open.map((b) => b.id));
+  const csiByBill = new Map<string, Map<string, { name: string; amount: number }>>();
+  page = undefined;
+  guard = 0;
+  do {
+    const r: any = await pave(cfg, {
+      job: {
+        $: { id: jobId },
+        costItems: {
+          $: { size: 100, ...(page ? { page } : {}) },
+          nextPage: {},
+          nodes: { cost: {}, costCode: { number: {}, name: {} }, document: { id: {}, type: {} } },
+        },
+      },
+    });
+    for (const n of (r?.job?.costItems?.nodes ?? []) as any[]) {
+      const doc = n.document;
+      if (!doc || doc.type !== "vendorBill" || !openIds.has(doc.id)) continue;
+      const code = String(n.costCode?.number ?? "").trim();
+      if (!code) continue;
+      let byCode = csiByBill.get(doc.id);
+      if (!byCode) csiByBill.set(doc.id, (byCode = new Map()));
+      const prev = byCode.get(code);
+      byCode.set(code, {
+        name: n.costCode?.name ?? prev?.name ?? "",
+        amount: (prev?.amount ?? 0) + (n.cost ?? 0),
+      });
+    }
+    page = r?.job?.costItems?.nextPage || undefined;
+  } while (page && ++guard < 50);
+
+  const csiOf = (billId: string): CsiAmount[] =>
+    Array.from(csiByBill.get(billId)?.entries() ?? [])
+      .map(([code, v]) => ({ code, name: v.name, amount: v.amount }))
+      .sort((a, b) => b.amount - a.amount);
 
   const vendorOf = (b: any) => String(b.account?.name ?? b.fromName ?? "Vendor");
   const isSunset = (b: any) => /sunset/i.test(vendorOf(b));
@@ -1086,6 +1140,7 @@ export async function getUninvoicedBills(
           cost: b.cost ?? 0,
           invoiced: isInvoiced(b),
           status: b.status,
+          csi: csiOf(b.id),
         }))
         .sort((a, b) => b.cost - a.cost),
     });
@@ -1098,7 +1153,14 @@ export async function getUninvoicedBills(
       billIds: [b.id],
       isSunset: false,
       bills: [
-        { id: b.id, label: invLabel(b), cost: b.cost ?? 0, invoiced: isInvoiced(b), status: b.status },
+        {
+          id: b.id,
+          label: invLabel(b),
+          cost: b.cost ?? 0,
+          invoiced: isInvoiced(b),
+          status: b.status,
+          csi: csiOf(b.id),
+        },
       ],
     });
   }
@@ -1112,6 +1174,9 @@ export async function getUninvoicedBills(
         employee: t.user?.name ?? "Unknown",
         hours: (t.minutes ?? 0) / 60,
         rate: t.hourlyRate ?? 0,
+        cost: t.cost ?? 0,
+        code: t.costItem?.costCode?.number ?? undefined,
+        codeName: t.costItem?.costCode?.name ?? undefined,
       }));
     lines.push({
       key: "time",

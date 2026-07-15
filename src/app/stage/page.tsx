@@ -6,18 +6,27 @@ import { useSearchParams } from "next/navigation";
 import { JtLink } from "@/components/JtLink";
 import { BillStatusBadge } from "@/components/BillStatusBadge";
 
+interface Csi {
+  code: string;
+  name: string;
+  amount: number;
+}
 interface BillRef {
   id: string;
   label: string;
   cost: number;
   invoiced: boolean;
   status?: string;
+  csi?: Csi[];
 }
 interface TimeEntryRef {
   id: string;
   employee: string;
   hours: number;
   rate: number;
+  cost: number;
+  code?: string;
+  codeName?: string;
 }
 interface Line {
   key: string;
@@ -33,6 +42,11 @@ const money = (n: number) =>
   "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 const hoursAtRate = (t: TimeEntryRef) => `${t.hours.toFixed(2)} hrs @ ${money(t.rate)}/hr`;
+
+// CSI cost-code label: "01 31 10 · Project Management". Collapses to a single
+// value when the code number and name are identical (e.g. "Office Admin").
+const csiLabel = (code?: string, name?: string) =>
+  name && code && name !== code ? `${code} · ${name}` : name || code || "";
 
 // Drive the adjacent JobTread window (desktop side-panel host) to a document —
 // same dual-navigation the Billing tab uses so clicking a bill opens both the
@@ -135,6 +149,15 @@ function Stage() {
       String(s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c] ?? c);
     const monthLabel = opt?.label ?? ym;
 
+    // CSI breakdown rows (deepest indent) under a bill.
+    const csiSubs = (csi?: Csi[]) =>
+      (csi ?? [])
+        .map(
+          (c) =>
+            `<tr class="sub2"><td>${esc(csiLabel(c.code, c.name))}</td><td class="num">${money(c.amount)}</td></tr>`,
+        )
+        .join("");
+
     const rowsHtml = lines
       .map((l) => {
         if (l.isSunset && l.bills && l.bills.length) {
@@ -142,7 +165,8 @@ function Stage() {
           const subs = l.bills
             .map(
               (b) =>
-                `<tr class="sub"><td>${esc(b.label)}</td><td class="num">${money(b.cost)}</td></tr>`,
+                `<tr class="sub"><td>${esc(b.label)}</td><td class="num">${money(b.cost)}</td></tr>` +
+                csiSubs(b.csi),
             )
             .join("");
           return group + subs;
@@ -150,14 +174,18 @@ function Stage() {
         if (l.timeEntries && l.timeEntries.length) {
           const group = `<tr class="grp"><td>${esc(l.label)}</td><td class="num">${money(l.cost)}</td></tr>`;
           const subs = l.timeEntries
-            .map(
-              (t) =>
-                `<tr class="sub"><td>${esc(t.employee)}</td><td class="num">${esc(hoursAtRate(t))}</td></tr>`,
-            )
+            .map((t) => {
+              const code = t.code ? ` — ${esc(csiLabel(t.code, t.codeName))}` : "";
+              return `<tr class="sub"><td>${esc(t.employee)}${code}<div class="dim">${esc(hoursAtRate(t))}</div></td><td class="num">${money(t.cost)}</td></tr>`;
+            })
             .join("");
           return group + subs;
         }
-        return `<tr><td>${esc(l.label)}</td><td class="num">${money(l.cost)}</td></tr>`;
+        // Single vendor bill (or a bare line): show the line, then its CSI breakdown.
+        const csi = l.bills && l.bills.length === 1 ? l.bills[0].csi : undefined;
+        return (
+          `<tr><td>${esc(l.label)}</td><td class="num">${money(l.cost)}</td></tr>` + csiSubs(csi)
+        );
       })
       .join("");
 
@@ -178,6 +206,8 @@ function Stage() {
   th { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: #555; border-bottom: 1px solid #000; }
   .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
   tr.sub td { padding-left: 24px; color: #444; border-bottom: 1px solid #eee; }
+  tr.sub2 td { padding-left: 44px; color: #666; font-size: 12px; border-bottom: 1px solid #f2f2f2; }
+  tr.sub .dim { color: #888; font-size: 11px; margin-top: 1px; }
   tr.grp td { font-weight: 600; }
   tr.total td { font-weight: 700; border-top: 2px solid #000; border-bottom: none; font-size: 14px; }
   @page { margin: 0.6in; }
@@ -344,6 +374,22 @@ function Stage() {
                     </>
                   );
 
+                  // CSI cost-code breakdown rows beneath a bill (deepest indent).
+                  const csiRows = (csi: Csi[] | undefined, keyPrefix: string, pad: string) =>
+                    (csi ?? []).map((c) => (
+                      <tr
+                        key={`${keyPrefix}-${c.code}`}
+                        className="border-t border-neutral-50 dark:border-neutral-900/60"
+                      >
+                        <td className={`py-1 pr-3 text-xs text-neutral-500 dark:text-neutral-400 ${pad}`}>
+                          {csiLabel(c.code, c.name)}
+                        </td>
+                        <td className="px-3 py-1 text-right font-mono text-xs text-neutral-500 dark:text-neutral-400">
+                          {money(c.amount)}
+                        </td>
+                      </tr>
+                    ));
+
                   // Sunset: keep the grouped total, then itemize each bill below.
                   if (l.isSunset && l.bills && l.bills.length) {
                     return (
@@ -353,34 +399,41 @@ function Stage() {
                           <td className="px-3 py-2 text-right font-mono">{money(l.cost)}</td>
                         </tr>
                         {l.bills.map((bl) => (
-                          <tr key={bl.id} className="border-t border-neutral-50 dark:border-neutral-900/60">
-                            <td className="px-3 py-1.5 pl-6">
-                              {billLinks(bl.id, bl.label, bl.invoiced, bl.status)}
-                            </td>
-                            <td className="px-3 py-1.5 text-right font-mono text-neutral-600 dark:text-neutral-400">
-                              {money(bl.cost)}
-                            </td>
-                          </tr>
+                          <Fragment key={bl.id}>
+                            <tr className="border-t border-neutral-50 dark:border-neutral-900/60">
+                              <td className="px-3 py-1.5 pl-6">
+                                {billLinks(bl.id, bl.label, bl.invoiced, bl.status)}
+                              </td>
+                              <td className="px-3 py-1.5 text-right font-mono text-neutral-600 dark:text-neutral-400">
+                                {money(bl.cost)}
+                              </td>
+                            </tr>
+                            {csiRows(bl.csi, bl.id, "pl-12")}
+                          </Fragment>
                         ))}
                       </Fragment>
                     );
                   }
 
-                  // Single vendor bill → link the line to its companion view.
+                  // Single vendor bill → link the line to its companion view,
+                  // then itemize its CSI cost codes beneath it.
                   if (l.bills && l.bills.length === 1) {
                     return (
-                      <tr key={l.key} className="border-t border-neutral-100 dark:border-neutral-800">
-                        <td className="px-3 py-2">
-                          {billLinks(l.bills[0].id, l.label, l.bills[0].invoiced, l.bills[0].status)}
-                        </td>
-                        <td className="px-3 py-2 text-right font-mono">{money(l.cost)}</td>
-                      </tr>
+                      <Fragment key={l.key}>
+                        <tr className="border-t border-neutral-100 dark:border-neutral-800">
+                          <td className="px-3 py-2">
+                            {billLinks(l.bills[0].id, l.label, l.bills[0].invoiced, l.bills[0].status)}
+                          </td>
+                          <td className="px-3 py-2 text-right font-mono">{money(l.cost)}</td>
+                        </tr>
+                        {csiRows(l.bills[0].csi, l.bills[0].id, "pl-9")}
+                      </Fragment>
                     );
                   }
 
                   // Time & labor — itemize each entry below the group total:
-                  // employee, hours, rate detail only (no per-entry cost, the
-                  // group row already carries the total).
+                  // employee + CSI cost code, with hours/rate detail and the
+                  // entry's own amount.
                   if (l.timeEntries && l.timeEntries.length) {
                     return (
                       <Fragment key={l.key}>
@@ -390,9 +443,22 @@ function Stage() {
                         </tr>
                         {l.timeEntries.map((t) => (
                           <tr key={t.id} className="border-t border-neutral-50 dark:border-neutral-900/60">
-                            <td className="px-3 py-1.5 pl-6">{t.employee}</td>
+                            <td className="px-3 py-1.5 pl-6">
+                              <div>
+                                {t.employee}
+                                {t.code && (
+                                  <span className="text-neutral-500 dark:text-neutral-400">
+                                    {" — "}
+                                    {csiLabel(t.code, t.codeName)}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-xs text-neutral-500 dark:text-neutral-400">
+                                {hoursAtRate(t)}
+                              </div>
+                            </td>
                             <td className="px-3 py-1.5 text-right font-mono text-neutral-600 dark:text-neutral-400">
-                              {hoursAtRate(t)}
+                              {money(t.cost)}
                             </td>
                           </tr>
                         ))}
