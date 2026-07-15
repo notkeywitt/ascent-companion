@@ -532,7 +532,9 @@ async function fetchMembers(cfg: PaveConfig, withTypes: boolean): Promise<UserRe
       isInternal: {},
       user: { id: {}, name: {} },
     };
-    if (withTypes) nodes.timeEntryTypes = {};
+    // Array of { name, hourlyRate } — the sub-fields must be selected explicitly;
+    // an empty {} returns the objects with no fields (name comes back undefined).
+    if (withTypes) nodes.timeEntryTypes = { name: {}, hourlyRate: {} };
     const r = await pave(cfg, {
       organization: {
         $: { id: cfg.orgId },
