@@ -122,6 +122,8 @@ export interface DraftBill {
   status?: string;
   cost?: number;
   issueDate?: string;
+  jobId?: string; // the bill's job (populated only by the org-wide query)
+  jobName?: string;
 }
 
 /** Draft vendor bills on a job — the review/coding queue. */
@@ -148,6 +150,55 @@ export async function getDraftBills(cfg: PaveConfig, jobId: string): Promise<Dra
     r = await pave(cfg, q(min)); // an unconfirmed field name won't break the queue
   }
   return r?.job?.documents?.nodes ?? [];
+}
+
+/**
+ * Draft vendor bills across EVERY job — the coding queue when no job is picked.
+ * Uses the org-wide documents connection (confirmed live 2026-07: each node
+ * carries `job { id, name }`); pages via the nextPage cursor. Each bill is
+ * tagged with its own jobId/jobName so the queue can link straight into that
+ * job's bill view.
+ */
+export async function getAllDraftBills(cfg: PaveConfig): Promise<DraftBill[]> {
+  const q = (nodes: Record<string, unknown>, page?: string) => ({
+    organization: {
+      $: { id: cfg.orgId },
+      id: {},
+      documents: {
+        $: {
+          where: { and: [["type", "vendorBill"], ["status", "draft"]] },
+          size: 100,
+          ...(page ? { page } : {}),
+        },
+        nextPage: {},
+        nodes,
+      },
+    },
+  });
+  const rich = {
+    id: {}, name: {}, subject: {}, fromName: {}, number: {}, externalId: {}, status: {}, cost: {}, issueDate: {},
+    job: { id: {}, name: {} },
+  };
+  const min = { id: {}, name: {}, status: {}, cost: {}, issueDate: {}, job: { id: {}, name: {} } };
+  const flatten = (nodes: any[]): DraftBill[] =>
+    nodes.map((n) => ({ ...n, jobId: n?.job?.id, jobName: n?.job?.name }));
+
+  const out: DraftBill[] = [];
+  let page: string | undefined;
+  let guard = 0;
+  let sel = rich;
+  do {
+    let r: any;
+    try {
+      r = await pave(cfg, q(sel, page));
+    } catch {
+      sel = min as any; // an unconfirmed field name won't break the queue
+      r = await pave(cfg, q(sel, page));
+    }
+    out.push(...flatten(r?.organization?.documents?.nodes ?? []));
+    page = r?.organization?.documents?.nextPage || undefined;
+  } while (page && ++guard < 100);
+  return out;
 }
 
 export interface BillLine {

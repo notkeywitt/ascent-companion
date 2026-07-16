@@ -15,6 +15,8 @@ interface Bill {
   status?: string;
   cost?: number;
   issueDate?: string;
+  jobId?: string; // set only when listing across all jobs
+  jobName?: string;
 }
 
 const money = (n?: number) =>
@@ -59,13 +61,14 @@ function CodingQueue() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // With a job id, that job's drafts; without one, every job's drafts.
   async function run(id: string) {
-    if (!id.trim()) return;
     setLoading(true);
     setError("");
     setBills(null);
     try {
-      const res = await fetch(`/api/coding-queue?jobId=${encodeURIComponent(id.trim())}`);
+      const qs = id.trim() ? `?jobId=${encodeURIComponent(id.trim())}` : "";
+      const res = await fetch(`/api/coding-queue${qs}`);
       const json = await res.json();
       if (!res.ok) setError(json.error ?? "Request failed");
       else setBills(json.bills ?? []);
@@ -76,10 +79,10 @@ function CodingQueue() {
     }
   }
 
-  // Load whenever the URL's job changes (global picker writes it there).
+  // Load whenever the URL's job changes (global picker writes it there); with no
+  // job selected, load every job's drafts.
   useEffect(() => {
-    if (jobId) run(jobId);
-    else setBills(null);
+    run(jobId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [jobId]);
 
@@ -105,7 +108,9 @@ function CodingQueue() {
       )}
 
       {!jobId && (
-        <p className="mb-3 text-sm text-neutral-500">Pick a job above to see its bills.</p>
+        <p className="mb-3 text-sm text-neutral-500">
+          Draft bills across all jobs. Pick a job above to narrow to one.
+        </p>
       )}
 
       {loading && <p className="mb-3 text-sm text-neutral-500">Loading…</p>}
@@ -125,34 +130,45 @@ function CodingQueue() {
             <span className="font-mono text-sm font-semibold">{money(total)}</span>
           </div>
           <ul className="space-y-2">
-            {bills.map((b) => (
-              <li key={b.id}>
-                <Link
-                  href={`/bill/${b.id}?jobId=${encodeURIComponent(jobId.trim())}`}
-                  onClick={() => driveMainWindowToDoc(jobId.trim(), b.id)}
-                  className="block rounded-xl border border-neutral-200 bg-white p-3 transition hover:border-accent dark:border-neutral-800 dark:bg-neutral-900"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <div className="truncate font-medium">{billTitle(b)}</div>
-                        <BillStatusBadge status={b.status} />
+            {bills.map((b) => {
+              // A bill's own job — set when listing across all jobs; otherwise the
+              // selected job. Needed so the bill view loads the right budget/CTC.
+              const billJobId = (b.jobId || jobId).trim();
+              return (
+                <li key={b.id}>
+                  <Link
+                    href={`/bill/${b.id}?jobId=${encodeURIComponent(billJobId)}`}
+                    onClick={() => driveMainWindowToDoc(billJobId, b.id)}
+                    className="block rounded-xl border border-neutral-200 bg-white p-3 transition hover:border-accent dark:border-neutral-800 dark:bg-neutral-900"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <div className="truncate font-medium">{billTitle(b)}</div>
+                          <BillStatusBadge status={b.status} />
+                        </div>
+                        <div className="mt-0.5 truncate text-xs text-neutral-500">
+                          {!jobId && b.jobName
+                            ? b.jobName
+                            : b.subject && b.subject !== billTitle(b)
+                              ? b.subject
+                              : b.id}
+                        </div>
                       </div>
-                      <div className="mt-0.5 truncate text-xs text-neutral-500">
-                        {b.subject && b.subject !== billTitle(b) ? b.subject : b.id}
+                      <div className="text-right">
+                        <div className="font-mono text-sm font-semibold">{money(b.cost)}</div>
+                        <div className="text-xs text-neutral-500">{b.issueDate || ""}</div>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <div className="font-mono text-sm font-semibold">{money(b.cost)}</div>
-                      <div className="text-xs text-neutral-500">{b.issueDate || ""}</div>
-                    </div>
-                  </div>
-                </Link>
-              </li>
-            ))}
+                  </Link>
+                </li>
+              );
+            })}
             {bills.length === 0 && (
               <li className="rounded-xl border border-dashed border-neutral-300 p-6 text-center text-sm text-neutral-500 dark:border-neutral-700">
-                No draft bills on this job — nothing to code.
+                {jobId
+                  ? "No draft bills on this job — nothing to code."
+                  : "No draft bills anywhere — nothing to code."}
               </li>
             )}
           </ul>

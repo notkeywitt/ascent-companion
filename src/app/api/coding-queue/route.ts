@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getDraftBills } from "@/lib/jobtread";
+import { getDraftBills, getAllDraftBills } from "@/lib/jobtread";
 import { getPaveConfig, hasGrant } from "@/lib/config";
 
-// Read-only (Phase A): list a job's draft vendor bills = the coding queue.
+// Read-only (Phase A): draft vendor bills = the coding queue. With ?jobId=…,
+// that job's drafts; with no job, every job's drafts (each tagged with its job).
 export async function GET(req: NextRequest) {
   if (!hasGrant()) {
     return NextResponse.json(
@@ -11,11 +12,9 @@ export async function GET(req: NextRequest) {
     );
   }
   const jobId = req.nextUrl.searchParams.get("jobId")?.trim();
-  if (!jobId) {
-    return NextResponse.json({ error: "Pass ?jobId=<JobTread job id>" }, { status: 400 });
-  }
   try {
-    const bills = await getDraftBills(getPaveConfig(), jobId);
+    const cfg = getPaveConfig();
+    const bills = jobId ? await getDraftBills(cfg, jobId) : await getAllDraftBills(cfg);
     return NextResponse.json({ bills });
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : "Unknown error";
