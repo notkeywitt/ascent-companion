@@ -125,6 +125,7 @@ export interface DraftBill {
   jobId?: string; // the bill's job (populated only by the org-wide query)
   jobName?: string;
   saved?: boolean; // Companion-side flag: Save has been clicked on this bill
+  reviewed?: boolean; // Companion-side flag: bill explicitly marked reviewed
 }
 
 /** Draft vendor bills on a job — the review/coding queue. */

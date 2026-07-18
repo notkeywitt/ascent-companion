@@ -18,6 +18,7 @@ interface Bill {
   jobId?: string; // set only when listing across all jobs
   jobName?: string;
   saved?: boolean; // Save has been clicked on this bill in the Companion
+  reviewed?: boolean; // bill explicitly marked reviewed in the Companion
 }
 
 const money = (n?: number) =>
@@ -147,14 +148,21 @@ function CodingQueue() {
                         <div className="flex items-center gap-2">
                           <div className="truncate font-medium">{billTitle(b)}</div>
                           <BillStatusBadge status={b.status} />
-                          {b.saved && (
+                          {b.reviewed ? (
+                            <span
+                              title="Marked reviewed in the Companion"
+                              className="inline-block shrink-0 rounded bg-emerald-600 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white"
+                            >
+                              ✓ Reviewed
+                            </span>
+                          ) : b.saved ? (
                             <span
                               title="Save has been clicked on this bill"
                               className="inline-block shrink-0 rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300"
                             >
                               ✓ Saved
                             </span>
-                          )}
+                          ) : null}
                         </div>
                         <div className="mt-0.5 truncate text-xs text-neutral-500">
                           {!jobId && b.jobName

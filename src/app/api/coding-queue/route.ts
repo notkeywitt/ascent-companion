@@ -19,24 +19,37 @@ export async function GET(req: NextRequest) {
     const cfg = getPaveConfig();
     const bills = jobId ? await getDraftBills(cfg, jobId) : await getAllDraftBills(cfg);
 
-    // Tag each bill with whether its coding has been saved from the Companion
-    // (Save clicked). Best-effort — a DB hiccup must not break the queue.
-    let saved = new Set<string>();
+    // Tag each bill with its companion-side flags: saved (Save clicked) and
+    // reviewed (explicitly marked done). Best-effort — a DB hiccup must not
+    // break the queue.
+    const flags = new Map<string, { saved: boolean; reviewed: boolean }>();
     try {
       await ensureDb();
       const ids = bills.map((b) => b.id).filter(Boolean);
       if (ids.length) {
         const rows = await db
-          .select({ docId: savedBills.docId })
+          .select({
+            docId: savedBills.docId,
+            savedAt: savedBills.savedAt,
+            reviewed: savedBills.reviewed,
+          })
           .from(savedBills)
           .where(inArray(savedBills.docId, ids));
-        saved = new Set(rows.map((r) => r.docId));
+        for (const r of rows) {
+          flags.set(r.docId, { saved: (r.savedAt ?? "") !== "", reviewed: Boolean(r.reviewed) });
+        }
       }
     } catch {
-      /* indicator is best-effort */
+      /* indicators are best-effort */
     }
 
-    return NextResponse.json({ bills: bills.map((b) => ({ ...b, saved: saved.has(b.id) })) });
+    return NextResponse.json({
+      bills: bills.map((b) => ({
+        ...b,
+        saved: flags.get(b.id)?.saved ?? false,
+        reviewed: flags.get(b.id)?.reviewed ?? false,
+      })),
+    });
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : "Unknown error";
     return NextResponse.json({ error: message }, { status: 502 });

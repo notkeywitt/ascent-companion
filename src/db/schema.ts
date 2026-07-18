@@ -48,15 +48,20 @@ export const allowedUsers = sqliteTable("allowed_users", {
 export type AllowedUser = typeof allowedUsers.$inferSelect;
 
 /**
- * Bills whose coding has been saved from the Companion at least once — i.e. the
- * "Save" button was clicked and the write to JobTread succeeded. Used to show a
- * "saved" indicator in the coding queue so the office can tell at a glance which
- * draft bills they've already worked. Keyed by the JobTread document id.
+ * Companion-side per-bill workflow flags, keyed by JobTread document id:
+ *  - saved:    the "Save" button was clicked and a line write succeeded (auto).
+ *  - reviewed: the office explicitly marked the bill reviewed/done (a toggle).
+ * Used to show indicators in the coding queue so it's clear at a glance which
+ * draft bills have been worked. (Table name kept as "saved_bills" from when it
+ * only tracked saves.)
  */
 export const savedBills = sqliteTable("saved_bills", {
   docId: text("doc_id").primaryKey(), // JobTread vendorBill document id
-  savedAt: text("saved_at").notNull(), // ISO timestamp of the most recent save
+  savedAt: text("saved_at").notNull().default(""), // ISO ts of most recent save; "" = never saved
   savedBy: text("saved_by").notNull().default(""), // email, if known
+  reviewed: integer("reviewed", { mode: "boolean" }).notNull().default(false), // explicit "reviewed" toggle
+  reviewedAt: text("reviewed_at").notNull().default(""), // ISO ts of most recent mark-reviewed
+  reviewedBy: text("reviewed_by").notNull().default(""), // email, if known
 });
 
 export type SavedBill = typeof savedBills.$inferSelect;

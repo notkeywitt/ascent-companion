@@ -62,10 +62,26 @@ export async function ensureDb() {
   await client.execute(`
     CREATE TABLE IF NOT EXISTS saved_bills (
       doc_id TEXT PRIMARY KEY,
-      saved_at TEXT NOT NULL,
-      saved_by TEXT NOT NULL DEFAULT ''
+      saved_at TEXT NOT NULL DEFAULT '',
+      saved_by TEXT NOT NULL DEFAULT '',
+      reviewed INTEGER NOT NULL DEFAULT 0,
+      reviewed_at TEXT NOT NULL DEFAULT '',
+      reviewed_by TEXT NOT NULL DEFAULT ''
     )
   `);
+  // Migrations for the saved_bills table shipped before the reviewed columns
+  // existed (idempotent — each throws once the column is present).
+  for (const alter of [
+    "ALTER TABLE saved_bills ADD COLUMN reviewed INTEGER NOT NULL DEFAULT 0",
+    "ALTER TABLE saved_bills ADD COLUMN reviewed_at TEXT NOT NULL DEFAULT ''",
+    "ALTER TABLE saved_bills ADD COLUMN reviewed_by TEXT NOT NULL DEFAULT ''",
+  ]) {
+    try {
+      await client.execute(alter);
+    } catch {
+      /* column already exists */
+    }
+  }
   ensured = true;
 }
 

@@ -112,6 +112,8 @@ function BillDetail() {
   const [queue, setQueue] = useState<string[]>([]);
   const [reassignMsg, setReassignMsg] = useState("");
   const [bulkCode, setBulkCode] = useState("");
+  const [reviewed, setReviewed] = useState(false);
+  const [reviewLoading, setReviewLoading] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -132,6 +134,7 @@ function BillDetail() {
           setCtc(json.costToComplete ?? {});
           setFiles(json.files ?? []);
           setWrites(Boolean(json.writesEnabled));
+          setReviewed(Boolean(json.reviewed));
         }
       } catch (e) {
         if (alive) setError(e instanceof Error ? e.message : "Network error");
@@ -231,6 +234,7 @@ function BillDetail() {
       if (res.ok) {
         setHeader(json.header ?? null);
         setWrites(Boolean(json.writesEnabled));
+        setReviewed(Boolean(json.reviewed));
       }
     } catch {
       /* keep optimistic state */
@@ -278,6 +282,7 @@ function BillDetail() {
         setCtc(json.costToComplete ?? {});
         setFiles(json.files ?? []);
         setWrites(Boolean(json.writesEnabled));
+        setReviewed(Boolean(json.reviewed));
       }
     } catch {
       /* keep current state */
@@ -380,6 +385,26 @@ function BillDetail() {
     }
   }
 
+  // Toggle the companion-local "reviewed" flag. Not a JobTread write — just
+  // records that the office marked this bill done — so it works with writes OFF.
+  async function toggleReviewed() {
+    const next = !reviewed;
+    setReviewed(next); // optimistic
+    setReviewLoading(true);
+    try {
+      const res = await fetch("/api/bill-reviewed", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ docId, reviewed: next }),
+      });
+      if (!res.ok) setReviewed(!next); // revert on failure
+    } catch {
+      setReviewed(!next); // revert on error
+    } finally {
+      setReviewLoading(false);
+    }
+  }
+
   async function saveCoding() {
     if (pending.length === 0) return;
     setSaving(true);
@@ -458,20 +483,22 @@ function BillDetail() {
           ‹ Coding queue
         </Link>
         {qIdx >= 0 && queue.length > 1 && (
-          <div className="flex items-center gap-1 text-sm">
+          <div className="flex items-center gap-2 text-sm">
             {prevId ? (
               <Link
                 href={`/bill/${prevId}?jobId=${encodeURIComponent(jobId)}`}
                 onClick={() => driveMainWindowToDoc(jobId, prevId)}
                 aria-label="Previous bill"
-                className="rounded-md px-2 py-1 font-semibold text-accent hover:bg-accent/10"
+                className="inline-flex items-center gap-1 rounded-lg border border-accent px-3 py-1.5 font-semibold text-accent hover:bg-accent/10"
               >
-                ‹
+                ‹ Prev
               </Link>
             ) : (
-              <span className="px-2 py-1 text-neutral-300 dark:text-neutral-700">‹</span>
+              <span className="inline-flex items-center gap-1 rounded-lg border border-neutral-200 px-3 py-1.5 font-semibold text-neutral-300 dark:border-neutral-800 dark:text-neutral-700">
+                ‹ Prev
+              </span>
             )}
-            <span className="tabular-nums text-xs text-neutral-500">
+            <span className="tabular-nums text-xs font-semibold text-neutral-500">
               {qIdx + 1} / {queue.length}
             </span>
             {nextId ? (
@@ -479,12 +506,14 @@ function BillDetail() {
                 href={`/bill/${nextId}?jobId=${encodeURIComponent(jobId)}`}
                 onClick={() => driveMainWindowToDoc(jobId, nextId)}
                 aria-label="Next bill"
-                className="rounded-md px-2 py-1 font-semibold text-accent hover:bg-accent/10"
+                className="inline-flex items-center gap-1 rounded-lg border border-accent px-3 py-1.5 font-semibold text-accent hover:bg-accent/10"
               >
-                ›
+                Next ›
               </Link>
             ) : (
-              <span className="px-2 py-1 text-neutral-300 dark:text-neutral-700">›</span>
+              <span className="inline-flex items-center gap-1 rounded-lg border border-neutral-200 px-3 py-1.5 font-semibold text-neutral-300 dark:border-neutral-800 dark:text-neutral-700">
+                Next ›
+              </span>
             )}
           </div>
         )}
@@ -500,14 +529,32 @@ function BillDetail() {
             {docId}
           </p>
         </div>
-        {jobId && (
-          <JtLink
-            href={`https://app.jobtread.com/jobs/${jobId}/documents/${docId}`}
-            className="mt-2 inline-flex items-center gap-1 rounded-xl border border-accent px-4 py-2 text-sm font-semibold text-accent hover:bg-accent/10"
-          >
-            Open in JobTread ↗
-          </JtLink>
-        )}
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          {jobId && (
+            <JtLink
+              href={`https://app.jobtread.com/jobs/${jobId}/documents/${docId}`}
+              className="inline-flex items-center gap-1 rounded-xl border border-accent px-4 py-2 text-sm font-semibold text-accent hover:bg-accent/10"
+            >
+              Open in JobTread ↗
+            </JtLink>
+          )}
+          {header && (
+            <button
+              type="button"
+              onClick={toggleReviewed}
+              disabled={reviewLoading}
+              title={reviewed ? "Marked reviewed — click to unmark" : "Mark this bill reviewed"}
+              className={
+                "inline-flex items-center gap-1 rounded-xl border px-4 py-2 text-sm font-semibold disabled:opacity-50 " +
+                (reviewed
+                  ? "border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700"
+                  : "border-accent text-accent hover:bg-accent/10")
+              }
+            >
+              {reviewed ? "✓ Reviewed" : "Mark reviewed"}
+            </button>
+          )}
+        </div>
         <div className="mt-3 flex items-center gap-2">
           <span className="text-[10px] uppercase tracking-wide text-neutral-400">Billing month</span>
           <select

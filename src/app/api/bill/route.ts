@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import { eq } from "drizzle-orm";
 import { getBillDetail, getBillFiles, getJobBudget, getCostToComplete } from "@/lib/jobtread";
 import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
+import { db, ensureDb } from "@/db";
+import { savedBills } from "@/db/schema";
 
 // Read-only: a draft bill's header + lines + attached files + the job's budget.
 export async function GET(req: NextRequest) {
@@ -23,6 +26,21 @@ export async function GET(req: NextRequest) {
       getBillFiles(cfg, docId),
       getCostToComplete(cfg, jobId),
     ]);
+
+    // Companion-local "reviewed" flag for this bill (best-effort).
+    let reviewed = false;
+    try {
+      await ensureDb();
+      const [row] = await db
+        .select({ reviewed: savedBills.reviewed })
+        .from(savedBills)
+        .where(eq(savedBills.docId, docId))
+        .limit(1);
+      reviewed = Boolean(row?.reviewed);
+    } catch {
+      /* flag is best-effort */
+    }
+
     return NextResponse.json({
       header: detail.header,
       lines: detail.lines,
@@ -30,6 +48,7 @@ export async function GET(req: NextRequest) {
       files,
       costToComplete,
       writesEnabled: writesEnabled(),
+      reviewed,
     });
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : "Unknown error";
