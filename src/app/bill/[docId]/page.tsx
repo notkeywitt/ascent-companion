@@ -114,6 +114,10 @@ function BillDetail() {
   const [bulkCode, setBulkCode] = useState("");
   const [reviewed, setReviewed] = useState(false);
   const [reviewLoading, setReviewLoading] = useState(false);
+  const [addingLine, setAddingLine] = useState(false);
+  const [newLine, setNewLine] = useState({ name: "", quantity: "1", unitCost: "0", code: "" });
+  const [addLineSaving, setAddLineSaving] = useState(false);
+  const [addLineMsg, setAddLineMsg] = useState("");
 
   useEffect(() => {
     let alive = true;
@@ -401,6 +405,45 @@ function BillDetail() {
       setReviewed(!next); // revert on error
     } finally {
       setReviewLoading(false);
+    }
+  }
+
+  // Add a new line to this bill (createCostItem on the document). On success we
+  // reload the bill so the new line appears exactly as JobTread stored it.
+  async function addLine() {
+    const name = newLine.name.trim();
+    if (!name) return;
+    setAddLineSaving(true);
+    setAddLineMsg("");
+    try {
+      const opt = budget.find((o) => o.id === newLine.code);
+      const description = opt ? (opt.name ? `${opt.number} - ${opt.name}` : opt.number) : "";
+      const res = await fetch("/api/add-line", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          docId,
+          name,
+          quantity: Number(newLine.quantity) || 0,
+          unitCost: Number(newLine.unitCost) || 0,
+          jobCostItemId: newLine.code || undefined,
+          description,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) setAddLineMsg(json.error ?? "Add failed");
+      else if (json.previewed)
+        setAddLineMsg("Preview only — writes are OFF. Nothing was added to JobTread.");
+      else {
+        setAddingLine(false);
+        setNewLine({ name: "", quantity: "1", unitCost: "0", code: "" });
+        await loadBill(); // pull the new line from JobTread
+        reloadJtWindow();
+      }
+    } catch (e) {
+      setAddLineMsg(e instanceof Error ? e.message : "Network error");
+    } finally {
+      setAddLineSaving(false);
     }
   }
 
@@ -844,6 +887,93 @@ function BillDetail() {
               );
             })}
           </ul>
+
+          {/* Add a new line (createCostItem). Draft-only — JobTread locks a
+              bill's amounts once it's payable/paid. */}
+          {linesEditable && (
+            <div className="mt-3">
+              {!addingLine ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAddLineMsg("");
+                    setAddingLine(true);
+                  }}
+                  className="w-full rounded-xl border border-dashed border-neutral-300 px-4 py-3 text-sm font-semibold text-accent hover:border-accent hover:bg-accent/5 dark:border-neutral-700"
+                >
+                  + Add line
+                </button>
+              ) : (
+                <div className="rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
+                  <input
+                    type="text"
+                    value={newLine.name}
+                    onChange={(e) => setNewLine((n) => ({ ...n, name: e.target.value }))}
+                    placeholder="Line description"
+                    className="w-full rounded-lg border border-neutral-300 bg-transparent px-2 py-1.5 text-sm dark:border-neutral-700"
+                  />
+                  <div className="mt-2 flex items-center gap-2">
+                    <label className="flex items-center gap-1.5">
+                      <span className="text-[10px] uppercase tracking-wide text-neutral-400">Qty</span>
+                      <input
+                        type="number"
+                        inputMode="decimal"
+                        value={newLine.quantity}
+                        onChange={(e) => setNewLine((n) => ({ ...n, quantity: e.target.value }))}
+                        className="w-20 rounded-lg border border-neutral-300 bg-transparent px-2 py-1.5 text-sm tabular-nums dark:border-neutral-700"
+                      />
+                    </label>
+                    <span className="text-neutral-400">×</span>
+                    <label className="flex items-center gap-1.5">
+                      <span className="text-[10px] uppercase tracking-wide text-neutral-400">Unit $</span>
+                      <input
+                        type="number"
+                        inputMode="decimal"
+                        value={newLine.unitCost}
+                        onChange={(e) => setNewLine((n) => ({ ...n, unitCost: e.target.value }))}
+                        className="w-24 rounded-lg border border-neutral-300 bg-transparent px-2 py-1.5 text-sm tabular-nums dark:border-neutral-700"
+                      />
+                    </label>
+                  </div>
+                  <div className="mt-2">
+                    <span className="mb-1 block text-[10px] uppercase tracking-wide text-neutral-400">
+                      Cost code
+                    </span>
+                    <CostCodeSelect
+                      options={budget}
+                      value={newLine.code}
+                      onChange={(id) => setNewLine((n) => ({ ...n, code: id }))}
+                    />
+                  </div>
+                  <div className="mt-3 flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={addLine}
+                      disabled={addLineSaving || !newLine.name.trim()}
+                      className="rounded-lg bg-accent px-3 py-2 text-sm font-semibold text-white hover:bg-accent-hover disabled:opacity-40"
+                    >
+                      {addLineSaving ? "Adding…" : "Add line"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAddingLine(false);
+                        setAddLineMsg("");
+                      }}
+                      className="rounded-lg border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-600 hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+              {addLineMsg && (
+                <p className="mt-2 rounded-lg bg-neutral-100 px-3 py-2 text-xs dark:bg-neutral-800">
+                  {addLineMsg}
+                </p>
+              )}
+            </div>
+          )}
         </>
       )}
 

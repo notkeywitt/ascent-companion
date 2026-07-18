@@ -685,6 +685,41 @@ export async function updateLine(
   return { id: r?.updateCostItem?.costItem?.id ?? costItemId };
 }
 
+/**
+ * Add a new line (cost item) to an existing bill. Uses the confirmed
+ * `createCostItem` mutation with `documentId` (same fields as createVendorBill's
+ * lineItems — proven in the production Apps Script push). jobCostItemId is
+ * optional: omit it and the line lands uncoded. Tax stays at the document level
+ * (nonRecoverableTax), so new lines are non-taxable like every other bill line.
+ */
+export async function createLine(
+  cfg: PaveConfig,
+  docId: string,
+  fields: {
+    name: string;
+    jobCostItemId?: string;
+    quantity?: number;
+    unitCost?: number;
+    description?: string;
+  },
+): Promise<{ id: string }> {
+  const $: Record<string, unknown> = {
+    documentId: docId,
+    name: (fields.name || "Line item").substring(0, 250),
+    quantity: fields.quantity ?? 1,
+    unitCost: fields.unitCost ?? 0,
+    isTaxable: false,
+  };
+  if (fields.jobCostItemId) $.jobCostItemId = fields.jobCostItemId;
+  if (fields.description !== undefined) $.description = fields.description;
+  const r = await pave(cfg, {
+    createCostItem: { $, createdCostItem: { id: {} } },
+  });
+  const id = r?.createCostItem?.createdCostItem?.id;
+  if (!id) throw new Error("createCostItem returned no cost item id.");
+  return { id };
+}
+
 // ---------------------------------------------------------------------------
 // INVOICE STAGING  (confirmed mechanism: createDocument type customerInvoice;
 // the exact lineItems shape is the one remaining detail to lock)
