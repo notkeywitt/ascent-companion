@@ -178,7 +178,6 @@ function BillDetail() {
   // Sunset keeps "Vendor · Invoice ID"; every other vendor shows just its name.
   const isSunsetBill = /sunset/i.test(vendor);
   const title = isSunsetBill && invId ? `${vendor} · ${invId}` : vendor;
-  const subtitle = header?.subject && header.subject !== vendor ? header.subject : "";
 
   // Lines with a changed cost code, quantity, or unit cost vs what's in JobTread.
   const pending = (lines ?? []).flatMap((l) => {
@@ -521,7 +520,6 @@ function BillDetail() {
 
       <header className="mb-4 mt-2">
         <PageTitle>{title}</PageTitle>
-        {subtitle && <p className="mt-0.5 text-sm text-neutral-500">{subtitle}</p>}
         <div className="mt-1 flex flex-wrap items-center gap-2">
           {header?.status && <BillStatusBadge status={header.status} />}
           <p className="font-mono text-xs text-neutral-500">
@@ -748,19 +746,15 @@ function BillDetail() {
             </div>
           )}
 
-          <div className="mb-3">
-            {!writes ? (
+          {!writes && (
+            <div className="mb-3">
               <p className="rounded-lg bg-amber-50 px-4 py-3 text-xs text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
                 Writes are OFF (COMPANION_WRITES_ENABLED not <span className="font-mono">true</span> on
                 this deploy). Save shows a preview and sends nothing to JobTread. Set it in Vercel and{" "}
                 <b>redeploy</b>.
               </p>
-            ) : (
-              <p className="rounded-lg bg-emerald-50 px-4 py-3 text-xs text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
-                Writes are ON — Save goes straight to JobTread.
-              </p>
-            )}
-          </div>
+            </div>
+          )}
 
           <ul className="space-y-2">
             {lines.map((l) => {
