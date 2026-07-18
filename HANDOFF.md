@@ -1,77 +1,75 @@
 # HANDOFF — Safety Meeting Signatures (`/safety-meeting`)
 
-Status: **design agreed, not yet built.** Pick this up on the laptop (VS Code Claude
-extension). Branch: `claude/safety-meeting-signatures-gb8xo0`.
+Status: **BUILT + verified; deployed 2026-07-18.** Branch:
+`claude/safety-meeting-signatures-gb8xo0` (merged to `main`).
 
-## Goal
+## What it is
 
-An iPad-friendly page in the Companion for recording **attendance at safety meetings**
-by collecting a real drawn signature per attendee.
+An iPad-friendly Companion page for recording **safety-meeting attendance** with a
+real drawn signature per attendee. Set the header once (Date / Topic / Meeting
+Lead), then pass the iPad around — each person picks their name and signs; each
+"Add attendee" = one record. "Save meeting" writes everything and shows the
+roster PDF + Drive folder.
 
-## Agreed design (Option A — a Companion page)
+## Decisions made (the three open forks — all resolved)
 
-- New route: `src/app/safety-meeting/page.tsx` (+ a `/safety-meeting` tab).
-- **Header, set once per meeting:** Date, Topic, Admin (the person running it).
-- **Per attendee, repeated:** an Employee **dropdown** + a **drawn signature** on an
-  HTML `<canvas>`. Tap "Add" → one attendance record → clear the signature → next person.
-- Real-world flow: set the header, then **pass the iPad around**; each person picks their
-  name and signs. Each tap = one row.
-- **Fast open on iPad:** installable PWA — open once in Safari → Share → *Add to Home
-  Screen* → full-screen app icon. `src/app/manifest.ts` already exists; confirm it covers
-  this route.
+1. **Employee source → Apps Script proxy.** The Companion has no Google Sheets
+   client, so the attendee dropdown is served by the Apps Script web app's new
+   `listEmployees` action, which reads the Project Database **Employee** tab
+   (Active only). Chosen over JobTread `/api/jt-users` because that misses field
+   crew who aren't JT users but do attend meetings.
+2. **Storage → Google Sheet + Drive PNGs + PDF.** Apps Script (it holds the
+   Sheets/Drive grants) writes one row per attendee to a new **"Safety Meetings"**
+   sheet tab, saves each signature PNG, and renders a **roster PDF**.
+3. **Per-meeting PDF roster → yes, in v1.** Built as a Google Doc (so signature
+   images embed reliably) then exported to PDF into the meeting's Drive folder.
 
-## Open design forks — decide these first (they're the real work)
+## Architecture
 
-1. **Where do the employee names come from?**
-   The employee list lives in the **Project Database** Google Sheet → **Employee** tab.
-   ⚠️ The Companion **has no Google Sheets client today** — it reads JobTread (Pave API,
-   `src/lib/jobtread.ts`) and uses a small libSQL/Drizzle DB for its own data. So sourcing
-   the dropdown needs one of:
-   - add a Google Sheets read (googleapis + a service account) behind a new
-     `src/app/api/employees/route.ts` — cleanest, live;
-   - "Publish to web" that sheet range as CSV and fetch it — no new auth, but a manual step;
-   - a static list in the DB / config — simplest, but goes stale.
-   Recommendation: a small `/api/employees` server route reading the sheet. Confirm the
-   Project Database spreadsheet ID and Employee tab column layout before building.
+Companion = UI only. It talks to the Apps Script `doPost` web app over the shared
+secret (`APPS_SCRIPT_SYNC_URL` / `APPS_SCRIPT_SYNC_SECRET` — same env as
+`/api/email`; secret stays server-side). Apps Script does all Sheet/Drive/PDF
+writing.
 
-2. **Where do attendance records + signature images go?**
-   The app "holds no database" *for JobTread financials*, but it already has a libSQL/Drizzle
-   DB (`src/db/schema.ts`) for operational data (allowed users, RFIs, feature requests).
-   Options:
-   - a new Drizzle table `safetyMeetingSignatures` (date, topic, admin, employee, signaturePng
-     as base64/blob, createdAt) — fits the existing pattern, least friction;
-   - write rows to a Google Sheet + the signature PNG to a Drive folder — matches the
-     "records live in Sheets/Drive" habit, but needs the Sheets/Drive write path from fork 1.
-   Recommendation: start with a Drizzle table; add a Sheet/Drive export later if compliance
-   wants it.
+### Companion files (this repo)
+- `src/app/api/employees/route.ts` — GET → proxies `listEmployees`.
+- `src/app/api/safety-meeting/route.ts` — POST → proxies `saveSafetyMeeting`
+  (`maxDuration = 120`; signatures travel as base64 PNGs).
+- `src/components/SignaturePad.tsx` — hand-rolled retina/pointer signature canvas
+  (no npm dep); imperative handle `{ toDataURL, clear, isEmpty }`.
+- `src/app/safety-meeting/page.tsx` — the flow (header → add signers → save →
+  success screen with roster PDF + Drive folder links).
+- `src/components/TabBar.tsx` — "Safety Meeting" tab.
+- Both API routes sit behind normal Google sign-in (NOT the ingest secret — the
+  browser calls them; the secret is used outbound only). Manifest scope is `/`,
+  so the PWA already covers the route — installable via Safari → Add to Home
+  Screen.
 
-3. **Per-meeting PDF roster?** Still open. A one-page signed roster PDF per meeting (into
-   Drive) may be what an inspector/insurer expects, on top of the record log. Decide whether
-   to include it in v1.
+### Apps Script side (ascent-appscript repo)
+- New file `SafetyMeeting.js` — `_companionListEmployees` / `_companionSaveSafetyMeeting`
+  handlers + `_smtg*` helpers; `diagnoseSafetyMeeting()` read-only probe at the
+  top of the file. Wired into the `doPost` switch + `WEBAPP_ACTIONS` in
+  `Diagnostics.js`.
+- On first save it auto-creates a **"Safety Meetings"** Drive folder at My Drive
+  root (id cached in Script Property `SAFETY_MEETING_FOLDER_ID` — move the folder
+  anywhere afterward, lookup is id-based) and the **"Safety Meetings"** sheet tab.
 
-## Signature capture
+## Verified
 
-- HTML `<canvas>` with pointer events. Either add the `signature_pad` npm dep (simplest,
-  handles touch/pencil + retina scaling) or hand-roll ~40 lines of pointer handling.
-- Export as PNG data URL on "Add".
+Companion `tsc --noEmit` + `next build` clean; Apps Script `node --check` clean.
+Apps Script web app redeployed (build stamp `2026-07-18 · add listEmployees +
+saveSafetyMeeting`). Companion deployed to Vercel via `main`.
 
-## Files to model the build after
+## First-run check
 
-- `src/app/add-bill/page.tsx` — closest existing pattern: a form + file/image handling page.
-- `src/app/api/team/route.ts` — DB read/write route pattern (Drizzle).
-- `src/db/schema.ts` + `src/db/index.ts` — how tables + `ensureDb()` work.
-- `src/components/*` — existing UI building blocks (JobPicker, selects, PageTitle, TabBar).
-- `src/middleware.ts` / `src/auth.ts` — the Google-sign-in allowlist this page sits behind.
+Run `diagnoseSafetyMeeting()` from the Apps Script Run dropdown (read-only — lists
+Active employees + reports the folder/tab plan). Then open `/safety-meeting`,
+add one signed test attendee, Save, and confirm the roster PDF + folder links.
 
-## Stack conventions (from README)
+## Possible v2
 
-Next.js App Router + TS + Tailwind. Server routes hold all secrets. Google sign-in
-allowlisted. Deploy: Vercel (`vercel.json`).
-
-## Suggested first steps on the laptop
-
-1. `npm install`, then `npm run dev` to confirm the app boots.
-2. Answer fork #1 (employee source) — get the Project Database spreadsheet ID + Employee
-   tab columns.
-3. Scaffold the route + a stub `/api/employees`, render the header fields + one signer row.
-4. Wire the signature canvas, then the "Add" → store path (fork #2).
+- A read-back / index view of past meetings (currently write-only; records live
+  in the Sheet + Drive).
+- Reminders / cadence tracking (e.g. weekly toolbox talks).
+- Let an attendee not in the Employee tab be entered by hand (today the dropdown
+  is Active employees only).
