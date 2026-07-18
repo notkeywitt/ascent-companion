@@ -96,5 +96,15 @@ page (Companion = UI; Apps Script holds the Sheets grant).
   changed fields are sent on save, so untouched cells keep their sheet formatting.
 - Edits write to the **live production sheet** — verify with one test edit after
   deploy (change a phone, Save, confirm it lands in the Employee tab).
-- v2 ideas: add / retire employees (today it's edit-only); make Employee ID
-  editable behind a guard if ever needed.
+
+**JobTread link (added same day):** each row shows an indicator — green ✓ + JT
+name if **linked**, an amber one-click **"Link: <name>"** when a confident JT match
+is found, or "not in JobTread". The link is stored in two auto-created Employee-tab
+columns **"JobTread User ID" / "JobTread User Name"** (via `updateEmployee` +
+`_emplEnsureColumns`). JT users come from the existing `/api/jt-users`; the edit
+modal has a dropdown to link/change/unlink manually (marks users already linked to
+someone else). Match heuristic is name-based and only auto-suggests on a single
+unambiguous internal match — everything else is manual.
+
+- v2 ideas: add / retire employees (today it's edit-only); a reverse "unlinked
+  JobTread users" view; make Employee ID editable behind a guard if ever needed.

@@ -16,9 +16,17 @@ interface Employee {
   birthday: string;
   dl: string;
   role: string;
+  jtUserId: string;
+  jtUserName: string;
 }
 
-type EditableKey = keyof Omit<Employee, "id">;
+interface JtUser {
+  id: string;
+  name: string;
+  isInternal: boolean;
+}
+
+type EditableKey = keyof Omit<Employee, "id" | "jtUserId" | "jtUserName">;
 
 const FIELDS: { key: EditableKey; label: string; wide?: boolean }[] = [
   { key: "firstName", label: "First name" },
@@ -42,9 +50,13 @@ const statusClass = (s: string) => {
   return "text-accent bg-accent/10";
 };
 
+const norm = (s: string) => s.trim().toLowerCase();
+
 export default function EmployeesPage() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [statuses, setStatuses] = useState<string[]>([]);
+  const [jtUsers, setJtUsers] = useState<JtUser[]>([]);
+  const [jtErr, setJtErr] = useState("");
   const [loading, setLoading] = useState(true);
   const [loadErr, setLoadErr] = useState("");
 
@@ -57,6 +69,7 @@ export default function EmployeesPage() {
   const [form, setForm] = useState<Employee | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveErr, setSaveErr] = useState("");
+  const [linkingId, setLinkingId] = useState(""); // employee id being one-click linked
 
   useEffect(() => {
     (async () => {
@@ -75,7 +88,51 @@ export default function EmployeesPage() {
         setLoading(false);
       }
     })();
+    // JobTread users load independently — the roster still works without them.
+    (async () => {
+      try {
+        const res = await fetch("/api/jt-users");
+        const json = await res.json();
+        if (!res.ok || json.error) {
+          setJtErr(json.error || "Could not load JobTread users.");
+          return;
+        }
+        setJtUsers(json.users ?? []);
+      } catch (e) {
+        setJtErr(e instanceof Error ? e.message : "Could not load JobTread users.");
+      }
+    })();
   }, []);
+
+  const jtById = useMemo(() => {
+    const m = new Map<string, JtUser>();
+    jtUsers.forEach((u) => m.set(u.id, u));
+    return m;
+  }, [jtUsers]);
+
+  // JobTread user ids already linked to some employee → { id: employee display }.
+  const linkedBy = useMemo(() => {
+    const m = new Map<string, string>();
+    employees.forEach((e) => {
+      if (e.jtUserId) m.set(e.jtUserId, `${e.firstName} ${e.lastName}`.trim());
+    });
+    return m;
+  }, [employees]);
+
+  // A confident, unambiguous JobTread match for an unlinked employee (exactly one
+  // internal, not-already-linked user matches on name) — drives the one-click Link.
+  function suggestFor(e: Employee): JtUser | null {
+    if (e.jtUserId) return null;
+    const full = norm(`${e.firstName} ${e.lastName}`);
+    const first = norm(e.firstName);
+    const matches = jtUsers.filter((u) => {
+      if (!u.isInternal || linkedBy.has(u.id)) return false;
+      const n = norm(u.name);
+      if (!n) return false;
+      return n === full || n === first || full.includes(n) || n.includes(full);
+    });
+    return matches.length === 1 ? matches[0] : null;
+  }
 
   const view = useMemo(() => {
     const needle = q.trim().toLowerCase();
@@ -83,7 +140,7 @@ export default function EmployeesPage() {
       .filter((e) => statusFilter === "All" || e.status === statusFilter)
       .filter((e) => {
         if (!needle) return true;
-        return `${e.firstName} ${e.lastName} ${e.position} ${e.email} ${e.phone} ${e.role} ${e.dl} ${e.address}`
+        return `${e.firstName} ${e.lastName} ${e.position} ${e.email} ${e.phone} ${e.role} ${e.dl} ${e.address} ${e.jtUserName}`
           .toLowerCase()
           .includes(needle);
       });
@@ -100,6 +157,8 @@ export default function EmployeesPage() {
     return rows;
   }, [employees, q, statusFilter, sortKey, sortDir]);
 
+  const linkedCount = useMemo(() => employees.filter((e) => e.jtUserId).length, [employees]);
+
   function toggleSort(key: SortKey) {
     if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
     else {
@@ -114,12 +173,44 @@ export default function EmployeesPage() {
     setSaveErr("");
   }
 
+  // Persist a set of field changes for one employee and merge the result in.
+  async function patchEmployee(id: string, fields: Record<string, string>) {
+    const res = await fetch("/api/employees", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, fields }),
+    });
+    const json = await res.json();
+    if (!res.ok || json.ok === false) throw new Error(json.error || "Save failed.");
+    const updated: Employee = json.employee;
+    setEmployees((list) => list.map((e) => (e.id === updated.id ? updated : e)));
+    if (updated.status && !statuses.includes(updated.status)) {
+      setStatuses((s) => [...s, updated.status].sort());
+    }
+    return updated;
+  }
+
+  async function quickLink(e: Employee, u: JtUser) {
+    setLinkingId(e.id);
+    try {
+      await patchEmployee(e.id, { jtUserId: u.id, jtUserName: u.name });
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Link failed.");
+    } finally {
+      setLinkingId("");
+    }
+  }
+
   async function save() {
     if (!form || !editing) return;
-    // Send only changed editable fields — untouched cells keep their sheet format.
-    const changes: Partial<Record<EditableKey, string>> = {};
+    // Only changed fields — untouched cells keep their sheet formatting.
+    const changes: Record<string, string> = {};
     for (const f of FIELDS) {
       if (form[f.key] !== editing[f.key]) changes[f.key] = form[f.key];
+    }
+    if (form.jtUserId !== editing.jtUserId) {
+      changes.jtUserId = form.jtUserId;
+      changes.jtUserName = form.jtUserName;
     }
     if (Object.keys(changes).length === 0) {
       setEditing(null);
@@ -128,21 +219,7 @@ export default function EmployeesPage() {
     setSaving(true);
     setSaveErr("");
     try {
-      const res = await fetch("/api/employees", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: editing.id, fields: changes }),
-      });
-      const json = await res.json();
-      if (!res.ok || json.ok === false) {
-        setSaveErr(json.error || "Save failed.");
-        return;
-      }
-      const updated: Employee = json.employee;
-      setEmployees((list) => list.map((e) => (e.id === updated.id ? updated : e)));
-      if (updated.status && !statuses.includes(updated.status)) {
-        setStatuses((s) => [...s, updated.status].sort());
-      }
+      await patchEmployee(editing.id, changes);
       setEditing(null);
     } catch (e) {
       setSaveErr(e instanceof Error ? e.message : "Save failed.");
@@ -164,6 +241,48 @@ export default function EmployeesPage() {
       </button>
     </th>
   );
+
+  // The JobTread cell for a table row.
+  function JtCell({ e }: { e: Employee }) {
+    if (e.jtUserId) {
+      const live = jtById.get(e.jtUserId);
+      const name = live?.name || e.jtUserName || "linked";
+      return (
+        <span
+          title={live ? `JobTread: ${name}` : `Linked to ${name} (not found in current JobTread users)`}
+          className={
+            "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold " +
+            (live || !jtUsers.length
+              ? "text-green-700 bg-green-100 dark:text-green-300 dark:bg-green-950/50"
+              : "text-amber-700 bg-amber-100 dark:text-amber-300 dark:bg-amber-950/50")
+          }
+        >
+          ✓ {name}
+        </span>
+      );
+    }
+    const sug = suggestFor(e);
+    if (sug) {
+      return (
+        <button
+          onClick={() => quickLink(e, sug)}
+          disabled={linkingId === e.id}
+          title={`Link to JobTread user "${sug.name}"`}
+          className="inline-flex items-center gap-1 rounded-full border border-amber-400 px-2 py-0.5 text-[11px] font-semibold text-amber-700 hover:bg-amber-50 disabled:opacity-40 dark:text-amber-300 dark:hover:bg-amber-950/40"
+        >
+          {linkingId === e.id ? "Linking…" : `Link: ${sug.name}`}
+        </button>
+      );
+    }
+    return <span className="text-[11px] text-neutral-400">not in JobTread</span>;
+  }
+
+  // Internal users first for the modal dropdown; keep a linked-but-external user
+  // visible by appending it if it isn't already listed.
+  const dropdownUsers = useMemo(() => {
+    const internal = jtUsers.filter((u) => u.isInternal);
+    return internal;
+  }, [jtUsers]);
 
   return (
     <main className="mx-auto max-w-4xl px-4 pb-24 pt-6">
@@ -196,31 +315,36 @@ export default function EmployeesPage() {
           {loadErr}
         </div>
       )}
+      {jtErr && !loadErr && (
+        <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-700 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300">
+          JobTread users couldn&apos;t load ({jtErr}) — linking is unavailable, existing links still show.
+        </div>
+      )}
       {loading && <p className="text-sm text-neutral-500">Loading…</p>}
 
       {!loading && !loadErr && (
         <>
-          <div className="mb-2 text-xs text-neutral-500">
-            {view.length} of {employees.length}
+          <div className="mb-2 flex items-center justify-between text-xs text-neutral-500">
+            <span>
+              {view.length} of {employees.length}
+            </span>
+            <span>{linkedCount} linked to JobTread</span>
           </div>
           <div className="overflow-x-auto rounded-xl border border-neutral-200 dark:border-neutral-800">
-            <table className="w-full min-w-[40rem] text-sm">
+            <table className="w-full min-w-[44rem] text-sm">
               <thead className="bg-neutral-50 text-neutral-500 dark:bg-neutral-900">
                 <tr>
                   <SortHead label="Name" k="name" />
                   <SortHead label="Position" k="position" />
                   <SortHead label="Status" k="status" />
+                  <th className="px-3 py-2 text-left font-semibold">JobTread</th>
                   <th className="px-3 py-2 text-left font-semibold">Phone</th>
-                  <th className="px-3 py-2 text-left font-semibold">Email</th>
                   <th className="px-3 py-2" />
                 </tr>
               </thead>
               <tbody>
                 {view.map((e) => (
-                  <tr
-                    key={e.id}
-                    className="border-t border-neutral-100 dark:border-neutral-800/70"
-                  >
+                  <tr key={e.id} className="border-t border-neutral-100 dark:border-neutral-800/70">
                     <td className="px-3 py-2 font-medium">
                       {e.firstName} {e.lastName}
                     </td>
@@ -234,10 +358,10 @@ export default function EmployeesPage() {
                         </span>
                       )}
                     </td>
-                    <td className="px-3 py-2 text-neutral-600 dark:text-neutral-400">{e.phone}</td>
-                    <td className="max-w-[14rem] truncate px-3 py-2 text-neutral-600 dark:text-neutral-400">
-                      {e.email}
+                    <td className="px-3 py-2">
+                      <JtCell e={e} />
                     </td>
+                    <td className="px-3 py-2 text-neutral-600 dark:text-neutral-400">{e.phone}</td>
                     <td className="px-3 py-2 text-right">
                       <button
                         onClick={() => openEdit(e)}
@@ -276,6 +400,45 @@ export default function EmployeesPage() {
                 {editing.firstName} {editing.lastName}
               </h2>
               <span className="text-xs text-neutral-500">ID: {editing.id}</span>
+            </div>
+
+            {/* JobTread link */}
+            <div className="mb-4 rounded-lg border border-neutral-200 p-3 dark:border-neutral-800">
+              <label className="mb-1 block text-xs font-semibold text-neutral-500">JobTread user</label>
+              {jtErr ? (
+                <p className="text-sm text-neutral-500">Unavailable — JobTread users didn&apos;t load.</p>
+              ) : (
+                <select
+                  value={form.jtUserId}
+                  onChange={(ev) => {
+                    const id = ev.target.value;
+                    const u = jtById.get(id);
+                    setForm({ ...form, jtUserId: id, jtUserName: u?.name ?? "" });
+                  }}
+                  className={inputCls}
+                >
+                  <option value="">— Not linked —</option>
+                  {/* keep a currently-linked user selectable even if external/absent */}
+                  {form.jtUserId && !dropdownUsers.some((u) => u.id === form.jtUserId) && (
+                    <option value={form.jtUserId}>
+                      {jtById.get(form.jtUserId)?.name ?? form.jtUserName ?? form.jtUserId}
+                    </option>
+                  )}
+                  {dropdownUsers.map((u) => {
+                    const other = linkedBy.get(u.id);
+                    const otherLabel =
+                      other && other !== `${editing.firstName} ${editing.lastName}`.trim()
+                        ? ` — linked to ${other}`
+                        : "";
+                    return (
+                      <option key={u.id} value={u.id}>
+                        {u.name}
+                        {otherLabel}
+                      </option>
+                    );
+                  })}
+                </select>
+              )}
             </div>
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

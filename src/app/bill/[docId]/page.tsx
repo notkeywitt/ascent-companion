@@ -111,6 +111,7 @@ function BillDetail() {
   const [writes, setWrites] = useState(false);
   const [queue, setQueue] = useState<string[]>([]);
   const [reassignMsg, setReassignMsg] = useState("");
+  const [bulkCode, setBulkCode] = useState("");
 
   useEffect(() => {
     let alive = true;
@@ -437,6 +438,19 @@ function BillDetail() {
     }
   }
 
+  // Stage one cost code onto every line (into `picked`, so it flows through the
+  // same pending/Save-changes path as per-line edits). Re-coding is allowed in
+  // any status — only qty/unit/description are locked once a bill leaves draft —
+  // so this works on payable/paid bills too. Nothing is written until Save.
+  function applyCodeToAll(id: string) {
+    if (!id || !lines) return;
+    setPicked((p) => {
+      const n = { ...p };
+      for (const l of lines) n[l.id] = id;
+      return n;
+    });
+  }
+
   return (
     <main className="mx-auto max-w-xl px-4 pb-24 pt-6">
       <div className="flex items-center justify-between">
@@ -637,6 +651,27 @@ function BillDetail() {
               Qty &amp; unit cost are locked once a bill is payable/paid — you can still re-code it.
               To edit amounts, set the bill back to Draft in JobTread.
             </p>
+          )}
+
+          {budget.length > 0 && lines.length > 1 && (
+            <div className="mb-3 rounded-xl border border-dashed border-neutral-300 bg-neutral-50 p-3 dark:border-neutral-700 dark:bg-neutral-900/50">
+              <span className="mb-1.5 block text-[10px] uppercase tracking-wide text-neutral-400">
+                Apply one code to all {lines.length} lines
+              </span>
+              <div className="flex items-center gap-2">
+                <div className="min-w-0 flex-1">
+                  <CostCodeSelect options={budget} value={bulkCode} onChange={setBulkCode} />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => applyCodeToAll(bulkCode)}
+                  disabled={!bulkCode}
+                  className="shrink-0 rounded-lg bg-accent px-3 py-2 text-sm font-semibold text-white hover:bg-accent-hover disabled:opacity-40"
+                >
+                  Apply to all
+                </button>
+              </div>
+            </div>
           )}
 
           <ul className="space-y-2">
