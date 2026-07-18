@@ -59,6 +59,13 @@ export async function ensureDb() {
       created_at TEXT NOT NULL
     )
   `);
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS saved_bills (
+      doc_id TEXT PRIMARY KEY,
+      saved_at TEXT NOT NULL,
+      saved_by TEXT NOT NULL DEFAULT ''
+    )
+  `);
   ensured = true;
 }
 

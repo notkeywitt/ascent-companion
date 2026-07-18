@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { updateLine } from "@/lib/jobtread";
 import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
+import { db, ensureDb } from "@/db";
+import { savedBills } from "@/db/schema";
 
 interface Change {
   costItemId: string;
@@ -23,7 +25,7 @@ export async function POST(req: NextRequest) {
   if (!hasGrant()) {
     return NextResponse.json({ error: "JT_GRANT_KEY is not set." }, { status: 400 });
   }
-  let body: { changes?: Change[] };
+  let body: { changes?: Change[]; docId?: string };
   try {
     body = await req.json();
   } catch {
@@ -62,5 +64,22 @@ export async function POST(req: NextRequest) {
       });
     }
   }
+
+  // Mark this bill as "saved" (Save clicked + at least one line written) so the
+  // coding queue can flag bills the office has already worked. Best-effort — a
+  // DB hiccup here must never fail the save itself.
+  if (body.docId && results.some((r) => r.ok)) {
+    try {
+      await ensureDb();
+      const now = new Date().toISOString();
+      await db
+        .insert(savedBills)
+        .values({ docId: body.docId, savedAt: now })
+        .onConflictDoUpdate({ target: savedBills.docId, set: { savedAt: now } });
+    } catch {
+      /* indicator is best-effort */
+    }
+  }
+
   return NextResponse.json({ previewed: false, wrote: true, results });
 }

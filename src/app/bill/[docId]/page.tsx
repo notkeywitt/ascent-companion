@@ -388,7 +388,7 @@ function BillDetail() {
       const res = await fetch("/api/code", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ changes: pending }),
+        body: JSON.stringify({ changes: pending, docId }),
       });
       const json = await res.json();
       if (!res.ok) setSaveMsg(json.error ?? "Save failed");

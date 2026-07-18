@@ -46,3 +46,17 @@ export const allowedUsers = sqliteTable("allowed_users", {
 });
 
 export type AllowedUser = typeof allowedUsers.$inferSelect;
+
+/**
+ * Bills whose coding has been saved from the Companion at least once — i.e. the
+ * "Save" button was clicked and the write to JobTread succeeded. Used to show a
+ * "saved" indicator in the coding queue so the office can tell at a glance which
+ * draft bills they've already worked. Keyed by the JobTread document id.
+ */
+export const savedBills = sqliteTable("saved_bills", {
+  docId: text("doc_id").primaryKey(), // JobTread vendorBill document id
+  savedAt: text("saved_at").notNull(), // ISO timestamp of the most recent save
+  savedBy: text("saved_by").notNull().default(""), // email, if known
+});
+
+export type SavedBill = typeof savedBills.$inferSelect;
