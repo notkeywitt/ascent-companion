@@ -691,6 +691,16 @@ export async function updateLine(
  * lineItems — proven in the production Apps Script push). jobCostItemId is
  * optional: omit it and the line lands uncoded. Tax stays at the document level
  * (nonRecoverableTax), so new lines are non-taxable like every other bill line.
+ *
+ * TAX-CARVE GUARD (confirmed live 2026-07-18): if the target bill carries a
+ * non-zero document `taxRate` (bills NOT created by the Companion can — e.g. an
+ * old empty JobTread bill), JobTread treats the entered amount as tax-INCLUSIVE
+ * and divides it (e.g. 79.99 → cost 73.23 + tax 6.76), so the amount is wrong.
+ * We defend the way createVendorBill does — force the document to `taxRate: 0`
+ * first (tax on a bill lives in nonRecoverableTax, never a per-line rate) — and,
+ * as a backstop, re-assert the exact amount with the confirmed updateCostItem
+ * once the rate is 0 so any residual carve is corrected. Both extra writes are
+ * best-effort: never fail the add over them.
  */
 export async function createLine(
   cfg: PaveConfig,
@@ -703,11 +713,23 @@ export async function createLine(
     description?: string;
   },
 ): Promise<{ id: string }> {
+  const quantity = fields.quantity ?? 1;
+  const unitCost = fields.unitCost ?? 0;
+
+  // 1) Force taxRate 0 so JT takes the amount at face value (not tax-inclusive).
+  try {
+    await pave(cfg, {
+      updateDocument: { $: { id: docId, taxRate: 0 }, document: { $: { id: docId }, id: {} } },
+    });
+  } catch {
+    /* best-effort — the re-assert below corrects any carve that slips through */
+  }
+
   const $: Record<string, unknown> = {
     documentId: docId,
     name: (fields.name || "Line item").substring(0, 250),
-    quantity: fields.quantity ?? 1,
-    unitCost: fields.unitCost ?? 0,
+    quantity,
+    unitCost,
     isTaxable: false,
   };
   if (fields.jobCostItemId) $.jobCostItemId = fields.jobCostItemId;
@@ -717,6 +739,20 @@ export async function createLine(
   });
   const id = r?.createCostItem?.createdCostItem?.id;
   if (!id) throw new Error("createCostItem returned no cost item id.");
+
+  // 2) Backstop: with the document now at taxRate 0, re-assert the amount so a
+  //    tax-inclusive carve from the insert lands back at the entered value.
+  try {
+    await pave(cfg, {
+      updateCostItem: {
+        $: { id, unitCost, quantity, isTaxable: false },
+        costItem: { $: { id }, id: {} },
+      },
+    });
+  } catch {
+    /* the line exists; don't fail the add over the re-assert */
+  }
+
   return { id };
 }
 
