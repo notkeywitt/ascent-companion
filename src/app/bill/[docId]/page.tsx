@@ -503,7 +503,7 @@ function BillDetail() {
         {jobId && (
           <JtLink
             href={`https://app.jobtread.com/jobs/${jobId}/documents/${docId}`}
-            className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-accent"
+            className="mt-2 inline-flex items-center gap-1 rounded-xl border border-accent px-4 py-2 text-sm font-semibold text-accent hover:bg-accent/10"
           >
             Open in JobTread ↗
           </JtLink>
@@ -555,6 +555,9 @@ function BillDetail() {
           </div>
         )}
 
+        {/* Type (Bill/Expense) and Push-to-QB toggles hidden 2026-07-18 per request.
+            Kept commented (with their patchBill/isExpense/pushToQb handlers) for easy restore. */}
+        {/*
         <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2">
           <div className="flex items-center gap-2">
             <span className="text-[10px] uppercase tracking-wide text-neutral-400">Type</span>
@@ -604,7 +607,11 @@ function BillDetail() {
             </div>
           </div>
         </div>
+        */}
 
+        {/* Approve-for-payment / Record-payment action hidden 2026-07-18 per request.
+            Status is still shown via the BillStatusBadge above. approveBill kept for restore. */}
+        {/*
         <div className="mt-4">
           {header?.status === "approved" ? (
             <div className="inline-flex items-center gap-2 rounded-lg bg-emerald-50 px-3 py-1.5 text-sm font-semibold text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
@@ -628,6 +635,7 @@ function BillDetail() {
             </button>
           )}
         </div>
+        */}
       </header>
 
       {loading && <p className="text-sm text-neutral-500">Loading…</p>}
@@ -673,6 +681,37 @@ function BillDetail() {
               </div>
             </div>
           )}
+
+          <div className="mb-3 space-y-2">
+            <button
+              type="button"
+              onClick={saveCoding}
+              disabled={saving || pending.length === 0}
+              className="w-full rounded-xl bg-accent px-4 py-3 text-sm font-semibold text-white hover:bg-accent-hover disabled:opacity-40"
+            >
+              {saving
+                ? "Saving…"
+                : pending.length
+                  ? `Save changes (${pending.length})`
+                  : "No changes to save"}
+            </button>
+            {saveMsg && (
+              <p className="rounded-lg bg-neutral-100 px-3 py-2 text-xs dark:bg-neutral-800">
+                {saveMsg}
+              </p>
+            )}
+            {!writes ? (
+              <p className="rounded-lg bg-amber-50 px-4 py-3 text-xs text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+                Writes are OFF (COMPANION_WRITES_ENABLED not <span className="font-mono">true</span> on
+                this deploy). Save shows a preview and sends nothing to JobTread. Set it in Vercel and{" "}
+                <b>redeploy</b>.
+              </p>
+            ) : (
+              <p className="rounded-lg bg-emerald-50 px-4 py-3 text-xs text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
+                Writes are ON — Save goes straight to JobTread.
+              </p>
+            )}
+          </div>
 
           <ul className="space-y-2">
             {lines.map((l) => {
@@ -762,37 +801,6 @@ function BillDetail() {
               );
             })}
           </ul>
-
-          <div className="mt-6 space-y-2">
-            <button
-              type="button"
-              onClick={saveCoding}
-              disabled={saving || pending.length === 0}
-              className="w-full rounded-xl bg-accent px-4 py-3 text-sm font-semibold text-white hover:bg-accent-hover disabled:opacity-40"
-            >
-              {saving
-                ? "Saving…"
-                : pending.length
-                  ? `Save changes (${pending.length})`
-                  : "No changes to save"}
-            </button>
-            {saveMsg && (
-              <p className="rounded-lg bg-neutral-100 px-3 py-2 text-xs dark:bg-neutral-800">
-                {saveMsg}
-              </p>
-            )}
-            {!writes ? (
-              <p className="rounded-lg bg-amber-50 px-4 py-3 text-xs text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
-                Writes are OFF (COMPANION_WRITES_ENABLED not <span className="font-mono">true</span> on
-                this deploy). Save/approve show a preview and send nothing to JobTread. Set it in
-                Vercel and <b>redeploy</b>.
-              </p>
-            ) : (
-              <p className="rounded-lg bg-emerald-50 px-4 py-3 text-xs text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
-                Writes are ON — Save/approve go straight to JobTread.
-              </p>
-            )}
-          </div>
         </>
       )}
 
