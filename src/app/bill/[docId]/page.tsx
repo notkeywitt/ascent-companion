@@ -541,6 +541,20 @@ function BillDetail() {
           {header && (
             <button
               type="button"
+              onClick={saveCoding}
+              disabled={saving || pending.length === 0}
+              className="inline-flex items-center rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-accent-hover disabled:opacity-40"
+            >
+              {saving
+                ? "Saving…"
+                : pending.length
+                  ? `Save changes (${pending.length})`
+                  : "No changes to save"}
+            </button>
+          )}
+          {header && (
+            <button
+              type="button"
               onClick={toggleReviewed}
               disabled={reviewLoading}
               title={reviewed ? "Marked reviewed — click to unmark" : "Mark this bill reviewed"}
@@ -555,6 +569,11 @@ function BillDetail() {
             </button>
           )}
         </div>
+        {saveMsg && (
+          <p className="mt-2 rounded-lg bg-neutral-100 px-3 py-2 text-xs dark:bg-neutral-800">
+            {saveMsg}
+          </p>
+        )}
         <div className="mt-3 flex items-center gap-2">
           <span className="text-[10px] uppercase tracking-wide text-neutral-400">Billing month</span>
           <select
@@ -729,24 +748,7 @@ function BillDetail() {
             </div>
           )}
 
-          <div className="mb-3 space-y-2">
-            <button
-              type="button"
-              onClick={saveCoding}
-              disabled={saving || pending.length === 0}
-              className="w-full rounded-xl bg-accent px-4 py-3 text-sm font-semibold text-white hover:bg-accent-hover disabled:opacity-40"
-            >
-              {saving
-                ? "Saving…"
-                : pending.length
-                  ? `Save changes (${pending.length})`
-                  : "No changes to save"}
-            </button>
-            {saveMsg && (
-              <p className="rounded-lg bg-neutral-100 px-3 py-2 text-xs dark:bg-neutral-800">
-                {saveMsg}
-              </p>
-            )}
+          <div className="mb-3">
             {!writes ? (
               <p className="rounded-lg bg-amber-50 px-4 py-3 text-xs text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
                 Writes are OFF (COMPANION_WRITES_ENABLED not <span className="font-mono">true</span> on
