@@ -18,6 +18,7 @@ const TABS: { label: string; href: string; match: (p: string) => boolean }[] = [
   { label: "Needs Project", href: "/needs-project", match: (p) => p.startsWith("/needs-project") },
   { label: "Labor", href: "/labor-import", match: (p) => p.startsWith("/labor-import") },
   { label: "Safety Meeting", href: "/safety-meeting", match: (p) => p.startsWith("/safety-meeting") },
+  { label: "Employees", href: "/employees", match: (p) => p.startsWith("/employees") },
   { label: "RFIs", href: "/rfis", match: (p) => p.startsWith("/rfis") },
   { label: "Requests", href: "/requests", match: (p) => p.startsWith("/requests") },
   { label: "Admin", href: "/admin", match: (p) => p.startsWith("/admin") },

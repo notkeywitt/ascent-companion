@@ -73,3 +73,28 @@ add one signed test attendee, Save, and confirm the roster PDF + folder links.
 - Reminders / cadence tracking (e.g. weekly toolbox talks).
 - Let an attendee not in the Employee tab be entered by hand (today the dropdown
   is Active employees only).
+
+---
+
+# Employees page (`/employees`) — BUILT + deployed 2026-07-18
+
+A roster-management tab: list every employee from the Project Database **Employee**
+tab, search/filter (by status), sort (Name/Position/Status), and **edit** their
+details back to that same sheet. Same Apps Script proxy architecture as the safety
+page (Companion = UI; Apps Script holds the Sheets grant).
+
+- **Apps Script** `Employees.js` — `listEmployeesFull` (all employees, all fields +
+  distinct statuses) and `updateEmployee` (`{id, fields}` → per-cell write matched
+  by **Employee ID**, forced text format, user-lock serialized). `diagnoseEmployees()`
+  read-only probe. Wired into `doPost` + `WEBAPP_ACTIONS`. The Employee tab is NOT
+  part of the JT mirror, so edits can't fight the hourly sync.
+- **Companion** — `/api/employees` route extended: `GET ?full=1` → full list,
+  `PATCH {id, fields}` → edit (default `GET` still returns the minimal Active list
+  the safety page's dropdown uses). `src/app/employees/page.tsx` (table + search +
+  status filter + sortable headers + edit modal). TabBar "Employees" entry.
+- **Employee ID is the read-only row key** (not editable — it's the join key). Only
+  changed fields are sent on save, so untouched cells keep their sheet formatting.
+- Edits write to the **live production sheet** — verify with one test edit after
+  deploy (change a phone, Save, confirm it lands in the Employee tab).
+- v2 ideas: add / retire employees (today it's edit-only); make Employee ID
+  editable behind a guard if ever needed.
