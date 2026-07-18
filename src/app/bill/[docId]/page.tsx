@@ -114,6 +114,7 @@ function BillDetail() {
   const [bulkCode, setBulkCode] = useState("");
   const [reviewed, setReviewed] = useState(false);
   const [reviewLoading, setReviewLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [addingLine, setAddingLine] = useState(false);
   const [newLine, setNewLine] = useState({ name: "", quantity: "1", unitCost: "0", code: "" });
   const [addLineSaving, setAddLineSaving] = useState(false);
@@ -290,6 +291,15 @@ function BillDetail() {
     } catch {
       /* keep current state */
     }
+  }
+
+  // Manual refresh — re-pull the bill from JobTread (its SPA doesn't push API
+  // writes back to us, and the mirror runs on its own clock).
+  async function refresh() {
+    setRefreshing(true);
+    setSaveMsg("");
+    await loadBill();
+    setRefreshing(false);
   }
 
   // A Bill is "approved for payment" (payable) = JobTread status `pending`.
@@ -520,12 +530,13 @@ function BillDetail() {
 
   return (
     <main className="mx-auto max-w-xl px-4 pb-24 pt-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <Link href={`/?jobId=${encodeURIComponent(jobId)}`} className="text-sm font-semibold text-accent">
           ‹ Coding queue
         </Link>
-        {qIdx >= 0 && queue.length > 1 && (
-          <div className="flex items-center gap-2 text-sm">
+        <div className="flex items-center gap-2 text-sm">
+          {qIdx >= 0 && queue.length > 1 && (
+            <>
             {prevId ? (
               <Link
                 href={`/bill/${prevId}?jobId=${encodeURIComponent(jobId)}`}
@@ -557,8 +568,19 @@ function BillDetail() {
                 Next ›
               </span>
             )}
-          </div>
-        )}
+            </>
+          )}
+          <button
+            type="button"
+            onClick={refresh}
+            disabled={refreshing}
+            title="Refresh from JobTread"
+            aria-label="Refresh"
+            className="inline-flex items-center gap-1 rounded-lg border border-neutral-300 px-3 py-1.5 font-semibold text-neutral-600 hover:bg-neutral-100 disabled:opacity-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+          >
+            {refreshing ? "Refreshing…" : "⟳ Refresh"}
+          </button>
+        </div>
       </div>
 
       <header className="mb-4 mt-2">
