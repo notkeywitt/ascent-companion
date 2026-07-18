@@ -120,7 +120,8 @@ export interface DraftBill {
   number?: string; // JobTread document number
   externalId?: string; // the ingested ExpID / vendor invoice number
   status?: string;
-  cost?: number;
+  cost?: number; // pre-tax line subtotal
+  nonRecoverableTax?: number; // recorded sales tax (document-level, "Tax")
   issueDate?: string;
   jobId?: string; // the bill's job (populated only by the org-wide query)
   jobName?: string;
@@ -142,9 +143,9 @@ export async function getDraftBills(cfg: PaveConfig, jobId: string): Promise<Dra
     },
   });
   const rich = {
-    id: {}, name: {}, subject: {}, fromName: {}, number: {}, externalId: {}, status: {}, cost: {}, issueDate: {},
+    id: {}, name: {}, subject: {}, fromName: {}, number: {}, externalId: {}, status: {}, cost: {}, nonRecoverableTax: {}, issueDate: {},
   };
-  const min = { id: {}, name: {}, status: {}, cost: {}, issueDate: {} };
+  const min = { id: {}, name: {}, status: {}, cost: {}, nonRecoverableTax: {}, issueDate: {} };
   let r: any;
   try {
     r = await pave(cfg, q(rich));
@@ -178,10 +179,10 @@ export async function getAllDraftBills(cfg: PaveConfig): Promise<DraftBill[]> {
     },
   });
   const rich = {
-    id: {}, name: {}, subject: {}, fromName: {}, number: {}, externalId: {}, status: {}, cost: {}, issueDate: {},
+    id: {}, name: {}, subject: {}, fromName: {}, number: {}, externalId: {}, status: {}, cost: {}, nonRecoverableTax: {}, issueDate: {},
     job: { id: {}, name: {} },
   };
-  const min = { id: {}, name: {}, status: {}, cost: {}, issueDate: {}, job: { id: {}, name: {} } };
+  const min = { id: {}, name: {}, status: {}, cost: {}, nonRecoverableTax: {}, issueDate: {}, job: { id: {}, name: {} } };
   const flatten = (nodes: any[]): DraftBill[] =>
     nodes.map((n) => ({ ...n, jobId: n?.job?.id, jobName: n?.job?.name }));
 
@@ -224,6 +225,8 @@ export interface BillDetail {
     cost?: number;
     issueDate?: string;
     qboIsIgnored?: boolean;
+    nonRecoverableTax?: number; // recorded sales tax (document-level, "Tax")
+    nonRecoverableTaxName?: string;
   };
   lines: BillLine[];
 }
@@ -248,12 +251,16 @@ export async function getBillDetail(cfg: PaveConfig, docId: string): Promise<Bil
     document: {
       $: { id: docId },
       id: {}, name: {}, status: {}, cost: {}, issueDate: {}, subject: {}, fromName: {}, number: {}, externalId: {},
-      qboIsIgnored: {},
+      qboIsIgnored: {}, nonRecoverableTax: {}, nonRecoverableTaxName: {},
       ...lineSel,
     },
   };
   const min = {
-    document: { $: { id: docId }, id: {}, name: {}, status: {}, cost: {}, issueDate: {}, ...lineSel },
+    document: {
+      $: { id: docId },
+      id: {}, name: {}, status: {}, cost: {}, issueDate: {}, nonRecoverableTax: {},
+      ...lineSel,
+    },
   };
   let d: any;
   try {
@@ -274,6 +281,8 @@ export async function getBillDetail(cfg: PaveConfig, docId: string): Promise<Bil
       cost: d.cost,
       issueDate: d.issueDate,
       qboIsIgnored: d.qboIsIgnored,
+      nonRecoverableTax: d.nonRecoverableTax,
+      nonRecoverableTaxName: d.nonRecoverableTaxName,
     },
     lines: d.costItems?.nodes ?? [],
   };

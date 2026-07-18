@@ -29,6 +29,8 @@ interface Header {
   cost?: number;
   issueDate?: string;
   qboIsIgnored?: boolean;
+  nonRecoverableTax?: number; // recorded sales tax (document-level, "Tax")
+  nonRecoverableTaxName?: string;
 }
 interface FileNode {
   id: string;
@@ -177,7 +179,13 @@ function BillDetail() {
   const prevId = qIdx > 0 ? queue[qIdx - 1] : null;
   const nextId = qIdx >= 0 && qIdx < queue.length - 1 ? queue[qIdx + 1] : null;
 
-  const total = lines?.reduce((s, l) => s + (l.cost ?? 0), 0) ?? 0;
+  // Line subtotal, plus any recorded document-level sales tax (nonRecoverableTax),
+  // so the displayed total matches what the vendor actually billed (JobTread keeps
+  // tax off the line items — see the tax model in billing.ts).
+  const subtotal = lines?.reduce((s, l) => s + (l.cost ?? 0), 0) ?? 0;
+  const tax = header?.nonRecoverableTax ?? 0;
+  const taxName = header?.nonRecoverableTaxName || "Tax";
+  const total = subtotal + tax;
   const invId = header?.externalId || header?.number || "";
   const vendor = header?.fromName || header?.subject || header?.name || "Vendor bill";
   // Sunset keeps "Vendor · Invoice ID"; every other vendor shows just its name.
@@ -776,11 +784,18 @@ function BillDetail() {
 
       {lines && (
         <>
-          <div className="mb-3 flex items-baseline justify-between">
-            <span className="text-sm font-medium">
-              {lines.length} {lines.length === 1 ? "line" : "lines"}
-            </span>
-            <span className="font-mono text-sm font-semibold">{money(total)}</span>
+          <div className="mb-3">
+            <div className="flex items-baseline justify-between">
+              <span className="text-sm font-medium">
+                {lines.length} {lines.length === 1 ? "line" : "lines"}
+              </span>
+              <span className="font-mono text-sm font-semibold">{money(total)}</span>
+            </div>
+            {tax > 0 && (
+              <div className="mt-0.5 text-right text-xs text-neutral-500">
+                subtotal {money(subtotal)} + {money(tax)} {taxName.toLowerCase()}
+              </div>
+            )}
           </div>
 
           {!linesEditable && (

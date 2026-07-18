@@ -13,7 +13,8 @@ interface Bill {
   number?: string;
   externalId?: string;
   status?: string;
-  cost?: number;
+  cost?: number; // pre-tax line subtotal
+  nonRecoverableTax?: number; // recorded sales tax (document-level, "Tax")
   issueDate?: string;
   jobId?: string; // set only when listing across all jobs
   jobName?: string;
@@ -45,6 +46,11 @@ function driveMainWindowToDoc(jobId: string, docId: string) {
     /* cross-origin / unframed — ignore */
   }
 }
+
+// A bill's amount owed = pre-tax subtotal + any recorded sales tax. JobTread
+// keeps tax off the line items (document-level nonRecoverableTax), so cost alone
+// understates a taxed bill.
+const billAmount = (b: Bill) => (b.cost ?? 0) + (b.nonRecoverableTax ?? 0);
 
 const invoiceId = (b: Bill) => b.externalId || b.number || "";
 // Sunset keeps "Vendor · Invoice ID" (their invoice # is how the office tells
@@ -88,7 +94,7 @@ function CodingQueue() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [jobId]);
 
-  const total = bills?.reduce((s, b) => s + (b.cost ?? 0), 0) ?? 0;
+  const total = bills?.reduce((s, b) => s + billAmount(b), 0) ?? 0;
 
   return (
     <main className="mx-auto max-w-xl px-4 pb-24 pt-6">
@@ -173,7 +179,7 @@ function CodingQueue() {
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="font-mono text-sm font-semibold">{money(b.cost)}</div>
+                        <div className="font-mono text-sm font-semibold">{money(billAmount(b))}</div>
                         <div className="text-xs text-neutral-500">{b.issueDate || ""}</div>
                       </div>
                     </div>
