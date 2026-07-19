@@ -45,13 +45,15 @@ export function JobPicker({
   }, []);
 
   const selected = jobs.find((j) => j.id === value);
+  // Empty value == the all-jobs view (job-scoped pages read no ?jobId as "every
+  // job"). Surface that as an explicit, selectable "All jobs" state.
   const label = selected
     ? jobLabel(selected)
     : value
       ? value // e.g. arrived from the panel before jobs loaded
       : loading
         ? "Loading jobs…"
-        : "Select a job…";
+        : "All jobs";
 
   const q = query.trim().toLowerCase();
   const filtered = q
@@ -86,6 +88,25 @@ export function JobPicker({
             className="border-b border-neutral-200 bg-transparent px-3 py-2 text-sm outline-none dark:border-neutral-800"
           />
           <ul className="overflow-auto">
+            {!q && (
+              <li>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onChange("");
+                    setOpen(false);
+                  }}
+                  className={`w-full px-3 py-2 text-left hover:bg-neutral-100 dark:hover:bg-neutral-800 ${
+                    value ? "" : "bg-neutral-100 dark:bg-neutral-800"
+                  }`}
+                >
+                  <span className="block truncate text-sm font-medium">All jobs</span>
+                  <span className="block truncate text-xs text-neutral-500">
+                    Draft bills across every job
+                  </span>
+                </button>
+              </li>
+            )}
             {filtered.map((j) => (
               <li key={j.id}>
                 <button
