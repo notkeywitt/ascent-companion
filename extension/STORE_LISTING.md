@@ -28,7 +28,10 @@ side panel next to JobTread that shows the currently-open job's vendor bills,
 unbilled expenses, and billing information from the Ascent companion app.
 
 Features:
-- Follows the job you have open in JobTread and shows its bills in the side panel.
+- A "Follow JobTread" switch links the panel and the JobTread window two ways:
+  the panel follows the job you open in JobTread, and selecting a bill in the
+  coding or invoicing queue opens that bill in the JobTread window too. Turn the
+  switch off to use the panel and JobTread independently.
 - Review draft vendor bills waiting to be coded.
 - View unbilled expenses and stage monthly customer invoices.
 - The same app works on your phone at ascent-companion.vercel.app.
@@ -47,13 +50,14 @@ viewing in JobTread.
 
 - **sidePanel** — To show the companion app in Chrome's side panel next to
   JobTread.
-- **storage** — To remember the user's "follow the open job" toggle and the id
+- **storage** — To remember the user's "Follow JobTread" toggle and the id
   of the job currently open in JobTread, so the panel stays in sync. Stored
   locally in the browser only.
-- **tabs** — The side panel locates the user's open JobTread tab so that
-  (1) clicking a bill in the panel opens that bill in the main JobTread window,
-  and (2) after the user saves a change in the panel, the JobTread tab is
-  reloaded to show the updated data. The extension only queries for and acts on
+- **tabs** — When the "Follow JobTread" toggle is on, the side panel locates the
+  user's open JobTread tab so that (1) clicking a bill in the panel opens that
+  bill in the main JobTread window, and (2) after the user saves a change in the
+  panel, the JobTread tab is reloaded to show the updated data. With the toggle
+  off it takes no action on any tab. The extension only queries for and acts on
   tabs at https://app.jobtread.com/*; it does not read browsing history or act
   on any other site.
 - **Host permission: https://app.jobtread.com/\*** — The extension runs only on
