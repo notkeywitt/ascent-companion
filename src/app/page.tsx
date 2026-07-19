@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { BillStatusBadge } from "@/components/BillStatusBadge";
+import { Banner, CardSkeletonList, EmptyState, PageHeader } from "@/components/ui";
 
 interface Bill {
   id: string;
@@ -98,36 +99,36 @@ function CodingQueue() {
 
   return (
     <main className="mx-auto max-w-xl px-4 pb-24 pt-6">
-      {jobId.trim() && (
-        <header className="mb-5 flex justify-end gap-3">
-          <Link
-            href={`/unbilled?jobId=${encodeURIComponent(jobId.trim())}`}
-            className="text-xs font-semibold text-accent"
-          >
-            Unbilled →
-          </Link>
-          <Link
-            href={`/stage?jobId=${encodeURIComponent(jobId.trim())}`}
-            className="text-xs font-semibold text-accent"
-          >
-            Create invoice →
-          </Link>
-        </header>
-      )}
+      <PageHeader
+        title="Coding Review"
+        description={
+          jobId.trim()
+            ? "Draft bills on this job, waiting to be coded."
+            : "Draft bills across all jobs. Pick a job above to narrow to one."
+        }
+        actions={
+          jobId.trim() ? (
+            <>
+              <Link
+                href={`/unbilled?jobId=${encodeURIComponent(jobId.trim())}`}
+                className="text-xs font-semibold text-accent dark:text-accent-soft"
+              >
+                Unbilled →
+              </Link>
+              <Link
+                href={`/stage?jobId=${encodeURIComponent(jobId.trim())}`}
+                className="text-xs font-semibold text-accent dark:text-accent-soft"
+              >
+                Create invoice →
+              </Link>
+            </>
+          ) : undefined
+        }
+      />
 
-      {!jobId && (
-        <p className="mb-3 text-sm text-neutral-500">
-          Draft bills across all jobs. Pick a job above to narrow to one.
-        </p>
-      )}
+      {loading && <CardSkeletonList rows={4} />}
 
-      {loading && <p className="mb-3 text-sm text-neutral-500">Loading…</p>}
-
-      {error && (
-        <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">
-          {error}
-        </div>
-      )}
+      {error && <Banner tone="error">{error}</Banner>}
 
       {bills && (
         <>
@@ -147,7 +148,7 @@ function CodingQueue() {
                   <Link
                     href={`/bill/${b.id}?jobId=${encodeURIComponent(billJobId)}`}
                     onClick={() => driveMainWindowToDoc(billJobId, b.id)}
-                    className="block rounded-xl border border-neutral-200 bg-white p-3 transition hover:border-accent dark:border-neutral-800 dark:bg-neutral-900"
+                    className="block rounded-xl border border-neutral-200 bg-white p-3 transition hover:border-accent hover:shadow-sm dark:border-neutral-700/60 dark:bg-ink-raised"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
@@ -188,10 +189,12 @@ function CodingQueue() {
               );
             })}
             {bills.length === 0 && (
-              <li className="rounded-xl border border-dashed border-neutral-300 p-6 text-center text-sm text-neutral-500 dark:border-neutral-700">
-                {jobId
-                  ? "No draft bills on this job — nothing to code."
-                  : "No draft bills anywhere — nothing to code."}
+              <li>
+                <EmptyState>
+                  {jobId
+                    ? "No draft bills on this job — nothing to code."
+                    : "No draft bills anywhere — nothing to code."}
+                </EmptyState>
               </li>
             )}
           </ul>

@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { Banner, Button, Card, Label, PageHeader, Select, btn } from "@/components/ui";
 
 interface VendorRef {
   id: string;
@@ -123,50 +124,41 @@ function AddBill() {
 
   return (
     <main className="mx-auto max-w-xl px-4 pb-24 pt-6">
-      <header className="mb-5">
-        <p className="text-sm text-neutral-500">
-          Snap or upload an invoice — Gemini extracts and codes it, and it lands as a draft
-          vendor bill in the coding queue.
-        </p>
-      </header>
+      <PageHeader
+        title="Add Bill"
+        description="Snap or upload an invoice — Gemini extracts and codes it, and it lands as a draft vendor bill in the coding queue."
+      />
 
       {!jobId && (
-        <p className="mb-3 text-sm text-neutral-500">Pick a job above first — the bill is created on that job.</p>
+        <Banner tone="info" className="mb-4">
+          Pick a job above first — the bill is created on that job.
+        </Banner>
       )}
 
       {!done && (
         <section className="space-y-4">
           <div>
-            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-neutral-500">
-              Invoice (PDF or photo)
-            </label>
+            <Label>Invoice (PDF or photo)</Label>
             <input
               ref={fileRef}
               type="file"
               accept="application/pdf,image/*"
               disabled={busy}
               onChange={(e) => onPickFile(e.target.files?.[0] ?? null)}
-              className="block w-full rounded-lg border border-neutral-300 p-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-accent file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white dark:border-neutral-700"
+              className="block w-full rounded-lg border border-neutral-300 bg-white p-2 text-sm transition file:mr-3 file:rounded-md file:border-0 file:bg-accent file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 dark:border-neutral-600 dark:bg-ink-raised"
             />
           </div>
 
           <div>
-            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-neutral-500">
-              Vendor {needVendor ? "(required)" : "(optional — Gemini matches it)"}
-            </label>
-            <select
-              value={vendorId}
-              disabled={busy}
-              onChange={(e) => setVendorId(e.target.value)}
-              className="block w-full rounded-lg border border-neutral-300 bg-transparent p-2 text-sm dark:border-neutral-700 dark:bg-neutral-900"
-            >
+            <Label>Vendor {needVendor ? "(required)" : "(optional — Gemini matches it)"}</Label>
+            <Select value={vendorId} disabled={busy} onChange={(e) => setVendorId(e.target.value)}>
               <option value="">Let Gemini match the vendor</option>
               {vendors.map((v) => (
                 <option key={v.id} value={v.id}>
                   {v.name}
                 </option>
               ))}
-            </select>
+            </Select>
             {needVendor && <p className="mt-1 text-sm text-amber-600">{needVendor}</p>}
           </div>
 
@@ -187,20 +179,21 @@ function AddBill() {
             </span>
           </label>
 
-          <button
+          <Button
+            size="lg"
+            className="w-full"
             onClick={submit}
             disabled={!file || !jobId || busy || (Boolean(needVendor) && !vendorId)}
-            className="w-full rounded-lg bg-accent px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-40"
           >
             {busy ? "Extracting with Gemini…" : "Log Bill"}
-          </button>
+          </Button>
 
-          {error && <p className="text-sm text-red-600">{error}</p>}
+          {error && <Banner tone="error">{error}</Banner>}
         </section>
       )}
 
       {result && (
-        <section className="mt-4 rounded-xl border border-neutral-200 p-4 dark:border-neutral-800">
+        <Card pad={false} className="mt-4 p-4">
           <h2 className="text-sm font-bold">
             {result.wrote
               ? "Draft bill created"
@@ -263,19 +256,16 @@ function AddBill() {
             {result.docId && (
               <Link
                 href={`/bill/${encodeURIComponent(result.docId)}?jobId=${encodeURIComponent(jobId)}`}
-                className="flex-1 rounded-lg bg-accent px-4 py-2 text-center text-sm font-semibold text-white"
+                className={btn("primary", "md", "flex-1")}
               >
                 Review coding →
               </Link>
             )}
-            <button
-              onClick={reset}
-              className="flex-1 rounded-lg border border-neutral-300 px-4 py-2 text-sm font-semibold dark:border-neutral-700"
-            >
+            <Button variant="secondary" className="flex-1" onClick={reset}>
               Add another
-            </button>
+            </Button>
           </div>
-        </section>
+        </Card>
       )}
     </main>
   );

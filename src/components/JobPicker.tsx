@@ -65,27 +65,35 @@ export function JobPicker({
     : jobs;
 
   return (
-    <div ref={ref} className="relative flex-1">
+    <div
+      ref={ref}
+      className="relative flex-1"
+      onKeyDown={(e) => {
+        if (e.key === "Escape") setOpen(false);
+      }}
+    >
       <button
         type="button"
+        aria-haspopup="listbox"
+        aria-expanded={open}
         onClick={() => {
           setOpen((o) => !o);
           setQuery("");
         }}
-        className="flex w-full items-center justify-between gap-2 rounded-lg border border-neutral-300 bg-white px-3 py-2 text-left text-sm dark:border-neutral-700 dark:bg-neutral-900"
+        className="flex w-full items-center justify-between gap-2 rounded-lg border border-neutral-300 bg-white px-3 py-2 text-left text-sm transition hover:border-accent dark:border-neutral-600 dark:bg-ink-raised"
       >
-        <span className={selected ? "font-medium" : "text-neutral-400"}>{label}</span>
+        <span className={"truncate " + (selected ? "font-medium" : "text-neutral-400")}>{label}</span>
         <span className="text-neutral-400">▾</span>
       </button>
 
       {open && (
-        <div className="absolute z-30 mt-1 flex max-h-80 w-full flex-col overflow-hidden rounded-lg border border-neutral-300 bg-white shadow-lg dark:border-neutral-700 dark:bg-neutral-900">
+        <div className="absolute z-30 mt-1 flex max-h-80 w-full flex-col overflow-hidden rounded-lg border border-neutral-300 bg-white shadow-lg dark:border-neutral-700 dark:bg-ink-overlay">
           <input
             autoFocus
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search jobs…"
-            className="border-b border-neutral-200 bg-transparent px-3 py-2 text-sm outline-none dark:border-neutral-800"
+            className="border-b border-neutral-200 bg-transparent px-3 py-2 text-sm outline-none dark:border-white/10"
           />
           <ul className="overflow-auto">
             {!q && (
@@ -96,8 +104,8 @@ export function JobPicker({
                     onChange("");
                     setOpen(false);
                   }}
-                  className={`w-full px-3 py-2 text-left hover:bg-neutral-100 dark:hover:bg-neutral-800 ${
-                    value ? "" : "bg-neutral-100 dark:bg-neutral-800"
+                  className={`w-full px-3 py-2 text-left hover:bg-neutral-100 dark:hover:bg-white/5 ${
+                    value ? "" : "bg-neutral-100 dark:bg-white/10"
                   }`}
                 >
                   <span className="block truncate text-sm font-medium">All jobs</span>
@@ -115,7 +123,7 @@ export function JobPicker({
                     onChange(j.id);
                     setOpen(false);
                   }}
-                  className="w-full px-3 py-2 text-left hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                  className="w-full px-3 py-2 text-left hover:bg-neutral-100 dark:hover:bg-white/5"
                 >
                   <span className="block truncate text-sm">{jobLabel(j)}</span>
                   {jobAddress(j) && (

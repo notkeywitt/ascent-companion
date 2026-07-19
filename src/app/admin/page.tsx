@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 
+import { Button, Loading, PageHeader, SectionLabel, inputCls } from "@/components/ui";
+
 interface Member {
   email: string;
   addedBy: string;
@@ -50,16 +52,13 @@ export default function AdminPage() {
     if (res.ok) setMembers((await res.json()).members ?? []);
   }
 
-  const inputCls =
-    "w-full rounded-lg border border-neutral-300 bg-transparent px-3 py-2 text-sm dark:border-neutral-700";
-
   return (
     <main className="mx-auto max-w-xl px-4 pb-24 pt-6">
-      <header className="mb-4">
-        <p className="text-sm text-neutral-500">
-          Who can sign in with Google.{me ? ` You're ${me}.` : ""}
-        </p>
-      </header>
+      <PageHeader
+        title="Team Access"
+        description={`Who can sign in with Google.${me ? ` You're ${me}.` : ""}`}
+        className="!mb-4"
+      />
 
       <form onSubmit={add} className="mb-5 flex gap-2">
         <input
@@ -69,26 +68,21 @@ export default function AdminPage() {
           placeholder="teammate@ascentbuildingco.com"
           className={inputCls}
         />
-        <button
-          type="submit"
-          className="whitespace-nowrap rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-accent-hover"
-        >
+        <Button type="submit" className="shrink-0">
           Add
-        </button>
+        </Button>
       </form>
 
-      {loading && <p className="text-sm text-neutral-500">Loading…</p>}
+      {loading && <Loading label="Loading team…" />}
 
       {envAdmins.length > 0 && (
         <div className="mb-4">
-          <div className="mb-1 text-[10px] uppercase tracking-wide text-neutral-400">
-            Founders (set in hosting config)
-          </div>
+          <SectionLabel className="mb-1">Founders (set in hosting config)</SectionLabel>
           <ul className="space-y-1">
             {envAdmins.map((e) => (
               <li
                 key={e}
-                className="flex items-center justify-between rounded-lg border border-neutral-200 px-3 py-2 text-sm dark:border-neutral-800"
+                className="flex items-center justify-between rounded-lg border border-neutral-200 px-3 py-2 text-sm dark:border-neutral-700/60"
               >
                 <span>{e}</span>
                 <span className="text-xs text-neutral-400">always allowed</span>
@@ -98,12 +92,12 @@ export default function AdminPage() {
         </div>
       )}
 
-      <div className="mb-1 text-[10px] uppercase tracking-wide text-neutral-400">Members</div>
+      <SectionLabel className="mb-1">Members</SectionLabel>
       <ul className="space-y-1">
         {members.map((m) => (
           <li
             key={m.email}
-            className="flex items-center justify-between rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm dark:border-neutral-800 dark:bg-neutral-900"
+            className="flex items-center justify-between rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm dark:border-neutral-700/60 dark:bg-ink-raised"
           >
             <span>{m.email}</span>
             <button

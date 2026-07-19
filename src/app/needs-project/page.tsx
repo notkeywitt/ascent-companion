@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { JobPicker } from "@/components/JobPicker";
-import { PageTitle } from "@/components/PageTitle";
+import { Banner, Button, CardSkeletonList, EmptyState, PageHeader } from "@/components/ui";
 
 interface NeedsItem {
   expId: string;
@@ -137,28 +137,20 @@ export default function NeedsProjectPage() {
 
   return (
     <main className="mx-auto max-w-2xl px-4 pb-24 pt-6">
-      <header className="mb-4">
-        <div className="flex items-start justify-between gap-3">
-          <PageTitle>Needs Project</PageTitle>
-          <button
-            type="button"
-            onClick={load}
-            disabled={loading}
-            className="shrink-0 rounded-lg border border-neutral-300 px-3 py-1.5 text-sm font-semibold text-neutral-500 hover:text-neutral-800 disabled:opacity-40 dark:border-neutral-700 dark:hover:text-neutral-200"
-          >
+      <PageHeader
+        title="Needs Project"
+        description="Ingested bills held because the job couldn’t be determined automatically. Open the PDF, pick the job, and Assign — it pushes to JobTread and re-files in Drive."
+        actions={
+          <Button variant="secondary" size="sm" onClick={load} disabled={loading}>
             {loading ? "Refreshing…" : "Refresh"}
-          </button>
-        </div>
-        <p className="mt-0.5 text-sm text-neutral-500">
-          Ingested bills held because the job couldn’t be determined automatically. Open the PDF,
-          pick the job, and Assign — it pushes to JobTread and re-files in Drive.
-        </p>
-      </header>
+          </Button>
+        }
+      />
 
       {!!draftBillCount && (
         <Link
           href="/"
-          className="mb-4 flex items-center justify-between gap-3 rounded-lg bg-accent/10 px-4 py-2.5 text-sm text-accent hover:bg-accent/15"
+          className="mb-4 flex items-center justify-between gap-3 rounded-lg bg-accent/10 px-4 py-2.5 text-sm text-accent transition hover:bg-accent/15 dark:text-accent-soft"
         >
           <span>
             <b className="font-semibold">{draftBillCount}</b> vendor bill
@@ -168,23 +160,17 @@ export default function NeedsProjectPage() {
         </Link>
       )}
 
-      {loading && <p className="text-sm text-neutral-500">Loading…</p>}
-      {error && (
-        <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">
-          {error}
-        </div>
-      )}
+      {loading && <CardSkeletonList rows={3} />}
+      {error && <Banner tone="error">{error}</Banner>}
       {!loading && !error && items.length === 0 && (
-        <p className="rounded-lg bg-neutral-100 px-4 py-6 text-center text-sm text-neutral-500 dark:bg-neutral-800">
-          Nothing waiting — every ingested bill has a job. 🎉
-        </p>
+        <EmptyState>Nothing waiting — every ingested bill has a job. 🎉</EmptyState>
       )}
 
       <ul className="space-y-3">
         {items.map((it) => (
           <li
             key={it.expId}
-            className="rounded-xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900"
+            className="rounded-xl border border-neutral-200 bg-white p-4 dark:border-neutral-700/60 dark:bg-ink-raised"
           >
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
@@ -201,7 +187,7 @@ export default function NeedsProjectPage() {
                 href={it.driveUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="mt-2 inline-block text-sm font-semibold text-accent"
+                className="mt-2 inline-block text-sm font-semibold text-accent hover:underline dark:text-accent-soft"
               >
                 View PDF ↗
               </a>
@@ -212,28 +198,28 @@ export default function NeedsProjectPage() {
                 value={picked[it.expId] ?? ""}
                 onChange={(id) => setPicked((p) => ({ ...p, [it.expId]: id }))}
               />
-              <button
-                type="button"
+              <Button
+                className="shrink-0"
                 onClick={() => assign(it.expId)}
                 disabled={!picked[it.expId] || busy[it.expId]}
-                className="shrink-0 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-accent-hover disabled:opacity-40"
               >
                 {busy[it.expId] ? "Assigning…" : "Assign"}
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                className="shrink-0 !py-2"
                 onClick={() => dismiss(it.expId)}
                 disabled={busy[it.expId]}
                 title="Already imported / duplicate / not a bill — remove from this queue"
-                className="shrink-0 rounded-lg border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-500 hover:text-neutral-800 disabled:opacity-40 dark:border-neutral-700 dark:hover:text-neutral-200"
               >
                 Dismiss
-              </button>
+              </Button>
             </div>
             {msg[it.expId] && (
-              <p className="mt-2 rounded-lg bg-neutral-100 px-3 py-2 text-xs dark:bg-neutral-800">
+              <Banner tone="neutral" className="mt-2 !px-3 !py-2 !text-xs">
                 {msg[it.expId]}
-              </p>
+              </Banner>
             )}
           </li>
         ))}

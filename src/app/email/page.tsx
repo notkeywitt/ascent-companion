@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 
+import { Banner, Button, CardSkeletonList, EmptyState, PageHeader, Select } from "@/components/ui";
+
 // The Companion's replacement for the Gmail add-on "Log Invoice" card. Lists
 // unprocessed inbox emails (from Apps Script), and for each one you pick a
 // project, optionally mark PAID, and log it — the identical one-click import
@@ -309,20 +311,26 @@ export default function EmailPage() {
 
   return (
     <main className="mx-auto max-w-2xl px-4 pb-24 pt-6">
-      <header className="mb-5 flex justify-end">
-        <button
-          onClick={() => void load()}
-          disabled={loading}
-          className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm font-semibold disabled:opacity-40 dark:border-neutral-700"
-        >
-          {loading ? "Loading…" : "Refresh"}
-        </button>
-      </header>
+      <PageHeader
+        title="Email Invoices"
+        description="Unprocessed invoice emails from the office inbox — pick a job and log each one."
+        actions={
+          <Button variant="secondary" size="sm" onClick={() => void load()} disabled={loading}>
+            {loading ? "Loading…" : "Refresh"}
+          </Button>
+        }
+      />
 
-      {loadError && <p className="mb-3 text-sm text-red-600">{loadError}</p>}
+      {loadError && (
+        <Banner tone="error" className="mb-3">
+          {loadError}
+        </Banner>
+      )}
+
+      {loading && <CardSkeletonList rows={3} />}
 
       {!loading && !loadError && visible.length === 0 && (
-        <p className="text-sm text-neutral-500">Nothing to log — the inbox is clear.</p>
+        <EmptyState>Nothing to log — the inbox is clear.</EmptyState>
       )}
 
       <ul className="space-y-3">
@@ -340,7 +348,7 @@ export default function EmailPage() {
                 "rounded-xl border p-4 transition " +
                 (done
                   ? "border-emerald-300 bg-emerald-50/50 dark:border-emerald-900 dark:bg-emerald-950/20"
-                  : "border-neutral-200 dark:border-neutral-800")
+                  : "border-neutral-200 bg-white dark:border-neutral-700/60 dark:bg-ink-raised")
               }
             >
               <div className="flex items-baseline justify-between gap-3">
@@ -366,7 +374,7 @@ export default function EmailPage() {
                 href={gmailUrl(row.threadId)}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="mt-0.5 inline-flex items-center gap-1 text-xs font-medium text-accent hover:underline"
+                className="mt-0.5 inline-flex items-center gap-1 text-xs font-medium text-accent hover:underline dark:text-accent-soft"
               >
                 Open in Gmail ↗
               </a>
@@ -392,17 +400,17 @@ export default function EmailPage() {
                       return (
                         <div
                           key={k}
-                          className="rounded-lg border border-neutral-200 p-2.5 dark:border-neutral-800"
+                          className="rounded-lg border border-neutral-200 p-2.5 dark:border-neutral-700/60"
                         >
                           <p className="mb-1.5 truncate text-xs font-medium text-neutral-600 dark:text-neutral-300">
                             📄 {a.name}
                           </p>
                           <div className="flex flex-wrap items-center gap-2">
-                            <select
+                            <Select
                               value={sel[k] ?? ""}
                               disabled={busy}
                               onChange={(e) => setSel((s) => ({ ...s, [k]: e.target.value }))}
-                              className="min-w-0 flex-1 rounded-lg border border-neutral-300 bg-transparent p-2 text-sm dark:border-neutral-700 dark:bg-neutral-900"
+                              className="min-w-0 flex-1"
                             >
                               <option value="">— select a project —</option>
                               {projects.map((p) => (
@@ -410,14 +418,14 @@ export default function EmailPage() {
                                   {p.label}
                                 </option>
                               ))}
-                            </select>
+                            </Select>
                             <label className="flex shrink-0 items-center gap-1.5 text-sm">
                               <input
                                 type="checkbox"
                                 checked={!!paid[k]}
                                 disabled={busy}
                                 onChange={(e) => setPaid((p) => ({ ...p, [k]: e.target.checked }))}
-                                className="h-4 w-4 rounded border-neutral-300"
+                                className="h-4 w-4 rounded border-neutral-300 accent-accent"
                               />
                               PAID
                             </label>
@@ -441,43 +449,36 @@ export default function EmailPage() {
                   </div>
 
                   <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-                    <button
+                    <Button
+                      className="shrink-0"
                       onClick={() => void logAll(row)}
                       disabled={!allAssigned || busy}
-                      className="shrink-0 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white disabled:opacity-40"
                     >
                       {busy ? "Logging…" : `Log all ${atts.length} invoices`}
-                    </button>
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-neutral-500">
-                      <label
-                        className="flex items-center gap-1.5"
-                        title="All these invoices were entered into JobTread by hand — tag the thread processed with the assigned jobs and drop it from the list."
+                    </Button>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => markProcessed(row)}
+                        disabled={busy || !atts.some((a) => sel[attKey(row.messageId, a.index)])}
+                        title={
+                          atts.some((a) => sel[attKey(row.messageId, a.index)])
+                            ? "All these invoices were entered into JobTread by hand — tag the thread processed with the assigned jobs and drop it from the list."
+                            : "Assign a job first, then mark processed."
+                        }
                       >
-                        <input
-                          type="checkbox"
-                          checked={false}
-                          disabled={busy || !atts.some((a) => sel[attKey(row.messageId, a.index)])}
-                          onChange={() => markProcessed(row)}
-                          className="h-4 w-4 rounded border-neutral-300 disabled:opacity-40"
-                        />
-                        Processed
-                        {atts.some((a) => sel[attKey(row.messageId, a.index)])
-                          ? ""
-                          : " (assign a job first)"}
-                      </label>
-                      <label
-                        className="flex items-center gap-1.5"
+                        ✓ Processed
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => markNotRelevant(row)}
+                        disabled={busy}
                         title="Not an invoice — drop it from the list."
                       >
-                        <input
-                          type="checkbox"
-                          checked={false}
-                          disabled={busy}
-                          onChange={() => markNotRelevant(row)}
-                          className="h-4 w-4 rounded border-neutral-300"
-                        />
                         Not relevant
-                      </label>
+                      </Button>
                     </div>
                   </div>
 
@@ -491,13 +492,13 @@ export default function EmailPage() {
               ) : (
                 <>
                   <div className="mt-3 flex flex-wrap items-center gap-2">
-                    <select
+                    <Select
                       value={sel[row.messageId] ?? ""}
                       disabled={busy}
                       onChange={(e) =>
                         setSel((s) => ({ ...s, [row.messageId]: e.target.value }))
                       }
-                      className="min-w-0 flex-1 rounded-lg border border-neutral-300 bg-transparent p-2 text-sm dark:border-neutral-700 dark:bg-neutral-900"
+                      className="min-w-0 flex-1"
                     >
                       <option value="">— select a project —</option>
                       {projects.map((p) => (
@@ -505,7 +506,7 @@ export default function EmailPage() {
                           {p.label}
                         </option>
                       ))}
-                    </select>
+                    </Select>
 
                     <label className="flex shrink-0 items-center gap-1.5 text-sm">
                       <input
@@ -515,47 +516,43 @@ export default function EmailPage() {
                         onChange={(e) =>
                           setPaid((p) => ({ ...p, [row.messageId]: e.target.checked }))
                         }
-                        className="h-4 w-4 rounded border-neutral-300"
+                        className="h-4 w-4 rounded border-neutral-300 accent-accent"
                       />
                       PAID
                     </label>
 
-                    <button
+                    <Button
+                      className="shrink-0"
                       onClick={() => void logOne(row)}
                       disabled={!sel[row.messageId] || busy}
-                      className="shrink-0 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white disabled:opacity-40"
                     >
                       {busy ? "Logging…" : "Log Invoice"}
-                    </button>
+                    </Button>
                   </div>
 
-                  <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-xs text-neutral-500">
-                    <label
-                      className="flex items-center gap-1.5"
-                      title="Already entered into JobTread by hand — tag it processed with the selected job and drop it from the list."
+                  <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => markProcessed(row)}
+                      disabled={busy || !sel[row.messageId]}
+                      title={
+                        sel[row.messageId]
+                          ? "Already entered into JobTread by hand — tag it processed with the selected job and drop it from the list."
+                          : "Pick a job first, then mark processed."
+                      }
                     >
-                      <input
-                        type="checkbox"
-                        checked={false}
-                        disabled={busy || !sel[row.messageId]}
-                        onChange={() => markProcessed(row)}
-                        className="h-4 w-4 rounded border-neutral-300 disabled:opacity-40"
-                      />
-                      Processed{sel[row.messageId] ? "" : " (pick a job first)"}
-                    </label>
-                    <label
-                      className="flex items-center gap-1.5"
+                      ✓ Processed{sel[row.messageId] ? "" : " (pick a job first)"}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => markNotRelevant(row)}
+                      disabled={busy}
                       title="Not an invoice — drop it from the list."
                     >
-                      <input
-                        type="checkbox"
-                        checked={false}
-                        disabled={busy}
-                        onChange={() => markNotRelevant(row)}
-                        className="h-4 w-4 rounded border-neutral-300"
-                      />
                       Not relevant
-                    </label>
+                    </Button>
                   </div>
 
                   {result && !result.ok && (
@@ -595,7 +592,7 @@ export default function EmailPage() {
                   <button
                     onClick={() => void undoHandled(row)}
                     disabled={busyId === row.messageId}
-                    className="shrink-0 font-semibold text-accent disabled:opacity-40"
+                    className="shrink-0 font-semibold text-accent disabled:opacity-40 dark:text-accent-soft"
                   >
                     Undo
                   </button>

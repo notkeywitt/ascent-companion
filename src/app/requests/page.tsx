@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 
+import { Button, EmptyState, Loading, PageHeader, inputCls } from "@/components/ui";
+
 interface FeatureRequest {
   id: number;
   title: string;
@@ -69,27 +71,27 @@ export default function RequestsPage() {
     }
   }
 
-  const inputCls =
-    "w-full rounded-lg border border-neutral-300 bg-transparent px-3 py-2 text-sm dark:border-neutral-700";
-
   return (
     <main className="mx-auto max-w-xl px-4 pb-24 pt-6">
-      <header className="mb-4">
-        <div className="flex items-center justify-between gap-3">
-          <p className="text-sm text-neutral-500">Ask for panel updates and new features.</p>
-          <button
+      <PageHeader
+        title="Requests"
+        description="Ask for panel updates and new features."
+        actions={
+          <Button
+            variant={showNew ? "secondary" : "primary"}
+            size="sm"
             onClick={() => setShowNew((s) => !s)}
-            className="shrink-0 rounded-lg bg-accent px-3 py-1.5 text-sm font-semibold text-white hover:bg-accent-hover"
           >
             {showNew ? "Cancel" : "+ Request"}
-          </button>
-        </div>
-      </header>
+          </Button>
+        }
+        className="!mb-4"
+      />
 
       {showNew && (
         <form
           onSubmit={create}
-          className="mb-5 space-y-2 rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900"
+          className="mb-5 space-y-2 rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-700/60 dark:bg-ink-raised"
         >
           <input
             autoFocus
@@ -111,27 +113,20 @@ export default function RequestsPage() {
             placeholder="Your name"
             className={inputCls}
           />
-          <button
-            type="submit"
-            className="w-full rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-accent-hover"
-          >
+          <Button type="submit" className="w-full">
             Submit request
-          </button>
+          </Button>
         </form>
       )}
 
-      {loading && <p className="text-sm text-neutral-500">Loading…</p>}
-      {!loading && requests.length === 0 && (
-        <div className="rounded-xl border border-dashed border-neutral-300 p-6 text-center text-sm text-neutral-500 dark:border-neutral-700">
-          No requests yet — be the first.
-        </div>
-      )}
+      {loading && <Loading label="Loading requests…" />}
+      {!loading && requests.length === 0 && <EmptyState>No requests yet — be the first.</EmptyState>}
 
       <ul className="space-y-2">
         {requests.map((r) => (
           <li
             key={r.id}
-            className="rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900"
+            className="rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-700/60 dark:bg-ink-raised"
           >
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
@@ -157,10 +152,10 @@ export default function RequestsPage() {
                   key={s}
                   onClick={() => setStatus(r.id, s)}
                   className={
-                    "rounded-full px-2.5 py-1 text-xs font-semibold " +
+                    "rounded-full px-2.5 py-1 text-xs font-semibold transition " +
                     (r.status === s
                       ? statusClass[s]
-                      : "text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800")
+                      : "text-neutral-500 hover:bg-neutral-100 dark:hover:bg-white/10")
                   }
                 >
                   {s}

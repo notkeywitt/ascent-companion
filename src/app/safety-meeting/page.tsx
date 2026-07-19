@@ -2,8 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import { PageTitle } from "@/components/PageTitle";
 import { SignaturePad, type SignaturePadHandle } from "@/components/SignaturePad";
+import { Banner, Button, Label, PageHeader, btn, inputCls } from "@/components/ui";
 
 interface Employee {
   name: string;
@@ -127,16 +127,14 @@ export default function SafetyMeetingPage() {
     padRef.current?.clear();
   }
 
-  const inputCls =
-    "w-full rounded-lg border border-neutral-300 bg-transparent px-3 py-2 text-sm dark:border-neutral-700";
   const cardCls =
-    "rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900";
+    "rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-700/60 dark:bg-ink-raised";
 
   // ---- Success screen -----------------------------------------------------
   if (result?.ok) {
     return (
       <main className="mx-auto max-w-xl px-4 pb-24 pt-6">
-        <PageTitle>Safety Meeting</PageTitle>
+        <PageHeader title="Safety Meeting" className="!mb-0" />
         <div className={"mt-4 " + cardCls}>
           <div className="text-lg font-semibold text-green-700 dark:text-green-400">
             Saved ✓ {result.count} signature{result.count === 1 ? "" : "s"}
@@ -146,12 +144,7 @@ export default function SafetyMeetingPage() {
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
             {result.pdfUrl && (
-              <a
-                href={result.pdfUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-accent-hover"
-              >
+              <a href={result.pdfUrl} target="_blank" rel="noreferrer" className={btn("primary")}>
                 Open roster PDF
               </a>
             )}
@@ -160,18 +153,15 @@ export default function SafetyMeetingPage() {
                 href={result.folderUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="rounded-lg border border-neutral-300 px-4 py-2 text-sm font-semibold hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-800"
+                className={btn("secondary")}
               >
                 Open Drive folder
               </a>
             )}
           </div>
-          <button
-            onClick={startAnother}
-            className="mt-4 w-full rounded-lg border border-neutral-300 px-4 py-2 text-sm font-semibold hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-800"
-          >
+          <Button variant="secondary" className="mt-4 w-full" onClick={startAnother}>
             Start another meeting
-          </button>
+          </Button>
         </div>
       </main>
     );
@@ -180,23 +170,24 @@ export default function SafetyMeetingPage() {
   // ---- Capture screen -----------------------------------------------------
   return (
     <main className="mx-auto max-w-xl px-4 pb-24 pt-6">
-      <PageTitle>Safety Meeting</PageTitle>
-      <p className="mb-4 mt-1 text-sm text-neutral-500">
-        Set the meeting details, then pass the iPad around — each person picks their name and signs.
-      </p>
+      <PageHeader
+        title="Safety Meeting"
+        description="Set the meeting details, then pass the iPad around — each person picks their name and signs."
+        className="!mb-4"
+      />
 
       {loadErr && (
-        <div className="mb-4 rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
+        <Banner tone="error" className="mb-4">
           {loadErr}
-        </div>
+        </Banner>
       )}
 
       {/* Meeting header */}
       <section className={"mb-4 space-y-2 " + cardCls}>
-        <label className="block text-xs font-semibold text-neutral-500">Date</label>
+        <Label className="!mb-0">Date</Label>
         <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={inputCls} />
 
-        <label className="block pt-1 text-xs font-semibold text-neutral-500">Topic</label>
+        <Label className="!mb-0 pt-1">Topic</Label>
         <input
           value={topic}
           onChange={(e) => setTopic(e.target.value)}
@@ -204,7 +195,7 @@ export default function SafetyMeetingPage() {
           className={inputCls}
         />
 
-        <label className="block pt-1 text-xs font-semibold text-neutral-500">Meeting lead</label>
+        <Label className="!mb-0 pt-1">Meeting lead</Label>
         <select value={admin} onChange={(e) => setAdmin(e.target.value)} className={inputCls}>
           <option value="">Select…</option>
           {employees.map((e) => (
@@ -218,7 +209,7 @@ export default function SafetyMeetingPage() {
       {/* Attendee count + list */}
       {attendees.length > 0 && (
         <section className={"mb-4 " + cardCls}>
-          <div className="mb-2 text-xs font-semibold text-neutral-500">
+          <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
             Signed in ({attendees.length})
           </div>
           <ul className="space-y-1">
@@ -244,7 +235,7 @@ export default function SafetyMeetingPage() {
 
       {/* Current signer */}
       <section className={"mb-4 space-y-2 " + cardCls}>
-        <label className="block text-xs font-semibold text-neutral-500">Attendee</label>
+        <Label className="!mb-0">Attendee</Label>
         <select
           value={currentName}
           onChange={(e) => setCurrentName(e.target.value)}
@@ -259,44 +250,41 @@ export default function SafetyMeetingPage() {
           ))}
         </select>
 
-        <label className="block pt-1 text-xs font-semibold text-neutral-500">Signature</label>
+        <Label className="!mb-0 pt-1">Signature</Label>
         <SignaturePad ref={padRef} onChange={(empty) => setHasInk(!empty)} />
 
         <div className="flex gap-2 pt-1">
-          <button
+          <Button
+            variant="secondary"
             onClick={() => {
               padRef.current?.clear();
               setHasInk(false);
             }}
-            className="rounded-lg border border-neutral-300 px-4 py-2 text-sm font-semibold hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-800"
           >
             Clear
-          </button>
-          <button
-            onClick={addAttendee}
-            disabled={!currentName || !hasInk}
-            className="flex-1 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
-          >
+          </Button>
+          <Button className="flex-1" onClick={addAttendee} disabled={!currentName || !hasInk}>
             Add attendee
-          </button>
+          </Button>
         </div>
       </section>
 
       {saveErr && (
-        <div className="mb-3 rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
+        <Banner tone="error" className="mb-3">
           {saveErr}
-        </div>
+        </Banner>
       )}
 
-      <button
+      <Button
+        size="lg"
+        className="w-full !text-base"
         onClick={save}
         disabled={saving || attendees.length === 0}
-        className="w-full rounded-lg bg-accent px-4 py-3 text-base font-semibold text-white hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
       >
         {saving
           ? "Saving…"
           : `Save meeting${attendees.length ? ` (${attendees.length})` : ""}`}
-      </button>
+      </Button>
     </main>
   );
 }

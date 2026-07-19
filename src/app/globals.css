@@ -18,6 +18,23 @@ body {
   color: #ece8db;
 }
 
+/* Keyboard focus is always visible, in brand olive. Text inputs opt out via
+   their own focus ring (see the shared input classes in components/ui.tsx). */
+:focus-visible {
+  outline: 2px solid rgba(135, 128, 84, 0.9);
+  outline-offset: 1px;
+}
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: none;
+}
+
+/* Brand-tinted text selection (ochre at low alpha). */
+::selection {
+  background: rgba(207, 152, 3, 0.28);
+}
+
 /* Print layout — used by the Invoicing tab's "Print / Save PDF" button.
    Force a clean light page regardless of the on-screen (possibly dark) theme,
    strip the app chrome, and keep table rows from splitting across pages. */

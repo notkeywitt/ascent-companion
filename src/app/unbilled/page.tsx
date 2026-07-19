@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { billStatusLabel } from "@/components/BillStatusBadge";
+import { Banner, Loading, PageHeader } from "@/components/ui";
 
 interface RollupRow {
   type: string;
@@ -65,40 +66,35 @@ function Unbilled() {
 
   return (
     <main className="mx-auto max-w-xl px-4 pb-24 pt-6">
-      <header className="mb-5">
-        <div className="flex items-start justify-between gap-3">
-          <p className="text-sm text-neutral-500">
-            Approved bill cost not yet on an approved customer invoice.
-          </p>
-          {jobId.trim() && (
+      <PageHeader
+        title="Unbilled"
+        description={
+          jobId
+            ? "Approved bill cost not yet on an approved customer invoice."
+            : "Pick a job above to see unbilled expenses."
+        }
+        actions={
+          jobId.trim() ? (
             <Link
               href={`/?jobId=${encodeURIComponent(jobId.trim())}`}
-              className="shrink-0 text-xs font-semibold text-accent"
+              className="text-xs font-semibold text-accent dark:text-accent-soft"
             >
               ← Coding queue
             </Link>
-          )}
-        </div>
-      </header>
+          ) : undefined
+        }
+      />
 
-      {!jobId && (
-        <p className="mb-3 text-sm text-neutral-500">Pick a job above to see unbilled expenses.</p>
-      )}
+      {loading && <Loading label="Computing unbilled totals…" />}
 
-      {loading && <p className="mb-3 text-sm text-neutral-500">Loading…</p>}
-
-      {error && (
-        <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">
-          {error}
-        </div>
-      )}
+      {error && <Banner tone="error">{error}</Banner>}
 
       {summary && (
         <div className="mb-5 overflow-hidden rounded-2xl border border-accent/30 bg-accent/5">
           {/* Ochre marquee rule — the brand's gold highlight framing the headline number. */}
           <div className="h-1 bg-ochre" />
           <div className="p-4">
-            <div className="text-[11px] font-semibold uppercase tracking-wide text-accent">
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-accent dark:text-accent-soft">
               Unbilled (at cost)
             </div>
             <div className="mt-1 font-mono text-3xl font-bold">{money(summary.unbilled)}</div>
@@ -117,9 +113,9 @@ function Unbilled() {
       )}
 
       {rollup && rollup.length > 0 && (
-        <div className="overflow-x-auto rounded-xl border border-neutral-200 dark:border-neutral-800">
+        <div className="overflow-x-auto rounded-xl border border-neutral-200 bg-white dark:border-neutral-700/60 dark:bg-ink-raised">
           <table className="w-full text-sm">
-            <thead className="bg-neutral-50 text-left text-xs uppercase tracking-wide text-neutral-500 dark:bg-neutral-900">
+            <thead className="bg-neutral-50 text-left text-xs uppercase tracking-wide text-neutral-500 dark:bg-white/5">
               <tr>
                 <th className="px-3 py-2 font-medium">Document</th>
                 <th className="px-3 py-2 text-right font-medium">Cost</th>

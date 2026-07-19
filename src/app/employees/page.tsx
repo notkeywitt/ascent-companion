@@ -2,7 +2,14 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import { PageTitle } from "@/components/PageTitle";
+import {
+  Banner,
+  Button,
+  Label,
+  Loading,
+  PageHeader,
+  inputCls,
+} from "@/components/ui";
 
 interface Employee {
   id: string;
@@ -228,9 +235,6 @@ export default function EmployeesPage() {
     }
   }
 
-  const inputCls =
-    "w-full rounded-lg border border-neutral-300 bg-transparent px-3 py-2 text-sm dark:border-neutral-700";
-
   const SortHead = ({ label, k }: { label: string; k: SortKey }) => (
     <th className="px-3 py-2 text-left font-semibold">
       <button onClick={() => toggleSort(k)} className="inline-flex items-center gap-1 hover:text-accent">
@@ -286,10 +290,14 @@ export default function EmployeesPage() {
 
   return (
     <main className="mx-auto max-w-4xl px-4 pb-24 pt-6">
-      <PageTitle>Employees</PageTitle>
+      <PageHeader
+        title="Employees"
+        description="The Project Database roster — search, edit, and link people to their JobTread user."
+        className="!mb-3"
+      />
 
       {/* Controls */}
-      <div className="mb-3 mt-3 flex flex-wrap items-center gap-2">
+      <div className="mb-3 flex flex-wrap items-center gap-2">
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
@@ -311,16 +319,16 @@ export default function EmployeesPage() {
       </div>
 
       {loadErr && (
-        <div className="mb-4 rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
+        <Banner tone="error" className="mb-4">
           {loadErr}
-        </div>
+        </Banner>
       )}
       {jtErr && !loadErr && (
-        <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-700 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300">
+        <Banner tone="warning" className="mb-4">
           JobTread users couldn&apos;t load ({jtErr}) — linking is unavailable, existing links still show.
-        </div>
+        </Banner>
       )}
-      {loading && <p className="text-sm text-neutral-500">Loading…</p>}
+      {loading && <Loading label="Loading roster…" />}
 
       {!loading && !loadErr && (
         <>
@@ -330,9 +338,9 @@ export default function EmployeesPage() {
             </span>
             <span>{linkedCount} linked to JobTread</span>
           </div>
-          <div className="overflow-x-auto rounded-xl border border-neutral-200 dark:border-neutral-800">
+          <div className="overflow-x-auto rounded-xl border border-neutral-200 bg-white dark:border-neutral-700/60 dark:bg-ink-raised">
             <table className="w-full min-w-[44rem] text-sm">
-              <thead className="bg-neutral-50 text-neutral-500 dark:bg-neutral-900">
+              <thead className="bg-neutral-50 text-neutral-500 dark:bg-white/5">
                 <tr>
                   <SortHead label="Name" k="name" />
                   <SortHead label="Position" k="position" />
@@ -365,7 +373,7 @@ export default function EmployeesPage() {
                     <td className="px-3 py-2 text-right">
                       <button
                         onClick={() => openEdit(e)}
-                        className="rounded-lg border border-neutral-300 px-3 py-1 text-xs font-semibold hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-800"
+                        className="rounded-lg border border-neutral-300 px-3 py-1 text-xs font-semibold transition hover:border-accent hover:text-accent dark:border-neutral-600"
                       >
                         Edit
                       </button>
@@ -392,7 +400,7 @@ export default function EmployeesPage() {
           onClick={() => !saving && setEditing(null)}
         >
           <div
-            className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-t-2xl bg-white p-4 dark:bg-neutral-900 sm:rounded-2xl"
+            className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-t-2xl bg-white p-4 dark:bg-ink-overlay sm:rounded-2xl"
             onClick={(ev) => ev.stopPropagation()}
           >
             <div className="mb-3 flex items-baseline justify-between">
@@ -403,8 +411,8 @@ export default function EmployeesPage() {
             </div>
 
             {/* JobTread link */}
-            <div className="mb-4 rounded-lg border border-neutral-200 p-3 dark:border-neutral-800">
-              <label className="mb-1 block text-xs font-semibold text-neutral-500">JobTread user</label>
+            <div className="mb-4 rounded-lg border border-neutral-200 p-3 dark:border-neutral-700/60">
+              <Label>JobTread user</Label>
               {jtErr ? (
                 <p className="text-sm text-neutral-500">Unavailable — JobTread users didn&apos;t load.</p>
               ) : (
@@ -444,7 +452,7 @@ export default function EmployeesPage() {
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {FIELDS.map((f) => (
                 <div key={f.key} className={f.wide ? "sm:col-span-2" : ""}>
-                  <label className="mb-1 block text-xs font-semibold text-neutral-500">{f.label}</label>
+                  <Label>{f.label}</Label>
                   {f.key === "status" ? (
                     <select
                       value={form.status}
@@ -473,26 +481,23 @@ export default function EmployeesPage() {
             </div>
 
             {saveErr && (
-              <div className="mt-3 rounded-lg border border-red-300 bg-red-50 p-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
+              <Banner tone="error" className="mt-3">
                 {saveErr}
-              </div>
+              </Banner>
             )}
 
             <div className="mt-4 flex gap-2">
-              <button
+              <Button
+                variant="secondary"
+                className="flex-1"
                 onClick={() => setEditing(null)}
                 disabled={saving}
-                className="flex-1 rounded-lg border border-neutral-300 px-4 py-2 text-sm font-semibold hover:bg-neutral-100 disabled:opacity-40 dark:border-neutral-700 dark:hover:bg-neutral-800"
               >
                 Cancel
-              </button>
-              <button
-                onClick={save}
-                disabled={saving}
-                className="flex-1 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-accent-hover disabled:opacity-40"
-              >
+              </Button>
+              <Button className="flex-1" onClick={save} disabled={saving}>
                 {saving ? "Saving…" : "Save"}
-              </button>
+              </Button>
             </div>
           </div>
         </div>

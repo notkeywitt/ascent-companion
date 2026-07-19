@@ -10,7 +10,10 @@ export function AppHeader() {
   if (pathname === "/login" || pathname === "/privacy") return null;
 
   return (
-    <div className="sticky top-0 z-20 border-b border-black/10 bg-[#FAF7EE]/95 backdrop-blur dark:border-white/10 dark:bg-[#1B1B17]/95 print:hidden">
+    <div className="sticky top-0 z-20 border-b border-black/10 bg-cream/95 backdrop-blur dark:border-white/10 dark:bg-ink/95 print:hidden">
+      {/* Ochre marquee hairline — the brand's gold highlight, carried across
+          every page as the app's top rule. */}
+      <div className="h-0.5 bg-ochre" aria-hidden />
       <GlobalJobBar />
       <TabBar />
     </div>

@@ -38,29 +38,37 @@ export function CostCodeSelect({
     : options;
 
   return (
-    <div ref={ref} className="relative">
+    <div
+      ref={ref}
+      className="relative"
+      onKeyDown={(e) => {
+        if (e.key === "Escape") setOpen(false);
+      }}
+    >
       <button
         type="button"
+        aria-haspopup="listbox"
+        aria-expanded={open}
         onClick={() => {
           setOpen((o) => !o);
           setQuery("");
         }}
-        className="flex w-full items-center justify-between gap-2 rounded-lg border border-neutral-300 bg-neutral-50 px-2 py-2 text-left font-mono text-xs dark:border-neutral-700 dark:bg-neutral-950"
+        className="flex w-full items-center justify-between gap-2 rounded-lg border border-neutral-300 bg-neutral-50 px-2 py-2 text-left font-mono text-xs transition hover:border-accent dark:border-neutral-600 dark:bg-ink"
       >
-        <span className={selected ? "" : "text-neutral-400"}>
+        <span className={"truncate " + (selected ? "" : "text-neutral-400")}>
           {selected ? `${selected.number} — ${selected.name}` : "— uncoded —"}
         </span>
         <span className="text-neutral-400">▾</span>
       </button>
 
       {open && (
-        <div className="absolute z-20 mt-1 flex max-h-72 w-full flex-col overflow-hidden rounded-lg border border-neutral-300 bg-white shadow-lg dark:border-neutral-700 dark:bg-neutral-900">
+        <div className="absolute z-20 mt-1 flex max-h-72 w-full flex-col overflow-hidden rounded-lg border border-neutral-300 bg-white shadow-lg dark:border-neutral-700 dark:bg-ink-overlay">
           <input
             autoFocus
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search code or name…"
-            className="border-b border-neutral-200 bg-transparent px-3 py-2 text-sm outline-none dark:border-neutral-800"
+            className="border-b border-neutral-200 bg-transparent px-3 py-2 text-sm outline-none dark:border-white/10"
           />
           <ul className="overflow-auto">
             <li>
@@ -70,7 +78,7 @@ export function CostCodeSelect({
                   onChange("");
                   setOpen(false);
                 }}
-                className="w-full px-3 py-2 text-left text-xs text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                className="w-full px-3 py-2 text-left text-xs text-neutral-400 hover:bg-neutral-100 dark:hover:bg-white/5"
               >
                 — uncoded —
               </button>
@@ -83,7 +91,7 @@ export function CostCodeSelect({
                     onChange(o.id);
                     setOpen(false);
                   }}
-                  className="w-full px-3 py-2 text-left text-xs hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                  className="w-full px-3 py-2 text-left text-xs hover:bg-neutral-100 dark:hover:bg-white/5"
                 >
                   <span className="font-mono font-medium">{o.number}</span>{" "}
                   <span className="text-neutral-500">{o.name}</span>

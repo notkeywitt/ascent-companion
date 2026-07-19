@@ -8,6 +8,7 @@ import { JtLink } from "@/components/JtLink";
 import { JobPicker } from "@/components/JobPicker";
 import { PageTitle } from "@/components/PageTitle";
 import { BillStatusBadge } from "@/components/BillStatusBadge";
+import { Banner, Button, Loading, btn } from "@/components/ui";
 
 interface Line {
   id: string;
@@ -539,7 +540,10 @@ function BillDetail() {
   return (
     <main className="mx-auto max-w-xl px-4 pb-24 pt-6">
       <div className="flex items-center justify-between gap-2">
-        <Link href={`/?jobId=${encodeURIComponent(jobId)}`} className="text-sm font-semibold text-accent">
+        <Link
+          href={`/?jobId=${encodeURIComponent(jobId)}`}
+          className="text-sm font-semibold text-accent dark:text-accent-soft"
+        >
           ‹ Coding queue
         </Link>
         <div className="flex items-center gap-2 text-sm">
@@ -550,7 +554,7 @@ function BillDetail() {
                 href={`/bill/${prevId}?jobId=${encodeURIComponent(jobId)}`}
                 onClick={() => driveMainWindowToDoc(jobId, prevId)}
                 aria-label="Previous bill"
-                className="inline-flex items-center gap-1 rounded-lg border border-accent px-3 py-1.5 font-semibold text-accent hover:bg-accent/10"
+                className={btn("outline", "sm")}
               >
                 ‹ Prev
               </Link>
@@ -567,7 +571,7 @@ function BillDetail() {
                 href={`/bill/${nextId}?jobId=${encodeURIComponent(jobId)}`}
                 onClick={() => driveMainWindowToDoc(jobId, nextId)}
                 aria-label="Next bill"
-                className="inline-flex items-center gap-1 rounded-lg border border-accent px-3 py-1.5 font-semibold text-accent hover:bg-accent/10"
+                className={btn("outline", "sm")}
               >
                 Next ›
               </Link>
@@ -578,16 +582,16 @@ function BillDetail() {
             )}
             </>
           )}
-          <button
-            type="button"
+          <Button
+            variant="secondary"
+            size="sm"
             onClick={refresh}
             disabled={refreshing}
             title="Refresh from JobTread"
             aria-label="Refresh"
-            className="inline-flex items-center gap-1 rounded-lg border border-neutral-300 px-3 py-1.5 font-semibold text-neutral-600 hover:bg-neutral-100 disabled:opacity-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
           >
             {refreshing ? "Refreshing…" : "⟳ Refresh"}
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -604,24 +608,10 @@ function BillDetail() {
           {jobId && (
             <JtLink
               href={`https://app.jobtread.com/jobs/${jobId}/documents/${docId}`}
-              className="inline-flex items-center gap-1 rounded-xl border border-accent px-4 py-2 text-sm font-semibold text-accent hover:bg-accent/10"
+              className={btn("outline", "md")}
             >
               Open in JobTread ↗
             </JtLink>
-          )}
-          {header && (
-            <button
-              type="button"
-              onClick={saveCoding}
-              disabled={saving || pending.length === 0}
-              className="inline-flex items-center rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-accent-hover disabled:opacity-40"
-            >
-              {saving
-                ? "Saving…"
-                : pending.length
-                  ? `Save changes (${pending.length})`
-                  : "No changes to save"}
-            </button>
           )}
           {header && (
             <button
@@ -630,10 +620,9 @@ function BillDetail() {
               disabled={reviewLoading}
               title={reviewed ? "Marked reviewed — click to unmark" : "Mark this bill reviewed"}
               className={
-                "inline-flex items-center gap-1 rounded-xl border px-4 py-2 text-sm font-semibold disabled:opacity-50 " +
-                (reviewed
-                  ? "border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700"
-                  : "border-accent text-accent hover:bg-accent/10")
+                reviewed
+                  ? btn("primary", "md", "!bg-emerald-600 hover:!bg-emerald-700")
+                  : btn("outline", "md")
               }
             >
               {reviewed ? "✓ Reviewed" : "Mark reviewed"}
@@ -641,9 +630,9 @@ function BillDetail() {
           )}
         </div>
         {saveMsg && (
-          <p className="mt-2 rounded-lg bg-neutral-100 px-3 py-2 text-xs dark:bg-neutral-800">
+          <Banner tone="neutral" className="mt-2 !px-3 !py-2 !text-xs">
             {saveMsg}
-          </p>
+          </Banner>
         )}
         <div className="mt-3 flex items-center gap-2">
           <span className="text-[10px] uppercase tracking-wide text-neutral-400">Billing month</span>
@@ -662,7 +651,7 @@ function BillDetail() {
                 body: JSON.stringify({ docId, issueDate }),
               });
             }}
-            className="rounded-lg border border-neutral-300 bg-transparent px-2 py-1 text-sm dark:border-neutral-700"
+            className="rounded-lg border border-neutral-300 bg-white px-2 py-1 text-sm transition focus:border-accent dark:border-neutral-600 dark:bg-ink-raised"
           >
             <option value="">— set billing month —</option>
             {billingMonthOptions().map((o) => (
@@ -685,9 +674,9 @@ function BillDetail() {
               <JobPicker value={jobId} onChange={reassignJob} />
             </div>
             {reassignMsg && (
-              <p className="mt-1 rounded-lg bg-neutral-100 px-3 py-2 text-xs dark:bg-neutral-800">
+              <Banner tone="neutral" className="mt-1 !px-3 !py-2 !text-xs">
                 {reassignMsg}
-              </p>
+              </Banner>
             )}
           </div>
         )}
@@ -775,12 +764,8 @@ function BillDetail() {
         */}
       </header>
 
-      {loading && <p className="text-sm text-neutral-500">Loading…</p>}
-      {error && (
-        <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">
-          {error}
-        </div>
-      )}
+      {loading && <Loading label="Loading bill from JobTread…" />}
+      {error && <Banner tone="error">{error}</Banner>}
 
       {lines && (
         <>
@@ -799,14 +784,14 @@ function BillDetail() {
           </div>
 
           {!linesEditable && (
-            <p className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+            <Banner tone="warning" className="mb-3 !px-3 !py-2 !text-xs">
               Qty &amp; unit cost are locked once a bill is payable/paid — you can still re-code it.
               To edit amounts, set the bill back to Draft in JobTread.
-            </p>
+            </Banner>
           )}
 
           {budget.length > 0 && lines.length > 1 && (
-            <div className="mb-3 rounded-xl border border-dashed border-neutral-300 bg-neutral-50 p-3 dark:border-neutral-700 dark:bg-neutral-900/50">
+            <div className="mb-3 rounded-xl border border-dashed border-neutral-300 bg-neutral-50 p-3 dark:border-neutral-700 dark:bg-ink-raised/60">
               <span className="mb-1.5 block text-[10px] uppercase tracking-wide text-neutral-400">
                 Apply one code to all {lines.length} lines
               </span>
@@ -814,26 +799,24 @@ function BillDetail() {
                 <div className="min-w-0 flex-1">
                   <CostCodeSelect options={budget} value={bulkCode} onChange={setBulkCode} />
                 </div>
-                <button
-                  type="button"
+                <Button
+                  size="sm"
+                  className="shrink-0 !py-2"
                   onClick={() => applyCodeToAll(bulkCode)}
                   disabled={!bulkCode}
-                  className="shrink-0 rounded-lg bg-accent px-3 py-2 text-sm font-semibold text-white hover:bg-accent-hover disabled:opacity-40"
                 >
                   Apply to all
-                </button>
+                </Button>
               </div>
             </div>
           )}
 
           {!writes && (
-            <div className="mb-3">
-              <p className="rounded-lg bg-amber-50 px-4 py-3 text-xs text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
-                Writes are OFF (COMPANION_WRITES_ENABLED not <span className="font-mono">true</span> on
-                this deploy). Save shows a preview and sends nothing to JobTread. Set it in Vercel and{" "}
-                <b>redeploy</b>.
-              </p>
-            </div>
+            <Banner tone="warning" className="mb-3 !text-xs">
+              Writes are OFF (COMPANION_WRITES_ENABLED not <span className="font-mono">true</span> on
+              this deploy). Save shows a preview and sends nothing to JobTread. Set it in Vercel and{" "}
+              <b>redeploy</b>.
+            </Banner>
           )}
 
           <ul className="space-y-2">
@@ -847,11 +830,11 @@ function BillDetail() {
                   ? Number(qtyVal) * Number(unitVal)
                   : (l.cost ?? 0);
               const inputCls =
-                "rounded-lg border border-neutral-300 bg-transparent px-2 py-1.5 text-sm tabular-nums disabled:opacity-50 disabled:cursor-not-allowed dark:border-neutral-700";
+                "rounded-lg border border-neutral-300 bg-white px-2 py-1.5 text-sm tabular-nums transition focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 disabled:opacity-50 disabled:cursor-not-allowed dark:border-neutral-600 dark:bg-ink";
               return (
                 <li
                   key={l.id}
-                  className="rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900"
+                  className="rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-700/60 dark:bg-ink-raised"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 font-medium">{l.name || "Line item"}</div>
@@ -936,18 +919,18 @@ function BillDetail() {
                     setAddLineMsg("");
                     setAddingLine(true);
                   }}
-                  className="w-full rounded-xl border border-dashed border-neutral-300 px-4 py-3 text-sm font-semibold text-accent hover:border-accent hover:bg-accent/5 dark:border-neutral-700"
+                  className="w-full rounded-xl border border-dashed border-neutral-300 px-4 py-3 text-sm font-semibold text-accent transition hover:border-accent hover:bg-accent/5 dark:border-neutral-700 dark:text-accent-soft"
                 >
                   + Add line
                 </button>
               ) : (
-                <div className="rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
+                <div className="rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-700/60 dark:bg-ink-raised">
                   <input
                     type="text"
                     value={newLine.name}
                     onChange={(e) => setNewLine((n) => ({ ...n, name: e.target.value }))}
                     placeholder="Line description"
-                    className="w-full rounded-lg border border-neutral-300 bg-transparent px-2 py-1.5 text-sm dark:border-neutral-700"
+                    className="w-full rounded-lg border border-neutral-300 bg-white px-2 py-1.5 text-sm transition focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 dark:border-neutral-600 dark:bg-ink"
                   />
                   <div className="mt-2 flex items-center gap-2">
                     <label className="flex items-center gap-1.5">
@@ -957,7 +940,7 @@ function BillDetail() {
                         inputMode="decimal"
                         value={newLine.quantity}
                         onChange={(e) => setNewLine((n) => ({ ...n, quantity: e.target.value }))}
-                        className="w-20 rounded-lg border border-neutral-300 bg-transparent px-2 py-1.5 text-sm tabular-nums dark:border-neutral-700"
+                        className="w-20 rounded-lg border border-neutral-300 bg-white px-2 py-1.5 text-sm tabular-nums transition focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 dark:border-neutral-600 dark:bg-ink"
                       />
                     </label>
                     <span className="text-neutral-400">×</span>
@@ -968,7 +951,7 @@ function BillDetail() {
                         inputMode="decimal"
                         value={newLine.unitCost}
                         onChange={(e) => setNewLine((n) => ({ ...n, unitCost: e.target.value }))}
-                        className="w-24 rounded-lg border border-neutral-300 bg-transparent px-2 py-1.5 text-sm tabular-nums dark:border-neutral-700"
+                        className="w-24 rounded-lg border border-neutral-300 bg-white px-2 py-1.5 text-sm tabular-nums transition focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 dark:border-neutral-600 dark:bg-ink"
                       />
                     </label>
                   </div>
@@ -983,31 +966,25 @@ function BillDetail() {
                     />
                   </div>
                   <div className="mt-3 flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={addLine}
-                      disabled={addLineSaving || !newLine.name.trim()}
-                      className="rounded-lg bg-accent px-3 py-2 text-sm font-semibold text-white hover:bg-accent-hover disabled:opacity-40"
-                    >
+                    <Button onClick={addLine} disabled={addLineSaving || !newLine.name.trim()}>
                       {addLineSaving ? "Adding…" : "Add line"}
-                    </button>
-                    <button
-                      type="button"
+                    </Button>
+                    <Button
+                      variant="secondary"
                       onClick={() => {
                         setAddingLine(false);
                         setAddLineMsg("");
                       }}
-                      className="rounded-lg border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-600 hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
                     >
                       Cancel
-                    </button>
+                    </Button>
                   </div>
                 </div>
               )}
               {addLineMsg && (
-                <p className="mt-2 rounded-lg bg-neutral-100 px-3 py-2 text-xs dark:bg-neutral-800">
+                <Banner tone="neutral" className="mt-2 !px-3 !py-2 !text-xs">
                   {addLineMsg}
-                </p>
+                </Banner>
               )}
             </div>
           )}
@@ -1049,6 +1026,35 @@ function BillDetail() {
               </span>
             ),
           )}
+        </div>
+      )}
+
+      {/* Sticky save bar — appears only while there are unsaved line changes,
+          so Save is always reachable without scrolling back to the top. The
+          page's pb-24 keeps content clear of it. */}
+      {header && pending.length > 0 && (
+        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-neutral-200 bg-cream/95 backdrop-blur dark:border-white/10 dark:bg-ink/95 print:hidden">
+          <div className="mx-auto flex max-w-xl items-center justify-between gap-3 px-4 py-3">
+            <span className="text-sm font-medium">
+              {pending.length} unsaved change{pending.length === 1 ? "" : "s"}
+            </span>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setPicked({});
+                  setEdits({});
+                }}
+                disabled={saving}
+              >
+                Discard
+              </Button>
+              <Button onClick={saveCoding} disabled={saving}>
+                {saving ? "Saving…" : `Save changes (${pending.length})`}
+              </Button>
+            </div>
+          </div>
         </div>
       )}
     </main>

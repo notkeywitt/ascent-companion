@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { AscentIcon } from "@/components/AscentLogo";
+import { Banner, Button, btn, inputCls } from "@/components/ui";
 
 function Login() {
   const router = useRouter();
@@ -44,22 +45,23 @@ function Login() {
     }
   }
 
-  const btn =
-    "flex w-full items-center justify-center gap-2 rounded-lg bg-accent px-4 py-2.5 text-sm font-semibold text-white hover:bg-accent-hover";
+  const primary = btn("primary", "lg", "w-full");
 
   return (
     <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-6">
+      {/* Brand lockup, over the ochre hairline the app chrome carries. */}
       <AscentIcon className="mb-6 h-14 w-14 rounded-md" />
       <p className="text-[13px] font-medium uppercase tracking-[0.14em] text-offblack dark:text-cream">
         Ascent
         <br />
         Building Co.
       </p>
-      <h1 className="mb-5 mt-4 text-2xl font-bold tracking-tight">Sign in</h1>
+      <div className="mb-5 mt-3 h-0.5 w-10 bg-ochre" aria-hidden />
+      <h1 className="mb-5 text-2xl font-bold tracking-tight">Sign in</h1>
 
       {inIframe ? (
         <>
-          <a href={origin || "/"} target="_blank" rel="noreferrer" className={btn}>
+          <a href={origin || "/"} target="_blank" rel="noreferrer" className={primary}>
             Open in a new tab to sign in ↗
           </a>
           <p className="mt-2 text-xs text-neutral-500">
@@ -68,7 +70,7 @@ function Login() {
           </p>
         </>
       ) : (
-        <button onClick={() => signIn("google", { callbackUrl: next })} className={btn}>
+        <button onClick={() => signIn("google", { callbackUrl: next })} className={primary}>
           Sign in with Google
         </button>
       )}
@@ -81,16 +83,12 @@ function Login() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="Password"
-            className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2.5 text-sm dark:border-neutral-700 dark:bg-neutral-900"
+            className={inputCls + " !py-2.5"}
           />
-          {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
-          <button
-            type="submit"
-            disabled={busy}
-            className="w-full rounded-lg border border-neutral-300 px-4 py-2 text-sm font-semibold hover:border-accent disabled:opacity-50 dark:border-neutral-700"
-          >
+          {error && <Banner tone="error">{error}</Banner>}
+          <Button type="submit" variant="secondary" className="w-full" disabled={busy}>
             {busy ? "…" : "Enter"}
-          </button>
+          </Button>
         </form>
       </details>
     </main>

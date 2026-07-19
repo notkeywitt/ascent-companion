@@ -4,9 +4,15 @@
  * gold highlight; it's purely decorative (the <h1> carries the name), so the
  * ochre-on-cream contrast that fails for text is fine here.
  */
-export function PeakMark({ className = "" }: { className?: string }) {
+export function PeakMark({
+  className = "",
+  color = "#CF9803",
+}: {
+  className?: string;
+  color?: string;
+}) {
   return (
-    <svg viewBox="0 0 100 62" aria-hidden="true" className={className} fill="#CF9803">
+    <svg viewBox="0 0 100 62" aria-hidden="true" className={className} fill={color}>
       <polygon points="6,60 34,15 42,24 54,2 94,60" />
     </svg>
   );

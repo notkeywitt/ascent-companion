@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { JobPicker } from "@/components/JobPicker";
 import { AscentLogo } from "@/components/AscentLogo";
+import { btn } from "@/components/ui";
 
 // The job picker + Add-bill button live in the sticky chrome above the tab bar,
 // so they're reachable from every tab. The picker writes the chosen job to the
@@ -34,10 +35,7 @@ export function GlobalJobBar() {
       <div className="min-w-0 flex-1">
         <JobPicker value={jobId} onChange={onChange} />
       </div>
-      <Link
-        href={addHref}
-        className="shrink-0 whitespace-nowrap rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-accent-hover"
-      >
+      <Link href={addHref} className={btn("primary", "md", "shrink-0")}>
         ＋ Add bill
       </Link>
     </div>

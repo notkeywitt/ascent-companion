@@ -3,6 +3,8 @@
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
+import { Banner, Button, EmptyState, Loading, PageHeader, inputCls } from "@/components/ui";
+
 interface Rfi {
   id: number;
   jobId: string;
@@ -105,15 +107,13 @@ function Rfis() {
       ))}
     </datalist>
   );
-  const inputCls =
-    "w-full rounded-lg border border-neutral-300 bg-transparent px-3 py-2 text-sm dark:border-neutral-700";
-
   if (!jobId) {
     return (
       <main className="mx-auto max-w-xl px-4 pb-24 pt-6">
-        <p className="text-sm text-neutral-500">
-          Open a job in JobTread (or load one on the Coding Review tab) to see and create its RFIs.
-        </p>
+        <PageHeader
+          title="RFIs"
+          description="Open a job in JobTread (or pick one above) to see and create its RFIs."
+        />
       </main>
     );
   }
@@ -121,22 +121,21 @@ function Rfis() {
   return (
     <main className="mx-auto max-w-xl px-4 pb-24 pt-6">
       {vendorList}
-      <header className="mb-4">
-        <div className="flex items-center justify-between">
-          <p className="font-mono text-xs text-neutral-500">job {jobId}</p>
-          <button
-            onClick={() => setShowNew((s) => !s)}
-            className="rounded-lg bg-accent px-3 py-1.5 text-sm font-semibold text-white hover:bg-accent-hover"
-          >
+      <PageHeader
+        title="RFIs"
+        description={<span className="font-mono text-xs">job {jobId}</span>}
+        actions={
+          <Button variant={showNew ? "secondary" : "primary"} size="sm" onClick={() => setShowNew((s) => !s)}>
             {showNew ? "Cancel" : "+ New RFI"}
-          </button>
-        </div>
-      </header>
+          </Button>
+        }
+        className="!mb-4"
+      />
 
       {showNew && (
         <form
           onSubmit={create}
-          className="mb-5 space-y-2 rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900"
+          className="mb-5 space-y-2 rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-700/60 dark:bg-ink-raised"
         >
           <input
             autoFocus
@@ -180,27 +179,16 @@ function Rfis() {
               />
             </label>
           </div>
-          <button
-            type="submit"
-            className="w-full rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-accent-hover"
-          >
+          <Button type="submit" className="w-full">
             Create RFI
-          </button>
+          </Button>
         </form>
       )}
 
-      {loading && <p className="text-sm text-neutral-500">Loading…</p>}
-      {error && (
-        <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">
-          {error}
-        </div>
-      )}
+      {loading && <Loading label="Loading RFIs…" />}
+      {error && <Banner tone="error">{error}</Banner>}
 
-      {!loading && rfis.length === 0 && (
-        <div className="rounded-xl border border-dashed border-neutral-300 p-6 text-center text-sm text-neutral-500 dark:border-neutral-700">
-          No RFIs yet for this job.
-        </div>
-      )}
+      {!loading && rfis.length === 0 && <EmptyState>No RFIs yet for this job.</EmptyState>}
 
       <ul className="space-y-2">
         {rfis.map((r) => {
@@ -208,7 +196,7 @@ function Rfis() {
           return (
             <li
               key={r.id}
-              className="rounded-xl border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900"
+              className="rounded-xl border border-neutral-200 bg-white dark:border-neutral-700/60 dark:bg-ink-raised"
             >
               <button
                 onClick={() => setOpen(expanded ? null : r.id)}
@@ -305,10 +293,10 @@ function Rfis() {
                           })
                         }
                         className={
-                          "rounded-full px-2.5 py-1 text-xs font-semibold " +
+                          "rounded-full px-2.5 py-1 text-xs font-semibold transition " +
                           (r.status === s
                             ? statusClass[s]
-                            : "text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800")
+                            : "text-neutral-500 hover:bg-neutral-100 dark:hover:bg-white/10")
                         }
                       >
                         {s}

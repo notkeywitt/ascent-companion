@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { JtLink } from "@/components/JtLink";
 import { BillStatusBadge } from "@/components/BillStatusBadge";
+import { Banner, Button, EmptyState, Label, Loading, PageHeader, btn, inputCls } from "@/components/ui";
 
 interface Csi {
   code: string;
@@ -294,15 +295,19 @@ function Stage() {
 
   return (
     <main className="mx-auto max-w-xl px-4 pb-24 pt-6">
+      <PageHeader
+        className="no-print"
+        title="Invoicing"
+        description="Stage the month's customer invoice from this job's uninvoiced bills and time."
+      />
+
       <div className="mb-3 no-print">
-        <label className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
-          Invoice date (billing month)
-        </label>
+        <Label>Invoice date (billing month)</Label>
         <select
           value={ym}
           onChange={(e) => setYm(e.target.value)}
           disabled={!filterByMonth}
-          className="mt-1 w-full rounded-lg border border-neutral-300 bg-transparent px-2 py-2 text-sm disabled:opacity-40 dark:border-neutral-700"
+          className={inputCls}
         >
           {monthOptions().map((o) => (
             <option key={o.ym} value={o.ym}>
@@ -348,17 +353,21 @@ function Stage() {
       {customer && (
         <p className="mb-3 text-sm text-neutral-500 no-print">Customer: {customer.name}</p>
       )}
-      {loading && <p className="text-sm text-neutral-500 no-print">Loading…</p>}
-      {error && (
-        <div className="no-print rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">
-          {error}
+      {loading && (
+        <div className="no-print">
+          <Loading label="Loading uninvoiced bills…" />
         </div>
+      )}
+      {error && (
+        <Banner tone="error" className="no-print">
+          {error}
+        </Banner>
       )}
 
       {lines && lines.length === 0 && !loading && (
-        <div className="rounded-xl border border-dashed border-neutral-300 p-6 text-center text-sm text-neutral-500 dark:border-neutral-700">
+        <EmptyState>
           No uninvoiced bills — every approved bill on this job is already on a customer invoice.
-        </div>
+        </EmptyState>
       )}
 
       {lines && lines.length > 0 && (
@@ -367,12 +376,9 @@ function Stage() {
               below (everything tagged no-print is stripped by the print CSS),
               so the office can print or Save-as-PDF this billing summary. */}
           <div className="mb-3 flex justify-end no-print">
-            <button
-              onClick={printSummary}
-              className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 transition hover:border-accent hover:text-accent dark:border-neutral-700 dark:text-neutral-300"
-            >
+            <Button variant="secondary" size="sm" onClick={printSummary}>
               Print / Save PDF
-            </button>
+            </Button>
           </div>
 
           {/* Print-only letterhead — hidden on screen, shown when printing. */}
@@ -401,9 +407,9 @@ function Stage() {
             )}
           </div>
 
-          <div className="overflow-x-auto rounded-xl border border-neutral-200 dark:border-neutral-800">
+          <div className="overflow-x-auto rounded-xl border border-neutral-200 bg-white dark:border-neutral-700/60 dark:bg-ink-raised">
             <table className="w-full text-sm print-table">
-              <thead className="bg-neutral-50 text-left text-xs uppercase tracking-wide text-neutral-500 dark:bg-neutral-900">
+              <thead className="bg-neutral-50 text-left text-xs uppercase tracking-wide text-neutral-500 dark:bg-white/5">
                 <tr>
                   <th className="px-3 py-2 font-medium">{groupByCsi ? "CSI Code" : "Bill"}</th>
                   <th className="px-3 py-2 text-right font-medium">
@@ -434,7 +440,7 @@ function Stage() {
                       <Link
                         href={`/bill/${id}?jobId=${encodeURIComponent(jobId)}`}
                         onClick={() => driveMainWindowToDoc(jobId, id)}
-                        className="text-accent hover:underline"
+                        className="text-accent hover:underline dark:text-accent-soft"
                       >
                         {text}
                       </Link>
@@ -563,7 +569,7 @@ function Stage() {
 
           <JtLink
             href={`https://app.jobtread.com/jobs/${jobId}/documents`}
-            className="no-print mt-4 block w-full rounded-xl bg-accent px-4 py-3 text-center text-sm font-semibold text-white hover:bg-accent-hover"
+            className={btn("primary", "lg", "no-print mt-4 w-full")}
           >
             Create invoice in JobTread ↗
           </JtLink>

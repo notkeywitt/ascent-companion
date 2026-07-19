@@ -8,7 +8,8 @@
 // match 1:1 — so we emit the ID), then download the result and drop it into JT.
 
 import { useEffect, useMemo, useState } from "react";
-import { PageTitle } from "@/components/PageTitle";
+
+import { Banner, Button, PageHeader } from "@/components/ui";
 
 // ---- Editable config -------------------------------------------------------
 
@@ -797,21 +798,15 @@ export default function LaborImportPage() {
 
   return (
     <main className="mx-auto max-w-3xl px-4 pb-24 pt-6">
-      <header className="mb-5">
-        <p className="text-[11px] font-semibold uppercase tracking-widest text-neutral-500">
-          Ascent Companion
-        </p>
-        <PageTitle size="2xl">Labor Import</PageTitle>
-        <p className="mt-1 text-sm text-neutral-500">
-          Turn the monthly QuickBooks labor report into a JobTread time-entry import CSV. The file
-          is processed in your browser only.
-        </p>
-      </header>
+      <PageHeader
+        title="Labor Import"
+        description="Turn the monthly QuickBooks labor report into a JobTread time-entry import CSV. The file is processed in your browser only."
+      />
 
       {parseError && (
-        <div className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">
+        <Banner tone="error" className="mb-4">
           {parseError}
-        </div>
+        </Banner>
       )}
 
       {!entries && (
@@ -853,7 +848,7 @@ export default function LaborImportPage() {
       {entries && (
         <>
           {/* Summary + download */}
-          <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-700/60 dark:bg-ink-raised">
             <div className="text-sm">
               <div className="font-medium">{fileName}</div>
               <div className="text-xs text-neutral-500">
@@ -863,22 +858,18 @@ export default function LaborImportPage() {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <button
+              <Button
+                variant="ghost"
                 onClick={() => {
                   setEntries(null);
                   setFileName("");
                 }}
-                className="rounded-lg px-3 py-2 text-sm font-medium text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200"
               >
                 Load another
-              </button>
-              <button
-                onClick={doDownload}
-                disabled={ready.length === 0}
-                className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
-              >
+              </Button>
+              <Button onClick={doDownload} disabled={ready.length === 0}>
                 Download CSV ({ready.length})
-              </button>
+              </Button>
             </div>
           </div>
 
@@ -910,7 +901,7 @@ export default function LaborImportPage() {
           </div>
 
           {/* Worker → JobTread user */}
-          <div className="mb-5 rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
+          <div className="mb-5 rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-700/60 dark:bg-ink-raised">
             <div className="mb-2 text-sm font-semibold">
               JobTread users
               {workersNeedingId.length > 0 && (
@@ -939,7 +930,7 @@ export default function LaborImportPage() {
                   <select
                     value={workerIdMap[w] ?? ""}
                     onChange={(e) => setWorkerId(w, e.target.value)}
-                    className="flex-1 rounded-md border border-neutral-300 bg-transparent px-2 py-1 text-sm outline-none focus:border-accent dark:border-neutral-700"
+                    className="flex-1 rounded-md border border-neutral-300 bg-white px-2 py-1 text-sm transition focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 dark:border-neutral-600 dark:bg-ink"
                   >
                     <option value="">— pick JobTread user —</option>
                     {(jtUsers ?? []).map((u) => (
@@ -951,7 +942,7 @@ export default function LaborImportPage() {
                   <span
                     className={
                       "w-24 shrink-0 whitespace-nowrap text-right text-xs " +
-                      (userIdFor(w) ? "text-accent" : "text-amber-500")
+                      (userIdFor(w) ? "text-accent dark:text-accent-soft" : "text-amber-500")
                     }
                   >
                     {userIdFor(w) ? `✓ ${userNameFor(w)}` : "unmapped"}
@@ -963,7 +954,7 @@ export default function LaborImportPage() {
 
           {/* Job ID mapping — only for jobs currently selected */}
           {[...selJobs].length > 0 && (
-            <div className="mb-5 rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
+            <div className="mb-5 rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-700/60 dark:bg-ink-raised">
               <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                 <div className="text-sm font-semibold">
                   JobTread Job IDs
@@ -973,7 +964,7 @@ export default function LaborImportPage() {
                     </span>
                   )}
                 </div>
-                <label className="cursor-pointer whitespace-nowrap text-xs font-semibold text-accent">
+                <label className="cursor-pointer whitespace-nowrap text-xs font-semibold text-accent dark:text-accent-soft">
                   {projectsMeta ? "Replace Projects map" : "Load Projects map (CSV)"}
                   <input
                     type="file"
@@ -991,7 +982,7 @@ export default function LaborImportPage() {
                 Database <b>Projects</b> tab (<code>jobcode_1</code> → <code>JobTread Job ID</code>) —
                 export that tab as CSV and load it.{" "}
                 {projectsMeta ? (
-                  <span className="text-accent">
+                  <span className="text-accent dark:text-accent-soft">
                     {projectsMeta.count} links loaded from {projectsMeta.name}.
                   </span>
                 ) : (
@@ -1036,7 +1027,7 @@ export default function LaborImportPage() {
                       <span
                         className={
                           "w-24 shrink-0 whitespace-nowrap text-right text-xs " +
-                          (src ? "text-accent" : "text-amber-500")
+                          (src ? "text-accent dark:text-accent-soft" : "text-amber-500")
                         }
                       >
                         {src === "projects"
@@ -1066,7 +1057,7 @@ export default function LaborImportPage() {
 
           {/* Pay type — per worker AND per job */}
           {typePairs.length > 0 && (
-            <div className="mb-5 rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
+            <div className="mb-5 rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-700/60 dark:bg-ink-raised">
               <div className="mb-2 text-sm font-semibold">
                 Pay type
                 {typesNeeded.length > 0 && (
@@ -1106,7 +1097,7 @@ export default function LaborImportPage() {
                       <select
                         value={typeMap[typeKey(p.worker, p.jobRaw)] ?? cur ?? ""}
                         onChange={(e) => setType(p.worker, p.jobRaw, e.target.value)}
-                        className="flex-1 rounded-md border border-neutral-300 bg-transparent px-2 py-1 text-sm outline-none focus:border-accent dark:border-neutral-700"
+                        className="flex-1 rounded-md border border-neutral-300 bg-white px-2 py-1 text-sm transition focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 dark:border-neutral-600 dark:bg-ink"
                       >
                         <option value="">
                           {mapped ? "— pick a pay type —" : "— map this worker first —"}
@@ -1121,7 +1112,7 @@ export default function LaborImportPage() {
                       <span
                         className={
                           "w-24 shrink-0 whitespace-nowrap text-right text-xs " +
-                          (cur ? "text-accent" : "text-amber-500")
+                          (cur ? "text-accent dark:text-accent-soft" : "text-amber-500")
                         }
                       >
                         {cur ? "✓ set" : "unset"}
@@ -1135,7 +1126,7 @@ export default function LaborImportPage() {
 
           {/* CSI codes that aren't a cost item in that job's JobTread budget */}
           {noCostItem.length > 0 && (
-            <details className="mb-5 rounded-xl border border-neutral-200 bg-white p-3 text-sm dark:border-neutral-800 dark:bg-neutral-900">
+            <details className="mb-5 rounded-xl border border-neutral-200 bg-white p-3 text-sm dark:border-neutral-700/60 dark:bg-ink-raised">
               <summary className="cursor-pointer font-medium text-neutral-600 dark:text-neutral-300">
                 {noCostItem.length} row{noCostItem.length === 1 ? "" : "s"} held back — cost code not
                 in that job&apos;s JobTread budget
@@ -1164,7 +1155,7 @@ export default function LaborImportPage() {
 
           {/* Dropped rows */}
           {dropped.length > 0 && (
-            <details className="mb-5 rounded-xl border border-neutral-200 bg-white p-3 text-sm dark:border-neutral-800 dark:bg-neutral-900">
+            <details className="mb-5 rounded-xl border border-neutral-200 bg-white p-3 text-sm dark:border-neutral-700/60 dark:bg-ink-raised">
               <summary className="cursor-pointer font-medium text-neutral-600 dark:text-neutral-300">
                 {dropped.length} row{dropped.length === 1 ? "" : "s"} dropped (can&apos;t be imported)
               </summary>
@@ -1181,9 +1172,9 @@ export default function LaborImportPage() {
           )}
 
           {/* Preview */}
-          <div className="overflow-x-auto rounded-xl border border-neutral-200 dark:border-neutral-800">
+          <div className="overflow-x-auto rounded-xl border border-neutral-200 bg-white dark:border-neutral-700/60 dark:bg-ink-raised">
             <table className="w-full text-left text-xs">
-              <thead className="bg-neutral-100 dark:bg-neutral-800">
+              <thead className="bg-neutral-50 dark:bg-white/5">
                 <tr>
                   {JT_HEADERS.map((h) => (
                     <th key={h} className="whitespace-nowrap px-2 py-2 font-semibold">
@@ -1265,7 +1256,7 @@ function JobIdControl({
   onManual: (on: boolean) => void;
 }) {
   const cls =
-    "flex-1 rounded-md border border-neutral-300 bg-transparent px-2 py-1 text-sm outline-none focus:border-accent dark:border-neutral-700";
+    "flex-1 rounded-md border border-neutral-300 bg-white px-2 py-1 text-sm transition focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 dark:border-neutral-600 dark:bg-ink";
 
   if (jtJobs && jtJobs.length > 0 && !manual) {
     const known = jtJobs.some((j) => j.id === value);
@@ -1316,7 +1307,7 @@ function JobIdControl({
         <button
           type="button"
           onClick={() => onManual(false)}
-          className="whitespace-nowrap text-xs text-accent"
+          className="whitespace-nowrap text-xs text-accent dark:text-accent-soft"
         >
           use list
         </button>
@@ -1327,7 +1318,7 @@ function JobIdControl({
 
 function FilterCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
+    <div className="rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-700/60 dark:bg-ink-raised">
       <div className="mb-2 text-sm font-semibold">{title}</div>
       <div className="max-h-56 space-y-1 overflow-y-auto">{children}</div>
     </div>
