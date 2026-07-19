@@ -37,6 +37,8 @@ Two options:
 | `DATABASE_AUTH_TOKEN` | the Turso token |
 | `APP_PASSWORD` | a strong shared password (required on deploy) |
 | `COMPANION_WRITES_ENABLED` | leave unset (writes stay off) |
+| `ANTHROPIC_API_KEY` | Anthropic API key (powers the **Chat** assistant) |
+| `ANTHROPIC_MODEL` | `claude-sonnet-5` (or leave unset for Opus 4.8) |
 
 Set them for the Production environment, then deploy (Vercel builds automatically).
 

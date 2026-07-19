@@ -24,6 +24,10 @@ const PRIMARY_TABS: Tab[] = [
 // blur together: billing workflow, field tools, office records, then system.
 const MORE_GROUPS: { label: string; tabs: Tab[] }[] = [
   {
+    label: "Assistant",
+    tabs: [{ label: "Chat", href: "/chat", match: (p) => p.startsWith("/chat") }],
+  },
+  {
     label: "Billing",
     tabs: [
       { label: "Email", href: "/email", match: (p) => p.startsWith("/email") },
