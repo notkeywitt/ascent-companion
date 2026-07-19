@@ -10,13 +10,31 @@
       padding: 6px 12px; font: 12px system-ui, sans-serif; color: #5c6771;
       border-bottom: 1px solid #e4e0d8; background: #faf8f4;
     }
-    .follow { display: flex; align-items: center; gap: 5px; white-space: nowrap; }
+    .follow { display: flex; align-items: center; gap: 7px; white-space: nowrap; cursor: pointer; user-select: none; }
+    /* Toggle switch — the checkbox itself is hidden and its state drives the track/knob. */
+    .switch { position: relative; display: inline-block; width: 34px; height: 18px; flex: none; }
+    .switch input { position: absolute; opacity: 0; width: 0; height: 0; margin: 0; }
+    .track {
+      position: absolute; inset: 0; border-radius: 999px; background: #cdc8bd;
+      transition: background 0.15s ease;
+    }
+    .track::before {
+      content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px;
+      border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,0.25);
+      transition: transform 0.15s ease;
+    }
+    .switch input:checked + .track { background: #10606b; }
+    .switch input:checked + .track::before { transform: translateX(16px); }
+    .switch input:focus-visible + .track { box-shadow: 0 0 0 2px rgba(16,96,107,0.4); }
     #job { font: 11px ui-monospace, monospace; color: #10606b; white-space: nowrap; margin-left: auto; }
     #job.none { color: #8a939b; }
     iframe { border: none; width: 100%; height: calc(100% - 33px); }
     @media (prefers-color-scheme: dark) {
       html, body { background: #121619; }
       #bar { background: #1b2024; border-color: #2a3137; color: #9aa4ad; }
+      .track { background: #3a424a; }
+      .track::before { background: #d7dde2; }
+      .switch input:checked + .track { background: #3badbc; }
       #job { color: #3badbc; }
       #job.none { color: #6e7880; }
     }
@@ -24,7 +42,10 @@
 </head>
 <body>
   <div id="bar">
-    <label class="follow"><input id="follow" type="checkbox" /> Follow JobTread</label>
+    <label class="follow">
+      <span class="switch"><input id="follow" type="checkbox" /><span class="track"></span></span>
+      Follow JobTread
+    </label>
     <span id="job" class="none">no job open</span>
   </div>
   <iframe id="frame" title="Ascent Companion"></iframe>

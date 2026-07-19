@@ -65,8 +65,12 @@ if (followChk) {
 // the main browser tab the panel is docked next to — e.g. clicking a bill in the
 // coding queue brings that bill up in JobTread beside the panel. Prefer the
 // active tab; fall back to any JobTread tab.
+//
+// These companion→JobTread actions are gated on Follow: with the toggle off the
+// companion and the JobTread window are fully independent, so we ignore them.
 window.addEventListener("message", (e) => {
   if (e.origin !== APP_URL) return;
+  if (!follow) return;
   const d = e.data || {};
 
   // Navigate the docked JobTread tab to a specific document.
