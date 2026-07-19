@@ -19,6 +19,10 @@ export async function GET(req: NextRequest) {
     const cfg = getPaveConfig();
     const bills = jobId ? await getDraftBills(cfg, jobId) : await getAllDraftBills(cfg);
 
+    // Newest first. issueDate is yyyy-MM-dd, so string compare orders it;
+    // undated bills sink to the bottom.
+    bills.sort((a, b) => (b.issueDate ?? "").localeCompare(a.issueDate ?? ""));
+
     // Tag each bill with its companion-side flags: saved (Save clicked) and
     // reviewed (explicitly marked done). Best-effort — a DB hiccup must not
     // break the queue.
