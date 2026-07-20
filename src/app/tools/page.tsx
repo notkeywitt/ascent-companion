@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import { QrScanner } from "@/components/QrScanner";
 import { Banner, Button, Label, Loading, PageHeader, inputCls } from "@/components/ui";
 
 interface Tool {
@@ -54,6 +55,19 @@ const conditionClass = (c: string) => {
     return "text-red-700 bg-red-100 dark:text-red-300 dark:bg-red-950/50";
   return "text-neutral-600 bg-neutral-200 dark:text-neutral-300 dark:bg-neutral-800";
 };
+
+// Great-circle distance in km between two lat/lng points — used to pre-select the
+// nearest job site after a scan.
+function haversineKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
+  const R = 6371;
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(b.lat - a.lat);
+  const dLng = toRad(b.lng - a.lng);
+  const s =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(s));
+}
 
 // Downscale a picked image to <= maxDim on its long edge and return a JPEG data
 // URL — keeps phone photos small so the base64 upload through Apps Script is fast.
@@ -114,6 +128,7 @@ export default function ToolsPage() {
   const [loading, setLoading] = useState(true);
   const [loadErr, setLoadErr] = useState("");
 
+  // ---- Inventory list: search / filter / edit --------------------------------
   const [q, setQ] = useState("");
   const [conditionFilter, setConditionFilter] = useState("All");
   const [jobFilter, setJobFilter] = useState("All");
@@ -124,6 +139,17 @@ export default function ToolsPage() {
   const [saving, setSaving] = useState(false);
   const [saveErr, setSaveErr] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // ---- Scan → relocate flow (the former Tool Tracker page) --------------------
+  const [scanning, setScanning] = useState(false); // camera overlay open
+  const [scanErr, setScanErr] = useState("");
+  const [scanTool, setScanTool] = useState<Tool | null>(null); // relocate target
+  const [scanProjectId, setScanProjectId] = useState("");
+  const [here, setHere] = useState<{ lat: number; lng: number } | null>(null);
+  const [geoMsg, setGeoMsg] = useState("");
+  const [relocating, setRelocating] = useState(false);
+  const [relocErr, setRelocErr] = useState("");
+  const [relocDone, setRelocDone] = useState<{ tool: Tool; locationLabel: string } | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -192,6 +218,22 @@ export default function ToolsPage() {
     })).sort((a, b) => a.type.localeCompare(b.type));
   }, [view]);
 
+  // Projects ordered nearest-first when we have a GPS fix, else alphabetical.
+  const orderedProjects = useMemo(() => {
+    if (!here) return projects;
+    const withD = projects.map((p) => ({
+      p,
+      d: p.lat != null && p.lng != null ? haversineKm(here, { lat: p.lat, lng: p.lng }) : Infinity,
+    }));
+    withD.sort((a, b) => a.d - b.d);
+    return withD.map((x) => x.p);
+  }, [projects, here]);
+
+  function mergeTool(updated: Tool) {
+    setTools((list) => list.map((t) => (t.id === updated.id ? updated : t)));
+  }
+
+  // ---- Edit modal ------------------------------------------------------------
   function openEdit(t: Tool) {
     setEditing(t);
     setForm({ ...t });
@@ -214,10 +256,6 @@ export default function ToolsPage() {
     } catch (err) {
       setSaveErr(err instanceof Error ? err.message : "Could not read the image.");
     }
-  }
-
-  function mergeTool(updated: Tool) {
-    setTools((list) => list.map((t) => (t.id === updated.id ? updated : t)));
   }
 
   async function save() {
@@ -263,11 +301,118 @@ export default function ToolsPage() {
     }
   }
 
+  // ---- Scan → relocate -------------------------------------------------------
+  function startScan() {
+    setScanErr("");
+    setScanTool(null);
+    setScanProjectId("");
+    setHere(null);
+    setGeoMsg("");
+    setRelocErr("");
+    setRelocDone(null);
+    setScanning(true);
+  }
+
+  function closeScan() {
+    setScanning(false);
+    setScanTool(null);
+    setScanProjectId("");
+    setHere(null);
+    setGeoMsg("");
+    setRelocErr("");
+    setRelocDone(null);
+  }
+
+  function pickNearest(fix: { lat: number; lng: number }) {
+    let best: Project | null = null;
+    let bestD = Infinity;
+    for (const p of projects) {
+      if (p.lat == null || p.lng == null) continue;
+      const d = haversineKm(fix, { lat: p.lat, lng: p.lng });
+      if (d < bestD) {
+        bestD = d;
+        best = p;
+      }
+    }
+    if (best) {
+      setScanProjectId(best.id);
+      setGeoMsg(`Nearest job site: ${best.label} (${bestD.toFixed(1)} km away).`);
+    } else {
+      setGeoMsg("Got your location, but no job site has coordinates — pick one below.");
+    }
+  }
+
+  function onScan(text: string) {
+    setScanning(false);
+    const raw = text.trim();
+    // The sticker may encode the bare id or a URL like ?tool=tool087.
+    const id = (raw.match(/tool=([^&\s]+)/i)?.[1] ?? raw).trim();
+    const found = tools.find((t) => t.id.toLowerCase() === id.toLowerCase());
+    if (!found) {
+      setScanErr(`Scanned "${id}", which isn't a known tool. Try again.`);
+      return;
+    }
+    setScanErr("");
+    setScanTool(found);
+    setScanProjectId(found.location || "");
+
+    // Ask for GPS to pre-select the nearest job site (best-effort).
+    if (navigator.geolocation) {
+      setGeoMsg("Finding your location…");
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const fix = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+          setHere(fix);
+          pickNearest(fix);
+        },
+        () => setGeoMsg("Location unavailable — pick the job site below."),
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
+      );
+    } else {
+      setGeoMsg("This device can't share location — pick the job site below.");
+    }
+  }
+
+  async function saveRelocation() {
+    if (!scanTool || !scanProjectId) return;
+    setRelocating(true);
+    setRelocErr("");
+    try {
+      // Scans go through /api/tool-tracker so the move is attributed to the
+      // signed-in user (Lastscan / LastScanEmail) — unlike a plain edit-modal save.
+      const res = await fetch("/api/tool-tracker", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ toolId: scanTool.id, projectId: scanProjectId }),
+      });
+      const json = await res.json();
+      if (!res.ok || json.ok === false) {
+        setRelocErr(json.error || "Save failed.");
+        return;
+      }
+      const updated = (json.tool as Tool) ?? null;
+      if (updated) mergeTool(updated);
+      setRelocDone({
+        tool: updated ?? scanTool,
+        locationLabel: json.locationLabel ?? updated?.locationLabel ?? "",
+      });
+    } catch (e) {
+      setRelocErr(e instanceof Error ? e.message : "Save failed.");
+    } finally {
+      setRelocating(false);
+    }
+  }
+
   return (
     <main className="mx-auto max-w-4xl px-4 pb-24 pt-6">
       <PageHeader
         title="Tools"
-        description="The tool inventory — search, filter by condition or job site, and edit any tool."
+        description="The tool inventory — search, edit, or scan a tool's QR sticker to relocate it."
+        actions={
+          <Button variant="primary" size="sm" onClick={startScan} disabled={loading || !!loadErr}>
+            Scan tool
+          </Button>
+        }
         className="!mb-3"
       />
 
@@ -309,6 +454,11 @@ export default function ToolsPage() {
       {loadErr && (
         <Banner tone="error" className="mb-4">
           {loadErr}
+        </Banner>
+      )}
+      {scanErr && (
+        <Banner tone="warning" className="mb-4">
+          {scanErr}
         </Banner>
       )}
       {loading && <Loading label="Loading tools…" />}
@@ -370,6 +520,136 @@ export default function ToolsPage() {
             ))}
           </div>
         </>
+      )}
+
+      {/* Scan camera overlay */}
+      {scanning && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4"
+          onClick={() => setScanning(false)}
+        >
+          <div
+            className="w-full max-w-lg rounded-t-2xl bg-white p-4 dark:bg-ink-overlay sm:rounded-2xl"
+            onClick={(ev) => ev.stopPropagation()}
+          >
+            <h2 className="mb-3 text-lg font-bold">Scan a tool</h2>
+            <div className="space-y-3">
+              <QrScanner
+                onDetect={onScan}
+                onError={(m) => {
+                  setScanErr(m);
+                  setScanning(false);
+                }}
+              />
+              <Button variant="secondary" className="w-full" onClick={() => setScanning(false)}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Relocate confirm / success overlay (after a scan) */}
+      {scanTool && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4"
+          onClick={() => !relocating && closeScan()}
+        >
+          <div
+            className="w-full max-w-lg rounded-t-2xl bg-white p-4 dark:bg-ink-overlay sm:rounded-2xl"
+            onClick={(ev) => ev.stopPropagation()}
+          >
+            {relocDone ? (
+              <>
+                <div className="text-lg font-semibold text-green-700 dark:text-green-400">
+                  Updated ✓
+                </div>
+                <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
+                  <span className="font-medium">{relocDone.tool.name || relocDone.tool.id}</span> →{" "}
+                  {relocDone.locationLabel || "—"}
+                </p>
+                <div className="mt-4 flex gap-2">
+                  <Button variant="secondary" className="flex-1" onClick={closeScan}>
+                    Done
+                  </Button>
+                  <Button variant="primary" className="flex-1" onClick={startScan}>
+                    Scan another
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="mb-3 flex items-center gap-3">
+                  <ToolPhoto url={scanTool.photoUrl} className="h-14 w-14 shrink-0 rounded-lg" />
+                  <div className="min-w-0">
+                    <div className="truncate text-base font-semibold">
+                      {scanTool.name || scanTool.id}
+                    </div>
+                    <div className="text-sm text-neutral-500">
+                      {scanTool.type}
+                      {scanTool.id ? ` · ${scanTool.id}` : ""}
+                    </div>
+                    <div className="mt-0.5 text-sm text-neutral-500">
+                      Currently: {scanTool.locationLabel || "—"}
+                    </div>
+                  </div>
+                </div>
+
+                <Label htmlFor="reloc-job">Set location to</Label>
+                <select
+                  id="reloc-job"
+                  value={scanProjectId}
+                  onChange={(ev) => setScanProjectId(ev.target.value)}
+                  className={inputCls}
+                >
+                  <option value="">Select a job site…</option>
+                  {/* Keep the current value selectable even if it isn't in the project list. */}
+                  {scanProjectId && !orderedProjects.some((p) => p.id === scanProjectId) && (
+                    <option value={scanProjectId}>{scanTool.locationLabel || scanProjectId}</option>
+                  )}
+                  {orderedProjects.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.label}
+                    </option>
+                  ))}
+                </select>
+                {geoMsg && <p className="mt-1.5 text-xs text-neutral-500">{geoMsg}</p>}
+
+                {relocErr && (
+                  <Banner tone="error" className="mt-3">
+                    {relocErr}
+                  </Banner>
+                )}
+
+                <div className="mt-4 flex gap-2">
+                  <Button
+                    variant="primary"
+                    className="flex-1"
+                    disabled={!scanProjectId || relocating}
+                    onClick={saveRelocation}
+                  >
+                    {relocating ? "Saving…" : "Update location"}
+                  </Button>
+                  <Button variant="secondary" onClick={closeScan} disabled={relocating}>
+                    Cancel
+                  </Button>
+                </div>
+
+                <button
+                  onClick={() => {
+                    const t = scanTool;
+                    closeScan();
+                    openEdit(t);
+                  }}
+                  disabled={relocating}
+                  className="mt-3 w-full text-center text-xs font-semibold text-neutral-500 underline-offset-2 transition hover:text-accent hover:underline disabled:opacity-50"
+                >
+                  Edit full details instead
+                </button>
+              </>
+            )}
+          </div>
+        </div>
       )}
 
       {/* Edit modal */}

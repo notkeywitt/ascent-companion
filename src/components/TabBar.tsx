@@ -38,8 +38,12 @@ const MORE_GROUPS: { label: string; tabs: Tab[] }[] = [
     label: "Field",
     tabs: [
       { label: "Safety Meeting", href: "/safety-meeting", match: (p) => p.startsWith("/safety-meeting") },
-      { label: "Tool Tracker", href: "/tool-tracker", match: (p) => p.startsWith("/tool-tracker") },
-      { label: "Tools", href: "/tools", match: (p) => p === "/tools" || p.startsWith("/tools/") },
+      {
+        label: "Tools",
+        href: "/tools",
+        match: (p) =>
+          p === "/tools" || p.startsWith("/tools/") || p.startsWith("/tool-tracker"),
+      },
       { label: "RFIs", href: "/rfis", match: (p) => p.startsWith("/rfis") },
     ],
   },
