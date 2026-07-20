@@ -69,6 +69,14 @@ function haversineKm(a: { lat: number; lng: number }, b: { lat: number; lng: num
   return 2 * R * Math.asin(Math.sqrt(s));
 }
 
+// Several Ascent overhead projects (Shop, Office, Electrical) share the shop's
+// single address (4223 Center Rd), so GPS distance can't tell them apart. When
+// the shop cluster is the nearest location we want the Shop, not whichever
+// project happens to sort first — a tool at the shop lives "at the Shop".
+function isShopLabel(label: string): boolean {
+  return label.trim().toLowerCase().endsWith("shop");
+}
+
 // Downscale a picked image to <= maxDim on its long edge and return a JPEG data
 // URL — keeps phone photos small so the base64 upload through Apps Script is fast.
 function downscaleToDataUrl(file: File, maxDim = 1600, quality = 0.8): Promise<string> {
@@ -274,7 +282,11 @@ export default function ToolsPage() {
       p,
       d: p.lat != null && p.lng != null ? haversineKm(here, { lat: p.lat, lng: p.lng }) : Infinity,
     }));
-    withD.sort((a, b) => a.d - b.d);
+    // Distance first; among co-located projects (identical distance) put the Shop
+    // ahead of its address-mates (Office / Electrical).
+    withD.sort(
+      (a, b) => a.d - b.d || (isShopLabel(a.p.label) ? 0 : 1) - (isShopLabel(b.p.label) ? 0 : 1),
+    );
     return withD.map((x) => x.p);
   }, [projects, here]);
 
@@ -402,22 +414,21 @@ export default function ToolsPage() {
   }
 
   function pickNearest(fix: { lat: number; lng: number }) {
-    let best: Project | null = null;
-    let bestD = Infinity;
-    for (const p of projects) {
-      if (p.lat == null || p.lng == null) continue;
-      const d = haversineKm(fix, { lat: p.lat, lng: p.lng });
-      if (d < bestD) {
-        bestD = d;
-        best = p;
-      }
-    }
-    if (best) {
-      setScanProjectId(best.id);
-      setGeoMsg(`Nearest job site: ${best.label} (${bestD.toFixed(1)} km away).`);
-    } else {
+    const scored = projects
+      .filter((p) => p.lat != null && p.lng != null)
+      .map((p) => ({ p, d: haversineKm(fix, { lat: p.lat as number, lng: p.lng as number }) }))
+      .sort((a, b) => a.d - b.d);
+    if (!scored.length) {
       setGeoMsg("Got your location, but no job site has coordinates — pick one below.");
+      return;
     }
+    // If several projects tie for nearest (the shop's address hosts Shop, Office
+    // and Electrical at one coordinate), default to the Shop.
+    const EPS = 0.05; // km
+    const nearest = scored.filter((s) => s.d <= scored[0].d + EPS);
+    const chosen = nearest.find((s) => isShopLabel(s.p.label)) ?? nearest[0];
+    setScanProjectId(chosen.p.id);
+    setGeoMsg(`Nearest job site: ${chosen.p.label} (${chosen.d.toFixed(1)} km away).`);
   }
 
   function onScan(text: string) {
