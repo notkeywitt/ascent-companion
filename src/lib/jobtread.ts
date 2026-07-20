@@ -1119,6 +1119,7 @@ export async function getUninvoicedBills(
   year?: number,
   month?: number,
   includeInvoiced = false,
+  includeDrafts = false,
 ): Promise<UninvoicedBills> {
   // When a billing month is given, only include bills/time dated in that month.
   // issueDate is standardized to the last day of the billing month, so a June
@@ -1134,6 +1135,13 @@ export async function getUninvoicedBills(
     return d >= first && d <= last;
   };
 
+  // Invoiceable = finalized bills not yet invoiced. Both pending
+  // (approved-for-payment/payable) and approved (paid) are billable to the
+  // customer; denied (voided) never is. Draft (still coding) is excluded by
+  // default, but includeDrafts adds it so the office can preview a month that
+  // isn't fully coded yet (draft bills carry a "Draft" badge in the UI).
+  const statuses = includeDrafts ? ["draft", "pending", "approved"] : ["pending", "approved"];
+
   let bills: any[] = [];
   let page: string | undefined;
   let guard = 0;
@@ -1143,10 +1151,7 @@ export async function getUninvoicedBills(
         $: { id: jobId },
         documents: {
           $: {
-            // Invoiceable = finalized bills not yet invoiced. Both pending
-            // (approved-for-payment/payable) and approved (paid) are billable to
-            // the customer; draft (still coding) and denied (voided) are not.
-            where: { and: [["type", "vendorBill"], ["status", "in", ["pending", "approved"]]] },
+            where: { and: [["type", "vendorBill"], ["status", "in", statuses]] },
             size: 25,
             ...(page ? { page } : {}),
           },

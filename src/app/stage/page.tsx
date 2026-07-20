@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { JtLink } from "@/components/JtLink";
 import { BillStatusBadge } from "@/components/BillStatusBadge";
-import { Banner, Button, EmptyState, Label, Loading, PageHeader, btn, inputCls } from "@/components/ui";
+import { Banner, Button, EmptyState, Label, Loading, PageHeader, Toggle, btn, inputCls } from "@/components/ui";
 
 interface Csi {
   code: string;
@@ -100,9 +100,12 @@ function Stage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   // Filter toggles. Defaults reproduce the original behavior: uninvoiced only,
-  // restricted to the selected billing month.
+  // restricted to the selected billing month, drafts excluded.
   const [uninvoicedOnly, setUninvoicedOnly] = useState(true);
   const [filterByMonth, setFilterByMonth] = useState(true);
+  // Include still-coding draft bills (not normally billable) so the office can
+  // preview a month before every bill is finalized.
+  const [includeDrafts, setIncludeDrafts] = useState(false);
   // View mode: false = group by vendor/labor (default), true = roll everything up
   // by CSI cost code. Pure client-side transform of the already-loaded lines —
   // no reload. Drives both the panel table and the print/PDF.
@@ -151,6 +154,7 @@ function Stage() {
         params.set("month", String(m));
       }
       if (!uninvoicedOnly) params.set("includeInvoiced", "1");
+      if (includeDrafts) params.set("includeDrafts", "1");
       const res = await fetch(`/api/stage?${params.toString()}`);
       const j = await res.json();
       if (!res.ok) setError(j.error ?? "Failed");
@@ -165,7 +169,7 @@ function Stage() {
     } finally {
       setLoading(false);
     }
-  }, [jobId, ym, uninvoicedOnly, filterByMonth]);
+  }, [jobId, ym, uninvoicedOnly, filterByMonth, includeDrafts]);
 
   useEffect(() => {
     load();
@@ -317,34 +321,23 @@ function Stage() {
         </select>
       </div>
 
-      <div className="mb-4 flex flex-wrap gap-x-5 gap-y-2 no-print">
-        <label className="flex cursor-pointer items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={uninvoicedOnly}
-            onChange={(e) => setUninvoicedOnly(e.target.checked)}
-            className="h-4 w-4 accent-accent"
-          />
-          Uninvoiced only
-        </label>
-        <label className="flex cursor-pointer items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={filterByMonth}
-            onChange={(e) => setFilterByMonth(e.target.checked)}
-            className="h-4 w-4 accent-accent"
-          />
-          Filter by billing month
-        </label>
-        <label className="flex cursor-pointer items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={groupByCsi}
-            onChange={(e) => setGroupByCsi(e.target.checked)}
-            className="h-4 w-4 accent-accent"
-          />
-          Group by CSI code
-        </label>
+      <div className="mb-4 flex flex-wrap gap-x-5 gap-y-3 no-print">
+        <Toggle
+          checked={uninvoicedOnly}
+          onChange={setUninvoicedOnly}
+          label="Uninvoiced only"
+        />
+        <Toggle
+          checked={filterByMonth}
+          onChange={setFilterByMonth}
+          label="Filter by billing month"
+        />
+        <Toggle
+          checked={includeDrafts}
+          onChange={setIncludeDrafts}
+          label="Include draft bills"
+        />
+        <Toggle checked={groupByCsi} onChange={setGroupByCsi} label="Group by CSI code" />
       </div>
 
       {!jobId && (

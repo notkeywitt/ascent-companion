@@ -54,6 +54,51 @@ export function Button({
   return <button type="button" {...props} className={btn(variant, size, className)} />;
 }
 
+/* ------------------------------------------------------------------ toggles */
+
+/**
+ * A labeled on/off switch — the interactive equivalent of a checkbox, styled as
+ * a sliding pill (olive accent when on). Uses role="switch" so it is keyboard-
+ * and screen-reader-correct. Prefer this over a raw <input type="checkbox">.
+ */
+export function Toggle({
+  checked,
+  onChange,
+  label,
+  disabled = false,
+  className = "",
+}: {
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  label: React.ReactNode;
+  disabled?: boolean;
+  className?: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      disabled={disabled}
+      onClick={() => onChange(!checked)}
+      className={`inline-flex cursor-pointer items-center gap-2 text-sm transition disabled:cursor-not-allowed disabled:opacity-40 ${className}`}
+    >
+      <span
+        className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition ${
+          checked ? "bg-accent" : "bg-neutral-300 dark:bg-neutral-600"
+        }`}
+      >
+        <span
+          className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition ${
+            checked ? "translate-x-4" : "translate-x-0.5"
+          }`}
+        />
+      </span>
+      <span>{label}</span>
+    </button>
+  );
+}
+
 /* ------------------------------------------------------------------- inputs */
 
 /** Shared text-input / select / textarea classes. */

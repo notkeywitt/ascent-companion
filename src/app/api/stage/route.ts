@@ -12,10 +12,19 @@ export async function GET(req: NextRequest) {
   const year = Number(req.nextUrl.searchParams.get("year")) || undefined;
   const month = Number(req.nextUrl.searchParams.get("month")) || undefined;
   // Omit year/month to span all months; includeInvoiced=1 also shows bills
-  // already on a customer invoice. Both driven by the Invoicing-tab toggles.
+  // already on a customer invoice; includeDrafts=1 also shows still-coding draft
+  // bills. All driven by the Invoicing-tab toggles.
   const includeInvoiced = req.nextUrl.searchParams.get("includeInvoiced") === "1";
+  const includeDrafts = req.nextUrl.searchParams.get("includeDrafts") === "1";
   try {
-    const data = await getUninvoicedBills(getPaveConfig(), jobId, year, month, includeInvoiced);
+    const data = await getUninvoicedBills(
+      getPaveConfig(),
+      jobId,
+      year,
+      month,
+      includeInvoiced,
+      includeDrafts,
+    );
     return NextResponse.json(data);
   } catch (e) {
     return NextResponse.json(
