@@ -51,7 +51,7 @@ function buildPrompt(vendorList: string, validCSIs: string): string {
 RULES:
 1. 'Vendor': You MUST choose the closest matching Vendor name from this list: {${vendorList}} and return the Vendor ID. If no match is found, output the vendor found and append "NEW VENDOR".
 2. 'CSI': The primary CSI for the whole invoice. ${csiRule}
-3. 'items': Every line item. For each, 'csi' follows the same rule as 'CSI'. Do NOT create a line item for sales tax, or for Subtotal / Total / Balance Due summary rows.
+3. 'items': Every billed line, INCLUDING shipping, freight, delivery, handling, and fuel-surcharge charges — each as its own line item with its printed amount. For each, 'csi' follows the same rule as 'CSI'. Do NOT create a line item for sales tax, or for Subtotal / Total / Balance Due summary rows.
 4. 'Tax': The TOTAL sales tax charged on the invoice, as a positive number (the "Tax" / "Sales Tax" / "Total Tax" summary amount). Keep it OUT of 'items'. 'Amount' is the invoice GRAND TOTAL (subtotal + tax). If the invoice shows no tax, output 0.
 5. AMOUNTS ARE READ, NEVER COMPUTED: extract every 'price', 'quantity', and 'line_total' EXACTLY as printed on the document. NEVER adjust, rescale, prorate, or recompute any line amount to make totals reconcile. If the printed line items do not sum to Amount minus Tax, report them as printed anyway — do NOT change them.
 6. 'DueDate': The payment due date printed on the invoice, if any; else "".
