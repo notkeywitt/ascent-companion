@@ -69,6 +69,9 @@ function CodingQueue() {
   const [bills, setBills] = useState<Bill[] | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  // Coding is a review queue, so reviewed bills are done — hide them by default,
+  // with a toggle to bring them back into view.
+  const [hideReviewed, setHideReviewed] = useState(true);
 
   // With a job id, that job's drafts; without one, every job's drafts.
   async function run(id: string) {
@@ -95,7 +98,10 @@ function CodingQueue() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [jobId]);
 
-  const total = bills?.reduce((s, b) => s + billAmount(b), 0) ?? 0;
+  const reviewedCount = bills?.filter((b) => b.reviewed).length ?? 0;
+  // What the list actually renders — reviewed bills drop out unless shown.
+  const visible = bills ? (hideReviewed ? bills.filter((b) => !b.reviewed) : bills) : null;
+  const total = visible?.reduce((s, b) => s + billAmount(b), 0) ?? 0;
 
   return (
     <main className="mx-auto max-w-xl px-4 pb-24 pt-6">
@@ -130,16 +136,47 @@ function CodingQueue() {
 
       {error && <Banner tone="error">{error}</Banner>}
 
-      {bills && (
+      {bills && visible && (
         <>
-          <div className="mb-3 flex items-baseline justify-between">
-            <span className="text-sm font-medium">
-              {bills.length} draft {bills.length === 1 ? "bill" : "bills"}
-            </span>
+          <div className="mb-3 flex items-start justify-between gap-3">
+            <div className="flex flex-col gap-1">
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-sm font-medium">
+                  {visible.length} draft {visible.length === 1 ? "bill" : "bills"}
+                </span>
+                {hideReviewed && reviewedCount > 0 && (
+                  <span className="text-xs text-neutral-400">
+                    · {reviewedCount} reviewed hidden
+                  </span>
+                )}
+              </div>
+              {reviewedCount > 0 && (
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={!hideReviewed}
+                  onClick={() => setHideReviewed((v) => !v)}
+                  className="inline-flex items-center gap-2 text-xs font-medium text-neutral-500 transition hover:text-accent dark:hover:text-accent-soft"
+                >
+                  <span
+                    className={`relative inline-flex h-4 w-7 shrink-0 items-center rounded-full transition ${
+                      hideReviewed ? "bg-neutral-300 dark:bg-neutral-600" : "bg-accent"
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-3 w-3 transform rounded-full bg-white shadow-sm transition ${
+                        hideReviewed ? "translate-x-0.5" : "translate-x-3.5"
+                      }`}
+                    />
+                  </span>
+                  Show reviewed
+                </button>
+              )}
+            </div>
             <span className="font-mono text-sm font-semibold">{money(total)}</span>
           </div>
           <ul className="space-y-2">
-            {bills.map((b) => {
+            {visible.map((b) => {
               // A bill's own job — set when listing across all jobs; otherwise the
               // selected job. Needed so the bill view loads the right budget/CTC.
               const billJobId = (b.jobId || jobId).trim();
@@ -188,12 +225,14 @@ function CodingQueue() {
                 </li>
               );
             })}
-            {bills.length === 0 && (
+            {visible.length === 0 && (
               <li>
                 <EmptyState>
-                  {jobId
-                    ? "No draft bills on this job — nothing to code."
-                    : "No draft bills anywhere — nothing to code."}
+                  {bills.length > 0
+                    ? "Every draft bill here is marked reviewed. Turn on “Show reviewed” to see them."
+                    : jobId
+                      ? "No draft bills on this job — nothing to code."
+                      : "No draft bills anywhere — nothing to code."}
                 </EmptyState>
               </li>
             )}
