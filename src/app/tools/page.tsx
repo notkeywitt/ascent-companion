@@ -96,6 +96,41 @@ function downscaleToDataUrl(file: File, maxDim = 1600, quality = 0.8): Promise<s
   });
 }
 
+// An empty tool record — the starting point when a scan hits a ToolId that isn't
+// in the inventory yet (the QR value becomes the new row's id).
+function blankTool(id: string): Tool {
+  return {
+    id,
+    name: "",
+    type: "",
+    condition: "",
+    toolGroup: "",
+    serial: "",
+    accessories: "",
+    location: "",
+    locationLabel: "",
+    lastscan: "",
+    lastScanEmail: "",
+    photoLink: "",
+    photoUrl: "",
+  };
+}
+
+// Photograph a tool's label and let the OCR endpoint read its serial number.
+// Shared by the edit modal and the new-tool form. Returns "" if nothing legible.
+async function ocrSerialFromFile(file: File): Promise<string> {
+  // Higher res than the photo path — serial text is small.
+  const dataUrl = await downscaleToDataUrl(file, 2000, 0.85);
+  const res = await fetch("/api/ocr-serial", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ imageBase64: dataUrl, mimeType: "image/jpeg" }),
+  });
+  const json = await res.json();
+  if (!res.ok || json.ok === false) throw new Error(json.error || "OCR failed.");
+  return (json.serial || "").toString().trim();
+}
+
 function ToolPhoto({ url, className }: { url: string; className: string }) {
   const [failed, setFailed] = useState(false);
   if (!url || failed) {
@@ -153,6 +188,17 @@ export default function ToolsPage() {
   const [relocating, setRelocating] = useState(false);
   const [relocErr, setRelocErr] = useState("");
   const [relocDone, setRelocDone] = useState<{ tool: Tool; locationLabel: string } | null>(null);
+
+  // ---- New tool (scanned a QR that isn't in the inventory yet) ----------------
+  const [newForm, setNewForm] = useState<Tool | null>(null); // creation form (id + fields)
+  const [createPhoto, setCreatePhoto] = useState(""); // downscaled data URL, if added
+  const [creating, setCreating] = useState(false);
+  const [createErr, setCreateErr] = useState("");
+  const [createDone, setCreateDone] = useState<{ tool: Tool; warn?: string } | null>(null);
+  const createFileRef = useRef<HTMLInputElement>(null);
+  const createSerialRef = useRef<HTMLInputElement>(null);
+  const [createSerialBusy, setCreateSerialBusy] = useState(false);
+  const [createSerialMsg, setCreateSerialMsg] = useState("");
 
   useEffect(() => {
     (async () => {
@@ -263,24 +309,15 @@ export default function ToolsPage() {
     }
   }
 
-  // Photograph the tool's label and let Gemini read the serial number into the
-  // field. Best-effort — the user reviews/edits before saving.
+  // Photograph the tool's label and let the OCR endpoint read the serial number
+  // into the field. Best-effort — the user reviews/edits before saving.
   async function onScanSerial(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file || !form) return;
     setSerialOcrBusy(true);
     setSerialOcrMsg("");
     try {
-      // Higher res than the photo path — serial text is small.
-      const dataUrl = await downscaleToDataUrl(file, 2000, 0.85);
-      const res = await fetch("/api/ocr-serial", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ imageBase64: dataUrl, mimeType: "image/jpeg" }),
-      });
-      const json = await res.json();
-      if (!res.ok || json.ok === false) throw new Error(json.error || "OCR failed.");
-      const serial = (json.serial || "").toString().trim();
+      const serial = await ocrSerialFromFile(file);
       if (serial) {
         setForm((f) => (f ? { ...f, serial } : f));
         setSerialOcrMsg(`Read “${serial}” — check it's right.`);
@@ -338,26 +375,30 @@ export default function ToolsPage() {
     }
   }
 
-  // ---- Scan → relocate -------------------------------------------------------
-  function startScan() {
-    setScanErr("");
+  // ---- Scan → relocate (known) or add (unknown) ------------------------------
+  function resetScanState() {
     setScanTool(null);
     setScanProjectId("");
     setHere(null);
     setGeoMsg("");
     setRelocErr("");
     setRelocDone(null);
+    setNewForm(null);
+    setCreatePhoto("");
+    setCreateErr("");
+    setCreateDone(null);
+    setCreateSerialMsg("");
+  }
+
+  function startScan() {
+    setScanErr("");
+    resetScanState();
     setScanning(true);
   }
 
   function closeScan() {
     setScanning(false);
-    setScanTool(null);
-    setScanProjectId("");
-    setHere(null);
-    setGeoMsg("");
-    setRelocErr("");
-    setRelocDone(null);
+    resetScanState();
   }
 
   function pickNearest(fix: { lat: number; lng: number }) {
@@ -384,16 +425,27 @@ export default function ToolsPage() {
     const raw = text.trim();
     // The sticker may encode the bare id or a URL like ?tool=tool087.
     const id = (raw.match(/tool=([^&\s]+)/i)?.[1] ?? raw).trim();
-    const found = tools.find((t) => t.id.toLowerCase() === id.toLowerCase());
-    if (!found) {
-      setScanErr(`Scanned "${id}", which isn't a known tool. Try again.`);
+    if (!id) {
+      setScanErr("That QR code didn't contain a tool id — try again.");
       return;
     }
     setScanErr("");
-    setScanTool(found);
-    setScanProjectId(found.location || "");
+    const found = tools.find((t) => t.id.toLowerCase() === id.toLowerCase());
+    if (found) {
+      // Known tool → relocate it.
+      setScanTool(found);
+      setScanProjectId(found.location || "");
+    } else {
+      // Unknown sticker → register it as a new tool (id is the scanned value).
+      setNewForm(blankTool(id));
+      setCreatePhoto("");
+      setCreateErr("");
+      setCreateDone(null);
+      setCreateSerialMsg("");
+      setScanProjectId("");
+    }
 
-    // Ask for GPS to pre-select the nearest job site (best-effort).
+    // Ask for GPS to pre-select the nearest job site (used by both flows).
     if (navigator.geolocation) {
       setGeoMsg("Finding your location…");
       navigator.geolocation.getCurrentPosition(
@@ -440,11 +492,104 @@ export default function ToolsPage() {
     }
   }
 
+  // ---- New tool creation -----------------------------------------------------
+  async function onPickCreatePhoto(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      setCreatePhoto(await downscaleToDataUrl(file));
+    } catch (err) {
+      setCreateErr(err instanceof Error ? err.message : "Could not read the image.");
+    }
+  }
+
+  async function onScanCreateSerial(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || !newForm) return;
+    setCreateSerialBusy(true);
+    setCreateSerialMsg("");
+    try {
+      const serial = await ocrSerialFromFile(file);
+      if (serial) {
+        setNewForm((f) => (f ? { ...f, serial } : f));
+        setCreateSerialMsg(`Read “${serial}” — check it's right.`);
+      } else {
+        setCreateSerialMsg("Couldn't read a serial number — try again or type it in.");
+      }
+    } catch (err) {
+      setCreateSerialMsg(err instanceof Error ? err.message : "OCR failed.");
+    } finally {
+      setCreateSerialBusy(false);
+      if (createSerialRef.current) createSerialRef.current.value = "";
+    }
+  }
+
+  async function saveNewTool() {
+    if (!newForm) return;
+    if (!newForm.name.trim()) {
+      setCreateErr("Give the tool a name.");
+      return;
+    }
+    setCreating(true);
+    setCreateErr("");
+    try {
+      // 1. Create the row (text fields + location). The scan audit is stamped
+      //    server-side since a create only happens by scanning the sticker.
+      const fields = {
+        name: newForm.name,
+        type: newForm.type,
+        condition: newForm.condition,
+        toolGroup: newForm.toolGroup,
+        serial: newForm.serial,
+        accessories: newForm.accessories,
+        location: scanProjectId,
+      };
+      const res = await fetch("/api/tools", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ toolId: newForm.id, fields }),
+      });
+      const json = await res.json();
+      if (!res.ok || json.ok === false) throw new Error(json.error || "Could not add the tool.");
+      let created = json.tool as Tool;
+      // The row exists now — add it to the list before the (optional) photo step
+      // so a photo failure can't lose the newly-created tool.
+      setTools((list) => [...list, created]);
+
+      // 2. Photo, if one was added. Non-fatal — the tool is already saved.
+      let warn: string | undefined;
+      if (createPhoto) {
+        try {
+          const pres = await fetch("/api/tools", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              toolId: newForm.id,
+              imageBase64: createPhoto,
+              mimeType: "image/jpeg",
+            }),
+          });
+          const pjson = await pres.json();
+          if (!pres.ok || pjson.ok === false) throw new Error(pjson.error || "photo failed");
+          created = pjson.tool as Tool;
+          mergeTool(created);
+        } catch {
+          warn = "Tool added, but the photo didn't upload — add it later from Edit.";
+        }
+      }
+      setCreateDone({ tool: created, warn });
+    } catch (e) {
+      setCreateErr(e instanceof Error ? e.message : "Could not add the tool.");
+    } finally {
+      setCreating(false);
+    }
+  }
+
   return (
     <main className="mx-auto max-w-4xl px-4 pb-24 pt-6">
       <PageHeader
         title="Tools"
-        description="The tool inventory — search, edit, or scan a tool's QR sticker to relocate it."
+        description="The tool inventory — search, edit, or scan a QR sticker to relocate a tool (or add a new one)."
         actions={
           <Button variant="primary" size="sm" onClick={startScan} disabled={loading || !!loadErr}>
             Scan tool
@@ -683,6 +828,172 @@ export default function ToolsPage() {
                 >
                   Edit full details instead
                 </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* New-tool overlay (scanned an unknown sticker) */}
+      {newForm && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4"
+          onClick={() => !creating && closeScan()}
+        >
+          <div
+            className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-t-2xl bg-white p-4 dark:bg-ink-overlay sm:rounded-2xl"
+            onClick={(ev) => ev.stopPropagation()}
+          >
+            {createDone ? (
+              <>
+                <div className="text-lg font-semibold text-green-700 dark:text-green-400">
+                  Tool added ✓
+                </div>
+                <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
+                  <span className="font-medium">
+                    {createDone.tool.name || createDone.tool.id}
+                  </span>
+                  {createDone.tool.locationLabel ? <> → {createDone.tool.locationLabel}</> : null}
+                </p>
+                {createDone.warn && (
+                  <Banner tone="warning" className="mt-3">
+                    {createDone.warn}
+                  </Banner>
+                )}
+                <div className="mt-4 flex gap-2">
+                  <Button variant="secondary" className="flex-1" onClick={closeScan}>
+                    Done
+                  </Button>
+                  <Button variant="primary" className="flex-1" onClick={startScan}>
+                    Scan another
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="mb-1 flex items-baseline justify-between">
+                  <h2 className="text-lg font-bold">New tool</h2>
+                  <span className="text-xs text-neutral-500">ID: {newForm.id}</span>
+                </div>
+                <p className="mb-3 text-xs text-neutral-500">
+                  This sticker isn&apos;t in the inventory yet — add its details to register it.
+                </p>
+
+                {/* Photo */}
+                <div className="mb-4 flex items-center gap-3">
+                  <ToolPhoto
+                    url={createPhoto}
+                    className="h-20 w-20 shrink-0 rounded-lg border border-neutral-200 dark:border-neutral-700"
+                  />
+                  <div>
+                    <input
+                      ref={createFileRef}
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      onChange={onPickCreatePhoto}
+                      className="hidden"
+                    />
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => createFileRef.current?.click()}
+                    >
+                      {createPhoto ? "Choose a different photo" : "Add photo"}
+                    </Button>
+                    {createPhoto && (
+                      <p className="mt-1 text-xs text-neutral-500">
+                        Photo ready — saves on “Add tool”.
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  {TEXT_FIELDS.map((f) =>
+                    f.key === "serial" ? (
+                      <div key={f.key}>
+                        <Label>{f.label}</Label>
+                        <div className="flex gap-2">
+                          <input
+                            value={newForm.serial}
+                            onChange={(ev) => setNewForm({ ...newForm, serial: ev.target.value })}
+                            className={inputCls + " flex-1"}
+                          />
+                          <input
+                            ref={createSerialRef}
+                            type="file"
+                            accept="image/*"
+                            capture="environment"
+                            onChange={onScanCreateSerial}
+                            className="hidden"
+                          />
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => createSerialRef.current?.click()}
+                            disabled={createSerialBusy}
+                            title="Scan the serial number with the camera"
+                          >
+                            {createSerialBusy ? "Reading…" : "📷 Scan"}
+                          </Button>
+                        </div>
+                        {createSerialMsg && (
+                          <p className="mt-1 text-xs text-neutral-500">{createSerialMsg}</p>
+                        )}
+                      </div>
+                    ) : (
+                      <div key={f.key} className={f.wide ? "sm:col-span-2" : ""}>
+                        <Label>{f.label}</Label>
+                        <input
+                          value={newForm[f.key]}
+                          onChange={(ev) => setNewForm({ ...newForm, [f.key]: ev.target.value })}
+                          className={inputCls}
+                        />
+                      </div>
+                    ),
+                  )}
+                  <div className="sm:col-span-2">
+                    <Label>Location (job site)</Label>
+                    <select
+                      value={scanProjectId}
+                      onChange={(ev) => setScanProjectId(ev.target.value)}
+                      className={inputCls}
+                    >
+                      <option value="">— Unassigned —</option>
+                      {orderedProjects.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.label}
+                        </option>
+                      ))}
+                    </select>
+                    {geoMsg && <p className="mt-1.5 text-xs text-neutral-500">{geoMsg}</p>}
+                  </div>
+                </div>
+
+                {createErr && (
+                  <Banner tone="error" className="mt-3">
+                    {createErr}
+                  </Banner>
+                )}
+
+                <div className="mt-4 flex gap-2">
+                  <Button
+                    variant="secondary"
+                    className="flex-1"
+                    onClick={closeScan}
+                    disabled={creating}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    className="flex-1"
+                    onClick={saveNewTool}
+                    disabled={creating || !newForm.name.trim()}
+                  >
+                    {creating ? "Adding…" : "Add tool"}
+                  </Button>
+                </div>
               </>
             )}
           </div>

@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { auth } from "@/auth";
+
 // Proxy to the Apps Script web app's tool-management actions. Apps Script holds
 // the Google Sheets + Drive grants; the Companion is UI only. Same shared-secret
 // web app used by /api/tool-tracker and /api/employees (secret stays server-side).
@@ -9,7 +11,10 @@ import { NextRequest, NextResponse } from "next/server";
 //   GET   → { ok, tools:[...full fields...], projects:[{id,label,lat,lng}] }
 //   PATCH { toolId, fields } → { ok, tool, changed }        (edit text fields)
 //   POST  { toolId, imageBase64, mimeType } → { ok, tool }  (replace photo)
+//   PUT   { toolId, fields } → { ok, tool }                 (register a new tool)
 //
+// PUT (createTool) is for scanning a sticker that isn't in the inventory yet; the
+// scan audit (LastScanEmail) is taken from the signed-in session, not the client.
 // A phone photo (even downscaled) plus the Drive write is slower than a plain
 // text edit, so allow a longer function timeout.
 export const dynamic = "force-dynamic";
@@ -81,6 +86,23 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Body must be JSON." }, { status: 400 });
   }
   const result = await callAppsScript({ ...body, action: "updateToolPhoto" });
+  if (result.error) return NextResponse.json({ error: result.error }, { status: result.status });
+  return NextResponse.json(result.data, { status: 200 });
+}
+
+export async function PUT(req: NextRequest) {
+  let body: Record<string, unknown> = {};
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Body must be JSON." }, { status: 400 });
+  }
+
+  // Attribute the first scan (which registers the tool) to the signed-in user.
+  const session = await auth();
+  const lastScanEmail = session?.user?.email ?? "";
+
+  const result = await callAppsScript({ ...body, action: "createTool", lastScanEmail });
   if (result.error) return NextResponse.json({ error: result.error }, { status: result.status });
   return NextResponse.json(result.data, { status: 200 });
 }
