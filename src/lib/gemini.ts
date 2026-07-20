@@ -129,6 +129,27 @@ async function callGemini(prompt: string, bytes: Buffer, mimeType: string): Prom
 }
 
 /**
+ * Read a tool's serial number off a phone photo of its label/nameplate.
+ * Reuses callGemini (retries + JSON repair); the prompt returns {"serial": ...}
+ * so we get a clean string back. Returns "" when nothing legible, null on failure.
+ */
+export async function ocrSerialWithGemini(bytes: Buffer, mimeType: string): Promise<string | null> {
+  const prompt = `You are reading the SERIAL NUMBER off a photo of a power tool's label or nameplate.
+Return ONLY JSON: {"serial": string}
+
+RULES:
+1. "serial" = the tool's serial number exactly as printed — the value labeled "Serial", "Serial No", "S/N", "SN", or "Ser". Preserve case, letters, digits, and hyphens verbatim; do not add spaces.
+2. If several codes appear, PREFER the one explicitly labeled as a serial number. Ignore model numbers, type/part numbers, voltage/amperage, dates, and barcodes UNLESS no labeled serial exists, in which case return the most likely primary serial.
+3. If no serial number is legible, output {"serial": ""}.
+4. Return ONLY JSON, no markdown.`;
+  const out = await callGemini(prompt, bytes, mimeType);
+  if (out && typeof out === "object" && !Array.isArray(out) && typeof out.serial === "string") {
+    return out.serial.trim();
+  }
+  return null;
+}
+
+/**
  * Extract a vendor bill from an uploaded document.
  * @param bytes     the file's bytes
  * @param mimeType  application/pdf or an image type

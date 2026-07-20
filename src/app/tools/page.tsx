@@ -139,6 +139,9 @@ export default function ToolsPage() {
   const [saving, setSaving] = useState(false);
   const [saveErr, setSaveErr] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
+  const serialFileRef = useRef<HTMLInputElement>(null);
+  const [serialOcrBusy, setSerialOcrBusy] = useState(false);
+  const [serialOcrMsg, setSerialOcrMsg] = useState("");
 
   // ---- Scan → relocate flow (the former Tool Tracker page) --------------------
   const [scanning, setScanning] = useState(false); // camera overlay open
@@ -239,7 +242,9 @@ export default function ToolsPage() {
     setForm({ ...t });
     setNewPhoto("");
     setSaveErr("");
+    setSerialOcrMsg("");
     if (fileRef.current) fileRef.current.value = "";
+    if (serialFileRef.current) serialFileRef.current.value = "";
   }
 
   function closeEdit() {
@@ -255,6 +260,38 @@ export default function ToolsPage() {
       setNewPhoto(await downscaleToDataUrl(file));
     } catch (err) {
       setSaveErr(err instanceof Error ? err.message : "Could not read the image.");
+    }
+  }
+
+  // Photograph the tool's label and let Gemini read the serial number into the
+  // field. Best-effort — the user reviews/edits before saving.
+  async function onScanSerial(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || !form) return;
+    setSerialOcrBusy(true);
+    setSerialOcrMsg("");
+    try {
+      // Higher res than the photo path — serial text is small.
+      const dataUrl = await downscaleToDataUrl(file, 2000, 0.85);
+      const res = await fetch("/api/ocr-serial", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imageBase64: dataUrl, mimeType: "image/jpeg" }),
+      });
+      const json = await res.json();
+      if (!res.ok || json.ok === false) throw new Error(json.error || "OCR failed.");
+      const serial = (json.serial || "").toString().trim();
+      if (serial) {
+        setForm((f) => (f ? { ...f, serial } : f));
+        setSerialOcrMsg(`Read “${serial}” — check it's right.`);
+      } else {
+        setSerialOcrMsg("Couldn't read a serial number — try again or type it in.");
+      }
+    } catch (err) {
+      setSerialOcrMsg(err instanceof Error ? err.message : "OCR failed.");
+    } finally {
+      setSerialOcrBusy(false);
+      if (serialFileRef.current) serialFileRef.current.value = "";
     }
   }
 
@@ -692,16 +729,47 @@ export default function ToolsPage() {
             </div>
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {TEXT_FIELDS.map((f) => (
-                <div key={f.key} className={f.wide ? "sm:col-span-2" : ""}>
-                  <Label>{f.label}</Label>
-                  <input
-                    value={form[f.key]}
-                    onChange={(ev) => setForm({ ...form, [f.key]: ev.target.value })}
-                    className={inputCls}
-                  />
-                </div>
-              ))}
+              {TEXT_FIELDS.map((f) =>
+                f.key === "serial" ? (
+                  <div key={f.key}>
+                    <Label>{f.label}</Label>
+                    <div className="flex gap-2">
+                      <input
+                        value={form.serial}
+                        onChange={(ev) => setForm({ ...form, serial: ev.target.value })}
+                        className={inputCls + " flex-1"}
+                      />
+                      <input
+                        ref={serialFileRef}
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        onChange={onScanSerial}
+                        className="hidden"
+                      />
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => serialFileRef.current?.click()}
+                        disabled={serialOcrBusy}
+                        title="Scan the serial number with the camera"
+                      >
+                        {serialOcrBusy ? "Reading…" : "📷 Scan"}
+                      </Button>
+                    </div>
+                    {serialOcrMsg && <p className="mt-1 text-xs text-neutral-500">{serialOcrMsg}</p>}
+                  </div>
+                ) : (
+                  <div key={f.key} className={f.wide ? "sm:col-span-2" : ""}>
+                    <Label>{f.label}</Label>
+                    <input
+                      value={form[f.key]}
+                      onChange={(ev) => setForm({ ...form, [f.key]: ev.target.value })}
+                      className={inputCls}
+                    />
+                  </div>
+                ),
+              )}
               <div className="sm:col-span-2">
                 <Label>Location (job site)</Label>
                 <select
