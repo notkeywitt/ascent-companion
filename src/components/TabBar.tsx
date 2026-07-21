@@ -57,6 +57,7 @@ const MORE_GROUPS: { label: string; tabs: Tab[] }[] = [
   {
     label: "System",
     tabs: [
+      { label: "Actions", href: "/actions", match: (p) => p.startsWith("/actions") },
       { label: "Requests", href: "/requests", match: (p) => p.startsWith("/requests") },
       { label: "Admin", href: "/admin", match: (p) => p.startsWith("/admin") },
       { label: "Logs", href: "/logs", match: (p) => p.startsWith("/logs") },
