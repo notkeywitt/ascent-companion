@@ -447,16 +447,26 @@ export async function getJobBudget(cfg: PaveConfig, jobId: string): Promise<Budg
 }
 
 export interface CostToComplete {
-  budget: number; // Σ budget-leaf cost for the code (the estimate)
+  budget: number; // Σ approved customer-order cost for the code = Budgeted Cost (contract + change orders)
   actual: number; // Σ approved+pending vendorBill cost for the code (spent/committed)
   remaining: number; // budget − actual (negative = over budget)
 }
 
 /**
- * Cost to Complete per cost code = budget − actual. JobTread has no stored CTC
- * field: budget is the sum of the code's budget-leaf cost items (document==null),
- * actual is the sum of its approved+pending vendor-bill cost items. Keyed by cost
- * code number. One paginated pass over the flat job.costItems connection.
+ * Cost to Complete per cost code = Budgeted Cost − actual. JobTread has no stored
+ * CTC field, so both sides are computed from the flat job.costItems connection:
+ *
+ * - budget is JobTread's "Budgeted Cost" — the sum of the code's cost items on
+ *   APPROVED, includeInBudget customerOrder documents (the proposal PLUS every
+ *   approved change order). This is deliberately NOT the raw budget-leaf extended
+ *   cost (document==null): those leaves are the base estimate and never absorb
+ *   change orders, so they understate the real budget (confirmed live 2026-07 on
+ *   job "Otis Perkins Addition": leaves summed 1,003,078.68 vs 1,326,647.85 of
+ *   approved customer orders). The `approved` filter also drops draft-proposal
+ *   duplicates that would otherwise double-count.
+ * - actual is the sum of the code's approved+pending vendor-bill cost items.
+ *
+ * Keyed by cost code number. One paginated pass over job.costItems.
  */
 export async function getCostToComplete(
   cfg: PaveConfig,
@@ -472,7 +482,11 @@ export async function getCostToComplete(
         costItems: {
           $: { size: 100, ...(page ? { page } : {}) },
           nextPage: {},
-          nodes: { cost: {}, costCode: { number: {} }, document: { type: {}, status: {} } },
+          nodes: {
+            cost: {},
+            costCode: { number: {} },
+            document: { type: {}, status: {}, includeInBudget: {} },
+          },
         },
       },
     });
@@ -486,11 +500,11 @@ export async function getCostToComplete(
     const code = n.costCode?.number;
     if (!code) continue;
     const c = n.cost ?? 0;
-    if (!n.document) budget[code] = (budget[code] ?? 0) + c;
-    else if (
-      n.document.type === "vendorBill" &&
-      (n.document.status === "approved" || n.document.status === "pending")
-    ) {
+    const d = n.document;
+    if (!d) continue; // raw budget leaf — ignored; Budgeted Cost comes from customer orders
+    if (d.type === "customerOrder" && d.status === "approved" && d.includeInBudget) {
+      budget[code] = (budget[code] ?? 0) + c;
+    } else if (d.type === "vendorBill" && (d.status === "approved" || d.status === "pending")) {
       actual[code] = (actual[code] ?? 0) + c;
     }
   }
