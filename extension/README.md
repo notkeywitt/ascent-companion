@@ -1,6 +1,6 @@
-# Ascent Companion — Chrome side panel
+# Ascent Assistant — Chrome side panel
 
-Docks the companion web app in Chrome's native side panel, next to JobTread. This
+Docks the assistant web app in Chrome's native side panel, next to JobTread. This
 loads the running web app in an iframe — it does **not** inject anything into
 JobTread's page, so it can't break when JobTread ships UI changes.
 
@@ -10,7 +10,7 @@ JobTread's page, so it can't break when JobTread ships UI changes.
    `http://localhost:3000`).
 2. Chrome → `chrome://extensions` → enable **Developer mode** (top right) →
    **Load unpacked** → select this `extension/` folder.
-3. Click the puzzle-piece icon in Chrome's toolbar → pin **Ascent Companion**.
+3. Click the puzzle-piece icon in Chrome's toolbar → pin **Ascent Assistant**.
 4. Click its icon to open the side panel. It opens on *any* tab (including a
    JobTread job tab), so you can view it right next to JobTread.
 

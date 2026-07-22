@@ -9,7 +9,7 @@ Privacy policy URL: **https://ascent-companion.vercel.app/privacy**
 ---
 
 ## Product name
-Ascent Companion
+Ascent Assistant
 
 ## Summary (max 132 chars)
 Side panel for JobTread: see a job's vendor bills and billing info, and follow along as you move between jobs.
@@ -23,9 +23,9 @@ English (United States)
 ---
 
 ## Description
-Ascent Companion is an internal tool for Ascent Building Co. staff. It adds a
+Ascent Assistant is an internal tool for Ascent Building Co. staff. It adds a
 side panel next to JobTread that shows the currently-open job's vendor bills,
-unbilled expenses, and billing information from the Ascent companion app.
+unbilled expenses, and billing information from the Ascent Assistant app.
 
 Features:
 - A "Follow JobTread" switch links the panel and the JobTread window two ways:
@@ -41,14 +41,14 @@ Access is restricted to Ascent Building Co. staff via Google Sign-In.
 ---
 
 ## Single purpose (required)
-Ascent Companion displays a side panel beside JobTread showing the
+Ascent Assistant displays a side panel beside JobTread showing the
 currently-open job's vendor bills and billing information from Ascent Building
-Co.'s companion app, and keeps that panel in sync with the job the user is
+Co.'s assistant app, and keeps that panel in sync with the job the user is
 viewing in JobTread.
 
 ## Permission justifications (required)
 
-- **sidePanel** — To show the companion app in Chrome's side panel next to
+- **sidePanel** — To show the assistant app in Chrome's side panel next to
   JobTread.
 - **storage** — To remember the user's "Follow JobTread" toggle and the id
   of the job currently open in JobTread, so the panel stays in sync. Stored
@@ -67,7 +67,7 @@ viewing in JobTread.
 
 ## Remote code
 No. All executable code is included in the package. The side panel embeds the
-Ascent companion web app in an iframe (its own origin); the extension itself
+Ascent Assistant web app in an iframe (its own origin); the extension itself
 runs no remotely-hosted code.
 
 ## Data usage (dashboard checkboxes)
