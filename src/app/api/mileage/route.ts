@@ -4,16 +4,17 @@ import { auth } from "@/auth";
 
 // Proxy to the Apps Script web app's mileage actions. The one-tap flow captures
 // two GPS points + timestamps on the phone; this route turns them into an
-// auditable trip: it makes a SINGLE Google Directions call (driving miles AND
-// reverse-geocoded start/end addresses come back in the same leg), stamps the
-// signed-in user, then forwards the finished trip to Apps Script, which appends
-// one row to the Project Database "Mileage" tab. Apps Script holds the Sheets
-// grant; the secret + the Maps key stay server-side.
+// auditable trip: it calls the Routes API for driving miles (+ a best-effort
+// reverse geocode for the start/end addresses), stamps the signed-in user, then
+// forwards the finished trip to Apps Script, which appends one row to the
+// Project Database "Mileage" tab. Apps Script holds the Sheets grant; the secret
+// + the Maps key stay server-side.
 //
 // Env (secret shared with /api/email, /api/employees, /api/tool-tracker):
 //   APPS_SCRIPT_SYNC_URL    — the Apps Script web-app /exec URL
 //   APPS_SCRIPT_SYNC_SECRET — must equal Script Property SYNC_TRIGGER_SECRET
-//   GOOGLE_MAPS_API_KEY     — a Maps Platform key restricted to the Directions API
+//   GOOGLE_MAPS_API_KEY     — Maps Platform key; enable the Routes API (miles)
+//                             and, for addresses, the Geocoding API
 //
 //   GET  → { ok, headers, trips }                              (history view)
 //   POST { startLat,startLng,startTime, endLat,endLng,endTime,
@@ -63,9 +64,11 @@ interface DirectionsResult {
   warning?: string;
 }
 
-// One Directions call: origin → destination. Returns driving miles plus the
-// reverse-geocoded start/end addresses from the same leg. Never throws — a
-// failure returns miles null + a warning so the trip can still be logged.
+// Driving distance via the Routes API (the legacy Directions API is being
+// retired and most projects can no longer enable it). Street addresses come
+// from a best-effort reverse geocode (Geocoding API), so the miles still work
+// even if only the Routes API is enabled. Never throws — on failure it returns
+// miles null + a warning so the trip is still logged.
 async function drivingDistance(
   origin: { lat: number; lng: number },
   dest: { lat: number; lng: number },
@@ -74,42 +77,60 @@ async function drivingDistance(
   if (!key) {
     return { miles: null, startAddress: "", endAddress: "", warning: "GOOGLE_MAPS_API_KEY is not set — miles not computed." };
   }
-  const params = new URLSearchParams({
-    origin: `${origin.lat},${origin.lng}`,
-    destination: `${dest.lat},${dest.lng}`,
-    mode: "driving",
-    units: "imperial",
-    key,
-  });
+
+  // Addresses are optional; fetch them alongside the distance and never let them
+  // block the result.
+  const [startAddress, endAddress] = await Promise.all([
+    reverseGeocode(origin, key),
+    reverseGeocode(dest, key),
+  ]);
+
   try {
-    const res = await fetch(`https://maps.googleapis.com/maps/api/directions/json?${params}`);
+    const res = await fetch("https://routes.googleapis.com/directions/v2:computeRoutes", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Goog-Api-Key": key,
+        "X-Goog-FieldMask": "routes.distanceMeters",
+      },
+      body: JSON.stringify({
+        origin: { location: { latLng: { latitude: origin.lat, longitude: origin.lng } } },
+        destination: { location: { latLng: { latitude: dest.lat, longitude: dest.lng } } },
+        travelMode: "DRIVE",
+      }),
+    });
     const data = (await res.json()) as {
-      status?: string;
-      error_message?: string;
-      routes?: { legs?: { distance?: { value?: number }; start_address?: string; end_address?: string }[] }[];
+      routes?: { distanceMeters?: number }[];
+      error?: { message?: string; status?: string };
     };
-    const leg = data.routes?.[0]?.legs?.[0];
-    if (data.status !== "OK" || !leg) {
-      return {
-        miles: null,
-        startAddress: "",
-        endAddress: "",
-        warning: `Directions ${data.status ?? "error"}${data.error_message ? ": " + data.error_message : ""} — trip saved without miles.`,
-      };
+    if (data.error || !data.routes?.[0]) {
+      const msg = data.error?.message || data.error?.status || "no route found";
+      return { miles: null, startAddress, endAddress, warning: `Routes API: ${msg} — trip saved without miles.` };
     }
-    const meters = leg.distance?.value ?? 0;
-    return {
-      miles: Math.round((meters / 1609.344) * 10) / 10,
-      startAddress: leg.start_address ?? "",
-      endAddress: leg.end_address ?? "",
-    };
+    const meters = data.routes[0].distanceMeters ?? 0;
+    return { miles: Math.round((meters / 1609.344) * 10) / 10, startAddress, endAddress };
   } catch (e) {
     return {
       miles: null,
-      startAddress: "",
-      endAddress: "",
-      warning: `Directions request failed (${e instanceof Error ? e.message : "unknown"}) — trip saved without miles.`,
+      startAddress,
+      endAddress,
+      warning: `Routes request failed (${e instanceof Error ? e.message : "unknown"}) — trip saved without miles.`,
     };
+  }
+}
+
+// Reverse-geocode a lat/lng to a street address (Geocoding API). Best-effort:
+// returns "" on any failure (e.g. the Geocoding API isn't enabled), so a missing
+// address never blocks the trip or its miles.
+async function reverseGeocode(pt: { lat: number; lng: number }, key: string): Promise<string> {
+  try {
+    const params = new URLSearchParams({ latlng: `${pt.lat},${pt.lng}`, key });
+    const res = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?${params}`);
+    const data = (await res.json()) as { status?: string; results?: { formatted_address?: string }[] };
+    const addr = data.status === "OK" ? data.results?.[0]?.formatted_address : "";
+    return (addr || "").replace(/,\s*USA$/i, "").trim();
+  } catch {
+    return "";
   }
 }
 
