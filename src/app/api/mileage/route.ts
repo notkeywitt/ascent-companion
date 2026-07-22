@@ -17,8 +17,10 @@ import { auth } from "@/auth";
 //
 //   GET  → { ok, headers, trips }                              (history view)
 //   POST { startLat,startLng,startTime, endLat,endLng,endTime,
-//          jobId?, jobLabel?, purpose?, driver? }
+//          jobId?, jobLabel?, purpose?, driver? }              (GPS trip)
 //        → { ok, tripId, miles, date, startAddress, endAddress, warning? }
+//   POST { manual:true, miles, date?, jobId?, jobLabel?, purpose?, driver? }
+//        → { ok, tripId, miles, date }                         (hand-entered — no GPS/Directions)
 //
 // Distance is the route Google would drive between the two endpoints — accurate
 // for a simple A→B trip, not a traced path. If Directions is unavailable the
@@ -125,6 +127,31 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Body must be JSON." }, { status: 400 });
   }
 
+  // Attribute the trip to the signed-in user, not to anything the client sends.
+  const session = await auth();
+  const loggedBy = session?.user?.email ?? "";
+
+  // Manual entry: miles typed by hand, no GPS — no Directions call, just log it.
+  if (body.manual === true) {
+    const miles = Number(body.miles);
+    if (!Number.isFinite(miles) || miles <= 0) {
+      return NextResponse.json({ error: "Enter the miles driven (greater than 0)." }, { status: 400 });
+    }
+    const manual = await callAppsScript({
+      action: "logMileage",
+      manual: true,
+      miles,
+      date: body.date ?? "",
+      driver: body.driver ?? "",
+      loggedBy,
+      jobId: body.jobId ?? "",
+      jobLabel: body.jobLabel ?? "",
+      purpose: body.purpose ?? "",
+    });
+    if (manual.error) return NextResponse.json({ error: manual.error }, { status: manual.status });
+    return NextResponse.json(manual.data, { status: 200 });
+  }
+
   const startLat = Number(body.startLat);
   const startLng = Number(body.startLng);
   const endLat = Number(body.endLat);
@@ -132,10 +159,6 @@ export async function POST(req: NextRequest) {
   if (![startLat, startLng, endLat, endLng].every(Number.isFinite)) {
     return NextResponse.json({ error: "Valid start/end coordinates are required." }, { status: 400 });
   }
-
-  // Attribute the trip to the signed-in user, not to anything the client sends.
-  const session = await auth();
-  const loggedBy = session?.user?.email ?? "";
 
   const dir = await drivingDistance({ lat: startLat, lng: startLng }, { lat: endLat, lng: endLng });
 

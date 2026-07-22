@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { JobPicker } from "@/components/JobPicker";
-import { Banner, Card, Label, Loading, PageHeader, Select, Textarea } from "@/components/ui";
+import { Banner, Card, Input, Label, Loading, PageHeader, Select, Textarea } from "@/components/ui";
 
 /**
  * /mileage-tracker — one tap to start a trip, one tap to end it.
@@ -113,8 +113,15 @@ function fmtDuration(min: number): string {
 
 const jobRefLabel = (j: JobRef) => (j.customer ? `${j.customer} - ${j.name}` : j.name);
 
+// Local date as YYYY-MM-DD for the manual-entry <input type="date"> default.
+function today(): string {
+  const d = new Date();
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
 export default function MileageTrackerPage() {
-  const [phase, setPhase] = useState<"idle" | "active" | "done">("idle");
+  const [phase, setPhase] = useState<"idle" | "active" | "done" | "manual">("idle");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
 
@@ -134,6 +141,10 @@ export default function MileageTrackerPage() {
   const [start, setStart] = useState<StartFix | null>(null);
   const [nowMs, setNowMs] = useState(0);
   const [summary, setSummary] = useState<Summary | null>(null);
+
+  // Manual entry (no GPS — a forgotten or after-the-fact trip).
+  const [miles, setMiles] = useState("");
+  const [manualDate, setManualDate] = useState(today());
 
   // --- Load reference data + restore an in-progress trip on mount. ----------
   useEffect(() => {
@@ -305,11 +316,56 @@ export default function MileageTrackerPage() {
     }
   }
 
+  async function saveManual() {
+    setErr("");
+    const m = Number(miles);
+    if (!Number.isFinite(m) || m <= 0) {
+      setErr("Enter the miles driven (a number greater than 0).");
+      return;
+    }
+    setBusy(true);
+    try {
+      const res = await fetch("/api/mileage", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          manual: true,
+          miles: m,
+          date: manualDate,
+          driver,
+          jobId,
+          jobLabel,
+          purpose: purpose.trim(),
+        }),
+      });
+      const json: TripResult = await res.json();
+      if (!res.ok || json.ok === false) {
+        setErr(json.error || "Could not save the trip.");
+        return;
+      }
+      setSummary({
+        miles: json.miles ?? m,
+        startAddress: "",
+        endAddress: "",
+        durationMin: 0,
+        jobLabel,
+        purpose: purpose.trim(),
+      });
+      setPhase("done");
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Could not save the trip.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   function logAnother() {
     setSummary(null);
     setPurpose("");
     setJobId("");
     setJobLabel("");
+    setMiles("");
+    setManualDate(today());
     setErr("");
     setPhase("idle");
   }
@@ -384,6 +440,99 @@ export default function MileageTrackerPage() {
             Tap Start when you leave — you can lock your phone. Reopen and tap End when you arrive.
             Log each stop of a multi-stop trip as its own leg.
           </p>
+
+          <button
+            type="button"
+            onClick={() => {
+              setErr("");
+              setPhase("manual");
+            }}
+            className="mx-auto block text-sm font-semibold text-accent underline-offset-2 hover:underline dark:text-accent-soft"
+          >
+            Add miles manually
+          </button>
+        </div>
+      )}
+
+      {/* --------------------------------------------------------------- MANUAL */}
+      {phase === "manual" && (
+        <div className="space-y-4">
+          <Card className="space-y-3">
+            <div>
+              <Label htmlFor="mlg-miles">Miles</Label>
+              <Input
+                id="mlg-miles"
+                type="number"
+                inputMode="decimal"
+                min="0"
+                step="0.1"
+                value={miles}
+                onChange={(e) => setMiles(e.target.value)}
+                placeholder="e.g. 24.5"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="mlg-date">Date</Label>
+              <Input
+                id="mlg-date"
+                type="date"
+                value={manualDate}
+                onChange={(e) => setManualDate(e.target.value)}
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="mlg-driver-m">Driver</Label>
+              <Select id="mlg-driver-m" value={driver} onChange={(e) => setDriver(e.target.value)}>
+                <option value="">Select driver…</option>
+                {employees.map((e) => (
+                  <option key={e.id || e.name} value={e.name}>
+                    {e.name}
+                  </option>
+                ))}
+              </Select>
+            </div>
+
+            <div>
+              <Label>Job (optional)</Label>
+              <div className="flex">
+                <JobPicker value={jobId} onChange={onPickJob} />
+              </div>
+            </div>
+
+            <div>
+              <Label htmlFor="mlg-purpose-m">Purpose (optional)</Label>
+              <Textarea
+                id="mlg-purpose-m"
+                rows={2}
+                value={purpose}
+                onChange={(e) => setPurpose(e.target.value)}
+                placeholder="e.g. material pickup, client meeting"
+              />
+            </div>
+          </Card>
+
+          <button
+            type="button"
+            onClick={saveManual}
+            disabled={busy}
+            className="w-full rounded-2xl bg-accent px-4 py-6 text-lg font-bold text-white shadow-sm transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {busy ? "Saving…" : "Save miles"}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setErr("");
+              setPhase("idle");
+            }}
+            disabled={busy}
+            className="mx-auto block text-xs text-neutral-500 underline-offset-2 hover:text-accent hover:underline disabled:opacity-40 dark:hover:text-accent-soft"
+          >
+            Back
+          </button>
         </div>
       )}
 
