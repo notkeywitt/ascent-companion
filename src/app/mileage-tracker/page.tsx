@@ -21,6 +21,7 @@ interface Employee {
   name: string;
   position: string;
   id: string;
+  email?: string;
 }
 
 interface JobRef {
@@ -122,6 +123,7 @@ export default function MileageTrackerPage() {
   const [jobs, setJobs] = useState<JobRef[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [sessionUser, setSessionUser] = useState<{ name?: string; email?: string } | null>(null);
+  const [sessionLoaded, setSessionLoaded] = useState(false);
 
   // Trip fields (kept across idle/active so a mid-trip edit sticks).
   const [driver, setDriver] = useState("");
@@ -153,7 +155,8 @@ export default function MileageTrackerPage() {
     fetch("/api/auth/session")
       .then((r) => r.json())
       .then((s) => setSessionUser(s?.user ?? null))
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setSessionLoaded(true));
 
     try {
       const raw = localStorage.getItem(LS_TRIP);
@@ -171,24 +174,27 @@ export default function MileageTrackerPage() {
     } catch {}
   }, []);
 
-  // Auto-fill the driver once (device memory wins, then the signed-in user).
+  // Default the driver to whoever is signed in, matched to the roster by email
+  // (reliable) then name. Only if that fails do we fall back to the last driver
+  // used on this device. We wait for the session fetch to settle so the
+  // signed-in user always gets first pick over a stale remembered choice.
   useEffect(() => {
-    if (driver || !employees.length) return;
+    if (driver || !employees.length || !sessionLoaded) return;
+    const email = sessionUser?.email?.trim().toLowerCase();
+    const name = sessionUser?.name?.trim().toLowerCase();
+    const signedIn =
+      (email && employees.find((e) => (e.email ?? "").trim().toLowerCase() === email)) ||
+      (name && employees.find((e) => e.name.trim().toLowerCase() === name));
+    if (signedIn) {
+      setDriver(signedIn.name);
+      return;
+    }
     let remembered = "";
     try {
       remembered = localStorage.getItem(LS_DRIVER) ?? "";
     } catch {}
-    if (remembered && employees.some((e) => e.name === remembered)) {
-      setDriver(remembered);
-      return;
-    }
-    const n = sessionUser?.name?.trim().toLowerCase();
-    const local = sessionUser?.email?.split("@")[0]?.toLowerCase();
-    const match =
-      (n && employees.find((e) => e.name.toLowerCase() === n)) ||
-      (local && employees.find((e) => e.name.toLowerCase().replace(/\s+/g, ".").includes(local)));
-    if (match) setDriver(match.name);
-  }, [employees, sessionUser, driver]);
+    if (remembered && employees.some((e) => e.name === remembered)) setDriver(remembered);
+  }, [employees, sessionUser, sessionLoaded, driver]);
 
   // Persist the driver choice for next time.
   useEffect(() => {
