@@ -9,6 +9,7 @@ import { JobPicker } from "@/components/JobPicker";
 import { PageTitle } from "@/components/PageTitle";
 import { BillStatusBadge } from "@/components/BillStatusBadge";
 import { Banner, Button, Loading, btn } from "@/components/ui";
+import { useUnsavedChanges } from "@/lib/useUnsavedChanges";
 
 interface Line {
   id: string;
@@ -233,6 +234,10 @@ function BillDetail() {
     }
     return changed ? [change] : [];
   });
+
+  // Warn before leaving with unsaved line edits (the same changes the sticky
+  // Save bar counts) — covers refresh/close, in-app links, and Back/Forward.
+  useUnsavedChanges(pending.length > 0);
 
   // Re-read the bill's header from JobTread (authoritative) without disturbing
   // in-progress line edits. Used after any header write so the toggles/status

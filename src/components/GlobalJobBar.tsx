@@ -5,6 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { JobPicker } from "@/components/JobPicker";
 import { AscentLogo } from "@/components/AscentLogo";
 import { btn } from "@/components/ui";
+import { confirmLeaveIfDirty } from "@/lib/useUnsavedChanges";
 
 // The job picker + Add-bill button live in the sticky chrome above the tab bar,
 // so they're reachable from every tab. The picker writes the chosen job to the
@@ -17,6 +18,9 @@ export function GlobalJobBar() {
   const jobId = search.get("jobId") ?? "";
 
   function onChange(id: string) {
+    // Programmatic nav (not an anchor click), so ask the unsaved-changes guard
+    // before leaving a bill mid-edit.
+    if (!confirmLeaveIfDirty()) return;
     // Switching jobs from a specific bill returns to that job's coding queue —
     // the old bill belongs to the previous job.
     const base = pathname.startsWith("/bill") ? "/coding" : pathname;
