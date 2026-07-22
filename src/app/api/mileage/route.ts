@@ -113,8 +113,16 @@ async function drivingDistance(
   }
 }
 
-export async function GET() {
-  const result = await callAppsScript({ action: "listMileage" });
+export async function GET(req: NextRequest) {
+  // The requester's identity is taken from the session server-side; Apps Script
+  // uses it to decide admin (all trips) vs. own-trips-only. The client cannot
+  // spoof it. Filters are honored for admins (and month for everyone).
+  const session = await auth();
+  const requesterEmail = session?.user?.email ?? "";
+  const month = req.nextUrl.searchParams.get("month") ?? "";
+  const user = req.nextUrl.searchParams.get("user") ?? "";
+
+  const result = await callAppsScript({ action: "listMileage", requesterEmail, month, user });
   if (result.error) return NextResponse.json({ error: result.error }, { status: result.status });
   return NextResponse.json(result.data, { status: 200 });
 }

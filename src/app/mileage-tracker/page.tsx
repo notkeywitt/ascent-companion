@@ -1,9 +1,19 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { JobPicker } from "@/components/JobPicker";
-import { Banner, Card, Input, Label, Loading, PageHeader, Select, Textarea } from "@/components/ui";
+import {
+  Banner,
+  Card,
+  EmptyState,
+  Input,
+  Label,
+  Loading,
+  PageHeader,
+  Select,
+  Textarea,
+} from "@/components/ui";
 
 /**
  * /mileage-tracker — one tap to start a trip, one tap to end it.
@@ -121,7 +131,7 @@ function today(): string {
 }
 
 export default function MileageTrackerPage() {
-  const [phase, setPhase] = useState<"idle" | "active" | "done" | "manual">("idle");
+  const [phase, setPhase] = useState<"idle" | "active" | "done" | "manual" | "history">("idle");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
 
@@ -145,6 +155,15 @@ export default function MileageTrackerPage() {
   // Manual entry (no GPS — a forgotten or after-the-fact trip).
   const [miles, setMiles] = useState("");
   const [manualDate, setManualDate] = useState(today());
+
+  // History view. isAdmin/users come from the server (which enforces access).
+  const [trips, setTrips] = useState<Record<string, string>[]>([]);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [users, setUsers] = useState<string[]>([]);
+  const [filterUser, setFilterUser] = useState("");
+  const [filterMonth, setFilterMonth] = useState("");
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [historyErr, setHistoryErr] = useState("");
 
   // --- Load reference data + restore an in-progress trip on mount. ----------
   useEffect(() => {
@@ -379,6 +398,40 @@ export default function MileageTrackerPage() {
     setPhase("idle");
   }
 
+  // Load the logged miles. The server scopes the result to the signed-in user
+  // (or all trips for an admin) and honors the month/user filters.
+  const loadHistory = useCallback(async () => {
+    setLoadingHistory(true);
+    setHistoryErr("");
+    try {
+      const params = new URLSearchParams();
+      if (filterMonth) params.set("month", filterMonth);
+      if (filterUser) params.set("user", filterUser);
+      const res = await fetch(`/api/mileage?${params.toString()}`);
+      const json = await res.json();
+      if (!res.ok || json.ok === false) {
+        setHistoryErr(json.error || "Could not load miles.");
+        return;
+      }
+      setIsAdmin(!!json.isAdmin);
+      setUsers(json.users ?? []);
+      setTrips(json.trips ?? []);
+    } catch (e) {
+      setHistoryErr(e instanceof Error ? e.message : "Could not load miles.");
+    } finally {
+      setLoadingHistory(false);
+    }
+  }, [filterMonth, filterUser]);
+
+  useEffect(() => {
+    if (phase === "history") loadHistory();
+  }, [phase, loadHistory]);
+
+  const totalMiles = useMemo(() => {
+    const sum = trips.reduce((s, t) => s + (Number(t["Miles"]) || 0), 0);
+    return Math.round(sum * 10) / 10;
+  }, [trips]);
+
   return (
     <main className="mx-auto max-w-2xl px-4 pb-24 pt-6">
       <PageHeader
@@ -441,16 +494,31 @@ export default function MileageTrackerPage() {
             Log each stop of a multi-stop trip as its own leg.
           </p>
 
-          <button
-            type="button"
-            onClick={() => {
-              setErr("");
-              setPhase("manual");
-            }}
-            className="mx-auto block text-sm font-semibold text-accent underline-offset-2 hover:underline dark:text-accent-soft"
-          >
-            Add miles manually
-          </button>
+          <div className="flex items-center justify-center gap-4">
+            <button
+              type="button"
+              onClick={() => {
+                setErr("");
+                setPhase("manual");
+              }}
+              className="text-sm font-semibold text-accent underline-offset-2 hover:underline dark:text-accent-soft"
+            >
+              Add miles manually
+            </button>
+            <span className="text-neutral-300 dark:text-neutral-600" aria-hidden>
+              ·
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                setErr("");
+                setPhase("history");
+              }}
+              className="text-sm font-semibold text-accent underline-offset-2 hover:underline dark:text-accent-soft"
+            >
+              View logged miles
+            </button>
+          </div>
         </div>
       )}
 
@@ -623,6 +691,99 @@ export default function MileageTrackerPage() {
           >
             Log another trip
           </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setErr("");
+              setPhase("history");
+            }}
+            className="mx-auto block text-sm font-semibold text-accent underline-offset-2 hover:underline dark:text-accent-soft"
+          >
+            View logged miles
+          </button>
+        </div>
+      )}
+
+      {/* ------------------------------------------------------------ HISTORY */}
+      {phase === "history" && (
+        <div className="space-y-4">
+          <Card className="space-y-3">
+            {isAdmin && (
+              <div>
+                <Label htmlFor="mlg-filter-user">Driver</Label>
+                <Select
+                  id="mlg-filter-user"
+                  value={filterUser}
+                  onChange={(e) => setFilterUser(e.target.value)}
+                >
+                  <option value="">All drivers</option>
+                  {users.map((u) => (
+                    <option key={u} value={u}>
+                      {u}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+            )}
+            <div>
+              <Label htmlFor="mlg-filter-month">Month</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  id="mlg-filter-month"
+                  type="month"
+                  value={filterMonth}
+                  onChange={(e) => setFilterMonth(e.target.value)}
+                />
+                {filterMonth && (
+                  <button
+                    type="button"
+                    onClick={() => setFilterMonth("")}
+                    className="shrink-0 text-xs text-neutral-500 underline-offset-2 hover:text-accent hover:underline dark:hover:text-accent-soft"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+            </div>
+          </Card>
+
+          <Card className="text-center">
+            <div className="text-3xl font-bold tabular-nums">
+              {totalMiles} <span className="text-base font-semibold">mi</span>
+            </div>
+            <p className="mt-0.5 text-xs text-neutral-500">
+              {trips.length} trip{trips.length === 1 ? "" : "s"}
+              {isAdmin ? (filterUser ? ` · ${filterUser}` : " · all drivers") : " · you"}
+            </p>
+          </Card>
+
+          {historyErr && <Banner tone="error">{historyErr}</Banner>}
+
+          {loadingHistory ? (
+            <Loading label="Loading miles…" />
+          ) : trips.length === 0 ? (
+            <EmptyState>
+              No miles logged{filterMonth || filterUser ? " for this filter" : " yet"}.
+            </EmptyState>
+          ) : (
+            <ul className="space-y-2">
+              {trips.map((t, i) => (
+                <TripRow key={t["TripID"] || i} t={t} showDriver={isAdmin} />
+              ))}
+            </ul>
+          )}
+
+          <button
+            type="button"
+            onClick={() => {
+              setErr("");
+              setPhase("idle");
+            }}
+            className="mx-auto block text-xs text-neutral-500 underline-offset-2 hover:text-accent hover:underline dark:hover:text-accent-soft"
+          >
+            Back
+          </button>
         </div>
       )}
 
@@ -641,5 +802,32 @@ function Row({ label, value }: { label: string; value: string }) {
       <span className="w-16 shrink-0 text-xs font-semibold uppercase tracking-wide text-neutral-500">{label}</span>
       <span className="min-w-0 flex-1">{value}</span>
     </div>
+  );
+}
+
+// One row in the logged-miles list.
+function TripRow({ t, showDriver }: { t: Record<string, string>; showDriver: boolean }) {
+  const manual = (t["Distance Source"] || "").toLowerCase() === "manual";
+  const fromTo = [t["Start Address"], t["End Address"]].filter(Boolean).join(" → ");
+  return (
+    <li className="rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-700/60 dark:bg-ink-raised">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-sm font-semibold">
+            {t["Date"] || "—"}
+            {showDriver && t["Driver"] ? ` · ${t["Driver"]}` : ""}
+          </div>
+          {t["Job"] && <div className="truncate text-xs text-neutral-500">{t["Job"]}</div>}
+          {t["Purpose"] && <div className="truncate text-xs text-neutral-500">{t["Purpose"]}</div>}
+          {fromTo && <div className="mt-0.5 truncate text-xs text-neutral-400">{fromTo}</div>}
+        </div>
+        <div className="shrink-0 text-right">
+          <div className="text-sm font-bold tabular-nums">{t["Miles"] || "—"} mi</div>
+          {manual && (
+            <div className="text-[10px] uppercase tracking-wide text-neutral-400">manual</div>
+          )}
+        </div>
+      </div>
+    </li>
   );
 }
