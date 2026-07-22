@@ -8,7 +8,7 @@ import { btn } from "@/components/ui";
 
 // The job picker + Add-bill button live in the sticky chrome above the tab bar,
 // so they're reachable from every tab. The picker writes the chosen job to the
-// URL's ?jobId=, which the job-scoped pages (/, /unbilled, /stage, /bill,
+// URL's ?jobId=, which the job-scoped pages (/coding, /unbilled, /stage, /bill,
 // /add-bill) read as their source of truth; other tabs simply ignore it.
 export function GlobalJobBar() {
   const pathname = usePathname();
@@ -19,7 +19,7 @@ export function GlobalJobBar() {
   function onChange(id: string) {
     // Switching jobs from a specific bill returns to that job's coding queue —
     // the old bill belongs to the previous job.
-    const base = pathname.startsWith("/bill") ? "/" : pathname;
+    const base = pathname.startsWith("/bill") ? "/coding" : pathname;
     router.replace(`${base}?jobId=${encodeURIComponent(id)}`);
   }
 

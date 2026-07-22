@@ -76,7 +76,7 @@ function Unbilled() {
         actions={
           jobId.trim() ? (
             <Link
-              href={`/?jobId=${encodeURIComponent(jobId.trim())}`}
+              href={`/coding?jobId=${encodeURIComponent(jobId.trim())}`}
               className="text-xs font-semibold text-accent dark:text-accent-soft"
             >
               ← Coding queue

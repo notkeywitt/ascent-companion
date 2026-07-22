@@ -13,9 +13,12 @@ type Tab = { label: string; href: string; match: (p: string) => boolean };
 const PRIMARY_TABS: Tab[] = [
   {
     label: "Coding Review",
-    href: "/",
+    href: "/coding",
     match: (p) =>
-      p === "/" || p.startsWith("/unbilled") || p.startsWith("/bill") || p.startsWith("/add-bill"),
+      p.startsWith("/coding") ||
+      p.startsWith("/unbilled") ||
+      p.startsWith("/bill") ||
+      p.startsWith("/add-bill"),
   },
   { label: "Invoicing", href: "/stage", match: (p) => p.startsWith("/stage") },
 ];

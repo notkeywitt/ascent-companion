@@ -401,7 +401,7 @@ function BillDetail() {
       }
       reloadJtWindow(); // refresh JobTread's view (old doc gone, new one created)
       // New docId on the new job — this page's docId is stale; go to the new queue.
-      window.location.href = `/?jobId=${encodeURIComponent(targetJobId)}`;
+      window.location.href = `/coding?jobId=${encodeURIComponent(targetJobId)}`;
     } catch (e) {
       setReassignMsg(e instanceof Error ? e.message : "Network error");
     }
@@ -541,7 +541,7 @@ function BillDetail() {
     <main className="mx-auto max-w-xl px-4 pb-24 pt-6">
       <div className="flex items-center justify-between gap-2">
         <Link
-          href={`/?jobId=${encodeURIComponent(jobId)}`}
+          href={`/coding?jobId=${encodeURIComponent(jobId)}`}
           className="text-sm font-semibold text-accent dark:text-accent-soft"
         >
           ‹ Coding queue
