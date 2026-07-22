@@ -104,6 +104,7 @@ const AREAS: Area[] = [
     blurb: "Job-site safety records.",
     dests: [
       { label: "Safety Meeting", href: "/safety-meeting", desc: "Pass the iPad and collect sign-ins" },
+      { label: "Mileage", href: "/mileage-tracker", desc: "Log business miles, one tap each way" },
     ],
   },
   {

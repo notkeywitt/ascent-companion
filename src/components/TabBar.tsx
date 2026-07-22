@@ -47,6 +47,7 @@ const MORE_GROUPS: { label: string; tabs: Tab[] }[] = [
         match: (p) =>
           p === "/tools" || p.startsWith("/tools/") || p.startsWith("/tool-tracker"),
       },
+      { label: "Mileage", href: "/mileage-tracker", match: (p) => p.startsWith("/mileage-tracker") },
       { label: "RFIs", href: "/rfis", match: (p) => p.startsWith("/rfis") },
     ],
   },
