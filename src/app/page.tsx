@@ -72,10 +72,28 @@ const GearIcon = ({ className }: IconProps) => (
   </IconBase>
 );
 
+/** Route — Miles (mileage tracker). */
+const RouteIcon = ({ className }: IconProps) => (
+  <IconBase className={className}>
+    <circle cx="6" cy="19" r="3" />
+    <path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15" />
+    <circle cx="18" cy="5" r="3" />
+  </IconBase>
+);
+
 /* -------------------------------------------------------------------- data */
 
 type Dest = { label: string; href: string; desc: string };
 type Area = { title: string; Icon: (p: IconProps) => ReactNode; blurb: string; dests: Dest[] };
+type Quick = { label: string; href: string; Icon: (p: IconProps) => ReactNode };
+
+// The three most-used destinations, one tap from the top of the launcher.
+// Financials → Coding Review (the tab bar shows the other tabs alongside it).
+const QUICK: Quick[] = [
+  { label: "Tools", href: "/tools", Icon: WrenchIcon },
+  { label: "Miles", href: "/mileage-tracker", Icon: RouteIcon },
+  { label: "Financials", href: "/coding", Icon: BanknoteIcon },
+];
 
 const AREAS: Area[] = [
   {
@@ -135,6 +153,26 @@ function Home() {
         title="Home"
         description="Financials, tools, safety, and utilities — jump to what you need."
       />
+
+      {/* Quick launch — the three most-used destinations as big, thumb-sized
+          buttons above the full launcher grid. */}
+      <div className="mb-6 grid grid-cols-3 gap-3">
+        {QUICK.map((q) => (
+          <Link
+            key={q.href}
+            href={q.href + qs}
+            className="flex min-h-[92px] flex-col items-center justify-center gap-2 rounded-2xl border border-neutral-200 bg-white p-3 text-center transition hover:border-accent hover:bg-accent/5 dark:border-neutral-700/60 dark:bg-ink-raised dark:hover:bg-white/5"
+          >
+            <span
+              aria-hidden
+              className="flex h-11 w-11 items-center justify-center rounded-xl bg-accent/10 text-accent dark:bg-accent/15 dark:text-accent-soft"
+            >
+              <q.Icon className="h-6 w-6" />
+            </span>
+            <span className="text-sm font-bold tracking-tight">{q.label}</span>
+          </Link>
+        ))}
+      </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         {AREAS.map((area) => (
