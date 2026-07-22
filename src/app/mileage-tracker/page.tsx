@@ -130,6 +130,11 @@ function today(): string {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
 
+// Current month as YYYY-MM for the history <input type="month"> default.
+function thisMonth(): string {
+  return today().slice(0, 7);
+}
+
 export default function MileageTrackerPage() {
   const [phase, setPhase] = useState<"idle" | "active" | "done" | "manual" | "history">("idle");
   const [busy, setBusy] = useState(false);
@@ -161,7 +166,7 @@ export default function MileageTrackerPage() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [users, setUsers] = useState<string[]>([]);
   const [filterUser, setFilterUser] = useState("");
-  const [filterMonth, setFilterMonth] = useState("");
+  const [filterMonth, setFilterMonth] = useState(thisMonth());
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [historyErr, setHistoryErr] = useState("");
 
