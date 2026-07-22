@@ -1,5 +1,5 @@
 /**
- * Gemini invoice extraction — the companion's port of the Apps Script engine
+ * Gemini invoice extraction — the assistant's port of the Apps Script engine
  * (Ingestion.js callGemini + Config.js PROMPTS.appSheetExpenditure).
  *
  * The prompt below is TUNED against a corpus of real invoices; changes to its

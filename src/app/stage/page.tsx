@@ -51,7 +51,7 @@ const csiLabel = (code?: string, name?: string) =>
 
 // Drive the adjacent JobTread window (desktop side-panel host) to a document —
 // same dual-navigation the Billing tab uses so clicking a bill opens both the
-// companion bill view and the JobTread page. No-op when unframed (mobile).
+// assistant bill view and the JobTread page. No-op when unframed (mobile).
 function driveMainWindowToDoc(jobId: string, docId: string) {
   try {
     if (typeof window !== "undefined" && window.top !== window.self && jobId) {
@@ -176,7 +176,7 @@ function Stage() {
   }, [load]);
 
   // Print by opening a self-contained document in a NEW top-level tab, then
-  // printing that. The companion is iframed by the JobTread Chrome side panel,
+  // printing that. The assistant is iframed by the JobTread Chrome side panel,
   // and window.print() is silently blocked inside that sandbox — so we escape
   // the frame with window.open("_blank") (same trick JtLink uses for links).
   // Falls back to in-page window.print() only if the popup is blocked.
@@ -186,7 +186,7 @@ function Stage() {
       String(s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c] ?? c);
     const monthLabel = opt?.label ?? ym;
     // The print window has no origin, so a relative "/icon-512.png" won't resolve —
-    // build an absolute URL to the companion's own logo asset (same-origin image,
+    // build an absolute URL to the assistant's own logo asset (same-origin image,
     // loads before the onload-triggered print).
     const logoUrl =
       typeof window !== "undefined" ? `${window.location.origin}/icon-512.png` : "";
@@ -424,7 +424,7 @@ function Stage() {
                   : lines.map((l) => {
                   const jt = (id: string) =>
                     `https://app.jobtread.com/jobs/${jobId}/documents/${id}`;
-                  // A bill's label → companion bill view (+ drive JT window),
+                  // A bill's label → assistant bill view (+ drive JT window),
                   // followed by an explicit JT ↗ link (works standalone too).
                   // Bills already on a customer invoice get an "invoiced" tag
                   // (only visible when the Uninvoiced-only toggle is off).
@@ -493,7 +493,7 @@ function Stage() {
                     );
                   }
 
-                  // Single vendor bill → link the line to its companion view,
+                  // Single vendor bill → link the line to its assistant view,
                   // then itemize its CSI cost codes beneath it.
                   if (l.bills && l.bills.length === 1) {
                     return (

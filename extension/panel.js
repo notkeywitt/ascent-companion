@@ -1,4 +1,4 @@
-// Deployed companion app. Change here if the deploy URL ever changes.
+// Deployed assistant app. Change here if the deploy URL ever changes.
 const APP_URL = "https://ascent-companion.vercel.app";
 
 const K_FOLLOW = "ascentFollow";
@@ -61,13 +61,13 @@ if (followChk) {
   });
 }
 
-// The companion app (in the iframe) can ask us to open a JobTread document in
+// The assistant app (in the iframe) can ask us to open a JobTread document in
 // the main browser tab the panel is docked next to — e.g. clicking a bill in the
 // coding queue brings that bill up in JobTread beside the panel. Prefer the
 // active tab; fall back to any JobTread tab.
 //
-// These companion→JobTread actions are gated on Follow: with the toggle off the
-// companion and the JobTread window are fully independent, so we ignore them.
+// These assistant→JobTread actions are gated on Follow: with the toggle off the
+// assistant and the JobTread window are fully independent, so we ignore them.
 window.addEventListener("message", (e) => {
   if (e.origin !== APP_URL) return;
   if (!follow) return;
@@ -88,7 +88,7 @@ window.addEventListener("message", (e) => {
     return;
   }
 
-  // Reload the docked JobTread tab so it shows a change the companion just wrote.
+  // Reload the docked JobTread tab so it shows a change the assistant just wrote.
   if (d.type === "ascentReloadJt") {
     chrome.tabs.query({ active: true, lastFocusedWindow: true }, (tabs) => {
       const t = tabs && tabs[0];

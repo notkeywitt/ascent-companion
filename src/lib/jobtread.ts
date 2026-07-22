@@ -1,8 +1,8 @@
 /**
- * JobTread Pave API client — the verified calls behind the companion tool.
+ * JobTread Pave API client — the verified calls behind the assistant tool.
  *
  * Every query/mutation here was confirmed live against the Pave API in July 2026
- * (see ascent-appscript/CLAUDE.md "Companion-tool findings" and the `_invp*`
+ * (see ascent-appscript/CLAUDE.md "Assistant-tool findings" and the `_invp*`
  * probes in Diagnostics.js). Field names marked TODO are NOT yet verified — do
  * not ship them until confirmed (probe-first rule).
  *
@@ -125,8 +125,8 @@ export interface DraftBill {
   issueDate?: string;
   jobId?: string; // the bill's job (populated only by the org-wide query)
   jobName?: string;
-  saved?: boolean; // Companion-side flag: Save has been clicked on this bill
-  reviewed?: boolean; // Companion-side flag: bill explicitly marked reviewed
+  saved?: boolean; // Assistant-side flag: Save has been clicked on this bill
+  reviewed?: boolean; // Assistant-side flag: bill explicitly marked reviewed
 }
 
 /** Draft vendor bills on a job — the review/coding queue. */
@@ -702,7 +702,7 @@ export async function updateLine(
  * (nonRecoverableTax), so new lines are non-taxable like every other bill line.
  *
  * TAX-CARVE GUARD (confirmed live 2026-07-18): if the target bill carries a
- * non-zero document `taxRate` (bills NOT created by the Companion can — e.g. an
+ * non-zero document `taxRate` (bills NOT created by the Assistant can — e.g. an
  * old empty JobTread bill), JobTread treats the entered amount as tax-INCLUSIVE
  * and divides it (e.g. 79.99 → cost 73.23 + tax 6.76), so the amount is wrong.
  * We defend the way createVendorBill does — force the document to `taxRate: 0`
@@ -774,7 +774,7 @@ export async function createLine(
 // items is a multi-call, server-side JobTread flow (create invoice → costGroup
 // per bill → cost items → recalc) that also sets the bill↔invoice reference; a
 // bare createDocument yields an EMPTY invoice and can't set that link, so the
-// companion deep-links to JobTread's native builder instead (see stage/page.tsx).
+// assistant deep-links to JobTread's native builder instead (see stage/page.tsx).
 
 export interface StageLine {
   key: string;
@@ -885,7 +885,7 @@ export interface CsiAmount {
   amount: number;
 }
 export interface UninvoicedBillRef {
-  id: string; // JT document id — links to the companion bill view + JT doc page
+  id: string; // JT document id — links to the assistant bill view + JT doc page
   label: string; // invoice # / externalId (or vendor)
   cost: number;
   invoiced: boolean; // already on a customer invoice (only appears when includeInvoiced)
@@ -948,7 +948,7 @@ export interface CreateVendorBillArgs {
   accountId: string; // JT vendor account
   vendorName: string; // fromName
   subject: string;
-  externalId: string; // idempotency key (the companion's INV-xxxxxxxx)
+  externalId: string; // idempotency key (the assistant's INV-xxxxxxxx)
   issueDate: string; // yyyy-MM-dd
   dueDate?: string | null; // yyyy-MM-dd; when null, dueDays applies
   dueDays?: number | null;

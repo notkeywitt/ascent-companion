@@ -27,7 +27,7 @@ export function GlobalJobBar() {
 
   return (
     <div className="flex items-center gap-2 px-2 py-2">
-      <Link href="/" aria-label="Ascent Companion home" className="shrink-0">
+      <Link href="/" aria-label="Ascent Assistant home" className="shrink-0">
         {/* Wordmark hidden on narrow / side-panel widths; icon always shows. */}
         <AscentLogo className="hidden sm:inline-flex" />
         <AscentLogo wordmark={false} className="sm:hidden" />

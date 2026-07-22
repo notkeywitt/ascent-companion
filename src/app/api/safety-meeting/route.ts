@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 // Proxy to the Apps Script web app's `saveSafetyMeeting` action. Apps Script
 // holds the Sheets + Drive grants, so it writes the attendance rows, saves each
-// signature PNG, and renders the signed roster PDF into Drive. The Companion is
+// signature PNG, and renders the signed roster PDF into Drive. The Assistant is
 // only the iPad UI. Same shared secret as /api/email (kept server-side).
 //
 // POST body forwarded (secret injected):

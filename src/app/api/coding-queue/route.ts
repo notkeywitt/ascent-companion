@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
     // undated bills sink to the bottom.
     bills.sort((a, b) => (b.issueDate ?? "").localeCompare(a.issueDate ?? ""));
 
-    // Tag each bill with its companion-side flags: saved (Save clicked) and
+    // Tag each bill with its assistant-side flags: saved (Save clicked) and
     // reviewed (explicitly marked done). Best-effort — a DB hiccup must not
     // break the queue.
     const flags = new Map<string, { saved: boolean; reviewed: boolean }>();

@@ -1,5 +1,5 @@
 /**
- * Shared UI primitives — the Companion's design system in one place.
+ * Shared UI primitives — the Assistant's design system in one place.
  *
  * Every page previously hand-rolled its buttons, inputs, cards, banners, and
  * empty states, so paddings/radii/colors drifted page by page. These primitives

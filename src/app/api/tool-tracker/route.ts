@@ -4,7 +4,7 @@ import { auth } from "@/auth";
 
 // Proxy to the Apps Script web app's tool-tracker actions. Apps Script holds the
 // Google Sheets grant (it reads/writes the Project Database "Tools" tab); the
-// Companion has no Sheets client, so it asks over the same shared-secret web app
+// Assistant has no Sheets client, so it asks over the same shared-secret web app
 // used by /api/email and /api/employees. The secret stays server-side.
 //
 // Env (shared with /api/email, /api/employees):

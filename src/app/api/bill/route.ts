@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
       getCostToComplete(cfg, jobId),
     ]);
 
-    // Companion-local "reviewed" flag for this bill (best-effort).
+    // Assistant-local "reviewed" flag for this bill (best-effort).
     let reviewed = false;
     try {
       await ensureDb();

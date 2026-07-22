@@ -1,7 +1,7 @@
 import { sqliteTable, integer, text } from "drizzle-orm/sqlite-core";
 
 /**
- * RFIs — companion-owned (JobTread has no RFI object). Linked to a JobTread job
+ * RFIs — assistant-owned (JobTread has no RFI object). Linked to a JobTread job
  * by its id.
  */
 export const rfis = sqliteTable("rfis", {
@@ -48,7 +48,7 @@ export const allowedUsers = sqliteTable("allowed_users", {
 export type AllowedUser = typeof allowedUsers.$inferSelect;
 
 /**
- * Companion-side per-bill workflow flags, keyed by JobTread document id:
+ * Assistant-side per-bill workflow flags, keyed by JobTread document id:
  *  - saved:    the "Save" button was clicked and a line write succeeded (auto).
  *  - reviewed: the office explicitly marked the bill reviewed/done (a toggle).
  * Used to show indicators in the coding queue so it's clear at a glance which

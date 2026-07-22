@@ -6,7 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { PageHeader } from "@/components/ui";
 
 /**
- * The Companion's front page — the launcher the app opens to.
+ * The Assistant's front page — the launcher the app opens to.
  *
  * Four areas (Financials, Tools, Safety, Utilities) group every page the tab
  * bar reaches into big, thumb-sized rows. It's an entry point, not a new tab:

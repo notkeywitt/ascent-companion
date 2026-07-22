@@ -1,7 +1,7 @@
 import { PageTitle } from "@/components/PageTitle";
 
 export const metadata = {
-  title: "Privacy Policy — Ascent Companion",
+  title: "Privacy Policy — Ascent Assistant",
 };
 
 export default function PrivacyPage() {
@@ -9,16 +9,16 @@ export default function PrivacyPage() {
     <main className="mx-auto max-w-2xl px-5 py-10 text-sm leading-relaxed">
       <PageTitle size="2xl">Privacy Policy</PageTitle>
       <p className="mt-1 text-neutral-500">
-        Ascent Companion browser extension &amp; web app · Ascent Building Co.
+        Ascent Assistant browser extension &amp; web app · Ascent Building Co.
       </p>
       <p className="mt-1 text-xs text-neutral-400">Last updated: July 5, 2026</p>
 
       <section className="mt-6 space-y-3">
         <p>
-          Ascent Companion is an internal tool for Ascent Building Co. staff. It
-          is a companion to JobTread that shows a job&apos;s vendor bills and
-          billing information in a side panel and mobile web app. This policy
-          explains what the extension and app do with data.
+          Ascent Assistant is an internal tool for Ascent Building Co. staff. It
+          works alongside JobTread to show a job&apos;s vendor bills and billing
+          information in a side panel and mobile web app. This policy explains
+          what the extension and app do with data.
         </p>
       </section>
 
@@ -50,7 +50,7 @@ export default function PrivacyPage() {
         <li>
           The currently-open job identifier is kept in your browser&apos;s local
           extension storage so the panel can follow you between jobs. It never
-          leaves your browser except to load the companion app for that job.
+          leaves your browser except to load the assistant app for that job.
         </li>
         <li>
           The web app stores operational records you create (such as RFIs and

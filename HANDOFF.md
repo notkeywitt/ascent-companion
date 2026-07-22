@@ -5,7 +5,7 @@ Status: **BUILT + verified; deployed 2026-07-18.** Branch:
 
 ## What it is
 
-An iPad-friendly Companion page for recording **safety-meeting attendance** with a
+An iPad-friendly Assistant page for recording **safety-meeting attendance** with a
 real drawn signature per attendee. Set the header once (Date / Topic / Meeting
 Lead), then pass the iPad around — each person picks their name and signs; each
 "Add attendee" = one record. "Save meeting" writes everything and shows the
@@ -13,7 +13,7 @@ roster PDF + Drive folder.
 
 ## Decisions made (the three open forks — all resolved)
 
-1. **Employee source → Apps Script proxy.** The Companion has no Google Sheets
+1. **Employee source → Apps Script proxy.** The Assistant has no Google Sheets
    client, so the attendee dropdown is served by the Apps Script web app's new
    `listEmployees` action, which reads the Project Database **Employee** tab
    (Active only). Chosen over JobTread `/api/jt-users` because that misses field
@@ -26,12 +26,12 @@ roster PDF + Drive folder.
 
 ## Architecture
 
-Companion = UI only. It talks to the Apps Script `doPost` web app over the shared
+Assistant = UI only. It talks to the Apps Script `doPost` web app over the shared
 secret (`APPS_SCRIPT_SYNC_URL` / `APPS_SCRIPT_SYNC_SECRET` — same env as
 `/api/email`; secret stays server-side). Apps Script does all Sheet/Drive/PDF
 writing.
 
-### Companion files (this repo)
+### Assistant files (this repo)
 - `src/app/api/employees/route.ts` — GET → proxies `listEmployees`.
 - `src/app/api/safety-meeting/route.ts` — POST → proxies `saveSafetyMeeting`
   (`maxDuration = 120`; signatures travel as base64 PNGs).
@@ -56,9 +56,9 @@ writing.
 
 ## Verified
 
-Companion `tsc --noEmit` + `next build` clean; Apps Script `node --check` clean.
+Assistant `tsc --noEmit` + `next build` clean; Apps Script `node --check` clean.
 Apps Script web app redeployed (build stamp `2026-07-18 · add listEmployees +
-saveSafetyMeeting`). Companion deployed to Vercel via `main`.
+saveSafetyMeeting`). Assistant deployed to Vercel via `main`.
 
 ## First-run check
 
@@ -81,14 +81,14 @@ add one signed test attendee, Save, and confirm the roster PDF + folder links.
 A roster-management tab: list every employee from the Project Database **Employee**
 tab, search/filter (by status), sort (Name/Position/Status), and **edit** their
 details back to that same sheet. Same Apps Script proxy architecture as the safety
-page (Companion = UI; Apps Script holds the Sheets grant).
+page (Assistant = UI; Apps Script holds the Sheets grant).
 
 - **Apps Script** `Employees.js` — `listEmployeesFull` (all employees, all fields +
   distinct statuses) and `updateEmployee` (`{id, fields}` → per-cell write matched
   by **Employee ID**, forced text format, user-lock serialized). `diagnoseEmployees()`
   read-only probe. Wired into `doPost` + `WEBAPP_ACTIONS`. The Employee tab is NOT
   part of the JT mirror, so edits can't fight the hourly sync.
-- **Companion** — `/api/employees` route extended: `GET ?full=1` → full list,
+- **Assistant** — `/api/employees` route extended: `GET ?full=1` → full list,
   `PATCH {id, fields}` → edit (default `GET` still returns the minimal Active list
   the safety page's dropdown uses). `src/app/employees/page.tsx` (table + search +
   status filter + sortable headers + edit modal). TabBar "Employees" entry.

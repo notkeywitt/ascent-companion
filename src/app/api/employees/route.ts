@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 // Proxy to the Apps Script web app's employee actions. Apps Script holds the
 // Google Sheets grant (it reads/writes the Project Database "Employee" tab); the
-// Companion has no Sheets client, so it asks over the same shared-secret web app
+// Assistant has no Sheets client, so it asks over the same shared-secret web app
 // used by /api/email and /api/jt-sync. The secret stays server-side; these
 // routes are browser-called and sit behind normal Google sign-in.
 //

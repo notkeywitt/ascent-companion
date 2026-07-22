@@ -22,7 +22,7 @@ import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
  *   - billing period derives from the UPLOAD moment (arrival date standard),
  *     never a date printed on the document;
  *   - Gemini codes each line against the job's live budget; out-of-budget codes
- *     land UNCODED (the companion's coding queue is the review step, replacing
+ *     land UNCODED (the assistant's coding queue is the review step, replacing
  *     the AppSheet placeholder-CSI convention);
  *   - respects the COMPANION_WRITES_ENABLED gate — off = full preview, no write.
  *

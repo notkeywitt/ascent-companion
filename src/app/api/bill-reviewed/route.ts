@@ -3,7 +3,7 @@ import { db, ensureDb } from "@/db";
 import { savedBills } from "@/db/schema";
 
 /**
- * Toggle the companion-local "reviewed" flag on a bill. This is NOT a JobTread
+ * Toggle the assistant-local "reviewed" flag on a bill. This is NOT a JobTread
  * write — it only records that the office marked the bill reviewed/done — so it
  * works regardless of COMPANION_WRITES_ENABLED. Body: { docId, reviewed }.
  */

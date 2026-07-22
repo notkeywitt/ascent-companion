@@ -83,7 +83,7 @@ function driveMainWindowToDoc(jobId: string, docId: string) {
 }
 
 // Ask the extension to reload the docked JobTread tab so JobTread's page shows
-// what the companion just wrote (its SPA doesn't live-update from API writes).
+// what the assistant just wrote (its SPA doesn't live-update from API writes).
 function reloadJtWindow() {
   try {
     if (typeof window !== "undefined" && window.top !== window.self) {
@@ -407,7 +407,7 @@ function BillDetail() {
     }
   }
 
-  // Toggle the companion-local "reviewed" flag. Not a JobTread write — just
+  // Toggle the assistant-local "reviewed" flag. Not a JobTread write — just
   // records that the office marked this bill done — so it works with writes OFF.
   async function toggleReviewed() {
     const next = !reviewed;

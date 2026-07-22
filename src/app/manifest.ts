@@ -2,7 +2,7 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Ascent Companion",
+    name: "Ascent Assistant",
     short_name: "Ascent",
     description: "JobTread coding, unbilled expenses, and invoice staging",
     start_url: "/",

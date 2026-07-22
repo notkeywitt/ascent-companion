@@ -1,6 +1,6 @@
-# Ascent Companion
+# Ascent Assistant
 
-A JobTread companion tool that fixes three things JobTread does poorly, for Ascent
+A JobTread assistant tool that fixes three things JobTread does poorly, for Ascent
 Building Co. **JobTread is the source of truth — this app holds no database.**
 
 1. **Coding** — fast, flat cost-code assignment on draft vendor bills (JT buries it).
@@ -19,7 +19,7 @@ one repo behind a `.claspignore`.)
 ## Status
 
 Discovery complete — all three features are confirmed against the live JobTread Pave API
-(see `../ascent-appscript/CLAUDE.md` → "Companion-tool findings", and the `_invp*` probes
+(see `../ascent-appscript/CLAUDE.md` → "Assistant-tool findings", and the `_invp*` probes
 in `Diagnostics.js`). `src/lib/jobtread.ts` encodes the verified calls. One detail remains:
 the exact `lineItems` shape for creating a customer invoice (marked TODO).
 

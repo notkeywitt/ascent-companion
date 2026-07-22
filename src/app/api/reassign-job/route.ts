@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-// Proxy the Companion's "move this bill to another job" action to the Apps Script
+// Proxy the Assistant's "move this bill to another job" action to the Apps Script
 // doPost router (action "reassignJob"). JobTread can't move a bill between jobs,
 // so Apps Script delete+recreates it on the new job via its reassignment guard,
 // keeping the Expenditure sheet + Drive tree in sync. The delete+recreate + PDF

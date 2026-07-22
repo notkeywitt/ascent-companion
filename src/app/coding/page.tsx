@@ -19,8 +19,8 @@ interface Bill {
   issueDate?: string;
   jobId?: string; // set only when listing across all jobs
   jobName?: string;
-  saved?: boolean; // Save has been clicked on this bill in the Companion
-  reviewed?: boolean; // bill explicitly marked reviewed in the Companion
+  saved?: boolean; // Save has been clicked on this bill in the Assistant
+  reviewed?: boolean; // bill explicitly marked reviewed in the Assistant
 }
 
 const money = (n?: number) =>
@@ -194,7 +194,7 @@ function CodingQueue() {
                           <BillStatusBadge status={b.status} />
                           {b.reviewed ? (
                             <span
-                              title="Marked reviewed in the Companion"
+                              title="Marked reviewed in the Assistant"
                               className="inline-block shrink-0 rounded bg-emerald-600 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white"
                             >
                               ✓ Reviewed

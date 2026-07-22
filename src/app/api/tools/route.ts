@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 
 // Proxy to the Apps Script web app's tool-management actions. Apps Script holds
-// the Google Sheets + Drive grants; the Companion is UI only. Same shared-secret
+// the Google Sheets + Drive grants; the Assistant is UI only. Same shared-secret
 // web app used by /api/tool-tracker and /api/employees (secret stays server-side).
 //
 // Env (shared): APPS_SCRIPT_SYNC_URL, APPS_SCRIPT_SYNC_SECRET (= SYNC_TRIGGER_SECRET)

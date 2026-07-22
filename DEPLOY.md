@@ -1,4 +1,4 @@
-# Deploying Ascent Companion
+# Deploying Ascent Assistant
 
 Target: **Vercel** (host) + **Turso** (hosted libSQL database). ~15 minutes.
 

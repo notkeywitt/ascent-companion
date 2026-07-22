@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
-// Proxy to the Apps Script web app's Companion email actions — the back-end for
-// the Gmail add-on's "Log Invoice" card, now driven from the companion. Reuses
+// Proxy to the Apps Script web app's Assistant email actions — the back-end for
+// the Gmail add-on's "Log Invoice" card, now driven from the assistant. Reuses
 // the same web-app deployment + shared secret as /api/jt-sync (the doPost
 // action router); the secret stays server-side in env vars.
 //

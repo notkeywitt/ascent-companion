@@ -2,7 +2,7 @@
   "name": "ascent-companion",
   "version": "0.0.1",
   "private": true,
-  "description": "JobTread companion: invoice coding, unbilled expenses, monthly invoice staging",
+  "description": "JobTread assistant: invoice coding, unbilled expenses, monthly invoice staging",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

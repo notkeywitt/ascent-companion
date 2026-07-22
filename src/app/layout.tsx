@@ -15,7 +15,7 @@ const roboto = Roboto({
 });
 
 export const metadata: Metadata = {
-  title: "Ascent Companion",
+  title: "Ascent Assistant",
   description: "JobTread coding, unbilled expenses, and invoice staging",
   appleWebApp: {
     capable: true,

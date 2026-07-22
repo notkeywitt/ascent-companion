@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 // Proxy to the Apps Script web app's task registry — the back-end for the
-// Companion's Actions page. Reuses the same web-app deployment + shared secret
+// Assistant's Actions page. Reuses the same web-app deployment + shared secret
 // as /api/jt-sync and /api/email (the doPost action router); the secret stays
 // server-side in env vars.
 //
