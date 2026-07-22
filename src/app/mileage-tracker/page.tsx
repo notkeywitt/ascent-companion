@@ -165,6 +165,11 @@ export default function MileageTrackerPage() {
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [historyErr, setHistoryErr] = useState("");
 
+  // Admin-only monthly PDF report.
+  const [pdfBusy, setPdfBusy] = useState(false);
+  const [pdfUrl, setPdfUrl] = useState("");
+  const [pdfErr, setPdfErr] = useState("");
+
   // --- Load reference data + restore an in-progress trip on mount. ----------
   useEffect(() => {
     (async () => {
@@ -431,6 +436,41 @@ export default function MileageTrackerPage() {
     const sum = trips.reduce((s, t) => s + (Number(t["Miles"]) || 0), 0);
     return Math.round(sum * 10) / 10;
   }, [trips]);
+
+  // Admin: render the whole selected month (all drivers) to a PDF in Drive.
+  async function createPdf() {
+    if (!filterMonth) {
+      setPdfErr("Pick a month first.");
+      setPdfUrl("");
+      return;
+    }
+    setPdfBusy(true);
+    setPdfErr("");
+    setPdfUrl("");
+    try {
+      const res = await fetch("/api/mileage/report", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ month: filterMonth }),
+      });
+      const json = await res.json();
+      if (!res.ok || json.ok === false) {
+        setPdfErr(json.error || "Could not create the PDF.");
+        return;
+      }
+      setPdfUrl(json.pdfUrl || "");
+    } catch (e) {
+      setPdfErr(e instanceof Error ? e.message : "Could not create the PDF.");
+    } finally {
+      setPdfBusy(false);
+    }
+  }
+
+  // A new month/driver makes any generated PDF stale — clear it.
+  function clearPdf() {
+    setPdfUrl("");
+    setPdfErr("");
+  }
 
   return (
     <main className="mx-auto max-w-2xl px-4 pb-24 pt-6">
@@ -715,7 +755,10 @@ export default function MileageTrackerPage() {
                 <Select
                   id="mlg-filter-user"
                   value={filterUser}
-                  onChange={(e) => setFilterUser(e.target.value)}
+                  onChange={(e) => {
+                    setFilterUser(e.target.value);
+                    clearPdf();
+                  }}
                 >
                   <option value="">All drivers</option>
                   {users.map((u) => (
@@ -733,12 +776,18 @@ export default function MileageTrackerPage() {
                   id="mlg-filter-month"
                   type="month"
                   value={filterMonth}
-                  onChange={(e) => setFilterMonth(e.target.value)}
+                  onChange={(e) => {
+                    setFilterMonth(e.target.value);
+                    clearPdf();
+                  }}
                 />
                 {filterMonth && (
                   <button
                     type="button"
-                    onClick={() => setFilterMonth("")}
+                    onClick={() => {
+                      setFilterMonth("");
+                      clearPdf();
+                    }}
                     className="shrink-0 text-xs text-neutral-500 underline-offset-2 hover:text-accent hover:underline dark:hover:text-accent-soft"
                   >
                     Clear
@@ -757,6 +806,39 @@ export default function MileageTrackerPage() {
               {isAdmin ? (filterUser ? ` · ${filterUser}` : " · all drivers") : " · you"}
             </p>
           </Card>
+
+          {isAdmin && (
+            <Card className="space-y-2">
+              <button
+                type="button"
+                onClick={createPdf}
+                disabled={pdfBusy || !filterMonth}
+                className="w-full rounded-xl border border-accent px-4 py-3 text-sm font-semibold text-accent transition hover:bg-accent/10 disabled:cursor-not-allowed disabled:opacity-40 dark:text-accent-soft"
+              >
+                {pdfBusy ? "Creating PDF…" : "Create PDF — all drivers, this month"}
+              </button>
+              {!filterMonth && (
+                <p className="text-center text-xs text-neutral-500">
+                  Pick a month above to export the full report.
+                </p>
+              )}
+              {pdfErr && <Banner tone="error">{pdfErr}</Banner>}
+              {pdfUrl && (
+                <Banner tone="success">
+                  Report ready —{" "}
+                  <a
+                    href={pdfUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-semibold underline"
+                  >
+                    open the PDF
+                  </a>
+                  .
+                </Banner>
+              )}
+            </Card>
+          )}
 
           {historyErr && <Banner tone="error">{historyErr}</Banner>}
 
