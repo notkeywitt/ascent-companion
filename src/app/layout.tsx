@@ -3,6 +3,9 @@ import type { Metadata, Viewport } from "next";
 import { Roboto } from "next/font/google";
 import "./globals.css";
 import { AppHeader } from "@/components/AppHeader";
+import { AccessProvider } from "@/components/AccessProvider";
+import { auth } from "@/auth";
+import { ALL_VIEW_IDS, resolveAllowedViews, type Role } from "@/lib/views";
 
 // Brand web typeface (Brand Guidelines p.22 — Roboto is the sanctioned web
 // alternative to the print primary, LL Medium). Exposed as a CSS var wired into
@@ -34,7 +37,22 @@ export const viewport: Viewport = {
   ],
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  // Resolve the signed-in user's role + view set once, server-side, and hand it
+  // to the (client) nav so it renders only what they can see. When neither auth
+  // mechanism is configured (local dev) the app is open, so treat as admin/all.
+  const session = await auth();
+  const devOpen = !process.env.AUTH_GOOGLE_ID && !process.env.APP_PASSWORD;
+  let role: Role = "field";
+  let views: string[] = [];
+  if (session?.user) {
+    role = session.user.role ?? "field";
+    views = [...resolveAllowedViews(role, session.user.viewsAllow, session.user.viewsDeny)];
+  } else if (devOpen) {
+    role = "admin";
+    views = ALL_VIEW_IDS;
+  }
+
   return (
     <html lang="en" className={roboto.variable}>
       <head>
@@ -46,10 +64,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body className="min-h-screen font-sans antialiased">
-        <Suspense fallback={null}>
-          <AppHeader />
-        </Suspense>
-        {children}
+        <AccessProvider role={role} views={views}>
+          <Suspense fallback={null}>
+            <AppHeader />
+          </Suspense>
+          {children}
+        </AccessProvider>
       </body>
     </html>
   );

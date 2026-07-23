@@ -4,6 +4,7 @@ import { Suspense, type ReactNode } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { PageHeader } from "@/components/ui";
+import { useAccess } from "@/components/AccessProvider";
 
 /**
  * The Assistant's front page — the launcher the app opens to.
@@ -83,16 +84,18 @@ const RouteIcon = ({ className }: IconProps) => (
 
 /* -------------------------------------------------------------------- data */
 
-type Dest = { label: string; href: string; desc: string };
+// `view` is the gate id from lib/views — entries the signed-in user can't see
+// are filtered out (see the filtering in Home below).
+type Dest = { label: string; href: string; desc: string; view: string };
 type Area = { title: string; Icon: (p: IconProps) => ReactNode; blurb: string; dests: Dest[] };
-type Quick = { label: string; href: string; Icon: (p: IconProps) => ReactNode };
+type Quick = { label: string; href: string; Icon: (p: IconProps) => ReactNode; view: string };
 
 // The three most-used destinations, one tap from the top of the launcher.
 // Financials → Coding Review (the tab bar shows the other tabs alongside it).
 const QUICK: Quick[] = [
-  { label: "Tools", href: "/tools", Icon: WrenchIcon },
-  { label: "Miles", href: "/mileage-tracker", Icon: RouteIcon },
-  { label: "Financials", href: "/coding", Icon: BanknoteIcon },
+  { label: "Tools", href: "/tools", Icon: WrenchIcon, view: "tools" },
+  { label: "Miles", href: "/mileage-tracker", Icon: RouteIcon, view: "mileage" },
+  { label: "Financials", href: "/coding", Icon: BanknoteIcon, view: "coding" },
 ];
 
 const AREAS: Area[] = [
@@ -101,11 +104,11 @@ const AREAS: Area[] = [
     Icon: BanknoteIcon,
     blurb: "Bill coding, unbilled expenses, and monthly invoicing.",
     dests: [
-      { label: "Coding Review", href: "/coding", desc: "Draft bills waiting to be coded" },
-      { label: "Invoicing", href: "/stage", desc: "Stage the month's customer invoice" },
-      { label: "Unbilled", href: "/unbilled", desc: "Uninvoiced expenses by cost code" },
-      { label: "Email Invoices", href: "/email", desc: "Log invoices from the office inbox" },
-      { label: "Needs Project", href: "/needs-project", desc: "Ingested bills with no job yet" },
+      { label: "Coding Review", href: "/coding", desc: "Draft bills waiting to be coded", view: "coding" },
+      { label: "Invoicing", href: "/stage", desc: "Stage the month's customer invoice", view: "stage" },
+      { label: "Unbilled", href: "/unbilled", desc: "Uninvoiced expenses by cost code", view: "unbilled" },
+      { label: "Email Invoices", href: "/email", desc: "Log invoices from the office inbox", view: "email" },
+      { label: "Needs Project", href: "/needs-project", desc: "Ingested bills with no job yet", view: "needs-project" },
     ],
   },
   {
@@ -113,7 +116,7 @@ const AREAS: Area[] = [
     Icon: WrenchIcon,
     blurb: "The field tool inventory.",
     dests: [
-      { label: "Tool Inventory", href: "/tools", desc: "Search, edit, or scan a tool's QR" },
+      { label: "Tool Inventory", href: "/tools", desc: "Search, edit, or scan a tool's QR", view: "tools" },
     ],
   },
   {
@@ -121,9 +124,9 @@ const AREAS: Area[] = [
     Icon: HardHatIcon,
     blurb: "Job-site safety records.",
     dests: [
-      { label: "Safety Meeting", href: "/safety-meeting", desc: "Pass the iPad and collect sign-ins" },
-      { label: "Mileage", href: "/mileage-tracker", desc: "Log business miles, one tap each way" },
-      { label: "Employee Time", href: "/employee-time", desc: "Log hours to a job, with photos" },
+      { label: "Safety Meeting", href: "/safety-meeting", desc: "Pass the iPad and collect sign-ins", view: "safety-meeting" },
+      { label: "Mileage", href: "/mileage-tracker", desc: "Log business miles, one tap each way", view: "mileage" },
+      { label: "Employee Time", href: "/employee-time", desc: "Log hours to a job, with photos", view: "employee-time" },
     ],
   },
   {
@@ -131,22 +134,30 @@ const AREAS: Area[] = [
     Icon: GearIcon,
     blurb: "Assistant, records, imports, and system tools.",
     dests: [
-      { label: "Assistant", href: "/chat", desc: "Ask about a job's bills or budget" },
-      { label: "RFIs", href: "/rfis", desc: "View and create a job's RFIs" },
-      { label: "Employees", href: "/employees", desc: "The Project Database roster" },
-      { label: "Labor Import", href: "/labor-import", desc: "QuickBooks labor → JobTread CSV" },
-      { label: "Actions", href: "/actions", desc: "Run a script job on demand" },
-      { label: "Requests", href: "/requests", desc: "Ask for fixes and new features" },
-      { label: "Admin", href: "/admin", desc: "Who can sign in" },
-      { label: "Logs", href: "/logs", desc: "The automation audit trail" },
+      { label: "Assistant", href: "/chat", desc: "Ask about a job's bills or budget", view: "chat" },
+      { label: "RFIs", href: "/rfis", desc: "View and create a job's RFIs", view: "rfis" },
+      { label: "Employees", href: "/employees", desc: "The Project Database roster", view: "employees" },
+      { label: "Labor Import", href: "/labor-import", desc: "QuickBooks labor → JobTread CSV", view: "labor-import" },
+      { label: "Actions", href: "/actions", desc: "Run a script job on demand", view: "actions" },
+      { label: "Requests", href: "/requests", desc: "Ask for fixes and new features", view: "requests" },
+      { label: "Admin", href: "/admin", desc: "Who can sign in", view: "admin" },
+      { label: "Logs", href: "/logs", desc: "The automation audit trail", view: "logs" },
     ],
   },
 ];
 
 function Home() {
   const search = useSearchParams();
+  const access = useAccess();
   const jobId = (search.get("jobId") ?? "").trim();
   const qs = jobId ? `?jobId=${encodeURIComponent(jobId)}` : "";
+
+  // Show only what this user can access; hide an area whose links all filter out.
+  const quick = QUICK.filter((q) => access.can(q.view));
+  const areas = AREAS.map((a) => ({
+    ...a,
+    dests: a.dests.filter((d) => access.can(d.view)),
+  })).filter((a) => a.dests.length > 0);
 
   return (
     <main className="mx-auto max-w-2xl px-4 pb-24 pt-6">
@@ -157,8 +168,9 @@ function Home() {
 
       {/* Quick launch — the three most-used destinations as big, thumb-sized
           buttons above the full launcher grid. */}
+      {quick.length > 0 && (
       <div className="mb-6 grid grid-cols-3 gap-3">
-        {QUICK.map((q) => (
+        {quick.map((q) => (
           <Link
             key={q.href}
             href={q.href + qs}
@@ -174,9 +186,10 @@ function Home() {
           </Link>
         ))}
       </div>
+      )}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        {AREAS.map((area) => (
+        {areas.map((area) => (
           <section
             key={area.title}
             className="rounded-2xl border border-neutral-200 bg-white p-4 dark:border-neutral-700/60 dark:bg-ink-raised"

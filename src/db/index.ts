@@ -56,9 +56,26 @@ export async function ensureDb() {
     CREATE TABLE IF NOT EXISTS allowed_users (
       email TEXT PRIMARY KEY,
       added_by TEXT NOT NULL DEFAULT '',
-      created_at TEXT NOT NULL
+      created_at TEXT NOT NULL,
+      role TEXT NOT NULL DEFAULT 'field',
+      views_allow TEXT NOT NULL DEFAULT '[]',
+      views_deny TEXT NOT NULL DEFAULT '[]'
     )
   `);
+  // Migrations for DBs created before roles/overrides existed (idempotent —
+  // each throws once the column is present). Pre-existing members backfill to
+  // 'field'; re-grade them on /admin after deploy.
+  for (const alter of [
+    "ALTER TABLE allowed_users ADD COLUMN role TEXT NOT NULL DEFAULT 'field'",
+    "ALTER TABLE allowed_users ADD COLUMN views_allow TEXT NOT NULL DEFAULT '[]'",
+    "ALTER TABLE allowed_users ADD COLUMN views_deny TEXT NOT NULL DEFAULT '[]'",
+  ]) {
+    try {
+      await client.execute(alter);
+    } catch {
+      /* column already exists */
+    }
+  }
   await client.execute(`
     CREATE TABLE IF NOT EXISTS saved_bills (
       doc_id TEXT PRIMARY KEY,

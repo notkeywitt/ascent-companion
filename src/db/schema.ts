@@ -38,11 +38,24 @@ export const featureRequests = sqliteTable("feature_requests", {
 export type FeatureRequest = typeof featureRequests.$inferSelect;
 export type NewFeatureRequest = typeof featureRequests.$inferInsert;
 
-/** Extra allowed sign-in emails (on top of the ALLOWED_EMAILS env founders). */
+/**
+ * Extra allowed sign-in emails (on top of the ALLOWED_EMAILS env founders).
+ * Each member carries a role and optional per-user view overrides:
+ *  - role:       "admin" | "office" | "field" — the base view set (see lib/views).
+ *  - viewsAllow: JSON string[] of view ids granted ON TOP of the role.
+ *  - viewsDeny:  JSON string[] of view ids removed from the role.
+ * Env founders are never in this table and are always treated as "admin".
+ * New members added via /admin default to "field" (see the API); the column
+ * default of "field" only backfills pre-existing rows created before roles
+ * existed — re-grade those on /admin after deploy.
+ */
 export const allowedUsers = sqliteTable("allowed_users", {
   email: text("email").primaryKey(),
   addedBy: text("added_by").notNull().default(""),
   createdAt: text("created_at").notNull(),
+  role: text("role").notNull().default("field"), // "admin" | "office" | "field"
+  viewsAllow: text("views_allow").notNull().default("[]"), // JSON string[]
+  viewsDeny: text("views_deny").notNull().default("[]"), // JSON string[]
 });
 
 export type AllowedUser = typeof allowedUsers.$inferSelect;

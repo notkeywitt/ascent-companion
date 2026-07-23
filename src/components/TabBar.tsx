@@ -5,8 +5,12 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import { SyncNowButton } from "@/components/SyncNowButton";
+import { useAccess } from "@/components/AccessProvider";
 
-type Tab = { label: string; href: string; match: (p: string) => boolean };
+// `view` is the gate id from lib/views — tabs the signed-in user can't see are
+// filtered out (see the filtering in TabBar / MoreMenu below).
+type Tab = { label: string; href: string; view: string; match: (p: string) => boolean };
+type Group = { label: string; tabs: Tab[] };
 
 // Coding Review and Invoicing stay as standalone tabs; everything else lives
 // in the "More" dropdown so the bar fits the phone / side-panel widths.
@@ -14,63 +18,63 @@ const PRIMARY_TABS: Tab[] = [
   {
     label: "Coding Review",
     href: "/coding",
+    view: "coding",
     match: (p) =>
       p.startsWith("/coding") ||
       p.startsWith("/unbilled") ||
       p.startsWith("/bill") ||
       p.startsWith("/add-bill"),
   },
-  { label: "Invoicing", href: "/stage", match: (p) => p.startsWith("/stage") },
+  { label: "Invoicing", href: "/stage", view: "stage", match: (p) => p.startsWith("/stage") },
 ];
 
 // The dropdown is grouped by what the pages are for, so nine flat items don't
 // blur together: billing workflow, field tools, office records, then system.
-const MORE_GROUPS: { label: string; tabs: Tab[] }[] = [
+const MORE_GROUPS: Group[] = [
   {
     label: "Assistant",
-    tabs: [{ label: "Chat", href: "/chat", match: (p) => p.startsWith("/chat") }],
+    tabs: [{ label: "Chat", href: "/chat", view: "chat", match: (p) => p.startsWith("/chat") }],
   },
   {
     label: "Billing",
     tabs: [
-      { label: "Email", href: "/email", match: (p) => p.startsWith("/email") },
-      { label: "Needs Project", href: "/needs-project", match: (p) => p.startsWith("/needs-project") },
-      { label: "Payments", href: "/payments", match: (p) => p.startsWith("/payments") },
+      { label: "Email", href: "/email", view: "email", match: (p) => p.startsWith("/email") },
+      { label: "Needs Project", href: "/needs-project", view: "needs-project", match: (p) => p.startsWith("/needs-project") },
+      { label: "Payments", href: "/payments", view: "payments", match: (p) => p.startsWith("/payments") },
     ],
   },
   {
     label: "Field",
     tabs: [
-      { label: "Safety Meeting", href: "/safety-meeting", match: (p) => p.startsWith("/safety-meeting") },
+      { label: "Safety Meeting", href: "/safety-meeting", view: "safety-meeting", match: (p) => p.startsWith("/safety-meeting") },
       {
         label: "Tools",
         href: "/tools",
+        view: "tools",
         match: (p) =>
           p === "/tools" || p.startsWith("/tools/") || p.startsWith("/tool-tracker"),
       },
-      { label: "Mileage", href: "/mileage-tracker", match: (p) => p.startsWith("/mileage-tracker") },
-      { label: "RFIs", href: "/rfis", match: (p) => p.startsWith("/rfis") },
+      { label: "Mileage", href: "/mileage-tracker", view: "mileage", match: (p) => p.startsWith("/mileage-tracker") },
+      { label: "RFIs", href: "/rfis", view: "rfis", match: (p) => p.startsWith("/rfis") },
     ],
   },
   {
     label: "Office",
     tabs: [
-      { label: "Employees", href: "/employees", match: (p) => p.startsWith("/employees") },
-      { label: "Labor Import", href: "/labor-import", match: (p) => p.startsWith("/labor-import") },
+      { label: "Employees", href: "/employees", view: "employees", match: (p) => p.startsWith("/employees") },
+      { label: "Labor Import", href: "/labor-import", view: "labor-import", match: (p) => p.startsWith("/labor-import") },
     ],
   },
   {
     label: "System",
     tabs: [
-      { label: "Actions", href: "/actions", match: (p) => p.startsWith("/actions") },
-      { label: "Requests", href: "/requests", match: (p) => p.startsWith("/requests") },
-      { label: "Admin", href: "/admin", match: (p) => p.startsWith("/admin") },
-      { label: "Logs", href: "/logs", match: (p) => p.startsWith("/logs") },
+      { label: "Actions", href: "/actions", view: "actions", match: (p) => p.startsWith("/actions") },
+      { label: "Requests", href: "/requests", view: "requests", match: (p) => p.startsWith("/requests") },
+      { label: "Admin", href: "/admin", view: "admin", match: (p) => p.startsWith("/admin") },
+      { label: "Logs", href: "/logs", view: "logs", match: (p) => p.startsWith("/logs") },
     ],
   },
 ];
-
-const MORE_TABS: Tab[] = MORE_GROUPS.flatMap((g) => g.tabs);
 
 const TAB_CLS = (active: boolean) =>
   "whitespace-nowrap border-b-2 px-3 py-2.5 text-sm font-semibold transition " +
@@ -105,7 +109,7 @@ function ThemeToggle() {
 
 /** Dropdown holding the secondary tabs. Reads as a tab; when one of its pages
  *  is active the trigger takes that page's label and the accent underline. */
-function MoreMenu({ pathname, qs }: { pathname: string; qs: string }) {
+function MoreMenu({ pathname, qs, groups }: { pathname: string; qs: string; groups: Group[] }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -122,7 +126,8 @@ function MoreMenu({ pathname, qs }: { pathname: string; qs: string }) {
     setOpen(false);
   }, [pathname]);
 
-  const activeTab = MORE_TABS.find((t) => t.match(pathname));
+  const moreTabs = groups.flatMap((g) => g.tabs);
+  const activeTab = moreTabs.find((t) => t.match(pathname));
 
   return (
     <div
@@ -154,7 +159,7 @@ function MoreMenu({ pathname, qs }: { pathname: string; qs: string }) {
           role="menu"
           className="absolute right-0 z-30 mt-1 w-52 overflow-hidden rounded-lg border border-neutral-300 bg-white py-1 shadow-lg dark:border-neutral-700 dark:bg-ink-overlay"
         >
-          {MORE_GROUPS.map((g, gi) => (
+          {groups.map((g, gi) => (
             <div key={g.label} className={gi > 0 ? "mt-1 border-t border-neutral-100 pt-1 dark:border-white/10" : ""}>
               <div className="px-3 pb-0.5 pt-1.5 text-[10px] font-semibold uppercase tracking-wide text-neutral-400">
                 {g.label}
@@ -190,17 +195,25 @@ function MoreMenu({ pathname, qs }: { pathname: string; qs: string }) {
 export function TabBar() {
   const pathname = usePathname();
   const search = useSearchParams();
+  const access = useAccess();
   const jobId = search.get("jobId") ?? "";
   const qs = jobId ? `?jobId=${encodeURIComponent(jobId)}` : "";
 
   if (pathname === "/login" || pathname === "/privacy") return null;
+
+  // Filter tabs to what this user can see; drop groups that end up empty.
+  const primaryTabs = PRIMARY_TABS.filter((t) => access.can(t.view));
+  const groups = MORE_GROUPS.map((g) => ({
+    ...g,
+    tabs: g.tabs.filter((t) => access.can(t.view)),
+  })).filter((g) => g.tabs.length > 0);
 
   return (
     <nav className="flex items-center pr-1">
       {/* No overflow-x-auto here: it would clip the dropdown, and the three
           remaining items fit even side-panel widths. */}
       <div className="flex flex-1 items-center gap-1 px-2">
-        {PRIMARY_TABS.map((t) => {
+        {primaryTabs.map((t) => {
           const active = t.match(pathname);
           return (
             <Link key={t.href} href={t.href + qs} className={TAB_CLS(active)}>
@@ -208,7 +221,7 @@ export function TabBar() {
             </Link>
           );
         })}
-        <MoreMenu pathname={pathname} qs={qs} />
+        {groups.length > 0 && <MoreMenu pathname={pathname} qs={qs} groups={groups} />}
       </div>
       <SyncNowButton />
       <ThemeToggle />
