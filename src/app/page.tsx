@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, type ReactNode } from "react";
+import { Suspense, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { PageHeader } from "@/components/ui";
@@ -9,11 +9,13 @@ import { useAccess } from "@/components/AccessProvider";
 /**
  * The Assistant's front page — the launcher the app opens to.
  *
- * Four areas (Financials, Tools, Safety, Utilities) group every page the tab
- * bar reaches into big, thumb-sized rows. It's an entry point, not a new tab:
- * the tab bar layout is unchanged and each row deep-links to the same route its
- * tab does. The selected job (if any) carries through on the query string, so
- * landing on a job's Coding Review / Invoicing keeps that job in context.
+ * Two areas (Financials, Utilities) group every page the tab bar reaches into
+ * collapsible menus that stay rolled up until tapped. Above them, three quick
+ * buttons (Mileage, Time, Tools) put the most-used destinations one tap away.
+ * It's an entry point, not a new tab: the tab bar layout is unchanged and each
+ * row deep-links to the same route its tab does. The selected job (if any)
+ * carries through on the query string, so landing on a job's Coding Review /
+ * Invoicing keeps that job in context.
  */
 
 /* ------------------------------------------------------------------- icons */
@@ -55,13 +57,18 @@ const WrenchIcon = ({ className }: IconProps) => (
   </IconBase>
 );
 
-/** Hard hat — Safety. */
-const HardHatIcon = ({ className }: IconProps) => (
+/** Clock — Time (employee time). */
+const ClockIcon = ({ className }: IconProps) => (
   <IconBase className={className}>
-    <path d="M2 18a1 1 0 0 0 1 1h18a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1H3a1 1 0 0 0-1 1z" />
-    <path d="M10 10V5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v5" />
-    <path d="M14 6a6 6 0 0 1 6 6v3" />
-    <path d="M4 15v-3a6 6 0 0 1 6-6" />
+    <circle cx="12" cy="12" r="9" />
+    <path d="M12 7v5l3 2" />
+  </IconBase>
+);
+
+/** Chevron — the roll-up indicator on each collapsible menu. */
+const ChevronDownIcon = ({ className }: IconProps) => (
+  <IconBase className={className}>
+    <path d="m6 9 6 6 6-6" />
   </IconBase>
 );
 
@@ -91,11 +98,10 @@ type Area = { title: string; Icon: (p: IconProps) => ReactNode; blurb: string; d
 type Quick = { label: string; href: string; Icon: (p: IconProps) => ReactNode; view: string };
 
 // The three most-used destinations, one tap from the top of the launcher.
-// Financials → Coding Review (the tab bar shows the other tabs alongside it).
 const QUICK: Quick[] = [
+  { label: "Mileage", href: "/mileage-tracker", Icon: RouteIcon, view: "mileage" },
+  { label: "Time", href: "/employee-time", Icon: ClockIcon, view: "employee-time" },
   { label: "Tools", href: "/tools", Icon: WrenchIcon, view: "tools" },
-  { label: "Miles", href: "/mileage-tracker", Icon: RouteIcon, view: "mileage" },
-  { label: "Financials", href: "/coding", Icon: BanknoteIcon, view: "coding" },
 ];
 
 const AREAS: Area[] = [
@@ -112,29 +118,12 @@ const AREAS: Area[] = [
     ],
   },
   {
-    title: "Tools",
-    Icon: WrenchIcon,
-    blurb: "The field tool inventory.",
-    dests: [
-      { label: "Tool Inventory", href: "/tools", desc: "Search, edit, or scan a tool's QR", view: "tools" },
-    ],
-  },
-  {
-    title: "Safety",
-    Icon: HardHatIcon,
-    blurb: "Job-site safety records.",
-    dests: [
-      { label: "Safety Meeting", href: "/safety-meeting", desc: "Pass the iPad and collect sign-ins", view: "safety-meeting" },
-      { label: "Mileage", href: "/mileage-tracker", desc: "Log business miles, one tap each way", view: "mileage" },
-      { label: "Employee Time", href: "/employee-time", desc: "Log hours to a job, with photos", view: "employee-time" },
-    ],
-  },
-  {
     title: "Utilities",
     Icon: GearIcon,
-    blurb: "Assistant, records, imports, and system tools.",
+    blurb: "Assistant, safety, records, imports, and system tools.",
     dests: [
       { label: "Assistant", href: "/chat", desc: "Ask about a job's bills or budget", view: "chat" },
+      { label: "Safety Meeting", href: "/safety-meeting", desc: "Pass the iPad and collect sign-ins", view: "safety-meeting" },
       { label: "RFIs", href: "/rfis", desc: "View and create a job's RFIs", view: "rfis" },
       { label: "Employees", href: "/employees", desc: "The Project Database roster", view: "employees" },
       { label: "Labor Import", href: "/labor-import", desc: "QuickBooks labor → JobTread CSV", view: "labor-import" },
@@ -152,6 +141,11 @@ function Home() {
   const jobId = (search.get("jobId") ?? "").trim();
   const qs = jobId ? `?jobId=${encodeURIComponent(jobId)}` : "";
 
+  // Each menu stays rolled up until tapped; track which titles are open.
+  const [open, setOpen] = useState<Record<string, boolean>>({});
+  const toggle = (title: string) =>
+    setOpen((o) => ({ ...o, [title]: !o[title] }));
+
   // Show only what this user can access; hide an area whose links all filter out.
   const quick = QUICK.filter((q) => access.can(q.view));
   const areas = AREAS.map((a) => ({
@@ -163,7 +157,7 @@ function Home() {
     <main className="mx-auto max-w-2xl px-4 pb-24 pt-6">
       <PageHeader
         title="Home"
-        description="Financials, tools, safety, and utilities — jump to what you need."
+        description="Jump to what you need — tap a menu to roll it open."
       />
 
       {/* Quick launch — the three most-used destinations as big, thumb-sized
@@ -188,48 +182,64 @@ function Home() {
       </div>
       )}
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        {areas.map((area) => (
-          <section
-            key={area.title}
-            className="rounded-2xl border border-neutral-200 bg-white p-4 dark:border-neutral-700/60 dark:bg-ink-raised"
-          >
-            <div className="mb-3 flex items-start gap-3">
-              <span
-                aria-hidden
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent/10 text-accent dark:bg-accent/15 dark:text-accent-soft"
+      <div className="space-y-3">
+        {areas.map((area) => {
+          const isOpen = !!open[area.title];
+          return (
+            <section
+              key={area.title}
+              className="overflow-hidden rounded-2xl border border-neutral-200 bg-white dark:border-neutral-700/60 dark:bg-ink-raised"
+            >
+              <button
+                type="button"
+                onClick={() => toggle(area.title)}
+                aria-expanded={isOpen}
+                className="flex min-h-[64px] w-full items-center gap-3 p-4 text-left transition hover:bg-accent/5 dark:hover:bg-white/5"
               >
-                <area.Icon className="h-5 w-5" />
-              </span>
-              <div className="min-w-0">
-                <h2 className="text-base font-bold tracking-tight">{area.title}</h2>
-                <p className="mt-0.5 text-xs text-neutral-500">{area.blurb}</p>
-              </div>
-            </div>
+                <span
+                  aria-hidden
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent/10 text-accent dark:bg-accent/15 dark:text-accent-soft"
+                >
+                  <area.Icon className="h-5 w-5" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-base font-bold tracking-tight">{area.title}</span>
+                  <span className="mt-0.5 block truncate text-xs text-neutral-500">{area.blurb}</span>
+                </span>
+                <span
+                  aria-hidden
+                  className={`shrink-0 text-neutral-400 transition-transform dark:text-neutral-500 ${isOpen ? "rotate-180" : ""}`}
+                >
+                  <ChevronDownIcon className="h-5 w-5" />
+                </span>
+              </button>
 
-            <ul className="space-y-1.5">
-              {area.dests.map((d) => (
-                <li key={d.href}>
-                  <Link
-                    href={d.href + qs}
-                    className="group flex min-h-[44px] items-center justify-between gap-3 rounded-xl border border-transparent px-3 py-2.5 transition hover:border-accent hover:bg-accent/5 dark:hover:bg-white/5"
-                  >
-                    <span className="min-w-0">
-                      <span className="block truncate text-sm font-semibold">{d.label}</span>
-                      <span className="block truncate text-xs text-neutral-500">{d.desc}</span>
-                    </span>
-                    <span
-                      aria-hidden
-                      className="shrink-0 text-neutral-300 transition group-hover:text-accent dark:text-neutral-600 dark:group-hover:text-accent-soft"
-                    >
-                      ›
-                    </span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </section>
-        ))}
+              {isOpen && (
+                <ul className="space-y-1.5 px-4 pb-4">
+                  {area.dests.map((d) => (
+                    <li key={d.href}>
+                      <Link
+                        href={d.href + qs}
+                        className="group flex min-h-[44px] items-center justify-between gap-3 rounded-xl border border-transparent px-3 py-2.5 transition hover:border-accent hover:bg-accent/5 dark:hover:bg-white/5"
+                      >
+                        <span className="min-w-0">
+                          <span className="block truncate text-sm font-semibold">{d.label}</span>
+                          <span className="block truncate text-xs text-neutral-500">{d.desc}</span>
+                        </span>
+                        <span
+                          aria-hidden
+                          className="shrink-0 text-neutral-300 transition group-hover:text-accent dark:text-neutral-600 dark:group-hover:text-accent-soft"
+                        >
+                          ›
+                        </span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          );
+        })}
       </div>
     </main>
   );
