@@ -258,6 +258,26 @@ function Home() {
           </Link>
         </div>
       )}
+
+      {/* Account / sign out. Access (which menus you see) is baked in at
+          sign-in, so signing out and back in is how you pick up a changed
+          role — e.g. if the launcher is missing sections you expect, your
+          session may still be on the default "field" role. */}
+      <div className="mt-8 border-t border-neutral-200 pt-5 text-center dark:border-neutral-700/60">
+        <p className="text-xs text-neutral-500">
+          Signed in — access level: <span className="font-semibold">{access.role}</span>
+        </p>
+        <button
+          type="button"
+          onClick={() => signOut({ callbackUrl: "/login" })}
+          className={btn("secondary", "md", "mt-3")}
+        >
+          Sign out
+        </button>
+        <p className="mx-auto mt-2 max-w-sm text-xs text-neutral-500">
+          Missing menus you expect? Sign out and back in to refresh your access.
+        </p>
+      </div>
     </main>
   );
 }
