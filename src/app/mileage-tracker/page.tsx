@@ -145,6 +145,15 @@ function thisMonth(): string {
   return today().slice(0, 7);
 }
 
+// A stable per-trip key so a save that's retried (e.g. after a dropped signal)
+// doesn't create a duplicate — the server dedupes on it.
+function genKey(): string {
+  try {
+    if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID();
+  } catch {}
+  return `k-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 export default function MileageTrackerPage() {
   const [phase, setPhase] = useState<"idle" | "active" | "done" | "manual" | "history">("idle");
   const [busy, setBusy] = useState(false);
@@ -166,12 +175,14 @@ export default function MileageTrackerPage() {
   const [start, setStart] = useState<StartFix | null>(null);
   const [waypoints, setWaypoints] = useState<Waypoint[]>([]);
   const [addingStop, setAddingStop] = useState(false);
+  const [tripKey, setTripKey] = useState(""); // idempotency key for the active GPS trip
   const [nowMs, setNowMs] = useState(0);
   const [summary, setSummary] = useState<Summary | null>(null);
 
   // Manual entry (no GPS — a forgotten or after-the-fact trip).
   const [miles, setMiles] = useState("");
   const [manualDate, setManualDate] = useState(today());
+  const [manualKey, setManualKey] = useState(""); // idempotency key for a manual save
 
   // History view. isAdmin/users come from the server (which enforces access).
   const [trips, setTrips] = useState<Record<string, string>[]>([]);
@@ -221,6 +232,7 @@ export default function MileageTrackerPage() {
           setJobLabel(t.jobLabel ?? "");
           setPurpose(t.purpose ?? "");
           setWaypoints(Array.isArray(t.waypoints) ? t.waypoints : []);
+          setTripKey(t.tripKey ?? genKey());
           setPhase("active");
         }
       }
@@ -261,9 +273,9 @@ export default function MileageTrackerPage() {
   useEffect(() => {
     if (phase !== "active" || !start) return;
     try {
-      localStorage.setItem(LS_TRIP, JSON.stringify({ ...start, driver, jobId, jobLabel, purpose, waypoints }));
+      localStorage.setItem(LS_TRIP, JSON.stringify({ ...start, driver, jobId, jobLabel, purpose, waypoints, tripKey }));
     } catch {}
-  }, [phase, start, driver, jobId, jobLabel, purpose, waypoints]);
+  }, [phase, start, driver, jobId, jobLabel, purpose, waypoints, tripKey]);
 
   // Tick the elapsed clock while a trip is active.
   useEffect(() => {
@@ -301,6 +313,7 @@ export default function MileageTrackerPage() {
         startTime: new Date().toISOString(),
       });
       setWaypoints([]);
+      setTripKey(genKey());
       setPhase("active");
     } catch (e) {
       setErr(geoError(e));
@@ -351,6 +364,7 @@ export default function MileageTrackerPage() {
           jobId,
           jobLabel,
           purpose: purpose.trim(),
+          clientKey: tripKey,
         }),
       });
       const json: TripResult = await res.json();
@@ -402,6 +416,7 @@ export default function MileageTrackerPage() {
           jobId,
           jobLabel,
           purpose: purpose.trim(),
+          clientKey: manualKey,
         }),
       });
       const json: TripResult = await res.json();
@@ -585,6 +600,7 @@ export default function MileageTrackerPage() {
               type="button"
               onClick={() => {
                 setErr("");
+                setManualKey(genKey());
                 setPhase("manual");
               }}
               className="text-sm font-semibold text-accent underline-offset-2 hover:underline dark:text-accent-soft"
