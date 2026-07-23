@@ -132,7 +132,6 @@ function MoreMenu({ pathname, qs, groups }: { pathname: string; qs: string; grou
   return (
     <div
       ref={ref}
-      className="relative"
       onKeyDown={(e) => {
         if (e.key === "Escape") setOpen(false);
       }}
@@ -157,7 +156,7 @@ function MoreMenu({ pathname, qs, groups }: { pathname: string; qs: string; grou
       {open && (
         <div
           role="menu"
-          className="absolute right-0 z-30 mt-1 w-52 overflow-hidden rounded-lg border border-neutral-300 bg-white py-1 shadow-lg dark:border-neutral-700 dark:bg-ink-overlay"
+          className="absolute right-0 top-full z-30 mt-1 w-52 overflow-hidden rounded-lg border border-neutral-300 bg-white py-1 shadow-lg dark:border-neutral-700 dark:bg-ink-overlay"
         >
           {groups.map((g, gi) => (
             <div key={g.label} className={gi > 0 ? "mt-1 border-t border-neutral-100 pt-1 dark:border-white/10" : ""}>
@@ -211,8 +210,11 @@ export function TabBar() {
   return (
     <nav className="flex items-center pr-1">
       {/* No overflow-x-auto here: it would clip the dropdown, and the three
-          remaining items fit even side-panel widths. */}
-      <div className="flex flex-1 items-center gap-1 px-2">
+          remaining items fit even side-panel widths. `relative` so the More
+          dropdown anchors to this full-width row's right edge (staying on
+          screen) rather than to the More button — which can sit at the far left
+          when a role has no primary tabs. */}
+      <div className="relative flex flex-1 items-center gap-1 px-2">
         {primaryTabs.map((t) => {
           const active = t.match(pathname);
           return (

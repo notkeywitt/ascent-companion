@@ -106,7 +106,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async session({ session, token }) {
       const t = token as { role?: Role; va?: string[]; vd?: string[] };
       if (session.user) {
-        session.user.role = t.role ?? "field";
+        // Founders are always admin — resolved from env (no DB), so a founder
+        // is never locked out even on a token minted before roles existed.
+        const email = (session.user.email ?? "").toLowerCase();
+        const isFounder = email !== "" && envAllowed().includes(email);
+        session.user.role = isFounder ? "admin" : t.role ?? "field";
         session.user.viewsAllow = t.va ?? [];
         session.user.viewsDeny = t.vd ?? [];
       }
