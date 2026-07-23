@@ -4,14 +4,17 @@ import { db, ensureDb } from "@/db";
 import { sunsetStatements } from "@/db/schema";
 
 // The Sunset "/payments" list. Reads the statements from the sheet via Apps
-// Script (listSunsetStatements — lightweight), then Gemini-extracts the payment
-// header (account name, statement #, printed prompt discount, net) for any
-// statement not already cached (extractSunsetStatements), persists the result to
-// the companion DB, and returns the merged rows with paid-state. Extraction runs
-// once per statement, so first load after new statements is the only slow one.
+// Script (listSunsetStatements — lightweight, no Gemini), reconciles them into
+// the companion cache, and returns the merged rows with paid-state IMMEDIATELY.
+//
+// It deliberately does NOT extract here: the payment header (account name,
+// statement #, printed discount, net) comes from a Gemini pass on each PDF, and
+// doing that for every uncached statement in one request times the function out
+// once there are more than a handful. The page fills the uncached rows in small
+// bounded batches via POST /api/sunset-statements/extract instead.
 //
 // Env (shared): APPS_SCRIPT_SYNC_URL, APPS_SCRIPT_SYNC_SECRET.
-export const maxDuration = 120; // the first-time Gemini extraction loop can be slow
+export const maxDuration = 30; // one lightweight Apps Script call, no Gemini
 
 interface ListItem {
   expId: string;
@@ -19,13 +22,6 @@ interface ListItem {
   total: number;
   statementDate: string;
   pdfUrl: string;
-}
-interface Extracted {
-  accountName: string;
-  statementNumber: string;
-  total: number;
-  discount: number;
-  net: number;
 }
 
 async function callAppsScript(payload: Record<string, unknown>): Promise<Record<string, unknown>> {
@@ -64,89 +60,54 @@ export async function GET(req: NextRequest) {
   try {
     await ensureDb();
 
-    // 1. The authoritative list of statements (from the sheet).
+    // 1. The authoritative list of statements (from the sheet). Fast, no Gemini.
     const listResp = await callAppsScript({ action: "listSunsetStatements" });
     const items = (listResp.items as ListItem[]) ?? [];
 
-    // 2. What's already cached.
+    // 2. Reconcile into the cache: insert a stub for any new statement, refresh
+    //    drifted sheet fields. NEVER extract here and NEVER touch paid-state.
     const existing = await db.select().from(sunsetStatements);
     const byId = new Map(existing.map((r) => [r.expId, r]));
-
-    // 3. Which statements still need a Gemini extraction (new, or never read).
-    const toExtract = items
-      .filter((it) => {
-        const row = byId.get(it.expId);
-        return !row || row.extractedAt === "";
-      })
-      .map((it) => it.expId);
-
-    let extracted: Record<string, Extracted> = {};
-    if (toExtract.length) {
-      const exResp = await callAppsScript({ action: "extractSunsetStatements", expIds: toExtract });
-      extracted = (exResp.extracted as Record<string, Extracted>) ?? {};
-    }
-
-    // 4. Reconcile: insert new rows, refresh cached fields. NEVER touch paid state.
     const now = new Date().toISOString();
     for (const it of items) {
       const row = byId.get(it.expId);
-      const ex = extracted[it.expId];
       if (!row) {
         await db.insert(sunsetStatements).values({
           expId: it.expId,
           project: it.project,
           statementDate: it.statementDate,
           pdfUrl: it.pdfUrl,
-          accountName: ex ? ex.accountName : "",
-          statementNumber: ex ? ex.statementNumber : "",
-          total: ex ? fmt(ex.total) : fmt(it.total),
-          discount: ex ? fmt(ex.discount) : "",
-          net: ex ? fmt(ex.net) : "",
-          extractedAt: ex ? now : "",
+          total: fmt(it.total),
           status: "unpaid",
           createdAt: now,
           updatedAt: now,
         });
-        continue;
-      }
-      // Existing: only write if extraction just arrived or a sheet field drifted.
-      const drift =
+      } else if (
         row.project !== it.project ||
         row.pdfUrl !== it.pdfUrl ||
-        row.statementDate !== it.statementDate;
-      if (!ex && !drift) continue;
-      await db
-        .update(sunsetStatements)
-        .set({
-          project: it.project,
-          statementDate: it.statementDate,
-          pdfUrl: it.pdfUrl,
-          ...(ex
-            ? {
-                accountName: ex.accountName,
-                statementNumber: ex.statementNumber,
-                total: fmt(ex.total),
-                discount: fmt(ex.discount),
-                net: fmt(ex.net),
-                extractedAt: now,
-              }
-            : {}),
-          updatedAt: now,
-        })
-        .where(eq(sunsetStatements.expId, it.expId));
+        row.statementDate !== it.statementDate
+      ) {
+        await db
+          .update(sunsetStatements)
+          .set({ project: it.project, pdfUrl: it.pdfUrl, statementDate: it.statementDate, updatedAt: now })
+          .where(eq(sunsetStatements.expId, it.expId));
+      }
     }
 
-    // 5. Return the current statements (sheet is source of truth for existence),
-    //    merged with cached fields + paid state, filtered + newest-first.
+    // 3. Return the current statements (sheet is source of truth for existence),
+    //    filtered + newest-first. `pending` = how many still need extraction, so
+    //    the page knows to fill them in.
     const finalRows = await db.select().from(sunsetStatements);
     const finalById = new Map(finalRows.map((r) => [r.expId, r]));
-    const out = items
+    const listed = items
       .map((it) => finalById.get(it.expId))
-      .filter((r): r is (typeof finalRows)[number] => Boolean(r))
+      .filter((r): r is (typeof finalRows)[number] => Boolean(r));
+    const pending = listed.filter((r) => r.extractedAt === "").length;
+    const out = listed
       .filter((r) => (status === "all" ? true : r.status === status))
       .sort((a, b) => b.statementDate.localeCompare(a.statementDate) || a.expId.localeCompare(b.expId));
 
-    return NextResponse.json({ ok: true, items: out });
+    return NextResponse.json({ ok: true, items: out, pending });
   } catch (e) {
     return NextResponse.json(
       { ok: false, error: e instanceof Error ? e.message : "Unknown error" },
