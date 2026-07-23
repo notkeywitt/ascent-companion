@@ -44,8 +44,9 @@ export interface ChatTool extends ChatToolDef {
   handler: (cfg: PaveConfig, input: Record<string, unknown>) => Promise<unknown>;
 }
 
-/** A bill's amount owed = pre-tax subtotal + recorded (document-level) sales tax. */
-const billAmount = (b: DraftBill) => (b.cost ?? 0) + (b.nonRecoverableTax ?? 0);
+/** A bill's amount owed is JobTread's `cost`, already tax-INCLUSIVE (JT carves the
+ *  sales tax out of the line costs for display), so never add nonRecoverableTax again. */
+const billAmount = (b: DraftBill) => b.cost ?? 0;
 
 const compactBill = (b: DraftBill) => ({
   docId: b.id,

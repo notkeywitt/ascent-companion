@@ -181,21 +181,50 @@ function BillDetail() {
   const prevId = qIdx > 0 ? queue[qIdx - 1] : null;
   const nextId = qIdx >= 0 && qIdx < queue.length - 1 ? queue[qIdx + 1] : null;
 
-  // Line subtotal, plus any recorded document-level sales tax (nonRecoverableTax),
-  // so the displayed total matches what the vendor actually billed (JobTread keeps
-  // tax off the line items — see the tax model in billing.ts).
-  const subtotal = lines?.reduce((s, l) => s + (l.cost ?? 0), 0) ?? 0;
+  // JobTread stores each line's `cost` (and the document `cost`) TAX-INCLUSIVE: it
+  // carves the sales tax (nonRecoverableTax) back out for display, so the bill
+  // TOTAL = the sum of line costs, and the pre-tax SUBTOTAL = total − tax. Mirror
+  // that exactly (confirmed against JobTread's own bill screen) — never add the tax
+  // on top of cost, or every taxed bill double-counts it (55.24 read as 59.50).
+  const total = lines?.reduce((s, l) => s + (l.cost ?? 0), 0) ?? 0;
   const tax = header?.nonRecoverableTax ?? 0;
   const taxName = header?.nonRecoverableTaxName || "Tax";
-  const total = subtotal + tax;
+  const subtotal = total - tax;
+
+  // JobTread splits the fixed document tax (nonRecoverableTax) proportionally OUT of
+  // the tax-inclusive line costs, so every line displays (and is edited) PRE-TAX —
+  // exactly like JobTread's own bill screen. Show and edit amounts pre-tax, then gross
+  // the tax back on save so the value the office types is what JobTread stores/shows
+  // (type 50.98 → JT shows 50.98 / total 55.24), never the halved/doubled tax.
+  const round2 = (n: number) => Math.round(n * 100) / 100;
+  const deTax = (stored: number) => (total > 0 ? stored * (subtotal / total) : stored);
   const invId = header?.externalId || header?.number || "";
   const vendor = header?.fromName || header?.subject || header?.name || "Vendor bill";
   // Sunset keeps "Vendor · Invoice ID"; every other vendor shows just its name.
   const isSunsetBill = /sunset/i.test(vendor);
   const title = isSunsetBill && invId ? `${vendor} · ${invId}` : vendor;
 
+  // Each line's TARGET amounts in pre-tax terms: the edited value if present, else the
+  // current pre-tax (JobTread's stored cost de-taxed). The office edits pre-tax; the
+  // fixed doc tax rides on top of the pre-tax SUBTOTAL, so a stored (tax-inclusive) line
+  // cost = pre-tax × (subtotal + tax) / subtotal. Computing the gross-up from the summed
+  // pre-tax keeps a single-line bill exact and reallocates the fixed tax across lines.
+  const lineTargets = (lines ?? []).map((l) => {
+    const curPreTaxUnit = deTax(l.unitCost ?? 0);
+    const qStr = edits[l.id]?.quantity;
+    const uStr = edits[l.id]?.unitCost;
+    const qty =
+      header?.status === "draft" && qStr !== undefined && qStr !== "" ? Number(qStr) : l.quantity ?? 0;
+    const preTaxUnit =
+      header?.status === "draft" && uStr !== undefined && uStr !== "" ? Number(uStr) : curPreTaxUnit;
+    return { l, qty, preTaxUnit, curPreTaxUnit };
+  });
+  const sumPreTax = lineTargets.reduce((s, t) => s + t.preTaxUnit * t.qty, 0);
+  // pre-tax → stored (tax-inclusive) gross-up factor for THIS bill's edited state.
+  const reTax = sumPreTax > 0 ? (sumPreTax + tax) / sumPreTax : 1;
+
   // Lines with a changed cost code, quantity, or unit cost vs what's in JobTread.
-  const pending = (lines ?? []).flatMap((l) => {
+  const pending = lineTargets.flatMap(({ l, qty, preTaxUnit, curPreTaxUnit }) => {
     const change: {
       costItemId: string;
       jobCostItemId?: string;
@@ -221,14 +250,17 @@ function BillDetail() {
     // quantity and unitCost are locked by JobTread once the bill is payable/paid
     // (same as description) — only send them on DRAFT bills.
     if (header?.status === "draft") {
-      const qStr = edits[l.id]?.quantity;
-      if (qStr !== undefined && qStr !== "" && Number(qStr) !== (l.quantity ?? 0)) {
-        change.quantity = Number(qStr);
+      const qtyChanged = qty !== (l.quantity ?? 0);
+      const unitChanged = Math.abs(preTaxUnit - curPreTaxUnit) > 0.005;
+      if (qtyChanged) {
+        change.quantity = qty;
         changed = true;
       }
-      const uStr = edits[l.id]?.unitCost;
-      if (uStr !== undefined && uStr !== "" && Number(uStr) !== (l.unitCost ?? 0)) {
-        change.unitCost = Number(uStr);
+      // Send the STORED (tax-inclusive) unit cost so JobTread displays the entered
+      // pre-tax. Resend it when qty changed on a taxed bill too, since that shifts
+      // the line's share of the fixed tax.
+      if (unitChanged || (qtyChanged && tax > 0)) {
+        change.unitCost = round2(preTaxUnit * reTax);
         changed = true;
       }
     }
@@ -442,14 +474,21 @@ function BillDetail() {
     try {
       const opt = budget.find((o) => o.id === newLine.code);
       const description = opt ? (opt.name ? `${opt.number} - ${opt.name}` : opt.number) : "";
+      // Unit $ is entered PRE-TAX (matching the line editor). On a taxed bill, gross it
+      // up so JobTread displays the entered pre-tax; the doc tax rides on the new,
+      // larger pre-tax base. On a tax-free bill this is a no-op (reTaxAdd === 1).
+      const qty = Number(newLine.quantity) || 0;
+      const preTaxUnit = Number(newLine.unitCost) || 0;
+      const newSumPreTax = subtotal + preTaxUnit * qty;
+      const reTaxAdd = newSumPreTax > 0 ? (newSumPreTax + tax) / newSumPreTax : 1;
       const res = await fetch("/api/add-line", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           docId,
           name,
-          quantity: Number(newLine.quantity) || 0,
-          unitCost: Number(newLine.unitCost) || 0,
+          quantity: qty,
+          unitCost: round2(preTaxUnit * reTaxAdd),
           jobCostItemId: newLine.code || undefined,
           description,
         }),
@@ -828,12 +867,19 @@ function BillDetail() {
             {lines.map((l) => {
               const current = picked[l.id] ?? l.jobCostItem?.id ?? "";
               const qtyVal = edits[l.id]?.quantity ?? (l.quantity != null ? String(l.quantity) : "");
+              // Unit $ is shown and edited PRE-TAX (JobTread's convention); default to
+              // the stored cost de-taxed. When a line isn't being edited, take the
+              // pre-tax line total straight from the stored cost (matches JobTread to
+              // the penny); only recompute qty × unit while the office is editing it.
+              const edited =
+                edits[l.id]?.unitCost !== undefined || edits[l.id]?.quantity !== undefined;
               const unitVal =
-                edits[l.id]?.unitCost ?? (l.unitCost != null ? String(l.unitCost) : "");
+                edits[l.id]?.unitCost ??
+                (l.unitCost != null ? String(round2(deTax(l.unitCost))) : "");
               const extended =
-                qtyVal !== "" && unitVal !== ""
+                edited && qtyVal !== "" && unitVal !== ""
                   ? Number(qtyVal) * Number(unitVal)
-                  : (l.cost ?? 0);
+                  : deTax(l.cost ?? 0);
               const inputCls =
                 "rounded-lg border border-neutral-300 bg-white px-2 py-1.5 text-sm tabular-nums transition focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 disabled:opacity-50 disabled:cursor-not-allowed dark:border-neutral-600 dark:bg-ink";
               return (
