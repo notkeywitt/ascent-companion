@@ -1362,3 +1362,52 @@ export async function getUninvoicedBills(
   return { customer, job, lines, total };
 }
 
+// ---------------------------------------------------------------------------
+// TIME ENTRIES  (createTimeEntry — probe-confirmed live via the JobTread MCP,
+// 2026-07: see ascent-appscript companion-labor-import memory. NOTE: this write
+// path has NOT yet run in production, so callers keep it behind writesEnabled()
+// and the FIRST live run should be verified against a real entry in JobTread.)
+// ---------------------------------------------------------------------------
+
+export interface CreateTimeEntryArgs {
+  userId: string; // JobTread user id (the member's `user.id`)
+  jobId: string;
+  costItemId: string; // the job's budget-leaf jobCostItemId (JT requires a cost item)
+  startedAt: string; // floating local wall-clock ISO, e.g. "2026-07-22T14:30:00" (NO Z/offset)
+  endedAt: string; // same shape; JT derives minutes — there is no raw hours field
+  type?: string; // pay-type NAME (a rate; per worker × job). Omit when unknown.
+  notes: string;
+  isApproved?: boolean; // default false → office reviews before it counts
+}
+
+/**
+ * WRITE — create a JobTread time entry (createTimeEntry). Inputs confirmed via
+ * the Pave probe: organizationId, userId, jobId, costItemId, startedAt/endedAt
+ * (datetimes; minutes are derived), type (a pay rate name), notes, isApproved.
+ * Coordinates are deliberately NOT sent — that optional field's shape is
+ * unverified, and the GPS is recorded in our own Time Entries log instead.
+ */
+export async function createTimeEntry(
+  cfg: PaveConfig,
+  args: CreateTimeEntryArgs,
+): Promise<{ id: string }> {
+  const $: Record<string, unknown> = {
+    organizationId: cfg.orgId,
+    userId: args.userId,
+    jobId: args.jobId,
+    costItemId: args.costItemId,
+    startedAt: args.startedAt,
+    endedAt: args.endedAt,
+    notes: args.notes ?? "",
+    isApproved: args.isApproved ?? false,
+  };
+  if (args.type) $.type = args.type;
+
+  const r = await pave(cfg, {
+    createTimeEntry: { $, createdTimeEntry: { id: {} } },
+  });
+  const id = r?.createTimeEntry?.createdTimeEntry?.id;
+  if (!id) throw new Error("createTimeEntry returned no time entry id.");
+  return { id };
+}
+

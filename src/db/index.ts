@@ -82,6 +82,25 @@ export async function ensureDb() {
       /* column already exists */
     }
   }
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS sunset_statements (
+      exp_id TEXT PRIMARY KEY,
+      project TEXT NOT NULL DEFAULT '',
+      statement_date TEXT NOT NULL DEFAULT '',
+      pdf_url TEXT NOT NULL DEFAULT '',
+      account_name TEXT NOT NULL DEFAULT '',
+      statement_number TEXT NOT NULL DEFAULT '',
+      total TEXT NOT NULL DEFAULT '',
+      discount TEXT NOT NULL DEFAULT '',
+      net TEXT NOT NULL DEFAULT '',
+      extracted_at TEXT NOT NULL DEFAULT '',
+      status TEXT NOT NULL DEFAULT 'unpaid',
+      paid_at TEXT NOT NULL DEFAULT '',
+      paid_by TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )
+  `);
   ensured = true;
 }
 

@@ -35,6 +35,7 @@ const MORE_GROUPS: { label: string; tabs: Tab[] }[] = [
     tabs: [
       { label: "Email", href: "/email", match: (p) => p.startsWith("/email") },
       { label: "Needs Project", href: "/needs-project", match: (p) => p.startsWith("/needs-project") },
+      { label: "Payments", href: "/payments", match: (p) => p.startsWith("/payments") },
     ],
   },
   {

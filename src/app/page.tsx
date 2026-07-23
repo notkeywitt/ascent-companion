@@ -123,6 +123,7 @@ const AREAS: Area[] = [
     dests: [
       { label: "Safety Meeting", href: "/safety-meeting", desc: "Pass the iPad and collect sign-ins" },
       { label: "Mileage", href: "/mileage-tracker", desc: "Log business miles, one tap each way" },
+      { label: "Employee Time", href: "/employee-time", desc: "Log hours to a job, with photos" },
     ],
   },
   {

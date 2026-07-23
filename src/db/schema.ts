@@ -65,3 +65,33 @@ export const savedBills = sqliteTable("saved_bills", {
 });
 
 export type SavedBill = typeof savedBills.$inferSelect;
+
+/**
+ * Sunset monthly statement payment cache, keyed by the sheet ExpID ("STMT-…").
+ * The /payments view lists Sunset statements and shows what to type at the TSYS
+ * hosted page. The payment header (account name, statement #, printed early-pay
+ * discount, net) only exists on the statement PDF, so it's Gemini-extracted once
+ * (via the listSunsetStatements/extractSunsetStatements Apps Script actions) and
+ * cached here. `status`/`paidAt` are companion-owned workflow state — re-reading
+ * a statement refreshes the extracted fields but must NEVER reset paid state.
+ * Amounts are stored as-printed text to avoid float drift.
+ */
+export const sunsetStatements = sqliteTable("sunset_statements", {
+  expId: text("exp_id").primaryKey(), // sheet ExpID, e.g. "STMT-1a2b3c4d"
+  project: text("project").notNull().default(""),
+  statementDate: text("statement_date").notNull().default(""), // YYYY-MM-DD or YYYY-MM
+  pdfUrl: text("pdf_url").notNull().default(""), // Drive URL of the statement PDF
+  accountName: text("account_name").notNull().default(""), // "ASCENT - <token>"
+  statementNumber: text("statement_number").notNull().default(""), // top-right #
+  total: text("total").notNull().default(""), // statement grand total
+  discount: text("discount").notNull().default(""), // printed prompt discount
+  net: text("net").notNull().default(""), // total - discount (what you pay)
+  extractedAt: text("extracted_at").notNull().default(""), // "" = not yet Gemini'd
+  status: text("status").notNull().default("unpaid"), // unpaid | paid
+  paidAt: text("paid_at").notNull().default(""),
+  paidBy: text("paid_by").notNull().default(""),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
+export type SunsetStatement = typeof sunsetStatements.$inferSelect;
