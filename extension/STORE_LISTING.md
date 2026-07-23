@@ -23,9 +23,10 @@ English (United States)
 ---
 
 ## Description
-Ascent Assistant is an internal tool for Ascent Building Co. staff. It adds a
-side panel next to JobTread that shows the currently-open job's vendor bills,
-unbilled expenses, and billing information from the Ascent Assistant app.
+Ascent Assistant is an internal tool for Ascent Building Co. staff. It docks the
+Ascent Assistant web app in a side panel next to JobTread, showing the
+currently-open job's vendor bills, unbilled expenses, and billing information,
+and keeping the panel in sync with the job you're viewing.
 
 Features:
 - A "Follow JobTread" switch links the panel and the JobTread window two ways:
@@ -34,7 +35,9 @@ Features:
   switch off to use the panel and JobTread independently.
 - Review draft vendor bills waiting to be coded.
 - View unbilled expenses and stage monthly customer invoices.
-- The same app works on your phone at ascent-companion.vercel.app.
+- The same app works on your phone at ascent-companion.vercel.app, where it also
+  covers the rest of Ascent's day-to-day work (tools, safety, mileage, employee
+  time, RFIs, and more).
 
 Access is restricted to Ascent Building Co. staff via Google Sign-In.
 

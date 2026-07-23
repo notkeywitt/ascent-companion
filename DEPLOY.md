@@ -15,7 +15,9 @@ be password-protected (`APP_PASSWORD`). Auth is enforced automatically whenever
    turso db show ascent-companion --url          # -> libsql://...
    turso db tokens create ascent-companion       # -> the auth token
    ```
-   (The app creates the `rfis` table automatically on first request.)
+   (The app creates all its tables automatically on first request — `rfis`,
+   `feature_requests`, `allowed_users`, `saved_bills`, `sunset_statements`. This
+   DB holds only non-JobTread data; nothing financial lives here.)
 
 ## 2. Get the code to Vercel
 
@@ -29,18 +31,27 @@ Two options:
 
 ## 3. Environment variables (Vercel → Project → Settings → Environment Variables)
 
+`.env.example` documents every variable inline — this is the deploy-time subset.
+
 | Name | Value |
 |---|---|
 | `JT_GRANT_KEY` | your JobTread grant key |
 | `JT_ORG_ID` | `22PXG7QcMaQ2` |
+| `JT_SUNSET_VENDOR_ID` | Sunset's JT account id (billing-date rule) |
 | `DATABASE_URL` | the `libsql://…` URL from Turso |
 | `DATABASE_AUTH_TOKEN` | the Turso token |
 | `APP_PASSWORD` | a strong shared password (required on deploy) |
 | `COMPANION_WRITES_ENABLED` | leave unset (writes stay off) |
-| `ANTHROPIC_API_KEY` | Anthropic API key (powers the **Chat** assistant) |
+| `GEMINI_KEY` | Gemini key — **Add a Bill** extraction + Sunset statement extraction |
+| `ANTHROPIC_API_KEY` | Anthropic API key (powers the **Assistant** chat) |
 | `ANTHROPIC_MODEL` | `claude-sonnet-5` (or leave unset for Opus 4.8) |
+| `GOOGLE_MAPS_API_KEY` | Maps key for **Mileage** (enable the **Routes API**; **Geocoding API** for addresses) |
+| `APPS_SCRIPT_SYNC_URL` | the Apps Script `/exec` URL (Sheets/Drive features: employees, tools, safety, mileage, email logging, payments) |
+| `APPS_SCRIPT_SYNC_SECRET` | must equal Script Property `SYNC_TRIGGER_SECRET` on the Apps Script side |
 
 Set them for the Production environment, then deploy (Vercel builds automatically).
+The last few are only needed by the features that use them — the app runs without
+them, those screens just won't work.
 
 ## 4. Use it
 
