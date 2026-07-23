@@ -64,6 +64,7 @@ interface DirectionsResult {
   startAddress: string;
   endAddress: string;
   via: string; // intermediate stop addresses joined " → " (best-effort)
+  polyline: string; // encoded route geometry for the static map
   warning?: string;
 }
 
@@ -79,7 +80,7 @@ async function drivingDistance(
 ): Promise<DirectionsResult> {
   const key = process.env.GOOGLE_MAPS_API_KEY;
   if (!key) {
-    return { miles: null, startAddress: "", endAddress: "", via: "", warning: "GOOGLE_MAPS_API_KEY is not set — miles not computed." };
+    return { miles: null, startAddress: "", endAddress: "", via: "", polyline: "", warning: "GOOGLE_MAPS_API_KEY is not set — miles not computed." };
   }
 
   // Addresses are optional; fetch start/end + each stop alongside the distance
@@ -97,7 +98,7 @@ async function drivingDistance(
       headers: {
         "Content-Type": "application/json",
         "X-Goog-Api-Key": key,
-        "X-Goog-FieldMask": "routes.distanceMeters",
+        "X-Goog-FieldMask": "routes.distanceMeters,routes.polyline.encodedPolyline",
       },
       body: JSON.stringify({
         origin: { location: { latLng: { latitude: origin.lat, longitude: origin.lng } } },
@@ -111,21 +112,23 @@ async function drivingDistance(
       }),
     });
     const data = (await res.json()) as {
-      routes?: { distanceMeters?: number }[];
+      routes?: { distanceMeters?: number; polyline?: { encodedPolyline?: string } }[];
       error?: { message?: string; status?: string };
     };
     if (data.error || !data.routes?.[0]) {
       const msg = data.error?.message || data.error?.status || "no route found";
-      return { miles: null, startAddress, endAddress, via, warning: `Routes API: ${msg} — trip saved without miles.` };
+      return { miles: null, startAddress, endAddress, via, polyline: "", warning: `Routes API: ${msg} — trip saved without miles.` };
     }
     const meters = data.routes[0].distanceMeters ?? 0;
-    return { miles: Math.round((meters / 1609.344) * 10) / 10, startAddress, endAddress, via };
+    const polyline = data.routes[0].polyline?.encodedPolyline ?? "";
+    return { miles: Math.round((meters / 1609.344) * 10) / 10, startAddress, endAddress, via, polyline };
   } catch (e) {
     return {
       miles: null,
       startAddress,
       endAddress,
       via,
+      polyline: "",
       warning: `Routes request failed (${e instanceof Error ? e.message : "unknown"}) — trip saved without miles.`,
     };
   }
@@ -227,11 +230,12 @@ export async function POST(req: NextRequest) {
     distanceSource: dir.miles == null ? "unavailable" : "google_routes",
     stops: waypoints.length,
     via: dir.via,
+    polyline: dir.polyline,
   });
   if (result.error) return NextResponse.json({ error: result.error }, { status: result.status });
 
   // Merge the computed address/miles/stops + any warning into the reply so the
-  // summary screen can show them without a second round-trip.
+  // summary screen can show them (and its map) without a second round-trip.
   const data = (result.data ?? {}) as Record<string, unknown>;
   return NextResponse.json(
     {
@@ -240,6 +244,7 @@ export async function POST(req: NextRequest) {
       endAddress: dir.endAddress,
       via: dir.via,
       stops: waypoints.length,
+      polyline: dir.polyline,
       warning: dir.warning,
     },
     { status: 200 },

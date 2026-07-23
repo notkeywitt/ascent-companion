@@ -68,6 +68,9 @@ interface Summary {
   durationMin: number;
   jobLabel: string;
   purpose: string;
+  startLatLng: string; // "lat,lng" for the route map
+  endLatLng: string;
+  polyline: string;
   warning?: string;
 }
 
@@ -80,6 +83,7 @@ interface TripResult {
   endAddress?: string;
   via?: string;
   stops?: number;
+  polyline?: string;
   warning?: string;
   error?: string;
 }
@@ -132,6 +136,36 @@ function fmtDuration(min: number): string {
 }
 
 const jobRefLabel = (j: JobRef) => (j.customer ? `${j.customer} - ${j.name}` : j.name);
+
+const LATLNG_RE = /^-?\d{1,3}(\.\d+)?,-?\d{1,3}(\.\d+)?$/;
+const isLatLng = (s: string) => LATLNG_RE.test(s);
+
+// Static route map for a trip, served through our key-hiding proxy. Renders null
+// unless both endpoints are valid coordinates (so manual entries show no map).
+function TripMap({
+  start,
+  end,
+  polyline,
+  className = "",
+}: {
+  start: string;
+  end: string;
+  polyline?: string;
+  className?: string;
+}) {
+  if (!isLatLng(start) || !isLatLng(end)) return null;
+  const p = new URLSearchParams({ start, end, size: "600x280" });
+  if (polyline) p.set("path", polyline);
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={`/api/mileage/map?${p.toString()}`}
+      alt="Trip route map"
+      loading="lazy"
+      className={className}
+    />
+  );
+}
 
 // Local date as YYYY-MM-DD for the manual-entry <input type="date"> default.
 function today(): string {
@@ -382,6 +416,9 @@ export default function MileageTrackerPage() {
         durationMin,
         jobLabel,
         purpose: purpose.trim(),
+        startLatLng: `${start.startLat},${start.startLng}`,
+        endLatLng: `${pos.coords.latitude},${pos.coords.longitude}`,
+        polyline: json.polyline ?? "",
         warning: json.warning,
       });
       try {
@@ -433,6 +470,9 @@ export default function MileageTrackerPage() {
         durationMin: 0,
         jobLabel,
         purpose: purpose.trim(),
+        startLatLng: "",
+        endLatLng: "",
+        polyline: "",
       });
       setPhase("done");
     } catch (e) {
@@ -794,6 +834,15 @@ export default function MileageTrackerPage() {
             <Banner tone="warning">{summary.warning}</Banner>
           )}
 
+          {isLatLng(summary.startLatLng) && isLatLng(summary.endLatLng) && (
+            <TripMap
+              start={summary.startLatLng}
+              end={summary.endLatLng}
+              polyline={summary.polyline}
+              className="w-full rounded-xl border border-neutral-200 dark:border-neutral-700/60"
+            />
+          )}
+
           <Card className="space-y-2 text-sm">
             {summary.startAddress && (
               <Row label="From" value={summary.startAddress} />
@@ -969,10 +1018,14 @@ function Row({ label, value }: { label: string; value: string }) {
 
 // One row in the logged-miles list.
 function TripRow({ t, showDriver }: { t: Record<string, string>; showDriver: boolean }) {
+  const [showMap, setShowMap] = useState(false);
   const manual = (t["Distance Source"] || "").toLowerCase() === "manual";
   const stops = Number(t["Stops"]) || 0;
   // Route incl. any marked stops: start → via → end.
   const fromTo = [t["Start Address"], t["Via"], t["End Address"]].filter(Boolean).join(" → ");
+  const start = `${t["Start Lat"]},${t["Start Lng"]}`;
+  const end = `${t["End Lat"]},${t["End Lng"]}`;
+  const hasRoute = isLatLng(start) && isLatLng(end);
   return (
     <li className="rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-700/60 dark:bg-ink-raised">
       <div className="flex items-start justify-between gap-3">
@@ -984,6 +1037,15 @@ function TripRow({ t, showDriver }: { t: Record<string, string>; showDriver: boo
           {t["Job"] && <div className="truncate text-xs text-neutral-500">{t["Job"]}</div>}
           {t["Purpose"] && <div className="truncate text-xs text-neutral-500">{t["Purpose"]}</div>}
           {fromTo && <div className="mt-0.5 truncate text-xs text-neutral-400">{fromTo}</div>}
+          {hasRoute && (
+            <button
+              type="button"
+              onClick={() => setShowMap((v) => !v)}
+              className="mt-1 text-xs font-semibold text-accent underline-offset-2 hover:underline dark:text-accent-soft"
+            >
+              {showMap ? "Hide map" : "View map"}
+            </button>
+          )}
         </div>
         <div className="shrink-0 text-right">
           <div className="text-sm font-bold tabular-nums">{t["Miles"] || "—"} mi</div>
@@ -997,6 +1059,14 @@ function TripRow({ t, showDriver }: { t: Record<string, string>; showDriver: boo
           )}
         </div>
       </div>
+      {hasRoute && showMap && (
+        <TripMap
+          start={start}
+          end={end}
+          polyline={t["Polyline"]}
+          className="mt-3 w-full rounded-lg border border-neutral-200 dark:border-neutral-700/60"
+        />
+      )}
     </li>
   );
 }
