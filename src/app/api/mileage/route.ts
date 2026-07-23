@@ -77,18 +77,20 @@ async function drivingDistance(
   origin: LatLng,
   dest: LatLng,
   intermediates: LatLng[] = [],
+  stopsForVia: LatLng[] = [],
 ): Promise<DirectionsResult> {
   const key = process.env.GOOGLE_MAPS_API_KEY;
   if (!key) {
     return { miles: null, startAddress: "", endAddress: "", via: "", polyline: "", warning: "GOOGLE_MAPS_API_KEY is not set — miles not computed." };
   }
 
-  // Addresses are optional; fetch start/end + each stop alongside the distance
-  // and never let them block the result.
+  // Addresses are optional; fetch start/end + the driver's MARKED stops (not the
+  // auto-tracked breadcrumbs) alongside the distance, and never let them block
+  // the result.
   const [startAddress, endAddress, ...viaAddrs] = await Promise.all([
     reverseGeocode(origin, key),
     reverseGeocode(dest, key),
-    ...intermediates.map((p) => reverseGeocode(p, key)),
+    ...stopsForVia.map((p) => reverseGeocode(p, key)),
   ]);
   const via = viaAddrs.filter(Boolean).join(" → ");
 
@@ -204,12 +206,25 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Valid start/end coordinates are required." }, { status: 400 });
   }
 
-  // Stops the driver marked mid-trip (order preserved). Keep only valid points.
+  // Route-shaping points in travel order — the driver's marked stops plus any
+  // auto-tracked trail breadcrumbs (already downsampled by the client to fit the
+  // Routes API's intermediate cap). Keep only valid coordinates.
   const waypoints: LatLng[] = (Array.isArray(body.waypoints) ? body.waypoints : [])
     .map((w) => ({ lat: Number((w as Record<string, unknown>)?.lat), lng: Number((w as Record<string, unknown>)?.lng) }))
     .filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lng));
 
-  const dir = await drivingDistance({ lat: startLat, lng: startLng }, { lat: endLat, lng: endLng }, waypoints);
+  // "Stops" (stored) = the meaningful stops the driver marked, sent explicitly;
+  // the trail breadcrumbs shape the route but aren't counted as stops.
+  const stopsRaw = Number(body.stops);
+  const stops = Number.isFinite(stopsRaw) ? stopsRaw : waypoints.length;
+
+  // Only the marked stops get reverse-geocoded for the "Via" text (not every
+  // auto-tracked breadcrumb).
+  const stopPoints: LatLng[] = (Array.isArray(body.stopPoints) ? body.stopPoints : [])
+    .map((w) => ({ lat: Number((w as Record<string, unknown>)?.lat), lng: Number((w as Record<string, unknown>)?.lng) }))
+    .filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lng));
+
+  const dir = await drivingDistance({ lat: startLat, lng: startLng }, { lat: endLat, lng: endLng }, waypoints, stopPoints);
 
   const result = await callAppsScript({
     action: "logMileage",
@@ -228,7 +243,7 @@ export async function POST(req: NextRequest) {
     endAddress: dir.endAddress,
     miles: dir.miles,
     distanceSource: dir.miles == null ? "unavailable" : "google_routes",
-    stops: waypoints.length,
+    stops,
     via: dir.via,
     polyline: dir.polyline,
   });
@@ -243,7 +258,7 @@ export async function POST(req: NextRequest) {
       startAddress: dir.startAddress,
       endAddress: dir.endAddress,
       via: dir.via,
-      stops: waypoints.length,
+      stops,
       polyline: dir.polyline,
       warning: dir.warning,
     },

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { JobPicker } from "@/components/JobPicker";
 import {
@@ -90,6 +90,21 @@ interface TripResult {
 
 const LS_TRIP = "mileage.activeTrip";
 const LS_DRIVER = "mileage.driver";
+
+// Auto-tracking: drop a breadcrumb only when it's this far from the last one (km)
+// — filters GPS jitter and idling. The Routes API caps intermediates at 25, so
+// we downsample the trail to this many before requesting the route.
+const TRAIL_MIN_GAP_KM = 0.08;
+const MAX_INTERMEDIATES = 23;
+
+// Evenly reduce an ordered list to at most `max` items, keeping first and last.
+function downsample<T>(arr: T[], max: number): T[] {
+  if (arr.length <= max) return arr;
+  const out: T[] = [];
+  const step = (arr.length - 1) / (max - 1);
+  for (let i = 0; i < max; i++) out.push(arr[Math.round(i * step)]);
+  return out;
+}
 
 // Great-circle distance in km — reused from the tools page to label the nearest
 // job site (display only; the billed miles come from Google Directions).
@@ -207,7 +222,9 @@ export default function MileageTrackerPage() {
   const [purpose, setPurpose] = useState("");
 
   const [start, setStart] = useState<StartFix | null>(null);
-  const [waypoints, setWaypoints] = useState<Waypoint[]>([]);
+  const [waypoints, setWaypoints] = useState<Waypoint[]>([]); // stops the driver marked
+  const [trail, setTrail] = useState<Waypoint[]>([]); // auto-tracked breadcrumbs
+  const trackWatchRef = useRef<number | null>(null);
   const [addingStop, setAddingStop] = useState(false);
   const [tripKey, setTripKey] = useState(""); // idempotency key for the active GPS trip
   const [nowMs, setNowMs] = useState(0);
@@ -266,6 +283,7 @@ export default function MileageTrackerPage() {
           setJobLabel(t.jobLabel ?? "");
           setPurpose(t.purpose ?? "");
           setWaypoints(Array.isArray(t.waypoints) ? t.waypoints : []);
+          setTrail(Array.isArray(t.trail) ? t.trail : []);
           setTripKey(t.tripKey ?? genKey());
           setPhase("active");
         }
@@ -307,9 +325,9 @@ export default function MileageTrackerPage() {
   useEffect(() => {
     if (phase !== "active" || !start) return;
     try {
-      localStorage.setItem(LS_TRIP, JSON.stringify({ ...start, driver, jobId, jobLabel, purpose, waypoints, tripKey }));
+      localStorage.setItem(LS_TRIP, JSON.stringify({ ...start, driver, jobId, jobLabel, purpose, waypoints, trail, tripKey }));
     } catch {}
-  }, [phase, start, driver, jobId, jobLabel, purpose, waypoints, tripKey]);
+  }, [phase, start, driver, jobId, jobLabel, purpose, waypoints, trail, tripKey]);
 
   // Tick the elapsed clock while a trip is active.
   useEffect(() => {
@@ -318,6 +336,49 @@ export default function MileageTrackerPage() {
     const id = setInterval(() => setNowMs(Date.now()), 1000);
     return () => clearInterval(id);
   }, [phase]);
+
+  // Auto-track the route: record breadcrumbs continuously while the app is open
+  // and the screen is on. The browser suspends this when the phone locks / the
+  // app is backgrounded (pausing the trail), and resumes when it's reopened —
+  // and each time the app becomes visible we also grab a fresh point, so simply
+  // reopening the app updates the route without tapping "Add a stop."
+  useEffect(() => {
+    if (phase !== "active") return;
+    if (typeof navigator === "undefined" || !navigator.geolocation) return;
+
+    const append = (lat: number, lng: number) => {
+      setTrail((prev) => {
+        const last = prev[prev.length - 1];
+        const anchor = last ?? (start ? { lat: start.startLat, lng: start.startLng } : null);
+        if (anchor && haversineKm(anchor, { lat, lng }) < TRAIL_MIN_GAP_KM) return prev;
+        return [...prev, { lat, lng, time: new Date().toISOString() }];
+      });
+    };
+
+    trackWatchRef.current = navigator.geolocation.watchPosition(
+      (pos) => {
+        if (document.visibilityState === "visible") append(pos.coords.latitude, pos.coords.longitude);
+      },
+      () => {},
+      { enableHighAccuracy: true, maximumAge: 10000, timeout: 20000 },
+    );
+
+    const onVisible = () => {
+      if (document.visibilityState !== "visible") return;
+      navigator.geolocation.getCurrentPosition(
+        (pos) => append(pos.coords.latitude, pos.coords.longitude),
+        () => {},
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
+      );
+    };
+    document.addEventListener("visibilitychange", onVisible);
+
+    return () => {
+      if (trackWatchRef.current != null) navigator.geolocation.clearWatch(trackWatchRef.current);
+      trackWatchRef.current = null;
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [phase, start]);
 
   const nearestToStart = useMemo(() => {
     if (!start) return null;
@@ -347,6 +408,7 @@ export default function MileageTrackerPage() {
         startTime: new Date().toISOString(),
       });
       setWaypoints([]);
+      setTrail([]);
       setTripKey(genKey());
       setPhase("active");
     } catch (e) {
@@ -383,6 +445,12 @@ export default function MileageTrackerPage() {
     try {
       const pos = await getPosition();
       const endTime = new Date().toISOString();
+      // Route-shaping points = marked stops + auto trail, in travel (time) order,
+      // downsampled to fit the Routes API's intermediate cap.
+      const routePoints = downsample(
+        [...waypoints, ...trail].sort((a, b) => a.time.localeCompare(b.time)),
+        MAX_INTERMEDIATES,
+      ).map((w) => ({ lat: w.lat, lng: w.lng }));
       const res = await fetch("/api/mileage", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -393,7 +461,9 @@ export default function MileageTrackerPage() {
           endLat: pos.coords.latitude,
           endLng: pos.coords.longitude,
           endTime,
-          waypoints: waypoints.map((w) => ({ lat: w.lat, lng: w.lng })),
+          waypoints: routePoints,
+          stopPoints: waypoints.map((w) => ({ lat: w.lat, lng: w.lng })), // marked stops → Via
+          stops: waypoints.length, // only explicitly-marked stops count as "stops"
           driver,
           jobId,
           jobLabel,
@@ -490,6 +560,7 @@ export default function MileageTrackerPage() {
     setMiles("");
     setManualDate(today());
     setWaypoints([]);
+    setTrail([]);
     setErr("");
     setPhase("idle");
   }
@@ -500,6 +571,7 @@ export default function MileageTrackerPage() {
     } catch {}
     setStart(null);
     setWaypoints([]);
+    setTrail([]);
     setErr("");
     setPhase("idle");
   }
@@ -631,8 +703,9 @@ export default function MileageTrackerPage() {
           </button>
 
           <p className="text-center text-xs text-neutral-500">
-            Tap Start when you leave — you can lock your phone. On a multi-stop run, tap “Add a
-            stop” at each stop; tap End when you arrive. Miles cover the whole route.
+            Tap Start when you leave. The app records your route while it&apos;s open, and picks it
+            back up each time you reopen it — so just reopening updates the route. Lock the phone
+            freely; tap End when you arrive. Miles cover the whole route.
           </p>
 
           <div className="flex items-center justify-center gap-4">
@@ -759,9 +832,13 @@ export default function MileageTrackerPage() {
               Started {new Date(start.startTime).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
               {nearestToStart ? ` · near ${nearestToStart}` : ""}
             </p>
+            <p className="mt-1 flex items-center justify-center gap-1.5 text-xs text-neutral-500">
+              <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-accent" aria-hidden />
+              Auto-tracking route{trail.length > 0 ? ` · ${trail.length} point${trail.length === 1 ? "" : "s"}` : ""}
+            </p>
             {waypoints.length > 0 && (
               <p className="mt-1 text-xs font-semibold text-accent dark:text-accent-soft">
-                {waypoints.length} stop{waypoints.length === 1 ? "" : "s"} marked along the way
+                {waypoints.length} stop{waypoints.length === 1 ? "" : "s"} marked
               </p>
             )}
           </Card>
