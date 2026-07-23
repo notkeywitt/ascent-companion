@@ -10,9 +10,10 @@ import {
 import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
 
 /**
- * Backend for the Assistant's /employee-time page — an employee logs a chunk of
- * time to a JobTread job (job + cost code + start/stop + a required note +
- * optional photos).
+ * Backend for the Assistant's /employee-time page — logging a specific time
+ * range in one shot (job + cost code + start/stop + a required note + optional
+ * photos). The clock-in/out flow is the sibling route ./clock/route.ts; the
+ * bi-monthly "my time" list is ./history/route.ts.
  *
  * This route straddles both systems. JobTread reads/writes go direct through the
  * grant-holding lib (@/lib/jobtread): the org users + their pay types, a job's
@@ -22,10 +23,13 @@ import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
  * auditable "Time Entries" row — goes over the shared-secret web app.
  *
  * The JobTread write is gated by COMPANION_WRITES_ENABLED (default OFF → preview,
- * like /api/add-line and /api/add-bill); createTimeEntry has never run in
- * production, so the first live write should be verified. The Time Entries log +
- * photos are saved EITHER way, so the office's record is never lost even when the
- * push is off or JobTread errors.
+ * like /api/add-line and /api/add-bill). createTimeEntry/updateTimeEntry/
+ * deleteTimeEntry are all confirmed live (2026-07-23, probeTimeEntryClockInOut()
+ * in ascent-appscript EmployeeTime.js created, updated, and deleted a real
+ * [PROBE] entry) — but the app itself has never sent a real employee entry, so
+ * the first live use from this page should still be verified. The Time Entries
+ * log + photos are saved EITHER way, so the office's record is never lost even
+ * when the push is off or JobTread errors.
  *
  * Env (secret shared with /api/mileage, /api/tool-tracker, /api/employees):
  *   APPS_SCRIPT_SYNC_URL, APPS_SCRIPT_SYNC_SECRET, JT_GRANT_KEY, JT_ORG_ID,
@@ -188,6 +192,13 @@ export async function POST(req: NextRequest) {
   if (endedAt <= startedAt) {
     return NextResponse.json({ ok: false, error: "Stop time must be after the start time." }, { status: 400 });
   }
+  // JobTread REQUIRES a type on createTimeEntry (confirmed — it 400s without
+  // one), so only enforce it when a write is actually about to happen; the
+  // preview (writes off) path doesn't call JobTread and can log without one.
+  const payType = (body.payType ?? "").trim();
+  if (writesEnabled() && !payType) {
+    return NextResponse.json({ ok: false, error: "Pick a pay type." }, { status: 400 });
+  }
 
   // 1) Create the JobTread time entry (gated). Never lose the record over a JT
   //    failure — capture the outcome and still log below.
@@ -202,7 +213,7 @@ export async function POST(req: NextRequest) {
         costItemId,
         startedAt,
         endedAt,
-        type: (body.payType ?? "").trim() || undefined,
+        type: payType,
         notes: note,
         isApproved: false,
       });

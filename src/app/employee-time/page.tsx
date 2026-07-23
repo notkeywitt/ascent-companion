@@ -3,9 +3,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { JobPicker } from "@/components/JobPicker";
+import { JtLink } from "@/components/JtLink";
 import {
   Banner,
   Card,
+  EmptyState,
   Input,
   Label,
   Loading,
@@ -15,13 +17,23 @@ import {
 } from "@/components/ui";
 
 /**
- * /employee-time — an employee logs a chunk of time to a JobTread job.
+ * /employee-time — log hours to a JobTread job, three ways:
  *
- * Job + cost code + start/stop + a required note + optional photos. The signed-in
- * user is resolved to their linked JobTread user (via the Employee roster), the
- * times default to now, and GPS pre-selects the nearest job site. Submitting
- * creates the JobTread time entry (createTimeEntry, gated by writes-enabled) and
- * always records the entry + photos to the Project Database "Time Entries" tab.
+ *  - Clock In/Out (default): tap in when you start, tap out when you stop. The
+ *    tap-in creates an OPEN JobTread time entry (startedAt only); tap-out sets
+ *    its endedAt + the required note (updateTimeEntry). The active clock is
+ *    mirrored to localStorage (like /mileage-tracker's start/end trip) so
+ *    locking the phone or closing the tab doesn't lose it.
+ *  - Log a range: the original one-shot form — job + cost code + start/stop +
+ *    note + photos, all picked upfront (for logging a specific past range).
+ *  - My Time: the signed-in employee's own JobTread time entries for a
+ *    bi-monthly pay period (1st–15th / 16th–end), each linking to its job in
+ *    JobTread.
+ *
+ * The signed-in user is resolved to their linked JobTread user (via the
+ * Employee roster), times default to now, and GPS pre-selects the nearest job
+ * site. Every write is gated by COMPANION_WRITES_ENABLED (default preview); the
+ * Time Entries sheet record + photos are saved either way.
  */
 
 interface Me {
@@ -71,10 +83,48 @@ interface SubmitResult {
   entryId?: string;
   photoCount?: number;
 }
+interface ActiveClock {
+  entryId: string;
+  previewed: boolean;
+  jtStatus: string;
+  startedAt: string; // local "YYYY-MM-DDTHH:MM" sent at clock-in
+  jobId: string;
+  jobLabel: string;
+  costItemId: string;
+  costCode: string;
+  costItemName: string;
+  payType: string;
+  lat?: number;
+  lng?: number;
+  nearestJob: string;
+  employee: string;
+}
+interface DoneSummary {
+  jobLabel: string;
+  costLabel: string;
+  payType: string;
+  startTime: string;
+  endTime: string;
+  note: string;
+}
+interface HistoryEntry {
+  id: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  jobId: string;
+  jobName: string;
+  costCode: string;
+  costItemName: string;
+  notes: string;
+  open: boolean;
+  jtUrl: string;
+}
 
 const MAX_PHOTOS = 8;
 const NEAR_KM = 1.2; // within this of a job site → treat you as "at" that job
 const LS_JT_USER = "employeeTime.jtUser."; // + email → remembered JobTread user id
+const LS_CLOCK = "employeeTime.activeClock";
 
 const jobRefLabel = (j: JobRef) => (j.customer ? `${j.customer} - ${j.name}` : j.name);
 
@@ -105,21 +155,64 @@ function getPosition(): Promise<GeolocationPosition> {
 }
 
 // Current local time as the "YYYY-MM-DDTHH:MM" an <input type="datetime-local">
-// wants — today + now, by default.
+// wants — today + now, by default. Also used for clock-in/out timestamps: a
+// bare date-time string like this parses as LOCAL time in the browser (per the
+// ECMA-262 Date spec — only date-ONLY strings parse as UTC), so start/end
+// arithmetic below is safe without any timezone conversion.
 function nowLocal(): string {
   const d = new Date();
   const p = (n: number) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
 }
 
+// Same, but to the SECOND — used for clock in/out. JobTread rejects an entry
+// whose end isn't strictly after its start ("The end time must be after the
+// start time"), so minute precision would 400 on any clock-in/out inside the
+// same minute. Seconds keep short sessions valid and record real duration.
+function nowLocalSeconds(): string {
+  const d = new Date();
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${nowLocal()}:${p(d.getSeconds())}`;
+}
+
+// Trim a "…THH:MM[:SS]" stamp to a friendly "YYYY-MM-DD HH:MM" for display.
+function displayStamp(s: string): string {
+  return (s || "").slice(0, 16).replace("T", " ");
+}
+
+function fmtMinutes(min: number): string {
+  if (!Number.isFinite(min) || min < 0) return "";
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  return h ? `${h}h ${m}m` : `${m} min`;
+}
+
 function fmtDuration(startLocal: string, endLocal: string): string {
   const s = new Date(startLocal).getTime();
   const e = new Date(endLocal).getTime();
   if (!Number.isFinite(s) || !Number.isFinite(e) || e <= s) return "";
-  const min = Math.round((e - s) / 60000);
-  const h = Math.floor(min / 60);
-  const m = min % 60;
-  return h ? `${h}h ${m}m` : `${m} min`;
+  return fmtMinutes(Math.round((e - s) / 60000));
+}
+
+// Today's YYYY-MM (for the pay-period month picker default).
+function defaultMonth(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+// Which half of the month today falls in.
+function defaultHalf(): "a" | "b" {
+  return new Date().getDate() <= 15 ? "a" : "b";
+}
+function daysInMonth(year: number, month: number): number {
+  return new Date(year, month, 0).getDate();
+}
+// "2026-07" + half → the inclusive YYYY-MM-DD range for that bi-monthly period.
+function periodBounds(month: string, half: "a" | "b"): { start: string; end: string } {
+  const m = month.match(/^(\d{4})-(\d{2})$/);
+  if (!m) return { start: "", end: "" };
+  if (half === "a") return { start: `${m[1]}-${m[2]}-01`, end: `${m[1]}-${m[2]}-15` };
+  const last = String(daysInMonth(Number(m[1]), Number(m[2]))).padStart(2, "0");
+  return { start: `${m[1]}-${m[2]}-16`, end: `${m[1]}-${m[2]}-${last}` };
 }
 
 // Downscale a picked image to a JPEG data URL (max 1600px, quality 0.85) so a
@@ -161,7 +254,7 @@ function downscale(file: File): Promise<Photo> {
 }
 
 export default function EmployeeTimePage() {
-  const [phase, setPhase] = useState<"form" | "done">("form");
+  const [mode, setMode] = useState<"clock" | "manual" | "history">("clock");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
@@ -176,14 +269,18 @@ export default function EmployeeTimePage() {
   // Who's logging — the roster link, or a one-time manual pick when unlinked.
   const [pickedUserId, setPickedUserId] = useState("");
 
-  // Form fields.
+  // Shared job/cost/pay-type context — used by both Clock and Manual modes.
   const [jobId, setJobId] = useState("");
   const [costItems, setCostItems] = useState<CostItem[]>([]);
   const [loadingCosts, setLoadingCosts] = useState(false);
   const [costItemId, setCostItemId] = useState("");
   const [payType, setPayType] = useState("");
+
+  // Manual-mode-only fields.
   const [startTime, setStartTime] = useState(nowLocal());
   const [endTime, setEndTime] = useState(nowLocal());
+
+  // Shared note/photos — used by Manual (upfront) and Clock (at clock-out).
   const [note, setNote] = useState("");
   const [photos, setPhotos] = useState<Photo[]>([]);
 
@@ -193,7 +290,21 @@ export default function EmployeeTimePage() {
   const [geoNote, setGeoNote] = useState("");
   const [gpsTried, setGpsTried] = useState(false);
 
-  const [result, setResult] = useState<SubmitResult | null>(null);
+  // Clock in/out.
+  const [activeClock, setActiveClock] = useState<ActiveClock | null>(null);
+  const [clockSubPhase, setClockSubPhase] = useState<"idle" | "clockingOut">("idle");
+  const [nowMs, setNowMs] = useState(0);
+
+  // My Time (history).
+  const [historyMonth, setHistoryMonth] = useState(defaultMonth());
+  const [historyHalf, setHistoryHalf] = useState<"a" | "b">(defaultHalf());
+  const [historyEntries, setHistoryEntries] = useState<HistoryEntry[]>([]);
+  const [historyTotalMin, setHistoryTotalMin] = useState(0);
+  const [historyOpenCount, setHistoryOpenCount] = useState(0);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyErr, setHistoryErr] = useState("");
+
+  const [done, setDone] = useState<{ result: SubmitResult; summary: DoneSummary } | null>(null);
 
   // --- Bootstrap: linked JT identity, org users + pay types, job sites, jobs. --
   useEffect(() => {
@@ -216,6 +327,17 @@ export default function EmployeeTimePage() {
       .then((r) => r.json())
       .then((j) => setJobs(j.jobs ?? []))
       .catch(() => {});
+
+    // Resume an in-progress clock-in (survives a locked phone / closed tab).
+    // Deliberately does NOT touch jobId/costItemId/payType — the clocked-in
+    // context is rendered read-only from the saved record itself.
+    try {
+      const raw = localStorage.getItem(LS_CLOCK);
+      if (raw) {
+        const c = JSON.parse(raw);
+        if (c && c.startedAt && c.jobId && c.costItemId) setActiveClock(c);
+      }
+    } catch {}
   }, []);
 
   // Remembered JobTread-user pick (only used when the roster link is missing).
@@ -299,6 +421,17 @@ export default function EmployeeTimePage() {
   const selectedCost = costItems.find((c) => c.id === costItemId) ?? null;
   const duration = fmtDuration(startTime, endTime);
 
+  // Elapsed time since clock-in, ticking every second while active.
+  useEffect(() => {
+    if (!activeClock) return;
+    setNowMs(Date.now());
+    const id = setInterval(() => setNowMs(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [activeClock]);
+  const elapsed = activeClock
+    ? fmtMinutes(Math.max(0, Math.round((nowMs - new Date(activeClock.startedAt).getTime()) / 60000)))
+    : "";
+
   async function addPhotos(list: FileList | null) {
     if (!list || !list.length) return;
     setErr("");
@@ -323,6 +456,149 @@ export default function EmployeeTimePage() {
     setPhotos((prev) => prev.filter((_, idx) => idx !== i));
   }
 
+  // ------------------------------------------------------------- Clock in/out
+  async function clockIn() {
+    setErr("");
+    if (!effectiveUserId) {
+      setErr("Pick who you are in JobTread first.");
+      return;
+    }
+    if (!jobId) {
+      setErr("Pick a job.");
+      return;
+    }
+    if (!costItemId) {
+      setErr("Pick a cost code.");
+      return;
+    }
+    setBusy(true);
+    try {
+      const startedAt = nowLocalSeconds();
+      const res = await fetch("/api/employee-time/clock", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ op: "in", userId: effectiveUserId, jobId, costItemId, payType, startTime: startedAt }),
+      });
+      const json = await res.json();
+      if (!res.ok || json.ok === false) {
+        setErr(json.error || "Could not clock in.");
+        return;
+      }
+      const clock: ActiveClock = {
+        entryId: json.entryId || "",
+        previewed: !!json.previewed,
+        jtStatus: json.jtStatus || "",
+        startedAt,
+        jobId,
+        jobLabel,
+        costItemId,
+        costCode: selectedCost?.number ?? "",
+        costItemName: selectedCost?.name ?? "",
+        payType,
+        lat: gps?.lat,
+        lng: gps?.lng,
+        nearestJob,
+        employee: effectiveName,
+      };
+      setActiveClock(clock);
+      try {
+        localStorage.setItem(LS_CLOCK, JSON.stringify(clock));
+      } catch {}
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Could not clock in.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function confirmClockOut() {
+    if (!activeClock) return;
+    if (!note.trim()) {
+      setErr("A note is required.");
+      return;
+    }
+    // JobTread requires end > start strictly; a sub-second session would 400.
+    // That's a mis-tap, not real work — point at Cancel instead.
+    const endedAt = nowLocalSeconds();
+    if (endedAt <= activeClock.startedAt) {
+      setErr("You've been clocked in less than a second — use “Cancel this clock-in” instead.");
+      return;
+    }
+    setErr("");
+    setBusy(true);
+    try {
+      const res = await fetch("/api/employee-time/clock", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          op: "out",
+          entryId: activeClock.entryId,
+          userId: effectiveUserId,
+          employee: activeClock.employee,
+          jobId: activeClock.jobId,
+          jobLabel: activeClock.jobLabel,
+          costItemId: activeClock.costItemId,
+          costCode: activeClock.costCode,
+          payType: activeClock.payType,
+          startTime: activeClock.startedAt,
+          endTime: endedAt,
+          note: note.trim(),
+          lat: activeClock.lat,
+          lng: activeClock.lng,
+          nearestJob: activeClock.nearestJob,
+          photos,
+        }),
+      });
+      const json: SubmitResult = await res.json();
+      if (!res.ok || json.ok === false) {
+        setErr(json.error || "Could not clock out.");
+        return;
+      }
+      setDone({
+        result: json,
+        summary: {
+          jobLabel: activeClock.jobLabel,
+          costLabel: [activeClock.costCode, activeClock.costItemName].filter(Boolean).join(" — "),
+          payType: activeClock.payType,
+          startTime: activeClock.startedAt,
+          endTime: endedAt,
+          note: note.trim(),
+        },
+      });
+      try {
+        localStorage.removeItem(LS_CLOCK);
+      } catch {}
+      setActiveClock(null);
+      setClockSubPhase("idle");
+      setNote("");
+      setPhotos([]);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Could not clock out.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function cancelClockIn() {
+    if (!activeClock) return;
+    setBusy(true);
+    try {
+      await fetch("/api/employee-time/clock", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ op: "cancel", entryId: activeClock.entryId }),
+      });
+    } catch {}
+    try {
+      localStorage.removeItem(LS_CLOCK);
+    } catch {}
+    setActiveClock(null);
+    setClockSubPhase("idle");
+    setErr("");
+    setBusy(false);
+  }
+
+  // ------------------------------------------------------------- Manual mode
   const submit = useCallback(async () => {
     setErr("");
     if (!effectiveUserId) {
@@ -377,8 +653,17 @@ export default function EmployeeTimePage() {
         setErr(json.error || "Could not save the time entry.");
         return;
       }
-      setResult(json);
-      setPhase("done");
+      setDone({
+        result: json,
+        summary: {
+          jobLabel,
+          costLabel: selectedCost ? `${selectedCost.number} ${selectedCost.name}`.trim() : "",
+          payType,
+          startTime,
+          endTime,
+          note: note.trim(),
+        },
+      });
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Could not save the time entry.");
     } finally {
@@ -401,16 +686,45 @@ export default function EmployeeTimePage() {
   ]);
 
   function logAnother() {
-    setResult(null);
-    setJobId("");
-    setCostItemId("");
+    setDone(null);
     setNote("");
     setPhotos([]);
-    setStartTime(nowLocal());
-    setEndTime(nowLocal());
     setErr("");
-    setPhase("form");
+    if (mode === "manual") {
+      setJobId("");
+      setCostItemId("");
+      setStartTime(nowLocal());
+      setEndTime(nowLocal());
+    }
   }
+
+  // ------------------------------------------------------------------ My Time
+  const loadHistory = useCallback(async () => {
+    const { start, end } = periodBounds(historyMonth, historyHalf);
+    if (!start || !end) return;
+    setHistoryLoading(true);
+    setHistoryErr("");
+    try {
+      const res = await fetch(`/api/employee-time/history?start=${start}&end=${end}`);
+      const json = await res.json();
+      if (!res.ok || json.ok === false) {
+        setHistoryErr(json.error || "Could not load your time.");
+        setHistoryEntries([]);
+        return;
+      }
+      setHistoryEntries(json.entries ?? []);
+      setHistoryTotalMin(json.totalMinutes ?? 0);
+      setHistoryOpenCount(json.openCount ?? 0);
+    } catch (e) {
+      setHistoryErr(e instanceof Error ? e.message : "Could not load your time.");
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, [historyMonth, historyHalf]);
+
+  useEffect(() => {
+    if (mode === "history") loadHistory();
+  }, [mode, loadHistory]);
 
   if (loading) {
     return (
@@ -422,7 +736,8 @@ export default function EmployeeTimePage() {
   }
 
   // ---------------------------------------------------------------- DONE ------
-  if (phase === "done" && result) {
+  if (done) {
+    const dur = fmtDuration(done.summary.startTime, done.summary.endTime);
     return (
       <main className="mx-auto max-w-2xl px-4 pb-24 pt-6">
         <PageHeader title="Employee Time" description="Log your hours to a job." />
@@ -431,34 +746,32 @@ export default function EmployeeTimePage() {
             <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
               Time logged
             </p>
-            <div className="mt-1 text-3xl font-bold tabular-nums">{duration || "—"}</div>
-            {jobLabel && <p className="mt-1 text-sm text-neutral-500">{jobLabel}</p>}
+            <div className="mt-1 text-3xl font-bold tabular-nums">{dur || "—"}</div>
+            {done.summary.jobLabel && <p className="mt-1 text-sm text-neutral-500">{done.summary.jobLabel}</p>}
           </Card>
 
-          {result.previewed ? (
+          {done.result.previewed ? (
             <Banner tone="warning">
               Saved to the Time Entries record. JobTread push is OFF
               (COMPANION_WRITES_ENABLED not set) — nothing was written to JobTread.
             </Banner>
-          ) : result.wrote ? (
+          ) : done.result.wrote ? (
             <Banner tone="success">Pushed to JobTread and saved to the record.</Banner>
           ) : (
             <Banner tone="warning">
               Saved to the record, but the JobTread push failed
-              {result.jtError ? `: ${result.jtError}` : ""}. The office can retry it.
+              {done.result.jtError ? `: ${done.result.jtError}` : ""}. The office can retry it.
             </Banner>
           )}
 
           <Card className="space-y-2 text-sm">
             {effectiveName && <Row label="Who" value={effectiveName} />}
-            {selectedCost && <Row label="Cost" value={`${selectedCost.number} ${selectedCost.name}`} />}
-            {payType && <Row label="Type" value={payType} />}
-            <Row label="Start" value={startTime.replace("T", " ")} />
-            <Row label="Stop" value={endTime.replace("T", " ")} />
-            {note.trim() && <Row label="Note" value={note.trim()} />}
-            {result.photoCount ? (
-              <Row label="Photos" value={`${result.photoCount} saved`} />
-            ) : null}
+            {done.summary.costLabel && <Row label="Cost" value={done.summary.costLabel} />}
+            {done.summary.payType && <Row label="Type" value={done.summary.payType} />}
+            <Row label="Start" value={displayStamp(done.summary.startTime)} />
+            <Row label="Stop" value={displayStamp(done.summary.endTime)} />
+            {done.summary.note && <Row label="Note" value={done.summary.note} />}
+            {done.result.photoCount ? <Row label="Photos" value={`${done.result.photoCount} saved`} /> : null}
           </Card>
 
           <button
@@ -473,7 +786,6 @@ export default function EmployeeTimePage() {
     );
   }
 
-  // ---------------------------------------------------------------- FORM ------
   const needsUserPick = !!me && !me.jtUserId;
 
   return (
@@ -483,16 +795,30 @@ export default function EmployeeTimePage() {
         description="Log your hours to a job — with a note and photos."
       />
 
+      {/* Mode selector. */}
+      <div className="mb-4 flex gap-2">
+        <ModeTab active={mode === "clock"} onClick={() => setMode("clock")}>
+          Clock In/Out
+        </ModeTab>
+        <ModeTab active={mode === "manual"} onClick={() => setMode("manual")}>
+          Log a range
+        </ModeTab>
+        <ModeTab active={mode === "history"} onClick={() => setMode("history")}>
+          My Time
+        </ModeTab>
+      </div>
+
       {err && (
         <Banner tone="error" className="mb-4">
           {err}
         </Banner>
       )}
 
-      <div className="space-y-4">
-        {/* Who — the signed-in user, or a one-time pick when unlinked. */}
-        {needsUserPick ? (
-          <Card className="space-y-2">
+      {/* Who — the signed-in user, or a one-time pick when unlinked. Shown for
+          both logging modes, not history. */}
+      {mode !== "history" &&
+        (needsUserPick ? (
+          <Card className="mb-4 space-y-2">
             <Label htmlFor="et-user">Who are you in JobTread?</Label>
             <Select id="et-user" value={pickedUserId} onChange={(e) => pickUser(e.target.value)}>
               <option value="">Select yourself…</option>
@@ -509,152 +835,413 @@ export default function EmployeeTimePage() {
           </Card>
         ) : (
           effectiveName && (
-            <p className="text-sm text-neutral-500">
-              Logging time as <span className="font-semibold text-neutral-700 dark:text-neutral-200">{effectiveName}</span>
+            <p className="mb-4 text-sm text-neutral-500">
+              Logging time as{" "}
+              <span className="font-semibold text-neutral-700 dark:text-neutral-200">{effectiveName}</span>
             </p>
           )
-        )}
+        ))}
 
-        <Card className="space-y-4">
-          {/* Job (GPS pre-fills the nearest). */}
-          <div>
-            <Label>Job</Label>
-            <div className="flex">
-              <JobPicker value={jobId} onChange={setJobId} />
-            </div>
-            {geoNote && <p className="mt-1 text-xs text-neutral-500">{geoNote}</p>}
+      {/* --------------------------------------------------------- CLOCK MODE */}
+      {mode === "clock" &&
+        (activeClock ? (
+          <div className="space-y-4">
+            <Card className="text-center">
+              <div className="flex items-center justify-center gap-2 text-sm font-semibold text-accent dark:text-accent-soft">
+                <span className="inline-block h-2.5 w-2.5 animate-pulse rounded-full bg-accent" aria-hidden />
+                Clocked in
+              </div>
+              <div className="mt-2 text-3xl font-bold tabular-nums">{elapsed || "0 min"}</div>
+              <p className="mt-1 text-sm text-neutral-500">{activeClock.jobLabel}</p>
+              <p className="text-xs text-neutral-400">
+                {[activeClock.costCode, activeClock.costItemName].filter(Boolean).join(" — ")}
+                {activeClock.payType ? ` · ${activeClock.payType}` : ""}
+              </p>
+              <p className="mt-1 text-xs text-neutral-400">
+                Started {displayStamp(activeClock.startedAt)}
+              </p>
+              {activeClock.previewed && (
+                <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
+                  JobTread push is OFF — this clock is local-only until writes are enabled.
+                </p>
+              )}
+            </Card>
+
+            {clockSubPhase === "idle" ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setClockSubPhase("clockingOut")}
+                  disabled={busy}
+                  className="w-full rounded-2xl bg-accent px-4 py-6 text-lg font-bold text-white shadow-sm transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Clock out
+                </button>
+                <button
+                  type="button"
+                  onClick={cancelClockIn}
+                  disabled={busy}
+                  className="mx-auto block text-xs text-neutral-500 underline-offset-2 hover:text-red-600 hover:underline disabled:opacity-40"
+                >
+                  Cancel this clock-in
+                </button>
+              </>
+            ) : (
+              <>
+                <Card className="space-y-4">
+                  <div>
+                    <Label htmlFor="et-clockout-note">Note (required)</Label>
+                    <Textarea
+                      id="et-clockout-note"
+                      rows={3}
+                      value={note}
+                      onChange={(e) => setNote(e.target.value)}
+                      placeholder="What did you work on?"
+                    />
+                  </div>
+                  <PhotoPicker photos={photos} onAdd={addPhotos} onRemove={removePhoto} />
+                </Card>
+
+                <button
+                  type="button"
+                  onClick={confirmClockOut}
+                  disabled={busy}
+                  className="w-full rounded-2xl bg-accent px-4 py-6 text-lg font-bold text-white shadow-sm transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {busy ? "Saving…" : "Confirm clock out"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setClockSubPhase("idle")}
+                  disabled={busy}
+                  className="mx-auto block text-xs text-neutral-500 underline-offset-2 hover:text-accent hover:underline disabled:opacity-40 dark:hover:text-accent-soft"
+                >
+                  Back
+                </button>
+              </>
+            )}
           </div>
+        ) : (
+          <div className="space-y-4">
+            <Card className="space-y-4">
+              <div>
+                <Label>Job</Label>
+                <div className="flex">
+                  <JobPicker value={jobId} onChange={setJobId} />
+                </div>
+                {geoNote && <p className="mt-1 text-xs text-neutral-500">{geoNote}</p>}
+              </div>
 
-          {/* Cost code — the selected job's budget cost items. */}
-          <div>
-            <Label htmlFor="et-cost">Cost code</Label>
-            <Select
-              id="et-cost"
-              value={costItemId}
-              onChange={(e) => setCostItemId(e.target.value)}
-              disabled={!jobId || loadingCosts}
+              <div>
+                <Label htmlFor="et-cost-clock">Cost code</Label>
+                <Select
+                  id="et-cost-clock"
+                  value={costItemId}
+                  onChange={(e) => setCostItemId(e.target.value)}
+                  disabled={!jobId || loadingCosts}
+                >
+                  <option value="">
+                    {!jobId
+                      ? "Pick a job first…"
+                      : loadingCosts
+                        ? "Loading cost codes…"
+                        : costItems.length
+                          ? "Select a cost code…"
+                          : "No cost codes on this job"}
+                  </option>
+                  {costItems.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.number}
+                      {c.name ? ` — ${c.name}` : ""}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+
+              {payTypes.length > 1 && (
+                <div>
+                  <Label htmlFor="et-type-clock">Pay type</Label>
+                  <Select id="et-type-clock" value={payType} onChange={(e) => setPayType(e.target.value)}>
+                    <option value="">Select a pay type…</option>
+                    {payTypes.map((t) => (
+                      <option key={t.name} value={t.name}>
+                        {t.name}
+                        {typeof t.hourlyRate === "number" ? ` ($${t.hourlyRate}/hr)` : ""}
+                      </option>
+                    ))}
+                  </Select>
+                  {typesAreFallback && (
+                    <p className="mt-1 text-xs text-neutral-500">
+                      Showing all pay types — pick your rate for this job.
+                    </p>
+                  )}
+                </div>
+              )}
+            </Card>
+
+            <button
+              type="button"
+              onClick={clockIn}
+              disabled={busy}
+              className="w-full rounded-2xl bg-accent px-4 py-6 text-lg font-bold text-white shadow-sm transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
             >
-              <option value="">
-                {!jobId
-                  ? "Pick a job first…"
-                  : loadingCosts
-                    ? "Loading cost codes…"
-                    : costItems.length
-                      ? "Select a cost code…"
-                      : "No cost codes on this job"}
-              </option>
-              {costItems.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.number}
-                  {c.name ? ` — ${c.name}` : ""}
-                </option>
-              ))}
-            </Select>
+              {busy ? "Clocking in…" : "Clock in"}
+            </button>
           </div>
+        ))}
 
-          {/* Pay type — only when the worker has several to choose between. */}
-          {payTypes.length > 1 && (
+      {/* -------------------------------------------------------- MANUAL MODE */}
+      {mode === "manual" && (
+        <div className="space-y-4">
+          <Card className="space-y-4">
             <div>
-              <Label htmlFor="et-type">Pay type</Label>
-              <Select id="et-type" value={payType} onChange={(e) => setPayType(e.target.value)}>
-                <option value="">Select a pay type…</option>
-                {payTypes.map((t) => (
-                  <option key={t.name} value={t.name}>
-                    {t.name}
-                    {typeof t.hourlyRate === "number" ? ` ($${t.hourlyRate}/hr)` : ""}
+              <Label>Job</Label>
+              <div className="flex">
+                <JobPicker value={jobId} onChange={setJobId} />
+              </div>
+              {geoNote && <p className="mt-1 text-xs text-neutral-500">{geoNote}</p>}
+            </div>
+
+            <div>
+              <Label htmlFor="et-cost">Cost code</Label>
+              <Select
+                id="et-cost"
+                value={costItemId}
+                onChange={(e) => setCostItemId(e.target.value)}
+                disabled={!jobId || loadingCosts}
+              >
+                <option value="">
+                  {!jobId
+                    ? "Pick a job first…"
+                    : loadingCosts
+                      ? "Loading cost codes…"
+                      : costItems.length
+                        ? "Select a cost code…"
+                        : "No cost codes on this job"}
+                </option>
+                {costItems.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.number}
+                    {c.name ? ` — ${c.name}` : ""}
                   </option>
                 ))}
               </Select>
-              {typesAreFallback && (
-                <p className="mt-1 text-xs text-neutral-500">
-                  Showing all pay types — pick your rate for this job.
-                </p>
-              )}
             </div>
-          )}
 
-          {/* Start / stop — default to now. */}
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {payTypes.length > 1 && (
+              <div>
+                <Label htmlFor="et-type">Pay type</Label>
+                <Select id="et-type" value={payType} onChange={(e) => setPayType(e.target.value)}>
+                  <option value="">Select a pay type…</option>
+                  {payTypes.map((t) => (
+                    <option key={t.name} value={t.name}>
+                      {t.name}
+                      {typeof t.hourlyRate === "number" ? ` ($${t.hourlyRate}/hr)` : ""}
+                    </option>
+                  ))}
+                </Select>
+                {typesAreFallback && (
+                  <p className="mt-1 text-xs text-neutral-500">
+                    Showing all pay types — pick your rate for this job.
+                  </p>
+                )}
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div>
+                <Label htmlFor="et-start">Start</Label>
+                <Input
+                  id="et-start"
+                  type="datetime-local"
+                  value={startTime}
+                  onChange={(e) => setStartTime(e.target.value)}
+                />
+              </div>
+              <div>
+                <Label htmlFor="et-end">Stop</Label>
+                <Input
+                  id="et-end"
+                  type="datetime-local"
+                  value={endTime}
+                  onChange={(e) => setEndTime(e.target.value)}
+                />
+              </div>
+            </div>
+            {duration && <p className="-mt-1 text-xs text-neutral-500">{duration}</p>}
+
             <div>
-              <Label htmlFor="et-start">Start</Label>
-              <Input
-                id="et-start"
-                type="datetime-local"
-                value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
+              <Label htmlFor="et-note">Note (required)</Label>
+              <Textarea
+                id="et-note"
+                rows={3}
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                placeholder="What did you work on?"
               />
             </div>
+
+            <PhotoPicker photos={photos} onAdd={addPhotos} onRemove={removePhoto} />
+          </Card>
+
+          <button
+            type="button"
+            onClick={submit}
+            disabled={busy}
+            className="w-full rounded-2xl bg-accent px-4 py-6 text-lg font-bold text-white shadow-sm transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {busy ? "Saving…" : "Log time"}
+          </button>
+        </div>
+      )}
+
+      {/* ------------------------------------------------------- HISTORY MODE */}
+      {mode === "history" && (
+        <div className="space-y-4">
+          <Card className="space-y-3">
             <div>
-              <Label htmlFor="et-end">Stop</Label>
+              <Label htmlFor="et-hist-month">Month</Label>
               <Input
-                id="et-end"
-                type="datetime-local"
-                value={endTime}
-                onChange={(e) => setEndTime(e.target.value)}
+                id="et-hist-month"
+                type="month"
+                value={historyMonth}
+                onChange={(e) => setHistoryMonth(e.target.value)}
               />
             </div>
-          </div>
-          {duration && <p className="-mt-1 text-xs text-neutral-500">{duration}</p>}
+            <div className="flex gap-2">
+              <HalfTab active={historyHalf === "a"} onClick={() => setHistoryHalf("a")}>
+                1–15
+              </HalfTab>
+              <HalfTab active={historyHalf === "b"} onClick={() => setHistoryHalf("b")}>
+                16–end
+              </HalfTab>
+            </div>
+          </Card>
 
-          {/* Note — required. */}
-          <div>
-            <Label htmlFor="et-note">Note (required)</Label>
-            <Textarea
-              id="et-note"
-              rows={3}
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              placeholder="What did you work on?"
-            />
-          </div>
+          <Card className="text-center">
+            <div className="text-3xl font-bold tabular-nums">{fmtMinutes(historyTotalMin) || "0 min"}</div>
+            <p className="mt-0.5 text-xs text-neutral-500">
+              {historyEntries.length} entr{historyEntries.length === 1 ? "y" : "ies"}
+              {historyOpenCount ? ` · ${historyOpenCount} still clocked in` : ""}
+            </p>
+          </Card>
 
-          {/* Photos. */}
-          <div>
-            <Label>Photos (optional)</Label>
-            <div className="flex flex-wrap gap-2">
-              {photos.map((p, i) => (
-                <div key={i} className="relative h-20 w-20 overflow-hidden rounded-lg border border-neutral-200 dark:border-neutral-700">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={p.base64} alt={`Photo ${i + 1}`} className="h-full w-full object-cover" />
-                  <button
-                    type="button"
-                    onClick={() => removePhoto(i)}
-                    aria-label={`Remove photo ${i + 1}`}
-                    className="absolute right-0.5 top-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-black/60 text-xs font-bold text-white"
-                  >
-                    ×
-                  </button>
-                </div>
+          {historyErr && <Banner tone="error">{historyErr}</Banner>}
+
+          {historyLoading ? (
+            <Loading label="Loading your time…" />
+          ) : historyEntries.length === 0 ? (
+            <EmptyState>No time logged for this period.</EmptyState>
+          ) : (
+            <ul className="space-y-2">
+              {historyEntries.map((e) => (
+                <HistoryRow key={e.id} e={e} />
               ))}
-              {photos.length < MAX_PHOTOS && (
-                <label className="flex h-20 w-20 cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-neutral-300 text-2xl text-neutral-400 transition hover:border-accent hover:text-accent dark:border-neutral-600">
-                  +
-                  <input
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    className="hidden"
-                    onChange={(e) => {
-                      addPhotos(e.target.files);
-                      e.target.value = "";
-                    }}
-                  />
-                </label>
-              )}
-            </div>
-          </div>
-        </Card>
-
-        <button
-          type="button"
-          onClick={submit}
-          disabled={busy}
-          className="w-full rounded-2xl bg-accent px-4 py-6 text-lg font-bold text-white shadow-sm transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          {busy ? "Saving…" : "Log time"}
-        </button>
-      </div>
+            </ul>
+          )}
+        </div>
+      )}
     </main>
+  );
+}
+
+function ModeTab({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={
+        "flex-1 rounded-xl px-3 py-2 text-sm font-semibold transition " +
+        (active
+          ? "bg-accent text-white shadow-sm"
+          : "border border-neutral-200 text-neutral-600 hover:border-accent dark:border-neutral-700/60 dark:text-neutral-300")
+      }
+    >
+      {children}
+    </button>
+  );
+}
+
+function HalfTab({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={
+        "rounded-full px-4 py-1.5 text-sm font-semibold transition " +
+        (active
+          ? "bg-accent text-white"
+          : "border border-neutral-300 text-neutral-600 dark:border-neutral-600 dark:text-neutral-300")
+      }
+    >
+      {children}
+    </button>
+  );
+}
+
+function PhotoPicker({
+  photos,
+  onAdd,
+  onRemove,
+}: {
+  photos: Photo[];
+  onAdd: (list: FileList | null) => void;
+  onRemove: (i: number) => void;
+}) {
+  return (
+    <div>
+      <Label>Photos (optional)</Label>
+      <div className="flex flex-wrap gap-2">
+        {photos.map((p, i) => (
+          <div
+            key={i}
+            className="relative h-20 w-20 overflow-hidden rounded-lg border border-neutral-200 dark:border-neutral-700"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={p.base64} alt={`Photo ${i + 1}`} className="h-full w-full object-cover" />
+            <button
+              type="button"
+              onClick={() => onRemove(i)}
+              aria-label={`Remove photo ${i + 1}`}
+              className="absolute right-0.5 top-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-black/60 text-xs font-bold text-white"
+            >
+              ×
+            </button>
+          </div>
+        ))}
+        {photos.length < MAX_PHOTOS && (
+          <label className="flex h-20 w-20 cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-neutral-300 text-2xl text-neutral-400 transition hover:border-accent hover:text-accent dark:border-neutral-600">
+            +
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              onChange={(e) => {
+                onAdd(e.target.files);
+                e.target.value = "";
+              }}
+            />
+          </label>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -666,5 +1253,38 @@ function Row({ label, value }: { label: string; value: string }) {
       </span>
       <span className="min-w-0 flex-1">{value}</span>
     </div>
+  );
+}
+
+function HistoryRow({ e }: { e: HistoryEntry }) {
+  return (
+    <li className="rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-700/60 dark:bg-ink-raised">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-sm font-semibold">{e.date}</div>
+          <div className="truncate text-xs text-neutral-500">
+            {e.jobName && e.jtUrl ? (
+              <JtLink href={e.jtUrl} className="hover:underline">
+                {e.jobName} ↗
+              </JtLink>
+            ) : (
+              e.jobName || "—"
+            )}
+          </div>
+          {(e.costCode || e.costItemName) && (
+            <div className="truncate text-xs text-neutral-400">
+              {[e.costCode, e.costItemName].filter(Boolean).join(" — ")}
+            </div>
+          )}
+          {e.notes && <div className="mt-0.5 truncate text-xs text-neutral-400">{e.notes}</div>}
+        </div>
+        <div className="shrink-0 text-right">
+          <div className="text-xs text-neutral-500 tabular-nums">
+            {e.startTime}–{e.endTime || "…"}
+          </div>
+          {e.open && <div className="text-[10px] uppercase tracking-wide text-amber-500">clocked in</div>}
+        </div>
+      </div>
+    </li>
   );
 }

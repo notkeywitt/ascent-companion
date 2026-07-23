@@ -1363,10 +1363,13 @@ export async function getUninvoicedBills(
 }
 
 // ---------------------------------------------------------------------------
-// TIME ENTRIES  (createTimeEntry — probe-confirmed live via the JobTread MCP,
-// 2026-07: see ascent-appscript companion-labor-import memory. NOTE: this write
-// path has NOT yet run in production, so callers keep it behind writesEnabled()
-// and the FIRST live run should be verified against a real entry in JobTread.)
+// TIME ENTRIES — createTimeEntry / updateTimeEntry / deleteTimeEntry / a
+// per-user read, all confirmed LIVE 2026-07-23 via probeTimeEntryClockInOut()
+// (ascent-appscript EmployeeTime.js): an OPEN entry (startedAt only, no
+// endedAt), updateTimeEntry to set endedAt later (the clock-out),
+// deleteTimeEntry (cancel/cleanup), and user.timeEntries for the "my time"
+// list — each verified by actually creating, updating, and deleting a
+// [PROBE]-tagged entry against live JobTread.
 // ---------------------------------------------------------------------------
 
 export interface CreateTimeEntryArgs {
@@ -1374,18 +1377,29 @@ export interface CreateTimeEntryArgs {
   jobId: string;
   costItemId: string; // the job's budget-leaf jobCostItemId (JT requires a cost item)
   startedAt: string; // floating local wall-clock ISO, e.g. "2026-07-22T14:30:00" (NO Z/offset)
-  endedAt: string; // same shape; JT derives minutes — there is no raw hours field
-  type?: string; // pay-type NAME (a rate; per worker × job). Omit when unknown.
+  endedAt?: string; // same shape; OMIT for an OPEN/running entry (clock-in). JT derives minutes.
+  type: string; // pay-type NAME (a rate; per worker × job) — REQUIRED (JT 400s without it).
   notes: string;
   isApproved?: boolean; // default false → office reviews before it counts
 }
 
+// JobTread's cost codes carry no queryable "time-trackable" field (7 candidate
+// field names on costCode all rejected in the probe) — it only tells you at
+// write time. Rephrase that specific 400 into something a field employee can
+// act on, instead of the raw API sentence.
+function rewriteTimeEntryError(message: string): string {
+  if (/cost type that is not able to be time tracked/i.test(message)) {
+    return "This cost code doesn't support time tracking in JobTread — pick a different one.";
+  }
+  return message;
+}
+
 /**
- * WRITE — create a JobTread time entry (createTimeEntry). Inputs confirmed via
- * the Pave probe: organizationId, userId, jobId, costItemId, startedAt/endedAt
- * (datetimes; minutes are derived), type (a pay rate name), notes, isApproved.
- * Coordinates are deliberately NOT sent — that optional field's shape is
- * unverified, and the GPS is recorded in our own Time Entries log instead.
+ * WRITE — create a JobTread time entry. Omit `endedAt` for an OPEN/running
+ * entry (clock-in); JobTread leaves it null until a later updateTimeEntry
+ * (clock-out) sets it. Coordinates are deliberately NOT sent — that optional
+ * field's shape is unverified, and the GPS is recorded in our own Time
+ * Entries log instead.
  */
 export async function createTimeEntry(
   cfg: PaveConfig,
@@ -1396,18 +1410,121 @@ export async function createTimeEntry(
     userId: args.userId,
     jobId: args.jobId,
     costItemId: args.costItemId,
+    type: args.type,
     startedAt: args.startedAt,
-    endedAt: args.endedAt,
     notes: args.notes ?? "",
     isApproved: args.isApproved ?? false,
   };
-  if (args.type) $.type = args.type;
+  if (args.endedAt) $.endedAt = args.endedAt;
 
-  const r = await pave(cfg, {
-    createTimeEntry: { $, createdTimeEntry: { id: {} } },
-  });
-  const id = r?.createTimeEntry?.createdTimeEntry?.id;
-  if (!id) throw new Error("createTimeEntry returned no time entry id.");
-  return { id };
+  try {
+    const r = await pave(cfg, {
+      createTimeEntry: { $, createdTimeEntry: { id: {} } },
+    });
+    const id = r?.createTimeEntry?.createdTimeEntry?.id;
+    if (!id) throw new Error("createTimeEntry returned no time entry id.");
+    return { id };
+  } catch (e) {
+    throw new Error(rewriteTimeEntryError(e instanceof Error ? e.message : "Unknown error"));
+  }
+}
+
+/**
+ * WRITE — the clock-out half: set `endedAt` (and/or revise notes) on an open
+ * entry. The return selection needs its OWN `$: {id}` (confirmed — matches
+ * updateDocument/updateCostItem's shape), not just the mutation's top-level $.
+ */
+export async function updateTimeEntry(
+  cfg: PaveConfig,
+  id: string,
+  fields: { endedAt?: string; notes?: string },
+): Promise<{ id: string; endedAt?: string }> {
+  const $: Record<string, unknown> = { id };
+  if (fields.endedAt !== undefined) $.endedAt = fields.endedAt;
+  if (fields.notes !== undefined) $.notes = fields.notes;
+  try {
+    const r = await pave(cfg, {
+      updateTimeEntry: { $, timeEntry: { $: { id }, id: {}, endedAt: {} } },
+    });
+    const t = r?.updateTimeEntry?.timeEntry;
+    return { id: t?.id ?? id, endedAt: t?.endedAt };
+  } catch (e) {
+    throw new Error(rewriteTimeEntryError(e instanceof Error ? e.message : "Unknown error"));
+  }
+}
+
+/**
+ * WRITE — delete a time entry (cancel a mistaken clock-in). Confirmed live:
+ * no return-selection object is needed, just the id argument.
+ */
+export async function deleteTimeEntry(cfg: PaveConfig, id: string): Promise<void> {
+  await pave(cfg, { deleteTimeEntry: { $: { id } } });
+}
+
+export interface UserTimeEntry {
+  id: string;
+  startedAt: string;
+  endedAt: string | null;
+  notes: string;
+  jobId: string;
+  jobName: string;
+  costCode: string;
+  costItemName: string;
+}
+
+/**
+ * READ — one user's time entries, every job. Confirmed live: `user.timeEntries`
+ * returns the full field set (job, costItem/costCode, notes) and paginates via
+ * `nextPage` like every other connection in this API. There is NO server-side
+ * date filter (the sibling job.timeEntries confirmed this absent in June
+ * 2026, and this probe didn't find one either) — pages are fetched up to
+ * `maxPages` and the caller filters/sorts by date. JobTread's own ordering
+ * isn't guaranteed, so always sort by startedAt before display.
+ */
+export async function getUserTimeEntries(
+  cfg: PaveConfig,
+  userId: string,
+  maxPages = 20,
+): Promise<UserTimeEntry[]> {
+  const out: UserTimeEntry[] = [];
+  let cursor: string | null = null;
+  for (let page = 0; page < maxPages; page++) {
+    const args: Record<string, unknown> = { size: 100 };
+    if (cursor) args.page = cursor;
+    const r = await pave(cfg, {
+      user: {
+        $: { id: userId },
+        id: {},
+        timeEntries: {
+          $: args,
+          nextPage: {},
+          nodes: {
+            id: {},
+            startedAt: {},
+            endedAt: {},
+            notes: {},
+            job: { id: {}, name: {} },
+            costItem: { id: {}, name: {}, costCode: { number: {}, name: {} } },
+          },
+        },
+      },
+    });
+    const tc = r?.user?.timeEntries ?? {};
+    for (const n of tc.nodes ?? []) {
+      out.push({
+        id: n.id,
+        startedAt: n.startedAt,
+        endedAt: n.endedAt ?? null,
+        notes: n.notes ?? "",
+        jobId: n.job?.id ?? "",
+        jobName: n.job?.name ?? "",
+        costCode: n.costItem?.costCode?.number ?? "",
+        costItemName: n.costItem?.costCode?.name || n.costItem?.name || "",
+      });
+    }
+    cursor = tc.nextPage ?? null;
+    if (!cursor) break;
+  }
+  return out;
 }
 
