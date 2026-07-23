@@ -57,10 +57,13 @@ async function callAppsScript(payload: Record<string, unknown>) {
   }
 }
 
+type LatLng = { lat: number; lng: number };
+
 interface DirectionsResult {
   miles: number | null;
   startAddress: string;
   endAddress: string;
+  via: string; // intermediate stop addresses joined " → " (best-effort)
   warning?: string;
 }
 
@@ -70,20 +73,23 @@ interface DirectionsResult {
 // even if only the Routes API is enabled. Never throws — on failure it returns
 // miles null + a warning so the trip is still logged.
 async function drivingDistance(
-  origin: { lat: number; lng: number },
-  dest: { lat: number; lng: number },
+  origin: LatLng,
+  dest: LatLng,
+  intermediates: LatLng[] = [],
 ): Promise<DirectionsResult> {
   const key = process.env.GOOGLE_MAPS_API_KEY;
   if (!key) {
-    return { miles: null, startAddress: "", endAddress: "", warning: "GOOGLE_MAPS_API_KEY is not set — miles not computed." };
+    return { miles: null, startAddress: "", endAddress: "", via: "", warning: "GOOGLE_MAPS_API_KEY is not set — miles not computed." };
   }
 
-  // Addresses are optional; fetch them alongside the distance and never let them
-  // block the result.
-  const [startAddress, endAddress] = await Promise.all([
+  // Addresses are optional; fetch start/end + each stop alongside the distance
+  // and never let them block the result.
+  const [startAddress, endAddress, ...viaAddrs] = await Promise.all([
     reverseGeocode(origin, key),
     reverseGeocode(dest, key),
+    ...intermediates.map((p) => reverseGeocode(p, key)),
   ]);
+  const via = viaAddrs.filter(Boolean).join(" → ");
 
   try {
     const res = await fetch("https://routes.googleapis.com/directions/v2:computeRoutes", {
@@ -96,6 +102,11 @@ async function drivingDistance(
       body: JSON.stringify({
         origin: { location: { latLng: { latitude: origin.lat, longitude: origin.lng } } },
         destination: { location: { latLng: { latitude: dest.lat, longitude: dest.lng } } },
+        // Stops the driver marked along the way — the route (and its total
+        // distance) runs origin → stop → … → destination as one trip.
+        intermediates: intermediates.map((p) => ({
+          location: { latLng: { latitude: p.lat, longitude: p.lng } },
+        })),
         travelMode: "DRIVE",
       }),
     });
@@ -105,15 +116,16 @@ async function drivingDistance(
     };
     if (data.error || !data.routes?.[0]) {
       const msg = data.error?.message || data.error?.status || "no route found";
-      return { miles: null, startAddress, endAddress, warning: `Routes API: ${msg} — trip saved without miles.` };
+      return { miles: null, startAddress, endAddress, via, warning: `Routes API: ${msg} — trip saved without miles.` };
     }
     const meters = data.routes[0].distanceMeters ?? 0;
-    return { miles: Math.round((meters / 1609.344) * 10) / 10, startAddress, endAddress };
+    return { miles: Math.round((meters / 1609.344) * 10) / 10, startAddress, endAddress, via };
   } catch (e) {
     return {
       miles: null,
       startAddress,
       endAddress,
+      via,
       warning: `Routes request failed (${e instanceof Error ? e.message : "unknown"}) — trip saved without miles.`,
     };
   }
@@ -189,7 +201,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Valid start/end coordinates are required." }, { status: 400 });
   }
 
-  const dir = await drivingDistance({ lat: startLat, lng: startLng }, { lat: endLat, lng: endLng });
+  // Stops the driver marked mid-trip (order preserved). Keep only valid points.
+  const waypoints: LatLng[] = (Array.isArray(body.waypoints) ? body.waypoints : [])
+    .map((w) => ({ lat: Number((w as Record<string, unknown>)?.lat), lng: Number((w as Record<string, unknown>)?.lng) }))
+    .filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lng));
+
+  const dir = await drivingDistance({ lat: startLat, lng: startLng }, { lat: endLat, lng: endLng }, waypoints);
 
   const result = await callAppsScript({
     action: "logMileage",
@@ -207,15 +224,24 @@ export async function POST(req: NextRequest) {
     startAddress: dir.startAddress,
     endAddress: dir.endAddress,
     miles: dir.miles,
-    distanceSource: dir.miles == null ? "unavailable" : "google_directions",
+    distanceSource: dir.miles == null ? "unavailable" : "google_routes",
+    stops: waypoints.length,
+    via: dir.via,
   });
   if (result.error) return NextResponse.json({ error: result.error }, { status: result.status });
 
-  // Merge the computed address/miles + any Directions warning into the reply so
-  // the summary screen can show them without a second round-trip.
+  // Merge the computed address/miles/stops + any warning into the reply so the
+  // summary screen can show them without a second round-trip.
   const data = (result.data ?? {}) as Record<string, unknown>;
   return NextResponse.json(
-    { ...data, startAddress: dir.startAddress, endAddress: dir.endAddress, warning: dir.warning },
+    {
+      ...data,
+      startAddress: dir.startAddress,
+      endAddress: dir.endAddress,
+      via: dir.via,
+      stops: waypoints.length,
+      warning: dir.warning,
+    },
     { status: 200 },
   );
 }

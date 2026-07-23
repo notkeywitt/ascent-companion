@@ -53,10 +53,18 @@ interface StartFix {
   startTime: string; // ISO
 }
 
+interface Waypoint {
+  lat: number;
+  lng: number;
+  time: string; // ISO
+}
+
 interface Summary {
   miles: number | null;
   startAddress: string;
   endAddress: string;
+  via: string;
+  stops: number;
   durationMin: number;
   jobLabel: string;
   purpose: string;
@@ -70,6 +78,8 @@ interface TripResult {
   date?: string;
   startAddress?: string;
   endAddress?: string;
+  via?: string;
+  stops?: number;
   warning?: string;
   error?: string;
 }
@@ -154,6 +164,8 @@ export default function MileageTrackerPage() {
   const [purpose, setPurpose] = useState("");
 
   const [start, setStart] = useState<StartFix | null>(null);
+  const [waypoints, setWaypoints] = useState<Waypoint[]>([]);
+  const [addingStop, setAddingStop] = useState(false);
   const [nowMs, setNowMs] = useState(0);
   const [summary, setSummary] = useState<Summary | null>(null);
 
@@ -208,6 +220,7 @@ export default function MileageTrackerPage() {
           setJobId(t.jobId ?? "");
           setJobLabel(t.jobLabel ?? "");
           setPurpose(t.purpose ?? "");
+          setWaypoints(Array.isArray(t.waypoints) ? t.waypoints : []);
           setPhase("active");
         }
       }
@@ -248,9 +261,9 @@ export default function MileageTrackerPage() {
   useEffect(() => {
     if (phase !== "active" || !start) return;
     try {
-      localStorage.setItem(LS_TRIP, JSON.stringify({ ...start, driver, jobId, jobLabel, purpose }));
+      localStorage.setItem(LS_TRIP, JSON.stringify({ ...start, driver, jobId, jobLabel, purpose, waypoints }));
     } catch {}
-  }, [phase, start, driver, jobId, jobLabel, purpose]);
+  }, [phase, start, driver, jobId, jobLabel, purpose, waypoints]);
 
   // Tick the elapsed clock while a trip is active.
   useEffect(() => {
@@ -287,11 +300,32 @@ export default function MileageTrackerPage() {
         startLng: pos.coords.longitude,
         startTime: new Date().toISOString(),
       });
+      setWaypoints([]);
       setPhase("active");
     } catch (e) {
       setErr(geoError(e));
     } finally {
       setBusy(false);
+    }
+  }
+
+  // Mark a stop mid-trip. Captures the current point; the whole route
+  // (start → stops → end) is computed as one trip when you tap End.
+  async function addWaypoint() {
+    setErr("");
+    setAddingStop(true);
+    setBusy(true);
+    try {
+      const pos = await getPosition();
+      setWaypoints((w) => [
+        ...w,
+        { lat: pos.coords.latitude, lng: pos.coords.longitude, time: new Date().toISOString() },
+      ]);
+    } catch (e) {
+      setErr(geoError(e));
+    } finally {
+      setBusy(false);
+      setAddingStop(false);
     }
   }
 
@@ -312,6 +346,7 @@ export default function MileageTrackerPage() {
           endLat: pos.coords.latitude,
           endLng: pos.coords.longitude,
           endTime,
+          waypoints: waypoints.map((w) => ({ lat: w.lat, lng: w.lng })),
           driver,
           jobId,
           jobLabel,
@@ -328,6 +363,8 @@ export default function MileageTrackerPage() {
         miles: json.miles ?? null,
         startAddress: json.startAddress ?? "",
         endAddress: json.endAddress ?? "",
+        via: json.via ?? "",
+        stops: json.stops ?? waypoints.length,
         durationMin,
         jobLabel,
         purpose: purpose.trim(),
@@ -376,6 +413,8 @@ export default function MileageTrackerPage() {
         miles: json.miles ?? m,
         startAddress: "",
         endAddress: "",
+        via: "",
+        stops: 0,
         durationMin: 0,
         jobLabel,
         purpose: purpose.trim(),
@@ -395,6 +434,7 @@ export default function MileageTrackerPage() {
     setJobLabel("");
     setMiles("");
     setManualDate(today());
+    setWaypoints([]);
     setErr("");
     setPhase("idle");
   }
@@ -404,6 +444,7 @@ export default function MileageTrackerPage() {
       localStorage.removeItem(LS_TRIP);
     } catch {}
     setStart(null);
+    setWaypoints([]);
     setErr("");
     setPhase("idle");
   }
@@ -535,8 +576,8 @@ export default function MileageTrackerPage() {
           </button>
 
           <p className="text-center text-xs text-neutral-500">
-            Tap Start when you leave — you can lock your phone. Reopen and tap End when you arrive.
-            Log each stop of a multi-stop trip as its own leg.
+            Tap Start when you leave — you can lock your phone. On a multi-stop run, tap “Add a
+            stop” at each stop; tap End when you arrive. Miles cover the whole route.
           </p>
 
           <div className="flex items-center justify-center gap-4">
@@ -662,6 +703,11 @@ export default function MileageTrackerPage() {
               Started {new Date(start.startTime).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
               {nearestToStart ? ` · near ${nearestToStart}` : ""}
             </p>
+            {waypoints.length > 0 && (
+              <p className="mt-1 text-xs font-semibold text-accent dark:text-accent-soft">
+                {waypoints.length} stop{waypoints.length === 1 ? "" : "s"} marked along the way
+              </p>
+            )}
           </Card>
 
           <Card className="space-y-3">
@@ -685,11 +731,20 @@ export default function MileageTrackerPage() {
 
           <button
             type="button"
+            onClick={addWaypoint}
+            disabled={busy}
+            className="w-full rounded-2xl border border-accent px-4 py-4 text-base font-semibold text-accent transition hover:bg-accent/10 disabled:cursor-not-allowed disabled:opacity-40 dark:text-accent-soft"
+          >
+            {addingStop ? "Marking stop…" : waypoints.length ? "Add another stop" : "Add a stop"}
+          </button>
+
+          <button
+            type="button"
             onClick={endTrip}
             disabled={busy}
             className="w-full rounded-2xl bg-accent px-4 py-6 text-lg font-bold text-white shadow-sm transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
           >
-            {busy ? "Saving trip…" : "End trip"}
+            {busy && !addingStop ? "Saving trip…" : "End trip"}
           </button>
 
           <button
@@ -712,7 +767,10 @@ export default function MileageTrackerPage() {
               {summary.miles == null ? "—" : summary.miles} <span className="text-lg font-semibold">mi</span>
             </div>
             {summary.durationMin > 0 && (
-              <p className="mt-1 text-sm text-neutral-500">{fmtDuration(summary.durationMin)} driving</p>
+              <p className="mt-1 text-sm text-neutral-500">
+                {fmtDuration(summary.durationMin)} driving
+                {summary.stops > 0 ? ` · ${summary.stops} stop${summary.stops === 1 ? "" : "s"}` : ""}
+              </p>
             )}
           </Card>
 
@@ -724,6 +782,7 @@ export default function MileageTrackerPage() {
             {summary.startAddress && (
               <Row label="From" value={summary.startAddress} />
             )}
+            {summary.via && <Row label="Via" value={summary.via} />}
             {summary.endAddress && <Row label="To" value={summary.endAddress} />}
             {summary.jobLabel && <Row label="Job" value={summary.jobLabel} />}
             {summary.purpose && <Row label="Purpose" value={summary.purpose} />}
@@ -895,7 +954,9 @@ function Row({ label, value }: { label: string; value: string }) {
 // One row in the logged-miles list.
 function TripRow({ t, showDriver }: { t: Record<string, string>; showDriver: boolean }) {
   const manual = (t["Distance Source"] || "").toLowerCase() === "manual";
-  const fromTo = [t["Start Address"], t["End Address"]].filter(Boolean).join(" → ");
+  const stops = Number(t["Stops"]) || 0;
+  // Route incl. any marked stops: start → via → end.
+  const fromTo = [t["Start Address"], t["Via"], t["End Address"]].filter(Boolean).join(" → ");
   return (
     <li className="rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-700/60 dark:bg-ink-raised">
       <div className="flex items-start justify-between gap-3">
@@ -910,6 +971,11 @@ function TripRow({ t, showDriver }: { t: Record<string, string>; showDriver: boo
         </div>
         <div className="shrink-0 text-right">
           <div className="text-sm font-bold tabular-nums">{t["Miles"] || "—"} mi</div>
+          {stops > 0 && (
+            <div className="text-[10px] text-neutral-400">
+              {stops} stop{stops === 1 ? "" : "s"}
+            </div>
+          )}
           {manual && (
             <div className="text-[10px] uppercase tracking-wide text-neutral-400">manual</div>
           )}
