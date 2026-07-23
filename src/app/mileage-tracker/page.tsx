@@ -157,6 +157,9 @@ const isLatLng = (s: string) => LATLNG_RE.test(s);
 
 // Static route map for a trip, served through our key-hiding proxy. Renders null
 // unless both endpoints are valid coordinates (so manual entries show no map).
+// If the image fails (e.g. the Maps Static API isn't enabled / allowed on the
+// key), show a readable notice with a link that surfaces Google's actual error
+// rather than a silent broken-image icon.
 function TripMap({
   start,
   end,
@@ -168,15 +171,35 @@ function TripMap({
   polyline?: string;
   className?: string;
 }) {
+  const [failed, setFailed] = useState(false);
   if (!isLatLng(start) || !isLatLng(end)) return null;
+
   const p = new URLSearchParams({ start, end, size: "600x280" });
-  if (polyline) p.set("path", polyline);
+  // A very long route line would blow the URL length limit — fall back to a
+  // straight start→end line rather than failing the whole image.
+  if (polyline && polyline.length <= 8000) p.set("path", polyline);
+  const src = `/api/mileage/map?${p.toString()}`;
+
+  if (failed) {
+    return (
+      <div
+        className={`rounded-lg border border-dashed border-neutral-300 px-4 py-5 text-center text-xs text-neutral-500 dark:border-neutral-700 ${className}`}
+      >
+        Map unavailable.{" "}
+        <a href={src} target="_blank" rel="noopener noreferrer" className="font-semibold underline">
+          See why
+        </a>
+      </div>
+    );
+  }
+
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
-      src={`/api/mileage/map?${p.toString()}`}
+      src={src}
       alt="Trip route map"
       loading="lazy"
+      onError={() => setFailed(true)}
       className={className}
     />
   );

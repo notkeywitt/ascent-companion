@@ -46,7 +46,13 @@ export async function GET(req: NextRequest) {
     const g = await fetch(`https://maps.googleapis.com/maps/api/staticmap?${u.toString()}`);
     if (!g.ok) {
       const text = await g.text();
-      return new NextResponse(`Static Maps error (HTTP ${g.status}): ${text.slice(0, 200)}`, { status: g.status });
+      // Plain text so opening this URL directly shows Google's actual reason
+      // (most often: the Maps Static API isn't enabled, or isn't in the API
+      // key's allowed-API restrictions).
+      return new NextResponse(
+        `Static Maps error (HTTP ${g.status}):\n\n${text.slice(0, 500)}`,
+        { status: g.status, headers: { "Content-Type": "text/plain; charset=utf-8" } },
+      );
     }
     const buf = await g.arrayBuffer();
     return new NextResponse(buf, {
