@@ -30,6 +30,33 @@ textarea:focus-visible {
   outline: none;
 }
 
+/* --- Touch (iOS / iPadOS) form-control fixes ----------------------------- */
+@media (pointer: coarse) {
+  /* iOS Safari auto-zooms into any focused form control whose font-size is
+     below 16px and — with no maximum-scale in the viewport — never zooms back
+     out, leaving the page shifted out of frame. Most visible when the job
+     picker autofocuses its 14px search box. Float form controls to 16px on
+     touch so focusing them never triggers the zoom; desktop keeps 14px. */
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+
+  /* WebKit gives <input type="date/time"> a fixed intrinsic width from its
+     native widget and won't shrink it to fit on iOS, so the field spills past
+     its card on narrow screens. Strip the native appearance so it sizes to the
+     container (the native wheel picker still opens on tap). */
+  input[type="date"],
+  input[type="time"],
+  input[type="datetime-local"] {
+    -webkit-appearance: none;
+    appearance: none;
+    min-width: 0;
+    max-width: 100%;
+  }
+}
+
 /* Brand-tinted text selection (ochre at low alpha). */
 ::selection {
   background: rgba(207, 152, 3, 0.28);
