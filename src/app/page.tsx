@@ -8,15 +8,16 @@ import { PageHeader, btn } from "@/components/ui";
 import { useAccess } from "@/components/AccessProvider";
 
 /**
- * The Assistant's front page — the launcher the app opens to.
+ * The Assistant's front page — the launcher the app opens to, and since the
+ * header's tabs were retired, the app's ONLY navigation. Every gateable view in
+ * lib/views must therefore be reachable from here (as a quick button or an area
+ * row), or it becomes dead.
  *
- * Two areas (Financials, Utilities) group every page the tab bar reaches into
- * collapsible menus that stay rolled up until tapped. Above them, three quick
- * buttons (Mileage, Time, Tools) put the most-used destinations one tap away.
- * It's an entry point, not a new tab: the tab bar layout is unchanged and each
- * row deep-links to the same route its tab does. The selected job (if any)
- * carries through on the query string, so landing on a job's Coding Review /
- * Invoicing keeps that job in context.
+ * Three areas (Financials, Utilities, More) group the pages into collapsible
+ * menus that stay rolled up until tapped. Above them, three quick buttons
+ * (Mileage, Time, Tools) put the most-used destinations one tap away. The
+ * selected job (if any) carries through on the query string, so landing on a
+ * job's Coding Review / Invoicing keeps that job in context.
  */
 
 /* ------------------------------------------------------------------- icons */
@@ -81,6 +82,14 @@ const GearIcon = ({ className }: IconProps) => (
   </IconBase>
 );
 
+/** Ellipsis — More. Three dots drawn as zero-length round-capped strokes, so it
+ *  sits on the same 24×24 / 2px grid as the rest of the set. */
+const MoreIcon = ({ className }: IconProps) => (
+  <IconBase className={className}>
+    <path d="M5 12h.01M12 12h.01M19 12h.01" />
+  </IconBase>
+);
+
 /** Route — Miles (mileage tracker). */
 const RouteIcon = ({ className }: IconProps) => (
   <IconBase className={className}>
@@ -109,25 +118,33 @@ const AREAS: Area[] = [
   {
     title: "Financials",
     Icon: BanknoteIcon,
-    blurb: "Bill coding, unbilled expenses, and monthly invoicing.",
+    blurb: "Bill coding, unbilled expenses, invoicing, and payments.",
     dests: [
       { label: "Coding Review", href: "/coding", desc: "Draft bills waiting to be coded", view: "coding" },
       { label: "Invoicing", href: "/stage", desc: "Stage the month's customer invoice", view: "stage" },
       { label: "Unbilled", href: "/unbilled", desc: "Uninvoiced expenses by cost code", view: "unbilled" },
       { label: "Email Invoices", href: "/email", desc: "Log invoices from the office inbox", view: "email" },
       { label: "Needs Project", href: "/needs-project", desc: "Ingested bills with no job yet", view: "needs-project" },
+      { label: "Payments", href: "/payments", desc: "Pay a Sunset statement", view: "payments" },
     ],
   },
   {
     title: "Utilities",
     Icon: GearIcon,
-    blurb: "Assistant, safety, records, imports, and system tools.",
+    blurb: "Assistant, safety, records, and imports.",
     dests: [
       { label: "Assistant", href: "/chat", desc: "Ask about a job's bills or budget", view: "chat" },
       { label: "Safety Meeting", href: "/safety-meeting", desc: "Pass the iPad and collect sign-ins", view: "safety-meeting" },
       { label: "RFIs", href: "/rfis", desc: "View and create a job's RFIs", view: "rfis" },
       { label: "Employees", href: "/employees", desc: "The Project Database roster", view: "employees" },
       { label: "Labor Import", href: "/labor-import", desc: "QuickBooks labor → JobTread CSV", view: "labor-import" },
+    ],
+  },
+  {
+    title: "More",
+    Icon: MoreIcon,
+    blurb: "System tools — script jobs, requests, access, and logs.",
+    dests: [
       { label: "Actions", href: "/actions", desc: "Run a script job on demand", view: "actions" },
       { label: "Requests", href: "/requests", desc: "Ask for fixes and new features", view: "requests" },
       { label: "Admin", href: "/admin", desc: "Who can sign in", view: "admin" },

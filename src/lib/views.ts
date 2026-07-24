@@ -10,6 +10,10 @@
  * To add a gateable page: add a VIEW entry (with the route prefixes that belong
  * to it) and, if it shouldn't be admin-only, add its id to the relevant role in
  * ROLE_VIEWS. Nav entries reference views by `id`.
+ *
+ * A view's `paths` may name an API route as well as a page — that's how a
+ * control with no page of its own (the Sync button → /api/jt-sync) gets gated
+ * server-side by the same middleware rule as everything else.
  */
 
 export type Role = "admin" | "office" | "field";
@@ -31,7 +35,7 @@ export interface ViewDef {
  * routes that share the same gate (e.g. /bill + /add-bill live under Coding).
  */
 export const VIEWS: ViewDef[] = [
-  // Financials / billing
+  // Financials / billing — admin-only as a group (see ADMIN_ONLY below).
   { id: "coding", label: "Coding Review", group: "Financials", paths: ["/coding", "/bill", "/add-bill"] },
   { id: "stage", label: "Invoicing", group: "Financials", paths: ["/stage"] },
   { id: "unbilled", label: "Unbilled", group: "Financials", paths: ["/unbilled"] },
@@ -54,14 +58,30 @@ export const VIEWS: ViewDef[] = [
   { id: "actions", label: "Actions", group: "System", paths: ["/actions"] },
   { id: "admin", label: "Admin", group: "System", paths: ["/admin"] },
   { id: "logs", label: "Logs", group: "System", paths: ["/logs"] },
+  // No page of its own — this gates the header's Sync button and the API route
+  // behind it, so a non-admin can neither see nor POST the full JT sync.
+  { id: "sync", label: "Sync Now", group: "System", paths: ["/api/jt-sync"] },
 ];
 
 export const ALL_VIEW_IDS: string[] = VIEWS.map((v) => v.id);
 
+/**
+ * Views no role below admin gets by default: every money page (the Financials
+ * group), the sync trigger, and the system consoles. A per-user grant in the
+ * admin editor can still hand any of these to an individual.
+ */
+const ADMIN_ONLY: string[] = [
+  ...VIEWS.filter((v) => v.group === "Financials").map((v) => v.id),
+  "sync",
+  "actions",
+  "admin",
+  "logs",
+];
+
 /** Base view set granted by each role, before per-user overrides. */
 export const ROLE_VIEWS: Record<Role, string[]> = {
   admin: ALL_VIEW_IDS,
-  office: ALL_VIEW_IDS.filter((id) => !["actions", "admin", "logs"].includes(id)),
+  office: ALL_VIEW_IDS.filter((id) => !ADMIN_ONLY.includes(id)),
   field: ["safety-meeting", "mileage", "employee-time", "tools", "rfis", "chat", "requests"],
 };
 

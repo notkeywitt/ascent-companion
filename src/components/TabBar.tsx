@@ -1,86 +1,17 @@
 "use client";
 
-import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 
 import { SyncNowButton } from "@/components/SyncNowButton";
 import { useAccess } from "@/components/AccessProvider";
 
-// `view` is the gate id from lib/views — tabs the signed-in user can't see are
-// filtered out (see the filtering in TabBar / MoreMenu below).
-type Tab = { label: string; href: string; view: string; match: (p: string) => boolean };
-type Group = { label: string; tabs: Tab[] };
-
-// Coding Review and Invoicing stay as standalone tabs; everything else lives
-// in the "More" dropdown so the bar fits the phone / side-panel widths.
-const PRIMARY_TABS: Tab[] = [
-  {
-    label: "Coding Review",
-    href: "/coding",
-    view: "coding",
-    match: (p) =>
-      p.startsWith("/coding") ||
-      p.startsWith("/unbilled") ||
-      p.startsWith("/bill") ||
-      p.startsWith("/add-bill"),
-  },
-  { label: "Invoicing", href: "/stage", view: "stage", match: (p) => p.startsWith("/stage") },
-];
-
-// The dropdown is grouped by what the pages are for, so nine flat items don't
-// blur together: billing workflow, field tools, office records, then system.
-const MORE_GROUPS: Group[] = [
-  {
-    label: "Assistant",
-    tabs: [{ label: "Chat", href: "/chat", view: "chat", match: (p) => p.startsWith("/chat") }],
-  },
-  {
-    label: "Billing",
-    tabs: [
-      { label: "Email", href: "/email", view: "email", match: (p) => p.startsWith("/email") },
-      { label: "Needs Project", href: "/needs-project", view: "needs-project", match: (p) => p.startsWith("/needs-project") },
-      { label: "Payments", href: "/payments", view: "payments", match: (p) => p.startsWith("/payments") },
-    ],
-  },
-  {
-    label: "Field",
-    tabs: [
-      { label: "Safety Meeting", href: "/safety-meeting", view: "safety-meeting", match: (p) => p.startsWith("/safety-meeting") },
-      {
-        label: "Tools",
-        href: "/tools",
-        view: "tools",
-        match: (p) =>
-          p === "/tools" || p.startsWith("/tools/") || p.startsWith("/tool-tracker"),
-      },
-      { label: "Mileage", href: "/mileage-tracker", view: "mileage", match: (p) => p.startsWith("/mileage-tracker") },
-      { label: "RFIs", href: "/rfis", view: "rfis", match: (p) => p.startsWith("/rfis") },
-    ],
-  },
-  {
-    label: "Office",
-    tabs: [
-      { label: "Employees", href: "/employees", view: "employees", match: (p) => p.startsWith("/employees") },
-      { label: "Labor Import", href: "/labor-import", view: "labor-import", match: (p) => p.startsWith("/labor-import") },
-    ],
-  },
-  {
-    label: "System",
-    tabs: [
-      { label: "Actions", href: "/actions", view: "actions", match: (p) => p.startsWith("/actions") },
-      { label: "Requests", href: "/requests", view: "requests", match: (p) => p.startsWith("/requests") },
-      { label: "Admin", href: "/admin", view: "admin", match: (p) => p.startsWith("/admin") },
-      { label: "Logs", href: "/logs", view: "logs", match: (p) => p.startsWith("/logs") },
-    ],
-  },
-];
-
-const TAB_CLS = (active: boolean) =>
-  "whitespace-nowrap border-b-2 px-3 py-2.5 text-sm font-semibold transition " +
-  (active
-    ? "border-accent text-accent dark:text-accent-soft"
-    : "border-transparent text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200");
+/**
+ * The header's utility row. It used to carry the nav tabs (Coding Review /
+ * Invoicing / More); navigation now lives entirely on the home launcher
+ * (src/app/page.tsx), so all that's left here is Sync + the theme toggle.
+ * Sync is gated on the "sync" view, which is admin-only — see lib/views.
+ */
 
 function ThemeToggle() {
   const [dark, setDark] = useState(false);
@@ -107,125 +38,15 @@ function ThemeToggle() {
   );
 }
 
-/** Dropdown holding the secondary tabs. Reads as a tab; when one of its pages
- *  is active the trigger takes that page's label and the accent underline. */
-function MoreMenu({ pathname, qs, groups }: { pathname: string; qs: string; groups: Group[] }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    function onDoc(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    }
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
-  }, []);
-
-  // Close when navigation lands on a new page.
-  useEffect(() => {
-    setOpen(false);
-  }, [pathname]);
-
-  const moreTabs = groups.flatMap((g) => g.tabs);
-  const activeTab = moreTabs.find((t) => t.match(pathname));
-
-  return (
-    <div
-      ref={ref}
-      onKeyDown={(e) => {
-        if (e.key === "Escape") setOpen(false);
-      }}
-    >
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        className={"flex items-center gap-1 " + TAB_CLS(Boolean(activeTab))}
-      >
-        {activeTab ? activeTab.label : "More"}
-        <span
-          className={
-            "text-xs transition-transform " + (open ? "rotate-180 " : "") + (activeTab ? "" : "text-neutral-400")
-          }
-        >
-          ▾
-        </span>
-      </button>
-
-      {open && (
-        <div
-          role="menu"
-          className="absolute right-0 top-full z-30 mt-1 w-52 overflow-hidden rounded-lg border border-neutral-300 bg-white py-1 shadow-lg dark:border-neutral-700 dark:bg-ink-overlay"
-        >
-          {groups.map((g, gi) => (
-            <div key={g.label} className={gi > 0 ? "mt-1 border-t border-neutral-100 pt-1 dark:border-white/10" : ""}>
-              <div className="px-3 pb-0.5 pt-1.5 text-[10px] font-semibold uppercase tracking-wide text-neutral-400">
-                {g.label}
-              </div>
-              {g.tabs.map((t) => {
-                const active = t.match(pathname);
-                return (
-                  <Link
-                    key={t.href}
-                    role="menuitem"
-                    href={t.href + qs}
-                    onClick={() => setOpen(false)}
-                    className={
-                      "flex items-center justify-between px-3 py-2 text-sm transition hover:bg-neutral-100 dark:hover:bg-white/5 " +
-                      (active
-                        ? "font-semibold text-accent dark:text-accent-soft"
-                        : "text-neutral-700 dark:text-neutral-300")
-                    }
-                  >
-                    {t.label}
-                    {active && <span aria-hidden>✓</span>}
-                  </Link>
-                );
-              })}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
 export function TabBar() {
   const pathname = usePathname();
-  const search = useSearchParams();
   const access = useAccess();
-  const jobId = search.get("jobId") ?? "";
-  const qs = jobId ? `?jobId=${encodeURIComponent(jobId)}` : "";
 
   if (pathname === "/login" || pathname === "/privacy") return null;
 
-  // Filter tabs to what this user can see; drop groups that end up empty.
-  const primaryTabs = PRIMARY_TABS.filter((t) => access.can(t.view));
-  const groups = MORE_GROUPS.map((g) => ({
-    ...g,
-    tabs: g.tabs.filter((t) => access.can(t.view)),
-  })).filter((g) => g.tabs.length > 0);
-
   return (
-    <nav className="flex items-center pr-1">
-      {/* No overflow-x-auto here: it would clip the dropdown, and the three
-          remaining items fit even side-panel widths. `relative` so the More
-          dropdown anchors to this full-width row's right edge (staying on
-          screen) rather than to the More button — which can sit at the far left
-          when a role has no primary tabs. */}
-      <div className="relative flex flex-1 items-center gap-1 px-2">
-        {primaryTabs.map((t) => {
-          const active = t.match(pathname);
-          return (
-            <Link key={t.href} href={t.href + qs} className={TAB_CLS(active)}>
-              {t.label}
-            </Link>
-          );
-        })}
-        {groups.length > 0 && <MoreMenu pathname={pathname} qs={qs} groups={groups} />}
-      </div>
-      <SyncNowButton />
+    <nav className="flex items-center justify-end pb-1 pr-1">
+      {access.can("sync") && <SyncNowButton />}
       <ThemeToggle />
     </nav>
   );

@@ -4,17 +4,19 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { JobPicker } from "@/components/JobPicker";
 import { AscentLogo } from "@/components/AscentLogo";
+import { useAccess } from "@/components/AccessProvider";
 import { btn } from "@/components/ui";
 import { confirmLeaveIfDirty } from "@/lib/useUnsavedChanges";
 
-// The job picker + Add-bill button live in the sticky chrome above the tab bar,
-// so they're reachable from every tab. The picker writes the chosen job to the
-// URL's ?jobId=, which the job-scoped pages (/coding, /unbilled, /stage, /bill,
-// /add-bill) read as their source of truth; other tabs simply ignore it.
+// The job picker + Add-bill button live in the sticky chrome at the top of every
+// page. The picker writes the chosen job to the URL's ?jobId=, which the
+// job-scoped pages (/coding, /unbilled, /stage, /bill, /add-bill) read as their
+// source of truth; other pages simply ignore it.
 export function GlobalJobBar() {
   const pathname = usePathname();
   const router = useRouter();
   const search = useSearchParams();
+  const access = useAccess();
   const jobId = search.get("jobId") ?? "";
 
   function onChange(id: string) {
@@ -39,9 +41,13 @@ export function GlobalJobBar() {
       <div className="min-w-0 flex-1">
         <JobPicker value={jobId} onChange={onChange} />
       </div>
-      <Link href={addHref} className={btn("primary", "md", "shrink-0")}>
-        ＋ Add bill
-      </Link>
+      {/* /add-bill is part of the (admin-only) Coding Review view — without the
+          gate the middleware would just bounce a non-admin back to home. */}
+      {access.can("coding") && (
+        <Link href={addHref} className={btn("primary", "md", "shrink-0")}>
+          ＋ Add bill
+        </Link>
+      )}
     </div>
   );
 }
