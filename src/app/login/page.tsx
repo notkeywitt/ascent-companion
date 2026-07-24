@@ -49,14 +49,14 @@ function Login() {
 
   return (
     <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-6">
-      {/* Brand lockup, over the ochre hairline the app chrome carries. */}
+      {/* Brand lockup, over the brand hairline the app chrome carries. */}
       <AscentIcon className="mb-6 h-14 w-14 rounded-md" />
       <p className="text-[13px] font-medium uppercase tracking-[0.14em] text-offblack dark:text-cream">
         Ascent
         <br />
         Building Co.
       </p>
-      <div className="mb-5 mt-3 h-0.5 w-10 bg-ochre" aria-hidden />
+      <div className="mb-5 mt-3 h-0.5 w-10 bg-brand" aria-hidden />
       <h1 className="mb-5 text-2xl font-bold tracking-tight">Sign in</h1>
 
       {inIframe ? (

@@ -777,7 +777,7 @@ export default function EmployeeTimePage() {
           <button
             type="button"
             onClick={logAnother}
-            className="w-full rounded-2xl bg-accent px-4 py-5 text-base font-bold text-white shadow-sm transition hover:bg-accent-hover"
+            className="w-full rounded-2xl bg-accent px-4 py-5 text-base font-bold text-accent-fg shadow-sm transition hover:bg-accent-hover"
           >
             Log another
           </button>
@@ -873,7 +873,7 @@ export default function EmployeeTimePage() {
                   type="button"
                   onClick={() => setClockSubPhase("clockingOut")}
                   disabled={busy}
-                  className="w-full rounded-2xl bg-accent px-4 py-6 text-lg font-bold text-white shadow-sm transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
+                  className="w-full rounded-2xl bg-accent px-4 py-6 text-lg font-bold text-accent-fg shadow-sm transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   Clock out
                 </button>
@@ -906,7 +906,7 @@ export default function EmployeeTimePage() {
                   type="button"
                   onClick={confirmClockOut}
                   disabled={busy}
-                  className="w-full rounded-2xl bg-accent px-4 py-6 text-lg font-bold text-white shadow-sm transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
+                  className="w-full rounded-2xl bg-accent px-4 py-6 text-lg font-bold text-accent-fg shadow-sm transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   {busy ? "Saving…" : "Confirm clock out"}
                 </button>
@@ -983,7 +983,7 @@ export default function EmployeeTimePage() {
               type="button"
               onClick={clockIn}
               disabled={busy}
-              className="w-full rounded-2xl bg-accent px-4 py-6 text-lg font-bold text-white shadow-sm transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
+              className="w-full rounded-2xl bg-accent px-4 py-6 text-lg font-bold text-accent-fg shadow-sm transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
             >
               {busy ? "Clocking in…" : "Clock in"}
             </button>
@@ -1088,7 +1088,7 @@ export default function EmployeeTimePage() {
             type="button"
             onClick={submit}
             disabled={busy}
-            className="w-full rounded-2xl bg-accent px-4 py-6 text-lg font-bold text-white shadow-sm transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
+            className="w-full rounded-2xl bg-accent px-4 py-6 text-lg font-bold text-accent-fg shadow-sm transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
           >
             {busy ? "Saving…" : "Log time"}
           </button>
@@ -1161,7 +1161,7 @@ function ModeTab({
       className={
         "flex-1 rounded-xl px-3 py-2 text-sm font-semibold transition " +
         (active
-          ? "bg-accent text-white shadow-sm"
+          ? "bg-accent text-accent-fg shadow-sm"
           : "border border-neutral-200 text-neutral-600 hover:border-accent dark:border-neutral-700/60 dark:text-neutral-300")
       }
     >
@@ -1186,7 +1186,7 @@ function HalfTab({
       className={
         "rounded-full px-4 py-1.5 text-sm font-semibold transition " +
         (active
-          ? "bg-accent text-white"
+          ? "bg-accent text-accent-fg"
           : "border border-neutral-300 text-neutral-600 dark:border-neutral-600 dark:text-neutral-300")
       }
     >

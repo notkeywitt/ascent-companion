@@ -1,18 +1,19 @@
 /**
  * Page heading with the Ascent "peak" mark — carries the logo motif into the
- * page bodies as a consistent brand signature. The mark is ochre, the brand's
- * gold highlight; it's purely decorative (the <h1> carries the name), so the
- * ochre-on-cream contrast that fails for text is fine here.
+ * page bodies as a consistent brand signature. The mark is the theme's brand
+ * hue (ochre in light, olive in dark); it's purely decorative (the <h1> carries
+ * the name), so the low brand-on-surface contrast that fails for text is fine.
+ * Callers may override with any CSS color (EmptyState uses webgrey).
  */
 export function PeakMark({
   className = "",
-  color = "#CF9803",
+  color = "rgb(var(--brand))",
 }: {
   className?: string;
   color?: string;
 }) {
   return (
-    <svg viewBox="0 0 100 62" aria-hidden="true" className={className} fill={color}>
+    <svg viewBox="0 0 100 62" aria-hidden="true" className={className} style={{ fill: color }}>
       <polygon points="6,60 34,15 42,24 54,2 94,60" />
     </svg>
   );

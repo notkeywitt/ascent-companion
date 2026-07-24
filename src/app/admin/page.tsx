@@ -255,7 +255,7 @@ function MemberRow({
                       <div key={v.id} className="flex items-center gap-2">
                         <Toggle checked={on} onChange={(next) => toggle(v.id, next)} label={v.label} />
                         {overridden && (
-                          <span className="text-[10px] font-semibold uppercase tracking-wide text-ochre">
+                          <span className="text-[10px] font-semibold uppercase tracking-wide text-accent">
                             override
                           </span>
                         )}

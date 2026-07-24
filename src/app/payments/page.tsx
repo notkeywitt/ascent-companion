@@ -226,7 +226,7 @@ export default function PaymentsPage() {
                 {s.net && <CopyButton value={s.net} label="Net" />}
                 <JtLink
                   href={TSYS_URL}
-                  className="inline-flex items-center gap-1 rounded-md bg-accent px-2.5 py-1 text-xs font-semibold text-white transition hover:bg-accent-hover"
+                  className="inline-flex items-center gap-1 rounded-md bg-accent px-2.5 py-1 text-xs font-semibold text-accent-fg transition hover:bg-accent-hover"
                 >
                   Pay at TSYS ↗
                 </JtLink>

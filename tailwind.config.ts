@@ -6,17 +6,30 @@ export default {
   theme: {
     extend: {
       // Ascent Building Co. brand palette (Brand Guidelines, May 2024).
-      // AA note: ochre is a GRAPHIC / large-element accent only — it fails AA as
-      // small text on cream or white, so interactive text stays on `accent` (olive).
+      // The raw hues below are fixed brand values. The THEME roles — `accent`
+      // and `brand` — are CSS variables defined in globals.css, so each theme
+      // uses one pairing: light = cream + ochre, dark = off-black + olive.
       colors: {
         cream: "#FAF7EE",
         offblack: "#1B1B17",
         olive: "#878054",
         ochre: "#CF9803",
         webgrey: "#8D8D8B",
-        // `soft` is the olive lightened for small text on dark surfaces (olive
-        // itself only passes AA on off-black as graphics / large type).
-        accent: { DEFAULT: "#878054", hover: "#6F6944", soft: "#CFC8A6" },
+        // Interactive color for the active theme (deep ochre / lifted olive).
+        // `fg` is the text that sits on a filled accent; `soft` is the lifted
+        // variant for small text on dark surfaces.
+        accent: {
+          DEFAULT: "rgb(var(--accent) / <alpha-value>)",
+          hover: "rgb(var(--accent-hover) / <alpha-value>)",
+          soft: "rgb(var(--accent-soft) / <alpha-value>)",
+          fg: "rgb(var(--accent-fg) / <alpha-value>)",
+        },
+        // Pure brand hue for GRAPHICS only (hairlines, peak mark, logo square).
+        // Never text — pure ochre is 2.4:1 on cream.
+        brand: {
+          DEFAULT: "rgb(var(--brand) / <alpha-value>)",
+          fg: "rgb(var(--brand-fg) / <alpha-value>)",
+        },
         // Dark-mode surface scale: page (= offblack), raised cards, overlays
         // (menus/modals). Cards must sit LIGHTER than the page, not darker.
         ink: { DEFAULT: "#1B1B17", raised: "#23231E", overlay: "#2B2B25" },

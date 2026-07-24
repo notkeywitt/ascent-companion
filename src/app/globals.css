@@ -2,11 +2,37 @@
 @tailwind components;
 @tailwind utilities;
 
+/* --- Theme tokens --------------------------------------------------------
+   Each theme uses ONE brand pairing, not both:
+     light = cream + ochre        dark = off-black + olive green
+   Tailwind's `accent` / `brand` colors read these vars (see tailwind.config.ts),
+   so every existing bg-accent / text-accent / border-accent flips with the theme
+   without touching the component that uses it.
+
+   `accent`  = the interactive color (buttons, links, focus, active states).
+               Always AA-safe as small text on that theme's page surface.
+   `brand`   = the pure brand hue, for GRAPHICS ONLY (hairlines, the peak mark,
+               the logo square). Pure ochre is only 2.4:1 on cream, so it can
+               never carry text — that is why `accent` is a deepened ochre.
+   `*-fg`    = the text/knockout color that sits ON a filled accent/brand shape.
+   Values are space-separated RGB channels so Tailwind can apply /alpha. */
 :root {
   color-scheme: light;
+  --accent: 143 106 2; /* #8F6A02 deep ochre — 4.6:1 on cream */
+  --accent-hover: 110 82 2; /* #6E5202 */
+  --accent-soft: 143 106 2; /* light needs no lifted variant */
+  --accent-fg: 250 247 238; /* cream on a filled ochre */
+  --brand: 207 152 3; /* #CF9803 brand ochre — graphics only */
+  --brand-fg: 27 27 23; /* off-black knockout on ochre */
 }
 .dark {
   color-scheme: dark;
+  --accent: 154 146 96; /* #9A9260 lifted olive — 5.5:1 on off-black */
+  --accent-hover: 178 170 118; /* #B2AA76 */
+  --accent-soft: 207 200 166; /* #CFC8A6 */
+  --accent-fg: 27 27 23; /* off-black on a filled olive */
+  --brand: 135 128 84; /* #878054 brand olive — graphics only */
+  --brand-fg: 250 247 238; /* cream knockout on olive */
 }
 
 body {
@@ -18,10 +44,10 @@ body {
   color: #ece8db;
 }
 
-/* Keyboard focus is always visible, in brand olive. Text inputs opt out via
-   their own focus ring (see the shared input classes in components/ui.tsx). */
+/* Keyboard focus is always visible, in the theme's accent. Text inputs opt out
+   via their own focus ring (see the shared input classes in components/ui.tsx). */
 :focus-visible {
-  outline: 2px solid rgba(135, 128, 84, 0.9);
+  outline: 2px solid rgb(var(--accent) / 0.9);
   outline-offset: 1px;
 }
 input:focus-visible,
@@ -57,9 +83,9 @@ textarea:focus-visible {
   }
 }
 
-/* Brand-tinted text selection (ochre at low alpha). */
+/* Brand-tinted text selection (ochre in light, olive in dark, at low alpha). */
 ::selection {
-  background: rgba(207, 152, 3, 0.28);
+  background: rgb(var(--brand) / 0.28);
 }
 
 /* Print layout — used by the Invoicing tab's "Print / Save PDF" button.

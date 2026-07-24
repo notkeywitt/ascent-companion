@@ -3,9 +3,10 @@
  *
  * Every page previously hand-rolled its buttons, inputs, cards, banners, and
  * empty states, so paddings/radii/colors drifted page by page. These primitives
- * pin the brand look (Brand Guidelines, May 2024: cream/off-black surfaces,
- * olive as the interactive accent, ochre as a graphic highlight only) and the
- * dark-mode surface scale (cards sit LIGHTER than the page — bg-ink-raised).
+ * pin the brand look (Brand Guidelines, May 2024) and the dark-mode surface
+ * scale (cards sit LIGHTER than the page — bg-ink-raised). Each theme uses one
+ * brand pairing — light = cream + ochre, dark = off-black + olive green — which
+ * the theme-variable `accent` / `brand` colors resolve; see globals.css.
  *
  * Class-string helpers (`btn`, `inputCls`) are exported for the cases where a
  * component wrapper is awkward (e.g. a Next <Link> styled as a button).
@@ -22,10 +23,10 @@ const BTN_BASE =
   "inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-lg font-semibold transition disabled:cursor-not-allowed disabled:opacity-40";
 
 const BTN_VARIANT: Record<BtnVariant, string> = {
-  primary: "bg-accent text-white shadow-sm hover:bg-accent-hover",
+  primary: "bg-accent text-accent-fg shadow-sm hover:bg-accent-hover",
   secondary:
-    "border border-neutral-300 text-neutral-700 hover:border-accent hover:text-accent dark:border-neutral-600 dark:text-neutral-300 dark:hover:border-accent dark:hover:text-cream",
-  outline: "border border-accent text-accent hover:bg-accent/10 dark:text-accent-soft",
+    "border border-neutral-300 text-neutral-700 hover:border-accent hover:text-accent dark:border-neutral-600 dark:text-neutral-300 dark:hover:border-accent",
+  outline: "border border-accent text-accent hover:bg-accent/10",
   ghost: "text-neutral-500 hover:text-accent dark:hover:text-accent-soft",
   danger:
     "border border-red-300 text-red-600 hover:bg-red-50 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950/40",
@@ -58,7 +59,7 @@ export function Button({
 
 /**
  * A labeled on/off switch — the interactive equivalent of a checkbox, styled as
- * a sliding pill (olive accent when on). Uses role="switch" so it is keyboard-
+ * a sliding pill (theme accent when on). Uses role="switch" so it is keyboard-
  * and screen-reader-correct. Prefer this over a raw <input type="checkbox">.
  */
 export function Toggle({

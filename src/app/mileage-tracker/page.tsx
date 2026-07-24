@@ -720,7 +720,7 @@ export default function MileageTrackerPage() {
             type="button"
             onClick={startTrip}
             disabled={busy}
-            className="w-full rounded-2xl bg-accent px-4 py-6 text-lg font-bold text-white shadow-sm transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
+            className="w-full rounded-2xl bg-accent px-4 py-6 text-lg font-bold text-accent-fg shadow-sm transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
           >
             {busy ? "Getting your location…" : "Start trip"}
           </button>
@@ -823,7 +823,7 @@ export default function MileageTrackerPage() {
             type="button"
             onClick={saveManual}
             disabled={busy}
-            className="w-full rounded-2xl bg-accent px-4 py-6 text-lg font-bold text-white shadow-sm transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
+            className="w-full rounded-2xl bg-accent px-4 py-6 text-lg font-bold text-accent-fg shadow-sm transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
           >
             {busy ? "Saving…" : "Save miles"}
           </button>
@@ -898,7 +898,7 @@ export default function MileageTrackerPage() {
             type="button"
             onClick={endTrip}
             disabled={busy}
-            className="w-full rounded-2xl bg-accent px-4 py-6 text-lg font-bold text-white shadow-sm transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
+            className="w-full rounded-2xl bg-accent px-4 py-6 text-lg font-bold text-accent-fg shadow-sm transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
           >
             {busy && !addingStop ? "Saving trip…" : "End trip"}
           </button>
@@ -956,7 +956,7 @@ export default function MileageTrackerPage() {
           <button
             type="button"
             onClick={logAnother}
-            className="w-full rounded-2xl bg-accent px-4 py-5 text-base font-bold text-white shadow-sm transition hover:bg-accent-hover"
+            className="w-full rounded-2xl bg-accent px-4 py-5 text-base font-bold text-accent-fg shadow-sm transition hover:bg-accent-hover"
           >
             Log another trip
           </button>

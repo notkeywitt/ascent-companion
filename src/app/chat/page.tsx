@@ -163,7 +163,7 @@ function Chat() {
               className={
                 "max-w-[85%] whitespace-pre-wrap rounded-2xl px-4 py-2.5 text-sm " +
                 (m.role === "user"
-                  ? "bg-accent text-white"
+                  ? "bg-accent text-accent-fg"
                   : "border border-neutral-200 bg-white dark:border-neutral-700/60 dark:bg-ink-raised")
               }
             >

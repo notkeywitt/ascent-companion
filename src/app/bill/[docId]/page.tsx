@@ -742,7 +742,7 @@ function BillDetail() {
                     className={
                       "px-3 py-1 text-sm " +
                       (on
-                        ? "bg-accent font-semibold text-white"
+                        ? "bg-accent font-semibold text-accent-fg"
                         : "text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200")
                     }
                   >
@@ -766,7 +766,7 @@ function BillDetail() {
                     className={
                       "px-3 py-1 text-sm " +
                       (on
-                        ? "bg-accent font-semibold text-white"
+                        ? "bg-accent font-semibold text-accent-fg"
                         : "text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200")
                     }
                   >
@@ -799,7 +799,7 @@ function BillDetail() {
             <button
               onClick={approveBill}
               disabled={approving || !header}
-              className="w-full rounded-xl bg-accent px-4 py-3 text-sm font-semibold text-white hover:bg-accent-hover disabled:opacity-50"
+              className="w-full rounded-xl bg-accent px-4 py-3 text-sm font-semibold text-accent-fg hover:bg-accent-hover disabled:opacity-50"
             >
               {approving ? "Saving…" : isExpense ? "Record payment" : "Approve for payment"}
             </button>
