@@ -999,7 +999,10 @@ export interface UninvoicedBills {
 // ---------------------------------------------------------------------------
 
 /** Cost-item custom field "Cost Codes" (text) — the raw CSI the engine writes
- *  on every coded line (same id the Apps Script push uses). */
+ *  on every coded line. This is the SAME JobTread field id the Apps Script push
+ *  uses; keep it in sync with CONFIG.JOBTREAD.CUSTOM_FIELDS.COST_CODES in
+ *  ascent-appscript/Config.js (the two repos can't share a runtime, so this is
+ *  the one place it lives on the Companion side). */
 export const CF_COST_CODES = "22PYwxRXb8yr";
 
 export interface NewBillLine {
