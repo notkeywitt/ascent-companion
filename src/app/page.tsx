@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { PageHeader, btn } from "@/components/ui";
 import { useAccess } from "@/components/AccessProvider";
+import { AdminActionBar } from "@/components/AdminActionBar";
 
 /**
  * The Assistant's front page — the launcher the app opens to, and since the
@@ -18,6 +19,10 @@ import { useAccess } from "@/components/AccessProvider";
  * (Mileage, Time, Tools) put the most-used destinations one tap away. The
  * selected job (if any) carries through on the query string, so landing on a
  * job's Coding Review / Invoicing keeps that job in context.
+ *
+ * Topmost, for admins only, sits the AdminActionBar — buttons that RUN a script
+ * job in place rather than navigate anywhere. Add actions to it in that
+ * component's own registry, not here.
  */
 
 /* ------------------------------------------------------------------- icons */
@@ -177,6 +182,10 @@ function Home() {
         title="Home"
         description="Jump to what you need — tap a menu to roll it open."
       />
+
+      {/* Admin-only: run a script job without leaving the launcher. Gated on the
+          same `actions` view as the /actions page and the /api/actions route. */}
+      {access.can("actions") && <AdminActionBar />}
 
       {/* Quick launch — the three most-used destinations as big, thumb-sized
           buttons above the full launcher grid. */}

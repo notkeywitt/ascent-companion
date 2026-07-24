@@ -55,7 +55,10 @@ export const VIEWS: ViewDef[] = [
   { id: "labor-import", label: "Labor Import", group: "Office", paths: ["/labor-import"] },
   // System
   { id: "requests", label: "Requests", group: "System", paths: ["/requests"] },
-  { id: "actions", label: "Actions", group: "System", paths: ["/actions"] },
+  // The API route is listed alongside the page so the Home launcher's admin
+  // action bar — buttons on a page EVERY role loads — can't be driven by a
+  // non-admin who POSTs /api/actions directly.
+  { id: "actions", label: "Actions", group: "System", paths: ["/actions", "/api/actions"] },
   { id: "admin", label: "Admin", group: "System", paths: ["/admin"] },
   { id: "logs", label: "Logs", group: "System", paths: ["/logs"] },
   // No page of its own — this gates the header's Sync button and the API route
