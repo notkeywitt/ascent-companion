@@ -26,10 +26,7 @@ export default {
         },
         // Pure brand hue for GRAPHICS only (hairlines, peak mark, logo square).
         // Never text — pure ochre is 2.4:1 on cream.
-        brand: {
-          DEFAULT: "rgb(var(--brand) / <alpha-value>)",
-          fg: "rgb(var(--brand-fg) / <alpha-value>)",
-        },
+        brand: { DEFAULT: "rgb(var(--brand) / <alpha-value>)" },
         // Dark-mode surface scale: page (= offblack), raised cards, overlays
         // (menus/modals). Cards must sit LIGHTER than the page, not darker.
         ink: { DEFAULT: "#1B1B17", raised: "#23231E", overlay: "#2B2B25" },

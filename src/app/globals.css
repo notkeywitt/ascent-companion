@@ -23,7 +23,6 @@
   --accent-soft: 143 106 2; /* light needs no lifted variant */
   --accent-fg: 250 247 238; /* cream on a filled ochre */
   --brand: 207 152 3; /* #CF9803 brand ochre — graphics only */
-  --brand-fg: 27 27 23; /* off-black knockout on ochre */
 }
 .dark {
   color-scheme: dark;
@@ -32,7 +31,6 @@
   --accent-soft: 207 200 166; /* #CFC8A6 */
   --accent-fg: 27 27 23; /* off-black on a filled olive */
   --brand: 135 128 84; /* #878054 brand olive — graphics only */
-  --brand-fg: 250 247 238; /* cream knockout on olive */
 }
 
 body {

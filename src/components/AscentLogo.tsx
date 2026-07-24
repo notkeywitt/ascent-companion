@@ -6,8 +6,8 @@
  * guide allows the icon down to 20px) and reads correctly in both themes. The
  * square follows the theme's brand hue — OCHRE in light, brand OLIVE in dark —
  * so each theme stays on one pairing (page 17's olive-backed icon is the dark
- * variant). The wordmark is off-black on light / cream on dark (both AA-safe
- * per the type-pairing page).
+ * variant), with the peak always knocked out in cream. The wordmark is
+ * off-black on light / cream on dark (both AA-safe per the type-pairing page).
  */
 export function AscentLogo({
   wordmark = true,
@@ -36,9 +36,10 @@ export function AscentIcon({ className = "" }: { className?: string }) {
   return (
     <svg viewBox="0 0 100 100" role="img" aria-label="Ascent Building Co." className={className}>
       <rect width="100" height="100" className="fill-brand" />
-      {/* Notched double-peak mountain, knocked out in the square's counterpart:
-          off-black out of light-theme ochre, cream out of dark-theme olive. */}
-      <polygon points="18,74 40,41 46,47 56,30 82,74" className="fill-brand-fg" />
+      {/* Notched double-peak mountain, always knocked out in cream — never dark.
+          The mark reads as a light peak on the brand square in BOTH themes; a
+          dark knockout on ochre is off-brand (guide p.17 shows it light-out). */}
+      <polygon points="18,74 40,41 46,47 56,30 82,74" fill="#FAF7EE" />
     </svg>
   );
 }
