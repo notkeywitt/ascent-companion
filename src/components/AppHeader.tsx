@@ -2,9 +2,8 @@
 
 import { usePathname } from "next/navigation";
 import { GlobalJobBar } from "@/components/GlobalJobBar";
-import { TabBar } from "@/components/TabBar";
 
-/** Sticky top chrome: the global job picker above the tab bar. */
+/** Sticky top chrome: a single row holding the job picker and its buttons. */
 export function AppHeader() {
   const pathname = usePathname();
   if (pathname === "/login" || pathname === "/privacy") return null;
@@ -15,7 +14,6 @@ export function AppHeader() {
           every page as the app's top rule. */}
       <div className="h-0.5 bg-ochre" aria-hidden />
       <GlobalJobBar />
-      <TabBar />
     </div>
   );
 }

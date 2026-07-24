@@ -69,7 +69,7 @@ export function SyncNowButton() {
       title={detail || "Sync Sheets + Drive with JobTread now"}
       aria-label="Sync with JobTread now"
       className={
-        "mr-1 whitespace-nowrap rounded-md px-2 py-1 text-sm font-semibold transition " +
+        "shrink-0 whitespace-nowrap rounded-md px-2 py-1 text-sm font-semibold transition " +
         (state === "error"
           ? "text-red-600 dark:text-red-400"
           : state === "done"
@@ -80,7 +80,11 @@ export function SyncNowButton() {
         (state === "busy" ? " animate-pulse cursor-wait" : "")
       }
     >
-      ⟳ {label}
+      {/* Sharing one row with the job picker, the idle word "Sync" is dropped on
+          phone widths — the glyph plus the tooltip/aria-label carry it. Every
+          other state keeps its label: that text IS the result feedback. */}
+      ⟳
+      <span className={"ml-1 " + (state === "idle" ? "hidden sm:inline" : "")}>{label}</span>
     </button>
   );
 }
