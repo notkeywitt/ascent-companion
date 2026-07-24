@@ -23,7 +23,6 @@ interface AdminAction {
   /** Local id — react key + run-state identity only; never sent to Apps Script. */
   id: string;
   label: string;
-  desc: string;
   /** COMPANION_TASKS keys, run in this order. */
   tasks: string[];
 }
@@ -32,13 +31,11 @@ const ADMIN_ACTIONS: AdminAction[] = [
   {
     id: "scan-jt-invoice-tags",
     label: "Scan JT Invoice Tags",
-    desc: "Log emails tagged “_JT Invoice <Customer> - <Job>” as bills",
     tasks: ["scanJtInvoiceCaptureTags"],
   },
   {
     id: "sync-vendors-projects-jobs",
     label: "Sync Vendors / Projects / Jobs",
-    desc: "Refresh the Vendors and Projects sheets from JobTread",
     tasks: ["syncVendorsFromJobTread", "syncProjectsFromJobTread"],
   },
 ];
@@ -113,7 +110,6 @@ export function AdminActionBar() {
             <Card key={a.id} className="flex items-center justify-between gap-3">
               <div className="min-w-0">
                 <div className="text-sm font-semibold">{a.label}</div>
-                <div className="mt-0.5 text-xs text-neutral-500">{a.desc}</div>
                 {st.note && (
                   <div
                     className={

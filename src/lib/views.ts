@@ -85,7 +85,7 @@ const ADMIN_ONLY: string[] = [
 export const ROLE_VIEWS: Record<Role, string[]> = {
   admin: ALL_VIEW_IDS,
   office: ALL_VIEW_IDS.filter((id) => !ADMIN_ONLY.includes(id)),
-  field: ["safety-meeting", "mileage", "employee-time", "tools", "rfis", "chat", "requests"],
+  field: ["mileage", "employee-time", "tools", "rfis", "requests"],
 };
 
 function asRole(role: string | null | undefined): Role {
