@@ -45,6 +45,45 @@ export async function pave<T = any>(cfg: PaveConfig, query: Record<string, unkno
 }
 
 // ---------------------------------------------------------------------------
+// REFERENCE-DATA CACHE
+// Jobs / vendors / org users / pay-type names change rarely but are read on
+// nearly every page load. Memoize them in-process with a short TTL so a warm
+// server instance serves repeat reads without re-hitting Pave. The cache key is
+// caller-supplied (orgId + args) and NEVER contains the grant key, so secrets
+// stay out of keys/logs. Concurrent readers share one in-flight promise, and a
+// rejected fetch is evicted so the next call retries instead of caching an error.
+// ---------------------------------------------------------------------------
+interface CacheEntry<T> {
+  value: Promise<T>;
+  expires: number;
+}
+const _refCache = new Map<string, CacheEntry<unknown>>();
+
+function cachedRef<T>(key: string, ttlMs: number, fetcher: () => Promise<T>): Promise<T> {
+  const now = Date.now();
+  const hit = _refCache.get(key);
+  if (hit && hit.expires > now) return hit.value as Promise<T>;
+  const entry: CacheEntry<T> = {
+    expires: now + ttlMs,
+    value: fetcher().catch((err) => {
+      if (_refCache.get(key) === (entry as CacheEntry<unknown>)) _refCache.delete(key);
+      throw err;
+    }),
+  };
+  _refCache.set(key, entry as CacheEntry<unknown>);
+  return entry.value;
+}
+
+/**
+ * Drop all cached reference data. Call after a write that could change jobs,
+ * vendors, or org membership so the next read reflects it immediately instead of
+ * waiting out the TTL.
+ */
+export function clearJtRefCache(): void {
+  _refCache.clear();
+}
+
+// ---------------------------------------------------------------------------
 // UNBILLED EXPENSES  (confirmed: documents carry cost/price/priceWithTax and
 // support server-side group/sum by type+status)
 // ---------------------------------------------------------------------------
@@ -527,7 +566,12 @@ export interface JobRef {
 }
 
 /** Org's jobs for the picker. Open jobs only by default, sorted by customer/name. */
-export async function getJobs(cfg: PaveConfig, includeClosed = false): Promise<JobRef[]> {
+export function getJobs(cfg: PaveConfig, includeClosed = false): Promise<JobRef[]> {
+  return cachedRef(`jobs:${cfg.orgId}:${includeClosed}`, 5 * 60_000, () =>
+    _getJobsUncached(cfg, includeClosed),
+  );
+}
+async function _getJobsUncached(cfg: PaveConfig, includeClosed = false): Promise<JobRef[]> {
   const out: JobRef[] = [];
   let cursor: string | null = null;
   for (let page = 0; page < 50; page++) {
@@ -577,7 +621,10 @@ export interface VendorRef {
 }
 
 /** Org's vendor accounts (for the RFI assignee dropdown), sorted by name. */
-export async function getVendors(cfg: PaveConfig): Promise<VendorRef[]> {
+export function getVendors(cfg: PaveConfig): Promise<VendorRef[]> {
+  return cachedRef(`vendors:${cfg.orgId}`, 30 * 60_000, () => _getVendorsUncached(cfg));
+}
+async function _getVendorsUncached(cfg: PaveConfig): Promise<VendorRef[]> {
   const out: VendorRef[] = [];
   let cursor: string | null = null;
   for (let page = 0; page < 20; page++) {
@@ -676,7 +723,10 @@ async function fetchMembers(cfg: PaveConfig, withTypes: boolean): Promise<UserRe
  * grant; if the grant lacks it the whole query 403s, so we retry without it and
  * callers fall back to the org-wide type list.
  */
-export async function getOrgUsers(cfg: PaveConfig): Promise<UserRef[]> {
+export function getOrgUsers(cfg: PaveConfig): Promise<UserRef[]> {
+  return cachedRef(`users:${cfg.orgId}`, 30 * 60_000, () => _getOrgUsersUncached(cfg));
+}
+async function _getOrgUsersUncached(cfg: PaveConfig): Promise<UserRef[]> {
   try {
     return await fetchMembers(cfg, true);
   } catch {
@@ -685,7 +735,12 @@ export async function getOrgUsers(cfg: PaveConfig): Promise<UserRef[]> {
 }
 
 /** Every pay-type name configured on the org — the fallback list. */
-export async function getOrgTimeEntryTypeNames(cfg: PaveConfig): Promise<string[]> {
+export function getOrgTimeEntryTypeNames(cfg: PaveConfig): Promise<string[]> {
+  return cachedRef(`typeNames:${cfg.orgId}`, 60 * 60_000, () =>
+    _getOrgTimeEntryTypeNamesUncached(cfg),
+  );
+}
+async function _getOrgTimeEntryTypeNamesUncached(cfg: PaveConfig): Promise<string[]> {
   const r = await pave(cfg, {
     organization: { $: { id: cfg.orgId }, id: {}, timeEntryTypeNames: {} },
   });
