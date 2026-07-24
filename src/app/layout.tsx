@@ -4,6 +4,7 @@ import { Roboto } from "next/font/google";
 import "./globals.css";
 import { AppHeader } from "@/components/AppHeader";
 import { AccessProvider } from "@/components/AccessProvider";
+import { StuckVendorPopup, StuckVendorsProvider } from "@/components/StuckVendors";
 import { auth } from "@/auth";
 import { ALL_VIEW_IDS, resolveAllowedViews, type Role } from "@/lib/views";
 
@@ -65,10 +66,18 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       </head>
       <body className="min-h-screen font-sans antialiased">
         <AccessProvider role={role} views={views}>
-          <Suspense fallback={null}>
-            <AppHeader />
-          </Suspense>
-          {children}
+          {/* Bills whose vendor has no JobTread account are imported but never
+              pushed, and the failure is otherwise invisible. The provider checks
+              once per load (only for users who can act on it); the popup finds
+              them on whatever page they opened, and the Home banner keeps it
+              visible after the popup is dismissed. */}
+          <StuckVendorsProvider>
+            <Suspense fallback={null}>
+              <AppHeader />
+            </Suspense>
+            {children}
+            <StuckVendorPopup />
+          </StuckVendorsProvider>
         </AccessProvider>
       </body>
     </html>

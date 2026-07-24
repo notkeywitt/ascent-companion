@@ -7,6 +7,7 @@ import { signOut } from "next-auth/react";
 import { PageHeader, btn } from "@/components/ui";
 import { useAccess } from "@/components/AccessProvider";
 import { AdminActionBar } from "@/components/AdminActionBar";
+import { StuckVendorBanner } from "@/components/StuckVendors";
 
 /**
  * The Assistant's front page — the launcher the app opens to, and since the
@@ -182,6 +183,10 @@ function Home() {
         title="Home"
         description="Jump to what you need — tap a menu to roll it open."
       />
+
+      {/* Bills that imported but couldn't push because their vendor isn't in
+          JobTread. Self-hiding when there are none; gates itself on `email`. */}
+      <StuckVendorBanner />
 
       {/* Admin-only: run a script job without leaving the launcher. Gated on the
           same `actions` view as the /actions page and the /api/actions route. */}

@@ -39,7 +39,10 @@ export const VIEWS: ViewDef[] = [
   { id: "coding", label: "Coding Review", group: "Financials", paths: ["/coding", "/bill", "/add-bill"] },
   { id: "stage", label: "Invoicing", group: "Financials", paths: ["/stage"] },
   { id: "unbilled", label: "Unbilled", group: "Financials", paths: ["/unbilled"] },
-  { id: "email", label: "Email Invoices", group: "Financials", paths: ["/email"] },
+  // The stuck-vendor alert (popup + home banner) rides on this gate: its API
+  // route is listed here so a non-billing user can neither see the warning nor
+  // read the bill list behind it by calling the route directly.
+  { id: "email", label: "Email Invoices", group: "Financials", paths: ["/email", "/api/stuck-vendors"] },
   { id: "needs-project", label: "Needs Project", group: "Financials", paths: ["/needs-project"] },
   { id: "payments", label: "Payments", group: "Financials", paths: ["/payments"] },
   // Field
