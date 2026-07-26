@@ -6,6 +6,7 @@ import {
   getOrgUsers,
   getOrgTimeEntryTypeNames,
   createTimeEntry,
+  orgLocalToJtIso,
 } from "@/lib/jobtread";
 import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
 
@@ -74,9 +75,12 @@ async function callAppsScript(payload: Record<string, unknown>) {
   }
 }
 
-// datetime-local ("YYYY-MM-DDTHH:MM") → the floating local wall-clock ISO
-// JobTread stores (no Z / offset — see toIso in labor-import). "" if unparseable.
-function toFloatingIso(v: string): string {
+// datetime-local ("YYYY-MM-DDTHH:MM") → a normalised local wall clock with
+// seconds. This is what the Time Entries sheet logs (the office reads it as
+// plain local time); the JobTread write converts it to a real UTC instant with
+// orgLocalToJtIso — JT reads a zoneless stamp as UTC, so sending the wall clock
+// raw landed every entry 7 hours early. "" if unparseable.
+function toLocalStamp(v: string): string {
   const t = (v ?? "").trim();
   const m = t.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/);
   if (!m) return "";
@@ -174,8 +178,10 @@ export async function POST(req: NextRequest) {
   const jobId = (body.jobId ?? "").trim();
   const costItemId = (body.costItemId ?? "").trim();
   const note = (body.note ?? "").trim();
-  const startedAt = toFloatingIso(body.startTime ?? "");
-  const endedAt = toFloatingIso(body.endTime ?? "");
+  const startLocal = toLocalStamp(body.startTime ?? "");
+  const endLocal = toLocalStamp(body.endTime ?? "");
+  const startedAt = orgLocalToJtIso(startLocal);
+  const endedAt = orgLocalToJtIso(endLocal);
 
   if (!userId) {
     return NextResponse.json(
@@ -239,8 +245,8 @@ export async function POST(req: NextRequest) {
     costCode: body.costCode ?? "",
     costItemId,
     payType: body.payType ?? "",
-    startTime: startedAt,
-    endTime: endedAt,
+    startTime: startLocal,
+    endTime: endLocal,
     note,
     lat: body.lat ?? "",
     lng: body.lng ?? "",

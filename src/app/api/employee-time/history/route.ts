@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { auth } from "@/auth";
-import { getUserTimeEntries } from "@/lib/jobtread";
+import { getUserTimeEntries, jtIsoToOrgLocal } from "@/lib/jobtread";
 import { getPaveConfig, hasGrant } from "@/lib/config";
 
 /**
@@ -12,10 +12,11 @@ import { getPaveConfig, hasGrant } from "@/lib/config";
  * never trusted from the client — so nobody can page through someone else's
  * time by editing a query param.
  *
- * JobTread's timestamps carry a cosmetic trailing "Z" even though the digits
- * are the LOCAL wall-clock time (confirmed — see the labor-import and
- * employee-time -7h-shift findings), so the calendar date / clock time are read
- * literally rather than through a timezone conversion.
+ * JobTread's timestamps are REAL UTC instants (confirmed live 2026-07-24 — see
+ * the probe table above orgLocalToJtIso in @/lib/jobtread), so every stamp is
+ * converted back to the org's local wall clock before its date/time is read.
+ * Reading the digits literally, as this route used to, showed each entry 7 hours
+ * off.
  *
  * GET ?start=YYYY-MM-DD&end=YYYY-MM-DD (inclusive, calendar-day range)
  *   → { ok, entries:[{id, date, startTime, endTime, jobId, jobName, costCode,
@@ -51,10 +52,10 @@ async function callAppsScript(payload: Record<string, unknown>) {
 }
 
 function dateOf(iso: string): string {
-  return (iso || "").slice(0, 10);
+  return jtIsoToOrgLocal(iso).slice(0, 10);
 }
 function timeOf(iso: string): string {
-  const m = (iso || "").match(/T(\d{2}):(\d{2})/);
+  const m = jtIsoToOrgLocal(iso).match(/T(\d{2}):(\d{2})/);
   return m ? `${m[1]}:${m[2]}` : "";
 }
 

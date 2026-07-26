@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { auth } from "@/auth";
-import { createTimeEntry, updateTimeEntry, deleteTimeEntry } from "@/lib/jobtread";
+import {
+  createTimeEntry,
+  updateTimeEntry,
+  deleteTimeEntry,
+  orgLocalToJtIso,
+} from "@/lib/jobtread";
 import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
 
 /**
@@ -57,9 +62,10 @@ async function callAppsScript(payload: Record<string, unknown>) {
   }
 }
 
-// "YYYY-MM-DDTHH:MM" (or with :SS) local wall-clock → the floating ISO JobTread
-// stores (no Z/offset). Mirrors ../route.ts's toFloatingIso.
-function toFloatingIso(v: string): string {
+// "YYYY-MM-DDTHH:MM" (or with :SS) → a normalised local wall clock for the Time
+// Entries log; the JobTread write converts it with orgLocalToJtIso. Mirrors
+// ../route.ts's toLocalStamp.
+function toLocalStamp(v: string): string {
   const t = (v ?? "").trim();
   const m = t.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/);
   if (!m) return "";
@@ -112,7 +118,7 @@ export async function POST(req: NextRequest) {
     const jobId = (body.jobId ?? "").trim();
     const costItemId = (body.costItemId ?? "").trim();
     const payType = (body.payType ?? "").trim();
-    const startedAt = toFloatingIso(body.startTime ?? "");
+    const startedAt = orgLocalToJtIso(toLocalStamp(body.startTime ?? ""));
 
     if (!userId) {
       return NextResponse.json(
@@ -177,8 +183,10 @@ export async function POST(req: NextRequest) {
   if (op === "out") {
     const entryId = (body.entryId ?? "").trim();
     const note = (body.note ?? "").trim();
-    const startedAt = toFloatingIso(body.startTime ?? "");
-    const endedAt = toFloatingIso(body.endTime ?? "");
+    const startLocal = toLocalStamp(body.startTime ?? "");
+    const endLocal = toLocalStamp(body.endTime ?? "");
+    const startedAt = orgLocalToJtIso(startLocal);
+    const endedAt = orgLocalToJtIso(endLocal);
 
     if (!note) return NextResponse.json({ ok: false, error: "A note is required." }, { status: 400 });
     if (!startedAt || !endedAt) {
@@ -213,8 +221,8 @@ export async function POST(req: NextRequest) {
       costCode: body.costCode ?? "",
       costItemId: (body.costItemId ?? "").trim(),
       payType: body.payType ?? "",
-      startTime: startedAt,
-      endTime: endedAt,
+      startTime: startLocal,
+      endTime: endLocal,
       note,
       lat: body.lat ?? "",
       lng: body.lng ?? "",

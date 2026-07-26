@@ -168,9 +168,13 @@ function synthEnd(date: string, hours: number): string {
  * `2026-06-01 8:00:00` → `2026-06-01T08:00:00`. A space separator / single-digit
  * hour isn't ISO, and JT's importer rejects it (falling back to "now").
  *
- * NO timezone offset on purpose. A real JT entry stores its start as
- * `2026-07-10T13:24:00.000Z` for an afternoon session — i.e. JT keeps the local
- * wall-clock time as-if-UTC (floating), so we hand it the local time unshifted.
+ * NO timezone offset on purpose — the IMPORTER reads a zoneless stamp as
+ * ORG-local and converts it itself (confirmed: rows emitted at 08:00 are stored
+ * as 15:00Z, i.e. 8 AM Pacific). Keep it that way.
+ *
+ * Note this is the opposite of JobTread's API, which reads a zoneless stamp as
+ * UTC — see the probe table above orgLocalToJtIso in @/lib/jobtread. The two
+ * paths genuinely disagree; don't "unify" them.
  */
 function toIso(local: string): string {
   const t = (local ?? "").trim();

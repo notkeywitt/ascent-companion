@@ -1430,11 +1430,76 @@ export async function getUninvoicedBills(
 // [PROBE]-tagged entry against live JobTread.
 // ---------------------------------------------------------------------------
 
+/**
+ * TIMESTAMPS ARE TRUE UTC INSTANTS — confirmed live 2026-07-24 by creating,
+ * reading back, and deleting three probe entries:
+ *
+ *   sent "2026-07-24T09:00:00"       → stored "2026-07-24T09:00:00.000Z"
+ *   sent "2026-07-24T09:00:00-07:00" → stored "2026-07-24T16:00:00.000Z"
+ *   sent "2026-07-24T16:00:00Z"      → stored "2026-07-24T16:00:00.000Z"
+ *
+ * A zoneless string is read as UTC, never as local time, and JobTread's UI then
+ * renders the instant in the org's timezone. Handing it a bare wall clock made
+ * every entry land 7 hours early (a 9:00 AM entry displayed as 2:00 AM PDT), so
+ * ALWAYS convert local↔UTC at this boundary with the two helpers below.
+ *
+ * JobTread's CSV IMPORTER does the opposite — it reads a zoneless stamp as
+ * ORG-local (an 08:00 import row is stored as 15:00Z). That's why /labor-import
+ * deliberately emits offset-free stamps, and why it must stay that way: the
+ * importer and this API disagree, so don't "unify" them.
+ */
+export const JT_ORG_TZ = "America/Los_Angeles";
+
+/** How far ahead of UTC `tz` is at `instant` (negative west of UTC), in ms. */
+function tzOffsetMs(instant: number, tz: string): number {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: tz,
+    hourCycle: "h23",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  }).formatToParts(new Date(instant));
+  const g = (t: string) => Number(parts.find((p) => p.type === t)?.value ?? "0");
+  // That zone's wall clock read as-if-UTC, minus the real instant, IS the offset.
+  return (
+    Date.UTC(g("year"), g("month") - 1, g("day"), g("hour"), g("minute"), g("second")) - instant
+  );
+}
+
+/**
+ * A local wall clock ("YYYY-MM-DDTHH:MM[:SS]", no zone) → the UTC instant it
+ * names in `tz`, as the ISO string JobTread should store. "" if unparseable.
+ */
+export function orgLocalToJtIso(local: string, tz: string = JT_ORG_TZ): string {
+  const m = (local ?? "")
+    .trim()
+    .match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2}))?$/);
+  if (!m) return "";
+  const naive = Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +(m[6] ?? 0));
+  // Two passes: the second resolves the offset against the real instant, so a
+  // time on a DST-shift day isn't converted with the previous day's offset.
+  const instant = naive - tzOffsetMs(naive - tzOffsetMs(naive, tz), tz);
+  return new Date(instant).toISOString();
+}
+
+/**
+ * The inverse — a JobTread timestamp → the "YYYY-MM-DDTHH:MM:SS" wall clock it
+ * reads as in `tz`, i.e. exactly what JobTread's own UI shows. "" if unparseable.
+ */
+export function jtIsoToOrgLocal(iso: string, tz: string = JT_ORG_TZ): string {
+  const t = Date.parse(iso ?? "");
+  if (!Number.isFinite(t)) return "";
+  return new Date(t + tzOffsetMs(t, tz)).toISOString().slice(0, 19);
+}
+
 export interface CreateTimeEntryArgs {
   userId: string; // JobTread user id (the member's `user.id`)
   jobId: string;
   costItemId: string; // the job's budget-leaf jobCostItemId (JT requires a cost item)
-  startedAt: string; // floating local wall-clock ISO, e.g. "2026-07-22T14:30:00" (NO Z/offset)
+  startedAt: string; // UTC instant ISO, e.g. "2026-07-22T21:30:00.000Z" — build it with orgLocalToJtIso()
   endedAt?: string; // same shape; OMIT for an OPEN/running entry (clock-in). JT derives minutes.
   type: string; // pay-type NAME (a rate; per worker × job) — REQUIRED (JT 400s without it).
   notes: string;
