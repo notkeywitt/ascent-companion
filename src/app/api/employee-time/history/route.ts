@@ -18,6 +18,10 @@ import { getPaveConfig, hasGrant } from "@/lib/config";
  * Reading the digits literally, as this route used to, showed each entry 7 hours
  * off.
  *
+ * Each row's jtUrl is the employee's own JobTread time page
+ * (app.jobtread.com/time?userId=…), where they review/adjust their hours — not
+ * the job page (an individual entry isn't deep-linkable).
+ *
  * GET ?start=YYYY-MM-DD&end=YYYY-MM-DD (inclusive, calendar-day range)
  *   → { ok, entries:[{id, date, startTime, endTime, jobId, jobName, costCode,
  *        costItemName, notes, open, jtUrl}], totalMinutes, openCount }
@@ -83,6 +87,11 @@ export async function GET(req: NextRequest) {
     });
   }
 
+  // Every row links to the employee's own JobTread time page (all their entries
+  // in one place), not the job page — the entry itself isn't deep-linkable, and
+  // this is where they'd review/adjust their hours.
+  const timeUrl = `https://app.jobtread.com/time?userId=${encodeURIComponent(userId)}`;
+
   try {
     const all = await getUserTimeEntries(getPaveConfig(), userId);
     const inRange = all
@@ -115,7 +124,7 @@ export async function GET(req: NextRequest) {
         costItemName: e.costItemName,
         notes: e.notes,
         open,
-        jtUrl: e.jobId ? `https://app.jobtread.com/jobs/${e.jobId}` : "",
+        jtUrl: timeUrl,
       };
     });
 
