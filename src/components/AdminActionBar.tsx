@@ -4,6 +4,14 @@ import Link from "next/link";
 import { useState } from "react";
 
 import { Button, Card, SectionLabel, Spinner } from "@/components/ui";
+import {
+  InvoiceSweepResultModal,
+  isSweepResult,
+  type SweepResult,
+} from "@/components/InvoiceSweepResult";
+
+/** Registry task whose result opens the sweep notice modal. */
+const SWEEP_TASK = "scanJtInvoiceCaptureTags";
 
 /**
  * The admin action bar at the top of the launcher — a curated, one-tap subset of
@@ -30,8 +38,8 @@ interface AdminAction {
 const ADMIN_ACTIONS: AdminAction[] = [
   {
     id: "scan-jt-invoice-tags",
-    label: "Scan JT Invoice Tags",
-    tasks: ["scanJtInvoiceCaptureTags"],
+    label: "Import Tagged Invoices",
+    tasks: [SWEEP_TASK],
   },
   {
     id: "sync-vendors-projects-jobs",
@@ -45,12 +53,15 @@ type RunState = { status: Status; note?: string; lockBusy?: boolean };
 
 export function AdminActionBar() {
   const [runs, setRuns] = useState<Record<string, RunState>>({});
+  // The invoice sweep's per-email result, shown in a notice modal after the run.
+  const [sweep, setSweep] = useState<SweepResult | null>(null);
 
   async function run(action: AdminAction) {
     setRuns((r) => ({ ...r, [action.id]: { status: "busy" } }));
 
     const notes: string[] = [];
     let lockBusy = false;
+    let sweepResult: SweepResult | null = null;
 
     // Sequential, never parallel: the sync tasks share one Apps Script script
     // lock, so firing them together would just make the second report lock-busy.
@@ -73,6 +84,8 @@ export function AdminActionBar() {
         // never reads as a clean success.
         if (j.lockBusy) lockBusy = true;
         if (j.note) notes.push(j.note);
+        // The sweep returns a detailed per-email result; hold it for the modal.
+        if (task === SWEEP_TASK && isSweepResult(j.result)) sweepResult = j.result;
       } catch (e) {
         setRuns((r) => ({
           ...r,
@@ -89,6 +102,7 @@ export function AdminActionBar() {
       ...r,
       [action.id]: { status: "done", lockBusy, note: notes.join(" · ") || "Done." },
     }));
+    if (sweepResult) setSweep(sweepResult);
   }
 
   return (
@@ -148,6 +162,8 @@ export function AdminActionBar() {
           );
         })}
       </div>
+
+      <InvoiceSweepResultModal result={sweep} onClose={() => setSweep(null)} />
     </section>
   );
 }

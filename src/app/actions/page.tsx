@@ -3,6 +3,14 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { Banner, Button, Card, Loading, PageHeader, SectionLabel, Spinner } from "@/components/ui";
+import {
+  InvoiceSweepResultModal,
+  isSweepResult,
+  type SweepResult,
+} from "@/components/InvoiceSweepResult";
+
+/** Registry task whose result opens the sweep notice modal. */
+const SWEEP_TASK = "scanJtInvoiceCaptureTags";
 
 // The Actions page renders one button per script job, driven entirely by the
 // Apps Script COMPANION_TASKS registry (GET /api/actions). To add a button, add
@@ -25,6 +33,8 @@ export default function ActionsPage() {
   const [tasks, setTasks] = useState<Task[] | null>(null);
   const [loadError, setLoadError] = useState("");
   const [runs, setRuns] = useState<Record<string, RunState>>({});
+  // The invoice sweep's per-email result, shown in a notice modal after the run.
+  const [sweep, setSweep] = useState<SweepResult | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -71,6 +81,8 @@ export default function ActionsPage() {
         }));
       } else {
         setRuns((r) => ({ ...r, [task.key]: { status: "done", note: j.note ?? "Done." } }));
+        // The sweep returns a detailed per-email result — show the notice modal.
+        if (task.key === SWEEP_TASK && isSweepResult(j.result)) setSweep(j.result);
       }
     } catch (e) {
       setRuns((r) => ({
@@ -143,6 +155,8 @@ export default function ActionsPage() {
           </div>
         </section>
       ))}
+
+      <InvoiceSweepResultModal result={sweep} onClose={() => setSweep(null)} />
     </main>
   );
 }
