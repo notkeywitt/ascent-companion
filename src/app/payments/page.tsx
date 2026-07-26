@@ -30,7 +30,14 @@ interface Invoice {
   number: string;
   amount: number;
   date: string;
+  docId: string;
+  jobId: string;
 }
+
+const jtDocUrl = (inv: Invoice) =>
+  inv.docId && inv.jobId
+    ? `https://app.jobtread.com/jobs/${encodeURIComponent(inv.jobId)}/documents/${encodeURIComponent(inv.docId)}`
+    : "";
 interface Reconciliation {
   projectId: string;
   month: string;
@@ -301,15 +308,24 @@ export default function PaymentsPage() {
                         <span className="hidden group-open:inline">Hide invoices ▾</span>
                       </summary>
                       <ul className="mt-1.5 space-y-0.5 border-t border-current/20 pt-1.5">
-                        {rc.invoices.map((inv, i) => (
-                          <li key={inv.number + "-" + i} className="flex justify-between gap-3 tabular-nums">
-                            <span className="truncate">
-                              #{inv.number || "—"}
-                              {inv.date ? <span className="opacity-60"> · {inv.date}</span> : null}
-                            </span>
-                            <span>{moneyN(inv.amount)}</span>
-                          </li>
-                        ))}
+                        {rc.invoices.map((inv, i) => {
+                          const url = jtDocUrl(inv);
+                          return (
+                            <li key={inv.number + "-" + i} className="flex justify-between gap-3 tabular-nums">
+                              <span className="truncate">
+                                {url ? (
+                                  <JtLink href={url} className="font-medium underline decoration-current/40 underline-offset-2 hover:decoration-current">
+                                    #{inv.number || "—"} ↗
+                                  </JtLink>
+                                ) : (
+                                  <>#{inv.number || "—"}</>
+                                )}
+                                {inv.date ? <span className="opacity-60"> · {inv.date}</span> : null}
+                              </span>
+                              <span>{moneyN(inv.amount)}</span>
+                            </li>
+                          );
+                        })}
                       </ul>
                     </details>
                   )}

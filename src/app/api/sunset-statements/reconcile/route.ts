@@ -15,6 +15,8 @@ interface Invoice {
   number: string;
   amount: number;
   date: string;
+  docId: string;
+  jobId: string;
 }
 interface Reconciliation {
   projectId: string;

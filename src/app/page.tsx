@@ -131,7 +131,7 @@ const AREAS: Area[] = [
       { label: "Unbilled", href: "/unbilled", desc: "Uninvoiced expenses by cost code", view: "unbilled" },
       { label: "Email Invoices", href: "/email", desc: "Log invoices from the office inbox", view: "email" },
       { label: "Needs Project", href: "/needs-project", desc: "Ingested bills with no job yet", view: "needs-project" },
-      { label: "Payments", href: "/payments", desc: "Pay a Sunset statement", view: "payments" },
+      { label: "Sunset Statements", href: "/payments", desc: "Pay a statement & reconcile its invoices", view: "payments" },
     ],
   },
   {

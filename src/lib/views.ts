@@ -44,7 +44,7 @@ export const VIEWS: ViewDef[] = [
   // read the bill list behind it by calling the route directly.
   { id: "email", label: "Email Invoices", group: "Financials", paths: ["/email", "/api/stuck-vendors"] },
   { id: "needs-project", label: "Needs Project", group: "Financials", paths: ["/needs-project"] },
-  { id: "payments", label: "Payments", group: "Financials", paths: ["/payments"] },
+  { id: "payments", label: "Sunset Statements", group: "Financials", paths: ["/payments"] },
   // Field
   { id: "safety-meeting", label: "Safety Meeting", group: "Field", paths: ["/safety-meeting"] },
   { id: "mileage", label: "Mileage", group: "Field", paths: ["/mileage-tracker"] },
