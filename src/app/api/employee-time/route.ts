@@ -142,6 +142,7 @@ interface Photo {
   name?: string;
 }
 interface Body {
+  clientKey?: string;
   userId?: string;
   employee?: string;
   jobId?: string;
@@ -174,6 +175,12 @@ export async function POST(req: NextRequest) {
   const session = await auth();
   const email = session?.user?.email ?? "";
 
+  // Idempotency key: the phone generates one UUID per logical entry and resends
+  // it on every retry. Bad service drops our RESPONSE, not the work, so a retry
+  // must reconcile to the same row — never a second one. Fall back to a per-
+  // request id only for older clients that don't send one (no dedupe, old
+  // behavior). See the reserve-first flow below.
+  const clientKey = (body.clientKey ?? "").trim() || `te-${crypto.randomUUID()}`;
   const userId = (body.userId ?? "").trim();
   const jobId = (body.jobId ?? "").trim();
   const costItemId = (body.costItemId ?? "").trim();
@@ -206,10 +213,72 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "Pick a pay type." }, { status: 400 });
   }
 
-  // 1) Create the JobTread time entry (gated). Never lose the record over a JT
-  //    failure — capture the outcome and still log below.
+  // 1) RESERVE the durable record FIRST, keyed by clientKey. On a retry this
+  //    returns the row already written (duplicate:true) instead of appending a
+  //    second one — and, because we haven't touched JobTread yet, a replay never
+  //    creates a duplicate JobTread entry either. Photos are saved here (once).
+  const photos = (body.photos ?? []).filter((p) => p && p.base64);
+  const reserved = await callAppsScript({
+    action: "logTimeEntry",
+    clientKey,
+    employee: body.employee ?? "",
+    employeeEmail: email,
+    jtUserId: userId,
+    jobLabel: body.jobLabel ?? "",
+    jobId,
+    costCode: body.costCode ?? "",
+    costItemId,
+    payType: body.payType ?? "",
+    startTime: startLocal,
+    endTime: endLocal,
+    note,
+    lat: body.lat ?? "",
+    lng: body.lng ?? "",
+    nearestJob: body.nearestJob ?? "",
+    jtEntryId: "",
+    jtStatus: writesEnabled() ? "pending push" : "not pushed (writes off)",
+    loggedBy: email,
+    photos,
+  });
+  if (reserved.error) {
+    return NextResponse.json({ ok: false, error: reserved.error }, { status: reserved.status });
+  }
+  const l = (reserved.data ?? {}) as {
+    ok?: boolean;
+    error?: string;
+    duplicate?: boolean;
+    entryId?: string;
+    date?: string;
+    photoCount?: number;
+    jtEntryId?: string;
+    jtStatus?: string;
+  };
+  if (l?.ok === false) {
+    return NextResponse.json(l, { status: 200 });
+  }
+
+  // Replay of an entry we already handled — echo its recorded outcome, do NOT
+  // write to JobTread again.
+  if (l.duplicate) {
+    const priorStatus = l.jtStatus ?? "";
+    return NextResponse.json({
+      ok: true,
+      duplicate: true,
+      previewed: /writes off/i.test(priorStatus),
+      wrote: !!l.jtEntryId,
+      jtEntryId: l.jtEntryId ?? "",
+      jtStatus: priorStatus,
+      entryId: l.entryId ?? "",
+      date: l.date ?? "",
+      photoCount: l.photoCount ?? 0,
+    });
+  }
+
+  // 2) First time for this key: create the JobTread entry (gated), then record
+  //    its id/status back onto the reserved row. A JobTread failure never loses
+  //    the record — the row already exists; we just mark why it didn't push.
   let jtEntryId = "";
-  let jtStatus = "";
+  let jtStatus = writesEnabled() ? "pending push" : "not pushed (writes off)";
   let jtError = "";
   if (writesEnabled()) {
     try {
@@ -229,48 +298,7 @@ export async function POST(req: NextRequest) {
       jtError = e instanceof Error ? e.message : "Unknown error";
       jtStatus = "JobTread error: " + jtError;
     }
-  } else {
-    jtStatus = "not pushed (writes off)";
-  }
-
-  // 2) Always store the photos + the auditable row (the durable office record).
-  const photos = (body.photos ?? []).filter((p) => p && p.base64);
-  const logged = await callAppsScript({
-    action: "logTimeEntry",
-    employee: body.employee ?? "",
-    employeeEmail: email,
-    jtUserId: userId,
-    jobLabel: body.jobLabel ?? "",
-    jobId,
-    costCode: body.costCode ?? "",
-    costItemId,
-    payType: body.payType ?? "",
-    startTime: startLocal,
-    endTime: endLocal,
-    note,
-    lat: body.lat ?? "",
-    lng: body.lng ?? "",
-    nearestJob: body.nearestJob ?? "",
-    jtEntryId,
-    jtStatus,
-    loggedBy: email,
-    photos,
-  });
-  if (logged.error) {
-    return NextResponse.json(
-      { ok: false, error: logged.error, jtEntryId, jtStatus, jtError },
-      { status: logged.status },
-    );
-  }
-  const l = (logged.data ?? {}) as {
-    ok?: boolean;
-    error?: string;
-    entryId?: string;
-    date?: string;
-    photoCount?: number;
-  };
-  if (l?.ok === false) {
-    return NextResponse.json({ ...l, jtEntryId, jtStatus, jtError }, { status: 200 });
+    await callAppsScript({ action: "finalizeTimeEntryLog", clientKey, jtEntryId, jtStatus });
   }
 
   return NextResponse.json({

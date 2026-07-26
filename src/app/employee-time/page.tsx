@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { JobPicker } from "@/components/JobPicker";
 import { JtLink } from "@/components/JtLink";
@@ -85,6 +85,7 @@ interface SubmitResult {
 }
 interface ActiveClock {
   entryId: string;
+  logKey: string; // idempotency key for the clock-out log — reused on every retry
   previewed: boolean;
   jtStatus: string;
   startedAt: string; // local "YYYY-MM-DDTHH:MM" sent at clock-in
@@ -127,6 +128,14 @@ const LS_JT_USER = "employeeTime.jtUser."; // + email → remembered JobTread us
 const LS_CLOCK = "employeeTime.activeClock";
 
 const jobRefLabel = (j: JobRef) => (j.customer ? `${j.customer} - ${j.name}` : j.name);
+
+// A fresh idempotency key for one logical time entry. The same key rides every
+// retry of that entry (bad service drops the response, not the server's work),
+// so the backend reconciles a retry to the same row instead of duplicating it.
+const newLogKey = () =>
+  typeof crypto !== "undefined" && crypto.randomUUID
+    ? `te-${crypto.randomUUID()}`
+    : `te-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
 // Great-circle distance in km — to label the nearest job site.
 function haversineKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
@@ -295,6 +304,11 @@ export default function EmployeeTimePage() {
   const [clockSubPhase, setClockSubPhase] = useState<"idle" | "clockingOut">("idle");
   const [nowMs, setNowMs] = useState(0);
 
+  // Manual-mode idempotency key — one per logical submission, held here so a
+  // retry after a dropped response reuses it (backend dedupes on it). Cleared on
+  // success so "Log another" starts a new one.
+  const manualKeyRef = useRef("");
+
   // My Time (history).
   const [historyMonth, setHistoryMonth] = useState(defaultMonth());
   const [historyHalf, setHistoryHalf] = useState<"a" | "b">(defaultHalf());
@@ -335,7 +349,10 @@ export default function EmployeeTimePage() {
       const raw = localStorage.getItem(LS_CLOCK);
       if (raw) {
         const c = JSON.parse(raw);
-        if (c && c.startedAt && c.jobId && c.costItemId) setActiveClock(c);
+        if (c && c.startedAt && c.jobId && c.costItemId) {
+          if (!c.logKey) c.logKey = newLogKey(); // clock-in from before this key existed
+          setActiveClock(c);
+        }
       }
     } catch {}
   }, []);
@@ -486,6 +503,7 @@ export default function EmployeeTimePage() {
       }
       const clock: ActiveClock = {
         entryId: json.entryId || "",
+        logKey: newLogKey(), // reused on every clock-out retry for idempotency
         previewed: !!json.previewed,
         jtStatus: json.jtStatus || "",
         startedAt,
@@ -532,6 +550,7 @@ export default function EmployeeTimePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           op: "out",
+          clientKey: activeClock.logKey,
           entryId: activeClock.entryId,
           userId: effectiveUserId,
           employee: activeClock.employee,
@@ -626,12 +645,17 @@ export default function EmployeeTimePage() {
       return;
     }
 
+    // Reuse the same key across retries of THIS submission; a new one starts
+    // only after a clean success (cleared below / in logAnother).
+    if (!manualKeyRef.current) manualKeyRef.current = newLogKey();
+
     setBusy(true);
     try {
       const res = await fetch("/api/employee-time", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          clientKey: manualKeyRef.current,
           userId: effectiveUserId,
           employee: effectiveName,
           jobId,
@@ -653,6 +677,7 @@ export default function EmployeeTimePage() {
         setErr(json.error || "Could not save the time entry.");
         return;
       }
+      manualKeyRef.current = ""; // clean success → next submission gets a new key
       setDone({
         result: json,
         summary: {

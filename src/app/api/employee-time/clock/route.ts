@@ -79,6 +79,7 @@ interface Photo {
 }
 interface Body {
   op?: string;
+  clientKey?: string;
   entryId?: string;
   userId?: string;
   employee?: string;
@@ -187,6 +188,10 @@ export async function POST(req: NextRequest) {
     const endLocal = toLocalStamp(body.endTime ?? "");
     const startedAt = orgLocalToJtIso(startLocal);
     const endedAt = orgLocalToJtIso(endLocal);
+    // Idempotency key for the clock-out log — the phone generates it at clock-in
+    // and resends it on every clock-out retry (bad service drops the response,
+    // not the work). Falls back to a per-request id for older clients.
+    const clientKey = (body.clientKey ?? "").trim() || `te-${crypto.randomUUID()}`;
 
     if (!note) return NextResponse.json({ ok: false, error: "A note is required." }, { status: 400 });
     if (!startedAt || !endedAt) {
@@ -196,23 +201,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "Stop time must be after the start time." }, { status: 400 });
     }
 
-    let jtStatus = "";
-    let jtError = "";
-    if (entryId && writesEnabled()) {
-      try {
-        await updateTimeEntry(getPaveConfig(), entryId, { endedAt, notes: note });
-        jtStatus = "pushed";
-      } catch (e) {
-        jtError = e instanceof Error ? e.message : "Unknown error";
-        jtStatus = "JobTread error: " + jtError;
-      }
-    } else {
-      jtStatus = "not pushed (writes off)";
-    }
-
+    // Reserve the record first, keyed by clientKey — a retry returns this row
+    // instead of appending a second one, and we skip the JobTread update below.
+    const pushable = !!entryId && writesEnabled();
+    const pendingStatus = !writesEnabled()
+      ? "not pushed (writes off)"
+      : entryId
+        ? "pending push"
+        : "not pushed (no JobTread clock-in id)"; // clock-in never got an id
     const photos = (body.photos ?? []).filter((p) => p && p.base64);
-    const logged = await callAppsScript({
+    const reserved = await callAppsScript({
       action: "logTimeEntry",
+      clientKey,
       employee: body.employee ?? "",
       employeeEmail: email,
       jtUserId: (body.userId ?? "").trim(),
@@ -227,26 +227,55 @@ export async function POST(req: NextRequest) {
       lat: body.lat ?? "",
       lng: body.lng ?? "",
       nearestJob: body.nearestJob ?? "",
-      jtEntryId: entryId,
-      jtStatus,
+      jtEntryId: pushable ? "" : entryId, // no-push rows still record the clock-in id if any
+      jtStatus: pendingStatus,
       loggedBy: email,
       photos,
     });
-    if (logged.error) {
-      return NextResponse.json(
-        { ok: false, error: logged.error, jtEntryId: entryId, jtStatus, jtError },
-        { status: logged.status },
-      );
+    if (reserved.error) {
+      return NextResponse.json({ ok: false, error: reserved.error }, { status: reserved.status });
     }
-    const l = (logged.data ?? {}) as {
+    const l = (reserved.data ?? {}) as {
       ok?: boolean;
       error?: string;
+      duplicate?: boolean;
       entryId?: string;
       date?: string;
       photoCount?: number;
+      jtEntryId?: string;
+      jtStatus?: string;
     };
     if (l?.ok === false) {
-      return NextResponse.json({ ...l, jtEntryId: entryId, jtStatus, jtError }, { status: 200 });
+      return NextResponse.json(l, { status: 200 });
+    }
+    if (l.duplicate) {
+      const priorStatus = l.jtStatus ?? "";
+      return NextResponse.json({
+        ok: true,
+        duplicate: true,
+        previewed: /writes off/i.test(priorStatus),
+        wrote: priorStatus === "pushed",
+        jtEntryId: l.jtEntryId ?? entryId,
+        jtStatus: priorStatus,
+        entryId: l.entryId ?? "",
+        date: l.date ?? "",
+        photoCount: l.photoCount ?? 0,
+      });
+    }
+
+    // First time for this key: set endedAt on the open JobTread entry, then
+    // record the outcome back onto the reserved row.
+    let jtStatus = pendingStatus;
+    let jtError = "";
+    if (pushable) {
+      try {
+        await updateTimeEntry(getPaveConfig(), entryId, { endedAt, notes: note });
+        jtStatus = "pushed";
+      } catch (e) {
+        jtError = e instanceof Error ? e.message : "Unknown error";
+        jtStatus = "JobTread error: " + jtError;
+      }
+      await callAppsScript({ action: "finalizeTimeEntryLog", clientKey, jtEntryId: entryId, jtStatus });
     }
 
     return NextResponse.json({
