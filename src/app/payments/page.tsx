@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { CopyButton } from "@/components/CopyButton";
 import { JtLink } from "@/components/JtLink";
+import { SunsetDuplicateScan } from "@/components/SunsetDuplicateScan";
 import { Banner, Button, CardSkeletonList, EmptyState, PageHeader, Spinner } from "@/components/ui";
 
 const TSYS_URL = "https://hostedpaynow.com/hostedapp/tsys/paymentOptions";
@@ -194,6 +195,8 @@ export default function PaymentsPage() {
         description="Pay each statement at TSYS — copy the fields, pay, mark it done. Each card reconciles the statement total against the Sunset invoices logged for that project & month."
         className="!mb-4"
       />
+
+      <SunsetDuplicateScan />
 
       <div className="mb-4 flex items-center gap-1.5">
         {FILTERS.map((f) => (
