@@ -9,7 +9,7 @@ import { NextResponse } from "next/server";
 // paid-state logic is untouched.
 //
 // Env (shared): APPS_SCRIPT_SYNC_URL, APPS_SCRIPT_SYNC_SECRET.
-export const maxDuration = 30; // one Apps Script sheet-sum call, no Gemini
+export const maxDuration = 45; // sheet sum + one live JobTread bill-status query
 
 interface Invoice {
   number: string;
@@ -58,7 +58,7 @@ export async function GET() {
   try {
     const resp = await callAppsScript({ action: "reconcileSunsetStatements" });
     const reconciliation = (resp.reconciliation as Record<string, Reconciliation>) ?? {};
-    return NextResponse.json({ ok: true, reconciliation });
+    return NextResponse.json({ ok: true, reconciliation, liveChecked: resp.liveChecked !== false });
   } catch (e) {
     return NextResponse.json(
       { ok: false, error: e instanceof Error ? e.message : "Unknown error" },

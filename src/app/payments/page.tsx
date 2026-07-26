@@ -74,6 +74,7 @@ export default function PaymentsPage() {
   const [filling, setFilling] = useState(false);
   const [recon, setRecon] = useState<Record<string, Reconciliation>>({});
   const [reconLoading, setReconLoading] = useState(true);
+  const [reconLive, setReconLive] = useState(true);
   const runRef = useRef(0);
 
   // Progressively Gemini-extract the uncached statements in small batches so no
@@ -155,6 +156,7 @@ export default function PaymentsPage() {
         const json = await res.json();
         if (live && res.ok && json.ok !== false) {
           setRecon((json.reconciliation as Record<string, Reconciliation>) ?? {});
+          setReconLive(json.liveChecked !== false);
         }
       } catch {
         /* reconciliation is a non-fatal enhancement — leave it empty on error */
@@ -238,6 +240,12 @@ export default function PaymentsPage() {
             ? "Nothing to pay — every Sunset statement is marked paid. 🎉"
             : "No statements here."}
         </EmptyState>
+      )}
+
+      {!reconLoading && !reconLive && (
+        <div className="mb-2 text-xs text-amber-600 dark:text-amber-400">
+          Couldn&apos;t reach JobTread to verify — showing the hourly sheet mirror, so a just-deleted or voided bill may still appear.
+        </div>
       )}
 
       <ul className="space-y-2">
