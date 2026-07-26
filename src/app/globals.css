@@ -6,22 +6,27 @@
    Each theme uses ONE brand pairing, not both:
      light = cream + ochre        dark = off-black + olive green
    Tailwind's `accent` / `brand` colors read these vars (see tailwind.config.ts),
-   so every existing bg-accent / text-accent / border-accent flips with the theme
-   without touching the component that uses it.
+   so every existing bg-accent / border-accent flips with the theme without
+   touching the component that uses it.
 
-   `accent`  = the interactive color (buttons, links, focus, active states).
-               Always AA-safe as small text on that theme's page surface.
+   LIGHT theme is strictly white / black / cream / ochre — no brown. Because
+   pure ochre is only ~2.4:1 on cream, it can never carry small text, so the
+   roles split by USE, not by one interactive color:
+     • FILLS / borders / rings / tints → ochre  (`accent`, black text via `-fg`)
+     • interactive TEXT (`text-accent`) → BLACK  (see the light override below)
+   DARK theme keeps olive as a single interactive color (it passes AA as text).
+
+   `accent`  = the fill / border / ring / tint color for the active theme.
    `brand`   = the pure brand hue, for GRAPHICS ONLY (hairlines, the peak mark,
-               the logo square). Pure ochre is only 2.4:1 on cream, so it can
-               never carry text — that is why `accent` is a deepened ochre.
+               the logo square).
    `*-fg`    = the text/knockout color that sits ON a filled accent/brand shape.
    Values are space-separated RGB channels so Tailwind can apply /alpha. */
 :root {
   color-scheme: light;
-  --accent: 143 106 2; /* #8F6A02 deep ochre — 4.6:1 on cream */
-  --accent-hover: 110 82 2; /* #6E5202 */
-  --accent-soft: 143 106 2; /* light needs no lifted variant */
-  --accent-fg: 250 247 238; /* cream on a filled ochre */
+  --accent: 207 152 3; /* #CF9803 ochre — fills/borders/rings/tints */
+  --accent-hover: 185 136 3; /* #B98803 — a touch deeper gold for fill hover */
+  --accent-soft: 207 152 3; /* light has no lifted variant (dark-only in use) */
+  --accent-fg: 27 27 23; /* off-black text on a filled ochre (6.7:1) */
   --brand: 207 152 3; /* #CF9803 brand ochre — graphics only */
 }
 .dark {
@@ -31,6 +36,18 @@
   --accent-soft: 207 200 166; /* #CFC8A6 */
   --accent-fg: 27 27 23; /* off-black on a filled olive */
   --brand: 135 128 84; /* #878054 brand olive — graphics only */
+}
+
+/* Light theme: ochre is a fill/graphic accent only, so interactive TEXT stays
+   black (ochre fails contrast as small text on cream/white). This redirects the
+   Tailwind text-accent utilities for light mode without editing every call site;
+   scoped to :not(.dark) so dark mode keeps its olive text untouched. Fills,
+   borders, rings and tints (bg-accent, border-accent, ring-accent, bg-accent/NN)
+   still resolve to ochre. */
+:root:not(.dark) .text-accent,
+:root:not(.dark) .hover\:text-accent:hover,
+:root:not(.dark) .group:hover .group-hover\:text-accent {
+  color: #1b1b17;
 }
 
 body {

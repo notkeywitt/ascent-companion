@@ -15,9 +15,11 @@ export default {
         olive: "#878054",
         ochre: "#CF9803",
         webgrey: "#8D8D8B",
-        // Interactive color for the active theme (deep ochre / lifted olive).
-        // `fg` is the text that sits on a filled accent; `soft` is the lifted
-        // variant for small text on dark surfaces.
+        // Active-theme accent for FILLS / borders / rings / tints (ochre in
+        // light, lifted olive in dark). `fg` is the text on a filled accent;
+        // `soft` is the dark-only lifted variant for small text. In LIGHT,
+        // `text-accent` is redirected to black in globals.css (ochre can't
+        // carry small text on cream), so this drives fills there, not text.
         accent: {
           DEFAULT: "rgb(var(--accent) / <alpha-value>)",
           hover: "rgb(var(--accent-hover) / <alpha-value>)",
