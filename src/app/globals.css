@@ -26,7 +26,9 @@
   --accent: 207 152 3; /* #CF9803 ochre — fills/borders/rings/tints */
   --accent-hover: 185 136 3; /* #B98803 — a touch deeper gold for fill hover */
   --accent-soft: 207 152 3; /* light has no lifted variant (dark-only in use) */
-  --accent-fg: 27 27 23; /* off-black text on a filled ochre (6.7:1) */
+  --accent-fg: 250 247 238; /* cream text/knockout on a filled ochre — matches
+                               the cream mountain; ~2.4:1, so keep it to short
+                               button/badge labels, not paragraphs */
   --brand: 207 152 3; /* #CF9803 brand ochre — graphics only */
 }
 .dark {
