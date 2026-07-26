@@ -30,6 +30,7 @@ interface Statement {
 interface Invoice {
   number: string;
   amount: number;
+  isCredit: boolean;
   date: string;
   docId: string;
   jobId: string;
@@ -44,7 +45,10 @@ interface Reconciliation {
   month: string;
   year: string;
   invoiceCount: number;
-  invoiceTotal: number;
+  chargeTotal: number;
+  creditCount: number;
+  creditTotal: number;
+  netTotal: number;
   invoices: Invoice[];
 }
 
@@ -241,11 +245,16 @@ export default function PaymentsPage() {
           const done = !!s.extractedAt;
           const fail = !!failed[s.expId];
           const rc = recon[s.expId];
-          const stmtTotal = Number(s.total);
-          const diff = rc && Number.isFinite(stmtTotal)
-            ? Math.round((stmtTotal - rc.invoiceTotal) * 100) / 100
+          // Net-to-paid: reconcile (invoices − credits) against the statement's NET
+          // (gross − early-pay discount) — the amount actually paid — once the
+          // discount has been read. Until then, fall back to the gross total.
+          const netKnown = !!s.extractedAt && s.net !== "" && Number.isFinite(Number(s.net));
+          const target = netKnown ? Number(s.net) : Number(s.total);
+          const hasRows = !!rc && (rc.invoiceCount > 0 || rc.creditCount > 0);
+          const diff = rc && Number.isFinite(target)
+            ? Math.round((target - rc.netTotal) * 100) / 100
             : null;
-          const reconciled = !!rc && rc.invoiceCount > 0 && diff !== null && Math.abs(diff) <= 0.01;
+          const reconciled = hasRows && netKnown && diff !== null && Math.abs(diff) <= 0.01;
           return (
             <li
               key={s.expId}
@@ -271,67 +280,85 @@ export default function PaymentsPage() {
                 <span>Discount {s.discount ? "−" + money(s.discount) : "—"}</span>
               </div>
 
-              {/* Reconciliation: sum of the Sunset invoices logged for this project & month */}
+              {/* Reconciliation: net the Sunset invoices (minus credits) logged for this project & month against the statement's net */}
               {reconLoading && !rc ? (
                 <div className="mt-2 flex items-center gap-1.5 text-xs text-neutral-500">
                   <Spinner /> Matching invoices…
+                </div>
+              ) : rc && !hasRows ? (
+                <div className="mt-2 rounded-lg border border-amber-300 bg-amber-50 px-2.5 py-2 text-xs font-semibold text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300">
+                  No logged Sunset invoices for this project &amp; month
                 </div>
               ) : rc ? (
                 <div
                   className={
                     "mt-2 rounded-lg border px-2.5 py-2 text-xs " +
-                    (rc.invoiceCount === 0
-                      ? "border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300"
-                      : reconciled
-                        ? "border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-300"
-                        : "border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300")
+                    (reconciled
+                      ? "border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-300"
+                      : netKnown
+                        ? "border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300"
+                        : "border-neutral-200 bg-neutral-50 text-neutral-600 dark:border-neutral-700/60 dark:bg-white/5 dark:text-neutral-300")
                   }
                 >
                   <div className="flex items-center justify-between gap-2 font-semibold">
                     <span>
-                      {rc.invoiceCount === 0
-                        ? "No logged Sunset invoices for this project & month"
-                        : reconciled
-                          ? `✓ Reconciled · ${rc.invoiceCount} invoice${rc.invoiceCount === 1 ? "" : "s"}`
-                          : `⚠ Off by ${moneyN(Math.abs(diff ?? 0))}`}
+                      {reconciled
+                        ? `✓ Reconciled · ${rc.invoiceCount} invoice${rc.invoiceCount === 1 ? "" : "s"}${
+                            rc.creditCount ? ` − ${rc.creditCount} credit${rc.creditCount === 1 ? "" : "s"}` : ""
+                          }`
+                        : netKnown
+                          ? `⚠ Off by ${moneyN(Math.abs(diff ?? 0))}`
+                          : `${rc.invoiceCount} invoice${rc.invoiceCount === 1 ? "" : "s"}${
+                              rc.creditCount ? ` · ${rc.creditCount} credit${rc.creditCount === 1 ? "" : "s"}` : ""
+                            } · reading discount…`}
                     </span>
-                    {rc.invoiceCount > 0 && (
-                      <span className="tabular-nums">{moneyN(rc.invoiceTotal)}</span>
-                    )}
+                    <span className="tabular-nums">net {moneyN(rc.netTotal)}</span>
                   </div>
-                  {rc.invoiceCount > 0 && !reconciled && (
+
+                  {(rc.creditCount > 0 || (netKnown && !reconciled)) && (
                     <div className="mt-0.5 tabular-nums opacity-80">
-                      {rc.invoiceCount} invoice{rc.invoiceCount === 1 ? "" : "s"} total {moneyN(rc.invoiceTotal)} vs statement {money(s.total)}
+                      {rc.invoiceCount} invoice{rc.invoiceCount === 1 ? "" : "s"} {moneyN(rc.chargeTotal)}
+                      {rc.creditCount > 0
+                        ? ` − ${rc.creditCount} credit${rc.creditCount === 1 ? "" : "s"} ${moneyN(rc.creditTotal)}`
+                        : ""}
+                      {` = ${moneyN(rc.netTotal)}`}
+                      {netKnown ? ` vs statement net ${moneyN(target)}` : ""}
                     </div>
                   )}
-                  {rc.invoiceCount > 0 && (
-                    <details className="mt-1.5 group">
-                      <summary className="cursor-pointer list-none select-none opacity-80 hover:opacity-100">
-                        <span className="group-open:hidden">Show invoices ▸</span>
-                        <span className="hidden group-open:inline">Hide invoices ▾</span>
-                      </summary>
-                      <ul className="mt-1.5 space-y-0.5 border-t border-current/20 pt-1.5">
-                        {rc.invoices.map((inv, i) => {
-                          const url = jtDocUrl(inv);
-                          return (
-                            <li key={inv.number + "-" + i} className="flex justify-between gap-3 tabular-nums">
-                              <span className="truncate">
-                                {url ? (
-                                  <JtLink href={url} className="font-medium underline decoration-current/40 underline-offset-2 hover:decoration-current">
-                                    #{inv.number || "—"} ↗
-                                  </JtLink>
-                                ) : (
-                                  <>#{inv.number || "—"}</>
-                                )}
-                                {inv.date ? <span className="opacity-60"> · {inv.date}</span> : null}
-                              </span>
-                              <span>{moneyN(inv.amount)}</span>
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    </details>
-                  )}
+
+                  <details className="mt-1.5 group">
+                    <summary className="cursor-pointer list-none select-none opacity-80 hover:opacity-100">
+                      <span className="group-open:hidden">Show {rc.creditCount > 0 ? "invoices & credits" : "invoices"} ▸</span>
+                      <span className="hidden group-open:inline">Hide {rc.creditCount > 0 ? "invoices & credits" : "invoices"} ▾</span>
+                    </summary>
+                    <ul className="mt-1.5 space-y-0.5 border-t border-current/20 pt-1.5">
+                      {rc.invoices.map((inv, i) => {
+                        const url = jtDocUrl(inv);
+                        return (
+                          <li key={inv.number + "-" + i} className="flex justify-between gap-3 tabular-nums">
+                            <span className="flex min-w-0 items-center gap-1.5 truncate">
+                              {url ? (
+                                <JtLink href={url} className="font-medium underline decoration-current/40 underline-offset-2 hover:decoration-current">
+                                  #{inv.number || "—"} ↗
+                                </JtLink>
+                              ) : (
+                                <span className="font-medium">#{inv.number || "—"}</span>
+                              )}
+                              {inv.isCredit && (
+                                <span className="rounded bg-rose-500/15 px-1 text-[10px] font-semibold uppercase tracking-wide text-rose-600 dark:text-rose-300">
+                                  credit
+                                </span>
+                              )}
+                              {inv.date ? <span className="opacity-60"> · {inv.date}</span> : null}
+                            </span>
+                            <span className={inv.isCredit ? "text-rose-600 dark:text-rose-400" : ""}>
+                              {inv.isCredit ? "−" + moneyN(Math.abs(inv.amount)) : moneyN(inv.amount)}
+                            </span>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </details>
                 </div>
               ) : null}
 

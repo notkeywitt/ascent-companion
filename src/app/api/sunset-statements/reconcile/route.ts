@@ -14,6 +14,7 @@ export const maxDuration = 30; // one Apps Script sheet-sum call, no Gemini
 interface Invoice {
   number: string;
   amount: number;
+  isCredit: boolean;
   date: string;
   docId: string;
   jobId: string;
@@ -23,7 +24,10 @@ interface Reconciliation {
   month: string;
   year: string;
   invoiceCount: number;
-  invoiceTotal: number;
+  chargeTotal: number;
+  creditCount: number;
+  creditTotal: number;
+  netTotal: number;
   invoices: Invoice[];
 }
 
