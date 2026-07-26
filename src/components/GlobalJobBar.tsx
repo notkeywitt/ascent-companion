@@ -6,6 +6,7 @@ import { JobPicker } from "@/components/JobPicker";
 import { AscentLogo } from "@/components/AscentLogo";
 import { useAccess } from "@/components/AccessProvider";
 import { SyncNowButton } from "@/components/SyncNowButton";
+import { RefreshButton } from "@/components/RefreshButton";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { btn } from "@/components/ui";
 import { confirmLeaveIfDirty } from "@/lib/useUnsavedChanges";
@@ -53,6 +54,9 @@ export function GlobalJobBar() {
         </Link>
       )}
       {access.can("sync") && <SyncNowButton />}
+      {/* Ungated — reloading the current page's data is read-only and useful to
+          everyone, unlike Sync (which drives the backend mirror). */}
+      <RefreshButton />
       <ThemeToggle />
     </div>
   );
