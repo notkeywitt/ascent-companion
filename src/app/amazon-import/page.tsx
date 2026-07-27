@@ -16,6 +16,7 @@ import {
   btn,
 } from "@/components/ui";
 import { parseAmazonCsv, type AmazonOrder } from "@/lib/amazonImport";
+import { unzipSync } from "fflate";
 
 interface JobRef {
   id: string;
@@ -51,6 +52,22 @@ interface PostResult {
   counts: { created: number; exists: number; failed: number; preview: number };
   results: OrderResult[];
 }
+
+// A PDF pulled out of the invoice zip, matched to an order by filename.
+interface PdfFile {
+  name: string;
+  bytes: Uint8Array;
+}
+// Per-order attach outcome after a push.
+interface AttachState {
+  ok: number;
+  fail: number;
+}
+
+// Amazon order-id shape (###-#######-#######) — the same token appears in the CSV
+// and (virtually always) somewhere in each invoice PDF's filename, so we match on
+// it rather than on Amazon's exact naming scheme.
+const ORDER_ID_RE = /\d{3}-\d{7}-\d{7}/g;
 
 const money = (n: number) =>
   "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -104,6 +121,11 @@ export default function AmazonImportPage() {
   const [applyMonth, setApplyMonth] = useState("");
   const [existing, setExisting] = useState<Record<string, boolean>>({});
   const [checking, setChecking] = useState(false);
+  const [pdfZipName, setPdfZipName] = useState("");
+  const [pdfsByOrder, setPdfsByOrder] = useState<Record<string, PdfFile[]>>({});
+  const [unmatchedPdfs, setUnmatchedPdfs] = useState<string[]>([]);
+  const [pdfError, setPdfError] = useState("");
+  const [attach, setAttach] = useState<Record<string, AttachState>>({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState<PostResult | null>(null);
@@ -165,11 +187,20 @@ export default function AmazonImportPage() {
     loadBudgets([...new Set(Object.values(sel).map((s) => s.jobId).filter(Boolean))]);
   }, [sel, loadBudgets]);
 
+  function resetPdfs() {
+    setPdfZipName("");
+    setPdfsByOrder({});
+    setUnmatchedPdfs([]);
+    setPdfError("");
+  }
+
   async function onPickFile(f: File | null) {
     setResult(null);
     setError("");
     setParseWarnings([]);
     setExisting({});
+    setAttach({});
+    resetPdfs(); // PDF↔order matching depends on the CSV; re-add the zip after
     if (!f) {
       setFileName("");
       setOrders([]);
@@ -260,6 +291,95 @@ export default function AmazonImportPage() {
     };
   }, [orders, vendorId]);
 
+  // Unzip an invoice zip in the browser and match each PDF to an order by the
+  // Amazon order-id found in its filename. Unmatched PDFs are surfaced, never
+  // guessed onto a bill. Runs entirely client-side (no upload size limit).
+  async function onPickPdfZip(f: File | null) {
+    setPdfError("");
+    setAttach({});
+    if (!f) {
+      resetPdfs();
+      return;
+    }
+    if (orders.length === 0) {
+      setPdfError("Upload the CSV report first, then the PDF zip.");
+      return;
+    }
+    setPdfZipName(f.name);
+    try {
+      const buf = new Uint8Array(await f.arrayBuffer());
+      const entries = unzipSync(buf, {
+        filter: (file) =>
+          /\.pdf$/i.test(file.name) &&
+          !file.name.startsWith("__MACOSX/") &&
+          !file.name.split("/").pop()!.startsWith("."),
+      });
+      const orderIds = new Set(orders.map((o) => o.orderId));
+      const byOrder: Record<string, PdfFile[]> = {};
+      const unmatched: string[] = [];
+      for (const [path, bytes] of Object.entries(entries)) {
+        if (!bytes || bytes.length === 0) continue;
+        const base = path.split("/").pop() || path;
+        const ids = base.match(ORDER_ID_RE) ?? [];
+        const hit = ids.find((id) => orderIds.has(id));
+        if (hit) (byOrder[hit] ??= []).push({ name: base, bytes });
+        else unmatched.push(base);
+      }
+      setPdfsByOrder(byOrder);
+      setUnmatchedPdfs(unmatched);
+      if (Object.keys(byOrder).length === 0) {
+        setPdfError(
+          "No PDF filename contained an order number from this report. Check you exported the " +
+            "invoices for the same month, or rename the files to include the Amazon order id.",
+        );
+      }
+    } catch (e) {
+      resetPdfs();
+      setPdfError(
+        e instanceof Error ? `Couldn't read the zip: ${e.message}` : "Couldn't read the zip.",
+      );
+    }
+  }
+
+  // After a push, attach each created bill's matched PDF(s) to its JT document.
+  // Small concurrency so we don't hammer the GCS upload flow. Attaching to JT is
+  // enough — the hourly mirror files each PDF into Drive automatically.
+  async function attachPdfs(created: { orderId: string; docId: string }[]) {
+    const jobs = created.filter((c) => (pdfsByOrder[c.orderId]?.length ?? 0) > 0);
+    if (jobs.length === 0) return;
+    setAttach(Object.fromEntries(jobs.map((c) => [c.orderId, { ok: 0, fail: 0 }])));
+    let i = 0;
+    const worker = async () => {
+      while (i < jobs.length) {
+        const { orderId, docId } = jobs[i++];
+        for (const pdf of pdfsByOrder[orderId] ?? []) {
+          try {
+            const fd = new FormData();
+            fd.set("docId", docId);
+            // Cast: fflate types bytes as Uint8Array<ArrayBufferLike>, which the DOM
+            // File/BlobPart types don't accept directly (SharedArrayBuffer edge). Safe here.
+            fd.set(
+              "file",
+              new File([pdf.bytes as unknown as BlobPart], pdf.name, { type: "application/pdf" }),
+            );
+            const res = await fetch("/api/amazon-import/attach", { method: "POST", body: fd });
+            const ok = res.ok && (await res.json().catch(() => ({})))?.ok === true;
+            setAttach((prev) => {
+              const cur = prev[orderId] ?? { ok: 0, fail: 0 };
+              return { ...prev, [orderId]: ok ? { ...cur, ok: cur.ok + 1 } : { ...cur, fail: cur.fail + 1 } };
+            });
+          } catch {
+            setAttach((prev) => {
+              const cur = prev[orderId] ?? { ok: 0, fail: 0 };
+              return { ...prev, [orderId]: { ...cur, fail: cur.fail + 1 } };
+            });
+          }
+        }
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(3, jobs.length) }, worker));
+  }
+
   function setRow(orderId: string, patch: Partial<RowSel>) {
     setSel((prev) => ({ ...prev, [orderId]: { ...prev[orderId], ...patch } }));
   }
@@ -269,6 +389,14 @@ export default function AmazonImportPage() {
   const missingJob = included.length - ready.length;
   const existingCount = orders.filter((o) => existing[o.orderId]).length;
   const totalReady = ready.reduce((s, o) => s + o.netTotal, 0);
+  const havePdfZip = pdfZipName !== "";
+  const matchedCount = orders.filter((o) => (pdfsByOrder[o.orderId]?.length ?? 0) > 0).length;
+  const attachedOk = Object.values(attach).reduce((s, a) => s + a.ok, 0);
+  const attachedFail = Object.values(attach).reduce((s, a) => s + a.fail, 0);
+  // Selected orders that will be created but have no PDF matched — worth flagging.
+  const readyNoPdf = havePdfZip
+    ? ready.filter((o) => (pdfsByOrder[o.orderId]?.length ?? 0) === 0).length
+    : 0;
   const resultByOrder = useMemo(() => {
     const m: Record<string, OrderResult> = {};
     for (const r of result?.results ?? []) m[r.orderId] = r;
@@ -307,11 +435,18 @@ export default function AmazonImportPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      const json = await res.json();
+      const json = (await res.json()) as PostResult & { error?: string };
       if (!res.ok) {
         setError(json.error ?? "Request failed.");
       } else {
         setResult(json);
+        // Attach matched PDFs to the bills we just created (skip preview mode).
+        if (json.wrote && havePdfZip) {
+          const created = (json.results ?? [])
+            .filter((r) => r.status === "created" && r.docId)
+            .map((r) => ({ orderId: r.orderId, docId: r.docId! }));
+          await attachPdfs(created);
+        }
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Network error.");
@@ -385,6 +520,46 @@ export default function AmazonImportPage() {
                 </Select>
               </div>
             </div>
+
+            {/* Invoice PDFs — optional zip, matched to orders by order id in the filename */}
+            <div className="border-t border-neutral-200 pt-3 dark:border-neutral-800">
+              <Label>Invoice PDFs (zip, optional)</Label>
+              <input
+                type="file"
+                accept=".zip,application/zip"
+                onChange={(e) => onPickPdfZip(e.target.files?.[0] ?? null)}
+                className="block w-full rounded-lg border border-neutral-300 bg-white p-2 text-sm transition file:mr-3 file:rounded-md file:border-0 file:bg-accent/90 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-accent-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 dark:border-neutral-600 dark:bg-ink-raised"
+              />
+              {pdfError ? (
+                <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">{pdfError}</p>
+              ) : havePdfZip ? (
+                <p className="mt-1 text-xs text-neutral-500">
+                  {pdfZipName} · matched {matchedCount}/{orders.length} orders
+                  {unmatchedPdfs.length > 0 && ` · ${unmatchedPdfs.length} PDF(s) unmatched`}
+                </p>
+              ) : (
+                <p className="mt-1 text-xs text-neutral-500">
+                  Export the month&apos;s invoices from Amazon and drop the zip here — each PDF attaches
+                  to its bill (and lands in Drive via the hourly sync). Matched by the order id in the
+                  filename.
+                </p>
+              )}
+              {unmatchedPdfs.length > 0 && (
+                <details className="mt-1 text-xs text-neutral-500">
+                  <summary className="cursor-pointer hover:text-accent">
+                    Show {unmatchedPdfs.length} unmatched file(s)
+                  </summary>
+                  <ul className="mt-1 space-y-0.5 pl-3">
+                    {unmatchedPdfs.map((n, i) => (
+                      <li key={i} className="truncate font-mono">
+                        {n}
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              )}
+            </div>
+
             <div className="flex flex-wrap items-center justify-between gap-2 border-t border-neutral-200 pt-3 text-sm dark:border-neutral-800">
               <span className="flex items-center gap-1.5 text-neutral-500">
                 {orders.length} order{orders.length === 1 ? "" : "s"} · {fileName}
@@ -455,6 +630,9 @@ export default function AmazonImportPage() {
                   Created {result.counts.created} bill(s)
                   {result.counts.exists > 0 && `, ${result.counts.exists} already in JobTread`}
                   {result.counts.failed > 0 && `, ${result.counts.failed} failed`}.
+                  {havePdfZip &&
+                    (attachedOk > 0 || attachedFail > 0) &&
+                    ` ${attachedOk} PDF(s) attached${attachedFail > 0 ? `, ${attachedFail} failed` : ""}.`}
                   {result.syncKicked && " Syncing to the sheet & Drive now."}
                 </>
               )}
@@ -512,6 +690,32 @@ export default function AmazonImportPage() {
                           {o.accountUser && ` · ${o.accountUser}`}
                           {o.cardLast4 && ` · ····${o.cardLast4}`}
                         </div>
+                        {havePdfZip &&
+                          (() => {
+                            const pdfs = pdfsByOrder[o.orderId] ?? [];
+                            const att = attach[o.orderId];
+                            if (att) {
+                              return (
+                                <div
+                                  className={`mt-0.5 text-xs ${att.fail > 0 ? "text-amber-600 dark:text-amber-400" : "text-emerald-600 dark:text-emerald-400"}`}
+                                >
+                                  📎 {att.ok} attached{att.fail > 0 ? `, ${att.fail} failed` : ""}
+                                </div>
+                              );
+                            }
+                            if (pdfs.length > 0) {
+                              return (
+                                <div className="mt-0.5 truncate text-xs text-neutral-500">
+                                  📎 {pdfs.length === 1 ? pdfs[0].name : `${pdfs.length} PDFs`}
+                                </div>
+                              );
+                            }
+                            return (
+                              <div className="mt-0.5 text-xs text-amber-600 dark:text-amber-400">
+                                no PDF matched
+                              </div>
+                            );
+                          })()}
                         <button
                           type="button"
                           onClick={() => setExpanded((e) => ({ ...e, [o.orderId]: !e[o.orderId] }))}
@@ -625,6 +829,11 @@ export default function AmazonImportPage() {
                   {missingJob} selected order{missingJob === 1 ? "" : "s"} need a job
                 </span>
               )}
+              {readyNoPdf > 0 && (
+                <span className="ml-2 text-xs text-amber-600 dark:text-amber-400">
+                  {readyNoPdf} without a PDF
+                </span>
+              )}
             </div>
             <Button
               size="lg"
@@ -633,7 +842,7 @@ export default function AmazonImportPage() {
             >
               {busy ? (
                 <>
-                  <Spinner /> Creating…
+                  <Spinner /> {result ? "Attaching PDFs…" : "Creating…"}
                 </>
               ) : (
                 `Create ${ready.length} bill${ready.length === 1 ? "" : "s"} in JobTread`
