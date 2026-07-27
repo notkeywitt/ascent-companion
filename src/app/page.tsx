@@ -142,6 +142,7 @@ const AREAS: Area[] = [
       { label: "Assistant", href: "/chat", desc: "Ask about a job's bills or budget", view: "chat" },
       { label: "Safety Meeting", href: "/safety-meeting", desc: "Pass the iPad and collect sign-ins", view: "safety-meeting" },
       { label: "RFIs", href: "/rfis", desc: "View and create a job's RFIs", view: "rfis" },
+      { label: "Requisitions", href: "/requisitions", desc: "Request a purchase & track its status", view: "requisitions" },
       { label: "Employees", href: "/employees", desc: "The Project Database roster", view: "employees" },
       { label: "Labor Import", href: "/labor-import", desc: "QuickBooks labor → JobTread CSV", view: "labor-import" },
     ],

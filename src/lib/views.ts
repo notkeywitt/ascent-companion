@@ -51,6 +51,9 @@ export const VIEWS: ViewDef[] = [
   { id: "employee-time", label: "Employee Time", group: "Field", paths: ["/employee-time"] },
   { id: "tools", label: "Tools", group: "Field", paths: ["/tools", "/tool-tracker"] },
   { id: "rfis", label: "RFIs", group: "Field", paths: ["/rfis"] },
+  // Leads submit; office/admin track. The API route is listed alongside so a
+  // role without the view can't reach the data by calling the route directly.
+  { id: "requisitions", label: "Requisitions", group: "Field", paths: ["/requisitions", "/api/requisitions"] },
   // Assistant
   { id: "chat", label: "Assistant", group: "Assistant", paths: ["/chat"] },
   // Office
@@ -88,7 +91,7 @@ const ADMIN_ONLY: string[] = [
 export const ROLE_VIEWS: Record<Role, string[]> = {
   admin: ALL_VIEW_IDS,
   office: ALL_VIEW_IDS.filter((id) => !ADMIN_ONLY.includes(id)),
-  field: ["mileage", "employee-time", "tools", "rfis", "requests"],
+  field: ["mileage", "employee-time", "tools", "rfis", "requests", "requisitions"],
 };
 
 function asRole(role: string | null | undefined): Role {
