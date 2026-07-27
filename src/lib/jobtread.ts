@@ -1127,6 +1127,44 @@ export async function findBillByExternalId(
   return null;
 }
 
+/**
+ * Bulk idempotency lookup: of the given externalIds, which already exist as
+ * documents on this vendor account? One paginated pass over the account's
+ * documents, matched client-side (server-side `where` on externalId 400s) —
+ * far cheaper than calling findBillByExternalId once per id. Stops early once
+ * every wanted id is accounted for. Returns the SUBSET that exist. Used by the
+ * Amazon import to grey-out orders already ingested before the user creates.
+ */
+export async function findExistingExternalIds(
+  cfg: PaveConfig,
+  accountId: string,
+  externalIds: string[],
+): Promise<string[]> {
+  const want = new Set(externalIds.map((s) => s.trim()).filter(Boolean));
+  if (want.size === 0) return [];
+  const found = new Set<string>();
+  let cursor: string | null = null;
+  for (let page = 0; page < 1000; page++) {
+    const args: Record<string, unknown> = { size: 100 };
+    if (cursor) args.page = cursor;
+    const r = await pave(cfg, {
+      account: {
+        $: { id: accountId },
+        documents: { $: args, nextPage: {}, nodes: { id: {}, externalId: {} } },
+      },
+    });
+    const docs = r?.account?.documents ?? {};
+    const nodes: any[] = docs.nodes ?? [];
+    for (const n of nodes) {
+      const ext = String(n.externalId ?? "").trim();
+      if (ext && want.has(ext)) found.add(ext);
+    }
+    cursor = docs.nextPage ?? null;
+    if (!cursor || nodes.length === 0 || found.size === want.size) break;
+  }
+  return [...found];
+}
+
 /** A job's name + location address, for the bill header fields. */
 export async function getJobHeaderInfo(
   cfg: PaveConfig,

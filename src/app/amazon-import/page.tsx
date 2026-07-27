@@ -102,6 +102,8 @@ export default function AmazonImportPage() {
   const [sel, setSel] = useState<Record<string, RowSel>>({});
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [applyMonth, setApplyMonth] = useState("");
+  const [existing, setExisting] = useState<Record<string, boolean>>({});
+  const [checking, setChecking] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState<PostResult | null>(null);
@@ -167,6 +169,7 @@ export default function AmazonImportPage() {
     setResult(null);
     setError("");
     setParseWarnings([]);
+    setExisting({});
     if (!f) {
       setFileName("");
       setOrders([]);
@@ -222,6 +225,41 @@ export default function AmazonImportPage() {
     });
   }, [jobs, orders]);
 
+  // Idempotency pre-check: once a report is parsed AND the vendor is known, ask
+  // JobTread which of these orders are already ingested (a bill with externalId
+  // AMZ-<OrderID> exists on the vendor). Flag them and deselect them so the office
+  // never re-creates a bill. Re-runs if the vendor changes.
+  useEffect(() => {
+    if (orders.length === 0 || !vendorId) return;
+    let cancelled = false;
+    setChecking(true);
+    fetch("/api/amazon-import/check", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ vendorId, orderIds: orders.map((o) => o.orderId) }),
+    })
+      .then((r) => r.json())
+      .then((j) => {
+        if (cancelled) return;
+        const ex: string[] = j.existing ?? [];
+        setExisting(Object.fromEntries(ex.map((id) => [id, true])));
+        if (ex.length > 0) {
+          setSel((prev) => {
+            const next = { ...prev };
+            for (const id of ex) if (next[id]?.include) next[id] = { ...next[id], include: false };
+            return next;
+          });
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setChecking(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [orders, vendorId]);
+
   function setRow(orderId: string, patch: Partial<RowSel>) {
     setSel((prev) => ({ ...prev, [orderId]: { ...prev[orderId], ...patch } }));
   }
@@ -229,6 +267,7 @@ export default function AmazonImportPage() {
   const included = orders.filter((o) => sel[o.orderId]?.include);
   const ready = included.filter((o) => sel[o.orderId]?.jobId);
   const missingJob = included.length - ready.length;
+  const existingCount = orders.filter((o) => existing[o.orderId]).length;
   const totalReady = ready.reduce((s, o) => s + o.netTotal, 0);
   const resultByOrder = useMemo(() => {
     const m: Record<string, OrderResult> = {};
@@ -347,8 +386,16 @@ export default function AmazonImportPage() {
               </div>
             </div>
             <div className="flex flex-wrap items-center justify-between gap-2 border-t border-neutral-200 pt-3 text-sm dark:border-neutral-800">
-              <span className="text-neutral-500">
+              <span className="flex items-center gap-1.5 text-neutral-500">
                 {orders.length} order{orders.length === 1 ? "" : "s"} · {fileName}
+                {checking && (
+                  <>
+                    <Spinner /> checking JobTread…
+                  </>
+                )}
+                {!checking && existingCount > 0 && (
+                  <span className="text-neutral-400">· {existingCount} already in JobTread</span>
+                )}
               </span>
               <div className="flex items-center gap-3">
                 <button
@@ -356,7 +403,9 @@ export default function AmazonImportPage() {
                   onClick={() =>
                     setSel((prev) => {
                       const next = { ...prev };
-                      for (const id of Object.keys(next)) next[id] = { ...next[id], include: true };
+                      // Don't re-arm orders already in JobTread.
+                      for (const id of Object.keys(next))
+                        next[id] = { ...next[id], include: !existing[id] };
                       return next;
                     })
                   }
@@ -441,12 +490,20 @@ export default function AmazonImportPage() {
                               PO: {o.poNumber}
                             </span>
                           )}
-                          {res && (
+                          {res ? (
                             <span
                               className={`rounded px-1.5 py-0.5 text-[11px] font-semibold ${STATUS_STYLE[res.status].cls}`}
                             >
                               {STATUS_STYLE[res.status].label}
                             </span>
+                          ) : (
+                            existing[o.orderId] && (
+                              <span
+                                className={`rounded px-1.5 py-0.5 text-[11px] font-semibold ${STATUS_STYLE.exists.cls}`}
+                              >
+                                Already in JobTread
+                              </span>
+                            )
                           )}
                         </div>
                         <div className="mt-0.5 text-xs text-neutral-500">
