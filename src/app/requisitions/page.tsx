@@ -30,6 +30,8 @@ import {
 // A requisition row as returned by Apps Script: an object keyed by sheet header,
 // values are display strings.
 type Requisition = Record<string, string>;
+// Active roster entry for the "Requested by" dropdown (file on behalf of a lead).
+type Employee = { name: string; position: string };
 
 const TYPES = ["Materials", "Rental", "Equipment", "Subcontractor", "Other"];
 const PRIORITIES = ["Normal", "Urgent"];
@@ -70,6 +72,7 @@ function Requisitions() {
 
   const [rows, setRows] = useState<Requisition[]>([]);
   const [statuses, setStatuses] = useState<string[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
   const [isOffice, setIsOffice] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadErr, setLoadErr] = useState("");
@@ -81,6 +84,8 @@ function Requisitions() {
 
   // New-request form (revealed by the header button).
   const [showNew, setShowNew] = useState(false);
+  const [title, setTitle] = useState("");
+  const [requestedBy, setRequestedBy] = useState(""); // "" = the signed-in user
   const [jobId, setJobId] = useState(initialJob);
   const [type, setType] = useState(TYPES[0]);
   const [priority, setPriority] = useState(PRIORITIES[0]);
@@ -105,6 +110,7 @@ function Requisitions() {
       }
       setRows(json.requisitions ?? []);
       setStatuses(json.statuses ?? []);
+      setEmployees(json.employees ?? []);
       setIsOffice(!!json.isOffice);
     } catch (e) {
       setLoadErr(e instanceof Error ? e.message : "Could not load requisitions.");
@@ -131,6 +137,8 @@ function Requisitions() {
   }, []);
 
   function resetForm() {
+    setTitle("");
+    setRequestedBy("");
     setJobId(initialJob);
     setType(TYPES[0]);
     setPriority(PRIORITIES[0]);
@@ -151,6 +159,8 @@ function Requisitions() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          title: title.trim(),
+          requestedBy,
           jobId,
           jobLabel: jobId ? jobMap[jobId] ?? "" : "",
           type,
@@ -201,6 +211,29 @@ function Requisitions() {
       {/* New-request form */}
       {showNew && (
         <Card className="mb-5 space-y-3">
+          <div>
+            <Label>Title</Label>
+            <input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Short summary — e.g. Scissor lift rental"
+              className={inputCls}
+            />
+          </div>
+
+          <div>
+            <Label>Requested by</Label>
+            <Select value={requestedBy} onChange={(e) => setRequestedBy(e.target.value)}>
+              <option value="">Me (signed in)</option>
+              {employees.map((emp) => (
+                <option key={emp.name} value={emp.name}>
+                  {emp.name}
+                  {emp.position ? ` — ${emp.position}` : ""}
+                </option>
+              ))}
+            </Select>
+          </div>
+
           <div>
             <Label>Job (optional)</Label>
             <JobPicker value={jobId} onChange={setJobId} />
@@ -388,10 +421,17 @@ function RequisitionCard({
       <Card className="space-y-2">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <div className="truncate text-sm font-semibold">{r["Job"] || "No job"}</div>
+            <div className="truncate text-sm font-semibold">
+              {r["Title"] || r["Job"] || "Requisition"}
+            </div>
             <div className="text-xs text-neutral-500">
-              {r["Requested By"] || r["Requester Email"]}
-              {r["Date"] ? ` · ${r["Date"]}` : ""}
+              {[
+                r["Title"] && r["Job"] ? r["Job"] : "",
+                r["Requested By"] || r["Requester Email"],
+                r["Date"],
+              ]
+                .filter(Boolean)
+                .join(" · ")}
             </div>
           </div>
           <StatusBadge status={r["Status"]} />

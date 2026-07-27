@@ -16,8 +16,8 @@ import { auth } from "@/auth";
 //   APPS_SCRIPT_SYNC_SECRET — must equal Script Property SYNC_TRIGGER_SECRET
 //
 //   GET  ?status=&job=   → { ok, isOffice, statuses, requisitions }   (tracking view)
-//   POST { jobId?, jobLabel?, type?, priority?, neededBy?, deliverTo?,
-//          description, estCost?, requestedBy?, clientKey? }
+//   POST { title?, requestedBy?, jobId?, jobLabel?, type?, priority?, neededBy?,
+//          deliverTo?, description, estCost?, clientKey? }
 //                        → { ok, reqId, date, duplicate? }             (submit)
 //   PATCH { reqId, status?, officeNotes? }
 //                        → { ok, requisition }                         (office-only)
@@ -86,6 +86,7 @@ export async function POST(req: NextRequest) {
     action: "logRequisition",
     requesterEmail,
     requestedBy: body.requestedBy ?? "",
+    title: body.title ?? "",
     jobId: body.jobId ?? "",
     jobLabel: body.jobLabel ?? "",
     type: body.type ?? "",
