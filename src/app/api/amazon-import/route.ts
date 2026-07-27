@@ -129,7 +129,7 @@ export async function POST(req: NextRequest) {
   // Resolve each distinct job's budget + header ONCE, then reuse across its orders.
   const jobIds = [...new Set(orders.map((o) => o.jobId).filter(Boolean))];
   const codeMaps = new Map<string, Map<string, string>>(); // jobId → (CSI → jobCostItemId)
-  const jobNames = new Map<string, string>();
+  const jobInfo = new Map<string, { name: string; address: string }>();
   await Promise.all(
     jobIds.map(async (jobId) => {
       try {
@@ -140,7 +140,7 @@ export async function POST(req: NextRequest) {
         const map = new Map<string, string>();
         for (const b of budget) if (!map.has(b.number)) map.set(b.number, b.id);
         codeMaps.set(jobId, map);
-        jobNames.set(jobId, header.name || "");
+        jobInfo.set(jobId, { name: header.name || "", address: header.address || "" });
       } catch {
         // leave unset → the order fails cleanly below with a message
       }
@@ -154,7 +154,8 @@ export async function POST(req: NextRequest) {
     const orderId = String(o.orderId ?? "").trim();
     const jobId = String(o.jobId ?? "").trim();
     const amount = Number(o.amount) || 0;
-    const jobName = jobNames.get(jobId) ?? "";
+    const info = jobInfo.get(jobId);
+    const jobName = info?.name ?? "";
 
     if (!orderId || !jobId) {
       results.push({ orderId, status: "failed", amount, message: "Missing order id or job." });
@@ -240,6 +241,11 @@ export async function POST(req: NextRequest) {
         issueDate,
         dueDays: 30,
         taxAmount,
+        // JobTread requires a location name or address on the bill. Pass the job's
+        // name (and address when it has one) — an overhead job like "Ascent - Shop"
+        // has a name but no street address, so name alone satisfies it.
+        jobLocationName: jobName || undefined,
+        jobLocationAddress: info?.address || undefined,
         lines,
       });
       results.push({
