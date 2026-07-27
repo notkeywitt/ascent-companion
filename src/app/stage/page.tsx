@@ -421,7 +421,11 @@ function Stage() {
 
   const [ym, setYm] = useState(() => {
     const d = new Date();
-    d.setMonth(d.getMonth() - 1);
+    // 10th–10th billing window: through the 10th we're still closing out the
+    // PREVIOUS month; from the 11th on, the current month. (Jul 10 → June,
+    // Jul 11 → July.) Day ≤ 10 is always valid in the prior month, so stepping
+    // the month back can't overflow.
+    if (d.getDate() <= 10) d.setMonth(d.getMonth() - 1);
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
   });
   const [rows, setRows] = useState<JobRow[] | null>(null);
