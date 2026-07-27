@@ -437,7 +437,7 @@ function Stage() {
   const [error, setError] = useState("");
   // Filter toggles (defaults reproduce the original behavior).
   const [uninvoicedOnly, setUninvoicedOnly] = useState(true);
-  const [includeDrafts, setIncludeDrafts] = useState(false);
+  const [includeDrafts, setIncludeDrafts] = useState(true);
   const [groupByCsi, setGroupByCsi] = useState(false);
   const runRef = useRef(0);
 
@@ -619,11 +619,15 @@ function Stage() {
                 className="flex w-full items-start justify-between gap-3 text-left"
               >
                 <div className="min-w-0">
-                  <div className="truncate font-semibold">{r.jobName || customerName || r.jobId}</div>
+                  {/* Title = customer, subtitle = job (falls back to job as the
+                      title when a card has no customer). */}
+                  <div className="truncate font-semibold">{customerName || r.jobName || r.jobId}</div>
                   <div className="mt-0.5 flex items-center gap-1.5 text-xs text-neutral-500">
                     <span className={`transition-transform ${open ? "rotate-90" : ""}`}>▸</span>
-                    {customerName && <span className="truncate">{customerName}</span>}
-                    {customerName && <span className="text-neutral-300 dark:text-neutral-600">·</span>}
+                    {customerName && r.jobName && <span className="truncate">{r.jobName}</span>}
+                    {customerName && r.jobName && (
+                      <span className="text-neutral-300 dark:text-neutral-600">·</span>
+                    )}
                     <span className="whitespace-nowrap">
                       {r.billCount} bill{r.billCount === 1 ? "" : "s"}
                     </span>
