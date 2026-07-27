@@ -1610,11 +1610,17 @@ export interface InvoiceReconciliation {
  * Confirmed live (2026-07, `probe-invoices*`): a customer invoice's `cost`
  * equals the sum of the vendor bills it pulled (a JT invariant, so cost-vs-bills
  * is not a useful check); the meaningful verification is whether EVERY finalized
- * bill (and uninvoiced time) for the month is on a live invoice. We reconcile
- * from the BILL side — each bill's `referencedDocuments` lists the invoice(s) it
- * sits on WITH their status, so a bill is "invoiced" only when it references a
- * NON-denied invoice (a denied invoice is voided; its bills are billable again),
- * and the bill-side list is tiny so no nested pagination is needed.
+ * bill (and uninvoiced time) for the month is on a LIVE (non-denied) invoice.
+ *
+ * We reconcile from the BILL side — each bill's `referencedDocuments` lists the
+ * invoice(s) it sits on with their status (a tiny list, no nested pagination).
+ * But JobTread's RE-ISSUE pattern complicates "live": when an invoice is denied
+ * and re-issued, the bills keep pointing at the DENIED original while the new
+ * (live) invoice references that denied original instead of re-referencing the
+ * bills (confirmed: Bunkhouse bills → #160 denied ← #186 approved). So a bill is
+ * invoiced when it references a live invoice OR a denied invoice that a live
+ * invoice replaced — resolved by walking the invoice→invoice replacement chain
+ * (built from each invoice's `referencedDocuments where type=customerInvoice`).
  *
  * Draft bills are intentionally excluded — they aren't invoiceable yet, so they
  * don't count against completeness.
@@ -1633,23 +1639,15 @@ export async function getInvoiceReconciliation(
     const d = String(dateStr).slice(0, 10);
     return d >= first && d <= last;
   };
+  // The customerInvoice ids a bill/time entry references (any status).
+  const invRefIds = (node: any): string[] =>
+    (node.referencedDocuments?.nodes ?? [])
+      .filter((n: any) => n.type === "customerInvoice" && n.id)
+      .map((n: any) => n.id as string);
 
-  // A bill/time entry is actively invoiced iff it references a customerInvoice
-  // that isn't denied. Collect those invoice ids so we can link exactly the
-  // invoice(s) this month's work landed on.
-  const activeInvoiceIds = new Set<string>();
-  const isActivelyInvoiced = (node: any): boolean => {
-    const refs = (node.referencedDocuments?.nodes ?? []).filter(
-      (n: any) => n.type === "customerInvoice" && n.status !== "denied",
-    );
-    for (const n of refs) if (n.id) activeInvoiceIds.add(n.id);
-    return refs.length > 0;
-  };
-
-  // 1. Finalized vendor bills for the month (referencedDocuments carries each
-  //    linked invoice's id + status). Paged at 25 — referencedDocuments nested
-  //    in paged documents 413s at larger sizes.
-  let bills: any[] = [];
+  // 1. Finalized vendor bills for the month, each with the invoice ids it's on.
+  //    Paged at 25 — referencedDocuments nested in paged documents 413s larger.
+  const monthBills: { cost: number; invIds: string[] }[] = [];
   let page: string | undefined;
   let guard = 0;
   do {
@@ -1672,20 +1670,14 @@ export async function getInvoiceReconciliation(
         },
       },
     });
-    bills = bills.concat(r?.job?.documents?.nodes ?? []);
+    for (const b of (r?.job?.documents?.nodes ?? []) as any[]) {
+      if (inMonth(b.issueDate)) monthBills.push({ cost: b.cost ?? 0, invIds: invRefIds(b) });
+    }
     page = r?.job?.documents?.nextPage || undefined;
   } while (page && ++guard < 100);
 
-  let invoicedBillsCost = 0;
-  let uninvoicedBillsCost = 0;
-  for (const b of bills) {
-    if (!inMonth(b.issueDate)) continue;
-    if (isActivelyInvoiced(b)) invoicedBillsCost += b.cost ?? 0;
-    else uninvoicedBillsCost += b.cost ?? 0;
-  }
-
-  // 2. Uninvoiced time for the month (a bare invoice pulls time too).
-  let times: any[] = [];
+  // 2. Time for the month (a bare invoice pulls uninvoiced time too).
+  const monthTime: { cost: number; invIds: string[] }[] = [];
   page = undefined;
   guard = 0;
   do {
@@ -1704,18 +1696,17 @@ export async function getInvoiceReconciliation(
         },
       },
     });
-    times = times.concat(r?.job?.timeEntries?.nodes ?? []);
+    for (const t of (r?.job?.timeEntries?.nodes ?? []) as any[]) {
+      if (inMonth(t.startedAt)) monthTime.push({ cost: t.cost ?? 0, invIds: invRefIds(t) });
+    }
     page = r?.job?.timeEntries?.nextPage || undefined;
   } while (page && ++guard < 100);
-  let uninvoicedTimeCost = 0;
-  for (const t of times) {
-    if (!inMonth(t.startedAt)) continue;
-    if (!isActivelyInvoiced(t)) uninvoicedTimeCost += t.cost ?? 0;
-  }
 
-  // 3. The job's non-denied customer invoices → keep the ones this month's bills
-  //    / time actually landed on (via the ids collected above).
-  let allInv: any[] = [];
+  // 3. ALL the job's customer invoices (any status) + the predecessor invoice(s)
+  //    each one replaced (referencedDocuments filtered server-side to invoices,
+  //    so we never page a big invoice's bill refs).
+  const byId = new Map<string, any>();
+  const replacedBy = new Map<string, any[]>(); // predecessor id -> invoices that replaced it
   page = undefined;
   guard = 0;
   do {
@@ -1723,13 +1714,7 @@ export async function getInvoiceReconciliation(
       job: {
         $: { id: jobId },
         documents: {
-          $: {
-            where: {
-              and: [["type", "customerInvoice"], ["status", "in", ["draft", "pending", "approved"]]],
-            },
-            size: 25,
-            ...(page ? { page } : {}),
-          },
+          $: { where: { and: [["type", "customerInvoice"]] }, size: 25, ...(page ? { page } : {}) },
           nextPage: {},
           nodes: {
             id: {},
@@ -1739,16 +1724,73 @@ export async function getInvoiceReconciliation(
             cost: {},
             priceWithTax: {},
             amountPaid: {},
+            referencedDocuments: {
+              $: { where: { and: [["type", "customerInvoice"]] }, size: 25 },
+              nodes: { id: {} },
+            },
           },
         },
       },
     });
-    allInv = allInv.concat(r?.job?.documents?.nodes ?? []);
+    for (const iv of (r?.job?.documents?.nodes ?? []) as any[]) {
+      byId.set(iv.id, iv);
+      for (const p of (iv.referencedDocuments?.nodes ?? []) as any[]) {
+        if (!p.id) continue;
+        let arr = replacedBy.get(p.id);
+        if (!arr) replacedBy.set(p.id, (arr = []));
+        arr.push(iv);
+      }
+    }
     page = r?.job?.documents?.nextPage || undefined;
   } while (page && ++guard < 100);
 
-  const invoices: InvoiceRef[] = allInv
-    .filter((i) => activeInvoiceIds.has(i.id))
+  // Resolve a referenced invoice id to the LIVE (non-denied) invoice covering it,
+  // following the replacement chain (bill -> denied original -> live re-issue).
+  const resolveLive = (startId: string): any | null => {
+    const seen = new Set<string>();
+    const queue = [startId];
+    while (queue.length) {
+      const id = queue.shift()!;
+      if (seen.has(id)) continue;
+      seen.add(id);
+      const iv = byId.get(id);
+      if (iv && iv.status !== "denied") return iv;
+      for (const rep of replacedBy.get(id) ?? []) queue.push(rep.id);
+    }
+    return null;
+  };
+  const liveInvoiceFor = (invIds: string[]): any | null => {
+    for (const id of invIds) {
+      const live = resolveLive(id);
+      if (live) return live;
+    }
+    return null;
+  };
+
+  // 4. Partition the month's bills/time into invoiced (on a live invoice, directly
+  //    or via a re-issue) vs still uninvoiced, and collect the live invoices hit.
+  const linkedIds = new Set<string>();
+  let invoicedBillsCost = 0;
+  let uninvoicedBillsCost = 0;
+  for (const b of monthBills) {
+    const live = liveInvoiceFor(b.invIds);
+    if (live) {
+      invoicedBillsCost += b.cost;
+      linkedIds.add(live.id);
+    } else {
+      uninvoicedBillsCost += b.cost;
+    }
+  }
+  let uninvoicedTimeCost = 0;
+  for (const t of monthTime) {
+    const live = liveInvoiceFor(t.invIds);
+    if (live) linkedIds.add(live.id);
+    else uninvoicedTimeCost += t.cost;
+  }
+
+  const invoices: InvoiceRef[] = [...linkedIds]
+    .map((id) => byId.get(id))
+    .filter(Boolean)
     .map((i) => ({
       id: i.id,
       number: i.number != null ? String(i.number) : "",
