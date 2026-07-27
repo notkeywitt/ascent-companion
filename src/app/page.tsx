@@ -21,9 +21,9 @@ import { StuckVendorBanner } from "@/components/StuckVendors";
  * selected job (if any) carries through on the query string, so landing on a
  * job's Coding Review / Invoicing keeps that job in context.
  *
- * Topmost, for admins only, sits the AdminActionBar — buttons that RUN a script
- * job in place rather than navigate anywhere. Add actions to it in that
- * component's own registry, not here.
+ * At the bottom, for admins only, sits the AdminActionBar — buttons that RUN a
+ * script job in place plus quick-jump links to the queues the office works most.
+ * Add actions to it in that component's own registry, not here.
  */
 
 /* ------------------------------------------------------------------- icons */
@@ -190,10 +190,6 @@ function Home() {
           JobTread. Self-hiding when there are none; gates itself on `email`. */}
       <StuckVendorBanner />
 
-      {/* Admin-only: run a script job without leaving the launcher. Gated on the
-          same `actions` view as the /actions page and the /api/actions route. */}
-      {access.can("actions") && <AdminActionBar />}
-
       {/* Quick launch — the three most-used destinations as big, thumb-sized
           buttons above the full launcher grid. */}
       {quick.length > 0 && (
@@ -275,6 +271,16 @@ function Home() {
           );
         })}
       </div>
+
+      {/* Admin-only: quick-jump links to the busiest queues plus buttons that
+          run a script job without leaving the launcher. Sits at the bottom, out
+          of the field/office user's way. Gated on the same `actions` view as the
+          /actions page and the /api/actions route. */}
+      {access.can("actions") && (
+        <div className="mt-6">
+          <AdminActionBar jobQs={qs} />
+        </div>
+      )}
 
       {/* No views at all — don't leave a blank page. This happens when the
           session carries no identity/role (e.g. signed in with the temporary

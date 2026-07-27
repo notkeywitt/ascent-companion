@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 
-import { Button, Card, SectionLabel, Spinner } from "@/components/ui";
+import { Button, Card, SectionLabel, Spinner, btn } from "@/components/ui";
 import {
   InvoiceSweepResultModal,
   isSweepResult,
@@ -14,13 +14,18 @@ import {
 const SWEEP_TASK = "scanJtInvoiceCaptureTags";
 
 /**
- * The admin action bar at the top of the launcher — a curated, one-tap subset of
- * the script jobs on /actions, for the ones the office runs most often.
+ * The admin action bar at the bottom of the launcher — a curated, one-tap subset
+ * of the script jobs on /actions (for the ones the office runs most often), plus
+ * quick-jump links to the queues admins work most.
  *
- * TO ADD A BUTTON: add ONE entry to ADMIN_ACTIONS below. `tasks` holds
+ * TO ADD A RUN BUTTON: add ONE entry to ADMIN_ACTIONS below. `tasks` holds
  * COMPANION_TASKS keys (the registry in Diagnostics.js in the Apps Script repo)
  * and they run IN ORDER through POST /api/actions, so a single button can chain
  * several script jobs. Nothing else in this file or on the Home page changes.
+ *
+ * TO ADD A QUICK-JUMP LINK: add an entry to NAV_LINKS — these navigate (no
+ * script run), carrying the selected job on the query string just like the
+ * launcher's own links.
  *
  * Rendered only for users who can see the `actions` view (admin by default) —
  * the same gate the /actions page and the /api/actions route sit behind, so a
@@ -34,6 +39,13 @@ interface AdminAction {
   /** COMPANION_TASKS keys, run in this order. */
   tasks: string[];
 }
+
+/** Direct-access shortcuts to the two busiest queues. These NAVIGATE (styled as
+ *  outline links), not run-in-place like ADMIN_ACTIONS. */
+const NAV_LINKS: { label: string; href: string }[] = [
+  { label: "Coding Review", href: "/coding" },
+  { label: "Invoicing", href: "/stage" },
+];
 
 const ADMIN_ACTIONS: AdminAction[] = [
   {
@@ -51,7 +63,7 @@ const ADMIN_ACTIONS: AdminAction[] = [
 type Status = "idle" | "busy" | "done" | "error";
 type RunState = { status: Status; note?: string; lockBusy?: boolean };
 
-export function AdminActionBar() {
+export function AdminActionBar({ jobQs = "" }: { jobQs?: string }) {
   const [runs, setRuns] = useState<Record<string, RunState>>({});
   // The invoice sweep's per-email result, shown in a notice modal after the run.
   const [sweep, setSweep] = useState<SweepResult | null>(null);
@@ -115,6 +127,19 @@ export function AdminActionBar() {
         >
           All actions ›
         </Link>
+      </div>
+
+      {/* Quick-jump links — direct access to the queues admins work most. */}
+      <div className="mb-2 grid grid-cols-2 gap-2">
+        {NAV_LINKS.map((l) => (
+          <Link
+            key={l.href}
+            href={l.href + jobQs}
+            className={btn("outline", "md", "min-h-[44px]")}
+          >
+            {l.label}
+          </Link>
+        ))}
       </div>
 
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
