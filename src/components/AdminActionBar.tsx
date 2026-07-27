@@ -58,6 +58,11 @@ const ADMIN_ACTIONS: AdminAction[] = [
     label: "Sync Vendors / Projects / Jobs",
     tasks: ["syncVendorsFromJobTread", "syncProjectsFromJobTread"],
   },
+  {
+    id: "sync-expenditure-summary",
+    label: "Sync Expenditure Summary",
+    tasks: ["generateMonthlyExpenditureSummary"],
+  },
 ];
 
 type Status = "idle" | "busy" | "done" | "error";
