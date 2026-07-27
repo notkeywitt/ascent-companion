@@ -1420,6 +1420,129 @@ export async function getUninvoicedBills(
   return { customer, job, lines, total };
 }
 
+/** One job's roster row for the month-wide Invoicing preview. `billTotal` is
+ *  bills-only (finalized, uninvoiced vendor bills issued in the month); the
+ *  Invoicing tab refines each card's total to include uninvoiced TIME by then
+ *  fetching getUninvoicedBills per job. */
+export interface MonthlyInvoiceJob {
+  jobId: string;
+  jobName: string;
+  customerName: string;
+  billTotal: number;
+  billCount: number;
+}
+
+/**
+ * Every job with uninvoiced (finalized) vendor bills issued in a billing month —
+ * the roster of client invoices to stage for that month, in ONE org-wide paged
+ * `organization.documents` query (same confirmed pattern as getAllDraftBills),
+ * grouped by job. This is the Invoicing tab's default all-jobs view; each card
+ * then lazy-loads its full per-bill/time breakdown via getUninvoicedBills.
+ *
+ * A bill already on a customer invoice carries a customerInvoice node in
+ * referencedDocuments (the per-bill "already billed" flag — same one
+ * getUninvoicedBills uses); those drop unless includeInvoiced. Draft bills
+ * (still coding) are excluded unless includeDrafts. Paged at 25 because
+ * referencedDocuments nested in paged documents 413s at larger sizes.
+ */
+export async function getMonthlyInvoiceJobs(
+  cfg: PaveConfig,
+  year: number,
+  month: number,
+  includeInvoiced = false,
+  includeDrafts = false,
+): Promise<MonthlyInvoiceJob[]> {
+  const mm = String(month).padStart(2, "0");
+  const first = `${year}-${mm}-01`;
+  const last = `${year}-${mm}-${String(new Date(year, month, 0).getDate()).padStart(2, "0")}`;
+  const statuses = includeDrafts ? ["draft", "pending", "approved"] : ["pending", "approved"];
+
+  const q = (nodes: Record<string, unknown>, page?: string) => ({
+    organization: {
+      $: { id: cfg.orgId },
+      id: {},
+      documents: {
+        $: {
+          where: {
+            and: [
+              ["type", "vendorBill"],
+              ["status", "in", statuses],
+              ["issueDate", ">=", first],
+              ["issueDate", "<=", last],
+            ],
+          },
+          size: 25,
+          ...(page ? { page } : {}),
+        },
+        nextPage: {},
+        nodes,
+      },
+    },
+  });
+  // Rich carries the customer (job.location.account); an unconfirmed nested field
+  // won't break the roster — fall back to job id/name only (same guard as
+  // getAllDraftBills). The detail fetch supplies the customer either way.
+  const rich = {
+    id: {}, cost: {}, status: {},
+    job: { id: {}, name: {}, location: { account: { id: {}, name: {} } } },
+    referencedDocuments: { nodes: { type: {} } },
+  };
+  const min = {
+    id: {}, cost: {}, status: {},
+    job: { id: {}, name: {} },
+    referencedDocuments: { nodes: { type: {} } },
+  };
+
+  let bills: any[] = [];
+  let page: string | undefined;
+  let guard = 0;
+  let sel: Record<string, unknown> = rich;
+  do {
+    let r: any;
+    try {
+      r = await pave(cfg, q(sel, page));
+    } catch {
+      sel = min; // downgrade once; an unconfirmed field name won't break the view
+      r = await pave(cfg, q(sel, page));
+    }
+    bills = bills.concat(r?.organization?.documents?.nodes ?? []);
+    page = r?.organization?.documents?.nextPage || undefined;
+  } while (page && ++guard < 100);
+
+  const isInvoiced = (b: any) =>
+    (b.referencedDocuments?.nodes ?? []).some((n: any) => n.type === "customerInvoice");
+
+  const byJob = new Map<string, MonthlyInvoiceJob>();
+  for (const b of bills) {
+    if (!includeInvoiced && isInvoiced(b)) continue;
+    const job = b.job;
+    if (!job?.id) continue;
+    let row = byJob.get(job.id);
+    if (!row) {
+      byJob.set(
+        job.id,
+        (row = {
+          jobId: job.id,
+          jobName: job.name ?? "",
+          customerName: job.location?.account?.name ?? "",
+          billTotal: 0,
+          billCount: 0,
+        }),
+      );
+    }
+    row.billTotal += b.cost ?? 0;
+    row.billCount += 1;
+  }
+
+  // Sort by customer (fall back to job name), ties by amount desc.
+  return Array.from(byJob.values()).sort(
+    (a, b) =>
+      (a.customerName || a.jobName).localeCompare(b.customerName || b.jobName, undefined, {
+        sensitivity: "base",
+      }) || b.billTotal - a.billTotal,
+  );
+}
+
 // ---------------------------------------------------------------------------
 // TIME ENTRIES — createTimeEntry / updateTimeEntry / deleteTimeEntry / a
 // per-user read, all confirmed LIVE 2026-07-23 via probeTimeEntryClockInOut()
