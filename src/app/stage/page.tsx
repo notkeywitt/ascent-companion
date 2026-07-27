@@ -268,7 +268,7 @@ function Breakdown({ detail, groupByCsi }: { detail: Detail; groupByCsi: boolean
   const billLinks = (id: string, text: string, invoiced?: boolean, status?: string) => (
     <>
       <Link
-        href={`/bill/${id}?jobId=${encodeURIComponent(jobId)}`}
+        href={`/bill/${id}?jobId=${encodeURIComponent(jobId)}&from=stage`}
         onClick={() => driveMainWindowToDoc(jobId, id)}
         className="text-accent hover:underline dark:text-accent-soft"
       >

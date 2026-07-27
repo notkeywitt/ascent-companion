@@ -100,6 +100,14 @@ function BillDetail() {
   const search = useSearchParams();
   const docId = params.docId;
   const jobId = search.get("jobId") ?? "";
+  // Where Back returns to. The Invoicing tab (/stage) deep-links here with
+  // ?from=stage so Back goes to Invoicing (re-opening this job's card) instead
+  // of the coding queue, which is where every other entry point comes from.
+  const fromStage = search.get("from") === "stage";
+  const backHref = fromStage
+    ? `/stage?jobId=${encodeURIComponent(jobId)}`
+    : `/coding?jobId=${encodeURIComponent(jobId)}`;
+  const backLabel = fromStage ? "‹ Invoicing" : "‹ Coding queue";
 
   const [header, setHeader] = useState<Header | null>(null);
   const [lines, setLines] = useState<Line[] | null>(null);
@@ -585,10 +593,10 @@ function BillDetail() {
     <main className="mx-auto max-w-xl px-4 pb-24 pt-6">
       <div className="flex items-center justify-between gap-2">
         <Link
-          href={`/coding?jobId=${encodeURIComponent(jobId)}`}
+          href={backHref}
           className="text-sm font-semibold text-accent dark:text-accent-soft"
         >
-          ‹ Coding queue
+          {backLabel}
         </Link>
         <div className="flex items-center gap-2 text-sm">
           {qIdx >= 0 && queue.length > 1 && (
