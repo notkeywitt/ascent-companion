@@ -45,6 +45,7 @@ export const VIEWS: ViewDef[] = [
   { id: "email", label: "Email Invoices", group: "Financials", paths: ["/email", "/api/stuck-vendors"] },
   { id: "needs-project", label: "Needs Project", group: "Financials", paths: ["/needs-project"] },
   { id: "payments", label: "Sunset Statements", group: "Financials", paths: ["/payments"] },
+  { id: "amazon-import", label: "Amazon Import", group: "Financials", paths: ["/amazon-import", "/api/amazon-import"] },
   // Field
   { id: "safety-meeting", label: "Safety Meeting", group: "Field", paths: ["/safety-meeting"] },
   { id: "mileage", label: "Mileage", group: "Field", paths: ["/mileage-tracker"] },

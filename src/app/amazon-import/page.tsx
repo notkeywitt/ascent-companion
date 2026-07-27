@@ -1,0 +1,595 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { CostCodeSelect, type Option } from "@/components/CostCodeSelect";
+import {
+  Banner,
+  Button,
+  Card,
+  EmptyState,
+  Label,
+  PageHeader,
+  Select,
+  Spinner,
+  Toggle,
+  btn,
+} from "@/components/ui";
+import { parseAmazonCsv, type AmazonOrder } from "@/lib/amazonImport";
+
+interface JobRef {
+  id: string;
+  name: string;
+  number?: string;
+  customer?: string;
+}
+interface VendorRef {
+  id: string;
+  name: string;
+}
+interface RowSel {
+  jobId: string;
+  costCode: string; // CSI number ("" = uncoded)
+  ym: string; // billing month, "YYYY-MM"
+  include: boolean;
+}
+type OrderStatus = "created" | "exists" | "skipped" | "failed" | "preview";
+interface OrderResult {
+  orderId: string;
+  status: OrderStatus;
+  docId?: string;
+  jobName?: string;
+  amount?: number;
+  coded?: boolean;
+  message?: string;
+}
+interface PostResult {
+  wrote: boolean;
+  previewed: boolean;
+  vendorName?: string;
+  syncKicked?: boolean;
+  counts: { created: number; exists: number; failed: number; preview: number };
+  results: OrderResult[];
+}
+
+const money = (n: number) =>
+  "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+const jobLabel = (j: JobRef) => (j.customer ? `${j.customer} — ${j.name}` : j.name);
+
+// Last 18 months as {ym, label} options for the billing-month dropdown.
+function monthOptions() {
+  const opts: { ym: string; label: string }[] = [];
+  const now = new Date();
+  for (let i = 0; i < 18; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    opts.push({ ym, label: d.toLocaleString("en-US", { month: "long", year: "numeric" }) });
+  }
+  return opts;
+}
+
+// Best-effort job guess from the PO Number the office typed at checkout. Takes
+// the token before a dash ("Ferron - Masonry" → "Ferron") and finds a job whose
+// customer or name contains it. The user confirms/overrides every guess.
+function suggestJob(po: string, jobs: JobRef[]): string {
+  const token = po.split(/[-–—/]/)[0].trim().toLowerCase();
+  if (token.length < 3) return "";
+  const hit = jobs.find(
+    (j) =>
+      (j.customer ?? "").toLowerCase().includes(token) || j.name.toLowerCase().includes(token),
+  );
+  return hit?.id ?? "";
+}
+
+const STATUS_STYLE: Record<OrderStatus, { label: string; cls: string }> = {
+  created: { label: "Created", cls: "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300" },
+  exists: { label: "Already in JT", cls: "bg-neutral-200 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300" },
+  preview: { label: "Preview", cls: "bg-accent/15 text-accent dark:text-accent-soft" },
+  skipped: { label: "Skipped", cls: "bg-neutral-200 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300" },
+  failed: { label: "Failed", cls: "bg-red-100 text-red-700 dark:bg-red-950/50 dark:text-red-300" },
+};
+
+export default function AmazonImportPage() {
+  const [fileName, setFileName] = useState("");
+  const [orders, setOrders] = useState<AmazonOrder[]>([]);
+  const [parseWarnings, setParseWarnings] = useState<string[]>([]);
+  const [jobs, setJobs] = useState<JobRef[]>([]);
+  const [vendors, setVendors] = useState<VendorRef[]>([]);
+  const [vendorId, setVendorId] = useState("");
+  const [budgets, setBudgets] = useState<Record<string, Option[]>>({});
+  const [budgetLoading, setBudgetLoading] = useState<Record<string, boolean>>({});
+  const [sel, setSel] = useState<Record<string, RowSel>>({});
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [applyMonth, setApplyMonth] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [result, setResult] = useState<PostResult | null>(null);
+
+  const months = useMemo(monthOptions, []);
+
+  useEffect(() => {
+    fetch("/api/jobs")
+      .then((r) => r.json())
+      .then((j) => setJobs(j.jobs ?? []))
+      .catch(() => {});
+    fetch("/api/vendors")
+      .then((r) => r.json())
+      .then((j) => {
+        const vs: VendorRef[] = j.vendors ?? [];
+        setVendors(vs);
+        const amazon = vs.find((v) => /amazon/i.test(v.name));
+        if (amazon) setVendorId(amazon.id);
+      })
+      .catch(() => {});
+  }, []);
+
+  // Fetch cost-code options for any assigned job we haven't loaded yet.
+  const loadBudgets = useCallback(
+    (jobIds: string[]) => {
+      const need = jobIds.filter((id) => id && !(id in budgets) && !budgetLoading[id]);
+      if (need.length === 0) return;
+      setBudgetLoading((b) => ({ ...b, ...Object.fromEntries(need.map((id) => [id, true])) }));
+      fetch(`/api/amazon-import?jobIds=${encodeURIComponent(need.join(","))}`)
+        .then((r) => r.json())
+        .then((j) => {
+          const got: Record<string, Option[]> = j.budgets ?? {};
+          setBudgets((prev) => {
+            const next = { ...prev };
+            for (const id of need) next[id] = got[id] ?? [];
+            return next;
+          });
+        })
+        .catch(() => {
+          setBudgets((prev) => {
+            const next = { ...prev };
+            for (const id of need) if (!(id in next)) next[id] = [];
+            return next;
+          });
+        })
+        .finally(() =>
+          setBudgetLoading((b) => {
+            const next = { ...b };
+            for (const id of need) delete next[id];
+            return next;
+          }),
+        );
+    },
+    [budgets, budgetLoading],
+  );
+
+  // Whenever assignments change, make sure each assigned job's budget is loading.
+  useEffect(() => {
+    loadBudgets([...new Set(Object.values(sel).map((s) => s.jobId).filter(Boolean))]);
+  }, [sel, loadBudgets]);
+
+  async function onPickFile(f: File | null) {
+    setResult(null);
+    setError("");
+    setParseWarnings([]);
+    if (!f) {
+      setFileName("");
+      setOrders([]);
+      setSel({});
+      return;
+    }
+    setFileName(f.name);
+    try {
+      const text = await f.text();
+      const { orders: parsed, warnings } = parseAmazonCsv(text);
+      setOrders(parsed);
+      setParseWarnings(warnings);
+      // Seed selections: auto-suggest the job, default billing month to the order month.
+      const nextSel: Record<string, RowSel> = {};
+      for (const o of parsed) {
+        const ym =
+          o.orderYear && o.orderMonth
+            ? `${o.orderYear}-${String(o.orderMonth).padStart(2, "0")}`
+            : months[0].ym;
+        nextSel[o.orderId] = {
+          jobId: suggestJob(o.poNumber, jobs),
+          costCode: "",
+          ym,
+          include: true,
+        };
+      }
+      setSel(nextSel);
+      setApplyMonth(parsed[0] && nextSel[parsed[0].orderId] ? nextSel[parsed[0].orderId].ym : months[0].ym);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn't read the file.");
+      setOrders([]);
+      setSel({});
+    }
+  }
+
+  // Re-run job suggestions once jobs finish loading (if a file was dropped first).
+  useEffect(() => {
+    if (jobs.length === 0 || orders.length === 0) return;
+    setSel((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      for (const o of orders) {
+        const cur = next[o.orderId];
+        if (cur && !cur.jobId) {
+          const guess = suggestJob(o.poNumber, jobs);
+          if (guess) {
+            next[o.orderId] = { ...cur, jobId: guess };
+            changed = true;
+          }
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [jobs, orders]);
+
+  function setRow(orderId: string, patch: Partial<RowSel>) {
+    setSel((prev) => ({ ...prev, [orderId]: { ...prev[orderId], ...patch } }));
+  }
+
+  const included = orders.filter((o) => sel[o.orderId]?.include);
+  const ready = included.filter((o) => sel[o.orderId]?.jobId);
+  const missingJob = included.length - ready.length;
+  const totalReady = ready.reduce((s, o) => s + o.netTotal, 0);
+  const resultByOrder = useMemo(() => {
+    const m: Record<string, OrderResult> = {};
+    for (const r of result?.results ?? []) m[r.orderId] = r;
+    return m;
+  }, [result]);
+
+  async function createBills() {
+    if (busy || !vendorId || ready.length === 0) return;
+    setBusy(true);
+    setError("");
+    setResult(null);
+    try {
+      const payload = {
+        vendorId,
+        orders: ready.map((o) => {
+          const s = sel[o.orderId];
+          const [y, m] = s.ym.split("-").map((x) => parseInt(x, 10));
+          return {
+            orderId: o.orderId,
+            jobId: s.jobId,
+            costCode: s.costCode || undefined,
+            billingMonth: m,
+            billingYear: y,
+            tax: o.tax,
+            amount: o.netTotal,
+            lines: o.lines.map((l) => ({
+              name: l.title,
+              unitCost: l.ppu > 0 ? l.ppu : l.quantity ? l.subtotal / l.quantity : l.subtotal,
+              quantity: l.quantity || 1,
+            })),
+          };
+        }),
+      };
+      const res = await fetch("/api/amazon-import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setError(json.error ?? "Request failed.");
+      } else {
+        setResult(json);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Network error.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const selectedVendorName = vendors.find((v) => v.id === vendorId)?.name;
+
+  return (
+    <main className="mx-auto max-w-3xl px-4 pb-32 pt-6">
+      <PageHeader
+        title="Amazon Import"
+        description="Upload the monthly Amazon Business order report, pick a job, cost code, and billing month for each order, then create all the JobTread bills in one push."
+      />
+
+      {orders.length === 0 ? (
+        <section className="space-y-4">
+          <Card>
+            <Label>Amazon Business order report (CSV)</Label>
+            <input
+              type="file"
+              accept=".csv,text/csv"
+              onChange={(e) => onPickFile(e.target.files?.[0] ?? null)}
+              className="block w-full rounded-lg border border-neutral-300 bg-white p-2 text-sm transition file:mr-3 file:rounded-md file:border-0 file:bg-accent file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-accent-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 dark:border-neutral-600 dark:bg-ink-raised"
+            />
+            <p className="mt-2 text-xs text-neutral-500">
+              In Amazon Business: <span className="font-medium">Reports → Order history</span>, export
+              a month as CSV. Each order becomes one vendor bill; the job is guessed from the PO
+              Number you typed at checkout.
+            </p>
+          </Card>
+          {error && <Banner tone="error">{error}</Banner>}
+        </section>
+      ) : (
+        <section className="space-y-4">
+          {/* Batch controls */}
+          <Card className="space-y-3">
+            <div className="flex flex-wrap items-end gap-3">
+              <div className="min-w-[180px] flex-1">
+                <Label>Vendor</Label>
+                <Select value={vendorId} onChange={(e) => setVendorId(e.target.value)}>
+                  <option value="">— pick the Amazon vendor —</option>
+                  {vendors.map((v) => (
+                    <option key={v.id} value={v.id}>
+                      {v.name}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+              <div className="min-w-[160px]">
+                <Label>Set all billing months</Label>
+                <Select
+                  value={applyMonth}
+                  onChange={(e) => {
+                    const ym = e.target.value;
+                    setApplyMonth(ym);
+                    setSel((prev) => {
+                      const next = { ...prev };
+                      for (const id of Object.keys(next)) next[id] = { ...next[id], ym };
+                      return next;
+                    });
+                  }}
+                >
+                  {months.map((m) => (
+                    <option key={m.ym} value={m.ym}>
+                      {m.label}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-neutral-200 pt-3 text-sm dark:border-neutral-800">
+              <span className="text-neutral-500">
+                {orders.length} order{orders.length === 1 ? "" : "s"} · {fileName}
+              </span>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setSel((prev) => {
+                      const next = { ...prev };
+                      for (const id of Object.keys(next)) next[id] = { ...next[id], include: true };
+                      return next;
+                    })
+                  }
+                  className="text-xs font-medium text-accent hover:underline"
+                >
+                  Select all
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setSel((prev) => {
+                      const next = { ...prev };
+                      for (const id of Object.keys(next)) next[id] = { ...next[id], include: false };
+                      return next;
+                    })
+                  }
+                  className="text-xs font-medium text-neutral-500 hover:underline"
+                >
+                  None
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onPickFile(null)}
+                  className="text-xs font-medium text-neutral-500 hover:underline"
+                >
+                  New file
+                </button>
+              </div>
+            </div>
+          </Card>
+
+          {parseWarnings.map((w, i) => (
+            <Banner key={i} tone="warning">
+              {w}
+            </Banner>
+          ))}
+
+          {result && (
+            <Banner tone={result.counts.failed > 0 ? "warning" : "success"}>
+              {result.previewed ? (
+                <>
+                  Preview only — writes are OFF (COMPANION_WRITES_ENABLED not set).{" "}
+                  {result.counts.preview} order(s) would be created.
+                </>
+              ) : (
+                <>
+                  Created {result.counts.created} bill(s)
+                  {result.counts.exists > 0 && `, ${result.counts.exists} already in JobTread`}
+                  {result.counts.failed > 0 && `, ${result.counts.failed} failed`}.
+                  {result.syncKicked && " Syncing to the sheet & Drive now."}
+                </>
+              )}
+            </Banner>
+          )}
+          {error && <Banner tone="error">{error}</Banner>}
+
+          {/* Order cards */}
+          <ul className="space-y-2">
+            {orders.map((o) => {
+              const s = sel[o.orderId] ?? { jobId: "", costCode: "", ym: months[0].ym, include: true };
+              const codeOptions = budgets[s.jobId] ?? [];
+              const res = resultByOrder[o.orderId];
+              const isOpen = expanded[o.orderId];
+              return (
+                <li key={o.orderId}>
+                  <Card
+                    className={`space-y-3 ${s.include ? "" : "opacity-55"}`}
+                  >
+                    {/* header row */}
+                    <div className="flex items-start gap-3">
+                      <Toggle
+                        checked={s.include}
+                        onChange={(v) => setRow(o.orderId, { include: v })}
+                        label=""
+                        className="mt-0.5"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                          <span className="text-sm font-semibold">{money(o.netTotal)}</span>
+                          {o.poNumber && (
+                            <span className="rounded bg-accent/10 px-1.5 py-0.5 text-xs font-medium text-accent dark:text-accent-soft">
+                              PO: {o.poNumber}
+                            </span>
+                          )}
+                          {res && (
+                            <span
+                              className={`rounded px-1.5 py-0.5 text-[11px] font-semibold ${STATUS_STYLE[res.status].cls}`}
+                            >
+                              {STATUS_STYLE[res.status].label}
+                            </span>
+                          )}
+                        </div>
+                        <div className="mt-0.5 text-xs text-neutral-500">
+                          {o.orderDate} · {o.lines.length} item{o.lines.length === 1 ? "" : "s"}
+                          {o.tax > 0 && ` · tax ${money(o.tax)}`}
+                          {o.accountUser && ` · ${o.accountUser}`}
+                          {o.cardLast4 && ` · ····${o.cardLast4}`}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setExpanded((e) => ({ ...e, [o.orderId]: !e[o.orderId] }))}
+                          className="mt-1 text-xs font-medium text-accent hover:underline"
+                        >
+                          {isOpen ? "Hide items" : "Show items"}
+                        </button>
+                        {isOpen && (
+                          <div className="mt-1.5 space-y-1 border-l-2 border-neutral-200 pl-3 dark:border-neutral-700">
+                            {o.lines.map((l, i) => (
+                              <div
+                                key={i}
+                                className="flex items-baseline justify-between gap-2 text-xs"
+                              >
+                                <span className="truncate text-neutral-600 dark:text-neutral-300">
+                                  {l.quantity > 1 ? `${l.quantity}× ` : ""}
+                                  {l.title}
+                                </span>
+                                <span className="whitespace-nowrap text-neutral-500">
+                                  {money(l.subtotal)}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* selections */}
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_1fr_auto]">
+                      <div>
+                        <Label>Job</Label>
+                        <Select
+                          value={s.jobId}
+                          onChange={(e) => setRow(o.orderId, { jobId: e.target.value, costCode: "" })}
+                        >
+                          <option value="">— pick a job —</option>
+                          {jobs.map((j) => (
+                            <option key={j.id} value={j.id}>
+                              {jobLabel(j)}
+                            </option>
+                          ))}
+                        </Select>
+                      </div>
+                      <div>
+                        <Label>Cost code</Label>
+                        {!s.jobId ? (
+                          <div className="rounded-lg border border-dashed border-neutral-300 px-2 py-2 text-xs text-neutral-400 dark:border-neutral-700">
+                            Pick a job first
+                          </div>
+                        ) : budgetLoading[s.jobId] ? (
+                          <div className="flex items-center gap-2 rounded-lg border border-neutral-300 px-2 py-2 text-xs text-neutral-500 dark:border-neutral-600">
+                            <Spinner /> Loading codes…
+                          </div>
+                        ) : (
+                          <CostCodeSelect
+                            options={codeOptions}
+                            value={codeOptions.find((c) => c.number === s.costCode)?.id ?? ""}
+                            onChange={(id) =>
+                              setRow(o.orderId, {
+                                costCode: codeOptions.find((c) => c.id === id)?.number ?? "",
+                              })
+                            }
+                          />
+                        )}
+                      </div>
+                      <div className="sm:w-40">
+                        <Label>Billing month</Label>
+                        <Select value={s.ym} onChange={(e) => setRow(o.orderId, { ym: e.target.value })}>
+                          {months.map((m) => (
+                            <option key={m.ym} value={m.ym}>
+                              {m.label}
+                            </option>
+                          ))}
+                        </Select>
+                      </div>
+                    </div>
+
+                    {res?.message && (
+                      <p className="text-xs text-amber-600 dark:text-amber-400">{res.message}</p>
+                    )}
+                    {res?.docId && (
+                      <Link
+                        href={`/bill/${encodeURIComponent(res.docId)}?jobId=${encodeURIComponent(s.jobId)}`}
+                        className={btn("secondary", "sm")}
+                      >
+                        Open bill →
+                      </Link>
+                    )}
+                  </Card>
+                </li>
+              );
+            })}
+          </ul>
+
+          {orders.length > 0 && ready.length === 0 && (
+            <EmptyState>Select at least one order and give it a job to create bills.</EmptyState>
+          )}
+        </section>
+      )}
+
+      {/* Sticky create bar */}
+      {orders.length > 0 && (
+        <div className="fixed inset-x-0 bottom-0 z-20 border-t border-neutral-200 bg-white/95 px-4 py-3 backdrop-blur dark:border-neutral-800 dark:bg-ink/95">
+          <div className="mx-auto flex max-w-3xl items-center justify-between gap-3">
+            <div className="text-sm">
+              <span className="font-semibold">{ready.length}</span> bill
+              {ready.length === 1 ? "" : "s"} · {money(totalReady)}
+              {missingJob > 0 && (
+                <span className="ml-2 text-xs text-amber-600 dark:text-amber-400">
+                  {missingJob} selected order{missingJob === 1 ? "" : "s"} need a job
+                </span>
+              )}
+            </div>
+            <Button
+              size="lg"
+              onClick={createBills}
+              disabled={busy || !vendorId || ready.length === 0}
+            >
+              {busy ? (
+                <>
+                  <Spinner /> Creating…
+                </>
+              ) : (
+                `Create ${ready.length} bill${ready.length === 1 ? "" : "s"} in JobTread`
+              )}
+            </Button>
+          </div>
+          {!vendorId && (
+            <p className="mx-auto mt-1 max-w-3xl text-xs text-amber-600 dark:text-amber-400">
+              Pick the Amazon vendor above first.
+            </p>
+          )}
+        </div>
+      )}
+    </main>
+  );
+}

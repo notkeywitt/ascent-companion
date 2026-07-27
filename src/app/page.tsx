@@ -132,6 +132,7 @@ const AREAS: Area[] = [
       { label: "Email Invoices", href: "/email", desc: "Log invoices from the office inbox", view: "email" },
       { label: "Needs Project", href: "/needs-project", desc: "Ingested bills with no job yet", view: "needs-project" },
       { label: "Sunset Statements", href: "/payments", desc: "Pay a statement & reconcile its invoices", view: "payments" },
+      { label: "Amazon Import", href: "/amazon-import", desc: "Monthly Amazon report → batch of bills", view: "amazon-import" },
     ],
   },
   {
