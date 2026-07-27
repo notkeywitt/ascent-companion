@@ -413,6 +413,129 @@ function Breakdown({ detail, groupByCsi }: { detail: Detail; groupByCsi: boolean
   );
 }
 
+interface InvoiceRef {
+  id: string;
+  number: string;
+  status: string;
+  issueDate: string;
+  cost: number;
+  total: number;
+  amountPaid: number;
+}
+interface Recon {
+  invoices: InvoiceRef[];
+  invoicedBillsCost: number;
+  uninvoicedBillsCost: number;
+  uninvoicedTimeCost: number;
+  remaining: number;
+  reconciled: boolean;
+}
+
+// The bridge from this preview to the real customer invoice(s) in JobTread:
+// links each invoice this month's bills landed on and verifies completeness
+// (is anything still uninvoiced?). Fetches on mount — i.e. each time a card is
+// expanded — so it always reflects invoices just created in JT.
+function InvoiceReconcile({ jobId, ym }: { jobId: string; ym: string }) {
+  const [data, setData] = useState<Recon | null>(null);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    let live = true;
+    setData(null);
+    setError("");
+    const [y, m] = ym.split("-").map(Number);
+    (async () => {
+      try {
+        const res = await fetch(
+          `/api/stage/invoices?jobId=${encodeURIComponent(jobId)}&year=${y}&month=${m}`,
+        );
+        const j = await res.json();
+        if (!live) return;
+        if (res.ok) setData(j);
+        else setError(j.error ?? "Failed");
+      } catch (e) {
+        if (live) setError(e instanceof Error ? e.message : "Network error");
+      }
+    })();
+    return () => {
+      live = false;
+    };
+  }, [jobId, ym]);
+
+  if (error) {
+    return (
+      <div className="rounded-lg border border-amber-300 bg-amber-50 px-2.5 py-2 text-xs text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300">
+        Couldn&apos;t check JobTread for invoices: {error}
+      </div>
+    );
+  }
+  if (!data) {
+    return (
+      <div className="flex items-center gap-1.5 text-xs text-neutral-500">
+        <Spinner /> Checking JobTread for the invoice…
+      </div>
+    );
+  }
+
+  const { invoices, remaining, reconciled } = data;
+
+  // No live (non-denied) invoice pulls this month's work yet.
+  if (invoices.length === 0) {
+    return (
+      <div className="rounded-lg border border-neutral-200 bg-neutral-50 px-2.5 py-2 text-xs text-neutral-600 dark:border-neutral-700/60 dark:bg-white/5 dark:text-neutral-300">
+        <span className="font-semibold">No invoice in JobTread yet.</span>
+        {remaining > 0.01 ? ` ${money(remaining)} to invoice.` : ""} Create it below, then reopen
+        this card to reconcile.
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className={
+        "rounded-lg border px-2.5 py-2 text-xs " +
+        (reconciled
+          ? "border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-300"
+          : "border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300")
+      }
+    >
+      <div className="flex items-center justify-between gap-2 font-semibold">
+        <span>
+          {reconciled
+            ? "✓ Reconciled — every bill this month is on an invoice"
+            : `⚠ ${money(remaining)} still uninvoiced`}
+        </span>
+        <span className="tabular-nums">
+          {invoices.length} invoice{invoices.length === 1 ? "" : "s"} in JT
+        </span>
+      </div>
+      {!reconciled && (
+        <div className="mt-0.5 opacity-80">
+          Some finalized bills or time for this month aren&apos;t on an invoice yet — extend or add
+          an invoice to capture the rest.
+        </div>
+      )}
+      <ul className="mt-1.5 space-y-0.5 border-t border-current/20 pt-1.5">
+        {invoices.map((inv) => (
+          <li key={inv.id} className="flex items-center justify-between gap-3 tabular-nums">
+            <JtLink
+              href={`https://app.jobtread.com/jobs/${jobId}/documents/${inv.id}`}
+              className="font-medium underline decoration-current/40 underline-offset-2 hover:decoration-current"
+            >
+              Invoice #{inv.number || "—"} ↗
+            </JtLink>
+            <span className="flex items-center gap-2">
+              <span className="rounded bg-current/10 px-1 text-[10px] font-semibold uppercase tracking-wide">
+                {inv.status}
+              </span>
+              {money(inv.total)}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function Stage() {
   const search = useSearchParams();
   // A job chosen in the global picker just auto-opens that card; the page still
@@ -648,6 +771,11 @@ function Stage() {
 
               {open && (
                 <div className="mt-3">
+                  {/* Bridge to the actual JobTread customer invoice(s) + a
+                      completeness check — shown even while the breakdown loads. */}
+                  <div className="mb-3">
+                    <InvoiceReconcile jobId={r.jobId} ym={ym} />
+                  </div>
                   {failed ? (
                     <Banner tone="warning" className="!py-2 text-xs">
                       Couldn&apos;t load this job&apos;s breakdown.{" "}

@@ -1543,6 +1543,200 @@ export async function getMonthlyInvoiceJobs(
   );
 }
 
+/** A JobTread customer invoice, for linking + reconciliation. `cost` is the
+ *  cost basis (JobTread guarantees it == Σ of the vendor bills the invoice
+ *  pulled); `total` is priceWithTax — what the customer is actually billed. */
+export interface InvoiceRef {
+  id: string;
+  number: string; // JT invoice #
+  status: string; // draft | pending | approved (denied invoices are excluded)
+  issueDate: string;
+  cost: number; // cost basis
+  total: number; // priceWithTax (billed amount)
+  amountPaid: number;
+}
+export interface InvoiceReconciliation {
+  // Non-denied customer invoices this month's bills/time landed on (links).
+  invoices: InvoiceRef[];
+  invoicedBillsCost: number; // Σ cost of the month's bills now on a live invoice
+  uninvoicedBillsCost: number; // Σ cost of the month's bills on no live invoice
+  uninvoicedTimeCost: number; // Σ cost of the month's uninvoiced time
+  remaining: number; // uninvoicedBillsCost + uninvoicedTimeCost — still to invoice
+  reconciled: boolean; // an invoice exists AND nothing is left uninvoiced
+}
+
+/**
+ * Connect the Invoicing preview to the actual customer invoice(s) created in
+ * JobTread for a job + billing month, and verify completeness.
+ *
+ * Confirmed live (2026-07, `probe-invoices*`): a customer invoice's `cost`
+ * equals the sum of the vendor bills it pulled (a JT invariant, so cost-vs-bills
+ * is not a useful check); the meaningful verification is whether EVERY finalized
+ * bill (and uninvoiced time) for the month is on a live invoice. We reconcile
+ * from the BILL side — each bill's `referencedDocuments` lists the invoice(s) it
+ * sits on WITH their status, so a bill is "invoiced" only when it references a
+ * NON-denied invoice (a denied invoice is voided; its bills are billable again),
+ * and the bill-side list is tiny so no nested pagination is needed.
+ *
+ * Draft bills are intentionally excluded — they aren't invoiceable yet, so they
+ * don't count against completeness.
+ */
+export async function getInvoiceReconciliation(
+  cfg: PaveConfig,
+  jobId: string,
+  year: number,
+  month: number,
+): Promise<InvoiceReconciliation> {
+  const mm = String(month).padStart(2, "0");
+  const first = `${year}-${mm}-01`;
+  const last = `${year}-${mm}-${String(new Date(year, month, 0).getDate()).padStart(2, "0")}`;
+  const inMonth = (dateStr?: string) => {
+    if (!dateStr) return false;
+    const d = String(dateStr).slice(0, 10);
+    return d >= first && d <= last;
+  };
+
+  // A bill/time entry is actively invoiced iff it references a customerInvoice
+  // that isn't denied. Collect those invoice ids so we can link exactly the
+  // invoice(s) this month's work landed on.
+  const activeInvoiceIds = new Set<string>();
+  const isActivelyInvoiced = (node: any): boolean => {
+    const refs = (node.referencedDocuments?.nodes ?? []).filter(
+      (n: any) => n.type === "customerInvoice" && n.status !== "denied",
+    );
+    for (const n of refs) if (n.id) activeInvoiceIds.add(n.id);
+    return refs.length > 0;
+  };
+
+  // 1. Finalized vendor bills for the month (referencedDocuments carries each
+  //    linked invoice's id + status). Paged at 25 — referencedDocuments nested
+  //    in paged documents 413s at larger sizes.
+  let bills: any[] = [];
+  let page: string | undefined;
+  let guard = 0;
+  do {
+    const r: any = await pave(cfg, {
+      job: {
+        $: { id: jobId },
+        documents: {
+          $: {
+            where: { and: [["type", "vendorBill"], ["status", "in", ["pending", "approved"]]] },
+            size: 25,
+            ...(page ? { page } : {}),
+          },
+          nextPage: {},
+          nodes: {
+            id: {},
+            cost: {},
+            issueDate: {},
+            referencedDocuments: { nodes: { id: {}, type: {}, status: {} } },
+          },
+        },
+      },
+    });
+    bills = bills.concat(r?.job?.documents?.nodes ?? []);
+    page = r?.job?.documents?.nextPage || undefined;
+  } while (page && ++guard < 100);
+
+  let invoicedBillsCost = 0;
+  let uninvoicedBillsCost = 0;
+  for (const b of bills) {
+    if (!inMonth(b.issueDate)) continue;
+    if (isActivelyInvoiced(b)) invoicedBillsCost += b.cost ?? 0;
+    else uninvoicedBillsCost += b.cost ?? 0;
+  }
+
+  // 2. Uninvoiced time for the month (a bare invoice pulls time too).
+  let times: any[] = [];
+  page = undefined;
+  guard = 0;
+  do {
+    const r: any = await pave(cfg, {
+      job: {
+        $: { id: jobId },
+        timeEntries: {
+          $: { size: 50, ...(page ? { page } : {}) },
+          nextPage: {},
+          nodes: {
+            id: {},
+            cost: {},
+            startedAt: {},
+            referencedDocuments: { nodes: { id: {}, type: {}, status: {} } },
+          },
+        },
+      },
+    });
+    times = times.concat(r?.job?.timeEntries?.nodes ?? []);
+    page = r?.job?.timeEntries?.nextPage || undefined;
+  } while (page && ++guard < 100);
+  let uninvoicedTimeCost = 0;
+  for (const t of times) {
+    if (!inMonth(t.startedAt)) continue;
+    if (!isActivelyInvoiced(t)) uninvoicedTimeCost += t.cost ?? 0;
+  }
+
+  // 3. The job's non-denied customer invoices → keep the ones this month's bills
+  //    / time actually landed on (via the ids collected above).
+  let allInv: any[] = [];
+  page = undefined;
+  guard = 0;
+  do {
+    const r: any = await pave(cfg, {
+      job: {
+        $: { id: jobId },
+        documents: {
+          $: {
+            where: {
+              and: [["type", "customerInvoice"], ["status", "in", ["draft", "pending", "approved"]]],
+            },
+            size: 25,
+            ...(page ? { page } : {}),
+          },
+          nextPage: {},
+          nodes: {
+            id: {},
+            number: {},
+            issueDate: {},
+            status: {},
+            cost: {},
+            priceWithTax: {},
+            amountPaid: {},
+          },
+        },
+      },
+    });
+    allInv = allInv.concat(r?.job?.documents?.nodes ?? []);
+    page = r?.job?.documents?.nextPage || undefined;
+  } while (page && ++guard < 100);
+
+  const invoices: InvoiceRef[] = allInv
+    .filter((i) => activeInvoiceIds.has(i.id))
+    .map((i) => ({
+      id: i.id,
+      number: i.number != null ? String(i.number) : "",
+      status: i.status ?? "",
+      issueDate: i.issueDate ?? "",
+      cost: i.cost ?? 0,
+      total: i.priceWithTax ?? 0,
+      amountPaid: i.amountPaid ?? 0,
+    }))
+    .sort(
+      (a, b) =>
+        a.issueDate.localeCompare(b.issueDate) ||
+        a.number.localeCompare(b.number, undefined, { numeric: true }),
+    );
+
+  const remaining = Math.round((uninvoicedBillsCost + uninvoicedTimeCost) * 100) / 100;
+  return {
+    invoices,
+    invoicedBillsCost,
+    uninvoicedBillsCost,
+    uninvoicedTimeCost,
+    remaining,
+    reconciled: invoices.length > 0 && Math.abs(remaining) < 0.01,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // TIME ENTRIES — createTimeEntry / updateTimeEntry / deleteTimeEntry / a
 // per-user read, all confirmed LIVE 2026-07-23 via probeTimeEntryClockInOut()
