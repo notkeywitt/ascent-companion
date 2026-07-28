@@ -34,10 +34,11 @@ import {
 } from "@/lib/leave";
 
 // Entries whose JobTread job id or cost-code number is one of these are treated
-// as leave time (so leave doesn't itself earn accrual). Configured once the
-// leave job/cost items exist in JobTread (Phase 0 probe); empty until then.
+// as leave time (so leave doesn't itself earn accrual). Cost codes are compared
+// space-insensitively so "88 10 00" / "881000" both match the JobTread number.
+const normCode = (s: string): string => String(s ?? "").replace(/\s+/g, "");
 const LEAVE_JOB_IDS = new Set(splitCsv(process.env.LEAVE_JOB_IDS));
-const LEAVE_COST_CODES = new Set(splitCsv(process.env.LEAVE_COST_CODES));
+const LEAVE_COST_CODES = new Set(splitCsv(process.env.LEAVE_COST_CODES).map(normCode));
 
 // A guard so a bad hire date can't spin the per-employee period loop forever.
 const MAX_PERIODS_PER_EMPLOYEE = 500;
@@ -237,7 +238,7 @@ export async function fetchWorkedEntries(jtUserId: string): Promise<WorkedBucket
     out.push({
       localDate,
       hours: round2((end - start) / 3_600_000),
-      isLeave: LEAVE_JOB_IDS.has(e.jobId) || LEAVE_COST_CODES.has(e.costCode),
+      isLeave: LEAVE_JOB_IDS.has(e.jobId) || LEAVE_COST_CODES.has(normCode(e.costCode)),
     });
   }
   return out;
