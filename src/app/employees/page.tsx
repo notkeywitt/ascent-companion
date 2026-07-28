@@ -59,6 +59,7 @@ type SortKey = "name" | "position" | "status";
 const statusClass = (s: string) => {
   const k = s.toLowerCase();
   if (k === "active") return "text-green-700 bg-green-100 dark:text-green-300 dark:bg-green-950/50";
+  if (k === "on leave") return "text-amber-700 bg-amber-100 dark:text-amber-300 dark:bg-amber-950/50";
   if (k === "retired") return "text-neutral-600 bg-neutral-200 dark:text-neutral-300 dark:bg-neutral-800";
   return "text-accent bg-accent/10";
 };
