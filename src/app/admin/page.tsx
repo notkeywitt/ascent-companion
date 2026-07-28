@@ -116,7 +116,7 @@ export default function AdminPage() {
         </Banner>
       )}
 
-      <form onSubmit={add} className="mb-2 flex gap-2">
+      <form onSubmit={add} className="mb-2 flex flex-col gap-2 sm:flex-row">
         <Input
           type="email"
           value={email}
@@ -124,16 +124,22 @@ export default function AdminPage() {
           placeholder="teammate@gmail.com"
           className="min-w-0 flex-1"
         />
-        <Select value={role} onChange={(e) => setRole(e.target.value as Role)} className="w-28 shrink-0">
-          {ROLES.map((r) => (
-            <option key={r} value={r}>
-              {ROLE_LABEL[r]}
-            </option>
-          ))}
-        </Select>
-        <Button type="submit" className="shrink-0">
-          Add
-        </Button>
+        <div className="flex gap-2">
+          <Select
+            value={role}
+            onChange={(e) => setRole(e.target.value as Role)}
+            className="min-w-0 flex-1 sm:w-28 sm:flex-none"
+          >
+            {ROLES.map((r) => (
+              <option key={r} value={r}>
+                {ROLE_LABEL[r]}
+              </option>
+            ))}
+          </Select>
+          <Button type="submit" className="shrink-0">
+            Add
+          </Button>
+        </div>
       </form>
       <p className="mb-5 text-xs text-neutral-500">
         New people default to <strong>Field</strong>. Role or view changes take effect the next
