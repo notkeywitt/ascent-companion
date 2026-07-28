@@ -24,16 +24,18 @@ export function writesEnabled(): boolean {
 }
 
 /**
- * Where approved PTO/sick leave posts as a JobTread time entry. Filled in from
- * the appscript `probeLeaveTimeEntry` output once the $0/hr cost codes (PTO
- * 88 10 00, Sick 88 20 00) and their $0 budget lines exist on the leave job.
- * `jobId` defaults to the Office/overhead job; the per-type cost-item ids and
- * pay type have no safe default, so leave posting stays off (see
- * `leavePostingReady`) until they're set — separate from the master write gate.
+ * Where approved PTO/sick leave posts as a JobTread time entry. `costItemId`s
+ * come from the appscript `probeLeaveTimeEntry` output (the PTO 88 10 00 / Sick
+ * 88 20 00 budget leaves). `jobId` defaults to the Office/overhead job. The pay
+ * type is PER-EMPLOYEE (JT pay types are per-worker), set on each roster row's
+ * "Leave Pay Type"; `payType` here is only an optional org-wide fallback
+ * (LEAVE_PAY_TYPE) for anyone whose row is blank. Posting stays off until the
+ * cost-item ids are set (see `leavePostingReady`) — separate from the master
+ * write gate.
  */
 export interface LeaveJobConfig {
   jobId: string;
-  payType: string;
+  payType: string; // optional fallback only; per-employee pay type wins
   costItemId: { sick: string; pto: string };
 }
 export function getLeaveConfig(): LeaveJobConfig {
@@ -46,8 +48,9 @@ export function getLeaveConfig(): LeaveJobConfig {
     },
   };
 }
-/** True when a given leave type has everything needed to post to JobTread. */
+/** True when a leave type has the job + budget cost item mapped. The pay type is
+ *  checked per-employee at post time, so it isn't part of this gate. */
 export function leavePostingReady(leaveType: "sick" | "pto"): boolean {
   const c = getLeaveConfig();
-  return Boolean(c.jobId && c.payType && c.costItemId[leaveType]);
+  return Boolean(c.jobId && c.costItemId[leaveType]);
 }

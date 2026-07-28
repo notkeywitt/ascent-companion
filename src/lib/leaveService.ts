@@ -57,6 +57,7 @@ export interface RosterEmployee {
   email: string;
   jtUserId: string;
   hireDate: string; // "YYYY-MM-DD" or "" if not set on the roster yet
+  leavePayType: string; // JT pay-type name for posting this person's leave
   status: string;
 }
 
@@ -101,6 +102,7 @@ export async function fetchRoster(): Promise<RosterEmployee[]> {
       email: String(e.email ?? "").trim().toLowerCase(),
       jtUserId: String(e.jtUserId ?? "").trim(),
       hireDate: normalizeDate(e.hireDate),
+      leavePayType: String(e.leavePayType ?? "").trim(),
       status: String(e.status ?? "").trim(),
     };
   });
@@ -586,18 +588,22 @@ export interface DecideResult {
  *  the master write gate and whether the leave mapping is configured. Never
  *  throws — a failure is reported so the approval (and the already-decremented
  *  balance) still stands. */
-async function postApprovedLeaveToJobTread(req: {
-  id: number;
-  jtUserId: string;
-  leaveType: string;
-  startDate: string;
-  hours: string;
-}): Promise<{ jtEntryId: string; jtStatus: string; jtError?: string }> {
+async function postApprovedLeaveToJobTread(
+  req: {
+    id: number;
+    jtUserId: string;
+    leaveType: string;
+    startDate: string;
+    hours: string;
+  },
+  payType: string,
+): Promise<{ jtEntryId: string; jtStatus: string; jtError?: string }> {
   const leaveType = req.leaveType as LeaveType;
   if (!writesEnabled()) return { jtEntryId: "", jtStatus: "not posted (writes off)" };
   if (!leavePostingReady(leaveType)) return { jtEntryId: "", jtStatus: "not posted (leave mapping not configured)" };
   if (!hasGrant()) return { jtEntryId: "", jtStatus: "not posted (no JobTread grant)" };
   if (!req.jtUserId) return { jtEntryId: "", jtStatus: "not posted (employee not linked to JobTread)" };
+  if (!payType) return { jtEntryId: "", jtStatus: "not posted (no Leave Pay Type set for this employee)" };
   // One entry starting at 8:00 local on the start date, spanning the requested
   // hours. Multi-day requests post as a single block on the start date — split
   // the request if a day-by-day breakdown is needed.
@@ -613,7 +619,7 @@ async function postApprovedLeaveToJobTread(req: {
       costItemId: cfg.costItemId[leaveType],
       startedAt,
       endedAt,
-      type: cfg.payType,
+      type: payType, // per-employee pay type → posts at their real rate
       notes: `Approved ${leaveType} — request #${req.id}`,
       isApproved: true, // already office-approved, so it counts for payroll
     });
@@ -672,9 +678,19 @@ export async function decideLeaveRequest(opts: {
     .returning()) as Array<{ id: number }>;
   await recomputeBalance(req.employeeId, req.leaveType as LeaveType, req.jtUserId);
 
+  // Resolve the employee's own pay type (JT pay types are per-worker) so leave
+  // posts at their real rate; fall back to the optional org-wide LEAVE_PAY_TYPE.
+  // Only needed when a JobTread post will actually be attempted.
+  let payType = "";
+  if (writesEnabled()) {
+    const roster = await fetchRoster().catch(() => [] as RosterEmployee[]);
+    const emp = roster.find((e) => e.employeeId === req.employeeId);
+    payType = (emp?.leavePayType || getLeaveConfig().payType || "").trim();
+  }
+
   // Then post to JobTread (gated + configured). A failure never unwinds the
   // approval — it's surfaced so the office can retry the post later.
-  const post = await postApprovedLeaveToJobTread(req);
+  const post = await postApprovedLeaveToJobTread(req, payType);
   if (post.jtEntryId) {
     await db.update(leaveTransactions).set({ jtEntryId: post.jtEntryId }).where(eq(leaveTransactions.id, taken.id));
   }

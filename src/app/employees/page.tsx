@@ -24,6 +24,7 @@ interface Employee {
   birthday: string;
   dl: string;
   role: string;
+  leavePayType: string;
   jtUserId: string;
   jtUserName: string;
 }
@@ -47,6 +48,7 @@ const FIELDS: { key: EditableKey; label: string; wide?: boolean }[] = [
   { key: "birthday", label: "Birthday" },
   { key: "dl", label: "Driver's license" },
   { key: "role", label: "Role" },
+  { key: "leavePayType", label: "Leave pay type" },
   { key: "address", label: "Address", wide: true },
 ];
 
