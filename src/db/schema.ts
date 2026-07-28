@@ -41,7 +41,7 @@ export type NewFeatureRequest = typeof featureRequests.$inferInsert;
 /**
  * Extra allowed sign-in emails (on top of the ALLOWED_EMAILS env founders).
  * Each member carries a role and optional per-user view overrides:
- *  - role:       "admin" | "office" | "field" — the base view set (see lib/views).
+ *  - role:       "admin" | "office" | "lead" | "field" — the base view set (see lib/views).
  *  - viewsAllow: JSON string[] of view ids granted ON TOP of the role.
  *  - viewsDeny:  JSON string[] of view ids removed from the role.
  * Env founders are never in this table and are always treated as "admin".
@@ -53,7 +53,7 @@ export const allowedUsers = sqliteTable("allowed_users", {
   email: text("email").primaryKey(),
   addedBy: text("added_by").notNull().default(""),
   createdAt: text("created_at").notNull(),
-  role: text("role").notNull().default("field"), // "admin" | "office" | "field"
+  role: text("role").notNull().default("field"), // "admin" | "office" | "lead" | "field"
   viewsAllow: text("views_allow").notNull().default("[]"), // JSON string[]
   viewsDeny: text("views_deny").notNull().default("[]"), // JSON string[]
 });

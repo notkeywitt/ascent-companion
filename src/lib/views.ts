@@ -16,8 +16,8 @@
  * server-side by the same middleware rule as everything else.
  */
 
-export type Role = "admin" | "office" | "field";
-export const ROLES: Role[] = ["admin", "office", "field"];
+export type Role = "admin" | "office" | "lead" | "field";
+export const ROLES: Role[] = ["admin", "office", "lead", "field"];
 
 export type ViewGroup = "Financials" | "Field" | "Assistant" | "Office" | "System";
 
@@ -104,27 +104,38 @@ export const VIEWS: ViewDef[] = [
 export const ALL_VIEW_IDS: string[] = VIEWS.map((v) => v.id);
 
 /**
- * Views no role below admin gets by default: every money page (the Financials
- * group), the sync trigger, and the system consoles. A per-user grant in the
- * admin editor can still hand any of these to an individual.
+ * Base view sets, as a nested role hierarchy: field ⊂ lead ⊂ office ⊂ admin.
+ * A per-user grant/denial in the admin editor still adjusts any individual on
+ * top of these.
+ *
+ * Field = every employee: the four one-tap launcher buttons plus self-service
+ * time off (everyone must be able to request time off). Leads add the
+ * Financials menu. Office adds everything except the admin consoles. Admin gets
+ * all of it.
  */
-const ADMIN_ONLY: string[] = [
-  ...VIEWS.filter((v) => v.group === "Financials").map((v) => v.id),
-  "sync",
-  "actions",
-  "admin",
-  "logs",
-];
+// The four launcher quick buttons + self-service Time Off — granted to all.
+const FIELD_VIEWS: string[] = ["mileage", "employee-time", "tools", "requisitions", "time-off"];
+// Leads additionally see the Financials menu (coding, invoicing, Sunset pay).
+const LEAD_VIEWS: string[] = [...FIELD_VIEWS, "coding", "stage", "payments"];
+// The admin-only consoles — access control + the audit log. No one below admin
+// gets these by default (a per-user grant can still hand them to an individual).
+const ADMIN_MENU: string[] = ["admin", "logs"];
+// Office gets Financials, HR, and Utilities ("everything else") — i.e. every
+// view except the admin consoles, including the header Sync button.
+const OFFICE_VIEWS: string[] = ALL_VIEW_IDS.filter((id) => !ADMIN_MENU.includes(id));
 
 /** Base view set granted by each role, before per-user overrides. */
 export const ROLE_VIEWS: Record<Role, string[]> = {
   admin: ALL_VIEW_IDS,
-  office: ALL_VIEW_IDS.filter((id) => !ADMIN_ONLY.includes(id)),
-  field: ["mileage", "employee-time", "tools", "rfis", "requests", "requisitions", "time-off"],
+  office: OFFICE_VIEWS,
+  lead: LEAD_VIEWS,
+  field: FIELD_VIEWS,
 };
 
 function asRole(role: string | null | undefined): Role {
-  return role === "admin" || role === "office" || role === "field" ? role : "field";
+  return role === "admin" || role === "office" || role === "lead" || role === "field"
+    ? role
+    : "field";
 }
 
 /**

@@ -29,7 +29,12 @@ interface Member {
   viewsDeny: string[];
 }
 
-const ROLE_LABEL: Record<Role, string> = { admin: "Admin", office: "Office", field: "Field" };
+const ROLE_LABEL: Record<Role, string> = {
+  admin: "Admin",
+  office: "Office",
+  lead: "Lead",
+  field: "Field",
+};
 
 // Views grouped for the override editor, in a stable display order.
 const GROUP_ORDER = ["Financials", "Field", "Assistant", "Office", "System"] as const;

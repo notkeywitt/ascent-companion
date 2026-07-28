@@ -43,7 +43,10 @@ async function accessForEmail(
     const row = rows[0];
     if (!row) return { role: "field", va: [], vd: [] };
     const role: Role =
-      row.role === "admin" || row.role === "office" || row.role === "field"
+      row.role === "admin" ||
+      row.role === "office" ||
+      row.role === "lead" ||
+      row.role === "field"
         ? row.role
         : "field";
     return { role, va: parseIds(row.viewsAllow), vd: parseIds(row.viewsDeny) };

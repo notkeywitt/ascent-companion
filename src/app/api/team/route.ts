@@ -22,7 +22,7 @@ function cleanIds(v: unknown): string[] {
 }
 
 function asRole(v: unknown): Role | null {
-  return v === "admin" || v === "office" || v === "field" ? v : null;
+  return v === "admin" || v === "office" || v === "lead" || v === "field" ? v : null;
 }
 
 type Member = {

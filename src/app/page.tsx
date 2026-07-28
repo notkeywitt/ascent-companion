@@ -12,18 +12,19 @@ import { StuckVendorBanner } from "@/components/StuckVendors";
 /**
  * The Assistant's front page — the launcher the app opens to, and since the
  * header's tabs were retired, the app's ONLY navigation. Every gateable view in
- * lib/views must therefore be reachable from here (as a quick button or an area
- * row), or it becomes dead.
+ * lib/views must therefore be reachable from here (as a quick button, the Time
+ * Off button, or an area row), or it becomes dead.
  *
- * Three areas (Financials, Utilities, More) group the pages into collapsible
- * menus that stay rolled up until tapped. Above them, three quick buttons
- * (Mileage, Time, Tools) put the most-used destinations one tap away. The
+ * Four quick buttons every employee gets — Miles, Time, Tools, Requisitions —
+ * sit at the top, with a Time Off button beneath for anyone who can't reach it
+ * from a menu. Below them, role-gated areas (Financials, HR, Utilities, Admin)
+ * group the rest into collapsible menus that stay rolled up until tapped. The
  * selected job (if any) carries through on the query string, so landing on a
  * job's Coding Review / Invoicing keeps that job in context.
  *
- * At the bottom, for admins only, sits the AdminActionBar — buttons that RUN a
- * script job in place plus quick-jump links to the queues the office works most.
- * Add actions to it in that component's own registry, not here.
+ * At the bottom sits the AdminActionBar — buttons that RUN a script job in place
+ * plus quick-jump links to busy queues — gated on the `actions` view. Add
+ * actions to it in that component's own registry, not here.
  */
 
 /* ------------------------------------------------------------------- icons */
@@ -88,11 +89,36 @@ const GearIcon = ({ className }: IconProps) => (
   </IconBase>
 );
 
-/** Ellipsis — More. Three dots drawn as zero-length round-capped strokes, so it
- *  sits on the same 24×24 / 2px grid as the rest of the set. */
-const MoreIcon = ({ className }: IconProps) => (
+/** Clipboard — Requisitions. */
+const ClipboardIcon = ({ className }: IconProps) => (
   <IconBase className={className}>
-    <path d="M5 12h.01M12 12h.01M19 12h.01" />
+    <rect x="8" y="3" width="8" height="4" rx="1" />
+    <path d="M9 5H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-3" />
+    <path d="M9 12h6M9 16h4" />
+  </IconBase>
+);
+
+/** People — HR. */
+const UsersIcon = ({ className }: IconProps) => (
+  <IconBase className={className}>
+    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+    <circle cx="9" cy="7" r="4" />
+    <path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
+  </IconBase>
+);
+
+/** Shield — Admin. */
+const ShieldIcon = ({ className }: IconProps) => (
+  <IconBase className={className}>
+    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+  </IconBase>
+);
+
+/** Calendar — Time Off. */
+const CalendarIcon = ({ className }: IconProps) => (
+  <IconBase className={className}>
+    <rect x="3" y="4" width="18" height="18" rx="2" />
+    <path d="M16 2v4M8 2v4M3 10h18" />
   </IconBase>
 );
 
@@ -113,49 +139,56 @@ type Dest = { label: string; href: string; desc: string; view: string };
 type Area = { title: string; Icon: (p: IconProps) => ReactNode; blurb: string; dests: Dest[] };
 type Quick = { label: string; href: string; Icon: (p: IconProps) => ReactNode; view: string };
 
-// The three most-used destinations, one tap from the top of the launcher.
+// The four one-tap destinations every employee gets, at the top of the launcher.
 const QUICK: Quick[] = [
-  { label: "Mileage", href: "/mileage-tracker", Icon: RouteIcon, view: "mileage" },
+  { label: "Miles", href: "/mileage-tracker", Icon: RouteIcon, view: "mileage" },
   { label: "Time", href: "/employee-time", Icon: ClockIcon, view: "employee-time" },
   { label: "Tools", href: "/tools", Icon: WrenchIcon, view: "tools" },
+  { label: "Requisitions", href: "/requisitions", Icon: ClipboardIcon, view: "requisitions" },
 ];
 
 const AREAS: Area[] = [
   {
     title: "Financials",
     Icon: BanknoteIcon,
-    blurb: "Bill coding, unbilled expenses, invoicing, and payments.",
+    blurb: "Coding, invoicing, and Sunset statements.",
     dests: [
       { label: "Coding Review", href: "/coding", desc: "Draft bills waiting to be coded", view: "coding" },
       { label: "Invoicing", href: "/stage", desc: "Stage the month's customer invoice", view: "stage" },
-      { label: "Unbilled", href: "/unbilled", desc: "Uninvoiced expenses by cost code", view: "unbilled" },
-      { label: "Email Invoices", href: "/email", desc: "Log invoices from the office inbox", view: "email" },
-      { label: "Needs Project", href: "/needs-project", desc: "Ingested bills with no job yet", view: "needs-project" },
       { label: "Sunset Statements", href: "/payments", desc: "Pay a statement & reconcile its invoices", view: "payments" },
-      { label: "Amazon Import", href: "/amazon-import", desc: "Monthly Amazon report → batch of bills", view: "amazon-import" },
+    ],
+  },
+  {
+    title: "HR",
+    Icon: UsersIcon,
+    blurb: "Roster, labor, time off, and safety.",
+    dests: [
+      { label: "Employees", href: "/employees", desc: "The Project Database roster", view: "employees" },
+      { label: "Labor Import", href: "/labor-import", desc: "QuickBooks labor → JobTread CSV", view: "labor-import" },
+      { label: "Time Off", href: "/time-off", desc: "Requests, balances & accrual policy", view: "time-off" },
+      { label: "Safety Meeting", href: "/safety-meeting", desc: "Pass the iPad and collect sign-ins", view: "safety-meeting" },
     ],
   },
   {
     title: "Utilities",
     Icon: GearIcon,
-    blurb: "Assistant, safety, records, and imports.",
+    blurb: "Everything else — imports, assistant, records, and script jobs.",
     dests: [
+      { label: "Unbilled", href: "/unbilled", desc: "Uninvoiced expenses by cost code", view: "unbilled" },
+      { label: "Email Invoices", href: "/email", desc: "Log invoices from the office inbox", view: "email" },
+      { label: "Needs Project", href: "/needs-project", desc: "Ingested bills with no job yet", view: "needs-project" },
+      { label: "Amazon Import", href: "/amazon-import", desc: "Monthly Amazon report → batch of bills", view: "amazon-import" },
       { label: "Assistant", href: "/chat", desc: "Ask about a job's bills or budget", view: "chat" },
-      { label: "Safety Meeting", href: "/safety-meeting", desc: "Pass the iPad and collect sign-ins", view: "safety-meeting" },
       { label: "RFIs", href: "/rfis", desc: "View and create a job's RFIs", view: "rfis" },
-      { label: "Requisitions", href: "/requisitions", desc: "Request a purchase & track its status", view: "requisitions" },
-      { label: "Employees", href: "/employees", desc: "The Project Database roster", view: "employees" },
-      { label: "Labor Import", href: "/labor-import", desc: "QuickBooks labor → JobTread CSV", view: "labor-import" },
-      { label: "Time Off", href: "/time-off", desc: "PTO & sick accrual, balances, policy", view: "time-off" },
+      { label: "Requests", href: "/requests", desc: "Ask for fixes and new features", view: "requests" },
+      { label: "Actions", href: "/actions", desc: "Run a script job on demand", view: "actions" },
     ],
   },
   {
-    title: "More",
-    Icon: MoreIcon,
-    blurb: "System tools — script jobs, requests, access, and logs.",
+    title: "Admin",
+    Icon: ShieldIcon,
+    blurb: "Access control and the automation audit log.",
     dests: [
-      { label: "Actions", href: "/actions", desc: "Run a script job on demand", view: "actions" },
-      { label: "Requests", href: "/requests", desc: "Ask for fixes and new features", view: "requests" },
       { label: "Admin", href: "/admin", desc: "Who can sign in", view: "admin" },
       { label: "Logs", href: "/logs", desc: "The automation audit trail", view: "logs" },
     ],
@@ -180,6 +213,12 @@ function Home() {
     dests: a.dests.filter((d) => access.can(d.view)),
   })).filter((a) => a.dests.length > 0);
 
+  // Every employee can request time off. Office/admin reach it from the HR menu;
+  // for anyone else (field/lead) it isn't in a visible menu, so surface it as
+  // its own button — that way it's never stranded.
+  const timeOffInMenu = areas.some((a) => a.dests.some((d) => d.view === "time-off"));
+  const showTimeOff = access.can("time-off") && !timeOffInMenu;
+
   return (
     <main className="mx-auto max-w-2xl px-4 pb-24 pt-6">
       <PageHeader
@@ -191,26 +230,56 @@ function Home() {
           JobTread. Self-hiding when there are none; gates itself on `email`. */}
       <StuckVendorBanner />
 
-      {/* Quick launch — the three most-used destinations as big, thumb-sized
-          buttons above the full launcher grid. */}
-      {quick.length > 0 && (
-      <div className="mb-6 grid grid-cols-3 gap-3">
-        {quick.map((q) => (
-          <Link
-            key={q.href}
-            href={q.href + qs}
-            className="flex min-h-[92px] flex-col items-center justify-center gap-2 rounded-2xl border border-neutral-200 bg-white p-3 text-center transition hover:border-accent hover:bg-accent/5 dark:border-neutral-700/60 dark:bg-ink-raised dark:hover:bg-white/5"
-          >
-            <span
-              aria-hidden
-              className="flex h-11 w-11 items-center justify-center rounded-xl bg-accent/10 text-accent dark:bg-accent/15 dark:text-accent-soft"
+      {/* Quick launch — the four one-tap destinations every employee gets, as
+          big thumb-sized buttons, with a Time Off button beneath for anyone who
+          can't reach it from a menu. */}
+      {(quick.length > 0 || showTimeOff) && (
+        <div className="mb-6 space-y-3">
+          {quick.length > 0 && (
+            <div className="grid grid-cols-2 gap-3">
+              {quick.map((q) => (
+                <Link
+                  key={q.href}
+                  href={q.href + qs}
+                  className="flex min-h-[92px] flex-col items-center justify-center gap-2 rounded-2xl border border-neutral-200 bg-white p-3 text-center transition hover:border-accent hover:bg-accent/5 dark:border-neutral-700/60 dark:bg-ink-raised dark:hover:bg-white/5"
+                >
+                  <span
+                    aria-hidden
+                    className="flex h-11 w-11 items-center justify-center rounded-xl bg-accent/10 text-accent dark:bg-accent/15 dark:text-accent-soft"
+                  >
+                    <q.Icon className="h-6 w-6" />
+                  </span>
+                  <span className="text-sm font-bold tracking-tight">{q.label}</span>
+                </Link>
+              ))}
+            </div>
+          )}
+          {showTimeOff && (
+            <Link
+              href={"/time-off" + qs}
+              className="group flex min-h-[64px] items-center gap-3 rounded-2xl border border-neutral-200 bg-white p-4 transition hover:border-accent hover:bg-accent/5 dark:border-neutral-700/60 dark:bg-ink-raised dark:hover:bg-white/5"
             >
-              <q.Icon className="h-6 w-6" />
-            </span>
-            <span className="text-sm font-bold tracking-tight">{q.label}</span>
-          </Link>
-        ))}
-      </div>
+              <span
+                aria-hidden
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-accent/10 text-accent dark:bg-accent/15 dark:text-accent-soft"
+              >
+                <CalendarIcon className="h-6 w-6" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-bold tracking-tight">Time Off</span>
+                <span className="mt-0.5 block truncate text-xs text-neutral-500">
+                  Request time off &amp; see your balance
+                </span>
+              </span>
+              <span
+                aria-hidden
+                className="shrink-0 text-neutral-300 transition group-hover:text-accent dark:text-neutral-600 dark:group-hover:text-accent-soft"
+              >
+                ›
+              </span>
+            </Link>
+          )}
+        </div>
       )}
 
       <div className="space-y-3">
@@ -286,7 +355,7 @@ function Home() {
       {/* No views at all — don't leave a blank page. This happens when the
           session carries no identity/role (e.g. signed in with the temporary
           shared password rather than Google). Offer a way back to Google. */}
-      {quick.length === 0 && areas.length === 0 && (
+      {quick.length === 0 && areas.length === 0 && !showTimeOff && (
         <div className="rounded-2xl border border-dashed border-neutral-300 px-6 py-8 text-center dark:border-neutral-700">
           <p className="text-sm font-semibold">No views are available for your account yet.</p>
           <p className="mx-auto mt-2 max-w-sm text-xs text-neutral-500">
