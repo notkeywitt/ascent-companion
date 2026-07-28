@@ -421,7 +421,7 @@ export default function EmployeesPage() {
             <span>{linkedCount} linked to JobTread</span>
           </div>
           <div className="overflow-x-auto rounded-xl border border-neutral-200 bg-white dark:border-neutral-700/60 dark:bg-ink-raised">
-            <table className="w-full min-w-[44rem] text-sm">
+            <table className="w-full min-w-[52rem] text-sm">
               <thead className="bg-neutral-50 text-neutral-500 dark:bg-white/5">
                 <tr>
                   <SortHead label="Name" k="name" />
@@ -429,6 +429,7 @@ export default function EmployeesPage() {
                   <SortHead label="Status" k="status" />
                   <th className="px-3 py-2 text-left font-semibold">JobTread</th>
                   <th className="px-3 py-2 text-left font-semibold">Phone</th>
+                  <th className="px-3 py-2 text-left font-semibold">Email</th>
                   <th className="px-3 py-2" />
                 </tr>
               </thead>
@@ -452,6 +453,19 @@ export default function EmployeesPage() {
                       <JtCell e={e} />
                     </td>
                     <td className="px-3 py-2 text-neutral-600 dark:text-neutral-400">{e.phone}</td>
+                    <td className="px-3 py-2">
+                      {e.email ? (
+                        <a
+                          href={`mailto:${e.email}`}
+                          className="text-accent hover:underline"
+                          title={`Email ${e.firstName} ${e.lastName}`}
+                        >
+                          {e.email}
+                        </a>
+                      ) : (
+                        <span className="text-neutral-400">—</span>
+                      )}
+                    </td>
                     <td className="px-3 py-2 text-right">
                       <button
                         onClick={() => openEdit(e)}
@@ -464,7 +478,7 @@ export default function EmployeesPage() {
                 ))}
                 {view.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="px-3 py-6 text-center text-sm text-neutral-500">
+                    <td colSpan={7} className="px-3 py-6 text-center text-sm text-neutral-500">
                       No matching employees.
                     </td>
                   </tr>
