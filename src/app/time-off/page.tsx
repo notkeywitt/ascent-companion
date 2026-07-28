@@ -3,6 +3,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 
 import { useAccess } from "@/components/AccessProvider";
+import { fmtHM, hmToDecimal } from "@/lib/leaveFormat";
 import {
   Banner,
   Button,
@@ -242,8 +243,8 @@ function SelfServiceSection() {
               return (
                 <div key={t} className="rounded-lg border border-neutral-200 p-3 dark:border-neutral-700/60">
                   <div className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">{LEAVE_LABEL[t]}</div>
-                  <div className="mt-0.5 text-2xl font-bold tabular-nums">{b ? hrs(b.balance) : "0"}</div>
-                  <div className="text-[11px] text-neutral-500">hours available</div>
+                  <div className="mt-0.5 text-2xl font-bold tabular-nums">{b ? fmtHM(b.balance) : "0h"}</div>
+                  <div className="text-[11px] text-neutral-500">available</div>
                 </div>
               );
             })}
@@ -265,6 +266,7 @@ function RequestForm({ policies, onDone }: { policies: Policy[]; onDone: () => v
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [hours, setHours] = useState("");
+  const [mins, setMins] = useState("");
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
@@ -272,9 +274,9 @@ function RequestForm({ policies, onDone }: { policies: Policy[]; onDone: () => v
 
   async function submit() {
     setErr("");
-    const n = Number(hours);
+    const n = hmToDecimal(hours, mins);
     if (!startDate) return setErr("Pick a start date.");
-    if (!Number.isFinite(n) || n <= 0) return setErr("Enter the number of hours.");
+    if (!Number.isFinite(n) || n <= 0) return setErr("Enter the hours and/or minutes.");
     setBusy(true);
     try {
       const res = await fetch("/api/time-off/requests", {
@@ -285,7 +287,7 @@ function RequestForm({ policies, onDone }: { policies: Policy[]; onDone: () => v
       const json = await res.json();
       if (!res.ok || json.ok === false) setErr(json.error ?? "Failed.");
       else {
-        setStartDate(""); setEndDate(""); setHours(""); setNote(""); setOpen(false);
+        setStartDate(""); setEndDate(""); setHours(""); setMins(""); setNote(""); setOpen(false);
         onDone();
       }
     } catch (e) {
@@ -314,8 +316,13 @@ function RequestForm({ policies, onDone }: { policies: Policy[]; onDone: () => v
           </Select>
         </div>
         <div>
-          <Label htmlFor="req-hrs">Hours</Label>
-          <Input id="req-hrs" inputMode="decimal" value={hours} onChange={(e) => setHours(e.target.value)} placeholder="e.g. 8" />
+          <Label htmlFor="req-hrs">Amount</Label>
+          <div className="flex items-center gap-2">
+            <Input id="req-hrs" inputMode="numeric" value={hours} onChange={(e) => setHours(e.target.value)} placeholder="8" aria-label="Hours" />
+            <span className="text-sm text-neutral-500">hr</span>
+            <Input id="req-min" inputMode="numeric" value={mins} onChange={(e) => setMins(e.target.value)} placeholder="0" aria-label="Minutes" />
+            <span className="text-sm text-neutral-500">min</span>
+          </div>
         </div>
         <div>
           <Label htmlFor="req-start">Start date</Label>
@@ -357,7 +364,7 @@ function MyRequests({ requests }: { requests: Request[] }) {
           <li key={r.id} className="flex items-center justify-between gap-3 rounded-lg border border-neutral-200 px-3 py-2 text-sm dark:border-neutral-700/60">
             <div className="min-w-0">
               <span className="font-medium">{LEAVE_LABEL[r.leaveType] ?? r.leaveType}</span>{" "}
-              <span className="tabular-nums">{hrs(r.hours)} hr</span>{" "}
+              <span className="tabular-nums">{fmtHM(r.hours)}</span>{" "}
               <span className="text-neutral-500">
                 · {r.startDate}
                 {r.endDate && r.endDate !== r.startDate ? `–${r.endDate}` : ""}
@@ -449,7 +456,7 @@ function RequestsQueueCard({ onChanged }: { onChanged: () => void }) {
               <div className="min-w-0">
                 <span className="font-medium">{names[r.employeeId ?? ""] ?? "—"}</span>{" "}
                 <span className="uppercase text-neutral-500">{LEAVE_LABEL[r.leaveType] ?? r.leaveType}</span>{" "}
-                <span className="tabular-nums">{hrs(r.hours)} hr</span>{" "}
+                <span className="tabular-nums">{fmtHM(r.hours)}</span>{" "}
                 <span className="text-neutral-500">· {r.startDate}{r.endDate && r.endDate !== r.startDate ? `–${r.endDate}` : ""}</span>
                 {r.note && <div className="truncate text-xs text-neutral-500">{r.note}</div>}
               </div>
@@ -523,10 +530,10 @@ function AccrualCard({
         <div className="mt-3">
           <Banner tone={result.committed ? "success" : "info"}>
             {result.committed ? "Posted" : "Preview"} through {result.throughPeriod}:{" "}
-            {TYPES.map((t) => `${result.totalsByType[t] ? hrs(result.totalsByType[t]) : "0"} ${t}`).join(
+            {TYPES.map((t) => `${result.totalsByType[t] ? fmtHM(result.totalsByType[t]) : "0h"} ${t}`).join(
               " · ",
             )}{" "}
-            hrs across {result.lines.length} period-lines.
+            across {result.lines.length} period-lines.
           </Banner>
           {result.lines.length > 0 && (
             <div className="mt-2 overflow-x-auto">
@@ -547,7 +554,7 @@ function AccrualCard({
                       <td className="py-1 pr-3 tabular-nums">{l.period}</td>
                       <td className="py-1 pr-3 uppercase">{l.leaveType}</td>
                       <td className="py-1 pr-3 text-right tabular-nums">{hrs(l.workedHours)}</td>
-                      <td className="py-1 pr-3 text-right tabular-nums">{hrs(l.hours)}</td>
+                      <td className="py-1 pr-3 text-right tabular-nums">{fmtHM(l.hours)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -613,8 +620,8 @@ function BalancesCard({
                 <Fragment key={empId}>
                   <tr className="border-t border-neutral-100 dark:border-neutral-800">
                     <td className="py-1.5 pr-3">{e.name}</td>
-                    <td className="py-1.5 pr-3 text-right tabular-nums">{e.sick ? hrs(e.sick.balance) : "—"}</td>
-                    <td className="py-1.5 pr-3 text-right tabular-nums">{e.pto ? hrs(e.pto.balance) : "—"}</td>
+                    <td className="py-1.5 pr-3 text-right tabular-nums">{e.sick ? fmtHM(e.sick.balance) : "—"}</td>
+                    <td className="py-1.5 pr-3 text-right tabular-nums">{e.pto ? fmtHM(e.pto.balance) : "—"}</td>
                     <td className="py-1.5 text-right">
                       <button
                         type="button"
@@ -645,16 +652,19 @@ function BalancesCard({
 function AdjustForm({ roster, onDone }: { roster: RosterEmp[]; onDone: () => void }) {
   const [employeeId, setEmployeeId] = useState("");
   const [leaveType, setLeaveType] = useState<"sick" | "pto">("sick");
+  const [dir, setDir] = useState<"add" | "sub">("add");
   const [hours, setHours] = useState("");
+  const [mins, setMins] = useState("");
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
 
   async function submit() {
     setErr("");
-    const n = Number(hours);
+    const magnitude = hmToDecimal(hours, mins);
+    const n = dir === "sub" ? -magnitude : magnitude;
     if (!employeeId) return setErr("Pick an employee.");
-    if (!Number.isFinite(n) || n === 0) return setErr("Enter a non-zero number of hours (negative to subtract).");
+    if (!Number.isFinite(n) || n === 0) return setErr("Enter a non-zero amount of hours and/or minutes.");
     setBusy(true);
     try {
       const emp = roster.find((r) => r.employeeId === employeeId);
@@ -695,8 +705,20 @@ function AdjustForm({ roster, onDone }: { roster: RosterEmp[]; onDone: () => voi
           </Select>
         </div>
         <div>
-          <Label htmlFor="adj-hrs">Hours (± to add/subtract)</Label>
-          <Input id="adj-hrs" inputMode="decimal" value={hours} onChange={(e) => setHours(e.target.value)} placeholder="e.g. 40 or -8" />
+          <Label htmlFor="adj-dir">Direction</Label>
+          <Select id="adj-dir" value={dir} onChange={(e) => setDir(e.target.value as "add" | "sub")}>
+            <option value="add">Add</option>
+            <option value="sub">Subtract</option>
+          </Select>
+        </div>
+        <div>
+          <Label htmlFor="adj-hrs">Amount</Label>
+          <div className="flex items-center gap-2">
+            <Input id="adj-hrs" inputMode="numeric" value={hours} onChange={(e) => setHours(e.target.value)} placeholder="40" aria-label="Hours" />
+            <span className="text-sm text-neutral-500">hr</span>
+            <Input id="adj-min" inputMode="numeric" value={mins} onChange={(e) => setMins(e.target.value)} placeholder="0" aria-label="Minutes" />
+            <span className="text-sm text-neutral-500">min</span>
+          </div>
         </div>
         <div>
           <Label htmlFor="adj-note">Note</Label>
@@ -745,7 +767,7 @@ function LedgerView({ employeeId }: { employeeId: string }) {
               <td className="py-1 pr-3 uppercase">{r.leaveType}</td>
               <td className="py-1 pr-3">{r.kind}</td>
               <td className="py-1 pr-3 tabular-nums">{r.period || "—"}</td>
-              <td className="py-1 pr-3 text-right tabular-nums">{hrs(r.hours)}</td>
+              <td className="py-1 pr-3 text-right tabular-nums">{fmtHM(r.hours)}</td>
               <td className="py-1 pr-3">{r.note}</td>
             </tr>
           ))}

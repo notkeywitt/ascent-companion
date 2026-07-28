@@ -5,6 +5,7 @@ import Link from "next/link";
 
 import { JobPicker } from "@/components/JobPicker";
 import { JtLink } from "@/components/JtLink";
+import { fmtHM } from "@/lib/leaveFormat";
 import {
   Banner,
   Card,
@@ -858,8 +859,7 @@ export default function EmployeeTimePage() {
                       {t === "sick" ? "Sick" : "PTO"}
                     </div>
                     <div className="text-lg font-bold tabular-nums">
-                      {b ? Math.round(b.balance * 100) / 100 : 0}
-                      <span className="ml-1 text-xs font-normal text-neutral-500">hrs</span>
+                      {b ? fmtHM(b.balance) : "0h"}
                     </div>
                   </div>
                 );
