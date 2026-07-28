@@ -377,6 +377,7 @@ function RequestsQueueCard({ onChanged }: { onChanged: () => void }) {
   const [requests, setRequests] = useState<Request[] | null>(null);
   const [names, setNames] = useState<Record<string, string>>({});
   const [err, setErr] = useState("");
+  const [msg, setMsg] = useState<{ tone: "success" | "info" | "warning"; text: string } | null>(null);
   const [busyId, setBusyId] = useState<number | null>(null);
 
   const load = useCallback(async () => {
@@ -404,6 +405,8 @@ function RequestsQueueCard({ onChanged }: { onChanged: () => void }) {
 
   async function decide(id: number, action: "approve" | "deny") {
     setBusyId(id);
+    setErr("");
+    setMsg(null);
     try {
       const res = await fetch("/api/time-off/requests", {
         method: "PATCH",
@@ -413,6 +416,11 @@ function RequestsQueueCard({ onChanged }: { onChanged: () => void }) {
       const json = await res.json();
       if (!res.ok || json.ok === false) setErr(json.error ?? "Failed.");
       else {
+        if (action === "approve") {
+          if (json.jtPosted) setMsg({ tone: "success", text: "Approved and posted to JobTread." });
+          else if (json.jtError) setMsg({ tone: "warning", text: `Approved, but the JobTread post failed: ${json.jtError}. Balance was still updated.` });
+          else setMsg({ tone: "info", text: `Approved. JobTread: ${json.jtStatus || "not posted"}.` });
+        }
         await load();
         onChanged();
       }
@@ -429,6 +437,7 @@ function RequestsQueueCard({ onChanged }: { onChanged: () => void }) {
     <Card>
       <SectionLabel>Requests {pending.length > 0 && <span className="text-accent">· {pending.length} pending</span>}</SectionLabel>
       {err && <Banner tone="error" className="mt-2">{err}</Banner>}
+      {msg && <Banner tone={msg.tone} className="mt-2">{msg.text}</Banner>}
       {requests === null ? (
         <Loading label="Loading requests…" />
       ) : pending.length === 0 ? (

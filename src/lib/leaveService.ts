@@ -17,8 +17,8 @@ import { and, eq } from "drizzle-orm";
 
 import { db, ensureDb } from "@/db";
 import { leaveBalances, leavePolicies, leaveRequests, leaveTransactions } from "@/db/schema";
-import { getPaveConfig, hasGrant } from "@/lib/config";
-import { getUserTimeEntries, jtIsoToOrgLocal } from "@/lib/jobtread";
+import { getLeaveConfig, getPaveConfig, hasGrant, leavePostingReady, writesEnabled } from "@/lib/config";
+import { createTimeEntry, getUserTimeEntries, jtIsoToOrgLocal, orgLocalToJtIso } from "@/lib/jobtread";
 import {
   accrualForPeriod,
   nextPeriodId,
@@ -573,11 +573,61 @@ export async function listRequests(filter: {
  * truth for PTO/sick. Posting the approved leave to JobTread as a time entry is
  * a separate, gated step (a later phase); `jtEntryId` stays empty until then.
  */
+export interface DecideResult {
+  ok: true;
+  jtPosted: boolean;
+  jtEntryId: string;
+  jtStatus: string; // human-readable: "posted", "not posted (writes off)", …
+  jtError?: string;
+}
+
+/** Post an approved leave block to JobTread as one time entry, honouring both
+ *  the master write gate and whether the leave mapping is configured. Never
+ *  throws — a failure is reported so the approval (and the already-decremented
+ *  balance) still stands. */
+async function postApprovedLeaveToJobTread(req: {
+  id: number;
+  jtUserId: string;
+  leaveType: string;
+  startDate: string;
+  hours: string;
+}): Promise<{ jtEntryId: string; jtStatus: string; jtError?: string }> {
+  const leaveType = req.leaveType as LeaveType;
+  if (!writesEnabled()) return { jtEntryId: "", jtStatus: "not posted (writes off)" };
+  if (!leavePostingReady(leaveType)) return { jtEntryId: "", jtStatus: "not posted (leave mapping not configured)" };
+  if (!hasGrant()) return { jtEntryId: "", jtStatus: "not posted (no JobTread grant)" };
+  if (!req.jtUserId) return { jtEntryId: "", jtStatus: "not posted (employee not linked to JobTread)" };
+  // One entry starting at 8:00 local on the start date, spanning the requested
+  // hours. Multi-day requests post as a single block on the start date — split
+  // the request if a day-by-day breakdown is needed.
+  const startedAt = orgLocalToJtIso(`${req.startDate}T08:00:00`);
+  if (!startedAt) return { jtEntryId: "", jtStatus: "not posted (no valid start date)" };
+  const hours = Number(req.hours) || 0;
+  const endedAt = new Date(Date.parse(startedAt) + hours * 3_600_000).toISOString();
+  const cfg = getLeaveConfig();
+  try {
+    const { id } = await createTimeEntry(getPaveConfig(), {
+      userId: req.jtUserId,
+      jobId: cfg.jobId,
+      costItemId: cfg.costItemId[leaveType],
+      startedAt,
+      endedAt,
+      type: cfg.payType,
+      notes: `Approved ${leaveType} — request #${req.id}`,
+      isApproved: true, // already office-approved, so it counts for payroll
+    });
+    return { jtEntryId: id, jtStatus: "posted" };
+  } catch (e) {
+    const jtError = e instanceof Error ? e.message : "Unknown error";
+    return { jtEntryId: "", jtStatus: "JobTread error: " + jtError, jtError };
+  }
+}
+
 export async function decideLeaveRequest(opts: {
   id: number;
   approve: boolean;
   actor: string;
-}): Promise<{ ok: true } | { ok: false; error: string }> {
+}): Promise<DecideResult | { ok: false; error: string }> {
   await ensureDb();
   const [req] = (await db
     .select()
@@ -587,6 +637,7 @@ export async function decideLeaveRequest(opts: {
     employeeId: string;
     jtUserId: string;
     leaveType: string;
+    startDate: string;
     hours: string;
     status: string;
   }>;
@@ -594,9 +645,20 @@ export async function decideLeaveRequest(opts: {
   if (req.status !== "pending") return { ok: false, error: `Request already ${req.status}.` };
 
   const now = new Date().toISOString();
-  if (opts.approve) {
-    const hours = Number(req.hours) || 0;
-    await db.insert(leaveTransactions).values({
+  if (!opts.approve) {
+    await db
+      .update(leaveRequests)
+      .set({ status: "denied", decidedBy: opts.actor, decidedAt: now, updatedAt: now })
+      .where(eq(leaveRequests.id, opts.id));
+    return { ok: true, jtPosted: false, jtEntryId: "", jtStatus: "" };
+  }
+
+  // Record the "taken" ledger row + rebuild the balance FIRST — the companion
+  // balance is the truth for PTO/sick and must not depend on the JobTread post.
+  const hours = Number(req.hours) || 0;
+  const [taken] = (await db
+    .insert(leaveTransactions)
+    .values({
       employeeId: req.employeeId,
       leaveType: req.leaveType,
       kind: "taken",
@@ -605,12 +667,26 @@ export async function decideLeaveRequest(opts: {
       note: `request #${req.id}`,
       createdBy: opts.actor,
       createdAt: now,
-    });
-    await recomputeBalance(req.employeeId, req.leaveType as LeaveType, req.jtUserId);
+    })
+    .returning()) as Array<{ id: number }>;
+  await recomputeBalance(req.employeeId, req.leaveType as LeaveType, req.jtUserId);
+
+  // Then post to JobTread (gated + configured). A failure never unwinds the
+  // approval — it's surfaced so the office can retry the post later.
+  const post = await postApprovedLeaveToJobTread(req);
+  if (post.jtEntryId) {
+    await db.update(leaveTransactions).set({ jtEntryId: post.jtEntryId }).where(eq(leaveTransactions.id, taken.id));
   }
   await db
     .update(leaveRequests)
-    .set({ status: opts.approve ? "approved" : "denied", decidedBy: opts.actor, decidedAt: now, updatedAt: now })
+    .set({
+      status: "approved",
+      decidedBy: opts.actor,
+      decidedAt: now,
+      updatedAt: now,
+      jtEntryId: post.jtEntryId,
+    })
     .where(eq(leaveRequests.id, opts.id));
-  return { ok: true };
+
+  return { ok: true, jtPosted: !!post.jtEntryId, jtEntryId: post.jtEntryId, jtStatus: post.jtStatus, jtError: post.jtError };
 }

@@ -123,7 +123,7 @@ export async function PATCH(req: NextRequest) {
   try {
     const r = await decideLeaveRequest({ id, approve: action === "approve", actor });
     if (!r.ok) return NextResponse.json(r, { status: 400 });
-    return NextResponse.json({ ok: true });
+    return NextResponse.json(r); // carries jtPosted / jtStatus / jtError
   } catch (e) {
     return NextResponse.json({ ok: false, error: e instanceof Error ? e.message : "Failed" }, { status: 500 });
   }
