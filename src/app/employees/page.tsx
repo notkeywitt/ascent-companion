@@ -24,6 +24,7 @@ interface Employee {
   birthday: string;
   dl: string;
   role: string;
+  leavePayType: string;
   jtUserId: string;
   jtUserName: string;
 }
@@ -32,6 +33,7 @@ interface JtUser {
   id: string;
   name: string;
   isInternal: boolean;
+  types?: { name: string; hourlyRate?: number }[]; // this member's own pay types
 }
 
 type EditableKey = keyof Omit<Employee, "id" | "jtUserId" | "jtUserName">;
@@ -47,6 +49,7 @@ const FIELDS: { key: EditableKey; label: string; wide?: boolean }[] = [
   { key: "birthday", label: "Birthday" },
   { key: "dl", label: "Driver's license" },
   { key: "role", label: "Role" },
+  { key: "leavePayType", label: "Leave pay type" },
   { key: "address", label: "Address", wide: true },
 ];
 
@@ -65,6 +68,7 @@ export default function EmployeesPage() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [statuses, setStatuses] = useState<string[]>([]);
   const [jtUsers, setJtUsers] = useState<JtUser[]>([]);
+  const [orgTypes, setOrgTypes] = useState<string[]>([]); // fallback pay-type names
   const [jtErr, setJtErr] = useState("");
   const [loading, setLoading] = useState(true);
   const [loadErr, setLoadErr] = useState("");
@@ -107,6 +111,7 @@ export default function EmployeesPage() {
           return;
         }
         setJtUsers(json.users ?? []);
+        setOrgTypes(json.orgTypes ?? []);
       } catch (e) {
         setJtErr(e instanceof Error ? e.message : "Could not load JobTread users.");
       }
@@ -471,6 +476,39 @@ export default function EmployeesPage() {
                         </option>
                       ))}
                     </select>
+                  ) : f.key === "leavePayType" ? (
+                    (() => {
+                      // Pay types come from the LINKED JobTread user (per-worker,
+                      // each carrying that person's real rate); fall back to the
+                      // org-wide names if the grant can't read per-member types.
+                      const linked = jtById.get(form.jtUserId);
+                      const memberTypes = linked?.types ?? [];
+                      const names = memberTypes.length
+                        ? memberTypes.map((t) => t.name)
+                        : orgTypes;
+                      const rateOf = (name: string) => memberTypes.find((t) => t.name === name)?.hourlyRate;
+                      return (
+                        <select
+                          value={form.leavePayType}
+                          onChange={(ev) => setForm({ ...form, leavePayType: ev.target.value })}
+                          className={inputCls}
+                        >
+                          <option value="">— None —</option>
+                          {form.leavePayType && !names.includes(form.leavePayType) && (
+                            <option value={form.leavePayType}>{form.leavePayType}</option>
+                          )}
+                          {names.map((n) => {
+                            const rate = rateOf(n);
+                            return (
+                              <option key={n} value={n}>
+                                {n}
+                                {rate != null ? ` — $${rate}/hr` : ""}
+                              </option>
+                            );
+                          })}
+                        </select>
+                      );
+                    })()
                   ) : (
                     <input
                       value={form[f.key]}
