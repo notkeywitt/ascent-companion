@@ -115,6 +115,9 @@ export const VIEWS: ViewDef[] = [
       "/api/time-off/ledger",
     ],
   },
+  // Reconciliation — records captured but not yet in JobTread, with retry.
+  // Office/admin (not field, not admin-only).
+  { id: "time-sync", label: "Time Sync", group: "Office", paths: ["/time-sync", "/api/time-sync"] },
   // System
   // Bulk-writes a real JobTread draft bill — admin only, not office (unlike
   // every other Financials view). The API prefix is listed alongside so a
