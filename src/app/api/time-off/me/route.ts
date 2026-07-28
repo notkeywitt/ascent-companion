@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { auth } from "@/auth";
-import { balancesForEmployee, employeeByEmail, getActivePolicies } from "@/lib/leaveService";
+import { balancesForEmployee, employeeByEmail, getPolicyRows } from "@/lib/leaveService";
 
 /**
  * Field self-service — the signed-in user's own Sick/PTO balances. Resolves the
@@ -17,7 +17,11 @@ export async function GET() {
   const session = await auth();
   const email = session?.user?.email ?? "";
   try {
-    const policies = await getActivePolicies();
+    // Return the active policy ROWS (which carry `active` + `label`), NOT the
+    // internal AccrualPolicy shape — the field RequestForm's Type dropdown does
+    // policies.filter(p => p.active), so a payload missing that flag renders an
+    // empty dropdown. Mirrors what /api/time-off/balances sends the office.
+    const policies = (await getPolicyRows()).filter((p) => p.active);
     const emp = await employeeByEmail(email);
     if (!emp) {
       return NextResponse.json({
