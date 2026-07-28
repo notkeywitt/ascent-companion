@@ -113,7 +113,18 @@ export async function GET(req: NextRequest) {
   const timeUrl = `https://app.jobtread.com/time?userId=${encodeURIComponent(userId)}`;
 
   try {
-    const all = await getUserTimeEntries(getPaveConfig(), userId);
+    // Bound the fetch server-side instead of pulling the worker's whole history
+    // and discarding all but this ~15-day window. `start` is an org-local
+    // (America/Los_Angeles, UTC-7/-8) calendar date, so its earliest possible
+    // UTC instant is start+07:00Z — a lower bound of start-1day@00:00Z can never
+    // clip an in-window entry, while dropping everything older. The client-side
+    // dateOf() filter below still does the exact inclusive-day selection.
+    const since = new Date(`${start}T00:00:00Z`);
+    since.setUTCDate(since.getUTCDate() - 1);
+    const all = await getUserTimeEntries(getPaveConfig(), userId, {
+      sinceIso: since.toISOString(),
+      sortDesc: true,
+    });
     const inRange = all
       .filter((e) => {
         const d = dateOf(e.startedAt);

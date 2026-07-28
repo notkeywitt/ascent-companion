@@ -1995,22 +1995,36 @@ export interface UserTimeEntry {
 /**
  * READ — one user's time entries, every job. Confirmed live: `user.timeEntries`
  * returns the full field set (job, costItem/costCode, notes) and paginates via
- * `nextPage` like every other connection in this API. There is NO server-side
- * date filter (the sibling job.timeEntries confirmed this absent in June
- * 2026, and this probe didn't find one either) — pages are fetched up to
- * `maxPages` and the caller filters/sorts by date. JobTread's own ordering
- * isn't guaranteed, so always sort by startedAt before display.
+ * `nextPage` like every other connection in this API.
+ *
+ * `user.timeEntries` DOES support a server-side `where` on `startedAt` and a
+ * `sortBy` (confirmed live 2026-07-28 via probeTimeEntryWhereFilter in
+ * ascent-appscript Diagnostics.js: `where {and:[["startedAt",">=",…],
+ * ["startedAt","<",…]]}` and `sortBy:[{field:"startedAt",order:"desc"}]` both
+ * apply correctly, and the filtered set matches a client-side filter of the
+ * full pull — an earlier note here that no date filter existed was wrong).
+ * Pass `opts.sinceIso`/`opts.untilIso` to bound the fetch (huge win for the
+ * bi-monthly "My Time" view, which otherwise pages a worker's whole history to
+ * keep ~15 days) and `opts.sortDesc` for newest-first. With no opts it fetches
+ * every entry as before — the leave-accrual path relies on that. JobTread's own
+ * ordering isn't guaranteed, so callers should still sort by startedAt.
  */
 export async function getUserTimeEntries(
   cfg: PaveConfig,
   userId: string,
-  maxPages = 20,
+  opts: { sinceIso?: string; untilIso?: string; sortDesc?: boolean; maxPages?: number } = {},
 ): Promise<UserTimeEntry[]> {
+  const maxPages = opts.maxPages ?? 20;
   const out: UserTimeEntry[] = [];
   let cursor: string | null = null;
   for (let page = 0; page < maxPages; page++) {
     const args: Record<string, unknown> = { size: 100 };
     if (cursor) args.page = cursor;
+    const range: unknown[] = [];
+    if (opts.sinceIso) range.push(["startedAt", ">=", opts.sinceIso]);
+    if (opts.untilIso) range.push(["startedAt", "<", opts.untilIso]);
+    if (range.length) args.where = range.length === 1 ? range[0] : { and: range };
+    if (opts.sortDesc) args.sortBy = [{ field: "startedAt", order: "desc" }];
     const r = await pave(cfg, {
       user: {
         $: { id: userId },
