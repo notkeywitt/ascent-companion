@@ -24,14 +24,20 @@ export function writesEnabled(): boolean {
 }
 
 /**
- * Where approved PTO/sick leave posts as a JobTread time entry. `costItemId`s
- * come from the appscript `probeLeaveTimeEntry` output (the PTO 88 10 00 / Sick
- * 88 20 00 budget leaves). `jobId` defaults to the Office/overhead job. The pay
- * type is PER-EMPLOYEE (JT pay types are per-worker), set on each roster row's
- * "Leave Pay Type"; `payType` here is only an optional org-wide fallback
- * (LEAVE_PAY_TYPE) for anyone whose row is blank. Posting stays off until the
- * cost-item ids are set (see `leavePostingReady`) — separate from the master
- * write gate.
+ * Where approved PTO/sick leave posts as a JobTread time entry. Defaults point
+ * at the "Office" overhead job (22PXevQbM9FQ = CONFIG.JOBTREAD.DEFAULT_JOB_ID in
+ * appscript) and its two $0/hr leave budget leaves, all CONFIRMED live against
+ * the Pave API 2026-07-28:
+ *   jobId 22PXevQbM9FQ  "Office"
+ *   pto   22PbfNY675d6  costCode 88 10 00 "PTO - Request"
+ *   sick  22PbfNY675d7  costCode 88 20 00 "Sick Time - Request"
+ * (both leaves have document:null → real budget leaves, valid jobCostItemIds.)
+ * The pay type is PER-EMPLOYEE (JT pay types are per-worker), set on each roster
+ * row's "Leave Pay Type"; `payType` here is only an optional org-wide fallback
+ * (LEAVE_PAY_TYPE) for anyone whose row is blank. With the cost items now
+ * mapped, `leavePostingReady` is true — but the master `writesEnabled()` gate
+ * still independently decides whether anything is actually written to JobTread.
+ * Env vars override any default (e.g. to re-home leave to a different job).
  */
 export interface LeaveJobConfig {
   jobId: string;
@@ -43,8 +49,8 @@ export function getLeaveConfig(): LeaveJobConfig {
     jobId: process.env.LEAVE_JOB_ID ?? "22PXevQbM9FQ",
     payType: process.env.LEAVE_PAY_TYPE ?? "",
     costItemId: {
-      sick: process.env.LEAVE_SICK_COST_ITEM_ID ?? "",
-      pto: process.env.LEAVE_PTO_COST_ITEM_ID ?? "",
+      sick: process.env.LEAVE_SICK_COST_ITEM_ID ?? "22PbfNY675d7",
+      pto: process.env.LEAVE_PTO_COST_ITEM_ID ?? "22PbfNY675d6",
     },
   };
 }
