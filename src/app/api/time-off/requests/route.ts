@@ -7,6 +7,7 @@ import {
   decideLeaveRequest,
   employeeByEmail,
   listRequests,
+  notifyOfficeOfLeaveRequest,
 } from "@/lib/leaveService";
 
 /**
@@ -86,6 +87,7 @@ export async function POST(req: NextRequest) {
         { status: 400 },
       );
     }
+    const note = (body.note ?? "").trim();
     const { id } = await createLeaveRequest({
       employeeId: emp.employeeId,
       jtUserId: emp.jtUserId,
@@ -93,10 +95,21 @@ export async function POST(req: NextRequest) {
       startDate,
       endDate,
       hours,
-      note: (body.note ?? "").trim(),
+      note,
       actor: email,
     });
-    return NextResponse.json({ ok: true, id }, { status: 201 });
+    // Notify the office. Best-effort by contract — the request is already
+    // saved, so a mail failure must not fail the submission.
+    const notified = await notifyOfficeOfLeaveRequest({
+      employeeName: emp.name,
+      employeeEmail: emp.email,
+      leaveType,
+      startDate,
+      endDate,
+      hours,
+      note,
+    });
+    return NextResponse.json({ ok: true, id, notified }, { status: 201 });
   } catch (e) {
     return NextResponse.json({ ok: false, error: e instanceof Error ? e.message : "Failed" }, { status: 500 });
   }

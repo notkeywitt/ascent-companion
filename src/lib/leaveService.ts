@@ -558,6 +558,39 @@ export async function createLeaveRequest(opts: {
   return { id: (row as { id: number }).id };
 }
 
+/**
+ * Best-effort: email the office that a new time-off request was submitted.
+ * Sends via the Apps Script `emailTimeOffRequest` action (Apps Script holds the
+ * Gmail grant; the Assistant has no mail client). NEVER throws — the request is
+ * already stored by the time this runs, so a mail hiccup must not surface as a
+ * failed submission. Returns whether the notice was sent, for logging only.
+ */
+export async function notifyOfficeOfLeaveRequest(opts: {
+  employeeName: string;
+  employeeEmail: string;
+  leaveType: LeaveType;
+  startDate: string;
+  endDate: string;
+  hours: number;
+  note: string;
+}): Promise<boolean> {
+  try {
+    const res = (await callAppsScript({
+      action: "emailTimeOffRequest",
+      employeeName: opts.employeeName,
+      employeeEmail: opts.employeeEmail,
+      leaveType: opts.leaveType,
+      startDate: opts.startDate,
+      endDate: opts.endDate,
+      hours: opts.hours,
+      note: opts.note,
+    })) as { ok?: boolean };
+    return res?.ok === true;
+  } catch {
+    return false;
+  }
+}
+
 export async function listRequests(filter: {
   employeeId?: string;
   status?: string;
