@@ -115,6 +115,7 @@ interface HistoryEntry {
   date: string;
   startTime: string;
   endTime: string;
+  minutes: number;
   jobId: string;
   jobName: string;
   costCode: string;
@@ -186,9 +187,17 @@ function nowLocalSeconds(): string {
   return `${nowLocal()}:${p(d.getSeconds())}`;
 }
 
-// Trim a "…THH:MM[:SS]" stamp to a friendly "YYYY-MM-DD HH:MM" for display.
+// "YYYY-MM-DD" → "MM/DD/YYYY" for display. Passes anything that doesn't match
+// straight through.
+function fmtDate(ymd: string): string {
+  const m = (ymd || "").match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return m ? `${m[2]}/${m[3]}/${m[1]}` : ymd;
+}
+
+// Trim a "…THH:MM[:SS]" stamp to a friendly "MM/DD/YYYY HH:MM" for display.
 function displayStamp(s: string): string {
-  return (s || "").slice(0, 16).replace("T", " ");
+  const m = (s || "").match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+  return m ? `${m[2]}/${m[3]}/${m[1]} ${m[4]}:${m[5]}` : (s || "").slice(0, 16).replace("T", " ");
 }
 
 function fmtMinutes(min: number): string {
@@ -1330,7 +1339,7 @@ function HistoryRow({ e }: { e: HistoryEntry }) {
     <li className="rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-700/60 dark:bg-ink-raised">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <div className="text-sm font-semibold">{e.date}</div>
+          <div className="text-sm font-semibold">{fmtDate(e.date)}</div>
           <div className="truncate text-xs text-neutral-500">
             {e.jobName && e.jtUrl ? (
               <JtLink href={e.jtUrl} className="hover:underline">
@@ -1348,6 +1357,9 @@ function HistoryRow({ e }: { e: HistoryEntry }) {
           {e.notes && <div className="mt-0.5 truncate text-xs text-neutral-400">{e.notes}</div>}
         </div>
         <div className="shrink-0 text-right">
+          {e.minutes > 0 && (
+            <div className="text-sm font-bold tabular-nums">{fmtMinutes(e.minutes)}</div>
+          )}
           <div className="text-xs text-neutral-500 tabular-nums">
             {e.startTime}–{e.endTime || "…"}
           </div>

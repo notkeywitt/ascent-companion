@@ -105,19 +105,24 @@ export async function GET(req: NextRequest) {
     let openCount = 0;
     const entries = inRange.map((e) => {
       const open = !e.endedAt;
+      let minutes = 0;
       if (open) {
         openCount++;
       } else {
         const mins = Math.round(
           (new Date(e.endedAt as string).getTime() - new Date(e.startedAt).getTime()) / 60000,
         );
-        if (Number.isFinite(mins) && mins > 0) totalMinutes += mins;
+        if (Number.isFinite(mins) && mins > 0) {
+          minutes = mins;
+          totalMinutes += mins;
+        }
       }
       return {
         id: e.id,
         date: dateOf(e.startedAt),
         startTime: timeOf(e.startedAt),
         endTime: open ? "" : timeOf(e.endedAt as string),
+        minutes,
         jobId: e.jobId,
         jobName: e.jobName,
         costCode: e.costCode,
