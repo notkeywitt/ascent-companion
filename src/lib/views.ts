@@ -69,7 +69,10 @@ export const VIEWS: ViewDef[] = [
   // Assistant
   { id: "chat", label: "Assistant", group: "Assistant", paths: ["/chat"] },
   // Office
-  { id: "employees", label: "Employees", group: "Office", paths: ["/employees"] },
+  // The email-blast API is listed here so it inherits the office/admin gate; the
+  // page-less /api/employees (read/edit) stays ungated because /safety-meeting
+  // (a field view) reads the Active roster through it.
+  { id: "employees", label: "Employees", group: "Office", paths: ["/employees", "/api/employees/email"] },
   { id: "labor-import", label: "Labor Import", group: "Office", paths: ["/labor-import"] },
   // Accrual management APIs — office/admin only (no field grant, not admin-only,
   // so office gets it by default). No page of its own; the office controls live
