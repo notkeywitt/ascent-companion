@@ -122,6 +122,7 @@ export default function AdminPage() {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           placeholder="teammate@gmail.com"
+          className="min-w-0 flex-1"
         />
         <Select value={role} onChange={(e) => setRole(e.target.value as Role)} className="w-28 shrink-0">
           {ROLES.map((r) => (

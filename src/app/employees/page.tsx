@@ -66,6 +66,21 @@ const statusClass = (s: string) => {
 
 const norm = (s: string) => s.trim().toLowerCase();
 
+// A compact labor-rate summary for the roster table. A JobTread user carries a
+// LIST of pay types (often job-scoped), each with its own hourlyRate, so we show
+// the min–max range plus how many rates there are; full detail lives in the modal.
+function rateSummary(u: JtUser | undefined): { text: string; count: number } | null {
+  if (!u) return null;
+  const rates = (u.types ?? [])
+    .map((t) => t.hourlyRate)
+    .filter((r): r is number => typeof r === "number");
+  if (!rates.length) return null;
+  const min = Math.min(...rates);
+  const max = Math.max(...rates);
+  const text = min === max ? `$${min}/hr` : `$${min}–$${max}/hr`;
+  return { text, count: rates.length };
+}
+
 export default function EmployeesPage() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [statuses, setStatuses] = useState<string[]>([]);
@@ -422,13 +437,14 @@ export default function EmployeesPage() {
             <span>{linkedCount} linked to JobTread</span>
           </div>
           <div className="overflow-x-auto rounded-xl border border-neutral-200 bg-white dark:border-neutral-700/60 dark:bg-ink-raised">
-            <table className="w-full min-w-[52rem] text-sm">
+            <table className="w-full min-w-[58rem] text-sm">
               <thead className="bg-neutral-50 text-neutral-500 dark:bg-white/5">
                 <tr>
                   <SortHead label="Name" k="name" />
                   <SortHead label="Position" k="position" />
                   <SortHead label="Status" k="status" />
                   <th className="px-3 py-2 text-left font-semibold">JobTread</th>
+                  <th className="px-3 py-2 text-left font-semibold">Rate</th>
                   <th className="px-3 py-2 text-left font-semibold">Phone</th>
                   <th className="px-3 py-2 text-left font-semibold">Email</th>
                   <th className="px-3 py-2" />
@@ -452,6 +468,25 @@ export default function EmployeesPage() {
                     </td>
                     <td className="px-3 py-2">
                       <JtCell e={e} />
+                    </td>
+                    <td className="px-3 py-2">
+                      {(() => {
+                        const sum = e.jtUserId ? rateSummary(jtById.get(e.jtUserId)) : null;
+                        if (!sum) return <span className="text-neutral-400">—</span>;
+                        return (
+                          <span
+                            className="whitespace-nowrap font-medium tabular-nums"
+                            title={`${sum.count} pay type${sum.count === 1 ? "" : "s"} — open to see each`}
+                          >
+                            {sum.text}
+                            {sum.count > 1 && (
+                              <span className="ml-1 text-[11px] font-normal text-neutral-500">
+                                · {sum.count}
+                              </span>
+                            )}
+                          </span>
+                        );
+                      })()}
                     </td>
                     <td className="px-3 py-2 text-neutral-600 dark:text-neutral-400">{e.phone}</td>
                     <td className="px-3 py-2">
@@ -479,7 +514,7 @@ export default function EmployeesPage() {
                 ))}
                 {view.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="px-3 py-6 text-center text-sm text-neutral-500">
+                    <td colSpan={8} className="px-3 py-6 text-center text-sm text-neutral-500">
                       No matching employees.
                     </td>
                   </tr>
@@ -544,6 +579,59 @@ export default function EmployeesPage() {
                   })}
                 </select>
               )}
+            </div>
+
+            {/* Labor rates — read-only, pulled live from JobTread. Rates/types
+                are set in JobTread; this is a review surface only. */}
+            <div className="mb-4 rounded-lg border border-neutral-200 p-3 dark:border-neutral-700/60">
+              <Label>Labor rates (from JobTread)</Label>
+              {(() => {
+                if (!form.jtUserId) {
+                  return (
+                    <p className="text-sm text-neutral-500">
+                      Link a JobTread user above to see their pay rates.
+                    </p>
+                  );
+                }
+                if (jtErr) {
+                  return (
+                    <p className="text-sm text-neutral-500">
+                      Unavailable — JobTread users didn&apos;t load.
+                    </p>
+                  );
+                }
+                const linked = jtById.get(form.jtUserId);
+                const withRates = (linked?.types ?? []).filter((t) => t.hourlyRate != null);
+                if (!withRates.length) {
+                  return (
+                    <p className="text-sm text-neutral-500">
+                      No rates available for this user — the JobTread grant may not expose
+                      per-member rates.
+                    </p>
+                  );
+                }
+                return (
+                  <>
+                    <ul className="divide-y divide-neutral-100 dark:divide-neutral-800/70">
+                      {withRates.map((t, i) => (
+                        <li
+                          key={`${t.name}-${i}`}
+                          className="flex items-baseline justify-between gap-3 py-1.5 text-sm"
+                        >
+                          <span className="text-neutral-700 dark:text-neutral-300">{t.name}</span>
+                          <span className="whitespace-nowrap font-semibold tabular-nums">
+                            ${t.hourlyRate}/hr
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                    <p className="mt-2 text-[11px] text-neutral-400">
+                      Read-only. Pay types are often job-scoped, so several rates per person is
+                      normal. Edit rates in JobTread.
+                    </p>
+                  </>
+                );
+              })()}
             </div>
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
