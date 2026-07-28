@@ -85,6 +85,9 @@ export const VIEWS: ViewDef[] = [
       "/api/time-off/ledger",
     ],
   },
+  // Reconciliation — records captured but not yet in JobTread, with retry.
+  // Office/admin (not field, not admin-only).
+  { id: "time-sync", label: "Time Sync", group: "Office", paths: ["/time-sync", "/api/time-sync"] },
   // System
   { id: "requests", label: "Requests", group: "System", paths: ["/requests"] },
   // The API route is listed alongside the page so the Home launcher's admin

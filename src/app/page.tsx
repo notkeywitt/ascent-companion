@@ -147,6 +147,7 @@ const AREAS: Area[] = [
       { label: "Employees", href: "/employees", desc: "The Project Database roster", view: "employees" },
       { label: "Labor Import", href: "/labor-import", desc: "QuickBooks labor → JobTread CSV", view: "labor-import" },
       { label: "Time Off", href: "/time-off", desc: "PTO & sick accrual, balances, policy", view: "time-off" },
+      { label: "Time Sync", href: "/time-sync", desc: "Records not yet in JobTread — retry", view: "time-sync" },
     ],
   },
   {

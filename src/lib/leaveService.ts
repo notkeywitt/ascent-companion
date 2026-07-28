@@ -484,6 +484,78 @@ export async function recordAdjustment(opts: {
   await recomputeBalance(opts.employeeId, opts.leaveType, opts.jtUserId ?? "");
 }
 
+// ── Sync / retry (reconciliation) ─────────────────────────────────────────────
+/** Approved leave requests that never made it to JobTread (jtEntryId blank).
+ *  Enriched with the employee name (best-effort). */
+export async function listUnsyncedLeave(): Promise<Array<Record<string, unknown>>> {
+  await ensureDb();
+  const rows = (await db
+    .select()
+    .from(leaveRequests)
+    .where(and(eq(leaveRequests.status, "approved"), eq(leaveRequests.jtEntryId, "")))) as Array<
+    Record<string, unknown>
+  >;
+  let roster: RosterEmployee[] = [];
+  try {
+    roster = await fetchRoster();
+  } catch {
+    roster = [];
+  }
+  const nameById = new Map(roster.map((r) => [r.employeeId, r.name]));
+  return rows
+    .map((r) => ({ ...r, name: nameById.get(String(r.employeeId)) ?? "" }) as Record<string, unknown>)
+    .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+}
+
+/** Re-attempt the JobTread post for one already-approved request. The balance
+ *  was decremented at approval, so this only (re)creates the JobTread entry and
+ *  links it back — never touches the balance. */
+export async function retryLeavePost(
+  requestId: number,
+): Promise<{ ok: true; jtPosted: boolean; jtStatus: string; jtError?: string } | { ok: false; error: string }> {
+  await ensureDb();
+  const [req] = (await db
+    .select()
+    .from(leaveRequests)
+    .where(eq(leaveRequests.id, requestId))) as Array<{
+    id: number;
+    employeeId: string;
+    jtUserId: string;
+    leaveType: string;
+    startDate: string;
+    hours: string;
+    status: string;
+    jtEntryId: string;
+  }>;
+  if (!req) return { ok: false, error: "Request not found." };
+  if (req.status !== "approved") return { ok: false, error: `Request is ${req.status}, not approved.` };
+  if (req.jtEntryId) return { ok: true, jtPosted: true, jtStatus: "already posted" };
+
+  let payType = "";
+  if (writesEnabled()) {
+    const roster = await fetchRoster().catch(() => [] as RosterEmployee[]);
+    const emp = roster.find((e) => e.employeeId === req.employeeId);
+    payType = (emp?.leavePayType || getLeaveConfig().payType || "").trim();
+  }
+  const post = await postApprovedLeaveToJobTread(req, payType);
+  if (post.jtEntryId) {
+    const now = new Date().toISOString();
+    await db.update(leaveRequests).set({ jtEntryId: post.jtEntryId, updatedAt: now }).where(eq(leaveRequests.id, req.id));
+    await db
+      .update(leaveTransactions)
+      .set({ jtEntryId: post.jtEntryId })
+      .where(
+        and(
+          eq(leaveTransactions.employeeId, req.employeeId),
+          eq(leaveTransactions.leaveType, req.leaveType),
+          eq(leaveTransactions.kind, "taken"),
+          eq(leaveTransactions.note, `request #${req.id}`),
+        ),
+      );
+  }
+  return { ok: true, jtPosted: !!post.jtEntryId, jtStatus: post.jtStatus, jtError: post.jtError };
+}
+
 export async function listBalances(): Promise<Array<Record<string, unknown>>> {
   await ensureDb();
   return (await db.select().from(leaveBalances)) as Array<Record<string, unknown>>;
