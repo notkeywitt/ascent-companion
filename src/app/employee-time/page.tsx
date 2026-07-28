@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 
 import { JobPicker } from "@/components/JobPicker";
 import { JtLink } from "@/components/JtLink";
@@ -274,6 +275,9 @@ export default function EmployeeTimePage() {
   const [orgTypes, setOrgTypes] = useState<string[]>([]);
   const [sites, setSites] = useState<Site[]>([]);
   const [jobs, setJobs] = useState<JobRef[]>([]);
+  // The signed-in user's PTO/sick balances, for the summary strip + link to
+  // /time-off. Best-effort — a failure just hides the chips.
+  const [leaveBal, setLeaveBal] = useState<{ leaveType: string; balance: number }[]>([]);
 
   // Who's logging — the roster link, or a one-time manual pick when unlinked.
   const [pickedUserId, setPickedUserId] = useState("");
@@ -340,6 +344,14 @@ export default function EmployeeTimePage() {
     fetch("/api/jobs")
       .then((r) => r.json())
       .then((j) => setJobs(j.jobs ?? []))
+      .catch(() => {});
+
+    // Own PTO/sick balances for the summary strip (own-balance view).
+    fetch("/api/time-off/me")
+      .then((r) => r.json())
+      .then((j) => {
+        if (j.ok !== false) setLeaveBal(j.balances ?? []);
+      })
       .catch(() => {});
 
     // Resume an in-progress clock-in (survives a locked phone / closed tab).
@@ -832,6 +844,38 @@ export default function EmployeeTimePage() {
           My Time
         </ModeTab>
       </div>
+
+      {/* PTO / sick balance summary + link to the full Time Off page. */}
+      <Card className="mb-4">
+        <div className="flex items-center justify-between gap-3">
+          {leaveBal.length ? (
+            <div className="flex items-center gap-6">
+              {(["sick", "pto"] as const).map((t) => {
+                const b = leaveBal.find((x) => x.leaveType === t);
+                return (
+                  <div key={t}>
+                    <div className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
+                      {t === "sick" ? "Sick" : "PTO"}
+                    </div>
+                    <div className="text-lg font-bold tabular-nums">
+                      {b ? Math.round(b.balance * 100) / 100 : 0}
+                      <span className="ml-1 text-xs font-normal text-neutral-500">hrs</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="text-sm text-neutral-500">Time off</div>
+          )}
+          <Link
+            href="/time-off"
+            className="shrink-0 text-sm font-semibold text-accent hover:underline dark:text-accent-soft"
+          >
+            View &amp; request →
+          </Link>
+        </div>
+      </Card>
 
       {err && (
         <Banner tone="error" className="mb-4">
