@@ -108,3 +108,100 @@ export const sunsetStatements = sqliteTable("sunset_statements", {
 });
 
 export type SunsetStatement = typeof sunsetStatements.$inferSelect;
+
+/**
+ * PTO / sick-time accrual — assistant-owned (JobTread has no accrual object).
+ * Four tables replace what TSheets did: policy config, per-person balances, an
+ * append-only ledger the balances are reconstructable from, and self-service
+ * time-off requests. Hours are stored as REAL. Worked hours (the accrual driver)
+ * are read live from JobTread time entries — never stored here.
+ *
+ * One policy row per leave type ("sick", "pto"). `hoursPerHourWorked` is the
+ * flat accrual rate (e.g. 1 hr per 30 worked = 0.0333). `tenureTiers` is an
+ * empty array today (flat rate); populating it later with
+ * [{ afterMonths, hoursPerHourWorked }, …] turns on tiered-by-tenure with no
+ * migration. Caps of 0 mean "no cap".
+ */
+export const leavePolicies = sqliteTable("leave_policies", {
+  leaveType: text("leave_type").primaryKey(), // "sick" | "pto"
+  label: text("label").notNull().default(""), // display, e.g. "Sick Time"
+  hoursPerHourWorked: text("hours_per_hour_worked").notNull().default("0"), // rate as text to avoid float drift
+  annualCap: text("annual_cap").notNull().default("0"), // max hrs accrued/yr; 0 = none
+  carryoverCap: text("carryover_cap").notNull().default("0"), // max hrs carried to next yr; 0 = none
+  waitingDays: integer("waiting_days").notNull().default(0), // days after hire before usage allowed
+  tenureTiers: text("tenure_tiers").notNull().default("[]"), // JSON [{afterMonths, hoursPerHourWorked}]
+  active: integer("active", { mode: "boolean" }).notNull().default(true),
+  updatedAt: text("updated_at").notNull(),
+});
+
+export type LeavePolicy = typeof leavePolicies.$inferSelect;
+
+/**
+ * Current balance per employee × leave type. Employee is keyed by the roster
+ * "Employee ID" (the stable anchor in the Employees sheet); jtUserId is cached
+ * for the JobTread post. `accruedThroughPeriod` is the idempotency high-water
+ * mark (last pay period accrual has run for, e.g. "2026-07-B"). Unique on
+ * (employeeId, leaveType).
+ */
+export const leaveBalances = sqliteTable("leave_balances", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  employeeId: text("employee_id").notNull(),
+  jtUserId: text("jt_user_id").notNull().default(""),
+  leaveType: text("leave_type").notNull(), // "sick" | "pto"
+  accrued: text("accrued").notNull().default("0"), // lifetime hrs accrued
+  used: text("used").notNull().default("0"), // lifetime hrs taken
+  balance: text("balance").notNull().default("0"), // current available hrs
+  accruedThroughPeriod: text("accrued_through_period").notNull().default(""),
+  updatedAt: text("updated_at").notNull(),
+});
+
+export type LeaveBalance = typeof leaveBalances.$inferSelect;
+
+/**
+ * Append-only ledger — the source of truth balances are rebuildable from.
+ * `kind`: "accrual" (period grant), "taken" (leave used), "adjustment" (manual
+ * correction / opening-balance import). `hours` is signed: + adds to balance,
+ * − subtracts. `period` is the pay-period id for accrual rows (empty otherwise);
+ * a partial unique index on (employeeId, leaveType, period) WHERE kind='accrual'
+ * makes re-running accrual for a period a no-op. `jtEntryId` links a "taken" row
+ * to the JobTread time entry it posted.
+ */
+export const leaveTransactions = sqliteTable("leave_transactions", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  employeeId: text("employee_id").notNull(),
+  leaveType: text("leave_type").notNull(),
+  kind: text("kind").notNull(), // "accrual" | "taken" | "adjustment"
+  hours: text("hours").notNull().default("0"), // signed
+  period: text("period").notNull().default(""), // pay-period id for accrual rows
+  note: text("note").notNull().default(""),
+  jtEntryId: text("jt_entry_id").notNull().default(""), // linked JT time entry (taken)
+  createdBy: text("created_by").notNull().default(""),
+  createdAt: text("created_at").notNull(),
+});
+
+export type LeaveTransaction = typeof leaveTransactions.$inferSelect;
+
+/**
+ * Self-service time-off requests. Field employees submit; office approves/denies.
+ * On approval a JobTread time entry is created (gated) and its id stored in
+ * `jtEntryId`, alongside a "taken" ledger row.
+ */
+export const leaveRequests = sqliteTable("leave_requests", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  employeeId: text("employee_id").notNull(),
+  jtUserId: text("jt_user_id").notNull().default(""),
+  leaveType: text("leave_type").notNull(),
+  startDate: text("start_date").notNull().default(""), // YYYY-MM-DD
+  endDate: text("end_date").notNull().default(""), // YYYY-MM-DD (== start for one day)
+  hours: text("hours").notNull().default("0"), // total requested hrs
+  note: text("note").notNull().default(""),
+  status: text("status").notNull().default("pending"), // pending | approved | denied | cancelled
+  decidedBy: text("decided_by").notNull().default(""),
+  decidedAt: text("decided_at").notNull().default(""),
+  jtEntryId: text("jt_entry_id").notNull().default(""), // JT time entry created on approval
+  createdBy: text("created_by").notNull().default(""),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
+export type LeaveRequest = typeof leaveRequests.$inferSelect;
