@@ -32,22 +32,30 @@ export function writesEnabled(): boolean {
  *   pto   22PbfNY675d6  costCode 88 10 00 "PTO - Request"
  *   sick  22PbfNY675d7  costCode 88 20 00 "Sick Time - Request"
  * (both leaves have document:null → real budget leaves, valid jobCostItemIds.)
- * The pay type is PER-EMPLOYEE (JT pay types are per-worker), set on each roster
- * row's "Leave Pay Type"; `payType` here is only an optional org-wide fallback
- * (LEAVE_PAY_TYPE) for anyone whose row is blank. With the cost items now
- * mapped, `leavePostingReady` is true — but the master `writesEnabled()` gate
- * still independently decides whether anything is actually written to JobTread.
- * Env vars override any default (e.g. to re-home leave to a different job).
+ * Pay type resolves in this order (see resolveLeavePayType in leaveService):
+ *   1. the employee's roster "Leave Pay Type" (per-worker override, if set)
+ *   2. the by-leave-type default below — PTO → "Paid time off", Sick →
+ *      "Sick Pay" (the org's two dedicated leave pay types, confirmed live)
+ *   3. the optional org-wide LEAVE_PAY_TYPE fallback
+ * So no per-employee setup is needed for leave to post at the right category.
+ * With the cost items now mapped, `leavePostingReady` is true — but the master
+ * `writesEnabled()` gate still independently decides whether anything is
+ * actually written to JobTread. Env vars override any default.
  */
 export interface LeaveJobConfig {
   jobId: string;
-  payType: string; // optional fallback only; per-employee pay type wins
+  payType: string; // optional org-wide fallback only (last resort)
+  payTypeByLeave: { sick: string; pto: string }; // default JT pay type per leave type
   costItemId: { sick: string; pto: string };
 }
 export function getLeaveConfig(): LeaveJobConfig {
   return {
     jobId: process.env.LEAVE_JOB_ID ?? "22PXevQbM9FQ",
     payType: process.env.LEAVE_PAY_TYPE ?? "",
+    payTypeByLeave: {
+      sick: process.env.LEAVE_SICK_PAY_TYPE ?? "Sick Pay",
+      pto: process.env.LEAVE_PTO_PAY_TYPE ?? "Paid time off",
+    },
     costItemId: {
       sick: process.env.LEAVE_SICK_COST_ITEM_ID ?? "22PbfNY675d7",
       pto: process.env.LEAVE_PTO_COST_ITEM_ID ?? "22PbfNY675d6",

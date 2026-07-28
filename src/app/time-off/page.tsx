@@ -188,6 +188,7 @@ interface Request {
   note: string;
   decidedBy: string;
   createdAt: string;
+  jtEntryId?: string;
 }
 const LEAVE_LABEL: Record<string, string> = { sick: "Sick", pto: "PTO" };
 const STATUS_CLS: Record<string, string> = {
@@ -438,7 +439,63 @@ function RequestsQueueCard({ onChanged }: { onChanged: () => void }) {
     }
   }
 
+  async function repost(id: number) {
+    setBusyId(id);
+    setErr("");
+    setMsg(null);
+    try {
+      const res = await fetch("/api/time-off/requests", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, action: "repost" }),
+      });
+      const json = await res.json();
+      if (!res.ok || json.ok === false) setErr(json.error ?? "Failed.");
+      else if (json.jtPosted) setMsg({ tone: "success", text: "Posted to JobTread." });
+      else setMsg({ tone: "warning", text: `Still not posted: ${json.jtError || json.jtStatus || "unknown"}.` });
+      await load();
+      onChanged();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Network error");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function remove(id: number) {
+    if (
+      !window.confirm(
+        "Delete this request? This hands the hours back to the employee's balance and deletes the linked JobTread time entry. This can't be undone.",
+      )
+    )
+      return;
+    setBusyId(id);
+    setErr("");
+    setMsg(null);
+    try {
+      const res = await fetch("/api/time-off/requests", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, action: "delete" }),
+      });
+      const json = await res.json();
+      if (!res.ok || json.ok === false) setErr(json.error ?? "Failed.");
+      else
+        setMsg({
+          tone: "success",
+          text: json.jtDeleted ? "Deleted — JobTread entry removed and balance restored." : "Deleted — balance restored.",
+        });
+      await load();
+      onChanged();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Network error");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   const pending = (requests ?? []).filter((r) => r.status === "pending");
+  const approved = (requests ?? []).filter((r) => r.status === "approved");
 
   return (
     <Card>
@@ -467,6 +524,37 @@ function RequestsQueueCard({ onChanged }: { onChanged: () => void }) {
             </li>
           ))}
         </ul>
+      )}
+
+      {approved.length > 0 && (
+        <div className="mt-4">
+          <div className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">Approved</div>
+          <ul className="mt-2 space-y-2">
+            {approved.map((r) => (
+              <li key={r.id} className="flex items-center justify-between gap-3 rounded-lg border border-neutral-200 px-3 py-2 text-sm dark:border-neutral-700/60">
+                <div className="min-w-0">
+                  <span className="font-medium">{names[r.employeeId ?? ""] ?? "—"}</span>{" "}
+                  <span className="uppercase text-neutral-500">{LEAVE_LABEL[r.leaveType] ?? r.leaveType}</span>{" "}
+                  <span className="tabular-nums">{fmtHM(r.hours)}</span>{" "}
+                  <span className="text-neutral-500">· {r.startDate}{r.endDate && r.endDate !== r.startDate ? `–${r.endDate}` : ""}</span>
+                  <div className="text-xs">
+                    {r.jtEntryId ? (
+                      <span className="text-green-700 dark:text-green-400">✓ Posted to JobTread</span>
+                    ) : (
+                      <span className="text-amber-600 dark:text-amber-500">Not posted to JobTread</span>
+                    )}
+                  </div>
+                </div>
+                <div className="flex shrink-0 gap-2">
+                  {!r.jtEntryId && (
+                    <Button variant="secondary" size="sm" disabled={busyId === r.id} onClick={() => repost(r.id)}>Retry post</Button>
+                  )}
+                  <Button variant="secondary" size="sm" disabled={busyId === r.id} onClick={() => remove(r.id)}>Delete</Button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
     </Card>
   );

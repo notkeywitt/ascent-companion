@@ -5,9 +5,11 @@ import { resolveAllowedViews } from "@/lib/views";
 import {
   createLeaveRequest,
   decideLeaveRequest,
+  deleteLeaveRequest,
   employeeByEmail,
   listRequests,
   notifyOfficeOfLeaveRequest,
+  repostLeaveRequest,
 } from "@/lib/leaveService";
 
 /**
@@ -19,7 +21,11 @@ import {
  *
  * GET               → { ok, requests }  (own; office may pass ?scope=all)
  * POST {leaveType,startDate,endDate,hours,note}         → { ok, id }
- * PATCH {id, action:"approve"|"deny"}   (office/admin)  → { ok }
+ * PATCH {id, action}  (office/admin)  → { ok, ... }
+ *   action: "approve" | "deny"   — decide a pending request
+ *           "repost"             — retry the JobTread post for an approved one
+ *           "delete"             — remove it, hand back the balance, delete the
+ *                                  linked JobTread time entry
  */
 export const dynamic = "force-dynamic";
 
@@ -130,10 +136,23 @@ export async function PATCH(req: NextRequest) {
   const id = Number(body.id);
   const action = (body.action ?? "").trim();
   if (!Number.isFinite(id)) return NextResponse.json({ ok: false, error: "id is required." }, { status: 400 });
-  if (action !== "approve" && action !== "deny") {
-    return NextResponse.json({ ok: false, error: "action must be 'approve' or 'deny'." }, { status: 400 });
+  if (!["approve", "deny", "repost", "delete"].includes(action)) {
+    return NextResponse.json(
+      { ok: false, error: "action must be 'approve', 'deny', 'repost', or 'delete'." },
+      { status: 400 },
+    );
   }
   try {
+    // repost: retry the JobTread post for an approved-but-unposted request.
+    if (action === "repost") {
+      const r = await repostLeaveRequest({ id, actor });
+      return NextResponse.json(r, { status: r.ok ? 200 : 400 });
+    }
+    // delete: remove the request, hand back the balance, delete the JT entry.
+    if (action === "delete") {
+      const r = await deleteLeaveRequest({ id, actor });
+      return NextResponse.json(r, { status: r.ok ? 200 : 400 });
+    }
     const r = await decideLeaveRequest({ id, approve: action === "approve", actor });
     if (!r.ok) return NextResponse.json(r, { status: 400 });
     return NextResponse.json(r); // carries jtPosted / jtStatus / jtError

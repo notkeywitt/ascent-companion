@@ -18,7 +18,7 @@ import { and, eq } from "drizzle-orm";
 import { db, ensureDb } from "@/db";
 import { leaveBalances, leavePolicies, leaveRequests, leaveTransactions } from "@/db/schema";
 import { getLeaveConfig, getPaveConfig, hasGrant, leavePostingReady, writesEnabled } from "@/lib/config";
-import { createTimeEntry, getUserTimeEntries, jtIsoToOrgLocal, orgLocalToJtIso } from "@/lib/jobtread";
+import { createTimeEntry, deleteTimeEntry, getUserTimeEntries, jtIsoToOrgLocal, orgLocalToJtIso } from "@/lib/jobtread";
 import {
   accrualForPeriod,
   nextPeriodId,
@@ -617,6 +617,18 @@ export interface DecideResult {
   jtError?: string;
 }
 
+/** Resolve the JobTread pay type for one employee's leave post. Order: the
+ *  per-employee roster "Leave Pay Type" wins (JT pay types are per-worker), else
+ *  the by-leave-type default (PTO → "Paid time off", Sick → "Sick Pay"), else
+ *  the optional org-wide LEAVE_PAY_TYPE. Best-effort roster read — a roster
+ *  hiccup just falls through to the by-leave-type default. */
+async function resolveLeavePayType(employeeId: string, leaveType: LeaveType): Promise<string> {
+  const cfg = getLeaveConfig();
+  const roster = await fetchRoster().catch(() => [] as RosterEmployee[]);
+  const emp = roster.find((e) => e.employeeId === employeeId);
+  return (emp?.leavePayType || cfg.payTypeByLeave[leaveType] || cfg.payType || "").trim();
+}
+
 /** Post an approved leave block to JobTread as one time entry, honouring both
  *  the master write gate and whether the leave mapping is configured. Never
  *  throws — a failure is reported so the approval (and the already-decremented
@@ -711,15 +723,11 @@ export async function decideLeaveRequest(opts: {
     .returning()) as Array<{ id: number }>;
   await recomputeBalance(req.employeeId, req.leaveType as LeaveType, req.jtUserId);
 
-  // Resolve the employee's own pay type (JT pay types are per-worker) so leave
-  // posts at their real rate; fall back to the optional org-wide LEAVE_PAY_TYPE.
+  // Resolve the pay type (per-employee → by-leave-type default → org fallback).
   // Only needed when a JobTread post will actually be attempted.
-  let payType = "";
-  if (writesEnabled()) {
-    const roster = await fetchRoster().catch(() => [] as RosterEmployee[]);
-    const emp = roster.find((e) => e.employeeId === req.employeeId);
-    payType = (emp?.leavePayType || getLeaveConfig().payType || "").trim();
-  }
+  const payType = writesEnabled()
+    ? await resolveLeavePayType(req.employeeId, req.leaveType as LeaveType)
+    : "";
 
   // Then post to JobTread (gated + configured). A failure never unwinds the
   // approval — it's surfaced so the office can retry the post later.
@@ -739,4 +747,120 @@ export async function decideLeaveRequest(opts: {
     .where(eq(leaveRequests.id, opts.id));
 
   return { ok: true, jtPosted: !!post.jtEntryId, jtEntryId: post.jtEntryId, jtStatus: post.jtStatus, jtError: post.jtError };
+}
+
+/**
+ * Retry the JobTread post for an already-APPROVED request that never landed a
+ * time entry (writes were off, no pay type, or JT was down at approval time).
+ * Refuses if the request isn't approved or already has a JT entry. The balance
+ * is left alone — approval already recorded the "taken" hours; this only creates
+ * the missing JobTread entry and stamps its id on the request + ledger row.
+ */
+export async function repostLeaveRequest(opts: {
+  id: number;
+  actor: string;
+}): Promise<DecideResult | { ok: false; error: string }> {
+  await ensureDb();
+  const [req] = (await db
+    .select()
+    .from(leaveRequests)
+    .where(eq(leaveRequests.id, opts.id))) as Array<{
+    id: number;
+    employeeId: string;
+    jtUserId: string;
+    leaveType: string;
+    startDate: string;
+    hours: string;
+    status: string;
+    jtEntryId: string;
+  }>;
+  if (!req) return { ok: false, error: "Request not found." };
+  if (req.status !== "approved") {
+    return { ok: false, error: `Only approved requests can be posted (this one is ${req.status}).` };
+  }
+  if (req.jtEntryId) return { ok: false, error: "Already posted to JobTread." };
+
+  const payType = writesEnabled()
+    ? await resolveLeavePayType(req.employeeId, req.leaveType as LeaveType)
+    : "";
+  const post = await postApprovedLeaveToJobTread(req, payType);
+  if (post.jtEntryId) {
+    const now = new Date().toISOString();
+    await db.update(leaveRequests).set({ jtEntryId: post.jtEntryId, updatedAt: now }).where(eq(leaveRequests.id, req.id));
+    await db
+      .update(leaveTransactions)
+      .set({ jtEntryId: post.jtEntryId })
+      .where(
+        and(
+          eq(leaveTransactions.employeeId, req.employeeId),
+          eq(leaveTransactions.leaveType, req.leaveType),
+          eq(leaveTransactions.kind, "taken"),
+          eq(leaveTransactions.note, `request #${req.id}`),
+        ),
+      );
+  }
+  return { ok: true, jtPosted: !!post.jtEntryId, jtEntryId: post.jtEntryId, jtStatus: post.jtStatus, jtError: post.jtError };
+}
+
+/**
+ * Cleanly delete a request and propagate to JobTread. For an APPROVED request
+ * this (1) deletes its JobTread time entry if one was posted, (2) removes the
+ * "taken" ledger row and rebuilds the balance (handing the hours back), then
+ * (3) removes the request row. Pending/denied requests carry no ledger row or
+ * JT entry, so they're simply removed. If the JobTread delete fails the whole
+ * op aborts and NOTHING local changes — so a live JT entry is never orphaned
+ * without its local record. Never throws.
+ */
+export async function deleteLeaveRequest(opts: {
+  id: number;
+  actor: string;
+}): Promise<{ ok: true; jtDeleted: boolean; leaveType: string } | { ok: false; error: string }> {
+  await ensureDb();
+  const [req] = (await db
+    .select()
+    .from(leaveRequests)
+    .where(eq(leaveRequests.id, opts.id))) as Array<{
+    id: number;
+    employeeId: string;
+    jtUserId: string;
+    leaveType: string;
+    status: string;
+    jtEntryId: string;
+  }>;
+  if (!req) return { ok: false, error: "Request not found." };
+
+  // 1) JobTread first — if this fails, bail before touching anything local so a
+  //    live time entry is never left orphaned.
+  let jtDeleted = false;
+  if (req.jtEntryId) {
+    if (!hasGrant()) {
+      return { ok: false, error: "No JobTread grant configured — cannot delete the linked time entry." };
+    }
+    try {
+      await deleteTimeEntry(getPaveConfig(), req.jtEntryId);
+      jtDeleted = true;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Unknown error";
+      return { ok: false, error: `Couldn't delete the JobTread time entry (${msg}). Nothing was changed — fix it in JobTread, then try again.` };
+    }
+  }
+
+  // 2) Reverse the ledger (an approved request has one negative "taken" row) and
+  //    rebuild the balance so the hours are returned. Preserve jtUserId.
+  await db
+    .delete(leaveTransactions)
+    .where(
+      and(
+        eq(leaveTransactions.employeeId, req.employeeId),
+        eq(leaveTransactions.leaveType, req.leaveType),
+        eq(leaveTransactions.kind, "taken"),
+        eq(leaveTransactions.note, `request #${req.id}`),
+      ),
+    );
+  await recomputeBalance(req.employeeId, req.leaveType as LeaveType, req.jtUserId);
+
+  // 3) Remove the request row.
+  await db.delete(leaveRequests).where(eq(leaveRequests.id, req.id));
+
+  return { ok: true, jtDeleted, leaveType: req.leaveType };
 }
