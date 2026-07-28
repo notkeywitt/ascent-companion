@@ -52,14 +52,15 @@ export const VIEWS: ViewDef[] = [
   { id: "employee-time", label: "Employee Time", group: "Field", paths: ["/employee-time"] },
   { id: "tools", label: "Tools", group: "Field", paths: ["/tools", "/tool-tracker"] },
   { id: "rfis", label: "RFIs", group: "Field", paths: ["/rfis"] },
-  // Time off — the accrual/balance page. Office/admin get it by default (not
-  // admin-only); the field self-service grant + the own-balance/request APIs
-  // (/api/time-off/me, /api/time-off/requests) are added in a later phase. The
-  // office/admin management APIs sit behind "time-off-admin" below.
+  // Time off — the accrual/balance page. Field employees get the self-service
+  // view (own balance + request time off, via /api/time-off/me and POST/GET
+  // /api/time-off/requests); office/admin additionally get the management
+  // controls behind "time-off-admin" below (including PATCH on /requests, which
+  // that route authorizes in-handler since middleware can't split by method).
   {
     id: "time-off",
     label: "Time Off",
-    group: "Office",
+    group: "Field",
     paths: ["/time-off", "/api/time-off/me", "/api/time-off/requests"],
   },
   // Leads submit; office/admin track. The API route is listed alongside so a
@@ -116,7 +117,7 @@ const ADMIN_ONLY: string[] = [
 export const ROLE_VIEWS: Record<Role, string[]> = {
   admin: ALL_VIEW_IDS,
   office: ALL_VIEW_IDS.filter((id) => !ADMIN_ONLY.includes(id)),
-  field: ["mileage", "employee-time", "tools", "rfis", "requests", "requisitions"],
+  field: ["mileage", "employee-time", "tools", "rfis", "requests", "requisitions", "time-off"],
 };
 
 function asRole(role: string | null | undefined): Role {

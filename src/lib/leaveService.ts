@@ -16,7 +16,7 @@
 import { and, eq } from "drizzle-orm";
 
 import { db, ensureDb } from "@/db";
-import { leaveBalances, leavePolicies, leaveTransactions } from "@/db/schema";
+import { leaveBalances, leavePolicies, leaveRequests, leaveTransactions } from "@/db/schema";
 import { getPaveConfig, hasGrant } from "@/lib/config";
 import { getUserTimeEntries, jtIsoToOrgLocal } from "@/lib/jobtread";
 import {
@@ -53,6 +53,7 @@ function splitCsv(v: string | undefined): string[] {
 export interface RosterEmployee {
   employeeId: string;
   name: string;
+  email: string;
   jtUserId: string;
   hireDate: string; // "YYYY-MM-DD" or "" if not set on the roster yet
   status: string;
@@ -96,11 +97,20 @@ export async function fetchRoster(): Promise<RosterEmployee[]> {
     return {
       employeeId: String(e.id ?? "").trim(),
       name: [first, last].filter(Boolean).join(" ") || String(e.name ?? "").trim(),
+      email: String(e.email ?? "").trim().toLowerCase(),
       jtUserId: String(e.jtUserId ?? "").trim(),
       hireDate: normalizeDate(e.hireDate),
       status: String(e.status ?? "").trim(),
     };
   });
+}
+
+/** Resolve a signed-in Google email to its roster employee, or null. */
+export async function employeeByEmail(email: string): Promise<RosterEmployee | null> {
+  const want = (email ?? "").trim().toLowerCase();
+  if (!want) return null;
+  const roster = await fetchRoster();
+  return roster.find((e) => e.email === want) ?? null;
 }
 
 /** Employees eligible to accrue: linked to JobTread and not clearly inactive. */
@@ -483,4 +493,124 @@ export async function listLedger(employeeId: string): Promise<Array<Record<strin
     .from(leaveTransactions)
     .where(eq(leaveTransactions.employeeId, employeeId))) as Array<Record<string, unknown>>;
   return rows.sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+}
+
+/** One employee's current balances, one entry per active leave type (0 if the
+ *  employee has no ledger yet). For the field self-service view. */
+export async function balancesForEmployee(
+  employeeId: string,
+): Promise<Array<{ leaveType: LeaveType; balance: number; accrued: number; used: number }>> {
+  await ensureDb();
+  const rows = (await db
+    .select()
+    .from(leaveBalances)
+    .where(eq(leaveBalances.employeeId, employeeId))) as Array<{
+    leaveType: string;
+    balance: string;
+    accrued: string;
+    used: string;
+  }>;
+  const byType = new Map(rows.map((r) => [r.leaveType, r]));
+  const policies = await getActivePolicies();
+  return policies.map((p) => {
+    const r = byType.get(p.leaveType);
+    return {
+      leaveType: p.leaveType,
+      balance: r ? Number(r.balance) || 0 : 0,
+      accrued: r ? Number(r.accrued) || 0 : 0,
+      used: r ? Number(r.used) || 0 : 0,
+    };
+  });
+}
+
+// ── Requests (self-service) ───────────────────────────────────────────────────
+export async function createLeaveRequest(opts: {
+  employeeId: string;
+  jtUserId: string;
+  leaveType: LeaveType;
+  startDate: string;
+  endDate: string;
+  hours: number;
+  note: string;
+  actor: string;
+}): Promise<{ id: number }> {
+  await ensureDb();
+  const now = new Date().toISOString();
+  const [row] = await db
+    .insert(leaveRequests)
+    .values({
+      employeeId: opts.employeeId,
+      jtUserId: opts.jtUserId,
+      leaveType: opts.leaveType,
+      startDate: opts.startDate,
+      endDate: opts.endDate,
+      hours: String(round2(opts.hours)),
+      note: opts.note,
+      status: "pending",
+      createdBy: opts.actor,
+      createdAt: now,
+      updatedAt: now,
+    })
+    .returning();
+  return { id: (row as { id: number }).id };
+}
+
+export async function listRequests(filter: {
+  employeeId?: string;
+  status?: string;
+}): Promise<Array<Record<string, unknown>>> {
+  await ensureDb();
+  const rows = (await db.select().from(leaveRequests)) as Array<Record<string, unknown>>;
+  return rows
+    .filter((r) => (filter.employeeId ? r.employeeId === filter.employeeId : true))
+    .filter((r) => (filter.status ? r.status === filter.status : true))
+    .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+}
+
+/**
+ * Approve or deny a pending request. Approving records a `taken` ledger row
+ * (negative hours) and rebuilds the balance — the companion balance is the
+ * truth for PTO/sick. Posting the approved leave to JobTread as a time entry is
+ * a separate, gated step (a later phase); `jtEntryId` stays empty until then.
+ */
+export async function decideLeaveRequest(opts: {
+  id: number;
+  approve: boolean;
+  actor: string;
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  await ensureDb();
+  const [req] = (await db
+    .select()
+    .from(leaveRequests)
+    .where(eq(leaveRequests.id, opts.id))) as Array<{
+    id: number;
+    employeeId: string;
+    jtUserId: string;
+    leaveType: string;
+    hours: string;
+    status: string;
+  }>;
+  if (!req) return { ok: false, error: "Request not found." };
+  if (req.status !== "pending") return { ok: false, error: `Request already ${req.status}.` };
+
+  const now = new Date().toISOString();
+  if (opts.approve) {
+    const hours = Number(req.hours) || 0;
+    await db.insert(leaveTransactions).values({
+      employeeId: req.employeeId,
+      leaveType: req.leaveType,
+      kind: "taken",
+      hours: String(round2(-Math.abs(hours))), // stored negative
+      period: "",
+      note: `request #${req.id}`,
+      createdBy: opts.actor,
+      createdAt: now,
+    });
+    await recomputeBalance(req.employeeId, req.leaveType as LeaveType, req.jtUserId);
+  }
+  await db
+    .update(leaveRequests)
+    .set({ status: opts.approve ? "approved" : "denied", decidedBy: opts.actor, decidedAt: now, updatedAt: now })
+    .where(eq(leaveRequests.id, opts.id));
+  return { ok: true };
 }

@@ -130,39 +130,329 @@ export default function TimeOffPage() {
     return [...map.entries()].sort((a, b) => a[1].name.localeCompare(b[1].name));
   }, [balances]);
 
-  if (!isOffice) {
-    return (
-      <main className="mx-auto max-w-xl px-4 pb-24 pt-6">
-        <PageHeader title="Time Off" description="PTO and sick-time balances." />
-        <EmptyState>Your personal balance and time-off requests are coming soon.</EmptyState>
-      </main>
-    );
-  }
-
   return (
     <main className="mx-auto max-w-3xl px-4 pb-24 pt-6">
       <PageHeader
         title="Time Off"
-        description="Accrual, balances, and policy for PTO and sick time."
+        description={
+          isOffice
+            ? "Your balance and requests, plus office accrual, balances, and policy."
+            : "Your PTO and sick-time balance, and request time off."
+        }
       />
 
-      {error && (
-        <Banner tone="error" className="mb-4">
-          {note && <div className="mb-1 font-medium">{note}</div>}
-          {error}
-        </Banner>
-      )}
+      {/* Everyone — the signed-in user's own balance + request flow. */}
+      <SelfServiceSection />
 
-      {loading ? (
-        <Loading label="Loading balances…" />
-      ) : (
-        <div className="space-y-5">
-          <AccrualCard onDone={load} setBanner={(t) => { setNote(t.note); setError(t.error); }} />
-          <BalancesCard byEmployee={byEmployee} roster={roster} onChanged={load} />
-          <PoliciesCard policies={policies} onSaved={load} />
-        </div>
+      {/* Office/admin — management dashboard. */}
+      {isOffice && (
+        <>
+          {error && (
+            <Banner tone="error" className="mb-4 mt-5">
+              {note && <div className="mb-1 font-medium">{note}</div>}
+              {error}
+            </Banner>
+          )}
+          {loading ? (
+            <Loading label="Loading balances…" />
+          ) : (
+            <div className="mt-5 space-y-5">
+              <RequestsQueueCard onChanged={load} />
+              <AccrualCard onDone={load} setBanner={(t) => { setNote(t.note); setError(t.error); }} />
+              <BalancesCard byEmployee={byEmployee} roster={roster} onChanged={load} />
+              <PoliciesCard policies={policies} onSaved={load} />
+            </div>
+          )}
+        </>
       )}
     </main>
+  );
+}
+
+// ── Self-service (everyone): my balance + request time off ────────────────────
+interface MyBalance {
+  leaveType: "sick" | "pto";
+  balance: number;
+  accrued: number;
+  used: number;
+}
+interface Request {
+  id: number;
+  employeeId?: string;
+  leaveType: string;
+  startDate: string;
+  endDate: string;
+  hours: string;
+  status: string;
+  note: string;
+  decidedBy: string;
+  createdAt: string;
+}
+const LEAVE_LABEL: Record<string, string> = { sick: "Sick", pto: "PTO" };
+const STATUS_CLS: Record<string, string> = {
+  pending: "text-accent-fg bg-accent",
+  approved: "text-green-700 bg-green-100 dark:text-green-300 dark:bg-green-950/50",
+  denied: "text-neutral-600 bg-neutral-200 dark:text-neutral-300 dark:bg-neutral-800",
+  cancelled: "text-neutral-600 bg-neutral-200 dark:text-neutral-300 dark:bg-neutral-800",
+};
+
+function SelfServiceSection() {
+  const [me, setMe] = useState<{ employeeId: string; name: string; jtUserId: string } | null | undefined>(undefined);
+  const [balances, setBalances] = useState<MyBalance[]>([]);
+  const [policies, setPolicies] = useState<Policy[]>([]);
+  const [requests, setRequests] = useState<Request[]>([]);
+  const [note, setNote] = useState("");
+  const [err, setErr] = useState("");
+
+  const load = useCallback(async () => {
+    setErr("");
+    try {
+      const [meRes, reqRes] = await Promise.all([
+        fetch("/api/time-off/me").then((r) => r.json()),
+        fetch("/api/time-off/requests").then((r) => r.json()),
+      ]);
+      if (meRes.ok === false) setErr(meRes.error ?? "Failed to load your balance.");
+      else {
+        setMe(meRes.me ?? null);
+        setBalances(meRes.balances ?? []);
+        setPolicies(meRes.policies ?? []);
+        setNote(meRes.note ?? "");
+      }
+      if (reqRes.ok !== false) setRequests(reqRes.requests ?? []);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Network error");
+    }
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  return (
+    <Card>
+      <SectionLabel>My time off</SectionLabel>
+      {err && <Banner tone="error" className="mt-2">{err}</Banner>}
+      {me === undefined ? (
+        <Loading label="Loading your balance…" />
+      ) : (
+        <>
+          <div className="mt-2 grid grid-cols-2 gap-3">
+            {(["sick", "pto"] as const).map((t) => {
+              const b = balances.find((x) => x.leaveType === t);
+              return (
+                <div key={t} className="rounded-lg border border-neutral-200 p-3 dark:border-neutral-700/60">
+                  <div className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">{LEAVE_LABEL[t]}</div>
+                  <div className="mt-0.5 text-2xl font-bold tabular-nums">{b ? hrs(b.balance) : "0"}</div>
+                  <div className="text-[11px] text-neutral-500">hours available</div>
+                </div>
+              );
+            })}
+          </div>
+          {note && <Banner tone="warning" className="mt-3">{note}</Banner>}
+          {me && (
+            <RequestForm policies={policies} onDone={load} />
+          )}
+          <MyRequests requests={requests} />
+        </>
+      )}
+    </Card>
+  );
+}
+
+function RequestForm({ policies, onDone }: { policies: Policy[]; onDone: () => void }) {
+  const active = policies.filter((p) => p.active);
+  const [leaveType, setLeaveType] = useState<"sick" | "pto">((active[0]?.leaveType as "sick" | "pto") ?? "sick");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [hours, setHours] = useState("");
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const [open, setOpen] = useState(false);
+
+  async function submit() {
+    setErr("");
+    const n = Number(hours);
+    if (!startDate) return setErr("Pick a start date.");
+    if (!Number.isFinite(n) || n <= 0) return setErr("Enter the number of hours.");
+    setBusy(true);
+    try {
+      const res = await fetch("/api/time-off/requests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ leaveType, startDate, endDate: endDate || startDate, hours: n, note }),
+      });
+      const json = await res.json();
+      if (!res.ok || json.ok === false) setErr(json.error ?? "Failed.");
+      else {
+        setStartDate(""); setEndDate(""); setHours(""); setNote(""); setOpen(false);
+        onDone();
+      }
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Network error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!open) {
+    return (
+      <div className="mt-3">
+        <Button size="sm" onClick={() => setOpen(true)}>Request time off</Button>
+      </div>
+    );
+  }
+  return (
+    <div className="mt-3 rounded-lg border border-neutral-200 p-3 dark:border-neutral-700/60">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div>
+          <Label htmlFor="req-type">Type</Label>
+          <Select id="req-type" value={leaveType} onChange={(e) => setLeaveType(e.target.value as "sick" | "pto")}>
+            {active.map((p) => (
+              <option key={p.leaveType} value={p.leaveType}>{p.label || LEAVE_LABEL[p.leaveType]}</option>
+            ))}
+          </Select>
+        </div>
+        <div>
+          <Label htmlFor="req-hrs">Hours</Label>
+          <Input id="req-hrs" inputMode="decimal" value={hours} onChange={(e) => setHours(e.target.value)} placeholder="e.g. 8" />
+        </div>
+        <div>
+          <Label htmlFor="req-start">Start date</Label>
+          <Input id="req-start" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+        </div>
+        <div>
+          <Label htmlFor="req-end">End date (optional)</Label>
+          <Input id="req-end" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+        </div>
+      </div>
+      <div className="mt-3">
+        <Label htmlFor="req-note">Note (optional)</Label>
+        <Input id="req-note" value={note} onChange={(e) => setNote(e.target.value)} placeholder="reason / details" />
+      </div>
+      {err && <Banner tone="error" className="mt-2">{err}</Banner>}
+      <div className="mt-3 flex justify-end gap-2">
+        <Button variant="secondary" size="sm" onClick={() => setOpen(false)}>Cancel</Button>
+        <Button size="sm" disabled={busy} onClick={submit}>{busy ? "Submitting…" : "Submit request"}</Button>
+      </div>
+    </div>
+  );
+}
+
+function StatusBadge({ status }: { status: string }) {
+  return (
+    <span className={`rounded px-1.5 py-0.5 text-[11px] font-medium uppercase ${STATUS_CLS[status] ?? STATUS_CLS.denied}`}>
+      {status}
+    </span>
+  );
+}
+
+function MyRequests({ requests }: { requests: Request[] }) {
+  if (requests.length === 0) return null;
+  return (
+    <div className="mt-4">
+      <SectionLabel className="mb-1">My requests</SectionLabel>
+      <ul className="space-y-1.5">
+        {requests.map((r) => (
+          <li key={r.id} className="flex items-center justify-between gap-3 rounded-lg border border-neutral-200 px-3 py-2 text-sm dark:border-neutral-700/60">
+            <div className="min-w-0">
+              <span className="font-medium">{LEAVE_LABEL[r.leaveType] ?? r.leaveType}</span>{" "}
+              <span className="tabular-nums">{hrs(r.hours)} hr</span>{" "}
+              <span className="text-neutral-500">
+                · {r.startDate}
+                {r.endDate && r.endDate !== r.startDate ? `–${r.endDate}` : ""}
+              </span>
+              {r.note && <span className="text-neutral-500"> · {r.note}</span>}
+            </div>
+            <StatusBadge status={r.status} />
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+// ── Office: pending-request approval queue ────────────────────────────────────
+function RequestsQueueCard({ onChanged }: { onChanged: () => void }) {
+  const [requests, setRequests] = useState<Request[] | null>(null);
+  const [names, setNames] = useState<Record<string, string>>({});
+  const [err, setErr] = useState("");
+  const [busyId, setBusyId] = useState<number | null>(null);
+
+  const load = useCallback(async () => {
+    setErr("");
+    try {
+      const [reqRes, balRes] = await Promise.all([
+        fetch("/api/time-off/requests?scope=all").then((r) => r.json()),
+        fetch("/api/time-off/balances").then((r) => r.json()),
+      ]);
+      if (reqRes.ok === false) setErr(reqRes.error ?? "Failed to load requests.");
+      else setRequests(reqRes.requests ?? []);
+      if (balRes.ok !== false) {
+        const m: Record<string, string> = {};
+        for (const e of balRes.roster ?? []) m[e.employeeId] = e.name;
+        setNames(m);
+      }
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Network error");
+    }
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  async function decide(id: number, action: "approve" | "deny") {
+    setBusyId(id);
+    try {
+      const res = await fetch("/api/time-off/requests", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, action }),
+      });
+      const json = await res.json();
+      if (!res.ok || json.ok === false) setErr(json.error ?? "Failed.");
+      else {
+        await load();
+        onChanged();
+      }
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Network error");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  const pending = (requests ?? []).filter((r) => r.status === "pending");
+
+  return (
+    <Card>
+      <SectionLabel>Requests {pending.length > 0 && <span className="text-accent">· {pending.length} pending</span>}</SectionLabel>
+      {err && <Banner tone="error" className="mt-2">{err}</Banner>}
+      {requests === null ? (
+        <Loading label="Loading requests…" />
+      ) : pending.length === 0 ? (
+        <EmptyState className="mt-3">No pending requests.</EmptyState>
+      ) : (
+        <ul className="mt-3 space-y-2">
+          {pending.map((r) => (
+            <li key={r.id} className="flex items-center justify-between gap-3 rounded-lg border border-neutral-200 px-3 py-2 text-sm dark:border-neutral-700/60">
+              <div className="min-w-0">
+                <span className="font-medium">{names[r.employeeId ?? ""] ?? "—"}</span>{" "}
+                <span className="uppercase text-neutral-500">{LEAVE_LABEL[r.leaveType] ?? r.leaveType}</span>{" "}
+                <span className="tabular-nums">{hrs(r.hours)} hr</span>{" "}
+                <span className="text-neutral-500">· {r.startDate}{r.endDate && r.endDate !== r.startDate ? `–${r.endDate}` : ""}</span>
+                {r.note && <div className="truncate text-xs text-neutral-500">{r.note}</div>}
+              </div>
+              <div className="flex shrink-0 gap-2">
+                <Button variant="secondary" size="sm" disabled={busyId === r.id} onClick={() => decide(r.id, "deny")}>Deny</Button>
+                <Button size="sm" disabled={busyId === r.id} onClick={() => decide(r.id, "approve")}>Approve</Button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Card>
   );
 }
 
