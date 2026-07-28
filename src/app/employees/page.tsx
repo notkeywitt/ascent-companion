@@ -16,6 +16,7 @@ interface Employee {
   firstName: string;
   lastName: string;
   position: string;
+  hireDate: string;
   status: string;
   phone: string;
   email: string;
@@ -39,6 +40,7 @@ const FIELDS: { key: EditableKey; label: string; wide?: boolean }[] = [
   { key: "firstName", label: "First name" },
   { key: "lastName", label: "Last name" },
   { key: "position", label: "Position" },
+  { key: "hireDate", label: "Hire date" },
   { key: "status", label: "Status" },
   { key: "phone", label: "Phone" },
   { key: "email", label: "Email" },

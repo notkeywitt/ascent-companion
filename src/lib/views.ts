@@ -52,6 +52,17 @@ export const VIEWS: ViewDef[] = [
   { id: "employee-time", label: "Employee Time", group: "Field", paths: ["/employee-time"] },
   { id: "tools", label: "Tools", group: "Field", paths: ["/tools", "/tool-tracker"] },
   { id: "rfis", label: "RFIs", group: "Field", paths: ["/rfis"] },
+  // Time off — the accrual/balance page. Field employees get the self-service
+  // view (own balance + request time off, via /api/time-off/me and POST/GET
+  // /api/time-off/requests); office/admin additionally get the management
+  // controls behind "time-off-admin" below (including PATCH on /requests, which
+  // that route authorizes in-handler since middleware can't split by method).
+  {
+    id: "time-off",
+    label: "Time Off",
+    group: "Field",
+    paths: ["/time-off", "/api/time-off/me", "/api/time-off/requests"],
+  },
   // Leads submit; office/admin track. The API route is listed alongside so a
   // role without the view can't reach the data by calling the route directly.
   { id: "requisitions", label: "Requisitions", group: "Field", paths: ["/requisitions", "/api/requisitions"] },
@@ -60,6 +71,20 @@ export const VIEWS: ViewDef[] = [
   // Office
   { id: "employees", label: "Employees", group: "Office", paths: ["/employees"] },
   { id: "labor-import", label: "Labor Import", group: "Office", paths: ["/labor-import"] },
+  // Accrual management APIs — office/admin only (no field grant, not admin-only,
+  // so office gets it by default). No page of its own; the office controls live
+  // on the shared /time-off page and call these routes.
+  {
+    id: "time-off-admin",
+    label: "Time Off (Office)",
+    group: "Office",
+    paths: [
+      "/api/time-off/accrual",
+      "/api/time-off/policies",
+      "/api/time-off/balances",
+      "/api/time-off/ledger",
+    ],
+  },
   // System
   { id: "requests", label: "Requests", group: "System", paths: ["/requests"] },
   // The API route is listed alongside the page so the Home launcher's admin
@@ -92,7 +117,7 @@ const ADMIN_ONLY: string[] = [
 export const ROLE_VIEWS: Record<Role, string[]> = {
   admin: ALL_VIEW_IDS,
   office: ALL_VIEW_IDS.filter((id) => !ADMIN_ONLY.includes(id)),
-  field: ["mileage", "employee-time", "tools", "rfis", "requests", "requisitions"],
+  field: ["mileage", "employee-time", "tools", "rfis", "requests", "requisitions", "time-off"],
 };
 
 function asRole(role: string | null | undefined): Role {
