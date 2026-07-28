@@ -284,7 +284,9 @@ export default function EmployeeTimePage() {
   const [jtUsers, setJtUsers] = useState<UserRef[]>([]);
   const [orgTypes, setOrgTypes] = useState<string[]>([]);
   const [sites, setSites] = useState<Site[]>([]);
-  const [jobs, setJobs] = useState<JobRef[]>([]);
+  // The job chosen in the JobPicker, captured via its onSelect so we can label
+  // it without fetching /api/jobs a second time (the picker already has it).
+  const [pickedJob, setPickedJob] = useState<JobRef | null>(null);
   // The signed-in user's PTO/sick balances, for the summary strip + link to
   // /time-off. Best-effort — a failure just hides the chips.
   const [leaveBal, setLeaveBal] = useState<{ leaveType: string; balance: number }[]>([]);
@@ -334,7 +336,10 @@ export default function EmployeeTimePage() {
 
   const [done, setDone] = useState<{ result: SubmitResult; summary: DoneSummary } | null>(null);
 
-  // --- Bootstrap: linked JT identity, org users + pay types, job sites, jobs. --
+  // --- Bootstrap: linked JT identity, org users + pay types, job sites. -------
+  // The job list itself is owned by the JobPicker (its own /api/jobs fetch) —
+  // this page no longer fetches it separately; the picked job's label comes
+  // back through JobPicker's onSelect.
   useEffect(() => {
     fetch("/api/employee-time")
       .then((r) => r.json())
@@ -350,11 +355,6 @@ export default function EmployeeTimePage() {
       })
       .catch(() => setErr("Couldn't reach the server."))
       .finally(() => setLoading(false));
-
-    fetch("/api/jobs")
-      .then((r) => r.json())
-      .then((j) => setJobs(j.jobs ?? []))
-      .catch(() => {});
 
     // Own PTO/sick balances for the summary strip (own-balance view).
     fetch("/api/time-off/me")
@@ -452,10 +452,13 @@ export default function EmployeeTimePage() {
     if (payTypes.length === 1) setPayType(payTypes[0].name);
   }, [payTypes, payType]);
 
+  // The selected job's label. Comes from the JobPicker pick (onSelect) when the
+  // user chose one, else the GPS-prefilled nearest-site label — no jobs list
+  // to look it up in anymore.
   const jobLabel = useMemo(() => {
-    const j = jobs.find((x) => x.id === jobId);
-    return j ? jobRefLabel(j) : nearestJob;
-  }, [jobs, jobId, nearestJob]);
+    if (pickedJob && pickedJob.id === jobId) return jobRefLabel(pickedJob);
+    return nearestJob;
+  }, [pickedJob, jobId, nearestJob]);
 
   const selectedCost = costItems.find((c) => c.id === costItemId) ?? null;
   const duration = fmtDuration(startTime, endTime);
@@ -739,6 +742,7 @@ export default function EmployeeTimePage() {
     setErr("");
     if (mode === "manual") {
       setJobId("");
+      setPickedJob(null);
       setCostItemId("");
       setStartTime(nowLocal());
       setEndTime(nowLocal());
@@ -1005,7 +1009,7 @@ export default function EmployeeTimePage() {
               <div>
                 <Label>Job</Label>
                 <div className="flex">
-                  <JobPicker value={jobId} onChange={setJobId} />
+                  <JobPicker value={jobId} onChange={setJobId} onSelect={setPickedJob} />
                 </div>
                 {geoNote && <p className="mt-1 text-xs text-neutral-500">{geoNote}</p>}
               </div>
@@ -1075,7 +1079,7 @@ export default function EmployeeTimePage() {
             <div>
               <Label>Job</Label>
               <div className="flex">
-                <JobPicker value={jobId} onChange={setJobId} />
+                <JobPicker value={jobId} onChange={setJobId} onSelect={setPickedJob} />
               </div>
               {geoNote && <p className="mt-1 text-xs text-neutral-500">{geoNote}</p>}
             </div>

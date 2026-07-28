@@ -63,6 +63,16 @@ function timeOf(iso: string): string {
   return m ? `${m[1]}:${m[2]}` : "";
 }
 
+// Memoize the signed-in email → JobTread user id resolution for a few minutes.
+// The "My Time" view re-fetches on every month/half switch, and each load
+// otherwise re-runs the Apps Script timeEntryBootstrap purely to map the email
+// to its JT user id — a slow round trip for a value that only changes when an
+// admin re-links the roster. Keyed by the AUTHENTICATED session email (never a
+// client-supplied id), so this is a pure memoization, not a trust change; the
+// short TTL bounds staleness after a re-link. Lives per warm server instance.
+const _userIdByEmail = new Map<string, { userId: string; expires: number }>();
+const USER_ID_TTL_MS = 5 * 60_000;
+
 export async function GET(req: NextRequest) {
   if (!hasGrant()) {
     return NextResponse.json({ ok: false, error: "JT_GRANT_KEY is not set." }, { status: 400 });
@@ -75,11 +85,21 @@ export async function GET(req: NextRequest) {
 
   const session = await auth();
   const email = session?.user?.email ?? "";
-  const boot = await callAppsScript({ action: "timeEntryBootstrap", email });
-  if (boot.error) return NextResponse.json({ ok: false, error: boot.error }, { status: boot.status });
-  const b = (boot.data ?? {}) as { ok?: boolean; error?: string; me?: { jtUserId?: string } };
-  if (b?.ok === false) return NextResponse.json(b, { status: 200 });
-  const userId = (b.me?.jtUserId ?? "").trim();
+
+  // Resolve the email → JT user id from the short-lived memo when warm; only
+  // hit Apps Script (timeEntryBootstrap) on a miss.
+  let userId = "";
+  const cached = email ? _userIdByEmail.get(email) : undefined;
+  if (cached && cached.expires > Date.now()) {
+    userId = cached.userId;
+  } else {
+    const boot = await callAppsScript({ action: "timeEntryBootstrap", email });
+    if (boot.error) return NextResponse.json({ ok: false, error: boot.error }, { status: boot.status });
+    const b = (boot.data ?? {}) as { ok?: boolean; error?: string; me?: { jtUserId?: string } };
+    if (b?.ok === false) return NextResponse.json(b, { status: 200 });
+    userId = (b.me?.jtUserId ?? "").trim();
+    if (email && userId) _userIdByEmail.set(email, { userId, expires: Date.now() + USER_ID_TTL_MS });
+  }
   if (!userId) {
     return NextResponse.json({
       ok: false,

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
-interface JobRef {
+export interface JobRef {
   id: string;
   name: string;
   number?: string;
@@ -14,13 +14,20 @@ const jobLabel = (j: JobRef) => (j.customer ? `${j.customer} - ${j.name}` : j.na
 // Drop the trailing ", USA" Google tacks on — every job is domestic.
 const jobAddress = (j: JobRef) => (j.address ?? "").replace(/,\s*USA$/i, "").trim();
 
-/** Searchable dropdown of the org's jobs. `value` is the selected job id. */
+/**
+ * Searchable dropdown of the org's jobs. `value` is the selected job id.
+ * `onSelect` (optional) also hands back the full chosen job — or null for
+ * "All jobs" — so a caller that needs the label doesn't have to fetch
+ * /api/jobs a second time just to look it up.
+ */
 export function JobPicker({
   value,
   onChange,
+  onSelect,
 }: {
   value: string;
   onChange: (id: string) => void;
+  onSelect?: (job: JobRef | null) => void;
 }) {
   const [jobs, setJobs] = useState<JobRef[]>([]);
   const [open, setOpen] = useState(false);
@@ -102,6 +109,7 @@ export function JobPicker({
                   type="button"
                   onClick={() => {
                     onChange("");
+                    onSelect?.(null);
                     setOpen(false);
                   }}
                   className={`w-full px-3 py-2 text-left hover:bg-neutral-100 dark:hover:bg-white/5 ${
@@ -121,6 +129,7 @@ export function JobPicker({
                   type="button"
                   onClick={() => {
                     onChange(j.id);
+                    onSelect?.(j);
                     setOpen(false);
                   }}
                   className="w-full px-3 py-2 text-left hover:bg-neutral-100 dark:hover:bg-white/5"
