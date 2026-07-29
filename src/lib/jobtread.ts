@@ -392,6 +392,32 @@ export async function setBillIssueDate(
 }
 
 /**
+ * WRITE — set a bill's document-level sales tax. This is JobTread's "Tax" field:
+ * `nonRecoverableTax` (a DOLLAR amount) with `nonRecoverableTaxName` "Tax" — the
+ * same field/name the Apps Script push uses (JobTread.js). Confirmed live 2026-07-29
+ * that JobTread stores line costs at face value (unitCost × quantity) and keeps this
+ * tax SEPARATE and ON TOP (total = Σ line cost + nonRecoverableTax), so setting it
+ * never changes the line amounts or the subtotal. Setting it as a dollar amount (not
+ * a per-document `taxRate` %) also avoids JobTread's tax-carve on line writes
+ * (see [[jt-createcostitem-tax-carve]]). Never touches lineItems (updateDocument with
+ * lineItems wipes cost items — CLAUDE.md).
+ */
+export async function setBillTax(
+  cfg: PaveConfig,
+  docId: string,
+  taxAmount: number,
+): Promise<number> {
+  const amount = Math.round((Number(taxAmount) || 0) * 100) / 100;
+  const r = await pave(cfg, {
+    updateDocument: {
+      $: { id: docId, nonRecoverableTax: amount, nonRecoverableTaxName: "Tax" },
+      document: { $: { id: docId }, id: {}, nonRecoverableTax: {} },
+    },
+  });
+  return r?.updateDocument?.document?.nonRecoverableTax ?? amount;
+}
+
+/**
  * WRITE — set a vendor bill's status. Confirmed writable via updateDocument.
  * "approved" is the action behind both "Approve for payment" (Bill) and "Record
  * payment" (Expense): approving pushes the document to QuickBooks, where payment

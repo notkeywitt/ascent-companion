@@ -137,6 +137,8 @@ function BillDetail() {
   const [combining, setCombining] = useState(false);
   const [combineMsg, setCombineMsg] = useState("");
   const [deletingId, setDeletingId] = useState("");
+  const [taxEdit, setTaxEdit] = useState<string | null>(null); // null = not editing (shows JT's value)
+  const [savingTax, setSavingTax] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -144,6 +146,7 @@ function BillDetail() {
       setLoading(true);
       setError("");
       setSelected([]);
+      setTaxEdit(null);
       try {
         const res = await fetch(
           `/api/bill?docId=${encodeURIComponent(docId)}&jobId=${encodeURIComponent(jobId)}`,
@@ -208,7 +211,11 @@ function BillDetail() {
   const subtotal = lines?.reduce((s, l) => s + (l.cost ?? 0), 0) ?? 0;
   const tax = header?.nonRecoverableTax ?? 0;
   const taxName = header?.nonRecoverableTaxName || "Tax";
-  const total = round2(subtotal + tax);
+  // While the office edits the Tax field, preview with the typed value so the total
+  // updates live; otherwise use JobTread's stored nonRecoverableTax.
+  const taxView = taxEdit !== null && taxEdit !== "" ? Number(taxEdit) || 0 : tax;
+  const taxChanged = taxEdit !== null && round2(taxView) !== round2(tax);
+  const total = round2(subtotal + taxView);
   const invId = header?.externalId || header?.number || "";
   const vendor = header?.fromName || header?.subject || header?.name || "Vendor bill";
   // Sunset keeps "Vendor · Invoice ID"; every other vendor shows just its name.
@@ -298,6 +305,35 @@ function BillDetail() {
       }
     } catch {
       /* keep optimistic state */
+    }
+  }
+
+  // Save the document-level sales tax (nonRecoverableTax). JobTread keeps this as a
+  // fixed amount ON TOP of the line costs, so it never changes the lines or the
+  // subtotal — only the total. Re-read the header afterward so the stored value wins.
+  async function saveTax() {
+    if (!taxChanged) return;
+    setSavingTax(true);
+    setSaveMsg("");
+    try {
+      const res = await fetch("/api/bill-tax", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ docId, taxAmount: round2(taxView) }),
+      });
+      const json = await res.json();
+      if (!res.ok) setSaveMsg(json.error ?? "Tax save failed");
+      else if (json.previewed)
+        setSaveMsg("Preview only — writes are OFF. Tax not saved to JobTread.");
+      else {
+        setTaxEdit(null); // re-sync the field to JobTread's stored value
+        await reloadHeader();
+        reloadJtWindow();
+      }
+    } catch (e) {
+      setSaveMsg(e instanceof Error ? e.message : "Network error");
+    } finally {
+      setSavingTax(false);
     }
   }
 
@@ -947,9 +983,44 @@ function BillDetail() {
               </span>
               <span className="font-mono text-sm font-semibold">{money(total)}</span>
             </div>
-            {tax > 0 && (
+
+            {/* Document-level sales tax = JobTread's "Tax" (nonRecoverableTax), a fixed
+                dollar amount ON TOP of the line costs. Editable on draft bills (writes
+                on): it changes only the total, never the lines or the subtotal. */}
+            {linesEditable && writes ? (
+              <div className="mt-1.5 flex items-center justify-end gap-2">
+                <span className="text-[10px] uppercase tracking-wide text-neutral-400">
+                  {taxName}
+                </span>
+                <div className="relative">
+                  <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-sm text-neutral-400">
+                    $
+                  </span>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    min="0"
+                    step="0.01"
+                    value={taxEdit ?? String(tax)}
+                    onChange={(e) => setTaxEdit(e.target.value)}
+                    aria-label="Sales tax"
+                    className="w-28 rounded-lg border border-neutral-300 bg-white py-1 pl-5 pr-2 text-right text-sm tabular-nums transition focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 dark:border-neutral-600 dark:bg-ink"
+                  />
+                </div>
+                <Button
+                  size="sm"
+                  className="!py-1"
+                  onClick={saveTax}
+                  disabled={savingTax || !taxChanged}
+                >
+                  {savingTax ? "Saving…" : "Save"}
+                </Button>
+              </div>
+            ) : null}
+
+            {taxView > 0 && (
               <div className="mt-0.5 text-right text-xs text-neutral-500">
-                subtotal {money(subtotal)} + {money(tax)} {taxName.toLowerCase()}
+                subtotal {money(subtotal)} + {money(taxView)} {taxName.toLowerCase()}
               </div>
             )}
           </div>
