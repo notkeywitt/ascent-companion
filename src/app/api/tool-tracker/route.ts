@@ -49,20 +49,16 @@ async function callAppsScript(payload: Record<string, unknown>) {
 }
 
 export async function GET() {
-  const [tools, projects] = await Promise.all([
-    callAppsScript({ action: "listTools" }),
-    callAppsScript({ action: "listToolProjects" }),
-  ]);
-  if (tools.error) return NextResponse.json({ error: tools.error }, { status: tools.status });
-  if (projects.error) return NextResponse.json({ error: projects.error }, { status: projects.status });
+  // One combined Apps Script action instead of two separate POSTs — half the network
+  // round-trips + cold-starts for the page bootstrap. Apps Script caches both halves.
+  const res = await callAppsScript({ action: "toolsBootstrap" });
+  if (res.error) return NextResponse.json({ error: res.error }, { status: res.status });
 
-  const t = tools.data as { ok?: boolean; error?: string; tools?: unknown };
-  const p = projects.data as { ok?: boolean; error?: string; projects?: unknown };
-  if (t?.ok === false) return NextResponse.json(t, { status: 200 });
-  if (p?.ok === false) return NextResponse.json(p, { status: 200 });
+  const b = res.data as { ok?: boolean; error?: string; tools?: unknown; projects?: unknown };
+  if (b?.ok === false) return NextResponse.json(b, { status: 200 });
 
   return NextResponse.json(
-    { ok: true, tools: t?.tools ?? [], projects: p?.projects ?? [] },
+    { ok: true, tools: b?.tools ?? [], projects: b?.projects ?? [] },
     { status: 200 },
   );
 }
