@@ -165,6 +165,7 @@ const AREAS: Area[] = [
     dests: [
       { label: "Employees", href: "/employees", desc: "The Project Database roster", view: "employees" },
       { label: "Labor Import", href: "/labor-import", desc: "QuickBooks labor → JobTread CSV", view: "labor-import" },
+      { label: "Labor Rates", href: "/labor-rates", desc: "Per-project pay rates & who has them", view: "labor-rates" },
       { label: "Time Off", href: "/time-off", desc: "Requests, balances & accrual policy", view: "time-off" },
       { label: "Safety Meeting", href: "/safety-meeting", desc: "Pass the iPad and collect sign-ins", view: "safety-meeting" },
     ],

@@ -667,6 +667,7 @@ export interface UserRef {
   name: string; // JobTread's DISPLAY name — what its importer matches on
   isInternal: boolean;
   types?: PayType[]; // undefined when the grant can't read per-member types
+  membershipId?: string; // the org membership id — REQUIRED to write rates (updateMembership)
 }
 
 async function fetchMembers(cfg: PaveConfig, withTypes: boolean): Promise<UserRef[]> {
@@ -699,6 +700,7 @@ async function fetchMembers(cfg: PaveConfig, withTypes: boolean): Promise<UserRe
         name: u.name ?? "",
         isInternal: !!n.isInternal,
         types: withTypes ? ((n.timeEntryTypes ?? []) as PayType[]) : undefined,
+        membershipId: n.id ?? undefined,
       });
     }
     cursor = mc.nextPage ?? null;
@@ -745,6 +747,50 @@ async function _getOrgTimeEntryTypeNamesUncached(cfg: PaveConfig): Promise<strin
     organization: { $: { id: cfg.orgId }, id: {}, timeEntryTypeNames: {} },
   });
   return (r?.organization?.timeEntryTypeNames ?? []) as string[];
+}
+
+/** Read ONE membership's current pay types fresh (bypasses the 30-min getOrgUsers
+ *  cache) — the read half of a read-modify-write rate update. */
+export async function getMembershipRates(cfg: PaveConfig, membershipId: string): Promise<PayType[]> {
+  const r = await pave(cfg, {
+    membership: { $: { id: membershipId }, id: {}, timeEntryTypes: { name: {}, hourlyRate: {} } },
+  });
+  return (r?.membership?.timeEntryTypes ?? []) as PayType[];
+}
+
+/**
+ * Overwrite a membership's pay types (its labor rates). CONFIRMED live 2026-07-29
+ * via a reversible probe on the owner's own membership:
+ *  - `timeEntryTypes` is a WHOLE-ARRAY REPLACE — any type omitted is DELETED, so
+ *    callers MUST pass the COMPLETE desired set (read-modify-write), never a delta.
+ *  - a timeEntryTypes-only updateMembership leaves role/isInternal untouched.
+ *  - keyed by MEMBERSHIP id (not user id); the grant needs the `updateMembership`
+ *    action (the org's "Sunset Invoce Automation" grant is unrestricted).
+ * JobTread caps a membership at 20 pay types. Callers gate behind writesEnabled()
+ * and clearJtRefCache() afterward so the roster re-reads. Returns the new set.
+ */
+export async function updateMembershipRates(
+  cfg: PaveConfig,
+  membershipId: string,
+  types: PayType[],
+): Promise<PayType[]> {
+  const clean = types
+    .map((t) => ({ name: String(t.name ?? "").trim(), hourlyRate: Number(t.hourlyRate ?? 0) }))
+    .filter((t) => t.name && Number.isFinite(t.hourlyRate));
+  if (clean.length > 20) {
+    throw new Error(`A member can have at most 20 pay types (got ${clean.length}).`);
+  }
+  const r = await pave(cfg, {
+    updateMembership: {
+      $: { id: membershipId, timeEntryTypes: clean },
+      membership: {
+        $: { id: membershipId },
+        id: {},
+        timeEntryTypes: { name: {}, hourlyRate: {} },
+      },
+    },
+  });
+  return (r?.updateMembership?.membership?.timeEntryTypes ?? []) as PayType[];
 }
 
 export async function updateLine(

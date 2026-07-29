@@ -74,6 +74,10 @@ export const VIEWS: ViewDef[] = [
   // (a field view) reads the Active roster through it.
   { id: "employees", label: "Employees", group: "Office", paths: ["/employees", "/api/employees/email"] },
   { id: "labor-import", label: "Labor Import", group: "Office", paths: ["/labor-import"] },
+  // Per-project labor-rate catalog + apply-to-employees. The API prefix gates all
+  // /api/labor-rates/* routes (catalog CRUD, member list, and the JobTread write)
+  // so a non-office user can't read or edit pay rates via the routes directly.
+  { id: "labor-rates", label: "Labor Rates", group: "Office", paths: ["/labor-rates", "/api/labor-rates"] },
   // Accrual management APIs — office/admin only (no field grant, not admin-only,
   // so office gets it by default). No page of its own; the office controls live
   // on the shared /time-off page and call these routes.

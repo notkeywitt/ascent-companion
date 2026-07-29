@@ -227,3 +227,27 @@ export const usageEvents = sqliteTable("usage_events", {
 });
 
 export type UsageEvent = typeof usageEvents.$inferSelect;
+
+/**
+ * Labor-rate catalog — assistant-owned list of named per-project pay rates
+ * (e.g. "Ferron - PM" = $95/hr), which the /labor-rates page applies to
+ * employees. JobTread has NO central pay-type catalog: a rate lives only on each
+ * membership's `timeEntryTypes` as a `{name, hourlyRate}` copy with no id. So
+ * this table is the definition, and "apply to employees" writes copies into each
+ * membership via updateMembership. `name` is the join key (it IS the JobTread
+ * pay-type name and the time-entry `type`), so it's unique and treated as stable.
+ * `hourlyRate` stored as text to avoid float drift (parsed to a number at the JT
+ * boundary). Because rates are copies, changing a catalog rate here does NOT move
+ * what's already on an employee until it's re-applied.
+ */
+export const laborRateCatalog = sqliteTable("labor_rate_catalog", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  name: text("name").notNull(), // JobTread pay-type name, e.g. "Ferron - PM" — unique
+  hourlyRate: text("hourly_rate").notNull().default("0"), // as text; Number() at the JT boundary
+  sortOrder: integer("sort_order").notNull().default(0), // owner ordering
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
+export type LaborRate = typeof laborRateCatalog.$inferSelect;
+export type NewLaborRate = typeof laborRateCatalog.$inferInsert;

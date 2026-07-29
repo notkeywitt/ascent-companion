@@ -208,6 +208,21 @@ export async function ensureDb() {
       updated_at TEXT NOT NULL
     )
   `);
+  // Labor-rate catalog (assistant-owned; JobTread has no central pay-type catalog).
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS labor_rate_catalog (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      hourly_rate TEXT NOT NULL DEFAULT '0',
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )
+  `);
+  // The name IS the JobTread pay-type name (the join key), so it must be unique.
+  await client.execute(
+    `CREATE UNIQUE INDEX IF NOT EXISTS labor_rate_catalog_name ON labor_rate_catalog (name)`,
+  );
   ensured = true;
 }
 
