@@ -1,9 +1,17 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { QrScanner } from "@/components/QrScanner";
 import { Banner, Button, Label, Loading, PageHeader, inputCls } from "@/components/ui";
+
+// The QR scanner pulls in jsQR (a sizeable pure-JS decoder) and only appears after a
+// "Scan a tool" tap, so load it on demand — this keeps jsQR out of the initial /tools
+// bundle. ssr:false: it's a camera/DOM component with nothing to server-render.
+const QrScanner = dynamic(() => import("@/components/QrScanner").then((m) => m.QrScanner), {
+  ssr: false,
+  loading: () => <Loading label="Starting scanner…" />,
+});
 
 interface Tool {
   id: string;

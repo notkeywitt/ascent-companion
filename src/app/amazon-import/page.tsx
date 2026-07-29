@@ -16,7 +16,6 @@ import {
   btn,
 } from "@/components/ui";
 import { parseAmazonCsv, type AmazonOrder } from "@/lib/amazonImport";
-import { unzipSync } from "fflate";
 
 interface JobRef {
   id: string;
@@ -308,6 +307,9 @@ export default function AmazonImportPage() {
     setPdfZipName(f.name);
     try {
       const buf = new Uint8Array(await f.arrayBuffer());
+      // Load fflate on demand — only needed when a zip is actually processed, so it stays
+      // out of the amazon-import initial bundle.
+      const { unzipSync } = await import("fflate");
       const entries = unzipSync(buf, {
         filter: (file) =>
           /\.pdf$/i.test(file.name) &&
