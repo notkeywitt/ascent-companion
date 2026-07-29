@@ -229,22 +229,43 @@ export const usageEvents = sqliteTable("usage_events", {
 export type UsageEvent = typeof usageEvents.$inferSelect;
 
 /**
- * Labor-rate catalog — assistant-owned list of named per-project pay rates
- * (e.g. "Ferron - PM" = $95/hr), which the /labor-rates page applies to
- * employees. JobTread has NO central pay-type catalog: a rate lives only on each
- * membership's `timeEntryTypes` as a `{name, hourlyRate}` copy with no id. So
- * this table is the definition, and "apply to employees" writes copies into each
- * membership via updateMembership. `name` is the join key (it IS the JobTread
- * pay-type name and the time-entry `type`), so it's unique and treated as stable.
- * `hourlyRate` stored as text to avoid float drift (parsed to a number at the JT
- * boundary). Because rates are copies, changing a catalog rate here does NOT move
- * what's already on an employee until it's re-applied.
+ * Labor-rate GROUPS — a group is usually a project ("Berger Bunkhouse", "Ferron").
+ * A group's name is prepended to each of its rates when pushed to JobTread, so a
+ * rate "Regular Pay" in group "Berger Bunkhouse" becomes the JobTread pay type
+ * "Berger Bunkhouse - Regular Pay". The special GLOBAL group is virtual (group_id
+ * 0, never a row here): its rates push with NO prefix (just "Regular Pay"). Real
+ * groups get id >= 1.
+ */
+export const laborRateGroups = sqliteTable("labor_rate_groups", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  name: text("name").notNull(), // unique; prepended as "<name> - <rate>"
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
+export type LaborRateGroup = typeof laborRateGroups.$inferSelect;
+
+/**
+ * Labor-rate catalog — assistant-owned list of named per-project pay rates, which
+ * the /labor-rates page applies to employees. JobTread has NO central pay-type
+ * catalog: a rate lives only on each membership's `timeEntryTypes` as a
+ * `{name, hourlyRate}` copy with no id. So this table is the definition, and
+ * "apply to employees" writes copies into each membership via updateMembership.
+ *
+ * `name` is the SHORT rate name (e.g. "Regular Pay", "Tile"). `groupId` points at
+ * a labor_rate_groups row (or 0 = the virtual Global group). The JobTread pay-type
+ * name pushed is the EFFECTIVE name = group ? `${group.name} - ${name}` : name —
+ * computed at apply time, so renaming a group changes future pushes (existing JT
+ * copies keep the old name until re-applied). Unique on (group_id, name).
+ * `hourlyRate` stored as text to avoid float drift (Number() at the JT boundary).
  */
 export const laborRateCatalog = sqliteTable("labor_rate_catalog", {
   id: integer("id").primaryKey({ autoIncrement: true }),
-  name: text("name").notNull(), // JobTread pay-type name, e.g. "Ferron - PM" — unique
+  name: text("name").notNull(), // short rate name; unique within its group
+  groupId: integer("group_id").notNull().default(0), // 0 = Global (no prefix)
   hourlyRate: text("hourly_rate").notNull().default("0"), // as text; Number() at the JT boundary
-  sortOrder: integer("sort_order").notNull().default(0), // owner ordering
+  sortOrder: integer("sort_order").notNull().default(0), // owner ordering within a group
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });

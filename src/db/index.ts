@@ -208,20 +208,42 @@ export async function ensureDb() {
       updated_at TEXT NOT NULL
     )
   `);
-  // Labor-rate catalog (assistant-owned; JobTread has no central pay-type catalog).
+  // Labor-rate catalog + groups (assistant-owned; JobTread has no central pay-type
+  // catalog). A group (project) prepends its name to each rate on push.
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS labor_rate_groups (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )
+  `);
+  await client.execute(
+    `CREATE UNIQUE INDEX IF NOT EXISTS labor_rate_groups_name ON labor_rate_groups (name)`,
+  );
   await client.execute(`
     CREATE TABLE IF NOT EXISTS labor_rate_catalog (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
+      group_id INTEGER NOT NULL DEFAULT 0,
       hourly_rate TEXT NOT NULL DEFAULT '0',
       sort_order INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     )
   `);
-  // The name IS the JobTread pay-type name (the join key), so it must be unique.
+  // Migration for catalogs created before groups existed (idempotent).
+  try {
+    await client.execute("ALTER TABLE labor_rate_catalog ADD COLUMN group_id INTEGER NOT NULL DEFAULT 0");
+  } catch {
+    /* column already exists */
+  }
+  // Uniqueness moved from (name) to (group_id, name) — the same short name can
+  // exist in different groups. Drop the old single-column unique index if present.
+  await client.execute(`DROP INDEX IF EXISTS labor_rate_catalog_name`);
   await client.execute(
-    `CREATE UNIQUE INDEX IF NOT EXISTS labor_rate_catalog_name ON labor_rate_catalog (name)`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS labor_rate_catalog_group_name ON labor_rate_catalog (group_id, name)`,
   );
   ensured = true;
 }

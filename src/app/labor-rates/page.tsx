@@ -4,9 +4,15 @@ import { useEffect, useMemo, useState } from "react";
 
 import { Banner, Button, Loading, PageHeader, inputCls } from "@/components/ui";
 
+interface Group {
+  id: number; // 0 = the virtual Global group
+  name: string;
+  sortOrder: number;
+}
 interface CatalogRate {
   id: number;
-  name: string;
+  name: string; // short rate name, e.g. "Regular Pay"
+  groupId: number; // 0 = Global (no prefix)
   hourlyRate: string; // stored as text
   sortOrder: number;
 }
@@ -22,26 +28,116 @@ interface Member {
   ratesReadable: boolean;
 }
 
+const GLOBAL: Group = { id: 0, name: "Global", sortOrder: -1 };
 // Leave pay types the Time-Off feature posts against — warn before removing one.
 const PROTECTED = new Set(["paid time off", "sick pay"]);
 const isProtected = (name: string) => PROTECTED.has(name.trim().toLowerCase());
 const money = (n: number) => `$${Number.isInteger(n) ? n : n.toFixed(2)}/hr`;
 const rateNum = (r: CatalogRate) => Number(r.hourlyRate) || 0;
+// The JobTread pay-type name: Global (0) pushes the rate name verbatim; a real
+// group prepends "<group> - ".
+const effName = (groupId: number, rateName: string, groups: Map<number, Group>) =>
+  groupId === 0 ? rateName : `${groups.get(groupId)?.name ?? "?"} - ${rateName}`;
+
+/** One group's rates + inline add-rate form. Module-scope so its input keeps focus. */
+function GroupSection({
+  group,
+  rates,
+  onAddRate,
+  onPatchRate,
+  onDeleteRate,
+  onRenameGroup,
+  onDeleteGroup,
+}: {
+  group: Group;
+  rates: CatalogRate[];
+  onAddRate: (groupId: number, name: string, hourlyRate: string) => Promise<void> | void;
+  onPatchRate: (id: number, fields: Partial<CatalogRate>) => void;
+  onDeleteRate: (id: number) => void;
+  onRenameGroup: (id: number, name: string) => void;
+  onDeleteGroup: (id: number) => void;
+}) {
+  const [nm, setNm] = useState("");
+  const [rt, setRt] = useState("");
+  const isGlobal = group.id === 0;
+  return (
+    <div className="mb-3 overflow-hidden rounded-xl border border-neutral-200 bg-white dark:border-neutral-700/60 dark:bg-ink-raised">
+      <div className="flex items-center gap-2 border-b border-neutral-100 bg-neutral-50 px-3 py-2 dark:border-neutral-800/70 dark:bg-white/5">
+        {isGlobal ? (
+          <span className="text-sm font-bold">🌐 Global <span className="font-normal text-neutral-500">— pushes with no prefix</span></span>
+        ) : (
+          <>
+            <input
+              defaultValue={group.name}
+              onBlur={(e) => e.target.value.trim() && e.target.value.trim() !== group.name && onRenameGroup(group.id, e.target.value.trim())}
+              className={inputCls + " max-w-[16rem] flex-1 font-semibold"}
+            />
+            <span className="text-[11px] text-neutral-400">pushes as “{group.name} - …”</span>
+            <button onClick={() => onDeleteGroup(group.id)} title="Delete group" className="ml-auto rounded-lg px-2 py-1 text-xs font-semibold text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40">
+              Delete group
+            </button>
+          </>
+        )}
+      </div>
+
+      {rates.map((r) => (
+        <div key={r.id} className="flex items-center gap-2 border-b border-neutral-100 px-3 py-2 last:border-b-0 dark:border-neutral-800/70">
+          <input
+            defaultValue={r.name}
+            onBlur={(e) => e.target.value.trim() && e.target.value.trim() !== r.name && onPatchRate(r.id, { name: e.target.value.trim() })}
+            className={inputCls + " flex-1"}
+          />
+          <div className="relative w-28">
+            <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-neutral-400">$</span>
+            <input
+              defaultValue={r.hourlyRate}
+              inputMode="decimal"
+              onBlur={(e) => e.target.value.trim() !== r.hourlyRate && onPatchRate(r.id, { hourlyRate: e.target.value.trim() })}
+              className={inputCls + " pl-5"}
+            />
+          </div>
+          <button onClick={() => onDeleteRate(r.id)} title="Delete rate" className="rounded-lg px-2 py-1 text-xs font-semibold text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40">✕</button>
+        </div>
+      ))}
+      {rates.length === 0 && <p className="px-3 py-2 text-sm text-neutral-400">No rates in this group yet.</p>}
+
+      <div className="flex items-center gap-2 px-3 py-2">
+        <input
+          value={nm}
+          onChange={(e) => setNm(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && nm.trim() && (onAddRate(group.id, nm.trim(), rt), setNm(""), setRt(""))}
+          placeholder={isGlobal ? "Rate name — e.g. Regular Pay" : "Rate name — e.g. Tile"}
+          className={inputCls + " flex-1"}
+        />
+        <div className="relative w-28">
+          <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-neutral-400">$</span>
+          <input value={rt} onChange={(e) => setRt(e.target.value)} inputMode="decimal" placeholder="0" className={inputCls + " pl-5"} />
+        </div>
+        <Button
+          variant="secondary"
+          onClick={() => nm.trim() && (onAddRate(group.id, nm.trim(), rt), setNm(""), setRt(""))}
+          disabled={!nm.trim()}
+        >
+          Add rate
+        </Button>
+      </div>
+    </div>
+  );
+}
 
 export default function LaborRatesPage() {
-  const [catalog, setCatalog] = useState<CatalogRate[]>([]);
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [rates, setRates] = useState<CatalogRate[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadErr, setLoadErr] = useState("");
   const [jtErr, setJtErr] = useState("");
   const [notice, setNotice] = useState<{ tone: "success" | "warning" | "error"; text: string } | null>(null);
-
-  // catalog add form
-  const [newName, setNewName] = useState("");
-  const [newRate, setNewRate] = useState("");
   const [busy, setBusy] = useState(false);
 
-  // per-member editor (exact replace of the shown list)
+  const [newGroup, setNewGroup] = useState("");
+
+  // per-member editor (exact replace of the shown, ORDERED list)
   const [editing, setEditing] = useState<Member | null>(null);
   const [draft, setDraft] = useState<PayType[]>([]);
   const [addCatalogId, setAddCatalogId] = useState<string>("");
@@ -53,13 +149,16 @@ export default function LaborRatesPage() {
   async function load() {
     setLoading(true);
     try {
-      const [cRes, mRes] = await Promise.all([
+      const [gRes, cRes, mRes] = await Promise.all([
+        fetch("/api/labor-rates/groups"),
         fetch("/api/labor-rates"),
         fetch("/api/labor-rates/members"),
       ]);
+      const gJson = await gRes.json();
+      if (gRes.ok) setGroups(gJson.groups ?? []);
       const cJson = await cRes.json();
       if (!cRes.ok) setLoadErr(cJson.error || "Could not load the rate catalog.");
-      else setCatalog(cJson.rates ?? []);
+      else setRates(cJson.rates ?? []);
       const mJson = await mRes.json();
       if (!mRes.ok) setJtErr(mJson.error || "Could not load employees from JobTread.");
       else setMembers(mJson.members ?? []);
@@ -73,28 +172,81 @@ export default function LaborRatesPage() {
     load();
   }, []);
 
-  // ---- catalog CRUD ----
-  async function addRate() {
-    const name = newName.trim();
+  const groupsById = useMemo(() => {
+    const m = new Map<number, Group>([[0, GLOBAL]]);
+    groups.forEach((g) => m.set(g.id, g));
+    return m;
+  }, [groups]);
+
+  // Global first, then real groups in their order.
+  const orderedGroups = useMemo(
+    () => [GLOBAL, ...[...groups].sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name))],
+    [groups],
+  );
+  const ratesOf = (groupId: number) =>
+    rates.filter((r) => r.groupId === groupId).sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
+
+  // Every catalog rate as an effective-name option (for dropdowns), grouped label.
+  const rateOptions = useMemo(
+    () =>
+      rates
+        .map((r) => ({ id: r.id, label: effName(r.groupId, r.name, groupsById), hourlyRate: rateNum(r) }))
+        .sort((a, b) => a.label.localeCompare(b.label)),
+    [rates, groupsById],
+  );
+
+  // ---- group CRUD ----
+  async function addGroup() {
+    const name = newGroup.trim();
     if (!name || busy) return;
     setBusy(true);
     setNotice(null);
     try {
-      const res = await fetch("/api/labor-rates", {
+      const res = await fetch("/api/labor-rates/groups", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, hourlyRate: newRate }),
+        body: JSON.stringify({ name }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Add failed.");
-      setCatalog((c) => [...c, json.rate].sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name)));
-      setNewName("");
-      setNewRate("");
+      setGroups((g) => [...g, json.group]);
+      setNewGroup("");
     } catch (e) {
       setNotice({ tone: "error", text: e instanceof Error ? e.message : "Add failed." });
     } finally {
       setBusy(false);
     }
+  }
+  async function renameGroup(id: number, name: string) {
+    const res = await fetch("/api/labor-rates/groups", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, name }),
+    });
+    const json = await res.json();
+    if (!res.ok) return setNotice({ tone: "error", text: json.error || "Rename failed." });
+    setGroups((g) => g.map((x) => (x.id === id ? json.group : x)));
+  }
+  async function deleteGroup(id: number) {
+    if (!confirm("Delete this group and its rate definitions? (Employees keep any rates already pushed to JobTread.)")) return;
+    const res = await fetch(`/api/labor-rates/groups?id=${id}`, { method: "DELETE" });
+    if (res.ok) {
+      setGroups((g) => g.filter((x) => x.id !== id));
+      setRates((r) => r.filter((x) => x.groupId !== id));
+    }
+  }
+
+  // ---- rate CRUD ----
+  async function addRate(groupId: number, name: string, hourlyRate: string) {
+    setNotice(null);
+    const res = await fetch("/api/labor-rates", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, groupId, hourlyRate }),
+    });
+    const json = await res.json();
+    if (!res.ok) return setNotice({ tone: "error", text: json.error || "Add failed." });
+    setRates((r) => [...r, json.rate]);
   }
   async function patchRate(id: number, fields: Partial<CatalogRate>) {
     const res = await fetch("/api/labor-rates", {
@@ -103,16 +255,12 @@ export default function LaborRatesPage() {
       body: JSON.stringify({ id, ...fields }),
     });
     const json = await res.json();
-    if (!res.ok) {
-      setNotice({ tone: "error", text: json.error || "Save failed." });
-      return;
-    }
-    setCatalog((c) => c.map((r) => (r.id === id ? json.rate : r)));
+    if (!res.ok) return setNotice({ tone: "error", text: json.error || "Save failed." });
+    setRates((r) => r.map((x) => (x.id === id ? json.rate : x)));
   }
   async function deleteRate(id: number) {
-    if (!confirm("Delete this catalog rate? (Employees who already have it keep it in JobTread.)")) return;
     const res = await fetch(`/api/labor-rates?id=${id}`, { method: "DELETE" });
-    if (res.ok) setCatalog((c) => c.filter((r) => r.id !== id));
+    if (res.ok) setRates((r) => r.filter((x) => x.id !== id));
   }
 
   // ---- apply response handling ----
@@ -122,7 +270,6 @@ export default function LaborRatesPage() {
       return false;
     }
     const results = json.results ?? [];
-    // merge returned types back into member state
     setMembers((ms) =>
       ms.map((m) => {
         const r = results.find((x) => x.membershipId === m.membershipId && x.ok && x.types);
@@ -130,25 +277,34 @@ export default function LaborRatesPage() {
       }),
     );
     const failed = results.filter((r) => !r.ok);
-    if (failed.length) {
-      setNotice({ tone: "error", text: `${failed.length} update(s) failed: ${failed.map((f) => f.error).join("; ")}` });
-    } else {
-      setNotice({ tone: "success", text: `Updated ${results.length} employee${results.length === 1 ? "" : "s"} in JobTread.` });
-    }
+    if (failed.length) setNotice({ tone: "error", text: `${failed.length} update(s) failed: ${failed.map((f) => f.error).join("; ")}` });
+    else setNotice({ tone: "success", text: `Updated ${results.length} employee${results.length === 1 ? "" : "s"} in JobTread.` });
     return failed.length === 0;
   }
 
-  // ---- per-member editor (exact replace) ----
+  // ---- per-member editor (exact replace, ordered) ----
   function openEditor(m: Member) {
     setEditing(m);
     setDraft(m.types.map((t) => ({ name: t.name, hourlyRate: t.hourlyRate })));
     setAddCatalogId("");
   }
+  function draftAdd(name: string, hourlyRate: number) {
+    setDraft((d) => (d.some((t) => t.name === name) ? d.map((t) => (t.name === name ? { ...t, hourlyRate } : t)) : [...d, { name, hourlyRate }]));
+  }
   function draftAddFromCatalog() {
-    const r = catalog.find((c) => String(c.id) === addCatalogId);
-    if (!r) return;
-    setDraft((d) => (d.some((t) => t.name === r.name) ? d.map((t) => (t.name === r.name ? { ...t, hourlyRate: rateNum(r) } : t)) : [...d, { name: r.name, hourlyRate: rateNum(r) }]));
+    const opt = rateOptions.find((o) => String(o.id) === addCatalogId);
+    if (!opt) return;
+    draftAdd(opt.label, opt.hourlyRate);
     setAddCatalogId("");
+  }
+  function move(i: number, dir: -1 | 1) {
+    setDraft((d) => {
+      const n = [...d];
+      const j = i + dir;
+      if (j < 0 || j >= n.length) return n;
+      [n[i], n[j]] = [n[j], n[i]];
+      return n;
+    });
   }
   async function saveEditor() {
     if (!editing || busy) return;
@@ -171,8 +327,8 @@ export default function LaborRatesPage() {
     }
   }
 
-  // ---- bulk apply a catalog rate to the selected members ----
-  const bulkRate = useMemo(() => catalog.find((c) => String(c.id) === bulkRateId) || null, [catalog, bulkRateId]);
+  // ---- bulk apply one catalog rate to selected members ----
+  const bulkRate = useMemo(() => rateOptions.find((o) => String(o.id) === bulkRateId) || null, [rateOptions, bulkRateId]);
   function toggle(id: string) {
     setSelected((s) => {
       const n = new Set(s);
@@ -189,11 +345,7 @@ export default function LaborRatesPage() {
       const res = await fetch("/api/labor-rates/apply", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          mode: "applyRate",
-          membershipIds: [...selected],
-          rate: { name: bulkRate.name, hourlyRate: rateNum(bulkRate) },
-        }),
+        body: JSON.stringify({ mode: "applyRate", membershipIds: [...selected], rate: { name: bulkRate.label, hourlyRate: bulkRate.hourlyRate } }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Apply failed.");
@@ -205,86 +357,48 @@ export default function LaborRatesPage() {
     }
   }
 
-  const catalogSorted = useMemo(
-    () => [...catalog].sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name)),
-    [catalog],
-  );
-
   return (
     <main className="mx-auto max-w-4xl px-4 pb-24 pt-6">
       <PageHeader
         title="Labor Rates"
-        description="Build a list of per-project pay rates, then choose which employees have each. Changes write to JobTread."
+        description="Group per-project pay rates, then choose which employees have each. Pushing writes to JobTread as “Group - Rate”."
         className="!mb-3"
       />
 
-      {notice && (
-        <Banner tone={notice.tone} className="mb-4">
-          {notice.text}
-        </Banner>
-      )}
+      {notice && <Banner tone={notice.tone} className="mb-4">{notice.text}</Banner>}
       {loadErr && <Banner tone="error" className="mb-4">{loadErr}</Banner>}
       {loading && <Loading label="Loading rates…" />}
 
       {!loading && (
         <>
-          {/* ---- Catalog ---- */}
+          {/* ---- Catalog (grouped) ---- */}
           <section className="mb-8">
             <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-neutral-500">Rate catalog</h2>
-            <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white dark:border-neutral-700/60 dark:bg-ink-raised">
-              {catalogSorted.length === 0 && (
-                <p className="px-3 py-4 text-sm text-neutral-500">No rates yet — add one below (e.g. “Ferron - PM”, $95).</p>
-              )}
-              {catalogSorted.map((r) => (
-                <div key={r.id} className="flex items-center gap-2 border-b border-neutral-100 px-3 py-2 last:border-b-0 dark:border-neutral-800/70">
-                  <input
-                    defaultValue={r.name}
-                    onBlur={(e) => e.target.value.trim() && e.target.value.trim() !== r.name && patchRate(r.id, { name: e.target.value.trim() })}
-                    className={inputCls + " flex-1"}
-                  />
-                  <div className="relative w-28">
-                    <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-neutral-400">$</span>
-                    <input
-                      defaultValue={r.hourlyRate}
-                      inputMode="decimal"
-                      onBlur={(e) => e.target.value.trim() !== r.hourlyRate && patchRate(r.id, { hourlyRate: e.target.value.trim() })}
-                      className={inputCls + " pl-5"}
-                    />
-                  </div>
-                  <button onClick={() => deleteRate(r.id)} title="Delete rate" className="rounded-lg px-2 py-1 text-xs font-semibold text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40">
-                    ✕
-                  </button>
-                </div>
-              ))}
-              {/* add row */}
-              <div className="flex items-center gap-2 bg-neutral-50 px-3 py-2 dark:bg-white/5">
-                <input
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && addRate()}
-                  placeholder="New rate name — e.g. Ferron - PM"
-                  className={inputCls + " flex-1"}
-                />
-                <div className="relative w-28">
-                  <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-neutral-400">$</span>
-                  <input
-                    value={newRate}
-                    onChange={(e) => setNewRate(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && addRate()}
-                    inputMode="decimal"
-                    placeholder="0"
-                    className={inputCls + " pl-5"}
-                  />
-                </div>
-                <Button onClick={addRate} disabled={busy || !newName.trim()}>Add</Button>
-              </div>
+            {orderedGroups.map((g) => (
+              <GroupSection
+                key={g.id}
+                group={g}
+                rates={ratesOf(g.id)}
+                onAddRate={addRate}
+                onPatchRate={patchRate}
+                onDeleteRate={deleteRate}
+                onRenameGroup={renameGroup}
+                onDeleteGroup={deleteGroup}
+              />
+            ))}
+            <div className="mt-2 flex items-center gap-2">
+              <input
+                value={newGroup}
+                onChange={(e) => setNewGroup(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && addGroup()}
+                placeholder="New group (project) — e.g. Berger Bunkhouse"
+                className={inputCls + " max-w-sm flex-1"}
+              />
+              <Button onClick={addGroup} disabled={busy || !newGroup.trim()}>Add group</Button>
             </div>
-            <p className="mt-1 text-[11px] text-neutral-400">
-              Editing a rate here does not change employees who already have it — re-apply it to push the new number.
-            </p>
           </section>
 
-          {/* ---- Bulk apply ---- */}
+          {/* ---- Employees ---- */}
           {jtErr ? (
             <Banner tone="warning" className="mb-4">Employees couldn’t load from JobTread ({jtErr}).</Banner>
           ) : (
@@ -293,10 +407,10 @@ export default function LaborRatesPage() {
 
               <div className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-700/60 dark:bg-ink-raised">
                 <span className="text-sm font-semibold">Bulk apply:</span>
-                <select value={bulkRateId} onChange={(e) => setBulkRateId(e.target.value)} className={inputCls + " w-auto"}>
-                  <option value="">Pick a catalog rate…</option>
-                  {catalogSorted.map((r) => (
-                    <option key={r.id} value={r.id}>{r.name} — {money(rateNum(r))}</option>
+                <select value={bulkRateId} onChange={(e) => setBulkRateId(e.target.value)} className={inputCls + " w-auto max-w-[18rem]"}>
+                  <option value="">Pick a rate…</option>
+                  {rateOptions.map((o) => (
+                    <option key={o.id} value={o.id}>{o.label} — {money(o.hourlyRate)}</option>
                   ))}
                 </select>
                 <span className="text-sm text-neutral-500">to {selected.size} selected</span>
@@ -312,7 +426,7 @@ export default function LaborRatesPage() {
                     <tr>
                       <th className="w-8 px-3 py-2" />
                       <th className="px-3 py-2 text-left font-semibold">Employee</th>
-                      <th className="px-3 py-2 text-left font-semibold">Rates</th>
+                      <th className="px-3 py-2 text-left font-semibold">Rates (in push order)</th>
                       <th className="px-3 py-2" />
                     </tr>
                   </thead>
@@ -355,7 +469,7 @@ export default function LaborRatesPage() {
         </>
       )}
 
-      {/* ---- per-member editor modal (exact replace) ---- */}
+      {/* ---- per-member editor modal (exact replace, ordered) ---- */}
       {editing && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4" onClick={() => !busy && setEditing(null)}>
           <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-t-2xl bg-white p-4 dark:bg-ink-overlay sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
@@ -364,12 +478,16 @@ export default function LaborRatesPage() {
               <span className="text-xs text-neutral-500">rates in JobTread</span>
             </div>
             <p className="mb-3 text-[11px] text-neutral-400">
-              Saving sets this employee’s pay types to exactly the list below (removing any you delete here). Their current types are pre-loaded.
+              Saving sets this employee’s pay types to exactly this list, in this order (removing any you delete here). Use ↑/↓ to set the push order.
             </p>
 
             <div className="space-y-2">
               {draft.map((t, i) => (
-                <div key={i} className="flex items-center gap-2">
+                <div key={i} className="flex items-center gap-1.5">
+                  <div className="flex flex-col">
+                    <button onClick={() => move(i, -1)} disabled={i === 0} title="Move up" className="px-1 text-xs text-neutral-500 hover:text-accent disabled:opacity-30">▲</button>
+                    <button onClick={() => move(i, 1)} disabled={i === draft.length - 1} title="Move down" className="px-1 text-xs text-neutral-500 hover:text-accent disabled:opacity-30">▼</button>
+                  </div>
                   <input
                     value={t.name}
                     onChange={(e) => setDraft((d) => d.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))}
@@ -402,16 +520,13 @@ export default function LaborRatesPage() {
             <div className="mt-3 flex items-center gap-2">
               <select value={addCatalogId} onChange={(e) => setAddCatalogId(e.target.value)} className={inputCls + " flex-1"}>
                 <option value="">Add from catalog…</option>
-                {catalogSorted.map((r) => (
-                  <option key={r.id} value={r.id}>{r.name} — {money(rateNum(r))}</option>
+                {rateOptions.map((o) => (
+                  <option key={o.id} value={o.id}>{o.label} — {money(o.hourlyRate)}</option>
                 ))}
               </select>
               <Button variant="secondary" onClick={draftAddFromCatalog} disabled={!addCatalogId}>Add</Button>
             </div>
-            <button
-              onClick={() => setDraft((d) => [...d, { name: "", hourlyRate: 0 }])}
-              className="mt-2 text-xs font-semibold text-accent hover:underline"
-            >
+            <button onClick={() => setDraft((d) => [...d, { name: "", hourlyRate: 0 }])} className="mt-2 text-xs font-semibold text-accent hover:underline">
               + Add a custom rate
             </button>
 
