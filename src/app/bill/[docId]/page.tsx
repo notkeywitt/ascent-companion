@@ -196,50 +196,41 @@ function BillDetail() {
   const prevId = qIdx > 0 ? queue[qIdx - 1] : null;
   const nextId = qIdx >= 0 && qIdx < queue.length - 1 ? queue[qIdx + 1] : null;
 
-  // JobTread stores each line's `cost` (and the document `cost`) TAX-INCLUSIVE: it
-  // carves the sales tax (nonRecoverableTax) back out for display, so the bill
-  // TOTAL = the sum of line costs, and the pre-tax SUBTOTAL = total − tax. Mirror
-  // that exactly (confirmed against JobTread's own bill screen) — never add the tax
-  // on top of cost, or every taxed bill double-counts it (55.24 read as 59.50).
+  // Each bill line is shown and edited at its LITERAL stored amount — never a
+  // de-taxed / re-spread value. JobTread stores each line's `cost` (and the document
+  // `cost`) TAX-INCLUSIVE and carves the fixed sales tax (nonRecoverableTax) back out
+  // only for its OWN per-line display. Mirroring that here made every line's shown
+  // amount a function of the whole-bill total, so editing one line shifted the amount
+  // of every other line. Instead: TOTAL = Σ line cost (= JobTread's document total),
+  // SUBTOTAL = total − tax (informational — the tax carved out). Lines sum to the
+  // TOTAL, and a line edit moves only that line. Never add tax on TOP of Σcost — the
+  // costs are already tax-inclusive, so that double-counts it (55.24 read as 59.50).
+  const round2 = (n: number) => Math.round(n * 100) / 100;
   const total = lines?.reduce((s, l) => s + (l.cost ?? 0), 0) ?? 0;
   const tax = header?.nonRecoverableTax ?? 0;
   const taxName = header?.nonRecoverableTaxName || "Tax";
   const subtotal = total - tax;
-
-  // JobTread splits the fixed document tax (nonRecoverableTax) proportionally OUT of
-  // the tax-inclusive line costs, so every line displays (and is edited) PRE-TAX —
-  // exactly like JobTread's own bill screen. Show and edit amounts pre-tax, then gross
-  // the tax back on save so the value the office types is what JobTread stores/shows
-  // (type 50.98 → JT shows 50.98 / total 55.24), never the halved/doubled tax.
-  const round2 = (n: number) => Math.round(n * 100) / 100;
-  const deTax = (stored: number) => (total > 0 ? stored * (subtotal / total) : stored);
   const invId = header?.externalId || header?.number || "";
   const vendor = header?.fromName || header?.subject || header?.name || "Vendor bill";
   // Sunset keeps "Vendor · Invoice ID"; every other vendor shows just its name.
   const isSunsetBill = /sunset/i.test(vendor);
   const title = isSunsetBill && invId ? `${vendor} · ${invId}` : vendor;
 
-  // Each line's TARGET amounts in pre-tax terms: the edited value if present, else the
-  // current pre-tax (JobTread's stored cost de-taxed). The office edits pre-tax; the
-  // fixed doc tax rides on top of the pre-tax SUBTOTAL, so a stored (tax-inclusive) line
-  // cost = pre-tax × (subtotal + tax) / subtotal. Computing the gross-up from the summed
-  // pre-tax keeps a single-line bill exact and reallocates the fixed tax across lines.
+  // Each line's TARGET amounts: the edited value if present, else the stored value.
+  // Edits are literal (no gross-up), so a change to one line never touches another.
   const lineTargets = (lines ?? []).map((l) => {
-    const curPreTaxUnit = deTax(l.unitCost ?? 0);
+    const curUnit = l.unitCost ?? 0;
     const qStr = edits[l.id]?.quantity;
     const uStr = edits[l.id]?.unitCost;
     const qty =
       header?.status === "draft" && qStr !== undefined && qStr !== "" ? Number(qStr) : l.quantity ?? 0;
-    const preTaxUnit =
-      header?.status === "draft" && uStr !== undefined && uStr !== "" ? Number(uStr) : curPreTaxUnit;
-    return { l, qty, preTaxUnit, curPreTaxUnit };
+    const unit =
+      header?.status === "draft" && uStr !== undefined && uStr !== "" ? Number(uStr) : curUnit;
+    return { l, qty, unit, curUnit };
   });
-  const sumPreTax = lineTargets.reduce((s, t) => s + t.preTaxUnit * t.qty, 0);
-  // pre-tax → stored (tax-inclusive) gross-up factor for THIS bill's edited state.
-  const reTax = sumPreTax > 0 ? (sumPreTax + tax) / sumPreTax : 1;
 
   // Lines with a changed cost code, quantity, or unit cost vs what's in JobTread.
-  const pending = lineTargets.flatMap(({ l, qty, preTaxUnit, curPreTaxUnit }) => {
+  const pending = lineTargets.flatMap(({ l, qty, unit, curUnit }) => {
     const change: {
       costItemId: string;
       name?: string;
@@ -272,16 +263,15 @@ function BillDetail() {
         changed = true;
       }
       const qtyChanged = qty !== (l.quantity ?? 0);
-      const unitChanged = Math.abs(preTaxUnit - curPreTaxUnit) > 0.005;
+      const unitChanged = Math.abs(unit - curUnit) > 0.005;
       if (qtyChanged) {
         change.quantity = qty;
         changed = true;
       }
-      // Send the STORED (tax-inclusive) unit cost so JobTread displays the entered
-      // pre-tax. Resend it when qty changed on a taxed bill too, since that shifts
-      // the line's share of the fixed tax.
-      if (unitChanged || (qtyChanged && tax > 0)) {
-        change.unitCost = round2(preTaxUnit * reTax);
+      // Store the entered unit cost verbatim — the fixed document tax stays in
+      // nonRecoverableTax, so a line edit never re-spreads tax across other lines.
+      if (unitChanged) {
+        change.unitCost = round2(unit);
         changed = true;
       }
     }
@@ -495,13 +485,10 @@ function BillDetail() {
     try {
       const opt = budget.find((o) => o.id === newLine.code);
       const description = opt ? (opt.name ? `${opt.number} - ${opt.name}` : opt.number) : "";
-      // Unit $ is entered PRE-TAX (matching the line editor). On a taxed bill, gross it
-      // up so JobTread displays the entered pre-tax; the doc tax rides on the new,
-      // larger pre-tax base. On a tax-free bill this is a no-op (reTaxAdd === 1).
+      // Unit $ is stored verbatim (matching the line editor). The document tax stays
+      // in nonRecoverableTax, so adding a line never re-spreads tax across the others.
       const qty = Number(newLine.quantity) || 0;
-      const preTaxUnit = Number(newLine.unitCost) || 0;
-      const newSumPreTax = subtotal + preTaxUnit * qty;
-      const reTaxAdd = newSumPreTax > 0 ? (newSumPreTax + tax) / newSumPreTax : 1;
+      const unitCost = Number(newLine.unitCost) || 0;
       const res = await fetch("/api/add-line", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -509,7 +496,7 @@ function BillDetail() {
           docId,
           name,
           quantity: qty,
-          unitCost: round2(preTaxUnit * reTaxAdd),
+          unitCost: round2(unitCost),
           jobCostItemId: newLine.code || undefined,
           description,
         }),
@@ -1044,19 +1031,17 @@ function BillDetail() {
               const current = picked[l.id] ?? l.jobCostItem?.id ?? "";
               const nameVal = edits[l.id]?.name ?? (l.name ?? "");
               const qtyVal = edits[l.id]?.quantity ?? (l.quantity != null ? String(l.quantity) : "");
-              // Unit $ is shown and edited PRE-TAX (JobTread's convention); default to
-              // the stored cost de-taxed. When a line isn't being edited, take the
-              // pre-tax line total straight from the stored cost (matches JobTread to
-              // the penny); only recompute qty × unit while the office is editing it.
+              // Unit $ is shown and edited at the LITERAL stored value. When a line
+              // isn't being edited, take its extended amount straight from the stored
+              // cost; only recompute qty × unit while the office is editing it.
               const edited =
                 edits[l.id]?.unitCost !== undefined || edits[l.id]?.quantity !== undefined;
               const unitVal =
-                edits[l.id]?.unitCost ??
-                (l.unitCost != null ? String(round2(deTax(l.unitCost))) : "");
+                edits[l.id]?.unitCost ?? (l.unitCost != null ? String(round2(l.unitCost)) : "");
               const extended =
                 edited && qtyVal !== "" && unitVal !== ""
                   ? Number(qtyVal) * Number(unitVal)
-                  : deTax(l.cost ?? 0);
+                  : (l.cost ?? 0);
               const inputCls =
                 "rounded-lg border border-neutral-300 bg-white px-2 py-1.5 text-sm tabular-nums transition focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 disabled:opacity-50 disabled:cursor-not-allowed dark:border-neutral-600 dark:bg-ink";
               return (
