@@ -131,12 +131,17 @@ function BillDetail() {
   const [newLine, setNewLine] = useState({ name: "", quantity: "1", unitCost: "0", code: "" });
   const [addLineSaving, setAddLineSaving] = useState(false);
   const [addLineMsg, setAddLineMsg] = useState("");
+  const [selected, setSelected] = useState<string[]>([]); // line ids checked to combine
+  const [combining, setCombining] = useState(false);
+  const [combineMsg, setCombineMsg] = useState("");
+  const [deletingId, setDeletingId] = useState("");
 
   useEffect(() => {
     let alive = true;
     (async () => {
       setLoading(true);
       setError("");
+      setSelected([]);
       try {
         const res = await fetch(
           `/api/bill?docId=${encodeURIComponent(docId)}&jobId=${encodeURIComponent(jobId)}`,
@@ -589,6 +594,123 @@ function BillDetail() {
     });
   }
 
+  // --- Combine rows: group lines by their EFFECTIVE cost code (an unsaved pick
+  // wins over the saved code), so a code shared by 2+ lines is combinable. ---
+  const effCode = (l: Line) => picked[l.id] ?? l.jobCostItem?.id ?? "";
+  const byId = new Map((lines ?? []).map((l) => [l.id, l] as const));
+  const codeCounts = new Map<string, number>();
+  for (const l of lines ?? []) {
+    const c = effCode(l);
+    if (c) codeCounts.set(c, (codeCounts.get(c) ?? 0) + 1);
+  }
+  const isCombinable = (l: Line) => (codeCounts.get(effCode(l)) ?? 0) >= 2;
+  const anyCombinable = [...codeCounts.values()].some((n) => n >= 2);
+  const selCodeSet = new Set(
+    selected.map((id) => byId.get(id)).filter(Boolean).map((l) => effCode(l as Line)).filter(Boolean),
+  );
+  // Combining uses each line's STORED cost, so an unsaved qty/unit edit would be
+  // silently dropped — block until it's saved or discarded.
+  const selHasAmountEdit = selected.some((id) => {
+    const e = edits[id];
+    return Boolean(e && (e.quantity !== undefined || e.unitCost !== undefined));
+  });
+  const canCombine = selected.length >= 2 && selCodeSet.size === 1 && !selHasAmountEdit;
+
+  const toggleSel = (id: string) =>
+    setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
+
+  async function combineRows() {
+    const sel = selected.map((id) => byId.get(id)).filter(Boolean) as Line[];
+    if (sel.length < 2) return;
+    const codeId = effCode(sel[0]);
+    if (!codeId || !sel.every((l) => effCode(l) === codeId)) return; // mixed codes
+    const keep = sel[0];
+    const deleteIds = sel.slice(1).map((l) => l.id);
+    // Sum the STORED (tax-inclusive) costs so the bill total is unchanged.
+    const extendedCost = round2(sel.reduce((s, l) => s + (l.cost ?? 0), 0));
+    const name = sel
+      .map((l) => (l.name || "").trim())
+      .filter(Boolean)
+      .join(" + ")
+      .substring(0, 250) || "Line item";
+    const opt = budget.find((o) => o.id === codeId);
+    const description = opt ? (opt.name ? `${opt.number} - ${opt.name}` : opt.number) : undefined;
+
+    setCombining(true);
+    setCombineMsg("");
+    try {
+      const res = await fetch("/api/combine-lines", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          docId,
+          keepId: keep.id,
+          deleteIds,
+          name,
+          extendedCost,
+          jobCostItemId: codeId || undefined,
+          description,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) setCombineMsg(json.error ?? "Combine failed");
+      else if (json.previewed)
+        setCombineMsg("Preview only — writes are OFF. Nothing was combined in JobTread.");
+      else {
+        setSelected([]);
+        setPicked((p) => {
+          const n = { ...p };
+          [keep.id, ...deleteIds].forEach((id) => delete n[id]);
+          return n;
+        });
+        await loadBill(); // pull the combined line from JobTread
+        reloadJtWindow();
+      }
+    } catch (e) {
+      setCombineMsg(e instanceof Error ? e.message : "Network error");
+    } finally {
+      setCombining(false);
+    }
+  }
+
+  // Delete a single line from the bill (draft only; writes-gated on the server).
+  async function deleteLineById(id: string, label: string) {
+    if (!window.confirm(`Delete this line?\n\n${label}\n\nThis removes it from the bill in JobTread.`))
+      return;
+    setDeletingId(id);
+    setSaveMsg("");
+    try {
+      const res = await fetch("/api/delete-line", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ docId, costItemId: id }),
+      });
+      const json = await res.json();
+      if (!res.ok) setSaveMsg(json.error ?? "Delete failed");
+      else if (json.previewed)
+        setSaveMsg("Preview only — writes are OFF. Nothing was deleted in JobTread.");
+      else {
+        setSelected((s) => s.filter((x) => x !== id));
+        setPicked((p) => {
+          const n = { ...p };
+          delete n[id];
+          return n;
+        });
+        setEdits((e) => {
+          const n = { ...e };
+          delete n[id];
+          return n;
+        });
+        await loadBill();
+        reloadJtWindow();
+      }
+    } catch (e) {
+      setSaveMsg(e instanceof Error ? e.message : "Network error");
+    } finally {
+      setDeletingId("");
+    }
+  }
+
   return (
     <main className="mx-auto max-w-xl px-4 pb-24 pt-6">
       <div className="flex items-center justify-between gap-2">
@@ -863,6 +985,41 @@ function BillDetail() {
             </div>
           )}
 
+          {/* Combine rows: appears once 2+ lines share a cost code. Check the ones
+              to merge, then Combine — they collapse into one line (summed amount,
+              concatenated description). Draft-only + writes-gated, like Add line. */}
+          {linesEditable && writes && anyCombinable && (
+            <div className="mb-3 rounded-xl border border-dashed border-neutral-300 bg-neutral-50 p-3 dark:border-neutral-700 dark:bg-ink-raised/60">
+              <span className="mb-1.5 block text-[10px] uppercase tracking-wide text-neutral-400">
+                Combine lines sharing a cost code
+              </span>
+              <div className="flex items-center justify-between gap-2">
+                <p className="min-w-0 text-xs text-neutral-500">
+                  {selected.length < 2
+                    ? "Check 2+ lines with the same cost code."
+                    : selCodeSet.size > 1
+                      ? "Selected lines have different codes — pick lines that share one code."
+                      : selHasAmountEdit
+                        ? "Save or discard your qty/unit edits first."
+                        : `Merging ${selected.length} lines into one.`}
+                </p>
+                <Button
+                  size="sm"
+                  className="shrink-0 !py-2"
+                  onClick={combineRows}
+                  disabled={!canCombine || combining}
+                >
+                  {combining ? "Combining…" : `Combine rows${selected.length >= 2 ? ` (${selected.length})` : ""}`}
+                </Button>
+              </div>
+              {combineMsg && (
+                <Banner tone="neutral" className="mt-2 !px-3 !py-2 !text-xs">
+                  {combineMsg}
+                </Banner>
+              )}
+            </div>
+          )}
+
           {!writes && (
             <Banner tone="warning" className="mb-3 !text-xs">
               Writes are OFF (COMPANION_WRITES_ENABLED not <span className="font-mono">true</span> on
@@ -896,8 +1053,34 @@ function BillDetail() {
                   className="rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-700/60 dark:bg-ink-raised"
                 >
                   <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0 font-medium">{l.name || "Line item"}</div>
-                    <div className="font-mono text-sm font-semibold">{money(extended)}</div>
+                    <div className="flex min-w-0 items-start gap-2">
+                      {linesEditable && writes && isCombinable(l) && (
+                        <input
+                          type="checkbox"
+                          checked={selected.includes(l.id)}
+                          onChange={() => toggleSel(l.id)}
+                          aria-label="Select line to combine"
+                          title="Combine with other lines that share this cost code"
+                          className="mt-1 h-4 w-4 shrink-0 cursor-pointer accent-accent"
+                        />
+                      )}
+                      <div className="min-w-0 font-medium">{l.name || "Line item"}</div>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <div className="font-mono text-sm font-semibold">{money(extended)}</div>
+                      {linesEditable && writes && (
+                        <button
+                          type="button"
+                          onClick={() => deleteLineById(l.id, l.name || "Line item")}
+                          disabled={deletingId === l.id}
+                          aria-label="Delete line"
+                          title="Delete this line"
+                          className="rounded-md p-1 text-neutral-400 transition hover:bg-red-50 hover:text-red-600 disabled:opacity-50 dark:hover:bg-red-950/40 dark:hover:text-red-400"
+                        >
+                          {deletingId === l.id ? "…" : "🗑"}
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   <div className="mt-2 flex items-center gap-2">
@@ -945,7 +1128,7 @@ function BillDetail() {
                       if (!c) return null;
                       return (
                         <div className="mt-1 text-[11px]">
-                          <span className="text-neutral-500">Cost to complete: </span>
+                          <span className="text-neutral-500">Budget Remaining: </span>
                           <span
                             className={
                               "font-mono font-semibold " +

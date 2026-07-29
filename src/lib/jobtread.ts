@@ -880,6 +880,80 @@ export async function createLine(
   return { id };
 }
 
+/** WRITE — delete a bill line (cost item). Confirmed mutation `deleteCostItem`
+ * (ascent-appscript JobTread.js), no response selection. Draft-only per callers. */
+export async function deleteLine(cfg: PaveConfig, costItemId: string): Promise<void> {
+  await pave(cfg, { deleteCostItem: { $: { id: costItemId } } });
+}
+
+/**
+ * WRITE — combine several of a bill's lines that share a cost code into one.
+ * Keeps `keepId`, sets its amount to the summed extended cost (qty 1 × the sum)
+ * and its name to the concatenated line descriptions, re-points it to the shared
+ * code, then deletes the rest. Draft-only (callers gate on status + writesEnabled).
+ *
+ * `extendedCost` is the sum of the combined lines' STORED (tax-inclusive) costs,
+ * so the bill total is unchanged. Mirrors createLine's tax guard: force the
+ * document to taxRate 0 first so JobTread takes the amount at face value (bill tax
+ * lives in nonRecoverableTax, never a per-line rate), then re-assert to undo any
+ * carve. All mutations use the confirmed updateCostItem/deleteCostItem shapes.
+ */
+export async function combineLines(
+  cfg: PaveConfig,
+  args: {
+    docId: string;
+    keepId: string;
+    deleteIds: string[];
+    name: string;
+    extendedCost: number;
+    jobCostItemId?: string;
+    description?: string;
+  },
+): Promise<{ keptId: string; deleted: number }> {
+  const { docId, keepId, deleteIds } = args;
+  const name = (args.name || "Line item").substring(0, 250);
+  const unitCost = Math.round(args.extendedCost * 100) / 100;
+
+  // 1) taxRate 0 so JT doesn't treat the summed amount as tax-inclusive (carve it).
+  try {
+    await pave(cfg, {
+      updateDocument: { $: { id: docId, taxRate: 0 }, document: { $: { id: docId }, id: {} } },
+    });
+  } catch {
+    /* best-effort — the re-assert below corrects any residual carve */
+  }
+
+  // 2) Fold everything onto the kept line: qty 1 × summed cost, concatenated name.
+  const $: Record<string, unknown> = { id: keepId, name, quantity: 1, unitCost, isTaxable: false };
+  if (args.jobCostItemId) $.jobCostItemId = args.jobCostItemId;
+  if (args.description !== undefined) $.description = args.description;
+  await pave(cfg, { updateCostItem: { $, costItem: { $: { id: keepId }, id: {} } } });
+
+  // 3) Backstop: re-assert the amount now that taxRate is 0.
+  try {
+    await pave(cfg, {
+      updateCostItem: {
+        $: { id: keepId, unitCost, quantity: 1, isTaxable: false },
+        costItem: { $: { id: keepId }, id: {} },
+      },
+    });
+  } catch {
+    /* the line exists; don't fail the combine over the re-assert */
+  }
+
+  // 4) Delete the folded-in lines.
+  let deleted = 0;
+  for (const id of deleteIds) {
+    try {
+      await pave(cfg, { deleteCostItem: { $: { id } } });
+      deleted++;
+    } catch {
+      /* keep going; report how many actually deleted */
+    }
+  }
+  return { keptId: keepId, deleted };
+}
+
 // ---------------------------------------------------------------------------
 // INVOICE STAGING  (confirmed mechanism: createDocument type customerInvoice;
 // the exact lineItems shape is the one remaining detail to lock)
