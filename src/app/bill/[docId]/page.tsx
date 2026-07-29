@@ -196,20 +196,19 @@ function BillDetail() {
   const prevId = qIdx > 0 ? queue[qIdx - 1] : null;
   const nextId = qIdx >= 0 && qIdx < queue.length - 1 ? queue[qIdx + 1] : null;
 
-  // Each bill line is shown and edited at its LITERAL stored amount — never a
-  // de-taxed / re-spread value. JobTread stores each line's `cost` (and the document
-  // `cost`) TAX-INCLUSIVE and carves the fixed sales tax (nonRecoverableTax) back out
-  // only for its OWN per-line display. Mirroring that here made every line's shown
-  // amount a function of the whole-bill total, so editing one line shifted the amount
-  // of every other line. Instead: TOTAL = Σ line cost (= JobTread's document total),
-  // SUBTOTAL = total − tax (informational — the tax carved out). Lines sum to the
-  // TOTAL, and a line edit moves only that line. Never add tax on TOP of Σcost — the
-  // costs are already tax-inclusive, so that double-counts it (55.24 read as 59.50).
+  // Confirmed live 2026-07-29 (read-only probe of 6 real taxed bills): JobTread stores
+  // each line's `cost` = unitCost × quantity at FACE VALUE (no tax baked in), the
+  // document's `cost` = Σ line.cost = the PRE-TAX SUBTOTAL, and the sales tax sits in a
+  // SEPARATE document field `nonRecoverableTax` (≈8.35% of cost on Sunset bills). Tax
+  // rides ON TOP: SUBTOTAL = Σ line cost, TOTAL = subtotal + tax. (The old notes claimed
+  // `cost` was tax-inclusive and de-taxed per line — that was WRONG, and it caused both
+  // the "editing one line moves them all" bug and a bogus subtotal.) Each line is shown
+  // and edited at its literal cost, so a line edit changes only that one line.
   const round2 = (n: number) => Math.round(n * 100) / 100;
-  const total = lines?.reduce((s, l) => s + (l.cost ?? 0), 0) ?? 0;
+  const subtotal = lines?.reduce((s, l) => s + (l.cost ?? 0), 0) ?? 0;
   const tax = header?.nonRecoverableTax ?? 0;
   const taxName = header?.nonRecoverableTaxName || "Tax";
-  const subtotal = total - tax;
+  const total = round2(subtotal + tax);
   const invId = header?.externalId || header?.number || "";
   const vendor = header?.fromName || header?.subject || header?.name || "Vendor bill";
   // Sunset keeps "Vendor · Invoice ID"; every other vendor shows just its name.
@@ -624,7 +623,7 @@ function BillDetail() {
     if (!codeId || !sel.every((l) => effCode(l) === codeId)) return; // mixed codes
     const keep = sel[0];
     const deleteIds = sel.slice(1).map((l) => l.id);
-    // Sum the STORED (tax-inclusive) costs so the bill total is unchanged.
+    // Sum the lines' face-value costs so the bill subtotal (and total) is unchanged.
     const extendedCost = round2(sel.reduce((s, l) => s + (l.cost ?? 0), 0));
     const name = sel
       .map((l) => (l.name || "").trim())
