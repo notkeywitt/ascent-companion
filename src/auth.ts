@@ -123,4 +123,21 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       return session;
     },
   },
+  events: {
+    // Log every successful sign-in for the Admin → Activity dashboard, and take
+    // the opportunity (logins are infrequent) to prune the activity table. Both
+    // are lazy-imported so @/db never enters the edge/middleware bundle, exactly
+    // like the callbacks above. Best-effort — never block or fail the sign-in.
+    async signIn({ user }) {
+      const email = (user?.email ?? "").toLowerCase();
+      if (!email) return;
+      try {
+        const { recordLogin, pruneUsageEvents } = await import("@/lib/usage");
+        await recordLogin(email);
+        await pruneUsageEvents();
+      } catch {
+        /* activity logging must never break auth */
+      }
+    },
+  },
 });

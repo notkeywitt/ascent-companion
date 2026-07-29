@@ -19,6 +19,7 @@ import {
   resolveAllowedViews,
   type Role,
 } from "@/lib/views";
+import { ActivityPanel } from "./ActivityPanel";
 
 interface Member {
   email: string;
@@ -44,6 +45,51 @@ const GROUPED = GROUP_ORDER.map((g) => ({
 })).filter((g) => g.views.length > 0);
 
 export default function AdminPage() {
+  const [tab, setTab] = useState<"access" | "activity">("access");
+  return (
+    <main className="mx-auto max-w-xl px-4 pb-24 pt-6">
+      <PageHeader
+        title="Admin"
+        description="Who can sign in, what each person can see, and how the panel is being used."
+        className="!mb-4"
+      />
+      <div className="mb-5 inline-flex rounded-lg border border-neutral-200 p-0.5 dark:border-neutral-700/60">
+        <TabButton active={tab === "access"} onClick={() => setTab("access")}>
+          Access
+        </TabButton>
+        <TabButton active={tab === "activity"} onClick={() => setTab("activity")}>
+          Activity
+        </TabButton>
+      </div>
+      {tab === "access" ? <AccessPanel /> : <ActivityPanel />}
+    </main>
+  );
+}
+
+function TabButton({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`rounded-md px-3 py-1 text-sm font-medium transition ${
+        active
+          ? "bg-accent text-white shadow-sm"
+          : "text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function AccessPanel() {
   const [envAdmins, setEnvAdmins] = useState<string[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [me, setMe] = useState<string | null>(null);
@@ -103,12 +149,8 @@ export default function AdminPage() {
   }
 
   return (
-    <main className="mx-auto max-w-xl px-4 pb-24 pt-6">
-      <PageHeader
-        title="Team Access"
-        description={`Who can sign in, and what each person can see.${me ? ` You're ${me}.` : ""}`}
-        className="!mb-4"
-      />
+    <div>
+      {me && <p className="mb-3 text-xs text-neutral-500">You&rsquo;re signed in as {me}.</p>}
 
       {err && (
         <Banner tone="error" className="mb-4">
@@ -176,7 +218,7 @@ export default function AdminPage() {
           </li>
         )}
       </ul>
-    </main>
+    </div>
   );
 }
 

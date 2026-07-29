@@ -205,3 +205,25 @@ export const leaveRequests = sqliteTable("leave_requests", {
 });
 
 export type LeaveRequest = typeof leaveRequests.$inferSelect;
+
+/**
+ * Append-only user activity log — powers the Admin → Activity dashboard (who
+ * signs in and what they use). Two event kinds:
+ *  - "login": one row per successful Google sign-in (written server-side from
+ *    NextAuth's signIn event, so it can't be spoofed by a client).
+ *  - "view":  one row per in-app navigation (written by the /api/usage-track
+ *    beacon; the email is taken from the session, never trusted from the body).
+ * `viewId` is the gate view the path resolves to (see lib/views), handy for
+ * "most-used features" rollups; `path` keeps the raw pathname. Old rows are
+ * pruned on each login (see pruneUsageEvents), so the table stays bounded.
+ */
+export const usageEvents = sqliteTable("usage_events", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  email: text("email").notNull(),
+  kind: text("kind").notNull(), // "login" | "view"
+  path: text("path").notNull().default(""), // raw pathname (view events)
+  viewId: text("view_id").notNull().default(""), // resolved gate view id, if any
+  createdAt: text("created_at").notNull(), // ISO timestamp
+});
+
+export type UsageEvent = typeof usageEvents.$inferSelect;

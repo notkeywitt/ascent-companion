@@ -6,6 +6,7 @@ import { AppHeader } from "@/components/AppHeader";
 import { AccessProvider } from "@/components/AccessProvider";
 import { RefreshBoundary, RefreshProvider } from "@/components/RefreshProvider";
 import { StuckVendorPopup, StuckVendorsProvider } from "@/components/StuckVendors";
+import { UsageBeacon } from "@/components/UsageBeacon";
 import { auth } from "@/auth";
 import { ALL_VIEW_IDS, resolveAllowedViews, type Role } from "@/lib/views";
 
@@ -66,6 +67,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         />
       </head>
       <body className="min-h-screen font-sans antialiased">
+        {/* Track page views for signed-in users (Admin → Activity). The route
+            no-ops without a session, so it's inert in dev-open mode too. */}
+        {session?.user && <UsageBeacon />}
         <AccessProvider role={role} views={views}>
           {/* Global refresh: the header's button remounts the page subtree
               (RefreshBoundary keys {children}) so every page's mount-time /api

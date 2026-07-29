@@ -171,6 +171,24 @@ export async function ensureDb() {
        ON leave_transactions (employee_id, leave_type, period)
        WHERE kind = 'accrual'`,
   );
+  // User activity log (login + page-view events) for the Admin → Activity view.
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS usage_events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      email TEXT NOT NULL,
+      kind TEXT NOT NULL,
+      path TEXT NOT NULL DEFAULT '',
+      view_id TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL
+    )
+  `);
+  // Indexed on time (window scans for the dashboard) and email (per-user rollups).
+  await client.execute(
+    `CREATE INDEX IF NOT EXISTS usage_events_created_at ON usage_events (created_at)`,
+  );
+  await client.execute(
+    `CREATE INDEX IF NOT EXISTS usage_events_email ON usage_events (email)`,
+  );
   await client.execute(`
     CREATE TABLE IF NOT EXISTS leave_requests (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
