@@ -117,7 +117,9 @@ function BillDetail() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [picked, setPicked] = useState<Record<string, string>>({});
-  const [edits, setEdits] = useState<Record<string, { quantity?: string; unitCost?: string }>>({});
+  const [edits, setEdits] = useState<
+    Record<string, { name?: string; quantity?: string; unitCost?: string }>
+  >({});
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState("");
   const [writes, setWrites] = useState(false);
@@ -240,6 +242,7 @@ function BillDetail() {
   const pending = lineTargets.flatMap(({ l, qty, preTaxUnit, curPreTaxUnit }) => {
     const change: {
       costItemId: string;
+      name?: string;
       jobCostItemId?: string;
       quantity?: number;
       unitCost?: number;
@@ -260,9 +263,14 @@ function BillDetail() {
       }
       changed = true;
     }
-    // quantity and unitCost are locked by JobTread once the bill is payable/paid
-    // (same as description) — only send them on DRAFT bills.
+    // name (the line's description), quantity, and unitCost are locked by JobTread
+    // once the bill is payable/paid — only send them on DRAFT bills.
     if (header?.status === "draft") {
+      const nameStr = edits[l.id]?.name;
+      if (nameStr !== undefined && nameStr !== (l.name ?? "")) {
+        change.name = nameStr;
+        changed = true;
+      }
       const qtyChanged = qty !== (l.quantity ?? 0);
       const unitChanged = Math.abs(preTaxUnit - curPreTaxUnit) > 0.005;
       if (qtyChanged) {
@@ -554,6 +562,7 @@ function BillDetail() {
             const unitCost = c.unitCost ?? l.unitCost;
             return {
               ...l,
+              name: c.name ?? l.name,
               jobCostItem: c.jobCostItemId !== undefined ? { id: c.jobCostItemId } : l.jobCostItem,
               quantity,
               unitCost,
@@ -608,13 +617,15 @@ function BillDetail() {
   const selCodeSet = new Set(
     selected.map((id) => byId.get(id)).filter(Boolean).map((l) => effCode(l as Line)).filter(Boolean),
   );
-  // Combining uses each line's STORED cost, so an unsaved qty/unit edit would be
-  // silently dropped — block until it's saved or discarded.
-  const selHasAmountEdit = selected.some((id) => {
+  // Combining reads each line's STORED name + cost, so an unsaved description/
+  // qty/unit edit would be silently dropped — block until it's saved or discarded.
+  const selHasEdit = selected.some((id) => {
     const e = edits[id];
-    return Boolean(e && (e.quantity !== undefined || e.unitCost !== undefined));
+    return Boolean(
+      e && (e.name !== undefined || e.quantity !== undefined || e.unitCost !== undefined),
+    );
   });
-  const canCombine = selected.length >= 2 && selCodeSet.size === 1 && !selHasAmountEdit;
+  const canCombine = selected.length >= 2 && selCodeSet.size === 1 && !selHasEdit;
 
   const toggleSel = (id: string) =>
     setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
@@ -999,8 +1010,8 @@ function BillDetail() {
                     ? "Check 2+ lines with the same cost code."
                     : selCodeSet.size > 1
                       ? "Selected lines have different codes — pick lines that share one code."
-                      : selHasAmountEdit
-                        ? "Save or discard your qty/unit edits first."
+                      : selHasEdit
+                        ? "Save or discard your line edits first."
                         : `Merging ${selected.length} lines into one.`}
                 </p>
                 <Button
@@ -1031,6 +1042,7 @@ function BillDetail() {
           <ul className="space-y-2">
             {lines.map((l) => {
               const current = picked[l.id] ?? l.jobCostItem?.id ?? "";
+              const nameVal = edits[l.id]?.name ?? (l.name ?? "");
               const qtyVal = edits[l.id]?.quantity ?? (l.quantity != null ? String(l.quantity) : "");
               // Unit $ is shown and edited PRE-TAX (JobTread's convention); default to
               // the stored cost de-taxed. When a line isn't being edited, take the
@@ -1053,7 +1065,7 @@ function BillDetail() {
                   className="rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-700/60 dark:bg-ink-raised"
                 >
                   <div className="flex items-start justify-between gap-3">
-                    <div className="flex min-w-0 items-start gap-2">
+                    <div className="flex min-w-0 flex-1 items-start gap-2">
                       {linesEditable && writes && isCombinable(l) && (
                         <input
                           type="checkbox"
@@ -1061,10 +1073,23 @@ function BillDetail() {
                           onChange={() => toggleSel(l.id)}
                           aria-label="Select line to combine"
                           title="Combine with other lines that share this cost code"
-                          className="mt-1 h-4 w-4 shrink-0 cursor-pointer accent-accent"
+                          className="mt-2.5 h-4 w-4 shrink-0 cursor-pointer accent-accent"
                         />
                       )}
-                      <div className="min-w-0 font-medium">{l.name || "Line item"}</div>
+                      {linesEditable ? (
+                        <input
+                          type="text"
+                          value={nameVal}
+                          onChange={(e) =>
+                            setEdits((p) => ({ ...p, [l.id]: { ...p[l.id], name: e.target.value } }))
+                          }
+                          placeholder="Description"
+                          aria-label="Line description"
+                          className="min-w-0 flex-1 rounded-lg border border-neutral-300 bg-white px-2 py-1.5 text-sm font-medium transition focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 dark:border-neutral-600 dark:bg-ink"
+                        />
+                      ) : (
+                        <div className="min-w-0 font-medium">{l.name || "Line item"}</div>
+                      )}
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
                       <div className="font-mono text-sm font-semibold">{money(extended)}</div>
@@ -1075,9 +1100,19 @@ function BillDetail() {
                           disabled={deletingId === l.id}
                           aria-label="Delete line"
                           title="Delete this line"
-                          className="rounded-md p-1 text-neutral-400 transition hover:bg-red-50 hover:text-red-600 disabled:opacity-50 dark:hover:bg-red-950/40 dark:hover:text-red-400"
+                          className="rounded-md p-1.5 text-neutral-700 transition hover:bg-red-50 hover:text-red-600 disabled:opacity-40 dark:text-neutral-200 dark:hover:bg-red-950/40 dark:hover:text-red-400"
                         >
-                          {deletingId === l.id ? "…" : "🗑"}
+                          {deletingId === l.id ? (
+                            <span className="block h-4 w-4 text-center text-xs leading-4">…</span>
+                          ) : (
+                            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className="h-4 w-4">
+                              <path
+                                fillRule="evenodd"
+                                clipRule="evenodd"
+                                d="M16.5 4.478v.227a48.816 48.816 0 0 1 3.878.512.75.75 0 1 1-.256 1.478l-.209-.035-1.005 13.07a3 3 0 0 1-2.991 2.77H8.084a3 3 0 0 1-2.991-2.77L4.087 6.66l-.209.035a.75.75 0 0 1-.256-1.478A48.567 48.567 0 0 1 7.5 4.705v-.227c0-1.564 1.213-2.9 2.816-2.951a52.662 52.662 0 0 1 3.369 0c1.603.051 2.815 1.387 2.815 2.951Zm-6.136-1.452a51.196 51.196 0 0 1 3.273 0C14.39 3.05 15 3.684 15 4.478v.113a49.488 49.488 0 0 0-6 0v-.113c0-.794.609-1.428 1.364-1.452Zm-.355 5.945a.75.75 0 1 0-1.5.058l.347 9a.75.75 0 1 0 1.499-.058l-.346-9Zm5.48.058a.75.75 0 1 0-1.498-.058l-.347 9a.75.75 0 0 0 1.5.058l.345-9Z"
+                              />
+                            </svg>
+                          )}
                         </button>
                       )}
                     </div>

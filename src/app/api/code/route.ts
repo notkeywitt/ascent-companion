@@ -6,6 +6,7 @@ import { savedBills } from "@/db/schema";
 
 interface Change {
   costItemId: string;
+  name?: string;
   jobCostItemId?: string;
   quantity?: number;
   unitCost?: number;
@@ -14,7 +15,10 @@ interface Change {
 
 const hasEdit = (c: Change) =>
   c.costItemId &&
-  (c.jobCostItemId !== undefined || c.quantity !== undefined || c.unitCost !== undefined);
+  (c.name !== undefined ||
+    c.jobCostItemId !== undefined ||
+    c.quantity !== undefined ||
+    c.unitCost !== undefined);
 
 /**
  * Phase B — save bill-line edits (coding / quantity / unitCost) to JobTread.
@@ -50,6 +54,7 @@ export async function POST(req: NextRequest) {
   for (const c of changes) {
     try {
       await updateLine(cfg, c.costItemId, {
+        name: c.name,
         jobCostItemId: c.jobCostItemId,
         quantity: c.quantity,
         unitCost: c.unitCost,

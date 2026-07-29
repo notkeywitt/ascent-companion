@@ -796,9 +796,16 @@ export async function updateMembershipRates(
 export async function updateLine(
   cfg: PaveConfig,
   costItemId: string,
-  fields: { jobCostItemId?: string; quantity?: number; unitCost?: number; description?: string },
+  fields: {
+    name?: string;
+    jobCostItemId?: string;
+    quantity?: number;
+    unitCost?: number;
+    description?: string;
+  },
 ): Promise<{ id: string }> {
   const $: Record<string, unknown> = { id: costItemId };
+  if (fields.name !== undefined) $.name = fields.name.substring(0, 250);
   if (fields.jobCostItemId !== undefined) $.jobCostItemId = fields.jobCostItemId;
   if (fields.quantity !== undefined) $.quantity = fields.quantity;
   if (fields.unitCost !== undefined) $.unitCost = fields.unitCost;
