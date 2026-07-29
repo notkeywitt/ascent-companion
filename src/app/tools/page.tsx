@@ -147,6 +147,46 @@ async function ocrSerialFromFile(file: File): Promise<string> {
   return (json.serial || "").toString().trim();
 }
 
+// A dropdown for an editable option list (Condition / Tool group). Options come from
+// the sheet's "Lists" tab; the trailing "＋ Add new…" entry lets a user type a value
+// that isn't in the list yet — it's set as this tool's value and, once saved, becomes
+// a reusable option (it's then "in use", so it comes back in the list next load). The
+// current value stays selectable even if it isn't in the option list.
+function OptionSelect({
+  value,
+  options,
+  onChange,
+}: {
+  value: string;
+  options: string[];
+  onChange: (v: string) => void;
+}) {
+  const inList = value !== "" && options.some((o) => o.toLowerCase() === value.toLowerCase());
+  return (
+    <select
+      value={value}
+      onChange={(e) => {
+        if (e.target.value === "__add__") {
+          const v = window.prompt("Add a new option:")?.trim();
+          if (v) onChange(v);
+          return; // keep prior value if they cancelled or entered nothing
+        }
+        onChange(e.target.value);
+      }}
+      className={inputCls}
+    >
+      <option value="">— Select —</option>
+      {value !== "" && !inList && <option value={value}>{value}</option>}
+      {options.map((o) => (
+        <option key={o} value={o}>
+          {o}
+        </option>
+      ))}
+      <option value="__add__">＋ Add new…</option>
+    </select>
+  );
+}
+
 function ToolPhoto({ url, className }: { url: string; className: string }) {
   const [failed, setFailed] = useState(false);
   if (!url || failed) {
@@ -176,6 +216,8 @@ function ToolPhoto({ url, className }: { url: string; className: string }) {
 export default function ToolsPage() {
   const [tools, setTools] = useState<Tool[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [conditionOpts, setConditionOpts] = useState<string[]>([]);
+  const [toolGroupOpts, setToolGroupOpts] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadErr, setLoadErr] = useState("");
 
@@ -227,6 +269,8 @@ export default function ToolsPage() {
         }
         setTools(json.tools ?? []);
         setProjects(json.projects ?? []);
+        setConditionOpts(json.conditions ?? []);
+        setToolGroupOpts(json.toolGroups ?? []);
       } catch (e) {
         setLoadErr(e instanceof Error ? e.message : "Could not load tools.");
       } finally {
@@ -961,6 +1005,15 @@ export default function ToolsPage() {
                           <p className="mt-1 text-xs text-neutral-500">{createSerialMsg}</p>
                         )}
                       </div>
+                    ) : f.key === "condition" || f.key === "toolGroup" ? (
+                      <div key={f.key} className={f.wide ? "sm:col-span-2" : ""}>
+                        <Label>{f.label}</Label>
+                        <OptionSelect
+                          value={newForm[f.key]}
+                          options={f.key === "condition" ? conditionOpts : toolGroupOpts}
+                          onChange={(v) => setNewForm({ ...newForm, [f.key]: v })}
+                        />
+                      </div>
                     ) : (
                       <div key={f.key} className={f.wide ? "sm:col-span-2" : ""}>
                         <Label>{f.label}</Label>
@@ -1088,6 +1141,15 @@ export default function ToolsPage() {
                       </Button>
                     </div>
                     {serialOcrMsg && <p className="mt-1 text-xs text-neutral-500">{serialOcrMsg}</p>}
+                  </div>
+                ) : f.key === "condition" || f.key === "toolGroup" ? (
+                  <div key={f.key} className={f.wide ? "sm:col-span-2" : ""}>
+                    <Label>{f.label}</Label>
+                    <OptionSelect
+                      value={form[f.key]}
+                      options={f.key === "condition" ? conditionOpts : toolGroupOpts}
+                      onChange={(v) => setForm({ ...form, [f.key]: v })}
+                    />
                   </div>
                 ) : (
                   <div key={f.key} className={f.wide ? "sm:col-span-2" : ""}>

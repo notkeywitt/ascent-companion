@@ -8,7 +8,8 @@ import { auth } from "@/auth";
 //
 // Env (shared): APPS_SCRIPT_SYNC_URL, APPS_SCRIPT_SYNC_SECRET (= SYNC_TRIGGER_SECRET)
 //
-//   GET   → { ok, tools:[...full fields...], projects:[{id,label,lat,lng}] }
+//   GET   → { ok, tools:[...full fields...], projects:[{id,label,lat,lng}],
+//            conditions:[...], toolGroups:[...] }   (Condition / Tool group dropdown options)
 //   PATCH { toolId, fields } → { ok, tool, changed }        (edit text fields)
 //   POST  { toolId, imageBase64, mimeType } → { ok, tool }  (replace photo)
 //   PUT   { toolId, fields } → { ok, tool }                 (register a new tool)
@@ -53,11 +54,24 @@ export async function GET() {
   const res = await callAppsScript({ action: "toolsBootstrap" });
   if (res.error) return NextResponse.json({ error: res.error }, { status: res.status });
 
-  const b = res.data as { ok?: boolean; error?: string; tools?: unknown; projects?: unknown };
+  const b = res.data as {
+    ok?: boolean;
+    error?: string;
+    tools?: unknown;
+    projects?: unknown;
+    conditions?: unknown;
+    toolGroups?: unknown;
+  };
   if (b?.ok === false) return NextResponse.json(b, { status: 200 });
 
   return NextResponse.json(
-    { ok: true, tools: b?.tools ?? [], projects: b?.projects ?? [] },
+    {
+      ok: true,
+      tools: b?.tools ?? [],
+      projects: b?.projects ?? [],
+      conditions: b?.conditions ?? [],
+      toolGroups: b?.toolGroups ?? [],
+    },
     { status: 200 },
   );
 }
