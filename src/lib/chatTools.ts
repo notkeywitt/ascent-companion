@@ -44,9 +44,10 @@ export interface ChatTool extends ChatToolDef {
   handler: (cfg: PaveConfig, input: Record<string, unknown>) => Promise<unknown>;
 }
 
-/** A bill's amount owed is JobTread's `cost`, already tax-INCLUSIVE (JT carves the
- *  sales tax out of the line costs for display), so never add nonRecoverableTax again. */
-const billAmount = (b: DraftBill) => b.cost ?? 0;
+/** A bill's amount owed = the pre-tax line subtotal (`cost` = Σ line cost) PLUS the
+ *  document sales tax (`nonRecoverableTax`), which sits ON TOP of the line costs
+ *  (confirmed live 2026-07-29). Matches the bill page's total. */
+const billAmount = (b: DraftBill) => (b.cost ?? 0) + (b.nonRecoverableTax ?? 0);
 
 const compactBill = (b: DraftBill) => ({
   docId: b.id,
@@ -135,8 +136,9 @@ export const CHAT_TOOLS: ChatTool[] = [
     name: "get_bill_detail",
     description:
       "Get one vendor bill's full detail by its document id: header (vendor, invoice id, " +
-      "status, amount, issue date, recorded tax) plus every line item (name, cost, cost " +
-      "code, current coding) and any attached invoice files.",
+      "status, issue date; `cost` is the pre-tax subtotal = sum of line costs, and " +
+      "`nonRecoverableTax` is the sales tax on top, so amount owed = cost + nonRecoverableTax) " +
+      "plus every line item (name, cost, cost code, current coding) and any attached invoice files.",
     input_schema: {
       type: "object",
       properties: { doc_id: { type: "string", description: "The JobTread document id of the bill." } },
