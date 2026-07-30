@@ -39,7 +39,7 @@ interface RawJob {
 interface Leaf {
   name: string | null;
   cost: number | null;
-  document: { id: string } | null;
+  document: { id: string; type: string | null; status: string | null } | null;
   costCode: {
     number: string | null;
     name: string | null;
@@ -50,7 +50,8 @@ interface Leaf {
 interface DivisionRow {
   division: string; // 2-digit CSI division, e.g. "01"
   name: string; // JobTread's division name (parent cost code), e.g. "General Requirements"
-  cost: number;
+  budget: number; // Σ budget-leaf cost (document == null)
+  actual: number; // Σ approved vendor-bill line cost coded to this division
 }
 
 const money = (n: number) =>
@@ -126,6 +127,7 @@ export function JobsBrowser({ orgId }: { orgId: string }) {
   const [selected, setSelected] = useState<Job | null>(null);
   const [rows, setRows] = useState<DivisionRow[] | null>(null);
   const [budgetTotal, setBudgetTotal] = useState(0);
+  const [actualTotal, setActualTotal] = useState(0);
   const [budgetLoading, setBudgetLoading] = useState(false);
   const [budgetError, setBudgetError] = useState<string | null>(null);
 
@@ -209,7 +211,7 @@ export function JobsBrowser({ orgId }: { orgId: string }) {
               nodes: {
                 name: {},
                 cost: {},
-                document: { id: {} },
+                document: { id: {}, type: {}, status: {} },
                 costCode: {
                   number: {},
                   name: {},
@@ -224,28 +226,34 @@ export function JobsBrowser({ orgId }: { orgId: string }) {
         if (!conn.nextPage) break;
         page = conn.nextPage;
       }
-      // True budget leaves have document == null (bill/estimate lines carry one),
-      // and skip JT's auto-created "Uncategorized <code>" rollups (not real budget).
-      const budget = leaves.filter(
-        (l) => !l.document && !/^uncategorized\b/i.test(l.name ?? ""),
-      );
-      // Group by CSI division = first two digits of the cost-code number. Label
-      // each with JobTread's own division name (the parent cost code, e.g.
-      // "01 00 00 General Requirements"), falling back to the parent number.
+      // One pass over every cost item on the job, rolled up by CSI division
+      // (first two digits of the cost-code number) and labeled with JobTread's
+      // own division name (the parent cost code). BUDGET = leaves with no
+      // document (skip JT's "Uncategorized <code>" rollups); ACTUAL = lines on
+      // APPROVED vendor bills.
       const groups = new Map<string, DivisionRow>();
-      for (const l of budget) {
+      const bump = (l: Leaf, field: "budget" | "actual") => {
         const digits = (l.costCode?.number ?? "").replace(/\D/g, "");
         const division = digits ? digits.slice(0, 2) : "—";
         const parent = l.costCode?.parentCostCode;
         const name = parent?.name ?? parent?.number ?? (division === "—" ? "Uncategorized" : "");
-        const g = groups.get(division) ?? { division, name, cost: 0 };
+        const g = groups.get(division) ?? { division, name, budget: 0, actual: 0 };
         if (!g.name && name) g.name = name; // fill from the first item that has one
-        g.cost += l.cost ?? 0;
+        g[field] += l.cost ?? 0;
         groups.set(division, g);
+      };
+      for (const l of leaves) {
+        const doc = l.document;
+        if (!doc) {
+          if (!/^uncategorized\b/i.test(l.name ?? "")) bump(l, "budget");
+        } else if (doc.type === "vendorBill" && doc.status === "approved") {
+          bump(l, "actual");
+        }
       }
       const out = [...groups.values()].sort((a, b) => a.division.localeCompare(b.division));
       setRows(out);
-      setBudgetTotal(out.reduce((s, r2) => s + r2.cost, 0));
+      setBudgetTotal(out.reduce((s, r2) => s + r2.budget, 0));
+      setActualTotal(out.reduce((s, r2) => s + r2.actual, 0));
     } catch (e) {
       setBudgetError(e instanceof Error ? e.message : "Failed to load budget");
     } finally {
@@ -361,36 +369,68 @@ export function JobsBrowser({ orgId }: { orgId: string }) {
                               <EmptyState>No budget lines on this job.</EmptyState>
                             ) : (
                               <>
-                                <SectionLabel className="mb-2">Budget by division</SectionLabel>
+                                <SectionLabel className="mb-2">
+                                  Budget vs. actual by division
+                                </SectionLabel>
                                 <div className="overflow-x-auto">
                                   <table className="w-full text-sm">
+                                    <thead>
+                                      <tr className="border-b border-neutral-200 text-[11px] uppercase tracking-wide text-neutral-400 dark:border-neutral-700/60">
+                                        <th className="py-1 pr-2 text-left font-semibold" colSpan={2}>
+                                          Division
+                                        </th>
+                                        <th className="py-1 pr-2 text-right font-semibold">Budget</th>
+                                        <th className="py-1 text-right font-semibold">Actual</th>
+                                      </tr>
+                                    </thead>
                                     <tbody>
-                                      {rows.map((r) => (
-                                        <tr
-                                          key={r.division}
-                                          className="border-b border-neutral-100 last:border-0 dark:border-neutral-800"
-                                        >
-                                          <td className="whitespace-nowrap py-1.5 pr-2 align-top font-mono text-xs text-neutral-500">
-                                            {r.division}
-                                          </td>
-                                          <td className="py-1.5 pr-2">{r.name}</td>
-                                          <td className="whitespace-nowrap py-1.5 text-right tabular-nums">
-                                            {money(r.cost)}
-                                          </td>
-                                        </tr>
-                                      ))}
+                                      {rows.map((r) => {
+                                        const over = r.budget > 0 && r.actual > r.budget;
+                                        return (
+                                          <tr
+                                            key={r.division}
+                                            className="border-b border-neutral-100 last:border-0 dark:border-neutral-800"
+                                          >
+                                            <td className="whitespace-nowrap py-1.5 pr-2 align-top font-mono text-xs text-neutral-500">
+                                              {r.division}
+                                            </td>
+                                            <td className="py-1.5 pr-2">{r.name}</td>
+                                            <td className="whitespace-nowrap py-1.5 pr-2 text-right tabular-nums">
+                                              {money(r.budget)}
+                                            </td>
+                                            <td
+                                              className={`whitespace-nowrap py-1.5 text-right tabular-nums ${over ? "font-semibold text-red-600 dark:text-red-400" : ""}`}
+                                            >
+                                              {money(r.actual)}
+                                            </td>
+                                          </tr>
+                                        );
+                                      })}
                                     </tbody>
                                     <tfoot>
                                       <tr className="border-t-2 border-neutral-300 dark:border-neutral-600">
-                                        <td className="py-1.5 pr-2" />
-                                        <td className="py-1.5 pr-2 font-semibold">Total budget</td>
-                                        <td className="whitespace-nowrap py-1.5 text-right font-semibold tabular-nums">
+                                        <td className="py-1.5 pr-2 font-semibold" colSpan={2}>
+                                          Total
+                                        </td>
+                                        <td className="whitespace-nowrap py-1.5 pr-2 text-right font-semibold tabular-nums">
                                           {money(budgetTotal)}
+                                        </td>
+                                        <td
+                                          className={`whitespace-nowrap py-1.5 text-right font-semibold tabular-nums ${
+                                            budgetTotal > 0 && actualTotal > budgetTotal
+                                              ? "text-red-600 dark:text-red-400"
+                                              : ""
+                                          }`}
+                                        >
+                                          {money(actualTotal)}
                                         </td>
                                       </tr>
                                     </tfoot>
                                   </table>
                                 </div>
+                                <p className="mt-2 text-[11px] text-neutral-400">
+                                  Actual = approved vendor bills. Over-budget divisions are in red.
+                                </p>
                               </>
                             ))}
                         </div>
