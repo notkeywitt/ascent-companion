@@ -1,14 +1,24 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { PageHeader, Input, Card, Banner, Loading, EmptyState, SectionLabel } from "@/components/ui";
+import {
+  PageHeader,
+  Input,
+  Select,
+  Card,
+  Banner,
+  Loading,
+  EmptyState,
+  SectionLabel,
+} from "@/components/ui";
 import { gatewayQuery } from "@/lib/paveGatewayClient";
 
 /**
  * Jobs browser driven entirely by the guarded Pave gateway (gatewayQuery). Lists
- * the org's jobs as "Customer - Job" and, on tap, loads a job's budget rolled up
- * by CSI division (first two digits of the cost code) — using only queries
- * composed from JT_API_REFERENCE.md, no per-view API route.
+ * the org's jobs as "Customer - Job", filterable by the "Status" custom field,
+ * and on tap loads a job's budget rolled up by CSI division (first two digits of
+ * the cost code) — using only queries composed from JT_API_REFERENCE.md, no
+ * per-view API route.
  */
 
 interface Job {
@@ -16,6 +26,7 @@ interface Job {
   name: string;
   number: string | null;
   customer: string | null;
+  status: string | null; // the "Status" job custom field (New Lead / Awarded / …)
 }
 
 interface RawJob {
@@ -23,6 +34,9 @@ interface RawJob {
   name: string;
   number: string | null;
   location: { account: { name: string | null } | null } | null;
+  customFieldValues: {
+    nodes: Array<{ value: unknown; customField: { name: string | null } | null }>;
+  } | null;
 }
 
 interface Leaf {
@@ -48,10 +62,14 @@ const money = (n: number) =>
 /** "Customer - Job", or just the job name when the customer is unknown. */
 const jobLabel = (j: Job) => (j.customer ? `${j.customer} - ${j.name}` : j.name);
 
+/** Sentinel value for the "jobs with no Status set" filter option. */
+const NO_STATUS = "__no_status__";
+
 export function JobsBrowser({ orgId }: { orgId: string }) {
   const [jobs, setJobs] = useState<Job[] | null>(null);
   const [jobsError, setJobsError] = useState<string | null>(null);
   const [filter, setFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
 
   const [selected, setSelected] = useState<Job | null>(null);
   const [rows, setRows] = useState<DivisionRow[] | null>(null);
@@ -80,17 +98,30 @@ export function JobsBrowser({ orgId }: { orgId: string }) {
                   name: {},
                   number: {},
                   location: { account: { name: {} } },
+                  customFieldValues: {
+                    $: { size: 30 },
+                    nodes: { value: {}, customField: { name: {} } },
+                  },
                 },
               },
             },
           });
           const conn = r.organization.jobs;
           for (const n of conn.nodes) {
+            const statusRaw = n.customFieldValues?.nodes.find(
+              (v) => v.customField?.name === "Status",
+            )?.value;
             all.push({
               id: n.id,
               name: n.name,
               number: n.number,
               customer: n.location?.account?.name ?? null,
+              status:
+                typeof statusRaw === "string"
+                  ? statusRaw
+                  : statusRaw == null
+                    ? null
+                    : String(statusRaw),
             });
           }
           if (!conn.nextPage) break;
@@ -174,21 +205,35 @@ export function JobsBrowser({ orgId }: { orgId: string }) {
     }
   }, []);
 
+  // Distinct statuses present, for the dropdown (plus a "(No status)" option
+  // when some jobs have none).
+  const statuses = useMemo(() => {
+    const set = new Set<string>();
+    for (const j of jobs ?? []) if (j.status) set.add(j.status);
+    return [...set].sort((a, b) => a.localeCompare(b));
+  }, [jobs]);
+  const hasNoStatus = useMemo(() => !!jobs?.some((j) => !j.status), [jobs]);
+
   const filtered = useMemo(() => {
     if (!jobs) return [];
     const q = filter.trim().toLowerCase();
-    if (!q) return jobs;
-    return jobs.filter(
-      (j) =>
+    return jobs.filter((j) => {
+      if (statusFilter) {
+        const statusOk = statusFilter === NO_STATUS ? !j.status : j.status === statusFilter;
+        if (!statusOk) return false;
+      }
+      if (!q) return true;
+      return (
         j.name.toLowerCase().includes(q) ||
         (j.customer ?? "").toLowerCase().includes(q) ||
-        (j.number ?? "").toLowerCase().includes(q),
-    );
-  }, [jobs, filter]);
+        (j.number ?? "").toLowerCase().includes(q)
+      );
+    });
+  }, [jobs, filter, statusFilter]);
 
   return (
     <main className="mx-auto max-w-2xl px-4 pb-24 pt-6">
-      <PageHeader title="Jobs" description="Browse jobs and their budget by CSI division." />
+      <PageHeader title="Jobs" description="Filter by status; open a job for its budget by CSI division." />
 
       {jobsError && (
         <Banner tone="error" className="mb-4">
@@ -200,16 +245,32 @@ export function JobsBrowser({ orgId }: { orgId: string }) {
 
       {jobs && (
         <>
-          <Input
-            type="search"
-            placeholder="Search by customer, job, or number…"
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-            className="mb-3"
-          />
+          <div className="mb-3 flex flex-col gap-2 sm:flex-row">
+            <Input
+              type="search"
+              placeholder="Search by customer, job, or number…"
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              className="sm:flex-1"
+            />
+            <Select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="sm:w-52"
+              aria-label="Filter by status"
+            >
+              <option value="">All statuses</option>
+              {statuses.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+              {hasNoStatus && <option value={NO_STATUS}>(No status)</option>}
+            </Select>
+          </div>
 
           {filtered.length === 0 ? (
-            <EmptyState>No jobs match your search.</EmptyState>
+            <EmptyState>No jobs match your filters.</EmptyState>
           ) : (
             <ul className="space-y-2">
               {filtered.map((j) => {
@@ -225,8 +286,12 @@ export function JobsBrowser({ orgId }: { orgId: string }) {
                       >
                         <span className="min-w-0">
                           <span className="block truncate text-sm font-semibold">{jobLabel(j)}</span>
-                          {j.number && (
-                            <span className="block text-xs text-neutral-500">#{j.number}</span>
+                          {(j.number || j.status) && (
+                            <span className="block truncate text-xs text-neutral-500">
+                              {j.number ? `#${j.number}` : ""}
+                              {j.number && j.status ? " · " : ""}
+                              {j.status ?? ""}
+                            </span>
                           )}
                         </span>
                         <span
@@ -290,7 +355,7 @@ export function JobsBrowser({ orgId }: { orgId: string }) {
           )}
 
           <p className="mt-4 text-center text-xs text-neutral-400">
-            {jobs.length} job{jobs.length === 1 ? "" : "s"} · live from JobTread via the Pave gateway
+            {filtered.length} of {jobs.length} job{jobs.length === 1 ? "" : "s"} · live from JobTread via the Pave gateway
           </p>
         </>
       )}
