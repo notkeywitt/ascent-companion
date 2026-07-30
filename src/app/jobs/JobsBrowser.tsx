@@ -34,9 +34,6 @@ interface RawJob {
   name: string;
   number: string | null;
   location: { account: { name: string | null } | null } | null;
-  customFieldValues: {
-    nodes: Array<{ value: unknown; customField: { name: string | null } | null }>;
-  } | null;
 }
 
 interface Leaf {
@@ -65,6 +62,61 @@ const jobLabel = (j: Job) => (j.customer ? `${j.customer} - ${j.name}` : j.name)
 /** Sentinel value for the "jobs with no Status set" filter option. */
 const NO_STATUS = "__no_status__";
 
+/**
+ * Map of jobId → "Status" custom-field value, fetched on its own. We can't nest
+ * customFieldValues inside the paged organization.jobs connection — that 413s
+ * ("Request Entity Too Large", the 413 rule in JT_API_REFERENCE.md) — so we look
+ * up the Status field once and page its values (each keyed to its job).
+ */
+async function loadStatusMap(orgId: string): Promise<Map<string, string>> {
+  const map = new Map<string, string>();
+  const cf = await gatewayQuery<{
+    organization: {
+      customFields: { nodes: Array<{ id: string; name: string | null; targetType: string | null }> };
+    };
+  }>({
+    organization: {
+      $: { id: orgId },
+      customFields: { $: { size: 100 }, nodes: { id: {}, name: {}, targetType: {} } },
+    },
+  });
+  const fields = cf.organization.customFields.nodes;
+  const field =
+    fields.find((f) => f.name === "Status" && f.targetType === "job") ??
+    fields.find((f) => f.name === "Status");
+  if (!field) return map;
+
+  let page: string | undefined;
+  for (let i = 0; i < 20; i++) {
+    const r = await gatewayQuery<{
+      customField: {
+        customFieldValues: {
+          nextPage: string | null;
+          nodes: Array<{ value: unknown; job: { id: string } | null }>;
+        };
+      };
+    }>({
+      customField: {
+        $: { id: field.id },
+        customFieldValues: {
+          $: { size: 100, ...(page ? { page } : {}) },
+          nextPage: {},
+          nodes: { value: {}, job: { id: {} } },
+        },
+      },
+    });
+    const conn = r.customField.customFieldValues;
+    for (const v of conn.nodes) {
+      if (v.job?.id && v.value != null) {
+        map.set(v.job.id, typeof v.value === "string" ? v.value : String(v.value));
+      }
+    }
+    if (!conn.nextPage) break;
+    page = conn.nextPage;
+  }
+  return map;
+}
+
 export function JobsBrowser({ orgId }: { orgId: string }) {
   const [jobs, setJobs] = useState<Job[] | null>(null);
   const [jobsError, setJobsError] = useState<string | null>(null);
@@ -77,11 +129,14 @@ export function JobsBrowser({ orgId }: { orgId: string }) {
   const [budgetLoading, setBudgetLoading] = useState(false);
   const [budgetError, setBudgetError] = useState<string | null>(null);
 
-  // Load the job list once, paging the cursor (org can exceed the 100 cap).
+  // Load jobs, then merge in their Status. Two phases on purpose: nesting
+  // customFieldValues inside the paged jobs connection 413s, so Status is fetched
+  // separately (loadStatusMap) and joined by job id.
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
+        // Phase 1 — jobs (light), paging the cursor past the 100 cap.
         const all: Job[] = [];
         let page: string | undefined;
         for (let i = 0; i < 10; i++) {
@@ -98,35 +153,28 @@ export function JobsBrowser({ orgId }: { orgId: string }) {
                   name: {},
                   number: {},
                   location: { account: { name: {} } },
-                  customFieldValues: {
-                    $: { size: 30 },
-                    nodes: { value: {}, customField: { name: {} } },
-                  },
                 },
               },
             },
           });
           const conn = r.organization.jobs;
           for (const n of conn.nodes) {
-            const statusRaw = n.customFieldValues?.nodes.find(
-              (v) => v.customField?.name === "Status",
-            )?.value;
             all.push({
               id: n.id,
               name: n.name,
               number: n.number,
               customer: n.location?.account?.name ?? null,
-              status:
-                typeof statusRaw === "string"
-                  ? statusRaw
-                  : statusRaw == null
-                    ? null
-                    : String(statusRaw),
+              status: null,
             });
           }
           if (!conn.nextPage) break;
           page = conn.nextPage;
         }
+
+        // Phase 2 — the "Status" custom field, keyed by job id.
+        const statusMap = await loadStatusMap(orgId);
+        for (const j of all) j.status = statusMap.get(j.id) ?? null;
+
         // Sort by the "Customer - Job" label so a customer's jobs group together.
         all.sort((a, b) => jobLabel(a).localeCompare(jobLabel(b)));
         if (!cancelled) setJobs(all);
