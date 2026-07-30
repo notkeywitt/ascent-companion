@@ -138,7 +138,6 @@ function BillDetail() {
   const [combineMsg, setCombineMsg] = useState("");
   const [deletingId, setDeletingId] = useState("");
   const [taxEdit, setTaxEdit] = useState<string | null>(null); // null = not editing (shows JT's value)
-  const [savingTax, setSavingTax] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -199,28 +198,25 @@ function BillDetail() {
   const prevId = qIdx > 0 ? queue[qIdx - 1] : null;
   const nextId = qIdx >= 0 && qIdx < queue.length - 1 ? queue[qIdx + 1] : null;
 
-  // Confirmed live 2026-07-30 by controlled write/read probes + on-screen tests: JobTread
-  // stores exactly what we send for a line's cost, and a bill's TOTAL is ALWAYS the sum of
-  // the line costs. The document's fixed sales tax (`nonRecoverableTax`, a dollar) is
-  // carved OUT of that total for the subtotal — there is NO field that adds tax on top of a
-  // vendor bill (the "with tax" field exists only on the customer-invoice/sell side). So we
-  // MIRROR JobTread exactly: TOTAL = Σ line cost, SUBTOTAL = total − tax. A line's cost is
-  // the amount paid WITH tax in it; editing one line moves only that line (no de-tax/gross-up).
   const round2 = (n: number) => Math.round(n * 100) / 100;
-  const total = lines?.reduce((s, l) => s + (l.cost ?? 0), 0) ?? 0;
-  const tax = header?.nonRecoverableTax ?? 0;
+  // JobTread stores each line's cost tax-INCLUSIVE, and a bill's TOTAL is ALWAYS the sum of
+  // the line costs; the fixed sales tax (`nonRecoverableTax`, a dollar) is carved OUT of that
+  // total for the subtotal — no field adds tax on top of a vendor bill. Confirmed live
+  // 2026-07-30 by capturing JobTread's own save (stored $59.54 → screen shows $54.95). So we
+  // MIRROR JobTread: read each line DE-TAXED (what JobTread shows), let the office edit
+  // pre-tax, and on Save gross EVERY line back up (see allLineChanges) so the stored costs
+  // stay mutually consistent — editing one line, or the tax, shifts the shared subtotal/total
+  // factor, so all lines must move together or the untouched ones appear to drift.
+  const storedTotal = lines?.reduce((s, l) => s + (l.cost ?? 0), 0) ?? 0;
+  const storedTax = header?.nonRecoverableTax ?? 0;
   const taxName = header?.nonRecoverableTaxName || "Tax";
-  // While the office edits the Tax field, preview with the typed value. The tax is carved
-  // OUT of the (fixed) line total, so editing it moves the SUBTOTAL, not the total.
-  const taxView = taxEdit !== null && taxEdit !== "" ? Number(taxEdit) || 0 : tax;
-  const taxChanged = taxEdit !== null && round2(taxView) !== round2(tax);
-  const subtotal = round2(total - taxView);
-  // JobTread stores each line's cost tax-INCLUSIVE but its bill screen shows it DE-TAXED
-  // — the line is divided down by the same subtotal/total factor JobTread applies (a bill
-  // that carries a tax rate/amount displays lines lower than stored). Confirmed 2026-07-30
-  // by capturing JobTread's own save (stored $59.54 → screen shows $54.95). So we de-tax
-  // for display too, so the office sees/edits the same pre-tax amount JobTread shows.
-  const deTax = (stored: number) => (total > 0 ? stored * (subtotal / total) : stored);
+  // Per-line de-tax uses JobTread's STORED tax, not the in-progress Tax edit, so typing a
+  // new tax never makes the line amounts drift — only the total (subtotal + tax) moves.
+  const deTax = (stored: number) =>
+    storedTotal > 0 ? stored * ((storedTotal - storedTax) / storedTotal) : stored;
+  // While the office edits the Tax field, preview with the typed value.
+  const taxView = taxEdit !== null && taxEdit !== "" ? Number(taxEdit) || 0 : storedTax;
+  const taxChanged = taxEdit !== null && round2(taxView) !== round2(storedTax);
   const invId = header?.externalId || header?.number || "";
   const vendor = header?.fromName || header?.subject || header?.name || "Vendor bill";
   // Sunset keeps "Vendor · Invoice ID"; every other vendor shows just its name.
@@ -228,7 +224,7 @@ function BillDetail() {
   const title = isSunsetBill && invId ? `${vendor} · ${invId}` : vendor;
 
   // Each line's TARGET amounts in PRE-TAX terms (what JobTread shows): the edited value if
-  // present, else the stored cost de-taxed. On save these are grossed back up (× reTax) to
+  // present, else the stored cost de-taxed. On Save these are grossed back up (× reTax) to
   // the tax-inclusive value JobTread stores, so what the office types is what JobTread shows.
   const lineTargets = (lines ?? []).map((l) => {
     const curPreTaxUnit = deTax(l.unitCost ?? 0);
@@ -243,6 +239,9 @@ function BillDetail() {
   // Pre-tax → stored (tax-inclusive) gross-up factor for the bill's edited state.
   const sumPreTax = lineTargets.reduce((s, t) => s + t.preTaxUnit * t.qty, 0);
   const reTax = sumPreTax > 0 ? (sumPreTax + taxView) / sumPreTax : 1;
+  // Displayed subtotal/total preview the pending tax + line edits: total = subtotal + tax.
+  const subtotal = round2(sumPreTax);
+  const total = round2(sumPreTax + taxView);
 
   // Lines with a changed cost code, quantity, or unit cost vs what's in JobTread.
   const pending = lineTargets.flatMap(({ l, qty, preTaxUnit, curPreTaxUnit }) => {
@@ -294,9 +293,40 @@ function BillDetail() {
     return changed ? [change] : [];
   });
 
-  // Warn before leaving with unsaved line edits (the same changes the sticky
-  // Save bar counts) — covers refresh/close, in-app links, and Back/Forward.
-  useUnsavedChanges(pending.length > 0);
+  // The FULL bill payload sent on every Save: EVERY line's currently-editable fields
+  // (re-code in any status; description/qty/tax-inclusive amount only on draft), re-grossed
+  // against the current tax. Re-sending all lines — not just the ones touched — is what keeps
+  // JobTread's de-taxed display steady (a change to one line or the tax shifts the shared
+  // subtotal/total factor). On a tax-free bill reTax === 1, so this is the lines' current
+  // values (idempotent). The /api/code route drops any line with nothing to write.
+  const allLineChanges = lineTargets.map(({ l, qty, preTaxUnit }) => {
+    const change: {
+      costItemId: string;
+      name?: string;
+      jobCostItemId?: string;
+      quantity?: number;
+      unitCost?: number;
+      description?: string;
+    } = { costItemId: l.id };
+    const effCode = picked[l.id] ?? l.jobCostItem?.id ?? "";
+    // Re-coding is allowed in any status; send the effective code for every coded line
+    // (skip an untouched, uncoded line so we never write an empty code).
+    if (effCode || picked[l.id] !== undefined) change.jobCostItemId = effCode;
+    // name / quantity / unitCost / description are locked by JobTread once a bill leaves
+    // draft — only send them on DRAFT bills.
+    if (header?.status === "draft") {
+      change.name = edits[l.id]?.name ?? (l.name ?? "");
+      change.quantity = qty;
+      change.unitCost = round2(preTaxUnit * reTax); // pre-tax → stored (tax-inclusive)
+      const opt = budget.find((o) => o.id === effCode);
+      if (opt) change.description = opt.name ? `${opt.number} - ${opt.name}` : opt.number;
+    }
+    return change;
+  });
+
+  // Warn before leaving with unsaved edits (the same changes the sticky Save bar counts)
+  // — covers refresh/close, in-app links, and Back/Forward.
+  useUnsavedChanges(pending.length > 0 || taxChanged);
 
   // Re-read the bill's header from JobTread (authoritative) without disturbing
   // in-progress line edits. Used after any header write so the toggles/status
@@ -315,35 +345,6 @@ function BillDetail() {
       }
     } catch {
       /* keep optimistic state */
-    }
-  }
-
-  // Save the document-level sales tax (nonRecoverableTax). JobTread carves this fixed
-  // amount OUT of the (fixed) line total, so it changes the SUBTOTAL, never the lines or
-  // the total. Re-read the header afterward so the stored value wins.
-  async function saveTax() {
-    if (!taxChanged) return;
-    setSavingTax(true);
-    setSaveMsg("");
-    try {
-      const res = await fetch("/api/bill-tax", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ docId, taxAmount: round2(taxView) }),
-      });
-      const json = await res.json();
-      if (!res.ok) setSaveMsg(json.error ?? "Tax save failed");
-      else if (json.previewed)
-        setSaveMsg("Preview only — writes are OFF. Tax not saved to JobTread.");
-      else {
-        setTaxEdit(null); // re-sync the field to JobTread's stored value
-        await reloadHeader();
-        reloadJtWindow();
-      }
-    } catch (e) {
-      setSaveMsg(e instanceof Error ? e.message : "Network error");
-    } finally {
-      setSavingTax(false);
     }
   }
 
@@ -567,57 +568,56 @@ function BillDetail() {
   }
 
   async function saveCoding() {
-    if (pending.length === 0) return;
+    if (allLineChanges.length === 0 && !taxChanged) return;
     setSaving(true);
     setSaveMsg("");
     try {
-      const res = await fetch("/api/code", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ changes: pending, docId }),
-      });
-      const json = await res.json();
-      if (!res.ok) setSaveMsg(json.error ?? "Save failed");
-      else if (json.previewed)
-        setSaveMsg(
-          `Preview only — writes are OFF. ${pending.length} line(s) would be updated in JobTread.`,
-        );
-      else {
+      let failed = 0;
+      // 1) Push every line (the whole bill) so the tax-inclusive line costs stay mutually
+      //    consistent and JobTread's de-taxed display doesn't drift.
+      if (allLineChanges.length) {
+        const res = await fetch("/api/code", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ changes: allLineChanges, docId }),
+        });
+        const json = await res.json();
+        if (!res.ok) {
+          setSaveMsg(json.error ?? "Save failed");
+          return;
+        }
+        if (json.previewed) {
+          setSaveMsg("Preview only — writes are OFF. The bill would be re-sent to JobTread.");
+          return;
+        }
         const results = (json.results ?? []) as { costItemId: string; ok: boolean }[];
-        const okIds = new Set(results.filter((r) => r.ok).map((r) => r.costItemId));
-        const ok = okIds.size;
-        const bad = results.length - ok;
-        // Reflect the saved coding so it stops showing as an unsaved change.
-        const applied = new Map(pending.map((c) => [c.costItemId, c]));
-        setLines((prev) =>
-          prev?.map((l) => {
-            const c = applied.get(l.id);
-            if (!c || !okIds.has(l.id)) return l;
-            const quantity = c.quantity ?? l.quantity;
-            const unitCost = c.unitCost ?? l.unitCost;
-            return {
-              ...l,
-              name: c.name ?? l.name,
-              jobCostItem: c.jobCostItemId !== undefined ? { id: c.jobCostItemId } : l.jobCostItem,
-              quantity,
-              unitCost,
-              cost: quantity != null && unitCost != null ? quantity * unitCost : l.cost,
-            };
-          }) ?? prev,
-        );
-        setPicked((p) => {
-          const n = { ...p };
-          okIds.forEach((id) => delete n[id]);
-          return n;
-        });
-        setEdits((e) => {
-          const n = { ...e };
-          okIds.forEach((id) => delete n[id]);
-          return n;
-        });
-        setSaveMsg(`Saved ${ok} line(s)${bad ? `, ${bad} failed` : ""}.`);
-        if (ok) reloadJtWindow(); // refresh JobTread's view of the codes
+        failed = results.filter((r) => !r.ok).length;
       }
+      // 2) Push the document-level sales tax (nonRecoverableTax) in the same Save.
+      if (taxChanged) {
+        const res = await fetch("/api/bill-tax", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ docId, taxAmount: round2(taxView) }),
+        });
+        const json = await res.json();
+        if (!res.ok) {
+          setSaveMsg(json.error ?? "Tax save failed");
+          return;
+        }
+        if (json.previewed) {
+          setSaveMsg("Preview only — writes are OFF. Nothing saved to JobTread.");
+          return;
+        }
+      }
+      // 3) Clear edits and re-read JobTread's truth (its stored tax-inclusive costs), which
+      //    the display de-taxes back to exactly the pre-tax amounts the office typed.
+      setPicked({});
+      setEdits({});
+      setTaxEdit(null);
+      setSaveMsg(failed ? `Saved, ${failed} line(s) failed.` : "Saved.");
+      await loadBill();
+      reloadJtWindow();
     } catch (e) {
       setSaveMsg(e instanceof Error ? e.message : "Network error");
     } finally {
@@ -998,8 +998,9 @@ function BillDetail() {
             </div>
 
             {/* Document-level sales tax = JobTread's "Tax" (nonRecoverableTax), a fixed
-                dollar carved OUT of the line total. Editable on draft bills (writes on):
-                it changes only the subtotal, never the lines or the total. */}
+                dollar. Editable on draft bills (writes on): it holds each line's pre-tax
+                amount steady and moves the total (subtotal + tax). Saved with the bill via
+                the sticky Save bar (no separate button — see saveCoding). */}
             {linesEditable && writes ? (
               <div className="mt-1.5 flex items-center justify-end gap-2">
                 <span className="text-[10px] uppercase tracking-wide text-neutral-400">
@@ -1014,20 +1015,12 @@ function BillDetail() {
                     inputMode="decimal"
                     min="0"
                     step="0.01"
-                    value={taxEdit ?? String(tax)}
+                    value={taxEdit ?? String(storedTax)}
                     onChange={(e) => setTaxEdit(e.target.value)}
                     aria-label="Sales tax"
                     className="w-28 rounded-lg border border-neutral-300 bg-white py-1 pl-5 pr-2 text-right text-sm tabular-nums transition focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 dark:border-neutral-600 dark:bg-ink"
                   />
                 </div>
-                <Button
-                  size="sm"
-                  className="!py-1"
-                  onClick={saveTax}
-                  disabled={savingTax || !taxChanged}
-                >
-                  {savingTax ? "Saving…" : "Save"}
-                </Button>
               </div>
             ) : null}
 
@@ -1376,14 +1369,15 @@ function BillDetail() {
         </div>
       )}
 
-      {/* Sticky save bar — appears only while there are unsaved line changes,
-          so Save is always reachable without scrolling back to the top. The
-          page's pb-24 keeps content clear of it. */}
-      {header && pending.length > 0 && (
+      {/* Sticky save bar — appears while there are unsaved line or tax changes, so Save is
+          always reachable without scrolling back to the top. Save re-sends the WHOLE bill
+          (every line + the tax). The page's pb-24 keeps content clear of it. */}
+      {header && (pending.length > 0 || taxChanged) && (
         <div className="fixed inset-x-0 bottom-0 z-30 border-t border-neutral-200 bg-cream/95 backdrop-blur dark:border-white/10 dark:bg-ink/95 print:hidden">
           <div className="mx-auto flex max-w-xl items-center justify-between gap-3 px-4 py-3">
             <span className="text-sm font-medium">
-              {pending.length} unsaved change{pending.length === 1 ? "" : "s"}
+              {pending.length + (taxChanged ? 1 : 0)} unsaved change
+              {pending.length + (taxChanged ? 1 : 0) === 1 ? "" : "s"}
             </span>
             <div className="flex items-center gap-2">
               <Button
@@ -1392,13 +1386,14 @@ function BillDetail() {
                 onClick={() => {
                   setPicked({});
                   setEdits({});
+                  setTaxEdit(null);
                 }}
                 disabled={saving}
               >
                 Discard
               </Button>
               <Button onClick={saveCoding} disabled={saving}>
-                {saving ? "Saving…" : `Save changes (${pending.length})`}
+                {saving ? "Saving…" : `Save changes (${pending.length + (taxChanged ? 1 : 0)})`}
               </Button>
             </div>
           </div>
