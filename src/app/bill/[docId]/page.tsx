@@ -199,23 +199,22 @@ function BillDetail() {
   const prevId = qIdx > 0 ? queue[qIdx - 1] : null;
   const nextId = qIdx >= 0 && qIdx < queue.length - 1 ? queue[qIdx + 1] : null;
 
-  // Confirmed live 2026-07-29 (read-only probe of 6 real taxed bills): JobTread stores
-  // each line's `cost` = unitCost × quantity at FACE VALUE (no tax baked in), the
-  // document's `cost` = Σ line.cost = the PRE-TAX SUBTOTAL, and the sales tax sits in a
-  // SEPARATE document field `nonRecoverableTax` (≈8.35% of cost on Sunset bills). Tax
-  // rides ON TOP: SUBTOTAL = Σ line cost, TOTAL = subtotal + tax. (The old notes claimed
-  // `cost` was tax-inclusive and de-taxed per line — that was WRONG, and it caused both
-  // the "editing one line moves them all" bug and a bogus subtotal.) Each line is shown
-  // and edited at its literal cost, so a line edit changes only that one line.
+  // Confirmed live 2026-07-30 by controlled write/read probes + on-screen tests: JobTread
+  // stores exactly what we send for a line's cost, and a bill's TOTAL is ALWAYS the sum of
+  // the line costs. The document's fixed sales tax (`nonRecoverableTax`, a dollar) is
+  // carved OUT of that total for the subtotal — there is NO field that adds tax on top of a
+  // vendor bill (the "with tax" field exists only on the customer-invoice/sell side). So we
+  // MIRROR JobTread exactly: TOTAL = Σ line cost, SUBTOTAL = total − tax. A line's cost is
+  // the amount paid WITH tax in it; editing one line moves only that line (no de-tax/gross-up).
   const round2 = (n: number) => Math.round(n * 100) / 100;
-  const subtotal = lines?.reduce((s, l) => s + (l.cost ?? 0), 0) ?? 0;
+  const total = lines?.reduce((s, l) => s + (l.cost ?? 0), 0) ?? 0;
   const tax = header?.nonRecoverableTax ?? 0;
   const taxName = header?.nonRecoverableTaxName || "Tax";
-  // While the office edits the Tax field, preview with the typed value so the total
-  // updates live; otherwise use JobTread's stored nonRecoverableTax.
+  // While the office edits the Tax field, preview with the typed value. The tax is carved
+  // OUT of the (fixed) line total, so editing it moves the SUBTOTAL, not the total.
   const taxView = taxEdit !== null && taxEdit !== "" ? Number(taxEdit) || 0 : tax;
   const taxChanged = taxEdit !== null && round2(taxView) !== round2(tax);
-  const total = round2(subtotal + taxView);
+  const subtotal = round2(total - taxView);
   const invId = header?.externalId || header?.number || "";
   const vendor = header?.fromName || header?.subject || header?.name || "Vendor bill";
   // Sunset keeps "Vendor · Invoice ID"; every other vendor shows just its name.
@@ -308,9 +307,9 @@ function BillDetail() {
     }
   }
 
-  // Save the document-level sales tax (nonRecoverableTax). JobTread keeps this as a
-  // fixed amount ON TOP of the line costs, so it never changes the lines or the
-  // subtotal — only the total. Re-read the header afterward so the stored value wins.
+  // Save the document-level sales tax (nonRecoverableTax). JobTread carves this fixed
+  // amount OUT of the (fixed) line total, so it changes the SUBTOTAL, never the lines or
+  // the total. Re-read the header afterward so the stored value wins.
   async function saveTax() {
     if (!taxChanged) return;
     setSavingTax(true);
@@ -659,7 +658,7 @@ function BillDetail() {
     if (!codeId || !sel.every((l) => effCode(l) === codeId)) return; // mixed codes
     const keep = sel[0];
     const deleteIds = sel.slice(1).map((l) => l.id);
-    // Sum the lines' face-value costs so the bill subtotal (and total) is unchanged.
+    // Sum the lines' stored costs so the bill total (and subtotal) is unchanged.
     const extendedCost = round2(sel.reduce((s, l) => s + (l.cost ?? 0), 0));
     const name = sel
       .map((l) => (l.name || "").trim())
@@ -985,8 +984,8 @@ function BillDetail() {
             </div>
 
             {/* Document-level sales tax = JobTread's "Tax" (nonRecoverableTax), a fixed
-                dollar amount ON TOP of the line costs. Editable on draft bills (writes
-                on): it changes only the total, never the lines or the subtotal. */}
+                dollar carved OUT of the line total. Editable on draft bills (writes on):
+                it changes only the subtotal, never the lines or the total. */}
             {linesEditable && writes ? (
               <div className="mt-1.5 flex items-center justify-end gap-2">
                 <span className="text-[10px] uppercase tracking-wide text-neutral-400">

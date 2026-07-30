@@ -48,10 +48,11 @@ function driveMainWindowToDoc(jobId: string, docId: string) {
   }
 }
 
-// A bill's amount owed = the pre-tax line subtotal (JobTread's document `cost` =
-// Σ line cost) PLUS the document sales tax (`nonRecoverableTax`), which sits ON TOP
-// of the line costs (confirmed live 2026-07-29). Matches the bill page's total.
-const billAmount = (b: Bill) => (b.cost ?? 0) + (b.nonRecoverableTax ?? 0);
+// A bill's amount owed is JobTread's document `cost` = the sum of the line costs, which
+// IS JobTread's bill total. The fixed sales tax (`nonRecoverableTax`) is carved OUT of
+// that total for the subtotal, never added on top (confirmed live 2026-07-30). Matches
+// the bill page's total exactly.
+const billAmount = (b: Bill) => b.cost ?? 0;
 
 const invoiceId = (b: Bill) => b.externalId || b.number || "";
 // Sunset keeps "Vendor · Invoice ID" (their invoice # is how the office tells
