@@ -155,6 +155,7 @@ const AREAS: Area[] = [
     blurb: "Coding, invoicing, and Sunset statements.",
     dests: [
       { label: "Coding Review", href: "/coding", desc: "Draft bills waiting to be coded", view: "coding" },
+      { label: "Jobs", href: "/jobs", desc: "Browse jobs & their budgets", view: "jobs" },
       { label: "Invoicing", href: "/stage", desc: "Stage the month's customer invoice", view: "stage" },
       { label: "Sunset Statements", href: "/payments", desc: "Pay a statement & reconcile its invoices", view: "payments" },
     ],

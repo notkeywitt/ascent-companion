@@ -37,6 +37,9 @@ export interface ViewDef {
 export const VIEWS: ViewDef[] = [
   // Financials / billing — admin-only as a group (see ADMIN_ONLY below).
   { id: "coding", label: "Coding Review", group: "Financials", paths: ["/coding", "/bill", "/add-bill"] },
+  // Jobs list + budget, built on the generic /api/pave gateway. Office+admin by
+  // default (financial data); not in FIELD/LEAD sets below.
+  { id: "jobs", label: "Jobs", group: "Financials", paths: ["/jobs"] },
   { id: "stage", label: "Invoicing", group: "Financials", paths: ["/stage"] },
   { id: "unbilled", label: "Unbilled", group: "Financials", paths: ["/unbilled"] },
   // The stuck-vendor alert (popup + home banner) rides on this gate: its API

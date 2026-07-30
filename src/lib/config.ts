@@ -24,6 +24,19 @@ export function writesEnabled(): boolean {
 }
 
 /**
+ * SECOND gate, specific to the generic /api/pave gateway. Because that endpoint
+ * can run ANY mutation the caller composes, it is double-locked: a write through
+ * it needs BOTH writesEnabled() (the org-wide switch, already true in prod) AND
+ * this one, AND the mutation must be on the caller's per-role allowlist
+ * (src/lib/paveGateway.ts). Off by default so the gateway ships read-only until
+ * the write allowlist has been reviewed. Flip COMPANION_GATEWAY_WRITES_ENABLED
+ * to "true" to arm gateway writes.
+ */
+export function gatewayWritesEnabled(): boolean {
+  return String(process.env.COMPANION_GATEWAY_WRITES_ENABLED ?? "").trim().toLowerCase() === "true";
+}
+
+/**
  * Where approved PTO/sick leave posts as a JobTread time entry. Defaults point
  * at the "Office" overhead job (22PXevQbM9FQ = CONFIG.JOBTREAD.DEFAULT_JOB_ID in
  * appscript) and its two $0/hr leave budget leaves, all CONFIRMED live against
