@@ -273,6 +273,17 @@ function downscale(file: File): Promise<Photo> {
   });
 }
 
+// Header title with a large "Beta" tag, shared across every module state
+// (loading, done, main) so the flag reads consistently.
+const EMPLOYEE_TIME_TITLE = (
+  <span className="flex items-center gap-3">
+    Employee Time
+    <span className="rounded-full bg-amber-100 px-3 py-1 text-sm font-extrabold uppercase tracking-wider text-amber-800 dark:bg-amber-950/50 dark:text-amber-300">
+      Beta
+    </span>
+  </span>
+);
+
 export default function EmployeeTimePage() {
   const [mode, setMode] = useState<"clock" | "manual" | "history">("clock");
   const [loading, setLoading] = useState(true);
@@ -780,7 +791,7 @@ export default function EmployeeTimePage() {
   if (loading) {
     return (
       <main className="mx-auto max-w-2xl px-4 pb-24 pt-6">
-        <PageHeader title="Employee Time" description="Log your hours to a job." />
+        <PageHeader title={EMPLOYEE_TIME_TITLE} description="Log your hours to a job." />
         <Loading label="Loading…" />
       </main>
     );
@@ -791,7 +802,7 @@ export default function EmployeeTimePage() {
     const dur = fmtDuration(done.summary.startTime, done.summary.endTime);
     return (
       <main className="mx-auto max-w-2xl px-4 pb-24 pt-6">
-        <PageHeader title="Employee Time" description="Log your hours to a job." />
+        <PageHeader title={EMPLOYEE_TIME_TITLE} description="Log your hours to a job." />
         <div className="space-y-4">
           <Card className="text-center">
             <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
@@ -842,7 +853,7 @@ export default function EmployeeTimePage() {
   return (
     <main className="mx-auto max-w-2xl px-4 pb-24 pt-6">
       <PageHeader
-        title="Employee Time"
+        title={EMPLOYEE_TIME_TITLE}
         description="Log your hours to a job — with a note and photos."
       />
 

@@ -84,6 +84,17 @@ function rateHint(rate: number): string {
   return `≈ 1 hr per ${Math.round((1 / rate) * 10) / 10} worked`;
 }
 
+// Header title with a large "Beta" tag, matching /employee-time — flags the
+// time-tracking module as still in testing.
+const TIME_OFF_TITLE = (
+  <span className="flex items-center gap-3">
+    Time Off
+    <span className="rounded-full bg-amber-100 px-3 py-1 text-sm font-extrabold uppercase tracking-wider text-amber-800 dark:bg-amber-950/50 dark:text-amber-300">
+      Beta
+    </span>
+  </span>
+);
+
 export default function TimeOffPage() {
   const access = useAccess();
   const isOffice = access.can("time-off-admin");
@@ -134,7 +145,7 @@ export default function TimeOffPage() {
   return (
     <main className="mx-auto max-w-3xl px-4 pb-24 pt-6">
       <PageHeader
-        title="Time Off"
+        title={TIME_OFF_TITLE}
         description={
           isOffice
             ? "Your balance and requests, plus office accrual, balances, and policy."
