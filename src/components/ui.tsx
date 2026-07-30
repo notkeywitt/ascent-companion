@@ -20,7 +20,7 @@ export type BtnVariant = "primary" | "secondary" | "outline" | "ghost" | "danger
 export type BtnSize = "sm" | "md" | "lg";
 
 const BTN_BASE =
-  "inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-lg font-semibold transition disabled:cursor-not-allowed disabled:opacity-40";
+  "inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-lg font-semibold transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100";
 
 const BTN_VARIANT: Record<BtnVariant, string> = {
   primary: "bg-accent text-accent-fg shadow-sm hover:bg-accent-hover",

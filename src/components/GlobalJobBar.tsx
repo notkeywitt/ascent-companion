@@ -8,6 +8,7 @@ import { useAccess } from "@/components/AccessProvider";
 import { SyncNowButton } from "@/components/SyncNowButton";
 import { RefreshButton } from "@/components/RefreshButton";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { LinkPendingOverlay } from "@/components/LinkPending";
 import { btn } from "@/components/ui";
 import { confirmLeaveIfDirty } from "@/lib/useUnsavedChanges";
 
@@ -37,10 +38,17 @@ export function GlobalJobBar() {
 
   return (
     <div className="flex items-center gap-1.5 px-2 py-2 sm:gap-2">
-      <Link href="/" aria-label="Ascent Assistant home" className="shrink-0">
+      <Link
+        href="/"
+        aria-label="Ascent Assistant home"
+        className="relative shrink-0 rounded-lg p-1 transition active:bg-accent/10"
+      >
         {/* Wordmark hidden on narrow / side-panel widths; icon always shows. */}
         <AscentLogo className="hidden sm:inline-flex" />
         <AscentLogo wordmark={false} className="sm:hidden" />
+        {/* Tapping the logo navigates home — show a spinner over it while that
+            load is in flight so the tap visibly registers. */}
+        <LinkPendingOverlay spinnerClassName="h-5 w-5" />
       </Link>
       {/* The only flexible item — it absorbs whatever the buttons leave. */}
       <div className="min-w-0 flex-1">
@@ -49,8 +57,12 @@ export function GlobalJobBar() {
       {/* /add-bill is part of the (admin-only) Coding Review view — without the
           gate the middleware would just bounce a non-admin back to home. */}
       {access.can("coding") && (
-        <Link href={addHref} className={btn("primary", "md", "shrink-0 whitespace-nowrap")}>
+        <Link
+          href={addHref}
+          className={btn("primary", "md", "relative shrink-0 whitespace-nowrap")}
+        >
           ＋ Add bill
+          <LinkPendingOverlay spinnerClassName="h-4 w-4" />
         </Link>
       )}
       {access.can("sync") && <SyncNowButton />}

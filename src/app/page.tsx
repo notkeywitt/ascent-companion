@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { PageHeader, btn } from "@/components/ui";
+import { LinkPendingOverlay } from "@/components/LinkPending";
 import { useAccess } from "@/components/AccessProvider";
 import { AdminActionBar } from "@/components/AdminActionBar";
 import { StuckVendorBanner } from "@/components/StuckVendors";
@@ -242,7 +243,7 @@ function Home() {
                 <Link
                   key={q.href}
                   href={q.href + qs}
-                  className="flex min-h-[92px] flex-col items-center justify-center gap-2 rounded-2xl border border-neutral-200 bg-white p-3 text-center transition hover:border-accent hover:bg-accent/5 dark:border-neutral-700/60 dark:bg-ink-raised dark:hover:bg-white/5"
+                  className="relative flex min-h-[92px] flex-col items-center justify-center gap-2 rounded-2xl border border-neutral-200 bg-white p-3 text-center transition hover:border-accent hover:bg-accent/5 active:bg-accent/10 dark:border-neutral-700/60 dark:bg-ink-raised dark:hover:bg-white/5"
                 >
                   <span
                     aria-hidden
@@ -251,6 +252,7 @@ function Home() {
                     <q.Icon className="h-6 w-6" />
                   </span>
                   <span className="text-sm font-bold tracking-tight">{q.label}</span>
+                  <LinkPendingOverlay spinnerClassName="h-6 w-6" />
                 </Link>
               ))}
             </div>
@@ -258,7 +260,7 @@ function Home() {
           {showTimeOff && (
             <Link
               href={"/time-off" + qs}
-              className="group flex min-h-[64px] items-center gap-3 rounded-2xl border border-neutral-200 bg-white p-4 transition hover:border-accent hover:bg-accent/5 dark:border-neutral-700/60 dark:bg-ink-raised dark:hover:bg-white/5"
+              className="group relative flex min-h-[64px] items-center gap-3 rounded-2xl border border-neutral-200 bg-white p-4 transition hover:border-accent hover:bg-accent/5 active:bg-accent/10 dark:border-neutral-700/60 dark:bg-ink-raised dark:hover:bg-white/5"
             >
               <span
                 aria-hidden
@@ -278,6 +280,7 @@ function Home() {
               >
                 ›
               </span>
+              <LinkPendingOverlay spinnerClassName="h-5 w-5" />
             </Link>
           )}
         </div>
@@ -321,7 +324,7 @@ function Home() {
                     <li key={d.href}>
                       <Link
                         href={d.href + qs}
-                        className="group flex min-h-[44px] items-center justify-between gap-3 rounded-xl border border-transparent px-3 py-2.5 transition hover:border-accent hover:bg-accent/5 dark:hover:bg-white/5"
+                        className="group relative flex min-h-[44px] items-center justify-between gap-3 rounded-xl border border-transparent px-3 py-2.5 transition hover:border-accent hover:bg-accent/5 active:bg-accent/10 dark:hover:bg-white/5"
                       >
                         <span className="min-w-0">
                           <span className="block truncate text-sm font-semibold">{d.label}</span>
@@ -333,6 +336,7 @@ function Home() {
                         >
                           ›
                         </span>
+                        <LinkPendingOverlay spinnerClassName="h-5 w-5" />
                       </Link>
                     </li>
                   ))}
