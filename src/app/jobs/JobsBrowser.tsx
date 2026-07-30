@@ -6,32 +6,47 @@ import { gatewayQuery } from "@/lib/paveGatewayClient";
 
 /**
  * Jobs browser driven entirely by the guarded Pave gateway (gatewayQuery). Lists
- * the org's jobs and, on tap, loads a job's budget grouped by cost code — using
- * only queries composed from JT_API_REFERENCE.md, no per-view API route.
+ * the org's jobs as "Customer - Job" and, on tap, loads a job's budget rolled up
+ * by CSI division (first two digits of the cost code) — using only queries
+ * composed from JT_API_REFERENCE.md, no per-view API route.
  */
 
 interface Job {
   id: string;
   name: string;
   number: string | null;
+  customer: string | null;
+}
+
+interface RawJob {
+  id: string;
+  name: string;
+  number: string | null;
+  location: { account: { name: string | null } | null } | null;
 }
 
 interface Leaf {
-  id: string;
   name: string | null;
   cost: number | null;
-  costCode: { number: string | null; name: string | null } | null;
   document: { id: string } | null;
+  costCode: {
+    number: string | null;
+    name: string | null;
+    parentCostCode: { number: string | null; name: string | null } | null;
+  } | null;
 }
 
-interface BudgetRow {
-  code: string;
-  name: string;
+interface DivisionRow {
+  division: string; // 2-digit CSI division, e.g. "01"
+  name: string; // JobTread's division name (parent cost code), e.g. "General Requirements"
   cost: number;
 }
 
 const money = (n: number) =>
   `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+/** "Customer - Job", or just the job name when the customer is unknown. */
+const jobLabel = (j: Job) => (j.customer ? `${j.customer} - ${j.name}` : j.name);
 
 export function JobsBrowser({ orgId }: { orgId: string }) {
   const [jobs, setJobs] = useState<Job[] | null>(null);
@@ -39,7 +54,7 @@ export function JobsBrowser({ orgId }: { orgId: string }) {
   const [filter, setFilter] = useState("");
 
   const [selected, setSelected] = useState<Job | null>(null);
-  const [rows, setRows] = useState<BudgetRow[] | null>(null);
+  const [rows, setRows] = useState<DivisionRow[] | null>(null);
   const [budgetTotal, setBudgetTotal] = useState(0);
   const [budgetLoading, setBudgetLoading] = useState(false);
   const [budgetError, setBudgetError] = useState<string | null>(null);
@@ -53,23 +68,36 @@ export function JobsBrowser({ orgId }: { orgId: string }) {
         let page: string | undefined;
         for (let i = 0; i < 10; i++) {
           const r = await gatewayQuery<{
-            organization: { jobs: { nextPage: string | null; nodes: Job[] } };
+            organization: { jobs: { nextPage: string | null; nodes: RawJob[] } };
           }>({
             organization: {
               $: { id: orgId },
               jobs: {
                 $: { size: 100, ...(page ? { page } : {}) },
                 nextPage: {},
-                nodes: { id: {}, name: {}, number: {} },
+                nodes: {
+                  id: {},
+                  name: {},
+                  number: {},
+                  location: { account: { name: {} } },
+                },
               },
             },
           });
           const conn = r.organization.jobs;
-          all.push(...conn.nodes);
+          for (const n of conn.nodes) {
+            all.push({
+              id: n.id,
+              name: n.name,
+              number: n.number,
+              customer: n.location?.account?.name ?? null,
+            });
+          }
           if (!conn.nextPage) break;
           page = conn.nextPage;
         }
-        all.sort((a, b) => a.name.localeCompare(b.name));
+        // Sort by the "Customer - Job" label so a customer's jobs group together.
+        all.sort((a, b) => jobLabel(a).localeCompare(jobLabel(b)));
         if (!cancelled) setJobs(all);
       } catch (e) {
         if (!cancelled) setJobsError(e instanceof Error ? e.message : "Failed to load jobs");
@@ -100,11 +128,14 @@ export function JobsBrowser({ orgId }: { orgId: string }) {
               $: { size: 100, ...(page ? { page } : {}) },
               nextPage: {},
               nodes: {
-                id: {},
                 name: {},
                 cost: {},
                 document: { id: {} },
-                costCode: { number: {}, name: {} },
+                costCode: {
+                  number: {},
+                  name: {},
+                  parentCostCode: { number: {}, name: {} },
+                },
               },
             },
           },
@@ -119,15 +150,21 @@ export function JobsBrowser({ orgId }: { orgId: string }) {
       const budget = leaves.filter(
         (l) => !l.document && !/^uncategorized\b/i.test(l.name ?? ""),
       );
-      const groups = new Map<string, BudgetRow>();
+      // Group by CSI division = first two digits of the cost-code number. Label
+      // each with JobTread's own division name (the parent cost code, e.g.
+      // "01 00 00 General Requirements"), falling back to the parent number.
+      const groups = new Map<string, DivisionRow>();
       for (const l of budget) {
-        const code = l.costCode?.number ?? "—";
-        const name = l.costCode?.name ?? "Uncategorized";
-        const g = groups.get(code) ?? { code, name, cost: 0 };
+        const digits = (l.costCode?.number ?? "").replace(/\D/g, "");
+        const division = digits ? digits.slice(0, 2) : "—";
+        const parent = l.costCode?.parentCostCode;
+        const name = parent?.name ?? parent?.number ?? (division === "—" ? "Uncategorized" : "");
+        const g = groups.get(division) ?? { division, name, cost: 0 };
+        if (!g.name && name) g.name = name; // fill from the first item that has one
         g.cost += l.cost ?? 0;
-        groups.set(code, g);
+        groups.set(division, g);
       }
-      const out = [...groups.values()].sort((a, b) => a.code.localeCompare(b.code));
+      const out = [...groups.values()].sort((a, b) => a.division.localeCompare(b.division));
       setRows(out);
       setBudgetTotal(out.reduce((s, r2) => s + r2.cost, 0));
     } catch (e) {
@@ -142,13 +179,16 @@ export function JobsBrowser({ orgId }: { orgId: string }) {
     const q = filter.trim().toLowerCase();
     if (!q) return jobs;
     return jobs.filter(
-      (j) => j.name.toLowerCase().includes(q) || (j.number ?? "").toLowerCase().includes(q),
+      (j) =>
+        j.name.toLowerCase().includes(q) ||
+        (j.customer ?? "").toLowerCase().includes(q) ||
+        (j.number ?? "").toLowerCase().includes(q),
     );
   }, [jobs, filter]);
 
   return (
     <main className="mx-auto max-w-2xl px-4 pb-24 pt-6">
-      <PageHeader title="Jobs" description="Browse jobs and their budget by cost code." />
+      <PageHeader title="Jobs" description="Browse jobs and their budget by CSI division." />
 
       {jobsError && (
         <Banner tone="error" className="mb-4">
@@ -162,7 +202,7 @@ export function JobsBrowser({ orgId }: { orgId: string }) {
         <>
           <Input
             type="search"
-            placeholder="Search jobs by name or number…"
+            placeholder="Search by customer, job, or number…"
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
             className="mb-3"
@@ -184,7 +224,7 @@ export function JobsBrowser({ orgId }: { orgId: string }) {
                         className="flex w-full items-center justify-between gap-3 p-3 text-left transition hover:bg-accent/5 dark:hover:bg-white/5"
                       >
                         <span className="min-w-0">
-                          <span className="block truncate text-sm font-semibold">{j.name}</span>
+                          <span className="block truncate text-sm font-semibold">{jobLabel(j)}</span>
                           {j.number && (
                             <span className="block text-xs text-neutral-500">#{j.number}</span>
                           )}
@@ -208,17 +248,17 @@ export function JobsBrowser({ orgId }: { orgId: string }) {
                               <EmptyState>No budget lines on this job.</EmptyState>
                             ) : (
                               <>
-                                <SectionLabel className="mb-2">Budget by cost code</SectionLabel>
+                                <SectionLabel className="mb-2">Budget by division</SectionLabel>
                                 <div className="overflow-x-auto">
                                   <table className="w-full text-sm">
                                     <tbody>
                                       {rows.map((r) => (
                                         <tr
-                                          key={r.code}
+                                          key={r.division}
                                           className="border-b border-neutral-100 last:border-0 dark:border-neutral-800"
                                         >
                                           <td className="whitespace-nowrap py-1.5 pr-2 align-top font-mono text-xs text-neutral-500">
-                                            {r.code}
+                                            {r.division}
                                           </td>
                                           <td className="py-1.5 pr-2">{r.name}</td>
                                           <td className="whitespace-nowrap py-1.5 text-right tabular-nums">
