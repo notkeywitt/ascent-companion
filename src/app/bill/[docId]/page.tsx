@@ -324,9 +324,13 @@ function BillDetail() {
     return change;
   });
 
+  // Edits made here but not yet pushed. Save stays enabled at zero (it re-sends the bill
+  // regardless); this only drives the bar's label and the Discard button.
+  const changeCount = pending.length + (taxChanged ? 1 : 0);
+
   // Warn before leaving with unsaved edits (the same changes the sticky Save bar counts)
   // — covers refresh/close, in-app links, and Back/Forward.
-  useUnsavedChanges(pending.length > 0 || taxChanged);
+  useUnsavedChanges(changeCount > 0);
 
   // Re-read the bill's header from JobTread (authoritative) without disturbing
   // in-progress line edits. Used after any header write so the toggles/status
@@ -568,7 +572,12 @@ function BillDetail() {
   }
 
   async function saveCoding() {
-    if (allLineChanges.length === 0 && !taxChanged) return;
+    // Save is always live, so it can land here with nothing edited — that still re-pushes
+    // every line. Only a bill with no lines and no tax change has literally nothing to send.
+    if (allLineChanges.length === 0 && !taxChanged) {
+      setSaveMsg("Nothing to save.");
+      return;
+    }
     setSaving(true);
     setSaveMsg("");
     try {
@@ -1369,15 +1378,17 @@ function BillDetail() {
         </div>
       )}
 
-      {/* Sticky save bar — appears while there are unsaved line or tax changes, so Save is
-          always reachable without scrolling back to the top. Save re-sends the WHOLE bill
-          (every line + the tax). The page's pb-24 keeps content clear of it. */}
-      {header && (pending.length > 0 || taxChanged) && (
+      {/* Sticky save bar — always shown once the bill loads, so Save can re-push the bill to
+          JobTread even with nothing edited here (JT's stored costs can drift on their own).
+          Save re-sends the WHOLE bill (every line + the tax). The page's pb-24 keeps content
+          clear of it. */}
+      {header && (
         <div className="fixed inset-x-0 bottom-0 z-30 border-t border-neutral-200 bg-cream/95 backdrop-blur dark:border-white/10 dark:bg-ink/95 print:hidden">
           <div className="mx-auto flex max-w-xl items-center justify-between gap-3 px-4 py-3">
             <span className="text-sm font-medium">
-              {pending.length + (taxChanged ? 1 : 0)} unsaved change
-              {pending.length + (taxChanged ? 1 : 0) === 1 ? "" : "s"}
+              {changeCount === 0
+                ? "No unsaved changes"
+                : `${changeCount} unsaved change${changeCount === 1 ? "" : "s"}`}
             </span>
             <div className="flex items-center gap-2">
               <Button
@@ -1388,12 +1399,12 @@ function BillDetail() {
                   setEdits({});
                   setTaxEdit(null);
                 }}
-                disabled={saving}
+                disabled={saving || changeCount === 0}
               >
                 Discard
               </Button>
               <Button onClick={saveCoding} disabled={saving}>
-                {saving ? "Saving…" : `Save changes (${pending.length + (taxChanged ? 1 : 0)})`}
+                {saving ? "Saving…" : changeCount === 0 ? "Save" : `Save changes (${changeCount})`}
               </Button>
             </div>
           </div>
