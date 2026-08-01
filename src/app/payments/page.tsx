@@ -284,19 +284,32 @@ export default function PaymentsPage() {
           // (gross − early-pay discount) — the amount actually paid — once the
           // discount has been read. Until then, fall back to the gross total.
           const netKnown = !!s.extractedAt && s.net !== "" && Number.isFinite(Number(s.net));
-          const target = netKnown ? Number(s.net) : Number(s.total);
           const hasRows = !!rc && (rc.invoiceCount > 0 || rc.creditCount > 0);
-          const diff = rc && Number.isFinite(target)
-            ? Math.round((target - rc.netTotal) * 100) / 100
+          const m = rc?.match ?? null;
+          const useLines = !!rc?.hasLineItems;
+          // Comparison basis. When the statement's own invoice list was captured we
+          // reconcile invoice-total → invoice-total: the sum of the statement's
+          // printed lines (its gross) against the sum of the system's invoices. The
+          // early-pay discount is a payment term shown up top, NOT a reconciliation
+          // gap — so this basis needs no discount read and the headline number agrees
+          // with the itemized detail below. Without a captured list, fall back to
+          // net → net (which does need the discount, hence netKnown).
+          const cmpTarget = useLines
+            ? rc?.statementTotal ?? 0
+            : netKnown
+              ? Number(s.net)
+              : Number(s.total);
+          const cmpReady = useLines || netKnown;
+          const diff = rc && cmpReady && Number.isFinite(cmpTarget)
+            ? Math.round((cmpTarget - rc.netTotal) * 100) / 100
             : null;
           // Invoice-number discrepancies: an invoice on the statement but missing
           // from the system, a $ mismatch, or a system charge the statement doesn't
-          // list. These fail reconciliation even when the net total happens to match
+          // list. These fail reconciliation even when the totals happen to match
           // (a missing invoice masked by an offsetting extra one).
-          const m = rc?.match ?? null;
           const matchIssues = m ? m.missing.length + m.mismatched.length + m.extra.length : 0;
-          const netMatches = hasRows && netKnown && diff !== null && Math.abs(diff) <= 0.01;
-          const reconciled = netMatches && matchIssues === 0;
+          const totalMatches = hasRows && cmpReady && diff !== null && Math.abs(diff) <= 0.01;
+          const reconciled = totalMatches && matchIssues === 0;
           return (
             <li
               key={s.expId}
@@ -337,7 +350,7 @@ export default function PaymentsPage() {
                     "mt-2 rounded-lg border px-2.5 py-2 text-xs " +
                     (reconciled
                       ? "border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-300"
-                      : netKnown
+                      : cmpReady
                         ? "border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300"
                         : "border-neutral-200 bg-neutral-50 text-neutral-600 dark:border-neutral-700/60 dark:bg-white/5 dark:text-neutral-300")
                   }
@@ -348,25 +361,31 @@ export default function PaymentsPage() {
                         ? `✓ Reconciled · ${rc.invoiceCount} invoice${rc.invoiceCount === 1 ? "" : "s"}${
                             rc.creditCount ? ` − ${rc.creditCount} credit${rc.creditCount === 1 ? "" : "s"}` : ""
                           }`
-                        : netKnown
-                          ? netMatches && matchIssues > 0
-                            ? `⚠ Net matches, but ${matchIssues} invoice discrepanc${matchIssues === 1 ? "y" : "ies"}`
+                        : cmpReady
+                          ? totalMatches && matchIssues > 0
+                            ? `⚠ Totals match, but ${matchIssues} invoice discrepanc${matchIssues === 1 ? "y" : "ies"}`
                             : `⚠ Off by ${moneyN(Math.abs(diff ?? 0))}`
                           : `${rc.invoiceCount} invoice${rc.invoiceCount === 1 ? "" : "s"}${
                               rc.creditCount ? ` · ${rc.creditCount} credit${rc.creditCount === 1 ? "" : "s"}` : ""
                             } · reading discount…`}
                     </span>
-                    <span className="tabular-nums">net {moneyN(rc.netTotal)}</span>
+                    <span className="tabular-nums">
+                      {useLines ? "sys " : "net "}{moneyN(rc.netTotal)}
+                    </span>
                   </div>
 
-                  {(rc.creditCount > 0 || (netKnown && !reconciled)) && (
+                  {(rc.creditCount > 0 || (cmpReady && !reconciled)) && (
                     <div className="mt-0.5 tabular-nums opacity-80">
                       {rc.invoiceCount} invoice{rc.invoiceCount === 1 ? "" : "s"} {moneyN(rc.chargeTotal)}
                       {rc.creditCount > 0
                         ? ` − ${rc.creditCount} credit${rc.creditCount === 1 ? "" : "s"} ${moneyN(rc.creditTotal)}`
                         : ""}
                       {` = ${moneyN(rc.netTotal)}`}
-                      {netKnown ? ` vs statement net ${moneyN(target)}` : ""}
+                      {cmpReady
+                        ? useLines
+                          ? ` vs statement total ${moneyN(cmpTarget)}`
+                          : ` vs statement net ${moneyN(cmpTarget)}`
+                        : ""}
                     </div>
                   )}
 
