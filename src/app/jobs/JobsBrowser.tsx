@@ -12,6 +12,7 @@ import {
   SectionLabel,
 } from "@/components/ui";
 import { gatewayQuery } from "@/lib/paveGatewayClient";
+import { Donut, type DonutSlice } from "@/components/Donut";
 
 /**
  * Jobs browser driven entirely by the guarded Pave gateway (gatewayQuery). Lists
@@ -19,6 +20,14 @@ import { gatewayQuery } from "@/lib/paveGatewayClient";
  * and on tap loads a job's budget rolled up by CSI division (first two digits of
  * the cost code) — using only queries composed from JT_API_REFERENCE.md, no
  * per-view API route.
+ *
+ * The expanded panel shows: a horizontal "budget used" progress bar (total
+ * actual ÷ budget), two CSI donuts splitting cost by division — one for vendor
+ * BILLS (approved vendor-bill cost items) and one for LABOR (job time entries,
+ * still thin while time-tracking ramps up in JobTread) — and a budget-vs-actual
+ * table broken out into Labor / Bills columns. Bills and labor never
+ * double-count: bills come from cost items with an approved vendorBill document,
+ * labor from job.timeEntries (which carry their own cost, not a document).
  */
 
 interface Job {
@@ -47,15 +56,83 @@ interface Leaf {
   } | null;
 }
 
+/** A single job time entry — the LABOR side (see job.timeEntries). */
+interface TimeEntry {
+  cost: number | null;
+  costItem: {
+    costCode: {
+      number: string | null;
+      name: string | null;
+      parentCostCode: { number: string | null; name: string | null } | null;
+    } | null;
+  } | null;
+}
+
 interface DivisionRow {
   division: string; // 2-digit CSI division, e.g. "01"
   name: string; // JobTread's division name (parent cost code), e.g. "General Requirements"
   budget: number; // Σ budget-leaf cost (document == null)
-  actual: number; // Σ approved vendor-bill line cost coded to this division
+  bills: number; // Σ approved vendor-bill line cost coded to this division
+  labor: number; // Σ job time-entry cost coded to this division
 }
+
+/** Actual (spent) for a division = vendor bills + labor. */
+const rowActual = (r: DivisionRow) => r.bills + r.labor;
 
 const money = (n: number) =>
   `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+/** Fixed-order categorical slots (globals.css); a 9th division folds to "Other". */
+const VIZ_SLOTS = [
+  "var(--viz-1)",
+  "var(--viz-2)",
+  "var(--viz-3)",
+  "var(--viz-4)",
+  "var(--viz-5)",
+  "var(--viz-6)",
+  "var(--viz-7)",
+] as const;
+const VIZ_OTHER = "var(--viz-other)";
+
+/**
+ * Stable division → color map shared by BOTH donuts so a division keeps one
+ * color whether it appears in the bills ring, the labor ring, or both. The
+ * divisions with the most spend (bills + labor) claim the fixed slots; the rest
+ * fold into a single gray "Other" slice. Colors are then assigned in division-
+ * number order (not by rank) so the mapping is stable across the two rings.
+ */
+function buildColorMap(rows: DivisionRow[]): Map<string, string> {
+  const spent = rows
+    .map((r) => ({ division: r.division, v: rowActual(r) }))
+    .filter((x) => x.v > 0)
+    .sort((a, b) => b.v - a.v)
+    .slice(0, VIZ_SLOTS.length)
+    .map((x) => x.division)
+    .sort((a, b) => a.localeCompare(b));
+  const map = new Map<string, string>();
+  spent.forEach((division, i) => map.set(division, VIZ_SLOTS[i]));
+  return map;
+}
+
+/** Build donut slices for one actual field, folding un-slotted divisions to "Other". */
+function buildSlices(
+  rows: DivisionRow[],
+  colorMap: Map<string, string>,
+  field: "bills" | "labor",
+): DonutSlice[] {
+  const out: DonutSlice[] = [];
+  let other = 0;
+  for (const r of rows) {
+    const v = r[field];
+    if (v <= 0) continue;
+    const color = colorMap.get(r.division);
+    const label = r.name ? `${r.division} · ${r.name}` : r.division;
+    if (color) out.push({ key: r.division, label, value: v, color });
+    else other += v;
+  }
+  if (other > 0) out.push({ key: "__other", label: "Other divisions", value: other, color: VIZ_OTHER });
+  return out;
+}
 
 /** "Customer - Job", or just the job name when the customer is unknown. */
 const jobLabel = (j: Job) => (j.customer ? `${j.customer} - ${j.name}` : j.name);
@@ -118,6 +195,49 @@ async function loadStatusMap(orgId: string): Promise<Map<string, string>> {
   return map;
 }
 
+/**
+ * Horizontal "budget used" indicator — total actual spend as a share of the
+ * job's budget. Fills accent up to 100%, turns red past budget, and reads out
+ * the dollar figures. When there's no budget to compare against it degrades to
+ * an actual-spend readout rather than a misleading empty bar.
+ */
+function ProgressBar({ actual, budget, pct }: { actual: number; budget: number; pct: number }) {
+  const over = budget > 0 && actual > budget;
+  const fill = Math.min(pct, 1) * 100;
+  const rounded = Math.round(pct * 100);
+  return (
+    <div>
+      <div className="mb-1 flex items-baseline justify-between gap-2">
+        <SectionLabel>Budget used</SectionLabel>
+        {budget > 0 ? (
+          <span className={`text-xs font-semibold tabular-nums ${over ? "text-red-600 dark:text-red-400" : "text-neutral-500"}`}>
+            {rounded}%
+          </span>
+        ) : (
+          <span className="text-xs text-neutral-400">No budget set</span>
+        )}
+      </div>
+      <div
+        className="h-2.5 w-full overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-800"
+        role="progressbar"
+        aria-valuenow={budget > 0 ? rounded : undefined}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-label="Budget used"
+      >
+        <div
+          className={`h-full rounded-full transition-all ${over ? "bg-red-500" : "bg-accent"}`}
+          style={{ width: `${budget > 0 ? fill : 0}%` }}
+        />
+      </div>
+      <p className="mt-1 text-[11px] text-neutral-400">
+        {money(actual)} spent{budget > 0 ? ` of ${money(budget)} budget` : ""}
+        {over ? ` · ${money(actual - budget)} over` : ""}
+      </p>
+    </div>
+  );
+}
+
 export function JobsBrowser({ orgId }: { orgId: string }) {
   const [jobs, setJobs] = useState<Job[] | null>(null);
   const [jobsError, setJobsError] = useState<string | null>(null);
@@ -127,7 +247,8 @@ export function JobsBrowser({ orgId }: { orgId: string }) {
   const [selected, setSelected] = useState<Job | null>(null);
   const [rows, setRows] = useState<DivisionRow[] | null>(null);
   const [budgetTotal, setBudgetTotal] = useState(0);
-  const [actualTotal, setActualTotal] = useState(0);
+  const [billsTotal, setBillsTotal] = useState(0);
+  const [laborTotal, setLaborTotal] = useState(0);
   const [budgetLoading, setBudgetLoading] = useState(false);
   const [budgetError, setBudgetError] = useState<string | null>(null);
 
@@ -226,34 +347,75 @@ export function JobsBrowser({ orgId }: { orgId: string }) {
         if (!conn.nextPage) break;
         page = conn.nextPage;
       }
+      // LABOR — page the job's time entries (each carries its own cost and the
+      // cost code it was logged against). Separate connection from cost items,
+      // so bills and labor never double-count. Thin today (time tracking in JT
+      // is just ramping up), but the roll-up is ready for it.
+      const timeEntries: TimeEntry[] = [];
+      let tpage: string | undefined;
+      for (let i = 0; i < 20; i++) {
+        const tr = await gatewayQuery<{
+          job: { timeEntries: { nextPage: string | null; nodes: TimeEntry[] } };
+        }>({
+          job: {
+            $: { id: job.id },
+            timeEntries: {
+              $: { size: 100, ...(tpage ? { page: tpage } : {}) },
+              nextPage: {},
+              nodes: {
+                cost: {},
+                costItem: {
+                  costCode: {
+                    number: {},
+                    name: {},
+                    parentCostCode: { number: {}, name: {} },
+                  },
+                },
+              },
+            },
+          },
+        });
+        const tconn = tr.job.timeEntries;
+        timeEntries.push(...tconn.nodes);
+        if (!tconn.nextPage) break;
+        tpage = tconn.nextPage;
+      }
+
       // One pass over every cost item on the job, rolled up by CSI division
       // (first two digits of the cost-code number) and labeled with JobTread's
       // own division name (the parent cost code). BUDGET = leaves with no
-      // document (skip JT's "Uncategorized <code>" rollups); ACTUAL = lines on
-      // APPROVED vendor bills.
+      // document (skip JT's "Uncategorized <code>" rollups); BILLS = lines on
+      // APPROVED vendor bills; LABOR = time entries (added below).
       const groups = new Map<string, DivisionRow>();
-      const bump = (l: Leaf, field: "budget" | "actual") => {
-        const digits = (l.costCode?.number ?? "").replace(/\D/g, "");
+      const bump = (
+        costCode: Leaf["costCode"],
+        cost: number | null,
+        field: "budget" | "bills" | "labor",
+      ) => {
+        const digits = (costCode?.number ?? "").replace(/\D/g, "");
         const division = digits ? digits.slice(0, 2) : "—";
-        const parent = l.costCode?.parentCostCode;
+        const parent = costCode?.parentCostCode;
         const name = parent?.name ?? parent?.number ?? (division === "—" ? "Uncategorized" : "");
-        const g = groups.get(division) ?? { division, name, budget: 0, actual: 0 };
+        const g = groups.get(division) ?? { division, name, budget: 0, bills: 0, labor: 0 };
         if (!g.name && name) g.name = name; // fill from the first item that has one
-        g[field] += l.cost ?? 0;
+        g[field] += cost ?? 0;
         groups.set(division, g);
       };
       for (const l of leaves) {
         const doc = l.document;
         if (!doc) {
-          if (!/^uncategorized\b/i.test(l.name ?? "")) bump(l, "budget");
+          if (!/^uncategorized\b/i.test(l.name ?? "")) bump(l.costCode, l.cost, "budget");
         } else if (doc.type === "vendorBill" && doc.status === "approved") {
-          bump(l, "actual");
+          bump(l.costCode, l.cost, "bills");
         }
       }
+      for (const t of timeEntries) bump(t.costItem?.costCode ?? null, t.cost, "labor");
+
       const out = [...groups.values()].sort((a, b) => a.division.localeCompare(b.division));
       setRows(out);
       setBudgetTotal(out.reduce((s, r2) => s + r2.budget, 0));
-      setActualTotal(out.reduce((s, r2) => s + r2.actual, 0));
+      setBillsTotal(out.reduce((s, r2) => s + r2.bills, 0));
+      setLaborTotal(out.reduce((s, r2) => s + r2.labor, 0));
     } catch (e) {
       setBudgetError(e instanceof Error ? e.message : "Failed to load budget");
     } finally {
@@ -286,6 +448,19 @@ export function JobsBrowser({ orgId }: { orgId: string }) {
       );
     });
   }, [jobs, filter, statusFilter]);
+
+  // Derived cost figures for the expanded job (only one is open at a time).
+  const actualTotal = billsTotal + laborTotal;
+  const usedPct = budgetTotal > 0 ? actualTotal / budgetTotal : 0;
+  const colorMap = useMemo(() => (rows ? buildColorMap(rows) : new Map<string, string>()), [rows]);
+  const billsSlices = useMemo(
+    () => (rows ? buildSlices(rows, colorMap, "bills") : []),
+    [rows, colorMap],
+  );
+  const laborSlices = useMemo(
+    () => (rows ? buildSlices(rows, colorMap, "labor") : []),
+    [rows, colorMap],
+  );
 
   return (
     <main className="mx-auto max-w-2xl px-4 pb-24 pt-6">
@@ -369,7 +544,32 @@ export function JobsBrowser({ orgId }: { orgId: string }) {
                               <EmptyState>No budget lines on this job.</EmptyState>
                             ) : (
                               <>
-                                <SectionLabel className="mb-2">
+                                {/* Horizontal progress: total actual ÷ budget. */}
+                                <ProgressBar
+                                  actual={actualTotal}
+                                  budget={budgetTotal}
+                                  pct={usedPct}
+                                />
+
+                                {/* CSI cost split: bills vs. labor, one color per division. */}
+                                <SectionLabel className="mb-2 mt-4">Cost by CSI division</SectionLabel>
+                                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                  <Donut
+                                    title={`Bills · ${money(billsTotal)}`}
+                                    slices={billsSlices}
+                                    centerLabel="bills"
+                                    emptyLabel="No vendor bills yet"
+                                  />
+                                  <Donut
+                                    title={`Labor · ${money(laborTotal)}`}
+                                    slices={laborSlices}
+                                    centerLabel="labor"
+                                    emptyLabel="No labor logged yet"
+                                  />
+                                </div>
+
+                                {/* Budget vs. actual table, broken out by cost source. */}
+                                <SectionLabel className="mb-2 mt-5">
                                   Budget vs. actual by division
                                 </SectionLabel>
                                 <div className="overflow-x-auto">
@@ -380,28 +580,50 @@ export function JobsBrowser({ orgId }: { orgId: string }) {
                                           Division
                                         </th>
                                         <th className="py-1 pr-2 text-right font-semibold">Budget</th>
+                                        <th className="py-1 pr-2 text-right font-semibold">Labor</th>
+                                        <th className="py-1 pr-2 text-right font-semibold">Bills</th>
                                         <th className="py-1 text-right font-semibold">Actual</th>
                                       </tr>
                                     </thead>
                                     <tbody>
                                       {rows.map((r) => {
-                                        const over = r.budget > 0 && r.actual > r.budget;
+                                        const actual = rowActual(r);
+                                        const over = r.budget > 0 && actual > r.budget;
+                                        const swatch = colorMap.get(r.division);
                                         return (
                                           <tr
                                             key={r.division}
                                             className="border-b border-neutral-100 last:border-0 dark:border-neutral-800"
                                           >
                                             <td className="whitespace-nowrap py-1.5 pr-2 align-top font-mono text-xs text-neutral-500">
-                                              {r.division}
+                                              <span className="inline-flex items-center gap-1.5">
+                                                <span
+                                                  aria-hidden
+                                                  className="h-2.5 w-2.5 shrink-0 rounded-sm"
+                                                  style={{
+                                                    backgroundColor: swatch ?? "transparent",
+                                                    outline: swatch
+                                                      ? undefined
+                                                      : "1px solid rgb(var(--accent) / 0.25)",
+                                                  }}
+                                                />
+                                                {r.division}
+                                              </span>
                                             </td>
                                             <td className="py-1.5 pr-2">{r.name}</td>
                                             <td className="whitespace-nowrap py-1.5 pr-2 text-right tabular-nums">
                                               {money(r.budget)}
                                             </td>
+                                            <td className="whitespace-nowrap py-1.5 pr-2 text-right tabular-nums text-neutral-500">
+                                              {r.labor ? money(r.labor) : "—"}
+                                            </td>
+                                            <td className="whitespace-nowrap py-1.5 pr-2 text-right tabular-nums text-neutral-500">
+                                              {r.bills ? money(r.bills) : "—"}
+                                            </td>
                                             <td
                                               className={`whitespace-nowrap py-1.5 text-right tabular-nums ${over ? "font-semibold text-red-600 dark:text-red-400" : ""}`}
                                             >
-                                              {money(r.actual)}
+                                              {money(actual)}
                                             </td>
                                           </tr>
                                         );
@@ -414,6 +636,12 @@ export function JobsBrowser({ orgId }: { orgId: string }) {
                                         </td>
                                         <td className="whitespace-nowrap py-1.5 pr-2 text-right font-semibold tabular-nums">
                                           {money(budgetTotal)}
+                                        </td>
+                                        <td className="whitespace-nowrap py-1.5 pr-2 text-right font-semibold tabular-nums text-neutral-500">
+                                          {laborTotal ? money(laborTotal) : "—"}
+                                        </td>
+                                        <td className="whitespace-nowrap py-1.5 pr-2 text-right font-semibold tabular-nums text-neutral-500">
+                                          {billsTotal ? money(billsTotal) : "—"}
                                         </td>
                                         <td
                                           className={`whitespace-nowrap py-1.5 text-right font-semibold tabular-nums ${
@@ -429,7 +657,8 @@ export function JobsBrowser({ orgId }: { orgId: string }) {
                                   </table>
                                 </div>
                                 <p className="mt-2 text-[11px] text-neutral-400">
-                                  Actual = approved vendor bills. Over-budget divisions are in red.
+                                  Actual = approved vendor bills + logged labor. Over-budget divisions
+                                  are in red. Labor is thin while time tracking ramps up in JobTread.
                                 </p>
                               </>
                             ))}
