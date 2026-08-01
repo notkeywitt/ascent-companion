@@ -40,6 +40,43 @@
   --brand: 135 128 84; /* #878054 brand olive — graphics only */
 }
 
+/* --- Chart tokens --------------------------------------------------------
+   Categorical series palette for the bar/pie chart templates
+   (components/charts). Eight fixed hues in SLOT ORDER — assign them by slot
+   and never cycle a 9th (fold extra categories into "Other"; PieChart does
+   this for you). The dark column is the same eight hues re-stepped for the
+   off-black surface and validated as a set (data-viz method: OKLab CVD
+   ΔE ≥ 8 on every adjacent pair, normal-vision ΔE ≥ 15). Three light hues
+   sit under 3:1 on the surface, so the charts always draw direct value
+   labels (the "relief" rule) and expose a data table.
+     --chart-surface = the card fill a mark sits on (the 2px gap ring drawn
+                       between pie slices / touching bars).
+     --chart-grid    = the recessive baseline + gridline hairline. */
+:root {
+  --series-1: #2a78d6; /* blue */
+  --series-2: #eb6834; /* orange */
+  --series-3: #1baf7a; /* aqua */
+  --series-4: #eda100; /* yellow (near brand ochre) */
+  --series-5: #e87ba4; /* magenta */
+  --series-6: #008300; /* green */
+  --series-7: #4a3aa7; /* violet */
+  --series-8: #e34948; /* red */
+  --chart-surface: #ffffff; /* = bg-white card */
+  --chart-grid: rgb(27 27 23 / 0.1);
+}
+.dark {
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-3: #199e70;
+  --series-4: #c98500;
+  --series-5: #d55181;
+  --series-6: #008300;
+  --series-7: #9085e9;
+  --series-8: #e66767;
+  --chart-surface: #23231e; /* = bg-ink-raised, the card these sit on */
+  --chart-grid: rgb(236 232 219 / 0.12);
+}
+
 /* Light theme: ochre is a fill/graphic accent only, so interactive TEXT stays
    black (ochre fails contrast as small text on cream/white). This redirects the
    Tailwind text-accent utilities for light mode without editing every call site;
