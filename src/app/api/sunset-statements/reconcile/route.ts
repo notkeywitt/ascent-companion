@@ -19,6 +19,24 @@ interface Invoice {
   docId: string;
   jobId: string;
 }
+interface MatchInvoice {
+  number: string;
+  statementAmount?: number;
+  systemAmount?: number;
+  isCredit?: boolean;
+  date: string;
+  docId: string;
+  jobId: string;
+  elsewhere?: boolean;
+  fuzzy?: boolean;
+}
+interface MatchBlock {
+  matched: MatchInvoice[];
+  mismatched: MatchInvoice[];
+  missing: MatchInvoice[];
+  extra: MatchInvoice[];
+  extraCredits: MatchInvoice[];
+}
 interface Reconciliation {
   projectId: string;
   month: string;
@@ -29,6 +47,11 @@ interface Reconciliation {
   creditTotal: number;
   netTotal: number;
   invoices: Invoice[];
+  // Invoice-number reconciliation (null/absent for statements ingested before line-item capture).
+  hasLineItems?: boolean;
+  statementLineCount?: number;
+  statementTotal?: number;
+  match?: MatchBlock | null;
 }
 
 async function callAppsScript(payload: Record<string, unknown>): Promise<Record<string, unknown>> {

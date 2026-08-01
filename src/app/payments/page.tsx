@@ -40,6 +40,24 @@ const jtDocUrl = (inv: Invoice) =>
   inv.docId && inv.jobId
     ? `https://app.jobtread.com/jobs/${encodeURIComponent(inv.jobId)}/documents/${encodeURIComponent(inv.docId)}`
     : "";
+interface MatchInvoice {
+  number: string;
+  statementAmount?: number;
+  systemAmount?: number;
+  isCredit?: boolean;
+  date: string;
+  docId: string;
+  jobId: string;
+  elsewhere?: boolean;
+  fuzzy?: boolean;
+}
+interface MatchBlock {
+  matched: MatchInvoice[];
+  mismatched: MatchInvoice[];
+  missing: MatchInvoice[];
+  extra: MatchInvoice[];
+  extraCredits: MatchInvoice[];
+}
 interface Reconciliation {
   projectId: string;
   month: string;
@@ -50,7 +68,16 @@ interface Reconciliation {
   creditTotal: number;
   netTotal: number;
   invoices: Invoice[];
+  hasLineItems?: boolean;
+  statementLineCount?: number;
+  statementTotal?: number;
+  match?: MatchBlock | null;
 }
+
+const jtMatchUrl = (m: MatchInvoice) =>
+  m.docId && m.jobId
+    ? `https://app.jobtread.com/jobs/${encodeURIComponent(m.jobId)}/documents/${encodeURIComponent(m.docId)}`
+    : "";
 
 const money = (s: string) => {
   const n = Number(s);
@@ -262,7 +289,14 @@ export default function PaymentsPage() {
           const diff = rc && Number.isFinite(target)
             ? Math.round((target - rc.netTotal) * 100) / 100
             : null;
-          const reconciled = hasRows && netKnown && diff !== null && Math.abs(diff) <= 0.01;
+          // Invoice-number discrepancies: an invoice on the statement but missing
+          // from the system, a $ mismatch, or a system charge the statement doesn't
+          // list. These fail reconciliation even when the net total happens to match
+          // (a missing invoice masked by an offsetting extra one).
+          const m = rc?.match ?? null;
+          const matchIssues = m ? m.missing.length + m.mismatched.length + m.extra.length : 0;
+          const netMatches = hasRows && netKnown && diff !== null && Math.abs(diff) <= 0.01;
+          const reconciled = netMatches && matchIssues === 0;
           return (
             <li
               key={s.expId}
@@ -315,7 +349,9 @@ export default function PaymentsPage() {
                             rc.creditCount ? ` − ${rc.creditCount} credit${rc.creditCount === 1 ? "" : "s"}` : ""
                           }`
                         : netKnown
-                          ? `⚠ Off by ${moneyN(Math.abs(diff ?? 0))}`
+                          ? netMatches && matchIssues > 0
+                            ? `⚠ Net matches, but ${matchIssues} invoice discrepanc${matchIssues === 1 ? "y" : "ies"}`
+                            : `⚠ Off by ${moneyN(Math.abs(diff ?? 0))}`
                           : `${rc.invoiceCount} invoice${rc.invoiceCount === 1 ? "" : "s"}${
                               rc.creditCount ? ` · ${rc.creditCount} credit${rc.creditCount === 1 ? "" : "s"}` : ""
                             } · reading discount…`}
@@ -333,6 +369,96 @@ export default function PaymentsPage() {
                       {netKnown ? ` vs statement net ${moneyN(target)}` : ""}
                     </div>
                   )}
+
+                  {/* Invoice-number reconciliation: name each discrepancy, don't just measure it. */}
+                  {m && (m.missing.length > 0 || m.mismatched.length > 0 || m.extra.length > 0) ? (
+                    <div className="mt-2 space-y-1.5 border-t border-current/20 pt-1.5">
+                      {m.missing.length > 0 && (
+                        <div>
+                          <div className="text-[11px] font-semibold">
+                            ❗ On statement, not in system ({m.missing.length})
+                          </div>
+                          <ul className="mt-0.5 space-y-0.5 text-[11px]">
+                            {m.missing.map((x, i) => (
+                              <li key={"mi" + i} className="flex justify-between gap-3 tabular-nums">
+                                <span className="min-w-0 truncate">
+                                  <span className="font-medium">#{x.number || "—"}</span>
+                                  {x.date ? <span className="opacity-60"> · {x.date}</span> : null}
+                                </span>
+                                <span>{moneyN(x.statementAmount ?? 0)}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      {m.mismatched.length > 0 && (
+                        <div>
+                          <div className="text-[11px] font-semibold">
+                            ⚠ Amount differs ({m.mismatched.length})
+                          </div>
+                          <ul className="mt-0.5 space-y-0.5 text-[11px]">
+                            {m.mismatched.map((x, i) => {
+                              const url = jtMatchUrl(x);
+                              return (
+                                <li key={"mm" + i} className="flex justify-between gap-3 tabular-nums">
+                                  <span className="min-w-0 truncate">
+                                    {url ? (
+                                      <JtLink href={url} className="font-medium underline decoration-current/40 underline-offset-2 hover:decoration-current">
+                                        #{x.number || "—"} ↗
+                                      </JtLink>
+                                    ) : (
+                                      <span className="font-medium">#{x.number || "—"}</span>
+                                    )}
+                                  </span>
+                                  <span>stmt {moneyN(x.statementAmount ?? 0)} · sys {moneyN(x.systemAmount ?? 0)}</span>
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        </div>
+                      )}
+                      {m.extra.length > 0 && (
+                        <div>
+                          <div className="text-[11px] font-semibold">
+                            ➕ In system, not on statement ({m.extra.length})
+                          </div>
+                          <ul className="mt-0.5 space-y-0.5 text-[11px]">
+                            {m.extra.map((x, i) => {
+                              const url = jtMatchUrl(x);
+                              return (
+                                <li key={"ex" + i} className="flex justify-between gap-3 tabular-nums">
+                                  <span className="min-w-0 truncate">
+                                    {url ? (
+                                      <JtLink href={url} className="font-medium underline decoration-current/40 underline-offset-2 hover:decoration-current">
+                                        #{x.number || "—"} ↗
+                                      </JtLink>
+                                    ) : (
+                                      <span className="font-medium">#{x.number || "—"}</span>
+                                    )}
+                                    {x.date ? <span className="opacity-60"> · {x.date}</span> : null}
+                                  </span>
+                                  <span>{moneyN(x.systemAmount ?? 0)}</span>
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        </div>
+                      )}
+                      {m.matched.some((x) => x.elsewhere) && (
+                        <div className="text-[10px] opacity-70">
+                          Some matches are filed under a different month/project than this statement.
+                        </div>
+                      )}
+                    </div>
+                  ) : m && rc.hasLineItems ? (
+                    <div className="mt-1.5 text-[11px] opacity-70">
+                      ✓ All {m.matched.length} statement invoice{m.matched.length === 1 ? "" : "s"} matched by number
+                    </div>
+                  ) : !rc.hasLineItems ? (
+                    <div className="mt-1.5 text-[10px] opacity-60">
+                      Per-invoice detail unavailable (statement lines weren&apos;t captured) — showing totals only.
+                    </div>
+                  ) : null}
 
                   <details className="mt-1.5 group">
                     <summary className="cursor-pointer list-none select-none opacity-80 hover:opacity-100">
