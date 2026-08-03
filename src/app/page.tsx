@@ -9,6 +9,7 @@ import { LinkPendingOverlay } from "@/components/LinkPending";
 import { useAccess } from "@/components/AccessProvider";
 import { AdminActionBar } from "@/components/AdminActionBar";
 import { StuckVendorBanner } from "@/components/StuckVendors";
+import { NeedsProjectBanner, useNeedsProjectCount } from "@/components/NeedsProject";
 
 /**
  * The Assistant's front page — the launcher the app opens to, and since the
@@ -123,6 +124,24 @@ const CalendarIcon = ({ className }: IconProps) => (
   </IconBase>
 );
 
+/* ------------------------------------------------------------------ badges */
+
+/**
+ * "Something is waiting here" count pill, shown on a rolled-up menu and on the
+ * destination row inside it. Amber to match the alert banners — a badge means
+ * work is queued, never just a total.
+ */
+function CountBadge({ n }: { n: number }) {
+  return (
+    <span
+      aria-label={`${n} waiting`}
+      className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold tabular-nums text-amber-800 dark:bg-amber-950/50 dark:text-amber-300"
+    >
+      {n}
+    </span>
+  );
+}
+
 /** Route — Miles (mileage tracker). */
 const RouteIcon = ({ className }: IconProps) => (
   <IconBase className={className}>
@@ -222,6 +241,15 @@ function Home() {
   const timeOffInMenu = areas.some((a) => a.dests.some((d) => d.view === "time-off"));
   const showTimeOff = access.can("time-off") && !timeOffInMenu;
 
+  // Queue counts, keyed by view id. The banner up top is the loud half; these
+  // badges are the quiet one — a menu stays rolled up until tapped, so without a
+  // badge on the closed menu the only sign of waiting work is a banner that's
+  // easy to scroll past. Add a future queue here and both the area header and
+  // its row pick it up with no further plumbing.
+  const needsProject = useNeedsProjectCount();
+  const badges: Record<string, number> =
+    needsProject.count > 0 ? { "needs-project": needsProject.count } : {};
+
   return (
     <main className="mx-auto max-w-2xl px-4 pb-24 pt-6">
       <PageHeader
@@ -232,6 +260,10 @@ function Home() {
       {/* Bills that imported but couldn't push because their vendor isn't in
           JobTread. Self-hiding when there are none; gates itself on `email`. */}
       <StuckVendorBanner />
+
+      {/* Ingested bills whose job couldn't be resolved (Sunset "Sold-To" names a
+          customer with more than one job). Self-hiding when the queue is empty. */}
+      <NeedsProjectBanner state={needsProject} />
 
       {/* Quick launch — the four one-tap destinations every employee gets, as
           big thumb-sized buttons, with a Time Off button beneath for anyone who
@@ -290,6 +322,9 @@ function Home() {
       <div className="space-y-3">
         {areas.map((area) => {
           const isOpen = !!open[area.title];
+          // Roll the area's queued work up onto its header — but only while it's
+          // closed, since once it's open the row's own badge says it better.
+          const areaCount = area.dests.reduce((n, d) => n + (badges[d.view] ?? 0), 0);
           return (
             <section
               key={area.title}
@@ -311,6 +346,7 @@ function Home() {
                   <span className="block text-base font-bold tracking-tight">{area.title}</span>
                   <span className="mt-0.5 block truncate text-xs text-neutral-500">{area.blurb}</span>
                 </span>
+                {areaCount > 0 && !isOpen && <CountBadge n={areaCount} />}
                 <span
                   aria-hidden
                   className={`shrink-0 text-neutral-400 transition-transform dark:text-neutral-500 ${isOpen ? "rotate-180" : ""}`}
@@ -331,6 +367,7 @@ function Home() {
                           <span className="block truncate text-sm font-semibold">{d.label}</span>
                           <span className="block truncate text-xs text-neutral-500">{d.desc}</span>
                         </span>
+                        {(badges[d.view] ?? 0) > 0 && <CountBadge n={badges[d.view]} />}
                         <span
                           aria-hidden
                           className="shrink-0 text-neutral-300 transition group-hover:text-accent dark:text-neutral-600 dark:group-hover:text-accent-soft"

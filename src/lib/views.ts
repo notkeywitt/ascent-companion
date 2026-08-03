@@ -46,7 +46,10 @@ export const VIEWS: ViewDef[] = [
   // route is listed here so a non-billing user can neither see the warning nor
   // read the bill list behind it by calling the route directly.
   { id: "email", label: "Email Invoices", group: "Financials", paths: ["/email", "/api/stuck-vendors"] },
-  { id: "needs-project", label: "Needs Project", group: "Financials", paths: ["/needs-project"] },
+  // The home-page count badge + banner ride on this gate too, so its API route is
+  // listed here (same reasoning as `email` above): a non-billing user can neither
+  // see the indicator nor read the queued bills by calling the route directly.
+  { id: "needs-project", label: "Needs Project", group: "Financials", paths: ["/needs-project", "/api/needs-project"] },
   { id: "payments", label: "Sunset Statements", group: "Financials", paths: ["/payments"] },
   { id: "amazon-import", label: "Amazon Import", group: "Financials", paths: ["/amazon-import", "/api/amazon-import"] },
   // Field
