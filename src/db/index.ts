@@ -9,11 +9,74 @@ const authToken = process.env.DATABASE_AUTH_TOKEN; // only needed for hosted
 const client = createClient(authToken ? { url, authToken } : { url });
 export const db = drizzle(client, { schema });
 
-// Idempotent schema creation. Cheap to call; run before queries in each route so
-// we don't need a separate migration step for the local file during early dev.
-let ensured = false;
-export async function ensureDb() {
-  if (ensured) return;
+/**
+ * Idempotent schema creation, run before queries in each route so we don't need a
+ * separate migration step for the local file during early dev.
+ *
+ * In production the DB is hosted (Turso), so every statement in `applySchema` is a
+ * network round trip — and a serverless instance starts cold with `ensured` unset,
+ * so the whole block used to re-run on the first request each instance served
+ * (~24 sequential round trips in front of a one-row lookup). Now a warm database
+ * costs ONE read: `applySchema`'s own source is hashed into a fingerprint stored in
+ * `schema_meta`, and a match short-circuits. Fingerprinting the source (not a
+ * hand-maintained version number) means editing any statement below automatically
+ * invalidates the marker — there is nothing to remember to bump. Worst case after a
+ * deploy that changes the bundled output, one request re-runs the block and rewrites
+ * the marker; the statements are all idempotent, so that is harmless.
+ *
+ * The in-flight promise is shared, so concurrent first-callers in one instance wait
+ * on a single run instead of each starting their own; a failure clears it so the
+ * next caller retries rather than inheriting a rejected promise.
+ */
+let ensuring: Promise<void> | null = null;
+
+export function ensureDb(): Promise<void> {
+  if (!ensuring) {
+    ensuring = runEnsure().catch((err) => {
+      ensuring = null;
+      throw err;
+    });
+  }
+  return ensuring;
+}
+
+/**
+ * FNV-1a over a string. Deliberately hand-rolled rather than `node:crypto`: this
+ * module is reachable from the Edge middleware bundle (via auth.ts), which cannot
+ * import node: builtins. It only has to detect change, not resist anything.
+ */
+function fingerprintOf(source: string): string {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < source.length; i++) {
+    h ^= source.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return `${source.length.toString(36)}-${h.toString(36)}`;
+}
+
+async function runEnsure(): Promise<void> {
+  const fingerprint = fingerprintOf(applySchema.toString());
+  try {
+    const r = await client.execute("SELECT value FROM schema_meta WHERE key = 'fingerprint'");
+    if (r.rows[0]?.value === fingerprint) return; // schema already at this revision
+  } catch {
+    /* schema_meta doesn't exist yet — first run against this database */
+  }
+  await applySchema();
+  // Marker written LAST, so a run that dies partway leaves it stale and the next
+  // caller re-applies rather than skipping an incomplete schema.
+  await client.execute(
+    `CREATE TABLE IF NOT EXISTS schema_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)`,
+  );
+  await client.execute({
+    sql: `INSERT INTO schema_meta (key, value) VALUES ('fingerprint', ?)
+          ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+    args: [fingerprint],
+  });
+}
+
+/** Every DDL statement for the companion DB. Idempotent — safe to re-run in full. */
+async function applySchema() {
   await client.execute(`
     CREATE TABLE IF NOT EXISTS rfis (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -245,7 +308,6 @@ export async function ensureDb() {
   await client.execute(
     `CREATE UNIQUE INDEX IF NOT EXISTS labor_rate_catalog_group_name ON labor_rate_catalog (group_id, name)`,
   );
-  ensured = true;
 }
 
 export { schema };
