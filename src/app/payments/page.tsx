@@ -89,6 +89,30 @@ const jtMatchUrl = (m: MatchInvoice) =>
     ? `https://app.jobtread.com/jobs/${encodeURIComponent(m.jobId)}/documents/${encodeURIComponent(m.docId)}`
     : "";
 
+const MONTHS = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
+
+// The statement's BILLING PERIOD, as "July 2026", for the card name.
+// Preferred source is the reconcile payload's month/year — read straight from the
+// statement row's Billing Month / Billing Year columns. Until that second fetch
+// lands (or if it fails) we derive it from statementDate, which is exact rather
+// than approximate: handleStatement writes Date Purchased AND Billing Month/Year
+// from the same statement date, so their month/year always agree. Returns "" when
+// neither is usable, and the name then renders as it did before.
+function billingLabel(statementDate: string, month?: string, year?: string): string {
+  const m = Number(month);
+  const y = Number(year);
+  if (Number.isInteger(m) && m >= 1 && m <= 12 && y > 0) return `${MONTHS[m - 1]} ${y}`;
+  // statementDate is "YYYY-MM-DD" or the "YYYY-MM" fallback form.
+  const hit = /^(\d{4})-(\d{2})/.exec(statementDate ?? "");
+  if (!hit) return "";
+  const dm = Number(hit[2]);
+  if (dm < 1 || dm > 12) return "";
+  return `${MONTHS[dm - 1]} ${hit[1]}`;
+}
+
 const money = (s: string) => {
   const n = Number(s);
   return s !== "" && Number.isFinite(n)
@@ -290,6 +314,7 @@ export default function PaymentsPage() {
           const done = !!s.extractedAt;
           const fail = !!failed[s.expId];
           const rc = recon[s.expId];
+          const billing = billingLabel(s.statementDate, rc?.month, rc?.year);
           // Net-to-paid: reconcile (invoices − credits) against the statement's NET
           // (gross − early-pay discount) — the amount actually paid — once the
           // discount has been read. Until then, fall back to the gross total.
@@ -327,7 +352,15 @@ export default function PaymentsPage() {
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <div className="truncate font-semibold">{s.accountName || s.project || s.expId}</div>
+                  <div className="truncate font-semibold">
+                    {s.accountName || s.project || s.expId}
+                    {billing && (
+                      <span className="font-normal text-neutral-500 dark:text-neutral-400">
+                        {" · "}
+                        {billing}
+                      </span>
+                    )}
+                  </div>
                   <div className="mt-0.5 text-xs text-neutral-500">
                     {s.statementNumber ? `Statement #${s.statementNumber}` : "Statement #—"}
                     {s.statementDate ? ` · ${s.statementDate}` : ""}
