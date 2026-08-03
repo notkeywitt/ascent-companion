@@ -503,7 +503,17 @@ export async function getDraftVendorBillCount(cfg: PaveConfig): Promise<number |
 export interface BudgetItem {
   id: string; // jobCostItemId — the coding target
   number: string; // cost code, e.g. "06 10 00" (or a free label like "Office Admin")
-  name: string;
+  name: string; // the COST CODE's name — shared by every row under that code
+  /**
+   * This row's OWN name ("Wood Decking - Labor", "Permits and Fees"). An estimate
+   * routinely splits one cost code into several rows, and `name` above is identical
+   * across all of them, so this and `costType` are what tell those rows apart.
+   */
+  detail?: string;
+  /** Labor / Materials / Subcontractor / Other. */
+  costType?: string;
+  /** This row's estimated amount — 0 marks a placeholder row nobody budgeted. */
+  cost?: number;
 }
 
 /**
@@ -544,8 +554,10 @@ async function _getJobBudgetUncached(cfg: PaveConfig, jobId: string): Promise<Bu
             nodes: {
               id: {},
               name: {},
+              cost: {},
               document: { id: {} },
               costCode: { number: {}, name: {} },
+              costType: { name: {} },
             },
           },
         },
@@ -556,7 +568,14 @@ async function _getJobBudgetUncached(cfg: PaveConfig, jobId: string): Promise<Bu
         if (/^uncategorized\b/i.test(String(n?.name ?? "").trim())) continue;
         const number = n?.costCode?.number?.toString().trim();
         if (!number) continue;
-        items.push({ id: n.id, number, name: n?.costCode?.name ?? n?.name ?? "" });
+        items.push({
+          id: n.id,
+          number,
+          name: n?.costCode?.name ?? n?.name ?? "",
+          detail: n?.name ?? "",
+          costType: n?.costType?.name ?? "",
+          cost: typeof n?.cost === "number" ? n.cost : undefined,
+        });
       }
       cursor = co.nextPage ?? null;
       if (!cursor) break;
