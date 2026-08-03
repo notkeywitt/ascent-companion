@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 
 import { CopyButton } from "@/components/CopyButton";
 import { JtLink } from "@/components/JtLink";
@@ -40,6 +41,15 @@ const jtDocUrl = (inv: Invoice) =>
   inv.docId && inv.jobId
     ? `https://app.jobtread.com/jobs/${encodeURIComponent(inv.jobId)}/documents/${encodeURIComponent(inv.docId)}`
     : "";
+// In-app Bill Details for a reconciled invoice. `from=payments` tells that page
+// to send Back here instead of to the coding queue. Every invoice number below
+// links here; the small JT chip beside it opens the same bill in JobTread.
+const billHref = (inv: { docId?: string; jobId?: string }) =>
+  inv.docId && inv.jobId
+    ? `/bill/${encodeURIComponent(inv.docId)}?jobId=${encodeURIComponent(inv.jobId)}&from=payments`
+    : "";
+const jtChip =
+  "shrink-0 rounded bg-current/10 px-1 text-[10px] font-semibold uppercase tracking-wide opacity-70 transition hover:opacity-100";
 interface MatchInvoice {
   number: string;
   statementAmount?: number;
@@ -418,15 +428,21 @@ export default function PaymentsPage() {
                           <ul className="mt-0.5 space-y-0.5 text-[11px]">
                             {m.mismatched.map((x, i) => {
                               const url = jtMatchUrl(x);
+                              const detail = billHref(x);
                               return (
                                 <li key={"mm" + i} className="flex justify-between gap-3 tabular-nums">
-                                  <span className="min-w-0 truncate">
-                                    {url ? (
-                                      <JtLink href={url} className="font-medium underline decoration-current/40 underline-offset-2 hover:decoration-current">
-                                        #{x.number || "—"} ↗
-                                      </JtLink>
+                                  <span className="flex min-w-0 items-center gap-1.5 truncate">
+                                    {detail ? (
+                                      <Link href={detail} className="font-medium underline decoration-current/40 underline-offset-2 hover:decoration-current">
+                                        #{x.number || "—"}
+                                      </Link>
                                     ) : (
                                       <span className="font-medium">#{x.number || "—"}</span>
+                                    )}
+                                    {url && (
+                                      <JtLink href={url} className={jtChip}>
+                                        JT ↗
+                                      </JtLink>
                                     )}
                                   </span>
                                   <span>stmt {moneyN(x.statementAmount ?? 0)} · sys {moneyN(x.systemAmount ?? 0)}</span>
@@ -444,15 +460,21 @@ export default function PaymentsPage() {
                           <ul className="mt-0.5 space-y-0.5 text-[11px]">
                             {m.extra.map((x, i) => {
                               const url = jtMatchUrl(x);
+                              const detail = billHref(x);
                               return (
                                 <li key={"ex" + i} className="flex justify-between gap-3 tabular-nums">
-                                  <span className="min-w-0 truncate">
-                                    {url ? (
-                                      <JtLink href={url} className="font-medium underline decoration-current/40 underline-offset-2 hover:decoration-current">
-                                        #{x.number || "—"} ↗
-                                      </JtLink>
+                                  <span className="flex min-w-0 items-center gap-1.5 truncate">
+                                    {detail ? (
+                                      <Link href={detail} className="font-medium underline decoration-current/40 underline-offset-2 hover:decoration-current">
+                                        #{x.number || "—"}
+                                      </Link>
                                     ) : (
                                       <span className="font-medium">#{x.number || "—"}</span>
+                                    )}
+                                    {url && (
+                                      <JtLink href={url} className={jtChip}>
+                                        JT ↗
+                                      </JtLink>
                                     )}
                                     {x.date ? <span className="opacity-60"> · {x.date}</span> : null}
                                   </span>
@@ -487,15 +509,24 @@ export default function PaymentsPage() {
                     <ul className="mt-1.5 space-y-0.5 border-t border-current/20 pt-1.5">
                       {rc.invoices.map((inv, i) => {
                         const url = jtDocUrl(inv);
+                        const detail = billHref(inv);
                         return (
                           <li key={inv.number + "-" + i} className="flex justify-between gap-3 tabular-nums">
                             <span className="flex min-w-0 items-center gap-1.5 truncate">
-                              {url ? (
-                                <JtLink href={url} className="font-medium underline decoration-current/40 underline-offset-2 hover:decoration-current">
-                                  #{inv.number || "—"} ↗
-                                </JtLink>
+                              {detail ? (
+                                <Link
+                                  href={detail}
+                                  className="font-medium underline decoration-current/40 underline-offset-2 hover:decoration-current"
+                                >
+                                  #{inv.number || "—"}
+                                </Link>
                               ) : (
                                 <span className="font-medium">#{inv.number || "—"}</span>
+                              )}
+                              {url && (
+                                <JtLink href={url} className={jtChip}>
+                                  JT ↗
+                                </JtLink>
                               )}
                               {inv.isCredit && (
                                 <span className="rounded bg-rose-500/15 px-1 text-[10px] font-semibold uppercase tracking-wide text-rose-600 dark:text-rose-300">

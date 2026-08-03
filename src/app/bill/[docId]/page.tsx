@@ -100,14 +100,18 @@ function BillDetail() {
   const search = useSearchParams();
   const docId = params.docId;
   const jobId = search.get("jobId") ?? "";
-  // Where Back returns to. The Invoicing tab (/stage) deep-links here with
-  // ?from=stage so Back goes to Invoicing (re-opening this job's card) instead
-  // of the coding queue, which is where every other entry point comes from.
-  const fromStage = search.get("from") === "stage";
-  const backHref = fromStage
-    ? `/stage?jobId=${encodeURIComponent(jobId)}`
-    : `/coding?jobId=${encodeURIComponent(jobId)}`;
-  const backLabel = fromStage ? "‹ Invoicing" : "‹ Coding queue";
+  // Where Back returns to. Pages that deep-link here say so with ?from=… — the
+  // Invoicing tab (/stage, re-opening this job's card) and the Sunset Statements
+  // page (/payments). Everything else comes from the coding queue.
+  const from = search.get("from");
+  const backHref =
+    from === "stage"
+      ? `/stage?jobId=${encodeURIComponent(jobId)}`
+      : from === "payments"
+        ? "/payments"
+        : `/coding?jobId=${encodeURIComponent(jobId)}`;
+  const backLabel =
+    from === "stage" ? "‹ Invoicing" : from === "payments" ? "‹ Sunset statements" : "‹ Coding queue";
 
   const [header, setHeader] = useState<Header | null>(null);
   const [lines, setLines] = useState<Line[] | null>(null);
