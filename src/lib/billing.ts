@@ -11,7 +11,7 @@
 
 /** Company timezone — matches appsscript.json. The server may run in UTC, so all
  *  "what day is it" decisions convert to this zone first (a bill uploaded at
- *  11 PM Pacific on the 9th must NOT count as the 10th). */
+ *  11 PM Pacific on the 10th must NOT count as the 11th). */
 const COMPANY_TZ = "America/Los_Angeles";
 
 /** Calendar parts of a Date in the company timezone. */
@@ -40,16 +40,17 @@ export interface BillingPeriod {
 
 /**
  * Billing period from the bill's arrival date (port of deriveBillingPeriod):
- *   - Non-Sunset bills arriving BEFORE the 10th bill to the PREVIOUS month
- *     (arrives Jul 7 → June billing).
- *   - On/after the 10th → arrival month.
+ *   - Non-Sunset bills arriving ON OR BEFORE the 10th bill to the PREVIOUS month
+ *     (arrives Jul 10 → June billing). The 10th is INCLUSIVE, matching the
+ *     10th-to-10th window the Invoicing tab (/stage) already uses.
+ *   - After the 10th → arrival month.
  *   - Sunset bills ALWAYS bill in their arrival month.
  */
 export function deriveBillingPeriod(received: Date, isSunset: boolean): BillingPeriod {
   const p = companyDateParts(received);
   let month = p.month;
   let year = p.year;
-  if (!isSunset && p.day < 10) {
+  if (!isSunset && p.day <= 10) {
     month -= 1;
     if (month < 1) {
       month = 12;
