@@ -5,16 +5,17 @@
  * in `ui.tsx`, so Figma Dev Mode shows `<Button variant="primary">` (not a wall
  * of generated CSS) and Claude/devs build from the exact same vocabulary.
  *
- * This file is a SCAFFOLD. Two things must happen before `figma connect publish`
- * works — both are one-time and both are described in `../../FIGMA.md`:
- *   1. Install the CLI once:  npm i -D @figma/code-connect
- *   2. Replace every `node-id=TODO` below with the real node URL of the matching
- *      component in your Figma library (Dev Mode → right-click → Copy link).
- * The Figma property NAMES/VALUES in each `figma.enum(...)` are the expected
- * shape — rename them to match your actual Figma component properties.
+ * Wired to the live library — file key `DMJeL5CTgIt4OusKOqoqfU`, node ids below
+ * are the real component sets. To publish:
  *
- * Excluded from `tsc`/`next build` via tsconfig ("src/**\/*.figma.tsx"), so an
- * un-filled scaffold never breaks the app build; only the `figma` CLI reads it.
+ *     npx figma connect publish --dry-run   # validate
+ *     npx figma connect publish
+ *
+ * Excluded from `tsc`/`next build` via tsconfig ("src/**\/*.figma.tsx"), so this
+ * file never breaks the app build; only the `figma` CLI reads it.
+ *
+ * Figma property names are authoritative — they were created to match these
+ * mappings. If you rename a property in Figma, rename it here in the same pass.
  */
 
 import figma from "@figma/code-connect";
@@ -28,14 +29,14 @@ import {
   Banner,
   EmptyState,
   PageHeader,
+  Label,
+  SectionLabel,
 } from "@/components/ui";
 
-// Root of the Ascent component library in Figma. Fill in the file key, then the
-// per-component node ids below (everything after node-id=).
-const LIB = "https://www.figma.com/design/FILE_KEY/Ascent-Assistant";
-
-/* -------------------------------------------------------------------- Button */
-figma.connect(Button, `${LIB}?node-id=TODO`, {
+/* -------------------------------------------------------------------- Button
+ * Figma: Variant × Size × State (30 variants). Hover is not a variant — it is a
+ * CSS transition in ui.tsx, documented as swatches on the Figma Button page. */
+figma.connect(Button, "https://www.figma.com/design/DMJeL5CTgIt4OusKOqoqfU/Ascent-Assistant?node-id=15-2", {
   props: {
     variant: figma.enum("Variant", {
       Primary: "primary",
@@ -45,7 +46,7 @@ figma.connect(Button, `${LIB}?node-id=TODO`, {
       Danger: "danger",
     }),
     size: figma.enum("Size", { Small: "sm", Medium: "md", Large: "lg" }),
-    disabled: figma.boolean("Disabled"),
+    disabled: figma.enum("State", { Disabled: true, Default: false }),
     label: figma.string("Label"),
   },
   example: ({ variant, size, disabled, label }) => (
@@ -56,55 +57,76 @@ figma.connect(Button, `${LIB}?node-id=TODO`, {
 });
 
 /* -------------------------------------------------------------------- Toggle */
-figma.connect(Toggle, `${LIB}?node-id=TODO`, {
+figma.connect(Toggle, "https://www.figma.com/design/DMJeL5CTgIt4OusKOqoqfU/Ascent-Assistant?node-id=19-22", {
   props: {
-    checked: figma.boolean("On"),
+    checked: figma.enum("On", { True: true, False: false }),
+    disabled: figma.enum("State", { Disabled: true, Default: false }),
     label: figma.string("Label"),
   },
-  example: ({ checked, label }) => (
-    <Toggle checked={checked} onChange={() => {}} label={label} />
+  example: ({ checked, disabled, label }) => (
+    <Toggle checked={checked} onChange={() => {}} label={label} disabled={disabled} />
   ),
 });
 
-/* --------------------------------------------------------------------- Input */
-figma.connect(Input, `${LIB}?node-id=TODO`, {
+/* ------------------------------------------------------ Input / Select / Textarea
+ * One Figma component with a `Type` variant, because ui.tsx renders the same
+ * `inputCls` box for all three. Each React component maps to one Type value. */
+figma.connect(Input, "https://www.figma.com/design/DMJeL5CTgIt4OusKOqoqfU/Ascent-Assistant?node-id=18-30", {
+  variant: { Type: "Text" },
   props: {
     placeholder: figma.string("Placeholder"),
-    disabled: figma.boolean("Disabled"),
+    disabled: figma.enum("State", { Disabled: true, Default: false }),
   },
   example: ({ placeholder, disabled }) => (
     <Input placeholder={placeholder} disabled={disabled} />
   ),
 });
 
-/* -------------------------------------------------------------------- Select */
-figma.connect(Select, `${LIB}?node-id=TODO`, {
-  props: { disabled: figma.boolean("Disabled") },
+figma.connect(Select, "https://www.figma.com/design/DMJeL5CTgIt4OusKOqoqfU/Ascent-Assistant?node-id=18-30", {
+  variant: { Type: "Select" },
+  props: {
+    disabled: figma.enum("State", { Disabled: true, Default: false }),
+  },
   example: ({ disabled }) => <Select disabled={disabled} />,
 });
 
-/* ------------------------------------------------------------------ Textarea */
-figma.connect(Textarea, `${LIB}?node-id=TODO`, {
+figma.connect(Textarea, "https://www.figma.com/design/DMJeL5CTgIt4OusKOqoqfU/Ascent-Assistant?node-id=18-30", {
+  variant: { Type: "Textarea" },
   props: {
     placeholder: figma.string("Placeholder"),
-    disabled: figma.boolean("Disabled"),
+    disabled: figma.enum("State", { Disabled: true, Default: false }),
   },
   example: ({ placeholder, disabled }) => (
     <Textarea placeholder={placeholder} disabled={disabled} />
   ),
 });
 
+/* -------------------------------------------------------- Label / SectionLabel
+ * Same caption style; the Figma `Type` variant carries the semantic difference
+ * (Field pairs with an input and adds mb-1, Section is a standalone heading). */
+figma.connect(Label, "https://www.figma.com/design/DMJeL5CTgIt4OusKOqoqfU/Ascent-Assistant?node-id=20-10", {
+  variant: { Type: "Field" },
+  props: { children: figma.string("Text") },
+  example: ({ children }) => <Label>{children}</Label>,
+});
+
+figma.connect(SectionLabel, "https://www.figma.com/design/DMJeL5CTgIt4OusKOqoqfU/Ascent-Assistant?node-id=20-10", {
+  variant: { Type: "Section" },
+  props: { children: figma.string("Text") },
+  example: ({ children }) => <SectionLabel>{children}</SectionLabel>,
+});
+
 /* ---------------------------------------------------------------------- Card */
-figma.connect(Card, `${LIB}?node-id=TODO`, {
+figma.connect(Card, "https://www.figma.com/design/DMJeL5CTgIt4OusKOqoqfU/Ascent-Assistant?node-id=21-14", {
   props: {
-    pad: figma.boolean("Padded"),
+    pad: figma.enum("Padded", { True: true, False: false }),
     children: figma.children("*"),
   },
   example: ({ pad, children }) => <Card pad={pad}>{children}</Card>,
 });
 
 /* -------------------------------------------------------------------- Banner */
-figma.connect(Banner, `${LIB}?node-id=TODO`, {
+figma.connect(Banner, "https://www.figma.com/design/DMJeL5CTgIt4OusKOqoqfU/Ascent-Assistant?node-id=22-18", {
   props: {
     tone: figma.enum("Tone", {
       Error: "error",
@@ -119,18 +141,19 @@ figma.connect(Banner, `${LIB}?node-id=TODO`, {
 });
 
 /* ---------------------------------------------------------------- EmptyState */
-figma.connect(EmptyState, `${LIB}?node-id=TODO`, {
+figma.connect(EmptyState, "https://www.figma.com/design/DMJeL5CTgIt4OusKOqoqfU/Ascent-Assistant?node-id=23-2", {
   props: { children: figma.string("Message") },
   example: ({ children }) => <EmptyState>{children}</EmptyState>,
 });
 
 /* ---------------------------------------------------------------- PageHeader */
-figma.connect(PageHeader, `${LIB}?node-id=TODO`, {
+figma.connect(PageHeader, "https://www.figma.com/design/DMJeL5CTgIt4OusKOqoqfU/Ascent-Assistant?node-id=24-3", {
   props: {
     title: figma.string("Title"),
     description: figma.string("Description"),
+    actions: figma.children("actions"),
   },
-  example: ({ title, description }) => (
-    <PageHeader title={title} description={description} />
+  example: ({ title, description, actions }) => (
+    <PageHeader title={title} description={description} actions={actions} />
   ),
 });

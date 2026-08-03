@@ -30,18 +30,28 @@ fixed (no-mode) `Palette` collection so the components can reference them:
 
 | Variable        | Hex       | Variable         | Hex       |
 |-----------------|-----------|------------------|-----------|
-| `neutral/200`   | `#E5E5E5` | `red/50`         | `#FEF2F2` |
-| `neutral/300`   | `#D4D4D4` | `red/300`        | `#FCA5A5` |
+| `neutral/100`   | `#F5F5F5` | `red/50`         | `#FEF2F2` |
+| `neutral/200`   | `#E5E5E5` | `red/300`        | `#FCA5A5` |
+| `neutral/300`   | `#D4D4D4` | `red/400`        | `#F87171` |
 | `neutral/400`   | `#A3A3A3` | `red/600`        | `#DC2626` |
 | `neutral/500`   | `#737373` | `red/700`        | `#B91C1C` |
-| `neutral/600`   | `#525252` | `amber/300`      | `#FCD34D` |
-| `neutral/700`   | `#404040` | `amber/800`      | `#92400E` |
-| `neutral/800`   | `#262626` | `emerald/300`    | `#6EE7B7` |
-| `white`         | `#FFFFFF` | `emerald/700`    | `#047857` |
+| `neutral/600`   | `#525252` | `red/900`        | `#7F1D1D` |
+| `neutral/700`   | `#404040` | `amber/50`       | `#FFFBEB` |
+| `neutral/800`   | `#262626` | `amber/300`      | `#FCD34D` |
+| `white`         | `#FFFFFF` | `amber/800`      | `#92400E` |
+| `emerald/50`    | `#ECFDF5` | `emerald/300`    | `#6EE7B7` |
+| `emerald/700`   | `#047857` |                  |           |
 
-(Dark-mode red/amber/emerald use the `*-950/40` tints — set those on the Dark
-mode of the Banner/Button color parts, or eyeball with ~40% opacity of the deep
-shade. They're incidental status colors, not brand, so precision isn't critical.)
+> **Six of these were missing from earlier drafts of this table** even though the
+> component tables below reference them — `neutral/100`, `red/400`, `red/900`,
+> `amber/50`, `emerald/50`. If you rebuild by hand, don't skip them: `red/400` is
+> the Danger button's dark text and `red/900` its dark border.
+
+**Dark status tints.** `ui.tsx` uses alpha tints (`red-950/40`, `neutral-700/60`)
+which a Figma variable can't express — a variable holds one opaque colour. The
+library stores them **pre-resolved over the dark page** (`#1B1B17`), which is the
+exact pixel the app renders: `red/950-tint #2C1412`, `amber/950-tint #2C1B0F`,
+`emerald/950-tint #11221B`, `neutral/700-tint #313130`. See `tokens.md`.
 
 ---
 

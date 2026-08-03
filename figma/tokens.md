@@ -1,11 +1,15 @@
 # Figma Variables spec — Ascent Assistant
 
-This is the **contract** between Figma and the code. Build these Figma Variable
-collections exactly as listed and your Figma designs will map 1:1 onto the
-tokens the app already renders (`src/app/globals.css` + `tailwind.config.ts`).
-If a value here changes, change it in `globals.css`/`tailwind.config.ts` in the
-same commit — this file is documentation, not a build input, so it can only
-help if it stays in sync.
+This is the **contract** between Figma and the code. These Figma Variable
+collections map 1:1 onto the tokens the app already renders
+(`src/app/globals.css` + `tailwind.config.ts`). If a value here changes, change
+it in `globals.css`/`tailwind.config.ts` in the same commit — this file is
+documentation, not a build input, so it can only help if it stays in sync.
+
+> **Built.** The library exists at
+> **[figma.com/design/DMJeL5CTgIt4OusKOqoqfU](https://www.figma.com/design/DMJeL5CTgIt4OusKOqoqfU)**
+> ("Ascent Assistant") — 5 collections, 80 variables, 5 styles, 8 components.
+> This file is now a description of what's there, not a build list.
 
 Source of truth in code:
 - `src/app/globals.css` — the theme role variables (`--accent`, `--brand`, …).
@@ -41,6 +45,50 @@ the system — design against these, not against raw hex.
 Bind Figma component fills/strokes/text to these role variables. Switching the
 Figma page mode Light↔Dark should then mirror exactly what `.dark` does in code.
 
+> **Scopes do the enforcing.** `accent/DEFAULT`, `accent/hover` and `brand` are
+> scoped to fills and strokes only — they carry **no `TEXT_FILL` scope**, so
+> Figma will not offer ochre when you are colouring text. The contrast rule is a
+> property of the tool, not something you have to remember.
+
+### Collection 1b — the rest of the `Theme` roles
+
+The eight roles above are the brand ones. `ui.tsx` flips more than that — every
+`dark:` variant in it needs a mode-aware token, or the Figma component freezes
+at its light value. These live in the same `Theme` collection.
+
+| Variable | Light | Dark | Code |
+|---|---|---|---|
+| `surface/card`        | `#FFFFFF` | `ink/raised` `#23231E` | `bg-white dark:bg-ink-raised` |
+| `border/default`      | `neutral/300` | `neutral/600` | `border-neutral-300 dark:border-neutral-600` |
+| `border/card`         | `neutral/200` | `neutral/700-tint` | `border-neutral-200 dark:border-neutral-700/60` |
+| `border/dashed`       | `neutral/300` | `neutral/700` | `border-neutral-300 dark:border-neutral-700` |
+| `text/secondary`      | `neutral/700` | `neutral/300` | `text-neutral-700 dark:text-neutral-300` |
+| `danger/text`         | `red/600` | `red/400` | `text-red-600 dark:text-red-400` |
+| `danger/border`       | `red/300` | `red/900` | `border-red-300 dark:border-red-900` |
+| `danger/bg`           | `red/50` | `red/950-tint` | `bg-red-50 dark:bg-red-950/40` |
+| `banner/error-text`   | `red/700` | `red/300` | |
+| `banner/warning-bg`   | `amber/50` | `amber/950-tint` | |
+| `banner/warning-text` | `amber/800` | `amber/300` | |
+| `banner/success-bg`   | `emerald/50` | `emerald/950-tint` | |
+| `banner/success-text` | `emerald/700` | `emerald/300` | |
+| `banner/neutral-bg`   | `neutral/100` | `neutral/800` | |
+| `banner/info-bg`      | `ochre-tint-10` | `olive-tint-15` | `bg-accent/10 dark:bg-accent/15` |
+| `banner/info-text`    | `offblack` | `olive-soft` | `text-accent dark:text-accent-soft` |
+
+**The `-tint` primitives.** Tailwind's dark tones are alpha tints (`red-950/40`,
+`neutral-700/60`). A Figma variable holds one opaque colour, so these are the
+tint **already resolved over the dark page** (`#1B1B17`) — the exact pixel the
+app renders:
+
+| Primitive | Value | Is |
+|---|---|---|
+| `red/950-tint`     | `#2C1412` | `red-950` at 40% over `#1B1B17` |
+| `amber/950-tint`   | `#2C1B0F` | `amber-950` at 40% over `#1B1B17` |
+| `emerald/950-tint` | `#11221B` | `emerald-950` at 40% over `#1B1B17` |
+| `neutral/700-tint` | `#313130` | `neutral-700` at 60% over `#1B1B17` |
+| `ochre-tint-10`    | `#F6EED7` | `ochre` at 10% over cream `#FAF7EE` |
+| `olive-tint-15`    | `#2E2D22` | `olive-lifted` at 15% over `#1B1B17` |
+
 ---
 
 ## Collection 2 — `Brand` (no modes — fixed hues)
@@ -73,18 +121,35 @@ Tailwind defaults, as used by the primitives.
 
 ---
 
-## Collection 4 — semantic banner tones (no modes)
+## Collection 4 — `Spacing` (no modes)
 
-`Banner` tones use the standard Tailwind scales, not brand hues (except `info`,
-which uses `accent`). Encode these if you design status banners.
+Only the values `ui.tsx` actually uses — not a speculative scale. Bind padding
+and gaps to these rather than typing numbers.
 
-| Tone      | Light bg / text            | Dark bg / text                    |
-|-----------|----------------------------|-----------------------------------|
-| `error`   | `#FEF2F2` / `#B91C1C`       | `red-950/40` / `#FCA5A5`          |
-| `warning` | `#FFFBEB` / `#92400E`       | `amber-950/40` / `#FCD34D`        |
-| `success` | `#ECFDF5` / `#047857`       | `emerald-950/40` / `#6EE7B7`      |
-| `info`    | `accent/10` / `text-accent` | `accent/15` / `accent-soft`       |
-| `neutral` | `#F5F5F5` / `#404040`       | `#262626` / `#D4D4D4`             |
+| Variable | px | Used by |
+|----------|----|---------|
+| `space/2`  | 2  | Toggle knob inset (`translate-x-0.5`) |
+| `space/4`  | 4  | Label bottom margin (`mb-1`), PageHeader description gap (`mt-1`) |
+| `space/6`  | 6  | Button content gap (`gap-1.5`), Button sm vertical padding |
+| `space/8`  | 8  | Button md vertical padding, Toggle gap, PageHeader actions gap |
+| `space/10` | 10 | Button lg vertical padding, EmptyState mark gap (`mb-2.5`) |
+| `space/12` | 12 | Button sm horizontal, Input horizontal, Card padding, Banner vertical |
+| `space/16` | 16 | Button md/lg horizontal, Banner horizontal |
+| `space/20` | 20 | PageHeader bottom gap (`mb-5`) |
+| `space/24` | 24 | EmptyState horizontal padding (`px-6`) |
+| `space/32` | 32 | EmptyState vertical padding (`py-8`) |
+
+---
+
+## Collection 5 — `Palette` (no modes)
+
+Tailwind's neutral and status scales, used directly for borders, placeholders
+and banner tones. Not brand colours, so they don't flip: `neutral/100`–`800`,
+`white`, `red/50`–`950`, `amber/50`–`950`, `emerald/50`–`950`, plus the `-tint`
+values listed above.
+
+**Banner tones** are no longer raw values here — they're the `banner/*` roles in
+Collection 1b, so they flip with the theme like everything else.
 
 ---
 
