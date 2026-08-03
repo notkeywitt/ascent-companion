@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { updateLine } from "@/lib/jobtread";
+import { clearJobCostCaches, updateLine } from "@/lib/jobtread";
 import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
 import { db, ensureDb } from "@/db";
 import { savedBills } from "@/db/schema";
@@ -69,6 +69,10 @@ export async function POST(req: NextRequest) {
       });
     }
   }
+
+  // Re-coding or re-pricing a line on a non-draft bill moves cost between codes,
+  // so the job's cached cost-to-complete is now stale.
+  if (results.some((r) => r.ok)) clearJobCostCaches();
 
   // Mark this bill as "saved" (Save clicked + at least one line written) so the
   // coding queue can flag bills the office has already worked. Best-effort — a

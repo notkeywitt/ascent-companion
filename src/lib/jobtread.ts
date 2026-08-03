@@ -83,6 +83,34 @@ export function clearJtRefCache(): void {
   _refCache.clear();
 }
 
+/**
+ * Per-job cost data (budget leaves + cost-to-complete) is cached under these keys.
+ * Short TTL: unlike jobs/vendors, this moves whenever a bill is approved or the
+ * budget is edited in JobTread, and the bill view renders CTC numbers from it. Long
+ * enough to make stepping through a job's coding queue cheap (every bill on a job
+ * reads the same two things), short enough that a JobTread-side edit shows up on its
+ * own within a minute.
+ */
+const JOB_COST_TTL_MS = 60_000;
+const _jobCostKey = (kind: string, orgId: string, jobId: string) => `${kind}:${orgId}:${jobId}`;
+
+/**
+ * Drop every cached budget/CTC entry. Call after any write that changes what those
+ * queries return — approving a bill (it starts counting toward actual), re-coding a
+ * non-draft line, adding/removing/combining lines, moving a bill to another job — so
+ * the bill view can't show a stale Remaining column for up to a minute afterward.
+ *
+ * Deliberately not job-scoped: the bill write routes are given a docId, not a jobId,
+ * and resolving one to the other would cost an extra JobTread round trip on every
+ * write. Clearing all of them instead costs at most one re-read (~300 ms) on the next
+ * bill opened for some *other* job, which is strictly cheaper than that.
+ */
+export function clearJobCostCaches(): void {
+  for (const key of _refCache.keys()) {
+    if (key.startsWith("budget:") || key.startsWith("ctc:")) _refCache.delete(key);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // UNBILLED EXPENSES  (confirmed: documents carry cost/price/priceWithTax and
 // support server-side group/sum by type+status)
@@ -489,8 +517,16 @@ export interface BudgetItem {
  * old full walk, in one page instead of 7–13 (Otis Perkins: 1,209 items scanned →
  * 86 returned, 1,425 ms → 101 ms). Falls back to the unfiltered walk if the filter
  * ever 400s, so the dropdown can't go empty.
+ *
+ * Cached per job (see JOB_COST_TTL_MS) — stepping through a job's coding queue asks
+ * for the same dropdown on every bill.
  */
-export async function getJobBudget(cfg: PaveConfig, jobId: string): Promise<BudgetItem[]> {
+export function getJobBudget(cfg: PaveConfig, jobId: string): Promise<BudgetItem[]> {
+  return cachedRef(_jobCostKey("budget", cfg.orgId, jobId), JOB_COST_TTL_MS, () =>
+    _getJobBudgetUncached(cfg, jobId),
+  );
+}
+async function _getJobBudgetUncached(cfg: PaveConfig, jobId: string): Promise<BudgetItem[]> {
   const walk = async (where?: unknown): Promise<BudgetItem[]> => {
     const items: BudgetItem[] = [];
     let cursor: string | null = null;
@@ -665,7 +701,15 @@ async function _costToCompleteByFullWalk(
   return { budget, actual };
 }
 
-export async function getCostToComplete(
+export function getCostToComplete(
+  cfg: PaveConfig,
+  jobId: string,
+): Promise<Record<string, CostToComplete>> {
+  return cachedRef(_jobCostKey("ctc", cfg.orgId, jobId), JOB_COST_TTL_MS, () =>
+    _getCostToCompleteUncached(cfg, jobId),
+  );
+}
+async function _getCostToCompleteUncached(
   cfg: PaveConfig,
   jobId: string,
 ): Promise<Record<string, CostToComplete>> {

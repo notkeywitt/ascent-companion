@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { clearJobCostCaches } from "@/lib/jobtread";
 
 // Proxy the Assistant's "move this bill to another job" action to the Apps Script
 // doPost router (action "reassignJob"). JobTread can't move a bill between jobs,
@@ -56,6 +57,9 @@ export async function POST(req: NextRequest) {
         { status: 502 },
       );
     }
+    // The bill was delete+recreated on another job, so both jobs' cached
+    // budget/cost-to-complete are stale.
+    clearJobCostCaches();
     return NextResponse.json(data, { status: 200 });
   } catch (e) {
     return NextResponse.json(

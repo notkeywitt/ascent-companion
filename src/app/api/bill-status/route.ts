@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { setBillStatus } from "@/lib/jobtread";
+import { clearJobCostCaches, setBillStatus } from "@/lib/jobtread";
 import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
 
 const ALLOWED = ["draft", "pending", "approved"] as const;
@@ -30,6 +30,9 @@ export async function POST(req: NextRequest) {
   }
   try {
     const saved = await setBillStatus(getPaveConfig(), docId, status);
+    // approved/pending bills count toward cost-to-complete; drafts don't — so any
+    // status change moves the job's actuals.
+    clearJobCostCaches();
     return NextResponse.json({ wrote: true, status: saved });
   } catch (e) {
     return NextResponse.json(

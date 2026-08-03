@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createLine } from "@/lib/jobtread";
+import { clearJobCostCaches, createLine } from "@/lib/jobtread";
 import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
 
 interface Body {
@@ -47,6 +47,7 @@ export async function POST(req: NextRequest) {
       jobCostItemId: body.jobCostItemId || undefined,
       description: body.description,
     });
+    clearJobCostCaches(); // a new line changes the job's actuals per cost code
     return NextResponse.json({ previewed: false, wrote: true, id });
   } catch (e) {
     return NextResponse.json(

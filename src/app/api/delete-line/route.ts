@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { deleteLine } from "@/lib/jobtread";
+import { clearJobCostCaches, deleteLine } from "@/lib/jobtread";
 import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
 
 interface Body {
@@ -38,6 +38,7 @@ export async function POST(req: NextRequest) {
   try {
     const cfg = getPaveConfig();
     await deleteLine(cfg, costItemId);
+    clearJobCostCaches(); // removing a line changes the job's actuals per cost code
     return NextResponse.json({ previewed: false, wrote: true });
   } catch (e) {
     return NextResponse.json(
