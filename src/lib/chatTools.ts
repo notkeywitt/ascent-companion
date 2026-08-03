@@ -147,10 +147,8 @@ export const CHAT_TOOLS: ChatTool[] = [
     },
     handler: async (cfg, input) => {
       const docId = String(input.doc_id);
-      const [detail, files] = await Promise.all([
-        getBillDetail(cfg, docId),
-        getBillFiles(cfg, docId),
-      ]);
+      const detail = await getBillDetail(cfg, docId); // carries its files
+      const files = detail.files;
       return {
         header: detail.header,
         lines: detail.lines.map((l) => ({

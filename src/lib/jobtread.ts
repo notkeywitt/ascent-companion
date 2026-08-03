@@ -268,9 +268,16 @@ export interface BillDetail {
     nonRecoverableTaxName?: string;
   };
   lines: BillLine[];
+  files: BillFile[]; // attached invoice PDF/image — same document, same round trip
 }
 
-/** A bill's header + lines (with current coding). Rich header falls back to minimal. */
+/**
+ * A bill's header + lines (with current coding) + attached files. Rich header falls
+ * back to minimal. `files` rides along in the SAME document query (confirmed live
+ * 2026-08-03: a single `document` read serves costItems and files together, the 413
+ * two-phase rule applies only to costItems nested in a *paged* documents connection),
+ * so the bill view costs one round trip here instead of two.
+ */
 export async function getBillDetail(cfg: PaveConfig, docId: string): Promise<BillDetail> {
   const lineSel = {
     costItems: {
@@ -285,6 +292,7 @@ export async function getBillDetail(cfg: PaveConfig, docId: string): Promise<Bil
         jobCostItem: { id: {} }, // ← the coding target (budget cost item)
       },
     },
+    files: { $: { size: 20 }, nodes: { id: {}, name: {}, type: {}, url: {} } },
   };
   const rich = {
     document: {
@@ -324,6 +332,7 @@ export async function getBillDetail(cfg: PaveConfig, docId: string): Promise<Bil
       nonRecoverableTaxName: d.nonRecoverableTaxName,
     },
     lines: d.costItems?.nodes ?? [],
+    files: d.files?.nodes ?? [],
   };
 }
 
@@ -471,41 +480,58 @@ export interface BudgetItem {
 
 /**
  * The job's budget leaves (coding targets), for the cost-code dropdown. Mirrors
- * the Apps Script budget mapper: paginate job.costItems, skip bill-child items
- * (those carry a document id) and JobTread's auto "Uncategorized <code>" rollups.
+ * the Apps Script budget mapper: skip bill-child items (those carry a document id)
+ * and JobTread's auto "Uncategorized <code>" rollups.
+ *
+ * The document-child filter runs SERVER-side (`where: [["document","id"], null]`),
+ * so JobTread returns only the budget leaves instead of every cost item on the job.
+ * Confirmed live 2026-08-03 on the three biggest jobs — identical leaf sets to the
+ * old full walk, in one page instead of 7–13 (Otis Perkins: 1,209 items scanned →
+ * 86 returned, 1,425 ms → 101 ms). Falls back to the unfiltered walk if the filter
+ * ever 400s, so the dropdown can't go empty.
  */
 export async function getJobBudget(cfg: PaveConfig, jobId: string): Promise<BudgetItem[]> {
-  const items: BudgetItem[] = [];
-  let cursor: string | null = null;
-  for (let page = 0; page < 50; page++) {
-    const args: Record<string, unknown> = { size: 100 };
-    if (cursor) args.page = cursor;
-    const r = await pave(cfg, {
-      job: {
-        $: { id: jobId },
-        id: {},
-        costItems: {
-          $: args,
-          nextPage: {},
-          nodes: {
-            id: {},
-            name: {},
-            document: { id: {} },
-            costCode: { number: {}, name: {} },
+  const walk = async (where?: unknown): Promise<BudgetItem[]> => {
+    const items: BudgetItem[] = [];
+    let cursor: string | null = null;
+    for (let page = 0; page < 50; page++) {
+      const args: Record<string, unknown> = { size: 100 };
+      if (where) args.where = where;
+      if (cursor) args.page = cursor;
+      const r = await pave(cfg, {
+        job: {
+          $: { id: jobId },
+          id: {},
+          costItems: {
+            $: args,
+            nextPage: {},
+            nodes: {
+              id: {},
+              name: {},
+              document: { id: {} },
+              costCode: { number: {}, name: {} },
+            },
           },
         },
-      },
-    });
-    const co = r?.job?.costItems ?? {};
-    for (const n of co.nodes ?? []) {
-      if (n?.document?.id) continue; // bill-child cost item, not a budget leaf
-      if (/^uncategorized\b/i.test(String(n?.name ?? "").trim())) continue;
-      const number = n?.costCode?.number?.toString().trim();
-      if (!number) continue;
-      items.push({ id: n.id, number, name: n?.costCode?.name ?? n?.name ?? "" });
+      });
+      const co = r?.job?.costItems ?? {};
+      for (const n of co.nodes ?? []) {
+        if (n?.document?.id) continue; // bill-child cost item, not a budget leaf
+        if (/^uncategorized\b/i.test(String(n?.name ?? "").trim())) continue;
+        const number = n?.costCode?.number?.toString().trim();
+        if (!number) continue;
+        items.push({ id: n.id, number, name: n?.costCode?.name ?? n?.name ?? "" });
+      }
+      cursor = co.nextPage ?? null;
+      if (!cursor) break;
     }
-    cursor = co.nextPage ?? null;
-    if (!cursor) break;
+    return items;
+  };
+  let items: BudgetItem[];
+  try {
+    items = await walk([["document", "id"], null]);
+  } catch {
+    items = await walk(); // filter rejected — fall back to scanning every cost item
   }
   // stable sort by code for the dropdown
   return items.sort((a, b) => a.number.localeCompare(b.number));
@@ -531,12 +557,75 @@ export interface CostToComplete {
  *   duplicates that would otherwise double-count.
  * - actual is the sum of the code's approved+pending vendor-bill cost items.
  *
- * Keyed by cost code number. One paginated pass over job.costItems.
+ * Keyed by cost code number.
+ *
+ * Both sides are summed BY JOBTREAD, server-side: each is one grouped-aggregate
+ * query (`where` narrows to the documents that count, `group.by` = cost code,
+ * `aggs.total` = sum of cost) rather than a full paginated scan of job.costItems
+ * summed here. Confirmed live 2026-08-03 against the old full-walk numbers on the
+ * three biggest jobs — penny-identical per code, in 2 calls instead of 7–13
+ * (Otis Perkins: 1,408 ms → 321 ms). Falls back to the old walk if either
+ * aggregate ever 400s, so the CTC column can't silently go blank.
  */
-export async function getCostToComplete(
+const CTC_BUDGET_WHERE = {
+  and: [
+    [["document", "type"], "customerOrder"],
+    [["document", "status"], "approved"],
+    [["document", "includeInBudget"], true],
+  ],
+};
+const CTC_ACTUAL_WHERE = {
+  and: [
+    [["document", "type"], "vendorBill"],
+    { in: [{ field: ["document", "status"] }, [{ value: "approved" }, { value: "pending" }]] },
+  ],
+};
+
+/** Σ cost per cost-code number over the cost items matching `where`, summed by JobTread. */
+async function _sumCostByCostCode(
   cfg: PaveConfig,
   jobId: string,
-): Promise<Record<string, CostToComplete>> {
+  where: unknown,
+): Promise<Record<string, number>> {
+  const out: Record<string, number> = {};
+  let page: string | undefined;
+  let guard = 0;
+  do {
+    const r = await pave(cfg, {
+      job: {
+        $: { id: jobId },
+        id: {},
+        costItems: {
+          $: {
+            size: 100, // pages over GROUPS (one per cost code), not raw cost items
+            where,
+            group: { by: [["costCode", "number"]], aggs: { total: { sum: "cost" } } },
+            ...(page ? { page } : {}),
+          },
+          withValues: {},
+          nextPage: {},
+        },
+      },
+    });
+    for (const row of r?.job?.costItems?.withValues ?? []) {
+      const code = row?.costCode?.number?.toString().trim();
+      if (!code) continue;
+      out[code] = (out[code] ?? 0) + (row.total ?? 0);
+    }
+    page = r?.job?.costItems?.nextPage || undefined;
+  } while (page && ++guard < 20);
+  return out;
+}
+
+/**
+ * The pre-2026-08 way: one full paginated scan of job.costItems, bucketed here.
+ * Kept only as the safety net for `getCostToComplete` — same arithmetic, same
+ * result, just 7–13 round trips instead of 2.
+ */
+async function _costToCompleteByFullWalk(
+  cfg: PaveConfig,
+  jobId: string,
+): Promise<{ budget: Record<string, number>; actual: Record<string, number> }> {
   let nodes: any[] = [];
   let page: string | undefined;
   let guard = 0;
@@ -572,6 +661,23 @@ export async function getCostToComplete(
     } else if (d.type === "vendorBill" && (d.status === "approved" || d.status === "pending")) {
       actual[code] = (actual[code] ?? 0) + c;
     }
+  }
+  return { budget, actual };
+}
+
+export async function getCostToComplete(
+  cfg: PaveConfig,
+  jobId: string,
+): Promise<Record<string, CostToComplete>> {
+  let budget: Record<string, number>;
+  let actual: Record<string, number>;
+  try {
+    [budget, actual] = await Promise.all([
+      _sumCostByCostCode(cfg, jobId, CTC_BUDGET_WHERE),
+      _sumCostByCostCode(cfg, jobId, CTC_ACTUAL_WHERE),
+    ]);
+  } catch {
+    ({ budget, actual } = await _costToCompleteByFullWalk(cfg, jobId));
   }
   const out: Record<string, CostToComplete> = {};
   for (const code of new Set([...Object.keys(budget), ...Object.keys(actual)])) {

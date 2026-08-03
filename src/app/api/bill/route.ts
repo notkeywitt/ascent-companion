@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
-import { getBillDetail, getBillFiles, getJobBudget, getCostToComplete } from "@/lib/jobtread";
+import { getBillDetail, getJobBudget, getCostToComplete } from "@/lib/jobtread";
 import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
 import { db, ensureDb } from "@/db";
 import { savedBills } from "@/db/schema";
@@ -20,10 +20,11 @@ export async function GET(req: NextRequest) {
   }
   try {
     const cfg = getPaveConfig();
-    const [detail, budget, files, costToComplete] = await Promise.all([
+    // getBillDetail carries the attached files, so this is 4 Pave calls total
+    // (header+lines+files, budget leaves, and the two CTC aggregates).
+    const [detail, budget, costToComplete] = await Promise.all([
       getBillDetail(cfg, docId),
       getJobBudget(cfg, jobId),
-      getBillFiles(cfg, docId),
       getCostToComplete(cfg, jobId),
     ]);
 
@@ -48,7 +49,7 @@ export async function GET(req: NextRequest) {
       header: detail.header,
       lines: detail.lines,
       budget,
-      files,
+      files: detail.files,
       costToComplete,
       writesEnabled: writesEnabled(),
       reviewed,
