@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { CostCodeSelect, type Option } from "@/components/CostCodeSelect";
@@ -39,6 +39,54 @@ interface FileNode {
   name?: string;
   type?: string;
   url?: string;
+}
+
+/** Everything /api/bill returns — the whole bill view in one payload. */
+interface BillPayload {
+  header?: Header | null;
+  lines?: Line[];
+  budget?: Option[];
+  costToComplete?: Record<string, { budget: number; actual: number; remaining: number }>;
+  files?: FileNode[];
+  writesEnabled?: boolean;
+  reviewed?: boolean;
+  saved?: boolean;
+  error?: string;
+}
+
+// ---------------------------------------------------------------------------
+// BILL PAYLOAD CACHE
+// Coding is a queue: the bill you open next is almost always the one ‹ prev /
+// next › points at. So keep recent payloads here and fetch the neighbours in the
+// background while you read the current bill — stepping through the queue then
+// costs a state update instead of a round trip. Entries are short-lived, and a
+// cache hit still revalidates behind the scenes, so a stale read (someone edited
+// the bill in JobTread meanwhile) corrects itself a few hundred ms after landing.
+// Module scope, so it survives navigation between bills but not a page reload.
+// ---------------------------------------------------------------------------
+const BILL_CACHE_TTL_MS = 30_000;
+const billCache = new Map<string, { at: number; payload: BillPayload }>();
+const billCacheKey = (docId: string, jobId: string) => `${docId}|${jobId}`;
+
+async function fetchBillPayload(docId: string, jobId: string): Promise<BillPayload> {
+  const res = await fetch(
+    `/api/bill?docId=${encodeURIComponent(docId)}&jobId=${encodeURIComponent(jobId)}`,
+  );
+  const json = (await res.json()) as BillPayload;
+  if (!res.ok) throw new Error(json.error ?? "Request failed");
+  billCache.set(billCacheKey(docId, jobId), { at: Date.now(), payload: json });
+  return json;
+}
+
+function cachedBillPayload(docId: string, jobId: string): BillPayload | null {
+  const key = billCacheKey(docId, jobId);
+  const hit = billCache.get(key);
+  if (!hit) return null;
+  if (Date.now() - hit.at > BILL_CACHE_TTL_MS) {
+    billCache.delete(key);
+    return null;
+  }
+  return hit.payload;
 }
 
 const money = (n?: number) =>
@@ -143,33 +191,56 @@ function BillDetail() {
   const [combineMsg, setCombineMsg] = useState("");
   const [deletingId, setDeletingId] = useState("");
   const [taxEdit, setTaxEdit] = useState<string | null>(null); // null = not editing (shows JT's value)
+  // Bumped whenever the cache is dropped, so the prefetch effect re-warms the
+  // neighbours after a write instead of leaving them cold until you navigate.
+  const [cacheEpoch, setCacheEpoch] = useState(0);
+  // Whether the user has started editing THIS bill. A background revalidation
+  // must never overwrite line edits in progress, and this is the same signal the
+  // sticky Save bar counts (assigned below, once `changeCount` exists).
+  const dirtyRef = useRef(false);
+
+  /** Drop every cached payload — any write can move the job's budget/CTC numbers. */
+  function invalidateBills() {
+    billCache.clear();
+    setCacheEpoch((n) => n + 1);
+  }
+
+  function applyBill(json: BillPayload) {
+    setHeader(json.header ?? null);
+    setLines(json.lines ?? []);
+    setBudget(json.budget ?? []);
+    setCtc(json.costToComplete ?? {});
+    setFiles(json.files ?? []);
+    setWrites(Boolean(json.writesEnabled));
+    setReviewed(Boolean(json.reviewed));
+    setSaved(Boolean(json.saved));
+  }
 
   useEffect(() => {
     let alive = true;
+    // A prefetched neighbour renders immediately; anything else shows the spinner.
+    const cached = cachedBillPayload(docId, jobId);
+    setError("");
+    setSelected([]);
+    setTaxEdit(null);
+    // Edits belong to the bill they were typed on — arriving at a different one
+    // starts clean (and keeps `dirtyRef` honest for the revalidation below).
+    setPicked({});
+    setEdits({});
+    if (cached) applyBill(cached);
+    setLoading(!cached);
     (async () => {
-      setLoading(true);
-      setError("");
-      setSelected([]);
-      setTaxEdit(null);
       try {
-        const res = await fetch(
-          `/api/bill?docId=${encodeURIComponent(docId)}&jobId=${encodeURIComponent(jobId)}`,
-        );
-        const json = await res.json();
+        const json = await fetchBillPayload(docId, jobId);
         if (!alive) return;
-        if (!res.ok) setError(json.error ?? "Request failed");
-        else {
-          setHeader(json.header ?? null);
-          setLines(json.lines ?? []);
-          setBudget(json.budget ?? []);
-          setCtc(json.costToComplete ?? {});
-          setFiles(json.files ?? []);
-          setWrites(Boolean(json.writesEnabled));
-          setReviewed(Boolean(json.reviewed));
-          setSaved(Boolean(json.saved));
-        }
+        // Revalidating what's already on screen: leave it alone once the user has
+        // started editing, rather than resetting their work under them.
+        if (cached && dirtyRef.current) return;
+        applyBill(json);
       } catch (e) {
-        if (alive) setError(e instanceof Error ? e.message : "Network error");
+        // A failed revalidation keeps the (still usable) cached view; only a load
+        // with nothing to show is an error.
+        if (alive && !cached) setError(e instanceof Error ? e.message : "Network error");
       } finally {
         if (alive) setLoading(false);
       }
@@ -177,6 +248,7 @@ function BillDetail() {
     return () => {
       alive = false;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [docId, jobId]);
 
   // Coding-queue order for this job, so we can step ‹ prev / next › between bills.
@@ -203,6 +275,19 @@ function BillDetail() {
   const qIdx = queue.indexOf(docId);
   const prevId = qIdx > 0 ? queue[qIdx - 1] : null;
   const nextId = qIdx >= 0 && qIdx < queue.length - 1 ? queue[qIdx + 1] : null;
+
+  // Warm ‹ prev / next › in the background once this bill is on screen, so the
+  // arrows render from cache instead of waiting on JobTread. Held until the
+  // current load finishes so the prefetches never compete with it.
+  useEffect(() => {
+    if (loading || !jobId) return;
+    for (const id of [nextId, prevId]) {
+      if (!id || cachedBillPayload(id, jobId)) continue;
+      fetchBillPayload(id, jobId).catch(() => {
+        /* best-effort warm-up; navigating there will retry and surface any error */
+      });
+    }
+  }, [prevId, nextId, jobId, loading, cacheEpoch]);
 
   const round2 = (n: number) => Math.round(n * 100) / 100;
   // JobTread stores each line's cost tax-INCLUSIVE, and a bill's TOTAL is ALWAYS the sum of
@@ -338,22 +423,21 @@ function BillDetail() {
   // — covers refresh/close, in-app links, and Back/Forward.
   useUnsavedChanges(changeCount > 0);
 
+  // Same signal, readable from the load effect's async callback (see dirtyRef).
+  dirtyRef.current = changeCount > 0;
+
   // Re-read the bill's header from JobTread (authoritative) without disturbing
   // in-progress line edits. Used after any header write so the toggles/status
   // reflect JT's true state — including fields JT changes on its own (e.g.
   // qboIsIgnored can flip when a bill is approved).
   async function reloadHeader() {
+    invalidateBills(); // the write that prompted this may have moved the job's numbers
     try {
-      const res = await fetch(
-        `/api/bill?docId=${encodeURIComponent(docId)}&jobId=${encodeURIComponent(jobId)}`,
-      );
-      const json = await res.json();
-      if (res.ok) {
-        setHeader(json.header ?? null);
-        setWrites(Boolean(json.writesEnabled));
-        setReviewed(Boolean(json.reviewed));
-        setSaved(Boolean(json.saved));
-      }
+      const json = await fetchBillPayload(docId, jobId);
+      setHeader(json.header ?? null);
+      setWrites(Boolean(json.writesEnabled));
+      setReviewed(Boolean(json.reviewed));
+      setSaved(Boolean(json.saved));
     } catch {
       /* keep optimistic state */
     }
@@ -388,21 +472,9 @@ function BillDetail() {
 
   // Full re-read of the bill (header + lines + budget/CTC) from JobTread.
   async function loadBill() {
+    invalidateBills(); // never serve a pre-write payload to this bill or its neighbours
     try {
-      const res = await fetch(
-        `/api/bill?docId=${encodeURIComponent(docId)}&jobId=${encodeURIComponent(jobId)}`,
-      );
-      const json = await res.json();
-      if (res.ok) {
-        setHeader(json.header ?? null);
-        setLines(json.lines ?? []);
-        setBudget(json.budget ?? []);
-        setCtc(json.costToComplete ?? {});
-        setFiles(json.files ?? []);
-        setWrites(Boolean(json.writesEnabled));
-        setReviewed(Boolean(json.reviewed));
-        setSaved(Boolean(json.saved));
-      }
+      applyBill(await fetchBillPayload(docId, jobId));
     } catch {
       /* keep current state */
     }
@@ -526,6 +598,7 @@ function BillDetail() {
         body: JSON.stringify({ docId, reviewed: next }),
       });
       if (!res.ok) setReviewed(!next); // revert on failure
+      else invalidateBills(); // cached payload still carries the old flag
     } catch {
       setReviewed(!next); // revert on error
     } finally {
@@ -900,6 +973,7 @@ function BillDetail() {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ docId, issueDate }),
               });
+              invalidateBills(); // cached payload still carries the old issueDate
             }}
             className="rounded-lg border border-neutral-300 bg-white px-2 py-1 text-sm transition focus:border-accent dark:border-neutral-600 dark:bg-ink-raised"
           >
