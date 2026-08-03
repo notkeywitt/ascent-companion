@@ -131,6 +131,7 @@ function BillDetail() {
   const [reassignMsg, setReassignMsg] = useState("");
   const [bulkCode, setBulkCode] = useState("");
   const [reviewed, setReviewed] = useState(false);
+  const [saved, setSaved] = useState(false); // Save has been clicked on this bill (assistant-local)
   const [reviewLoading, setReviewLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [addingLine, setAddingLine] = useState(false);
@@ -165,6 +166,7 @@ function BillDetail() {
           setFiles(json.files ?? []);
           setWrites(Boolean(json.writesEnabled));
           setReviewed(Boolean(json.reviewed));
+          setSaved(Boolean(json.saved));
         }
       } catch (e) {
         if (alive) setError(e instanceof Error ? e.message : "Network error");
@@ -350,6 +352,7 @@ function BillDetail() {
         setHeader(json.header ?? null);
         setWrites(Boolean(json.writesEnabled));
         setReviewed(Boolean(json.reviewed));
+        setSaved(Boolean(json.saved));
       }
     } catch {
       /* keep optimistic state */
@@ -398,6 +401,7 @@ function BillDetail() {
         setFiles(json.files ?? []);
         setWrites(Boolean(json.writesEnabled));
         setReviewed(Boolean(json.reviewed));
+        setSaved(Boolean(json.saved));
       }
     } catch {
       /* keep current state */
@@ -629,6 +633,9 @@ function BillDetail() {
       setEdits({});
       setTaxEdit(null);
       setSaveMsg(failed ? `Saved, ${failed} line(s) failed.` : "Saved.");
+      // The stored flag only records a LINE write (same rule the coding queue uses),
+      // so flip the marker optimistically on that condition; loadBill re-reads it.
+      if (allLineChanges.length && failed < allLineChanges.length) setSaved(true);
       await loadBill();
       reloadJtWindow();
     } catch (e) {
@@ -832,6 +839,16 @@ function BillDetail() {
         <PageTitle>{title}</PageTitle>
         <div className="mt-1 flex flex-wrap items-center gap-2">
           {header?.status && <BillStatusBadge status={header.status} />}
+          {/* Same "✓ Saved" marker the coding queue shows. Reviewed outranks it there,
+              and here the Reviewed state already has its own button below. */}
+          {saved && !reviewed && (
+            <span
+              title="Save has been clicked on this bill"
+              className="inline-block shrink-0 rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300"
+            >
+              ✓ Saved
+            </span>
+          )}
           <p className="font-mono text-xs text-neutral-500">
             {header?.issueDate ? header.issueDate + " · " : ""}
             {docId}

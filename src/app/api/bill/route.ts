@@ -27,18 +27,21 @@ export async function GET(req: NextRequest) {
       getCostToComplete(cfg, jobId),
     ]);
 
-    // Assistant-local "reviewed" flag for this bill (best-effort).
+    // Assistant-local flags for this bill: saved (Save clicked) and reviewed
+    // (explicitly marked done) — the same pair the coding queue shows. Best-effort.
     let reviewed = false;
+    let saved = false;
     try {
       await ensureDb();
       const [row] = await db
-        .select({ reviewed: savedBills.reviewed })
+        .select({ reviewed: savedBills.reviewed, savedAt: savedBills.savedAt })
         .from(savedBills)
         .where(eq(savedBills.docId, docId))
         .limit(1);
       reviewed = Boolean(row?.reviewed);
+      saved = (row?.savedAt ?? "") !== "";
     } catch {
-      /* flag is best-effort */
+      /* flags are best-effort */
     }
 
     return NextResponse.json({
@@ -49,6 +52,7 @@ export async function GET(req: NextRequest) {
       costToComplete,
       writesEnabled: writesEnabled(),
       reviewed,
+      saved,
     });
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : "Unknown error";
