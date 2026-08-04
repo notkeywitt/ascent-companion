@@ -7,6 +7,7 @@ import { CopyButton } from "@/components/CopyButton";
 import { JtLink } from "@/components/JtLink";
 import { SunsetDuplicateScan } from "@/components/SunsetDuplicateScan";
 import { Banner, Button, CardSkeletonList, EmptyState, PageHeader, Spinner } from "@/components/ui";
+import { clearTouchedBills, touchedBillCount } from "@/lib/billTouch";
 
 const TSYS_URL = "https://hostedpaynow.com/hostedapp/tsys/paymentOptions";
 const FILTERS = ["unpaid", "paid", "all"] as const;
@@ -125,18 +126,64 @@ const moneyN = (n: number) =>
     ? "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
     : "—";
 
+// ---------------------------------------------------------------------------
+// PAGE SNAPSHOT
+// Both of this page's loads are expensive, and the reconcile especially so: Apps
+// Script re-reads the whole Expenditure sheet and pages every JobTread vendorBill
+// since the cutoff (~10-20s). Clicking an invoice to fix its bill and coming back
+// used to pay all of that again behind skeletons — which is what made working a
+// statement feel slow, since one statement means several trips into bills.
+//
+// So the last payloads live here at module scope: they survive navigation inside
+// the app (not a reload), render on the FIRST paint of a return visit, and are
+// re-fetched only in the BACKGROUND — when a bill was written through the
+// assistant (markBillTouched, set by the bill page's cache invalidation) or when
+// the snapshot has gone cold. The expanded cards and scroll offset ride along, so
+// you land where you left off instead of at the top of a collapsed list.
+// ---------------------------------------------------------------------------
+const SNAP_COLD_MS = 2 * 60_000; // older than this → refresh behind the scenes
+const SNAP_MAX_MS = 30 * 60_000; // older than this → don't show it, load fresh
+let snapList: { at: number; filter: Filter; items: Statement[] } | null = null;
+let snapRecon: { at: number; recon: Record<string, Reconciliation>; live: boolean } | null = null;
+const openCards = new Set<string>(); // expIds whose invoice list is expanded
+let snapScrollY = 0;
+let snapFilter: Filter = "unpaid"; // the tab you were on, so a return doesn't reset it
+
+const validSnapList = (f: Filter) =>
+  snapList && snapList.filter === f && Date.now() - snapList.at < SNAP_MAX_MS ? snapList : null;
+const validSnapRecon = () =>
+  snapRecon && Date.now() - snapRecon.at < SNAP_MAX_MS ? snapRecon : null;
+
 export default function PaymentsPage() {
-  const [items, setItems] = useState<Statement[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState<Filter>(snapFilter);
+  // First render only: what the snapshot can put on screen immediately. Reading it
+  // in the state initializers (rather than an effect) is the point — an effect
+  // would paint one frame of skeletons before the cached rows appeared.
+  const [restored] = useState(() => ({ list: validSnapList(snapFilter), recon: validSnapRecon() }));
+  const [items, setItems] = useState<Statement[]>(restored.list ? restored.list.items : []);
+  const [loading, setLoading] = useState(!restored.list);
   const [error, setError] = useState("");
-  const [filter, setFilter] = useState<Filter>("unpaid");
   const [busy, setBusy] = useState<Record<string, boolean>>({});
   const [failed, setFailed] = useState<Record<string, boolean>>({});
   const [filling, setFilling] = useState(false);
-  const [recon, setRecon] = useState<Record<string, Reconciliation>>({});
-  const [reconLoading, setReconLoading] = useState(true);
-  const [reconLive, setReconLive] = useState(true);
+  const [recon, setRecon] = useState<Record<string, Reconciliation>>(
+    restored.recon ? restored.recon.recon : {},
+  );
+  const [reconLoading, setReconLoading] = useState(!restored.recon);
+  const [reconLive, setReconLive] = useState(restored.recon ? restored.recon.live : true);
+  // How many background re-fetches are in flight (a counter, not a flag — the
+  // list and the reconcile refresh independently).
+  const [refreshing, setRefreshing] = useState(0);
+  const [openIds, setOpenIds] = useState<string[]>(() => Array.from(openCards));
   const runRef = useRef(0);
+  const reconRunRef = useRef(0);
+
+  /** Remember which cards are expanded, so a trip into a bill doesn't collapse them. */
+  function toggleCard(expId: string, isOpen: boolean) {
+    if (isOpen) openCards.add(expId);
+    else openCards.delete(expId);
+    setOpenIds(Array.from(openCards));
+  }
 
   // Progressively Gemini-extract the uncached statements in small batches so no
   // single request ever runs unbounded work. `token` guards against a filter
@@ -172,62 +219,128 @@ export default function PaymentsPage() {
     if (token === runRef.current) setFilling(false);
   }, []);
 
+  // `background` = a snapshot is already on screen: keep it there, no skeletons,
+  // no error banner if the refresh fails (what's showing is still usable).
   const load = useCallback(
-    async (f: Filter) => {
+    async (f: Filter, background: boolean) => {
       const token = ++runRef.current;
-      setLoading(true);
-      setError("");
-      setFilling(false);
-      setFailed({});
+      if (background) setRefreshing((n) => n + 1);
+      else {
+        setLoading(true);
+        setError("");
+        setFilling(false);
+        setFailed({});
+      }
       try {
         const res = await fetch(`/api/sunset-statements?status=${f}`);
         const json = await res.json();
         if (token !== runRef.current) return;
         if (!res.ok || json.ok === false) {
-          setError(json.error ?? "Request failed");
+          if (!background) setError(json.error ?? "Request failed");
           return;
         }
         const list: Statement[] = json.items ?? [];
         setItems(list);
+        snapList = { at: Date.now(), filter: f, items: list };
         const uncached = list.filter((s) => !s.extractedAt).map((s) => s.expId);
         if (uncached.length) fill(uncached, token);
       } catch (e) {
-        if (token === runRef.current) setError(e instanceof Error ? e.message : "Network error");
+        if (token === runRef.current && !background) {
+          setError(e instanceof Error ? e.message : "Network error");
+        }
       } finally {
-        if (token === runRef.current) setLoading(false);
+        if (background) setRefreshing((n) => n - 1);
+        else if (token === runRef.current) setLoading(false);
       }
     },
     [fill],
   );
 
+  // Invoice-vs-statement reconciliation is keyed by ExpID and independent of the
+  // paid/unpaid filter, so it's fetched separately from the list. It nets the
+  // Sunset invoices the system holds for each statement's project + billing month
+  // against the statement, so the card can show whether every invoice on it is
+  // accounted for. This is the slow call — hence the snapshot.
+  const loadRecon = useCallback(async (background: boolean) => {
+    const token = ++reconRunRef.current;
+    if (background) setRefreshing((n) => n + 1);
+    else setReconLoading(true);
+    try {
+      const res = await fetch("/api/sunset-statements/reconcile");
+      const json = await res.json();
+      if (token !== reconRunRef.current) return;
+      if (res.ok && json.ok !== false) {
+        const next = (json.reconciliation as Record<string, Reconciliation>) ?? {};
+        const live = json.liveChecked !== false;
+        setRecon(next);
+        setReconLive(live);
+        snapRecon = { at: Date.now(), recon: next, live };
+        // This pull saw every bill written since the last one, so the staleness
+        // signal is spent — the next return visit needn't refresh for them.
+        clearTouchedBills();
+      }
+    } catch {
+      /* non-fatal enhancement — keep whatever is already on screen */
+    } finally {
+      if (background) setRefreshing((n) => n - 1);
+      else if (token === reconRunRef.current) setReconLoading(false);
+    }
+  }, []);
+
+  /** Force both reads now (the Refresh button), without blanking the page. */
+  function refreshNow() {
+    load(filter, true);
+    loadRecon(true);
+  }
+
+  // The statements list: from the snapshot when one matches this filter, else a
+  // real load. A snapshot is revalidated only when a bill was written or it has
+  // gone cold — so bill → back → bill costs nothing.
   useEffect(() => {
-    load(filter);
+    const snap = validSnapList(filter);
+    if (!snap) {
+      load(filter, false);
+      return;
+    }
+    setItems(snap.items);
+    setLoading(false);
+    if (touchedBillCount() > 0 || Date.now() - snap.at > SNAP_COLD_MS) load(filter, true);
   }, [filter, load]);
 
-  // Invoice-vs-statement reconciliation is keyed by ExpID and independent of the
-  // paid/unpaid filter, so fetch it once. It sums the Sunset invoices ingested for
-  // each statement's project + billing month so the card can show whether every
-  // invoice on the statement is accounted for.
+  // Same policy for the reconcile (which ignores the filter, so it's mount-only).
   useEffect(() => {
-    let live = true;
-    (async () => {
-      setReconLoading(true);
-      try {
-        const res = await fetch("/api/sunset-statements/reconcile");
-        const json = await res.json();
-        if (live && res.ok && json.ok !== false) {
-          setRecon((json.reconciliation as Record<string, Reconciliation>) ?? {});
-          setReconLive(json.liveChecked !== false);
-        }
-      } catch {
-        /* reconciliation is a non-fatal enhancement — leave it empty on error */
-      } finally {
-        if (live) setReconLoading(false);
-      }
-    })();
-    return () => {
-      live = false;
+    const snap = validSnapRecon();
+    if (snap) {
+      setRecon(snap.recon);
+      setReconLive(snap.live);
+      setReconLoading(false);
+    }
+    if (!snap || touchedBillCount() > 0 || Date.now() - snap.at > SNAP_COLD_MS) loadRecon(!!snap);
+  }, [loadRecon]);
+
+  // Keep the snapshot in step with what is actually on screen — the Gemini header
+  // values fill in after the list arrives, and Mark paid moves a row — so a return
+  // visit renders the page as you left it, not as it first loaded. The freshness
+  // stamp stays the LAST FETCH's, since none of this is new data from the server.
+  useEffect(() => {
+    if (loading) return;
+    const at = snapList && snapList.filter === filter ? snapList.at : Date.now();
+    snapList = { at, filter, items };
+  }, [items, filter, loading]);
+
+  // Land back where you were reading — but only when the snapshot supplied BOTH
+  // payloads, since then every card renders at its final height on the first
+  // paint and the saved offset still points at the same statement.
+  useEffect(() => {
+    if (restored.list && restored.recon && snapScrollY > 0) window.scrollTo(0, snapScrollY);
+  }, [restored]);
+
+  useEffect(() => {
+    const onScroll = () => {
+      snapScrollY = window.scrollY;
     };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
   async function setPaid(expId: string, status: "paid" | "unpaid") {
@@ -243,11 +356,11 @@ export default function PaymentsPage() {
         setError(json.error ?? "Could not update");
         return;
       }
-      setItems((rows) =>
+      const next =
         filter === "all"
-          ? rows.map((r) => (r.expId === expId ? { ...r, ...json.statement } : r))
-          : rows.filter((r) => r.expId !== expId),
-      );
+          ? items.map((r) => (r.expId === expId ? { ...r, ...json.statement } : r))
+          : items.filter((r) => r.expId !== expId);
+      setItems(next);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Network error");
     } finally {
@@ -269,7 +382,10 @@ export default function PaymentsPage() {
         {FILTERS.map((f) => (
           <button
             key={f}
-            onClick={() => setFilter(f)}
+            onClick={() => {
+              snapFilter = f;
+              setFilter(f);
+            }}
             className={
               "rounded-full px-3 py-1 text-xs font-semibold capitalize transition " +
               (filter === f
@@ -280,11 +396,21 @@ export default function PaymentsPage() {
             {f}
           </button>
         ))}
-        {filling && (
-          <span className="ml-auto flex items-center gap-1.5 text-xs text-neutral-500">
-            <Spinner /> Reading statements…
-          </span>
-        )}
+        <div className="ml-auto flex items-center gap-1.5">
+          {(filling || refreshing > 0) && (
+            <span className="flex items-center gap-1.5 text-xs text-neutral-500">
+              <Spinner /> {filling ? "Reading statements…" : "Refreshing…"}
+            </span>
+          )}
+          <button
+            onClick={refreshNow}
+            disabled={refreshing > 0}
+            title="Re-read the statements and re-run the reconcile"
+            className="rounded-full px-2.5 py-1 text-xs font-semibold text-neutral-500 transition hover:bg-neutral-100 disabled:opacity-40 dark:hover:bg-white/10"
+          >
+            Refresh
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -534,7 +660,11 @@ export default function PaymentsPage() {
                     </div>
                   ) : null}
 
-                  <details className="mt-1.5 group">
+                  <details
+                    className="mt-1.5 group"
+                    open={openIds.includes(s.expId)}
+                    onToggle={(e) => toggleCard(s.expId, e.currentTarget.open)}
+                  >
                     <summary className="cursor-pointer list-none select-none opacity-80 hover:opacity-100">
                       <span className="group-open:hidden">Show {rc.creditCount > 0 ? "invoices & credits" : "invoices"} ▸</span>
                       <span className="hidden group-open:inline">Hide {rc.creditCount > 0 ? "invoices & credits" : "invoices"} ▾</span>

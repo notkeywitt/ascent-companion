@@ -15,6 +15,7 @@ import {
   btn,
 } from "@/components/ui";
 import { createTaskRunner } from "@/lib/taskRunner";
+import { TrackingSheetRisks } from "@/components/TrackingSheetRisks";
 
 /**
  * Google Tracking Sheet — pushes a job's month of sub/vendor invoices into that
@@ -69,6 +70,10 @@ interface SyncResult {
   billCount: number;
   total: number;
   unmatched: UnmatchedCsi[];
+  /** Header cell holds different whitespace (a non-breaking space) — retype it. */
+  whitespaceOnly?: UnmatchedCsi[];
+  /** Column exists but has no FILTER/total formulas, so it reads $0 forever. */
+  deadColumns?: (UnmatchedCsi & { column?: string; missing?: string[] })[];
   unmatchedTotal: number;
   trackingSheetName: string;
   trackingSheetUrl: string;
@@ -427,23 +432,12 @@ function QueueRow({ item }: { item: QueueItem }) {
                 : ""}
             </p>
           )}
-          {s.unmatched.length > 0 && (
-            <Banner tone="warning" className="mt-2 text-xs">
-              <p className="font-semibold">
-                {s.unmatched.length} CSI code{s.unmatched.length === 1 ? "" : "s"} not in the
-                sheet&apos;s header row — {money(s.unmatchedTotal)} will not reach the Tracking Sheet.
-              </p>
-              <ul className="mt-1">
-                {s.unmatched.map((u) => (
-                  <li key={u.csi} className="flex justify-between gap-2">
-                    <span className="font-mono">{u.csi}</span>
-                    <span className="min-w-0 flex-1 truncate opacity-80">{u.vendors.join(", ")}</span>
-                    <span className="font-semibold">{money(u.amount)}</span>
-                  </li>
-                ))}
-              </ul>
-            </Banner>
-          )}
+          <TrackingSheetRisks
+            unmatched={s.unmatched}
+            whitespaceOnly={s.whitespaceOnly}
+            deadColumns={s.deadColumns}
+            className="mt-2"
+          />
           <a
             href={s.trackingSheetUrl}
             target="_blank"

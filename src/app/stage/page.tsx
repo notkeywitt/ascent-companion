@@ -7,6 +7,7 @@ import { JtLink } from "@/components/JtLink";
 import { BillStatusBadge } from "@/components/BillStatusBadge";
 import { useAccess } from "@/components/AccessProvider";
 import { createTaskRunner } from "@/lib/taskRunner";
+import { TrackingSheetRisks } from "@/components/TrackingSheetRisks";
 import {
   Banner,
   Button,
@@ -101,6 +102,8 @@ interface TrackingSyncResult {
   billCount: number;
   total: number;
   unmatched: { csi: string; amount: number; vendors: string[] }[];
+  whitespaceOnly?: { csi: string; amount: number; vendors: string[] }[];
+  deadColumns?: { csi: string; amount: number; vendors: string[]; column?: string }[];
   unmatchedTotal: number;
   trackingSheetName: string;
   trackingSheetUrl: string;
@@ -197,14 +200,13 @@ function TrackingSheetSync({
             </a>
             {typeof result.durationSec === "number" ? ` · ${result.durationSec.toFixed(1)}s` : ""}
           </p>
-          {result.unmatched.length > 0 && (
-            <Banner tone="warning" className="mt-1.5 !py-2 text-xs">
-              {result.unmatched.length} cost code
-              {result.unmatched.length === 1 ? "" : "s"} ({result.unmatched.map((u) => u.csi).join(", ")})
-              aren&apos;t in the sheet&apos;s header row — {money(result.unmatchedTotal)} won&apos;t
-              reach the Tracking Sheet.
-            </Banner>
-          )}
+          <TrackingSheetRisks
+            unmatched={result.unmatched}
+            whitespaceOnly={result.whitespaceOnly}
+            deadColumns={result.deadColumns}
+            compact
+            className="mt-1.5 !py-2"
+          />
         </>
       )}
     </div>

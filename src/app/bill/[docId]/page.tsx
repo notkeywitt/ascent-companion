@@ -9,6 +9,7 @@ import { JobPicker } from "@/components/JobPicker";
 import { PageTitle } from "@/components/PageTitle";
 import { BillStatusBadge } from "@/components/BillStatusBadge";
 import { Banner, Button, Loading, btn } from "@/components/ui";
+import { markBillTouched } from "@/lib/billTouch";
 import { useUnsavedChanges } from "@/lib/useUnsavedChanges";
 
 interface Line {
@@ -203,6 +204,9 @@ function BillDetail() {
   function invalidateBills() {
     billCache.clear();
     setCacheEpoch((n) => n + 1);
+    // Every write path here funnels through this, so it is also where the pages
+    // that cache a LIST of bills (e.g. /payments) learn their snapshot is stale.
+    markBillTouched(docId);
   }
 
   function applyBill(json: BillPayload) {

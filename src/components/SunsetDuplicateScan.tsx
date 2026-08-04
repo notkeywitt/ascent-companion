@@ -70,9 +70,14 @@ const statusCls = (s: string) => {
   return "text-emerald-600 dark:text-emerald-400"; // approved
 };
 
+// The last scan, kept at module scope so leaving the page to fix a duplicate and
+// coming back doesn't throw the findings away (it's a slow, all-of-JobTread scan).
+// Cleared by a reload; "Rescan" replaces it.
+let lastScan: ScanResult | null = null;
+
 export function SunsetDuplicateScan() {
-  const [state, setState] = useState<"idle" | "loading" | "done">("idle");
-  const [data, setData] = useState<ScanResult | null>(null);
+  const [state, setState] = useState<"idle" | "loading" | "done">(lastScan ? "done" : "idle");
+  const [data, setData] = useState<ScanResult | null>(lastScan);
   const [error, setError] = useState("");
 
   async function run() {
@@ -86,7 +91,8 @@ export function SunsetDuplicateScan() {
         setState(data ? "done" : "idle");
         return;
       }
-      setData(json as ScanResult);
+      lastScan = json as ScanResult;
+      setData(lastScan);
       setState("done");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Network error");
