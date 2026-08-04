@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Banner,
   Button,
@@ -14,6 +14,7 @@ import {
   Spinner,
   btn,
 } from "@/components/ui";
+import { createTaskRunner } from "@/lib/taskRunner";
 
 /**
  * Google Tracking Sheet — pushes a job's month of sub/vendor invoices into that
@@ -27,8 +28,21 @@ import {
  *   Finalize → the CURRENT INVOICE block is copied into the month's reserved
  *              historical block and labelled (e.g. "July '26").
  *
+ * Both run in the BACKGROUND: tapping either queues the work and frees the
+ * controls immediately, so the office can walk down the job list without waiting
+ * out each round trip. Two rules keep that safe:
+ *
+ *   - Work for one job is SERIALIZED (a per-job promise chain). Finalize reads
+ *     the CURRENT INVOICE column, which a Sync for the same job is in the middle
+ *     of changing, so those must never overlap.
+ *   - Work for different jobs runs in PARALLEL, capped at MAX_PARALLEL so a long
+ *     queue doesn't open a dozen simultaneous Apps Script executions.
+ *
  * Only projects with a "Tracking Sheet" URL on their Projects row appear here.
  */
+
+/** Simultaneous in-flight requests across DIFFERENT jobs. */
+const MAX_PARALLEL = 3;
 
 interface JobRef {
   id: string;
@@ -51,50 +65,50 @@ interface UnmatchedCsi {
 
 interface SyncResult {
   ok: true;
-  dryRun: boolean;
-  jobLabel: string;
-  monthLabel: string;
-  trackingSheetName: string;
-  trackingSheetUrl: string;
-  tab: string;
   rowCount: number;
   billCount: number;
   total: number;
   unmatched: UnmatchedCsi[];
   unmatchedTotal: number;
-  note: string;
+  trackingSheetName: string;
+  trackingSheetUrl: string;
+  tab: string;
+  durationSec?: number;
+  jtPages?: number;
+  costItemsScanned?: number;
+  timings?: Record<string, number>;
 }
 
 interface FinalizeResult {
   ok: true;
-  dryRun: boolean;
-  jobLabel: string;
   monthLabel: string;
-  trackingSheetName: string;
-  trackingSheetUrl: string;
-  tab: string;
   mode: string;
-  previousLabel: string;
   blockIndex: number;
   blockCount: number;
   blocksRemaining: number;
   targetRange: string;
-  labelCell: string;
-  rowCount: number;
   dataRowCount: number;
-  /** Row span of the sheet's own totals block, or "none". */
   totalsRows: string;
-  columns: string[];
-  /** Row the bottom line was read from. */
   totalRow: number;
-  /**
-   * The sheet's OWN bottom line, not a derived sum — the cost-code region
-   * interleaves line items with section subtotals, so adding up the column
-   * double-counts.
-   */
   sheetTotalRow: Record<string, number>;
-  overwroteValues: boolean;
-  note: string;
+  trackingSheetUrl: string;
+}
+
+type Op = "sync" | "finalize";
+type JobStatus = "queued" | "running" | "done" | "error";
+
+interface QueueItem {
+  key: number;
+  op: Op;
+  projectId: string;
+  jobLabel: string;
+  monthLabel: string;
+  month: number;
+  year: number;
+  status: JobStatus;
+  error?: string;
+  sync?: SyncResult;
+  finalize?: FinalizeResult;
 }
 
 const MONTH_NAMES = [
@@ -136,12 +150,12 @@ export default function TrackingSheetPage() {
 
   const [loading, setLoading] = useState(true);
   const [bootError, setBootError] = useState("");
+  const [queue, setQueue] = useState<QueueItem[]>([]);
 
-  const [syncing, setSyncing] = useState(false);
-  const [finalizing, setFinalizing] = useState(false);
-  const [error, setError] = useState("");
-  const [sync, setSync] = useState<SyncResult | null>(null);
-  const [finalized, setFinalized] = useState<FinalizeResult | null>(null);
+  // Serializes work per ProjectID, parallel across jobs, capped. A ref, not
+  // state: it drives scheduling, not paint.
+  const runner = useRef(createTaskRunner(MAX_PARALLEL));
+  const nextKey = useRef(1);
 
   // ---------------------------------------------------------------- bootstrap
   useEffect(() => {
@@ -175,44 +189,60 @@ export default function TrackingSheetPage() {
     return monthOptions(month, year);
   }, [defaultYm]);
 
-  const ready = !!projectId && !!ym && !syncing && !finalizing;
-
-  // Changing the job or month invalidates whatever's on screen — those results
-  // describe a different push.
-  const resetResults = useCallback(() => {
-    setSync(null);
-    setFinalized(null);
-    setError("");
+  const patch = useCallback((key: number, fields: Partial<QueueItem>) => {
+    setQueue((q) => q.map((it) => (it.key === key ? { ...it, ...fields } : it)));
   }, []);
 
-  const run = useCallback(
-    async (op: "sync" | "finalize") => {
+  const enqueue = useCallback(
+    (op: Op) => {
       if (!projectId || !ym) return;
       const { month, year } = parseYm(ym);
-      setError("");
-      if (op === "sync") { setSyncing(true); setSync(null); setFinalized(null); }
-      else { setFinalizing(true); setFinalized(null); }
-      try {
-        const res = await fetch("/api/tracking-sheet", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ op, projectId, month, year }),
-        });
-        const b = await res.json();
-        if (!res.ok) throw new Error(b?.error || `Request failed (${res.status})`);
-        if (op === "sync") setSync(b as SyncResult);
-        else setFinalized(b as FinalizeResult);
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Something went wrong.");
-      } finally {
-        setSyncing(false);
-        setFinalizing(false);
-      }
+      const target = jobs.find((j) => j.id === projectId);
+      if (!target) return;
+
+      const key = nextKey.current++;
+      const item: QueueItem = {
+        key,
+        op,
+        projectId,
+        jobLabel: target.label,
+        monthLabel: ymLabel(month, year),
+        month,
+        year,
+        status: "queued",
+      };
+      setQueue((q) => [item, ...q]);
+
+      // Keyed on the ProjectID so a Finalize can never read the CURRENT INVOICE
+      // column while a Sync for the same job is still rewriting it. Other jobs
+      // proceed in parallel.
+      void runner.current.run(projectId, async () => {
+        patch(key, { status: "running" });
+        try {
+          const res = await fetch("/api/tracking-sheet", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ op, projectId, month, year }),
+          });
+          const b = await res.json();
+          if (!res.ok) throw new Error(b?.error || `Request failed (${res.status})`);
+          patch(key, {
+            status: "done",
+            ...(op === "sync" ? { sync: b as SyncResult } : { finalize: b as FinalizeResult }),
+          });
+        } catch (e) {
+          patch(key, { status: "error", error: e instanceof Error ? e.message : "Something went wrong." });
+        }
+      });
     },
-    [projectId, ym],
+    [projectId, ym, jobs, patch],
   );
 
-  const selectedLabel = ym ? (() => { const { month, year } = parseYm(ym); return ymLabel(month, year); })() : "";
+  const selectedLabel = ym
+    ? (() => { const { month, year } = parseYm(ym); return ymLabel(month, year); })()
+    : "";
+  const busy = queue.filter((it) => it.status === "queued" || it.status === "running").length;
+  const ready = !!projectId && !!ym;
 
   if (loading) return <Loading label="Loading tracking sheets…" />;
 
@@ -259,30 +289,14 @@ export default function TrackingSheetPage() {
         <>
           {/* ------------------------------------------------ the main action */}
           <Card className="mb-4">
-            <Button
-              size="lg"
-              className="w-full py-4 text-base"
-              disabled={!ready}
-              onClick={() => run("sync")}
-            >
-              {syncing ? (
-                <>
-                  <Spinner className="mr-2" /> Syncing…
-                </>
-              ) : (
-                "Sync to Tracking Sheet — Current Invoice"
-              )}
+            <Button size="lg" className="w-full py-4 text-base" disabled={!ready} onClick={() => enqueue("sync")}>
+              Sync to Tracking Sheet — Current Invoice
             </Button>
 
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
               <div>
                 <Label htmlFor="ts-month">Billing Month</Label>
-                <Select
-                  id="ts-month"
-                  value={ym}
-                  disabled={syncing || finalizing}
-                  onChange={(e) => { setYm(e.target.value); resetResults(); }}
-                >
+                <Select id="ts-month" value={ym} onChange={(e) => setYm(e.target.value)}>
                   {months.map((m) => (
                     <option key={m.key} value={m.key}>
                       {m.label}
@@ -293,12 +307,7 @@ export default function TrackingSheetPage() {
               </div>
               <div>
                 <Label htmlFor="ts-job">Job</Label>
-                <Select
-                  id="ts-job"
-                  value={projectId}
-                  disabled={syncing || finalizing}
-                  onChange={(e) => { setProjectId(e.target.value); resetResults(); }}
-                >
+                <Select id="ts-job" value={projectId} onChange={(e) => setProjectId(e.target.value)}>
                   <option value="">Choose a job…</option>
                   {jobs.map((j) => (
                     <option key={j.id} value={j.id}>{j.label}</option>
@@ -307,127 +316,168 @@ export default function TrackingSheetPage() {
               </div>
             </div>
 
-            {job && (
-              <p className="mt-3 text-xs text-neutral-500">
-                Writes {selectedLabel} to{" "}
-                <a href={job.url} target="_blank" rel="noreferrer" className="underline hover:text-accent">
-                  this job&apos;s tracking sheet
-                </a>{" "}
-                → SubVendor Invoices!A1.
-              </p>
-            )}
-          </Card>
-
-          {error && <Banner tone="error" className="mb-4">{error}</Banner>}
-
-          {/* ----------------------------------------------------- sync result */}
-          {sync && (
-            <Card className="mb-4">
-              <Banner tone={sync.unmatched.length ? "warning" : "success"}>
-                Wrote <span className="font-semibold">{sync.rowCount}</span> row
-                {sync.rowCount === 1 ? "" : "s"} totalling{" "}
-                <span className="font-semibold">{money(sync.total)}</span> from {sync.billCount} bill
-                {sync.billCount === 1 ? "" : "s"} to {sync.tab}.
-              </Banner>
-
-              {sync.unmatched.length > 0 && (
-                <div className="mt-3">
-                  <SectionLabel className="mb-1">
-                    Not in the sheet&apos;s CSI header row — {money(sync.unmatchedTotal)} at risk
-                  </SectionLabel>
-                  <p className="mb-2 text-xs text-neutral-500">
-                    These rows were written, but the sheet&apos;s pivot has no column for them, so
-                    they will not reach the Tracking Sheet&apos;s INVOICES total. Add the codes to
-                    row 1 of the SubVendor Invoices tab (or run{" "}
-                    <code className="text-[11px]">repairTrackingSheetLookups</code>), then sync again.
-                  </p>
-                  <ul className="divide-y divide-neutral-200 text-sm dark:divide-neutral-700/60">
-                    {sync.unmatched.map((u) => (
-                      <li key={u.csi} className="flex items-baseline justify-between gap-3 py-1.5">
-                        <span className="font-mono text-xs">{u.csi}</span>
-                        <span className="min-w-0 flex-1 truncate text-xs text-neutral-500">
-                          {u.vendors.join(", ")}
-                        </span>
-                        <span className="font-semibold">{money(u.amount)}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              <div className="mt-3 flex flex-wrap items-center gap-2">
-                <a
-                  href={sync.trackingSheetUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className={btn("secondary", "sm")}
-                >
-                  Open {sync.trackingSheetName}
-                </a>
-              </div>
-            </Card>
-          )}
-
-          {/* -------------------------------------------------------- finalize */}
-          <Card>
-            <SectionLabel className="mb-1">Finalize {selectedLabel}</SectionLabel>
-            <p className="mb-3 text-xs text-neutral-500">
-              Copies the Tracking Sheet&apos;s CURRENT INVOICE block into the reserved month block
-              and labels it &ldquo;{selectedLabel}&rdquo;. Re-running for the same month overwrites
-              that month&apos;s block rather than adding a second one. Sync first so CURRENT INVOICE
-              holds this month&apos;s numbers.
-            </p>
-            <Button
-              variant="outline"
-              size="lg"
-              className="w-full"
-              disabled={!ready}
-              onClick={() => run("finalize")}
-            >
-              {finalizing ? (
+            <p className="mt-3 text-xs text-neutral-500">
+              {job ? (
                 <>
-                  <Spinner className="mr-2" /> Finalizing…
+                  Writes {selectedLabel} to{" "}
+                  <a href={job.url} target="_blank" rel="noreferrer" className="underline hover:text-accent">
+                    this job&apos;s tracking sheet
+                  </a>
+                  . Runs in the background — pick the next job right away.
                 </>
               ) : (
-                `Finalize ${selectedLabel}`
+                "Runs in the background — queue as many jobs as you like without waiting."
               )}
-            </Button>
-
-            {finalized && (
-              <div className="mt-3">
-                <Banner tone="success">
-                  {finalized.mode === "overwrote-existing-month-block"
-                    ? `Replaced the existing ${finalized.monthLabel} block`
-                    : `Filed ${finalized.monthLabel} into a new block`}{" "}
-                  at <span className="font-mono text-xs">{finalized.targetRange}</span> (block{" "}
-                  {finalized.blockIndex} of {finalized.blockCount}, {finalized.blocksRemaining} left).
-                </Banner>
-                <p className="mt-3 text-xs text-neutral-500">
-                  {finalized.dataRowCount} cost-code rows
-                  {finalized.totalsRows !== "none"
-                    ? `, plus the totals block (rows ${finalized.totalsRows})`
-                    : ""}
-                  .
-                </p>
-
-                <SectionLabel className="mt-3">
-                  Bottom line (the sheet&apos;s own row {finalized.totalRow})
-                </SectionLabel>
-                <dl className="mt-1 grid grid-cols-2 gap-x-4 gap-y-1 text-sm sm:grid-cols-4">
-                  {Object.entries(finalized.sheetTotalRow).map(([k, v]) => (
-                    <div key={k}>
-                      <dt className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
-                        {k}
-                      </dt>
-                      <dd className="font-semibold">{money(v)}</dd>
-                    </div>
-                  ))}
-                </dl>
-              </div>
-            )}
+            </p>
           </Card>
+
+          {/* -------------------------------------------------------- finalize */}
+          <Card className="mb-4">
+            <SectionLabel className="mb-1">Finalize {selectedLabel}</SectionLabel>
+            <p className="mb-3 text-xs text-neutral-500">
+              Copies the Tracking Sheet&apos;s CURRENT INVOICE column — cost codes and the totals
+              block — into the reserved month block and labels it &ldquo;{selectedLabel}&rdquo;.
+              Re-running for the same month overwrites that month&apos;s block rather than adding a
+              second one. Queued behind any sync already running for the same job.
+            </p>
+            <Button variant="outline" size="lg" className="w-full" disabled={!ready} onClick={() => enqueue("finalize")}>
+              Finalize {selectedLabel}
+            </Button>
+          </Card>
+
+          {/* ----------------------------------------------------------- queue */}
+          {queue.length > 0 && (
+            <div className="mb-4">
+              <div className="mb-2 flex items-baseline justify-between gap-2">
+                <SectionLabel>
+                  Activity{busy > 0 ? ` — ${busy} in progress` : ""}
+                </SectionLabel>
+                {busy === 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setQueue([])}
+                    className="text-xs text-neutral-500 underline hover:text-accent"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+              <div className="space-y-2">
+                {queue.map((it) => (
+                  <QueueRow key={it.key} item={it} />
+                ))}
+              </div>
+            </div>
+          )}
         </>
       )}
     </div>
+  );
+}
+
+/* ------------------------------------------------------------------ queue row */
+
+function QueueRow({ item }: { item: QueueItem }) {
+  const pending = item.status === "queued" || item.status === "running";
+  const s = item.sync;
+  const f = item.finalize;
+
+  return (
+    <Card>
+      <div className="flex items-baseline justify-between gap-3">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold">{item.jobLabel}</p>
+          <p className="text-xs text-neutral-500">
+            {item.op === "sync" ? "Sync" : "Finalize"} · {item.monthLabel}
+          </p>
+        </div>
+        <div className="shrink-0 text-xs">
+          {item.status === "queued" && <span className="text-neutral-500">Queued</span>}
+          {item.status === "running" && (
+            <span className="inline-flex items-center gap-1.5 text-neutral-500">
+              <Spinner /> Working
+            </span>
+          )}
+          {item.status === "done" && <span className="font-semibold text-emerald-600">Done</span>}
+          {item.status === "error" && <span className="font-semibold text-red-600">Failed</span>}
+        </div>
+      </div>
+
+      {item.status === "error" && (
+        <Banner tone="error" className="mt-2 text-xs">{item.error}</Banner>
+      )}
+
+      {!pending && s && (
+        <>
+          <p className="mt-2 text-sm">
+            <span className="font-semibold">{s.rowCount}</span> row{s.rowCount === 1 ? "" : "s"} ·{" "}
+            <span className="font-semibold">{money(s.total)}</span> · {s.billCount} bill
+            {s.billCount === 1 ? "" : "s"}
+            {typeof s.durationSec === "number" && (
+              <span className="text-neutral-500"> · {s.durationSec.toFixed(1)}s</span>
+            )}
+          </p>
+          {s.timings && (
+            <p className="mt-0.5 text-[11px] text-neutral-500">
+              JobTread {(s.timings.jtPullMs / 1000).toFixed(1)}s
+              {typeof s.jtPages === "number" ? ` (${s.jtPages}pg/${s.costItemsScanned}ci)` : ""} · open{" "}
+              {(s.timings.openSheetMs / 1000).toFixed(1)}s · write {(s.timings.writeMs / 1000).toFixed(1)}s
+              {typeof s.timings.auditLogMs === "number"
+                ? ` · log ${(s.timings.auditLogMs / 1000).toFixed(1)}s`
+                : ""}
+            </p>
+          )}
+          {s.unmatched.length > 0 && (
+            <Banner tone="warning" className="mt-2 text-xs">
+              <p className="font-semibold">
+                {s.unmatched.length} CSI code{s.unmatched.length === 1 ? "" : "s"} not in the
+                sheet&apos;s header row — {money(s.unmatchedTotal)} will not reach the Tracking Sheet.
+              </p>
+              <ul className="mt-1">
+                {s.unmatched.map((u) => (
+                  <li key={u.csi} className="flex justify-between gap-2">
+                    <span className="font-mono">{u.csi}</span>
+                    <span className="min-w-0 flex-1 truncate opacity-80">{u.vendors.join(", ")}</span>
+                    <span className="font-semibold">{money(u.amount)}</span>
+                  </li>
+                ))}
+              </ul>
+            </Banner>
+          )}
+          <a
+            href={s.trackingSheetUrl}
+            target="_blank"
+            rel="noreferrer"
+            className={btn("secondary", "sm", "mt-2")}
+          >
+            Open {s.trackingSheetName}
+          </a>
+        </>
+      )}
+
+      {!pending && f && (
+        <>
+          <p className="mt-2 text-sm">
+            {f.mode === "overwrote-existing-month-block"
+              ? `Replaced the existing ${f.monthLabel} block`
+              : `Filed ${f.monthLabel} into a new block`}{" "}
+            at <span className="font-mono text-xs">{f.targetRange}</span>
+          </p>
+          <p className="mt-0.5 text-[11px] text-neutral-500">
+            Block {f.blockIndex} of {f.blockCount}, {f.blocksRemaining} left · {f.dataRowCount}{" "}
+            cost-code rows
+            {f.totalsRows !== "none" ? ` + totals rows ${f.totalsRows}` : ""}
+          </p>
+          <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-sm sm:grid-cols-4">
+            {Object.entries(f.sheetTotalRow).map(([k, v]) => (
+              <div key={k}>
+                <dt className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">{k}</dt>
+                <dd className="font-semibold">{money(v)}</dd>
+              </div>
+            ))}
+          </dl>
+        </>
+      )}
+    </Card>
   );
 }
