@@ -51,6 +51,15 @@ export const VIEWS: ViewDef[] = [
   // see the indicator nor read the queued bills by calling the route directly.
   { id: "needs-project", label: "Needs Project", group: "Financials", paths: ["/needs-project", "/api/needs-project"] },
   { id: "payments", label: "Sunset Statements", group: "Financials", paths: ["/payments"] },
+  // Per-project Google tracking sheets. The API prefix is listed alongside the
+  // page so a role without the view can't push to a job's sheet by calling the
+  // route directly.
+  {
+    id: "tracking-sheet",
+    label: "Tracking Sheet",
+    group: "Financials",
+    paths: ["/tracking-sheet", "/api/tracking-sheet"],
+  },
   { id: "amazon-import", label: "Amazon Import", group: "Financials", paths: ["/amazon-import", "/api/amazon-import"] },
   // Field
   { id: "safety-meeting", label: "Safety Meeting", group: "Field", paths: ["/safety-meeting"] },
