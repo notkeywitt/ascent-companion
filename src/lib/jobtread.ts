@@ -1923,6 +1923,11 @@ export interface InvoiceReconciliation {
   uninvoicedTimeCost: number; // Σ cost of the month's uninvoiced time
   remaining: number; // uninvoicedBillsCost + uninvoicedTimeCost — still to invoice
   reconciled: boolean; // an invoice exists AND nothing is left uninvoiced
+  // Draft (still-coding) bills for the month. NOT part of remaining/reconciled —
+  // JobTread won't pull a draft onto an invoice — but reported so the office can
+  // see why the card's preview total is higher than the invoiceable amount.
+  draftBillsCost: number;
+  draftBillCount: number;
 }
 
 /**
@@ -1944,8 +1949,11 @@ export interface InvoiceReconciliation {
  * invoice replaced — resolved by walking the invoice→invoice replacement chain
  * (built from each invoice's `referencedDocuments where type=customerInvoice`).
  *
- * Draft bills are intentionally excluded — they aren't invoiceable yet, so they
- * don't count against completeness.
+ * Draft bills are intentionally excluded from the completeness math — they aren't
+ * invoiceable yet, so they can't count as "still uninvoiced". They ARE summed
+ * separately (`draftBillsCost`), because the Invoicing card's preview total
+ * includes drafts: without that figure the two numbers on the card look like a
+ * bug instead of "this much is still in the coding queue".
  */
 export async function getInvoiceReconciliation(
   cfg: PaveConfig,
@@ -1967,9 +1975,13 @@ export async function getInvoiceReconciliation(
       .filter((n: any) => n.type === "customerInvoice" && n.id)
       .map((n: any) => n.id as string);
 
-  // 1. Finalized vendor bills for the month, each with the invoice ids it's on.
+  // 1. Vendor bills for the month, each with the invoice ids it's on. Only the
+  //    FINALIZED ones (pending/approved) feed the completeness math; drafts are
+  //    pulled in the same query and merely tallied (see draftBillsCost).
   //    Paged at 25 — referencedDocuments nested in paged documents 413s larger.
   const monthBills: { cost: number; invIds: string[] }[] = [];
+  let draftBillsCost = 0;
+  let draftBillCount = 0;
   let page: string | undefined;
   let guard = 0;
   do {
@@ -1978,7 +1990,9 @@ export async function getInvoiceReconciliation(
         $: { id: jobId },
         documents: {
           $: {
-            where: { and: [["type", "vendorBill"], ["status", "in", ["pending", "approved"]]] },
+            where: {
+              and: [["type", "vendorBill"], ["status", "in", ["draft", "pending", "approved"]]],
+            },
             size: 25,
             ...(page ? { page } : {}),
           },
@@ -1987,13 +2001,20 @@ export async function getInvoiceReconciliation(
             id: {},
             cost: {},
             issueDate: {},
+            status: {},
             referencedDocuments: { nodes: { id: {}, type: {}, status: {} } },
           },
         },
       },
     });
     for (const b of (r?.job?.documents?.nodes ?? []) as any[]) {
-      if (inMonth(b.issueDate)) monthBills.push({ cost: b.cost ?? 0, invIds: invRefIds(b) });
+      if (!inMonth(b.issueDate)) continue;
+      if (b.status === "draft") {
+        draftBillsCost += b.cost ?? 0;
+        draftBillCount++;
+        continue;
+      }
+      monthBills.push({ cost: b.cost ?? 0, invIds: invRefIds(b) });
     }
     page = r?.job?.documents?.nextPage || undefined;
   } while (page && ++guard < 100);
@@ -2136,6 +2157,8 @@ export async function getInvoiceReconciliation(
     uninvoicedTimeCost,
     remaining,
     reconciled: invoices.length > 0 && Math.abs(remaining) < 0.01,
+    draftBillsCost: Math.round(draftBillsCost * 100) / 100,
+    draftBillCount,
   };
 }
 

@@ -542,6 +542,22 @@ interface Recon {
   uninvoicedTimeCost: number;
   remaining: number;
   reconciled: boolean;
+  draftBillsCost: number;
+  draftBillCount: number;
+}
+
+/** The month's still-coding bills, spelled out. The card's headline total counts
+ *  drafts (the Include drafts toggle) but JobTread will NOT pull a draft onto an
+ *  invoice, so the reconciliation figures exclude them — without this note the
+ *  two numbers on one card look contradictory. */
+function DraftNote({ cost, count }: { cost: number; count: number }) {
+  if (count < 1 || Math.abs(cost) < 0.01) return null;
+  return (
+    <div className="mt-1 opacity-80">
+      {money(cost)} in {count} draft bill{count === 1 ? "" : "s"} is excluded — approve
+      {count === 1 ? " it" : " them"} in JobTread to invoice {count === 1 ? "it" : "them"}.
+    </div>
+  );
 }
 
 // The bridge from this preview to the real customer invoice(s) in JobTread:
@@ -589,15 +605,16 @@ function InvoiceReconcile({ jobId, ym }: { jobId: string; ym: string }) {
     );
   }
 
-  const { invoices, remaining, reconciled } = data;
+  const { invoices, remaining, reconciled, draftBillsCost, draftBillCount } = data;
 
   // No live (non-denied) invoice pulls this month's work yet.
   if (invoices.length === 0) {
     return (
       <div className="rounded-lg border border-neutral-200 bg-neutral-50 px-2.5 py-2 text-xs text-neutral-600 dark:border-neutral-700/60 dark:bg-white/5 dark:text-neutral-300">
         <span className="font-semibold">No invoice in JobTread yet.</span>
-        {remaining > 0.01 ? ` ${money(remaining)} to invoice.` : ""} Create it below, then reopen
-        this card to reconcile.
+        {remaining > 0.01 ? ` ${money(remaining)} invoiceable now.` : ""} Create it below, then
+        reopen this card to reconcile.
+        <DraftNote cost={draftBillsCost} count={draftBillCount} />
       </div>
     );
   }
@@ -614,7 +631,7 @@ function InvoiceReconcile({ jobId, ym }: { jobId: string; ym: string }) {
       <div className="flex items-center justify-between gap-2 font-semibold">
         <span>
           {reconciled
-            ? "✓ Reconciled — every bill this month is on an invoice"
+            ? "✓ Reconciled — every finalized bill this month is on an invoice"
             : `⚠ ${money(remaining)} still uninvoiced`}
         </span>
         <span className="tabular-nums">
@@ -627,6 +644,7 @@ function InvoiceReconcile({ jobId, ym }: { jobId: string; ym: string }) {
           an invoice to capture the rest.
         </div>
       )}
+      <DraftNote cost={draftBillsCost} count={draftBillCount} />
       <ul className="mt-1.5 space-y-0.5 border-t border-current/20 pt-1.5">
         {invoices.map((inv) => (
           <li key={inv.id} className="flex items-center justify-between gap-3 tabular-nums">
