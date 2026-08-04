@@ -64,15 +64,50 @@ const billTitle = (b: Bill) => {
   return isSunset && inv ? `${vendor} · ${inv}` : vendor;
 };
 
+function ToggleSwitch({
+  checked,
+  onChange,
+  label,
+}: {
+  checked: boolean;
+  onChange: () => void;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={onChange}
+      className="inline-flex items-center gap-2 text-xs font-medium text-neutral-500 transition hover:text-accent dark:hover:text-accent-soft"
+    >
+      <span
+        className={`relative inline-flex h-4 w-7 shrink-0 items-center rounded-full transition ${
+          checked ? "bg-accent" : "bg-neutral-300 dark:bg-neutral-600"
+        }`}
+      >
+        <span
+          className={`inline-block h-3 w-3 transform rounded-full bg-white shadow-sm transition ${
+            checked ? "translate-x-3.5" : "translate-x-0.5"
+          }`}
+        />
+      </span>
+      {label}
+    </button>
+  );
+}
+
 function CodingQueue() {
   const search = useSearchParams();
   const jobId = (search.get("jobId") ?? "").trim();
   const [bills, setBills] = useState<Bill[] | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  // Coding is a review queue, so reviewed bills are done — hide them by default,
-  // with a toggle to bring them back into view.
-  const [hideReviewed, setHideReviewed] = useState(true);
+  // Default to showing everything, including already-reviewed bills.
+  const [hideReviewed, setHideReviewed] = useState(false);
+  // The current month is usually still filling in, so hide it by default —
+  // a toggle brings it back into view.
+  const [hideCurrentMonth, setHideCurrentMonth] = useState(true);
 
   // With a job id, that job's drafts; without one, every job's drafts.
   async function run(id: string) {
@@ -99,9 +134,20 @@ function CodingQueue() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [jobId]);
 
+  // issueDate is yyyy-MM-dd; compare against the device-local current month.
+  const now = new Date();
+  const currentMonthPrefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  const isCurrentMonth = (b: Bill) => (b.issueDate ?? "").startsWith(currentMonthPrefix);
+
   const reviewedCount = bills?.filter((b) => b.reviewed).length ?? 0;
-  // What the list actually renders — reviewed bills drop out unless shown.
-  const visible = bills ? (hideReviewed ? bills.filter((b) => !b.reviewed) : bills) : null;
+  const currentMonthCount = bills?.filter(isCurrentMonth).length ?? 0;
+  // What the list actually renders — reviewed bills and/or the current month
+  // drop out unless shown.
+  const visible = bills
+    ? bills.filter(
+        (b) => (!hideReviewed || !b.reviewed) && (!hideCurrentMonth || !isCurrentMonth(b)),
+      )
+    : null;
   const total = visible?.reduce((s, b) => s + billAmount(b), 0) ?? 0;
 
   return (
@@ -141,7 +187,7 @@ function CodingQueue() {
         <>
           <div className="mb-3 flex items-start justify-between gap-3">
             <div className="flex flex-col gap-1">
-              <div className="flex items-baseline gap-1.5">
+              <div className="flex items-baseline gap-1.5 flex-wrap">
                 <span className="text-sm font-medium">
                   {visible.length} draft {visible.length === 1 ? "bill" : "bills"}
                 </span>
@@ -150,28 +196,29 @@ function CodingQueue() {
                     · {reviewedCount} reviewed hidden
                   </span>
                 )}
-              </div>
-              {reviewedCount > 0 && (
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={!hideReviewed}
-                  onClick={() => setHideReviewed((v) => !v)}
-                  className="inline-flex items-center gap-2 text-xs font-medium text-neutral-500 transition hover:text-accent dark:hover:text-accent-soft"
-                >
-                  <span
-                    className={`relative inline-flex h-4 w-7 shrink-0 items-center rounded-full transition ${
-                      hideReviewed ? "bg-neutral-300 dark:bg-neutral-600" : "bg-accent"
-                    }`}
-                  >
-                    <span
-                      className={`inline-block h-3 w-3 transform rounded-full bg-white shadow-sm transition ${
-                        hideReviewed ? "translate-x-0.5" : "translate-x-3.5"
-                      }`}
-                    />
+                {hideCurrentMonth && currentMonthCount > 0 && (
+                  <span className="text-xs text-neutral-400">
+                    · {currentMonthCount} this month hidden
                   </span>
-                  Show reviewed
-                </button>
+                )}
+              </div>
+              {(reviewedCount > 0 || currentMonthCount > 0) && (
+                <div className="flex items-center gap-3">
+                  {reviewedCount > 0 && (
+                    <ToggleSwitch
+                      checked={!hideReviewed}
+                      onChange={() => setHideReviewed((v) => !v)}
+                      label="Show reviewed"
+                    />
+                  )}
+                  {currentMonthCount > 0 && (
+                    <ToggleSwitch
+                      checked={!hideCurrentMonth}
+                      onChange={() => setHideCurrentMonth((v) => !v)}
+                      label="Show this month"
+                    />
+                  )}
+                </div>
               )}
             </div>
             <span className="font-mono text-sm font-semibold">{money(total)}</span>
@@ -229,11 +276,15 @@ function CodingQueue() {
             {visible.length === 0 && (
               <li>
                 <EmptyState>
-                  {bills.length > 0
-                    ? "Every draft bill here is marked reviewed. Turn on “Show reviewed” to see them."
-                    : jobId
+                  {bills.length === 0
+                    ? jobId
                       ? "No draft bills on this job — nothing to code."
-                      : "No draft bills anywhere — nothing to code."}
+                      : "No draft bills anywhere — nothing to code."
+                    : hideReviewed && hideCurrentMonth
+                      ? "Every draft bill here is either reviewed or from this month. Turn on “Show reviewed” or “Show this month” to see them."
+                      : hideReviewed
+                        ? "Every draft bill here is marked reviewed. Turn on “Show reviewed” to see them."
+                        : "Every draft bill here is from this month. Turn on “Show this month” to see them."}
                 </EmptyState>
               </li>
             )}
