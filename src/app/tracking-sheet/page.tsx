@@ -37,6 +37,12 @@ interface JobRef {
   url: string;
 }
 
+/** A tracking sheet wired to more than one project — sync is blocked until fixed. */
+interface SharedSheet {
+  fileId: string;
+  projects: { projectId: string; label: string; row: number }[];
+}
+
 interface UnmatchedCsi {
   csi: string;
   amount: number;
@@ -113,6 +119,7 @@ function monthOptions(month: number, year: number) {
 
 export default function TrackingSheetPage() {
   const [jobs, setJobs] = useState<JobRef[]>([]);
+  const [shared, setShared] = useState<SharedSheet[]>([]);
   const [projectId, setProjectId] = useState("");
   const [ym, setYm] = useState("");
   const [defaultYm, setDefaultYm] = useState("");
@@ -137,6 +144,7 @@ export default function TrackingSheetPage() {
         if (!res.ok) throw new Error(b?.error || `Request failed (${res.status})`);
         const list: JobRef[] = b.jobs || [];
         setJobs(list);
+        setShared(b.shared || []);
         if (list.length === 1) setProjectId(list[0].id);
         const key = ymKey(Number(b.defaultMonth), Number(b.defaultYear));
         setDefaultYm(key);
@@ -206,6 +214,29 @@ export default function TrackingSheetPage() {
       />
 
       {bootError && <Banner tone="error" className="mb-4">{bootError}</Banner>}
+
+      {shared.length > 0 && (
+        <Banner tone="error" className="mb-4">
+          <p className="font-semibold">
+            {shared.length === 1 ? "A tracking sheet is" : `${shared.length} tracking sheets are`}{" "}
+            wired to more than one job — syncing those jobs is blocked.
+          </p>
+          <p className="mt-1">
+            One job would overwrite the other&apos;s numbers. Clear the wrong job&apos;s{" "}
+            <span className="font-semibold">Tracking Sheet</span> cell on the Projects sheet, then
+            reload.
+          </p>
+          {shared.map((s) => (
+            <ul key={s.fileId} className="mt-2 list-inside list-disc">
+              {s.projects.map((p) => (
+                <li key={p.projectId}>
+                  {p.label} <span className="opacity-70">({p.projectId}, Projects row {p.row})</span>
+                </li>
+              ))}
+            </ul>
+          ))}
+        </Banner>
+      )}
 
       {!bootError && jobs.length === 0 && (
         <EmptyState>
