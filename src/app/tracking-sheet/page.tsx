@@ -81,8 +81,18 @@ interface FinalizeResult {
   targetRange: string;
   labelCell: string;
   rowCount: number;
+  dataRowCount: number;
+  /** Row span of the sheet's own totals block, or "none". */
+  totalsRows: string;
   columns: string[];
-  totals: Record<string, number>;
+  /** Row the bottom line was read from. */
+  totalRow: number;
+  /**
+   * The sheet's OWN bottom line, not a derived sum — the cost-code region
+   * interleaves line items with section subtotals, so adding up the column
+   * double-counts.
+   */
+  sheetTotalRow: Record<string, number>;
   overwroteValues: boolean;
   note: string;
 }
@@ -392,8 +402,19 @@ export default function TrackingSheetPage() {
                   at <span className="font-mono text-xs">{finalized.targetRange}</span> (block{" "}
                   {finalized.blockIndex} of {finalized.blockCount}, {finalized.blocksRemaining} left).
                 </Banner>
-                <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-sm sm:grid-cols-4">
-                  {Object.entries(finalized.totals).map(([k, v]) => (
+                <p className="mt-3 text-xs text-neutral-500">
+                  {finalized.dataRowCount} cost-code rows
+                  {finalized.totalsRows !== "none"
+                    ? `, plus the totals block (rows ${finalized.totalsRows})`
+                    : ""}
+                  .
+                </p>
+
+                <SectionLabel className="mt-3">
+                  Bottom line (the sheet&apos;s own row {finalized.totalRow})
+                </SectionLabel>
+                <dl className="mt-1 grid grid-cols-2 gap-x-4 gap-y-1 text-sm sm:grid-cols-4">
+                  {Object.entries(finalized.sheetTotalRow).map(([k, v]) => (
                     <div key={k}>
                       <dt className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
                         {k}
