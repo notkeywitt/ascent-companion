@@ -1,13 +1,11 @@
-import { getPaveConfig } from "@/lib/config";
 import { JobsBrowser } from "./JobsBrowser";
 
 /**
- * Jobs list + budget — the first view built on the generic /api/pave gateway.
- * Server component only supplies the (non-secret) org id; all data is read
- * client-side through the gateway, so this page needs no bespoke API route.
+ * Jobs cost browser. All data now comes from two cached server routes
+ * (/api/jobs/browser and /api/jobs/cost-detail), so this page has nothing left
+ * to inject — the client no longer drives the Pave gateway itself.
  * Gated by the "jobs" view in src/lib/views.ts (office + admin).
  */
 export default function JobsPage() {
-  const { orgId } = getPaveConfig();
-  return <JobsBrowser orgId={orgId} />;
+  return <JobsBrowser />;
 }

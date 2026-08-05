@@ -19,29 +19,48 @@ const jobAddress = (j: JobRef) => (j.address ?? "").replace(/,\s*USA$/i, "").tri
  * `onSelect` (optional) also hands back the full chosen job — or null for
  * "All jobs" — so a caller that needs the label doesn't have to fetch
  * /api/jobs a second time just to look it up.
+ *
+ * By default it fetches /api/jobs itself (open jobs). A caller that already has
+ * a list — /jobs holds a filtered one, so its dropdown and its filters can't
+ * disagree — passes `jobs` instead and no fetch happens. `includeAll` /
+ * `allLabel` / `allDescription` cover callers for whom "no selection" isn't the
+ * draft-bills all-jobs view.
  */
 export function JobPicker({
   value,
   onChange,
   onSelect,
+  jobs: jobsProp,
+  includeAll = true,
+  allLabel = "All jobs",
+  allDescription = "Draft bills across every job",
+  placeholder,
 }: {
   value: string;
   onChange: (id: string) => void;
   onSelect?: (job: JobRef | null) => void;
+  jobs?: JobRef[];
+  includeAll?: boolean;
+  allLabel?: string;
+  allDescription?: string;
+  placeholder?: string;
 }) {
-  const [jobs, setJobs] = useState<JobRef[]>([]);
+  const [fetched, setFetched] = useState<JobRef[]>([]);
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!jobsProp);
   const ref = useRef<HTMLDivElement>(null);
 
+  const jobs = jobsProp ?? fetched;
+
   useEffect(() => {
+    if (jobsProp) return; // caller supplied the list — don't fetch
     fetch("/api/jobs")
       .then((r) => r.json())
-      .then((j) => setJobs(j.jobs ?? []))
+      .then((j) => setFetched(j.jobs ?? []))
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, []);
+  }, [jobsProp]);
 
   useEffect(() => {
     function onDoc(e: MouseEvent) {
@@ -60,7 +79,7 @@ export function JobPicker({
       ? value // e.g. arrived from the panel before jobs loaded
       : loading
         ? "Loading jobs…"
-        : "All jobs";
+        : (placeholder ?? allLabel);
 
   const q = query.trim().toLowerCase();
   const filtered = q
@@ -103,7 +122,7 @@ export function JobPicker({
             className="border-b border-neutral-200 bg-transparent px-3 py-2 text-sm outline-none dark:border-white/10"
           />
           <ul className="overflow-auto">
-            {!q && (
+            {!q && includeAll && (
               <li>
                 <button
                   type="button"
@@ -116,10 +135,8 @@ export function JobPicker({
                     value ? "" : "bg-neutral-100 dark:bg-white/10"
                   }`}
                 >
-                  <span className="block truncate text-sm font-medium">All jobs</span>
-                  <span className="block truncate text-xs text-neutral-500">
-                    Draft bills across every job
-                  </span>
+                  <span className="block truncate text-sm font-medium">{allLabel}</span>
+                  <span className="block truncate text-xs text-neutral-500">{allDescription}</span>
                 </button>
               </li>
             )}

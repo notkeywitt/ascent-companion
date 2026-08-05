@@ -107,7 +107,9 @@ const _jobCostKey = (kind: string, orgId: string, jobId: string) => `${kind}:${o
  */
 export function clearJobCostCaches(): void {
   for (const key of _refCache.keys()) {
-    if (key.startsWith("budget:") || key.startsWith("ctc:")) _refCache.delete(key);
+    if (key.startsWith("budget:") || key.startsWith("ctc:") || key.startsWith("costdetail:")) {
+      _refCache.delete(key);
+    }
   }
 }
 
@@ -751,6 +753,509 @@ async function _getCostToCompleteUncached(
   return out;
 }
 
+// ---------------------------------------------------------------------------
+// JOB COST DETAIL  — the three-level tree behind the /jobs browser
+// ---------------------------------------------------------------------------
+
+/** One estimate line (level 3) — the Tracking Sheet's row granularity. */
+export interface CostLine {
+  id: string;
+  name: string; // the line's OWN name, e.g. "Wood Decking - Labor"
+  description?: string;
+  quantity?: number;
+  unit?: string; // unit.name, e.g. "sf" / "month"
+  unitCost?: number;
+  cost: number; // extended cost = the sheet's TOTAL
+  costType?: string; // Labor / Materials / Subcontractor / Other
+  isAllowance: boolean; // allowanceType is set on this line
+}
+
+/** Estimate money split by the Tracking Sheet's cost-type columns. */
+export interface CostTypeSplit {
+  labor: number; // ALLOWANCE/SUB/VENDOR's sibling — costType "Labor"
+  allowance: number; // any line with an allowanceType
+  sub: number; // costType "Subcontractor"
+  vendor: number; // costType "Materials"
+  other: number; // anything else, so the split always sums to budget
+}
+
+/** One cost code (level 2). */
+export interface CostCodeRow {
+  number: string;
+  name: string; // the COST CODE's name
+  division: string; // first two digits
+  budget: number; // Σ approved customer-order line cost for this code
+  bills: number; // Σ approved+pending vendor-bill cost
+  labor: number; // Σ time-entry cost
+  laborHours: number; // Σ time-entry minutes ÷ 60
+  invoiced: number; // Σ approved customer-invoice line cost, all time
+  currentInvoice: number; // …of which the most recent invoice
+  split: CostTypeSplit;
+  lines: CostLine[];
+}
+
+/** One CSI division (level 1). */
+export interface CostDivisionRow {
+  division: string; // "01", "06", … ("—" when a code has no digits)
+  name: string; // JobTread's parent cost-code name
+  budget: number;
+  bills: number;
+  labor: number;
+  laborHours: number;
+  invoiced: number;
+  currentInvoice: number;
+  split: CostTypeSplit;
+  codes: CostCodeRow[];
+}
+
+/**
+ * Which number the `budget` fields hold.
+ * - `customerOrders` — JobTread's "Budgeted Cost": approved, includeInBudget
+ *   customerOrder lines, so it absorbs approved change orders. The default.
+ * - `budgetLeaves` — the base estimate (cost items with no document), used only
+ *   when a job has no approved customer orders at all.
+ */
+export type BudgetBasis = "customerOrders" | "budgetLeaves";
+
+export interface JobCostDetail {
+  divisions: CostDivisionRow[];
+  budgetBasis: BudgetBasis;
+  budgetTotal: number;
+  billsTotal: number;
+  laborTotal: number;
+  laborHoursTotal: number;
+  invoicedTotal: number;
+  currentInvoiceTotal: number;
+  /** Name/date of the invoice behind `currentInvoice`, for the column header. */
+  currentInvoiceLabel: string | null;
+  /** Names of any query that fell back to the slow path, for the UI to surface. */
+  degraded: string[];
+}
+
+const emptySplit = (): CostTypeSplit => ({
+  labor: 0,
+  allowance: 0,
+  sub: 0,
+  vendor: 0,
+  other: 0,
+});
+
+/** Which cost-type column a line lands in. Allowance wins — it is a line flag, not a type. */
+function splitKeyFor(costType: string | undefined, isAllowance: boolean): keyof CostTypeSplit {
+  if (isAllowance) return "allowance";
+  switch ((costType ?? "").trim().toLowerCase()) {
+    case "labor":
+      return "labor";
+    case "subcontractor":
+      return "sub";
+    case "materials":
+      return "vendor";
+    default:
+      return "other";
+  }
+}
+
+const addSplit = (into: CostTypeSplit, from: CostTypeSplit) => {
+  into.labor += from.labor;
+  into.allowance += from.allowance;
+  into.sub += from.sub;
+  into.vendor += from.vendor;
+  into.other += from.other;
+};
+
+/**
+ * Σ time-entry cost and minutes per cost-code number, summed BY JOBTREAD.
+ *
+ * Same grouped-aggregate shape as `_sumCostByCostCode` (`timeEntries` is a
+ * standard connection, so it takes `group`/`withValues`), which replaces the
+ * browser's old full pagination of job.timeEntries. Rate is deliberately NOT
+ * summed — an average of `hourlyRate` across entries is wrong when rates differ;
+ * the UI derives it as cost ÷ hours.
+ */
+async function _sumTimeByCostCode(
+  cfg: PaveConfig,
+  jobId: string,
+): Promise<Record<string, { cost: number; minutes: number }>> {
+  const out: Record<string, { cost: number; minutes: number }> = {};
+  let page: string | undefined;
+  let guard = 0;
+  do {
+    const r = await pave(cfg, {
+      job: {
+        $: { id: jobId },
+        id: {},
+        timeEntries: {
+          $: {
+            size: 100, // pages over GROUPS (one per cost code), not raw entries
+            group: {
+              by: [["costItem", "costCode", "number"]],
+              aggs: { total: { sum: "cost" }, mins: { sum: "minutes" } },
+            },
+            ...(page ? { page } : {}),
+          },
+          withValues: {},
+          nextPage: {},
+        },
+      },
+    });
+    for (const row of r?.job?.timeEntries?.withValues ?? []) {
+      const code = row?.costItem?.costCode?.number?.toString().trim();
+      if (!code) continue;
+      const e = (out[code] ??= { cost: 0, minutes: 0 });
+      e.cost += row.total ?? 0;
+      e.minutes += row.mins ?? 0;
+    }
+    page = r?.job?.timeEntries?.nextPage || undefined;
+  } while (page && ++guard < 20);
+  return out;
+}
+
+/** The pre-aggregate way: page every time entry and bucket here. Safety net only. */
+async function _sumTimeByFullWalk(
+  cfg: PaveConfig,
+  jobId: string,
+): Promise<Record<string, { cost: number; minutes: number }>> {
+  const out: Record<string, { cost: number; minutes: number }> = {};
+  let page: string | undefined;
+  let guard = 0;
+  do {
+    const r = await pave(cfg, {
+      job: {
+        $: { id: jobId },
+        timeEntries: {
+          $: { size: 100, ...(page ? { page } : {}) },
+          nextPage: {},
+          nodes: { cost: {}, minutes: {}, costItem: { costCode: { number: {} } } },
+        },
+      },
+    });
+    for (const n of r?.job?.timeEntries?.nodes ?? []) {
+      const code = n?.costItem?.costCode?.number?.toString().trim();
+      if (!code) continue;
+      const e = (out[code] ??= { cost: 0, minutes: 0 });
+      e.cost += n.cost ?? 0;
+      e.minutes += n.minutes ?? 0;
+    }
+    page = r?.job?.timeEntries?.nextPage || undefined;
+  } while (page && ++guard < 20);
+  return out;
+}
+
+/**
+ * The estimate lines behind the budget, with everything the Tracking-Sheet-style
+ * table needs per line (quantity / unit / unit cost / cost type / allowance).
+ *
+ * `where` is applied SERVER-side, so JobTread returns only the lines that count
+ * instead of every cost item on the job — the same trick that took
+ * `_getJobBudgetUncached` from 1,209 scanned items to 86 returned. Confirmed
+ * live 2026-08-04: on Otis Perkins the filtered query returns 115 lines in 2
+ * pages / 654 ms against 1,220 items in 13 pages / 2,017 ms for the full walk,
+ * with identical totals ($1,326,647.85).
+ */
+async function _costItemLines(cfg: PaveConfig, jobId: string, where: unknown): Promise<any[]> {
+  const nodes: any[] = [];
+  let cursor: string | null = null;
+  for (let page = 0; page < 50; page++) {
+    const args: Record<string, unknown> = { size: 100 };
+    if (where) args.where = where;
+    if (cursor) args.page = cursor;
+    const r = await pave(cfg, {
+      job: {
+        $: { id: jobId },
+        id: {},
+        costItems: {
+          $: args,
+          nextPage: {},
+          nodes: {
+            id: {},
+            name: {},
+            description: {},
+            quantity: {},
+            unitCost: {},
+            cost: {},
+            unit: { name: {} },
+            costType: { name: {} },
+            allowanceType: {},
+            document: { type: {}, status: {}, includeInBudget: {} },
+            costCode: { number: {}, name: {}, parentCostCode: { number: {}, name: {} } },
+          },
+        },
+      },
+    });
+    const co = r?.job?.costItems ?? {};
+    nodes.push(...(co.nodes ?? []));
+    cursor = co.nextPage ?? null;
+    if (!cursor) break;
+  }
+  return nodes;
+}
+
+/**
+ * Approved customer invoices on a job, newest issueDate first.
+ *
+ * Confirmed live 2026-08-04 across 5 jobs (Bunkhouse, Beach Shack, Otis Perkins,
+ * Pole Barn, Car Barn): these invoices ARE fully CSI-coded — the sum of their
+ * cost items matches the document-level `cost` to the penny, with nothing
+ * uncoded (e.g. Otis Perkins, 235 lines over 43 cost codes, Δ = 0.00). That is
+ * what makes the invoiced-per-cost-code columns safe to compute.
+ */
+const INVOICED_WHERE = {
+  and: [
+    [["document", "type"], "customerInvoice"],
+    [["document", "status"], "approved"],
+  ],
+};
+
+async function _approvedCustomerInvoices(
+  cfg: PaveConfig,
+  jobId: string,
+): Promise<{ id: string; name: string; issueDate: string | null; cost: number }[]> {
+  const r = await pave(cfg, {
+    job: {
+      $: { id: jobId },
+      documents: {
+        $: {
+          size: 100,
+          where: { and: [["type", "customerInvoice"], ["status", "approved"]] },
+        },
+        nodes: { id: {}, name: {}, issueDate: {}, cost: {} },
+      },
+    },
+  });
+  const nodes: any[] = r?.job?.documents?.nodes ?? [];
+  return nodes
+    .map((n) => ({
+      id: n.id,
+      name: String(n.name ?? ""),
+      issueDate: n.issueDate ?? null,
+      cost: n.cost ?? 0,
+    }))
+    .sort((a, b) => String(b.issueDate ?? "").localeCompare(String(a.issueDate ?? "")));
+}
+
+/**
+ * Everything the /jobs browser needs for one job, as a division → cost code →
+ * estimate line tree, in ~6 JobTread calls instead of the browser's old 13–33.
+ *
+ * Cached per job at JOB_COST_TTL_MS and dropped by `clearJobCostCaches()`, so a
+ * bill write shows up immediately rather than waiting out the TTL.
+ */
+export function getJobCostDetail(cfg: PaveConfig, jobId: string): Promise<JobCostDetail> {
+  return cachedRef(_jobCostKey("costdetail", cfg.orgId, jobId), JOB_COST_TTL_MS, () =>
+    _getJobCostDetailUncached(cfg, jobId),
+  );
+}
+async function _getJobCostDetailUncached(cfg: PaveConfig, jobId: string): Promise<JobCostDetail> {
+  const degraded: string[] = [];
+
+  // 1. Budget side — approved customer-order lines, i.e. JobTread's own
+  //    "Budgeted Cost" (server-filtered, with a client-filtered full walk as the
+  //    safety net so the table can't go empty).
+  let lineNodes: any[];
+  try {
+    lineNodes = await _costItemLines(cfg, jobId, CTC_BUDGET_WHERE);
+  } catch {
+    degraded.push("budget");
+    const all = await _costItemLines(cfg, jobId, undefined);
+    lineNodes = all.filter(
+      (n) =>
+        n?.document?.type === "customerOrder" &&
+        n?.document?.status === "approved" &&
+        n?.document?.includeInBudget,
+    );
+  }
+
+  // Not every job's budget was issued as an approved customer order — measured
+  // 2026-08-04, 8 of the org's 24 jobs have real budget leaves but no approved
+  // customerOrder at all (Pole Barn: $319,530 of leaves, $0 of orders, against
+  // $306,945 of bills). On those, the customer-order basis alone would render a
+  // $0 budget and a six-figure red "over budget", so fall back to the base
+  // estimate and tell the UI which basis it got rather than showing a number
+  // that looks like a disaster.
+  let budgetBasis: BudgetBasis = "customerOrders";
+  if (lineNodes.reduce((s, n) => s + (n?.cost ?? 0), 0) === 0) {
+    try {
+      const leaves = await _costItemLines(cfg, jobId, [["document", "id"], null]);
+      if (leaves.some((n) => (n?.cost ?? 0) !== 0)) {
+        lineNodes = leaves;
+        budgetBasis = "budgetLeaves";
+      }
+    } catch {
+      degraded.push("budget fallback");
+    }
+  }
+
+  // 2. Actual spend per cost code — approved + pending vendor bills. Reuses the
+  //    exact predicate and aggregate the bill view's Remaining column runs on.
+  let bills: Record<string, number>;
+  try {
+    bills = await _sumCostByCostCode(cfg, jobId, CTC_ACTUAL_WHERE);
+  } catch {
+    degraded.push("bills");
+    ({ actual: bills } = await _costToCompleteByFullWalk(cfg, jobId));
+  }
+
+  // 3. Labor per cost code — time entries carry their own cost, so bills and
+  //    labor never double-count.
+  let time: Record<string, { cost: number; minutes: number }>;
+  try {
+    time = await _sumTimeByCostCode(cfg, jobId);
+  } catch {
+    degraded.push("labor");
+    time = await _sumTimeByFullWalk(cfg, jobId);
+  }
+
+  // 4. Invoiced per cost code — approved customer-invoice lines, all time, plus
+  //    the most recent invoice on its own so the view can separate CURRENT
+  //    INVOICE from TOTAL PREVIOUSLY INVOICED the way the Tracking Sheet does.
+  //    "Current" is the latest invoice by issueDate rather than a calendar
+  //    window, so it can't drift from deriveBillingPeriod()'s 10th-to-10th rule.
+  let invoiced: Record<string, number> = {};
+  let currentInvoice: Record<string, number> = {};
+  let currentInvoiceLabel: string | null = null;
+  try {
+    const invoices = await _approvedCustomerInvoices(cfg, jobId);
+    if (invoices.length > 0) {
+      invoiced = await _sumCostByCostCode(cfg, jobId, INVOICED_WHERE);
+      const latest = invoices[0];
+      currentInvoice = await _sumCostByCostCode(cfg, jobId, [["document", "id"], latest.id]);
+      currentInvoiceLabel = latest.issueDate
+        ? `${latest.name} · ${latest.issueDate}`
+        : latest.name || null;
+    }
+  } catch {
+    degraded.push("invoiced");
+    invoiced = {};
+    currentInvoice = {};
+    currentInvoiceLabel = null;
+  }
+
+  // ---- fold into the tree ------------------------------------------------
+  const codes = new Map<string, CostCodeRow>();
+  const divisionNames = new Map<string, string>();
+
+  const codeRow = (
+    number: string,
+    name: string,
+    parentName?: string,
+    parentNumber?: string,
+  ): CostCodeRow => {
+    const digits = number.replace(/\D/g, "");
+    const division = digits ? digits.slice(0, 2) : "—";
+    if (parentName && !divisionNames.get(division)) divisionNames.set(division, parentName);
+    else if (parentNumber && !divisionNames.get(division)) divisionNames.set(division, parentNumber);
+    let row = codes.get(number);
+    if (!row) {
+      row = {
+        number,
+        name,
+        division,
+        budget: 0,
+        bills: 0,
+        labor: 0,
+        laborHours: 0,
+        invoiced: 0,
+        currentInvoice: 0,
+        split: emptySplit(),
+        lines: [],
+      };
+      codes.set(number, row);
+    }
+    if (!row.name && name) row.name = name;
+    return row;
+  };
+
+  for (const n of lineNodes) {
+    const number = n?.costCode?.number?.toString().trim();
+    if (!number) continue;
+    if (/^uncategorized\b/i.test(String(n?.name ?? "").trim())) continue;
+    const row = codeRow(
+      number,
+      n?.costCode?.name ?? "",
+      n?.costCode?.parentCostCode?.name,
+      n?.costCode?.parentCostCode?.number,
+    );
+    const cost = typeof n?.cost === "number" ? n.cost : 0;
+    const isAllowance = n?.allowanceType != null;
+    const costType = n?.costType?.name ?? undefined;
+    row.budget += cost;
+    row.split[splitKeyFor(costType, isAllowance)] += cost;
+    row.lines.push({
+      id: n.id,
+      name: String(n?.name ?? "").trim(),
+      description: n?.description ?? undefined,
+      quantity: typeof n?.quantity === "number" ? n.quantity : undefined,
+      unit: n?.unit?.name ?? undefined,
+      unitCost: typeof n?.unitCost === "number" ? n.unitCost : undefined,
+      cost,
+      costType,
+      isAllowance,
+    });
+  }
+
+  // Actuals can land on a code that has no budget line (coded to something never
+  // estimated) — those must still appear, or the totals won't tie out.
+  for (const [number, amount] of Object.entries(bills)) {
+    codeRow(number, "").bills += amount;
+  }
+  for (const [number, t] of Object.entries(time)) {
+    const row = codeRow(number, "");
+    row.labor += t.cost;
+    row.laborHours += t.minutes / 60;
+  }
+  for (const [number, amount] of Object.entries(invoiced)) {
+    codeRow(number, "").invoiced += amount;
+  }
+  for (const [number, amount] of Object.entries(currentInvoice)) {
+    codeRow(number, "").currentInvoice += amount;
+  }
+
+  const divisions = new Map<string, CostDivisionRow>();
+  for (const row of codes.values()) {
+    row.lines.sort((a, b) => a.name.localeCompare(b.name));
+    let d = divisions.get(row.division);
+    if (!d) {
+      d = {
+        division: row.division,
+        name: divisionNames.get(row.division) ?? (row.division === "—" ? "Uncategorized" : ""),
+        budget: 0,
+        bills: 0,
+        labor: 0,
+        laborHours: 0,
+        invoiced: 0,
+        currentInvoice: 0,
+        split: emptySplit(),
+        codes: [],
+      };
+      divisions.set(row.division, d);
+    }
+    d.budget += row.budget;
+    d.bills += row.bills;
+    d.labor += row.labor;
+    d.laborHours += row.laborHours;
+    d.invoiced += row.invoiced;
+    d.currentInvoice += row.currentInvoice;
+    addSplit(d.split, row.split);
+    d.codes.push(row);
+  }
+
+  const out = [...divisions.values()].sort((a, b) => a.division.localeCompare(b.division));
+  for (const d of out) d.codes.sort((a, b) => a.number.localeCompare(b.number));
+
+  return {
+    divisions: out,
+    budgetBasis,
+    budgetTotal: out.reduce((s, d) => s + d.budget, 0),
+    billsTotal: out.reduce((s, d) => s + d.bills, 0),
+    laborTotal: out.reduce((s, d) => s + d.labor, 0),
+    laborHoursTotal: out.reduce((s, d) => s + d.laborHours, 0),
+    invoicedTotal: out.reduce((s, d) => s + d.invoiced, 0),
+    currentInvoiceTotal: out.reduce((s, d) => s + d.currentInvoice, 0),
+    currentInvoiceLabel,
+    degraded,
+  };
+}
+
 export interface JobRef {
   id: string;
   name: string;
@@ -808,6 +1313,65 @@ async function _getJobsUncached(cfg: PaveConfig, includeClosed = false): Promise
     (a, b) =>
       (a.customer ?? "").localeCompare(b.customer ?? "") || (a.name ?? "").localeCompare(b.name ?? ""),
   );
+}
+
+/**
+ * jobId → the job's "Phase" custom-field value, for the /jobs filter.
+ *
+ * Two phases on purpose: nesting `customFieldValues` inside the paged
+ * organization.jobs connection returns HTTP 413 (the 413 rule in
+ * JT_API_REFERENCE.md), so we look the field up once by name and then page its
+ * values, each of which carries the job it belongs to. Same shape the Apps
+ * Script project sync uses (`_jtProjCf(job, "Phase")`, JobTread.js).
+ *
+ * Cached at the same 5 min as `getJobs` — the two are always read together and a
+ * Phase is a human edit in JobTread, not something the Companion writes.
+ */
+export function getJobPhaseMap(cfg: PaveConfig): Promise<Record<string, string>> {
+  return cachedRef(`jobphase:${cfg.orgId}`, 5 * 60_000, () => _getJobPhaseMapUncached(cfg));
+}
+async function _getJobPhaseMapUncached(cfg: PaveConfig): Promise<Record<string, string>> {
+  const out: Record<string, string> = {};
+
+  const cf = await pave(cfg, {
+    organization: {
+      $: { id: cfg.orgId },
+      id: {},
+      customFields: { $: { size: 100 }, nodes: { id: {}, name: {}, targetType: {} } },
+    },
+  });
+  const fields: any[] = cf?.organization?.customFields?.nodes ?? [];
+  const field =
+    fields.find((f) => f?.name === "Phase" && f?.targetType === "job") ??
+    fields.find((f) => f?.name === "Phase");
+  if (!field?.id) return out; // no Phase field configured — the filter just shows nothing to filter on
+
+  let cursor: string | null = null;
+  for (let page = 0; page < 20; page++) {
+    const args: Record<string, unknown> = { size: 100 };
+    if (cursor) args.page = cursor;
+    const r = await pave(cfg, {
+      customField: {
+        $: { id: field.id },
+        id: {},
+        customFieldValues: {
+          $: args,
+          nextPage: {},
+          nodes: { value: {}, job: { id: {} } },
+        },
+      },
+    });
+    const conn = r?.customField?.customFieldValues ?? {};
+    for (const n of conn.nodes ?? []) {
+      const jobId = n?.job?.id;
+      if (!jobId || n?.value == null) continue;
+      const v = typeof n.value === "string" ? n.value : String(n.value);
+      if (v.trim()) out[jobId] = v.trim();
+    }
+    cursor = conn.nextPage ?? null;
+    if (!cursor) break;
+  }
+  return out;
 }
 
 export interface VendorRef {

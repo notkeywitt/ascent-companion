@@ -3,84 +3,141 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   PageHeader,
-  Input,
   Select,
   Card,
   Banner,
   Loading,
   EmptyState,
   SectionLabel,
+  Toggle,
 } from "@/components/ui";
-import { gatewayQuery } from "@/lib/paveGatewayClient";
+import { JobPicker, type JobRef } from "@/components/JobPicker";
 import { Donut, type DonutSlice } from "@/components/Donut";
 
 /**
- * Jobs browser driven entirely by the guarded Pave gateway (gatewayQuery). Lists
- * the org's jobs as "Customer - Job", filterable by the "Status" custom field,
- * and on tap loads a job's budget rolled up by CSI division (first two digits of
- * the cost code) — using only queries composed from JT_API_REFERENCE.md, no
- * per-view API route.
+ * Jobs cost browser — pick a job, see its cost laid out like the office's
+ * Tracking Sheet.
  *
- * The expanded panel shows: a horizontal "budget used" progress bar (total
- * actual ÷ budget), two CSI donuts splitting cost by division — one for vendor
- * BILLS (approved vendor-bill cost items) and one for LABOR (job time entries,
- * still thin while time-tracking ramps up in JobTread) — and a budget-vs-actual
- * table broken out into Labor / Bills columns. Bills and labor never
- * double-count: bills come from cost items with an approved vendorBill document,
- * labor from job.timeEntries (which carry their own cost, not a document).
+ * DATA. Everything comes from two cached server routes rather than the browser
+ * driving the Pave gateway itself. `/api/jobs/browser` is one fetch for the job
+ * list + each job's "Phase" custom field (it used to be up to 30 client round
+ * trips: paging organization.jobs, then paging the custom field's values).
+ * `/api/jobs/cost-detail` is one fetch per job, backed by 3 JobTread calls that
+ * let JobTread do the summing server-side (it used to be up to 33 client pages
+ * of job.costItems + job.timeEntries).
+ *
+ * NUMBERS. Budget is JobTread's own "Budgeted Cost" — approved, includeInBudget
+ * customerOrder lines, i.e. the proposal PLUS approved change orders. Actual is
+ * approved+pending vendor bills (BILLS) plus job time entries (LABOR); the two
+ * come from different connections and never double-count. ECTC = budget −
+ * actual, the same arithmetic getCostToComplete uses on the bill view.
+ *
+ * LAYOUT. One responsive route. On a phone the table is identity + Budget /
+ * Actual / Remaining; at lg+ it widens to the full Tracking-Sheet grid (unit
+ * pricing, the cost-type split, actual labor hours) inside its own horizontal
+ * scroll container, so the page body never scrolls sideways. Every row expands:
+ * CSI division → cost code → the individual estimate lines.
  */
 
-interface Job {
+interface BrowserJob extends JobRef {
+  phase: string | null;
+}
+
+interface CostLine {
   id: string;
   name: string;
-  number: string | null;
-  customer: string | null;
-  status: string | null; // the "Status" job custom field (New Lead / Awarded / …)
+  description?: string;
+  quantity?: number;
+  unit?: string;
+  unitCost?: number;
+  cost: number;
+  costType?: string;
+  isAllowance: boolean;
 }
 
-interface RawJob {
-  id: string;
+interface CostTypeSplit {
+  labor: number;
+  allowance: number;
+  sub: number;
+  vendor: number;
+  other: number;
+}
+
+interface CostCodeRow {
+  number: string;
   name: string;
-  number: string | null;
-  location: { account: { name: string | null } | null } | null;
+  division: string;
+  budget: number;
+  bills: number;
+  labor: number;
+  laborHours: number;
+  invoiced: number;
+  currentInvoice: number;
+  split: CostTypeSplit;
+  lines: CostLine[];
 }
 
-interface Leaf {
-  name: string | null;
-  cost: number | null;
-  document: { id: string; type: string | null; status: string | null } | null;
-  costCode: {
-    number: string | null;
-    name: string | null;
-    parentCostCode: { number: string | null; name: string | null } | null;
-  } | null;
+interface CostDivisionRow {
+  division: string;
+  name: string;
+  budget: number;
+  bills: number;
+  labor: number;
+  laborHours: number;
+  invoiced: number;
+  currentInvoice: number;
+  split: CostTypeSplit;
+  codes: CostCodeRow[];
 }
 
-/** A single job time entry — the LABOR side (see job.timeEntries). */
-interface TimeEntry {
-  cost: number | null;
-  costItem: {
-    costCode: {
-      number: string | null;
-      name: string | null;
-      parentCostCode: { number: string | null; name: string | null } | null;
-    } | null;
-  } | null;
+interface JobCostDetail {
+  divisions: CostDivisionRow[];
+  budgetBasis: "customerOrders" | "budgetLeaves";
+  budgetTotal: number;
+  billsTotal: number;
+  laborTotal: number;
+  laborHoursTotal: number;
+  invoicedTotal: number;
+  currentInvoiceTotal: number;
+  currentInvoiceLabel: string | null;
+  degraded: string[];
 }
 
-interface DivisionRow {
-  division: string; // 2-digit CSI division, e.g. "01"
-  name: string; // JobTread's division name (parent cost code), e.g. "General Requirements"
-  budget: number; // Σ budget-leaf cost (document == null)
-  bills: number; // Σ approved vendor-bill line cost coded to this division
-  labor: number; // Σ job time-entry cost coded to this division
-}
-
-/** Actual (spent) for a division = vendor bills + labor. */
-const rowActual = (r: DivisionRow) => r.bills + r.labor;
+/** Actual (spent + committed) = vendor bills + logged labor. */
+const actualOf = (r: { bills: number; labor: number }) => r.bills + r.labor;
 
 const money = (n: number) =>
   `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+/** Compact money for the wide grid, where two decimals on 14 columns is noise. */
+const money0 = (n: number) =>
+  `$${n.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+const num = (n: number, dp = 1) =>
+  n.toLocaleString(undefined, { minimumFractionDigits: dp, maximumFractionDigits: dp });
+/** A zero cell reads as "—" so the eye lands only on real numbers. */
+const cell = (n: number, fmt: (v: number) => string = money0) => (n ? fmt(n) : "—");
+/** Share of budget already invoiced; blank when there's no budget to divide by. */
+const pctInvoiced = (invoiced: number, budget: number) =>
+  budget > 0 ? `${Math.round((invoiced / budget) * 100)}%` : "—";
+
+/**
+ * Which cost-type column a line belongs in — mirrors splitKeyFor() in
+ * lib/jobtread.ts so a line's own total lands under the same heading its cost
+ * contributed to at the code and division levels (the Tracking Sheet puts each
+ * row's total in its LABOR / ALLOWANCE / SUB / VENDOR column the same way).
+ */
+function lineSplitKey(l: CostLine): keyof CostTypeSplit {
+  if (l.isAllowance) return "allowance";
+  switch ((l.costType ?? "").trim().toLowerCase()) {
+    case "labor":
+      return "labor";
+    case "subcontractor":
+      return "sub";
+    case "materials":
+      return "vendor";
+    default:
+      return "other";
+  }
+}
 
 /** Fixed-order categorical slots (globals.css); a 9th division folds to "Other". */
 const VIZ_SLOTS = [
@@ -101,9 +158,9 @@ const VIZ_OTHER = "var(--viz-other)";
  * fold into a single gray "Other" slice. Colors are then assigned in division-
  * number order (not by rank) so the mapping is stable across the two rings.
  */
-function buildColorMap(rows: DivisionRow[]): Map<string, string> {
+function buildColorMap(rows: CostDivisionRow[]): Map<string, string> {
   const spent = rows
-    .map((r) => ({ division: r.division, v: rowActual(r) }))
+    .map((r) => ({ division: r.division, v: actualOf(r) }))
     .filter((x) => x.v > 0)
     .sort((a, b) => b.v - a.v)
     .slice(0, VIZ_SLOTS.length)
@@ -116,7 +173,7 @@ function buildColorMap(rows: DivisionRow[]): Map<string, string> {
 
 /** Build donut slices for one actual field, folding un-slotted divisions to "Other". */
 function buildSlices(
-  rows: DivisionRow[],
+  rows: CostDivisionRow[],
   colorMap: Map<string, string>,
   field: "bills" | "labor",
 ): DonutSlice[] {
@@ -130,70 +187,19 @@ function buildSlices(
     if (color) out.push({ key: r.division, label, value: v, color });
     else other += v;
   }
-  if (other > 0) out.push({ key: "__other", label: "Other divisions", value: other, color: VIZ_OTHER });
+  if (other > 0)
+    out.push({ key: "__other", label: "Other divisions", value: other, color: VIZ_OTHER });
   return out;
 }
 
 /** "Customer - Job", or just the job name when the customer is unknown. */
-const jobLabel = (j: Job) => (j.customer ? `${j.customer} - ${j.name}` : j.name);
+const jobLabel = (j: JobRef) => (j.customer ? `${j.customer} - ${j.name}` : j.name);
 
-/** Sentinel value for the "jobs with no Status set" filter option. */
-const NO_STATUS = "__no_status__";
+/** Sentinel for the "jobs with no Phase set" filter option. */
+const NO_PHASE = "__no_phase__";
 
-/**
- * Map of jobId → "Status" custom-field value, fetched on its own. We can't nest
- * customFieldValues inside the paged organization.jobs connection — that 413s
- * ("Request Entity Too Large", the 413 rule in JT_API_REFERENCE.md) — so we look
- * up the Status field once and page its values (each keyed to its job).
- */
-async function loadStatusMap(orgId: string): Promise<Map<string, string>> {
-  const map = new Map<string, string>();
-  const cf = await gatewayQuery<{
-    organization: {
-      customFields: { nodes: Array<{ id: string; name: string | null; targetType: string | null }> };
-    };
-  }>({
-    organization: {
-      $: { id: orgId },
-      customFields: { $: { size: 100 }, nodes: { id: {}, name: {}, targetType: {} } },
-    },
-  });
-  const fields = cf.organization.customFields.nodes;
-  const field =
-    fields.find((f) => f.name === "Status" && f.targetType === "job") ??
-    fields.find((f) => f.name === "Status");
-  if (!field) return map;
-
-  let page: string | undefined;
-  for (let i = 0; i < 20; i++) {
-    const r = await gatewayQuery<{
-      customField: {
-        customFieldValues: {
-          nextPage: string | null;
-          nodes: Array<{ value: unknown; job: { id: string } | null }>;
-        };
-      };
-    }>({
-      customField: {
-        $: { id: field.id },
-        customFieldValues: {
-          $: { size: 100, ...(page ? { page } : {}) },
-          nextPage: {},
-          nodes: { value: {}, job: { id: {} } },
-        },
-      },
-    });
-    const conn = r.customField.customFieldValues;
-    for (const v of conn.nodes) {
-      if (v.job?.id && v.value != null) {
-        map.set(v.job.id, typeof v.value === "string" ? v.value : String(v.value));
-      }
-    }
-    if (!conn.nextPage) break;
-    page = conn.nextPage;
-  }
-  return map;
-}
+/** The overhead jobs booked to the company itself rather than a customer. */
+const isAscentJob = (j: BrowserJob) => /^ascent/i.test((j.customer ?? "").trim());
 
 /**
  * Horizontal "budget used" indicator — total actual spend as a share of the
@@ -210,7 +216,9 @@ function ProgressBar({ actual, budget, pct }: { actual: number; budget: number; 
       <div className="mb-1 flex items-baseline justify-between gap-2">
         <SectionLabel>Budget used</SectionLabel>
         {budget > 0 ? (
-          <span className={`text-xs font-semibold tabular-nums ${over ? "text-red-600 dark:text-red-400" : "text-neutral-500"}`}>
+          <span
+            className={`text-xs font-semibold tabular-nums ${over ? "text-red-600 dark:text-red-400" : "text-neutral-500"}`}
+          >
             {rounded}%
           </span>
         ) : (
@@ -238,233 +246,157 @@ function ProgressBar({ actual, budget, pct }: { actual: number; budget: number; 
   );
 }
 
-export function JobsBrowser({ orgId }: { orgId: string }) {
-  const [jobs, setJobs] = useState<Job[] | null>(null);
+/** One headline figure. Four of these sit above the chart row on desktop. */
+function Kpi({ label, value, tone }: { label: string; value: string; tone?: "over" | "under" }) {
+  return (
+    <Card className="min-w-0">
+      <SectionLabel>{label}</SectionLabel>
+      <p
+        className={`mt-0.5 truncate text-lg font-semibold tabular-nums ${
+          tone === "over"
+            ? "text-red-600 dark:text-red-400"
+            : tone === "under"
+              ? "text-emerald-600 dark:text-emerald-400"
+              : ""
+        }`}
+      >
+        {value}
+      </p>
+    </Card>
+  );
+}
+
+/* Column visibility: `wide` cells exist only at lg+, where the grid opens up to
+   the full Tracking-Sheet column set. */
+const WIDE = "hidden lg:table-cell";
+const TH = "whitespace-nowrap py-1.5 pr-3 text-right text-[11px] font-semibold";
+const TD = "whitespace-nowrap py-1.5 pr-3 text-right tabular-nums";
+
+export function JobsBrowser() {
+  const [jobs, setJobs] = useState<BrowserJob[] | null>(null);
   const [jobsError, setJobsError] = useState<string | null>(null);
-  const [filter, setFilter] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
 
-  const [selected, setSelected] = useState<Job | null>(null);
-  const [rows, setRows] = useState<DivisionRow[] | null>(null);
-  const [budgetTotal, setBudgetTotal] = useState(0);
-  const [billsTotal, setBillsTotal] = useState(0);
-  const [laborTotal, setLaborTotal] = useState(0);
-  const [budgetLoading, setBudgetLoading] = useState(false);
-  const [budgetError, setBudgetError] = useState<string | null>(null);
+  const [phaseFilter, setPhaseFilter] = useState("");
+  const [hideAscent, setHideAscent] = useState(true);
+  const [jobId, setJobId] = useState("");
 
-  // Load jobs, then merge in their Status. Two phases on purpose: nesting
-  // customFieldValues inside the paged jobs connection 413s, so Status is fetched
-  // separately (loadStatusMap) and joined by job id.
+  const [detail, setDetail] = useState<JobCostDetail | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState<string | null>(null);
+
+  const [openDivisions, setOpenDivisions] = useState<Set<string>>(new Set());
+  const [openCodes, setOpenCodes] = useState<Set<string>>(new Set());
+
+  // One fetch for the whole list, Phase included (server-side + Data-Cached).
   useEffect(() => {
     let cancelled = false;
-    (async () => {
-      try {
-        // Phase 1 — jobs (light), paging the cursor past the 100 cap.
-        const all: Job[] = [];
-        let page: string | undefined;
-        for (let i = 0; i < 10; i++) {
-          const r = await gatewayQuery<{
-            organization: { jobs: { nextPage: string | null; nodes: RawJob[] } };
-          }>({
-            organization: {
-              $: { id: orgId },
-              jobs: {
-                $: { size: 100, ...(page ? { page } : {}) },
-                nextPage: {},
-                nodes: {
-                  id: {},
-                  name: {},
-                  number: {},
-                  location: { account: { name: {} } },
-                },
-              },
-            },
-          });
-          const conn = r.organization.jobs;
-          for (const n of conn.nodes) {
-            all.push({
-              id: n.id,
-              name: n.name,
-              number: n.number,
-              customer: n.location?.account?.name ?? null,
-              status: null,
-            });
-          }
-          if (!conn.nextPage) break;
-          page = conn.nextPage;
-        }
-
-        // Phase 2 — the "Status" custom field, keyed by job id.
-        const statusMap = await loadStatusMap(orgId);
-        for (const j of all) j.status = statusMap.get(j.id) ?? null;
-
-        // Sort by the "Customer - Job" label so a customer's jobs group together.
-        all.sort((a, b) => jobLabel(a).localeCompare(jobLabel(b)));
-        if (!cancelled) setJobs(all);
-      } catch (e) {
+    fetch("/api/jobs/browser")
+      .then((r) => r.json())
+      .then((j) => {
+        if (cancelled) return;
+        if (j.error) setJobsError(j.error);
+        else setJobs(j.jobs ?? []);
+      })
+      .catch((e) => {
         if (!cancelled) setJobsError(e instanceof Error ? e.message : "Failed to load jobs");
-      }
-    })();
+      });
     return () => {
       cancelled = true;
     };
-  }, [orgId]);
-
-  const loadBudget = useCallback(async (job: Job) => {
-    setSelected(job);
-    setRows(null);
-    setBudgetError(null);
-    setBudgetLoading(true);
-    try {
-      // Page the FLAT job.costItems connection (budgets exceed the 100 cap; a
-      // single page silently drops leaves — see jt-budget-map-pagination memory).
-      const leaves: Leaf[] = [];
-      let page: string | undefined;
-      for (let i = 0; i < 20; i++) {
-        const r = await gatewayQuery<{
-          job: { costItems: { nextPage: string | null; nodes: Leaf[] } };
-        }>({
-          job: {
-            $: { id: job.id },
-            costItems: {
-              $: { size: 100, ...(page ? { page } : {}) },
-              nextPage: {},
-              nodes: {
-                name: {},
-                cost: {},
-                document: { id: {}, type: {}, status: {} },
-                costCode: {
-                  number: {},
-                  name: {},
-                  parentCostCode: { number: {}, name: {} },
-                },
-              },
-            },
-          },
-        });
-        const conn = r.job.costItems;
-        leaves.push(...conn.nodes);
-        if (!conn.nextPage) break;
-        page = conn.nextPage;
-      }
-      // LABOR — page the job's time entries (each carries its own cost and the
-      // cost code it was logged against). Separate connection from cost items,
-      // so bills and labor never double-count. Thin today (time tracking in JT
-      // is just ramping up), but the roll-up is ready for it.
-      const timeEntries: TimeEntry[] = [];
-      let tpage: string | undefined;
-      for (let i = 0; i < 20; i++) {
-        const tr = await gatewayQuery<{
-          job: { timeEntries: { nextPage: string | null; nodes: TimeEntry[] } };
-        }>({
-          job: {
-            $: { id: job.id },
-            timeEntries: {
-              $: { size: 100, ...(tpage ? { page: tpage } : {}) },
-              nextPage: {},
-              nodes: {
-                cost: {},
-                costItem: {
-                  costCode: {
-                    number: {},
-                    name: {},
-                    parentCostCode: { number: {}, name: {} },
-                  },
-                },
-              },
-            },
-          },
-        });
-        const tconn = tr.job.timeEntries;
-        timeEntries.push(...tconn.nodes);
-        if (!tconn.nextPage) break;
-        tpage = tconn.nextPage;
-      }
-
-      // One pass over every cost item on the job, rolled up by CSI division
-      // (first two digits of the cost-code number) and labeled with JobTread's
-      // own division name (the parent cost code). BUDGET = leaves with no
-      // document (skip JT's "Uncategorized <code>" rollups); BILLS = lines on
-      // APPROVED vendor bills; LABOR = time entries (added below).
-      const groups = new Map<string, DivisionRow>();
-      const bump = (
-        costCode: Leaf["costCode"],
-        cost: number | null,
-        field: "budget" | "bills" | "labor",
-      ) => {
-        const digits = (costCode?.number ?? "").replace(/\D/g, "");
-        const division = digits ? digits.slice(0, 2) : "—";
-        const parent = costCode?.parentCostCode;
-        const name = parent?.name ?? parent?.number ?? (division === "—" ? "Uncategorized" : "");
-        const g = groups.get(division) ?? { division, name, budget: 0, bills: 0, labor: 0 };
-        if (!g.name && name) g.name = name; // fill from the first item that has one
-        g[field] += cost ?? 0;
-        groups.set(division, g);
-      };
-      for (const l of leaves) {
-        const doc = l.document;
-        if (!doc) {
-          if (!/^uncategorized\b/i.test(l.name ?? "")) bump(l.costCode, l.cost, "budget");
-        } else if (doc.type === "vendorBill" && doc.status === "approved") {
-          bump(l.costCode, l.cost, "bills");
-        }
-      }
-      for (const t of timeEntries) bump(t.costItem?.costCode ?? null, t.cost, "labor");
-
-      const out = [...groups.values()].sort((a, b) => a.division.localeCompare(b.division));
-      setRows(out);
-      setBudgetTotal(out.reduce((s, r2) => s + r2.budget, 0));
-      setBillsTotal(out.reduce((s, r2) => s + r2.bills, 0));
-      setLaborTotal(out.reduce((s, r2) => s + r2.labor, 0));
-    } catch (e) {
-      setBudgetError(e instanceof Error ? e.message : "Failed to load budget");
-    } finally {
-      setBudgetLoading(false);
-    }
   }, []);
 
-  // Distinct statuses present, for the dropdown (plus a "(No status)" option
-  // when some jobs have none).
-  const statuses = useMemo(() => {
+  const phases = useMemo(() => {
     const set = new Set<string>();
-    for (const j of jobs ?? []) if (j.status) set.add(j.status);
+    for (const j of jobs ?? []) if (j.phase) set.add(j.phase);
     return [...set].sort((a, b) => a.localeCompare(b));
   }, [jobs]);
-  const hasNoStatus = useMemo(() => !!jobs?.some((j) => !j.status), [jobs]);
+  const hasNoPhase = useMemo(() => !!jobs?.some((j) => !j.phase), [jobs]);
 
   const filtered = useMemo(() => {
     if (!jobs) return [];
-    const q = filter.trim().toLowerCase();
     return jobs.filter((j) => {
-      if (statusFilter) {
-        const statusOk = statusFilter === NO_STATUS ? !j.status : j.status === statusFilter;
-        if (!statusOk) return false;
+      if (hideAscent && isAscentJob(j)) return false;
+      if (phaseFilter) {
+        return phaseFilter === NO_PHASE ? !j.phase : j.phase === phaseFilter;
       }
-      if (!q) return true;
-      return (
-        j.name.toLowerCase().includes(q) ||
-        (j.customer ?? "").toLowerCase().includes(q) ||
-        (j.number ?? "").toLowerCase().includes(q)
-      );
+      return true;
     });
-  }, [jobs, filter, statusFilter]);
+  }, [jobs, phaseFilter, hideAscent]);
 
-  // Derived cost figures for the expanded job (only one is open at a time).
+  // A job filtered out from under the picker can't stay selected, or the panel
+  // would show costs for a job the dropdown no longer lists.
+  useEffect(() => {
+    if (jobId && !filtered.some((j) => j.id === jobId)) setJobId("");
+  }, [filtered, jobId]);
+
+  const selected = useMemo(() => filtered.find((j) => j.id === jobId) ?? null, [filtered, jobId]);
+
+  const loadDetail = useCallback((id: string) => {
+    setDetail(null);
+    setDetailError(null);
+    setOpenDivisions(new Set());
+    setOpenCodes(new Set());
+    if (!id) return;
+    setDetailLoading(true);
+    fetch(`/api/jobs/cost-detail?jobId=${encodeURIComponent(id)}`)
+      .then((r) => r.json())
+      .then((j) => {
+        if (j.error) setDetailError(j.error);
+        else setDetail(j as JobCostDetail);
+      })
+      .catch((e) => setDetailError(e instanceof Error ? e.message : "Failed to load job costs"))
+      .finally(() => setDetailLoading(false));
+  }, []);
+
+  useEffect(() => {
+    loadDetail(jobId);
+  }, [jobId, loadDetail]);
+
+  const toggle = (set: Set<string>, key: string) => {
+    const next = new Set(set);
+    if (next.has(key)) next.delete(key);
+    else next.add(key);
+    return next;
+  };
+
+  const rows = detail?.divisions ?? [];
+  const budgetTotal = detail?.budgetTotal ?? 0;
+  const billsTotal = detail?.billsTotal ?? 0;
+  const laborTotal = detail?.laborTotal ?? 0;
+  const laborHoursTotal = detail?.laborHoursTotal ?? 0;
+  const invoicedTotal = detail?.invoicedTotal ?? 0;
+  const currentInvoiceTotal = detail?.currentInvoiceTotal ?? 0;
   const actualTotal = billsTotal + laborTotal;
   const usedPct = budgetTotal > 0 ? actualTotal / budgetTotal : 0;
-  const colorMap = useMemo(() => (rows ? buildColorMap(rows) : new Map<string, string>()), [rows]);
-  const billsSlices = useMemo(
-    () => (rows ? buildSlices(rows, colorMap, "bills") : []),
-    [rows, colorMap],
+
+  const colorMap = useMemo(
+    () => (rows.length ? buildColorMap(rows) : new Map<string, string>()),
+    [rows],
   );
-  const laborSlices = useMemo(
-    () => (rows ? buildSlices(rows, colorMap, "labor") : []),
-    [rows, colorMap],
+  const billsSlices = useMemo(() => buildSlices(rows, colorMap, "bills"), [rows, colorMap]);
+  const laborSlices = useMemo(() => buildSlices(rows, colorMap, "labor"), [rows, colorMap]);
+
+  const totalSplit = useMemo(
+    () =>
+      rows.reduce(
+        (acc, d) => ({
+          labor: acc.labor + d.split.labor,
+          allowance: acc.allowance + d.split.allowance,
+          sub: acc.sub + d.split.sub,
+          vendor: acc.vendor + d.split.vendor,
+          other: acc.other + d.split.other,
+        }),
+        { labor: 0, allowance: 0, sub: 0, vendor: 0, other: 0 },
+      ),
+    [rows],
   );
 
   return (
-    <main className="mx-auto max-w-2xl px-4 pb-24 pt-6">
-      <PageHeader title="Jobs" description="Filter by status; open a job for its budget by CSI division." />
+    <main className="mx-auto w-full max-w-2xl px-4 pb-24 pt-6 lg:max-w-[110rem]">
+      <PageHeader
+        title="Jobs"
+        description="Pick a job for its cost by CSI division, cost code, and estimate line."
+      />
 
       {jobsError && (
         <Banner tone="error" className="mb-4">
@@ -476,206 +408,417 @@ export function JobsBrowser({ orgId }: { orgId: string }) {
 
       {jobs && (
         <>
-          <div className="mb-3 flex flex-col gap-2 sm:flex-row">
-            <Input
-              type="search"
-              placeholder="Search by customer, job, or number…"
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-              className="sm:flex-1"
-            />
-            <Select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="sm:w-52"
-              aria-label="Filter by status"
-            >
-              <option value="">All statuses</option>
-              {statuses.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-              {hasNoStatus && <option value={NO_STATUS}>(No status)</option>}
-            </Select>
-          </div>
+          <Card className="mb-4">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+              <div className="flex min-w-0 flex-1 items-stretch">
+                <JobPicker
+                  value={jobId}
+                  onChange={setJobId}
+                  jobs={filtered}
+                  includeAll={false}
+                  placeholder="Select a job…"
+                />
+              </div>
+              <Select
+                value={phaseFilter}
+                onChange={(e) => setPhaseFilter(e.target.value)}
+                className="lg:w-56"
+                aria-label="Filter by phase"
+              >
+                <option value="">All phases</option>
+                {phases.map((p) => (
+                  <option key={p} value={p}>
+                    {p}
+                  </option>
+                ))}
+                {hasNoPhase && <option value={NO_PHASE}>(No phase)</option>}
+              </Select>
+              <Toggle
+                checked={hideAscent}
+                onChange={setHideAscent}
+                label="Hide Ascent jobs"
+                className="shrink-0"
+              />
+            </div>
+            <p className="mt-2 text-[11px] text-neutral-400">
+              {filtered.length} of {jobs.length} job{jobs.length === 1 ? "" : "s"} · live from
+              JobTread
+            </p>
+          </Card>
 
-          {filtered.length === 0 ? (
-            <EmptyState>No jobs match your filters.</EmptyState>
-          ) : (
-            <ul className="space-y-2">
-              {filtered.map((j) => {
-                const isSel = selected?.id === j.id;
-                return (
-                  <li key={j.id}>
-                    <Card pad={false}>
-                      <button
-                        type="button"
-                        onClick={() => (isSel ? setSelected(null) : loadBudget(j))}
-                        aria-expanded={isSel}
-                        className="flex w-full items-center justify-between gap-3 p-3 text-left transition hover:bg-accent/5 dark:hover:bg-white/5"
-                      >
-                        <span className="min-w-0">
-                          <span className="block truncate text-sm font-semibold">{jobLabel(j)}</span>
-                          {(j.number || j.status) && (
-                            <span className="block truncate text-xs text-neutral-500">
-                              {j.number ? `#${j.number}` : ""}
-                              {j.number && j.status ? " · " : ""}
-                              {j.status ?? ""}
-                            </span>
-                          )}
-                        </span>
-                        <span
-                          aria-hidden
-                          className={`shrink-0 text-neutral-400 transition-transform ${isSel ? "rotate-180" : ""}`}
-                        >
-                          ⌄
-                        </span>
-                      </button>
-
-                      {isSel && (
-                        <div className="border-t border-neutral-200 p-3 dark:border-neutral-700/60">
-                          {budgetLoading && <Loading label="Loading budget…" />}
-                          {budgetError && <Banner tone="error">{budgetError}</Banner>}
-                          {rows &&
-                            !budgetLoading &&
-                            !budgetError &&
-                            (rows.length === 0 ? (
-                              <EmptyState>No budget lines on this job.</EmptyState>
-                            ) : (
-                              <>
-                                {/* Horizontal progress: total actual ÷ budget. */}
-                                <ProgressBar
-                                  actual={actualTotal}
-                                  budget={budgetTotal}
-                                  pct={usedPct}
-                                />
-
-                                {/* CSI cost split: bills vs. labor, one color per division. */}
-                                <SectionLabel className="mb-2 mt-4">Cost by CSI division</SectionLabel>
-                                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                                  <Donut
-                                    title={`Bills · ${money(billsTotal)}`}
-                                    slices={billsSlices}
-                                    centerLabel="bills"
-                                    emptyLabel="No vendor bills yet"
-                                  />
-                                  <Donut
-                                    title={`Labor · ${money(laborTotal)}`}
-                                    slices={laborSlices}
-                                    centerLabel="labor"
-                                    emptyLabel="No labor logged yet"
-                                  />
-                                </div>
-
-                                {/* Budget vs. actual table, broken out by cost source. */}
-                                <SectionLabel className="mb-2 mt-5">
-                                  Budget vs. actual by division
-                                </SectionLabel>
-                                <div className="overflow-x-auto">
-                                  <table className="w-full text-sm">
-                                    <thead>
-                                      <tr className="border-b border-neutral-200 text-[11px] uppercase tracking-wide text-neutral-400 dark:border-neutral-700/60">
-                                        <th className="py-1 pr-2 text-left font-semibold" colSpan={2}>
-                                          Division
-                                        </th>
-                                        <th className="py-1 pr-2 text-right font-semibold">Budget</th>
-                                        <th className="py-1 pr-2 text-right font-semibold">Labor</th>
-                                        <th className="py-1 pr-2 text-right font-semibold">Bills</th>
-                                        <th className="py-1 text-right font-semibold">Actual</th>
-                                      </tr>
-                                    </thead>
-                                    <tbody>
-                                      {rows.map((r) => {
-                                        const actual = rowActual(r);
-                                        const over = r.budget > 0 && actual > r.budget;
-                                        const swatch = colorMap.get(r.division);
-                                        return (
-                                          <tr
-                                            key={r.division}
-                                            className="border-b border-neutral-100 last:border-0 dark:border-neutral-800"
-                                          >
-                                            <td className="whitespace-nowrap py-1.5 pr-2 align-top font-mono text-xs text-neutral-500">
-                                              <span className="inline-flex items-center gap-1.5">
-                                                <span
-                                                  aria-hidden
-                                                  className="h-2.5 w-2.5 shrink-0 rounded-sm"
-                                                  style={{
-                                                    backgroundColor: swatch ?? "transparent",
-                                                    outline: swatch
-                                                      ? undefined
-                                                      : "1px solid rgb(var(--accent) / 0.25)",
-                                                  }}
-                                                />
-                                                {r.division}
-                                              </span>
-                                            </td>
-                                            <td className="py-1.5 pr-2">{r.name}</td>
-                                            <td className="whitespace-nowrap py-1.5 pr-2 text-right tabular-nums">
-                                              {money(r.budget)}
-                                            </td>
-                                            <td className="whitespace-nowrap py-1.5 pr-2 text-right tabular-nums text-neutral-500">
-                                              {r.labor ? money(r.labor) : "—"}
-                                            </td>
-                                            <td className="whitespace-nowrap py-1.5 pr-2 text-right tabular-nums text-neutral-500">
-                                              {r.bills ? money(r.bills) : "—"}
-                                            </td>
-                                            <td
-                                              className={`whitespace-nowrap py-1.5 text-right tabular-nums ${over ? "font-semibold text-red-600 dark:text-red-400" : ""}`}
-                                            >
-                                              {money(actual)}
-                                            </td>
-                                          </tr>
-                                        );
-                                      })}
-                                    </tbody>
-                                    <tfoot>
-                                      <tr className="border-t-2 border-neutral-300 dark:border-neutral-600">
-                                        <td className="py-1.5 pr-2 font-semibold" colSpan={2}>
-                                          Total
-                                        </td>
-                                        <td className="whitespace-nowrap py-1.5 pr-2 text-right font-semibold tabular-nums">
-                                          {money(budgetTotal)}
-                                        </td>
-                                        <td className="whitespace-nowrap py-1.5 pr-2 text-right font-semibold tabular-nums text-neutral-500">
-                                          {laborTotal ? money(laborTotal) : "—"}
-                                        </td>
-                                        <td className="whitespace-nowrap py-1.5 pr-2 text-right font-semibold tabular-nums text-neutral-500">
-                                          {billsTotal ? money(billsTotal) : "—"}
-                                        </td>
-                                        <td
-                                          className={`whitespace-nowrap py-1.5 text-right font-semibold tabular-nums ${
-                                            budgetTotal > 0 && actualTotal > budgetTotal
-                                              ? "text-red-600 dark:text-red-400"
-                                              : ""
-                                          }`}
-                                        >
-                                          {money(actualTotal)}
-                                        </td>
-                                      </tr>
-                                    </tfoot>
-                                  </table>
-                                </div>
-                                <p className="mt-2 text-[11px] text-neutral-400">
-                                  Actual = approved vendor bills + logged labor. Over-budget divisions
-                                  are in red. Labor is thin while time tracking ramps up in JobTread.
-                                </p>
-                              </>
-                            ))}
-                        </div>
-                      )}
-                    </Card>
-                  </li>
-                );
-              })}
-            </ul>
+          {!selected && !detailLoading && (
+            <EmptyState>
+              {filtered.length === 0
+                ? "No jobs match these filters."
+                : "Choose a job above to see its costs."}
+            </EmptyState>
           )}
 
-          <p className="mt-4 text-center text-xs text-neutral-400">
-            {filtered.length} of {jobs.length} job{jobs.length === 1 ? "" : "s"} · live from JobTread via the Pave gateway
-          </p>
+          {detailLoading && <Loading label="Loading job costs…" />}
+          {detailError && <Banner tone="error">{detailError}</Banner>}
+
+          {selected && detail && !detailLoading && !detailError && (
+            <>
+              {detail.degraded.length > 0 && (
+                <Banner tone="warning" className="mb-4">
+                  Fell back to the slow query path for: {detail.degraded.join(", ")}. Numbers are
+                  correct, just slower than usual.
+                </Banner>
+              )}
+
+              {detail.budgetBasis === "budgetLeaves" && (
+                <Banner tone="info" className="mb-4">
+                  This job has no approved customer orders, so Budget is the base estimate rather
+                  than JobTread&apos;s Budgeted Cost. It won&apos;t include change orders.
+                </Banner>
+              )}
+
+              <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-5">
+                <Kpi
+                  label={detail.budgetBasis === "budgetLeaves" ? "Base estimate" : "Budgeted cost"}
+                  value={money0(budgetTotal)}
+                />
+                <Kpi label="Actual" value={money0(actualTotal)} />
+                <Kpi
+                  label="Cost to complete"
+                  value={money0(budgetTotal - actualTotal)}
+                  tone={budgetTotal - actualTotal < 0 ? "over" : "under"}
+                />
+                <Kpi
+                  label={`Invoiced · ${pctInvoiced(invoicedTotal, budgetTotal)}`}
+                  value={money0(invoicedTotal)}
+                />
+                <Kpi label="Labor hours" value={num(laborHoursTotal, 1)} />
+              </div>
+
+              <Card className="mb-4">
+                <ProgressBar actual={actualTotal} budget={budgetTotal} pct={usedPct} />
+              </Card>
+
+              {rows.length === 0 ? (
+                <EmptyState>No approved budget or cost on this job yet.</EmptyState>
+              ) : (
+                <>
+                  <SectionLabel className="mb-2">Cost by CSI division</SectionLabel>
+                  <div className="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <Donut
+                      title={`Bills · ${money(billsTotal)}`}
+                      slices={billsSlices}
+                      centerLabel="bills"
+                      emptyLabel="No vendor bills yet"
+                    />
+                    <Donut
+                      title={`Labor · ${money(laborTotal)}`}
+                      slices={laborSlices}
+                      centerLabel="labor"
+                      emptyLabel="No labor logged yet"
+                    />
+                  </div>
+
+                  <SectionLabel className="mb-2">Cost detail</SectionLabel>
+                  <Card pad={false} className="overflow-hidden">
+                    <div className="overflow-x-auto">
+                      <table className="w-full min-w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-neutral-200 text-neutral-400 dark:border-neutral-700/60">
+                            <th className="py-1.5 pl-3 pr-3 text-left text-[11px] font-semibold uppercase tracking-wide">
+                              Code / Item
+                            </th>
+                            <th className={`${TH} ${WIDE} uppercase tracking-wide`}>Qty</th>
+                            <th className={`${TH} ${WIDE} uppercase tracking-wide`}>Unit</th>
+                            <th className={`${TH} ${WIDE} uppercase tracking-wide`}>Price</th>
+                            <th className={`${TH} ${WIDE} uppercase tracking-wide`}>Labor</th>
+                            <th className={`${TH} ${WIDE} uppercase tracking-wide`}>Allow.</th>
+                            <th className={`${TH} ${WIDE} uppercase tracking-wide`}>Sub</th>
+                            <th className={`${TH} ${WIDE} uppercase tracking-wide`}>Vendor</th>
+                            <th className={`${TH} uppercase tracking-wide`}>Budget</th>
+                            <th className={`${TH} ${WIDE} uppercase tracking-wide`}>Act. hrs</th>
+                            <th className={`${TH} ${WIDE} uppercase tracking-wide`}>Act. labor</th>
+                            <th className={`${TH} ${WIDE} uppercase tracking-wide`}>Bills</th>
+                            <th className={`${TH} uppercase tracking-wide`}>Actual</th>
+                            <th className={`${TH} uppercase tracking-wide`}>To complete</th>
+                            <th className={`${TH} ${WIDE} uppercase tracking-wide`}>Prev. inv.</th>
+                            <th
+                              className={`${TH} ${WIDE} uppercase tracking-wide`}
+                              title={detail.currentInvoiceLabel ?? undefined}
+                            >
+                              Current inv.
+                            </th>
+                            <th className={`${TH} ${WIDE} uppercase tracking-wide`}>Invoiced</th>
+                            <th className={`${TH} ${WIDE} uppercase tracking-wide`}>% inv.</th>
+                          </tr>
+                        </thead>
+
+                        <tbody>
+                          {rows.map((d) => {
+                            const dOpen = openDivisions.has(d.division);
+                            const dActual = actualOf(d);
+                            const dLeft = d.budget - dActual;
+                            const swatch = colorMap.get(d.division);
+                            return (
+                              <FragmentRows key={d.division}>
+                                {/* ---- level 1: CSI division ---- */}
+                                <tr className="border-b border-neutral-100 bg-neutral-50/60 dark:border-neutral-800 dark:bg-white/[0.03]">
+                                  <td className="py-1.5 pl-1 pr-3">
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        setOpenDivisions((s) => toggle(s, d.division))
+                                      }
+                                      aria-expanded={dOpen}
+                                      className="flex w-full items-center gap-1.5 text-left transition hover:text-accent"
+                                    >
+                                      <span
+                                        aria-hidden
+                                        className={`shrink-0 text-xs text-neutral-400 transition-transform ${dOpen ? "rotate-90" : ""}`}
+                                      >
+                                        ▸
+                                      </span>
+                                      <span
+                                        aria-hidden
+                                        className="h-2.5 w-2.5 shrink-0 rounded-sm"
+                                        style={{
+                                          backgroundColor: swatch ?? "transparent",
+                                          outline: swatch
+                                            ? undefined
+                                            : "1px solid rgb(var(--accent) / 0.25)",
+                                        }}
+                                      />
+                                      <span className="font-mono text-xs text-neutral-500">
+                                        {d.division}
+                                      </span>
+                                      <span className="truncate font-semibold">{d.name}</span>
+                                    </button>
+                                  </td>
+                                  <td className={`${TD} ${WIDE}`} />
+                                  <td className={`${TD} ${WIDE}`} />
+                                  <td className={`${TD} ${WIDE}`} />
+                                  <td className={`${TD} ${WIDE}`}>{cell(d.split.labor)}</td>
+                                  <td className={`${TD} ${WIDE}`}>{cell(d.split.allowance)}</td>
+                                  <td className={`${TD} ${WIDE}`}>{cell(d.split.sub)}</td>
+                                  <td className={`${TD} ${WIDE}`}>{cell(d.split.vendor)}</td>
+                                  <td className={`${TD} font-semibold`}>{cell(d.budget)}</td>
+                                  <td className={`${TD} ${WIDE} text-neutral-500`}>
+                                    {d.laborHours ? num(d.laborHours) : "—"}
+                                  </td>
+                                  <td className={`${TD} ${WIDE} text-neutral-500`}>
+                                    {cell(d.labor)}
+                                  </td>
+                                  <td className={`${TD} ${WIDE} text-neutral-500`}>
+                                    {cell(d.bills)}
+                                  </td>
+                                  <td className={`${TD} font-semibold`}>{cell(dActual)}</td>
+                                  <td
+                                    className={`${TD} font-semibold ${dLeft < 0 ? "text-red-600 dark:text-red-400" : ""}`}
+                                  >
+                                    {cell(dLeft)}
+                                  </td>
+                                  <td className={`${TD} ${WIDE} text-neutral-500`}>
+                                    {cell(d.invoiced - d.currentInvoice)}
+                                  </td>
+                                  <td className={`${TD} ${WIDE} text-neutral-500`}>
+                                    {cell(d.currentInvoice)}
+                                  </td>
+                                  <td className={`${TD} ${WIDE} font-semibold`}>
+                                    {cell(d.invoiced)}
+                                  </td>
+                                  <td className={`${TD} ${WIDE} text-neutral-500`}>
+                                    {pctInvoiced(d.invoiced, d.budget)}
+                                  </td>
+                                </tr>
+
+                                {/* ---- level 2: cost code ---- */}
+                                {dOpen &&
+                                  d.codes.map((c) => {
+                                    const key = `${d.division}/${c.number}`;
+                                    const cOpen = openCodes.has(key);
+                                    const cActual = actualOf(c);
+                                    const cLeft = c.budget - cActual;
+                                    return (
+                                      <FragmentRows key={key}>
+                                        <tr className="border-b border-neutral-100 dark:border-neutral-800">
+                                          <td className="py-1.5 pl-1 pr-3">
+                                            <button
+                                              type="button"
+                                              onClick={() => setOpenCodes((s) => toggle(s, key))}
+                                              aria-expanded={cOpen}
+                                              disabled={c.lines.length === 0}
+                                              className="flex w-full items-center gap-1.5 pl-5 text-left transition hover:text-accent disabled:cursor-default disabled:hover:text-inherit"
+                                            >
+                                              <span
+                                                aria-hidden
+                                                className={`shrink-0 text-xs text-neutral-400 transition-transform ${cOpen ? "rotate-90" : ""} ${c.lines.length === 0 ? "opacity-0" : ""}`}
+                                              >
+                                                ▸
+                                              </span>
+                                              <span className="whitespace-nowrap font-mono text-xs text-neutral-500">
+                                                {c.number}
+                                              </span>
+                                              <span className="truncate">{c.name}</span>
+                                            </button>
+                                          </td>
+                                          <td className={`${TD} ${WIDE}`} />
+                                          <td className={`${TD} ${WIDE}`} />
+                                          <td className={`${TD} ${WIDE}`} />
+                                          <td className={`${TD} ${WIDE}`}>{cell(c.split.labor)}</td>
+                                          <td className={`${TD} ${WIDE}`}>
+                                            {cell(c.split.allowance)}
+                                          </td>
+                                          <td className={`${TD} ${WIDE}`}>{cell(c.split.sub)}</td>
+                                          <td className={`${TD} ${WIDE}`}>
+                                            {cell(c.split.vendor)}
+                                          </td>
+                                          <td className={TD}>{cell(c.budget)}</td>
+                                          <td className={`${TD} ${WIDE} text-neutral-500`}>
+                                            {c.laborHours ? num(c.laborHours) : "—"}
+                                          </td>
+                                          <td className={`${TD} ${WIDE} text-neutral-500`}>
+                                            {cell(c.labor)}
+                                          </td>
+                                          <td className={`${TD} ${WIDE} text-neutral-500`}>
+                                            {cell(c.bills)}
+                                          </td>
+                                          <td className={TD}>{cell(cActual)}</td>
+                                          <td
+                                            className={`${TD} ${cLeft < 0 ? "font-semibold text-red-600 dark:text-red-400" : ""}`}
+                                          >
+                                            {cell(cLeft)}
+                                          </td>
+                                          <td className={`${TD} ${WIDE} text-neutral-500`}>
+                                            {cell(c.invoiced - c.currentInvoice)}
+                                          </td>
+                                          <td className={`${TD} ${WIDE} text-neutral-500`}>
+                                            {cell(c.currentInvoice)}
+                                          </td>
+                                          <td className={`${TD} ${WIDE}`}>{cell(c.invoiced)}</td>
+                                          <td className={`${TD} ${WIDE} text-neutral-500`}>
+                                            {pctInvoiced(c.invoiced, c.budget)}
+                                          </td>
+                                        </tr>
+
+                                        {/* ---- level 3: estimate line ---- */}
+                                        {cOpen &&
+                                          c.lines.map((l) => (
+                                            <tr
+                                              key={l.id}
+                                              className="border-b border-neutral-100 text-xs text-neutral-500 dark:border-neutral-800"
+                                            >
+                                              <td className="py-1 pl-3 pr-3">
+                                                <span className="flex min-w-0 flex-col pl-11">
+                                                  <span className="truncate">
+                                                    {l.name || "(unnamed line)"}
+                                                    {l.isAllowance && (
+                                                      <span className="ml-1.5 rounded bg-neutral-200 px-1 py-px text-[10px] uppercase tracking-wide text-neutral-600 dark:bg-neutral-700 dark:text-neutral-300">
+                                                        allowance
+                                                      </span>
+                                                    )}
+                                                  </span>
+                                                  {l.description && (
+                                                    <span className="truncate text-[11px] text-neutral-400">
+                                                      {l.description}
+                                                    </span>
+                                                  )}
+                                                </span>
+                                              </td>
+                                              <td className={`${TD} ${WIDE}`}>
+                                                {l.quantity != null ? num(l.quantity, 2) : "—"}
+                                              </td>
+                                              <td
+                                                className={`${TD} ${WIDE} text-left text-neutral-400`}
+                                              >
+                                                {l.unit ?? "—"}
+                                              </td>
+                                              <td className={`${TD} ${WIDE}`}>
+                                                {l.unitCost != null ? money(l.unitCost) : "—"}
+                                              </td>
+                                              {(
+                                                ["labor", "allowance", "sub", "vendor"] as const
+                                              ).map((k) => (
+                                                <td key={k} className={`${TD} ${WIDE}`}>
+                                                  {lineSplitKey(l) === k ? cell(l.cost) : "—"}
+                                                </td>
+                                              ))}
+                                              <td className={TD}>{cell(l.cost)}</td>
+                                              <td className={`${TD} ${WIDE}`} colSpan={3} />
+                                              <td className={TD} />
+                                              <td className={TD} />
+                                              <td className={`${TD} ${WIDE}`} colSpan={4} />
+                                            </tr>
+                                          ))}
+                                      </FragmentRows>
+                                    );
+                                  })}
+                              </FragmentRows>
+                            );
+                          })}
+                        </tbody>
+
+                        <tfoot>
+                          <tr className="border-t-2 border-neutral-300 font-semibold dark:border-neutral-600">
+                            <td className="py-2 pl-3 pr-3 text-left">Total</td>
+                            <td className={`${TD} ${WIDE}`} />
+                            <td className={`${TD} ${WIDE}`} />
+                            <td className={`${TD} ${WIDE}`} />
+                            <td className={`${TD} ${WIDE}`}>{cell(totalSplit.labor)}</td>
+                            <td className={`${TD} ${WIDE}`}>{cell(totalSplit.allowance)}</td>
+                            <td className={`${TD} ${WIDE}`}>{cell(totalSplit.sub)}</td>
+                            <td className={`${TD} ${WIDE}`}>{cell(totalSplit.vendor)}</td>
+                            <td className={TD}>{cell(budgetTotal)}</td>
+                            <td className={`${TD} ${WIDE} text-neutral-500`}>
+                              {laborHoursTotal ? num(laborHoursTotal) : "—"}
+                            </td>
+                            <td className={`${TD} ${WIDE} text-neutral-500`}>{cell(laborTotal)}</td>
+                            <td className={`${TD} ${WIDE} text-neutral-500`}>{cell(billsTotal)}</td>
+                            <td className={TD}>{cell(actualTotal)}</td>
+                            <td
+                              className={`${TD} ${budgetTotal - actualTotal < 0 ? "text-red-600 dark:text-red-400" : ""}`}
+                            >
+                              {cell(budgetTotal - actualTotal)}
+                            </td>
+                            <td className={`${TD} ${WIDE} text-neutral-500`}>
+                              {cell(invoicedTotal - currentInvoiceTotal)}
+                            </td>
+                            <td className={`${TD} ${WIDE} text-neutral-500`}>
+                              {cell(currentInvoiceTotal)}
+                            </td>
+                            <td className={`${TD} ${WIDE}`}>{cell(invoicedTotal)}</td>
+                            <td className={`${TD} ${WIDE} text-neutral-500`}>
+                              {pctInvoiced(invoicedTotal, budgetTotal)}
+                            </td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                  </Card>
+
+                  <p className="mt-2 text-[11px] leading-relaxed text-neutral-400">
+                    {detail.budgetBasis === "budgetLeaves"
+                      ? "Budget is this job's base estimate (it has no approved customer orders, so there is no Budgeted Cost to read)."
+                      : "Budget is JobTread's Budgeted Cost — approved customer orders, so it includes approved change orders."}{" "}
+                    Actual = approved and pending vendor bills
+                    (Bills) plus logged time entries (Act. labor); the two never double-count. To
+                    complete = budget − actual; negative is over budget and shown in red. Labor,
+                    Allow., Sub and Vendor split the <em>estimate</em> by cost type. Invoiced is
+                    approved customer invoices;{" "}
+                    {detail.currentInvoiceLabel
+                      ? `“Current inv.” is the most recent one (${detail.currentInvoiceLabel}), and “Prev. inv.” is everything before it.`
+                      : "there are no approved customer invoices on this job yet."}{" "}
+                    Rotate to landscape or open on a desktop for the full column set.
+                  </p>
+                </>
+              )}
+            </>
+          )}
         </>
       )}
     </main>
   );
+}
+
+/**
+ * Groups sibling <tr>s without wrapping them in an element — a <div> between
+ * <tbody> and <tr> is invalid HTML and breaks the shared column widths.
+ */
+function FragmentRows({ children }: { children: React.ReactNode }) {
+  return <>{children}</>;
 }
