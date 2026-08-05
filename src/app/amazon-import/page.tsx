@@ -387,18 +387,20 @@ export default function AmazonImportPage() {
   }
 
   const included = orders.filter((o) => sel[o.orderId]?.include);
-  const ready = included.filter((o) => sel[o.orderId]?.jobId);
-  const missingJob = included.length - ready.length;
+  const havePdfZip = pdfZipName !== "";
+  const hasPdf = (orderId: string) => (pdfsByOrder[orderId]?.length ?? 0) > 0;
+  // The invoice PDF is REQUIRED, not optional: nothing here can attach one to a bill
+  // after the fact, and a bill with no file never reaches Drive — the hourly
+  // pullJtBillPdfsToDrive has nothing to pull and reports nothing when it skips.
+  // So an order is only creatable once it has a job AND a matched PDF.
+  const ready = included.filter((o) => sel[o.orderId]?.jobId && hasPdf(o.orderId));
+  const missingJob = included.filter((o) => !sel[o.orderId]?.jobId).length;
+  const missingPdf = included.filter((o) => sel[o.orderId]?.jobId && !hasPdf(o.orderId)).length;
   const existingCount = orders.filter((o) => existing[o.orderId]).length;
   const totalReady = ready.reduce((s, o) => s + o.netTotal, 0);
-  const havePdfZip = pdfZipName !== "";
-  const matchedCount = orders.filter((o) => (pdfsByOrder[o.orderId]?.length ?? 0) > 0).length;
+  const matchedCount = orders.filter((o) => hasPdf(o.orderId)).length;
   const attachedOk = Object.values(attach).reduce((s, a) => s + a.ok, 0);
   const attachedFail = Object.values(attach).reduce((s, a) => s + a.fail, 0);
-  // Selected orders that will be created but have no PDF matched — worth flagging.
-  const readyNoPdf = havePdfZip
-    ? ready.filter((o) => (pdfsByOrder[o.orderId]?.length ?? 0) === 0).length
-    : 0;
   const resultByOrder = useMemo(() => {
     const m: Record<string, OrderResult> = {};
     for (const r of result?.results ?? []) m[r.orderId] = r;
@@ -523,9 +525,9 @@ export default function AmazonImportPage() {
               </div>
             </div>
 
-            {/* Invoice PDFs — optional zip, matched to orders by order id in the filename */}
+            {/* Invoice PDFs — REQUIRED zip, matched to orders by order id in the filename */}
             <div className="border-t border-neutral-200 pt-3 dark:border-neutral-800">
-              <Label>Invoice PDFs (zip, optional)</Label>
+              <Label>Invoice PDFs (zip, required)</Label>
               <input
                 type="file"
                 accept=".zip,application/zip"
@@ -543,7 +545,8 @@ export default function AmazonImportPage() {
                 <p className="mt-1 text-xs text-neutral-500">
                   Export the month&apos;s invoices from Amazon and drop the zip here — each PDF attaches
                   to its bill (and lands in Drive via the hourly sync). Matched by the order id in the
-                  filename.
+                  filename. Required: an order with no matched PDF can&apos;t be created, because there
+                  is no way to attach one afterward from here.
                 </p>
               )}
               {unmatchedPdfs.length > 0 && (
@@ -621,7 +624,7 @@ export default function AmazonImportPage() {
           ))}
 
           {result && (
-            <Banner tone={result.counts.failed > 0 ? "warning" : "success"}>
+            <Banner tone={result.counts.failed > 0 || attachedFail > 0 ? "warning" : "success"}>
               {result.previewed ? (
                 <>
                   Preview only — writes are OFF (COMPANION_WRITES_ENABLED not set).{" "}
@@ -635,6 +638,8 @@ export default function AmazonImportPage() {
                   {havePdfZip &&
                     (attachedOk > 0 || attachedFail > 0) &&
                     ` ${attachedOk} PDF(s) attached${attachedFail > 0 ? `, ${attachedFail} failed` : ""}.`}
+                  {attachedFail > 0 &&
+                    " Attach the failed PDF(s) by hand in JobTread — a bill with no file never reaches Drive."}
                   {result.syncKicked && " Syncing to the sheet & Drive now."}
                 </>
               )}
@@ -714,7 +719,7 @@ export default function AmazonImportPage() {
                             }
                             return (
                               <div className="mt-0.5 text-xs text-amber-600 dark:text-amber-400">
-                                no PDF matched
+                                no PDF matched — won&apos;t be created
                               </div>
                             );
                           })()}
@@ -814,7 +819,10 @@ export default function AmazonImportPage() {
           </ul>
 
           {orders.length > 0 && ready.length === 0 && (
-            <EmptyState>Select at least one order and give it a job to create bills.</EmptyState>
+            <EmptyState>
+              Select at least one order, give it a job, and drop the invoice zip — every bill needs its
+              PDF to create.
+            </EmptyState>
           )}
         </section>
       )}
@@ -831,9 +839,9 @@ export default function AmazonImportPage() {
                   {missingJob} selected order{missingJob === 1 ? "" : "s"} need a job
                 </span>
               )}
-              {readyNoPdf > 0 && (
+              {missingPdf > 0 && (
                 <span className="ml-2 text-xs text-amber-600 dark:text-amber-400">
-                  {readyNoPdf} without a PDF
+                  {missingPdf} without a PDF — held back
                 </span>
               )}
             </div>
@@ -854,6 +862,12 @@ export default function AmazonImportPage() {
           {!vendorId && (
             <p className="mx-auto mt-1 max-w-3xl text-xs text-amber-600 dark:text-amber-400">
               Pick the Amazon vendor above first.
+            </p>
+          )}
+          {!havePdfZip && (
+            <p className="mx-auto mt-1 max-w-3xl text-xs text-amber-600 dark:text-amber-400">
+              Drop the invoice zip above — a bill can&apos;t be created without its PDF, and there is no
+              way to attach one later.
             </p>
           )}
         </div>
