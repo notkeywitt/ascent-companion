@@ -5,7 +5,9 @@ import {
   createTimeEntry,
   updateTimeEntry,
   deleteTimeEntry,
+  getOpenTimeEntries,
   orgLocalToJtIso,
+  jtIsoToOrgLocal,
 } from "@/lib/jobtread";
 import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
 
@@ -13,17 +15,30 @@ import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
  * Clock in/out — the sibling of ../route.ts's one-shot "log a time range" form.
  * Clock-in creates an OPEN JobTread time entry (startedAt only); clock-out sets
  * its endedAt (+ the required note) via updateTimeEntry; cancel deletes a
- * mistaken clock-in. There is no server-side "active clock" state — the client
- * holds the entry id + job/cost/pay-type context in localStorage between the two
- * calls (mirrors /mileage-tracker's start/end trip pattern), so this route is
- * stateless per request.
+ * mistaken clock-in.
+ *
+ * The RUNNING clock lives in JobTread, not here and not in one phone's storage:
+ * an open entry (endedAt null) IS the fact that you're clocked in. GET returns
+ * it, so opening the page on any device — a new phone, a cleared browser, the
+ * office desktop — shows the live Clock Out button with the real start time and
+ * job/cost context. The client still mirrors its own clock-in to localStorage,
+ * but only as the offline fallback and to carry the two things JobTread doesn't
+ * hold (the clock-in GPS fix and the log's idempotency key); on any disagreement
+ * JobTread wins. The POST ops themselves stay stateless per request.
  *
  * Gated by COMPANION_WRITES_ENABLED like the rest of this page: with writes off,
  * "in" skips createTimeEntry and returns an empty entryId (previewed:true) so the
  * whole flow can still be exercised — clock-out then just logs the Time Entries
- * row with no JobTread call to update. A CANCEL never logs anything (a cancelled
- * clock-in never happened, same as Mileage's "Cancel trip").
+ * row with no JobTread call to update. Such a preview clock exists ONLY in
+ * localStorage, so GET can't see it (openEntry:null) — which is why the client
+ * never lets a null answer clear a clock that has no JobTread id. A CANCEL never
+ * logs anything (a cancelled clock-in never happened, same as Mileage's "Cancel
+ * trip").
  *
+ * GET  → { ok, openEntry: {entryId, startedAt, jobId, jobLabel, costItemId,
+ *          costCode, costItemName, payType, employee} | null, openCount }
+ *        startedAt is the org-LOCAL wall clock ("YYYY-MM-DDTHH:MM:SS"), the same
+ *        shape the client sends at clock-in.
  * POST { op:"in",  userId, jobId, costItemId, payType, startTime }
  *      → { ok, previewed, entryId, jtStatus, jtError? }
  * POST { op:"out", entryId, userId, jobId, jobLabel?, costItemId, costCode?,
@@ -70,6 +85,89 @@ function toLocalStamp(v: string): string {
   const m = t.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/);
   if (!m) return "";
   return `${m[1]}T${m[2]}:${m[3]}:${m[4] ?? "00"}`;
+}
+
+// How far back a still-open entry is treated as a resumable running clock. Wide
+// enough for the real case (forgot to clock out Friday, back Monday), bounded so
+// a long-abandoned entry from weeks ago doesn't hijack the page — by then it's a
+// correction for the office, and "My Time" still surfaces it via openCount.
+const RESUME_WINDOW_DAYS = 7;
+
+// Memoized signed-in email → JobTread user id + name, exactly as ../history does
+// (see the longer note there). Keyed by the AUTHENTICATED session email, never a
+// client-supplied id, so this is pure memoization and not a trust change; the
+// short TTL bounds staleness after an admin re-links the roster. Per warm
+// instance.
+const _meByEmail = new Map<string, { userId: string; name: string; expires: number }>();
+const ME_TTL_MS = 5 * 60_000;
+
+/**
+ * GET — the signed-in employee's RUNNING clock straight from JobTread, so the
+ * page can resume it on a device that never saw the clock-in.
+ */
+export async function GET() {
+  if (!hasGrant()) {
+    return NextResponse.json({ ok: false, error: "JT_GRANT_KEY is not set." }, { status: 400 });
+  }
+
+  const session = await auth();
+  const email = session?.user?.email ?? "";
+
+  let userId = "";
+  let name = "";
+  const cached = email ? _meByEmail.get(email) : undefined;
+  if (cached && cached.expires > Date.now()) {
+    userId = cached.userId;
+    name = cached.name;
+  } else {
+    const boot = await callAppsScript({ action: "timeEntryBootstrap", email });
+    if (boot.error) return NextResponse.json({ ok: false, error: boot.error }, { status: boot.status });
+    const b = (boot.data ?? {}) as {
+      ok?: boolean;
+      error?: string;
+      me?: { jtUserId?: string; name?: string; jtUserName?: string };
+    };
+    if (b?.ok === false) return NextResponse.json(b, { status: 200 });
+    userId = (b.me?.jtUserId ?? "").trim();
+    name = (b.me?.name || b.me?.jtUserName || "").trim();
+    if (email && userId) _meByEmail.set(email, { userId, name, expires: Date.now() + ME_TTL_MS });
+  }
+  // Not linked to a JobTread user — there's no clock to look up. Not an error
+  // here: the bootstrap route already tells them how to link, and the page must
+  // still fall back to whatever it has locally.
+  if (!userId) return NextResponse.json({ ok: true, openEntry: null, openCount: 0, linked: false });
+
+  try {
+    const since = new Date(Date.now() - RESUME_WINDOW_DAYS * 86_400_000).toISOString();
+    const open = await getOpenTimeEntries(getPaveConfig(), userId, { sinceIso: since });
+    const e = open[0]; // newest-first
+    return NextResponse.json({
+      ok: true,
+      linked: true,
+      openCount: open.length,
+      openEntry: e
+        ? {
+            entryId: e.id,
+            // JobTread stores a real UTC instant; the client works in org-local
+            // wall clock (that's what it sends at clock-in and what the elapsed
+            // timer and the Time Entries log expect).
+            startedAt: jtIsoToOrgLocal(e.startedAt),
+            jobId: e.jobId,
+            jobLabel: e.jobLabel,
+            costItemId: e.costItemId,
+            costCode: e.costCode,
+            costItemName: e.costItemName,
+            payType: e.payType,
+            employee: name,
+          }
+        : null,
+    });
+  } catch (err) {
+    return NextResponse.json(
+      { ok: false, error: err instanceof Error ? err.message : "Could not check your clock." },
+      { status: 502 },
+    );
+  }
 }
 
 interface Photo {

@@ -23,9 +23,14 @@ import {
  *
  *  - Clock In/Out (default): tap in when you start, tap out when you stop. The
  *    tap-in creates an OPEN JobTread time entry (startedAt only); tap-out sets
- *    its endedAt + the required note (updateTimeEntry). The active clock is
- *    mirrored to localStorage (like /mileage-tracker's start/end trip) so
- *    locking the phone or closing the tab doesn't lose it.
+ *    its endedAt + the required note (updateTimeEntry). The running clock is
+ *    resumed FROM JOBTREAD on load (GET /api/employee-time/clock returns the
+ *    open entry), so opening the page anywhere — a new phone, a cleared
+ *    browser, the office desktop — shows Clock Out with the real start time and
+ *    job/cost code. It's also mirrored to localStorage (like /mileage-tracker's
+ *    start/end trip) as the offline fallback and to carry what JobTread doesn't
+ *    hold (the clock-in GPS fix, the log's idempotency key); JobTread wins on
+ *    any disagreement.
  *  - Log a range: the original one-shot form — job + cost code + start/stop +
  *    note + photos, all picked upfront (for logging a specific past range).
  *  - My Time: the signed-in employee's own JobTread time entries for a
@@ -101,6 +106,19 @@ interface ActiveClock {
   lng?: number;
   nearestJob: string;
   employee: string;
+  resumed?: boolean; // rebuilt from JobTread, not from this device's clock-in
+}
+// GET /api/employee-time/clock — the running clock as JobTread has it.
+interface OpenEntry {
+  entryId: string;
+  startedAt: string; // org-local wall clock
+  jobId: string;
+  jobLabel: string;
+  costItemId: string;
+  costCode: string;
+  costItemName: string;
+  payType: string;
+  employee: string;
 }
 interface DoneSummary {
   jobLabel: string;
@@ -139,6 +157,15 @@ const newLogKey = () =>
   typeof crypto !== "undefined" && crypto.randomUUID
     ? `te-${crypto.randomUUID()}`
     : `te-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+// Mirror the running clock to this device. Not the source of truth (JobTread is
+// — see the resume effect), but it keeps the clock alive offline and holds the
+// two things JobTread never sees: the clock-in GPS fix and the log key.
+function saveClock(c: ActiveClock) {
+  try {
+    localStorage.setItem(LS_CLOCK, JSON.stringify(c));
+  } catch {}
+}
 
 // Great-circle distance in km — to label the nearest job site.
 function haversineKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
@@ -330,6 +357,11 @@ export default function EmployeeTimePage() {
   const [activeClock, setActiveClock] = useState<ActiveClock | null>(null);
   const [clockSubPhase, setClockSubPhase] = useState<"idle" | "clockingOut">("idle");
   const [nowMs, setNowMs] = useState(0);
+  // The JobTread resume check (see the mount effect): gates the first render so
+  // a running clock never flashes the "Clock in" form, and carries the note we
+  // show when JobTread disagreed with this device.
+  const [clockChecked, setClockChecked] = useState(false);
+  const [clockNote, setClockNote] = useState("");
 
   // Manual-mode idempotency key — one per logical submission, held here so a
   // retry after a dropped response reuses it (backend dedupes on it). Cleared on
@@ -375,19 +407,94 @@ export default function EmployeeTimePage() {
       })
       .catch(() => {});
 
-    // Resume an in-progress clock-in (survives a locked phone / closed tab).
+    // Resume an in-progress clock-in. JobTread is the source of truth for "am I
+    // on the clock" — an OPEN entry (no endedAt) IS the running clock — so this
+    // resumes on ANY device, not just the phone that clocked in. localStorage is
+    // read first (instant, and the only record when writes are off or the
+    // network is down), then reconciled against JobTread's answer.
+    //
     // Deliberately does NOT touch jobId/costItemId/payType — the clocked-in
-    // context is rendered read-only from the saved record itself.
+    // context is rendered read-only from the resolved record itself.
+    let local: ActiveClock | null = null;
     try {
       const raw = localStorage.getItem(LS_CLOCK);
       if (raw) {
         const c = JSON.parse(raw);
         if (c && c.startedAt && c.jobId && c.costItemId) {
           if (!c.logKey) c.logKey = newLogKey(); // clock-in from before this key existed
-          setActiveClock(c);
+          local = c as ActiveClock;
+          setActiveClock(local);
         }
       }
     } catch {}
+
+    fetch("/api/employee-time/clock")
+      .then((r) => r.json())
+      .then((j: { ok?: boolean; linked?: boolean; openEntry?: OpenEntry | null }) => {
+        if (j.ok === false) return; // can't tell — leave the local record alone
+        const remote = j.openEntry ?? null;
+
+        if (remote) {
+          if (local && local.entryId === remote.entryId) {
+            // Same clock, seen from the device that started it. Keep what only
+            // this device knows (the GPS fix, the log's idempotency key), but
+            // let JobTread's copy win on everything it owns — it reflects any
+            // edit the office made to the entry since clock-in.
+            const merged: ActiveClock = {
+              ...local,
+              startedAt: remote.startedAt || local.startedAt,
+              jobId: remote.jobId || local.jobId,
+              jobLabel: remote.jobLabel || local.jobLabel,
+              costItemId: remote.costItemId || local.costItemId,
+              costCode: remote.costCode || local.costCode,
+              costItemName: remote.costItemName || local.costItemName,
+              payType: remote.payType || local.payType,
+            };
+            setActiveClock(merged);
+            saveClock(merged);
+            return;
+          }
+          // A clock this device has never seen (new phone, cleared browser, or
+          // clocked in somewhere else). Rebuild it from JobTread. The log key is
+          // DERIVED FROM THE ENTRY ID, not random, so if two devices both clock
+          // out of the same entry the Time Entries log dedupes to one row.
+          const resumedClock: ActiveClock = {
+            entryId: remote.entryId,
+            logKey: `te-jt-${remote.entryId}`,
+            previewed: false, // it exists in JobTread by definition
+            jtStatus: "pushed",
+            startedAt: remote.startedAt,
+            jobId: remote.jobId,
+            jobLabel: remote.jobLabel,
+            costItemId: remote.costItemId,
+            costCode: remote.costCode,
+            costItemName: remote.costItemName,
+            payType: remote.payType,
+            nearestJob: "", // JobTread doesn't hold the clock-in GPS fix
+            employee: remote.employee,
+            resumed: true,
+          };
+          setActiveClock(resumedClock);
+          saveClock(resumedClock);
+          setClockNote("Picked up from JobTread — you were already clocked in.");
+          return;
+        }
+
+        // JobTread has no running clock. Only clear a local one that JobTread
+        // could actually have seen: a preview clock (writes off) has no entry
+        // id and lives here alone, and an unlinked login means we never looked.
+        if (local && local.entryId && j.linked) {
+          try {
+            localStorage.removeItem(LS_CLOCK);
+          } catch {}
+          setActiveClock(null);
+          setClockNote("That clock-in is already closed in JobTread — starting fresh.");
+        }
+      })
+      .catch(() => {
+        /* offline: the localStorage record stands */
+      })
+      .finally(() => setClockChecked(true));
   }, []);
 
   // Remembered JobTread-user pick (only used when the roster link is missing).
@@ -555,9 +662,8 @@ export default function EmployeeTimePage() {
         employee: effectiveName,
       };
       setActiveClock(clock);
-      try {
-        localStorage.setItem(LS_CLOCK, JSON.stringify(clock));
-      } catch {}
+      setClockNote("");
+      saveClock(clock);
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Could not clock in.");
     } finally {
@@ -625,6 +731,7 @@ export default function EmployeeTimePage() {
       } catch {}
       setActiveClock(null);
       setClockSubPhase("idle");
+      setClockNote("");
       setNote("");
       setPhotos([]);
     } catch (e) {
@@ -649,6 +756,7 @@ export default function EmployeeTimePage() {
     } catch {}
     setActiveClock(null);
     setClockSubPhase("idle");
+    setClockNote("");
     setErr("");
     setBusy(false);
   }
@@ -788,7 +896,9 @@ export default function EmployeeTimePage() {
     if (mode === "history") loadHistory();
   }, [mode, loadHistory]);
 
-  if (loading) {
+  // Wait for the JobTread resume check too, so a running clock never renders as
+  // the "Clock in" form for a beat — that flash is a mis-tap waiting to happen.
+  if (loading || !clockChecked) {
     return (
       <main className="mx-auto max-w-2xl px-4 pb-24 pt-6">
         <PageHeader title={EMPLOYEE_TIME_TITLE} description="Log your hours to a job." />
@@ -936,6 +1046,11 @@ export default function EmployeeTimePage() {
         ))}
 
       {/* --------------------------------------------------------- CLOCK MODE */}
+      {mode === "clock" && clockNote && (
+        <p className="mb-4 rounded-xl bg-neutral-100 px-3 py-2 text-xs text-neutral-600 dark:bg-neutral-800/60 dark:text-neutral-300">
+          {clockNote}
+        </p>
+      )}
       {mode === "clock" &&
         (activeClock ? (
           <div className="space-y-4">
@@ -952,6 +1067,7 @@ export default function EmployeeTimePage() {
               </p>
               <p className="mt-1 text-xs text-neutral-400">
                 Started {displayStamp(activeClock.startedAt)}
+                {activeClock.resumed ? " (from JobTread)" : ""}
               </p>
               {activeClock.previewed && (
                 <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">

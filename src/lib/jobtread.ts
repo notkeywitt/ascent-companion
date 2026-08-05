@@ -3178,3 +3178,95 @@ export async function getUserTimeEntries(
   return out;
 }
 
+export interface OpenTimeEntry {
+  id: string;
+  startedAt: string; // UTC instant ISO, as JobTread stores it
+  payType: string; // timeEntry.type — the pay-type NAME
+  notes: string;
+  jobId: string;
+  jobName: string;
+  customer: string;
+  jobLabel: string; // "Customer - Job" when the customer is known, else the job name
+  costItemId: string;
+  costCode: string;
+  costItemName: string;
+}
+
+/**
+ * READ — a user's still-RUNNING time entries (clocked in, never clocked out):
+ * `endedAt` is null. This is what makes a clock-in resumable from any device —
+ * JobTread, not one phone's localStorage, is the source of truth for "am I on
+ * the clock right now".
+ *
+ * Deliberately a separate function from getUserTimeEntries rather than a flag on
+ * it: this one pulls a RICHER field set (`type` for the pay type, the job's
+ * customer for the "Customer - Job" label, `costItem.id` so the clock-out can
+ * log the same cost item) that the bi-monthly "My Time" list doesn't need, and
+ * keeping them apart means a change here can't break that view.
+ *
+ * `endedAt` is filtered CLIENT-side — the `where` grammar's null handling isn't
+ * probe-confirmed, and `startedAt` bounding (which IS confirmed, see
+ * getUserTimeEntries) already keeps the pull to one small page. `opts.sinceIso`
+ * should be a few days back: it bounds the fetch AND stops a long-forgotten
+ * clock-in from resurfacing weeks later as if it were live.
+ */
+export async function getOpenTimeEntries(
+  cfg: PaveConfig,
+  userId: string,
+  opts: { sinceIso?: string; maxPages?: number } = {},
+): Promise<OpenTimeEntry[]> {
+  const maxPages = opts.maxPages ?? 5;
+  const out: OpenTimeEntry[] = [];
+  let cursor: string | null = null;
+  for (let page = 0; page < maxPages; page++) {
+    const args: Record<string, unknown> = {
+      size: 100,
+      sortBy: [{ field: "startedAt", order: "desc" }],
+    };
+    if (cursor) args.page = cursor;
+    if (opts.sinceIso) args.where = ["startedAt", ">=", opts.sinceIso];
+    const r = await pave(cfg, {
+      user: {
+        $: { id: userId },
+        id: {},
+        timeEntries: {
+          $: args,
+          nextPage: {},
+          nodes: {
+            id: {},
+            type: {},
+            startedAt: {},
+            endedAt: {},
+            notes: {},
+            job: { id: {}, name: {}, location: { account: { name: {} } } },
+            costItem: { id: {}, name: {}, costCode: { number: {}, name: {} } },
+          },
+        },
+      },
+    });
+    const tc = r?.user?.timeEntries ?? {};
+    for (const n of tc.nodes ?? []) {
+      if (n.endedAt) continue; // closed — not a running clock
+      const jobName = n.job?.name ?? "";
+      const customer = n.job?.location?.account?.name ?? "";
+      out.push({
+        id: n.id,
+        startedAt: n.startedAt,
+        payType: n.type ?? "",
+        notes: n.notes ?? "",
+        jobId: n.job?.id ?? "",
+        jobName,
+        customer,
+        jobLabel: customer && jobName ? `${customer} - ${jobName}` : jobName,
+        costItemId: n.costItem?.id ?? "",
+        costCode: n.costItem?.costCode?.number ?? "",
+        costItemName: n.costItem?.costCode?.name || n.costItem?.name || "",
+      });
+    }
+    cursor = tc.nextPage ?? null;
+    if (!cursor) break;
+  }
+  // Newest first, so the caller can take [0] as "the" running clock.
+  return out.sort((a, b) => (a.startedAt < b.startedAt ? 1 : a.startedAt > b.startedAt ? -1 : 0));
+}
+
