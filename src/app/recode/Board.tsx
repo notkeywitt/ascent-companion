@@ -16,6 +16,7 @@ import {
   btn,
 } from "@/components/ui";
 import { CostCodeSelect, type Option } from "@/components/CostCodeSelect";
+import { InvoiceReconcile, type Recon } from "@/components/InvoiceReconcile";
 import { useUnsavedChanges } from "@/lib/useUnsavedChanges";
 
 /**
@@ -231,6 +232,9 @@ export function Board() {
   const [staged, setStaged] = useState<Map<string, string>>(new Map());
   const [openDocId, setOpenDocId] = useState<string | null>(null);
   const [mode, setMode] = useState<"bill" | "code">("bill");
+  // Lifted out of the reconcile rectangle so the header can show the same
+  // authoritative "to be invoiced" figure without fetching it twice.
+  const [recon, setRecon] = useState<Recon | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [syncMsg, setSyncMsg] = useState<{ tone: "success" | "error"; text: string } | null>(null);
   const [codeQuery, setCodeQuery] = useState("");
@@ -787,6 +791,34 @@ export function Board() {
       </p>
 
       {loading && <Loading label="Loading bills and budget…" />}
+
+      {/* What this month is actually worth to invoice, and whether JobTread has
+          caught up. Same endpoint and same component the Invoicing page uses, so
+          the two pages can't drift. `remaining` = uninvoiced bills + uninvoiced
+          time; drafts are excluded because JobTread won't pull a draft onto an
+          invoice, and the rectangle says so. */}
+      {jobId && !loading && (
+        <div className="mb-4 grid grid-cols-1 gap-3 lg:grid-cols-[auto_minmax(0,1fr)] lg:items-start">
+          <Card className="lg:w-64">
+            <SectionLabel>To be invoiced</SectionLabel>
+            <p className="mt-0.5 text-2xl font-semibold tabular-nums">
+              {recon ? money(recon.remaining) : "—"}
+            </p>
+            <p className="mt-0.5 text-[11px] text-neutral-400">
+              {recon
+                ? `${money(recon.uninvoicedBillsCost)} bills + ${money(recon.uninvoicedTimeCost)} time`
+                : "checking JobTread…"}
+            </p>
+            {recon && recon.draftBillCount > 0 && (
+              <p className="mt-1 text-[11px] text-amber-600 dark:text-amber-400">
+                excludes {money(recon.draftBillsCost)} in {recon.draftBillCount} draft
+                {recon.draftBillCount === 1 ? "" : "s"}
+              </p>
+            )}
+          </Card>
+          <InvoiceReconcile jobId={jobId} ym={ym} onData={setRecon} />
+        </div>
+      )}
 
       {data && !loading && (
         // The rail is dense enough now to give width back to the invoice pane —
