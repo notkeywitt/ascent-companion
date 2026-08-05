@@ -543,6 +543,7 @@ export function Board() {
   const [combineSelected, setCombineSelected] = useState<string[]>([]);
   const [combining, setCombining] = useState(false);
   const [combineMsg, setCombineMsg] = useState("");
+  const [buybackId, setBuybackId] = useState("");
 
   // Both reset when the open bill changes — they're about the CURRENT bill's
   // lines, and stale selections from a previous bill would silently apply to
@@ -663,6 +664,69 @@ export function Board() {
       setCombineMsg(e instanceof Error ? e.message : "Network error");
     } finally {
       setCombining(false);
+    }
+  };
+
+  // Buyback WRITES immediately (unlike a recode) — like Combine, it's a
+  // structural change (the line moves onto a DIFFERENT bill entirely, not just
+  // a different code on this one), not a "which code" decision worth trying on
+  // and reverting. Mirrors the bill page's buyback (/bill/[docId]) — see
+  // buybackLine in lib/jobtread.ts for how repeat clicks against the SAME
+  // source bill land on the SAME Ascent - Shop bill instead of minting a new
+  // one each time.
+  const buybackLineById = async (l: JobBillLine, name: string, extended: number) => {
+    if (
+      !window.confirm(
+        `Buy back this line to Ascent - Shop?\n\n${name} — ${money(extended)}\n\n` +
+          `This moves it onto a draft bill on the Shop job (creating one if needed) and ` +
+          `removes it from this bill.`,
+      )
+    )
+      return;
+    setBuybackId(l.id);
+    setSyncMsg(null);
+    try {
+      const codeId = leafOf(l);
+      const description = codeId ? descriptionForCode(codeId, data?.budget ?? []) : undefined;
+      const res = await fetch("/api/buyback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sourceDocId: l.docId,
+          costItemId: l.id,
+          name,
+          unitCost: round2(extended),
+          description,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) setSyncMsg({ tone: "error", text: json.error ?? "Buyback failed." });
+      else if (json.previewed)
+        setSyncMsg({
+          tone: "error",
+          text: "Preview only — writes are OFF. Nothing was moved in JobTread.",
+        });
+      else {
+        setStaged((prev) => {
+          const next = new Map(prev);
+          next.delete(l.id);
+          return next;
+        });
+        setEdits((prev) => {
+          const next = { ...prev };
+          delete next[l.id];
+          return next;
+        });
+        setSyncMsg({
+          tone: "success",
+          text: json.created ? "Moved to a new Shop bill." : "Added to the existing Shop bill.",
+        });
+        await load({ preserveStaged: true });
+      }
+    } catch (e) {
+      setSyncMsg({ tone: "error", text: e instanceof Error ? e.message : "Network error" });
+    } finally {
+      setBuybackId("");
     }
   };
 
@@ -1642,6 +1706,7 @@ export function Board() {
                     const code = codeOf(l);
                     const h = headroom.get(code);
                     const t = openMath.targets[i];
+                    const extended = t ? round2(t.qty * t.preTaxUnit) : openMath.deTax(l.cost);
                     const setEdit = (patch: LineEdit) => {
                       setEdits((prev) => ({ ...prev, [l.id]: { ...prev[l.id], ...patch } }));
                       setSyncMsg(null);
@@ -1684,6 +1749,43 @@ export function Board() {
                               </div>
                             )}
                           </div>
+                          {/* Buyback: move this line onto a draft bill on Ascent -
+                              Shop instead of billing it to the client (see
+                              buybackLineById). Draft-only + writes-gated, like
+                              Combine. Repeat clicks against other lines of THIS
+                              bill land on the same Shop bill. */}
+                          {openMath.isDraft && data?.writesEnabled && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                buybackLineById(l, edits[l.id]?.name ?? l.name ?? "Line item", extended)
+                              }
+                              disabled={buybackId === l.id}
+                              aria-label="Buy back to Ascent - Shop"
+                              title="Move this line to a draft bill on Ascent - Shop"
+                              className="mt-0.5 shrink-0 rounded p-1 text-neutral-400 transition hover:bg-accent/10 hover:text-accent disabled:opacity-40 dark:hover:bg-accent/20 dark:hover:text-accent-soft"
+                            >
+                              {buybackId === l.id ? (
+                                <span className="block h-3.5 w-3.5 text-center text-[10px] leading-[14px]">
+                                  …
+                                </span>
+                              ) : (
+                                <svg
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="2"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  aria-hidden="true"
+                                  className="h-3.5 w-3.5"
+                                >
+                                  <path d="M4 12h13" />
+                                  <path d="M12 6l7 6-7 6" />
+                                </svg>
+                              )}
+                            </button>
+                          )}
                         </div>
                         <CostCodeSelect
                           options={codeOptions}

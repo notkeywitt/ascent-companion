@@ -193,6 +193,7 @@ function BillDetail() {
   const [combining, setCombining] = useState(false);
   const [combineMsg, setCombineMsg] = useState("");
   const [deletingId, setDeletingId] = useState("");
+  const [buybackId, setBuybackId] = useState("");
   const [taxEdit, setTaxEdit] = useState<string | null>(null); // null = not editing (shows JT's value)
   // Bumped whenever the cache is dropped, so the prefetch effect re-warms the
   // neighbours after a write instead of leaving them cold until you navigate.
@@ -770,6 +771,66 @@ function BillDetail() {
     }
   }
 
+  // Buyback: move a line off this client bill onto a draft bill on Ascent - Shop
+  // instead of billing it to the job. Repeat clicks on other lines of THIS bill
+  // land on the same Shop bill (see buybackLine's externalId idempotency) — no
+  // client-side tracking of "which Shop bill" is needed. Draft-only + writes-
+  // gated, like Delete/Add/Combine line. `extended` is the line's current
+  // pre-tax dollar amount (handles both a stored line and one mid-edit).
+  async function buybackLineById(l: Line, name: string, extended: number) {
+    if (
+      !window.confirm(
+        `Buy back this line to Ascent - Shop?\n\n${name} — ${money(extended)}\n\n` +
+          `This moves it onto a draft bill on the Shop job (creating one if needed) and ` +
+          `removes it from this bill.`,
+      )
+    )
+      return;
+    setBuybackId(l.id);
+    setSaveMsg("");
+    try {
+      const opt = budget.find((o) => o.id === (picked[l.id] ?? l.jobCostItem?.id ?? ""));
+      const description = opt ? (opt.name ? `${opt.number} - ${opt.name}` : opt.number) : undefined;
+      const res = await fetch("/api/buyback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sourceDocId: docId,
+          costItemId: l.id,
+          name,
+          unitCost: round2(extended),
+          description,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) setSaveMsg(json.error ?? "Buyback failed");
+      else if (json.previewed)
+        setSaveMsg("Preview only — writes are OFF. Nothing was moved in JobTread.");
+      else {
+        setSaveMsg(
+          json.created ? "Moved to a new Shop bill." : "Added to the existing Shop bill.",
+        );
+        setSelected((s) => s.filter((x) => x !== l.id));
+        setPicked((p) => {
+          const n = { ...p };
+          delete n[l.id];
+          return n;
+        });
+        setEdits((e) => {
+          const n = { ...e };
+          delete n[l.id];
+          return n;
+        });
+        await loadBill();
+        reloadJtWindow();
+      }
+    } catch (e) {
+      setSaveMsg(e instanceof Error ? e.message : "Network error");
+    } finally {
+      setBuybackId("");
+    }
+  }
+
   return (
     <main className="mx-auto max-w-xl px-4 pb-24 pt-6">
       <div className="flex items-center justify-between gap-2">
@@ -1180,6 +1241,34 @@ function BillDetail() {
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
                       <div className="font-mono text-sm font-semibold">{money(extended)}</div>
+                      {linesEditable && writes && (
+                        <button
+                          type="button"
+                          onClick={() => buybackLineById(l, nameVal || l.name || "Line item", extended)}
+                          disabled={buybackId === l.id || deletingId === l.id}
+                          aria-label="Buy back to Ascent - Shop"
+                          title="Move this line to a draft bill on Ascent - Shop"
+                          className="rounded-md p-1.5 text-neutral-700 transition hover:bg-accent/10 hover:text-accent disabled:opacity-40 dark:text-neutral-200 dark:hover:bg-accent/20 dark:hover:text-accent-soft"
+                        >
+                          {buybackId === l.id ? (
+                            <span className="block h-4 w-4 text-center text-xs leading-4">…</span>
+                          ) : (
+                            <svg
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              aria-hidden="true"
+                              className="h-4 w-4"
+                            >
+                              <path d="M4 12h13" />
+                              <path d="M12 6l7 6-7 6" />
+                            </svg>
+                          )}
+                        </button>
+                      )}
                       {linesEditable && writes && (
                         <button
                           type="button"

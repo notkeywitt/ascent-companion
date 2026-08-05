@@ -2289,6 +2289,105 @@ export async function getJobHeaderInfo(
 }
 
 /**
+ * Resolve the "Ascent - Shop" overhead job by name/customer (confirmed live:
+ * JT job name "Shop" under customer/account "Ascent") rather than hardcoding
+ * its id, so buyback doesn't silently break if the job is ever re-created.
+ * Cached alongside getJobs (5 min) — the two are always read together.
+ */
+export function resolveShopJobId(cfg: PaveConfig): Promise<string> {
+  return cachedRef(`shopjob:${cfg.orgId}`, 5 * 60_000, () => _resolveShopJobIdUncached(cfg));
+}
+async function _resolveShopJobIdUncached(cfg: PaveConfig): Promise<string> {
+  const jobs = await getJobs(cfg, true); // include closed — fail loud, not silent, if it's ever closed
+  const hit = jobs.find(
+    (j) => j.name.trim().toLowerCase() === "shop" && (j.customer ?? "").trim().toLowerCase() === "ascent",
+  );
+  if (!hit) throw new Error('Could not find the "Ascent - Shop" job in JobTread.');
+  return hit.id;
+}
+
+export interface BuybackLineArgs {
+  sourceDocId: string;
+  costItemId: string; // the line to move off the client bill
+  name: string;
+  unitCost: number; // pre-tax dollar amount for this one line (written at quantity 1)
+  description?: string;
+}
+
+/**
+ * WRITE — "buyback": move one bill line off a client job's bill onto a draft bill
+ * on the Ascent - Shop job (e.g. materials bought back for shop stock instead of
+ * billed to the client). Reuses createVendorBill's externalId idempotency
+ * (`BUYBACK-<sourceDocId>`, scoped to the source bill's OWN vendor account — same
+ * vendor either way, just a different job) so repeated buybacks off the SAME
+ * source bill land additively on the SAME shop bill instead of each click minting
+ * a new one; this also means the frontend needs no session state to track "the
+ * shop bill I already created" — a second click just finds it again.
+ *
+ * The new line always lands UNCODED on the Shop job (a jobCostItemId is a budget
+ * leaf scoped to ONE job's budget tree, so the client job's coding can't carry
+ * over) — `description` can still carry the original code's label for reference.
+ * Tax stays behind on the source bill's nonRecoverableTax (untouched, same as
+ * deleteLine); the shop bill itself is created tax-free.
+ *
+ * Draft-only per caller (JT locks a bill's amounts once it leaves draft).
+ */
+export async function buybackLine(
+  cfg: PaveConfig,
+  args: BuybackLineArgs,
+): Promise<{ shopDocId: string; created: boolean }> {
+  const doc = await pave(cfg, {
+    document: {
+      $: { id: args.sourceDocId },
+      id: {},
+      subject: {},
+      fromName: {},
+      issueDate: {},
+      account: { id: {} },
+    },
+  });
+  const src = doc?.document ?? {};
+  const accountId = src.account?.id;
+  if (!accountId) throw new Error("Source bill has no vendor account — can't create a Shop copy.");
+
+  const buybackExternalId = `BUYBACK-${args.sourceDocId}`.substring(0, 32);
+  let shopDocId = await findBillByExternalId(cfg, accountId, buybackExternalId);
+  let created = false;
+  if (!shopDocId) {
+    const shopJobId = await resolveShopJobId(cfg);
+    // Ascent - Shop has a name but no street address; jobLocationName alone
+    // satisfies createDocument's location requirement (confirmed by amazon-import).
+    const shopInfo = await getJobHeaderInfo(cfg, shopJobId);
+    const { id } = await createVendorBill(cfg, {
+      jobId: shopJobId,
+      accountId,
+      vendorName: src.fromName || "Vendor",
+      subject: `Buyback — ${src.subject || src.fromName || "Vendor bill"}`,
+      externalId: buybackExternalId,
+      issueDate: src.issueDate || new Date().toISOString().slice(0, 10),
+      taxAmount: 0,
+      jobLocationName: shopInfo.name || undefined,
+      jobLocationAddress: shopInfo.address || undefined,
+      lines: [],
+    });
+    shopDocId = id;
+    created = true;
+  }
+
+  // Land the line on the shop bill BEFORE removing it from the source — if the
+  // delete below fails, the cost is duplicated (easy to notice) rather than lost.
+  await createLine(cfg, shopDocId, {
+    name: args.name,
+    quantity: 1,
+    unitCost: args.unitCost,
+    description: args.description,
+  });
+  await deleteLine(cfg, args.costItemId);
+
+  return { shopDocId, created };
+}
+
+/**
  * WRITE — attach an uploaded file to a document via the confirmed three-step
  * GCS flow: createUploadRequest (requires organizationId or the file lands in
  * the wrong bucket) → presigned PUT → createFile targetType:document.
