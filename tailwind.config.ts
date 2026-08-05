@@ -37,6 +37,11 @@ export default {
         // Brand web typeface (p.22). LL Medium is the print primary; Roboto is
         // the sanctioned web/Google-docs alternative and what the app renders in.
         sans: ["var(--font-roboto)", "ui-sans-serif", "system-ui", "sans-serif"],
+        // `font-mono` otherwise falls through to the browser default (Courier),
+        // which is a different typeface from everything around it. Roboto Mono
+        // keeps column alignment where it's genuinely needed (log output, CSV
+        // previews) without leaving the brand family.
+        mono: ["var(--font-roboto-mono)", "ui-monospace", "monospace"],
       },
     },
   },

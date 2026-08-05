@@ -103,6 +103,25 @@ const money0 = (n: number) =>
 /** Draft bills are coded but not yet committed spend — JobTread's own budget math excludes them. */
 const isCommitted = (status: string) => status === "pending" || status === "approved";
 
+interface BillFile {
+  id: string;
+  name?: string;
+  type?: string;
+  url?: string;
+}
+/** Same test the bill page uses — images embed, everything else gets an iframe. */
+const isImageFile = (f: BillFile) =>
+  /^image\//i.test(f.type ?? "") || /\.(png|jpe?g|gif|webp)$/i.test(f.name ?? "");
+
+/**
+ * Sunset Builders Supply, matched the same way the rest of the codebase does
+ * (`/sunset/i` on the vendor name — see getUninvoicedBills / getMonthlyInvoiceJobs).
+ * The high invoice count makes it noise when you're deciding where to move money,
+ * so it can be hidden — but ONLY from the list. Its cost stays in every budget
+ * figure on this page; see the note where hideSunset is applied.
+ */
+const isSunsetVendor = (vendor: string) => /sunset/i.test(vendor);
+
 const MONTHS = [
   "January",
   "February",
@@ -166,7 +185,7 @@ function Meter({ h }: { h: Headroom }) {
   const near = !over && pct >= 0.9;
   return (
     <div
-      className="h-1.5 w-full overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-800"
+      className="mt-0.5 h-1 w-full overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-800"
       role="progressbar"
       aria-valuenow={Math.round(pct * 100)}
       aria-valuemin={0}
@@ -189,6 +208,9 @@ export function Board() {
 
   const [ym, setYm] = useState(() => params.get("ym") || defaultYm());
   const [includeDrafts, setIncludeDrafts] = useState(true);
+  // Display-only filter. Defaults OFF: hiding bills by default would mean the
+  // list silently disagrees with the totals until someone noticed the toggle.
+  const [hideSunset, setHideSunset] = useState(false);
   const [data, setData] = useState<BoardPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -357,8 +379,82 @@ export function Board() {
     return m;
   }, [data]);
 
+  /**
+   * The Sunset hide is a VIEW filter and nothing more. It is applied here —
+   * below the `headroom` useMemo, which reads `data.lines` directly — so every
+   * budget figure on the page (rail meters, per-bill chips, remaining, the
+   * committed/draft split) still counts Sunset in full. Hiding it must never
+   * change a number, only what's listed.
+   */
+  const sunsetDocIds = useMemo(() => {
+    const s = new Set<string>();
+    for (const b of data?.bills ?? []) if (isSunsetVendor(b.vendor)) s.add(b.id);
+    return s;
+  }, [data]);
+
+  const visibleBills = useMemo(
+    () => (data?.bills ?? []).filter((b) => !hideSunset || !sunsetDocIds.has(b.id)),
+    [data, hideSunset, sunsetDocIds],
+  );
+
+  const hiddenSunset = useMemo(() => {
+    if (!hideSunset) return { count: 0, cost: 0, staged: 0 };
+    const bills = (data?.bills ?? []).filter((b) => sunsetDocIds.has(b.id));
+    const stagedHidden = (data?.lines ?? []).filter(
+      (l) => sunsetDocIds.has(l.docId) && staged.has(l.id),
+    ).length;
+    return {
+      count: bills.length,
+      cost: bills.reduce((s, b) => s + b.cost, 0),
+      staged: stagedHidden,
+    };
+  }, [data, hideSunset, sunsetDocIds, staged]);
+
+  // Don't leave the drawer open on a bill the filter just hid.
+  useEffect(() => {
+    if (openDocId && hideSunset && sunsetDocIds.has(openDocId)) setOpenDocId(null);
+  }, [openDocId, hideSunset, sunsetDocIds]);
+
   const openBill = data?.bills.find((b) => b.id === openDocId) ?? null;
   const openLines = openDocId ? (linesByDoc.get(openDocId) ?? []) : [];
+
+  // The scanned invoice, fetched only when a bill is opened and then remembered —
+  // stepping back and forth between bills is the normal motion here, and the
+  // attachment doesn't change while you're coding.
+  const [files, setFiles] = useState<BillFile[]>([]);
+  const [filesLoading, setFilesLoading] = useState(false);
+  const fileCache = useRef<Map<string, BillFile[]>>(new Map());
+
+  useEffect(() => {
+    if (!openDocId) {
+      setFiles([]);
+      return;
+    }
+    const cached = fileCache.current.get(openDocId);
+    if (cached) {
+      setFiles(cached);
+      return;
+    }
+    let cancelled = false;
+    setFilesLoading(true);
+    setFiles([]);
+    fetch(`/api/bill/files?docId=${encodeURIComponent(openDocId)}`)
+      .then((r) => r.json())
+      .then((j) => {
+        const got: BillFile[] = j.files ?? [];
+        fileCache.current.set(openDocId, got);
+        if (!cancelled) setFiles(got);
+      })
+      .catch(() => {
+        if (!cancelled) setFiles([]);
+      })
+      .finally(() => {
+        if (!cancelled) setFilesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [openDocId]);
 
   /**
    * The "by cost code" lanes. Within a lane, lines belonging to the SAME bill
@@ -379,7 +475,7 @@ export function Board() {
     const billById = new Map((data?.bills ?? []).map((b) => [b.id, b]));
     return [...byCode.entries()]
       .map(([code, lanes]) => {
-        const stacks = [...lanes.entries()]
+        const all = [...lanes.entries()]
           .map(([docId, ls]) => ({
             key: `${code}/${docId}`,
             docId,
@@ -389,15 +485,25 @@ export function Board() {
             status: billById.get(docId)?.status ?? ls[0]?.billStatus ?? "",
           }))
           .sort((a, b) => b.cost - a.cost);
+        // `total` is deliberately summed over ALL stacks, not the visible ones:
+        // the lane header reports what's actually coded here, hidden or not.
+        const total = all.reduce((s, x) => s + x.cost, 0);
+        const stacks = hideSunset ? all.filter((s) => !sunsetDocIds.has(s.docId)) : all;
         return {
           code,
           h: headroom.get(code),
           stacks,
-          total: stacks.reduce((s, x) => s + x.cost, 0),
+          hiddenCount: all.length - stacks.length,
+          total,
         };
       })
+      // A lane whose chips are ALL hidden still renders. Dropping it would take
+      // the cost code off the board — losing both its headroom readout and its
+      // drop target, and a code carrying only Sunset spend is often exactly the
+      // one with room to move money into. It shows as an empty lane with a
+      // "+N Sunset hidden" note instead.
       .sort((a, b) => a.code.localeCompare(b.code));
-  }, [data, codeOf, headroom]);
+  }, [data, codeOf, headroom, hideSunset, sunsetDocIds]);
 
   /** Options for the coding dropdown — every budget leaf on the job. */
   const codeOptions: Option[] = useMemo(
@@ -622,6 +728,12 @@ export function Board() {
             label="Include drafts"
             className="shrink-0"
           />
+          <Toggle
+            checked={hideSunset}
+            onChange={setHideSunset}
+            label="Hide Sunset"
+            className="shrink-0"
+          />
           <div className="flex-1" />
           {dirty && (
             <span className="text-xs font-semibold text-amber-600 dark:text-amber-400">
@@ -660,7 +772,10 @@ export function Board() {
       {loading && <Loading label="Loading bills and budget…" />}
 
       {data && !loading && (
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[22rem_minmax(0,1fr)] xl:grid-cols-[24rem_minmax(0,1fr)_26rem]">
+        // The rail is dense enough now to give width back to the invoice pane —
+        // every bill's attachment is a PDF, and a PDF in a narrow iframe is
+        // unreadable.
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[19rem_minmax(0,1fr)] xl:grid-cols-[19rem_minmax(0,1fr)_30rem]">
           {/* ─────────── LEFT: cost-code reference rail ─────────── */}
           <section className="min-w-0">
             <SectionLabel className="mb-2">Cost codes · budget remaining</SectionLabel>
@@ -670,9 +785,9 @@ export function Board() {
                 value={codeQuery}
                 onChange={(e) => setCodeQuery(e.target.value)}
                 placeholder="Filter cost codes…"
-                className="w-full border-b border-neutral-200 bg-transparent px-3 py-2 text-sm outline-none dark:border-white/10"
+                className="w-full border-b border-neutral-200 bg-transparent px-2 py-1.5 text-xs outline-none dark:border-white/10"
               />
-              <div className="max-h-[70vh] overflow-y-auto">
+              <div className="max-h-[76vh] overflow-y-auto">
                 {railRows.length === 0 ? (
                   <p className="px-3 py-4 text-xs text-neutral-500">No cost codes match.</p>
                 ) : (
@@ -681,10 +796,21 @@ export function Board() {
                       const left = remainingOf(h);
                       const over = left < 0;
                       return (
+                        // Two lines, not four: the spent/budget breakdown moves
+                        // into the tooltip so the rail shows ~2× the codes per
+                        // screen. Scanning for headroom means comparing many
+                        // codes at once, so density is the feature.
                         <li
                           key={h.code}
                           {...dropHandlers(h.code, h.droppable)}
-                          className={`border-b border-neutral-100 px-3 py-2 transition last:border-0 dark:border-neutral-800 ${
+                          title={
+                            `${h.code} ${h.name}\n` +
+                            `${money(h.spent)} committed` +
+                            (h.drafts > 0 ? ` + ${money(h.drafts)} draft` : "") +
+                            ` of ${money(h.budget)} budget\n${money(left)} remaining` +
+                            (h.droppable ? "" : "\nNo budget line — can't code to this")
+                          }
+                          className={`border-b border-neutral-100 px-2 py-1 transition last:border-0 dark:border-neutral-800 ${
                             dragOverCode === h.code
                               ? "bg-accent/10 ring-1 ring-inset ring-accent"
                               : dragLineIds && !h.droppable
@@ -693,28 +819,19 @@ export function Board() {
                           }`}
                         >
                           <div className="flex items-baseline justify-between gap-2">
-                            <span className="min-w-0">
-                              <span className="font-mono text-xs text-neutral-500">{h.code}</span>{" "}
-                              <span className="text-sm">{h.name}</span>
+                            <span className="min-w-0 truncate text-xs">
+                              <span className="tabular-nums text-neutral-500">{h.code}</span>{" "}
+                              <span className={h.droppable ? "" : "text-neutral-400"}>{h.name}</span>
                             </span>
                             <span
-                              className={`shrink-0 text-sm font-semibold tabular-nums ${
+                              className={`shrink-0 text-xs font-semibold tabular-nums ${
                                 over ? "text-red-600 dark:text-red-400" : ""
                               }`}
                             >
                               {money0(left)}
                             </span>
                           </div>
-                          <div className="mt-1">
-                            <Meter h={h} />
-                          </div>
-                          <div className="mt-1 flex justify-between text-[11px] text-neutral-400">
-                            <span>
-                              {money0(h.spent)}
-                              {h.drafts > 0 && ` + ${money0(h.drafts)} draft`} of {money0(h.budget)}
-                            </span>
-                            {!h.droppable && <span title="No budget line to code to">no target</span>}
-                          </div>
+                          <Meter h={h} />
                         </li>
                       );
                     })}
@@ -733,8 +850,13 @@ export function Board() {
           <section className="min-w-0">
             <div className="mb-2 flex items-baseline justify-between gap-3">
               <SectionLabel>
-                {data.bills.length} bill{data.bills.length === 1 ? "" : "s"} ·{" "}
-                {money(data.billTotal)}
+                {/* The total stays whole even when the list is filtered — hiding
+                    Sunset must not make the month look smaller than it is. */}
+                {hiddenSunset.count > 0
+                  ? `${visibleBills.length} of ${data.bills.length} bills`
+                  : `${visibleBills.length} bill${visibleBills.length === 1 ? "" : "s"}`}{" "}
+                · {money(data.billTotal)}
+                {hiddenSunset.count > 0 && " (all bills)"}
               </SectionLabel>
               <div className="flex gap-1 text-xs">
                 {(["bill", "code"] as const).map((m) => (
@@ -759,13 +881,30 @@ export function Board() {
               Nothing is written until you Sync.
             </p>
 
+            {hiddenSunset.count > 0 && (
+              <Banner tone="info" className="mb-2">
+                {hiddenSunset.count} Sunset bill{hiddenSunset.count === 1 ? "" : "s"} hidden ·{" "}
+                {money(hiddenSunset.cost)}. Still counted in every budget figure on this page —
+                only the list is filtered.
+                {hiddenSunset.staged > 0 && (
+                  <>
+                    {" "}
+                    <b>
+                      {hiddenSunset.staged} staged change
+                      {hiddenSunset.staged === 1 ? "" : "s"} on hidden bills will still sync.
+                    </b>
+                  </>
+                )}
+              </Banner>
+            )}
+
             {/* ---- grouped by cost code: the drag surface ---- */}
             {mode === "code" &&
               (laneRows.length === 0 ? (
                 <EmptyState>No coded lines in this month.</EmptyState>
               ) : (
                 <ul className="space-y-2">
-                  {laneRows.map(({ code, h, stacks, total }) => (
+                  {laneRows.map(({ code, h, stacks, total, hiddenCount }) => (
                     <li key={code}>
                       <Card
                         pad={false}
@@ -776,7 +915,7 @@ export function Board() {
                       >
                         <div className="flex items-baseline justify-between gap-2 border-b border-neutral-100 px-3 py-2 dark:border-neutral-800">
                           <span className="min-w-0 truncate">
-                            <span className="font-mono text-xs text-neutral-500">{code}</span>{" "}
+                            <span className="text-xs tabular-nums text-neutral-500">{code}</span>{" "}
                             <span className="text-sm font-semibold">{h?.name ?? ""}</span>
                           </span>
                           <span className="shrink-0 text-xs tabular-nums">
@@ -826,6 +965,11 @@ export function Board() {
                               </li>
                             );
                           })}
+                          {hiddenCount > 0 && (
+                            <li className="self-center px-1 text-[11px] italic text-neutral-400">
+                              +{hiddenCount} Sunset hidden
+                            </li>
+                          )}
                         </ul>
                       </Card>
                     </li>
@@ -833,11 +977,15 @@ export function Board() {
                 </ul>
               ))}
 
-            {mode === "bill" && data.bills.length === 0 ? (
-              <EmptyState>No uninvoiced bills dated in this month.</EmptyState>
+            {mode === "bill" && visibleBills.length === 0 ? (
+              <EmptyState>
+                {data.bills.length === 0
+                  ? "No uninvoiced bills dated in this month."
+                  : "Every bill this month is from Sunset — turn off Hide Sunset to see them."}
+              </EmptyState>
             ) : mode === "bill" ? (
               <ul className="space-y-2">
-                {data.bills.map((b) => {
+                {visibleBills.map((b) => {
                   const lines = linesByDoc.get(b.id) ?? [];
                   const codes = new Map<string, number>();
                   let movedHere = 0;
@@ -901,7 +1049,7 @@ export function Board() {
                                     }`}
                                     title={`${h?.name ?? ""} — ${money(left)} remaining`}
                                   >
-                                    <span className="font-mono">{code || "uncoded"}</span>
+                                    <span className="tabular-nums">{code || "uncoded"}</span>
                                     <span className="tabular-nums">{money0(amt)}</span>
                                     <span className="opacity-60">·</span>
                                     <span className="tabular-nums">{money0(left)} left</span>
@@ -924,7 +1072,10 @@ export function Board() {
             {!openBill ? (
               <EmptyState>Select a bill to edit its coding.</EmptyState>
             ) : (
-              <Card className="sticky top-4">
+              // Scrolls internally: with the invoice embedded the panel is taller
+              // than the viewport, and a sticky element that overflows can't be
+              // scrolled to its bottom.
+              <Card className="sticky top-4 max-h-[calc(100vh-2rem)] overflow-y-auto">
                 <p className="truncate text-sm font-semibold">{openBill.label}</p>
                 <p className="mb-3 text-xs text-neutral-500">
                   {money(openBill.cost)} · {openLines.length} line
@@ -975,6 +1126,51 @@ export function Board() {
                     );
                   })}
                 </ul>
+
+                {/* The scanned invoice, in the panel where the coding decision is
+                    made — otherwise you're recoding a line from its description
+                    alone, or bouncing to the bill page to see what it was for. */}
+                <div className="mt-4 border-t border-neutral-100 pt-3 dark:border-neutral-800">
+                  <SectionLabel className="mb-1.5">Invoice</SectionLabel>
+                  {filesLoading && <p className="text-xs text-neutral-400">Loading…</p>}
+                  {!filesLoading && files.length === 0 && (
+                    <p className="text-xs text-neutral-400">No file attached to this bill.</p>
+                  )}
+                  <div className="space-y-2">
+                    {files.map((f) =>
+                      f.url && isImageFile(f) ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <a key={f.id} href={f.url} target="_blank" rel="noreferrer" title="Open full size">
+                          <img
+                            src={f.url}
+                            alt={f.name ?? "invoice"}
+                            className="max-h-[32rem] w-full rounded-lg border border-neutral-200 object-contain dark:border-neutral-800"
+                          />
+                        </a>
+                      ) : f.url ? (
+                        <div key={f.id}>
+                          <iframe
+                            src={f.url}
+                            title={f.name ?? "invoice"}
+                            className="h-[32rem] w-full rounded-lg border border-neutral-200 dark:border-neutral-800"
+                          />
+                          <a
+                            href={f.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="mt-1 inline-block text-xs font-semibold text-accent"
+                          >
+                            Open {f.name || "attachment"} ↗
+                          </a>
+                        </div>
+                      ) : (
+                        <span key={f.id} className="text-xs text-neutral-500">
+                          {f.name}
+                        </span>
+                      ),
+                    )}
+                  </div>
+                </div>
               </Card>
             )}
           </section>

@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import type { Metadata, Viewport } from "next";
-import { Roboto } from "next/font/google";
+import { Roboto, Roboto_Mono } from "next/font/google";
 import "./globals.css";
 import { AppHeader } from "@/components/AppHeader";
 import { AccessProvider } from "@/components/AccessProvider";
@@ -17,6 +17,17 @@ const roboto = Roboto({
   subsets: ["latin"],
   weight: ["400", "500", "700"],
   variable: "--font-roboto",
+  display: "swap",
+});
+
+// Monospace is still wanted where columns must line up (log output, CSV import
+// previews), but the browser default for `font-mono` is Courier, which reads as
+// a different typeface entirely. Roboto Mono keeps the alignment inside the
+// brand family, so nothing in the app renders as Courier.
+const robotoMono = Roboto_Mono({
+  subsets: ["latin"],
+  weight: ["400", "500"],
+  variable: "--font-roboto-mono",
   display: "swap",
 });
 
@@ -57,7 +68,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   }
 
   return (
-    <html lang="en" className={roboto.variable}>
+    <html lang="en" className={`${roboto.variable} ${robotoMono.variable}`}>
       <head>
         <script
           dangerouslySetInnerHTML={{

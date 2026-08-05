@@ -584,7 +584,7 @@ export function JobsBrowser() {
                                             : "1px solid rgb(var(--accent) / 0.25)",
                                         }}
                                       />
-                                      <span className="font-mono text-xs text-neutral-500">
+                                      <span className="text-xs tabular-nums text-neutral-500">
                                         {d.division}
                                       </span>
                                       <span className="truncate font-semibold">{d.name}</span>
@@ -651,7 +651,7 @@ export function JobsBrowser() {
                                               >
                                                 ▸
                                               </span>
-                                              <span className="whitespace-nowrap font-mono text-xs text-neutral-500">
+                                              <span className="whitespace-nowrap text-xs tabular-nums text-neutral-500">
                                                 {c.number}
                                               </span>
                                               <span className="truncate">{c.name}</span>
