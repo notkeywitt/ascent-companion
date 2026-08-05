@@ -17,6 +17,7 @@ import {
 } from "@/components/ui";
 import { CostCodeSelect, type Option } from "@/components/CostCodeSelect";
 import { InvoiceReconcile, type Recon } from "@/components/InvoiceReconcile";
+import { TrackingSheetSyncFor } from "@/components/TrackingSheetSync";
 import { useUnsavedChanges } from "@/lib/useUnsavedChanges";
 
 /**
@@ -816,7 +817,18 @@ export function Board() {
               </p>
             )}
           </Card>
-          <InvoiceReconcile jobId={jobId} ym={ym} onData={setRecon} />
+          <div>
+            <InvoiceReconcile jobId={jobId} ym={ym} onData={setRecon} />
+            {/* Push the month into the project's tracking sheet once the coding
+                is right — the sheet reads costCode off each bill line, so it
+                should be synced AFTER a recode, not before. */}
+            <TrackingSheetSyncFor
+              jtJobId={jobId}
+              ym={ym}
+              monthLabel={monthOptions().find((o) => o.value === ym)?.label ?? ym}
+              className="mt-2"
+            />
+          </div>
         </div>
       )}
 

@@ -9,6 +9,7 @@ import { JobPicker } from "@/components/JobPicker";
 import { PageTitle } from "@/components/PageTitle";
 import { BillStatusBadge } from "@/components/BillStatusBadge";
 import { Banner, Button, Loading, btn } from "@/components/ui";
+import { TrackingSheetSyncFor } from "@/components/TrackingSheetSync";
 import { markBillTouched } from "@/lib/billTouch";
 import { useUnsavedChanges } from "@/lib/useUnsavedChanges";
 
@@ -1437,6 +1438,25 @@ function BillDetail() {
             </div>
           )}
         </>
+      )}
+
+      {/* Push this bill's billing month into the job's tracking sheet. Sits after
+          the coding editor on purpose: the sheet reads costCode off each bill
+          line, so it should be synced once this bill's coding is settled. The
+          month comes from the bill's own Invoice Date, which IS its billing
+          month. Renders nothing if the job has no tracking sheet. */}
+      {jobId && header?.issueDate && (
+        <div className="mt-6">
+          <TrackingSheetSyncFor
+            jtJobId={jobId}
+            ym={header.issueDate.slice(0, 7)}
+            monthLabel={
+              billingMonthOptions().find((o) => o.ym === header.issueDate!.slice(0, 7))?.label ??
+              header.issueDate.slice(0, 7)
+            }
+            className=""
+          />
+        </div>
       )}
 
       {/* Attached invoice image / PDF — at the bottom */}

@@ -7,8 +7,12 @@ import { JtLink } from "@/components/JtLink";
 import { InvoiceReconcile } from "@/components/InvoiceReconcile";
 import { BillStatusBadge } from "@/components/BillStatusBadge";
 import { useAccess } from "@/components/AccessProvider";
-import { createTaskRunner } from "@/lib/taskRunner";
-import { TrackingSheetRisks } from "@/components/TrackingSheetRisks";
+import {
+  TrackingSheetSync,
+  runTrackingSync,
+  type TrackingTarget,
+  type TrackingSyncState,
+} from "@/components/TrackingSheetSync";
 import {
   Banner,
   Button,
@@ -83,46 +87,6 @@ const csiLabel = (code?: string, name?: string) =>
 // bounded so we don't hammer the JobTread API (each fetch is a few Pave calls).
 const CONCURRENCY = 3;
 
-/**
- * Background tracking-sheet syncs fired from the job cards. Module scope so the
- * queue survives re-renders and card collapse/expand. Keyed on ProjectID, which
- * serializes a job against itself while letting different jobs run at once — see
- * src/lib/taskRunner.ts.
- */
-const trackingRunner = createTaskRunner(3);
-
-/** A project wired to a tracking sheet, keyed by its JobTread job id. */
-interface TrackingTarget {
-  projectId: string;
-  label: string;
-  url: string;
-}
-
-interface TrackingSyncResult {
-  rowCount: number;
-  billCount: number;
-  total: number;
-  unmatched: { csi: string; amount: number; vendors: string[] }[];
-  whitespaceOnly?: { csi: string; amount: number; vendors: string[] }[];
-  deadColumns?: { csi: string; amount: number; vendors: string[]; column?: string }[];
-  unmatchedTotal: number;
-  trackingSheetName: string;
-  trackingSheetUrl: string;
-  durationSec?: number;
-}
-
-/**
- * Per-job sync state, held by the page rather than the button. A card's dropdown
- * unmounts when it collapses, so button-local state would throw away the result
- * of a sync the office kicked off and moved on from — exactly the case this is
- * built for.
- */
-interface TrackingSyncState {
-  status: "queued" | "running" | "done" | "error";
-  result?: TrackingSyncResult;
-  error?: string;
-}
-
 // Drive the adjacent JobTread window (desktop side-panel host) to a document —
 // same dual-navigation the Billing tab uses so clicking a bill opens both the
 // assistant bill view and the JobTread page. No-op when unframed (mobile).
@@ -140,78 +104,6 @@ function driveMainWindowToDoc(jobId: string, docId: string) {
   } catch {
     /* cross-origin / unframed — ignore */
   }
-}
-
-/**
- * "Sync to Tracking Sheet" for one job card — pushes the selected billing
- * month's sub/vendor invoices into that project's Google tracking sheet.
- *
- * Runs in the background: the click queues the work and returns, so the office
- * can walk down the Invoicing list opening cards and syncing without waiting out
- * each round trip. Rendered only for jobs that actually have a tracking sheet.
- */
-function TrackingSheetSync({
-  state,
-  onStart,
-  monthLabel,
-}: {
-  state: TrackingSyncState | undefined;
-  onStart: () => void;
-  monthLabel: string;
-}) {
-  const status = state?.status ?? "idle";
-  const result = state?.result ?? null;
-  const error = state?.error ?? "";
-  const busy = status === "queued" || status === "running";
-
-  return (
-    <div className="mb-3">
-      <Button variant="secondary" size="sm" className="w-full" disabled={busy} onClick={onStart}>
-        {busy ? (
-          <>
-            <Spinner className="mr-1.5" />
-            {status === "queued" ? "Queued…" : "Syncing…"}
-          </>
-        ) : status === "done" ? (
-          `Sync ${monthLabel} to Tracking Sheet again`
-        ) : (
-          `Sync ${monthLabel} to Tracking Sheet`
-        )}
-      </Button>
-
-      {status === "error" && (
-        <Banner tone="error" className="mt-1.5 !py-2 text-xs">
-          {error}
-        </Banner>
-      )}
-
-      {status === "done" && result && (
-        <>
-          <p className="mt-1.5 text-xs text-neutral-500">
-            Wrote <span className="font-semibold">{result.rowCount}</span> row
-            {result.rowCount === 1 ? "" : "s"} ·{" "}
-            <span className="font-semibold">{money(result.total)}</span> ·{" "}
-            <a
-              href={result.trackingSheetUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="underline hover:text-accent"
-            >
-              {result.trackingSheetName}
-            </a>
-            {typeof result.durationSec === "number" ? ` · ${result.durationSec.toFixed(1)}s` : ""}
-          </p>
-          <TrackingSheetRisks
-            unmatched={result.unmatched}
-            whitespaceOnly={result.whitespaceOnly}
-            deadColumns={result.deadColumns}
-            compact
-            className="mt-1.5 !py-2"
-          />
-        </>
-      )}
-    </div>
-  );
 }
 
 function monthOptions() {
@@ -569,23 +461,9 @@ function Stage() {
   const startTrackingSync = useCallback(
     (target: TrackingTarget, month: number, year: number) => {
       const key = target.projectId;
-      const set = (s: TrackingSyncState) => setTrackingSync((prev) => ({ ...prev, [key]: s }));
-      set({ status: "queued" });
-      void trackingRunner.run(key, async () => {
-        set({ status: "running" });
-        try {
-          const res = await fetch("/api/tracking-sheet", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ op: "sync", projectId: key, month, year }),
-          });
-          const b = await res.json();
-          if (!res.ok) throw new Error(b?.error || `Request failed (${res.status})`);
-          set({ status: "done", result: b as TrackingSyncResult });
-        } catch (e) {
-          set({ status: "error", error: e instanceof Error ? e.message : "Something went wrong." });
-        }
-      });
+      runTrackingSync(key, month, year, (s) =>
+        setTrackingSync((prev) => ({ ...prev, [key]: s })),
+      );
     },
     [],
   );
