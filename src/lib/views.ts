@@ -40,6 +40,8 @@ export const VIEWS: ViewDef[] = [
   // Jobs list + budget, built on the generic /api/pave gateway. Office+admin by
   // default (financial data); not in FIELD/LEAD sets below.
   { id: "jobs", label: "Jobs", group: "Financials", paths: ["/jobs"] },
+  // Covers /stage/board (the desktop recoding workbench) too — paths match by
+  // prefix, and it's the same financial data, so it shares the Invoicing gate.
   { id: "stage", label: "Invoicing", group: "Financials", paths: ["/stage"] },
   { id: "unbilled", label: "Unbilled", group: "Financials", paths: ["/unbilled"] },
   // The stuck-vendor alert (popup + home banner) rides on this gate: its API

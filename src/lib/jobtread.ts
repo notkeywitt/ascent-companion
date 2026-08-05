@@ -1256,6 +1256,213 @@ async function _getJobCostDetailUncached(cfg: PaveConfig, jobId: string): Promis
   };
 }
 
+/** A bill as the coding board lists it — no CSI rollup, that comes from its lines. */
+export interface MonthBill {
+  id: string;
+  label: string; // invoice # / externalId, falling back to the vendor
+  vendor: string;
+  cost: number;
+  status: string; // draft | pending | approved
+  issueDate: string | null;
+}
+
+/**
+ * The job's vendor bills whose Invoice Date falls in one month, excluding any
+ * already on a customer invoice.
+ *
+ * `getUninvoicedBills` answers a bigger question (it also walks time entries and
+ * the job's whole flat costItems connection to build a per-bill CSI rollup), and
+ * the board needs neither: it derives per-code amounts from getBillLinesForJob,
+ * which carries strictly more detail. Calling that here meant paying for the same
+ * cost-item walk twice — measured 4.8 s for one board load.
+ *
+ * The month filter runs SERVER-side. Confirmed live 2026-08-05: the `>=` / `<=`
+ * comparison operators work on `issueDate`, returning Otis Perkins' 43 July bills
+ * in ONE page / 363 ms where the unnarrowed status-only walk needed 7 pages.
+ * Falls back to the unnarrowed walk + in-script date filter if that form is ever
+ * rejected. Page size stays 25 because `referencedDocuments` nested in a paged
+ * documents connection 413s above that (the same reason getUninvoicedBills uses 25).
+ *
+ * NOTE the billing month here is simply the month of the bill's Invoice Date. The
+ * 10th-of-the-month rule is an INGESTION convention (`deriveBillingPeriod`) that
+ * decides which issueDate a newly-arrived bill is given — it is not a filter.
+ */
+export async function getJobBillsForMonth(
+  cfg: PaveConfig,
+  jobId: string,
+  year: number,
+  month: number,
+  includeDrafts: boolean,
+): Promise<MonthBill[]> {
+  const mm = String(month).padStart(2, "0");
+  const first = `${year}-${mm}-01`;
+  const last = `${year}-${mm}-${String(new Date(year, month, 0).getDate()).padStart(2, "0")}`;
+  const statuses = includeDrafts ? ["draft", "pending", "approved"] : ["pending", "approved"];
+
+  const walk = async (where: unknown): Promise<any[]> => {
+    const out: any[] = [];
+    let page: string | undefined;
+    let guard = 0;
+    do {
+      const r = await pave(cfg, {
+        job: {
+          $: { id: jobId },
+          documents: {
+            $: { where, size: 25, ...(page ? { page } : {}) },
+            nextPage: {},
+            nodes: {
+              id: {},
+              subject: {},
+              externalId: {},
+              number: {},
+              fromName: {},
+              cost: {},
+              issueDate: {},
+              status: {},
+              account: { name: {} },
+              referencedDocuments: { nodes: { type: {} } },
+            },
+          },
+        },
+      });
+      out.push(...(r?.job?.documents?.nodes ?? []));
+      page = r?.job?.documents?.nextPage || undefined;
+    } while (page && ++guard < 100);
+    return out;
+  };
+
+  let nodes: any[];
+  try {
+    nodes = await walk({
+      and: [
+        { "=": [{ field: "type" }, { value: "vendorBill" }] },
+        { in: [{ field: "status" }, statuses.map((v) => ({ value: v }))] },
+        { ">=": [{ field: "issueDate" }, { value: first }] },
+        { "<=": [{ field: "issueDate" }, { value: last }] },
+      ],
+    });
+  } catch {
+    nodes = await walk({ and: [["type", "vendorBill"], ["status", "in", statuses]] });
+  }
+
+  const inMonth = (d?: string) => {
+    const s = String(d ?? "").slice(0, 10);
+    return s >= first && s <= last;
+  };
+  const isInvoiced = (b: any) =>
+    (b.referencedDocuments?.nodes ?? []).some((n: any) => n.type === "customerInvoice");
+
+  return nodes
+    .filter((b) => inMonth(b.issueDate) && !isInvoiced(b))
+    .map((b) => {
+      const vendor = String(b?.account?.name ?? b?.fromName ?? "").trim() || "Unknown vendor";
+      const ref = String(b?.externalId ?? b?.number ?? "").trim();
+      return {
+        id: b.id,
+        label: ref ? `${vendor} · ${ref}` : (String(b?.subject ?? "").trim() || vendor),
+        vendor,
+        cost: typeof b?.cost === "number" ? b.cost : 0,
+        status: b?.status ?? "",
+        issueDate: b?.issueDate ?? null,
+      };
+    })
+    .sort((a, b) => b.cost - a.cost);
+}
+
+/** One vendor-bill line, with the coding target the Invoicing board moves it between. */
+export interface JobBillLine {
+  id: string; // costItemId — what updateLine() edits
+  docId: string; // the bill this line belongs to
+  billStatus: string; // draft | pending | approved — draft cost isn't committed yet
+  name: string;
+  cost: number;
+  quantity?: number;
+  unitCost?: number;
+  code: string; // costCode.number — always tracks jobCostItem's code (verified, see below)
+  codeName: string;
+  jobCostItemId: string | null; // the budget leaf it codes to; null = uncoded
+}
+
+/**
+ * Every line on the given bills, in ONE query instead of one `getBillDetail` per
+ * bill (30 bills would be 30 round trips).
+ *
+ * Confirmed live 2026-08-05 across 4 jobs / 793 vendor-bill cost items: a line's
+ * `costCode` ALWAYS equals its `jobCostItem`'s cost code — zero mismatches. So
+ * JobTread derives the line's code from its coding target, which is what makes
+ * `updateLine({ jobCostItemId })` a complete recode with no second write.
+ *
+ * The document-id narrowing runs server-side; if that `where` shape is ever
+ * rejected we fall back to walking the job's vendor-bill lines and filtering here,
+ * so the board can't come up empty.
+ */
+export async function getBillLinesForJob(
+  cfg: PaveConfig,
+  jobId: string,
+  docIds: string[],
+): Promise<JobBillLine[]> {
+  const wanted = new Set(docIds);
+  if (wanted.size === 0) return [];
+
+  const walk = async (where: unknown): Promise<any[]> => {
+    const nodes: any[] = [];
+    let cursor: string | null = null;
+    for (let page = 0; page < 50; page++) {
+      const args: Record<string, unknown> = { size: 100, where };
+      if (cursor) args.page = cursor;
+      const r = await pave(cfg, {
+        job: {
+          $: { id: jobId },
+          id: {},
+          costItems: {
+            $: args,
+            nextPage: {},
+            nodes: {
+              id: {},
+              name: {},
+              cost: {},
+              quantity: {},
+              unitCost: {},
+              document: { id: {}, status: {} },
+              costCode: { number: {}, name: {} },
+              jobCostItem: { id: {} },
+            },
+          },
+        },
+      });
+      const co = r?.job?.costItems ?? {};
+      nodes.push(...(co.nodes ?? []));
+      cursor = co.nextPage ?? null;
+      if (!cursor) break;
+    }
+    return nodes;
+  };
+
+  let nodes: any[];
+  try {
+    nodes = await walk({
+      in: [{ field: ["document", "id"] }, [...wanted].map((v) => ({ value: v }))],
+    });
+  } catch {
+    nodes = await walk([["document", "type"], "vendorBill"]);
+  }
+
+  return nodes
+    .filter((n) => n?.document?.id && wanted.has(n.document.id))
+    .map((n) => ({
+      id: n.id,
+      docId: n.document.id,
+      billStatus: n.document.status ?? "",
+      name: String(n?.name ?? "").trim(),
+      cost: typeof n?.cost === "number" ? n.cost : 0,
+      quantity: typeof n?.quantity === "number" ? n.quantity : undefined,
+      unitCost: typeof n?.unitCost === "number" ? n.unitCost : undefined,
+      code: n?.costCode?.number?.toString().trim() ?? "",
+      codeName: n?.costCode?.name ?? "",
+      jobCostItemId: n?.jobCostItem?.id ?? null,
+    }));
+}
+
 export interface JobRef {
   id: string;
   name: string;

@@ -1003,7 +1003,15 @@ function Stage() {
                     </div>
                   ) : (
                     <>
-                      <div className="mb-2 flex justify-end">
+                      <div className="mb-2 flex justify-end gap-2">
+                        {/* Desktop coding workbench — recode these bills against
+                            live budget headroom before the invoice is built. */}
+                        <Link
+                          href={`/stage/board?jobId=${encodeURIComponent(r.jobId)}&ym=${ym}`}
+                          className={btn("secondary", "sm")}
+                        >
+                          Recode ↗
+                        </Link>
                         <Button
                           variant="secondary"
                           size="sm"
