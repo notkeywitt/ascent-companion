@@ -37,14 +37,23 @@ export interface ViewDef {
 export const VIEWS: ViewDef[] = [
   // Financials / billing — admin-only as a group (see ADMIN_ONLY below).
   { id: "coding", label: "Coding Review", group: "Financials", paths: ["/coding", "/bill", "/add-bill"] },
-  // Jobs list + budget, built on the generic /api/pave gateway. Office+admin by
-  // default (financial data); not in FIELD/LEAD sets below.
-  { id: "jobs", label: "Jobs", group: "Financials", paths: ["/jobs"] },
-  { id: "stage", label: "Invoicing", group: "Financials", paths: ["/stage"] },
   // The desktop coding workbench: recode a month's bills against live budget
   // headroom. Same financial data as Invoicing but its own view, so it can be
   // granted or denied on its own (it WRITES coding; /stage only reads).
   { id: "recode", label: "Client Invoicing", group: "Financials", paths: ["/recode", "/api/recode"] },
+  // Per-project Google tracking sheets. The API prefix is listed alongside the
+  // page so a role without the view can't push to a job's sheet by calling the
+  // route directly.
+  {
+    id: "tracking-sheet",
+    label: "Tracking Sheet",
+    group: "Financials",
+    paths: ["/tracking-sheet", "/api/tracking-sheet"],
+  },
+  // Jobs list + budget, built on the generic /api/pave gateway. Office+admin by
+  // default (financial data); not in FIELD/LEAD sets below.
+  { id: "jobs", label: "Jobs", group: "Financials", paths: ["/jobs"] },
+  { id: "stage", label: "Invoicing", group: "Financials", paths: ["/stage"] },
   { id: "unbilled", label: "Unbilled", group: "Financials", paths: ["/unbilled"] },
   // The stuck-vendor alert (popup + home banner) rides on this gate: its API
   // route is listed here so a non-billing user can neither see the warning nor
@@ -55,15 +64,6 @@ export const VIEWS: ViewDef[] = [
   // see the indicator nor read the queued bills by calling the route directly.
   { id: "needs-project", label: "Needs Project", group: "Financials", paths: ["/needs-project", "/api/needs-project"] },
   { id: "payments", label: "Sunset Statements", group: "Financials", paths: ["/payments"] },
-  // Per-project Google tracking sheets. The API prefix is listed alongside the
-  // page so a role without the view can't push to a job's sheet by calling the
-  // route directly.
-  {
-    id: "tracking-sheet",
-    label: "Tracking Sheet",
-    group: "Financials",
-    paths: ["/tracking-sheet", "/api/tracking-sheet"],
-  },
   { id: "amazon-import", label: "Amazon Import", group: "Financials", paths: ["/amazon-import", "/api/amazon-import"] },
   // Field
   { id: "safety-meeting", label: "Safety Meeting", group: "Field", paths: ["/safety-meeting"] },
