@@ -1,0 +1,172 @@
+/**
+ * The money math behind editing a vendor bill's lines — shared by the bill page
+ * and Client Invoicing so the two can never disagree about what a save writes.
+ *
+ * THE MODEL (confirmed live 2026-07-30 by capturing JobTread's own save — stored
+ * $59.54 displayed as $54.95; see the tax-nonrecoverable-intended memory, which
+ * also records two WRONG models that were tried first):
+ *
+ *  - JobTread stores each line's cost TAX-INCLUSIVE.
+ *  - A bill's total is ALWAYS the sum of its line costs. Nothing adds tax on top.
+ *  - The fixed sales tax (`nonRecoverableTax`, a dollar amount) is carved OUT of
+ *    that total to give the subtotal.
+ *
+ * So we mirror JobTread: read each line DE-TAXED (what JobTread shows), let the
+ * office edit in pre-tax terms, and on save gross EVERY line back up. Every line
+ * must move together — editing one line, or the tax, shifts the shared
+ * subtotal/total factor, so re-sending only the touched lines would make the
+ * untouched ones appear to drift.
+ *
+ * JobTread also LOCKS name/description/quantity/unitCost once a bill leaves
+ * draft (pending = payable, approved = paid); writing them errors. Re-coding
+ * (`jobCostItemId`) is allowed in any status. That's why almost everything here
+ * is gated on `isDraft`.
+ */
+
+export interface MathLine {
+  id: string;
+  name?: string;
+  quantity?: number;
+  unitCost?: number;
+  cost?: number;
+  /** The budget leaf this line codes to. */
+  jobCostItemId?: string | null;
+}
+
+/** In-flight text edits, keyed by line id. Strings because they come from inputs. */
+export interface LineEdit {
+  name?: string;
+  quantity?: string;
+  unitCost?: string;
+}
+
+/** A budget leaf, as the cost-code picker knows it. */
+export interface CodeOption {
+  id: string;
+  number: string;
+  name: string;
+}
+
+/** One line's payload for /api/code. */
+export interface LineChange {
+  costItemId: string;
+  name?: string;
+  jobCostItemId?: string;
+  quantity?: number;
+  unitCost?: number;
+  description?: string;
+}
+
+export const round2 = (n: number) => Math.round(n * 100) / 100;
+
+/** A line's description mirrors its cost code: "06 10 00 - Rough Carpentry". */
+export function descriptionForCode(
+  codeId: string,
+  budget: readonly CodeOption[],
+): string | undefined {
+  const o = budget.find((b) => b.id === codeId);
+  if (!o) return undefined;
+  return o.name ? `${o.number} - ${o.name}` : o.number;
+}
+
+export interface BillMathInput {
+  lines: readonly MathLine[];
+  /** The bill's stored nonRecoverableTax. */
+  storedTax: number;
+  /** Tax being previewed while the office edits it; defaults to storedTax. */
+  taxView?: number;
+  /** JobTread document status — draft unlocks the editable fields. */
+  status: string | undefined;
+  edits: Record<string, LineEdit | undefined>;
+  /** costItemId → chosen budget-leaf id. */
+  picked: Record<string, string | undefined>;
+  budget: readonly CodeOption[];
+}
+
+export interface BillMath {
+  isDraft: boolean;
+  /** Stored (tax-inclusive) → displayed (pre-tax). */
+  deTax: (stored: number) => number;
+  /** Per line: the target quantity and PRE-TAX unit cost. */
+  targets: { line: MathLine; qty: number; preTaxUnit: number; curPreTaxUnit: number }[];
+  subtotal: number;
+  total: number;
+  /** Pre-tax → stored gross-up factor for the bill's edited state. */
+  reTax: number;
+  /** True if anything differs from what JobTread currently holds. */
+  dirty: boolean;
+  /**
+   * EVERY line's currently-editable fields, re-grossed against the current tax.
+   * This is the whole-bill payload a save sends — see the note above on why it's
+   * all lines and not just the touched ones. On a tax-free, unedited bill this is
+   * simply the lines' current values, so it's idempotent; /api/code drops any
+   * line with nothing to write.
+   */
+  wholeBillChanges: LineChange[];
+}
+
+export function billLineMath({
+  lines,
+  storedTax,
+  taxView,
+  status,
+  edits,
+  picked,
+  budget,
+}: BillMathInput): BillMath {
+  const isDraft = status === "draft";
+  const storedTotal = lines.reduce((s, l) => s + (l.cost ?? 0), 0);
+  // Per-line de-tax uses the STORED tax, not an in-progress tax edit, so typing a
+  // new tax never makes the line amounts drift — only the total moves.
+  const deTax = (stored: number) =>
+    storedTotal > 0 ? stored * ((storedTotal - storedTax) / storedTotal) : stored;
+  const tax = taxView ?? storedTax;
+
+  const targets = lines.map((line) => {
+    const curPreTaxUnit = deTax(line.unitCost ?? 0);
+    const qStr = edits[line.id]?.quantity;
+    const uStr = edits[line.id]?.unitCost;
+    const qty = isDraft && qStr !== undefined && qStr !== "" ? Number(qStr) : (line.quantity ?? 0);
+    const preTaxUnit =
+      isDraft && uStr !== undefined && uStr !== "" ? Number(uStr) : curPreTaxUnit;
+    return { line, qty, preTaxUnit, curPreTaxUnit };
+  });
+
+  const sumPreTax = targets.reduce((s, t) => s + t.preTaxUnit * t.qty, 0);
+  const reTax = sumPreTax > 0 ? (sumPreTax + tax) / sumPreTax : 1;
+
+  let dirty = false;
+  const wholeBillChanges = targets.map(({ line, qty, preTaxUnit, curPreTaxUnit }) => {
+    const change: LineChange = { costItemId: line.id };
+    const effCode = picked[line.id] ?? line.jobCostItemId ?? "";
+    // Re-coding works in any status; send the effective code for every coded
+    // line, but never write an empty code onto an untouched uncoded line.
+    if (effCode || picked[line.id] !== undefined) change.jobCostItemId = effCode;
+    if (picked[line.id] !== undefined && picked[line.id] !== (line.jobCostItemId ?? "")) {
+      dirty = true;
+    }
+    if (isDraft) {
+      change.name = edits[line.id]?.name ?? (line.name ?? "");
+      change.quantity = qty;
+      change.unitCost = round2(preTaxUnit * reTax); // pre-tax → stored
+      const d = descriptionForCode(effCode, budget);
+      if (d !== undefined) change.description = d;
+
+      if (change.name !== (line.name ?? "")) dirty = true;
+      if (qty !== (line.quantity ?? 0)) dirty = true;
+      if (Math.abs(preTaxUnit - curPreTaxUnit) > 0.005) dirty = true;
+    }
+    return change;
+  });
+
+  return {
+    isDraft,
+    deTax,
+    targets,
+    subtotal: round2(sumPreTax),
+    total: round2(sumPreTax + tax),
+    reTax,
+    dirty,
+    wholeBillChanges,
+  };
+}

@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { inArray } from "drizzle-orm";
+import { db, ensureDb } from "@/db";
+import { savedBills } from "@/db/schema";
 import {
   getBillLinesForJob,
   getJobBillsForMonth,
@@ -56,9 +59,41 @@ export async function GET(req: NextRequest) {
     ]);
     const lines = await getBillLinesForJob(cfg, jobId, [...new Set(bills.map((b) => b.id))]);
 
+    // Assistant-local flags, same pair the coding queue shows: saved (Save
+    // clicked) and reviewed (explicitly marked done). Best-effort — a DB hiccup
+    // must never fail the board.
+    const flags = new Map<string, { saved: boolean; reviewed: boolean }>();
+    if (bills.length > 0) {
+      try {
+        await ensureDb();
+        const rows = await db
+          .select({
+            docId: savedBills.docId,
+            savedAt: savedBills.savedAt,
+            reviewed: savedBills.reviewed,
+          })
+          .from(savedBills)
+          .where(
+            inArray(
+              savedBills.docId,
+              bills.map((b) => b.id),
+            ),
+          );
+        for (const r of rows) {
+          flags.set(r.docId, { saved: (r.savedAt ?? "") !== "", reviewed: Boolean(r.reviewed) });
+        }
+      } catch {
+        /* flags are best-effort */
+      }
+    }
+
     return NextResponse.json({
       job: { id: jobId, name: header.name, address: header.address },
-      bills,
+      bills: bills.map((b) => ({
+        ...b,
+        saved: flags.get(b.id)?.saved ?? false,
+        reviewed: flags.get(b.id)?.reviewed ?? false,
+      })),
       billTotal: bills.reduce((s, b) => s + (b.cost ?? 0), 0),
       lines,
       budget,

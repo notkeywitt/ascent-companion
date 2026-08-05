@@ -17,6 +17,7 @@ import {
 } from "@/components/ui";
 import { CostCodeSelect, type Option } from "@/components/CostCodeSelect";
 import { JtLink } from "@/components/JtLink";
+import { billLineMath, type LineChange, type LineEdit } from "@/lib/billLineMath";
 import { InvoiceReconcile, type Recon } from "@/components/InvoiceReconcile";
 import { TrackingSheetSyncFor } from "@/components/TrackingSheetSync";
 import { useUnsavedChanges } from "@/lib/useUnsavedChanges";
@@ -52,6 +53,10 @@ interface BillRef {
   cost: number;
   status: string;
   issueDate: string | null;
+  createdAt: string | null;
+  nonRecoverableTax: number;
+  saved: boolean;
+  reviewed: boolean;
 }
 interface JobBillLine {
   id: string;
@@ -241,6 +246,8 @@ export function Board() {
 
   /** costItemId → the budget leaf it's been staged onto. */
   const [staged, setStaged] = useState<Map<string, string>>(new Map());
+  /** costItemId → in-flight description / qty / unit-cost text, draft bills only. */
+  const [edits, setEdits] = useState<Record<string, LineEdit | undefined>>({});
   const [openDocId, setOpenDocId] = useState<string | null>(null);
   const [mode, setMode] = useState<"bill" | "code">("bill");
   // Lifted out of the reconcile rectangle so the header can show the same
@@ -253,7 +260,7 @@ export function Board() {
   // showing every code until it's deliberately tidied.
   const [collapsedDivs, setCollapsedDivs] = useState<Set<string>>(new Set());
 
-  const dirty = staged.size > 0;
+  const dirty = staged.size > 0 || Object.keys(edits).length > 0;
   useUnsavedChanges(
     dirty,
     "You have staged coding changes that haven't been synced to JobTread. Leave and lose them?",
@@ -273,7 +280,9 @@ export function Board() {
       if (j.error) setError(j.error);
       else {
         setData(j);
-        setStaged(new Map()); // a fresh pull invalidates staged moves
+        // A fresh pull invalidates everything staged against the old data.
+        setStaged(new Map());
+        setEdits({});
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load");
@@ -485,6 +494,20 @@ export function Board() {
   const openBill = data?.bills.find((b) => b.id === openDocId) ?? null;
   const openLines = openDocId ? (linesByDoc.get(openDocId) ?? []) : [];
 
+  /** De-taxed display values + the whole-bill payload for the open bill. */
+  const openMath = useMemo(
+    () =>
+      billLineMath({
+        lines: openLines,
+        storedTax: openBill?.nonRecoverableTax ?? 0,
+        status: openBill?.status,
+        edits,
+        picked: Object.fromEntries(staged),
+        budget: data?.budget ?? [],
+      }),
+    [openLines, openBill, edits, staged, data],
+  );
+
   // The scanned invoice, fetched only when a bill is opened and then remembered —
   // stepping back and forth between bills is the normal motion here, and the
   // attachment doesn't change while you're coding.
@@ -596,8 +619,31 @@ export function Board() {
     setSyncMsg(null);
   }, []);
 
+  /**
+   * The Assistant-local "reviewed" flag — not a JobTread write, so it works
+   * regardless of the write gate. Optimistic: the tag flips immediately and the
+   * request is best-effort, same as the bill page.
+   */
+  const toggleReviewed = async (docId: string, reviewed: boolean) => {
+    setData((d) =>
+      d
+        ? { ...d, bills: d.bills.map((b) => (b.id === docId ? { ...b, reviewed } : b)) }
+        : d,
+    );
+    try {
+      await fetch("/api/bill-reviewed", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ docId, reviewed }),
+      });
+    } catch {
+      /* best-effort */
+    }
+  };
+
   const revertAll = () => {
     setStaged(new Map());
+    setEdits({});
     setSyncMsg(null);
   };
 
@@ -689,20 +735,40 @@ export function Board() {
 
   // ---- sync ---------------------------------------------------------------
   const sync = async () => {
-    if (!data || staged.size === 0) return;
+    if (!data || !dirty) return;
     setSyncing(true);
     setSyncMsg(null);
 
-    // One POST per bill: /api/code takes changes[] plus a single docId for its
-    // "saved" marker, so batching per bill keeps that marker correct and needs
-    // no change to that route.
-    const byDoc = new Map<string, { costItemId: string; jobCostItemId: string }[]>();
-    for (const [lineId, leafId] of staged) {
-      const line = data.lines.find((l) => l.id === lineId);
-      if (!line) continue;
-      const arr = byDoc.get(line.docId) ?? [];
-      arr.push({ costItemId: lineId, jobCostItemId: leafId });
-      byDoc.set(line.docId, arr);
+    // WHOLE-BILL PUSH, the same pattern the bill page uses. Every touched bill
+    // sends ALL of its lines, not just the edited ones: JobTread stores costs
+    // tax-inclusive, so editing one line shifts the bill's shared gross-up
+    // factor and the untouched lines would otherwise appear to drift. On a
+    // tax-free bill this is idempotent, and /api/code drops lines with nothing
+    // to write. One POST per bill keeps that route's per-docId "saved" marker
+    // correct without changing it.
+    const touched = new Set<string>();
+    for (const lineId of staged.keys()) {
+      const l = data.lines.find((x) => x.id === lineId);
+      if (l) touched.add(l.docId);
+    }
+    for (const lineId of Object.keys(edits)) {
+      const l = data.lines.find((x) => x.id === lineId);
+      if (l) touched.add(l.docId);
+    }
+
+    const byDoc = new Map<string, LineChange[]>();
+    for (const docId of touched) {
+      const bill = data.bills.find((b) => b.id === docId);
+      if (!bill) continue;
+      const { wholeBillChanges } = billLineMath({
+        lines: linesByDoc.get(docId) ?? [],
+        storedTax: bill.nonRecoverableTax,
+        status: bill.status,
+        edits,
+        picked: Object.fromEntries(staged),
+        budget: data.budget,
+      });
+      byDoc.set(docId, wholeBillChanges);
     }
 
     let ok = 0;
@@ -909,7 +975,9 @@ export function Board() {
         // The rail is dense enough now to give width back to the invoice pane —
         // every bill's attachment is a PDF, and a PDF in a narrow iframe is
         // unreadable.
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[19rem_minmax(0,1fr)] xl:grid-cols-[19rem_minmax(0,1fr)_30rem]">
+        // The coding panel carries the line editor AND the invoice PDF, so it
+        // gets the width; the bill list is chips and totals and reads fine narrow.
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[18rem_minmax(0,1fr)] xl:grid-cols-[18rem_minmax(0,22rem)_40rem]">
           {/* ─────────── LEFT: cost-code reference rail ─────────── */}
           {/* Docked: the rail is the reference you're constantly checking while
               scrolling a long bill list, so it stays put. `self-start` is what
@@ -1238,6 +1306,22 @@ export function Board() {
                                   {movedHere} moved
                                 </span>
                               )}
+                              {/* Same pair the coding queue shows. */}
+                              {b.reviewed ? (
+                                <span
+                                  title="Marked reviewed in the Assistant"
+                                  className="ml-2 rounded bg-emerald-600 px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide text-white"
+                                >
+                                  ✓ Reviewed
+                                </span>
+                              ) : b.saved ? (
+                                <span
+                                  title="Save has been clicked on this bill"
+                                  className="ml-2 rounded bg-emerald-50 px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300"
+                                >
+                                  ✓ Saved
+                                </span>
+                              ) : null}
                             </span>
                             <span className="shrink-0 text-sm font-semibold tabular-nums">
                               {money(b.cost)}
@@ -1316,35 +1400,90 @@ export function Board() {
                     JT ↗
                   </JtLink>
                 </div>
-                <p className="mb-3 text-xs text-neutral-500">
-                  {money(openBill.cost)} · {openLines.length} line
-                  {openLines.length === 1 ? "" : "s"}
-                  {openBill.status ? ` · ${openBill.status}` : ""}
-                </p>
+                <div className="mb-3 flex items-center justify-between gap-2">
+                  <p className="min-w-0 truncate text-xs text-neutral-500">
+                    {money(openMath.isDraft ? openMath.total : openBill.cost)} ·{" "}
+                    {openLines.length} line{openLines.length === 1 ? "" : "s"}
+                    {openBill.status ? ` · ${openBill.status}` : ""}
+                    {openBill.nonRecoverableTax > 0
+                      ? ` · incl. ${money(openBill.nonRecoverableTax)} tax`
+                      : ""}
+                  </p>
+                  <Button
+                    variant={openBill.reviewed ? "primary" : "secondary"}
+                    size="sm"
+                    className="shrink-0 !px-2 !py-1 !text-[11px]"
+                    onClick={() => toggleReviewed(openBill.id, !openBill.reviewed)}
+                  >
+                    {openBill.reviewed ? "✓ Reviewed" : "Mark reviewed"}
+                  </Button>
+                </div>
                 <ul className="space-y-3">
-                  {openLines.map((l) => {
+                  {openLines.map((l, i) => {
                     const current = leafOf(l);
                     const moved = staged.has(l.id);
                     const code = codeOf(l);
                     const h = headroom.get(code);
+                    const t = openMath.targets[i];
+                    const setEdit = (patch: LineEdit) => {
+                      setEdits((prev) => ({ ...prev, [l.id]: { ...prev[l.id], ...patch } }));
+                      setSyncMsg(null);
+                    };
                     return (
                       <li
                         key={l.id}
                         className="border-t border-neutral-100 pt-3 first:border-0 first:pt-0 dark:border-neutral-800"
                       >
-                        <div className="mb-1 flex items-baseline justify-between gap-2">
-                          <span className="min-w-0 truncate text-xs">
-                            {l.name || "(unnamed line)"}
-                          </span>
-                          <span className="shrink-0 text-xs font-semibold tabular-nums">
-                            {money(l.cost)}
-                          </span>
-                        </div>
+                        {/* Description. JobTread locks it (with qty/amount) once a
+                            bill leaves draft, so those inputs only appear on
+                            drafts; re-coding still works in any status. */}
+                        {openMath.isDraft ? (
+                          <input
+                            value={edits[l.id]?.name ?? l.name ?? ""}
+                            onChange={(e) => setEdit({ name: e.target.value })}
+                            placeholder="Description"
+                            className="mb-1 w-full rounded border border-neutral-300 bg-white px-1.5 py-1 text-xs transition focus:border-accent focus:outline-none dark:border-neutral-600 dark:bg-ink-raised"
+                          />
+                        ) : (
+                          <div className="mb-1 flex items-baseline justify-between gap-2">
+                            <span className="min-w-0 truncate text-xs">
+                              {l.name || "(unnamed line)"}
+                            </span>
+                            <span className="shrink-0 text-xs font-semibold tabular-nums">
+                              {money(l.cost)}
+                            </span>
+                          </div>
+                        )}
                         <CostCodeSelect
                           options={codeOptions}
                           value={current}
                           onChange={(leafId) => stageLine(l.id, leafId, l.jobCostItemId)}
                         />
+                        {openMath.isDraft && t && (
+                          /* Qty × pre-tax unit cost. The office types what
+                             JobTread SHOWS (de-taxed); the save grosses every
+                             line back up together. */
+                          <div className="mt-1 flex items-center gap-1.5">
+                            <input
+                              inputMode="decimal"
+                              value={edits[l.id]?.quantity ?? String(l.quantity ?? 0)}
+                              onChange={(e) => setEdit({ quantity: e.target.value })}
+                              aria-label="Quantity"
+                              className="w-14 rounded border border-neutral-300 bg-white px-1.5 py-1 text-right text-xs tabular-nums transition focus:border-accent focus:outline-none dark:border-neutral-600 dark:bg-ink-raised"
+                            />
+                            <span className="text-[11px] text-neutral-400">×</span>
+                            <input
+                              inputMode="decimal"
+                              value={edits[l.id]?.unitCost ?? t.curPreTaxUnit.toFixed(2)}
+                              onChange={(e) => setEdit({ unitCost: e.target.value })}
+                              aria-label="Unit cost (pre-tax)"
+                              className="w-24 rounded border border-neutral-300 bg-white px-1.5 py-1 text-right text-xs tabular-nums transition focus:border-accent focus:outline-none dark:border-neutral-600 dark:bg-ink-raised"
+                            />
+                            <span className="flex-1 text-right text-xs font-semibold tabular-nums">
+                              {money(t.qty * t.preTaxUnit)}
+                            </span>
+                          </div>
+                        )}
                         <div className="mt-1 flex items-baseline justify-between gap-2 text-[11px]">
                           <span className={moved ? "text-amber-600 dark:text-amber-400" : "text-neutral-400"}>
                             {moved ? `moved from ${l.code || "uncoded"}` : "unchanged"}

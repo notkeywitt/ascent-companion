@@ -1264,6 +1264,10 @@ export interface MonthBill {
   cost: number;
   status: string; // draft | pending | approved
   issueDate: string | null;
+  /** When the bill was created in JobTread — newest-first is the board's order. */
+  createdAt: string | null;
+  /** Fixed sales tax carved out of the bill total — the gross-up input. */
+  nonRecoverableTax: number;
 }
 
 /**
@@ -1318,7 +1322,9 @@ export async function getJobBillsForMonth(
               fromName: {},
               cost: {},
               issueDate: {},
+              createdAt: {},
               status: {},
+              nonRecoverableTax: {},
               account: { name: {} },
               referencedDocuments: { nodes: { type: {} } },
             },
@@ -1364,9 +1370,19 @@ export async function getJobBillsForMonth(
         cost: typeof b?.cost === "number" ? b.cost : 0,
         status: b?.status ?? "",
         issueDate: b?.issueDate ?? null,
+        createdAt: b?.createdAt ?? null,
+        nonRecoverableTax: typeof b?.nonRecoverableTax === "number" ? b.nonRecoverableTax : 0,
       };
     })
-    .sort((a, b) => b.cost - a.cost);
+    // Newest first: the board is worked as bills arrive, so the ones that just
+    // landed are the ones still needing coding. Falls back to issueDate then
+    // cost so an older record with no createdAt still sorts predictably.
+    .sort(
+      (a, b) =>
+        String(b.createdAt ?? "").localeCompare(String(a.createdAt ?? "")) ||
+        String(b.issueDate ?? "").localeCompare(String(a.issueDate ?? "")) ||
+        b.cost - a.cost,
+    );
 }
 
 /** One vendor-bill line, with the coding target the Invoicing board moves it between. */
