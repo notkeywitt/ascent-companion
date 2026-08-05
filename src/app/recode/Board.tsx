@@ -16,6 +16,7 @@ import {
   btn,
 } from "@/components/ui";
 import { CostCodeSelect, type Option } from "@/components/CostCodeSelect";
+import { JtLink } from "@/components/JtLink";
 import { InvoiceReconcile, type Recon } from "@/components/InvoiceReconcile";
 import { TrackingSheetSyncFor } from "@/components/TrackingSheetSync";
 import { useUnsavedChanges } from "@/lib/useUnsavedChanges";
@@ -775,7 +776,7 @@ export function Board() {
       />
 
       <Card className="mb-4">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+        <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center">
           <Select
             value={ym}
             onChange={(e) => setYm(e.target.value)}
@@ -815,6 +816,17 @@ export function Board() {
           <Button size="sm" onClick={sync} disabled={!dirty || syncing}>
             {syncing ? "Syncing…" : "Sync to JobTread"}
           </Button>
+          {/* The two syncs sit together because they're the same step of the
+              job, in order: push the coding to JobTread, then push the month to
+              the tracking sheet (which reads costCode off each bill line, so it
+              wants the coding settled first). Compact so its result wraps onto
+              its own line instead of stretching this row. */}
+          <TrackingSheetSyncFor
+            jtJobId={jobId}
+            ym={ym}
+            monthLabel={monthOptions().find((o) => o.value === ym)?.label ?? ym}
+            compact
+          />
         </div>
         {data && !data.writesEnabled && (
           <p className="mt-2 text-[11px] text-amber-600 dark:text-amber-400">
@@ -840,69 +852,56 @@ export function Board() {
 
       {loading && <Loading label="Loading bills and budget…" />}
 
-      {/* What this month is actually worth to invoice, and whether JobTread has
-          caught up. Same endpoint and same component the Invoicing page uses, so
-          the two pages can't drift. `remaining` = uninvoiced bills + uninvoiced
-          time; drafts are excluded because JobTread won't pull a draft onto an
-          invoice, and the rectangle says so. */}
+      {/* What this month is worth, and whether JobTread is ready to bill it.
+          Same endpoint and same rectangle the Invoicing page uses, so the two
+          pages can't drift.
+
+          The HEADLINE is everything the month will bill — invoiceable now PLUS
+          bills still sitting in draft — because that's the figure you're working
+          toward while coding. JobTread's own `remaining` excludes drafts (it
+          won't pull a draft onto an invoice), which on a fully-draft month reads
+          as $0.00 and looks broken next to an "Include drafts" toggle that's
+          switched on. That distinction is real and still shown, but demoted to
+          one line describing the state of JobTread rather than driving the
+          number. */}
       {jobId && !loading && (
         <div className="mb-4 grid grid-cols-1 gap-3 lg:grid-cols-[auto_minmax(0,1fr)] lg:items-start">
-          <Card className="lg:w-72">
+          <Card
+            className="lg:w-72"
+            title={
+              recon
+                ? `${money(recon.uninvoicedBillsCost)} uninvoiced bills + ${money(recon.uninvoicedTimeCost)} uninvoiced time` +
+                  (recon.draftBillCount > 0
+                    ? `\n+ ${money(recon.draftBillsCost)} in ${recon.draftBillCount} draft bill(s)`
+                    : "")
+                : undefined
+            }
+          >
             <SectionLabel>To be invoiced</SectionLabel>
             <p className="mt-0.5 text-2xl font-semibold tabular-nums">
-              {recon ? money(recon.remaining) : "—"}
+              {recon ? money(recon.remaining + recon.draftBillsCost) : "—"}
             </p>
             {!recon ? (
               <p className="mt-0.5 text-[11px] text-neutral-400">checking JobTread…</p>
-            ) : recon.remaining < 0.01 && recon.draftBillCount > 0 ? (
-              /*
-               * A $0.00 that isn't a bug, and the single most confusing state on
-               * this page: every bill this month is still a draft, and JobTread
-               * will not pull a draft onto a customer invoice. Say that outright
-               * — the old copy ("$0.00 bills + $0.00 time / excludes …") read as
-               * broken next to an "Include drafts" toggle that is switched ON but
-               * governs the LIST, not what's invoiceable.
-               */
-              <>
-                <p className="mt-0.5 text-[11px] font-semibold text-amber-600 dark:text-amber-400">
-                  Nothing invoiceable yet — all {recon.draftBillCount} bill
-                  {recon.draftBillCount === 1 ? " is" : "s are"} still draft.
-                </p>
-                <p className="mt-1 text-[11px] text-neutral-400">
-                  {money(recon.draftBillsCost)} once approved in JobTread. Approving is what makes
-                  a bill invoiceable; the Include drafts toggle only decides whether they show in
-                  the list below.
-                </p>
-              </>
+            ) : recon.draftBillCount === 0 ? (
+              <p className="mt-0.5 text-[11px] text-neutral-400">
+                All approved in JobTread — invoiceable now.
+              </p>
+            ) : recon.remaining < 0.01 ? (
+              <p className="mt-0.5 text-[11px] text-amber-600 dark:text-amber-400">
+                None of it is invoiceable yet — all {recon.draftBillCount} bill
+                {recon.draftBillCount === 1 ? "" : "s"} are still draft in JobTread. Approve them
+                to bill.
+              </p>
             ) : (
-              <>
-                <p className="mt-0.5 text-[11px] text-neutral-400">
-                  {money(recon.uninvoicedBillsCost)} bills + {money(recon.uninvoicedTimeCost)} time
-                </p>
-                {recon.draftBillCount > 0 && (
-                  <p className="mt-1 text-[11px] text-amber-600 dark:text-amber-400">
-                    excludes {money(recon.draftBillsCost)} in {recon.draftBillCount} draft
-                    {recon.draftBillCount === 1 ? "" : "s"} — {money(
-                      recon.remaining + recon.draftBillsCost,
-                    )}{" "}
-                    once approved
-                  </p>
-                )}
-              </>
+              <p className="mt-0.5 text-[11px] text-amber-600 dark:text-amber-400">
+                {money(recon.remaining)} approved and invoiceable now ·{" "}
+                {money(recon.draftBillsCost)} in {recon.draftBillCount} draft
+                {recon.draftBillCount === 1 ? "" : "s"} awaiting approval in JobTread.
+              </p>
             )}
           </Card>
-          <div>
-            <InvoiceReconcile jobId={jobId} ym={ym} onData={setRecon} />
-            {/* Push the month into the project's tracking sheet once the coding
-                is right — the sheet reads costCode off each bill line, so it
-                should be synced AFTER a recode, not before. */}
-            <TrackingSheetSyncFor
-              jtJobId={jobId}
-              ym={ym}
-              monthLabel={monthOptions().find((o) => o.value === ym)?.label ?? ym}
-              className="mt-2"
-            />
-          </div>
+          <InvoiceReconcile jobId={jobId} ym={ym} onData={setRecon} />
         </div>
       )}
 
@@ -1216,7 +1215,7 @@ export function Board() {
                         draggable={lines.length > 0}
                         onDragStart={beginDrag(lines.map((l) => l.id))}
                         onDragEnd={endDrag}
-                        className={`${isOpen ? "ring-1 ring-accent" : ""} ${
+                        className={`flex items-stretch ${isOpen ? "ring-1 ring-accent" : ""} ${
                           lines.length > 0 ? "cursor-grab active:cursor-grabbing" : ""
                         }`}
                       >
@@ -1224,7 +1223,7 @@ export function Board() {
                           type="button"
                           onClick={() => setOpenDocId(isOpen ? null : b.id)}
                           aria-expanded={isOpen}
-                          className="w-full p-3 text-left transition hover:bg-accent/5 dark:hover:bg-white/5"
+                          className="min-w-0 flex-1 p-3 text-left transition hover:bg-accent/5 dark:hover:bg-white/5"
                         >
                           <span className="flex items-baseline justify-between gap-3">
                             <span className="min-w-0 truncate text-sm font-semibold">
@@ -1272,6 +1271,24 @@ export function Board() {
                               })}
                           </span>
                         </button>
+                        {/* Outside the button — a link nested in a button is
+                            invalid, and clicking it would also toggle the card.
+                            The dragstart guard stops the browser dragging the
+                            anchor itself, which would hijack the card's drag. */}
+                        <span
+                          onDragStart={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                          }}
+                          className="flex shrink-0 items-start border-l border-neutral-100 dark:border-neutral-800"
+                        >
+                          <JtLink
+                            href={`https://app.jobtread.com/jobs/${jobId}/documents/${b.id}`}
+                            className="p-3 text-xs font-semibold text-neutral-400 transition hover:text-accent"
+                          >
+                            JT ↗
+                          </JtLink>
+                        </span>
                       </Card>
                     </li>
                   );
@@ -1290,7 +1307,15 @@ export function Board() {
               // than the viewport, and a sticky element that overflows can't be
               // scrolled to its bottom.
               <Card className="sticky top-4 max-h-[calc(100vh-2rem)] overflow-y-auto">
-                <p className="truncate text-sm font-semibold">{openBill.label}</p>
+                <div className="flex items-baseline justify-between gap-2">
+                  <p className="min-w-0 truncate text-sm font-semibold">{openBill.label}</p>
+                  <JtLink
+                    href={`https://app.jobtread.com/jobs/${jobId}/documents/${openBill.id}`}
+                    className="shrink-0 text-xs font-semibold text-neutral-400 transition hover:text-accent"
+                  >
+                    JT ↗
+                  </JtLink>
+                </div>
                 <p className="mb-3 text-xs text-neutral-500">
                   {money(openBill.cost)} · {openLines.length} line
                   {openLines.length === 1 ? "" : "s"}

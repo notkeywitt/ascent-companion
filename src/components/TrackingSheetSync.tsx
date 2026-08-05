@@ -61,43 +61,23 @@ const money = (n: number) =>
  */
 const trackingRunner = createTaskRunner(3);
 
-export function TrackingSheetSync({
-  state,
-  onStart,
-  monthLabel,
-  className = "mb-3",
+/** What the sync reported — shared by both layouts below. */
+function SyncOutcome({
+  status,
+  result,
+  error,
 }: {
-  state: TrackingSyncState | undefined;
-  onStart: () => void;
-  monthLabel: string;
-  className?: string;
+  status: string;
+  result: TrackingSyncResult | null;
+  error: string;
 }) {
-  const status = state?.status ?? "idle";
-  const result = state?.result ?? null;
-  const error = state?.error ?? "";
-  const busy = status === "queued" || status === "running";
-
   return (
-    <div className={className}>
-      <Button variant="secondary" size="sm" className="w-full" disabled={busy} onClick={onStart}>
-        {busy ? (
-          <>
-            <Spinner className="mr-1.5" />
-            {status === "queued" ? "Queued…" : "Syncing…"}
-          </>
-        ) : status === "done" ? (
-          `Sync ${monthLabel} to Tracking Sheet again`
-        ) : (
-          `Sync ${monthLabel} to Tracking Sheet`
-        )}
-      </Button>
-
+    <>
       {status === "error" && (
         <Banner tone="error" className="mt-1.5 !py-2 text-xs">
           {error}
         </Banner>
       )}
-
       {status === "done" && result && (
         <>
           <p className="mt-1.5 text-xs text-neutral-500">
@@ -123,6 +103,72 @@ export function TrackingSheetSync({
           />
         </>
       )}
+    </>
+  );
+}
+
+export function TrackingSheetSync({
+  state,
+  onStart,
+  monthLabel,
+  className = "mb-3",
+  compact = false,
+}: {
+  state: TrackingSyncState | undefined;
+  onStart: () => void;
+  monthLabel: string;
+  className?: string;
+  /**
+   * Sit inline in a row of controls rather than owning a block. The button
+   * shrinks to its label and the outcome is emitted as a `w-full` sibling, so in
+   * a `flex-wrap` row it drops onto its own line instead of stretching the row —
+   * the risks panel can run several lines.
+   */
+  compact?: boolean;
+}) {
+  const status = state?.status ?? "idle";
+  const result = state?.result ?? null;
+  const error = state?.error ?? "";
+  const busy = status === "queued" || status === "running";
+
+  const label = busy ? (
+    <>
+      <Spinner className="mr-1.5" />
+      {status === "queued" ? "Queued…" : "Syncing…"}
+    </>
+  ) : compact ? (
+    status === "done" ? (
+      "Sync Tracking Sheet again"
+    ) : (
+      "Sync to Tracking Sheet"
+    )
+  ) : status === "done" ? (
+    `Sync ${monthLabel} to Tracking Sheet again`
+  ) : (
+    `Sync ${monthLabel} to Tracking Sheet`
+  );
+
+  if (compact) {
+    return (
+      <>
+        <Button variant="secondary" size="sm" disabled={busy} onClick={onStart} className="shrink-0">
+          {label}
+        </Button>
+        {(status === "error" || (status === "done" && result)) && (
+          <div className="w-full">
+            <SyncOutcome status={status} result={result} error={error} />
+          </div>
+        )}
+      </>
+    );
+  }
+
+  return (
+    <div className={className}>
+      <Button variant="secondary" size="sm" className="w-full" disabled={busy} onClick={onStart}>
+        {label}
+      </Button>
+      <SyncOutcome status={status} result={result} error={error} />
     </div>
   );
 }
@@ -164,11 +210,13 @@ export function TrackingSheetSyncFor({
   ym,
   monthLabel,
   className,
+  compact = false,
 }: {
   jtJobId: string;
   ym: string;
   monthLabel: string;
   className?: string;
+  compact?: boolean;
 }) {
   const access = useAccess();
   const canTrack = access.can("tracking-sheet");
@@ -214,6 +262,7 @@ export function TrackingSheetSyncFor({
       onStart={start}
       monthLabel={monthLabel}
       className={className}
+      compact={compact}
     />
   );
 }
