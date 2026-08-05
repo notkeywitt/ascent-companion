@@ -16,7 +16,13 @@ interface Body {
  * same source bill — see buybackLine's externalId idempotency).
  * DISABLED BY DEFAULT: unless COMPANION_WRITES_ENABLED=true this writes nothing
  * and returns a preview, matching /api/code, /api/add-line, /api/combine-lines.
+ *
+ * The write chain is several sequential JobTread round trips (read the source
+ * bill, find-or-create the Shop bill, add the line, delete the source line) —
+ * same shape as /api/reassign-job, so it gets the same longer timeout allowance.
  */
+export const maxDuration = 120;
+
 export async function POST(req: NextRequest) {
   if (!hasGrant()) {
     return NextResponse.json({ error: "JT_GRANT_KEY is not set." }, { status: 400 });

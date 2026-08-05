@@ -2315,14 +2315,53 @@ export interface BuybackLineArgs {
 }
 
 /**
+ * Idempotency check for buyback, scoped to the Shop job's OWN documents rather
+ * than the vendor account's entire history. findBillByExternalId (used
+ * elsewhere for this) pages through every document a vendor has ever had —
+ * fine for a normal vendor, but a first live run against Sunset Builders
+ * Supply (thousands of historical invoices) ran long enough to blow past the
+ * route's function timeout: JobTread had already created the Shop bill by
+ * the time the function got killed, but never reached the line move (bug
+ * found 2026-08-05 — a Shop bill named "Buyback — …Sunset…" with 0 lines).
+ * Paging the Shop job's documents instead is bounded by how many buyback
+ * bills THIS job has ever accumulated, not by any one vendor's volume.
+ */
+async function findShopBuybackBill(
+  cfg: PaveConfig,
+  shopJobId: string,
+  externalId: string,
+): Promise<string | null> {
+  let cursor: string | null = null;
+  for (let page = 0; page < 200; page++) {
+    const args: Record<string, unknown> = { size: 100, where: { and: [["type", "vendorBill"]] } };
+    if (cursor) args.page = cursor;
+    const r = await pave(cfg, {
+      job: {
+        $: { id: shopJobId },
+        documents: { $: args, nextPage: {}, nodes: { id: {}, externalId: {} } },
+      },
+    });
+    const docs = r?.job?.documents ?? {};
+    const nodes: any[] = docs.nodes ?? [];
+    for (const n of nodes) {
+      if (String(n.externalId ?? "").trim() === externalId) return n.id;
+    }
+    cursor = docs.nextPage ?? null;
+    if (!cursor || nodes.length === 0) break;
+  }
+  return null;
+}
+
+/**
  * WRITE — "buyback": move one bill line off a client job's bill onto a draft bill
  * on the Ascent - Shop job (e.g. materials bought back for shop stock instead of
- * billed to the client). Reuses createVendorBill's externalId idempotency
- * (`BUYBACK-<sourceDocId>`, scoped to the source bill's OWN vendor account — same
- * vendor either way, just a different job) so repeated buybacks off the SAME
- * source bill land additively on the SAME shop bill instead of each click minting
- * a new one; this also means the frontend needs no session state to track "the
- * shop bill I already created" — a second click just finds it again.
+ * billed to the client). Reuses the same externalId idempotency trick
+ * createVendorBill's callers use elsewhere (`BUYBACK-<sourceDocId>`, scoped to
+ * the SHOP job's documents — see findShopBuybackBill) so repeated buybacks off
+ * the SAME source bill land additively on the SAME shop bill instead of each
+ * click minting a new one; this also means the frontend needs no session state
+ * to track "the shop bill I already created" — a second click just finds it
+ * again.
  *
  * The new line always lands UNCODED on the Shop job (a jobCostItemId is a budget
  * leaf scoped to ONE job's budget tree, so the client job's coding can't carry
@@ -2336,25 +2375,27 @@ export async function buybackLine(
   cfg: PaveConfig,
   args: BuybackLineArgs,
 ): Promise<{ shopDocId: string; created: boolean }> {
-  const doc = await pave(cfg, {
-    document: {
-      $: { id: args.sourceDocId },
-      id: {},
-      subject: {},
-      fromName: {},
-      issueDate: {},
-      account: { id: {} },
-    },
-  });
+  const [shopJobId, doc] = await Promise.all([
+    resolveShopJobId(cfg),
+    pave(cfg, {
+      document: {
+        $: { id: args.sourceDocId },
+        id: {},
+        subject: {},
+        fromName: {},
+        issueDate: {},
+        account: { id: {} },
+      },
+    }),
+  ]);
   const src = doc?.document ?? {};
   const accountId = src.account?.id;
   if (!accountId) throw new Error("Source bill has no vendor account — can't create a Shop copy.");
 
   const buybackExternalId = `BUYBACK-${args.sourceDocId}`.substring(0, 32);
-  let shopDocId = await findBillByExternalId(cfg, accountId, buybackExternalId);
+  let shopDocId = await findShopBuybackBill(cfg, shopJobId, buybackExternalId);
   let created = false;
   if (!shopDocId) {
-    const shopJobId = await resolveShopJobId(cfg);
     // Ascent - Shop has a name but no street address; jobLocationName alone
     // satisfies createDocument's location requirement (confirmed by amazon-import).
     const shopInfo = await getJobHeaderInfo(cfg, shopJobId);
