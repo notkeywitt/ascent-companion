@@ -10,6 +10,7 @@ import { PageTitle } from "@/components/PageTitle";
 import { BillStatusBadge } from "@/components/BillStatusBadge";
 import { Banner, Button, Loading, btn } from "@/components/ui";
 import { TrackingSheetSyncFor } from "@/components/TrackingSheetSync";
+import { billLineMath } from "@/lib/billLineMath";
 import { markBillTouched } from "@/lib/billTouch";
 import { useUnsavedChanges } from "@/lib/useUnsavedChanges";
 
@@ -303,126 +304,40 @@ function BillDetail() {
   // pre-tax, and on Save gross EVERY line back up (see allLineChanges) so the stored costs
   // stay mutually consistent — editing one line, or the tax, shifts the shared subtotal/total
   // factor, so all lines must move together or the untouched ones appear to drift.
-  const storedTotal = lines?.reduce((s, l) => s + (l.cost ?? 0), 0) ?? 0;
   const storedTax = header?.nonRecoverableTax ?? 0;
   const taxName = header?.nonRecoverableTaxName || "Tax";
-  // Per-line de-tax uses JobTread's STORED tax, not the in-progress Tax edit, so typing a
-  // new tax never makes the line amounts drift — only the total (subtotal + tax) moves.
-  const deTax = (stored: number) =>
-    storedTotal > 0 ? stored * ((storedTotal - storedTax) / storedTotal) : stored;
   // While the office edits the Tax field, preview with the typed value.
   const taxView = taxEdit !== null && taxEdit !== "" ? Number(taxEdit) || 0 : storedTax;
   const taxChanged = taxEdit !== null && round2(taxView) !== round2(storedTax);
   const invId = header?.externalId || header?.number || "";
   const vendor = header?.fromName || header?.subject || header?.name || "Vendor bill";
-  // Sunset keeps "Vendor · Invoice ID"; every other vendor shows just its name.
+  // Sunset keeps "Vendor \u00b7 Invoice ID"; every other vendor shows just its name.
   const isSunsetBill = /sunset/i.test(vendor);
-  const title = isSunsetBill && invId ? `${vendor} · ${invId}` : vendor;
+  const title = isSunsetBill && invId ? `${vendor} \u00b7 ${invId}` : vendor;
 
-  // Each line's TARGET amounts in PRE-TAX terms (what JobTread shows): the edited value if
-  // present, else the stored cost de-taxed. On Save these are grossed back up (× reTax) to
-  // the tax-inclusive value JobTread stores, so what the office types is what JobTread shows.
-  const lineTargets = (lines ?? []).map((l) => {
-    const curPreTaxUnit = deTax(l.unitCost ?? 0);
-    const qStr = edits[l.id]?.quantity;
-    const uStr = edits[l.id]?.unitCost;
-    const qty =
-      header?.status === "draft" && qStr !== undefined && qStr !== "" ? Number(qStr) : l.quantity ?? 0;
-    const preTaxUnit =
-      header?.status === "draft" && uStr !== undefined && uStr !== "" ? Number(uStr) : curPreTaxUnit;
-    return { l, qty, preTaxUnit, curPreTaxUnit };
-  });
-  // Pre-tax → stored (tax-inclusive) gross-up factor for the bill's edited state.
-  const sumPreTax = lineTargets.reduce((s, t) => s + t.preTaxUnit * t.qty, 0);
-  const reTax = sumPreTax > 0 ? (sumPreTax + taxView) / sumPreTax : 1;
-  // Displayed subtotal/total preview the pending tax + line edits: total = subtotal + tax.
-  const subtotal = round2(sumPreTax);
-  const total = round2(sumPreTax + taxView);
-
-  // Lines with a changed cost code, quantity, or unit cost vs what's in JobTread.
-  const pending = lineTargets.flatMap(({ l, qty, preTaxUnit, curPreTaxUnit }) => {
-    const change: {
-      costItemId: string;
-      name?: string;
-      jobCostItemId?: string;
-      quantity?: number;
-      unitCost?: number;
-      description?: string;
-    } = { costItemId: l.id };
-    let changed = false;
-
-    const sel = picked[l.id];
-    if (sel !== undefined && sel !== (l.jobCostItem?.id ?? "")) {
-      change.jobCostItemId = sel;
-      // JobTread locks a cost item's description field once the bill is payable
-      // (pending) or paid (approved) — updating it errors. So only mirror the
-      // code into the description on DRAFT bills; on payable/paid we still
-      // re-code, just without touching the description.
-      if (header?.status === "draft") {
-        const opt = budget.find((o) => o.id === sel);
-        change.description = opt ? (opt.name ? `${opt.number} - ${opt.name}` : opt.number) : "";
-      }
-      changed = true;
-    }
-    // name (the line's description), quantity, and unitCost are locked by JobTread
-    // once the bill is payable/paid — only send them on DRAFT bills.
-    if (header?.status === "draft") {
-      const nameStr = edits[l.id]?.name;
-      if (nameStr !== undefined && nameStr !== (l.name ?? "")) {
-        change.name = nameStr;
-        changed = true;
-      }
-      const qtyChanged = qty !== (l.quantity ?? 0);
-      const unitChanged = Math.abs(preTaxUnit - curPreTaxUnit) > 0.005;
-      if (qtyChanged) {
-        change.quantity = qty;
-        changed = true;
-      }
-      // Store the tax-INCLUSIVE unit cost (entered pre-tax × the gross-up factor) so
-      // JobTread displays the pre-tax value the office typed. Resend it when qty changed
-      // on a taxed bill too, since that shifts the line's share of the fixed tax.
-      if (unitChanged || (qtyChanged && taxView > 0)) {
-        change.unitCost = round2(preTaxUnit * reTax);
-        changed = true;
-      }
-    }
-    return changed ? [change] : [];
-  });
-
-  // The FULL bill payload sent on every Save: EVERY line's currently-editable fields
-  // (re-code in any status; description/qty/tax-inclusive amount only on draft), re-grossed
-  // against the current tax. Re-sending all lines — not just the ones touched — is what keeps
-  // JobTread's de-taxed display steady (a change to one line or the tax shifts the shared
-  // subtotal/total factor). On a tax-free bill reTax === 1, so this is the lines' current
-  // values (idempotent). The /api/code route drops any line with nothing to write.
-  const allLineChanges = lineTargets.map(({ l, qty, preTaxUnit }) => {
-    const change: {
-      costItemId: string;
-      name?: string;
-      jobCostItemId?: string;
-      quantity?: number;
-      unitCost?: number;
-      description?: string;
-    } = { costItemId: l.id };
-    const effCode = picked[l.id] ?? l.jobCostItem?.id ?? "";
-    // Re-coding is allowed in any status; send the effective code for every coded line
-    // (skip an untouched, uncoded line so we never write an empty code).
-    if (effCode || picked[l.id] !== undefined) change.jobCostItemId = effCode;
-    // name / quantity / unitCost / description are locked by JobTread once a bill leaves
-    // draft — only send them on DRAFT bills.
-    if (header?.status === "draft") {
-      change.name = edits[l.id]?.name ?? (l.name ?? "");
-      change.quantity = qty;
-      change.unitCost = round2(preTaxUnit * reTax); // pre-tax → stored (tax-inclusive)
-      const opt = budget.find((o) => o.id === effCode);
-      if (opt) change.description = opt.name ? `${opt.number} - ${opt.name}` : opt.number;
-    }
-    return change;
+  // The de-tax / pre-tax-edit / gross-up model lives in src/lib/billLineMath.ts,
+  // shared with Client Invoicing (/recode) so the two pages can never disagree
+  // about what a save writes. Read that file for the model itself.
+  const {
+    deTax,
+    subtotal,
+    total,
+    reTax,
+    pendingCount,
+    wholeBillChanges: allLineChanges,
+  } = billLineMath({
+    lines: (lines ?? []).map((l) => ({ ...l, jobCostItemId: l.jobCostItem?.id ?? null })),
+    storedTax,
+    taxView,
+    status: header?.status,
+    edits,
+    picked,
+    budget,
   });
 
   // Edits made here but not yet pushed. Save stays enabled at zero (it re-sends the bill
   // regardless); this only drives the bar's label and the Discard button.
-  const changeCount = pending.length + (taxChanged ? 1 : 0);
+  const changeCount = pendingCount + (taxChanged ? 1 : 0);
 
   // Warn before leaving with unsaved edits (the same changes the sticky Save bar counts)
   // — covers refresh/close, in-app links, and Back/Forward.

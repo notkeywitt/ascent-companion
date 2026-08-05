@@ -93,6 +93,11 @@ export interface BillMath {
   total: number;
   /** Pre-tax → stored gross-up factor for the bill's edited state. */
   reTax: number;
+  /**
+   * How many LINES differ from what JobTread holds — the "N unsaved changes"
+   * count. A line counts once no matter how many of its fields moved.
+   */
+  pendingCount: number;
   /** True if anything differs from what JobTread currently holds. */
   dirty: boolean;
   /**
@@ -135,27 +140,32 @@ export function billLineMath({
   const sumPreTax = targets.reduce((s, t) => s + t.preTaxUnit * t.qty, 0);
   const reTax = sumPreTax > 0 ? (sumPreTax + tax) / sumPreTax : 1;
 
-  let dirty = false;
+  let pendingCount = 0;
   const wholeBillChanges = targets.map(({ line, qty, preTaxUnit, curPreTaxUnit }) => {
     const change: LineChange = { costItemId: line.id };
     const effCode = picked[line.id] ?? line.jobCostItemId ?? "";
     // Re-coding works in any status; send the effective code for every coded
     // line, but never write an empty code onto an untouched uncoded line.
     if (effCode || picked[line.id] !== undefined) change.jobCostItemId = effCode;
-    if (picked[line.id] !== undefined && picked[line.id] !== (line.jobCostItemId ?? "")) {
-      dirty = true;
-    }
     if (isDraft) {
       change.name = edits[line.id]?.name ?? (line.name ?? "");
       change.quantity = qty;
       change.unitCost = round2(preTaxUnit * reTax); // pre-tax → stored
       const d = descriptionForCode(effCode, budget);
       if (d !== undefined) change.description = d;
-
-      if (change.name !== (line.name ?? "")) dirty = true;
-      if (qty !== (line.quantity ?? 0)) dirty = true;
-      if (Math.abs(preTaxUnit - curPreTaxUnit) > 0.005) dirty = true;
     }
+
+    // Does THIS line differ from JobTread? One line counts once.
+    const sel = picked[line.id];
+    let changed = sel !== undefined && sel !== (line.jobCostItemId ?? "");
+    if (isDraft) {
+      const nameStr = edits[line.id]?.name;
+      if (nameStr !== undefined && nameStr !== (line.name ?? "")) changed = true;
+      const qtyChanged = qty !== (line.quantity ?? 0);
+      const unitChanged = Math.abs(preTaxUnit - curPreTaxUnit) > 0.005;
+      if (qtyChanged || unitChanged) changed = true;
+    }
+    if (changed) pendingCount++;
     return change;
   });
 
@@ -166,7 +176,8 @@ export function billLineMath({
     subtotal: round2(sumPreTax),
     total: round2(sumPreTax + tax),
     reTax,
-    dirty,
+    pendingCount,
+    dirty: pendingCount > 0,
     wholeBillChanges,
   };
 }
