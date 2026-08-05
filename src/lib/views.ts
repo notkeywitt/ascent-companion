@@ -110,6 +110,15 @@ export const VIEWS: ViewDef[] = [
     ],
   },
   // System
+  // Bulk-writes a real JobTread draft bill — admin only, not office (unlike
+  // every other Financials view). The API prefix is listed alongside so a
+  // non-admin can't reach it by calling the route directly.
+  {
+    id: "historical-cost",
+    label: "Historical Cost Import",
+    group: "System",
+    paths: ["/historical-cost", "/api/historical-cost"],
+  },
   { id: "requests", label: "Requests", group: "System", paths: ["/requests"] },
   // The API route is listed alongside the page so the Home launcher's admin
   // action bar — buttons on a page EVERY role loads — can't be driven by a
@@ -140,7 +149,7 @@ const FIELD_VIEWS: string[] = ["mileage", "employee-time", "tools", "requisition
 const LEAD_VIEWS: string[] = [...FIELD_VIEWS, "coding", "stage", "payments"];
 // The admin-only consoles — access control + the audit log. No one below admin
 // gets these by default (a per-user grant can still hand them to an individual).
-const ADMIN_MENU: string[] = ["admin", "logs"];
+const ADMIN_MENU: string[] = ["admin", "logs", "historical-cost"];
 // Office gets Financials, HR, and Utilities ("everything else") — i.e. every
 // view except the admin consoles, including the header Sync button.
 const OFFICE_VIEWS: string[] = ALL_VIEW_IDS.filter((id) => !ADMIN_MENU.includes(id));

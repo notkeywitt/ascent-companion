@@ -214,6 +214,7 @@ const AREAS: Area[] = [
     dests: [
       { label: "Admin", href: "/admin", desc: "Who can sign in", view: "admin" },
       { label: "Logs", href: "/logs", desc: "The automation audit trail", view: "logs" },
+      { label: "Historical Cost Import", href: "/historical-cost", desc: "Backfill a job's pre-JobTread costs as one draft bill", view: "historical-cost" },
     ],
   },
 ];
