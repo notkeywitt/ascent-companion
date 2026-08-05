@@ -1007,7 +1007,7 @@ function Stage() {
                         {/* Desktop coding workbench — recode these bills against
                             live budget headroom before the invoice is built. */}
                         <Link
-                          href={`/stage/board?jobId=${encodeURIComponent(r.jobId)}&ym=${ym}`}
+                          href={`/recode?jobId=${encodeURIComponent(r.jobId)}&ym=${ym}`}
                           className={btn("secondary", "sm")}
                         >
                           Recode ↗

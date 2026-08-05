@@ -40,9 +40,11 @@ export const VIEWS: ViewDef[] = [
   // Jobs list + budget, built on the generic /api/pave gateway. Office+admin by
   // default (financial data); not in FIELD/LEAD sets below.
   { id: "jobs", label: "Jobs", group: "Financials", paths: ["/jobs"] },
-  // Covers /stage/board (the desktop recoding workbench) too — paths match by
-  // prefix, and it's the same financial data, so it shares the Invoicing gate.
   { id: "stage", label: "Invoicing", group: "Financials", paths: ["/stage"] },
+  // The desktop coding workbench: recode a month's bills against live budget
+  // headroom. Same financial data as Invoicing but its own view, so it can be
+  // granted or denied on its own (it WRITES coding; /stage only reads).
+  { id: "recode", label: "Client Invoicing", group: "Financials", paths: ["/recode", "/api/recode"] },
   { id: "unbilled", label: "Unbilled", group: "Financials", paths: ["/unbilled"] },
   // The stuck-vendor alert (popup + home banner) rides on this gate: its API
   // route is listed here so a non-billing user can neither see the warning nor
@@ -146,7 +148,7 @@ export const ALL_VIEW_IDS: string[] = VIEWS.map((v) => v.id);
 // The four launcher quick buttons + self-service Time Off — granted to all.
 const FIELD_VIEWS: string[] = ["mileage", "employee-time", "tools", "requisitions", "time-off"];
 // Leads additionally see the Financials menu (coding, invoicing, Sunset pay).
-const LEAD_VIEWS: string[] = [...FIELD_VIEWS, "coding", "stage", "payments"];
+const LEAD_VIEWS: string[] = [...FIELD_VIEWS, "coding", "stage", "recode", "payments"];
 // The admin-only consoles — access control + the audit log. No one below admin
 // gets these by default (a per-user grant can still hand them to an individual).
 const ADMIN_MENU: string[] = ["admin", "logs", "historical-cost"];

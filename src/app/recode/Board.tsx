@@ -39,7 +39,7 @@ import { useUnsavedChanges } from "@/lib/useUnsavedChanges";
  * already have a budget leaf can be targets; codes with none render dimmed,
  * because coding to them would mean inventing budget rows.
  *
- * Everything the board reads comes from /api/stage/board in one fetch.
+ * Everything the board reads comes from /api/recode in one fetch.
  */
 
 interface BillRef {
@@ -248,7 +248,7 @@ export function Board() {
     const [y, m] = ym.split("-");
     try {
       const r = await fetch(
-        `/api/stage/board?jobId=${encodeURIComponent(jobId)}&year=${y}&month=${Number(m)}` +
+        `/api/recode?jobId=${encodeURIComponent(jobId)}&year=${y}&month=${Number(m)}` +
           `&includeDrafts=${includeDrafts ? "1" : "0"}`,
       );
       const j = (await r.json()) as BoardPayload;

@@ -176,6 +176,7 @@ const AREAS: Area[] = [
       { label: "Coding Review", href: "/coding", desc: "Draft bills waiting to be coded", view: "coding" },
       { label: "Jobs", href: "/jobs", desc: "Browse jobs & their budgets", view: "jobs" },
       { label: "Invoicing", href: "/stage", desc: "Stage the month's customer invoice", view: "stage" },
+      { label: "Client Invoicing", href: "/recode", desc: "Recode a month's bills against live budget headroom", view: "recode" },
       { label: "Sunset Statements", href: "/payments", desc: "Pay a statement & reconcile its invoices", view: "payments" },
       { label: "Tracking Sheet", href: "/tracking-sheet", desc: "Push a job's month into its tracking sheet", view: "tracking-sheet" },
     ],
