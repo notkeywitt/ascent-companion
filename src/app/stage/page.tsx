@@ -748,7 +748,7 @@ function Stage() {
                           href={`/recode?jobId=${encodeURIComponent(r.jobId)}&ym=${ym}`}
                           className={btn("secondary", "sm")}
                         >
-                          Recode ↗
+                          Client Invoicing ↗
                         </Link>
                         <Button
                           variant="secondary"

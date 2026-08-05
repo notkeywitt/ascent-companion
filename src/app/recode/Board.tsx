@@ -743,7 +743,7 @@ export function Board() {
   if (!jobId) {
     return (
       <main className="mx-auto max-w-2xl px-4 pb-24 pt-6">
-        <PageHeader title="Recode" />
+        <PageHeader title="Client Invoicing" />
         <EmptyState>
           No job selected. Open this from a job card on{" "}
           <Link href="/stage" className="text-accent underline">
@@ -761,7 +761,7 @@ export function Board() {
   return (
     <main className="mx-auto w-full max-w-2xl px-4 pb-24 pt-6 lg:max-w-[110rem]">
       <PageHeader
-        title="Recode"
+        title="Client Invoicing"
         description={
           jobTitle
             ? `${jobTitle}${jobAddress ? ` · ${jobAddress}` : ""}`
@@ -788,10 +788,13 @@ export function Board() {
               </option>
             ))}
           </Select>
+          {/* Governs the LIST only. Drafts are never invoiceable — JobTread
+              won't pull one onto a customer invoice — so this can't move the
+              "To be invoiced" figure, and the title says so. */}
           <Toggle
             checked={includeDrafts}
             onChange={setIncludeDrafts}
-            label="Include drafts"
+            label={<span title="Shows draft bills below so you can code them. Drafts are never invoiceable until approved in JobTread, so this doesn't change the To be invoiced total.">Include drafts</span>}
             className="shrink-0"
           />
           <Toggle
@@ -844,21 +847,48 @@ export function Board() {
           invoice, and the rectangle says so. */}
       {jobId && !loading && (
         <div className="mb-4 grid grid-cols-1 gap-3 lg:grid-cols-[auto_minmax(0,1fr)] lg:items-start">
-          <Card className="lg:w-64">
+          <Card className="lg:w-72">
             <SectionLabel>To be invoiced</SectionLabel>
             <p className="mt-0.5 text-2xl font-semibold tabular-nums">
               {recon ? money(recon.remaining) : "—"}
             </p>
-            <p className="mt-0.5 text-[11px] text-neutral-400">
-              {recon
-                ? `${money(recon.uninvoicedBillsCost)} bills + ${money(recon.uninvoicedTimeCost)} time`
-                : "checking JobTread…"}
-            </p>
-            {recon && recon.draftBillCount > 0 && (
-              <p className="mt-1 text-[11px] text-amber-600 dark:text-amber-400">
-                excludes {money(recon.draftBillsCost)} in {recon.draftBillCount} draft
-                {recon.draftBillCount === 1 ? "" : "s"}
-              </p>
+            {!recon ? (
+              <p className="mt-0.5 text-[11px] text-neutral-400">checking JobTread…</p>
+            ) : recon.remaining < 0.01 && recon.draftBillCount > 0 ? (
+              /*
+               * A $0.00 that isn't a bug, and the single most confusing state on
+               * this page: every bill this month is still a draft, and JobTread
+               * will not pull a draft onto a customer invoice. Say that outright
+               * — the old copy ("$0.00 bills + $0.00 time / excludes …") read as
+               * broken next to an "Include drafts" toggle that is switched ON but
+               * governs the LIST, not what's invoiceable.
+               */
+              <>
+                <p className="mt-0.5 text-[11px] font-semibold text-amber-600 dark:text-amber-400">
+                  Nothing invoiceable yet — all {recon.draftBillCount} bill
+                  {recon.draftBillCount === 1 ? " is" : "s are"} still draft.
+                </p>
+                <p className="mt-1 text-[11px] text-neutral-400">
+                  {money(recon.draftBillsCost)} once approved in JobTread. Approving is what makes
+                  a bill invoiceable; the Include drafts toggle only decides whether they show in
+                  the list below.
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="mt-0.5 text-[11px] text-neutral-400">
+                  {money(recon.uninvoicedBillsCost)} bills + {money(recon.uninvoicedTimeCost)} time
+                </p>
+                {recon.draftBillCount > 0 && (
+                  <p className="mt-1 text-[11px] text-amber-600 dark:text-amber-400">
+                    excludes {money(recon.draftBillsCost)} in {recon.draftBillCount} draft
+                    {recon.draftBillCount === 1 ? "" : "s"} — {money(
+                      recon.remaining + recon.draftBillsCost,
+                    )}{" "}
+                    once approved
+                  </p>
+                )}
+              </>
             )}
           </Card>
           <div>
