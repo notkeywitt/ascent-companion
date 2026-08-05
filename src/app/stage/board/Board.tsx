@@ -172,14 +172,26 @@ interface Headroom {
   budget: number;
   spent: number; // committed: approved + pending bills (all time), ± staged moves
   drafts: number; // this month's draft-bill cost coded here (not yet committed)
+  labor: number; // time entries coded here — billed to the customer like a bill
   droppable: boolean; // has at least one budget leaf to code to
 }
 
-const remainingOf = (h: Headroom) => h.budget - h.spent - h.drafts;
+/**
+ * Everything that will have been charged against this code, so `remaining` is
+ * the room actually left.
+ *
+ * Labor is in here because a customer invoice bills time entries alongside
+ * vendor bills — leaving it out overstated headroom on any code carrying hours
+ * (e.g. 01 31 20 read $0 left when it was $976 over). It does NOT move when a
+ * bill is recoded: a time entry is coded independently of any bill, so it's a
+ * fixed per-code baseline that the staged bill moves add to.
+ */
+const usedOf = (h: Headroom) => h.spent + h.drafts + h.labor;
+const remainingOf = (h: Headroom) => h.budget - usedOf(h);
 
 /** Budget-usage meter. Amber past 90%, red past 100% — the whole point of the rail. */
 function Meter({ h }: { h: Headroom }) {
-  const used = h.spent + h.drafts;
+  const used = usedOf(h);
   const pct = h.budget > 0 ? used / h.budget : used > 0 ? 1 : 0;
   const over = h.budget > 0 && used > h.budget;
   const near = !over && pct >= 0.9;
@@ -302,6 +314,7 @@ export function Board() {
           budget: c.budget,
           spent: c.bills,
           drafts: 0,
+          labor: c.labor,
           droppable: (leavesByCode.get(c.number)?.length ?? 0) > 0,
         });
       }
@@ -317,6 +330,7 @@ export function Board() {
         budget: leaves.reduce((s, l) => s + (l.cost ?? 0), 0),
         spent: 0,
         drafts: 0,
+        labor: 0,
         droppable: true,
       });
     }
@@ -331,6 +345,7 @@ export function Board() {
           budget: 0,
           spent: 0,
           drafts: 0,
+          labor: 0,
           droppable: (leavesByCode.get(code)?.length ?? 0) > 0,
         };
         map.set(code, h);
@@ -359,8 +374,10 @@ export function Board() {
 
   const railRows = useMemo(() => {
     const q = codeQuery.trim().toLowerCase();
+    // Labor-only codes count: a code with hours but no budget and no bills is
+    // over budget by definition, and hiding it would hide that.
     const rows = [...headroom.values()].filter(
-      (h) => h.budget !== 0 || h.spent !== 0 || h.drafts !== 0,
+      (h) => h.budget !== 0 || h.spent !== 0 || h.drafts !== 0 || h.labor !== 0,
     );
     const matched = q
       ? rows.filter((h) => `${h.code} ${h.name}`.toLowerCase().includes(q))
@@ -777,7 +794,11 @@ export function Board() {
         // unreadable.
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-[19rem_minmax(0,1fr)] xl:grid-cols-[19rem_minmax(0,1fr)_30rem]">
           {/* ─────────── LEFT: cost-code reference rail ─────────── */}
-          <section className="min-w-0">
+          {/* Docked: the rail is the reference you're constantly checking while
+              scrolling a long bill list, so it stays put. `self-start` is what
+              makes sticky work in a grid — items stretch to the row height by
+              default, leaving nothing to scroll within. */}
+          <section className="min-w-0 lg:sticky lg:top-4 lg:self-start">
             <SectionLabel className="mb-2">Cost codes · budget remaining</SectionLabel>
             <Card pad={false} className="overflow-hidden">
               <input
@@ -787,7 +808,9 @@ export function Board() {
                 placeholder="Filter cost codes…"
                 className="w-full border-b border-neutral-200 bg-transparent px-2 py-1.5 text-xs outline-none dark:border-white/10"
               />
-              <div className="max-h-[76vh] overflow-y-auto">
+              {/* Sized off the viewport, not a %, so the docked rail (label +
+                  card + footnote) always fits on screen and scrolls internally. */}
+              <div className="max-h-[calc(100vh-13rem)] overflow-y-auto">
                 {railRows.length === 0 ? (
                   <p className="px-3 py-4 text-xs text-neutral-500">No cost codes match.</p>
                 ) : (
@@ -807,6 +830,7 @@ export function Board() {
                             `${h.code} ${h.name}\n` +
                             `${money(h.spent)} committed` +
                             (h.drafts > 0 ? ` + ${money(h.drafts)} draft` : "") +
+                            (h.labor > 0 ? ` + ${money(h.labor)} labor` : "") +
                             ` of ${money(h.budget)} budget\n${money(left)} remaining` +
                             (h.droppable ? "" : "\nNo budget line — can't code to this")
                           }
@@ -840,9 +864,10 @@ export function Board() {
               </div>
             </Card>
             <p className="mt-2 text-[11px] leading-relaxed text-neutral-400">
-              Remaining = budget − committed − this month&apos;s drafts. Committed is approved and
-              pending bills across all time; drafts aren&apos;t committed spend yet, so they&apos;re
-              counted separately.
+              Remaining = budget − committed − this month&apos;s drafts − labor. Committed is
+              approved and pending bills across all time; drafts aren&apos;t committed spend yet;
+              labor is logged time entries, which a customer invoice bills alongside the bills.
+              Hover a code for the breakdown. Bars and remaining update as you recode.
             </p>
           </section>
 
