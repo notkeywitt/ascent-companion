@@ -975,9 +975,9 @@ export function Board() {
         // The rail is dense enough now to give width back to the invoice pane —
         // every bill's attachment is a PDF, and a PDF in a narrow iframe is
         // unreadable.
-        // The coding panel carries the line editor AND the invoice PDF, so it
-        // gets the width; the bill list is chips and totals and reads fine narrow.
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[18rem_minmax(0,1fr)] xl:grid-cols-[18rem_minmax(0,22rem)_40rem]">
+        // Rail and coding panel are fixed; the bills list takes 1fr so it grows
+        // into whatever the window has left, rather than being pinned narrow.
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[18rem_minmax(0,1fr)] xl:grid-cols-[18rem_minmax(0,1fr)_36rem]">
           {/* ─────────── LEFT: cost-code reference rail ─────────── */}
           {/* Docked: the rail is the reference you're constantly checking while
               scrolling a long bill list, so it stays put. `self-start` is what
