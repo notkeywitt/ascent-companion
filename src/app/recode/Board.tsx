@@ -17,7 +17,13 @@ import {
 } from "@/components/ui";
 import { CostCodeSelect, type Option } from "@/components/CostCodeSelect";
 import { JtLink } from "@/components/JtLink";
-import { billLineMath, type LineChange, type LineEdit } from "@/lib/billLineMath";
+import {
+  billLineMath,
+  descriptionForCode,
+  round2,
+  type LineChange,
+  type LineEdit,
+} from "@/lib/billLineMath";
 import { InvoiceReconcile, type Recon } from "@/components/InvoiceReconcile";
 import { TrackingSheetSyncFor } from "@/components/TrackingSheetSync";
 import { useUnsavedChanges } from "@/lib/useUnsavedChanges";
@@ -266,30 +272,52 @@ export function Board() {
     "You have staged coding changes that haven't been synced to JobTread. Leave and lose them?",
   );
 
-  const load = useCallback(async () => {
-    if (!jobId) return;
-    setLoading(true);
-    setError("");
-    const [y, m] = ym.split("-");
-    try {
-      const r = await fetch(
-        `/api/recode?jobId=${encodeURIComponent(jobId)}&year=${y}&month=${Number(m)}` +
-          `&includeDrafts=${includeDrafts ? "1" : "0"}`,
-      );
-      const j = (await r.json()) as BoardPayload;
-      if (j.error) setError(j.error);
-      else {
-        setData(j);
-        // A fresh pull invalidates everything staged against the old data.
-        setStaged(new Map());
-        setEdits({});
+  const load = useCallback(
+    async (opts?: { preserveStaged?: boolean }) => {
+      if (!jobId) return;
+      setLoading(true);
+      setError("");
+      const [y, m] = ym.split("-");
+      try {
+        const r = await fetch(
+          `/api/recode?jobId=${encodeURIComponent(jobId)}&year=${y}&month=${Number(m)}` +
+            `&includeDrafts=${includeDrafts ? "1" : "0"}`,
+        );
+        const j = (await r.json()) as BoardPayload;
+        if (j.error) setError(j.error);
+        else {
+          setData(j);
+          if (opts?.preserveStaged) {
+            // Combining deletes lines. Drop any staged pick/edit that pointed at
+            // an id JobTread no longer has, but leave every OTHER bill's staged
+            // work untouched — combining on one bill shouldn't discard work on
+            // another the office hasn't synced yet.
+            const liveIds = new Set(j.lines.map((l) => l.id));
+            setStaged((prev) => {
+              const next = new Map(prev);
+              for (const id of next.keys()) if (!liveIds.has(id)) next.delete(id);
+              return next;
+            });
+            setEdits((prev) => {
+              const next = { ...prev };
+              for (const id of Object.keys(next)) if (!liveIds.has(id)) delete next[id];
+              return next;
+            });
+          } else {
+            // A fresh pull (month/filter change, or after Sync) invalidates
+            // everything staged against the old data.
+            setStaged(new Map());
+            setEdits({});
+          }
+        }
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Failed to load");
+      } finally {
+        setLoading(false);
       }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load");
-    } finally {
-      setLoading(false);
-    }
-  }, [jobId, ym, includeDrafts]);
+    },
+    [jobId, ym, includeDrafts],
+  );
 
   useEffect(() => {
     load();
@@ -507,6 +535,136 @@ export function Board() {
       }),
     [openLines, openBill, edits, staged, data],
   );
+
+  // ---- coding-drawer bulk actions: Apply to all + Combine ------------------
+  // Ported from the bill page (/bill/[docId]) — same rules, adapted to this
+  // page's staged-not-saved model.
+  const [bulkCode, setBulkCode] = useState("");
+  const [combineSelected, setCombineSelected] = useState<string[]>([]);
+  const [combining, setCombining] = useState(false);
+  const [combineMsg, setCombineMsg] = useState("");
+
+  // Both reset when the open bill changes — they're about the CURRENT bill's
+  // lines, and stale selections from a previous bill would silently apply to
+  // the wrong one.
+  useEffect(() => {
+    setBulkCode("");
+    setCombineSelected([]);
+    setCombineMsg("");
+  }, [openDocId]);
+
+  // Stage one cost code onto every line of the open bill (into `staged`, so it
+  // flows through the same Sync path as a single drag/dropdown recode — nothing
+  // is written until Sync). Re-coding works in any status, unlike qty/unit/
+  // description, so this is available on payable/paid bills too.
+  const applyCodeToAll = useCallback(
+    (leafId: string) => {
+      if (!leafId || openLines.length === 0) return;
+      setStaged((prev) => {
+        const next = new Map(prev);
+        for (const l of openLines) {
+          if (leafId === (l.jobCostItemId ?? "")) next.delete(l.id);
+          else next.set(l.id, leafId);
+        }
+        return next;
+      });
+      setSyncMsg(null);
+    },
+    [openLines],
+  );
+
+  // Combine: group the open bill's lines by their EFFECTIVE code (a staged pick
+  // wins over the stored one, matching leafOf everywhere else on this page), so
+  // 2+ lines sharing a code can merge into one. Combining reads each line's
+  // STORED name/cost — an unsaved description/qty/unit EDIT would be silently
+  // dropped — so that's blocked until saved (synced) or discarded, exactly like
+  // the bill page. A staged CODE pick is fine and becomes the merged line's code.
+  const combineById = useMemo(() => new Map(openLines.map((l) => [l.id, l] as const)), [openLines]);
+  const combineCodeCounts = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const l of openLines) {
+      const c = leafOf(l);
+      if (c) m.set(c, (m.get(c) ?? 0) + 1);
+    }
+    return m;
+  }, [openLines, leafOf]);
+  const isCombinable = useCallback(
+    (l: JobBillLine) => (combineCodeCounts.get(leafOf(l)) ?? 0) >= 2,
+    [combineCodeCounts, leafOf],
+  );
+  const anyCombinable = useMemo(
+    () => [...combineCodeCounts.values()].some((n) => n >= 2),
+    [combineCodeCounts],
+  );
+  const combineCodeSet = useMemo(
+    () =>
+      new Set(
+        combineSelected
+          .map((id) => combineById.get(id))
+          .filter((l): l is JobBillLine => !!l)
+          .map((l) => leafOf(l))
+          .filter(Boolean),
+      ),
+    [combineSelected, combineById, leafOf],
+  );
+  const combineHasEdit = combineSelected.some((id) => {
+    const e = edits[id];
+    return Boolean(e && (e.name !== undefined || e.quantity !== undefined || e.unitCost !== undefined));
+  });
+  const canCombine = combineSelected.length >= 2 && combineCodeSet.size === 1 && !combineHasEdit;
+
+  const toggleCombineSel = (id: string) =>
+    setCombineSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
+
+  // Combine WRITES immediately (unlike a recode) — it's a structural line
+  // merge (delete + sum), not a "which code" decision worth trying on and
+  // reverting, and the bill page's combine has always worked this way.
+  const combineRows = async () => {
+    const sel = combineSelected.map((id) => combineById.get(id)).filter((l): l is JobBillLine => !!l);
+    if (sel.length < 2 || !openBill) return;
+    const codeId = leafOf(sel[0]);
+    if (!codeId || !sel.every((l) => leafOf(l) === codeId)) return; // mixed codes
+    const keep = sel[0];
+    const deleteIds = sel.slice(1).map((l) => l.id);
+    const extendedCost = round2(sel.reduce((s, l) => s + l.cost, 0));
+    const name =
+      sel
+        .map((l) => (l.name || "").trim())
+        .filter(Boolean)
+        .join(" + ")
+        .substring(0, 250) || "Line item";
+    const description = descriptionForCode(codeId, data?.budget ?? []);
+
+    setCombining(true);
+    setCombineMsg("");
+    try {
+      const res = await fetch("/api/combine-lines", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          docId: openBill.id,
+          keepId: keep.id,
+          deleteIds,
+          name,
+          extendedCost,
+          jobCostItemId: codeId || undefined,
+          description,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) setCombineMsg(json.error ?? "Combine failed");
+      else if (json.previewed)
+        setCombineMsg("Preview only — writes are OFF. Nothing was combined in JobTread.");
+      else {
+        setCombineSelected([]);
+        await load({ preserveStaged: true });
+      }
+    } catch (e) {
+      setCombineMsg(e instanceof Error ? e.message : "Network error");
+    } finally {
+      setCombining(false);
+    }
+  };
 
   // The scanned invoice, fetched only when a bill is opened and then remembered —
   // stepping back and forth between bills is the normal motion here, and the
@@ -1418,6 +1576,65 @@ export function Board() {
                     {openBill.reviewed ? "✓ Reviewed" : "Mark reviewed"}
                   </Button>
                 </div>
+
+                {data && data.budget.length > 0 && openLines.length > 1 && (
+                  <div className="mb-3 rounded-lg border border-dashed border-neutral-300 bg-neutral-50 p-2 dark:border-neutral-700 dark:bg-ink-raised/60">
+                    <span className="mb-1 block text-[10px] uppercase tracking-wide text-neutral-400">
+                      Apply one code to all {openLines.length} lines
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <div className="min-w-0 flex-1">
+                        <CostCodeSelect options={codeOptions} value={bulkCode} onChange={setBulkCode} />
+                      </div>
+                      <Button
+                        size="sm"
+                        className="shrink-0 !py-1.5 !text-xs"
+                        onClick={() => applyCodeToAll(bulkCode)}
+                        disabled={!bulkCode}
+                      >
+                        Apply
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Combine rows: appears once 2+ of this bill's lines share a
+                    code. Unlike a recode, this writes to JobTread immediately —
+                    it's a structural merge, not a trial-and-error choice. */}
+                {data?.writesEnabled && anyCombinable && (
+                  <div className="mb-3 rounded-lg border border-dashed border-neutral-300 bg-neutral-50 p-2 dark:border-neutral-700 dark:bg-ink-raised/60">
+                    <span className="mb-1 block text-[10px] uppercase tracking-wide text-neutral-400">
+                      Combine lines sharing a code
+                    </span>
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="min-w-0 text-[11px] text-neutral-500">
+                        {combineSelected.length < 2
+                          ? "Check 2+ lines with the same code."
+                          : combineCodeSet.size > 1
+                            ? "Different codes selected."
+                            : combineHasEdit
+                              ? "Sync or discard edits first."
+                              : `Merging ${combineSelected.length} lines.`}
+                      </p>
+                      <Button
+                        size="sm"
+                        className="shrink-0 !py-1.5 !text-xs"
+                        onClick={combineRows}
+                        disabled={!canCombine || combining}
+                      >
+                        {combining
+                          ? "Combining…"
+                          : `Combine${combineSelected.length >= 2 ? ` (${combineSelected.length})` : ""}`}
+                      </Button>
+                    </div>
+                    {combineMsg && (
+                      <Banner tone="neutral" className="mt-1.5 !px-2 !py-1.5 !text-[11px]">
+                        {combineMsg}
+                      </Banner>
+                    )}
+                  </div>
+                )}
+
                 <ul className="space-y-3">
                   {openLines.map((l, i) => {
                     const current = leafOf(l);
@@ -1437,23 +1654,37 @@ export function Board() {
                         {/* Description. JobTread locks it (with qty/amount) once a
                             bill leaves draft, so those inputs only appear on
                             drafts; re-coding still works in any status. */}
-                        {openMath.isDraft ? (
-                          <input
-                            value={edits[l.id]?.name ?? l.name ?? ""}
-                            onChange={(e) => setEdit({ name: e.target.value })}
-                            placeholder="Description"
-                            className="mb-1 w-full rounded border border-neutral-300 bg-white px-1.5 py-1 text-xs transition focus:border-accent focus:outline-none dark:border-neutral-600 dark:bg-ink-raised"
-                          />
-                        ) : (
-                          <div className="mb-1 flex items-baseline justify-between gap-2">
-                            <span className="min-w-0 truncate text-xs">
-                              {l.name || "(unnamed line)"}
-                            </span>
-                            <span className="shrink-0 text-xs font-semibold tabular-nums">
-                              {money(l.cost)}
-                            </span>
+                        <div className="flex items-start gap-1.5">
+                          {data?.writesEnabled && isCombinable(l) && (
+                            <input
+                              type="checkbox"
+                              checked={combineSelected.includes(l.id)}
+                              onChange={() => toggleCombineSel(l.id)}
+                              aria-label="Select line to combine"
+                              title="Combine with other lines that share this code"
+                              className="mt-1.5 h-3.5 w-3.5 shrink-0 cursor-pointer accent-accent"
+                            />
+                          )}
+                          <div className="min-w-0 flex-1">
+                            {openMath.isDraft ? (
+                              <input
+                                value={edits[l.id]?.name ?? l.name ?? ""}
+                                onChange={(e) => setEdit({ name: e.target.value })}
+                                placeholder="Description"
+                                className="mb-1 w-full rounded border border-neutral-300 bg-white px-1.5 py-1 text-xs transition focus:border-accent focus:outline-none dark:border-neutral-600 dark:bg-ink-raised"
+                              />
+                            ) : (
+                              <div className="mb-1 flex items-baseline justify-between gap-2">
+                                <span className="min-w-0 truncate text-xs">
+                                  {l.name || "(unnamed line)"}
+                                </span>
+                                <span className="shrink-0 text-xs font-semibold tabular-nums">
+                                  {money(l.cost)}
+                                </span>
+                              </div>
+                            )}
                           </div>
-                        )}
+                        </div>
                         <CostCodeSelect
                           options={codeOptions}
                           value={current}

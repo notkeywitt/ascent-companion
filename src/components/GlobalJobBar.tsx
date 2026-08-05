@@ -52,7 +52,7 @@ export function GlobalJobBar() {
       </Link>
       {/* The only flexible item — it absorbs whatever the buttons leave. */}
       <div className="min-w-0 flex-1">
-        <JobPicker value={jobId} onChange={onChange} />
+        <JobPicker value={jobId} onChange={onChange} showPhaseFilter />
       </div>
       {/* /add-bill is part of the (admin-only) Coding Review view — without the
           gate the middleware would just bounce a non-admin back to home. */}
