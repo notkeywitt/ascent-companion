@@ -2353,6 +2353,42 @@ async function findShopBuybackBill(
 }
 
 /**
+ * The Shop job's generic "Uncategorized" catch-all budget leaf. Confirmed live
+ * 2026-08-05: JobTread REJECTS createCostItem on an existing vendor bill with
+ * no jobCostItemId ("A jobCostItemId is required to create a new cost item for
+ * this Vendor Bill", 400) — unlike a brand-new bill's initial lineItems array,
+ * which tolerates an uncoded line fine. So a buyback line can't truly land
+ * uncoded; it lands on this catch-all instead, and the ORIGINAL code (if any)
+ * rides along in the new line's description so the office can re-code it
+ * properly from there. getJobBudget deliberately excludes "Uncategorized"
+ * leaves from the coding dropdown, so this reads job.costItems directly.
+ */
+async function resolveShopCatchAllLeaf(cfg: PaveConfig, shopJobId: string): Promise<string> {
+  return cachedRef(`shopcatchall:${cfg.orgId}:${shopJobId}`, 5 * 60_000, async () => {
+    let cursor: string | null = null;
+    for (let page = 0; page < 50; page++) {
+      const args: Record<string, unknown> = { size: 100 };
+      if (cursor) args.page = cursor;
+      const r = await pave(cfg, {
+        job: {
+          $: { id: shopJobId },
+          costItems: { $: args, nextPage: {}, nodes: { id: {}, name: {}, document: { id: {} } } },
+        },
+      });
+      const co = r?.job?.costItems ?? {};
+      const nodes: any[] = co.nodes ?? [];
+      const hit = nodes.find(
+        (n) => !n.document?.id && /^uncategorized\b/i.test(String(n.name ?? "").trim()),
+      );
+      if (hit) return hit.id as string;
+      cursor = co.nextPage ?? null;
+      if (!cursor) break;
+    }
+    throw new Error('No "Uncategorized" budget leaf found on the Shop job.');
+  });
+}
+
+/**
  * WRITE — "buyback": move one bill line off a client job's bill onto a draft bill
  * on the Ascent - Shop job (e.g. materials bought back for shop stock instead of
  * billed to the client). Reuses the same externalId idempotency trick
@@ -2363,9 +2399,10 @@ async function findShopBuybackBill(
  * to track "the shop bill I already created" — a second click just finds it
  * again.
  *
- * The new line always lands UNCODED on the Shop job (a jobCostItemId is a budget
- * leaf scoped to ONE job's budget tree, so the client job's coding can't carry
- * over) — `description` can still carry the original code's label for reference.
+ * The new line lands on Shop's generic "Uncategorized" leaf (see
+ * resolveShopCatchAllLeaf — JobTread requires SOME jobCostItemId here, and a
+ * client job's coding can't carry over anyway since it's a different job's
+ * budget tree); `description` carries the original code's label for reference.
  * Tax stays behind on the source bill's nonRecoverableTax (untouched, same as
  * deleteLine); the shop bill itself is created tax-free.
  *
@@ -2393,7 +2430,11 @@ export async function buybackLine(
   if (!accountId) throw new Error("Source bill has no vendor account — can't create a Shop copy.");
 
   const buybackExternalId = `BUYBACK-${args.sourceDocId}`.substring(0, 32);
-  let shopDocId = await findShopBuybackBill(cfg, shopJobId, buybackExternalId);
+  const [shopDocIdFound, catchAllLeafId] = await Promise.all([
+    findShopBuybackBill(cfg, shopJobId, buybackExternalId),
+    resolveShopCatchAllLeaf(cfg, shopJobId),
+  ]);
+  let shopDocId = shopDocIdFound;
   let created = false;
   if (!shopDocId) {
     // Ascent - Shop has a name but no street address; jobLocationName alone
@@ -2421,6 +2462,7 @@ export async function buybackLine(
     name: args.name,
     quantity: 1,
     unitCost: args.unitCost,
+    jobCostItemId: catchAllLeafId,
     description: args.description,
   });
   await deleteLine(cfg, args.costItemId);
