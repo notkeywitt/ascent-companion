@@ -192,19 +192,28 @@ const usedOf = (h: Headroom) => h.spent + h.drafts + h.labor;
 const remainingOf = (h: Headroom) => h.budget - usedOf(h);
 
 /** Budget-usage meter. Amber past 90%, red past 100% — the whole point of the rail. */
-function Meter({ h }: { h: Headroom }) {
-  const used = usedOf(h);
-  const pct = h.budget > 0 ? used / h.budget : used > 0 ? 1 : 0;
-  const over = h.budget > 0 && used > h.budget;
+function Meter({
+  budget,
+  used,
+  label,
+  className = "mt-0.5 h-1",
+}: {
+  budget: number;
+  used: number;
+  label: string;
+  className?: string;
+}) {
+  const pct = budget > 0 ? used / budget : used > 0 ? 1 : 0;
+  const over = budget > 0 && used > budget;
   const near = !over && pct >= 0.9;
   return (
     <div
-      className="mt-0.5 h-1 w-full overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-800"
+      className={`w-full overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-800 ${className}`}
       role="progressbar"
       aria-valuenow={Math.round(pct * 100)}
       aria-valuemin={0}
       aria-valuemax={100}
-      aria-label={`${h.code} budget used`}
+      aria-label={`${label} budget used`}
     >
       <div
         className={`h-full rounded-full transition-all ${
@@ -239,6 +248,9 @@ export function Board() {
   const [syncing, setSyncing] = useState(false);
   const [syncMsg, setSyncMsg] = useState<{ tone: "success" | "error"; text: string } | null>(null);
   const [codeQuery, setCodeQuery] = useState("");
+  // Divisions the user has rolled up. Empty = all open, so the rail keeps
+  // showing every code until it's deliberately tidied.
+  const [collapsedDivs, setCollapsedDivs] = useState<Set<string>>(new Set());
 
   const dirty = staged.size > 0;
   useUnsavedChanges(
@@ -389,6 +401,38 @@ export function Board() {
       : rows;
     return matched.sort((a, b) => a.code.localeCompare(b.code));
   }, [headroom, codeQuery]);
+
+  /**
+   * The rail, grouped into collapsible CSI divisions. A division's figures are
+   * the sum of its codes', so a collapsed division still says whether there's
+   * room in it — otherwise collapsing would hide the answer you came for.
+   */
+  const railGroups = useMemo(() => {
+    const g = new Map<string, { code: string; name: string; rows: Headroom[] }>();
+    for (const h of railRows) {
+      const dc = h.code.replace(/\D/g, "").slice(0, 2) || "—";
+      const e = g.get(dc) ?? { code: dc, name: h.division || "", rows: [] };
+      if (!e.name && h.division) e.name = h.division;
+      e.rows.push(h);
+      g.set(dc, e);
+    }
+    return [...g.values()]
+      .map((e) => ({
+        ...e,
+        budget: e.rows.reduce((s, r) => s + r.budget, 0),
+        used: e.rows.reduce((s, r) => s + usedOf(r), 0),
+        remaining: e.rows.reduce((s, r) => s + remainingOf(r), 0),
+      }))
+      .sort((a, b) => a.code.localeCompare(b.code));
+  }, [railRows]);
+
+  const toggleDiv = (code: string) =>
+    setCollapsedDivs((prev) => {
+      const next = new Set(prev);
+      if (next.has(code)) next.delete(code);
+      else next.add(code);
+      return next;
+    });
 
   // ---- derived: bills + their lines ---------------------------------------
   const linesByDoc = useMemo(() => {
@@ -843,7 +887,20 @@ export function Board() {
               makes sticky work in a grid — items stretch to the row height by
               default, leaving nothing to scroll within. */}
           <section className="min-w-0 lg:sticky lg:top-4 lg:self-start">
-            <SectionLabel className="mb-2">Cost codes · budget remaining</SectionLabel>
+            <div className="mb-2 flex items-baseline justify-between gap-2">
+              <SectionLabel>Cost codes · budget remaining</SectionLabel>
+              <button
+                type="button"
+                onClick={() =>
+                  setCollapsedDivs((prev) =>
+                    prev.size > 0 ? new Set() : new Set(railGroups.map((g) => g.code)),
+                  )
+                }
+                className="shrink-0 text-[11px] text-neutral-500 transition hover:text-accent"
+              >
+                {collapsedDivs.size > 0 ? "Expand all" : "Collapse all"}
+              </button>
+            </div>
             <Card pad={false} className="overflow-hidden">
               <input
                 type="search"
@@ -858,52 +915,110 @@ export function Board() {
                 {railRows.length === 0 ? (
                   <p className="px-3 py-4 text-xs text-neutral-500">No cost codes match.</p>
                 ) : (
-                  <ul>
-                    {railRows.map((h) => {
-                      const left = remainingOf(h);
-                      const over = left < 0;
-                      return (
-                        // Two lines, not four: the spent/budget breakdown moves
-                        // into the tooltip so the rail shows ~2× the codes per
-                        // screen. Scanning for headroom means comparing many
-                        // codes at once, so density is the feature.
-                        <li
-                          key={h.code}
-                          {...dropHandlers(h.code, h.droppable)}
-                          title={
-                            `${h.code} ${h.name}\n` +
-                            `${money(h.spent)} committed` +
-                            (h.drafts > 0 ? ` + ${money(h.drafts)} draft` : "") +
-                            (h.labor > 0 ? ` + ${money(h.labor)} labor` : "") +
-                            ` of ${money(h.budget)} budget\n${money(left)} remaining` +
-                            (h.droppable ? "" : "\nNo budget line — can't code to this")
-                          }
-                          className={`border-b border-neutral-100 px-2 py-1 transition last:border-0 dark:border-neutral-800 ${
-                            dragOverCode === h.code
-                              ? "bg-accent/10 ring-1 ring-inset ring-accent"
-                              : dragLineIds && !h.droppable
-                                ? "opacity-40"
-                                : ""
-                          }`}
+                  railGroups.map((g) => {
+                    // A filter term force-opens the divisions it matched —
+                    // otherwise searching a collapsed rail looks like it found
+                    // nothing.
+                    const open = !collapsedDivs.has(g.code) || codeQuery.trim() !== "";
+                    return (
+                      <div key={g.code}>
+                        <button
+                          type="button"
+                          onClick={() => toggleDiv(g.code)}
+                          aria-expanded={open}
+                          // A collapsed division hides its codes, and with them
+                          // their drop targets — so dragging onto the header
+                          // opens it instead of dead-ending the drag.
+                          onDragOver={() => {
+                            if (dragLineIds && collapsedDivs.has(g.code)) toggleDiv(g.code);
+                          }}
+                          className="flex w-full items-baseline gap-1.5 border-b border-neutral-200 bg-neutral-50/80 px-2 py-1 text-left transition hover:bg-accent/5 dark:border-neutral-800 dark:bg-white/[0.04] dark:hover:bg-white/[0.07]"
                         >
-                          <div className="flex items-baseline justify-between gap-2">
-                            <span className="min-w-0 truncate text-xs">
-                              <span className="tabular-nums text-neutral-500">{h.code}</span>{" "}
-                              <span className={h.droppable ? "" : "text-neutral-400"}>{h.name}</span>
-                            </span>
-                            <span
-                              className={`shrink-0 text-xs font-semibold tabular-nums ${
-                                over ? "text-red-600 dark:text-red-400" : ""
-                              }`}
-                            >
-                              {money0(left)}
-                            </span>
+                          <span
+                            aria-hidden
+                            className={`shrink-0 text-[9px] text-neutral-400 transition-transform ${open ? "rotate-90" : ""}`}
+                          >
+                            ▶
+                          </span>
+                          <span className="min-w-0 flex-1 truncate text-xs font-semibold">
+                            <span className="tabular-nums text-neutral-500">{g.code}</span> {g.name}
+                          </span>
+                          <span className="shrink-0 text-[10px] tabular-nums text-neutral-400">
+                            {g.rows.length}
+                          </span>
+                          <span
+                            className={`shrink-0 text-xs font-semibold tabular-nums ${
+                              g.remaining < 0 ? "text-red-600 dark:text-red-400" : ""
+                            }`}
+                          >
+                            {money0(g.remaining)}
+                          </span>
+                        </button>
+
+                        {/* Rolled up, the division still shows its own bar, so a
+                            tidy rail is still a readable one. */}
+                        {!open && (
+                          <div className="border-b border-neutral-100 px-2 pb-1 dark:border-neutral-800">
+                            <Meter budget={g.budget} used={g.used} label={`Division ${g.code}`} />
                           </div>
-                          <Meter h={h} />
-                        </li>
-                      );
-                    })}
-                  </ul>
+                        )}
+
+                        {open && (
+                          <ul>
+                            {g.rows.map((h) => {
+                              const left = remainingOf(h);
+                              const over = left < 0;
+                              return (
+                                // Two lines, not four: the spent/budget breakdown
+                                // moves into the tooltip so the rail shows ~2× the
+                                // codes per screen. Scanning for headroom means
+                                // comparing many codes at once — density is the
+                                // feature.
+                                <li
+                                  key={h.code}
+                                  {...dropHandlers(h.code, h.droppable)}
+                                  title={
+                                    `${h.code} ${h.name}\n` +
+                                    `${money(h.spent)} committed` +
+                                    (h.drafts > 0 ? ` + ${money(h.drafts)} draft` : "") +
+                                    (h.labor > 0 ? ` + ${money(h.labor)} labor` : "") +
+                                    ` of ${money(h.budget)} budget\n${money(left)} remaining` +
+                                    (h.droppable ? "" : "\nNo budget line — can't code to this")
+                                  }
+                                  className={`border-b border-neutral-100 px-2 py-1 pl-4 transition dark:border-neutral-800 ${
+                                    dragOverCode === h.code
+                                      ? "bg-accent/10 ring-1 ring-inset ring-accent"
+                                      : dragLineIds && !h.droppable
+                                        ? "opacity-40"
+                                        : ""
+                                  }`}
+                                >
+                                  <div className="flex items-baseline justify-between gap-2">
+                                    <span className="min-w-0 truncate text-xs">
+                                      <span className="tabular-nums text-neutral-500">
+                                        {h.code}
+                                      </span>{" "}
+                                      <span className={h.droppable ? "" : "text-neutral-400"}>
+                                        {h.name}
+                                      </span>
+                                    </span>
+                                    <span
+                                      className={`shrink-0 text-xs font-semibold tabular-nums ${
+                                        over ? "text-red-600 dark:text-red-400" : ""
+                                      }`}
+                                    >
+                                      {money0(left)}
+                                    </span>
+                                  </div>
+                                  <Meter budget={h.budget} used={usedOf(h)} label={h.code} />
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        )}
+                      </div>
+                    );
+                  })
                 )}
               </div>
             </Card>
