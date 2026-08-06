@@ -1388,12 +1388,8 @@ export function Board() {
       )}
 
       {data && !loading && (
-        // The rail is dense enough now to give width back to the invoice pane —
-        // every bill's attachment is a PDF, and a PDF in a narrow iframe is
-        // unreadable.
-        // Rail and coding panel are fixed; the bills list takes 1fr so it grows
-        // into whatever the window has left, rather than being pinned narrow.
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[18rem_minmax(0,1fr)] xl:grid-cols-[18rem_minmax(0,1fr)_36rem]">
+        // All three columns share the row equally.
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
           {/* ─────────── LEFT: cost-code reference rail ─────────── */}
           {/* Docked: the rail is the reference you're constantly checking while
               scrolling a long bill list, so it stays put. `self-start` is what
@@ -1866,10 +1862,11 @@ export function Board() {
             {!openBill ? (
               <EmptyState>Select a bill to edit its coding.</EmptyState>
             ) : (
-              // Scrolls internally: with the invoice embedded the panel is taller
-              // than the viewport, and a sticky element that overflows can't be
-              // scrolled to its bottom.
-              <Card className="sticky top-4 max-h-[calc(100vh-2rem)] overflow-y-auto">
+              // Not sticky/height-capped: with the invoice embedded the panel is
+              // often taller than the viewport, and a sticky element that
+              // overflows can't be scrolled to its bottom — so it flows with the
+              // page instead, at its full natural height.
+              <Card>
                 <div className="flex items-baseline justify-between gap-2">
                   <p className="min-w-0 truncate text-sm font-semibold">{openBill.label}</p>
                   <JtLink
