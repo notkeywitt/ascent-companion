@@ -92,6 +92,7 @@ interface CostCodeRow {
   budget: number;
   bills: number;
   labor: number;
+  laborApproved: number;
   invoiced: number;
 }
 interface CostDivisionRow {
@@ -131,6 +132,7 @@ interface CostCodeTimeContributor {
   hours: number;
   cost: number;
   notes: string;
+  isApproved: boolean;
 }
 interface JobCostContributors {
   bills: CostCodeBillContributor[];
@@ -311,6 +313,11 @@ export function Board() {
   // Display-only filter. Defaults OFF: hiding bills by default would mean the
   // list silently disagrees with the totals until someone noticed the toggle.
   const [hideSunset, setHideSunset] = useState(false);
+  // Display-only filter, computed client-side from costDetail's two labor
+  // figures (no refetch on toggle). Defaults ON so the existing behavior —
+  // every time entry counts, approved or not — doesn't change until someone
+  // deliberately narrows it.
+  const [includeUnapprovedTime, setIncludeUnapprovedTime] = useState(true);
   const [data, setData] = useState<BoardPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -320,6 +327,16 @@ export function Board() {
   /** costItemId → in-flight description / qty / unit-cost text, draft bills only. */
   const [edits, setEdits] = useState<Record<string, LineEdit | undefined>>({});
   const [openDocId, setOpenDocId] = useState<string | null>(null);
+  // Where the coding drawer's sticky top lands — set to whatever row was just
+  // clicked, so the drawer opens level with it instead of always snapping back
+  // to the top of the page (its default sticky position, which for a bill
+  // clicked far down a long list is off-screen above the fold).
+  const [codingTop, setCodingTop] = useState(16);
+  const selectBill = (nextId: string | null, e: React.MouseEvent) => {
+    const top = e.currentTarget.getBoundingClientRect().top;
+    setCodingTop(Math.max(16, Math.min(top, window.innerHeight - 200)));
+    setOpenDocId(nextId);
+  };
   const [mode, setMode] = useState<"bill" | "code">("bill");
   // Lifted out of the reconcile rectangle so the header can show the same
   // authoritative "to be invoiced" figure without fetching it twice.
@@ -457,7 +474,7 @@ export function Board() {
           budget: c.budget,
           spent: c.bills,
           drafts: 0,
-          labor: c.labor,
+          labor: includeUnapprovedTime ? c.labor : c.laborApproved,
           droppable: (leavesByCode.get(c.number)?.length ?? 0) > 0,
         });
       }
@@ -513,7 +530,7 @@ export function Board() {
       }
     }
     return map;
-  }, [data, codeOf, leavesByCode]);
+  }, [data, codeOf, leavesByCode, includeUnapprovedTime]);
 
   const railRows = useMemo(() => {
     const q = codeQuery.trim().toLowerCase();
@@ -1056,10 +1073,15 @@ export function Board() {
   }, [contributors, codeDrill, staged, leafById, data, billsById]);
 
   // Labor is coded independently of any bill and never moves with a staged
-  // recode (see the `usedOf` note above), so this needs no staged reconciliation.
+  // recode (see the `usedOf` note above), so this needs no staged reconciliation
+  // — but it DOES need the same approved-only filter as the rail's total, or
+  // this list wouldn't sum to the number that opened it.
   const drillTime = useMemo(
-    () => contributors?.data.time.filter((t) => t.code === codeDrill) ?? [],
-    [contributors, codeDrill],
+    () =>
+      (contributors?.data.time ?? []).filter(
+        (t) => t.code === codeDrill && (includeUnapprovedTime || t.isApproved),
+      ),
+    [contributors, codeDrill, includeUnapprovedTime],
   );
 
   const beginDrag = (lineIds: string[]) => (e: React.DragEvent) => {
@@ -1282,6 +1304,16 @@ export function Board() {
             label={
               <span title="Off shows bills already on a customer invoice too, read-only — for reviewing a past, fully-invoiced month.">
                 Uninvoiced only
+              </span>
+            }
+            className="shrink-0"
+          />
+          <Toggle
+            checked={includeUnapprovedTime}
+            onChange={setIncludeUnapprovedTime}
+            label={
+              <span title="Off counts only isApproved time entries toward labor and headroom — a more conservative number when a lot of logged time hasn't been approved yet.">
+                Include unapproved time
               </span>
             }
             className="shrink-0"
@@ -1577,7 +1609,8 @@ export function Board() {
             >
               Remaining = budget − committed − this month&apos;s drafts − labor. Committed is
               approved and pending bills across all time; drafts aren&apos;t committed spend yet;
-              labor is logged time entries, which a customer invoice bills alongside the bills.
+              labor is logged time entries, which a customer invoice bills alongside the bills —
+              toggle &quot;Include unapproved time&quot; above to count only approved entries.
               Hover a code for the breakdown. Bars and remaining update as you recode.
             </p>
           </section>
@@ -1676,7 +1709,7 @@ export function Board() {
                                   draggable={!s.invoiced}
                                   onDragStart={beginDrag(s.lines.map((l) => l.id))}
                                   onDragEnd={endDrag}
-                                  onClick={() => setOpenDocId(s.docId)}
+                                  onClick={(e) => selectBill(s.docId, e)}
                                   title={s.lines.map((l) => l.name).join("\n")}
                                   className={`rounded-md border px-2 py-1 text-[11px] transition ${
                                     s.invoiced ? "" : "cursor-grab active:cursor-grabbing"
@@ -1756,7 +1789,9 @@ export function Board() {
                       >
                         <button
                           type="button"
-                          onClick={() => (isMobile ? openBillDetail() : setOpenDocId(isOpen ? null : b.id))}
+                          onClick={(e) =>
+                            isMobile ? openBillDetail() : selectBill(isOpen ? null : b.id, e)
+                          }
                           aria-expanded={isMobile ? undefined : isOpen}
                           className="min-w-0 flex-1 p-3 text-left transition hover:bg-accent/5 dark:hover:bg-white/5"
                         >
@@ -1857,16 +1892,23 @@ export function Board() {
           </section>
 
           {/* ─────────── RIGHT: coding drawer ─────────── */}
-          <section className="hidden min-w-0 xl:block">
+          {/* `self-start`, same reason as the rail: without it, this section
+              stretches to the row's full height and its sticky child has no
+              room to actually travel/stick within. */}
+          <section className="hidden min-w-0 xl:block xl:self-start">
             <SectionLabel className="mb-2">Coding</SectionLabel>
             {!openBill ? (
               <EmptyState>Select a bill to edit its coding.</EmptyState>
             ) : (
-              // Not sticky/height-capped: with the invoice embedded the panel is
-              // often taller than the viewport, and a sticky element that
-              // overflows can't be scrolled to its bottom — so it flows with the
-              // page instead, at its full natural height.
-              <Card>
+              // Sticky at `codingTop` — the clicked row's own position at the
+              // moment it was selected — so the drawer opens level with it
+              // instead of snapping to the page's top. Height-capped to
+              // whatever room is left below that point so a long bill still
+              // scrolls (within the drawer) rather than running off-screen.
+              <Card
+                className="sticky overflow-y-auto"
+                style={{ top: codingTop, maxHeight: `calc(100vh - ${codingTop}px - 1rem)` }}
+              >
                 <div className="flex items-baseline justify-between gap-2">
                   <p className="min-w-0 truncate text-sm font-semibold">{openBill.label}</p>
                   <JtLink
@@ -2260,6 +2302,7 @@ export function Board() {
                                   <span className="ml-1 text-neutral-400">
                                     {t.startedAt ? t.startedAt.slice(0, 10) : ""} ·{" "}
                                     {t.hours.toFixed(1)}h
+                                    {!t.isApproved ? " · unapproved" : ""}
                                   </span>
                                 </span>
                                 <span className="shrink-0 tabular-nums font-semibold">

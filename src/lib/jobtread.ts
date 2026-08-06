@@ -791,8 +791,10 @@ export interface CostCodeRow {
   division: string; // first two digits
   budget: number; // Σ approved customer-order line cost for this code
   bills: number; // Σ approved+pending vendor-bill cost
-  labor: number; // Σ time-entry cost
-  laborHours: number; // Σ time-entry minutes ÷ 60
+  labor: number; // Σ time-entry cost, every entry regardless of approval
+  laborHours: number; // Σ time-entry minutes ÷ 60, every entry
+  laborApproved: number; // Σ time-entry cost, isApproved entries only
+  laborApprovedHours: number; // …of which, in hours
   invoiced: number; // Σ approved customer-invoice line cost, all time
   currentInvoice: number; // …of which the most recent invoice
   split: CostTypeSplit;
@@ -807,6 +809,8 @@ export interface CostDivisionRow {
   bills: number;
   labor: number;
   laborHours: number;
+  laborApproved: number;
+  laborApprovedHours: number;
   invoiced: number;
   currentInvoice: number;
   split: CostTypeSplit;
@@ -870,6 +874,8 @@ const addSplit = (into: CostTypeSplit, from: CostTypeSplit) => {
 
 /**
  * Σ time-entry cost and minutes per cost-code number, summed BY JOBTREAD.
+ * `where` narrows the entries counted (e.g. `["isApproved", true]`, confirmed
+ * live 2026-08-06) — omit it for every entry regardless of approval.
  *
  * Same grouped-aggregate shape as `_sumCostByCostCode` (`timeEntries` is a
  * standard connection, so it takes `group`/`withValues`), which replaces the
@@ -880,6 +886,7 @@ const addSplit = (into: CostTypeSplit, from: CostTypeSplit) => {
 async function _sumTimeByCostCode(
   cfg: PaveConfig,
   jobId: string,
+  where?: unknown,
 ): Promise<Record<string, { cost: number; minutes: number }>> {
   const out: Record<string, { cost: number; minutes: number }> = {};
   let page: string | undefined;
@@ -892,6 +899,7 @@ async function _sumTimeByCostCode(
         timeEntries: {
           $: {
             size: 100, // pages over GROUPS (one per cost code), not raw entries
+            ...(where ? { where } : {}),
             group: {
               by: [["costItem", "costCode", "number"]],
               aggs: { total: { sum: "cost" }, mins: { sum: "minutes" } },
@@ -915,10 +923,15 @@ async function _sumTimeByCostCode(
   return out;
 }
 
-/** The pre-aggregate way: page every time entry and bucket here. Safety net only. */
+/**
+ * The pre-aggregate way: page every time entry and bucket here. Safety net
+ * only. `approvedOnly` filters client-side (this walk has the raw nodes
+ * already, so no second query is needed the way the aggregate path needs one).
+ */
 async function _sumTimeByFullWalk(
   cfg: PaveConfig,
   jobId: string,
+  approvedOnly = false,
 ): Promise<Record<string, { cost: number; minutes: number }>> {
   const out: Record<string, { cost: number; minutes: number }> = {};
   let page: string | undefined;
@@ -930,11 +943,17 @@ async function _sumTimeByFullWalk(
         timeEntries: {
           $: { size: 100, ...(page ? { page } : {}) },
           nextPage: {},
-          nodes: { cost: {}, minutes: {}, costItem: { costCode: { number: {} } } },
+          nodes: {
+            cost: {},
+            minutes: {},
+            isApproved: {},
+            costItem: { costCode: { number: {} } },
+          },
         },
       },
     });
     for (const n of r?.job?.timeEntries?.nodes ?? []) {
+      if (approvedOnly && !n?.isApproved) continue;
       const code = n?.costItem?.costCode?.number?.toString().trim();
       if (!code) continue;
       const e = (out[code] ??= { cost: 0, minutes: 0 });
@@ -1101,13 +1120,20 @@ async function _getJobCostDetailUncached(cfg: PaveConfig, jobId: string): Promis
   }
 
   // 3. Labor per cost code — time entries carry their own cost, so bills and
-  //    labor never double-count.
+  //    labor never double-count. Fetched twice: every entry, and isApproved
+  //    entries only — the Invoicing board's "include unapproved time" toggle
+  //    switches between them with no extra round trip.
   let time: Record<string, { cost: number; minutes: number }>;
+  let timeApproved: Record<string, { cost: number; minutes: number }>;
   try {
-    time = await _sumTimeByCostCode(cfg, jobId);
+    [time, timeApproved] = await Promise.all([
+      _sumTimeByCostCode(cfg, jobId),
+      _sumTimeByCostCode(cfg, jobId, ["isApproved", true]),
+    ]);
   } catch {
     degraded.push("labor");
     time = await _sumTimeByFullWalk(cfg, jobId);
+    timeApproved = await _sumTimeByFullWalk(cfg, jobId, true);
   }
 
   // 4. Invoiced per cost code — approved customer-invoice lines, all time, plus
@@ -1159,6 +1185,8 @@ async function _getJobCostDetailUncached(cfg: PaveConfig, jobId: string): Promis
         bills: 0,
         labor: 0,
         laborHours: 0,
+        laborApproved: 0,
+        laborApprovedHours: 0,
         invoiced: 0,
         currentInvoice: 0,
         split: emptySplit(),
@@ -1208,6 +1236,11 @@ async function _getJobCostDetailUncached(cfg: PaveConfig, jobId: string): Promis
     row.labor += t.cost;
     row.laborHours += t.minutes / 60;
   }
+  for (const [number, t] of Object.entries(timeApproved)) {
+    const row = codeRow(number, "");
+    row.laborApproved += t.cost;
+    row.laborApprovedHours += t.minutes / 60;
+  }
   for (const [number, amount] of Object.entries(invoiced)) {
     codeRow(number, "").invoiced += amount;
   }
@@ -1227,6 +1260,8 @@ async function _getJobCostDetailUncached(cfg: PaveConfig, jobId: string): Promis
         bills: 0,
         labor: 0,
         laborHours: 0,
+        laborApproved: 0,
+        laborApprovedHours: 0,
         invoiced: 0,
         currentInvoice: 0,
         split: emptySplit(),
@@ -1238,6 +1273,8 @@ async function _getJobCostDetailUncached(cfg: PaveConfig, jobId: string): Promis
     d.bills += row.bills;
     d.labor += row.labor;
     d.laborHours += row.laborHours;
+    d.laborApproved += row.laborApproved;
+    d.laborApprovedHours += row.laborApprovedHours;
     d.invoiced += row.invoiced;
     d.currentInvoice += row.currentInvoice;
     addSplit(d.split, row.split);
@@ -1283,6 +1320,7 @@ export interface CostCodeTimeContributor {
   hours: number;
   cost: number;
   notes: string;
+  isApproved: boolean;
 }
 
 export interface JobCostContributors {
@@ -1379,6 +1417,7 @@ async function _getJobCostContributorsUncached(
               startedAt: {},
               minutes: {},
               notes: {},
+              isApproved: {},
               user: { name: {} },
               costItem: { costCode: { number: {} } },
             },
@@ -1424,6 +1463,7 @@ async function _getJobCostContributorsUncached(
       hours: (n.minutes ?? 0) / 60,
       cost: typeof n?.cost === "number" ? n.cost : 0,
       notes: String(n?.notes ?? "").trim(),
+      isApproved: Boolean(n?.isApproved),
     }))
     .filter((t) => t.code)
     .sort((a, b) => String(b.startedAt ?? "").localeCompare(String(a.startedAt ?? "")));
