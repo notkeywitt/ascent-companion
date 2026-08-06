@@ -1610,6 +1610,107 @@ export async function getJobBillsForMonth(
     );
 }
 
+/** One time entry, for the Bills list's "Time & labor" block. */
+export interface MonthTimeEntry {
+  id: string;
+  employee: string;
+  startedAt: string | null;
+  hours: number;
+  cost: number;
+  code: string;
+  codeName: string;
+  notes: string;
+  isApproved: boolean;
+}
+
+/**
+ * A job's time entries whose startedAt falls in one month — labor shown
+ * alongside the vendor bills it'll be invoiced next to, instead of only
+ * living in the cost-code rail's total.
+ *
+ * The `startedAt` range narrows server-side — confirmed live 2026-08-06 on
+ * job.timeEntries (same field, same `{and:[[path,op,value],...]}` shape
+ * `getJobBillsForMonth` already uses for issueDate): an out-of-range window
+ * came back empty, an in-range one didn't. Falls back to an unnarrowed walk +
+ * client-side filter, the same safety net every other month-scoped query here
+ * uses, if that shape is ever rejected.
+ */
+export async function getJobTimeEntriesForMonth(
+  cfg: PaveConfig,
+  jobId: string,
+  year: number,
+  month: number,
+): Promise<MonthTimeEntry[]> {
+  const mm = String(month).padStart(2, "0");
+  const first = `${year}-${mm}-01`;
+  const last = `${year}-${mm}-${String(new Date(year, month, 0).getDate()).padStart(2, "0")}`;
+  const inMonth = (d?: string | null) => {
+    const s = String(d ?? "").slice(0, 10);
+    return s >= first && s <= last;
+  };
+
+  const walk = async (where: unknown): Promise<any[]> => {
+    const nodes: any[] = [];
+    let cursor: string | null = null;
+    for (let page = 0; page < 30; page++) {
+      const args: Record<string, unknown> = { size: 100, ...(where ? { where } : {}) };
+      if (cursor) args.page = cursor;
+      const r = await pave(cfg, {
+        job: {
+          $: { id: jobId },
+          id: {},
+          timeEntries: {
+            $: args,
+            nextPage: {},
+            nodes: {
+              id: {},
+              cost: {},
+              startedAt: {},
+              minutes: {},
+              notes: {},
+              isApproved: {},
+              user: { name: {} },
+              costItem: { costCode: { number: {}, name: {} } },
+            },
+          },
+        },
+      });
+      const tc = r?.job?.timeEntries ?? {};
+      nodes.push(...(tc.nodes ?? []));
+      cursor = tc.nextPage ?? null;
+      if (!cursor) break;
+    }
+    return nodes;
+  };
+
+  let nodes: any[];
+  try {
+    nodes = await walk({
+      and: [
+        ["startedAt", ">=", first],
+        ["startedAt", "<=", `${last}T23:59:59`],
+      ],
+    });
+  } catch {
+    nodes = (await walk(undefined)).filter((n) => inMonth(n?.startedAt));
+  }
+
+  return nodes
+    .filter((n) => inMonth(n?.startedAt))
+    .map((n) => ({
+      id: n.id,
+      employee: n?.user?.name ?? "Unknown",
+      startedAt: n.startedAt ?? null,
+      hours: (n.minutes ?? 0) / 60,
+      cost: typeof n?.cost === "number" ? n.cost : 0,
+      code: n?.costItem?.costCode?.number?.toString().trim() ?? "",
+      codeName: n?.costItem?.costCode?.name ?? "",
+      notes: String(n?.notes ?? "").trim(),
+      isApproved: Boolean(n?.isApproved),
+    }))
+    .sort((a, b) => String(b.startedAt ?? "").localeCompare(String(a.startedAt ?? "")));
+}
+
 /** One vendor-bill line, with the coding target the Invoicing board moves it between. */
 export interface JobBillLine {
   id: string; // costItemId — what updateLine() edits

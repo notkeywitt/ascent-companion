@@ -8,6 +8,7 @@ import {
   getJobBudget,
   getJobCostDetail,
   getJobHeaderInfo,
+  getJobTimeEntriesForMonth,
 } from "@/lib/jobtread";
 import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
 
@@ -24,8 +25,11 @@ import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
  *    which doubles as the board's compact tracking-sheet reference panel.
  *  - getJobBudget      — the budget leaves; their `id` is the jobCostItemId a
  *    recode targets, so this is the set of legal drop targets.
- *  - getBillLinesForJob — the only new query; one walk for every line on those
- *    bills rather than a getBillDetail per bill.
+ *  - getBillLinesForJob — one walk for every line on those bills rather than a
+ *    getBillDetail per bill.
+ *  - getJobTimeEntriesForMonth — the month's time entries, for the Bills
+ *    list's "Time & labor" block (labor billed alongside the vendor bills,
+ *    same reasoning the cost-code rail already gives for counting it there).
  *
  * Invoiced bills are excluded by default: recoding a bill already on a customer
  * invoice changes numbers the client has been sent. `includeInvoiced=1` widens a
@@ -52,13 +56,14 @@ export async function GET(req: NextRequest) {
   try {
     const cfg = getPaveConfig();
 
-    // Bills first — their ids scope the line query. The other three don't depend
+    // Bills first — their ids scope the line query. The others don't depend
     // on it, so they run alongside.
-    const [bills, budget, costDetail, header] = await Promise.all([
+    const [bills, budget, costDetail, header, timeEntries] = await Promise.all([
       getJobBillsForMonth(cfg, jobId, y, m, includeDrafts, includeInvoiced),
       getJobBudget(cfg, jobId),
       getJobCostDetail(cfg, jobId),
       getJobHeaderInfo(cfg, jobId),
+      getJobTimeEntriesForMonth(cfg, jobId, y, m),
     ]);
     const lines = await getBillLinesForJob(cfg, jobId, [...new Set(bills.map((b) => b.id))]);
 
@@ -99,6 +104,7 @@ export async function GET(req: NextRequest) {
       })),
       billTotal: bills.reduce((s, b) => s + (b.cost ?? 0), 0),
       lines,
+      timeEntries,
       budget,
       costDetail,
       writesEnabled: writesEnabled(),

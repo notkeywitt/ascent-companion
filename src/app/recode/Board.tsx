@@ -77,6 +77,17 @@ interface JobBillLine {
   codeName: string;
   jobCostItemId: string | null;
 }
+interface MonthTimeEntry {
+  id: string;
+  employee: string;
+  startedAt: string | null;
+  hours: number;
+  cost: number;
+  code: string;
+  codeName: string;
+  notes: string;
+  isApproved: boolean;
+}
 interface BudgetItem {
   id: string;
   number: string;
@@ -105,6 +116,7 @@ interface BoardPayload {
   bills: BillRef[];
   billTotal: number;
   lines: JobBillLine[];
+  timeEntries: MonthTimeEntry[];
   budget: BudgetItem[];
   costDetail: { divisions: CostDivisionRow[]; budgetBasis: string };
   writesEnabled: boolean;
@@ -352,6 +364,10 @@ export function Board() {
   // header to open it. The desktop sidebar ignores this (it's always docked,
   // via the `lg:` overrides), so defaulting to collapsed is a mobile-only cost.
   const [railCollapsed, setRailCollapsed] = useState(true);
+  // The "Time & labor" block in the bills list starts collapsed to a single
+  // summary row — expand it to see each entry, same collapse-by-default
+  // pattern as the rail's divisions.
+  const [timeBlockOpen, setTimeBlockOpen] = useState(false);
 
   const dirty = staged.size > 0 || Object.keys(edits).length > 0;
   useUnsavedChanges(
@@ -634,6 +650,15 @@ export function Board() {
   useEffect(() => {
     if (openDocId && hideSunset && sunsetDocIds.has(openDocId)) setOpenDocId(null);
   }, [openDocId, hideSunset, sunsetDocIds]);
+
+  // Same "Include unapproved time" toggle the rail uses — the block's total
+  // has to agree with what the rail is counting, or the two disagree about
+  // "how much labor this month."
+  const monthTime = useMemo(
+    () => (data?.timeEntries ?? []).filter((t) => includeUnapprovedTime || t.isApproved),
+    [data, includeUnapprovedTime],
+  );
+  const monthTimeTotal = useMemo(() => monthTime.reduce((s, t) => s + t.cost, 0), [monthTime]);
 
   const openBill = data?.bills.find((b) => b.id === openDocId) ?? null;
   const openLines = openDocId ? (linesByDoc.get(openDocId) ?? []) : [];
@@ -1665,6 +1690,59 @@ export function Board() {
                   </>
                 )}
               </Banner>
+            )}
+
+            {/* ---- this month's time entries — read-only, not a drop target;
+                a time entry is coded independently of any bill and this board
+                only recodes bill lines, so it's shown for reference, not
+                dragged. ---- */}
+            {monthTime.length > 0 && (
+              <Card pad={false} className="mb-2 overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setTimeBlockOpen((v) => !v)}
+                  aria-expanded={timeBlockOpen}
+                  className="flex w-full items-baseline justify-between gap-2 px-3 py-2 text-left transition hover:bg-accent/5 dark:hover:bg-white/5"
+                >
+                  <span className="min-w-0 truncate text-sm font-semibold">
+                    <span
+                      aria-hidden
+                      className={`mr-1.5 inline-block text-[9px] text-neutral-400 transition-transform ${
+                        timeBlockOpen ? "rotate-90" : ""
+                      }`}
+                    >
+                      ▶
+                    </span>
+                    Time & labor ({monthTime.length}{" "}
+                    {monthTime.length === 1 ? "entry" : "entries"})
+                  </span>
+                  <span className="shrink-0 text-sm font-semibold tabular-nums">
+                    {money(monthTimeTotal)}
+                  </span>
+                </button>
+                {timeBlockOpen && (
+                  <ul className="border-t border-neutral-100 dark:border-neutral-800">
+                    {monthTime.map((t) => (
+                      <li
+                        key={t.id}
+                        className="flex items-baseline gap-2 border-b border-neutral-100 px-3 py-1.5 text-xs last:border-0 dark:border-neutral-800"
+                      >
+                        <span className="min-w-0 flex-1 truncate">
+                          <span className="font-medium">{t.employee}</span>
+                          <span className="ml-1 text-neutral-400">
+                            {t.startedAt ? t.startedAt.slice(0, 10) : ""} · {t.hours.toFixed(1)}h
+                            {t.code ? ` · ${t.code} ${t.codeName}` : " · uncoded"}
+                            {!t.isApproved ? " · unapproved" : ""}
+                          </span>
+                        </span>
+                        <span className="shrink-0 tabular-nums font-semibold">
+                          {money(t.cost)}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </Card>
             )}
 
             {/* ---- grouped by cost code: the drag surface ---- */}
