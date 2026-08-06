@@ -516,6 +516,17 @@ export function Board() {
       return next;
     });
 
+  // Start every division rolled up so the rail opens as a scannable index of
+  // divisions rather than a wall of codes — expand the ones you're working in.
+  // Seed once, when the job's data first arrives (railGroups is empty until
+  // then); after that the user's toggles own the state, so we don't re-collapse.
+  const didSeedCollapse = useRef(false);
+  useEffect(() => {
+    if (didSeedCollapse.current || railGroups.length === 0) return;
+    didSeedCollapse.current = true;
+    setCollapsedDivs(new Set(railGroups.map((g) => g.code)));
+  }, [railGroups]);
+
   // ---- derived: bills + their lines ---------------------------------------
   const linesByDoc = useMemo(() => {
     const m = new Map<string, JobBillLine[]>();
