@@ -1587,9 +1587,15 @@ export async function getJobBillsForMonth(
     .map((b) => {
       const vendor = String(b?.account?.name ?? b?.fromName ?? "").trim() || "Unknown vendor";
       const ref = String(b?.externalId ?? b?.number ?? "").trim();
+      // Only Sunset bills show their invoice id: a Sunset statement is a stack
+      // of many small invoices, so the invoice # is how you tell them apart.
+      // For every other vendor the invoice id is noise — the vendor name (or the
+      // bill subject) is the clearer label — so the ref is treated as absent.
+      const isSunset = /sunset/i.test(vendor);
       return {
         id: b.id,
-        label: ref ? `${vendor} · ${ref}` : (String(b?.subject ?? "").trim() || vendor),
+        label:
+          ref && isSunset ? `${vendor} · ${ref}` : (String(b?.subject ?? "").trim() || vendor),
         vendor,
         cost: typeof b?.cost === "number" ? b.cost : 0,
         status: b?.status ?? "",
