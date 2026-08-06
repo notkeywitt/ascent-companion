@@ -27,8 +27,10 @@ import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
  *  - getBillLinesForJob — the only new query; one walk for every line on those
  *    bills rather than a getBillDetail per bill.
  *
- * Invoiced bills are deliberately excluded: recoding a bill already on a customer
- * invoice changes numbers the client has been sent.
+ * Invoiced bills are excluded by default: recoding a bill already on a customer
+ * invoice changes numbers the client has been sent. `includeInvoiced=1` widens a
+ * past, fully-invoiced month back into view for the board (which renders those
+ * bills read-only) instead of leaving it empty next to its own Reconciled badge.
  */
 export async function GET(req: NextRequest) {
   if (!hasGrant()) {
@@ -41,6 +43,7 @@ export async function GET(req: NextRequest) {
   const year = Number(p.get("year")) || undefined;
   const month = Number(p.get("month")) || undefined;
   const includeDrafts = p.get("includeDrafts") !== "0"; // drafts on by default
+  const includeInvoiced = p.get("includeInvoiced") === "1";
 
   const now = new Date();
   const y = year ?? now.getFullYear();
@@ -52,7 +55,7 @@ export async function GET(req: NextRequest) {
     // Bills first — their ids scope the line query. The other three don't depend
     // on it, so they run alongside.
     const [bills, budget, costDetail, header] = await Promise.all([
-      getJobBillsForMonth(cfg, jobId, y, m, includeDrafts),
+      getJobBillsForMonth(cfg, jobId, y, m, includeDrafts, includeInvoiced),
       getJobBudget(cfg, jobId),
       getJobCostDetail(cfg, jobId),
       getJobHeaderInfo(cfg, jobId),

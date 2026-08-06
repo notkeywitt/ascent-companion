@@ -1268,6 +1268,8 @@ export interface MonthBill {
   createdAt: string | null;
   /** Fixed sales tax carved out of the bill total — the gross-up input. */
   nonRecoverableTax: number;
+  /** Already on a customer invoice — the board renders these read-only. */
+  invoiced: boolean;
 }
 
 /**
@@ -1290,6 +1292,12 @@ export interface MonthBill {
  * NOTE the billing month here is simply the month of the bill's Invoice Date. The
  * 10th-of-the-month rule is an INGESTION convention (`deriveBillingPeriod`) that
  * decides which issueDate a newly-arrived bill is given — it is not a filter.
+ *
+ * `includeInvoiced` widens the list to a past, fully-invoiced month for VIEWING
+ * (the Client Invoicing board otherwise goes empty next to its own "Reconciled"
+ * badge). Recoding an already-invoiced bill would change numbers already sent
+ * to the client, so the board renders those bills read-only rather than gating
+ * them out of the query entirely.
  */
 export async function getJobBillsForMonth(
   cfg: PaveConfig,
@@ -1297,6 +1305,7 @@ export async function getJobBillsForMonth(
   year: number,
   month: number,
   includeDrafts: boolean,
+  includeInvoiced = false,
 ): Promise<MonthBill[]> {
   const mm = String(month).padStart(2, "0");
   const first = `${year}-${mm}-01`;
@@ -1359,7 +1368,7 @@ export async function getJobBillsForMonth(
     (b.referencedDocuments?.nodes ?? []).some((n: any) => n.type === "customerInvoice");
 
   return nodes
-    .filter((b) => inMonth(b.issueDate) && !isInvoiced(b))
+    .filter((b) => inMonth(b.issueDate) && (includeInvoiced || !isInvoiced(b)))
     .map((b) => {
       const vendor = String(b?.account?.name ?? b?.fromName ?? "").trim() || "Unknown vendor";
       const ref = String(b?.externalId ?? b?.number ?? "").trim();
@@ -1372,6 +1381,7 @@ export async function getJobBillsForMonth(
         issueDate: b?.issueDate ?? null,
         createdAt: b?.createdAt ?? null,
         nonRecoverableTax: typeof b?.nonRecoverableTax === "number" ? b.nonRecoverableTax : 0,
+        invoiced: isInvoiced(b),
       };
     })
     // Newest first: the board is worked as bills arrive, so the ones that just

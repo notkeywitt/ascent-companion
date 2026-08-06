@@ -63,6 +63,7 @@ interface BillRef {
   nonRecoverableTax: number;
   saved: boolean;
   reviewed: boolean;
+  invoiced: boolean;
 }
 interface JobBillLine {
   id: string;
@@ -265,6 +266,10 @@ export function Board() {
 
   const [ym, setYm] = useState(() => params.get("ym") || defaultYm());
   const [includeDrafts, setIncludeDrafts] = useState(true);
+  // Off shows a past, fully-invoiced month's bills too (read-only — see
+  // BillRef.invoiced gating below), matching the "Uninvoiced only" toggle on
+  // /stage. Defaults on so the live coding month's behavior is unchanged.
+  const [uninvoicedOnly, setUninvoicedOnly] = useState(true);
   // Display-only filter. Defaults OFF: hiding bills by default would mean the
   // list silently disagrees with the totals until someone noticed the toggle.
   const [hideSunset, setHideSunset] = useState(false);
@@ -303,7 +308,8 @@ export function Board() {
       try {
         const r = await fetch(
           `/api/recode?jobId=${encodeURIComponent(jobId)}&year=${y}&month=${Number(m)}` +
-            `&includeDrafts=${includeDrafts ? "1" : "0"}`,
+            `&includeDrafts=${includeDrafts ? "1" : "0"}` +
+            (uninvoicedOnly ? "" : "&includeInvoiced=1"),
         );
         const j = (await r.json()) as BoardPayload;
         if (j.error) setError(j.error);
@@ -338,7 +344,7 @@ export function Board() {
         setLoading(false);
       }
     },
-    [jobId, ym, includeDrafts],
+    [jobId, ym, includeDrafts, uninvoicedOnly],
   );
 
   useEffect(() => {
@@ -834,6 +840,7 @@ export function Board() {
             cost: ls.reduce((s, l) => s + l.cost, 0),
             label: billById.get(docId)?.vendor ?? ls[0]?.name ?? "Bill",
             status: billById.get(docId)?.status ?? ls[0]?.billStatus ?? "",
+            invoiced: billById.get(docId)?.invoiced ?? false,
           }))
           .sort((a, b) => b.cost - a.cost);
         // `total` is deliberately summed over ALL stacks, not the visible ones:
@@ -1129,6 +1136,16 @@ export function Board() {
             checked={hideSunset}
             onChange={setHideSunset}
             label="Hide Sunset"
+            className="shrink-0"
+          />
+          <Toggle
+            checked={uninvoicedOnly}
+            onChange={setUninvoicedOnly}
+            label={
+              <span title="Off shows bills already on a customer invoice too, read-only — for reviewing a past, fully-invoiced month.">
+                Uninvoiced only
+              </span>
+            }
             className="shrink-0"
           />
           <div className="flex-1" />
@@ -1479,12 +1496,14 @@ export function Board() {
                             return (
                               <li key={s.key}>
                                 <div
-                                  draggable
+                                  draggable={!s.invoiced}
                                   onDragStart={beginDrag(s.lines.map((l) => l.id))}
                                   onDragEnd={endDrag}
                                   onClick={() => setOpenDocId(s.docId)}
                                   title={s.lines.map((l) => l.name).join("\n")}
-                                  className={`cursor-grab rounded-md border px-2 py-1 text-[11px] transition active:cursor-grabbing ${
+                                  className={`rounded-md border px-2 py-1 text-[11px] transition ${
+                                    s.invoiced ? "" : "cursor-grab active:cursor-grabbing"
+                                  } ${
                                     moved
                                       ? "border-amber-400 bg-amber-50 dark:border-amber-700 dark:bg-amber-950/40"
                                       : "border-neutral-200 bg-white hover:border-accent dark:border-neutral-700 dark:bg-ink-overlay"
@@ -1502,6 +1521,7 @@ export function Board() {
                                   <span className="block tabular-nums text-neutral-500">
                                     {money0(s.cost)}
                                     {s.status === "draft" && " · draft"}
+                                    {s.invoiced && " · invoiced"}
                                   </span>
                                 </div>
                               </li>
@@ -1550,11 +1570,11 @@ export function Board() {
                     <li key={b.id} id={`bill-${b.id}`} className="scroll-mt-4">
                       <Card
                         pad={false}
-                        draggable={lines.length > 0}
+                        draggable={lines.length > 0 && !b.invoiced}
                         onDragStart={beginDrag(lines.map((l) => l.id))}
                         onDragEnd={endDrag}
                         className={`flex items-stretch ${isOpen ? "ring-1 ring-accent" : ""} ${
-                          lines.length > 0 ? "cursor-grab active:cursor-grabbing" : ""
+                          lines.length > 0 && !b.invoiced ? "cursor-grab active:cursor-grabbing" : ""
                         }`}
                       >
                         <button
@@ -1569,6 +1589,14 @@ export function Board() {
                               {b.status === "draft" && (
                                 <span className="ml-2 rounded bg-neutral-200 px-1.5 py-px text-[10px] uppercase tracking-wide text-neutral-600 dark:bg-neutral-700 dark:text-neutral-300">
                                   draft
+                                </span>
+                              )}
+                              {b.invoiced && (
+                                <span
+                                  title="Already on a customer invoice — read-only"
+                                  className="ml-2 rounded bg-sky-100 px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide text-sky-700 dark:bg-sky-950/40 dark:text-sky-300"
+                                >
+                                  invoiced
                                 </span>
                               )}
                               {movedHere > 0 && (
@@ -1689,7 +1717,14 @@ export function Board() {
                   </Button>
                 </div>
 
-                {data && data.budget.length > 0 && openLines.length > 1 && (
+                {openBill.invoiced && (
+                  <Banner tone="info" className="mb-3 !py-1.5 !text-[11px]">
+                    Already on a customer invoice — coding is read-only here so recoding can&apos;t
+                    change numbers already sent to the client.
+                  </Banner>
+                )}
+
+                {!openBill.invoiced && data && data.budget.length > 0 && openLines.length > 1 && (
                   <div className="mb-3 rounded-lg border border-dashed border-neutral-300 bg-neutral-50 p-2 dark:border-neutral-700 dark:bg-ink-raised/60">
                     <span className="mb-1 block text-[10px] uppercase tracking-wide text-neutral-400">
                       Apply one code to all {openLines.length} lines
@@ -1713,7 +1748,7 @@ export function Board() {
                 {/* Combine rows: appears once 2+ of this bill's lines share a
                     code. Unlike a recode, this writes to JobTread immediately —
                     it's a structural merge, not a trial-and-error choice. */}
-                {data?.writesEnabled && anyCombinable && (
+                {!openBill.invoiced && data?.writesEnabled && anyCombinable && (
                   <div className="mb-3 rounded-lg border border-dashed border-neutral-300 bg-neutral-50 p-2 dark:border-neutral-700 dark:bg-ink-raised/60">
                     <span className="mb-1 block text-[10px] uppercase tracking-wide text-neutral-400">
                       Combine lines sharing a code
@@ -1768,7 +1803,7 @@ export function Board() {
                             bill leaves draft, so those inputs only appear on
                             drafts; re-coding still works in any status. */}
                         <div className="flex items-start gap-1.5">
-                          {data?.writesEnabled && isCombinable(l) && (
+                          {!openBill.invoiced && data?.writesEnabled && isCombinable(l) && (
                             <input
                               type="checkbox"
                               checked={combineSelected.includes(l.id)}
@@ -1835,11 +1870,17 @@ export function Board() {
                             </button>
                           )}
                         </div>
-                        <CostCodeSelect
-                          options={codeOptions}
-                          value={current}
-                          onChange={(leafId) => stageLine(l.id, leafId, l.jobCostItemId)}
-                        />
+                        {openBill.invoiced ? (
+                          <p className="rounded-md border border-neutral-200 bg-neutral-50 px-2 py-1.5 text-xs text-neutral-500 dark:border-neutral-700 dark:bg-ink-raised/60">
+                            {code || "uncoded"}
+                          </p>
+                        ) : (
+                          <CostCodeSelect
+                            options={codeOptions}
+                            value={current}
+                            onChange={(leafId) => stageLine(l.id, leafId, l.jobCostItemId)}
+                          />
+                        )}
                         {openMath.isDraft && t && (
                           /* Qty × pre-tax unit cost. The office types what
                              JobTread SHOWS (de-taxed); the save grosses every
