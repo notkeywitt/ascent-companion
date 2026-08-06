@@ -1504,6 +1504,10 @@ export function Board() {
                             {g.rows.map((h) => {
                               const left = remainingOf(h);
                               const over = left < 0;
+                              // Remaining ÷ budget — undefined without a real budget to
+                              // divide by (a labor-only or bills-only code), same guard
+                              // the Meter's own percentage uses.
+                              const pct = h.budget > 0 ? Math.round((left / h.budget) * 100) : null;
                               return (
                                 // Two lines, not four: the spent/budget breakdown
                                 // moves into the tooltip so the rail shows ~2× the
@@ -1519,6 +1523,7 @@ export function Board() {
                                     (h.drafts > 0 ? ` + ${money(h.drafts)} draft` : "") +
                                     (h.labor > 0 ? ` + ${money(h.labor)} labor` : "") +
                                     ` of ${money(h.budget)} budget\n${money(left)} remaining` +
+                                    (pct !== null ? ` (${pct}% of budget)` : "") +
                                     (h.droppable ? "" : "\nNo budget line — can't code to this")
                                   }
                                   className={`border-b border-neutral-100 px-2 py-1 pl-4 transition dark:border-neutral-800 ${
@@ -1549,6 +1554,11 @@ export function Board() {
                                         }`}
                                       >
                                         {money0(left)}
+                                        {pct !== null && (
+                                          <span className="ml-1 font-normal text-neutral-400">
+                                            {pct}%
+                                          </span>
+                                        )}
                                       </span>
                                     </div>
                                     <Meter budget={h.budget} used={usedOf(h)} label={h.code} />
