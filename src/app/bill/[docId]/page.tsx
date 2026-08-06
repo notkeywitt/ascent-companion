@@ -152,17 +152,30 @@ function BillDetail() {
   const docId = params.docId;
   const jobId = search.get("jobId") ?? "";
   // Where Back returns to. Pages that deep-link here say so with ?from=… — the
-  // Invoicing tab (/stage, re-opening this job's card) and the Sunset Statements
-  // page (/payments). Everything else comes from the coding queue.
+  // Invoicing tab (/stage, re-opening this job's card), Client Invoicing
+  // (/recode, on mobile) and the Sunset Statements page (/payments). Everything
+  // else comes from the coding queue.
   const from = search.get("from");
+  // Client Invoicing carries its billing month through so Back lands on the same
+  // month; the `#bill-<id>` anchor is the bill you tapped, so you return to your
+  // exact spot in that list.
+  const ym = search.get("ym") ?? "";
   const backHref =
     from === "stage"
       ? `/stage?jobId=${encodeURIComponent(jobId)}`
-      : from === "payments"
-        ? "/payments"
-        : `/coding?jobId=${encodeURIComponent(jobId)}`;
+      : from === "recode"
+        ? `/recode?jobId=${encodeURIComponent(jobId)}${ym ? `&ym=${encodeURIComponent(ym)}` : ""}#bill-${docId}`
+        : from === "payments"
+          ? "/payments"
+          : `/coding?jobId=${encodeURIComponent(jobId)}`;
   const backLabel =
-    from === "stage" ? "‹ Invoicing" : from === "payments" ? "‹ Sunset statements" : "‹ Coding queue";
+    from === "stage"
+      ? "‹ Invoicing"
+      : from === "recode"
+        ? "‹ Client Invoicing"
+        : from === "payments"
+          ? "‹ Sunset statements"
+          : "‹ Coding queue";
 
   const [header, setHeader] = useState<Header | null>(null);
   const [lines, setLines] = useState<Line[] | null>(null);

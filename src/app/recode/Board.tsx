@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Banner,
   Button,
@@ -237,8 +237,30 @@ function Meter({
   );
 }
 
+/**
+ * True on a phone-width screen — the same `lg` boundary this page uses to switch
+ * to its read-only single-column layout (see the "read-only view on a narrow
+ * screen" note). Below it, recoding is off and the coding drawer is hidden, so a
+ * tapped bill has nowhere useful to open; instead we send it to the full bill
+ * detail page. Starts false so server and first client render agree, then
+ * corrects in the effect.
+ */
+function useIsMobile() {
+  const [mobile, setMobile] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 1023px)");
+    const update = () => setMobile(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
+  return mobile;
+}
+
 export function Board() {
   const params = useSearchParams();
+  const router = useRouter();
+  const isMobile = useIsMobile();
   const jobId = params.get("jobId") ?? "";
 
   const [ym, setYm] = useState(() => params.get("ym") || defaultYm());
@@ -322,6 +344,23 @@ export function Board() {
   useEffect(() => {
     load();
   }, [load]);
+
+  // Returning from a bill's detail page (mobile) lands here with a `#bill-<id>`
+  // hash naming the bill that was tapped. The list renders async, so the browser
+  // can't do the hash scroll itself — do it once the bills are on screen, which
+  // drops you back at your exact spot. Guarded so it fires only on that first
+  // load, not on every later data refresh.
+  const didHashScroll = useRef(false);
+  useEffect(() => {
+    if (loading || !data || didHashScroll.current) return;
+    const hash = window.location.hash;
+    if (!hash.startsWith("#bill-")) return;
+    const el = document.getElementById(hash.slice(1));
+    if (el) {
+      didHashScroll.current = true;
+      el.scrollIntoView({ block: "center" });
+    }
+  }, [loading, data]);
 
   // ---- derived: coding targets -------------------------------------------
   const leafById = useMemo(() => {
@@ -1498,8 +1537,17 @@ export function Board() {
                     if (staged.has(l.id)) movedHere++;
                   }
                   const isOpen = openDocId === b.id;
+                  // On a phone this page is read-only and the coding drawer is
+                  // hidden, so a tapped bill opens its full detail page instead of
+                  // the (invisible) drawer. `from=recode` + `ym` + the `#bill-…`
+                  // anchor let its back arrow return to this exact spot.
+                  const openBillDetail = () =>
+                    router.push(
+                      `/bill/${b.id}?jobId=${encodeURIComponent(jobId)}&from=recode` +
+                        `&ym=${encodeURIComponent(ym)}`,
+                    );
                   return (
-                    <li key={b.id}>
+                    <li key={b.id} id={`bill-${b.id}`} className="scroll-mt-4">
                       <Card
                         pad={false}
                         draggable={lines.length > 0}
@@ -1511,8 +1559,8 @@ export function Board() {
                       >
                         <button
                           type="button"
-                          onClick={() => setOpenDocId(isOpen ? null : b.id)}
-                          aria-expanded={isOpen}
+                          onClick={() => (isMobile ? openBillDetail() : setOpenDocId(isOpen ? null : b.id))}
+                          aria-expanded={isMobile ? undefined : isOpen}
                           className="min-w-0 flex-1 p-3 text-left transition hover:bg-accent/5 dark:hover:bg-white/5"
                         >
                           <span className="flex items-baseline justify-between gap-3">
