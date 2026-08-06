@@ -1970,22 +1970,31 @@ export function Board() {
           </section>
 
           {/* ─────────── RIGHT: coding drawer ─────────── */}
-          {/* `self-start`, same reason as the rail: without it, this section
-              stretches to the row's full height and its sticky child has no
-              room to actually travel/stick within. */}
-          <section className="hidden min-w-0 xl:block xl:self-start">
+          {/* `sticky` + the dynamic `top` live on the SECTION itself (the
+              actual grid item), not on a card nested inside it — a sticky
+              descendant is bounded by its own immediate containing block, and
+              a plain wrapper div only grows to fit its own (short) content,
+              so a sticky child inside one runs out of room to travel almost
+              immediately and just scrolls away past that point. Putting it on
+              the grid item gives it the full row height to stick within,
+              same as the rail. Confirmed with an isolated repro 2026-08-06 —
+              the nested-Card version measurably stopped sticking after
+              ~460px of scroll. `self-start` keeps this item from stretching
+              to the row's height in the first place. */}
+          <section
+            className="hidden min-w-0 xl:block xl:sticky xl:self-start"
+            style={{ top: codingTop }}
+          >
             <SectionLabel className="mb-2">Coding</SectionLabel>
             {!openBill ? (
               <EmptyState>Select a bill to edit its coding.</EmptyState>
             ) : (
-              // Sticky at `codingTop` — the clicked row's own position at the
-              // moment it was selected — so the drawer opens level with it
-              // instead of snapping to the page's top. Height-capped to
-              // whatever room is left below that point so a long bill still
-              // scrolls (within the drawer) rather than running off-screen.
+              // Height-capped to whatever room is left below `codingTop` so a
+              // long bill still scrolls (within the card) instead of running
+              // off-screen — independent of the section's own sticky position.
               <Card
-                className="sticky overflow-y-auto"
-                style={{ top: codingTop, maxHeight: `calc(100vh - ${codingTop}px - 1rem)` }}
+                className="overflow-y-auto"
+                style={{ maxHeight: `calc(100vh - ${codingTop}px - 1rem)` }}
               >
                 <div className="flex items-baseline justify-between gap-2">
                   <p className="min-w-0 truncate text-sm font-semibold">{openBill.label}</p>
