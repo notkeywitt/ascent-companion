@@ -107,7 +107,12 @@ const _jobCostKey = (kind: string, orgId: string, jobId: string) => `${kind}:${o
  */
 export function clearJobCostCaches(): void {
   for (const key of _refCache.keys()) {
-    if (key.startsWith("budget:") || key.startsWith("ctc:") || key.startsWith("costdetail:")) {
+    if (
+      key.startsWith("budget:") ||
+      key.startsWith("ctc:") ||
+      key.startsWith("costdetail:") ||
+      key.startsWith("contributors:")
+    ) {
       _refCache.delete(key);
     }
   }
@@ -1254,6 +1259,176 @@ async function _getJobCostDetailUncached(cfg: PaveConfig, jobId: string): Promis
     currentInvoiceLabel,
     degraded,
   };
+}
+
+/** One vendor-bill line behind a cost code's "bills" total in getJobCostDetail. */
+export interface CostCodeBillContributor {
+  id: string; // costItemId — matches JobBillLine.id, so a staged (unsynced) recode can be reconciled
+  docId: string;
+  code: string; // costCode.number, so the client groups without a second fetch
+  vendor: string;
+  label: string; // invoice # / externalId, falling back to the vendor
+  issueDate: string | null;
+  status: string; // draft | pending | approved
+  lineName: string;
+  cost: number;
+}
+
+/** One time entry behind a cost code's "labor" total in getJobCostDetail. */
+export interface CostCodeTimeContributor {
+  id: string;
+  code: string;
+  employee: string;
+  startedAt: string | null;
+  hours: number;
+  cost: number;
+  notes: string;
+}
+
+export interface JobCostContributors {
+  bills: CostCodeBillContributor[];
+  time: CostCodeTimeContributor[];
+}
+
+/**
+ * Every individual vendor-bill line and time entry behind getJobCostDetail's
+ * per-code "bills" and "labor" totals — that function only ever returns the
+ * sum (`_sumCostByCostCode` / `_sumTimeByCostCode` group server-side), so this
+ * is what the Invoicing board's cost-code rail drills into on a click.
+ *
+ * Bills reuse the exact CTC_ACTUAL_WHERE predicate the totals are built from,
+ * fetched at line granularity instead of grouped, with the same document
+ * identity fields `getJobBillsForMonth` already reads (account/fromName,
+ * externalId/number/subject, issueDate, status) — no new field, just a new
+ * combination of already-confirmed ones. Time entries reuse the exact
+ * unfiltered node shape `getUninvoicedBills` already fetches for the whole
+ * job; grouping by cost code happens here instead of by month there.
+ *
+ * Fetched once per job (not once per code — the whole job's contributors come
+ * back together and the client slices by `code`), and cached alongside
+ * budget/CTC/costDetail at JOB_COST_TTL_MS, cleared by clearJobCostCaches().
+ */
+export function getJobCostContributors(
+  cfg: PaveConfig,
+  jobId: string,
+): Promise<JobCostContributors> {
+  return cachedRef(_jobCostKey("contributors", cfg.orgId, jobId), JOB_COST_TTL_MS, () =>
+    _getJobCostContributorsUncached(cfg, jobId),
+  );
+}
+async function _getJobCostContributorsUncached(
+  cfg: PaveConfig,
+  jobId: string,
+): Promise<JobCostContributors> {
+  const billNodes: any[] = [];
+  {
+    let cursor: string | null = null;
+    for (let page = 0; page < 30; page++) {
+      const args: Record<string, unknown> = { size: 100, where: CTC_ACTUAL_WHERE };
+      if (cursor) args.page = cursor;
+      const r = await pave(cfg, {
+        job: {
+          $: { id: jobId },
+          id: {},
+          costItems: {
+            $: args,
+            nextPage: {},
+            nodes: {
+              id: {},
+              name: {},
+              cost: {},
+              costCode: { number: {} },
+              document: {
+                id: {},
+                status: {},
+                issueDate: {},
+                createdAt: {},
+                externalId: {},
+                number: {},
+                subject: {},
+                fromName: {},
+                account: { name: {} },
+              },
+            },
+          },
+        },
+      });
+      const co = r?.job?.costItems ?? {};
+      billNodes.push(...(co.nodes ?? []));
+      cursor = co.nextPage ?? null;
+      if (!cursor) break;
+    }
+  }
+
+  const timeNodes: any[] = [];
+  {
+    let cursor: string | null = null;
+    for (let page = 0; page < 30; page++) {
+      const args: Record<string, unknown> = { size: 100 };
+      if (cursor) args.page = cursor;
+      const r = await pave(cfg, {
+        job: {
+          $: { id: jobId },
+          id: {},
+          timeEntries: {
+            $: args,
+            nextPage: {},
+            nodes: {
+              id: {},
+              cost: {},
+              startedAt: {},
+              minutes: {},
+              notes: {},
+              user: { name: {} },
+              costItem: { costCode: { number: {} } },
+            },
+          },
+        },
+      });
+      const tc = r?.job?.timeEntries ?? {};
+      timeNodes.push(...(tc.nodes ?? []));
+      cursor = tc.nextPage ?? null;
+      if (!cursor) break;
+    }
+  }
+
+  const bills: CostCodeBillContributor[] = billNodes
+    .map((n) => {
+      const d = n.document ?? {};
+      const vendor = String(d?.account?.name ?? d?.fromName ?? "").trim() || "Unknown vendor";
+      const ref = String(d?.externalId ?? d?.number ?? "").trim();
+      return {
+        id: n.id,
+        docId: d.id,
+        code: String(n?.costCode?.number ?? "").trim(),
+        vendor,
+        label: ref ? `${vendor} · ${ref}` : String(d?.subject ?? "").trim() || vendor,
+        issueDate: d.issueDate ?? null,
+        status: d.status ?? "",
+        lineName: String(n?.name ?? "").trim(),
+        cost: typeof n?.cost === "number" ? n.cost : 0,
+      };
+    })
+    .filter((b) => b.code)
+    .sort(
+      (a, b) =>
+        String(b.issueDate ?? "").localeCompare(String(a.issueDate ?? "")) || b.cost - a.cost,
+    );
+
+  const time: CostCodeTimeContributor[] = timeNodes
+    .map((n) => ({
+      id: n.id,
+      code: String(n?.costItem?.costCode?.number ?? "").trim(),
+      employee: n?.user?.name ?? "Unknown",
+      startedAt: n.startedAt ?? null,
+      hours: (n.minutes ?? 0) / 60,
+      cost: typeof n?.cost === "number" ? n.cost : 0,
+      notes: String(n?.notes ?? "").trim(),
+    }))
+    .filter((t) => t.code)
+    .sort((a, b) => String(b.startedAt ?? "").localeCompare(String(a.startedAt ?? "")));
+
+  return { bills, time };
 }
 
 /** A bill as the coding board lists it — no CSI rollup, that comes from its lines. */

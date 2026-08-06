@@ -110,6 +110,44 @@ interface BoardPayload {
   error?: string;
 }
 
+/** One vendor-bill line behind a cost code's "bills" total — from /api/recode/contributors. */
+interface CostCodeBillContributor {
+  id: string; // costItemId — matches JobBillLine.id for staged-recode reconciliation
+  docId: string;
+  code: string;
+  vendor: string;
+  label: string;
+  issueDate: string | null;
+  status: string;
+  lineName: string;
+  cost: number;
+}
+/** One time entry behind a cost code's "labor" total — from /api/recode/contributors. */
+interface CostCodeTimeContributor {
+  id: string;
+  code: string;
+  employee: string;
+  startedAt: string | null;
+  hours: number;
+  cost: number;
+  notes: string;
+}
+interface JobCostContributors {
+  bills: CostCodeBillContributor[];
+  time: CostCodeTimeContributor[];
+}
+/** One row in the drill-down's bill list — a committed bill from JobTread, or a still-open draft. */
+interface DrillBillRow {
+  key: string;
+  docId: string;
+  vendor: string;
+  lineName: string;
+  issueDate: string | null;
+  status: string;
+  cost: number;
+  draft: boolean;
+}
+
 const money = (n: number) =>
   `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const money0 = (n: number) =>
@@ -940,6 +978,90 @@ export function Board() {
   /** Set when a drop lands on a code with several distinguishable leaves. */
   const [leafPicker, setLeafPicker] = useState<{ code: string; lineIds: string[] } | null>(null);
 
+  // ---- cost-code drill-down: which bills/time entries make up a total -----
+  /** The rail code currently open in the drill-down modal, or null when closed. */
+  const [codeDrill, setCodeDrill] = useState<string | null>(null);
+  // The whole job's contributors come back in one fetch (see
+  // getJobCostContributors) and are cached here so opening a second code is
+  // instant; tagged with the jobId they belong to so switching jobs can't
+  // serve a stale job's bills under the new job's codes.
+  const [contributors, setContributors] = useState<{
+    jobId: string;
+    data: JobCostContributors;
+  } | null>(null);
+  const [contributorsLoading, setContributorsLoading] = useState(false);
+  const [contributorsError, setContributorsError] = useState("");
+
+  const openCodeDrill = useCallback(
+    (code: string) => {
+      setCodeDrill(code);
+      if (!jobId || contributorsLoading || contributors?.jobId === jobId) return;
+      setContributorsLoading(true);
+      setContributorsError("");
+      fetch(`/api/recode/contributors?jobId=${encodeURIComponent(jobId)}`)
+        .then((r) => r.json())
+        .then((j) => {
+          if (j.error) throw new Error(j.error);
+          setContributors({ jobId, data: j as JobCostContributors });
+        })
+        .catch((e) => setContributorsError(e instanceof Error ? e.message : "Failed to load"))
+        .finally(() => setContributorsLoading(false));
+    },
+    [jobId, contributors, contributorsLoading],
+  );
+
+  const billsById = useMemo(() => new Map((data?.bills ?? []).map((b) => [b.id, b])), [data]);
+
+  /**
+   * Committed bills, reconciled against any staged-but-not-synced recode: a
+   * contributor row is JobTread's TRUE current code (`b.code`), but if its line
+   * has been dragged elsewhere in this session, `staged` already moved it in
+   * the rail's own numbers (see the `headroom` memo) — so the drill-down must
+   * follow the same staged code, or it would list a bill under a code the rail
+   * no longer counts it toward.
+   */
+  const drillBills = useMemo((): DrillBillRow[] => {
+    if (!codeDrill) return [];
+    const committed = (contributors?.data.bills ?? [])
+      .filter((b) => {
+        const leaf = staged.get(b.id);
+        const effective = leaf ? leafById.get(leaf)?.number ?? b.code : b.code;
+        return effective === codeDrill;
+      })
+      .map((b): DrillBillRow => ({
+        key: b.id,
+        docId: b.docId,
+        vendor: b.vendor,
+        lineName: b.lineName,
+        issueDate: b.issueDate,
+        status: b.status,
+        cost: b.cost,
+        draft: false,
+      }));
+    const drafts = (data?.lines ?? [])
+      .filter((l) => !isCommitted(l.billStatus) && codeOf(l) === codeDrill)
+      .map((l): DrillBillRow => ({
+        key: l.id,
+        docId: l.docId,
+        vendor: billsById.get(l.docId)?.vendor ?? l.name,
+        lineName: l.name,
+        issueDate: billsById.get(l.docId)?.issueDate ?? null,
+        status: l.billStatus,
+        cost: l.cost,
+        draft: true,
+      }));
+    return [...committed, ...drafts].sort(
+      (a, b) => String(b.issueDate ?? "").localeCompare(String(a.issueDate ?? "")) || b.cost - a.cost,
+    );
+  }, [contributors, codeDrill, staged, leafById, data, billsById]);
+
+  // Labor is coded independently of any bill and never moves with a staged
+  // recode (see the `usedOf` note above), so this needs no staged reconciliation.
+  const drillTime = useMemo(
+    () => contributors?.data.time.filter((t) => t.code === codeDrill) ?? [],
+    [contributors, codeDrill],
+  );
+
   const beginDrag = (lineIds: string[]) => (e: React.DragEvent) => {
     setDragLineIds(lineIds);
     e.dataTransfer.effectAllowed = "move";
@@ -1407,24 +1529,30 @@ export function Board() {
                                         : ""
                                   }`}
                                 >
-                                  <div className="flex items-baseline justify-between gap-2">
-                                    <span className="min-w-0 truncate text-xs">
-                                      <span className="tabular-nums text-neutral-500">
-                                        {h.code}
-                                      </span>{" "}
-                                      <span className={h.droppable ? "" : "text-neutral-400"}>
-                                        {h.name}
+                                  <button
+                                    type="button"
+                                    onClick={() => openCodeDrill(h.code)}
+                                    className="w-full text-left transition hover:opacity-70"
+                                  >
+                                    <div className="flex items-baseline justify-between gap-2">
+                                      <span className="min-w-0 truncate text-xs">
+                                        <span className="tabular-nums text-neutral-500">
+                                          {h.code}
+                                        </span>{" "}
+                                        <span className={h.droppable ? "" : "text-neutral-400"}>
+                                          {h.name}
+                                        </span>
                                       </span>
-                                    </span>
-                                    <span
-                                      className={`shrink-0 text-xs font-semibold tabular-nums ${
-                                        over ? "text-red-600 dark:text-red-400" : ""
-                                      }`}
-                                    >
-                                      {money0(left)}
-                                    </span>
-                                  </div>
-                                  <Meter budget={h.budget} used={usedOf(h)} label={h.code} />
+                                      <span
+                                        className={`shrink-0 text-xs font-semibold tabular-nums ${
+                                          over ? "text-red-600 dark:text-red-400" : ""
+                                        }`}
+                                      >
+                                        {money0(left)}
+                                      </span>
+                                    </div>
+                                    <Meter budget={h.budget} used={usedOf(h)} label={h.code} />
+                                  </button>
                                 </li>
                               );
                             })}
@@ -2017,6 +2145,130 @@ export function Board() {
               </Card>
             )}
           </section>
+        </div>
+      )}
+
+      {/* Cost-code drill-down: every bill and time entry behind a rail row's
+          total, so "why is this over budget" doesn't require a trip to the
+          Tracking Sheet. */}
+      {codeDrill && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setCodeDrill(null)}
+        >
+          <Card
+            className="w-full max-w-lg max-h-[85vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {(() => {
+              const h = headroom.get(codeDrill);
+              return (
+                <>
+                  <div className="flex items-baseline justify-between gap-2">
+                    <p className="min-w-0 truncate text-sm font-semibold">
+                      <span className="tabular-nums text-neutral-500">{codeDrill}</span>{" "}
+                      {h?.name ?? ""}
+                    </p>
+                    <Button variant="secondary" size="sm" onClick={() => setCodeDrill(null)}>
+                      Close
+                    </Button>
+                  </div>
+                  {h && (
+                    <p className="mb-3 text-xs text-neutral-500">
+                      {money(h.spent)} committed
+                      {h.drafts > 0 ? ` + ${money(h.drafts)} draft` : ""}
+                      {h.labor > 0 ? ` + ${money(h.labor)} labor` : ""}
+                      {` of ${money(h.budget)} budget · `}
+                      <span
+                        className={
+                          remainingOf(h) < 0 ? "font-semibold text-red-600 dark:text-red-400" : ""
+                        }
+                      >
+                        {money(remainingOf(h))} remaining
+                      </span>
+                    </p>
+                  )}
+
+                  {contributorsLoading ? (
+                    <Loading label="Loading bills and time entries…" />
+                  ) : contributorsError ? (
+                    <Banner tone="error">{contributorsError}</Banner>
+                  ) : (
+                    <div className="space-y-4">
+                      <div>
+                        <p className="mb-1 text-xs font-semibold text-neutral-500">
+                          Bills ({drillBills.length})
+                        </p>
+                        {drillBills.length === 0 ? (
+                          <p className="text-xs text-neutral-400">No bills coded to this code.</p>
+                        ) : (
+                          <ul className="space-y-1">
+                            {drillBills.map((b) => (
+                              <li
+                                key={b.key}
+                                className="flex items-baseline gap-2 rounded-md border border-neutral-100 px-2 py-1.5 text-xs dark:border-neutral-800"
+                              >
+                                <span className="min-w-0 flex-1 truncate">
+                                  <span className="font-medium">{b.vendor}</span>
+                                  {b.lineName && b.lineName !== b.vendor ? ` · ${b.lineName}` : ""}
+                                  <span className="ml-1 text-neutral-400">
+                                    {b.issueDate ?? ""}
+                                    {b.draft ? " · draft, not yet synced" : b.status ? ` · ${b.status}` : ""}
+                                  </span>
+                                </span>
+                                <span className="shrink-0 tabular-nums font-semibold">
+                                  {money(b.cost)}
+                                </span>
+                                {!b.draft && (
+                                  <JtLink
+                                    href={`https://app.jobtread.com/jobs/${jobId}/documents/${b.docId}`}
+                                    className="shrink-0 font-semibold text-neutral-400 transition hover:text-accent"
+                                  >
+                                    JT ↗
+                                  </JtLink>
+                                )}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+
+                      <div>
+                        <p className="mb-1 text-xs font-semibold text-neutral-500">
+                          Time entries ({drillTime.length})
+                        </p>
+                        {drillTime.length === 0 ? (
+                          <p className="text-xs text-neutral-400">No time logged to this code.</p>
+                        ) : (
+                          <ul className="space-y-1">
+                            {drillTime.map((t) => (
+                              <li
+                                key={t.id}
+                                className="flex items-baseline gap-2 rounded-md border border-neutral-100 px-2 py-1.5 text-xs dark:border-neutral-800"
+                              >
+                                <span className="min-w-0 flex-1 truncate">
+                                  <span className="font-medium">{t.employee}</span>
+                                  <span className="ml-1 text-neutral-400">
+                                    {t.startedAt ? t.startedAt.slice(0, 10) : ""} ·{" "}
+                                    {t.hours.toFixed(1)}h
+                                  </span>
+                                </span>
+                                <span className="shrink-0 tabular-nums font-semibold">
+                                  {money(t.cost)}
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
+          </Card>
         </div>
       )}
 
