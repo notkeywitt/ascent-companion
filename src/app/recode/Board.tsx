@@ -292,6 +292,11 @@ export function Board() {
   // Divisions the user has rolled up. Empty = all open, so the rail keeps
   // showing every code until it's deliberately tidied.
   const [collapsedDivs, setCollapsedDivs] = useState<Set<string>>(new Set());
+  // Mobile-only: roll the whole cost-code rail away. On a phone it stacks on
+  // top of the bills, so it starts collapsed to land you on the list — tap the
+  // header to open it. The desktop sidebar ignores this (it's always docked,
+  // via the `lg:` overrides), so defaulting to collapsed is a mobile-only cost.
+  const [railCollapsed, setRailCollapsed] = useState(true);
 
   const dirty = staged.size > 0 || Object.keys(edits).length > 0;
   useUnsavedChanges(
@@ -516,6 +521,17 @@ export function Board() {
       else next.add(code);
       return next;
     });
+
+  // Start every division rolled up so the rail opens as a scannable index of
+  // divisions rather than a wall of codes — expand the ones you're working in.
+  // Seed once, when the job's data first arrives (railGroups is empty until
+  // then); after that the user's toggles own the state, so we don't re-collapse.
+  const didSeedCollapse = useRef(false);
+  useEffect(() => {
+    if (didSeedCollapse.current || railGroups.length === 0) return;
+    didSeedCollapse.current = true;
+    setCollapsedDivs(new Set(railGroups.map((g) => g.code)));
+  }, [railGroups]);
 
   // ---- derived: bills + their lines ---------------------------------------
   const linesByDoc = useMemo(() => {
@@ -1263,7 +1279,25 @@ export function Board() {
               default, leaving nothing to scroll within. */}
           <section className="min-w-0 lg:sticky lg:top-4 lg:self-start">
             <div className="mb-2 flex items-baseline justify-between gap-2">
-              <SectionLabel>Cost codes · budget remaining</SectionLabel>
+              {/* On mobile the label itself is the toggle for the whole rail;
+                  on desktop the rail is always docked, so the tap is disabled
+                  and the chevron hidden. */}
+              <button
+                type="button"
+                onClick={() => setRailCollapsed((v) => !v)}
+                aria-expanded={!railCollapsed}
+                className="flex min-w-0 items-baseline gap-1.5 text-left lg:pointer-events-none"
+              >
+                <span
+                  aria-hidden
+                  className={`shrink-0 text-[9px] text-neutral-400 transition-transform lg:hidden ${
+                    railCollapsed ? "" : "rotate-90"
+                  }`}
+                >
+                  ▶
+                </span>
+                <SectionLabel>Cost codes · budget remaining</SectionLabel>
+              </button>
               <button
                 type="button"
                 onClick={() =>
@@ -1271,12 +1305,17 @@ export function Board() {
                     prev.size > 0 ? new Set() : new Set(railGroups.map((g) => g.code)),
                   )
                 }
-                className="shrink-0 text-[11px] text-neutral-500 transition hover:text-accent"
+                className={`shrink-0 text-[11px] text-neutral-500 transition hover:text-accent ${
+                  railCollapsed ? "hidden lg:block" : ""
+                }`}
               >
                 {collapsedDivs.size > 0 ? "Expand all" : "Collapse all"}
               </button>
             </div>
-            <Card pad={false} className="overflow-hidden">
+            <Card
+              pad={false}
+              className={`overflow-hidden ${railCollapsed ? "hidden lg:block" : ""}`}
+            >
               <input
                 type="search"
                 value={codeQuery}
@@ -1397,7 +1436,11 @@ export function Board() {
                 )}
               </div>
             </Card>
-            <p className="mt-2 text-[11px] leading-relaxed text-neutral-400">
+            <p
+              className={`mt-2 text-[11px] leading-relaxed text-neutral-400 ${
+                railCollapsed ? "hidden lg:block" : ""
+              }`}
+            >
               Remaining = budget − committed − this month&apos;s drafts − labor. Committed is
               approved and pending bills across all time; drafts aren&apos;t committed spend yet;
               labor is logged time entries, which a customer invoice bills alongside the bills.
