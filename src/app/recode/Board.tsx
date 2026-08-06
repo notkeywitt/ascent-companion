@@ -288,9 +288,10 @@ export function Board() {
   // showing every code until it's deliberately tidied.
   const [collapsedDivs, setCollapsedDivs] = useState<Set<string>>(new Set());
   // Mobile-only: roll the whole cost-code rail away. On a phone it stacks on
-  // top of the bills, so collapsing it is the fast way down to the list. The
-  // desktop sidebar ignores this (it's always docked), hence `lg:` overrides.
-  const [railCollapsed, setRailCollapsed] = useState(false);
+  // top of the bills, so it starts collapsed to land you on the list — tap the
+  // header to open it. The desktop sidebar ignores this (it's always docked,
+  // via the `lg:` overrides), so defaulting to collapsed is a mobile-only cost.
+  const [railCollapsed, setRailCollapsed] = useState(true);
 
   const dirty = staged.size > 0 || Object.keys(edits).length > 0;
   useUnsavedChanges(
