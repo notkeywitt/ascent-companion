@@ -339,16 +339,6 @@ export function Board() {
   /** costItemId → in-flight description / qty / unit-cost text, draft bills only. */
   const [edits, setEdits] = useState<Record<string, LineEdit | undefined>>({});
   const [openDocId, setOpenDocId] = useState<string | null>(null);
-  // Where the coding drawer's sticky top lands — set to whatever row was just
-  // clicked, so the drawer opens level with it instead of always snapping back
-  // to the top of the page (its default sticky position, which for a bill
-  // clicked far down a long list is off-screen above the fold).
-  const [codingTop, setCodingTop] = useState(16);
-  const selectBill = (nextId: string | null, e: React.MouseEvent) => {
-    const top = e.currentTarget.getBoundingClientRect().top;
-    setCodingTop(Math.max(16, Math.min(top, window.innerHeight - 200)));
-    setOpenDocId(nextId);
-  };
   const [mode, setMode] = useState<"bill" | "code">("bill");
   // Lifted out of the reconcile rectangle so the header can show the same
   // authoritative "to be invoiced" figure without fetching it twice.
@@ -1787,7 +1777,7 @@ export function Board() {
                                   draggable={!s.invoiced}
                                   onDragStart={beginDrag(s.lines.map((l) => l.id))}
                                   onDragEnd={endDrag}
-                                  onClick={(e) => selectBill(s.docId, e)}
+                                  onClick={() => setOpenDocId(s.docId)}
                                   title={s.lines.map((l) => l.name).join("\n")}
                                   className={`rounded-md border px-2 py-1 text-[11px] transition ${
                                     s.invoiced ? "" : "cursor-grab active:cursor-grabbing"
@@ -1867,8 +1857,8 @@ export function Board() {
                       >
                         <button
                           type="button"
-                          onClick={(e) =>
-                            isMobile ? openBillDetail() : selectBill(isOpen ? null : b.id, e)
+                          onClick={() =>
+                            isMobile ? openBillDetail() : setOpenDocId(isOpen ? null : b.id)
                           }
                           aria-expanded={isMobile ? undefined : isOpen}
                           className="min-w-0 flex-1 p-3 text-left transition hover:bg-accent/5 dark:hover:bg-white/5"
@@ -1970,32 +1960,28 @@ export function Board() {
           </section>
 
           {/* ─────────── RIGHT: coding drawer ─────────── */}
-          {/* `sticky` + the dynamic `top` live on the SECTION itself (the
-              actual grid item), not on a card nested inside it — a sticky
-              descendant is bounded by its own immediate containing block, and
-              a plain wrapper div only grows to fit its own (short) content,
-              so a sticky child inside one runs out of room to travel almost
+          {/* `sticky` + `top` live on the SECTION itself (the actual grid
+              item), not on a card nested inside it — a sticky descendant is
+              bounded by its own immediate containing block, and a plain
+              wrapper div only grows to fit its own (short) content, so a
+              sticky child inside one runs out of room to travel almost
               immediately and just scrolls away past that point. Putting it on
               the grid item gives it the full row height to stick within,
               same as the rail. Confirmed with an isolated repro 2026-08-06 —
               the nested-Card version measurably stopped sticking after
               ~460px of scroll. `self-start` keeps this item from stretching
-              to the row's height in the first place. */}
-          <section
-            className="hidden min-w-0 xl:block xl:sticky xl:self-start"
-            style={{ top: codingTop }}
-          >
+              to the row's height in the first place. Opens level with the top
+              of the screen (not the clicked bill) — simpler and more
+              predictable than tracking the click position. */}
+          <section className="hidden min-w-0 xl:block xl:sticky xl:top-4 xl:self-start">
             <SectionLabel className="mb-2">Coding</SectionLabel>
             {!openBill ? (
               <EmptyState>Select a bill to edit its coding.</EmptyState>
             ) : (
-              // Height-capped to whatever room is left below `codingTop` so a
+              // Height-capped to the room left below the sticky top-4 so a
               // long bill still scrolls (within the card) instead of running
               // off-screen — independent of the section's own sticky position.
-              <Card
-                className="overflow-y-auto"
-                style={{ maxHeight: `calc(100vh - ${codingTop}px - 1rem)` }}
-              >
+              <Card className="max-h-[calc(100vh-2rem)] overflow-y-auto">
                 <div className="flex items-baseline justify-between gap-2">
                   <p className="min-w-0 truncate text-sm font-semibold">{openBill.label}</p>
                   <JtLink
