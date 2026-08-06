@@ -468,6 +468,53 @@ function Stage() {
     [],
   );
 
+  // Every job in this month's roster that has a tracking sheet — what "Sync
+  // All" fans out to. Mirrors the per-card gate (`trackingTargets.has(r.jobId)`)
+  // so bulk sync never touches a job the page isn't currently showing.
+  const trackableTargets = useMemo(
+    () =>
+      (rows ?? [])
+        .map((r) => trackingTargets.get(r.jobId))
+        .filter((t): t is TrackingTarget => !!t),
+    [rows, trackingTargets],
+  );
+
+  const trackingSummary = useMemo(() => {
+    let queued = 0,
+      running = 0,
+      done = 0,
+      error = 0;
+    for (const t of trackableTargets) {
+      switch (trackingSync[t.projectId]?.status) {
+        case "queued":
+          queued++;
+          break;
+        case "running":
+          running++;
+          break;
+        case "done":
+          done++;
+          break;
+        case "error":
+          error++;
+          break;
+      }
+    }
+    return { queued, running, done, error, total: trackableTargets.length };
+  }, [trackableTargets, trackingSync]);
+
+  const syncAllBusy = trackingSummary.queued + trackingSummary.running > 0;
+
+  // Fires the same per-project sync used by each card's own button, once per
+  // tracked job — the shared task runner (createTaskRunner(3) inside
+  // TrackingSheetSync.tsx) still caps it at 3 concurrent Apps Script round
+  // trips, so this is safe to fire all at once.
+  const startAllTrackingSync = useCallback(() => {
+    const month = Number(ym.split("-")[1]);
+    const year = Number(ym.split("-")[0]);
+    for (const t of trackableTargets) startTrackingSync(t, month, year);
+  }, [trackableTargets, startTrackingSync, ym]);
+
   // A month change invalidates every result on screen — they describe another
   // billing period.
   useEffect(() => { setTrackingSync({}); }, [ym]);
@@ -604,8 +651,40 @@ function Stage() {
       <PageHeader
         title="Invoicing"
         description="Every client invoice to stage this month — one card per job. Open a card to see the bills, cost-code breakdown, and time behind its total, then create the invoice in JobTread."
+        actions={
+          canTrack && trackableTargets.length > 0 ? (
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={syncAllBusy}
+              onClick={startAllTrackingSync}
+            >
+              {syncAllBusy ? (
+                <>
+                  <Spinner className="mr-1.5" />
+                  Syncing {trackingSummary.done + trackingSummary.error}/{trackingSummary.total}…
+                </>
+              ) : (
+                "Sync All Tracking Sheets"
+              )}
+            </Button>
+          ) : undefined
+        }
         className="!mb-4"
       />
+
+      {!syncAllBusy && (trackingSummary.done > 0 || trackingSummary.error > 0) && (
+        <p className="-mt-2 mb-4 text-xs text-neutral-500">
+          Tracking sheets: {trackingSummary.done} synced
+          {trackingSummary.error > 0 && (
+            <span className="text-red-600 dark:text-red-400">
+              {" "}
+              · {trackingSummary.error} failed
+            </span>
+          )}
+          {" — expand a job to see details."}
+        </p>
+      )}
 
       <div className="mb-3">
         <Label>Billing month</Label>
