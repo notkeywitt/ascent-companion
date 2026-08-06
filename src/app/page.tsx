@@ -200,6 +200,7 @@ const AREAS: Area[] = [
     dests: [
       { label: "Unbilled", href: "/unbilled", desc: "Uninvoiced expenses by cost code", view: "unbilled" },
       { label: "Email Invoices", href: "/email", desc: "Log invoices from the office inbox", view: "email" },
+      { label: "Auto-Ingest Senders", href: "/email-senders", desc: "Register vendors whose emails import automatically", view: "email-senders" },
       { label: "Needs Project", href: "/needs-project", desc: "Ingested bills with no job yet", view: "needs-project" },
       { label: "Amazon Import", href: "/amazon-import", desc: "Monthly Amazon report → batch of bills", view: "amazon-import" },
       { label: "Assistant", href: "/chat", desc: "Ask about a job's bills or budget", view: "chat" },

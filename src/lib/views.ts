@@ -97,6 +97,11 @@ export const VIEWS: ViewDef[] = [
   // /api/labor-rates/* routes (catalog CRUD, member list, and the JobTread write)
   // so a non-office user can't read or edit pay rates via the routes directly.
   { id: "labor-rates", label: "Labor Rates", group: "Office", paths: ["/labor-rates", "/api/labor-rates"] },
+  // Register vendor email senders for automatic bill ingestion. The API prefix is
+  // listed alongside the page so a non-office user can't read/edit the registry
+  // (or resolve arbitrary emails) by calling the route directly. Office+admin by
+  // default (not in FIELD/LEAD sets, not in ADMIN_MENU).
+  { id: "email-senders", label: "Auto-Ingest Senders", group: "Office", paths: ["/email-senders", "/api/email-senders"] },
   // Accrual management APIs — office/admin only (no field grant, not admin-only,
   // so office gets it by default). No page of its own; the office controls live
   // on the shared /time-off page and call these routes.
