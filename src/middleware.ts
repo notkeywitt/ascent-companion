@@ -25,7 +25,7 @@ export default auth(async (req) => {
   if (req.auth?.user) {
     if (!viewId) return NextResponse.next(); // ungated route
     const u = req.auth.user;
-    const allowed = resolveAllowedViews(u.role, u.viewsAllow, u.viewsDeny);
+    const allowed = resolveAllowedViews(u.role, u.viewsAllow, u.viewsDeny, u.roleBase);
     return allowed.has(viewId) ? NextResponse.next() : forbidden();
   }
 

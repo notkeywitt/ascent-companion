@@ -1,6 +1,6 @@
 import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
-import type { Role } from "@/lib/views";
+import { ROLE_VIEWS, resolveAllowedViews, type Role } from "@/lib/views";
 
 /** Emails always allowed (env — the founders / bootstrap). Treated as admins. */
 export function envAllowed(): string[] {
@@ -20,16 +20,41 @@ function parseIds(s: string | null | undefined): string[] {
 }
 
 /**
- * Resolve a signed-in email to its role + per-user view overrides. Env founders
- * are admins; everyone else comes from the allowed_users DB row. Lazy-loads the
- * DB so it never enters the edge/middleware bundle — only ever called from the
- * `jwt` callback on initial sign-in (Node runtime), never per-request on edge.
+ * The DB-resolved default view set for a role — the hardcoded ROLE_VIEWS,
+ * adjusted by any admin edit made on /admin's Role Defaults editor. "admin"
+ * short-circuits with no DB call: it's never overridable, so a bad edit can't
+ * lock every admin out of the console that would fix it.
+ */
+async function roleBaseFor(role: Role): Promise<string[]> {
+  if (role === "admin") return ROLE_VIEWS.admin;
+  try {
+    const { db, ensureDb } = await import("@/db");
+    const { roleAccess } = await import("@/db/schema");
+    const { eq } = await import("drizzle-orm");
+    await ensureDb();
+    const rows = await db.select().from(roleAccess).where(eq(roleAccess.role, role)).limit(1);
+    const row = rows[0];
+    if (!row) return ROLE_VIEWS[role];
+    return [...resolveAllowedViews(role, parseIds(row.viewsAllow), parseIds(row.viewsDeny))];
+  } catch {
+    return ROLE_VIEWS[role];
+  }
+}
+
+/**
+ * Resolve a signed-in email to its role + per-user view overrides + that
+ * role's (possibly admin-edited) base view set. Env founders are admins;
+ * everyone else comes from the allowed_users DB row. Lazy-loads the DB so it
+ * never enters the edge/middleware bundle — only ever called from the `jwt`
+ * callback on initial sign-in (Node runtime), never per-request on edge.
  */
 async function accessForEmail(
   email: string,
-): Promise<{ role: Role; va: string[]; vd: string[] }> {
-  if (!email) return { role: "field", va: [], vd: [] };
-  if (envAllowed().includes(email)) return { role: "admin", va: [], vd: [] };
+): Promise<{ role: Role; va: string[]; vd: string[]; rb: string[] }> {
+  if (!email) return { role: "field", va: [], vd: [], rb: await roleBaseFor("field") };
+  if (envAllowed().includes(email)) {
+    return { role: "admin", va: [], vd: [], rb: await roleBaseFor("admin") };
+  }
   try {
     const { db, ensureDb } = await import("@/db");
     const { allowedUsers } = await import("@/db/schema");
@@ -41,7 +66,7 @@ async function accessForEmail(
       .where(eq(allowedUsers.email, email))
       .limit(1);
     const row = rows[0];
-    if (!row) return { role: "field", va: [], vd: [] };
+    if (!row) return { role: "field", va: [], vd: [], rb: await roleBaseFor("field") };
     const role: Role =
       row.role === "admin" ||
       row.role === "office" ||
@@ -49,9 +74,14 @@ async function accessForEmail(
       row.role === "field"
         ? row.role
         : "field";
-    return { role, va: parseIds(row.viewsAllow), vd: parseIds(row.viewsDeny) };
+    return {
+      role,
+      va: parseIds(row.viewsAllow),
+      vd: parseIds(row.viewsDeny),
+      rb: await roleBaseFor(role),
+    };
   } catch {
-    return { role: "field", va: [], vd: [] };
+    return { role: "field", va: [], vd: [], rb: await roleBaseFor("field") };
   }
 }
 
@@ -102,6 +132,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.role = access.role;
         token.va = access.va;
         token.vd = access.vd;
+        token.rb = access.rb;
       }
       return token;
     },
@@ -110,15 +141,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     // through a local cast — the next-auth/jwt module augmentation doesn't merge
     // into the callback's token type in this v5 beta, but Session.user does.)
     async session({ session, token }) {
-      const t = token as { role?: Role; va?: string[]; vd?: string[] };
+      const t = token as { role?: Role; va?: string[]; vd?: string[]; rb?: string[] };
       if (session.user) {
         // Founders are always admin — resolved from env (no DB), so a founder
         // is never locked out even on a token minted before roles existed.
         const email = (session.user.email ?? "").toLowerCase();
         const isFounder = email !== "" && envAllowed().includes(email);
-        session.user.role = isFounder ? "admin" : t.role ?? "field";
+        const role = isFounder ? "admin" : t.role ?? "field";
+        session.user.role = role;
         session.user.viewsAllow = t.va ?? [];
         session.user.viewsDeny = t.vd ?? [];
+        // A token minted before role defaults existed has no `rb` — fall back
+        // to the hardcoded default rather than leaving it undefined.
+        session.user.roleBase = isFounder ? ROLE_VIEWS.admin : t.rb ?? ROLE_VIEWS[role];
       }
       return session;
     },
