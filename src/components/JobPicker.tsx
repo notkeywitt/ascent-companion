@@ -63,7 +63,11 @@ export function JobPicker({
   const [fetched, setFetched] = useState<JobRef[]>([]);
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const [phaseFilter, setPhaseFilter] = useState("");
+  // Defaults to the "Active" phase on pickers that show the filter — most jobs
+  // people are picking day to day are active ones, and PreCon/Prospective/
+  // Complete jobs would otherwise clutter the list. Only meaningful (and only
+  // ever populated with real phases) when showPhaseFilter fetched them.
+  const [phaseFilter, setPhaseFilter] = useState(showPhaseFilter ? "Active" : "");
   const [loading, setLoading] = useState(!jobsProp);
   const ref = useRef<HTMLDivElement>(null);
 
