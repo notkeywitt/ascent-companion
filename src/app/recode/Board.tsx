@@ -73,6 +73,7 @@ interface BillRef {
   saved: boolean;
   reviewed: boolean;
   invoiced: boolean;
+  fileCount: number;
 }
 interface JobBillLine {
   id: string;
@@ -2164,6 +2165,14 @@ export function Board() {
                               {b.status === "draft" && (
                                 <span className="ml-2 rounded bg-neutral-200 px-1.5 py-px text-[10px] uppercase tracking-wide text-neutral-600 dark:bg-neutral-700 dark:text-neutral-300">
                                   draft
+                                </span>
+                              )}
+                              {b.fileCount === 0 && (
+                                <span
+                                  title="No file attached to this bill in JobTread"
+                                  className="ml-2 rounded bg-red-100 px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide text-red-700 dark:bg-red-950/40 dark:text-red-300"
+                                >
+                                  No file
                                 </span>
                               )}
                               {b.invoiced && (

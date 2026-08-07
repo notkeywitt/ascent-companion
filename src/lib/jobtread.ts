@@ -1491,6 +1491,8 @@ export interface MonthBill {
   qboIsIgnored: boolean;
   /** Already on a customer invoice — the board renders these read-only. */
   invoiced: boolean;
+  /** Attached files (the scanned invoice) — 0 means nothing to review against. */
+  fileCount: number;
 }
 
 /**
@@ -1560,6 +1562,7 @@ export async function getJobBillsForMonth(
               qboIsIgnored: {},
               account: { name: {} },
               referencedDocuments: { nodes: { type: {} } },
+              files: { count: {} },
             },
           },
         },
@@ -1613,6 +1616,7 @@ export async function getJobBillsForMonth(
         nonRecoverableTaxName: b?.nonRecoverableTaxName ?? null,
         qboIsIgnored: !!b?.qboIsIgnored,
         invoiced: isInvoiced(b),
+        fileCount: typeof b?.files?.count === "number" ? b.files.count : 0,
       };
     })
     // Newest first: the board is worked as bills arrive, so the ones that just
