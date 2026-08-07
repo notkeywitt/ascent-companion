@@ -5,7 +5,6 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { JobPicker } from "@/components/JobPicker";
 import { AscentLogo } from "@/components/AscentLogo";
 import { useAccess } from "@/components/AccessProvider";
-import { SyncNowButton } from "@/components/SyncNowButton";
 import { RefreshButton } from "@/components/RefreshButton";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { LinkPendingOverlay } from "@/components/LinkPending";
@@ -65,9 +64,8 @@ export function GlobalJobBar() {
           <LinkPendingOverlay spinnerClassName="h-4 w-4" />
         </Link>
       )}
-      {access.can("sync") && <SyncNowButton />}
       {/* Ungated — reloading the current page's data is read-only and useful to
-          everyone, unlike Sync (which drives the backend mirror). */}
+          everyone. */}
       <RefreshButton />
       <ThemeToggle />
     </div>
