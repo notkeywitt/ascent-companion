@@ -347,6 +347,8 @@ export function Board() {
   const [staged, setStaged] = useState<Map<string, string>>(new Map());
   /** costItemId → in-flight description / qty / unit-cost text, draft bills only. */
   const [edits, setEdits] = useState<Record<string, LineEdit | undefined>>({});
+  /** docId → in-flight sales-tax text, staged the same way as edits/staged. */
+  const [taxEdits, setTaxEdits] = useState<Record<string, string>>({});
   const [openDocId, setOpenDocId] = useState<string | null>(null);
   const [mode, setMode] = useState<"bill" | "code">("bill");
   // Lifted out of the reconcile rectangle so the header can show the same
@@ -410,7 +412,13 @@ export function Board() {
   // pattern as the rail's divisions.
   const [timeBlockOpen, setTimeBlockOpen] = useState(false);
 
-  const dirty = staged.size > 0 || Object.keys(edits).length > 0;
+  const taxDirty = Object.entries(taxEdits).some(([docId, v]) => {
+    if (v === "") return false;
+    const bill = data?.bills.find((b) => b.id === docId);
+    if (!bill) return false;
+    return round2(Number(v) || 0) !== round2(bill.nonRecoverableTax);
+  });
+  const dirty = staged.size > 0 || Object.keys(edits).length > 0 || taxDirty;
   useUnsavedChanges(
     dirty,
     "You have staged coding changes that haven't been synced to JobTread. Leave and lose them?",
@@ -438,6 +446,7 @@ export function Board() {
             // work untouched — combining on one bill shouldn't discard work on
             // another the office hasn't synced yet.
             const liveIds = new Set(j.lines.map((l) => l.id));
+            const liveDocIds = new Set(j.bills.map((b) => b.id));
             setStaged((prev) => {
               const next = new Map(prev);
               for (const id of next.keys()) if (!liveIds.has(id)) next.delete(id);
@@ -448,11 +457,17 @@ export function Board() {
               for (const id of Object.keys(next)) if (!liveIds.has(id)) delete next[id];
               return next;
             });
+            setTaxEdits((prev) => {
+              const next = { ...prev };
+              for (const id of Object.keys(next)) if (!liveDocIds.has(id)) delete next[id];
+              return next;
+            });
           } else {
             // A fresh pull (month/filter change, or after Sync) invalidates
             // everything staged against the old data.
             setStaged(new Map());
             setEdits({});
+            setTaxEdits({});
           }
         }
       } catch (e) {
@@ -716,18 +731,27 @@ export function Board() {
   const openBill = data?.bills.find((b) => b.id === openDocId) ?? null;
   const openLines = openDocId ? (linesByDoc.get(openDocId) ?? []) : [];
 
+  // Tax is staged the same way as edits/staged (keyed by docId, not line id) —
+  // nothing writes until Sync. Previewed here so the total/subtotal below move
+  // live as the office types, same as bill/[docId]'s tax field.
+  const openStoredTax = openBill?.nonRecoverableTax ?? 0;
+  const openTaxEdit = openBill ? taxEdits[openBill.id] : undefined;
+  const openTaxView =
+    openTaxEdit !== undefined && openTaxEdit !== "" ? Number(openTaxEdit) || 0 : openStoredTax;
+
   /** De-taxed display values + the whole-bill payload for the open bill. */
   const openMath = useMemo(
     () =>
       billLineMath({
         lines: openLines,
         storedTax: openBill?.nonRecoverableTax ?? 0,
+        taxView: openTaxView,
         status: openBill?.status,
         edits,
         picked: Object.fromEntries(staged),
         budget: data?.budget ?? [],
       }),
-    [openLines, openBill, edits, staged, data],
+    [openLines, openBill, openTaxView, edits, staged, data],
   );
 
   // ---- coding-drawer bulk actions: Apply to all + Combine ------------------
@@ -738,14 +762,25 @@ export function Board() {
   const [combining, setCombining] = useState(false);
   const [combineMsg, setCombineMsg] = useState("");
   const [buybackId, setBuybackId] = useState("");
+  const [addingLine, setAddingLine] = useState(false);
+  const [newLine, setNewLine] = useState({ name: "", quantity: "1", unitCost: "0", code: "" });
+  const [addLineSaving, setAddLineSaving] = useState(false);
+  const [addLineMsg, setAddLineMsg] = useState("");
+  const [deletingLineId, setDeletingLineId] = useState("");
+  const [deleteLineMsg, setDeleteLineMsg] = useState("");
 
-  // Both reset when the open bill changes — they're about the CURRENT bill's
-  // lines, and stale selections from a previous bill would silently apply to
-  // the wrong one.
+  // All reset when the open bill changes — they're about the CURRENT bill's
+  // lines, and stale selections/forms from a previous bill would silently
+  // apply to the wrong one. taxEdits is NOT reset here: like edits/staged, a
+  // tax edit stays pending across bills until Sync or Revert.
   useEffect(() => {
     setBulkCode("");
     setCombineSelected([]);
     setCombineMsg("");
+    setAddingLine(false);
+    setNewLine({ name: "", quantity: "1", unitCost: "0", code: "" });
+    setAddLineMsg("");
+    setDeleteLineMsg("");
   }, [openDocId]);
 
   // Stage one cost code onto every line of the open bill (into `staged`, so it
@@ -858,6 +893,89 @@ export function Board() {
       setCombineMsg(e instanceof Error ? e.message : "Network error");
     } finally {
       setCombining(false);
+    }
+  };
+
+  // Delete a single line from the open bill — ported from the bill page.
+  // WRITES immediately (draft-only; the server gates it), same as Combine.
+  const deleteLineById = async (id: string, label: string) => {
+    if (
+      !window.confirm(`Delete this line?\n\n${label}\n\nThis removes it from the bill in JobTread.`)
+    )
+      return;
+    setDeletingLineId(id);
+    setDeleteLineMsg("");
+    try {
+      const res = await fetch("/api/delete-line", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ docId: openBill?.id, costItemId: id }),
+      });
+      const json = await res.json();
+      if (!res.ok) setDeleteLineMsg(json.error ?? "Delete failed");
+      else if (json.previewed)
+        setDeleteLineMsg("Preview only — writes are OFF. Nothing was deleted in JobTread.");
+      else {
+        setCombineSelected((s) => s.filter((x) => x !== id));
+        setStaged((prev) => {
+          const next = new Map(prev);
+          next.delete(id);
+          return next;
+        });
+        setEdits((prev) => {
+          const next = { ...prev };
+          delete next[id];
+          return next;
+        });
+        await load({ preserveStaged: true });
+      }
+    } catch (e) {
+      setDeleteLineMsg(e instanceof Error ? e.message : "Network error");
+    } finally {
+      setDeletingLineId("");
+    }
+  };
+
+  // Add a new line to the open bill (createCostItem) — ported from the bill
+  // page. Unit $ is entered PRE-TAX (matching the line editor); gross it up
+  // against the bill's CURRENT previewed subtotal/tax so it lands consistent
+  // with whatever's on screen, including an unsynced tax edit.
+  const addLine = async () => {
+    const name = newLine.name.trim();
+    if (!name || !openBill) return;
+    setAddLineSaving(true);
+    setAddLineMsg("");
+    try {
+      const description = descriptionForCode(newLine.code, data?.budget ?? []);
+      const qty = Number(newLine.quantity) || 0;
+      const preTaxUnit = Number(newLine.unitCost) || 0;
+      const newSumPreTax = openMath.subtotal + preTaxUnit * qty;
+      const reTaxAdd = newSumPreTax > 0 ? (newSumPreTax + openTaxView) / newSumPreTax : 1;
+      const res = await fetch("/api/add-line", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          docId: openBill.id,
+          name,
+          quantity: qty,
+          unitCost: round2(preTaxUnit * reTaxAdd),
+          jobCostItemId: newLine.code || undefined,
+          description,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) setAddLineMsg(json.error ?? "Add failed");
+      else if (json.previewed)
+        setAddLineMsg("Preview only — writes are OFF. Nothing was added to JobTread.");
+      else {
+        setAddingLine(false);
+        setNewLine({ name: "", quantity: "1", unitCost: "0", code: "" });
+        await load({ preserveStaged: true });
+      }
+    } catch (e) {
+      setAddLineMsg(e instanceof Error ? e.message : "Network error");
+    } finally {
+      setAddLineSaving(false);
     }
   };
 
@@ -1067,6 +1185,7 @@ export function Board() {
   const revertAll = () => {
     setStaged(new Map());
     setEdits({});
+    setTaxEdits({});
     setSyncMsg(null);
   };
 
@@ -1306,6 +1425,30 @@ export function Board() {
       }
     }
 
+    // Push any staged document-level tax edits — a separate loop since tax
+    // isn't a line change (see taxEdits above).
+    let taxOk = 0;
+    for (const [docId, v] of Object.entries(taxEdits)) {
+      if (v === "") continue;
+      const bill = data.bills.find((b) => b.id === docId);
+      if (!bill) continue;
+      const amount = round2(Number(v) || 0);
+      if (amount === round2(bill.nonRecoverableTax)) continue; // unchanged
+      try {
+        const r = await fetch("/api/bill-tax", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ docId, taxAmount: amount }),
+        });
+        const j = await r.json();
+        if (j.error) failures.push(j.error);
+        else if (j.wrote === false) failures.push(j.message ?? "Writes are disabled.");
+        else taxOk++;
+      } catch (e) {
+        failures.push(e instanceof Error ? e.message : "Tax request failed");
+      }
+    }
+
     setSyncing(false);
     // Same step, in order: the coding just landed in JobTread, so pull the
     // month into the Tracking Sheet too — it reads costCode off each bill
@@ -1314,13 +1457,17 @@ export function Board() {
       const [y, m] = ym.split("-").map(Number);
       runTrackingSync(trackingTarget.projectId, m, y, setTrackingSync);
     }
+    const parts = [];
+    if (ok > 0) parts.push(`${ok} line${ok === 1 ? "" : "s"}`);
+    if (taxOk > 0) parts.push(`${taxOk} tax edit${taxOk === 1 ? "" : "s"}`);
+    const summary = parts.length ? parts.join(" + ") : "0 changes";
     if (failures.length === 0) {
-      setSyncMsg({ tone: "success", text: `Synced ${ok} line${ok === 1 ? "" : "s"} to JobTread.` });
+      setSyncMsg({ tone: "success", text: `Synced ${summary} to JobTread.` });
       await load(); // load() clears staged
     } else {
       setSyncMsg({
         tone: "error",
-        text: `${ok} line(s) synced, ${failures.length} failed: ${[...new Set(failures)].slice(0, 2).join("; ")}`,
+        text: `Synced ${summary}, ${failures.length} failed: ${[...new Set(failures)].slice(0, 2).join("; ")}`,
       });
       await load();
     }
@@ -2139,14 +2286,11 @@ export function Board() {
                     JT ↗
                   </JtLink>
                 </div>
-                <div className="mb-3 flex items-center justify-between gap-2">
+                <div className="mb-1 flex items-center justify-between gap-2">
                   <p className="min-w-0 truncate text-xs text-neutral-500">
                     {money(openMath.isDraft ? openMath.total : openBill.cost)} ·{" "}
                     {openLines.length} line{openLines.length === 1 ? "" : "s"}
                     {openBill.status ? ` · ${openBill.status}` : ""}
-                    {openBill.nonRecoverableTax > 0
-                      ? ` · incl. ${money(openBill.nonRecoverableTax)} tax`
-                      : ""}
                   </p>
                   <Button
                     variant={openBill.reviewed ? "primary" : "secondary"}
@@ -2157,6 +2301,40 @@ export function Board() {
                     {openBill.reviewed ? "✓ Reviewed" : "Mark reviewed"}
                   </Button>
                 </div>
+
+                {/* Document-level sales tax = JobTread's "Tax" (nonRecoverableTax),
+                    a fixed dollar. Staged like a line edit — nothing writes until
+                    Sync — so typing here moves openMath.total live. */}
+                {openMath.isDraft && data?.writesEnabled && !openBill.invoiced && (
+                  <div className="mb-1 flex items-center justify-end gap-1.5">
+                    <span className="text-[10px] uppercase tracking-wide text-neutral-400">
+                      {openBill.nonRecoverableTaxName || "Tax"}
+                    </span>
+                    <div className="relative">
+                      <span className="pointer-events-none absolute left-1.5 top-1/2 -translate-y-1/2 text-xs text-neutral-400">
+                        $
+                      </span>
+                      <input
+                        type="number"
+                        inputMode="decimal"
+                        min="0"
+                        step="0.01"
+                        value={openTaxEdit ?? String(openStoredTax)}
+                        onChange={(e) =>
+                          setTaxEdits((p) => ({ ...p, [openBill.id]: e.target.value }))
+                        }
+                        aria-label="Sales tax"
+                        className="w-24 rounded border border-neutral-300 bg-white py-1 pl-4 pr-1.5 text-right text-xs tabular-nums transition focus:border-accent focus:outline-none dark:border-neutral-600 dark:bg-ink-raised"
+                      />
+                    </div>
+                  </div>
+                )}
+                {openTaxView > 0 && (
+                  <p className="mb-3 text-right text-[10px] text-neutral-400">
+                    subtotal {money(openMath.subtotal)} + {money(openTaxView)}{" "}
+                    {(openBill.nonRecoverableTaxName || "tax").toLowerCase()}
+                  </p>
+                )}
 
                 {openBill.invoiced && (
                   <Banner tone="info" className="mb-3 !py-1.5 !text-[11px]">
@@ -2183,43 +2361,6 @@ export function Board() {
                         Apply
                       </Button>
                     </div>
-                  </div>
-                )}
-
-                {/* Combine rows: appears once 2+ of this bill's lines share a
-                    code. Unlike a recode, this writes to JobTread immediately —
-                    it's a structural merge, not a trial-and-error choice. */}
-                {!openBill.invoiced && data?.writesEnabled && anyCombinable && (
-                  <div className="mb-3 rounded-lg border border-dashed border-neutral-300 bg-neutral-50 p-2 dark:border-neutral-700 dark:bg-ink-raised/60">
-                    <span className="mb-1 block text-[10px] uppercase tracking-wide text-neutral-400">
-                      Combine lines sharing a code
-                    </span>
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="min-w-0 text-[11px] text-neutral-500">
-                        {combineSelected.length < 2
-                          ? "Check 2+ lines with the same code."
-                          : combineCodeSet.size > 1
-                            ? "Different codes selected."
-                            : combineHasEdit
-                              ? "Sync or discard edits first."
-                              : `Merging ${combineSelected.length} lines.`}
-                      </p>
-                      <Button
-                        size="sm"
-                        className="shrink-0 !py-1.5 !text-xs"
-                        onClick={combineRows}
-                        disabled={!canCombine || combining}
-                      >
-                        {combining
-                          ? "Combining…"
-                          : `Combine${combineSelected.length >= 2 ? ` (${combineSelected.length})` : ""}`}
-                      </Button>
-                    </div>
-                    {combineMsg && (
-                      <Banner tone="neutral" className="mt-1.5 !px-2 !py-1.5 !text-[11px]">
-                        {combineMsg}
-                      </Banner>
-                    )}
                   </div>
                 )}
 
@@ -2310,6 +2451,40 @@ export function Board() {
                               )}
                             </button>
                           )}
+                          {/* Delete: removes this line from the bill entirely —
+                              ported from the bill page. Draft-only + writes-gated,
+                              like Buyback/Combine/Add line. */}
+                          {openMath.isDraft && data?.writesEnabled && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                deleteLineById(l.id, edits[l.id]?.name ?? l.name ?? "Line item")
+                              }
+                              disabled={deletingLineId === l.id}
+                              aria-label="Delete line"
+                              title="Delete this line"
+                              className="mt-0.5 shrink-0 rounded p-1 text-neutral-400 transition hover:bg-red-50 hover:text-red-600 disabled:opacity-40 dark:hover:bg-red-950/40 dark:hover:text-red-400"
+                            >
+                              {deletingLineId === l.id ? (
+                                <span className="block h-3.5 w-3.5 text-center text-[10px] leading-[14px]">
+                                  …
+                                </span>
+                              ) : (
+                                <svg
+                                  viewBox="0 0 24 24"
+                                  fill="currentColor"
+                                  aria-hidden="true"
+                                  className="h-3.5 w-3.5"
+                                >
+                                  <path
+                                    fillRule="evenodd"
+                                    clipRule="evenodd"
+                                    d="M16.5 4.478v.227a48.816 48.816 0 0 1 3.878.512.75.75 0 1 1-.256 1.478l-.209-.035-1.005 13.07a3 3 0 0 1-2.991 2.77H8.084a3 3 0 0 1-2.991-2.77L4.087 6.66l-.209.035a.75.75 0 0 1-.256-1.478A48.567 48.567 0 0 1 7.5 4.705v-.227c0-1.564 1.213-2.9 2.816-2.951a52.662 52.662 0 0 1 3.369 0c1.603.051 2.815 1.387 2.815 2.951Zm-6.136-1.452a51.196 51.196 0 0 1 3.273 0C14.39 3.05 15 3.684 15 4.478v.113a49.488 49.488 0 0 0-6 0v-.113c0-.794.609-1.428 1.364-1.452Zm-.355 5.945a.75.75 0 1 0-1.5.058l.347 9a.75.75 0 1 0 1.499-.058l-.346-9Zm5.48.058a.75.75 0 1 0-1.498-.058l-.347 9a.75.75 0 0 0 1.5.058l.345-9Z"
+                                  />
+                                </svg>
+                              )}
+                            </button>
+                          )}
                         </div>
                         {openBill.invoiced ? (
                           <p className="rounded-md border border-neutral-200 bg-neutral-50 px-2 py-1.5 text-xs text-neutral-500 dark:border-neutral-700 dark:bg-ink-raised/60">
@@ -2367,6 +2542,132 @@ export function Board() {
                     );
                   })}
                 </ul>
+
+                {deleteLineMsg && (
+                  <Banner tone="neutral" className="mt-2 !px-2 !py-1.5 !text-[11px]">
+                    {deleteLineMsg}
+                  </Banner>
+                )}
+
+                {/* Combine rows: appears once 2+ of this bill's lines share a
+                    code. Sits below the list, alongside Add line, since both
+                    are structural edits rather than per-line coding decisions.
+                    Unlike a recode, this writes to JobTread immediately — it's
+                    a structural merge, not a trial-and-error choice. */}
+                {!openBill.invoiced && data?.writesEnabled && anyCombinable && (
+                  <div className="mt-3 rounded-lg border border-dashed border-neutral-300 bg-neutral-50 p-2 dark:border-neutral-700 dark:bg-ink-raised/60">
+                    <span className="mb-1 block text-[10px] uppercase tracking-wide text-neutral-400">
+                      Combine lines sharing a code
+                    </span>
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="min-w-0 text-[11px] text-neutral-500">
+                        {combineSelected.length < 2
+                          ? "Check 2+ lines with the same code."
+                          : combineCodeSet.size > 1
+                            ? "Different codes selected."
+                            : combineHasEdit
+                              ? "Sync or discard edits first."
+                              : `Merging ${combineSelected.length} lines.`}
+                      </p>
+                      <Button
+                        size="sm"
+                        className="shrink-0 !py-1.5 !text-xs"
+                        onClick={combineRows}
+                        disabled={!canCombine || combining}
+                      >
+                        {combining
+                          ? "Combining…"
+                          : `Combine${combineSelected.length >= 2 ? ` (${combineSelected.length})` : ""}`}
+                      </Button>
+                    </div>
+                    {combineMsg && (
+                      <Banner tone="neutral" className="mt-1.5 !px-2 !py-1.5 !text-[11px]">
+                        {combineMsg}
+                      </Banner>
+                    )}
+                  </div>
+                )}
+
+                {/* Add a new line (createCostItem) — ported from the bill page.
+                    Draft-only + writes-gated, like Delete/Combine/Buyback. */}
+                {openMath.isDraft && data?.writesEnabled && (
+                  <div className="mt-3">
+                    {!addingLine ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAddLineMsg("");
+                          setAddingLine(true);
+                        }}
+                        className="w-full rounded-lg border border-dashed border-neutral-300 px-3 py-2 text-xs font-semibold text-accent transition hover:border-accent hover:bg-accent/5 dark:border-neutral-700 dark:text-accent-soft"
+                      >
+                        + Add line
+                      </button>
+                    ) : (
+                      <div className="rounded-lg border border-neutral-200 bg-white p-2 dark:border-neutral-700/60 dark:bg-ink-raised">
+                        <input
+                          type="text"
+                          value={newLine.name}
+                          onChange={(e) => setNewLine((n) => ({ ...n, name: e.target.value }))}
+                          placeholder="Line description"
+                          className="w-full rounded border border-neutral-300 bg-white px-1.5 py-1 text-xs transition focus:border-accent focus:outline-none dark:border-neutral-600 dark:bg-ink-raised"
+                        />
+                        <div className="mt-1.5 flex items-center gap-1.5">
+                          <input
+                            type="number"
+                            inputMode="decimal"
+                            value={newLine.quantity}
+                            onChange={(e) => setNewLine((n) => ({ ...n, quantity: e.target.value }))}
+                            aria-label="Quantity"
+                            className="w-14 rounded border border-neutral-300 bg-white px-1.5 py-1 text-right text-xs tabular-nums transition focus:border-accent focus:outline-none dark:border-neutral-600 dark:bg-ink-raised"
+                          />
+                          <span className="text-[11px] text-neutral-400">×</span>
+                          <input
+                            type="number"
+                            inputMode="decimal"
+                            value={newLine.unitCost}
+                            onChange={(e) => setNewLine((n) => ({ ...n, unitCost: e.target.value }))}
+                            aria-label="Unit cost (pre-tax)"
+                            className="w-24 rounded border border-neutral-300 bg-white px-1.5 py-1 text-right text-xs tabular-nums transition focus:border-accent focus:outline-none dark:border-neutral-600 dark:bg-ink-raised"
+                          />
+                        </div>
+                        <div className="mt-1.5">
+                          <CostCodeSelect
+                            options={codeOptions}
+                            value={newLine.code}
+                            onChange={(id) => setNewLine((n) => ({ ...n, code: id }))}
+                          />
+                        </div>
+                        <div className="mt-2 flex items-center gap-1.5">
+                          <Button
+                            size="sm"
+                            className="!py-1.5 !text-xs"
+                            onClick={addLine}
+                            disabled={addLineSaving || !newLine.name.trim()}
+                          >
+                            {addLineSaving ? "Adding…" : "Add line"}
+                          </Button>
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            className="!py-1.5 !text-xs"
+                            onClick={() => {
+                              setAddingLine(false);
+                              setAddLineMsg("");
+                            }}
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                    {addLineMsg && (
+                      <Banner tone="neutral" className="mt-1.5 !px-2 !py-1.5 !text-[11px]">
+                        {addLineMsg}
+                      </Banner>
+                    )}
+                  </div>
+                )}
 
                 {/* The scanned invoice, in the panel where the coding decision is
                     made — otherwise you're recoding a line from its description
