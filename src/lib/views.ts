@@ -41,6 +41,10 @@ export const VIEWS: ViewDef[] = [
   // headroom. Same financial data as Invoicing but its own view, so it can be
   // granted or denied on its own (it WRITES coding; /stage only reads).
   { id: "recode", label: "Client Invoicing", group: "Financials", paths: ["/recode", "/api/recode"] },
+  // Approving a bill (draft → pending/approved) can push it to QuickBooks, so it
+  // sits behind its own gate rather than riding on "recode" — leads keep coding
+  // access without the approval action. No page of its own.
+  { id: "bill-approve", label: "Bill Approval", group: "Financials", paths: ["/api/bill-status"] },
   // Per-project Google tracking sheets. The API prefix is listed alongside the
   // page so a role without the view can't push to a job's sheet by calling the
   // route directly.

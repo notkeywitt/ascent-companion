@@ -1481,8 +1481,14 @@ export interface MonthBill {
   issueDate: string | null;
   /** When the bill was created in JobTread — newest-first is the board's order. */
   createdAt: string | null;
+  /** "Bill" (payable, approves to pending) or "Expense" (already paid, approves to approved). */
+  name: string;
   /** Fixed sales tax carved out of the bill total — the gross-up input. */
   nonRecoverableTax: number;
+  /** Label for the fixed tax amount, e.g. "Sales Tax" — shown alongside the amount. */
+  nonRecoverableTaxName: string | null;
+  /** false = this bill will sync to QuickBooks on approval. */
+  qboIsIgnored: boolean;
   /** Already on a customer invoice — the board renders these read-only. */
   invoiced: boolean;
 }
@@ -1540,6 +1546,7 @@ export async function getJobBillsForMonth(
             nextPage: {},
             nodes: {
               id: {},
+              name: {},
               subject: {},
               externalId: {},
               number: {},
@@ -1549,6 +1556,8 @@ export async function getJobBillsForMonth(
               createdAt: {},
               status: {},
               nonRecoverableTax: {},
+              nonRecoverableTaxName: {},
+              qboIsIgnored: {},
               account: { name: {} },
               referencedDocuments: { nodes: { type: {} } },
             },
@@ -1599,7 +1608,10 @@ export async function getJobBillsForMonth(
         status: b?.status ?? "",
         issueDate: b?.issueDate ?? null,
         createdAt: b?.createdAt ?? null,
+        name: b?.name ?? "Bill",
         nonRecoverableTax: typeof b?.nonRecoverableTax === "number" ? b.nonRecoverableTax : 0,
+        nonRecoverableTaxName: b?.nonRecoverableTaxName ?? null,
+        qboIsIgnored: !!b?.qboIsIgnored,
         invoiced: isInvoiced(b),
       };
     })

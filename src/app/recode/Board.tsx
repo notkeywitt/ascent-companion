@@ -66,7 +66,10 @@ interface BillRef {
   status: string;
   issueDate: string | null;
   createdAt: string | null;
+  name: string;
   nonRecoverableTax: number;
+  nonRecoverableTaxName: string | null;
+  qboIsIgnored: boolean;
   saved: boolean;
   reviewed: boolean;
   invoiced: boolean;
@@ -352,12 +355,19 @@ export function Board() {
   const [syncing, setSyncing] = useState(false);
   const [syncMsg, setSyncMsg] = useState<{ tone: "success" | "error"; text: string } | null>(null);
 
+  const [approveOpen, setApproveOpen] = useState(false);
+  const [approving, setApproving] = useState(false);
+  const [approveMsg, setApproveMsg] = useState<{ tone: "success" | "error"; text: string } | null>(
+    null,
+  );
+
   // The Tracking Sheet push rides along with "Sync to JobTread" — one button,
   // one step from the office's point of view — so it needs its own target
   // resolution and result state the way /stage drives TrackingSheetSync,
   // rather than the self-contained TrackingSheetSyncFor this page used before.
   const { can } = useAccess();
   const canTrack = can("tracking-sheet");
+  const canApprove = can("bill-approve");
   const [trackingTarget, setTrackingTarget] = useState<TrackingTarget | null>(null);
   const [trackingSync, setTrackingSync] = useState<TrackingSyncState | undefined>(undefined);
 
@@ -663,6 +673,18 @@ export function Board() {
     () => (data?.bills ?? []).filter((b) => !hideSunset || !sunsetDocIds.has(b.id)),
     [data, hideSunset, sunsetDocIds],
   );
+
+  // Exactly the draft bills on screen right now — same filters (hideSunset,
+  // includeDrafts, uninvoicedOnly) as the list itself, so "Approve" never acts
+  // on a bill the office can't currently see.
+  const draftBills = useMemo(
+    () => visibleBills.filter((b) => b.status === "draft"),
+    [visibleBills],
+  );
+  // Mirrors approveBill() on the bill detail page: a Bill is a payable (draft →
+  // pending, "approved for payment"); an Expense is already paid (draft →
+  // approved, "record payment").
+  const approvalTarget = (b: BillRef) => (b.name === "Expense" ? "approved" : "pending");
 
   const hiddenSunset = useMemo(() => {
     if (!hideSunset) return { count: 0, cost: 0, staged: 0 };
@@ -1304,6 +1326,45 @@ export function Board() {
     }
   };
 
+  // Batch-approve every draft bill currently on screen (see draftBills above —
+  // same filters as the visible list). One /api/bill-status POST per bill,
+  // sequentially, same loop shape as sync()'s per-doc /api/code calls.
+  const approveDraftBills = async () => {
+    setApproving(true);
+    let ok = 0;
+    let previewed = false;
+    const failures: string[] = [];
+    for (const b of draftBills) {
+      try {
+        const r = await fetch("/api/bill-status", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ docId: b.id, status: approvalTarget(b) }),
+        });
+        const j = await r.json();
+        if (!r.ok || j.error) failures.push(`${b.label}: ${j.error ?? "Approve failed"}`);
+        else {
+          if (j.previewed) previewed = true;
+          ok++;
+        }
+      } catch (e) {
+        failures.push(`${b.label}: ${e instanceof Error ? e.message : "Request failed"}`);
+      }
+    }
+    setApproving(false);
+    setApproveOpen(false);
+    const verb = previewed ? "Would approve" : "Approved";
+    if (failures.length === 0) {
+      setApproveMsg({ tone: "success", text: `${verb} ${ok} bill${ok === 1 ? "" : "s"}.` });
+    } else {
+      setApproveMsg({
+        tone: "error",
+        text: `${verb} ${ok} bill(s), ${failures.length} failed: ${[...new Set(failures)].slice(0, 2).join("; ")}`,
+      });
+    }
+    await load();
+  };
+
   if (!jobId) {
     return (
       <main className="mx-auto max-w-2xl px-4 pb-24 pt-6">
@@ -1392,6 +1453,20 @@ export function Board() {
             <Button size="sm" onClick={sync} disabled={!dirty || syncing}>
               {syncing ? "Syncing…" : "Sync to JobTread"}
             </Button>
+            {canApprove && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  setApproveMsg(null);
+                  setApproveOpen(true);
+                }}
+                disabled={draftBills.length === 0 || dirty || syncing || approving}
+                title={dirty ? "Sync staged coding changes to JobTread first" : undefined}
+              >
+                Approve Draft Bills{draftBills.length > 0 ? ` (${draftBills.length})` : ""}
+              </Button>
+            )}
           </div>
         }
       />
@@ -1404,6 +1479,11 @@ export function Board() {
       {syncMsg && (
         <Banner tone={syncMsg.tone} className="mb-4">
           {syncMsg.text}
+        </Banner>
+      )}
+      {approveMsg && (
+        <Banner tone={approveMsg.tone} className="mb-4">
+          {approveMsg.text}
         </Banner>
       )}
       {trackingSync && (
@@ -2510,6 +2590,91 @@ export function Board() {
             <div className="mt-3 flex justify-end">
               <Button variant="secondary" size="sm" onClick={() => setLeafPicker(null)}>
                 Cancel
+              </Button>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {approveOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          role="dialog"
+          aria-modal="true"
+          onClick={() => !approving && setApproveOpen(false)}
+        >
+          <Card className="w-full max-w-lg" onClick={(e) => e.stopPropagation()}>
+            <p className="text-sm font-semibold">
+              Approve {draftBills.length} draft bill{draftBills.length === 1 ? "" : "s"}?
+            </p>
+            <p className="mb-3 text-xs text-neutral-500">
+              {monthOptions().find((o) => o.value === ym)?.label ?? ym}
+              {jobTitle ? ` · ${jobTitle}` : ""}. Bills move to Pending (approved for payment);
+              Expenses move straight to Approved (paid).
+            </p>
+            <ul className="max-h-80 space-y-1.5 overflow-y-auto">
+              {draftBills.map((b) => {
+                const target = approvalTarget(b);
+                const taxOn = (b.nonRecoverableTax ?? 0) > 0;
+                const pushQb = !b.qboIsIgnored;
+                return (
+                  <li
+                    key={b.id}
+                    className="rounded-lg border border-neutral-200 px-3 py-2 text-sm dark:border-neutral-700"
+                  >
+                    <div className="flex items-baseline justify-between gap-3">
+                      <span className="min-w-0 truncate font-medium">{b.label}</span>
+                      <span className="shrink-0 tabular-nums font-semibold">{money(b.cost)}</span>
+                    </div>
+                    <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-neutral-500">
+                      <span>→ {target === "approved" ? "Approved (paid)" : "Pending"}</span>
+                      <span
+                        className={
+                          pushQb
+                            ? "text-emerald-600 dark:text-emerald-400"
+                            : "text-neutral-400 dark:text-neutral-500"
+                        }
+                      >
+                        Push to QuickBooks: {pushQb ? "On" : "Off"}
+                      </span>
+                      <span
+                        className={
+                          taxOn
+                            ? "text-amber-600 dark:text-amber-400"
+                            : "text-neutral-400 dark:text-neutral-500"
+                        }
+                      >
+                        {b.nonRecoverableTaxName || "Tax"}: {taxOn ? money(b.nonRecoverableTax) : "Off"}
+                      </span>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+            <div className="mt-3 flex items-center justify-between gap-3 border-t border-neutral-200 pt-3 text-sm dark:border-neutral-700">
+              <span className="font-semibold">Total</span>
+              <span className="tabular-nums font-semibold">
+                {money(draftBills.reduce((s, b) => s + b.cost, 0))}
+              </span>
+            </div>
+            {data && !data.writesEnabled && (
+              <p className="mt-2 text-[11px] text-amber-600 dark:text-amber-400">
+                Writes are disabled on this deployment — this will preview only.
+              </p>
+            )}
+            <div className="mt-3 flex justify-end gap-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setApproveOpen(false)}
+                disabled={approving}
+              >
+                Cancel
+              </Button>
+              <Button size="sm" onClick={approveDraftBills} disabled={approving || draftBills.length === 0}>
+                {approving
+                  ? "Approving…"
+                  : `Approve ${draftBills.length} bill${draftBills.length === 1 ? "" : "s"}`}
               </Button>
             </div>
           </Card>
