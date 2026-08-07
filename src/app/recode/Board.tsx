@@ -12,8 +12,8 @@ import {
   PageHeader,
   SectionLabel,
   Select,
+  Spinner,
   Toggle,
-  btn,
 } from "@/components/ui";
 import { CostCodeSelect, type Option } from "@/components/CostCodeSelect";
 import { JtLink } from "@/components/JtLink";
@@ -25,7 +25,13 @@ import {
   type LineEdit,
 } from "@/lib/billLineMath";
 import { InvoiceReconcile, type Recon } from "@/components/InvoiceReconcile";
-import { TrackingSheetSyncFor } from "@/components/TrackingSheetSync";
+import {
+  runTrackingSync,
+  type TrackingSyncState,
+  type TrackingTarget,
+} from "@/components/TrackingSheetSync";
+import { TrackingSheetRisks } from "@/components/TrackingSheetRisks";
+import { useAccess } from "@/components/AccessProvider";
 import { useUnsavedChanges } from "@/lib/useUnsavedChanges";
 
 /**
@@ -345,6 +351,41 @@ export function Board() {
   const [recon, setRecon] = useState<Recon | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [syncMsg, setSyncMsg] = useState<{ tone: "success" | "error"; text: string } | null>(null);
+
+  // The Tracking Sheet push rides along with "Sync to JobTread" — one button,
+  // one step from the office's point of view — so it needs its own target
+  // resolution and result state the way /stage drives TrackingSheetSync,
+  // rather than the self-contained TrackingSheetSyncFor this page used before.
+  const { can } = useAccess();
+  const canTrack = can("tracking-sheet");
+  const [trackingTarget, setTrackingTarget] = useState<TrackingTarget | null>(null);
+  const [trackingSync, setTrackingSync] = useState<TrackingSyncState | undefined>(undefined);
+
+  useEffect(() => {
+    if (!canTrack || !jobId) return;
+    let alive = true;
+    (async () => {
+      try {
+        const res = await fetch("/api/tracking-sheet", { cache: "no-store" });
+        if (!res.ok) return; // non-fatal — the tracking sync just doesn't fire
+        const b = await res.json();
+        if (!alive) return;
+        const hit = (
+          (b.jobs ?? []) as { id: string; label: string; jtJobId: string; url: string }[]
+        ).find((j) => j.jtJobId === jobId);
+        if (hit) setTrackingTarget({ projectId: hit.id, label: hit.label, url: hit.url });
+      } catch {
+        /* non-fatal */
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [canTrack, jobId]);
+
+  // A month change invalidates the result on screen — it describes another
+  // billing period.
+  useEffect(() => setTrackingSync(undefined), [ym]);
   const [codeQuery, setCodeQuery] = useState("");
   // Divisions the user has rolled up. Empty = all open, so the rail keeps
   // showing every code until it's deliberately tidied.
@@ -1238,6 +1279,13 @@ export function Board() {
     }
 
     setSyncing(false);
+    // Same step, in order: the coding just landed in JobTread, so pull the
+    // month into the Tracking Sheet too — it reads costCode off each bill
+    // line and wants the coding settled first.
+    if (trackingTarget && ok > 0) {
+      const [y, m] = ym.split("-").map(Number);
+      runTrackingSync(trackingTarget.projectId, m, y, setTrackingSync);
+    }
     if (failures.length === 0) {
       setSyncMsg({ tone: "success", text: `Synced ${ok} line${ok === 1 ? "" : "s"} to JobTread.` });
       await load(); // load() clears staged
@@ -1279,9 +1327,6 @@ export function Board() {
         }
         actions={
           <div className="flex flex-wrap items-center justify-end gap-3">
-            <Link href="/stage" className={btn("secondary", "sm")}>
-              ← Invoicing
-            </Link>
             <Select
               value={ym}
               onChange={(e) => setYm(e.target.value)}
@@ -1340,17 +1385,6 @@ export function Board() {
             <Button size="sm" onClick={sync} disabled={!dirty || syncing}>
               {syncing ? "Syncing…" : "Sync to JobTread"}
             </Button>
-            {/* The two syncs sit together because they're the same step of the
-                job, in order: push the coding to JobTread, then push the month to
-                the tracking sheet (which reads costCode off each bill line, so it
-                wants the coding settled first). Compact so its result wraps onto
-                its own line instead of stretching this row. */}
-            <TrackingSheetSyncFor
-              jtJobId={jobId}
-              ym={ym}
-              monthLabel={monthOptions().find((o) => o.value === ym)?.label ?? ym}
-              compact
-            />
           </div>
         }
       />
@@ -1364,6 +1398,48 @@ export function Board() {
         <Banner tone={syncMsg.tone} className="mb-4">
           {syncMsg.text}
         </Banner>
+      )}
+      {trackingSync && (
+        <div className="mb-4">
+          {(trackingSync.status === "queued" || trackingSync.status === "running") && (
+            <div className="flex items-center gap-1.5 text-xs text-neutral-500">
+              <Spinner />
+              {trackingSync.status === "queued"
+                ? "Queued for the Tracking Sheet…"
+                : "Syncing to the Tracking Sheet…"}
+            </div>
+          )}
+          {trackingSync.status === "error" && (
+            <Banner tone="error" className="!py-2 text-xs">
+              Tracking Sheet: {trackingSync.error}
+            </Banner>
+          )}
+          {trackingSync.status === "done" && trackingSync.result && (
+            <>
+              <p className="text-xs text-neutral-500">
+                Tracking Sheet: wrote{" "}
+                <span className="font-semibold">{trackingSync.result.rowCount}</span> row
+                {trackingSync.result.rowCount === 1 ? "" : "s"} ·{" "}
+                <span className="font-semibold">{money(trackingSync.result.total)}</span> ·{" "}
+                <a
+                  href={trackingSync.result.trackingSheetUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="underline hover:text-accent"
+                >
+                  {trackingSync.result.trackingSheetName}
+                </a>
+              </p>
+              <TrackingSheetRisks
+                unmatched={trackingSync.result.unmatched}
+                whitespaceOnly={trackingSync.result.whitespaceOnly}
+                deadColumns={trackingSync.result.deadColumns}
+                compact
+                className="mt-1.5 !py-2"
+              />
+            </>
+          )}
+        </div>
       )}
       {error && (
         <Banner tone="error" className="mb-4">
@@ -1403,7 +1479,7 @@ export function Board() {
               scrolling a long bill list, so it stays put. `self-start` is what
               makes sticky work in a grid — items stretch to the row height by
               default, leaving nothing to scroll within. */}
-          <section className="min-w-0 lg:sticky lg:top-4 lg:self-start">
+          <section className="min-w-0 lg:sticky lg:top-16 lg:self-start">
             <div className="mb-2 flex items-baseline justify-between gap-2">
               {/* On mobile the label itself is the toggle for the whole rail;
                   on desktop the rail is always docked, so the tap is disabled
@@ -1451,7 +1527,7 @@ export function Board() {
               />
               {/* Sized off the viewport, not a %, so the docked rail (label +
                   card + footnote) always fits on screen and scrolls internally. */}
-              <div className="max-h-[calc(100vh-13rem)] overflow-y-auto">
+              <div className="max-h-[calc(100vh-16rem)] overflow-y-auto">
                 {railRows.length === 0 ? (
                   <p className="px-3 py-4 text-xs text-neutral-500">No cost codes match.</p>
                 ) : (
@@ -1958,15 +2034,15 @@ export function Board() {
               to the row's height in the first place. Opens level with the top
               of the screen (not the clicked bill) — simpler and more
               predictable than tracking the click position. */}
-          <section className="hidden min-w-0 xl:block xl:sticky xl:top-4 xl:self-start">
+          <section className="hidden min-w-0 xl:block xl:sticky xl:top-16 xl:self-start">
             <SectionLabel className="mb-2">Coding</SectionLabel>
             {!openBill ? (
               <EmptyState>Select a bill to edit its coding.</EmptyState>
             ) : (
-              // Height-capped to the room left below the sticky top-4 so a
+              // Height-capped to the room left below the sticky top-16 so a
               // long bill still scrolls (within the card) instead of running
               // off-screen — independent of the section's own sticky position.
-              <Card className="max-h-[calc(100vh-2rem)] overflow-y-auto">
+              <Card className="max-h-[calc(100vh-5rem)] overflow-y-auto">
                 <div className="flex items-baseline justify-between gap-2">
                   <p className="min-w-0 truncate text-sm font-semibold">{openBill.label}</p>
                   <JtLink
