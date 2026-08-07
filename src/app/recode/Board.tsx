@@ -199,6 +199,13 @@ const isImageFile = (f: BillFile) =>
  */
 const isSunsetVendor = (vendor: string) => /sunset/i.test(vendor);
 
+/**
+ * The "Hide Sunset" toggle is a personal display preference, so it persists in
+ * localStorage and survives navigating away and back. Same-device only — it's a
+ * view convenience, not shared/authoritative state.
+ */
+const LS_HIDE_SUNSET = "recode:hideSunset";
+
 const MONTHS = [
   "January",
   "February",
@@ -334,6 +341,8 @@ export function Board() {
   const [uninvoicedOnly, setUninvoicedOnly] = useState(true);
   // Display-only filter. Defaults OFF: hiding bills by default would mean the
   // list silently disagrees with the totals until someone noticed the toggle.
+  // The choice persists per-device (LS_HIDE_SUNSET) so it survives navigation —
+  // loaded from localStorage on mount, written back whenever it changes below.
   const [hideSunset, setHideSunset] = useState(false);
   // Display-only filter, computed client-side from costDetail's two labor
   // figures (no refetch on toggle). Defaults ON so the existing behavior —
@@ -363,6 +372,30 @@ export function Board() {
   const [approveMsg, setApproveMsg] = useState<{ tone: "success" | "error"; text: string } | null>(
     null,
   );
+
+  // Restore the persisted "Hide Sunset" choice on mount. Read in an effect (not
+  // a lazy useState initializer) so SSR and the first client render agree — no
+  // hydration mismatch — then reconcile to the saved value. Runs once.
+  const hideSunsetLoaded = useRef(false);
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(LS_HIDE_SUNSET);
+      if (saved != null) setHideSunset(saved === "1");
+    } catch {
+      /* localStorage unavailable (private mode, etc.) — fall back to the default */
+    }
+    hideSunsetLoaded.current = true;
+  }, []);
+  // Persist changes, but not the pre-restore default write (which would clobber
+  // a saved value before the load effect above has a chance to apply it).
+  useEffect(() => {
+    if (!hideSunsetLoaded.current) return;
+    try {
+      localStorage.setItem(LS_HIDE_SUNSET, hideSunset ? "1" : "0");
+    } catch {
+      /* ignore write failures */
+    }
+  }, [hideSunset]);
 
   // The Tracking Sheet push rides along with "Sync to JobTread" — one button,
   // one step from the office's point of view — so it needs its own target
