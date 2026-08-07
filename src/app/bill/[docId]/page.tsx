@@ -10,7 +10,7 @@ import { PageTitle } from "@/components/PageTitle";
 import { BillStatusBadge } from "@/components/BillStatusBadge";
 import { Banner, Button, Loading, btn } from "@/components/ui";
 import { TrackingSheetSyncFor } from "@/components/TrackingSheetSync";
-import { billLineMath } from "@/lib/billLineMath";
+import { billLineMath, recodeLog } from "@/lib/billLineMath";
 import { markBillTouched } from "@/lib/billTouch";
 import { useUnsavedChanges } from "@/lib/useUnsavedChanges";
 
@@ -459,10 +459,15 @@ function BillDetail() {
         return [change];
       });
       if (changes.length) {
+        const codingLog = recodeLog(
+          (lines ?? []).map((l) => ({ id: l.id, name: l.name, jobCostItemId: l.jobCostItem?.id ?? null })),
+          picked,
+          budget,
+        );
         await fetch("/api/code", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ changes, docId }),
+          body: JSON.stringify({ changes, docId, codingLog }),
         });
       }
       // 2. Approve (moves out of draft; description is now locked).
@@ -606,10 +611,15 @@ function BillDetail() {
       // 1) Push every line (the whole bill) so the tax-inclusive line costs stay mutually
       //    consistent and JobTread's de-taxed display doesn't drift.
       if (allLineChanges.length) {
+        const codingLog = recodeLog(
+          (lines ?? []).map((l) => ({ id: l.id, name: l.name, jobCostItemId: l.jobCostItem?.id ?? null })),
+          picked,
+          budget,
+        );
         const res = await fetch("/api/code", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ changes: allLineChanges, docId }),
+          body: JSON.stringify({ changes: allLineChanges, docId, codingLog }),
         });
         const json = await res.json();
         if (!res.ok) {

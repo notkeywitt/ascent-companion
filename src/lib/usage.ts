@@ -16,8 +16,10 @@
 import { desc, gte, lt } from "drizzle-orm";
 import { db, ensureDb } from "@/db";
 import { usageEvents } from "@/db/schema";
+import type { RecodeEntry } from "@/lib/billLineMath";
 
 export type UsageKind = "login" | "view" | "coding";
+export type { RecodeEntry };
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -27,6 +29,7 @@ async function record(
   kind: UsageKind,
   path = "",
   viewId = "",
+  detail = "",
 ): Promise<void> {
   const em = (email ?? "").trim().toLowerCase();
   if (!em) return;
@@ -37,10 +40,32 @@ async function record(
       kind,
       path,
       viewId,
+      detail,
       createdAt: new Date().toISOString(),
     });
   } catch {
     /* activity logging is never allowed to break a request */
+  }
+}
+
+/** Guard rails on browser-supplied recode detail before it's stored + shown to admins. */
+function sanitizeRecodes(recodes: RecodeEntry[] | undefined): RecodeEntry[] {
+  if (!Array.isArray(recodes)) return [];
+  const cap = (s: unknown) => String(s ?? "").slice(0, 200);
+  return recodes.slice(0, 100).map((r) => ({
+    line: cap(r?.line),
+    from: cap(r?.from),
+    to: cap(r?.to),
+  }));
+}
+
+/** Parse a stored coding-detail JSON blob back into recodes; tolerant of junk. */
+function parseRecodes(detail: string): RecodeEntry[] {
+  if (!detail) return [];
+  try {
+    return sanitizeRecodes(JSON.parse(detail) as RecodeEntry[]);
+  } catch {
+    return [];
   }
 }
 
@@ -58,10 +83,16 @@ export function recordView(email: string, path: string, viewId = ""): Promise<vo
  * Record that a user saved a bill's coding to JobTread (one row per save action;
  * a save re-pushes the whole bill, so this counts coding saves, not lines). The
  * bill's page is stored in `path` (`/bill/<docId>`) so the activity feed links to
- * it. Best-effort — a logging hiccup must never fail the actual coding write.
+ * it, and `recodes` (the lines whose cost code actually changed) is stored as a
+ * JSON detail array. Best-effort — a logging hiccup must never fail the write.
  */
-export function recordCoding(email: string, docId: string): Promise<void> {
-  return record(email, "coding", docId ? `/bill/${docId}` : "");
+export function recordCoding(
+  email: string,
+  docId: string,
+  recodes?: RecodeEntry[],
+): Promise<void> {
+  const clean = sanitizeRecodes(recodes);
+  return record(email, "coding", docId ? `/bill/${docId}` : "", "", clean.length ? JSON.stringify(clean) : "");
 }
 
 /** Drop activity rows older than `days` (keeps the append-only table bounded). */
@@ -90,6 +121,7 @@ export interface RecentActivity {
   kind: UsageKind;
   path: string;
   viewId: string;
+  recodes: RecodeEntry[]; // the re-codes behind a "coding" event; [] for other kinds
   at: string; // ISO
 }
 
@@ -182,6 +214,7 @@ export async function getUsageSummary(
     kind: (r.kind === "login" ? "login" : r.kind === "coding" ? "coding" : "view") as UsageKind,
     path: r.path,
     viewId: r.viewId,
+    recodes: r.kind === "coding" ? parseRecodes(r.detail) : [],
     at: r.createdAt,
   }));
 

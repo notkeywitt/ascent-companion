@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { clearJobCostCaches, updateLine } from "@/lib/jobtread";
 import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
 import { recordCoding } from "@/lib/usage";
+import type { RecodeEntry } from "@/lib/billLineMath";
 import { db, ensureDb } from "@/db";
 import { savedBills } from "@/db/schema";
 
@@ -31,7 +32,7 @@ export async function POST(req: NextRequest) {
   if (!hasGrant()) {
     return NextResponse.json({ error: "JT_GRANT_KEY is not set." }, { status: 400 });
   }
-  let body: { changes?: Change[]; docId?: string };
+  let body: { changes?: Change[]; docId?: string; codingLog?: RecodeEntry[] };
   try {
     body = await req.json();
   } catch {
@@ -97,8 +98,10 @@ export async function POST(req: NextRequest) {
       /* indicator is best-effort */
     }
     // Append-only activity log (never blocks the response — recordCoding
-    // swallows its own errors).
-    void recordCoding(email, body.docId);
+    // swallows its own errors). codingLog is the client's diff of which lines
+    // actually changed cost code (the whole-bill push can't reveal that server-
+    // side); recordCoding sanitizes it before storing.
+    void recordCoding(email, body.docId, body.codingLog);
   }
 
   return NextResponse.json({ previewed: false, wrote: true, results });

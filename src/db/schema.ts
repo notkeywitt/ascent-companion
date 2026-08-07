@@ -231,7 +231,8 @@ export type LeaveRequest = typeof leaveRequests.$inferSelect;
  *    beacon; the email is taken from the session, never trusted from the body).
  *  - "coding": one row per bill-coding save to JobTread (written server-side by
  *    /api/code after a successful write; email from the session). `path` holds
- *    the coded bill's page (`/bill/<docId>`); `viewId` is unused.
+ *    the coded bill's page (`/bill/<docId>`); `detail` holds a JSON array of the
+ *    re-codes made (RecodeEntry[] — line, from, to); `viewId` is unused.
  * `viewId` is the gate view the path resolves to (see lib/views), handy for
  * "most-used features" rollups; `path` keeps the raw pathname. Old rows are
  * pruned on each login (see pruneUsageEvents), so the table stays bounded.
@@ -242,6 +243,7 @@ export const usageEvents = sqliteTable("usage_events", {
   kind: text("kind").notNull(), // "login" | "view" | "coding"
   path: text("path").notNull().default(""), // raw pathname (view + coding events)
   viewId: text("view_id").notNull().default(""), // resolved gate view id, if any
+  detail: text("detail").notNull().default(""), // JSON RecodeEntry[] for coding events
   createdAt: text("created_at").notNull(), // ISO timestamp
 });
 
