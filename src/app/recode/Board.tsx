@@ -2170,7 +2170,7 @@ export function Board() {
                               {b.fileCount === 0 && (
                                 <span
                                   title="No file attached to this bill in JobTread"
-                                  className="ml-2 rounded bg-red-100 px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide text-red-700 dark:bg-red-950/40 dark:text-red-300"
+                                  className="ml-2 rounded bg-orange-100 px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide text-orange-700 dark:bg-orange-950/40 dark:text-orange-300"
                                 >
                                   No file
                                 </span>
