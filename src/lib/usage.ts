@@ -1,10 +1,12 @@
 // User activity tracking — the data layer behind Admin → Activity.
 //
-// Two writers:
+// Three writers:
 //   • recordLogin  — called from NextAuth's signIn event (src/auth.ts) on every
 //     successful Google sign-in. Server-derived, so it can't be spoofed.
 //   • recordView   — called from /api/usage-track on each in-app navigation. The
 //     email comes from the session in the route, never from the request body.
+//   • recordCoding — called from /api/code after a bill's coding is saved to
+//     JobTread. The email comes from the session in the route, never the body.
 //
 // One reader: getUsageSummary — the windowed rollup the /api/usage route serves.
 //
@@ -15,7 +17,7 @@ import { desc, gte, lt } from "drizzle-orm";
 import { db, ensureDb } from "@/db";
 import { usageEvents } from "@/db/schema";
 
-export type UsageKind = "login" | "view";
+export type UsageKind = "login" | "view" | "coding";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -52,6 +54,16 @@ export function recordView(email: string, path: string, viewId = ""): Promise<vo
   return record(email, "view", path, viewId);
 }
 
+/**
+ * Record that a user saved a bill's coding to JobTread (one row per save action;
+ * a save re-pushes the whole bill, so this counts coding saves, not lines). The
+ * bill's page is stored in `path` (`/bill/<docId>`) so the activity feed links to
+ * it. Best-effort — a logging hiccup must never fail the actual coding write.
+ */
+export function recordCoding(email: string, docId: string): Promise<void> {
+  return record(email, "coding", docId ? `/bill/${docId}` : "");
+}
+
 /** Drop activity rows older than `days` (keeps the append-only table bounded). */
 export async function pruneUsageEvents(days = 180): Promise<void> {
   try {
@@ -67,6 +79,7 @@ export interface UserActivity {
   email: string;
   logins: number;
   views: number;
+  codings: number; // coding saves (bills coded through the app)
   lastLogin: string | null; // ISO
   lastActive: string | null; // ISO (most recent event of any kind)
   topViews: { viewId: string; label: string; count: number }[];
@@ -83,7 +96,7 @@ export interface RecentActivity {
 export interface UsageSummary {
   days: number;
   since: string; // ISO window start
-  totals: { activeUsers: number; logins: number; views: number };
+  totals: { activeUsers: number; logins: number; views: number; codings: number };
   users: UserActivity[]; // sorted by lastActive, most recent first
   recent: RecentActivity[]; // newest first, capped
 }
@@ -113,6 +126,7 @@ export async function getUsageSummary(
     {
       logins: number;
       views: number;
+      codings: number;
       lastLogin: string | null;
       lastActive: string | null;
       viewCounts: Map<string, number>;
@@ -122,7 +136,14 @@ export async function getUsageSummary(
   for (const r of rows) {
     let u = byUser.get(r.email);
     if (!u) {
-      u = { logins: 0, views: 0, lastLogin: null, lastActive: null, viewCounts: new Map() };
+      u = {
+        logins: 0,
+        views: 0,
+        codings: 0,
+        lastLogin: null,
+        lastActive: null,
+        viewCounts: new Map(),
+      };
       byUser.set(r.email, u);
     }
     // rows arrive newest-first, so the first time we see a user is their latest.
@@ -130,6 +151,10 @@ export async function getUsageSummary(
     if (r.kind === "login") {
       u.logins += 1;
       if (!u.lastLogin) u.lastLogin = r.createdAt;
+    } else if (r.kind === "coding") {
+      // A coding save is an action, not a page view — kept out of the view
+      // rollup so "most-used features" stays about navigation.
+      u.codings += 1;
     } else {
       u.views += 1;
       const key = r.viewId || r.path || "(other)";
@@ -142,6 +167,7 @@ export async function getUsageSummary(
       email,
       logins: u.logins,
       views: u.views,
+      codings: u.codings,
       lastLogin: u.lastLogin,
       lastActive: u.lastActive,
       topViews: [...u.viewCounts.entries()]
@@ -153,7 +179,7 @@ export async function getUsageSummary(
 
   const recent: RecentActivity[] = rows.slice(0, 80).map((r) => ({
     email: r.email,
-    kind: (r.kind === "login" ? "login" : "view") as UsageKind,
+    kind: (r.kind === "login" ? "login" : r.kind === "coding" ? "coding" : "view") as UsageKind,
     path: r.path,
     viewId: r.viewId,
     at: r.createdAt,
@@ -166,6 +192,7 @@ export async function getUsageSummary(
       activeUsers: users.length,
       logins: users.reduce((s, u) => s + u.logins, 0),
       views: users.reduce((s, u) => s + u.views, 0),
+      codings: users.reduce((s, u) => s + u.codings, 0),
     },
     users,
     recent,

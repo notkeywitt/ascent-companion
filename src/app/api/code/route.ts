@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/auth";
 import { clearJobCostCaches, updateLine } from "@/lib/jobtread";
 import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
+import { recordCoding } from "@/lib/usage";
 import { db, ensureDb } from "@/db";
 import { savedBills } from "@/db/schema";
 
@@ -49,6 +51,11 @@ export async function POST(req: NextRequest) {
     });
   }
 
+  // Attribute this coding save to the signed-in user (from the session, never
+  // the body) — used for the savedBy marker and the Admin → Activity log below.
+  const session = await auth();
+  const email = (session?.user?.email ?? "").trim().toLowerCase();
+
   const cfg = getPaveConfig();
   const results: { costItemId: string; ok: boolean; error?: string }[] = [];
   for (const c of changes) {
@@ -75,19 +82,23 @@ export async function POST(req: NextRequest) {
   if (results.some((r) => r.ok)) clearJobCostCaches();
 
   // Mark this bill as "saved" (Save clicked + at least one line written) so the
-  // coding queue can flag bills the office has already worked. Best-effort — a
-  // DB hiccup here must never fail the save itself.
+  // coding queue can flag bills the office has already worked, and log the
+  // coding change to the Admin → Activity feed. Both best-effort — a DB hiccup
+  // here must never fail the save itself.
   if (body.docId && results.some((r) => r.ok)) {
     try {
       await ensureDb();
       const now = new Date().toISOString();
       await db
         .insert(savedBills)
-        .values({ docId: body.docId, savedAt: now })
-        .onConflictDoUpdate({ target: savedBills.docId, set: { savedAt: now } });
+        .values({ docId: body.docId, savedAt: now, savedBy: email })
+        .onConflictDoUpdate({ target: savedBills.docId, set: { savedAt: now, savedBy: email } });
     } catch {
       /* indicator is best-effort */
     }
+    // Append-only activity log (never blocks the response — recordCoding
+    // swallows its own errors).
+    void recordCoding(email, body.docId);
   }
 
   return NextResponse.json({ previewed: false, wrote: true, results });

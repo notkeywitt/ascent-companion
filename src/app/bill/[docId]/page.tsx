@@ -456,7 +456,7 @@ function BillDetail() {
         await fetch("/api/code", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ changes }),
+          body: JSON.stringify({ changes, docId }),
         });
       }
       // 2. Approve (moves out of draft; description is now locked).
