@@ -61,7 +61,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   let views: string[] = [];
   if (session?.user) {
     role = session.user.role ?? "field";
-    views = [...resolveAllowedViews(role, session.user.viewsAllow, session.user.viewsDeny)];
+    views = [
+      ...resolveAllowedViews(role, session.user.viewsAllow, session.user.viewsDeny, session.user.roleBase),
+    ];
   } else if (devOpen) {
     role = "admin";
     views = ALL_VIEW_IDS;

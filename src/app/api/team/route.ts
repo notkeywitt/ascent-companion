@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { db, ensureDb } from "@/db";
-import { allowedUsers } from "@/db/schema";
+import { allowedUsers, roleAccess } from "@/db/schema";
 import { auth, envAllowed } from "@/auth";
 import { ALL_VIEW_IDS, ROLE_VIEWS, ROLES, VIEWS, type Role } from "@/lib/views";
 
@@ -56,12 +56,18 @@ async function requireAdmin() {
 const FORBIDDEN = NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
 // GET — founders (env, read-only) + DB members (with role/overrides) + who I am,
-// plus the views catalog + role base sets so the admin UI can render the editor.
+// plus the views catalog + role base sets (hardcoded + any admin edit) so the
+// admin UI can render both the per-user and the per-role editors.
 export async function GET() {
   const { isAdmin, email } = await requireAdmin();
   if (!isAdmin) return FORBIDDEN;
   await ensureDb();
   const members = serialize(await db.select().from(allowedUsers));
+  const roleOverrideRows = await db.select().from(roleAccess);
+  const roleOverrides: Record<string, { viewsAllow: string[]; viewsDeny: string[] }> = {};
+  for (const r of roleOverrideRows) {
+    roleOverrides[r.role] = { viewsAllow: parseIds(r.viewsAllow), viewsDeny: parseIds(r.viewsDeny) };
+  }
   return NextResponse.json({
     envAdmins: envAllowed(),
     members,
@@ -69,6 +75,7 @@ export async function GET() {
     catalog: VIEWS.map((v) => ({ id: v.id, label: v.label, group: v.group })),
     roleViews: ROLE_VIEWS,
     roles: ROLES,
+    roleOverrides,
   });
 }
 

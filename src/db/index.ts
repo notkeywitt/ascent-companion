@@ -139,6 +139,16 @@ async function applySchema() {
       /* column already exists */
     }
   }
+  // Per-role view-set overrides (DB layer on top of the hardcoded ROLE_VIEWS
+  // defaults) — lets /admin change what a whole role sees, not just one person.
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS role_access (
+      role TEXT PRIMARY KEY,
+      views_allow TEXT NOT NULL DEFAULT '[]',
+      views_deny TEXT NOT NULL DEFAULT '[]',
+      updated_at TEXT NOT NULL DEFAULT ''
+    )
+  `);
   await client.execute(`
     CREATE TABLE IF NOT EXISTS saved_bills (
       doc_id TEXT PRIMARY KEY,

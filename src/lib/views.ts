@@ -178,13 +178,20 @@ function asRole(role: string | null | undefined): Role {
  * The effective set of view ids a user can access:
  *   (role base ∪ per-user grants) \ per-user denials.
  * `allow`/`deny` are the parsed viewsAllow/viewsDeny arrays.
+ *
+ * `roleBase` overrides the starting point in place of the hardcoded
+ * ROLE_VIEWS[role] — pass the DB-resolved per-role default (see auth.ts'
+ * `roleBaseFor`) so a per-user override sits on top of what the role ACTUALLY
+ * grants today, not the code default. Omit it to fall back to the hardcoded
+ * default (e.g. when computing that DB-resolved base itself).
  */
 export function resolveAllowedViews(
   role: string | null | undefined,
   allow: string[] = [],
   deny: string[] = [],
+  roleBase?: Iterable<string>,
 ): Set<string> {
-  const set = new Set<string>(ROLE_VIEWS[asRole(role)]);
+  const set = new Set<string>(roleBase ?? ROLE_VIEWS[asRole(role)]);
   for (const id of allow) set.add(id);
   for (const id of deny) set.delete(id);
   // Never grant a view id that no longer exists.

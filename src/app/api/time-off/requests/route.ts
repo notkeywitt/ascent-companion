@@ -33,7 +33,7 @@ async function callerIsOffice(): Promise<boolean> {
   const session = await auth();
   const u = session?.user;
   if (!u) return false;
-  return resolveAllowedViews(u.role, u.viewsAllow, u.viewsDeny).has("time-off-admin");
+  return resolveAllowedViews(u.role, u.viewsAllow, u.viewsDeny, u.roleBase).has("time-off-admin");
 }
 
 export async function GET(req: NextRequest) {

@@ -13,6 +13,7 @@ declare module "next-auth" {
       role?: Role;
       viewsAllow?: string[];
       viewsDeny?: string[];
+      roleBase?: string[]; // the role's (possibly admin-edited) default view set
     } & DefaultSession["user"];
   }
 }
@@ -22,5 +23,6 @@ declare module "next-auth/jwt" {
     role?: Role;
     va?: string[]; // viewsAllow
     vd?: string[]; // viewsDeny
+    rb?: string[]; // roleBase
   }
 }

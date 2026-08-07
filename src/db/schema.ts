@@ -61,6 +61,22 @@ export const allowedUsers = sqliteTable("allowed_users", {
 export type AllowedUser = typeof allowedUsers.$inferSelect;
 
 /**
+ * DB-editable layer on top of the hardcoded ROLE_VIEWS defaults in lib/views.ts
+ * — lets an admin change what a whole role sees (not just one person) from
+ * /admin. No row for a role = use the hardcoded default unchanged. "admin" is
+ * never given a row here (see lib/views' roleBaseFor) so a bad edit can't lock
+ * every admin out of the admin console.
+ */
+export const roleAccess = sqliteTable("role_access", {
+  role: text("role").primaryKey(), // "office" | "lead" | "field"
+  viewsAllow: text("views_allow").notNull().default("[]"), // JSON string[], on top of the hardcoded default
+  viewsDeny: text("views_deny").notNull().default("[]"), // JSON string[], removed from the hardcoded default
+  updatedAt: text("updated_at").notNull().default(""),
+});
+
+export type RoleAccessRow = typeof roleAccess.$inferSelect;
+
+/**
  * Assistant-side per-bill workflow flags, keyed by JobTread document id:
  *  - saved:    the "Save" button was clicked and a line write succeeded (auto).
  *  - reviewed: the office explicitly marked the bill reviewed/done (a toggle).
