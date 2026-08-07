@@ -176,6 +176,12 @@ function BillDetail() {
         : from === "payments"
           ? "‹ Sunset statements"
           : "‹ Coding queue";
+  // Stepping ‹ prev / next › between bills must keep the SAME Back destination —
+  // otherwise the neighbour loses ?from/?ym and Back falls back to the coding
+  // queue. Carry both through every bill link.
+  const navContext =
+    `${from ? `&from=${encodeURIComponent(from)}` : ""}` +
+    `${ym ? `&ym=${encodeURIComponent(ym)}` : ""}`;
 
   const [header, setHeader] = useState<Header | null>(null);
   const [lines, setLines] = useState<Line[] | null>(null);
@@ -858,7 +864,7 @@ function BillDetail() {
             <>
             {prevId ? (
               <Link
-                href={`/bill/${prevId}?jobId=${encodeURIComponent(jobId)}`}
+                href={`/bill/${prevId}?jobId=${encodeURIComponent(jobId)}${navContext}`}
                 onClick={() => driveMainWindowToDoc(jobId, prevId)}
                 aria-label="Previous bill"
                 className={btn("outline", "sm")}
@@ -875,7 +881,7 @@ function BillDetail() {
             </span>
             {nextId ? (
               <Link
-                href={`/bill/${nextId}?jobId=${encodeURIComponent(jobId)}`}
+                href={`/bill/${nextId}?jobId=${encodeURIComponent(jobId)}${navContext}`}
                 onClick={() => driveMainWindowToDoc(jobId, nextId)}
                 aria-label="Next bill"
                 className={btn("outline", "sm")}
