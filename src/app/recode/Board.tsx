@@ -1331,8 +1331,9 @@ export function Board() {
             ? `${jobTitle}${jobAddress ? ` · ${jobAddress}` : ""}`
             : "Move expenditure between cost codes against live budget headroom."
         }
+        actionsClassName="min-w-0 items-center"
         actions={
-          <div className="flex flex-wrap items-center justify-end gap-3">
+          <div className="flex min-w-0 flex-wrap items-center justify-end gap-3">
             <Select
               value={ym}
               onChange={(e) => setYm(e.target.value)}

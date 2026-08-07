@@ -290,17 +290,23 @@ export function PageHeader({
   description,
   actions,
   className = "",
+  // A lone button/link never needs to shrink, so shrink-0 is the right default
+  // — but a caller with a wider toolbar (many controls) needs it to actually
+  // give up space once flex-wrap drops it to its own line below the title,
+  // rather than sit at its full unwrapped width and overflow the page.
+  actionsClassName = "shrink-0 items-center gap-2",
 }: {
   title: React.ReactNode;
   description?: React.ReactNode;
   actions?: React.ReactNode;
   className?: string;
+  actionsClassName?: string;
 }) {
   return (
     <header className={`mb-5 ${className}`}>
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <PageTitle className="min-w-0">{title}</PageTitle>
-        {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
+        {actions && <div className={`flex ${actionsClassName}`}>{actions}</div>}
       </div>
       {description && <p className="mt-1 text-sm text-neutral-500">{description}</p>}
     </header>
