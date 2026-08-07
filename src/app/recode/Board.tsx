@@ -16,6 +16,7 @@ import {
   Toggle,
 } from "@/components/ui";
 import { CostCodeSelect, type Option } from "@/components/CostCodeSelect";
+import { PageTitle } from "@/components/PageTitle";
 import { JtLink } from "@/components/JtLink";
 import {
   billLineMath,
@@ -1318,15 +1319,24 @@ export function Board() {
 
   return (
     <main className="mx-auto w-full max-w-2xl px-4 pb-24 pt-6 lg:max-w-[110rem]">
-      <PageHeader
-        title="Client Invoicing"
-        description={
-          jobTitle
-            ? `${jobTitle}${jobAddress ? ` · ${jobAddress}` : ""}`
-            : "Move expenditure between cost codes against live budget headroom."
-        }
-        actions={
-          <div className="flex flex-wrap items-center justify-end gap-3">
+      {/* The header controls are a wide cluster (month + four toggles + the
+          sync actions). On desktop they sit top-right beside the title; on a
+          phone that same cluster overflowed the header and collapsed the title,
+          so here the title and controls are laid out to STACK on a narrow screen
+          (controls full-width below the title) and only go side-by-side at lg+.
+          Built inline rather than through PageHeader's `actions` slot, which
+          always pins actions beside the title. */}
+      <header className="mb-5">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <div className="min-w-0">
+            <PageTitle className="min-w-0">Client Invoicing</PageTitle>
+            <p className="mt-1 text-sm text-neutral-500">
+              {jobTitle
+                ? `${jobTitle}${jobAddress ? ` · ${jobAddress}` : ""}`
+                : "Move expenditure between cost codes against live budget headroom."}
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-3 lg:shrink-0 lg:justify-end">
             <Select
               value={ym}
               onChange={(e) => setYm(e.target.value)}
@@ -1374,20 +1384,26 @@ export function Board() {
               }
               className="shrink-0"
             />
-            {dirty && (
-              <span className="text-xs font-semibold text-amber-600 dark:text-amber-400">
-                {staged.size} staged change{staged.size === 1 ? "" : "s"}
-              </span>
-            )}
-            <Button variant="secondary" size="sm" onClick={revertAll} disabled={!dirty || syncing}>
-              Revert
-            </Button>
-            <Button size="sm" onClick={sync} disabled={!dirty || syncing}>
-              {syncing ? "Syncing…" : "Sync to JobTread"}
-            </Button>
+            {/* Recoding is off on a narrow screen (the page is read-only there —
+                see the note below), so the staged-change count and its Sync/
+                Revert actions can't do anything and would only crowd the phone
+                header. Shown from lg up, where recoding is live. */}
+            <div className="hidden items-center gap-3 lg:flex">
+              {dirty && (
+                <span className="text-xs font-semibold text-amber-600 dark:text-amber-400">
+                  {staged.size} staged change{staged.size === 1 ? "" : "s"}
+                </span>
+              )}
+              <Button variant="secondary" size="sm" onClick={revertAll} disabled={!dirty || syncing}>
+                Revert
+              </Button>
+              <Button size="sm" onClick={sync} disabled={!dirty || syncing}>
+                {syncing ? "Syncing…" : "Sync to JobTread"}
+              </Button>
+            </div>
           </div>
-        }
-      />
+        </div>
+      </header>
       {data && !data.writesEnabled && (
         <p className="mb-4 text-[11px] text-amber-600 dark:text-amber-400">
           Writes are disabled on this deployment — Sync will preview only.
