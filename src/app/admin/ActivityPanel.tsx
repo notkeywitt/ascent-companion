@@ -13,13 +13,14 @@ interface UserActivity {
   email: string;
   logins: number;
   views: number;
+  codings: number;
   lastLogin: string | null;
   lastActive: string | null;
   topViews: TopView[];
 }
 interface RecentActivity {
   email: string;
-  kind: "login" | "view";
+  kind: "login" | "view" | "coding";
   path: string;
   viewId: string;
   at: string;
@@ -27,7 +28,7 @@ interface RecentActivity {
 interface UsageSummary {
   days: number;
   since: string;
-  totals: { activeUsers: number; logins: number; views: number };
+  totals: { activeUsers: number; logins: number; views: number; codings: number };
   users: UserActivity[];
   recent: RecentActivity[];
 }
@@ -119,10 +120,11 @@ export function ActivityPanel() {
 
       {!loading && data && (
         <>
-          <div className="mb-4 grid grid-cols-3 gap-2">
+          <div className="mb-4 grid grid-cols-2 gap-2">
             <Stat label="Active people" value={data.totals.activeUsers} />
             <Stat label="Sign-ins" value={data.totals.logins} />
             <Stat label="Page views" value={data.totals.views} />
+            <Stat label="Coding saves" value={data.totals.codings} />
           </div>
 
           <SectionLabel className="mb-1">People</SectionLabel>
@@ -150,6 +152,14 @@ export function ActivityPanel() {
                     <strong className="text-neutral-700 dark:text-neutral-300">{u.views}</strong>{" "}
                     view{u.views === 1 ? "" : "s"}
                   </span>
+                  {u.codings > 0 && (
+                    <span>
+                      <strong className="text-neutral-700 dark:text-neutral-300">
+                        {u.codings}
+                      </strong>{" "}
+                      coding save{u.codings === 1 ? "" : "s"}
+                    </span>
+                  )}
                   <span title={fullTime(u.lastLogin)}>last sign-in {fromNow(u.lastLogin)}</span>
                 </div>
                 {u.topViews.length > 0 && (
@@ -193,6 +203,10 @@ export function ActivityPanel() {
                         {r.kind === "login" ? (
                           <span className="font-medium text-emerald-600 dark:text-emerald-400">
                             signed in
+                          </span>
+                        ) : r.kind === "coding" ? (
+                          <span className="font-medium text-accent dark:text-accent-soft">
+                            saved coding{r.path ? ` on ${r.path}` : ""}
                           </span>
                         ) : (
                           <span className="text-neutral-600 dark:text-neutral-300">
