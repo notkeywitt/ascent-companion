@@ -990,17 +990,23 @@ export function Board() {
       .sort((a, b) => a.code.localeCompare(b.code));
   }, [data, codeOf, headroom, hideSunset, sunsetDocIds]);
 
-  /** Options for the coding dropdown — every budget leaf on the job. */
+  /**
+   * Options for the coding dropdown — every non-labor budget leaf on the job.
+   * Labor leaves are filled by time entries, not vendor bills, so they aren't
+   * valid coding targets here.
+   */
   const codeOptions: Option[] = useMemo(
     () =>
-      (data?.budget ?? []).map((b) => ({
-        id: b.id,
-        number: b.number,
-        name: b.name,
-        detail: b.detail,
-        costType: b.costType,
-        cost: b.cost,
-      })),
+      (data?.budget ?? [])
+        .filter((b) => (b.costType ?? "").trim().toLowerCase() !== "labor")
+        .map((b) => ({
+          id: b.id,
+          number: b.number,
+          name: b.name,
+          detail: b.detail,
+          costType: b.costType,
+          cost: b.cost,
+        })),
     [data],
   );
 
