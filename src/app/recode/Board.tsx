@@ -1278,91 +1278,87 @@ export function Board() {
             : "Move expenditure between cost codes against live budget headroom."
         }
         actions={
-          <Link href="/stage" className={btn("secondary", "sm")}>
-            ← Invoicing
-          </Link>
+          <div className="flex flex-wrap items-center justify-end gap-3">
+            <Link href="/stage" className={btn("secondary", "sm")}>
+              ← Invoicing
+            </Link>
+            <Select
+              value={ym}
+              onChange={(e) => setYm(e.target.value)}
+              className="lg:w-52"
+              aria-label="Billing month"
+            >
+              {monthOptions().map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </Select>
+            {/* Governs the LIST only. Drafts are never invoiceable — JobTread
+                won't pull one onto a customer invoice — so this can't move the
+                "To be invoiced" figure, and the title says so. */}
+            <Toggle
+              checked={includeDrafts}
+              onChange={setIncludeDrafts}
+              label={<span title="Shows draft bills below so you can code them. Drafts are never invoiceable until approved in JobTread, so this doesn't change the To be invoiced total.">Include drafts</span>}
+              className="shrink-0"
+            />
+            <Toggle
+              checked={hideSunset}
+              onChange={setHideSunset}
+              label="Hide Sunset"
+              className="shrink-0"
+            />
+            <Toggle
+              checked={uninvoicedOnly}
+              onChange={setUninvoicedOnly}
+              label={
+                <span title="Off shows bills already on a customer invoice too, read-only — for reviewing a past, fully-invoiced month.">
+                  Uninvoiced only
+                </span>
+              }
+              className="shrink-0"
+            />
+            <Toggle
+              checked={includeUnapprovedTime}
+              onChange={setIncludeUnapprovedTime}
+              label={
+                <span title="Off counts only isApproved time entries toward labor and headroom — a more conservative number when a lot of logged time hasn't been approved yet.">
+                  Include unapproved time
+                </span>
+              }
+              className="shrink-0"
+            />
+            {dirty && (
+              <span className="text-xs font-semibold text-amber-600 dark:text-amber-400">
+                {staged.size} staged change{staged.size === 1 ? "" : "s"}
+              </span>
+            )}
+            <Button variant="secondary" size="sm" onClick={revertAll} disabled={!dirty || syncing}>
+              Revert
+            </Button>
+            <Button size="sm" onClick={sync} disabled={!dirty || syncing}>
+              {syncing ? "Syncing…" : "Sync to JobTread"}
+            </Button>
+            {/* The two syncs sit together because they're the same step of the
+                job, in order: push the coding to JobTread, then push the month to
+                the tracking sheet (which reads costCode off each bill line, so it
+                wants the coding settled first). Compact so its result wraps onto
+                its own line instead of stretching this row. */}
+            <TrackingSheetSyncFor
+              jtJobId={jobId}
+              ym={ym}
+              monthLabel={monthOptions().find((o) => o.value === ym)?.label ?? ym}
+              compact
+            />
+          </div>
         }
       />
-
-      <Card className="mb-4">
-        <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center">
-          <Select
-            value={ym}
-            onChange={(e) => setYm(e.target.value)}
-            className="lg:w-52"
-            aria-label="Billing month"
-          >
-            {monthOptions().map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </Select>
-          {/* Governs the LIST only. Drafts are never invoiceable — JobTread
-              won't pull one onto a customer invoice — so this can't move the
-              "To be invoiced" figure, and the title says so. */}
-          <Toggle
-            checked={includeDrafts}
-            onChange={setIncludeDrafts}
-            label={<span title="Shows draft bills below so you can code them. Drafts are never invoiceable until approved in JobTread, so this doesn't change the To be invoiced total.">Include drafts</span>}
-            className="shrink-0"
-          />
-          <Toggle
-            checked={hideSunset}
-            onChange={setHideSunset}
-            label="Hide Sunset"
-            className="shrink-0"
-          />
-          <Toggle
-            checked={uninvoicedOnly}
-            onChange={setUninvoicedOnly}
-            label={
-              <span title="Off shows bills already on a customer invoice too, read-only — for reviewing a past, fully-invoiced month.">
-                Uninvoiced only
-              </span>
-            }
-            className="shrink-0"
-          />
-          <Toggle
-            checked={includeUnapprovedTime}
-            onChange={setIncludeUnapprovedTime}
-            label={
-              <span title="Off counts only isApproved time entries toward labor and headroom — a more conservative number when a lot of logged time hasn't been approved yet.">
-                Include unapproved time
-              </span>
-            }
-            className="shrink-0"
-          />
-          <div className="flex-1" />
-          {dirty && (
-            <span className="text-xs font-semibold text-amber-600 dark:text-amber-400">
-              {staged.size} staged change{staged.size === 1 ? "" : "s"}
-            </span>
-          )}
-          <Button variant="secondary" size="sm" onClick={revertAll} disabled={!dirty || syncing}>
-            Revert
-          </Button>
-          <Button size="sm" onClick={sync} disabled={!dirty || syncing}>
-            {syncing ? "Syncing…" : "Sync to JobTread"}
-          </Button>
-          {/* The two syncs sit together because they're the same step of the
-              job, in order: push the coding to JobTread, then push the month to
-              the tracking sheet (which reads costCode off each bill line, so it
-              wants the coding settled first). Compact so its result wraps onto
-              its own line instead of stretching this row. */}
-          <TrackingSheetSyncFor
-            jtJobId={jobId}
-            ym={ym}
-            monthLabel={monthOptions().find((o) => o.value === ym)?.label ?? ym}
-            compact
-          />
-        </div>
-        {data && !data.writesEnabled && (
-          <p className="mt-2 text-[11px] text-amber-600 dark:text-amber-400">
-            Writes are disabled on this deployment — Sync will preview only.
-          </p>
-        )}
-      </Card>
+      {data && !data.writesEnabled && (
+        <p className="mb-4 text-[11px] text-amber-600 dark:text-amber-400">
+          Writes are disabled on this deployment — Sync will preview only.
+        </p>
+      )}
 
       {syncMsg && (
         <Banner tone={syncMsg.tone} className="mb-4">
@@ -1394,42 +1390,7 @@ export function Board() {
           one line describing the state of JobTread rather than driving the
           number. */}
       {jobId && !loading && (
-        <div className="mb-4 grid grid-cols-1 gap-3 lg:grid-cols-[auto_minmax(0,1fr)] lg:items-start">
-          <Card
-            className="lg:w-72"
-            title={
-              recon
-                ? `${money(recon.uninvoicedBillsCost)} uninvoiced bills + ${money(recon.uninvoicedTimeCost)} uninvoiced time` +
-                  (recon.draftBillCount > 0
-                    ? `\n+ ${money(recon.draftBillsCost)} in ${recon.draftBillCount} draft bill(s)`
-                    : "")
-                : undefined
-            }
-          >
-            <SectionLabel>To be invoiced</SectionLabel>
-            <p className="mt-0.5 text-2xl font-semibold tabular-nums">
-              {recon ? money(recon.remaining + recon.draftBillsCost) : "—"}
-            </p>
-            {!recon ? (
-              <p className="mt-0.5 text-[11px] text-neutral-400">checking JobTread…</p>
-            ) : recon.draftBillCount === 0 ? (
-              <p className="mt-0.5 text-[11px] text-neutral-400">
-                All approved in JobTread — invoiceable now.
-              </p>
-            ) : recon.remaining < 0.01 ? (
-              <p className="mt-0.5 text-[11px] text-amber-600 dark:text-amber-400">
-                None of it is invoiceable yet — all {recon.draftBillCount} bill
-                {recon.draftBillCount === 1 ? "" : "s"} are still draft in JobTread. Approve them
-                to bill.
-              </p>
-            ) : (
-              <p className="mt-0.5 text-[11px] text-amber-600 dark:text-amber-400">
-                {money(recon.remaining)} approved and invoiceable now ·{" "}
-                {money(recon.draftBillsCost)} in {recon.draftBillCount} draft
-                {recon.draftBillCount === 1 ? "" : "s"} awaiting approval in JobTread.
-              </p>
-            )}
-          </Card>
+        <div className="mb-4">
           <InvoiceReconcile jobId={jobId} ym={ym} onData={setRecon} />
         </div>
       )}
@@ -1461,7 +1422,7 @@ export function Board() {
                 >
                   ▶
                 </span>
-                <SectionLabel>Cost codes · budget remaining</SectionLabel>
+                <SectionLabel>Budget</SectionLabel>
               </button>
               <button
                 type="button"
@@ -1632,6 +1593,30 @@ export function Board() {
 
           {/* ─────────── CENTRE: the month's bills ─────────── */}
           <section className="min-w-0">
+            <Card
+              className="mb-3"
+              title={
+                recon
+                  ? `${money(recon.uninvoicedBillsCost)} uninvoiced bills + ${money(recon.uninvoicedTimeCost)} uninvoiced time` +
+                    (recon.draftBillCount > 0
+                      ? `\n+ ${money(recon.draftBillsCost)} in ${recon.draftBillCount} draft bill(s)`
+                      : "")
+                  : undefined
+              }
+            >
+              <SectionLabel>To be invoiced</SectionLabel>
+              <p className="mt-0.5 text-2xl font-semibold tabular-nums">
+                {recon ? money(recon.remaining + recon.draftBillsCost) : "—"}
+              </p>
+              <p className="mt-0.5 text-[11px] text-neutral-400">
+                {recon
+                  ? `${money(recon.remaining)} approved${
+                      recon.draftBillCount > 0 ? `, ${money(recon.draftBillsCost)} drafts` : ""
+                    }`
+                  : "checking JobTread…"}
+              </p>
+            </Card>
+
             <div className="mb-2 flex items-baseline justify-between gap-3">
               <SectionLabel>
                 {/* The total stays whole even when the list is filtered — hiding
@@ -1845,7 +1830,7 @@ export function Board() {
                         `&ym=${encodeURIComponent(ym)}`,
                     );
                   return (
-                    <li key={b.id} id={`bill-${b.id}`} className="scroll-mt-4">
+                    <li key={b.id} id={`bill-${b.id}`} className="scroll-mt-20">
                       <Card
                         pad={false}
                         draggable={lines.length > 0 && !b.invoiced}
