@@ -18,11 +18,17 @@ interface UserActivity {
   lastActive: string | null;
   topViews: TopView[];
 }
+interface RecodeEntry {
+  line: string;
+  from: string;
+  to: string;
+}
 interface RecentActivity {
   email: string;
   kind: "login" | "view" | "coding";
   path: string;
   viewId: string;
+  recodes: RecodeEntry[];
   at: string;
 }
 interface UsageSummary {
@@ -196,27 +202,39 @@ export function ActivityPanel() {
                   {data.recent.map((r, i) => (
                     <li
                       key={i}
-                      className="flex items-center justify-between gap-2 rounded-md border border-neutral-100 px-2.5 py-1.5 text-xs dark:border-white/10"
+                      className="rounded-md border border-neutral-100 px-2.5 py-1.5 text-xs dark:border-white/10"
                     >
-                      <span className="min-w-0 flex-1 truncate">
-                        <span className="text-neutral-500">{r.email.split("@")[0]}</span>{" "}
-                        {r.kind === "login" ? (
-                          <span className="font-medium text-emerald-600 dark:text-emerald-400">
-                            signed in
-                          </span>
-                        ) : r.kind === "coding" ? (
-                          <span className="font-medium text-accent dark:text-accent-soft">
-                            saved coding{r.path ? ` on ${r.path}` : ""}
-                          </span>
-                        ) : (
-                          <span className="text-neutral-600 dark:text-neutral-300">
-                            opened {r.path}
-                          </span>
-                        )}
-                      </span>
-                      <span className="shrink-0 text-neutral-400" title={fullTime(r.at)}>
-                        {fromNow(r.at)}
-                      </span>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="min-w-0 flex-1 truncate">
+                          <span className="text-neutral-500">{r.email.split("@")[0]}</span>{" "}
+                          {r.kind === "login" ? (
+                            <span className="font-medium text-emerald-600 dark:text-emerald-400">
+                              signed in
+                            </span>
+                          ) : r.kind === "coding" ? (
+                            <span className="font-medium text-accent dark:text-accent-soft">
+                              saved coding{r.path ? ` on ${r.path}` : ""}
+                            </span>
+                          ) : (
+                            <span className="text-neutral-600 dark:text-neutral-300">
+                              opened {r.path}
+                            </span>
+                          )}
+                        </span>
+                        <span className="shrink-0 text-neutral-400" title={fullTime(r.at)}>
+                          {fromNow(r.at)}
+                        </span>
+                      </div>
+                      {r.kind === "coding" && r.recodes.length > 0 && (
+                        <ul className="mt-1 space-y-0.5 border-l-2 border-neutral-200 pl-2.5 dark:border-white/10">
+                          {r.recodes.map((rc, j) => (
+                            <li key={j} className="text-[11px] text-neutral-500 dark:text-neutral-400">
+                              <span className="text-neutral-700 dark:text-neutral-300">{rc.line}</span>
+                              : {rc.from} <span className="text-neutral-400">→</span> {rc.to}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
                     </li>
                   ))}
                 </ul>

@@ -20,9 +20,11 @@ import { JtLink } from "@/components/JtLink";
 import {
   billLineMath,
   descriptionForCode,
+  recodeLog,
   round2,
   type LineChange,
   type LineEdit,
+  type RecodeEntry,
 } from "@/lib/billLineMath";
 import { InvoiceReconcile, type Recon } from "@/components/InvoiceReconcile";
 import {
@@ -1388,29 +1390,34 @@ export function Board() {
       if (l) touched.add(l.docId);
     }
 
-    const byDoc = new Map<string, LineChange[]>();
+    const pickedAll = Object.fromEntries(staged);
+    const byDoc = new Map<string, { changes: LineChange[]; codingLog: RecodeEntry[] }>();
     for (const docId of touched) {
       const bill = data.bills.find((b) => b.id === docId);
       if (!bill) continue;
+      const docLines = linesByDoc.get(docId) ?? [];
       const { wholeBillChanges } = billLineMath({
-        lines: linesByDoc.get(docId) ?? [],
+        lines: docLines,
         storedTax: bill.nonRecoverableTax,
         status: bill.status,
         edits,
-        picked: Object.fromEntries(staged),
+        picked: pickedAll,
         budget: data.budget,
       });
-      byDoc.set(docId, wholeBillChanges);
+      byDoc.set(docId, {
+        changes: wholeBillChanges,
+        codingLog: recodeLog(docLines, pickedAll, data.budget),
+      });
     }
 
     let ok = 0;
     const failures: string[] = [];
-    for (const [docId, changes] of byDoc) {
+    for (const [docId, { changes, codingLog }] of byDoc) {
       try {
         const r = await fetch("/api/code", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ docId, changes }),
+          body: JSON.stringify({ docId, changes, codingLog }),
         });
         const j = await r.json();
         if (j.error) failures.push(j.error);

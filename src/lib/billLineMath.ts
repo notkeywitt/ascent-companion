@@ -45,6 +45,15 @@ export interface CodeOption {
   id: string;
   number: string;
   name: string;
+  detail?: string; // this leaf's own name, distinguishing splits under one code
+  costType?: string; // Labor / Materials / … — a fallback disambiguator
+}
+
+/** One re-coding, in the human-readable terms the activity log stores. */
+export interface RecodeEntry {
+  line: string; // the bill line's name
+  from: string; // prior cost-code label ("Uncoded" if it had none)
+  to: string; // new cost-code label
 }
 
 /** One line's payload for /api/code. */
@@ -67,6 +76,44 @@ export function descriptionForCode(
   const o = budget.find((b) => b.id === codeId);
   if (!o) return undefined;
   return o.name ? `${o.number} - ${o.name}` : o.number;
+}
+
+/**
+ * A cost-code label for the activity log — "06 10 00 - Rough Carpentry", with the
+ * leaf's own detail appended ("… · Labor") when a code is split into several
+ * budget rows, so a move between two splits of one code doesn't read as a no-op.
+ */
+function codeLabel(codeId: string, budget: readonly CodeOption[]): string {
+  if (!codeId) return "Uncoded";
+  const o = budget.find((b) => b.id === codeId);
+  if (!o) return "(unknown code)";
+  const base = o.name ? `${o.number} - ${o.name}` : o.number;
+  const extra = o.detail && o.detail !== o.name ? o.detail : o.costType;
+  return extra ? `${base} · ${extra}` : base;
+}
+
+/**
+ * The subset of `picked` that actually RE-CODES a line (its budget leaf changed),
+ * resolved to readable labels — the audit detail /api/code logs. Cost-code only;
+ * quantity / unit-cost / name edits are deliberately ignored.
+ */
+export function recodeLog(
+  lines: readonly MathLine[],
+  picked: Record<string, string | undefined>,
+  budget: readonly CodeOption[],
+): RecodeEntry[] {
+  const out: RecodeEntry[] = [];
+  for (const line of lines) {
+    const sel = picked[line.id];
+    const cur = line.jobCostItemId ?? "";
+    if (sel === undefined || sel === cur) continue; // untouched or unchanged
+    out.push({
+      line: line.name || "(unnamed line)",
+      from: codeLabel(cur, budget),
+      to: codeLabel(sel, budget),
+    });
+  }
+  return out;
 }
 
 export interface BillMathInput {
