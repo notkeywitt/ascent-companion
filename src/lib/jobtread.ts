@@ -10,7 +10,24 @@
  * handlers, never from the browser.
  */
 
+import { findMutations } from "@/lib/paveGateway";
+
 const PAVE_URL = "https://api.jobtread.com/pave";
+
+/** Per-request timeout. A single Pave page (size ≤ 100) is fast; this only
+ *  bounds a hung socket, and sits well under the shortest route budget. */
+const PAVE_TIMEOUT_MS = 30_000;
+
+/** Transport statuses where the request never produced a result, so a repeat is
+ *  safe and worth trying. A 200 carrying a JSON `errors` array is a QUERY error,
+ *  not transient — it is never retried (repeating a bad query just fails again). */
+const PAVE_RETRY_STATUS = new Set([429, 500, 502, 503, 504]);
+const PAVE_MAX_ATTEMPTS = 3;
+/** Backoff before attempts 2 and 3. Short because this blocks a live request
+ *  under a route's function budget, unlike the appscript batch loop it mirrors. */
+const PAVE_BACKOFF_MS = [500, 1500];
+
+const paveSleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 export interface PaveConfig {
   grantKey: string; // JT_GRANT_KEY
@@ -20,28 +37,73 @@ export interface PaveConfig {
 
 /** Low-level Pave call. `query` is the Pave query object (grantKey injected here). */
 export async function pave<T = any>(cfg: PaveConfig, query: Record<string, unknown>): Promise<T> {
-  const body = { query: { $: { grantKey: cfg.grantKey }, ...query } };
-  const res = await fetch(PAVE_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  // JobTread returns plain text for some errors (e.g. a bad grant key ->
-  // "Supplied key is invalid"), so parse defensively rather than assume JSON.
-  const text = await res.text();
-  let json: any = null;
-  try {
-    json = JSON.parse(text);
-  } catch {
-    /* non-JSON response */
+  const body = JSON.stringify({ query: { $: { grantKey: cfg.grantKey }, ...query } });
+
+  // A mutation must NEVER be retried: re-sending create/update/delete after a
+  // transient failure risks a duplicate write (a second bill, line, or payment).
+  // Reads are safe to repeat, so only they get the backoff loop. Same detector
+  // the /api/pave gateway uses, so "what is a write" has a single definition —
+  // and it inspects only root fields, so selecting createdAt/updatedAt on a read
+  // doesn't make it look like a write.
+  const mayRetry = findMutations(query).length === 0;
+  const maxAttempts = mayRetry ? PAVE_MAX_ATTEMPTS : 1;
+
+  let lastErr: Error | null = null;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    let res: Response;
+    let text: string;
+    try {
+      res = await fetch(PAVE_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body,
+        signal: AbortSignal.timeout(PAVE_TIMEOUT_MS),
+      });
+      text = await res.text();
+    } catch (e) {
+      // Network failure or the per-request timeout — transient. Retry a read;
+      // surface it immediately for a mutation (we can't know if it landed).
+      const why = e instanceof Error && e.name === "TimeoutError" ? "timed out" : "network error";
+      lastErr = new Error(`Pave request ${why}`);
+      if (mayRetry && attempt < maxAttempts) {
+        await paveSleep(PAVE_BACKOFF_MS[attempt - 1] ?? 1500);
+        continue;
+      }
+      throw lastErr;
+    }
+
+    // Transient transport status: the request didn't produce a result. Retry a
+    // read, else throw. (A mutation with maxAttempts=1 falls straight through.)
+    if (PAVE_RETRY_STATUS.has(res.status)) {
+      lastErr = new Error(`Pave error (HTTP ${res.status}): ${text ? text.slice(0, 300) : "transient"}`);
+      if (mayRetry && attempt < maxAttempts) {
+        await paveSleep(PAVE_BACKOFF_MS[attempt - 1] ?? 1500);
+        continue;
+      }
+      throw lastErr;
+    }
+
+    // JobTread returns plain text for some errors (e.g. a bad grant key ->
+    // "Supplied key is invalid"), so parse defensively rather than assume JSON.
+    let json: any = null;
+    try {
+      json = JSON.parse(text);
+    } catch {
+      /* non-JSON response */
+    }
+    if (!res.ok || json === null || json?.errors) {
+      const msg =
+        json?.errors?.map((e: any) => e.message).join("; ") ??
+        (text ? text.slice(0, 300) : `HTTP ${res.status}`);
+      // A query/auth error or a non-JSON 200 — NOT transient, so never retried.
+      throw new Error(`Pave error (HTTP ${res.status}): ${msg}`);
+    }
+    return json as T;
   }
-  if (!res.ok || json === null || json?.errors) {
-    const msg =
-      json?.errors?.map((e: any) => e.message).join("; ") ??
-      (text ? text.slice(0, 300) : `HTTP ${res.status}`);
-    throw new Error(`Pave error (HTTP ${res.status}): ${msg}`);
-  }
-  return json as T;
+
+  // Unreachable in practice — the loop returns or throws — but satisfies the
+  // type checker and covers a hypothetical zero-attempt configuration.
+  throw lastErr ?? new Error("Pave error: request could not be completed");
 }
 
 // ---------------------------------------------------------------------------
