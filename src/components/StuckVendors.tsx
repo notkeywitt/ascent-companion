@@ -58,6 +58,13 @@ export interface StuckBill {
 export interface StuckVendor {
   /** The vendor name as extracted — what to create in JobTread. */
   vendor: string;
+  /**
+   * Why THIS name doesn't resolve, from the Apps Script action. "Create the
+   * vendor" is the usual answer but not the only one — two Vendors rows can
+   * point at two different JobTread vendors, which no amount of creating fixes.
+   * Optional: older deployments of the script don't send it.
+   */
+  reason?: string;
   count: number;
   taggedCount: number;
   bills: StuckBill[];
@@ -242,6 +249,9 @@ export function StuckVendorPopup() {
                   {v.count} bill{v.count === 1 ? "" : "s"}
                 </span>
               </div>
+              {v.reason && (
+                <p className="mt-1 text-xs text-neutral-500">{v.reason}</p>
+              )}
               <ul className="mt-1 space-y-0.5">
                 {v.bills.slice(0, 3).map((b) => (
                   <li key={b.expId} className="font-mono text-xs text-neutral-500">
@@ -258,8 +268,9 @@ export function StuckVendorPopup() {
         </ul>
 
         <p className="mt-4 text-sm text-neutral-500">
-          Create each vendor in JobTread. The next sync pulls the new account in and
-          pushes these bills on its own — nothing to re-tag or re-import.
+          {vendors.some((v) => v.reason)
+            ? "Do what each line above says — usually that means creating the vendor in JobTread. The next sync pulls the new account in and pushes those bills on its own; nothing to re-tag or re-import."
+            : "Create each vendor in JobTread. The next sync pulls the new account in and pushes these bills on its own — nothing to re-tag or re-import."}
         </p>
 
         <div className="mt-4 flex items-center gap-2">
@@ -315,6 +326,19 @@ export function StuckVendorBanner() {
           <p className="mt-0.5 break-words text-xs opacity-90">
             {vendors.map((v) => v.vendor).join(", ")}
           </p>
+          {/* One line per vendor when the script says WHY — "create the vendor"
+              is not always the fix, and the banner used to imply it always was. */}
+          {vendors.some((v) => v.reason) && (
+            <ul className="mt-1 space-y-0.5">
+              {vendors
+                .filter((v) => v.reason)
+                .map((v) => (
+                  <li key={v.vendor} className="break-words text-xs opacity-90">
+                    {v.reason}
+                  </li>
+                ))}
+            </ul>
+          )}
         </div>
         <button
           type="button"
