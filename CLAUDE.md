@@ -100,9 +100,20 @@ browser composes. Rules baked in:
 - **Reads** (no mutation at the query root) → allowed for any signed-in role.
 - **Writes** (`create*`/`update*`/`delete*`/… root fields) → **triple-gated**:
   `writesEnabled()` **and** `gatewayWritesEnabled()` (env `COMPANION_GATEWAY_WRITES_ENABLED`,
-  **off by default**) **and** the mutation is on the caller's per-role allowlist in
+  ships default-off) **and** the mutation is on the caller's per-role allowlist in
   `src/lib/paveGateway.ts`. New pages are **read-first**; don't add writes or touch
   the allowlist without the owner's ok.
+
+> ⚠️ **Two different flags — don't conflate them.**
+> `COMPANION_WRITES_ENABLED` is the **master** switch and is **ARMED in production**:
+> coding saves, bill creation, invoicing, time entries and leave posting are all
+> real writes to the live JobTread org today. `COMPANION_GATEWAY_WRITES_ENABLED` is
+> the separate, narrower gate above, covering only `/api/pave`.
+>
+> Neither runtime value is visible from this repo — they're Vercel env vars. The
+> `false` in `.env.example` is a safe **local** default, not a statement about
+> production. **Don't tell the owner writes are off; you can't see that from here.**
+> If it matters, ask or check Vercel.
 - The **grant key is server-only** (env `JT_GRANT_KEY`). Never send it to the
   browser; never call `https://api.jobtread.com/pave` from client code.
 
@@ -137,9 +148,10 @@ unfamiliar field; otherwise trust the reference.
 
 **JobTread is THE source of truth.** The `ascent-appscript` hourly loop mirrors JT
 bills → the Google Sheet and Drive tree automatically. The companion must not add
-write paths that race that mirror — which is exactly why gateway writes are gated
-off by default. When in doubt, **read from JobTread and let the owner drive writes**
-through the existing, purpose-built routes.
+write paths that race that mirror — which is exactly why the *generic gateway*
+ships default-off while the purpose-built routes carry the writes. When in doubt,
+**read from JobTread and route writes through the existing, purpose-built paths**
+rather than inventing a new one.
 
 ## Don't touch without asking
 

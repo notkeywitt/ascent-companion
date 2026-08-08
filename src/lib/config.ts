@@ -14,9 +14,22 @@ export function hasGrant(): boolean {
 }
 
 /**
- * Master gate for ALL writes to JobTread. Off by default. Only flip to "true"
- * once we've coordinated with the existing AppSheet→JobTread flow so the two
- * systems don't fight over the same bills.
+ * Master gate for ALL writes to JobTread.
+ *
+ * ⚠️ THIS IS ARMED IN PRODUCTION and has been for some time. Coding saves, bill
+ * creation, invoicing, time entries and leave posting are all live writes to the
+ * real JobTread org. Treat any code path behind this gate as reaching production
+ * data — because it does.
+ *
+ * It reads `false` in `.env.example` only because that is a safe default for a
+ * dev machine (which points at the same live org). That is a local default, NOT
+ * a description of production. The previous comment here said "off by default…
+ * until we've coordinated with the AppSheet→JobTread flow" — AppSheet retired
+ * 2026-07-10, so that precondition was met long ago, and the stale note had
+ * every fresh session concluding writes were disabled.
+ *
+ * NOT to be confused with gatewayWritesEnabled() below — a SECOND, narrower gate
+ * covering only the generic /api/pave endpoint.
  */
 export function writesEnabled(): boolean {
   // Tolerate casing/whitespace ("True", " true ") — a common env-var slip.
@@ -24,13 +37,20 @@ export function writesEnabled(): boolean {
 }
 
 /**
- * SECOND gate, specific to the generic /api/pave gateway. Because that endpoint
- * can run ANY mutation the caller composes, it is double-locked: a write through
- * it needs BOTH writesEnabled() (the org-wide switch, already true in prod) AND
- * this one, AND the mutation must be on the caller's per-role allowlist
- * (src/lib/paveGateway.ts). Off by default so the gateway ships read-only until
- * the write allowlist has been reviewed. Flip COMPANION_GATEWAY_WRITES_ENABLED
- * to "true" to arm gateway writes.
+ * SECOND gate, specific to the generic /api/pave gateway, and a DIFFERENT env
+ * var from the master switch above. Because that endpoint can run ANY mutation
+ * the caller composes, it is triple-locked: a write through it needs BOTH
+ * writesEnabled() (the org-wide switch — armed in prod) AND this one, AND the
+ * mutation must be on the caller's per-role allowlist (src/lib/paveGateway.ts).
+ *
+ * This one ships default-off so the gateway is read-only until the write
+ * allowlist has been reviewed with the owner. Whether it is armed in production
+ * is a Vercel env setting and is NOT knowable from this repo — check Vercel
+ * rather than inferring it from this file. Flip
+ * COMPANION_GATEWAY_WRITES_ENABLED to "true" to arm gateway writes.
+ *
+ * The bespoke typed routes (coding, add-bill, invoicing, time) do NOT go through
+ * this gate — they are governed by writesEnabled() alone, which is armed.
  */
 export function gatewayWritesEnabled(): boolean {
   return String(process.env.COMPANION_GATEWAY_WRITES_ENABLED ?? "").trim().toLowerCase() === "true";
