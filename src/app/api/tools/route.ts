@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { auth } from "@/auth";
+import { callAppsScript } from "@/lib/appsScript";
 
+// Stay just under this route's maxDuration (60s) so a stall returns a readable
+// 504 rather than an opaque platform timeout.
+const TIMEOUT = { timeoutMs: 50_000 };
 // Proxy to the Apps Script web app's tool-management actions. Apps Script holds
 // the Google Sheets + Drive grants; the Assistant is UI only. Same shared-secret
 // web app used by /api/tool-tracker and /api/employees (secret stays server-side).
@@ -21,37 +25,10 @@ import { auth } from "@/auth";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-async function callAppsScript(payload: Record<string, unknown>) {
-  const url = process.env.APPS_SCRIPT_SYNC_URL;
-  const secret = process.env.APPS_SCRIPT_SYNC_SECRET;
-  if (!url || !secret) {
-    return { error: "APPS_SCRIPT_SYNC_URL / APPS_SCRIPT_SYNC_SECRET are not set.", status: 400 };
-  }
-  try {
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...payload, secret }),
-      redirect: "follow",
-    });
-    const text = await res.text();
-    try {
-      return { data: JSON.parse(text) as unknown, status: 200 };
-    } catch {
-      return {
-        error: `Apps Script returned non-JSON (HTTP ${res.status}): ${text.slice(0, 300)}`,
-        status: 502,
-      };
-    }
-  } catch (e) {
-    return { error: e instanceof Error ? e.message : "Unknown error", status: 502 };
-  }
-}
-
 export async function GET() {
   // One combined Apps Script action instead of two separate POSTs — half the network
   // round-trips + cold-starts for the page bootstrap. Apps Script caches both halves.
-  const res = await callAppsScript({ action: "toolsBootstrap" });
+  const res = await callAppsScript({ action: "toolsBootstrap" }, TIMEOUT);
   if (res.error) return NextResponse.json({ error: res.error }, { status: res.status });
 
   const b = res.data as {
@@ -83,7 +60,7 @@ export async function PATCH(req: NextRequest) {
   } catch {
     return NextResponse.json({ error: "Body must be JSON." }, { status: 400 });
   }
-  const result = await callAppsScript({ ...body, action: "updateTool" });
+  const result = await callAppsScript({ ...body, action: "updateTool" }, TIMEOUT);
   if (result.error) return NextResponse.json({ error: result.error }, { status: result.status });
   return NextResponse.json(result.data, { status: 200 });
 }
@@ -95,7 +72,7 @@ export async function POST(req: NextRequest) {
   } catch {
     return NextResponse.json({ error: "Body must be JSON." }, { status: 400 });
   }
-  const result = await callAppsScript({ ...body, action: "updateToolPhoto" });
+  const result = await callAppsScript({ ...body, action: "updateToolPhoto" }, TIMEOUT);
   if (result.error) return NextResponse.json({ error: result.error }, { status: result.status });
   return NextResponse.json(result.data, { status: 200 });
 }
@@ -112,7 +89,7 @@ export async function PUT(req: NextRequest) {
   const session = await auth();
   const lastScanEmail = session?.user?.email ?? "";
 
-  const result = await callAppsScript({ ...body, action: "createTool", lastScanEmail });
+  const result = await callAppsScript({ ...body, action: "createTool", lastScanEmail }, TIMEOUT);
   if (result.error) return NextResponse.json({ error: result.error }, { status: result.status });
   return NextResponse.json(result.data, { status: 200 });
 }

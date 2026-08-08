@@ -10,6 +10,7 @@ import {
   jtIsoToOrgLocal,
 } from "@/lib/jobtread";
 import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
+import { callAppsScript } from "@/lib/appsScript";
 
 /**
  * Clock in/out — the sibling of ../route.ts's one-shot "log a time range" form.
@@ -49,33 +50,6 @@ import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
  * POST { op:"cancel", entryId } → { ok }
  */
 export const dynamic = "force-dynamic";
-
-async function callAppsScript(payload: Record<string, unknown>) {
-  const url = process.env.APPS_SCRIPT_SYNC_URL;
-  const secret = process.env.APPS_SCRIPT_SYNC_SECRET;
-  if (!url || !secret) {
-    return { error: "APPS_SCRIPT_SYNC_URL / APPS_SCRIPT_SYNC_SECRET are not set.", status: 400 };
-  }
-  try {
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...payload, secret }),
-      redirect: "follow",
-    });
-    const text = await res.text();
-    try {
-      return { data: JSON.parse(text) as unknown, status: 200 };
-    } catch {
-      return {
-        error: `Apps Script returned non-JSON (HTTP ${res.status}): ${text.slice(0, 300)}`,
-        status: 502,
-      };
-    }
-  } catch (e) {
-    return { error: e instanceof Error ? e.message : "Unknown error", status: 502 };
-  }
-}
 
 // "YYYY-MM-DDTHH:MM" (or with :SS) → a normalised local wall clock for the Time
 // Entries log; the JobTread write converts it with orgLocalToJtIso. Mirrors

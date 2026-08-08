@@ -9,6 +9,7 @@ import {
   orgLocalToJtIso,
 } from "@/lib/jobtread";
 import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
+import { callAppsScript } from "@/lib/appsScript";
 
 /**
  * Backend for the Assistant's /employee-time page — logging a specific time
@@ -45,35 +46,6 @@ import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
  *            photoCount, date }
  */
 export const dynamic = "force-dynamic";
-
-async function callAppsScript(payload: Record<string, unknown>) {
-  const url = process.env.APPS_SCRIPT_SYNC_URL;
-  const secret = process.env.APPS_SCRIPT_SYNC_SECRET;
-  if (!url || !secret) {
-    return { error: "APPS_SCRIPT_SYNC_URL / APPS_SCRIPT_SYNC_SECRET are not set.", status: 400 };
-  }
-  try {
-    // Apps Script answers via a 302 to a one-time content URL, always HTTP 200
-    // there — success/failure is the `ok` field in the body.
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...payload, secret }),
-      redirect: "follow",
-    });
-    const text = await res.text();
-    try {
-      return { data: JSON.parse(text) as unknown, status: 200 };
-    } catch {
-      return {
-        error: `Apps Script returned non-JSON (HTTP ${res.status}): ${text.slice(0, 300)}`,
-        status: 502,
-      };
-    }
-  } catch (e) {
-    return { error: e instanceof Error ? e.message : "Unknown error", status: 502 };
-  }
-}
 
 // datetime-local ("YYYY-MM-DDTHH:MM") → a normalised local wall clock with
 // seconds. This is what the Time Entries sheet logs (the office reads it as

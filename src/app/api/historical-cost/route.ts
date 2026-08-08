@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { callAppsScript } from "@/lib/appsScript";
 
 // Proxy to the Apps Script web app's historical-cost-import actions
 // (HistoricalCostImport.js). Apps Script holds the Sheets + JobTread-write
@@ -19,33 +20,6 @@ const ACTION_FOR_OP: Record<string, string> = {
   preview: "historicalCostPreview",
   create: "historicalCostCreate",
 };
-
-async function callAppsScript(payload: Record<string, unknown>) {
-  const url = process.env.APPS_SCRIPT_SYNC_URL;
-  const secret = process.env.APPS_SCRIPT_SYNC_SECRET;
-  if (!url || !secret) {
-    return { error: "APPS_SCRIPT_SYNC_URL / APPS_SCRIPT_SYNC_SECRET are not set.", status: 400 };
-  }
-  try {
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...payload, secret }),
-      redirect: "follow",
-    });
-    const text = await res.text();
-    try {
-      return { data: JSON.parse(text) as Record<string, unknown>, status: 200 };
-    } catch {
-      return {
-        error: `Apps Script returned non-JSON (HTTP ${res.status}): ${text.slice(0, 300)}`,
-        status: 502,
-      };
-    }
-  } catch (e) {
-    return { error: e instanceof Error ? e.message : "Unknown error", status: 502 };
-  }
-}
 
 export async function POST(req: NextRequest) {
   let body: Record<string, unknown>;
@@ -86,16 +60,22 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Start month/year, if given, must both be valid." }, { status: 400 });
   }
 
-  const res = await callAppsScript({
-    action,
-    url,
-    jtJobId,
-    startMonth,
-    startYear,
-    endMonth,
-    endYear,
-    dryRun: body.dryRun === true,
-  });
+  const res = await callAppsScript<Record<string, unknown>>(
+    {
+      action,
+      url,
+      jtJobId,
+      startMonth,
+      startYear,
+      endMonth,
+      endYear,
+      dryRun: body.dryRun === true,
+    },
+    // Pages a whole date range of JobTread cost items before writing. Give up
+    // just under this route's maxDuration (120s) so a stall returns a readable
+    // 504 instead of an opaque platform timeout.
+    { timeoutMs: 110_000 },
+  );
   if (res.error) return NextResponse.json({ error: res.error }, { status: res.status });
 
   const b = res.data!;

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { auth } from "@/auth";
+import { callAppsScript } from "@/lib/appsScript";
 
 // Proxy to the Apps Script web app's mileage actions. The one-tap flow captures
 // two GPS points + timestamps on the phone; this route turns them into an
@@ -27,35 +28,6 @@ import { auth } from "@/auth";
 // for a simple A→B trip, not a traced path. If Directions is unavailable the
 // trip STILL saves (miles null) with a warning, so no data is lost.
 export const dynamic = "force-dynamic";
-
-async function callAppsScript(payload: Record<string, unknown>) {
-  const url = process.env.APPS_SCRIPT_SYNC_URL;
-  const secret = process.env.APPS_SCRIPT_SYNC_SECRET;
-  if (!url || !secret) {
-    return { error: "APPS_SCRIPT_SYNC_URL / APPS_SCRIPT_SYNC_SECRET are not set.", status: 400 };
-  }
-  try {
-    // Apps Script answers via a 302 to a one-time content URL, always HTTP 200
-    // there — success/failure is the `ok` field in the body.
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...payload, secret }),
-      redirect: "follow",
-    });
-    const text = await res.text();
-    try {
-      return { data: JSON.parse(text) as unknown, status: 200 };
-    } catch {
-      return {
-        error: `Apps Script returned non-JSON (HTTP ${res.status}): ${text.slice(0, 300)}`,
-        status: 502,
-      };
-    }
-  } catch (e) {
-    return { error: e instanceof Error ? e.message : "Unknown error", status: 502 };
-  }
-}
 
 type LatLng = { lat: number; lng: number };
 

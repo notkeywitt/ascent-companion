@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { callAppsScript } from "@/lib/appsScript";
 
 // Proxy to the Apps Script web app's per-project tracking-sheet actions
 // (TrackingSheets.js). Apps Script holds the Sheets grants — the Assistant is UI
@@ -22,37 +23,8 @@ const ACTION_FOR_OP: Record<string, string> = {
   finalize: "finalizeTrackingSheet",
 };
 
-async function callAppsScript(payload: Record<string, unknown>) {
-  const url = process.env.APPS_SCRIPT_SYNC_URL;
-  const secret = process.env.APPS_SCRIPT_SYNC_SECRET;
-  if (!url || !secret) {
-    return { error: "APPS_SCRIPT_SYNC_URL / APPS_SCRIPT_SYNC_SECRET are not set.", status: 400 };
-  }
-  try {
-    // Apps Script web apps answer via a 302 to a one-time content URL and always
-    // report HTTP 200 there — success/failure is the "ok" field in the body.
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...payload, secret }),
-      redirect: "follow",
-    });
-    const text = await res.text();
-    try {
-      return { data: JSON.parse(text) as Record<string, unknown>, status: 200 };
-    } catch {
-      return {
-        error: `Apps Script returned non-JSON (HTTP ${res.status}): ${text.slice(0, 300)}`,
-        status: 502,
-      };
-    }
-  } catch (e) {
-    return { error: e instanceof Error ? e.message : "Unknown error", status: 502 };
-  }
-}
-
 export async function GET() {
-  const res = await callAppsScript({ action: "listTrackingSheetJobs" });
+  const res = await callAppsScript<Record<string, unknown>>({ action: "listTrackingSheetJobs" });
   if (res.error) return NextResponse.json({ error: res.error }, { status: res.status });
   const b = res.data!;
   if (b.ok !== true) {
@@ -95,13 +67,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "A billing year is required." }, { status: 400 });
   }
 
-  const res = await callAppsScript({
-    action,
-    projectId,
-    month,
-    year,
-    dryRun: body.dryRun === true,
-  });
+  const res = await callAppsScript<Record<string, unknown>>(
+    {
+      action,
+      projectId,
+      month,
+      year,
+      dryRun: body.dryRun === true,
+    },
+    // A month of cost items, then a write to the project's own spreadsheet —
+    // tens of seconds. Stay just under this route's maxDuration (120s).
+    { timeoutMs: 110_000 },
+  );
   if (res.error) return NextResponse.json({ error: res.error }, { status: res.status });
 
   const b = res.data!;

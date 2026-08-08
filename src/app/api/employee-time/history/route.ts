@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { getUserTimeEntries, jtIsoToOrgLocal } from "@/lib/jobtread";
 import { getPaveConfig, hasGrant } from "@/lib/config";
+import { callAppsScript } from "@/lib/appsScript";
 
 /**
  * "My time" — the signed-in employee's own JobTread time entries for a date
@@ -27,33 +28,6 @@ import { getPaveConfig, hasGrant } from "@/lib/config";
  *        costItemName, notes, open, jtUrl}], totalMinutes, openCount }
  */
 export const dynamic = "force-dynamic";
-
-async function callAppsScript(payload: Record<string, unknown>) {
-  const url = process.env.APPS_SCRIPT_SYNC_URL;
-  const secret = process.env.APPS_SCRIPT_SYNC_SECRET;
-  if (!url || !secret) {
-    return { error: "APPS_SCRIPT_SYNC_URL / APPS_SCRIPT_SYNC_SECRET are not set.", status: 400 };
-  }
-  try {
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...payload, secret }),
-      redirect: "follow",
-    });
-    const text = await res.text();
-    try {
-      return { data: JSON.parse(text) as unknown, status: 200 };
-    } catch {
-      return {
-        error: `Apps Script returned non-JSON (HTTP ${res.status}): ${text.slice(0, 300)}`,
-        status: 502,
-      };
-    }
-  } catch (e) {
-    return { error: e instanceof Error ? e.message : "Unknown error", status: 502 };
-  }
-}
 
 function dateOf(iso: string): string {
   return jtIsoToOrgLocal(iso).slice(0, 10);
