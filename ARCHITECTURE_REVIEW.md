@@ -282,6 +282,25 @@ Vercel preview → production. **No Apps Script deploy.**
         report. Re-adding it needs a PUBLIC middleware entry *and* a verified route.
 - [x] Fixed the 2 lint errors; lint is blocking (done early, in Stage 1)
 
+### Interlude — merged work from other sessions (2026-08-08)
+
+- Vendor-detection fixes (appscript) and the vendor Refresh fix (companion) merged to
+  `main`. The companion side was already built on Stage 2a's shared client. The
+  appscript side also batched the Sync Notes column into one `setValues` — **a slice of
+  Stage 5 is already done**, so re-locate the remaining targets rather than trusting
+  finding 4's line numbers.
+- **Time Sync** (`/time-sync`) was an open PR from an ORPHANED history — its branch and
+  `main` share **no merge base** (different root commits; the repo history was rewritten
+  after it was cut). It could not be rebased or merged; the one meaningful commit was
+  cherry-picked onto `main` instead, and its sibling commit turned out to be in `main`
+  already under a different hash. **If another stale branch appears, check
+  `git merge-base` before trusting a PR's "mergeable" status.**
+- That PR carried a hand-rolled `callAppsScript`, and converting it surfaced a **19th
+  copy in `src/lib/leaveService.ts`** that Stage 2a missed — the sweep then searched
+  `src/app/api`, not `src/lib`. Both now use the shared client. `src/lib/appsScript.ts`
+  is the only place reading `APPS_SCRIPT_SYNC_URL`, apart from the deliberate
+  `stuck-vendors` guard.
+
 ### Stage 3 — Tests · ⬜ not started
 - [ ] `vitest` + `npm test`, wired into CI as blocking
 - [ ] Unit tests: `billing.ts`, `billLineMath.ts`, `leave.ts`, `taskRunner.ts`,
