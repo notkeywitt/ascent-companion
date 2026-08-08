@@ -240,7 +240,7 @@ Scope agreed: **Stages 1–5, then reassess.** Update this as stages land.
       errors still fail the build; only lint moved to CI.
 - [x] This document
 
-### Stage 2 — Field-visible failure points (companion only) · 🔶 2a done
+### Stage 2 — Field-visible failure points (companion only) · ✅ done
 Vercel preview → production. **No Apps Script deploy.**
 - [x] **2a — `src/lib/appsScript.ts`.** One client with timeout, read-only retry, and
       the 302/`ok` parsing; all 26 routes converted, 17 copies deleted, **−570 lines**.
@@ -258,10 +258,29 @@ Vercel preview → production. **No Apps Script deploy.**
       - `stuck-vendors` keeps one explicit env check on purpose: it returns 400 without
         entering `unstable_cache`, and its throw-on-failure is what keeps a bad result
         out of that cache.
-- [ ] Mutation-aware retry/backoff in `pave()` (finding 3 — read the ⚠️ first)
-- [ ] Error monitoring (finding 8)
-- [ ] Fix the 2 lint errors; make lint blocking
-- [ ] Make the libSQL client lazy; drop the `mkdir -p data` step from CI (finding 11)
+- [x] **2b — mutation-aware retry + timeout in `pave()`** (finding 3). Retries only
+      when `findMutations(query)` is empty, so a create/update/delete is sent exactly
+      once — same detector as the gateway, so "what is a write" has one definition.
+      Only transient transport conditions retry (network error, timeout, 429/5xx); a
+      200 carrying a JSON `errors` array still throws first try. 30s request timeout.
+- [x] **2b — lazy libSQL client** (finding 11). `db` is now a Proxy over a
+      built-on-first-use client, so `next build` never opens the database. **Finding
+      11 is fixed and the `mkdir -p data` CI step is gone.** Don't reintroduce a
+      module-scope `createClient()`.
+- [x] **2c — Sentry** (finding 8), across node + edge + browser, with
+      `onRequestError` and a `global-error` boundary. **Inert unless
+      `NEXT_PUBLIC_SENTRY_DSN` is set** — that is a supported state; keep it that way.
+      `sendDefaultPii: false` and a `beforeSend` denylist strip grantKey/secret/
+      authToken/Bearer text and any attached cookies, headers, or body. Replay is off
+      deliberately (it would record job financials on screen).
+      - ⚠️ **`instrumentation.ts` must live in `src/`**, not the repo root — this
+        project uses a `src/` dir, and at the root Next silently ignores it, so
+        nothing server-side registers. Cost an hour to spot; don't undo it.
+      - ⚠️ **No `tunnelRoute`.** It generated no route/rewrite here, and
+        `middleware.ts` matches everything but `_next/static`, so `/monitoring` would
+        redirect to `/login` — and a 404ing tunnel silently discards every browser
+        report. Re-adding it needs a PUBLIC middleware entry *and* a verified route.
+- [x] Fixed the 2 lint errors; lint is blocking (done early, in Stage 1)
 
 ### Stage 3 — Tests · ⬜ not started
 - [ ] `vitest` + `npm test`, wired into CI as blocking
