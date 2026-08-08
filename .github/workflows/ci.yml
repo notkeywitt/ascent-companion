@@ -34,19 +34,8 @@ jobs:
 
       # No secrets are set here, exactly like a fresh clone: getPaveConfig()
       # falls back to "" and every JobTread / Apps Script call happens at request
-      # time, so none of those env vars are needed to build.
-      #
-      # `data/` is the one exception, and it is a real wart rather than a CI
-      # quirk: src/db/index.ts calls createClient() at MODULE scope, so
-      # `next build`'s page-data collection opens the local libSQL file at
-      # IMPORT time. `data/` is gitignored, so a clean clone fails the build with
-      # ConnectionFailed — it only passes on a machine that happens to have the
-      # directory already. Creating it keeps this step identical to the local
-      # gate in CLAUDE.md. The real fix is to make the client lazy; see
-      # ARCHITECTURE_REVIEW.md finding 11. Remove this line once that lands.
-      - name: Create the local libSQL directory
-        run: mkdir -p data
-
+      # time, so none are needed to build. The libSQL client is built lazily
+      # (src/db/index.ts), so the build never opens ./data — no setup needed.
       - name: Build
         run: npm run build
 

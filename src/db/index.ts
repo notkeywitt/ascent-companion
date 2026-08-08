@@ -2,12 +2,54 @@ import { createClient } from "@libsql/client";
 import { drizzle } from "drizzle-orm/libsql";
 import * as schema from "./schema";
 
-// Local file by default; point DATABASE_URL at Turso/hosted libSQL for deploy.
-const url = process.env.DATABASE_URL ?? "file:./data/companion.db";
-const authToken = process.env.DATABASE_AUTH_TOKEN; // only needed for hosted
+// The libSQL client and its Drizzle wrapper are built LAZILY — on first use, not
+// at module import.
+//
+// `next build` imports every route to collect page data, and a module-scope
+// createClient() opened ./data/companion.db at IMPORT time. `data/` is
+// gitignored, so a clean clone failed the entire build with ConnectionFailed —
+// it only ever passed on a machine that already had the directory. Deferring
+// construction to the first query means the build never touches the DB, and an
+// unreachable database now fails at the query (with a useful stack) instead of
+// at import of an unrelated route.
+let _client: ReturnType<typeof createClient> | null = null;
 
-const client = createClient(authToken ? { url, authToken } : { url });
-export const db = drizzle(client, { schema });
+function getClient(): ReturnType<typeof createClient> {
+  if (!_client) {
+    // Local file by default; point DATABASE_URL at Turso/hosted libSQL for deploy.
+    const url = process.env.DATABASE_URL ?? "file:./data/companion.db";
+    const authToken = process.env.DATABASE_AUTH_TOKEN; // only needed for hosted
+    _client = createClient(authToken ? { url, authToken } : { url });
+  }
+  return _client;
+}
+
+function buildDb() {
+  return drizzle(getClient(), { schema });
+}
+type Db = ReturnType<typeof buildDb>;
+let _db: Db | null = null;
+
+function getDb(): Db {
+  if (!_db) _db = buildDb();
+  return _db;
+}
+
+/**
+ * The Drizzle handle. A Proxy so `import { db } from "@/db"` stays unchanged
+ * across all call sites: nothing is constructed until the first property access
+ * (i.e. the first real query), which is what keeps the client out of the build.
+ */
+export const db: Db = new Proxy({} as Db, {
+  get(_target, prop) {
+    // Read off the real instance directly (this === real), NOT via a receiver of
+    // the Proxy — that would route any `this`-using getter back through here.
+    // Methods are bound to real so `db.select()` keeps its receiver.
+    const real = getDb();
+    const value = (real as unknown as Record<string | symbol, unknown>)[prop];
+    return typeof value === "function" ? value.bind(real) : value;
+  },
+});
 
 /**
  * Idempotent schema creation, run before queries in each route so we don't need a
@@ -57,7 +99,7 @@ function fingerprintOf(source: string): string {
 async function runEnsure(): Promise<void> {
   const fingerprint = fingerprintOf(applySchema.toString());
   try {
-    const r = await client.execute("SELECT value FROM schema_meta WHERE key = 'fingerprint'");
+    const r = await getClient().execute("SELECT value FROM schema_meta WHERE key = 'fingerprint'");
     if (r.rows[0]?.value === fingerprint) return; // schema already at this revision
   } catch {
     /* schema_meta doesn't exist yet — first run against this database */
@@ -65,10 +107,10 @@ async function runEnsure(): Promise<void> {
   await applySchema();
   // Marker written LAST, so a run that dies partway leaves it stale and the next
   // caller re-applies rather than skipping an incomplete schema.
-  await client.execute(
+  await getClient().execute(
     `CREATE TABLE IF NOT EXISTS schema_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)`,
   );
-  await client.execute({
+  await getClient().execute({
     sql: `INSERT INTO schema_meta (key, value) VALUES ('fingerprint', ?)
           ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
     args: [fingerprint],
@@ -77,7 +119,7 @@ async function runEnsure(): Promise<void> {
 
 /** Every DDL statement for the companion DB. Idempotent — safe to re-run in full. */
 async function applySchema() {
-  await client.execute(`
+  await getClient().execute(`
     CREATE TABLE IF NOT EXISTS rfis (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       job_id TEXT NOT NULL,
@@ -99,12 +141,12 @@ async function applySchema() {
     "ALTER TABLE rfis ADD COLUMN date_answered TEXT NOT NULL DEFAULT ''",
   ]) {
     try {
-      await client.execute(alter);
+      await getClient().execute(alter);
     } catch {
       /* column already exists */
     }
   }
-  await client.execute(`
+  await getClient().execute(`
     CREATE TABLE IF NOT EXISTS feature_requests (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       title TEXT NOT NULL,
@@ -115,7 +157,7 @@ async function applySchema() {
       updated_at TEXT NOT NULL
     )
   `);
-  await client.execute(`
+  await getClient().execute(`
     CREATE TABLE IF NOT EXISTS allowed_users (
       email TEXT PRIMARY KEY,
       added_by TEXT NOT NULL DEFAULT '',
@@ -134,14 +176,14 @@ async function applySchema() {
     "ALTER TABLE allowed_users ADD COLUMN views_deny TEXT NOT NULL DEFAULT '[]'",
   ]) {
     try {
-      await client.execute(alter);
+      await getClient().execute(alter);
     } catch {
       /* column already exists */
     }
   }
   // Per-role view-set overrides (DB layer on top of the hardcoded ROLE_VIEWS
   // defaults) — lets /admin change what a whole role sees, not just one person.
-  await client.execute(`
+  await getClient().execute(`
     CREATE TABLE IF NOT EXISTS role_access (
       role TEXT PRIMARY KEY,
       views_allow TEXT NOT NULL DEFAULT '[]',
@@ -149,7 +191,7 @@ async function applySchema() {
       updated_at TEXT NOT NULL DEFAULT ''
     )
   `);
-  await client.execute(`
+  await getClient().execute(`
     CREATE TABLE IF NOT EXISTS saved_bills (
       doc_id TEXT PRIMARY KEY,
       saved_at TEXT NOT NULL DEFAULT '',
@@ -167,12 +209,12 @@ async function applySchema() {
     "ALTER TABLE saved_bills ADD COLUMN reviewed_by TEXT NOT NULL DEFAULT ''",
   ]) {
     try {
-      await client.execute(alter);
+      await getClient().execute(alter);
     } catch {
       /* column already exists */
     }
   }
-  await client.execute(`
+  await getClient().execute(`
     CREATE TABLE IF NOT EXISTS sunset_statements (
       exp_id TEXT PRIMARY KEY,
       project TEXT NOT NULL DEFAULT '',
@@ -192,7 +234,7 @@ async function applySchema() {
     )
   `);
   // PTO / sick-time accrual (assistant-owned; JobTread has no accrual object).
-  await client.execute(`
+  await getClient().execute(`
     CREATE TABLE IF NOT EXISTS leave_policies (
       leave_type TEXT PRIMARY KEY,
       label TEXT NOT NULL DEFAULT '',
@@ -205,7 +247,7 @@ async function applySchema() {
       updated_at TEXT NOT NULL
     )
   `);
-  await client.execute(`
+  await getClient().execute(`
     CREATE TABLE IF NOT EXISTS leave_balances (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       employee_id TEXT NOT NULL,
@@ -218,11 +260,11 @@ async function applySchema() {
       updated_at TEXT NOT NULL
     )
   `);
-  await client.execute(
+  await getClient().execute(
     `CREATE UNIQUE INDEX IF NOT EXISTS leave_balances_emp_type
        ON leave_balances (employee_id, leave_type)`,
   );
-  await client.execute(`
+  await getClient().execute(`
     CREATE TABLE IF NOT EXISTS leave_transactions (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       employee_id TEXT NOT NULL,
@@ -239,14 +281,14 @@ async function applySchema() {
   // Re-running accrual for the same employee × leave type × pay period is a
   // no-op — only 'accrual' rows are constrained; 'taken'/'adjustment' carry an
   // empty period and are unconstrained.
-  await client.execute(
+  await getClient().execute(
     `CREATE UNIQUE INDEX IF NOT EXISTS leave_tx_accrual_period
        ON leave_transactions (employee_id, leave_type, period)
        WHERE kind = 'accrual'`,
   );
   // User activity log (login + page-view + coding events) for the Admin →
   // Activity view.
-  await client.execute(`
+  await getClient().execute(`
     CREATE TABLE IF NOT EXISTS usage_events (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       email TEXT NOT NULL,
@@ -259,18 +301,18 @@ async function applySchema() {
   `);
   // Migration for DBs created before the coding-detail column existed (idempotent).
   try {
-    await client.execute("ALTER TABLE usage_events ADD COLUMN detail TEXT NOT NULL DEFAULT ''");
+    await getClient().execute("ALTER TABLE usage_events ADD COLUMN detail TEXT NOT NULL DEFAULT ''");
   } catch {
     /* column already exists */
   }
   // Indexed on time (window scans for the dashboard) and email (per-user rollups).
-  await client.execute(
+  await getClient().execute(
     `CREATE INDEX IF NOT EXISTS usage_events_created_at ON usage_events (created_at)`,
   );
-  await client.execute(
+  await getClient().execute(
     `CREATE INDEX IF NOT EXISTS usage_events_email ON usage_events (email)`,
   );
-  await client.execute(`
+  await getClient().execute(`
     CREATE TABLE IF NOT EXISTS leave_requests (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       employee_id TEXT NOT NULL,
@@ -291,7 +333,7 @@ async function applySchema() {
   `);
   // Labor-rate catalog + groups (assistant-owned; JobTread has no central pay-type
   // catalog). A group (project) prepends its name to each rate on push.
-  await client.execute(`
+  await getClient().execute(`
     CREATE TABLE IF NOT EXISTS labor_rate_groups (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
@@ -300,10 +342,10 @@ async function applySchema() {
       updated_at TEXT NOT NULL
     )
   `);
-  await client.execute(
+  await getClient().execute(
     `CREATE UNIQUE INDEX IF NOT EXISTS labor_rate_groups_name ON labor_rate_groups (name)`,
   );
-  await client.execute(`
+  await getClient().execute(`
     CREATE TABLE IF NOT EXISTS labor_rate_catalog (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
@@ -316,14 +358,14 @@ async function applySchema() {
   `);
   // Migration for catalogs created before groups existed (idempotent).
   try {
-    await client.execute("ALTER TABLE labor_rate_catalog ADD COLUMN group_id INTEGER NOT NULL DEFAULT 0");
+    await getClient().execute("ALTER TABLE labor_rate_catalog ADD COLUMN group_id INTEGER NOT NULL DEFAULT 0");
   } catch {
     /* column already exists */
   }
   // Uniqueness moved from (name) to (group_id, name) — the same short name can
   // exist in different groups. Drop the old single-column unique index if present.
-  await client.execute(`DROP INDEX IF EXISTS labor_rate_catalog_name`);
-  await client.execute(
+  await getClient().execute(`DROP INDEX IF EXISTS labor_rate_catalog_name`);
+  await getClient().execute(
     `CREATE UNIQUE INDEX IF NOT EXISTS labor_rate_catalog_group_name ON labor_rate_catalog (group_id, name)`,
   );
 }
