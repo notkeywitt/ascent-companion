@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { callAppsScriptOrThrow } from "@/lib/appsScript";
 
 // GET /api/sunset-statements/reconcile
 // Returns, per statement ExpID, the sum + list of the individual Sunset INVOICES
@@ -54,32 +55,13 @@ interface Reconciliation {
   match?: MatchBlock | null;
 }
 
-async function callAppsScript(payload: Record<string, unknown>): Promise<Record<string, unknown>> {
-  const url = process.env.APPS_SCRIPT_SYNC_URL;
-  const secret = process.env.APPS_SCRIPT_SYNC_SECRET;
-  if (!url || !secret) {
-    throw new Error("APPS_SCRIPT_SYNC_URL / APPS_SCRIPT_SYNC_SECRET are not set.");
-  }
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ ...payload, secret }),
-    redirect: "follow",
-  });
-  const text = await res.text();
-  let json: Record<string, unknown>;
-  try {
-    json = JSON.parse(text);
-  } catch {
-    throw new Error(`Apps Script returned non-JSON (HTTP ${res.status}): ${text.slice(0, 300)}`);
-  }
-  if (json.ok === false) throw new Error(String(json.error ?? "Apps Script reported an error."));
-  return json;
-}
-
 export async function GET() {
   try {
-    const resp = await callAppsScript({ action: "reconcileSunsetStatements" });
+    const resp = await callAppsScriptOrThrow(
+      { action: "reconcileSunsetStatements" },
+      // Sheet sum + a live JT bill-status query; stay under maxDuration (45s).
+      { timeoutMs: 38_000 },
+    );
     const reconciliation = (resp.reconciliation as Record<string, Reconciliation>) ?? {};
     return NextResponse.json({ ok: true, reconciliation, liveChecked: resp.liveChecked !== false });
   } catch (e) {

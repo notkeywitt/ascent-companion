@@ -1,5 +1,6 @@
 import { unstable_cache } from "next/cache";
 import { NextResponse } from "next/server";
+import { callAppsScriptOrThrow } from "@/lib/appsScript";
 
 // Proxy the unmatched-vendor alert to the Apps Script doPost router
 // (action "listStuckVendors" — Diagnostics.js).
@@ -27,30 +28,10 @@ export const maxDuration = 60;
 // (not user-scoped), so one shared entry is correct for every viewer.
 const getCachedStuckVendors = unstable_cache(
   async () => {
-    const url = process.env.APPS_SCRIPT_SYNC_URL;
-    const secret = process.env.APPS_SCRIPT_SYNC_SECRET;
-    if (!url || !secret) {
-      throw new Error("APPS_SCRIPT_SYNC_URL / APPS_SCRIPT_SYNC_SECRET are not set.");
-    }
-    // Apps Script web apps answer via a 302 to a one-time content URL and always report
-    // HTTP 200 there — success/failure is the "ok" field in the body.
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "listStuckVendors", secret }),
-      redirect: "follow",
-    });
-    const text = await res.text();
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(text);
-    } catch {
-      throw new Error(`Apps Script returned non-JSON (HTTP ${res.status}): ${text.slice(0, 300)}`);
-    }
-    if (parsed && typeof parsed === "object" && (parsed as { ok?: boolean }).ok === false) {
-      throw new Error(String((parsed as { error?: unknown }).error ?? "listStuckVendors failed"));
-    }
-    return parsed;
+    // Throws on every failure — missing env, network, non-JSON, or { ok:false } —
+    // which is exactly what unstable_cache needs so a bad result is never cached.
+    // A read, so the client retries it automatically. Stay under maxDuration (60s).
+    return await callAppsScriptOrThrow({ action: "listStuckVendors" }, { timeoutMs: 50_000 });
   },
   ["api-stuck-vendors"],
   { revalidate: 60, tags: ["stuck-vendors"] },

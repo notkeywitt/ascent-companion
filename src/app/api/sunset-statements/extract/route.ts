@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { db, ensureDb } from "@/db";
 import { sunsetStatements } from "@/db/schema";
+import { callAppsScriptOrThrow } from "@/lib/appsScript";
 
 // POST /api/sunset-statements/extract  { expIds: string[] }
 // Gemini-extract the pay-at-TSYS header for a SMALL batch of statements and cache
@@ -15,29 +16,6 @@ import { sunsetStatements } from "@/db/schema";
 export const maxDuration = 60; // capped batch of Gemini reads
 
 const MAX_BATCH = 8;
-
-async function callAppsScript(payload: Record<string, unknown>): Promise<Record<string, unknown>> {
-  const url = process.env.APPS_SCRIPT_SYNC_URL;
-  const secret = process.env.APPS_SCRIPT_SYNC_SECRET;
-  if (!url || !secret) {
-    throw new Error("APPS_SCRIPT_SYNC_URL / APPS_SCRIPT_SYNC_SECRET are not set.");
-  }
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ ...payload, secret }),
-    redirect: "follow",
-  });
-  const text = await res.text();
-  let json: Record<string, unknown>;
-  try {
-    json = JSON.parse(text);
-  } catch {
-    throw new Error(`Apps Script returned non-JSON (HTTP ${res.status}): ${text.slice(0, 300)}`);
-  }
-  if (json.ok === false) throw new Error(String(json.error ?? "Apps Script reported an error."));
-  return json;
-}
 
 const fmt = (n: unknown) => {
   const v = Number(n);
@@ -66,7 +44,11 @@ export async function POST(req: NextRequest) {
 
   try {
     await ensureDb();
-    const resp = await callAppsScript({ action: "extractSunsetStatements", expIds });
+    const resp = await callAppsScriptOrThrow(
+      { action: "extractSunsetStatements", expIds },
+      // A bounded batch of Gemini reads; stay under maxDuration (60s). A write.
+      { timeoutMs: 50_000 },
+    );
     const extracted = (resp.extracted as Record<string, Extracted>) ?? {};
 
     const now = new Date().toISOString();

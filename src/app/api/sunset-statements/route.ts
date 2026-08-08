@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { db, ensureDb } from "@/db";
 import { sunsetStatements } from "@/db/schema";
+import { callAppsScriptOrThrow } from "@/lib/appsScript";
 
 // The Sunset "/payments" list. Reads the statements from the sheet via Apps
 // Script (listSunsetStatements — lightweight, no Gemini), reconciles them into
@@ -24,31 +25,6 @@ interface ListItem {
   pdfUrl: string;
 }
 
-async function callAppsScript(payload: Record<string, unknown>): Promise<Record<string, unknown>> {
-  const url = process.env.APPS_SCRIPT_SYNC_URL;
-  const secret = process.env.APPS_SCRIPT_SYNC_SECRET;
-  if (!url || !secret) {
-    throw new Error("APPS_SCRIPT_SYNC_URL / APPS_SCRIPT_SYNC_SECRET are not set.");
-  }
-  // Apps Script web apps answer via a 302 to a one-time content URL and always
-  // report HTTP 200 there — success/failure is the "ok" field in the body.
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ ...payload, secret }),
-    redirect: "follow",
-  });
-  const text = await res.text();
-  let json: Record<string, unknown>;
-  try {
-    json = JSON.parse(text);
-  } catch {
-    throw new Error(`Apps Script returned non-JSON (HTTP ${res.status}): ${text.slice(0, 300)}`);
-  }
-  if (json.ok === false) throw new Error(String(json.error ?? "Apps Script reported an error."));
-  return json;
-}
-
 const fmt = (n: unknown) => {
   const v = Number(n);
   return Number.isFinite(v) ? v.toFixed(2) : "";
@@ -61,7 +37,7 @@ export async function GET(req: NextRequest) {
     await ensureDb();
 
     // 1. The authoritative list of statements (from the sheet). Fast, no Gemini.
-    const listResp = await callAppsScript({ action: "listSunsetStatements" });
+    const listResp = await callAppsScriptOrThrow({ action: "listSunsetStatements" });
     const items = (listResp.items as ListItem[]) ?? [];
 
     // 2. Reconcile into the cache: insert a stub for any new statement, refresh

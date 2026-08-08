@@ -162,7 +162,10 @@ export async function callAppsScript<T = unknown>(
         };
       }
     } catch (e) {
-      const timedOut = e instanceof Error && e.name === "TimeoutError";
+      // AbortSignal.timeout rejects with a DOMException, which does extend Error
+      // in Node — but check the name directly so this doesn't depend on that.
+      const name = (e as { name?: string } | null)?.name;
+      const timedOut = name === "TimeoutError" || name === "AbortError";
       lastError = timedOut
         ? `Apps Script timed out after ${timeoutMs}ms.`
         : e instanceof Error
@@ -218,12 +221,20 @@ export async function callAppsScriptOrThrow<T = Record<string, unknown>>(
  * Fire-and-forget nudge at the hourly JT→sheet/Drive sync, used right after
  * creating bills so they mirror in seconds instead of at the top of the hour.
  *
- * Best-effort by design: it must NEVER affect the caller's result. Missing env,
- * a network failure, a non-JSON body — all just mean "not kicked", and the
- * hourly `runFullJtSync` remains the backstop. Sends queued mode (no `wait`), so
- * it returns in about a second.
+ * Best-effort by design: it must NEVER affect the caller's result. A network
+ * failure or a non-JSON body just means "not kicked", and the hourly
+ * `runFullJtSync` remains the backstop. Sends queued mode (no `wait`), so it
+ * returns in about a second.
+ *
+ * Returns `null` when the bridge simply isn't configured (local dev with no env
+ * vars) so the caller can stay silent about it, versus `false` for a kick that
+ * was attempted and didn't confirm — which IS worth telling the user about.
+ * Collapsing those two into one boolean would put a scary warning on every bill
+ * created on a dev machine.
  */
-export async function kickJtSync(): Promise<boolean> {
+export async function kickJtSync(): Promise<boolean | null> {
+  const env = envOrError();
+  if ("error" in env) return null;
   // Short budget and no retry: this is a nudge, not the job. Making the user
   // wait on it would be worse than letting the hourly run catch up.
   const r = await callAppsScript<{ ok?: boolean }>({}, { timeoutMs: 8_000, retry: false });

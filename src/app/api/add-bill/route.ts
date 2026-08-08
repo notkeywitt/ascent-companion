@@ -12,6 +12,7 @@ import {
 import { extractBillWithGemini, type ExtractedBill } from "@/lib/gemini";
 import { computeBillDates, computeLineTaxability, taxReconcileWarning } from "@/lib/billing";
 import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
+import { kickJtSync } from "@/lib/appsScript";
 
 /**
  * Roadmap D — add a bill without the email card: upload a photo/PDF of an
@@ -330,25 +331,11 @@ export async function POST(req: NextRequest) {
     // Vendors BEFORE importing bills, so the backfilled row resolves the vendor
     // cleanly. This must NEVER affect the bill result: any error (missing env,
     // network, non-JSON) is swallowed — the hourly runFullJtSync is the backstop.
-    let syncKicked = false;
-    const syncUrl = process.env.APPS_SCRIPT_SYNC_URL;
-    const syncSecret = process.env.APPS_SCRIPT_SYNC_SECRET;
-    if (syncUrl && syncSecret) {
-      try {
-        const kick = await fetch(syncUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ secret: syncSecret }), // queued mode → returns ~1s
-          redirect: "follow",
-        });
-        const kickJson = (await kick.json().catch(() => null)) as { ok?: boolean } | null;
-        syncKicked = kickJson?.ok === true;
-        if (!syncKicked) {
-          warnings.push("Bill created, but the sheet/Drive sync kick didn't confirm — it'll sync on the next hourly run.");
-        }
-      } catch {
-        warnings.push("Bill created, but the sheet/Drive sync kick failed — it'll sync on the next hourly run.");
-      }
+    // null = the bridge isn't configured at all, which is not worth warning about.
+    const kick = await kickJtSync();
+    const syncKicked = kick === true;
+    if (kick === false) {
+      warnings.push("Bill created, but the sheet/Drive sync kick didn't confirm — it'll sync on the next hourly run.");
     }
 
     return NextResponse.json({

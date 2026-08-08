@@ -11,6 +11,7 @@ import {
 import { computeLineTaxability } from "@/lib/billing";
 import { orderExternalId } from "@/lib/amazonImport";
 import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
+import { kickJtSync } from "@/lib/appsScript";
 
 /**
  * Amazon Business import — batch-create vendor bills from a monthly order report.
@@ -273,22 +274,7 @@ export async function POST(req: NextRequest) {
   let syncKicked = false;
   const created = results.filter((r) => r.status === "created").length;
   if (!preview && created > 0) {
-    const syncUrl = process.env.APPS_SCRIPT_SYNC_URL;
-    const syncSecret = process.env.APPS_SCRIPT_SYNC_SECRET;
-    if (syncUrl && syncSecret) {
-      try {
-        const kick = await fetch(syncUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ secret: syncSecret }),
-          redirect: "follow",
-        });
-        const kj = (await kick.json().catch(() => null)) as { ok?: boolean } | null;
-        syncKicked = kj?.ok === true;
-      } catch {
-        /* hourly sync backstops */
-      }
-    }
+    syncKicked = (await kickJtSync()) === true;
   }
 
   return NextResponse.json({
