@@ -235,7 +235,7 @@ export default function HistoricalCostPage() {
         description="Capture a job's historical costs from its Tracking Sheet as one draft JobTread bill, coded by cost code."
       />
       <Banner tone="info" className="mb-4 text-xs">
-        Admin utility. Compares the Tracking Sheet's totals against real vendor bills already in
+        Admin utility. Compares the Tracking Sheet&apos;s totals against real vendor bills already in
         JobTread and only bills the difference — nothing gets double-counted. Re-running for the same
         job updates the one historical bill it manages instead of creating another.
       </Banner>

@@ -87,6 +87,11 @@ gateway rules) — a preview that only reads JobTread is safe to hand to a phone
 For the bigger picture of why the gateway exists and where views should go, see
 **`FRONTEND_ARCHITECTURE.md`** (in this repo).
 
+**`ARCHITECTURE_REVIEW.md`** (in this repo) is the standing structural review of both
+repos — known weak points, decisions already made and closed (don't re-litigate the
+stack), and a staged checklist of agreed cleanup work. **Read it before starting a
+refactor or asking "should we rewrite X"** — and tick its checklist as stages land.
+
 ## The Pave gateway — data access & write safety
 
 `POST /api/pave { query }` (`src/app/api/pave/route.ts`) runs any Pave query the

@@ -152,7 +152,7 @@ function Chat() {
       <div ref={scrollRef} className="min-h-0 flex-1 space-y-3 overflow-y-auto pb-2">
         {messages.length === 0 && (
           <EmptyState>
-            Try: “What's unbilled on the Miller job?”, “Show the coding queue”, or “Which
+            Try: “What&apos;s unbilled on the Miller job?”, “Show the coding queue”, or “Which
             cost codes are over budget on this job?”
           </EmptyState>
         )}
