@@ -1,3 +1,4 @@
+import { revalidateTag } from "next/cache";
 import { NextRequest, NextResponse } from "next/server";
 import { callAppsScript } from "@/lib/appsScript";
 
@@ -44,5 +45,10 @@ export async function POST(req: NextRequest) {
   // just under this route's maxDuration (300s).
   const r = await callAppsScript({ action: "runTask", task }, { timeoutMs: 280_000 });
   if (r.error) return NextResponse.json({ error: r.error }, { status: r.status });
+  // Any task here can resolve an unmatched vendor (the vendor sync links or adds
+  // the account; the invoice sweep pushes the stuck bill), so drop the alert's
+  // 60s cached answer. Otherwise the banner keeps naming a vendor the run just
+  // fixed, and the owner reasonably concludes the sync didn't work.
+  revalidateTag("stuck-vendors");
   return NextResponse.json(r.data, { status: 200 });
 }

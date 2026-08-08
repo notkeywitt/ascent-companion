@@ -115,7 +115,9 @@ export function StuckVendorsProvider({ children }: { children: ReactNode }) {
     let alive = true;
     setLoading(true);
     setError("");
-    fetch("/api/stuck-vendors")
+    // The first load may answer from the route's 60s shared cache; an explicit
+    // Refresh (nonce > 0) must not — that click means "look again now".
+    fetch(nonce > 0 ? "/api/stuck-vendors?refresh=1" : "/api/stuck-vendors")
       .then((r) => r.json())
       .then((j) => {
         if (!alive) return;
