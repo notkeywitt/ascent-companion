@@ -240,11 +240,24 @@ Scope agreed: **Stages 1–5, then reassess.** Update this as stages land.
       errors still fail the build; only lint moved to CI.
 - [x] This document
 
-### Stage 2 — Field-visible failure points (companion only) · ⬜ not started
+### Stage 2 — Field-visible failure points (companion only) · 🔶 2a done
 Vercel preview → production. **No Apps Script deploy.**
-- [ ] `src/lib/appsScript.ts` — one client with timeout + retry + the 302/`ok` parsing;
-      replace 17 copies across 26 routes. Convert in three commits by route group
-      (finance / field / admin), typechecking and preview-testing between. ≈ −400 lines.
+- [x] **2a — `src/lib/appsScript.ts`.** One client with timeout, read-only retry, and
+      the 302/`ok` parsing; all 26 routes converted, 17 copies deleted, **−570 lines**.
+      Split by *helper shape* rather than by domain, which turned out to be the real
+      fault line: `{data,status}` ×10, `NextResponse` ×9, throwing ×5, plus 2
+      fire-and-forget sync kicks. Notes for whoever touches this next:
+      - **Retry is opt-out by action name.** `isRetryable()` allows `list*`/`get*` plus
+        four named reads; anything else is assumed to write and is never retried.
+        Retrying a `logMileage` whose response was lost writes the trip twice.
+      - **Timeouts track each route's `maxDuration`** (minus a few seconds) so a stall
+        returns a readable 504 instead of an opaque platform kill. If you change a
+        route's `maxDuration`, change its `timeoutMs` to match.
+      - `kickJtSync()` returns `boolean | null` — `null` means "not configured", which
+        must stay silent; `false` means "tried and didn't confirm", which warns.
+      - `stuck-vendors` keeps one explicit env check on purpose: it returns 400 without
+        entering `unstable_cache`, and its throw-on-failure is what keeps a bad result
+        out of that cache.
 - [ ] Mutation-aware retry/backoff in `pave()` (finding 3 — read the ⚠️ first)
 - [ ] Error monitoring (finding 8)
 - [ ] Fix the 2 lint errors; make lint blocking
