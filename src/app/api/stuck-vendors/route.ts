@@ -1,5 +1,5 @@
-import { unstable_cache } from "next/cache";
-import { NextResponse } from "next/server";
+import { revalidateTag, unstable_cache } from "next/cache";
+import { NextRequest, NextResponse } from "next/server";
 import { callAppsScriptOrThrow } from "@/lib/appsScript";
 
 // Proxy the unmatched-vendor alert to the Apps Script doPost router
@@ -37,17 +37,29 @@ const getCachedStuckVendors = unstable_cache(
   { revalidate: 60, tags: ["stuck-vendors"] },
 );
 
-// GET /api/stuck-vendors
+// GET /api/stuck-vendors[?refresh=1]
 //   → { ok, vendors: [{ vendor, count, taggedCount, bills:[…] }],
 //       billCount, vendorCount, windowDays }
-export async function GET() {
+//
+// `refresh=1` skips the cache entirely (and drops the cached entry) — the
+// banner's Refresh button sends it. Without that, the button re-fetched a route
+// that answered from the 60s shared cache, so "I created the vendor, now clear
+// the warning" appeared to do nothing and the owner had no way to force a look.
+export async function GET(req: NextRequest) {
   if (!process.env.APPS_SCRIPT_SYNC_URL || !process.env.APPS_SCRIPT_SYNC_SECRET) {
     return NextResponse.json(
       { error: "APPS_SCRIPT_SYNC_URL / APPS_SCRIPT_SYNC_SECRET are not set." },
       { status: 400 },
     );
   }
+  const forceFresh = req.nextUrl.searchParams.get("refresh") === "1";
   try {
+    if (forceFresh) {
+      const fresh = await callAppsScriptOrThrow({ action: "listStuckVendors" }, { timeoutMs: 50_000 });
+      // Drop the stale entry so every other mount agrees with what we just read.
+      revalidateTag("stuck-vendors");
+      return NextResponse.json(fresh, { status: 200 });
+    }
     return NextResponse.json(await getCachedStuckVendors(), { status: 200 });
   } catch (e) {
     return NextResponse.json(
