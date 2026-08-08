@@ -19,6 +19,7 @@ import { db, ensureDb } from "@/db";
 import { leaveBalances, leavePolicies, leaveRequests, leaveTransactions } from "@/db/schema";
 import { getLeaveConfig, getPaveConfig, hasGrant, leavePostingReady, writesEnabled } from "@/lib/config";
 import { createTimeEntry, deleteTimeEntry, getUserTimeEntries, jtIsoToOrgLocal, orgLocalToJtIso } from "@/lib/jobtread";
+import { callAppsScriptOrThrow } from "@/lib/appsScript";
 import {
   accrualForPeriod,
   nextPeriodId,
@@ -61,24 +62,10 @@ export interface RosterEmployee {
   status: string;
 }
 
-async function callAppsScript(payload: Record<string, unknown>): Promise<unknown> {
-  const url = process.env.APPS_SCRIPT_SYNC_URL;
-  const secret = process.env.APPS_SCRIPT_SYNC_SECRET;
-  if (!url || !secret) throw new Error("APPS_SCRIPT_SYNC_URL / APPS_SCRIPT_SYNC_SECRET are not set.");
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ ...payload, secret }),
-    redirect: "follow",
-  });
-  const text = await res.text();
-  try {
-    return JSON.parse(text);
-  } catch {
-    throw new Error(`Apps Script returned non-JSON (HTTP ${res.status}): ${text.slice(0, 200)}`);
-  }
-}
-
+// Apps Script goes through the shared client (src/lib/appsScript.ts) — timeout,
+// retry policy, and the 302/`ok` protocol in one place. Retry is decided by
+// action name: `listEmployeesFull` is a read and retries; `emailTimeOffRequest`
+// sends real mail and never does.
 function normalizeDate(v: unknown): string {
   const s = String(v ?? "").trim();
   const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
@@ -87,7 +74,7 @@ function normalizeDate(v: unknown): string {
 
 /** The full roster from Apps Script, normalized. Callers filter for accrual. */
 export async function fetchRoster(): Promise<RosterEmployee[]> {
-  const data = (await callAppsScript({ action: "listEmployeesFull" })) as {
+  const data = (await callAppsScriptOrThrow({ action: "listEmployeesFull" })) as {
     ok?: boolean;
     error?: string;
     employees?: Array<Record<string, unknown>>;
@@ -647,7 +634,7 @@ export async function notifyOfficeOfLeaveRequest(opts: {
   note: string;
 }): Promise<boolean> {
   try {
-    const res = (await callAppsScript({
+    const res = (await callAppsScriptOrThrow({
       action: "emailTimeOffRequest",
       employeeName: opts.employeeName,
       employeeEmail: opts.employeeEmail,
