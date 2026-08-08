@@ -1595,41 +1595,47 @@ export function Board() {
                 </option>
               ))}
             </Select>
-            {/* Governs the LIST only. Drafts are never invoiceable — JobTread
-                won't pull one onto a customer invoice — so this can't move the
-                "To be invoiced" figure, and the title says so. */}
-            <Toggle
-              checked={includeDrafts}
-              onChange={setIncludeDrafts}
-              label={<span title="Shows draft bills below so you can code them. Drafts are never invoiceable until approved in JobTread, so this doesn't change the To be invoiced total.">Include drafts</span>}
-              className="shrink-0"
-            />
-            <Toggle
-              checked={hideSunset}
-              onChange={setHideSunset}
-              label="Hide Sunset"
-              className="shrink-0"
-            />
-            <Toggle
-              checked={uninvoicedOnly}
-              onChange={setUninvoicedOnly}
-              label={
-                <span title="Off shows bills already on a customer invoice too, read-only — for reviewing a past, fully-invoiced month.">
-                  Uninvoiced only
-                </span>
-              }
-              className="shrink-0"
-            />
-            <Toggle
-              checked={includeUnapprovedTime}
-              onChange={setIncludeUnapprovedTime}
-              label={
-                <span title="Off counts only isApproved time entries toward labor and headroom — a more conservative number when a lot of logged time hasn't been approved yet.">
-                  Include unapproved time
-                </span>
-              }
-              className="shrink-0"
-            />
+            {/* The filter toggles as a group. On mobile they take their own
+                full-width row and stack left-aligned, one per line, instead of
+                wrapping raggedly against the right edge; from lg up they sit
+                inline with the month picker exactly as before. */}
+            <div className="flex w-full flex-col items-start gap-2.5 lg:w-auto lg:flex-row lg:items-center lg:gap-3">
+              {/* Governs the LIST only. Drafts are never invoiceable — JobTread
+                  won't pull one onto a customer invoice — so this can't move the
+                  "To be invoiced" figure, and the title says so. */}
+              <Toggle
+                checked={includeDrafts}
+                onChange={setIncludeDrafts}
+                label={<span title="Shows draft bills below so you can code them. Drafts are never invoiceable until approved in JobTread, so this doesn't change the To be invoiced total.">Include drafts</span>}
+                className="shrink-0"
+              />
+              <Toggle
+                checked={hideSunset}
+                onChange={setHideSunset}
+                label="Hide Sunset"
+                className="shrink-0"
+              />
+              <Toggle
+                checked={uninvoicedOnly}
+                onChange={setUninvoicedOnly}
+                label={
+                  <span title="Off shows bills already on a customer invoice too, read-only — for reviewing a past, fully-invoiced month.">
+                    Uninvoiced only
+                  </span>
+                }
+                className="shrink-0"
+              />
+              <Toggle
+                checked={includeUnapprovedTime}
+                onChange={setIncludeUnapprovedTime}
+                label={
+                  <span title="Off counts only isApproved time entries toward labor and headroom — a more conservative number when a lot of logged time hasn't been approved yet.">
+                    Include unapproved time
+                  </span>
+                }
+                className="shrink-0"
+              />
+            </div>
             {dirty && (
               <span className="text-xs font-semibold text-amber-600 dark:text-amber-400">
                 {staged.size} staged change{staged.size === 1 ? "" : "s"}
