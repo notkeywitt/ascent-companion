@@ -1,0 +1,164 @@
+{
+  "_comment": [
+    "Golden vectors for the billing-period rule — the ONE rule that exists twice:",
+    "deriveBillingPeriod() in ascent-appscript/Config.js (Apps Script) and",
+    "deriveBillingPeriod() in src/lib/billing.ts (TypeScript). Both files say the",
+    "rule has caused real production bugs when re-derived from scratch, and they",
+    "are kept in step by discipline alone. These vectors replace the discipline.",
+    "",
+    "THE RULE: a non-Sunset bill arriving ON OR BEFORE the 10th bills to the",
+    "PREVIOUS month (the 10th is INCLUSIVE, matching the Companion's 10th-to-10th",
+    "invoicing window); after the 10th it bills to the arrival month. Sunset bills",
+    "ALWAYS bill in their arrival month.",
+    "",
+    "`receivedUtc` is a UTC instant, not a calendar date, on purpose: the rule is",
+    "evaluated in America/Los_Angeles, so a bill uploaded at 11pm Pacific on the",
+    "10th must NOT count as the 11th. Several vectors below sit either side of",
+    "that boundary and would fail any implementation that used UTC dates.",
+    "",
+    "Mirrored to ascent-appscript/BillingVectors.js by scripts/gen-billing-vectors.mjs.",
+    "Edit THIS file, then re-run the generator and commit both."
+  ],
+  "vectors": [
+    {
+      "name": "non-Sunset, 1st → previous month",
+      "receivedUtc": "2026-07-01T19:00:00Z",
+      "isSunset": false,
+      "billingMonthNum": 6,
+      "billingYear": 2026
+    },
+    {
+      "name": "non-Sunset, 10th is INCLUSIVE → previous month",
+      "receivedUtc": "2026-07-10T19:00:00Z",
+      "isSunset": false,
+      "billingMonthNum": 6,
+      "billingYear": 2026
+    },
+    {
+      "name": "non-Sunset, 11th → arrival month",
+      "receivedUtc": "2026-07-11T19:00:00Z",
+      "isSunset": false,
+      "billingMonthNum": 7,
+      "billingYear": 2026
+    },
+    {
+      "name": "TZ boundary: 11pm Pacific on the 10th is still the 10th",
+      "receivedUtc": "2026-07-11T06:00:00Z",
+      "isSunset": false,
+      "billingMonthNum": 6,
+      "billingYear": 2026
+    },
+    {
+      "name": "TZ boundary: 1am Pacific on the 11th is the 11th",
+      "receivedUtc": "2026-07-11T08:00:00Z",
+      "isSunset": false,
+      "billingMonthNum": 7,
+      "billingYear": 2026
+    },
+    {
+      "name": "non-Sunset, January 5th → December of the PREVIOUS year",
+      "receivedUtc": "2026-01-05T19:00:00Z",
+      "isSunset": false,
+      "billingMonthNum": 12,
+      "billingYear": 2025
+    },
+    {
+      "name": "non-Sunset, January 10th → December, year rolls back",
+      "receivedUtc": "2026-01-10T19:00:00Z",
+      "isSunset": false,
+      "billingMonthNum": 12,
+      "billingYear": 2025
+    },
+    {
+      "name": "TZ + year rollover: 11pm Pacific Jan 10 → December 2025",
+      "receivedUtc": "2026-01-11T07:00:00Z",
+      "isSunset": false,
+      "billingMonthNum": 12,
+      "billingYear": 2025
+    },
+    {
+      "name": "TZ + year rollover: 1am Pacific Jan 11 → January 2026",
+      "receivedUtc": "2026-01-11T09:00:00Z",
+      "isSunset": false,
+      "billingMonthNum": 1,
+      "billingYear": 2026
+    },
+    {
+      "name": "non-Sunset, December 31st → December (no roll forward)",
+      "receivedUtc": "2026-12-31T19:00:00Z",
+      "isSunset": false,
+      "billingMonthNum": 12,
+      "billingYear": 2026
+    },
+    {
+      "name": "non-Sunset, March 1st → February",
+      "receivedUtc": "2026-03-01T19:00:00Z",
+      "isSunset": false,
+      "billingMonthNum": 2,
+      "billingYear": 2026
+    },
+    {
+      "name": "non-Sunset, leap-year Feb 29 (after the 10th) → February",
+      "receivedUtc": "2028-02-29T19:00:00Z",
+      "isSunset": false,
+      "billingMonthNum": 2,
+      "billingYear": 2028
+    },
+    {
+      "name": "Sunset, 5th → arrival month, NOT the previous one",
+      "receivedUtc": "2026-07-05T19:00:00Z",
+      "isSunset": true,
+      "billingMonthNum": 7,
+      "billingYear": 2026
+    },
+    {
+      "name": "Sunset, 10th → arrival month (the 10th rule does not apply)",
+      "receivedUtc": "2026-07-10T19:00:00Z",
+      "isSunset": true,
+      "billingMonthNum": 7,
+      "billingYear": 2026
+    },
+    {
+      "name": "Sunset, 11th → arrival month",
+      "receivedUtc": "2026-07-11T19:00:00Z",
+      "isSunset": true,
+      "billingMonthNum": 7,
+      "billingYear": 2026
+    },
+    {
+      "name": "Sunset, January 3rd → January, no year rollback",
+      "receivedUtc": "2026-01-03T19:00:00Z",
+      "isSunset": true,
+      "billingMonthNum": 1,
+      "billingYear": 2026
+    },
+    {
+      "name": "Sunset, TZ boundary 11pm Pacific Jan 10 → January",
+      "receivedUtc": "2026-01-11T07:00:00Z",
+      "isSunset": true,
+      "billingMonthNum": 1,
+      "billingYear": 2026
+    },
+    {
+      "name": "non-Sunset, mid-month → arrival month",
+      "receivedUtc": "2026-05-20T19:00:00Z",
+      "isSunset": false,
+      "billingMonthNum": 5,
+      "billingYear": 2026
+    },
+    {
+      "name": "non-Sunset, last day of a 30-day month → that month",
+      "receivedUtc": "2026-04-30T19:00:00Z",
+      "isSunset": false,
+      "billingMonthNum": 4,
+      "billingYear": 2026
+    },
+    {
+      "name": "non-Sunset, February 10th → January",
+      "receivedUtc": "2026-02-10T19:00:00Z",
+      "isSunset": false,
+      "billingMonthNum": 1,
+      "billingYear": 2026
+    }
+  ]
+}

@@ -301,12 +301,41 @@ Vercel preview → production. **No Apps Script deploy.**
   is the only place reading `APPS_SCRIPT_SYNC_URL`, apart from the deliberate
   `stuck-vendors` guard.
 
-### Stage 3 — Tests · ⬜ not started
-- [ ] `vitest` + `npm test`, wired into CI as blocking
-- [ ] Unit tests: `billing.ts`, `billLineMath.ts`, `leave.ts`, `taskRunner.ts`,
-      `paveGateway.ts`, and the new `appsScript.ts` retry
-- [ ] `billing-vectors.json` golden fixture + generated `BillingVectors.js` for the GAS
-      side + `diagnoseBillingPeriodVectors()`; **CI fails if regenerating diffs**
+### Stage 3 — Tests · ✅ done
+**120 tests, 6 files, blocking in CI.** Scoped to pure modules — no DB, no network,
+no React. Route handlers and components are deliberately out of scope (they need a
+running Next request context); that gap is real and unclosed.
+- [x] `vitest` + `npm test` (+ `npm run test:watch`), blocking in CI
+- [x] **`paveGateway.ts`** — the write gate. Includes the false-positive that would
+      break reads: selecting `createdAt`/`updatedAt` must not look like a mutation.
+- [x] **`pave()` retry** — every write path (`createDocument`, `updateCostItem`,
+      `deleteCostItem`, `createTimeEntry`, …) asserted to be sent **exactly once** on
+      502 / 429 / network failure, including when a mutation rides alongside a read.
+- [x] **`appsScript.ts`** — `isRetryable` over the real action names; writes never
+      retried; `kickJtSync`'s `null` vs `false` distinction pinned.
+- [x] **`billing.ts`** + shared golden vectors (below)
+- [x] **`billLineMath.ts`** — the tax-inclusive ↔ pre-tax round trip, which must be
+      lossless on an untouched bill. Also pins JS float half-way rounding, which is
+      *shared* with the Apps Script side — don't "fix" it in one repo only.
+- [x] **`taskRunner.ts`** — same-key tasks strictly serialized (a job's Finalize reads
+      what its own Sync writes), different keys concurrent, cap respected.
+
+**Billing golden vectors — the cross-repo contract.** `src/lib/billing-vectors.json`
+is the source of truth (20 vectors). `scripts/gen-billing-vectors.mjs` mirrors it to
+`ascent-appscript/BillingVectors.js`. Both repos assert their OWN implementation
+against the same table:
+- companion → `npm test`
+- appscript → `.github/check-billing-vectors.mjs` in CI (extracts the real
+  `deriveBillingPeriod` from `Config.js` and runs it under `TZ=America/Los_Angeles`),
+  plus `diagnoseBillingPeriodVectors()` for the Run dropdown.
+
+Vectors use **UTC instants, not calendar dates**, so they exercise the Pacific
+boundary — an 11pm-Pacific-on-the-10th bill must not count as the 11th. Verified the
+check actually fails on drift, not just passes. Editing the rule means: edit the
+fixture, re-run the generator, commit **both** repos.
+
+- [ ] Not done: `leave.ts` accrual maths still untested (accrual is DB-only and writes
+      nothing to JobTread, so it ranked below the write paths)
 
 ### Stage 4 — Split `Diagnostics.js` · ⬜ not started · ⚠️ NEEDS A DEPLOY WINDOW
 Splits into `WebApp.js` (doPost/doGet, `WEBAPP_BUILD`, `WEBAPP_ACTIONS`,

@@ -32,6 +32,13 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      # Unit tests over the pure modules — the write gate, the retry policies,
+      # the billing-period rule, and the bill money maths. Blocking: these cover
+      # paths that write to the live JobTread org (COMPANION_WRITES_ENABLED is
+      # armed in production), so a red suite must not reach main.
+      - name: Test
+        run: npm test
+
       # No secrets are set here, exactly like a fresh clone: getPaveConfig()
       # falls back to "" and every JobTread / Apps Script call happens at request
       # time, so none are needed to build. The libSQL client is built lazily
