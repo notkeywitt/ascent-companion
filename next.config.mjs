@@ -1,3 +1,5 @@
+import { withSentryConfig } from "@sentry/nextjs";
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   eslint: {
@@ -12,4 +14,30 @@ const nextConfig = {
   },
 };
 
-export default nextConfig;
+// Source maps are uploaded to Sentry only when an auth token is present. Without
+// one — every local build, every CI run, and any clone without a Sentry account
+// — upload is disabled and the build proceeds normally. Error reporting itself
+// is gated separately on the DSN (src/lib/sentry.shared.ts); readable stack
+// traces in Sentry are the only thing the token buys.
+const hasSentryAuth = Boolean(process.env.SENTRY_AUTH_TOKEN);
+
+export default withSentryConfig(nextConfig, {
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+
+  // Don't add Sentry's build noise to an already-chatty Vercel log.
+  silent: true,
+  sourcemaps: { disable: !hasSentryAuth },
+
+  // NOT using tunnelRoute. It would proxy the browser SDK through our own domain
+  // to dodge ad/tracker blockers, but it produced no route and no rewrite in this
+  // setup — and src/middleware.ts matches every path except _next/static, so an
+  // untunneled /monitoring would be redirected to /login anyway. A tunnel that
+  // 404s silently discards EVERY client-side report, which is strictly worse than
+  // sending direct. If it's wanted later, it needs its own PUBLIC entry in the
+  // middleware and a verified route in the build output.
+
+  // Strip Sentry's own debug logging from the client bundle.
+  webpack: { treeshake: { removeDebugLogging: true } },
+});
