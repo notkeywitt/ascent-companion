@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { callAppsScriptResponse } from "@/lib/appsScript";
 
 // Proxy to the Apps Script web app's Assistant email actions — the back-end for
 // the Gmail add-on's "Log Invoice" card, now driven from the assistant. Reuses
@@ -36,15 +37,6 @@ const ALLOWED = new Set([
 ]);
 
 export async function POST(req: NextRequest) {
-  const url = process.env.APPS_SCRIPT_SYNC_URL;
-  const secret = process.env.APPS_SCRIPT_SYNC_SECRET;
-  if (!url || !secret) {
-    return NextResponse.json(
-      { error: "APPS_SCRIPT_SYNC_URL / APPS_SCRIPT_SYNC_SECRET are not set." },
-      { status: 400 },
-    );
-  }
-
   let body: Record<string, unknown> = {};
   try {
     body = await req.json();
@@ -57,30 +49,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: `Unsupported action: ${action || "(none)"}` }, { status: 400 });
   }
 
-  try {
-    // Apps Script web apps answer via a 302 to a one-time content URL and always
-    // report HTTP 200 there — success/failure is the "ok" field in the body.
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...body, secret }),
-      redirect: "follow",
-    });
-    const text = await res.text();
-    let data: unknown;
-    try {
-      data = JSON.parse(text);
-    } catch {
-      return NextResponse.json(
-        { error: `Apps Script returned non-JSON (HTTP ${res.status}): ${text.slice(0, 300)}` },
-        { status: 502 },
-      );
-    }
-    return NextResponse.json(data, { status: 200 });
-  } catch (e) {
-    return NextResponse.json(
-      { error: e instanceof Error ? e.message : "Unknown error" },
-      { status: 502 },
-    );
-  }
+  // logInvoice runs Gemini inline in Apps Script (~15-45s); stay just under this
+  // route's maxDuration (120s). listProjects/listEmails retry automatically.
+  return callAppsScriptResponse(body, { timeoutMs: 110_000 });
 }

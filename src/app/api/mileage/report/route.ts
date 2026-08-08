@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { callAppsScriptResponse } from "@/lib/appsScript";
 
 import { auth } from "@/auth";
 
@@ -14,15 +15,6 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60; // Doc→PDF export takes a few seconds
 
 export async function POST(req: NextRequest) {
-  const url = process.env.APPS_SCRIPT_SYNC_URL;
-  const secret = process.env.APPS_SCRIPT_SYNC_SECRET;
-  if (!url || !secret) {
-    return NextResponse.json(
-      { error: "APPS_SCRIPT_SYNC_URL / APPS_SCRIPT_SYNC_SECRET are not set." },
-      { status: 400 },
-    );
-  }
-
   let body: Record<string, unknown> = {};
   try {
     body = await req.json();
@@ -33,31 +25,10 @@ export async function POST(req: NextRequest) {
   const session = await auth();
   const requesterEmail = session?.user?.email ?? "";
 
-  try {
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        action: "mileageReportPdf",
-        requesterEmail,
-        month: body.month ?? "",
-        secret,
-      }),
-      redirect: "follow",
-    });
-    const text = await res.text();
-    try {
-      return NextResponse.json(JSON.parse(text), { status: 200 });
-    } catch {
-      return NextResponse.json(
-        { error: `Apps Script returned non-JSON (HTTP ${res.status}): ${text.slice(0, 300)}` },
-        { status: 502 },
-      );
-    }
-  } catch (e) {
-    return NextResponse.json(
-      { error: e instanceof Error ? e.message : "Unknown error" },
-      { status: 502 },
-    );
-  }
+  // Renders a Doc and exports it to a PDF in Drive — a write (it creates the
+  // file), so never retried. Stay just under this route's maxDuration (60s).
+  return callAppsScriptResponse(
+    { action: "mileageReportPdf", requesterEmail, month: body.month ?? "" },
+    { timeoutMs: 50_000 },
+  );
 }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { clearJobCostCaches } from "@/lib/jobtread";
+import { callAppsScript } from "@/lib/appsScript";
 
 // Proxy the Assistant's "move this bill to another job" action to the Apps Script
 // doPost router (action "reassignJob"). JobTread can't move a bill between jobs,
@@ -17,15 +18,6 @@ import { clearJobCostCaches } from "@/lib/jobtread";
 export const maxDuration = 120;
 
 export async function POST(req: NextRequest) {
-  const url = process.env.APPS_SCRIPT_SYNC_URL;
-  const secret = process.env.APPS_SCRIPT_SYNC_SECRET;
-  if (!url || !secret) {
-    return NextResponse.json(
-      { error: "APPS_SCRIPT_SYNC_URL / APPS_SCRIPT_SYNC_SECRET are not set." },
-      { status: 400 },
-    );
-  }
-
   let body: Record<string, unknown> = {};
   try {
     body = await req.json();
@@ -38,33 +30,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "docId and jobId are required." }, { status: 400 });
   }
 
-  try {
-    // Apps Script web apps answer via a 302 to a one-time content URL and always
-    // report HTTP 200 there — success/failure is the "ok" field in the body.
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "reassignJob", docId, jobId, secret }),
-      redirect: "follow",
-    });
-    const text = await res.text();
-    let data: unknown;
-    try {
-      data = JSON.parse(text);
-    } catch {
-      return NextResponse.json(
-        { error: `Apps Script returned non-JSON (HTTP ${res.status}): ${text.slice(0, 300)}` },
-        { status: 502 },
-      );
-    }
-    // The bill was delete+recreated on another job, so both jobs' cached
-    // budget/cost-to-complete are stale.
-    clearJobCostCaches();
-    return NextResponse.json(data, { status: 200 });
-  } catch (e) {
-    return NextResponse.json(
-      { error: e instanceof Error ? e.message : "Unknown error" },
-      { status: 502 },
-    );
-  }
+  // Not callAppsScriptResponse: the cache clear below has to happen between the
+  // call and the reply. Delete+recreate is a write, so this is never retried.
+  const res = await callAppsScript({ action: "reassignJob", docId, jobId }, { timeoutMs: 110_000 });
+  if (res.error) return NextResponse.json({ error: res.error }, { status: res.status });
+
+  // The bill was delete+recreated on another job, so both jobs' cached
+  // budget/cost-to-complete are stale.
+  clearJobCostCaches();
+  return NextResponse.json(res.data, { status: 200 });
 }

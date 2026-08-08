@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { callAppsScriptResponse } from "@/lib/appsScript";
 
 // Proxy to the Apps Script web app's employee actions. Apps Script holds the
 // Google Sheets grant (it reads/writes the Project Database "Employee" tab); the
@@ -17,46 +18,9 @@ import { NextRequest, NextResponse } from "next/server";
 //   PATCH { id, fields } → { ok, employee, changed }             (edit one employee)
 export const dynamic = "force-dynamic";
 
-async function callAppsScript(payload: Record<string, unknown>) {
-  const url = process.env.APPS_SCRIPT_SYNC_URL;
-  const secret = process.env.APPS_SCRIPT_SYNC_SECRET;
-  if (!url || !secret) {
-    return NextResponse.json(
-      { error: "APPS_SCRIPT_SYNC_URL / APPS_SCRIPT_SYNC_SECRET are not set." },
-      { status: 400 },
-    );
-  }
-  try {
-    // Apps Script answers via a 302 to a one-time content URL, always HTTP 200
-    // there — success/failure is the `ok` field in the body.
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...payload, secret }),
-      redirect: "follow",
-    });
-    const text = await res.text();
-    let data: unknown;
-    try {
-      data = JSON.parse(text);
-    } catch {
-      return NextResponse.json(
-        { error: `Apps Script returned non-JSON (HTTP ${res.status}): ${text.slice(0, 300)}` },
-        { status: 502 },
-      );
-    }
-    return NextResponse.json(data, { status: 200 });
-  } catch (e) {
-    return NextResponse.json(
-      { error: e instanceof Error ? e.message : "Unknown error" },
-      { status: 502 },
-    );
-  }
-}
-
 export async function GET(req: NextRequest) {
   const full = req.nextUrl.searchParams.get("full");
-  return callAppsScript({ action: full ? "listEmployeesFull" : "listEmployees" });
+  return callAppsScriptResponse({ action: full ? "listEmployeesFull" : "listEmployees" });
 }
 
 export async function PATCH(req: NextRequest) {
@@ -66,5 +30,5 @@ export async function PATCH(req: NextRequest) {
   } catch {
     return NextResponse.json({ error: "Body must be JSON." }, { status: 400 });
   }
-  return callAppsScript({ ...body, action: "updateEmployee" });
+  return callAppsScriptResponse({ ...body, action: "updateEmployee" });
 }
