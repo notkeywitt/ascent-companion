@@ -2039,6 +2039,116 @@ async function _getVendorsUncached(cfg: PaveConfig): Promise<VendorRef[]> {
   return out;
 }
 
+export interface VendorBillRow {
+  id: string;
+  number: number | null;
+  jobId: string | null;
+  jobName: string;
+  cost: number;
+  status: string;
+  issueDate: string | null;
+}
+
+/**
+ * One vendor's bills — job, date, amount, status — newest issueDate first.
+ * JobTread's own vendor search only lists a bill's number; this is the list
+ * behind it, for the /vendors page.
+ *
+ * Confirmed live (2026-08): `account.documents` supports the same
+ * `["type","vendorBill"]` filter used elsewhere in this file, `sortBy
+ * issueDate desc` runs server-side, and `job` is a plain reference (not a
+ * heavy nested connection) so it carries no 413 risk even for a high-volume
+ * vendor like Sunset.
+ */
+export async function getVendorBills(cfg: PaveConfig, accountId: string): Promise<VendorBillRow[]> {
+  const out: any[] = [];
+  let cursor: string | null = null;
+  for (let page = 0; page < 50; page++) {
+    const args: Record<string, unknown> = {
+      where: { and: [["type", "vendorBill"]] },
+      size: 100,
+      sortBy: [{ field: "issueDate", order: "desc" }],
+    };
+    if (cursor) args.page = cursor;
+    const r = await pave(cfg, {
+      account: {
+        $: { id: accountId },
+        id: {},
+        documents: {
+          $: args,
+          nextPage: {},
+          nodes: {
+            id: {},
+            number: {},
+            cost: {},
+            status: {},
+            issueDate: {},
+            job: { id: {}, name: {} },
+          },
+        },
+      },
+    });
+    const conn = r?.account?.documents ?? {};
+    out.push(...(conn.nodes ?? []));
+    cursor = conn.nextPage ?? null;
+    if (!cursor) break;
+  }
+  return out.map((b) => ({
+    id: b.id,
+    number: typeof b?.number === "number" ? b.number : null,
+    jobId: b?.job?.id ?? null,
+    jobName: b?.job?.name ?? "—",
+    cost: typeof b?.cost === "number" ? b.cost : 0,
+    status: b?.status ?? "",
+    issueDate: b?.issueDate ?? null,
+  }));
+}
+
+export interface VendorBillMatch extends VendorBillRow {
+  vendorName: string;
+}
+
+/**
+ * Org-wide bill-number lookup. Bill numbers are NOT unique across vendors —
+ * confirmed live: #98 matches three different vendors/jobs — so this always
+ * returns every match rather than assuming one, using `organization.documents`
+ * (the org-wide connection; `document.account { name }` resolves directly so
+ * no second query is needed to disambiguate the results).
+ */
+export async function getBillsByNumber(cfg: PaveConfig, number: number): Promise<VendorBillMatch[]> {
+  const r = await pave(cfg, {
+    organization: {
+      $: { id: cfg.orgId },
+      documents: {
+        $: {
+          where: { and: [["type", "vendorBill"], ["number", number]] },
+          size: 50,
+        },
+        nodes: {
+          id: {},
+          number: {},
+          cost: {},
+          status: {},
+          issueDate: {},
+          job: { id: {}, name: {} },
+          account: { name: {} },
+        },
+      },
+    },
+  });
+  const nodes = (r?.organization?.documents?.nodes ?? []) as any[];
+  return nodes.map((b) => ({
+    id: b.id,
+    number: typeof b?.number === "number" ? b.number : null,
+    jobId: b?.job?.id ?? null,
+    jobName: b?.job?.name ?? "—",
+    cost: typeof b?.cost === "number" ? b.cost : 0,
+    status: b?.status ?? "",
+    issueDate: b?.issueDate ?? null,
+    vendorName: b?.account?.name ?? "Unknown vendor",
+  }));
+}
+
 /**
  * WRITE — update a bill line: its coding (jobCostItemId), quantity, and/or
  * unitCost. Confirmed production mutation (ascent-appscript JobTread.js):
