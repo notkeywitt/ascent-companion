@@ -107,7 +107,11 @@
    and <StickyActionBar>'s `bottom` — both read the ONE number instead of each
    hardcoding an offset that drifts the moment the bar changes height. */
 :root {
-  --tabbar-h: calc(3.5rem + env(safe-area-inset-bottom));
+  /* h-14 (3.5rem) tab + its own 1px top border + the home-indicator inset.
+     The border is part of the height a docked bar has to clear — leave it out
+     and everything offset by this variable overlaps the tab bar by exactly
+     one pixel. */
+  --tabbar-h: calc(3.5rem + 1px + env(safe-area-inset-bottom));
 }
 
 body {
