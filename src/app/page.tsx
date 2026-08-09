@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useMemo, useState, type ReactNode } from "react";
+import { Suspense, useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { signOut } from "next-auth/react";
@@ -136,6 +136,7 @@ const AREAS: Area[] = [
       { label: "Client Invoicing", href: "/recode", desc: "Code a month's bills against live budget headroom", view: "recode" },
       { label: "Tracking Sheet", href: "/tracking-sheet", desc: "Push a job's month into its tracking sheet", view: "tracking-sheet" },
       { label: "Sunset Statements", href: "/payments", desc: "Pay a statement & reconcile its invoices", view: "payments" },
+      { label: "Vendors", href: "/vendors", desc: "Search a vendor's bills — job, date, amount", view: "vendors" },
     ],
   },
   {
@@ -216,6 +217,30 @@ function Home() {
       .flatMap((a) => a.dests.map((d) => ({ ...d, area: a.title })))
       .filter((d) => `${d.label} ${d.desc} ${d.area}`.toLowerCase().includes(q));
   }, [q, areas]);
+
+  // The vendor list, fetched once off the same shared cache every other page
+  // reading /api/vendors uses — lets the search box surface a vendor by name
+  // (not just the "Vendors" page entry above) with zero added network cost.
+  const canSeeVendors = access.can("vendors");
+  const [vendors, setVendors] = useState<{ id: string; name: string }[]>([]);
+  useEffect(() => {
+    if (!canSeeVendors) return;
+    let alive = true;
+    fetch("/api/vendors")
+      .then((r) => r.json())
+      .then((j) => alive && setVendors(Array.isArray(j.vendors) ? j.vendors : []))
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [canSeeVendors]);
+  const vendorMatches = useMemo(() => {
+    if (!q || !canSeeVendors) return [];
+    return vendors.filter((v) => v.name.toLowerCase().includes(q)).slice(0, 6);
+  }, [q, vendors, canSeeVendors]);
+  // A query that's purely digits reads as a bill number — offer the org-wide
+  // lookup as one tappable row rather than firing it on every keystroke.
+  const billNumberQuery = canSeeVendors && /^\d+$/.test(query.trim()) ? query.trim() : null;
 
   const pageCount = areas.reduce((n, a) => n + a.dests.length, 0);
 
@@ -322,6 +347,38 @@ function Home() {
                 />
               ))}
             </ListCard>
+          )}
+
+          {/* Vendor name matches — separate from the page-name matches above,
+              so "A1 Septic" finds the vendor itself, not just the Vendors
+              page. Still client-side against the cached vendor list; only
+              the number lookup below ever hits the network from this box. */}
+          {vendorMatches.length > 0 && (
+            <div className="space-y-2 pt-2">
+              <SectionHeading>Vendors</SectionHeading>
+              <ListCard>
+                {vendorMatches.map((v) => (
+                  <ListRow
+                    key={v.id}
+                    href={`/vendors?accountId=${encodeURIComponent(v.id)}`}
+                    label={v.name}
+                    desc="See their bills — job, date, amount"
+                  />
+                ))}
+              </ListCard>
+            </div>
+          )}
+          {billNumberQuery && (
+            <div className="space-y-2 pt-2">
+              <SectionHeading>Bill lookup</SectionHeading>
+              <ListCard>
+                <ListRow
+                  href={`/vendors?number=${billNumberQuery}`}
+                  label={`Look up bill #${billNumberQuery}`}
+                  desc="Org-wide — bill numbers repeat across vendors"
+                />
+              </ListCard>
+            </div>
           )}
         </div>
       ) : (
