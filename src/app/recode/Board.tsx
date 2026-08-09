@@ -1572,13 +1572,31 @@ export function Board() {
   const jobAddress = (data?.job?.address ?? "").replace(/,\s*USA$/i, "").trim();
 
   return (
-    <main className="mx-auto w-full max-w-2xl px-4 pb-24 pt-6 lg:max-w-[110rem]">
+    <main className="mx-auto flex w-full max-w-2xl flex-col px-4 pb-24 pt-6 lg:max-w-[110rem]">
+      {/* Which job you're looking at, on a phone: it sits at the very top of
+          the page, directly under the GlobalJobBar's job picker — which only
+          has room for a truncated job name. It can't live in the header
+          description on mobile, because that renders AFTER the toolbar and so
+          lands below every toggle and button. From lg up the toolbar is inline
+          beside the title, so the description line reads fine and this copy is
+          hidden. */}
+      {jobTitle && (
+        <p className="-mt-3 mb-4 text-sm text-neutral-500 lg:hidden">
+          {jobTitle}
+          {jobAddress ? ` · ${jobAddress}` : ""}
+        </p>
+      )}
       <PageHeader
         title="Client Invoicing"
         description={
-          jobTitle
-            ? `${jobTitle}${jobAddress ? ` · ${jobAddress}` : ""}`
-            : "Move expenditure between cost codes against live budget headroom."
+          jobTitle ? (
+            <span className="hidden lg:inline">
+              {jobTitle}
+              {jobAddress ? ` · ${jobAddress}` : ""}
+            </span>
+          ) : (
+            "Move expenditure between cost codes against live budget headroom."
+          )
         }
         actionsClassName="min-w-0 items-center"
         actions={
@@ -1596,10 +1614,10 @@ export function Board() {
               ))}
             </Select>
             {/* The filter toggles as a group. On mobile they take their own
-                full-width row and stack left-aligned, one per line, instead of
-                wrapping raggedly against the right edge; from lg up they sit
-                inline with the month picker exactly as before. */}
-            <div className="flex w-full flex-col items-start gap-2.5 lg:w-auto lg:flex-row lg:items-center lg:gap-3">
+                full-width row in a 2×2 grid — four stacked lines pushed the
+                buttons and the list too far down the screen; from lg up they
+                sit inline with the month picker exactly as before. */}
+            <div className="grid w-full grid-cols-2 items-start gap-x-3 gap-y-2.5 lg:flex lg:w-auto lg:items-center lg:gap-3">
               {/* Governs the LIST only. Drafts are never invoiceable — JobTread
                   won't pull one onto a customer invoice — so this can't move the
                   "To be invoiced" figure, and the title says so. */}
@@ -1641,26 +1659,60 @@ export function Board() {
                 {staged.size} staged change{staged.size === 1 ? "" : "s"}
               </span>
             )}
-            <Button variant="secondary" size="sm" onClick={revertAll} disabled={!dirty || syncing}>
-              Revert
-            </Button>
-            <Button size="sm" onClick={sync} disabled={!dirty || syncing}>
-              {syncing ? "Syncing…" : "Sync to JobTread"}
-            </Button>
-            {canApprove && (
+            {/* The three actions share ONE full-width row on mobile — button
+                labels are nowrap, so the long ones are shortened below the lg
+                breakpoint to make three fit across a phone. `lg:contents`
+                dissolves this wrapper from lg up, putting the buttons back as
+                direct children of the toolbar exactly as before. */}
+            <div className="flex w-full items-center gap-2 lg:contents">
               <Button
                 variant="secondary"
                 size="sm"
-                onClick={() => {
-                  setApproveMsg(null);
-                  setApproveOpen(true);
-                }}
-                disabled={draftBills.length === 0 || dirty || syncing || approving}
-                title={dirty ? "Sync staged coding changes to JobTread first" : undefined}
+                onClick={revertAll}
+                disabled={!dirty || syncing}
+                className="flex-1 lg:flex-none"
               >
-                Approve Draft Bills{draftBills.length > 0 ? ` (${draftBills.length})` : ""}
+                Revert
               </Button>
-            )}
+              <Button
+                size="sm"
+                onClick={sync}
+                disabled={!dirty || syncing}
+                className="flex-1 lg:flex-none"
+              >
+                {syncing ? (
+                  "Syncing…"
+                ) : (
+                  <>
+                    <span className="lg:hidden">Sync to JT</span>
+                    <span className="hidden lg:inline">Sync to JobTread</span>
+                  </>
+                )}
+              </Button>
+              {canApprove && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => {
+                    setApproveMsg(null);
+                    setApproveOpen(true);
+                  }}
+                  disabled={draftBills.length === 0 || dirty || syncing || approving}
+                  title={dirty ? "Sync staged coding changes to JobTread first" : undefined}
+                  className="flex-1 lg:flex-none"
+                >
+                  {/* The count rides inside each label rather than sitting
+                      beside them — a bare text node would pick up the
+                      button's flex gap and read as "Approve  (3)". */}
+                  <span className="lg:hidden">
+                    Approve{draftBills.length > 0 ? ` (${draftBills.length})` : ""}
+                  </span>
+                  <span className="hidden lg:inline">
+                    Approve Draft Bills{draftBills.length > 0 ? ` (${draftBills.length})` : ""}
+                  </span>
+                </Button>
+              )}
+            </div>
           </div>
         }
       />
@@ -1728,10 +1780,6 @@ export function Board() {
         </Banner>
       )}
 
-      <p className="mb-4 text-[11px] text-neutral-400 lg:hidden">
-        Recoding needs a wider window — this is a read-only view on a narrow screen.
-      </p>
-
       {loading && <Loading label="Loading bills and budget…" />}
 
       {/* What this month is worth, and whether JobTread is ready to bill it.
@@ -1746,8 +1794,13 @@ export function Board() {
           switched on. That distinction is real and still shown, but demoted to
           one line describing the state of JobTread rather than driving the
           number. */}
+      {/* `order-last` (not a DOM move) is what drops this BELOW the bills list
+          on a phone — where it's the last thing on screen, since the coding
+          drawer is xl-only — while leaving it above the columns from lg up,
+          exactly as before. It works because <main> is a flex column; the
+          modals below are `fixed`, so they're out of flow and unaffected. */}
       {jobId && !loading && (
-        <div className="mb-4">
+        <div className="order-last mt-4 lg:order-none lg:mb-4 lg:mt-0">
           <InvoiceReconcile jobId={jobId} ym={ym} onData={setRecon} />
         </div>
       )}
