@@ -55,6 +55,43 @@ export function Button({
   return <button type="button" {...props} className={btn(variant, size, className)} />;
 }
 
+/* ------------------------------------------------------------- icon button */
+
+export type IconBtnTone = "default" | "danger";
+
+/**
+ * Square icon-only button with a thumb-sized hit area. Pages used to hand-roll
+ * these as a 14–16px glyph in `p-1`/`p-1.5`, i.e. a 22–28px target — under
+ * WCAG 2.5.5's 44×44 (and 22px is under even the 2.5.8 AA floor of 24), which
+ * on a phone means the delete and buy-back icons sitting next to each other in
+ * a line row were a coin flip to hit. The GLYPH stays small (the caller sizes
+ * its own svg), so a dense row still reads light; the 44px comes from padding.
+ */
+export function IconButton({
+  tone = "default",
+  label,
+  title,
+  className = "",
+  children,
+  ...props
+}: React.ButtonHTMLAttributes<HTMLButtonElement> & { tone?: IconBtnTone; label: string }) {
+  return (
+    <button
+      type="button"
+      {...props}
+      aria-label={label}
+      title={title ?? label}
+      className={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100 ${
+        tone === "danger"
+          ? "text-neutral-500 hover:bg-red-50 hover:text-red-600 dark:text-neutral-400 dark:hover:bg-red-950/40 dark:hover:text-red-400"
+          : "text-neutral-500 hover:bg-accent/10 hover:text-accent dark:text-neutral-400 dark:hover:bg-accent/20 dark:hover:text-accent-soft"
+      } ${className}`}
+    >
+      {children}
+    </button>
+  );
+}
+
 /* ------------------------------------------------------------------ toggles */
 
 /**
@@ -140,7 +177,7 @@ export function Label({
   return (
     <label
       htmlFor={htmlFor}
-      className={`mb-1 block text-[11px] font-semibold uppercase tracking-wide text-neutral-500 ${className}`}
+      className={`mb-1 block text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400 ${className}`}
     >
       {children}
     </label>
@@ -157,7 +194,7 @@ export function SectionLabel({
 }) {
   return (
     <div
-      className={`text-[11px] font-semibold uppercase tracking-wide text-neutral-500 ${className}`}
+      className={`text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400 ${className}`}
     >
       {children}
     </div>

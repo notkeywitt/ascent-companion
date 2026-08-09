@@ -8,7 +8,18 @@ import { JtLink } from "@/components/JtLink";
 import { JobPicker } from "@/components/JobPicker";
 import { PageTitle } from "@/components/PageTitle";
 import { BillStatusBadge } from "@/components/BillStatusBadge";
-import { Banner, Button, Loading, btn } from "@/components/ui";
+import {
+  Banner,
+  Button,
+  Card,
+  IconButton,
+  Label,
+  Loading,
+  SectionLabel,
+  Select,
+  Spinner,
+  btn,
+} from "@/components/ui";
 import { TrackingSheetSyncFor } from "@/components/TrackingSheetSync";
 import { billLineMath, recodeLog } from "@/lib/billLineMath";
 import { markBillTouched } from "@/lib/billTouch";
@@ -861,66 +872,80 @@ function BillDetail() {
   }
 
   return (
-    <main className="mx-auto max-w-xl px-4 pb-24 pt-6">
+    // The sticky Save bar is `fixed` to the bottom edge, so the page's own
+    // bottom padding has to clear BOTH the bar and the home-indicator inset
+    // (the layout sets viewportFit: "cover", so `env()` is live here).
+    <main className="mx-auto max-w-xl px-4 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-5">
+      {/* Back and Refresh are the two controls reached for without reading, so
+          they own the top row at a 44px hit height (Apple HIG / WCAG 2.5.5
+          target size). The queue pager moves to its own row below — squeezed
+          in here, ‹ Prev / Next › were 28px slivers wedged between them. */}
       <div className="flex items-center justify-between gap-2">
         <Link
           href={backHref}
-          className="text-sm font-semibold text-accent dark:text-accent-soft"
+          className="-ml-2 inline-flex min-h-11 items-center rounded-lg px-2 text-sm font-semibold text-accent transition hover:bg-accent/10 dark:text-accent-soft"
         >
           {backLabel}
         </Link>
-        <div className="flex items-center gap-2 text-sm">
-          {qIdx >= 0 && queue.length > 1 && (
-            <>
-            {prevId ? (
-              <Link
-                href={`/bill/${prevId}?jobId=${encodeURIComponent(jobId)}${navContext}`}
-                onClick={() => driveMainWindowToDoc(jobId, prevId)}
-                aria-label="Previous bill"
-                className={btn("outline", "sm")}
-              >
-                ‹ Prev
-              </Link>
-            ) : (
-              <span className="inline-flex items-center gap-1 rounded-lg border border-neutral-200 px-3 py-1.5 font-semibold text-neutral-300 dark:border-neutral-800 dark:text-neutral-700">
-                ‹ Prev
-              </span>
-            )}
-            <span className="tabular-nums text-xs font-semibold text-neutral-500">
-              {qIdx + 1} / {queue.length}
-            </span>
-            {nextId ? (
-              <Link
-                href={`/bill/${nextId}?jobId=${encodeURIComponent(jobId)}${navContext}`}
-                onClick={() => driveMainWindowToDoc(jobId, nextId)}
-                aria-label="Next bill"
-                className={btn("outline", "sm")}
-              >
-                Next ›
-              </Link>
-            ) : (
-              <span className="inline-flex items-center gap-1 rounded-lg border border-neutral-200 px-3 py-1.5 font-semibold text-neutral-300 dark:border-neutral-800 dark:text-neutral-700">
-                Next ›
-              </span>
-            )}
-            </>
-          )}
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={refresh}
-            disabled={refreshing}
-            title="Refresh from JobTread"
-            aria-label="Refresh"
-          >
-            {refreshing ? "Refreshing…" : "⟳ Refresh"}
-          </Button>
-        </div>
+        <Button
+          variant="secondary"
+          className="min-h-11"
+          onClick={refresh}
+          disabled={refreshing}
+          title="Refresh from JobTread"
+          aria-label="Refresh"
+        >
+          {refreshing ? "Refreshing…" : "⟳ Refresh"}
+        </Button>
       </div>
 
-      <header className="mb-4 mt-2">
+      {/* Queue pager: a three-up bar, so the arrows are thumb-sized targets and
+          the position reads between them. */}
+      {qIdx >= 0 && queue.length > 1 && (
+        <nav
+          aria-label="Coding queue"
+          className="mt-3 grid grid-cols-[1fr_auto_1fr] items-center gap-2"
+        >
+          {prevId ? (
+            <Link
+              href={`/bill/${prevId}?jobId=${encodeURIComponent(jobId)}${navContext}`}
+              onClick={() => driveMainWindowToDoc(jobId, prevId)}
+              aria-label="Previous bill"
+              className={btn("outline", "md", "min-h-11 w-full")}
+            >
+              ‹ Prev
+            </Link>
+          ) : (
+            <span className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-neutral-200 text-sm font-semibold text-neutral-300 dark:border-neutral-800 dark:text-neutral-700">
+              ‹ Prev
+            </span>
+          )}
+          <span className="px-1 text-xs font-semibold tabular-nums text-neutral-500 dark:text-neutral-400">
+            {qIdx + 1} / {queue.length}
+          </span>
+          {nextId ? (
+            <Link
+              href={`/bill/${nextId}?jobId=${encodeURIComponent(jobId)}${navContext}`}
+              onClick={() => driveMainWindowToDoc(jobId, nextId)}
+              aria-label="Next bill"
+              className={btn("outline", "md", "min-h-11 w-full")}
+            >
+              Next ›
+            </Link>
+          ) : (
+            <span className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-neutral-200 text-sm font-semibold text-neutral-300 dark:border-neutral-800 dark:text-neutral-700">
+              Next ›
+            </span>
+          )}
+        </nav>
+      )}
+
+      <header className="mb-5 mt-4">
         <PageTitle>{title}</PageTitle>
-        <div className="mt-1 flex flex-wrap items-center gap-2">
+        {/* Status, the saved marker and the document's own identifiers are all
+            metadata about the same thing, so they share one wrapping strip
+            under the title rather than stacking as separate rows. */}
+        <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1.5">
           {header?.status && <BillStatusBadge status={header.status} />}
           {/* Same "✓ Saved" marker the coding queue shows. Reviewed outranks it there,
               and here the Reviewed state already has its own button below. */}
@@ -932,16 +957,74 @@ function BillDetail() {
               ✓ Saved
             </span>
           )}
-          <p className="font-mono text-xs text-neutral-500">
+          <span className="font-mono text-[11px] text-neutral-500 dark:text-neutral-400">
             {header?.issueDate ? header.issueDate + " · " : ""}
             {docId}
-          </p>
+          </span>
         </div>
-        <div className="mt-2 flex flex-wrap items-center gap-2">
+
+        {/* The total is the number checked on every single bill, so it leads at
+            display size in tabular figures — it used to be a 14px line above
+            the list, the same weight as everything around it. Tabular figures
+            keep it decimal-aligned with the line amounts below. */}
+        {lines && (
+          <Card className="mt-4 !p-4">
+            <div className="flex items-end justify-between gap-3">
+              <div className="min-w-0">
+                <SectionLabel>Bill total</SectionLabel>
+                <p className="mt-1 text-3xl font-bold leading-none tabular-nums">{money(total)}</p>
+              </div>
+              <p className="shrink-0 text-sm text-neutral-500 dark:text-neutral-400">
+                {lines.length} {lines.length === 1 ? "line" : "lines"}
+              </p>
+            </div>
+
+            {/* Document-level sales tax = JobTread's "Tax" (nonRecoverableTax), a fixed
+                dollar. Editable on draft bills (writes on): it holds each line's pre-tax
+                amount steady and moves the total (subtotal + tax). Saved with the bill via
+                the sticky Save bar (no separate button — see saveCoding). It lives with
+                the total because it is part of how that number is made up. */}
+            {linesEditable && writes ? (
+              <div className="mt-3 flex items-center justify-between gap-3 border-t border-neutral-200 pt-3 dark:border-neutral-700/60">
+                <Label htmlFor="bill-tax" className="!mb-0">
+                  {taxName}
+                </Label>
+                <div className="relative">
+                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-neutral-500 dark:text-neutral-400">
+                    $
+                  </span>
+                  <input
+                    id="bill-tax"
+                    type="number"
+                    inputMode="decimal"
+                    min="0"
+                    step="0.01"
+                    value={taxEdit ?? String(storedTax)}
+                    onChange={(e) => setTaxEdit(e.target.value)}
+                    aria-label="Sales tax"
+                    className="h-11 w-32 rounded-lg border border-neutral-300 bg-white pl-7 pr-3 text-right text-sm tabular-nums transition focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 dark:border-neutral-600 dark:bg-ink"
+                  />
+                </div>
+              </div>
+            ) : null}
+
+            {taxView > 0 && (
+              <p className="mt-2 text-right text-xs text-neutral-500 dark:text-neutral-400">
+                subtotal <span className="tabular-nums">{money(subtotal)}</span> +{" "}
+                <span className="tabular-nums">{money(taxView)}</span> {taxName.toLowerCase()}
+              </p>
+            )}
+          </Card>
+        )}
+
+        {/* Two equal, full-width actions instead of two shrink-wrapped pills —
+            on a phone these are the page's primary controls, and side by side
+            they now clear 44px in both dimensions. */}
+        <div className="mt-4 grid grid-cols-2 gap-2">
           {jobId && (
             <JtLink
               href={`https://app.jobtread.com/jobs/${jobId}/documents/${docId}`}
-              className={btn("outline", "md")}
+              className={btn("outline", "md", "min-h-11 w-full")}
             >
               Open in JobTread ↗
             </JtLink>
@@ -954,8 +1037,8 @@ function BillDetail() {
               title={reviewed ? "Marked reviewed — click to unmark" : "Mark this bill reviewed"}
               className={
                 reviewed
-                  ? btn("primary", "md", "!bg-emerald-600 hover:!bg-emerald-700")
-                  : btn("outline", "md")
+                  ? btn("primary", "md", "min-h-11 w-full !bg-emerald-600 hover:!bg-emerald-700")
+                  : btn("outline", "md", "min-h-11 w-full")
               }
             >
               {reviewed ? "✓ Reviewed" : "Mark reviewed"}
@@ -963,57 +1046,61 @@ function BillDetail() {
           )}
         </div>
         {saveMsg && (
-          <Banner tone="neutral" className="mt-2 !px-3 !py-2 !text-xs">
+          <Banner tone="neutral" className="mt-3 !px-3 !py-2.5 !text-xs">
             {saveMsg}
           </Banner>
         )}
-        <div className="mt-3 flex items-center gap-2">
-          <span className="text-[10px] uppercase tracking-wide text-neutral-400">Billing month</span>
-          <select
-            value={
-              billingMonthOptions().find((o) => o.ym === (header?.issueDate ?? "").slice(0, 7))?.value ??
-              ""
-            }
-            onChange={async (e) => {
-              const issueDate = e.target.value;
-              if (!issueDate) return;
-              setHeader((h) => (h ? { ...h, issueDate } : h));
-              await fetch("/api/bill-issuedate", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ docId, issueDate }),
-              });
-              invalidateBills(); // cached payload still carries the old issueDate
-            }}
-            className="rounded-lg border border-neutral-300 bg-white px-2 py-1 text-sm transition focus:border-accent dark:border-neutral-600 dark:bg-ink-raised"
-          >
-            <option value="">— set billing month —</option>
-            {billingMonthOptions().map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
-        </div>
 
-        {/* Move this bill to a different job (draft only). JT can't move bills, so
-            this delete+recreates it on the chosen job. Writes-off deploys hide it,
-            matching the rest of the page. */}
-        {writes && (header?.status ?? "draft") === "draft" && (
-          <div className="mt-3">
-            <div className="flex items-center gap-2">
-              <span className="shrink-0 text-[10px] uppercase tracking-wide text-neutral-400">
-                Move to job
-              </span>
-              <JobPicker value={jobId} onChange={reassignJob} />
-            </div>
-            {reassignMsg && (
-              <Banner tone="neutral" className="mt-1 !px-3 !py-2 !text-xs">
-                {reassignMsg}
-              </Banner>
-            )}
+        {/* Bill-level fields in one card, each a labelled full-width control.
+            As inline "label + control" pairs they wrapped mid-row on a narrow
+            screen, and the 28px-tall month <select> was the smallest tap
+            target on the page. */}
+        <Card className="mt-4 !p-4">
+          <div>
+            <Label htmlFor="billing-month">Billing month</Label>
+            <Select
+              id="billing-month"
+              className="!h-11"
+              value={
+                billingMonthOptions().find((o) => o.ym === (header?.issueDate ?? "").slice(0, 7))
+                  ?.value ?? ""
+              }
+              onChange={async (e) => {
+                const issueDate = e.target.value;
+                if (!issueDate) return;
+                setHeader((h) => (h ? { ...h, issueDate } : h));
+                await fetch("/api/bill-issuedate", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ docId, issueDate }),
+                });
+                invalidateBills(); // cached payload still carries the old issueDate
+              }}
+            >
+              <option value="">— set billing month —</option>
+              {billingMonthOptions().map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </Select>
           </div>
-        )}
+
+          {/* Move this bill to a different job (draft only). JT can't move bills, so
+              this delete+recreates it on the chosen job. Writes-off deploys hide it,
+              matching the rest of the page. */}
+          {writes && (header?.status ?? "draft") === "draft" && (
+            <div className="mt-4">
+              <Label>Move to job</Label>
+              <JobPicker value={jobId} onChange={reassignJob} />
+              {reassignMsg && (
+                <Banner tone="neutral" className="mt-2 !px-3 !py-2.5 !text-xs">
+                  {reassignMsg}
+                </Banner>
+              )}
+            </div>
+          )}
+        </Card>
 
         {/* Type (Bill/Expense) and Push-to-QB toggles hidden 2026-07-18 per request.
             Kept commented (with their patchBill/isExpense/pushToQb handlers) for easy restore. */}
@@ -1103,71 +1190,39 @@ function BillDetail() {
 
       {lines && (
         <>
-          <div className="mb-3">
-            <div className="flex items-baseline justify-between">
-              <span className="text-sm font-medium">
-                {lines.length} {lines.length === 1 ? "line" : "lines"}
-              </span>
-              <span className="font-mono text-sm font-semibold">{money(total)}</span>
-            </div>
-
-            {/* Document-level sales tax = JobTread's "Tax" (nonRecoverableTax), a fixed
-                dollar. Editable on draft bills (writes on): it holds each line's pre-tax
-                amount steady and moves the total (subtotal + tax). Saved with the bill via
-                the sticky Save bar (no separate button — see saveCoding). */}
-            {linesEditable && writes ? (
-              <div className="mt-1.5 flex items-center justify-end gap-2">
-                <span className="text-[10px] uppercase tracking-wide text-neutral-400">
-                  {taxName}
-                </span>
-                <div className="relative">
-                  <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-sm text-neutral-400">
-                    $
-                  </span>
-                  <input
-                    type="number"
-                    inputMode="decimal"
-                    min="0"
-                    step="0.01"
-                    value={taxEdit ?? String(storedTax)}
-                    onChange={(e) => setTaxEdit(e.target.value)}
-                    aria-label="Sales tax"
-                    className="w-28 rounded-lg border border-neutral-300 bg-white py-1 pl-5 pr-2 text-right text-sm tabular-nums transition focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 dark:border-neutral-600 dark:bg-ink"
-                  />
-                </div>
-              </div>
-            ) : null}
-
-            {taxView > 0 && (
-              <div className="mt-0.5 text-right text-xs text-neutral-500">
-                subtotal {money(subtotal)} + {money(taxView)} {taxName.toLowerCase()}
-              </div>
-            )}
-          </div>
-
+          {/* Everything that qualifies the whole list — the two lock/preview
+              warnings — sits above the section heading, so the heading is the
+              last thing before the lines themselves. */}
           {!linesEditable && (
-            <Banner tone="warning" className="mb-3 !px-3 !py-2 !text-xs">
+            <Banner tone="warning" className="mb-3 !px-3 !py-2.5 !text-xs">
               Qty &amp; unit cost are locked once a bill is payable/paid — you can still re-code it.
               To edit amounts, set the bill back to Draft in JobTread.
             </Banner>
           )}
 
+          {!writes && (
+            <Banner tone="warning" className="mb-3 !px-3 !py-2.5 !text-xs">
+              Writes are OFF (COMPANION_WRITES_ENABLED not <span className="font-mono">true</span> on
+              this deploy). Save shows a preview and sends nothing to JobTread. Set it in Vercel and{" "}
+              <b>redeploy</b>.
+            </Banner>
+          )}
+
+          <SectionLabel className="mb-2">Lines</SectionLabel>
+
           {budget.length > 0 && lines.length > 1 && (
             <div className="mb-3 rounded-xl border border-dashed border-neutral-300 bg-neutral-50 p-3 dark:border-neutral-700 dark:bg-ink-raised/60">
-              <span className="mb-1.5 block text-[10px] uppercase tracking-wide text-neutral-400">
-                Apply one code to all {lines.length} lines
-              </span>
+              <Label>Apply one code to all {lines.length} lines</Label>
               <div className="flex items-center gap-2">
                 <div className="min-w-0 flex-1">
                   <CostCodeSelect options={budget} value={bulkCode} onChange={setBulkCode} />
                 </div>
                 <Button
-                  size="sm"
-                  className="shrink-0 !py-2"
+                  className="min-h-11 shrink-0"
                   onClick={() => applyCodeToAll(bulkCode)}
                   disabled={!bulkCode}
                 >
-                  Apply to all
+                  Apply
                 </Button>
               </div>
             </div>
@@ -1175,48 +1230,40 @@ function BillDetail() {
 
           {/* Combine rows: appears once 2+ lines share a cost code. Check the ones
               to merge, then Combine — they collapse into one line (summed amount,
-              concatenated description). Draft-only + writes-gated, like Add line. */}
+              concatenated description). Draft-only + writes-gated, like Add line.
+              The hint and the button stack rather than share a row: side by side
+              on a phone the hint wrapped to three lines beside a squashed
+              button. */}
           {linesEditable && writes && anyCombinable && (
             <div className="mb-3 rounded-xl border border-dashed border-neutral-300 bg-neutral-50 p-3 dark:border-neutral-700 dark:bg-ink-raised/60">
-              <span className="mb-1.5 block text-[10px] uppercase tracking-wide text-neutral-400">
-                Combine lines sharing a cost code
-              </span>
-              <div className="flex items-center justify-between gap-2">
-                <p className="min-w-0 text-xs text-neutral-500">
-                  {selected.length < 2
-                    ? "Check 2+ lines with the same cost code."
-                    : selCodeSet.size > 1
-                      ? "Selected lines have different codes — pick lines that share one code."
-                      : selHasEdit
-                        ? "Save or discard your line edits first."
-                        : `Merging ${selected.length} lines into one.`}
-                </p>
-                <Button
-                  size="sm"
-                  className="shrink-0 !py-2"
-                  onClick={combineRows}
-                  disabled={!canCombine || combining}
-                >
-                  {combining ? "Combining…" : `Combine rows${selected.length >= 2 ? ` (${selected.length})` : ""}`}
-                </Button>
-              </div>
+              <Label>Combine lines sharing a cost code</Label>
+              <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                {selected.length < 2
+                  ? "Check 2+ lines with the same cost code."
+                  : selCodeSet.size > 1
+                    ? "Selected lines have different codes — pick lines that share one code."
+                    : selHasEdit
+                      ? "Save or discard your line edits first."
+                      : `Merging ${selected.length} lines into one.`}
+              </p>
+              <Button
+                className="mt-2.5 min-h-11 w-full"
+                onClick={combineRows}
+                disabled={!canCombine || combining}
+              >
+                {combining
+                  ? "Combining…"
+                  : `Combine rows${selected.length >= 2 ? ` (${selected.length})` : ""}`}
+              </Button>
               {combineMsg && (
-                <Banner tone="neutral" className="mt-2 !px-3 !py-2 !text-xs">
+                <Banner tone="neutral" className="mt-2 !px-3 !py-2.5 !text-xs">
                   {combineMsg}
                 </Banner>
               )}
             </div>
           )}
 
-          {!writes && (
-            <Banner tone="warning" className="mb-3 !text-xs">
-              Writes are OFF (COMPANION_WRITES_ENABLED not <span className="font-mono">true</span> on
-              this deploy). Save shows a preview and sends nothing to JobTread. Set it in Vercel and{" "}
-              <b>redeploy</b>.
-            </Banner>
-          )}
-
-          <ul className="space-y-2">
+          <ul className="space-y-3">
             {lines.map((l) => {
               const current = picked[l.id] ?? l.jobCostItem?.id ?? "";
               const nameVal = edits[l.id]?.name ?? (l.name ?? "");
@@ -1234,99 +1281,56 @@ function BillDetail() {
                 edited && qtyVal !== "" && unitVal !== ""
                   ? Number(qtyVal) * Number(unitVal)
                   : deTax(l.cost ?? 0);
-              const inputCls =
-                "rounded-lg border border-neutral-300 bg-white px-2 py-1.5 text-sm tabular-nums transition focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 disabled:opacity-50 disabled:cursor-not-allowed dark:border-neutral-600 dark:bg-ink";
+              // 44px tall, so every field on a line clears the touch-target
+              // minimum. Tabular figures are added per-input — the money and
+              // quantity fields want them, the description does not.
+              const lineInputCls =
+                "h-11 rounded-lg border border-neutral-300 bg-white px-3 text-sm transition focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 disabled:opacity-50 disabled:cursor-not-allowed dark:border-neutral-600 dark:bg-ink";
               return (
                 <li
                   key={l.id}
-                  className="rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-700/60 dark:bg-ink-raised"
+                  className="rounded-xl border border-neutral-200 bg-white p-3.5 dark:border-neutral-700/60 dark:bg-ink-raised"
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex min-w-0 flex-1 items-start gap-2">
-                      {linesEditable && writes && isCombinable(l) && (
-                        <input
-                          type="checkbox"
-                          checked={selected.includes(l.id)}
-                          onChange={() => toggleSel(l.id)}
-                          aria-label="Select line to combine"
-                          title="Combine with other lines that share this cost code"
-                          className="mt-2.5 h-4 w-4 shrink-0 cursor-pointer accent-accent"
-                        />
-                      )}
-                      {linesEditable ? (
-                        <input
-                          type="text"
-                          value={nameVal}
-                          onChange={(e) =>
-                            setEdits((p) => ({ ...p, [l.id]: { ...p[l.id], name: e.target.value } }))
-                          }
-                          placeholder="Description"
-                          aria-label="Line description"
-                          className="min-w-0 flex-1 rounded-lg border border-neutral-300 bg-white px-2 py-1.5 text-sm font-medium transition focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 dark:border-neutral-600 dark:bg-ink"
-                        />
-                      ) : (
-                        <div className="min-w-0 font-medium">{l.name || "Line item"}</div>
-                      )}
-                    </div>
-                    <div className="flex shrink-0 items-center gap-2">
-                      <div className="font-mono text-sm font-semibold">{money(extended)}</div>
-                      {linesEditable && writes && (
-                        <button
-                          type="button"
-                          onClick={() => buybackLineById(l, nameVal || l.name || "Line item", extended)}
-                          disabled={buybackId === l.id || deletingId === l.id}
-                          aria-label="Buy back to Ascent - Shop"
-                          title="Move this line to a draft bill on Ascent - Shop"
-                          className="rounded-md p-1.5 text-neutral-700 transition hover:bg-accent/10 hover:text-accent disabled:opacity-40 dark:text-neutral-200 dark:hover:bg-accent/20 dark:hover:text-accent-soft"
-                        >
-                          {buybackId === l.id ? (
-                            <span className="block h-4 w-4 text-center text-xs leading-4">…</span>
-                          ) : (
-                            <svg
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              aria-hidden="true"
-                              className="h-4 w-4"
-                            >
-                              <path d="M4 12h13" />
-                              <path d="M12 6l7 6-7 6" />
-                            </svg>
-                          )}
-                        </button>
-                      )}
-                      {linesEditable && writes && (
-                        <button
-                          type="button"
-                          onClick={() => deleteLineById(l.id, l.name || "Line item")}
-                          disabled={deletingId === l.id}
-                          aria-label="Delete line"
-                          title="Delete this line"
-                          className="rounded-md p-1.5 text-neutral-700 transition hover:bg-red-50 hover:text-red-600 disabled:opacity-40 dark:text-neutral-200 dark:hover:bg-red-950/40 dark:hover:text-red-400"
-                        >
-                          {deletingId === l.id ? (
-                            <span className="block h-4 w-4 text-center text-xs leading-4">…</span>
-                          ) : (
-                            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className="h-4 w-4">
-                              <path
-                                fillRule="evenodd"
-                                clipRule="evenodd"
-                                d="M16.5 4.478v.227a48.816 48.816 0 0 1 3.878.512.75.75 0 1 1-.256 1.478l-.209-.035-1.005 13.07a3 3 0 0 1-2.991 2.77H8.084a3 3 0 0 1-2.991-2.77L4.087 6.66l-.209.035a.75.75 0 0 1-.256-1.478A48.567 48.567 0 0 1 7.5 4.705v-.227c0-1.564 1.213-2.9 2.816-2.951a52.662 52.662 0 0 1 3.369 0c1.603.051 2.815 1.387 2.815 2.951Zm-6.136-1.452a51.196 51.196 0 0 1 3.273 0C14.39 3.05 15 3.684 15 4.478v.113a49.488 49.488 0 0 0-6 0v-.113c0-.794.609-1.428 1.364-1.452Zm-.355 5.945a.75.75 0 1 0-1.5.058l.347 9a.75.75 0 1 0 1.499-.058l-.346-9Zm5.48.058a.75.75 0 1 0-1.498-.058l-.347 9a.75.75 0 0 0 1.5.058l.345-9Z"
-                              />
-                            </svg>
-                          )}
-                        </button>
-                      )}
-                    </div>
+                  {/* The description owns a full-width row. It used to share one
+                      with the amount and two icon buttons, which on a phone left
+                      the field around 120px wide — too narrow to read, let alone
+                      edit, a real line description. */}
+                  <div className="flex items-start gap-2.5">
+                    {linesEditable && writes && isCombinable(l) && (
+                      <input
+                        type="checkbox"
+                        checked={selected.includes(l.id)}
+                        onChange={() => toggleSel(l.id)}
+                        aria-label="Select line to combine"
+                        title="Combine with other lines that share this cost code"
+                        className="mt-3 h-5 w-5 shrink-0 cursor-pointer accent-accent"
+                      />
+                    )}
+                    {linesEditable ? (
+                      <input
+                        type="text"
+                        value={nameVal}
+                        onChange={(e) =>
+                          setEdits((p) => ({ ...p, [l.id]: { ...p[l.id], name: e.target.value } }))
+                        }
+                        placeholder="Description"
+                        aria-label="Line description"
+                        className={`${lineInputCls} min-w-0 flex-1 font-medium`}
+                      />
+                    ) : (
+                      <div className="min-w-0 flex-1 py-1 font-medium">{l.name || "Line item"}</div>
+                    )}
                   </div>
 
-                  <div className="mt-2 flex items-center gap-2">
-                    <label className="flex items-center gap-1.5">
-                      <span className="text-[10px] uppercase tracking-wide text-neutral-400">Qty</span>
+                  {/* Qty × unit → amount on one baseline. The amount is the row's
+                      anchor: right-aligned, a step larger than the inputs, in
+                      tabular figures so it sits in the same money column as the
+                      bill total above. */}
+                  <div className="mt-3 flex items-end gap-2">
+                    <div className="shrink-0">
+                      <Label htmlFor={`qty-${l.id}`}>Qty</Label>
                       <input
+                        id={`qty-${l.id}`}
                         type="number"
                         inputMode="decimal"
                         value={qtyVal}
@@ -1334,13 +1338,16 @@ function BillDetail() {
                         onChange={(e) =>
                           setEdits((p) => ({ ...p, [l.id]: { ...p[l.id], quantity: e.target.value } }))
                         }
-                        className={inputCls + " w-20"}
+                        className={`${lineInputCls} w-20 text-right tabular-nums`}
                       />
-                    </label>
-                    <span className="text-neutral-400">×</span>
-                    <label className="flex items-center gap-1.5">
-                      <span className="text-[10px] uppercase tracking-wide text-neutral-400">Unit $</span>
+                    </div>
+                    <span aria-hidden className="pb-3 text-neutral-500 dark:text-neutral-400">
+                      ×
+                    </span>
+                    <div className="shrink-0">
+                      <Label htmlFor={`unit-${l.id}`}>Unit $</Label>
                       <input
+                        id={`unit-${l.id}`}
                         type="number"
                         inputMode="decimal"
                         value={unitVal}
@@ -1348,15 +1355,16 @@ function BillDetail() {
                         onChange={(e) =>
                           setEdits((p) => ({ ...p, [l.id]: { ...p[l.id], unitCost: e.target.value } }))
                         }
-                        className={inputCls + " w-24"}
+                        className={`${lineInputCls} w-28 text-right tabular-nums`}
                       />
-                    </label>
+                    </div>
+                    <p className="min-w-0 flex-1 pb-2.5 text-right text-base font-semibold tabular-nums">
+                      {money(extended)}
+                    </p>
                   </div>
 
-                  <div className="mt-2">
-                    <span className="mb-1 block text-[10px] uppercase tracking-wide text-neutral-400">
-                      Cost code
-                    </span>
+                  <div className="mt-3">
+                    <Label>Cost code</Label>
                     <CostCodeSelect
                       options={budget}
                       value={current}
@@ -1367,24 +1375,83 @@ function BillDetail() {
                       const c = codeNum ? ctc[codeNum] : undefined;
                       if (!c) return null;
                       return (
-                        <div className="mt-1 text-[11px]">
-                          <span className="text-neutral-500">Budget Remaining: </span>
+                        <div className="mt-1.5 flex flex-wrap items-baseline gap-x-1.5 text-[11px]">
+                          <span className="text-neutral-500 dark:text-neutral-400">
+                            Budget remaining
+                          </span>
                           <span
                             className={
-                              "font-mono font-semibold " +
+                              "font-semibold tabular-nums " +
                               (c.remaining < 0 ? "text-red-600 dark:text-red-400" : "")
                             }
                           >
                             {money(c.remaining)}
                           </span>
-                          <span className="text-neutral-400">
-                            {" "}
+                          <span className="text-neutral-500 dark:text-neutral-400">
                             (budget {money(c.budget)} − actual {money(c.actual)})
                           </span>
                         </div>
                       );
                     })()}
                   </div>
+
+                  {/* Destructive / structural actions live at the FOOT of the
+                      card, right-aligned and away from the fields — both are
+                      one-tap-and-confirm, and keeping them out of the editing
+                      path is what stops a mis-tap while typing an amount. Each
+                      is a 44px target now (they were 28px). */}
+                  {linesEditable && writes && (
+                    <div className="mt-3 flex justify-end gap-1 border-t border-neutral-100 pt-1 dark:border-neutral-800">
+                      <IconButton
+                        onClick={() => buybackLineById(l, nameVal || l.name || "Line item", extended)}
+                        disabled={buybackId === l.id || deletingId === l.id}
+                        label="Buy back to Ascent - Shop"
+                        title="Move this line to a draft bill on Ascent - Shop"
+                      >
+                        {buybackId === l.id ? (
+                          <Spinner />
+                        ) : (
+                          <svg
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            aria-hidden="true"
+                            className="h-[18px] w-[18px]"
+                          >
+                            <path d="M4 12h13" />
+                            <path d="M12 6l7 6-7 6" />
+                          </svg>
+                        )}
+                      </IconButton>
+                      <IconButton
+                        tone="danger"
+                        onClick={() => deleteLineById(l.id, l.name || "Line item")}
+                        disabled={deletingId === l.id}
+                        label="Delete line"
+                        title="Delete this line"
+                      >
+                        {deletingId === l.id ? (
+                          <Spinner />
+                        ) : (
+                          <svg
+                            viewBox="0 0 24 24"
+                            fill="currentColor"
+                            aria-hidden="true"
+                            className="h-[18px] w-[18px]"
+                          >
+                            <path
+                              fillRule="evenodd"
+                              clipRule="evenodd"
+                              d="M16.5 4.478v.227a48.816 48.816 0 0 1 3.878.512.75.75 0 1 1-.256 1.478l-.209-.035-1.005 13.07a3 3 0 0 1-2.991 2.77H8.084a3 3 0 0 1-2.991-2.77L4.087 6.66l-.209.035a.75.75 0 0 1-.256-1.478A48.567 48.567 0 0 1 7.5 4.705v-.227c0-1.564 1.213-2.9 2.816-2.951a52.662 52.662 0 0 1 3.369 0c1.603.051 2.815 1.387 2.815 2.951Zm-6.136-1.452a51.196 51.196 0 0 1 3.273 0C14.39 3.05 15 3.684 15 4.478v.113a49.488 49.488 0 0 0-6 0v-.113c0-.794.609-1.428 1.364-1.452Zm-.355 5.945a.75.75 0 1 0-1.5.058l.347 9a.75.75 0 1 0 1.499-.058l-.346-9Zm5.48.058a.75.75 0 1 0-1.498-.058l-.347 9a.75.75 0 0 0 1.5.058l.345-9Z"
+                            />
+                          </svg>
+                        )}
+                      </IconButton>
+                    </div>
+                  )}
                 </li>
               );
             })}
@@ -1401,58 +1468,71 @@ function BillDetail() {
                     setAddLineMsg("");
                     setAddingLine(true);
                   }}
-                  className="w-full rounded-xl border border-dashed border-neutral-300 px-4 py-3 text-sm font-semibold text-accent transition hover:border-accent hover:bg-accent/5 dark:border-neutral-700 dark:text-accent-soft"
+                  className="min-h-11 w-full rounded-xl border border-dashed border-neutral-300 px-4 py-3 text-sm font-semibold text-accent transition hover:border-accent hover:bg-accent/5 dark:border-neutral-700 dark:text-accent-soft"
                 >
                   + Add line
                 </button>
               ) : (
-                <div className="rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-700/60 dark:bg-ink-raised">
+                // Same field layout as an existing line, so adding one and
+                // editing one look and behave identically.
+                <div className="rounded-xl border border-neutral-200 bg-white p-3.5 dark:border-neutral-700/60 dark:bg-ink-raised">
                   <input
                     type="text"
                     value={newLine.name}
                     onChange={(e) => setNewLine((n) => ({ ...n, name: e.target.value }))}
                     placeholder="Line description"
-                    className="w-full rounded-lg border border-neutral-300 bg-white px-2 py-1.5 text-sm transition focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 dark:border-neutral-600 dark:bg-ink"
+                    aria-label="Line description"
+                    className="h-11 w-full rounded-lg border border-neutral-300 bg-white px-3 text-sm font-medium transition focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 dark:border-neutral-600 dark:bg-ink"
                   />
-                  <div className="mt-2 flex items-center gap-2">
-                    <label className="flex items-center gap-1.5">
-                      <span className="text-[10px] uppercase tracking-wide text-neutral-400">Qty</span>
+                  <div className="mt-3 flex items-end gap-2">
+                    <div className="shrink-0">
+                      <Label htmlFor="new-line-qty">Qty</Label>
                       <input
+                        id="new-line-qty"
                         type="number"
                         inputMode="decimal"
                         value={newLine.quantity}
                         onChange={(e) => setNewLine((n) => ({ ...n, quantity: e.target.value }))}
-                        className="w-20 rounded-lg border border-neutral-300 bg-white px-2 py-1.5 text-sm tabular-nums transition focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 dark:border-neutral-600 dark:bg-ink"
+                        className="h-11 w-20 rounded-lg border border-neutral-300 bg-white px-3 text-right text-sm tabular-nums transition focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 dark:border-neutral-600 dark:bg-ink"
                       />
-                    </label>
-                    <span className="text-neutral-400">×</span>
-                    <label className="flex items-center gap-1.5">
-                      <span className="text-[10px] uppercase tracking-wide text-neutral-400">Unit $</span>
+                    </div>
+                    <span aria-hidden className="pb-3 text-neutral-500 dark:text-neutral-400">
+                      ×
+                    </span>
+                    <div className="shrink-0">
+                      <Label htmlFor="new-line-unit">Unit $</Label>
                       <input
+                        id="new-line-unit"
                         type="number"
                         inputMode="decimal"
                         value={newLine.unitCost}
                         onChange={(e) => setNewLine((n) => ({ ...n, unitCost: e.target.value }))}
-                        className="w-24 rounded-lg border border-neutral-300 bg-white px-2 py-1.5 text-sm tabular-nums transition focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 dark:border-neutral-600 dark:bg-ink"
+                        className="h-11 w-28 rounded-lg border border-neutral-300 bg-white px-3 text-right text-sm tabular-nums transition focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 dark:border-neutral-600 dark:bg-ink"
                       />
-                    </label>
+                    </div>
+                    <p className="min-w-0 flex-1 pb-2.5 text-right text-base font-semibold tabular-nums">
+                      {money((Number(newLine.quantity) || 0) * (Number(newLine.unitCost) || 0))}
+                    </p>
                   </div>
-                  <div className="mt-2">
-                    <span className="mb-1 block text-[10px] uppercase tracking-wide text-neutral-400">
-                      Cost code
-                    </span>
+                  <div className="mt-3">
+                    <Label>Cost code</Label>
                     <CostCodeSelect
                       options={budget}
                       value={newLine.code}
                       onChange={(id) => setNewLine((n) => ({ ...n, code: id }))}
                     />
                   </div>
-                  <div className="mt-3 flex items-center gap-2">
-                    <Button onClick={addLine} disabled={addLineSaving || !newLine.name.trim()}>
+                  <div className="mt-4 grid grid-cols-2 gap-2">
+                    <Button
+                      className="min-h-11 w-full"
+                      onClick={addLine}
+                      disabled={addLineSaving || !newLine.name.trim()}
+                    >
                       {addLineSaving ? "Adding…" : "Add line"}
                     </Button>
                     <Button
                       variant="secondary"
+                      className="min-h-11 w-full"
                       onClick={() => {
                         setAddingLine(false);
                         setAddLineMsg("");
@@ -1464,7 +1544,7 @@ function BillDetail() {
                 </div>
               )}
               {addLineMsg && (
-                <Banner tone="neutral" className="mt-2 !px-3 !py-2 !text-xs">
+                <Banner tone="neutral" className="mt-2 !px-3 !py-2.5 !text-xs">
                   {addLineMsg}
                 </Banner>
               )}
@@ -1492,42 +1572,47 @@ function BillDetail() {
         </div>
       )}
 
-      {/* Attached invoice image / PDF — at the bottom */}
+      {/* Attached invoice image / PDF — at the bottom. Labelled like every
+          other section, and sized in `dvh` so a phone's collapsing browser
+          chrome can't crop the scan mid-scroll. */}
       {files.length > 0 && (
-        <div className="mt-6 space-y-2">
-          {files.map((f) =>
-            f.url && isImage(f) ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <a key={f.id} href={f.url} target="_blank" rel="noreferrer">
-                <img
-                  src={f.url}
-                  alt={f.name ?? "invoice"}
-                  className="max-h-[28rem] w-full rounded-lg border border-neutral-200 object-contain dark:border-neutral-800"
-                />
-              </a>
-            ) : f.url ? (
-              <div key={f.id}>
-                <iframe
-                  src={f.url}
-                  title={f.name ?? "invoice"}
-                  className="h-[28rem] w-full rounded-lg border border-neutral-200 dark:border-neutral-800"
-                />
-                <a
-                  href={f.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="mt-1 inline-block text-xs font-semibold text-accent"
-                >
-                  Open {f.name || "attachment"} ↗
+        <section className="mt-8">
+          <SectionLabel className="mb-2">Invoice</SectionLabel>
+          <div className="space-y-3">
+            {files.map((f) =>
+              f.url && isImage(f) ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <a key={f.id} href={f.url} target="_blank" rel="noreferrer" title="Open full size">
+                  <img
+                    src={f.url}
+                    alt={f.name ?? "invoice"}
+                    className="max-h-[70dvh] w-full rounded-xl border border-neutral-200 object-contain dark:border-neutral-800"
+                  />
                 </a>
-              </div>
-            ) : (
-              <span key={f.id} className="text-sm text-neutral-500">
-                {f.name}
-              </span>
-            ),
-          )}
-        </div>
+              ) : f.url ? (
+                <div key={f.id}>
+                  <iframe
+                    src={f.url}
+                    title={f.name ?? "invoice"}
+                    className="h-[70dvh] w-full rounded-xl border border-neutral-200 dark:border-neutral-800"
+                  />
+                  <a
+                    href={f.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-1.5 inline-flex min-h-11 items-center text-xs font-semibold text-accent dark:text-accent-soft"
+                  >
+                    Open {f.name || "attachment"} ↗
+                  </a>
+                </div>
+              ) : (
+                <span key={f.id} className="text-sm text-neutral-500 dark:text-neutral-400">
+                  {f.name}
+                </span>
+              ),
+            )}
+          </div>
+        </section>
       )}
 
       {/* Sticky save bar — always shown once the bill loads, so Save can re-push the bill to
@@ -1535,17 +1620,27 @@ function BillDetail() {
           Save re-sends the WHOLE bill (every line + the tax). The page's pb-24 keeps content
           clear of it. */}
       {header && (
-        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-neutral-200 bg-cream/95 backdrop-blur dark:border-white/10 dark:bg-ink/95 print:hidden">
-          <div className="mx-auto flex max-w-xl items-center justify-between gap-3 px-4 py-3">
-            <span className="text-sm font-medium">
-              {changeCount === 0
-                ? "No unsaved changes"
-                : `${changeCount} unsaved change${changeCount === 1 ? "" : "s"}`}
+        // `pb-[env(safe-area-inset-bottom)]` keeps the buttons clear of the
+        // home indicator — without it the bar's own padding is all that stands
+        // between Save and the swipe-up gesture area on a modern iPhone.
+        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-neutral-200 bg-cream/95 pb-[env(safe-area-inset-bottom)] backdrop-blur dark:border-white/10 dark:bg-ink/95 print:hidden">
+          <div className="mx-auto flex max-w-xl items-center justify-between gap-3 px-4 py-2.5">
+            {/* Unsaved work is stated in amber — the same "something is
+                pending" colour the rest of the app uses — so the bar reads
+                differently at a glance depending on whether it matters. */}
+            <span className="min-w-0 text-sm">
+              {changeCount === 0 ? (
+                <span className="text-neutral-500 dark:text-neutral-400">No unsaved changes</span>
+              ) : (
+                <span className="font-semibold text-amber-600 dark:text-amber-400">
+                  {changeCount} unsaved change{changeCount === 1 ? "" : "s"}
+                </span>
+              )}
             </span>
-            <div className="flex items-center gap-2">
+            <div className="flex shrink-0 items-center gap-2">
               <Button
                 variant="ghost"
-                size="sm"
+                className="min-h-11"
                 onClick={() => {
                   setPicked({});
                   setEdits({});
@@ -1555,8 +1650,8 @@ function BillDetail() {
               >
                 Discard
               </Button>
-              <Button onClick={saveCoding} disabled={saving}>
-                {saving ? "Saving…" : changeCount === 0 ? "Save" : `Save changes (${changeCount})`}
+              <Button className="min-h-11" onClick={saveCoding} disabled={saving}>
+                {saving ? "Saving…" : changeCount === 0 ? "Save" : `Save (${changeCount})`}
               </Button>
             </div>
           </div>

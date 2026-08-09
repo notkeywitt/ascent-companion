@@ -8,6 +8,7 @@ import {
   Button,
   Card,
   EmptyState,
+  Label,
   Loading,
   PageHeader,
   SectionLabel,
@@ -292,7 +293,11 @@ function Meter({
   const near = !over && pct >= 0.9;
   return (
     <div
-      className={`w-full overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-800 ${className}`}
+      // The dark track is `white/10`, not `neutral-800` — neutral-800 (#262626)
+      // sits within a couple of points of the raised card it's drawn on
+      // (#23231E), so the unfilled part of every bar was invisible and a bar at
+      // 30% read as a bar at 100%.
+      className={`w-full overflow-hidden rounded-full bg-neutral-200 dark:bg-white/10 ${className}`}
       role="progressbar"
       aria-valuenow={Math.round(pct * 100)}
       aria-valuemin={0}
@@ -1572,7 +1577,7 @@ export function Board() {
   const jobAddress = (data?.job?.address ?? "").replace(/,\s*USA$/i, "").trim();
 
   return (
-    <main className="mx-auto flex w-full max-w-2xl flex-col px-4 pb-24 pt-6 lg:max-w-[110rem]">
+    <main className="mx-auto flex w-full max-w-2xl flex-col px-4 pb-[calc(6rem+env(safe-area-inset-bottom))] pt-6 lg:max-w-[110rem]">
       {/* Which job you're looking at, on a phone: it sits at the very top of
           the page, directly under the GlobalJobBar's job picker — which only
           has room for a truncated job name. It can't live in the header
@@ -1598,26 +1603,42 @@ export function Board() {
             "Move expenditure between cost codes against live budget headroom."
           )
         }
-        actionsClassName="min-w-0 items-center"
+        actionsClassName="w-full min-w-0 items-center lg:w-auto"
         actions={
-          <div className="flex min-w-0 flex-wrap items-center justify-end gap-3">
-            <Select
-              value={ym}
-              onChange={(e) => setYm(e.target.value)}
-              className="lg:w-52"
-              aria-label="Billing month"
-            >
-              {monthOptions().map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </Select>
+          // On a phone the toolbar is a stack of clearly separated groups —
+          // month, then filters, then actions — rather than one wrapping row
+          // of eleven controls at mixed sizes. From lg up it collapses back to
+          // the single inline row the desktop workbench has always had.
+          <div className="flex w-full min-w-0 flex-col gap-3 lg:w-auto lg:flex-row lg:flex-wrap lg:items-center lg:justify-end">
+            {/* The month is the control changed most often here, so on mobile
+                it gets a label and the full width instead of being an
+                unlabelled box wedged between the title and four toggles. */}
+            <div className="min-w-0">
+              <Label htmlFor="recode-month" className="lg:hidden">
+                Billing month
+              </Label>
+              <Select
+                id="recode-month"
+                value={ym}
+                onChange={(e) => setYm(e.target.value)}
+                className="!h-11 lg:!h-auto lg:w-52"
+                aria-label="Billing month"
+              >
+                {monthOptions().map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </Select>
+            </div>
             {/* The filter toggles as a group. On mobile they take their own
                 full-width row in a 2×2 grid — four stacked lines pushed the
-                buttons and the list too far down the screen; from lg up they
-                sit inline with the month picker exactly as before. */}
-            <div className="grid w-full grid-cols-2 items-start gap-x-3 gap-y-2.5 lg:flex lg:w-auto lg:items-center lg:gap-3">
+                buttons and the list too far down the screen — boxed so they
+                read as one set of switches rather than four loose lines, and
+                each row 44px tall so the switch is a real tap target. From lg
+                up the box dissolves and they sit inline with the month picker
+                exactly as before. */}
+            <div className="grid w-full grid-cols-2 items-center gap-x-3 rounded-xl border border-neutral-200 px-3 py-1 dark:border-neutral-700/60 lg:flex lg:w-auto lg:gap-3 lg:border-0 lg:px-0 lg:py-0">
               {/* Governs the LIST only. Drafts are never invoiceable — JobTread
                   won't pull one onto a customer invoice — so this can't move the
                   "To be invoiced" figure, and the title says so. */}
@@ -1625,13 +1646,13 @@ export function Board() {
                 checked={includeDrafts}
                 onChange={setIncludeDrafts}
                 label={<span title="Shows draft bills below so you can code them. Drafts are never invoiceable until approved in JobTread, so this doesn't change the To be invoiced total.">Include drafts</span>}
-                className="shrink-0"
+                className="min-h-11 shrink-0 text-left lg:min-h-0"
               />
               <Toggle
                 checked={hideSunset}
                 onChange={setHideSunset}
                 label="Hide Sunset"
-                className="shrink-0"
+                className="min-h-11 shrink-0 text-left lg:min-h-0"
               />
               <Toggle
                 checked={uninvoicedOnly}
@@ -1641,7 +1662,7 @@ export function Board() {
                     Uninvoiced only
                   </span>
                 }
-                className="shrink-0"
+                className="min-h-11 shrink-0 text-left lg:min-h-0"
               />
               <Toggle
                 checked={includeUnapprovedTime}
@@ -1651,11 +1672,11 @@ export function Board() {
                     Include unapproved time
                   </span>
                 }
-                className="shrink-0"
+                className="min-h-11 shrink-0 text-left lg:min-h-0"
               />
             </div>
             {dirty && (
-              <span className="text-xs font-semibold text-amber-600 dark:text-amber-400">
+              <span className="inline-flex shrink-0 items-center self-start rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
                 {staged.size} staged change{staged.size === 1 ? "" : "s"}
               </span>
             )}
@@ -1663,14 +1684,16 @@ export function Board() {
                 labels are nowrap, so the long ones are shortened below the lg
                 breakpoint to make three fit across a phone. `lg:contents`
                 dissolves this wrapper from lg up, putting the buttons back as
-                direct children of the toolbar exactly as before. */}
+                direct children of the toolbar exactly as before. `min-h-11`
+                gives them a thumb-sized hit area on touch and is dropped again
+                at lg so the desktop toolbar keeps its density. */}
             <div className="flex w-full items-center gap-2 lg:contents">
               <Button
                 variant="secondary"
                 size="sm"
                 onClick={revertAll}
                 disabled={!dirty || syncing}
-                className="flex-1 lg:flex-none"
+                className="min-h-11 flex-1 lg:min-h-0 lg:flex-none"
               >
                 Revert
               </Button>
@@ -1678,7 +1701,7 @@ export function Board() {
                 size="sm"
                 onClick={sync}
                 disabled={!dirty || syncing}
-                className="flex-1 lg:flex-none"
+                className="min-h-11 flex-1 lg:min-h-0 lg:flex-none"
               >
                 {syncing ? (
                   "Syncing…"
@@ -1699,7 +1722,7 @@ export function Board() {
                   }}
                   disabled={draftBills.length === 0 || dirty || syncing || approving}
                   title={dirty ? "Sync staged coding changes to JobTread first" : undefined}
-                  className="flex-1 lg:flex-none"
+                  className="min-h-11 flex-1 lg:min-h-0 lg:flex-none"
                 >
                   {/* The count rides inside each label rather than sitting
                       beside them — a bare text node would pick up the
@@ -1822,11 +1845,11 @@ export function Board() {
                 type="button"
                 onClick={() => setRailCollapsed((v) => !v)}
                 aria-expanded={!railCollapsed}
-                className="flex min-w-0 items-baseline gap-1.5 text-left lg:pointer-events-none"
+                className="-ml-1 flex min-h-11 min-w-0 items-center gap-1.5 px-1 text-left lg:pointer-events-none lg:ml-0 lg:min-h-0 lg:px-0"
               >
                 <span
                   aria-hidden
-                  className={`shrink-0 text-[9px] text-neutral-400 transition-transform lg:hidden ${
+                  className={`shrink-0 text-[9px] text-neutral-500 transition-transform dark:text-neutral-400 lg:hidden ${
                     railCollapsed ? "" : "rotate-90"
                   }`}
                 >
@@ -1841,8 +1864,8 @@ export function Board() {
                     prev.size > 0 ? new Set() : new Set(railGroups.map((g) => g.code)),
                   )
                 }
-                className={`shrink-0 text-[11px] text-neutral-500 transition hover:text-accent ${
-                  railCollapsed ? "hidden lg:block" : ""
+                className={`-mr-1 inline-flex min-h-11 shrink-0 items-center px-1 text-[11px] text-neutral-500 transition hover:text-accent dark:text-neutral-400 lg:mr-0 lg:min-h-0 lg:px-0 ${
+                  railCollapsed ? "hidden lg:inline-flex" : ""
                 }`}
               >
                 {collapsedDivs.size > 0 ? "Expand all" : "Collapse all"}
@@ -1857,11 +1880,13 @@ export function Board() {
                 value={codeQuery}
                 onChange={(e) => setCodeQuery(e.target.value)}
                 placeholder="Filter cost codes…"
-                className="w-full border-b border-neutral-200 bg-transparent px-2 py-1.5 text-xs outline-none dark:border-white/10"
+                className="h-11 w-full border-b border-neutral-200 bg-transparent px-3 text-xs outline-none dark:border-white/10 lg:h-auto lg:px-2 lg:py-1.5"
               />
               {/* Sized off the viewport, not a %, so the docked rail (label +
-                  card + footnote) always fits on screen and scrolls internally. */}
-              <div className="max-h-[calc(100vh-16rem)] overflow-y-auto">
+                  card + footnote) always fits on screen and scrolls internally.
+                  `dvh` rather than `vh`, so a phone's collapsing address bar
+                  doesn't leave the rail taller than the screen it's in. */}
+              <div className="max-h-[calc(100dvh-16rem)] overflow-y-auto">
                 {railRows.length === 0 ? (
                   <p className="px-3 py-4 text-xs text-neutral-500">No cost codes match.</p>
                 ) : (
@@ -1882,18 +1907,25 @@ export function Board() {
                           onDragOver={() => {
                             if (dragLineIds && collapsedDivs.has(g.code)) toggleDiv(g.code);
                           }}
-                          className="flex w-full items-baseline gap-1.5 border-b border-neutral-200 bg-neutral-50/80 px-2 py-1 text-left transition hover:bg-accent/5 dark:border-neutral-800 dark:bg-white/[0.04] dark:hover:bg-white/[0.07]"
+                          // Division headers and code rows are tap targets that
+                          // open a drill-down, so on touch they get real height
+                          // (they were ~26px); `lg` restores the dense rail the
+                          // desktop workbench scans dozens of codes in.
+                          className="flex w-full items-center gap-1.5 border-b border-neutral-200 bg-neutral-50/80 px-3 py-2.5 text-left transition hover:bg-accent/5 dark:border-neutral-800 dark:bg-white/[0.04] dark:hover:bg-white/[0.07] lg:items-baseline lg:px-2 lg:py-1"
                         >
                           <span
                             aria-hidden
-                            className={`shrink-0 text-[9px] text-neutral-400 transition-transform ${open ? "rotate-90" : ""}`}
+                            className={`shrink-0 text-[9px] text-neutral-500 transition-transform dark:text-neutral-400 ${open ? "rotate-90" : ""}`}
                           >
                             ▶
                           </span>
                           <span className="min-w-0 flex-1 truncate text-xs font-semibold">
-                            <span className="tabular-nums text-neutral-500">{g.code}</span> {g.name}
+                            <span className="tabular-nums text-neutral-500 dark:text-neutral-400">
+                              {g.code}
+                            </span>{" "}
+                            {g.name}
                           </span>
-                          <span className="shrink-0 text-[10px] tabular-nums text-neutral-400">
+                          <span className="shrink-0 text-[10px] tabular-nums text-neutral-500 dark:text-neutral-400">
                             {g.rows.length}
                           </span>
                           <span
@@ -1940,7 +1972,7 @@ export function Board() {
                                     (pct !== null ? ` (${pct}% of budget)` : "") +
                                     (h.droppable ? "" : "\nNo budget line — can't code to this")
                                   }
-                                  className={`border-b border-neutral-100 px-2 py-1 pl-4 transition dark:border-neutral-800 ${
+                                  className={`border-b border-neutral-100 transition dark:border-neutral-800 ${
                                     dragOverCode === h.code
                                       ? "bg-accent/10 ring-1 ring-inset ring-accent"
                                       : dragLineIds && !h.droppable
@@ -1951,14 +1983,20 @@ export function Board() {
                                   <button
                                     type="button"
                                     onClick={() => openCodeDrill(h.code)}
-                                    className="w-full text-left transition hover:opacity-70"
+                                    className="w-full px-3 py-2 pl-5 text-left transition hover:opacity-70 lg:px-2 lg:py-1 lg:pl-4"
                                   >
                                     <div className="flex items-baseline justify-between gap-2">
                                       <span className="min-w-0 truncate text-xs">
-                                        <span className="tabular-nums text-neutral-500">
+                                        <span className="tabular-nums text-neutral-500 dark:text-neutral-400">
                                           {h.code}
                                         </span>{" "}
-                                        <span className={h.droppable ? "" : "text-neutral-400"}>
+                                        <span
+                                          className={
+                                            h.droppable
+                                              ? ""
+                                              : "text-neutral-500 dark:text-neutral-400"
+                                          }
+                                        >
                                           {h.name}
                                         </span>
                                       </span>
@@ -1969,7 +2007,7 @@ export function Board() {
                                       >
                                         {money0(left)}
                                         {pct !== null && (
-                                          <span className="ml-1 font-normal text-neutral-400">
+                                          <span className="ml-1 font-normal text-neutral-500 dark:text-neutral-400">
                                             {pct}%
                                           </span>
                                         )}
@@ -1989,7 +2027,7 @@ export function Board() {
               </div>
             </Card>
             <p
-              className={`mt-2 text-[11px] leading-relaxed text-neutral-400 ${
+              className={`mt-2 text-[11px] leading-relaxed text-neutral-500 dark:text-neutral-400 ${
                 railCollapsed ? "hidden lg:block" : ""
               }`}
             >
@@ -2014,11 +2052,14 @@ export function Board() {
                   : undefined
               }
             >
+              {/* The month's headline figure. Set at display size in tabular
+                  figures — it's what the whole page is working toward, and on a
+                  phone it's the one number worth reading from arm's length. */}
               <SectionLabel>To be invoiced</SectionLabel>
-              <p className="mt-0.5 text-2xl font-semibold tabular-nums">
+              <p className="mt-1 text-3xl font-bold leading-none tabular-nums">
                 {recon ? money(recon.remaining + recon.draftBillsCost) : "—"}
               </p>
-              <p className="mt-0.5 text-[11px] text-neutral-400">
+              <p className="mt-1.5 text-[11px] text-neutral-500 dark:text-neutral-400">
                 {recon
                   ? `${money(recon.remaining)} approved${
                       recon.draftBillCount > 0 ? `, ${money(recon.draftBillsCost)} drafts` : ""
@@ -2037,16 +2078,21 @@ export function Board() {
                 · {money(data.billTotal)}
                 {hiddenSunset.count > 0 && " (all bills)"}
               </SectionLabel>
-              <div className="flex gap-1 text-xs">
+              {/* Grouping switch, as a segmented control: one bordered track so
+                  the two options read as a pair, with 44px-tall segments on
+                  touch (they were 26px) and the desktop density restored at
+                  lg. */}
+              <div className="flex shrink-0 gap-1 rounded-lg border border-neutral-200 p-0.5 text-xs dark:border-neutral-700/60 lg:border-0 lg:p-0">
                 {(["bill", "code"] as const).map((m) => (
                   <button
                     key={m}
                     type="button"
                     onClick={() => setMode(m)}
-                    className={`rounded-md px-2 py-1 transition ${
+                    aria-pressed={mode === m}
+                    className={`inline-flex min-h-10 items-center rounded-md px-2.5 transition lg:min-h-0 lg:py-1 ${
                       mode === m
                         ? "bg-accent text-accent-fg font-semibold"
-                        : "text-neutral-500 hover:text-accent"
+                        : "text-neutral-500 hover:text-accent dark:text-neutral-400"
                     }`}
                   >
                     {m === "bill" ? "By bill" : "By cost code"}
@@ -2087,12 +2133,12 @@ export function Board() {
                   type="button"
                   onClick={() => setTimeBlockOpen((v) => !v)}
                   aria-expanded={timeBlockOpen}
-                  className="flex w-full items-baseline justify-between gap-2 px-3 py-2 text-left transition hover:bg-accent/5 dark:hover:bg-white/5"
+                  className="flex w-full items-baseline justify-between gap-2 px-3 py-3 text-left transition hover:bg-accent/5 dark:hover:bg-white/5 lg:py-2"
                 >
                   <span className="min-w-0 truncate text-sm font-semibold">
                     <span
                       aria-hidden
-                      className={`mr-1.5 inline-block text-[9px] text-neutral-400 transition-transform ${
+                      className={`mr-1.5 inline-block text-[9px] text-neutral-500 transition-transform dark:text-neutral-400 ${
                         timeBlockOpen ? "rotate-90" : ""
                       }`}
                     >
@@ -2114,7 +2160,7 @@ export function Board() {
                       >
                         <span className="min-w-0 flex-1 truncate">
                           <span className="font-medium">{t.employee}</span>
-                          <span className="ml-1 text-neutral-400">
+                          <span className="ml-1 text-neutral-500 dark:text-neutral-400">
                             {t.startedAt ? t.startedAt.slice(0, 10) : ""} · {t.hours.toFixed(1)}h
                             {t.code ? ` · ${t.code} ${t.codeName}` : " · uncoded"}
                             {!t.isApproved ? " · unapproved" : ""}
@@ -2172,9 +2218,21 @@ export function Board() {
                                   draggable={!s.invoiced}
                                   onDragStart={beginDrag(s.lines.map((l) => l.id))}
                                   onDragEnd={endDrag}
-                                  onClick={() => setOpenDocId(s.docId)}
+                                  // Same rule the bill list follows: on a phone
+                                  // the coding drawer is hidden, so setOpenDocId
+                                  // would open nothing and the tap would read as
+                                  // dead. Send it to the bill's detail page
+                                  // instead, carrying the same back-context.
+                                  onClick={() =>
+                                    isMobile
+                                      ? router.push(
+                                          `/bill/${s.docId}?jobId=${encodeURIComponent(jobId)}` +
+                                            `&from=recode&ym=${encodeURIComponent(ym)}`,
+                                        )
+                                      : setOpenDocId(s.docId)
+                                  }
                                   title={s.lines.map((l) => l.name).join("\n")}
-                                  className={`rounded-md border px-2 py-1 text-[11px] transition ${
+                                  className={`rounded-md border px-2 py-1.5 text-[11px] transition lg:py-1 ${
                                     s.invoiced ? "" : "cursor-grab active:cursor-grabbing"
                                   } ${
                                     moved
@@ -2201,7 +2259,7 @@ export function Board() {
                             );
                           })}
                           {hiddenCount > 0 && (
-                            <li className="self-center px-1 text-[11px] italic text-neutral-400">
+                            <li className="self-center px-1 text-[11px] italic text-neutral-500 dark:text-neutral-400">
                               +{hiddenCount} Sunset hidden
                             </li>
                           )}
@@ -2258,55 +2316,63 @@ export function Board() {
                           aria-expanded={isMobile ? undefined : isOpen}
                           className="min-w-0 flex-1 p-3 text-left transition hover:bg-accent/5 dark:hover:bg-white/5"
                         >
+                          {/* Vendor and amount own the first line; the status
+                              badges get their own wrapping line below. Inline,
+                              they sat inside the same `truncate` span as the
+                              vendor name, so on a phone a long vendor simply
+                              clipped them off — the "No file" and "invoiced"
+                              flags were invisible exactly where they matter
+                              most. */}
                           <span className="flex items-baseline justify-between gap-3">
-                            <span className="min-w-0 truncate text-sm font-semibold">
-                              {b.label}
-                              {b.status === "draft" && (
-                                <span className="ml-2 rounded bg-neutral-200 px-1.5 py-px text-[10px] uppercase tracking-wide text-neutral-600 dark:bg-neutral-700 dark:text-neutral-300">
-                                  draft
-                                </span>
-                              )}
-                              {b.fileCount === 0 && (
-                                <span
-                                  title="No file attached to this bill in JobTread"
-                                  className="ml-2 rounded bg-orange-100 px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide text-orange-700 dark:bg-orange-950/40 dark:text-orange-300"
-                                >
-                                  No file
-                                </span>
-                              )}
-                              {b.invoiced && (
-                                <span
-                                  title="Already on a customer invoice — read-only"
-                                  className="ml-2 rounded bg-sky-100 px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide text-sky-700 dark:bg-sky-950/40 dark:text-sky-300"
-                                >
-                                  invoiced
-                                </span>
-                              )}
-                              {movedHere > 0 && (
-                                <span className="ml-2 rounded bg-amber-100 px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide text-amber-700 dark:bg-amber-950/60 dark:text-amber-300">
-                                  {movedHere} moved
-                                </span>
-                              )}
-                              {/* Same pair the coding queue shows. */}
-                              {b.reviewed ? (
-                                <span
-                                  title="Marked reviewed in the Assistant"
-                                  className="ml-2 rounded bg-emerald-600 px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide text-white"
-                                >
-                                  ✓ Reviewed
-                                </span>
-                              ) : b.saved ? (
-                                <span
-                                  title="Save has been clicked on this bill"
-                                  className="ml-2 rounded bg-emerald-50 px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300"
-                                >
-                                  ✓ Saved
-                                </span>
-                              ) : null}
-                            </span>
-                            <span className="shrink-0 text-sm font-semibold tabular-nums">
+                            <span className="min-w-0 truncate text-sm font-semibold">{b.label}</span>
+                            <span className="shrink-0 text-base font-semibold tabular-nums">
                               {money(b.cost)}
                             </span>
+                          </span>
+
+                          <span className="mt-1.5 flex flex-wrap gap-1.5 empty:mt-0">
+                            {b.status === "draft" && (
+                              <span className="rounded bg-neutral-200 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-neutral-600 dark:bg-neutral-700 dark:text-neutral-300">
+                                draft
+                              </span>
+                            )}
+                            {b.fileCount === 0 && (
+                              <span
+                                title="No file attached to this bill in JobTread"
+                                className="rounded bg-orange-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-orange-700 dark:bg-orange-950/40 dark:text-orange-300"
+                              >
+                                No file
+                              </span>
+                            )}
+                            {b.invoiced && (
+                              <span
+                                title="Already on a customer invoice — read-only"
+                                className="rounded bg-sky-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-sky-700 dark:bg-sky-950/40 dark:text-sky-300"
+                              >
+                                invoiced
+                              </span>
+                            )}
+                            {movedHere > 0 && (
+                              <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700 dark:bg-amber-950/60 dark:text-amber-300">
+                                {movedHere} moved
+                              </span>
+                            )}
+                            {/* Same pair the coding queue shows. */}
+                            {b.reviewed ? (
+                              <span
+                                title="Marked reviewed in the Assistant"
+                                className="rounded bg-emerald-600 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white"
+                              >
+                                ✓ Reviewed
+                              </span>
+                            ) : b.saved ? (
+                              <span
+                                title="Save has been clicked on this bill"
+                                className="rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300"
+                              >
+                                ✓ Saved
+                              </span>
+                            ) : null}
                           </span>
 
                           {/* Per-code chips: what this bill is charging, and what's left there. */}
@@ -2320,10 +2386,10 @@ export function Board() {
                                 return (
                                   <span
                                     key={code}
-                                    className={`inline-flex items-baseline gap-1.5 rounded-md px-1.5 py-0.5 text-[11px] ${
+                                    className={`inline-flex items-baseline gap-1.5 rounded-md px-2 py-1 text-[11px] ${
                                       over
                                         ? "bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300"
-                                        : "bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300"
+                                        : "bg-neutral-100 text-neutral-600 dark:bg-white/10 dark:text-neutral-300"
                                     }`}
                                     title={`${h?.name ?? ""} — ${money(left)} remaining`}
                                   >
@@ -2349,7 +2415,7 @@ export function Board() {
                         >
                           <JtLink
                             href={`https://app.jobtread.com/jobs/${jobId}/documents/${b.id}`}
-                            className="p-3 text-xs font-semibold text-neutral-400 transition hover:text-accent"
+                            className="inline-flex min-h-11 min-w-11 items-center justify-center px-3 text-xs font-semibold text-neutral-500 transition hover:text-accent dark:text-neutral-400"
                           >
                             JT ↗
                           </JtLink>
@@ -2831,31 +2897,44 @@ export function Board() {
           total, so "why is this over budget" doesn't require a trip to the
           Tracking Sheet. */}
       {codeDrill && (
+        // Bottom sheet on a phone, centred dialog from sm up: anchored to the
+        // bottom edge it opens inside the thumb's reach and its Close button
+        // lands where the hand already is, instead of at the top of a box
+        // floating mid-screen. `dvh` keeps it inside the visible viewport when
+        // the browser chrome collapses, and the safe-area pad keeps the last
+        // row clear of the home indicator.
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4"
           role="dialog"
           aria-modal="true"
           onClick={() => setCodeDrill(null)}
         >
           <Card
-            className="w-full max-w-lg max-h-[85vh] overflow-y-auto"
+            className="max-h-[85dvh] w-full max-w-lg overflow-y-auto rounded-b-none pb-[max(0.75rem,env(safe-area-inset-bottom))] !p-4 sm:rounded-b-xl sm:pb-4"
             onClick={(e) => e.stopPropagation()}
           >
             {(() => {
               const h = headroom.get(codeDrill);
               return (
                 <>
-                  <div className="flex items-baseline justify-between gap-2">
+                  <div className="mb-1 flex items-center justify-between gap-2">
                     <p className="min-w-0 truncate text-sm font-semibold">
-                      <span className="tabular-nums text-neutral-500">{codeDrill}</span>{" "}
+                      <span className="tabular-nums text-neutral-500 dark:text-neutral-400">
+                        {codeDrill}
+                      </span>{" "}
                       {h?.name ?? ""}
                     </p>
-                    <Button variant="secondary" size="sm" onClick={() => setCodeDrill(null)}>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      className="min-h-11 shrink-0 sm:min-h-0"
+                      onClick={() => setCodeDrill(null)}
+                    >
                       Close
                     </Button>
                   </div>
                   {h && (
-                    <p className="mb-3 text-xs text-neutral-500">
+                    <p className="mb-3 text-xs text-neutral-500 dark:text-neutral-400">
                       {money(h.spent)} committed
                       {h.drafts > 0 ? ` + ${money(h.drafts)} draft` : ""}
                       {h.labor > 0 ? ` + ${money(h.labor)} labor` : ""}
@@ -2877,22 +2956,24 @@ export function Board() {
                   ) : (
                     <div className="space-y-4">
                       <div>
-                        <p className="mb-1 text-xs font-semibold text-neutral-500">
+                        <SectionLabel className="mb-1.5">
                           Bills ({drillBills.length})
-                        </p>
+                        </SectionLabel>
                         {drillBills.length === 0 ? (
-                          <p className="text-xs text-neutral-400">No bills coded to this code.</p>
+                          <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                            No bills coded to this code.
+                          </p>
                         ) : (
-                          <ul className="space-y-1">
+                          <ul className="space-y-1.5">
                             {drillBills.map((b) => (
                               <li
                                 key={b.key}
-                                className="flex items-baseline gap-2 rounded-md border border-neutral-100 px-2 py-1.5 text-xs dark:border-neutral-800"
+                                className="flex items-center gap-2 rounded-lg border border-neutral-200 px-2.5 py-2 text-xs dark:border-neutral-800"
                               >
                                 <span className="min-w-0 flex-1 truncate">
                                   <span className="font-medium">{b.vendor}</span>
                                   {b.lineName && b.lineName !== b.vendor ? ` · ${b.lineName}` : ""}
-                                  <span className="ml-1 text-neutral-400">
+                                  <span className="ml-1 text-neutral-500 dark:text-neutral-400">
                                     {b.issueDate ?? ""}
                                     {b.draft ? " · draft, not yet synced" : b.status ? ` · ${b.status}` : ""}
                                   </span>
@@ -2903,7 +2984,7 @@ export function Board() {
                                 {!b.draft && (
                                   <JtLink
                                     href={`https://app.jobtread.com/jobs/${jobId}/documents/${b.docId}`}
-                                    className="shrink-0 font-semibold text-neutral-400 transition hover:text-accent"
+                                    className="-my-2 inline-flex min-h-11 shrink-0 items-center px-1 font-semibold text-neutral-500 transition hover:text-accent dark:text-neutral-400"
                                   >
                                     JT ↗
                                   </JtLink>
@@ -2915,21 +2996,23 @@ export function Board() {
                       </div>
 
                       <div>
-                        <p className="mb-1 text-xs font-semibold text-neutral-500">
+                        <SectionLabel className="mb-1.5">
                           Time entries ({drillTime.length})
-                        </p>
+                        </SectionLabel>
                         {drillTime.length === 0 ? (
-                          <p className="text-xs text-neutral-400">No time logged to this code.</p>
+                          <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                            No time logged to this code.
+                          </p>
                         ) : (
-                          <ul className="space-y-1">
+                          <ul className="space-y-1.5">
                             {drillTime.map((t) => (
                               <li
                                 key={t.id}
-                                className="flex items-baseline gap-2 rounded-md border border-neutral-100 px-2 py-1.5 text-xs dark:border-neutral-800"
+                                className="flex items-center gap-2 rounded-lg border border-neutral-200 px-2.5 py-2 text-xs dark:border-neutral-800"
                               >
                                 <span className="min-w-0 flex-1 truncate">
                                   <span className="font-medium">{t.employee}</span>
-                                  <span className="ml-1 text-neutral-400">
+                                  <span className="ml-1 text-neutral-500 dark:text-neutral-400">
                                     {t.startedAt ? t.startedAt.slice(0, 10) : ""} ·{" "}
                                     {t.hours.toFixed(1)}h
                                     {!t.isApproved ? " · unapproved" : ""}
@@ -2956,23 +3039,26 @@ export function Board() {
           Materials vs Allowance) is a real coding decision — ask, don't guess. */}
       {leafPicker && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4"
           role="dialog"
           aria-modal="true"
           onClick={() => setLeafPicker(null)}
         >
-          <Card className="w-full max-w-md" onClick={(e) => e.stopPropagation()}>
-            <p className="text-sm font-semibold">
-              Which budget line under {leafPicker.code}?
-            </p>
-            <p className="mb-3 text-xs text-neutral-500">
+          <Card
+            className="max-h-[85dvh] w-full max-w-md overflow-y-auto rounded-b-none pb-[max(1rem,env(safe-area-inset-bottom))] !p-4 sm:rounded-b-xl sm:pb-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="text-sm font-semibold">Which budget line under {leafPicker.code}?</p>
+            <p className="mb-3 text-xs text-neutral-500 dark:text-neutral-400">
               This cost code has several budget rows. Moving{" "}
               {leafPicker.lineIds.length === 1
                 ? "1 line"
                 : `${leafPicker.lineIds.length} lines`}
               .
             </p>
-            <ul className="space-y-1.5">
+            {/* Each option is a decision you commit with one tap, so they get
+                full-height rows rather than 34px slivers. */}
+            <ul className="space-y-2">
               {(leavesByCode.get(leafPicker.code) ?? []).map((leaf) => (
                 <li key={leaf.id}>
                   <button
@@ -2981,23 +3067,29 @@ export function Board() {
                       moveLinesToLeaf(leafPicker.lineIds, leaf.id);
                       setLeafPicker(null);
                     }}
-                    className="flex w-full items-baseline justify-between gap-3 rounded-lg border border-neutral-200 px-3 py-2 text-left text-sm transition hover:border-accent dark:border-neutral-700"
+                    className="flex min-h-11 w-full items-center justify-between gap-3 rounded-lg border border-neutral-200 px-3 py-2 text-left text-sm transition hover:border-accent hover:bg-accent/5 dark:border-neutral-700"
                   >
                     <span className="min-w-0 truncate">
                       {leaf.detail || leaf.name}
                       {leaf.costType && (
-                        <span className="ml-1.5 text-xs text-neutral-400">{leaf.costType}</span>
+                        <span className="ml-1.5 text-xs text-neutral-500 dark:text-neutral-400">
+                          {leaf.costType}
+                        </span>
                       )}
                     </span>
-                    <span className="shrink-0 text-xs tabular-nums text-neutral-500">
+                    <span className="shrink-0 text-xs tabular-nums text-neutral-500 dark:text-neutral-400">
                       {money0(leaf.cost ?? 0)}
                     </span>
                   </button>
                 </li>
               ))}
             </ul>
-            <div className="mt-3 flex justify-end">
-              <Button variant="secondary" size="sm" onClick={() => setLeafPicker(null)}>
+            <div className="mt-4 flex justify-end">
+              <Button
+                variant="secondary"
+                className="min-h-11 sm:min-h-0"
+                onClick={() => setLeafPicker(null)}
+              >
                 Cancel
               </Button>
             </div>
@@ -3007,21 +3099,24 @@ export function Board() {
 
       {approveOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4"
           role="dialog"
           aria-modal="true"
           onClick={() => !approving && setApproveOpen(false)}
         >
-          <Card className="w-full max-w-lg" onClick={(e) => e.stopPropagation()}>
+          <Card
+            className="max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-b-none pb-[max(1rem,env(safe-area-inset-bottom))] !p-4 sm:rounded-b-xl sm:pb-4"
+            onClick={(e) => e.stopPropagation()}
+          >
             <p className="text-sm font-semibold">
               Approve {draftBills.length} draft bill{draftBills.length === 1 ? "" : "s"}?
             </p>
-            <p className="mb-3 text-xs text-neutral-500">
+            <p className="mb-3 text-xs text-neutral-500 dark:text-neutral-400">
               {monthOptions().find((o) => o.value === ym)?.label ?? ym}
               {jobTitle ? ` · ${jobTitle}` : ""}. Bills move to Pending (approved for payment);
               Expenses move straight to Approved (paid).
             </p>
-            <ul className="max-h-80 space-y-1.5 overflow-y-auto">
+            <ul className="max-h-[40dvh] space-y-2 overflow-y-auto">
               {draftBills.map((b) => {
                 const target = approvalTarget(b);
                 const taxOn = (b.nonRecoverableTax ?? 0) > 0;
@@ -3029,19 +3124,19 @@ export function Board() {
                 return (
                   <li
                     key={b.id}
-                    className="rounded-lg border border-neutral-200 px-3 py-2 text-sm dark:border-neutral-700"
+                    className="rounded-lg border border-neutral-200 px-3 py-2.5 text-sm dark:border-neutral-700"
                   >
                     <div className="flex items-baseline justify-between gap-3">
                       <span className="min-w-0 truncate font-medium">{b.label}</span>
                       <span className="shrink-0 tabular-nums font-semibold">{money(b.cost)}</span>
                     </div>
-                    <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-neutral-500">
+                    <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-neutral-500 dark:text-neutral-400">
                       <span>→ {target === "approved" ? "Approved (paid)" : "Pending"}</span>
                       <span
                         className={
                           pushQb
                             ? "text-emerald-600 dark:text-emerald-400"
-                            : "text-neutral-400 dark:text-neutral-500"
+                            : "text-neutral-500 dark:text-neutral-400"
                         }
                       >
                         Push to QuickBooks: {pushQb ? "On" : "Off"}
@@ -3050,7 +3145,7 @@ export function Board() {
                         className={
                           taxOn
                             ? "text-amber-600 dark:text-amber-400"
-                            : "text-neutral-400 dark:text-neutral-500"
+                            : "text-neutral-500 dark:text-neutral-400"
                         }
                       >
                         {b.nonRecoverableTaxName || "Tax"}: {taxOn ? money(b.nonRecoverableTax) : "Off"}
@@ -3060,9 +3155,9 @@ export function Board() {
                 );
               })}
             </ul>
-            <div className="mt-3 flex items-center justify-between gap-3 border-t border-neutral-200 pt-3 text-sm dark:border-neutral-700">
-              <span className="font-semibold">Total</span>
-              <span className="tabular-nums font-semibold">
+            <div className="mt-3 flex items-center justify-between gap-3 border-t border-neutral-200 pt-3 dark:border-neutral-700">
+              <SectionLabel>Total</SectionLabel>
+              <span className="text-xl font-bold tabular-nums">
                 {money(draftBills.reduce((s, b) => s + b.cost, 0))}
               </span>
             </div>
@@ -3071,16 +3166,23 @@ export function Board() {
                 Writes are disabled on this deployment — this will preview only.
               </p>
             )}
-            <div className="mt-3 flex justify-end gap-2">
+            {/* This posts real writes to JobTread, so the confirm button is
+                full-width in the sheet's thumb zone with Cancel beside it —
+                not two small pills tucked into a corner. */}
+            <div className="mt-4 grid grid-cols-2 gap-2">
               <Button
                 variant="secondary"
-                size="sm"
+                className="min-h-11 w-full"
                 onClick={() => setApproveOpen(false)}
                 disabled={approving}
               >
                 Cancel
               </Button>
-              <Button size="sm" onClick={approveDraftBills} disabled={approving || draftBills.length === 0}>
+              <Button
+                className="min-h-11 w-full"
+                onClick={approveDraftBills}
+                disabled={approving || draftBills.length === 0}
+              >
                 {approving
                   ? "Approving…"
                   : `Approve ${draftBills.length} bill${draftBills.length === 1 ? "" : "s"}`}
