@@ -337,7 +337,7 @@ fixture, re-run the generator, commit **both** repos.
 - [ ] Not done: `leave.ts` accrual maths still untested (accrual is DB-only and writes
       nothing to JobTread, so it ranked below the write paths)
 
-### Stage 4 — Split `Diagnostics.js` · ⬜ not started · ⚠️ NEEDS A DEPLOY WINDOW
+### Stage 4 — Split `Diagnostics.js` · 🔶 code done, CI green, **NOT DEPLOYED**
 Splits into `WebApp.js` (doPost/doGet, `WEBAPP_BUILD`, `WEBAPP_ACTIONS`,
 `COMPANION_TASKS`, all `_companion*`), `SyncOrchestrator.js` (lock, `SYNC_*`/`EST_*`
 consts, `step*` wrappers, `runFullJtSync*`), and `Diagnostics.js` (probes only).
@@ -358,7 +358,29 @@ consts, `step*` wrappers, `runFullJtSync*`), and `Diagnostics.js` (probes only).
 4. `./.github/check-globals.sh` must pass before pushing.
 5. Smoke-test from a phone, then confirm the hourly trigger fired in the Executions
    list before calling it done.
-- **Rollback:** `git revert` + re-run `./deploy.sh`. The deployment id is fixed, so the
+- **Rollback:** `git revert` + re-run `./deploy.sh`.
+
+**Status (2026-08-08):** the split landed as `b1b17a3` on
+`claude/repo-structural-analysis-v4wnln`, CI green. **It has NOT been deployed** —
+`doPost` moved, so it needs `./deploy.sh`, and the 8th is inside invoicing week.
+Deploy after the 10th, then smoke-test and confirm the hourly trigger fired.
+
+Result: `WebApp.js` (1,229) + `SyncOrchestrator.js` (313) + `Diagnostics.js`
+(8,014, down from 9,513). Proven a pure move rather than eyeballed: declaration
+inventory identical (183 = 183), each moved block a verbatim substring of the
+original, remainder equal to the original minus exactly those spans.
+`deploy.sh`'s `STAMP_FILE` moved to `WebApp.js` in the same commit. Extra check
+worth repeating on any future split: concatenating all files into one scope must
+parse clean — that is the load-time duplicate-declaration failure a split can
+introduce, and neither `node --check` per-file nor the globals script proves it
+on its own.
+
+⚠️ **Still in `Diagnostics.js`, and still production code:** the sync step
+IMPLEMENTATIONS (`reconcileSheetJobsFromJT`, `pullJtBillPdfsToDrive`,
+`relinkStaleJtDocs`, `sweepDeletedInJtRows`, the re-file pipeline). Only the
+`step*_LIVE` wrappers moved. Splitting those out too is a refactor, not a file
+move — deliberately out of scope here.
+ The deployment id is fixed, so the
   same URL is re-pointed — no companion env change.
 
 Verified safe: every top-level `const` in `Diagnostics.js` is a pure literal (none
