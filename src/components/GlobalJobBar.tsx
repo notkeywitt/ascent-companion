@@ -1,8 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { JobPicker } from "@/components/JobPicker";
+import { JobPicker, jobAddress, type JobRef } from "@/components/JobPicker";
 import { AscentLogo } from "@/components/AscentLogo";
 import { useAccess } from "@/components/AccessProvider";
 import { RefreshButton } from "@/components/RefreshButton";
@@ -22,6 +23,10 @@ export function GlobalJobBar() {
   const search = useSearchParams();
   const access = useAccess();
   const jobId = search.get("jobId") ?? "";
+  // The resolved job behind ?jobId, so the header can show WHERE it is. The
+  // picker resolves this itself and reports it via onResolved — including on
+  // mount, when the id comes from the URL and nobody has "picked" anything.
+  const [job, setJob] = useState<JobRef | null>(null);
 
   function onChange(id: string) {
     // Programmatic nav (not an anchor click), so ask the unsaved-changes guard
@@ -35,7 +40,10 @@ export function GlobalJobBar() {
 
   const addHref = jobId ? `/add-bill?jobId=${encodeURIComponent(jobId)}` : "/add-bill";
 
+  const address = job ? jobAddress(job) : "";
+
   return (
+    <>
     <div className="flex items-center gap-1.5 px-2 py-2 sm:gap-2">
       <Link
         href="/"
@@ -51,7 +59,7 @@ export function GlobalJobBar() {
       </Link>
       {/* The only flexible item — it absorbs whatever the buttons leave. */}
       <div className="min-w-0 flex-1">
-        <JobPicker value={jobId} onChange={onChange} showPhaseFilter />
+        <JobPicker value={jobId} onChange={onChange} onResolved={setJob} showPhaseFilter />
       </div>
       {/* /add-bill is part of the (admin-only) Coding Review view — without the
           gate the middleware would just bounce a non-admin back to home. */}
@@ -69,5 +77,18 @@ export function GlobalJobBar() {
       <RefreshButton />
       <ThemeToggle />
     </div>
+    {/* Where the selected job IS, on its own line under the picker.
+        The picker can only ever show a truncated "Customer - Job" on a phone,
+        and the address was previously repeated by individual pages (the recode
+        board printed its own copy above the title). Carrying it in the chrome
+        means every job-scoped page gets it, in one place, and none of them has
+        to spend a line on it. Self-hiding: no job selected, or a job with no
+        address on file, and the header stays exactly as it was. */}
+    {address && (
+      <p className="truncate px-3 pb-1.5 text-xs text-neutral-500 dark:text-neutral-400">
+        {address}
+      </p>
+    )}
+    </>
   );
 }

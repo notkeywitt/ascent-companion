@@ -1566,36 +1566,19 @@ export function Board() {
     );
   }
 
+  // Still needed by the approve-confirmation dialog below: a modal covers the
+  // header, so the dialog has to name the job it is about to act on itself.
   const jobTitle = data?.job?.name ?? "";
-  const jobAddress = (data?.job?.address ?? "").replace(/,\s*USA$/i, "").trim();
 
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-col px-4 pb-[calc(6rem+env(safe-area-inset-bottom))] pt-6 lg:max-w-[110rem]">
-      {/* Which job you're looking at, on a phone: it sits at the very top of
-          the page, directly under the GlobalJobBar's job picker — which only
-          has room for a truncated job name. It can't live in the header
-          description on mobile, because that renders AFTER the toolbar and so
-          lands below every toggle and button. From lg up the toolbar is inline
-          beside the title, so the description line reads fine and this copy is
-          hidden. */}
-      {jobTitle && (
-        <p className="-mt-3 mb-4 text-sm text-neutral-500 lg:hidden">
-          {jobTitle}
-          {jobAddress ? ` · ${jobAddress}` : ""}
-        </p>
-      )}
+      {/* The job and its address used to be printed here — once as a phone-only
+          line above the title and again as the header description from lg up.
+          The GlobalJobBar carries both now (picker + address line), so this page
+          says what it's FOR instead of repeating where you are. */}
       <PageHeader
         title="Client Invoicing"
-        description={
-          jobTitle ? (
-            <span className="hidden lg:inline">
-              {jobTitle}
-              {jobAddress ? ` · ${jobAddress}` : ""}
-            </span>
-          ) : (
-            "Move expenditure between cost codes against live budget headroom."
-          )
-        }
+        description="Move expenditure between cost codes against live budget headroom."
         actionsClassName="w-full min-w-0 items-center lg:w-auto"
         actions={
           // On a phone the toolbar is a stack of clearly separated groups —
