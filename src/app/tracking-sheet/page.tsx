@@ -221,18 +221,22 @@ export default function TrackingSheetPage() {
       if (!res.ok || b?.ok === false) {
         throw new Error(b?.error || `Request failed (${res.status})`);
       }
+      const moved = ym !== defaultYm;
       setDefaultYm(ym);
       setPeriodPinned(true);
       setPinNote(
-        `Sheets now hold ${ymLabel(month, year)}. The next hourly sync writes that month; ` +
-          `Sync now to apply it immediately.`,
+        moved
+          ? `Sheets now hold ${ymLabel(month, year)}. The next hourly sync writes that month; ` +
+            `Sync now to apply it immediately.`
+          : `Pinned to ${ymLabel(month, year)}. The hourly sync will keep it here — it can no ` +
+            `longer roll over on its own at month end.`,
       );
     } catch (e) {
       setPinNote(e instanceof Error ? e.message : "Could not change the period.");
     } finally {
       setPinning(false);
     }
-  }, [ym, pinning]);
+  }, [ym, pinning, defaultYm]);
 
   const patch = useCallback((key: number, fields: Partial<QueueItem>) => {
     setQueue((q) => q.map((it) => (it.key === key ? { ...it, ...fields } : it)));
@@ -379,7 +383,12 @@ export default function TrackingSheetPage() {
                   {!periodPinned && " (Not pinned yet — still following the calendar.)"}
                 </p>
 
-                {ym && ym !== defaultYm && (
+                {/* Shown when the selected month differs from the held one (the
+                    normal "advance to next month" case) AND while nothing is
+                    pinned yet — otherwise there is no way to pin the month you
+                    are already on, which is exactly the first thing anyone needs
+                    to do. */}
+                {ym && (!periodPinned || ym !== defaultYm) && (
                   <Button
                     variant="secondary"
                     size="sm"
@@ -387,12 +396,16 @@ export default function TrackingSheetPage() {
                     disabled={pinning}
                     onClick={advancePeriod}
                   >
-                    {pinning
-                      ? "Advancing…"
-                      : `Advance sheets to ${(() => {
-                          const { month, year } = parseYm(ym);
-                          return ymLabel(month, year);
-                        })()}`}
+                    {(() => {
+                      const { month, year } = parseYm(ym);
+                      const label = ymLabel(month, year);
+                      if (pinning) return ym === defaultYm ? "Pinning…" : "Advancing…";
+                      // Same month = there is nothing to advance TO; the action
+                      // is simply "stop following the calendar".
+                      return ym === defaultYm
+                        ? `Pin sheets to ${label}`
+                        : `Advance sheets to ${label}`;
+                    })()}
                   </Button>
                 )}
 
