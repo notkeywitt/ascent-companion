@@ -1573,19 +1573,27 @@ export function Board() {
 
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-col px-4 pb-24 pt-6 lg:max-w-[110rem]">
+      {/* Which job you're looking at, on a phone: it sits at the very top of
+          the page, directly under the GlobalJobBar's job picker — which only
+          has room for a truncated job name. It can't live in the header
+          description on mobile, because that renders AFTER the toolbar and so
+          lands below every toggle and button. From lg up the toolbar is inline
+          beside the title, so the description line reads fine and this copy is
+          hidden. */}
+      {jobTitle && (
+        <p className="-mt-3 mb-4 text-sm text-neutral-500 lg:hidden">
+          {jobTitle}
+          {jobAddress ? ` · ${jobAddress}` : ""}
+        </p>
+      )}
       <PageHeader
         title="Client Invoicing"
         description={
           jobTitle ? (
-            <>
+            <span className="hidden lg:inline">
               {jobTitle}
-              {/* On a phone the address gets its own line directly under the
-                  month picker (below) — the header description renders AFTER
-                  the toolbar, so leaving it here buries it under every
-                  control. From lg up the toolbar sits inline beside the title,
-                  so the one-line "job · address" reads fine. */}
-              {jobAddress ? <span className="hidden lg:inline"> · {jobAddress}</span> : null}
-            </>
+              {jobAddress ? ` · ${jobAddress}` : ""}
+            </span>
           ) : (
             "Move expenditure between cost codes against live budget headroom."
           )
@@ -1605,12 +1613,6 @@ export function Board() {
                 </option>
               ))}
             </Select>
-            {/* The job's address, on mobile only — immediately under the
-                picker, where it reads as a subtitle for the job you're
-                coding. On lg it lives in the header description instead. */}
-            {jobAddress && (
-              <p className="w-full text-left text-sm text-neutral-500 lg:hidden">{jobAddress}</p>
-            )}
             {/* The filter toggles as a group. On mobile they take their own
                 full-width row in a 2×2 grid — four stacked lines pushed the
                 buttons and the list too far down the screen; from lg up they
