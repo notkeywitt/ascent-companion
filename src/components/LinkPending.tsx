@@ -1,7 +1,7 @@
 "use client";
 
 import { useLinkStatus } from "next/link";
-import { Spinner } from "@/components/ui";
+import { Spinner } from "@/components/Spinner";
 
 /**
  * Tap→loading feedback for a Next <Link>. Drop as the LAST child of a

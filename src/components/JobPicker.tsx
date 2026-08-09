@@ -153,14 +153,14 @@ export function JobPicker({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search jobs…"
-            className="border-b border-neutral-200 bg-transparent px-3 py-2 text-sm outline-none dark:border-white/10"
+            className="border-b border-line bg-transparent px-3 py-2 text-sm outline-none dark:border-white/10"
           />
           {showPhaseFilter && phases.length > 0 && (
             <select
               value={phaseFilter}
               onChange={(e) => setPhaseFilter(e.target.value)}
               aria-label="Filter by phase"
-              className="border-b border-neutral-200 bg-transparent px-3 py-1.5 text-xs text-neutral-500 outline-none dark:border-white/10"
+              className="border-b border-line bg-transparent px-3 py-1.5 text-xs text-neutral-500 outline-none dark:border-white/10"
             >
               <option value="">All phases</option>
               {phases.map((p) => (

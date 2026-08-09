@@ -446,7 +446,7 @@ function RequisitionCard({
 
         {/* Office notes — read-only line for a lead, editable for the office. */}
         {isOffice ? (
-          <div className="space-y-2 border-t border-neutral-200 pt-2 dark:border-neutral-700/60">
+          <div className="space-y-2 border-t border-line pt-2 ">
             <div className="flex flex-wrap items-center gap-2">
               <Label className="!mb-0">Status</Label>
               <Select
@@ -486,7 +486,7 @@ function RequisitionCard({
           </div>
         ) : (
           r["Office Notes"] && (
-            <div className="border-t border-neutral-200 pt-2 text-xs text-neutral-500 dark:border-neutral-700/60">
+            <div className="border-t border-line pt-2 text-xs text-neutral-500 ">
               <span className="font-semibold">Office:</span> {r["Office Notes"]}
             </div>
           )

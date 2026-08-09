@@ -727,13 +727,13 @@ export default function ToolsPage() {
                   {g.type}
                   <span className="text-xs font-normal text-neutral-400">{g.list.length}</span>
                 </h2>
-                <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white dark:border-neutral-700/60 dark:bg-ink-raised">
+                <div className="overflow-hidden rounded-xl border border-line bg-white dark:bg-ink-raised">
                   {g.list.map((t, i) => (
                     <div
                       key={t.id}
                       className={
                         "flex items-center gap-3 px-3 py-2.5 " +
-                        (i > 0 ? "border-t border-neutral-100 dark:border-neutral-800/70" : "")
+                        (i > 0 ? "border-t border-line-soft/70" : "")
                       }
                     >
                       <ToolPhoto url={t.photoUrl} className="h-11 w-11 shrink-0 rounded-lg" />
@@ -946,7 +946,7 @@ export default function ToolsPage() {
                 <div className="mb-4 flex items-center gap-3">
                   <ToolPhoto
                     url={createPhoto}
-                    className="h-20 w-20 shrink-0 rounded-lg border border-neutral-200 dark:border-neutral-700"
+                    className="h-20 w-20 shrink-0 rounded-lg border border-line"
                   />
                   <div>
                     <input
@@ -1091,7 +1091,7 @@ export default function ToolsPage() {
             <div className="mb-4 flex items-center gap-3">
               <ToolPhoto
                 url={newPhoto || form.photoUrl}
-                className="h-20 w-20 shrink-0 rounded-lg border border-neutral-200 dark:border-neutral-700"
+                className="h-20 w-20 shrink-0 rounded-lg border border-line"
               />
               <div>
                 <input

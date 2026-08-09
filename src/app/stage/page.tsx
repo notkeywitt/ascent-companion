@@ -308,7 +308,7 @@ function Breakdown({ detail, groupByCsi }: { detail: Detail; groupByCsi: boolean
     ));
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-neutral-200 bg-white dark:border-neutral-700/60 dark:bg-ink-raised">
+    <div className="overflow-x-auto rounded-xl border border-line bg-white dark:bg-ink-raised">
       <table className="w-full text-sm">
         <thead className="bg-neutral-50 text-left text-xs uppercase tracking-wide text-neutral-500 dark:bg-white/5">
           <tr>
@@ -321,7 +321,7 @@ function Breakdown({ detail, groupByCsi }: { detail: Detail; groupByCsi: boolean
             ? (csiGrouped ?? []).map((c) => (
                 <tr
                   key={c.code || "residual"}
-                  className="border-t border-neutral-100 dark:border-neutral-800"
+                  className="border-t border-line-soft"
                 >
                   <td className="px-3 py-2">{csiLabel(c.code, c.name)}</td>
                   <td className="px-3 py-2 text-right font-mono">{money(c.amount)}</td>
@@ -332,7 +332,7 @@ function Breakdown({ detail, groupByCsi }: { detail: Detail; groupByCsi: boolean
                 if (l.isSunset && l.bills && l.bills.length) {
                   return (
                     <Fragment key={l.key}>
-                      <tr className="border-t border-neutral-100 dark:border-neutral-800">
+                      <tr className="border-t border-line-soft">
                         <td className="px-3 py-2 font-medium">{l.label}</td>
                         <td className="px-3 py-2 text-right font-mono">{money(l.cost)}</td>
                       </tr>
@@ -358,7 +358,7 @@ function Breakdown({ detail, groupByCsi }: { detail: Detail; groupByCsi: boolean
                 if (l.bills && l.bills.length === 1) {
                   return (
                     <Fragment key={l.key}>
-                      <tr className="border-t border-neutral-100 dark:border-neutral-800">
+                      <tr className="border-t border-line-soft">
                         <td className="px-3 py-2">
                           {billLinks(l.bills[0].id, l.label, l.bills[0].invoiced, l.bills[0].status)}
                         </td>
@@ -374,7 +374,7 @@ function Breakdown({ detail, groupByCsi }: { detail: Detail; groupByCsi: boolean
                 if (l.timeEntries && l.timeEntries.length) {
                   return (
                     <Fragment key={l.key}>
-                      <tr className="border-t border-neutral-100 dark:border-neutral-800">
+                      <tr className="border-t border-line-soft">
                         <td className="px-3 py-2 font-medium">{l.label}</td>
                         <td className="px-3 py-2 text-right font-mono">{money(l.cost)}</td>
                       </tr>
@@ -405,13 +405,13 @@ function Breakdown({ detail, groupByCsi }: { detail: Detail; groupByCsi: boolean
 
                 // Non-document line with no detail to itemize — no link target.
                 return (
-                  <tr key={l.key} className="border-t border-neutral-100 dark:border-neutral-800">
+                  <tr key={l.key} className="border-t border-line-soft">
                     <td className="px-3 py-2">{l.label}</td>
                     <td className="px-3 py-2 text-right font-mono">{money(l.cost)}</td>
                   </tr>
                 );
               })}
-          <tr className="border-t border-neutral-200 font-semibold dark:border-neutral-700">
+          <tr className="border-t border-line font-semibold dark:border-neutral-700">
             <td className="px-3 py-2">Total</td>
             <td className="px-3 py-2 text-right font-mono">{money(detail.total)}</td>
           </tr>
@@ -744,7 +744,7 @@ function Stage() {
           return (
             <li
               key={r.jobId}
-              className="rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-700/60 dark:bg-ink-raised"
+              className="rounded-xl border border-line bg-white p-3 dark:bg-ink-raised"
             >
               <button
                 type="button"

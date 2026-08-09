@@ -30,6 +30,19 @@
                                the cream mountain; ~2.4:1, so keep it to short
                                button/badge labels, not paragraphs */
   --brand: 207 152 3; /* #CF9803 brand ochre — graphics only */
+
+  /* Hairlines. The app used Tailwind's `neutral-200` (#E5E5E5), a COOL grey that
+     reads slightly blue against the cream ground. These are the same values
+     biased warm off the cream, so a card edge belongs to the palette rather
+     than sitting on top of it. `line` is a card/container edge; `line-soft` is
+     the divider BETWEEN rows inside one card, which must be lighter than the
+     edge or a list reads as a stack of separate boxes. */
+  --line: 231 225 209; /* #E7E1D1 */
+  --line-soft: 240 235 221; /* #F0EBDD */
+  /* Form controls carry a heavier edge than a card does — a field has to read
+     as something you can type into, and at card weight it stops looking like a
+     control at all. Warm equivalent of the neutral-300 it replaces. */
+  --line-strong: 214 205 182; /* #D6CDB6 */
 }
 .dark {
   color-scheme: dark;
@@ -38,6 +51,13 @@
   --accent-soft: 207 200 166; /* #CFC8A6 */
   --accent-fg: 27 27 23; /* off-black on a filled olive */
   --brand: 135 128 84; /* #878054 brand olive — graphics only */
+
+  /* Dark hairlines sit LIGHTER than the raised card (#23231E) they edge, the
+     same direction the surface scale runs. `line-soft` is the in-card row
+     divider — barely there, so a long list doesn't turn into a ladder. */
+  --line: 51 51 43; /* #33332B */
+  --line-soft: 42 42 36; /* #2A2A24 */
+  --line-strong: 69 69 58; /* #45453A */
 }
 
 /* --- Categorical data-viz palette ---------------------------------------
@@ -82,9 +102,20 @@
   color: #1b1b17;
 }
 
+/* Height of the fixed bottom tab bar (components/TabBar). Published as a
+   variable so the two things that must clear it — the page's own bottom padding
+   and <StickyActionBar>'s `bottom` — both read the ONE number instead of each
+   hardcoding an offset that drifts the moment the bar changes height. */
+:root {
+  --tabbar-h: calc(3.5rem + env(safe-area-inset-bottom));
+}
+
 body {
   background: #faf7ee;
   color: #1b1b17;
+  /* Unconditional, so no page can hide its last row behind the tab bar — each
+     page's own `pb-*` stacks on top of this rather than having to include it. */
+  padding-bottom: var(--tabbar-h);
 }
 .dark body {
   background: #1b1b17;
@@ -143,6 +174,9 @@ textarea:focus-visible {
   body {
     background: #fff !important;
     color: #000 !important;
+    /* The tab bar is print:hidden, so the space reserved for it would print as
+       a blank strip at the foot of every page. */
+    padding-bottom: 0 !important;
   }
   @page {
     margin: 0.6in;

@@ -939,7 +939,7 @@ export default function MileageTrackerPage() {
               start={summary.startLatLng}
               end={summary.endLatLng}
               polyline={summary.polyline}
-              className="w-full rounded-xl border border-neutral-200 dark:border-neutral-700/60"
+              className="w-full rounded-xl border border-line"
             />
           )}
 
@@ -1127,7 +1127,7 @@ function TripRow({ t, showDriver }: { t: Record<string, string>; showDriver: boo
   const end = `${t["End Lat"]},${t["End Lng"]}`;
   const hasRoute = isLatLng(start) && isLatLng(end);
   return (
-    <li className="rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-700/60 dark:bg-ink-raised">
+    <li className="rounded-xl border border-line bg-white p-3 dark:bg-ink-raised">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="text-sm font-semibold">
@@ -1164,7 +1164,7 @@ function TripRow({ t, showDriver }: { t: Record<string, string>; showDriver: boo
           start={start}
           end={end}
           polyline={t["Polyline"]}
-          className="mt-3 w-full rounded-lg border border-neutral-200 dark:border-neutral-700/60"
+          className="mt-3 w-full rounded-lg border border-line"
         />
       )}
     </li>

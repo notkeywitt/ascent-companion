@@ -217,7 +217,7 @@ export function CostCodeSelect({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search code or name…"
-            className="border-b border-neutral-200 bg-transparent px-3 py-2 text-sm outline-none dark:border-white/10"
+            className="border-b border-line bg-transparent px-3 py-2 text-sm outline-none dark:border-white/10"
           />
           <ul className="overflow-auto">
             <li>

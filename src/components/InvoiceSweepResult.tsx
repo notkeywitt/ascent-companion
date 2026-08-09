@@ -117,7 +117,7 @@ function Group({
         {title} ({items.length})
       </div>
       {hint && <p className="mt-0.5 text-xs text-neutral-500">{hint}</p>}
-      <ul className="mt-1.5 divide-y divide-neutral-200 rounded-xl border border-neutral-200 dark:divide-neutral-700/60 dark:border-neutral-700/60">
+      <ul className="mt-1.5 divide-y divide-neutral-200 rounded-xl border border-line dark:divide-neutral-700/60 ">
         {items.map((it, i) => (
           <Row key={(it.expId || it.subject || "row") + i} item={it} />
         ))}
@@ -169,7 +169,7 @@ export function InvoiceSweepResultModal({
         aria-modal="true"
         aria-labelledby="sweep-title"
         onClick={(e) => e.stopPropagation()}
-        className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-2xl border border-neutral-200 bg-white p-5 shadow-xl dark:border-neutral-700/60 dark:bg-ink-raised"
+        className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-2xl border border-line bg-white p-5 shadow-xl dark:bg-ink-raised"
       >
         <div className="flex items-start gap-3">
           <span

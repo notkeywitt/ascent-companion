@@ -253,7 +253,7 @@ function SelfServiceSection() {
             {(["sick", "pto"] as const).map((t) => {
               const b = balances.find((x) => x.leaveType === t);
               return (
-                <div key={t} className="rounded-lg border border-neutral-200 p-3 dark:border-neutral-700/60">
+                <div key={t} className="rounded-lg border border-line p-3 ">
                   <div className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">{LEAVE_LABEL[t]}</div>
                   <div className="mt-0.5 text-2xl font-bold tabular-nums">{b ? fmtHM(b.balance) : "0h"}</div>
                   <div className="text-[11px] text-neutral-500">available</div>
@@ -317,7 +317,7 @@ function RequestForm({ policies, onDone }: { policies: Policy[]; onDone: () => v
     );
   }
   return (
-    <div className="mt-3 rounded-lg border border-neutral-200 p-3 dark:border-neutral-700/60">
+    <div className="mt-3 rounded-lg border border-line p-3 ">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div>
           <Label htmlFor="req-type">Type</Label>
@@ -373,7 +373,7 @@ function MyRequests({ requests }: { requests: Request[] }) {
       <SectionLabel className="mb-1">My requests</SectionLabel>
       <ul className="space-y-1.5">
         {requests.map((r) => (
-          <li key={r.id} className="flex items-center justify-between gap-3 rounded-lg border border-neutral-200 px-3 py-2 text-sm dark:border-neutral-700/60">
+          <li key={r.id} className="flex items-center justify-between gap-3 rounded-lg border border-line px-3 py-2 text-sm ">
             <div className="min-w-0">
               <span className="font-medium">{LEAVE_LABEL[r.leaveType] ?? r.leaveType}</span>{" "}
               <span className="tabular-nums">{fmtHM(r.hours)}</span>{" "}
@@ -520,7 +520,7 @@ function RequestsQueueCard({ onChanged }: { onChanged: () => void }) {
       ) : (
         <ul className="mt-3 space-y-2">
           {pending.map((r) => (
-            <li key={r.id} className="flex items-center justify-between gap-3 rounded-lg border border-neutral-200 px-3 py-2 text-sm dark:border-neutral-700/60">
+            <li key={r.id} className="flex items-center justify-between gap-3 rounded-lg border border-line px-3 py-2 text-sm ">
               <div className="min-w-0">
                 <span className="font-medium">{names[r.employeeId ?? ""] ?? "—"}</span>{" "}
                 <span className="uppercase text-neutral-500">{LEAVE_LABEL[r.leaveType] ?? r.leaveType}</span>{" "}
@@ -542,7 +542,7 @@ function RequestsQueueCard({ onChanged }: { onChanged: () => void }) {
           <div className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">Approved</div>
           <ul className="mt-2 space-y-2">
             {approved.map((r) => (
-              <li key={r.id} className="flex items-center justify-between gap-3 rounded-lg border border-neutral-200 px-3 py-2 text-sm dark:border-neutral-700/60">
+              <li key={r.id} className="flex items-center justify-between gap-3 rounded-lg border border-line px-3 py-2 text-sm ">
                 <div className="min-w-0">
                   <span className="font-medium">{names[r.employeeId ?? ""] ?? "—"}</span>{" "}
                   <span className="uppercase text-neutral-500">{LEAVE_LABEL[r.leaveType] ?? r.leaveType}</span>{" "}
@@ -648,7 +648,7 @@ function AccrualCard({
                 </thead>
                 <tbody>
                   {result.lines.map((l, i) => (
-                    <tr key={i} className="border-t border-neutral-100 dark:border-neutral-800">
+                    <tr key={i} className="border-t border-line-soft">
                       <td className="py-1 pr-3">{l.name}</td>
                       <td className="py-1 pr-3 tabular-nums">{l.period}</td>
                       <td className="py-1 pr-3 uppercase">{l.leaveType}</td>
@@ -717,7 +717,7 @@ function BalancesCard({
             <tbody>
               {byEmployee.map(([empId, e]) => (
                 <Fragment key={empId}>
-                  <tr className="border-t border-neutral-100 dark:border-neutral-800">
+                  <tr className="border-t border-line-soft">
                     <td className="py-1.5 pr-3">{e.name}</td>
                     <td className="py-1.5 pr-3 text-right tabular-nums">{e.sick ? fmtHM(e.sick.balance) : "—"}</td>
                     <td className="py-1.5 pr-3 text-right tabular-nums">{e.pto ? fmtHM(e.pto.balance) : "—"}</td>
@@ -783,7 +783,7 @@ function AdjustForm({ roster, onDone }: { roster: RosterEmp[]; onDone: () => voi
   }
 
   return (
-    <div className="mt-3 rounded-lg border border-neutral-200 p-3 dark:border-neutral-700/60">
+    <div className="mt-3 rounded-lg border border-line p-3 ">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div>
           <Label htmlFor="adj-emp">Employee</Label>
@@ -861,7 +861,7 @@ function LedgerView({ employeeId }: { employeeId: string }) {
         </thead>
         <tbody>
           {rows.map((r) => (
-            <tr key={r.id} className="border-t border-neutral-200/70 dark:border-neutral-700/60">
+            <tr key={r.id} className="border-t border-line/70 ">
               <td className="py-1 pr-3 tabular-nums">{String(r.createdAt).slice(0, 10)}</td>
               <td className="py-1 pr-3 uppercase">{r.leaveType}</td>
               <td className="py-1 pr-3">{r.kind}</td>
@@ -935,7 +935,7 @@ function PolicyRow({ policy, onSaved }: { policy: Policy; onSaved: () => void })
   }
 
   return (
-    <div className="rounded-lg border border-neutral-200 p-3 dark:border-neutral-700/60">
+    <div className="rounded-lg border border-line p-3 ">
       <div className="flex items-center justify-between">
         <div className="font-medium">{policy.label || policy.leaveType}</div>
         <Toggle checked={active} onChange={setActive} label={active ? "Active" : "Off"} />

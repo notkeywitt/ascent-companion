@@ -1371,7 +1371,7 @@ function ModeTab({
         "flex-1 rounded-xl px-3 py-2 text-sm font-semibold transition " +
         (active
           ? "bg-accent text-accent-fg shadow-sm"
-          : "border border-neutral-200 text-neutral-600 hover:border-accent dark:border-neutral-700/60 dark:text-neutral-300")
+          : "border border-line text-neutral-600 hover:border-accent  dark:text-neutral-300")
       }
     >
       {children}
@@ -1420,7 +1420,7 @@ function PhotoPicker({
         {photos.map((p, i) => (
           <div
             key={i}
-            className="relative h-20 w-20 overflow-hidden rounded-lg border border-neutral-200 dark:border-neutral-700"
+            className="relative h-20 w-20 overflow-hidden rounded-lg border border-line"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={p.base64} alt={`Photo ${i + 1}`} className="h-full w-full object-cover" />
@@ -1467,7 +1467,7 @@ function Row({ label, value }: { label: string; value: string }) {
 
 function HistoryRow({ e }: { e: HistoryEntry }) {
   return (
-    <li className="rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-700/60 dark:bg-ink-raised">
+    <li className="rounded-xl border border-line bg-white p-3 dark:bg-ink-raised">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="text-sm font-semibold">{fmtDate(e.date)}</div>

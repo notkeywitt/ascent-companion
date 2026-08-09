@@ -60,7 +60,7 @@ export default function AdminPage() {
         description="Who can sign in, what each person can see, and how the panel is being used."
         className="!mb-4"
       />
-      <div className="mb-5 inline-flex rounded-lg border border-neutral-200 p-0.5 dark:border-neutral-700/60">
+      <div className="mb-5 inline-flex rounded-lg border border-line p-0.5 ">
         <TabButton active={tab === "access"} onClick={() => setTab("access")}>
           Access
         </TabButton>
@@ -226,7 +226,7 @@ function AccessPanel() {
             {envAdmins.map((e) => (
               <li
                 key={e}
-                className="flex items-center justify-between rounded-lg border border-neutral-200 px-3 py-2 text-sm dark:border-neutral-700/60"
+                className="flex items-center justify-between rounded-lg border border-line px-3 py-2 text-sm "
               >
                 <span>{e}</span>
                 <span className="text-xs text-neutral-400">Admin · always allowed</span>
@@ -294,7 +294,7 @@ function MemberRow({
   }
 
   return (
-    <li className="rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm dark:border-neutral-700/60 dark:bg-ink-raised">
+    <li className="rounded-lg border border-line bg-white px-3 py-2 text-sm dark:bg-ink-raised">
       <div className="flex items-center justify-between gap-2">
         <span className="min-w-0 truncate">{member.email}</span>
         <div className="flex shrink-0 items-center gap-2">
@@ -325,7 +325,7 @@ function MemberRow({
       </div>
 
       {open && (
-        <div className="mt-3 border-t border-neutral-100 pt-3 dark:border-white/10">
+        <div className="mt-3 border-t border-line-soft pt-3 dark:border-white/10">
           <div className="mb-2 flex items-center justify-between">
             <span className="text-xs text-neutral-500">
               Toggle what {member.email.split("@")[0]} can open. Defaults come from the{" "}
@@ -399,7 +399,7 @@ function RoleRow({
   }
 
   return (
-    <li className="rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm dark:border-neutral-700/60 dark:bg-ink-raised">
+    <li className="rounded-lg border border-line bg-white px-3 py-2 text-sm dark:bg-ink-raised">
       <div className="flex items-center justify-between gap-2">
         <span className="font-medium">{ROLE_LABEL[role]}</span>
         <button
@@ -411,7 +411,7 @@ function RoleRow({
       </div>
 
       {open && (
-        <div className="mt-3 border-t border-neutral-100 pt-3 dark:border-white/10">
+        <div className="mt-3 border-t border-line-soft pt-3 dark:border-white/10">
           <div className="mb-2 flex items-center justify-between">
             <span className="text-xs text-neutral-500">
               Toggle what every <strong>{ROLE_LABEL[role]}</strong> gets by default.

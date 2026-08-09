@@ -474,7 +474,7 @@ export default function PaymentsPage() {
           return (
             <li
               key={s.expId}
-              className="rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-700/60 dark:bg-ink-raised"
+              className="rounded-xl border border-line bg-white p-3 dark:bg-ink-raised"
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
@@ -521,7 +521,7 @@ export default function PaymentsPage() {
                       ? "border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-300"
                       : cmpReady
                         ? "border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300"
-                        : "border-neutral-200 bg-neutral-50 text-neutral-600 dark:border-neutral-700/60 dark:bg-white/5 dark:text-neutral-300")
+                        : "border-line bg-neutral-50 text-neutral-600  dark:bg-white/5 dark:text-neutral-300")
                   }
                 >
                   <div className="flex items-center justify-between gap-2 font-semibold">

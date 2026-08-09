@@ -916,7 +916,7 @@ function BillDetail() {
               ‹ Prev
             </Link>
           ) : (
-            <span className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-neutral-200 text-sm font-semibold text-neutral-300 dark:border-neutral-800 dark:text-neutral-700">
+            <span className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-line text-sm font-semibold text-neutral-300 dark:border-neutral-800 dark:text-neutral-700">
               ‹ Prev
             </span>
           )}
@@ -933,7 +933,7 @@ function BillDetail() {
               Next ›
             </Link>
           ) : (
-            <span className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-neutral-200 text-sm font-semibold text-neutral-300 dark:border-neutral-800 dark:text-neutral-700">
+            <span className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-line text-sm font-semibold text-neutral-300 dark:border-neutral-800 dark:text-neutral-700">
               Next ›
             </span>
           )}
@@ -985,7 +985,7 @@ function BillDetail() {
                 the sticky Save bar (no separate button — see saveCoding). It lives with
                 the total because it is part of how that number is made up. */}
             {linesEditable && writes ? (
-              <div className="mt-3 flex items-center justify-between gap-3 border-t border-neutral-200 pt-3 dark:border-neutral-700/60">
+              <div className="mt-3 flex items-center justify-between gap-3 border-t border-line pt-3 ">
                 <Label htmlFor="bill-tax" className="!mb-0">
                   {taxName}
                 </Label>
@@ -1108,7 +1108,7 @@ function BillDetail() {
         <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2">
           <div className="flex items-center gap-2">
             <span className="text-[10px] uppercase tracking-wide text-neutral-400">Type</span>
-            <div className="inline-flex overflow-hidden rounded-lg border border-neutral-300 dark:border-neutral-700">
+            <div className="inline-flex overflow-hidden rounded-lg border border-line-strong">
               {(["Bill", "Expense"] as const).map((t) => {
                 const on = (isExpense ? "Expense" : "Bill") === t;
                 return (
@@ -1132,7 +1132,7 @@ function BillDetail() {
 
           <div className="flex items-center gap-2">
             <span className="text-[10px] uppercase tracking-wide text-neutral-400">Push to QB</span>
-            <div className="inline-flex overflow-hidden rounded-lg border border-neutral-300 dark:border-neutral-700">
+            <div className="inline-flex overflow-hidden rounded-lg border border-line-strong">
               {([["Yes", false], ["No", true]] as const).map(([lbl, ignored]) => {
                 const on = pushToQb === (lbl === "Yes");
                 return (
@@ -1289,7 +1289,7 @@ function BillDetail() {
               return (
                 <li
                   key={l.id}
-                  className="rounded-xl border border-neutral-200 bg-white p-3.5 dark:border-neutral-700/60 dark:bg-ink-raised"
+                  className="rounded-xl border border-line bg-white p-3.5 dark:bg-ink-raised"
                 >
                   {/* The description owns a full-width row. It used to share one
                       with the amount and two icon buttons, which on a phone left
@@ -1401,7 +1401,7 @@ function BillDetail() {
                       path is what stops a mis-tap while typing an amount. Each
                       is a 44px target now (they were 28px). */}
                   {linesEditable && writes && (
-                    <div className="mt-3 flex justify-end gap-1 border-t border-neutral-100 pt-1 dark:border-neutral-800">
+                    <div className="mt-3 flex justify-end gap-1 border-t border-line-soft pt-1 dark:border-neutral-800">
                       <IconButton
                         onClick={() => buybackLineById(l, nameVal || l.name || "Line item", extended)}
                         disabled={buybackId === l.id || deletingId === l.id}
@@ -1475,7 +1475,7 @@ function BillDetail() {
               ) : (
                 // Same field layout as an existing line, so adding one and
                 // editing one look and behave identically.
-                <div className="rounded-xl border border-neutral-200 bg-white p-3.5 dark:border-neutral-700/60 dark:bg-ink-raised">
+                <div className="rounded-xl border border-line bg-white p-3.5 dark:bg-ink-raised">
                   <input
                     type="text"
                     value={newLine.name}
@@ -1586,7 +1586,7 @@ function BillDetail() {
                   <img
                     src={f.url}
                     alt={f.name ?? "invoice"}
-                    className="max-h-[70dvh] w-full rounded-xl border border-neutral-200 object-contain dark:border-neutral-800"
+                    className="max-h-[70dvh] w-full rounded-xl border border-line object-contain dark:border-neutral-800"
                   />
                 </a>
               ) : f.url ? (
@@ -1594,7 +1594,7 @@ function BillDetail() {
                   <iframe
                     src={f.url}
                     title={f.name ?? "invoice"}
-                    className="h-[70dvh] w-full rounded-xl border border-neutral-200 dark:border-neutral-800"
+                    className="h-[70dvh] w-full rounded-xl border border-line dark:border-neutral-800"
                   />
                   <a
                     href={f.url}
@@ -1623,7 +1623,7 @@ function BillDetail() {
         // `pb-[env(safe-area-inset-bottom)]` keeps the buttons clear of the
         // home indicator — without it the bar's own padding is all that stands
         // between Save and the swipe-up gesture area on a modern iPhone.
-        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-neutral-200 bg-cream/95 pb-[env(safe-area-inset-bottom)] backdrop-blur dark:border-white/10 dark:bg-ink/95 print:hidden">
+        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-cream/95 pb-[env(safe-area-inset-bottom)] backdrop-blur dark:border-white/10 dark:bg-ink/95 print:hidden">
           <div className="mx-auto flex max-w-xl items-center justify-between gap-3 px-4 py-2.5">
             {/* Unsaved work is stated in amber — the same "something is
                 pending" colour the rest of the app uses — so the bar reads

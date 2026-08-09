@@ -7,13 +7,20 @@ import {
   Banner,
   Button,
   Card,
+  Chip,
+  ChipScroller,
   EmptyState,
+  FilterChip,
   Label,
   Loading,
+  Meter,
   PageHeader,
+  SectionHeading,
   SectionLabel,
   Select,
   Spinner,
+  StatementBlock,
+  StickyActionBar,
   Toggle,
 } from "@/components/ui";
 import { CostCodeSelect, type Option } from "@/components/CostCodeSelect";
@@ -276,43 +283,9 @@ interface Headroom {
 const usedOf = (h: Headroom) => h.spent + h.drafts + h.labor;
 const remainingOf = (h: Headroom) => h.budget - usedOf(h);
 
-/** Budget-usage meter. Amber past 90%, red past 100% — the whole point of the rail. */
-function Meter({
-  budget,
-  used,
-  label,
-  className = "mt-0.5 h-1",
-}: {
-  budget: number;
-  used: number;
-  label: string;
-  className?: string;
-}) {
-  const pct = budget > 0 ? used / budget : used > 0 ? 1 : 0;
-  const over = budget > 0 && used > budget;
-  const near = !over && pct >= 0.9;
-  return (
-    <div
-      // The dark track is `white/10`, not `neutral-800` — neutral-800 (#262626)
-      // sits within a couple of points of the raised card it's drawn on
-      // (#23231E), so the unfilled part of every bar was invisible and a bar at
-      // 30% read as a bar at 100%.
-      className={`w-full overflow-hidden rounded-full bg-neutral-200 dark:bg-white/10 ${className}`}
-      role="progressbar"
-      aria-valuenow={Math.round(pct * 100)}
-      aria-valuemin={0}
-      aria-valuemax={100}
-      aria-label={`${label} budget used`}
-    >
-      <div
-        className={`h-full rounded-full transition-all ${
-          over ? "bg-red-500" : near ? "bg-amber-500" : "bg-accent"
-        }`}
-        style={{ width: `${Math.min(pct, 1) * 100}%` }}
-      />
-    </div>
-  );
-}
+/* <Meter> now lives in components/ui — the budget bar is the same object here,
+   on the mobile headroom rail, and on any future page that shows spend against
+   a budget, so it belongs to the design system rather than to this board. */
 
 /**
  * True on a phone-width screen — the same `lg` boundary this page uses to switch
@@ -681,6 +654,26 @@ export function Board() {
       }))
       .sort((a, b) => a.code.localeCompare(b.code));
   }, [railRows]);
+
+  /**
+   * The tightest cost codes, for the phone's headroom rail.
+   *
+   * The full rail is a desktop instrument — 24-odd codes you scan while dragging
+   * — and on a phone it's collapsed behind a tap, which in practice meant the
+   * budget simply wasn't visible on the device the month gets reviewed on. This
+   * is the answer to the question you actually have there ("what am I about to
+   * run out of?"): every code with a real budget, worst headroom first. Codes
+   * with no budget to divide by are excluded — an unbudgeted code is over by
+   * definition and would permanently occupy the front of the row.
+   */
+  const tightestCodes = useMemo(
+    () =>
+      railRows
+        .filter((h) => h.budget > 0)
+        .sort((a, b) => remainingOf(a) / a.budget - remainingOf(b) / b.budget)
+        .slice(0, 8),
+    [railRows],
+  );
 
   const toggleDiv = (code: string) =>
     setCollapsedDivs((prev) => {
@@ -1631,14 +1624,43 @@ export function Board() {
                 ))}
               </Select>
             </div>
-            {/* The filter toggles as a group. On mobile they take their own
-                full-width row in a 2×2 grid — four stacked lines pushed the
-                buttons and the list too far down the screen — boxed so they
-                read as one set of switches rather than four loose lines, and
-                each row 44px tall so the switch is a real tap target. From lg
-                up the box dissolves and they sit inline with the month picker
-                exactly as before. */}
-            <div className="grid w-full grid-cols-2 items-center gap-x-3 rounded-xl border border-neutral-200 px-3 py-1 dark:border-neutral-700/60 lg:flex lg:w-auto lg:gap-3 lg:border-0 lg:px-0 lg:py-0">
+            {/* The filters, on a phone, as a swipeable row of pills. The 2×2 box
+                of switches this replaces was honest but expensive: four 44px
+                rows plus its border owned roughly a quarter of the screen above
+                the list, permanently, to show four settings that are mostly left
+                alone. As chips they take one row, the ON ones are legible at a
+                glance from the accent fill, and the row scrolls rather than
+                wrapping. From lg up this is hidden and the original switch row
+                below takes over — a desktop toolbar has the width for labels,
+                and a switch states on/off more precisely than a filled pill. */}
+            <ChipScroller bleed="1rem" className="lg:hidden">
+              <FilterChip
+                on={uninvoicedOnly}
+                onClick={() => setUninvoicedOnly(!uninvoicedOnly)}
+                title="Off shows bills already on a customer invoice too, read-only — for reviewing a past, fully-invoiced month."
+              >
+                Uninvoiced only
+              </FilterChip>
+              <FilterChip
+                on={includeDrafts}
+                onClick={() => setIncludeDrafts(!includeDrafts)}
+                title="Shows draft bills below so you can code them. Drafts are never invoiceable until approved in JobTread, so this doesn't change the To be invoiced total."
+              >
+                Drafts shown
+              </FilterChip>
+              <FilterChip on={hideSunset} onClick={() => setHideSunset(!hideSunset)}>
+                Sunset hidden
+              </FilterChip>
+              <FilterChip
+                on={includeUnapprovedTime}
+                onClick={() => setIncludeUnapprovedTime(!includeUnapprovedTime)}
+                title="Off counts only isApproved time entries toward labor and headroom — a more conservative number when a lot of logged time hasn't been approved yet."
+              >
+                Unapproved time
+              </FilterChip>
+            </ChipScroller>
+            {/* The same four settings as switches, from lg up. */}
+            <div className="hidden lg:flex lg:w-auto lg:items-center lg:gap-3">
               {/* Governs the LIST only. Drafts are never invoiceable — JobTread
                   won't pull one onto a customer invoice — so this can't move the
                   "To be invoiced" figure, and the title says so. */}
@@ -1688,12 +1710,17 @@ export function Board() {
                 gives them a thumb-sized hit area on touch and is dropped again
                 at lg so the desktop toolbar keeps its density. */}
             <div className="flex w-full items-center gap-2 lg:contents">
+              {/* Revert and Sync are the page's commit actions, so on a phone
+                  they ride the sticky bar at the bottom of the screen (near the
+                  thumb, and in view wherever you've scrolled to) instead of the
+                  toolbar at the top, which is the one place you are NOT looking
+                  after dragging a line. The desktop toolbar keeps them inline. */}
               <Button
                 variant="secondary"
                 size="sm"
                 onClick={revertAll}
                 disabled={!dirty || syncing}
-                className="min-h-11 flex-1 lg:min-h-0 lg:flex-none"
+                className="hidden lg:inline-flex"
               >
                 Revert
               </Button>
@@ -1701,16 +1728,9 @@ export function Board() {
                 size="sm"
                 onClick={sync}
                 disabled={!dirty || syncing}
-                className="min-h-11 flex-1 lg:min-h-0 lg:flex-none"
+                className="hidden lg:inline-flex"
               >
-                {syncing ? (
-                  "Syncing…"
-                ) : (
-                  <>
-                    <span className="lg:hidden">Sync to JT</span>
-                    <span className="hidden lg:inline">Sync to JobTread</span>
-                  </>
-                )}
+                {syncing ? "Syncing…" : "Sync to JobTread"}
               </Button>
               {canApprove && (
                 <Button
@@ -1880,7 +1900,7 @@ export function Board() {
                 value={codeQuery}
                 onChange={(e) => setCodeQuery(e.target.value)}
                 placeholder="Filter cost codes…"
-                className="h-11 w-full border-b border-neutral-200 bg-transparent px-3 text-xs outline-none dark:border-white/10 lg:h-auto lg:px-2 lg:py-1.5"
+                className="h-11 w-full border-b border-line bg-transparent px-3 text-xs outline-none dark:border-white/10 lg:h-auto lg:px-2 lg:py-1.5"
               />
               {/* Sized off the viewport, not a %, so the docked rail (label +
                   card + footnote) always fits on screen and scrolls internally.
@@ -1911,7 +1931,7 @@ export function Board() {
                           // open a drill-down, so on touch they get real height
                           // (they were ~26px); `lg` restores the dense rail the
                           // desktop workbench scans dozens of codes in.
-                          className="flex w-full items-center gap-1.5 border-b border-neutral-200 bg-neutral-50/80 px-3 py-2.5 text-left transition hover:bg-accent/5 dark:border-neutral-800 dark:bg-white/[0.04] dark:hover:bg-white/[0.07] lg:items-baseline lg:px-2 lg:py-1"
+                          className="flex w-full items-center gap-1.5 border-b border-line bg-neutral-50/80 px-3 py-2.5 text-left transition hover:bg-accent/5 dark:border-neutral-800 dark:bg-white/[0.04] dark:hover:bg-white/[0.07] lg:items-baseline lg:px-2 lg:py-1"
                         >
                           <span
                             aria-hidden
@@ -1940,7 +1960,7 @@ export function Board() {
                         {/* Rolled up, the division still shows its own bar, so a
                             tidy rail is still a readable one. */}
                         {!open && (
-                          <div className="border-b border-neutral-100 px-2 pb-1 dark:border-neutral-800">
+                          <div className="border-b border-line-soft px-2 pb-1 dark:border-neutral-800">
                             <Meter budget={g.budget} used={g.used} label={`Division ${g.code}`} />
                           </div>
                         )}
@@ -1972,7 +1992,7 @@ export function Board() {
                                     (pct !== null ? ` (${pct}% of budget)` : "") +
                                     (h.droppable ? "" : "\nNo budget line — can't code to this")
                                   }
-                                  className={`border-b border-neutral-100 transition dark:border-neutral-800 ${
+                                  className={`border-b border-line-soft transition dark:border-neutral-800 ${
                                     dragOverCode === h.code
                                       ? "bg-accent/10 ring-1 ring-inset ring-accent"
                                       : dragLineIds && !h.droppable
@@ -2041,32 +2061,86 @@ export function Board() {
 
           {/* ─────────── CENTRE: the month's bills ─────────── */}
           <section className="min-w-0">
-            <Card
-              className="mb-3"
-              title={
+            {/* The month's headline figure, over the ochre rule. It's what the
+                whole page is working toward, and on a phone it's the one number
+                worth reading from arm's length. The footnote carries the
+                distinction that matters at invoicing time: JobTread won't pull a
+                draft onto an invoice, so the figure above is what the month WILL
+                bill and the footnote is what it can bill today. */}
+            <StatementBlock
+              className="mb-4"
+              label="To be invoiced"
+              value={recon ? money(recon.remaining + recon.draftBillsCost) : "—"}
+              sub={
                 recon
-                  ? `${money(recon.uninvoicedBillsCost)} uninvoiced bills + ${money(recon.uninvoicedTimeCost)} uninvoiced time` +
+                  ? `${money(recon.remaining)} approved${
+                      recon.draftBillCount > 0
+                        ? ` · ${money(recon.draftBillsCost)} in ${recon.draftBillCount} draft${
+                            recon.draftBillCount === 1 ? "" : "s"
+                          }`
+                        : ""
+                    }`
+                  : "checking JobTread…"
+              }
+              footnote={
+                recon
+                  ? `${money(recon.uninvoicedBillsCost)} uninvoiced bills + ${money(
+                      recon.uninvoicedTimeCost,
+                    )} uninvoiced time.` +
                     (recon.draftBillCount > 0
-                      ? `\n+ ${money(recon.draftBillsCost)} in ${recon.draftBillCount} draft bill(s)`
+                      ? " Drafts join the invoiceable total once approved in JobTread."
                       : "")
                   : undefined
               }
-            >
-              {/* The month's headline figure. Set at display size in tabular
-                  figures — it's what the whole page is working toward, and on a
-                  phone it's the one number worth reading from arm's length. */}
-              <SectionLabel>To be invoiced</SectionLabel>
-              <p className="mt-1 text-3xl font-bold leading-none tabular-nums">
-                {recon ? money(recon.remaining + recon.draftBillsCost) : "—"}
-              </p>
-              <p className="mt-1.5 text-[11px] text-neutral-500 dark:text-neutral-400">
-                {recon
-                  ? `${money(recon.remaining)} approved${
-                      recon.draftBillCount > 0 ? `, ${money(recon.draftBillsCost)} drafts` : ""
-                    }`
-                  : "checking JobTread…"}
-              </p>
-            </Card>
+            />
+
+            {/* Budget headroom on the phone — the desktop rail is a docked
+                column, which below lg is collapsed behind a tap, so this is
+                where the budget becomes visible on the device the month is
+                actually reviewed on. Swipeable, tightest code first; tapping one
+                opens the same drill-down the rail's rows do. */}
+            {tightestCodes.length > 0 && (
+              <div className="mb-4 lg:hidden">
+                <SectionHeading
+                  className="mb-2"
+                  trailing={
+                    <span className="text-[11px] text-neutral-500">tightest first</span>
+                  }
+                >
+                  Budget headroom
+                </SectionHeading>
+                <ChipScroller bleed="1rem">
+                  {tightestCodes.map((h) => {
+                    const left = remainingOf(h);
+                    const pct = Math.round((left / h.budget) * 100);
+                    return (
+                      <button
+                        key={h.code}
+                        type="button"
+                        onClick={() => openCodeDrill(h.code)}
+                        className="w-[170px] shrink-0 rounded-xl border border-line bg-white p-2.5 text-left transition hover:border-accent dark:bg-ink-raised"
+                      >
+                        <div className="text-[11px] tabular-nums text-neutral-500 dark:text-neutral-400">
+                          {h.code}
+                        </div>
+                        <div className="truncate text-[12.5px] font-semibold">{h.name}</div>
+                        <div
+                          className={`mt-0.5 text-[15px] font-bold tabular-nums tracking-tight ${
+                            left < 0 ? "text-red-600 dark:text-red-400" : ""
+                          }`}
+                        >
+                          {money0(left)}
+                        </div>
+                        <Meter budget={h.budget} used={usedOf(h)} label={h.code} className="mt-1.5 h-1" />
+                        <div className="mt-1 text-[10.5px] text-neutral-500 dark:text-neutral-400">
+                          {left < 0 ? `over by ${-pct}%` : `${pct}% of budget left`}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </ChipScroller>
+              </div>
+            )}
 
             <div className="mb-2 flex items-baseline justify-between gap-3">
               <SectionLabel>
@@ -2082,7 +2156,7 @@ export function Board() {
                   the two options read as a pair, with 44px-tall segments on
                   touch (they were 26px) and the desktop density restored at
                   lg. */}
-              <div className="flex shrink-0 gap-1 rounded-lg border border-neutral-200 p-0.5 text-xs dark:border-neutral-700/60 lg:border-0 lg:p-0">
+              <div className="flex shrink-0 gap-1 rounded-lg border border-line p-0.5 text-xs lg:border-0 lg:p-0">
                 {(["bill", "code"] as const).map((m) => (
                   <button
                     key={m}
@@ -2152,11 +2226,11 @@ export function Board() {
                   </span>
                 </button>
                 {timeBlockOpen && (
-                  <ul className="border-t border-neutral-100 dark:border-neutral-800">
+                  <ul className="border-t border-line-soft">
                     {monthTime.map((t) => (
                       <li
                         key={t.id}
-                        className="flex items-baseline gap-2 border-b border-neutral-100 px-3 py-1.5 text-xs last:border-0 dark:border-neutral-800"
+                        className="flex items-baseline gap-2 border-b border-line-soft px-3 py-1.5 text-xs last:border-0 dark:border-neutral-800"
                       >
                         <span className="min-w-0 flex-1 truncate">
                           <span className="font-medium">{t.employee}</span>
@@ -2191,7 +2265,7 @@ export function Board() {
                           dragOverCode === code ? "ring-2 ring-accent" : ""
                         } ${dragLineIds && !h?.droppable ? "opacity-40" : ""}`}
                       >
-                        <div className="flex items-baseline justify-between gap-2 border-b border-neutral-100 px-3 py-2 dark:border-neutral-800">
+                        <div className="flex items-baseline justify-between gap-2 border-b border-line-soft px-3 py-2 dark:border-neutral-800">
                           <span className="min-w-0 truncate">
                             <span className="text-xs tabular-nums text-neutral-500">{code}</span>{" "}
                             <span className="text-sm font-semibold">{h?.name ?? ""}</span>
@@ -2237,7 +2311,7 @@ export function Board() {
                                   } ${
                                     moved
                                       ? "border-amber-400 bg-amber-50 dark:border-amber-700 dark:bg-amber-950/40"
-                                      : "border-neutral-200 bg-white hover:border-accent dark:border-neutral-700 dark:bg-ink-overlay"
+                                      : "border-line bg-white hover:border-accent dark:border-neutral-700 dark:bg-ink-overlay"
                                   }`}
                                 >
                                   <span className="block max-w-[16rem] truncate font-medium">
@@ -2288,6 +2362,12 @@ export function Board() {
                     if (staged.has(l.id)) movedHere++;
                   }
                   const isOpen = openDocId === b.id;
+                  // Drives the red edge stripe: this bill is charging at least
+                  // one code that has already gone past its budget.
+                  const overBudget = [...codes.keys()].some((c) => {
+                    const h = headroom.get(c);
+                    return !!h && remainingOf(h) < 0;
+                  });
                   // On a phone this page is read-only and the coding drawer is
                   // hidden, so a tapped bill opens its full detail page instead of
                   // the (invisible) drawer. `from=recode` + `ym` + the `#bill-…`
@@ -2304,10 +2384,31 @@ export function Board() {
                         draggable={lines.length > 0 && !b.invoiced}
                         onDragStart={beginDrag(lines.map((l) => l.id))}
                         onDragEnd={endDrag}
-                        className={`flex items-stretch ${isOpen ? "ring-1 ring-accent" : ""} ${
+                        className={`flex items-stretch overflow-hidden ${
+                          isOpen ? "ring-1 ring-accent" : ""
+                        } ${
                           lines.length > 0 && !b.invoiced ? "cursor-grab active:cursor-grabbing" : ""
                         }`}
                       >
+                        {/* Status as a 3px edge stripe, so a month can be
+                            triaged by colour down the left margin before a word
+                            is read: amber = still a draft, blue = already
+                            invoiced (read-only), red = its coding is over
+                            budget, none = nothing to look at. The chips below
+                            still spell each state out; the stripe is what makes
+                            the list scannable at scrolling speed. */}
+                        <span
+                          aria-hidden
+                          className={`w-[3px] shrink-0 ${
+                            b.invoiced
+                              ? "bg-sky-500"
+                              : overBudget
+                                ? "bg-red-500"
+                                : b.status === "draft"
+                                  ? "bg-amber-500"
+                                  : "bg-transparent"
+                          }`}
+                        />
                         <button
                           type="button"
                           onClick={() =>
@@ -2331,47 +2432,27 @@ export function Board() {
                           </span>
 
                           <span className="mt-1.5 flex flex-wrap gap-1.5 empty:mt-0">
-                            {b.status === "draft" && (
-                              <span className="rounded bg-neutral-200 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-neutral-600 dark:bg-neutral-700 dark:text-neutral-300">
-                                draft
-                              </span>
-                            )}
+                            {b.status === "draft" && <Chip tone="neutral">draft</Chip>}
                             {b.fileCount === 0 && (
-                              <span
-                                title="No file attached to this bill in JobTread"
-                                className="rounded bg-orange-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-orange-700 dark:bg-orange-950/40 dark:text-orange-300"
-                              >
+                              <Chip tone="warning" title="No file attached to this bill in JobTread">
                                 No file
-                              </span>
+                              </Chip>
                             )}
                             {b.invoiced && (
-                              <span
-                                title="Already on a customer invoice — read-only"
-                                className="rounded bg-sky-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-sky-700 dark:bg-sky-950/40 dark:text-sky-300"
-                              >
+                              <Chip tone="info" title="Already on a customer invoice — read-only">
                                 invoiced
-                              </span>
+                              </Chip>
                             )}
-                            {movedHere > 0 && (
-                              <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700 dark:bg-amber-950/60 dark:text-amber-300">
-                                {movedHere} moved
-                              </span>
-                            )}
+                            {movedHere > 0 && <Chip tone="warning">{movedHere} moved</Chip>}
                             {/* Same pair the coding queue shows. */}
                             {b.reviewed ? (
-                              <span
-                                title="Marked reviewed in the Assistant"
-                                className="rounded bg-emerald-600 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white"
-                              >
+                              <Chip tone="success" title="Marked reviewed in the Assistant">
                                 ✓ Reviewed
-                              </span>
+                              </Chip>
                             ) : b.saved ? (
-                              <span
-                                title="Save has been clicked on this bill"
-                                className="rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300"
-                              >
+                              <Chip tone="success" title="Save has been clicked on this bill">
                                 ✓ Saved
-                              </span>
+                              </Chip>
                             ) : null}
                           </span>
 
@@ -2411,7 +2492,7 @@ export function Board() {
                             e.preventDefault();
                             e.stopPropagation();
                           }}
-                          className="flex shrink-0 items-start border-l border-neutral-100 dark:border-neutral-800"
+                          className="flex shrink-0 items-start border-l border-line-soft"
                         >
                           <JtLink
                             href={`https://app.jobtread.com/jobs/${jobId}/documents/${b.id}`}
@@ -2553,7 +2634,7 @@ export function Board() {
                     return (
                       <li
                         key={l.id}
-                        className="border-t border-neutral-100 pt-3 first:border-0 first:pt-0 dark:border-neutral-800"
+                        className="border-t border-line-soft pt-3 first:border-0 first:pt-0 dark:border-neutral-800"
                       >
                         {/* Description. JobTread locks it (with qty/amount) once a
                             bill leaves draft, so those inputs only appear on
@@ -2661,7 +2742,7 @@ export function Board() {
                           )}
                         </div>
                         {openBill.invoiced ? (
-                          <p className="rounded-md border border-neutral-200 bg-neutral-50 px-2 py-1.5 text-xs text-neutral-500 dark:border-neutral-700 dark:bg-ink-raised/60">
+                          <p className="rounded-md border border-line bg-neutral-50 px-2 py-1.5 text-xs text-neutral-500 dark:border-neutral-700 dark:bg-ink-raised/60">
                             {code || "uncoded"}
                           </p>
                         ) : (
@@ -2778,7 +2859,7 @@ export function Board() {
                         + Add line
                       </button>
                     ) : (
-                      <div className="rounded-lg border border-neutral-200 bg-white p-2 dark:border-neutral-700/60 dark:bg-ink-raised">
+                      <div className="rounded-lg border border-line bg-white p-2 dark:bg-ink-raised">
                         <input
                           type="text"
                           value={newLine.name}
@@ -2846,7 +2927,7 @@ export function Board() {
                 {/* The scanned invoice, in the panel where the coding decision is
                     made — otherwise you're recoding a line from its description
                     alone, or bouncing to the bill page to see what it was for. */}
-                <div className="mt-4 border-t border-neutral-100 pt-3 dark:border-neutral-800">
+                <div className="mt-4 border-t border-line-soft pt-3 dark:border-neutral-800">
                   <SectionLabel className="mb-1.5">Invoice</SectionLabel>
                   {filesLoading && <p className="text-xs text-neutral-400">Loading…</p>}
                   {!filesLoading && files.length === 0 && (
@@ -2860,7 +2941,7 @@ export function Board() {
                           <img
                             src={f.url}
                             alt={f.name ?? "invoice"}
-                            className="max-h-[32rem] w-full rounded-lg border border-neutral-200 object-contain dark:border-neutral-800"
+                            className="max-h-[32rem] w-full rounded-lg border border-line object-contain dark:border-neutral-800"
                           />
                         </a>
                       ) : f.url ? (
@@ -2868,7 +2949,7 @@ export function Board() {
                           <iframe
                             src={f.url}
                             title={f.name ?? "invoice"}
-                            className="h-[32rem] w-full rounded-lg border border-neutral-200 dark:border-neutral-800"
+                            className="h-[32rem] w-full rounded-lg border border-line dark:border-neutral-800"
                           />
                           <a
                             href={f.url}
@@ -2891,6 +2972,37 @@ export function Board() {
             )}
           </section>
         </div>
+      )}
+
+      {/* The phone's commit bar. It appears only once there IS something staged
+          — a bar that is always docked spends the screen's most valuable strip
+          on a disabled button — and it pins above the tab bar, so Sync is under
+          the thumb wherever you've scrolled to. `order-last` keeps it at the
+          bottom of the flex column even though the reconcile block above also
+          claims that order on a phone; both are last in DOM order here, so they
+          stack in source order. From lg up the toolbar's own buttons take over
+          and this is hidden. */}
+      {dirty && (
+        <StickyActionBar className="order-last mt-4 lg:hidden">
+          <span className="flex-1 text-xs font-bold tabular-nums text-amber-700 dark:text-amber-300">
+            {staged.size} staged change{staged.size === 1 ? "" : "s"}
+            <span className="block text-[10.5px] font-medium text-neutral-500 dark:text-neutral-400">
+              Nothing is written until you sync
+            </span>
+          </span>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={revertAll}
+            disabled={syncing}
+            className="min-h-11"
+          >
+            Revert
+          </Button>
+          <Button size="sm" onClick={sync} disabled={syncing} className="min-h-11">
+            {syncing ? "Syncing…" : "Sync to JT"}
+          </Button>
+        </StickyActionBar>
       )}
 
       {/* Cost-code drill-down: every bill and time entry behind a rail row's
@@ -2968,7 +3080,7 @@ export function Board() {
                             {drillBills.map((b) => (
                               <li
                                 key={b.key}
-                                className="flex items-center gap-2 rounded-lg border border-neutral-200 px-2.5 py-2 text-xs dark:border-neutral-800"
+                                className="flex items-center gap-2 rounded-lg border border-line px-2.5 py-2 text-xs dark:border-neutral-800"
                               >
                                 <span className="min-w-0 flex-1 truncate">
                                   <span className="font-medium">{b.vendor}</span>
@@ -3008,7 +3120,7 @@ export function Board() {
                             {drillTime.map((t) => (
                               <li
                                 key={t.id}
-                                className="flex items-center gap-2 rounded-lg border border-neutral-200 px-2.5 py-2 text-xs dark:border-neutral-800"
+                                className="flex items-center gap-2 rounded-lg border border-line px-2.5 py-2 text-xs dark:border-neutral-800"
                               >
                                 <span className="min-w-0 flex-1 truncate">
                                   <span className="font-medium">{t.employee}</span>
@@ -3067,7 +3179,7 @@ export function Board() {
                       moveLinesToLeaf(leafPicker.lineIds, leaf.id);
                       setLeafPicker(null);
                     }}
-                    className="flex min-h-11 w-full items-center justify-between gap-3 rounded-lg border border-neutral-200 px-3 py-2 text-left text-sm transition hover:border-accent hover:bg-accent/5 dark:border-neutral-700"
+                    className="flex min-h-11 w-full items-center justify-between gap-3 rounded-lg border border-line px-3 py-2 text-left text-sm transition hover:border-accent hover:bg-accent/5 dark:border-neutral-700"
                   >
                     <span className="min-w-0 truncate">
                       {leaf.detail || leaf.name}
@@ -3124,7 +3236,7 @@ export function Board() {
                 return (
                   <li
                     key={b.id}
-                    className="rounded-lg border border-neutral-200 px-3 py-2.5 text-sm dark:border-neutral-700"
+                    className="rounded-lg border border-line px-3 py-2.5 text-sm dark:border-neutral-700"
                   >
                     <div className="flex items-baseline justify-between gap-3">
                       <span className="min-w-0 truncate font-medium">{b.label}</span>
@@ -3155,7 +3267,7 @@ export function Board() {
                 );
               })}
             </ul>
-            <div className="mt-3 flex items-center justify-between gap-3 border-t border-neutral-200 pt-3 dark:border-neutral-700">
+            <div className="mt-3 flex items-center justify-between gap-3 border-t border-line pt-3 dark:border-neutral-700">
               <SectionLabel>Total</SectionLabel>
               <span className="text-xl font-bold tabular-nums">
                 {money(draftBills.reduce((s, b) => s + b.cost, 0))}

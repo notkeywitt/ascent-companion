@@ -128,7 +128,7 @@ export default function SafetyMeetingPage() {
   }
 
   const cardCls =
-    "rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-700/60 dark:bg-ink-raised";
+    "rounded-xl border border-line bg-white p-3  dark:bg-ink-raised";
 
   // ---- Success screen -----------------------------------------------------
   if (result?.ok) {
