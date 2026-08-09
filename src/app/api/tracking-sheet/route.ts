@@ -21,6 +21,9 @@ export const maxDuration = 120;
 const ACTION_FOR_OP: Record<string, string> = {
   sync: "syncTrackingSheet",
   finalize: "finalizeTrackingSheet",
+  // Pins which month the hourly all-projects sync keeps in CURRENT INVOICE.
+  // Global, not per-project — it takes month/year and ignores projectId.
+  setPeriod: "setTrackingPeriod",
 };
 
 export async function GET() {
@@ -53,8 +56,10 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // setPeriod is org-wide — it pins the month for EVERY wired sheet, so it is
+  // the one op that carries no project.
   const projectId = String(body.projectId || "").trim();
-  if (!projectId) {
+  if (!projectId && op !== "setPeriod") {
     return NextResponse.json({ error: "A project is required." }, { status: 400 });
   }
 
