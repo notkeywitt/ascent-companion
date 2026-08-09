@@ -214,7 +214,6 @@ function BillDetail() {
   const [reviewed, setReviewed] = useState(false);
   const [saved, setSaved] = useState(false); // Save has been clicked on this bill (assistant-local)
   const [reviewLoading, setReviewLoading] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
   const [addingLine, setAddingLine] = useState(false);
   const [newLine, setNewLine] = useState({ name: "", quantity: "1", unitCost: "0", code: "" });
   const [addLineSaving, setAddLineSaving] = useState(false);
@@ -225,6 +224,10 @@ function BillDetail() {
   const [deletingId, setDeletingId] = useState("");
   const [buybackId, setBuybackId] = useState("");
   const [taxEdit, setTaxEdit] = useState<string | null>(null); // null = not editing (shows JT's value)
+  // Bottom drawer holding the bill's secondary actions (open in JobTread, mark
+  // reviewed, tracking-sheet sync). Collapsed by default so the save row and
+  // the bill itself keep the screen; the panel is hidden, not unmounted.
+  const [drawerOpen, setDrawerOpen] = useState(false);
   // Bumped whenever the cache is dropped, so the prefetch effect re-warms the
   // neighbours after a write instead of leaving them cold until you navigate.
   const [cacheEpoch, setCacheEpoch] = useState(0);
@@ -431,14 +434,9 @@ function BillDetail() {
     }
   }
 
-  // Manual refresh — re-pull the bill from JobTread (its SPA doesn't push API
-  // writes back to us, and the mirror runs on its own clock).
-  async function refresh() {
-    setRefreshing(true);
-    setSaveMsg("");
-    await loadBill();
-    setRefreshing(false);
-  }
+  // (A page-local Refresh button used to live here. It's gone — the app
+  // header's reload remounts this page, and the load effect always revalidates
+  // against JobTread, so the two did the same job.)
 
   // A Bill is "approved for payment" (payable) = JobTread status `pending`.
   // An Expense is already paid, so "record payment" = status `approved` (paid).
@@ -872,31 +870,22 @@ function BillDetail() {
   }
 
   return (
-    // The sticky Save bar is `fixed` to the bottom edge, so the page's own
-    // bottom padding has to clear BOTH the bar and the home-indicator inset
+    // The bottom action drawer is `fixed` to the bottom edge, so the page's own
+    // bottom padding has to clear BOTH the drawer and the home-indicator inset
     // (the layout sets viewportFit: "cover", so `env()` is live here).
-    <main className="mx-auto max-w-xl px-4 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-5">
-      {/* Back and Refresh are the two controls reached for without reading, so
-          they own the top row at a 44px hit height (Apple HIG / WCAG 2.5.5
-          target size). The queue pager moves to its own row below — squeezed
-          in here, ‹ Prev / Next › were 28px slivers wedged between them. */}
-      <div className="flex items-center justify-between gap-2">
+    <main className="mx-auto max-w-xl px-4 pb-[calc(9rem+env(safe-area-inset-bottom))] pt-5">
+      {/* Back owns the top row at a 44px hit height (Apple HIG / WCAG 2.5.5
+          target size). There is no Refresh here any more — the app header's
+          reload button (in the job-picker bar) remounts this page, which
+          re-runs the load effect and re-reads the bill from JobTread, so a
+          second one on the page was the same action twice. */}
+      <div className="flex items-center gap-2">
         <Link
           href={backHref}
           className="-ml-2 inline-flex min-h-11 items-center rounded-lg px-2 text-sm font-semibold text-accent transition hover:bg-accent/10 dark:text-accent-soft"
         >
           {backLabel}
         </Link>
-        <Button
-          variant="secondary"
-          className="min-h-11"
-          onClick={refresh}
-          disabled={refreshing}
-          title="Refresh from JobTread"
-          aria-label="Refresh"
-        >
-          {refreshing ? "Refreshing…" : "⟳ Refresh"}
-        </Button>
       </div>
 
       {/* Queue pager: a three-up bar, so the arrows are thumb-sized targets and
@@ -964,9 +953,9 @@ function BillDetail() {
         </div>
 
         {/* The total is the number checked on every single bill, so it leads at
-            display size in tabular figures — it used to be a 14px line above
-            the list, the same weight as everything around it. Tabular figures
-            keep it decimal-aligned with the line amounts below. */}
+            display size in tabular figures. The tax that makes it up is NOT
+            here — it sits in the totals block under the line items, where a
+            paper invoice puts it. */}
         {lines && (
           <Card className="mt-4 !p-4">
             <div className="flex items-end justify-between gap-3">
@@ -978,129 +967,14 @@ function BillDetail() {
                 {lines.length} {lines.length === 1 ? "line" : "lines"}
               </p>
             </div>
-
-            {/* Document-level sales tax = JobTread's "Tax" (nonRecoverableTax), a fixed
-                dollar. Editable on draft bills (writes on): it holds each line's pre-tax
-                amount steady and moves the total (subtotal + tax). Saved with the bill via
-                the sticky Save bar (no separate button — see saveCoding). It lives with
-                the total because it is part of how that number is made up. */}
-            {linesEditable && writes ? (
-              <div className="mt-3 flex items-center justify-between gap-3 border-t border-line pt-3 ">
-                <Label htmlFor="bill-tax" className="!mb-0">
-                  {taxName}
-                </Label>
-                <div className="relative">
-                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-neutral-500 dark:text-neutral-400">
-                    $
-                  </span>
-                  <input
-                    id="bill-tax"
-                    type="number"
-                    inputMode="decimal"
-                    min="0"
-                    step="0.01"
-                    value={taxEdit ?? String(storedTax)}
-                    onChange={(e) => setTaxEdit(e.target.value)}
-                    aria-label="Sales tax"
-                    className="h-11 w-32 rounded-lg border border-neutral-300 bg-white pl-7 pr-3 text-right text-sm tabular-nums transition focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 dark:border-neutral-600 dark:bg-ink"
-                  />
-                </div>
-              </div>
-            ) : null}
-
-            {taxView > 0 && (
-              <p className="mt-2 text-right text-xs text-neutral-500 dark:text-neutral-400">
-                subtotal <span className="tabular-nums">{money(subtotal)}</span> +{" "}
-                <span className="tabular-nums">{money(taxView)}</span> {taxName.toLowerCase()}
-              </p>
-            )}
           </Card>
         )}
 
-        {/* Two equal, full-width actions instead of two shrink-wrapped pills —
-            on a phone these are the page's primary controls, and side by side
-            they now clear 44px in both dimensions. */}
-        <div className="mt-4 grid grid-cols-2 gap-2">
-          {jobId && (
-            <JtLink
-              href={`https://app.jobtread.com/jobs/${jobId}/documents/${docId}`}
-              className={btn("outline", "md", "min-h-11 w-full")}
-            >
-              Open in JobTread ↗
-            </JtLink>
-          )}
-          {header && (
-            <button
-              type="button"
-              onClick={toggleReviewed}
-              disabled={reviewLoading}
-              title={reviewed ? "Marked reviewed — click to unmark" : "Mark this bill reviewed"}
-              className={
-                reviewed
-                  ? btn("primary", "md", "min-h-11 w-full !bg-emerald-600 hover:!bg-emerald-700")
-                  : btn("outline", "md", "min-h-11 w-full")
-              }
-            >
-              {reviewed ? "✓ Reviewed" : "Mark reviewed"}
-            </button>
-          )}
-        </div>
         {saveMsg && (
           <Banner tone="neutral" className="mt-3 !px-3 !py-2.5 !text-xs">
             {saveMsg}
           </Banner>
         )}
-
-        {/* Bill-level fields in one card, each a labelled full-width control.
-            As inline "label + control" pairs they wrapped mid-row on a narrow
-            screen, and the 28px-tall month <select> was the smallest tap
-            target on the page. */}
-        <Card className="mt-4 !p-4">
-          <div>
-            <Label htmlFor="billing-month">Billing month</Label>
-            <Select
-              id="billing-month"
-              className="!h-11"
-              value={
-                billingMonthOptions().find((o) => o.ym === (header?.issueDate ?? "").slice(0, 7))
-                  ?.value ?? ""
-              }
-              onChange={async (e) => {
-                const issueDate = e.target.value;
-                if (!issueDate) return;
-                setHeader((h) => (h ? { ...h, issueDate } : h));
-                await fetch("/api/bill-issuedate", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ docId, issueDate }),
-                });
-                invalidateBills(); // cached payload still carries the old issueDate
-              }}
-            >
-              <option value="">— set billing month —</option>
-              {billingMonthOptions().map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </Select>
-          </div>
-
-          {/* Move this bill to a different job (draft only). JT can't move bills, so
-              this delete+recreates it on the chosen job. Writes-off deploys hide it,
-              matching the rest of the page. */}
-          {writes && (header?.status ?? "draft") === "draft" && (
-            <div className="mt-4">
-              <Label>Move to job</Label>
-              <JobPicker value={jobId} onChange={reassignJob} />
-              {reassignMsg && (
-                <Banner tone="neutral" className="mt-2 !px-3 !py-2.5 !text-xs">
-                  {reassignMsg}
-                </Banner>
-              )}
-            </div>
-          )}
-        </Card>
 
         {/* Type (Bill/Expense) and Push-to-QB toggles hidden 2026-07-18 per request.
             Kept commented (with their patchBill/isExpense/pushToQb handlers) for easy restore. */}
@@ -1289,7 +1163,7 @@ function BillDetail() {
               return (
                 <li
                   key={l.id}
-                  className="rounded-xl border border-line bg-white p-3.5 dark:bg-ink-raised"
+                  className="rounded-xl border border-line bg-white p-3.5  dark:bg-ink-raised"
                 >
                   {/* The description owns a full-width row. It used to share one
                       with the amount and two icon buttons, which on a phone left
@@ -1475,7 +1349,7 @@ function BillDetail() {
               ) : (
                 // Same field layout as an existing line, so adding one and
                 // editing one look and behave identically.
-                <div className="rounded-xl border border-line bg-white p-3.5 dark:bg-ink-raised">
+                <div className="rounded-xl border border-line bg-white p-3.5  dark:bg-ink-raised">
                   <input
                     type="text"
                     value={newLine.name}
@@ -1550,26 +1424,66 @@ function BillDetail() {
               )}
             </div>
           )}
-        </>
-      )}
 
-      {/* Push this bill's billing month into the job's tracking sheet. Sits after
-          the coding editor on purpose: the sheet reads costCode off each bill
-          line, so it should be synced once this bill's coding is settled. The
-          month comes from the bill's own Invoice Date, which IS its billing
-          month. Renders nothing if the job has no tracking sheet. */}
-      {jobId && header?.issueDate && (
-        <div className="mt-6">
-          <TrackingSheetSyncFor
-            jtJobId={jobId}
-            ym={header.issueDate.slice(0, 7)}
-            monthLabel={
-              billingMonthOptions().find((o) => o.ym === header.issueDate!.slice(0, 7))?.label ??
-              header.issueDate.slice(0, 7)
-            }
-            className=""
-          />
-        </div>
+          {/* Totals, where a paper invoice puts them: under the line items,
+              right-aligned, subtotal → tax → total. The document-level sales
+              tax is JobTread's "Tax" (nonRecoverableTax), a fixed dollar —
+              editable on draft bills (writes on), where it holds each line's
+              pre-tax amount steady and moves the total. Nothing writes until
+              the drawer's Save (see saveCoding). */}
+          <div className="mt-4 rounded-xl border border-line bg-white p-4  dark:bg-ink-raised">
+            <dl className="ml-auto max-w-xs space-y-2 text-sm">
+              <div className="flex items-center justify-between gap-4">
+                <dt className="text-neutral-500 dark:text-neutral-400">Subtotal</dt>
+                <dd className="tabular-nums">{money(subtotal)}</dd>
+              </div>
+
+              {linesEditable && writes ? (
+                <div className="flex items-center justify-between gap-4">
+                  {/* A plain <label>, not the uppercase-caption `Label`
+                      primitive: in a totals column this reads as a row title
+                      beside its amount, the same weight as Subtotal above it. */}
+                  <dt>
+                    <label
+                      htmlFor="bill-tax"
+                      className="text-neutral-500 dark:text-neutral-400"
+                    >
+                      {taxName}
+                    </label>
+                  </dt>
+                  <dd className="relative">
+                    <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-neutral-500 dark:text-neutral-400">
+                      $
+                    </span>
+                    <input
+                      id="bill-tax"
+                      type="number"
+                      inputMode="decimal"
+                      min="0"
+                      step="0.01"
+                      value={taxEdit ?? String(storedTax)}
+                      onChange={(e) => setTaxEdit(e.target.value)}
+                      aria-label={`${taxName} amount`}
+                      className="h-11 w-32 rounded-lg border border-neutral-300 bg-white pl-7 pr-3 text-right text-sm tabular-nums transition focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 dark:border-neutral-600 dark:bg-ink"
+                    />
+                  </dd>
+                </div>
+              ) : (
+                taxView > 0 && (
+                  <div className="flex items-center justify-between gap-4">
+                    <dt className="text-neutral-500 dark:text-neutral-400">{taxName}</dt>
+                    <dd className="tabular-nums">{money(taxView)}</dd>
+                  </div>
+                )
+              )}
+
+              <div className="flex items-baseline justify-between gap-4 border-t border-line pt-2 ">
+                <dt className="font-semibold">Total</dt>
+                <dd className="text-lg font-bold tabular-nums">{money(total)}</dd>
+              </div>
+            </dl>
+          </div>
+        </>
       )}
 
       {/* Attached invoice image / PDF — at the bottom. Labelled like every
@@ -1615,44 +1529,182 @@ function BillDetail() {
         </section>
       )}
 
-      {/* Sticky save bar — always shown once the bill loads, so Save can re-push the bill to
-          JobTread even with nothing edited here (JT's stored costs can drift on their own).
-          Save re-sends the WHOLE bill (every line + the tax). The page's pb-24 keeps content
-          clear of it. */}
+      {/* Filing details — which month the bill belongs to, and which job it
+          belongs to — sit AFTER the scan, because both are answered by looking
+          at the document: you read the date off the invoice, and you work out
+          the right job from what's on it. */}
       {header && (
-        // `pb-[env(safe-area-inset-bottom)]` keeps the buttons clear of the
-        // home indicator — without it the bar's own padding is all that stands
-        // between Save and the swipe-up gesture area on a modern iPhone.
-        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-cream/95 pb-[env(safe-area-inset-bottom)] backdrop-blur dark:border-white/10 dark:bg-ink/95 print:hidden">
-          <div className="mx-auto flex max-w-xl items-center justify-between gap-3 px-4 py-2.5">
-            {/* Unsaved work is stated in amber — the same "something is
-                pending" colour the rest of the app uses — so the bar reads
-                differently at a glance depending on whether it matters. */}
-            <span className="min-w-0 text-sm">
-              {changeCount === 0 ? (
-                <span className="text-neutral-500 dark:text-neutral-400">No unsaved changes</span>
-              ) : (
-                <span className="font-semibold text-amber-600 dark:text-amber-400">
-                  {changeCount} unsaved change{changeCount === 1 ? "" : "s"}
-                </span>
+        <Card className="mt-8 !p-4">
+          <SectionLabel className="mb-3">Filing</SectionLabel>
+          <div>
+            <Label htmlFor="billing-month">Billing month</Label>
+            <Select
+              id="billing-month"
+              className="!h-11"
+              value={
+                billingMonthOptions().find((o) => o.ym === (header?.issueDate ?? "").slice(0, 7))
+                  ?.value ?? ""
+              }
+              onChange={async (e) => {
+                const issueDate = e.target.value;
+                if (!issueDate) return;
+                setHeader((h) => (h ? { ...h, issueDate } : h));
+                await fetch("/api/bill-issuedate", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ docId, issueDate }),
+                });
+                invalidateBills(); // cached payload still carries the old issueDate
+              }}
+            >
+              <option value="">— set billing month —</option>
+              {billingMonthOptions().map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </Select>
+          </div>
+
+          {/* Move this bill to a different job (draft only). JT can't move bills, so
+              this delete+recreates it on the chosen job. Writes-off deploys hide it,
+              matching the rest of the page. */}
+          {writes && (header?.status ?? "draft") === "draft" && (
+            <div className="mt-4">
+              <Label>Move to job</Label>
+              <JobPicker value={jobId} onChange={reassignJob} />
+              {reassignMsg && (
+                <Banner tone="neutral" className="mt-2 !px-3 !py-2.5 !text-xs">
+                  {reassignMsg}
+                </Banner>
               )}
-            </span>
-            <div className="flex shrink-0 items-center gap-2">
-              <Button
-                variant="ghost"
-                className="min-h-11"
-                onClick={() => {
-                  setPicked({});
-                  setEdits({});
-                  setTaxEdit(null);
-                }}
-                disabled={saving || changeCount === 0}
+            </div>
+          )}
+        </Card>
+      )}
+
+      {/* Sticky bottom drawer — always shown once the bill loads, so Save can re-push the
+          bill to JobTread even with nothing edited here (JT's stored costs can drift on
+          their own). Save re-sends the WHOLE bill (every line + the tax). The page's
+          bottom padding keeps content clear of it. */}
+      {header && (
+        // Docked ABOVE the tab bar via --tabbar-h (globals.css) — both are
+        // `fixed` to the bottom edge, so without the offset the tab bar would
+        // sit on top of Save. The variable already carries the safe-area inset,
+        // which is why this bar no longer adds its own.
+        <div
+          style={{ bottom: "var(--tabbar-h, 0px)" }}
+          className="fixed inset-x-0 z-30 border-t border-line bg-cream/95 backdrop-blur dark:border-white/10 dark:bg-ink/95 print:hidden"
+        >
+          <div className="mx-auto max-w-xl px-4">
+            {/* Drawer handle. The bill's secondary actions — open in JobTread,
+                mark reviewed, push to the tracking sheet — live behind it, so
+                they're one tap away from the thumb wherever you are in a long
+                bill, instead of scrolled off the top of the page. */}
+            <button
+              type="button"
+              onClick={() => setDrawerOpen((v) => !v)}
+              aria-expanded={drawerOpen}
+              aria-controls="bill-actions"
+              className="flex min-h-9 w-full items-center justify-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-neutral-500 transition hover:text-accent dark:text-neutral-400"
+            >
+              <span
+                aria-hidden
+                className={`inline-block text-[9px] transition-transform ${
+                  drawerOpen ? "rotate-180" : ""
+                }`}
               >
-                Discard
-              </Button>
-              <Button className="min-h-11" onClick={saveCoding} disabled={saving}>
-                {saving ? "Saving…" : changeCount === 0 ? "Save" : `Save (${changeCount})`}
-              </Button>
+                ▲
+              </span>
+              {drawerOpen ? "Hide actions" : "Actions"}
+            </button>
+
+            {/* `hidden` rather than a conditional render: TrackingSheetSyncFor
+                owns its own sync state, and unmounting it on collapse would
+                throw away the result of a sync the office kicked off and
+                scrolled away from. */}
+            <div
+              id="bill-actions"
+              hidden={!drawerOpen}
+              className="max-h-[45dvh] overflow-y-auto border-t border-line py-3 dark:border-white/10"
+            >
+              <div className="grid grid-cols-2 gap-2">
+                {jobId && (
+                  <JtLink
+                    href={`https://app.jobtread.com/jobs/${jobId}/documents/${docId}`}
+                    className={btn("outline", "md", "min-h-11 w-full")}
+                  >
+                    Open in JobTread ↗
+                  </JtLink>
+                )}
+                <button
+                  type="button"
+                  onClick={toggleReviewed}
+                  disabled={reviewLoading}
+                  title={reviewed ? "Marked reviewed — click to unmark" : "Mark this bill reviewed"}
+                  className={
+                    reviewed
+                      ? btn("primary", "md", "min-h-11 w-full !bg-emerald-600 hover:!bg-emerald-700")
+                      : btn("outline", "md", "min-h-11 w-full")
+                  }
+                >
+                  {reviewed ? "✓ Reviewed" : "Mark reviewed"}
+                </button>
+              </div>
+
+              {/* Push this bill's billing month into the job's tracking sheet.
+                  The sheet reads costCode off each bill line, so it belongs
+                  with the actions you reach for once the coding is settled.
+                  The month comes from the bill's own Invoice Date, which IS
+                  its billing month. Renders nothing if the job has no
+                  tracking sheet. */}
+              {jobId && header?.issueDate && (
+                <TrackingSheetSyncFor
+                  jtJobId={jobId}
+                  ym={header.issueDate.slice(0, 7)}
+                  monthLabel={
+                    billingMonthOptions().find((o) => o.ym === header.issueDate!.slice(0, 7))
+                      ?.label ?? header.issueDate.slice(0, 7)
+                  }
+                  className="mt-2"
+                />
+              )}
+            </div>
+
+            <div
+              className={`flex items-center justify-between gap-3 py-2.5 ${
+                drawerOpen ? "" : "border-t border-line dark:border-white/10"
+              }`}
+            >
+              {/* Unsaved work is stated in amber — the same "something is
+                  pending" colour the rest of the app uses — so the bar reads
+                  differently at a glance depending on whether it matters. */}
+              <span className="min-w-0 text-sm">
+                {changeCount === 0 ? (
+                  <span className="text-neutral-500 dark:text-neutral-400">No unsaved changes</span>
+                ) : (
+                  <span className="font-semibold text-amber-600 dark:text-amber-400">
+                    {changeCount} unsaved change{changeCount === 1 ? "" : "s"}
+                  </span>
+                )}
+              </span>
+              <div className="flex shrink-0 items-center gap-2">
+                <Button
+                  variant="ghost"
+                  className="min-h-11"
+                  onClick={() => {
+                    setPicked({});
+                    setEdits({});
+                    setTaxEdit(null);
+                  }}
+                  disabled={saving || changeCount === 0}
+                >
+                  Discard
+                </Button>
+                <Button className="min-h-11" onClick={saveCoding} disabled={saving}>
+                  {saving ? "Saving…" : changeCount === 0 ? "Save" : `Save (${changeCount})`}
+                </Button>
+              </div>
             </div>
           </div>
         </div>
