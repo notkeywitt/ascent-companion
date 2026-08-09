@@ -61,8 +61,8 @@ function GroupSection({
   const [rt, setRt] = useState("");
   const isGlobal = group.id === 0;
   return (
-    <div className="mb-3 overflow-hidden rounded-xl border border-neutral-200 bg-white dark:border-neutral-700/60 dark:bg-ink-raised">
-      <div className="flex items-center gap-2 border-b border-neutral-100 bg-neutral-50 px-3 py-2 dark:border-neutral-800/70 dark:bg-white/5">
+    <div className="mb-3 overflow-hidden rounded-xl border border-line bg-white dark:bg-ink-raised">
+      <div className="flex items-center gap-2 border-b border-line-soft bg-neutral-50 px-3 py-2 dark:border-neutral-800/70 dark:bg-white/5">
         {isGlobal ? (
           <span className="text-sm font-bold">🌐 Global <span className="font-normal text-neutral-500">— pushes with no prefix</span></span>
         ) : (
@@ -81,7 +81,7 @@ function GroupSection({
       </div>
 
       {rates.map((r) => (
-        <div key={r.id} className="flex items-center gap-2 border-b border-neutral-100 px-3 py-2 last:border-b-0 dark:border-neutral-800/70">
+        <div key={r.id} className="flex items-center gap-2 border-b border-line-soft px-3 py-2 last:border-b-0 dark:border-neutral-800/70">
           <input
             defaultValue={r.name}
             onBlur={(e) => e.target.value.trim() && e.target.value.trim() !== r.name && onPatchRate(r.id, { name: e.target.value.trim() })}
@@ -405,7 +405,7 @@ export default function LaborRatesPage() {
             <section>
               <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-neutral-500">Employees &amp; their rates</h2>
 
-              <div className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-700/60 dark:bg-ink-raised">
+              <div className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-line bg-white p-3 dark:bg-ink-raised">
                 <span className="text-sm font-semibold">Bulk apply:</span>
                 <select value={bulkRateId} onChange={(e) => setBulkRateId(e.target.value)} className={inputCls + " w-auto max-w-[18rem]"}>
                   <option value="">Pick a rate…</option>
@@ -420,7 +420,7 @@ export default function LaborRatesPage() {
                 )}
               </div>
 
-              <div className="overflow-x-auto rounded-xl border border-neutral-200 bg-white dark:border-neutral-700/60 dark:bg-ink-raised">
+              <div className="overflow-x-auto rounded-xl border border-line bg-white dark:bg-ink-raised">
                 <table className="w-full min-w-[40rem] text-sm">
                   <thead className="bg-neutral-50 text-neutral-500 dark:bg-white/5">
                     <tr>
@@ -432,7 +432,7 @@ export default function LaborRatesPage() {
                   </thead>
                   <tbody>
                     {members.map((m) => (
-                      <tr key={m.membershipId} className="border-t border-neutral-100 align-top dark:border-neutral-800/70">
+                      <tr key={m.membershipId} className="border-t border-line-soft align-top dark:border-neutral-800/70">
                         <td className="px-3 py-2">
                           <input type="checkbox" checked={selected.has(m.membershipId)} onChange={() => toggle(m.membershipId)} className="h-4 w-4 accent-accent" />
                         </td>

@@ -138,7 +138,7 @@ export function ActivityPanel() {
             {data.users.map((u) => (
               <li
                 key={u.email}
-                className="rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm dark:border-neutral-700/60 dark:bg-ink-raised"
+                className="rounded-lg border border-line bg-white px-3 py-2 text-sm dark:bg-ink-raised"
               >
                 <div className="flex items-baseline justify-between gap-2">
                   <span className="min-w-0 truncate font-medium">{u.email}</span>
@@ -202,7 +202,7 @@ export function ActivityPanel() {
                   {data.recent.map((r, i) => (
                     <li
                       key={i}
-                      className="rounded-md border border-neutral-100 px-2.5 py-1.5 text-xs dark:border-white/10"
+                      className="rounded-md border border-line-soft px-2.5 py-1.5 text-xs dark:border-white/10"
                     >
                       <div className="flex items-center justify-between gap-2">
                         <span className="min-w-0 flex-1 truncate">
@@ -226,7 +226,7 @@ export function ActivityPanel() {
                         </span>
                       </div>
                       {r.kind === "coding" && r.recodes.length > 0 && (
-                        <ul className="mt-1 space-y-0.5 border-l-2 border-neutral-200 pl-2.5 dark:border-white/10">
+                        <ul className="mt-1 space-y-0.5 border-l-2 border-line pl-2.5 dark:border-white/10">
                           {r.recodes.map((rc, j) => (
                             <li key={j} className="text-[11px] text-neutral-500 dark:text-neutral-400">
                               <span className="text-neutral-700 dark:text-neutral-300">{rc.line}</span>
@@ -253,7 +253,7 @@ export function ActivityPanel() {
 
 function Stat({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-lg border border-neutral-200 bg-white px-3 py-2 text-center dark:border-neutral-700/60 dark:bg-ink-raised">
+    <div className="rounded-lg border border-line bg-white px-3 py-2 text-center dark:bg-ink-raised">
       <div className="text-lg font-semibold tabular-nums">{value}</div>
       <div className="text-[11px] text-neutral-500">{label}</div>
     </div>

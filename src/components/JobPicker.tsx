@@ -15,14 +15,21 @@ export interface JobRef {
 const NO_PHASE = "__no_phase__";
 
 const jobLabel = (j: JobRef) => (j.customer ? `${j.customer} - ${j.name}` : j.name);
-// Drop the trailing ", USA" Google tacks on — every job is domestic.
-const jobAddress = (j: JobRef) => (j.address ?? "").replace(/,\s*USA$/i, "").trim();
+/** Drop the trailing ", USA" Google tacks on — every job is domestic. */
+export const jobAddress = (j: JobRef) => (j.address ?? "").replace(/,\s*USA$/i, "").trim();
 
 /**
  * Searchable dropdown of the org's jobs. `value` is the selected job id.
  * `onSelect` (optional) also hands back the full chosen job — or null for
  * "All jobs" — so a caller that needs the label doesn't have to fetch
  * /api/jobs a second time just to look it up.
+ *
+ * `onResolved` (optional) is the same job, but reported whenever the SELECTION
+ * resolves rather than only when the user picks: on mount the id arrives from
+ * the URL with the list still in flight, so `onSelect` never fires and a caller
+ * that only listened to it would show nothing until the next manual pick. Use
+ * this one to mirror the selected job outside the picker (the header's address
+ * line); use `onSelect` for reacting to a deliberate change.
  *
  * By default it fetches /api/jobs itself (open jobs). A caller that already has
  * a list — /jobs holds a filtered one, so its dropdown and its filters can't
@@ -43,6 +50,7 @@ export function JobPicker({
   value,
   onChange,
   onSelect,
+  onResolved,
   jobs: jobsProp,
   includeAll = true,
   allLabel = "All jobs",
@@ -53,6 +61,7 @@ export function JobPicker({
   value: string;
   onChange: (id: string) => void;
   onSelect?: (job: JobRef | null) => void;
+  onResolved?: (job: JobRef | null) => void;
   jobs?: JobRef[];
   includeAll?: boolean;
   allLabel?: string;
@@ -93,6 +102,16 @@ export function JobPicker({
   }, []);
 
   const selected = jobs.find((j) => j.id === value);
+
+  // Report the resolved selection upward. Keyed on the job's ID rather than the
+  // object, so this fires once when the fetch finally matches the URL's ?jobId
+  // and not on every render; the callback is held in a ref so a caller passing
+  // an inline arrow (the common case) doesn't re-trigger it every render.
+  const onResolvedRef = useRef(onResolved);
+  onResolvedRef.current = onResolved;
+  useEffect(() => {
+    onResolvedRef.current?.(selected ?? null);
+  }, [selected?.id]);
   // Empty value == the all-jobs view (job-scoped pages read no ?jobId as "every
   // job"). Surface that as an explicit, selectable "All jobs" state.
   const label = selected
@@ -153,14 +172,14 @@ export function JobPicker({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search jobs…"
-            className="border-b border-neutral-200 bg-transparent px-3 py-2 text-sm outline-none dark:border-white/10"
+            className="border-b border-line bg-transparent px-3 py-2 text-sm outline-none dark:border-white/10"
           />
           {showPhaseFilter && phases.length > 0 && (
             <select
               value={phaseFilter}
               onChange={(e) => setPhaseFilter(e.target.value)}
               aria-label="Filter by phase"
-              className="border-b border-neutral-200 bg-transparent px-3 py-1.5 text-xs text-neutral-500 outline-none dark:border-white/10"
+              className="border-b border-line bg-transparent px-3 py-1.5 text-xs text-neutral-500 outline-none dark:border-white/10"
             >
               <option value="">All phases</option>
               {phases.map((p) => (

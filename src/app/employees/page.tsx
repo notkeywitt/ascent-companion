@@ -436,7 +436,7 @@ export default function EmployeesPage() {
             </span>
             <span>{linkedCount} linked to JobTread</span>
           </div>
-          <div className="overflow-x-auto rounded-xl border border-neutral-200 bg-white dark:border-neutral-700/60 dark:bg-ink-raised">
+          <div className="overflow-x-auto rounded-xl border border-line bg-white dark:bg-ink-raised">
             <table className="w-full min-w-[58rem] text-sm">
               <thead className="bg-neutral-50 text-neutral-500 dark:bg-white/5">
                 <tr>
@@ -452,7 +452,7 @@ export default function EmployeesPage() {
               </thead>
               <tbody>
                 {view.map((e) => (
-                  <tr key={e.id} className="border-t border-neutral-100 dark:border-neutral-800/70">
+                  <tr key={e.id} className="border-t border-line-soft/70">
                     <td className="px-3 py-2 font-medium">
                       {e.firstName} {e.lastName}
                     </td>
@@ -543,7 +543,7 @@ export default function EmployeesPage() {
             </div>
 
             {/* JobTread link */}
-            <div className="mb-4 rounded-lg border border-neutral-200 p-3 dark:border-neutral-700/60">
+            <div className="mb-4 rounded-lg border border-line p-3 ">
               <Label>JobTread user</Label>
               {jtErr ? (
                 <p className="text-sm text-neutral-500">Unavailable — JobTread users didn&apos;t load.</p>
@@ -583,7 +583,7 @@ export default function EmployeesPage() {
 
             {/* Labor rates — read-only, pulled live from JobTread. Rates/types
                 are set in JobTread; this is a review surface only. */}
-            <div className="mb-4 rounded-lg border border-neutral-200 p-3 dark:border-neutral-700/60">
+            <div className="mb-4 rounded-lg border border-line p-3 ">
               <Label>Labor rates (from JobTread)</Label>
               {(() => {
                 if (!form.jtUserId) {
@@ -731,7 +731,7 @@ export default function EmployeesPage() {
             className="flex max-h-[92vh] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl bg-white dark:bg-ink-overlay sm:rounded-2xl"
             onClick={(ev) => ev.stopPropagation()}
           >
-            <div className="flex items-baseline justify-between border-b border-neutral-200 p-4 dark:border-neutral-700/60">
+            <div className="flex items-baseline justify-between border-b border-line p-4 ">
               <h2 className="text-lg font-bold">Email employees</h2>
               <span className="text-xs text-neutral-500">from office@ascentbuildingco.com</span>
             </div>
@@ -763,7 +763,7 @@ export default function EmployeesPage() {
             ) : (
               <>
                 {/* Recipient picker */}
-                <div className="border-b border-neutral-200 px-4 pb-2 pt-3 dark:border-neutral-700/60">
+                <div className="border-b border-line px-4 pb-2 pt-3 ">
                   <div className="mb-2 flex items-center justify-between">
                     <Label className="!mb-0">
                       Recipients — {recipientCount} selected
@@ -780,14 +780,14 @@ export default function EmployeesPage() {
                       </button>
                     </div>
                   </div>
-                  <div className="max-h-44 overflow-y-auto rounded-lg border border-neutral-200 dark:border-neutral-700/60">
+                  <div className="max-h-44 overflow-y-auto rounded-lg border border-line">
                     {employees.map((e) => {
                       const emailable = hasEmail(e);
                       return (
                         <label
                           key={e.id}
                           className={
-                            "flex items-center gap-2 border-b border-neutral-100 px-2 py-1.5 text-sm last:border-b-0 dark:border-neutral-800/70 " +
+                            "flex items-center gap-2 border-b border-line-soft px-2 py-1.5 text-sm last:border-b-0 dark:border-neutral-800/70 " +
                             (emailable ? "cursor-pointer hover:bg-neutral-50 dark:hover:bg-white/5" : "opacity-50")
                           }
                         >

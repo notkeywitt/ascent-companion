@@ -59,7 +59,21 @@ gateway rules) — a preview that only reads JobTread is safe to hand to a phone
   `config.ts` (env + gates), `views.ts` (roles + gating), `auth.ts` (session).
 - **UI design system:** `src/components/ui.tsx` — **build every UI on these
   primitives**, never hand-rolled styles (`PageHeader`, `Card`, `Input`, `Select`,
-  `Textarea`, `Button`, `Banner`, `Loading`, `EmptyState`, `SectionLabel`, `Toggle`).
+  `Textarea`, `Button`, `Banner`, `Loading`, `EmptyState`, `SectionLabel`, `Toggle`),
+  plus the "Ledger" set: `SectionHeading` (ochre rule + caption), `ListCard`/`ListRow`
+  (hairline-divided rows), `StatementBlock` (the page's ONE display figure), `Chip`
+  (status marks), `CountBadge`, `FilterChip`/`ChipScroller` (swipeable filter pills),
+  `Meter` (spend vs budget), `StickyActionBar` (a page's commit action, docked).
+- **Hairlines are tokens, not Tailwind neutrals.** Use `border-line` (card edge),
+  `border-line-soft` (divider between rows inside one card) and `border-line-strong`
+  (form controls). They're theme variables, so they flip light/dark on their own —
+  writing `border-neutral-200 dark:border-neutral-700/60` again re-introduces the
+  cool grey the palette was swept off.
+- **Nav:** the home launcher lists EVERY view; `src/components/TabBar.tsx` is the
+  bottom tab bar carrying Home plus the first three of `TAB_CANDIDATES` the signed-in
+  role can reach. Reorder that array to change the tabs — nothing else needs touching.
+  Its height is `--tabbar-h` (globals.css); anything docking to the bottom of the
+  screen must offset by that variable rather than a hardcoded number.
 - **Auth:** Auth.js (Google) in `src/auth.ts` + `src/middleware.ts`. Session
   carries `user.role` (`admin`/`office`/`lead`/`field`) + per-user view overrides.
 - **DB:** Drizzle + libSQL (`src/db`) — companion-only data (time-off, tool

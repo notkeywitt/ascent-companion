@@ -852,7 +852,7 @@ export default function LaborImportPage() {
       {entries && (
         <>
           {/* Summary + download */}
-          <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-700/60 dark:bg-ink-raised">
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-white p-3 dark:bg-ink-raised">
             <div className="text-sm">
               <div className="font-medium">{fileName}</div>
               <div className="text-xs text-neutral-500">
@@ -905,7 +905,7 @@ export default function LaborImportPage() {
           </div>
 
           {/* Worker → JobTread user */}
-          <div className="mb-5 rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-700/60 dark:bg-ink-raised">
+          <div className="mb-5 rounded-xl border border-line bg-white p-3 dark:bg-ink-raised">
             <div className="mb-2 text-sm font-semibold">
               JobTread users
               {workersNeedingId.length > 0 && (
@@ -958,7 +958,7 @@ export default function LaborImportPage() {
 
           {/* Job ID mapping — only for jobs currently selected */}
           {[...selJobs].length > 0 && (
-            <div className="mb-5 rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-700/60 dark:bg-ink-raised">
+            <div className="mb-5 rounded-xl border border-line bg-white p-3 dark:bg-ink-raised">
               <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                 <div className="text-sm font-semibold">
                   JobTread Job IDs
@@ -1061,7 +1061,7 @@ export default function LaborImportPage() {
 
           {/* Pay type — per worker AND per job */}
           {typePairs.length > 0 && (
-            <div className="mb-5 rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-700/60 dark:bg-ink-raised">
+            <div className="mb-5 rounded-xl border border-line bg-white p-3 dark:bg-ink-raised">
               <div className="mb-2 text-sm font-semibold">
                 Pay type
                 {typesNeeded.length > 0 && (
@@ -1130,7 +1130,7 @@ export default function LaborImportPage() {
 
           {/* CSI codes that aren't a cost item in that job's JobTread budget */}
           {noCostItem.length > 0 && (
-            <details className="mb-5 rounded-xl border border-neutral-200 bg-white p-3 text-sm dark:border-neutral-700/60 dark:bg-ink-raised">
+            <details className="mb-5 rounded-xl border border-line bg-white p-3 text-sm dark:bg-ink-raised">
               <summary className="cursor-pointer font-medium text-neutral-600 dark:text-neutral-300">
                 {noCostItem.length} row{noCostItem.length === 1 ? "" : "s"} held back — cost code not
                 in that job&apos;s JobTread budget
@@ -1159,7 +1159,7 @@ export default function LaborImportPage() {
 
           {/* Dropped rows */}
           {dropped.length > 0 && (
-            <details className="mb-5 rounded-xl border border-neutral-200 bg-white p-3 text-sm dark:border-neutral-700/60 dark:bg-ink-raised">
+            <details className="mb-5 rounded-xl border border-line bg-white p-3 text-sm dark:bg-ink-raised">
               <summary className="cursor-pointer font-medium text-neutral-600 dark:text-neutral-300">
                 {dropped.length} row{dropped.length === 1 ? "" : "s"} dropped (can&apos;t be imported)
               </summary>
@@ -1176,7 +1176,7 @@ export default function LaborImportPage() {
           )}
 
           {/* Preview */}
-          <div className="overflow-x-auto rounded-xl border border-neutral-200 bg-white dark:border-neutral-700/60 dark:bg-ink-raised">
+          <div className="overflow-x-auto rounded-xl border border-line bg-white dark:bg-ink-raised">
             <table className="w-full text-left text-xs">
               <thead className="bg-neutral-50 dark:bg-white/5">
                 <tr>
@@ -1189,7 +1189,7 @@ export default function LaborImportPage() {
               </thead>
               <tbody>
                 {ready.slice(0, 100).map((e) => (
-                  <tr key={e.idx} className="border-t border-neutral-100 dark:border-neutral-800">
+                  <tr key={e.idx} className="border-t border-line-soft">
                     <td className="px-2 py-1 whitespace-nowrap font-mono">{userIdFor(e.worker)}</td>
                     <td className="px-2 py-1 whitespace-nowrap">{userNameFor(e.worker)}</td>
                     <td className="px-2 py-1 whitespace-nowrap">{e.start}</td>
@@ -1322,7 +1322,7 @@ function JobIdControl({
 
 function FilterCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-700/60 dark:bg-ink-raised">
+    <div className="rounded-xl border border-line bg-white p-3 dark:bg-ink-raised">
       <div className="mb-2 text-sm font-semibold">{title}</div>
       <div className="max-h-56 space-y-1 overflow-y-auto">{children}</div>
     </div>

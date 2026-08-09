@@ -161,7 +161,7 @@ export default function TimeSyncPage() {
                     {worked.map((r) => (
                       <li
                         key={r.entryId}
-                        className="flex items-center justify-between gap-3 rounded-lg border border-neutral-200 px-3 py-2 text-sm dark:border-neutral-700/60"
+                        className="flex items-center justify-between gap-3 rounded-lg border border-line px-3 py-2 text-sm "
                       >
                         <div className="min-w-0">
                           <div className="font-medium">
@@ -194,7 +194,7 @@ export default function TimeSyncPage() {
                     {leave.map((r) => (
                       <li
                         key={r.id}
-                        className="flex items-center justify-between gap-3 rounded-lg border border-neutral-200 px-3 py-2 text-sm dark:border-neutral-700/60"
+                        className="flex items-center justify-between gap-3 rounded-lg border border-line px-3 py-2 text-sm "
                       >
                         <div className="min-w-0">
                           <div className="font-medium">

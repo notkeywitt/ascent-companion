@@ -210,7 +210,7 @@ export function StuckVendorPopup() {
         aria-modal="true"
         aria-labelledby="stuck-vendor-title"
         onClick={(e) => e.stopPropagation()}
-        className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-2xl border border-neutral-200 bg-white p-5 shadow-xl dark:border-neutral-700/60 dark:bg-ink-raised"
+        className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-2xl border border-line bg-white p-5 shadow-xl dark:bg-ink-raised"
       >
         <div className="flex items-start gap-3">
           <span
@@ -241,7 +241,7 @@ export function StuckVendorPopup() {
           {vendors.map((v) => (
             <li
               key={v.vendor}
-              className="rounded-xl border border-neutral-200 px-3 py-2.5 dark:border-neutral-700/60"
+              className="rounded-xl border border-line px-3 py-2.5 "
             >
               <div className="flex items-baseline justify-between gap-3">
                 <span className="min-w-0 break-words font-semibold">{v.vendor}</span>

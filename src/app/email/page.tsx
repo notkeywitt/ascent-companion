@@ -348,7 +348,7 @@ export default function EmailPage() {
                 "rounded-xl border p-4 transition " +
                 (done
                   ? "border-emerald-300 bg-emerald-50/50 dark:border-emerald-900 dark:bg-emerald-950/20"
-                  : "border-neutral-200 bg-white dark:border-neutral-700/60 dark:bg-ink-raised")
+                  : "border-line bg-white  dark:bg-ink-raised")
               }
             >
               <div className="flex items-baseline justify-between gap-3">
@@ -400,7 +400,7 @@ export default function EmailPage() {
                       return (
                         <div
                           key={k}
-                          className="rounded-lg border border-neutral-200 p-2.5 dark:border-neutral-700/60"
+                          className="rounded-lg border border-line p-2.5 "
                         >
                           <p className="mb-1.5 truncate text-xs font-medium text-neutral-600 dark:text-neutral-300">
                             📄 {a.name}
@@ -569,7 +569,7 @@ export default function EmailPage() {
       </ul>
 
       {handledList.length > 0 && (
-        <section className="mt-6 border-t border-neutral-200 pt-3 dark:border-neutral-800">
+        <section className="mt-6 border-t border-line pt-3 dark:border-neutral-800">
           <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
             Handled ({handledList.length})
           </p>

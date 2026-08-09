@@ -526,7 +526,7 @@ export default function AmazonImportPage() {
             </div>
 
             {/* Invoice PDFs — REQUIRED zip, matched to orders by order id in the filename */}
-            <div className="border-t border-neutral-200 pt-3 dark:border-neutral-800">
+            <div className="border-t border-line pt-3 dark:border-neutral-800">
               <Label>Invoice PDFs (zip, required)</Label>
               <input
                 type="file"
@@ -565,7 +565,7 @@ export default function AmazonImportPage() {
               )}
             </div>
 
-            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-neutral-200 pt-3 text-sm dark:border-neutral-800">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line pt-3 text-sm dark:border-neutral-800">
               <span className="flex items-center gap-1.5 text-neutral-500">
                 {orders.length} order{orders.length === 1 ? "" : "s"} · {fileName}
                 {checking && (
@@ -731,7 +731,7 @@ export default function AmazonImportPage() {
                           {isOpen ? "Hide items" : "Show items"}
                         </button>
                         {isOpen && (
-                          <div className="mt-1.5 space-y-1 border-l-2 border-neutral-200 pl-3 dark:border-neutral-700">
+                          <div className="mt-1.5 space-y-1 border-l-2 border-line pl-3 dark:border-neutral-700">
                             {o.lines.map((l, i) => (
                               <div
                                 key={i}
@@ -827,9 +827,13 @@ export default function AmazonImportPage() {
         </section>
       )}
 
-      {/* Sticky create bar */}
+      {/* Sticky create bar. Offset by --tabbar-h so it docks above the tab bar
+          rather than underneath it — both are fixed to the bottom edge. */}
       {orders.length > 0 && (
-        <div className="fixed inset-x-0 bottom-0 z-20 border-t border-neutral-200 bg-white/95 px-4 py-3 backdrop-blur dark:border-neutral-800 dark:bg-ink/95">
+        <div
+          style={{ bottom: "var(--tabbar-h, 0px)" }}
+          className="fixed inset-x-0 z-20 border-t border-line bg-white/95 px-4 py-3 backdrop-blur dark:border-neutral-800 dark:bg-ink/95"
+        >
           <div className="mx-auto flex max-w-3xl items-center justify-between gap-3">
             <div className="text-sm">
               <span className="font-semibold">{ready.length}</span> bill

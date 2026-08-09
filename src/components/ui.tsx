@@ -12,7 +12,14 @@
  * component wrapper is awkward (e.g. a Next <Link> styled as a button).
  */
 
+import Link from "next/link";
 import { PageTitle, PeakMark } from "@/components/PageTitle";
+import { LinkPendingOverlay } from "@/components/LinkPending";
+import { Spinner } from "@/components/Spinner";
+
+// Spinner moved to its own module to keep ui → LinkPending a one-way import
+// (see components/Spinner.tsx). Re-exported so existing call sites are unchanged.
+export { Spinner };
 
 /* ------------------------------------------------------------------ buttons */
 
@@ -53,6 +60,43 @@ export function Button({
   size?: BtnSize;
 }) {
   return <button type="button" {...props} className={btn(variant, size, className)} />;
+}
+
+/* ------------------------------------------------------------- icon button */
+
+export type IconBtnTone = "default" | "danger";
+
+/**
+ * Square icon-only button with a thumb-sized hit area. Pages used to hand-roll
+ * these as a 14–16px glyph in `p-1`/`p-1.5`, i.e. a 22–28px target — under
+ * WCAG 2.5.5's 44×44 (and 22px is under even the 2.5.8 AA floor of 24), which
+ * on a phone means the delete and buy-back icons sitting next to each other in
+ * a line row were a coin flip to hit. The GLYPH stays small (the caller sizes
+ * its own svg), so a dense row still reads light; the 44px comes from padding.
+ */
+export function IconButton({
+  tone = "default",
+  label,
+  title,
+  className = "",
+  children,
+  ...props
+}: React.ButtonHTMLAttributes<HTMLButtonElement> & { tone?: IconBtnTone; label: string }) {
+  return (
+    <button
+      type="button"
+      {...props}
+      aria-label={label}
+      title={title ?? label}
+      className={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100 ${
+        tone === "danger"
+          ? "text-neutral-500 hover:bg-red-50 hover:text-red-600 dark:text-neutral-400 dark:hover:bg-red-950/40 dark:hover:text-red-400"
+          : "text-neutral-500 hover:bg-accent/10 hover:text-accent dark:text-neutral-400 dark:hover:bg-accent/20 dark:hover:text-accent-soft"
+      } ${className}`}
+    >
+      {children}
+    </button>
+  );
 }
 
 /* ------------------------------------------------------------------ toggles */
@@ -140,7 +184,7 @@ export function Label({
   return (
     <label
       htmlFor={htmlFor}
-      className={`mb-1 block text-[11px] font-semibold uppercase tracking-wide text-neutral-500 ${className}`}
+      className={`mb-1 block text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400 ${className}`}
     >
       {children}
     </label>
@@ -157,7 +201,7 @@ export function SectionLabel({
 }) {
   return (
     <div
-      className={`text-[11px] font-semibold uppercase tracking-wide text-neutral-500 ${className}`}
+      className={`text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400 ${className}`}
     >
       {children}
     </div>
@@ -175,10 +219,352 @@ export function Card({
   return (
     <div
       {...props}
-      className={`rounded-xl border border-neutral-200 bg-white dark:border-neutral-700/60 dark:bg-ink-raised ${
+      className={`rounded-xl border border-line bg-white dark:bg-ink-raised ${
         pad ? "p-3 " : ""
       }${className}`}
     />
+  );
+}
+
+/* --------------------------------------------------------------- sections */
+
+/**
+ * Section heading: a short ochre rule, the letter-spaced caption, and an
+ * optional trailing slot (a count, a segmented control, a "collapse all").
+ *
+ * The rule is the design system's ONE ornament — it is what tells you a new
+ * group started without spending a heavier type size or a boxed header on it.
+ * Use this instead of a bare <SectionLabel> whenever the label introduces a
+ * block of content rather than labelling a single field.
+ */
+export function SectionHeading({
+  children,
+  trailing,
+  className = "",
+}: {
+  children: React.ReactNode;
+  trailing?: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={`flex min-h-[28px] items-center gap-2.5 ${className}`}>
+      <span aria-hidden className="h-0.5 w-5 shrink-0 rounded-full bg-accent" />
+      <SectionLabel>{children}</SectionLabel>
+      {trailing && <div className="ml-auto shrink-0">{trailing}</div>}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------- lists */
+
+/**
+ * A card whose children are <ListRow>s, divided by hairlines rather than by
+ * gaps — the app's standard way to show a list of destinations or records.
+ * `overflow-hidden` is what keeps the first/last row's corners inside the card
+ * radius, so callers never have to round the rows themselves.
+ */
+export function ListCard({
+  className = "",
+  ...props
+}: React.HTMLAttributes<HTMLDivElement>) {
+  return <Card pad={false} {...props} className={`overflow-hidden ${className}`} />;
+}
+
+/**
+ * One row of a <ListCard>: a name, an optional second line, an optional badge,
+ * and a chevron when the row goes somewhere.
+ *
+ * Pass `href` for a link or `onClick` for an in-page action — the row renders
+ * as the correct element either way, which is what keeps a tappable row from
+ * being a <div> with a click handler (invisible to a keyboard and to a screen
+ * reader). Rows are 56px tall so a thumb hits one and not its neighbour.
+ */
+export function ListRow({
+  href,
+  onClick,
+  label,
+  desc,
+  badge,
+  trailing,
+  chevron,
+  className = "",
+}: {
+  href?: string;
+  onClick?: () => void;
+  label: React.ReactNode;
+  desc?: React.ReactNode;
+  badge?: React.ReactNode;
+  trailing?: React.ReactNode;
+  /** Defaults to true for a row that navigates or acts, false for a static one. */
+  chevron?: boolean;
+  className?: string;
+}) {
+  const interactive = !!href || !!onClick;
+  const showChevron = chevron ?? interactive;
+  const inner = (
+    <>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-semibold tracking-tight">{label}</span>
+        {desc && (
+          <span className="mt-0.5 block truncate text-[11.5px] text-neutral-500 dark:text-neutral-400">
+            {desc}
+          </span>
+        )}
+      </span>
+      {badge}
+      {trailing}
+      {showChevron && (
+        <span
+          aria-hidden
+          className="shrink-0 text-lg leading-none text-neutral-300 transition group-hover:text-accent dark:text-neutral-600"
+        >
+          ›
+        </span>
+      )}
+    </>
+  );
+
+  // `group` + border-b/last:border-b-0 give the divided-list look without the
+  // caller having to know whether its row is the last one.
+  const base = `group flex min-h-[56px] w-full items-center gap-3 border-b border-line-soft px-3 py-2.5 text-left last:border-b-0 ${
+    interactive ? "transition hover:bg-accent/5 dark:hover:bg-white/5" : ""
+  } ${className}`;
+
+  if (href) {
+    return (
+      <Link href={href} className={`relative ${base}`}>
+        {inner}
+        <LinkPendingOverlay spinnerClassName="h-5 w-5" />
+      </Link>
+    );
+  }
+  if (onClick) {
+    return (
+      <button type="button" onClick={onClick} className={base}>
+        {inner}
+      </button>
+    );
+  }
+  return <div className={base}>{inner}</div>;
+}
+
+/* -------------------------------------------------------------- statement */
+
+/**
+ * The one figure a page is working toward — the month's total, a balance, a
+ * count — set at display size over a heavy ochre rule.
+ *
+ * Only ONE of these belongs on a page. Its whole job is to be the thing you can
+ * read at arm's length, and a second one immediately halves the first one's
+ * meaning. `sub` carries the breakdown; `footnote` carries the caveat (what the
+ * number excludes, what the other system will actually do with it).
+ */
+export function StatementBlock({
+  label,
+  value,
+  sub,
+  footnote,
+  className = "",
+}: {
+  label: React.ReactNode;
+  value: React.ReactNode;
+  sub?: React.ReactNode;
+  footnote?: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={`border-t-[3px] border-accent pt-3 ${className}`}>
+      <SectionLabel>{label}</SectionLabel>
+      <p className="mt-1 text-[32px] font-bold leading-none tracking-tight tabular-nums">{value}</p>
+      {sub && <p className="mt-1.5 text-xs text-neutral-500 dark:text-neutral-400">{sub}</p>}
+      {footnote && (
+        <p className="mt-2.5 border-l-2 border-line pl-2.5 text-[11px] leading-relaxed text-neutral-500 dark:text-neutral-400">
+          {footnote}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------- chips */
+
+export type ChipTone = "neutral" | "warning" | "info" | "success" | "danger" | "accent";
+
+const CHIP_TONE: Record<ChipTone, string> = {
+  neutral: "bg-neutral-200 text-neutral-600 dark:bg-neutral-700 dark:text-neutral-300",
+  warning: "bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-300",
+  info: "bg-sky-100 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300",
+  success: "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300",
+  danger: "bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-300",
+  accent: "bg-accent/15 text-accent dark:text-accent-soft",
+};
+
+/**
+ * A status mark — draft, No file, invoiced, ✓ Reviewed, over budget.
+ *
+ * State gets a COLOUR and a shape here rather than a sentence, so a list can be
+ * scanned without being read. The semantic tones are deliberately separate from
+ * the brand accent: ochre means "this is Ascent", amber/red mean "look at this",
+ * and letting the two blur would cost the alert its urgency.
+ */
+export function Chip({
+  tone = "neutral",
+  className = "",
+  children,
+  title,
+}: {
+  tone?: ChipTone;
+  className?: string;
+  children: React.ReactNode;
+  title?: string;
+}) {
+  return (
+    <span
+      title={title}
+      className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${CHIP_TONE[tone]} ${className}`}
+    >
+      {children}
+    </span>
+  );
+}
+
+/** "Something is waiting here" count pill — a badge means queued work, never a total. */
+export function CountBadge({ n, className = "" }: { n: number; className?: string }) {
+  return (
+    <span
+      aria-label={`${n} waiting`}
+      className={`shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold tabular-nums text-amber-800 dark:bg-amber-950/50 dark:text-amber-300 ${className}`}
+    >
+      {n}
+    </span>
+  );
+}
+
+/**
+ * A horizontal, swipeable row — filter chips, headroom cards, anything that is
+ * a set you scan sideways rather than a list you scroll down.
+ *
+ * The negative margin + matching padding is what lets the row bleed to the
+ * screen edges inside a padded page, so the last item is visibly cut off and
+ * the row reads as scrollable. `bleed` is the page's own horizontal padding.
+ */
+export function ChipScroller({
+  children,
+  bleed = "1rem",
+  className = "",
+}: {
+  children: React.ReactNode;
+  bleed?: string;
+  className?: string;
+}) {
+  return (
+    <div
+      className={`flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${className}`}
+      style={{ marginInline: `-${bleed}`, paddingInline: bleed }}
+    >
+      {children}
+    </div>
+  );
+}
+
+/** A filter toggle styled as a pill. Filled in the accent when on. */
+export function FilterChip({
+  on,
+  onClick,
+  children,
+  title,
+  className = "",
+}: {
+  on: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+  title?: string;
+  className?: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={on}
+      title={title}
+      className={`inline-flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3.5 text-[12.5px] font-semibold transition ${
+        on
+          ? "border-accent bg-accent text-accent-fg"
+          : "border-line bg-white text-neutral-500 hover:border-accent dark:bg-ink-raised dark:text-neutral-400"
+      } ${className}`}
+    >
+      {children}
+    </button>
+  );
+}
+
+/* ------------------------------------------------------------------ meters */
+
+/**
+ * Budget-usage meter — amber past 90%, red past 100%.
+ *
+ * The dark track is `white/10`, NOT `neutral-800`: neutral-800 (#262626) sits
+ * within a couple of points of the raised card it's drawn on (#23231E), so the
+ * unfilled part of every bar was invisible and a bar at 30% read as one at 100%.
+ */
+export function Meter({
+  budget,
+  used,
+  label,
+  className = "mt-0.5 h-1",
+}: {
+  budget: number;
+  used: number;
+  label: string;
+  className?: string;
+}) {
+  const pct = budget > 0 ? used / budget : used > 0 ? 1 : 0;
+  const over = budget > 0 && used > budget;
+  const near = !over && pct >= 0.9;
+  return (
+    <div
+      className={`w-full overflow-hidden rounded-full bg-neutral-200 dark:bg-white/10 ${className}`}
+      role="progressbar"
+      aria-valuenow={Math.round(pct * 100)}
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-label={`${label} budget used`}
+    >
+      <div
+        className={`h-full rounded-full transition-all ${
+          over ? "bg-red-500" : near ? "bg-amber-500" : "bg-accent"
+        }`}
+        style={{ width: `${Math.min(pct, 1) * 100}%` }}
+      />
+    </div>
+  );
+}
+
+/* -------------------------------------------------------- sticky action bar */
+
+/**
+ * The bar that carries a page's commit action (Sync, Save, Post) and pins
+ * itself to the bottom of the screen while there is something to commit.
+ *
+ * It sits ABOVE the tab bar via `--tabbar-h` (see globals.css) rather than a
+ * hardcoded offset, so the two can never overlap and neither has to know the
+ * other's height. Show it only when there IS a staged change — a permanently
+ * docked bar spends the screen's most valuable strip on a disabled button.
+ */
+export function StickyActionBar({
+  children,
+  className = "",
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      className={`sticky z-10 -mx-4 flex items-center gap-2 border-t border-line bg-cream/95 px-4 py-2.5 backdrop-blur dark:bg-ink/95 print:hidden ${className}`}
+      style={{ bottom: "var(--tabbar-h, 0px)" }}
+    >
+      {children}
+    </div>
   );
 }
 
@@ -234,15 +620,6 @@ export function EmptyState({
 
 /* ------------------------------------------------------------------ loading */
 
-export function Spinner({ className = "" }: { className?: string }) {
-  return (
-    <span
-      aria-hidden
-      className={`inline-block h-3.5 w-3.5 shrink-0 animate-spin rounded-full border-2 border-neutral-300 border-t-accent dark:border-neutral-600 dark:border-t-accent ${className}`}
-    />
-  );
-}
-
 export function Loading({ label = "Loading…" }: { label?: string }) {
   return (
     <p role="status" className="flex items-center gap-2 text-sm text-neutral-500">
@@ -265,7 +642,7 @@ export function CardSkeletonList({ rows = 3 }: { rows?: number }) {
       {Array.from({ length: rows }).map((_, i) => (
         <li
           key={i}
-          className="rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-700/60 dark:bg-ink-raised"
+          className="rounded-xl border border-line bg-white p-3 dark:bg-ink-raised"
         >
           <div className="flex items-start justify-between gap-3">
             <Skeleton className="h-4 w-2/3" />

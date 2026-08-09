@@ -3,6 +3,7 @@ import type { Metadata, Viewport } from "next";
 import { Roboto, Roboto_Mono } from "next/font/google";
 import "./globals.css";
 import { AppHeader } from "@/components/AppHeader";
+import { TabBar } from "@/components/TabBar";
 import { AccessProvider } from "@/components/AccessProvider";
 import { RefreshBoundary, RefreshProvider } from "@/components/RefreshProvider";
 import { StuckVendorPopup, StuckVendorsProvider } from "@/components/StuckVendors";
@@ -99,6 +100,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 <AppHeader />
               </Suspense>
               <RefreshBoundary>{children}</RefreshBoundary>
+              {/* Bottom tab bar — the fast path between the pages opened all
+                  day. Gated on the same view ids as the launcher, so it only
+                  ever shows destinations this role can actually reach. */}
+              <Suspense fallback={null}>
+                <TabBar />
+              </Suspense>
               <StuckVendorPopup />
             </StuckVendorsProvider>
           </RefreshProvider>

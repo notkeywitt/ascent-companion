@@ -98,7 +98,7 @@ async function UnbilledData({ jobId }: { jobId: string }) {
       </div>
 
       {rollup.length > 0 && (
-        <div className="overflow-x-auto rounded-xl border border-neutral-200 bg-white dark:border-neutral-700/60 dark:bg-ink-raised">
+        <div className="overflow-x-auto rounded-xl border border-line bg-white dark:bg-ink-raised">
           <table className="w-full text-sm">
             <thead className="bg-neutral-50 text-left text-xs uppercase tracking-wide text-neutral-500 dark:bg-white/5">
               <tr>
@@ -110,7 +110,7 @@ async function UnbilledData({ jobId }: { jobId: string }) {
             </thead>
             <tbody>
               {rollup.map((r, i) => (
-                <tr key={i} className="border-t border-neutral-100 dark:border-neutral-800">
+                <tr key={i} className="border-t border-line-soft">
                   <td className="px-3 py-2">
                     <span className="font-medium">{r.type}</span>{" "}
                     <span className="text-neutral-500">

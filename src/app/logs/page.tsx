@@ -108,7 +108,7 @@ export default function LogsPage() {
         {items.map((it, i) => (
           <li
             key={i}
-            className="rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-700/60 dark:bg-ink-raised"
+            className="rounded-xl border border-line bg-white p-3 dark:bg-ink-raised"
           >
             <div className="flex flex-wrap items-center gap-2">
               <span className="font-mono text-xs text-neutral-500">{it.timestamp}</span>

@@ -520,7 +520,7 @@ export function JobsBrowser() {
                     <div className="overflow-x-auto">
                       <table className="w-full min-w-full text-sm">
                         <thead>
-                          <tr className="border-b border-neutral-200 text-neutral-400 dark:border-neutral-700/60">
+                          <tr className="border-b border-line text-neutral-400 ">
                             <th className="py-1.5 pl-3 pr-3 text-left text-[11px] font-semibold uppercase tracking-wide">
                               Code / Item
                             </th>
@@ -558,7 +558,7 @@ export function JobsBrowser() {
                             return (
                               <FragmentRows key={d.division}>
                                 {/* ---- level 1: CSI division ---- */}
-                                <tr className="border-b border-neutral-100 bg-neutral-50/60 dark:border-neutral-800 dark:bg-white/[0.03]">
+                                <tr className="border-b border-line-soft bg-neutral-50/60 dark:border-neutral-800 dark:bg-white/[0.03]">
                                   <td className="py-1.5 pl-1 pr-3">
                                     <button
                                       type="button"
@@ -636,7 +636,7 @@ export function JobsBrowser() {
                                     const cLeft = c.budget - cActual;
                                     return (
                                       <FragmentRows key={key}>
-                                        <tr className="border-b border-neutral-100 dark:border-neutral-800">
+                                        <tr className="border-b border-line-soft">
                                           <td className="py-1.5 pl-1 pr-3">
                                             <button
                                               type="button"
@@ -701,7 +701,7 @@ export function JobsBrowser() {
                                           c.lines.map((l) => (
                                             <tr
                                               key={l.id}
-                                              className="border-b border-neutral-100 text-xs text-neutral-500 dark:border-neutral-800"
+                                              className="border-b border-line-soft text-xs text-neutral-500 dark:border-neutral-800"
                                             >
                                               <td className="py-1 pl-3 pr-3">
                                                 <span className="flex min-w-0 flex-col pl-11">

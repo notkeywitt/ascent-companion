@@ -32,6 +32,15 @@ export default {
         // Dark-mode surface scale: page (= offblack), raised cards, overlays
         // (menus/modals). Cards must sit LIGHTER than the page, not darker.
         ink: { DEFAULT: "#1B1B17", raised: "#23231E", overlay: "#2B2B25" },
+        // Hairlines, as theme variables (see globals.css) so `border-line`
+        // flips with the theme and no page has to spell out the
+        // `border-neutral-200 dark:border-neutral-700/60` pair again.
+        // `line` edges a card; `line-soft` divides rows INSIDE one.
+        line: {
+          DEFAULT: "rgb(var(--line) / <alpha-value>)",
+          soft: "rgb(var(--line-soft) / <alpha-value>)",
+          strong: "rgb(var(--line-strong) / <alpha-value>)",
+        },
       },
       fontFamily: {
         // Brand web typeface (p.22). LL Medium is the print primary; Roboto is

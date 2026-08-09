@@ -1,0 +1,1872 @@
+<title>Ascent Assistant — mobile redesign, two options</title>
+
+<style>
+/* =========================================================================
+   PAGE CHROME TOKENS  (the document around the mockups)
+   Light is the base; dark redefines tokens only. Components never read a
+   color from inside a media/[data-theme] block.
+   ========================================================================= */
+:root {
+  --brand-cream: #faf7ee;
+  --brand-offblack: #1b1b17;
+  --brand-ochre: #cf9803;
+  --brand-olive: #878054;
+  --brand-grey: #8d8d8b;
+
+  --page-bg: #ebe6d8;
+  --page-panel: #f7f4ec;
+  --page-ink: #1b1b17;
+  --page-dim: #6f6a5c;
+  --page-line: #d9d2bf;
+  --page-rule: #cf9803;
+  --page-chip: #e2dcc9;
+  --shadow: 0 1px 2px rgba(27, 27, 23, .06), 0 12px 32px -18px rgba(27, 27, 23, .5);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --page-bg: #12120e;
+    --page-panel: #1b1b17;
+    --page-ink: #ece8db;
+    --page-dim: #9d988a;
+    --page-line: #33332b;
+    --page-rule: #9a9260;
+    --page-chip: #2b2b25;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .5), 0 14px 36px -18px rgba(0, 0, 0, .9);
+  }
+}
+:root[data-theme="dark"] {
+  --page-bg: #12120e;
+  --page-panel: #1b1b17;
+  --page-ink: #ece8db;
+  --page-dim: #9d988a;
+  --page-line: #33332b;
+  --page-rule: #9a9260;
+  --page-chip: #2b2b25;
+  --shadow: 0 1px 2px rgba(0, 0, 0, .5), 0 14px 36px -18px rgba(0, 0, 0, .9);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--page-bg);
+  color: var(--page-ink);
+  font-family: Roboto, "Roboto Flex", "Helvetica Neue", Arial, system-ui, sans-serif;
+  font-size: 16px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+.wrap {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 40px 20px 96px;
+  display: flex;
+  flex-direction: column;
+  gap: 44px;
+}
+
+/* ------------------------------------------------------------- typography */
+.eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--page-dim);
+  margin: 0;
+}
+h1 {
+  margin: 6px 0 0;
+  font-size: clamp(30px, 6vw, 46px);
+  line-height: 1.04;
+  font-weight: 800;
+  letter-spacing: -.025em;
+  text-wrap: balance;
+}
+h2 {
+  margin: 0;
+  font-size: clamp(22px, 4vw, 30px);
+  line-height: 1.12;
+  font-weight: 800;
+  letter-spacing: -.02em;
+  text-wrap: balance;
+}
+h3 {
+  margin: 0 0 6px;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -.01em;
+}
+p { margin: 0; }
+.lede {
+  max-width: 62ch;
+  font-size: 17px;
+  color: var(--page-dim);
+}
+.note { font-size: 14px; color: var(--page-dim); max-width: 68ch; }
+strong { font-weight: 700; }
+code {
+  font-family: "Roboto Mono", ui-monospace, monospace;
+  font-size: .9em;
+  background: var(--page-chip);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+.rule {
+  height: 3px;
+  width: 46px;
+  background: var(--page-rule);
+  border-radius: 2px;
+}
+
+/* ----------------------------------------------------------------- panels */
+.panel {
+  background: var(--page-panel);
+  border: 1px solid var(--page-line);
+  border-radius: 14px;
+  padding: 22px;
+}
+.grid2 {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+.bullets {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  font-size: 14.5px;
+  color: var(--page-dim);
+}
+.bullets b { color: var(--page-ink); font-weight: 600; }
+
+/* --------------------------------------------------------- option heading */
+.opt-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+}
+.opt-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--page-dim);
+}
+.opt-tag i {
+  width: 18px;
+  height: 18px;
+  border-radius: 3px;
+  background: var(--brand-ochre);
+  display: inline-block;
+}
+.opt-b .opt-tag i { background: var(--brand-olive); }
+
+/* theme switch above each option's frames */
+.switch {
+  display: inline-flex;
+  padding: 3px;
+  gap: 3px;
+  border: 1px solid var(--page-line);
+  border-radius: 999px;
+  background: var(--page-panel);
+}
+.switch button {
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  border: 0;
+  cursor: pointer;
+  border-radius: 999px;
+  padding: 6px 14px;
+  background: transparent;
+  color: var(--page-dim);
+}
+.switch button[aria-pressed="true"] {
+  background: var(--page-ink);
+  color: var(--page-bg);
+}
+.switch button:focus-visible { outline: 2px solid var(--page-rule); outline-offset: 2px; }
+
+/* ----------------------------------------------------------- phone frames */
+.frames {
+  display: grid;
+  gap: 26px;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 390px));
+  justify-content: start;
+}
+figure { margin: 0; display: flex; flex-direction: column; gap: 10px; }
+figcaption {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--page-dim);
+}
+.phone {
+  width: 100%;
+  border: 1px solid var(--page-line);
+  border-radius: 26px;
+  padding: 8px;
+  background: var(--page-panel);
+  box-shadow: var(--shadow);
+}
+
+/* =========================================================================
+   MOCKUP TOKENS  (inside the phone screens only)
+   These deliberately do NOT follow the viewer's theme — each option has its
+   own Light/Dark switch, because both app themes are part of the proposal.
+   ========================================================================= */
+.screen {
+  --m-bg: #faf7ee;
+  --m-card: #ffffff;
+  --m-line: #e7e1d1;
+  --m-line-soft: #f0ebdd;
+  --m-ink: #1b1b17;
+  --m-dim: #75705f;
+  --m-faint: #9a9483;
+  --m-accent: #cf9803;
+  --m-accent-fg: #faf7ee;
+  --m-accent-tint: rgba(207, 152, 3, .12);
+  --m-accent-text: #1b1b17;
+  --m-hero: #1b1b17;
+  --m-hero-ink: #f2eee1;
+  --m-hero-dim: #a8a293;
+  --m-hero-line: #34342c;
+  --m-hero-accent: #cf9803;
+  --m-amber-bg: #fdf2dc;
+  --m-amber-ink: #93610a;
+  --m-red: #c62f2f;
+  --m-red-bg: #fbe9e9;
+  --m-sky-bg: #e2eef8;
+  --m-sky-ink: #1d5f8c;
+  --m-green-bg: #e3f0e7;
+  --m-green-ink: #17683f;
+  --m-track: #e7e1d1;
+
+  height: 740px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  border-radius: 20px;
+  background: var(--m-bg);
+  color: var(--m-ink);
+  font-size: 14px;
+  line-height: 1.45;
+  position: relative;
+  scrollbar-width: thin;
+}
+.screen.is-dark {
+  --m-bg: #1b1b17;
+  --m-card: #23231e;
+  --m-line: #33332b;
+  --m-line-soft: #2a2a24;
+  --m-ink: #ece8db;
+  --m-dim: #a49e8e;
+  --m-faint: #7d7869;
+  --m-accent: #9a9260;
+  --m-accent-fg: #1b1b17;
+  --m-accent-tint: rgba(154, 146, 96, .18);
+  --m-accent-text: #cfc8a6;
+  --m-hero: #23231e;
+  --m-hero-ink: #ece8db;
+  --m-hero-dim: #a49e8e;
+  --m-hero-line: #3a3a31;
+  --m-hero-accent: #9a9260;
+  --m-amber-bg: rgba(146, 97, 10, .22);
+  --m-amber-ink: #e2b25c;
+  --m-red: #e87676;
+  --m-red-bg: rgba(198, 47, 47, .18);
+  --m-sky-bg: rgba(29, 95, 140, .24);
+  --m-sky-ink: #8ec2e6;
+  --m-green-bg: rgba(23, 104, 63, .24);
+  --m-green-ink: #74c295;
+  --m-track: rgba(255, 255, 255, .12);
+}
+
+.screen ::selection { background: rgba(207, 152, 3, .3); }
+.screen svg.i { width: 20px; height: 20px; display: block; }
+.screen .tnum { font-variant-numeric: tabular-nums; }
+
+/* ---------------------------------------------------- shared mock atoms */
+.m-eyebrow {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: .13em;
+  text-transform: uppercase;
+  color: var(--m-faint);
+}
+.m-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border-radius: 5px;
+  padding: 2px 6px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+}
+.c-draft { background: var(--m-line); color: var(--m-dim); }
+.c-file  { background: var(--m-amber-bg); color: var(--m-amber-ink); }
+.c-inv   { background: var(--m-sky-bg); color: var(--m-sky-ink); }
+.c-ok    { background: var(--m-green-bg); color: var(--m-green-ink); }
+.c-moved { background: var(--m-amber-bg); color: var(--m-amber-ink); }
+
+.m-code {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  border-radius: 6px;
+  padding: 3px 7px;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  background: var(--m-line-soft);
+  color: var(--m-dim);
+}
+.screen.is-dark .m-code { background: rgba(255, 255, 255, .07); }
+.m-code.over { background: var(--m-red-bg); color: var(--m-red); }
+
+.m-meter {
+  height: 4px;
+  border-radius: 99px;
+  background: var(--m-track);
+  overflow: hidden;
+}
+.m-meter span { display: block; height: 100%; border-radius: 99px; background: var(--m-accent); }
+.m-meter span.warn { background: #d99b1f; }
+.m-meter span.over { background: var(--m-red); }
+
+.m-btn {
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 700;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  padding: 11px 14px;
+  cursor: default;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.m-btn.primary { background: var(--m-accent); color: var(--m-accent-fg); }
+.m-btn.secondary { border-color: var(--m-line); color: var(--m-dim); background: transparent; }
+
+/* ============================ OPTION A — "Ledger" ======================== */
+/* Flat hairline-divided lists, ochre rule as the only ornament. */
+
+.a-bar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--m-bg);
+  background: color-mix(in srgb, var(--m-bg) 94%, transparent);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--m-line);
+}
+.a-bar .top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+}
+.a-logo { display: flex; align-items: center; gap: 8px; }
+.a-logo .sq { width: 26px; height: 26px; border-radius: 3px; }
+.a-logo .wm {
+  display: flex;
+  flex-direction: column;
+  line-height: .98;
+  letter-spacing: .13em;
+  font-size: 10.5px;
+  font-weight: 600;
+}
+.a-bar .icons { margin-left: auto; display: flex; gap: 2px; color: var(--m-dim); }
+.a-bar .icons span {
+  width: 34px; height: 34px;
+  display: grid; place-items: center;
+  border-radius: 8px;
+}
+.a-job {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px 9px;
+  border-top: 1px solid var(--m-line-soft);
+}
+.a-job .lbl { font-size: 10px; font-weight: 700; letter-spacing: .13em; color: var(--m-faint); display: block; }
+.a-job .val { display: block; font-size: 13.5px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.a-job .sub { display: block; font-size: 11.5px; color: var(--m-faint); }
+.a-job .caret { margin-left: auto; color: var(--m-faint); }
+
+.a-body { padding: 14px 14px 28px; display: flex; flex-direction: column; gap: 18px; }
+
+.a-alert {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: var(--m-amber-bg);
+  color: var(--m-amber-ink);
+  font-size: 13px;
+  font-weight: 600;
+}
+.a-alert .n {
+  font-variant-numeric: tabular-nums;
+  background: var(--m-amber-ink);
+  color: var(--m-amber-bg);
+  border-radius: 99px;
+  min-width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+}
+
+.a-search {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  border: 1px solid var(--m-line);
+  border-radius: 11px;
+  background: var(--m-card);
+  padding: 11px 12px;
+  color: var(--m-faint);
+  font-size: 13.5px;
+}
+
+.a-quick {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+.a-quick a {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  padding: 12px 4px 11px;
+  border: 1px solid var(--m-line);
+  border-radius: 12px;
+  background: var(--m-card);
+  text-decoration: none;
+  color: inherit;
+}
+.a-quick .glyph {
+  width: 34px; height: 34px;
+  border-radius: 9px;
+  display: grid; place-items: center;
+  background: var(--m-accent-tint);
+  color: var(--m-accent-text);
+}
+.screen.is-dark .a-quick .glyph { color: var(--m-accent-text); }
+.a-quick .lbl { font-size: 11.5px; font-weight: 700; letter-spacing: -.01em; }
+
+.a-sec { display: flex; flex-direction: column; gap: 8px; }
+.a-sec-head { display: flex; align-items: center; gap: 9px; }
+.a-sec-head .bar { width: 22px; height: 2px; background: var(--m-accent); border-radius: 2px; }
+.a-sec-head .count { margin-left: auto; font-size: 11px; color: var(--m-faint); font-variant-numeric: tabular-nums; }
+
+.a-list {
+  border: 1px solid var(--m-line);
+  border-radius: 12px;
+  background: var(--m-card);
+  overflow: hidden;
+}
+.a-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 13px;
+  border-bottom: 1px solid var(--m-line-soft);
+  min-height: 56px;
+}
+.a-row:last-child { border-bottom: 0; }
+.a-row .txt { min-width: 0; flex: 1; }
+.a-row .name { display: block; font-size: 14px; font-weight: 600; letter-spacing: -.01em; }
+.a-row .desc {
+  display: block;
+  font-size: 11.5px;
+  color: var(--m-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.a-row .caret { color: var(--m-faint); font-size: 17px; line-height: 1; }
+.a-row .badge {
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  background: var(--m-amber-bg);
+  color: var(--m-amber-ink);
+  border-radius: 99px;
+  padding: 1px 8px;
+}
+.a-more {
+  width: 100%;
+  text-align: left;
+  padding: 11px 13px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--m-dim);
+  background: transparent;
+  border: 0;
+  border-top: 1px solid var(--m-line-soft);
+  font-family: inherit;
+}
+
+.a-foot {
+  border-top: 1px solid var(--m-line);
+  padding-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: flex-start;
+}
+.a-foot .who { font-size: 12px; color: var(--m-faint); }
+
+/* --------------------------- Option A · Client Invoicing ---------------- */
+.a-page-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--m-line-soft);
+}
+.a-page-head .title { font-size: 13px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
+.a-month {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--m-line);
+  border-radius: 99px;
+  padding: 6px 12px;
+  font-size: 12.5px;
+  font-weight: 700;
+  background: var(--m-card);
+}
+
+.a-statement {
+  border-top: 3px solid var(--m-accent);
+  padding-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.a-statement .fig {
+  font-size: 34px;
+  font-weight: 800;
+  letter-spacing: -.03em;
+  line-height: 1.02;
+  font-variant-numeric: tabular-nums;
+}
+.a-statement .split { font-size: 12px; color: var(--m-dim); }
+.a-statement .jt {
+  margin-top: 8px;
+  font-size: 11.5px;
+  color: var(--m-faint);
+  border-left: 2px solid var(--m-line);
+  padding-left: 9px;
+}
+.a-statement .jt a { color: var(--m-accent-text); font-weight: 600; text-decoration: none; border-bottom: 1px solid var(--m-accent); }
+
+.a-scroll {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  margin: 0 -14px;
+  padding-left: 14px;
+  padding-right: 14px;
+  scrollbar-width: none;
+}
+.a-scroll::-webkit-scrollbar { display: none; }
+.a-filter {
+  flex: 0 0 auto;
+  border: 1px solid var(--m-line);
+  border-radius: 99px;
+  padding: 8px 13px;
+  font-size: 12.5px;
+  font-weight: 600;
+  background: var(--m-card);
+  color: var(--m-dim);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.a-filter.on {
+  background: var(--m-accent);
+  border-color: var(--m-accent);
+  color: var(--m-accent-fg);
+}
+
+.a-headroom { flex: 0 0 168px; border: 1px solid var(--m-line); border-radius: 11px; background: var(--m-card); padding: 10px 11px; }
+.a-headroom .code { font-size: 11px; color: var(--m-faint); font-variant-numeric: tabular-nums; }
+.a-headroom .nm { font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.a-headroom .left { font-size: 15px; font-weight: 800; font-variant-numeric: tabular-nums; margin-top: 3px; letter-spacing: -.02em; }
+.a-headroom .left.neg { color: var(--m-red); }
+.a-headroom .m-meter { margin-top: 7px; }
+
+.a-seg {
+  display: inline-flex;
+  border: 1px solid var(--m-line);
+  border-radius: 9px;
+  padding: 2px;
+  gap: 2px;
+  background: var(--m-card);
+}
+.a-seg button {
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 700;
+  border: 0;
+  border-radius: 7px;
+  padding: 6px 10px;
+  background: transparent;
+  color: var(--m-dim);
+}
+.a-seg button[aria-pressed="true"] { background: var(--m-accent); color: var(--m-accent-fg); }
+
+.a-bill {
+  display: flex;
+  border: 1px solid var(--m-line);
+  border-radius: 12px;
+  background: var(--m-card);
+  overflow: hidden;
+}
+.a-bill .stripe { width: 3px; flex: 0 0 3px; background: transparent; }
+.a-bill .stripe.draft { background: var(--m-amber-ink); }
+.a-bill .stripe.inv { background: var(--m-sky-ink); }
+.a-bill .stripe.over { background: var(--m-red); }
+.a-bill .inner { flex: 1; min-width: 0; padding: 12px 12px 11px; display: flex; flex-direction: column; gap: 7px; }
+.a-bill .line1 { display: flex; align-items: baseline; gap: 10px; }
+.a-bill .vend { flex: 1; min-width: 0; font-size: 14px; font-weight: 700; letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.a-bill .amt { font-size: 15px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+.a-bill .meta { font-size: 11.5px; color: var(--m-faint); }
+.a-bill .chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.a-bill .jt {
+  flex: 0 0 auto;
+  border-left: 1px solid var(--m-line-soft);
+  display: grid;
+  place-items: center;
+  width: 40px;
+  color: var(--m-faint);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.a-sticky {
+  position: sticky;
+  bottom: 0;
+  margin: 0 -14px -28px;
+  padding: 11px 14px calc(11px + env(safe-area-inset-bottom));
+  background: var(--m-bg);
+  background: color-mix(in srgb, var(--m-bg) 95%, transparent);
+  backdrop-filter: blur(8px);
+  border-top: 1px solid var(--m-line);
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.a-sticky .staged { font-size: 12px; font-weight: 700; color: var(--m-amber-ink); flex: 1; }
+
+/* ============================ OPTION B — "Console" ====================== */
+/* Off-black hero carrying the number that matters, cream body of tiles,
+   persistent bottom tab bar. */
+
+/* The B screens are flex columns so the tab bar can sit at the bottom of a
+   short page. Their panels must not shrink to fit the fixed frame height —
+   the screen scrolls instead. */
+.screen > .b-hero,
+.screen > .b-body,
+.screen > .b-actionbar,
+.screen > .b-tabs { flex: 0 0 auto; }
+
+.b-hero {
+  background: var(--m-hero);
+  color: var(--m-hero-ink);
+  padding: 14px 16px 20px;
+  border-radius: 0 0 20px 20px;
+  position: relative;
+  overflow: hidden;
+}
+.b-hero::after {
+  content: "";
+  position: absolute;
+  right: -26px;
+  bottom: -46px;
+  width: 190px;
+  height: 120px;
+  background: var(--m-hero-accent);
+  opacity: .1;
+  clip-path: polygon(6% 100%, 34% 24%, 42% 40%, 54% 3%, 94% 100%);
+  pointer-events: none;
+}
+.b-hero .top { display: flex; align-items: center; gap: 10px; position: relative; z-index: 1; }
+.b-hero .top .icons { margin-left: auto; display: flex; gap: 4px; color: var(--m-hero-dim); }
+.b-hero .top .icons span { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 9px; background: rgba(255,255,255,.06); }
+.b-hero .wm { display: flex; flex-direction: column; line-height: .98; letter-spacing: .13em; font-size: 10.5px; font-weight: 600; color: var(--m-hero-ink); }
+.b-hero .sq { width: 26px; height: 26px; border-radius: 3px; }
+
+.b-greet { position: relative; z-index: 1; margin-top: 20px; }
+.b-greet .day { font-size: 10.5px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--m-hero-dim); }
+.b-greet .head { font-size: 25px; font-weight: 800; letter-spacing: -.03em; line-height: 1.08; margin-top: 5px; }
+.b-greet .head em { font-style: normal; color: var(--m-hero-accent); }
+
+.b-stats { position: relative; z-index: 1; display: flex; gap: 7px; margin-top: 15px; flex-wrap: wrap; }
+.b-stat {
+  flex: 1 1 0;
+  min-width: 92px;
+  border: 1px solid var(--m-hero-line);
+  border-radius: 11px;
+  padding: 9px 10px;
+  background: rgba(255, 255, 255, .04);
+}
+.b-stat .n { font-size: 17px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+.b-stat .n.alert { color: #e0a63c; }
+.b-stat .l { font-size: 10.5px; color: var(--m-hero-dim); line-height: 1.25; margin-top: 1px; }
+
+.b-jobpill {
+  position: relative;
+  z-index: 1;
+  margin-top: 15px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--m-hero-line);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, .05);
+}
+.b-jobpill .lbl { font-size: 10px; font-weight: 700; letter-spacing: .13em; color: var(--m-hero-dim); }
+.b-jobpill .val { font-size: 13.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.b-jobpill .caret { margin-left: auto; color: var(--m-hero-dim); }
+
+.b-body { padding: 20px 16px 96px; display: flex; flex-direction: column; gap: 20px; }
+.b-sec { display: flex; flex-direction: column; gap: 10px; }
+.b-sec-head { display: flex; align-items: baseline; gap: 10px; }
+.b-sec-head .link { margin-left: auto; font-size: 11.5px; font-weight: 700; color: var(--m-accent-text); }
+
+.b-quick { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.b-quick a {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 14px 13px;
+  border-radius: 14px;
+  background: var(--m-card);
+  border: 1px solid var(--m-line);
+  text-decoration: none;
+  color: inherit;
+}
+.b-quick .glyph {
+  width: 38px; height: 38px;
+  flex: 0 0 38px;
+  border-radius: 11px;
+  display: grid; place-items: center;
+  background: var(--m-accent);
+  color: var(--m-accent-fg);
+}
+.b-quick a > span:last-child { min-width: 0; }
+.b-quick .lbl { display: block; font-size: 13.5px; font-weight: 700; letter-spacing: -.01em; }
+.b-quick .sub { display: block; font-size: 10.5px; color: var(--m-faint); }
+
+.b-tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.b-tile {
+  border: 1px solid var(--m-line);
+  border-radius: 14px;
+  background: var(--m-card);
+  padding: 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 116px;
+  position: relative;
+}
+.b-tile .glyph {
+  width: 32px; height: 32px;
+  border-radius: 9px;
+  display: grid; place-items: center;
+  background: var(--m-accent-tint);
+  color: var(--m-accent-text);
+}
+.b-tile .nm { font-size: 14px; font-weight: 800; letter-spacing: -.015em; }
+.b-tile .pages { font-size: 11px; color: var(--m-faint); margin-top: auto; }
+.b-tile .badge {
+  position: absolute;
+  top: 11px; right: 11px;
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  background: var(--m-amber-bg);
+  color: var(--m-amber-ink);
+  border-radius: 99px;
+  padding: 1px 8px;
+}
+
+.b-tabs {
+  position: sticky;
+  bottom: 0;
+  margin-top: auto;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  border-top: 1px solid var(--m-line);
+  background: var(--m-bg);
+  background: color-mix(in srgb, var(--m-bg) 95%, transparent);
+  backdrop-filter: blur(10px);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.b-tabs .tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  height: 62px;
+  color: var(--m-faint);
+  font-size: 10.5px;
+  font-weight: 600;
+}
+.b-tabs .tab.on { color: var(--m-accent-text); }
+.b-tabs .tab.on .dot { background: var(--m-accent); }
+.b-tabs .dot { width: 16px; height: 2px; border-radius: 2px; background: transparent; margin-bottom: 1px; }
+
+/* --------------------------- Option B · Client Invoicing ---------------- */
+.b-hero.page .top .back { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 9px; background: rgba(255,255,255,.06); }
+.b-hero.page .ptitle { font-size: 14px; font-weight: 700; letter-spacing: -.01em; }
+.b-monthpill {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--m-hero-line);
+  border-radius: 99px;
+  padding: 7px 12px;
+  font-size: 12.5px;
+  font-weight: 700;
+  background: rgba(255, 255, 255, .05);
+}
+.b-fig { position: relative; z-index: 1; margin-top: 22px; }
+.b-fig .lbl { font-size: 10.5px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--m-hero-dim); }
+.b-fig .n {
+  font-size: 40px;
+  font-weight: 800;
+  letter-spacing: -.035em;
+  line-height: 1;
+  margin-top: 6px;
+  font-variant-numeric: tabular-nums;
+}
+.b-split { position: relative; z-index: 1; display: flex; gap: 9px; margin-top: 16px; }
+/* Direct children only — `.b-split div` would also box the .k/.v lines inside. */
+.b-split > div { flex: 1; border-radius: 11px; border: 1px solid var(--m-hero-line); padding: 9px 11px; background: rgba(255,255,255,.04); }
+.b-split .k { font-size: 10.5px; color: var(--m-hero-dim); }
+.b-split .v { font-size: 15px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -.02em; margin-top: 1px; }
+.b-progress { position: relative; z-index: 1; margin-top: 15px; }
+.b-progress .track { height: 6px; border-radius: 99px; background: rgba(255,255,255,.12); overflow: hidden; display: flex; }
+.b-progress .track i { display: block; height: 100%; }
+.b-progress .track i.approved { background: var(--m-hero-accent); }
+.b-progress .track i.drafts { background: rgba(207, 152, 3, .38); }
+.screen.is-dark .b-progress .track i.drafts { background: rgba(154, 146, 96, .42); }
+.b-progress .key { display: flex; gap: 14px; margin-top: 8px; font-size: 10.5px; color: var(--m-hero-dim); }
+.b-progress .key i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 5px; }
+/* Swatches follow the theme's accent, never a literal — olive in dark. */
+.b-progress .key i.k-approved { background: var(--m-hero-accent); }
+.b-progress .key i.k-drafts { background: var(--m-hero-accent); opacity: .38; }
+.b-progress .key i.k-left { background: rgba(255, 255, 255, .14); }
+.b-progress .track i.drafts { background: var(--m-hero-accent); opacity: .38; }
+
+.b-headroom { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+.b-hcard { border: 1px solid var(--m-line); border-radius: 12px; background: var(--m-card); padding: 11px; }
+.b-hcard .code { font-size: 10.5px; color: var(--m-faint); font-variant-numeric: tabular-nums; }
+.b-hcard .nm { font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.b-hcard .left { font-size: 16px; font-weight: 800; letter-spacing: -.02em; font-variant-numeric: tabular-nums; margin-top: 4px; }
+.b-hcard .left.neg { color: var(--m-red); }
+.b-hcard .m-meter { margin-top: 7px; }
+.b-hcard .pct { font-size: 10.5px; color: var(--m-faint); margin-top: 5px; }
+
+.b-daygroup { display: flex; flex-direction: column; gap: 8px; }
+.b-day {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: .13em;
+  text-transform: uppercase;
+  color: var(--m-faint);
+}
+.b-day .ln { flex: 1; height: 1px; background: var(--m-line); }
+.b-bill {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  padding: 12px 12px;
+  border: 1px solid var(--m-line);
+  border-radius: 13px;
+  background: var(--m-card);
+}
+.b-bill .avatar {
+  width: 36px; height: 36px;
+  flex: 0 0 36px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 800;
+  background: var(--m-accent-tint);
+  color: var(--m-accent-text);
+}
+.b-bill .avatar.draft { background: var(--m-amber-bg); color: var(--m-amber-ink); }
+.b-bill .avatar.inv { background: var(--m-sky-bg); color: var(--m-sky-ink); }
+.b-bill .mid { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+.b-bill .vend { font-size: 13.5px; font-weight: 700; letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.b-bill .chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.b-bill .right { text-align: right; flex: 0 0 auto; }
+.b-bill .amt { display: block; font-size: 14.5px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+.b-bill .sub { display: block; font-size: 10.5px; color: var(--m-faint); }
+
+.b-actionbar {
+  position: sticky;
+  /* Rides directly above the tab bar (62px tall), not under it — two sticky
+     siblings both pinned to bottom:0 would stack on top of each other. */
+  bottom: 62px;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 11px 16px;
+  background: var(--m-hero);
+  color: var(--m-hero-ink);
+  border-radius: 16px 16px 0 0;
+}
+.b-actionbar .staged { flex: 1; font-size: 12px; font-weight: 700; }
+.b-actionbar .staged span { display: block; font-size: 10.5px; font-weight: 500; color: var(--m-hero-dim); }
+.b-actionbar .m-btn.secondary { border-color: rgba(255,255,255,.22); color: var(--m-hero-ink); }
+
+/* --------------------------------------------------------- comparison ---- */
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+.tablewrap { overflow-x: auto; }
+th, td { text-align: left; padding: 11px 12px; border-bottom: 1px solid var(--page-line); vertical-align: top; }
+th { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--page-dim); font-weight: 700; }
+td:first-child { font-weight: 600; white-space: nowrap; }
+tbody tr:last-child td { border-bottom: 0; }
+
+.decide { display: flex; flex-direction: column; gap: 12px; }
+.decide ol { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; font-size: 14.5px; color: var(--page-dim); }
+.decide ol b { color: var(--page-ink); }
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}
+</style>
+
+<!-- ===================== icon sprite (one definition, reused) ============ -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-route" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="6" cy="19" r="3"/><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"/><circle cx="18" cy="5" r="3"/>
+  </symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>
+  </symbol>
+  <symbol id="i-wrench" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+  </symbol>
+  <symbol id="i-clipboard" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="8" y="3" width="8" height="4" rx="1"/><path d="M9 5H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-3"/><path d="M9 12h6M9 16h4"/>
+  </symbol>
+  <symbol id="i-bank" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/>
+  </symbol>
+  <symbol id="i-users" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>
+  </symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>
+  </symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+  </symbol>
+  <symbol id="i-cal" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>
+  </symbol>
+  <symbol id="i-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>
+  </symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/>
+  </symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>
+  </symbol>
+  <symbol id="i-back" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="m15 18-6-6 6-6"/>
+  </symbol>
+  <symbol id="i-home" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/>
+  </symbol>
+  <symbol id="i-dots" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/>
+  </symbol>
+</svg>
+
+<div class="wrap">
+
+  <!-- ======================================================= INTRO ======= -->
+  <header>
+    <p class="eyebrow">Ascent Assistant · mobile redesign</p>
+    <h1>Two ways to make the phone app feel finished</h1>
+    <div class="rule" style="margin:18px 0 16px"></div>
+    <p class="lede">
+      Same brand, same two screens, two different opinions about how a phone should
+      carry them. Everything below is a static picture — nothing is wired to JobTread.
+      Scroll inside each phone; flip each option between light and dark with the
+      switch above it.
+    </p>
+  </header>
+
+  <section class="panel">
+    <h3>What doesn't change</h3>
+    <p class="note" style="margin-bottom:14px">
+      Cream <code>#FAF7EE</code>, off-black <code>#1B1B17</code>, ochre <code>#CF9803</code>,
+      olive <code>#878054</code>, web grey <code>#8D8D8B</code>, the mountain-square logo,
+      and Roboto. Ochre still never carries small text — it's fills, rules and active
+      states only, exactly as the brand guide has it. Both options keep the light =
+      cream + ochre / dark = off-black + olive pairing.
+    </p>
+    <h3>What both options fix</h3>
+    <ul class="bullets">
+      <li><b>Money reads from arm's length.</b> One headline figure per screen, set in tabular figures at display size, with the approved/draft split demoted to a line underneath.</li>
+      <li><b>State is a shape, not a sentence.</b> Draft, no-file, invoiced, over-budget each get their own colour and mark, so a list is scannable without reading.</li>
+      <li><b>Budget headroom comes back on the phone.</b> Today the cost-code rail is collapsed on mobile; both options bring it back as something you swipe, not something you unfold.</li>
+      <li><b>Fewer taps to a page.</b> Today every area is a closed accordion — three taps to reach Client Invoicing from a cold start.</li>
+    </ul>
+  </section>
+
+  <!-- ==================================================== OPTION A ======= -->
+  <section class="opt-a" style="display:flex;flex-direction:column;gap:18px">
+    <div class="opt-head">
+      <div>
+        <span class="opt-tag"><i></i>Option A</span>
+        <h2 style="margin-top:6px">Ledger</h2>
+        <p class="note" style="margin-top:8px">
+          The site binder, tidied. Everything is a hairline-divided list on a cream
+          ground; the only ornament is a 2px ochre rule marking a section or a
+          number. Nothing folds shut — you scroll instead of hunting, with a search
+          field for the twenty-odd pages. Conservative: it's your current app with
+          the noise removed, so it ships fast and nothing about it needs relearning.
+        </p>
+      </div>
+      <div class="switch" role="group" aria-label="Theme for Option A">
+        <button type="button" aria-pressed="true" data-theme-btn="a" data-mode="light">Light</button>
+        <button type="button" aria-pressed="false" data-theme-btn="a" data-mode="dark">Dark</button>
+      </div>
+    </div>
+
+    <div class="frames">
+      <!-- ------------------------------------------- A · Home ------------- -->
+      <figure>
+        <figcaption>A · Main page</figcaption>
+        <div class="phone">
+          <div class="screen" data-screen="a">
+
+            <div class="a-bar">
+              <div class="top">
+                <span class="a-logo">
+                  <svg class="sq" viewBox="0 0 100 100" aria-label="Ascent Building Co."><rect width="100" height="100" fill="#CF9803" class="logo-sq"/><polygon points="18,74 40,41 46,47 56,30 82,74" fill="#FAF7EE"/></svg>
+                  <span class="wm"><span>ASCENT</span><span>BUILDING CO.</span></span>
+                </span>
+                <span class="icons">
+                  <span><svg class="i"><use href="#i-refresh"/></svg></span>
+                  <span><svg class="i"><use href="#i-moon"/></svg></span>
+                </span>
+              </div>
+              <div class="a-job">
+                <span class="lbl">JOB</span>
+                <span style="min-width:0">
+                  <span class="val">Harbor View Residence</span>
+                  <span class="sub">412 Cliff Road, Bandon</span>
+                </span>
+                <span class="caret">▾</span>
+              </div>
+            </div>
+
+            <div class="a-body">
+              <div class="a-alert">
+                <span class="n tnum">3</span>
+                <span style="flex:1">Bills waiting for a project</span>
+                <span>›</span>
+              </div>
+
+              <div class="a-search">
+                <svg class="i" style="width:17px;height:17px"><use href="#i-search"/></svg>
+                <span>Search 22 pages</span>
+              </div>
+
+              <div class="a-quick">
+                <a href="#"><span class="glyph"><svg class="i"><use href="#i-route"/></svg></span><span class="lbl">Miles</span></a>
+                <a href="#"><span class="glyph"><svg class="i"><use href="#i-clock"/></svg></span><span class="lbl">Time</span></a>
+                <a href="#"><span class="glyph"><svg class="i"><use href="#i-wrench"/></svg></span><span class="lbl">Tools</span></a>
+                <a href="#"><span class="glyph"><svg class="i"><use href="#i-clipboard"/></svg></span><span class="lbl">Reqs</span></a>
+              </div>
+
+              <div class="a-sec">
+                <div class="a-sec-head">
+                  <span class="bar"></span>
+                  <span class="m-eyebrow">Financials</span>
+                  <span class="count">3</span>
+                </div>
+                <div class="a-list">
+                  <div class="a-row">
+                    <span class="txt">
+                      <span class="name">Client Invoicing</span>
+                      <span class="desc">Code a month's bills against live headroom</span>
+                    </span>
+                    <span class="caret">›</span>
+                  </div>
+                  <div class="a-row">
+                    <span class="txt">
+                      <span class="name">Tracking Sheet</span>
+                      <span class="desc">Push a job's month into its sheet</span>
+                    </span>
+                    <span class="caret">›</span>
+                  </div>
+                  <div class="a-row">
+                    <span class="txt">
+                      <span class="name">Sunset Statements</span>
+                      <span class="desc">Pay a statement &amp; reconcile its invoices</span>
+                    </span>
+                    <span class="caret">›</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="a-sec">
+                <div class="a-sec-head">
+                  <span class="bar"></span>
+                  <span class="m-eyebrow">HR</span>
+                  <span class="count">5</span>
+                </div>
+                <div class="a-list">
+                  <div class="a-row">
+                    <span class="txt">
+                      <span class="name">Time Off</span>
+                      <span class="desc">Requests, balances &amp; accrual policy</span>
+                    </span>
+                    <span class="badge tnum">2</span>
+                    <span class="caret">›</span>
+                  </div>
+                  <div class="a-row">
+                    <span class="txt">
+                      <span class="name">Employees</span>
+                      <span class="desc">The Project Database roster</span>
+                    </span>
+                    <span class="caret">›</span>
+                  </div>
+                  <div class="a-row">
+                    <span class="txt">
+                      <span class="name">Labor Import</span>
+                      <span class="desc">QuickBooks labor → JobTread CSV</span>
+                    </span>
+                    <span class="caret">›</span>
+                  </div>
+                  <button class="a-more" type="button">Show 2 more in HR</button>
+                </div>
+              </div>
+
+              <div class="a-sec">
+                <div class="a-sec-head">
+                  <span class="bar"></span>
+                  <span class="m-eyebrow">Utilities</span>
+                  <span class="count">9</span>
+                </div>
+                <div class="a-list">
+                  <div class="a-row">
+                    <span class="txt">
+                      <span class="name">Needs Project</span>
+                      <span class="desc">Ingested bills with no job yet</span>
+                    </span>
+                    <span class="badge tnum">3</span>
+                    <span class="caret">›</span>
+                  </div>
+                  <div class="a-row">
+                    <span class="txt">
+                      <span class="name">Unbilled</span>
+                      <span class="desc">Uninvoiced expenses by cost code</span>
+                    </span>
+                    <span class="caret">›</span>
+                  </div>
+                  <div class="a-row">
+                    <span class="txt">
+                      <span class="name">Email Invoices</span>
+                      <span class="desc">Log invoices from the office inbox</span>
+                    </span>
+                    <span class="caret">›</span>
+                  </div>
+                  <button class="a-more" type="button">Show 6 more in Utilities</button>
+                </div>
+              </div>
+
+              <div class="a-sec">
+                <div class="a-sec-head">
+                  <span class="bar"></span>
+                  <span class="m-eyebrow">Admin</span>
+                  <span class="count">3</span>
+                </div>
+                <div class="a-list">
+                  <div class="a-row">
+                    <span class="txt">
+                      <span class="name">Admin</span>
+                      <span class="desc">Who can sign in</span>
+                    </span>
+                    <span class="caret">›</span>
+                  </div>
+                  <div class="a-row">
+                    <span class="txt">
+                      <span class="name">Logs</span>
+                      <span class="desc">The automation audit trail</span>
+                    </span>
+                    <span class="caret">›</span>
+                  </div>
+                  <button class="a-more" type="button">Show 1 more in Admin</button>
+                </div>
+              </div>
+
+              <div class="a-foot">
+                <span class="who">office@ascentbuildingco.com · admin</span>
+                <button class="m-btn secondary" type="button">Sign out</button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </figure>
+
+      <!-- --------------------------------- A · Client Invoicing ----------- -->
+      <figure>
+        <figcaption>A · Client Invoicing</figcaption>
+        <div class="phone">
+          <div class="screen" data-screen="a">
+
+            <div class="a-bar">
+              <div class="top">
+                <span class="a-logo">
+                  <svg class="sq" viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" fill="#CF9803" class="logo-sq"/><polygon points="18,74 40,41 46,47 56,30 82,74" fill="#FAF7EE"/></svg>
+                  <span class="wm"><span>ASCENT</span><span>BUILDING CO.</span></span>
+                </span>
+                <span class="icons">
+                  <span><svg class="i"><use href="#i-refresh"/></svg></span>
+                  <span><svg class="i"><use href="#i-moon"/></svg></span>
+                </span>
+              </div>
+              <div class="a-job">
+                <span class="lbl">JOB</span>
+                <span style="min-width:0">
+                  <span class="val">Harbor View Residence</span>
+                  <span class="sub">412 Cliff Road, Bandon</span>
+                </span>
+                <span class="caret">▾</span>
+              </div>
+              <div class="a-page-head">
+                <span class="title">Client Invoicing</span>
+                <span class="a-month">August 2026 <span style="color:var(--m-faint)">▾</span></span>
+              </div>
+            </div>
+
+            <div class="a-body">
+
+              <div class="a-statement">
+                <span class="m-eyebrow">To be invoiced</span>
+                <span class="fig">$184,270.15</span>
+                <span class="split">$171,940.15 approved · $12,330.00 in 3 drafts</span>
+                <span class="jt">
+                  JobTread will pull $171,940.15 today — drafts join once approved.
+                  <a href="#">Create the invoice in JobTread ↗</a>
+                </span>
+              </div>
+
+              <div class="a-scroll">
+                <span class="a-filter on">Uninvoiced only</span>
+                <span class="a-filter on">Drafts shown</span>
+                <span class="a-filter">Sunset hidden</span>
+                <span class="a-filter">Unapproved time</span>
+              </div>
+
+              <div class="a-sec">
+                <div class="a-sec-head">
+                  <span class="bar"></span>
+                  <span class="m-eyebrow">Budget headroom</span>
+                  <span class="count">swipe →</span>
+                </div>
+                <div class="a-scroll">
+                  <div class="a-headroom">
+                    <span class="code">06 1000</span>
+                    <div class="nm">Rough Carpentry</div>
+                    <div class="left">$12,480 left</div>
+                    <div class="m-meter"><span style="width:78%"></span></div>
+                  </div>
+                  <div class="a-headroom">
+                    <span class="code">09 9000</span>
+                    <div class="nm">Painting</div>
+                    <div class="left">$3,120 left</div>
+                    <div class="m-meter"><span class="warn" style="width:92%"></span></div>
+                  </div>
+                  <div class="a-headroom">
+                    <span class="code">15 4000</span>
+                    <div class="nm">Plumbing</div>
+                    <div class="left neg">−$1,940 over</div>
+                    <div class="m-meter"><span class="over" style="width:100%"></span></div>
+                  </div>
+                  <div class="a-headroom">
+                    <span class="code">26 0000</span>
+                    <div class="nm">Electrical</div>
+                    <div class="left">$22,610 left</div>
+                    <div class="m-meter"><span style="width:41%"></span></div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="a-sec">
+                <div class="a-sec-head" style="align-items:center">
+                  <span class="bar"></span>
+                  <span class="m-eyebrow">18 bills · $61,204.88</span>
+                  <span style="margin-left:auto">
+                    <span class="a-seg">
+                      <button type="button" aria-pressed="true">By bill</button>
+                      <button type="button" aria-pressed="false">By code</button>
+                    </span>
+                  </span>
+                </div>
+
+                <div style="display:flex;flex-direction:column;gap:8px">
+
+                  <div class="a-bill">
+                    <span class="stripe"></span>
+                    <span class="inner">
+                      <span class="line1">
+                        <span class="vend">Coastal Lumber Supply</span>
+                        <span class="amt">$8,412.66</span>
+                      </span>
+                      <span class="meta">Aug 8 · invoice 44192 · 3 lines</span>
+                      <span class="chips">
+                        <span class="m-code"><b>06 1000</b> $8,412 · $12,480 left</span>
+                      </span>
+                    </span>
+                    <span class="jt">JT ↗</span>
+                  </div>
+
+                  <div class="a-bill">
+                    <span class="stripe draft"></span>
+                    <span class="inner">
+                      <span class="line1">
+                        <span class="vend">Sunset Building Materials</span>
+                        <span class="amt">$3,180.00</span>
+                      </span>
+                      <span class="meta">Aug 7 · statement line · 2 lines</span>
+                      <span class="chips">
+                        <span class="m-chip c-draft">Draft</span>
+                        <span class="m-chip c-file">No file</span>
+                        <span class="m-code"><b>09 9000</b> $3,180 · $3,120 left</span>
+                      </span>
+                    </span>
+                    <span class="jt">JT ↗</span>
+                  </div>
+
+                  <div class="a-bill">
+                    <span class="stripe over"></span>
+                    <span class="inner">
+                      <span class="line1">
+                        <span class="vend">Pacific Plumbing Supply</span>
+                        <span class="amt">$2,240.75</span>
+                      </span>
+                      <span class="meta">Aug 6 · invoice 8871 · 1 line</span>
+                      <span class="chips">
+                        <span class="m-code over"><b>15 4000</b> $2,240 · −$1,940 left</span>
+                      </span>
+                    </span>
+                    <span class="jt">JT ↗</span>
+                  </div>
+
+                  <div class="a-bill">
+                    <span class="stripe inv"></span>
+                    <span class="inner">
+                      <span class="line1">
+                        <span class="vend">Harbor Electric Supply</span>
+                        <span class="amt">$12,904.30</span>
+                      </span>
+                      <span class="meta">Aug 4 · invoice 30117 · 5 lines</span>
+                      <span class="chips">
+                        <span class="m-chip c-inv">Invoiced</span>
+                        <span class="m-code"><b>26 0000</b> $12,904 · $22,610 left</span>
+                      </span>
+                    </span>
+                    <span class="jt">JT ↗</span>
+                  </div>
+
+                  <div class="a-bill">
+                    <span class="stripe"></span>
+                    <span class="inner">
+                      <span class="line1">
+                        <span class="vend">Ridgeline Hardware</span>
+                        <span class="amt">$914.22</span>
+                      </span>
+                      <span class="meta">Aug 3 · invoice A-2210 · 4 lines</span>
+                      <span class="chips">
+                        <span class="m-chip c-ok">✓ Reviewed</span>
+                        <span class="m-code"><b>06 1000</b> $914 · $12,480 left</span>
+                      </span>
+                    </span>
+                    <span class="jt">JT ↗</span>
+                  </div>
+
+                </div>
+              </div>
+
+              <div class="a-sec">
+                <div class="a-sec-head">
+                  <span class="bar"></span>
+                  <span class="m-eyebrow">Logged time this month</span>
+                </div>
+                <div class="a-list">
+                  <div class="a-row">
+                    <span class="txt">
+                      <span class="name tnum">$9,842.50</span>
+                      <span class="desc">214.5 hrs across 6 people · billed alongside</span>
+                    </span>
+                    <span class="caret">›</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="a-sticky">
+                <span class="staged tnum">3 staged changes</span>
+                <button class="m-btn secondary" type="button">Revert</button>
+                <button class="m-btn primary" type="button">Sync to JT</button>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </figure>
+    </div>
+
+    <div class="panel">
+      <h3>What Option A changes, concretely</h3>
+      <ul class="bullets">
+        <li><b>The job you're on gets its own row</b> under the logo, with the address — instead of being squeezed into a truncated picker.</li>
+        <li><b>Areas stop being accordions.</b> Financials, HR, Utilities and Admin are open lists; the long ones show three and offer "show N more". Search covers the rest.</li>
+        <li><b>Quick actions shrink</b> from four 92px boxes to a 4-across icon rail, which is what pushes the real content above the fold.</li>
+        <li><b>Invoicing leads with the statement block</b> — ochre rule, figure, split, then one plain sentence about what JobTread will actually pull.</li>
+        <li><b>Filters become chips</b> in a swipe row, so the four toggles stop owning a quarter of the screen.</li>
+        <li><b>Bills get a 3px status stripe</b> — amber draft, blue invoiced, red over-budget — so you can scan a month without reading a word.</li>
+        <li><b>The Revert / Sync bar only appears</b> when something is staged, and sticks to the bottom when it does.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ==================================================== OPTION B ======= -->
+  <section class="opt-b" style="display:flex;flex-direction:column;gap:18px">
+    <div class="opt-head">
+      <div>
+        <span class="opt-tag"><i></i>Option B</span>
+        <h2 style="margin-top:6px">Console</h2>
+        <p class="note" style="margin-top:8px">
+          A proper phone app rather than a launcher. Every screen opens with an
+          off-black hero panel — brand-dark, mountain watermarked — that carries the
+          one number or the one alert that matters, and the working content sits
+          below it on cream. A fixed bottom tab bar replaces "everything goes through
+          home". Bolder, and a bigger change to how you move around.
+        </p>
+      </div>
+      <div class="switch" role="group" aria-label="Theme for Option B">
+        <button type="button" aria-pressed="true" data-theme-btn="b" data-mode="light">Light</button>
+        <button type="button" aria-pressed="false" data-theme-btn="b" data-mode="dark">Dark</button>
+      </div>
+    </div>
+
+    <div class="frames">
+      <!-- ------------------------------------------- B · Home ------------- -->
+      <figure>
+        <figcaption>B · Main page</figcaption>
+        <div class="phone">
+          <div class="screen" data-screen="b" style="display:flex;flex-direction:column">
+
+            <div class="b-hero">
+              <div class="top">
+                <svg class="sq" viewBox="0 0 100 100" aria-label="Ascent Building Co."><rect width="100" height="100" fill="#CF9803" class="logo-sq"/><polygon points="18,74 40,41 46,47 56,30 82,74" fill="#FAF7EE"/></svg>
+                <span class="wm"><span>ASCENT</span><span>BUILDING CO.</span></span>
+                <span class="icons">
+                  <span><svg class="i"><use href="#i-refresh"/></svg></span>
+                  <span><svg class="i"><use href="#i-moon"/></svg></span>
+                </span>
+              </div>
+
+              <div class="b-greet">
+                <div class="day">Wednesday · August 12</div>
+                <div class="head">Three things<br><em>need you today.</em></div>
+              </div>
+
+              <div class="b-stats">
+                <div class="b-stat">
+                  <div class="n alert tnum">3</div>
+                  <div class="l">bills with<br>no project</div>
+                </div>
+                <div class="b-stat">
+                  <div class="n alert tnum">2</div>
+                  <div class="l">vendors stuck<br>on import</div>
+                </div>
+                <div class="b-stat">
+                  <div class="n tnum">$184k</div>
+                  <div class="l">to invoice<br>this month</div>
+                </div>
+              </div>
+
+              <div class="b-jobpill">
+                <span style="min-width:0">
+                  <span class="lbl">CURRENT JOB</span>
+                  <span class="val" style="display:block">Harbor View Residence</span>
+                </span>
+                <span class="caret">▾</span>
+              </div>
+            </div>
+
+            <div class="b-body">
+              <div class="b-sec">
+                <div class="b-sec-head"><span class="m-eyebrow">Every day</span></div>
+                <div class="b-quick">
+                  <a href="#"><span class="glyph"><svg class="i"><use href="#i-route"/></svg></span><span><span class="lbl">Miles</span><span class="sub">Log a trip</span></span></a>
+                  <a href="#"><span class="glyph"><svg class="i"><use href="#i-clock"/></svg></span><span><span class="lbl">Time</span><span class="sub">7.5 hrs today</span></span></a>
+                  <a href="#"><span class="glyph"><svg class="i"><use href="#i-wrench"/></svg></span><span><span class="lbl">Tools</span><span class="sub">4 checked out</span></span></a>
+                  <a href="#"><span class="glyph"><svg class="i"><use href="#i-clipboard"/></svg></span><span><span class="lbl">Requisitions</span><span class="sub">Ask for materials</span></span></a>
+                </div>
+              </div>
+
+              <div class="b-sec">
+                <div class="b-sec-head">
+                  <span class="m-eyebrow">Areas</span>
+                  <span class="link">Search all 22 →</span>
+                </div>
+                <div class="b-tiles">
+                  <div class="b-tile">
+                    <span class="glyph"><svg class="i" style="width:22px;height:22px"><use href="#i-bank"/></svg></span>
+                    <span class="nm">Financials</span>
+                    <span class="pages">Client Invoicing · Tracking Sheet · Sunset</span>
+                  </div>
+                  <div class="b-tile">
+                    <span class="glyph"><svg class="i" style="width:22px;height:22px"><use href="#i-users"/></svg></span>
+                    <span class="nm">HR</span>
+                    <span class="badge tnum">2</span>
+                    <span class="pages">Time Off · Employees · Labor · Safety</span>
+                  </div>
+                  <div class="b-tile">
+                    <span class="glyph"><svg class="i" style="width:22px;height:22px"><use href="#i-gear"/></svg></span>
+                    <span class="nm">Utilities</span>
+                    <span class="badge tnum">3</span>
+                    <span class="pages">Needs Project · Unbilled · Email · 6 more</span>
+                  </div>
+                  <div class="b-tile">
+                    <span class="glyph"><svg class="i" style="width:22px;height:22px"><use href="#i-shield"/></svg></span>
+                    <span class="nm">Admin</span>
+                    <span class="pages">Access · Logs · Historical cost</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="b-sec">
+                <div class="b-sec-head"><span class="m-eyebrow">Account</span></div>
+                <div class="a-list">
+                  <div class="a-row">
+                    <span class="txt">
+                      <span class="name">office@ascentbuildingco.com</span>
+                      <span class="desc">Signed in as admin · tap to sign out</span>
+                    </span>
+                    <span class="caret">›</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="b-tabs">
+              <span class="tab on"><span class="dot"></span><svg class="i" style="width:19px;height:19px"><use href="#i-home"/></svg>Home</span>
+              <span class="tab"><span class="dot"></span><svg class="i" style="width:19px;height:19px"><use href="#i-bank"/></svg>Invoicing</span>
+              <span class="tab"><span class="dot"></span><svg class="i" style="width:19px;height:19px"><use href="#i-clock"/></svg>Time</span>
+              <span class="tab"><span class="dot"></span><svg class="i" style="width:19px;height:19px"><use href="#i-dots"/></svg>More</span>
+            </div>
+
+          </div>
+        </div>
+      </figure>
+
+      <!-- --------------------------------- B · Client Invoicing ----------- -->
+      <figure>
+        <figcaption>B · Client Invoicing</figcaption>
+        <div class="phone">
+          <div class="screen" data-screen="b" style="display:flex;flex-direction:column">
+
+            <div class="b-hero page">
+              <div class="top">
+                <span class="back"><svg class="i"><use href="#i-back"/></svg></span>
+                <span class="ptitle">Client Invoicing</span>
+                <span class="b-monthpill">Aug 2026 ▾</span>
+              </div>
+
+              <div class="b-fig">
+                <div class="lbl">To be invoiced</div>
+                <div class="n">$184,270<span style="font-size:24px">.15</span></div>
+              </div>
+
+              <div class="b-progress">
+                <div class="track">
+                  <i class="approved" style="width:73%"></i>
+                  <i class="drafts" style="width:6%"></i>
+                </div>
+                <div class="key">
+                  <span><i class="k-approved"></i>Approved</span>
+                  <span><i class="k-drafts"></i>Drafts</span>
+                  <span><i class="k-left"></i>Budget left</span>
+                </div>
+              </div>
+
+              <div class="b-split">
+                <div>
+                  <div class="k">Approved now</div>
+                  <div class="v">$171,940</div>
+                </div>
+                <div>
+                  <div class="k">3 drafts</div>
+                  <div class="v">$12,330</div>
+                </div>
+              </div>
+
+              <div class="b-jobpill">
+                <span style="min-width:0">
+                  <span class="lbl">JOB</span>
+                  <span class="val" style="display:block">Harbor View Residence</span>
+                </span>
+                <span class="caret">▾</span>
+              </div>
+            </div>
+
+            <div class="b-body">
+
+              <div class="a-scroll" style="margin:0 -16px;padding-left:16px;padding-right:16px">
+                <span class="a-filter on">Uninvoiced only</span>
+                <span class="a-filter on">Drafts shown</span>
+                <span class="a-filter">Sunset hidden</span>
+                <span class="a-filter">Unapproved time</span>
+              </div>
+
+              <div class="b-sec">
+                <div class="b-sec-head">
+                  <span class="m-eyebrow">Headroom by code</span>
+                  <span class="link">All 24 →</span>
+                </div>
+                <div class="b-headroom">
+                  <div class="b-hcard">
+                    <div class="code">06 1000</div>
+                    <div class="nm">Rough Carpentry</div>
+                    <div class="left">$12,480</div>
+                    <div class="m-meter"><span style="width:78%"></span></div>
+                    <div class="pct">78% of $56,700 used</div>
+                  </div>
+                  <div class="b-hcard">
+                    <div class="code">09 9000</div>
+                    <div class="nm">Painting</div>
+                    <div class="left">$3,120</div>
+                    <div class="m-meter"><span class="warn" style="width:92%"></span></div>
+                    <div class="pct">92% of $39,000 used</div>
+                  </div>
+                  <div class="b-hcard">
+                    <div class="code">15 4000</div>
+                    <div class="nm">Plumbing</div>
+                    <div class="left neg">−$1,940</div>
+                    <div class="m-meter"><span class="over" style="width:100%"></span></div>
+                    <div class="pct">Over by 7%</div>
+                  </div>
+                  <div class="b-hcard">
+                    <div class="code">26 0000</div>
+                    <div class="nm">Electrical</div>
+                    <div class="left">$22,610</div>
+                    <div class="m-meter"><span style="width:41%"></span></div>
+                    <div class="pct">41% of $38,300 used</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="b-sec">
+                <div class="b-sec-head">
+                  <span class="m-eyebrow">18 bills · $61,204.88</span>
+                  <span class="link">By code →</span>
+                </div>
+
+                <div class="b-daygroup">
+                  <div class="b-day">Fri Aug 8<span class="ln"></span><span class="tnum" style="letter-spacing:0">$8,412.66</span></div>
+                  <div class="b-bill">
+                    <span class="avatar">CL</span>
+                    <span class="mid">
+                      <span class="vend">Coastal Lumber Supply</span>
+                      <span class="chips">
+                        <span class="m-code"><b>06 1000</b> $12,480 left</span>
+                      </span>
+                    </span>
+                    <span class="right">
+                      <span class="amt">$8,412.66</span>
+                      <span class="sub">3 lines</span>
+                    </span>
+                  </div>
+                </div>
+
+                <div class="b-daygroup">
+                  <div class="b-day">Thu Aug 7<span class="ln"></span><span class="tnum" style="letter-spacing:0">$3,180.00</span></div>
+                  <div class="b-bill">
+                    <span class="avatar draft">SB</span>
+                    <span class="mid">
+                      <span class="vend">Sunset Building Materials</span>
+                      <span class="chips">
+                        <span class="m-chip c-draft">Draft</span>
+                        <span class="m-chip c-file">No file</span>
+                        <span class="m-code"><b>09 9000</b> $3,120 left</span>
+                      </span>
+                    </span>
+                    <span class="right">
+                      <span class="amt">$3,180.00</span>
+                      <span class="sub">2 lines</span>
+                    </span>
+                  </div>
+                </div>
+
+                <div class="b-daygroup">
+                  <div class="b-day">Wed Aug 6<span class="ln"></span><span class="tnum" style="letter-spacing:0">$2,240.75</span></div>
+                  <div class="b-bill">
+                    <span class="avatar">PP</span>
+                    <span class="mid">
+                      <span class="vend">Pacific Plumbing Supply</span>
+                      <span class="chips">
+                        <span class="m-code over"><b>15 4000</b> −$1,940 over</span>
+                      </span>
+                    </span>
+                    <span class="right">
+                      <span class="amt">$2,240.75</span>
+                      <span class="sub">1 line</span>
+                    </span>
+                  </div>
+                </div>
+
+                <div class="b-daygroup">
+                  <div class="b-day">Mon Aug 4<span class="ln"></span><span class="tnum" style="letter-spacing:0">$12,904.30</span></div>
+                  <div class="b-bill">
+                    <span class="avatar inv">HE</span>
+                    <span class="mid">
+                      <span class="vend">Harbor Electric Supply</span>
+                      <span class="chips">
+                        <span class="m-chip c-inv">Invoiced</span>
+                        <span class="m-code"><b>26 0000</b> $22,610 left</span>
+                      </span>
+                    </span>
+                    <span class="right">
+                      <span class="amt">$12,904.30</span>
+                      <span class="sub">5 lines</span>
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+            <div class="b-actionbar">
+              <span class="staged">3 staged changes<span>Nothing is written until you sync</span></span>
+              <button class="m-btn secondary" type="button">Revert</button>
+              <button class="m-btn primary" type="button">Sync</button>
+            </div>
+
+            <div class="b-tabs">
+              <span class="tab"><span class="dot"></span><svg class="i" style="width:19px;height:19px"><use href="#i-home"/></svg>Home</span>
+              <span class="tab on"><span class="dot"></span><svg class="i" style="width:19px;height:19px"><use href="#i-bank"/></svg>Invoicing</span>
+              <span class="tab"><span class="dot"></span><svg class="i" style="width:19px;height:19px"><use href="#i-clock"/></svg>Time</span>
+              <span class="tab"><span class="dot"></span><svg class="i" style="width:19px;height:19px"><use href="#i-dots"/></svg>More</span>
+            </div>
+
+          </div>
+        </div>
+      </figure>
+    </div>
+
+    <div class="panel">
+      <h3>What Option B changes, concretely</h3>
+      <ul class="bullets">
+        <li><b>A bottom tab bar</b> — Home, Invoicing, Time, More — so the launcher stops being the only way between pages. This is the biggest departure and the biggest win in daily taps.</li>
+        <li><b>The home screen answers "what needs me?"</b> before it offers a menu: the alert counts and the month's figure sit in the hero, not in banners you scroll past.</li>
+        <li><b>Areas become four tiles</b> that open a sheet, with their pages previewed on the tile — half the height of four accordion rows.</li>
+        <li><b>Invoicing's hero carries the number</b> plus a stacked meter showing approved vs draft against the budget, which the current page has nowhere on mobile.</li>
+        <li><b>Bills group by day</b> with a day subtotal, so a month reads as a timeline instead of one long list — and each bill shows its vendor initials as a colour-coded status mark.</li>
+        <li><b>The action bar is always docked</b> above the tabs when changes are staged, with the "nothing is written until you sync" reassurance right on it.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ================================================== COMPARISON ======= -->
+  <section class="panel">
+    <h2 style="margin-bottom:14px">Side by side</h2>
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr><th>&nbsp;</th><th>A · Ledger</th><th>B · Console</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Feel</td><td>Quiet, dense, document-like. Reads as a well-kept binder.</td><td>App-like. Dark hero, bright body, strong figures.</td></tr>
+          <tr><td>Navigation</td><td>Home stays the only nav; sections open by default + search.</td><td>Bottom tab bar; home becomes a dashboard, not a menu.</td></tr>
+          <tr><td>Taps to Invoicing</td><td>Two (home → row).</td><td>One (tab), from anywhere.</td></tr>
+          <tr><td>Build effort</td><td>Low — restyles existing components, no routing change.</td><td>Higher — new app shell, tab bar, hero component, sheets.</td></tr>
+          <tr><td>Risk</td><td>Nothing to relearn. Long pages on Utilities.</td><td>Real relearning for the crew; tab bar costs ~56px of screen.</td></tr>
+          <tr><td>Best if</td><td>You want it to look finished next week.</td><td>You want the Assistant to feel like a product, not a portal.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel decide">
+    <h2>What I need from you</h2>
+    <ol>
+      <li><b>Pick a direction</b> — A, B, or a mix (for example: A's Invoicing screen with B's tab bar is entirely buildable).</li>
+      <li><b>Say what's wrong.</b> Any element here can move, shrink, or go. The figures, vendor names and cost codes are invented placeholders — real data slots straight in.</li>
+      <li><b>Then I build it</b> on the <code>claude/mobile-ui-redesign-mockups-m2bdye</code> branch, push, and Vercel gives you a preview URL to open on your phone before anything reaches production.</li>
+    </ol>
+    <p class="note" style="margin-top:6px">
+      Both options are read-only pictures — no JobTread writes, no gateway changes.
+      Roboto renders natively on Android; on iPhone these mockups fall back to the
+      system face, while the real app loads Roboto properly.
+    </p>
+  </section>
+
+</div>
+
+<script>
+  // Each option's frames flip together between the app's two themes. The
+  // mockups deliberately ignore the viewer's own theme — both app themes are
+  // part of what's being proposed, so you choose which one to look at.
+  document.querySelectorAll("[data-theme-btn]").forEach(function (b) {
+    b.addEventListener("click", function () {
+      var opt = b.getAttribute("data-theme-btn");
+      var dark = b.getAttribute("data-mode") === "dark";
+      document.querySelectorAll('[data-theme-btn="' + opt + '"]').forEach(function (o) {
+        o.setAttribute("aria-pressed", String(o === b));
+      });
+      document.querySelectorAll('[data-screen="' + opt + '"]').forEach(function (s) {
+        s.classList.toggle("is-dark", dark);
+        s.querySelectorAll(".logo-sq").forEach(function (r) {
+          r.setAttribute("fill", dark ? "#878054" : "#CF9803");
+        });
+      });
+    });
+  });
+</script>

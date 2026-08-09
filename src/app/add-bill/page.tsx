@@ -239,7 +239,7 @@ function AddBill() {
           ))}
 
           {result.previewed && (result.lines ?? []).length > 0 && (
-            <div className="mt-3 border-t border-neutral-200 pt-2 dark:border-neutral-800">
+            <div className="mt-3 border-t border-line pt-2 dark:border-neutral-800">
               {(result.lines ?? []).map((l, i) => (
                 <div key={i} className="flex items-baseline justify-between gap-2 py-0.5 text-xs">
                   <span className="truncate">{l.name}</span>

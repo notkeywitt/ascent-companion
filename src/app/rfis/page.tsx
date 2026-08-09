@@ -136,7 +136,7 @@ function Rfis() {
       {showNew && (
         <form
           onSubmit={create}
-          className="mb-5 space-y-2 rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-700/60 dark:bg-ink-raised"
+          className="mb-5 space-y-2 rounded-xl border border-line bg-white p-3 dark:bg-ink-raised"
         >
           <input
             autoFocus
@@ -197,7 +197,7 @@ function Rfis() {
           return (
             <li
               key={r.id}
-              className="rounded-xl border border-neutral-200 bg-white dark:border-neutral-700/60 dark:bg-ink-raised"
+              className="rounded-xl border border-line bg-white dark:bg-ink-raised"
             >
               <button
                 onClick={() => setOpen(expanded ? null : r.id)}
@@ -222,7 +222,7 @@ function Rfis() {
               </button>
 
               {expanded && (
-                <div className="space-y-3 border-t border-neutral-100 p-3 dark:border-neutral-800">
+                <div className="space-y-3 border-t border-line-soft p-3 dark:border-neutral-800">
                   {r.question && (
                     <p className="whitespace-pre-wrap text-sm text-neutral-700 dark:text-neutral-300">
                       {r.question}
