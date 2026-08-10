@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { UncapturedBills } from "@/components/UncapturedBills";
 import { useAccess } from "@/components/AccessProvider";
 import {
   runTrackingSync,
@@ -325,13 +324,6 @@ export function Roster({
           {" — open a job to see details."}
         </p>
       )}
-
-      {/* Ingested bills that never reached JobTread — real costs missing from the
-          invoices below. Deliberately above the month picker and unfiltered by it:
-          a stranded bill often carries the wrong billing period, so scoping it to
-          the selected month is exactly how it stays hidden. Renders nothing when
-          the queue is empty. */}
-      <UncapturedBills />
 
       <div className="mb-3">
         <Label htmlFor="roster-month">Billing month</Label>
