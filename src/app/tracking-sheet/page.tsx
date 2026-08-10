@@ -133,6 +133,15 @@ const parseYm = (s: string) => {
 const ymLabel = (month: number, year: number) =>
   `${MONTH_NAMES[month - 1]} '${String(year).slice(-2)}`;
 
+/**
+ * The label the finalized block carries. Tracking sheets label a month block
+ * with the month it was INVOICED to the client, which is the month AFTER its
+ * billing period — June billing goes out on the July invoice, so that block
+ * reads "July '26". Everything else on this page speaks billing period.
+ */
+const invoiceLabel = (month: number, year: number) =>
+  month === 12 ? ymLabel(1, year + 1) : ymLabel(month + 1, year);
+
 /** The 24 billing periods ending at the current one — newest first. */
 function monthOptions(month: number, year: number) {
   const out: { key: string; label: string }[] = [];
@@ -255,7 +264,9 @@ export default function TrackingSheetPage() {
         op,
         projectId,
         jobLabel: target.label,
-        monthLabel: ymLabel(month, year),
+        // A finalize is named for the block it lands in (the invoicing month);
+        // a sync is named for the billing period it pulls.
+        monthLabel: op === "finalize" ? invoiceLabel(month, year) : ymLabel(month, year),
         month,
         year,
         status: "queued",
@@ -289,6 +300,9 @@ export default function TrackingSheetPage() {
 
   const selectedLabel = ym
     ? (() => { const { month, year } = parseYm(ym); return ymLabel(month, year); })()
+    : "";
+  const selectedInvoiceLabel = ym
+    ? (() => { const { month, year } = parseYm(ym); return invoiceLabel(month, year); })()
     : "";
   const busy = queue.filter((it) => it.status === "queued" || it.status === "running").length;
   const ready = !!projectId && !!ym;
@@ -443,9 +457,10 @@ export default function TrackingSheetPage() {
             <SectionLabel className="mb-1">Finalize {selectedLabel}</SectionLabel>
             <p className="mb-3 text-xs text-neutral-500">
               Copies the Tracking Sheet&apos;s CURRENT INVOICE column — cost codes and the totals
-              block — into the reserved month block and labels it &ldquo;{selectedLabel}&rdquo;.
-              Re-running for the same month overwrites that month&apos;s block rather than adding a
-              second one. Queued behind any sync already running for the same job.
+              block — into the reserved month block and labels it &ldquo;{selectedInvoiceLabel}
+              &rdquo;: a block is named for the month it is invoiced to the client, the month after
+              its billing period. Re-running for the same month overwrites that block rather than
+              adding a second one. Queued behind any sync already running for the same job.
             </p>
             <Button variant="outline" size="lg" className="w-full" disabled={!ready} onClick={() => enqueue("finalize")}>
               Finalize {selectedLabel}
