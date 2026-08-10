@@ -22,6 +22,7 @@ import {
   StatementBlock,
   StickyActionBar,
   Toggle,
+  btn,
 } from "@/components/ui";
 import { CostCodeSelect, type Option } from "@/components/CostCodeSelect";
 import { JobPicker, jobLabel, type JobRef } from "@/components/JobPicker";
@@ -36,6 +37,12 @@ import {
   type RecodeEntry,
 } from "@/lib/billLineMath";
 import { InvoiceReconcile, type Recon } from "@/components/InvoiceReconcile";
+import {
+  Breakdown,
+  driveMainWindowToDoc,
+  printJob,
+  type Detail,
+} from "@/components/BillingSummary";
 import {
   runTrackingSync,
   type TrackingSyncState,
@@ -359,7 +366,18 @@ export function Board() {
   /** docId → in-flight sales-tax text, staged the same way as edits/staged. */
   const [taxEdits, setTaxEdits] = useState<Record<string, string>>({});
   const [openDocId, setOpenDocId] = useState<string | null>(null);
-  const [mode, setMode] = useState<"bill" | "code">("bill");
+  const [mode, setMode] = useState<"bill" | "code" | "summary">("bill");
+  /**
+   * The client-facing billing summary for this job and month, from the SAME
+   * endpoint the all-jobs roster reads (/api/stage?jobId=). Fetched on demand
+   * when Summary mode is opened rather than derived from the board's own
+   * payload: the printed document and the roster card have to agree to the
+   * cent, and they only can if they're built from one source.
+   */
+  const [summary, setSummary] = useState<Detail | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [summaryError, setSummaryError] = useState("");
+  const [summaryByCsi, setSummaryByCsi] = useState(false);
   // Lifted out of the reconcile rectangle so the header can show the same
   // authoritative "to be invoiced" figure without fetching it twice.
   const [recon, setRecon] = useState<Recon | null>(null);
@@ -515,6 +533,47 @@ export function Board() {
   useEffect(() => {
     load();
   }, [load]);
+
+  /**
+   * Load the billing summary when Summary mode is open. `data` is a real
+   * dependency, not a refresh hack: the summary describes the same month the
+   * board has just loaded, so it waits for that load and re-runs after one —
+   * which is also what refreshes it after a Sync writes new coding to JobTread.
+   */
+  useEffect(() => {
+    if (mode !== "summary" || !jobId || !data) return;
+    let alive = true;
+    (async () => {
+      setSummaryLoading(true);
+      setSummaryError("");
+      try {
+        const [y, m] = ym.split("-").map(Number);
+        const p = new URLSearchParams({ jobId, year: String(y), month: String(m) });
+        if (!uninvoicedOnly) p.set("includeInvoiced", "1");
+        if (includeDrafts) p.set("includeDrafts", "1");
+        const res = await fetch(`/api/stage?${p.toString()}`);
+        const j = await res.json();
+        if (!alive) return;
+        if (res.ok) {
+          setSummary({
+            customer: j.customer ?? null,
+            job: j.job,
+            lines: j.lines ?? [],
+            total: j.total ?? 0,
+          });
+        } else {
+          setSummaryError(j.error ?? "Couldn't load the billing summary");
+        }
+      } catch (e) {
+        if (alive) setSummaryError(e instanceof Error ? e.message : "Network error");
+      } finally {
+        if (alive) setSummaryLoading(false);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [mode, jobId, ym, uninvoicedOnly, includeDrafts, data]);
 
   // Returning from a bill's detail page (mobile) lands here with a `#bill-<id>`
   // hash naming the bill that was tapped. The list renders async, so the browser
@@ -1673,14 +1732,17 @@ export function Board() {
     await load();
   };
 
+  // Defensive only: ClientInvoicing.tsx routes the no-job case to <AllJobs />
+  // before this component ever mounts, so this is the guard for a direct render,
+  // not a state the office can reach.
   if (!jobId) {
     return (
       <main className="mx-auto max-w-2xl px-4 pb-24 pt-6">
         <PageHeader title="Client Invoicing" />
         <EmptyState>
-          No job selected. Open this from a job card on{" "}
-          <Link href="/stage" className="text-accent underline">
-            Invoicing
+          No job selected. Pick one above, or{" "}
+          <Link href="/recode" className="text-accent underline">
+            see every job this month
           </Link>
           .
         </EmptyState>
@@ -1950,6 +2012,20 @@ export function Board() {
       {jobId && !loading && (
         <div className="order-last mt-4 lg:order-none lg:mb-4 lg:mt-0">
           <InvoiceReconcile jobId={jobId} ym={ym} onData={setRecon} />
+          {/* This month vs. the whole job: the rectangle above reconciles the
+              selected month, Unbilled is every approved cost on the job not yet
+              on an approved invoice. Different question, one click away. */}
+          <div className="mt-1.5 flex justify-end gap-4 text-xs font-semibold">
+            <Link
+              href={`/unbilled?jobId=${encodeURIComponent(jobId)}`}
+              className="text-accent dark:text-accent-soft"
+            >
+              Unbilled on this job →
+            </Link>
+            <Link href="/recode" className="text-accent dark:text-accent-soft">
+              All jobs →
+            </Link>
+          </div>
         </div>
       )}
 
@@ -2262,7 +2338,16 @@ export function Board() {
                   touch (they were 26px) and the desktop density restored at
                   lg. */}
               <div className="flex shrink-0 gap-1 rounded-lg border border-line p-0.5 text-xs lg:border-0 lg:p-0">
-                {(["bill", "code"] as const).map((m) => (
+                {(
+                  [
+                    ["bill", "By bill"],
+                    ["code", "By cost code"],
+                    // The client-facing rollup — what the month bills, in the
+                    // shape the customer sees it, and the source of the printed
+                    // summary. Not a drag surface.
+                    ["summary", "Summary"],
+                  ] as const
+                ).map(([m, label]) => (
                   <button
                     key={m}
                     type="button"
@@ -2274,18 +2359,20 @@ export function Board() {
                         : "text-neutral-500 hover:text-accent dark:text-neutral-400"
                     }`}
                   >
-                    {m === "bill" ? "By bill" : "By cost code"}
+                    {label}
                   </button>
                 ))}
               </div>
             </div>
 
-            <p className="mb-2 hidden text-[11px] text-neutral-400 lg:block">
-              Drag a line — or a whole bill — onto a cost code (here or in the rail) to recode it.
-              Nothing is written until you Sync.
-            </p>
+            {mode !== "summary" && (
+              <p className="mb-2 hidden text-[11px] text-neutral-400 lg:block">
+                Drag a line — or a whole bill — onto a cost code (here or in the rail) to recode it.
+                Nothing is written until you Sync.
+              </p>
+            )}
 
-            {hiddenSunset.count > 0 && (
+            {mode !== "summary" && hiddenSunset.count > 0 && (
               <Banner tone="info" className="mb-2">
                 {hiddenSunset.count} Sunset bill{hiddenSunset.count === 1 ? "" : "s"} hidden ·{" "}
                 {money(hiddenSunset.cost)}. Still counted in every budget figure on this page —
@@ -2306,7 +2393,7 @@ export function Board() {
                 a time entry is coded independently of any bill and this board
                 only recodes bill lines, so it's shown for reference, not
                 dragged. ---- */}
-            {monthTime.length > 0 && (
+            {mode !== "summary" && monthTime.length > 0 && (
               <Card pad={false} className="mb-2 overflow-hidden">
                 <button
                   type="button"
@@ -2353,6 +2440,57 @@ export function Board() {
                   </ul>
                 )}
               </Card>
+            )}
+
+            {/* ---- the client-facing billing summary ----
+                What this job bills for the month, in the shape the customer
+                sees it: every bill (Sunset grouped, time itemized) or the CSI
+                rollup, plus the printable document and the link into JobTread's
+                invoice builder. It is the LAST step of the workflow this page
+                owns — code the month on the left, then check and print what it
+                adds up to here — which is why it's a mode of this page rather
+                than the separate screen it used to be. */}
+            {mode === "summary" && (
+              <>
+                <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                  <Toggle
+                    checked={summaryByCsi}
+                    onChange={setSummaryByCsi}
+                    label="Group by CSI code"
+                  />
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    disabled={!summary}
+                    onClick={() => summary && printJob(summary, monthLabel(ym), summaryByCsi)}
+                  >
+                    Print / Save PDF
+                  </Button>
+                </div>
+
+                {summaryLoading && !summary && <Loading label="Loading the billing summary…" />}
+                {summaryError && (
+                  <Banner tone="error" className="mb-2">
+                    {summaryError}
+                  </Banner>
+                )}
+                {summary && (
+                  <>
+                    <Breakdown detail={summary} groupByCsi={summaryByCsi} from="recode" />
+                    <JtLink
+                      href={`https://app.jobtread.com/jobs/${jobId}/documents`}
+                      className={btn("primary", "md", "mt-3 w-full")}
+                    >
+                      Create invoice in JobTread ↗
+                    </JtLink>
+                    <p className="mt-2 text-xs text-neutral-500">
+                      Open this job in JobTread, then <b>New → Customer Invoice</b> — its builder
+                      pulls exactly these uninvoiced bills (and any uninvoiced time). Date it{" "}
+                      {issueDateFor(ym)}, review &amp; send.
+                    </p>
+                  </>
+                )}
+              </>
             )}
 
             {/* ---- grouped by cost code: the drag surface ---- */}
@@ -2402,14 +2540,21 @@ export function Board() {
                                   // would open nothing and the tap would read as
                                   // dead. Send it to the bill's detail page
                                   // instead, carrying the same back-context.
-                                  onClick={() =>
-                                    isMobile
-                                      ? router.push(
-                                          `/bill/${s.docId}?jobId=${encodeURIComponent(jobId)}` +
-                                            `&from=recode&ym=${encodeURIComponent(ym)}`,
-                                        )
-                                      : setOpenDocId(s.docId)
-                                  }
+                                  onClick={() => {
+                                    // In the Chrome side panel this app runs in
+                                    // an iframe beside a JobTread tab; opening a
+                                    // bill here drives that window to the same
+                                    // document. No-op when unframed.
+                                    driveMainWindowToDoc(jobId, s.docId);
+                                    if (isMobile) {
+                                      router.push(
+                                        `/bill/${s.docId}?jobId=${encodeURIComponent(jobId)}` +
+                                          `&from=recode&ym=${encodeURIComponent(ym)}`,
+                                      );
+                                    } else {
+                                      setOpenDocId(s.docId);
+                                    }
+                                  }}
                                   title={s.lines.map((l) => l.name).join("\n")}
                                   className={`rounded-md border px-2 py-1.5 text-[11px] transition lg:py-1 ${
                                     s.invoiced ? "" : "cursor-grab active:cursor-grabbing"
@@ -2516,9 +2661,13 @@ export function Board() {
                         />
                         <button
                           type="button"
-                          onClick={() =>
-                            isMobile ? openBillDetail() : setOpenDocId(isOpen ? null : b.id)
-                          }
+                          onClick={() => {
+                            // Side-panel dual navigation — see the note on the
+                            // cost-code lane's chips above.
+                            if (isMobile || !isOpen) driveMainWindowToDoc(jobId, b.id);
+                            if (isMobile) openBillDetail();
+                            else setOpenDocId(isOpen ? null : b.id);
+                          }}
                           aria-expanded={isMobile ? undefined : isOpen}
                           className="min-w-0 flex-1 p-3 text-left transition hover:bg-accent/5 dark:hover:bg-white/5"
                         >

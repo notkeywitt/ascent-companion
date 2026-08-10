@@ -163,30 +163,36 @@ function BillDetail() {
   const docId = params.docId;
   const jobId = search.get("jobId") ?? "";
   // Where Back returns to. Pages that deep-link here say so with ?from=… — the
-  // Invoicing tab (/stage, re-opening this job's card), Client Invoicing
-  // (/recode, on mobile) and the Sunset Statements page (/payments). Everything
-  // else comes from the coding queue.
+  // three Client Invoicing surfaces (`recode` the workbench, `invoicing` the
+  // all-jobs month roster, `drafts` the needs-coding queue) and the Sunset
+  // Statements page (`payments`). `stage` is the retired Invoicing page, still
+  // reachable by URL; anything unrecognised falls back to the workbench.
   const from = search.get("from");
   // Client Invoicing carries its billing month through so Back lands on the same
   // month; the `#bill-<id>` anchor is the bill you tapped, so you return to your
   // exact spot in that list.
   const ym = search.get("ym") ?? "";
+  const ymQs = ym ? `&ym=${encodeURIComponent(ym)}` : "";
   const backHref =
     from === "stage"
       ? `/stage?jobId=${encodeURIComponent(jobId)}`
-      : from === "recode"
-        ? `/recode?jobId=${encodeURIComponent(jobId)}${ym ? `&ym=${encodeURIComponent(ym)}` : ""}#bill-${docId}`
-        : from === "payments"
-          ? "/payments"
-          : `/coding?jobId=${encodeURIComponent(jobId)}`;
+      : from === "invoicing"
+        ? // The roster re-opens the card you left from (?open=), the month-list
+          // equivalent of the workbench's #bill-<id> anchor.
+          `/recode?open=${encodeURIComponent(jobId)}${ymQs}`
+        : from === "drafts"
+          ? "/recode?tab=drafts"
+          : from === "payments"
+            ? "/payments"
+            : `/recode?jobId=${encodeURIComponent(jobId)}${ymQs}#bill-${docId}`;
   const backLabel =
     from === "stage"
       ? "‹ Invoicing"
-      : from === "recode"
-        ? "‹ Client Invoicing"
+      : from === "drafts"
+        ? "‹ Needs coding"
         : from === "payments"
           ? "‹ Sunset statements"
-          : "‹ Coding queue";
+          : "‹ Client Invoicing";
   // Stepping ‹ prev / next › between bills must keep the SAME Back destination —
   // otherwise the neighbour loses ?from/?ym and Back falls back to the coding
   // queue. Carry both through every bill link.
@@ -532,8 +538,9 @@ function BillDetail() {
         return;
       }
       reloadJtWindow(); // refresh JobTread's view (old doc gone, new one created)
-      // New docId on the new job — this page's docId is stale; go to the new queue.
-      window.location.href = `/coding?jobId=${encodeURIComponent(targetJobId)}`;
+      // New docId on the new job — this page's docId is stale; open Client
+      // Invoicing on the job the bill just moved to.
+      window.location.href = `/recode?jobId=${encodeURIComponent(targetJobId)}`;
     } catch (e) {
       setReassignMsg(e instanceof Error ? e.message : "Network error");
     }

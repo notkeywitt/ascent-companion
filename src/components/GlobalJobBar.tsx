@@ -40,9 +40,9 @@ export function GlobalJobBar() {
       router.push(`/recode?jobId=${encodeURIComponent(id)}`);
       return;
     }
-    // Switching jobs from a specific bill returns to that job's coding queue —
-    // the old bill belongs to the previous job.
-    const base = pathname.startsWith("/bill") ? "/coding" : pathname;
+    // Switching jobs from a specific bill returns to Client Invoicing on the new
+    // job — the old bill belongs to the previous job.
+    const base = pathname.startsWith("/bill") ? "/recode" : pathname;
     router.replace(`${base}?jobId=${encodeURIComponent(id)}`);
   }
 

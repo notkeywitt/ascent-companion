@@ -149,12 +149,12 @@ export default function NeedsProjectPage() {
 
       {!!draftBillCount && (
         <Link
-          href="/coding"
+          href="/recode?tab=drafts"
           className="mb-4 flex items-center justify-between gap-3 rounded-lg bg-accent/10 px-4 py-2.5 text-sm text-accent transition hover:bg-accent/15 dark:text-accent-soft"
         >
           <span>
             <b className="font-semibold">{draftBillCount}</b> vendor bill
-            {draftBillCount === 1 ? "" : "s"} waiting in Coding Review across all jobs
+            {draftBillCount === 1 ? "" : "s"} waiting to be coded across all jobs
           </span>
           <span className="shrink-0 font-semibold">Go to queue →</span>
         </Link>

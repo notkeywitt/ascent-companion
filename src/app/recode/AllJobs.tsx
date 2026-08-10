@@ -1,0 +1,128 @@
+"use client";
+
+import { useCallback, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { PageHeader } from "@/components/ui";
+import { Roster, monthOptions } from "./Roster";
+import { DraftQueue } from "./DraftQueue";
+
+/**
+ * Client Invoicing with no job selected — the two all-jobs views, and the switch
+ * between them.
+ *
+ * They answer different questions and neither subsumes the other, which is why
+ * both are here rather than merged:
+ *
+ *  - "This month" is scoped by DATE. It's the invoicing run: what does each job
+ *    bill for the period, and is it on an invoice in JobTread yet.
+ *  - "Needs coding" is scoped by STATUS. It's every draft bill anywhere, of any
+ *    age — the only place a bill filed to the wrong month can still be found.
+ *
+ * Picking a job (global job bar, or "Code this job" on a card) leaves both and
+ * opens the workbench: same route, `?jobId=`.
+ */
+
+type Tab = "month" | "drafts";
+
+/**
+ * Default billing month — the 10th-to-10th window: through the 10th we're still
+ * closing out the PREVIOUS month; from the 11th on, the current one. (Jul 10 →
+ * June, Jul 11 → July.) Day ≤ 10 is always valid in the prior month, so stepping
+ * the month back can't overflow.
+ */
+function defaultYm(): string {
+  const d = new Date();
+  if (d.getDate() <= 10) d.setMonth(d.getMonth() - 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+export function AllJobs() {
+  const params = useSearchParams();
+  const router = useRouter();
+
+  const [tab, setTab] = useState<Tab>(params.get("tab") === "drafts" ? "drafts" : "month");
+  // Seeded from the URL so returning from a bill lands on the month you left.
+  const [ym, setYmState] = useState(() => {
+    const q = params.get("ym") ?? "";
+    return monthOptions().some((o) => o.ym === q) ? q : defaultYm();
+  });
+  // The card to re-open on arrival, from ?open= — consumed once, then dropped so
+  // collapsing it by hand doesn't get undone on the next render.
+  const [openJobId, setOpenJobId] = useState(() => params.get("open") ?? "");
+
+  /**
+   * The month lives in the URL as well as in state, so "Code this job" and the
+   * global job bar can carry it into the workbench. `replace`, not `push` — a
+   * month picker shouldn't fill the back button with one entry per change.
+   */
+  const setYm = useCallback(
+    (next: string) => {
+      setYmState(next);
+      setOpenJobId("");
+      const q = new URLSearchParams(params.toString());
+      q.set("ym", next);
+      q.delete("open");
+      router.replace(`/recode?${q.toString()}`, { scroll: false });
+    },
+    [params, router],
+  );
+
+  const switchTab = useCallback(
+    (next: Tab) => {
+      setTab(next);
+      const q = new URLSearchParams(params.toString());
+      if (next === "drafts") q.set("tab", "drafts");
+      else q.delete("tab");
+      q.delete("open");
+      router.replace(`/recode?${q.toString()}`, { scroll: false });
+    },
+    [params, router],
+  );
+
+  return (
+    <main className="mx-auto max-w-2xl px-4 pb-24 pt-6">
+      <PageHeader
+        title="Client Invoicing"
+        description={
+          tab === "month"
+            ? "Every client invoice to stage this month — one card per job. Open a card to see the bills, cost-code breakdown, and time behind its total, then create the invoice in JobTread."
+            : "Every draft vendor bill in JobTread, across all jobs and any month. Open one to code it."
+        }
+        actions={
+          // Segmented control, matching the workbench's own By bill / By cost
+          // code switch: one bordered track so the two read as a pair, with
+          // thumb-sized segments on touch.
+          <div className="flex shrink-0 gap-1 rounded-lg border border-line p-0.5 text-xs">
+            {(
+              [
+                ["month", "This month"],
+                ["drafts", "Needs coding"],
+              ] as const
+            ).map(([id, label]) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => switchTab(id)}
+                aria-pressed={tab === id}
+                className={`inline-flex min-h-10 items-center rounded-md px-2.5 transition lg:min-h-0 lg:py-1 ${
+                  tab === id
+                    ? "bg-accent font-semibold text-accent-fg"
+                    : "text-neutral-500 hover:text-accent dark:text-neutral-400"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        }
+        className="!mb-4"
+      />
+
+      {tab === "month" ? (
+        <Roster ym={ym} setYm={setYm} openJobId={openJobId} />
+      ) : (
+        <DraftQueue />
+      )}
+    </main>
+  );
+}

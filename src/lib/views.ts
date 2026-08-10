@@ -36,11 +36,23 @@ export interface ViewDef {
  */
 export const VIEWS: ViewDef[] = [
   // Financials / billing — admin-only as a group (see ADMIN_ONLY below).
-  { id: "coding", label: "Coding Review", group: "Financials", paths: ["/coding", "/bill", "/add-bill"] },
-  // The desktop coding workbench: recode a month's bills against live budget
-  // headroom. Same financial data as Invoicing but its own view, so it can be
-  // granted or denied on its own (it WRITES coding; /stage only reads).
-  { id: "recode", label: "Client Invoicing", group: "Financials", paths: ["/recode", "/api/recode"] },
+  // RETIRED 2026-08-10: the standalone Coding Review page. Its queue is now the
+  // "Needs coding" tab of Client Invoicing, and nothing links here any more —
+  // the route is left reachable by URL as a transition fallback, so the gate
+  // stays. The bill pages it used to own moved to the "recode" view below,
+  // which is what actually links to them now.
+  { id: "coding", label: "Coding Review (retired)", group: "Financials", paths: ["/coding"] },
+  // Client Invoicing — the whole billing workflow on one route: the month's
+  // invoices across every job, the needs-coding queue, and the per-job coding
+  // workbench (which WRITES coding, unlike the read-only pages it absorbed).
+  // /bill and /add-bill ride this gate because it is the only surface that
+  // reaches them.
+  {
+    id: "recode",
+    label: "Client Invoicing",
+    group: "Financials",
+    paths: ["/recode", "/api/recode", "/bill", "/add-bill"],
+  },
   // Approving a bill (draft → pending/approved) can push it to QuickBooks, so it
   // sits behind its own gate rather than riding on "recode" — leads keep coding
   // access without the approval action. No page of its own.
@@ -57,7 +69,12 @@ export const VIEWS: ViewDef[] = [
   // Jobs list + budget, built on the generic /api/pave gateway. Office+admin by
   // default (financial data); not in FIELD/LEAD sets below.
   { id: "jobs", label: "Jobs", group: "Financials", paths: ["/jobs"] },
-  { id: "stage", label: "Invoicing", group: "Financials", paths: ["/stage"] },
+  // RETIRED 2026-08-10 alongside "coding": the standalone Invoicing page is now
+  // the "This month" tab of Client Invoicing. Unlinked but still reachable by
+  // URL, so the gate stays. NOTE the /api/stage routes are deliberately NOT
+  // listed — Client Invoicing reads them for its roster and billing summary, so
+  // gating them here would lock out anyone without this retired view.
+  { id: "stage", label: "Invoicing (retired)", group: "Financials", paths: ["/stage"] },
   { id: "unbilled", label: "Unbilled", group: "Financials", paths: ["/unbilled"] },
   // Vendor bill search — job, date, amount, status, per vendor or per bill
   // number. A distinct API prefix ("/api/vendor-bills") from the existing

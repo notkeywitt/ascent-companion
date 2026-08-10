@@ -1,38 +1,47 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
-import { JtLink } from "@/components/JtLink";
 import { InvoiceReconcile } from "@/components/InvoiceReconcile";
 import { UncapturedBills } from "@/components/UncapturedBills";
 import { useAccess } from "@/components/AccessProvider";
-import {
-  Breakdown,
-  money,
-  printJob,
-  type Detail,
-} from "@/components/BillingSummary";
 import {
   TrackingSheetSync,
   runTrackingSync,
   type TrackingTarget,
   type TrackingSyncState,
 } from "@/components/TrackingSheetSync";
+import { Breakdown, money, printJob, type Detail } from "@/components/BillingSummary";
+import { JtLink } from "@/components/JtLink";
 import {
   Banner,
   Button,
   CardSkeletonList,
   EmptyState,
   Label,
-  PageHeader,
   Spinner,
   Toggle,
   btn,
   inputCls,
 } from "@/components/ui";
 
-// One roster row (GET /api/stage/jobs) — the collapsed card, before detail loads.
+/**
+ * The all-jobs month view of Client Invoicing — every client invoice to stage
+ * this month, one card per job.
+ *
+ * This is what the Invoicing page (/stage) was. It lives here because the two
+ * halves of the job were split across two routes: this list answered "what does
+ * the month owe, across every job", and the workbench answered "where should
+ * this bill's cost actually land" — and you cannot finish one without the other.
+ * Now they're the same page: no job selected shows the month; picking a job
+ * opens the workbench on it.
+ *
+ * Every figure comes from the SAME endpoints the old page used
+ * (/api/stage/jobs for the roster, /api/stage?jobId= for a card's breakdown),
+ * so the totals here are the ones JobTread's own invoice builder will produce.
+ */
+
+/** One roster row (GET /api/stage/jobs) — the collapsed card, before detail loads. */
 interface JobRow {
   jobId: string;
   jobName: string;
@@ -41,11 +50,13 @@ interface JobRow {
   billCount: number;
 }
 
-// How many per-job detail fetches run at once during the progressive fill —
-// bounded so we don't hammer the JobTread API (each fetch is a few Pave calls).
+/**
+ * How many per-job detail fetches run at once during the progressive fill —
+ * bounded so we don't hammer the JobTread API (each fetch is a few Pave calls).
+ */
 const CONCURRENCY = 3;
 
-function monthOptions() {
+export function monthOptions() {
   const opts: { ym: string; label: string; lastDay: string }[] = [];
   const now = new Date();
   for (let i = 0; i < 15; i++) {
@@ -62,21 +73,16 @@ function monthOptions() {
   return opts;
 }
 
-function Stage() {
-  const search = useSearchParams();
-  // A job chosen in the global picker just auto-opens that card; the page still
-  // lists every job for the month (the requested default all-invoices preview).
-  const focusJobId = (search.get("jobId") ?? "").trim();
-
-  const [ym, setYm] = useState(() => {
-    const d = new Date();
-    // 10th–10th billing window: through the 10th we're still closing out the
-    // PREVIOUS month; from the 11th on, the current month. (Jul 10 → June,
-    // Jul 11 → July.) Day ≤ 10 is always valid in the prior month, so stepping
-    // the month back can't overflow.
-    if (d.getDate() <= 10) d.setMonth(d.getMonth() - 1);
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-  });
+export function Roster({
+  ym,
+  setYm,
+  openJobId,
+}: {
+  ym: string;
+  setYm: (ym: string) => void;
+  /** A job whose card should open on arrival — how Back from a bill returns here. */
+  openJobId?: string;
+}) {
   const [rows, setRows] = useState<JobRow[] | null>(null);
   const [details, setDetails] = useState<Record<string, Detail>>({});
   const [detailFailed, setDetailFailed] = useState<Record<string, boolean>>({});
@@ -90,8 +96,8 @@ function Stage() {
   const [groupByCsi, setGroupByCsi] = useState(false);
   const runRef = useRef(0);
 
-  // Which jobs have a tracking sheet, keyed by JobTread job id. The Invoicing
-  // list identifies jobs by JT job id; the tracking-sheet sync is keyed on the
+  // Which jobs have a tracking sheet, keyed by JobTread job id. This list
+  // identifies jobs by JT job id; the tracking-sheet sync is keyed on the
   // internal ProjectID, so this map is the bridge. Loaded once.
   const { can } = useAccess();
   const canTrack = can("tracking-sheet");
@@ -99,24 +105,17 @@ function Stage() {
   // Keyed by ProjectID, and owned here so a result outlives its card collapsing.
   const [trackingSync, setTrackingSync] = useState<Record<string, TrackingSyncState>>({});
 
-  const startTrackingSync = useCallback(
-    (target: TrackingTarget, month: number, year: number) => {
-      const key = target.projectId;
-      runTrackingSync(key, month, year, (s) =>
-        setTrackingSync((prev) => ({ ...prev, [key]: s })),
-      );
-    },
-    [],
-  );
+  const startTrackingSync = useCallback((target: TrackingTarget, month: number, year: number) => {
+    const key = target.projectId;
+    runTrackingSync(key, month, year, (s) => setTrackingSync((prev) => ({ ...prev, [key]: s })));
+  }, []);
 
   // Every job in this month's roster that has a tracking sheet — what "Sync
   // All" fans out to. Mirrors the per-card gate (`trackingTargets.has(r.jobId)`)
   // so bulk sync never touches a job the page isn't currently showing.
   const trackableTargets = useMemo(
     () =>
-      (rows ?? [])
-        .map((r) => trackingTargets.get(r.jobId))
-        .filter((t): t is TrackingTarget => !!t),
+      (rows ?? []).map((r) => trackingTargets.get(r.jobId)).filter((t): t is TrackingTarget => !!t),
     [rows, trackingTargets],
   );
 
@@ -158,12 +157,14 @@ function Stage() {
 
   // A month change invalidates every result on screen — they describe another
   // billing period.
-  useEffect(() => { setTrackingSync({}); }, [ym]);
+  useEffect(() => {
+    setTrackingSync({});
+  }, [ym]);
 
   useEffect(() => {
     // Gated: /api/tracking-sheet sits behind the "tracking-sheet" view, which a
-    // lead does not have even though they can reach Invoicing. Asking anyway
-    // would just 403.
+    // lead does not have even though they can reach Client Invoicing. Asking
+    // anyway would just 403.
     if (!canTrack) return;
     let alive = true;
     (async () => {
@@ -173,7 +174,12 @@ function Stage() {
         const b = await res.json();
         if (!alive) return;
         const map = new Map<string, TrackingTarget>();
-        for (const j of (b.jobs ?? []) as { id: string; label: string; jtJobId: string; url: string }[]) {
+        for (const j of (b.jobs ?? []) as {
+          id: string;
+          label: string;
+          jtJobId: string;
+          url: string;
+        }[]) {
           if (j.jtJobId) map.set(j.jtJobId, { projectId: j.id, label: j.label, url: j.url });
         }
         setTrackingTargets(map);
@@ -181,7 +187,9 @@ function Stage() {
         /* non-fatal */
       }
     })();
-    return () => { alive = false; };
+    return () => {
+      alive = false;
+    };
   }, [canTrack]);
 
   const opt = monthOptions().find((o) => o.ym === ym);
@@ -272,12 +280,18 @@ function Stage() {
     load();
   }, [load]);
 
-  // Auto-open the globally-picked job's card once it's in the roster.
+  // Coming back from a bill (?open=<jobId>) re-opens the card you left from,
+  // once it's in the roster, and scrolls to it — the list renders async, so the
+  // browser can't do that itself. `didScroll` keeps it to the first arrival, so
+  // a later refresh doesn't yank you back up.
+  const didScroll = useRef(false);
   useEffect(() => {
-    if (focusJobId && rows?.some((r) => r.jobId === focusJobId)) {
-      setOpenId((o) => (o[focusJobId] ? o : { ...o, [focusJobId]: true }));
-    }
-  }, [focusJobId, rows]);
+    if (!openJobId || !rows?.some((r) => r.jobId === openJobId)) return;
+    setOpenId((o) => (o[openJobId] ? o : { ...o, [openJobId]: true }));
+    if (didScroll.current) return;
+    didScroll.current = true;
+    document.getElementById(`job-${openJobId}`)?.scrollIntoView({ block: "center" });
+  }, [openJobId, rows]);
 
   // Grand total = sum of the authoritative per-job totals. Only shown once every
   // card's detail is loaded (while filling, a spinner stands in), so it never
@@ -288,40 +302,32 @@ function Stage() {
   );
 
   return (
-    <main className="mx-auto max-w-2xl px-4 pb-24 pt-6">
-      <PageHeader
-        title="Invoicing"
-        description="Every client invoice to stage this month — one card per job. Open a card to see the bills, cost-code breakdown, and time behind its total, then create the invoice in JobTread."
-        actions={
-          canTrack && trackableTargets.length > 0 ? (
-            <Button
-              variant="secondary"
-              size="sm"
-              disabled={syncAllBusy}
-              onClick={startAllTrackingSync}
-            >
-              {syncAllBusy ? (
-                <>
-                  <Spinner className="mr-1.5" />
-                  Syncing {trackingSummary.done + trackingSummary.error}/{trackingSummary.total}…
-                </>
-              ) : (
-                "Sync All Tracking Sheets"
-              )}
-            </Button>
-          ) : undefined
-        }
-        className="!mb-4"
-      />
+    <>
+      {canTrack && trackableTargets.length > 0 && (
+        <div className="mb-4 flex justify-end">
+          <Button
+            variant="secondary"
+            size="sm"
+            disabled={syncAllBusy}
+            onClick={startAllTrackingSync}
+          >
+            {syncAllBusy ? (
+              <>
+                <Spinner className="mr-1.5" />
+                Syncing {trackingSummary.done + trackingSummary.error}/{trackingSummary.total}…
+              </>
+            ) : (
+              "Sync All Tracking Sheets"
+            )}
+          </Button>
+        </div>
+      )}
 
       {!syncAllBusy && (trackingSummary.done > 0 || trackingSummary.error > 0) && (
         <p className="-mt-2 mb-4 text-xs text-neutral-500">
           Tracking sheets: {trackingSummary.done} synced
           {trackingSummary.error > 0 && (
-            <span className="text-red-600 dark:text-red-400">
-              {" "}
-              · {trackingSummary.error} failed
-            </span>
+            <span className="text-red-600 dark:text-red-400"> · {trackingSummary.error} failed</span>
           )}
           {" — expand a job to see details."}
         </p>
@@ -335,8 +341,13 @@ function Stage() {
       <UncapturedBills />
 
       <div className="mb-3">
-        <Label>Billing month</Label>
-        <select value={ym} onChange={(e) => setYm(e.target.value)} className={inputCls}>
+        <Label htmlFor="roster-month">Billing month</Label>
+        <select
+          id="roster-month"
+          value={ym}
+          onChange={(e) => setYm(e.target.value)}
+          className={inputCls}
+        >
           {monthOptions().map((o) => (
             <option key={o.ym} value={o.ym}>
               {o.label}
@@ -392,7 +403,8 @@ function Stage() {
           return (
             <li
               key={r.jobId}
-              className="rounded-xl border border-line bg-white p-3 dark:bg-ink-raised"
+              id={`job-${r.jobId}`}
+              className="scroll-mt-20 rounded-xl border border-line bg-white p-3 dark:bg-ink-raised"
             >
               <button
                 type="button"
@@ -403,7 +415,9 @@ function Stage() {
                 <div className="min-w-0">
                   {/* Title = customer, subtitle = job (falls back to job as the
                       title when a card has no customer). */}
-                  <div className="truncate font-semibold">{customerName || r.jobName || r.jobId}</div>
+                  <div className="truncate font-semibold">
+                    {customerName || r.jobName || r.jobId}
+                  </div>
                   <div className="mt-0.5 flex items-center gap-1.5 text-xs text-neutral-500">
                     <span className={`transition-transform ${open ? "rotate-90" : ""}`}>▸</span>
                     {customerName && r.jobName && <span className="truncate">{r.jobName}</span>}
@@ -417,8 +431,8 @@ function Stage() {
                 </div>
                 <div className="shrink-0 text-right">
                   {/* Total appears only once the authoritative detail lands, so it
-                      always equals the old per-job view exactly (never a bills-only
-                      placeholder). */}
+                      always equals the workbench's own figure exactly (never a
+                      bills-only placeholder). */}
                   <div className="flex h-7 items-center justify-end text-lg font-bold tabular-nums">
                     {detail ? money(detail.total) : failed ? "—" : <Spinner />}
                   </div>
@@ -469,13 +483,13 @@ function Stage() {
                   ) : (
                     <>
                       <div className="mb-2 flex justify-end gap-2">
-                        {/* Desktop coding workbench — recode these bills against
-                            live budget headroom before the invoice is built. */}
+                        {/* The workbench, on this job and this month — recode
+                            these bills against live budget headroom. */}
                         <Link
                           href={`/recode?jobId=${encodeURIComponent(r.jobId)}&ym=${ym}`}
                           className={btn("secondary", "sm")}
                         >
-                          Client Invoicing ↗
+                          Code this job →
                         </Link>
                         <Button
                           variant="secondary"
@@ -485,7 +499,7 @@ function Stage() {
                           Print / Save PDF
                         </Button>
                       </div>
-                      <Breakdown detail={detail} groupByCsi={groupByCsi} />
+                      <Breakdown detail={detail} groupByCsi={groupByCsi} from="invoicing" />
                       <JtLink
                         href={`https://app.jobtread.com/jobs/${r.jobId}/documents`}
                         className={btn("primary", "md", "mt-3 w-full")}
@@ -505,14 +519,6 @@ function Stage() {
           );
         })}
       </ul>
-    </main>
-  );
-}
-
-export default function StagePage() {
-  return (
-    <Suspense fallback={<main className="p-6 text-sm text-neutral-500">Loading…</main>}>
-      <Stage />
-    </Suspense>
+    </>
   );
 }

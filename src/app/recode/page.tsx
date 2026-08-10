@@ -1,16 +1,16 @@
 import { Suspense } from "react";
 import { Loading } from "@/components/ui";
-import { Board } from "./Board";
+import { ClientInvoicing } from "./ClientInvoicing";
 
 /**
- * Invoicing coding board — desktop workbench for recoding a month's bills
- * against live budget headroom. Reached from a job card on /stage, which stays
- * the phone-friendly all-jobs list. Shares the "stage" (Invoicing) view gate.
+ * Client Invoicing — the single home for the month's client invoices, the
+ * needs-coding queue, and the coding workbench. See ClientInvoicing.tsx for how
+ * the job selector switches between them.
  */
 export default function BoardPage() {
   return (
     <Suspense fallback={<Loading label="Loading…" />}>
-      <Board />
+      <ClientInvoicing />
     </Suspense>
   );
 }

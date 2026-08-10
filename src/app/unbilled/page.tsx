@@ -42,10 +42,10 @@ export default async function UnbilledPage({
         actions={
           jobId ? (
             <Link
-              href={`/coding?jobId=${encodeURIComponent(jobId)}`}
+              href={`/recode?jobId=${encodeURIComponent(jobId)}`}
               className="text-xs font-semibold text-accent dark:text-accent-soft"
             >
-              ← Coding queue
+              ← Client Invoicing
             </Link>
           ) : undefined
         }
