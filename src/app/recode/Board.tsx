@@ -2014,20 +2014,6 @@ export function Board() {
       {jobId && !loading && (
         <div className="order-last mt-4 lg:order-none lg:mb-4 lg:mt-0">
           <InvoiceReconcile jobId={jobId} ym={ym} onData={setRecon} />
-          {/* This month vs. the whole job: the rectangle above reconciles the
-              selected month, Unbilled is every approved cost on the job not yet
-              on an approved invoice. Different question, one click away. */}
-          <div className="mt-1.5 flex justify-end gap-4 text-xs font-semibold">
-            <Link
-              href={`/unbilled?jobId=${encodeURIComponent(jobId)}`}
-              className="text-accent dark:text-accent-soft"
-            >
-              Unbilled on this job →
-            </Link>
-            <Link href="/recode" className="text-accent dark:text-accent-soft">
-              All jobs →
-            </Link>
-          </div>
         </div>
       )}
 
