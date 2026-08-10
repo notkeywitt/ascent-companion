@@ -46,12 +46,14 @@ export const VIEWS: ViewDef[] = [
   // invoices across every job, the needs-coding queue, and the per-job coding
   // workbench (which WRITES coding, unlike the read-only pages it absorbed).
   // /bill and /add-bill ride this gate because it is the only surface that
-  // reaches them.
+  // reaches them. So does /api/uncaptured — unlike the read-only /api/stage
+  // routes below, it pushes bills to JobTread and can delete a sheet row and
+  // trash its PDF, so it must not be callable by a role that can't see the page.
   {
     id: "recode",
     label: "Client Invoicing",
     group: "Financials",
-    paths: ["/recode", "/api/recode", "/bill", "/add-bill"],
+    paths: ["/recode", "/api/recode", "/bill", "/add-bill", "/api/uncaptured"],
   },
   // Approving a bill (draft → pending/approved) can push it to QuickBooks, so it
   // sits behind its own gate rather than riding on "recode" — leads keep coding

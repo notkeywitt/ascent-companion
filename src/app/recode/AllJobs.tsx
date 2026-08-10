@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { PageHeader } from "@/components/ui";
+import { UncapturedBills } from "@/components/UncapturedBills";
 import { Roster, monthOptions } from "./Roster";
 import { DraftQueue } from "./DraftQueue";
 
@@ -117,6 +118,17 @@ export function AllJobs() {
         }
         className="!mb-4"
       />
+
+      {/* Ingested bills that never reached JobTread at all — the step before
+          either tab. They're missing from "This month" because they're on no
+          invoice, and missing from "Needs coding" because they aren't even a
+          JobTread draft yet, so neither view can surface them; nothing in the
+          hourly sync touches them either (it only mirrors JobTread → sheet).
+          Sits above the tab switch, and above the month picker inside Roster,
+          because a stranded bill often carries the WRONG billing period —
+          scoping it to the selected month is exactly how it stays hidden.
+          Renders nothing when the queue is empty. */}
+      <UncapturedBills />
 
       {tab === "month" ? (
         <Roster ym={ym} setYm={setYm} openJobId={openJobId} />
