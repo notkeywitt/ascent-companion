@@ -103,6 +103,11 @@ export const VIEWS: ViewDef[] = [
   // see the indicator nor read the queued bills by calling the route directly.
   { id: "needs-project", label: "Needs Project", group: "Financials", paths: ["/needs-project", "/api/needs-project"] },
   { id: "payments", label: "Sunset Statements", group: "Financials", paths: ["/payments"] },
+  // LSWDD (the dump) bills monthly on ONE statement covering many jobs. The
+  // sweep stages its charges; this page assigns each to a job and creates one
+  // draft bill per job. The API prefix rides the same gate as the page — it
+  // pushes bills to JobTread, so a role without the view must not reach it.
+  { id: "lswdd", label: "LSWDD Statement", group: "Financials", paths: ["/lswdd", "/api/lswdd"] },
   { id: "amazon-import", label: "Amazon Import", group: "Financials", paths: ["/amazon-import", "/api/amazon-import"] },
   // Field
   { id: "safety-meeting", label: "Safety Meeting", group: "Field", paths: ["/safety-meeting"] },

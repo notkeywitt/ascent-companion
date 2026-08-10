@@ -160,6 +160,7 @@ const AREAS: Area[] = [
       { label: "Email Invoices", href: "/email", desc: "Log invoices from the office inbox", view: "email" },
       { label: "Needs Project", href: "/needs-project", desc: "Ingested bills with no job yet", view: "needs-project" },
       { label: "Amazon Import", href: "/amazon-import", desc: "Monthly Amazon report → batch of bills", view: "amazon-import" },
+      { label: "LSWDD Statement", href: "/lswdd", desc: "Split the dump's monthly statement across jobs", view: "lswdd" },
       { label: "Assistant", href: "/chat", desc: "Ask about a job's bills or budget", view: "chat" },
       { label: "RFIs", href: "/rfis", desc: "View and create a job's RFIs", view: "rfis" },
       { label: "Time Sync", href: "/time-sync", desc: "Records not yet in JobTread — retry", view: "time-sync" },
