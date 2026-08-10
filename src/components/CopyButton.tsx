@@ -5,7 +5,7 @@ import { useState } from "react";
 /**
  * Copy-to-clipboard chip. Copies `value`; briefly flips to a "Copied" check so
  * you know the paste is loaded before switching to the TSYS tab. Used on the
- * /payments view for the fields you type by hand (account name, statement #, net).
+ * /payments view for the fields you type by hand (net, account name, reference ID).
  */
 export function CopyButton({
   value,

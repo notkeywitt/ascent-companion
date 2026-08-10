@@ -9,7 +9,9 @@ import { SunsetDuplicateScan } from "@/components/SunsetDuplicateScan";
 import { Banner, Button, CardSkeletonList, EmptyState, PageHeader, Spinner } from "@/components/ui";
 import { clearTouchedBills, touchedBillCount } from "@/lib/billTouch";
 
-const TSYS_URL = "https://hostedpaynow.com/hostedapp/tsys/paymentOptions";
+// The TSYS hosted-payment page rejects requests that don't arrive through Sunset's
+// own site, so Pay goes to sunsetbuilderssupply.com and you click through from there.
+const TSYS_URL = "https://www.sunsetbuilderssupply.com/";
 const FILTERS = ["unpaid", "paid", "all"] as const;
 type Filter = (typeof FILTERS)[number];
 const EXTRACT_BATCH = 4; // statements Gemini-read per request (bounded so it never times out)
@@ -156,6 +158,77 @@ let snapRecon: { at: number; recon: Record<string, Reconciliation>; live: boolea
 const openCards = new Set<string>(); // expIds whose invoice list is expanded
 let snapScrollY = 0;
 let snapFilter: Filter = "unpaid"; // the tab you were on, so a return doesn't reset it
+
+interface BankDetails {
+  routing: string;
+  account: string;
+  label: string;
+}
+
+// Ascent's own ACH numbers, for the bank fields on the TSYS form. Kept out of the
+// client bundle: they come from server-only env vars via /api/bank-details, which
+// middleware gates to admins (the page itself is a lead view), so a non-admin
+// simply gets no row. Fetched once per app session and held here rather than in
+// state, so returning to the page doesn't re-request them.
+let snapBank: BankDetails | null = null;
+
+/** Show only the last 4 until Reveal — the numbers shouldn't sit on a shared screen. */
+const maskTail = (v: string) => (v.length > 4 ? "•".repeat(Math.min(v.length - 4, 8)) + v.slice(-4) : v);
+
+function BankRow() {
+  const [bank, setBank] = useState<BankDetails | null>(snapBank);
+  const [shown, setShown] = useState(false);
+
+  useEffect(() => {
+    if (snapBank) return;
+    let live = true;
+    (async () => {
+      try {
+        const res = await fetch("/api/bank-details");
+        if (!res.ok) return; // 403 (not an admin) or 404 (not configured) — render nothing
+        const json = await res.json();
+        if (!live || json.ok === false) return;
+        snapBank = { routing: json.routing ?? "", account: json.account ?? "", label: json.label ?? "" };
+        setBank(snapBank);
+      } catch {
+        /* non-fatal — the row just doesn't appear */
+      }
+    })();
+    return () => {
+      live = false;
+    };
+  }, []);
+
+  if (!bank) return null;
+  return (
+    <div className="mb-4 flex flex-wrap items-center gap-1.5 rounded-xl border border-line bg-neutral-50 px-3 py-2 dark:bg-ink-raised">
+      <span className="mr-1 text-xs font-semibold text-neutral-500">
+        {bank.label || "Ascent bank"}
+      </span>
+      {bank.routing && <CopyButton value={bank.routing} label="Routing" />}
+      {bank.account && <CopyButton value={bank.account} label="Account #" />}
+      <button
+        type="button"
+        onClick={() => setShown((v) => !v)}
+        className="rounded-md px-2 py-1 text-xs font-semibold text-neutral-500 transition hover:bg-neutral-100 dark:hover:bg-white/10"
+      >
+        {shown ? "Hide" : "Reveal"}
+      </button>
+      {shown && (
+        <span className="text-xs text-neutral-600 tabular-nums dark:text-neutral-300">
+          {bank.routing && <>R {bank.routing}</>}
+          {bank.routing && bank.account ? " · " : ""}
+          {bank.account && <>A {bank.account}</>}
+        </span>
+      )}
+      {!shown && (bank.routing || bank.account) && (
+        <span className="text-xs text-neutral-400 tabular-nums">
+          {maskTail(bank.account || bank.routing)}
+        </span>
+      )}
+    </div>
+  );
+}
 
 const validSnapList = (f: Filter) =>
   snapList && snapList.filter === f && Date.now() - snapList.at < SNAP_MAX_MS ? snapList : null;
@@ -384,6 +457,8 @@ export default function PaymentsPage() {
         className="!mb-4"
       />
 
+      <BankRow />
+
       <SunsetDuplicateScan />
 
       <div className="mb-4 flex items-center gap-1.5">
@@ -500,7 +575,10 @@ export default function PaymentsPage() {
                     )}
                   </div>
                   <div className="mt-0.5 text-xs text-neutral-500">
-                    {s.statementNumber ? `Statement #${s.statementNumber}` : "Statement #—"}
+                    {/* `statementNumber` is what Sunset prints on the statement, but it's
+                        really the JOB's account number — and it's what TSYS wants in its
+                        Reference ID field. Labeled accordingly in both places. */}
+                    {s.statementNumber ? `Account #${s.statementNumber}` : "Account #—"}
                     {s.statementDate ? ` · ${s.statementDate}` : ""}
                     {s.project && s.accountName ? ` · ${s.project}` : ""}
                   </div>
@@ -742,9 +820,10 @@ export default function PaymentsPage() {
                 ))}
 
               <div className="mt-3 flex flex-wrap items-center gap-1.5">
-                {s.accountName && <CopyButton value={s.accountName} label="Account" />}
-                {s.statementNumber && <CopyButton value={s.statementNumber} label="Stmt #" />}
+                {/* Ordered to match the TSYS form top-to-bottom: amount, account name, reference. */}
                 {s.net && <CopyButton value={s.net} label="Net" />}
+                {s.accountName && <CopyButton value={s.accountName} label="Account Name" />}
+                {s.statementNumber && <CopyButton value={s.statementNumber} label="Reference ID" />}
                 <JtLink
                   href={TSYS_URL}
                   className="inline-flex items-center gap-1 rounded-md bg-accent px-2.5 py-1 text-xs font-semibold text-accent-fg transition hover:bg-accent-hover"

@@ -168,6 +168,12 @@ export const VIEWS: ViewDef[] = [
     group: "System",
     paths: ["/historical-cost", "/api/historical-cost"],
   },
+  // No page of its own — this gates the route that hands out Ascent's bank
+  // routing/account numbers for the Sunset payment form. /payments itself is a
+  // LEAD view, so the numbers can't ride that gate; they get their own,
+  // admin-only one (see ADMIN_MENU below) and the chips render only when the
+  // route answers. The numbers live in server-only env vars, never in the DB.
+  { id: "bank-details", label: "Bank Details", group: "System", paths: ["/api/bank-details"] },
   { id: "requests", label: "Requests", group: "System", paths: ["/requests"] },
   // The API route is listed alongside the page so the Home launcher's admin
   // action bar — buttons on a page EVERY role loads — can't be driven by a
@@ -198,7 +204,7 @@ const FIELD_VIEWS: string[] = ["mileage", "employee-time", "tools", "requisition
 const LEAD_VIEWS: string[] = [...FIELD_VIEWS, "coding", "stage", "recode", "payments"];
 // The admin-only consoles — access control + the audit log. No one below admin
 // gets these by default (a per-user grant can still hand them to an individual).
-const ADMIN_MENU: string[] = ["admin", "logs", "historical-cost"];
+const ADMIN_MENU: string[] = ["admin", "logs", "historical-cost", "bank-details"];
 // Office gets Financials, HR, and Utilities ("everything else") — i.e. every
 // view except the admin consoles, including the header Sync button.
 const OFFICE_VIEWS: string[] = ALL_VIEW_IDS.filter((id) => !ADMIN_MENU.includes(id));
