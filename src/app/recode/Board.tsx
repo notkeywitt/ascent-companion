@@ -24,6 +24,7 @@ import {
   Toggle,
 } from "@/components/ui";
 import { CostCodeSelect, type Option } from "@/components/CostCodeSelect";
+import { JobPicker, jobLabel, type JobRef } from "@/components/JobPicker";
 import { JtLink } from "@/components/JtLink";
 import {
   billLineMath,
@@ -256,6 +257,24 @@ function monthOptions(): { value: string; label: string }[] {
     d.setMonth(d.getMonth() - 1);
   }
   return out;
+}
+
+/** "2026-07" → "July 2026". */
+function monthLabel(ym: string): string {
+  const [y, m] = ym.split("-").map(Number);
+  return `${MONTHS[m - 1] ?? ym} ${y}`;
+}
+
+/**
+ * The issueDate that files a bill in `ym`: the last day of that month, the same
+ * convention the bill page's Filing card writes. (Sunset bills carry their
+ * arrival date instead — re-filing one from here re-dates it to the month end
+ * like any other bill, which is what the office is asking for when they change
+ * the month by hand.)
+ */
+function issueDateFor(ym: string): string {
+  const [y, m] = ym.split("-").map(Number);
+  return `${ym}-${String(new Date(y, m, 0).getDate()).padStart(2, "0")}`;
 }
 
 /** Per-cost-code money, after staged moves. */
@@ -802,6 +821,9 @@ export function Board() {
   const [addLineMsg, setAddLineMsg] = useState("");
   const [deletingLineId, setDeletingLineId] = useState("");
   const [deleteLineMsg, setDeleteLineMsg] = useState("");
+  const [monthSaving, setMonthSaving] = useState(false);
+  const [reassigning, setReassigning] = useState(false);
+  const [filingMsg, setFilingMsg] = useState("");
 
   // All reset when the open bill changes — they're about the CURRENT bill's
   // lines, and stale selections/forms from a previous bill would silently
@@ -815,6 +837,7 @@ export function Board() {
     setNewLine({ name: "", quantity: "1", unitCost: "0", code: "" });
     setAddLineMsg("");
     setDeleteLineMsg("");
+    setFilingMsg("");
   }, [openDocId]);
 
   // Stage one cost code onto every line of the open bill (into `staged`, so it
@@ -1073,6 +1096,105 @@ export function Board() {
       setSyncMsg({ tone: "error", text: e instanceof Error ? e.message : "Network error" });
     } finally {
       setBuybackId("");
+    }
+  };
+
+  // ---- filing: which month the bill bills in, and which job it belongs to ---
+  // Ported from the bill page's Filing card so a bill can be finished without
+  // leaving the board. Both WRITE immediately — they're filing facts read off
+  // the document, not "try it and see" coding choices — and both can take the
+  // bill off this board entirely, which is why their success is reported in the
+  // page-level banner (the drawer they were pressed in is gone by then) and
+  // only their errors stay in the card.
+
+  /** True when the open bill carries coding work that hasn't been synced yet. */
+  const openBillDirty = openLines.some(
+    (l) => staged.has(l.id) || edits[l.id] !== undefined,
+  );
+
+  // Re-date the bill (JobTread's issueDate = its billing month; the sheet and
+  // the Drive month folder follow it via the hourly mirror). Any status — a
+  // re-date is legal on a committed bill, unlike qty/description edits.
+  const setBillingMonth = async (targetYm: string) => {
+    if (!openBill || !targetYm) return;
+    // A different month takes the bill out of the month this board is showing,
+    // and the reload below prunes anything staged against it.
+    const leaves = targetYm !== ym;
+    if (
+      leaves &&
+      openBillDirty &&
+      !window.confirm(
+        `Move this bill to ${monthLabel(targetYm)}?\n\nIt leaves ${monthLabel(ym)} on this ` +
+          `board, and its staged coding changes go with it — they haven't been synced.`,
+      )
+    )
+      return;
+    setMonthSaving(true);
+    setFilingMsg("");
+    try {
+      const res = await fetch("/api/bill-issuedate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ docId: openBill.id, issueDate: issueDateFor(targetYm) }),
+      });
+      const json = await res.json();
+      if (!res.ok) setFilingMsg(json.error ?? "Couldn't set the billing month.");
+      else if (json.previewed)
+        setFilingMsg("Preview only — writes are OFF. The billing month wasn't changed.");
+      else {
+        if (leaves) {
+          setOpenDocId(null);
+          setSyncMsg({
+            tone: "success",
+            text: `Moved to ${monthLabel(targetYm)} — it's no longer in ${monthLabel(ym)}.`,
+          });
+        }
+        await load({ preserveStaged: true });
+      }
+    } catch (e) {
+      setFilingMsg(e instanceof Error ? e.message : "Network error");
+    } finally {
+      setMonthSaving(false);
+    }
+  };
+
+  // Move the bill to another job. JobTread can't move bills, so Apps Script
+  // delete+recreates it on the target job (draft only) and re-files the sheet
+  // row + Drive folder. The recreate mints a NEW docId on a job this board
+  // isn't showing, so afterwards we simply drop it from the list.
+  const reassignJob = async (target: JobRef) => {
+    if (!openBill || !target.id || target.id === jobId) return;
+    if (
+      !window.confirm(
+        `Move this bill to ${jobLabel(target)}?\n\nJobTread can't move bills, so it will be ` +
+          `deleted and recreated on that job. It stays a draft, keeps its PDF, and re-files ` +
+          `in Drive.` +
+          (openBillDirty
+            ? "\n\nIts staged coding changes haven't been synced and will be lost."
+            : ""),
+      )
+    )
+      return;
+    setReassigning(true);
+    setFilingMsg("");
+    try {
+      const res = await fetch("/api/reassign-job", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ docId: openBill.id, jobId: target.id }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.ok) {
+        setFilingMsg(json.error ?? "Reassign failed");
+        return;
+      }
+      setOpenDocId(null);
+      setSyncMsg({ tone: "success", text: `Moved to ${jobLabel(target)} — it's on that job now.` });
+      await load({ preserveStaged: true });
+    } catch (e) {
+      setFilingMsg(e instanceof Error ? e.message : "Network error");
+    } finally {
+      setReassigning(false);
     }
   };
 
@@ -2951,6 +3073,65 @@ export function Board() {
                     )}
                   </div>
                 </div>
+
+                {/* Filing — the bill page's Filing card, in the panel where the
+                    invoice is already on screen: both answers are read off the
+                    document, so they sit AFTER it, same as on /bill. Writes-
+                    gated like the rest of the card, and hidden on an invoiced
+                    bill, whose month and job are fixed by what the client was
+                    already sent. */}
+                {data?.writesEnabled && !openBill.invoiced && (
+                  <div className="mt-4 border-t border-line-soft pt-3 dark:border-neutral-800">
+                    <SectionLabel className="mb-1.5">Filing</SectionLabel>
+                    <Label htmlFor="filing-billing-month">Billing month</Label>
+                    <Select
+                      id="filing-billing-month"
+                      className="!py-1.5 !text-xs"
+                      disabled={monthSaving || reassigning}
+                      value={(openBill.issueDate ?? "").slice(0, 7)}
+                      onChange={(e) => setBillingMonth(e.target.value)}
+                    >
+                      <option value="">— set billing month —</option>
+                      {monthOptions().map((o) => (
+                        <option key={o.value} value={o.value}>
+                          {o.label}
+                        </option>
+                      ))}
+                    </Select>
+
+                    {/* Draft-only, like the bill page: JobTread locks a
+                        committed bill, and the move is a delete+recreate. */}
+                    {openMath.isDraft && (
+                      <div className="mt-3">
+                        <Label>Move to job</Label>
+                        {/* The picker is an action here, not a selection — what
+                            it displays stays this board's job — so the move runs
+                            off onSelect, which also hands back the label the
+                            confirm and the banner name. */}
+                        <JobPicker
+                          value={jobId}
+                          includeAll={false}
+                          placeholder="Choose a job…"
+                          onChange={() => {}}
+                          onSelect={(j) => {
+                            if (j) reassignJob(j);
+                          }}
+                        />
+                      </div>
+                    )}
+
+                    {(monthSaving || reassigning) && (
+                      <p className="mt-1.5 text-[11px] text-neutral-400">
+                        {reassigning ? "Moving…" : "Saving…"}
+                      </p>
+                    )}
+                    {filingMsg && (
+                      <Banner tone="neutral" className="mt-1.5 !px-2 !py-1.5 !text-[11px]">
+                        {filingMsg}
+                      </Banner>
+                    )}
+                  </div>
+                )}
               </Card>
             )}
           </section>

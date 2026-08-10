@@ -14,7 +14,7 @@ export interface JobRef {
 /** Sentinel for "jobs with no Phase set", so it can sit in a plain <select> alongside real values. */
 const NO_PHASE = "__no_phase__";
 
-const jobLabel = (j: JobRef) => (j.customer ? `${j.customer} - ${j.name}` : j.name);
+export const jobLabel = (j: JobRef) => (j.customer ? `${j.customer} - ${j.name}` : j.name);
 /** Drop the trailing ", USA" Google tacks on — every job is domestic. */
 export const jobAddress = (j: JobRef) => (j.address ?? "").replace(/,\s*USA$/i, "").trim();
 
