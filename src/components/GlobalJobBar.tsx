@@ -6,7 +6,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { JobPicker, jobAddress, type JobRef } from "@/components/JobPicker";
 import { AscentLogo } from "@/components/AscentLogo";
 import { useAccess } from "@/components/AccessProvider";
-import { RefreshButton } from "@/components/RefreshButton";
+import { SyncNowButton } from "@/components/SyncNowButton";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { LinkPendingOverlay } from "@/components/LinkPending";
 import { btn } from "@/components/ui";
@@ -80,9 +80,10 @@ export function GlobalJobBar() {
           <LinkPendingOverlay spinnerClassName="h-4 w-4" />
         </Link>
       )}
-      {/* Ungated — reloading the current page's data is read-only and useful to
-          everyone. */}
-      <RefreshButton />
+      {/* Gated — this one drives the backend mirror, not a local reload. It
+          takes the Refresh button's old slot: a manual kick of the JT →
+          Sheets/Drive full sync is what's actually wanted from the top bar. */}
+      {access.can("sync") && <SyncNowButton />}
       <ThemeToggle />
     </div>
     {/* Where the selected job IS, on its own line under the picker.
