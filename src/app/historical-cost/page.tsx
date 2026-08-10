@@ -229,7 +229,9 @@ export default function HistoricalCostPage() {
     : "";
 
   return (
-    <div className="mx-auto max-w-3xl">
+    // The app's standard page container — this was a bare <div> with no padding,
+    // so every card sat hard against both screen edges on a phone.
+    <main className="mx-auto max-w-3xl px-4 pb-24 pt-6">
       <PageHeader
         title="Historical Cost Import"
         description="Capture a job's historical costs from its Tracking Sheet as one draft JobTread bill, coded by cost code."
@@ -414,6 +416,6 @@ export default function HistoricalCostPage() {
           )}
         </Card>
       )}
-    </div>
+    </main>
   );
 }

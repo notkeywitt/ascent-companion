@@ -249,10 +249,18 @@ export default function TrackingSheetPage() {
   const busy = queue.filter((it) => it.status === "queued" || it.status === "running").length;
   const ready = !!projectId && !!ym;
 
-  if (loading) return <Loading label="Loading tracking sheets…" />;
+  if (loading)
+    return (
+      <main className="mx-auto max-w-2xl px-4 pb-24 pt-6">
+        <Loading label="Loading tracking sheets…" />
+      </main>
+    );
 
   return (
-    <div className="mx-auto max-w-2xl">
+    // The app's standard page container. This was a bare <div> with no padding
+    // at all, so the title and every card sat hard against both screen edges on
+    // a phone — the only page besides Historical Cost Import that wasn't on it.
+    <main className="mx-auto max-w-2xl px-4 pb-24 pt-6">
       <PageHeader
         title="Tracking Sheet"
         description="Push a job's month of sub/vendor invoices into its Google tracking sheet, then finalize the month."
@@ -376,7 +384,7 @@ export default function TrackingSheetPage() {
           )}
         </>
       )}
-    </div>
+    </main>
   );
 }
 

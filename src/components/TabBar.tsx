@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useAccess } from "@/components/AccessProvider";
+import { LinkPendingOverlay } from "@/components/LinkPending";
 import { confirmLeaveIfDirty } from "@/lib/useUnsavedChanges";
 
 /**
@@ -138,7 +139,14 @@ export function TabBar() {
             onClick={(e) => {
               if (!confirmLeaveIfDirty()) e.preventDefault();
             }}
-            className={`flex h-14 flex-col items-center justify-center gap-0.5 text-[10.5px] font-semibold transition ${
+            // Two kinds of tap feedback, because they answer different
+            // questions. `active:` is the PRESS — it paints the instant a
+            // finger lands, so the tap never feels ignored, and it needs no
+            // round trip. The overlay below is the WAIT — it appears only while
+            // that link's navigation is actually in flight, which on a slow
+            // connection is the difference between "did that register?" and
+            // "it's working on it".
+            className={`relative flex h-14 flex-col items-center justify-center gap-0.5 text-[10.5px] font-semibold transition active:bg-accent/15 ${
               active
                 ? "text-accent dark:text-accent-soft"
                 : "text-neutral-500 hover:text-accent dark:text-neutral-400"
@@ -153,6 +161,9 @@ export function TabBar() {
             />
             <t.Icon />
             {t.label}
+            {/* Same tap→loading affordance the launcher rows and quick tiles
+                use, so a tab behaves like every other link in the app. */}
+            <LinkPendingOverlay spinnerClassName="h-5 w-5" />
           </Link>
         );
       })}
