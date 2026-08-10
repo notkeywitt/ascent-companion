@@ -59,6 +59,11 @@ export const VIEWS: ViewDef[] = [
   { id: "jobs", label: "Jobs", group: "Financials", paths: ["/jobs"] },
   { id: "stage", label: "Invoicing", group: "Financials", paths: ["/stage"] },
   { id: "unbilled", label: "Unbilled", group: "Financials", paths: ["/unbilled"] },
+  // Vendor bill search — job, date, amount, status, per vendor or per bill
+  // number. A distinct API prefix ("/api/vendor-bills") from the existing
+  // shared "/api/vendors" name+id list, which stays ungated (add-bill, RFIs,
+  // and Amazon Import all read it regardless of who has this view).
+  { id: "vendors", label: "Vendors", group: "Financials", paths: ["/vendors", "/api/vendor-bills"] },
   // The stuck-vendor alert (popup + home banner) rides on this gate: its API
   // route is listed here so a non-billing user can neither see the warning nor
   // read the bill list behind it by calling the route directly.

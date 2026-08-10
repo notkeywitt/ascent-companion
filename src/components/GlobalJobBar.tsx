@@ -32,6 +32,14 @@ export function GlobalJobBar() {
     // Programmatic nav (not an anchor click), so ask the unsaved-changes guard
     // before leaving a bill mid-edit.
     if (!confirmLeaveIfDirty()) return;
+    // Picking a job from the launcher means "work this job" — the home page has
+    // nothing job-scoped to show, so go straight to Client Invoicing. It's a
+    // real move to another page, so push (back returns to the launcher) rather
+    // than the in-place replace used when switching jobs on a job-scoped page.
+    if (pathname === "/" && access.can("recode")) {
+      router.push(`/recode?jobId=${encodeURIComponent(id)}`);
+      return;
+    }
     // Switching jobs from a specific bill returns to that job's coding queue —
     // the old bill belongs to the previous job.
     const base = pathname.startsWith("/bill") ? "/coding" : pathname;

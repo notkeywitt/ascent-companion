@@ -151,7 +151,12 @@ export default function TrackingSheetPage() {
   const [shared, setShared] = useState<SharedSheet[]>([]);
   const [projectId, setProjectId] = useState("");
   const [ym, setYm] = useState("");
+  // The ACTIVE period — the month every wired sheet's CURRENT INVOICE block is
+  // held on by the hourly sync. It only moves when someone advances it below.
   const [defaultYm, setDefaultYm] = useState("");
+  const [periodPinned, setPeriodPinned] = useState(false);
+  const [pinning, setPinning] = useState(false);
+  const [pinNote, setPinNote] = useState("");
 
   const [loading, setLoading] = useState(true);
   const [bootError, setBootError] = useState("");
@@ -178,6 +183,7 @@ export default function TrackingSheetPage() {
         const key = ymKey(Number(b.defaultMonth), Number(b.defaultYear));
         setDefaultYm(key);
         setYm(key);
+        setPeriodPinned(b.periodPinned === true);
       } catch (e) {
         if (alive) setBootError(e instanceof Error ? e.message : "Could not load projects.");
       } finally {
@@ -193,6 +199,44 @@ export default function TrackingSheetPage() {
     const { month, year } = parseYm(defaultYm);
     return monthOptions(month, year);
   }, [defaultYm]);
+
+  /**
+   * Move the ACTIVE period to whatever month is selected above. This is the only
+   * thing that advances it: the hourly sync holds the pinned month until this
+   * runs, so a month can't roll over mid-close and wipe CURRENT INVOICE before
+   * it has been finalized into its reserved block.
+   */
+  const advancePeriod = useCallback(async () => {
+    if (!ym || pinning) return;
+    const { month, year } = parseYm(ym);
+    setPinning(true);
+    setPinNote("");
+    try {
+      const res = await fetch("/api/tracking-sheet", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ op: "setPeriod", month, year }),
+      });
+      const b = await res.json();
+      if (!res.ok || b?.ok === false) {
+        throw new Error(b?.error || `Request failed (${res.status})`);
+      }
+      const moved = ym !== defaultYm;
+      setDefaultYm(ym);
+      setPeriodPinned(true);
+      setPinNote(
+        moved
+          ? `Sheets now hold ${ymLabel(month, year)}. The next hourly sync writes that month; ` +
+            `Sync now to apply it immediately.`
+          : `Pinned to ${ymLabel(month, year)}. The hourly sync will keep it here — it can no ` +
+            `longer roll over on its own at month end.`,
+      );
+    } catch (e) {
+      setPinNote(e instanceof Error ? e.message : "Could not change the period.");
+    } finally {
+      setPinning(false);
+    }
+  }, [ym, pinning, defaultYm]);
 
   const patch = useCallback((key: number, fields: Partial<QueueItem>) => {
     setQueue((q) => q.map((it) => (it.key === key ? { ...it, ...fields } : it)));
@@ -313,7 +357,7 @@ export default function TrackingSheetPage() {
                   {months.map((m) => (
                     <option key={m.key} value={m.key}>
                       {m.label}
-                      {m.key === defaultYm ? " (current)" : ""}
+                      {m.key === defaultYm ? " (sheets are on this)" : ""}
                     </option>
                   ))}
                 </Select>
@@ -328,6 +372,56 @@ export default function TrackingSheetPage() {
                 </Select>
               </div>
             </div>
+
+            {/* Which month the HOURLY sync holds in every sheet's CURRENT
+                INVOICE. It used to follow the calendar and roll over on the
+                11th — mid-close, before the old month had been finalized. It is
+                pinned now, and only the button below moves it. */}
+            {defaultYm && (
+              <div className="mt-3 rounded-lg border border-line bg-neutral-50 p-3 dark:bg-white/5">
+                <p className="text-xs text-neutral-600 dark:text-neutral-300">
+                  Every tracking sheet is held on{" "}
+                  <strong className="font-semibold">
+                    {(() => {
+                      const { month, year } = parseYm(defaultYm);
+                      return ymLabel(month, year);
+                    })()}
+                  </strong>
+                  . The hourly sync keeps writing that month until you advance it.
+                  {!periodPinned && " (Not pinned yet — still following the calendar.)"}
+                </p>
+
+                {/* Shown when the selected month differs from the held one (the
+                    normal "advance to next month" case) AND while nothing is
+                    pinned yet — otherwise there is no way to pin the month you
+                    are already on, which is exactly the first thing anyone needs
+                    to do. */}
+                {ym && (!periodPinned || ym !== defaultYm) && (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="mt-2"
+                    disabled={pinning}
+                    onClick={advancePeriod}
+                  >
+                    {(() => {
+                      const { month, year } = parseYm(ym);
+                      const label = ymLabel(month, year);
+                      if (pinning) return ym === defaultYm ? "Pinning…" : "Advancing…";
+                      // Same month = there is nothing to advance TO; the action
+                      // is simply "stop following the calendar".
+                      return ym === defaultYm
+                        ? `Pin sheets to ${label}`
+                        : `Advance sheets to ${label}`;
+                    })()}
+                  </Button>
+                )}
+
+                {pinNote && (
+                  <p className="mt-2 text-xs text-neutral-500">{pinNote}</p>
+                )}
+              </div>
+            )}
 
             <p className="mt-3 text-xs text-neutral-500">
               {job ? (
