@@ -181,7 +181,13 @@ export function LaborReview() {
 
   // ---- filters (cost code / employee / date) ------------------------------
   const [fCode, setFCode] = useState("");
-  const [fEmployee, setFEmployee] = useState("");
+  /**
+   * Employees to show. EMPTY MEANS EVERYONE — reviewing a crew is the normal
+   * case ("Bret and Ty on siding last week"), and a single-select filter made
+   * that two passes over the month with no way to see them side by side or add
+   * up what they cost together.
+   */
+  const [fEmployees, setFEmployees] = useState<Set<string>>(new Set());
   const [fFrom, setFFrom] = useState("");
   const [fTo, setFTo] = useState("");
   const [codeQuery, setCodeQuery] = useState("");
@@ -303,17 +309,30 @@ export function LaborReview() {
   const entries = useMemo(() => {
     return monthEntries.filter((t) => {
       if (fCode && codeOf(t) !== fCode) return false;
-      if (fEmployee && t.employee !== fEmployee) return false;
+      if (fEmployees.size > 0 && !fEmployees.has(t.employee)) return false;
       const d = dayOf(t);
       if (fFrom && d < fFrom) return false;
       if (fTo && d > fTo) return false;
       return true;
     });
-  }, [monthEntries, fCode, fEmployee, fFrom, fTo, codeOf]);
+  }, [monthEntries, fCode, fEmployees, fFrom, fTo, codeOf]);
 
   const shownTotal = useMemo(() => entries.reduce((s, t) => s + t.cost, 0), [entries]);
   const shownHours = useMemo(() => entries.reduce((s, t) => s + t.hours, 0), [entries]);
-  const filtered = Boolean(fCode || fEmployee || fFrom || fTo);
+  const filtered = Boolean(fCode || fEmployees.size > 0 || fFrom || fTo);
+  const clearFilters = () => {
+    setFCode("");
+    setFEmployees(new Set());
+    setFFrom("");
+    setFTo("");
+  };
+  const toggleEmployee = (name: string) =>
+    setFEmployees((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
 
   /**
    * Headroom per cost code, with staged recodes applied as transfers.
@@ -414,6 +433,51 @@ export function LaborReview() {
    */
   const railWithLabor = useMemo(() => railRows.filter((h) => h.labor !== 0), [railRows]);
   const railRest = useMemo(() => railRows.filter((h) => h.labor === 0), [railRows]);
+
+  /**
+   * The cost codes the CURRENT FILTERS actually touch, with what those filtered
+   * hours cost and what's left in each — the left rail narrowed to the question
+   * on screen.
+   *
+   * The rail answers "where is there room on this job"; this answers "where did
+   * this crew's week land, and can those codes take it". Two different figures
+   * sit side by side deliberately: `inView` is only the labor matching the
+   * filters, while `budget`/`remaining` come from the same whole-job headroom
+   * the rail uses — narrowing to one employee doesn't shrink a code's budget or
+   * un-spend the rest of the crew's hours.
+   */
+  const codesInView = useMemo(() => {
+    const rows = new Map<string, { code: string; name: string; inView: number; hours: number }>();
+    for (const t of entries) {
+      // `code` stays the REAL value — "" for an uncoded entry, never a display
+      // placeholder. The row's click sets the cost-code filter, and "—" would
+      // match nothing and silently empty the list.
+      const code = codeOf(t);
+      const r = rows.get(code) ?? {
+        code,
+        name: leafById.get(leafOf(t))?.name || t.codeName || (code ? "" : "Uncoded"),
+        inView: 0,
+        hours: 0,
+      };
+      r.inView += t.cost;
+      r.hours += t.hours;
+      rows.set(code, r);
+    }
+    return [...rows.values()]
+      .map((r) => {
+        const h = headroom.get(r.code);
+        return {
+          ...r,
+          budget: h?.budget ?? 0,
+          used: h ? usedOf(h) : 0,
+          remaining: h ? remainingOf(h) : 0,
+          known: Boolean(h),
+        };
+      })
+      // Most labor in view first — the code the filtered work actually went to
+      // is the one being asked about.
+      .sort((a, b) => b.inView - a.inView);
+  }, [entries, codeOf, leafOf, leafById, headroom]);
 
   // ---- selection + staging ------------------------------------------------
   const selectedEntries = useMemo(
@@ -677,10 +741,10 @@ export function LaborReview() {
               </span>
             </div>
 
-            {/* Filters: cost code, employee, date. */}
+            {/* Filters: cost code, employee(s), date. */}
             <Card className="mb-2">
               <div className="grid grid-cols-2 gap-2">
-                <div className="col-span-2 sm:col-span-1">
+                <div className="col-span-2">
                   <Label htmlFor="f-code">Cost code</Label>
                   <Select id="f-code" value={fCode} onChange={(e) => setFCode(e.target.value)}>
                     <option value="">All cost codes</option>
@@ -691,21 +755,33 @@ export function LaborReview() {
                     ))}
                   </Select>
                 </div>
-                <div className="col-span-2 sm:col-span-1">
-                  <Label htmlFor="f-emp">Employee</Label>
-                  <Select
-                    id="f-emp"
-                    value={fEmployee}
-                    onChange={(e) => setFEmployee(e.target.value)}
-                  >
-                    <option value="">All employees</option>
+                {/* Employees are a MULTI-select: chips rather than a <select
+                    multiple>, which on a phone is a scroll-trap and on desktop
+                    needs a modifier key nobody discovers. Each name toggles;
+                    none picked means everyone, so the filter starts wide. */}
+                <fieldset className="col-span-2">
+                  <legend className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
+                    Employees{fEmployees.size > 0 ? ` (${fEmployees.size})` : ""}
+                  </legend>
+                  <div className="flex flex-wrap gap-1.5">
+                    <FilterChip
+                      on={fEmployees.size === 0}
+                      onClick={() => setFEmployees(new Set())}
+                      title="Show every employee's time"
+                    >
+                      Everyone
+                    </FilterChip>
                     {employees.map((e) => (
-                      <option key={e} value={e}>
+                      <FilterChip
+                        key={e}
+                        on={fEmployees.has(e)}
+                        onClick={() => toggleEmployee(e)}
+                      >
                         {e}
-                      </option>
+                      </FilterChip>
                     ))}
-                  </Select>
-                </div>
+                  </div>
+                </fieldset>
                 <div>
                   <Label htmlFor="f-from">From</Label>
                   <input
@@ -734,18 +810,98 @@ export function LaborReview() {
               {filtered && (
                 <button
                   type="button"
-                  onClick={() => {
-                    setFCode("");
-                    setFEmployee("");
-                    setFFrom("");
-                    setFTo("");
-                  }}
+                  onClick={clearFilters}
                   className="mt-2 text-[11px] font-semibold text-accent"
                 >
                   Clear filters
                 </button>
               )}
             </Card>
+
+            {/* ---- the cost codes these filters landed on ----
+                Styled as the budget card, because it IS one: the same rows,
+                bars and remaining figures as the left rail, narrowed to the
+                codes the filtered hours actually touched. It sits above the
+                entries so the answer to "can these codes take this work" is
+                read before scrolling the entries themselves. */}
+            {codesInView.length > 0 && (
+              <div className="mb-2">
+                <div className="mb-2 flex items-baseline justify-between gap-2">
+                  <SectionLabel>
+                    Cost codes in view ({codesInView.length})
+                  </SectionLabel>
+                  <span className="shrink-0 text-[11px] text-neutral-500 dark:text-neutral-400">
+                    labor shown · remaining
+                  </span>
+                </div>
+                <Card pad={false} className="overflow-hidden">
+                  <ul>
+                    {codesInView.map((c) => {
+                      const over = c.remaining < 0;
+                      const pct = c.budget > 0 ? Math.round((c.remaining / c.budget) * 100) : null;
+                      return (
+                        <li
+                          key={c.code || "uncoded"}
+                          className={`border-b border-line-soft last:border-0 dark:border-neutral-800 ${
+                            c.code && fCode === c.code
+                              ? "bg-accent/10 ring-1 ring-inset ring-accent"
+                              : ""
+                          }`}
+                        >
+                          <button
+                            type="button"
+                            // Uncoded isn't a filterable code — there's nothing
+                            // to narrow to, so the row is a readout only.
+                            disabled={!c.code}
+                            onClick={() => setFCode((v) => (v === c.code ? "" : c.code))}
+                            title={
+                              `${c.code || "Uncoded"} ${c.name}\n` +
+                              `${money(c.inView)} of labor shown here (${hrs(c.hours)})\n` +
+                              (c.known
+                                ? `${money(c.used)} used of ${money(c.budget)} budget · ${money(c.remaining)} remaining`
+                                : "No budget row for this code")
+                            }
+                            className="w-full px-3 py-2 text-left transition enabled:hover:bg-accent/5 dark:enabled:hover:bg-white/5 lg:px-2"
+                          >
+                            <div className="flex items-baseline justify-between gap-2">
+                              <span className="min-w-0 truncate text-xs">
+                                <span className="tabular-nums text-neutral-500 dark:text-neutral-400">
+                                  {c.code || "uncoded"}
+                                </span>{" "}
+                                {c.name}
+                              </span>
+                              <span className="shrink-0 text-xs font-semibold tabular-nums">
+                                {money0(c.inView)}
+                              </span>
+                            </div>
+                            <div className="mt-0.5 flex items-baseline justify-between gap-2 text-[10px] tabular-nums text-neutral-500 dark:text-neutral-400">
+                              <span>
+                                {hrs(c.hours)} shown ·{" "}
+                                {c.budget > 0 ? `${money0(c.budget)} budget` : "no budget"}
+                              </span>
+                              <span
+                                className={
+                                  over ? "font-semibold text-red-600 dark:text-red-400" : ""
+                                }
+                              >
+                                {c.known ? `${money0(c.remaining)} left` : "—"}
+                                {pct !== null && <span className="ml-1">({pct}%)</span>}
+                              </span>
+                            </div>
+                            <Meter budget={c.budget} used={c.used} label={c.code} />
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </Card>
+                <p className="mt-1.5 text-[10px] leading-relaxed text-neutral-500 dark:text-neutral-400">
+                  Bold figure is the labor matching your filters. Budget and remaining are the
+                  code&apos;s whole-job numbers — narrowing to one employee doesn&apos;t shrink a
+                  budget or un-spend the rest of the crew&apos;s hours.
+                </p>
+              </div>
+            )}
 
             {entries.length === 0 ? (
               <EmptyState>
@@ -781,7 +937,11 @@ export function LaborReview() {
                   {entries.map((t) => {
                     const movedTo = staged.get(t.id);
                     const nowCode = codeOf(t);
-                    const nowLeaf = movedTo ? leafById.get(movedTo) : null;
+                    // Headroom on the code this entry currently sits under —
+                    // staged moves included, so the pill reacts as you recode.
+                    const entryHead = headroom.get(nowCode);
+                    const entryLeft = entryHead ? remainingOf(entryHead) : 0;
+                    const entryOver = Boolean(entryHead) && entryLeft < 0;
                     return (
                       <li
                         key={t.id}
@@ -810,19 +970,33 @@ export function LaborReview() {
                               {t.type ? ` · ${t.type}` : ""}
                               {t.isApproved ? "" : " · unapproved"}
                             </span>
-                            <span className="mt-0.5 block truncate text-[11px]">
-                              {movedTo ? (
-                                <>
-                                  <span className="text-neutral-400 line-through">
-                                    {t.code || "uncoded"}
-                                  </span>{" "}
-                                  <span className="font-semibold text-amber-700 dark:text-amber-300">
-                                    → {nowLeaf?.number} {nowLeaf?.name}
-                                  </span>
-                                </>
-                              ) : (
-                                <span className="text-neutral-500 dark:text-neutral-400">
-                                  {nowCode ? `${nowCode} ${t.codeName}` : "uncoded"}
+                            {/* The code chip, in the same shape a bill card
+                                carries: code · what this charges it · what's
+                                left there. Reads red once the code is over.
+                                Staged entries show it for the code they'd move
+                                TO, with the old one struck through beside it. */}
+                            <span className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px]">
+                              <span
+                                className={`inline-flex items-baseline gap-1.5 rounded-md px-2 py-1 ${
+                                  entryOver
+                                    ? "bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300"
+                                    : "bg-neutral-100 text-neutral-600 dark:bg-white/10 dark:text-neutral-300"
+                                }`}
+                                title={`${entryHead?.name ?? ""} — ${
+                                  entryHead ? money(entryLeft) : "no budget row"
+                                } remaining`}
+                              >
+                                <span className="tabular-nums">{nowCode || "uncoded"}</span>
+                                <span className="tabular-nums">{money0(t.cost)}</span>
+                                <span className="opacity-60">·</span>
+                                <span className="tabular-nums">
+                                  {entryHead ? `${money0(entryLeft)} left` : "no budget"}
+                                </span>
+                              </span>
+                              {movedTo && (
+                                <span className="truncate text-neutral-500 dark:text-neutral-400">
+                                  moved from{" "}
+                                  <span className="line-through">{t.code || "uncoded"}</span>
                                 </span>
                               )}
                             </span>
