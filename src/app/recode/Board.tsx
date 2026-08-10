@@ -425,6 +425,11 @@ export function Board() {
   const canLaborReview = can("labor-review");
   const [trackingTarget, setTrackingTarget] = useState<TrackingTarget | null>(null);
   const [trackingSync, setTrackingSync] = useState<TrackingSyncState | undefined>(undefined);
+  // The sheet push runs on its own task runner, so `syncing` (the JobTread write
+  // loop) is already false while it's still going. Without this the button would
+  // re-enable mid-push and a second click would queue a duplicate sync.
+  const trackingBusy =
+    trackingSync?.status === "queued" || trackingSync?.status === "running";
 
   useEffect(() => {
     if (!canTrack || !jobId) return;
@@ -1583,7 +1588,20 @@ export function Board() {
 
   // ---- sync ---------------------------------------------------------------
   const sync = async () => {
-    if (!data || !dirty) return;
+    if (!data) return;
+
+    // NOTHING STAGED — the button is the Tracking Sheet push on its own.
+    // The two halves are one step from the office's point of view, but the
+    // coding half is the only one that can be "dirty", so gating the whole
+    // button on staged changes meant a job whose coding was already settled had
+    // no way to refresh its sheet from this page short of inventing an edit.
+    if (!dirty) {
+      if (!trackingTarget) return;
+      const [y, m] = ym.split("-").map(Number);
+      runTrackingSync(trackingTarget.projectId, m, y, setTrackingSync);
+      return;
+    }
+
     setSyncing(true);
     setSyncMsg(null);
 
@@ -1675,7 +1693,10 @@ export function Board() {
     // Same step, in order: the coding just landed in JobTread, so pull the
     // month into the Tracking Sheet too — it reads costCode off each bill
     // line and wants the coding settled first.
-    if (trackingTarget && ok > 0) {
+    // Gated on ANY successful write, not just line recodes: a tax-only sync
+    // still changes what the sheet should report, and gating on `ok` alone
+    // silently skipped it.
+    if (trackingTarget && (ok > 0 || taxOk > 0)) {
       const [y, m] = ym.split("-").map(Number);
       runTrackingSync(trackingTarget.projectId, m, y, setTrackingSync);
     }
@@ -1893,13 +1914,29 @@ export function Board() {
               >
                 Revert
               </Button>
+              {/* One button, both destinations. With staged coding it writes to
+                  JobTread and then pushes the month into the Tracking Sheet;
+                  with nothing staged there is nothing to send to JobTread, so it
+                  is the sheet push alone — and says so rather than sitting
+                  greyed out with the sheet quietly out of date. */}
               <Button
                 size="sm"
                 onClick={sync}
-                disabled={!dirty || syncing}
+                disabled={syncing || trackingBusy || (!dirty && !trackingTarget)}
+                title={
+                  !dirty && trackingTarget
+                    ? `Push ${monthLabel(ym)} into ${trackingTarget.label}`
+                    : undefined
+                }
                 className="hidden lg:inline-flex"
               >
-                {syncing ? "Syncing…" : "Sync to JobTread"}
+                {syncing
+                  ? "Syncing…"
+                  : trackingBusy
+                    ? "Syncing sheet…"
+                    : dirty
+                      ? "Sync to JobTread"
+                      : "Sync Tracking Sheet"}
               </Button>
               {canApprove && (
                 <Button
