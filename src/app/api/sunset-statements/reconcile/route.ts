@@ -30,6 +30,10 @@ interface MatchInvoice {
   jobId: string;
   elsewhere?: boolean;
   fuzzy?: boolean;
+  // Office flagged this bill "Bought Back" in the Reconcile Overrides tab — a
+  // statement/system amount difference on it is expected, not a mismatch.
+  boughtBack?: boolean;
+  boughtBackAmount?: number;
 }
 interface MatchBlock {
   matched: MatchInvoice[];
@@ -53,6 +57,9 @@ interface Reconciliation {
   statementLineCount?: number;
   statementTotal?: number;
   match?: MatchBlock | null;
+  // Σ (statement − system) over bought-back-tagged matches — netTotal is expectedly
+  // short by this much.
+  boughtBackTotal?: number;
 }
 
 export async function GET() {

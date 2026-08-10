@@ -61,6 +61,11 @@ interface MatchInvoice {
   jobId: string;
   elsewhere?: boolean;
   fuzzy?: boolean;
+  // Office flagged this bill "Bought Back" in the Reconcile Overrides tab: line
+  // items were recoded to the shop after Sunset already billed the job, so the
+  // statement/system amounts are expected to differ. boughtBackAmount = statement − system.
+  boughtBack?: boolean;
+  boughtBackAmount?: number;
 }
 interface MatchBlock {
   matched: MatchInvoice[];
@@ -83,6 +88,9 @@ interface Reconciliation {
   statementLineCount?: number;
   statementTotal?: number;
   match?: MatchBlock | null;
+  // Σ (statement − system) over bought-back-tagged matches — netTotal is expectedly
+  // short by this much, so it's added back before comparing to the statement total.
+  boughtBackTotal?: number;
 }
 
 const jtMatchUrl = (m: MatchInvoice) =>
@@ -461,8 +469,12 @@ export default function PaymentsPage() {
               ? Number(s.net)
               : Number(s.total);
           const cmpReady = useLines || netKnown;
+          // netTotal is expectedly short by boughtBackTotal on any bill the office
+          // flagged "Bought Back" (line items recoded to the shop after Sunset
+          // already billed the job) — add it back before comparing to the statement.
+          const boughtBackTotal = rc?.boughtBackTotal ?? 0;
           const diff = rc && cmpReady && Number.isFinite(cmpTarget)
-            ? Math.round((cmpTarget - rc.netTotal) * 100) / 100
+            ? Math.round((cmpTarget - rc.netTotal - boughtBackTotal) * 100) / 100
             : null;
           // Invoice-number discrepancies: an invoice on the statement but missing
           // from the system, a $ mismatch, or a system charge the statement doesn't
@@ -543,13 +555,14 @@ export default function PaymentsPage() {
                     </span>
                   </div>
 
-                  {(rc.creditCount > 0 || (cmpReady && !reconciled)) && (
+                  {(rc.creditCount > 0 || boughtBackTotal > 0 || (cmpReady && !reconciled)) && (
                     <div className="mt-0.5 tabular-nums opacity-80">
                       {rc.invoiceCount} invoice{rc.invoiceCount === 1 ? "" : "s"} {moneyN(rc.chargeTotal)}
                       {rc.creditCount > 0
                         ? ` − ${rc.creditCount} credit${rc.creditCount === 1 ? "" : "s"} ${moneyN(rc.creditTotal)}`
                         : ""}
                       {` = ${moneyN(rc.netTotal)}`}
+                      {boughtBackTotal > 0 ? ` + ${moneyN(boughtBackTotal)} bought back` : ""}
                       {cmpReady
                         ? useLines
                           ? ` vs statement total ${moneyN(cmpTarget)}`
@@ -649,10 +662,18 @@ export default function PaymentsPage() {
                           Some matches are filed under a different month/project than this statement.
                         </div>
                       )}
+                      {m.matched.some((x) => x.boughtBack) && (
+                        <div className="text-[10px] opacity-70">
+                          ↩ {m.matched.filter((x) => x.boughtBack).length} bought back to the shop — statement amount
+                          expected to run higher than the system amount.
+                        </div>
+                      )}
                     </div>
                   ) : m && rc.hasLineItems ? (
                     <div className="mt-1.5 text-[11px] opacity-70">
                       ✓ All {m.matched.length} statement invoice{m.matched.length === 1 ? "" : "s"} matched by number
+                      {m.matched.some((x) => x.boughtBack) &&
+                        ` (${m.matched.filter((x) => x.boughtBack).length} bought back to shop)`}
                     </div>
                   ) : !rc.hasLineItems ? (
                     <div className="mt-1.5 text-[10px] opacity-60">
