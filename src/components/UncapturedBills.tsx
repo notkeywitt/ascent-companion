@@ -87,16 +87,36 @@ export function UncapturedBills({ jobId }: { jobId?: string } = {}) {
   // job's budget to the placeholder, so the picker offers the budget, not a
   // global CSI list — what you choose here is what actually lands.
   const [budgets, setBudgets] = useState<Record<string, Record<string, string>>>({});
+  // Proof the sweep ran, not just that it found nothing: how many in-scope bills
+  // it examined, the window it covered, and when. An empty queue and a broken
+  // scan are indistinguishable without this, and since this queue is the ONLY
+  // thing watching these rows, "nothing found" has to be visibly different from
+  // "nothing ran".
+  const [scan, setScan] = useState<{ scanned: number; since: string; at: string } | null>(null);
+  const [checking, setChecking] = useState(true);
 
   const load = useCallback(async () => {
+    setChecking(true);
     setError("");
     try {
-      const res = await fetch("/api/uncaptured");
+      const res = await fetch("/api/uncaptured", { cache: "no-store" });
       const json = await res.json();
-      if (!res.ok || json.ok === false) setError(json.error ?? "Request failed");
-      else setItems(json.items ?? []);
+      if (!res.ok || json.ok === false) {
+        setError(json.error ?? "Request failed");
+        setScan(null);
+      } else {
+        setItems(json.items ?? []);
+        setScan({
+          scanned: Number(json.scanned ?? 0),
+          since: String(json.since ?? ""),
+          at: new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }),
+        });
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Network error");
+      setScan(null);
+    } finally {
+      setChecking(false);
     }
   }, []);
 
@@ -225,8 +245,79 @@ export function UncapturedBills({ jobId }: { jobId?: string } = {}) {
     post(it.expId, { delete: true }, "Delete failed");
   }
 
-  // Nothing stranded — say nothing. An empty banner on every invoicing run is noise.
-  if (!error && shown.length === 0) return null;
+  // ── First load. Say so, so a slow Apps Script round trip doesn't read as "clear". ──
+  if (checking && !items && !error) {
+    return (
+      <p className="mb-4 flex items-center gap-2 text-xs text-neutral-500">
+        <Spinner />
+        Checking for bills not in JobTread…
+      </p>
+    );
+  }
+
+  // ── The scan FAILED. This must never be mistakable for an all-clear, because
+  // the failure mode is silent by nature: no queue, no bills, no complaint. The
+  // overwhelmingly likely cause is the Apps Script web app not carrying the
+  // action yet (clasp push advances the code but NOT the versioned deployment),
+  // so name that instead of a bare error string. ──
+  if (error) {
+    const notDeployed = /unknown action/i.test(error);
+    return (
+      <Banner tone="error" className="mb-4">
+        <span className="block font-semibold">Couldn’t check for unpushed bills</span>
+        <span className="mt-0.5 block text-xs">
+          {notDeployed
+            ? "The Apps Script web app doesn’t have this action yet — redeploy it (clasp deploy -i …), since clasp push alone doesn’t advance the versioned deployment."
+            : error}
+        </span>
+        <span className="mt-1 block text-xs opacity-80">
+          Until this succeeds, treat the absence of a queue as unknown, not as clear.
+        </span>
+        <button
+          type="button"
+          onClick={load}
+          disabled={checking}
+          className="mt-2 text-xs font-semibold underline disabled:opacity-50"
+        >
+          {checking ? "Retrying…" : "Retry"}
+        </button>
+      </Banner>
+    );
+  }
+
+  // ── All clear, and provably so: the count of bills actually examined, the
+  // window covered, and the time of the check. ──
+  if (shown.length === 0) {
+    return (
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-lg border border-emerald-300 bg-emerald-50/60 px-3 py-2 text-xs dark:border-emerald-900/60 dark:bg-emerald-950/20">
+        <span className="font-semibold text-emerald-800 dark:text-emerald-300">
+          ✓ {jobId ? "Every bill on this job is in JobTread" : "Every ingested bill is in JobTread"}
+        </span>
+        <span className="flex items-center gap-3 text-emerald-700/80 dark:text-emerald-400/70">
+          <span>
+            {scan
+              ? `checked ${scan.scanned.toLocaleString("en-US")} bill${
+                  scan.scanned === 1 ? "" : "s"
+                }${scan.since ? ` since ${scan.since}` : ""} · ${scan.at}`
+              : "checked"}
+          </span>
+          {elsewhere > 0 && (
+            <Link href="/recode" className="font-semibold text-accent dark:text-accent-soft">
+              {elsewhere} on other jobs →
+            </Link>
+          )}
+          <button
+            type="button"
+            onClick={load}
+            disabled={checking}
+            className="font-semibold underline disabled:opacity-50"
+          >
+            {checking ? "Checking…" : "Re-check"}
+          </button>
+        </span>
+      </div>
+    );
+  }
 
   return (
     <section className="mb-4 overflow-hidden rounded-xl border border-amber-300 bg-amber-50/60 dark:border-amber-900/60 dark:bg-amber-950/20">
@@ -241,12 +332,17 @@ export function UncapturedBills({ jobId }: { jobId?: string } = {}) {
             {shown.length > 0 && <CountBadge n={shown.length} />}
           </span>
           <span className="mt-0.5 block text-xs text-amber-800/80 dark:text-amber-200/70">
-            {shown.length > 0
-              ? `${money(total)} of ingested bills never pushed — missing from ${
-                  jobId ? "this job’s invoice" : "these invoices"
-                }`
-              : "Couldn’t load the queue"}
+            {money(total)} of ingested bills never pushed — missing from{" "}
+            {jobId ? "this job’s invoice" : "these invoices"}
           </span>
+          {/* Same scan stamp the all-clear state carries, so a stale or partial
+              read is as visible here as it is there. */}
+          {scan && (
+            <span className="mt-0.5 block text-[11px] text-amber-800/60 dark:text-amber-200/50">
+              of {scan.scanned.toLocaleString("en-US")} checked
+              {scan.since ? ` since ${scan.since}` : ""} · {scan.at}
+            </span>
+          )}
         </span>
         <span className="shrink-0 text-sm font-semibold text-amber-900 dark:text-amber-200">
           {open ? "Hide" : "Review"}
