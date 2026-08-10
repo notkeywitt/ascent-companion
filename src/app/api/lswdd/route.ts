@@ -31,7 +31,8 @@ export async function GET(req: NextRequest) {
 // POST /api/lswdd
 //   { lines: [{ ref, projectId, csi, amount?, learnAlias? }] }
 //        → create one draft bill per job  → { ok, bills[], skipped[] }
-//   { ref, dismiss: true }   → exclude a charge from JobTread
+//   { ref, dismiss: true }   → exclude one charge from JobTread
+//   { statementDate }        → exclude every unpushed charge on that statement
 //   { rawName, projectId }   → teach the resolver a name for next month
 export async function POST(req: NextRequest) {
   let body: Record<string, unknown> = {};
@@ -39,6 +40,16 @@ export async function POST(req: NextRequest) {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: "Body must be JSON." }, { status: 400 });
+  }
+
+  // Clear a whole month off the queue — the first sweep can pull in back
+  // statements whose charges were billed and paid long ago.
+  if (body.statementDate !== undefined) {
+    const statementDate = String(body.statementDate ?? "").trim();
+    if (!statementDate) {
+      return NextResponse.json({ error: "statementDate is required." }, { status: 400 });
+    }
+    return callAppsScriptResponse({ action: "lswddDismissStatement", statementDate });
   }
 
   if (body.dismiss !== undefined) {

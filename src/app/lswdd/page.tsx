@@ -197,6 +197,33 @@ export default function LswddPage() {
     }
   }
 
+  // The first sweep can pull in months of back statements whose charges were
+  // billed and paid long ago. Rather than excluding a dozen lines one at a
+  // time, clear the whole month.
+  async function dismissStatement(statementDate: string, count: number) {
+    if (
+      !window.confirm(
+        `Exclude the entire ${statementDate} statement?\n\nAll ${count} charges leave the queue and are never sent to JobTread. Use this for an old statement that was already billed and paid.`,
+      )
+    )
+      return;
+    setBusy(true);
+    try {
+      const res = await fetch("/api/lswdd", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ statementDate }),
+      });
+      const json = await res.json();
+      if (!res.ok || json.ok === false) setError(json.error ?? "Exclude failed");
+      else await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Network error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function submit(statement: Statement) {
     const lines = statement.lines
       .filter((l) => edits[l.ref]?.projectId)
@@ -296,6 +323,17 @@ export default function LswddPage() {
                   {s.unresolved} charge{s.unresolved === 1 ? "" : "s"} still need a job.
                 </div>
               )}
+              <div className="mt-2 flex justify-end">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => dismissStatement(s.statementDate, s.lines.length)}
+                  disabled={busy}
+                  title="Already billed and paid — clear this whole statement off the queue"
+                >
+                  Exclude entire statement
+                </Button>
+              </div>
             </Card>
 
             <ul className="space-y-3">
