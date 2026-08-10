@@ -2,17 +2,14 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { InvoiceReconcile } from "@/components/InvoiceReconcile";
 import { UncapturedBills } from "@/components/UncapturedBills";
 import { useAccess } from "@/components/AccessProvider";
 import {
-  TrackingSheetSync,
   runTrackingSync,
   type TrackingTarget,
   type TrackingSyncState,
 } from "@/components/TrackingSheetSync";
-import { Breakdown, money, printJob, type Detail } from "@/components/BillingSummary";
-import { JtLink } from "@/components/JtLink";
+import { money, type Detail } from "@/components/BillingSummary";
 import {
   Banner,
   Button,
@@ -21,7 +18,6 @@ import {
   Label,
   Spinner,
   Toggle,
-  btn,
   inputCls,
 } from "@/components/ui";
 
@@ -80,20 +76,18 @@ export function Roster({
 }: {
   ym: string;
   setYm: (ym: string) => void;
-  /** A job whose card should open on arrival — how Back from a bill returns here. */
+  /** A job whose card should be scrolled to on arrival — how Back from a job returns here. */
   openJobId?: string;
 }) {
   const [rows, setRows] = useState<JobRow[] | null>(null);
   const [details, setDetails] = useState<Record<string, Detail>>({});
   const [detailFailed, setDetailFailed] = useState<Record<string, boolean>>({});
-  const [openId, setOpenId] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
   const [filling, setFilling] = useState(false);
   const [error, setError] = useState("");
   // Filter toggles (defaults reproduce the original behavior).
   const [uninvoicedOnly, setUninvoicedOnly] = useState(true);
   const [includeDrafts, setIncludeDrafts] = useState(true);
-  const [groupByCsi, setGroupByCsi] = useState(false);
   const runRef = useRef(0);
 
   // Which jobs have a tracking sheet, keyed by JobTread job id. This list
@@ -280,14 +274,13 @@ export function Roster({
     load();
   }, [load]);
 
-  // Coming back from a bill (?open=<jobId>) re-opens the card you left from,
-  // once it's in the roster, and scrolls to it — the list renders async, so the
-  // browser can't do that itself. `didScroll` keeps it to the first arrival, so
-  // a later refresh doesn't yank you back up.
+  // Coming back from a job (?open=<jobId>) scrolls to the card you left from,
+  // once it's in the roster — the list renders async, so the browser can't do
+  // that itself. `didScroll` keeps it to the first arrival, so a later refresh
+  // doesn't yank you back up.
   const didScroll = useRef(false);
   useEffect(() => {
     if (!openJobId || !rows?.some((r) => r.jobId === openJobId)) return;
-    setOpenId((o) => (o[openJobId] ? o : { ...o, [openJobId]: true }));
     if (didScroll.current) return;
     didScroll.current = true;
     document.getElementById(`job-${openJobId}`)?.scrollIntoView({ block: "center" });
@@ -329,7 +322,7 @@ export function Roster({
           {trackingSummary.error > 0 && (
             <span className="text-red-600 dark:text-red-400"> · {trackingSummary.error} failed</span>
           )}
-          {" — expand a job to see details."}
+          {" — open a job to see details."}
         </p>
       )}
 
@@ -359,7 +352,6 @@ export function Roster({
       <div className="mb-4 flex flex-wrap gap-x-5 gap-y-3">
         <Toggle checked={uninvoicedOnly} onChange={setUninvoicedOnly} label="Uninvoiced only" />
         <Toggle checked={includeDrafts} onChange={setIncludeDrafts} label="Include draft bills" />
-        <Toggle checked={groupByCsi} onChange={setGroupByCsi} label="Group by CSI code" />
       </div>
 
       {error && (
@@ -397,19 +389,19 @@ export function Roster({
         {(rows ?? []).map((r) => {
           const detail = details[r.jobId];
           const failed = !!detailFailed[r.jobId];
-          const open = !!openId[r.jobId];
           const customerName = detail?.customer?.name ?? r.customerName;
-          const lastDay = opt?.lastDay ?? "";
           return (
             <li
               key={r.jobId}
               id={`job-${r.jobId}`}
-              className="scroll-mt-20 rounded-xl border border-line bg-white p-3 dark:bg-ink-raised"
+              className="scroll-mt-20 rounded-xl border border-line bg-white p-3 transition hover:border-accent dark:bg-ink-raised"
             >
-              <button
-                type="button"
-                onClick={() => setOpenId((o) => ({ ...o, [r.jobId]: !o[r.jobId] }))}
-                aria-expanded={open}
+              {/* The whole card is the link into this job's workbench — that page
+                  already carries everything the card used to expand into (invoice
+                  reconcile, tracking-sheet sync, breakdown, print, create in JT),
+                  so opening it in place was a second, thinner copy of it. */}
+              <Link
+                href={`/recode?jobId=${encodeURIComponent(r.jobId)}&ym=${ym}`}
                 className="flex w-full items-start justify-between gap-3 text-left"
               >
                 <div className="min-w-0">
@@ -419,7 +411,7 @@ export function Roster({
                     {customerName || r.jobName || r.jobId}
                   </div>
                   <div className="mt-0.5 flex items-center gap-1.5 text-xs text-neutral-500">
-                    <span className={`transition-transform ${open ? "rotate-90" : ""}`}>▸</span>
+                    <span>▸</span>
                     {customerName && r.jobName && <span className="truncate">{r.jobName}</span>}
                     {customerName && r.jobName && (
                       <span className="text-neutral-300 dark:text-neutral-600">·</span>
@@ -440,80 +432,18 @@ export function Roster({
                     to invoice
                   </div>
                 </div>
-              </button>
+              </Link>
 
-              {open && (
-                <div className="mt-3">
-                  {/* Bridge to the actual JobTread customer invoice(s) + a
-                      completeness check — shown even while the breakdown loads. */}
-                  <div className="mb-3">
-                    <InvoiceReconcile jobId={r.jobId} ym={ym} />
-                  </div>
-                  {/* Push this job's month into its own tracking sheet. Sits above
-                      the breakdown so it's usable while that still loads — the
-                      sync doesn't depend on it. Absent for jobs with no tracking
-                      sheet, and for roles without the Tracking Sheet view. */}
-                  {trackingTargets.has(r.jobId) && (
-                    <TrackingSheetSync
-                      state={trackingSync[trackingTargets.get(r.jobId)!.projectId]}
-                      monthLabel={monthLabel}
-                      onStart={() =>
-                        startTrackingSync(
-                          trackingTargets.get(r.jobId)!,
-                          Number(ym.split("-")[1]),
-                          Number(ym.split("-")[0]),
-                        )
-                      }
-                    />
-                  )}
-                  {failed ? (
-                    <Banner tone="warning" className="!py-2 text-xs">
-                      Couldn&apos;t load this job&apos;s breakdown.{" "}
-                      <button
-                        className="font-semibold underline"
-                        onClick={() => fetchDetail(r, runRef.current)}
-                      >
-                        Retry
-                      </button>
-                    </Banner>
-                  ) : !detail ? (
-                    <div className="flex items-center gap-1.5 text-xs text-neutral-500">
-                      <Spinner /> Loading breakdown…
-                    </div>
-                  ) : (
-                    <>
-                      <div className="mb-2 flex justify-end gap-2">
-                        {/* The workbench, on this job and this month — recode
-                            these bills against live budget headroom. */}
-                        <Link
-                          href={`/recode?jobId=${encodeURIComponent(r.jobId)}&ym=${ym}`}
-                          className={btn("secondary", "sm")}
-                        >
-                          Code this job →
-                        </Link>
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          onClick={() => printJob(detail, monthLabel, groupByCsi)}
-                        >
-                          Print / Save PDF
-                        </Button>
-                      </div>
-                      <Breakdown detail={detail} groupByCsi={groupByCsi} from="invoicing" />
-                      <JtLink
-                        href={`https://app.jobtread.com/jobs/${r.jobId}/documents`}
-                        className={btn("primary", "md", "mt-3 w-full")}
-                      >
-                        Create invoice in JobTread ↗
-                      </JtLink>
-                      <p className="mt-2 text-xs text-neutral-500">
-                        Open this job in JobTread, then <b>New → Customer Invoice</b> — its builder
-                        pulls exactly these uninvoiced bills (and any uninvoiced time). Date it{" "}
-                        {lastDay}, review &amp; send.
-                      </p>
-                    </>
-                  )}
-                </div>
+              {failed && (
+                <p className="mt-2 text-xs text-neutral-500">
+                  Couldn&apos;t load this job&apos;s total.{" "}
+                  <button
+                    className="font-semibold underline"
+                    onClick={() => fetchDetail(r, runRef.current)}
+                  >
+                    Retry
+                  </button>
+                </p>
               )}
             </li>
           );

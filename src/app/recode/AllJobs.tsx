@@ -86,7 +86,7 @@ export function AllJobs() {
         title="Client Invoicing"
         description={
           tab === "month"
-            ? "Every client invoice to stage this month — one card per job. Open a card to see the bills, cost-code breakdown, and time behind its total, then create the invoice in JobTread."
+            ? "Every client invoice to stage this month — one card per job. Tap a job to open its workbench — the bills, cost-code breakdown, and time behind its total, and the button to create the invoice in JobTread."
             : "Every draft vendor bill in JobTread, across all jobs and any month. Open one to code it."
         }
         actions={
