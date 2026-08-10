@@ -1,0 +1,736 @@
+"use client";
+
+/**
+ * Leads — every JobTread customer sitting at Status = "New Lead", with the
+ * Companion's own follow-up tracking on top.
+ *
+ * The point of the page is that a lead cannot go quiet unnoticed. Two signals
+ * do that work, and they are what the list sorts by:
+ *   • OVERDUE — the lead has a next action whose date has passed (or, worse, no
+ *     next action committed at all).
+ *   • STALE — days since we last logged a touch (or, with no touch ever, days
+ *     since JobTread created the account). Amber past 7 days, red past 14.
+ *
+ * JobTread stays the source of truth for WHO is a lead: this page never writes
+ * to JT. Moving someone out of the pipeline is a Status edit in JobTread, and
+ * the list follows it.
+ */
+
+import { useCallback, useEffect, useMemo, useState } from "react";
+
+import { JtLink } from "@/components/JtLink";
+import {
+  Banner,
+  Button,
+  Card,
+  CardSkeletonList,
+  Chip,
+  ChipScroller,
+  EmptyState,
+  FilterChip,
+  Input,
+  Label,
+  PageHeader,
+  SectionHeading,
+  Select,
+  Textarea,
+  type ChipTone,
+} from "@/components/ui";
+
+/* ------------------------------------------------------------------- types */
+
+interface Contact {
+  id: string;
+  name: string;
+  title: string;
+  email: string;
+  phone: string;
+}
+interface Tracking {
+  stage: string;
+  nextAction: string;
+  nextActionDate: string;
+  lastContactDate: string;
+  estValue: string;
+  notes: string;
+  updatedAt: string;
+}
+interface Lead {
+  id: string;
+  name: string;
+  createdAt: string;
+  source: string;
+  customerType: string;
+  notes: string;
+  address: string;
+  primaryContact: Contact | null;
+  contacts: Contact[];
+  jobs: { id: string; name: string; createdAt: string }[];
+  tasks: { id: string; name: string; endDate: string; completed: boolean }[];
+  tracking: Tracking;
+}
+interface Activity {
+  id: number;
+  accountId: string;
+  kind: string;
+  note: string;
+  occurredAt: string;
+  createdBy: string;
+  createdAt: string;
+}
+
+const STAGES: { id: string; label: string }[] = [
+  { id: "new", label: "New" },
+  { id: "contacted", label: "Contacted" },
+  { id: "site_visit", label: "Site visit" },
+  { id: "estimating", label: "Estimating" },
+  { id: "proposal_sent", label: "Proposal sent" },
+];
+const stageLabel = (id: string) => STAGES.find((s) => s.id === id)?.label ?? id;
+
+const KINDS: { id: string; label: string }[] = [
+  { id: "call", label: "Call" },
+  { id: "email", label: "Email" },
+  { id: "meeting", label: "Meeting" },
+  { id: "site_visit", label: "Site visit" },
+  { id: "note", label: "Note (no contact)" },
+];
+const kindLabel = (id: string) => KINDS.find((k) => k.id === id)?.label ?? id;
+
+/* ------------------------------------------------------------------- dates */
+
+const today = () => new Date().toISOString().slice(0, 10);
+
+/**
+ * Whole days between a date and today. Null if unparseable.
+ *
+ * The date part is taken FIRST, so a full ISO timestamp (JobTread's
+ * `createdAt`) is compared midnight-to-midnight like a plain YYYY-MM-DD is —
+ * otherwise an account created at 17:22Z reads a day younger than it is.
+ */
+function daysSince(date: string): number | null {
+  if (!date) return null;
+  const then = Date.parse(`${date.slice(0, 10)}T00:00:00Z`);
+  if (Number.isNaN(then)) return null;
+  const now = Date.parse(`${today()}T00:00:00Z`);
+  return Math.round((now - then) / 86_400_000);
+}
+
+function fmtDate(date: string): string {
+  if (!date) return "—";
+  const t = Date.parse(date.length <= 10 ? `${date}T00:00:00Z` : date);
+  if (Number.isNaN(t)) return date;
+  return new Date(t).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+}
+
+/* -------------------------------------------------------------- derivation */
+
+type Urgency = "overdue" | "due" | "unset" | "ok";
+
+interface Derived {
+  /** Days since the last logged touch, falling back to age in JobTread. */
+  quietDays: number | null;
+  /** True when quietDays is measured from account creation, not a real touch. */
+  neverContacted: boolean;
+  urgency: Urgency;
+  /** Sort weight — biggest number floats to the top. */
+  rank: number;
+}
+
+function derive(lead: Lead): Derived {
+  const t = lead.tracking;
+  const contactDays = daysSince(t.lastContactDate);
+  const ageDays = daysSince(lead.createdAt);
+  const neverContacted = contactDays === null;
+  const quietDays = neverContacted ? ageDays : contactDays;
+
+  let urgency: Urgency;
+  if (!t.nextAction.trim() && !t.nextActionDate) urgency = "unset";
+  else if (t.nextActionDate && t.nextActionDate < today()) urgency = "overdue";
+  else if (t.nextActionDate && t.nextActionDate === today()) urgency = "due";
+  else urgency = "ok";
+
+  // Overdue outranks everything, then no-plan, then due-today, then quiet time.
+  // Adding quietDays inside each band keeps the oldest first within it.
+  const band = urgency === "overdue" ? 30_000 : urgency === "unset" ? 20_000 : urgency === "due" ? 10_000 : 0;
+  return { quietDays, neverContacted, urgency, rank: band + (quietDays ?? 0) };
+}
+
+/** Amber past a week of silence, red past two. */
+function staleTone(days: number | null): ChipTone {
+  if (days === null) return "neutral";
+  if (days >= 14) return "danger";
+  if (days >= 7) return "warning";
+  return "neutral";
+}
+
+const URGENCY_CHIP: Record<Urgency, { tone: ChipTone; label: string } | null> = {
+  overdue: { tone: "danger", label: "Overdue" },
+  unset: { tone: "warning", label: "No next step" },
+  due: { tone: "info", label: "Due today" },
+  ok: null,
+};
+
+/* -------------------------------------------------------------------- page */
+
+export default function LeadsPage() {
+  const [leads, setLeads] = useState<Lead[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [filter, setFilter] = useState<"all" | "attention" | "stale">("all");
+  const [stageFilter, setStageFilter] = useState<string>("");
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch("/api/leads");
+      const json = await res.json();
+      if (!res.ok) setError(json.error ?? "Failed to load leads");
+      else setLeads(json.leads ?? []);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Network error");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  /** Merge a saved tracking row back into the list without a full reload. */
+  const applyTracking = useCallback((accountId: string, tracking: Tracking) => {
+    setLeads((prev) => prev.map((l) => (l.id === accountId ? { ...l, tracking } : l)));
+  }, []);
+
+  const rows = useMemo(() => {
+    const withD = leads.map((l) => ({ lead: l, d: derive(l) }));
+    withD.sort((a, b) => b.d.rank - a.d.rank || a.lead.name.localeCompare(b.lead.name));
+    return withD;
+  }, [leads]);
+
+  const counts = useMemo(() => {
+    let attention = 0;
+    let stale = 0;
+    for (const { d } of rows) {
+      if (d.urgency === "overdue" || d.urgency === "unset") attention++;
+      if ((d.quietDays ?? 0) >= 14) stale++;
+    }
+    return { total: rows.length, attention, stale };
+  }, [rows]);
+
+  const visible = rows.filter(({ lead, d }) => {
+    if (filter === "attention" && d.urgency !== "overdue" && d.urgency !== "unset") return false;
+    if (filter === "stale" && (d.quietDays ?? 0) < 14) return false;
+    if (stageFilter && lead.tracking.stage !== stageFilter) return false;
+    return true;
+  });
+
+  return (
+    <main className="mx-auto max-w-3xl px-4 py-6">
+      <PageHeader
+        title="Leads"
+        description='Customers marked "New Lead" in JobTread, sorted by who needs attention first.'
+        actions={
+          <Button variant="outline" size="sm" onClick={() => void load()} disabled={loading}>
+            Refresh
+          </Button>
+        }
+      />
+
+      {error && (
+        <Banner tone="error" className="mb-4">
+          {error}
+        </Banner>
+      )}
+
+      {/* The two follow-up signals, as the page's headline numbers. */}
+      <div className="mb-4 grid grid-cols-3 gap-2">
+        <Stat label="Leads" value={counts.total} />
+        <Stat label="Need action" value={counts.attention} tone={counts.attention ? "danger" : "ok"} />
+        <Stat label="Quiet 14d+" value={counts.stale} tone={counts.stale ? "warning" : "ok"} />
+      </div>
+
+      <ChipScroller className="mb-4">
+        <FilterChip on={filter === "all"} onClick={() => setFilter("all")}>
+          All
+        </FilterChip>
+        <FilterChip
+          on={filter === "attention"}
+          onClick={() => setFilter("attention")}
+          title="Overdue next action, or no next action set"
+        >
+          Need action
+        </FilterChip>
+        <FilterChip
+          on={filter === "stale"}
+          onClick={() => setFilter("stale")}
+          title="No contact logged in 14+ days"
+        >
+          Gone quiet
+        </FilterChip>
+        {STAGES.map((s) => (
+          <FilterChip
+            key={s.id}
+            on={stageFilter === s.id}
+            onClick={() => setStageFilter(stageFilter === s.id ? "" : s.id)}
+          >
+            {s.label}
+          </FilterChip>
+        ))}
+      </ChipScroller>
+
+      {loading && leads.length === 0 ? (
+        <CardSkeletonList rows={4} />
+      ) : visible.length === 0 ? (
+        <EmptyState>
+          {leads.length === 0
+            ? 'No customers are marked "New Lead" in JobTread.'
+            : "No leads match this filter."}
+        </EmptyState>
+      ) : (
+        <ul className="space-y-2">
+          {visible.map(({ lead, d }) => (
+            <li key={lead.id}>
+              <LeadCard
+                lead={lead}
+                derived={d}
+                open={openId === lead.id}
+                onToggle={() => setOpenId(openId === lead.id ? null : lead.id)}
+                onTracking={(t) => applyTracking(lead.id, t)}
+              />
+            </li>
+          ))}
+        </ul>
+      )}
+    </main>
+  );
+}
+
+/* ------------------------------------------------------------------- stats */
+
+function Stat({
+  label,
+  value,
+  tone = "ok",
+}: {
+  label: string;
+  value: number;
+  tone?: "ok" | "warning" | "danger";
+}) {
+  const color =
+    tone === "danger"
+      ? "text-red-600 dark:text-red-400"
+      : tone === "warning"
+        ? "text-amber-600 dark:text-amber-400"
+        : "text-neutral-800 dark:text-neutral-100";
+  return (
+    <Card className="text-center">
+      <div className={`text-2xl font-bold tabular-nums ${color}`}>{value}</div>
+      <div className="mt-0.5 text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
+        {label}
+      </div>
+    </Card>
+  );
+}
+
+/* --------------------------------------------------------------- lead card */
+
+function LeadCard({
+  lead,
+  derived,
+  open,
+  onToggle,
+  onTracking,
+}: {
+  lead: Lead;
+  derived: Derived;
+  open: boolean;
+  onToggle: () => void;
+  onTracking: (t: Tracking) => void;
+}) {
+  const urgency = URGENCY_CHIP[derived.urgency];
+  const quiet = derived.quietDays;
+
+  return (
+    <Card className="p-0">
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={open}
+        className="w-full px-3 py-3 text-left"
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="truncate font-semibold">{lead.name}</div>
+            <div className="mt-0.5 truncate text-xs text-neutral-500">
+              {[lead.source && `via ${lead.source}`, lead.customerType, lead.address]
+                .filter(Boolean)
+                .join(" · ") || "No source or address in JobTread"}
+            </div>
+          </div>
+          <div className="flex shrink-0 flex-col items-end gap-1">
+            {urgency && <Chip tone={urgency.tone}>{urgency.label}</Chip>}
+            {quiet !== null && (
+              <Chip
+                tone={staleTone(quiet)}
+                title={
+                  derived.neverContacted
+                    ? "No contact ever logged — measured from when JobTread created the account"
+                    : "Days since the last logged contact"
+                }
+              >
+                {quiet}d {derived.neverContacted ? "no contact" : "quiet"}
+              </Chip>
+            )}
+          </div>
+        </div>
+
+        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+          <span className="rounded bg-neutral-100 px-1.5 py-0.5 font-semibold text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300">
+            {stageLabel(lead.tracking.stage)}
+          </span>
+          <span className="text-neutral-500">
+            {lead.tracking.nextAction ? (
+              <>
+                Next: <span className="text-neutral-700 dark:text-neutral-200">{lead.tracking.nextAction}</span>
+                {lead.tracking.nextActionDate && ` · ${fmtDate(lead.tracking.nextActionDate)}`}
+              </>
+            ) : (
+              <span className="italic">No next step set</span>
+            )}
+          </span>
+        </div>
+      </button>
+
+      {open && <LeadDetail lead={lead} onTracking={onTracking} />}
+    </Card>
+  );
+}
+
+/* ------------------------------------------------------------------ detail */
+
+function LeadDetail({ lead, onTracking }: { lead: Lead; onTracking: (t: Tracking) => void }) {
+  const [form, setForm] = useState<Tracking>(lead.tracking);
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState("");
+
+  const [activities, setActivities] = useState<Activity[]>([]);
+  const [loadingLog, setLoadingLog] = useState(true);
+  const [log, setLog] = useState({ kind: "call", note: "", occurredAt: today() });
+  const [logging, setLogging] = useState(false);
+
+  // Keep the form in step with a tracking row changed elsewhere (a logged touch
+  // stamps last contact server-side).
+  useEffect(() => setForm(lead.tracking), [lead.tracking]);
+
+  const loadLog = useCallback(async () => {
+    setLoadingLog(true);
+    try {
+      const res = await fetch(`/api/leads/activities?accountId=${encodeURIComponent(lead.id)}`);
+      const json = await res.json();
+      if (res.ok) setActivities(json.activities ?? []);
+    } finally {
+      setLoadingLog(false);
+    }
+  }, [lead.id]);
+
+  useEffect(() => {
+    void loadLog();
+  }, [loadLog]);
+
+  async function saveTracking() {
+    setSaving(true);
+    setErr("");
+    try {
+      const res = await fetch("/api/leads", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ accountId: lead.id, ...form }),
+      });
+      const json = await res.json();
+      if (!res.ok) setErr(json.error ?? "Save failed");
+      else onTracking(json.tracking);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Network error");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function logTouch() {
+    setLogging(true);
+    setErr("");
+    try {
+      const res = await fetch("/api/leads/activities", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ accountId: lead.id, ...log }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setErr(json.error ?? "Could not log that");
+        return;
+      }
+      setLog({ kind: "call", note: "", occurredAt: today() });
+      await loadLog();
+      // The POST may have moved last-contact; pull the fresh tracking row.
+      if (log.kind !== "note") {
+        const r = await fetch("/api/leads", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ accountId: lead.id }) });
+        const j = await r.json();
+        if (r.ok && j.tracking) onTracking(j.tracking);
+      }
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Network error");
+    } finally {
+      setLogging(false);
+    }
+  }
+
+  const contacts = lead.contacts.length ? lead.contacts : lead.primaryContact ? [lead.primaryContact] : [];
+  const openTasks = lead.tasks.filter((t) => !t.completed);
+
+  return (
+    <div className="space-y-4 border-t border-line px-3 pb-4 pt-3">
+      {err && <Banner tone="error">{err}</Banner>}
+
+      {/* ------------------------------------------------ JobTread details */}
+      <section className="space-y-2">
+        <SectionHeading
+          trailing={
+            <JtLink
+              href={`https://app.jobtread.com/customers/${lead.id}`}
+              className="text-xs font-semibold text-accent hover:underline"
+            >
+              Open in JobTread ↗
+            </JtLink>
+          }
+        >
+          From JobTread
+        </SectionHeading>
+
+        <dl className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs">
+          <Field label="Created" value={fmtDate(lead.createdAt)} />
+          <Field label="Lead source" value={lead.source || "—"} />
+          <Field label="Type" value={lead.customerType || "—"} />
+          <Field label="Address" value={lead.address || "—"} />
+        </dl>
+
+        {contacts.length > 0 && (
+          <ul className="space-y-1">
+            {contacts.map((c) => (
+              <li key={c.id} className="rounded-lg bg-neutral-50 px-2.5 py-2 text-xs dark:bg-white/5">
+                <div className="font-semibold">
+                  {c.name}
+                  {c.title && <span className="ml-1 font-normal text-neutral-500">{c.title}</span>}
+                </div>
+                <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
+                  {c.phone && (
+                    <a href={`tel:${c.phone}`} className="font-medium text-accent hover:underline">
+                      {c.phone}
+                    </a>
+                  )}
+                  {c.email && (
+                    <a href={`mailto:${c.email}`} className="font-medium text-accent hover:underline">
+                      {c.email}
+                    </a>
+                  )}
+                  {!c.phone && !c.email && <span className="text-neutral-500">No phone or email</span>}
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {lead.notes && (
+          <details className="text-xs">
+            <summary className="cursor-pointer font-semibold text-neutral-600 dark:text-neutral-300">
+              JobTread notes
+            </summary>
+            <p className="mt-1 whitespace-pre-wrap text-neutral-600 dark:text-neutral-400">{lead.notes}</p>
+          </details>
+        )}
+
+        {lead.jobs.length > 0 && (
+          <div className="text-xs">
+            <span className="font-semibold text-neutral-600 dark:text-neutral-300">Jobs: </span>
+            {lead.jobs.map((j, i) => (
+              <span key={j.id}>
+                {i > 0 && ", "}
+                <JtLink
+                  href={`https://app.jobtread.com/jobs/${j.id}`}
+                  className="text-accent hover:underline"
+                >
+                  {j.name}
+                </JtLink>
+              </span>
+            ))}
+          </div>
+        )}
+
+        {openTasks.length > 0 && (
+          <div className="text-xs">
+            <span className="font-semibold text-neutral-600 dark:text-neutral-300">Open JT tasks: </span>
+            <span className="text-neutral-600 dark:text-neutral-400">
+              {openTasks.map((t) => `${t.name}${t.endDate ? ` (${fmtDate(t.endDate)})` : ""}`).join(", ")}
+            </span>
+          </div>
+        )}
+      </section>
+
+      {/* ------------------------------------------------------- tracking */}
+      <section className="space-y-2">
+        <SectionHeading>Tracking</SectionHeading>
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <Label htmlFor={`stage-${lead.id}`}>Stage</Label>
+            <Select
+              id={`stage-${lead.id}`}
+              value={form.stage}
+              onChange={(e) => setForm({ ...form, stage: e.target.value })}
+            >
+              {STAGES.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.label}
+                </option>
+              ))}
+            </Select>
+          </div>
+          <div>
+            <Label htmlFor={`value-${lead.id}`}>Est. value</Label>
+            <Input
+              id={`value-${lead.id}`}
+              inputMode="decimal"
+              placeholder="e.g. 85000"
+              value={form.estValue}
+              onChange={(e) => setForm({ ...form, estValue: e.target.value })}
+            />
+          </div>
+          <div className="col-span-2">
+            <Label htmlFor={`next-${lead.id}`}>Next action</Label>
+            <Input
+              id={`next-${lead.id}`}
+              placeholder="e.g. Send siding scope + ballpark"
+              value={form.nextAction}
+              onChange={(e) => setForm({ ...form, nextAction: e.target.value })}
+            />
+          </div>
+          <div>
+            <Label htmlFor={`nextdate-${lead.id}`}>By</Label>
+            <Input
+              id={`nextdate-${lead.id}`}
+              type="date"
+              value={form.nextActionDate}
+              onChange={(e) => setForm({ ...form, nextActionDate: e.target.value })}
+            />
+          </div>
+          <div>
+            <Label htmlFor={`lastc-${lead.id}`}>Last contact</Label>
+            <Input
+              id={`lastc-${lead.id}`}
+              type="date"
+              value={form.lastContactDate}
+              onChange={(e) => setForm({ ...form, lastContactDate: e.target.value })}
+            />
+          </div>
+          <div className="col-span-2">
+            <Label htmlFor={`notes-${lead.id}`}>Our notes</Label>
+            <Textarea
+              id={`notes-${lead.id}`}
+              rows={2}
+              value={form.notes}
+              onChange={(e) => setForm({ ...form, notes: e.target.value })}
+            />
+          </div>
+        </div>
+        <Button size="sm" onClick={() => void saveTracking()} disabled={saving}>
+          {saving ? "Saving…" : "Save tracking"}
+        </Button>
+      </section>
+
+      {/* ------------------------------------------------------- contact log */}
+      <section className="space-y-2">
+        <SectionHeading>Contact log</SectionHeading>
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <Label htmlFor={`kind-${lead.id}`}>What happened</Label>
+            <Select
+              id={`kind-${lead.id}`}
+              value={log.kind}
+              onChange={(e) => setLog({ ...log, kind: e.target.value })}
+            >
+              {KINDS.map((k) => (
+                <option key={k.id} value={k.id}>
+                  {k.label}
+                </option>
+              ))}
+            </Select>
+          </div>
+          <div>
+            <Label htmlFor={`when-${lead.id}`}>When</Label>
+            <Input
+              id={`when-${lead.id}`}
+              type="date"
+              value={log.occurredAt}
+              onChange={(e) => setLog({ ...log, occurredAt: e.target.value })}
+            />
+          </div>
+          <div className="col-span-2">
+            <Label htmlFor={`lognote-${lead.id}`}>Note</Label>
+            <Textarea
+              id={`lognote-${lead.id}`}
+              rows={2}
+              placeholder="What was said, what we owe them"
+              value={log.note}
+              onChange={(e) => setLog({ ...log, note: e.target.value })}
+            />
+          </div>
+        </div>
+        <Button size="sm" variant="secondary" onClick={() => void logTouch()} disabled={logging}>
+          {logging ? "Logging…" : "Log contact"}
+        </Button>
+
+        {loadingLog ? (
+          <p className="text-xs text-neutral-500">Loading log…</p>
+        ) : activities.length === 0 ? (
+          <p className="text-xs italic text-neutral-500">Nothing logged yet.</p>
+        ) : (
+          <ul className="space-y-1.5">
+            {activities.map((a) => (
+              <li key={a.id} className="border-l-2 border-line pl-2.5 text-xs">
+                <div className="font-semibold">
+                  {kindLabel(a.kind)}
+                  <span className="ml-1.5 font-normal text-neutral-500">{fmtDate(a.occurredAt)}</span>
+                  {a.createdBy && (
+                    <span className="ml-1.5 font-normal text-neutral-400">· {a.createdBy}</span>
+                  )}
+                </div>
+                {a.note && (
+                  <p className="whitespace-pre-wrap text-neutral-600 dark:text-neutral-400">{a.note}</p>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+    </div>
+  );
+}
+
+function Field({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0">
+      <dt className="text-[10px] font-semibold uppercase tracking-wide text-neutral-500">{label}</dt>
+      <dd className="truncate text-neutral-700 dark:text-neutral-300" title={value}>
+        {value}
+      </dd>
+    </div>
+  );
+}

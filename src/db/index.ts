@@ -368,6 +368,36 @@ async function applySchema() {
   await getClient().execute(
     `CREATE UNIQUE INDEX IF NOT EXISTS labor_rate_catalog_group_name ON labor_rate_catalog (group_id, name)`,
   );
+  // Lead tracking on top of JobTread's "New Lead" customers (JT owns the Status
+  // custom field that defines the list; these tables hold what we're doing about
+  // each one). Keyed by the JT account id — no autoincrement id of our own.
+  await getClient().execute(`
+    CREATE TABLE IF NOT EXISTS leads (
+      account_id TEXT PRIMARY KEY,
+      stage TEXT NOT NULL DEFAULT 'new',
+      next_action TEXT NOT NULL DEFAULT '',
+      next_action_date TEXT NOT NULL DEFAULT '',
+      last_contact_date TEXT NOT NULL DEFAULT '',
+      est_value TEXT NOT NULL DEFAULT '',
+      notes TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )
+  `);
+  await getClient().execute(`
+    CREATE TABLE IF NOT EXISTS lead_activities (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      account_id TEXT NOT NULL,
+      kind TEXT NOT NULL DEFAULT 'note',
+      note TEXT NOT NULL DEFAULT '',
+      occurred_at TEXT NOT NULL DEFAULT '',
+      created_by TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL
+    )
+  `);
+  await getClient().execute(
+    `CREATE INDEX IF NOT EXISTS lead_activities_account ON lead_activities (account_id)`,
+  );
 }
 
 export { schema };

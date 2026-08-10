@@ -293,3 +293,51 @@ export const laborRateCatalog = sqliteTable("labor_rate_catalog", {
 
 export type LaborRate = typeof laborRateCatalog.$inferSelect;
 export type NewLaborRate = typeof laborRateCatalog.$inferInsert;
+
+/**
+ * Lead tracking — the Companion's layer ON TOP of a JobTread "New Lead" customer.
+ *
+ * JobTread owns WHICH accounts are leads (the customer "Status" custom field —
+ * see src/lib/leads.ts). It has nowhere to record what we're doing about one, so
+ * the pipeline stage, the committed next action, and the last-contact date live
+ * here, keyed by the JT account id. Nothing in this table is written back to
+ * JobTread; a lead disappearing from the list means its Status changed in JT,
+ * and its row here is simply left behind (harmless, and it comes back if the
+ * Status is restored).
+ *
+ * Every date is a plain YYYY-MM-DD string, matching the rest of the schema.
+ */
+export const leads = sqliteTable("leads", {
+  accountId: text("account_id").primaryKey(), // JobTread account id — the join key
+  stage: text("stage").notNull().default("new"), // new | contacted | site_visit | estimating | proposal_sent
+  nextAction: text("next_action").notNull().default(""), // what we owe this lead
+  nextActionDate: text("next_action_date").notNull().default(""), // YYYY-MM-DD; past = overdue
+  lastContactDate: text("last_contact_date").notNull().default(""), // YYYY-MM-DD; drives staleness
+  estValue: text("est_value").notNull().default(""), // as text; Number() only for display
+  notes: text("notes").notNull().default(""), // our working notes (JT's Notes field stays read-only)
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
+export type Lead = typeof leads.$inferSelect;
+export type NewLead = typeof leads.$inferInsert;
+
+/**
+ * The contact log for a lead — one row per touch (call, email, meeting, site
+ * visit, or a bare note). Append-only from the UI's point of view.
+ *
+ * Logging a touch is also what advances `leads.last_contact_date`, so the
+ * staleness aging on the page can never drift from the activity timeline.
+ */
+export const leadActivities = sqliteTable("lead_activities", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  accountId: text("account_id").notNull(), // JobTread account id
+  kind: text("kind").notNull().default("note"), // call | email | meeting | site_visit | note
+  note: text("note").notNull().default(""),
+  occurredAt: text("occurred_at").notNull().default(""), // YYYY-MM-DD
+  createdBy: text("created_by").notNull().default(""), // signed-in email
+  createdAt: text("created_at").notNull(),
+});
+
+export type LeadActivity = typeof leadActivities.$inferSelect;
+export type NewLeadActivity = typeof leadActivities.$inferInsert;

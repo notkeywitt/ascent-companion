@@ -120,6 +120,11 @@ export const VIEWS: ViewDef[] = [
   // page-less /api/employees (read/edit) stays ungated because /safety-meeting
   // (a field view) reads the Active roster through it.
   { id: "employees", label: "Employees", group: "Office", paths: ["/employees", "/api/employees/email"] },
+  // Lead pipeline — JobTread's "New Lead" customers plus the Companion's
+  // follow-up tracking. The API prefix is listed alongside the page so a role
+  // without the view can't read customer contact details via the route directly.
+  // Office/admin by default (not in FIELD/LEAD sets below).
+  { id: "leads", label: "Leads", group: "Office", paths: ["/leads", "/api/leads"] },
   { id: "labor-import", label: "Labor Import", group: "Office", paths: ["/labor-import"] },
   // Per-project labor-rate catalog + apply-to-employees. The API prefix gates all
   // /api/labor-rates/* routes (catalog CRUD, member list, and the JobTread write)

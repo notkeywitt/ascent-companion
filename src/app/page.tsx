@@ -143,6 +143,7 @@ const AREAS: Area[] = [
     title: "HR",
     blurb: "Roster, labor, time off, and safety.",
     dests: [
+      { label: "Leads", href: "/leads", desc: "New leads, who's overdue, who's gone quiet", view: "leads" },
       { label: "Employees", href: "/employees", desc: "The Project Database roster", view: "employees" },
       { label: "Labor Import", href: "/labor-import", desc: "QuickBooks labor → JobTread CSV", view: "labor-import" },
       { label: "Labor Rates", href: "/labor-rates", desc: "Per-project pay rates & who has them", view: "labor-rates" },
