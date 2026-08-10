@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { JobPicker } from "@/components/JobPicker";
 import { Banner, Button, Chip, CountBadge, Input, Select, Spinner } from "@/components/ui";
 
@@ -74,7 +75,7 @@ interface Draft {
   dirty: boolean;
 }
 
-export function UncapturedBills() {
+export function UncapturedBills({ jobId }: { jobId?: string } = {}) {
   const [items, setItems] = useState<Item[] | null>(null);
   const [error, setError] = useState("");
   const [open, setOpen] = useState(false);
@@ -103,11 +104,21 @@ export function UncapturedBills() {
     load();
   }, [load]);
 
+  // In the per-job workbench this shows only that job's stranded bills — the
+  // rest of the page is about one job, and a queue of fifteen other customers'
+  // bills there is noise. Nothing is hidden: the count of the others is linked
+  // through to the all-jobs view, which lists every one.
+  const shown = useMemo(
+    () => (jobId ? (items ?? []).filter((i) => i.jtJobId === jobId) : (items ?? [])),
+    [items, jobId],
+  );
+  const elsewhere = (items?.length ?? 0) - shown.length;
+
   // Fetch each involved job's budget once the section is opened — not on mount,
   // since most visits to Invoicing never expand this.
   useEffect(() => {
-    if (!open || !items) return;
-    const ids = [...new Set(items.map((i) => i.jtJobId).filter(Boolean))].filter(
+    if (!open) return;
+    const ids = [...new Set(shown.map((i) => i.jtJobId).filter(Boolean))].filter(
       (id) => !(id in budgets),
     );
     if (ids.length === 0) return;
@@ -123,12 +134,9 @@ export function UncapturedBills() {
     return () => {
       alive = false;
     };
-  }, [open, items, budgets]);
+  }, [open, shown, budgets]);
 
-  const total = useMemo(
-    () => (items ?? []).reduce((s, i) => s + (i.amount || 0), 0),
-    [items],
-  );
+  const total = useMemo(() => shown.reduce((s, i) => s + (i.amount || 0), 0), [shown]);
 
   const drop = (expId: string) => {
     setItems((prev) => (prev ?? []).filter((i) => i.expId !== expId));
@@ -218,7 +226,7 @@ export function UncapturedBills() {
   }
 
   // Nothing stranded — say nothing. An empty banner on every invoicing run is noise.
-  if (!error && (!items || items.length === 0)) return null;
+  if (!error && shown.length === 0) return null;
 
   return (
     <section className="mb-4 overflow-hidden rounded-xl border border-amber-300 bg-amber-50/60 dark:border-amber-900/60 dark:bg-amber-950/20">
@@ -230,11 +238,13 @@ export function UncapturedBills() {
         <span className="min-w-0">
           <span className="flex items-center gap-2 font-semibold text-amber-900 dark:text-amber-200">
             Not in JobTread
-            {items && items.length > 0 && <CountBadge n={items.length} />}
+            {shown.length > 0 && <CountBadge n={shown.length} />}
           </span>
           <span className="mt-0.5 block text-xs text-amber-800/80 dark:text-amber-200/70">
-            {items && items.length > 0
-              ? `${money(total)} of ingested bills never pushed — missing from these invoices`
+            {shown.length > 0
+              ? `${money(total)} of ingested bills never pushed — missing from ${
+                  jobId ? "this job’s invoice" : "these invoices"
+                }`
               : "Couldn’t load the queue"}
           </span>
         </span>
@@ -248,7 +258,7 @@ export function UncapturedBills() {
           {error && <Banner tone="error">{error}</Banner>}
 
           <ul className="space-y-2">
-            {(items ?? []).map((it) => {
+            {shown.map((it) => {
               const d = draftFor(it);
               const codes = budgets[it.jtJobId] ?? {};
               const codeList = Object.keys(codes).sort();
@@ -463,9 +473,16 @@ export function UncapturedBills() {
             })}
           </ul>
 
-          <p className="mt-3 text-xs text-neutral-500">
-            Every billing period is listed, not just the month above — these rows go unnoticed
-            precisely because nothing else surfaces them.
+          <p className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-neutral-500">
+            <span>
+              Every billing period is listed, not just the month above — these rows go unnoticed
+              precisely because nothing else surfaces them.
+            </span>
+            {elsewhere > 0 && (
+              <Link href="/recode" className="font-semibold text-accent dark:text-accent-soft">
+                {elsewhere} on other jobs →
+              </Link>
+            )}
           </p>
         </div>
       )}

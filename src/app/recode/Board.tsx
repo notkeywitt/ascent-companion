@@ -37,6 +37,7 @@ import {
   type RecodeEntry,
 } from "@/lib/billLineMath";
 import { InvoiceReconcile, type Recon } from "@/components/InvoiceReconcile";
+import { UncapturedBills } from "@/components/UncapturedBills";
 import {
   Breakdown,
   driveMainWindowToDoc,
@@ -2028,6 +2029,14 @@ export function Board() {
           </div>
         </div>
       )}
+
+      {/* This job's ingested bills that never reached JobTread. They are absent
+          from every number on this page — not in the budget rail, not in "to be
+          invoiced", not in the coding queue — because none of it is in JobTread
+          yet. Scoped to this job here (the all-jobs view lists the rest), and
+          placed directly under the reconcile line, which is where the money that
+          should be on the invoice is already being counted. */}
+      {jobId && !loading && <UncapturedBills jobId={jobId} />}
 
       {data && !loading && (
         // All three columns share the row equally.
