@@ -33,6 +33,8 @@ interface Line {
 
 interface Statement {
   statementDate: string;
+  /** The statement as LSWDD emailed it, rendered to Drive at capture time. */
+  statementUrl: string;
   total: number;
   unresolved: number;
   lines: Line[];
@@ -88,6 +90,7 @@ export default function LswddPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [progress, setProgress] = useState("");
   const [result, setResult] = useState<SubmitBill[] | null>(null);
 
   const load = useCallback(async () => {
@@ -224,39 +227,66 @@ export default function LswddPage() {
     }
   }
 
+  /**
+   * Submit ONE JOB PER REQUEST, sequentially.
+   *
+   * Each bill is a statement render, a Drive file, a JobTread createDocument and
+   * an attachment upload — a six-job statement in one request runs well past any
+   * sane HTTP timeout. Splitting it keeps every request bounded and makes the
+   * batch resumable: bills already created are stamped Pushed in the staging
+   * tab and adopted by ExpID if re-sent, so re-submitting after a failure
+   * finishes the job rather than duplicating anything.
+   */
   async function submit(statement: Statement) {
-    const lines = statement.lines
-      .filter((l) => edits[l.ref]?.projectId)
-      .map((l) => ({
-        ref: l.ref,
-        projectId: edits[l.ref].projectId,
-        csi: edits[l.ref].csi,
-        learnAlias: edits[l.ref].learnAlias,
-      }));
-    if (lines.length === 0) return;
+    const byJob = new Map<string, { ref: string; projectId: string; csi: string; learnAlias: boolean }[]>();
+    for (const l of statement.lines) {
+      const e = edits[l.ref];
+      if (!e?.projectId) continue;
+      const line = { ref: l.ref, projectId: e.projectId, csi: e.csi, learnAlias: e.learnAlias };
+      byJob.set(e.projectId, [...(byJob.get(e.projectId) ?? []), line]);
+    }
+    if (byJob.size === 0) return;
 
     setBusy(true);
     setError("");
     setResult(null);
-    try {
-      const res = await fetch("/api/lswdd", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ lines }),
-      });
-      const json = await res.json();
-      if (!res.ok || json.ok === false) {
-        setError(json.error ?? "Submit failed");
-        if (Array.isArray(json.bills)) setResult(json.bills);
-        return;
+
+    const done: SubmitBill[] = [];
+    let failed = "";
+    let n = 0;
+
+    for (const [projectId, lines] of byJob) {
+      n++;
+      setProgress(`Creating bill ${n} of ${byJob.size}…`);
+      try {
+        const res = await fetch("/api/lswdd", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ lines }),
+        });
+        const json = await res.json();
+        if (Array.isArray(json.bills)) done.push(...json.bills);
+        if (!res.ok || json.ok === false) {
+          const label = projects.find((p) => p.id === projectId)?.label ?? projectId;
+          failed = `${label}: ${json.error ?? "Submit failed"}`;
+          break; // stop on the first failure — the rest stay staged, re-submit resumes
+        }
+      } catch (e) {
+        const label = projects.find((p) => p.id === projectId)?.label ?? projectId;
+        failed = `${label}: ${e instanceof Error ? e.message : "Network error"}`;
+        break;
       }
-      setResult(json.bills ?? []);
-      await load();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Network error");
-    } finally {
-      setBusy(false);
     }
+
+    setProgress("");
+    setResult(done);
+    if (failed) {
+      setError(
+        `${failed} — the bills already created are done and won’t be duplicated. Submit again to finish the rest.`,
+      );
+    }
+    setBusy(false);
+    await load();
   }
 
   return (
@@ -322,6 +352,16 @@ export default function LswddPage() {
                 <div className="mt-2 text-xs text-neutral-500">
                   {s.unresolved} charge{s.unresolved === 1 ? "" : "s"} still need a job.
                 </div>
+              )}
+              {s.statementUrl && (
+                <a
+                  href={s.statementUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-2 inline-block text-sm font-semibold text-accent hover:underline dark:text-accent-soft"
+                >
+                  View the statement as emailed ↗
+                </a>
               )}
               <div className="mt-2 flex justify-end">
                 <Button
@@ -469,7 +509,7 @@ export default function LswddPage() {
                 disabled={busy || assignable === 0}
               >
                 {busy
-                  ? "Sending…"
+                  ? progress || "Sending…"
                   : `Create ${byJob.size} draft bill${byJob.size === 1 ? "" : "s"} in JobTread`}
               </Button>
             </StickyActionBar>

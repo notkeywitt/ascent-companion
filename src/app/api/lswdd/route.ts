@@ -76,5 +76,12 @@ export async function POST(req: NextRequest) {
   // the Apps Script side still validates and groups the lines and reports the
   // bills it WOULD create — so the page can be exercised end to end safely.
   const dryRun = !writesEnabled();
-  return callAppsScriptResponse({ action: "lswddSubmit", lines, dryRun });
+
+  // One bill is a statement PDF render, a Drive file, a JT createDocument and a
+  // GCS attach upload — comfortably past the 25s default. The page submits one
+  // job per call to keep each request bounded, but a slow job still needs room.
+  return callAppsScriptResponse(
+    { action: "lswddSubmit", lines, dryRun },
+    { timeoutMs: 180_000 },
+  );
 }
