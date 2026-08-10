@@ -1703,6 +1703,14 @@ export interface MonthTimeEntry {
   codeName: string;
   notes: string;
   isApproved: boolean;
+  /**
+   * The budget leaf this entry is coded to — the SAME `jobCostItemId` a bill
+   * line points at, and what Labor Review re-points to recode the entry. Null
+   * on an entry JobTread has no cost item for.
+   */
+  costItemId: string | null;
+  /** The pay type (rate) the entry was logged under, e.g. "Regular Pay". */
+  type: string;
 }
 
 /**
@@ -1751,8 +1759,9 @@ export async function getJobTimeEntriesForMonth(
               minutes: {},
               notes: {},
               isApproved: {},
+              type: {},
               user: { name: {} },
-              costItem: { costCode: { number: {}, name: {} } },
+              costItem: { id: {}, costCode: { number: {}, name: {} } },
             },
           },
         },
@@ -1789,6 +1798,8 @@ export async function getJobTimeEntriesForMonth(
       codeName: n?.costItem?.costCode?.name ?? "",
       notes: String(n?.notes ?? "").trim(),
       isApproved: Boolean(n?.isApproved),
+      costItemId: n?.costItem?.id ?? null,
+      type: String(n?.type ?? "").trim(),
     }))
     .sort((a, b) => String(b.startedAt ?? "").localeCompare(String(a.startedAt ?? "")));
 }
@@ -3785,15 +3796,31 @@ export async function createTimeEntry(
  * WRITE — the clock-out half: set `endedAt` (and/or revise notes) on an open
  * entry. The return selection needs its OWN `$: {id}` (confirmed — matches
  * updateDocument/updateCostItem's shape), not just the mutation's top-level $.
+ *
+ * `costItemId` RE-CODES the entry — this is Labor Review's whole write, and the
+ * exact analogue of updateLine()'s `jobCostItemId` for a bill line. Confirmed
+ * live 2026-08-10 (read → recode → read back → restore, on a real entry):
+ * re-pointing costItemId moves the entry to the new budget leaf's cost code and
+ * leaves `cost`, `minutes`, `type` and `isApproved` UNTOUCHED. That's the
+ * important half — a time entry's cost is hours × the PAY TYPE's rate, so it
+ * does NOT get recomputed from the cost item, and unlike createCostItem there is
+ * no tax carve to lose money to. Recoding therefore moves labor between codes at
+ * exactly the amount already on the entry.
+ *
+ * A cost code JobTread doesn't allow time against is rejected at write time (no
+ * queryable "time-trackable" flag exists) — rewriteTimeEntryError turns that
+ * into something the office can act on.
  */
 export async function updateTimeEntry(
   cfg: PaveConfig,
   id: string,
-  fields: { endedAt?: string; notes?: string },
+  fields: { endedAt?: string; notes?: string; costItemId?: string; isApproved?: boolean },
 ): Promise<{ id: string; endedAt?: string }> {
   const $: Record<string, unknown> = { id };
   if (fields.endedAt !== undefined) $.endedAt = fields.endedAt;
   if (fields.notes !== undefined) $.notes = fields.notes;
+  if (fields.costItemId !== undefined) $.costItemId = fields.costItemId;
+  if (fields.isApproved !== undefined) $.isApproved = fields.isApproved;
   try {
     const r = await pave(cfg, {
       updateTimeEntry: { $, timeEntry: { $: { id }, id: {}, endedAt: {} } },

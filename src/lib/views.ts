@@ -55,6 +55,17 @@ export const VIEWS: ViewDef[] = [
     group: "Financials",
     paths: ["/recode", "/api/recode", "/bill", "/add-bill", "/api/uncaptured"],
   },
+  // Labor Review — Client Invoicing's workbench applied to time entries: the
+  // same budget rail, the month's labor in place of the bills, and a coding
+  // drawer that re-points a time entry's cost item. It WRITES to JobTread
+  // (updateTimeEntry), so the API prefix rides the same gate as the page — a
+  // role without the view must not be able to recode labor via the route.
+  {
+    id: "labor-review",
+    label: "Labor Review",
+    group: "Financials",
+    paths: ["/labor-review", "/api/labor-review"],
+  },
   // Approving a bill (draft → pending/approved) can push it to QuickBooks, so it
   // sits behind its own gate rather than riding on "recode" — leads keep coding
   // access without the approval action. No page of its own.

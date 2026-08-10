@@ -422,6 +422,7 @@ export function Board() {
   const { can } = useAccess();
   const canTrack = can("tracking-sheet");
   const canApprove = can("bill-approve");
+  const canLaborReview = can("labor-review");
   const [trackingTarget, setTrackingTarget] = useState<TrackingTarget | null>(null);
   const [trackingSync, setTrackingSync] = useState<TrackingSyncState | undefined>(undefined);
 
@@ -2401,7 +2402,8 @@ export function Board() {
             {/* ---- this month's time entries — read-only, not a drop target;
                 a time entry is coded independently of any bill and this board
                 only recodes bill lines, so it's shown for reference, not
-                dragged. ---- */}
+                dragged. Recoding it is Labor Review's job, linked at the foot
+                of the list. ---- */}
             {mode !== "summary" && monthTime.length > 0 && (
               <Card pad={false} className="mb-2 overflow-hidden">
                 <button
@@ -2427,26 +2429,39 @@ export function Board() {
                   </span>
                 </button>
                 {timeBlockOpen && (
-                  <ul className="border-t border-line-soft">
-                    {monthTime.map((t) => (
-                      <li
-                        key={t.id}
-                        className="flex items-baseline gap-2 border-b border-line-soft px-3 py-1.5 text-xs last:border-0 dark:border-neutral-800"
-                      >
-                        <span className="min-w-0 flex-1 truncate">
-                          <span className="font-medium">{t.employee}</span>
-                          <span className="ml-1 text-neutral-500 dark:text-neutral-400">
-                            {t.startedAt ? t.startedAt.slice(0, 10) : ""} · {t.hours.toFixed(1)}h
-                            {t.code ? ` · ${t.code} ${t.codeName}` : " · uncoded"}
-                            {!t.isApproved ? " · unapproved" : ""}
+                  <>
+                    <ul className="border-t border-line-soft">
+                      {monthTime.map((t) => (
+                        <li
+                          key={t.id}
+                          className="flex items-baseline gap-2 border-b border-line-soft px-3 py-1.5 text-xs last:border-0 dark:border-neutral-800"
+                        >
+                          <span className="min-w-0 flex-1 truncate">
+                            <span className="font-medium">{t.employee}</span>
+                            <span className="ml-1 text-neutral-500 dark:text-neutral-400">
+                              {t.startedAt ? t.startedAt.slice(0, 10) : ""} · {t.hours.toFixed(1)}h
+                              {t.code ? ` · ${t.code} ${t.codeName}` : " · uncoded"}
+                              {!t.isApproved ? " · unapproved" : ""}
+                            </span>
                           </span>
-                        </span>
-                        <span className="shrink-0 tabular-nums font-semibold">
-                          {money(t.cost)}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
+                          <span className="shrink-0 tabular-nums font-semibold">
+                            {money(t.cost)}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                    {/* This list is reference only. Labor Review is the same
+                        month, same job, with the coding drawer that can move
+                        these hours between cost codes. */}
+                    {canLaborReview && (
+                      <Link
+                        href={`/labor-review?jobId=${encodeURIComponent(jobId)}&ym=${ym}`}
+                        className="block border-t border-line-soft px-3 py-2.5 text-xs font-semibold text-accent transition hover:bg-accent/5 dark:border-neutral-800 dark:hover:bg-white/5"
+                      >
+                        Recode this labor in Labor Review →
+                      </Link>
+                    )}
+                  </>
                 )}
               </Card>
             )}
