@@ -59,6 +59,21 @@ const BLANK: Tracking = {
   updatedAt: "",
 };
 
+/** Uploaded files from a website submission. Bad JSON is treated as none —
+ *  a malformed column must not take the whole board down. */
+function parseFiles(json: string): { name: string; url: string }[] {
+  if (!json) return [];
+  try {
+    const parsed = JSON.parse(json);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .map((f) => ({ name: String(f?.name ?? ""), url: String(f?.url ?? "") }))
+      .filter((f) => f.url);
+  } catch {
+    return [];
+  }
+}
+
 /** The intake answers, as the page reads them back. */
 function toInquiry(row: LeadInquiry) {
   return {
@@ -82,6 +97,12 @@ function toInquiry(row: LeadInquiry) {
     loggedAt: row.createdAt,
     jtAccountId: row.jtAccountId,
     pushedAt: row.pushedAt,
+    /** True when this arrived by itself from a website form submission. */
+    fromWebsite: Boolean(row.sourceMessageId),
+    sourceForm: row.sourceForm,
+    files: parseFiles(row.relatedFiles),
+    reviewedAt: row.reviewedAt,
+    reviewedBy: row.reviewedBy,
   };
 }
 

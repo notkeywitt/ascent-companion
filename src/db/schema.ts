@@ -379,6 +379,18 @@ export const leadInquiries = sqliteTable("lead_inquiries", {
   leadSource: text("lead_source").notNull().default(""), // JT "Lead Source" option
   customerType: text("customer_type").notNull().default(""), // JT "Type" option
   notes: text("notes").notNull().default(""), // our intake notes
+  /**
+   * Provenance. A lead typed in by hand leaves these empty; one ingested from a
+   * website form submission carries the Gmail message id it came from — which is
+   * ALSO the de-duplication key (partial unique index, non-empty values only), so
+   * re-scanning the mailbox can never file the same submission twice.
+   */
+  sourceMessageId: text("source_message_id").notNull().default(""),
+  sourceForm: text("source_form").notNull().default(""), // which website form
+  relatedFiles: text("related_files").notNull().default(""), // JSON [{name,url}]
+  /** "" until someone has actually looked at an ingested submission. */
+  reviewedAt: text("reviewed_at").notNull().default(""),
+  reviewedBy: text("reviewed_by").notNull().default(""),
   jtAccountId: text("jt_account_id").notNull().default(""), // "" = not pushed yet
   pushedAt: text("pushed_at").notNull().default(""),
   pushedBy: text("pushed_by").notNull().default(""),

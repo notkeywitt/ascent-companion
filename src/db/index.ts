@@ -419,6 +419,11 @@ async function applySchema() {
       lead_source TEXT NOT NULL DEFAULT '',
       customer_type TEXT NOT NULL DEFAULT '',
       notes TEXT NOT NULL DEFAULT '',
+      source_message_id TEXT NOT NULL DEFAULT '',
+      source_form TEXT NOT NULL DEFAULT '',
+      related_files TEXT NOT NULL DEFAULT '',
+      reviewed_at TEXT NOT NULL DEFAULT '',
+      reviewed_by TEXT NOT NULL DEFAULT '',
       jt_account_id TEXT NOT NULL DEFAULT '',
       pushed_at TEXT NOT NULL DEFAULT '',
       pushed_by TEXT NOT NULL DEFAULT '',
@@ -427,8 +432,29 @@ async function applySchema() {
       updated_at TEXT NOT NULL
     )
   `);
+  // Provenance/review columns, for a table created before web-inquiry ingestion
+  // existed (idempotent — same pattern as labor_rate_catalog.group_id).
+  for (const column of [
+    "source_message_id TEXT NOT NULL DEFAULT ''",
+    "source_form TEXT NOT NULL DEFAULT ''",
+    "related_files TEXT NOT NULL DEFAULT ''",
+    "reviewed_at TEXT NOT NULL DEFAULT ''",
+    "reviewed_by TEXT NOT NULL DEFAULT ''",
+  ]) {
+    try {
+      await getClient().execute(`ALTER TABLE lead_inquiries ADD COLUMN ${column}`);
+    } catch {
+      /* column already exists */
+    }
+  }
   await getClient().execute(
     `CREATE INDEX IF NOT EXISTS lead_inquiries_jt_account ON lead_inquiries (jt_account_id)`,
+  );
+  // The de-duplication guarantee for ingested submissions: one lead per Gmail
+  // message. PARTIAL, so the many hand-logged rows (all "") don't collide.
+  await getClient().execute(
+    `CREATE UNIQUE INDEX IF NOT EXISTS lead_inquiries_source_message
+       ON lead_inquiries (source_message_id) WHERE source_message_id != ''`,
   );
   // "Flag for review" marks on JobTread time entries, set from Labor Review.
   // Companion-owned workflow state — JobTread has no such field on a time entry.

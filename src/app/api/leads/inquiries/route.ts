@@ -58,9 +58,10 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ inquiry: row }, { status: 201 });
 }
 
-// PATCH /api/leads/inquiries — correct a logged lead. Body: { id, ...answers }.
+// PATCH /api/leads/inquiries — correct a logged lead, or mark it reviewed.
+// Body: { id, ...answers } and/or { id, reviewed: true|false }.
 // Only the keys PRESENT in the body are written, so a partial save can't blank an
-// answer it never sent.
+// answer it never sent — which is also what lets "mark reviewed" send nothing else.
 export async function PATCH(req: NextRequest) {
   let body: Record<string, unknown>;
   try {
@@ -82,15 +83,26 @@ export async function PATCH(req: NextRequest) {
   }
 
   const { fields, present } = normalizeInquiry(body);
-  const patch: Partial<InquiryFields> = {};
+  const patch: Partial<InquiryFields> & { reviewedAt?: string; reviewedBy?: string } = {};
   for (const key of present) patch[key] = fields[key];
   if (patch.name !== undefined && !patch.name) {
     return NextResponse.json({ error: "A name is required." }, { status: 400 });
   }
 
+  // "Someone has looked at this" — the acknowledgement on an inquiry that
+  // arrived from the website on its own. Stamped server-side from the session, so
+  // the reviewer is who they actually are.
+  const now = new Date().toISOString();
+  if (body.reviewed !== undefined) {
+    const session = await auth();
+    const reviewed = body.reviewed === true || body.reviewed === "true";
+    patch.reviewedAt = reviewed ? now : "";
+    patch.reviewedBy = reviewed ? (session?.user?.email ?? "") : "";
+  }
+
   const [row] = await db
     .update(leadInquiries)
-    .set({ ...patch, updatedAt: new Date().toISOString() })
+    .set({ ...patch, updatedAt: now })
     .where(eq(leadInquiries.id, id))
     .returning();
   return NextResponse.json({ inquiry: row });

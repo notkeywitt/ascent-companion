@@ -41,7 +41,7 @@ import {
   Textarea,
   type ChipTone,
 } from "@/components/ui";
-import { INQUIRY_ROWS, type InquiryFields } from "@/lib/leadInquiry";
+import { BLANK_INQUIRY, INQUIRY_ROWS, type InquiryFields } from "@/lib/leadInquiry";
 
 import { LeadIntakeForm } from "./LeadIntakeForm";
 
@@ -71,6 +71,12 @@ interface Inquiry extends InquiryFields {
   loggedAt: string;
   jtAccountId: string;
   pushedAt: string;
+  /** Arrived by itself from a website form submission, rather than typed in. */
+  fromWebsite: boolean;
+  sourceForm: string;
+  files: { name: string; url: string }[];
+  reviewedAt: string;
+  reviewedBy: string;
 }
 interface Lead {
   id: string; // JobTread account id, or "inq_…" for a lead logged here
@@ -181,6 +187,16 @@ function derive(lead: Lead): Derived {
   return { quietDays, neverContacted, urgency, rank: band + (quietDays ?? 0) };
 }
 
+/**
+ * A website submission nobody has acknowledged yet. Only ever true for a lead
+ * that arrived on its own — a lead someone typed in has been "reviewed" by
+ * definition, and pushing one to JobTread counts as dealing with it.
+ */
+function needsReview(lead: Lead): boolean {
+  const inq = lead.inquiry;
+  return Boolean(inq?.fromWebsite && !inq.reviewedAt && !inq.jtAccountId);
+}
+
 /** Amber past a week of silence, red past two. */
 function staleTone(days: number | null): ChipTone {
   if (days === null) return "neutral";
@@ -203,9 +219,12 @@ export default function LeadsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [openId, setOpenId] = useState<string | null>(null);
-  const [filter, setFilter] = useState<"all" | "attention" | "stale" | "local">("all");
+  const [filter, setFilter] = useState<"all" | "attention" | "stale" | "local" | "review">("all");
   const [stageFilter, setStageFilter] = useState<string>("");
   const [adding, setAdding] = useState(false);
+  const [scanning, setScanning] = useState(false);
+  const [scanNote, setScanNote] = useState("");
+  const [scanErr, setScanErr] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -222,9 +241,48 @@ export default function LeadsPage() {
     }
   }, []);
 
+  /**
+   * File any website form submission that isn't on the board yet.
+   *
+   * Runs once when the page opens, and again on Refresh — the ingest is keyed on
+   * the Gmail message id, so scanning repeatedly is free and can't duplicate a
+   * lead. An automatic scan stays SILENT on failure (a mailbox blip must not put
+   * an error across a board that is otherwise working); a scan the user asked
+   * for reports what went wrong.
+   */
+  const scan = useCallback(
+    async (manual = false) => {
+      setScanning(true);
+      if (manual) setScanNote("");
+      try {
+        const res = await fetch("/api/leads/ingest", { method: "POST" });
+        const json = await res.json();
+        if (!res.ok) {
+          if (manual) setScanErr(json.error ?? "Could not check the website inbox");
+          return;
+        }
+        setScanErr("");
+        if (json.added > 0) {
+          const what = json.added === 1 ? "inquiry" : "inquiries";
+          const who = json.names?.length ? `: ${json.names.join(", ")}` : "";
+          setScanNote(`${json.added} new website ${what}${who}.`);
+          await load();
+        } else if (manual) {
+          setScanNote("No new website inquiries.");
+        }
+      } catch (e) {
+        if (manual) setScanErr(e instanceof Error ? e.message : "Network error");
+      } finally {
+        setScanning(false);
+      }
+    },
+    [load],
+  );
+
   useEffect(() => {
     void load();
-  }, [load]);
+    void scan();
+  }, [load, scan]);
 
   /** Merge a saved tracking row back into the list without a full reload. */
   const applyTracking = useCallback((accountId: string, tracking: Tracking) => {
@@ -241,18 +299,21 @@ export default function LeadsPage() {
     let attention = 0;
     let stale = 0;
     let local = 0;
+    let review = 0;
     for (const { lead, d } of rows) {
       if (d.urgency === "overdue" || d.urgency === "unset") attention++;
       if ((d.quietDays ?? 0) >= 14) stale++;
       if (lead.local) local++;
+      if (needsReview(lead)) review++;
     }
-    return { total: rows.length, attention, stale, local };
+    return { total: rows.length, attention, stale, local, review };
   }, [rows]);
 
   const visible = rows.filter(({ lead, d }) => {
     if (filter === "attention" && d.urgency !== "overdue" && d.urgency !== "unset") return false;
     if (filter === "stale" && (d.quietDays ?? 0) < 14) return false;
     if (filter === "local" && !lead.local) return false;
+    if (filter === "review" && !needsReview(lead)) return false;
     if (stageFilter && lead.tracking.stage !== stageFilter) return false;
     return true;
   });
@@ -290,12 +351,32 @@ export default function LeadsPage() {
             <Button size="sm" onClick={() => setAdding((v) => !v)}>
               {adding ? "Close" : "New lead"}
             </Button>
-            <Button variant="outline" size="sm" onClick={() => void load()} disabled={loading}>
-              Refresh
+            <Button
+              variant="outline"
+              size="sm"
+              title="Reload the board and check the office inbox for new website inquiries"
+              onClick={() => {
+                void load();
+                void scan(true);
+              }}
+              disabled={loading || scanning}
+            >
+              {scanning ? "Checking…" : "Refresh"}
             </Button>
           </div>
         }
       />
+
+      {scanNote && (
+        <Banner tone="info" className="mb-4">
+          {scanNote}
+        </Banner>
+      )}
+      {scanErr && (
+        <Banner tone="warning" className="mb-4">
+          Couldn&apos;t check the website inbox: {scanErr}
+        </Banner>
+      )}
 
       {adding && (
         <Card className="mb-4">
@@ -339,6 +420,15 @@ export default function LeadsPage() {
         >
           Gone quiet
         </FilterChip>
+        {counts.review > 0 && (
+          <FilterChip
+            on={filter === "review"}
+            onClick={() => setFilter("review")}
+            title="Came in from the website and nobody has marked it reviewed"
+          >
+            Needs review ({counts.review})
+          </FilterChip>
+        )}
         {counts.local > 0 && (
           <FilterChip
             on={filter === "local"}
@@ -454,6 +544,11 @@ function LeadCard({
             </div>
           </div>
           <div className="flex shrink-0 flex-col items-end gap-1">
+            {needsReview(lead) && (
+              <Chip tone="info" title="Straight from the website form — not reviewed yet">
+                New from web
+              </Chip>
+            )}
             {lead.local && (
               <Chip tone="accent" title="Logged here — no customer in JobTread yet">
                 Not in JT
@@ -682,7 +777,7 @@ function LeadDetail({
       </section>
 
       {/* ----------------------------------------- the intake answers, if any */}
-      {lead.inquiry && <InquiryPanel inquiry={lead.inquiry} />}
+      {lead.inquiry && <InquiryPanel inquiry={lead.inquiry} onChanged={onChanged} />}
 
       {/* ------------------------- what a local lead can do that a JT one can't */}
       {lead.local && lead.inquiry && (
@@ -836,12 +931,76 @@ function LeadDetail({
  * so all three always agree). Unanswered questions are left out rather than
  * shown blank — a two-minute phone call fills in three of these, not eleven.
  */
-function InquiryPanel({ inquiry }: { inquiry: Inquiry }) {
+function InquiryPanel({ inquiry, onChanged }: { inquiry: Inquiry; onChanged: () => void }) {
+  const [marking, setMarking] = useState(false);
   const answered = INQUIRY_ROWS.filter((row) => inquiry[row.key]);
-  if (answered.length === 0) return null;
+  const unreviewed = inquiry.fromWebsite && !inquiry.reviewedAt;
+  if (answered.length === 0 && inquiry.files.length === 0 && !inquiry.fromWebsite) return null;
+
+  async function markReviewed() {
+    setMarking(true);
+    try {
+      const res = await fetch("/api/leads/inquiries", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: inquiry.id, reviewed: true }),
+      });
+      if (res.ok) onChanged();
+    } finally {
+      setMarking(false);
+    }
+  }
+
   return (
     <section className="space-y-2">
-      <SectionHeading>Inquiry</SectionHeading>
+      <SectionHeading
+        trailing={
+          inquiry.fromWebsite ? (
+            unreviewed ? (
+              <Button size="sm" variant="outline" onClick={() => void markReviewed()} disabled={marking}>
+                {marking ? "Marking…" : "Mark reviewed"}
+              </Button>
+            ) : (
+              <span className="text-[11px] text-neutral-500">
+                Reviewed {fmtDate(inquiry.reviewedAt)}
+                {inquiry.reviewedBy ? ` · ${inquiry.reviewedBy}` : ""}
+              </span>
+            )
+          ) : undefined
+        }
+      >
+        {inquiry.fromWebsite ? "Website inquiry" : "Inquiry"}
+      </SectionHeading>
+
+      {inquiry.fromWebsite && (
+        <p className="text-[11px] text-neutral-500">
+          Filed automatically from the website form
+          {inquiry.sourceForm ? ` (${inquiry.sourceForm})` : ""} · received{" "}
+          {fmtDate(inquiry.loggedAt)}
+        </p>
+      )}
+
+      {inquiry.files.length > 0 && (
+        <div className="text-xs">
+          <span className="font-semibold text-neutral-600 dark:text-neutral-300">
+            Files they attached:{" "}
+          </span>
+          {inquiry.files.map((f, i) => (
+            <span key={f.url}>
+              {i > 0 && ", "}
+              <a
+                href={f.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-accent hover:underline"
+              >
+                {f.name}
+              </a>
+            </span>
+          ))}
+        </div>
+      )}
+
       <dl className="space-y-1.5 text-xs">
         {answered.map((row) => (
           <div key={row.key}>
@@ -967,7 +1126,11 @@ function LocalLeadPanel({ inquiry, onChanged }: { inquiry: Inquiry; onChanged: (
       <section className="space-y-2">
         <SectionHeading>Edit lead</SectionHeading>
         <LeadIntakeForm
-          initial={inquiry}
+          // Only the answer fields — an Inquiry also carries provenance and
+          // review state, which the form has no business holding.
+          initial={Object.fromEntries(
+            (Object.keys(BLANK_INQUIRY) as (keyof InquiryFields)[]).map((k) => [k, inquiry[k]]),
+          )}
           submitLabel="Save changes"
           onSave={saveEdit}
           onCancel={() => setEditing(false)}
