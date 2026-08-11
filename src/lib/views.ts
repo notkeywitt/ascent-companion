@@ -103,6 +103,16 @@ export const VIEWS: ViewDef[] = [
   // see the indicator nor read the queued bills by calling the route directly.
   { id: "needs-project", label: "Needs Project", group: "Financials", paths: ["/needs-project", "/api/needs-project"] },
   { id: "payments", label: "Sunset Statements", group: "Financials", paths: ["/payments"] },
+  // The Expenditure sheet's own archive — the pre-JobTread years, which exist
+  // nowhere else. Read-only (the Apps Script actions behind it only read), but
+  // the API prefix rides the same gate as the page so a role without the view
+  // can't pull the whole spend history by calling the route directly.
+  {
+    id: "expenditure-history",
+    label: "Expenditure History",
+    group: "Financials",
+    paths: ["/expenditure-history", "/api/expenditure-history"],
+  },
   // LSWDD (the dump) bills monthly on ONE statement covering many jobs. The
   // sweep stages its charges; this page assigns each to a job and creates one
   // draft bill per job. The API prefix rides the same gate as the page — it
