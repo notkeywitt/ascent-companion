@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import { and, eq } from "drizzle-orm";
 import { auth } from "@/auth";
+import { db, ensureDb } from "@/db";
+import { flaggedTimeEntries } from "@/db/schema";
 import {
   clearJobCostCaches,
   getJobBudget,
@@ -51,9 +54,23 @@ export async function GET(req: NextRequest) {
       getJobHeaderInfo(cfg, jobId),
     ]);
 
+    // Assistant-side "flag for review" marks for this job. Best-effort — a DB
+    // hiccup must leave the page loading, just without the flags.
+    const flagged = new Set<string>();
+    try {
+      await ensureDb();
+      const rows = await db
+        .select({ id: flaggedTimeEntries.timeEntryId })
+        .from(flaggedTimeEntries)
+        .where(and(eq(flaggedTimeEntries.jobId, jobId), eq(flaggedTimeEntries.flagged, true)));
+      for (const r of rows) flagged.add(r.id);
+    } catch {
+      /* flags are best-effort */
+    }
+
     return NextResponse.json({
       job: { id: jobId, name: header.name, address: header.address },
-      timeEntries,
+      timeEntries: timeEntries.map((t) => ({ ...t, flagged: flagged.has(t.id) })),
       budget,
       costDetail,
       writesEnabled: writesEnabled(),

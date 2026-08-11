@@ -9,6 +9,7 @@ import {
   Card,
   EmptyState,
   FilterChip,
+  IconButton,
   Label,
   Loading,
   Meter,
@@ -57,6 +58,8 @@ interface TimeEntry {
   isApproved: boolean;
   costItemId: string | null;
   type: string;
+  /** Assistant-local "flag for review" mark — companion DB, not JobTread. */
+  flagged?: boolean;
 }
 interface BudgetItem {
   id: string;
@@ -518,6 +521,31 @@ export function LaborReview() {
 
   const revertAll = () => setStaged(new Map());
 
+  /**
+   * "Flag for review" — an Assistant-local mark on one time entry, for the entry
+   * you can't resolve on the spot ("is that really 11 hours on demo?"). It is
+   * NOT a JobTread write, so it's independent of the write gate and of the
+   * staged recodes: flagging never touches Sync, and Sync never clears a flag.
+   *
+   * Optimistic, and best-effort on the wire — same as the board's Reviewed tag.
+   */
+  const toggleFlag = async (id: string, flagged: boolean) => {
+    setData((d) =>
+      d
+        ? { ...d, timeEntries: d.timeEntries.map((t) => (t.id === id ? { ...t, flagged } : t)) }
+        : d,
+    );
+    try {
+      await fetch("/api/labor-review/flag", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, jobId, flagged }),
+      });
+    } catch {
+      /* best-effort */
+    }
+  };
+
   async function sync() {
     if (!dirty) return;
     setSyncing(true);
@@ -831,7 +859,7 @@ export function LaborReview() {
                     Cost codes in view ({codesInView.length})
                   </SectionLabel>
                   <span className="shrink-0 text-[11px] text-neutral-500 dark:text-neutral-400">
-                    labor shown · remaining
+                    hours shown · remaining
                   </span>
                 </div>
                 <Card pad={false} className="overflow-hidden">
@@ -856,7 +884,7 @@ export function LaborReview() {
                             onClick={() => setFCode((v) => (v === c.code ? "" : c.code))}
                             title={
                               `${c.code || "Uncoded"} ${c.name}\n` +
-                              `${money(c.inView)} of labor shown here (${hrs(c.hours)})\n` +
+                              `${hrs(c.hours)} shown here (${money(c.inView)} of labor)\n` +
                               (c.known
                                 ? `${money(c.used)} used of ${money(c.budget)} budget · ${money(c.remaining)} remaining`
                                 : "No budget row for this code")
@@ -871,12 +899,12 @@ export function LaborReview() {
                                 {c.name}
                               </span>
                               <span className="shrink-0 text-xs font-semibold tabular-nums">
-                                {money0(c.inView)}
+                                {hrs(c.hours)}
                               </span>
                             </div>
                             <div className="mt-0.5 flex items-baseline justify-between gap-2 text-[10px] tabular-nums text-neutral-500 dark:text-neutral-400">
                               <span>
-                                {hrs(c.hours)} shown ·{" "}
+                                {money0(c.inView)} shown ·{" "}
                                 {c.budget > 0 ? `${money0(c.budget)} budget` : "no budget"}
                               </span>
                               <span
@@ -896,7 +924,7 @@ export function LaborReview() {
                   </ul>
                 </Card>
                 <p className="mt-1.5 text-[10px] leading-relaxed text-neutral-500 dark:text-neutral-400">
-                  Bold figure is the labor matching your filters. Budget and remaining are the
+                  Bold figure is the hours matching your filters. Budget and remaining are the
                   code&apos;s whole-job numbers — narrowing to one employee doesn&apos;t shrink a
                   budget or un-spend the rest of the crew&apos;s hours.
                 </p>
@@ -949,64 +977,94 @@ export function LaborReview() {
                           movedTo ? "bg-amber-50/60 dark:bg-amber-950/20" : ""
                         }`}
                       >
-                        <label className="flex cursor-pointer items-start gap-2 px-3 py-2 transition hover:bg-accent/5 dark:hover:bg-white/5">
-                          <input
-                            type="checkbox"
-                            checked={selected.has(t.id)}
-                            onChange={() => toggleOne(t.id)}
-                            className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--accent)]"
-                          />
-                          <span className="min-w-0 flex-1">
-                            <span className="flex items-baseline justify-between gap-2">
-                              <span className="min-w-0 truncate text-[13px] font-semibold">
-                                {t.employee}
-                              </span>
-                              <span className="shrink-0 text-[13px] font-semibold tabular-nums">
-                                {money(t.cost)}
-                              </span>
-                            </span>
-                            <span className="mt-0.5 block truncate text-[11px] text-neutral-500 dark:text-neutral-400">
-                              {dayOf(t)} · {hrs(t.hours)}
-                              {t.type ? ` · ${t.type}` : ""}
-                              {t.isApproved ? "" : " · unapproved"}
-                            </span>
-                            {/* The code chip, in the same shape a bill card
-                                carries: code · what this charges it · what's
-                                left there. Reads red once the code is over.
-                                Staged entries show it for the code they'd move
-                                TO, with the old one struck through beside it. */}
-                            <span className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px]">
-                              <span
-                                className={`inline-flex items-baseline gap-1.5 rounded-md px-2 py-1 ${
-                                  entryOver
-                                    ? "bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300"
-                                    : "bg-neutral-100 text-neutral-600 dark:bg-white/10 dark:text-neutral-300"
-                                }`}
-                                title={`${entryHead?.name ?? ""} — ${
-                                  entryHead ? money(entryLeft) : "no budget row"
-                                } remaining`}
-                              >
-                                <span className="tabular-nums">{nowCode || "uncoded"}</span>
-                                <span className="tabular-nums">{money0(t.cost)}</span>
-                                <span className="opacity-60">·</span>
-                                <span className="tabular-nums">
-                                  {entryHead ? `${money0(entryLeft)} left` : "no budget"}
+                        <div className="flex items-start">
+                          <label className="flex min-w-0 flex-1 cursor-pointer items-start gap-2 px-3 py-2 transition hover:bg-accent/5 dark:hover:bg-white/5">
+                            <input
+                              type="checkbox"
+                              checked={selected.has(t.id)}
+                              onChange={() => toggleOne(t.id)}
+                              className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--accent)]"
+                            />
+                            <span className="min-w-0 flex-1">
+                              {/* HOURS is the display figure on a labor page —
+                                  the question being reviewed is "how long did
+                                  this take", and the dollars are that number
+                                  times a pay rate nobody is editing here. Cost
+                                  keeps its place on the detail line below. */}
+                              <span className="flex items-baseline justify-between gap-2">
+                                <span className="min-w-0 truncate text-[13px] font-semibold">
+                                  {t.employee}
+                                </span>
+                                <span className="shrink-0 text-sm font-semibold tabular-nums">
+                                  {hrs(t.hours)}
                                 </span>
                               </span>
-                              {movedTo && (
-                                <span className="truncate text-neutral-500 dark:text-neutral-400">
-                                  moved from{" "}
-                                  <span className="line-through">{t.code || "uncoded"}</span>
+                              <span className="mt-0.5 block truncate text-[11px] text-neutral-500 dark:text-neutral-400">
+                                {dayOf(t)} · {money(t.cost)}
+                                {t.type ? ` · ${t.type}` : ""}
+                                {t.isApproved ? "" : " · unapproved"}
+                              </span>
+                              {/* The code chip, in the same shape a bill card
+                                  carries: code · what this charges it · what's
+                                  left there. Reads red once the code is over.
+                                  Staged entries show it for the code they'd move
+                                  TO, with the old one struck through beside it. */}
+                              <span className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px]">
+                                <span
+                                  className={`inline-flex items-baseline gap-1.5 rounded-md px-2 py-1 ${
+                                    entryOver
+                                      ? "bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300"
+                                      : "bg-neutral-100 text-neutral-600 dark:bg-white/10 dark:text-neutral-300"
+                                  }`}
+                                  title={`${entryHead?.name ?? ""} — ${
+                                    entryHead ? money(entryLeft) : "no budget row"
+                                  } remaining`}
+                                >
+                                  <span className="tabular-nums">{nowCode || "uncoded"}</span>
+                                  <span className="tabular-nums">{money0(t.cost)}</span>
+                                  <span className="opacity-60">·</span>
+                                  <span className="tabular-nums">
+                                    {entryHead ? `${money0(entryLeft)} left` : "no budget"}
+                                  </span>
+                                </span>
+                                {movedTo && (
+                                  <span className="truncate text-neutral-500 dark:text-neutral-400">
+                                    moved from{" "}
+                                    <span className="line-through">{t.code || "uncoded"}</span>
+                                  </span>
+                                )}
+                              </span>
+                              {t.notes && (
+                                <span className="mt-0.5 block truncate text-[11px] italic text-neutral-500 dark:text-neutral-400">
+                                  {t.notes}
                                 </span>
                               )}
                             </span>
-                            {t.notes && (
-                              <span className="mt-0.5 block truncate text-[11px] italic text-neutral-500 dark:text-neutral-400">
-                                {t.notes}
-                              </span>
-                            )}
-                          </span>
-                        </label>
+                          </label>
+                          {/* Outside the label on purpose — nested in it, every
+                              tap on the flag would also toggle the row's
+                              checkbox. Small glyph, full 44px target (IconButton). */}
+                          <IconButton
+                            label={t.flagged ? "Remove review flag" : "Flag for review"}
+                            title={
+                              t.flagged
+                                ? "Flagged for review — tap to clear. Saved in the Assistant, not JobTread."
+                                : "Flag this entry for review. Saved in the Assistant, not JobTread."
+                            }
+                            aria-pressed={Boolean(t.flagged)}
+                            onClick={() => void toggleFlag(t.id, !t.flagged)}
+                            className="mt-1"
+                          >
+                            <span
+                              aria-hidden
+                              className={`text-sm ${
+                                t.flagged ? "text-amber-600 dark:text-amber-400" : "opacity-50"
+                              }`}
+                            >
+                              ⚑
+                            </span>
+                          </IconButton>
+                        </div>
                       </li>
                     );
                   })}

@@ -341,3 +341,25 @@ export const leadActivities = sqliteTable("lead_activities", {
 
 export type LeadActivity = typeof leadActivities.$inferSelect;
 export type NewLeadActivity = typeof leadActivities.$inferInsert;
+
+/**
+ * Assistant-side "flag for review" marks on JobTread TIME ENTRIES — the labor
+ * twin of `saved_bills.reviewed`. Set from Labor Review when an entry looks
+ * wrong (wrong code, wrong hours, a day that needs asking about) and someone
+ * has to come back to it.
+ *
+ * NOT a JobTread write: JT has no such field on a time entry, and inventing one
+ * would fight the mirror. The flag is companion-owned workflow state only, so it
+ * works regardless of the write gate. A row exists once an entry has ever been
+ * flagged; un-flagging sets `flagged` false rather than deleting, so the last
+ * flagged-by/at is still there.
+ */
+export const flaggedTimeEntries = sqliteTable("flagged_time_entries", {
+  timeEntryId: text("time_entry_id").primaryKey(), // JobTread timeEntry id
+  jobId: text("job_id").notNull().default(""), // so a job's flags load in one query
+  flagged: integer("flagged", { mode: "boolean" }).notNull().default(false),
+  flaggedAt: text("flagged_at").notNull().default(""), // ISO ts of the most recent flag
+  flaggedBy: text("flagged_by").notNull().default(""), // signed-in email, if known
+});
+
+export type FlaggedTimeEntry = typeof flaggedTimeEntries.$inferSelect;

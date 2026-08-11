@@ -398,6 +398,20 @@ async function applySchema() {
   await getClient().execute(
     `CREATE INDEX IF NOT EXISTS lead_activities_account ON lead_activities (account_id)`,
   );
+  // "Flag for review" marks on JobTread time entries, set from Labor Review.
+  // Companion-owned workflow state — JobTread has no such field on a time entry.
+  await getClient().execute(`
+    CREATE TABLE IF NOT EXISTS flagged_time_entries (
+      time_entry_id TEXT PRIMARY KEY,
+      job_id TEXT NOT NULL DEFAULT '',
+      flagged INTEGER NOT NULL DEFAULT 0,
+      flagged_at TEXT NOT NULL DEFAULT '',
+      flagged_by TEXT NOT NULL DEFAULT ''
+    )
+  `);
+  await getClient().execute(
+    `CREATE INDEX IF NOT EXISTS flagged_time_entries_job ON flagged_time_entries (job_id)`,
+  );
 }
 
 export { schema };
