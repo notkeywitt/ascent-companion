@@ -398,6 +398,38 @@ async function applySchema() {
   await getClient().execute(
     `CREATE INDEX IF NOT EXISTS lead_activities_account ON lead_activities (account_id)`,
   );
+  // Leads logged without JobTread — the website intake form, filled in by us.
+  // Companion-OWNED (not a mirror): the row IS the lead until it's pushed, at
+  // which point jt_account_id points at the customer JobTread then owns.
+  await getClient().execute(`
+    CREATE TABLE IF NOT EXISTS lead_inquiries (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL DEFAULT '',
+      email TEXT NOT NULL DEFAULT '',
+      phone TEXT NOT NULL DEFAULT '',
+      contact_method TEXT NOT NULL DEFAULT '',
+      residency TEXT NOT NULL DEFAULT '',
+      address TEXT NOT NULL DEFAULT '',
+      services TEXT NOT NULL DEFAULT '',
+      project_details TEXT NOT NULL DEFAULT '',
+      design_status TEXT NOT NULL DEFAULT '',
+      budget TEXT NOT NULL DEFAULT '',
+      start_date TEXT NOT NULL DEFAULT '',
+      target_date TEXT NOT NULL DEFAULT '',
+      lead_source TEXT NOT NULL DEFAULT '',
+      customer_type TEXT NOT NULL DEFAULT '',
+      notes TEXT NOT NULL DEFAULT '',
+      jt_account_id TEXT NOT NULL DEFAULT '',
+      pushed_at TEXT NOT NULL DEFAULT '',
+      pushed_by TEXT NOT NULL DEFAULT '',
+      created_by TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )
+  `);
+  await getClient().execute(
+    `CREATE INDEX IF NOT EXISTS lead_inquiries_jt_account ON lead_inquiries (jt_account_id)`,
+  );
   // "Flag for review" marks on JobTread time entries, set from Labor Review.
   // Companion-owned workflow state — JobTread has no such field on a time entry.
   await getClient().execute(`

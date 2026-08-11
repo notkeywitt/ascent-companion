@@ -93,12 +93,14 @@ function toContact(raw: unknown): LeadContact | null {
   };
 }
 
-/**
- * The Status custom field's id, looked up by name (not hardcoded, so renaming
- * the field in JobTread doesn't silently return an empty lead list — it fails
- * loudly instead). Returns null when the org has no such field.
- */
-async function statusFieldId(cfg: PaveConfig): Promise<string | null> {
+interface CustomFieldNode {
+  id?: string;
+  name?: string;
+  targetType?: string;
+}
+
+/** The org's custom-field definitions (one page — the org has ~30). */
+async function loadCustomFields(cfg: PaveConfig): Promise<CustomFieldNode[]> {
   const r = await pave(cfg, {
     organization: {
       $: { id: cfg.orgId },
@@ -106,8 +108,49 @@ async function statusFieldId(cfg: PaveConfig): Promise<string | null> {
       customFields: { $: { size: 100 }, nodes: { id: {}, name: {}, targetType: {} } },
     },
   });
-  const fields: { id?: string; name?: string; targetType?: string }[] =
-    r?.organization?.customFields?.nodes ?? [];
+  return r?.organization?.customFields?.nodes ?? [];
+}
+
+/**
+ * The ids of the customer (and customer-contact) fields the Companion reads and
+ * writes, looked up BY NAME rather than hardcoded — same reasoning as
+ * `statusFieldId`: renaming one in JobTread should break loudly, not silently
+ * write into the void. A field that isn't found comes back "" and its caller
+ * skips it.
+ *
+ * `targetType` matters: the org has THREE fields called "Status" (customer, job)
+ * and "Email"/"Phone" exist on customerContact, vendor and vendorContact alike.
+ */
+export interface CustomerFieldIds {
+  status: string;
+  leadSource: string;
+  type: string;
+  notes: string;
+  contactEmail: string;
+  contactPhone: string;
+}
+
+export async function getCustomerFieldIds(cfg: PaveConfig): Promise<CustomerFieldIds> {
+  const fields = await loadCustomFields(cfg);
+  const find = (name: string, targetType: string) =>
+    fields.find((f) => f?.name === name && f?.targetType === targetType)?.id ?? "";
+  return {
+    status: find("Status", "customer"),
+    leadSource: find("Lead Source", "customer"),
+    type: find("Type", "customer"),
+    notes: find("Notes", "customer"),
+    contactEmail: find("Email", "customerContact"),
+    contactPhone: find("Phone", "customerContact"),
+  };
+}
+
+/**
+ * The Status custom field's id, looked up by name (not hardcoded, so renaming
+ * the field in JobTread doesn't silently return an empty lead list — it fails
+ * loudly instead). Returns null when the org has no such field.
+ */
+async function statusFieldId(cfg: PaveConfig): Promise<string | null> {
+  const fields = await loadCustomFields(cfg);
   const f =
     fields.find((x) => x?.name === "Status" && x?.targetType === "customer") ??
     fields.find((x) => x?.name === "Status");
