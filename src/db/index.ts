@@ -398,6 +398,64 @@ async function applySchema() {
   await getClient().execute(
     `CREATE INDEX IF NOT EXISTS lead_activities_account ON lead_activities (account_id)`,
   );
+  // Leads logged without JobTread — the website intake form, filled in by us.
+  // Companion-OWNED (not a mirror): the row IS the lead until it's pushed, at
+  // which point jt_account_id points at the customer JobTread then owns.
+  await getClient().execute(`
+    CREATE TABLE IF NOT EXISTS lead_inquiries (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL DEFAULT '',
+      email TEXT NOT NULL DEFAULT '',
+      phone TEXT NOT NULL DEFAULT '',
+      contact_method TEXT NOT NULL DEFAULT '',
+      residency TEXT NOT NULL DEFAULT '',
+      address TEXT NOT NULL DEFAULT '',
+      services TEXT NOT NULL DEFAULT '',
+      project_details TEXT NOT NULL DEFAULT '',
+      design_status TEXT NOT NULL DEFAULT '',
+      budget TEXT NOT NULL DEFAULT '',
+      start_date TEXT NOT NULL DEFAULT '',
+      target_date TEXT NOT NULL DEFAULT '',
+      lead_source TEXT NOT NULL DEFAULT '',
+      customer_type TEXT NOT NULL DEFAULT '',
+      notes TEXT NOT NULL DEFAULT '',
+      source_message_id TEXT NOT NULL DEFAULT '',
+      source_form TEXT NOT NULL DEFAULT '',
+      related_files TEXT NOT NULL DEFAULT '',
+      reviewed_at TEXT NOT NULL DEFAULT '',
+      reviewed_by TEXT NOT NULL DEFAULT '',
+      jt_account_id TEXT NOT NULL DEFAULT '',
+      pushed_at TEXT NOT NULL DEFAULT '',
+      pushed_by TEXT NOT NULL DEFAULT '',
+      created_by TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )
+  `);
+  // Provenance/review columns, for a table created before web-inquiry ingestion
+  // existed (idempotent — same pattern as labor_rate_catalog.group_id).
+  for (const column of [
+    "source_message_id TEXT NOT NULL DEFAULT ''",
+    "source_form TEXT NOT NULL DEFAULT ''",
+    "related_files TEXT NOT NULL DEFAULT ''",
+    "reviewed_at TEXT NOT NULL DEFAULT ''",
+    "reviewed_by TEXT NOT NULL DEFAULT ''",
+  ]) {
+    try {
+      await getClient().execute(`ALTER TABLE lead_inquiries ADD COLUMN ${column}`);
+    } catch {
+      /* column already exists */
+    }
+  }
+  await getClient().execute(
+    `CREATE INDEX IF NOT EXISTS lead_inquiries_jt_account ON lead_inquiries (jt_account_id)`,
+  );
+  // The de-duplication guarantee for ingested submissions: one lead per Gmail
+  // message. PARTIAL, so the many hand-logged rows (all "") don't collide.
+  await getClient().execute(
+    `CREATE UNIQUE INDEX IF NOT EXISTS lead_inquiries_source_message
+       ON lead_inquiries (source_message_id) WHERE source_message_id != ''`,
+  );
   // "Flag for review" marks on JobTread time entries, set from Labor Review.
   // Companion-owned workflow state — JobTread has no such field on a time entry.
   await getClient().execute(`

@@ -1,19 +1,24 @@
 "use client";
 
 /**
- * Leads — every JobTread customer sitting at Status = "New Lead", with the
- * Companion's own follow-up tracking on top.
+ * Leads — every JobTread customer sitting at Status = "New Lead", PLUS the leads
+ * logged here without JobTread, with the Companion's own follow-up tracking on
+ * top of both.
  *
  * The point of the page is that a lead cannot go quiet unnoticed. Two signals
  * do that work, and they are what the list sorts by:
  *   • OVERDUE — the lead has a next action whose date has passed (or, worse, no
  *     next action committed at all).
  *   • STALE — days since we last logged a touch (or, with no touch ever, days
- *     since JobTread created the account). Amber past 7 days, red past 14.
+ *     since the lead arrived). Amber past 7 days, red past 14.
  *
- * JobTread stays the source of truth for WHO is a lead: this page never writes
- * to JT. Moving someone out of the pipeline is a Status edit in JobTread, and
- * the list follows it.
+ * TWO KINDS OF LEAD, one list. A JobTread lead is a mirror: JobTread owns who is
+ * a lead, moving someone out of the pipeline is a Status edit there, and this
+ * page never writes to it. A LOCAL lead ("New lead" button) is the Companion's
+ * own — the website intake form filled in for someone who phoned instead — and
+ * lives only here until someone pushes it across, which is the one action on this
+ * page that writes to JobTread (it creates the customer, and from then on the
+ * lead is a JobTread lead like any other).
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -36,6 +41,9 @@ import {
   Textarea,
   type ChipTone,
 } from "@/components/ui";
+import { BLANK_INQUIRY, INQUIRY_ROWS, type InquiryFields } from "@/lib/leadInquiry";
+
+import { LeadIntakeForm } from "./LeadIntakeForm";
 
 /* ------------------------------------------------------------------- types */
 
@@ -55,8 +63,23 @@ interface Tracking {
   notes: string;
   updatedAt: string;
 }
-interface Lead {
+/** The intake answers, as logged here. Present on a local lead, and on a
+ *  JobTread lead that grew out of one. */
+interface Inquiry extends InquiryFields {
   id: string;
+  loggedBy: string;
+  loggedAt: string;
+  jtAccountId: string;
+  pushedAt: string;
+  /** Arrived by itself from a website form submission, rather than typed in. */
+  fromWebsite: boolean;
+  sourceForm: string;
+  files: { name: string; url: string }[];
+  reviewedAt: string;
+  reviewedBy: string;
+}
+interface Lead {
+  id: string; // JobTread account id, or "inq_…" for a lead logged here
   name: string;
   createdAt: string;
   source: string;
@@ -68,6 +91,9 @@ interface Lead {
   jobs: { id: string; name: string; createdAt: string }[];
   tasks: { id: string; name: string; endDate: string; completed: boolean }[];
   tracking: Tracking;
+  /** True while the lead exists only in the Companion — not yet in JobTread. */
+  local: boolean;
+  inquiry: Inquiry | null;
 }
 interface Activity {
   id: number;
@@ -161,6 +187,16 @@ function derive(lead: Lead): Derived {
   return { quietDays, neverContacted, urgency, rank: band + (quietDays ?? 0) };
 }
 
+/**
+ * A website submission nobody has acknowledged yet. Only ever true for a lead
+ * that arrived on its own — a lead someone typed in has been "reviewed" by
+ * definition, and pushing one to JobTread counts as dealing with it.
+ */
+function needsReview(lead: Lead): boolean {
+  const inq = lead.inquiry;
+  return Boolean(inq?.fromWebsite && !inq.reviewedAt && !inq.jtAccountId);
+}
+
 /** Amber past a week of silence, red past two. */
 function staleTone(days: number | null): ChipTone {
   if (days === null) return "neutral";
@@ -183,8 +219,12 @@ export default function LeadsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [openId, setOpenId] = useState<string | null>(null);
-  const [filter, setFilter] = useState<"all" | "attention" | "stale">("all");
+  const [filter, setFilter] = useState<"all" | "attention" | "stale" | "local" | "review">("all");
   const [stageFilter, setStageFilter] = useState<string>("");
+  const [adding, setAdding] = useState(false);
+  const [scanning, setScanning] = useState(false);
+  const [scanNote, setScanNote] = useState("");
+  const [scanErr, setScanErr] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -201,9 +241,48 @@ export default function LeadsPage() {
     }
   }, []);
 
+  /**
+   * File any website form submission that isn't on the board yet.
+   *
+   * Runs once when the page opens, and again on Refresh — the ingest is keyed on
+   * the Gmail message id, so scanning repeatedly is free and can't duplicate a
+   * lead. An automatic scan stays SILENT on failure (a mailbox blip must not put
+   * an error across a board that is otherwise working); a scan the user asked
+   * for reports what went wrong.
+   */
+  const scan = useCallback(
+    async (manual = false) => {
+      setScanning(true);
+      if (manual) setScanNote("");
+      try {
+        const res = await fetch("/api/leads/ingest", { method: "POST" });
+        const json = await res.json();
+        if (!res.ok) {
+          if (manual) setScanErr(json.error ?? "Could not check the website inbox");
+          return;
+        }
+        setScanErr("");
+        if (json.added > 0) {
+          const what = json.added === 1 ? "inquiry" : "inquiries";
+          const who = json.names?.length ? `: ${json.names.join(", ")}` : "";
+          setScanNote(`${json.added} new website ${what}${who}.`);
+          await load();
+        } else if (manual) {
+          setScanNote("No new website inquiries.");
+        }
+      } catch (e) {
+        if (manual) setScanErr(e instanceof Error ? e.message : "Network error");
+      } finally {
+        setScanning(false);
+      }
+    },
+    [load],
+  );
+
   useEffect(() => {
     void load();
-  }, [load]);
+    void scan();
+  }, [load, scan]);
 
   /** Merge a saved tracking row back into the list without a full reload. */
   const applyTracking = useCallback((accountId: string, tracking: Tracking) => {
@@ -219,31 +298,96 @@ export default function LeadsPage() {
   const counts = useMemo(() => {
     let attention = 0;
     let stale = 0;
-    for (const { d } of rows) {
+    let local = 0;
+    let review = 0;
+    for (const { lead, d } of rows) {
       if (d.urgency === "overdue" || d.urgency === "unset") attention++;
       if ((d.quietDays ?? 0) >= 14) stale++;
+      if (lead.local) local++;
+      if (needsReview(lead)) review++;
     }
-    return { total: rows.length, attention, stale };
+    return { total: rows.length, attention, stale, local, review };
   }, [rows]);
 
   const visible = rows.filter(({ lead, d }) => {
     if (filter === "attention" && d.urgency !== "overdue" && d.urgency !== "unset") return false;
     if (filter === "stale" && (d.quietDays ?? 0) < 14) return false;
+    if (filter === "local" && !lead.local) return false;
+    if (filter === "review" && !needsReview(lead)) return false;
     if (stageFilter && lead.tracking.stage !== stageFilter) return false;
     return true;
   });
+
+  /** Log a brand-new lead. Companion-only — nothing reaches JobTread here. */
+  const createLead = useCallback(
+    async (fields: InquiryFields): Promise<string | null> => {
+      try {
+        const res = await fetch("/api/leads/inquiries", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(fields),
+        });
+        const json = await res.json();
+        if (!res.ok) return json.error ?? "Could not save that lead";
+        setAdding(false);
+        await load();
+        // Open the new lead so its next action can be set straight away.
+        if (json.inquiry?.id) setOpenId(json.inquiry.id);
+        return null;
+      } catch (e) {
+        return e instanceof Error ? e.message : "Network error";
+      }
+    },
+    [load],
+  );
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-6">
       <PageHeader
         title="Leads"
-        description='Customers marked "New Lead" in JobTread, sorted by who needs attention first.'
+        description='Customers marked "New Lead" in JobTread, plus leads logged here, sorted by who needs attention first.'
         actions={
-          <Button variant="outline" size="sm" onClick={() => void load()} disabled={loading}>
-            Refresh
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button size="sm" onClick={() => setAdding((v) => !v)}>
+              {adding ? "Close" : "New lead"}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              title="Reload the board and check the office inbox for new website inquiries"
+              onClick={() => {
+                void load();
+                void scan(true);
+              }}
+              disabled={loading || scanning}
+            >
+              {scanning ? "Checking…" : "Refresh"}
+            </Button>
+          </div>
         }
       />
+
+      {scanNote && (
+        <Banner tone="info" className="mb-4">
+          {scanNote}
+        </Banner>
+      )}
+      {scanErr && (
+        <Banner tone="warning" className="mb-4">
+          Couldn&apos;t check the website inbox: {scanErr}
+        </Banner>
+      )}
+
+      {adding && (
+        <Card className="mb-4">
+          <SectionHeading className="mb-3">Log a new lead</SectionHeading>
+          <p className="mb-3 text-xs text-neutral-500">
+            The same questions as the website inquiry form. Saved here only — use “Push to
+            JobTread” on the lead once it&apos;s worth a customer record.
+          </p>
+          <LeadIntakeForm onSave={createLead} onCancel={() => setAdding(false)} />
+        </Card>
+      )}
 
       {error && (
         <Banner tone="error" className="mb-4">
@@ -276,6 +420,24 @@ export default function LeadsPage() {
         >
           Gone quiet
         </FilterChip>
+        {counts.review > 0 && (
+          <FilterChip
+            on={filter === "review"}
+            onClick={() => setFilter("review")}
+            title="Came in from the website and nobody has marked it reviewed"
+          >
+            Needs review ({counts.review})
+          </FilterChip>
+        )}
+        {counts.local > 0 && (
+          <FilterChip
+            on={filter === "local"}
+            onClick={() => setFilter("local")}
+            title="Logged here, not yet a customer in JobTread"
+          >
+            Not in JobTread
+          </FilterChip>
+        )}
         {STAGES.map((s) => (
           <FilterChip
             key={s.id}
@@ -292,7 +454,7 @@ export default function LeadsPage() {
       ) : visible.length === 0 ? (
         <EmptyState>
           {leads.length === 0
-            ? 'No customers are marked "New Lead" in JobTread.'
+            ? 'No customers are marked "New Lead" in JobTread, and nothing has been logged here — use “New lead” to add one.'
             : "No leads match this filter."}
         </EmptyState>
       ) : (
@@ -305,6 +467,7 @@ export default function LeadsPage() {
                 open={openId === lead.id}
                 onToggle={() => setOpenId(openId === lead.id ? null : lead.id)}
                 onTracking={(t) => applyTracking(lead.id, t)}
+                onChanged={() => void load()}
               />
             </li>
           ))}
@@ -349,12 +512,15 @@ function LeadCard({
   open,
   onToggle,
   onTracking,
+  onChanged,
 }: {
   lead: Lead;
   derived: Derived;
   open: boolean;
   onToggle: () => void;
   onTracking: (t: Tracking) => void;
+  /** Reload the board — a push, edit or delete changes more than one card. */
+  onChanged: () => void;
 }) {
   const urgency = URGENCY_CHIP[derived.urgency];
   const quiet = derived.quietDays;
@@ -373,10 +539,21 @@ function LeadCard({
             <div className="mt-0.5 truncate text-xs text-neutral-500">
               {[lead.source && `via ${lead.source}`, lead.customerType, lead.address]
                 .filter(Boolean)
-                .join(" · ") || "No source or address in JobTread"}
+                .join(" · ") ||
+                (lead.local ? "No source or address logged" : "No source or address in JobTread")}
             </div>
           </div>
           <div className="flex shrink-0 flex-col items-end gap-1">
+            {needsReview(lead) && (
+              <Chip tone="info" title="Straight from the website form — not reviewed yet">
+                New from web
+              </Chip>
+            )}
+            {lead.local && (
+              <Chip tone="accent" title="Logged here — no customer in JobTread yet">
+                Not in JT
+              </Chip>
+            )}
             {urgency && <Chip tone={urgency.tone}>{urgency.label}</Chip>}
             {quiet !== null && (
               <Chip
@@ -410,14 +587,22 @@ function LeadCard({
         </div>
       </button>
 
-      {open && <LeadDetail lead={lead} onTracking={onTracking} />}
+      {open && <LeadDetail lead={lead} onTracking={onTracking} onChanged={onChanged} />}
     </Card>
   );
 }
 
 /* ------------------------------------------------------------------ detail */
 
-function LeadDetail({ lead, onTracking }: { lead: Lead; onTracking: (t: Tracking) => void }) {
+function LeadDetail({
+  lead,
+  onTracking,
+  onChanged,
+}: {
+  lead: Lead;
+  onTracking: (t: Tracking) => void;
+  onChanged: () => void;
+}) {
   const [form, setForm] = useState<Tracking>(lead.tracking);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
@@ -501,26 +686,32 @@ function LeadDetail({ lead, onTracking }: { lead: Lead; onTracking: (t: Tracking
     <div className="space-y-4 border-t border-line px-3 pb-4 pt-3">
       {err && <Banner tone="error">{err}</Banner>}
 
-      {/* ------------------------------------------------ JobTread details */}
+      {/* --------------------------------------- where the lead lives today */}
       <section className="space-y-2">
         <SectionHeading
           trailing={
-            <JtLink
-              href={`https://app.jobtread.com/customers/${lead.id}`}
-              className="text-xs font-semibold text-accent hover:underline"
-            >
-              Open in JobTread ↗
-            </JtLink>
+            lead.local ? undefined : (
+              <JtLink
+                href={`https://app.jobtread.com/customers/${lead.id}`}
+                className="text-xs font-semibold text-accent hover:underline"
+              >
+                Open in JobTread ↗
+              </JtLink>
+            )
           }
         >
-          From JobTread
+          {lead.local ? "Logged here" : "From JobTread"}
         </SectionHeading>
 
         <dl className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs">
-          <Field label="Created" value={fmtDate(lead.createdAt)} />
+          <Field label={lead.local ? "Logged" : "Created"} value={fmtDate(lead.createdAt)} />
           <Field label="Lead source" value={lead.source || "—"} />
           <Field label="Type" value={lead.customerType || "—"} />
           <Field label="Address" value={lead.address || "—"} />
+          {lead.inquiry?.loggedBy && <Field label="Logged by" value={lead.inquiry.loggedBy} />}
+          {!lead.local && lead.inquiry?.pushedAt && (
+            <Field label="Pushed to JT" value={fmtDate(lead.inquiry.pushedAt)} />
+          )}
         </dl>
 
         {contacts.length > 0 && (
@@ -552,7 +743,7 @@ function LeadDetail({ lead, onTracking }: { lead: Lead; onTracking: (t: Tracking
         {lead.notes && (
           <details className="text-xs">
             <summary className="cursor-pointer font-semibold text-neutral-600 dark:text-neutral-300">
-              JobTread notes
+              {lead.local ? "Our notes" : "JobTread notes"}
             </summary>
             <p className="mt-1 whitespace-pre-wrap text-neutral-600 dark:text-neutral-400">{lead.notes}</p>
           </details>
@@ -584,6 +775,14 @@ function LeadDetail({ lead, onTracking }: { lead: Lead; onTracking: (t: Tracking
           </div>
         )}
       </section>
+
+      {/* ----------------------------------------- the intake answers, if any */}
+      {lead.inquiry && <InquiryPanel inquiry={lead.inquiry} onChanged={onChanged} />}
+
+      {/* ------------------------- what a local lead can do that a JT one can't */}
+      {lead.local && lead.inquiry && (
+        <LocalLeadPanel inquiry={lead.inquiry} onChanged={onChanged} />
+      )}
 
       {/* ------------------------------------------------------- tracking */}
       <section className="space-y-2">
@@ -721,6 +920,335 @@ function LeadDetail({ lead, onTracking }: { lead: Lead; onTracking: (t: Tracking
         )}
       </section>
     </div>
+  );
+}
+
+/* ------------------------------------------------------------ intake answers */
+
+/**
+ * The intake answers, read back in the website form's own order and wording
+ * (INQUIRY_ROWS is shared with the form and with the summary pushed to JobTread,
+ * so all three always agree). Unanswered questions are left out rather than
+ * shown blank — a two-minute phone call fills in three of these, not eleven.
+ */
+function InquiryPanel({ inquiry, onChanged }: { inquiry: Inquiry; onChanged: () => void }) {
+  const [marking, setMarking] = useState(false);
+  const answered = INQUIRY_ROWS.filter((row) => inquiry[row.key]);
+  const unreviewed = inquiry.fromWebsite && !inquiry.reviewedAt;
+  if (answered.length === 0 && inquiry.files.length === 0 && !inquiry.fromWebsite) return null;
+
+  async function markReviewed() {
+    setMarking(true);
+    try {
+      const res = await fetch("/api/leads/inquiries", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: inquiry.id, reviewed: true }),
+      });
+      if (res.ok) onChanged();
+    } finally {
+      setMarking(false);
+    }
+  }
+
+  return (
+    <section className="space-y-2">
+      <SectionHeading
+        trailing={
+          inquiry.fromWebsite ? (
+            unreviewed ? (
+              <Button size="sm" variant="outline" onClick={() => void markReviewed()} disabled={marking}>
+                {marking ? "Marking…" : "Mark reviewed"}
+              </Button>
+            ) : (
+              <span className="text-[11px] text-neutral-500">
+                Reviewed {fmtDate(inquiry.reviewedAt)}
+                {inquiry.reviewedBy ? ` · ${inquiry.reviewedBy}` : ""}
+              </span>
+            )
+          ) : undefined
+        }
+      >
+        {inquiry.fromWebsite ? "Website inquiry" : "Inquiry"}
+      </SectionHeading>
+
+      {inquiry.fromWebsite && (
+        <p className="text-[11px] text-neutral-500">
+          Filed automatically from the website form
+          {inquiry.sourceForm ? ` (${inquiry.sourceForm})` : ""} · received{" "}
+          {fmtDate(inquiry.loggedAt)}
+        </p>
+      )}
+
+      {inquiry.files.length > 0 && (
+        <div className="text-xs">
+          <span className="font-semibold text-neutral-600 dark:text-neutral-300">
+            Files they attached:{" "}
+          </span>
+          {inquiry.files.map((f, i) => (
+            <span key={f.url}>
+              {i > 0 && ", "}
+              <a
+                href={f.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-accent hover:underline"
+              >
+                {f.name}
+              </a>
+            </span>
+          ))}
+        </div>
+      )}
+
+      <dl className="space-y-1.5 text-xs">
+        {answered.map((row) => (
+          <div key={row.key}>
+            <dt className="text-[10px] font-semibold uppercase tracking-wide text-neutral-500">
+              {row.label}
+            </dt>
+            <dd className="whitespace-pre-wrap text-neutral-700 dark:text-neutral-300">
+              {row.key === "startDate" || row.key === "targetDate"
+                ? fmtDate(inquiry[row.key])
+                : inquiry[row.key]}
+            </dd>
+          </div>
+        ))}
+      </dl>
+    </section>
+  );
+}
+
+/* --------------------------------------------------------- local lead panel */
+
+/**
+ * Everything you can do to a lead that lives only here: push it to JobTread,
+ * correct what was logged, or drop it if it was a mistake.
+ *
+ * The push is the only action on this page that writes to JobTread, and it
+ * creates a customer in the live org, so it asks first. Two answers from the
+ * server get special handling rather than being shown as plain errors:
+ *  • a same-name customer already in JobTread — offered as "create anyway",
+ *    because sometimes it really is a second project for a second Jack Warner.
+ *  • a preview (a dry run, or the write gate being closed) — shown as the list
+ *    of calls it WOULD make, with nothing sent.
+ */
+function LocalLeadPanel({ inquiry, onChanged }: { inquiry: Inquiry; onChanged: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const [ok, setOk] = useState("");
+  const [warnings, setWarnings] = useState<string[]>([]);
+  const [duplicates, setDuplicates] = useState<{ id: string; name: string }[]>([]);
+  const [plan, setPlan] = useState<{ label: string; query: unknown }[] | null>(null);
+  const [confirming, setConfirming] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [editing, setEditing] = useState(false);
+
+  async function push(opts: { dryRun?: boolean; force?: boolean } = {}) {
+    setBusy(true);
+    setErr("");
+    setOk("");
+    setPlan(null);
+    setWarnings([]);
+    if (!opts.dryRun) setConfirming(false);
+    try {
+      const res = await fetch("/api/leads/push", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ inquiryId: inquiry.id, ...opts }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setErr(json.error ?? "Push failed");
+        setDuplicates(json.needsForce ? (json.duplicates ?? []) : []);
+        return;
+      }
+      setDuplicates([]);
+      if (json.previewed) {
+        setPlan(json.plan ?? []);
+        setOk(
+          json.writesEnabled
+            ? "Preview only — nothing was sent to JobTread."
+            : "Writes to JobTread are switched off, so nothing was sent. This is what it would do.",
+        );
+        return;
+      }
+      setWarnings(json.warnings ?? []);
+      setOk("Customer created in JobTread.");
+      onChanged();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Network error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function saveEdit(fields: InquiryFields): Promise<string | null> {
+    try {
+      const res = await fetch("/api/leads/inquiries", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: inquiry.id, ...fields }),
+      });
+      const json = await res.json();
+      if (!res.ok) return json.error ?? "Could not save";
+      setEditing(false);
+      onChanged();
+      return null;
+    } catch (e) {
+      return e instanceof Error ? e.message : "Network error";
+    }
+  }
+
+  async function remove() {
+    setBusy(true);
+    setErr("");
+    try {
+      const res = await fetch(`/api/leads/inquiries?id=${encodeURIComponent(inquiry.id)}`, {
+        method: "DELETE",
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setErr(json.error ?? "Could not delete");
+        return;
+      }
+      onChanged();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Network error");
+    } finally {
+      setBusy(false);
+      setConfirmingDelete(false);
+    }
+  }
+
+  if (editing) {
+    return (
+      <section className="space-y-2">
+        <SectionHeading>Edit lead</SectionHeading>
+        <LeadIntakeForm
+          // Only the answer fields — an Inquiry also carries provenance and
+          // review state, which the form has no business holding.
+          initial={Object.fromEntries(
+            (Object.keys(BLANK_INQUIRY) as (keyof InquiryFields)[]).map((k) => [k, inquiry[k]]),
+          )}
+          submitLabel="Save changes"
+          onSave={saveEdit}
+          onCancel={() => setEditing(false)}
+        />
+      </section>
+    );
+  }
+
+  return (
+    <section className="space-y-2">
+      <SectionHeading>Not in JobTread yet</SectionHeading>
+
+      {err && <Banner tone="error">{err}</Banner>}
+      {ok && <Banner tone={plan ? "info" : "success"}>{ok}</Banner>}
+      {warnings.length > 0 && (
+        <Banner tone="warning">
+          The customer was created, but:
+          <ul className="mt-1 list-disc pl-4">
+            {warnings.map((w) => (
+              <li key={w}>{w}</li>
+            ))}
+          </ul>
+          Worth fixing by hand in JobTread.
+        </Banner>
+      )}
+
+      {duplicates.length > 0 && (
+        <Banner tone="warning">
+          JobTread already has{" "}
+          {duplicates.map((d, i) => (
+            <span key={d.id}>
+              {i > 0 && ", "}
+              <JtLink
+                href={`https://app.jobtread.com/customers/${d.id}`}
+                className="font-semibold underline"
+              >
+                {d.name}
+              </JtLink>
+            </span>
+          ))}
+          . Push anyway only if this is a different customer.
+          <div className="mt-2">
+            <Button size="sm" variant="danger" onClick={() => void push({ force: true })} disabled={busy}>
+              Create anyway
+            </Button>
+          </div>
+        </Banner>
+      )}
+
+      {plan && (
+        <details className="text-xs">
+          <summary className="cursor-pointer font-semibold text-neutral-600 dark:text-neutral-300">
+            {plan.length} call{plan.length === 1 ? "" : "s"} it would make
+          </summary>
+          <ol className="mt-1 list-decimal space-y-1 pl-4">
+            {plan.map((step) => (
+              <li key={step.label} className="text-neutral-600 dark:text-neutral-400">
+                {step.label}
+              </li>
+            ))}
+          </ol>
+        </details>
+      )}
+
+      {confirming ? (
+        <div className="space-y-2">
+          <p className="text-xs text-neutral-600 dark:text-neutral-400">
+            This creates <span className="font-semibold">{inquiry.name}</span> as a customer in
+            JobTread, at status “New Lead”, with these answers in its Notes. There&apos;s no undo
+            from here — deleting a customer is a JobTread job.
+          </p>
+          <div className="flex items-center gap-2">
+            <Button size="sm" onClick={() => void push()} disabled={busy}>
+              {busy ? "Creating…" : "Yes, create the customer"}
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setConfirming(false)} disabled={busy}>
+              Cancel
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex flex-wrap items-center gap-2">
+          <Button size="sm" onClick={() => setConfirming(true)} disabled={busy}>
+            Push to JobTread
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => void push({ dryRun: true })} disabled={busy}>
+            Preview
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => setEditing(true)} disabled={busy}>
+            Edit
+          </Button>
+          {confirmingDelete ? (
+            <>
+              <Button size="sm" variant="danger" onClick={() => void remove()} disabled={busy}>
+                Delete for good
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setConfirmingDelete(false)}
+                disabled={busy}
+              >
+                Keep
+              </Button>
+            </>
+          ) : (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setConfirmingDelete(true)}
+              disabled={busy}
+            >
+              Delete
+            </Button>
+          )}
+        </div>
+      )}
+    </section>
   );
 }
 

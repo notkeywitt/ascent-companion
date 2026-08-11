@@ -343,6 +343,66 @@ export type LeadActivity = typeof leadActivities.$inferSelect;
 export type NewLeadActivity = typeof leadActivities.$inferInsert;
 
 /**
+ * Leads logged WITHOUT JobTread — the intake form from the public website
+ * (ascentbuildingco.com/new-inquiry) filled in by us, for a lead that phoned,
+ * walked in, or came through Casey. See src/lib/leadInquiry.ts for the question
+ * set; every answer is stored as text, exactly as typed.
+ *
+ * This is the one lead record the Companion OWNS rather than mirrors. It exists
+ * precisely so nothing has to be written to JobTread to start tracking a lead:
+ * an inquiry row is a lead on the board immediately, keyed by its own `id`
+ * (prefixed "inq_", so it can never collide with a JobTread account id), which
+ * is what its `leads`/`lead_activities` rows key on too.
+ *
+ * On "Push to JobTread" a real customer account is created and its id lands in
+ * `jt_account_id`. From that moment JobTread owns the lead: the board stops
+ * rendering this row and shows the JobTread account instead (with these answers
+ * joined back on for reference), and the tracking + contact-log rows are re-keyed
+ * from `id` to the account id so no follow-up history is lost. A non-empty
+ * `jt_account_id` is also the idempotency guard — it's what stops a second push
+ * creating a duplicate customer.
+ */
+export const leadInquiries = sqliteTable("lead_inquiries", {
+  id: text("id").primaryKey(), // "inq_<random>" — the board/tracking key until pushed
+  name: text("name").notNull().default(""), // becomes the JT customer name
+  email: text("email").notNull().default(""),
+  phone: text("phone").notNull().default(""),
+  contactMethod: text("contact_method").notNull().default(""), // Phone | Text | Email
+  residency: text("residency").notNull().default(""), // Full-time | Part-time | …
+  address: text("address").notNull().default(""), // the form's "Project Location"
+  services: text("services").notNull().default(""), // multi-select, comma-joined
+  projectDetails: text("project_details").notNull().default(""),
+  designStatus: text("design_status").notNull().default(""),
+  budget: text("budget").notNull().default(""), // multi-select, comma-joined
+  startDate: text("start_date").notNull().default(""), // YYYY-MM-DD
+  targetDate: text("target_date").notNull().default(""), // YYYY-MM-DD
+  leadSource: text("lead_source").notNull().default(""), // JT "Lead Source" option
+  customerType: text("customer_type").notNull().default(""), // JT "Type" option
+  notes: text("notes").notNull().default(""), // our intake notes
+  /**
+   * Provenance. A lead typed in by hand leaves these empty; one ingested from a
+   * website form submission carries the Gmail message id it came from — which is
+   * ALSO the de-duplication key (partial unique index, non-empty values only), so
+   * re-scanning the mailbox can never file the same submission twice.
+   */
+  sourceMessageId: text("source_message_id").notNull().default(""),
+  sourceForm: text("source_form").notNull().default(""), // which website form
+  relatedFiles: text("related_files").notNull().default(""), // JSON [{name,url}]
+  /** "" until someone has actually looked at an ingested submission. */
+  reviewedAt: text("reviewed_at").notNull().default(""),
+  reviewedBy: text("reviewed_by").notNull().default(""),
+  jtAccountId: text("jt_account_id").notNull().default(""), // "" = not pushed yet
+  pushedAt: text("pushed_at").notNull().default(""),
+  pushedBy: text("pushed_by").notNull().default(""),
+  createdBy: text("created_by").notNull().default(""), // signed-in email
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
+export type LeadInquiry = typeof leadInquiries.$inferSelect;
+export type NewLeadInquiry = typeof leadInquiries.$inferInsert;
+
+/**
  * Assistant-side "flag for review" marks on JobTread TIME ENTRIES — the labor
  * twin of `saved_bills.reviewed`. Set from Labor Review when an entry looks
  * wrong (wrong code, wrong hours, a day that needs asking about) and someone
