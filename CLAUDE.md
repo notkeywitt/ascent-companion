@@ -12,6 +12,10 @@ The owner is a **knowledgeable novice** — understands the business logic deepl
 but is not a professional developer. Explanations should be clear and concrete;
 don't assume dev-tooling fluency.
 
+> 🗺️ **New session? Read `CODEBASE_MAP.md` first.** It's the orientation index —
+> which doc answers what, a task → files jump table, and a directory-by-directory
+> map of `src/` — so you can find the right file without re-searching the tree.
+
 ## The mobile build loop (read this first)
 
 You may be invoked from a **phone**. The owner will describe a feature or page in
