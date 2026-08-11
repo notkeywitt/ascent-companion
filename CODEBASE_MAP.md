@@ -6,6 +6,12 @@ doc is for, a task → files jump table, and a directory-by-directory map of
 re-searching the whole tree. If you change where something lives, update the
 matching row here.
 
+> **Keeping this honest:** run `npm run check:map` (script:
+> `scripts/check-codebase-map.mjs`). It walks both repos and flags any source
+> file, route, or table that's on disk but missing from the map — and any map row
+> whose file is gone. It never rewrites the map: the one-line descriptions are
+> yours to write. Exit 1 on drift, so it fits a pre-commit hook or CI.
+
 > Companion = the Next.js/Vercel phone UI over JobTread ("Pave" API) plus a small
 > companion DB. The sibling repo `ascent-appscript` is the automated back end
 > (Gmail→Gemini ingestion, the hourly JobTread↔Sheet↔Drive mirror) and the

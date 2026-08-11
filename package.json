@@ -9,6 +9,7 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
+    "check:map": "node scripts/check-codebase-map.mjs",
     "test": "vitest run",
     "test:watch": "vitest"
   },
