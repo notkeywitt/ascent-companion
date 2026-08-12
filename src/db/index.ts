@@ -481,6 +481,30 @@ async function applySchema() {
       updated_by TEXT NOT NULL DEFAULT ''
     )
   `);
+  // Admin notices — announcements pushed to users as a global popup. Companion-
+  // owned; a notice_reads row per (notice, reader) is the "seen it" mark.
+  await getClient().execute(`
+    CREATE TABLE IF NOT EXISTS notices (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      title TEXT NOT NULL,
+      body TEXT NOT NULL DEFAULT '',
+      tone TEXT NOT NULL DEFAULT 'info',
+      audience_type TEXT NOT NULL DEFAULT 'all',
+      audience_value TEXT NOT NULL DEFAULT '',
+      active INTEGER NOT NULL DEFAULT 1,
+      created_by TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )
+  `);
+  await getClient().execute(`
+    CREATE TABLE IF NOT EXISTS notice_reads (
+      notice_id INTEGER NOT NULL,
+      email TEXT NOT NULL,
+      read_at TEXT NOT NULL,
+      PRIMARY KEY (notice_id, email)
+    )
+  `);
 }
 
 export { schema };

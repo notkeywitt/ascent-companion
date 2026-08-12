@@ -20,6 +20,7 @@ import {
   type Role,
 } from "@/lib/views";
 import { ActivityPanel } from "./ActivityPanel";
+import { NoticesPanel } from "./NoticesPanel";
 
 interface Member {
   email: string;
@@ -52,12 +53,12 @@ const GROUPED = GROUP_ORDER.map((g) => ({
 })).filter((g) => g.views.length > 0);
 
 export default function AdminPage() {
-  const [tab, setTab] = useState<"access" | "activity">("access");
+  const [tab, setTab] = useState<"access" | "activity" | "notices">("access");
   return (
     <main className="mx-auto max-w-xl px-4 pb-24 pt-6">
       <PageHeader
         title="Admin"
-        description="Who can sign in, what each person can see, and how the panel is being used."
+        description="Who can sign in, what each person can see, how the panel is being used, and notices pushed to the team."
         className="!mb-4"
       />
       <div className="mb-5 inline-flex rounded-lg border border-line p-0.5 ">
@@ -67,8 +68,11 @@ export default function AdminPage() {
         <TabButton active={tab === "activity"} onClick={() => setTab("activity")}>
           Activity
         </TabButton>
+        <TabButton active={tab === "notices"} onClick={() => setTab("notices")}>
+          Notices
+        </TabButton>
       </div>
-      {tab === "access" ? <AccessPanel /> : <ActivityPanel />}
+      {tab === "access" ? <AccessPanel /> : tab === "activity" ? <ActivityPanel /> : <NoticesPanel />}
     </main>
   );
 }
