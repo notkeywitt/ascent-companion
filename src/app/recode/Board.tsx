@@ -51,6 +51,7 @@ import {
 } from "@/components/TrackingSheetSync";
 import { TrackingSheetRisks } from "@/components/TrackingSheetRisks";
 import { useAccess } from "@/components/AccessProvider";
+import { useCopy } from "@/components/CopyProvider";
 import { useUnsavedChanges } from "@/lib/useUnsavedChanges";
 
 /**
@@ -335,6 +336,8 @@ function useIsMobile() {
 }
 
 export function Board() {
+  // Office-edited wording (Admin → Page Text); see src/lib/copy.ts.
+  const c = useCopy();
   const params = useSearchParams();
   const router = useRouter();
   const isMobile = useIsMobile();
@@ -1761,11 +1764,11 @@ export function Board() {
   if (!jobId) {
     return (
       <main className="mx-auto max-w-2xl px-4 pb-24 pt-6">
-        <PageHeader title="Client Invoicing" />
+        <PageHeader title={c("page.recode.title")} />
         <EmptyState>
-          No job selected. Pick one above, or{" "}
+          {c("recode.empty.noJob")}{" "}
           <Link href="/recode" className="text-accent underline">
-            see every job this month
+            {c("recode.empty.noJobLink")}
           </Link>
           .
         </EmptyState>
@@ -1784,8 +1787,8 @@ export function Board() {
           The GlobalJobBar carries both now (picker + address line), so this page
           says what it's FOR instead of repeating where you are. */}
       <PageHeader
-        title="Client Invoicing"
-        description="Move expenditure between cost codes against live budget headroom."
+        title={c("page.recode.title")}
+        description={c("recode.header.description")}
         actionsClassName="w-full min-w-0 items-center lg:w-auto"
         actions={
           // On a phone the toolbar is a stack of clearly separated groups —
@@ -1827,14 +1830,14 @@ export function Board() {
               <FilterChip
                 on={uninvoicedOnly}
                 onClick={() => setUninvoicedOnly(!uninvoicedOnly)}
-                title="Off shows bills already on a customer invoice too, read-only — for reviewing a past, fully-invoiced month."
+                title={c("recode.help.uninvoicedOnly")}
               >
                 Uninvoiced only
               </FilterChip>
               <FilterChip
                 on={includeDrafts}
                 onClick={() => setIncludeDrafts(!includeDrafts)}
-                title="Shows draft bills below so you can code them. Drafts are never invoiceable until approved in JobTread, so this doesn't change the To be invoiced total."
+                title={c("recode.help.includeDrafts")}
               >
                 Drafts shown
               </FilterChip>
@@ -1844,7 +1847,7 @@ export function Board() {
               <FilterChip
                 on={includeUnapprovedTime}
                 onClick={() => setIncludeUnapprovedTime(!includeUnapprovedTime)}
-                title="Off counts only isApproved time entries toward labor and headroom — a more conservative number when a lot of logged time hasn't been approved yet."
+                title={c("recode.help.approvedTime")}
               >
                 Unapproved time
               </FilterChip>
@@ -1857,20 +1860,20 @@ export function Board() {
               <Toggle
                 checked={includeDrafts}
                 onChange={setIncludeDrafts}
-                label={<span title="Shows draft bills below so you can code them. Drafts are never invoiceable until approved in JobTread, so this doesn't change the To be invoiced total.">Include drafts</span>}
+                label={<span title={c("recode.help.includeDrafts")}>{c("recode.toggle.includeDrafts")}</span>}
                 className="min-h-11 shrink-0 text-left lg:min-h-0"
               />
               <Toggle
                 checked={hideSunset}
                 onChange={setHideSunset}
-                label="Hide Sunset"
+                label={c("recode.toggle.hideSunset")}
                 className="min-h-11 shrink-0 text-left lg:min-h-0"
               />
               <Toggle
                 checked={uninvoicedOnly}
                 onChange={setUninvoicedOnly}
                 label={
-                  <span title="Off shows bills already on a customer invoice too, read-only — for reviewing a past, fully-invoiced month.">
+                  <span title={c("recode.help.uninvoicedOnly")}>
                     Uninvoiced only
                   </span>
                 }
@@ -1880,7 +1883,7 @@ export function Board() {
                 checked={includeUnapprovedTime}
                 onChange={setIncludeUnapprovedTime}
                 label={
-                  <span title="Off counts only isApproved time entries toward labor and headroom — a more conservative number when a lot of logged time hasn't been approved yet.">
+                  <span title={c("recode.help.approvedTime")}>
                     Include unapproved time
                   </span>
                 }
@@ -2029,7 +2032,7 @@ export function Board() {
         </Banner>
       )}
 
-      {loading && <Loading label="Loading bills and budget…" />}
+      {loading && <Loading label={c("recode.loading.billsAndBudget")} />}
 
       {/* What this month is worth, and whether JobTread is ready to bill it.
           Same endpoint and same rectangle the Invoicing page uses, so the two
@@ -2113,7 +2116,7 @@ export function Board() {
                 type="search"
                 value={codeQuery}
                 onChange={(e) => setCodeQuery(e.target.value)}
-                placeholder="Filter cost codes…"
+                placeholder={c("recode.placeholder.filterCodes")}
                 className="h-11 w-full border-b border-line bg-transparent px-3 text-xs outline-none dark:border-white/10 lg:h-auto lg:px-2 lg:py-1.5"
               />
               {/* Sized off the viewport, not a %, so the docked rail (label +
@@ -2283,7 +2286,7 @@ export function Board() {
                 bill and the footnote is what it can bill today. */}
             <StatementBlock
               className="mb-4"
-              label="To be invoiced"
+              label={c("recode.statement.toBeInvoiced")}
               value={recon ? money(recon.remaining + recon.draftBillsCost) : "—"}
               sub={
                 recon
@@ -2503,7 +2506,7 @@ export function Board() {
                   <Toggle
                     checked={summaryByCsi}
                     onChange={setSummaryByCsi}
-                    label="Group by CSI code"
+                    label={c("recode.toggle.groupByCsi")}
                   />
                   <Button
                     variant="secondary"
@@ -2515,7 +2518,7 @@ export function Board() {
                   </Button>
                 </div>
 
-                {summaryLoading && !summary && <Loading label="Loading the billing summary…" />}
+                {summaryLoading && !summary && <Loading label={c("recode.loading.summary")} />}
                 {summaryError && (
                   <Banner tone="error" className="mb-2">
                     {summaryError}
@@ -2543,7 +2546,7 @@ export function Board() {
             {/* ---- grouped by cost code: the drag surface ---- */}
             {mode === "code" &&
               (laneRows.length === 0 ? (
-                <EmptyState>No coded lines in this month.</EmptyState>
+                <EmptyState>{c("recode.empty.noCodedLines")}</EmptyState>
               ) : (
                 <ul className="space-y-2">
                   {laneRows.map(({ code, h, stacks, total, hiddenCount }) => (
@@ -2644,8 +2647,8 @@ export function Board() {
             {mode === "bill" && visibleBills.length === 0 ? (
               <EmptyState>
                 {data.bills.length === 0
-                  ? "No uninvoiced bills dated in this month."
-                  : "Every bill this month is from Sunset — turn off Hide Sunset to see them."}
+                  ? c("recode.empty.noBills")
+                  : c("recode.empty.allSunset")}
               </EmptyState>
             ) : mode === "bill" ? (
               <ul className="space-y-2">
@@ -2827,7 +2830,7 @@ export function Board() {
           <section className="hidden min-w-0 xl:block xl:sticky xl:top-16 xl:self-start">
             <SectionLabel className="mb-2">Coding</SectionLabel>
             {!openBill ? (
-              <EmptyState>Select a bill to edit its coding.</EmptyState>
+              <EmptyState>{c("recode.empty.selectBill")}</EmptyState>
             ) : (
               // Height-capped to the room left below the sticky top-16 so a
               // long bill still scrolls (within the card) instead of running
@@ -3165,7 +3168,7 @@ export function Board() {
                           type="text"
                           value={newLine.name}
                           onChange={(e) => setNewLine((n) => ({ ...n, name: e.target.value }))}
-                          placeholder="Line description"
+                          placeholder={c("recode.placeholder.lineDescription")}
                           className="w-full rounded border border-neutral-300 bg-white px-1.5 py-1 text-xs transition focus:border-accent focus:outline-none dark:border-neutral-600 dark:bg-ink-raised"
                         />
                         <div className="mt-1.5 flex items-center gap-1.5">
@@ -3307,7 +3310,7 @@ export function Board() {
                         <JobPicker
                           value={jobId}
                           includeAll={false}
-                          placeholder="Choose a job…"
+                          placeholder={c("recode.placeholder.chooseJob")}
                           onChange={() => {}}
                           onSelect={(j) => {
                             if (j) reassignJob(j);
@@ -3422,7 +3425,7 @@ export function Board() {
                   )}
 
                   {contributorsLoading ? (
-                    <Loading label="Loading bills and time entries…" />
+                    <Loading label={c("recode.loading.billsAndTime")} />
                   ) : contributorsError ? (
                     <Banner tone="error">{contributorsError}</Banner>
                   ) : (

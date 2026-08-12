@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useAccess } from "@/components/AccessProvider";
+import { useCopy } from "@/components/CopyProvider";
 import {
   runTrackingSync,
   type TrackingTarget,
@@ -78,6 +79,7 @@ export function Roster({
   /** A job whose card should be scrolled to on arrival — how Back from a job returns here. */
   openJobId?: string;
 }) {
+  const c = useCopy();
   const [rows, setRows] = useState<JobRow[] | null>(null);
   const [details, setDetails] = useState<Record<string, Detail>>({});
   const [detailFailed, setDetailFailed] = useState<Record<string, boolean>>({});
@@ -342,8 +344,8 @@ export function Roster({
       </div>
 
       <div className="mb-4 flex flex-wrap gap-x-5 gap-y-3">
-        <Toggle checked={uninvoicedOnly} onChange={setUninvoicedOnly} label="Uninvoiced only" />
-        <Toggle checked={includeDrafts} onChange={setIncludeDrafts} label="Include draft bills" />
+        <Toggle checked={uninvoicedOnly} onChange={setUninvoicedOnly} label={c("recode.toggle.uninvoicedOnly")} />
+        <Toggle checked={includeDrafts} onChange={setIncludeDrafts} label={c("recode.toggle.includeDraftBills")} />
       </div>
 
       {error && (
@@ -372,9 +374,7 @@ export function Roster({
       {loading && <CardSkeletonList rows={3} />}
 
       {!loading && rows && rows.length === 0 && !error && (
-        <EmptyState>
-          No client invoices to stage for {monthLabel} — every finalized bill is already invoiced.
-        </EmptyState>
+        <EmptyState>{c("recode.empty.nothingToStage", { month: monthLabel })}</EmptyState>
       )}
 
       <ul className="space-y-2">

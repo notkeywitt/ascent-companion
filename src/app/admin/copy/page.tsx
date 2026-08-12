@@ -27,6 +27,7 @@ interface Entry {
   key: string;
   label: string;
   short: boolean;
+  tokens: string[];
   text: string; // shipped default
   value: string; // what renders today
   overridden: boolean;
@@ -127,6 +128,10 @@ export default function PageTextEditor() {
               const value = draft[e.key] ?? "";
               const dirty = value !== e.value;
               const isLong = !e.short && e.text.length > 40;
+              // A dropped {token} silently loses the value it stood for (the
+              // month, a count), so say so before it's saved — but don't block
+              // it: a rewording that genuinely doesn't need the value is valid.
+              const missing = e.tokens.filter((t) => !value.includes(`{${t}}`));
               return (
                 <div
                   key={e.key}
@@ -152,6 +157,17 @@ export default function PageTextEditor() {
                       value={value}
                       onChange={(ev) => setDraft((d) => ({ ...d, [e.key]: ev.target.value }))}
                     />
+                  )}
+
+                  {e.tokens.length > 0 && (
+                    <p className="mt-1.5 text-xs text-neutral-500">
+                      Keep {e.tokens.map((t) => `{${t}}`).join(", ")} — it fills in the real value.
+                      {missing.length > 0 && (
+                        <span className="ml-1 font-medium text-amber-700 dark:text-amber-500">
+                          Missing {missing.map((t) => `{${t}}`).join(", ")}.
+                        </span>
+                      )}
+                    </p>
                   )}
 
                   <div className="mt-2 flex items-center gap-3">

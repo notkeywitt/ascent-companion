@@ -36,11 +36,17 @@ export function CopyProvider({
 }
 
 /**
- * Returns `c(key)` — the edited text for a registry key, or the shipped English
- * when there's no override. An unknown key returns "" rather than the raw id, so
- * a stale key can never render `home.dest.foo.label` at a user.
+ * Returns `c(key, vars?)` — the edited text for a registry key, or the shipped
+ * English when there's no override. An unknown key returns "" rather than the
+ * raw id, so a stale key can never render `home.dest.foo.label` at a user.
+ *
+ * `vars` fills `{token}` placeholders: `c("recode.empty.nothingToStage",
+ * { month: monthLabel })`.
  */
-export function useCopy(): (key: string) => string {
+export function useCopy(): (key: string, vars?: Record<string, string | number>) => string {
   const overrides = useContext(CopyContext);
-  return useMemo(() => (key: string) => resolveCopy(overrides, key), [overrides]);
+  return useMemo(
+    () => (key: string, vars?: Record<string, string | number>) => resolveCopy(overrides, key, vars),
+    [overrides],
+  );
 }

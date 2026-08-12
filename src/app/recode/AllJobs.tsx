@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { PageHeader } from "@/components/ui";
+import { useCopy } from "@/components/CopyProvider";
 import { UncapturedBills } from "@/components/UncapturedBills";
 import { Roster, monthOptions } from "./Roster";
 import { DraftQueue } from "./DraftQueue";
@@ -40,6 +41,7 @@ function defaultYm(): string {
 export function AllJobs() {
   const params = useSearchParams();
   const router = useRouter();
+  const c = useCopy();
 
   const [tab, setTab] = useState<Tab>(params.get("tab") === "drafts" ? "drafts" : "month");
   // Seeded from the URL so returning from a bill lands on the month you left.
@@ -83,12 +85,8 @@ export function AllJobs() {
   return (
     <main className="mx-auto max-w-2xl px-4 pb-24 pt-6">
       <PageHeader
-        title="Client Invoicing"
-        description={
-          tab === "month"
-            ? "Every client invoice to stage this month — one card per job. Tap a job to open its workbench — the bills, cost-code breakdown, and time behind its total, and the button to create the invoice in JobTread."
-            : "Every draft vendor bill in JobTread, across all jobs and any month. Open one to code it."
-        }
+        title={c("page.recode.title")}
+        description={c(tab === "month" ? "recode.header.descMonth" : "recode.header.descNeedsCoding")}
         actions={
           // Segmented control, matching the workbench's own By bill / By cost
           // code switch: one bordered track so the two read as a pair, with

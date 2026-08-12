@@ -31,6 +31,11 @@ export const COPY_GROUPS = [
   "Home — Utilities",
   "Home — Admin",
   "Page headers",
+  "Client Invoicing — header",
+  "Client Invoicing — controls",
+  "Client Invoicing — help text",
+  "Client Invoicing — empty states",
+  "Client Invoicing — loading & fields",
 ] as const;
 
 export type CopyGroup = (typeof COPY_GROUPS)[number];
@@ -43,6 +48,12 @@ export interface CopyEntry {
   group: CopyGroup;
   /** True for text with a tight space budget (a 4-across button, a chip). */
   short?: boolean;
+  /**
+   * `{token}` names this string accepts, listed under the field in the editor.
+   * Keep them in any reworded text — a dropped token loses the value it stood
+   * for (the month, a count), though nothing breaks if one goes missing.
+   */
+  tokens?: string[];
 }
 
 /**
@@ -268,6 +279,183 @@ export const COPY: Record<string, CopyEntry> = {
     group: "Page headers",
   },
   "page.recode.title": { text: "Client Invoicing", label: "Client Invoicing — page title", group: "Page headers" },
+
+  // ── /recode — page header ────────────────────────────────────────────────
+  "recode.header.description": {
+    text: "Move expenditure between cost codes against live budget headroom.",
+    label: "Page subtitle",
+    group: "Client Invoicing — header",
+  },
+  "recode.header.descMonth": {
+    text: "Every client invoice to stage this month — one card per job. Tap a job to open its workbench — the bills, cost-code breakdown, and time behind its total, and the button to create the invoice in JobTread.",
+    label: "Page subtitle — “This month” tab",
+    group: "Client Invoicing — header",
+  },
+  "recode.header.descNeedsCoding": {
+    text: "Every draft vendor bill in JobTread, across all jobs and any month. Open one to code it.",
+    label: "Page subtitle — “Needs coding” tab",
+    group: "Client Invoicing — header",
+  },
+  "recode.statement.toBeInvoiced": {
+    text: "To be invoiced",
+    label: "Headline figure caption",
+    group: "Client Invoicing — header",
+    short: true,
+  },
+
+  // ── /recode — toggles and controls ───────────────────────────────────────
+  "recode.toggle.includeDrafts": {
+    text: "Include drafts",
+    label: "Include drafts — toggle",
+    group: "Client Invoicing — controls",
+    short: true,
+  },
+  "recode.toggle.hideSunset": {
+    text: "Hide Sunset",
+    label: "Hide Sunset — toggle",
+    group: "Client Invoicing — controls",
+    short: true,
+  },
+  "recode.toggle.groupByCsi": {
+    text: "Group by CSI code",
+    label: "Group by CSI code — toggle",
+    group: "Client Invoicing — controls",
+    short: true,
+  },
+  "recode.toggle.uninvoicedOnly": {
+    text: "Uninvoiced only",
+    label: "Uninvoiced only — toggle (all-jobs view)",
+    group: "Client Invoicing — controls",
+    short: true,
+  },
+  "recode.toggle.includeDraftBills": {
+    text: "Include draft bills",
+    label: "Include draft bills — toggle (all-jobs view)",
+    group: "Client Invoicing — controls",
+    short: true,
+  },
+  "recode.toggle.showReviewed": {
+    text: "Show reviewed",
+    label: "Show reviewed — toggle (needs-coding queue)",
+    group: "Client Invoicing — controls",
+    short: true,
+  },
+  "recode.toggle.showThisMonth": {
+    text: "Show this month",
+    label: "Show this month — toggle (needs-coding queue)",
+    group: "Client Invoicing — controls",
+    short: true,
+  },
+
+  // ── /recode — the explanatory tooltips ───────────────────────────────────
+  "recode.help.uninvoicedOnly": {
+    text: "Off shows bills already on a customer invoice too, read-only — for reviewing a past, fully-invoiced month.",
+    label: "Uninvoiced only — tooltip",
+    group: "Client Invoicing — help text",
+  },
+  "recode.help.includeDrafts": {
+    text: "Shows draft bills below so you can code them. Drafts are never invoiceable until approved in JobTread, so this doesn't change the To be invoiced total.",
+    label: "Include drafts — tooltip",
+    group: "Client Invoicing — help text",
+  },
+  "recode.help.approvedTime": {
+    text: "Off counts only isApproved time entries toward labor and headroom — a more conservative number when a lot of logged time hasn't been approved yet.",
+    label: "Approved time — tooltip",
+    group: "Client Invoicing — help text",
+  },
+
+  // ── /recode — empty states ───────────────────────────────────────────────
+  "recode.empty.noJob": {
+    text: "No job selected. Pick one above, or",
+    label: "No job selected (before the link)",
+    group: "Client Invoicing — empty states",
+  },
+  "recode.empty.noJobLink": {
+    text: "see every job this month",
+    label: "No job selected — link text",
+    group: "Client Invoicing — empty states",
+  },
+  "recode.empty.noCodedLines": {
+    text: "No coded lines in this month.",
+    label: "No coded lines",
+    group: "Client Invoicing — empty states",
+  },
+  "recode.empty.noBills": {
+    text: "No uninvoiced bills dated in this month.",
+    label: "No uninvoiced bills",
+    group: "Client Invoicing — empty states",
+  },
+  "recode.empty.allSunset": {
+    text: "Every bill this month is from Sunset — turn off Hide Sunset to see them.",
+    label: "All bills are Sunset",
+    group: "Client Invoicing — empty states",
+  },
+  "recode.empty.selectBill": {
+    text: "Select a bill to edit its coding.",
+    label: "No bill selected",
+    group: "Client Invoicing — empty states",
+  },
+  "recode.empty.nothingToStage": {
+    text: "No client invoices to stage for {month} — every finalized bill is already invoiced.",
+    label: "Nothing to stage (all-jobs view)",
+    group: "Client Invoicing — empty states",
+    tokens: ["month"],
+  },
+  "recode.empty.noDrafts": {
+    text: "No draft bills anywhere — nothing to code.",
+    label: "No draft bills at all",
+    group: "Client Invoicing — empty states",
+  },
+  "recode.empty.allFiltered": {
+    text: "Every draft bill here is either reviewed or from this month. Turn on “Show reviewed” or “Show this month” to see them.",
+    label: "All drafts hidden by both filters",
+    group: "Client Invoicing — empty states",
+  },
+  "recode.empty.allReviewed": {
+    text: "Every draft bill here is marked reviewed. Turn on “Show reviewed” to see them.",
+    label: "All drafts hidden — reviewed",
+    group: "Client Invoicing — empty states",
+  },
+  "recode.empty.allThisMonth": {
+    text: "Every draft bill here is from this month. Turn on “Show this month” to see them.",
+    label: "All drafts hidden — this month",
+    group: "Client Invoicing — empty states",
+  },
+
+  // ── /recode — loading labels and field placeholders ──────────────────────
+  "recode.loading.billsAndBudget": {
+    text: "Loading bills and budget…",
+    label: "Loading — bills and budget",
+    group: "Client Invoicing — loading & fields",
+  },
+  "recode.loading.summary": {
+    text: "Loading the billing summary…",
+    label: "Loading — billing summary",
+    group: "Client Invoicing — loading & fields",
+  },
+  "recode.loading.billsAndTime": {
+    text: "Loading bills and time entries…",
+    label: "Loading — bills and time entries",
+    group: "Client Invoicing — loading & fields",
+  },
+  "recode.placeholder.filterCodes": {
+    text: "Filter cost codes…",
+    label: "Cost-code filter — placeholder",
+    group: "Client Invoicing — loading & fields",
+    short: true,
+  },
+  "recode.placeholder.chooseJob": {
+    text: "Choose a job…",
+    label: "Job picker — placeholder",
+    group: "Client Invoicing — loading & fields",
+    short: true,
+  },
+  "recode.placeholder.lineDescription": {
+    text: "Line description",
+    label: "New line description — placeholder",
+    group: "Client Invoicing — loading & fields",
+    short: true,
+  },
 };
 
 export type CopyKey = keyof typeof COPY;
@@ -281,15 +469,36 @@ export function defaultCopy(key: string): string {
 }
 
 /**
+ * Substitute `{name}` tokens. Unknown tokens are LEFT AS WRITTEN rather than
+ * blanked, so an edit that misspells `{month}` shows the mistake plainly
+ * instead of silently dropping a word out of the sentence.
+ */
+export function fillTokens(text: string, vars?: Record<string, string | number>): string {
+  if (!vars) return text;
+  return text.replace(/\{(\w+)\}/g, (whole, name: string) =>
+    name in vars ? String(vars[name]) : whole,
+  );
+}
+
+/**
  * The resolver every surface goes through: an override wins, otherwise the
  * shipped default. A blank/whitespace-only override is treated as ABSENT — the
  * editor's "clear the box to revert" gesture — so copy can't be edited into
  * an empty label by accident.
+ *
+ * `vars` fills `{token}` placeholders (see `tokens` on the entry, which is what
+ * the editor lists under the field so the person editing knows which ones the
+ * sentence accepts).
  */
-export function resolveCopy(overrides: Record<string, string>, key: string): string {
+export function resolveCopy(
+  overrides: Record<string, string>,
+  key: string,
+  vars?: Record<string, string | number>,
+): string {
   const override = overrides[key];
-  if (typeof override === "string" && override.trim() !== "") return override;
-  return defaultCopy(key);
+  const text =
+    typeof override === "string" && override.trim() !== "" ? override : defaultCopy(key);
+  return fillTokens(text, vars);
 }
 
 /** Drop unknown keys — a stale row from a renamed key never reaches a page. */

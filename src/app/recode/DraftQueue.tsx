@@ -5,6 +5,7 @@ import Link from "next/link";
 import { BillStatusBadge } from "@/components/BillStatusBadge";
 import { driveMainWindowToDoc, money } from "@/components/BillingSummary";
 import { Banner, CardSkeletonList, EmptyState, Toggle } from "@/components/ui";
+import { useCopy } from "@/components/CopyProvider";
 
 /**
  * "Needs coding" — every draft vendor bill in JobTread, across every job and
@@ -58,6 +59,7 @@ const billTitle = (b: Bill) => {
 };
 
 export function DraftQueue() {
+  const c = useCopy();
   const [bills, setBills] = useState<Bill[] | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -133,14 +135,14 @@ export function DraftQueue() {
                     <Toggle
                       checked={!hideReviewed}
                       onChange={() => setHideReviewed((v) => !v)}
-                      label="Show reviewed"
+                      label={c("recode.toggle.showReviewed")}
                     />
                   )}
                   {currentMonthCount > 0 && (
                     <Toggle
                       checked={!hideCurrentMonth}
                       onChange={() => setHideCurrentMonth((v) => !v)}
-                      label="Show this month"
+                      label={c("recode.toggle.showThisMonth")}
                     />
                   )}
                 </div>
@@ -202,12 +204,12 @@ export function DraftQueue() {
               <li>
                 <EmptyState>
                   {bills.length === 0
-                    ? "No draft bills anywhere — nothing to code."
+                    ? c("recode.empty.noDrafts")
                     : hideReviewed && hideCurrentMonth
-                      ? "Every draft bill here is either reviewed or from this month. Turn on “Show reviewed” or “Show this month” to see them."
+                      ? c("recode.empty.allFiltered")
                       : hideReviewed
-                        ? "Every draft bill here is marked reviewed. Turn on “Show reviewed” to see them."
-                        : "Every draft bill here is from this month. Turn on “Show this month” to see them."}
+                        ? c("recode.empty.allReviewed")
+                        : c("recode.empty.allThisMonth")}
                 </EmptyState>
               </li>
             )}

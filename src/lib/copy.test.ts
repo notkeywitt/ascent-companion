@@ -5,6 +5,7 @@ import {
   COPY_GROUPS,
   copyByGroup,
   defaultCopy,
+  fillTokens,
   pruneOverrides,
   resolveCopy,
 } from "./copy";
@@ -44,6 +45,49 @@ describe("resolveCopy", () => {
 
   it("keeps a legitimately whitespace-padded edit's visible text", () => {
     expect(resolveCopy({ [key]: "  Billing  " }, key)).toBe("  Billing  ");
+  });
+});
+
+describe("token substitution", () => {
+  const key = "recode.empty.nothingToStage";
+
+  it("fills a token in the shipped default", () => {
+    expect(resolveCopy({}, key, { month: "August 2026" })).toContain("August 2026");
+    expect(resolveCopy({}, key, { month: "August 2026" })).not.toContain("{month}");
+  });
+
+  it("fills a token in an override too", () => {
+    expect(resolveCopy({ [key]: "Nothing for {month}." }, key, { month: "July" })).toBe(
+      "Nothing for July.",
+    );
+  });
+
+  it("leaves an unknown token visible rather than blanking it", () => {
+    // A misspelled token must show the mistake, not silently drop a word.
+    expect(resolveCopy({ [key]: "Nothing for {moth}." }, key, { month: "July" })).toBe(
+      "Nothing for {moth}.",
+    );
+  });
+
+  it("is a no-op when the text has no tokens", () => {
+    expect(fillTokens("plain text", { month: "July" })).toBe("plain text");
+  });
+
+  it("accepts a reworded string that drops the token entirely", () => {
+    // The editor warns about this, but it must still render — a rewording that
+    // genuinely doesn't need the value is legitimate.
+    expect(resolveCopy({ [key]: "Nothing to stage." }, key, { month: "July" })).toBe(
+      "Nothing to stage.",
+    );
+  });
+
+  it("declares tokens for every default that uses one", () => {
+    for (const k of ALL_COPY_KEYS) {
+      const used = [...COPY[k].text.matchAll(/\{(\w+)\}/g)].map((m) => m[1]);
+      expect(COPY[k].tokens ?? [], `${k} uses ${used.join(",")} but declares no tokens`).toEqual(
+        expect.arrayContaining(used),
+      );
+    }
   });
 });
 

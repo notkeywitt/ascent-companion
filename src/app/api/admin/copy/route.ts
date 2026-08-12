@@ -54,6 +54,7 @@ export async function GET() {
       key,
       label: COPY[key].label,
       short: COPY[key].short ?? false,
+      tokens: COPY[key].tokens ?? [],
       text: COPY[key].text, // shipped default
       value: resolveCopy(overrides, key), // what renders today
       overridden: typeof overrides[key] === "string" && overrides[key].trim() !== "",
