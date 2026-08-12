@@ -8,6 +8,7 @@ import { AccessProvider } from "@/components/AccessProvider";
 import { CopyProvider } from "@/components/CopyProvider";
 import { RefreshBoundary, RefreshProvider } from "@/components/RefreshProvider";
 import { StuckVendorPopup, StuckVendorsProvider } from "@/components/StuckVendors";
+import { NoticePopup } from "@/components/Notices";
 import { UsageBeacon } from "@/components/UsageBeacon";
 import { auth } from "@/auth";
 import { ALL_VIEW_IDS, resolveAllowedViews, type Role } from "@/lib/views";
@@ -114,6 +115,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 <TabBar />
               </Suspense>
               <StuckVendorPopup />
+              {/* Admin-pushed announcements — shown to signed-in users on
+                  whatever page they opened. Self-fetches its own scoped feed. */}
+              {session?.user && <NoticePopup />}
             </StuckVendorsProvider>
           </RefreshProvider>
         </AccessProvider>

@@ -445,3 +445,49 @@ export const pageCopy = sqliteTable("page_copy", {
 });
 
 export type PageCopyRow = typeof pageCopy.$inferSelect;
+
+/**
+ * Admin notices — short announcements an admin pushes to users, shown as a global
+ * popup on whatever page the reader has open (the same mechanism as the
+ * unmatched-vendor alert; see src/components/Notices.tsx). Companion-owned;
+ * nothing to do with JobTread.
+ *
+ * Targeting is one row: `audienceType` is "all" | "role" | "user", and
+ * `audienceValue` names the role ("field"/"office"/…) or the individual's email
+ * when the type isn't "all" (empty for "all"). `tone` drives the popup's colour
+ * ("info" | "warning" | "success"). `active` is the on/off switch — flip it off
+ * to stop showing a notice without deleting it (and its read history).
+ *
+ * A notice is dismissed PER USER and stays gone: an acknowledgement writes a
+ * `notice_reads` row, and the user-facing feed never returns a notice that reader
+ * has a read row for. So re-activating an old notice won't re-nag people who
+ * already saw it — deliberately; author a NEW notice to reach everyone again.
+ */
+export const notices = sqliteTable("notices", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  title: text("title").notNull(),
+  body: text("body").notNull().default(""),
+  tone: text("tone").notNull().default("info"), // "info" | "warning" | "success"
+  audienceType: text("audience_type").notNull().default("all"), // "all" | "role" | "user"
+  audienceValue: text("audience_value").notNull().default(""), // role name or email; "" for "all"
+  active: integer("active", { mode: "boolean" }).notNull().default(true),
+  createdBy: text("created_by").notNull().default(""), // signed-in admin email
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
+export type Notice = typeof notices.$inferSelect;
+export type NewNotice = typeof notices.$inferInsert;
+
+/**
+ * Per-user acknowledgement of a notice — the "seen it, don't show me again" mark.
+ * One row per (notice, reader); its existence is the whole signal, so there's no
+ * status column. Keyed on the pair, so a second dismiss is a harmless no-op.
+ */
+export const noticeReads = sqliteTable("notice_reads", {
+  noticeId: integer("notice_id").notNull(),
+  email: text("email").notNull(),
+  readAt: text("read_at").notNull(),
+});
+
+export type NoticeRead = typeof noticeReads.$inferSelect;
