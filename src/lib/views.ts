@@ -195,6 +195,12 @@ export const VIEWS: ViewDef[] = [
   // non-admin who POSTs /api/actions directly.
   { id: "actions", label: "Actions", group: "System", paths: ["/actions", "/api/actions"] },
   { id: "admin", label: "Admin", group: "System", paths: ["/admin"] },
+  // Page Text — the office-editable on-screen copy (src/lib/copy.ts). Its own
+  // gate rather than riding on "admin": editing wording is a much smaller thing
+  // to hand out than the access-control console, so it can be granted to an
+  // individual without giving them /admin. The API prefix is listed alongside
+  // the page so a non-admin can't rewrite the UI by calling the route directly.
+  { id: "page-copy", label: "Page Text", group: "System", paths: ["/admin/copy", "/api/admin/copy"] },
   { id: "logs", label: "Logs", group: "System", paths: ["/logs"] },
   // No page of its own — this gates the header's Sync button and the API route
   // behind it, so a non-admin can neither see nor POST the full JT sync.
@@ -219,7 +225,7 @@ const FIELD_VIEWS: string[] = ["mileage", "employee-time", "tools", "requisition
 const LEAD_VIEWS: string[] = [...FIELD_VIEWS, "coding", "stage", "recode", "payments"];
 // The admin-only consoles — access control + the audit log. No one below admin
 // gets these by default (a per-user grant can still hand them to an individual).
-const ADMIN_MENU: string[] = ["admin", "logs", "historical-cost", "bank-details"];
+const ADMIN_MENU: string[] = ["admin", "logs", "historical-cost", "bank-details", "page-copy"];
 // Office gets Financials, HR, and Utilities ("everything else") — i.e. every
 // view except the admin consoles, including the header Sync button.
 const OFFICE_VIEWS: string[] = ALL_VIEW_IDS.filter((id) => !ADMIN_MENU.includes(id));

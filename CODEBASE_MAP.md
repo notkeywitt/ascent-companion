@@ -53,6 +53,7 @@ matching row here.
 | **Env, gates, Pave config** | `src/lib/config.ts` |
 | **Companion DB tables** | `src/db/schema.ts` |
 | **The design system** | `src/components/ui.tsx` (build every UI on these primitives) |
+| **Editable on-screen text** (office reword, no deploy) | add a key to `src/lib/copy.ts`, render it via `useCopy()`; edited at `/admin/copy` → `src/app/api/admin/copy/route.ts` |
 
 ## `src/lib/` — shared logic (the most-reused code)
 
@@ -65,6 +66,8 @@ including edge middleware.
 | `paveGateway.ts` ⟂ | Policy + query inspection for the generic `/api/pave` gateway (read/write classification, per-role write allowlist). |
 | `paveGatewayClient.ts` | Browser-safe `gatewayQuery(query)` — POSTs to `/api/pave`; no grant key. |
 | `config.ts` | Server-side Pave config from env (`getPaveConfig`) + write gates. Never import into client code. |
+| `copy.ts` ⟂ | **Registry of editable on-screen text** — every string the office can reword from Admin → Page Text. English lives here as the shipped default; the DB only overrides. |
+| `copyService.ts` | Server half of the above: reads `page_copy` overrides. Returns `{}` on any DB failure so copy can never blank a page. |
 | `views.ts` ⟂ | **Single source of truth for role-gated views** — `VIEWS`, `ROLE_VIEWS`, `resolveAllowedViews`, `viewIdForPath`. |
 | `auth.ts` ⟂ | Shared-password auth helpers (Web Crypto only; works in edge + node). |
 | `billing.ts` ⟂ | Billing-period + bill-date standard, ported from appscript `Config.js`. Keep in lockstep. |
@@ -143,7 +146,8 @@ Grouped by domain; each folder is `…/route.ts`.
   in `CLAUDE.md`). Never hand-roll styles.
 - **Chrome / nav:** `AppHeader`, `TabBar`, `PageTitle`, `ThemeToggle`,
   `AscentLogo`, `RefreshButton`/`RefreshProvider`, `SyncNowButton`,
-  `AdminActionBar`, `AccessProvider`, `UsageBeacon`.
+  `AdminActionBar`, `AccessProvider`, `CopyProvider` (editable page text —
+  `useCopy()`), `UsageBeacon`.
 - **JobTread pickers / links:** `JobPicker`, `GlobalJobBar`, `CostCodeSelect`,
   `JtLink`, `LinkPending`, `BillStatusBadge`, `BillingSummary`.
 - **Feature widgets:** `InvoiceReconcile`, `InvoiceSweepResult`,
@@ -157,7 +161,8 @@ Grouped by domain; each folder is `…/route.ts`.
 `saved_bills`, `feature_requests`, `flagged_time_entries`,
 `labor_rate_catalog`, `labor_rate_groups`, `leads`, `lead_activities`,
 `lead_inquiries`, `leave_policies`, `leave_balances`, `leave_requests`,
-`leave_transactions`, `rfis`, `sunset_statements`. Access via `src/db/index.ts`.
+`leave_transactions`, `rfis`, `sunset_statements`, `page_copy`. Access via
+`src/db/index.ts`.
 
 ## The cross-repo boundary
 

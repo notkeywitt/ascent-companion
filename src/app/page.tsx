@@ -14,6 +14,7 @@ import {
 } from "@/components/ui";
 import { LinkPendingOverlay } from "@/components/LinkPending";
 import { useAccess } from "@/components/AccessProvider";
+import { useCopy } from "@/components/CopyProvider";
 import { AdminActionBar } from "@/components/AdminActionBar";
 import { StuckVendorBanner } from "@/components/StuckVendors";
 import { NeedsProjectBanner, useNeedsProjectCount } from "@/components/NeedsProject";
@@ -108,7 +109,10 @@ const SearchIcon = ({ className }: IconProps) => (
 // `view` is the gate id from lib/views — entries the signed-in user can't see
 // are filtered out (see the filtering in Home below).
 type Dest = { label: string; href: string; desc: string; view: string };
-type Area = { title: string; blurb: string; dests: Dest[] };
+// `id` is the STABLE handle — React keys, expand state, and the copy registry
+// key all hang off it, so the editable `title` can be reworded from
+// Admin → Page Text without resetting anyone's expanded sections.
+type Area = { id: string; title: string; blurb: string; dests: Dest[] };
 type Quick = { label: string; full: string; href: string; Icon: (p: IconProps) => ReactNode; view: string };
 
 // The four one-tap destinations every employee gets, at the top of the launcher.
@@ -128,6 +132,7 @@ const PREVIEW_ROWS = 3;
 
 const AREAS: Area[] = [
   {
+    id: "financials",
     title: "Financials",
     blurb: "Coding, invoicing, and Sunset statements.",
     // Ordered to follow the monthly flow: code the bills, decide what the client
@@ -142,6 +147,7 @@ const AREAS: Area[] = [
     ],
   },
   {
+    id: "hr",
     title: "HR",
     blurb: "Roster, labor, time off, and safety.",
     dests: [
@@ -154,6 +160,7 @@ const AREAS: Area[] = [
     ],
   },
   {
+    id: "utilities",
     title: "Utilities",
     blurb: "Everything else — imports, assistant, records, and script jobs.",
     dests: [
@@ -170,12 +177,14 @@ const AREAS: Area[] = [
     ],
   },
   {
+    id: "admin",
     title: "Admin",
     blurb: "Access control and the automation audit log.",
     dests: [
       { label: "Admin", href: "/admin", desc: "Who can sign in", view: "admin" },
       { label: "Logs", href: "/logs", desc: "The automation audit trail", view: "logs" },
       { label: "Historical Cost Import", href: "/historical-cost", desc: "Backfill a job's pre-JobTread costs as one draft bill", view: "historical-cost" },
+      { label: "Page Text", href: "/admin/copy", desc: "Reword the app's on-screen text", view: "page-copy" },
     ],
   },
 ];
@@ -183,6 +192,8 @@ const AREAS: Area[] = [
 function Home() {
   const search = useSearchParams();
   const access = useAccess();
+  // Office-edited wording (Admin → Page Text); falls back to the English below.
+  const c = useCopy();
   const jobId = (search.get("jobId") ?? "").trim();
   const qs = jobId ? `?jobId=${encodeURIComponent(jobId)}` : "";
 
@@ -191,13 +202,32 @@ function Home() {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
   // Show only what this user can access; hide an area whose links all filter out.
-  const quick = QUICK.filter((q) => access.can(q.view));
+  //
+  // Every user-visible string is resolved through `c()` HERE, at the one place
+  // the lists are built, so search, the rows and the headings all read the same
+  // (possibly office-edited) wording — see src/lib/copy.ts. The `|| a.title`
+  // fallbacks mean a destination added to AREAS but not yet registered renders
+  // its inline English instead of going blank.
+  const quick = QUICK.filter((q) => access.can(q.view)).map((q) => ({
+    ...q,
+    label: c(`home.quick.${q.view}.label`) || q.label,
+    full: c(`home.quick.${q.view}.full`) || q.full,
+  }));
   const areas = useMemo(
     () =>
-      AREAS.map((a) => ({ ...a, dests: a.dests.filter((d) => access.can(d.view)) })).filter(
-        (a) => a.dests.length > 0,
-      ),
-    [access],
+      AREAS.map((a) => ({
+        ...a,
+        title: c(`home.area.${a.id}.title`) || a.title,
+        blurb: c(`home.area.${a.id}.blurb`) || a.blurb,
+        dests: a.dests
+          .filter((d) => access.can(d.view))
+          .map((d) => ({
+            ...d,
+            label: c(`home.dest.${d.view}.label`) || d.label,
+            desc: c(`home.dest.${d.view}.desc`) || d.desc,
+          })),
+      })).filter((a) => a.dests.length > 0),
+    [access, c],
   );
 
   // Every employee can request time off. Office/admin reach it from the HR area;
@@ -388,7 +418,7 @@ function Home() {
       ) : (
         <div className="space-y-6">
           {areas.map((area) => {
-            const isExpanded = !!expanded[area.title];
+            const isExpanded = !!expanded[area.id];
             const hidden = Math.max(0, area.dests.length - PREVIEW_ROWS);
             const shown = isExpanded ? area.dests : area.dests.slice(0, PREVIEW_ROWS);
             // Work queued behind the fold still shows on the heading, so a
@@ -397,7 +427,7 @@ function Home() {
               .slice(shown.length)
               .reduce((n, d) => n + (badges[d.view] ?? 0), 0);
             return (
-              <section key={area.title} className="space-y-2">
+              <section key={area.id} className="space-y-2">
                 <SectionHeading
                   trailing={
                     <span className="flex items-center gap-2">
@@ -423,7 +453,7 @@ function Home() {
                   {hidden > 0 && (
                     <button
                       type="button"
-                      onClick={() => setExpanded((e) => ({ ...e, [area.title]: !isExpanded }))}
+                      onClick={() => setExpanded((e) => ({ ...e, [area.id]: !isExpanded }))}
                       aria-expanded={isExpanded}
                       className="min-h-11 w-full px-3 py-2.5 text-left text-[12.5px] font-semibold text-neutral-500 transition hover:text-accent dark:text-neutral-400"
                     >

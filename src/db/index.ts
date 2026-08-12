@@ -470,6 +470,17 @@ async function applySchema() {
   await getClient().execute(
     `CREATE INDEX IF NOT EXISTS flagged_time_entries_job ON flagged_time_entries (job_id)`,
   );
+  // Office-edited on-screen text (Admin → Page Text), keyed by the registry ids
+  // in src/lib/copy.ts. Override-only: an absent row means the page renders the
+  // English shipped in the code, so an empty table is the correct default state.
+  await getClient().execute(`
+    CREATE TABLE IF NOT EXISTS page_copy (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      updated_at TEXT NOT NULL DEFAULT '',
+      updated_by TEXT NOT NULL DEFAULT ''
+    )
+  `);
 }
 
 export { schema };

@@ -5,11 +5,13 @@ import "./globals.css";
 import { AppHeader } from "@/components/AppHeader";
 import { TabBar } from "@/components/TabBar";
 import { AccessProvider } from "@/components/AccessProvider";
+import { CopyProvider } from "@/components/CopyProvider";
 import { RefreshBoundary, RefreshProvider } from "@/components/RefreshProvider";
 import { StuckVendorPopup, StuckVendorsProvider } from "@/components/StuckVendors";
 import { UsageBeacon } from "@/components/UsageBeacon";
 import { auth } from "@/auth";
 import { ALL_VIEW_IDS, resolveAllowedViews, type Role } from "@/lib/views";
+import { loadCopyOverrides } from "@/lib/copyService";
 
 // Brand web typeface (Brand Guidelines p.22 — Roboto is the sanctioned web
 // alternative to the print primary, LL Medium). Exposed as a CSS var wired into
@@ -57,6 +59,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   // to the (client) nav so it renders only what they can see. When neither auth
   // mechanism is configured (local dev) the app is open, so treat as admin/all.
   const session = await auth();
+  // Office-edited page copy (Admin → Page Text). Read alongside the session so
+  // edited wording is server-rendered — no client fetch, no flash of old text.
+  // Falls back to {} (i.e. the shipped English) if the DB is unreachable.
+  const copyOverrides = await loadCopyOverrides();
   const devOpen = !process.env.AUTH_GOOGLE_ID && !process.env.APP_PASSWORD;
   let role: Role = "field";
   let views: string[] = [];
@@ -84,6 +90,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         {/* Track page views for signed-in users (Admin → Activity). The route
             no-ops without a session, so it's inert in dev-open mode too. */}
         {session?.user && <UsageBeacon />}
+        <CopyProvider overrides={copyOverrides}>
         <AccessProvider role={role} views={views}>
           {/* Global refresh: the header's button remounts the page subtree
               (RefreshBoundary keys {children}) so every page's mount-time /api
@@ -110,6 +117,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             </StuckVendorsProvider>
           </RefreshProvider>
         </AccessProvider>
+        </CopyProvider>
       </body>
     </html>
   );

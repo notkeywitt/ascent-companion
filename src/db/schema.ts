@@ -423,3 +423,25 @@ export const flaggedTimeEntries = sqliteTable("flagged_time_entries", {
 });
 
 export type FlaggedTimeEntry = typeof flaggedTimeEntries.$inferSelect;
+
+/**
+ * Editable page copy — the on-screen text the office can reword without a
+ * deploy, keyed by the ids in src/lib/copy.ts.
+ *
+ * Same override model as `role_access` above: the ENGLISH LIVES IN THE CODE
+ * (the `text` field of each COPY entry) and a row here only ever overrides it.
+ * An empty table means every page renders its built-in wording, so a wiped or
+ * unreachable DB can never blank the UI — and deleting a row is how you revert
+ * to the shipped text.
+ *
+ * Keys are validated against the registry on write, so a typo can't create a
+ * dangling row the editor never shows again.
+ */
+export const pageCopy = sqliteTable("page_copy", {
+  key: text("key").primaryKey(), // a COPY registry id, e.g. "home.dest.recode.label"
+  value: text("value").notNull(), // the replacement text
+  updatedAt: text("updated_at").notNull().default(""),
+  updatedBy: text("updated_by").notNull().default(""), // signed-in email
+});
+
+export type PageCopyRow = typeof pageCopy.$inferSelect;
