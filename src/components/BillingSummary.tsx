@@ -183,7 +183,12 @@ export function printJob(detail: Detail, monthLabel: string, groupByCsi: boolean
 <html>
 <head>
 <meta charset="utf-8" />
-<title>Billing Summary — ${esc(job?.name ?? monthLabel)}</title>
+<title>${esc(
+    // The browser's "Save as PDF" names the file after the tab title, so this
+    // IS the saved filename: "Customer - Job" (either half alone if the other
+    // is missing, month label as the last resort).
+    [customer?.name, job?.name].filter(Boolean).join(" - ") || monthLabel,
+  )}</title>
 <style>
   * { box-sizing: border-box; }
   body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: #000; margin: 0.6in; }
