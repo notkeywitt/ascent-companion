@@ -211,6 +211,10 @@ function needsReview(lead: Lead): boolean {
  *  closest a mail body gets to the invoice summary's hairline-ruled rows. */
 const EMAIL_RULE = "─".repeat(14);
 
+/** The live leads board, linked at the top of a copied email so the reader can
+ *  jump straight to it. */
+const LEADS_URL = "https://ascent-companion.vercel.app/leads";
+
 /**
  * Format a phone into "(XXX) XXX-XXXX" when it's a plain 10-digit US number
  * (or 11 digits with a leading country 1). Anything else — an extension, a
@@ -272,7 +276,9 @@ function buildLeadsEmail(rows: { lead: Lead; d: Derived }[]): {
     html.push(asHtml ?? esc(line));
   };
 
-  push("Ascent Building Co. — Leads");
+  push(LEADS_URL, `<a href="${LEADS_URL}">${LEADS_URL}</a>`);
+  push("");
+  push("Ascent Building Co. — Leads", "<strong>Ascent Building Co. — Leads</strong>");
   push(`${dateStr} · ${count}`);
   push(EMAIL_RULE);
   push("");
