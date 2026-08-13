@@ -347,10 +347,14 @@ function printLeads(rows: { lead: Lead; d: Derived }[]): void {
      line under every row where :has() is unsupported — still readable. */
   tr.desc td { padding-top: 2px; padding-left: 8px; color: #444; font-style: italic; }
   tr:has(+ tr.desc) td { border-bottom: none; }
+  /* Only shows on the desktop new-tab fallback; hidden when actually printing. */
+  .noprint-close { position: fixed; top: 10px; right: 10px; z-index: 9; padding: 8px 14px; font-size: 14px; font-weight: 600; border: 1px solid #ccc; border-radius: 8px; background: #fff; color: #000; cursor: pointer; }
+  @media print { .noprint-close { display: none; } }
   @page { margin: 0.6in; }
 </style>
 </head>
 <body onload="window.focus(); window.print();">
+  <button type="button" class="noprint-close" onclick="window.close()">Close</button>
   <div class="head">
     ${logoUrl ? `<img class="logo" src="${logoUrl}" alt="Ascent Building Co." />` : ""}
     <div>
@@ -368,9 +372,40 @@ function printLeads(rows: { lead: Lead; d: Derived }[]): void {
 </body>
 </html>`;
 
+  const framed = typeof window !== "undefined" && window.top !== window.self;
+
+  // On a phone (or anywhere the app isn't inside JobTread's side panel), print
+  // through a HIDDEN IFRAME rather than a new tab. A second tab on a phone opens
+  // an in-app browser view with no close button, stranding the user; an iframe
+  // opens nothing — the print/share sheet appears over the app and dismissing it
+  // returns straight here. The iframe self-prints via the body's onload.
+  if (!framed) {
+    const frame = document.createElement("iframe");
+    frame.setAttribute("aria-hidden", "true");
+    frame.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;";
+    document.body.appendChild(frame);
+    const fw = frame.contentWindow;
+    if (!fw) {
+      frame.remove();
+      return;
+    }
+    const remove = () => {
+      if (frame.parentNode) frame.remove();
+    };
+    fw.addEventListener("afterprint", () => setTimeout(remove, 300));
+    setTimeout(remove, 60_000); // fallback: some mobile browsers never fire afterprint
+    fw.document.open();
+    fw.document.write(html);
+    fw.document.close();
+    return;
+  }
+
+  // Inside JobTread's desktop side panel, window.print() is blocked in-frame, so a
+  // top-level tab is the only route — and a desktop tab (plus the page's own Close
+  // button) can be dismissed normally.
   const win = window.open("", "_blank");
   if (!win) {
-    window.print(); // popup blocked — best effort (works only when unframed)
+    window.print(); // popup blocked — best effort
     return;
   }
   win.document.open();
