@@ -550,43 +550,27 @@ export default function LeadsPage() {
   });
 
   /**
-   * Open a Gmail draft for the leads on screen.
+   * Copy the leads on screen as formatted text, ready to paste into an email.
    *
-   * The list rides the CLIPBOARD, not the URL. Gmail's compose link caps the
-   * body near ~2,000 characters and 400s past it — a multi-lead list with quoted
-   * write-ups (and multi-byte “ ” and ─ that each cost three URL bytes) blows
-   * that easily. So we copy the formatted list, open a Gmail draft with just the
-   * subject filled in, and the office pastes the list into the body. No length
-   * limit, and it still lands in Gmail (web on a computer, the app on a phone)
-   * rather than whatever the OS set as the default mail handler.
-   *
-   * The window is opened FIRST, synchronously, so it stays inside the click
-   * gesture (a popup blocker would kill an open deferred behind an await).
+   * Deliberately NOT a Gmail/mailto link: those open unreliably on a phone (the
+   * compose URL 400s past ~2k chars, and the OS handoff often fails), which is
+   * the whole reason this is a plain copy. The office pastes the list into a new
+   * message in whatever mail app they like. Copies exactly what's VISIBLE, in the
+   * current filter and sort.
    */
-  const draftEmail = useCallback(() => {
+  const copyEmailText = useCallback(async () => {
     if (visible.length === 0) return;
-    const { subject, body } = buildLeadsEmail(visible);
-    const url =
-      "https://mail.google.com/mail/?view=cm&fs=1&to=&su=" + encodeURIComponent(subject);
-    window.open(url, "_blank", "noopener,noreferrer");
-
-    if (navigator.clipboard?.writeText) {
-      navigator.clipboard.writeText(body).then(
-        () =>
-          setDraftNote({
-            tone: "info",
-            text: "Gmail draft opened — the lead list is copied. Paste it into the message body (⌘/Ctrl-V, or long-press → Paste).",
-          }),
-        () =>
-          setDraftNote({
-            tone: "warning",
-            text: "Gmail draft opened, but the list couldn’t be copied automatically. Tap “Copy list” to copy it, then paste.",
-          }),
-      );
-    } else {
+    const { body } = buildLeadsEmail(visible);
+    try {
+      await navigator.clipboard.writeText(body);
+      setDraftNote({
+        tone: "info",
+        text: "Leads copied — paste them into a new email (long-press → Paste on a phone, ⌘/Ctrl-V on a computer).",
+      });
+    } catch {
       setDraftNote({
         tone: "warning",
-        text: "Gmail draft opened. This browser blocks automatic copy — tap “Copy list” to copy it, then paste.",
+        text: "Couldn’t reach the clipboard. Try again, or select the leads on screen and copy them by hand.",
       });
     }
   }, [visible]);
@@ -596,22 +580,6 @@ export default function LeadsPage() {
   const printLeadsPdf = useCallback(() => {
     if (visible.length === 0) return;
     printLeads(visible);
-  }, [visible]);
-
-  /** Manual clipboard fallback for the note above (some mobile browsers refuse
-   *  the automatic copy). Same list, copied on an explicit tap. */
-  const copyLeadList = useCallback(async () => {
-    if (visible.length === 0) return;
-    const { body } = buildLeadsEmail(visible);
-    try {
-      await navigator.clipboard.writeText(body);
-      setDraftNote({ tone: "info", text: "Lead list copied. Paste it into your Gmail draft." });
-    } catch {
-      setDraftNote({
-        tone: "warning",
-        text: "Couldn’t reach the clipboard. Select the leads on screen and copy them by hand.",
-      });
-    }
   }, [visible]);
 
   /** Log a brand-new lead. Companion-only — nothing reaches JobTread here. */
@@ -678,8 +646,8 @@ export default function LeadsPage() {
           <div className="flex flex-wrap items-center justify-between gap-2">
             <span>{draftNote.text}</span>
             {draftNote.tone === "warning" && (
-              <Button size="sm" variant="outline" onClick={() => void copyLeadList()}>
-                Copy list
+              <Button size="sm" variant="outline" onClick={() => void copyEmailText()}>
+                Try again
               </Button>
             )}
           </div>
@@ -788,11 +756,11 @@ export default function LeadsPage() {
           <Button
             size="sm"
             variant="outline"
-            onClick={draftEmail}
+            onClick={() => void copyEmailText()}
             disabled={visible.length === 0}
-            title="Open a Gmail draft listing the leads shown below, in this order"
+            title="Copy the leads shown below as text, to paste into an email"
           >
-            Draft in Gmail ({visible.length})
+            Copy for email ({visible.length})
           </Button>
         </div>
       </div>
