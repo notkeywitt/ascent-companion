@@ -403,6 +403,20 @@ export type LeadInquiry = typeof leadInquiries.$inferSelect;
 export type NewLeadInquiry = typeof leadInquiries.$inferInsert;
 
 /**
+ * Tombstones for website submissions that were ingested and then DELETED off the
+ * board. De-dup in the ingest keys on `source_message_id` in `lead_inquiries` —
+ * but deleting an inquiry removes that row, and with it the guard, so the next
+ * mailbox scan re-files the very submission someone just threw away. Recording
+ * the message id here keeps it dismissed for good: the ingest skips any id
+ * present in either table.
+ */
+export const leadInquiryDismissals = sqliteTable("lead_inquiry_dismissals", {
+  sourceMessageId: text("source_message_id").primaryKey(),
+  dismissedAt: text("dismissed_at").notNull(),
+  dismissedBy: text("dismissed_by").notNull().default(""),
+});
+
+/**
  * Assistant-side "flag for review" marks on JobTread TIME ENTRIES — the labor
  * twin of `saved_bills.reviewed`. Set from Labor Review when an entry looks
  * wrong (wrong code, wrong hours, a day that needs asking about) and someone

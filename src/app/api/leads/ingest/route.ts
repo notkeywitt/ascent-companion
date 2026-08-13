@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { inArray } from "drizzle-orm";
 
 import { db, ensureDb } from "@/db";
-import { leadInquiries } from "@/db/schema";
+import { leadInquiries, leadInquiryDismissals } from "@/db/schema";
 import { callAppsScript } from "@/lib/appsScript";
 
 /**
@@ -89,16 +89,27 @@ export async function POST(req: NextRequest) {
 
   await ensureDb();
 
-  // Which of these are already filed. The unique index is the real guarantee;
-  // this lookup is what lets the route report an honest "added" count.
+  // Which of these are already accounted for — either still on the board, OR
+  // ingested-then-deleted (a tombstone). Both must skip: the unique index stops a
+  // live duplicate, but a deleted inquiry left no row, so only the tombstone keeps
+  // a thrown-away submission from being re-filed on the next scan.
   const ids = usable.map((s) => str(s.messageId));
-  const existing = ids.length
-    ? await db
-        .select({ sourceMessageId: leadInquiries.sourceMessageId })
-        .from(leadInquiries)
-        .where(inArray(leadInquiries.sourceMessageId, ids))
-    : [];
-  const known = new Set(existing.map((r) => r.sourceMessageId));
+  const [existing, dismissed] = ids.length
+    ? await Promise.all([
+        db
+          .select({ sourceMessageId: leadInquiries.sourceMessageId })
+          .from(leadInquiries)
+          .where(inArray(leadInquiries.sourceMessageId, ids)),
+        db
+          .select({ sourceMessageId: leadInquiryDismissals.sourceMessageId })
+          .from(leadInquiryDismissals)
+          .where(inArray(leadInquiryDismissals.sourceMessageId, ids)),
+      ])
+    : [[], []];
+  const known = new Set([
+    ...existing.map((r) => r.sourceMessageId),
+    ...dismissed.map((r) => r.sourceMessageId),
+  ]);
 
   const now = new Date().toISOString();
   let added = 0;

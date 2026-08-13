@@ -456,6 +456,16 @@ async function applySchema() {
     `CREATE UNIQUE INDEX IF NOT EXISTS lead_inquiries_source_message
        ON lead_inquiries (source_message_id) WHERE source_message_id != ''`,
   );
+  // Tombstones for ingested website submissions deleted off the board. Deleting
+  // an inquiry drops its row (and the de-dup guard with it), so without this the
+  // next mailbox scan re-files it. The ingest treats an id here as already known.
+  await getClient().execute(`
+    CREATE TABLE IF NOT EXISTS lead_inquiry_dismissals (
+      source_message_id TEXT PRIMARY KEY,
+      dismissed_at TEXT NOT NULL,
+      dismissed_by TEXT NOT NULL DEFAULT ''
+    )
+  `);
   // "Flag for review" marks on JobTread time entries, set from Labor Review.
   // Companion-owned workflow state — JobTread has no such field on a time entry.
   await getClient().execute(`

@@ -3,7 +3,12 @@ import { eq } from "drizzle-orm";
 
 import { auth } from "@/auth";
 import { db, ensureDb } from "@/db";
-import { leadActivities, leadInquiries, leads as leadsTable } from "@/db/schema";
+import {
+  leadActivities,
+  leadInquiries,
+  leadInquiryDismissals,
+  leads as leadsTable,
+} from "@/db/schema";
 import { normalizeInquiry, type InquiryFields } from "@/lib/leadInquiry";
 
 /**
@@ -122,6 +127,21 @@ export async function DELETE(req: NextRequest) {
       { error: "This lead is in JobTread now — it can't be deleted here." },
       { status: 409 },
     );
+  }
+
+  // If this came in from the website, remember its Gmail message id as dismissed
+  // BEFORE the row (which holds that id) is gone — otherwise the next mailbox scan
+  // has nothing telling it this submission was already dealt with, and re-files it.
+  if (existing.sourceMessageId) {
+    const session = await auth();
+    await db
+      .insert(leadInquiryDismissals)
+      .values({
+        sourceMessageId: existing.sourceMessageId,
+        dismissedAt: new Date().toISOString(),
+        dismissedBy: session?.user?.email ?? "",
+      })
+      .onConflictDoNothing();
   }
 
   await db.delete(leadInquiries).where(eq(leadInquiries.id, id));
