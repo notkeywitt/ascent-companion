@@ -209,7 +209,19 @@ function needsReview(lead: Lead): boolean {
 
 /** A horizontal rule for the plain-text email — the divider between leads, the
  *  closest a mail body gets to the invoice summary's hairline-ruled rows. */
-const EMAIL_RULE = "─".repeat(44);
+const EMAIL_RULE = "─".repeat(14);
+
+/**
+ * Format a phone into "(XXX) XXX-XXXX" when it's a plain 10-digit US number
+ * (or 11 digits with a leading country 1). Anything else — an extension, a
+ * foreign number, gibberish — is left exactly as entered rather than mangled.
+ */
+function normalizePhone(raw: string): string {
+  const d = raw.replace(/\D/g, "");
+  if (d.length === 10) return `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}`;
+  if (d.length === 11 && d[0] === "1") return `(${d.slice(1, 4)}) ${d.slice(4, 7)}-${d.slice(7)}`;
+  return raw.trim();
+}
 
 /** The free-text worth quoting for a lead: the project write-up first, then the
  *  location blurb, then whatever notes we have. `max` trims it (the email caps at
@@ -228,36 +240,58 @@ function leadProvenance(lead: Lead): string {
 }
 
 /**
- * Turn the leads on screen into a plain-text list for a Gmail draft.
+ * Turn the leads on screen into a list to paste into an email — in BOTH forms:
+ * `body` is plain text (rule lines between leads, the invoice summary's hairline
+ * rows in ASCII), `html` is the same list with the email as a real mailto link
+ * and normalized phones. copyEmailText puts both on the clipboard, so a rich
+ * composer (Gmail, Apple Mail) shows the link and a plain box still gets the text.
  *
- * It formats exactly what's VISIBLE — filtered and in the current sort order —
- * so the owner picks the slice (e.g. "Need action", newest first) and gets that
- * same slice in the mail. Plain text, not HTML, because a Gmail compose link can
- * only carry plain text: the layout is drawn with rule lines (─) between leads
- * rather than table borders, echoing the invoice summary's hairline rows. One
- * lead per block; a field is left out rather than shown empty.
+ * Formats exactly what's VISIBLE — filtered and in the current sort order.
+ * One lead per block; a field is left out rather than shown empty.
  */
-function buildLeadsEmail(rows: { lead: Lead; d: Derived }[]): { subject: string; body: string } {
+function buildLeadsEmail(rows: { lead: Lead; d: Derived }[]): {
+  subject: string;
+  body: string;
+  html: string;
+} {
+  const esc = (s: string) =>
+    s.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c] ?? c);
   const dateStr = new Date().toLocaleDateString(undefined, {
     month: "long",
     day: "numeric",
     year: "numeric",
   });
   const count = `${rows.length} lead${rows.length === 1 ? "" : "s"}`;
-  const lines: string[] = ["Ascent Building Co. — Leads", `${dateStr} · ${count}`, EMAIL_RULE, ""];
+
+  const text: string[] = [];
+  const html: string[] = [];
+  // Push one line to both outputs; `asHtml` overrides the HTML when it needs
+  // markup (a link) rather than the escaped plain text.
+  const push = (line: string, asHtml?: string) => {
+    text.push(line);
+    html.push(asHtml ?? esc(line));
+  };
+
+  push("Ascent Building Co. — Leads");
+  push(`${dateStr} · ${count}`);
+  push(EMAIL_RULE);
+  push("");
 
   for (const { lead, d } of rows) {
     const contact = lead.primaryContact ?? lead.contacts[0] ?? null;
     const age =
       d.quietDays !== null ? ` (${d.quietDays} day${d.quietDays === 1 ? "" : "s"})` : "";
-    lines.push(`${lead.name} — ${stageLabel(lead.tracking.stage)}${age}`);
-    lines.push(leadProvenance(lead));
+    push(`${lead.name} — ${stageLabel(lead.tracking.stage)}${age}`);
+    push(leadProvenance(lead));
 
     const desc = leadDescription(lead, 600);
-    if (desc) lines.push("", `“${desc}”`);
+    if (desc) {
+      push("");
+      push(desc);
+    }
 
-    lines.push(
-      "",
+    push("");
+    push(
       lead.tracking.nextAction
         ? `Next: ${lead.tracking.nextAction}${
             lead.tracking.nextActionDate ? ` (by ${fmtDate(lead.tracking.nextActionDate)})` : ""
@@ -266,12 +300,24 @@ function buildLeadsEmail(rows: { lead: Lead; d: Derived }[]): { subject: string;
     );
 
     if (contact && (contact.phone || contact.email)) {
-      lines.push("", [contact.phone, contact.email].filter(Boolean).join(" · "));
+      const phone = contact.phone ? normalizePhone(contact.phone) : "";
+      const email = contact.email || "";
+      const parts = [phone, email].filter(Boolean);
+      const htmlParts = [
+        phone && esc(phone),
+        email && `<a href="mailto:${esc(email)}">${esc(email)}</a>`,
+      ].filter(Boolean);
+      push("");
+      push(parts.join(" · "), htmlParts.join(" · "));
     }
-    lines.push("", EMAIL_RULE, "");
+    push("");
+    push(EMAIL_RULE);
+    push("");
   }
 
-  return { subject: `Ascent leads — ${dateStr}`, body: lines.join("\n") };
+  const body = text.join("\n");
+  const htmlBody = `<div style="white-space:pre-wrap;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:13px;line-height:1.4">${html.join("<br>")}</div>`;
+  return { subject: `Ascent leads — ${dateStr}`, body, html: htmlBody };
 }
 
 /**
@@ -307,12 +353,13 @@ function printLeads(rows: { lead: Lead; d: Derived }[]): void {
         : `<span class="dim">No next step set</span>`;
       const contact = lead.primaryContact ?? lead.contacts[0] ?? null;
       const contactStr = contact
-        ? [contact.phone, contact.email].filter(Boolean).map(esc).join("<br/>")
+        ? [contact.phone ? normalizePhone(contact.phone) : "", contact.email]
+            .filter(Boolean)
+            .map(esc)
+            .join("<br/>")
         : `<span class="dim">—</span>`;
       const desc = leadDescription(lead);
-      const descRow = desc
-        ? `<tr class="desc"><td colspan="5">“${esc(desc)}”</td></tr>`
-        : "";
+      const descRow = desc ? `<tr class="desc"><td colspan="5">${esc(desc)}</td></tr>` : "";
       return `<tr>
         <td><div class="name">${esc(lead.name)}</div><div class="dim">${esc(leadProvenance(lead))}</div></td>
         <td>${esc(stageLabel(lead.tracking.stage))}</td>
@@ -560,18 +607,37 @@ export default function LeadsPage() {
    */
   const copyEmailText = useCallback(async () => {
     if (visible.length === 0) return;
-    const { body } = buildLeadsEmail(visible);
-    try {
-      await navigator.clipboard.writeText(body);
+    const { body, html } = buildLeadsEmail(visible);
+    const ok = () =>
       setDraftNote({
         tone: "info",
         text: "Leads copied — paste them into a new email (long-press → Paste on a phone, ⌘/Ctrl-V on a computer).",
       });
+    try {
+      // Copy BOTH rich HTML (email becomes a clickable link) and plain text
+      // (the fallback when pasting into a plain box). Older browsers without the
+      // richer write()/ClipboardItem API fall back to plain text only.
+      if (typeof ClipboardItem !== "undefined" && navigator.clipboard?.write) {
+        await navigator.clipboard.write([
+          new ClipboardItem({
+            "text/html": new Blob([html], { type: "text/html" }),
+            "text/plain": new Blob([body], { type: "text/plain" }),
+          }),
+        ]);
+      } else {
+        await navigator.clipboard.writeText(body);
+      }
+      ok();
     } catch {
-      setDraftNote({
-        tone: "warning",
-        text: "Couldn’t reach the clipboard. Try again, or select the leads on screen and copy them by hand.",
-      });
+      try {
+        await navigator.clipboard.writeText(body); // rich copy blocked — plain still works
+        ok();
+      } catch {
+        setDraftNote({
+          tone: "warning",
+          text: "Couldn’t reach the clipboard. Try again, or select the leads on screen and copy them by hand.",
+        });
+      }
     }
   }, [visible]);
 
