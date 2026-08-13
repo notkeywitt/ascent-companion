@@ -303,6 +303,9 @@ export default function LeadsPage() {
   const [scanning, setScanning] = useState(false);
   const [scanNote, setScanNote] = useState("");
   const [scanErr, setScanErr] = useState("");
+  const [draftNote, setDraftNote] = useState<{ tone: "info" | "warning"; text: string } | null>(
+    null,
+  );
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -408,19 +411,61 @@ export default function LeadsPage() {
   });
 
   /**
-   * Open a Gmail compose window pre-filled with the leads on screen. Uses
-   * Gmail's own compose URL (not mailto:), so it lands in Gmail — the web
-   * composer on a computer, the Gmail app on a phone — rather than whatever the
-   * OS picked as the default mail handler. Nothing is sent; it's a draft in the
-   * current filter/sort. New tab, so the board stays put behind it.
+   * Open a Gmail draft for the leads on screen.
+   *
+   * The list rides the CLIPBOARD, not the URL. Gmail's compose link caps the
+   * body near ~2,000 characters and 400s past it — a multi-lead list with quoted
+   * write-ups (and multi-byte “ ” and ─ that each cost three URL bytes) blows
+   * that easily. So we copy the formatted list, open a Gmail draft with just the
+   * subject filled in, and the office pastes the list into the body. No length
+   * limit, and it still lands in Gmail (web on a computer, the app on a phone)
+   * rather than whatever the OS set as the default mail handler.
+   *
+   * The window is opened FIRST, synchronously, so it stays inside the click
+   * gesture (a popup blocker would kill an open deferred behind an await).
    */
   const draftEmail = useCallback(() => {
     if (visible.length === 0) return;
     const { subject, body } = buildLeadsEmail(visible);
     const url =
-      "https://mail.google.com/mail/?view=cm&fs=1&tf=1" +
-      `&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+      "https://mail.google.com/mail/?view=cm&fs=1&to=&su=" + encodeURIComponent(subject);
     window.open(url, "_blank", "noopener,noreferrer");
+
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(body).then(
+        () =>
+          setDraftNote({
+            tone: "info",
+            text: "Gmail draft opened — the lead list is copied. Paste it into the message body (⌘/Ctrl-V, or long-press → Paste).",
+          }),
+        () =>
+          setDraftNote({
+            tone: "warning",
+            text: "Gmail draft opened, but the list couldn’t be copied automatically. Tap “Copy list” to copy it, then paste.",
+          }),
+      );
+    } else {
+      setDraftNote({
+        tone: "warning",
+        text: "Gmail draft opened. This browser blocks automatic copy — tap “Copy list” to copy it, then paste.",
+      });
+    }
+  }, [visible]);
+
+  /** Manual clipboard fallback for the note above (some mobile browsers refuse
+   *  the automatic copy). Same list, copied on an explicit tap. */
+  const copyLeadList = useCallback(async () => {
+    if (visible.length === 0) return;
+    const { body } = buildLeadsEmail(visible);
+    try {
+      await navigator.clipboard.writeText(body);
+      setDraftNote({ tone: "info", text: "Lead list copied. Paste it into your Gmail draft." });
+    } catch {
+      setDraftNote({
+        tone: "warning",
+        text: "Couldn’t reach the clipboard. Select the leads on screen and copy them by hand.",
+      });
+    }
   }, [visible]);
 
   /** Log a brand-new lead. Companion-only — nothing reaches JobTread here. */
@@ -480,6 +525,18 @@ export default function LeadsPage() {
       {scanErr && (
         <Banner tone="warning" className="mb-4">
           Couldn&apos;t check the website inbox: {scanErr}
+        </Banner>
+      )}
+      {draftNote && (
+        <Banner tone={draftNote.tone} className="mb-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span>{draftNote.text}</span>
+            {draftNote.tone === "warning" && (
+              <Button size="sm" variant="outline" onClick={() => void copyLeadList()}>
+                Copy list
+              </Button>
+            )}
+          </div>
         </Banner>
       )}
 
