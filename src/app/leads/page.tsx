@@ -207,14 +207,35 @@ function needsReview(lead: Lead): boolean {
   return Boolean(inq?.fromWebsite && !inq.reviewedAt && !inq.jtAccountId);
 }
 
+/** A horizontal rule for the plain-text email — the divider between leads, the
+ *  closest a mail body gets to the invoice summary's hairline-ruled rows. */
+const EMAIL_RULE = "─".repeat(44);
+
+/** The free-text worth quoting for a lead: the project write-up first, then the
+ *  location blurb, then whatever notes we have. Trimmed so the mail URL stays
+ *  under the browser's length cap even on a wordy inquiry. */
+function leadDescription(lead: Lead): string {
+  const inq = lead.inquiry;
+  const raw = (inq?.projectDetails || lead.address || inq?.notes || lead.notes || "").trim();
+  return raw.length > 600 ? `${raw.slice(0, 597).trimEnd()}…` : raw;
+}
+
+/** Where the lead came from, as a one-line caption under the name. */
+function leadProvenance(lead: Lead): string {
+  if (lead.inquiry?.fromWebsite) return "Website Inquiry";
+  if (lead.source) return lead.source;
+  return lead.local ? "Logged lead" : "JobTread lead";
+}
+
 /**
- * Turn the leads on screen into a plain-text list for an email draft.
+ * Turn the leads on screen into a plain-text list for a Gmail draft.
  *
  * It formats exactly what's VISIBLE — filtered and in the current sort order —
  * so the owner picks the slice (e.g. "Need action", newest first) and gets that
- * same slice in the mail. Plain text, not HTML: it drops straight into a mailto
- * draft on a phone, and every mail client renders it identically. One lead per
- * block; a field is left out rather than shown empty.
+ * same slice in the mail. Plain text, not HTML, because a Gmail compose link can
+ * only carry plain text: the layout is drawn with rule lines (─) between leads
+ * rather than table borders, echoing the invoice summary's hairline rows. One
+ * lead per block; a field is left out rather than shown empty.
  */
 function buildLeadsEmail(rows: { lead: Lead; d: Derived }[]): { subject: string; body: string } {
   const dateStr = new Date().toLocaleDateString(undefined, {
@@ -222,33 +243,33 @@ function buildLeadsEmail(rows: { lead: Lead; d: Derived }[]): { subject: string;
     day: "numeric",
     year: "numeric",
   });
-  const lines: string[] = [`Leads — ${dateStr} (${rows.length})`, ""];
+  const count = `${rows.length} lead${rows.length === 1 ? "" : "s"}`;
+  const lines: string[] = ["Ascent Building Co. — Leads", `${dateStr} · ${count}`, EMAIL_RULE, ""];
 
-  rows.forEach(({ lead, d }, i) => {
+  for (const { lead, d } of rows) {
     const contact = lead.primaryContact ?? lead.contacts[0] ?? null;
-    lines.push(`${i + 1}. ${lead.name} — ${stageLabel(lead.tracking.stage)}`);
+    const age =
+      d.quietDays !== null ? ` (${d.quietDays} day${d.quietDays === 1 ? "" : "s"})` : "";
+    lines.push(`${lead.name} — ${stageLabel(lead.tracking.stage)}${age}`);
+    lines.push(leadProvenance(lead));
 
-    const meta = [lead.source && `Source: ${lead.source}`, lead.customerType, lead.address]
-      .filter(Boolean)
-      .join(" · ");
-    if (meta) lines.push(`   ${meta}`);
+    const desc = leadDescription(lead);
+    if (desc) lines.push("", `“${desc}”`);
 
     lines.push(
+      "",
       lead.tracking.nextAction
-        ? `   Next: ${lead.tracking.nextAction}${
+        ? `Next: ${lead.tracking.nextAction}${
             lead.tracking.nextActionDate ? ` (by ${fmtDate(lead.tracking.nextActionDate)})` : ""
           }`
-        : "   Next: (no next step set)",
+        : "Next: (no next step set)",
     );
 
     if (contact && (contact.phone || contact.email)) {
-      lines.push(`   ${[contact.phone, contact.email].filter(Boolean).join(" · ")}`);
+      lines.push("", [contact.phone, contact.email].filter(Boolean).join(" · "));
     }
-    if (d.quietDays !== null) {
-      lines.push(`   ${d.quietDays}d ${d.neverContacted ? "no contact" : "quiet"}`);
-    }
-    lines.push("");
-  });
+    lines.push("", EMAIL_RULE, "");
+  }
 
   return { subject: `Ascent leads — ${dateStr}`, body: lines.join("\n") };
 }
@@ -387,14 +408,19 @@ export default function LeadsPage() {
   });
 
   /**
-   * Hand the leads on screen to the phone's mail app as a ready-to-send draft.
-   * A mailto: opens the native composer with subject + body filled in — no
-   * account, no send from here, and it's the current filter/sort they see.
+   * Open a Gmail compose window pre-filled with the leads on screen. Uses
+   * Gmail's own compose URL (not mailto:), so it lands in Gmail — the web
+   * composer on a computer, the Gmail app on a phone — rather than whatever the
+   * OS picked as the default mail handler. Nothing is sent; it's a draft in the
+   * current filter/sort. New tab, so the board stays put behind it.
    */
   const draftEmail = useCallback(() => {
     if (visible.length === 0) return;
     const { subject, body } = buildLeadsEmail(visible);
-    window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    const url =
+      "https://mail.google.com/mail/?view=cm&fs=1&tf=1" +
+      `&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    window.open(url, "_blank", "noopener,noreferrer");
   }, [visible]);
 
   /** Log a brand-new lead. Companion-only — nothing reaches JobTread here. */
@@ -551,9 +577,9 @@ export default function LeadsPage() {
           variant="outline"
           onClick={draftEmail}
           disabled={visible.length === 0}
-          title="Open an email draft listing the leads shown below, in this order"
+          title="Open a Gmail draft listing the leads shown below, in this order"
         >
-          Draft email ({visible.length})
+          Draft in Gmail ({visible.length})
         </Button>
       </div>
 
