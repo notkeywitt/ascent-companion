@@ -154,6 +154,16 @@ function fmtDate(date: string): string {
   });
 }
 
+/* ---------------------------------------------------------------- sorting */
+
+type SortMode = "attention" | "newest" | "oldest";
+
+const SORTS: { id: SortMode; label: string }[] = [
+  { id: "attention", label: "Needs attention" },
+  { id: "newest", label: "Newest first" },
+  { id: "oldest", label: "Oldest first" },
+];
+
 /* -------------------------------------------------------------- derivation */
 
 type Urgency = "overdue" | "due" | "unset" | "ok";
@@ -197,6 +207,52 @@ function needsReview(lead: Lead): boolean {
   return Boolean(inq?.fromWebsite && !inq.reviewedAt && !inq.jtAccountId);
 }
 
+/**
+ * Turn the leads on screen into a plain-text list for an email draft.
+ *
+ * It formats exactly what's VISIBLE — filtered and in the current sort order —
+ * so the owner picks the slice (e.g. "Need action", newest first) and gets that
+ * same slice in the mail. Plain text, not HTML: it drops straight into a mailto
+ * draft on a phone, and every mail client renders it identically. One lead per
+ * block; a field is left out rather than shown empty.
+ */
+function buildLeadsEmail(rows: { lead: Lead; d: Derived }[]): { subject: string; body: string } {
+  const dateStr = new Date().toLocaleDateString(undefined, {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+  const lines: string[] = [`Leads — ${dateStr} (${rows.length})`, ""];
+
+  rows.forEach(({ lead, d }, i) => {
+    const contact = lead.primaryContact ?? lead.contacts[0] ?? null;
+    lines.push(`${i + 1}. ${lead.name} — ${stageLabel(lead.tracking.stage)}`);
+
+    const meta = [lead.source && `Source: ${lead.source}`, lead.customerType, lead.address]
+      .filter(Boolean)
+      .join(" · ");
+    if (meta) lines.push(`   ${meta}`);
+
+    lines.push(
+      lead.tracking.nextAction
+        ? `   Next: ${lead.tracking.nextAction}${
+            lead.tracking.nextActionDate ? ` (by ${fmtDate(lead.tracking.nextActionDate)})` : ""
+          }`
+        : "   Next: (no next step set)",
+    );
+
+    if (contact && (contact.phone || contact.email)) {
+      lines.push(`   ${[contact.phone, contact.email].filter(Boolean).join(" · ")}`);
+    }
+    if (d.quietDays !== null) {
+      lines.push(`   ${d.quietDays}d ${d.neverContacted ? "no contact" : "quiet"}`);
+    }
+    lines.push("");
+  });
+
+  return { subject: `Ascent leads — ${dateStr}`, body: lines.join("\n") };
+}
+
 /** Amber past a week of silence, red past two. */
 function staleTone(days: number | null): ChipTone {
   if (days === null) return "neutral";
@@ -221,6 +277,7 @@ export default function LeadsPage() {
   const [openId, setOpenId] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | "attention" | "stale" | "local" | "review">("all");
   const [stageFilter, setStageFilter] = useState<string>("");
+  const [sortMode, setSortMode] = useState<SortMode>("attention");
   const [adding, setAdding] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [scanNote, setScanNote] = useState("");
@@ -291,9 +348,20 @@ export default function LeadsPage() {
 
   const rows = useMemo(() => {
     const withD = leads.map((l) => ({ lead: l, d: derive(l) }));
-    withD.sort((a, b) => b.d.rank - a.d.rank || a.lead.name.localeCompare(b.lead.name));
+    // "attention" is the board's reason for being — most urgent first (default).
+    // The date modes let the owner read the pipeline as a plain chronology
+    // instead, which is also the order the drafted email comes out in.
+    const created = (r: { lead: Lead }) =>
+      Date.parse(`${(r.lead.createdAt || "").slice(0, 10)}T00:00:00Z`) || 0;
+    if (sortMode === "newest") {
+      withD.sort((a, b) => created(b) - created(a) || a.lead.name.localeCompare(b.lead.name));
+    } else if (sortMode === "oldest") {
+      withD.sort((a, b) => created(a) - created(b) || a.lead.name.localeCompare(b.lead.name));
+    } else {
+      withD.sort((a, b) => b.d.rank - a.d.rank || a.lead.name.localeCompare(b.lead.name));
+    }
     return withD;
-  }, [leads]);
+  }, [leads, sortMode]);
 
   const counts = useMemo(() => {
     let attention = 0;
@@ -317,6 +385,17 @@ export default function LeadsPage() {
     if (stageFilter && lead.tracking.stage !== stageFilter) return false;
     return true;
   });
+
+  /**
+   * Hand the leads on screen to the phone's mail app as a ready-to-send draft.
+   * A mailto: opens the native composer with subject + body filled in — no
+   * account, no send from here, and it's the current filter/sort they see.
+   */
+  const draftEmail = useCallback(() => {
+    if (visible.length === 0) return;
+    const { subject, body } = buildLeadsEmail(visible);
+    window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  }, [visible]);
 
   /** Log a brand-new lead. Companion-only — nothing reaches JobTread here. */
   const createLead = useCallback(
@@ -448,6 +527,35 @@ export default function LeadsPage() {
           </FilterChip>
         ))}
       </ChipScroller>
+
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <Label htmlFor="lead-sort" className="mb-0 whitespace-nowrap">
+            Sort
+          </Label>
+          <Select
+            id="lead-sort"
+            className="w-auto"
+            value={sortMode}
+            onChange={(e) => setSortMode(e.target.value as SortMode)}
+          >
+            {SORTS.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.label}
+              </option>
+            ))}
+          </Select>
+        </div>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={draftEmail}
+          disabled={visible.length === 0}
+          title="Open an email draft listing the leads shown below, in this order"
+        >
+          Draft email ({visible.length})
+        </Button>
+      </div>
 
       {loading && leads.length === 0 ? (
         <CardSkeletonList rows={4} />
