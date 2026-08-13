@@ -212,12 +212,12 @@ function needsReview(lead: Lead): boolean {
 const EMAIL_RULE = "─".repeat(44);
 
 /** The free-text worth quoting for a lead: the project write-up first, then the
- *  location blurb, then whatever notes we have. Trimmed so the mail URL stays
- *  under the browser's length cap even on a wordy inquiry. */
-function leadDescription(lead: Lead): string {
+ *  location blurb, then whatever notes we have. `max` trims it (the email caps at
+ *  600 so the mail body stays sane); the PDF passes no cap and prints it whole. */
+function leadDescription(lead: Lead, max = Infinity): string {
   const inq = lead.inquiry;
   const raw = (inq?.projectDetails || lead.address || inq?.notes || lead.notes || "").trim();
-  return raw.length > 600 ? `${raw.slice(0, 597).trimEnd()}…` : raw;
+  return raw.length > max ? `${raw.slice(0, max - 3).trimEnd()}…` : raw;
 }
 
 /** Where the lead came from, as a one-line caption under the name. */
@@ -253,7 +253,7 @@ function buildLeadsEmail(rows: { lead: Lead; d: Derived }[]): { subject: string;
     lines.push(`${lead.name} — ${stageLabel(lead.tracking.stage)}${age}`);
     lines.push(leadProvenance(lead));
 
-    const desc = leadDescription(lead);
+    const desc = leadDescription(lead, 600);
     if (desc) lines.push("", `“${desc}”`);
 
     lines.push(
@@ -272,6 +272,110 @@ function buildLeadsEmail(rows: { lead: Lead; d: Derived }[]): { subject: string;
   }
 
   return { subject: `Ascent leads — ${dateStr}`, body: lines.join("\n") };
+}
+
+/**
+ * A printable leads sheet — the same self-contained-HTML-then-print trick the
+ * invoice summary uses (BillingSummary.printJob), with the same Ascent header,
+ * hairline-ruled table and "Save as PDF" flow. Opened in a NEW top-level tab so
+ * window.print() works even inside the JobTread side-panel iframe, and so the
+ * browser's Save-as-PDF names the file after this tab's <title>.
+ *
+ * Each lead is one bordered row (name + provenance, stage, age, next step,
+ * contact); the project write-up rides a full-width sub-row beneath it, matching
+ * the invoice's grouped/sub-row look.
+ */
+function printLeads(rows: { lead: Lead; d: Derived }[]): void {
+  const esc = (s: string) =>
+    String(s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c] ?? c);
+  const logoUrl = typeof window !== "undefined" ? `${window.location.origin}/icon-512.png` : "";
+  const dateStr = new Date().toLocaleDateString(undefined, {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+  const count = `${rows.length} lead${rows.length === 1 ? "" : "s"}`;
+
+  const rowsHtml = rows
+    .map(({ lead, d }) => {
+      const age = d.quietDays !== null ? `${d.quietDays}d` : "—";
+      const next = lead.tracking.nextAction
+        ? esc(lead.tracking.nextAction) +
+          (lead.tracking.nextActionDate
+            ? ` <span class="dim">(by ${esc(fmtDate(lead.tracking.nextActionDate))})</span>`
+            : "")
+        : `<span class="dim">No next step set</span>`;
+      const contact = lead.primaryContact ?? lead.contacts[0] ?? null;
+      const contactStr = contact
+        ? [contact.phone, contact.email].filter(Boolean).map(esc).join("<br/>")
+        : `<span class="dim">—</span>`;
+      const desc = leadDescription(lead);
+      const descRow = desc
+        ? `<tr class="desc"><td colspan="5">“${esc(desc)}”</td></tr>`
+        : "";
+      return `<tr>
+        <td><div class="name">${esc(lead.name)}</div><div class="dim">${esc(leadProvenance(lead))}</div></td>
+        <td>${esc(stageLabel(lead.tracking.stage))}</td>
+        <td class="num">${esc(age)}</td>
+        <td>${next}</td>
+        <td>${contactStr}</td>
+      </tr>${descRow}`;
+    })
+    .join("");
+
+  const html = `<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>${esc(`Ascent Leads - ${dateStr}`)}</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: #000; margin: 0.6in; }
+  .head { display: flex; align-items: center; gap: 12px; }
+  .logo { width: 48px; height: 48px; border-radius: 8px; flex: none; }
+  .brand { font-size: 20px; font-weight: 700; }
+  .doc-title { font-size: 16px; font-weight: 600; margin-top: 2px; }
+  .meta { font-size: 13px; margin-top: 10px; color: #555; }
+  table { width: 100%; border-collapse: collapse; margin-top: 18px; font-size: 13px; }
+  th, td { padding: 7px 8px; border-bottom: 1px solid #ccc; text-align: left; vertical-align: top; }
+  th { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: #555; border-bottom: 1px solid #000; }
+  .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .name { font-weight: 600; }
+  .dim { color: #888; font-size: 12px; }
+  /* The description rides directly under its lead: drop the divider between the
+     two, keep it under the description so leads stay separated. Falls back to a
+     line under every row where :has() is unsupported — still readable. */
+  tr.desc td { padding-top: 2px; padding-left: 8px; color: #444; font-style: italic; }
+  tr:has(+ tr.desc) td { border-bottom: none; }
+  @page { margin: 0.6in; }
+</style>
+</head>
+<body onload="window.focus(); window.print();">
+  <div class="head">
+    ${logoUrl ? `<img class="logo" src="${logoUrl}" alt="Ascent Building Co." />` : ""}
+    <div>
+      <div class="brand">Ascent Building Co.</div>
+      <div class="doc-title">Leads — ${esc(dateStr)}</div>
+    </div>
+  </div>
+  <div class="meta">${esc(count)}</div>
+  <table>
+    <thead><tr><th>Lead</th><th>Stage</th><th class="num">Quiet</th><th>Next step</th><th>Contact</th></tr></thead>
+    <tbody>
+      ${rowsHtml}
+    </tbody>
+  </table>
+</body>
+</html>`;
+
+  const win = window.open("", "_blank");
+  if (!win) {
+    window.print(); // popup blocked — best effort (works only when unframed)
+    return;
+  }
+  win.document.open();
+  win.document.write(html);
+  win.document.close();
 }
 
 /** Amber past a week of silence, red past two. */
@@ -452,6 +556,13 @@ export default function LeadsPage() {
     }
   }, [visible]);
 
+  /** Open the printable leads sheet (Save-as-PDF), same styling as the invoice
+   *  summary. Prints exactly what's visible, in the current filter/sort. */
+  const printLeadsPdf = useCallback(() => {
+    if (visible.length === 0) return;
+    printLeads(visible);
+  }, [visible]);
+
   /** Manual clipboard fallback for the note above (some mobile browsers refuse
    *  the automatic copy). Same list, copied on an explicit tap. */
   const copyLeadList = useCallback(async () => {
@@ -629,15 +740,26 @@ export default function LeadsPage() {
             ))}
           </Select>
         </div>
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={draftEmail}
-          disabled={visible.length === 0}
-          title="Open a Gmail draft listing the leads shown below, in this order"
-        >
-          Draft in Gmail ({visible.length})
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={printLeadsPdf}
+            disabled={visible.length === 0}
+            title="Open a printable PDF of the leads shown below, styled like the invoice summary"
+          >
+            PDF
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={draftEmail}
+            disabled={visible.length === 0}
+            title="Open a Gmail draft listing the leads shown below, in this order"
+          >
+            Draft in Gmail ({visible.length})
+          </Button>
+        </div>
       </div>
 
       {loading && leads.length === 0 ? (
