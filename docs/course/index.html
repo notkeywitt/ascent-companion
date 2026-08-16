@@ -1,0 +1,1119 @@
+<title>Reading Your Own App</title>
+<style>
+  /* ─── tokens: light (bare :root = complete palette) ───────────────── */
+  :root {
+    --ground:      #FCFBF9;
+    --surface:     #FFFFFF;
+    --surface-2:   #F6F4F0;
+    --ink:         #1F1D1A;
+    --ink-soft:    #6B655C;
+    --ink-faint:   #918A7E;
+    --line:        #E4E0D8;
+    --line-strong: #CFC9BE;
+    --accent:      #A9661C;
+    --accent-soft: #F0E3D2;
+    --on-accent:   #FFFFFF;
+    --done:        #3F6B4C;
+    --done-soft:   #E2EDE5;
+    --on-done:     #FFFFFF;
+    --code-bg:     #F6F4F0;
+    --shadow:      0 1px 2px rgba(31,29,26,.05);
+
+    --f-sans: Roboto, system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+    --f-mono: ui-monospace, "SF Mono", "Roboto Mono", Menlo, Consolas, monospace;
+
+    --measure: 40rem;
+    --pad: 1.25rem;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:      #131210;
+      --surface:     #1C1A17;
+      --surface-2:   #232019;
+      --ink:         #EFECE6;
+      --ink-soft:    #9C958A;
+      --ink-faint:   #7C7568;
+      --line:        #2C2925;
+      --line-strong: #403B34;
+      --accent:      #E0A046;
+      --accent-soft: #33291A;
+      --on-accent:   #1A1409;
+      --done:        #7CA98A;
+      --done-soft:   #1E2A22;
+      --on-done:     #10180F;
+      --code-bg:     #201D19;
+      --shadow:      0 1px 2px rgba(0,0,0,.3);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground:      #131210;
+    --surface:     #1C1A17;
+    --surface-2:   #232019;
+    --ink:         #EFECE6;
+    --ink-soft:    #9C958A;
+    --ink-faint:   #7C7568;
+    --line:        #2C2925;
+    --line-strong: #403B34;
+    --accent:      #E0A046;
+    --accent-soft: #33291A;
+    --on-accent:   #1A1409;
+    --done:        #7CA98A;
+    --done-soft:   #1E2A22;
+    --on-done:     #10180F;
+    --code-bg:     #201D19;
+    --shadow:      0 1px 2px rgba(0,0,0,.3);
+  }
+
+  /* ─── base ─────────────────────────────────────────────────────────── */
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--f-sans);
+    font-size: 17px;
+    line-height: 1.62;
+    -webkit-text-size-adjust: 100%;
+    overflow-wrap: break-word;
+  }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
+  @media (prefers-reduced-motion: reduce) {
+    * { animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+  }
+
+  .wrap { max-width: var(--measure); margin: 0 auto; padding: 0 var(--pad); }
+
+  /* ─── sticky bar ───────────────────────────────────────────────────── */
+  .bar {
+    position: sticky; top: 0; z-index: 20;
+    background: var(--ground);
+    border-bottom: 1px solid var(--line);
+  }
+  .bar-in {
+    max-width: var(--measure); margin: 0 auto; padding: .6rem var(--pad);
+    display: flex; align-items: center; gap: .75rem; min-height: 2.9rem;
+  }
+  .bar-label {
+    font-family: var(--f-mono); font-size: .68rem; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--ink-soft);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .bar-count {
+    margin-left: auto; font-family: var(--f-mono); font-size: .72rem;
+    color: var(--ink-soft); font-variant-numeric: tabular-nums; white-space: nowrap;
+  }
+  .rail { height: 2px; background: var(--line); }
+  .rail-fill { height: 100%; width: 0%; background: var(--accent); transition: width .35s ease; }
+
+  .backlink {
+    display: inline-flex; align-items: center; gap: .4rem;
+    font-family: var(--f-mono); font-size: .72rem; letter-spacing: .06em;
+    text-transform: uppercase; color: var(--accent);
+    background: none; border: 0; padding: .25rem 0; cursor: pointer;
+  }
+  .backlink:hover { text-decoration: underline; }
+
+  /* ─── type ─────────────────────────────────────────────────────────── */
+  h1, h2, h3 { text-wrap: balance; line-height: 1.22; margin: 0; font-weight: 600; letter-spacing: -.012em; }
+  h1 { font-size: 2rem; }
+  h2 { font-size: 1.3rem; margin-top: .3rem; }
+  h3 { font-size: 1.02rem; letter-spacing: 0; }
+  p { margin: 0; }
+  a { color: var(--accent); }
+
+  .eyebrow {
+    font-family: var(--f-mono); font-size: .7rem; letter-spacing: .13em;
+    text-transform: uppercase; color: var(--ink-faint);
+  }
+  .lede { color: var(--ink-soft); font-size: 1.02rem; }
+  .stack { display: flex; flex-direction: column; gap: 1.05rem; }
+  .stack-tight { display: flex; flex-direction: column; gap: .6rem; }
+  section.block { display: flex; flex-direction: column; gap: 1.05rem; padding: 2.1rem 0; border-top: 1px solid var(--line); }
+  section.block:first-of-type { border-top: 0; }
+
+  .rule-head { display: flex; flex-direction: column; gap: .3rem; }
+  .rule-head::after { content: ""; display: block; width: 2.2rem; height: 2px; background: var(--accent); margin-top: .45rem; }
+
+  ul, ol { margin: 0; padding-left: 1.15rem; display: flex; flex-direction: column; gap: .5rem; }
+  li::marker { color: var(--ink-faint); }
+  strong { font-weight: 600; }
+
+  code {
+    font-family: var(--f-mono); font-size: .855em;
+    background: var(--code-bg); border: 1px solid var(--line);
+    padding: .08em .32em; border-radius: 3px; word-break: break-word;
+  }
+  pre {
+    margin: 0; background: var(--code-bg); border: 1px solid var(--line);
+    border-radius: 5px; padding: .85rem .9rem; overflow-x: auto;
+    font-family: var(--f-mono); font-size: .78rem; line-height: 1.55;
+  }
+  pre code { background: none; border: 0; padding: 0; font-size: inherit; }
+
+  blockquote {
+    margin: 0; padding: .1rem 0 .1rem 1rem;
+    border-left: 2px solid var(--accent);
+    color: var(--ink-soft); font-style: italic;
+  }
+  blockquote strong { color: var(--ink); font-style: normal; }
+
+  .scroller { overflow-x: auto; border: 1px solid var(--line); border-radius: 5px; background: var(--surface); }
+  table { border-collapse: collapse; width: 100%; font-size: .88rem; }
+  th, td { text-align: left; padding: .6rem .7rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th {
+    font-family: var(--f-mono); font-size: .68rem; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--ink-soft); font-weight: 500;
+    background: var(--surface-2); white-space: nowrap;
+  }
+  tr:last-child td { border-bottom: 0; }
+  td code { font-size: .8em; }
+
+  .card {
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: 6px; padding: 1rem; box-shadow: var(--shadow);
+    display: flex; flex-direction: column; gap: .6rem;
+  }
+  .card-accent { border-left: 2px solid var(--accent); }
+
+  /* ─── resume ───────────────────────────────────────────────────────── */
+  .resume { display: flex; flex-direction: column; gap: .7rem; }
+  .resume-meter { height: 4px; background: var(--line); border-radius: 2px; overflow: hidden; }
+  .resume-meter span { display: block; height: 100%; background: var(--accent); }
+
+  .btn {
+    font: inherit; font-size: .9rem; font-weight: 500;
+    background: var(--accent); color: var(--on-accent); border: 1px solid var(--accent);
+    padding: .62rem 1rem; border-radius: 5px; cursor: pointer;
+    text-align: center; min-height: 44px; display: inline-flex;
+    align-items: center; justify-content: center; gap: .5rem;
+  }
+  .btn:hover { filter: brightness(1.06); }
+  .btn-quiet {
+    background: var(--surface); color: var(--ink); border: 1px solid var(--line-strong);
+  }
+  .btn-done { background: var(--done); border-color: var(--done); color: var(--on-done); }
+  .btn-row { display: flex; gap: .6rem; flex-wrap: wrap; }
+  .btn-row .btn { flex: 1 1 10rem; }
+
+  /* ─── syllabus ─────────────────────────────────────────────────────── */
+  .unit { display: flex; flex-direction: column; gap: 0; }
+  .unit-head {
+    font-family: var(--f-mono); font-size: .68rem; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--ink-faint);
+    padding: 1.1rem 0 .5rem; border-bottom: 1px solid var(--line-strong);
+  }
+  .seg {
+    display: grid; grid-template-columns: 2.2rem 1fr auto;
+    gap: .1rem .75rem; align-items: baseline;
+    width: 100%; text-align: left;
+    background: none; border: 0; border-bottom: 1px solid var(--line);
+    padding: .85rem .15rem; font: inherit; color: inherit;
+    cursor: pointer; min-height: 44px;
+  }
+  .seg[disabled] { cursor: default; opacity: .55; }
+  .seg:not([disabled]):hover { background: var(--surface-2); }
+  /* Every cell placed explicitly — auto-placement mis-sorts a definite-row item
+     against a row-spanning one, which put the chip in column 1. */
+  .seg-n {
+    grid-column: 1; grid-row: 1 / span 2;
+    font-family: var(--f-mono); font-size: .82rem; color: var(--ink-faint);
+    font-variant-numeric: tabular-nums;
+  }
+  .seg.is-done .seg-n { color: var(--done); }
+  .seg-t { grid-column: 2; grid-row: 1; font-weight: 500; }
+  .seg-q { grid-column: 2 / 4; grid-row: 2; font-size: .84rem; color: var(--ink-soft); line-height: 1.45; }
+  .chip {
+    grid-column: 3; grid-row: 1; align-self: start;
+    font-family: var(--f-mono); font-size: .62rem; letter-spacing: .07em;
+    text-transform: uppercase; padding: .18rem .42rem; border-radius: 3px;
+    border: 1px solid var(--line-strong); color: var(--ink-faint); white-space: nowrap;
+  }
+  .chip-done { color: var(--done); border-color: var(--done); background: var(--done-soft); }
+  .chip-now { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+
+  /* ─── lesson ───────────────────────────────────────────────────────── */
+  .part {
+    display: flex; flex-direction: column; gap: 1.05rem;
+    padding: 2.2rem 0; border-top: 1px solid var(--line);
+  }
+  .part-n {
+    font-family: var(--f-mono); font-size: .7rem; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--accent);
+  }
+  details {
+    border: 1px solid var(--line); border-radius: 5px;
+    background: var(--surface); padding: .7rem .85rem;
+  }
+  summary {
+    cursor: pointer; font-weight: 500; font-size: .93rem;
+    list-style: none; display: flex; gap: .55rem; align-items: baseline;
+  }
+  summary::-webkit-details-marker { display: none; }
+  summary::before {
+    content: "+"; font-family: var(--f-mono); color: var(--accent);
+    font-weight: 400; flex: none;
+  }
+  details[open] summary::before { content: "\2212"; }
+  details[open] summary { margin-bottom: .6rem; padding-bottom: .6rem; border-bottom: 1px solid var(--line); }
+  details .a { font-size: .93rem; color: var(--ink-soft); display: flex; flex-direction: column; gap: .55rem; }
+  details .a strong { color: var(--ink); }
+
+  .trace { font-size: .74rem; }
+
+  footer {
+    border-top: 1px solid var(--line); padding: 1.8rem 0 3rem;
+    display: flex; flex-direction: column; gap: .8rem;
+    font-size: .8rem; color: var(--ink-faint);
+  }
+  .linkbtn {
+    background: none; border: 0; padding: 0; font: inherit; font-size: .8rem;
+    color: var(--ink-soft); text-decoration: underline; cursor: pointer; text-align: left;
+  }
+  .hidden { display: none !important; }
+
+  @media (max-width: 400px) {
+    body { font-size: 16px; }
+    h1 { font-size: 1.7rem; }
+    .seg { grid-template-columns: 1.9rem 1fr auto; column-gap: .6rem; }
+  }
+</style>
+
+<div class="bar">
+  <div class="bar-in">
+    <button class="backlink hidden" id="back" type="button">&larr; Syllabus</button>
+    <span class="bar-label" id="barLabel">Reading Your Own App</span>
+    <span class="bar-count" id="barCount">0 / 12</span>
+  </div>
+  <div class="rail"><div class="rail-fill" id="rail"></div></div>
+</div>
+
+<!-- ══════════════════════════ HOME ══════════════════════════ -->
+<main class="wrap" id="home">
+
+  <section class="block">
+    <div class="stack">
+      <p class="eyebrow">A course through ascent-companion</p>
+      <h1>Reading Your Own App</h1>
+      <p class="lede">
+        Twelve segments that take you from “I know what this software is for” to
+        “I know how it works, where every number comes from, and what would be
+        dangerous to change.” Written for the owner of the business, not for a
+        developer.
+      </p>
+    </div>
+
+    <div class="card card-accent resume hidden" id="resumeCard">
+      <p class="eyebrow">Pick up where you left off</p>
+      <h3 id="resumeTitle">Segment 1 — The shape of the thing</h3>
+      <div class="resume-meter"><span id="resumeMeter" style="width:0%"></span></div>
+      <p class="bar-label" id="resumeSub" style="text-transform:none;letter-spacing:0;font-size:.8rem"></p>
+      <button class="btn" id="resumeBtn" type="button">Resume reading</button>
+    </div>
+
+    <div class="card" id="startCard">
+      <p>Nothing read yet. Segment 1 takes about 40 minutes and is the one that makes the other eleven navigable.</p>
+      <button class="btn" data-open="1" type="button">Start Segment 1</button>
+    </div>
+  </section>
+
+  <!-- ── who it's for ── -->
+  <section class="block">
+    <div class="rule-head"><h2>Who this is for</h2></div>
+    <p>
+      You know the business cold: what a vendor bill is, why an uncoded bill is a
+      problem, what unbilled cost means at month end, why JobTread has to stay the
+      source of truth. You are <strong>not</strong> a professional developer, and you
+      don’t need to become one.
+    </p>
+    <p>
+      That’s the ideal starting position, because the hard half of understanding this
+      codebase is knowing what the work <em>is</em>. You already have that half. What’s
+      missing is the map: which file does which job, where the data actually comes
+      from, what’s safe to touch, and what would break if it moved.
+    </p>
+
+    <h3>What this course is <em>not</em></h3>
+    <ul>
+      <li><strong>Not a Next.js tutorial.</strong> Framework concepts appear only when they explain something about <em>this</em> app.</li>
+      <li><strong>Not a syntax course.</strong> Code appears as evidence, always with a plain-English translation next to it.</li>
+      <li><strong>Not a rewrite plan.</strong> Where the app has known weak points, the course points at the architecture review and moves on.</li>
+    </ul>
+  </section>
+
+  <!-- ── outcomes ── -->
+  <section class="block">
+    <div class="rule-head"><h2>What you’ll be able to do</h2></div>
+    <p class="lede">The six outcomes every segment is built backwards from.</p>
+    <ol>
+      <li><strong>Open any screen and say where its numbers come from.</strong> JobTread? The Google Sheet? The companion database? Computed on the spot?</li>
+      <li><strong>Follow one click through the whole system</strong> — phone tap → Vercel → server route → JobTread’s API → back to the screen — naming the file at each hop.</li>
+      <li><strong>Explain the money model in the app’s own terms:</strong> budget vs. actual, cost items vs. documents, why “unbilled” is a subtraction and not a stored field.</li>
+      <li><strong>Know what’s dangerous.</strong> Which code paths write to live JobTread, what the two write flags do, and why read-only is the house rule.</li>
+      <li><strong>Ask for a change precisely</strong> — “add a column to Unbilled, sourced from the job’s cost items” rather than “make Unbilled better.”</li>
+      <li><strong>Judge a proposed change.</strong> Recognise when a suggestion fights the architecture — especially the JobTread↔Sheet mirror.</li>
+    </ol>
+  </section>
+
+  <!-- ── the spine ── -->
+  <section class="block">
+    <div class="rule-head">
+      <p class="eyebrow">The spine</p>
+      <h2>Five ideas the whole app hangs on</h2>
+    </div>
+    <p>Every segment is a variation on one of these. If you only ever remember five things, remember these.</p>
+    <ol class="stack-tight">
+      <li><strong>The app owns almost no data.</strong> It is a lens. JobTread holds the money, Sheets and Drive hold the office records, and a small companion database holds only the leftovers.</li>
+      <li><strong>Secrets live on the server, never in the browser.</strong> The JobTread key sits in Vercel’s environment. Your phone never sees it.</li>
+      <li><strong>Reads are cheap and open; writes are gated.</strong> Writing is deliberately hard to do by accident.</li>
+      <li><strong>Who-sees-what is enforced on the server</strong>, not hidden in the UI — in one file everything else defers to.</li>
+      <li><strong>Don’t race the mirror.</strong> A separate back end already syncs JobTread → Sheet → Drive every hour. New write paths that fight that loop are the main way this system can corrupt itself.</li>
+    </ol>
+  </section>
+
+  <!-- ── syllabus ── -->
+  <section class="block">
+    <div class="rule-head">
+      <p class="eyebrow">The program</p>
+      <h2>Twelve segments, four units</h2>
+    </div>
+    <p class="lede">
+      Tap a segment to read it. Budget 30–45 minutes each — reading the referenced
+      files as you go roughly doubles that, and roughly doubles what sticks.
+    </p>
+    <div class="unit" id="syllabus"><!-- built by script --></div>
+    <div class="card">
+      <p class="eyebrow">If you want the fast path</p>
+      <p>Segments <strong>1, 2, 4, 5, 6 and 7</strong> are the core. Those six get you to “I understand what this program does and what’s risky about it.” The rest add depth on the parts you touch most.</p>
+    </div>
+  </section>
+
+  <!-- ── how to read ── -->
+  <section class="block">
+    <div class="rule-head"><h2>How each segment is built</h2></div>
+    <p>Every segment follows the same five-part shape, so you always know where you are:</p>
+    <ol>
+      <li><strong>The question</strong> — one plain sentence the segment answers.</li>
+      <li><strong>The idea</strong> — the concept in business terms, no code.</li>
+      <li><strong>The evidence</strong> — the actual code in small excerpts, each translated. Real paths and line numbers, so you can open them yourself.</li>
+      <li><strong>Check yourself</strong> — questions with the answers hidden until you tap.</li>
+      <li><strong>What this unlocks</strong> — what you can now ask for, or now recognise as risky.</li>
+    </ol>
+
+    <h3>How to actually read the code</h3>
+    <p>You don’t need a development setup. In order of convenience:</p>
+    <ul>
+      <li><strong>On GitHub, on your phone.</strong> Every file path maps to <code>github.com/notkeywitt/ascent-companion/blob/main/&lt;path&gt;</code>. Tapping through is genuinely fine.</li>
+      <li><strong>Ask Claude.</strong> “Show me <code>src/lib/views.ts</code> lines 220–240 and explain <code>OFFICE_VIEWS</code>” is a perfectly good way to work through a segment.</li>
+      <li><strong>Locally</strong>, if you ever want it: <code>npm install &amp;&amp; npm run dev</code>.</li>
+    </ul>
+    <p>
+      One notation to learn: <code>src/lib/views.ts:234</code> means <em>file
+      <code>src/lib/views.ts</code>, line 234</em>. That convention is used throughout.
+    </p>
+  </section>
+
+  <!-- ── scale ── -->
+  <section class="block">
+    <div class="rule-head"><h2>The size of the thing</h2></div>
+    <div class="scroller">
+      <table>
+        <tbody>
+          <tr><td><strong>228</strong></td><td>TypeScript / TSX files, about 53,500 lines</td></tr>
+          <tr><td><strong>39</strong></td><td><code>page.tsx</code> files (screens), across 37 top-level routes</td></tr>
+          <tr><td><strong>98</strong></td><td>server API routes</td></tr>
+          <tr><td><strong>18</strong></td><td>tables in the companion database</td></tr>
+          <tr><td><strong>8</strong></td><td>test files, covering the pure-logic modules</td></tr>
+          <tr><td><strong>3</strong></td><td>back ends: JobTread, the Apps Script engine, the companion database</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      That’s a real application — bigger than most people assume when they hear “an app
+      my contractor business uses.” But it is <em>organised</em>, and by Segment 4 you’ll
+      be able to place any one of those 228 files into a category without opening it.
+    </p>
+  </section>
+
+  <footer>
+    <p>Source of record: <code>docs/course/</code> in the <code>ascent-companion</code> repo. Progress is stored on this device only.</p>
+    <button class="linkbtn" id="reset" type="button">Reset my progress</button>
+  </footer>
+</main>
+
+<!-- ══════════════════════════ SEGMENT 1 ══════════════════════════ -->
+<main class="wrap hidden" id="lesson-1">
+
+  <section class="block">
+    <div class="stack">
+      <p class="eyebrow">Unit A · Orientation · about 40 minutes</p>
+      <h1>Segment 1 — The shape of the thing</h1>
+    </div>
+    <div class="card card-accent resume hidden" id="jumpCard">
+      <p class="eyebrow">You were here last time</p>
+      <div class="resume-meter"><span id="jumpMeter" style="width:0%"></span></div>
+      <button class="btn btn-quiet" id="jumpBtn" type="button">Jump back to where I stopped</button>
+    </div>
+  </section>
+
+  <!-- part 1 -->
+  <section class="part" data-part="1" data-name="The question">
+    <p class="part-n">1 · The question</p>
+    <blockquote>When you tap something on your phone and a number appears on the screen — what actually happened, and where did that number come from?</blockquote>
+    <p>By the end of this segment you’ll be able to answer that for any screen in the app, and name the specific files involved.</p>
+  </section>
+
+  <!-- part 2 -->
+  <section class="part" data-part="2" data-name="The idea">
+    <p class="part-n">2 · The idea</p>
+
+    <h2>The app is a lens, not a filing cabinet</h2>
+    <p>
+      The most important thing to understand about the Ascent Assistant is what it
+      <em>doesn’t</em> do: <strong>it doesn’t store your business data.</strong>
+    </p>
+    <p>
+      There’s no “Ascent Assistant database of bills.” There’s no copy of your jobs.
+      When the Unbilled screen shows you $47,320 of uninvoiced cost on a job, that
+      number did not come out of storage. It was fetched from JobTread seconds ago, and
+      it will be fetched again the next time someone opens the screen.
+    </p>
+    <p>
+      That’s a deliberate choice with a real consequence: <strong>the app can never be
+      out of sync with JobTread</strong>, because it has nothing of its own to fall out
+      of sync. It also means the app is only as fast as JobTread is — which is why
+      caching shows up so much in the code.
+    </p>
+
+    <h2>The three back ends</h2>
+    <p>“The app” is really a front end sitting in front of three different places where data lives. Almost every screen is a combination of these.</p>
+    <div class="scroller">
+      <table>
+        <thead><tr><th>Back end</th><th>What lives there</th><th>How the app reaches it</th><th>Who owns it</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><strong>JobTread</strong><br>(the “Pave” API)</td>
+            <td>Jobs, budgets, cost items, vendor bills, customer invoices, payments, time entries, contacts</td>
+            <td>HTTPS request to <code>api.jobtread.com/pave</code></td>
+            <td>JobTread. <strong>Source of truth for anything financial.</strong></td>
+          </tr>
+          <tr>
+            <td><strong>Google Sheets &amp; Drive</strong></td>
+            <td>Employee roster, tool inventory, mileage log, safety sign-ins, requisitions, the Expenditure archive, PDFs</td>
+            <td>HTTPS request to the Apps Script web app in <code>ascent-appscript</code></td>
+            <td>Ascent’s Google Workspace</td>
+          </tr>
+          <tr>
+            <td><strong>The companion database</strong></td>
+            <td>The leftovers: RFIs, feature requests, the sign-in allowlist, leave balances, lead follow-ups, editable page text — 18 tables</td>
+            <td>Direct database queries (Drizzle over libSQL)</td>
+            <td>This app</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p>The rule that decides which one a piece of data belongs in is simple, and it explains a <em>lot</em> of file placement:</p>
+    <blockquote><strong>JobTread first. Sheets if it was already there. The companion database only if neither of the other two has a home for it.</strong></blockquote>
+    <p>
+      That’s why leave <em>requests</em> live in the companion database — JobTread has no
+      concept of a PTO request — but approved leave gets <em>posted into JobTread</em> as
+      a time entry, because JobTread does have a concept of hours against a job.
+    </p>
+
+    <h2>The fourth thing: the app’s own server</h2>
+    <p>Here’s the piece that’s easy to miss, and it’s the key to Segments 2 and 4.</p>
+    <p>
+      Your phone does <strong>not</strong> talk to JobTread. It can’t — the JobTread key
+      is a password to your entire company’s financial data, and anything sent to a
+      browser can be read by whoever holds the phone.
+    </p>
+    <pre class="trace"><code>  YOUR PHONE                 VERCEL (the app's server)          THE WORLD
+  ----------                 -------------------------          ---------
+  the screen      --asks-->  a server route          --asks-->   JobTread
+  (a "client                 (the only place the                 Sheets/Drive
+   component")                secret key is used)                the database
+                  &lt;-plain--                         &lt;-data---
+                    numbers</code></pre>
+    <p>
+      The left half is public — anyone with the phone can see it. The right half is
+      private, running on Vercel’s servers with the secrets. Every piece of data on
+      every screen crosses that line exactly once.
+    </p>
+    <p>Keep that diagram in your head. Nearly every architectural rule in this codebase is a consequence of it.</p>
+  </section>
+
+  <!-- part 3 -->
+  <section class="part" data-part="3" data-name="The evidence">
+    <p class="part-n">3 · The evidence</p>
+    <p>
+      Let’s follow one real screen all the way through: <strong>the Jobs cost browser</strong>
+      (<code>/jobs</code>) — the screen showing a job’s budget vs. actual, laid out like the
+      office Tracking Sheet.
+    </p>
+
+    <h2>Hop 1 — The page (11 lines)</h2>
+    <p><code>src/app/jobs/page.tsx</code>, the entire file:</p>
+    <pre><code>import { JobsBrowser } from "./JobsBrowser";
+
+export default function JobsPage() {
+  return &lt;JobsBrowser /&gt;;
+}</code></pre>
+    <p>
+      That’s it. <strong>This is the pattern for every screen in the app</strong>: a tiny
+      <code>page.tsx</code> that runs on the <em>server</em>, whose only job is to hand off
+      to a bigger component that runs in the <em>browser</em>.
+    </p>
+    <p>
+      Why the split? The server half is where secrets would be safe; the browser half is
+      where buttons and taps live. Splitting them makes the boundary visible in the file
+      structure itself. On some screens the <code>page.tsx</code> passes something down
+      (a non-secret bit of context like the JobTread org id); here it has nothing to
+      pass, and the comment in the file says so.
+    </p>
+    <p>
+      <strong>Naming convention worth learning now:</strong> a folder under
+      <code>src/app/</code> <em>is</em> a URL. <code>src/app/jobs/page.tsx</code> →
+      <code>/jobs</code>. <code>src/app/time-off/page.tsx</code> → <code>/time-off</code>.
+      <code>src/app/bill/[docId]/page.tsx</code> → <code>/bill/22ABC123</code> (square
+      brackets mean “anything goes here”). That’s the whole routing rule — 39 folders,
+      39 screens.
+    </p>
+
+    <h2>Hop 2 — The browser asks the app’s own server</h2>
+    <p><code>src/app/jobs/JobsBrowser.tsx:1</code> starts with:</p>
+    <pre><code>"use client";</code></pre>
+    <p>
+      Those two words are the border marker. Everything in a file beginning with
+      <code>"use client"</code> runs <strong>on the phone</strong>. No secrets may appear
+      here, ever.
+    </p>
+    <p>At <code>src/app/jobs/JobsBrowser.tsx:293</code>, when the screen loads:</p>
+    <pre><code>fetch("/api/jobs/browser")</code></pre>
+    <p>
+      Read that carefully — it’s asking for <code>/api/jobs/browser</code>,
+      <strong>a route on the Ascent Assistant itself</strong>, not on JobTread. The phone
+      has no idea JobTread exists. It asks its own app a question and gets an answer.
+    </p>
+    <p>Later, at line 341, when you pick a specific job:</p>
+    <pre><code>fetch(`/api/jobs/cost-detail?jobId=${encodeURIComponent(id)}`)</code></pre>
+    <p>Same idea — one more question to the app’s own server, this time with a job id attached.</p>
+
+    <h2>Hop 3 — The server route (the secret side)</h2>
+    <p><code>src/app/api/jobs/browser/route.ts</code> is 41 lines and worth reading in full. The core:</p>
+    <pre><code>const getCachedJobBrowserList = unstable_cache(
+  async () =&gt; {
+    const cfg = getPaveConfig();
+    const [jobs, phases] = await Promise.all([
+      getJobs(cfg, true),
+      getJobPhaseMap(cfg),
+    ]);
+    return jobs.map((j) =&gt; ({ ...j, phase: phases[j.id] ?? null }));
+  },
+  ["api-jobs-browser"],
+  { revalidate: 300, tags: ["jt-jobs"] },
+);</code></pre>
+    <p>In English, line by line:</p>
+    <ul>
+      <li><code>getPaveConfig()</code> — reach into the server’s environment variables and pull out the JobTread grant key and org id. It lives at <code>src/lib/config.ts:4</code> and its comment says <em>“Never import this into client components”</em> — i.e. never let this run on a phone.</li>
+      <li><code>getJobs(cfg, true)</code> and <code>getJobPhaseMap(cfg)</code> — two questions to JobTread, asked at the same time (<code>Promise.all</code> = “do both, wait for both”).</li>
+      <li><code>jobs.map(...)</code> — stitch the two answers together: attach each job’s Phase to the job.</li>
+      <li><code>revalidate: 300</code> — <strong>cache this answer for 300 seconds.</strong> The next person to open the Jobs screen inside that window gets the stored answer instantly, without JobTread being asked again.</li>
+    </ul>
+    <p>The file’s own comment explains why it exists, and it’s a good window into how this codebase thinks:</p>
+    <blockquote>
+      “Doing the join here instead of in the browser is the load-time fix: the client used
+      to page <code>organization.jobs</code> (up to 10 gateway round trips) and then page
+      the Status custom field (up to 20 more) on every single page load. Now it is one
+      fetch.”
+    </blockquote>
+    <p>
+      Thirty round trips from a phone on job-site cell service became one. That’s the kind
+      of decision that’s invisible on screen and enormous in practice.
+    </p>
+
+    <h2>Hop 4 — Asking JobTread</h2>
+    <p><code>getJobs</code> is in the big shared JobTread module, <code>src/lib/jobtread.ts:1911</code>:</p>
+    <pre><code>export function getJobs(cfg: PaveConfig, includeClosed = false): Promise&lt;JobRef[]&gt; {
+  return cachedRef(`jobs:${cfg.orgId}:${includeClosed}`, 5 * 60_000, () =&gt;
+    _getJobsUncached(cfg, includeClosed),
+  );
+}</code></pre>
+    <p>
+      A <em>second</em> cache — this one inside the app’s own memory, also 5 minutes
+      (<code>5 * 60_000</code> milliseconds). Job lists are read on nearly every office
+      screen, so they’re worth remembering twice.
+    </p>
+    <p>
+      The real work is <code>_getJobsUncached</code> at line 1916, and this is the first
+      time you’ll see what a question to JobTread actually looks like:
+    </p>
+    <pre><code>const r = await pave(cfg, {
+  organization: {
+    $: { id: cfg.orgId },
+    id: {},
+    jobs: {
+      $: args,
+      nextPage: {},
+      nodes: {
+        id: {},
+        name: {},
+        number: {},
+        closedOn: {},
+        location: { account: { name: {} }, formattedAddress: {} },
+      },
+    },
+  },
+});</code></pre>
+    <p>
+      This is JobTread’s query language (“Pave”). You don’t need to write it yet, but you
+      should be able to <em>read</em> it, because it’s remarkably literal:
+    </p>
+    <blockquote>
+      “From the <strong>organization</strong> with this id, get its <strong>jobs</strong>.
+      For each one, give me the <strong>id</strong>, <strong>name</strong>,
+      <strong>number</strong>, <strong>closedOn</strong> date, and from its
+      <strong>location</strong>, the <strong>account’s name</strong> and the
+      <strong>formatted address</strong>.”
+    </blockquote>
+    <p>
+      The empty braces <code>{}</code> mean “just the value, nothing nested inside it.” The
+      <code>$</code> key means “arguments” — the parameters for that part of the request.
+      That’s essentially the whole grammar, and Segment 3 covers it properly.
+    </p>
+    <p>
+      Note the loop around it: <code>for (let page = 0; page &lt; 50; page++)</code>.
+      JobTread hands back at most <strong>100 records at a time</strong>, plus a
+      <code>nextPage</code> token — a bookmark. The loop keeps asking, feeding the bookmark
+      back, until JobTread stops handing out bookmarks. Ascent has more than 100 jobs, so
+      this genuinely loops. It’s capped at 50 pages as a runaway guard.
+    </p>
+
+    <h2>Hop 5 — The actual network call</h2>
+    <p>
+      Finally, <code>pave()</code> at <code>src/lib/jobtread.ts:39</code> is the one
+      function in the entire codebase that talks to <code>https://api.jobtread.com/pave</code>
+      (<code>src/lib/jobtread.ts:15</code>). Its first line:
+    </p>
+    <pre><code>const body = JSON.stringify({
+  query: { $: { grantKey: cfg.grantKey }, ...query },
+});</code></pre>
+    <p>
+      <strong>This is the moment the key is attached.</strong> Every other file in the app
+      composes questions <em>without</em> the key; <code>pave()</code> stamps it on at the
+      last second, on the server, and sends it. That single choke point is why the security
+      promise is credible — there’s exactly one place to check.
+    </p>
+    <p>
+      <code>pave()</code> also handles what happens when things go wrong. The short version:
+      <strong>a read that fails is retried up to three times; a write is never retried.</strong>
+      Because if you re-send “create a bill” after a timeout, you might create two.
+    </p>
+
+    <h2>The whole trip, at a glance</h2>
+    <pre class="trace"><code>  /jobs on your phone
+    |
+    +- src/app/jobs/page.tsx ............ server, 11 lines, hands off
+    +- src/app/jobs/JobsBrowser.tsx ..... "use client" - runs on the phone
+    |     +- fetch("/api/jobs/browser") . asks its OWN server
+    |              |
+    |              v         ~~~~ the security line ~~~~
+    +- src/app/api/jobs/browser/route.ts  server, has the secrets, 5-min cache
+    |     +- getJobs() ................. src/lib/jobtread.ts:1911, 5-min cache
+    |           +- _getJobsUncached() ... composes the query, pages by 100
+    |                 +- pave() ......... src/lib/jobtread.ts:39 - attaches the key
+    |                       +--> api.jobtread.com/pave
+    v
+  numbers on the screen</code></pre>
+    <p>
+      <strong>Six files. Two caches. One place the key appears.</strong> Every screen in
+      this app is a variation on that trip.
+    </p>
+    <h3>One thing that is <em>not</em> on this trip</h3>
+    <p>
+      Notice what never happened: the phone never sent a JobTread key, never knew a
+      JobTread URL, and couldn’t have asked JobTread anything even if the code were
+      tampered with. Protecting that property is what Segment 4 is entirely about.
+    </p>
+  </section>
+
+  <!-- part 4 -->
+  <section class="part" data-part="4" data-name="Check yourself">
+    <p class="part-n">4 · Check yourself</p>
+    <p class="lede">Try each one before you open the answer.</p>
+
+    <details>
+      <summary>1. A colleague says “the app’s copy of the job list is stale — can you re-import it?” What’s wrong with the question?</summary>
+      <div class="a"><p><strong>There is no copy to re-import.</strong> The app holds no job list of its own. If the list looks stale it’s either a cache holding an answer for up to 5 minutes, or JobTread itself is behind — and the fix is to wait or clear the cache, never to “re-import.”</p></div>
+    </details>
+
+    <details>
+      <summary>2. You open the Jobs screen, then open it again 90 seconds later. How many times did JobTread get asked for the job list?</summary>
+      <div class="a"><p><strong>Once.</strong> Both caches — Next’s route cache at 300 seconds and the in-memory <code>cachedRef</code> at 5 minutes — still hold the answer at 90 seconds, so JobTread isn’t asked again. This is also why a job created in JobTread can take a few minutes to appear in the app: a known, deliberate trade.</p></div>
+    </details>
+
+    <details>
+      <summary>3. Which of these files could safely contain the JobTread grant key — <code>jobs/page.tsx</code>, <code>jobs/JobsBrowser.tsx</code>, or <code>api/jobs/browser/route.ts</code>?</summary>
+      <div class="a">
+        <p>Only <strong><code>src/app/api/jobs/browser/route.ts</code></strong> could — and it does, indirectly, via <code>getPaveConfig()</code>.</p>
+        <p><code>JobsBrowser.tsx</code> is marked <code>"use client"</code>, so it runs on the phone and the key would be exposed. <code>page.tsx</code> technically runs on the server, but by convention nothing in a <code>page.tsx</code> uses the key — it exists to hand off, so the one thing it hands to a client component is never a secret. Keeping key use confined to <code>src/app/api/**</code> is what makes the rule auditable.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>4. What URL does the file <code>src/app/time-off/page.tsx</code> serve?</summary>
+      <div class="a"><p><strong><code>/time-off</code></strong>. The folder path under <code>src/app/</code> is the URL.</p></div>
+    </details>
+
+    <details>
+      <summary>5. Why is a failed <em>read</em> to JobTread retried automatically, but a failed <em>write</em> is not?</summary>
+      <div class="a"><p>A read that never completed changed nothing — asking again is free and safe. A write that timed out is ambiguous: it may have landed in JobTread before the connection dropped. Re-sending it risks a duplicate bill, line, or payment. <code>pave()</code> makes this decision automatically by inspecting whether the query contains a mutation.</p></div>
+    </details>
+
+    <details>
+      <summary>6. An RFI lives in the companion database, but an approved PTO day gets written into JobTread. Why does each live where it does?</summary>
+      <div class="a">
+        <p><strong>RFIs:</strong> JobTread has no RFI object at all, and RFIs aren’t part of the pre-existing Sheets world, so the companion database is the only home left.</p>
+        <p><strong>PTO:</strong> the request-and-approval workflow has no JobTread equivalent, so that part lives in the companion database. But once approved, the result is simply <em>hours against a job</em> — which is exactly what a JobTread time entry is. So it posts there, where the rest of the company’s labour cost already lives, and shows up in job costing like any other hours.</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- part 5 -->
+  <section class="part" data-part="5" data-name="What this unlocks">
+    <p class="part-n">5 · What this unlocks</p>
+    <p>You can now:</p>
+    <ul>
+      <li><strong>Locate any screen’s code from its URL.</strong> <code>/unbilled</code> → <code>src/app/unbilled/</code>. This alone makes the other eleven segments navigable.</li>
+      <li><strong>Read a request the right way round.</strong> When someone says “the page is slow,” you have five specific places to ask about: the phone’s request, the route, the cache, the JobTread query, and JobTread itself.</li>
+      <li><strong>Ask for changes precisely.</strong> “The Jobs browser should also show the job’s Phase” is answerable — you know it’s already fetched, in <code>src/app/api/jobs/browser/route.ts</code>.</li>
+      <li><strong>Spot a dangerous suggestion.</strong> If any proposal involves the browser talking to JobTread directly, or storing a JobTread key anywhere a phone can reach, it’s wrong. No exceptions, and you don’t need more context to say so.</li>
+    </ul>
+
+    <div class="card card-accent">
+      <p class="eyebrow">Next up</p>
+      <h3>Segment 2 — The door</h3>
+      <p>How the app decides who gets in, what the four roles mean, and why a Field employee doesn’t just have the Financials screens <em>hidden</em> — they’re locked before the page ever runs.</p>
+      <p class="bar-label" style="text-transform:none;letter-spacing:0">Not written yet.</p>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn" id="complete1" type="button">Mark Segment 1 complete</button>
+      <button class="btn btn-quiet" data-home type="button">Back to syllabus</button>
+    </div>
+  </section>
+
+  <footer>
+    <button class="linkbtn" data-home type="button">&larr; Back to the syllabus</button>
+  </footer>
+</main>
+
+<script>
+(function () {
+  "use strict";
+
+  var KEY = "ascent-course-v1";
+
+  var SEGMENTS = [
+    { u: "Unit A — Orientation" },
+    { n: 1,  t: "The shape of the thing",        q: "What the app is, its three back ends, and one complete round trip from tap to screen", ready: true },
+    { n: 2,  t: "The door",                      q: "Sign-in, the four roles, per-user overrides, and why gating happens on the server" },
+    { u: "Unit B — The JobTread layer" },
+    { n: 3,  t: "Talking to JobTread",           q: "The Pave query grammar, the client that speaks it, retries, caching, and the expensive gotchas" },
+    { n: 4,  t: "The gateway and write safety",  q: "The one generic door into JobTread, the two write flags, and the per-role allowlist" },
+    { n: 5,  t: "The money model",               q: "Jobs, budgets, cost items, documents, and why unbilled is a subtraction" },
+    { u: "Unit C — The workflows" },
+    { n: 6,  t: "The billing workflow",          q: "A bill's whole life: arrives, coded, approved, invoiced — screen by screen" },
+    { n: 7,  t: "The other back end",            q: "The Apps Script bridge to Sheets and Drive, the shared secret, and the hourly mirror" },
+    { n: 8,  t: "The companion database",        q: "What earns a place in the app's own database, with PTO accrual as the worked example" },
+    { n: 9,  t: "The field apps",                q: "Time, mileage, safety sign-ins, tools — phone hardware in, JobTread and Sheets out" },
+    { u: "Unit D — Around the edges" },
+    { n: 10, t: "The AI parts",                  q: "Gemini reading invoices, Claude answering questions, and why the assistant is read-only" },
+    { n: 11, t: "The look and the words",        q: "The design system, and the on-screen text you can reword without a deploy" },
+    { n: 12, t: "How it ships, how it breaks",   q: "Branches, previews, production, environment variables, tests, and the known weak points" }
+  ];
+
+  var TOTAL = 12;
+
+  /* ── state ──────────────────────────────────────────────────────── */
+  /* `pos` = furthest point reached in a segment (drives the % chip).
+     `at`  = where you actually stopped (drives the resume jump).
+     `ts`  = when progress last changed, so a stale tab can't clobber a fresh one. */
+  function blank() { return { done: [], pos: {}, at: {}, last: null, ts: 0 }; }
+
+  function load() {
+    try {
+      var raw = localStorage.getItem(KEY);
+      if (!raw) return blank();
+      var s = JSON.parse(raw);
+      return {
+        done: Array.isArray(s.done) ? s.done : [],
+        pos: s.pos && typeof s.pos === "object" ? s.pos : {},
+        at: s.at && typeof s.at === "object" ? s.at : {},
+        last: typeof s.last === "number" ? s.last : null,
+        ts: typeof s.ts === "number" ? s.ts : 0
+      };
+    } catch (e) { return blank(); }
+  }
+  /* Merge rather than overwrite: another tab (or an earlier visit) may have
+     recorded progress this page never saw. Completion is a union, position is
+     the furthest either side reached, and `last` follows this tab. */
+  function save() {
+    try {
+      var prev = load();
+      var done = state.done.slice();
+      prev.done.forEach(function (n) { if (done.indexOf(n) === -1) done.push(n); });
+      var pos = {};
+      [prev.pos, state.pos].forEach(function (src) {
+        for (var k in src) if (Object.prototype.hasOwnProperty.call(src, k)) {
+          pos[k] = Math.max(pos[k] || 0, src[k] || 0);
+        }
+      });
+      state.done = done;
+      state.pos = pos;
+      // Whichever record changed more recently owns "where you stopped".
+      if (prev.ts > state.ts) { state.at = prev.at; state.last = prev.last; state.ts = prev.ts; }
+      localStorage.setItem(KEY, JSON.stringify(state));
+    } catch (e) { /* private mode, or storage full */ }
+  }
+  var state = load();
+  var isDone = function (n) { return state.done.indexOf(n) !== -1; };
+
+  /* ── elements ───────────────────────────────────────────────────── */
+  var $ = function (id) { return document.getElementById(id); };
+  var home = $("home"), rail = $("rail"), barLabel = $("barLabel"),
+      barCount = $("barCount"), back = $("back"),
+      resumeCard = $("resumeCard"), startCard = $("startCard"),
+      resumeTitle = $("resumeTitle"), resumeSub = $("resumeSub"),
+      resumeMeter = $("resumeMeter"), jumpCard = $("jumpCard"), jumpMeter = $("jumpMeter");
+
+  var view = "home";   // "home" | number
+  var pendingScroll = 0;
+
+  /* ── syllabus ───────────────────────────────────────────────────── */
+  function buildSyllabus() {
+    var box = $("syllabus");
+    box.textContent = "";
+    SEGMENTS.forEach(function (s) {
+      if (s.u) {
+        var h = document.createElement("p");
+        h.className = "unit-head";
+        h.textContent = s.u;
+        box.appendChild(h);
+        return;
+      }
+      var b = document.createElement("button");
+      b.type = "button";
+      b.className = "seg" + (isDone(s.n) ? " is-done" : "");
+      if (!s.ready) b.disabled = true;
+
+      var n = document.createElement("span");
+      n.className = "seg-n";
+      n.textContent = s.n < 10 ? "0" + s.n : String(s.n);
+
+      var t = document.createElement("span");
+      t.className = "seg-t";
+      t.textContent = s.t;
+
+      var q = document.createElement("span");
+      q.className = "seg-q";
+      q.textContent = s.q;
+
+      var c = document.createElement("span");
+      var pct = Math.round((state.pos[s.n] || 0) * 100);
+      if (isDone(s.n))        { c.className = "chip chip-done"; c.textContent = "Done"; }
+      else if (!s.ready)      { c.className = "chip";           c.textContent = "Soon"; }
+      else if (pct >= 3)      { c.className = "chip chip-now";  c.textContent = pct + "%"; }
+      else                    { c.className = "chip chip-now";  c.textContent = "Ready"; }
+
+      b.appendChild(n); b.appendChild(t); b.appendChild(c); b.appendChild(q);
+      if (s.ready) b.addEventListener("click", function () { open(s.n); });
+      box.appendChild(b);
+    });
+  }
+
+  /* ── progress chrome ────────────────────────────────────────────── */
+  function titleOf(n) {
+    for (var i = 0; i < SEGMENTS.length; i++) if (SEGMENTS[i].n === n) return SEGMENTS[i].t;
+    return "";
+  }
+
+  function paintHome() {
+    var d = state.done.length;
+    barCount.textContent = d + " / " + TOTAL;
+    rail.style.width = (d / TOTAL * 100) + "%";
+
+    var n = state.last;
+    var pct = n ? Math.round((state.pos[n] || 0) * 100) : 0;
+    var worthResuming = n && !isDone(n) && pct >= 3 && pct < 97;
+
+    if (worthResuming) {
+      resumeCard.classList.remove("hidden");
+      startCard.classList.add("hidden");
+      resumeTitle.textContent = "Segment " + n + " — " + titleOf(n);
+      resumeMeter.style.width = pct + "%";
+      resumeSub.textContent = pct + "% through · " + (state.done.length
+        ? state.done.length + " of 12 segments complete"
+        : "first segment in progress");
+      resumeCard.querySelector("#resumeBtn").onclick = function () { open(n, true); };
+    } else {
+      resumeCard.classList.add("hidden");
+      startCard.classList.remove("hidden");
+      var next = null;
+      for (var i = 0; i < SEGMENTS.length; i++) {
+        var s = SEGMENTS[i];
+        if (s.n && s.ready && !isDone(s.n)) { next = s.n; break; }
+      }
+      var btn = startCard.querySelector(".btn");
+      var msg = startCard.querySelector("p");
+      if (next === null) {
+        msg.textContent = "Everything written so far is complete. Segment 2 is next when it lands.";
+        btn.textContent = "Re-read Segment 1";
+        btn.setAttribute("data-open", "1");
+      } else {
+        msg.textContent = "Nothing read yet. Segment 1 takes about 40 minutes and is the one that makes the other eleven navigable.";
+        btn.textContent = "Start Segment " + next;
+        btn.setAttribute("data-open", String(next));
+      }
+    }
+    buildSyllabus();
+  }
+
+  /* ── navigation ─────────────────────────────────────────────────── */
+  function open(n, resume) {
+    var el = $("lesson-" + n);
+    if (!el) return;
+    home.classList.add("hidden");
+    el.classList.remove("hidden");
+    view = n;
+    back.classList.remove("hidden");
+    barLabel.textContent = "Segment " + n;
+    state.last = n; save();
+
+    var reached = state.pos[n] || 0;
+    var stopped = state.at[n];
+    if (typeof stopped !== "number") stopped = reached;
+    pendingScroll = stopped;
+    if (jumpCard) {
+      if (!resume && reached >= 0.03 && reached < 0.97 && !isDone(n)) {
+        jumpCard.classList.remove("hidden");
+        jumpMeter.style.width = Math.round(reached * 100) + "%";
+      } else {
+        jumpCard.classList.add("hidden");
+      }
+    }
+
+    var btn = $("complete1");
+    if (btn && n === 1) {
+      btn.textContent = isDone(1) ? "Completed ✓" : "Mark Segment 1 complete";
+      btn.className = isDone(1) ? "btn btn-done" : "btn";
+    }
+
+    if (resume && stopped > 0) {
+      window.scrollTo(0, 0);
+      requestAnimationFrame(function () { scrollToPct(stopped); });
+    } else {
+      window.scrollTo(0, 0);
+    }
+    paintLesson();
+  }
+
+  function goHome() {
+    var el = typeof view === "number" ? $("lesson-" + view) : null;
+    if (el) el.classList.add("hidden");
+    home.classList.remove("hidden");
+    view = "home";
+    back.classList.add("hidden");
+    barLabel.textContent = "Reading Your Own App";
+    paintHome();
+    window.scrollTo(0, 0);
+  }
+
+  function docHeight() {
+    return Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
+  }
+  function scrollToPct(p) {
+    window.scrollTo({ top: p * docHeight(), behavior: "auto" });
+  }
+
+  /* ── reading progress within a lesson ───────────────────────────── */
+  var ticking = false, saveTimer = null;
+
+  function paintLesson() {
+    if (typeof view !== "number") return;
+    var pct = Math.min(1, Math.max(0, window.scrollY / docHeight()));
+    rail.style.width = (pct * 100) + "%";
+
+    // which part am I in?
+    var el = $("lesson-" + view);
+    var parts = el ? el.querySelectorAll(".part") : [];
+    var current = null;
+    for (var i = 0; i < parts.length; i++) {
+      if (parts[i].getBoundingClientRect().top <= 90) current = parts[i];
+    }
+    if (current) {
+      barLabel.textContent = current.getAttribute("data-name");
+      barCount.textContent = "Part " + current.getAttribute("data-part") + " / 5";
+    } else {
+      barLabel.textContent = "Segment " + view;
+      barCount.textContent = state.done.length + " / " + TOTAL;
+    }
+
+    state.pos[view] = Math.max(state.pos[view] || 0, pct);
+    if (Math.abs((state.at[view] || 0) - pct) > 0.004) {
+      state.at[view] = pct;
+      state.ts = Date.now();
+      clearTimeout(saveTimer);
+      saveTimer = setTimeout(save, 400);
+    }
+  }
+
+  window.addEventListener("scroll", function () {
+    if (ticking) return;
+    ticking = true;
+    requestAnimationFrame(function () { ticking = false; paintLesson(); });
+  }, { passive: true });
+
+  window.addEventListener("pagehide", save);
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState === "hidden") save();
+  });
+
+  /* ── wiring ─────────────────────────────────────────────────────── */
+  back.addEventListener("click", goHome);
+  document.addEventListener("click", function (e) {
+    var t = e.target.closest ? e.target.closest("[data-home],[data-open]") : null;
+    if (!t) return;
+    if (t.hasAttribute("data-home")) goHome();
+    else open(parseInt(t.getAttribute("data-open"), 10));
+  });
+
+  var jb = $("jumpBtn");
+  if (jb) jb.addEventListener("click", function () {
+    jumpCard.classList.add("hidden");
+    scrollToPct(pendingScroll);
+  });
+
+  var c1 = $("complete1");
+  if (c1) c1.addEventListener("click", function () {
+    if (!isDone(1)) {
+      state.done.push(1);
+      state.pos[1] = 1;
+      state.at[1] = 1;
+      state.ts = Date.now();
+      save();
+      c1.textContent = "Completed ✓";
+      c1.className = "btn btn-done";
+      setTimeout(goHome, 550);
+    } else {
+      goHome();
+    }
+  });
+
+  $("reset").addEventListener("click", function () {
+    try { localStorage.removeItem(KEY); } catch (e) { /* ignore */ }
+    state = blank();
+    paintHome();
+  });
+
+  paintHome();
+})();
+</script>

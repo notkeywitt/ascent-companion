@@ -1,5 +1,13 @@
 # Reading Your Own App — a course profile
 
+> 📱 **Reading on a phone?** The whole course is published as a single
+> phone-friendly page that remembers where you stopped:
+> <https://claude.ai/code/artifact/f22e41ff-8e79-4920-845c-54a5bafb1135>
+>
+> The markdown in this folder is the source of record; `index.html` is the
+> published rendering of it. When a segment is added or edited, both change
+> together and the page is republished to the same URL.
+
 A guided program of study through **`ascent-companion`** (the Ascent Assistant),
 written for the person who owns the business the app was built for.
 
