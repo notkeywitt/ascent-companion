@@ -388,11 +388,34 @@ dereferences `CONFIG`/`COLUMNS`/`JT_STATUS`), so the split cannot cause a load-o
 failure even though `.clasp.json` has `filePushOrder: []`. Apps Script shares one global
 scope, so moving a function is invisible to callers.
 
-### Stage 5 — Batch the sheet writes · ⬜ not started
-Targets in finding 4 (line numbers shift after Stage 4 — re-locate, don't trust them).
-**One function per commit, no exceptions:** run the existing `step*_dry`, save the log →
-change → run `_dry` again and **diff the logs, they must be identical** → run `_LIVE`
-once and eyeball the range → commit.
+### Stage 5 — Batch the sheet writes · 🟨 high-value target landed; remainder deferred
+**The bottleneck this stage existed for is already fixed.** The ~200-round-trip **Sync
+Note** column write in `syncVendorsFromJobTread` (`JobTread.js`) was batched into one
+`setValues` in a prior session (see the 2026-08-08 interlude above) — that was the
+expensive shape finding 4 pointed at.
+
+Re-located every remaining `setValue`-inside-loop on the sync paths against current
+`main`; the payoff is now marginal and the risk is real, so this stage is **deferred**
+rather than pushed further:
+
+- `JobTread.js:2650` (`totalUpdates` → one **Total**/money column) and `JobTread.js:4755`
+  (`writes` → scattered **rows and columns** across the Projects sheet) are
+  **scattered-cell** writes. Batching them is *not* provably equivalent by construction:
+  it means a read-modify-write over the whole column (or the whole data range), which
+  **rewrites cells the function never intended to touch** — a real risk of clobbering
+  formulas/formatting/concurrent edits in live money data.
+- `JobTread.js:4472` (`acctFills`) is annotated `// few; written cell by cell` — small-N
+  by design, no payoff.
+- The rest (`1196`, `4286`, `4600`) are single conditional writes inside loops, not bulk
+  blocks.
+
+**Why not just do it:** the stage's own guard (run `step*_dry`, save the log → change →
+re-run `_dry` and **diff the logs, they must be identical** → `_LIVE` once and eyeball) is
+the only thing that catches an off-by-one in a scattered write — and it needs an Apps
+Script runtime, which a Claude sandbox does not have. For a contiguous `setValues` block
+equivalence is provable by inspection (that's why the Notes batch was safe); for these it
+is not. **If revisited, the owner runs the `_dry` before/after diff; start with `2650`
+(single column) if any.** Contiguous full-block writes remain fair game any time.
 
 ### Then reassess — Stages 6 & 7 (specified, not committed)
 - **Stage 6** — split `Board.tsx` (finding 2). Not app-breaking, but a merge-conflict
