@@ -28,6 +28,7 @@ matching row here.
 | What each screen does, for the owner (end-user manual) | `USER_MANUAL.md` |
 | How to deploy / env vars / Vercel | `DEPLOY.md` |
 | **Where a given file/feature lives (this doc)** | `CODEBASE_MAP.md` |
+| A guided course through the whole system, for the owner | `docs/course/README.md` |
 | Session-to-session handoff notes | `HANDOFF.md` — **do NOT read unless asked** |
 
 ## Task → where to look
