@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { billLineMath, descriptionForCode, round2, type MathLine, type CodeOption } from "./billLineMath";
+import {
+  billLineMath,
+  descriptionForCode,
+  grossUpNewLineUnitCost,
+  round2,
+  type MathLine,
+  type CodeOption,
+} from "./billLineMath";
 
 /**
  * Bill line money maths — the tax-inclusive ↔ pre-tax conversion behind the
@@ -195,5 +202,29 @@ describe("descriptionForCode", () => {
 
   it("returns undefined for an unknown id, so nothing is overwritten", () => {
     expect(descriptionForCode("nope", budget)).toBeUndefined();
+  });
+});
+
+describe("grossUpNewLineUnitCost", () => {
+  it("is a no-op on a tax-free bill (factor 1)", () => {
+    // subtotal 100, no tax, add 2 @ 50 pre-tax → stored == entered pre-tax.
+    expect(grossUpNewLineUnitCost({ subtotal: 100, taxView: 0, preTaxUnit: 50, qty: 2 })).toBe(50);
+  });
+
+  it("grosses the new line up against the shared tax so JobTread stores tax-inclusive", () => {
+    // subtotal 100 + new line 2@50 = 200 pre-tax; tax $10 spread over 200 → factor 1.05.
+    expect(grossUpNewLineUnitCost({ subtotal: 100, taxView: 10, preTaxUnit: 50, qty: 2 })).toBe(52.5);
+  });
+
+  it("guards a zero pre-tax base (empty bill, zero qty) with factor 1 — no divide-by-zero", () => {
+    expect(grossUpNewLineUnitCost({ subtotal: 0, taxView: 0, preTaxUnit: 50, qty: 0 })).toBe(50);
+  });
+
+  it("rounds the stored cost to cents", () => {
+    // subtotal 33.33 + 1@10 = 43.33; tax $5 → factor (48.33/43.33); 10*factor rounded.
+    const factor = (43.33 + 5) / 43.33;
+    expect(grossUpNewLineUnitCost({ subtotal: 33.33, taxView: 5, preTaxUnit: 10, qty: 1 })).toBe(
+      Math.round(10 * factor * 100) / 100,
+    );
   });
 });

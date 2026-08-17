@@ -21,7 +21,7 @@ import {
   btn,
 } from "@/components/ui";
 import { TrackingSheetSyncFor } from "@/components/TrackingSheetSync";
-import { billLineMath, recodeLog } from "@/lib/billLineMath";
+import { billLineMath, grossUpNewLineUnitCost, recodeLog } from "@/lib/billLineMath";
 import { markBillTouched } from "@/lib/billTouch";
 import { useUnsavedChanges } from "@/lib/useUnsavedChanges";
 
@@ -577,13 +577,11 @@ function BillDetail() {
     try {
       const opt = budget.find((o) => o.id === newLine.code);
       const description = opt ? (opt.name ? `${opt.number} - ${opt.name}` : opt.number) : "";
-      // Unit $ is entered PRE-TAX (matching the line editor). On a taxed bill, gross it
-      // up so JobTread displays the entered pre-tax; the tax rides on the new, larger
-      // pre-tax base. On a tax-free bill this is a no-op (reTaxAdd === 1).
+      // Unit $ is entered PRE-TAX (matching the line editor); grossUpNewLineUnitCost
+      // grosses it up against the bill's tax (a no-op on a tax-free bill) so JobTread
+      // stores it tax-inclusive and consistent. Shared with /recode so both agree.
       const qty = Number(newLine.quantity) || 0;
       const preTaxUnit = Number(newLine.unitCost) || 0;
-      const newSumPreTax = subtotal + preTaxUnit * qty;
-      const reTaxAdd = newSumPreTax > 0 ? (newSumPreTax + taxView) / newSumPreTax : 1;
       const res = await fetch("/api/add-line", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -591,7 +589,7 @@ function BillDetail() {
           docId,
           name,
           quantity: qty,
-          unitCost: round2(preTaxUnit * reTaxAdd),
+          unitCost: grossUpNewLineUnitCost({ subtotal, taxView, preTaxUnit, qty }),
           jobCostItemId: newLine.code || undefined,
           description,
         }),

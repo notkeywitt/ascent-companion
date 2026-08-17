@@ -79,6 +79,39 @@ export function descriptionForCode(
 }
 
 /**
+ * Gross up a NEW line's pre-tax unit cost so JobTread stores it tax-inclusive and
+ * consistent with the bill's current (previewed) subtotal + tax. A new line rides
+ * the same shared tax the existing lines do, so its pre-tax base is added to the
+ * subtotal first, then the whole re-taxed against the fixed tax dollar. On a
+ * tax-free bill (tax 0, or an empty bill) the factor is 1, so this is a no-op and
+ * returns the entered pre-tax unit cost unchanged.
+ *
+ * Mirrors the whole-bill `reTax` factor in `billLineMath`, but for a line that is
+ * not yet part of `lines`. Extracted so the bill page and Client Invoicing (/recode)
+ * compute an added line identically — the two carried a byte-for-byte copy of this
+ * before, which would silently diverge the moment one was "fixed" without the other.
+ */
+export function grossUpNewLineUnitCost({
+  subtotal,
+  taxView,
+  preTaxUnit,
+  qty,
+}: {
+  /** The bill's current previewed pre-tax subtotal (before the new line). */
+  subtotal: number;
+  /** The tax dollar currently in view (stored, or an unsaved tax edit). */
+  taxView: number;
+  /** The new line's entered PRE-TAX unit cost. */
+  preTaxUnit: number;
+  /** The new line's quantity. */
+  qty: number;
+}): number {
+  const newSumPreTax = subtotal + preTaxUnit * qty;
+  const reTaxAdd = newSumPreTax > 0 ? (newSumPreTax + taxView) / newSumPreTax : 1;
+  return round2(preTaxUnit * reTaxAdd);
+}
+
+/**
  * A cost-code label for the activity log — "06 10 00 - Rough Carpentry", with the
  * leaf's own detail appended ("… · Labor") when a code is split into several
  * budget rows, so a move between two splits of one code doesn't read as a no-op.

@@ -30,6 +30,7 @@ import { JtLink } from "@/components/JtLink";
 import {
   billLineMath,
   descriptionForCode,
+  grossUpNewLineUnitCost,
   recodeLog,
   round2,
   type LineChange,
@@ -1075,8 +1076,6 @@ export function Board() {
       const description = descriptionForCode(newLine.code, data?.budget ?? []);
       const qty = Number(newLine.quantity) || 0;
       const preTaxUnit = Number(newLine.unitCost) || 0;
-      const newSumPreTax = openMath.subtotal + preTaxUnit * qty;
-      const reTaxAdd = newSumPreTax > 0 ? (newSumPreTax + openTaxView) / newSumPreTax : 1;
       const res = await fetch("/api/add-line", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1084,7 +1083,12 @@ export function Board() {
           docId: openBill.id,
           name,
           quantity: qty,
-          unitCost: round2(preTaxUnit * reTaxAdd),
+          unitCost: grossUpNewLineUnitCost({
+            subtotal: openMath.subtotal,
+            taxView: openTaxView,
+            preTaxUnit,
+            qty,
+          }),
           jobCostItemId: newLine.code || undefined,
           description,
         }),

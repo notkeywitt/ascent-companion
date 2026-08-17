@@ -420,7 +420,19 @@ is not. **If revisited, the owner runs the `_dry` before/after diff; start with 
 ### Then reassess — Stages 6 & 7 (specified, not committed)
 - **Stage 6** — split `Board.tsx` (finding 2). Not app-breaking, but a merge-conflict
   magnet: needs a dedicated session with no other companion work in flight, merged the
-  same day.
+  same day. `Board.tsx` is now **3,671 lines / 55 `useState` / 45 of 142 commits** — the
+  single highest-churn file in the repo (2.6× the next), and larger than at review time.
+  - **First slice landed:** the new-line tax gross-up math (`newSumPreTax`/`reTaxAdd`)
+    was duplicated byte-for-byte in `Board.tsx` and `bill/[docId]/page.tsx` — a silent
+    drift risk the moment one was "fixed" alone. Extracted to
+    `grossUpNewLineUnitCost` in `billLineMath.ts` (already the shared bill-math module,
+    now covered by 4 new unit tests); both call sites use it. Pure no-op, verified by
+    typecheck + build + the full suite. The de-tax/gross-up model, `descriptionForCode`,
+    `recodeLog` and `round2` were already shared there — so the money math is now fully
+    de-duplicated. **Still needs owner phone preview-test on the coding board before merge.**
+  - **Remaining:** the stateful handler/UI decomposition (the `addLine`/`deleteLineById`
+    plumbing, the line-editor JSX, the 55 `useState`) — the big-bang part that needs a
+    dedicated no-other-work session and runtime testing.
 - **Stage 7** — move companion-only data off Sheets (finding 1). Per dataset, smallest
   first (Requisitions → Tools → Mileage → Employees → Safety → EmployeeTime), five
   reversible phases: table behind a flag → backfill → dual-write a week → **flip reads
