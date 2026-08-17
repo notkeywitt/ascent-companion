@@ -137,7 +137,7 @@ Grouped by domain; each folder is `…/route.ts`.
   `feature-requests/*`.
 - **Leads:** `leads/*`.
 - **Assistant / misc:** `chat`, `ocr-serial`, `tracking-sheet`, `vendors`,
-  `bank-details`.
+  `bank-details`, `notices/*` (the per-user popup feed + dismiss).
 - **Platform:** `auth/[...nextauth]`, `login`, `logs`, `actions`, `usage`,
   `usage-track`.
 
@@ -155,18 +155,23 @@ Grouped by domain; each folder is `…/route.ts`.
 - **JobTread pickers / links:** `JobPicker`, `GlobalJobBar`, `CostCodeSelect`,
   `JtLink`, `LinkPending`, `BillStatusBadge`, `BillingSummary`.
 - **Feature widgets:** `InvoiceReconcile`, `InvoiceSweepResult`,
-  `UncapturedBills`, `StuckVendors`, `NeedsProject`, `SunsetDuplicateScan`,
-  `TrackingSheetSync`, `TrackingSheetRisks`, `Donut`, `SignaturePad`,
-  `QrScanner`, `CopyButton`, `Spinner`.
+  `UncapturedBills`, `StuckVendors`, `NeedsProject`, `Notices` (the global
+  per-user popup feed), `SunsetDuplicateScan`, `TrackingSheetSync`,
+  `TrackingSheetRisks`, `Donut`, `SignaturePad`, `QrScanner`, `CopyButton`,
+  `Spinner`.
 
 ## `src/db/` — companion DB (Drizzle + libSQL; companion-only data, NOT JobTread)
 
 `schema.ts` tables: `allowed_users`, `role_access`, `usage_events`,
 `saved_bills`, `feature_requests`, `flagged_time_entries`,
 `labor_rate_catalog`, `labor_rate_groups`, `leads`, `lead_activities`,
-`lead_inquiries`, `leave_policies`, `leave_balances`, `leave_requests`,
-`leave_transactions`, `rfis`, `sunset_statements`, `page_copy`. Access via
-`src/db/index.ts`.
+`lead_inquiries`, `lead_inquiry_dismissals`, `leave_policies`, `leave_balances`,
+`leave_requests`, `leave_transactions`, `notices`, `notice_reads`, `rfis`,
+`sunset_statements`, `page_copy`. Access via `src/db/index.ts`.
+
+(`notices`/`notice_reads` back the global popup feed — a notice is dismissed
+per-user and stays gone; `lead_inquiry_dismissals` hides a web-form inquiry from
+the leads board without deleting it.)
 
 ## The cross-repo boundary
 
