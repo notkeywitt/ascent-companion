@@ -74,10 +74,10 @@ export function CourseHome() {
         <Card className="mb-6">
           <p className="text-sm text-neutral-700 dark:text-neutral-300">
             {doneCount === 0
-              ? "Nothing read yet. Segment 1 takes about 40 minutes and is the one that makes the other eleven navigable."
+              ? "You have read no segment yet. Segment 1 takes about 40 minutes. Segment 1 is the segment that makes the other 11 segments easier to follow."
               : next
                 ? `${doneCount} of ${TOTAL} segments complete. Segment ${next} is next.`
-                : "Everything written so far is complete — more segments are on the way."}
+                : "You have read every segment written so far. The next segment arrives soon."}
           </p>
           {doneCount > 0 && (
             <Meter budget={TOTAL} used={doneCount} label="course" className="mt-3 h-1.5" />
@@ -144,17 +144,18 @@ export function CourseHome() {
       {/* Fast path + housekeeping */}
       <Card className="mt-6">
         <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
-          If you want the fast path
+          The fast path
         </p>
         <p className="mt-1.5 text-sm text-neutral-700 dark:text-neutral-300">
-          Segments {FAST_PATH.slice(0, -1).join(", ")} and {FAST_PATH[FAST_PATH.length - 1]} are the
-          core. Those six get you to &ldquo;I understand what this program does and what&rsquo;s risky
-          about it.&rdquo; The rest add depth on the parts you touch most.
+          Segment {FAST_PATH.slice(0, -1).join(", ")}, and {FAST_PATH[FAST_PATH.length - 1]} form the
+          core of this course. These 6 segments give you 2 results: understanding of the app, and
+          understanding of its risks. The other segments add detail about the parts of the app you use
+          the most.
         </p>
       </Card>
 
       <div className="mt-6 flex items-center justify-between gap-3 text-xs text-neutral-400">
-        <span>Source of record: docs/course/ · progress is saved on this device.</span>
+        <span>The master copy of this course lives in docs/course/. This device stores your reading progress.</span>
         {p.hydrated && (doneCount > 0 || last) && (
           <Button variant="ghost" size="sm" onClick={p.reset} className="shrink-0">
             Reset progress

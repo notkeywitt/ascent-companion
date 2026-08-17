@@ -295,62 +295,64 @@
       <p class="eyebrow">A course through ascent-companion</p>
       <h1>Reading Your Own App</h1>
       <p class="lede">
-        Twelve segments that take you from “I know what this software is for” to
-        “I know how it works, where every number comes from, and what would be
+        12 segments. Each segment moves you 1 step: from “I know what this software
+        is for” to “I know how it works, where every number comes from, and what is
         dangerous to change.” Written for the owner of the business, not for a
-        developer.
+        professional developer.
       </p>
     </div>
 
     <div class="card card-accent resume hidden" id="resumeCard">
       <p class="eyebrow">Pick up where you left off</p>
-      <h3 id="resumeTitle">Segment 1 — The shape of the thing</h3>
+      <h3 id="resumeTitle">Segment 1 — How the App Is Built</h3>
       <div class="resume-meter"><span id="resumeMeter" style="width:0%"></span></div>
       <p class="bar-label" id="resumeSub" style="text-transform:none;letter-spacing:0;font-size:.8rem"></p>
       <button class="btn" id="resumeBtn" type="button">Resume reading</button>
     </div>
 
     <div class="card" id="startCard">
-      <p>Nothing read yet. Segment 1 takes about 40 minutes and is the one that makes the other eleven navigable.</p>
+      <p>You have read no segment yet. Segment 1 takes about 40 minutes. Segment 1 is the segment that makes the other 11 segments easier to follow.</p>
       <button class="btn" data-open="1" type="button">Start Segment 1</button>
     </div>
   </section>
 
   <!-- ── who it's for ── -->
   <section class="block">
-    <div class="rule-head"><h2>Who this is for</h2></div>
+    <div class="rule-head"><h2>Who this course is for</h2></div>
     <p>
-      You know the business cold: what a vendor bill is, why an uncoded bill is a
-      problem, what unbilled cost means at month end, why JobTread has to stay the
-      source of truth. You are <strong>not</strong> a professional developer, and you
-      don’t need to become one.
+      You know the business well. You know what a vendor bill is. You know why an
+      uncoded bill is a problem. You know what “unbilled cost” means at the end of a
+      month. You know why JobTread must hold the correct value for money data. You
+      are <strong>not</strong> a professional programmer. You do not need to become
+      one for this course.
     </p>
     <p>
-      That’s the ideal starting position, because the hard half of understanding this
-      codebase is knowing what the work <em>is</em>. You already have that half. What’s
-      missing is the map: which file does which job, where the data actually comes
-      from, what’s safe to touch, and what would break if it moved.
+      This is a good starting point for this course. Understanding this code has 2
+      parts. Part one: knowledge of the real business work. Part two: knowledge of
+      the code&rsquo;s map. You already have part one. This course gives you part
+      two. The map shows which file does which job, where each piece of data comes
+      from, what is safe to change, and what can break, and how.
     </p>
 
     <h3>What this course is <em>not</em></h3>
     <ul>
-      <li><strong>Not a Next.js tutorial.</strong> Framework concepts appear only when they explain something about <em>this</em> app.</li>
-      <li><strong>Not a syntax course.</strong> Code appears as evidence, always with a plain-English translation next to it.</li>
-      <li><strong>Not a rewrite plan.</strong> Where the app has known weak points, the course points at the architecture review and moves on.</li>
+      <li><strong>Not a Next.js tutorial.</strong> This course explains a framework idea only when the idea explains a fact about <em>this</em> app.</li>
+      <li><strong>Not a course in programming syntax.</strong> Code appears in this course as evidence only. A plain explanation sits next to each piece of code.</li>
+      <li><strong>Not a plan to rewrite the app.</strong> For known weak points, this course points to the architecture review and moves on.</li>
     </ul>
   </section>
 
   <!-- ── outcomes ── -->
   <section class="block">
-    <div class="rule-head"><h2>What you’ll be able to do</h2></div>
-    <p class="lede">The six outcomes every segment is built backwards from.</p>
+    <div class="rule-head"><h2>What you can do after this course</h2></div>
+    <p class="lede">This list states the goals of this course.</p>
     <ol>
-      <li><strong>Open any screen and say where its numbers come from.</strong> JobTread? The Google Sheet? The companion database? Computed on the spot?</li>
-      <li><strong>Follow one click through the whole system</strong> — phone tap → Vercel → server route → JobTread’s API → back to the screen — naming the file at each hop.</li>
-      <li><strong>Explain the money model in the app’s own terms:</strong> budget vs. actual, cost items vs. documents, why “unbilled” is a subtraction and not a stored field.</li>
-      <li><strong>Know what’s dangerous.</strong> Which code paths write to live JobTread, what the two write flags do, and why read-only is the house rule.</li>
-      <li><strong>Ask for a change precisely</strong> — “add a column to Unbilled, sourced from the job’s cost items” rather than “make Unbilled better.”</li>
-      <li><strong>Judge a proposed change.</strong> Recognise when a suggestion fights the architecture — especially the JobTread↔Sheet mirror.</li>
+      <li><strong>Open any screen. State the source of each number on the screen.</strong> Is the source JobTread? Is the source the Google Sheet? Is the source the companion database? Does the app calculate the number at that moment?</li>
+      <li><strong>Follow 1 user action through the whole system.</strong> Trace the path: the phone, Vercel, the server route, JobTread’s API, back to the screen. Name the file at each step.</li>
+      <li><strong>Explain the money system in the app’s own words.</strong> Explain budget vs. actual cost, a cost item vs. a document, and why the app calculates the unbilled amount instead of storing it.</li>
+      <li><strong>Know the dangerous parts of the code.</strong> Know which code paths write to the live JobTread system, the job of the 2 write switches, and why the app reads data by default.</li>
+      <li><strong>Ask for a change in exact, useful terms.</strong> Good example: “Add a column to Unbilled. Get the data from the job’s cost items.” Weak example: “Make Unbilled better.”</li>
+      <li><strong>Judge a proposed change, from any source, including an AI.</strong> Decide if the change fits the existing design, or creates a conflict with the JobTread-to-Sheet sync process.</li>
     </ol>
   </section>
 
@@ -358,15 +360,15 @@
   <section class="block">
     <div class="rule-head">
       <p class="eyebrow">The spine</p>
-      <h2>Five ideas the whole app hangs on</h2>
+      <h2>5 ideas behind the whole app</h2>
     </div>
-    <p>Every segment is a variation on one of these. If you only ever remember five things, remember these.</p>
+    <p>Every segment connects to 1 of these 5 ideas. Remember these 5 ideas above all other facts in this course.</p>
     <ol class="stack-tight">
-      <li><strong>The app owns almost no data.</strong> It is a lens. JobTread holds the money, Sheets and Drive hold the office records, and a small companion database holds only the leftovers.</li>
-      <li><strong>Secrets live on the server, never in the browser.</strong> The JobTread key sits in Vercel’s environment. Your phone never sees it.</li>
-      <li><strong>Reads are cheap and open; writes are gated.</strong> Writing is deliberately hard to do by accident.</li>
-      <li><strong>Who-sees-what is enforced on the server</strong>, not hidden in the UI — in one file everything else defers to.</li>
-      <li><strong>Don’t race the mirror.</strong> A separate back end already syncs JobTread → Sheet → Drive every hour. New write paths that fight that loop are the main way this system can corrupt itself.</li>
+      <li><strong>The app stores almost no data of its own.</strong> The app is a viewer for other systems. JobTread holds the money data. Sheets and Drive hold the office records. A small companion database holds only the data with no other home.</li>
+      <li><strong>A secret key stays on the server. A secret key never reaches the browser.</strong> The JobTread key sits in Vercel’s environment settings. Your phone never sees this key.</li>
+      <li><strong>A read action is open to any signed-in user. A write action needs special permission.</strong> This design makes an accidental write action difficult.</li>
+      <li><strong>The server, not the screen design, controls who can see what data.</strong> 1 file holds this rule. All other code follows this 1 file.</li>
+      <li><strong>Do not create a conflict with the sync process.</strong> A separate back end already copies data from JobTread to the Sheet and to Drive, every hour. A new write path that conflicts with this copy is the main risk to the correctness of this system.</li>
     </ol>
   </section>
 
@@ -374,68 +376,71 @@
   <section class="block">
     <div class="rule-head">
       <p class="eyebrow">The program</p>
-      <h2>Twelve segments, four units</h2>
+      <h2>12 segments, 4 units</h2>
     </div>
     <p class="lede">
-      Tap a segment to read it. Budget 30–45 minutes each — reading the referenced
-      files as you go roughly doubles that, and roughly doubles what sticks.
+      Tap a segment to read it. Plan 30 to 45 minutes for each segment. If you also
+      read the real files, plan double this time — and remember roughly double as
+      much.
     </p>
     <div class="unit" id="syllabus"><!-- built by script --></div>
     <div class="card">
-      <p class="eyebrow">If you want the fast path</p>
-      <p>Segments <strong>1, 2, 4, 5, 6 and 7</strong> are the core. Those six get you to “I understand what this program does and what’s risky about it.” The rest add depth on the parts you touch most.</p>
+      <p class="eyebrow">The fast path</p>
+      <p>Segment <strong>1, 2, 4, 5, 6, and 7</strong> form the core of this course. These 6 segments give you 2 results: understanding of the app, and understanding of its risks. The other segments add detail about the parts of the app you use the most.</p>
     </div>
   </section>
 
   <!-- ── how to read ── -->
   <section class="block">
     <div class="rule-head"><h2>How each segment is built</h2></div>
-    <p>Every segment follows the same five-part shape, so you always know where you are:</p>
+    <p>Every segment has the same 5 parts. This design helps you know your place in the course at all times:</p>
     <ol>
-      <li><strong>The question</strong> — one plain sentence the segment answers.</li>
-      <li><strong>The idea</strong> — the concept in business terms, no code.</li>
-      <li><strong>The evidence</strong> — the actual code in small excerpts, each translated. Real paths and line numbers, so you can open them yourself.</li>
-      <li><strong>Check yourself</strong> — questions with the answers hidden until you tap.</li>
-      <li><strong>What this unlocks</strong> — what you can now ask for, or now recognise as risky.</li>
+      <li><strong>The Question</strong> — 1 plain question. The segment answers this question.</li>
+      <li><strong>The Idea</strong> — 1 concept in plain business terms. No code.</li>
+      <li><strong>The Evidence</strong> — real code, in small pieces. A plain explanation sits next to each piece. Real file paths and line numbers, so you can open them yourself.</li>
+      <li><strong>Check Yourself</strong> — a small set of questions. Try each question before you read the answer.</li>
+      <li><strong>What This Unlocks</strong> — new things you can now ask for, and new risks you can now recognize.</li>
     </ol>
 
-    <h3>How to actually read the code</h3>
-    <p>You don’t need a development setup. In order of convenience:</p>
+    <h3>How to read the code</h3>
+    <p>You do not need a development setup for this course. Here are 3 options, in order of ease:</p>
     <ul>
-      <li><strong>On GitHub, on your phone.</strong> Every file path maps to <code>github.com/notkeywitt/ascent-companion/blob/main/&lt;path&gt;</code>. Tapping through is genuinely fine.</li>
-      <li><strong>Ask Claude.</strong> “Show me <code>src/lib/views.ts</code> lines 220–240 and explain <code>OFFICE_VIEWS</code>” is a perfectly good way to work through a segment.</li>
-      <li><strong>Locally</strong>, if you ever want it: <code>npm install &amp;&amp; npm run dev</code>.</li>
+      <li><strong>Option 1: GitHub, on your phone.</strong> Every file path maps to <code>github.com/notkeywitt/ascent-companion/blob/main/&lt;path&gt;</code>. You can read the code well through this method.</li>
+      <li><strong>Option 2: Ask Claude.</strong> Example request: “Show me <code>src/lib/views.ts</code>, lines 220 to 240. Explain the purpose of <code>OFFICE_VIEWS</code>.” This method works well for 1 segment at a time.</li>
+      <li><strong>Option 3: Run the code on your own computer.</strong> Commands: <code>npm install</code>, then <code>npm run dev</code>.</li>
     </ul>
     <p>
-      One notation to learn: <code>src/lib/views.ts:234</code> means <em>file
-      <code>src/lib/views.ts</code>, line 234</em>. That convention is used throughout.
+      A note on notation: the text <code>src/lib/views.ts:234</code> has 1 meaning: the file
+      <code>src/lib/views.ts</code>, at line 234. This course uses this format in many places.
     </p>
   </section>
 
   <!-- ── scale ── -->
   <section class="block">
-    <div class="rule-head"><h2>The size of the thing</h2></div>
+    <div class="rule-head"><h2>The size of the app, for scale</h2></div>
+    <p>These numbers come from the current branch of the code.</p>
     <div class="scroller">
       <table>
         <tbody>
-          <tr><td><strong>228</strong></td><td>TypeScript / TSX files, about 53,500 lines</td></tr>
-          <tr><td><strong>39</strong></td><td><code>page.tsx</code> files (screens), across 37 top-level routes</td></tr>
+          <tr><td><strong>228</strong></td><td>TypeScript and TSX files. About 53,500 lines of code in total.</td></tr>
+          <tr><td><strong>39</strong></td><td><code>page.tsx</code> files. Each file is 1 screen. These screens use 37 top-level routes.</td></tr>
           <tr><td><strong>98</strong></td><td>server API routes</td></tr>
           <tr><td><strong>18</strong></td><td>tables in the companion database</td></tr>
-          <tr><td><strong>8</strong></td><td>test files, covering the pure-logic modules</td></tr>
-          <tr><td><strong>3</strong></td><td>back ends: JobTread, the Apps Script engine, the companion database</td></tr>
+          <tr><td><strong>8</strong></td><td>test files. These tests check the pure-logic parts of the code.</td></tr>
+          <tr><td><strong>3</strong></td><td>back-end systems: JobTread, the Apps Script engine, the companion database</td></tr>
         </tbody>
       </table>
     </div>
     <p>
-      That’s a real application — bigger than most people assume when they hear “an app
-      my contractor business uses.” But it is <em>organised</em>, and by Segment 4 you’ll
-      be able to place any one of those 228 files into a category without opening it.
+      This is a real, large application. The size is larger than most people expect,
+      for “an app for a contractor business.” But the code has clear organization.
+      After Segment 4, you can place any of these 228 files into its correct category,
+      with no need to open the file.
     </p>
   </section>
 
   <footer>
-    <p>Source of record: <code>docs/course/</code> in the <code>ascent-companion</code> repo. Progress is stored on this device only.</p>
+    <p>The master copy of this course lives in <code>docs/course/</code>, in the <code>ascent-companion</code> repository. This device stores your reading progress. No other device sees this progress.</p>
     <button class="linkbtn" id="reset" type="button">Reset my progress</button>
   </footer>
 </main>
@@ -446,7 +451,7 @@
   <section class="block">
     <div class="stack">
       <p class="eyebrow">Unit A · Orientation · about 40 minutes</p>
-      <h1>Segment 1 — The shape of the thing</h1>
+      <h1>Segment 1 — How the App Is Built</h1>
     </div>
     <div class="card card-accent resume hidden" id="jumpCard">
       <p class="eyebrow">You were here last time</p>
@@ -458,73 +463,79 @@
   <!-- part 1 -->
   <section class="part" data-part="1" data-name="The question">
     <p class="part-n">1 · The question</p>
-    <blockquote>When you tap something on your phone and a number appears on the screen — what actually happened, and where did that number come from?</blockquote>
-    <p>By the end of this segment you’ll be able to answer that for any screen in the app, and name the specific files involved.</p>
+    <blockquote>You tap an item on your phone. A number appears on the screen. Where does this number come from? What steps happen before the number appears?</blockquote>
+    <p>After this segment, you can answer these 2 questions for any screen in the app. You can also name the exact files that do the work.</p>
   </section>
 
   <!-- part 2 -->
   <section class="part" data-part="2" data-name="The idea">
     <p class="part-n">2 · The idea</p>
 
-    <h2>The app is a lens, not a filing cabinet</h2>
+    <h2>The app is a viewer. The app is not a filing cabinet.</h2>
     <p>
-      The most important thing to understand about the Ascent Assistant is what it
-      <em>doesn’t</em> do: <strong>it doesn’t store your business data.</strong>
+      Here is the most important fact about the Ascent Assistant:
+      <strong>the app does not store your business data.</strong>
     </p>
     <p>
-      There’s no “Ascent Assistant database of bills.” There’s no copy of your jobs.
-      When the Unbilled screen shows you $47,320 of uninvoiced cost on a job, that
-      number did not come out of storage. It was fetched from JobTread seconds ago, and
-      it will be fetched again the next time someone opens the screen.
+      The app has no database of bills. The app has no copy of your jobs. Look at the
+      Unbilled screen. This screen can show an amount, for example $47,320, for costs
+      not yet on a customer invoice. The app did not get this amount from storage. The
+      app got this amount from JobTread a few seconds before. The app will get this
+      amount from JobTread again, the next time a user opens the screen.
     </p>
     <p>
-      That’s a deliberate choice with a real consequence: <strong>the app can never be
-      out of sync with JobTread</strong>, because it has nothing of its own to fall out
-      of sync. It also means the app is only as fast as JobTread is — which is why
-      caching shows up so much in the code.
+      This design has 2 results. Result one: the app data can never go out of date
+      compared to JobTread, because the app keeps no data of its own to go out of date.
+      Result two: the app is only as fast as JobTread is. This is the reason the code
+      uses many <strong>caches</strong>. A cache is a temporary store. A cache holds an
+      old answer for a short time, so the app does not have to ask again right away.
     </p>
 
-    <h2>The three back ends</h2>
-    <p>“The app” is really a front end sitting in front of three different places where data lives. Almost every screen is a combination of these.</p>
+    <h2>The app has 3 back ends</h2>
+    <p>The app is a <strong>front end</strong>. A front end is a program that shows data from other systems to a user. The app gets data from 3 back-end systems. Almost every screen combines data from 1 or more of these systems.</p>
     <div class="scroller">
       <table>
-        <thead><tr><th>Back end</th><th>What lives there</th><th>How the app reaches it</th><th>Who owns it</th></tr></thead>
+        <thead><tr><th>Back end</th><th>What it stores</th><th>How the app reaches it</th><th>Which system is correct</th></tr></thead>
         <tbody>
           <tr>
             <td><strong>JobTread</strong><br>(the “Pave” API)</td>
             <td>Jobs, budgets, cost items, vendor bills, customer invoices, payments, time entries, contacts</td>
-            <td>HTTPS request to <code>api.jobtread.com/pave</code></td>
-            <td>JobTread. <strong>Source of truth for anything financial.</strong></td>
+            <td>An HTTPS request to <code>api.jobtread.com/pave</code></td>
+            <td>JobTread. <strong>JobTread holds the correct value for all money data.</strong></td>
           </tr>
           <tr>
-            <td><strong>Google Sheets &amp; Drive</strong></td>
-            <td>Employee roster, tool inventory, mileage log, safety sign-ins, requisitions, the Expenditure archive, PDFs</td>
-            <td>HTTPS request to the Apps Script web app in <code>ascent-appscript</code></td>
+            <td><strong>Google Sheets and Google Drive</strong></td>
+            <td>The employee roster, the tool list, the mileage log, safety sign-in records, requisitions, the Expenditure archive, PDF files</td>
+            <td>An HTTPS request to the Apps Script web app in <code>ascent-appscript</code></td>
             <td>Ascent’s Google Workspace</td>
           </tr>
           <tr>
             <td><strong>The companion database</strong></td>
-            <td>The leftovers: RFIs, feature requests, the sign-in allowlist, leave balances, lead follow-ups, editable page text — 18 tables</td>
-            <td>Direct database queries (Drizzle over libSQL)</td>
+            <td>The data with no other home: RFIs, feature requests, the sign-in allow list, leave balances, lead follow-ups, editable page text. 18 tables in total.</td>
+            <td>A direct database query (Drizzle over libSQL)</td>
             <td>This app</td>
           </tr>
         </tbody>
       </table>
     </div>
-    <p>The rule that decides which one a piece of data belongs in is simple, and it explains a <em>lot</em> of file placement:</p>
-    <blockquote><strong>JobTread first. Sheets if it was already there. The companion database only if neither of the other two has a home for it.</strong></blockquote>
+    <p>A simple rule decides which system stores a fact. Learn this rule now. This rule explains many decisions in the code:</p>
+    <blockquote><strong>Check JobTread first. Use Sheets only if the data was already there. Use the companion database only if JobTread and Sheets have no place for the data.</strong></blockquote>
     <p>
-      That’s why leave <em>requests</em> live in the companion database — JobTread has no
-      concept of a PTO request — but approved leave gets <em>posted into JobTread</em> as
-      a time entry, because JobTread does have a concept of hours against a job.
+      This rule explains the design of the Time Off feature. JobTread has no object for
+      a leave request. So the app stores a leave request in the companion database. But
+      an approved leave request becomes hours worked on a job. JobTread does have an
+      object for this: the <strong>time entry</strong>. So the app writes an approved
+      leave request into JobTread, as a time entry.
     </p>
 
-    <h2>The fourth thing: the app’s own server</h2>
-    <p>Here’s the piece that’s easy to miss, and it’s the key to Segments 2 and 4.</p>
+    <h2>The fourth part: the app’s own server</h2>
+    <p>There is a fourth part of this system. Many users do not know about this part. This part is the key to Segment 2 and Segment 4.</p>
     <p>
-      Your phone does <strong>not</strong> talk to JobTread. It can’t — the JobTread key
-      is a password to your entire company’s financial data, and anything sent to a
-      browser can be read by whoever holds the phone.
+      Your phone does <strong>not</strong> send requests to JobTread. Your phone cannot
+      do this safely. JobTread requires a <strong>grant key</strong> for every request.
+      A grant key acts like a password. A grant key gives access to all the company’s
+      money data. A browser can be read by any person who holds the phone. For this
+      reason, a grant key must never reach the browser.
     </p>
     <pre class="trace"><code>  YOUR PHONE                 VERCEL (the app's server)          THE WORLD
   ----------                 -------------------------          ---------
@@ -534,71 +545,73 @@
                   &lt;-plain--                         &lt;-data---
                     numbers</code></pre>
     <p>
-      The left half is public — anyone with the phone can see it. The right half is
-      private, running on Vercel’s servers with the secrets. Every piece of data on
-      every screen crosses that line exactly once.
+      The left half is public. Any person who holds the phone can see this half. The
+      right half is private. This half runs on Vercel’s servers. This half holds every
+      secret key. Every piece of data, for every screen, crosses this line exactly 1
+      time.
     </p>
-    <p>Keep that diagram in your head. Nearly every architectural rule in this codebase is a consequence of it.</p>
+    <p>Remember this diagram. Almost every design rule in this code comes from this 1 fact.</p>
   </section>
 
   <!-- part 3 -->
   <section class="part" data-part="3" data-name="The evidence">
     <p class="part-n">3 · The evidence</p>
     <p>
-      Let’s follow one real screen all the way through: <strong>the Jobs cost browser</strong>
-      (<code>/jobs</code>) — the screen showing a job’s budget vs. actual, laid out like the
-      office Tracking Sheet.
+      This part follows 1 real screen through the full system. The example is the Jobs
+      cost browser, at the route <code>/jobs</code>. A <strong>route</strong> is the
+      address of a screen. This screen shows a job’s budget against the job’s actual
+      cost. This screen has the same layout as the office Tracking Sheet.
     </p>
 
     <h2>Hop 1 — The page (11 lines)</h2>
-    <p><code>src/app/jobs/page.tsx</code>, the entire file:</p>
+    <p>Here is the file <code>src/app/jobs/page.tsx</code>. This is the entire file:</p>
     <pre><code>import { JobsBrowser } from "./JobsBrowser";
 
 export default function JobsPage() {
   return &lt;JobsBrowser /&gt;;
 }</code></pre>
     <p>
-      That’s it. <strong>This is the pattern for every screen in the app</strong>: a tiny
-      <code>page.tsx</code> that runs on the <em>server</em>, whose only job is to hand off
-      to a bigger component that runs in the <em>browser</em>.
+      This file shows the pattern for every screen in the app. Each screen has a small
+      file named <code>page.tsx</code>. This file runs on the <em>server</em>. This file
+      has 1 job: to send control to a larger component. This larger component runs in
+      the <em>browser</em>. The server part is the safe place for secret keys. The
+      browser part shows buttons and receives taps. This design puts the border, between
+      safe code and unsafe code, directly into the file structure.
     </p>
     <p>
-      Why the split? The server half is where secrets would be safe; the browser half is
-      where buttons and taps live. Splitting them makes the boundary visible in the file
-      structure itself. On some screens the <code>page.tsx</code> passes something down
-      (a non-secret bit of context like the JobTread org id); here it has nothing to
-      pass, and the comment in the file says so.
-    </p>
-    <p>
-      <strong>Naming convention worth learning now:</strong> a folder under
-      <code>src/app/</code> <em>is</em> a URL. <code>src/app/jobs/page.tsx</code> →
-      <code>/jobs</code>. <code>src/app/time-off/page.tsx</code> → <code>/time-off</code>.
-      <code>src/app/bill/[docId]/page.tsx</code> → <code>/bill/22ABC123</code> (square
-      brackets mean “anything goes here”). That’s the whole routing rule — 39 folders,
-      39 screens.
+      Learn this naming rule now: a folder under <code>src/app/</code> becomes a URL.
+      The folder <code>src/app/jobs/</code> becomes the URL <code>/jobs</code>. The
+      folder <code>src/app/time-off/</code> becomes the URL <code>/time-off</code>. The
+      folder <code>src/app/bill/[docId]/</code> becomes a URL such as
+      <code>/bill/22ABC123</code>. The square brackets mean: put any value here. This is
+      the full routing rule. The app has 39 folders of this kind. The app has 39
+      screens. This course page is proof of the rule: this page lives at
+      <code>src/app/course/</code>.
     </p>
 
     <h2>Hop 2 — The browser asks the app’s own server</h2>
-    <p><code>src/app/jobs/JobsBrowser.tsx:1</code> starts with:</p>
+    <p>The file <code>src/app/jobs/JobsBrowser.tsx</code> starts with these words:</p>
     <pre><code>"use client";</code></pre>
     <p>
-      Those two words are the border marker. Everything in a file beginning with
-      <code>"use client"</code> runs <strong>on the phone</strong>. No secrets may appear
-      here, ever.
+      These 2 words mark a border. Every file that starts with these words runs
+      <strong>on the phone</strong>. A file with these words must never contain a
+      secret key.
     </p>
-    <p>At <code>src/app/jobs/JobsBrowser.tsx:293</code>, when the screen loads:</p>
+    <p>When the screen loads, this file sends a request:</p>
     <pre><code>fetch("/api/jobs/browser")</code></pre>
     <p>
-      Read that carefully — it’s asking for <code>/api/jobs/browser</code>,
-      <strong>a route on the Ascent Assistant itself</strong>, not on JobTread. The phone
-      has no idea JobTread exists. It asks its own app a question and gets an answer.
+      Read this request with care. This request asks for
+      <code>/api/jobs/browser</code>. This is <strong>a route on the Ascent Assistant
+      server</strong>, not a route on JobTread. The phone does not know that JobTread
+      exists. The phone sends a request to its own app. The app sends an answer back to
+      the phone.
     </p>
-    <p>Later, at line 341, when you pick a specific job:</p>
+    <p>Later, when a user picks 1 job, the same file sends a second request:</p>
     <pre><code>fetch(`/api/jobs/cost-detail?jobId=${encodeURIComponent(id)}`)</code></pre>
-    <p>Same idea — one more question to the app’s own server, this time with a job id attached.</p>
+    <p>This is the same pattern. The phone sends a request to the app’s own server. This request also carries the job’s ID.</p>
 
-    <h2>Hop 3 — The server route (the secret side)</h2>
-    <p><code>src/app/api/jobs/browser/route.ts</code> is 41 lines and worth reading in full. The core:</p>
+    <h2>Hop 3 — The server route (the side with the secret key)</h2>
+    <p>Here is the file <code>src/app/api/jobs/browser/route.ts</code>. This file has 41 lines. Read the full file for more detail. Here is the main part of the file:</p>
     <pre><code>const getCachedJobBrowserList = unstable_cache(
   async () =&gt; {
     const cfg = getPaveConfig();
@@ -611,14 +624,14 @@ export default function JobsPage() {
   ["api-jobs-browser"],
   { revalidate: 300, tags: ["jt-jobs"] },
 );</code></pre>
-    <p>In English, line by line:</p>
+    <p>Here is an explanation, in plain words, for each line:</p>
     <ul>
-      <li><code>getPaveConfig()</code> — reach into the server’s environment variables and pull out the JobTread grant key and org id. It lives at <code>src/lib/config.ts:4</code> and its comment says <em>“Never import this into client components”</em> — i.e. never let this run on a phone.</li>
-      <li><code>getJobs(cfg, true)</code> and <code>getJobPhaseMap(cfg)</code> — two questions to JobTread, asked at the same time (<code>Promise.all</code> = “do both, wait for both”).</li>
-      <li><code>jobs.map(...)</code> — stitch the two answers together: attach each job’s Phase to the job.</li>
-      <li><code>revalidate: 300</code> — <strong>cache this answer for 300 seconds.</strong> The next person to open the Jobs screen inside that window gets the stored answer instantly, without JobTread being asked again.</li>
+      <li><code>getPaveConfig()</code> reads the server’s environment variables. These variables hold the JobTread grant key and the organization ID. A comment in this file states a rule: never import this function into a client component. A client component runs on the phone.</li>
+      <li><code>getJobs(cfg, true)</code> and <code>getJobPhaseMap(cfg)</code> each send 1 request to JobTread. The code sends both requests at the same time. The instruction <code>Promise.all</code> does this: it starts both requests together, then waits for both answers.</li>
+      <li><code>jobs.map(...)</code> joins the 2 answers into 1 result. This step adds each job’s Phase value onto the matching job record.</li>
+      <li><code>revalidate: 300</code> sets a cache time of 300 seconds. This means: store this answer for 300 seconds, which is 5 minutes. During these 300 seconds, give this stored answer to any user who opens the Jobs screen. Do not ask JobTread again during this time.</li>
     </ul>
-    <p>The file’s own comment explains why it exists, and it’s a good window into how this codebase thinks:</p>
+    <p>A comment in this file explains the reason for this design. This comment gives a clear view into the design choices in this code:</p>
     <blockquote>
       “Doing the join here instead of in the browser is the load-time fix: the client used
       to page <code>organization.jobs</code> (up to 10 gateway round trips) and then page
@@ -626,25 +639,17 @@ export default function JobsPage() {
       fetch.”
     </blockquote>
     <p>
-      Thirty round trips from a phone on job-site cell service became one. That’s the kind
-      of decision that’s invisible on screen and enormous in practice.
+      In plain words: the old code asked <code>organization.jobs</code> from the browser,
+      in up to 10 separate requests. The old code then asked for the Status custom
+      field, in up to 20 more requests. The new code asks 1 time only. A change of this
+      kind is not visible on the screen. But this kind of change makes a large
+      difference in practice, for example on a job site with a weak phone signal.
     </p>
 
-    <h2>Hop 4 — Asking JobTread</h2>
-    <p><code>getJobs</code> is in the big shared JobTread module, <code>src/lib/jobtread.ts:1911</code>:</p>
-    <pre><code>export function getJobs(cfg: PaveConfig, includeClosed = false): Promise&lt;JobRef[]&gt; {
-  return cachedRef(`jobs:${cfg.orgId}:${includeClosed}`, 5 * 60_000, () =&gt;
-    _getJobsUncached(cfg, includeClosed),
-  );
-}</code></pre>
+    <h2>Hop 4 — The request to JobTread</h2>
+    <p>The function <code>getJobs</code> is in the file <code>src/lib/jobtread.ts:1911</code>. This function has a <em>second</em> cache. This cache lives in the app’s own memory. This cache also stores an answer for 5 minutes. Almost every office screen reads the job list. For this reason, the app stores this answer in 2 separate caches.</p>
     <p>
-      A <em>second</em> cache — this one inside the app’s own memory, also 5 minutes
-      (<code>5 * 60_000</code> milliseconds). Job lists are read on nearly every office
-      screen, so they’re worth remembering twice.
-    </p>
-    <p>
-      The real work is <code>_getJobsUncached</code> at line 1916, and this is the first
-      time you’ll see what a question to JobTread actually looks like:
+      The real work happens in <code>_getJobsUncached</code>. Here, for the first time, is what a request to JobTread looks like:
     </p>
     <pre><code>const r = await pave(cfg, {
   organization: {
@@ -664,51 +669,57 @@ export default function JobsPage() {
   },
 });</code></pre>
     <p>
-      This is JobTread’s query language (“Pave”). You don’t need to write it yet, but you
-      should be able to <em>read</em> it, because it’s remarkably literal:
+      JobTread reads a special data language, named <strong>Pave</strong>. A message in
+      this language is named a <strong>query</strong>. You do not need to write a query
+      yet. You can read a query now, because the words in this language are plain:
     </p>
     <blockquote>
-      “From the <strong>organization</strong> with this id, get its <strong>jobs</strong>.
-      For each one, give me the <strong>id</strong>, <strong>name</strong>,
-      <strong>number</strong>, <strong>closedOn</strong> date, and from its
-      <strong>location</strong>, the <strong>account’s name</strong> and the
-      <strong>formatted address</strong>.”
+      “Get the organization with this ID. From this organization, get the list of jobs.
+      For each job, give the <strong>ID</strong>, the <strong>name</strong>, the
+      <strong>number</strong>, and the <strong>closedOn</strong> date. For each job,
+      also get the <strong>location</strong>. From the location, give the account name
+      and the formatted address.”
     </blockquote>
     <p>
-      The empty braces <code>{}</code> mean “just the value, nothing nested inside it.” The
-      <code>$</code> key means “arguments” — the parameters for that part of the request.
-      That’s essentially the whole grammar, and Segment 3 covers it properly.
+      An empty pair of braces, <code>{}</code>, has 1 meaning: give this value only,
+      with no data nested inside it. The symbol <code>$</code> has 1 meaning: here are
+      the arguments for this part of the query. This is almost the whole grammar of the
+      Pave language. Segment 3 explains this language in full.
     </p>
     <p>
-      Note the loop around it: <code>for (let page = 0; page &lt; 50; page++)</code>.
-      JobTread hands back at most <strong>100 records at a time</strong>, plus a
-      <code>nextPage</code> token — a bookmark. The loop keeps asking, feeding the bookmark
-      back, until JobTread stops handing out bookmarks. Ascent has more than 100 jobs, so
-      this genuinely loops. It’s capped at 50 pages as a runaway guard.
+      JobTread sends back a maximum of <strong>100 records in 1 answer</strong>.
+      JobTread also sends a <code>nextPage</code> token. A token of this kind works like
+      a bookmark. The code sends this token back in the next query. The code repeats
+      this action until JobTread sends no more tokens.
     </p>
 
     <h2>Hop 5 — The actual network call</h2>
     <p>
-      Finally, <code>pave()</code> at <code>src/lib/jobtread.ts:39</code> is the one
-      function in the entire codebase that talks to <code>https://api.jobtread.com/pave</code>
-      (<code>src/lib/jobtread.ts:15</code>). Its first line:
+      The function <code>pave()</code>, in <code>src/lib/jobtread.ts</code>, is the only
+      function in the whole code that sends data to the address
+      <code>https://api.jobtread.com/pave</code>. Here is the first line of this
+      function:
     </p>
     <pre><code>const body = JSON.stringify({
   query: { $: { grantKey: cfg.grantKey }, ...query },
 });</code></pre>
     <p>
-      <strong>This is the moment the key is attached.</strong> Every other file in the app
-      composes questions <em>without</em> the key; <code>pave()</code> stamps it on at the
-      last second, on the server, and sends it. That single choke point is why the security
-      promise is credible — there’s exactly one place to check.
+      <strong>This line adds the grant key to the query.</strong> Every other file in
+      the app writes a query without the grant key. The function <code>pave()</code>
+      adds the grant key at the last step, on the server. Then this function sends the
+      query to JobTread. This design has 1 result: the code has only 1 place to check
+      for the grant key. This design makes the security rule easy to trust.
     </p>
     <p>
-      <code>pave()</code> also handles what happens when things go wrong. The short version:
-      <strong>a read that fails is retried up to three times; a write is never retried.</strong>
-      Because if you re-send “create a bill” after a timeout, you might create two.
+      The function <code>pave()</code> also controls repeat attempts. Read the comments
+      in the file for the full detail. Here is the plain rule:
+      <strong>the app repeats a failed read up to 3 times. The app never repeats a
+      failed write.</strong> A read does not change stored data. A write does change
+      stored data, for example a request to create a bill. If a write times out, and
+      the app repeats the write, the result can be 2 bills instead of 1.
     </p>
 
-    <h2>The whole trip, at a glance</h2>
+    <h2>The full trip, in 1 view</h2>
     <pre class="trace"><code>  /jobs on your phone
     |
     +- src/app/jobs/page.tsx ............ server, 11 lines, hands off
@@ -718,61 +729,62 @@ export default function JobsPage() {
     |              v         ~~~~ the security line ~~~~
     +- src/app/api/jobs/browser/route.ts  server, has the secrets, 5-min cache
     |     +- getJobs() ................. src/lib/jobtread.ts:1911, 5-min cache
-    |           +- _getJobsUncached() ... composes the query, pages by 100
+    |           +- _getJobsUncached() ... composes the Pave query, pages by 100
     |                 +- pave() ......... src/lib/jobtread.ts:39 - attaches the key
     |                       +--> api.jobtread.com/pave
     v
   numbers on the screen</code></pre>
     <p>
-      <strong>Six files. Two caches. One place the key appears.</strong> Every screen in
-      this app is a variation on that trip.
+      This trip uses <strong>6 files</strong>. This trip uses <strong>2 caches</strong>.
+      The grant key appears in <strong>1 place</strong> only. Every screen in the app
+      follows a similar trip.
     </p>
-    <h3>One thing that is <em>not</em> on this trip</h3>
+    <h3>One fact that is not part of this trip</h3>
     <p>
-      Notice what never happened: the phone never sent a JobTread key, never knew a
-      JobTread URL, and couldn’t have asked JobTread anything even if the code were
-      tampered with. Protecting that property is what Segment 4 is entirely about.
+      Notice what did not happen. The phone did not send a grant key. The phone did not
+      know the JobTread address. Even a broken copy of the app on the phone could not
+      send a query to JobTread. Segment 4 explains how the app protects this rule.
     </p>
   </section>
 
   <!-- part 4 -->
   <section class="part" data-part="4" data-name="Check yourself">
     <p class="part-n">4 · Check yourself</p>
-    <p class="lede">Try each one before you open the answer.</p>
+    <p class="lede">Try each question before you read the answer.</p>
 
     <details>
-      <summary>1. A colleague says “the app’s copy of the job list is stale — can you re-import it?” What’s wrong with the question?</summary>
-      <div class="a"><p><strong>There is no copy to re-import.</strong> The app holds no job list of its own. If the list looks stale it’s either a cache holding an answer for up to 5 minutes, or JobTread itself is behind — and the fix is to wait or clear the cache, never to “re-import.”</p></div>
+      <summary>1. A coworker says this: “The app’s copy of the job list is old. Please re-import the list.” What is wrong with this request?</summary>
+      <div class="a"><p><strong>The app has no copy of the job list to re-import.</strong> The app holds no job list of its own. The list can look old for 1 of 2 reasons. Reason one: a cache holds an old answer, for up to 5 minutes. Reason two: JobTread itself has old data. The correct fix is to wait, or to clear the cache. The correct fix is never to “re-import” data.</p></div>
     </details>
 
     <details>
-      <summary>2. You open the Jobs screen, then open it again 90 seconds later. How many times did JobTread get asked for the job list?</summary>
-      <div class="a"><p><strong>Once.</strong> Both caches — Next’s route cache at 300 seconds and the in-memory <code>cachedRef</code> at 5 minutes — still hold the answer at 90 seconds, so JobTread isn’t asked again. This is also why a job created in JobTread can take a few minutes to appear in the app: a known, deliberate trade.</p></div>
+      <summary>2. You open the Jobs screen. You open the Jobs screen again, 90 seconds later. How many times did the app ask JobTread for the job list? Why?</summary>
+      <div class="a"><p><strong>1 time.</strong> Two caches store the answer: the route cache, for 300 seconds, and the in-memory cache, for 5 minutes. At 90 seconds, both caches still hold the answer. JobTread is not asked again. For this same reason, a new job in JobTread can take a few minutes to appear in the app. This is a known, accepted result of the design.</p></div>
     </details>
 
     <details>
-      <summary>3. Which of these files could safely contain the JobTread grant key — <code>jobs/page.tsx</code>, <code>jobs/JobsBrowser.tsx</code>, or <code>api/jobs/browser/route.ts</code>?</summary>
+      <summary>3. Look at these 3 files: <code>jobs/page.tsx</code>, <code>jobs/JobsBrowser.tsx</code>, and <code>api/jobs/browser/route.ts</code>. Which file can safely hold the JobTread grant key?</summary>
       <div class="a">
-        <p>Only <strong><code>src/app/api/jobs/browser/route.ts</code></strong> could — and it does, indirectly, via <code>getPaveConfig()</code>.</p>
-        <p><code>JobsBrowser.tsx</code> is marked <code>"use client"</code>, so it runs on the phone and the key would be exposed. <code>page.tsx</code> technically runs on the server, but by convention nothing in a <code>page.tsx</code> uses the key — it exists to hand off, so the one thing it hands to a client component is never a secret. Keeping key use confined to <code>src/app/api/**</code> is what makes the rule auditable.</p>
+        <p>Only <strong><code>src/app/api/jobs/browser/route.ts</code></strong> can safely hold the grant key. This file does hold the grant key, through the function <code>getPaveConfig()</code>.</p>
+        <p>The file <code>JobsBrowser.tsx</code> has the mark <code>"use client"</code>. This file runs on the phone. A grant key in this file would become visible to the phone. The file <code>page.tsx</code> runs on the server. But, by design rule, this file never holds a grant key. This file has 1 job: to send control to another component. The app keeps all grant-key use inside the folder <code>src/app/api/</code>. This rule makes the security design easy to check.</p>
       </div>
     </details>
 
     <details>
-      <summary>4. What URL does the file <code>src/app/time-off/page.tsx</code> serve?</summary>
-      <div class="a"><p><strong><code>/time-off</code></strong>. The folder path under <code>src/app/</code> is the URL.</p></div>
+      <summary>4. What URL comes from the file <code>src/app/time-off/page.tsx</code>?</summary>
+      <div class="a"><p><strong><code>/time-off</code></strong>. The folder path under <code>src/app/</code> becomes the URL.</p></div>
     </details>
 
     <details>
-      <summary>5. Why is a failed <em>read</em> to JobTread retried automatically, but a failed <em>write</em> is not?</summary>
-      <div class="a"><p>A read that never completed changed nothing — asking again is free and safe. A write that timed out is ambiguous: it may have landed in JobTread before the connection dropped. Re-sending it risks a duplicate bill, line, or payment. <code>pave()</code> makes this decision automatically by inspecting whether the query contains a mutation.</p></div>
+      <summary>5. Why does the app repeat a failed <em>read</em> to JobTread, but never repeat a failed <em>write</em>?</summary>
+      <div class="a"><p>A read does not change stored data. If a read fails, the read changed nothing. A repeat of the read is safe. A write does change stored data, for example a new bill. If a write times out, the app cannot know the true result. The write can have reached JobTread before the connection failed. A repeat of the write can create a second bill, a second line, or a second payment.</p></div>
     </details>
 
     <details>
-      <summary>6. An RFI lives in the companion database, but an approved PTO day gets written into JobTread. Why does each live where it does?</summary>
+      <summary>6. An RFI stays in the companion database. An approved PTO day goes into JobTread. Explain the reason for each choice.</summary>
       <div class="a">
-        <p><strong>RFIs:</strong> JobTread has no RFI object at all, and RFIs aren’t part of the pre-existing Sheets world, so the companion database is the only home left.</p>
-        <p><strong>PTO:</strong> the request-and-approval workflow has no JobTread equivalent, so that part lives in the companion database. But once approved, the result is simply <em>hours against a job</em> — which is exactly what a JobTread time entry is. So it posts there, where the rest of the company’s labour cost already lives, and shows up in job costing like any other hours.</p>
+        <p><strong>RFI:</strong> JobTread has no object for an RFI. The Sheets system also has no place for an RFI. For this reason, the companion database is the only correct home for RFI data.</p>
+        <p><strong>PTO:</strong> JobTread has no object for a PTO request, and no object for a PTO approval step. For this reason, the companion database stores the request and the approval step. But an approved PTO day becomes hours worked on a job. JobTread does have an object for this: the time entry. For this reason, the app writes the approved PTO day into JobTread, as a time entry. All other labor-cost data already lives in this same place.</p>
       </div>
     </details>
   </section>
@@ -780,18 +792,18 @@ export default function JobsPage() {
   <!-- part 5 -->
   <section class="part" data-part="5" data-name="What this unlocks">
     <p class="part-n">5 · What this unlocks</p>
-    <p>You can now:</p>
+    <p>After this segment, you can do these 4 things:</p>
     <ul>
-      <li><strong>Locate any screen’s code from its URL.</strong> <code>/unbilled</code> → <code>src/app/unbilled/</code>. This alone makes the other eleven segments navigable.</li>
-      <li><strong>Read a request the right way round.</strong> When someone says “the page is slow,” you have five specific places to ask about: the phone’s request, the route, the cache, the JobTread query, and JobTread itself.</li>
-      <li><strong>Ask for changes precisely.</strong> “The Jobs browser should also show the job’s Phase” is answerable — you know it’s already fetched, in <code>src/app/api/jobs/browser/route.ts</code>.</li>
-      <li><strong>Spot a dangerous suggestion.</strong> If any proposal involves the browser talking to JobTread directly, or storing a JobTread key anywhere a phone can reach, it’s wrong. No exceptions, and you don’t need more context to say so.</li>
+      <li><strong>Find the code for any screen, from its URL alone.</strong> The URL <code>/unbilled</code> points to the folder <code>src/app/unbilled/</code>. This 1 skill makes the other 11 segments easier to follow.</li>
+      <li><strong>Trace a slow request in the correct order.</strong> A person may say: “The page is slow.” You now know 5 places to check: the phone’s request, the route, the cache, the JobTread query, and JobTread itself.</li>
+      <li><strong>Ask for a change in exact, useful terms.</strong> Good example: “Add the job’s Phase to the Jobs browser.” You know that the app already reads this value, in the file <code>src/app/api/jobs/browser/route.ts</code>.</li>
+      <li><strong>Find a dangerous proposal.</strong> Some proposals are always wrong. A proposal is wrong if it lets the browser send a query to JobTread directly. A proposal is wrong if it stores a grant key where a phone can read it. You do not need more information to reject a proposal of this kind.</li>
     </ul>
 
     <div class="card card-accent">
       <p class="eyebrow">Next up</p>
-      <h3>Segment 2 — The door</h3>
-      <p>How the app decides who gets in, what the four roles mean, and why a Field employee doesn’t just have the Financials screens <em>hidden</em> — they’re locked before the page ever runs.</p>
+      <h3>Segment 2 — Sign-In and Roles</h3>
+      <p>This segment explains how the app decides who can sign in. This segment explains the 4 roles. This segment explains 1 more fact: for a Field employee, the Financials screens are not just hidden. The server blocks these screens before the page runs.</p>
       <p class="bar-label" style="text-transform:none;letter-spacing:0">Not written yet.</p>
     </div>
 
@@ -812,23 +824,25 @@ export default function JobsPage() {
 
   var KEY = "ascent-course-v1";
 
+  // Titles and one-line teasers are written in ASD-STE100 (Simplified Technical
+  // English) style: short sentences, plain words, no idioms, no contractions.
   var SEGMENTS = [
     { u: "Unit A — Orientation" },
-    { n: 1,  t: "The shape of the thing",        q: "What the app is, its three back ends, and one complete round trip from tap to screen", ready: true },
-    { n: 2,  t: "The door",                      q: "Sign-in, the four roles, per-user overrides, and why gating happens on the server" },
+    { n: 1,  t: "How the App Is Built",              q: "The app's 3 back ends. 1 full request, from a tap on the phone to the answer on the screen.", ready: true },
+    { n: 2,  t: "Sign-In and Roles",                 q: "Sign-in rules. The 4 roles. Why the server, not the screen, blocks a page." },
     { u: "Unit B — The JobTread layer" },
-    { n: 3,  t: "Talking to JobTread",           q: "The Pave query grammar, the client that speaks it, retries, caching, and the expensive gotchas" },
-    { n: 4,  t: "The gateway and write safety",  q: "The one generic door into JobTread, the two write flags, and the per-role allowlist" },
-    { n: 5,  t: "The money model",               q: "Jobs, budgets, cost items, documents, and why unbilled is a subtraction" },
+    { n: 3,  t: "The JobTread Query Language",       q: "The Pave query grammar. Retries. Caches. Costly mistakes to avoid." },
+    { n: 4,  t: "The Gateway and Write Rules",       q: "The 1 general door into JobTread. The 2 write switches. The rule list for each role." },
+    { n: 5,  t: "How the App Tracks Money",          q: "Jobs, budgets, cost items, documents. Why the app calculates the unbilled amount." },
     { u: "Unit C — The workflows" },
-    { n: 6,  t: "The billing workflow",          q: "A bill's whole life: arrives, coded, approved, invoiced — screen by screen" },
-    { n: 7,  t: "The other back end",            q: "The Apps Script bridge to Sheets and Drive, the shared secret, and the hourly mirror" },
-    { n: 8,  t: "The companion database",        q: "What earns a place in the app's own database, with PTO accrual as the worked example" },
-    { n: 9,  t: "The field apps",                q: "Time, mileage, safety sign-ins, tools — phone hardware in, JobTread and Sheets out" },
+    { n: 6,  t: "The Billing Process",               q: "A bill's full life: it arrives, gets a code, gets approval, becomes part of an invoice." },
+    { n: 7,  t: "The Sheets and Drive System",       q: "The Apps Script bridge. The shared secret. The hourly sync job." },
+    { n: 8,  t: "The Companion Database",            q: "What earns a place in the app's own database. PTO accrual as the example." },
+    { n: 9,  t: "The Field Screens",                 q: "Time entries, mileage, safety sign-in, tools. Phone data in; JobTread and Sheets out." },
     { u: "Unit D — Around the edges" },
-    { n: 10, t: "The AI parts",                  q: "Gemini reading invoices, Claude answering questions, and why the assistant is read-only" },
-    { n: 11, t: "The look and the words",        q: "The design system, and the on-screen text you can reword without a deploy" },
-    { n: 12, t: "How it ships, how it breaks",   q: "Branches, previews, production, environment variables, tests, and the known weak points" }
+    { n: 10, t: "The AI Features",                   q: "Gemini reads invoices. Claude answers questions. Why the assistant never writes data." },
+    { n: 11, t: "The Design System and Editable Text", q: "Why every screen matches. On-screen text a user can edit, with no new deployment." },
+    { n: 12, t: "Deployment and Known Problems",     q: "Branches. Preview builds. Production. Environment variables. Tests. Known weak points." }
   ];
 
   var TOTAL = 12;
@@ -965,11 +979,11 @@ export default function JobsPage() {
       var btn = startCard.querySelector(".btn");
       var msg = startCard.querySelector("p");
       if (next === null) {
-        msg.textContent = "Everything written so far is complete. Segment 2 is next when it lands.";
+        msg.textContent = "You have read every segment written so far. Segment 2 arrives next.";
         btn.textContent = "Re-read Segment 1";
         btn.setAttribute("data-open", "1");
       } else {
-        msg.textContent = "Nothing read yet. Segment 1 takes about 40 minutes and is the one that makes the other eleven navigable.";
+        msg.textContent = "You have read no segment yet. Segment 1 takes about 40 minutes. Segment 1 is the segment that makes the other 11 segments easier to follow.";
         btn.textContent = "Start Segment " + next;
         btn.setAttribute("data-open", String(next));
       }
