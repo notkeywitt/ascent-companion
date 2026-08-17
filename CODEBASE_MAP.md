@@ -110,7 +110,10 @@ Each page is a server component (`page.tsx`) that hands non-secret context to a
 - **Office:** `employees`, `leads`, `labor-import`, `labor-rates`,
   `time-sync`.
 - **System / admin:** `admin`, `logs`, `historical-cost`, `requests`,
-  `actions`, plus `login`, `privacy` (ungated).
+  `actions`, `course` (the in-app "Reading Your Own App" walkthrough —
+  `course/page.tsx` + `course/[seg]` reader; metadata `src/lib/course.ts`,
+  bodies `course/segments.tsx`, progress `src/lib/useCourseProgress.ts`), plus
+  `login`, `privacy` (ungated).
 - **Root:** `page.tsx` (home launcher — the primary nav), `layout.tsx`,
   `manifest.ts`, `global-error.tsx`.
 

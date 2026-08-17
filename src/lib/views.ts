@@ -190,6 +190,10 @@ export const VIEWS: ViewDef[] = [
   // route answers. The numbers live in server-only env vars, never in the DB.
   { id: "bank-details", label: "Bank Details", group: "System", paths: ["/api/bank-details"] },
   { id: "requests", label: "Requests", group: "System", paths: ["/requests"] },
+  // "Reading Your Own App" — the in-app course through this codebase. Read-only,
+  // no JobTread/DB access of its own (progress lives in the browser), so it needs
+  // no API prefix. Office+admin by default (not in the FIELD/LEAD sets below).
+  { id: "course", label: "Course", group: "System", paths: ["/course"] },
   // The API route is listed alongside the page so the Home launcher's admin
   // action bar — buttons on a page EVERY role loads — can't be driven by a
   // non-admin who POSTs /api/actions directly.
