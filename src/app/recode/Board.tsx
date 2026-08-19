@@ -81,6 +81,8 @@ import { useUnsavedChanges } from "@/lib/useUnsavedChanges";
 interface BillRef {
   id: string;
   label: string;
+  externalId: string | null;
+  number: string | null;
   vendor: string;
   cost: number;
   status: string;
@@ -893,6 +895,10 @@ export function Board() {
   const [monthSaving, setMonthSaving] = useState(false);
   const [reassigning, setReassigning] = useState(false);
   const [filingMsg, setFilingMsg] = useState("");
+  // Vendor Bill Number (JobTread externalId) editor for the open bill. Local draft
+  // synced from the bill; committed on blur so we don't write on every keystroke.
+  const [billNumberDraft, setBillNumberDraft] = useState("");
+  const [billNumberSaving, setBillNumberSaving] = useState(false);
 
   // All reset when the open bill changes — they're about the CURRENT bill's
   // lines, and stale selections/forms from a previous bill would silently
@@ -908,6 +914,12 @@ export function Board() {
     setDeleteLineMsg("");
     setFilingMsg("");
   }, [openDocId]);
+
+  // Keep the Bill Number draft in step with the open bill — on open, and after a
+  // save/reload re-reads its externalId from JobTread.
+  useEffect(() => {
+    setBillNumberDraft(openBill?.externalId ?? "");
+  }, [openDocId, openBill?.externalId]);
 
   // Stage one cost code onto every line of the open bill (into `staged`, so it
   // flows through the same Sync path as a single drag/dropdown recode — nothing
@@ -1224,6 +1236,37 @@ export function Board() {
       setFilingMsg(e instanceof Error ? e.message : "Network error");
     } finally {
       setMonthSaving(false);
+    }
+  };
+
+  // Save the Vendor Bill Number (JobTread externalId). Writes immediately, like
+  // the billing-month edit, then reloads so the field reflects JobTread's truth.
+  // A re-number keeps the bill on this board, so success is reported in the card.
+  const saveBillNumber = async () => {
+    if (!openBill) return;
+    const next = billNumberDraft.trim();
+    const current = (openBill.externalId ?? "").trim();
+    if (next === current) return;
+    setBillNumberSaving(true);
+    setFilingMsg("");
+    try {
+      const res = await fetch("/api/bill-number", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ docId: openBill.id, externalId: next }),
+      });
+      const json = await res.json();
+      if (!res.ok) setFilingMsg(json.error ?? "Couldn't set the bill number.");
+      else if (json.previewed)
+        setFilingMsg("Preview only — writes are OFF. The bill number wasn't changed.");
+      else {
+        setFilingMsg("Bill number saved.");
+        await load({ preserveStaged: true });
+      }
+    } catch (e) {
+      setFilingMsg(e instanceof Error ? e.message : "Network error");
+    } finally {
+      setBillNumberSaving(false);
     }
   };
 
@@ -3292,6 +3335,24 @@ export function Board() {
                 {data?.writesEnabled && !openBill.invoiced && (
                   <div className="mt-4 border-t border-line-soft pt-3 dark:border-neutral-800">
                     <SectionLabel className="mb-1.5">Filing</SectionLabel>
+                    {/* Vendor Bill Number (JobTread externalId) — the invoice/bill
+                        number, editable here; commits on blur. JobTread's own
+                        document number shows as the placeholder when it's unset. */}
+                    <Label htmlFor="filing-bill-number">Bill number</Label>
+                    <input
+                      id="filing-bill-number"
+                      type="text"
+                      value={billNumberDraft}
+                      maxLength={32}
+                      disabled={billNumberSaving || monthSaving || reassigning}
+                      onChange={(e) => setBillNumberDraft(e.target.value)}
+                      onBlur={saveBillNumber}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") e.currentTarget.blur();
+                      }}
+                      placeholder={openBill.number ? `#${openBill.number}` : "Invoice / bill number"}
+                      className="mb-3 h-9 w-full rounded-lg border border-neutral-300 bg-white px-2.5 font-mono text-xs transition focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 disabled:opacity-50 dark:border-neutral-600 dark:bg-ink"
+                    />
                     <Label htmlFor="filing-billing-month">Billing month</Label>
                     <Select
                       id="filing-billing-month"
