@@ -1543,7 +1543,18 @@ function BillDetail() {
       {header && (
         <Card className="mt-8 !p-4">
           <SectionLabel className="mb-3">Filing</SectionLabel>
+          {/* Vendor Bill Number — the invoice/bill number carried on the document
+              (JobTread's externalId, set from the invoice at ingestion). Read-only
+              here; correct it in JobTread if it's wrong. Falls back to JobTread's
+              own document number for bills logged before the number was captured. */}
           <div>
+            <Label>Bill number</Label>
+            <p className="font-mono text-sm text-neutral-700 dark:text-neutral-300">
+              {header.externalId || (header.number ? `#${header.number}` : "—")}
+            </p>
+          </div>
+
+          <div className="mt-4">
             <Label htmlFor="billing-month">Billing month</Label>
             <Select
               id="billing-month"
