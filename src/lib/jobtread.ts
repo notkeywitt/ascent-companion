@@ -1559,6 +1559,11 @@ async function _getJobCostContributorsUncached(
 export interface MonthBill {
   id: string;
   label: string; // invoice # / externalId, falling back to the vendor
+  /** Vendor Bill Number (JobTread externalId) — the invoice/bill number, editable
+   *  in the board's Filing card. Null when the bill carries none. */
+  externalId: string | null;
+  /** JobTread's own document number, shown as the placeholder when there's no externalId. */
+  number: string | null;
   vendor: string;
   cost: number;
   status: string; // draft | pending | approved
@@ -1690,6 +1695,8 @@ export async function getJobBillsForMonth(
       return {
         id: b.id,
         label: ref && isSunset ? `${vendor} · ${ref}` : vendor,
+        externalId: b?.externalId ? String(b.externalId) : null,
+        number: b?.number != null ? String(b.number) : null,
         vendor,
         cost: typeof b?.cost === "number" ? b.cost : 0,
         status: b?.status ?? "",
