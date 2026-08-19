@@ -3493,19 +3493,32 @@ export function Board() {
                             {drillTime.map((t) => (
                               <li
                                 key={t.id}
-                                className="flex items-center gap-2 rounded-lg border border-line px-2.5 py-2 text-xs dark:border-neutral-800"
+                                className="rounded-lg border border-line px-2.5 py-2 text-xs dark:border-neutral-800"
                               >
-                                <span className="min-w-0 flex-1 truncate">
-                                  <span className="font-medium">{t.employee}</span>
-                                  <span className="ml-1 text-neutral-500 dark:text-neutral-400">
-                                    {t.startedAt ? t.startedAt.slice(0, 10) : ""} ·{" "}
-                                    {t.hours.toFixed(1)}h
-                                    {!t.isApproved ? " · unapproved" : ""}
+                                <div className="flex items-center gap-2">
+                                  <span className="min-w-0 flex-1 truncate">
+                                    <span className="font-medium">{t.employee}</span>
+                                    <span className="ml-1 text-neutral-500 dark:text-neutral-400">
+                                      {t.startedAt ? t.startedAt.slice(0, 10) : ""} ·{" "}
+                                      {t.hours.toFixed(1)}h
+                                      {!t.isApproved ? " · unapproved" : ""}
+                                    </span>
                                   </span>
-                                </span>
-                                <span className="shrink-0 tabular-nums font-semibold">
-                                  {money(t.cost)}
-                                </span>
+                                  <span className="shrink-0 tabular-nums font-semibold">
+                                    {money(t.cost)}
+                                  </span>
+                                </div>
+                                {/* Same treatment as the "Time & labor" block's
+                                    entries — the note is what the crew typed
+                                    about the hours, so it wraps in full rather
+                                    than truncating. Reaching an entry by cost
+                                    code shouldn't show less than reaching it
+                                    down the bills list. */}
+                                {t.notes && (
+                                  <p className="mt-0.5 whitespace-pre-line text-[11px] leading-snug text-neutral-600 dark:text-neutral-400">
+                                    {t.notes}
+                                  </p>
+                                )}
                               </li>
                             ))}
                           </ul>
