@@ -498,6 +498,28 @@ export async function setBillIssueDate(
 }
 
 /**
+ * WRITE — set a bill's Vendor Bill Number (JobTread's `externalId`, the vendor's
+ * invoice/bill number). Capped at JobTread's 32-char limit; an empty string clears
+ * it. Never touches lineItems (updateDocument with lineItems wipes cost items —
+ * CLAUDE.md). Note this is also the ingestion dedup key, but that only matters at
+ * create time — editing an existing bill's number here is safe.
+ */
+export async function setBillExternalId(
+  cfg: PaveConfig,
+  docId: string,
+  externalId: string,
+): Promise<string> {
+  const value = String(externalId ?? "").slice(0, 32);
+  const r = await pave(cfg, {
+    updateDocument: {
+      $: { id: docId, externalId: value },
+      document: { $: { id: docId }, id: {}, externalId: {} },
+    },
+  });
+  return r?.updateDocument?.document?.externalId ?? value;
+}
+
+/**
  * WRITE — set a bill's document-level sales tax. This is JobTread's "Tax" field:
  * `nonRecoverableTax` (a DOLLAR amount) with `nonRecoverableTaxName` "Tax" — the
  * same field/name the Apps Script push uses (JobTread.js). Confirmed live 2026-07-29

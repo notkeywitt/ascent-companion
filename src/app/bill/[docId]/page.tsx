@@ -230,6 +230,11 @@ function BillDetail() {
   const [deletingId, setDeletingId] = useState("");
   const [buybackId, setBuybackId] = useState("");
   const [taxEdit, setTaxEdit] = useState<string | null>(null); // null = not editing (shows JT's value)
+  // Vendor Bill Number editor (JobTread externalId). Local draft synced from the
+  // header; committed on blur so we don't write on every keystroke.
+  const [billNumber, setBillNumber] = useState("");
+  const [billNumberSaving, setBillNumberSaving] = useState(false);
+  const [billNumberMsg, setBillNumberMsg] = useState("");
   // Bottom drawer holding the bill's secondary actions (open in JobTread, mark
   // reviewed, tracking-sheet sync). Collapsed by default so the save row and
   // the bill itself keep the screen; the panel is hidden, not unmounted.
@@ -334,6 +339,48 @@ function BillDetail() {
       });
     }
   }, [prevId, nextId, jobId, loading, cacheEpoch]);
+
+  // Keep the Bill Number draft in step with the header JobTread returns (on load,
+  // navigation between bills, and after a save re-reads the doc).
+  useEffect(() => {
+    setBillNumber(header?.externalId ?? "");
+    setBillNumberMsg("");
+  }, [header?.externalId, docId]);
+
+  // Persist the edited Vendor Bill Number (JobTread externalId). Optimistic, with
+  // a revert on failure; runs on blur only when the value actually changed.
+  async function saveBillNumber() {
+    const next = billNumber.trim();
+    const current = (header?.externalId ?? "").trim();
+    if (next === current) return;
+    setBillNumberSaving(true);
+    setBillNumberMsg("");
+    setHeader((h) => (h ? { ...h, externalId: next } : h)); // optimistic
+    try {
+      const res = await fetch("/api/bill-number", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ docId, externalId: next }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setHeader((h) => (h ? { ...h, externalId: current } : h)); // revert
+        setBillNumberMsg(json.error ?? "Save failed");
+      } else if (json.previewed) {
+        setHeader((h) => (h ? { ...h, externalId: current } : h)); // nothing written
+        setBillNumberMsg("Writes are OFF — nothing saved to JobTread.");
+      } else {
+        setBillNumberMsg("Saved.");
+        invalidateBills(); // cached payload still carries the old number
+        reloadJtWindow(); // refresh JobTread's view
+      }
+    } catch (e) {
+      setHeader((h) => (h ? { ...h, externalId: current } : h)); // revert
+      setBillNumberMsg(e instanceof Error ? e.message : "Network error");
+    } finally {
+      setBillNumberSaving(false);
+    }
+  }
 
   const round2 = (n: number) => Math.round(n * 100) / 100;
   // JobTread stores each line's cost tax-INCLUSIVE, and a bill's TOTAL is ALWAYS the sum of
@@ -1544,14 +1591,28 @@ function BillDetail() {
         <Card className="mt-8 !p-4">
           <SectionLabel className="mb-3">Filing</SectionLabel>
           {/* Vendor Bill Number — the invoice/bill number carried on the document
-              (JobTread's externalId, set from the invoice at ingestion). Read-only
-              here; correct it in JobTread if it's wrong. Falls back to JobTread's
-              own document number for bills logged before the number was captured. */}
+              (JobTread's externalId, set from the invoice at ingestion). Editable
+              here; commits on blur. JobTread's own document number (#…) shows as a
+              placeholder for bills logged before the number was captured. */}
           <div>
-            <Label>Bill number</Label>
-            <p className="font-mono text-sm text-neutral-700 dark:text-neutral-300">
-              {header.externalId || (header.number ? `#${header.number}` : "—")}
-            </p>
+            <Label htmlFor="bill-number">Bill number</Label>
+            <input
+              id="bill-number"
+              type="text"
+              value={billNumber}
+              maxLength={32}
+              disabled={billNumberSaving}
+              onChange={(e) => setBillNumber(e.target.value)}
+              onBlur={saveBillNumber}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") e.currentTarget.blur();
+              }}
+              placeholder={header.number ? `#${header.number}` : "Invoice / bill number"}
+              className="h-11 w-full rounded-lg border border-neutral-300 bg-white px-3 font-mono text-sm transition focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 disabled:opacity-50 dark:border-neutral-600 dark:bg-ink"
+            />
+            {billNumberMsg && (
+              <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">{billNumberMsg}</p>
+            )}
           </div>
 
           <div className="mt-4">
