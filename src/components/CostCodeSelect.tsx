@@ -9,6 +9,7 @@ export interface Option {
   detail?: string; // this row's own name ("Wood Decking - Labor", "Punch List")
   costType?: string; // Labor / Materials / Subcontractor / Other
   cost?: number; // this row's estimated amount; 0 = placeholder nobody budgeted
+  division?: string; // JobTread's parent cost code — the division this code sits in
 }
 
 /**

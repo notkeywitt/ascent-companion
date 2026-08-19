@@ -1,11 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { BillStatusBadge } from "@/components/BillStatusBadge";
 import { driveMainWindowToDoc, money } from "@/components/BillingSummary";
 import { Banner, CardSkeletonList, EmptyState, Toggle } from "@/components/ui";
 import { useCopy } from "@/components/CopyProvider";
+import { useUnsavedChanges } from "@/lib/useUnsavedChanges";
+import {
+  DraftBudgetRail,
+  DraftCodingPanel,
+  useBillEditor,
+  useIsWide,
+  type Selection,
+} from "./DraftWorkbench";
 
 /**
  * "Needs coding" — every draft vendor bill in JobTread, across every job and
@@ -18,9 +26,12 @@ import { useCopy } from "@/components/CopyProvider";
  * (draft) rather than by date — which is exactly how a forgotten bill gets
  * found.
  *
- * Reads the same /api/coding-queue endpoint as before; each row opens the bill's
- * detail page for coding (and, in the desktop side panel, drives the adjacent
- * JobTread window to the same document).
+ * LAYOUT. On a phone this is a list, and a row opens the bill's own page. From
+ * `xl` up it becomes the same three-column workbench the job view uses —
+ * Budget | bills | Coding — and a row SELECTS its bill instead of navigating to
+ * it, so the whole queue can be worked without leaving the page. The side
+ * columns and the editing state live in DraftWorkbench.tsx; read that file for
+ * why they load per-bill rather than per-job.
  */
 
 interface Bill {
@@ -58,8 +69,42 @@ const billTitle = (b: Bill) => {
   return isSunset && inv ? `${vendor} · ${inv}` : vendor;
 };
 
+/**
+ * A queue row's outer element: a <button> that selects the bill on the
+ * three-column layout, a <Link> to the bill's own page everywhere else.
+ */
+function RowShell({
+  wide,
+  active,
+  href,
+  onNavigate,
+  onSelect,
+  children,
+}: {
+  wide: boolean;
+  active: boolean;
+  href: string;
+  onNavigate: () => void;
+  onSelect: () => void;
+  children: React.ReactNode;
+}) {
+  const cls = `block w-full rounded-xl border bg-white p-3 text-left transition hover:border-accent hover:shadow-sm dark:bg-ink-raised ${
+    active ? "border-accent ring-1 ring-accent" : "border-line"
+  }`;
+  return wide ? (
+    <button type="button" onClick={onSelect} aria-current={active ? "true" : undefined} className={cls}>
+      {children}
+    </button>
+  ) : (
+    <Link href={href} onClick={onNavigate} className={cls}>
+      {children}
+    </Link>
+  );
+}
+
 export function DraftQueue() {
   const c = useCopy();
+  const wide = useIsWide();
   const [bills, setBills] = useState<Bill[] | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -68,6 +113,14 @@ export function DraftQueue() {
   // The current month is usually still filling in, so hide it by default —
   // a toggle brings it back into view.
   const [hideCurrentMonth, setHideCurrentMonth] = useState(true);
+  /** The bill the side columns are pointed at (xl and up). */
+  const [selId, setSelId] = useState("");
+  /**
+   * Saved / reviewed marks earned in THIS session, laid over the list.
+   * /api/coding-queue is fetched once; without this, coding a bill in the panel
+   * would leave its row in the list still saying it had never been touched.
+   */
+  const [flags, setFlags] = useState<Record<string, { saved?: boolean; reviewed?: boolean }>>({});
 
   useEffect(() => {
     let alive = true;
@@ -97,16 +150,116 @@ export function DraftQueue() {
   const currentMonthPrefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   const isCurrentMonth = (b: Bill) => (b.issueDate ?? "").startsWith(currentMonthPrefix);
 
-  const reviewedCount = bills?.filter((b) => b.reviewed).length ?? 0;
+  const flagged = useCallback(
+    (b: Bill) => ({
+      saved: flags[b.id]?.saved ?? b.saved ?? false,
+      reviewed: flags[b.id]?.reviewed ?? b.reviewed ?? false,
+    }),
+    [flags],
+  );
+
+  const reviewedCount = bills?.filter((b) => flagged(b).reviewed).length ?? 0;
   const currentMonthCount = bills?.filter(isCurrentMonth).length ?? 0;
   // What the list actually renders — reviewed bills and/or the current month
   // drop out unless shown.
-  const visible = bills
-    ? bills.filter((b) => (!hideReviewed || !b.reviewed) && (!hideCurrentMonth || !isCurrentMonth(b)))
-    : null;
+  const visible = useMemo(
+    () =>
+      bills
+        ? bills.filter(
+            (b) =>
+              (!hideReviewed || !flagged(b).reviewed) &&
+              (!hideCurrentMonth || !isCurrentMonth(b)),
+          )
+        : null,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [bills, hideReviewed, hideCurrentMonth, flagged, currentMonthPrefix],
+  );
   const total = visible?.reduce((s, b) => s + billAmount(b), 0) ?? 0;
 
-  return (
+  // ---- the selected bill, and stepping through the queue -------------------
+
+  const selIdx = visible?.findIndex((b) => b.id === selId) ?? -1;
+  const selBill = selIdx >= 0 ? visible![selIdx] : null;
+  const sel: Selection | null = selBill
+    ? {
+        docId: selBill.id,
+        jobId: (selBill.jobId ?? "").trim(),
+        label: billTitle(selBill),
+        jobName: selBill.jobName ?? "",
+      }
+    : null;
+
+  const onSaved = useCallback((docId: string) => {
+    setFlags((f) => ({ ...f, [docId]: { ...f[docId], saved: true } }));
+  }, []);
+  const onReviewed = useCallback((docId: string, v: boolean) => {
+    setFlags((f) => ({ ...f, [docId]: { ...f[docId], reviewed: v } }));
+  }, []);
+  const editor = useBillEditor(sel, { onSaved, onReviewed });
+
+  // The panel's edits are staged in the browser until Save, so every way off
+  // this page has to warn — including the tab switch back to "This month".
+  useUnsavedChanges(
+    editor.changeCount > 0,
+    "This bill has unsaved coding changes. Leave without saving? Your changes will be lost.",
+  );
+
+  /** Move the panel to another bill, keeping unsaved work from vanishing silently. */
+  const select = useCallback(
+    (id: string) => {
+      if (id === selId) return;
+      if (
+        editor.changeCount > 0 &&
+        !window.confirm("This bill has unsaved coding changes. Discard them and open the next bill?")
+      )
+        return;
+      setSelId(id);
+      const b = bills?.find((x) => x.id === id);
+      if (b) driveMainWindowToDoc((b.jobId ?? "").trim(), b.id);
+    },
+    [selId, editor.changeCount, bills],
+  );
+
+  const step = (delta: number) => {
+    if (!visible || selIdx < 0) return;
+    const next = visible[selIdx + delta];
+    if (next) select(next.id);
+  };
+
+  // Marking the open bill reviewed while "show reviewed" is off filters its row
+  // out from under you — which would otherwise blank both side columns at the
+  // exact moment you finished a bill. Move to whatever now occupies its place
+  // instead, so finishing one bill lands you on the next.
+  const lastIdx = useRef(0);
+  useEffect(() => {
+    if (selIdx >= 0) lastIdx.current = selIdx;
+  }, [selIdx]);
+  useEffect(() => {
+    if (!selId || selIdx >= 0 || !visible) return;
+    const next = visible[Math.min(lastIdx.current, visible.length - 1)];
+    setSelId(next?.id ?? "");
+  }, [selId, selIdx, visible]);
+
+  // Land on the first bill so the workbench opens ready to work, rather than
+  // with two empty columns. Desktop only — below xl the columns aren't rendered
+  // and the fetch would be spent on nothing. Once only: clearing the selection
+  // by filtering shouldn't yank you back to the top of the list.
+  const didAutoSelect = useRef(false);
+  useEffect(() => {
+    if (!wide || didAutoSelect.current || !visible || visible.length === 0) return;
+    didAutoSelect.current = true;
+    setSelId(visible[0].id);
+  }, [wide, visible]);
+
+  // Keep the selected row on screen while stepping with ‹ Prev / Next ›.
+  useEffect(() => {
+    if (!wide || !selId) return;
+    document
+      .getElementById(`draft-row-${selId}`)
+      ?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [selId, wide]);
+
+  const list = (
     <>
       {loading && <CardSkeletonList rows={4} />}
 
@@ -150,31 +303,43 @@ export function DraftQueue() {
             </div>
             <span className="shrink-0 font-mono text-sm font-semibold">{money(total)}</span>
           </div>
-          <ul className="space-y-2">
+
+          {/* The list scrolls inside itself on the workbench layout, so the two
+              docked columns beside it stay put while you work down the queue. */}
+          <ul className="space-y-2 xl:max-h-[calc(100dvh-13rem)] xl:overflow-y-auto xl:pr-1">
             {visible.map((b) => {
               // Each bill carries its own job — this list spans every job, and
               // the bill view needs it to load the right budget/CTC.
               const billJobId = (b.jobId ?? "").trim();
+              const f = flagged(b);
+              const active = wide && b.id === selId;
               return (
-                <li key={b.id}>
-                  <Link
+                <li key={b.id} id={`draft-row-${b.id}`}>
+                  <RowShell
+                    // From xl up the coding panel is on screen, so a row PICKS a
+                    // bill — a real button, not a link, or the unsaved-changes
+                    // guard would fire its "leaving the page" confirm on top of
+                    // this one's. Below xl the bill has nowhere to open here, so
+                    // the row is the link to its own page it has always been.
+                    wide={wide}
+                    active={active}
                     href={`/bill/${b.id}?jobId=${encodeURIComponent(billJobId)}&from=drafts`}
-                    onClick={() => driveMainWindowToDoc(billJobId, b.id)}
-                    className="block rounded-xl border border-line bg-white p-3 transition hover:border-accent hover:shadow-sm dark:bg-ink-raised"
+                    onNavigate={() => driveMainWindowToDoc(billJobId, b.id)}
+                    onSelect={() => select(b.id)}
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
                           <div className="truncate font-medium">{billTitle(b)}</div>
                           <BillStatusBadge status={b.status} />
-                          {b.reviewed ? (
+                          {f.reviewed ? (
                             <span
                               title="Marked reviewed in the Assistant"
                               className="inline-block shrink-0 rounded bg-emerald-600 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white"
                             >
                               ✓ Reviewed
                             </span>
-                          ) : b.saved ? (
+                          ) : f.saved ? (
                             <span
                               title="Save has been clicked on this bill"
                               className="inline-block shrink-0 rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300"
@@ -196,7 +361,7 @@ export function DraftQueue() {
                         <div className="text-xs text-neutral-500">{b.issueDate || ""}</div>
                       </div>
                     </div>
-                  </Link>
+                  </RowShell>
                 </li>
               );
             })}
@@ -217,5 +382,30 @@ export function DraftQueue() {
         </>
       )}
     </>
+  );
+
+  return (
+    // One column on a phone (the list alone), three from xl — the same
+    // Budget | bills | Coding shape as the job workbench, and the same docked
+    // side columns. `self-start` is what lets a sticky grid item scroll within
+    // its row instead of being stretched to the row's full height.
+    <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+      <section className="hidden min-w-0 xl:block xl:sticky xl:top-16 xl:self-start">
+        <DraftBudgetRail editor={editor} sel={sel} />
+      </section>
+
+      <section className="min-w-0">{list}</section>
+
+      <section className="hidden min-w-0 xl:block xl:sticky xl:top-16 xl:self-start">
+        <DraftCodingPanel
+          editor={editor}
+          sel={sel}
+          position={selIdx + 1}
+          count={visible?.length ?? 0}
+          onPrev={() => step(-1)}
+          onNext={() => step(1)}
+        />
+      </section>
+    </div>
   );
 }

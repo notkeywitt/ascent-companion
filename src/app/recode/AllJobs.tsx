@@ -83,7 +83,14 @@ export function AllJobs() {
   );
 
   return (
-    <main className="mx-auto max-w-2xl px-4 pb-24 pt-6">
+    // "This month" is a single reading column. "Needs coding" becomes the
+    // three-column workbench from xl up (see DraftQueue), which needs the same
+    // wide canvas the job workbench uses — so the cap only lifts on that tab.
+    <main
+      className={`mx-auto px-4 pb-24 pt-6 ${
+        tab === "drafts" ? "w-full max-w-2xl xl:max-w-[110rem]" : "max-w-2xl"
+      }`}
+    >
       <PageHeader
         title={c("page.recode.title")}
         description={c(tab === "month" ? "recode.header.descMonth" : "recode.header.descNeedsCoding")}

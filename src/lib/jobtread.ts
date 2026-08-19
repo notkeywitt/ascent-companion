@@ -605,6 +605,12 @@ export interface BudgetItem {
   costType?: string;
   /** This row's estimated amount — 0 marks a placeholder row nobody budgeted. */
   cost?: number;
+  /**
+   * JobTread's own division name for this code (`costCode.parentCostCode`), so a
+   * budget rail can group codes the way JobTread does instead of printing a bare
+   * "Division 06". Absent when the code has no parent.
+   */
+  division?: string;
 }
 
 /**
@@ -647,7 +653,7 @@ async function _getJobBudgetUncached(cfg: PaveConfig, jobId: string): Promise<Bu
               name: {},
               cost: {},
               document: { id: {} },
-              costCode: { number: {}, name: {} },
+              costCode: { number: {}, name: {}, parentCostCode: { name: {} } },
               costType: { name: {} },
             },
           },
@@ -666,6 +672,7 @@ async function _getJobBudgetUncached(cfg: PaveConfig, jobId: string): Promise<Bu
           detail: n?.name ?? "",
           costType: n?.costType?.name ?? "",
           cost: typeof n?.cost === "number" ? n.cost : undefined,
+          division: n?.costCode?.parentCostCode?.name ?? undefined,
         });
       }
       cursor = co.nextPage ?? null;
