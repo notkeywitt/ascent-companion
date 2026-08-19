@@ -125,7 +125,8 @@ Grouped by domain; each folder is `…/route.ts`.
   `jt-users`, `jobs/*`, `job-budget`, `unbilled`, `historical-cost`.
 - **Bills / coding:** `bill/*`, `add-bill`, `add-line`, `delete-line`,
   `combine-lines`, `code`, `coding-queue`, `recode/*`, `bill-status`,
-  `bill-fields`, `bill-issuedate`, `bill-tax`, `bill-reviewed`, `uncaptured`,
+  `bill-fields`, `bill-issuedate`, `bill-number` (the vendor's own invoice
+  number — JobTread's `externalId`), `bill-tax`, `bill-reviewed`, `uncaptured`,
   `vendor-bills/*`, `vendor-bill-count`, `stuck-vendors`, `needs-project`,
   `reassign-job`.
 - **Invoicing surfaces:** `stage/*`, `lswdd`, `amazon-import/*`,
