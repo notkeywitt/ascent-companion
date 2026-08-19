@@ -220,7 +220,7 @@ function AddBill() {
             </dd>
             <dt className="text-neutral-500">Issue date</dt>
             <dd className="text-right">{result.issueDate ?? "—"}</dd>
-            <dt className="text-neutral-500">Ref</dt>
+            <dt className="text-neutral-500">Bill #</dt>
             <dd className="text-right font-mono text-xs">{result.externalId}</dd>
           </dl>
 

@@ -23,6 +23,7 @@ export interface ExtractedItem {
 
 export interface ExtractedBill {
   Vendor?: string; // JT account id, or "<name> NEW VENDOR" when unmatched
+  InvoiceNumber?: string; // the vendor's printed invoice/bill number (Vendor Bill Number)
   Amount?: number; // invoice grand total (subtotal + tax)
   Tax?: number; // total sales tax
   DueDate?: string; // yyyy-MM-dd
@@ -43,7 +44,7 @@ function buildPrompt(vendorList: string, validCSIs: string): string {
 
   return `You are a construction data parser. Extract JSON:
 {
-  "Vendor": string, "Amount": number, "Tax": number, "DueDate": "YYYY-MM-DD",
+  "Vendor": string, "InvoiceNumber": string, "Amount": number, "Tax": number, "DueDate": "YYYY-MM-DD",
   "CSI": string,
   "items": [{"description": string, "price": number, "quantity": number, "line_total": number, "csi": string}]
 }
@@ -55,7 +56,8 @@ RULES:
 4. 'Tax': The TOTAL sales tax charged on the invoice, as a positive number (the "Tax" / "Sales Tax" / "Total Tax" summary amount). Keep it OUT of 'items'. 'Amount' is the invoice GRAND TOTAL (subtotal + tax). If the invoice shows no tax, output 0.
 5. AMOUNTS ARE READ, NEVER COMPUTED: extract every 'price', 'quantity', and 'line_total' EXACTLY as printed on the document. NEVER adjust, rescale, prorate, or recompute any line amount to make totals reconcile. If the printed line items do not sum to Amount minus Tax, report them as printed anyway — do NOT change them.
 6. 'DueDate': The payment due date printed on the invoice, if any; else "".
-7. Return ONLY JSON.`;
+7. 'InvoiceNumber': The vendor's own invoice or bill number exactly as printed — the value labeled "Invoice #", "Invoice No", "Bill #", "Statement #", "Document #", or "Order #". Preserve letters, digits, and hyphens verbatim; do not add spaces. Do NOT return a purchase-order number, account number, phone number, or date as the invoice number. If no such number is printed, output "".
+8. Return ONLY JSON.`;
 }
 
 /**

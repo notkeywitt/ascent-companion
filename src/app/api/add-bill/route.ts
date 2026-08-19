@@ -10,7 +10,12 @@ import {
   type VendorRef,
 } from "@/lib/jobtread";
 import { extractBillWithGemini, type ExtractedBill } from "@/lib/gemini";
-import { computeBillDates, computeLineTaxability, taxReconcileWarning } from "@/lib/billing";
+import {
+  companyDateParts,
+  computeBillDates,
+  computeLineTaxability,
+  taxReconcileWarning,
+} from "@/lib/billing";
 import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
 import { kickJtSync } from "@/lib/appsScript";
 
@@ -22,6 +27,12 @@ import { kickJtSync } from "@/lib/appsScript";
  *   - the JOB is always human-picked (never AI);
  *   - billing period derives from the UPLOAD moment (arrival date standard),
  *     never a date printed on the document;
+ *   - the Vendor Bill Number (JobTread externalId) is the invoice/bill number
+ *     Gemini reads off the document; when none is legible it falls back to
+ *     <Vendor><MMDDYY> of the arrival date (e.g. "HomeDepot081926"). That number
+ *     also serves as the dedup key, so a re-upload of the same invoice is caught.
+ *     Sunset bills keep the per-file idempotency token instead (their numbering
+ *     is owned by the statement flow);
  *   - Gemini codes each line against the job's live budget; out-of-budget codes
  *     land UNCODED (the assistant's coding queue is the review step, replacing
  *     the AppSheet placeholder-CSI convention);
@@ -30,8 +41,9 @@ import { kickJtSync } from "@/lib/appsScript";
  * multipart/form-data fields:
  *   file        the invoice (pdf or image), ≤15 MB
  *   jobId       required
- *   externalId  required idempotency key, generated once per file by the UI
- *               ("INV-xxxxxxxx") so a retry can't double-create
+ *   externalId  required per-file token from the UI ("INV-xxxxxxxx"); the dedup
+ *               key for Sunset bills, superseded by the extracted Vendor Bill
+ *               Number for everyone else
  *   vendorId    optional JT account override (skip/replace Gemini's match)
  */
 
@@ -44,6 +56,28 @@ const ALLOWED_MIME = new Set([
   "image/heic",
   "image/heif",
 ]);
+
+/** Clean an extracted invoice/bill number for JobTread's externalId (≤32 chars).
+ *  Invoice numbers never carry internal spaces, so we strip whitespace and cap
+ *  the length; anything left is returned verbatim. */
+function sanitizeBillNumber(raw: string): string {
+  return String(raw ?? "").replace(/\s+/g, "").trim().slice(0, 32);
+}
+
+/** Fallback Vendor Bill Number when the document shows no legible invoice number:
+ *  <VendorName><MMDDYY> of the ARRIVAL date (e.g. "HomeDepot081926"), matching the
+ *  arrival-date billing standard the rest of ingestion uses. Alphanumerics only so
+ *  it reads as a single token; capped to JobTread's 32-char externalId (the date
+ *  suffix is preserved by trimming the vendor portion first). */
+function fallbackBillNumber(vendorName: string, arrival: Date): string {
+  const p = companyDateParts(arrival);
+  const mmddyy =
+    String(p.month).padStart(2, "0") +
+    String(p.day).padStart(2, "0") +
+    String(p.year).slice(-2);
+  const v = vendorName.replace(/[^A-Za-z0-9]/g, "").slice(0, 26);
+  return (v + mmddyy).slice(0, 32);
+}
 
 /** Resolve Gemini's Vendor answer (ideally a JT account id) to an account. */
 function resolveVendor(extractedVendor: string, vendors: VendorRef[]): VendorRef | null {
@@ -161,12 +195,29 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ---- 4. dates — billing period from the upload moment (arrival standard)
+    // ---- 4. dates + Vendor Bill Number — both anchored to the upload moment ---
     const sunsetId = (process.env.JT_SUNSET_VENDOR_ID ?? "").trim();
     const isSunset =
       (sunsetId !== "" && vendor.id === sunsetId) || /sunset builders/i.test(vendor.name);
-    const dates = computeBillDates(new Date(), isSunset, extracted.DueDate);
+    const arrival = new Date();
+    const dates = computeBillDates(arrival, isSunset, extracted.DueDate);
     warnings.push(...dates.warnings);
+
+    // Vendor Bill Number (JobTread's externalId, shown as the bill's number and
+    // used for dedup). For non-Sunset bills, use the invoice/bill number Gemini
+    // read off the document; when none is legible, fall back to <Vendor><MMDDYY>
+    // of the arrival date. Sunset keeps the per-file idempotency token it already
+    // carried (its own numbering convention is handled by the statement flow).
+    const extractedBillNumber = sanitizeBillNumber(String(extracted.InvoiceNumber ?? ""));
+    const billNumber = isSunset
+      ? externalId
+      : extractedBillNumber || fallbackBillNumber(vendor.name, arrival);
+    if (!isSunset && !extractedBillNumber) {
+      warnings.push(
+        `No invoice number was legible on the document — set the Vendor Bill Number to "${billNumber}" ` +
+          `(vendor + arrival date). Edit it in JobTread if the invoice has a number.`,
+      );
+    }
 
     // ---- 5. line items — code against the budget, uncoded when out-of-budget
     const tax = computeLineTaxability(extracted.Tax);
@@ -198,7 +249,7 @@ export async function POST(req: NextRequest) {
     // Guarantee at least one line (same fallback as production)
     if (lines.length === 0) {
       lines.push({
-        name: `${vendor.name} ${externalId} — Review Required`,
+        name: `${vendor.name} ${billNumber} — Review Required`,
         unitCost: Number(extracted.Amount) || 0,
         quantity: 1,
         isTaxable: tax.lineIsTaxable,
@@ -217,7 +268,7 @@ export async function POST(req: NextRequest) {
       const oneCode = csis.length === 1 ? (csis[0] as string) : undefined;
       lines = [
         {
-          name: `${vendor.name} ${externalId} — ${n} items (not itemized)`,
+          name: `${vendor.name} ${billNumber} — ${n} items (not itemized)`,
           description: oneCode ?? "",
           unitCost: net,
           quantity: 1,
@@ -240,7 +291,7 @@ export async function POST(req: NextRequest) {
       accountId: vendor.id,
       vendorName: isSunset ? "Sunset Builders Supply" : vendor.name,
       subject: `${jobInfo.name} - ${vendor.name}${codes ? ` - ${codes}` : ""}`,
-      externalId,
+      externalId: billNumber,
       issueDate: dates.issueDate,
       dueDate: dates.dueDate,
       dueDays: dates.dueDays,
@@ -262,7 +313,7 @@ export async function POST(req: NextRequest) {
       billingYear: dates.billing.billingYear,
       issueDate: dates.issueDate,
       dueDate: dates.dueDate ?? `net-${dates.dueDays}`,
-      externalId,
+      externalId: billNumber,
       warnings,
     };
 
@@ -287,7 +338,7 @@ export async function POST(req: NextRequest) {
     // ---- 7. idempotency — fail CLOSED on API error, adopt an existing doc ---
     let existing: string | null;
     try {
-      existing = await findBillByExternalId(cfg, vendor.id, externalId);
+      existing = await findBillByExternalId(cfg, vendor.id, billNumber);
     } catch (e) {
       return NextResponse.json(
         {
@@ -314,7 +365,7 @@ export async function POST(req: NextRequest) {
     let fileAttached = true;
     try {
       const ext = mime === "application/pdf" ? "pdf" : mime.split("/")[1] || "bin";
-      const name = file.name && file.name.includes(".") ? file.name : `${externalId}.${ext}`;
+      const name = file.name && file.name.includes(".") ? file.name : `${billNumber}.${ext}`;
       await attachFileToDocument(cfg, docId, bytes, mime, name);
     } catch (e) {
       fileAttached = false;
