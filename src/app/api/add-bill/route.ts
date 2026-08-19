@@ -29,10 +29,11 @@ import { kickJtSync } from "@/lib/appsScript";
  *     never a date printed on the document;
  *   - the Vendor Bill Number (JobTread externalId) is the invoice/bill number
  *     Gemini reads off the document; when none is legible it falls back to
- *     <Vendor><MMDDYY> of the arrival date (e.g. "HomeDepot081926"). That number
- *     also serves as the dedup key, so a re-upload of the same invoice is caught.
- *     Sunset bills keep the per-file idempotency token instead (their numbering
- *     is owned by the statement flow);
+ *     <Vendor><MMDDYY>-<tag> of the arrival date (e.g. "HomeDepot081926-a1b2c3d4"),
+ *     where <tag> is the per-file token so two no-number bills from one vendor on
+ *     one day don't collide. That number also serves as the dedup key, so a
+ *     re-upload of the same invoice is caught. Sunset bills keep the per-file
+ *     idempotency token instead (their numbering is owned by the statement flow);
  *   - Gemini codes each line against the job's live budget; out-of-budget codes
  *     land UNCODED (the assistant's coding queue is the review step, replacing
  *     the AppSheet placeholder-CSI convention);
@@ -65,18 +66,24 @@ function sanitizeBillNumber(raw: string): string {
 }
 
 /** Fallback Vendor Bill Number when the document shows no legible invoice number:
- *  <VendorName><MMDDYY> of the ARRIVAL date (e.g. "HomeDepot081926"), matching the
- *  arrival-date billing standard the rest of ingestion uses. Alphanumerics only so
- *  it reads as a single token; capped to JobTread's 32-char externalId (the date
- *  suffix is preserved by trimming the vendor portion first). */
-function fallbackBillNumber(vendorName: string, arrival: Date): string {
+ *  <VendorName><MMDDYY>-<tag> of the ARRIVAL date (e.g. "HomeDepot081926-a1b2c3d4"),
+ *  matching the arrival-date billing standard the rest of ingestion uses. The tag
+ *  is the per-file token the UI generates: it holds steady across a retry of one
+ *  upload (so the dedup still catches a re-submit) but differs between separate
+ *  uploads, so two no-number bills from the same vendor on the same day do NOT
+ *  collide on the externalId. Alphanumerics only in the vendor part; capped to
+ *  JobTread's 32-char externalId, with the date + tag reserved first so they
+ *  always survive the cap. */
+function fallbackBillNumber(vendorName: string, arrival: Date, tag: string): string {
   const p = companyDateParts(arrival);
   const mmddyy =
     String(p.month).padStart(2, "0") +
     String(p.day).padStart(2, "0") +
     String(p.year).slice(-2);
-  const v = vendorName.replace(/[^A-Za-z0-9]/g, "").slice(0, 26);
-  return (v + mmddyy).slice(0, 32);
+  const suffix = tag ? `-${tag}` : "";
+  const room = Math.max(0, 32 - mmddyy.length - suffix.length);
+  const v = vendorName.replace(/[^A-Za-z0-9]/g, "").slice(0, room);
+  return (v + mmddyy + suffix).slice(0, 32);
 }
 
 /** Resolve Gemini's Vendor answer (ideally a JT account id) to an account. */
@@ -209,13 +216,15 @@ export async function POST(req: NextRequest) {
     // of the arrival date. Sunset keeps the per-file idempotency token it already
     // carried (its own numbering convention is handled by the statement flow).
     const extractedBillNumber = sanitizeBillNumber(String(extracted.InvoiceNumber ?? ""));
+    // Disambiguator for the fallback: the per-file token's hex tail (INV-<tag>).
+    const tag = externalId.replace(/^INV-/i, "").trim();
     const billNumber = isSunset
       ? externalId
-      : extractedBillNumber || fallbackBillNumber(vendor.name, arrival);
+      : extractedBillNumber || fallbackBillNumber(vendor.name, arrival, tag);
     if (!isSunset && !extractedBillNumber) {
       warnings.push(
         `No invoice number was legible on the document — set the Vendor Bill Number to "${billNumber}" ` +
-          `(vendor + arrival date). Edit it in JobTread if the invoice has a number.`,
+          `(vendor + arrival date + a unique tag). Edit it in JobTread if the invoice has a number.`,
       );
     }
 
