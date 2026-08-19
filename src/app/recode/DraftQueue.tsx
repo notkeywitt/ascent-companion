@@ -220,6 +220,15 @@ export function DraftQueue() {
     [selId, editor.changeCount, bills],
   );
 
+  /**
+   * The bill was re-filed onto another job, so JobTread deleted this document
+   * and recreated it elsewhere — the row is stale. Drop it and step to whatever
+   * takes its place, the same landing the reviewed-filter case gets below.
+   */
+  const dropBill = useCallback((docId: string) => {
+    setBills((prev) => (prev ? prev.filter((b) => b.id !== docId) : prev));
+  }, []);
+
   const step = (delta: number) => {
     if (!visible || selIdx < 0) return;
     const next = visible[selIdx + delta];
@@ -404,6 +413,7 @@ export function DraftQueue() {
           count={visible?.length ?? 0}
           onPrev={() => step(-1)}
           onNext={() => step(1)}
+          onBillMoved={dropBill}
         />
       </section>
     </div>
