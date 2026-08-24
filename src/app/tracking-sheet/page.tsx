@@ -52,6 +52,30 @@ interface JobRef {
   url: string;
 }
 
+/**
+ * The automatic all-projects sync's state, from Apps Script's _tsSyncStatus().
+ * `paused` is a Script Property, not a trigger change: the trigger keeps firing
+ * and the run short-circuits, so resuming is instant and needs no reinstall.
+ */
+interface SyncStatus {
+  paused: boolean;
+  /** ISO stamp of when the pause was set. Empty while running. */
+  pausedAt: string;
+  /** Optional reason recorded with the pause. */
+  note: string;
+  /** False means nothing is scheduled at all — pausing would be moot. */
+  triggerInstalled: boolean;
+  intervalMinutes: number;
+  lastRun: {
+    at: string;
+    jobCount: number;
+    succeeded: number;
+    failed: number;
+    totalSynced: number;
+    elapsedMs: number;
+  } | null;
+}
+
 /** A tracking sheet wired to more than one project — sync is blocked until fixed. */
 interface SharedSheet {
   fileId: string;
@@ -121,6 +145,20 @@ const MONTH_NAMES = [
   "July", "August", "September", "October", "November", "December",
 ];
 
+/** "12 minutes ago" — the only thing anyone wants to know about the last run. */
+function timeAgo(iso: string): string {
+  const t = Date.parse(iso);
+  if (!Number.isFinite(t)) return "";
+  const mins = Math.round((Date.now() - t) / 60000);
+  if (mins < 1) return "just now";
+  if (mins === 1) return "1 minute ago";
+  if (mins < 60) return `${mins} minutes ago`;
+  const hrs = Math.round(mins / 60);
+  if (hrs === 1) return "1 hour ago";
+  if (hrs < 48) return `${hrs} hours ago`;
+  return `${Math.round(hrs / 24)} days ago`;
+}
+
 const money = (n: number) =>
   "$" + (Number(n) || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -163,9 +201,17 @@ export default function TrackingSheetPage() {
   // The ACTIVE period — the month every wired sheet's CURRENT INVOICE block is
   // held on by the hourly sync. It only moves when someone advances it below.
   const [defaultYm, setDefaultYm] = useState("");
+  // What the Automatic-sync card's month <Select> is showing. Starts on the
+  // held month; pinning it is a separate, explicit tap.
+  const [pinnedYm, setPinnedYm] = useState("");
   const [periodPinned, setPeriodPinned] = useState(false);
   const [pinning, setPinning] = useState(false);
   const [pinNote, setPinNote] = useState("");
+
+  // The automatic sync itself — paused or running, and how the last run went.
+  const [sync, setSync] = useState<SyncStatus | null>(null);
+  const [pausing, setPausing] = useState(false);
+  const [pauseError, setPauseError] = useState("");
 
   const [loading, setLoading] = useState(true);
   const [bootError, setBootError] = useState("");
@@ -192,7 +238,9 @@ export default function TrackingSheetPage() {
         const key = ymKey(Number(b.defaultMonth), Number(b.defaultYear));
         setDefaultYm(key);
         setYm(key);
+        setPinnedYm(key);
         setPeriodPinned(b.periodPinned === true);
+        setSync((b.sync as SyncStatus) || null);
       } catch (e) {
         if (alive) setBootError(e instanceof Error ? e.message : "Could not load projects.");
       } finally {
@@ -210,14 +258,14 @@ export default function TrackingSheetPage() {
   }, [defaultYm]);
 
   /**
-   * Move the ACTIVE period to whatever month is selected above. This is the only
-   * thing that advances it: the hourly sync holds the pinned month until this
+   * Pin the ACTIVE period to the month chosen in the Automatic-sync card. This
+   * is the only thing that moves it: the sync holds the pinned month until this
    * runs, so a month can't roll over mid-close and wipe CURRENT INVOICE before
    * it has been finalized into its reserved block.
    */
   const advancePeriod = useCallback(async () => {
-    if (!ym || pinning) return;
-    const { month, year } = parseYm(ym);
+    if (!pinnedYm || pinning) return;
+    const { month, year } = parseYm(pinnedYm);
     setPinning(true);
     setPinNote("");
     try {
@@ -230,14 +278,17 @@ export default function TrackingSheetPage() {
       if (!res.ok || b?.ok === false) {
         throw new Error(b?.error || `Request failed (${res.status})`);
       }
-      const moved = ym !== defaultYm;
-      setDefaultYm(ym);
+      const moved = pinnedYm !== defaultYm;
+      setDefaultYm(pinnedYm);
       setPeriodPinned(true);
+      // The manual month follows the held month unless it was deliberately
+      // pointed somewhere else, so the common case needs one tap, not two.
+      setYm((cur) => (cur === "" || cur === defaultYm ? pinnedYm : cur));
       setPinNote(
         moved
-          ? `Sheets now hold ${ymLabel(month, year)}. The next hourly sync writes that month; ` +
-            `Sync now to apply it immediately.`
-          : `Pinned to ${ymLabel(month, year)}. The hourly sync will keep it here — it can no ` +
+          ? `Sheets now hold ${ymLabel(month, year)}. The next automatic run writes that ` +
+            `month to every SubVendor Invoices tab; Sync below to apply it to one job now.`
+          : `Pinned to ${ymLabel(month, year)}. The sync will keep it here — it can no ` +
             `longer roll over on its own at month end.`,
       );
     } catch (e) {
@@ -245,7 +296,48 @@ export default function TrackingSheetPage() {
     } finally {
       setPinning(false);
     }
-  }, [ym, pinning, defaultYm]);
+  }, [pinnedYm, pinning, defaultYm]);
+
+  /**
+   * Pause or resume the automatic all-projects sync.
+   *
+   * Pausing is what you do before touching a tracking sheet by hand: the
+   * scheduled run rewrites every wired sheet's SubVendor Invoices tab from
+   * JobTread, and would otherwise land on top of the reconciliation in
+   * progress. Apps Script leaves the trigger installed and short-circuits on a
+   * flag, so resuming takes effect on the very next run.
+   */
+  const togglePause = useCallback(
+    async (next: boolean) => {
+      if (pausing) return;
+      setPausing(true);
+      setPauseError("");
+      try {
+        const res = await fetch("/api/tracking-sheet", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            op: "setPaused",
+            paused: next,
+            note: next ? "Paused from the Assistant." : "",
+          }),
+        });
+        const b = await res.json();
+        if (!res.ok || b?.ok === false) {
+          throw new Error(b?.error || `Request failed (${res.status})`);
+        }
+        // Apps Script echoes the status back, so the switch reflects what the
+        // server actually holds rather than what we optimistically assumed.
+        if (b.sync) setSync(b.sync as SyncStatus);
+        else setSync((cur) => (cur ? { ...cur, paused: next } : cur));
+      } catch (e) {
+        setPauseError(e instanceof Error ? e.message : "Could not change the sync.");
+      } finally {
+        setPausing(false);
+      }
+    },
+    [pausing],
+  );
 
   const patch = useCallback((key: number, fields: Partial<QueueItem>) => {
     setQueue((q) => q.map((it) => (it.key === key ? { ...it, ...fields } : it)));
@@ -358,15 +450,161 @@ export default function TrackingSheetPage() {
 
       {jobs.length > 0 && (
         <>
+          {/* --------------------------------------------- the automatic sync */}
+          {/* The two org-wide controls, together because they govern the same
+              thing: the scheduled run that rewrites EVERY wired sheet's
+              SubVendor Invoices tab. Pause it before reconciling a month by
+              hand; pin the month so it can't roll over on its own mid-close. */}
+          <Card className="mb-4">
+            <SectionLabel className="mb-2">Automatic sync</SectionLabel>
+
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <span
+                  aria-hidden
+                  className={`inline-block h-2.5 w-2.5 shrink-0 rounded-full ${
+                    !sync?.triggerInstalled
+                      ? "bg-neutral-400"
+                      : sync.paused
+                        ? "bg-amber-500"
+                        : "bg-emerald-500"
+                  }`}
+                />
+                <div className="text-sm">
+                  <p className="font-semibold">
+                    {!sync
+                      ? "Unknown"
+                      : !sync.triggerInstalled
+                        ? "Not scheduled"
+                        : sync.paused
+                          ? "Paused"
+                          : "Running"}
+                  </p>
+                  <p className="text-xs text-neutral-500">
+                    {!sync ? (
+                      "Could not read the sync's state."
+                    ) : !sync.triggerInstalled ? (
+                      <>Nothing is scheduled — run <span className="font-mono">installAllTrackingSheetsSyncTrigger()</span> in Apps Script.</>
+                    ) : sync.paused ? (
+                      <>
+                        No sheet has been rewritten
+                        {sync.pausedAt ? ` since ${timeAgo(sync.pausedAt)}` : ""}.
+                      </>
+                    ) : (
+                      <>Every sheet is rewritten every {sync.intervalMinutes} minutes.</>
+                    )}
+                  </p>
+                </div>
+              </div>
+
+              {sync && (
+                <Button
+                  variant={sync.paused ? "primary" : "danger"}
+                  size="sm"
+                  disabled={pausing}
+                  onClick={() => togglePause(!sync.paused)}
+                >
+                  {pausing
+                    ? sync.paused
+                      ? "Resuming…"
+                      : "Pausing…"
+                    : sync.paused
+                      ? "Resume sync"
+                      : "Pause sync"}
+                </Button>
+              )}
+            </div>
+
+            {pauseError && (
+              <Banner tone="error" className="mt-3">{pauseError}</Banner>
+            )}
+
+            {sync?.paused && (
+              <Banner tone="warning" className="mt-3">
+                Paused — the sheets are frozen where they are, so you can reconcile a month
+                without a scheduled run landing on top of it. The Sync and Finalize buttons
+                below still work: those are one job at a time, and you asked for them.
+              </Banner>
+            )}
+
+            {sync?.lastRun && (
+              <p className="mt-3 text-xs text-neutral-500">
+                Last automatic run {timeAgo(sync.lastRun.at)} — {sync.lastRun.succeeded}/
+                {sync.lastRun.jobCount} job{sync.lastRun.jobCount === 1 ? "" : "s"},{" "}
+                {money(sync.lastRun.totalSynced)}
+                {sync.lastRun.failed > 0 ? `, ${sync.lastRun.failed} failed` : ""}.
+              </p>
+            )}
+
+            {/* ------------------------------ which month the sheets are held on */}
+            <div className="mt-4 border-t border-line pt-4">
+              <Label htmlFor="ts-pinned-month">Billing month written to every SubVendor Invoices tab</Label>
+              <div className="mt-1 flex flex-wrap items-center gap-2">
+                <Select
+                  id="ts-pinned-month"
+                  className="min-w-40 flex-1"
+                  value={pinnedYm}
+                  onChange={(e) => setPinnedYm(e.target.value)}
+                >
+                  {months.map((m) => (
+                    <option key={m.key} value={m.key}>
+                      {m.label}
+                      {m.key === defaultYm ? " (sheets are on this)" : ""}
+                    </option>
+                  ))}
+                </Select>
+
+                {/* Hidden only when the month is already pinned AND selected —
+                    the one case with nothing to do. It must stay available when
+                    nothing is pinned yet, which is exactly the first thing
+                    anyone needs to do. */}
+                {pinnedYm && (!periodPinned || pinnedYm !== defaultYm) && (
+                  <Button variant="secondary" size="md" disabled={pinning} onClick={advancePeriod}>
+                    {(() => {
+                      const { month, year } = parseYm(pinnedYm);
+                      const label = ymLabel(month, year);
+                      if (pinning) return pinnedYm === defaultYm ? "Pinning…" : "Advancing…";
+                      // Same month = there is nothing to advance TO; the action
+                      // is simply "stop following the calendar".
+                      return pinnedYm === defaultYm ? `Pin to ${label}` : `Advance to ${label}`;
+                    })()}
+                  </Button>
+                )}
+              </div>
+
+              <p className="mt-2 text-xs text-neutral-500">
+                {defaultYm && (
+                  <>
+                    Sheets are held on{" "}
+                    <strong className="font-semibold">
+                      {(() => {
+                        const { month, year } = parseYm(defaultYm);
+                        return ymLabel(month, year);
+                      })()}
+                    </strong>
+                    {". "}
+                  </>
+                )}
+                The sync keeps writing that month&apos;s sub/vendor invoices until you advance
+                it — it never rolls over on its own, so a month can&apos;t vanish out of CURRENT
+                INVOICE before it has been finalized.
+                {!periodPinned && " Not pinned yet — still following the calendar."}
+              </p>
+
+              {pinNote && <p className="mt-2 text-xs text-neutral-500">{pinNote}</p>}
+            </div>
+          </Card>
+
           {/* ------------------------------------------------ the main action */}
           <Card className="mb-4">
+            <SectionLabel className="mb-2">Sync one job now</SectionLabel>
             <Button size="lg" className="w-full py-4 text-base" disabled={!ready} onClick={() => enqueue("sync")}>
               Sync to Tracking Sheet — Current Invoice
             </Button>
 
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
               <div>
-                <Label htmlFor="ts-month">Billing Month</Label>
+                <Label htmlFor="ts-month">Billing month (this job)</Label>
                 <Select id="ts-month" value={ym} onChange={(e) => setYm(e.target.value)}>
                   {months.map((m) => (
                     <option key={m.key} value={m.key}>
@@ -386,56 +624,6 @@ export default function TrackingSheetPage() {
                 </Select>
               </div>
             </div>
-
-            {/* Which month the HOURLY sync holds in every sheet's CURRENT
-                INVOICE. It used to follow the calendar and roll over on the
-                11th — mid-close, before the old month had been finalized. It is
-                pinned now, and only the button below moves it. */}
-            {defaultYm && (
-              <div className="mt-3 rounded-lg border border-line bg-neutral-50 p-3 dark:bg-white/5">
-                <p className="text-xs text-neutral-600 dark:text-neutral-300">
-                  Every tracking sheet is held on{" "}
-                  <strong className="font-semibold">
-                    {(() => {
-                      const { month, year } = parseYm(defaultYm);
-                      return ymLabel(month, year);
-                    })()}
-                  </strong>
-                  . The hourly sync keeps writing that month until you advance it.
-                  {!periodPinned && " (Not pinned yet — still following the calendar.)"}
-                </p>
-
-                {/* Shown when the selected month differs from the held one (the
-                    normal "advance to next month" case) AND while nothing is
-                    pinned yet — otherwise there is no way to pin the month you
-                    are already on, which is exactly the first thing anyone needs
-                    to do. */}
-                {ym && (!periodPinned || ym !== defaultYm) && (
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    className="mt-2"
-                    disabled={pinning}
-                    onClick={advancePeriod}
-                  >
-                    {(() => {
-                      const { month, year } = parseYm(ym);
-                      const label = ymLabel(month, year);
-                      if (pinning) return ym === defaultYm ? "Pinning…" : "Advancing…";
-                      // Same month = there is nothing to advance TO; the action
-                      // is simply "stop following the calendar".
-                      return ym === defaultYm
-                        ? `Pin sheets to ${label}`
-                        : `Advance sheets to ${label}`;
-                    })()}
-                  </Button>
-                )}
-
-                {pinNote && (
-                  <p className="mt-2 text-xs text-neutral-500">{pinNote}</p>
-                )}
-              </div>
-            )}
 
             <p className="mt-3 text-xs text-neutral-500">
               {job ? (
