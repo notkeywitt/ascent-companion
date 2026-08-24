@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Banner,
   Button,
@@ -10,30 +10,33 @@ import {
   Loading,
   PageHeader,
   SectionLabel,
-  Select,
   Spinner,
-  Toggle,
   btn,
 } from "@/components/ui";
 import { JobPicker, type JobRef } from "@/components/JobPicker";
 
 /**
- * Admin utility: capture a job's historical costs — everything its Google
- * Tracking Sheet already shows as invoiced, through a chosen cutoff — as ONE
- * draft vendor bill in JobTread, coded per CSI cost code. For jobs whose spend
- * history predates (or was never fully entered into) JobTread.
+ * Admin utility: capture a job's historical costs — the spend its Google
+ * Tracking Sheet already shows but JobTread does not — as ONE draft vendor
+ * bill in JobTread, coded per CSI cost code. For jobs whose spend history
+ * predates (or was never fully entered into) JobTread.
  *
  * Paste any tracking sheet URL and pick the JobTread job it belongs to — this
  * does NOT require the job to already have its "Tracking Sheet" column wired
  * up on the Projects sheet (unlike /tracking-sheet), since the whole point is
  * often to bring an older job into the system for the first time.
  *
- * Preview computes, per CSI code: tracking-sheet total minus whatever's
- * ALREADY a real vendor bill in JobTread over the same range — never a blind
- * total, so nothing gets double-counted. Only the gap becomes a bill line.
- * Re-running for the same job reconciles the ONE historical bill it manages
- * (replaces it, or deletes it once real bills fully catch up) rather than
- * creating a second one.
+ * Preview computes, per CSI code:
+ *
+ *     gap = (sheet's TOTAL PREVIOUSLY INVOICED) − (JobTread's ACTUAL COST)
+ *
+ * There is no date range to pick. The sheet's PREVIOUSLY INVOICED column
+ * already defines the period — everything finalized into a month block — and
+ * the Apps Script side cuts JobTread off at the end of that same billing
+ * period so the two sides compare like for like. Only the gap becomes a bill
+ * line. Re-running for the same job reconciles the ONE historical bill it
+ * manages (replaces it, or deletes it once real bills fully catch up) rather
+ * than creating a second one.
  */
 
 interface JobsBrowserJob {
@@ -48,6 +51,8 @@ interface GapRow {
   csi: string;
   sheetTotal: number;
   alreadyInJt: number;
+  alreadyInJtBills: number;
+  alreadyInJtTime: number;
   gap: number;
 }
 
@@ -58,13 +63,14 @@ interface GapReport {
   trackingSheetName: string;
   trackingSheetUrl: string;
   tab: string;
-  startLabel: string;
+  previousColLetter: string;
+  cutoffIso: string;
   endLabel: string;
-  blocksUsed: string[];
-  includedCurrentInvoice: boolean;
   rows: GapRow[];
   sheetTotalSum: number;
   alreadyInJtSum: number;
+  alreadyInJtBillsSum: number;
+  alreadyInJtTimeSum: number;
   gapSum: number;
   existingDocId: string | null;
   existingStatus: string | null;
@@ -82,25 +88,8 @@ interface UpsertResult {
   note: string;
 }
 
-const MONTH_NAMES = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December",
-];
 const money = (n: number) =>
   "$" + (Number(n) || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
-function monthOptions(count: number) {
-  const out: { key: string; month: number; year: number; label: string }[] = [];
-  const now = new Date();
-  let m = now.getMonth() + 1;
-  let y = now.getFullYear();
-  for (let i = 0; i < count; i++) {
-    out.push({ key: `${y}-${String(m).padStart(2, "0")}`, month: m, year: y, label: `${MONTH_NAMES[m - 1]} ${y}` });
-    m -= 1;
-    if (m < 1) { m = 12; y -= 1; }
-  }
-  return out;
-}
 
 export default function HistoricalCostPage() {
   const [jobs, setJobs] = useState<JobsBrowserJob[]>([]);
@@ -109,10 +98,6 @@ export default function HistoricalCostPage() {
 
   const [url, setUrl] = useState("");
   const [jtJobId, setJtJobId] = useState("");
-  const [hasStart, setHasStart] = useState(false);
-  const months = useMemo(() => monthOptions(36), []);
-  const [startKey, setStartKey] = useState(months[months.length - 1]?.key ?? "");
-  const [endKey, setEndKey] = useState(months[0]?.key ?? "");
 
   const [previewing, setPreviewing] = useState(false);
   const [previewError, setPreviewError] = useState("");
@@ -141,9 +126,7 @@ export default function HistoricalCostPage() {
     return () => { alive = false; };
   }, []);
 
-  const findKey = useCallback((key: string) => months.find((m) => m.key === key), [months]);
-
-  const ready = !!url.trim() && !!jtJobId && !!endKey && (!hasStart || !!startKey);
+  const ready = !!url.trim() && !!jtJobId;
 
   const resetDownstream = useCallback(() => {
     setGap(null);
@@ -161,20 +144,10 @@ export default function HistoricalCostPage() {
     setResult(null);
     setConfirming(false);
     try {
-      const end = findKey(endKey)!;
-      const start = hasStart ? findKey(startKey) : null;
       const res = await fetch("/api/historical-cost", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          op: "preview",
-          url,
-          jtJobId,
-          endMonth: end.month,
-          endYear: end.year,
-          startMonth: start ? start.month : null,
-          startYear: start ? start.year : null,
-        }),
+        body: JSON.stringify({ op: "preview", url, jtJobId }),
       });
       const b = await res.json();
       if (!res.ok) throw new Error(b?.error || `Request failed (${res.status})`);
@@ -184,27 +157,17 @@ export default function HistoricalCostPage() {
     } finally {
       setPreviewing(false);
     }
-  }, [ready, url, jtJobId, endKey, startKey, hasStart, findKey]);
+  }, [ready, url, jtJobId]);
 
   const runCommit = useCallback(async () => {
     if (!gap) return;
     setCommitting(true);
     setCommitError("");
     try {
-      const end = findKey(endKey)!;
-      const start = hasStart ? findKey(startKey) : null;
       const res = await fetch("/api/historical-cost", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          op: "create",
-          url,
-          jtJobId,
-          endMonth: end.month,
-          endYear: end.year,
-          startMonth: start ? start.month : null,
-          startYear: start ? start.year : null,
-        }),
+        body: JSON.stringify({ op: "create", url, jtJobId }),
       });
       const b = await res.json();
       if (!res.ok) throw new Error(b?.error || `Request failed (${res.status})`);
@@ -217,7 +180,7 @@ export default function HistoricalCostPage() {
     } finally {
       setCommitting(false);
     }
-  }, [gap, url, jtJobId, endKey, startKey, hasStart, findKey, runPreview]);
+  }, [gap, url, jtJobId, runPreview]);
 
   const selectedJob = jobs.find((j) => j.id === jtJobId) || null;
   const commitLabel = gap
@@ -237,9 +200,11 @@ export default function HistoricalCostPage() {
         description="Capture a job's historical costs from its Tracking Sheet as one draft JobTread bill, coded by cost code."
       />
       <Banner tone="info" className="mb-4 text-xs">
-        Admin utility. Compares the Tracking Sheet&apos;s totals against real vendor bills already in
-        JobTread and only bills the difference — nothing gets double-counted. Re-running for the same
-        job updates the one historical bill it manages instead of creating another.
+        Admin utility. Compares the Tracking Sheet&apos;s <strong>Total Previously Invoiced</strong>
+        against JobTread&apos;s <strong>Actual Cost</strong> for each cost code and only bills the
+        difference — nothing gets double-counted. Draft bills aren&apos;t counted (JobTread doesn&apos;t
+        count them either); labor is. Re-running for the same job updates the one historical bill it
+        manages instead of creating another.
       </Banner>
 
       <Card className="mb-4">
@@ -263,41 +228,6 @@ export default function HistoricalCostPage() {
           />
         </div>
 
-        <div className="mt-3 grid gap-3 sm:grid-cols-2">
-          <div>
-            <div className="mb-1 flex items-center justify-between">
-              <Label htmlFor="hc-start" className="!mb-0">Start (optional)</Label>
-              <Toggle
-                checked={hasStart}
-                onChange={(v) => { setHasStart(v); resetDownstream(); }}
-                label=""
-              />
-            </div>
-            <Select
-              id="hc-start"
-              value={startKey}
-              disabled={!hasStart}
-              onChange={(e) => { setStartKey(e.target.value); resetDownstream(); }}
-            >
-              {months.map((m) => (
-                <option key={m.key} value={m.key}>{m.label}</option>
-              ))}
-            </Select>
-          </div>
-          <div>
-            <Label htmlFor="hc-end">Through</Label>
-            <Select
-              id="hc-end"
-              value={endKey}
-              onChange={(e) => { setEndKey(e.target.value); resetDownstream(); }}
-            >
-              {months.map((m) => (
-                <option key={m.key} value={m.key}>{m.label}</option>
-              ))}
-            </Select>
-          </div>
-        </div>
-
         <Button className="mt-3 w-full" disabled={!ready || previewing} onClick={runPreview}>
           {previewing ? (<><Spinner className="mr-2" /> Comparing to JobTread…</>) : "Preview Gap"}
         </Button>
@@ -310,12 +240,14 @@ export default function HistoricalCostPage() {
       {gap && (
         <Card className="mb-4">
           <SectionLabel className="mb-1">
-            {gap.jobLabel} — {gap.startLabel} through {gap.endLabel}
+            {gap.jobLabel} — through {gap.endLabel}
           </SectionLabel>
           <p className="mb-3 text-xs text-neutral-500">
-            {gap.trackingSheetName} / {gap.tab}
-            {gap.blocksUsed.length > 0 && <> · blocks used: {gap.blocksUsed.join(", ")}</>}
-            {gap.includedCurrentInvoice && <> · includes the live CURRENT INVOICE</>}
+            {gap.trackingSheetName} / {gap.tab} · sheet column {gap.previousColLetter} (Total
+            Previously Invoiced) vs JobTread Actual Cost as of {gap.cutoffIso}
+            {gap.alreadyInJtTimeSum !== 0 && (
+              <> · JobTread side includes {money(gap.alreadyInJtTimeSum)} of labor</>
+            )}
           </p>
 
           {gap.existingDocId && (
