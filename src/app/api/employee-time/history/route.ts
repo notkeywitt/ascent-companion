@@ -24,8 +24,12 @@ import { callAppsScript } from "@/lib/appsScript";
  * the job page (an individual entry isn't deep-linkable).
  *
  * GET ?start=YYYY-MM-DD&end=YYYY-MM-DD (inclusive, calendar-day range)
- *   → { ok, entries:[{id, date, startTime, endTime, jobId, jobName, costCode,
- *        costItemName, notes, open, jtUrl}], totalMinutes, openCount }
+ *   → { ok, entries:[{id, date, startTime, endTime, minutes, jobId, jobName,
+ *        customer, costCode, costItemName, notes, approved, open, jtUrl}],
+ *        totalMinutes, openCount }
+ *
+ * `approved` is JobTread's own `timeEntry.isApproved` — the timesheet groups a
+ * day as Approved only when every entry in it carries the mark.
  */
 export const dynamic = "force-dynamic";
 
@@ -114,9 +118,13 @@ export async function GET(req: NextRequest) {
       if (open) {
         openCount++;
       } else {
-        const mins = Math.round(
+        // JobTread's own `minutes` is the payroll number (a break deduction is
+        // already taken out of it), so it wins over the raw start→end span; the
+        // span is only the fallback for an entry JT reports 0 minutes for.
+        const span = Math.round(
           (new Date(e.endedAt as string).getTime() - new Date(e.startedAt).getTime()) / 60000,
         );
+        const mins = e.minutes > 0 ? e.minutes : span;
         if (Number.isFinite(mins) && mins > 0) {
           minutes = mins;
           totalMinutes += mins;
@@ -130,9 +138,11 @@ export async function GET(req: NextRequest) {
         minutes,
         jobId: e.jobId,
         jobName: e.jobName,
+        customer: e.customer,
         costCode: e.costCode,
         costItemName: e.costItemName,
         notes: e.notes,
+        approved: e.approved,
         open,
         jtUrl: timeUrl,
       };

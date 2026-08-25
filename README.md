@@ -46,8 +46,10 @@ The launcher (`src/app/page.tsx`) groups every screen into four areas:
 - **Mileage** (`/mileage-tracker`) — one-tap start/end captures two GPS points;
   the server turns them into driving miles + street addresses (Google Maps
   Routes/Geocoding).
-- **Employee Time** (`/employee-time`) — log hours to a job with a required note
-  and photos; creates a JobTread time entry.
+- **Employee Time** (`/employee-time`) — a phone time clock: clock in/out (the
+  running clock lives in JobTread, so it resumes on any device), a day-grouped
+  Timesheets tab for the pay period, and a "log a range" form for time already
+  worked. Required note, optional photos; creates a JobTread time entry.
 
 ### Utilities — assistant, records, imports, and admin
 - **Assistant** (`/chat`) — a read-only Claude chat over a job's bills and

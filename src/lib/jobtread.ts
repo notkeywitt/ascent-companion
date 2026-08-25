@@ -3924,9 +3924,15 @@ export interface UserTimeEntry {
   id: string;
   startedAt: string;
   endedAt: string | null;
+  /** JobTread's OWN duration for the entry (break-deducted), 0 while running. */
+  minutes: number;
+  /** timeEntry.isApproved — the payroll approval mark shown on the timesheet. */
+  approved: boolean;
   notes: string;
   jobId: string;
   jobName: string;
+  /** The job's customer account name, for the "job / customer" timesheet row. */
+  customer: string;
   costCode: string;
   costItemName: string;
 }
@@ -3975,8 +3981,10 @@ export async function getUserTimeEntries(
             id: {},
             startedAt: {},
             endedAt: {},
+            minutes: {},
+            isApproved: {},
             notes: {},
-            job: { id: {}, name: {} },
+            job: { id: {}, name: {}, location: { account: { name: {} } } },
             costItem: { id: {}, name: {}, costCode: { number: {}, name: {} } },
           },
         },
@@ -3988,9 +3996,12 @@ export async function getUserTimeEntries(
         id: n.id,
         startedAt: n.startedAt,
         endedAt: n.endedAt ?? null,
+        minutes: Number(n.minutes) || 0,
+        approved: !!n.isApproved,
         notes: n.notes ?? "",
         jobId: n.job?.id ?? "",
         jobName: n.job?.name ?? "",
+        customer: n.job?.location?.account?.name ?? "",
         costCode: n.costItem?.costCode?.number ?? "",
         costItemName: n.costItem?.costCode?.name || n.costItem?.name || "",
       });

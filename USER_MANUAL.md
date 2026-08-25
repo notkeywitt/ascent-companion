@@ -352,16 +352,39 @@ you leave and once when you arrive; the app fills in the miles and street addres
 
 ### Employee Time — `/employee-time`
 
-Logs a block of hours against a job and cost code, with a required note and optional
-photos. It writes the entry to JobTread and to the company record.
+Your time clock. Two tabs at the top: **Time clock** (clock in and out) and **Timesheets**
+(what you have already logged). Everything is written to JobTread and to the company record.
 
-1. The app usually knows who you are ("Logging time as …"). The first time, you may need to
-   pick yourself from **"Who are you in JobTread?"** — it's remembered afterward.
-2. Pick the **Job** (GPS pre-fills the nearest site if you're close), the **Cost code**,
-   and, if asked, the **Pay type**.
-3. Set **Start** and **Stop** times (both default to now; stop must be after start).
-4. Write a **Note** (required), and optionally add up to **8 photos**.
-5. Tap **Log time**. You'll see confirmation that it was pushed to JobTread and saved.
+The app usually knows who you are (your name shows under the tabs). The first time, you may
+need to pick yourself from **"Who are you in JobTread?"** — it's remembered afterward.
+
+**Time clock**
+
+1. The big word at the top says **Clocked out** or **Clocked in**. While you are clocked in,
+   the time counts up under it.
+2. **Start time** is now. Tap the **Today** chip or the time chip to change it — that is the
+   "I forgot to clock in at 7" case.
+3. Tap **Job** (GPS pre-fills the nearest site if you are close), then **Cost code**, then
+   **Pay type** if you are asked for one. Each row opens a searchable list.
+4. Tap the big **Clock in** button at the bottom.
+5. When you stop, tap **Clock out**. Write the **Note** (required) and add up to **8 photos**
+   if you want, then confirm.
+
+> **Your clock lives in JobTread, not in the phone.** Open the page on a different phone or
+> on the office computer and it still shows you clocked in, with the same job and start time.
+> **Cancel this clock-in** throws the clock away without logging time.
+
+**Log a range** — the **+** button beside the Clock in button
+
+For time already worked: pick the job, cost code, start and stop, write the note, add photos,
+and tap **Log time**. One entry, no clock.
+
+**Timesheets**
+
+Your own JobTread entries for a pay period. Use the month arrows and the **1–15** / **16–end**
+pills to choose the period; **Still clocked in** filters to a clock that is still running.
+Days are grouped with the day's total and its state — **Approved** (the office approved every
+entry that day), **Pending**, or **Clocked in**. Tap any entry to open your time in JobTread.
 
 > **Nothing is ever lost:** even if the JobTread push is turned off or fails, the entry is
 > always saved to the Time Entries record and the office can retry it.
