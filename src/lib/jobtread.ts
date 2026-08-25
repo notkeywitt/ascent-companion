@@ -1747,6 +1747,18 @@ export interface MonthTimeEntry {
   costItemId: string | null;
   /** The pay type (rate) the entry was logged under, e.g. "Regular Pay". */
   type: string;
+  /**
+   * The clock-out instant, null on an entry still running. Carried so an
+   * editing surface can show — and rewrite — the actual window worked rather
+   * than only the duration JobTread derived from it.
+   */
+  endedAt: string | null;
+  /**
+   * JobTread's OWN minute count. Usually endedAt − startedAt, but not always:
+   * a break deduction makes it smaller. `hours` is this figure, not the span,
+   * so an editor that rewrites the span must expect JobTread to recompute.
+   */
+  minutes: number;
 }
 
 /**
@@ -1793,6 +1805,7 @@ export async function getJobTimeEntriesForMonth(
               cost: {},
               startedAt: {},
               minutes: {},
+              endedAt: {},
               notes: {},
               isApproved: {},
               type: {},
@@ -1836,6 +1849,8 @@ export async function getJobTimeEntriesForMonth(
       isApproved: Boolean(n?.isApproved),
       costItemId: n?.costItem?.id ?? null,
       type: String(n?.type ?? "").trim(),
+      endedAt: n.endedAt ?? null,
+      minutes: typeof n?.minutes === "number" ? n.minutes : 0,
     }))
     .sort((a, b) => String(b.startedAt ?? "").localeCompare(String(a.startedAt ?? "")));
 }
@@ -3846,23 +3861,52 @@ export async function createTimeEntry(
  * A cost code JobTread doesn't allow time against is rejected at write time (no
  * queryable "time-trackable" flag exists) — rewriteTimeEntryError turns that
  * into something the office can act on.
+ *
+ * `startedAt`/`endedAt` RE-TIME the entry and `jobId` MOVES it. Both confirmed
+ * live 2026-08-25 (probeTimeEntryRetimeAndRejob — a [PROBE] entry cloned off a
+ * real one, mutated, read back, deleted):
+ *
+ *   - RE-TIMING RECOMPUTES THE MONEY. A 2h window rewritten to 3h came back
+ *     minutes 120 → 180 and cost 150 → 225, i.e. JobTread derives minutes from
+ *     the new span and cost is minutes × the pay type's rate ($75/h here).
+ *     Unlike a recode, this DOES change the dollars — say so on screen.
+ *   - A JOB MOVE NEEDS ITS COST ITEM. `jobId` alone is rejected outright:
+ *     HTTP 400 "A job & cost item are required for this time entry" — JobTread
+ *     will not let an entry strand on another job's cost item. Sent together,
+ *     `{ jobId, costItemId }` moves the entry and leaves cost and minutes
+ *     untouched. Cost items are per-job, so the pair is the only legal form.
+ *
+ * Timestamps here are UTC INSTANTS — build them with orgLocalToJtIso(), never
+ * from a bare wall clock (see the note at the top of this section).
  */
 export async function updateTimeEntry(
   cfg: PaveConfig,
   id: string,
-  fields: { endedAt?: string; notes?: string; costItemId?: string; isApproved?: boolean },
-): Promise<{ id: string; endedAt?: string }> {
+  fields: {
+    startedAt?: string;
+    endedAt?: string;
+    notes?: string;
+    costItemId?: string;
+    jobId?: string;
+    isApproved?: boolean;
+  },
+): Promise<{ id: string; startedAt?: string; endedAt?: string; minutes?: number }> {
   const $: Record<string, unknown> = { id };
+  if (fields.startedAt !== undefined) $.startedAt = fields.startedAt;
   if (fields.endedAt !== undefined) $.endedAt = fields.endedAt;
   if (fields.notes !== undefined) $.notes = fields.notes;
   if (fields.costItemId !== undefined) $.costItemId = fields.costItemId;
+  if (fields.jobId !== undefined) $.jobId = fields.jobId;
   if (fields.isApproved !== undefined) $.isApproved = fields.isApproved;
   try {
     const r = await pave(cfg, {
-      updateTimeEntry: { $, timeEntry: { $: { id }, id: {}, endedAt: {} } },
+      updateTimeEntry: {
+        $,
+        timeEntry: { $: { id }, id: {}, startedAt: {}, endedAt: {}, minutes: {} },
+      },
     });
     const t = r?.updateTimeEntry?.timeEntry;
-    return { id: t?.id ?? id, endedAt: t?.endedAt };
+    return { id: t?.id ?? id, startedAt: t?.startedAt, endedAt: t?.endedAt, minutes: t?.minutes };
   } catch (e) {
     throw new Error(rewriteTimeEntryError(e instanceof Error ? e.message : "Unknown error"));
   }

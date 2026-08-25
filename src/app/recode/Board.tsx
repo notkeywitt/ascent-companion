@@ -44,6 +44,8 @@ import {
   type LineEdit,
   type RecodeEntry,
 } from "@/lib/billLineMath";
+import { TimeCodingCard, laborOptions } from "./TimeCodingCard";
+import { orgDay } from "@/lib/orgTime";
 import { InvoiceReconcile, type Recon } from "@/components/InvoiceReconcile";
 import { UncapturedBills } from "@/components/UncapturedBills";
 import {
@@ -117,16 +119,26 @@ interface JobBillLine {
   codeName: string;
   jobCostItemId: string | null;
 }
+/**
+ * One time entry in the month. Mirrors lib/jobtread's MonthTimeEntry — the
+ * board passes these straight into the Time & labor panel, which edits them,
+ * so the coding target (`costItemId`) and the raw clock (`endedAt`/`minutes`)
+ * have to survive the trip rather than being flattened to a display string.
+ */
 interface MonthTimeEntry {
   id: string;
   employee: string;
   startedAt: string | null;
+  endedAt: string | null;
   hours: number;
+  minutes: number;
   cost: number;
   code: string;
   codeName: string;
   notes: string;
   isApproved: boolean;
+  costItemId: string | null;
+  type: string;
 }
 interface BudgetItem {
   id: string;
@@ -332,12 +344,36 @@ function useIsMobile() {
   return mobile;
 }
 
+/**
+ * True below the `xl` boundary — where the coding column itself is hidden.
+ * NOT the same line as `useIsMobile` (lg): between 1024 and 1280 the page still
+ * has its full three-column behaviour but only two columns fit, so a time entry
+ * clicked there needs the panel as a sheet rather than in a column that isn't
+ * rendered. Mirrors the `hidden xl:block` on that section — one source of truth
+ * would be better, but a media query is what CSS is doing there too.
+ */
+/** Stands in for the empty cost code in the Time & labor filter's <select>. */
+const UNCODED = "__uncoded__";
+
+function useIsBelowXl() {
+  const [below, setBelow] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 1279px)");
+    const update = () => setBelow(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
+  return below;
+}
+
 export function Board() {
   // Office-edited wording (Admin → Page Text); see src/lib/copy.ts.
   const c = useCopy();
   const params = useSearchParams();
   const router = useRouter();
   const isMobile = useIsMobile();
+  const belowXl = useIsBelowXl();
   const jobId = params.get("jobId") ?? "";
 
   const [ym, setYm] = useState(() => params.get("ym") || defaultYm());
@@ -469,6 +505,22 @@ export function Board() {
   // summary row — expand it to see each entry, same collapse-by-default
   // pattern as the rail's divisions.
   const [timeBlockOpen, setTimeBlockOpen] = useState(false);
+  /**
+   * The time entry open in the coding column, or null when a bill is.
+   *
+   * The right column shows ONE thing, and clicking either kind of row is a
+   * claim on it — so the two ids are mutually exclusive rather than stacked.
+   * See the guards on the bill list's own clicks.
+   */
+  const [openTimeId, setOpenTimeId] = useState<string | null>(null);
+  /** How the Time & labor list is grouped: flat, or by day / person / code. */
+  const [timeGroupBy, setTimeGroupBy] = useState<"none" | "date" | "employee" | "code">("none");
+  /** …and narrowed. Same three axes, because they're the same three questions. */
+  const [timeFrom, setTimeFrom] = useState("");
+  const [timeTo, setTimeTo] = useState("");
+  const [timeEmployees, setTimeEmployees] = useState<Set<string>>(new Set());
+  const [timeCode, setTimeCode] = useState("");
+  const [timeFiltersOpen, setTimeFiltersOpen] = useState(false);
 
   const taxDirty = Object.entries(taxEdits).some(([docId, v]) => {
     if (v === "") return false;
@@ -846,6 +898,119 @@ export function Board() {
     [data, includeUnapprovedTime],
   );
   const monthTimeTotal = useMemo(() => monthTime.reduce((s, t) => s + t.cost, 0), [monthTime]);
+
+  /* ---------------- Time & labor: filtering, grouping, editing ----------------
+     The block is no longer a reference list. Its rows open the coding column,
+     and a list you edit from has to be a list you can NARROW first — "Tuesday",
+     "just Miguel", "everything on 06 10 00" — because the correction always
+     arrives phrased as one of those three. Grouping is the same three axes:
+     what you filtered by is usually what you want subtotalled. */
+
+  /** The day an entry belongs to, read in the ORG's zone — never sliced off the
+      ISO string, which would push an afternoon entry onto the next day. */
+  const dayOfEntry = useCallback((t: MonthTimeEntry) => orgDay(t.startedAt), []);
+
+  /** The people with hours this month — the filter offers who's actually there. */
+  const timeEmployeeNames = useMemo(
+    () => [...new Set(monthTime.map((t) => t.employee))].sort((a, b) => a.localeCompare(b)),
+    [monthTime],
+  );
+  /** …and the codes those hours landed on, likewise. */
+  const timeCodesPresent = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const t of monthTime) if (!m.has(t.code)) m.set(t.code, t.codeName);
+    return [...m.entries()]
+      .map(([number, name]) => ({ number, name }))
+      .sort((a, b) => a.number.localeCompare(b.number));
+  }, [monthTime]);
+
+  const timeFiltered = useMemo(
+    () =>
+      monthTime.filter((t) => {
+        // "" is a real value here — an uncoded entry — so the filter can't use
+        // it as its own "no filter". UNCODED is the sentinel that lets both
+        // live in one <select>.
+        if (timeCode && t.code !== (timeCode === UNCODED ? "" : timeCode)) return false;
+        if (timeEmployees.size > 0 && !timeEmployees.has(t.employee)) return false;
+        const d = dayOfEntry(t);
+        if (timeFrom && d < timeFrom) return false;
+        if (timeTo && d > timeTo) return false;
+        return true;
+      }),
+    [monthTime, timeCode, timeEmployees, timeFrom, timeTo, dayOfEntry],
+  );
+  const timeShownTotal = useMemo(
+    () => timeFiltered.reduce((s, t) => s + t.cost, 0),
+    [timeFiltered],
+  );
+  const timeShownHours = useMemo(
+    () => timeFiltered.reduce((s, t) => s + t.hours, 0),
+    [timeFiltered],
+  );
+  const timeFilterOn = Boolean(timeCode || timeEmployees.size > 0 || timeFrom || timeTo);
+  const clearTimeFilters = () => {
+    setTimeCode("");
+    setTimeEmployees(new Set());
+    setTimeFrom("");
+    setTimeTo("");
+  };
+  const toggleTimeEmployee = (name: string) =>
+    setTimeEmployees((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
+
+  /**
+   * The filtered entries in their groups, each with its own hours and dollars.
+   * "none" is one unnamed group, so the list markup below never forks.
+   */
+  const timeGroups = useMemo(() => {
+    const key = (t: MonthTimeEntry) => {
+      if (timeGroupBy === "date") return dayOfEntry(t) || "No date";
+      if (timeGroupBy === "employee") return t.employee || "Unknown";
+      if (timeGroupBy === "code") return t.code ? `${t.code} ${t.codeName}`.trim() : "Uncoded";
+      return "";
+    };
+    const map = new Map<string, MonthTimeEntry[]>();
+    for (const t of timeFiltered) {
+      const k = key(t);
+      const list = map.get(k);
+      if (list) list.push(t);
+      else map.set(k, [t]);
+    }
+    const groups = [...map.entries()].map(([label, entries]) => ({
+      label,
+      entries,
+      cost: entries.reduce((s, t) => s + t.cost, 0),
+      hours: entries.reduce((s, t) => s + t.hours, 0),
+    }));
+    // Days newest first (the list's own order); people and codes alphabetically,
+    // which is how you scan for one.
+    if (timeGroupBy === "date") groups.sort((a, b) => b.label.localeCompare(a.label));
+    else if (timeGroupBy !== "none") groups.sort((a, b) => a.label.localeCompare(b.label));
+    return groups;
+  }, [timeFiltered, timeGroupBy, dayOfEntry]);
+
+  const openTime = monthTime.find((t) => t.id === openTimeId) ?? null;
+
+  /**
+   * Coding targets for LABOR — the job's Labor-typed leaves plus any leaf an
+   * entry already sits on. Deliberately NOT `codeOptions`, which excludes Labor
+   * leaves because bills don't belong there; time is the other half of that
+   * rule.
+   */
+  const timeCodeOptions = useMemo(
+    () => laborOptions(data?.budget ?? [], (data?.timeEntries ?? []).map((t) => t.costItemId)),
+    [data],
+  );
+
+  // A filter (or the approval toggle) that hides the open entry would otherwise
+  // leave the column describing a row that isn't on screen.
+  useEffect(() => {
+    if (openTimeId && !timeFiltered.some((t) => t.id === openTimeId)) setOpenTimeId(null);
+  }, [openTimeId, timeFiltered]);
 
   const openBill = data?.bills.find((b) => b.id === openDocId) ?? null;
   const openLines = openDocId ? (linesByDoc.get(openDocId) ?? []) : [];
@@ -2543,11 +2708,14 @@ export function Board() {
               </Banner>
             )}
 
-            {/* ---- this month's time entries — read-only, not a drop target;
-                a time entry is coded independently of any bill and this board
-                only recodes bill lines, so it's shown for reference, not
-                dragged. Recoding it is Labor Review's job, linked at the foot
-                of the list. ---- */}
+            {/* ---- this month's time entries ----
+                Not a drop target: a time entry is coded independently of any
+                bill, and this board's drag only moves bill lines. It IS
+                editable though — a row opens the Time & labor panel in the
+                coding column, the same column a bill is coded in, so a wrong
+                code / day / span / job is fixed without leaving the month.
+                Labor Review remains the place to move a WEEK of hours around
+                against the budget; this is the place to fix ONE entry. ---- */}
             {mode !== "summary" && monthTime.length > 0 && (
               <Card pad={false} className="mb-2 overflow-hidden">
                 <button
@@ -2565,7 +2733,7 @@ export function Board() {
                     >
                       ▶
                     </span>
-                    Time & labor ({monthTime.length}{" "}
+                    Time &amp; labor ({monthTime.length}{" "}
                     {monthTime.length === 1 ? "entry" : "entries"})
                   </span>
                   <span className="shrink-0 text-sm font-semibold tabular-nums">
@@ -2574,45 +2742,216 @@ export function Board() {
                 </button>
                 {timeBlockOpen && (
                   <>
-                    <ul className="border-t border-line-soft">
-                      {monthTime.map((t) => (
-                        <li
-                          key={t.id}
-                          className="border-b border-line-soft px-3 py-1.5 text-xs last:border-0 dark:border-neutral-800"
-                        >
-                          <div className="flex items-baseline gap-2">
-                            <span className="min-w-0 flex-1 truncate">
-                              <span className="font-medium">{t.employee}</span>
-                              <span className="ml-1 text-neutral-500 dark:text-neutral-400">
-                                {t.startedAt ? t.startedAt.slice(0, 10) : ""} · {t.hours.toFixed(1)}h
-                                {t.code ? ` · ${t.code} ${t.codeName}` : " · uncoded"}
-                                {!t.isApproved ? " · unapproved" : ""}
-                              </span>
-                            </span>
-                            <span className="shrink-0 tabular-nums font-semibold">
-                              {money(t.cost)}
-                            </span>
+                    {/* ---- group + filter ----
+                        One row of controls, because grouping and filtering
+                        answer the same question at different strengths: "show
+                        me Tuesday" and "break it down by day" are the same
+                        thought. The filter panel is folded away until asked
+                        for — most visits don't need it and it would otherwise
+                        push the entries themselves below the fold. */}
+                    <div className="flex flex-wrap items-center gap-2 border-t border-line-soft px-3 py-2">
+                      <span className="text-[10px] uppercase tracking-wide text-neutral-400">
+                        Group
+                      </span>
+                      <div className="flex rounded-md bg-neutral-100 p-0.5 text-[11px] dark:bg-white/5">
+                        {(
+                          [
+                            ["none", "None"],
+                            ["date", "Date"],
+                            ["employee", "Employee"],
+                            ["code", "Cost code"],
+                          ] as const
+                        ).map(([g, label]) => (
+                          <button
+                            key={g}
+                            type="button"
+                            onClick={() => setTimeGroupBy(g)}
+                            aria-pressed={timeGroupBy === g}
+                            className={`inline-flex min-h-9 items-center rounded px-2 transition lg:min-h-0 lg:py-1 ${
+                              timeGroupBy === g
+                                ? "bg-accent text-accent-fg font-semibold"
+                                : "text-neutral-500 hover:text-accent dark:text-neutral-400"
+                            }`}
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setTimeFiltersOpen((v) => !v)}
+                        aria-expanded={timeFiltersOpen}
+                        className={`ml-auto inline-flex min-h-9 items-center rounded-md px-2 text-[11px] font-semibold transition ${
+                          timeFilterOn
+                            ? "bg-accent/15 text-accent"
+                            : "text-neutral-500 hover:text-accent dark:text-neutral-400"
+                        }`}
+                      >
+                        Filter{timeFilterOn ? " · on" : ""}
+                      </button>
+                    </div>
+
+                    {timeFiltersOpen && (
+                      <div className="space-y-2 border-t border-line-soft bg-neutral-50 px-3 py-2 dark:bg-ink-raised/50">
+                        <div className="flex flex-wrap items-end gap-2">
+                          <div>
+                            <Label htmlFor="tl-from">From</Label>
+                            <input
+                              id="tl-from"
+                              type="date"
+                              value={timeFrom}
+                              onChange={(e) => setTimeFrom(e.target.value)}
+                              className="rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs dark:border-neutral-600 dark:bg-ink-raised"
+                            />
                           </div>
-                          {/* The note is what the crew actually typed about the
-                              hours — the most useful line on the entry, so it
-                              wraps in full rather than truncating. */}
-                          {t.notes && (
-                            <p className="mt-0.5 whitespace-pre-line text-[11px] leading-snug text-neutral-600 dark:text-neutral-400">
-                              {t.notes}
-                            </p>
+                          <div>
+                            <Label htmlFor="tl-to">To</Label>
+                            <input
+                              id="tl-to"
+                              type="date"
+                              value={timeTo}
+                              onChange={(e) => setTimeTo(e.target.value)}
+                              className="rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs dark:border-neutral-600 dark:bg-ink-raised"
+                            />
+                          </div>
+                          <div className="min-w-[10rem] flex-1">
+                            <Label htmlFor="tl-code">Cost code</Label>
+                            <Select
+                              id="tl-code"
+                              value={timeCode}
+                              onChange={(e) => setTimeCode(e.target.value)}
+                              className="!py-1 !text-xs"
+                            >
+                              <option value="">All codes</option>
+                              {timeCodesPresent.map((c2) => (
+                                <option
+                                  key={c2.number || UNCODED}
+                                  value={c2.number || UNCODED}
+                                >
+                                  {c2.number ? `${c2.number} ${c2.name}` : "Uncoded"}
+                                </option>
+                              ))}
+                            </Select>
+                          </div>
+                          {timeFilterOn && (
+                            <Button variant="secondary" size="sm" onClick={clearTimeFilters}>
+                              Clear
+                            </Button>
                           )}
-                        </li>
-                      ))}
-                    </ul>
-                    {/* This list is reference only. Labor Review is the same
-                        month, same job, with the coding drawer that can move
-                        these hours between cost codes. */}
+                        </div>
+                        {/* Employees are chips, not a select: picking two or
+                            three people at once is the normal case (a crew),
+                            and a multi-select does that badly. */}
+                        {timeEmployeeNames.length > 1 && (
+                          <div className="flex flex-wrap gap-1.5">
+                            {timeEmployeeNames.map((name) => (
+                              <button
+                                key={name}
+                                type="button"
+                                onClick={() => toggleTimeEmployee(name)}
+                                aria-pressed={timeEmployees.has(name)}
+                                className={`inline-flex min-h-8 items-center rounded-full border px-2.5 text-[11px] font-semibold transition ${
+                                  timeEmployees.has(name)
+                                    ? "border-accent bg-accent text-accent-fg"
+                                    : "border-line bg-white text-neutral-500 hover:border-accent dark:bg-ink-raised dark:text-neutral-400"
+                                }`}
+                              >
+                                {name}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* What's on screen, when that isn't the whole month. */}
+                    {timeFilterOn && (
+                      <div className="flex items-baseline justify-between gap-2 border-t border-line-soft px-3 py-1.5 text-[11px] text-neutral-500 dark:text-neutral-400">
+                        <span>
+                          {timeFiltered.length} of {monthTime.length} shown ·{" "}
+                          {timeShownHours.toFixed(1)}h
+                        </span>
+                        <span className="tabular-nums font-semibold">{money(timeShownTotal)}</span>
+                      </div>
+                    )}
+
+                    {timeFiltered.length === 0 ? (
+                      <p className="border-t border-line-soft px-3 py-3 text-xs text-neutral-500">
+                        No time entries match those filters.
+                      </p>
+                    ) : (
+                      timeGroups.map((g) => (
+                        <div key={g.label || "all"}>
+                          {timeGroupBy !== "none" && (
+                            <div className="flex items-baseline justify-between gap-2 border-t border-line-soft bg-neutral-50 px-3 py-1.5 text-[11px] font-semibold dark:bg-ink-raised/50">
+                              <span className="min-w-0 truncate">{g.label}</span>
+                              <span className="shrink-0 tabular-nums text-neutral-500 dark:text-neutral-400">
+                                {g.hours.toFixed(1)}h · {money(g.cost)}
+                              </span>
+                            </div>
+                          )}
+                          <ul className="border-t border-line-soft">
+                            {g.entries.map((t) => {
+                              const isOpenTime = openTimeId === t.id;
+                              return (
+                                <li
+                                  key={t.id}
+                                  className="border-b border-line-soft text-xs last:border-0 dark:border-neutral-800"
+                                >
+                                  {/* The whole row is the control. On a phone
+                                      the coding column is hidden, so the same
+                                      tap opens the panel as a sheet instead —
+                                      see the dialog at the foot of the page. */}
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setOpenDocId(null);
+                                      setOpenTimeId(isOpenTime ? null : t.id);
+                                    }}
+                                    aria-pressed={isOpenTime}
+                                    className={`block w-full px-3 py-2 text-left transition hover:bg-accent/5 dark:hover:bg-white/5 lg:py-1.5 ${
+                                      isOpenTime ? "bg-accent/10" : ""
+                                    }`}
+                                  >
+                                    <span className="flex items-baseline gap-2">
+                                      <span className="min-w-0 flex-1 truncate">
+                                        <span className="font-medium">{t.employee}</span>
+                                        <span className="ml-1 text-neutral-500 dark:text-neutral-400">
+                                          {dayOfEntry(t)} · {t.hours.toFixed(1)}h
+                                          {t.code ? ` · ${t.code} ${t.codeName}` : " · uncoded"}
+                                          {!t.isApproved ? " · unapproved" : ""}
+                                        </span>
+                                      </span>
+                                      <span className="shrink-0 tabular-nums font-semibold">
+                                        {money(t.cost)}
+                                      </span>
+                                    </span>
+                                    {/* The note is what the crew actually typed
+                                        about the hours — the most useful line on
+                                        the entry, so it wraps in full rather
+                                        than truncating. */}
+                                    {t.notes && (
+                                      <span className="mt-0.5 block whitespace-pre-line text-[11px] leading-snug text-neutral-600 dark:text-neutral-400">
+                                        {t.notes}
+                                      </span>
+                                    )}
+                                  </button>
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        </div>
+                      ))
+                    )}
+                    {/* Labor Review is still the surface for moving a whole
+                        week of hours between codes against the rail — this
+                        block edits one entry at a time. */}
                     {canLaborReview && (
                       <Link
                         href={`/labor-review?jobId=${encodeURIComponent(jobId)}&ym=${ym}`}
                         className="block border-t border-line-soft px-3 py-2.5 text-xs font-semibold text-accent transition hover:bg-accent/5 dark:border-neutral-800 dark:hover:bg-white/5"
                       >
-                        Recode this labor in Labor Review →
+                        Recode a whole week in Labor Review →
                       </Link>
                     )}
                   </>
@@ -2730,6 +3069,10 @@ export function Board() {
                                           `&from=recode&ym=${encodeURIComponent(ym)}`,
                                       );
                                     } else {
+                                      // The coding column shows one thing —
+                                      // claiming it for a bill releases the
+                                      // time entry that had it.
+                                      setOpenTimeId(null);
                                       setOpenDocId(s.docId);
                                     }
                                   }}
@@ -2844,7 +3187,10 @@ export function Board() {
                             // cost-code lane's chips above.
                             if (isMobile || !isOpen) driveMainWindowToDoc(jobId, b.id);
                             if (isMobile) openBillDetail();
-                            else setOpenDocId(isOpen ? null : b.id);
+                            else {
+                              setOpenTimeId(null);
+                              setOpenDocId(isOpen ? null : b.id);
+                            }
                           }}
                           aria-expanded={isMobile ? undefined : isOpen}
                           className="min-w-0 flex-1 p-3 text-left transition hover:bg-accent/5 dark:hover:bg-white/5"
@@ -2956,7 +3302,31 @@ export function Board() {
               of the screen (not the clicked bill) — simpler and more
               predictable than tracking the click position. */}
           <section className="hidden min-w-0 xl:block xl:sticky xl:top-16 xl:self-start">
-            <BillCodingCard ctl={codingCtl} />
+            {/* One column, two subjects. A time entry claims it when its row is
+                clicked (and releases it back to the bills on Close), so the
+                office codes labor exactly where it codes a bill instead of
+                learning a second layout. */}
+            {openTime && !belowXl ? (
+              <>
+                <SectionLabel className="mb-2">Time &amp; labor</SectionLabel>
+                <TimeCodingCard
+                  entry={openTime}
+                  jobId={jobId}
+                  codeOptions={timeCodeOptions}
+                  writes={Boolean(data?.writesEnabled)}
+                  onSaved={() => {
+                    // The write already landed in JobTread, so this is a
+                    // re-read, not a sync — and it must keep the staged bill
+                    // work, which has nothing to do with the entry just saved.
+                    setOpenTimeId(null);
+                    load({ preserveStaged: true });
+                  }}
+                  onClose={() => setOpenTimeId(null)}
+                />
+              </>
+            ) : (
+              <BillCodingCard ctl={codingCtl} />
+            )}
           </section>
         </div>
       )}
@@ -2990,6 +3360,41 @@ export function Board() {
             {syncing ? "Syncing…" : "Sync to JT"}
           </Button>
         </StickyActionBar>
+      )}
+
+      {/* The Time & labor panel, where the coding column doesn't fit. Same
+          component, same behaviour — a bottom sheet on a phone and a centred
+          dialog from sm up, exactly like the cost-code drill-down below, so the
+          Close button lands where the thumb already is. Rendered EITHER here or
+          in the column, never both: two mounts would duplicate its field ids
+          and its state. */}
+      {openTime && belowXl && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Edit time entry"
+          onClick={() => setOpenTimeId(null)}
+        >
+          {/* No background of its own: TimeCodingCard IS a Card, so the sheet
+              only sizes and pads it. */}
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-lg pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:pb-0"
+          >
+            <TimeCodingCard
+              entry={openTime}
+              jobId={jobId}
+              codeOptions={timeCodeOptions}
+              writes={Boolean(data?.writesEnabled)}
+              onSaved={() => {
+                setOpenTimeId(null);
+                load({ preserveStaged: true });
+              }}
+              onClose={() => setOpenTimeId(null)}
+            />
+          </div>
+        </div>
       )}
 
       {/* Cost-code drill-down: every bill and time entry behind a rail row's

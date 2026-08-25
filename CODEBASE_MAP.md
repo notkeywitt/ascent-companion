@@ -42,8 +42,10 @@ matching row here.
 | **Verified JobTread reads/writes** (not the generic gateway) | `src/lib/jobtread.ts` |
 | **Billing period / bill-date rules** | `src/lib/billing.ts` (keep in lockstep with appscript `Config.js`) |
 | **Bill line money math** (edit/save a bill's lines) | `src/lib/billLineMath.ts` |
-| **Coding / Client Invoicing workflow** | `src/app/recode/*` (Board, BillCodingCard, ClientInvoicing, DraftQueue, DraftWorkbench,
+| **Coding / Client Invoicing workflow** | `src/app/recode/*` (Board, BillCodingCard, TimeCodingCard, ClientInvoicing, DraftQueue, DraftWorkbench,
   AllJobs, Roster) + `src/app/api/recode/*`, `src/app/api/code` |
+| **Editing ONE time entry** (code / hours / day / job) | `src/app/recode/TimeCodingCard.tsx` + `src/app/api/time-entry`; batch recodes stay in `labor-review` |
+| **Org-timezone wall clocks in the browser** | `src/lib/orgTime.ts` (read half; the server's is in `src/lib/jobtread.ts`) |
 | **A single bill page** | `src/app/bill/[docId]/page.tsx` + `src/app/api/bill/*` |
 | **PTO / sick accrual** | pure math `src/lib/leave.ts`; server orchestration `src/lib/leaveService.ts`; UI `src/app/time-off/` + `src/app/api/time-off/*` |
 | **Employee time / clock** | `src/app/employee-time/` + `src/app/api/employee-time/*`; back end is appscript `EmployeeTime.js` |
@@ -101,8 +103,8 @@ Each page is a server component (`page.tsx`) that hands non-secret context to a
 `"use client"` component. Group/roles for each is set by its `VIEWS` entry.
 
 - **Financials:** `recode` (Client Invoicing — the billing hub: Board,
-  BillCodingCard, ClientInvoicing, DraftQueue, DraftWorkbench, AllJobs,
-  Roster), `bill/[docId]`, `add-bill`,
+  BillCodingCard, TimeCodingCard, ClientInvoicing, DraftQueue, DraftWorkbench,
+  AllJobs, Roster), `bill/[docId]`, `add-bill`,
   `coding` (retired), `stage` (retired), `labor-review`, `jobs`, `unbilled`,
   `vendors`, `email`, `needs-project`, `payments` (Sunset Statements),
   `expenditure-history`, `lswdd`, `amazon-import`, `tracking-sheet`.
@@ -134,6 +136,7 @@ Grouped by domain; each folder is `…/route.ts`.
 - **Invoicing surfaces:** `stage/*`, `lswdd`, `amazon-import/*`,
   `sunset-statements/*`, `sunset-duplicates`, `buyback`.
 - **Labor / time:** `employee-time/*`, `labor-rates/*`, `labor-review/*`,
+  `time-entry` (one entry, edited in place — gated under `recode`),
   `time-off/*`, `time-sync/*`, `expenditure-history`.
 - **HR / field ops:** `employees/*`, `team/*`, `mileage/*`, `tools`,
   `tool-tracker`, `safety-meeting`, `requisitions`, `rfis/*`,

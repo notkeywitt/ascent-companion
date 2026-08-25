@@ -53,7 +53,18 @@ export const VIEWS: ViewDef[] = [
     id: "recode",
     label: "Client Invoicing",
     group: "Financials",
-    paths: ["/recode", "/api/recode", "/bill", "/add-bill", "/api/uncaptured"],
+    paths: [
+      "/recode",
+      "/api/recode",
+      "/bill",
+      "/add-bill",
+      "/api/uncaptured",
+      // The Time & labor panel's own write. It rides THIS gate, not
+      // "labor-review": the panel is part of the Client Invoicing workbench, and
+      // a longer path wins in viewIdForPath, so listing it here is what makes it
+      // reachable for a role that has Client Invoicing but not Labor Review.
+      "/api/time-entry",
+    ],
   },
   // Labor Review — Client Invoicing's workbench applied to time entries: the
   // same budget rail, the month's labor in place of the bills, and a coding
