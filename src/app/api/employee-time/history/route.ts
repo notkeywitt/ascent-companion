@@ -3,15 +3,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { getUserTimeEntries, jtIsoToOrgLocal } from "@/lib/jobtread";
 import { getPaveConfig, hasGrant } from "@/lib/config";
-import { callAppsScript } from "@/lib/appsScript";
+import { resolveJtUserLink } from "@/lib/jtUserLink";
 
 /**
  * "My time" — the signed-in employee's own JobTread time entries for a date
  * range (the bi-monthly pay-period view on /employee-time). The employee's
- * JobTread user id is resolved server-side from their login email via the SAME
- * Apps Script action the logging page's bootstrap uses (timeEntryBootstrap) —
- * never trusted from the client — so nobody can page through someone else's
- * time by editing a query param.
+ * JobTread user id is resolved server-side from their login email (the shared,
+ * DB-backed roster link — lib/jtUserLink) and never trusted from the client, so
+ * nobody can page through someone else's time by editing a query param.
  *
  * JobTread's timestamps are REAL UTC instants (confirmed live 2026-07-24 — see
  * the probe table above orgLocalToJtIso in @/lib/jobtread), so every stamp is
@@ -41,16 +40,6 @@ function timeOf(iso: string): string {
   return m ? `${m[1]}:${m[2]}` : "";
 }
 
-// Memoize the signed-in email → JobTread user id resolution for a few minutes.
-// The "My Time" view re-fetches on every month/half switch, and each load
-// otherwise re-runs the Apps Script timeEntryBootstrap purely to map the email
-// to its JT user id — a slow round trip for a value that only changes when an
-// admin re-links the roster. Keyed by the AUTHENTICATED session email (never a
-// client-supplied id), so this is a pure memoization, not a trust change; the
-// short TTL bounds staleness after a re-link. Lives per warm server instance.
-const _userIdByEmail = new Map<string, { userId: string; expires: number }>();
-const USER_ID_TTL_MS = 5 * 60_000;
-
 export async function GET(req: NextRequest) {
   if (!hasGrant()) {
     return NextResponse.json({ ok: false, error: "JT_GRANT_KEY is not set." }, { status: 400 });
@@ -64,20 +53,10 @@ export async function GET(req: NextRequest) {
   const session = await auth();
   const email = session?.user?.email ?? "";
 
-  // Resolve the email → JT user id from the short-lived memo when warm; only
-  // hit Apps Script (timeEntryBootstrap) on a miss.
-  let userId = "";
-  const cached = email ? _userIdByEmail.get(email) : undefined;
-  if (cached && cached.expires > Date.now()) {
-    userId = cached.userId;
-  } else {
-    const boot = await callAppsScript({ action: "timeEntryBootstrap", email });
-    if (boot.error) return NextResponse.json({ ok: false, error: boot.error }, { status: boot.status });
-    const b = (boot.data ?? {}) as { ok?: boolean; error?: string; me?: { jtUserId?: string } };
-    if (b?.ok === false) return NextResponse.json(b, { status: 200 });
-    userId = (b.me?.jtUserId ?? "").trim();
-    if (email && userId) _userIdByEmail.set(email, { userId, expires: Date.now() + USER_ID_TTL_MS });
-  }
+  // The email → JT user id comes from the shared DB-backed cache; only a cold
+  // or stale link costs the Apps Script round trip.
+  const link = await resolveJtUserLink(email);
+  const userId = link?.jtUserId ?? "";
   if (!userId) {
     return NextResponse.json({
       ok: false,

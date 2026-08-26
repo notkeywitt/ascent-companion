@@ -2,11 +2,17 @@ import { NextResponse } from "next/server";
 
 import { auth } from "@/auth";
 import { balancesForEmployee, employeeByEmail, getPolicyRows } from "@/lib/leaveService";
+import { readJtUserLink } from "@/lib/jtUserLink";
 
 /**
  * Field self-service — the signed-in user's own Sick/PTO balances. Resolves the
- * Google email to a roster employee (Apps Script), then reads that employee's
- * balances from the companion DB. Gated by the field-visible "time-off" view.
+ * Google email to a roster employee, then reads that employee's balances from
+ * the companion DB. Gated by the field-visible "time-off" view.
+ *
+ * The email → employee step prefers the cached roster link (lib/jtUserLink): it
+ * is one DB read, where pulling the roster from Apps Script to translate an
+ * email costs ~3 s. The roster pull stays as the fallback for a cold link, and
+ * it is what fills the cache in the first place.
  *
  * GET → { ok, me:{employeeId,name,jtUserId}|null, balances:[{leaveType,balance,
  *         accrued,used}], policies }
@@ -22,7 +28,11 @@ export async function GET() {
     // policies.filter(p => p.active), so a payload missing that flag renders an
     // empty dropdown. Mirrors what /api/time-off/balances sends the office.
     const policies = (await getPolicyRows()).filter((p) => p.active);
-    const emp = await employeeByEmail(email);
+    const link = await readJtUserLink(email);
+    const emp =
+      link?.employeeId
+        ? { employeeId: link.employeeId, name: link.name, jtUserId: link.jtUserId }
+        : await employeeByEmail(email);
     if (!emp) {
       return NextResponse.json({
         ok: true,

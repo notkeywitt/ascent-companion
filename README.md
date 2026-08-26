@@ -49,7 +49,11 @@ The launcher (`src/app/page.tsx`) groups every screen into four areas:
 - **Employee Time** (`/employee-time`) — a phone time clock: clock in/out (the
   running clock lives in JobTread, so it resumes on any device), a day-grouped
   Timesheets tab for the pay period, and a "log a range" form for time already
-  worked. Required note, optional photos; creates a JobTread time entry.
+  worked. Job/cost/pay default to the last one used; the clock-out can be
+  back-dated. Required note, optional photos; creates a JobTread time entry.
+  The page is server-rendered with the jobs, the identity, and the running clock
+  already in it — the email → JobTread link is cached in `jt_user_links` and in
+  the sign-in token, so no page load waits on Apps Script (~3 s per round trip).
 
 ### Utilities — assistant, records, imports, and admin
 - **Assistant** (`/chat`) — a read-only Claude chat over a job's bills and

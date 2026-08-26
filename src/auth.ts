@@ -133,6 +133,23 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.va = access.va;
         token.vd = access.vd;
         token.rb = access.rb;
+
+        // The person's JobTread identity, carried the same way. A page that
+        // logs time needs the JobTread user id, and reading it from the roster
+        // costs a ~3 s Apps Script round trip — so it rides in the token and
+        // costs nothing per request. DB READ ONLY here: a cache miss leaves it
+        // blank and the page resolves it once in the background (which fills
+        // the cache), rather than putting three seconds in front of a sign-in.
+        try {
+          const { readJtUserLink } = await import("@/lib/jtUserLink");
+          const link = await readJtUserLink(email);
+          if (link) {
+            token.jt = link.jtUserId;
+            token.emp = link.employeeId;
+          }
+        } catch {
+          /* the page's own fallback covers this */
+        }
       }
       return token;
     },
@@ -141,7 +158,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     // through a local cast — the next-auth/jwt module augmentation doesn't merge
     // into the callback's token type in this v5 beta, but Session.user does.)
     async session({ session, token }) {
-      const t = token as { role?: Role; va?: string[]; vd?: string[]; rb?: string[] };
+      const t = token as {
+        role?: Role;
+        va?: string[];
+        vd?: string[];
+        rb?: string[];
+        jt?: string;
+        emp?: string;
+      };
       if (session.user) {
         // Founders are always admin — resolved from env (no DB), so a founder
         // is never locked out even on a token minted before roles existed.
@@ -154,6 +178,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         // A token minted before role defaults existed has no `rb` — fall back
         // to the hardcoded default rather than leaving it undefined.
         session.user.roleBase = isFounder ? ROLE_VIEWS.admin : t.rb ?? ROLE_VIEWS[role];
+        // Blank on a token minted before this existed, or when the link cache
+        // missed at sign-in — every reader falls back to resolveJtUserLink().
+        session.user.jtUserId = t.jt ?? "";
+        session.user.employeeId = t.emp ?? "";
       }
       return session;
     },

@@ -14,6 +14,8 @@ declare module "next-auth" {
       viewsAllow?: string[];
       viewsDeny?: string[];
       roleBase?: string[]; // the role's (possibly admin-edited) default view set
+      jtUserId?: string; // JobTread user id from the cached roster link ("" = unknown)
+      employeeId?: string; // the Employee roster row id ("" = unknown)
     } & DefaultSession["user"];
   }
 }
@@ -24,5 +26,7 @@ declare module "next-auth/jwt" {
     va?: string[]; // viewsAllow
     vd?: string[]; // viewsDeny
     rb?: string[]; // roleBase
+    jt?: string; // jtUserId  (short keys: the JWT rides in a cookie)
+    emp?: string; // employeeId
   }
 }

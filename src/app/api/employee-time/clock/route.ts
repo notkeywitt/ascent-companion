@@ -1,16 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { auth } from "@/auth";
-import {
-  createTimeEntry,
-  updateTimeEntry,
-  deleteTimeEntry,
-  getOpenTimeEntries,
-  orgLocalToJtIso,
-  jtIsoToOrgLocal,
-} from "@/lib/jobtread";
+import { createTimeEntry, updateTimeEntry, deleteTimeEntry, orgLocalToJtIso } from "@/lib/jobtread";
 import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
 import { callAppsScript } from "@/lib/appsScript";
+import { readOpenClock } from "@/lib/employeeClock";
+import { resolveJtUserLink } from "@/lib/jtUserLink";
 
 /**
  * Clock in/out — the sibling of ../route.ts's one-shot "log a time range" form.
@@ -23,9 +18,8 @@ import { callAppsScript } from "@/lib/appsScript";
  * it, so opening the page on any device — a new phone, a cleared browser, the
  * office desktop — shows the live Clock Out button with the real start time and
  * job/cost context. The client still mirrors its own clock-in to localStorage,
- * but only as the offline fallback and to carry the two things JobTread doesn't
- * hold (the clock-in GPS fix and the log's idempotency key); on any disagreement
- * JobTread wins. The POST ops themselves stay stateless per request.
+ * but only as the offline fallback and to carry the one thing JobTread doesn't
+ * hold (the log's idempotency key); on any disagreement JobTread wins. The POST ops themselves stay stateless per request.
  *
  * Gated by COMPANION_WRITES_ENABLED like the rest of this page: with writes off,
  * "in" skips createTimeEntry and returns an empty entryId (previewed:true) so the
@@ -44,7 +38,7 @@ import { callAppsScript } from "@/lib/appsScript";
  *      → { ok, previewed, entryId, jtStatus, jtError? }
  * POST { op:"out", entryId, userId, jobId, jobLabel?, costItemId, costCode?,
  *        payType?, employee?, startTime, endTime, note,
- *        lat?, lng?, nearestJob?, photos:[{base64, mimeType, name}] }
+ *        photos:[{base64, mimeType, name}] }
  *      → { ok, previewed, wrote, jtEntryId, jtStatus, jtError?, entryId,
  *          photoCount, date }
  * POST { op:"cancel", entryId } → { ok }
@@ -61,19 +55,10 @@ function toLocalStamp(v: string): string {
   return `${m[1]}T${m[2]}:${m[3]}:${m[4] ?? "00"}`;
 }
 
-// How far back a still-open entry is treated as a resumable running clock. Wide
-// enough for the real case (forgot to clock out Friday, back Monday), bounded so
-// a long-abandoned entry from weeks ago doesn't hijack the page — by then it's a
-// correction for the office, and "My Time" still surfaces it via openCount.
-const RESUME_WINDOW_DAYS = 7;
-
-// Memoized signed-in email → JobTread user id + name, exactly as ../history does
-// (see the longer note there). Keyed by the AUTHENTICATED session email, never a
-// client-supplied id, so this is pure memoization and not a trust change; the
-// short TTL bounds staleness after an admin re-links the roster. Per warm
-// instance.
-const _meByEmail = new Map<string, { userId: string; name: string; expires: number }>();
-const ME_TTL_MS = 5 * 60_000;
+// The signed-in email → JobTread identity comes from the shared, DB-backed
+// cache (lib/jtUserLink). It used to be a per-instance Map, which meant every
+// cold lambda paid the ~3 s Apps Script round trip again. Always keyed by the
+// AUTHENTICATED session email, never a client-supplied id.
 
 /**
  * GET — the signed-in employee's RUNNING clock straight from JobTread, so the
@@ -87,55 +72,17 @@ export async function GET() {
   const session = await auth();
   const email = session?.user?.email ?? "";
 
-  let userId = "";
-  let name = "";
-  const cached = email ? _meByEmail.get(email) : undefined;
-  if (cached && cached.expires > Date.now()) {
-    userId = cached.userId;
-    name = cached.name;
-  } else {
-    const boot = await callAppsScript({ action: "timeEntryBootstrap", email });
-    if (boot.error) return NextResponse.json({ ok: false, error: boot.error }, { status: boot.status });
-    const b = (boot.data ?? {}) as {
-      ok?: boolean;
-      error?: string;
-      me?: { jtUserId?: string; name?: string; jtUserName?: string };
-    };
-    if (b?.ok === false) return NextResponse.json(b, { status: 200 });
-    userId = (b.me?.jtUserId ?? "").trim();
-    name = (b.me?.name || b.me?.jtUserName || "").trim();
-    if (email && userId) _meByEmail.set(email, { userId, name, expires: Date.now() + ME_TTL_MS });
-  }
+  const link = await resolveJtUserLink(email);
+  const userId = link?.jtUserId ?? "";
+  const name = (link?.name || link?.jtUserName || "").trim();
   // Not linked to a JobTread user — there's no clock to look up. Not an error
   // here: the bootstrap route already tells them how to link, and the page must
   // still fall back to whatever it has locally.
   if (!userId) return NextResponse.json({ ok: true, openEntry: null, openCount: 0, linked: false });
 
   try {
-    const since = new Date(Date.now() - RESUME_WINDOW_DAYS * 86_400_000).toISOString();
-    const open = await getOpenTimeEntries(getPaveConfig(), userId, { sinceIso: since });
-    const e = open[0]; // newest-first
-    return NextResponse.json({
-      ok: true,
-      linked: true,
-      openCount: open.length,
-      openEntry: e
-        ? {
-            entryId: e.id,
-            // JobTread stores a real UTC instant; the client works in org-local
-            // wall clock (that's what it sends at clock-in and what the elapsed
-            // timer and the Time Entries log expect).
-            startedAt: jtIsoToOrgLocal(e.startedAt),
-            jobId: e.jobId,
-            jobLabel: e.jobLabel,
-            costItemId: e.costItemId,
-            costCode: e.costCode,
-            costItemName: e.costItemName,
-            payType: e.payType,
-            employee: name,
-          }
-        : null,
-    });
+    const { openEntry, openCount } = await readOpenClock(userId, name);
+    return NextResponse.json({ ok: true, linked: true, openCount, openEntry });
   } catch (err) {
     return NextResponse.json(
       { ok: false, error: err instanceof Error ? err.message : "Could not check your clock." },
@@ -163,9 +110,6 @@ interface Body {
   startTime?: string;
   endTime?: string;
   note?: string;
-  lat?: number;
-  lng?: number;
-  nearestJob?: string;
   photos?: Photo[];
 }
 
@@ -296,9 +240,6 @@ export async function POST(req: NextRequest) {
       startTime: startLocal,
       endTime: endLocal,
       note,
-      lat: body.lat ?? "",
-      lng: body.lng ?? "",
-      nearestJob: body.nearestJob ?? "",
       jtEntryId: pushable ? "" : entryId, // no-push rows still record the clock-in id if any
       jtStatus: pendingStatus,
       loggedBy: email,

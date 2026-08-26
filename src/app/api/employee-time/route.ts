@@ -10,6 +10,7 @@ import {
 } from "@/lib/jobtread";
 import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
 import { callAppsScript } from "@/lib/appsScript";
+import { resolveJtUserLink } from "@/lib/jtUserLink";
 
 /**
  * Backend for the Assistant's /employee-time page — logging a specific time
@@ -20,9 +21,12 @@ import { callAppsScript } from "@/lib/appsScript";
  * This route straddles both systems. JobTread reads/writes go direct through the
  * grant-holding lib (@/lib/jobtread): the org users + their pay types, a job's
  * cost items, and the createTimeEntry write. Everything only Apps Script can do —
- * resolving the signed-in email to its linked JobTread user id, the job-site GPS
- * for the nearest-job pre-fill, storing the photos in Drive, and appending the
- * auditable "Time Entries" row — goes over the shared-secret web app.
+ * resolving the signed-in email to its linked JobTread user id, storing the
+ * photos in Drive, and appending the auditable "Time Entries" row — goes over
+ * the shared-secret web app.
+ *
+ * No location is captured or returned: the nearest-job GPS pre-fill (and the
+ * job-site coordinate list that fed it) was removed 2026-08-26.
  *
  * The JobTread write is gated by COMPANION_WRITES_ENABLED (default OFF → preview,
  * like /api/add-line and /api/add-bill). createTimeEntry/updateTimeEntry/
@@ -37,11 +41,10 @@ import { callAppsScript } from "@/lib/appsScript";
  *   APPS_SCRIPT_SYNC_URL, APPS_SCRIPT_SYNC_SECRET, JT_GRANT_KEY, JT_ORG_ID,
  *   COMPANION_WRITES_ENABLED
  *
- *   GET                → { ok, me, sites, jtUsers }              (page bootstrap)
+ *   GET                → { ok, me, jtUsers, orgTypes }           (page bootstrap)
  *   GET ?jobId=<id>    → { ok, costItems:[{id, number, name}] }  (cost-code list)
  *   POST { userId, jobId, jobLabel?, costItemId, costCode?, payType?, startTime,
- *          endTime, note, lat?, lng?, nearestJob?, employee?,
- *          photos:[{base64, mimeType, name}] }
+ *          endTime, note, employee?, photos:[{base64, mimeType, name}] }
  *        → { ok, previewed, wrote, jtEntryId, jtStatus, jtError?, entryId,
  *            photoCount, date }
  */
@@ -83,26 +86,33 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // Bootstrap: the signed-in user's linked JobTread identity + the job-site GPS
-  // (Apps Script), and the org users/pay-types (JobTread).
+  // Bootstrap: the signed-in user's linked JobTread identity + the org users and
+  // pay types. The page's server shell already renders with all three when the
+  // roster link is cached, so this GET is now the COLD path — the first load for
+  // a person, or after their link expires. resolveJtUserLink writes what it
+  // learns back to the DB, so the next load skips Apps Script entirely.
   const session = await auth();
   const email = session?.user?.email ?? "";
 
-  const [boot, jtUsers, orgTypes] = await Promise.all([
-    callAppsScript({ action: "timeEntryBootstrap", email }),
+  const [link, jtUsers, orgTypes] = await Promise.all([
+    resolveJtUserLink(email),
     getOrgUsers(cfg).catch(() => []),
     // Fallback pay-type list, used when the grant can't read each member's own
     // set (per-member types 403 → getOrgUsers returns them undefined).
     getOrgTimeEntryTypeNames(cfg).catch(() => [] as string[]),
   ]);
-  if (boot.error) return NextResponse.json({ ok: false, error: boot.error }, { status: boot.status });
-  const b = (boot.data ?? {}) as { ok?: boolean; error?: string; me?: unknown; sites?: unknown };
-  if (b?.ok === false) return NextResponse.json(b, { status: 200 });
 
+  // An unreachable roster is no longer an error: it just means we can't name the
+  // person, and the page falls back to its one-time "who are you in JobTread?"
+  // pick rather than showing a red banner over a working time clock.
   return NextResponse.json({
     ok: true,
-    me: b.me ?? { name: "", email, jtUserId: "", jtUserName: "" },
-    sites: b.sites ?? [],
+    me: {
+      name: link?.name ?? "",
+      email: link?.email ?? email,
+      jtUserId: link?.jtUserId ?? "",
+      jtUserName: link?.jtUserName ?? "",
+    },
     jtUsers,
     orgTypes,
   });
@@ -125,9 +135,6 @@ interface Body {
   startTime?: string;
   endTime?: string;
   note?: string;
-  lat?: number;
-  lng?: number;
-  nearestJob?: string;
   photos?: Photo[];
 }
 
@@ -204,9 +211,6 @@ export async function POST(req: NextRequest) {
     startTime: startLocal,
     endTime: endLocal,
     note,
-    lat: body.lat ?? "",
-    lng: body.lng ?? "",
-    nearestJob: body.nearestJob ?? "",
     jtEntryId: "",
     jtStatus: writesEnabled() ? "pending push" : "not pushed (writes off)",
     loggedBy: email,

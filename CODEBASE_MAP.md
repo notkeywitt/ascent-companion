@@ -67,6 +67,9 @@ including edge middleware.
 | File | Purpose |
 |---|---|
 | `jobtread.ts` | The typed Pave client + the verified read/write calls behind the app. Every call was confirmed live; TODO fields are unverified (probe-first). |
+| `jobsCache.ts` | The org's open jobs in Next's Data Cache (5-min TTL), shared by `/api/jobs` AND any server component that wants to preload the list into its HTML (e.g. `/employee-time`). |
+| `jtUserLink.ts` | **email → JobTread identity, cached in the DB** (`jt_user_links`). The roster answer costs a ~3 s Apps Script round trip, so read it here: `readJtUserLink` (DB only, safe on a render path) / `resolveJtUserLink` (falls back to Apps Script and writes back). |
+| `employeeClock.ts` | The running clock (`readOpenClock`) and the last job/cost/pay a person used (`readLastUsed`), shared by `/employee-time`'s server shell and its clock route. |
 | `paveGateway.ts` ⟂ | Policy + query inspection for the generic `/api/pave` gateway (read/write classification, per-role write allowlist). |
 | `paveGatewayClient.ts` | Browser-safe `gatewayQuery(query)` — POSTs to `/api/pave`; no grant key. |
 | `config.ts` | Server-side Pave config from env (`getPaveConfig`) + write gates. Never import into client code. |
@@ -172,8 +175,9 @@ Grouped by domain; each folder is `…/route.ts`.
 `saved_bills`, `feature_requests`, `flagged_time_entries`,
 `labor_rate_catalog`, `labor_rate_groups`, `leads`, `lead_activities`,
 `lead_inquiries`, `lead_inquiry_dismissals`, `leave_policies`, `leave_balances`,
-`leave_requests`, `leave_transactions`, `notices`, `notice_reads`, `rfis`,
-`sunset_statements`, `page_copy`. Access via `src/db/index.ts`.
+`leave_requests`, `leave_transactions`, `jt_user_links`, `notices`,
+`notice_reads`, `rfis`, `sunset_statements`, `page_copy`. Access via
+`src/db/index.ts`.
 
 (`notices`/`notice_reads` back the global popup feed — a notice is dismissed
 per-user and stays gone; `lead_inquiry_dismissals` hides a web-form inquiry from

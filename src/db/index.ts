@@ -119,6 +119,19 @@ async function runEnsure(): Promise<void> {
 
 /** Every DDL statement for the companion DB. Idempotent — safe to re-run in full. */
 async function applySchema() {
+  // email → JobTread identity, cached from the Employee roster so a page load
+  // costs one DB read instead of a ~3 s Apps Script round trip (see the table's
+  // note in db/schema.ts and lib/jtUserLink.ts).
+  await getClient().execute(`
+    CREATE TABLE IF NOT EXISTS jt_user_links (
+      email TEXT PRIMARY KEY,
+      name TEXT NOT NULL DEFAULT '',
+      jt_user_id TEXT NOT NULL DEFAULT '',
+      jt_user_name TEXT NOT NULL DEFAULT '',
+      employee_id TEXT NOT NULL DEFAULT '',
+      updated_at TEXT NOT NULL DEFAULT ''
+    )
+  `);
   await getClient().execute(`
     CREATE TABLE IF NOT EXISTS rfis (
       id INTEGER PRIMARY KEY AUTOINCREMENT,

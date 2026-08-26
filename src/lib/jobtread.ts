@@ -3933,8 +3933,11 @@ export interface UserTimeEntry {
   jobName: string;
   /** The job's customer account name, for the "job / customer" timesheet row. */
   customer: string;
+  costItemId: string;
   costCode: string;
   costItemName: string;
+  /** timeEntry.type — the pay-type NAME. */
+  payType: string;
 }
 
 /**
@@ -3979,6 +3982,7 @@ export async function getUserTimeEntries(
           nextPage: {},
           nodes: {
             id: {},
+            type: {},
             startedAt: {},
             endedAt: {},
             minutes: {},
@@ -4002,8 +4006,10 @@ export async function getUserTimeEntries(
         jobId: n.job?.id ?? "",
         jobName: n.job?.name ?? "",
         customer: n.job?.location?.account?.name ?? "",
+        costItemId: n.costItem?.id ?? "",
         costCode: n.costItem?.costCode?.number ?? "",
         costItemName: n.costItem?.costCode?.name || n.costItem?.name || "",
+        payType: n.type ?? "",
       });
     }
     cursor = tc.nextPage ?? null;

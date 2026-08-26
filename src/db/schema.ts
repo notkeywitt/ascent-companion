@@ -61,6 +61,35 @@ export const allowedUsers = sqliteTable("allowed_users", {
 export type AllowedUser = typeof allowedUsers.$inferSelect;
 
 /**
+ * The signed-in email → JobTread identity link, cached out of the Employee
+ * roster (Apps Script `timeEntryBootstrap`).
+ *
+ * WHY THIS TABLE EXISTS — it is a load-time fix, not new data. The roster is
+ * the source of truth, but it lives behind the Apps Script web app, and ONE
+ * round trip there costs ~3 s of pure Google overhead before the script runs
+ * (measured 2026-08-26 with a rejected request). /employee-time used to pay
+ * that three times on a single load — its bootstrap, its clock check, and the
+ * leave balances — all asking the same question: "who is this person?". The
+ * answer changes only when an admin re-links somebody, so it is cached here and
+ * refreshed on a TTL (see lib/jtUserLink). A stale row is repaired by the
+ * refresh, or immediately by an admin re-link.
+ *
+ * `employeeId` is the roster row's own id — it lets /api/time-off/me read
+ * balances straight from this DB instead of pulling the roster to translate an
+ * email.
+ */
+export const jtUserLinks = sqliteTable("jt_user_links", {
+  email: text("email").primaryKey(), // lower-cased login email
+  name: text("name").notNull().default(""), // the roster's display name
+  jtUserId: text("jt_user_id").notNull().default(""), // "" = on the roster, not linked to JobTread
+  jtUserName: text("jt_user_name").notNull().default(""),
+  employeeId: text("employee_id").notNull().default(""),
+  updatedAt: text("updated_at").notNull().default(""), // ISO — drives the TTL refresh
+});
+
+export type JtUserLinkRow = typeof jtUserLinks.$inferSelect;
+
+/**
  * DB-editable layer on top of the hardcoded ROLE_VIEWS defaults in lib/views.ts
  * — lets an admin change what a whole role sees (not just one person) from
  * /admin. No row for a role = use the hardcoded default unchanged. "admin" is

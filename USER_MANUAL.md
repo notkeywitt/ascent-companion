@@ -364,11 +364,17 @@ need to pick yourself from **"Who are you in JobTread?"** — it's remembered af
    the time counts up under it.
 2. **Start time** is now. Tap the **Today** chip or the time chip to change it — that is the
    "I forgot to clock in at 7" case.
-3. Tap **Job** (GPS pre-fills the nearest site if you are close), then **Cost code**, then
-   **Pay type** if you are asked for one. Each row opens a searchable list.
+3. The **Job**, the **Cost code** and the **Pay type** start on what you used last. If they
+   are correct, change nothing. To change one, tap its row and pick from the list.
 4. Tap the big **Clock in** button at the bottom.
 5. When you stop, tap **Clock out**. Write the **Note** (required) and add up to **8 photos**
    if you want, then confirm.
+6. If you forgot to clock out on time, change the **Stop time** in that same panel. Tap the
+   day chip or the time chip and set the correct time. The panel shows the new length, and
+   the button shows it too. A stop time after the current time is not permitted.
+
+> **The last job stays with you.** The page remembers your last job, cost code and pay type
+> on the phone. On a new phone it reads them from your most recent JobTread entry.
 
 > **Your clock lives in JobTread, not in the phone.** Open the page on a different phone or
 > on the office computer and it still shows you clocked in, with the same job and start time.
