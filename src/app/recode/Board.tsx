@@ -354,6 +354,24 @@ function useIsMobile() {
  */
 /** Stands in for the empty cost code in the Time & labor filter's <select>. */
 const UNCODED = "__uncoded__";
+/** …and for "not one of the listed days — use the from/to boxes instead". */
+const CUSTOM_RANGE = "__range__";
+
+/**
+ * "2026-08-11" → "Tue Aug 11". Parsed as UTC and formatted as UTC: the string
+ * is already an ORG-local day (orgDay did that conversion), so re-reading it in
+ * the viewer's zone would shift it back a day west of the org.
+ */
+function dayLabel(day: string): string {
+  const t = Date.parse(`${day}T00:00:00Z`);
+  if (!Number.isFinite(t)) return day;
+  return new Date(t).toLocaleDateString(undefined, {
+    timeZone: "UTC",
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+}
 
 function useIsBelowXl() {
   const [below, setBelow] = useState(false);
@@ -515,12 +533,18 @@ export function Board() {
   const [openTimeId, setOpenTimeId] = useState<string | null>(null);
   /** How the Time & labor list is grouped: flat, or by day / person / code. */
   const [timeGroupBy, setTimeGroupBy] = useState<"none" | "date" | "employee" | "code">("none");
-  /** …and narrowed. Same three axes, because they're the same three questions. */
+  /**
+   * …and narrowed, on the same three axes, because they're the same three
+   * questions. Each is independent and they AND together: a cost code, and/or
+   * an employee, and/or a date, in any combination — "Miguel's Tuesday",
+   * "everything on 06 10 00", "the whole crew on the 14th".
+   */
+  const [timeEmployee, setTimeEmployee] = useState("");
+  const [timeCode, setTimeCode] = useState("");
+  /** "" = every day · a "YYYY-MM-DD" · CUSTOM_RANGE = use timeFrom/timeTo. */
+  const [timeDay, setTimeDay] = useState("");
   const [timeFrom, setTimeFrom] = useState("");
   const [timeTo, setTimeTo] = useState("");
-  const [timeEmployees, setTimeEmployees] = useState<Set<string>>(new Set());
-  const [timeCode, setTimeCode] = useState("");
-  const [timeFiltersOpen, setTimeFiltersOpen] = useState(false);
 
   const taxDirty = Object.entries(taxEdits).some(([docId, v]) => {
     if (v === "") return false;
@@ -923,7 +947,24 @@ export function Board() {
       .map(([number, name]) => ({ number, name }))
       .sort((a, b) => a.number.localeCompare(b.number));
   }, [monthTime]);
+  /**
+   * …and the days somebody actually worked, newest first, each carrying how
+   * many entries landed on it. A month-scoped list only ever has a couple of
+   * dozen, so offering the real days beats a date box you can miss by one —
+   * you pick "Tue Aug 11 · 4" and the list is that day.
+   */
+  const timeDaysPresent = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const t of monthTime) {
+      const d = dayOfEntry(t);
+      if (d) m.set(d, (m.get(d) ?? 0) + 1);
+    }
+    return [...m.entries()]
+      .map(([day, count]) => ({ day, count }))
+      .sort((a, b) => b.day.localeCompare(a.day));
+  }, [monthTime, dayOfEntry]);
 
+  const rangeOn = timeDay === CUSTOM_RANGE && Boolean(timeFrom || timeTo);
   const timeFiltered = useMemo(
     () =>
       monthTime.filter((t) => {
@@ -931,13 +972,17 @@ export function Board() {
         // it as its own "no filter". UNCODED is the sentinel that lets both
         // live in one <select>.
         if (timeCode && t.code !== (timeCode === UNCODED ? "" : timeCode)) return false;
-        if (timeEmployees.size > 0 && !timeEmployees.has(t.employee)) return false;
+        if (timeEmployee && t.employee !== timeEmployee) return false;
         const d = dayOfEntry(t);
-        if (timeFrom && d < timeFrom) return false;
-        if (timeTo && d > timeTo) return false;
+        if (timeDay === CUSTOM_RANGE) {
+          if (timeFrom && d < timeFrom) return false;
+          if (timeTo && d > timeTo) return false;
+        } else if (timeDay && d !== timeDay) {
+          return false;
+        }
         return true;
       }),
-    [monthTime, timeCode, timeEmployees, timeFrom, timeTo, dayOfEntry],
+    [monthTime, timeCode, timeEmployee, timeDay, timeFrom, timeTo, dayOfEntry],
   );
   const timeShownTotal = useMemo(
     () => timeFiltered.reduce((s, t) => s + t.cost, 0),
@@ -947,20 +992,16 @@ export function Board() {
     () => timeFiltered.reduce((s, t) => s + t.hours, 0),
     [timeFiltered],
   );
-  const timeFilterOn = Boolean(timeCode || timeEmployees.size > 0 || timeFrom || timeTo);
+  const timeFilterOn = Boolean(
+    timeCode || timeEmployee || (timeDay && timeDay !== CUSTOM_RANGE) || rangeOn,
+  );
   const clearTimeFilters = () => {
     setTimeCode("");
-    setTimeEmployees(new Set());
+    setTimeEmployee("");
+    setTimeDay("");
     setTimeFrom("");
     setTimeTo("");
   };
-  const toggleTimeEmployee = (name: string) =>
-    setTimeEmployees((prev) => {
-      const next = new Set(prev);
-      if (next.has(name)) next.delete(name);
-      else next.add(name);
-      return next;
-    });
 
   /**
    * The filtered entries in their groups, each with its own hours and dollars.
@@ -980,16 +1021,19 @@ export function Board() {
       if (list) list.push(t);
       else map.set(k, [t]);
     }
-    const groups = [...map.entries()].map(([label, entries]) => ({
-      label,
+    const groups = [...map.entries()].map(([key, entries]) => ({
+      key,
+      // A day sorts as "2026-08-11" and reads as "Tue Aug 11" — so the heading
+      // is formatted for the eye while the key it sorts on stays the ISO one.
+      label: timeGroupBy === "date" && key !== "No date" ? dayLabel(key) : key,
       entries,
       cost: entries.reduce((s, t) => s + t.cost, 0),
       hours: entries.reduce((s, t) => s + t.hours, 0),
     }));
     // Days newest first (the list's own order); people and codes alphabetically,
     // which is how you scan for one.
-    if (timeGroupBy === "date") groups.sort((a, b) => b.label.localeCompare(a.label));
-    else if (timeGroupBy !== "none") groups.sort((a, b) => a.label.localeCompare(b.label));
+    if (timeGroupBy === "date") groups.sort((a, b) => b.key.localeCompare(a.key));
+    else if (timeGroupBy !== "none") groups.sort((a, b) => a.key.localeCompare(b.key));
     return groups;
   }, [timeFiltered, timeGroupBy, dayOfEntry]);
 
@@ -1011,6 +1055,18 @@ export function Board() {
   useEffect(() => {
     if (openTimeId && !timeFiltered.some((t) => t.id === openTimeId)) setOpenTimeId(null);
   }, [openTimeId, timeFiltered]);
+
+  // Another job or another month is a different set of people, codes and days,
+  // so a filter held over from the last one names something that isn't there —
+  // the <select> would show a blank and the list would read as empty for no
+  // visible reason. Start each month clean.
+  useEffect(() => {
+    setTimeEmployee("");
+    setTimeCode("");
+    setTimeDay("");
+    setTimeFrom("");
+    setTimeTo("");
+  }, [jobId, ym]);
 
   const openBill = data?.bills.find((b) => b.id === openDocId) ?? null;
   const openLines = openDocId ? (linesByDoc.get(openDocId) ?? []) : [];
@@ -2742,58 +2798,86 @@ export function Board() {
                 </button>
                 {timeBlockOpen && (
                   <>
-                    {/* ---- group + filter ----
-                        One row of controls, because grouping and filtering
-                        answer the same question at different strengths: "show
-                        me Tuesday" and "break it down by day" are the same
-                        thought. The filter panel is folded away until asked
-                        for — most visits don't need it and it would otherwise
-                        push the entries themselves below the fold. */}
-                    <div className="flex flex-wrap items-center gap-2 border-t border-line-soft px-3 py-2">
-                      <span className="text-[10px] uppercase tracking-wide text-neutral-400">
-                        Group
-                      </span>
-                      <div className="flex rounded-md bg-neutral-100 p-0.5 text-[11px] dark:bg-white/5">
-                        {(
-                          [
-                            ["none", "None"],
-                            ["date", "Date"],
-                            ["employee", "Employee"],
-                            ["code", "Cost code"],
-                          ] as const
-                        ).map(([g, label]) => (
-                          <button
-                            key={g}
-                            type="button"
-                            onClick={() => setTimeGroupBy(g)}
-                            aria-pressed={timeGroupBy === g}
-                            className={`inline-flex min-h-9 items-center rounded px-2 transition lg:min-h-0 lg:py-1 ${
-                              timeGroupBy === g
-                                ? "bg-accent text-accent-fg font-semibold"
-                                : "text-neutral-500 hover:text-accent dark:text-neutral-400"
-                            }`}
-                          >
-                            {label}
-                          </button>
-                        ))}
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setTimeFiltersOpen((v) => !v)}
-                        aria-expanded={timeFiltersOpen}
-                        className={`ml-auto inline-flex min-h-9 items-center rounded-md px-2 text-[11px] font-semibold transition ${
-                          timeFilterOn
-                            ? "bg-accent/15 text-accent"
-                            : "text-neutral-500 hover:text-accent dark:text-neutral-400"
-                        }`}
-                      >
-                        Filter{timeFilterOn ? " · on" : ""}
-                      </button>
-                    </div>
+                    {/* ---- filter, then group ----
+                        THREE INDEPENDENT SELECTIONS, ANDed: a cost code, and/or
+                        an employee, and/or a date. Each one is the way somebody
+                        actually asks for this — "what did Miguel do Tuesday",
+                        "who's been charging 06 10 00", "show me the 14th" — and
+                        the answers only get useful when they combine.
 
-                    {timeFiltersOpen && (
-                      <div className="space-y-2 border-t border-line-soft bg-neutral-50 px-3 py-2 dark:bg-ink-raised/50">
-                        <div className="flex flex-wrap items-end gap-2">
+                        Always on screen, not folded behind a Filter button: on
+                        a job with a month of crew hours this list is long enough
+                        that narrowing it is the FIRST thing you do, and a
+                        control you have to find first isn't one you use.
+
+                        Each select offers only what the month actually contains,
+                        so no combination can land on an empty list by accident.
+                        Grouping sits in the same strip because it's the same
+                        three axes at a different strength: "show me Tuesday"
+                        and "break it down by day" are one thought. ---- */}
+                    <div className="border-t border-line-soft bg-neutral-50 px-3 py-2 dark:bg-ink-raised/50">
+                      <div className="flex flex-wrap items-end gap-2">
+                        <div className="min-w-[8rem] flex-1">
+                          <Label htmlFor="tl-employee">Employee</Label>
+                          <Select
+                            id="tl-employee"
+                            value={timeEmployee}
+                            onChange={(e) => setTimeEmployee(e.target.value)}
+                            className="!py-1 !text-xs"
+                          >
+                            <option value="">Everyone</option>
+                            {timeEmployeeNames.map((name) => (
+                              <option key={name} value={name}>
+                                {name}
+                              </option>
+                            ))}
+                          </Select>
+                        </div>
+                        <div className="min-w-[10rem] flex-1">
+                          <Label htmlFor="tl-code">Cost code</Label>
+                          <Select
+                            id="tl-code"
+                            value={timeCode}
+                            onChange={(e) => setTimeCode(e.target.value)}
+                            className="!py-1 !text-xs"
+                          >
+                            <option value="">All codes</option>
+                            {timeCodesPresent.map((c2) => (
+                              <option key={c2.number || UNCODED} value={c2.number || UNCODED}>
+                                {c2.number ? `${c2.number} ${c2.name}` : "Uncoded"}
+                              </option>
+                            ))}
+                          </Select>
+                        </div>
+                        <div className="min-w-[9rem] flex-1">
+                          <Label htmlFor="tl-day">Date</Label>
+                          <Select
+                            id="tl-day"
+                            value={timeDay}
+                            onChange={(e) => setTimeDay(e.target.value)}
+                            className="!py-1 !text-xs"
+                          >
+                            <option value="">All dates</option>
+                            {timeDaysPresent.map((d) => (
+                              <option key={d.day} value={d.day}>
+                                {dayLabel(d.day)} · {d.count}
+                              </option>
+                            ))}
+                            {/* The days above cover the normal case. This is
+                                for a week or a pay period, which no single day
+                                can express. */}
+                            <option value={CUSTOM_RANGE}>Date range…</option>
+                          </Select>
+                        </div>
+                        {timeFilterOn && (
+                          <Button variant="secondary" size="sm" onClick={clearTimeFilters}>
+                            Clear
+                          </Button>
+                        )}
+                      </div>
+
+                      {timeDay === CUSTOM_RANGE && (
+                        <div className="mt-2 flex flex-wrap items-end gap-2">
                           <div>
                             <Label htmlFor="tl-from">From</Label>
                             <input
@@ -2814,55 +2898,43 @@ export function Board() {
                               className="rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs dark:border-neutral-600 dark:bg-ink-raised"
                             />
                           </div>
-                          <div className="min-w-[10rem] flex-1">
-                            <Label htmlFor="tl-code">Cost code</Label>
-                            <Select
-                              id="tl-code"
-                              value={timeCode}
-                              onChange={(e) => setTimeCode(e.target.value)}
-                              className="!py-1 !text-xs"
-                            >
-                              <option value="">All codes</option>
-                              {timeCodesPresent.map((c2) => (
-                                <option
-                                  key={c2.number || UNCODED}
-                                  value={c2.number || UNCODED}
-                                >
-                                  {c2.number ? `${c2.number} ${c2.name}` : "Uncoded"}
-                                </option>
-                              ))}
-                            </Select>
-                          </div>
-                          {timeFilterOn && (
-                            <Button variant="secondary" size="sm" onClick={clearTimeFilters}>
-                              Clear
-                            </Button>
-                          )}
+                          <p className="pb-1 text-[11px] text-neutral-400">
+                            Leave either end empty for &ldquo;everything up to&rdquo; or
+                            &ldquo;everything since&rdquo;.
+                          </p>
                         </div>
-                        {/* Employees are chips, not a select: picking two or
-                            three people at once is the normal case (a crew),
-                            and a multi-select does that badly. */}
-                        {timeEmployeeNames.length > 1 && (
-                          <div className="flex flex-wrap gap-1.5">
-                            {timeEmployeeNames.map((name) => (
-                              <button
-                                key={name}
-                                type="button"
-                                onClick={() => toggleTimeEmployee(name)}
-                                aria-pressed={timeEmployees.has(name)}
-                                className={`inline-flex min-h-8 items-center rounded-full border px-2.5 text-[11px] font-semibold transition ${
-                                  timeEmployees.has(name)
-                                    ? "border-accent bg-accent text-accent-fg"
-                                    : "border-line bg-white text-neutral-500 hover:border-accent dark:bg-ink-raised dark:text-neutral-400"
-                                }`}
-                              >
-                                {name}
-                              </button>
-                            ))}
-                          </div>
-                        )}
+                      )}
+
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        <span className="text-[10px] uppercase tracking-wide text-neutral-400">
+                          Group
+                        </span>
+                        <div className="flex rounded-md bg-neutral-100 p-0.5 text-[11px] dark:bg-white/5">
+                          {(
+                            [
+                              ["none", "None"],
+                              ["date", "Date"],
+                              ["employee", "Employee"],
+                              ["code", "Cost code"],
+                            ] as const
+                          ).map(([g, label]) => (
+                            <button
+                              key={g}
+                              type="button"
+                              onClick={() => setTimeGroupBy(g)}
+                              aria-pressed={timeGroupBy === g}
+                              className={`inline-flex min-h-9 items-center rounded px-2 transition lg:min-h-0 lg:py-1 ${
+                                timeGroupBy === g
+                                  ? "bg-accent text-accent-fg font-semibold"
+                                  : "text-neutral-500 hover:text-accent dark:text-neutral-400"
+                              }`}
+                            >
+                              {label}
+                            </button>
+                          ))}
+                        </div>
                       </div>
-                    )}
+                    </div>
 
                     {/* What's on screen, when that isn't the whole month. */}
                     {timeFilterOn && (
@@ -2881,7 +2953,7 @@ export function Board() {
                       </p>
                     ) : (
                       timeGroups.map((g) => (
-                        <div key={g.label || "all"}>
+                        <div key={g.key || "all"}>
                           {timeGroupBy !== "none" && (
                             <div className="flex items-baseline justify-between gap-2 border-t border-line-soft bg-neutral-50 px-3 py-1.5 text-[11px] font-semibold dark:bg-ink-raised/50">
                               <span className="min-w-0 truncate">{g.label}</span>
@@ -2917,7 +2989,7 @@ export function Board() {
                                       <span className="min-w-0 flex-1 truncate">
                                         <span className="font-medium">{t.employee}</span>
                                         <span className="ml-1 text-neutral-500 dark:text-neutral-400">
-                                          {dayOfEntry(t)} · {t.hours.toFixed(1)}h
+                                          {dayLabel(dayOfEntry(t))} · {t.hours.toFixed(1)}h
                                           {t.code ? ` · ${t.code} ${t.codeName}` : " · uncoded"}
                                           {!t.isApproved ? " · unapproved" : ""}
                                         </span>
