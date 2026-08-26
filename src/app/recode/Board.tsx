@@ -354,8 +354,10 @@ function useIsMobile() {
  */
 /** Stands in for the empty cost code in the Time & labor filter's <select>. */
 const UNCODED = "__uncoded__";
-/** …and for "not one of the listed days — use the from/to boxes instead". */
+/** …and for a range the from/to boxes define, rather than a listed week. */
 const CUSTOM_RANGE = "__range__";
+/** Prefix marking a whole-week option in the Date select: `W:<from>:<to>`. */
+const WEEK = "W:";
 
 /**
  * "2026-08-11" → "Tue Aug 11". Parsed as UTC and formatted as UTC: the string
@@ -371,6 +373,42 @@ function dayLabel(day: string): string {
     month: "short",
     day: "numeric",
   });
+}
+/** The same day without its weekday — "Aug 11" — for the two ends of a range. */
+function shortDay(day: string): string {
+  const t = Date.parse(`${day}T00:00:00Z`);
+  if (!Number.isFinite(t)) return day;
+  return new Date(t).toLocaleDateString(undefined, {
+    timeZone: "UTC",
+    month: "short",
+    day: "numeric",
+  });
+}
+/** `day` shifted by n days, as another "YYYY-MM-DD". UTC throughout — see dayLabel. */
+function addDays(day: string, n: number): string {
+  const d = new Date(`${day}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+/**
+ * The MONDAY of the week `day` falls in. Weeks run Monday–Sunday because that
+ * is how a crew's week is counted here; a range that splits a week in half is
+ * exactly the thing these presets exist to avoid.
+ */
+function weekStart(day: string): string {
+  const d = new Date(`${day}T00:00:00Z`);
+  if (Number.isNaN(d.getTime())) return day;
+  // getUTCDay: 0 = Sunday, so Sunday steps back 6 rather than 0.
+  return addDays(day, -((d.getUTCDay() + 6) % 7));
+}
+/** Decode a Date-select value into the range it means, or null for a single day / all. */
+function rangeOfSelection(sel: string, from: string, to: string): { from: string; to: string } | null {
+  if (sel === CUSTOM_RANGE) return { from, to };
+  if (sel.startsWith(WEEK)) {
+    const [, f, t] = sel.split(":");
+    return { from: f, to: t };
+  }
+  return null;
 }
 
 function useIsBelowXl() {
@@ -964,7 +1002,26 @@ export function Board() {
       .sort((a, b) => b.day.localeCompare(a.day));
   }, [monthTime, dayOfEntry]);
 
-  const rangeOn = timeDay === CUSTOM_RANGE && Boolean(timeFrom || timeTo);
+  /**
+   * The weeks the month's hours actually fall in — the presets behind the Date
+   * select's range half. A week is the unit a crew's time is read in (and the
+   * one payroll asks about), so offering the real Mon–Sun weeks turns "the week
+   * of the 10th" into one pick instead of two date boxes and an off-by-one.
+   */
+  const timeWeeksPresent = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const t of monthTime) {
+      const d = dayOfEntry(t);
+      if (d) m.set(weekStart(d), (m.get(weekStart(d)) ?? 0) + 1);
+    }
+    return [...m.entries()]
+      .map(([from, count]) => ({ from, to: addDays(from, 6), count }))
+      .sort((a, b) => b.from.localeCompare(a.from));
+  }, [monthTime, dayOfEntry]);
+
+  /** The range currently selected — a listed week, or the from/to boxes. */
+  const timeRange = rangeOfSelection(timeDay, timeFrom, timeTo);
+  const rangeOn = Boolean(timeRange && (timeRange.from || timeRange.to));
   const timeFiltered = useMemo(
     () =>
       monthTime.filter((t) => {
@@ -974,9 +1031,11 @@ export function Board() {
         if (timeCode && t.code !== (timeCode === UNCODED ? "" : timeCode)) return false;
         if (timeEmployee && t.employee !== timeEmployee) return false;
         const d = dayOfEntry(t);
-        if (timeDay === CUSTOM_RANGE) {
-          if (timeFrom && d < timeFrom) return false;
-          if (timeTo && d > timeTo) return false;
+        const r = rangeOfSelection(timeDay, timeFrom, timeTo);
+        if (r) {
+          // Either end may be blank — "everything since" / "everything up to".
+          if (r.from && d < r.from) return false;
+          if (r.to && d > r.to) return false;
         } else if (timeDay && d !== timeDay) {
           return false;
         }
@@ -993,8 +1052,25 @@ export function Board() {
     [timeFiltered],
   );
   const timeFilterOn = Boolean(
-    timeCode || timeEmployee || (timeDay && timeDay !== CUSTOM_RANGE) || rangeOn,
+    timeCode || timeEmployee || (timeDay && !rangeOfSelection(timeDay, timeFrom, timeTo)) || rangeOn,
   );
+
+  /**
+   * Picking a week FILLS the from/to boxes rather than hiding behind them: the
+   * range is then visible, and nudging either end turns the same selection into
+   * a custom one (see the boxes' onChange) instead of making you start again.
+   */
+  const pickDateSelection = (value: string) => {
+    setTimeDay(value);
+    const r = rangeOfSelection(value, timeFrom, timeTo);
+    if (value.startsWith(WEEK) && r) {
+      setTimeFrom(r.from);
+      setTimeTo(r.to);
+    } else if (value !== CUSTOM_RANGE) {
+      setTimeFrom("");
+      setTimeTo("");
+    }
+  };
   const clearTimeFilters = () => {
     setTimeCode("");
     setTimeEmployee("");
@@ -2849,34 +2925,54 @@ export function Board() {
                             ))}
                           </Select>
                         </div>
-                        <div className="min-w-[9rem] flex-1">
+                        {/* One control, two shapes of answer — a single day or
+                            a span of them — because "when" is one question and
+                            splitting it across two controls makes you decide
+                            which one you're using before you can answer it. The
+                            optgroups keep the two apart inside the list. */}
+                        <div className="min-w-[11rem] flex-1">
                           <Label htmlFor="tl-day">Date</Label>
                           <Select
                             id="tl-day"
                             value={timeDay}
-                            onChange={(e) => setTimeDay(e.target.value)}
+                            onChange={(e) => pickDateSelection(e.target.value)}
                             className="!py-1 !text-xs"
                           >
                             <option value="">All dates</option>
-                            {timeDaysPresent.map((d) => (
-                              <option key={d.day} value={d.day}>
-                                {dayLabel(d.day)} · {d.count}
-                              </option>
-                            ))}
-                            {/* The days above cover the normal case. This is
-                                for a week or a pay period, which no single day
-                                can express. */}
-                            <option value={CUSTOM_RANGE}>Date range…</option>
+                            {timeDaysPresent.length > 0 && (
+                              <optgroup label="One day">
+                                {timeDaysPresent.map((d) => (
+                                  <option key={d.day} value={d.day}>
+                                    {dayLabel(d.day)} · {d.count}
+                                  </option>
+                                ))}
+                              </optgroup>
+                            )}
+                            <optgroup label="A range">
+                              {timeWeeksPresent.map((w) => (
+                                <option key={w.from} value={`${WEEK}${w.from}:${w.to}`}>
+                                  Week of {shortDay(w.from)} – {shortDay(w.to)} · {w.count}
+                                </option>
+                              ))}
+                              <option value={CUSTOM_RANGE}>Custom range…</option>
+                            </optgroup>
                           </Select>
                         </div>
-                        {timeFilterOn && (
+                        {/* Also offered while a Custom range sits empty: the
+                            boxes are on screen by then, so a way out of them
+                            has to be too. */}
+                        {(timeFilterOn || timeDay) && (
                           <Button variant="secondary" size="sm" onClick={clearTimeFilters}>
                             Clear
                           </Button>
                         )}
                       </div>
 
-                      {timeDay === CUSTOM_RANGE && (
+                      {/* The two ends of the range, shown for a picked week as
+                          well as a custom one — so the week you chose is legible
+                          as dates, and nudging either end just makes it custom
+                          rather than sending you back to the select. */}
+                      {timeRange && (
                         <div className="mt-2 flex flex-wrap items-end gap-2">
                           <div>
                             <Label htmlFor="tl-from">From</Label>
@@ -2884,7 +2980,10 @@ export function Board() {
                               id="tl-from"
                               type="date"
                               value={timeFrom}
-                              onChange={(e) => setTimeFrom(e.target.value)}
+                              onChange={(e) => {
+                                setTimeDay(CUSTOM_RANGE);
+                                setTimeFrom(e.target.value);
+                              }}
                               className="rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs dark:border-neutral-600 dark:bg-ink-raised"
                             />
                           </div>
@@ -2894,14 +2993,25 @@ export function Board() {
                               id="tl-to"
                               type="date"
                               value={timeTo}
-                              onChange={(e) => setTimeTo(e.target.value)}
+                              onChange={(e) => {
+                                setTimeDay(CUSTOM_RANGE);
+                                setTimeTo(e.target.value);
+                              }}
                               className="rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs dark:border-neutral-600 dark:bg-ink-raised"
                             />
                           </div>
-                          <p className="pb-1 text-[11px] text-neutral-400">
-                            Leave either end empty for &ldquo;everything up to&rdquo; or
-                            &ldquo;everything since&rdquo;.
-                          </p>
+                          {/* A backwards range matches nothing and looks like a
+                              bug in the list rather than in the dates. */}
+                          {timeFrom && timeTo && timeFrom > timeTo ? (
+                            <p className="pb-1 text-[11px] font-semibold text-amber-700 dark:text-amber-300">
+                              From is after To — nothing can match.
+                            </p>
+                          ) : (
+                            <p className="pb-1 text-[11px] text-neutral-400">
+                              Leave either end empty for &ldquo;everything since&rdquo; or
+                              &ldquo;everything up to&rdquo;.
+                            </p>
+                          )}
                         </div>
                       )}
 
@@ -2936,12 +3046,33 @@ export function Board() {
                       </div>
                     </div>
 
-                    {/* What's on screen, when that isn't the whole month. */}
+                    {/* What's on screen, when that isn't the whole month — and
+                        what narrowed it, in words. A range especially: "12 of
+                        87 shown" reads as a mistake until you can see it means
+                        Aug 10 – Aug 16. */}
                     {timeFilterOn && (
-                      <div className="flex items-baseline justify-between gap-2 border-t border-line-soft px-3 py-1.5 text-[11px] text-neutral-500 dark:text-neutral-400">
-                        <span>
+                      <div className="flex flex-wrap items-baseline justify-between gap-x-2 border-t border-line-soft px-3 py-1.5 text-[11px] text-neutral-500 dark:text-neutral-400">
+                        <span className="min-w-0">
                           {timeFiltered.length} of {monthTime.length} shown ·{" "}
                           {timeShownHours.toFixed(1)}h
+                          {(() => {
+                            const bits = [];
+                            if (timeEmployee) bits.push(timeEmployee);
+                            if (timeCode)
+                              bits.push(timeCode === UNCODED ? "uncoded" : timeCode);
+                            if (rangeOn && timeRange) {
+                              bits.push(
+                                timeRange.from && timeRange.to
+                                  ? `${shortDay(timeRange.from)} – ${shortDay(timeRange.to)}`
+                                  : timeRange.from
+                                    ? `from ${shortDay(timeRange.from)}`
+                                    : `up to ${shortDay(timeRange.to)}`,
+                              );
+                            } else if (timeDay && !timeRange) {
+                              bits.push(dayLabel(timeDay));
+                            }
+                            return bits.length > 0 ? ` · ${bits.join(" · ")}` : "";
+                          })()}
                         </span>
                         <span className="tabular-nums font-semibold">{money(timeShownTotal)}</span>
                       </div>
