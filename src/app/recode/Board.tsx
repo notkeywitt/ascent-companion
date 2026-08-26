@@ -2925,11 +2925,18 @@ export function Board() {
                             ))}
                           </Select>
                         </div>
-                        {/* One control, two shapes of answer — a single day or
-                            a span of them — because "when" is one question and
+                        {/* One control, two shapes of answer — a span of days
+                            or a single one — because "when" is one question and
                             splitting it across two controls makes you decide
                             which one you're using before you can answer it. The
-                            optgroups keep the two apart inside the list. */}
+                            optgroups keep the two apart inside the list.
+
+                            RANGES FIRST, and Custom range at the top of them:
+                            the wider the answer, the earlier it sits, so the
+                            list reads from "a span I'll name" down through the
+                            weeks to one day. The days are the longest section
+                            and the easiest to scan for, so they lose nothing by
+                            sitting last. */}
                         <div className="min-w-[11rem] flex-1">
                           <Label htmlFor="tl-day">Date</Label>
                           <Select
@@ -2939,6 +2946,14 @@ export function Board() {
                             className="!py-1 !text-xs"
                           >
                             <option value="">All dates</option>
+                            <optgroup label="A range">
+                              <option value={CUSTOM_RANGE}>Custom range…</option>
+                              {timeWeeksPresent.map((w) => (
+                                <option key={w.from} value={`${WEEK}${w.from}:${w.to}`}>
+                                  Week of {shortDay(w.from)} – {shortDay(w.to)} · {w.count}
+                                </option>
+                              ))}
+                            </optgroup>
                             {timeDaysPresent.length > 0 && (
                               <optgroup label="One day">
                                 {timeDaysPresent.map((d) => (
@@ -2948,14 +2963,6 @@ export function Board() {
                                 ))}
                               </optgroup>
                             )}
-                            <optgroup label="A range">
-                              {timeWeeksPresent.map((w) => (
-                                <option key={w.from} value={`${WEEK}${w.from}:${w.to}`}>
-                                  Week of {shortDay(w.from)} – {shortDay(w.to)} · {w.count}
-                                </option>
-                              ))}
-                              <option value={CUSTOM_RANGE}>Custom range…</option>
-                            </optgroup>
                           </Select>
                         </div>
                         {/* Also offered while a Custom range sits empty: the
