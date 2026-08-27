@@ -114,6 +114,13 @@ export const VIEWS: ViewDef[] = [
   // see the indicator nor read the queued bills by calling the route directly.
   { id: "needs-project", label: "Needs Project", group: "Financials", paths: ["/needs-project", "/api/needs-project"] },
   { id: "payments", label: "Sunset Statements", group: "Financials", paths: ["/payments"] },
+  // Fast full-text search across EVERY bill and line item — live JobTread bills
+  // plus the seeded pre-JobTread history. All three API prefixes (search,
+  // refresh, seed) ride this one gate so a role without the view can neither
+  // search the spend history nor trigger an index rebuild by calling the routes
+  // directly. The refresh/seed routes only write the companion's own search
+  // cache, never JobTread — so they sit outside the write gates.
+  { id: "bill-search", label: "Bill Search", group: "Financials", paths: ["/bill-search", "/api/bill-search"] },
   // The Expenditure sheet's own archive — the pre-JobTread years, which exist
   // nowhere else. Read-only (the Apps Script actions behind it only read), but
   // the API prefix rides the same gate as the page so a role without the view

@@ -80,6 +80,7 @@ including edge middleware.
 | `billing.ts` ⟂ | Billing-period + bill-date standard, ported from appscript `Config.js`. Keep in lockstep. |
 | `billLineMath.ts` ⟂ | Money math for editing a vendor bill's lines (JobTread's tax carve, confirmed live). |
 | `billTouch.ts` | One-bit "a bill was written through the app" signal, shared across pages so list caches know when to refresh. |
+| `billSearch.ts` | The bill-search index engine: sweeps live JobTread vendorBills + lines, seeds pre-JobTread history from the sheets, and answers `/bill-search` queries from a local FTS5 index in under a second. Companion-owned cache, not a source of truth. |
 | `leave.ts` ⟂ | PTO/sick accrual math (bi-monthly pay periods). |
 | `leaveService.ts` | Accrual server orchestration: roster + JobTread worked-hours + companion DB. |
 | `leaveFormat.ts` | Leave display formatting helpers. |
@@ -109,8 +110,10 @@ Each page is a server component (`page.tsx`) that hands non-secret context to a
   BillCodingCard, TimeCodingCard, ClientInvoicing, DraftQueue, DraftWorkbench,
   AllJobs, Roster), `bill/[docId]`, `add-bill`,
   `coding` (retired), `stage` (retired), `labor-review`, `jobs`, `unbilled`,
-  `vendors`, `email`, `needs-project`, `payments` (Sunset Statements),
-  `expenditure-history`, `lswdd`, `amazon-import`, `tracking-sheet`.
+  `vendors`, `bill-search` (fast full-text search over every bill + line item,
+  live JobTread plus seeded pre-JobTread history), `email`, `needs-project`,
+  `payments` (Sunset Statements), `expenditure-history`, `lswdd`, `amazon-import`,
+  `tracking-sheet`.
 - **Field:** `safety-meeting`, `mileage-tracker`, `employee-time`, `tools`,
   `tool-tracker`, `rfis`, `time-off`, `requisitions`.
 - **Assistant:** `chat`.
@@ -129,7 +132,9 @@ Each page is a server component (`page.tsx`) that hands non-secret context to a
 Grouped by domain; each folder is `…/route.ts`.
 
 - **JobTread access:** `pave` (the guarded generic gateway), `jt-sync`,
-  `jt-users`, `jobs/*`, `job-budget`, `unbilled`, `historical-cost`.
+  `jt-users`, `jobs/*`, `job-budget`, `unbilled`, `historical-cost`,
+  `bill-search` (query the local bill/line index; `bill-search/refresh` sweeps
+  JobTread into it, `bill-search/seed` imports the pre-JobTread sheet history).
 - **Bills / coding:** `bill/*`, `add-bill`, `add-line`, `delete-line`,
   `combine-lines`, `code`, `coding-queue`, `recode/*`, `bill-status`,
   `bill-fields`, `bill-issuedate`, `bill-number` (the vendor's own invoice
@@ -176,8 +181,13 @@ Grouped by domain; each folder is `…/route.ts`.
 `labor_rate_catalog`, `labor_rate_groups`, `leads`, `lead_activities`,
 `lead_inquiries`, `lead_inquiry_dismissals`, `leave_policies`, `leave_balances`,
 `leave_requests`, `leave_transactions`, `jt_user_links`, `notices`,
-`notice_reads`, `rfis`, `sunset_statements`, `page_copy`. Access via
-`src/db/index.ts`.
+`notice_reads`, `rfis`, `sunset_statements`, `page_copy`, `bill_index`,
+`bill_line_index`, `bill_index_meta`. Access via `src/db/index.ts`.
+
+(`bill_index`/`bill_line_index`/`bill_index_meta` back the `/bill-search` index —
+the searchable snapshot of every bill + line item, plus its refresh/seed
+bookkeeping; the FTS5 `bill_fts` virtual table over them lives only in
+`db/index.ts`'s DDL, as Drizzle can't model it.)
 
 (`notices`/`notice_reads` back the global popup feed — a notice is dismissed
 per-user and stays gone; `lead_inquiry_dismissals` hides a web-form inquiry from

@@ -1,4 +1,4 @@
-import { sqliteTable, integer, text } from "drizzle-orm/sqlite-core";
+import { sqliteTable, integer, real, text } from "drizzle-orm/sqlite-core";
 
 /**
  * RFIs — assistant-owned (JobTread has no RFI object). Linked to a JobTread job
@@ -534,3 +534,80 @@ export const noticeReads = sqliteTable("notice_reads", {
 });
 
 export type NoticeRead = typeof noticeReads.$inferSelect;
+
+/**
+ * Bill search index — the local, instantly-searchable snapshot of every vendor
+ * bill and its line items, backing the /bill-search page. Companion-owned CACHE,
+ * never a source of truth: JobTread is authoritative for current bills and the
+ * Google Sheet archive is the historical record. This table just makes "search
+ * every bill and line for '2x4' or 'Preferred Plumbing' in under a second"
+ * possible without paging JobTread live on every keystroke.
+ *
+ * TWO SOURCES, JOINED HERE (see src/lib/billSearch.ts):
+ *  - `source='jobtread'` — swept straight from the live Pave API (all vendorBill
+ *    statuses), keyed by `jtDocId`. This owns everything currently in JobTread.
+ *  - `source='sheet'`    — the ONE-TIME seed of PRE-JobTread history out of the
+ *    Expenditure/lineItem sheets (only rows NOT in JobTread, i.e. the sheet's
+ *    `inJt=0`), keyed by `expId`. These have no JobTread document to open, so
+ *    they display via their Drive PDF (`pdfFileId`) instead.
+ * Splitting the two by "is it in JobTread?" is what avoids any dedup guesswork:
+ * the sheet seed only supplies rows JobTread doesn't have. `expId`↔`externalId`
+ * (stored as `invoiceId` on JT rows) is the safety net for the rare pre-JT row
+ * later pushed into JobTread.
+ *
+ * The full-text index itself is a separate FTS5 virtual table (`bill_fts`),
+ * created in raw SQL in db/index.ts — FTS5 has no Drizzle type, so it isn't
+ * modelled here; this table + `billLineIndex` are the row store it points at.
+ */
+export const billIndex = sqliteTable("bill_index", {
+  id: integer("id").primaryKey({ autoIncrement: true }), // also the bill_fts rowid
+  source: text("source").notNull().default("jobtread"), // "jobtread" | "sheet"
+  jtDocId: text("jt_doc_id").notNull().default(""), // JobTread document id ("" for pre-JT rows)
+  expId: text("exp_id").notNull().default(""), // sheet ExpID ("" for JT-only rows)
+  vendor: text("vendor").notNull().default(""), // display name — the "Preferred Plumbing" search target
+  vendorId: text("vendor_id").notNull().default(""), // JobTread account id or sheet VendorID
+  invoiceId: text("invoice_id").notNull().default(""), // vendor's own invoice # (JT externalId / sheet Invoice ID)
+  billNumber: text("bill_number").notNull().default(""), // JobTread document number
+  amount: real("amount").notNull().default(0), // pre-tax cost
+  status: text("status").notNull().default(""), // JobTread status; "" for historical rows
+  issueDate: text("issue_date").notNull().default(""), // YYYY-MM-DD
+  jobId: text("job_id").notNull().default(""),
+  jobName: text("job_name").notNull().default(""),
+  customer: text("customer").notNull().default(""),
+  csi: text("csi").notNull().default(""), // bill-level CSI, when the source has one
+  pdfFileId: text("pdf_file_id").notNull().default(""), // Drive file id — pre-JT display link
+  isSunset: integer("is_sunset", { mode: "boolean" }).notNull().default(false), // link to /payments
+  updatedAt: text("updated_at").notNull().default(""), // ISO — last time this row was (re)indexed
+});
+
+export type BillIndexRow = typeof billIndex.$inferSelect;
+export type NewBillIndexRow = typeof billIndex.$inferInsert;
+
+/** One line item of an indexed bill — the "2x4" search target. */
+export const billLineIndex = sqliteTable("bill_line_index", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  billId: integer("bill_id").notNull(), // → bill_index.id
+  lineId: text("line_id").notNull().default(""), // JobTread costItem id or sheet LineItemID
+  description: text("description").notNull().default(""),
+  csi: text("csi").notNull().default(""),
+  qty: real("qty").notNull().default(0),
+  unitPrice: real("unit_price").notNull().default(0),
+  amount: real("amount").notNull().default(0),
+});
+
+export type BillLineIndexRow = typeof billLineIndex.$inferSelect;
+export type NewBillLineIndexRow = typeof billLineIndex.$inferInsert;
+
+/**
+ * Small key/value store for the bill-search index's own bookkeeping — the last
+ * successful refresh time (drives the "rebuild when stale" trigger), the
+ * in-flight refresh lock, and the one-time seed's progress cursor. Kept separate
+ * from `schema_meta` (which holds the DDL fingerprint) so index bookkeeping and
+ * schema versioning never collide.
+ */
+export const billIndexMeta = sqliteTable("bill_index_meta", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull().default(""),
+});
+
+export type BillIndexMetaRow = typeof billIndexMeta.$inferSelect;

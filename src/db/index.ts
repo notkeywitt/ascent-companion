@@ -24,6 +24,15 @@ function getClient(): ReturnType<typeof createClient> {
   return _client;
 }
 
+/**
+ * The raw libSQL client, for the few call sites that need `batch()` (many writes
+ * in one round trip) or FTS5 SQL Drizzle can't model — e.g. the bill-search
+ * indexer in src/lib/billSearch.ts. Prefer the typed `db` handle everywhere else.
+ */
+export function rawDb(): ReturnType<typeof createClient> {
+  return getClient();
+}
+
 function buildDb() {
   return drizzle(getClient(), { schema });
 }
@@ -528,6 +537,78 @@ async function applySchema() {
       PRIMARY KEY (notice_id, email)
     )
   `);
+  // Bill search index (companion-owned CACHE, not a source of truth): the local
+  // snapshot of every vendor bill + line item that makes /bill-search resolve in
+  // under a second. `source='jobtread'` rows come from the live Pave sweep (keyed
+  // by jt_doc_id); `source='sheet'` rows are the one-time pre-JobTread seed out of
+  // the Expenditure/lineItem sheets (keyed by exp_id). See src/lib/billSearch.ts
+  // and the table notes in db/schema.ts.
+  await getClient().execute(`
+    CREATE TABLE IF NOT EXISTS bill_index (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      source TEXT NOT NULL DEFAULT 'jobtread',
+      jt_doc_id TEXT NOT NULL DEFAULT '',
+      exp_id TEXT NOT NULL DEFAULT '',
+      vendor TEXT NOT NULL DEFAULT '',
+      vendor_id TEXT NOT NULL DEFAULT '',
+      invoice_id TEXT NOT NULL DEFAULT '',
+      bill_number TEXT NOT NULL DEFAULT '',
+      amount REAL NOT NULL DEFAULT 0,
+      status TEXT NOT NULL DEFAULT '',
+      issue_date TEXT NOT NULL DEFAULT '',
+      job_id TEXT NOT NULL DEFAULT '',
+      job_name TEXT NOT NULL DEFAULT '',
+      customer TEXT NOT NULL DEFAULT '',
+      csi TEXT NOT NULL DEFAULT '',
+      pdf_file_id TEXT NOT NULL DEFAULT '',
+      is_sunset INTEGER NOT NULL DEFAULT 0,
+      updated_at TEXT NOT NULL DEFAULT ''
+    )
+  `);
+  // One bill per JobTread document / per sheet ExpID — partial uniques so the two
+  // sources each dedupe on their own key without the empty other-key colliding.
+  await getClient().execute(
+    `CREATE UNIQUE INDEX IF NOT EXISTS bill_index_jt_doc ON bill_index (jt_doc_id) WHERE jt_doc_id != ''`,
+  );
+  await getClient().execute(
+    `CREATE UNIQUE INDEX IF NOT EXISTS bill_index_exp ON bill_index (exp_id) WHERE exp_id != ''`,
+  );
+  await getClient().execute(
+    `CREATE INDEX IF NOT EXISTS bill_index_issue_date ON bill_index (issue_date)`,
+  );
+  await getClient().execute(`
+    CREATE TABLE IF NOT EXISTS bill_line_index (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      bill_id INTEGER NOT NULL,
+      line_id TEXT NOT NULL DEFAULT '',
+      description TEXT NOT NULL DEFAULT '',
+      csi TEXT NOT NULL DEFAULT '',
+      qty REAL NOT NULL DEFAULT 0,
+      unit_price REAL NOT NULL DEFAULT 0,
+      amount REAL NOT NULL DEFAULT 0
+    )
+  `);
+  await getClient().execute(
+    `CREATE INDEX IF NOT EXISTS bill_line_index_bill ON bill_line_index (bill_id)`,
+  );
+  await getClient().execute(`
+    CREATE TABLE IF NOT EXISTS bill_index_meta (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL DEFAULT ''
+    )
+  `);
+  // The full-text index itself: one FTS5 row per bill (rowid = bill_index.id),
+  // carrying vendor / invoice # / concatenated line text. `porter` stems, so
+  // "plumbing" also hits "plumb"; a search matches a bill by vendor OR any line.
+  // Wrapped because a libSQL build without FTS5 would otherwise fail the whole
+  // schema — the search lib falls back to LIKE when this table is absent.
+  try {
+    await getClient().execute(
+      `CREATE VIRTUAL TABLE IF NOT EXISTS bill_fts USING fts5(vendor, invoice, lines, tokenize='porter unicode61')`,
+    );
+  } catch {
+    /* FTS5 unavailable in this libSQL build — search degrades to LIKE (see billSearch.ts) */
+  }
 }
 
 export { schema };
