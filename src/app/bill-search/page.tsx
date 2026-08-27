@@ -1,16 +1,22 @@
 import { BillSearch } from "./BillSearch";
 
 /**
- * Bill Search — one box that searches every vendor bill and line item, live
- * JobTread plus the seeded pre-JobTread history, from a local full-text index so
- * results land in well under a second.
+ * Bill Search — the full-results view over the local bill/line-item index, and
+ * the home of the index's own controls (build the history seed, refresh from
+ * JobTread, see how fresh it is).
  *
- * Server shell only: no secret context to pass (the client talks to
- * /api/bill-search, which holds the grant key server-side). Gated to the
- * `bill-search` view in lib/views.ts.
+ * The header's global search (src/components/GlobalSearch.tsx) is the everyday
+ * way in and shows a shortlist; when there are more hits than fit, it links here
+ * with `?q=` so the same search opens in full. That param is read server-side and
+ * handed down as the initial query.
  */
 export const metadata = { title: "Bill Search" };
 
-export default function Page() {
-  return <BillSearch />;
+export default async function Page({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
+  const { q } = await searchParams;
+  return <BillSearch initialQuery={(q ?? "").trim()} />;
 }

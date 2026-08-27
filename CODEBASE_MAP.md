@@ -37,7 +37,8 @@ matching row here.
 |---|---|
 | A **new read-only page** over JobTread | copy `src/app/jobs/` (`page.tsx` → `JobsBrowser.tsx`), compose query per `JT_API_REFERENCE.md`, call `gatewayQuery` (`src/lib/paveGatewayClient.ts`) |
 | **Gating / who sees what** | `src/lib/views.ts` (the single source of truth: `VIEWS`, `ROLE_VIEWS`), enforced by `src/middleware.ts` |
-| **Nav / launcher / tabs** | `src/app/page.tsx` (`AREAS` launcher), `src/components/TabBar.tsx` |
+| **Nav / launcher / tabs** | `src/lib/nav.ts` (`AREAS` — the destination list), `src/app/page.tsx` (renders it), `src/components/TabBar.tsx` |
+| **The global search box** | `src/components/GlobalSearch.tsx` (in `AppHeader`, under the job picker) — matches pages via `src/lib/nav.ts`, vendors via `/api/vendors`, bills/line items via `/api/bill-search` |
 | **The Pave gateway** (generic JobTread access + write policy) | `src/app/api/pave/route.ts` + `src/lib/paveGateway.ts` (policy) + `src/lib/paveGatewayClient.ts` (browser) |
 | **Verified JobTread reads/writes** (not the generic gateway) | `src/lib/jobtread.ts` |
 | **Billing period / bill-date rules** | `src/lib/billing.ts` (keep in lockstep with appscript `Config.js`) |
@@ -76,6 +77,7 @@ including edge middleware.
 | `copy.ts` ⟂ | **Registry of editable on-screen text** — every string the office can reword from Admin → Page Text. English lives here as the shipped default; the DB only overrides. |
 | `copyService.ts` | Server half of the above: reads `page_copy` overrides. Returns `{}` on any DB failure so copy can never blank a page. |
 | `views.ts` ⟂ | **Single source of truth for role-gated views** — `VIEWS`, `ROLE_VIEWS`, `resolveAllowedViews`, `viewIdForPath`. |
+| `nav.ts` ⟂ | **The launcher's destination list** (`AREAS`) — the one place every gateable view is named. Read by BOTH the home launcher and the header's global search, which is why it's a module rather than living in `page.tsx`. |
 | `auth.ts` ⟂ | Shared-password auth helpers (Web Crypto only; works in edge + node). |
 | `billing.ts` ⟂ | Billing-period + bill-date standard, ported from appscript `Config.js`. Keep in lockstep. |
 | `billLineMath.ts` ⟂ | Money math for editing a vendor bill's lines (JobTread's tax carve, confirmed live). |
@@ -162,7 +164,9 @@ Grouped by domain; each folder is `…/route.ts`.
 
 - **Design system:** `ui.tsx` — build EVERY UI on these primitives (see the list
   in `CLAUDE.md`). Never hand-roll styles.
-- **Chrome / nav:** `AppHeader`, `TabBar`, `PageTitle`, `ThemeToggle`,
+- **Chrome / nav:** `AppHeader`, `GlobalSearch` (the app's ONE search box, in the
+  header under the job picker — pages + vendors + bills + line items, from any
+  page), `TabBar`, `PageTitle`, `ThemeToggle`,
   `AscentLogo`, `RefreshButton`/`RefreshProvider`, `SyncNowButton`,
   `AdminActionBar`, `AccessProvider`, `CopyProvider` (editable page text —
   `useCopy()`), `UsageBeacon`.

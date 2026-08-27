@@ -108,8 +108,10 @@ function Highlight({ text, terms }: { text: string; terms: string[] }) {
   );
 }
 
-export function BillSearch() {
-  const [query, setQuery] = useState("");
+export function BillSearch({ initialQuery = "" }: { initialQuery?: string }) {
+  // Seeded from ?q= so arriving from the header's global search opens this page
+  // already showing the same search, in full.
+  const [query, setQuery] = useState(initialQuery);
   const [results, setResults] = useState<Result[] | null>(null);
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);

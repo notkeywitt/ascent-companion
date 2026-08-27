@@ -73,11 +73,18 @@ gateway rules) — a preview that only reads JobTread is safe to hand to a phone
   (form controls). They're theme variables, so they flip light/dark on their own —
   writing `border-neutral-200 dark:border-neutral-700/60` again re-introduces the
   cool grey the palette was swept off.
-- **Nav:** the home launcher lists EVERY view; `src/components/TabBar.tsx` is the
+- **Nav:** the home launcher lists EVERY view, from `AREAS` in `src/lib/nav.ts`
+  (a shared module, because the header's search reads the same list);
+  `src/components/TabBar.tsx` is the
   bottom tab bar carrying Home plus the first three of `TAB_CANDIDATES` the signed-in
   role can reach. Reorder that array to change the tabs — nothing else needs touching.
   Its height is `--tabbar-h` (globals.css); anything docking to the bottom of the
   screen must offset by that variable rather than a hardcoded number.
+- **Search:** one box for the whole app — `src/components/GlobalSearch.tsx`, in the
+  header under the job picker. It searches pages (`lib/nav`), vendors
+  (`/api/vendors`) and bills + line items (`/api/bill-search`), each self-hiding
+  and view-gated. Don't add a second search field to a page; add a kind of answer
+  here instead.
 - **Auth:** Auth.js (Google) in `src/auth.ts` + `src/middleware.ts`. Session
   carries `user.role` (`admin`/`office`/`lead`/`field`) + per-user view overrides.
 - **DB:** Drizzle + libSQL (`src/db`) — companion-only data (time-off, tool
@@ -96,7 +103,8 @@ gateway rules) — a preview that only reads JobTread is safe to hand to a phone
    → `JobsBrowser.tsx`.)
 3. **Gate it.** Add a `VIEW` entry in `src/lib/views.ts` (choose a group + which
    roles get it — a new id defaults to office+admin), and a launcher entry in
-   `src/app/page.tsx` `AREAS` so it's reachable (the home launcher is the only nav).
+   `AREAS` (`src/lib/nav.ts`) so it's reachable — that list feeds both the home
+   launcher and the header's global search.
 4. **Build the UI on `ui.tsx` primitives.** Mobile-first (`max-w-2xl`, thumb-sized
    targets), theme-aware. Match the look of existing pages (`src/app/jobs`,
    `src/app/unbilled`, `src/app/stage`).
