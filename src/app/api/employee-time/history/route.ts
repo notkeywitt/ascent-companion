@@ -24,8 +24,11 @@ import { resolveJtUserLink } from "@/lib/jtUserLink";
  *
  * GET ?start=YYYY-MM-DD&end=YYYY-MM-DD (inclusive, calendar-day range)
  *   → { ok, entries:[{id, date, startTime, endTime, minutes, jobId, jobName,
- *        customer, costCode, costItemName, notes, approved, open, jtUrl}],
- *        totalMinutes, openCount }
+ *        customer, costItemId, costCode, costItemName, payType, notes, approved,
+ *        open, jtUrl}], totalMinutes, openCount }
+ *
+ * `costItemId` and `payType` ride along so the companion time-card editor can
+ * preselect the entry's cost code and show its pay type when a row is tapped.
  *
  * `approved` is JobTread's own `timeEntry.isApproved` — the timesheet groups a
  * day as Approved only when every entry in it carries the mark.
@@ -118,8 +121,10 @@ export async function GET(req: NextRequest) {
         jobId: e.jobId,
         jobName: e.jobName,
         customer: e.customer,
+        costItemId: e.costItemId,
         costCode: e.costCode,
         costItemName: e.costItemName,
+        payType: e.payType,
         notes: e.notes,
         approved: e.approved,
         open,

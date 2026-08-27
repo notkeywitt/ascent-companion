@@ -3920,6 +3920,19 @@ export async function deleteTimeEntry(cfg: PaveConfig, id: string): Promise<void
   await pave(cfg, { deleteTimeEntry: { $: { id } } });
 }
 
+/**
+ * READ — the owning user's id for one time entry, via the root `timeEntry(id)`
+ * accessor. Used to gate an edit: a signed-in employee may only change their
+ * OWN time, and the entry id comes from the client, so the write path re-reads
+ * the owner here and compares it to the session's resolved JobTread user id
+ * rather than trusting the request. Returns null when the entry doesn't exist
+ * (e.g. deleted since the timesheet was loaded).
+ */
+export async function getTimeEntryOwner(cfg: PaveConfig, id: string): Promise<string | null> {
+  const r = await pave(cfg, { timeEntry: { $: { id }, id: {}, user: { id: {} } } });
+  return r?.timeEntry?.user?.id ?? null;
+}
+
 export interface UserTimeEntry {
   id: string;
   startedAt: string;

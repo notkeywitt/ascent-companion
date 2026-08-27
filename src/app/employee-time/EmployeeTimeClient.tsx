@@ -131,15 +131,28 @@ interface HistoryEntry {
   jobId: string;
   jobName: string;
   customer: string;
+  costItemId: string;
   costCode: string;
   costItemName: string;
+  payType: string;
   notes: string;
   approved: boolean;
   open: boolean;
   jtUrl: string;
 }
 /** The bottom sheets this page can show; null = none open. */
-type SheetId = "job" | "cost" | "type" | "note" | "out" | "manual" | "user" | null;
+type SheetId =
+  | "job"
+  | "cost"
+  | "type"
+  | "note"
+  | "out"
+  | "manual"
+  | "user"
+  | "edit"
+  | "editjob"
+  | "editcost"
+  | null;
 
 /** One day of the timesheet: its entries, its total, and its approval state. */
 interface DayGroup {
@@ -495,6 +508,28 @@ export function EmployeeTimeClient({
   const [historyErr, setHistoryErr] = useState("");
 
   const [done, setDone] = useState<{ result: SubmitResult; summary: DoneSummary } | null>(null);
+
+  // --- Editing an existing timesheet entry -----------------------------------
+  // Tapping a (closed) row in the Timesheets tab opens the same editor the rest
+  // of the page uses — job / cost code / start / stop / note — pre-filled with
+  // that entry, and saves an updateTimeEntry in place. Its own state, kept apart
+  // from the clock/Log-a-range fields so opening an edit never disturbs a clock
+  // that's mid-setup on the other tab.
+  const [editEntry, setEditEntry] = useState<HistoryEntry | null>(null);
+  const [editJobId, setEditJobId] = useState("");
+  const [editCostItems, setEditCostItems] = useState<CostItem[]>([]);
+  const [editLoadingCosts, setEditLoadingCosts] = useState(false);
+  const [editCostItemId, setEditCostItemId] = useState("");
+  const [editStart, setEditStart] = useState(""); // "YYYY-MM-DDTHH:MM"
+  const [editEnd, setEditEnd] = useState("");
+  const [editNote, setEditNote] = useState("");
+  const [editBusy, setEditBusy] = useState(false);
+  const [editErr, setEditErr] = useState("");
+  const [editMsg, setEditMsg] = useState(""); // e.g. the writes-off preview notice
+  // The cost code the entry already sits on is re-selected once the picked job's
+  // cost items land — but only on the entry's original job, and only while the
+  // user hasn't changed the pick themselves.
+  const editWantCostRef = useRef<{ jobId: string; costItemId: string } | null>(null);
 
   // --- Mount: reconcile the local clock, then fill any gap the shell left. ---
   //
@@ -1092,6 +1127,137 @@ export function EmployeeTimeClient({
     }));
   }, [historyEntries, openOnly]);
 
+  // The edit sheet's cost codes — the picked job's budget cost items, reloaded
+  // whenever the edited entry's job changes. Mirrors the clock form's own cost
+  // effect but on the edit-only job state, so the two never cross.
+  useEffect(() => {
+    if (!editEntry) return; // only while the edit sheet is live
+    setEditCostItemId("");
+    setEditCostItems([]);
+    if (!editJobId) return;
+    setEditLoadingCosts(true);
+    fetch(`/api/employee-time?jobId=${encodeURIComponent(editJobId)}`)
+      .then((r) => r.json())
+      .then((j) => {
+        const items: CostItem[] = j.ok === false ? [] : (j.costItems ?? []);
+        setEditCostItems(items);
+        const want = editWantCostRef.current;
+        if (want && want.jobId === editJobId && want.costItemId) {
+          if (items.some((c) => c.id === want.costItemId)) setEditCostItemId(want.costItemId);
+        }
+      })
+      .catch(() => setEditCostItems([]))
+      .finally(() => setEditLoadingCosts(false));
+    // editEntry is only read to gate the fetch; the job id is the real trigger.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editJobId]);
+
+  // Open the editor on one entry, pre-filled. Running entries aren't editable
+  // here (they're closed out from the Time clock tab), so this is only wired to
+  // closed rows.
+  function openEdit(e: HistoryEntry) {
+    setEditEntry(e);
+    setEditErr("");
+    setEditMsg("");
+    setEditNote(e.notes ?? "");
+    setEditStart(`${e.date}T${e.startTime || "00:00"}`);
+    setEditEnd(`${e.date}T${e.endTime || "00:00"}`);
+    editWantCostRef.current = { jobId: e.jobId, costItemId: e.costItemId };
+    // Set the cost item directly too: the load effect only re-runs when the job
+    // id actually changes, so reopening a different entry on the SAME job would
+    // otherwise keep the previous row's cost code selected.
+    setEditCostItemId(e.costItemId);
+    setEditJobId(e.jobId); // triggers the cost-items load + cost-code re-select
+    openSheet("edit");
+  }
+
+  function closeEdit() {
+    setSheet(null);
+    setReturnSheet(null);
+    setEditEntry(null);
+  }
+
+  const editSelectedJob = useMemo(
+    () => jobs.find((j) => j.id === editJobId) ?? null,
+    [jobs, editJobId],
+  );
+  // The picked job's label. Falls back to the entry's own job name when the job
+  // isn't in the loaded list (and hasn't been changed), so a valid entry never
+  // reads "Select a job".
+  const editJobLabelText = editSelectedJob
+    ? jobRefLabel(editSelectedJob)
+    : editEntry && editEntry.jobId === editJobId
+      ? editEntry.jobName
+      : "";
+  const editSelectedCost = editCostItems.find((c) => c.id === editCostItemId) ?? null;
+  const editCostLabelText = editSelectedCost
+    ? `${editSelectedCost.number}${editSelectedCost.name ? ` — ${editSelectedCost.name}` : ""}`
+    : "";
+  const editDuration = fmtDuration(editStart, editEnd);
+
+  // Save the edit — an updateTimeEntry on the entry's own id. Re-times, re-jobs
+  // and re-codes it in one write; the note is required, same as everywhere else.
+  async function saveEdit() {
+    if (!editEntry) return;
+    setEditErr("");
+    setEditMsg("");
+    if (!editJobId) {
+      setEditErr("Pick a job.");
+      return;
+    }
+    if (!editCostItemId) {
+      setEditErr("Pick a cost code.");
+      return;
+    }
+    if (!editNote.trim()) {
+      setEditErr("A note is required.");
+      return;
+    }
+    if (!editStart || !editEnd) {
+      setEditErr("Enter a start and stop time.");
+      return;
+    }
+    if (new Date(editEnd).getTime() <= new Date(editStart).getTime()) {
+      setEditErr("Stop time must be after the start time.");
+      return;
+    }
+    setEditBusy(true);
+    try {
+      const res = await fetch("/api/employee-time/clock", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          op: "edit",
+          entryId: editEntry.id,
+          jobId: editJobId,
+          jobLabel: editJobLabelText,
+          costItemId: editCostItemId,
+          costCode: editSelectedCost?.number ?? "",
+          startTime: editStart,
+          endTime: editEnd,
+          note: editNote.trim(),
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok || json.ok === false) {
+        setEditErr(json.error || "Could not save your changes.");
+        return;
+      }
+      if (json.previewed) {
+        // Writes are off on this deployment — nothing changed in JobTread, so a
+        // reload would just show the old figures. Say so and leave the sheet up.
+        setEditMsg("Writes are off on this deployment — nothing was changed in JobTread.");
+        return;
+      }
+      closeEdit();
+      await loadHistory(); // re-pull so the row shows the new time/job/code
+    } catch (e) {
+      setEditErr(e instanceof Error ? e.message : "Could not save your changes.");
+    } finally {
+      setEditBusy(false);
+    }
+  }
+
   // ---------------------------------------------------------------- DONE ------
   if (done) {
     const dur = fmtDuration(done.summary.startTime, done.summary.endTime);
@@ -1427,7 +1593,7 @@ export function EmployeeTimeClient({
               {openOnly ? "Nothing is running right now." : "No time logged for this period."}
             </EmptyState>
           ) : (
-            dayGroups.map((g) => <DaySection key={g.date} group={g} />)
+            dayGroups.map((g) => <DaySection key={g.date} group={g} onEdit={openEdit} />)
           )}
         </div>
       )}
@@ -1695,6 +1861,137 @@ export function EmployeeTimeClient({
           <PhotoPicker photos={photos} onAdd={addPhotos} onRemove={removePhoto} />
         </div>
       </Sheet>
+
+      {/* Edit a timesheet entry — the same editor, pointed at an existing entry.
+          Updates it in place (updateTimeEntry) instead of creating a new one. */}
+      <Sheet
+        open={sheet === "edit"}
+        title="Edit time"
+        tall
+        onClose={closeEdit}
+        footer={
+          <button
+            type="button"
+            onClick={saveEdit}
+            disabled={editBusy}
+            className="w-full rounded-full bg-accent px-4 py-3.5 text-base font-bold text-accent-fg transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {editBusy ? "Saving…" : "Save changes"}
+          </button>
+        }
+      >
+        {editErr && (
+          <Banner tone="error" className="mb-3">
+            {editErr}
+          </Banner>
+        )}
+        {editMsg && (
+          <Banner tone="warning" className="mb-3">
+            {editMsg}
+          </Banner>
+        )}
+        {editEntry?.approved && (
+          <p className="mb-3 rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+            This entry is already approved — saving a change re-opens it for the office to review.
+          </p>
+        )}
+
+        <Card pad={false} className="overflow-hidden">
+          <FieldRow
+            label="Job"
+            value={editJobLabelText || "Select a job"}
+            placeholder={!editJobLabelText}
+            sub={editSelectedJob ? jobAddress(editSelectedJob) || undefined : undefined}
+            onClick={() => openSheet("editjob", "edit")}
+          />
+          <FieldRow
+            label="Cost code"
+            value={
+              editCostLabelText ||
+              (!editJobId
+                ? "Pick a job first"
+                : editLoadingCosts
+                  ? "Loading cost codes…"
+                  : editCostItems.length
+                    ? "Select a cost code"
+                    : "No cost codes on this job")
+            }
+            placeholder={!editCostLabelText}
+            onClick={editJobId && editCostItems.length ? () => openSheet("editcost", "edit") : undefined}
+          />
+          {editEntry?.payType && <FieldRow label="Pay type" value={editEntry.payType} static />}
+        </Card>
+
+        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div>
+            <Label htmlFor="et-edit-start">Start</Label>
+            <Input
+              id="et-edit-start"
+              type="datetime-local"
+              value={editStart}
+              onChange={(e) => setEditStart(e.target.value)}
+            />
+          </div>
+          <div>
+            <Label htmlFor="et-edit-end">Stop</Label>
+            <Input
+              id="et-edit-end"
+              type="datetime-local"
+              value={editEnd}
+              onChange={(e) => setEditEnd(e.target.value)}
+            />
+          </div>
+        </div>
+        {editDuration && (
+          <p className="mt-1 text-xs text-neutral-500">
+            {editDuration} — changing the times updates the hours (and the entry&apos;s cost).
+          </p>
+        )}
+
+        <div className="mt-3">
+          <Label htmlFor="et-edit-note">Note (required)</Label>
+          <Textarea
+            id="et-edit-note"
+            rows={3}
+            value={editNote}
+            onChange={(e) => setEditNote(e.target.value)}
+            placeholder="What did you work on?"
+          />
+        </div>
+
+        {editEntry && (
+          <p className="mt-4 pb-2 text-center">
+            <JtLink href={editEntry.jtUrl} className="text-xs font-semibold text-neutral-400 hover:text-accent">
+              View in JobTread ↗
+            </JtLink>
+          </p>
+        )}
+      </Sheet>
+
+      {/* Edit's own job picker — sets the edit-only job state, then hands the
+          screen back to the edit sheet. */}
+      <JobSheet
+        open={sheet === "editjob"}
+        jobs={jobs}
+        selectedId={editJobId}
+        onPick={(j) => {
+          setEditJobId(j.id);
+          closeSheet();
+        }}
+        onClose={closeSheet}
+      />
+
+      {/* Edit's own cost-code picker. */}
+      <CostSheet
+        open={sheet === "editcost"}
+        items={editCostItems}
+        selectedId={editCostItemId}
+        onPick={(c) => {
+          setEditCostItemId(c.id);
+          closeSheet();
+        }}
+        onClose={closeSheet}
+      />
     </main>
   );
 }
@@ -2145,7 +2442,7 @@ function Row({ label, value }: { label: string; value: string }) {
 }
 
 /** One day of the timesheet: the heading (date · state · total) and its rows. */
-function DaySection({ group }: { group: DayGroup }) {
+function DaySection({ group, onEdit }: { group: DayGroup; onEdit: (e: HistoryEntry) => void }) {
   return (
     <section>
       <div className="flex items-baseline justify-between gap-3 px-1 pb-1.5 pt-3">
@@ -2167,19 +2464,17 @@ function DaySection({ group }: { group: DayGroup }) {
       </div>
       <Card pad={false} className="overflow-hidden">
         {group.entries.map((e) => (
-          <EntryRow key={e.id} e={e} />
+          <EntryRow key={e.id} e={e} onEdit={onEdit} />
         ))}
       </Card>
     </section>
   );
 }
 
-function EntryRow({ e }: { e: HistoryEntry }) {
+/** The inner content of a timesheet row — job, customer/code, note, hours. */
+function EntryBody({ e }: { e: HistoryEntry }) {
   return (
-    <JtLink
-      href={e.jtUrl}
-      className="flex items-start justify-between gap-3 border-b border-line-soft px-3 py-3 last:border-b-0"
-    >
+    <>
       <span className="min-w-0 flex-1">
         <span className="block truncate text-[15px] font-semibold">{e.jobName || "—"}</span>
         {(e.customer || e.costCode) && (
@@ -2199,6 +2494,29 @@ function EntryRow({ e }: { e: HistoryEntry }) {
           {fmt12h(e.startTime)} – {e.endTime ? fmt12h(e.endTime) : "…"}
         </span>
       </span>
-    </JtLink>
+    </>
+  );
+}
+
+/**
+ * A timesheet row. A CLOSED entry taps into the companion editor (openEdit) so
+ * the crew member can fix its time/job/cost/note on the phone instead of being
+ * bounced to JobTread. A still-RUNNING entry has no span to edit yet — it's
+ * closed out from the Time clock tab — so it keeps the JobTread deep-link.
+ */
+function EntryRow({ e, onEdit }: { e: HistoryEntry; onEdit: (e: HistoryEntry) => void }) {
+  const rowClass =
+    "flex w-full items-start justify-between gap-3 border-b border-line-soft px-3 py-3 text-left last:border-b-0";
+  if (e.open) {
+    return (
+      <JtLink href={e.jtUrl} className={rowClass}>
+        <EntryBody e={e} />
+      </JtLink>
+    );
+  }
+  return (
+    <button type="button" onClick={() => onEdit(e)} className={`${rowClass} transition active:bg-accent/10`}>
+      <EntryBody e={e} />
+    </button>
   );
 }
