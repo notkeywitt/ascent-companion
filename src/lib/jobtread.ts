@@ -3465,6 +3465,7 @@ export interface AllJobsBill {
   vendor: string;
   cost: number;
   issueDate: string;
+  createdAt: string;
   status: string;
   invoiced: boolean;
   jobId: string;
@@ -3476,10 +3477,15 @@ export interface AllJobsBill {
  * Every vendor bill issued in a billing month, ACROSS ALL JOBS, as a flat list —
  * the no-job "all bills for the month" view. Same one org-wide paged
  * `organization.documents` walk as getMonthlyInvoiceJobs (which groups the same
- * bills by job); this one keeps them flat and adds each bill's issueDate and
- * vendor so the caller can sort newest-first and label each row. Draft bills are
- * included by default here (the office wants to see what's still coding across
- * the shop); invoiced bills drop unless includeInvoiced.
+ * bills by job); this one keeps them flat and adds each bill's createdAt,
+ * issueDate and vendor so the caller can sort newest-added-first and label each
+ * row. Draft bills are included by default here (the office wants to see what's
+ * still coding across the shop); invoiced bills drop unless includeInvoiced.
+ *
+ * Ordered by createdAt (when the bill was ADDED to JobTread), not issueDate:
+ * the whole month's bills share one end-of-month invoicing date, so issueDate
+ * can't distinguish them — arrival order is what the office reads them in. Same
+ * ordering the per-job board uses (see getJobBillsForMonth).
  */
 export async function getAllBillsForMonth(
   cfg: PaveConfig,
@@ -3518,13 +3524,13 @@ export async function getAllBillsForMonth(
   // unconfirmed nested field won't break the view — fall back to the minimal
   // selection (same guard as getMonthlyInvoiceJobs / getAllDraftBills).
   const rich = {
-    id: {}, cost: {}, status: {}, issueDate: {}, fromName: {},
+    id: {}, cost: {}, status: {}, issueDate: {}, createdAt: {}, fromName: {},
     account: { name: {} },
     job: { id: {}, name: {}, location: { account: { name: {} } } },
     referencedDocuments: { nodes: { type: {} } },
   };
   const min = {
-    id: {}, cost: {}, status: {}, issueDate: {}, fromName: {},
+    id: {}, cost: {}, status: {}, issueDate: {}, createdAt: {}, fromName: {},
     job: { id: {}, name: {} },
     referencedDocuments: { nodes: { type: {} } },
   };
@@ -3559,6 +3565,7 @@ export async function getAllBillsForMonth(
       vendor: String(b.account?.name ?? b.fromName ?? "Vendor"),
       cost: b.cost ?? 0,
       issueDate: b.issueDate ?? "",
+      createdAt: b.createdAt ?? "",
       status: b.status ?? "",
       invoiced,
       jobId: job.id,
@@ -3566,8 +3573,16 @@ export async function getAllBillsForMonth(
       customerName: job.location?.account?.name ?? "",
     });
   }
-  // Newest first; ties by amount desc so a day's biggest bill leads.
-  out.sort((a, b) => b.issueDate.localeCompare(a.issueDate) || b.cost - a.cost);
+  // Newest-ADDED first (createdAt). The month's bills all share one end-of-month
+  // issueDate, so it can't order them; fall back to issueDate then amount so a
+  // record with no createdAt still sorts predictably. Same order the per-job
+  // board uses.
+  out.sort(
+    (a, b) =>
+      b.createdAt.localeCompare(a.createdAt) ||
+      b.issueDate.localeCompare(a.issueDate) ||
+      b.cost - a.cost,
+  );
   return out;
 }
 

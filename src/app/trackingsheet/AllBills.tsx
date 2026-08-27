@@ -26,6 +26,7 @@ interface AllBill {
   vendor: string;
   cost: number;
   issueDate: string;
+  createdAt: string;
   status: string;
   invoiced: boolean;
   jobId: string;
@@ -41,9 +42,10 @@ const jobLabel = (b: AllBill) =>
  *  own collapsible pane here too. */
 const isSunsetVendor = (vendor: string) => /sunset/i.test(vendor);
 
-/** "2026-08-14" → "Aug 14". Parsed as plain Y-M-D, no timezone shift. */
+/** "2026-08-14" or "2026-08-14T09:…Z" → "Aug 14". Takes the date part only, as
+ *  plain Y-M-D — no timezone shift. */
 const shortDate = (iso: string) => {
-  const [y, m, d] = iso.split("-").map(Number);
+  const [y, m, d] = iso.slice(0, 10).split("-").map(Number);
   if (!y || !m || !d) return iso || "—";
   return new Date(y, m - 1, d).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 };
@@ -129,7 +131,8 @@ export function AllBills({ ym, setYm }: { ym: string; setYm: (ym: string) => voi
             </span>
           </span>
           <span className="mt-0.5 block truncate text-xs text-neutral-500 dark:text-neutral-400">
-            {jobLabel(b)} · {shortDate(b.issueDate)}
+            {jobLabel(b)}
+            {b.createdAt ? ` · added ${shortDate(b.createdAt)}` : ""}
           </span>
           <span className="mt-1.5 flex flex-wrap gap-1.5 empty:mt-0">
             {b.status === "draft" && <Chip tone="neutral">draft</Chip>}
