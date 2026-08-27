@@ -96,7 +96,7 @@ export async function GET(req: NextRequest) {
     }
 
     return NextResponse.json({
-      job: { id: jobId, name: header.name, address: header.address },
+      job: { id: jobId, name: header.name, address: header.address, customer: header.customer },
       bills: bills.map((b) => ({
         ...b,
         saved: flags.get(b.id)?.saved ?? false,

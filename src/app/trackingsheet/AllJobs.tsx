@@ -5,7 +5,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { PageHeader } from "@/components/ui";
 import { useCopy } from "@/components/CopyProvider";
 import { UncapturedBills } from "@/components/UncapturedBills";
-import { Roster, monthOptions } from "./Roster";
+import { monthOptions } from "./Roster";
+import { AllBills } from "./AllBills";
 import { DraftQueue } from "./DraftQueue";
 
 /**
@@ -49,9 +50,6 @@ export function AllJobs() {
     const q = params.get("ym") ?? "";
     return monthOptions().some((o) => o.ym === q) ? q : defaultYm();
   });
-  // The card to re-open on arrival, from ?open= — consumed once, then dropped so
-  // collapsing it by hand doesn't get undone on the next render.
-  const [openJobId, setOpenJobId] = useState(() => params.get("open") ?? "");
 
   /**
    * The month lives in the URL as well as in state, so "Code this job" and the
@@ -61,10 +59,8 @@ export function AllJobs() {
   const setYm = useCallback(
     (next: string) => {
       setYmState(next);
-      setOpenJobId("");
       const q = new URLSearchParams(params.toString());
       q.set("ym", next);
-      q.delete("open");
       router.replace(`/trackingsheet?${q.toString()}`, { scroll: false });
     },
     [params, router],
@@ -76,7 +72,6 @@ export function AllJobs() {
       const q = new URLSearchParams(params.toString());
       if (next === "drafts") q.set("tab", "drafts");
       else q.delete("tab");
-      q.delete("open");
       router.replace(`/trackingsheet?${q.toString()}`, { scroll: false });
     },
     [params, router],
@@ -87,8 +82,8 @@ export function AllJobs() {
     // three-column workbench from xl up (see DraftQueue), which needs the same
     // wide canvas the job workbench uses — so the cap only lifts on that tab.
     <main
-      className={`mx-auto px-4 pb-24 pt-6 ${
-        tab === "drafts" ? "w-full max-w-2xl xl:max-w-[110rem]" : "max-w-2xl"
+      className={`mx-auto w-full px-4 pb-24 pt-6 ${
+        tab === "drafts" ? "max-w-2xl xl:max-w-[110rem]" : "max-w-2xl lg:max-w-[110rem]"
       }`}
     >
       <PageHeader
@@ -136,7 +131,7 @@ export function AllJobs() {
       <UncapturedBills />
 
       {tab === "month" ? (
-        <Roster ym={ym} setYm={setYm} openJobId={openJobId} />
+        <AllBills ym={ym} setYm={setYm} />
       ) : (
         <DraftQueue />
       )}

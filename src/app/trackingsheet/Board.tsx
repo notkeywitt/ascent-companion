@@ -164,7 +164,7 @@ interface CostDivisionRow {
   codes: CostCodeRow[];
 }
 interface BoardPayload {
-  job: { id: string; name: string; address: string } | null;
+  job: { id: string; name: string; address: string; customer: string } | null;
   bills: BillRef[];
   billTotal: number;
   lines: JobBillLine[];
@@ -2145,6 +2145,15 @@ export function Board() {
   // Still needed by the approve-confirmation dialog below: a modal covers the
   // header, so the dialog has to name the job it is about to act on itself.
   const jobTitle = data?.job?.name ?? "";
+  // The page title is the job in context — "Customer - Job" once loaded, falling
+  // back to the generic page name before data arrives (or if the job carries no
+  // customer). The GlobalJobBar still carries the picker + address below it.
+  const customerName = data?.job?.customer ?? "";
+  const headerTitle = jobTitle
+    ? customerName
+      ? `${customerName} - ${jobTitle}`
+      : jobTitle
+    : c("page.recode.title");
 
   // One bill's card, shared by the main by-bill list and the Sunset pane — both
   // render exactly the same row, so the drag, drawer and detail-link behaviour
@@ -2317,7 +2326,7 @@ export function Board() {
           The GlobalJobBar carries both now (picker + address line), so this page
           says what it's FOR instead of repeating where you are. */}
       <PageHeader
-        title={c("page.recode.title")}
+        title={headerTitle}
         description={c("recode.header.description")}
         actionsClassName="w-full min-w-0 items-center lg:w-auto"
         actions={
@@ -2462,33 +2471,20 @@ export function Board() {
                       ? "Sync to JobTread"
                       : "Sync Tracking Sheet"}
               </Button>
-              {canApprove && (
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => {
-                    setApproveMsg(null);
-                    setApproveOpen(true);
-                  }}
-                  disabled={draftBills.length === 0 || dirty || syncing || approving}
-                  title={dirty ? "Sync staged coding changes to JobTread first" : undefined}
-                  className="min-h-11 flex-1 lg:min-h-0 lg:flex-none"
-                >
-                  {/* The count rides inside each label rather than sitting
-                      beside them — a bare text node would pick up the
-                      button's flex gap and read as "Approve  (3)". */}
-                  <span className="lg:hidden">
-                    Approve{draftBills.length > 0 ? ` (${draftBills.length})` : ""}
-                  </span>
-                  <span className="hidden lg:inline">
-                    Approve Draft Bills{draftBills.length > 0 ? ` (${draftBills.length})` : ""}
-                  </span>
-                </Button>
-              )}
             </div>
           </div>
         }
       />
+
+      {/* This job's ingested bills that never reached JobTread — the green
+          "all in JobTread" all-clear, or the amber "Not in JobTread" queue.
+          Placed directly beneath the title: it's the first thing to know about
+          the job before reading any of its numbers. They're absent from every
+          figure on this page (budget rail, "to be invoiced", coding queue)
+          because none of it is in JobTread yet. Scoped to this job; the all-jobs
+          view lists the rest. Renders nothing when the queue is empty. */}
+      {jobId && !loading && <UncapturedBills jobId={jobId} />}
+
       {data && !data.writesEnabled && (
         <p className="mb-4 text-[11px] text-amber-600 dark:text-amber-400">
           Writes are disabled on this deployment — Sync will preview only.
@@ -2577,14 +2573,6 @@ export function Board() {
           <InvoiceReconcile jobId={jobId} ym={ym} onData={setRecon} />
         </div>
       )}
-
-      {/* This job's ingested bills that never reached JobTread. They are absent
-          from every number on this page — not in the budget rail, not in "to be
-          invoiced", not in the coding queue — because none of it is in JobTread
-          yet. Scoped to this job here (the all-jobs view lists the rest), and
-          placed directly under the reconcile line, which is where the money that
-          should be on the invoice is already being counted. */}
-      {jobId && !loading && <UncapturedBills jobId={jobId} />}
 
       {data && !loading && (
         // All three columns share the row equally.
@@ -3493,6 +3481,29 @@ export function Board() {
               <BillCodingCard ctl={codingCtl} />
             )}
           </section>
+        </div>
+      )}
+
+      {/* Approve, docked at the bottom of the page. It's the last step of the
+          month — you approve the drafts once their coding is settled — so it
+          lives after the bills rather than in the top toolbar. `order-last`
+          drops it below the columns on a phone; disabled while there's staged
+          coding to sync first, or nothing left to approve. */}
+      {canApprove && data && !loading && (
+        <div className="order-last mt-4 border-t border-line pt-4 lg:order-none">
+          <div className="mx-auto flex max-w-2xl items-center justify-end">
+            <Button
+              onClick={() => {
+                setApproveMsg(null);
+                setApproveOpen(true);
+              }}
+              disabled={draftBills.length === 0 || dirty || syncing || approving}
+              title={dirty ? "Sync staged coding changes to JobTread first" : undefined}
+              className="min-h-11 w-full lg:w-auto"
+            >
+              Approve Draft Bills{draftBills.length > 0 ? ` (${draftBills.length})` : ""}
+            </Button>
+          </div>
         </div>
       )}
 

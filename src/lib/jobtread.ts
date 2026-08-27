@@ -2858,13 +2858,19 @@ export async function findExistingExternalIds(
 export async function getJobHeaderInfo(
   cfg: PaveConfig,
   jobId: string,
-): Promise<{ name: string; address: string }> {
+): Promise<{ name: string; address: string; customer: string }> {
   const r = await pave(cfg, {
-    job: { $: { id: jobId }, id: {}, name: {}, location: { address: {} } },
+    job: {
+      $: { id: jobId },
+      id: {},
+      name: {},
+      location: { address: {}, account: { name: {} } },
+    },
   });
   return {
     name: r?.job?.name ?? "",
     address: r?.job?.location?.address ?? "",
+    customer: r?.job?.location?.account?.name ?? "",
   };
 }
 
@@ -3450,6 +3456,119 @@ export async function getMonthlyInvoiceJobs(
         sensitivity: "base",
       }) || b.billTotal - a.billTotal,
   );
+}
+
+/** One vendor bill in the all-jobs month list — carries its own job + customer,
+ *  since this list spans every job. */
+export interface AllJobsBill {
+  id: string;
+  vendor: string;
+  cost: number;
+  issueDate: string;
+  status: string;
+  invoiced: boolean;
+  jobId: string;
+  jobName: string;
+  customerName: string;
+}
+
+/**
+ * Every vendor bill issued in a billing month, ACROSS ALL JOBS, as a flat list —
+ * the no-job "all bills for the month" view. Same one org-wide paged
+ * `organization.documents` walk as getMonthlyInvoiceJobs (which groups the same
+ * bills by job); this one keeps them flat and adds each bill's issueDate and
+ * vendor so the caller can sort newest-first and label each row. Draft bills are
+ * included by default here (the office wants to see what's still coding across
+ * the shop); invoiced bills drop unless includeInvoiced.
+ */
+export async function getAllBillsForMonth(
+  cfg: PaveConfig,
+  year: number,
+  month: number,
+  { includeInvoiced = false, includeDrafts = true }: { includeInvoiced?: boolean; includeDrafts?: boolean } = {},
+): Promise<AllJobsBill[]> {
+  const mm = String(month).padStart(2, "0");
+  const first = `${year}-${mm}-01`;
+  const last = `${year}-${mm}-${String(new Date(year, month, 0).getDate()).padStart(2, "0")}`;
+  const statuses = includeDrafts ? ["draft", "pending", "approved"] : ["pending", "approved"];
+
+  const q = (nodes: Record<string, unknown>, page?: string) => ({
+    organization: {
+      $: { id: cfg.orgId },
+      id: {},
+      documents: {
+        $: {
+          where: {
+            and: [
+              ["type", "vendorBill"],
+              ["status", "in", statuses],
+              ["issueDate", ">=", first],
+              ["issueDate", "<=", last],
+            ],
+          },
+          size: 25,
+          ...(page ? { page } : {}),
+        },
+        nextPage: {},
+        nodes,
+      },
+    },
+  });
+  // Rich carries the customer (job.location.account) and vendor name; an
+  // unconfirmed nested field won't break the view — fall back to the minimal
+  // selection (same guard as getMonthlyInvoiceJobs / getAllDraftBills).
+  const rich = {
+    id: {}, cost: {}, status: {}, issueDate: {}, fromName: {},
+    account: { name: {} },
+    job: { id: {}, name: {}, location: { account: { name: {} } } },
+    referencedDocuments: { nodes: { type: {} } },
+  };
+  const min = {
+    id: {}, cost: {}, status: {}, issueDate: {}, fromName: {},
+    job: { id: {}, name: {} },
+    referencedDocuments: { nodes: { type: {} } },
+  };
+
+  let raw: any[] = [];
+  let page: string | undefined;
+  let guard = 0;
+  let sel: Record<string, unknown> = rich;
+  do {
+    let r: any;
+    try {
+      r = await pave(cfg, q(sel, page));
+    } catch {
+      sel = min; // downgrade once; an unconfirmed field name won't break the view
+      r = await pave(cfg, q(sel, page));
+    }
+    raw = raw.concat(r?.organization?.documents?.nodes ?? []);
+    page = r?.organization?.documents?.nextPage || undefined;
+  } while (page && ++guard < 100);
+
+  const isInvoiced = (b: any) =>
+    (b.referencedDocuments?.nodes ?? []).some((n: any) => n.type === "customerInvoice");
+
+  const out: AllJobsBill[] = [];
+  for (const b of raw) {
+    const invoiced = isInvoiced(b);
+    if (!includeInvoiced && invoiced) continue;
+    const job = b.job;
+    if (!job?.id) continue;
+    out.push({
+      id: b.id,
+      vendor: String(b.account?.name ?? b.fromName ?? "Vendor"),
+      cost: b.cost ?? 0,
+      issueDate: b.issueDate ?? "",
+      status: b.status ?? "",
+      invoiced,
+      jobId: job.id,
+      jobName: job.name ?? "",
+      customerName: job.location?.account?.name ?? "",
+    });
+  }
+  // Newest first; ties by amount desc so a day's biggest bill leads.
+  out.sort((a, b) => b.issueDate.localeCompare(a.issueDate) || b.cost - a.cost);
+  return out;
 }
 
 /** A JobTread customer invoice, for linking + reconciliation. `cost` is the
