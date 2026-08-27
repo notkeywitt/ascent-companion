@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { auth } from "@/auth";
-import { createTimeEntry, updateTimeEntry, deleteTimeEntry, orgLocalToJtIso } from "@/lib/jobtread";
+import {
+  createTimeEntry,
+  updateTimeEntry,
+  deleteTimeEntry,
+  getTimeEntryOwner,
+  orgLocalToJtIso,
+} from "@/lib/jobtread";
 import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
 import { callAppsScript } from "@/lib/appsScript";
 import { readOpenClock } from "@/lib/employeeClock";
@@ -42,6 +48,16 @@ import { resolveJtUserLink } from "@/lib/jtUserLink";
  *      → { ok, previewed, wrote, jtEntryId, jtStatus, jtError?, entryId,
  *          photoCount, date }
  * POST { op:"cancel", entryId } → { ok }
+ * POST { op:"edit", entryId, jobId, costItemId, startTime, endTime, note }
+ *      → { ok, previewed, wrote, jtStatus, minutes? }
+ *        Edits an existing (closed) entry from the Timesheets tab — re-times it
+ *        (JobTread recomputes minutes/cost from the new span), moves the job/cost
+ *        code, and revises the note. Gated by COMPANION_WRITES_ENABLED like every
+ *        other write here, and only ever on the caller's OWN entry: the owning
+ *        user is re-read from JobTread and compared to the session identity, so a
+ *        client-supplied entryId can't touch someone else's time. The pay type is
+ *        NOT edited (its update shape is unverified, and changing it re-rates the
+ *        entry) — it rides along for display only.
  */
 export const dynamic = "force-dynamic";
 
@@ -302,6 +318,95 @@ export async function POST(req: NextRequest) {
       date: l.date ?? "",
       photoCount: l.photoCount ?? 0,
     });
+  }
+
+  // -------------------------------------------------------------- edit ------
+  // Revise an existing (closed) entry from the Timesheets tab. Same field set as
+  // "Log a range", but it UPDATES the entry in place rather than creating a new
+  // one — so the hourly JobTread→Sheet mirror carries the change without a
+  // competing companion write. No Time Entries log row is appended (that log is
+  // for clock-outs / one-shot logs, not edits of time JobTread already holds).
+  if (op === "edit") {
+    const link = await resolveJtUserLink(email);
+    const userId = link?.jtUserId ?? "";
+    if (!userId) {
+      return NextResponse.json({
+        ok: false,
+        error:
+          "No linked JobTread user for your login — an admin can link you on the Employees page.",
+      });
+    }
+
+    const entryId = (body.entryId ?? "").trim();
+    const jobId = (body.jobId ?? "").trim();
+    const costItemId = (body.costItemId ?? "").trim();
+    const note = (body.note ?? "").trim();
+    const startLocal = toLocalStamp(body.startTime ?? "");
+    const endLocal = toLocalStamp(body.endTime ?? "");
+    const startedAt = orgLocalToJtIso(startLocal);
+    const endedAt = orgLocalToJtIso(endLocal);
+
+    if (!entryId) return NextResponse.json({ ok: false, error: "Missing the time entry to edit." }, { status: 400 });
+    if (!jobId) return NextResponse.json({ ok: false, error: "Pick a job." }, { status: 400 });
+    if (!costItemId) return NextResponse.json({ ok: false, error: "Pick a cost code." }, { status: 400 });
+    if (!note) return NextResponse.json({ ok: false, error: "A note is required." }, { status: 400 });
+    if (!startedAt || !endedAt) {
+      return NextResponse.json({ ok: false, error: "Missing start/stop time." }, { status: 400 });
+    }
+    if (endedAt <= startedAt) {
+      return NextResponse.json({ ok: false, error: "Stop time must be after the start time." }, { status: 400 });
+    }
+
+    if (!writesEnabled()) {
+      return NextResponse.json({
+        ok: true,
+        previewed: true,
+        wrote: false,
+        jtStatus: "not pushed (writes off)",
+      });
+    }
+
+    // Only your own time. The entry id is client-supplied, so re-read the owner
+    // from JobTread and compare it to the resolved session identity.
+    let owner: string | null;
+    try {
+      owner = await getTimeEntryOwner(getPaveConfig(), entryId);
+    } catch (e) {
+      return NextResponse.json(
+        { ok: false, error: e instanceof Error ? e.message : "Could not check that entry." },
+        { status: 502 },
+      );
+    }
+    if (!owner) {
+      return NextResponse.json({ ok: false, error: "That time entry no longer exists." }, { status: 404 });
+    }
+    if (owner !== userId) {
+      return NextResponse.json({ ok: false, error: "You can only edit your own time." }, { status: 403 });
+    }
+
+    // jobId + costItemId are sent together: JobTread rejects a job move without
+    // a cost item (cost items are per-job). Re-timing recomputes minutes/cost.
+    try {
+      const res = await updateTimeEntry(getPaveConfig(), entryId, {
+        jobId,
+        costItemId,
+        startedAt,
+        endedAt,
+        notes: note,
+      });
+      return NextResponse.json({
+        ok: true,
+        previewed: false,
+        wrote: true,
+        jtStatus: "pushed",
+        minutes: res.minutes,
+      });
+    } catch (e) {
+      return NextResponse.json(
+        { ok: false, error: e instanceof Error ? e.message : "Could not save your changes." },
+        { status: 502 },
+      );
+    }
   }
 
   return NextResponse.json({ ok: false, error: `Unknown op: ${op}` }, { status: 400 });
