@@ -223,17 +223,11 @@ const isCommitted = (status: string) => status === "pending" || status === "appr
  * Sunset Builders Supply, matched the same way the rest of the codebase does
  * (`/sunset/i` on the vendor name — see getUninvoicedBills / getMonthlyInvoiceJobs).
  * The high invoice count makes it noise when you're deciding where to move money,
- * so it can be hidden — but ONLY from the list. Its cost stays in every budget
- * figure on this page; see the note where hideSunset is applied.
+ * so in the by-bill list it's split off into its own collapsible pane instead of
+ * cluttering the main list. Its cost stays in every budget figure on this page —
+ * the split is a view convenience only, never a change to a number.
  */
 const isSunsetVendor = (vendor: string) => /sunset/i.test(vendor);
-
-/**
- * The "Hide Sunset" toggle is a personal display preference, so it persists in
- * localStorage and survives navigating away and back. Same-device only — it's a
- * view convenience, not shared/authoritative state.
- */
-const LS_HIDE_SUNSET = "recode:hideSunset";
 
 const MONTHS = [
   "January",
@@ -438,11 +432,10 @@ export function Board() {
   // BillRef.invoiced gating below), matching the "Uninvoiced only" toggle on
   // /stage. Defaults on so the live coding month's behavior is unchanged.
   const [uninvoicedOnly, setUninvoicedOnly] = useState(true);
-  // Display-only filter. Defaults OFF: hiding bills by default would mean the
-  // list silently disagrees with the totals until someone noticed the toggle.
-  // The choice persists per-device (LS_HIDE_SUNSET) so it survives navigation —
-  // loaded from localStorage on mount, written back whenever it changes below.
-  const [hideSunset, setHideSunset] = useState(false);
+  // Whether the Sunset pane in the by-bill list is expanded. Collapsed by
+  // default, same as the Time & labor block below it — Sunset is the noise you
+  // fold away, and its cost is already in every figure on the page regardless.
+  const [sunsetBlockOpen, setSunsetBlockOpen] = useState(false);
   // Display-only filter, computed client-side from costDetail's two labor
   // figures (no refetch on toggle). Defaults ON so the existing behavior —
   // every time entry counts, approved or not — doesn't change until someone
@@ -482,30 +475,6 @@ export function Board() {
   const [approveMsg, setApproveMsg] = useState<{ tone: "success" | "error"; text: string } | null>(
     null,
   );
-
-  // Restore the persisted "Hide Sunset" choice on mount. Read in an effect (not
-  // a lazy useState initializer) so SSR and the first client render agree — no
-  // hydration mismatch — then reconcile to the saved value. Runs once.
-  const hideSunsetLoaded = useRef(false);
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem(LS_HIDE_SUNSET);
-      if (saved != null) setHideSunset(saved === "1");
-    } catch {
-      /* localStorage unavailable (private mode, etc.) — fall back to the default */
-    }
-    hideSunsetLoaded.current = true;
-  }, []);
-  // Persist changes, but not the pre-restore default write (which would clobber
-  // a saved value before the load effect above has a chance to apply it).
-  useEffect(() => {
-    if (!hideSunsetLoaded.current) return;
-    try {
-      localStorage.setItem(LS_HIDE_SUNSET, hideSunset ? "1" : "0");
-    } catch {
-      /* ignore write failures */
-    }
-  }, [hideSunset]);
 
   // The Tracking Sheet push rides along with "Sync to JobTread" — one button,
   // one step from the office's point of view — so it needs its own target
@@ -905,11 +874,11 @@ export function Board() {
   }, [data]);
 
   /**
-   * The Sunset hide is a VIEW filter and nothing more. It is applied here —
-   * below the `headroom` useMemo, which reads `data.lines` directly — so every
-   * budget figure on the page (rail meters, per-bill chips, remaining, the
-   * committed/draft split) still counts Sunset in full. Hiding it must never
-   * change a number, only what's listed.
+   * Splitting Sunset off is a VIEW convenience and nothing more. Every budget
+   * figure on the page (rail meters, per-bill chips, remaining, the
+   * committed/draft split) reads `data.lines` / `data.bills` in full above, so
+   * the split below never changes a number — only which pane a bill is listed
+   * in.
    */
   const sunsetDocIds = useMemo(() => {
     const s = new Set<string>();
@@ -917,40 +886,31 @@ export function Board() {
     return s;
   }, [data]);
 
-  const visibleBills = useMemo(
-    () => (data?.bills ?? []).filter((b) => !hideSunset || !sunsetDocIds.has(b.id)),
-    [data, hideSunset, sunsetDocIds],
+  // The by-bill list, split in two: everything else in the main list, Sunset in
+  // its own collapsible pane at the bottom.
+  const nonSunsetBills = useMemo(
+    () => (data?.bills ?? []).filter((b) => !sunsetDocIds.has(b.id)),
+    [data, sunsetDocIds],
+  );
+  const sunsetBills = useMemo(
+    () => (data?.bills ?? []).filter((b) => sunsetDocIds.has(b.id)),
+    [data, sunsetDocIds],
+  );
+  const sunsetTotal = useMemo(
+    () => sunsetBills.reduce((s, b) => s + b.cost, 0),
+    [sunsetBills],
   );
 
-  // Exactly the draft bills on screen right now — same filters (hideSunset,
-  // includeDrafts, uninvoicedOnly) as the list itself, so "Approve" never acts
-  // on a bill the office can't currently see.
+  // Every draft bill on screen — both panes — so "Approve" acts on exactly what
+  // the office can see (Sunset drafts included; they're one tap away in the pane).
   const draftBills = useMemo(
-    () => visibleBills.filter((b) => b.status === "draft"),
-    [visibleBills],
+    () => (data?.bills ?? []).filter((b) => b.status === "draft"),
+    [data],
   );
   // Mirrors approveBill() on the bill detail page: a Bill is a payable (draft →
   // pending, "approved for payment"); an Expense is already paid (draft →
   // approved, "record payment").
   const approvalTarget = (b: BillRef) => (b.name === "Expense" ? "approved" : "pending");
-
-  const hiddenSunset = useMemo(() => {
-    if (!hideSunset) return { count: 0, cost: 0, staged: 0 };
-    const bills = (data?.bills ?? []).filter((b) => sunsetDocIds.has(b.id));
-    const stagedHidden = (data?.lines ?? []).filter(
-      (l) => sunsetDocIds.has(l.docId) && staged.has(l.id),
-    ).length;
-    return {
-      count: bills.length,
-      cost: bills.reduce((s, b) => s + b.cost, 0),
-      staged: stagedHidden,
-    };
-  }, [data, hideSunset, sunsetDocIds, staged]);
-
-  // Don't leave the drawer open on a bill the filter just hid.
-  useEffect(() => {
-    if (openDocId && hideSunset && sunsetDocIds.has(openDocId)) setOpenDocId(null);
-  }, [openDocId, hideSunset, sunsetDocIds]);
 
   // Same "Include unapproved time" toggle the rail uses — the block's total
   // has to agree with what the rail is counting, or the two disagree about
@@ -1670,25 +1630,16 @@ export function Board() {
             invoiced: billById.get(docId)?.invoiced ?? false,
           }))
           .sort((a, b) => b.cost - a.cost);
-        // `total` is deliberately summed over ALL stacks, not the visible ones:
-        // the lane header reports what's actually coded here, hidden or not.
         const total = all.reduce((s, x) => s + x.cost, 0);
-        const stacks = hideSunset ? all.filter((s) => !sunsetDocIds.has(s.docId)) : all;
         return {
           code,
           h: headroom.get(code),
-          stacks,
-          hiddenCount: all.length - stacks.length,
+          stacks: all,
           total,
         };
       })
-      // A lane whose chips are ALL hidden still renders. Dropping it would take
-      // the cost code off the board — losing both its headroom readout and its
-      // drop target, and a code carrying only Sunset spend is often exactly the
-      // one with room to move money into. It shows as an empty lane with a
-      // "+N Sunset hidden" note instead.
       .sort((a, b) => a.code.localeCompare(b.code));
-  }, [data, codeOf, headroom, hideSunset, sunsetDocIds]);
+  }, [data, codeOf, headroom]);
 
   /**
    * Options for the coding dropdown — every non-labor budget leaf on the job.
@@ -2195,6 +2146,170 @@ export function Board() {
   // header, so the dialog has to name the job it is about to act on itself.
   const jobTitle = data?.job?.name ?? "";
 
+  // One bill's card, shared by the main by-bill list and the Sunset pane — both
+  // render exactly the same row, so the drag, drawer and detail-link behaviour
+  // stays identical whichever list a bill sits in.
+  const renderBillCard = (b: BillRef) => {
+    const lines = linesByDoc.get(b.id) ?? [];
+    const codes = new Map<string, number>();
+    let movedHere = 0;
+    for (const l of lines) {
+      const c = codeOf(l);
+      codes.set(c, (codes.get(c) ?? 0) + l.cost);
+      if (staged.has(l.id)) movedHere++;
+    }
+    const isOpen = openDocId === b.id;
+    // Drives the red edge stripe: this bill is charging at least
+    // one code that has already gone past its budget.
+    const overBudget = [...codes.keys()].some((c) => {
+      const h = headroom.get(c);
+      return !!h && remainingOf(h) < 0;
+    });
+    // On a phone this page is read-only and the coding drawer is
+    // hidden, so a tapped bill opens its full detail page instead of
+    // the (invisible) drawer. `from=recode` + `ym` + the `#bill-…`
+    // anchor let its back arrow return to this exact spot.
+    const openBillDetail = () =>
+      router.push(
+        `/bill/${b.id}?jobId=${encodeURIComponent(jobId)}&from=recode` +
+          `&ym=${encodeURIComponent(ym)}`,
+      );
+    return (
+      <li key={b.id} id={`bill-${b.id}`} className="scroll-mt-20">
+        <Card
+          pad={false}
+          draggable={lines.length > 0 && !b.invoiced}
+          onDragStart={beginDrag(lines.map((l) => l.id))}
+          onDragEnd={endDrag}
+          className={`flex items-stretch overflow-hidden ${
+            isOpen ? "ring-1 ring-accent" : ""
+          } ${
+            lines.length > 0 && !b.invoiced ? "cursor-grab active:cursor-grabbing" : ""
+          }`}
+        >
+          {/* Status as a 3px edge stripe, so a month can be
+              triaged by colour down the left margin before a word
+              is read: amber = still a draft, blue = already
+              invoiced (read-only), red = its coding is over
+              budget, none = nothing to look at. The chips below
+              still spell each state out; the stripe is what makes
+              the list scannable at scrolling speed. */}
+          <span
+            aria-hidden
+            className={`w-[3px] shrink-0 ${
+              b.invoiced
+                ? "bg-sky-500"
+                : overBudget
+                  ? "bg-red-500"
+                  : b.status === "draft"
+                    ? "bg-amber-500"
+                    : "bg-transparent"
+            }`}
+          />
+          <button
+            type="button"
+            onClick={() => {
+              // Side-panel dual navigation — see the note on the
+              // cost-code lane's chips above.
+              if (isMobile || !isOpen) driveMainWindowToDoc(jobId, b.id);
+              if (isMobile) openBillDetail();
+              else {
+                setOpenTimeId(null);
+                setOpenDocId(isOpen ? null : b.id);
+              }
+            }}
+            aria-expanded={isMobile ? undefined : isOpen}
+            className="min-w-0 flex-1 p-3 text-left transition hover:bg-accent/5 dark:hover:bg-white/5"
+          >
+            {/* Vendor and amount own the first line; the status
+                badges get their own wrapping line below. Inline,
+                they sat inside the same `truncate` span as the
+                vendor name, so on a phone a long vendor simply
+                clipped them off — the "No file" and "invoiced"
+                flags were invisible exactly where they matter
+                most. */}
+            <span className="flex items-baseline justify-between gap-3">
+              <span className="min-w-0 truncate text-sm font-semibold">{b.label}</span>
+              <span className="shrink-0 text-base font-semibold tabular-nums">
+                {money(b.cost)}
+              </span>
+            </span>
+
+            <span className="mt-1.5 flex flex-wrap gap-1.5 empty:mt-0">
+              {b.status === "draft" && <Chip tone="neutral">draft</Chip>}
+              {b.fileCount === 0 && (
+                <Chip tone="warning" title="No file attached to this bill in JobTread">
+                  No file
+                </Chip>
+              )}
+              {b.invoiced && (
+                <Chip tone="info" title="Already on a customer invoice — read-only">
+                  invoiced
+                </Chip>
+              )}
+              {movedHere > 0 && <Chip tone="warning">{movedHere} moved</Chip>}
+              {/* Same pair the coding queue shows. */}
+              {b.reviewed ? (
+                <Chip tone="success" title="Marked reviewed in the Assistant">
+                  ✓ Reviewed
+                </Chip>
+              ) : b.saved ? (
+                <Chip tone="success" title="Save has been clicked on this bill">
+                  ✓ Saved
+                </Chip>
+              ) : null}
+            </span>
+
+            {/* Per-code chips: what this bill is charging, and what's left there. */}
+            <span className="mt-2 flex flex-wrap gap-1.5">
+              {[...codes.entries()]
+                .sort((x, y) => y[1] - x[1])
+                .map(([code, amt]) => {
+                  const h = headroom.get(code);
+                  const left = h ? remainingOf(h) : 0;
+                  const over = left < 0;
+                  return (
+                    <span
+                      key={code}
+                      className={`inline-flex items-baseline gap-1.5 rounded-md px-2 py-1 text-[11px] ${
+                        over
+                          ? "bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300"
+                          : "bg-neutral-100 text-neutral-600 dark:bg-white/10 dark:text-neutral-300"
+                      }`}
+                      title={`${h?.name ?? ""} — ${money(left)} remaining`}
+                    >
+                      <span className="tabular-nums">{code || "uncoded"}</span>
+                      <span className="tabular-nums">{money0(amt)}</span>
+                      <span className="opacity-60">·</span>
+                      <span className="tabular-nums">{money0(left)} left</span>
+                    </span>
+                  );
+                })}
+            </span>
+          </button>
+          {/* Outside the button — a link nested in a button is
+              invalid, and clicking it would also toggle the card.
+              The dragstart guard stops the browser dragging the
+              anchor itself, which would hijack the card's drag. */}
+          <span
+            onDragStart={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+            className="flex shrink-0 items-start border-l border-line-soft"
+          >
+            <JtLink
+              href={`https://app.jobtread.com/jobs/${jobId}/documents/${b.id}`}
+              className="inline-flex min-h-11 min-w-11 items-center justify-center px-3 text-xs font-semibold text-neutral-500 transition hover:text-accent dark:text-neutral-400"
+            >
+              JT ↗
+            </JtLink>
+          </span>
+        </Card>
+      </li>
+    );
+  };
+
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-col px-4 pb-[calc(6rem+env(safe-area-inset-bottom))] pt-6 lg:max-w-[110rem]">
       {/* The job and its address used to be printed here — once as a phone-only
@@ -2256,9 +2371,6 @@ export function Board() {
               >
                 Drafts shown
               </FilterChip>
-              <FilterChip on={hideSunset} onClick={() => setHideSunset(!hideSunset)}>
-                Sunset hidden
-              </FilterChip>
               <FilterChip
                 on={includeUnapprovedTime}
                 onClick={() => setIncludeUnapprovedTime(!includeUnapprovedTime)}
@@ -2276,12 +2388,6 @@ export function Board() {
                 checked={includeDrafts}
                 onChange={setIncludeDrafts}
                 label={<span title={c("recode.help.includeDrafts")}>{c("recode.toggle.includeDrafts")}</span>}
-                className="min-h-11 shrink-0 text-left lg:min-h-0"
-              />
-              <Toggle
-                checked={hideSunset}
-                onChange={setHideSunset}
-                label={c("recode.toggle.hideSunset")}
                 className="min-h-11 shrink-0 text-left lg:min-h-0"
               />
               <Toggle
@@ -2776,13 +2882,8 @@ export function Board() {
 
             <div className="mb-2 flex items-baseline justify-between gap-3">
               <SectionLabel>
-                {/* The total stays whole even when the list is filtered — hiding
-                    Sunset must not make the month look smaller than it is. */}
-                {hiddenSunset.count > 0
-                  ? `${visibleBills.length} of ${data.bills.length} bills`
-                  : `${visibleBills.length} bill${visibleBills.length === 1 ? "" : "s"}`}{" "}
-                · {money(data.billTotal)}
-                {hiddenSunset.count > 0 && " (all bills)"}
+                {`${data.bills.length} bill${data.bills.length === 1 ? "" : "s"}`} ·{" "}
+                {money(data.billTotal)}
               </SectionLabel>
               {/* Grouping switch, as a segmented control: one bordered track so
                   the two options read as a pair, with 44px-tall segments on
@@ -2821,23 +2922,6 @@ export function Board() {
                 Drag a line — or a whole bill — onto a cost code (here or in the rail) to recode it.
                 Nothing is written until you Sync.
               </p>
-            )}
-
-            {mode !== "summary" && hiddenSunset.count > 0 && (
-              <Banner tone="info" className="mb-2">
-                {hiddenSunset.count} Sunset bill{hiddenSunset.count === 1 ? "" : "s"} hidden ·{" "}
-                {money(hiddenSunset.cost)}. Still counted in every budget figure on this page —
-                only the list is filtered.
-                {hiddenSunset.staged > 0 && (
-                  <>
-                    {" "}
-                    <b>
-                      {hiddenSunset.staged} staged change
-                      {hiddenSunset.staged === 1 ? "" : "s"} on hidden bills will still sync.
-                    </b>
-                  </>
-                )}
-              </Banner>
             )}
 
             {/* ---- this month's time entries ----
@@ -3226,7 +3310,7 @@ export function Board() {
                 <EmptyState>{c("recode.empty.noCodedLines")}</EmptyState>
               ) : (
                 <ul className="space-y-2">
-                  {laneRows.map(({ code, h, stacks, total, hiddenCount }) => (
+                  {laneRows.map(({ code, h, stacks, total }) => (
                     <li key={code}>
                       <Card
                         pad={false}
@@ -3313,11 +3397,6 @@ export function Board() {
                               </li>
                             );
                           })}
-                          {hiddenCount > 0 && (
-                            <li className="self-center px-1 text-[11px] italic text-neutral-500 dark:text-neutral-400">
-                              +{hiddenCount} Sunset hidden
-                            </li>
-                          )}
                         </ul>
                       </Card>
                     </li>
@@ -3325,175 +3404,51 @@ export function Board() {
                 </ul>
               ))}
 
-            {mode === "bill" && visibleBills.length === 0 ? (
-              <EmptyState>
-                {data.bills.length === 0
-                  ? c("recode.empty.noBills")
-                  : c("recode.empty.allSunset")}
-              </EmptyState>
+            {mode === "bill" && data.bills.length === 0 ? (
+              <EmptyState>{c("recode.empty.noBills")}</EmptyState>
             ) : mode === "bill" ? (
-              <ul className="space-y-2">
-                {visibleBills.map((b) => {
-                  const lines = linesByDoc.get(b.id) ?? [];
-                  const codes = new Map<string, number>();
-                  let movedHere = 0;
-                  for (const l of lines) {
-                    const c = codeOf(l);
-                    codes.set(c, (codes.get(c) ?? 0) + l.cost);
-                    if (staged.has(l.id)) movedHere++;
-                  }
-                  const isOpen = openDocId === b.id;
-                  // Drives the red edge stripe: this bill is charging at least
-                  // one code that has already gone past its budget.
-                  const overBudget = [...codes.keys()].some((c) => {
-                    const h = headroom.get(c);
-                    return !!h && remainingOf(h) < 0;
-                  });
-                  // On a phone this page is read-only and the coding drawer is
-                  // hidden, so a tapped bill opens its full detail page instead of
-                  // the (invisible) drawer. `from=recode` + `ym` + the `#bill-…`
-                  // anchor let its back arrow return to this exact spot.
-                  const openBillDetail = () =>
-                    router.push(
-                      `/bill/${b.id}?jobId=${encodeURIComponent(jobId)}&from=recode` +
-                        `&ym=${encodeURIComponent(ym)}`,
-                    );
-                  return (
-                    <li key={b.id} id={`bill-${b.id}`} className="scroll-mt-20">
-                      <Card
-                        pad={false}
-                        draggable={lines.length > 0 && !b.invoiced}
-                        onDragStart={beginDrag(lines.map((l) => l.id))}
-                        onDragEnd={endDrag}
-                        className={`flex items-stretch overflow-hidden ${
-                          isOpen ? "ring-1 ring-accent" : ""
-                        } ${
-                          lines.length > 0 && !b.invoiced ? "cursor-grab active:cursor-grabbing" : ""
-                        }`}
-                      >
-                        {/* Status as a 3px edge stripe, so a month can be
-                            triaged by colour down the left margin before a word
-                            is read: amber = still a draft, blue = already
-                            invoiced (read-only), red = its coding is over
-                            budget, none = nothing to look at. The chips below
-                            still spell each state out; the stripe is what makes
-                            the list scannable at scrolling speed. */}
+              <>
+                {nonSunsetBills.length > 0 && (
+                  <ul className="space-y-2">{nonSunsetBills.map(renderBillCard)}</ul>
+                )}
+
+                {/* Sunset bills, folded into their own collapsible pane — the
+                    same treatment as the Time & labor block above. Sunset's high
+                    invoice count is noise when you're deciding where to move
+                    money, so it's pushed to the bottom of the list and collapsed
+                    by default; its cost is already in every figure on the page,
+                    so folding it away never changes a number. */}
+                {sunsetBills.length > 0 && (
+                  <Card pad={false} className="mt-2 overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => setSunsetBlockOpen((v) => !v)}
+                      aria-expanded={sunsetBlockOpen}
+                      className="flex w-full items-baseline justify-between gap-2 px-3 py-3 text-left transition hover:bg-accent/5 dark:hover:bg-white/5 lg:py-2"
+                    >
+                      <span className="min-w-0 truncate text-sm font-semibold">
                         <span
                           aria-hidden
-                          className={`w-[3px] shrink-0 ${
-                            b.invoiced
-                              ? "bg-sky-500"
-                              : overBudget
-                                ? "bg-red-500"
-                                : b.status === "draft"
-                                  ? "bg-amber-500"
-                                  : "bg-transparent"
+                          className={`mr-1.5 inline-block text-[9px] text-neutral-500 transition-transform dark:text-neutral-400 ${
+                            sunsetBlockOpen ? "rotate-90" : ""
                           }`}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => {
-                            // Side-panel dual navigation — see the note on the
-                            // cost-code lane's chips above.
-                            if (isMobile || !isOpen) driveMainWindowToDoc(jobId, b.id);
-                            if (isMobile) openBillDetail();
-                            else {
-                              setOpenTimeId(null);
-                              setOpenDocId(isOpen ? null : b.id);
-                            }
-                          }}
-                          aria-expanded={isMobile ? undefined : isOpen}
-                          className="min-w-0 flex-1 p-3 text-left transition hover:bg-accent/5 dark:hover:bg-white/5"
                         >
-                          {/* Vendor and amount own the first line; the status
-                              badges get their own wrapping line below. Inline,
-                              they sat inside the same `truncate` span as the
-                              vendor name, so on a phone a long vendor simply
-                              clipped them off — the "No file" and "invoiced"
-                              flags were invisible exactly where they matter
-                              most. */}
-                          <span className="flex items-baseline justify-between gap-3">
-                            <span className="min-w-0 truncate text-sm font-semibold">{b.label}</span>
-                            <span className="shrink-0 text-base font-semibold tabular-nums">
-                              {money(b.cost)}
-                            </span>
-                          </span>
-
-                          <span className="mt-1.5 flex flex-wrap gap-1.5 empty:mt-0">
-                            {b.status === "draft" && <Chip tone="neutral">draft</Chip>}
-                            {b.fileCount === 0 && (
-                              <Chip tone="warning" title="No file attached to this bill in JobTread">
-                                No file
-                              </Chip>
-                            )}
-                            {b.invoiced && (
-                              <Chip tone="info" title="Already on a customer invoice — read-only">
-                                invoiced
-                              </Chip>
-                            )}
-                            {movedHere > 0 && <Chip tone="warning">{movedHere} moved</Chip>}
-                            {/* Same pair the coding queue shows. */}
-                            {b.reviewed ? (
-                              <Chip tone="success" title="Marked reviewed in the Assistant">
-                                ✓ Reviewed
-                              </Chip>
-                            ) : b.saved ? (
-                              <Chip tone="success" title="Save has been clicked on this bill">
-                                ✓ Saved
-                              </Chip>
-                            ) : null}
-                          </span>
-
-                          {/* Per-code chips: what this bill is charging, and what's left there. */}
-                          <span className="mt-2 flex flex-wrap gap-1.5">
-                            {[...codes.entries()]
-                              .sort((x, y) => y[1] - x[1])
-                              .map(([code, amt]) => {
-                                const h = headroom.get(code);
-                                const left = h ? remainingOf(h) : 0;
-                                const over = left < 0;
-                                return (
-                                  <span
-                                    key={code}
-                                    className={`inline-flex items-baseline gap-1.5 rounded-md px-2 py-1 text-[11px] ${
-                                      over
-                                        ? "bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300"
-                                        : "bg-neutral-100 text-neutral-600 dark:bg-white/10 dark:text-neutral-300"
-                                    }`}
-                                    title={`${h?.name ?? ""} — ${money(left)} remaining`}
-                                  >
-                                    <span className="tabular-nums">{code || "uncoded"}</span>
-                                    <span className="tabular-nums">{money0(amt)}</span>
-                                    <span className="opacity-60">·</span>
-                                    <span className="tabular-nums">{money0(left)} left</span>
-                                  </span>
-                                );
-                              })}
-                          </span>
-                        </button>
-                        {/* Outside the button — a link nested in a button is
-                            invalid, and clicking it would also toggle the card.
-                            The dragstart guard stops the browser dragging the
-                            anchor itself, which would hijack the card's drag. */}
-                        <span
-                          onDragStart={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                          }}
-                          className="flex shrink-0 items-start border-l border-line-soft"
-                        >
-                          <JtLink
-                            href={`https://app.jobtread.com/jobs/${jobId}/documents/${b.id}`}
-                            className="inline-flex min-h-11 min-w-11 items-center justify-center px-3 text-xs font-semibold text-neutral-500 transition hover:text-accent dark:text-neutral-400"
-                          >
-                            JT ↗
-                          </JtLink>
+                          ▶
                         </span>
-                      </Card>
-                    </li>
-                  );
-                })}
-              </ul>
+                        Sunset ({sunsetBills.length} bill{sunsetBills.length === 1 ? "" : "s"})
+                      </span>
+                      <span className="shrink-0 text-sm font-semibold tabular-nums">
+                        {money(sunsetTotal)}
+                      </span>
+                    </button>
+                    {sunsetBlockOpen && (
+                      <ul className="space-y-2 border-t border-line-soft bg-neutral-50 p-2 dark:bg-ink-raised/50">
+                        {sunsetBills.map(renderBillCard)}
+                      </ul>
+                    )}
+                  </Card>
+                )}
+              </>
             ) : null}
           </section>
 

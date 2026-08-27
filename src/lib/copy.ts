@@ -310,12 +310,6 @@ export const COPY: Record<string, CopyEntry> = {
     group: "Tracking Sheets — controls",
     short: true,
   },
-  "recode.toggle.hideSunset": {
-    text: "Hide Sunset",
-    label: "Hide Sunset — toggle",
-    group: "Tracking Sheets — controls",
-    short: true,
-  },
   "recode.toggle.groupByCsi": {
     text: "Group by CSI code",
     label: "Group by CSI code — toggle",
@@ -383,11 +377,6 @@ export const COPY: Record<string, CopyEntry> = {
   "recode.empty.noBills": {
     text: "No uninvoiced bills dated in this month.",
     label: "No uninvoiced bills",
-    group: "Tracking Sheets — empty states",
-  },
-  "recode.empty.allSunset": {
-    text: "Every bill this month is from Sunset — turn off Hide Sunset to see them.",
-    label: "All bills are Sunset",
     group: "Tracking Sheets — empty states",
   },
   "recode.empty.selectBill": {
