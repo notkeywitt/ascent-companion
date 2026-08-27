@@ -12,7 +12,6 @@ import {
   btn,
   inputCls,
 } from "@/components/ui";
-import { LinkPendingOverlay } from "@/components/LinkPending";
 import { useAccess } from "@/components/AccessProvider";
 import { useCopy } from "@/components/CopyProvider";
 import { AdminActionBar } from "@/components/AdminActionBar";
@@ -22,14 +21,15 @@ import { NeedsProjectBanner, useNeedsProjectCount } from "@/components/NeedsProj
 /**
  * The Assistant's front page — the launcher, and still the only place EVERY
  * gateable view is reachable from (the tab bar carries at most three shortcuts).
- * A new view must appear in AREAS or QUICK here, or it becomes dead.
+ * A new view must appear in AREAS here, or it becomes dead.
  *
- * The areas used to be accordions, all rolled shut. That cost three taps to
- * reach a page from cold and hid the app's own contents from someone who didn't
- * already know what was inside. They are open lists now: each area shows its
- * first few destinations with a "show the rest" control, and the search box
- * above covers all of them at once — so finding a page is one tap or one word,
- * never a hunt through four closed drawers.
+ * There used to be a second, separate thing at the top: a 4-across rail of
+ * "quick" tiles (Miles · Time · Tools · Reqs). But the permanent bottom tab bar
+ * already carries those same everyday shortcuts, so the rail was repeating the
+ * chrome directly above it — two rows of the same buttons before the launcher
+ * proper even began. It's gone. Those five personal destinations now live in a
+ * "My Work" area at the top of the list, so the whole page is one pattern —
+ * search over open, hairline-divided area lists — and nothing is said twice.
  */
 
 /* ------------------------------------------------------------------- icons */
@@ -55,47 +55,6 @@ function IconBase({ className = "", children }: { className?: string; children: 
 
 type IconProps = { className?: string };
 
-/** Wrench — Tools. */
-const WrenchIcon = ({ className }: IconProps) => (
-  <IconBase className={className}>
-    <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
-  </IconBase>
-);
-
-/** Clock — Time (employee time). */
-const ClockIcon = ({ className }: IconProps) => (
-  <IconBase className={className}>
-    <circle cx="12" cy="12" r="9" />
-    <path d="M12 7v5l3 2" />
-  </IconBase>
-);
-
-/** Clipboard — Requisitions. */
-const ClipboardIcon = ({ className }: IconProps) => (
-  <IconBase className={className}>
-    <rect x="8" y="3" width="8" height="4" rx="1" />
-    <path d="M9 5H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-3" />
-    <path d="M9 12h6M9 16h4" />
-  </IconBase>
-);
-
-/** Calendar — Time Off. */
-const CalendarIcon = ({ className }: IconProps) => (
-  <IconBase className={className}>
-    <rect x="3" y="4" width="18" height="18" rx="2" />
-    <path d="M16 2v4M8 2v4M3 10h18" />
-  </IconBase>
-);
-
-/** Route — Miles (mileage tracker). */
-const RouteIcon = ({ className }: IconProps) => (
-  <IconBase className={className}>
-    <circle cx="6" cy="19" r="3" />
-    <path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15" />
-    <circle cx="18" cy="5" r="3" />
-  </IconBase>
-);
-
 /** Magnifier — the search field. */
 const SearchIcon = ({ className }: IconProps) => (
   <IconBase className={className}>
@@ -112,18 +71,9 @@ type Dest = { label: string; href: string; desc: string; view: string };
 // `id` is the STABLE handle — React keys, expand state, and the copy registry
 // key all hang off it, so the editable `title` can be reworded from
 // Admin → Page Text without resetting anyone's expanded sections.
-type Area = { id: string; title: string; blurb: string; dests: Dest[] };
-type Quick = { label: string; full: string; href: string; Icon: (p: IconProps) => ReactNode; view: string };
-
-// The four one-tap destinations every employee gets, at the top of the launcher.
-// `label` is the short form the 4-across rail can actually fit; `full` is what
-// a screen reader and the tooltip say.
-const QUICK: Quick[] = [
-  { label: "Miles", full: "Mileage tracker", href: "/mileage-tracker", Icon: RouteIcon, view: "mileage" },
-  { label: "Time", full: "Employee time", href: "/employee-time", Icon: ClockIcon, view: "employee-time" },
-  { label: "Tools", full: "Tools", href: "/tools", Icon: WrenchIcon, view: "tools" },
-  { label: "Reqs", full: "Requisitions", href: "/requisitions", Icon: ClipboardIcon, view: "requisitions" },
-];
+// `preview` optionally overrides PREVIEW_ROWS for one area (My Work shows all of
+// its short list rather than hiding the daily tools behind "show more").
+type Area = { id: string; title: string; blurb: string; dests: Dest[]; preview?: number };
 
 // How many rows an area shows before "show the rest" — enough that the short
 // areas are complete at a glance, few enough that Utilities' nine don't bury
@@ -131,6 +81,22 @@ const QUICK: Quick[] = [
 const PREVIEW_ROWS = 3;
 
 const AREAS: Area[] = [
+  {
+    id: "mywork",
+    title: "My Work",
+    blurb: "The everyday — your time, miles, tools, and requests.",
+    // The five destinations every employee gets (FIELD_VIEWS in lib/views).
+    // Shown in full — see `preview` — because these are the daily-use pages and
+    // burying two of them behind "show more" would defeat the point.
+    preview: 5,
+    dests: [
+      { label: "Employee Time", href: "/employee-time", desc: "Log and review your hours", view: "employee-time" },
+      { label: "Mileage", href: "/mileage-tracker", desc: "Track your mileage", view: "mileage" },
+      { label: "Tools", href: "/tools", desc: "The tool tracker", view: "tools" },
+      { label: "Requisitions", href: "/requisitions", desc: "Request materials & supplies", view: "requisitions" },
+      { label: "Time Off", href: "/time-off", desc: "Request time off & see your balance", view: "time-off" },
+    ],
+  },
   {
     id: "financials",
     title: "Financials",
@@ -149,13 +115,12 @@ const AREAS: Area[] = [
   {
     id: "hr",
     title: "HR",
-    blurb: "Roster, labor, time off, and safety.",
+    blurb: "Roster, labor, and safety.",
     dests: [
       { label: "Leads", href: "/leads", desc: "New leads, who's overdue, who's gone quiet", view: "leads" },
       { label: "Employees", href: "/employees", desc: "The Project Database roster", view: "employees" },
       { label: "Labor Import", href: "/labor-import", desc: "QuickBooks labor → JobTread CSV", view: "labor-import" },
       { label: "Labor Rates", href: "/labor-rates", desc: "Per-project pay rates & who has them", view: "labor-rates" },
-      { label: "Time Off", href: "/time-off", desc: "Requests, balances & accrual policy", view: "time-off" },
       { label: "Safety Meeting", href: "/safety-meeting", desc: "Pass the iPad and collect sign-ins", view: "safety-meeting" },
     ],
   },
@@ -209,11 +174,6 @@ function Home() {
   // (possibly office-edited) wording — see src/lib/copy.ts. The `|| a.title`
   // fallbacks mean a destination added to AREAS but not yet registered renders
   // its inline English instead of going blank.
-  const quick = QUICK.filter((q) => access.can(q.view)).map((q) => ({
-    ...q,
-    label: c(`home.quick.${q.view}.label`) || q.label,
-    full: c(`home.quick.${q.view}.full`) || q.full,
-  }));
   const areas = useMemo(
     () =>
       AREAS.map((a) => ({
@@ -230,12 +190,6 @@ function Home() {
       })).filter((a) => a.dests.length > 0),
     [access, c],
   );
-
-  // Every employee can request time off. Office/admin reach it from the HR area;
-  // for anyone else (field/lead) it isn't in a visible area, so surface it as its
-  // own button — that way it's never stranded.
-  const timeOffInArea = areas.some((a) => a.dests.some((d) => d.view === "time-off"));
-  const showTimeOff = access.can("time-off") && !timeOffInArea;
 
   // Queue counts, keyed by view id. Add a future queue here and both the area
   // heading and its row pick it up with no further plumbing.
@@ -312,53 +266,6 @@ function Home() {
         </div>
       )}
 
-      {/* Quick launch — the one-tap destinations every employee gets. A 4-across
-          rail rather than the old 2×2 of 92px boxes: the same four taps in half
-          the height, which is what lets the areas below start above the fold. */}
-      {!q && (quick.length > 0 || showTimeOff) && (
-        <div className="mb-6 space-y-3">
-          {quick.length > 0 && (
-            <div className="grid grid-cols-4 gap-2">
-              {quick.map((qk) => (
-                <Link
-                  key={qk.href}
-                  href={qk.href + qs}
-                  title={qk.full}
-                  aria-label={qk.full}
-                  className="relative flex flex-col items-center gap-2 rounded-xl border border-line bg-white p-3 text-center transition hover:border-accent hover:bg-accent/5 active:bg-accent/10 dark:bg-ink-raised dark:hover:bg-white/5"
-                >
-                  <span
-                    aria-hidden
-                    className="flex h-[34px] w-[34px] items-center justify-center rounded-[9px] bg-accent/10 text-accent dark:bg-accent/15 dark:text-accent-soft"
-                  >
-                    <qk.Icon className="h-5 w-5" />
-                  </span>
-                  <span className="text-[11.5px] font-bold tracking-tight">{qk.label}</span>
-                  <LinkPendingOverlay spinnerClassName="h-5 w-5" />
-                </Link>
-              ))}
-            </div>
-          )}
-          {showTimeOff && (
-            <ListCard>
-              <ListRow
-                href={"/time-off" + qs}
-                label="Time Off"
-                desc="Request time off & see your balance"
-                trailing={
-                  <span
-                    aria-hidden
-                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[9px] bg-accent/10 text-accent dark:bg-accent/15 dark:text-accent-soft"
-                  >
-                    <CalendarIcon className="h-5 w-5" />
-                  </span>
-                }
-              />
-            </ListCard>
-          )}
-        </div>
-      )}
-
       {/* Search results replace the areas while there's a query — showing both
           would make the page longer exactly when someone is trying to shorten it. */}
       {q ? (
@@ -419,9 +326,10 @@ function Home() {
       ) : (
         <div className="space-y-6">
           {areas.map((area) => {
+            const previewRows = area.preview ?? PREVIEW_ROWS;
             const isExpanded = !!expanded[area.id];
-            const hidden = Math.max(0, area.dests.length - PREVIEW_ROWS);
-            const shown = isExpanded ? area.dests : area.dests.slice(0, PREVIEW_ROWS);
+            const hidden = Math.max(0, area.dests.length - previewRows);
+            const shown = isExpanded ? area.dests : area.dests.slice(0, previewRows);
             // Work queued behind the fold still shows on the heading, so a
             // collapsed tail never hides the one row that needs attention.
             const hiddenCount = area.dests
@@ -481,7 +389,7 @@ function Home() {
       {/* No views at all — don't leave a blank page. This happens when the
           session carries no identity/role (e.g. signed in with the temporary
           shared password rather than Google). Offer a way back to Google. */}
-      {quick.length === 0 && areas.length === 0 && !showTimeOff && (
+      {areas.length === 0 && (
         <div className="rounded-xl border border-dashed border-neutral-300 px-6 py-8 text-center dark:border-neutral-700">
           <p className="text-sm font-semibold">No views are available for your account yet.</p>
           <p className="mx-auto mt-2 max-w-sm text-xs text-neutral-500">
