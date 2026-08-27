@@ -14,10 +14,10 @@ import {
 import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
 
 /**
- * Labor Review — the time-entry half of what Client Invoicing does for bills.
+ * Labor Review — the time-entry half of what Tracking Sheets does for bills.
  *
  * GET assembles everything the page needs for ONE job in ONE browser fetch, from
- * the same already-cached readers /api/recode uses, so the two pages can never
+ * the same already-cached readers /api/trackingsheet uses, so the two pages can never
  * disagree about a job's budget:
  *  - getJobTimeEntriesForMonth — the month's entries (the middle column)
  *  - getJobCostDetail          — per-cost-code budget/bills/labor (the left rail)
@@ -131,7 +131,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Labor moved between cost codes, so every cached per-code total for this job
-  // (this page's rail AND Client Invoicing's) is now stale.
+  // (this page's rail AND Tracking Sheets') is now stale.
   if (results.some((r) => r.ok)) clearJobCostCaches();
 
   return NextResponse.json({ previewed: false, wrote: true, results });

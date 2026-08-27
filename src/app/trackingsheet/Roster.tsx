@@ -22,7 +22,7 @@ import {
 } from "@/components/ui";
 
 /**
- * The all-jobs month view of Client Invoicing — every client invoice to stage
+ * The all-jobs month view of Tracking Sheets — every client invoice to stage
  * this month, one card per job.
  *
  * This is what the Invoicing page (/stage) was. It lives here because the two
@@ -158,7 +158,7 @@ export function Roster({
 
   useEffect(() => {
     // Gated: /api/tracking-sheet sits behind the "tracking-sheet" view, which a
-    // lead does not have even though they can reach Client Invoicing. Asking
+    // lead does not have even though they can reach Tracking Sheets. Asking
     // anyway would just 403.
     if (!canTrack) return;
     let alive = true;
@@ -393,7 +393,7 @@ export function Roster({
                   reconcile, tracking-sheet sync, breakdown, print, create in JT),
                   so opening it in place was a second, thinner copy of it. */}
               <Link
-                href={`/recode?jobId=${encodeURIComponent(r.jobId)}&ym=${ym}`}
+                href={`/trackingsheet?jobId=${encodeURIComponent(r.jobId)}&ym=${ym}`}
                 className="flex w-full items-start justify-between gap-3 text-left"
               >
                 <div className="min-w-0">

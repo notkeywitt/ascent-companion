@@ -24,7 +24,7 @@ import { JtLink } from "@/components/JtLink";
 import { useUnsavedChanges } from "@/lib/useUnsavedChanges";
 
 /**
- * Labor Review — the time-entry twin of the Client Invoicing board.
+ * Labor Review — the time-entry twin of the Tracking Sheets board.
  *
  * Same premise, same three columns: the decision is "this week of General Labor
  * really belongs to Framing", and you can only make it if the hours and the
@@ -43,7 +43,7 @@ import { useUnsavedChanges } from "@/lib/useUnsavedChanges";
  * between codes at exactly the amount already on the entry.
  *
  * Everything comes from /api/labor-review in one fetch, off the same cached
- * readers Client Invoicing uses, so the two pages' budgets can't drift apart.
+ * readers Tracking Sheets uses, so the two pages' budgets can't drift apart.
  */
 
 interface TimeEntry {
@@ -114,7 +114,7 @@ const MONTHS = [
   "December",
 ];
 
-/** Same default month as Client Invoicing, so the two pages open on the same period. */
+/** Same default month as Tracking Sheets, so the two pages open on the same period. */
 function defaultYm(): string {
   const now = new Date();
   const d = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -167,7 +167,7 @@ export function LaborReview() {
   const [ym, setYm] = useState(() => params.get("ym") || defaultYm());
   /**
    * Counts only approved entries toward the rail's labor and the list, matching
-   * the identically-named toggle on Client Invoicing. Defaults ON so nothing is
+   * the identically-named toggle on Tracking Sheets. Defaults ON so nothing is
    * hidden until someone deliberately narrows it.
    */
   const [includeUnapproved, setIncludeUnapproved] = useState(true);
@@ -593,8 +593,8 @@ export function LaborReview() {
         <PageHeader title="Labor Review" />
         <EmptyState>
           No job selected. Pick one above to review its labor, or{" "}
-          <Link href="/recode" className="text-accent underline">
-            go to Client Invoicing
+          <Link href="/trackingsheet" className="text-accent underline">
+            go to Tracking Sheets
           </Link>
           .
         </EmptyState>
@@ -748,10 +748,10 @@ export function LaborReview() {
               Draft bills are <b>not</b> counted here (they live on the bills this page doesn&apos;t
               load), so a code with open drafts reads roomier than it does on{" "}
               <Link
-                href={`/recode?jobId=${encodeURIComponent(jobId)}&ym=${ym}`}
+                href={`/trackingsheet?jobId=${encodeURIComponent(jobId)}&ym=${ym}`}
                 className="text-accent underline"
               >
-                Client Invoicing
+                Tracking Sheets
               </Link>
               .
             </p>

@@ -8,7 +8,7 @@ import type { InvoiceRef } from "@/lib/jobtread";
 /**
  * "Is this month actually invoiced?" — the reconciliation rectangle.
  *
- * Extracted from the Invoicing page so Client Invoicing (/recode) shows the SAME
+ * Extracted from the Invoicing page so Tracking Sheets (/trackingsheet) shows the SAME
  * figures from the SAME endpoint. Two copies of this arithmetic would be two
  * copies to keep in step, and the whole point of the number is that it agrees
  * with what JobTread will actually bill.

@@ -37,12 +37,12 @@ export interface ViewDef {
 export const VIEWS: ViewDef[] = [
   // Financials / billing — admin-only as a group (see ADMIN_ONLY below).
   // RETIRED 2026-08-10: the standalone Coding Review page. Its queue is now the
-  // "Needs coding" tab of Client Invoicing, and nothing links here any more —
+  // "Needs coding" tab of Tracking Sheets, and nothing links here any more —
   // the route is left reachable by URL as a transition fallback, so the gate
   // stays. The bill pages it used to own moved to the "recode" view below,
   // which is what actually links to them now.
   { id: "coding", label: "Coding Review (retired)", group: "Financials", paths: ["/coding"] },
-  // Client Invoicing — the whole billing workflow on one route: the month's
+  // Tracking Sheets — the whole billing workflow on one route: the month's
   // invoices across every job, the needs-coding queue, and the per-job coding
   // workbench (which WRITES coding, unlike the read-only pages it absorbed).
   // /bill and /add-bill ride this gate because it is the only surface that
@@ -51,22 +51,22 @@ export const VIEWS: ViewDef[] = [
   // trash its PDF, so it must not be callable by a role that can't see the page.
   {
     id: "recode",
-    label: "Client Invoicing",
+    label: "Tracking Sheets",
     group: "Financials",
     paths: [
-      "/recode",
-      "/api/recode",
+      "/trackingsheet",
+      "/api/trackingsheet",
       "/bill",
       "/add-bill",
       "/api/uncaptured",
       // The Time & labor panel's own write. It rides THIS gate, not
-      // "labor-review": the panel is part of the Client Invoicing workbench, and
+      // "labor-review": the panel is part of the Tracking Sheets workbench, and
       // a longer path wins in viewIdForPath, so listing it here is what makes it
-      // reachable for a role that has Client Invoicing but not Labor Review.
+      // reachable for a role that has Tracking Sheets but not Labor Review.
       "/api/time-entry",
     ],
   },
-  // Labor Review — Client Invoicing's workbench applied to time entries: the
+  // Labor Review — Tracking Sheets' workbench applied to time entries: the
   // same budget rail, the month's labor in place of the bills, and a coding
   // drawer that re-points a time entry's cost item. It WRITES to JobTread
   // (updateTimeEntry), so the API prefix rides the same gate as the page — a
@@ -94,9 +94,9 @@ export const VIEWS: ViewDef[] = [
   // default (financial data); not in FIELD/LEAD sets below.
   { id: "jobs", label: "Jobs", group: "Financials", paths: ["/jobs"] },
   // RETIRED 2026-08-10 alongside "coding": the standalone Invoicing page is now
-  // the "This month" tab of Client Invoicing. Unlinked but still reachable by
+  // the "This month" tab of Tracking Sheets. Unlinked but still reachable by
   // URL, so the gate stays. NOTE the /api/stage routes are deliberately NOT
-  // listed — Client Invoicing reads them for its roster and billing summary, so
+  // listed — Tracking Sheets reads them for its roster and billing summary, so
   // gating them here would lock out anyone without this retired view.
   { id: "stage", label: "Invoicing (retired)", group: "Financials", paths: ["/stage"] },
   { id: "unbilled", label: "Unbilled", group: "Financials", paths: ["/unbilled"] },

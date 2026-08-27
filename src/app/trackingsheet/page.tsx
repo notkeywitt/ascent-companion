@@ -3,7 +3,7 @@ import { Loading } from "@/components/ui";
 import { ClientInvoicing } from "./ClientInvoicing";
 
 /**
- * Client Invoicing — the single home for the month's client invoices, the
+ * Tracking Sheets — the single home for the month's client invoices, the
  * needs-coding queue, and the coding workbench. See ClientInvoicing.tsx for how
  * the job selector switches between them.
  */

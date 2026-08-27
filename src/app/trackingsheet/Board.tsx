@@ -85,7 +85,7 @@ import { useUnsavedChanges } from "@/lib/useUnsavedChanges";
  * already have a budget leaf can be targets; codes with none render dimmed,
  * because coding to them would mean inventing budget rows.
  *
- * Everything the board reads comes from /api/recode in one fetch.
+ * Everything the board reads comes from /api/trackingsheet in one fetch.
  */
 
 interface BillRef {
@@ -175,7 +175,7 @@ interface BoardPayload {
   error?: string;
 }
 
-/** One vendor-bill line behind a cost code's "bills" total — from /api/recode/contributors. */
+/** One vendor-bill line behind a cost code's "bills" total — from /api/trackingsheet/contributors. */
 interface CostCodeBillContributor {
   id: string; // costItemId — matches JobBillLine.id for staged-recode reconciliation
   docId: string;
@@ -187,7 +187,7 @@ interface CostCodeBillContributor {
   lineName: string;
   cost: number;
 }
-/** One time entry behind a cost code's "labor" total — from /api/recode/contributors. */
+/** One time entry behind a cost code's "labor" total — from /api/trackingsheet/contributors. */
 interface CostCodeTimeContributor {
   id: string;
   code: string;
@@ -604,7 +604,7 @@ export function Board() {
       const [y, m] = ym.split("-");
       try {
         const r = await fetch(
-          `/api/recode?jobId=${encodeURIComponent(jobId)}&year=${y}&month=${Number(m)}` +
+          `/api/trackingsheet?jobId=${encodeURIComponent(jobId)}&year=${y}&month=${Number(m)}` +
             `&includeDrafts=${includeDrafts ? "1" : "0"}` +
             (uninvoicedOnly ? "" : "&includeInvoiced=1"),
         );
@@ -1858,7 +1858,7 @@ export function Board() {
       if (!jobId || contributorsLoading || contributors?.jobId === jobId) return;
       setContributorsLoading(true);
       setContributorsError("");
-      fetch(`/api/recode/contributors?jobId=${encodeURIComponent(jobId)}`)
+      fetch(`/api/trackingsheet/contributors?jobId=${encodeURIComponent(jobId)}`)
         .then((r) => r.json())
         .then((j) => {
           if (j.error) throw new Error(j.error);
@@ -2182,7 +2182,7 @@ export function Board() {
         <PageHeader title={c("page.recode.title")} />
         <EmptyState>
           {c("recode.empty.noJob")}{" "}
-          <Link href="/recode" className="text-accent underline">
+          <Link href="/trackingsheet" className="text-accent underline">
             {c("recode.empty.noJobLink")}
           </Link>
           .

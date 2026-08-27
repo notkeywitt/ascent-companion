@@ -12,7 +12,7 @@ import { round2 } from "@/lib/billLineMath";
  * THE CODING CARD — the one place a vendor bill gets coded, wherever you
  * reached it from.
  *
- * Client Invoicing shows this card in two different contexts:
+ * Tracking Sheets shows this card in two different contexts:
  *
  *   - with a job selected, as the right column of the job workbench (Board.tsx),
  *     against that job's month of bills;

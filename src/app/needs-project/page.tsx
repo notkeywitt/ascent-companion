@@ -149,7 +149,7 @@ export default function NeedsProjectPage() {
 
       {!!draftBillCount && (
         <Link
-          href="/recode?tab=drafts"
+          href="/trackingsheet?tab=drafts"
           className="mb-4 flex items-center justify-between gap-3 rounded-lg bg-accent/10 px-4 py-2.5 text-sm text-accent transition hover:bg-accent/15 dark:text-accent-soft"
         >
           <span>

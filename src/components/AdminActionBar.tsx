@@ -44,8 +44,8 @@ interface AdminAction {
  *  Invoicing. These NAVIGATE (styled as outline links), not run-in-place like
  *  ADMIN_ACTIONS. */
 const NAV_LINKS: { label: string; href: string }[] = [
-  { label: "Needs Coding", href: "/recode?tab=drafts" },
-  { label: "Invoicing", href: "/recode" },
+  { label: "Needs Coding", href: "/trackingsheet?tab=drafts" },
+  { label: "Tracking Sheets", href: "/trackingsheet" },
 ];
 
 const ADMIN_ACTIONS: AdminAction[] = [
