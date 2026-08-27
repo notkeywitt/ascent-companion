@@ -36,6 +36,11 @@ interface AllBill {
 const jobLabel = (b: AllBill) =>
   [b.customerName, b.jobName].filter(Boolean).join(" — ") || "no job";
 
+/** Sunset Builders Supply, matched the same way the job board does (`/sunset/i`
+ *  on the vendor name) — its high invoice count is noise, so it folds into its
+ *  own collapsible pane here too. */
+const isSunsetVendor = (vendor: string) => /sunset/i.test(vendor);
+
 /** "2026-08-14" → "Aug 14". Parsed as plain Y-M-D, no timezone shift. */
 const shortDate = (iso: string) => {
   const [y, m, d] = iso.split("-").map(Number);
@@ -51,6 +56,9 @@ export function AllBills({ ym, setYm }: { ym: string; setYm: (ym: string) => voi
   // doesn't change what "this month" means.
   const [uninvoicedOnly, setUninvoicedOnly] = useState(true);
   const [includeDrafts, setIncludeDrafts] = useState(true);
+  // Sunset folds into its own collapsible pane, collapsed by default — same as
+  // the per-job board.
+  const [sunsetOpen, setSunsetOpen] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -81,6 +89,68 @@ export function AllBills({ ym, setYm }: { ym: string; setYm: (ym: string) => voi
 
   const total = useMemo(() => (bills ?? []).reduce((s, b) => s + b.cost, 0), [bills]);
   const monthLabel = monthOptions().find((o) => o.ym === ym)?.label ?? ym;
+
+  // The list split in two, same as the job board: everything else in the main
+  // list, Sunset in its own collapsible pane at the bottom.
+  const nonSunsetBills = useMemo(
+    () => (bills ?? []).filter((b) => !isSunsetVendor(b.vendor)),
+    [bills],
+  );
+  const sunsetBills = useMemo(
+    () => (bills ?? []).filter((b) => isSunsetVendor(b.vendor)),
+    [bills],
+  );
+  const sunsetTotal = useMemo(() => sunsetBills.reduce((s, b) => s + b.cost, 0), [sunsetBills]);
+
+  // One bill's card — shared by the main list and the Sunset pane.
+  const renderBillCard = (b: AllBill) => (
+    <li key={b.id}>
+      <Card pad={false} className="flex items-stretch overflow-hidden">
+        {/* Status as a 3px edge stripe, same as the job board:
+            amber = draft, blue = already invoiced. */}
+        <span
+          aria-hidden
+          className={`w-[3px] shrink-0 ${
+            b.invoiced
+              ? "bg-sky-500"
+              : b.status === "draft"
+                ? "bg-amber-500"
+                : "bg-transparent"
+          }`}
+        />
+        <Link
+          href={`/bill/${b.id}?jobId=${encodeURIComponent(b.jobId)}`}
+          className="min-w-0 flex-1 p-3 text-left transition hover:bg-accent/5 dark:hover:bg-white/5"
+        >
+          <span className="flex items-baseline justify-between gap-3">
+            <span className="min-w-0 truncate text-sm font-semibold">{b.vendor}</span>
+            <span className="shrink-0 text-base font-semibold tabular-nums">
+              {money(b.cost)}
+            </span>
+          </span>
+          <span className="mt-0.5 block truncate text-xs text-neutral-500 dark:text-neutral-400">
+            {jobLabel(b)} · {shortDate(b.issueDate)}
+          </span>
+          <span className="mt-1.5 flex flex-wrap gap-1.5 empty:mt-0">
+            {b.status === "draft" && <Chip tone="neutral">draft</Chip>}
+            {b.invoiced && (
+              <Chip tone="info" title="Already on a customer invoice — read-only">
+                invoiced
+              </Chip>
+            )}
+          </span>
+        </Link>
+        <span className="flex shrink-0 items-start border-l border-line-soft">
+          <JtLink
+            href={`https://app.jobtread.com/jobs/${b.jobId}/documents/${b.id}`}
+            className="inline-flex min-h-11 min-w-11 items-center justify-center px-3 text-xs font-semibold text-neutral-500 transition hover:text-accent dark:text-neutral-400"
+          >
+            JT ↗
+          </JtLink>
+        </span>
+      </Card>
+    </li>
+  );
 
   return (
     <>
@@ -143,56 +213,45 @@ export function AllBills({ ym, setYm }: { ym: string; setYm: (ym: string) => voi
             {(bills ?? []).length === 0 ? (
               <EmptyState>No bills issued in {monthLabel}.</EmptyState>
             ) : (
-              <ul className="space-y-2">
-                {(bills ?? []).map((b) => (
-                  <li key={b.id}>
-                    <Card pad={false} className="flex items-stretch overflow-hidden">
-                      {/* Status as a 3px edge stripe, same as the job board:
-                          amber = draft, blue = already invoiced. */}
-                      <span
-                        aria-hidden
-                        className={`w-[3px] shrink-0 ${
-                          b.invoiced
-                            ? "bg-sky-500"
-                            : b.status === "draft"
-                              ? "bg-amber-500"
-                              : "bg-transparent"
-                        }`}
-                      />
-                      <Link
-                        href={`/bill/${b.id}?jobId=${encodeURIComponent(b.jobId)}`}
-                        className="min-w-0 flex-1 p-3 text-left transition hover:bg-accent/5 dark:hover:bg-white/5"
-                      >
-                        <span className="flex items-baseline justify-between gap-3">
-                          <span className="min-w-0 truncate text-sm font-semibold">{b.vendor}</span>
-                          <span className="shrink-0 text-base font-semibold tabular-nums">
-                            {money(b.cost)}
-                          </span>
-                        </span>
-                        <span className="mt-0.5 block truncate text-xs text-neutral-500 dark:text-neutral-400">
-                          {jobLabel(b)} · {shortDate(b.issueDate)}
-                        </span>
-                        <span className="mt-1.5 flex flex-wrap gap-1.5 empty:mt-0">
-                          {b.status === "draft" && <Chip tone="neutral">draft</Chip>}
-                          {b.invoiced && (
-                            <Chip tone="info" title="Already on a customer invoice — read-only">
-                              invoiced
-                            </Chip>
-                          )}
-                        </span>
-                      </Link>
-                      <span className="flex shrink-0 items-start border-l border-line-soft">
-                        <JtLink
-                          href={`https://app.jobtread.com/jobs/${b.jobId}/documents/${b.id}`}
-                          className="inline-flex min-h-11 min-w-11 items-center justify-center px-3 text-xs font-semibold text-neutral-500 transition hover:text-accent dark:text-neutral-400"
+              <>
+                {nonSunsetBills.length > 0 && (
+                  <ul className="space-y-2">{nonSunsetBills.map(renderBillCard)}</ul>
+                )}
+
+                {/* Sunset folded into its own collapsible pane, same treatment
+                    as the per-job board: pushed to the bottom, collapsed by
+                    default, with a count and total. */}
+                {sunsetBills.length > 0 && (
+                  <Card pad={false} className="mt-2 overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => setSunsetOpen((v) => !v)}
+                      aria-expanded={sunsetOpen}
+                      className="flex w-full items-baseline justify-between gap-2 px-3 py-3 text-left transition hover:bg-accent/5 dark:hover:bg-white/5 lg:py-2"
+                    >
+                      <span className="min-w-0 truncate text-sm font-semibold">
+                        <span
+                          aria-hidden
+                          className={`mr-1.5 inline-block text-[9px] text-neutral-500 transition-transform dark:text-neutral-400 ${
+                            sunsetOpen ? "rotate-90" : ""
+                          }`}
                         >
-                          JT ↗
-                        </JtLink>
+                          ▶
+                        </span>
+                        Sunset ({sunsetBills.length} bill{sunsetBills.length === 1 ? "" : "s"})
                       </span>
-                    </Card>
-                  </li>
-                ))}
-              </ul>
+                      <span className="shrink-0 text-sm font-semibold tabular-nums">
+                        {money(sunsetTotal)}
+                      </span>
+                    </button>
+                    {sunsetOpen && (
+                      <ul className="space-y-2 border-t border-line-soft bg-neutral-50 p-2 dark:bg-ink-raised/50">
+                        {sunsetBills.map(renderBillCard)}
+                      </ul>
+                    )}
+                  </Card>
+                )}
+              </>
             )}
           </section>
         </div>
