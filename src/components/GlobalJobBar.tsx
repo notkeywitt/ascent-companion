@@ -33,16 +33,16 @@ export function GlobalJobBar() {
     // before leaving a bill mid-edit.
     if (!confirmLeaveIfDirty()) return;
     // Picking a job from the launcher means "work this job" — the home page has
-    // nothing job-scoped to show, so go straight to Client Invoicing. It's a
+    // nothing job-scoped to show, so go straight to Tracking Sheets. It's a
     // real move to another page, so push (back returns to the launcher) rather
     // than the in-place replace used when switching jobs on a job-scoped page.
     if (pathname === "/" && access.can("recode")) {
-      router.push(`/recode?jobId=${encodeURIComponent(id)}`);
+      router.push(`/trackingsheet?jobId=${encodeURIComponent(id)}`);
       return;
     }
-    // Switching jobs from a specific bill returns to Client Invoicing on the new
+    // Switching jobs from a specific bill returns to Tracking Sheets on the new
     // job — the old bill belongs to the previous job.
-    const base = pathname.startsWith("/bill") ? "/recode" : pathname;
+    const base = pathname.startsWith("/bill") ? "/trackingsheet" : pathname;
     router.replace(`${base}?jobId=${encodeURIComponent(id)}`);
   }
 

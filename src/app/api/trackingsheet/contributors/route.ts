@@ -5,7 +5,7 @@ import { getPaveConfig, hasGrant } from "@/lib/config";
 /**
  * Read-only: the individual vendor-bill lines and time entries behind every
  * cost code's "bills"/"labor" total on the given job — what the Invoicing
- * board's cost-code rail drills into on a click. Separate from /api/recode
+ * board's cost-code rail drills into on a click. Separate from /api/trackingsheet
  * (which the board fetches unconditionally on load) since most sessions never
  * click a code; this only runs when one is.
  */

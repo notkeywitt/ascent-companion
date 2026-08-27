@@ -9,7 +9,7 @@ import { clockOfMinutes, minutesOfClock, orgParts, prettyClock, spanHours } from
 /**
  * THE TIME & LABOR PANEL — the bill coding card's twin, for one time entry.
  *
- * Client Invoicing's "Time & labor" block used to be a reference list with a
+ * Tracking Sheets' "Time & labor" block used to be a reference list with a
  * link out to Labor Review: you could see that Tuesday's eight hours landed on
  * General Labor, and then you left the page to do anything about it. This is
  * the panel that closes that loop — click an entry, fix it in the same column

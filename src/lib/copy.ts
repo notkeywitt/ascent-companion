@@ -31,11 +31,11 @@ export const COPY_GROUPS = [
   "Home — Utilities",
   "Home — Admin",
   "Page headers",
-  "Client Invoicing — header",
-  "Client Invoicing — controls",
-  "Client Invoicing — help text",
-  "Client Invoicing — empty states",
-  "Client Invoicing — loading & fields",
+  "Tracking Sheets — header",
+  "Tracking Sheets — controls",
+  "Tracking Sheets — help text",
+  "Tracking Sheets — empty states",
+  "Tracking Sheets — loading & fields",
 ] as const;
 
 export type CopyGroup = (typeof COPY_GROUPS)[number];
@@ -43,7 +43,7 @@ export type CopyGroup = (typeof COPY_GROUPS)[number];
 export interface CopyEntry {
   /** The shipped English. Rendered whenever there is no override row. */
   text: string;
-  /** Short human label for the editor's field ("Client Invoicing — description"). */
+  /** Short human label for the editor's field ("Tracking Sheets — description"). */
   label: string;
   group: CopyGroup;
   /** True for text with a tight space budget (a 4-across button, a chip). */
@@ -103,10 +103,10 @@ export const COPY: Record<string, CopyEntry> = {
   "home.quick.requisitions.full": { text: "Requisitions", label: "Requisitions — full name", group: "Home — quick buttons" },
 
   // ── Home launcher: Financials destinations ───────────────────────────────
-  "home.dest.recode.label": { text: "Client Invoicing", label: "Client Invoicing — name", group: "Home — Financials" },
+  "home.dest.recode.label": { text: "Tracking Sheets", label: "Tracking Sheets — name", group: "Home — Financials" },
   "home.dest.recode.desc": {
     text: "Code a month's bills against live budget headroom",
-    label: "Client Invoicing — description",
+    label: "Tracking Sheets — description",
     group: "Home — Financials",
   },
   "home.dest.labor-review.label": { text: "Labor Review", label: "Labor Review — name", group: "Home — Financials" },
@@ -278,182 +278,182 @@ export const COPY: Record<string, CopyEntry> = {
     label: "Assistant — input placeholder",
     group: "Page headers",
   },
-  "page.recode.title": { text: "Client Invoicing", label: "Client Invoicing — page title", group: "Page headers" },
+  "page.recode.title": { text: "Tracking Sheets", label: "Tracking Sheets — page title", group: "Page headers" },
 
-  // ── /recode — page header ────────────────────────────────────────────────
+  // ── /trackingsheet — page header ────────────────────────────────────────────────
   "recode.header.description": {
     text: "Move expenditure between cost codes against live budget headroom.",
     label: "Page subtitle",
-    group: "Client Invoicing — header",
+    group: "Tracking Sheets — header",
   },
   "recode.header.descMonth": {
     text: "Every client invoice to stage this month — one card per job. Tap a job to open its workbench — the bills, cost-code breakdown, and time behind its total, and the button to create the invoice in JobTread.",
     label: "Page subtitle — “This month” tab",
-    group: "Client Invoicing — header",
+    group: "Tracking Sheets — header",
   },
   "recode.header.descNeedsCoding": {
     text: "Every draft vendor bill in JobTread, across all jobs and any month. Open one to code it.",
     label: "Page subtitle — “Needs coding” tab",
-    group: "Client Invoicing — header",
+    group: "Tracking Sheets — header",
   },
   "recode.statement.toBeInvoiced": {
     text: "To be invoiced",
     label: "Headline figure caption",
-    group: "Client Invoicing — header",
+    group: "Tracking Sheets — header",
     short: true,
   },
 
-  // ── /recode — toggles and controls ───────────────────────────────────────
+  // ── /trackingsheet — toggles and controls ───────────────────────────────────────
   "recode.toggle.includeDrafts": {
     text: "Include drafts",
     label: "Include drafts — toggle",
-    group: "Client Invoicing — controls",
+    group: "Tracking Sheets — controls",
     short: true,
   },
   "recode.toggle.hideSunset": {
     text: "Hide Sunset",
     label: "Hide Sunset — toggle",
-    group: "Client Invoicing — controls",
+    group: "Tracking Sheets — controls",
     short: true,
   },
   "recode.toggle.groupByCsi": {
     text: "Group by CSI code",
     label: "Group by CSI code — toggle",
-    group: "Client Invoicing — controls",
+    group: "Tracking Sheets — controls",
     short: true,
   },
   "recode.toggle.uninvoicedOnly": {
     text: "Uninvoiced only",
     label: "Uninvoiced only — toggle (all-jobs view)",
-    group: "Client Invoicing — controls",
+    group: "Tracking Sheets — controls",
     short: true,
   },
   "recode.toggle.includeDraftBills": {
     text: "Include draft bills",
     label: "Include draft bills — toggle (all-jobs view)",
-    group: "Client Invoicing — controls",
+    group: "Tracking Sheets — controls",
     short: true,
   },
   "recode.toggle.showReviewed": {
     text: "Show reviewed",
     label: "Show reviewed — toggle (needs-coding queue)",
-    group: "Client Invoicing — controls",
+    group: "Tracking Sheets — controls",
     short: true,
   },
   "recode.toggle.showThisMonth": {
     text: "Show this month",
     label: "Show this month — toggle (needs-coding queue)",
-    group: "Client Invoicing — controls",
+    group: "Tracking Sheets — controls",
     short: true,
   },
 
-  // ── /recode — the explanatory tooltips ───────────────────────────────────
+  // ── /trackingsheet — the explanatory tooltips ───────────────────────────────────
   "recode.help.uninvoicedOnly": {
     text: "Off shows bills already on a customer invoice too, read-only — for reviewing a past, fully-invoiced month.",
     label: "Uninvoiced only — tooltip",
-    group: "Client Invoicing — help text",
+    group: "Tracking Sheets — help text",
   },
   "recode.help.includeDrafts": {
     text: "Shows draft bills below so you can code them. Drafts are never invoiceable until approved in JobTread, so this doesn't change the To be invoiced total.",
     label: "Include drafts — tooltip",
-    group: "Client Invoicing — help text",
+    group: "Tracking Sheets — help text",
   },
   "recode.help.approvedTime": {
     text: "Off counts only isApproved time entries toward labor and headroom — a more conservative number when a lot of logged time hasn't been approved yet.",
     label: "Approved time — tooltip",
-    group: "Client Invoicing — help text",
+    group: "Tracking Sheets — help text",
   },
 
-  // ── /recode — empty states ───────────────────────────────────────────────
+  // ── /trackingsheet — empty states ───────────────────────────────────────────────
   "recode.empty.noJob": {
     text: "No job selected. Pick one above, or",
     label: "No job selected (before the link)",
-    group: "Client Invoicing — empty states",
+    group: "Tracking Sheets — empty states",
   },
   "recode.empty.noJobLink": {
     text: "see every job this month",
     label: "No job selected — link text",
-    group: "Client Invoicing — empty states",
+    group: "Tracking Sheets — empty states",
   },
   "recode.empty.noCodedLines": {
     text: "No coded lines in this month.",
     label: "No coded lines",
-    group: "Client Invoicing — empty states",
+    group: "Tracking Sheets — empty states",
   },
   "recode.empty.noBills": {
     text: "No uninvoiced bills dated in this month.",
     label: "No uninvoiced bills",
-    group: "Client Invoicing — empty states",
+    group: "Tracking Sheets — empty states",
   },
   "recode.empty.allSunset": {
     text: "Every bill this month is from Sunset — turn off Hide Sunset to see them.",
     label: "All bills are Sunset",
-    group: "Client Invoicing — empty states",
+    group: "Tracking Sheets — empty states",
   },
   "recode.empty.selectBill": {
     text: "Select a bill to edit its coding.",
     label: "No bill selected",
-    group: "Client Invoicing — empty states",
+    group: "Tracking Sheets — empty states",
   },
   "recode.empty.nothingToStage": {
     text: "No client invoices to stage for {month} — every finalized bill is already invoiced.",
     label: "Nothing to stage (all-jobs view)",
-    group: "Client Invoicing — empty states",
+    group: "Tracking Sheets — empty states",
     tokens: ["month"],
   },
   "recode.empty.noDrafts": {
     text: "No draft bills anywhere — nothing to code.",
     label: "No draft bills at all",
-    group: "Client Invoicing — empty states",
+    group: "Tracking Sheets — empty states",
   },
   "recode.empty.allFiltered": {
     text: "Every draft bill here is either reviewed or from this month. Turn on “Show reviewed” or “Show this month” to see them.",
     label: "All drafts hidden by both filters",
-    group: "Client Invoicing — empty states",
+    group: "Tracking Sheets — empty states",
   },
   "recode.empty.allReviewed": {
     text: "Every draft bill here is marked reviewed. Turn on “Show reviewed” to see them.",
     label: "All drafts hidden — reviewed",
-    group: "Client Invoicing — empty states",
+    group: "Tracking Sheets — empty states",
   },
   "recode.empty.allThisMonth": {
     text: "Every draft bill here is from this month. Turn on “Show this month” to see them.",
     label: "All drafts hidden — this month",
-    group: "Client Invoicing — empty states",
+    group: "Tracking Sheets — empty states",
   },
 
-  // ── /recode — loading labels and field placeholders ──────────────────────
+  // ── /trackingsheet — loading labels and field placeholders ──────────────────────
   "recode.loading.billsAndBudget": {
     text: "Loading bills and budget…",
     label: "Loading — bills and budget",
-    group: "Client Invoicing — loading & fields",
+    group: "Tracking Sheets — loading & fields",
   },
   "recode.loading.summary": {
     text: "Loading the billing summary…",
     label: "Loading — billing summary",
-    group: "Client Invoicing — loading & fields",
+    group: "Tracking Sheets — loading & fields",
   },
   "recode.loading.billsAndTime": {
     text: "Loading bills and time entries…",
     label: "Loading — bills and time entries",
-    group: "Client Invoicing — loading & fields",
+    group: "Tracking Sheets — loading & fields",
   },
   "recode.placeholder.filterCodes": {
     text: "Filter cost codes…",
     label: "Cost-code filter — placeholder",
-    group: "Client Invoicing — loading & fields",
+    group: "Tracking Sheets — loading & fields",
     short: true,
   },
   "recode.placeholder.chooseJob": {
     text: "Choose a job…",
     label: "Job picker — placeholder",
-    group: "Client Invoicing — loading & fields",
+    group: "Tracking Sheets — loading & fields",
     short: true,
   },
   "recode.placeholder.lineDescription": {
     text: "Line description",
     label: "New line description — placeholder",
-    group: "Client Invoicing — loading & fields",
+    group: "Tracking Sheets — loading & fields",
     short: true,
   },
 };

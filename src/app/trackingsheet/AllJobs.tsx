@@ -9,7 +9,7 @@ import { Roster, monthOptions } from "./Roster";
 import { DraftQueue } from "./DraftQueue";
 
 /**
- * Client Invoicing with no job selected — the two all-jobs views, and the switch
+ * Tracking Sheets with no job selected — the two all-jobs views, and the switch
  * between them.
  *
  * They answer different questions and neither subsumes the other, which is why
@@ -65,7 +65,7 @@ export function AllJobs() {
       const q = new URLSearchParams(params.toString());
       q.set("ym", next);
       q.delete("open");
-      router.replace(`/recode?${q.toString()}`, { scroll: false });
+      router.replace(`/trackingsheet?${q.toString()}`, { scroll: false });
     },
     [params, router],
   );
@@ -77,7 +77,7 @@ export function AllJobs() {
       if (next === "drafts") q.set("tab", "drafts");
       else q.delete("tab");
       q.delete("open");
-      router.replace(`/recode?${q.toString()}`, { scroll: false });
+      router.replace(`/trackingsheet?${q.toString()}`, { scroll: false });
     },
     [params, router],
   );

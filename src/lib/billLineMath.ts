@@ -1,6 +1,6 @@
 /**
  * The money math behind editing a vendor bill's lines — shared by the bill page
- * and Client Invoicing so the two can never disagree about what a save writes.
+ * and Tracking Sheets so the two can never disagree about what a save writes.
  *
  * THE MODEL (confirmed live 2026-07-30 by capturing JobTread's own save — stored
  * $59.54 displayed as $54.95; see the tax-nonrecoverable-intended memory, which

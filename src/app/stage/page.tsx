@@ -472,10 +472,10 @@ function Stage() {
                         {/* Desktop coding workbench — recode these bills against
                             live budget headroom before the invoice is built. */}
                         <Link
-                          href={`/recode?jobId=${encodeURIComponent(r.jobId)}&ym=${ym}`}
+                          href={`/trackingsheet?jobId=${encodeURIComponent(r.jobId)}&ym=${ym}`}
                           className={btn("secondary", "sm")}
                         >
-                          Client Invoicing ↗
+                          Tracking Sheets ↗
                         </Link>
                         <Button
                           variant="secondary"

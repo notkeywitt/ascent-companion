@@ -9,7 +9,7 @@ import {
 import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
 
 /**
- * ONE time entry, edited in place — the write behind Client Invoicing's
+ * ONE time entry, edited in place — the write behind Tracking Sheets'
  * "Time & labor" panel.
  *
  * Labor Review's POST (/api/labor-review) recodes a BATCH of entries and edits

@@ -163,12 +163,12 @@ function BillDetail() {
   const docId = params.docId;
   const jobId = search.get("jobId") ?? "";
   // Where Back returns to. Pages that deep-link here say so with ?from=… — the
-  // three Client Invoicing surfaces (`recode` the workbench, `invoicing` the
+  // three Tracking Sheets surfaces (`recode` the workbench, `invoicing` the
   // all-jobs month roster, `drafts` the needs-coding queue) and the Sunset
   // Statements page (`payments`). `stage` is the retired Invoicing page, still
   // reachable by URL; anything unrecognised falls back to the workbench.
   const from = search.get("from");
-  // Client Invoicing carries its billing month through so Back lands on the same
+  // Tracking Sheets carries its billing month through so Back lands on the same
   // month; the `#bill-<id>` anchor is the bill you tapped, so you return to your
   // exact spot in that list.
   const ym = search.get("ym") ?? "";
@@ -179,12 +179,12 @@ function BillDetail() {
       : from === "invoicing"
         ? // The roster re-opens the card you left from (?open=), the month-list
           // equivalent of the workbench's #bill-<id> anchor.
-          `/recode?open=${encodeURIComponent(jobId)}${ymQs}`
+          `/trackingsheet?open=${encodeURIComponent(jobId)}${ymQs}`
         : from === "drafts"
-          ? "/recode?tab=drafts"
+          ? "/trackingsheet?tab=drafts"
           : from === "payments"
             ? "/payments"
-            : `/recode?jobId=${encodeURIComponent(jobId)}${ymQs}#bill-${docId}`;
+            : `/trackingsheet?jobId=${encodeURIComponent(jobId)}${ymQs}#bill-${docId}`;
   const backLabel =
     from === "stage"
       ? "‹ Invoicing"
@@ -192,7 +192,7 @@ function BillDetail() {
         ? "‹ Needs coding"
         : from === "payments"
           ? "‹ Sunset statements"
-          : "‹ Client Invoicing";
+          : "‹ Tracking Sheets";
   // Stepping ‹ prev / next › between bills must keep the SAME Back destination —
   // otherwise the neighbour loses ?from/?ym and Back falls back to the coding
   // queue. Carry both through every bill link.
@@ -403,7 +403,7 @@ function BillDetail() {
   const title = isSunsetBill && invId ? `${vendor} \u00b7 ${invId}` : vendor;
 
   // The de-tax / pre-tax-edit / gross-up model lives in src/lib/billLineMath.ts,
-  // shared with Client Invoicing (/recode) so the two pages can never disagree
+  // shared with Tracking Sheets (/trackingsheet) so the two pages can never disagree
   // about what a save writes. Read that file for the model itself.
   const {
     deTax,
@@ -587,7 +587,7 @@ function BillDetail() {
       reloadJtWindow(); // refresh JobTread's view (old doc gone, new one created)
       // New docId on the new job — this page's docId is stale; open Client
       // Invoicing on the job the bill just moved to.
-      window.location.href = `/recode?jobId=${encodeURIComponent(targetJobId)}`;
+      window.location.href = `/trackingsheet?jobId=${encodeURIComponent(targetJobId)}`;
     } catch (e) {
       setReassignMsg(e instanceof Error ? e.message : "Network error");
     }

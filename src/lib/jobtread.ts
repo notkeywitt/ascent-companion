@@ -1613,7 +1613,7 @@ export interface MonthBill {
  * decides which issueDate a newly-arrived bill is given — it is not a filter.
  *
  * `includeInvoiced` widens the list to a past, fully-invoiced month for VIEWING
- * (the Client Invoicing board otherwise goes empty next to its own "Reconciled"
+ * (the Tracking Sheets board otherwise goes empty next to its own "Reconciled"
  * badge). Recoding an already-invoiced bill would change numbers already sent
  * to the client, so the board renders those bills read-only rather than gating
  * them out of the query entirely.

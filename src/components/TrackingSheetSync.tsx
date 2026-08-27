@@ -17,7 +17,7 @@ import { createTaskRunner } from "@/lib/taskRunner";
  *    kicked off and moved on from.
  *  - `TrackingSheetSyncFor` is self-contained — give it a JobTread job id and a
  *    month and it resolves the tracking-sheet target, runs the sync, and owns
- *    its own state. That's what single-job pages (a bill, Client Invoicing)
+ *    its own state. That's what single-job pages (a bill, Tracking Sheets)
  *    want, since there's nothing to collapse.
  *
  * Both render nothing at all when the job has no tracking sheet wired up, or

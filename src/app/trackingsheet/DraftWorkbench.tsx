@@ -43,7 +43,7 @@ import { markBillTouched } from "@/lib/billTouch";
  * screen has to follow whichever bill is selected — a different job on almost
  * every row. That inverts the data flow, which is why these columns read
  * `/api/bill?docId&jobId` (one bill, its job's budget, its job's cost-to-
- * complete) rather than `/api/recode`.
+ * complete) rather than `/api/trackingsheet`.
  *
  * What they DON'T do is diverge on the money: the de-tax / edit-pre-tax /
  * gross-up model comes from `src/lib/billLineMath.ts` and the save goes to the
@@ -700,7 +700,7 @@ export function DraftBudgetRail({ editor, sel }: { editor: BillEditor; sel: Sele
             {sel.jobName ? <span className="font-semibold">{sel.jobName}. </span> : null}
             Remaining = budget − approved and pending bills − whatever the bill on the right is
             coded to right now. Labor and other jobs&apos; drafts aren&apos;t counted here — open
-            the job in Client Invoicing for the full picture.
+            the job in Tracking Sheets for the full picture.
           </p>
         </>
       )}

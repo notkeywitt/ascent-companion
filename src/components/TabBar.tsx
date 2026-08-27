@@ -18,7 +18,7 @@ import { confirmLeaveIfDirty } from "@/lib/useUnsavedChanges";
  * a replacement for the launcher's twenty-odd.
  *
  * Every tab is gated through the SAME view ids as the launcher, so a field user
- * never sees an Invoicing tab that the middleware would only bounce them off.
+ * never sees a Tracking Sheets tab that the middleware would only bounce them off.
  * The set adapts per role rather than being fixed: TAB_CANDIDATES is scanned in
  * order and the first three the user can reach are shown after Home.
  */
@@ -85,11 +85,11 @@ const ClipboardIcon = () => (
  * fill the three slots after Home. Reorder this array to change the tab bar;
  * nothing else needs touching.
  *
- * As it stands: office/admin get Invoicing · Time · Miles, and a field or lead
+ * As it stands: office/admin get Tracking Sheets · Time · Miles, and a field or lead
  * user (who has no `recode` view) gets Time · Miles · Tools.
  */
 const TAB_CANDIDATES: Tab[] = [
-  { label: "Invoicing", href: "/recode", view: "recode", Icon: BanknoteIcon },
+  { label: "Tracking Sheets", href: "/trackingsheet", view: "recode", Icon: BanknoteIcon },
   { label: "Time", href: "/employee-time", view: "employee-time", Icon: ClockIcon },
   { label: "Miles", href: "/mileage-tracker", view: "mileage", Icon: RouteIcon },
   { label: "Tools", href: "/tools", view: "tools", Icon: WrenchIcon },
@@ -112,7 +112,7 @@ export function TabBar() {
   if (tabs.length < 2) return null;
 
   // Carry the selected job across, exactly as the launcher does, so hopping to
-  // Invoicing from a job keeps that job in context.
+  // Tracking Sheets from a job keeps that job in context.
   const jobId = (search.get("jobId") ?? "").trim();
   const qs = jobId ? `?jobId=${encodeURIComponent(jobId)}` : "";
 

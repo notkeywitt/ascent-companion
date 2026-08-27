@@ -302,7 +302,7 @@ export function UncapturedBills({ jobId }: { jobId?: string } = {}) {
               : "checked"}
           </span>
           {elsewhere > 0 && (
-            <Link href="/recode" className="font-semibold text-accent dark:text-accent-soft">
+            <Link href="/trackingsheet" className="font-semibold text-accent dark:text-accent-soft">
               {elsewhere} on other jobs →
             </Link>
           )}
@@ -575,7 +575,7 @@ export function UncapturedBills({ jobId }: { jobId?: string } = {}) {
               precisely because nothing else surfaces them.
             </span>
             {elsewhere > 0 && (
-              <Link href="/recode" className="font-semibold text-accent dark:text-accent-soft">
+              <Link href="/trackingsheet" className="font-semibold text-accent dark:text-accent-soft">
                 {elsewhere} on other jobs →
               </Link>
             )}
