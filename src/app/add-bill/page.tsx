@@ -41,6 +41,16 @@ interface AddBillResult {
   lines?: PreviewLine[];
 }
 
+interface TotalsMismatch {
+  message: string;
+  printedAmount: number;
+  printedNet: number;
+  linesNet: number;
+  tax: number;
+  delta: number;
+  lines: PreviewLine[];
+}
+
 const money = (n?: number) =>
   typeof n === "number"
     ? "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -63,6 +73,7 @@ function AddBill() {
   const [vendorId, setVendorId] = useState(""); // "" = let Gemini match
   const [singleLine, setSingleLine] = useState(false); // collapse to one cost item
   const [needVendor, setNeedVendor] = useState(""); // 422 message when unmatched
+  const [mismatch, setMismatch] = useState<TotalsMismatch | null>(null); // 422 lines != invoice
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState<AddBillResult | null>(null);
@@ -80,6 +91,7 @@ function AddBill() {
     setResult(null);
     setError("");
     setNeedVendor("");
+    setMismatch(null);
     setExternalId(f ? "INV-" + crypto.randomUUID().slice(0, 8) : "");
   }
 
@@ -89,24 +101,28 @@ function AddBill() {
     if (fileRef.current) fileRef.current.value = "";
   }
 
-  async function submit() {
+  async function submit(opts?: { acceptTotals?: boolean; forceSingleLine?: boolean }) {
     if (!file || !jobId || busy) return;
     setBusy(true);
     setError("");
     setResult(null);
+    setMismatch(null);
     try {
       const fd = new FormData();
       fd.set("file", file);
       fd.set("jobId", jobId);
       fd.set("externalId", externalId);
       if (vendorId) fd.set("vendorId", vendorId);
-      if (singleLine) fd.set("singleLine", "1");
+      if (singleLine || opts?.forceSingleLine) fd.set("singleLine", "1");
+      if (opts?.acceptTotals) fd.set("acceptTotals", "1");
       const res = await fetch("/api/add-bill", { method: "POST", body: fd });
       const json = await res.json();
       if (res.status === 422 && json.vendorUnresolved) {
         setNeedVendor(
           `${json.message}${json.extractedVendor ? ` (Gemini read: "${json.extractedVendor}")` : ""}`,
         );
+      } else if (res.status === 422 && json.totalsMismatch) {
+        setMismatch(json as TotalsMismatch);
       } else if (!res.ok) {
         setError(json.error ?? "Request failed");
       } else {
@@ -182,13 +198,58 @@ function AddBill() {
           <Button
             size="lg"
             className="w-full"
-            onClick={submit}
+            onClick={() => submit()}
             disabled={!file || !jobId || busy || (Boolean(needVendor) && !vendorId)}
           >
             {busy ? "Extracting with Gemini…" : "Log Bill"}
           </Button>
 
           {error && <Banner tone="error">{error}</Banner>}
+
+          {mismatch && (
+            <Banner tone="warning">
+              <p className="font-semibold">Line items don&apos;t match the invoice total</p>
+              <p className="mt-1">{mismatch.message}</p>
+              <div className="mt-2 border-t border-current/20 pt-2 text-xs">
+                {mismatch.lines.map((l, i) => (
+                  <div key={i} className="flex items-baseline justify-between gap-2 py-0.5">
+                    <span className="truncate">{l.name}</span>
+                    <span className="whitespace-nowrap opacity-80">
+                      {l.csi || "uncoded"} · {money(l.unitCost * l.quantity)}
+                    </span>
+                  </div>
+                ))}
+                <div className="mt-1 flex items-baseline justify-between gap-2 border-t border-current/20 pt-1 font-semibold">
+                  <span>Extracted total</span>
+                  <span>{money(mismatch.linesNet)}</span>
+                </div>
+                <div className="flex items-baseline justify-between gap-2 font-semibold">
+                  <span>Invoice net (total − tax)</span>
+                  <span>{money(mismatch.printedNet)}</span>
+                </div>
+              </div>
+              <div className="mt-3 flex flex-col gap-2">
+                <Button
+                  size="sm"
+                  onClick={() => submit({ acceptTotals: true, forceSingleLine: true })}
+                  disabled={busy}
+                >
+                  Use invoice net — one line at {money(mismatch.printedNet)}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => submit({ acceptTotals: true })}
+                  disabled={busy}
+                >
+                  Keep the extracted lines anyway ({money(mismatch.linesNet)})
+                </Button>
+                <Button size="sm" variant="secondary" onClick={() => setMismatch(null)} disabled={busy}>
+                  Cancel — I&apos;ll check the invoice
+                </Button>
+              </div>
+            </Banner>
+          )}
         </section>
       )}
 

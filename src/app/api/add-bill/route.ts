@@ -123,6 +123,9 @@ export async function POST(req: NextRequest) {
   const externalId = String(form.get("externalId") ?? "").trim();
   const vendorOverride = String(form.get("vendorId") ?? "").trim();
   const singleLine = /^(1|true|on|yes)$/i.test(String(form.get("singleLine") ?? "").trim());
+  // Set by the UI's "create anyway" choice after it has shown the operator a
+  // lines-vs-invoice-total mismatch (see section 5b).
+  const acceptTotals = /^(1|true|on|yes)$/i.test(String(form.get("acceptTotals") ?? "").trim());
 
   if (!(file instanceof File)) {
     return NextResponse.json({ error: "No file uploaded." }, { status: 400 });
@@ -266,13 +269,71 @@ export async function POST(req: NextRequest) {
       warnings.push("No line items extracted — created a single summary line.");
     }
 
+    // ---- 5b. reconcile the extracted lines against the invoice's printed total
+    // Gemini reads the grand total reliably but the individual lines imperfectly
+    // (a dropped or misread line is the common failure). A bill whose cost lines
+    // don't add up to the invoice must NOT be created silently — this once pushed
+    // a $1688.57 invoice as a $49.39 bill. Per the extraction rule "AMOUNTS ARE
+    // READ, NEVER COMPUTED" we don't rescale the lines; we surface the gap and let
+    // the operator decide (collapse to the invoice net, or push the lines as-is).
+    const printedAmount = Number(extracted.Amount) || 0;
+    const printedNet = printedAmount > 0 ? printedAmount - tax.taxAmount : 0;
+    const linesNet = lines.reduce(
+      (s, l) => s + (Number(l.unitCost) || 0) * (Number(l.quantity) || 0),
+      0,
+    );
+    // 0.2% or 5¢, whichever is larger — absorbs per-line rounding without nagging.
+    const totalsTol = Math.max(0.05, Math.abs(printedNet) * 0.002);
+    const totalsMismatch =
+      printedAmount > 0 && lines.length > 0 && Math.abs(printedNet - linesNet) > totalsTol;
+
+    if (totalsMismatch && !acceptTotals) {
+      return NextResponse.json(
+        {
+          totalsMismatch: true,
+          printedAmount,
+          printedNet,
+          linesNet,
+          tax: tax.taxAmount,
+          delta: printedNet - linesNet,
+          message:
+            `The extracted line items total $${linesNet.toFixed(2)}, but the invoice net ` +
+            `(total $${printedAmount.toFixed(2)} minus tax $${tax.taxAmount.toFixed(2)}) is ` +
+            `$${printedNet.toFixed(2)} — off by $${(printedNet - linesNet).toFixed(2)}. ` +
+            `Gemini probably missed or misread a line. Check the invoice, then choose how to proceed.`,
+          lines: lines.map((l) => ({
+            name: l.name,
+            csi: l.costCode ?? "",
+            coded: Boolean(l.jobCostItemId),
+            unitCost: l.unitCost,
+            quantity: l.quantity,
+          })),
+        },
+        { status: 422 },
+      );
+    }
+    if (totalsMismatch && acceptTotals) {
+      warnings.push(
+        `Totals mismatch was accepted — extracted lines $${linesNet.toFixed(2)} vs invoice net ` +
+          `$${printedNet.toFixed(2)}. Verify the bill in JobTread.`,
+      );
+    }
+
     // Optional "don't itemize": collapse the extracted lines into ONE cost item at
-    // the exact net total (tax stays on nonRecoverableTax). Carries the shared cost
+    // the net total (tax stays on nonRecoverableTax). Carries the shared cost
     // code if every line agrees on one, otherwise leaves it uncoded to code once in
     // the queue. For invoices with a ton of lines that don't need breaking down.
     if (singleLine && lines.length > 1) {
       const n = lines.length;
-      const net = lines.reduce((s, l) => s + (Number(l.unitCost) || 0) * (Number(l.quantity) || 0), 0);
+      // Prefer the invoice's printed net over the sum of imperfectly-extracted
+      // lines — the point of "don't itemize" is to trust the invoice total.
+      const net = printedNet > 0 ? printedNet : linesNet;
+      if (printedNet > 0 && Math.abs(printedNet - linesNet) > totalsTol) {
+        warnings.push(
+          `Extracted lines summed to $${linesNet.toFixed(2)} but the invoice net is ` +
+            `$${printedNet.toFixed(2)} — used the invoice net for the single line.`,
+        );
+      }
       const csis = [...new Set(lines.map((l) => l.costCode).filter(Boolean))];
       const oneCode = csis.length === 1 ? (csis[0] as string) : undefined;
       lines = [
