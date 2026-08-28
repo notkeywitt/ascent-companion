@@ -242,11 +242,29 @@ export async function POST(req: NextRequest) {
       // qty: keep an explicit 0 (credit/removal lines), default blank/non-numeric
       // to 1 — same semantics as the Apps Script _jtParseQty
       const qn = parseFloat(String(it.quantity));
+      const quantity = Number.isFinite(qn) ? qn : 1;
+      const rate = Number(it.price) || 0;
+      const printedTotal = Number(it.line_total);
+      // The printed extended amount ("Amount" column / line_total) is the source
+      // of truth for what the line costs. Some invoices show a Rate that does NOT
+      // multiply out to the Amount (bad data entry — e.g. the Berger cans invoice,
+      // rate 5.63 x qty 8 shown as 1017.12). Trust the Amount; derive unitCost
+      // from it so JobTread's unitCost x quantity lands on the printed total.
+      // Fall back to the rate only when no line total was printed.
+      const hasPrintedTotal = Number.isFinite(printedTotal) && printedTotal !== 0;
+      const extended = hasPrintedTotal ? printedTotal : rate * quantity;
+      const unitCost = quantity !== 0 ? extended / quantity : extended;
+      if (hasPrintedTotal && Math.abs(printedTotal - rate * quantity) > Math.max(0.05, Math.abs(printedTotal) * 0.02)) {
+        warnings.push(
+          `"${String(it.description ?? "Line Item")}": printed rate $${rate.toFixed(2)} x qty ${quantity} ` +
+            `= $${(rate * quantity).toFixed(2)}, but the line amount is $${printedTotal.toFixed(2)} — used the line amount.`,
+        );
+      }
       return {
         name: String(it.description ?? "Line Item"),
         description: csi,
-        unitCost: Number(it.price) || 0,
-        quantity: Number.isFinite(qn) ? qn : 1,
+        unitCost,
+        quantity,
         isTaxable: tax.lineIsTaxable,
         jobCostItemId: target?.id,
         costCode: csi || undefined,
