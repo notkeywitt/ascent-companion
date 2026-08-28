@@ -433,11 +433,6 @@ export function Board() {
   const jobId = params.get("jobId") ?? "";
 
   const [ym, setYm] = useState(() => params.get("ym") || defaultYm());
-  const [includeDrafts, setIncludeDrafts] = useState(true);
-  // Off shows a past, fully-invoiced month's bills too (read-only — see
-  // BillRef.invoiced gating below), matching the "Uninvoiced only" toggle on
-  // /stage. Defaults on so the live coding month's behavior is unchanged.
-  const [uninvoicedOnly, setUninvoicedOnly] = useState(true);
   // Display-only filter. Defaults OFF: hiding bills by default would mean the
   // list silently disagrees with the totals until someone noticed the toggle.
   // The choice persists per-device (LS_HIDE_SUNSET) so it survives navigation —
@@ -603,10 +598,11 @@ export function Board() {
       setError("");
       const [y, m] = ym.split("-");
       try {
+        // Always show the whole month: draft, uninvoiced, and already-invoiced
+        // bills alike. Each bill is tagged with its state in the list below.
         const r = await fetch(
           `/api/trackingsheet?jobId=${encodeURIComponent(jobId)}&year=${y}&month=${Number(m)}` +
-            `&includeDrafts=${includeDrafts ? "1" : "0"}` +
-            (uninvoicedOnly ? "" : "&includeInvoiced=1"),
+            `&includeDrafts=1&includeInvoiced=1`,
         );
         const j = (await r.json()) as BoardPayload;
         if (j.error) setError(j.error);
@@ -648,7 +644,7 @@ export function Board() {
         setLoading(false);
       }
     },
-    [jobId, ym, includeDrafts, uninvoicedOnly],
+    [jobId, ym],
   );
 
   useEffect(() => {
@@ -670,8 +666,8 @@ export function Board() {
       try {
         const [y, m] = ym.split("-").map(Number);
         const p = new URLSearchParams({ jobId, year: String(y), month: String(m) });
-        if (!uninvoicedOnly) p.set("includeInvoiced", "1");
-        if (includeDrafts) p.set("includeDrafts", "1");
+        p.set("includeInvoiced", "1");
+        p.set("includeDrafts", "1");
         const res = await fetch(`/api/stage?${p.toString()}`);
         const j = await res.json();
         if (!alive) return;
@@ -694,7 +690,7 @@ export function Board() {
     return () => {
       alive = false;
     };
-  }, [mode, jobId, ym, uninvoicedOnly, includeDrafts, data]);
+  }, [mode, jobId, ym, data]);
 
   // Returning from a bill's detail page (mobile) lands here with a `#bill-<id>`
   // hash naming the bill that was tapped. The list renders async, so the browser
@@ -922,8 +918,8 @@ export function Board() {
     [data, hideSunset, sunsetDocIds],
   );
 
-  // Exactly the draft bills on screen right now — same filters (hideSunset,
-  // includeDrafts, uninvoicedOnly) as the list itself, so "Approve" never acts
+  // Exactly the draft bills on screen right now — same Sunset filter as the
+  // list itself, so "Approve" never acts
   // on a bill the office can't currently see.
   const draftBills = useMemo(
     () => visibleBills.filter((b) => b.status === "draft"),
@@ -2203,7 +2199,6 @@ export function Board() {
           says what it's FOR instead of repeating where you are. */}
       <PageHeader
         title={c("page.recode.title")}
-        description={c("recode.header.description")}
         actionsClassName="w-full min-w-0 items-center lg:w-auto"
         actions={
           // On a phone the toolbar is a stack of clearly separated groups —
@@ -2232,30 +2227,11 @@ export function Board() {
                 ))}
               </Select>
             </div>
-            {/* The filters, on a phone, as a swipeable row of pills. The 2×2 box
-                of switches this replaces was honest but expensive: four 44px
-                rows plus its border owned roughly a quarter of the screen above
-                the list, permanently, to show four settings that are mostly left
-                alone. As chips they take one row, the ON ones are legible at a
-                glance from the accent fill, and the row scrolls rather than
-                wrapping. From lg up this is hidden and the original switch row
-                below takes over — a desktop toolbar has the width for labels,
-                and a switch states on/off more precisely than a filled pill. */}
+            {/* The filters, on a phone, as a swipeable row of pills. The list
+                itself always shows every bill in the month — draft, uninvoiced,
+                and invoiced, each tagged with its state — so the only view
+                filters left are hiding Sunset and folding in unapproved time. */}
             <ChipScroller bleed="1rem" className="lg:hidden">
-              <FilterChip
-                on={uninvoicedOnly}
-                onClick={() => setUninvoicedOnly(!uninvoicedOnly)}
-                title={c("recode.help.uninvoicedOnly")}
-              >
-                Uninvoiced only
-              </FilterChip>
-              <FilterChip
-                on={includeDrafts}
-                onClick={() => setIncludeDrafts(!includeDrafts)}
-                title={c("recode.help.includeDrafts")}
-              >
-                Drafts shown
-              </FilterChip>
               <FilterChip on={hideSunset} onClick={() => setHideSunset(!hideSunset)}>
                 Sunset hidden
               </FilterChip>
@@ -2267,31 +2243,12 @@ export function Board() {
                 Unapproved time
               </FilterChip>
             </ChipScroller>
-            {/* The same four settings as switches, from lg up. */}
+            {/* The same settings as switches, from lg up. */}
             <div className="hidden lg:flex lg:w-auto lg:items-center lg:gap-3">
-              {/* Governs the LIST only. Drafts are never invoiceable — JobTread
-                  won't pull one onto a customer invoice — so this can't move the
-                  "To be invoiced" figure, and the title says so. */}
-              <Toggle
-                checked={includeDrafts}
-                onChange={setIncludeDrafts}
-                label={<span title={c("recode.help.includeDrafts")}>{c("recode.toggle.includeDrafts")}</span>}
-                className="min-h-11 shrink-0 text-left lg:min-h-0"
-              />
               <Toggle
                 checked={hideSunset}
                 onChange={setHideSunset}
                 label={c("recode.toggle.hideSunset")}
-                className="min-h-11 shrink-0 text-left lg:min-h-0"
-              />
-              <Toggle
-                checked={uninvoicedOnly}
-                onChange={setUninvoicedOnly}
-                label={
-                  <span title={c("recode.help.uninvoicedOnly")}>
-                    Uninvoiced only
-                  </span>
-                }
                 className="min-h-11 shrink-0 text-left lg:min-h-0"
               />
               <Toggle
@@ -3426,10 +3383,16 @@ export function Board() {
                                 No file
                               </Chip>
                             )}
-                            {b.invoiced && (
+                            {b.invoiced ? (
                               <Chip tone="info" title="Already on a customer invoice — read-only">
                                 invoiced
                               </Chip>
+                            ) : (
+                              b.status !== "draft" && (
+                                <Chip tone="neutral" title="Not yet on a customer invoice">
+                                  uninvoiced
+                                </Chip>
+                              )
                             )}
                             {movedHere > 0 && <Chip tone="warning">{movedHere} moved</Chip>}
                             {/* Same pair the coding queue shows. */}

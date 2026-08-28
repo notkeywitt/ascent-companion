@@ -40,11 +40,9 @@ interface AdminAction {
   tasks: string[];
 }
 
-/** Direct-access shortcuts to the two busiest queues — both now views of Client
- *  Invoicing. These NAVIGATE (styled as outline links), not run-in-place like
- *  ADMIN_ACTIONS. */
+/** Direct-access shortcut to Tracking Sheets. NAVIGATES (styled as an outline
+ *  link), not run-in-place like ADMIN_ACTIONS. */
 const NAV_LINKS: { label: string; href: string }[] = [
-  { label: "Needs Coding", href: "/trackingsheet?tab=drafts" },
   { label: "Tracking Sheets", href: "/trackingsheet" },
 ];
 
