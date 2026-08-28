@@ -85,7 +85,18 @@ export function AllBills({ ym, setYm }: { ym: string; setYm: (ym: string) => voi
     };
   }, [ym]);
 
-  const total = useMemo(() => (bills ?? []).reduce((s, b) => s + b.cost, 0), [bills]);
+  // The headline figure is what's still TO BE INVOICED this month, so it stays
+  // stable as the list grows: an already-invoiced bill is done, and a draft
+  // isn't invoiceable until it's approved — JobTread won't pull either onto a
+  // customer invoice. So only committed, uninvoiced bills (the ones tagged
+  // "uninvoiced") count toward it, even though the list shows every bill.
+  const toBeInvoiced = useMemo(
+    () =>
+      (bills ?? [])
+        .filter((b) => !b.invoiced && b.status !== "draft")
+        .reduce((s, b) => s + b.cost, 0),
+    [bills],
+  );
   const monthLabel = monthOptions().find((o) => o.ym === ym)?.label ?? ym;
 
   // The list split in two, same as the job board: everything else in the main
@@ -188,7 +199,7 @@ export function AllBills({ ym, setYm }: { ym: string; setYm: (ym: string) => voi
           <div className="mb-2 flex items-baseline justify-between gap-3">
             <SectionLabel>
               {`${(bills ?? []).length} bill${(bills ?? []).length === 1 ? "" : "s"}`} ·{" "}
-              {money(total)}
+              {money(toBeInvoiced)} to invoice
             </SectionLabel>
             <span className="shrink-0 text-xs text-neutral-500 dark:text-neutral-400">
               {monthLabel} · all jobs
