@@ -57,6 +57,7 @@ export const AREAS: Area[] = [
       { label: "Labor Review", href: "/labor-review", desc: "Code a month's logged time against the same headroom", view: "labor-review" },
       { label: "Sunset Statements", href: "/payments", desc: "Pay a statement & reconcile its invoices", view: "payments" },
       { label: "Bill Search", href: "/bill-search", desc: "Find any bill or line item — “2x4”, a vendor, an invoice #", view: "bill-search" },
+      { label: "Needs Review", href: "/needs-review", desc: "Bills flagged for a billing correction", view: "bill-review" },
       { label: "Vendors", href: "/vendors", desc: "Search a vendor's bills — job, date, amount", view: "vendors" },
       { label: "Expenditure History", href: "/expenditure-history", desc: "The sheet's archive, including the years before JobTread", view: "expenditure-history" },
     ],

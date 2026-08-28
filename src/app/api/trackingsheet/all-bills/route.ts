@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import { eq } from "drizzle-orm";
 import { getAllBillsForMonth } from "@/lib/jobtread";
 import { getPaveConfig, hasGrant } from "@/lib/config";
+import { db, ensureDb } from "@/db";
+import { savedBills } from "@/db/schema";
 
 /**
  * Read-only: every vendor bill issued in a billing month, across ALL jobs, as a
@@ -23,9 +26,25 @@ export async function GET(req: NextRequest) {
   try {
     const cfg = getPaveConfig();
     const bills = await getAllBillsForMonth(cfg, year, month, { includeInvoiced, includeDrafts });
+
+    // Attach the companion-local "Needs review" flag so the list can tag it.
+    // One indexed read of the flagged set, then a membership test per bill.
+    let flagged = new Set<string>();
+    try {
+      await ensureDb();
+      const rows = await db
+        .select({ docId: savedBills.docId })
+        .from(savedBills)
+        .where(eq(savedBills.needsReview, true));
+      flagged = new Set(rows.map((r) => r.docId));
+    } catch {
+      /* non-fatal — the list still renders, just without the review flags */
+    }
+    const tagged = bills.map((b) => ({ ...b, needsReview: flagged.has(b.id) }));
+
     return NextResponse.json({
-      bills,
-      billTotal: bills.reduce((s, b) => s + (b.cost ?? 0), 0),
+      bills: tagged,
+      billTotal: tagged.reduce((s, b) => s + (b.cost ?? 0), 0),
     });
   } catch (e) {
     return NextResponse.json(

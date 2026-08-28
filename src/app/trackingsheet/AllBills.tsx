@@ -29,6 +29,7 @@ interface AllBill {
   createdAt: string;
   status: string;
   invoiced: boolean;
+  needsReview: boolean;
   jobId: string;
   jobName: string;
   customerName: string;
@@ -153,6 +154,11 @@ export function AllBills({ ym, setYm }: { ym: string; setYm: (ym: string) => voi
                   uninvoiced
                 </Chip>
               )
+            )}
+            {b.needsReview && (
+              <Chip tone="warning" title="Flagged for a billing correction — see the bill">
+                ⚑ needs review
+              </Chip>
             )}
           </span>
         </Link>

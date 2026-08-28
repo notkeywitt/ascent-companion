@@ -220,15 +220,23 @@ async function applySchema() {
       saved_by TEXT NOT NULL DEFAULT '',
       reviewed INTEGER NOT NULL DEFAULT 0,
       reviewed_at TEXT NOT NULL DEFAULT '',
-      reviewed_by TEXT NOT NULL DEFAULT ''
+      reviewed_by TEXT NOT NULL DEFAULT '',
+      needs_review INTEGER NOT NULL DEFAULT 0,
+      review_note TEXT NOT NULL DEFAULT '',
+      review_flagged_at TEXT NOT NULL DEFAULT '',
+      review_flagged_by TEXT NOT NULL DEFAULT ''
     )
   `);
-  // Migrations for the saved_bills table shipped before the reviewed columns
-  // existed (idempotent — each throws once the column is present).
+  // Migrations for the saved_bills table shipped before the reviewed / needs-
+  // review columns existed (idempotent — each throws once the column is present).
   for (const alter of [
     "ALTER TABLE saved_bills ADD COLUMN reviewed INTEGER NOT NULL DEFAULT 0",
     "ALTER TABLE saved_bills ADD COLUMN reviewed_at TEXT NOT NULL DEFAULT ''",
     "ALTER TABLE saved_bills ADD COLUMN reviewed_by TEXT NOT NULL DEFAULT ''",
+    "ALTER TABLE saved_bills ADD COLUMN needs_review INTEGER NOT NULL DEFAULT 0",
+    "ALTER TABLE saved_bills ADD COLUMN review_note TEXT NOT NULL DEFAULT ''",
+    "ALTER TABLE saved_bills ADD COLUMN review_flagged_at TEXT NOT NULL DEFAULT ''",
+    "ALTER TABLE saved_bills ADD COLUMN review_flagged_by TEXT NOT NULL DEFAULT ''",
   ]) {
     try {
       await getClient().execute(alter);

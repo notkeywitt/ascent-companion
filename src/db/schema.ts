@@ -120,6 +120,15 @@ export const savedBills = sqliteTable("saved_bills", {
   reviewed: integer("reviewed", { mode: "boolean" }).notNull().default(false), // explicit "reviewed" toggle
   reviewedAt: text("reviewed_at").notNull().default(""), // ISO ts of most recent mark-reviewed
   reviewedBy: text("reviewed_by").notNull().default(""), // email, if known
+  // "Needs review" — a companion-owned flag for a bill that needs work the app
+  // can't do (a correction to a paid / invoiced / QuickBooks-pushed bill). The
+  // note explains the issue. Distinct from `reviewed` above (which means "coding
+  // looked at, done") — a bill can be both marked-reviewed AND flagged for a
+  // billing correction. Surfaced in the Needs Review queue and as a bill chip.
+  needsReview: integer("needs_review", { mode: "boolean" }).notNull().default(false),
+  reviewNote: text("review_note").notNull().default(""), // free-text note about the issue
+  reviewFlaggedAt: text("review_flagged_at").notNull().default(""), // ISO ts of the most recent flag
+  reviewFlaggedBy: text("review_flagged_by").notNull().default(""), // signed-in email, if known
 });
 
 export type SavedBill = typeof savedBills.$inferSelect;

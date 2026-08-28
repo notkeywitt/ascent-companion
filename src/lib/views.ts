@@ -90,6 +90,12 @@ export const VIEWS: ViewDef[] = [
     group: "Financials",
     paths: ["/tracking-sheet", "/api/tracking-sheet"],
   },
+  // The queue of bills flagged "Needs review" — billing corrections the app
+  // can't make (paid / invoiced / QuickBooks-pushed bills). Office+admin. The
+  // /api/bill-review route is deliberately NOT gated here: any signed-in user
+  // looking at a bill can flag it (same as /api/bill-reviewed), but only this
+  // group sees the whole queue.
+  { id: "bill-review", label: "Needs Review", group: "Financials", paths: ["/needs-review"] },
   // Jobs list + budget, built on the generic /api/pave gateway. Office+admin by
   // default (financial data); not in FIELD/LEAD sets below.
   { id: "jobs", label: "Jobs", group: "Financials", paths: ["/jobs"] },

@@ -18,6 +18,7 @@ import {
   SectionLabel,
   Select,
   Spinner,
+  Textarea,
   btn,
 } from "@/components/ui";
 import { TrackingSheetSyncFor } from "@/components/TrackingSheetSync";
@@ -220,6 +221,14 @@ function BillDetail() {
   const [reviewed, setReviewed] = useState(false);
   const [saved, setSaved] = useState(false); // Save has been clicked on this bill (assistant-local)
   const [reviewLoading, setReviewLoading] = useState(false);
+  // "Needs review" — a companion-local flag + note for a billing correction the
+  // app can't make (a paid / invoiced / QuickBooks-pushed bill). See /api/bill-review.
+  const [needsReview, setNeedsReview] = useState(false);
+  const [reviewNote, setReviewNote] = useState("");
+  const [reviewFlaggedBy, setReviewFlaggedBy] = useState("");
+  const [reviewFlaggedAt, setReviewFlaggedAt] = useState("");
+  const [reviewSaving, setReviewSaving] = useState(false);
+  const [reviewMsg, setReviewMsg] = useState("");
   const [addingLine, setAddingLine] = useState(false);
   const [newLine, setNewLine] = useState({ name: "", quantity: "1", unitCost: "0", code: "" });
   const [addLineSaving, setAddLineSaving] = useState(false);
@@ -614,6 +623,57 @@ function BillDetail() {
     }
   }
 
+  // Load this bill's "Needs review" flag + note once, on open. Kept separate
+  // from the main bill fetch so it doesn't ride the JobTread cache.
+  useEffect(() => {
+    let alive = true;
+    fetch(`/api/bill-review?docId=${encodeURIComponent(docId)}`)
+      .then((r) => r.json())
+      .then((j) => {
+        if (!alive || j?.error) return;
+        setNeedsReview(Boolean(j.needsReview));
+        setReviewNote(String(j.note ?? ""));
+        setReviewFlaggedBy(String(j.flaggedBy ?? ""));
+        setReviewFlaggedAt(String(j.flaggedAt ?? ""));
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [docId]);
+
+  // Set/clear the "Needs review" flag with the current note. Companion-local
+  // (writes to saved_bills), never a JobTread write — works with writes OFF.
+  async function saveReview(next: boolean) {
+    setReviewSaving(true);
+    setReviewMsg("");
+    try {
+      const res = await fetch("/api/bill-review", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ docId, needsReview: next, note: reviewNote }),
+      });
+      const j = await res.json();
+      if (!res.ok) {
+        setReviewMsg(j?.error ?? "Couldn't save.");
+        return;
+      }
+      setNeedsReview(next);
+      if (!next) {
+        setReviewNote("");
+        setReviewFlaggedBy("");
+        setReviewFlaggedAt("");
+        setReviewMsg("Cleared.");
+      } else {
+        setReviewMsg("Flagged for review.");
+      }
+    } catch (e) {
+      setReviewMsg(e instanceof Error ? e.message : "Network error");
+    } finally {
+      setReviewSaving(false);
+    }
+  }
+
   // Add a new line to this bill (createCostItem on the document). On success we
   // reload the bill so the new line appears exactly as JobTread stored it.
   async function addLine() {
@@ -941,6 +1001,15 @@ function BillDetail() {
           {backLabel}
         </Link>
       </div>
+
+      {/* Flagged for a billing correction — shown up top so it's seen without
+          opening the actions drawer, where the note and controls live. */}
+      {needsReview && (
+        <Banner tone="warning" className="mt-3">
+          ⚑ <span className="font-semibold">Needs review.</span>{" "}
+          {reviewNote ? reviewNote : "Flagged for a billing correction."}
+        </Banner>
+      )}
 
       {/* Queue pager: a three-up bar, so the arrows are thumb-sized targets and
           the position reads between them. */}
@@ -1729,6 +1798,64 @@ function BillDetail() {
                 >
                   {reviewed ? "✓ Reviewed" : "Mark reviewed"}
                 </button>
+              </div>
+
+              {/* Needs review — flag a bill that needs a correction the app can't
+                  make itself (a paid / invoiced / QuickBooks-pushed bill), with a
+                  note about the issue. Companion-local; not a JobTread write. */}
+              <div className="mt-3 rounded-lg border border-line p-3 dark:border-white/10">
+                <div className="flex items-center justify-between gap-2">
+                  <SectionLabel>Needs review</SectionLabel>
+                  {needsReview && (
+                    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800 dark:bg-amber-950/50 dark:text-amber-300">
+                      ⚑ Flagged
+                    </span>
+                  )}
+                </div>
+                <p className="mt-1 text-[11px] text-neutral-500 dark:text-neutral-400">
+                  For a fix this app can’t make — a paid, invoiced, or
+                  QuickBooks-pushed bill that needs work in JobTread or QuickBooks.
+                </p>
+                <Textarea
+                  value={reviewNote}
+                  onChange={(e) => setReviewNote(e.target.value)}
+                  placeholder="What needs fixing?"
+                  rows={2}
+                  className="mt-2"
+                />
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <Button
+                    variant={needsReview ? "primary" : "outline"}
+                    size="sm"
+                    disabled={reviewSaving}
+                    onClick={() => saveReview(true)}
+                    className={needsReview ? "!bg-amber-600 hover:!bg-amber-700" : ""}
+                  >
+                    {reviewSaving ? <Spinner className="mr-1.5" /> : null}
+                    {needsReview ? "Save note" : "⚑ Flag for review"}
+                  </Button>
+                  {needsReview && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={reviewSaving}
+                      onClick={() => saveReview(false)}
+                    >
+                      Clear flag
+                    </Button>
+                  )}
+                  {reviewMsg && (
+                    <span className="text-[11px] text-neutral-500 dark:text-neutral-400">
+                      {reviewMsg}
+                    </span>
+                  )}
+                </div>
+                {needsReview && reviewFlaggedBy && (
+                  <p className="mt-2 text-[11px] text-neutral-400 dark:text-neutral-500">
+                    Flagged by {reviewFlaggedBy}
+                    {reviewFlaggedAt ? ` · ${new Date(reviewFlaggedAt).toLocaleDateString()}` : ""}
+                  </p>
+                )}
               </div>
 
               {/* Push this bill's billing month into the job's tracking sheet.
