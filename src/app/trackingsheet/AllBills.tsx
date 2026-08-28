@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { JtLink } from "@/components/JtLink";
 import { money } from "@/components/BillingSummary";
-import { Banner, Card, Chip, EmptyState, Label, Loading, SectionLabel, Toggle, inputCls } from "@/components/ui";
+import { Banner, Card, Chip, EmptyState, Label, Loading, SectionLabel, inputCls } from "@/components/ui";
 import { monthOptions } from "./Roster";
 
 /**
@@ -54,10 +54,6 @@ export function AllBills({ ym, setYm }: { ym: string; setYm: (ym: string) => voi
   const [bills, setBills] = useState<AllBill[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  // Same two filters the roster carries, so switching between the two views
-  // doesn't change what "this month" means.
-  const [uninvoicedOnly, setUninvoicedOnly] = useState(true);
-  const [includeDrafts, setIncludeDrafts] = useState(true);
   // Sunset folds into its own collapsible pane, collapsed by default — same as
   // the per-job board.
   const [sunsetOpen, setSunsetOpen] = useState(false);
@@ -67,10 +63,10 @@ export function AllBills({ ym, setYm }: { ym: string; setYm: (ym: string) => voi
     const [y, m] = ym.split("-");
     setLoading(true);
     setError("");
+    // Always show the whole month: draft, uninvoiced, and already-invoiced bills
+    // alike, each tagged with its state below.
     fetch(
-      `/api/trackingsheet/all-bills?year=${y}&month=${Number(m)}` +
-        `&includeDrafts=${includeDrafts ? "1" : "0"}` +
-        (uninvoicedOnly ? "" : "&includeInvoiced=1"),
+      `/api/trackingsheet/all-bills?year=${y}&month=${Number(m)}&includeDrafts=1&includeInvoiced=1`,
     )
       .then((r) => r.json())
       .then((j) => {
@@ -87,7 +83,7 @@ export function AllBills({ ym, setYm }: { ym: string; setYm: (ym: string) => voi
     return () => {
       alive = false;
     };
-  }, [ym, uninvoicedOnly, includeDrafts]);
+  }, [ym]);
 
   const total = useMemo(() => (bills ?? []).reduce((s, b) => s + b.cost, 0), [bills]);
   const monthLabel = monthOptions().find((o) => o.ym === ym)?.label ?? ym;
@@ -136,10 +132,16 @@ export function AllBills({ ym, setYm }: { ym: string; setYm: (ym: string) => voi
           </span>
           <span className="mt-1.5 flex flex-wrap gap-1.5 empty:mt-0">
             {b.status === "draft" && <Chip tone="neutral">draft</Chip>}
-            {b.invoiced && (
+            {b.invoiced ? (
               <Chip tone="info" title="Already on a customer invoice — read-only">
                 invoiced
               </Chip>
+            ) : (
+              b.status !== "draft" && (
+                <Chip tone="neutral" title="Not yet on a customer invoice">
+                  uninvoiced
+                </Chip>
+              )
             )}
           </span>
         </Link>
@@ -173,11 +175,6 @@ export function AllBills({ ym, setYm }: { ym: string; setYm: (ym: string) => voi
         </select>
       </div>
 
-      <div className="mb-4 flex flex-wrap gap-x-5 gap-y-3">
-        <Toggle checked={uninvoicedOnly} onChange={setUninvoicedOnly} label="Uninvoiced only" />
-        <Toggle checked={includeDrafts} onChange={setIncludeDrafts} label="Include draft bills" />
-      </div>
-
       {error && (
         <Banner tone="error" className="mb-4">
           {error}
@@ -187,77 +184,61 @@ export function AllBills({ ym, setYm }: { ym: string; setYm: (ym: string) => voi
       {loading && <Loading label="Loading this month’s bills…" />}
 
       {!loading && !error && (
-        // Mirrors the job workbench's layout: budget rail on the left, bills on
-        // the right — but with no job, the rail is greyed out.
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-          {/* ─────────── LEFT: greyed budget rail ─────────── */}
-          <section className="min-w-0 lg:col-span-1">
-            <Card className="opacity-60">
-              <SectionLabel className="mb-1">Budget</SectionLabel>
-              <p className="text-sm text-neutral-500 dark:text-neutral-400">
-                Pick a job to load its budget rail — spend vs. budget per cost code.
-                With no job selected there’s no single budget to show.
-              </p>
-            </Card>
-          </section>
+        <section className="min-w-0">
+          <div className="mb-2 flex items-baseline justify-between gap-3">
+            <SectionLabel>
+              {`${(bills ?? []).length} bill${(bills ?? []).length === 1 ? "" : "s"}`} ·{" "}
+              {money(total)}
+            </SectionLabel>
+            <span className="shrink-0 text-xs text-neutral-500 dark:text-neutral-400">
+              {monthLabel} · all jobs
+            </span>
+          </div>
 
-          {/* ─────────── RIGHT: every bill this month ─────────── */}
-          <section className="min-w-0 lg:col-span-2">
-            <div className="mb-2 flex items-baseline justify-between gap-3">
-              <SectionLabel>
-                {`${(bills ?? []).length} bill${(bills ?? []).length === 1 ? "" : "s"}`} ·{" "}
-                {money(total)}
-              </SectionLabel>
-              <span className="shrink-0 text-xs text-neutral-500 dark:text-neutral-400">
-                {monthLabel} · all jobs
-              </span>
-            </div>
+          {(bills ?? []).length === 0 ? (
+            <EmptyState>No bills issued in {monthLabel}.</EmptyState>
+          ) : (
+            <>
+              {nonSunsetBills.length > 0 && (
+                <ul className="space-y-2">{nonSunsetBills.map(renderBillCard)}</ul>
+              )}
 
-            {(bills ?? []).length === 0 ? (
-              <EmptyState>No bills issued in {monthLabel}.</EmptyState>
-            ) : (
-              <>
-                {nonSunsetBills.length > 0 && (
-                  <ul className="space-y-2">{nonSunsetBills.map(renderBillCard)}</ul>
-                )}
-
-                {/* Sunset folded into its own collapsible pane, same treatment
-                    as the per-job board: pushed to the bottom, collapsed by
-                    default, with a count and total. */}
-                {sunsetBills.length > 0 && (
-                  <Card pad={false} className="mt-2 overflow-hidden">
-                    <button
-                      type="button"
-                      onClick={() => setSunsetOpen((v) => !v)}
-                      aria-expanded={sunsetOpen}
-                      className="flex w-full items-baseline justify-between gap-2 px-3 py-3 text-left transition hover:bg-accent/5 dark:hover:bg-white/5 lg:py-2"
-                    >
-                      <span className="min-w-0 truncate text-sm font-semibold">
-                        <span
-                          aria-hidden
-                          className={`mr-1.5 inline-block text-[9px] text-neutral-500 transition-transform dark:text-neutral-400 ${
-                            sunsetOpen ? "rotate-90" : ""
-                          }`}
-                        >
-                          ▶
-                        </span>
-                        Sunset ({sunsetBills.length} bill{sunsetBills.length === 1 ? "" : "s"})
+              {/* Sunset folded into its own collapsible pane, same treatment
+                  as the per-job board: pushed to the bottom, collapsed by
+                  default, with a count and total. */}
+              {sunsetBills.length > 0 && (
+                <Card pad={false} className="mt-2 overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => setSunsetOpen((v) => !v)}
+                    aria-expanded={sunsetOpen}
+                    className="flex w-full items-baseline justify-between gap-2 px-3 py-3 text-left transition hover:bg-accent/5 dark:hover:bg-white/5 lg:py-2"
+                  >
+                    <span className="min-w-0 truncate text-sm font-semibold">
+                      <span
+                        aria-hidden
+                        className={`mr-1.5 inline-block text-[9px] text-neutral-500 transition-transform dark:text-neutral-400 ${
+                          sunsetOpen ? "rotate-90" : ""
+                        }`}
+                      >
+                        ▶
                       </span>
-                      <span className="shrink-0 text-sm font-semibold tabular-nums">
-                        {money(sunsetTotal)}
-                      </span>
-                    </button>
-                    {sunsetOpen && (
-                      <ul className="space-y-2 border-t border-line-soft bg-neutral-50 p-2 dark:bg-ink-raised/50">
-                        {sunsetBills.map(renderBillCard)}
-                      </ul>
-                    )}
-                  </Card>
-                )}
-              </>
-            )}
-          </section>
-        </div>
+                      Sunset ({sunsetBills.length} bill{sunsetBills.length === 1 ? "" : "s"})
+                    </span>
+                    <span className="shrink-0 text-sm font-semibold tabular-nums">
+                      {money(sunsetTotal)}
+                    </span>
+                  </button>
+                  {sunsetOpen && (
+                    <ul className="space-y-2 border-t border-line-soft bg-neutral-50 p-2 dark:bg-ink-raised/50">
+                      {sunsetBills.map(renderBillCard)}
+                    </ul>
+                  )}
+                </Card>
+              )}
+            </>
+          )}
+        </section>
       )}
     </>
   );
