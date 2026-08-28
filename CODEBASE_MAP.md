@@ -37,14 +37,15 @@ matching row here.
 |---|---|
 | A **new read-only page** over JobTread | copy `src/app/jobs/` (`page.tsx` → `JobsBrowser.tsx`), compose query per `JT_API_REFERENCE.md`, call `gatewayQuery` (`src/lib/paveGatewayClient.ts`) |
 | **Gating / who sees what** | `src/lib/views.ts` (the single source of truth: `VIEWS`, `ROLE_VIEWS`), enforced by `src/middleware.ts` |
-| **Nav / launcher / tabs** | `src/app/page.tsx` (`AREAS` launcher), `src/components/TabBar.tsx` |
+| **Nav / launcher / tabs** | `src/lib/nav.ts` (`AREAS` — the destination list), `src/app/page.tsx` (renders it), `src/components/TabBar.tsx` |
+| **The global search box** | `src/components/GlobalSearch.tsx` (in `AppHeader`, under the job picker) — matches pages via `src/lib/nav.ts`, vendors via `/api/vendors`, bills/line items via `/api/bill-search` |
 | **The Pave gateway** (generic JobTread access + write policy) | `src/app/api/pave/route.ts` + `src/lib/paveGateway.ts` (policy) + `src/lib/paveGatewayClient.ts` (browser) |
 | **Verified JobTread reads/writes** (not the generic gateway) | `src/lib/jobtread.ts` |
 | **Billing period / bill-date rules** | `src/lib/billing.ts` (keep in lockstep with appscript `Config.js`) |
 | **Bill line money math** (edit/save a bill's lines) | `src/lib/billLineMath.ts` |
-| **Coding / Client Invoicing workflow** | `src/app/recode/*` (Board, BillCodingCard, TimeCodingCard, ClientInvoicing, DraftQueue, DraftWorkbench,
-  AllJobs, Roster) + `src/app/api/recode/*`, `src/app/api/code` |
-| **Editing ONE time entry** (code / hours / day / job) | `src/app/recode/TimeCodingCard.tsx` + `src/app/api/time-entry`; batch recodes stay in `labor-review` |
+| **Coding / Tracking Sheets workflow** | `src/app/trackingsheet/*` (Board, BillCodingCard, TimeCodingCard, ClientInvoicing, DraftQueue, DraftWorkbench,
+  AllJobs, Roster) + `src/app/api/trackingsheet/*`, `src/app/api/code` |
+| **Editing ONE time entry** (code / hours / day / job) | `src/app/trackingsheet/TimeCodingCard.tsx` + `src/app/api/time-entry`; batch recodes stay in `labor-review` |
 | **Org-timezone wall clocks in the browser** | `src/lib/orgTime.ts` (read half; the server's is in `src/lib/jobtread.ts`) |
 | **A single bill page** | `src/app/bill/[docId]/page.tsx` + `src/app/api/bill/*` |
 | **PTO / sick accrual** | pure math `src/lib/leave.ts`; server orchestration `src/lib/leaveService.ts`; UI `src/app/time-off/` + `src/app/api/time-off/*` |
@@ -76,6 +77,7 @@ including edge middleware.
 | `copy.ts` ⟂ | **Registry of editable on-screen text** — every string the office can reword from Admin → Page Text. English lives here as the shipped default; the DB only overrides. |
 | `copyService.ts` | Server half of the above: reads `page_copy` overrides. Returns `{}` on any DB failure so copy can never blank a page. |
 | `views.ts` ⟂ | **Single source of truth for role-gated views** — `VIEWS`, `ROLE_VIEWS`, `resolveAllowedViews`, `viewIdForPath`. |
+| `nav.ts` ⟂ | **The launcher's destination list** (`AREAS`) — the one place every gateable view is named. Read by BOTH the home launcher and the header's global search, which is why it's a module rather than living in `page.tsx`. |
 | `auth.ts` ⟂ | Shared-password auth helpers (Web Crypto only; works in edge + node). |
 | `billing.ts` ⟂ | Billing-period + bill-date standard, ported from appscript `Config.js`. Keep in lockstep. |
 | `billLineMath.ts` ⟂ | Money math for editing a vendor bill's lines (JobTread's tax carve, confirmed live). |
@@ -106,9 +108,9 @@ Tests live beside their module (`*.test.ts`): `billing`, `billLineMath`,
 Each page is a server component (`page.tsx`) that hands non-secret context to a
 `"use client"` component. Group/roles for each is set by its `VIEWS` entry.
 
-- **Financials:** `recode` (Client Invoicing — the billing hub: Board,
-  BillCodingCard, TimeCodingCard, ClientInvoicing, DraftQueue, DraftWorkbench,
-  AllJobs, Roster), `bill/[docId]`, `add-bill`,
+- **Financials:** `trackingsheet` (Tracking Sheets — the billing hub, gated by
+  the `recode` view id: Board, BillCodingCard, TimeCodingCard, ClientInvoicing,
+  DraftQueue, DraftWorkbench, AllJobs, Roster), `bill/[docId]`, `add-bill`,
   `coding` (retired), `stage` (retired), `labor-review`, `jobs`, `unbilled`,
   `vendors`, `bill-search` (fast full-text search over every bill + line item,
   live JobTread plus seeded pre-JobTread history), `email`, `needs-project`,
@@ -136,7 +138,7 @@ Grouped by domain; each folder is `…/route.ts`.
   `bill-search` (query the local bill/line index; `bill-search/refresh` sweeps
   JobTread into it, `bill-search/seed` imports the pre-JobTread sheet history).
 - **Bills / coding:** `bill/*`, `add-bill`, `add-line`, `delete-line`,
-  `combine-lines`, `code`, `coding-queue`, `recode/*`, `bill-status`,
+  `combine-lines`, `code`, `coding-queue`, `trackingsheet/*`, `bill-status`,
   `bill-fields`, `bill-issuedate`, `bill-number` (the vendor's own invoice
   number — JobTread's `externalId`), `bill-tax`, `bill-reviewed`, `uncaptured`,
   `vendor-bills/*`, `vendor-bill-count`, `stuck-vendors`, `needs-project`,
@@ -162,7 +164,9 @@ Grouped by domain; each folder is `…/route.ts`.
 
 - **Design system:** `ui.tsx` — build EVERY UI on these primitives (see the list
   in `CLAUDE.md`). Never hand-roll styles.
-- **Chrome / nav:** `AppHeader`, `TabBar`, `PageTitle`, `ThemeToggle`,
+- **Chrome / nav:** `AppHeader`, `GlobalSearch` (the app's ONE search box, in the
+  header under the job picker — pages + vendors + bills + line items, from any
+  page), `TabBar`, `PageTitle`, `ThemeToggle`,
   `AscentLogo`, `RefreshButton`/`RefreshProvider`, `SyncNowButton`,
   `AdminActionBar`, `AccessProvider`, `CopyProvider` (editable page text —
   `useCopy()`), `UsageBeacon`.

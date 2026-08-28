@@ -17,6 +17,7 @@ import {
   EmptyState,
   Label,
   Spinner,
+  Toggle,
   inputCls,
 } from "@/components/ui";
 
@@ -85,6 +86,9 @@ export function Roster({
   const [loading, setLoading] = useState(true);
   const [filling, setFilling] = useState(false);
   const [error, setError] = useState("");
+  // Filter toggles (defaults reproduce the original behavior).
+  const [uninvoicedOnly, setUninvoicedOnly] = useState(true);
+  const [includeDrafts, setIncludeDrafts] = useState(true);
   const runRef = useRef(0);
 
   // Which jobs have a tracking sheet, keyed by JobTread job id. This list
@@ -196,8 +200,8 @@ export function Roster({
       try {
         const [y, m] = ym.split("-").map(Number);
         const params = new URLSearchParams({ jobId: r.jobId, year: String(y), month: String(m) });
-        params.set("includeInvoiced", "1");
-        params.set("includeDrafts", "1");
+        if (!uninvoicedOnly) params.set("includeInvoiced", "1");
+        if (includeDrafts) params.set("includeDrafts", "1");
         const res = await fetch(`/api/stage?${params.toString()}`);
         const j = await res.json();
         if (token !== runRef.current) return;
@@ -218,7 +222,7 @@ export function Roster({
         if (token === runRef.current) setDetailFailed((f) => ({ ...f, [r.jobId]: true }));
       }
     },
-    [ym],
+    [ym, uninvoicedOnly, includeDrafts],
   );
 
   // Progressively fetch every job's breakdown (bounded concurrency). Each card's
@@ -247,8 +251,8 @@ export function Roster({
     try {
       const [y, m] = ym.split("-").map(Number);
       const params = new URLSearchParams({ year: String(y), month: String(m) });
-      params.set("includeInvoiced", "1");
-      params.set("includeDrafts", "1");
+      if (!uninvoicedOnly) params.set("includeInvoiced", "1");
+      if (includeDrafts) params.set("includeDrafts", "1");
       const res = await fetch(`/api/stage/jobs?${params.toString()}`);
       const j = await res.json();
       if (token !== runRef.current) return;
@@ -265,7 +269,7 @@ export function Roster({
     } finally {
       if (token === runRef.current) setLoading(false);
     }
-  }, [ym, fillDetails]);
+  }, [ym, uninvoicedOnly, includeDrafts, fillDetails]);
 
   useEffect(() => {
     load();
@@ -337,6 +341,11 @@ export function Roster({
             </option>
           ))}
         </select>
+      </div>
+
+      <div className="mb-4 flex flex-wrap gap-x-5 gap-y-3">
+        <Toggle checked={uninvoicedOnly} onChange={setUninvoicedOnly} label={c("recode.toggle.uninvoicedOnly")} />
+        <Toggle checked={includeDrafts} onChange={setIncludeDrafts} label={c("recode.toggle.includeDraftBills")} />
       </div>
 
       {error && (
