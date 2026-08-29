@@ -10,7 +10,6 @@ import {
   Chip,
   ChipScroller,
   EmptyState,
-  FilterChip,
   Label,
   Loading,
   Meter,
@@ -431,11 +430,6 @@ export function Board() {
   // default, same as the Time & labor block below it — Sunset is the noise you
   // fold away, and its cost is already in every figure on the page regardless.
   const [sunsetBlockOpen, setSunsetBlockOpen] = useState(false);
-  // Display-only filter, computed client-side from costDetail's two labor
-  // figures (no refetch on toggle). Defaults ON so the existing behavior —
-  // every time entry counts, approved or not — doesn't change until someone
-  // deliberately narrows it.
-  const [includeUnapprovedTime, setIncludeUnapprovedTime] = useState(true);
   const [data, setData] = useState<BoardPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -724,7 +718,7 @@ export function Board() {
           budget: c.budget,
           spent: c.bills,
           drafts: 0,
-          labor: includeUnapprovedTime ? c.labor : c.laborApproved,
+          labor: c.labor,
           droppable: (leavesByCode.get(c.number)?.length ?? 0) > 0,
         });
       }
@@ -780,7 +774,7 @@ export function Board() {
       }
     }
     return map;
-  }, [data, codeOf, leavesByCode, includeUnapprovedTime]);
+  }, [data, codeOf, leavesByCode]);
 
   const railRows = useMemo(() => {
     const q = codeQuery.trim().toLowerCase();
@@ -908,12 +902,12 @@ export function Board() {
   // approved, "record payment").
   const approvalTarget = (b: BillRef) => (b.name === "Expense" ? "approved" : "pending");
 
-  // Same "Include unapproved time" toggle the rail uses — the block's total
-  // has to agree with what the rail is counting, or the two disagree about
-  // "how much labor this month."
+  // Every time entry counts toward the month's labor, approved or not — each
+  // row is tagged with its own approval state so nothing is hidden. The rail's
+  // labor figure counts the same set, so the two always agree.
   const monthTime = useMemo(
-    () => (data?.timeEntries ?? []).filter((t) => includeUnapprovedTime || t.isApproved),
-    [data, includeUnapprovedTime],
+    () => data?.timeEntries ?? [],
+    [data],
   );
   const monthTimeTotal = useMemo(() => monthTime.reduce((s, t) => s + t.cost, 0), [monthTime]);
 
@@ -1863,15 +1857,12 @@ export function Board() {
   }, [contributors, codeDrill, staged, leafById, data, billsById]);
 
   // Labor is coded independently of any bill and never moves with a staged
-  // recode (see the `usedOf` note above), so this needs no staged reconciliation
-  // — but it DOES need the same approved-only filter as the rail's total, or
-  // this list wouldn't sum to the number that opened it.
+  // recode (see the `usedOf` note above), so this needs no staged reconciliation.
+  // Every entry counts, approved or not — the same set the rail's labor figure
+  // sums — and each row carries its own approval tag.
   const drillTime = useMemo(
-    () =>
-      (contributors?.data.time ?? []).filter(
-        (t) => t.code === codeDrill && (includeUnapprovedTime || t.isApproved),
-      ),
-    [contributors, codeDrill, includeUnapprovedTime],
+    () => (contributors?.data.time ?? []).filter((t) => t.code === codeDrill),
+    [contributors, codeDrill],
   );
 
   const beginDrag = (lineIds: string[]) => (e: React.DragEvent) => {
@@ -2358,30 +2349,9 @@ export function Board() {
               </Select>
             </div>
             {/* The list always shows every bill in the month — draft,
-                uninvoiced, and invoiced, each tagged with its state — so the one
-                view filter left is whether unapproved time counts toward the
-                figures. On a phone it's a pill; from lg up, the switch below. */}
-            <ChipScroller bleed="1rem" className="lg:hidden">
-              <FilterChip
-                on={includeUnapprovedTime}
-                onClick={() => setIncludeUnapprovedTime(!includeUnapprovedTime)}
-                title={c("recode.help.approvedTime")}
-              >
-                Unapproved time
-              </FilterChip>
-            </ChipScroller>
-            <div className="hidden lg:flex lg:w-auto lg:items-center lg:gap-3">
-              <Toggle
-                checked={includeUnapprovedTime}
-                onChange={setIncludeUnapprovedTime}
-                label={
-                  <span title={c("recode.help.approvedTime")}>
-                    Include unapproved time
-                  </span>
-                }
-                className="min-h-11 shrink-0 text-left lg:min-h-0"
-              />
-            </div>
+                uninvoiced, and invoiced, each tagged with its state — and every
+                time entry counts toward the figures, approved or not, each row
+                tagged with its own approval state. No view filter to set. */}
             {dirty && (
               <span className="inline-flex shrink-0 items-center self-start rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
                 {staged.size} staged change{staged.size === 1 ? "" : "s"}
@@ -2742,7 +2712,7 @@ export function Board() {
               Remaining = budget − committed − this month&apos;s drafts − labor. Committed is
               approved and pending bills across all time; drafts aren&apos;t committed spend yet;
               labor is logged time entries, which a customer invoice bills alongside the bills —
-              toggle &quot;Include unapproved time&quot; above to count only approved entries.
+              every entry counts, approved or not, and each is tagged with its approval state.
               Hover a code for the breakdown. Bars and remaining update as you recode.
             </p>
           </section>
@@ -3160,12 +3130,25 @@ export function Board() {
                                     <span className="flex items-baseline gap-2">
                                       <span className="min-w-0 flex-1 truncate">
                                         <span className="font-medium">{t.employee}</span>
+                                        <span className="ml-1.5 font-semibold tabular-nums">
+                                          {t.hours.toFixed(1)}h
+                                        </span>
                                         <span className="ml-1 text-neutral-500 dark:text-neutral-400">
-                                          {dayLabel(dayOfEntry(t))} · {t.hours.toFixed(1)}h
+                                          {dayLabel(dayOfEntry(t))}
                                           {t.code ? ` · ${t.code} ${t.codeName}` : " · uncoded"}
-                                          {!t.isApproved ? " · unapproved" : ""}
                                         </span>
                                       </span>
+                                      <Chip
+                                        tone={t.isApproved ? "success" : "warning"}
+                                        className="shrink-0 self-center"
+                                        title={
+                                          t.isApproved
+                                            ? "This time entry is approved in JobTread"
+                                            : "This time entry is not yet approved in JobTread"
+                                        }
+                                      >
+                                        {t.isApproved ? "approved" : "unapproved"}
+                                      </Chip>
                                       <span className="shrink-0 tabular-nums font-semibold">
                                         {money(t.cost)}
                                       </span>
@@ -3655,12 +3638,24 @@ export function Board() {
                                 <div className="flex items-center gap-2">
                                   <span className="min-w-0 flex-1 truncate">
                                     <span className="font-medium">{t.employee}</span>
-                                    <span className="ml-1 text-neutral-500 dark:text-neutral-400">
-                                      {t.startedAt ? t.startedAt.slice(0, 10) : ""} ·{" "}
+                                    <span className="ml-1.5 font-semibold tabular-nums">
                                       {t.hours.toFixed(1)}h
-                                      {!t.isApproved ? " · unapproved" : ""}
+                                    </span>
+                                    <span className="ml-1 text-neutral-500 dark:text-neutral-400">
+                                      {t.startedAt ? t.startedAt.slice(0, 10) : ""}
                                     </span>
                                   </span>
+                                  <Chip
+                                    tone={t.isApproved ? "success" : "warning"}
+                                    className="shrink-0"
+                                    title={
+                                      t.isApproved
+                                        ? "This time entry is approved in JobTread"
+                                        : "This time entry is not yet approved in JobTread"
+                                    }
+                                  >
+                                    {t.isApproved ? "approved" : "unapproved"}
+                                  </Chip>
                                   <span className="shrink-0 tabular-nums font-semibold">
                                     {money(t.cost)}
                                   </span>
