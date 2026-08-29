@@ -19,6 +19,8 @@ import {
   resolveAllowedViews,
   type Role,
 } from "@/lib/views";
+import { ROLE_LABEL, PREVIEW_COOKIE, parsePreviewRole } from "@/lib/preview";
+import { startPreview, stopPreview } from "@/lib/previewClient";
 import { ActivityPanel } from "./ActivityPanel";
 import { NoticesPanel } from "./NoticesPanel";
 
@@ -37,13 +39,6 @@ const NO_OVERRIDE: RoleOverride = { viewsAllow: [], viewsDeny: [] };
 // Roles a role-default edit can touch. Admin always gets every view — editing
 // it here isn't offered, so a bad edit can't lock every admin out of /admin.
 const EDITABLE_ROLES: Role[] = ["office", "lead", "field"];
-
-const ROLE_LABEL: Record<Role, string> = {
-  admin: "Admin",
-  office: "Office",
-  lead: "Lead",
-  field: "Field",
-};
 
 // Views grouped for the override editor, in a stable display order.
 const GROUP_ORDER = ["Financials", "Field", "Assistant", "Office", "System"] as const;
@@ -132,6 +127,19 @@ function AccessPanel() {
     load();
   }, []);
 
+  // Whether the admin is currently viewing the app as another role, read from
+  // the preview cookie so the "Return to my view" link only shows when it's
+  // actually doing something. (Set/cleared by startPreview/stopPreview, which
+  // reload the page, so a one-time read on mount is enough.)
+  const previewingAs = useMemo(() => {
+    if (typeof document === "undefined") return null;
+    const raw = document.cookie
+      .split("; ")
+      .find((c) => c.startsWith(`${PREVIEW_COOKIE}=`))
+      ?.split("=")[1];
+    return parsePreviewRole(raw);
+  }, []);
+
   async function patchRole(r: Role, fields: RoleOverride) {
     const res = await fetch("/api/team/roles", {
       method: "PATCH",
@@ -212,10 +220,22 @@ function AccessPanel() {
 
       {loading && <Loading label="Loading team…" />}
 
-      <SectionLabel className="mb-1">Role Defaults</SectionLabel>
+      <div className="mb-1 flex items-center justify-between gap-2">
+        <SectionLabel className="mb-0">Role Defaults</SectionLabel>
+        {previewingAs && (
+          <button
+            onClick={() => stopPreview()}
+            className="shrink-0 text-xs font-semibold text-accent hover:underline dark:text-accent-soft"
+          >
+            Return to my view
+          </button>
+        )}
+      </div>
       <p className="mb-2 text-xs text-neutral-500">
         What everyone in a role sees by default. A person&rsquo;s own overrides (below)
-        still apply on top of this. Admin always has full access.
+        still apply on top of this. Admin always has full access.{" "}
+        <strong>Preview</strong> opens the app&rsquo;s home page as that role sees it;
+        use <strong>Return to my view</strong> (here or in the banner) to come back.
       </p>
       <ul className="mb-5 space-y-2">
         {EDITABLE_ROLES.map((r) => (
@@ -406,12 +426,20 @@ function RoleRow({
     <li className="rounded-lg border border-line bg-white px-3 py-2 text-sm dark:bg-ink-raised">
       <div className="flex items-center justify-between gap-2">
         <span className="font-medium">{ROLE_LABEL[role]}</span>
-        <button
-          onClick={() => setOpen((o) => !o)}
-          className="text-xs font-semibold text-accent hover:underline dark:text-accent-soft"
-        >
-          Views{overrideCount > 0 ? ` (${overrideCount})` : ""}
-        </button>
+        <div className="flex shrink-0 items-center gap-3">
+          <button
+            onClick={() => startPreview(role)}
+            className="text-xs font-semibold text-accent hover:underline dark:text-accent-soft"
+          >
+            Preview
+          </button>
+          <button
+            onClick={() => setOpen((o) => !o)}
+            className="text-xs font-semibold text-accent hover:underline dark:text-accent-soft"
+          >
+            Views{overrideCount > 0 ? ` (${overrideCount})` : ""}
+          </button>
+        </div>
       </div>
 
       {open && (

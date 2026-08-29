@@ -24,8 +24,12 @@ function parseIds(s: string | null | undefined): string[] {
  * adjusted by any admin edit made on /admin's Role Defaults editor. "admin"
  * short-circuits with no DB call: it's never overridable, so a bad edit can't
  * lock every admin out of the console that would fix it.
+ *
+ * Exported so the role-preview lens (src/app/layout.tsx) can render the
+ * launcher as a given role would actually see it TODAY — role defaults included
+ * — rather than the hardcoded factory set.
  */
-async function roleBaseFor(role: Role): Promise<string[]> {
+export async function roleBaseFor(role: Role): Promise<string[]> {
   if (role === "admin") return ROLE_VIEWS.admin;
   try {
     const { db, ensureDb } = await import("@/db");

@@ -10,9 +10,12 @@ import { RefreshBoundary, RefreshProvider } from "@/components/RefreshProvider";
 import { StuckVendorPopup, StuckVendorsProvider } from "@/components/StuckVendors";
 import { NoticePopup } from "@/components/Notices";
 import { UsageBeacon } from "@/components/UsageBeacon";
-import { auth } from "@/auth";
+import { cookies } from "next/headers";
+import { auth, roleBaseFor } from "@/auth";
 import { ALL_VIEW_IDS, resolveAllowedViews, type Role } from "@/lib/views";
 import { loadCopyOverrides } from "@/lib/copyService";
+import { PREVIEW_COOKIE, parsePreviewRole } from "@/lib/preview";
+import { PreviewBanner } from "@/components/PreviewBanner";
 
 // Brand web typeface (Brand Guidelines p.22 — Roboto is the sanctioned web
 // alternative to the print primary, LL Medium). Exposed as a CSS var wired into
@@ -77,6 +80,23 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     views = ALL_VIEW_IDS;
   }
 
+  // Role preview: an admin can view the app AS another role to check that
+  // role's home page (see src/lib/preview.ts). The cookie is honored ONLY when
+  // the signed-in user is really an admin — a lesser role can't self-elevate,
+  // and because preview only narrows the launcher it never grants real access
+  // (middleware still runs against the true session). We swap in the role's
+  // live view set (role defaults included) so the launcher renders exactly as
+  // that role would see it.
+  let previewRole: Role | null = null;
+  if (role === "admin") {
+    const store = await cookies();
+    previewRole = parsePreviewRole(store.get(PREVIEW_COOKIE)?.value);
+    if (previewRole) {
+      role = previewRole;
+      views = previewRole === "admin" ? [...ALL_VIEW_IDS] : await roleBaseFor(previewRole);
+    }
+  }
+
   return (
     <html lang="en" className={`${roboto.variable} ${robotoMono.variable}`}>
       <head>
@@ -88,6 +108,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         />
       </head>
       <body className="min-h-screen font-sans antialiased">
+        {/* Role preview lens (admin-only) — narrows the whole app to a given
+            role's views and carries the way back. Rendered above the header so
+            it's always the first thing in view while a preview is active. */}
+        {previewRole && <PreviewBanner role={previewRole} />}
         {/* Track page views for signed-in users (Admin → Activity). The route
             no-ops without a session, so it's inert in dev-open mode too. */}
         {session?.user && <UsageBeacon />}

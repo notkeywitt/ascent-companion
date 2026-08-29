@@ -78,6 +78,8 @@ including edge middleware.
 | `copyService.ts` | Server half of the above: reads `page_copy` overrides. Returns `{}` on any DB failure so copy can never blank a page. |
 | `views.ts` ⟂ | **Single source of truth for role-gated views** — `VIEWS`, `ROLE_VIEWS`, `resolveAllowedViews`, `viewIdForPath`. |
 | `nav.ts` ⟂ | **The launcher's destination list** (`AREAS`) — the one place every gateable view is named. Read by BOTH the home launcher and the header's global search, which is why it's a module rather than living in `page.tsx`. |
+| `preview.ts` ⟂ | **Role preview** — the cookie name + helpers letting an admin view the app AS each role. The layout reads the cookie (honoring it only for a real admin) and hands that role's live view set to the nav, so the launcher/tabs render as that role sees them. Narrows only, never elevates. |
+| `previewClient.ts` | Browser half of the above: `startPreview`/`stopPreview` set/clear the cookie and reload so the server layout re-reads it. |
 | `auth.ts` ⟂ | Shared-password auth helpers (Web Crypto only; works in edge + node). |
 | `billing.ts` ⟂ | Billing-period + bill-date standard, ported from appscript `Config.js`. Keep in lockstep. |
 | `billLineMath.ts` ⟂ | Money math for editing a vendor bill's lines (JobTread's tax carve, confirmed live). |
@@ -169,7 +171,8 @@ Grouped by domain; each folder is `…/route.ts`.
   page), `TabBar`, `PageTitle`, `ThemeToggle`,
   `AscentLogo`, `RefreshButton`/`RefreshProvider`, `SyncNowButton`,
   `AdminActionBar`, `AccessProvider`, `CopyProvider` (editable page text —
-  `useCopy()`), `UsageBeacon`.
+  `useCopy()`), `UsageBeacon`, `PreviewBanner` (the admin's "viewing as {role}"
+  bar + its "Return to my view" link — see `src/lib/preview.ts`).
 - **JobTread pickers / links:** `JobPicker`, `GlobalJobBar`, `CostCodeSelect`,
   `JtLink`, `LinkPending`, `BillStatusBadge`, `BillingSummary`.
 - **Feature widgets:** `InvoiceReconcile`, `InvoiceSweepResult`,
