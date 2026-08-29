@@ -1212,16 +1212,9 @@ function BillDetail() {
 
       {lines && (
         <>
-          {/* Everything that qualifies the whole list — the two lock/preview
-              warnings — sits above the section heading, so the heading is the
-              last thing before the lines themselves. */}
-          {!linesEditable && (
-            <Banner tone="warning" className="mb-3 !px-3 !py-2.5 !text-xs">
-              Qty &amp; unit cost are locked once a bill is payable/paid — you can still re-code it.
-              To edit amounts, set the bill back to Draft in JobTread.
-            </Banner>
-          )}
-
+          {/* The preview warning that qualifies the whole list sits above the
+              section heading, so the heading is the last thing before the lines
+              themselves. */}
           {!writes && (
             <Banner tone="warning" className="mb-3 !px-3 !py-2.5 !text-xs">
               Writes are OFF (COMPANION_WRITES_ENABLED not <span className="font-mono">true</span> on
