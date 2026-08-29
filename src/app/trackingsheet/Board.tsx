@@ -103,6 +103,7 @@ interface BillRef {
   qboIsIgnored: boolean;
   saved: boolean;
   reviewed: boolean;
+  needsReview: boolean;
   invoiced: boolean;
   fileCount: number;
 }
@@ -2178,28 +2179,35 @@ export function Board() {
           onDragStart={beginDrag(lines.map((l) => l.id))}
           onDragEnd={endDrag}
           className={`flex items-stretch overflow-hidden ${
-            isOpen ? "ring-1 ring-accent" : ""
+            isOpen
+              ? "ring-1 ring-accent"
+              : b.needsReview
+                ? "ring-2 ring-red-400 dark:ring-red-500/70"
+                : ""
           } ${
             lines.length > 0 && !b.invoiced ? "cursor-grab active:cursor-grabbing" : ""
           }`}
         >
-          {/* Status as a 3px edge stripe, so a month can be
-              triaged by colour down the left margin before a word
-              is read: amber = still a draft, blue = already
-              invoiced (read-only), red = its coding is over
-              budget, none = nothing to look at. The chips below
-              still spell each state out; the stripe is what makes
-              the list scannable at scrolling speed. */}
+          {/* Status as an edge stripe, so a month can be triaged by
+              colour down the left margin before a word is read: a
+              wide red = flagged for review (the thing to act on,
+              outranks all else), red = its coding is over budget,
+              blue = already invoiced (read-only), amber = still a
+              draft, none = nothing to look at. The chips below still
+              spell each state out; the stripe is what makes the list
+              scannable at scrolling speed. */}
           <span
             aria-hidden
-            className={`w-[3px] shrink-0 ${
-              b.invoiced
-                ? "bg-sky-500"
-                : overBudget
-                  ? "bg-red-500"
-                  : b.status === "draft"
-                    ? "bg-amber-500"
-                    : "bg-transparent"
+            className={`shrink-0 ${b.needsReview ? "w-[5px] bg-red-500" : "w-[3px]"} ${
+              b.needsReview
+                ? ""
+                : b.invoiced
+                  ? "bg-sky-500"
+                  : overBudget
+                    ? "bg-red-500"
+                    : b.status === "draft"
+                      ? "bg-amber-500"
+                      : "bg-transparent"
             }`}
           />
           <button
@@ -2232,6 +2240,13 @@ export function Board() {
             </span>
 
             <span className="mt-1.5 flex flex-wrap gap-1.5 empty:mt-0">
+              {/* Leads the row in red — a flagged bill is the one to act on,
+                  so it must be the first thing read on the card. */}
+              {b.needsReview && (
+                <Chip tone="danger" title="Flagged for a billing correction — open the bill to see the note">
+                  ⚑ Needs review
+                </Chip>
+              )}
               {b.status === "draft" && <Chip tone="neutral">draft</Chip>}
               {b.fileCount === 0 && (
                 <Chip tone="warning" title="No file attached to this bill in JobTread">

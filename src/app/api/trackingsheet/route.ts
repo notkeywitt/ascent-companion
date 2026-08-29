@@ -67,10 +67,10 @@ export async function GET(req: NextRequest) {
     ]);
     const lines = await getBillLinesForJob(cfg, jobId, [...new Set(bills.map((b) => b.id))]);
 
-    // Assistant-local flags, same pair the coding queue shows: saved (Save
-    // clicked) and reviewed (explicitly marked done). Best-effort — a DB hiccup
-    // must never fail the board.
-    const flags = new Map<string, { saved: boolean; reviewed: boolean }>();
+    // Assistant-local flags, same set the coding queue shows: saved (Save
+    // clicked), reviewed (explicitly marked done), and needsReview (flagged for
+    // a billing correction). Best-effort — a DB hiccup must never fail the board.
+    const flags = new Map<string, { saved: boolean; reviewed: boolean; needsReview: boolean }>();
     if (bills.length > 0) {
       try {
         await ensureDb();
@@ -79,6 +79,7 @@ export async function GET(req: NextRequest) {
             docId: savedBills.docId,
             savedAt: savedBills.savedAt,
             reviewed: savedBills.reviewed,
+            needsReview: savedBills.needsReview,
           })
           .from(savedBills)
           .where(
@@ -88,7 +89,11 @@ export async function GET(req: NextRequest) {
             ),
           );
         for (const r of rows) {
-          flags.set(r.docId, { saved: (r.savedAt ?? "") !== "", reviewed: Boolean(r.reviewed) });
+          flags.set(r.docId, {
+            saved: (r.savedAt ?? "") !== "",
+            reviewed: Boolean(r.reviewed),
+            needsReview: Boolean(r.needsReview),
+          });
         }
       } catch {
         /* flags are best-effort */
@@ -101,6 +106,7 @@ export async function GET(req: NextRequest) {
         ...b,
         saved: flags.get(b.id)?.saved ?? false,
         reviewed: flags.get(b.id)?.reviewed ?? false,
+        needsReview: flags.get(b.id)?.needsReview ?? false,
       })),
       billTotal: bills.reduce((s, b) => s + (b.cost ?? 0), 0),
       lines,
