@@ -245,14 +245,11 @@ export function UncapturedBills({ jobId }: { jobId?: string } = {}) {
     post(it.expId, { delete: true }, "Delete failed");
   }
 
-  // ── First load. Say so, so a slow Apps Script round trip doesn't read as "clear". ──
+  // ── First load. Stay silent — this queue only shows itself when there's
+  // something to act on, so a slow round trip shows nothing rather than a
+  // transient "checking" line that resolves to an empty all-clear. ──
   if (checking && !items && !error) {
-    return (
-      <p className="mb-4 flex items-center gap-2 text-xs text-neutral-500">
-        <Spinner />
-        Checking for bills not in JobTread…
-      </p>
-    );
+    return null;
   }
 
   // ── The scan FAILED. This must never be mistakable for an all-clear, because
@@ -285,38 +282,12 @@ export function UncapturedBills({ jobId }: { jobId?: string } = {}) {
     );
   }
 
-  // ── All clear, and provably so: the count of bills actually examined, the
-  // window covered, and the time of the check. ──
+  // ── All clear. Show nothing — this queue is only worth screen space when a
+  // bill actually needs pushing. The green "every bill is in JobTread" stamp
+  // (with its scan count and Re-check) was noise on the far more common clean
+  // state, so it's gone; a real problem still surfaces the section below. ──
   if (shown.length === 0) {
-    return (
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-lg border border-emerald-300 bg-emerald-50/60 px-3 py-2 text-xs dark:border-emerald-900/60 dark:bg-emerald-950/20">
-        <span className="font-semibold text-emerald-800 dark:text-emerald-300">
-          ✓ {jobId ? "Every bill on this job is in JobTread" : "Every ingested bill is in JobTread"}
-        </span>
-        <span className="flex items-center gap-3 text-emerald-700/80 dark:text-emerald-400/70">
-          <span>
-            {scan
-              ? `checked ${scan.scanned.toLocaleString("en-US")} bill${
-                  scan.scanned === 1 ? "" : "s"
-                }${scan.since ? ` since ${scan.since}` : ""} · ${scan.at}`
-              : "checked"}
-          </span>
-          {elsewhere > 0 && (
-            <Link href="/trackingsheet" className="font-semibold text-accent dark:text-accent-soft">
-              {elsewhere} on other jobs →
-            </Link>
-          )}
-          <button
-            type="button"
-            onClick={load}
-            disabled={checking}
-            className="font-semibold underline disabled:opacity-50"
-          >
-            {checking ? "Checking…" : "Re-check"}
-          </button>
-        </span>
-      </div>
-    );
+    return null;
   }
 
   return (
