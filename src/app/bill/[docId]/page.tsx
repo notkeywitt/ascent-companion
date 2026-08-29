@@ -1002,12 +1002,26 @@ function BillDetail() {
         </Link>
       </div>
 
-      {/* Flagged for a billing correction — shown up top so it's seen without
-          opening the actions drawer, where the note and controls live. */}
+      {/* Flagged for a billing correction — shown up top, and made loud on
+          purpose (thick red edge, uppercase heading) so it's the first thing
+          seen without opening the actions drawer, where the note and controls
+          live. */}
       {needsReview && (
-        <Banner tone="warning" className="mt-3">
-          ⚑ <span className="font-semibold">Needs review.</span>{" "}
-          {reviewNote ? reviewNote : "Flagged for a billing correction."}
+        <Banner
+          tone="warning"
+          className="mt-3 flex items-start gap-2.5 border-l-4 border-amber-500 !py-3 dark:border-amber-400"
+        >
+          <span aria-hidden className="text-xl leading-none">
+            ⚑
+          </span>
+          <span className="min-w-0">
+            <span className="block text-sm font-bold uppercase tracking-wide">
+              Needs review
+            </span>
+            <span className="mt-0.5 block text-sm">
+              {reviewNote ? reviewNote : "Flagged for a billing correction."}
+            </span>
+          </span>
         </Banner>
       )}
 
@@ -1059,6 +1073,17 @@ function BillDetail() {
             under the title rather than stacking as separate rows. */}
         <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1.5">
           {header?.status && <BillStatusBadge status={header.status} />}
+          {/* Sits right beside the status badge so the flag rides with the
+              bill's other at-a-glance metadata, even once the banner above is
+              scrolled past. */}
+          {needsReview && (
+            <span
+              title="Flagged for a billing correction — see the note above"
+              className="inline-flex shrink-0 items-center gap-1 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-800 dark:bg-amber-950/50 dark:text-amber-300"
+            >
+              ⚑ Needs review
+            </span>
+          )}
           {/* Same "✓ Saved" marker the coding queue shows. Reviewed outranks it there,
               and here the Reviewed state already has its own button below. */}
           {saved && !reviewed && (

@@ -115,17 +115,27 @@ export function AllBills({ ym, setYm }: { ym: string; setYm: (ym: string) => voi
   // One bill's card — shared by the main list and the Sunset pane.
   const renderBillCard = (b: AllBill) => (
     <li key={b.id}>
-      <Card pad={false} className="flex items-stretch overflow-hidden">
+      <Card
+        pad={false}
+        className={`flex items-stretch overflow-hidden ${
+          b.needsReview
+            ? "ring-2 ring-red-400 dark:ring-red-500/70"
+            : ""
+        }`}
+      >
         {/* Status as a 3px edge stripe, same as the job board:
-            amber = draft, blue = already invoiced. */}
+            red = flagged for review (outranks everything — it's the thing to
+            act on), amber = draft, blue = already invoiced. */}
         <span
           aria-hidden
-          className={`w-[3px] shrink-0 ${
-            b.invoiced
-              ? "bg-sky-500"
-              : b.status === "draft"
-                ? "bg-amber-500"
-                : "bg-transparent"
+          className={`shrink-0 ${b.needsReview ? "w-[5px] bg-red-500" : "w-[3px]"} ${
+            b.needsReview
+              ? ""
+              : b.invoiced
+                ? "bg-sky-500"
+                : b.status === "draft"
+                  ? "bg-amber-500"
+                  : "bg-transparent"
           }`}
         />
         <Link
@@ -143,6 +153,13 @@ export function AllBills({ ym, setYm }: { ym: string; setYm: (ym: string) => voi
             {b.createdAt ? ` · added ${shortDate(b.createdAt)}` : ""}
           </span>
           <span className="mt-1.5 flex flex-wrap gap-1.5 empty:mt-0">
+            {/* Leads the row and rendered in red — a flagged bill is the one the
+                office needs to act on, so it must be impossible to miss. */}
+            {b.needsReview && (
+              <Chip tone="danger" title="Flagged for a billing correction — open the bill to see the note">
+                ⚑ Needs review
+              </Chip>
+            )}
             {b.status === "draft" && <Chip tone="neutral">draft</Chip>}
             {b.invoiced ? (
               <Chip tone="info" title="Already on a customer invoice — read-only">
@@ -154,11 +171,6 @@ export function AllBills({ ym, setYm }: { ym: string; setYm: (ym: string) => voi
                   uninvoiced
                 </Chip>
               )
-            )}
-            {b.needsReview && (
-              <Chip tone="warning" title="Flagged for a billing correction — see the bill">
-                ⚑ needs review
-              </Chip>
             )}
           </span>
         </Link>
