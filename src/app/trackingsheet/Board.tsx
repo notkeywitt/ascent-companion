@@ -3652,9 +3652,6 @@ export function Board() {
                                 <div className="flex items-center gap-2">
                                   <span className="min-w-0 flex-1 truncate">
                                     <span className="font-medium">{t.employee}</span>
-                                    <span className="ml-1.5 font-semibold tabular-nums">
-                                      {t.hours.toFixed(1)}h
-                                    </span>
                                     <span className="ml-1 text-neutral-500 dark:text-neutral-400">
                                       {t.startedAt ? t.startedAt.slice(0, 10) : ""}
                                     </span>
@@ -3670,8 +3667,10 @@ export function Board() {
                                   >
                                     {t.isApproved ? "approved" : "unapproved"}
                                   </Chip>
+                                  {/* Hours read alongside the amount they cost —
+                                      "1.0h · $85" — matching the Time & labor list. */}
                                   <span className="shrink-0 tabular-nums font-semibold">
-                                    {money(t.cost)}
+                                    {t.hours.toFixed(1)}h · {money(t.cost)}
                                   </span>
                                 </div>
                                 {/* Same treatment as the "Time & labor" block's
