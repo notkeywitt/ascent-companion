@@ -23,10 +23,11 @@
 import { companyDateParts } from "@/lib/billing";
 import { getPaveConfig, hasGrant } from "@/lib/config";
 import { summarizeDigestWithClaude } from "./claude";
-import { enabledChecks, disabledCheckIds } from "./registry";
+import { CHECKS } from "./registry";
+import { resolveChecks } from "./overrides";
 import { DIGEST_GLOBAL } from "./settings";
 import { saveDigest } from "./store";
-import type { DigestPayload, StoredCheckResult } from "./types";
+import type { DigestCheck, DigestPayload, StoredCheckResult } from "./types";
 
 /** YYYY-MM-DD in the company timezone — the digest's date key. */
 export function digestDateKey(now: Date = new Date()): string {
@@ -60,16 +61,24 @@ function reasonOf(e: unknown): string {
 /**
  * Run every enabled check and build the payload. Does NOT store — `runDigest`
  * does that — so this half is directly testable and reusable for a dry run.
+ *
+ * `allChecks` defaults to the static `CHECKS` (settings.ts only, no DB) so
+ * every existing caller — including the isolation test below — is unaffected.
+ * `runDigest` is the one real caller that passes the live, override-aware
+ * list from `resolveChecks()`.
  */
-export async function computeDigest(now: Date = new Date()): Promise<DigestPayload> {
+export async function computeDigest(
+  now: Date = new Date(),
+  allChecks: DigestCheck<never>[] = CHECKS,
+): Promise<DigestPayload> {
   const startedAt = Date.now();
   const today = digestDateKey(now);
   const pave = hasGrant() ? getPaveConfig() : null;
   const log: string[] = [];
   const stamp = (msg: string) => log.push(`[${new Date().toISOString()}] ${msg}`);
 
-  const checks = enabledChecks();
-  const off = disabledCheckIds();
+  const checks = allChecks.filter((c) => c.enabled);
+  const off = allChecks.filter((c) => !c.enabled).map((c) => c.id);
   stamp(`digest ${today}: running ${checks.length} check(s)${off.length ? `; disabled: ${off.join(", ")}` : ""}`);
   if (!pave) stamp("JT_GRANT_KEY is not set — JobTread-backed checks will report an error");
 
@@ -192,9 +201,16 @@ export function fallbackSummary(results: StoredCheckResult[]): string {
   return parts.join(" ");
 }
 
-/** Run every enabled check and store the result as today's digest. */
+/**
+ * Run every enabled check and store the result as today's digest.
+ *
+ * The one real caller: reads live settings (defaults + any /admin overrides)
+ * fresh via `resolveChecks()`, so a settings change takes effect on the very
+ * next run with no redeploy.
+ */
 export async function runDigest(now: Date = new Date()): Promise<DigestPayload> {
-  const payload = await computeDigest(now);
+  const checks = await resolveChecks();
+  const payload = await computeDigest(now, checks);
   await saveDigest(payload);
   return payload;
 }

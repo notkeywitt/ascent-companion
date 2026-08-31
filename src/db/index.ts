@@ -213,6 +213,16 @@ async function applySchema() {
       updated_at TEXT NOT NULL DEFAULT ''
     )
   `);
+  // Per-check overrides on top of the hardcoded DIGEST_SETTINGS defaults — lets
+  // /admin tune the Daily Digest without a redeploy. Read fresh on every run.
+  await getClient().execute(`
+    CREATE TABLE IF NOT EXISTS digest_settings_overrides (
+      check_id TEXT PRIMARY KEY,
+      enabled INTEGER,
+      config TEXT,
+      updated_at TEXT NOT NULL DEFAULT ''
+    )
+  `);
   await getClient().execute(`
     CREATE TABLE IF NOT EXISTS saved_bills (
       doc_id TEXT PRIMARY KEY,

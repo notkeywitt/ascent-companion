@@ -106,6 +106,29 @@ export const roleAccess = sqliteTable("role_access", {
 export type RoleAccessRow = typeof roleAccess.$inferSelect;
 
 /**
+ * DB-editable layer on top of the hardcoded defaults in lib/digest/settings.ts
+ * — lets an admin turn a check on/off or tune its config from /admin without a
+ * redeploy. One row per check id; no row = use the hardcoded default
+ * unchanged. `enabled` is nullable (null = no override, not "disabled").
+ * `config` is a JSON-encoded PARTIAL override, merged key-by-key over that
+ * check's default config (see mergeSettings in lib/digest/overrides.ts) — it
+ * is never a wholesale replacement, so an admin edit to one field can't
+ * accidentally blank out the rest.
+ *
+ * Unlike role_access, this is read FRESH on every digest run, not baked into
+ * a session at sign-in — the digest's caller is a scheduler with no session
+ * at all, so there is nothing to bake it into.
+ */
+export const digestSettingsOverrides = sqliteTable("digest_settings_overrides", {
+  checkId: text("check_id").primaryKey(), // matches DigestCheck.id, e.g. "calendar-events"
+  enabled: integer("enabled", { mode: "boolean" }),
+  config: text("config"),
+  updatedAt: text("updated_at").notNull().default(""),
+});
+
+export type DigestSettingsOverrideRow = typeof digestSettingsOverrides.$inferSelect;
+
+/**
  * Assistant-side per-bill workflow flags, keyed by JobTread document id:
  *  - saved:    the "Save" button was clicked and a line write succeeded (auto).
  *  - reviewed: the office explicitly marked the bill reviewed/done (a toggle).

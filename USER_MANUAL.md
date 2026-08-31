@@ -495,12 +495,24 @@ and under it these collapsible sections:
   next week, grouped by who they're assigned to; and appointments or action items
   that were **mentioned in an email** ("site visit Thursday at 2", "I'll send the
   quote by Friday"), which a subject line alone would never surface.
-- **Follow-ups** — emails from outside that nobody has replied to.
+- **Follow-ups** — emails from outside that nobody has replied to. Routine
+  Sunset Builders Supply bill/payment emails are excluded (nobody replies to
+  an invoice, and Sunset's own ingestion already owns them); a Sunset monthly
+  **statement** email is not excluded, since that one genuinely needs office
+  action.
 
 **Billing is switched off** (as of 31 Aug 2026). The digest used to open with four
 billing checks; billing now has its own screens (Tracking Sheets, Unbilled,
 Recode), so the digest is a schedule and to-do report instead. The billing checks
-still exist and can be turned back on one at a time — just ask.
+still exist and can be turned back on from **Admin → Digest** (see below) — no
+need to ask for a code change.
+
+**Tuning the digest — Admin → Digest.** Every check above can be turned on or
+off, and its numbers (how many days back, how many days ahead, how many items)
+and lists (who to watch, whose email to ignore, which calendars to read) can be
+edited from this screen, and take effect on the very next scheduled run — no
+redeploy. Adding a brand-new check is still a real code change, same as the
+JobTread Schedule check was.
 
 Each section header shows a count and one of: ✅ nothing to report, a plain count
 for information (the calendar's events, which are not a problem to be fixed),

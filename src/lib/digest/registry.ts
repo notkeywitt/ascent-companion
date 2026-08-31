@@ -48,22 +48,34 @@ const DECLARED: DigestCheck<never>[] = [
   costVsInvoiceCheck,
 ] as unknown as DigestCheck<never>[];
 
-type SettingsBlock = { enabled: boolean; config: unknown };
+export type SettingsBlock = { enabled: boolean; config: unknown };
 
 /**
- * The registry: every declared check with its settings block bound in.
+ * Bind every declared check to a settings map — DEFAULT_SETTINGS unless a
+ * caller passes an override-merged one (see `resolveChecks` in
+ * `overrides.ts`, which layers /admin's DB overrides on top of DIGEST_SETTINGS
+ * before calling this). Pulled out as its own function so both the static
+ * `CHECKS` below and the live, override-aware resolver share one
+ * implementation instead of two copies that could drift.
  *
  * A check with no matching settings block is returned disabled rather than
  * dropped, so `/api/digest` can report "configured but not running" instead of
  * the check quietly vanishing.
  */
-export const CHECKS: DigestCheck<never>[] = DECLARED.map((check) => {
-  const block = (DIGEST_SETTINGS as Record<string, SettingsBlock | undefined>)[check.id];
-  if (!block) {
-    return { ...check, enabled: false, config: {} as never };
-  }
-  return { ...check, enabled: block.enabled, config: block.config as never };
-});
+export function bindChecks(
+  settingsMap: Record<string, SettingsBlock | undefined> = DIGEST_SETTINGS,
+): DigestCheck<never>[] {
+  return DECLARED.map((check) => {
+    const block = settingsMap[check.id];
+    if (!block) {
+      return { ...check, enabled: false, config: {} as never };
+    }
+    return { ...check, enabled: block.enabled, config: block.config as never };
+  });
+}
+
+/** The registry: every declared check with its settings.ts block bound in. */
+export const CHECKS: DigestCheck<never>[] = bindChecks();
 
 /** Just the checks that will actually run. */
 export function enabledChecks(): DigestCheck<never>[] {
