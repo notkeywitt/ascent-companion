@@ -140,15 +140,18 @@ export const uncapturedBillsCheck = defineCheck<UncapturedBillsConfig>({
   enabled: true, // real value comes from settings.ts via the registry
   config: {} as UncapturedBillsConfig,
 
-  async run({ config, pave, log }): Promise<CheckResult> {
+  async run({ config, settings, pave, log }): Promise<CheckResult> {
     if (!pave?.grantKey) return checkError("JobTread isn't configured, so bills can't be matched.");
 
     // 1. Candidate invoice mail (Apps Script owns the Gmail grant).
-    const r = await callAppsScript<DigestEmailResponse>({
-      action: "digestInvoiceEmails",
-      days: config.lookbackDays,
-      limit: config.maxEmails,
-    });
+    const r = await callAppsScript<DigestEmailResponse>(
+      {
+        action: "digestInvoiceEmails",
+        days: config.lookbackDays,
+        limit: config.maxEmails,
+      },
+      { timeoutMs: settings.appsScriptTimeoutMs },
+    );
     if (r.error) return checkError(`Couldn't read the inbox: ${r.error}`);
     if (r.data?.ok === false) return checkError(r.data.error || "Gmail scan failed.");
     const emails = r.data?.emails ?? [];

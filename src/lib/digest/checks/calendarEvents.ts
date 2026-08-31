@@ -79,14 +79,17 @@ export const calendarEventsCheck = defineCheck<CalendarEventsConfig>({
   enabled: true, // real value comes from settings.ts via the registry
   config: {} as CalendarEventsConfig,
 
-  async run({ config, today, log }): Promise<CheckResult> {
-    const r = await callAppsScript<CalendarResponse>({
-      action: "digestCalendar",
-      days: config.days,
-      calendarIds: config.calendarIds,
-      calendarNames: config.calendarNames,
-      includePrimary: config.includePrimary,
-    });
+  async run({ config, settings, today, log }): Promise<CheckResult> {
+    const r = await callAppsScript<CalendarResponse>(
+      {
+        action: "digestCalendar",
+        days: config.days,
+        calendarIds: config.calendarIds,
+        calendarNames: config.calendarNames,
+        includePrimary: config.includePrimary,
+      },
+      { timeoutMs: settings.appsScriptTimeoutMs },
+    );
     if (r.error) return checkError(`Couldn't read the calendars: ${r.error}`);
     if (r.data?.ok === false) return checkError(r.data.error || "Calendar read failed.");
 

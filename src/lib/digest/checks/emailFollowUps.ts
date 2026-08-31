@@ -73,16 +73,19 @@ export const emailFollowUpsCheck = defineCheck<EmailFollowUpsConfig>({
   enabled: true, // real value comes from settings.ts via the registry
   config: {} as EmailFollowUpsConfig,
 
-  async run({ config, log }): Promise<CheckResult> {
+  async run({ config, settings, log }): Promise<CheckResult> {
     const dbIgnores = await activeIgnorePatterns();
     if (dbIgnores.length) log(`${dbIgnores.length} office-set ignore rule(s) applied`);
 
-    const r = await callAppsScript<FollowUpResponse>({
-      action: "digestFollowUps",
-      days: config.lookbackDays,
-      officeAddresses: config.officeAddresses,
-      ignorePatterns: [...config.ignoreSenders, ...dbIgnores],
-    });
+    const r = await callAppsScript<FollowUpResponse>(
+      {
+        action: "digestFollowUps",
+        days: config.lookbackDays,
+        officeAddresses: config.officeAddresses,
+        ignorePatterns: [...config.ignoreSenders, ...dbIgnores],
+      },
+      { timeoutMs: settings.appsScriptTimeoutMs },
+    );
     if (r.error) return checkError(`Couldn't read the inbox: ${r.error}`);
     if (r.data?.ok === false) return checkError(r.data.error || "Gmail scan failed.");
 

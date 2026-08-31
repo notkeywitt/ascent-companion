@@ -49,13 +49,16 @@ export const emailSignalsCheck = defineCheck<EmailSignalsConfig>({
   enabled: true, // real value comes from settings.ts via the registry
   config: {} as EmailSignalsConfig,
 
-  async run({ config, log }): Promise<CheckResult> {
-    const r = await callAppsScript<DigestEmailContentResponse>({
-      action: "digestEmailContent",
-      days: config.lookbackDays,
-      limit: config.maxEmails,
-      maxChars: config.maxBodyChars,
-    });
+  async run({ config, settings, log }): Promise<CheckResult> {
+    const r = await callAppsScript<DigestEmailContentResponse>(
+      {
+        action: "digestEmailContent",
+        days: config.lookbackDays,
+        limit: config.maxEmails,
+        maxChars: config.maxBodyChars,
+      },
+      { timeoutMs: settings.appsScriptTimeoutMs },
+    );
     if (r.error) return checkError(`Couldn't read email content: ${r.error}`);
     if (r.data?.ok === false) return checkError(r.data.error || "Gmail read failed.");
 

@@ -67,6 +67,19 @@ export interface DigestGlobalSettings {
   billingCutoffDay: number;
   /** Ceiling on one check's run before the aggregator gives up on it (ms). */
   checkTimeoutMs: number;
+  /**
+   * Budget for ONE Apps Script call made by a check (ms).
+   *
+   * ⚠️ Must stay UNDER `checkTimeoutMs`, so a slow Google read fails with the
+   * bridge's own "timed out" message (which names Apps Script) rather than the
+   * aggregator's generic per-check kill. `callAppsScript` otherwise defaults to
+   * 25s, which is sized for a route that declares no `maxDuration` — the digest
+   * route declares 300s, and a Gmail scan that walks 150 inbox threads
+   * (`digestFollowUps`, `digestEmailContent`) routinely needs more than 25s.
+   * That mismatch is what surfaced as "Apps Script timed out after 25000ms" on
+   * the Waiting-on-a-Reply check.
+   */
+  appsScriptTimeoutMs: number;
   /** Most items any single check may contribute, so one noisy check can't bury the rest. */
   maxItemsPerCheck: number;
 }
@@ -74,6 +87,7 @@ export interface DigestGlobalSettings {
 export const DIGEST_GLOBAL: DigestGlobalSettings = {
   billingCutoffDay: 10,
   checkTimeoutMs: 60_000,
+  appsScriptTimeoutMs: 55_000,
   maxItemsPerCheck: 50,
 };
 

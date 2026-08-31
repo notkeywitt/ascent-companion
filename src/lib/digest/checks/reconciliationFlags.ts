@@ -57,11 +57,14 @@ export const reconciliationFlagsCheck = defineCheck<ReconciliationFlagsConfig>({
   enabled: true, // real value comes from settings.ts via the registry
   config: {} as ReconciliationFlagsConfig,
 
-  async run({ config, log }): Promise<CheckResult> {
-    const r = await callAppsScript<FlagsResponse>({
-      action: "digestReconciliationFlags",
-      limit: config.maxRows,
-    });
+  async run({ config, settings, log }): Promise<CheckResult> {
+    const r = await callAppsScript<FlagsResponse>(
+      {
+        action: "digestReconciliationFlags",
+        limit: config.maxRows,
+      },
+      { timeoutMs: settings.appsScriptTimeoutMs },
+    );
     if (r.error) return checkError(`Couldn't read the Expenditure sheet: ${r.error}`);
     if (r.data?.ok === false) return checkError(r.data.error || "Reconciliation read failed.");
 
