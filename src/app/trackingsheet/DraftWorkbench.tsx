@@ -1311,13 +1311,12 @@ export function DraftCodingPanel({
         </p>
       )}
 
-      <BillCodingCard ctl={ctl} />
-
-      {/* Save sits OUTSIDE the card, where the board puts its Sync: the board
-          commits a whole month of staged bills at once, this commits the one
-          bill in front of you. */}
+      {/* Save sits OUTSIDE the card, above it, where the board puts its Sync:
+          the board commits a whole month of staged bills at once, this
+          commits the one bill in front of you — and pinned at the top means
+          it's still on screen after scrolling down a long bill. */}
       {header && (
-        <div className="mt-2">
+        <div className="mb-2">
           <Button className="w-full" onClick={save} disabled={saving}>
             {saving
               ? "Saving…"
@@ -1335,6 +1334,8 @@ export function DraftCodingPanel({
           )}
         </div>
       )}
+
+      <BillCodingCard ctl={ctl} />
     </>
   );
 }
