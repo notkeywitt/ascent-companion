@@ -4313,6 +4313,7 @@ export async function getOrgTimeEntries(
     if (clauses.length) args.where = clauses.length === 1 ? clauses[0] : { and: clauses };
     const r = await pave(cfg, {
       organization: {
+        $: { id: cfg.orgId },
         id: {},
         timeEntries: {
           $: args,
