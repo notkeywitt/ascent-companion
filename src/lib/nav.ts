@@ -104,3 +104,37 @@ export const AREAS: Area[] = [
     ],
   },
 ];
+
+/**
+ * ── The FIELD launcher ────────────────────────────────────────────────────
+ *
+ * A field employee's home page is NOT the area lists above. It is four large
+ * buttons: Miles · Time · Tools · The Rest. The first three are the pages a
+ * crew member opens all day; the fourth opens /more, a plain menu of
+ * everything else they are allowed to reach.
+ *
+ * TO CURATE WHAT A FIELD USER SEES, edit the two arrays below — this is the
+ * only place to change. Two rules:
+ *   • A destination shows only if the user's role also GRANTS its view (see
+ *     ROLE_VIEWS / the Role Defaults editor on /admin). So you can list an
+ *     entry here before granting it — it stays hidden until you do.
+ *   • Keep FIELD_QUICK at three. The fourth button is always The Rest.
+ */
+export const FIELD_QUICK: Dest[] = [
+  { label: "Miles", href: "/mileage-tracker", desc: "Track your mileage", view: "mileage" },
+  { label: "Time", href: "/employee-time", desc: "Log and review your hours", view: "employee-time" },
+  { label: "Tools", href: "/tools", desc: "The tool tracker", view: "tools" },
+];
+
+/** Everything else a field user can open, in the order it lists on /more. */
+export const FIELD_REST: Dest[] = [
+  { label: "Time Off", href: "/time-off", desc: "Request time off & see your balance", view: "time-off" },
+  { label: "Requisitions", href: "/requisitions", desc: "Request materials & supplies", view: "requisitions" },
+  { label: "Safety Meeting", href: "/safety-meeting", desc: "Pass the iPad and collect sign-ins", view: "safety-meeting" },
+  { label: "RFIs", href: "/rfis", desc: "View and create a job's RFIs", view: "rfis" },
+  { label: "Requests", href: "/requests", desc: "Ask for fixes and new features", view: "requests" },
+  { label: "Assistant", href: "/chat", desc: "Ask about a job's bills or budget", view: "chat" },
+];
+
+/** Where the fourth button goes. */
+export const FIELD_REST_HREF = "/more";

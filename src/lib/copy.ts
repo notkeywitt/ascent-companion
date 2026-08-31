@@ -101,6 +101,10 @@ export const COPY: Record<string, CopyEntry> = {
   "home.quick.tools.full": { text: "Tools", label: "Tools — full name", group: "Home — quick buttons" },
   "home.quick.requisitions.label": { text: "Reqs", label: "Requisitions — button", group: "Home — quick buttons", short: true },
   "home.quick.requisitions.full": { text: "Requisitions", label: "Requisitions — full name", group: "Home — quick buttons" },
+  // The fourth button on the FIELD launcher — it opens /more, the curated menu
+  // of everything else that role can reach (src/lib/nav.ts → FIELD_REST).
+  "home.quick.more.label": { text: "The Rest", label: "The Rest — button", group: "Home — quick buttons", short: true },
+  "home.quick.more.full": { text: "Everything else", label: "The Rest — full name", group: "Home — quick buttons" },
 
   // ── Home launcher: Financials destinations ───────────────────────────────
   "home.dest.recode.label": { text: "Tracking Sheets", label: "Tracking Sheets — name", group: "Home — Financials" },
