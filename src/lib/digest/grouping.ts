@@ -72,3 +72,32 @@ export function groupByCategory(
     };
   });
 }
+
+/**
+ * How a category (or a single check) should be PRESENTED — which is not the same
+ * question as what its status is.
+ *
+ * `status` answers "did this check find a problem". Presentation has to answer
+ * "what should the reader see", and those diverge in one case that used to be
+ * mis-drawn: a check that reports `ok` and still returns ITEMS. "On the
+ * Calendar" is exactly that — a full calendar is information, not a problem, so
+ * it deliberately returns `ok` (see checks/calendarEvents.ts) — and the card was
+ * therefore painting a green ✅ "Clear" over a day holding twelve events, hiding
+ * the count. That was tolerable while the digest led with billing; once the
+ * digest became a schedule/to-do report (2026-08-31) Calendar is the FIRST
+ * thing on the card, so "Clear" was the headline on a busy morning.
+ *
+ * `info` is the fix: same neutral, non-alarming reading as `ok` — it must NOT
+ * borrow amber, which is reserved for work that is actually waiting — but it
+ * shows the count and drops the tick. Derived from data, so no check and no
+ * category is named here: any future check that reports items without alarm
+ * gets the same treatment for free.
+ */
+export type CategoryTone = "clear" | "info" | "warning" | "error";
+
+/** The tone for a rolled-up category or one check result: status first, then "ok but not empty". */
+export function categoryTone(view: { status: CheckStatus; itemCount: number }): CategoryTone {
+  if (view.status === "error") return "error";
+  if (view.status === "warning") return "warning";
+  return view.itemCount > 0 ? "info" : "clear";
+}

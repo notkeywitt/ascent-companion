@@ -70,7 +70,20 @@ The digest's Gmail, Calendar and Sheet reads run in the **Apps Script** repo
 3. The first digest run lists every calendar the account can see. Copy the ids of
    the shared/operational ones into `calendarIds` in
    `src/lib/digest/settings.ts` — the defaults match on name fragments
-   ("office", "bills", "projects", "time off") and ids are more durable.
+   ("office", "ty", "casey", "time off") and ids are more durable.
+4. The **email-signals** check ("From Your Email") needs BOTH halves shipped: the
+   Apps Script `digestEmailContent` action (deployed 2026-08-31) and a `GEMINI_KEY`
+   in Vercel. With no key, that one check reports ❌ "Gemini isn't configured" and
+   the rest of the digest is unaffected — but note the worst-status roll-up means
+   the whole **To-Do** section then shows ❌ even when the JobTread to-do half
+   worked, so a missing key is loud rather than silent. This is deliberate: a check
+   that quietly stops running is the worst failure for a tool whose job is noticing
+   things.
+
+> The digest is a **schedule/to-do report, not a billing report** (pivoted
+> 2026-08-31). The four billing checks are `enabled: false` in
+> `src/lib/digest/settings.ts`; nothing needs deploying to turn one back on beyond
+> flipping that flag and redeploying.
 
 ## 4. Use it
 

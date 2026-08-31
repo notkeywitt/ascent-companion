@@ -484,19 +484,34 @@ Your morning review, done for you before you open the app. A scheduled job runs 
 **6am Pacific** every day, works through a list of checks, and stores the answer; the
 card just shows what it stored, so opening Home is instant. A short plain-English
 paragraph sits at the top — that's the one thing to read if you read nothing else —
-and under it three collapsible sections:
+and under it these collapsible sections:
 
-- **Billing** — vendor invoices that arrived by email with no matching bill in
-  JobTread; draft bills left over from a billing month that already closed (past the
-  10th); the Expenditure sheet's reconciliation flags; and jobs where what we've spent
-  has run ahead of what the client has been invoiced.
-- **Calendar** — what's on the shared office calendars today and this week.
+- **Calendar** — what's on the shared calendars today and for the week ahead
+  (the office calendar plus Ty's and Casey's). When more than one calendar has
+  something that day, each line says whose it is.
+- **To-Do** — two things. Open **JobTread to-dos** that are overdue or due in the
+  next week, grouped by who they're assigned to; and appointments or action items
+  that were **mentioned in an email** ("site visit Thursday at 2", "I'll send the
+  quote by Friday"), which a subject line alone would never surface.
 - **Follow-ups** — emails from outside that nobody has replied to.
 
-Each section header shows ✅ all clear, ⚠️ with a count, or ❌ if that check couldn't
-run (a source being down never breaks the rest of the digest — only that one line).
-Tap a section to open it, tap any line to see the detail and a button through to the
-Gmail thread, the JobTread record, or the bill.
+**Billing is switched off** (as of 31 Aug 2026). The digest used to open with four
+billing checks; billing now has its own screens (Tracking Sheets, Unbilled,
+Recode), so the digest is a schedule and to-do report instead. The billing checks
+still exist and can be turned back on one at a time — just ask.
+
+Each section header shows a count and one of: ✅ nothing to report, a plain count
+for information (the calendar's events, which are not a problem to be fixed),
+⚠️ with a count when something is genuinely waiting on someone, or ❌ if that check
+couldn't run (a source being down never breaks the rest of the digest — only that
+one line). Tap a section to open it, tap any line to see the detail and a button
+through to the Gmail thread or the JobTread record.
+
+> **One thing to know about the email scan.** To find an appointment buried in an
+> email's text, that check sends a short slice of recent inbox messages to Google's
+> Gemini. It is trimmed and stripped of quoted reply history first, only the
+> extracted result is kept, and no other check sends message text anywhere — they
+> read sender, subject and date only.
 
 **Refresh now** (top right of the card) rebuilds the digest immediately — useful after
 you've fixed something and want to confirm it's cleared.
@@ -505,9 +520,10 @@ you've fixed something and want to confirm it's cleared.
 > event, or changes anything in JobTread or the Sheet.
 
 **Changing what it checks.** All the thresholds live in one file
-(`src/lib/digest/settings.ts`) — which vendors to ignore, the billing cutoff day, which
-calendars to read, how many days before an unanswered email is chased, how big a
-cost/invoice gap has to be. Ask for an edit there rather than "turn off the noisy one";
+(`src/lib/digest/settings.ts`) — which calendars to read, how far ahead a to-do
+counts as "due soon" and whose to-dos to watch, how far back the email scan looks,
+how many days before an unanswered email is chased, and (for the billing checks, if
+they come back on) which vendors to ignore and the billing cutoff day. Ask for an edit there rather than "turn off the noisy one";
 each check can also be switched off individually. New checks get added the same way —
 one new file — so this list is expected to grow.
 
