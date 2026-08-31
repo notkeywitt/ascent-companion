@@ -25,6 +25,7 @@ import { getPaveConfig, hasGrant } from "@/lib/config";
 import { summarizeDigestWithClaude } from "./claude";
 import { CHECKS } from "./registry";
 import { resolveChecks } from "./overrides";
+import { getInstructionTexts } from "./instructions";
 import { DIGEST_GLOBAL } from "./settings";
 import { saveDigest } from "./store";
 import type { DigestCheck, DigestPayload, StoredCheckResult } from "./types";
@@ -70,6 +71,7 @@ function reasonOf(e: unknown): string {
 export async function computeDigest(
   now: Date = new Date(),
   allChecks: DigestCheck<never>[] = CHECKS,
+  instructions: string[] = [],
 ): Promise<DigestPayload> {
   const startedAt = Date.now();
   const today = digestDateKey(now);
@@ -81,6 +83,7 @@ export async function computeDigest(
   const off = allChecks.filter((c) => !c.enabled).map((c) => c.id);
   stamp(`digest ${today}: running ${checks.length} check(s)${off.length ? `; disabled: ${off.join(", ")}` : ""}`);
   if (!pave) stamp("JT_GRANT_KEY is not set — JobTread-backed checks will report an error");
+  if (instructions.length) stamp(`${instructions.length} standing instruction(s) will shape the summary`);
 
   const results: StoredCheckResult[] = [];
   for (const check of checks) {
@@ -147,6 +150,7 @@ export async function computeDigest(
         itemCount: r.items.length,
         topItems: r.items.slice(0, 5).map((i) => ({ title: i.title, amount: i.amount, date: i.date })),
       })),
+      instructions,
     );
     if (generated) {
       summary = generated;
@@ -218,8 +222,8 @@ export function fallbackSummary(results: StoredCheckResult[]): string {
  * next run with no redeploy.
  */
 export async function runDigest(now: Date = new Date()): Promise<DigestPayload> {
-  const checks = await resolveChecks();
-  const payload = await computeDigest(now, checks);
+  const [checks, instructions] = await Promise.all([resolveChecks(), getInstructionTexts()]);
+  const payload = await computeDigest(now, checks, instructions);
   await saveDigest(payload);
   return payload;
 }

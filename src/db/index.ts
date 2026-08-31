@@ -704,6 +704,20 @@ async function applySchema() {
       created_at TEXT NOT NULL
     )
   `);
+  // The Daily Digest's STANDING INSTRUCTIONS — the owner's durable preferences
+  // for how the morning brief is written, injected into the summary prompt on
+  // every run (see src/lib/digest/instructions.ts + claude.ts). Distinct from
+  // digest_todos (a one-time reminder); this is memory for Claude, not a note.
+  await getClient().execute(`
+    CREATE TABLE IF NOT EXISTS digest_instructions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      text TEXT NOT NULL,
+      active INTEGER NOT NULL DEFAULT 1,
+      created_by TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL DEFAULT ''
+    )
+  `);
 }
 
 export { schema };

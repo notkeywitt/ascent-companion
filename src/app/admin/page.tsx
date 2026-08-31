@@ -24,6 +24,7 @@ import { startPreview, stopPreview } from "@/lib/previewClient";
 import { ActivityPanel } from "./ActivityPanel";
 import { NoticesPanel } from "./NoticesPanel";
 import { DigestSettingsPanel } from "./DigestSettingsPanel";
+import { DigestInstructionsPanel } from "./DigestInstructionsPanel";
 
 interface Member {
   email: string;
@@ -78,7 +79,10 @@ export default function AdminPage() {
       ) : tab === "notices" ? (
         <NoticesPanel />
       ) : (
-        <DigestSettingsPanel />
+        <>
+          <DigestInstructionsPanel />
+          <DigestSettingsPanel />
+        </>
       )}
     </main>
   );

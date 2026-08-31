@@ -785,3 +785,33 @@ export const digestReplies = sqliteTable("digest_replies", {
 
 export type DigestReply = typeof digestReplies.$inferSelect;
 export type NewDigestReply = typeof digestReplies.$inferInsert;
+
+/**
+ * The Daily Digest's STANDING INSTRUCTIONS — the owner's durable preferences for
+ * how the morning brief is written ("stop telling me about the Simon logo
+ * emails", "always list overdue invoices first"), set via the reply box (see
+ * src/app/api/digest/reply/route.ts) or Admin → Digest, and read by
+ * getActiveInstructions (src/lib/digest/instructions.ts).
+ *
+ * DIFFERENT FROM `digestTodos`. A todo is a one-time reminder that gets
+ * completed and then disappears. A standing instruction never "finishes": every
+ * active row is injected into the digest SUMMARY prompt on EVERY run (see
+ * summarizeDigestWithClaude in src/lib/digest/claude.ts), so the model shapes
+ * the brief around it — it is memory for Claude, not a note the owner reads
+ * back. This is the fix for the reply box turning "ignore the logo emails" into
+ * a bullet reminding the owner to ignore them.
+ *
+ * Deactivated (`active` false) rather than deleted when the owner says to forget
+ * one, so "why did the digest stop mentioning X" stays answerable.
+ */
+export const digestInstructions = sqliteTable("digest_instructions", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  text: text("text").notNull(),
+  active: integer("active", { mode: "boolean" }).notNull().default(true),
+  createdBy: text("created_by").notNull().default(""), // signed-in email, if known
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull().default(""),
+});
+
+export type DigestInstruction = typeof digestInstructions.$inferSelect;
+export type NewDigestInstruction = typeof digestInstructions.$inferInsert;

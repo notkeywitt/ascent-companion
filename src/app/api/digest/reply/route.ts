@@ -3,16 +3,22 @@ import { eq, and } from "drizzle-orm";
 
 import { auth } from "@/auth";
 import { db, ensureDb } from "@/db";
-import { digestTodos, digestIgnoreRules, digestReplies } from "@/db/schema";
+import { digestTodos, digestIgnoreRules, digestReplies, digestInstructions } from "@/db/schema";
 import { digestDateKey } from "@/lib/digest/run";
 import { parseDigestReplyWithClaude, type DigestReplyAction } from "@/lib/digest/claude";
 
 /**
  * POST /api/digest/reply — the digest's reply box. Turns a free-text note
- * ("remind me about the L&I thing tomorrow, ignore emails from so-and-so") into
- * durable state: a row in `digest_todos` and/or `digest_ignore_rules`, read back
- * by the `digest-todos` and `email-followups` checks on the NEXT digest run —
- * this route never touches today's already-stored digest.
+ * ("remind me about the L&I thing tomorrow, stop mentioning the logo emails")
+ * into durable state: a row in `digest_todos`, `digest_ignore_rules`, and/or
+ * `digest_instructions`, read back on the NEXT digest run — a todo by the
+ * `digest-todos` check, an ignore rule by `email-followups`, and a standing
+ * instruction injected into the summary prompt (see src/lib/digest/claude.ts).
+ * This route never touches today's already-stored digest.
+ *
+ * The reply box is memory the owner talks to, not a notepad: a lasting "how to
+ * write the brief" preference becomes a standing instruction the model applies
+ * every morning, rather than a bullet reminding the owner of their own note.
  *
  * Session-gated (unlike /api/digest/run, which a scheduler with no session must
  * call) — the office is the only caller, from the home screen's reply box.
@@ -42,12 +48,16 @@ export async function POST(req: NextRequest) {
   const today = digestDateKey();
   const now = new Date().toISOString();
 
-  const [openTodoRows, ruleRows] = await Promise.all([
+  const [openTodoRows, ruleRows, instructionRows] = await Promise.all([
     db.select({ id: digestTodos.id, text: digestTodos.text }).from(digestTodos).where(eq(digestTodos.status, "open")),
     db
       .select({ id: digestIgnoreRules.id, pattern: digestIgnoreRules.pattern })
       .from(digestIgnoreRules)
       .where(and(eq(digestIgnoreRules.kind, "email_sender"), eq(digestIgnoreRules.active, true))),
+    db
+      .select({ id: digestInstructions.id, text: digestInstructions.text })
+      .from(digestInstructions)
+      .where(eq(digestInstructions.active, true)),
   ]);
 
   let parsed: { actions: DigestReplyAction[] } | null = null;
@@ -56,6 +66,7 @@ export async function POST(req: NextRequest) {
       today,
       openTodos: openTodoRows,
       activeIgnoreRules: ruleRows,
+      activeInstructions: instructionRows,
     });
   } catch (e) {
     console.error("[digest reply] parse failed:", e);
@@ -70,6 +81,7 @@ export async function POST(req: NextRequest) {
 
   const validTodoIds = new Set(openTodoRows.map((r) => r.id));
   const validRuleIds = new Set(ruleRows.map((r) => r.id));
+  const validInstructionIds = new Set(instructionRows.map((r) => r.id));
   const applied: AppliedAction[] = [];
 
   for (const action of parsed.actions) {
@@ -124,6 +136,26 @@ export async function POST(req: NextRequest) {
         await db.update(digestIgnoreRules).set({ active: false }).where(eq(digestIgnoreRules.id, action.ruleId));
         const matched = ruleRows.find((r) => r.id === action.ruleId);
         applied.push({ type: action.type, summary: `Will flag emails matching "${matched?.pattern}" again` });
+      } else if (action.type === "add_instruction" && action.instruction) {
+        await db.insert(digestInstructions).values({
+          text: action.instruction,
+          active: true,
+          createdBy: email,
+          createdAt: now,
+          updatedAt: now,
+        });
+        applied.push({ type: action.type, summary: `Standing instruction saved: ${action.instruction}` });
+      } else if (
+        action.type === "remove_instruction" &&
+        action.instructionId &&
+        validInstructionIds.has(action.instructionId)
+      ) {
+        await db
+          .update(digestInstructions)
+          .set({ active: false, updatedAt: now })
+          .where(eq(digestInstructions.id, action.instructionId));
+        const matched = instructionRows.find((r) => r.id === action.instructionId);
+        applied.push({ type: action.type, summary: `Standing instruction dropped: ${matched?.text ?? "that one"}` });
       }
     } catch (e) {
       console.error("[digest reply] failed to apply action:", action, e);

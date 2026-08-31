@@ -72,13 +72,29 @@ function client(): Anthropic {
  * find out why — a missing API key, an unknown model id, a rate limit and a
  * timeout were all indistinguishable. The reason is the whole point.
  */
-export async function summarizeDigestWithClaude(structured: unknown): Promise<string | null> {
+export async function summarizeDigestWithClaude(
+  structured: unknown,
+  instructions: string[] = [],
+): Promise<string | null> {
   if (!process.env.ANTHROPIC_API_KEY?.trim()) throw new Error("ANTHROPIC_API_KEY is not set");
+
+  // The owner's STANDING INSTRUCTIONS (see src/lib/digest/instructions.ts) — the
+  // durable preferences set through the reply box or Admin → Digest. They are
+  // memory for how the brief is written, NOT items to list back: the explicit
+  // "leave it out silently, don't add a bullet about the instruction" is what
+  // fixes the reply box turning "ignore the logo emails" into a bullet telling
+  // the owner to ignore them.
+  const standing = instructions.length
+    ? `\n\nSTANDING INSTRUCTIONS FROM THE OWNER — ongoing preferences for how you write this brief, to
+apply every time. Follow them silently: if one says to leave something out or downplay it, simply do
+so; NEVER add a bullet or sentence restating the instruction itself or reminding the owner of it.
+${instructions.map((s) => `- ${s}`).join("\n")}\n`
+    : "";
 
   const prompt = `You are the owner's executive assistant at a small construction company, writing
 their morning brief. Below is the STRUCTURED OUTPUT of this morning's automated checks — crew time
 entries, the JobTread and calendar schedule, open to-dos and office reminders, and email needing a
-reply.
+reply.${standing}
 
 Write a short brief — no more than about 200 words total — ORGANISED INTO SEPARATE BLOCKS, one
 topic per block, separated by a BLANK LINE, in this order:
@@ -320,7 +336,9 @@ export type DigestReplyActionType =
   | "complete_todo"
   | "snooze_todo"
   | "add_ignore_rule"
-  | "remove_ignore_rule";
+  | "remove_ignore_rule"
+  | "add_instruction"
+  | "remove_instruction";
 
 export interface DigestReplyAction {
   type: DigestReplyActionType;
@@ -330,12 +348,15 @@ export interface DigestReplyAction {
   pattern?: string; // add_ignore_rule
   reason?: string; // add_ignore_rule (optional)
   ruleId?: number; // remove_ignore_rule
+  instruction?: string; // add_instruction
+  instructionId?: number; // remove_instruction
 }
 
 export interface DigestReplyContext {
   today: string; // YYYY-MM-DD, for resolving "tomorrow"/"next week" etc.
   openTodos: { id: number; text: string }[];
   activeIgnoreRules: { id: number; pattern: string }[];
+  activeInstructions: { id: number; text: string }[];
 }
 
 const DIGEST_REPLY_SCHEMA = {
@@ -348,7 +369,15 @@ const DIGEST_REPLY_SCHEMA = {
         properties: {
           type: {
             type: "string",
-            enum: ["add_todo", "complete_todo", "snooze_todo", "add_ignore_rule", "remove_ignore_rule"],
+            enum: [
+              "add_todo",
+              "complete_todo",
+              "snooze_todo",
+              "add_ignore_rule",
+              "remove_ignore_rule",
+              "add_instruction",
+              "remove_instruction",
+            ],
           },
           text: { type: "string" },
           todoId: { type: "integer" },
@@ -356,6 +385,8 @@ const DIGEST_REPLY_SCHEMA = {
           pattern: { type: "string" },
           reason: { type: "string" },
           ruleId: { type: "integer" },
+          instruction: { type: "string" },
+          instructionId: { type: "integer" },
         },
         required: ["type"],
         additionalProperties: false,
@@ -388,29 +419,45 @@ ${context.openTodos.length ? context.openTodos.map((t) => `[${t.id}] ${t.text}`)
 ACTIVE EMAIL IGNORE RULES (reference by "ruleId" to remove one; never invent an id):
 ${context.activeIgnoreRules.length ? context.activeIgnoreRules.map((r) => `[${r.id}] ${r.pattern}`).join("\n") : "(none)"}
 
+ACTIVE STANDING INSTRUCTIONS (reference by "instructionId" to remove one; never invent an id):
+${context.activeInstructions.length ? context.activeInstructions.map((i) => `[${i.id}] ${i.text}`).join("\n") : "(none)"}
+
 THE REPLY:
 """
 ${text}
 """
 
 Turn it into zero or more actions:
-- "add_todo": a new reminder — a fresh instruction, note, or thing to follow up on that isn't already
-  one of the open reminders above. "snoozeUntil" (YYYY-MM-DD) only if a specific date/relative day was
-  stated ("remind me tomorrow" -> tomorrow's date computed from today's date above); omit otherwise.
+- "add_todo": a ONE-TIME reminder — a concrete task or thing to follow up on that gets done and then
+  goes away ("call the inspector", "order the tile"). "snoozeUntil" (YYYY-MM-DD) only if a specific
+  date/relative day was stated ("remind me tomorrow" -> tomorrow's date computed from today's date
+  above); omit otherwise.
 - "complete_todo": the reply says a specific open reminder above is done/handled/no longer needed —
   give its exact "todoId".
 - "snooze_todo": the reply asks to be reminded about a specific open reminder above at a later date —
   give its exact "todoId" and the computed "snoozeUntil" (YYYY-MM-DD).
-- "add_ignore_rule": the reply asks to stop being told about email from a specific person/company —
+- "add_ignore_rule": the reply asks to stop being told about email from a specific PERSON or COMPANY —
   "pattern" is the shortest distinguishing substring of their name or domain (e.g. "Acme Plumbing" or
-  "acmeplumbing.com"), lowercase. Add a short "reason" only if the reply gave one.
+  "acmeplumbing.com"), lowercase. Add a short "reason" only if the reply gave one. Use this only when
+  a sender is named; a request about a TOPIC or subject ("stop showing me the logo-update emails") is
+  an "add_instruction", not this.
 - "remove_ignore_rule": the reply asks to start flagging a sender again that's on the ignore list
   above — give its exact "ruleId".
+- "add_instruction": a STANDING INSTRUCTION — an ongoing preference for how the digest itself is
+  written, that should apply every morning and never "completes". This is the owner giving the
+  assistant lasting memory: "stop mentioning the Simon logo updates", "always put overdue invoices
+  first", "don't bother me about anything under $50", "keep the crew recap to one line". Put the
+  instruction, cleaned up into a clear directive, in "instruction". Prefer this over "add_todo"
+  whenever the reply is telling the assistant how to behave rather than giving it a task to do.
+- "remove_instruction": the reply asks to drop/forget a standing instruction listed above ("stop
+  ignoring the logo emails", "never mind about the invoices-first thing") — give its exact
+  "instructionId".
 
-RULES: Only act on what the reply explicitly says — never invent a reminder, a date, or a sender that
-isn't named. If the reply doesn't map to any of today's open reminders or ignore rules, treat it as a
-NEW "add_todo" instead of guessing at an id. If nothing in the reply is actionable, return an empty
-array.`;
+RULES: Only act on what the reply explicitly says — never invent a reminder, a date, a sender, or an
+instruction that isn't there. The key split: a TASK to do once is "add_todo"; a lasting preference for
+how the brief is written is "add_instruction". If a reply is neither and matches nothing above, treat
+it as a NEW "add_todo" rather than guessing at an id. If nothing in the reply is actionable, return an
+empty array.`;
 
   let res: Anthropic.Message;
   try {
@@ -448,6 +495,8 @@ array.`;
     "snooze_todo",
     "add_ignore_rule",
     "remove_ignore_rule",
+    "add_instruction",
+    "remove_instruction",
   ];
 
   const record = out as Record<string, unknown>;
@@ -462,6 +511,8 @@ array.`;
         pattern: isStr(a.pattern) ? String(a.pattern).toLowerCase() : undefined,
         reason: isStr(a.reason) ? String(a.reason) : undefined,
         ruleId: isNum(a.ruleId) ? a.ruleId : undefined,
+        instruction: isStr(a.instruction) ? String(a.instruction) : undefined,
+        instructionId: isNum(a.instructionId) ? a.instructionId : undefined,
       }),
     )
     // Drop anything missing the field its type actually needs — a schema-valid
@@ -473,6 +524,8 @@ array.`;
       if (a.type === "snooze_todo") return isNum(a.todoId) && isStr(a.snoozeUntil);
       if (a.type === "add_ignore_rule") return isStr(a.pattern);
       if (a.type === "remove_ignore_rule") return isNum(a.ruleId);
+      if (a.type === "add_instruction") return isStr(a.instruction);
+      if (a.type === "remove_instruction") return isNum(a.instructionId);
       return false;
     });
 
