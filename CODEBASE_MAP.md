@@ -60,6 +60,7 @@ matching row here.
 | **The design system** | `src/components/ui.tsx` (build every UI on these primitives) |
 | **Editable on-screen text** (office reword, no deploy) | add a key to `src/lib/copy.ts`, render it via `useCopy()`; edited at `/admin/copy` → `src/app/api/admin/copy/route.ts` |
 | **The Admin Daily Digest** (morning report on Home) | `src/lib/digest/` — `settings.ts` (EVERY threshold/exclusion), `registry.ts` (the check list), `checks/*` (one file per check), `run.ts` (aggregator); UI `src/components/DailyDigest.tsx`; routes `src/app/api/digest/*`; Google data via appscript `DailyDigest.js` |
+| **Reviewing a month's client invoices** | `src/lib/invoiceReview/` — `checks.ts` (every judgement, pure + tested), `evidence.ts` (JobTread + Drive + Gmail), `rulings.ts` (the memory), `brief.ts` (the no-API-key hand-off); page `src/app/invoice-review/`; route `src/app/api/invoice-review`; Drive + Gmail reads via appscript `ClientInvoiceReview.js`; skill `.claude/skills/invoice-review/` |
 | **Adding a digest check** | write `src/lib/digest/checks/<id>.ts`, add its config block to `src/lib/digest/settings.ts`, add one line to `src/lib/digest/registry.ts` — the aggregator, the cron route and the UI are untouched |
 
 ## `src/lib/` — shared logic (the most-reused code)
@@ -104,6 +105,30 @@ including edge middleware.
 | `useUnsavedChanges.ts` | React hook guarding navigation away from unsaved edits. |
 | `sentry.shared.ts` | Shared Sentry init. |
 
+### `src/lib/invoiceReview/` — the monthly client-invoice review
+
+Cross-checks a billing month's CLIENT invoices (JobTread `customerInvoice`
+documents) against the vendor bills behind them, the backup PDFs filed in the
+Drive invoicing tree, and the office mailbox. READ-ONLY against JobTread, Drive,
+Gmail and the Sheet; the only thing it writes anywhere is a standing "ruling" in
+the companion DB.
+
+| File | Purpose |
+|---|---|
+| `types.ts` ⟂ | The evidence and finding shapes, the `FindingKind` list, and the `findingKey` identity a ruling suppresses by. Pure — imported by the checks, the route and the page alike. |
+| `checks.ts` ⟂ | **Every judgement lives here**, as pure functions over the evidence: CAPTURE (a vendor invoice arrived in the 10th-to-10th window and JobTread has no matching bill — the one failure no other check can see), COVERAGE (everything captured reached a client invoice, per bill), backup coverage (amount-matched one-to-one against the filename convention), the invoice math (line, total, tax, balance), and billing period + scope. Never fetches, never writes, never "corrects" a number. Skips Office and Shop, which are Ascent's own overhead and are never billed to anyone (`isNeverInvoiced` in types.ts). |
+| `evidence.ts` | All the fetching: the job roster, each job's month bills and live invoices (413-safe two-phase reads), the Drive backup listing, and one mailbox sweep for the period — the last two via the Apps Script bridge. It also does the mail→JobTread JOIN, reusing the Daily Digest's `matchVendor`/`billMatchesEmail` so there is one answer in the codebase to "is this the same invoice". Per-job failures become warnings, never a dead review. Sets `emailChecked`, so a mailbox that couldn't be searched never looks like one that came back clean. |
+| `brief.ts` ⟂ | The review as a self-contained markdown briefing, for the **no-API-key path**: the page's "Copy for Claude" button and `GET /api/invoice-review?format=brief`. Opens by telling Claude the arithmetic is already done and must not be redone. |
+| `rulings.ts` | The memory — what the office has already overruled, so a structurally-true finding stops coming back every month. Two scopes: this finding, or this kind on this job. The ONLY write in the feature. |
+| `narrate.ts` | One Claude paragraph over the STRUCTURED findings (never the raw evidence, so it cannot invent a figure). Silent fallback to the locally-built summary. |
+| `run.ts` | The order of operations: evidence → checks → rulings → narrative. Thin by design. |
+
+Tests: `checks.test.ts` (the backup matcher against the real filename
+convention, every math tolerance, the period/scope rules, the mailbox
+calibration, the briefing, finding order).
+Skill: `.claude/skills/invoice-review/SKILL.md` drives the same review from a
+Claude Code session. Drive half: `ascent-appscript/ClientInvoiceReview.js`.
+
 ### `src/lib/digest/` — the Admin Daily Digest
 
 The morning report on the home launcher: independent "checks" over billing,
@@ -140,7 +165,9 @@ Each page is a server component (`page.tsx`) that hands non-secret context to a
 - **Financials:** `trackingsheet` (Tracking Sheets — the billing hub, gated by
   the `recode` view id: Board, BillCodingCard, TimeCodingCard, ClientInvoicing,
   DraftQueue, DraftWorkbench, AllJobs, Roster), `bill/[docId]`, `add-bill`,
-  `coding` (retired), `stage` (retired), `labor-review`, `jobs`, `unbilled`,
+  `coding` (retired), `stage` (retired), `labor-review`, `invoice-review`
+  (a month's client invoices checked against the bills and the Drive backup),
+  `jobs`, `unbilled`,
   `vendors`, `bill-search` (fast full-text search over every bill + line item,
   live JobTread plus seeded pre-JobTread history), `email`, `needs-review` (the
   queue of bills flagged "Needs review" — corrections the app can't make itself),
@@ -148,7 +175,10 @@ Each page is a server component (`page.tsx`) that hands non-secret context to a
   `payments` (Sunset Statements), `expenditure-history`, `lswdd`, `amazon-import`,
   `tracking-sheet`.
 - **Field:** `safety-meeting`, `mileage-tracker`, `employee-time`, `tools`,
-  `tool-tracker`, `rfis`, `time-off`, `requisitions`.
+  `tool-tracker`, `rfis`, `time-off`, `requisitions`, `more` ("The Rest" — the
+  last button on the field/lead/office tile launcher: the curated menu of
+  everything else that role can open; the lists are `TILE_LAUNCHERS` in
+  `src/lib/nav.ts`).
 - **Assistant:** `chat`.
 - **Office:** `employees`, `leads`, `labor-import`, `labor-rates`,
   `time-sync`.
@@ -174,7 +204,10 @@ Grouped by domain; each folder is `…/route.ts`.
   number — JobTread's `externalId`), `bill-tax`, `bill-reviewed`, `uncaptured`,
   `vendor-bills/*`, `vendor-bill-count`, `stuck-vendors`, `needs-project`,
   `reassign-job`.
-- **Invoicing surfaces:** `stage/*`, `lswdd`, `amazon-import/*`,
+- **Invoicing surfaces:** `stage/*`, `invoice-review` (GET runs a month's
+  client-invoice review, or `?format=brief` for the paste-into-Claude version;
+  POST records or lifts one standing ruling), `lswdd`,
+  `amazon-import/*`,
   `sunset-statements/*`, `sunset-duplicates`, `buyback`.
 - **Labor / time:** `employee-time/*`, `labor-rates/*`, `labor-review/*`,
   `time-entry` (one entry, edited in place — gated under `recode`),
@@ -200,7 +233,13 @@ Grouped by domain; each folder is `…/route.ts`.
   in `CLAUDE.md`). Never hand-roll styles.
 - **Chrome / nav:** `AppHeader`, `GlobalSearch` (the app's ONE search box, in the
   header under the job picker — pages + vendors + bills + line items, from any
-  page), `TabBar`, `PageTitle`, `ThemeToggle`,
+  page — hidden for the FIELD role), `TabBar` (bottom shortcut bar; hidden
+  entirely for LEAD, whose home page already carries the same shortcuts as
+  bigger buttons), `TileLauncher` (the field/lead/office home launcher — large
+  buttons in place of the admin area lists: field and office get 4, lead 6;
+  curated in `src/lib/nav.ts` → `TILE_LAUNCHERS`; also renders the office-only
+  `OfficeDigestPlaceholder` reserved slot),
+  `PageTitle`, `ThemeToggle`,
   `AscentLogo`, `RefreshButton`/`RefreshProvider`, `SyncNowButton`,
   `AdminActionBar`, `AccessProvider`, `CopyProvider` (editable page text —
   `useCopy()`), `UsageBeacon`, `PreviewBanner` (the admin's "viewing as {role}"
@@ -222,7 +261,8 @@ Grouped by domain; each folder is `…/route.ts`.
 `lead_inquiries`, `lead_inquiry_dismissals`, `leave_policies`, `leave_balances`,
 `leave_requests`, `leave_transactions`, `jt_user_links`, `notices`,
 `notice_reads`, `rfis`, `sunset_statements`, `page_copy`, `bill_index`,
-`bill_line_index`, `bill_index_meta`, `daily_digest`. Access via `src/db/index.ts`.
+`bill_line_index`, `bill_index_meta`, `daily_digest`, `invoice_review_rulings`
+(the invoice review's standing rulings). Access via `src/db/index.ts`.
 
 (`bill_index`/`bill_line_index`/`bill_index_meta` back the `/bill-search` index —
 the searchable snapshot of every bill + line item, plus its refresh/seed

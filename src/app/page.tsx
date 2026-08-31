@@ -11,7 +11,8 @@ import { AdminActionBar } from "@/components/AdminActionBar";
 import { StuckVendorBanner } from "@/components/StuckVendors";
 import { NeedsProjectBanner, useNeedsProjectCount } from "@/components/NeedsProject";
 import { DailyDigest } from "@/components/DailyDigest";
-import { AREAS, PREVIEW_ROWS } from "@/lib/nav";
+import { TileLauncher } from "@/components/TileLauncher";
+import { AREAS, PREVIEW_ROWS, tileLauncherFor } from "@/lib/nav";
 
 /**
  * The Assistant's front page — the launcher, and still the only place EVERY
@@ -31,6 +32,13 @@ import { AREAS, PREVIEW_ROWS } from "@/lib/nav";
  * one field in the header (src/components/GlobalSearch.tsx), which searches
  * pages, vendors, bills and line items from every page. This file just renders
  * the lists.
+ *
+ * TWO LAUNCHERS. The above describes what ADMIN sees. FIELD, LEAD, and OFFICE
+ * all get <TileLauncher> instead: large buttons, ending in "The Rest", which
+ * opens /more — a curated menu. Field and office get four buttons, lead six.
+ * Both launchers read from src/lib/nav.ts (AREAS for the admin list,
+ * TILE_LAUNCHERS for the buttons) and both gate every entry on the same view
+ * ids.
  */
 
 function Home() {
@@ -74,6 +82,15 @@ function Home() {
   const badges: Record<string, number> =
     needsProject.count > 0 ? { "needs-project": needsProject.count } : {};
 
+  // Field, lead, and office get a different launcher entirely: large buttons
+  // ending in "The Rest", instead of the admin area lists. Rendered here rather
+  // than as its own route so the phone's home button, the PWA icon, and every
+  // "/" link land on the right launcher without anyone choosing a URL. The
+  // banners and the digest above are all self-gating, so they cost a field
+  // phone nothing; the account footer stays, because signing out and back in
+  // is how a changed role is picked up.
+  const tiles = tileLauncherFor(access.role) !== null;
+
   return (
     <main className="mx-auto max-w-2xl px-4 pb-10 pt-5">
       {/* No page title here on purpose: the logo in the header already says
@@ -94,56 +111,60 @@ function Home() {
           a field phone loading this same page pays nothing for it. */}
       <DailyDigest />
 
-      <div className="space-y-6">
-        {areas.map((area) => {
-          const previewRows = area.preview ?? PREVIEW_ROWS;
-          const isExpanded = !!expanded[area.id];
-          const hidden = Math.max(0, area.dests.length - previewRows);
-          const shown = isExpanded ? area.dests : area.dests.slice(0, previewRows);
-          // Work queued behind the fold still shows on the heading, so a
-          // collapsed tail never hides the one row that needs attention.
-          const hiddenCount = area.dests
-            .slice(shown.length)
-            .reduce((n, d) => n + (badges[d.view] ?? 0), 0);
-          return (
-            <section key={area.id} className="space-y-2">
-              <SectionHeading
-                trailing={
-                  <span className="flex items-center gap-2">
-                    {hiddenCount > 0 && <CountBadge n={hiddenCount} />}
-                    <span className="text-[11px] tabular-nums text-neutral-500">
-                      {area.dests.length}
+      {tiles ? (
+        <TileLauncher qs={qs} />
+      ) : (
+        <div className="space-y-6">
+          {areas.map((area) => {
+            const previewRows = area.preview ?? PREVIEW_ROWS;
+            const isExpanded = !!expanded[area.id];
+            const hidden = Math.max(0, area.dests.length - previewRows);
+            const shown = isExpanded ? area.dests : area.dests.slice(0, previewRows);
+            // Work queued behind the fold still shows on the heading, so a
+            // collapsed tail never hides the one row that needs attention.
+            const hiddenCount = area.dests
+              .slice(shown.length)
+              .reduce((n, d) => n + (badges[d.view] ?? 0), 0);
+            return (
+              <section key={area.id} className="space-y-2">
+                <SectionHeading
+                  trailing={
+                    <span className="flex items-center gap-2">
+                      {hiddenCount > 0 && <CountBadge n={hiddenCount} />}
+                      <span className="text-[11px] tabular-nums text-neutral-500">
+                        {area.dests.length}
+                      </span>
                     </span>
-                  </span>
-                }
-              >
-                {area.title}
-              </SectionHeading>
-              <ListCard>
-                {shown.map((d) => (
-                  <ListRow
-                    key={d.href}
-                    href={d.href + qs}
-                    label={d.label}
-                    desc={d.desc}
-                    badge={(badges[d.view] ?? 0) > 0 ? <CountBadge n={badges[d.view]} /> : undefined}
-                  />
-                ))}
-                {hidden > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => setExpanded((e) => ({ ...e, [area.id]: !isExpanded }))}
-                    aria-expanded={isExpanded}
-                    className="min-h-11 w-full px-3 py-2.5 text-left text-[12.5px] font-semibold text-neutral-500 transition hover:text-accent dark:text-neutral-400"
-                  >
-                    {isExpanded ? "Show fewer" : `Show ${hidden} more in ${area.title}`}
-                  </button>
-                )}
-              </ListCard>
-            </section>
-          );
-        })}
-      </div>
+                  }
+                >
+                  {area.title}
+                </SectionHeading>
+                <ListCard>
+                  {shown.map((d) => (
+                    <ListRow
+                      key={d.href}
+                      href={d.href + qs}
+                      label={d.label}
+                      desc={d.desc}
+                      badge={(badges[d.view] ?? 0) > 0 ? <CountBadge n={badges[d.view]} /> : undefined}
+                    />
+                  ))}
+                  {hidden > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setExpanded((e) => ({ ...e, [area.id]: !isExpanded }))}
+                      aria-expanded={isExpanded}
+                      className="min-h-11 w-full px-3 py-2.5 text-left text-[12.5px] font-semibold text-neutral-500 transition hover:text-accent dark:text-neutral-400"
+                    >
+                      {isExpanded ? "Show fewer" : `Show ${hidden} more in ${area.title}`}
+                    </button>
+                  )}
+                </ListCard>
+              </section>
+            );
+          })}
+        </div>
+      )}
 
       {/* Admin-only: quick-jump links to the busiest queues plus buttons that
           run a script job without leaving the launcher. Sits at the bottom, out
@@ -158,7 +179,7 @@ function Home() {
       {/* No views at all — don't leave a blank page. This happens when the
           session carries no identity/role (e.g. signed in with the temporary
           shared password rather than Google). Offer a way back to Google. */}
-      {areas.length === 0 && (
+      {!tiles && areas.length === 0 && (
         <div className="rounded-xl border border-dashed border-neutral-300 px-6 py-8 text-center dark:border-neutral-700">
           <p className="text-sm font-semibold">No views are available for your account yet.</p>
           <p className="mx-auto mt-2 max-w-sm text-xs text-neutral-500">

@@ -21,6 +21,15 @@ import { confirmLeaveIfDirty } from "@/lib/useUnsavedChanges";
  * never sees a Tracking Sheets tab that the middleware would only bounce them off.
  * The set adapts per role rather than being fixed: TAB_CANDIDATES is scanned in
  * order and the first three the user can reach are shown after Home.
+ *
+ * LEAD gets no bar at all: its home page is already a 6-button grid (see
+ * TileLauncher / TILE_LAUNCHERS.lead in src/lib/nav.ts) that carries every one
+ * of these candidates a lead can reach — a second copy of the same three
+ * buttons one screen down is pure redundancy for that role, so the bar is
+ * skipped entirely rather than trimmed. FIELD and OFFICE keep it — field's grid
+ * doesn't repeat it (Tracking Sheets isn't a field view), and office's grid
+ * deliberately leaves Tracking Sheets/Time/Miles OFF so the bar is where those
+ * three live for that role.
  */
 
 type Tab = { label: string; href: string; view: string; Icon: () => React.ReactNode };
@@ -105,6 +114,10 @@ export function TabBar() {
 
   // The bar is chrome for the signed-in app; these two pages have none.
   if (pathname === "/login" || pathname === "/privacy") return null;
+
+  // Lead's home page already carries every one of these shortcuts as a bigger
+  // button one screen up — see the file header comment.
+  if (access.role === "lead") return null;
 
   const tabs = [HOME_TAB, ...TAB_CANDIDATES.filter((t) => access.can(t.view)).slice(0, 3)];
   // One tab is just Home — a bar with a single destination is decoration, and it

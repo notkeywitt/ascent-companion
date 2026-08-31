@@ -61,6 +61,31 @@ const MONTHS = [
   "July", "August", "September", "October", "November", "December",
 ];
 
+/** The picked invoice, rendered inline so it can be read next to a warning. */
+function BillPreview({
+  file,
+  url,
+  className = "",
+}: {
+  file: File;
+  url: string;
+  className?: string;
+}) {
+  const isPdf = file.type === "application/pdf";
+  return (
+    <div
+      className={`overflow-hidden rounded-lg border border-line bg-white dark:border-neutral-800 ${className}`}
+    >
+      {isPdf ? (
+        <iframe src={url} title="Uploaded invoice" className="h-full w-full" />
+      ) : (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={url} alt="Uploaded invoice" className="h-full w-full object-contain" />
+      )}
+    </div>
+  );
+}
+
 function AddBill() {
   const search = useSearchParams();
   const jobId = (search.get("jobId") ?? "").trim();
@@ -74,6 +99,7 @@ function AddBill() {
   const [singleLine, setSingleLine] = useState(false); // collapse to one cost item
   const [needVendor, setNeedVendor] = useState(""); // 422 message when unmatched
   const [mismatch, setMismatch] = useState<TotalsMismatch | null>(null); // 422 lines != invoice
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null); // object URL for the picked file
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState<AddBillResult | null>(null);
@@ -86,12 +112,23 @@ function AddBill() {
       .catch(() => {});
   }, []);
 
+  // Free the object URL when it's replaced or the page unmounts.
+  useEffect(() => {
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    };
+  }, [previewUrl]);
+
   function onPickFile(f: File | null) {
     setFile(f);
     setResult(null);
     setError("");
     setNeedVendor("");
     setMismatch(null);
+    setPreviewUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return f ? URL.createObjectURL(f) : null;
+    });
     setExternalId(f ? "INV-" + crypto.randomUUID().slice(0, 8) : "");
   }
 
@@ -137,9 +174,55 @@ function AddBill() {
   }
 
   const done = result && (result.wrote || result.alreadyExisted);
+  const wide = Boolean((mismatch || error) && file && previewUrl);
+
+  const mismatchBanner = mismatch ? (
+      <Banner tone="warning">
+        <p className="font-semibold">Line items don&apos;t match the invoice total</p>
+        <p className="mt-1">{mismatch.message}</p>
+        <div className="mt-2 border-t border-current/20 pt-2 text-xs">
+          {mismatch.lines.map((l, i) => (
+            <div key={i} className="flex items-baseline justify-between gap-2 py-0.5">
+              <span className="truncate">{l.name}</span>
+              <span className="whitespace-nowrap opacity-80">
+                {l.csi || "uncoded"} · {money(l.unitCost * l.quantity)}
+              </span>
+            </div>
+          ))}
+          <div className="mt-1 flex items-baseline justify-between gap-2 border-t border-current/20 pt-1 font-semibold">
+            <span>Extracted total</span>
+            <span>{money(mismatch.linesNet)}</span>
+          </div>
+          <div className="flex items-baseline justify-between gap-2 font-semibold">
+            <span>Invoice net (total − tax)</span>
+            <span>{money(mismatch.printedNet)}</span>
+          </div>
+        </div>
+        <div className="mt-3 flex flex-col gap-2">
+          <Button
+            size="sm"
+            onClick={() => submit({ acceptTotals: true, forceSingleLine: true })}
+            disabled={busy}
+          >
+            Use invoice net — one line at {money(mismatch.printedNet)}
+          </Button>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => submit({ acceptTotals: true })}
+            disabled={busy}
+          >
+            Keep the extracted lines anyway ({money(mismatch.linesNet)})
+          </Button>
+          <Button size="sm" variant="secondary" onClick={() => setMismatch(null)} disabled={busy}>
+            Cancel — I&apos;ll check the invoice
+          </Button>
+        </div>
+      </Banner>
+  ) : null;
 
   return (
-    <main className="mx-auto max-w-xl px-4 pb-24 pt-6">
+    <main className={`mx-auto px-4 pb-24 pt-6 ${wide ? "max-w-4xl" : "max-w-xl"}`}>
       <PageHeader
         title="Add Bill"
         description="Snap or upload an invoice — Gemini extracts and codes it, and it lands as a draft vendor bill in the coding queue."
@@ -163,6 +246,9 @@ function AddBill() {
               onChange={(e) => onPickFile(e.target.files?.[0] ?? null)}
               className="block w-full rounded-lg border border-neutral-300 bg-white p-2 text-sm transition file:mr-3 file:rounded-md file:border-0 file:bg-accent file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-accent-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 dark:border-neutral-600 dark:bg-ink-raised"
             />
+            {file && previewUrl && !mismatch && !error && (
+              <BillPreview file={file} url={previewUrl} className="mt-2 h-64" />
+            )}
           </div>
 
           <div>
@@ -204,52 +290,25 @@ function AddBill() {
             {busy ? "Extracting with Gemini…" : "Log Bill"}
           </Button>
 
-          {error && <Banner tone="error">{error}</Banner>}
-
-          {mismatch && (
-            <Banner tone="warning">
-              <p className="font-semibold">Line items don&apos;t match the invoice total</p>
-              <p className="mt-1">{mismatch.message}</p>
-              <div className="mt-2 border-t border-current/20 pt-2 text-xs">
-                {mismatch.lines.map((l, i) => (
-                  <div key={i} className="flex items-baseline justify-between gap-2 py-0.5">
-                    <span className="truncate">{l.name}</span>
-                    <span className="whitespace-nowrap opacity-80">
-                      {l.csi || "uncoded"} · {money(l.unitCost * l.quantity)}
-                    </span>
-                  </div>
-                ))}
-                <div className="mt-1 flex items-baseline justify-between gap-2 border-t border-current/20 pt-1 font-semibold">
-                  <span>Extracted total</span>
-                  <span>{money(mismatch.linesNet)}</span>
-                </div>
-                <div className="flex items-baseline justify-between gap-2 font-semibold">
-                  <span>Invoice net (total − tax)</span>
-                  <span>{money(mismatch.printedNet)}</span>
-                </div>
+          {(error || mismatch) && file && previewUrl ? (
+            <div className="grid gap-4 lg:grid-cols-2">
+              <BillPreview
+                file={file}
+                url={previewUrl}
+                className="h-[60vh] lg:sticky lg:top-4 lg:h-[80vh]"
+              />
+              <div className="space-y-3">
+                {error && <Banner tone="error">{error}</Banner>}
+                {mismatchBanner}
               </div>
-              <div className="mt-3 flex flex-col gap-2">
-                <Button
-                  size="sm"
-                  onClick={() => submit({ acceptTotals: true, forceSingleLine: true })}
-                  disabled={busy}
-                >
-                  Use invoice net — one line at {money(mismatch.printedNet)}
-                </Button>
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => submit({ acceptTotals: true })}
-                  disabled={busy}
-                >
-                  Keep the extracted lines anyway ({money(mismatch.linesNet)})
-                </Button>
-                <Button size="sm" variant="secondary" onClick={() => setMismatch(null)} disabled={busy}>
-                  Cancel — I&apos;ll check the invoice
-                </Button>
-              </div>
-            </Banner>
+            </div>
+          ) : (
+            <>
+              {error && <Banner tone="error">{error}</Banner>}
+              {mismatchBanner}
+            </>
           )}
+
         </section>
       )}
 

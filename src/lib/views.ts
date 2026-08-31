@@ -106,6 +106,19 @@ export const VIEWS: ViewDef[] = [
   // gating them here would lock out anyone without this retired view.
   { id: "stage", label: "Invoicing (retired)", group: "Financials", paths: ["/stage"] },
   { id: "unbilled", label: "Unbilled", group: "Financials", paths: ["/unbilled"] },
+  // The monthly client-invoice review — a month's client invoices cross-checked
+  // against the vendor bills behind them and the backup PDFs in the Drive
+  // invoicing tree. The API prefix rides the same gate as the page: the route
+  // returns a whole month of billing, so a role without the view must not be
+  // able to read it by calling the route directly. The one write behind it is
+  // the office's own "we looked at this and it's fine" note, which stays in the
+  // companion DB and never reaches JobTread.
+  {
+    id: "invoice-review",
+    label: "Invoice Review",
+    group: "Financials",
+    paths: ["/invoice-review", "/api/invoice-review"],
+  },
   // Vendor bill search — job, date, amount, status, per vendor or per bill
   // number. A distinct API prefix ("/api/vendor-bills") from the existing
   // shared "/api/vendors" name+id list, which stays ungated (add-bill, RFIs,
