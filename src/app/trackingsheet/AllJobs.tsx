@@ -54,7 +54,7 @@ export function AllJobs() {
   );
 
   return (
-    <main className="mx-auto max-w-2xl px-4 pb-24 pt-6">
+    <main className="mx-auto max-w-2xl px-4 pb-24 pt-6 xl:max-w-[110rem]">
       <PageHeader title={c("page.recode.title")} className="!mb-4" />
 
       {/* Ingested bills that never reached JobTread at all — the step before the
