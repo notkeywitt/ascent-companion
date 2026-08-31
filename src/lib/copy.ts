@@ -114,14 +114,6 @@ export const COPY: Record<string, CopyEntry> = {
   "home.quick.more.label": { text: "The Rest", label: "The Rest — button", group: "Home — quick buttons", short: true },
   "home.quick.more.full": { text: "Everything else", label: "The Rest — full name", group: "Home — quick buttons" },
 
-  // The office launcher's reserved top slot — not wired to real data yet, see
-  // TileLauncher.tsx's OfficeDigestPlaceholder.
-  "home.office-digest.text": {
-    text: "Office Daily Digest — coming soon. A morning summary of billing, invoicing, and follow-ups for the office.",
-    label: "Office Digest placeholder — text",
-    group: "Home — quick buttons",
-  },
-
   // ── Home launcher: Financials destinations ───────────────────────────────
   "home.dest.recode.label": { text: "Tracking Sheets", label: "Tracking Sheets — name", group: "Home — Financials" },
   "home.dest.recode.desc": {

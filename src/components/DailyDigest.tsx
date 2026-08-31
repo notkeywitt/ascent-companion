@@ -73,6 +73,12 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 export function DailyDigest() {
   const access = useAccess();
   const canSee = access.can("digest");
+  // OFFICE READS IT, ADMIN REBUILDS IT. The card is granted to office as well
+  // as admin, but /api/digest/run — an org-wide sweep plus two Claude calls —
+  // authenticates on its own and accepts only the scheduler or an admin
+  // session. So the button is hidden for office rather than shown and answered
+  // with a 403; office sees the digest the morning run stored.
+  const canRefresh = access.role === "admin";
 
   const [data, setData] = useState<DigestResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -211,14 +217,16 @@ export function DailyDigest() {
         trailing={
           <span className="flex items-center gap-2">
             {flagged > 0 && <CountBadge n={flagged} />}
-            <button
-              type="button"
-              onClick={refresh}
-              disabled={refreshing}
-              className="text-[11px] font-semibold text-accent hover:underline disabled:opacity-50 dark:text-accent-soft"
-            >
-              {refreshing ? "Refreshing…" : "Refresh now"}
-            </button>
+            {canRefresh && (
+              <button
+                type="button"
+                onClick={refresh}
+                disabled={refreshing}
+                className="text-[11px] font-semibold text-accent hover:underline disabled:opacity-50 dark:text-accent-soft"
+              >
+                {refreshing ? "Refreshing…" : "Refresh now"}
+              </button>
+            )}
           </span>
         }
       >
@@ -237,8 +245,14 @@ export function DailyDigest() {
       {!loading && !digest && !err && (
         <Card>
           <p className="text-sm text-neutral-500">
-            No digest yet. It&rsquo;s generated automatically each morning — tap{" "}
-            <strong>Refresh now</strong> to build one immediately.
+            {canRefresh ? (
+              <>
+                No digest yet. It&rsquo;s generated automatically each morning — tap{" "}
+                <strong>Refresh now</strong> to build one immediately.
+              </>
+            ) : (
+              <>No digest yet. It&rsquo;s generated automatically each morning.</>
+            )}
           </p>
         </Card>
       )}

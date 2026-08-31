@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useAccess } from "@/components/AccessProvider";
 import { useCopy } from "@/components/CopyProvider";
 import { LinkPendingOverlay } from "@/components/LinkPending";
-import { EmptyState } from "@/components/ui";
 import { MORE_HREF, tileLauncherFor, type Dest } from "@/lib/nav";
 
 /**
@@ -132,24 +131,6 @@ export function FieldTile({
   );
 }
 
-/**
- * Reserved slot for an office version of the admin morning digest (see
- * DailyDigest.tsx — Gmail/Calendar/Sheet checks, admin-only today). Not wired
- * to anything yet: this is a placeholder so the office grid below doesn't sit
- * at the very top of the screen, and so the eventual office digest has a
- * ready spot rather than needing a layout change to add. Sized to roughly a
- * third of a phone screen, matching where the real digest sits for admin.
- */
-function OfficeDigestPlaceholder() {
-  const c = useCopy();
-  return (
-    <EmptyState className="flex min-h-[30vh] flex-col items-center justify-center">
-      {c("home.office-digest.text") ||
-        "Office Daily Digest — coming soon. A morning summary of billing, invoicing, and follow-ups for the office."}
-    </EmptyState>
-  );
-}
-
 export function TileLauncher({ qs = "" }: { qs?: string }) {
   const access = useAccess();
   const c = useCopy();
@@ -162,7 +143,10 @@ export function TileLauncher({ qs = "" }: { qs?: string }) {
 
   return (
     <div className="space-y-4">
-      {access.role === "office" && <OfficeDigestPlaceholder />}
+      {/* The office digest that used to be a "coming soon" placeholder here is
+          now the real <DailyDigest /> card, rendered ABOVE this launcher by
+          src/app/page.tsx — the same card admin sees, gated on the `digest`
+          view, which office now holds (src/lib/views.ts). Nothing to reserve. */}
       <div className="grid grid-cols-2 gap-3">
         {quick.map((d) => (
           <FieldTile

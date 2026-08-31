@@ -227,16 +227,22 @@ export const VIEWS: ViewDef[] = [
   // route answers. The numbers live in server-only env vars, never in the DB.
   { id: "bank-details", label: "Bank Details", group: "System", paths: ["/api/bank-details"] },
   { id: "requests", label: "Requests", group: "System", paths: ["/requests"] },
-  // The Admin Daily Digest card on the home launcher. No page of its own — the
-  // card lives on "/", which EVERY role loads, so the gate is what keeps the
-  // morning report (unbilled dollars, inbox subject lines, the office calendar)
-  // off a field phone. /api/digest is listed here so a non-admin can't read the
+  // The Daily Digest card on the home launcher. No page of its own — the card
+  // lives on "/", which EVERY role loads, so the gate is what keeps the morning
+  // report (unbilled dollars, inbox subject lines, the office calendar) off a
+  // field phone. /api/digest is listed here so a non-admin can't read the
   // stored digest by calling the route directly.
+  //
+  // OFFICE + ADMIN. The digest reports the office's own work — billing, the
+  // inbox, the calendar, follow-ups — so office reads it too (it is NOT in
+  // ADMIN_MENU below). The gate also covers /api/digest/reply, so office can
+  // talk back to it (add a reminder, snooze one, silence a sender).
   //
   // NOTE /api/digest/run is deliberately NOT gated here: the scheduler that
   // calls it has no session at all, so it is PUBLIC in middleware and does its
   // own authentication (a cron bearer secret, or an admin session). See that
-  // route. Admin-only by default — it is in ADMIN_MENU below.
+  // route. So "Refresh now" stays ADMIN-ONLY even though the card is shared —
+  // the card hides that button for everyone else (see DailyDigest.tsx).
   { id: "digest", label: "Daily Digest", group: "System", paths: ["/api/digest"] },
   // "Reading Your Own App" — the in-app course through this codebase. Read-only,
   // no JobTread/DB access of its own (progress lives in the browser), so it needs
@@ -277,7 +283,7 @@ const FIELD_VIEWS: string[] = ["mileage", "employee-time", "tools", "requisition
 const LEAD_VIEWS: string[] = [...FIELD_VIEWS, "coding", "stage", "recode", "payments"];
 // The admin-only consoles — access control + the audit log. No one below admin
 // gets these by default (a per-user grant can still hand them to an individual).
-const ADMIN_MENU: string[] = ["admin", "logs", "historical-cost", "bank-details", "page-copy", "digest"];
+const ADMIN_MENU: string[] = ["admin", "logs", "historical-cost", "bank-details", "page-copy"];
 // Office gets Financials, HR, and Utilities ("everything else") — i.e. every
 // view except the admin consoles, including the header Sync button.
 const OFFICE_VIEWS: string[] = ALL_VIEW_IDS.filter((id) => !ADMIN_MENU.includes(id));

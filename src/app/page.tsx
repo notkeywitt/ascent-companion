@@ -107,8 +107,10 @@ function Home() {
 
       {/* The morning digest — billing scan, calendar, follow-ups. Reads the
           digest the scheduled job stored; it does NOT run the checks on load.
-          Self-hiding: renders nothing without the admin-only `digest` view, so
-          a field phone loading this same page pays nothing for it. */}
+          Self-hiding: renders nothing without the `digest` view — office and
+          admin hold it, so a field or lead phone loading this same page pays
+          nothing for it. Office reads the stored digest and can reply to it;
+          only admin gets the "Refresh now" button (see DailyDigest.tsx). */}
       <DailyDigest />
 
       {tiles ? (
