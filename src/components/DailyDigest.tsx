@@ -347,6 +347,37 @@ export function DailyDigest() {
               </Card>
             );
           })}
+
+          {/* The run log — which checks ran, how long each took, and the REASON
+              anything failed (a Claude outage, a bad model id, a timed-out
+              Google read). Kept collapsed: it's a diagnostic, not part of the
+              morning read, but it's the first place to look when the summary
+              says a source couldn't be reached. */}
+          {digest.log.length > 0 && (
+            <Card pad={false} className="overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setOpen((o) => ({ ...o, __log: !o.__log }))}
+                aria-expanded={!!open.__log}
+                className="flex min-h-11 w-full items-center gap-3 px-3 py-2 text-left transition hover:bg-neutral-50 dark:hover:bg-white/5"
+              >
+                <span className="min-w-0 flex-1 text-xs font-semibold text-neutral-500">Run log</span>
+                <span
+                  aria-hidden
+                  className={`shrink-0 text-neutral-400 transition ${open.__log ? "rotate-90" : ""}`}
+                >
+                  ›
+                </span>
+              </button>
+              {open.__log && (
+                <div className="border-t border-line-soft px-3 py-2">
+                  <pre className="overflow-x-auto whitespace-pre-wrap break-words font-mono text-[10.5px] leading-relaxed text-neutral-500">
+                    {digest.log.join("\n")}
+                  </pre>
+                </div>
+              )}
+            </Card>
+          )}
         </>
       )}
     </section>

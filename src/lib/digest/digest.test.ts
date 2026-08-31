@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { CHECKS, enabledChecks } from "./registry";
 import { DIGEST_CATEGORIES, DIGEST_SETTINGS, categoryLabel, categoryOrder } from "./settings";
@@ -249,6 +249,13 @@ describe("the isolation contract: one dead source must not kill the digest", () 
   // whole design exists for, and it must produce a COMPLETE digest of errors,
   // not an exception. Fully offline: callAppsScript short-circuits on the
   // missing env, and the Claude calls are skipped without a key.
+  //
+  // DATABASE_URL is pointed at an unopenable path for the same reason. Not
+  // every check reads an external service — `digest-todos` reads our OWN
+  // database — so leaving a working local DB here would let that one check
+  // legitimately succeed and quietly weaken this test from "every check
+  // errored" to "most of them did".
+  const realDatabaseUrl = process.env.DATABASE_URL;
   beforeEach(() => {
     delete process.env.APPS_SCRIPT_SYNC_URL;
     delete process.env.APPS_SCRIPT_SYNC_SECRET;
@@ -256,6 +263,11 @@ describe("the isolation contract: one dead source must not kill the digest", () 
     delete process.env.GEMINI_KEY;
     delete process.env.ANTHROPIC_API_KEY;
     delete process.env.ANTHROPIC_MODEL_DIGEST;
+    process.env.DATABASE_URL = "file:/nonexistent-directory/unopenable.db";
+  });
+  afterEach(() => {
+    if (realDatabaseUrl === undefined) delete process.env.DATABASE_URL;
+    else process.env.DATABASE_URL = realDatabaseUrl;
   });
 
   it("reports every check as an error and still returns a digest", async () => {

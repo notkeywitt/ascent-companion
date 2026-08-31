@@ -39,11 +39,16 @@ function client(): Anthropic {
  * the digest is small, so the call is fast and cheap, and the model has nothing
  * to do but prioritize what the checks already decided.
  *
- * Returns null when Claude is unconfigured or unreachable — the caller composes
- * a local fallback paragraph rather than showing an empty digest.
+ * THROWS with a described reason when it can't answer — it does NOT return a
+ * bare null. The caller (`computeDigest`) already catches, stamps the reason
+ * into the digest's run log, and composes a local fallback paragraph, so the
+ * digest still renders either way. This used to swallow every failure and
+ * return null, which surfaced on screen as "Claude unavailable" with no way to
+ * find out why — a missing API key, an unknown model id, a rate limit and a
+ * timeout were all indistinguishable. The reason is the whole point.
  */
 export async function summarizeDigestWithClaude(structured: unknown): Promise<string | null> {
-  if (!process.env.ANTHROPIC_API_KEY?.trim()) return null;
+  if (!process.env.ANTHROPIC_API_KEY?.trim()) throw new Error("ANTHROPIC_API_KEY is not set");
 
   const prompt = `You are the owner's executive assistant at a small construction company, writing
 their morning brief. Below is the STRUCTURED OUTPUT of this morning's automated checks — crew time
@@ -71,21 +76,25 @@ the data — every name, job, and number must come from what's given.
 DATA:
 ${JSON.stringify(structured)}`;
 
+  let res: Anthropic.Message;
   try {
-    const res = await client().messages.create(
+    res = await client().messages.create(
       { model: MODEL, max_tokens: MAX_TOKENS_SUMMARY, messages: [{ role: "user", content: prompt }] },
       { timeout: TIMEOUT_MS },
     );
-    if (res.stop_reason === "refusal") return null;
-    const text = res.content
-      .filter((b): b is Anthropic.TextBlock => b.type === "text")
-      .map((b) => b.text)
-      .join("")
-      .trim();
-    return text || null;
-  } catch {
-    return null;
+  } catch (e) {
+    // The model id rides along because a bad ANTHROPIC_MODEL_DIGEST is one of
+    // the likeliest causes and is otherwise invisible from the digest screen.
+    throw new Error(`model "${MODEL}" — ${e instanceof Error ? e.message : String(e)}`);
   }
+  if (res.stop_reason === "refusal") throw new Error("Claude declined to write the summary");
+  const text = res.content
+    .filter((b): b is Anthropic.TextBlock => b.type === "text")
+    .map((b) => b.text)
+    .join("")
+    .trim();
+  if (!text) throw new Error(`Claude returned no text (stop_reason: ${res.stop_reason})`);
+  return text;
 }
 
 /* -------------------------------------------------------------------------
