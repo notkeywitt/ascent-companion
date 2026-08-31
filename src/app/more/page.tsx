@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { ListCard, ListRow, PageHeader } from "@/components/ui";
 import { useAccess } from "@/components/AccessProvider";
 import { useCopy } from "@/components/CopyProvider";
-import { FIELD_REST } from "@/lib/nav";
+import { TILE_LAUNCHERS, tileLauncherFor } from "@/lib/nav";
 
 /**
  * "The Rest" — the fourth button on the field launcher.
@@ -15,13 +15,16 @@ import { FIELD_REST } from "@/lib/nav";
  * link the back button leaves, and it can grow to any length without fighting a
  * phone keyboard.
  *
- * CURATE IT in src/lib/nav.ts → FIELD_REST. Rows are still gated on the same
- * view ids as everything else, so listing a page here does not grant it — the
- * role has to grant the view too (Admin → Role Defaults).
+ * CURATE IT in src/lib/nav.ts → TILE_LAUNCHERS[role].rest — the list differs by
+ * role (a lead's carries the billing pages a field user never sees). Rows are
+ * still gated on the same view ids as everything else, so listing a page here
+ * does not grant it — the role has to grant the view too (Admin → Role
+ * Defaults).
  *
  * The route itself needs no gate in lib/views: it renders nothing but links the
- * viewer already has, and an office/admin user who lands here just sees their
- * own (larger) set of the same rows.
+ * viewer already has. Office and admin have no tile launcher and never link
+ * here; if one lands on the URL anyway, they get the lead menu, filtered to
+ * what they can open.
  */
 function More() {
   const search = useSearchParams();
@@ -32,11 +35,13 @@ function More() {
 
   const rows = useMemo(
     () =>
-      FIELD_REST.filter((d) => access.can(d.view)).map((d) => ({
+      (tileLauncherFor(access.role) ?? TILE_LAUNCHERS.lead).rest
+        .filter((d) => access.can(d.view))
+        .map((d) => ({
         ...d,
-        label: c(`home.dest.${d.view}.label`) || d.label,
-        desc: c(`home.dest.${d.view}.desc`) || d.desc,
-      })),
+          label: c(`home.dest.${d.view}.label`) || d.label,
+          desc: c(`home.dest.${d.view}.desc`) || d.desc,
+        })),
     [access, c],
   );
 

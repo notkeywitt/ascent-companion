@@ -107,35 +107,77 @@ export const AREAS: Area[] = [
 ];
 
 /**
- * ── The FIELD launcher ────────────────────────────────────────────────────
+ * ── The TILE launchers (field + lead) ─────────────────────────────────────
  *
- * A field employee's home page is NOT the area lists above. It is four large
- * buttons: Miles · Time · Tools · The Rest. The first three are the pages a
- * crew member opens all day; the fourth opens /more, a plain menu of
- * everything else they are allowed to reach.
+ * A field or lead user's home page is NOT the area lists above. It is a grid of
+ * large buttons: the pages that role opens all day, plus one final button —
+ * "The Rest" — that opens /more, a plain menu of everything else they may open.
  *
- * TO CURATE WHAT A FIELD USER SEES, edit the two arrays below — this is the
- * only place to change. Two rules:
- *   • A destination shows only if the user's role also GRANTS its view (see
- *     ROLE_VIEWS / the Role Defaults editor on /admin). So you can list an
- *     entry here before granting it — it stays hidden until you do.
- *   • Keep FIELD_QUICK at three. The fourth button is always The Rest.
+ *   field — 4 buttons: Miles · Time · Tools · The Rest. No search box either
+ *           (see AppHeader): the four buttons are the whole app.
+ *   lead  — 6 buttons: the field three plus Tracking Sheets and Requisitions,
+ *           then The Rest. Leads keep the header search box.
+ *
+ * Office and admin are unaffected — they get the AREAS lists above.
+ *
+ * TO CURATE A ROLE'S BUTTONS, edit TILE_LAUNCHERS below — this is the only
+ * place to change. Three rules:
+ *   • A destination shows only if the role also GRANTS its view (see ROLE_VIEWS
+ *     / the Role Defaults editor on /admin). So you can list an entry before
+ *     granting it — it stays hidden until you do.
+ *   • `quick` is the buttons; `rest` is what the final button's menu lists.
+ *     Anything in neither list is unreachable for that role, even if granted.
+ *   • The Rest is added automatically as the last button; don't list it.
  */
-export const FIELD_QUICK: Dest[] = [
-  { label: "Miles", href: "/mileage-tracker", desc: "Track your mileage", view: "mileage" },
-  { label: "Time", href: "/employee-time", desc: "Log and review your hours", view: "employee-time" },
-  { label: "Tools", href: "/tools", desc: "The tool tracker", view: "tools" },
-];
+export interface TileLauncher {
+  /** The big buttons, in grid order. */
+  quick: Dest[];
+  /** What "The Rest" lists, in menu order. */
+  rest: Dest[];
+}
 
-/** Everything else a field user can open, in the order it lists on /more. */
-export const FIELD_REST: Dest[] = [
+// The everyday three, shared by both tile roles. `label` here is the SHORT
+// button word (the launcher reads home.quick.<view>.label first, so the office
+// can reword it); the long name is what /more and search show.
+const TILE_MILES: Dest = { label: "Miles", href: "/mileage-tracker", desc: "Track your mileage", view: "mileage" };
+const TILE_TIME: Dest = { label: "Time", href: "/employee-time", desc: "Log and review your hours", view: "employee-time" };
+const TILE_TOOLS: Dest = { label: "Tools", href: "/tools", desc: "The tool tracker", view: "tools" };
+const TILE_SHEETS: Dest = { label: "Tracking Sheets", href: "/trackingsheet", desc: "Code a month's bills against live budget headroom", view: "recode" };
+const TILE_REQS: Dest = { label: "Requisitions", href: "/requisitions", desc: "Request materials & supplies", view: "requisitions" };
+
+// Menu rows both tile roles get. Entries a role doesn't grant simply don't
+// render, so one list serves both (a field user sees the first two today).
+const REST_COMMON: Dest[] = [
   { label: "Time Off", href: "/time-off", desc: "Request time off & see your balance", view: "time-off" },
-  { label: "Requisitions", href: "/requisitions", desc: "Request materials & supplies", view: "requisitions" },
   { label: "Safety Meeting", href: "/safety-meeting", desc: "Pass the iPad and collect sign-ins", view: "safety-meeting" },
   { label: "RFIs", href: "/rfis", desc: "View and create a job's RFIs", view: "rfis" },
   { label: "Requests", href: "/requests", desc: "Ask for fixes and new features", view: "requests" },
   { label: "Assistant", href: "/chat", desc: "Ask about a job's bills or budget", view: "chat" },
 ];
 
-/** Where the fourth button goes. */
-export const FIELD_REST_HREF = "/more";
+export const TILE_LAUNCHERS: Record<string, TileLauncher> = {
+  field: {
+    quick: [TILE_MILES, TILE_TIME, TILE_TOOLS],
+    // Requisitions is a menu row for a field user and a BUTTON for a lead —
+    // same page, different prominence, which is the whole point of two lists.
+    rest: [REST_COMMON[0], TILE_REQS, ...REST_COMMON.slice(1)],
+  },
+  lead: {
+    quick: [TILE_MILES, TILE_TIME, TILE_TOOLS, TILE_SHEETS, TILE_REQS],
+    // The billing pages a lead reaches beyond the Tracking Sheets button.
+    rest: [
+      { label: "Sunset Statements", href: "/payments", desc: "Pay a statement & reconcile its invoices", view: "payments" },
+      { label: "Bill Search", href: "/bill-search", desc: "Find any bill or line item — a vendor, an invoice #", view: "bill-search" },
+      { label: "Labor Review", href: "/labor-review", desc: "Code a month's logged time against the same headroom", view: "labor-review" },
+      ...REST_COMMON,
+    ],
+  },
+};
+
+/** The tile launcher for a role, or null for the roles that get AREAS. */
+export function tileLauncherFor(role: string | null | undefined): TileLauncher | null {
+  return (role && TILE_LAUNCHERS[role]) || null;
+}
+
+/** Where the final button goes. */
+export const MORE_HREF = "/more";

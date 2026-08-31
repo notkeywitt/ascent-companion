@@ -11,8 +11,8 @@ import { AdminActionBar } from "@/components/AdminActionBar";
 import { StuckVendorBanner } from "@/components/StuckVendors";
 import { NeedsProjectBanner, useNeedsProjectCount } from "@/components/NeedsProject";
 import { DailyDigest } from "@/components/DailyDigest";
-import { FieldHome } from "@/components/FieldHome";
-import { AREAS, PREVIEW_ROWS } from "@/lib/nav";
+import { TileLauncher } from "@/components/TileLauncher";
+import { AREAS, PREVIEW_ROWS, tileLauncherFor } from "@/lib/nav";
 
 /**
  * The Assistant's front page — the launcher, and still the only place EVERY
@@ -33,11 +33,11 @@ import { AREAS, PREVIEW_ROWS } from "@/lib/nav";
  * pages, vendors, bills and line items from every page. This file just renders
  * the lists.
  *
- * TWO LAUNCHERS. The above describes what OFFICE and ADMIN see. A FIELD user
- * gets <FieldHome> instead: four large buttons — Miles · Time · Tools · The
- * Rest — with the fourth opening /more, a curated menu. Both launchers read
- * from src/lib/nav.ts (AREAS for the office lists, FIELD_QUICK + FIELD_REST for
- * the field buttons) and both gate every entry on the same view ids.
+ * TWO LAUNCHERS. The above describes what OFFICE and ADMIN see. A FIELD or LEAD
+ * user gets <TileLauncher> instead: large buttons, ending in "The Rest", which
+ * opens /more — a curated menu. Field gets four buttons, lead six. Both
+ * launchers read from src/lib/nav.ts (AREAS for the office lists,
+ * TILE_LAUNCHERS for the buttons) and both gate every entry on the same view ids.
  */
 
 function Home() {
@@ -81,14 +81,14 @@ function Home() {
   const badges: Record<string, number> =
     needsProject.count > 0 ? { "needs-project": needsProject.count } : {};
 
-  // A FIELD user gets a different launcher entirely: four large buttons (Miles ·
-  // Time · Tools · The Rest) instead of the office's area lists. Rendered here
-  // rather than as its own route so the phone's home button, the PWA icon, and
-  // every "/" link land on the right launcher without anyone choosing a URL.
-  // The banners and the digest above are all self-gating, so they cost a field
-  // phone nothing; the account footer stays, because signing out and back in is
-  // how a changed role is picked up.
-  const isField = access.role === "field";
+  // Field and lead get a different launcher entirely: large buttons ending in
+  // "The Rest", instead of the office's area lists. Rendered here rather than as
+  // its own route so the phone's home button, the PWA icon, and every "/" link
+  // land on the right launcher without anyone choosing a URL. The banners and
+  // the digest above are all self-gating, so they cost a field phone nothing;
+  // the account footer stays, because signing out and back in is how a changed
+  // role is picked up.
+  const tiles = tileLauncherFor(access.role) !== null;
 
   return (
     <main className="mx-auto max-w-2xl px-4 pb-10 pt-5">
@@ -110,8 +110,8 @@ function Home() {
           a field phone loading this same page pays nothing for it. */}
       <DailyDigest />
 
-      {isField ? (
-        <FieldHome qs={qs} />
+      {tiles ? (
+        <TileLauncher qs={qs} />
       ) : (
         <div className="space-y-6">
           {areas.map((area) => {
@@ -178,7 +178,7 @@ function Home() {
       {/* No views at all — don't leave a blank page. This happens when the
           session carries no identity/role (e.g. signed in with the temporary
           shared password rather than Google). Offer a way back to Google. */}
-      {!isField && areas.length === 0 && (
+      {!tiles && areas.length === 0 && (
         <div className="rounded-xl border border-dashed border-neutral-300 px-6 py-8 text-center dark:border-neutral-700">
           <p className="text-sm font-semibold">No views are available for your account yet.</p>
           <p className="mx-auto mt-2 max-w-sm text-xs text-neutral-500">

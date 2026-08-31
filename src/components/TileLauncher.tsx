@@ -4,23 +4,25 @@ import Link from "next/link";
 import { useAccess } from "@/components/AccessProvider";
 import { useCopy } from "@/components/CopyProvider";
 import { LinkPendingOverlay } from "@/components/LinkPending";
-import { FIELD_QUICK, FIELD_REST, FIELD_REST_HREF, type Dest } from "@/lib/nav";
+import { MORE_HREF, tileLauncherFor, type Dest } from "@/lib/nav";
 
 /**
- * The FIELD launcher — what a crew member sees on the home page.
+ * The TILE launcher — what a field or lead user sees on the home page.
  *
- * Four buttons, nothing else: Miles · Time · Tools · The Rest. A phone in a
- * work glove gets three big targets for the pages opened every day, and one
- * door to everything else (/more), so no one scrolls past twenty office rows
- * to reach the mileage form.
+ * Big buttons, nothing else: a field user gets four (Miles · Time · Tools ·
+ * The Rest), a lead gets six (those, plus Tracking Sheets and Requisitions
+ * before The Rest). A phone in a work glove gets large targets for the pages
+ * opened every day and one door to everything else (/more), instead of
+ * scrolling past twenty office rows to reach the mileage form.
  *
  * The office/admin launcher (the area lists in src/app/page.tsx) is untouched —
- * this renders only for the `field` role, and the admin role-preview lens shows
- * it too, so the owner can check this page from /admin without a second login.
+ * this renders only for roles listed in TILE_LAUNCHERS, and the admin
+ * role-preview lens shows it too, so the owner can check either version from
+ * /admin without a second login.
  *
- * WHAT SHOWS HERE IS CURATED IN src/lib/nav.ts (FIELD_QUICK + FIELD_REST).
- * Every tile is still gated on the same view id as the launcher and the
- * middleware, so a tile can never lead somewhere the user gets bounced from.
+ * WHAT SHOWS HERE IS CURATED IN src/lib/nav.ts (TILE_LAUNCHERS). Every tile is
+ * still gated on the same view id as the launcher and the middleware, so a tile
+ * can never lead somewhere the user gets bounced from.
  */
 
 /* Flat 2px line icons on a 24×24 grid — the same set the tab bar draws. */
@@ -57,6 +59,20 @@ const WrenchIcon = () => (
     <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
   </IconBase>
 );
+const BanknoteIcon = () => (
+  <IconBase>
+    <rect x="2" y="6" width="20" height="12" rx="2" />
+    <circle cx="12" cy="12" r="2.5" />
+    <path d="M6 12h.01M18 12h.01" />
+  </IconBase>
+);
+const ClipboardIcon = () => (
+  <IconBase>
+    <rect x="8" y="3" width="8" height="4" rx="1" />
+    <path d="M9 5H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-3" />
+    <path d="M9 12h6M9 16h4" />
+  </IconBase>
+);
 const GridIcon = () => (
   <IconBase>
     <circle cx="6" cy="6" r="1.6" />
@@ -71,11 +87,13 @@ const GridIcon = () => (
   </IconBase>
 );
 
-/** Icon per view id; a destination added to FIELD_QUICK without one falls back. */
+/** Icon per view id; a tile added without one falls back to the grid mark. */
 const ICONS: Record<string, () => React.ReactNode> = {
   mileage: RouteIcon,
   "employee-time": ClockIcon,
   tools: WrenchIcon,
+  recode: BanknoteIcon,
+  requisitions: ClipboardIcon,
 };
 
 export function FieldTile({
@@ -103,14 +121,15 @@ export function FieldTile({
   );
 }
 
-export function FieldHome({ qs = "" }: { qs?: string }) {
+export function TileLauncher({ qs = "" }: { qs?: string }) {
   const access = useAccess();
   const c = useCopy();
 
+  const launcher = tileLauncherFor(access.role);
   const label = (d: Dest) => c(`home.quick.${d.view}.label`) || d.label;
-  const quick = FIELD_QUICK.filter((d) => access.can(d.view));
-  // The fourth button is pointless with nothing behind it.
-  const restCount = FIELD_REST.filter((d) => access.can(d.view)).length;
+  const quick = (launcher?.quick ?? []).filter((d) => access.can(d.view));
+  // The last button is pointless with nothing behind it.
+  const restCount = (launcher?.rest ?? []).filter((d) => access.can(d.view)).length;
 
   return (
     <div className="grid grid-cols-2 gap-3">
@@ -124,7 +143,7 @@ export function FieldHome({ qs = "" }: { qs?: string }) {
       ))}
       {restCount > 0 && (
         <FieldTile
-          href={FIELD_REST_HREF + qs}
+          href={MORE_HREF + qs}
           label={c("home.quick.more.label") || "The Rest"}
           Icon={GridIcon}
         />

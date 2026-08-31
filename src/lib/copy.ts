@@ -101,8 +101,13 @@ export const COPY: Record<string, CopyEntry> = {
   "home.quick.tools.full": { text: "Tools", label: "Tools — full name", group: "Home — quick buttons" },
   "home.quick.requisitions.label": { text: "Reqs", label: "Requisitions — button", group: "Home — quick buttons", short: true },
   "home.quick.requisitions.full": { text: "Requisitions", label: "Requisitions — full name", group: "Home — quick buttons" },
-  // The fourth button on the FIELD launcher — it opens /more, the curated menu
-  // of everything else that role can reach (src/lib/nav.ts → FIELD_REST).
+  // Lead-only buttons (the lead launcher's 4th and 5th tiles). "Reqs" above is
+  // the button word for the 5th; this is the 4th.
+  "home.quick.recode.label": { text: "Tracking Sheets", label: "Tracking Sheets — button", group: "Home — quick buttons", short: true },
+  "home.quick.recode.full": { text: "Tracking Sheets", label: "Tracking Sheets — full name", group: "Home — quick buttons" },
+
+  // The last button on the FIELD and LEAD launchers — it opens /more, the curated menu
+  // of everything else that role can reach (src/lib/nav.ts → TILE_LAUNCHERS).
   "home.quick.more.label": { text: "The Rest", label: "The Rest — button", group: "Home — quick buttons", short: true },
   "home.quick.more.full": { text: "Everything else", label: "The Rest — full name", group: "Home — quick buttons" },
 
