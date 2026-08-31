@@ -4,6 +4,7 @@ import { CHECKS, enabledChecks } from "./registry";
 import { DIGEST_CATEGORIES, DIGEST_SETTINGS, categoryLabel, categoryOrder } from "./settings";
 import { categoryTone, groupByCategory, titleCase, worstStatus } from "./grouping";
 import { fallbackSummary } from "./run";
+import { parseSummary } from "./summary";
 import { openBillingPeriod } from "./checks/draftBillsPastCutoff";
 import { billMatchesEmail, matchVendor, normalizeVendorName } from "./checks/uncapturedBills";
 import { humanizeFlag } from "./checks/reconciliationFlags";
@@ -290,3 +291,47 @@ describe("the isolation contract: one dead source must not kill the digest", () 
     }
   });
 });
+
+describe("the brief's topic blocks (parseSummary)", () => {
+  it("splits blank-line-separated topics into their own paragraphs", () => {
+    const blocks = parseSummary("Crew finished siding at Ferron.\n\nRachel is at Aspen today.");
+    expect(blocks).toEqual([
+      { kind: "p", text: "Crew finished siding at Ferron." },
+      { kind: "p", text: "Rachel is at Aspen today." },
+    ]);
+  });
+
+  it("collects consecutive bullet lines into one list", () => {
+    const blocks = parseSummary("- Reply to Dave about the change order\n- Call the inspector");
+    expect(blocks).toEqual([
+      { kind: "ul", items: ["Reply to Dave about the change order", "Call the inspector"] },
+    ]);
+  });
+
+  it("splits a lead line off the list under it, without a blank line between", () => {
+    const blocks = parseSummary("2 items need attention:\n- Uncaptured bills\n- Stale drafts");
+    expect(blocks).toEqual([
+      { kind: "p", text: "2 items need attention:" },
+      { kind: "ul", items: ["Uncaptured bills", "Stale drafts"] },
+    ]);
+  });
+
+  it("tolerates the model: * and bullet chars, and strips ** emphasis", () => {
+    const blocks = parseSummary("* **Dave** wants a date\n• Permit expires Friday");
+    expect(blocks).toEqual([{ kind: "ul", items: ["Dave wants a date", "Permit expires Friday"] }]);
+  });
+
+  it("renders an old one-paragraph digest unchanged", () => {
+    const blocks = parseSummary("All checks are clear this morning.");
+    expect(blocks).toEqual([{ kind: "p", text: "All checks are clear this morning." }]);
+  });
+
+  it("reads the local fallback back as blocks, same as Claude's", () => {
+    const blocks = parseSummary(
+      fallbackSummary([result({ status: "warning", summary: "2 uncaptured bills found.", items: [{ title: "a" }, { title: "b" }] })]),
+    );
+    expect(blocks[0].kind).toBe("p");
+    expect(blocks[1]).toEqual({ kind: "ul", items: ["X: 2 uncaptured bills found."] });
+  });
+});
+

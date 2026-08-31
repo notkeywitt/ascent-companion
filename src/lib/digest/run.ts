@@ -175,30 +175,39 @@ export async function computeDigest(
 }
 
 /**
- * The paragraph shown when Claude is unconfigured or unreachable.
+ * The brief shown when Claude is unconfigured or unreachable.
  *
  * Deliberately plain and mechanical — its job is to keep the digest useful, not
  * to imitate the model. It never claims all-clear when a check errored.
+ *
+ * SAME SHAPE AS THE MODEL'S ANSWER: topic blocks separated by a blank line,
+ * with per-check detail as "- " bullet lines, so the card renders the fallback
+ * and the real brief through the identical parser (`parseSummary` in
+ * src/components/DailyDigest.tsx) instead of one wall of text for one of them.
  */
 export function fallbackSummary(results: StoredCheckResult[]): string {
   const flagged = results.filter((r) => r.status === "warning");
   const errored = results.filter((r) => r.status === "error");
-  const parts: string[] = [];
+  const blocks: string[] = [];
   if (flagged.length === 0 && errored.length === 0) {
-    parts.push("All checks are clear this morning.");
+    blocks.push("All checks are clear this morning.");
   } else if (flagged.length > 0) {
     const total = flagged.reduce((s, r) => s + r.items.length, 0);
-    parts.push(
-      `${total} item${total === 1 ? "" : "s"} need attention across ${flagged.length} check${flagged.length === 1 ? "" : "s"}: ` +
-        flagged.map((r) => r.summary).join(" "),
+    // Lead line, then one bullet per flagged check — the check's own one-line
+    // summary, which is already written to stand alone.
+    blocks.push(
+      `${total} item${total === 1 ? "" : "s"} need attention across ${flagged.length} check${flagged.length === 1 ? "" : "s"}:\n` +
+        flagged.map((r) => `- ${r.title}: ${r.summary}`).join("\n"),
     );
   }
   if (errored.length > 0) {
-    parts.push(
-      `${errored.length} check${errored.length === 1 ? "" : "s"} couldn't be run (${errored.map((r) => r.title).join(", ")}).`,
+    blocks.push(
+      `${errored.length} check${errored.length === 1 ? "" : "s"} couldn't be run:\n` +
+        errored.map((r) => `- ${r.title}`).join("\n"),
     );
   }
-  return parts.join(" ");
+  // A blank line between blocks is what the parser splits topics on.
+  return blocks.join("\n\n");
 }
 
 /**

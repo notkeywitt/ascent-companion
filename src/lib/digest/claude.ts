@@ -1,5 +1,5 @@
 /**
- * Claude engine for the Daily Digest — the summary paragraph and the
+ * Claude engine for the Daily Digest — the summary brief and the
  * email-signals extraction. Replaces the Gemini versions in src/lib/gemini.ts
  * (`summarizeDigestWithGemini`, `extractEmailSignalsWithGemini`), which stay in
  * place for the pipelines that still use Gemini (invoice capture, tool-serial
@@ -48,7 +48,14 @@ function client(): Anthropic {
 }
 
 /**
- * The Daily Digest's one-paragraph summary. ONE Claude call per digest run.
+ * The Daily Digest's morning brief. ONE Claude call per digest run.
+ *
+ * The answer is PLAIN TEXT ORGANISED INTO BLOCKS: topics separated by a blank
+ * line, with the two "here's what needs an answer" topics as "- " bullet
+ * lines. It is stored and carried as one string (no schema change), and the
+ * card parses it back into paragraphs and lists — see `parseSummary` in
+ * src/components/DailyDigest.tsx, which is the reader for exactly the format
+ * the prompt below asks for. Change one and change the other.
  *
  * ⚠️ `structured` MUST already be the digest's check RESULTS — titles, counts,
  * amounts and one-line summaries — never raw source data. No email bodies, no
@@ -73,23 +80,31 @@ their morning brief. Below is the STRUCTURED OUTPUT of this morning's automated 
 entries, the JobTread and calendar schedule, open to-dos and office reminders, and email needing a
 reply.
 
-Write a short brief (4-7 plain sentences, no more than about 160 words) in this order:
-1. Recap what the crew did YESTERDAY, by job — who was where, doing what (from the "Crew Activity"
-   check's "Yesterday" items). Skip this sentence if there's nothing to recap.
-2. State who's on site TODAY and where (the same check's "Right now" items), as the day's plan.
-3. Call out emails that need a reply, by name and in brief, and anything on the calendar or
-   JobTread schedule worth flagging today.
-4. Close with any open reminders/to-dos the owner should keep in mind, named specifically (not just
-   a count).
+Write a short brief — no more than about 200 words total — ORGANISED INTO SEPARATE BLOCKS, one
+topic per block, separated by a BLANK LINE, in this order:
 
-Write it as complete sentences a person would actually say out loud, not a bullet list read back.
-Name people and jobs directly (e.g. "Cedar, Rachel, and Greg were at Ferron installing siding").
-Name concrete numbers and dollar figures when the data has them. If a whole section has nothing to
-report, skip it silently rather than saying "nothing to report" — don't pad. Mention any check whose
-status is "error" as "couldn't be checked", briefly, near the end.
+1. YESTERDAY — one short paragraph (1-2 sentences) recapping what the crew did yesterday, by job:
+   who was where, doing what (from the "Crew Activity" check's "Yesterday" items).
+2. TODAY — one short paragraph (1-2 sentences) saying who is on site today and where (the same
+   check's "Right now" items), plus anything on the calendar or JobTread schedule for today.
+3. NEEDS A REPLY — a bulleted list: one bullet per email that needs an answer, named and in brief.
+4. KEEP IN MIND — a bulleted list: one bullet per open reminder or to-do, named specifically (never
+   just a count). Put any check whose status is "error" in a final bullet here, worded as
+   "<check> couldn't be checked".
 
-Do NOT use markdown, bullet points, headings, or a greeting. Do not invent anything that is not in
-the data — every name, job, and number must come from what's given.
+FORMAT RULES, exactly:
+- Blocks 1 and 2 are prose — complete sentences a person would say out loud.
+- Blocks 3 and 4 are bullets. Start EVERY bullet line with "- " (a hyphen and a space) and keep
+  each bullet to one line, one idea.
+- Separate every block from the next with one blank line.
+- Do NOT write the block names ("YESTERDAY", "TODAY", …) or any other heading, label, title or
+  greeting. The blank line between blocks is the only separator.
+- No other markdown: no "**", no "#", no numbered lists, no tables.
+
+If a whole block has nothing to report, LEAVE IT OUT entirely rather than saying "nothing to
+report" — don't pad. Name people and jobs directly (e.g. "Cedar, Rachel, and Greg were at Ferron
+installing siding") and name concrete numbers and dollar figures when the data has them. Do not
+invent anything that is not in the data — every name, job, and number must come from what's given.
 
 DATA:
 ${JSON.stringify(structured)}`;
@@ -101,7 +116,7 @@ ${JSON.stringify(structured)}`;
         model: MODEL,
         max_tokens: MAX_TOKENS_SUMMARY,
         // Low effort: this restates check results the checks already decided,
-        // in ~160 words. It is not a reasoning task, and since thinking is on
+        // in ~200 words. It is not a reasoning task, and since thinking is on
         // by default (see the max_tokens note above) capping its depth is what
         // keeps the call cheap and quick rather than the token ceiling.
         output_config: { effort: "low" },

@@ -115,7 +115,13 @@ export interface DigestPayload {
   generatedAt: string;
   /** ok = every check answered; partial = at least one errored; error = all did. */
   status: "ok" | "partial" | "error";
-  /** The Claude paragraph (or a locally-built fallback — see `summarySource`). */
+  /**
+   * The Claude brief (or a locally-built fallback — see `summarySource`).
+   *
+   * ONE STRING, written in topic blocks: paragraphs separated by a blank line,
+   * bullets as lines starting "- ". Read back by `parseSummary`
+   * (src/lib/digest/summary.ts) for display; stored verbatim.
+   */
   summary: string;
   /** "gemini" is a legacy value — older stored digests were written before the
    *  Claude switch and still carry it; new runs only ever write "claude" or

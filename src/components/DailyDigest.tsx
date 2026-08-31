@@ -16,10 +16,12 @@ import {
 import { useAccess } from "@/components/AccessProvider";
 import { categoryTone, groupByCategory, type CategoryTone } from "@/lib/digest/grouping";
 import type { DigestCategory } from "@/lib/digest/settings";
+import { parseSummary } from "@/lib/digest/summary";
 import type { DigestItem, DigestPayload, StoredCheckResult } from "@/lib/digest/types";
 
 /**
- * The Admin Daily Digest card on the home launcher.
+ * The Daily Digest card on the home launcher (office and admin — see the
+ * `digest` view in src/lib/views.ts).
  *
  * WHAT IT DRAWS AND WHAT IT DOESN'T DECIDE. Every heading, count, status mark
  * and row here comes out of the STORED digest — this component contains no
@@ -66,6 +68,30 @@ function timeOf(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "";
   return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+}
+
+/** Draws the parsed brief: paragraphs and bulleted lists, in written order. */
+function SummaryBody({ text }: { text: string }) {
+  const blocks = useMemo(() => parseSummary(text), [text]);
+  return (
+    <div className="space-y-2">
+      {blocks.map((b, i) =>
+        b.kind === "p" ? (
+          <p key={i} className="text-sm leading-relaxed">
+            {b.text}
+          </p>
+        ) : (
+          // list-outside + the left padding keeps a wrapped bullet's second
+          // line aligned under its first word on a phone, not under the dot.
+          <ul key={i} className="list-outside list-disc space-y-1 pl-5 text-sm leading-relaxed marker:text-neutral-400">
+            {b.items.map((item, j) => (
+              <li key={j}>{item}</li>
+            ))}
+          </ul>
+        ),
+      )}
+    </div>
+  );
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -259,9 +285,11 @@ export function DailyDigest() {
 
       {!loading && digest && (
         <>
-          {/* The Claude paragraph, first — the one thing to read if nothing else. */}
+          {/* The Claude brief, first — the one thing to read if nothing else.
+              Drawn as its own topic blocks (see parseSummary above), not as one
+              run-on paragraph. */}
           <Card>
-            <p className="text-sm leading-relaxed">{digest.summary}</p>
+            <SummaryBody text={digest.summary} />
             <p className="mt-2 text-[11px] text-neutral-500">
               {data?.stale ? (
                 <>
