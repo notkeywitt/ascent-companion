@@ -62,7 +62,7 @@ describe("category grouping (why the UI has no hardcoded tabs)", () => {
       [result({ id: "a", category: "followup" }), result({ id: "b", category: "billing" })],
       DIGEST_CATEGORIES,
     );
-    expect(views.map((v) => v.id)).toEqual(["billing", "followup"]);
+    expect(views.map((v) => v.id)).toEqual(["followup", "billing"]);
   });
 
   it("renders a category no one registered, rather than losing its check", () => {

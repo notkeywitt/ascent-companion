@@ -253,3 +253,110 @@ ${JSON.stringify(structured)}`;
     return null;
   }
 }
+
+/* -------------------------------------------------------------------------
+ * EMAIL SIGNAL EXTRACTION — appointments and action items mentioned in mail.
+ *
+ * ⚠️ THIS IS THE ONE PLACE IN THE DIGEST THAT SENDS EMAIL BODY TEXT TO GEMINI.
+ * Every other check reads metadata only. This one has to read some body text —
+ * "let's meet Thursday at 2" cannot be found by a sender/subject rule — so the
+ * body sent here is TRUNCATED (the caller sets how much, see
+ * `EmailSignalsConfig.maxBodyChars` in src/lib/digest/settings.ts) and reply
+ * chains are already stripped before it reaches this file (Apps Script side,
+ * `_jtdStripQuoted`). The ONLY thing that leaves this function and reaches the
+ * stored digest is the EXTRACTED result — a title, a date/time hint, a
+ * yes/no on whose action it is — never the body text itself.
+ * ---------------------------------------------------------------------- */
+
+export interface ExtractedAppointment {
+  emailIndex: number;
+  title: string;
+  date?: string; // YYYY-MM-DD, only when explicitly stated or unambiguous
+  time?: string; // free text as printed ("2pm", "9:00 AM") — not parsed
+}
+export interface ExtractedActionItem {
+  emailIndex: number;
+  title: string;
+  dueHint?: string; // free text ("by Friday", "this week") — not parsed to a date
+  owner: "us" | "them"; // "us" = someone is asking us; "them" = we owe them
+}
+export interface EmailSignalExtraction {
+  appointments: ExtractedAppointment[];
+  actionItems: ExtractedActionItem[];
+}
+
+/**
+ * One Gemini pass over a batch of recent inbox emails, returning appointments
+ * and action items it can support directly from the text. Batched (all emails
+ * in one call, indexed) rather than one call per email — same reasoning as
+ * `summarizeDigestWithGemini`: fast, cheap, and it's the only way to keep this
+ * to ONE extra Gemini call per digest run.
+ *
+ * Returns `{appointments:[],actionItems:[]}` for an empty input, and `null`
+ * when Gemini is unconfigured or the response can't be trusted (not an object,
+ * or missing the expected arrays) — the caller treats `null` as "couldn't run".
+ */
+export async function extractEmailSignalsWithGemini(
+  emails: { subject: string; from: string; date: string; body: string }[],
+): Promise<EmailSignalExtraction | null> {
+  if (!process.env.GEMINI_KEY) return null;
+  if (emails.length === 0) return { appointments: [], actionItems: [] };
+
+  const listing = emails
+    .map(
+      (e, i) =>
+        `[${i}] From: ${e.from}\nDate: ${e.date.slice(0, 10)}\nSubject: ${e.subject}\nBody:\n${e.body}`,
+    )
+    .join("\n\n---\n\n");
+
+  const prompt = `You are scanning a small construction company's recent inbox email for two things:
+APPOINTMENTS (a specific date/time someone should be somewhere or on a call) and ACTION ITEMS
+(a request made of the company, or something the company promised to do or send).
+
+Below are ${emails.length} recent email(s), each numbered [emailIndex] — use that exact number.
+
+Return ONLY JSON in this exact shape:
+{
+  "appointments": [{"emailIndex": number, "title": string, "date": "YYYY-MM-DD" or omit, "time": string or omit}],
+  "actionItems": [{"emailIndex": number, "title": string, "dueHint": string or omit, "owner": "us" or "them"}]
+}
+
+RULES:
+1. Use ONLY what is explicitly stated in the email. Never invent a date, time, or request.
+2. "date" is YYYY-MM-DD ONLY when the day is stated outright or is unambiguous relative to that
+   email's own Date line (e.g. "next Tuesday"). If unsure, omit "date" and put what was said in
+   "time" or the title instead.
+3. "owner" on an action item: "us" if the email is asking the company to do something; "them" if
+   the company (or the email) said IT will do something for the other party.
+4. Skip anything vague, already resolved ("thanks, all set"), or clearly automated/marketing.
+5. At most 3 items per email.
+6. Return {"appointments":[],"actionItems":[]} if nothing qualifies. No markdown, no commentary.
+
+EMAILS:
+${listing}`;
+
+  const out = await callGemini(prompt);
+  if (!out || typeof out !== "object" || Array.isArray(out)) return null;
+
+  const isNum = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
+  const isStr = (v: unknown): v is string => typeof v === "string" && v.trim().length > 0;
+
+  const appointments = (Array.isArray(out.appointments) ? out.appointments : [])
+    .filter((a: any) => isNum(a?.emailIndex) && isStr(a?.title))
+    .map((a: any) => ({
+      emailIndex: a.emailIndex,
+      title: String(a.title),
+      date: isStr(a.date) ? String(a.date) : undefined,
+      time: isStr(a.time) ? String(a.time) : undefined,
+    }));
+  const actionItems = (Array.isArray(out.actionItems) ? out.actionItems : [])
+    .filter((a: any) => isNum(a?.emailIndex) && isStr(a?.title))
+    .map((a: any) => ({
+      emailIndex: a.emailIndex,
+      title: String(a.title),
+      dueHint: isStr(a.dueHint) ? String(a.dueHint) : undefined,
+      owner: a.owner === "them" ? ("them" as const) : ("us" as const),
+    }));
+
+  return { appointments, actionItems };
+}
