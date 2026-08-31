@@ -115,9 +115,12 @@ export interface DigestPayload {
   generatedAt: string;
   /** ok = every check answered; partial = at least one errored; error = all did. */
   status: "ok" | "partial" | "error";
-  /** The Gemini paragraph (or a locally-built fallback — see `summarySource`). */
+  /** The Claude paragraph (or a locally-built fallback — see `summarySource`). */
   summary: string;
-  summarySource: "gemini" | "fallback";
+  /** "gemini" is a legacy value — older stored digests were written before the
+   *  Claude switch and still carry it; new runs only ever write "claude" or
+   *  "fallback". */
+  summarySource: "gemini" | "claude" | "fallback";
   results: StoredCheckResult[];
   durationMs: number;
   /** Per-check run log: which ran, when, and how they came out. */

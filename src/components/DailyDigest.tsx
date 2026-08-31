@@ -171,7 +171,7 @@ export function DailyDigest() {
 
       {!loading && digest && (
         <>
-          {/* The Gemini paragraph, first — the one thing to read if nothing else. */}
+          {/* The Claude paragraph, first — the one thing to read if nothing else. */}
           <Card>
             <p className="text-sm leading-relaxed">{digest.summary}</p>
             <p className="mt-2 text-[11px] text-neutral-500">
@@ -182,7 +182,7 @@ export function DailyDigest() {
               ) : (
                 <>Generated {timeOf(digest.generatedAt)}</>
               )}
-              {digest.summarySource === "fallback" && " · summary written locally (Gemini unavailable)"}
+              {digest.summarySource === "fallback" && " · summary written locally (Claude unavailable)"}
               {digest.status === "partial" && " · some checks couldn't run"}
             </p>
           </Card>

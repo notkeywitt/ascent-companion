@@ -244,16 +244,18 @@ describe("fallback summary (used when Gemini is unreachable)", () => {
 });
 
 describe("the isolation contract: one dead source must not kill the digest", () => {
-  // Nothing is configured — no Apps Script URL, no JobTread grant, no Gemini
+  // Nothing is configured — no Apps Script URL, no JobTread grant, no Claude
   // key — so every check hits an unreachable source. That is the scenario this
   // whole design exists for, and it must produce a COMPLETE digest of errors,
   // not an exception. Fully offline: callAppsScript short-circuits on the
-  // missing env, and the Gemini call is skipped without a key.
+  // missing env, and the Claude calls are skipped without a key.
   beforeEach(() => {
     delete process.env.APPS_SCRIPT_SYNC_URL;
     delete process.env.APPS_SCRIPT_SYNC_SECRET;
     delete process.env.JT_GRANT_KEY;
     delete process.env.GEMINI_KEY;
+    delete process.env.ANTHROPIC_API_KEY;
+    delete process.env.ANTHROPIC_MODEL_DIGEST;
   });
 
   it("reports every check as an error and still returns a digest", async () => {

@@ -43,8 +43,9 @@ Two options:
 | `APP_PASSWORD` | a strong shared password (required on deploy) |
 | `COMPANION_WRITES_ENABLED` | leave unset (writes stay off) |
 | `GEMINI_KEY` | Gemini key — **Add a Bill** extraction + Sunset statement extraction |
-| `ANTHROPIC_API_KEY` | Anthropic API key (powers the **Assistant** chat) |
-| `ANTHROPIC_MODEL` | `claude-sonnet-5` (or leave unset for Opus 4.8) |
+| `ANTHROPIC_API_KEY` | Anthropic API key (powers the **Assistant** chat, and the **Daily Digest**'s summary + email-signals check) |
+| `ANTHROPIC_MODEL` | `claude-sonnet-5` (or leave unset for Opus 4.8) — the **Assistant** chat's model |
+| `ANTHROPIC_MODEL_DIGEST` | optional; defaults to `claude-sonnet-5` — the **Daily Digest**'s own model knob, separate from the chat assistant's |
 | `GOOGLE_MAPS_API_KEY` | Maps key for **Mileage** (enable the **Routes API**; **Geocoding API** for addresses) |
 | `APPS_SCRIPT_SYNC_URL` | the Apps Script `/exec` URL (Sheets/Drive features: employees, tools, safety, mileage, email logging, payments) |
 | `APPS_SCRIPT_SYNC_SECRET` | must equal Script Property `SYNC_TRIGGER_SECRET` on the Apps Script side |
@@ -53,6 +54,11 @@ Two options:
 Set them for the Production environment, then deploy (Vercel builds automatically).
 The last few are only needed by the features that use them — the app runs without
 them, those screens just won't work.
+
+If you test a feature on a Vercel **Preview** deploy before merging to `main`
+(the normal flow for a `claude/*` branch), confirm the env vars it needs are
+also set for the Preview environment in Vercel's dashboard — this list is only
+confirmed for Production, and Preview does not automatically inherit it.
 
 ### Daily Digest — the one extra deploy step
 
@@ -72,8 +78,9 @@ The digest's Gmail, Calendar and Sheet reads run in the **Apps Script** repo
    `src/lib/digest/settings.ts` — the defaults match on name fragments
    ("office", "ty", "casey", "time off") and ids are more durable.
 4. The **email-signals** check ("From Your Email") needs BOTH halves shipped: the
-   Apps Script `digestEmailContent` action (deployed 2026-08-31) and a `GEMINI_KEY`
-   in Vercel. With no key, that one check reports ❌ "Gemini isn't configured" and
+   Apps Script `digestEmailContent` action (deployed 2026-08-31) and an
+   `ANTHROPIC_API_KEY` in Vercel (shared with the **Assistant** chat — no separate
+   key needed). With no key, that one check reports ❌ "Claude isn't configured" and
    the rest of the digest is unaffected — but note the worst-status roll-up means
    the whole **To-Do** section then shows ❌ even when the JobTread to-do half
    worked, so a missing key is loud rather than silent. This is deliberate: a check

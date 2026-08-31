@@ -1,6 +1,6 @@
 /**
  * Check "email-signals" (To-Do) — appointments and action items mentioned in
- * recent inbox email, found by ONE Gemini pass.
+ * recent inbox email, found by ONE Claude pass.
  *
  * "Waiting on a Reply" (email-followups) already covers threads nobody
  * answered. This check covers a different thing: a date, a request, or a
@@ -14,13 +14,13 @@
  * (`EmailSignalsConfig.maxBodyChars`) and quote-stripped before this check ever
  * sees it (Apps Script side, `_jtdStripQuoted`), and only the EXTRACTED result
  * (a title, a date/time, a yes/no on whose action it is) is kept — the body
- * text itself is discarded after the one Gemini call. See the comment on
- * `extractEmailSignalsWithGemini` in src/lib/gemini.ts.
+ * text itself is discarded after the one Claude call. See the comment on
+ * `extractEmailSignalsWithClaude` in src/lib/digest/claude.ts.
  *
  * READ-ONLY: Gmail is searched and read, never labeled, archived, or sent.
  */
 import { callAppsScript } from "@/lib/appsScript";
-import { extractEmailSignalsWithGemini } from "@/lib/gemini";
+import { extractEmailSignalsWithClaude } from "../claude";
 import { defineCheck, allClear, checkError, type CheckResult, type DigestItem } from "../types";
 import type { EmailSignalsConfig } from "../settings";
 
@@ -67,7 +67,7 @@ export const emailSignalsCheck = defineCheck<EmailSignalsConfig>({
 
     let extraction;
     try {
-      extraction = await extractEmailSignalsWithGemini(
+      extraction = await extractEmailSignalsWithClaude(
         emails.map((e) => ({
           subject: e.subject ?? "",
           from: e.from ?? "",
@@ -76,12 +76,12 @@ export const emailSignalsCheck = defineCheck<EmailSignalsConfig>({
         })),
       );
     } catch (e) {
-      return checkError(`Gemini extraction failed: ${e instanceof Error ? e.message : String(e)}`);
+      return checkError(`Claude extraction failed: ${e instanceof Error ? e.message : String(e)}`);
     }
     if (!extraction) {
-      return checkError("Gemini isn't configured, so email can't be scanned for appointments/action items.");
+      return checkError("Claude isn't configured, so email can't be scanned for appointments/action items.");
     }
-    log(`Gemini found ${extraction.appointments.length} appointment(s), ${extraction.actionItems.length} action item(s)`);
+    log(`Claude found ${extraction.appointments.length} appointment(s), ${extraction.actionItems.length} action item(s)`);
 
     const items: DigestItem[] = [];
     for (const a of extraction.appointments) {
