@@ -26,6 +26,7 @@ import { draftBillsPastCutoffCheck } from "./checks/draftBillsPastCutoff";
 import { reconciliationFlagsCheck } from "./checks/reconciliationFlags";
 import { costVsInvoiceCheck } from "./checks/costVsInvoice";
 import { calendarEventsCheck } from "./checks/calendarEvents";
+import { jobtreadScheduleCheck } from "./checks/jobtreadSchedule";
 import { jobtreadTodosCheck } from "./checks/jobtreadTodos";
 import { emailFollowUpsCheck } from "./checks/emailFollowUps";
 import { emailSignalsCheck } from "./checks/emailSignals";
@@ -34,6 +35,7 @@ import { emailSignalsCheck } from "./checks/emailSignals";
 const DECLARED: DigestCheck<never>[] = [
   // Calendar
   calendarEventsCheck,
+  jobtreadScheduleCheck,
   // To-Do
   jobtreadTodosCheck,
   emailSignalsCheck,

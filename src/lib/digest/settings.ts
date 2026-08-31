@@ -38,7 +38,7 @@ export interface DigestCategory {
 }
 
 export const DIGEST_CATEGORIES: DigestCategory[] = [
-  { id: "calendar", label: "Calendar", blurb: "What's on the shared calendars." },
+  { id: "calendar", label: "Calendar", blurb: "What's on the shared calendars and the JobTread schedule." },
   { id: "todo", label: "To-Do", blurb: "Open JobTread to-dos, and appointments/action items found in email." },
   { id: "followup", label: "Follow-ups", blurb: "Conversations waiting on us." },
   // Off by default (2026-08-31) — billing has its own screen (Tracking Sheets /
@@ -164,6 +164,24 @@ export interface JobTreadTodosConfig {
    * (case-insensitive), e.g. ["ty", "casey"]. Empty = every assignee, which is
    * the default — a to-do assigned to someone not listed here is still real
    * work the office should see.
+   */
+  watchMembers: string[];
+}
+
+/**
+ * Check "jobtread-schedule" — JobTread's own schedule (the `isToDo=false` half
+ * of the same `task` object `jobtread-todos` reads): dated job work like a
+ * site visit, an inspection, or an install date, today or soon.
+ */
+export interface JobTreadScheduleConfig {
+  /** Days ahead to show, counting today. Mirrors CalendarEventsConfig.days so
+   *  the two date-based checks stay in step. */
+  daysAhead: number;
+  /** Most items to list. */
+  maxItems: number;
+  /**
+   * Limit to people whose JobTread display name contains one of these
+   * (case-insensitive), e.g. ["ty", "casey"]. Empty = everyone, the default.
    */
   watchMembers: string[];
 }
@@ -318,6 +336,15 @@ export const DIGEST_SETTINGS = {
       watchMembers: [],
     },
   } satisfies DigestCheckSettings<JobTreadTodosConfig>,
+
+  "jobtread-schedule": {
+    enabled: true,
+    config: {
+      daysAhead: 7,
+      maxItems: 40,
+      watchMembers: [],
+    },
+  } satisfies DigestCheckSettings<JobTreadScheduleConfig>,
 
   "email-signals": {
     enabled: true,

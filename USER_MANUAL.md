@@ -486,9 +486,11 @@ card just shows what it stored, so opening Home is instant. A short plain-Englis
 paragraph sits at the top — that's the one thing to read if you read nothing else —
 and under it these collapsible sections:
 
-- **Calendar** — what's on the shared calendars today and for the week ahead
-  (the office calendar plus Ty's and Casey's). When more than one calendar has
-  something that day, each line says whose it is.
+- **Calendar** — two things. What's on the shared calendars today and for the
+  week ahead (the office calendar plus Ty's and Casey's) — when more than one
+  calendar has something that day, each line says whose it is; and **JobTread's
+  own schedule** — dated job work like a site visit, an inspection, or an
+  install date, today or in the week ahead, grouped by who it's assigned to.
 - **To-Do** — two things. Open **JobTread to-dos** that are overdue or due in the
   next week, grouped by who they're assigned to; and appointments or action items
   that were **mentioned in an email** ("site visit Thursday at 2", "I'll send the

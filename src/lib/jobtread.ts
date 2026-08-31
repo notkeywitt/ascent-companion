@@ -4275,25 +4275,24 @@ export interface OpenToDo {
 }
 
 /**
- * Every open (not fully done) to-do across the org, for the Daily Digest.
- *
- * A JobTread `task` serves BOTH the schedule (`isToDo=false`) and to-do lists
- * (`isToDo=true`); this reads only the to-do half. "Open" means `progress` is
- * null or under 1 — JobTread has no separate boolean completion flag on the
- * task itself (only per-subtask `isComplete`), so `progress` is the read this
- * uses; a write against it is unconfirmed, but this function never writes.
+ * Every open (not fully done) task of the given kind across the org — the
+ * shared query behind `getOpenToDos` and `getScheduledTasks` below. "Open"
+ * means `progress` is null or under 1 — JobTread has no separate boolean
+ * completion flag on the task itself (only per-subtask `isComplete`), so
+ * `progress` is the read this uses; a write against it is unconfirmed, but
+ * this function never writes.
  *
  * `assignees` resolves `assignedMemberships` to each member's JobTread display
  * name (same names `getOrgUsers` returns), so a digest check can group by
  * person without a second lookup.
  */
-export async function getOpenToDos(cfg: PaveConfig): Promise<OpenToDo[]> {
+async function fetchTasks(cfg: PaveConfig, isToDo: boolean): Promise<OpenToDo[]> {
   const q = (nodes: Record<string, unknown>, page?: string) => ({
     organization: {
       $: { id: cfg.orgId },
       id: {},
       tasks: {
-        $: { where: { and: [["isToDo", true]] }, size: 100, ...(page ? { page } : {}) },
+        $: { where: { and: [["isToDo", isToDo]] }, size: 100, ...(page ? { page } : {}) },
         nextPage: {},
         nodes,
       },
@@ -4332,7 +4331,7 @@ export async function getOpenToDos(cfg: PaveConfig): Promise<OpenToDo[]> {
         .filter((x): x is string => typeof x === "string" && x.length > 0);
       out.push({
         id: n.id,
-        name: n.name || "(untitled to-do)",
+        name: n.name || "(untitled)",
         description: n.description || undefined,
         startDate: n.startDate ?? null,
         endDate: n.endDate ?? null,
@@ -4345,4 +4344,20 @@ export async function getOpenToDos(cfg: PaveConfig): Promise<OpenToDo[]> {
     page = r?.organization?.tasks?.nextPage || undefined;
   } while (page && ++guard < 100);
   return out;
+}
+
+/** Every open to-do across the org, for the Daily Digest — the `isToDo=true` half. */
+export async function getOpenToDos(cfg: PaveConfig): Promise<OpenToDo[]> {
+  return fetchTasks(cfg, true);
+}
+
+/**
+ * Every open SCHEDULE item across the org, for the Daily Digest — the
+ * `isToDo=false` half of the same `task` object `getOpenToDos` reads. This is
+ * job-level dated work (a site visit, an inspection, an install date), not a
+ * personal calendar event — that's the Google Calendar side, read separately
+ * by the Apps Script `digestCalendar` action / `calendarEventsCheck`.
+ */
+export async function getScheduledTasks(cfg: PaveConfig): Promise<OpenToDo[]> {
+  return fetchTasks(cfg, false);
 }
