@@ -139,7 +139,14 @@ function Chat() {
   }
 
   return (
-    <main className="mx-auto flex h-[calc(100vh-3.5rem)] max-w-xl flex-col px-4 pb-4 pt-6">
+    <main
+      className="mx-auto flex h-[calc(100dvh-3.5rem)] max-w-xl flex-col px-4 pt-6"
+      // The bottom tab bar (TabBar.tsx) is a fixed 56px overlay shown on every
+      // page for the office/admin roles that are the only ones able to reach
+      // this one — without this, the send button renders right where the bar
+      // sits and is unreachable on any viewport short enough to show it.
+      style={{ paddingBottom: "calc(1rem + 56px + env(safe-area-inset-bottom))" }}
+    >
       <PageHeader
         title="Assistant"
         description={

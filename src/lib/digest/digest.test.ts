@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import { CHECKS, enabledChecks } from "./registry";
 import { DIGEST_CATEGORIES, DIGEST_SETTINGS, categoryLabel, categoryOrder } from "./settings";
-import { groupByCategory, titleCase, worstStatus } from "./grouping";
+import { categoryTone, groupByCategory, titleCase, worstStatus } from "./grouping";
 import { fallbackSummary } from "./run";
 import { openBillingPeriod } from "./checks/draftBillsPastCutoff";
 import { billMatchesEmail, matchVendor, normalizeVendorName } from "./checks/uncapturedBills";
@@ -62,7 +62,7 @@ describe("category grouping (why the UI has no hardcoded tabs)", () => {
       [result({ id: "a", category: "followup" }), result({ id: "b", category: "billing" })],
       DIGEST_CATEGORIES,
     );
-    expect(views.map((v) => v.id)).toEqual(["billing", "followup"]);
+    expect(views.map((v) => v.id)).toEqual(["followup", "billing"]);
   });
 
   it("renders a category no one registered, rather than losing its check", () => {
@@ -87,6 +87,21 @@ describe("category grouping (why the UI has no hardcoded tabs)", () => {
     expect(worstStatus([result({ status: "ok" })])).toBe("ok");
     expect(worstStatus([result({ status: "ok" }), result({ status: "warning" })])).toBe("warning");
     expect(worstStatus([result({ status: "warning" }), result({ status: "error" })])).toBe("error");
+  });
+
+  it("draws an ok check that still has items as info, not as Clear", () => {
+    // The calendar's own case: a busy day is `ok` (not a problem) but must not
+    // render as a green tick with the event count hidden — which is what the
+    // card did before the digest led with Calendar.
+    expect(categoryTone({ status: "ok", itemCount: 12 })).toBe("info");
+    expect(categoryTone({ status: "ok", itemCount: 0 })).toBe("clear");
+  });
+
+  it("keeps a real problem ahead of the informational tone", () => {
+    expect(categoryTone({ status: "warning", itemCount: 3 })).toBe("warning");
+    expect(categoryTone({ status: "error", itemCount: 0 })).toBe("error");
+    // An errored check with items is still an error, never info.
+    expect(categoryTone({ status: "error", itemCount: 5 })).toBe("error");
   });
 
   it("labels and orders categories from settings", () => {
@@ -229,16 +244,18 @@ describe("fallback summary (used when Gemini is unreachable)", () => {
 });
 
 describe("the isolation contract: one dead source must not kill the digest", () => {
-  // Nothing is configured — no Apps Script URL, no JobTread grant, no Gemini
+  // Nothing is configured — no Apps Script URL, no JobTread grant, no Claude
   // key — so every check hits an unreachable source. That is the scenario this
   // whole design exists for, and it must produce a COMPLETE digest of errors,
   // not an exception. Fully offline: callAppsScript short-circuits on the
-  // missing env, and the Gemini call is skipped without a key.
+  // missing env, and the Claude calls are skipped without a key.
   beforeEach(() => {
     delete process.env.APPS_SCRIPT_SYNC_URL;
     delete process.env.APPS_SCRIPT_SYNC_SECRET;
     delete process.env.JT_GRANT_KEY;
     delete process.env.GEMINI_KEY;
+    delete process.env.ANTHROPIC_API_KEY;
+    delete process.env.ANTHROPIC_MODEL_DIGEST;
   });
 
   it("reports every check as an error and still returns a digest", async () => {

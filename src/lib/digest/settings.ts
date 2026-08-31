@@ -38,9 +38,15 @@ export interface DigestCategory {
 }
 
 export const DIGEST_CATEGORIES: DigestCategory[] = [
-  { id: "billing", label: "Billing", blurb: "Money in motion — what's uncaptured, stale, or out of balance." },
   { id: "calendar", label: "Calendar", blurb: "What's on the shared calendars." },
+  { id: "todo", label: "To-Do", blurb: "Open JobTread to-dos, and appointments/action items found in email." },
   { id: "followup", label: "Follow-ups", blurb: "Conversations waiting on us." },
+  // Off by default (2026-08-31) — billing has its own screen (Tracking Sheets /
+  // /unbilled), so the digest no longer duplicates it. The checks are OFF, not
+  // deleted (see `enabled: false` below); this row stays registered so turning
+  // one back on needs no UI change. A category with zero results never renders
+  // (see src/lib/digest/grouping.ts), so this simply won't appear while empty.
+  { id: "billing", label: "Billing", blurb: "Off for now — billing has its own screens." },
 ];
 
 /* ----------------------------------------------------------- global config */
@@ -141,6 +147,46 @@ export interface CostVsInvoiceConfig {
   concurrency: number;
 }
 
+/** Check "jobtread-todos" — open JobTread to-dos, overdue or due soon. */
+export interface JobTreadTodosConfig {
+  /** How many days ahead counts as "due soon" (today = 0). Overdue always shows. */
+  dueWithinDays: number;
+  /** Most items to list. */
+  maxItems: number;
+  /**
+   * Show a to-do with no due date at all. Off by default — an undated to-do
+   * can't be "overdue" or "due soon", so including it would turn this into a
+   * full backlog dump rather than a morning glance.
+   */
+  includeUndated: boolean;
+  /**
+   * Limit to people whose JobTread display name contains one of these
+   * (case-insensitive), e.g. ["ty", "casey"]. Empty = every assignee, which is
+   * the default — a to-do assigned to someone not listed here is still real
+   * work the office should see.
+   */
+  watchMembers: string[];
+}
+
+/**
+ * Check "email-signals" — appointments and action items mentioned in recent
+ * inbox email, found by ONE Gemini pass over truncated message bodies.
+ *
+ * ⚠️ This is the one check that sends email BODY TEXT (truncated) to Gemini —
+ * every other check reads sender/subject/date only. See the comment on
+ * `extractEmailSignalsWithGemini` in src/lib/gemini.ts for exactly what is and
+ * isn't sent, and why it can't be done any other way.
+ */
+export interface EmailSignalsConfig {
+  /** How far back to read inbox mail. Kept short — this check is for what's
+   *  fresh, not a backlog sweep, and every day of lookback costs more tokens. */
+  lookbackDays: number;
+  /** Most emails to read in one run (also the most that reach Gemini). */
+  maxEmails: number;
+  /** Per-email body truncation BEFORE it reaches Gemini, in characters. */
+  maxBodyChars: number;
+}
+
 /** Check "calendar-events" — what's on the shared calendars. */
 export interface CalendarEventsConfig {
   /** Days ahead to show, counting today. 1 = today only. */
@@ -194,9 +240,13 @@ export interface DigestCheckSettings<C> {
   config: C;
 }
 
+// Billing checks are OFF (2026-08-31) — billing has its own screens (Tracking
+// Sheets, /unbilled), so the digest no longer duplicates it. Config values are
+// left in place, not deleted, so turning one back on is `enabled: true` and
+// nothing else.
 export const DIGEST_SETTINGS = {
   "uncaptured-bills": {
-    enabled: true,
+    enabled: false,
     config: {
       lookbackDays: 14,
       maxEmails: 40,
@@ -214,7 +264,7 @@ export const DIGEST_SETTINGS = {
   } satisfies DigestCheckSettings<UncapturedBillsConfig>,
 
   "draft-bills-past-cutoff": {
-    enabled: true,
+    enabled: false,
     config: {
       minAmount: 0,
       maxMonthsBack: 12,
@@ -222,7 +272,7 @@ export const DIGEST_SETTINGS = {
   } satisfies DigestCheckSettings<DraftBillsPastCutoffConfig>,
 
   "reconciliation-flags": {
-    enabled: true,
+    enabled: false,
     config: {
       maxRows: 100,
       ignoreFlags: [],
@@ -231,7 +281,7 @@ export const DIGEST_SETTINGS = {
   } satisfies DigestCheckSettings<ReconciliationFlagsConfig>,
 
   "cost-vs-invoice": {
-    enabled: true,
+    enabled: false,
     config: {
       gapThreshold: 5_000,
       excludeJobIds: [],
@@ -247,13 +297,36 @@ export const DIGEST_SETTINGS = {
       days: 7,
       calendarIds: [],
       // Name fragments matched against the shared calendars the script account
-      // subscribes to. Replace with exact ids once you know them — the check
+      // subscribes to. "office" is the shared office calendar; "ty" and "casey"
+      // are their calendars, already shared TO the office account (confirmed
+      // 2026-08-31) — this is why they can ride the same read-only check as the
+      // office calendar with no extra Google consent step. Replace with exact
+      // ids once you know them (more durable than a name fragment); the check
       // lists every calendar it CAN see whenever none of these match, so the
       // first run tells you what to paste here.
-      calendarNames: ["office", "bills", "projects", "time off"],
+      calendarNames: ["office", "ty", "casey", "time off"],
       includePrimary: false,
     },
   } satisfies DigestCheckSettings<CalendarEventsConfig>,
+
+  "jobtread-todos": {
+    enabled: true,
+    config: {
+      dueWithinDays: 7,
+      maxItems: 40,
+      includeUndated: false,
+      watchMembers: [],
+    },
+  } satisfies DigestCheckSettings<JobTreadTodosConfig>,
+
+  "email-signals": {
+    enabled: true,
+    config: {
+      lookbackDays: 3,
+      maxEmails: 20,
+      maxBodyChars: 1000,
+    },
+  } satisfies DigestCheckSettings<EmailSignalsConfig>,
 
   "email-followups": {
     enabled: true,

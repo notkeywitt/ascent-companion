@@ -91,6 +91,7 @@ const EXTRA_READ_ACTIONS = new Set([
   "digestFollowUps",
   "digestCalendar",
   "digestReconciliationFlags",
+  "digestEmailContent", // read + truncate; never labels, archives, or sends
 ]);
 
 /** Whether an action is safe to send twice. Unknown ⇒ assume it writes. */

@@ -14,7 +14,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.68.0",
+    "@anthropic-ai/sdk": "^0.122.0",
     "@libsql/client": "^0.17.4",
     "@sentry/nextjs": "^10.69.0",
     "drizzle-orm": "^0.45.2",

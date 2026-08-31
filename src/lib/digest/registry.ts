@@ -26,16 +26,24 @@ import { draftBillsPastCutoffCheck } from "./checks/draftBillsPastCutoff";
 import { reconciliationFlagsCheck } from "./checks/reconciliationFlags";
 import { costVsInvoiceCheck } from "./checks/costVsInvoice";
 import { calendarEventsCheck } from "./checks/calendarEvents";
+import { jobtreadTodosCheck } from "./checks/jobtreadTodos";
 import { emailFollowUpsCheck } from "./checks/emailFollowUps";
+import { emailSignalsCheck } from "./checks/emailSignals";
 
 /** Every check that exists, in the order they run and are displayed within a category. */
 const DECLARED: DigestCheck<never>[] = [
+  // Calendar
+  calendarEventsCheck,
+  // To-Do
+  jobtreadTodosCheck,
+  emailSignalsCheck,
+  // Follow-ups
+  emailFollowUpsCheck,
+  // Billing — OFF by default (settings.ts); billing has its own screens.
   uncapturedBillsCheck,
   draftBillsPastCutoffCheck,
   reconciliationFlagsCheck,
   costVsInvoiceCheck,
-  calendarEventsCheck,
-  emailFollowUpsCheck,
 ] as unknown as DigestCheck<never>[];
 
 type SettingsBlock = { enabled: boolean; config: unknown };

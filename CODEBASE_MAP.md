@@ -131,10 +131,18 @@ Claude Code session. Drive half: `ascent-appscript/ClientInvoiceReview.js`.
 
 ### `src/lib/digest/` — the Admin Daily Digest
 
-The morning report on the home launcher: independent "checks" over billing,
-calendar and inbox, run once a day by a Vercel cron, summarized by ONE Gemini
-call, stored in `daily_digest`, and read (never recomputed) on page load. Every
-check is READ-ONLY against Gmail, Calendar, the Sheet and JobTread.
+The morning report on the home launcher: independent "checks" over the
+calendar, to-dos and inbox, run once a day by a Vercel cron, summarized by ONE
+Gemini call, stored in `daily_digest`, and read (never recomputed) on page load.
+Every check is READ-ONLY against Gmail, Calendar, the Sheet and JobTread.
+
+**It is a schedule/to-do report, not a billing report** (pivoted 2026-08-31).
+Billing has its own screens now (Tracking Sheets, `/unbilled`, `/recode`), so the
+four billing checks are `enabled: false` in `settings.ts` — switched OFF, not
+deleted, and their code and tests are untouched, so re-enabling one is that flag
+and nothing else. Category order is calendar → to-do → follow-ups → billing, and
+a category with no results never renders, which is why Billing simply disappears
+while its checks are off.
 
 | File | Purpose |
 |---|---|
@@ -142,17 +150,20 @@ check is READ-ONLY against Gmail, Calendar, the Sheet and JobTread.
 | `types.ts` ⟂ | The check contract (`DigestCheck`, `CheckContext`, `CheckResult`, `DigestItem`) plus the stored payload shape. Why the feature is extensible: a check knows nothing about scheduling, storage, or rendering. |
 | `registry.ts` | The one list of checks, each bound to its settings block. Adding a check = one import + one line here. |
 | `run.ts` | The aggregator: runs each enabled check in isolation (per-check timeout; a failure becomes one `status:"error"` entry, never a broken digest), makes the single Gemini summary call, stores the result. Knows nothing about any individual check. |
-| `grouping.ts` ⟂ | Stored results → the categories the screen draws, worst status rolled up. Pure, so "categories are data, not tabs" is testable. |
+| `grouping.ts` ⟂ | Stored results → the categories the screen draws, worst status rolled up. Also `categoryTone`, which separates PRESENTATION from status: a check reporting `ok` with items (the calendar) draws as informational with its count, not as a green "Clear". Pure, so "categories are data, not tabs" is testable. |
 | `store.ts` | Read/write the `daily_digest` row — the ONLY thing this feature writes anywhere. |
 | `checks/uncapturedBills.ts` | Invoice-looking mail with no matching JobTread bill (sender → vendor account → date/amount window). |
 | `checks/draftBillsPastCutoff.ts` | Draft vendor bills left over from a billing month that already closed. |
 | `checks/reconciliationFlags.ts` | The Expenditure sheet's own `Reconciliation Flags` column, grouped by flag type. Reads the sheet's verdict; never re-derives it. |
 | `checks/costVsInvoice.ts` | Jobs whose approved spend has outrun approved client invoices, past a configurable gap. |
-| `checks/calendarEvents.ts` | Today's / this week's shared-calendar events (read-only scope; never a personal calendar by default). |
+| `checks/calendarEvents.ts` | Today's / this week's shared-calendar events (read-only scope; never a personal calendar by default). Reports `ok` WITH items — a full calendar is information, not a problem — which is what `categoryTone` exists to draw correctly. Prefixes whose calendar an event is on only when more than one calendar has events that day. |
+| `checks/jobtreadTodos.ts` | Open JobTread to-dos (`isToDo=true`, `progress` null or `<1`), overdue or due within the window, grouped by assignee. Undated ones are skipped by default — a morning glance, not a backlog dump. Live-confirmed 2026-08-31: 223 to-dos org-wide, 42 open, 7 overdue + 3 due inside 7 days. |
+| `checks/emailSignals.ts` | Appointments and action items *mentioned in* recent inbox email, via ONE Gemini pass. **The only check that sends email BODY text off-site** — every other one reads metadata only. The body is truncated and quote-stripped on the Apps Script side (`digestEmailContent`) before it ever reaches this app, and only the extracted result is kept. |
 | `checks/emailFollowUps.ts` | Inbox threads whose last message came from outside and went unanswered past a business-day threshold. |
 
-Tests: `digest.test.ts` (registry wiring, category grouping, the billing-cutoff
-rule, vendor/amount matching, the exclusion lists).
+Tests: `digest.test.ts` (registry wiring, category grouping, the informational
+vs. clear tone, the billing-cutoff rule, vendor/amount matching, the exclusion
+lists).
 
 Tests live beside their module (`*.test.ts`): `billing`, `billLineMath`,
 `jobtread`, `paveGateway`, `leadInquiry`, `taskRunner`, `appsScript`.

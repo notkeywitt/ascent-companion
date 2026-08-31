@@ -55,6 +55,15 @@ export function dayLabel(day: string, today: string): string {
   });
 }
 
+/** The item title for one event — prefixes WHO it belongs to when `showWho`. */
+export function eventTitle(
+  e: { startLabel?: string; title?: string; calendarName?: string },
+  showWho: boolean,
+): string {
+  const who = showWho && e.calendarName ? `${e.calendarName} — ` : "";
+  return `${e.startLabel ?? ""} · ${who}${e.title ?? "(no title)"}`.trim();
+}
+
 export const calendarEventsCheck = defineCheck<CalendarEventsConfig>({
   id: "calendar-events",
   title: "On the Calendar",
@@ -97,8 +106,15 @@ export const calendarEventsCheck = defineCheck<CalendarEventsConfig>({
       return allClear(`Nothing scheduled in the next ${config.days} day${config.days === 1 ? "" : "s"}.`);
     }
 
+    // Show WHOSE calendar an item is on directly in the title — but only when
+    // more than one calendar actually turned up an event today. With a single
+    // calendar configured (or the others simply quiet today), naming it on
+    // every line would repeat what the reader already knows.
+    const distinctCalendars = new Set(events.map((e) => e.calendarName).filter(Boolean));
+    const showWho = distinctCalendars.size > 1;
+
     const items: DigestItem[] = events.map((e) => ({
-      title: `${e.startLabel ?? ""} · ${e.title ?? "(no title)"}`.trim(),
+      title: eventTitle(e, showWho),
       detail:
         [
           e.location ? `Where: ${e.location}` : "",

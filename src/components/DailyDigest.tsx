@@ -13,7 +13,7 @@ import {
   type ChipTone,
 } from "@/components/ui";
 import { useAccess } from "@/components/AccessProvider";
-import { groupByCategory, type CategoryView } from "@/lib/digest/grouping";
+import { categoryTone, groupByCategory, type CategoryTone } from "@/lib/digest/grouping";
 import type { DigestCategory } from "@/lib/digest/settings";
 import type { DigestItem, DigestPayload, StoredCheckResult } from "@/lib/digest/types";
 
@@ -47,8 +47,15 @@ interface DigestResponse {
   error?: string;
 }
 
-const STATUS_MARK: Record<CategoryView["status"], { icon: string; tone: ChipTone; label: string }> = {
-  ok: { icon: "✅", tone: "success", label: "All clear" },
+/**
+ * Keyed on the derived TONE, not on `status` — see `categoryTone` in
+ * lib/digest/grouping.ts for why the two differ. `info` is a check that reported
+ * no problem but did return items (the calendar, most days): it gets the count
+ * and a calm blue, deliberately not the amber that means work is waiting.
+ */
+const TONE_MARK: Record<CategoryTone, { icon: string; tone: ChipTone; label: string }> = {
+  clear: { icon: "✅", tone: "success", label: "All clear" },
+  info: { icon: "•", tone: "info", label: "For your information" },
   warning: { icon: "⚠️", tone: "warning", label: "Needs attention" },
   error: { icon: "❌", tone: "danger", label: "Couldn't check" },
 };
@@ -164,7 +171,7 @@ export function DailyDigest() {
 
       {!loading && digest && (
         <>
-          {/* The Gemini paragraph, first — the one thing to read if nothing else. */}
+          {/* The Claude paragraph, first — the one thing to read if nothing else. */}
           <Card>
             <p className="text-sm leading-relaxed">{digest.summary}</p>
             <p className="mt-2 text-[11px] text-neutral-500">
@@ -175,7 +182,7 @@ export function DailyDigest() {
               ) : (
                 <>Generated {timeOf(digest.generatedAt)}</>
               )}
-              {digest.summarySource === "fallback" && " · summary written locally (Gemini unavailable)"}
+              {digest.summarySource === "fallback" && " · summary written locally (Claude unavailable)"}
               {digest.status === "partial" && " · some checks couldn't run"}
             </p>
           </Card>
@@ -183,7 +190,8 @@ export function DailyDigest() {
           {/* One collapsible block per category — entirely data-driven. */}
           {categories.map((cat) => {
             const isOpen = !!open[cat.id];
-            const mark = STATUS_MARK[cat.status];
+            const tone = categoryTone(cat);
+            const mark = TONE_MARK[tone];
             return (
               <Card key={cat.id} pad={false} className="overflow-hidden">
                 <button
@@ -198,12 +206,14 @@ export function DailyDigest() {
                   <span className="min-w-0 flex-1">
                     <span className="block text-sm font-semibold">{cat.label}</span>
                     <span className="block truncate text-xs text-neutral-500">
-                      {cat.status === "ok"
+                      {tone === "clear" || tone === "info"
                         ? cat.results.map((r) => r.summary).join(" ") || mark.label
                         : `${cat.itemCount} item${cat.itemCount === 1 ? "" : "s"} across ${cat.results.length} check${cat.results.length === 1 ? "" : "s"}`}
                     </span>
                   </span>
-                  <Chip tone={mark.tone}>{cat.status === "ok" ? "Clear" : String(cat.itemCount)}</Chip>
+                  <Chip tone={mark.tone}>
+                    {tone === "clear" ? "Clear" : String(cat.itemCount)}
+                  </Chip>
                   <span
                     aria-hidden
                     className={`shrink-0 text-neutral-400 transition ${isOpen ? "rotate-90" : ""}`}
@@ -244,7 +254,7 @@ function CheckBlock({
   openItems: Record<string, boolean>;
   toggleItem: (key: string) => void;
 }) {
-  const mark = STATUS_MARK[result.status];
+  const mark = TONE_MARK[categoryTone({ status: result.status, itemCount: result.items.length })];
   // Items keep whatever `group` their check gave them — a calendar day, a vendor,
   // a flag type — so grouping is the check's decision, not this component's.
   const groups = new Map<string, DigestItem[]>();

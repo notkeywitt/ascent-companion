@@ -4257,3 +4257,92 @@ export async function getOpenTimeEntries(
   return out.sort((a, b) => (a.startedAt < b.startedAt ? 1 : a.startedAt > b.startedAt ? -1 : 0));
 }
 
+
+// ---------------------------------------------------------------------------
+// TASKS — schedule items and to-dos (Daily Digest)
+// ---------------------------------------------------------------------------
+
+export interface OpenToDo {
+  id: string;
+  name: string;
+  description?: string;
+  startDate?: string | null; // YYYY-MM-DD
+  endDate?: string | null; // YYYY-MM-DD
+  progress?: number | null; // 0..1, or null when JobTread has no value
+  jobId?: string | null;
+  jobName?: string | null;
+  assignees: string[]; // display names, from assignedMemberships.user.name
+}
+
+/**
+ * Every open (not fully done) to-do across the org, for the Daily Digest.
+ *
+ * A JobTread `task` serves BOTH the schedule (`isToDo=false`) and to-do lists
+ * (`isToDo=true`); this reads only the to-do half. "Open" means `progress` is
+ * null or under 1 — JobTread has no separate boolean completion flag on the
+ * task itself (only per-subtask `isComplete`), so `progress` is the read this
+ * uses; a write against it is unconfirmed, but this function never writes.
+ *
+ * `assignees` resolves `assignedMemberships` to each member's JobTread display
+ * name (same names `getOrgUsers` returns), so a digest check can group by
+ * person without a second lookup.
+ */
+export async function getOpenToDos(cfg: PaveConfig): Promise<OpenToDo[]> {
+  const q = (nodes: Record<string, unknown>, page?: string) => ({
+    organization: {
+      $: { id: cfg.orgId },
+      id: {},
+      tasks: {
+        $: { where: { and: [["isToDo", true]] }, size: 100, ...(page ? { page } : {}) },
+        nextPage: {},
+        nodes,
+      },
+    },
+  });
+  const rich = {
+    id: {},
+    name: {},
+    description: {},
+    startDate: {},
+    endDate: {},
+    progress: {},
+    job: { id: {}, name: {} },
+    assignedMemberships: { nodes: { user: { id: {}, name: {} } } },
+  };
+  const min = { id: {}, name: {}, startDate: {}, endDate: {}, progress: {}, job: { id: {}, name: {} } };
+
+  const out: OpenToDo[] = [];
+  let page: string | undefined;
+  let guard = 0;
+  let sel = rich;
+  do {
+    let r: any;
+    try {
+      r = await pave(cfg, q(sel, page));
+    } catch {
+      sel = min as any; // an unconfirmed field name won't break the digest
+      r = await pave(cfg, q(sel, page));
+    }
+    const nodes = (r?.organization?.tasks?.nodes ?? []) as any[];
+    for (const n of nodes) {
+      const progress = typeof n.progress === "number" ? n.progress : null;
+      if (progress !== null && progress >= 1) continue; // done
+      const assignees = ((n.assignedMemberships?.nodes ?? []) as any[])
+        .map((m) => m?.user?.name)
+        .filter((x): x is string => typeof x === "string" && x.length > 0);
+      out.push({
+        id: n.id,
+        name: n.name || "(untitled to-do)",
+        description: n.description || undefined,
+        startDate: n.startDate ?? null,
+        endDate: n.endDate ?? null,
+        progress,
+        jobId: n.job?.id ?? null,
+        jobName: n.job?.name ?? null,
+        assignees,
+      });
+    }
+    page = r?.organization?.tasks?.nextPage || undefined;
+  } while (page && ++guard < 100);
+  return out;
+}

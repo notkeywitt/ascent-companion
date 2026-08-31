@@ -2,7 +2,7 @@
  * THE AGGREGATOR — runs the registry, summarizes it once, stores the result.
  *
  * This file knows nothing about any individual check. It loops the enabled ones,
- * runs each in isolation, collects the structured results, asks Gemini for one
+ * runs each in isolation, collects the structured results, asks Claude for one
  * paragraph, and writes the whole thing to the `daily_digest` row for today.
  * Adding, removing or reordering checks does not touch this file — that is the
  * point of the registry.
@@ -22,7 +22,7 @@
  */
 import { companyDateParts } from "@/lib/billing";
 import { getPaveConfig, hasGrant } from "@/lib/config";
-import { summarizeDigestWithGemini } from "@/lib/gemini";
+import { summarizeDigestWithClaude } from "./claude";
 import { enabledChecks, disabledCheckIds } from "./registry";
 import { DIGEST_GLOBAL } from "./settings";
 import { saveDigest } from "./store";
@@ -124,12 +124,12 @@ export async function computeDigest(now: Date = new Date()): Promise<DigestPaylo
   const status: DigestPayload["status"] =
     results.length > 0 && errored === results.length ? "error" : errored > 0 ? "partial" : "ok";
 
-  // ONE Gemini call, over the structured results only — never the raw source
-  // data the checks read (see summarizeDigestWithGemini).
+  // ONE Claude call, over the structured results only — never the raw source
+  // data the checks read (see summarizeDigestWithClaude).
   let summary = "";
   let summarySource: DigestPayload["summarySource"] = "fallback";
   try {
-    const generated = await summarizeDigestWithGemini(
+    const generated = await summarizeDigestWithClaude(
       results.map((r) => ({
         check: r.title,
         category: r.category,
@@ -141,13 +141,13 @@ export async function computeDigest(now: Date = new Date()): Promise<DigestPaylo
     );
     if (generated) {
       summary = generated;
-      summarySource = "gemini";
-      stamp("summary written by Gemini");
+      summarySource = "claude";
+      stamp("summary written by Claude");
     } else {
-      stamp("Gemini unavailable — using the built-in summary");
+      stamp("Claude unavailable — using the built-in summary");
     }
   } catch (e) {
-    stamp(`Gemini summary failed (${reasonOf(e)}) — using the built-in summary`);
+    stamp(`Claude summary failed (${reasonOf(e)}) — using the built-in summary`);
   }
   if (!summary) summary = fallbackSummary(results);
 
@@ -166,7 +166,7 @@ export async function computeDigest(now: Date = new Date()): Promise<DigestPaylo
 }
 
 /**
- * The paragraph shown when Gemini is unconfigured or unreachable.
+ * The paragraph shown when Claude is unconfigured or unreachable.
  *
  * Deliberately plain and mechanical — its job is to keep the digest useful, not
  * to imitate the model. It never claims all-clear when a check errored.
