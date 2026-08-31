@@ -4271,6 +4271,7 @@ export interface OpenToDo {
   progress?: number | null; // 0..1, or null when JobTread has no value
   jobId?: string | null;
   jobName?: string | null;
+  jobAddress?: string | null; // job.location.address — the "where" for a digest item
   assignees: string[]; // display names, from assignedMemberships.user.name
 }
 
@@ -4305,7 +4306,7 @@ async function fetchTasks(cfg: PaveConfig, isToDo: boolean): Promise<OpenToDo[]>
     startDate: {},
     endDate: {},
     progress: {},
-    job: { id: {}, name: {} },
+    job: { id: {}, name: {}, location: { address: {} } },
     assignedMemberships: { nodes: { user: { id: {}, name: {} } } },
   };
   const min = { id: {}, name: {}, startDate: {}, endDate: {}, progress: {}, job: { id: {}, name: {} } };
@@ -4338,6 +4339,7 @@ async function fetchTasks(cfg: PaveConfig, isToDo: boolean): Promise<OpenToDo[]>
         progress,
         jobId: n.job?.id ?? null,
         jobName: n.job?.name ?? null,
+        jobAddress: n.job?.location?.address ?? null,
         assignees,
       });
     }

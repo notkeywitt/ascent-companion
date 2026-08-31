@@ -36,6 +36,14 @@ export function matchesWatch(assignees: string[], watch: string[]): boolean {
   return assignees.some((a) => norm.some((w) => a.toLowerCase().includes(w)));
 }
 
+/** The "Where" for a task item — job name, plus its street address when JobTread
+ *  has one on file. Shared by jobtread-todos and jobtread-schedule so the two
+ *  checks describe a job's location the same way. */
+export function jobWhere(t: Pick<OpenToDo, "jobName" | "jobAddress">): string | null {
+  if (!t.jobName) return null;
+  return t.jobAddress ? `${t.jobName} — ${t.jobAddress}` : t.jobName;
+}
+
 export const jobtreadTodosCheck = defineCheck<JobTreadTodosConfig>({
   id: "jobtread-todos",
   title: "Open To-Dos",
@@ -78,12 +86,16 @@ export const jobtreadTodosCheck = defineCheck<JobTreadTodosConfig>({
       if (overdue) overdueCount++;
 
       const who = t.assignees.length > 0 ? t.assignees.join(", ") : "Unassigned";
+      const where = jobWhere(t);
       items.push({
         title: t.name,
-        detail:
-          (t.jobName ? `Job: ${t.jobName}. ` : "") +
-          (due ? `${overdue ? "Overdue — was due" : "Due"} ${due}.` : "No due date.") +
-          (t.description ? ` ${t.description.slice(0, 200)}` : ""),
+        detail: [
+          where ? `Where: ${where}` : "",
+          `When: ${due ? `${overdue ? "overdue, was due " : "due "}${due}` : "no due date"}`,
+          t.description ? t.description.slice(0, 200) : "",
+        ]
+          .filter(Boolean)
+          .join(" · "),
         sourceLink: t.jobId ? `https://app.jobtread.com/jobs/${t.jobId}` : undefined,
         sourceLabel: t.jobId ? "Open job in JobTread" : undefined,
         date: due ?? undefined,

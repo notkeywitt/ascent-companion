@@ -18,7 +18,7 @@
  * READ-ONLY: one org-wide JobTread query, no writes.
  */
 import { getScheduledTasks, type OpenToDo } from "@/lib/jobtread";
-import { dueDateOf, matchesWatch } from "./jobtreadTodos";
+import { dueDateOf, matchesWatch, jobWhere } from "./jobtreadTodos";
 import { defineCheck, allClear, checkError, type CheckResult, type DigestItem } from "../types";
 import type { JobTreadScheduleConfig } from "../settings";
 
@@ -65,12 +65,16 @@ export const jobtreadScheduleCheck = defineCheck<JobTreadScheduleConfig>({
       if (dueMs > cutoff) continue; // outside the window
 
       const who = t.assignees.length > 0 ? t.assignees.join(", ") : "Unassigned";
+      const where = jobWhere(t);
       items.push({
         title: t.name,
-        detail:
-          (t.jobName ? `Job: ${t.jobName}. ` : "") +
-          `${due === today ? "Today" : due}.` +
-          (t.description ? ` ${t.description.slice(0, 200)}` : ""),
+        detail: [
+          where ? `Where: ${where}` : "",
+          `When: ${due === today ? "today" : due}`,
+          t.description ? t.description.slice(0, 200) : "",
+        ]
+          .filter(Boolean)
+          .join(" · "),
         sourceLink: t.jobId ? `https://app.jobtread.com/jobs/${t.jobId}` : undefined,
         sourceLabel: t.jobId ? "Open job in JobTread" : undefined,
         date: due,

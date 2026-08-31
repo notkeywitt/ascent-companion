@@ -29,6 +29,7 @@ interface CalEvent {
   end?: string;
   day?: string;
   startLabel?: string;
+  endLabel?: string;
 }
 interface CalendarResponse {
   ok?: boolean;
@@ -62,6 +63,13 @@ export function eventTitle(
 ): string {
   const who = showWho && e.calendarName ? `${e.calendarName} — ` : "";
   return `${e.startLabel ?? ""} · ${who}${e.title ?? "(no title)"}`.trim();
+}
+
+/** "When" for one event — the full time range, not just the start. */
+export function eventWhen(e: { allDay?: boolean; startLabel?: string; endLabel?: string }): string {
+  if (e.allDay) return "All day";
+  if (e.endLabel && e.endLabel !== e.startLabel) return `${e.startLabel ?? ""}–${e.endLabel}`;
+  return e.startLabel ?? "";
 }
 
 export const calendarEventsCheck = defineCheck<CalendarEventsConfig>({
@@ -117,9 +125,9 @@ export const calendarEventsCheck = defineCheck<CalendarEventsConfig>({
       title: eventTitle(e, showWho),
       detail:
         [
+          `When: ${eventWhen(e)}`,
           e.location ? `Where: ${e.location}` : "",
           e.calendarName ? `Calendar: ${e.calendarName}` : "",
-          e.allDay ? "All-day event" : "",
         ]
           .filter(Boolean)
           .join(" · ") || undefined,
