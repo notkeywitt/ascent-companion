@@ -16,9 +16,27 @@ import Anthropic from "@anthropic-ai/sdk";
  *  a dedicated knob so a future /chat model change can't silently re-price or
  *  re-behave the digest, and vice versa. */
 const MODEL = process.env.ANTHROPIC_MODEL_DIGEST?.trim() || "claude-sonnet-5";
-const MAX_TOKENS_SUMMARY = 900;
-const MAX_TOKENS_EXTRACTION = 4096;
-const MAX_TOKENS_REPLY = 2048;
+
+/**
+ * ⚠️ THESE CEILINGS MUST LEAVE ROOM FOR THINKING, NOT JUST FOR THE ANSWER.
+ *
+ * On Sonnet 5 (and the rest of the current family) OMITTING the `thinking`
+ * parameter runs ADAPTIVE THINKING — it is on by default, not off — and
+ * thinking tokens are drawn from `max_tokens` before a single text block is
+ * emitted. `display` also defaults to "omitted", so those blocks come back
+ * empty. A ceiling sized for the prose alone therefore fails in the worst
+ * possible way: the whole budget goes to thinking, the response contains NO
+ * text block at all, and `stop_reason` is "max_tokens".
+ *
+ * That is exactly what took out the digest summary on 2026-08-31 at 900 tokens
+ * — a value picked by eyeballing the ~160-word paragraph it had to write. The
+ * API guidance for non-streaming requests is ~16000, and a ceiling is not a
+ * spend: you are billed for tokens actually generated, so headroom is free.
+ * Do not "optimize" these back down to the size of the expected output.
+ */
+const MAX_TOKENS_SUMMARY = 16_000;
+const MAX_TOKENS_EXTRACTION = 16_000;
+const MAX_TOKENS_REPLY = 16_000;
 /** The digest route has its own budget; don't let one slow call eat it. */
 const TIMEOUT_MS = 30_000;
 
@@ -79,7 +97,16 @@ ${JSON.stringify(structured)}`;
   let res: Anthropic.Message;
   try {
     res = await client().messages.create(
-      { model: MODEL, max_tokens: MAX_TOKENS_SUMMARY, messages: [{ role: "user", content: prompt }] },
+      {
+        model: MODEL,
+        max_tokens: MAX_TOKENS_SUMMARY,
+        // Low effort: this restates check results the checks already decided,
+        // in ~160 words. It is not a reasoning task, and since thinking is on
+        // by default (see the max_tokens note above) capping its depth is what
+        // keeps the call cheap and quick rather than the token ceiling.
+        output_config: { effort: "low" },
+        messages: [{ role: "user", content: prompt }],
+      },
       { timeout: TIMEOUT_MS },
     );
   } catch (e) {
