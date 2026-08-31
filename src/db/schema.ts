@@ -620,3 +620,36 @@ export const billIndexMeta = sqliteTable("bill_index_meta", {
 });
 
 export type BillIndexMetaRow = typeof billIndexMeta.$inferSelect;
+
+/**
+ * The Admin Daily Digest — ONE ROW PER DAY, keyed by the company-timezone date.
+ *
+ * `results` is the JSON array of each check's structured outcome (id, title,
+ * category, status, summary, items), NOT rendered text. Storing the structure is
+ * what lets the home screen re-render and re-group a digest generated hours
+ * earlier, and what would let a later feature trend "uncaptured bills per week"
+ * without re-running anything. `summary` is the single Gemini paragraph written
+ * over those results; `summary_source` says whether Gemini actually answered or
+ * the local fallback wrote it.
+ *
+ * "Refresh now" overwrites the row for the same date rather than appending, so a
+ * day has exactly one digest no matter how many times it is regenerated. `log`
+ * is the run log — which checks ran, when, and how they came out — kept with the
+ * digest because a check that quietly stopped finding anything is the failure
+ * mode this feature has to be debuggable against.
+ *
+ * See src/lib/digest/ for the checks themselves.
+ */
+export const dailyDigest = sqliteTable("daily_digest", {
+  date: text("date").primaryKey(), // YYYY-MM-DD, company timezone
+  generatedAt: text("generated_at").notNull(), // ISO timestamp of the run
+  status: text("status").notNull().default("ok"), // ok | partial | error
+  summary: text("summary").notNull().default(""), // the one-paragraph summary
+  summarySource: text("summary_source").notNull().default("fallback"), // gemini | fallback
+  results: text("results").notNull().default("[]"), // JSON StoredCheckResult[]
+  durationMs: integer("duration_ms").notNull().default(0),
+  log: text("log").notNull().default("[]"), // JSON string[]
+});
+
+export type DailyDigestRow = typeof dailyDigest.$inferSelect;
+export type NewDailyDigestRow = typeof dailyDigest.$inferInsert;

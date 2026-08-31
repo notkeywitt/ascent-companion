@@ -3,7 +3,12 @@ import { auth } from "@/auth";
 import { AUTH_COOKIE, tokenFor } from "@/lib/auth";
 import { resolveAllowedViews, viewIdForPath } from "@/lib/views";
 
-const PUBLIC = ["/login", "/api/auth", "/api/login", "/privacy"];
+// Routes that skip the session check entirely. Everything here authenticates
+// ITSELF — /api/digest/run is called by the daily scheduler, which carries no
+// Google session, so it verifies a cron bearer secret (or an admin session) in
+// its own handler. Being listed here removes the session requirement, NOT the
+// authorization; don't add a route that has no credential of its own.
+const PUBLIC = ["/login", "/api/auth", "/api/login", "/privacy", "/api/digest/run"];
 
 export default auth(async (req) => {
   const { pathname } = req.nextUrl;

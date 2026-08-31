@@ -617,6 +617,22 @@ async function applySchema() {
   } catch {
     /* FTS5 unavailable in this libSQL build — search degrades to LIKE (see billSearch.ts) */
   }
+  // The Admin Daily Digest: one row per day holding each check's STRUCTURED
+  // result plus the single Gemini summary paragraph over them. Rewritten in
+  // place by "Refresh now", so a date has exactly one digest. The only thing
+  // that feature writes anywhere — see src/lib/digest/.
+  await getClient().execute(`
+    CREATE TABLE IF NOT EXISTS daily_digest (
+      date TEXT PRIMARY KEY,
+      generated_at TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'ok',
+      summary TEXT NOT NULL DEFAULT '',
+      summary_source TEXT NOT NULL DEFAULT 'fallback',
+      results TEXT NOT NULL DEFAULT '[]',
+      duration_ms INTEGER NOT NULL DEFAULT 0,
+      log TEXT NOT NULL DEFAULT '[]'
+    )
+  `);
 }
 
 export { schema };

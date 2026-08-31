@@ -48,10 +48,29 @@ Two options:
 | `GOOGLE_MAPS_API_KEY` | Maps key for **Mileage** (enable the **Routes API**; **Geocoding API** for addresses) |
 | `APPS_SCRIPT_SYNC_URL` | the Apps Script `/exec` URL (Sheets/Drive features: employees, tools, safety, mileage, email logging, payments) |
 | `APPS_SCRIPT_SYNC_SECRET` | must equal Script Property `SYNC_TRIGGER_SECRET` on the Apps Script side |
+| `CRON_SECRET` | any long random string — Vercel Cron sends it as `Authorization: Bearer …` to the **Daily Digest** run (`vercel.json` → 13:00 UTC = 6am Pacific). Without it the schedule fires and gets a 401, and the digest only builds when an admin taps **Refresh now**. (`DIGEST_CRON_SECRET` overrides it if you want a separate secret.) |
 
 Set them for the Production environment, then deploy (Vercel builds automatically).
 The last few are only needed by the features that use them — the app runs without
 them, those screens just won't work.
+
+### Daily Digest — the one extra deploy step
+
+The digest's Gmail, Calendar and Sheet reads run in the **Apps Script** repo
+(`DailyDigest.js`), so after deploying this app:
+
+1. Ship the Apps Script side with `./deploy.sh` (not `clasp push` — the Companion
+   calls a *versioned* deployment).
+2. Open the Apps Script editor once and run any function, then **accept the new
+   Google Calendar permission**. `appsscript.json` now requests
+   `calendar.readonly` — the READ-ONLY scope, so the script cannot create, edit or
+   delete an event on anybody's calendar. Until that prompt is accepted, the
+   calendar check reports "couldn't be checked" and the rest of the digest is
+   unaffected.
+3. The first digest run lists every calendar the account can see. Copy the ids of
+   the shared/operational ones into `calendarIds` in
+   `src/lib/digest/settings.ts` — the defaults match on name fragments
+   ("office", "bills", "projects", "time off") and ids are more durable.
 
 ## 4. Use it
 

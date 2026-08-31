@@ -10,6 +10,7 @@ import { useCopy } from "@/components/CopyProvider";
 import { AdminActionBar } from "@/components/AdminActionBar";
 import { StuckVendorBanner } from "@/components/StuckVendors";
 import { NeedsProjectBanner, useNeedsProjectCount } from "@/components/NeedsProject";
+import { DailyDigest } from "@/components/DailyDigest";
 import { AREAS, PREVIEW_ROWS } from "@/lib/nav";
 
 /**
@@ -86,6 +87,12 @@ function Home() {
       {/* Ingested bills whose job couldn't be resolved (Sunset "Sold-To" names a
           customer with more than one job). Self-hiding when the queue is empty. */}
       <NeedsProjectBanner state={needsProject} />
+
+      {/* The morning digest — billing scan, calendar, follow-ups. Reads the
+          digest the scheduled job stored; it does NOT run the checks on load.
+          Self-hiding: renders nothing without the admin-only `digest` view, so
+          a field phone loading this same page pays nothing for it. */}
+      <DailyDigest />
 
       <div className="space-y-6">
         {areas.map((area) => {

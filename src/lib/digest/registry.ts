@@ -1,0 +1,66 @@
+/**
+ * THE CHECK REGISTRY — the one list of checks the digest runs.
+ *
+ * ── ADDING A CHECK ──────────────────────────────────────────────────────────
+ *   1. Write `checks/myCheck.ts` exporting a `defineCheck({...})`.
+ *   2. Add its config block to `settings.ts` under the same id.
+ *   3. Add it to `CHECKS` below.
+ * That's the whole job. The aggregator (`run.ts`), the scheduled route, the
+ * store and the UI are all driven by this list and by the category the check
+ * names — none of them needs to know a new check exists.
+ *
+ * ── WHY `enabled` AND `config` COME FROM SETTINGS ───────────────────────────
+ * A check file declares BEHAVIOR; `settings.ts` declares POLICY. So the check
+ * objects below are rebuilt here with their settings block bound in, which is
+ * what keeps every threshold and exclusion list in one editable file instead of
+ * scattered as constants through the check code. A check whose id has no
+ * settings block is treated as disabled and says so loudly at startup — that's
+ * the typo case, and silently not running a check is the worst possible failure
+ * for a system whose whole job is noticing things.
+ */
+import { DIGEST_SETTINGS } from "./settings";
+import type { DigestCheck } from "./types";
+
+import { uncapturedBillsCheck } from "./checks/uncapturedBills";
+import { draftBillsPastCutoffCheck } from "./checks/draftBillsPastCutoff";
+import { reconciliationFlagsCheck } from "./checks/reconciliationFlags";
+import { costVsInvoiceCheck } from "./checks/costVsInvoice";
+import { calendarEventsCheck } from "./checks/calendarEvents";
+import { emailFollowUpsCheck } from "./checks/emailFollowUps";
+
+/** Every check that exists, in the order they run and are displayed within a category. */
+const DECLARED: DigestCheck<never>[] = [
+  uncapturedBillsCheck,
+  draftBillsPastCutoffCheck,
+  reconciliationFlagsCheck,
+  costVsInvoiceCheck,
+  calendarEventsCheck,
+  emailFollowUpsCheck,
+] as unknown as DigestCheck<never>[];
+
+type SettingsBlock = { enabled: boolean; config: unknown };
+
+/**
+ * The registry: every declared check with its settings block bound in.
+ *
+ * A check with no matching settings block is returned disabled rather than
+ * dropped, so `/api/digest` can report "configured but not running" instead of
+ * the check quietly vanishing.
+ */
+export const CHECKS: DigestCheck<never>[] = DECLARED.map((check) => {
+  const block = (DIGEST_SETTINGS as Record<string, SettingsBlock | undefined>)[check.id];
+  if (!block) {
+    return { ...check, enabled: false, config: {} as never };
+  }
+  return { ...check, enabled: block.enabled, config: block.config as never };
+});
+
+/** Just the checks that will actually run. */
+export function enabledChecks(): DigestCheck<never>[] {
+  return CHECKS.filter((c) => c.enabled);
+}
+
+/** Ids of checks that exist but are switched off (or missing a settings block). */
+export function disabledCheckIds(): string[] {
+  return CHECKS.filter((c) => !c.enabled).map((c) => c.id);
+}

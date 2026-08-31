@@ -59,6 +59,8 @@ matching row here.
 | **Companion DB tables** | `src/db/schema.ts` |
 | **The design system** | `src/components/ui.tsx` (build every UI on these primitives) |
 | **Editable on-screen text** (office reword, no deploy) | add a key to `src/lib/copy.ts`, render it via `useCopy()`; edited at `/admin/copy` → `src/app/api/admin/copy/route.ts` |
+| **The Admin Daily Digest** (morning report on Home) | `src/lib/digest/` — `settings.ts` (EVERY threshold/exclusion), `registry.ts` (the check list), `checks/*` (one file per check), `run.ts` (aggregator); UI `src/components/DailyDigest.tsx`; routes `src/app/api/digest/*`; Google data via appscript `DailyDigest.js` |
+| **Adding a digest check** | write `src/lib/digest/checks/<id>.ts`, add its config block to `src/lib/digest/settings.ts`, add one line to `src/lib/digest/registry.ts` — the aggregator, the cron route and the UI are untouched |
 
 ## `src/lib/` — shared logic (the most-reused code)
 
@@ -102,6 +104,31 @@ including edge middleware.
 | `useUnsavedChanges.ts` | React hook guarding navigation away from unsaved edits. |
 | `sentry.shared.ts` | Shared Sentry init. |
 
+### `src/lib/digest/` — the Admin Daily Digest
+
+The morning report on the home launcher: independent "checks" over billing,
+calendar and inbox, run once a day by a Vercel cron, summarized by ONE Gemini
+call, stored in `daily_digest`, and read (never recomputed) on page load. Every
+check is READ-ONLY against Gmail, Calendar, the Sheet and JobTread.
+
+| File | Purpose |
+|---|---|
+| `settings.ts` ⟂ | **THE one place every knob lives** — categories, the billing cutoff day, vendor/job exclusion lists, thresholds, which calendars to read, and each check's `enabled` flag. Edit here, never inside a check. |
+| `types.ts` ⟂ | The check contract (`DigestCheck`, `CheckContext`, `CheckResult`, `DigestItem`) plus the stored payload shape. Why the feature is extensible: a check knows nothing about scheduling, storage, or rendering. |
+| `registry.ts` | The one list of checks, each bound to its settings block. Adding a check = one import + one line here. |
+| `run.ts` | The aggregator: runs each enabled check in isolation (per-check timeout; a failure becomes one `status:"error"` entry, never a broken digest), makes the single Gemini summary call, stores the result. Knows nothing about any individual check. |
+| `grouping.ts` ⟂ | Stored results → the categories the screen draws, worst status rolled up. Pure, so "categories are data, not tabs" is testable. |
+| `store.ts` | Read/write the `daily_digest` row — the ONLY thing this feature writes anywhere. |
+| `checks/uncapturedBills.ts` | Invoice-looking mail with no matching JobTread bill (sender → vendor account → date/amount window). |
+| `checks/draftBillsPastCutoff.ts` | Draft vendor bills left over from a billing month that already closed. |
+| `checks/reconciliationFlags.ts` | The Expenditure sheet's own `Reconciliation Flags` column, grouped by flag type. Reads the sheet's verdict; never re-derives it. |
+| `checks/costVsInvoice.ts` | Jobs whose approved spend has outrun approved client invoices, past a configurable gap. |
+| `checks/calendarEvents.ts` | Today's / this week's shared-calendar events (read-only scope; never a personal calendar by default). |
+| `checks/emailFollowUps.ts` | Inbox threads whose last message came from outside and went unanswered past a business-day threshold. |
+
+Tests: `digest.test.ts` (registry wiring, category grouping, the billing-cutoff
+rule, vendor/amount matching, the exclusion lists).
+
 Tests live beside their module (`*.test.ts`): `billing`, `billLineMath`,
 `jobtread`, `paveGateway`, `leadInquiry`, `taskRunner`, `appsScript`.
 
@@ -115,7 +142,9 @@ Each page is a server component (`page.tsx`) that hands non-secret context to a
   DraftQueue, DraftWorkbench, AllJobs, Roster), `bill/[docId]`, `add-bill`,
   `coding` (retired), `stage` (retired), `labor-review`, `jobs`, `unbilled`,
   `vendors`, `bill-search` (fast full-text search over every bill + line item,
-  live JobTread plus seeded pre-JobTread history), `email`, `needs-project`,
+  live JobTread plus seeded pre-JobTread history), `email`, `needs-review` (the
+  queue of bills flagged "Needs review" — corrections the app can't make itself),
+  `needs-project`,
   `payments` (Sunset Statements), `expenditure-history`, `lswdd`, `amazon-import`,
   `tracking-sheet`.
 - **Field:** `safety-meeting`, `mileage-tracker`, `employee-time`, `tools`,
@@ -157,7 +186,10 @@ Grouped by domain; each folder is `…/route.ts`.
 - **Assistant / misc:** `chat`, `ocr-serial`, `tracking-sheet`, `vendors`,
   `bank-details`, `notices/*` (the per-user popup feed + dismiss).
 - **Platform:** `auth/[...nextauth]`, `login`, `logs`, `actions`, `usage`,
-  `usage-track`.
+  `usage-track`, `digest` (GET the stored digest — gated by the admin-only
+  `digest` view; `digest/run` builds one and is the ONE route listed as PUBLIC
+  in middleware, because the daily cron carries no session — it checks a bearer
+  secret or an admin session itself).
 
 > Gateway rule of thumb: reads are open to any signed-in role; writes are
 > triple-gated (see `CLAUDE.md` → "The Pave gateway"). New pages are read-first.
@@ -179,7 +211,8 @@ Grouped by domain; each folder is `…/route.ts`.
   `UncapturedBills`, `StuckVendors`, `NeedsProject`, `Notices` (the global
   per-user popup feed), `SunsetDuplicateScan`, `TrackingSheetSync`,
   `TrackingSheetRisks`, `Donut`, `SignaturePad`, `QrScanner`, `CopyButton`,
-  `Spinner`.
+  `Spinner`, `DailyDigest` (the admin morning digest card on Home — renders
+  whatever categories and checks the stored digest carries; no hardcoded tabs).
 
 ## `src/db/` — companion DB (Drizzle + libSQL; companion-only data, NOT JobTread)
 
@@ -189,7 +222,7 @@ Grouped by domain; each folder is `…/route.ts`.
 `lead_inquiries`, `lead_inquiry_dismissals`, `leave_policies`, `leave_balances`,
 `leave_requests`, `leave_transactions`, `jt_user_links`, `notices`,
 `notice_reads`, `rfis`, `sunset_statements`, `page_copy`, `bill_index`,
-`bill_line_index`, `bill_index_meta`. Access via `src/db/index.ts`.
+`bill_line_index`, `bill_index_meta`, `daily_digest`. Access via `src/db/index.ts`.
 
 (`bill_index`/`bill_line_index`/`bill_index_meta` back the `/bill-search` index —
 the searchable snapshot of every bill + line item, plus its refresh/seed
@@ -208,3 +241,7 @@ web app (`doPost` action router) → the matching `.js` file in
 `ascent-appscript`.** See that repo's `CODEBASE_MAP.md` for the back-end side.
 JobTread is the source of truth; the appscript hourly loop mirrors it to the
 Sheet + Drive. Don't add companion write paths that race that mirror.
+
+(`daily_digest` holds one row per day: each check's STRUCTURED result, the single
+Gemini summary paragraph over them, and the run log. Rewritten in place by
+"Refresh now", so a date has exactly one digest — see `src/lib/digest/store.ts`.)

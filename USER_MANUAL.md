@@ -478,6 +478,39 @@ Controls who can sign in with Google. Type a teammate's email and tap **Add**; t
 
 > Add/Remove take effect **immediately** and there's no confirmation on Remove.
 
+### Daily Digest — the card at the top of **Home** (admins only)
+
+Your morning review, done for you before you open the app. A scheduled job runs at
+**6am Pacific** every day, works through a list of checks, and stores the answer; the
+card just shows what it stored, so opening Home is instant. A short plain-English
+paragraph sits at the top — that's the one thing to read if you read nothing else —
+and under it three collapsible sections:
+
+- **Billing** — vendor invoices that arrived by email with no matching bill in
+  JobTread; draft bills left over from a billing month that already closed (past the
+  10th); the Expenditure sheet's reconciliation flags; and jobs where what we've spent
+  has run ahead of what the client has been invoiced.
+- **Calendar** — what's on the shared office calendars today and this week.
+- **Follow-ups** — emails from outside that nobody has replied to.
+
+Each section header shows ✅ all clear, ⚠️ with a count, or ❌ if that check couldn't
+run (a source being down never breaks the rest of the digest — only that one line).
+Tap a section to open it, tap any line to see the detail and a button through to the
+Gmail thread, the JobTread record, or the bill.
+
+**Refresh now** (top right of the card) rebuilds the digest immediately — useful after
+you've fixed something and want to confirm it's cleared.
+
+> **It only ever reads.** Nothing in the digest sends an email, touches a calendar
+> event, or changes anything in JobTread or the Sheet.
+
+**Changing what it checks.** All the thresholds live in one file
+(`src/lib/digest/settings.ts`) — which vendors to ignore, the billing cutoff day, which
+calendars to read, how many days before an unanswered email is chased, how big a
+cost/invoice gap has to be. Ask for an edit there rather than "turn off the noisy one";
+each check can also be switched off individually. New checks get added the same way —
+one new file — so this list is expected to grow.
+
 ### Logs — `/logs`
 
 The audit trail — a read-only, newest-first feed of everything the automations do (pushes,

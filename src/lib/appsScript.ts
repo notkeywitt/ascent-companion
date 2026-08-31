@@ -84,6 +84,13 @@ const EXTRA_READ_ACTIONS = new Set([
   "timeEntryBootstrap",
   "sunsetDuplicates", // an org-wide scan; writes nothing
   "historicalCostPreview", // the dry-run half of the import
+  // The Daily Digest's four Google reads (appscript DailyDigest.js). Every one
+  // only searches Gmail / reads a calendar / reads a sheet column — no label,
+  // no event, no cell is ever written — so a retry is free.
+  "digestInvoiceEmails",
+  "digestFollowUps",
+  "digestCalendar",
+  "digestReconciliationFlags",
 ]);
 
 /** Whether an action is safe to send twice. Unknown ⇒ assume it writes. */

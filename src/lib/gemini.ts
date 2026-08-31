@@ -64,22 +64,26 @@ RULES:
  * Low-level Gemini call (port of callGemini): REST generateContent with the file
  * inlined, retry on 429/502/503, then the same two JSON repair passes the Apps
  * Script engine needed against real Gemini output. Returns null on failure.
+ *
+ * `bytes`/`mimeType` are optional: omit them for a TEXT-ONLY prompt (the Daily
+ * Digest's summary, which is handed structured JSON and no document). The
+ * retry, fence-stripping and JSON-repair behavior is identical either way —
+ * which is the reason this is one function rather than two that drift.
  */
-async function callGemini(prompt: string, bytes: Buffer, mimeType: string): Promise<any | null> {
+async function callGemini(
+  prompt: string,
+  bytes?: Buffer | null,
+  mimeType?: string,
+): Promise<any | null> {
   const key = process.env.GEMINI_KEY;
   if (!key) throw new Error("GEMINI_KEY is not set.");
 
   const url = `https://generativelanguage.googleapis.com/v1/models/${GEMINI_MODEL}:generateContent?key=${key}`;
-  const payload = JSON.stringify({
-    contents: [
-      {
-        parts: [
-          { text: prompt },
-          { inline_data: { mime_type: mimeType, data: bytes.toString("base64") } },
-        ],
-      },
-    ],
-  });
+  const parts: Record<string, unknown>[] = [{ text: prompt }];
+  if (bytes && mimeType) {
+    parts.push({ inline_data: { mime_type: mimeType, data: bytes.toString("base64") } });
+  }
+  const payload = JSON.stringify({ contents: [{ parts }] });
 
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     let res: Response;
@@ -169,4 +173,83 @@ export async function extractBillWithGemini(
   const csiList = budgetCodes.map((c) => `"${c.number}" (Matches: ${c.name})`).join(", ");
   const out = await callGemini(buildPrompt(vendorList, csiList), bytes, mimeType);
   return out && typeof out === "object" && !Array.isArray(out) ? (out as ExtractedBill) : null;
+}
+
+/**
+ * A TEXT-ONLY Gemini call that returns prose, not JSON.
+ *
+ * Separate from `callGemini` because that one's whole job is to find and repair
+ * a JSON object in the answer — which is exactly wrong for a paragraph. Same
+ * endpoint, same key, same retry ladder on 429/502/503. Returns null on any
+ * failure so a caller can fall back instead of losing its result.
+ */
+async function callGeminiText(prompt: string): Promise<string | null> {
+  const key = process.env.GEMINI_KEY;
+  if (!key) throw new Error("GEMINI_KEY is not set.");
+
+  const url = `https://generativelanguage.googleapis.com/v1/models/${GEMINI_MODEL}:generateContent?key=${key}`;
+  const payload = JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] });
+
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    let res: Response;
+    try {
+      res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: payload,
+      });
+    } catch {
+      if (attempt >= MAX_RETRIES) return null;
+      await sleep(Math.pow(2, attempt) * 1000);
+      continue;
+    }
+    if (res.status === 429 || res.status === 502 || res.status === 503) {
+      if (attempt >= MAX_RETRIES) return null;
+      await sleep(Math.pow(2, attempt) * 1000);
+      continue;
+    }
+    if (!res.ok) return null;
+
+    const json = await res.json();
+    const text: string = json?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+    const cleaned = text.replace(/```[a-z]*|```/g, "").trim();
+    return cleaned || null;
+  }
+  return null;
+}
+
+/**
+ * The Daily Digest's one-paragraph summary. ONE Gemini call per digest run.
+ *
+ * ⚠️ `structured` MUST already be the digest's check RESULTS — titles, counts,
+ * amounts and one-line summaries — never raw source data. No email bodies, no
+ * document text, no customer contact details are sent here. That is a privacy
+ * rule first (this leaves our infrastructure) and a cost/latency one second:
+ * the digest is small, so the call is fast and cheap, and the model has nothing
+ * to do but prioritize what the checks already decided.
+ *
+ * Returns null when Gemini is unconfigured or unreachable — the caller composes
+ * a local fallback paragraph rather than showing an empty digest.
+ */
+export async function summarizeDigestWithGemini(structured: unknown): Promise<string | null> {
+  if (!process.env.GEMINI_KEY) return null;
+  const prompt = `You are writing the opening paragraph of a construction company's internal
+morning digest, for the owner. Below is the STRUCTURED OUTPUT of this morning's automated checks.
+
+Write ONE short paragraph (2-4 sentences, no more than about 70 words) that:
+- leads with whatever is most urgent — money at risk, an overdue client or vendor follow-up, a bill that missed its billing month;
+- names concrete numbers and dollar figures from the data;
+- says plainly if everything is clear;
+- mentions any check whose status is "error" as "couldn't be checked", briefly.
+
+Do NOT use markdown, bullet points, headings, or a greeting. Do not invent anything
+that is not in the data. Plain sentences only.
+
+DATA:
+${JSON.stringify(structured)}`;
+  try {
+    return await callGeminiText(prompt);
+  } catch {
+    return null;
+  }
 }
