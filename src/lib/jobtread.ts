@@ -4257,6 +4257,104 @@ export async function getOpenTimeEntries(
   return out.sort((a, b) => (a.startedAt < b.startedAt ? 1 : a.startedAt > b.startedAt ? -1 : 0));
 }
 
+export interface OrgTimeEntry {
+  id: string;
+  startedAt: string;
+  endedAt: string | null;
+  minutes: number;
+  notes: string;
+  userName: string;
+  jobId: string;
+  jobName: string;
+  customer: string;
+  costItemId: string;
+  costCode: string;
+  costItemName: string;
+  payType: string;
+}
+
+/**
+ * READ — every user's time entries org-wide, for the Daily Digest's crew-activity
+ * check: "who worked where yesterday" and "who's clocked in right now" both need
+ * every employee at once, which `getUserTimeEntries`/`getOpenTimeEntries` can't
+ * give (both are scoped to one user). Queries `organization.timeEntries` — the
+ * root connection — rather than paging every user's own connection.
+ *
+ * Confirmed live via schema introspection (2026-08-31): `organization.timeEntries`
+ * exists and returns `user.name` directly on each entry (no need to resolve a
+ * JobTread user id back to a display name), the same `where`/`sortBy` grammar as
+ * `getUserTimeEntries` applies (`{and:[["startedAt",">=",…],["startedAt","<",…]]}`),
+ * and — unlike the caution on `getOpenTimeEntries` above — a server-side
+ * `{"=":[{"field":"endedAt"},{"value":null}]}` filter for "still clocked in" was
+ * probe-confirmed to work and to match a client-side filter of the full pull.
+ * Filtering `endedAt` server-side here (rather than client-side like
+ * `getOpenTimeEntries`) matters more at this scope: an org-wide pull without it
+ * would page through every closed entry from every employee just to find the
+ * handful still open.
+ *
+ * `opts.openOnly` and `opts.sinceIso`/`untilIso` are mutually exclusive uses (the
+ * "who's clocked in now" question has no date bound; the "yesterday" question
+ * does) but nothing stops combining them if a future caller needs to.
+ */
+export async function getOrgTimeEntries(
+  cfg: PaveConfig,
+  opts: { sinceIso?: string; untilIso?: string; openOnly?: boolean; maxPages?: number } = {},
+): Promise<OrgTimeEntry[]> {
+  const maxPages = opts.maxPages ?? 20;
+  const out: OrgTimeEntry[] = [];
+  let cursor: string | null = null;
+  for (let page = 0; page < maxPages; page++) {
+    const args: Record<string, unknown> = { size: 100, sortBy: [{ field: "startedAt", order: "desc" }] };
+    if (cursor) args.page = cursor;
+    const clauses: unknown[] = [];
+    if (opts.sinceIso) clauses.push(["startedAt", ">=", opts.sinceIso]);
+    if (opts.untilIso) clauses.push(["startedAt", "<", opts.untilIso]);
+    if (opts.openOnly) clauses.push({ "=": [{ field: "endedAt" }, { value: null }] });
+    if (clauses.length) args.where = clauses.length === 1 ? clauses[0] : { and: clauses };
+    const r = await pave(cfg, {
+      organization: {
+        id: {},
+        timeEntries: {
+          $: args,
+          nextPage: {},
+          nodes: {
+            id: {},
+            type: {},
+            startedAt: {},
+            endedAt: {},
+            minutes: {},
+            notes: {},
+            user: { name: {} },
+            job: { id: {}, name: {}, location: { account: { name: {} } } },
+            costItem: { id: {}, name: {}, costCode: { number: {}, name: {} } },
+          },
+        },
+      },
+    });
+    const tc = r?.organization?.timeEntries ?? {};
+    for (const n of tc.nodes ?? []) {
+      out.push({
+        id: n.id,
+        startedAt: n.startedAt,
+        endedAt: n.endedAt ?? null,
+        minutes: Number(n.minutes) || 0,
+        notes: n.notes ?? "",
+        userName: n.user?.name ?? "",
+        jobId: n.job?.id ?? "",
+        jobName: n.job?.name ?? "",
+        customer: n.job?.location?.account?.name ?? "",
+        costItemId: n.costItem?.id ?? "",
+        costCode: n.costItem?.costCode?.number ?? "",
+        costItemName: n.costItem?.costCode?.name || n.costItem?.name || "",
+        payType: n.type ?? "",
+      });
+    }
+    cursor = tc.nextPage ?? null;
+    if (!cursor) break;
+  }
+  return out;
+}
+
 
 // ---------------------------------------------------------------------------
 // TASKS — schedule items and to-dos (Daily Digest)

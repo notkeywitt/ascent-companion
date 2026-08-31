@@ -659,6 +659,42 @@ async function applySchema() {
       active INTEGER NOT NULL DEFAULT 1
     )
   `);
+
+  // The Daily Digest's todo/reminder memory, sender ignore-rules, and reply audit
+  // trail — written only by POST /api/digest/reply, read by the digest-todos
+  // check and (ignore rules) the email-followups check. See db/schema.ts.
+  await getClient().execute(`
+    CREATE TABLE IF NOT EXISTS digest_todos (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      text TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'open',
+      snooze_until TEXT NOT NULL DEFAULT '',
+      source TEXT NOT NULL DEFAULT 'reply',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      completed_at TEXT NOT NULL DEFAULT ''
+    )
+  `);
+  await getClient().execute(`
+    CREATE TABLE IF NOT EXISTS digest_ignore_rules (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      kind TEXT NOT NULL DEFAULT 'email_sender',
+      pattern TEXT NOT NULL,
+      reason TEXT NOT NULL DEFAULT '',
+      active INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL
+    )
+  `);
+  await getClient().execute(`
+    CREATE TABLE IF NOT EXISTS digest_replies (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      digest_date TEXT NOT NULL DEFAULT '',
+      text TEXT NOT NULL,
+      actions_applied TEXT NOT NULL DEFAULT '[]',
+      created_by TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL
+    )
+  `);
 }
 
 export { schema };

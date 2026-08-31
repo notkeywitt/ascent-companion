@@ -705,3 +705,67 @@ export const invoiceReviewRulings = sqliteTable("invoice_review_rulings", {
 
 export type InvoiceReviewRulingRow = typeof invoiceReviewRulings.$inferSelect;
 export type NewInvoiceReviewRulingRow = typeof invoiceReviewRulings.$inferInsert;
+
+/**
+ * The Daily Digest's todo/reminder memory — what the owner asked to be reminded
+ * of via the reply box (see src/lib/digest/checks/digestTodos.ts and
+ * src/app/api/digest/reply/route.ts). Assistant-owned; JobTread has no such
+ * object, and this is deliberately separate from `jobtreadTodos` (which mirrors
+ * JT's own to-do list) — this table is only ever written by a parsed reply.
+ *
+ * `status`: "open" (shows every day), "snoozed" (hidden until `snoozeUntil`),
+ * "done" (a reply resolved it — kept, not deleted, so "did I already handle
+ * that" has an answer). `snoozeUntil` empty means no snooze is in effect.
+ */
+export const digestTodos = sqliteTable("digest_todos", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  text: text("text").notNull(),
+  status: text("status").notNull().default("open"), // open | snoozed | done
+  snoozeUntil: text("snooze_until").notNull().default(""), // YYYY-MM-DD; "" = not snoozed
+  source: text("source").notNull().default("reply"), // reply | manual
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+  completedAt: text("completed_at").notNull().default(""),
+});
+
+export type DigestTodo = typeof digestTodos.$inferSelect;
+export type NewDigestTodo = typeof digestTodos.$inferInsert;
+
+/**
+ * Sender-pattern rules the owner set via a digest reply ("ignore emails from
+ * so-and-so"), merged into the email-followups check's `ignoreSenders` at run
+ * time (see emailFollowUps.ts) — never written to JobTread or Apps Script.
+ * `pattern` is matched case-insensitively as a substring, same convention as the
+ * static `ignoreSenders`/`excludeVendors` lists in settings.ts. Deactivated
+ * rather than deleted (`active` false) so "why did we stop flagging this
+ * sender" stays answerable.
+ */
+export const digestIgnoreRules = sqliteTable("digest_ignore_rules", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  kind: text("kind").notNull().default("email_sender"), // email_sender (only kind today)
+  pattern: text("pattern").notNull(),
+  reason: text("reason").notNull().default(""),
+  active: integer("active", { mode: "boolean" }).notNull().default(true),
+  createdAt: text("created_at").notNull(),
+});
+
+export type DigestIgnoreRule = typeof digestIgnoreRules.$inferSelect;
+export type NewDigestIgnoreRule = typeof digestIgnoreRules.$inferInsert;
+
+/**
+ * Audit trail for the digest reply box — one row per submitted reply, with the
+ * raw text and what Claude parsed out of it. Never read back by the digest
+ * itself (the todos/ignore-rules tables above are what checks actually read);
+ * this exists purely so a confusing parse is debuggable after the fact.
+ */
+export const digestReplies = sqliteTable("digest_replies", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  digestDate: text("digest_date").notNull().default(""), // YYYY-MM-DD, the digest this replied to
+  text: text("text").notNull(),
+  actionsApplied: text("actions_applied").notNull().default("[]"), // JSON — what got parsed & applied
+  createdBy: text("created_by").notNull().default(""), // signed-in email
+  createdAt: text("created_at").notNull(),
+});
+
+export type DigestReply = typeof digestReplies.$inferSelect;
+export type NewDigestReply = typeof digestReplies.$inferInsert;

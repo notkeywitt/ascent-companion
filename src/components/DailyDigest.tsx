@@ -9,6 +9,7 @@ import {
   CountBadge,
   Loading,
   SectionHeading,
+  Textarea,
   btn,
   type ChipTone,
 } from "@/components/ui";
@@ -80,6 +81,10 @@ export function DailyDigest() {
   const [note, setNote] = useState("");
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const [openItems, setOpenItems] = useState<Record<string, boolean>>({});
+
+  const [replyText, setReplyText] = useState("");
+  const [replySending, setReplySending] = useState(false);
+  const [replyResult, setReplyResult] = useState<{ ok: boolean; lines: string[] } | null>(null);
 
   // Returns what it loaded so `refresh` can tell a fresh digest apart from the
   // one that was already showing, without relying on `data` state (which
@@ -155,6 +160,38 @@ export function DailyDigest() {
     setRefreshing(false);
   }
 
+  /**
+   * Reply box — turns a free-text note into a reminder, a snooze, or an email
+   * ignore rule (see /api/digest/reply). The confirmation echoes back exactly
+   * what was applied; it never re-fetches the digest, since a new reminder only
+   * shows up under To-Do on the NEXT run, not this one.
+   */
+  async function sendReply() {
+    const text = replyText.trim();
+    if (!text) return;
+    setReplySending(true);
+    setReplyResult(null);
+    try {
+      const res = await fetch("/api/digest/reply", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setReplyResult({ ok: false, lines: [json.error || "Couldn't send that. Try again."] });
+      } else {
+        const lines: string[] = (json.applied ?? []).map((a: { summary: string }) => a.summary);
+        setReplyResult({ ok: true, lines: lines.length ? lines : [json.note || "Got it."] });
+        setReplyText("");
+      }
+    } catch {
+      setReplyResult({ ok: false, lines: ["Couldn't send that. Try again."] });
+    } finally {
+      setReplySending(false);
+    }
+  }
+
   const categories = useMemo(
     () => (data?.digest ? groupByCategory(data.digest.results, data.categories ?? []) : []),
     [data],
@@ -222,6 +259,41 @@ export function DailyDigest() {
               {digest.summarySource === "fallback" && " · summary written locally (Claude unavailable)"}
               {digest.status === "partial" && " · some checks couldn't run"}
             </p>
+          </Card>
+
+          {/* The reply box — talk back to the digest: add a reminder, snooze one,
+              or tell it to stop flagging a sender. Applied on the NEXT run. */}
+          <Card>
+            <Textarea
+              rows={2}
+              placeholder={`Tell it something — "remind me about the L&I thing tomorrow", "ignore emails from so-and-so"…`}
+              value={replyText}
+              onChange={(e) => setReplyText(e.target.value)}
+              disabled={replySending}
+            />
+            <div className="mt-2 flex items-center justify-between gap-2">
+              <button
+                type="button"
+                onClick={sendReply}
+                disabled={replySending || !replyText.trim()}
+                className={btn("primary", "sm")}
+              >
+                {replySending ? "Sending…" : "Send"}
+              </button>
+            </div>
+            {replyResult && (
+              <div className="mt-2 space-y-1">
+                {replyResult.lines.map((line, i) => (
+                  <p
+                    key={i}
+                    className={`text-[12.5px] leading-relaxed ${replyResult.ok ? "text-neutral-500" : "text-red-600"}`}
+                  >
+                    {replyResult.ok ? "✓ " : ""}
+                    {line}
+                  </p>
+                ))}
+              </div>
+            )}
           </Card>
 
           {/* One collapsible block per category — entirely data-driven. */}

@@ -38,8 +38,9 @@ export interface DigestCategory {
 }
 
 export const DIGEST_CATEGORIES: DigestCategory[] = [
+  { id: "crew", label: "Crew Activity", blurb: "Who worked where yesterday, and who's clocked in right now." },
   { id: "calendar", label: "Calendar", blurb: "What's on the shared calendars and the JobTread schedule." },
-  { id: "todo", label: "To-Do", blurb: "Open JobTread to-dos, and appointments/action items found in email." },
+  { id: "todo", label: "To-Do", blurb: "Open JobTread to-dos, office reminders, and appointments/action items found in email." },
   { id: "followup", label: "Follow-ups", blurb: "Conversations waiting on us." },
   // Off by default (2026-08-31) — billing has its own screen (Tracking Sheets /
   // /unbilled), so the digest no longer duplicates it. The checks are OFF, not
@@ -145,6 +146,18 @@ export interface CostVsInvoiceConfig {
   maxJobs: number;
   /** Concurrent JobTread rollup queries. Keep modest — it's one API. */
   concurrency: number;
+}
+
+/** Check "crew-activity" — who worked where yesterday, who's clocked in now. */
+export interface CrewActivityConfig {
+  /** Most jobs to list per section (Yesterday / Right now). */
+  maxJobs: number;
+}
+
+/** Check "digest-todos" — the office's own reminders, set via the reply box. */
+export interface DigestTodosConfig {
+  /** Most open reminders to list. */
+  maxItems: number;
 }
 
 /** Check "jobtread-todos" — open JobTread to-dos, overdue or due soon. */
@@ -263,6 +276,20 @@ export interface DigestCheckSettings<C> {
 // left in place, not deleted, so turning one back on is `enabled: true` and
 // nothing else.
 export const DIGEST_SETTINGS = {
+  "crew-activity": {
+    enabled: true,
+    config: {
+      maxJobs: 20,
+    },
+  } satisfies DigestCheckSettings<CrewActivityConfig>,
+
+  "digest-todos": {
+    enabled: true,
+    config: {
+      maxItems: 30,
+    },
+  } satisfies DigestCheckSettings<DigestTodosConfig>,
+
   "uncaptured-bills": {
     enabled: false,
     config: {

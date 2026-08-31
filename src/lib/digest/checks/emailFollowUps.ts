@@ -16,9 +16,33 @@
  *
  * READ-ONLY: Gmail is searched. Nothing is sent, labeled, archived or marked read.
  */
+import { and, eq } from "drizzle-orm";
+
 import { callAppsScript } from "@/lib/appsScript";
+import { db, ensureDb } from "@/db";
+import { digestIgnoreRules } from "@/db/schema";
 import { defineCheck, allClear, checkError, type CheckResult, type DigestItem } from "../types";
 import type { EmailFollowUpsConfig } from "../settings";
+
+/**
+ * Active sender-ignore patterns set by the office through the digest reply box
+ * ("ignore emails from so-and-so" — see src/app/api/digest/reply/route.ts),
+ * merged onto the static `config.ignoreSenders` list before the Apps Script call.
+ * Failing to read the DB degrades to the static list only, rather than erroring
+ * the whole check over a table that has nothing to do with Gmail itself.
+ */
+async function activeIgnorePatterns(): Promise<string[]> {
+  try {
+    await ensureDb();
+    const rows = await db
+      .select({ pattern: digestIgnoreRules.pattern })
+      .from(digestIgnoreRules)
+      .where(and(eq(digestIgnoreRules.kind, "email_sender"), eq(digestIgnoreRules.active, true)));
+    return rows.map((r) => r.pattern);
+  } catch {
+    return [];
+  }
+}
 
 interface FollowUpThread {
   threadId?: string;
@@ -50,11 +74,14 @@ export const emailFollowUpsCheck = defineCheck<EmailFollowUpsConfig>({
   config: {} as EmailFollowUpsConfig,
 
   async run({ config, log }): Promise<CheckResult> {
+    const dbIgnores = await activeIgnorePatterns();
+    if (dbIgnores.length) log(`${dbIgnores.length} office-set ignore rule(s) applied`);
+
     const r = await callAppsScript<FollowUpResponse>({
       action: "digestFollowUps",
       days: config.lookbackDays,
       officeAddresses: config.officeAddresses,
-      ignorePatterns: config.ignoreSenders,
+      ignorePatterns: [...config.ignoreSenders, ...dbIgnores],
     });
     if (r.error) return checkError(`Couldn't read the inbox: ${r.error}`);
     if (r.data?.ok === false) return checkError(r.data.error || "Gmail scan failed.");
