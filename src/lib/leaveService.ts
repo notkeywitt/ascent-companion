@@ -16,10 +16,16 @@
 import { and, eq } from "drizzle-orm";
 
 import { db, ensureDb } from "@/db";
-import { leaveBalances, leavePolicies, leaveRequests, leaveTransactions } from "@/db/schema";
+import { leaveBalances, leaveImportAliases, leavePolicies, leaveRequests, leaveTransactions } from "@/db/schema";
 import { getLeaveConfig, getPaveConfig, hasGrant, leavePostingReady, writesEnabled } from "@/lib/config";
 import { createTimeEntry, deleteTimeEntry, getUserTimeEntries, jtIsoToOrgLocal, orgLocalToJtIso } from "@/lib/jobtread";
 import { callAppsScriptOrThrow } from "@/lib/appsScript";
+import {
+  buildImportPlan,
+  parseBalanceCsv,
+  round2 as round2Import,
+  type ImportPlan,
+} from "@/lib/leaveImport";
 import {
   accrualForPeriod,
   nextPeriodId,
@@ -546,6 +552,112 @@ export async function retryLeavePost(
 export async function listBalances(): Promise<Array<Record<string, unknown>>> {
   await ensureDb();
   return (await db.select().from(leaveBalances)) as Array<Record<string, unknown>>;
+}
+
+// ── TSheets / QuickBooks balance import ───────────────────────────────────────
+// QuickBooks is where sick and PTO really live; TSheets exports the balances as
+// a CSV. The import treats those numbers as authoritative: for each employee it
+// writes ONE signed `adjustment` ledger row per leave type — the difference
+// between the CSV number and the companion balance — so the balance lands
+// exactly on the CSV value while the ledger keeps its full history. Re-importing
+// the same file is a no-op (every delta is 0). Companion DB only; nothing is
+// written to JobTread.
+
+/** Remembered CSV-line → employee mappings ("" = always skip that line). */
+export async function getImportAliases(): Promise<Record<string, string>> {
+  await ensureDb();
+  const rows = (await db.select().from(leaveImportAliases)) as Array<{ csvKey: string; employeeId: string }>;
+  const out: Record<string, string> = {};
+  for (const r of rows) out[r.csvKey] = r.employeeId ?? "";
+  return out;
+}
+
+/** Persist the manual mappings the office made on the review screen. */
+export async function saveImportAliases(map: Record<string, string>, actor: string): Promise<void> {
+  await ensureDb();
+  const now = new Date().toISOString();
+  for (const [csvKey, employeeId] of Object.entries(map)) {
+    const key = csvKey.trim().toLowerCase();
+    if (!key) continue;
+    await db
+      .insert(leaveImportAliases)
+      .values({ csvKey: key, employeeId: employeeId.trim(), createdBy: actor, updatedAt: now })
+      .onConflictDoUpdate({
+        target: leaveImportAliases.csvKey,
+        set: { employeeId: employeeId.trim(), createdBy: actor, updatedAt: now },
+      });
+  }
+}
+
+/** Parse the CSV and diff it against the current balances — no writes. */
+export async function previewBalanceImport(opts: {
+  csv: string;
+  overrides?: Record<string, string>;
+}): Promise<ImportPlan & { roster: RosterEmployee[] }> {
+  const parsed = parseBalanceCsv(opts.csv);
+  const [roster, balances, aliases] = await Promise.all([
+    fetchRoster(),
+    listBalances(),
+    getImportAliases(),
+  ]);
+  // Anyone not clearly inactive — a balance import needs no JobTread link, so
+  // this is deliberately looser than accruingEmployees().
+  const active = roster.filter((e) => e.employeeId && !/inactive|terminat|former|left/i.test(e.status));
+  const current = new Map<string, number>();
+  for (const b of balances) {
+    current.set(`${String(b.employeeId)}|${String(b.leaveType)}`, Number(b.balance) || 0);
+  }
+  const plan = buildImportPlan({
+    parsed,
+    roster: active.map((e) => ({ employeeId: e.employeeId, name: e.name, email: e.email, jtUserId: e.jtUserId })),
+    currentBalance: (employeeId, leaveType) => current.get(`${employeeId}|${leaveType}`) ?? 0,
+    // Saved aliases first, then whatever the office just chose on screen.
+    overrides: { ...aliases, ...(opts.overrides ?? {}) },
+  });
+  return { ...plan, roster: active };
+}
+
+export interface ImportResult {
+  applied: number; // adjustment rows written
+  employees: number; // employees whose balance moved
+  totalsByType: Record<string, number>; // net hours added per leave type
+  plan: ImportPlan;
+}
+
+/** Apply the plan: one adjustment per changed (employee × leave type). */
+export async function applyBalanceImport(opts: {
+  csv: string;
+  overrides?: Record<string, string>;
+  label?: string; // e.g. the file name, so the ledger says where it came from
+  actor: string;
+}): Promise<ImportResult> {
+  const plan = await previewBalanceImport({ csv: opts.csv, overrides: opts.overrides });
+  const source = (opts.label ?? "").trim() || `TSheets export ${new Date().toISOString().slice(0, 10)}`;
+  const totalsByType: Record<string, number> = {};
+  let applied = 0;
+  const touched = new Set<string>();
+  for (const row of plan.rows) {
+    if (row.status !== "change" || !row.employeeId) continue;
+    for (const c of row.changes) {
+      if (Math.abs(c.delta) < 0.01) continue;
+      await recordAdjustment({
+        employeeId: row.employeeId,
+        jtUserId: row.jtUserId,
+        leaveType: c.leaveType,
+        hours: c.delta,
+        note: `QuickBooks balance import (${source}) — set to ${c.target} hr`,
+        actor: opts.actor,
+      });
+      totalsByType[c.leaveType] = round2Import((totalsByType[c.leaveType] ?? 0) + c.delta);
+      applied++;
+      touched.add(row.employeeId);
+    }
+  }
+  // Remember any manual mapping that was used, so the next file matches itself.
+  if (opts.overrides && Object.keys(opts.overrides).length) {
+    await saveImportAliases(opts.overrides, opts.actor);
+  }
+  return { applied, employees: touched.size, totalsByType, plan };
 }
 
 export async function listLedger(employeeId: string): Promise<Array<Record<string, unknown>>> {

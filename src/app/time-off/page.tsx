@@ -172,6 +172,7 @@ export default function TimeOffPage() {
               <RequestsQueueCard onChanged={load} />
               <AccrualCard onDone={load} setBanner={(t) => { setNote(t.note); setError(t.error); }} />
               <BalancesCard byEmployee={byEmployee} roster={roster} onChanged={load} />
+              <ImportBalancesCard roster={roster} onChanged={load} />
               <PoliciesCard policies={policies} onSaved={load} />
             </div>
           )}
@@ -664,6 +665,285 @@ function AccrualCard({
             <Banner tone="warning" className="mt-2">
               Skipped {result.skipped.length}: {result.skipped.map((s) => `${s.name || s.employeeId} (${s.reason})`).join("; ")}
             </Banner>
+          )}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+// ── QuickBooks / TSheets balance import ───────────────────────────────────────
+// Upload the TSheets balance export and it sets every employee's Sick and PTO
+// to the numbers in the file. "Paid Time Off" + "Vacation" are summed into PTO.
+// Nothing is written until the review screen is confirmed.
+interface PlanChange {
+  leaveType: "sick" | "pto";
+  current: number;
+  target: number;
+  delta: number;
+}
+interface PlanRow {
+  key: string;
+  csvName: string;
+  username: string;
+  employeeId: string;
+  employeeName: string;
+  matchedBy: "override" | "email" | "name" | "none";
+  status: "change" | "unchanged" | "unmatched" | "skipped";
+  changes: PlanChange[];
+}
+interface ImportPlan {
+  rows: PlanRow[];
+  balanceColumns: Array<{ header: string; leaveType: "sick" | "pto" }>;
+  ignoredColumns: string[];
+  missingFromCsv: Array<{ employeeId: string; name: string }>;
+  counts: { rows: number; matched: number; unmatched: number; skipped: number; changes: number };
+}
+
+const SIGNED = (n: number) => `${n > 0 ? "+" : n < 0 ? "−" : ""}${fmtHM(Math.abs(n))}`;
+
+function ImportBalancesCard({ roster, onChanged }: { roster: RosterEmp[]; onChanged: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [csv, setCsv] = useState("");
+  const [fileName, setFileName] = useState("");
+  const [plan, setPlan] = useState<ImportPlan | null>(null);
+  const [overrides, setOverrides] = useState<Record<string, string>>({});
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const [done, setDone] = useState("");
+  const [showAll, setShowAll] = useState(false);
+
+  const preview = useCallback(
+    async (text: string, ov: Record<string, string>) => {
+      setBusy(true);
+      setErr("");
+      setDone("");
+      try {
+        const res = await fetch("/api/time-off/import", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ csv: text, overrides: ov, commit: false }),
+        });
+        const json = await res.json();
+        if (!res.ok || json.ok === false) {
+          setErr(json.error ?? "Could not read that file.");
+          setPlan(null);
+        } else setPlan(json as ImportPlan);
+      } catch (e) {
+        setErr(e instanceof Error ? e.message : "Network error");
+      } finally {
+        setBusy(false);
+      }
+    },
+    [],
+  );
+
+  async function onFile(file: File | undefined) {
+    if (!file) return;
+    const text = await file.text();
+    setCsv(text);
+    setFileName(file.name);
+    setOverrides({});
+    await preview(text, {});
+  }
+
+  function setOverride(key: string, employeeId: string) {
+    const next = { ...overrides, [key]: employeeId };
+    setOverrides(next);
+    if (csv) void preview(csv, next);
+  }
+
+  async function commit() {
+    if (!csv) return;
+    setBusy(true);
+    setErr("");
+    try {
+      const res = await fetch("/api/time-off/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ csv, overrides, commit: true, label: fileName }),
+      });
+      const json = await res.json();
+      if (!res.ok || json.ok === false) setErr(json.error ?? "Import failed.");
+      else {
+        setDone(`Updated ${json.employees} employee${json.employees === 1 ? "" : "s"} (${json.applied} balance${json.applied === 1 ? "" : "s"}).`);
+        setPlan(json.plan as ImportPlan);
+        setCsv("");
+        onChanged();
+      }
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Network error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function reset() {
+    setCsv("");
+    setFileName("");
+    setPlan(null);
+    setOverrides({});
+    setErr("");
+    setDone("");
+  }
+
+  const changed = plan?.rows.filter((r) => r.status === "change") ?? [];
+  const unmatched = plan?.rows.filter((r) => r.status === "unmatched") ?? [];
+  const shown = showAll ? (plan?.rows ?? []) : changed;
+
+  return (
+    <Card>
+      <div className="flex items-center justify-between gap-3">
+        <SectionLabel>Import balances from QuickBooks</SectionLabel>
+        <Button variant="secondary" size="sm" onClick={() => { setOpen((v) => !v); if (open) reset(); }}>
+          {open ? "Close" : "Upload CSV"}
+        </Button>
+      </div>
+
+      {open && (
+        <div className="mt-3 space-y-3">
+          <p className="text-sm text-neutral-600 dark:text-neutral-400">
+            Download the balance report from TSheets, then choose the file here. Sick goes to Sick;
+            “Paid Time Off” and “Vacation” are added together into PTO. Balances are set to match the
+            file exactly — you review every change before anything is saved.
+          </p>
+
+          <div>
+            <Label htmlFor="bal-csv">Balance CSV</Label>
+            <input
+              id="bal-csv"
+              type="file"
+              accept=".csv,text/csv"
+              className="block w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-neutral-200 file:px-3 file:py-1.5 file:text-sm file:font-medium dark:file:bg-neutral-800"
+              onChange={(e) => void onFile(e.target.files?.[0])}
+            />
+            {fileName && <div className="mt-1 text-xs text-neutral-500">{fileName}</div>}
+          </div>
+
+          {busy && <Loading label="Reading…" />}
+          {err && <Banner tone="error">{err}</Banner>}
+          {done && <Banner tone="success">{done}</Banner>}
+
+          {plan && (
+            <>
+              <div className="rounded-lg border border-line p-3 text-sm">
+                <div className="flex flex-wrap gap-x-4 gap-y-1">
+                  <span>{plan.counts.rows} rows in file</span>
+                  <span>{plan.counts.matched} matched</span>
+                  <span className="font-medium">{plan.counts.changes} balance change{plan.counts.changes === 1 ? "" : "s"}</span>
+                  {plan.counts.unmatched > 0 && (
+                    <span className="text-amber-700 dark:text-amber-400">{plan.counts.unmatched} unmatched</span>
+                  )}
+                  {plan.counts.skipped > 0 && <span className="text-neutral-500">{plan.counts.skipped} skipped</span>}
+                </div>
+                <div className="mt-1 text-xs text-neutral-500">
+                  Columns used: {plan.balanceColumns.map((c) => `${c.header} → ${c.leaveType.toUpperCase()}`).join(", ")}
+                </div>
+                {plan.missingFromCsv.length > 0 && (
+                  <div className="mt-1 text-xs text-neutral-500">
+                    Not in the file (left alone): {plan.missingFromCsv.map((m) => m.name || m.employeeId).join(", ")}
+                  </div>
+                )}
+              </div>
+
+              {unmatched.length > 0 && (
+                <div className="rounded-lg border border-line p-3">
+                  <div className="text-sm font-medium">Who are these people?</div>
+                  <p className="mb-2 text-xs text-neutral-500">
+                    These lines did not match a roster employee. Pick the right one (or Skip). Your
+                    choice is remembered for next time.
+                  </p>
+                  <div className="space-y-2">
+                    {unmatched.map((r) => (
+                      <div key={r.key} className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_1fr] sm:items-center">
+                        <div className="text-sm">
+                          {r.csvName || r.key}
+                          {r.username && <span className="ml-1 text-xs text-neutral-500">{r.username}</span>}
+                        </div>
+                        <Select
+                          aria-label={`Match ${r.csvName || r.key}`}
+                          value={overrides[r.key] ?? ""}
+                          onChange={(e) => setOverride(r.key, e.target.value)}
+                        >
+                          <option value="">Choose employee…</option>
+                          {roster.map((emp) => (
+                            <option key={emp.employeeId} value={emp.employeeId}>
+                              {emp.name || emp.employeeId}
+                            </option>
+                          ))}
+                        </Select>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex items-center justify-between">
+                <div className="text-sm font-medium">{showAll ? "All rows" : "Changes"}</div>
+                <button type="button" className="text-xs text-accent hover:underline" onClick={() => setShowAll((v) => !v)}>
+                  {showAll ? "Show changes only" : "Show every row"}
+                </button>
+              </div>
+
+              {shown.length === 0 ? (
+                <EmptyState>Every balance already matches the file. Nothing to import.</EmptyState>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="text-left text-[11px] uppercase tracking-wide text-neutral-500">
+                        <th className="py-1 pr-3">Employee</th>
+                        <th className="py-1 pr-3 text-right">Sick</th>
+                        <th className="py-1 pr-3 text-right">PTO</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {shown.map((r) => (
+                        <tr key={r.key} className="border-t border-line-soft align-top">
+                          <td className="py-1.5 pr-3">
+                            {r.employeeName || r.csvName || r.key}
+                            {r.status !== "change" && (
+                              <span className="ml-2 text-[11px] uppercase tracking-wide text-neutral-500">{r.status}</span>
+                            )}
+                          </td>
+                          {(["sick", "pto"] as const).map((t) => {
+                            const c = r.changes.find((x) => x.leaveType === t);
+                            return (
+                              <td key={t} className="py-1.5 pr-3 text-right tabular-nums">
+                                {!c ? (
+                                  "—"
+                                ) : Math.abs(c.delta) < 0.01 ? (
+                                  <span className="text-neutral-500">{fmtHM(c.target)}</span>
+                                ) : (
+                                  <>
+                                    <span className="text-neutral-500 line-through">{fmtHM(c.current)}</span>{" "}
+                                    <span className="font-medium">{fmtHM(c.target)}</span>{" "}
+                                    <span className={c.delta > 0 ? "text-green-700 dark:text-green-400" : "text-red-700 dark:text-red-400"}>
+                                      ({SIGNED(c.delta)})
+                                    </span>
+                                  </>
+                                )}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {csv && changed.length > 0 && (
+                <div className="flex justify-end gap-2">
+                  <Button variant="secondary" size="sm" onClick={reset} disabled={busy}>
+                    Cancel
+                  </Button>
+                  <Button size="sm" onClick={commit} disabled={busy}>
+                    {busy ? "Importing…" : `Import ${plan.counts.changes} change${plan.counts.changes === 1 ? "" : "s"}`}
+                  </Button>
+                </div>
+              )}
+            </>
           )}
         </div>
       )}

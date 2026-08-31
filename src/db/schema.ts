@@ -284,6 +284,22 @@ export const leaveRequests = sqliteTable("leave_requests", {
 export type LeaveRequest = typeof leaveRequests.$inferSelect;
 
 /**
+ * Remembered manual mappings for the TSheets/QuickBooks balance import: a CSV
+ * line's key (its username, or its name when there is none) → the roster
+ * employee it belongs to. An empty employeeId means "always skip this line"
+ * (e.g. a retired duplicate login). Auto-matching by email/name runs first;
+ * this table only carries the ones a human had to resolve.
+ */
+export const leaveImportAliases = sqliteTable("leave_import_aliases", {
+  csvKey: text("csv_key").primaryKey(),
+  employeeId: text("employee_id").notNull().default(""),
+  createdBy: text("created_by").notNull().default(""),
+  updatedAt: text("updated_at").notNull(),
+});
+
+export type LeaveImportAlias = typeof leaveImportAliases.$inferSelect;
+
+/**
  * Append-only user activity log — powers the Admin → Activity dashboard (who
  * signs in and what they use). Three event kinds:
  *  - "login":  one row per successful Google sign-in (written server-side from

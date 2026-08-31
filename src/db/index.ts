@@ -371,6 +371,15 @@ async function applySchema() {
       updated_at TEXT NOT NULL
     )
   `);
+  // Remembered CSV-line → employee mappings for the TSheets balance import.
+  await getClient().execute(`
+    CREATE TABLE IF NOT EXISTS leave_import_aliases (
+      csv_key TEXT PRIMARY KEY,
+      employee_id TEXT NOT NULL DEFAULT '',
+      created_by TEXT NOT NULL DEFAULT '',
+      updated_at TEXT NOT NULL
+    )
+  `);
   // Labor-rate catalog + groups (assistant-owned; JobTread has no central pay-type
   // catalog). A group (project) prepends its name to each rate on push.
   await getClient().execute(`
