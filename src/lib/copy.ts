@@ -110,6 +110,12 @@ export const COPY: Record<string, CopyEntry> = {
     group: "Home — Financials",
   },
   "home.dest.labor-review.label": { text: "Labor Review", label: "Labor Review — name", group: "Home — Financials" },
+  "home.dest.invoice-review.label": { text: "Invoice Review", label: "Invoice Review — name", group: "Home — Financials" },
+  "home.dest.invoice-review.desc": {
+    text: "Check a month's client invoices against the bills and the backup",
+    label: "Invoice Review — description",
+    group: "Home — Financials",
+  },
   "home.dest.labor-review.desc": {
     text: "Code a month's logged time against the same headroom",
     label: "Labor Review — description",

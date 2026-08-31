@@ -633,6 +633,22 @@ async function applySchema() {
       log TEXT NOT NULL DEFAULT '[]'
     )
   `);
+
+  // The monthly client-invoice review's standing rulings — the office's answers
+  // to findings they have already overruled ("we know, it's fine, here's why"),
+  // keyed by the finding's stable identity. The only thing that feature writes.
+  await getClient().execute(`
+    CREATE TABLE IF NOT EXISTS invoice_review_rulings (
+      key TEXT PRIMARY KEY,
+      kind TEXT NOT NULL DEFAULT '',
+      job_id TEXT NOT NULL DEFAULT '',
+      scope TEXT NOT NULL DEFAULT 'finding',
+      reason TEXT NOT NULL DEFAULT '',
+      created_by TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL DEFAULT '',
+      active INTEGER NOT NULL DEFAULT 1
+    )
+  `);
 }
 
 export { schema };

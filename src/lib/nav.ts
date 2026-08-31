@@ -55,6 +55,7 @@ export const AREAS: Area[] = [
     dests: [
       { label: "Tracking Sheets", href: "/trackingsheet", desc: "Code a month's bills against live budget headroom", view: "recode" },
       { label: "Labor Review", href: "/labor-review", desc: "Code a month's logged time against the same headroom", view: "labor-review" },
+      { label: "Invoice Review", href: "/invoice-review", desc: "Check a month's client invoices against the bills and the backup", view: "invoice-review" },
       { label: "Sunset Statements", href: "/payments", desc: "Pay a statement & reconcile its invoices", view: "payments" },
       { label: "Bill Search", href: "/bill-search", desc: "Find any bill or line item — “2x4”, a vendor, an invoice #", view: "bill-search" },
       { label: "Needs Review", href: "/needs-review", desc: "Bills flagged for a billing correction", view: "bill-review" },
