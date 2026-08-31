@@ -35,19 +35,37 @@
  * The email leg additionally sets `emailChecked`, and the checks read it: a
  * mailbox that could not be searched must never look like a mailbox that was
  * searched and came back clean.
+ *
+ * ## The mail sweep, and where the matching happens
+ *
+ * The question the mailbox answers is NOT "did we send the client invoice" — it
+ * is "did every vendor invoice that arrived actually become a bill". So the
+ * sweep pulls all invoice-looking mail from the period's 10th-to-10th window
+ * (out of ALL MAIL, archived included) and joins each one to JobTread HERE,
+ * using the Daily Digest's own sender→vendor and bill→email matchers. checks.ts
+ * then only has to read `matchedBillId`, which keeps it pure and testable.
+ * Reusing the digest's matchers is deliberate: they are already tuned against a
+ * year of this org's real mail, and two different answers to "is this the same
+ * invoice" in one codebase would be worse than either.
  */
 import { callAppsScript } from "@/lib/appsScript";
+import { billMatchesEmail, matchVendor } from "@/lib/digest/checks/uncapturedBills";
 import {
   getInvoiceReconciliation,
   getMonthlyInvoiceJobs,
+  getVendorBills,
+  getVendors,
   pave,
   type PaveConfig,
+  type VendorBillRow,
+  type VendorRef,
 } from "@/lib/jobtread";
 
+import { isNeverInvoiced } from "./types";
 import type {
   BackupFile,
+  BillEmail,
   BillRef,
-  EmailTrace,
   InvoiceEvidence,
   InvoiceLine,
   JobEvidence,
@@ -272,8 +290,6 @@ async function loadInvoice(
       .filter((n) => n?.type === "vendorBill" && n?.id)
       .map((n) => n.id as string),
     jtUrl: `https://app.jobtread.com/jobs/${encodeURIComponent(jobId)}/documents/${encodeURIComponent(invoiceId)}`,
-    // Filled in later, in one mailbox sweep across the whole month.
-    email: null,
   };
 }
 
@@ -312,52 +328,159 @@ async function loadFolder(
   };
 }
 
-/** Apps Script's own cap per call (_CIV_MAX_INVOICES). Batched, not truncated. */
-const EMAIL_BATCH = 40;
+/** Most distinct vendors whose bill lists are pulled to match the mail against.
+ *  Mirrors the digest's own cap — one JobTread read each, and a month rarely
+ *  touches more than this many. */
+const MAX_VENDOR_LOOKUPS = 40;
+
+/** How close a bill's date must be to the email's arrival to be "the same
+ *  invoice", and how close the amounts. Same values the Daily Digest's
+ *  uncaptured-bills check has been running on. */
+const MAIL_MATCH = { matchWindowDays: 21, amountTolerance: 0.12 };
 
 /**
- * What the office mailbox knows about each invoice, in as few Apps Script calls
- * as possible.
+ * Senders whose mail intentionally never becomes a JobTread bill of its own.
  *
- * ONE SWEEP FOR THE WHOLE MONTH, not one per job: each invoice costs up to two
- * Gmail searches, and Gmail searches are slow enough that doing them inside the
- * per-job fan-out would double the review's wall clock for no benefit.
- *
- * Returns an empty map AND a warning when the mailbox could not be searched —
- * which the caller turns into `emailChecked: false`. That distinction is the
- * whole safety of this leg: a mailbox that was never searched must never look
- * like a mailbox that was searched and came back clean.
+ * Sunset Builders Supply bills on a monthly STATEMENT, and its per-ticket mail
+ * is handled by a dedicated OCR path — matching each ticket email to a bill
+ * one-for-one would report dozens of false misses every month. Same reasoning
+ * (and same list) as the digest's `excludeVendors`.
  */
-async function loadInvoiceEmails(
-  invoices: { id: string; number: string; customer: string; issueDate: string }[],
-): Promise<{ traces: Map<string, EmailTrace>; warning?: string }> {
-  const traces = new Map<string, EmailTrace>();
-  if (!invoices.length) return { traces };
+const MAIL_EXCLUDE_SENDERS = ["sunsetbuilderssupply.com"];
 
-  for (let i = 0; i < invoices.length; i += EMAIL_BATCH) {
-    const batch = invoices.slice(i, i + EMAIL_BATCH);
-    const r = await callAppsScript<{
-      ok?: boolean;
-      error?: string;
-      results?: { invoiceId: string; matchedOn: EmailTrace["matchedOn"]; threads: EmailTrace["threads"]; error?: string }[];
-    }>(
-      { action: "listInvoiceEmails", invoices: batch },
-      // Up to 80 Gmail searches in one call; the default 25s budget is far too
-      // short. The route's own maxDuration is 300s, so this fits inside it.
-      { timeoutMs: 120_000 },
-    );
+interface RawEmail {
+  threadId?: string;
+  subject?: string;
+  from?: string;
+  fromAddress?: string;
+  fromName?: string;
+  fromDomain?: string;
+  date?: string;
+  attachmentCount?: number;
+  subjectAmount?: number | null;
+  threadUrl?: string;
+  labels?: string[];
+}
 
-    if (r.error) return { traces, warning: `The office mailbox could not be searched: ${r.error}` };
-    const d = r.data ?? {};
-    if (d.ok === false) {
-      return { traces, warning: `The office mailbox could not be searched: ${d.error ?? "unknown"}` };
+/**
+ * Every vendor invoice that arrived in the billing period, joined to the
+ * JobTread bill it became.
+ *
+ * Three phases: pull the mail (one Apps Script call), resolve each sender to a
+ * JobTread vendor account (one cached org-wide read), then pull each matched
+ * vendor's bills once and look for the invoice among them.
+ *
+ * `checked: false` on an email means its vendor's bills could not be read, so
+ * the absence of a match proves nothing — checks.ts must not flag it. Losing one
+ * vendor to a failed read must never turn into a false accusation.
+ */
+async function loadPeriodMail(
+  cfg: PaveConfig,
+  year: number,
+  month: number,
+): Promise<{
+  emails: BillEmail[];
+  window: { first: string; last: string } | null;
+  truncated: boolean;
+  warning?: string;
+}> {
+  const r = await callAppsScript<{
+    ok?: boolean;
+    error?: string;
+    window?: { first: string; last: string };
+    truncated?: boolean;
+    emails?: RawEmail[];
+  }>(
+    { action: "listPeriodBillEmails", month, year },
+    // A month of All Mail is a few hundred threads, each one a metadata fetch.
+    // The default 25s budget is far too short; the route allows 300s.
+    { timeoutMs: 120_000 },
+  );
+
+  if (r.error) {
+    return { emails: [], window: null, truncated: false, warning: `The office mailbox could not be searched: ${r.error}` };
+  }
+  const d = r.data ?? {};
+  if (d.ok === false) {
+    return { emails: [], window: null, truncated: false, warning: `The office mailbox could not be searched: ${d.error ?? "unknown"}` };
+  }
+
+  const raw = (d.emails ?? []).filter((e) => {
+    const hay = `${e.fromName ?? ""} ${e.fromAddress ?? ""} ${e.fromDomain ?? ""}`.toLowerCase();
+    return !MAIL_EXCLUDE_SENDERS.some((x) => hay.includes(x));
+  });
+
+  const base = (e: RawEmail): BillEmail => ({
+    threadId: e.threadId ?? "",
+    subject: e.subject ?? "(no subject)",
+    from: e.from ?? "",
+    fromAddress: e.fromAddress ?? "",
+    fromName: e.fromName ?? "",
+    fromDomain: e.fromDomain ?? "",
+    date: e.date ?? "",
+    attachmentCount: e.attachmentCount ?? 0,
+    subjectAmount: typeof e.subjectAmount === "number" ? e.subjectAmount : null,
+    threadUrl: e.threadUrl ?? "",
+    labels: Array.isArray(e.labels) ? e.labels : [],
+    vendorId: "",
+    vendorName: "",
+    matchedBillId: "",
+    checked: false,
+  });
+
+  if (!raw.length) {
+    return { emails: [], window: d.window ?? null, truncated: d.truncated === true };
+  }
+
+  // Phase 2 — sender → JobTread vendor account.
+  let vendors: VendorRef[] = [];
+  try {
+    vendors = await getVendors(cfg);
+  } catch (e) {
+    return {
+      emails: raw.map(base),
+      window: d.window ?? null,
+      truncated: d.truncated === true,
+      warning:
+        `Vendors could not be read, so arriving invoices could not be matched to bills — ` +
+        `${e instanceof Error ? e.message : "unknown error"}`,
+    };
+  }
+
+  const out: BillEmail[] = [];
+  const byVendor = new Map<string, { vendor: VendorRef; emails: BillEmail[] }>();
+  for (const e of raw) {
+    const row = base(e);
+    const v = matchVendor({ fromName: row.fromName, fromDomain: row.fromDomain }, vendors);
+    if (v) {
+      row.vendorId = v.id;
+      row.vendorName = v.name;
+      const slot = byVendor.get(v.id) ?? { vendor: v, emails: [] };
+      slot.emails.push(row);
+      byVendor.set(v.id, slot);
     }
-    for (const row of d.results ?? []) {
-      traces.set(row.invoiceId, { matchedOn: row.matchedOn ?? "", threads: row.threads ?? [] });
+    out.push(row);
+  }
+
+  // Phase 3 — one bill list per distinct vendor, then match.
+  let looked = 0;
+  for (const { vendor, emails: mine } of byVendor.values()) {
+    if (looked >= MAX_VENDOR_LOOKUPS) break;
+    looked++;
+    let bills: VendorBillRow[] = [];
+    try {
+      bills = await getVendorBills(cfg, vendor.id);
+    } catch {
+      continue; // `checked` stays false — see the doc note above.
+    }
+    for (const row of mine) {
+      row.checked = true;
+      const hit = bills.find((b) => billMatchesEmail(b, row.date, row.subjectAmount, MAIL_MATCH));
+      if (hit) row.matchedBillId = hit.id;
     }
   }
 
-  return { traces };
+  return { emails: out, window: d.window ?? null, truncated: d.truncated === true };
 }
 
 /**
@@ -386,6 +509,7 @@ export async function loadMonthEvidence(
       jobId: row.jobId,
       jobName: row.jobName,
       customerName: row.customerName,
+      neverInvoiced: isNeverInvoiced(row.jobId, row.jobName),
       invoices: [],
       bills: [],
       folder: null,
@@ -437,28 +561,22 @@ export async function loadMonthEvidence(
     return shell;
   });
 
-  // The mailbox sweep, once the invoices are known. Off entirely when the caller
-  // says so (?email=0), and self-disabling when the Apps Script action isn't
-  // deployed — in both cases `emailChecked` stays false and the email checks are
-  // skipped rather than silently passing.
+  // The mailbox sweep. One call for the whole period, not one per invoice: the
+  // question is about the period's ARRIVING vendor invoices, which have nothing
+  // to do with which job they eventually landed on.
   let emailChecked = false;
+  let emails: BillEmail[] = [];
+  let mailWindow: { first: string; last: string } | null = null;
+  let mailTruncated = false;
   if (opts.email !== false) {
-    const flat = jobs.flatMap((j) =>
-      j.invoices.map((inv) => ({
-        id: inv.id,
-        number: inv.number,
-        customer: j.customerName || j.jobName,
-        issueDate: inv.issueDate,
-      })),
-    );
-    const { traces, warning } = await loadInvoiceEmails(flat);
-    if (warning) {
-      warnings.push(warning);
+    const mail = await loadPeriodMail(cfg, year, month);
+    mailWindow = mail.window;
+    mailTruncated = mail.truncated;
+    if (mail.warning) {
+      warnings.push(mail.warning);
     } else {
       emailChecked = true;
-      for (const j of jobs) {
-        for (const inv of j.invoices) inv.email = traces.get(inv.id) ?? { matchedOn: "", threads: [] };
-      }
+      emails = mail.emails;
     }
   }
 
@@ -469,6 +587,9 @@ export async function loadMonthEvidence(
     monthLabel,
     folderRoot: billingFolderRoot(year, month),
     emailChecked,
+    emails,
+    mailWindow,
+    mailTruncated,
     // Customer first, so the review reads the way the office works through it.
     jobs: jobs.sort((a, b) =>
       (a.customerName || a.jobName).localeCompare(b.customerName || b.jobName, undefined, {

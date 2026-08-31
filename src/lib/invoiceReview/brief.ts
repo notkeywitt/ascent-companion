@@ -91,12 +91,26 @@ export function buildBrief(
       `${live.length} finding${live.length === 1 ? "" : "s"}, ${money(atStake)} in question.`,
   );
   out.push(`Backup is filed in \`${evidence.folderRoot}\`.`);
+  if (evidence.emailChecked && evidence.mailWindow) {
+    out.push(
+      `${evidence.emails.length} vendor invoice${evidence.emails.length === 1 ? "" : "s"} ` +
+        `arrived by email between ${evidence.mailWindow.first} and ${evidence.mailWindow.last} ` +
+        `(the 10th-to-10th billing window) and were checked against JobTread.`,
+    );
+  }
 
   // What was NOT checked is as important as what was — a reader must never
   // mistake a skipped leg for a clean one.
   const caveats: string[] = [];
   if (!evidence.emailChecked) {
-    caveats.push("The office mailbox was **not** searched, so nothing here says whether the invoices were actually emailed.");
+    caveats.push(
+      "The office mailbox was **not** searched, so nothing here says whether every vendor " +
+        "invoice that arrived this period actually reached JobTread. An invoice that was " +
+        "never filed is invisible to all the other checks.",
+    );
+  }
+  if (evidence.mailTruncated) {
+    caveats.push("The mailbox sweep hit its limit, so part of the period's mail was not checked.");
   }
   for (const w of evidence.warnings) caveats.push(w);
   if (caveats.length) {

@@ -420,39 +420,83 @@ function periodFindings(job: JobEvidence, month: MonthEvidence): Finding[] {
     });
   }
 
-  // Anything finalized and left off every invoice is revenue not billed. This
-  // is the reconciliation JobTread itself computes (getInvoiceReconciliation),
-  // including its denied-and-re-issued invoice chain, so it is trustworthy.
-  const remainder = cents(job.uninvoicedBillsCost + job.uninvoicedTimeCost);
-  if (job.invoices.length && remainder > REMAINDER_FLOOR) {
-    const parts: string[] = [];
-    if (job.uninvoicedBillsCost > REMAINDER_FLOOR) {
-      parts.push(`${money(job.uninvoicedBillsCost)} of bills`);
+  // ── Did everything captured this month reach an invoice? ────────────────
+  //
+  // Ascent's own overhead jobs are skipped outright: cost lands on Office and
+  // Shop exactly like a real job, and none of it is ever billed to anyone, so
+  // these checks would fire on them every month forever.
+  if (!job.neverInvoiced) {
+    const uninvoiced = job.bills.filter((b) => !b.invoiced);
+    const uninvoicedCost = cents(uninvoiced.reduce((s, b) => s + b.cost, 0));
+
+    if (!job.invoices.length && uninvoicedCost > REMAINDER_FLOOR) {
+      // No invoice at all: ONE finding for the job. Listing all twenty bills
+      // would bury the actual fact, which is that nobody billed this job.
+      out.push({
+        ...base,
+        key: findingKey("job-not-invoiced", job.jobId, month.ym),
+        kind: "job-not-invoiced",
+        severity: "error",
+        invoiceId: "",
+        invoiceNumber: "",
+        title: `${job.jobName || job.customerName} — never invoiced for ${month.monthLabel}`,
+        detail:
+          `${uninvoiced.length} finalized bill${uninvoiced.length === 1 ? "" : "s"} totalling ` +
+          `${money(uninvoicedCost)} were captured for ${month.monthLabel}, and no client ` +
+          `invoice was raised for this job at all. Either the month was missed or the job ` +
+          `is deliberately not billed — if it is the latter, set this aside and it will ` +
+          `stop asking.`,
+        amount: uninvoicedCost,
+        sourceLink: `/trackingsheet?jobId=${encodeURIComponent(job.jobId)}&ym=${month.ym}`,
+        sourceLabel: "Open the tracking sheet",
+      });
+    } else if (job.invoices.length) {
+      // The job WAS invoiced, so a bill left off is a straggler — and naming
+      // the individual bill is what makes it fixable in under a minute.
+      for (const bill of uninvoiced) {
+        if (Math.abs(bill.cost) <= REMAINDER_FLOOR) continue;
+        out.push({
+          ...base,
+          key: findingKey("bill-uninvoiced", job.jobId, bill.id),
+          kind: "bill-uninvoiced",
+          severity: "error",
+          invoiceId: "",
+          invoiceNumber: "",
+          title: `Captured but not billed — ${bill.vendor || bill.label} ${money(bill.cost)}`,
+          detail:
+            `${bill.vendor || bill.label} (${money(bill.cost)}, ${bill.status}) was captured ` +
+            `for ${month.monthLabel} but sits on no client invoice, even though this job WAS ` +
+            `invoiced this month. That cost is absorbed unless it was held back on purpose.`,
+          amount: bill.cost,
+          sourceLink: `/bill/${encodeURIComponent(bill.id)}`,
+          sourceLabel: "Open the bill",
+        });
+      }
     }
-    if (job.uninvoicedTimeCost > REMAINDER_FLOOR) {
-      parts.push(`${money(job.uninvoicedTimeCost)} of time`);
+
+    // Time has no per-entry equivalent here, so it keeps the rolled-up form.
+    if (job.invoices.length && job.uninvoicedTimeCost > REMAINDER_FLOOR) {
+      out.push({
+        ...base,
+        key: findingKey("scope-uninvoiced", job.jobId, month.ym),
+        kind: "scope-uninvoiced",
+        severity: "error",
+        invoiceId: "",
+        invoiceNumber: "",
+        title: `${money(job.uninvoicedTimeCost)} of ${month.monthLabel} labor never billed`,
+        detail:
+          `${money(job.uninvoicedTimeCost)} of time logged in ${month.monthLabel} sits on no ` +
+          `live client invoice, even though this job WAS invoiced this month.`,
+        amount: job.uninvoicedTimeCost,
+        sourceLink: `/labor-review?jobId=${encodeURIComponent(job.jobId)}&ym=${month.ym}`,
+        sourceLabel: "Open labor review",
+      });
     }
-    out.push({
-      ...base,
-      key: findingKey("scope-uninvoiced", job.jobId, month.ym),
-      kind: "scope-uninvoiced",
-      severity: "error",
-      invoiceId: "",
-      invoiceNumber: "",
-      title: `${money(remainder)} of ${month.monthLabel} never billed`,
-      detail:
-        `${parts.join(" and ")} for ${month.monthLabel} sit on no live client invoice, ` +
-        `even though this job WAS invoiced this month. That cost has been absorbed unless ` +
-        `it was deliberately held back.`,
-      amount: remainder,
-      sourceLink: `/trackingsheet?jobId=${encodeURIComponent(job.jobId)}&ym=${month.ym}`,
-      sourceLabel: "Open the tracking sheet",
-    });
   }
 
   // Draft bills can't be pulled onto an invoice at all, so a month closed with
   // drafts outstanding was closed early. Not an error — it is often deliberate.
-  if (job.draftBillCount > 0) {
+  if (job.draftBillCount > 0 && !job.neverInvoiced) {
     out.push({
       ...base,
       key: findingKey("scope-drafts", job.jobId, month.ym),
@@ -476,124 +520,124 @@ function periodFindings(job: JobEvidence, month: MonthEvidence): Finding[] {
 }
 
 // ---------------------------------------------------------------------------
-// THE OFFICE MAILBOX
+// THE OFFICE MAILBOX — did every vendor invoice that arrived get captured?
 // ---------------------------------------------------------------------------
 
-/** Subject-line words that mean the client's reply is probably not "thanks". */
-const REPLY_CONCERNS = [
-  "credit", "dispute", "disputed", "wrong", "incorrect", "error", "mistake",
-  "question", "overcharge", "overbilled", "adjust", "refund", "discrepancy",
-];
-
 /**
- * What the office mailbox says about the month's invoices.
+ * Vendor invoices that arrived in the billing period but never became a bill.
  *
- * ## The calibration, which is the whole design
+ * ## The question this answers
  *
- * JobTread sends a client invoice itself. If it does that without copying the
- * office, a perfectly-sent invoice leaves NO trace in the mailbox — so a naive
- * "no email found ⇒ not sent" check would flag every invoice, every month,
- * forever. That is the cry-wolf failure this whole feature is built to avoid.
+ * A client invoice can only bill what JobTread knows about. An invoice that
+ * arrived by email and was never filed is invisible to every other check here —
+ * the math will foot, the backup will match, the totals will reconcile, and the
+ * charge will simply be absent. Nothing downstream can find it, because
+ * downstream only sees what got captured. The mailbox is the only place the
+ * evidence still exists.
  *
- * So the check calibrates against the month it is looking at:
+ * ## Why this is trustworthy enough to flag
  *
- *   • NO invoice in the month has a trace  → ONE `email-no-trace` info finding,
- *     saying the mailbox has no record of any of them and why that is probably
- *     not a problem. Zero per-invoice findings.
- *   • SOME have traces, some don't → the ones without are genuinely odd, because
- *     the same sending path evidently does reach this mailbox. Those get
- *     `email-not-sent`, as warnings.
+ * The join is already done (evidence.ts, using the Daily Digest's matchers):
+ * the sender is resolved to a JobTread vendor account, and a bill counts as
+ * "this invoice" when its date is within three weeks of the email and — where
+ * the subject printed an amount — the amounts agree within tax and rounding.
+ * Lenient on purpose: a false MATCH costs nothing, because the bill really is
+ * in JobTread; a false MISS costs somebody a minute.
  *
- * A `email-client-replied` finding is independent of all that: if the last word
- * in an invoice's thread came from outside the company, someone should read it
- * before the next invoice goes out.
- *
- * Nothing here runs at all when `emailChecked` is false — a skipped check must
- * never render as a passed one.
+ * Two guards keep it honest:
+ *   • `checked: false` means the vendor's bills could not be read, so the
+ *     absence of a match proves nothing. Never flagged.
+ *   • A sender matching no vendor account at all is a SEPARATE, softer finding —
+ *     there is no bill list to search, so "missing" was never established. It
+ *     is usually a new vendor, and sometimes not an invoice at all.
  */
-function emailFindings(month: MonthEvidence): Finding[] {
+function mailFindings(month: MonthEvidence): Finding[] {
   const out: Finding[] = [];
   if (!month.emailChecked) return out;
 
-  const invoiced = month.jobs.flatMap((j) => j.invoices.map((inv) => ({ job: j, inv })));
-  if (!invoiced.length) return out;
+  const windowLabel = month.mailWindow
+    ? `${month.mailWindow.first} to ${month.mailWindow.last}`
+    : month.monthLabel;
 
-  const withTrace = invoiced.filter(({ inv }) => (inv.email?.threads.length ?? 0) > 0);
-
-  if (!withTrace.length) {
-    const first = invoiced[0];
-    out.push({
-      key: findingKey("email-no-trace", "", month.ym),
-      kind: "email-no-trace",
-      severity: "info",
+  for (const e of month.emails) {
+    const arrived = e.date.slice(0, 10);
+    const amount = e.subjectAmount ?? undefined;
+    const base = {
       jobId: "",
       jobName: "",
-      customerName: first.job.customerName,
+      customerName: e.vendorName || e.fromName || "Unrecognized sender",
       invoiceId: "",
       invoiceNumber: "",
-      title: `No email record of any ${month.monthLabel} invoice`,
-      detail:
-        `The office mailbox has no thread matching any of the ${invoiced.length} client ` +
-        `invoice${invoiced.length === 1 ? "" : "s"} for ${month.monthLabel}. That is most ` +
-        `likely because JobTread emails invoices directly without copying the office — in ` +
-        `which case there is nothing wrong here and nothing to do. It is reported once, as ` +
-        `context, rather than as a fault against every invoice.`,
-    });
-    return out;
-  }
-
-  for (const { job, inv } of invoiced) {
-    const base = {
-      jobId: job.jobId,
-      jobName: job.jobName,
-      customerName: job.customerName,
-      invoiceId: inv.id,
-      invoiceNumber: inv.number,
+      amount,
+      sourceLink: e.threadUrl,
+      sourceLabel: "Open the email",
     };
-    const label = `Invoice #${inv.number || inv.id}`;
-    const threads = inv.email?.threads ?? [];
 
-    if (!threads.length) {
+    // A sender with no vendor account: nothing to search, so nothing proven.
+    if (!e.vendorId) {
       out.push({
         ...base,
-        key: findingKey("email-not-sent", job.jobId, inv.id),
-        kind: "email-not-sent",
+        key: findingKey("email-unknown-sender", "", e.threadId),
+        kind: "email-unknown-sender",
         severity: "warning",
-        title: `${label} — no email record`,
+        title: `Unrecognized sender — ${e.fromName || e.fromAddress || "unknown"}`,
         detail:
-          `${withTrace.length} of this month's ${invoiced.length} invoices show up in the ` +
-          `office mailbox, but this one does not. Check it actually went to the client.`,
-        amount: inv.priceWithTax,
-        sourceLink: inv.jtUrl,
-        sourceLabel: "Open in JobTread",
+          `"${e.subject}" arrived ${arrived} from ${e.from}` +
+          (amount ? ` showing ${money(amount)}` : "") +
+          `. The sender matches no JobTread vendor account, so there is no bill list to ` +
+          `check it against. Either it is a new vendor whose invoice still needs filing, ` +
+          `or it is not an invoice at all.`,
       });
       continue;
     }
 
-    // Only the newest thread matters for "did they write back?" — an older one
-    // ending inbound was answered by whatever came next.
-    const newest = [...threads].sort((a, b) => (a.lastDate < b.lastDate ? 1 : -1))[0];
-    if (!newest.lastInbound) continue;
+    // The vendor's bills couldn't be read — say nothing rather than accuse.
+    if (!e.checked) continue;
+    if (e.matchedBillId) continue;
 
-    const concern = REPLY_CONCERNS.find((w) => newest.subject.toLowerCase().includes(w));
+    // A label claiming the invoice was handled, on an invoice that isn't in
+    // JobTread, is the most telling version of this finding — say so.
+    const claimed = e.labels.filter((l) => /processed|added to jt/i.test(l));
+
     out.push({
       ...base,
-      key: findingKey("email-client-replied", job.jobId, newest.threadId),
-      kind: "email-client-replied",
-      severity: "warning",
-      title: `${label} — ${job.customerName || "the client"} replied and nobody answered`,
+      key: findingKey("email-bill-missed", "", e.threadId),
+      kind: "email-bill-missed",
+      severity: "error",
+      title: `Never captured — ${e.vendorName}${amount ? ` ${money(amount)}` : ""}`,
       detail:
-        `The last message on "${newest.subject}" came from ` +
-        `${newest.lastFromName || newest.lastFrom} on ${newest.lastDate.slice(0, 10)}, and ` +
-        `no one at Ascent has replied since` +
-        (concern ? `. The subject mentions "${concern}", so read it before billing again` : "") +
-        `.` +
-        (newest.matchedOn === "customer"
-          ? ` (Matched on the customer name rather than the invoice number, so this thread ` +
-            `may be about something else.)`
-          : ""),
-      sourceLink: newest.url,
-      sourceLabel: "Open the thread",
+        `"${e.subject}" arrived ${arrived} from ${e.from}` +
+        (amount ? ` showing ${money(amount)}` : "") +
+        `, inside the ${windowLabel} billing window, but JobTread has no ${e.vendorName} ` +
+        `bill within three weeks of it` +
+        (amount ? ` at a matching amount` : "") +
+        `. If that invoice was real, this month was billed without it.` +
+        (claimed.length
+          ? ` The email is labelled "${claimed.join('", "')}", so something believed it was ` +
+            `filed — that belief is what this check exists to test.`
+          : "") +
+        (e.attachmentCount
+          ? ` ${e.attachmentCount} attachment${e.attachmentCount > 1 ? "s" : ""}.`
+          : ` No attachment — may be a portal notice rather than the invoice itself.`),
+    });
+  }
+
+  // An exhausted sweep is a sweep that proved nothing about what it didn't see.
+  if (month.mailTruncated) {
+    out.push({
+      key: findingKey("email-bill-missed", "", "truncated"),
+      kind: "email-bill-missed",
+      severity: "warning",
+      jobId: "",
+      jobName: "",
+      customerName: "",
+      invoiceId: "",
+      invoiceNumber: "",
+      title: "The mailbox sweep hit its limit",
+      detail:
+        `Gmail returned more invoice-looking mail for ${windowLabel} than the sweep reads in ` +
+        `one pass, so some of the period was not checked. Anything missed would not appear ` +
+        `above — treat the capture check as partial for this month.`,
     });
   }
 
@@ -618,9 +662,9 @@ export function runChecks(month: MonthEvidence): Finding[] {
     for (const inv of job.invoices) out.push(...mathFindings(job, inv));
     out.push(...periodFindings(job, month));
   }
-  // Month-wide, because its whole point is comparing the invoices against each
-  // other rather than each against a rule.
-  out.push(...emailFindings(month));
+  // Month-wide, because arriving vendor invoices belong to the PERIOD, not to
+  // whichever job they eventually landed on.
+  out.push(...mailFindings(month));
   return out.sort(compareFindings);
 }
 

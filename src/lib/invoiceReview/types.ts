@@ -51,14 +51,15 @@ export type FindingKind =
   | "scope-uninvoiced"
   /** Bills for the month are still in draft, so they can't be invoiced yet. */
   | "scope-drafts"
-  // ── The office mailbox ───────────────────────────────────────────────────
-  /** No invoice in the whole month left a trace in the mailbox — context, not
-   *  a fault. Almost certainly means JobTread sends without copying the office. */
-  | "email-no-trace"
-  /** Other invoices this month were traceable in the mailbox; this one was not. */
-  | "email-not-sent"
-  /** The last word in the invoice's email thread came from the client. */
-  | "email-client-replied"
+  /** A finalized bill for the month sits on no client invoice. */
+  | "bill-uninvoiced"
+  /** A job's whole month of bills was never invoiced at all. */
+  | "job-not-invoiced"
+  // ── The office mailbox: did every vendor invoice get captured? ────────────
+  /** A vendor invoice arrived in the period and no JobTread bill matches it. */
+  | "email-bill-missed"
+  /** Invoice-looking mail from a sender that matches no JobTread vendor. */
+  | "email-unknown-sender"
   /** The same vendor bill is carried by two different live invoices. */
   | "scope-duplicate-bill";
 
@@ -157,31 +158,39 @@ export interface BackupFile {
   tail: string;
 }
 
-/** One email thread the office mailbox holds about an invoice. Metadata only —
- *  no message body is ever fetched, so a subject line is as deep as this goes. */
-export interface EmailThread {
+/**
+ * One vendor-invoice-looking email that arrived in the billing period, already
+ * joined to JobTread by the evidence loader.
+ *
+ * The join is what makes the check possible: `matchedBillId` is the JobTread
+ * vendor bill this email's invoice became, or "" when nothing matched. `checked`
+ * says whether the lookup could even be attempted — an unmatched email whose
+ * vendor bills could not be read proves nothing, and must not be flagged.
+ */
+export interface BillEmail {
   threadId: string;
   subject: string;
-  url: string;
-  messages: number;
-  firstDate: string;
-  lastDate: string;
-  lastFrom: string;
-  lastFromName: string;
-  /** The last message came from OUTSIDE the company — i.e. the client wrote
-   *  back and may still be waiting. Mechanical: sender is not an Ascent address
-   *  or an ascentbuildingco.com domain. */
-  lastInbound: boolean;
-  /** Which search found it: "number" is JobTread's own "Invoice #186" subject
-   *  (strong); "customer" is an invoice-ish subject naming the customer (weak). */
-  matchedOn: "number" | "customer" | "";
+  from: string;
+  fromAddress: string;
+  fromName: string;
+  fromDomain: string;
+  /** ISO timestamp of the ORIGINAL message — the arrival that sets the period. */
+  date: string;
+  attachmentCount: number;
+  /** Largest dollar figure printed in the SUBJECT, or null. A hint, not an
+   *  extraction — many vendors print the total there, and it sharpens matching. */
+  subjectAmount: number | null;
+  threadUrl: string;
+  /** Gmail labels, so "Processed" on an email with no bill is visible as the
+   *  contradiction it is. */
   labels: string[];
-}
-
-/** What the office mailbox knows about one invoice. */
-export interface EmailTrace {
-  matchedOn: "number" | "customer" | "";
-  threads: EmailThread[];
+  /** The JobTread vendor account resolved from the sender; "" when none matched. */
+  vendorId: string;
+  vendorName: string;
+  /** The JobTread bill this invoice became; "" when none was found. */
+  matchedBillId: string;
+  /** False when the vendor's bills could not be read, so "no match" is unproven. */
+  checked: boolean;
 }
 
 /** One client invoice, with everything needed to check it. */
@@ -206,9 +215,6 @@ export interface InvoiceEvidence {
   /** Bills this invoice references directly. */
   billIds: string[];
   jtUrl: string;
-  /** The office mailbox's record of this invoice going out, or null when the
-   *  mailbox wasn't searched (the action isn't deployed, or ?email=0). */
-  email: EmailTrace | null;
 }
 
 /** One job's slice of the month. */
@@ -216,6 +222,10 @@ export interface JobEvidence {
   jobId: string;
   jobName: string;
   customerName: string;
+  /** Ascent's own overhead jobs (Office, Shop) — real cost lands on them and is
+   *  NEVER billed to a customer, so every "this should have been invoiced"
+   *  check skips them. See `isNeverInvoiced`. */
+  neverInvoiced: boolean;
   invoices: InvoiceEvidence[];
   /** Every finalized vendor bill issued in the billing month, invoiced or not. */
   bills: BillRef[];
@@ -253,6 +263,13 @@ export interface MonthEvidence {
    * silently passing a check nobody ran is how a review starts lying.
    */
   emailChecked: boolean;
+  /** Vendor-invoice mail that arrived in this period's 10th-to-10th window,
+   *  joined to JobTread. Empty when `emailChecked` is false. */
+  emails: BillEmail[];
+  /** The mail-arrival window actually searched (YYYY-MM-DD), for the report. */
+  mailWindow: { first: string; last: string } | null;
+  /** Gmail returned more than the cap, so the sweep is not exhaustive. */
+  mailTruncated: boolean;
   /** Non-fatal problems assembling the evidence (a Drive call that failed, a
    *  job whose reconciliation errored). Surfaced so a partial review is never
    *  mistaken for a clean one. */
@@ -287,6 +304,28 @@ export function money(n: number): string {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
+}
+
+/**
+ * Ascent's own overhead jobs, which never reach a customer invoice.
+ *
+ * Cost lands on Office and Shop the same way it lands on a real job — a bill is
+ * coded, approved and mirrored — but none of it is ever billed on, so every
+ * "this was never invoiced" check would fire on them every single month. They
+ * are matched by NAME rather than id because the ids differ between the two
+ * repos' configs and a rename is easier to spot than a stale id; the Office job
+ * id is listed too, belt and braces, since it is the one hard-coded elsewhere
+ * (CONFIG.JOBTREAD.DEFAULT_JOB_ID in ascent-appscript).
+ *
+ * Matching is EXACT on the job name, not a substring: "Office Remodel" for a
+ * real customer is a real job whose bills really must be invoiced.
+ */
+export const NEVER_INVOICED_JOB_NAMES = ["office", "shop"];
+export const NEVER_INVOICED_JOB_IDS = ["22PXevQbM9FQ"]; // "Office"
+
+export function isNeverInvoiced(jobId: string, jobName: string): boolean {
+  if (NEVER_INVOICED_JOB_IDS.includes(String(jobId ?? "").trim())) return true;
+  return NEVER_INVOICED_JOB_NAMES.includes(String(jobName ?? "").trim().toLowerCase());
 }
 
 /**

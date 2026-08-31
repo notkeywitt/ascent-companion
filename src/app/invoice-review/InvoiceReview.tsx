@@ -338,8 +338,8 @@ export function InvoiceReview() {
           {/* A skipped check must never read as a passed one. */}
           {!data.evidence.emailChecked && !data.evidence.warnings.length ? (
             <Banner tone="neutral" className="mt-3">
-              The office mailbox wasn&apos;t searched, so nothing here says whether these
-              invoices were actually emailed.
+              The office mailbox wasn&apos;t searched, so nothing here says whether every
+              vendor invoice that arrived this period actually reached JobTread.
             </Banner>
           ) : null}
 

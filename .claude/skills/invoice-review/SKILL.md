@@ -1,12 +1,21 @@
 ---
 name: invoice-review
-description: Review a month's CLIENT invoices for Ascent — cross-check the JobTread customerInvoice documents against the vendor bills behind them, the backup PDFs filed in the Drive invoicing tree, and the office mailbox, then report what needs fixing. Use when asked to review, check, audit, or sanity-check a billing month's client invoices or invoicing, or when the owner says "review July's invoices" / "check the invoices before I send them".
+description: Review a month's CLIENT invoices for Ascent — cross-check the JobTread customerInvoice documents against the vendor bills behind them, the backup PDFs filed in the Drive invoicing tree, and the office mailbox (did every vendor invoice that arrived get captured, and did everything captured reach an invoice), then report what needs fixing. Use when asked to review, check, audit, or sanity-check a billing month's client invoices or invoicing, or when the owner says "review July's invoices" / "check the invoices before I send them".
 ---
 
 # Monthly client-invoice review
 
-Check that what a client was billed for a month is right, complete, backed by
-paperwork, and actually sent — **before** the invoices go out.
+Check that what a client was billed for a month is right, complete, and backed by
+paperwork — **before** the invoices go out. Three questions, in the order they
+matter:
+
+1. Did every vendor invoice that arrived get **captured** into JobTread?
+2. Did everything captured reach a **client invoice**?
+3. Is each invoice itself **right** — the math, the backup, the period?
+
+Question 1 is the one nothing else can answer. An invoice that was never filed is
+invisible to every other check: the math foots, the backup matches, the totals
+reconcile, and the charge is simply absent. Only the mailbox still has it.
 
 **No Anthropic API key is needed for any of this.** The checks are ordinary code.
 The only thing a key would buy is the app writing its own summary paragraph; you
@@ -26,8 +35,16 @@ you have gone off the rails.
   Ascent. These are the *evidence*, not the subject.
 - **Backup** = the PDF of a vendor bill, filed in the Drive invoicing tree. One
   per vendor bill, named by the pipeline's own convention.
-- **Trace** = a thread in the office mailbox that looks like this invoice going
-  out. Its absence is weak evidence, not proof — see the email step.
+- **Captured** = a vendor invoice that arrived by email and became a JobTread
+  vendor bill. Uncaptured means it is nowhere in the system.
+- **The billing window** = the 10th-to-10th arrival window. Mail that arrived
+  from the 11th of the billing month through the 10th of the next month belongs
+  to that billing month (`deriveBillingPeriod`, Config.js). The mail sweep uses
+  exactly this window.
+- **Office and Shop** = Ascent's own overhead jobs. Cost lands on them like any
+  job and is **never** billed to a customer, so every "this should have been
+  invoiced" check skips them. Never tell the owner Office or Shop was
+  under-billed.
 - **Billing month** ≠ folder month. Costs for a billing month are filed in the
   month **after** it: July billing lives in
   `/2026 Invoicing/08 August 26 (July Billing)/<Customer>/<Job>/`.
@@ -51,9 +68,9 @@ Two other switches:
   JSON. Use it if you only want to read and relay; use JSON when you intend to
   chase individual findings, because JSON carries the `key` you need to record a
   ruling.
-- `&email=0` skips the mailbox sweep, which is the slow half (up to two Gmail
-  searches per invoice). Only for a quick pass — the email findings then report
-  nothing at all rather than passing.
+- `&email=0` skips the mailbox sweep, which is the slow half (a month of All Mail
+  is a few hundred threads). Only for a quick pass — the capture findings then
+  report nothing at all rather than passing.
 
 If the owner is in this repo without a running app, the same thing is reachable
 in code: `runInvoiceReview(getPaveConfig(), year, month, { narrate: false })`
@@ -81,36 +98,45 @@ Take them in the order they come. For each one that is `severity: "error"`:
 - **`scope-duplicate-bill`** — the same vendor bill is on two live client
   invoices. Open both in JobTread and confirm one isn't a credit. This is the
   finding most likely to cost real money and real trust.
-- **`scope-uninvoiced`** — billable cost left off every invoice. Confirm against
-  the tracking sheet whether it was held back deliberately.
+- **`email-bill-missed`** — a vendor invoice arrived in the window and JobTread
+  has no matching bill. **This is the most important finding in the review**, and
+  the only one no other check could have caught. Open the email, confirm it is a
+  real invoice (a statement or a portal notice for an invoice already filed is
+  not), then check whether the bill exists under a different vendor spelling
+  before reporting it. If the email carries a "Processed" or "Added to JT" label
+  and the bill still isn't there, say so — something believed it was filed.
+- **`bill-uninvoiced`** — a captured bill on a job that WAS invoiced, left off
+  the invoice. Name the vendor and the amount; it is usually a one-minute fix.
+- **`job-not-invoiced`** — a job's whole month was captured and never billed.
+  Confirm against the tracking sheet whether that was deliberate before alarming
+  anyone; if it is a standing arrangement, record a `job-kind` ruling.
+- **`scope-uninvoiced`** — uninvoiced LABOR (bills have their own per-bill
+  finding above). Confirm against the tracking sheet whether it was held back.
 - **`math-*`** — the invoice does not foot. Quote the arithmetic from `detail`
   verbatim; it already shows both figures and the difference.
 
 For `warning` findings, summarize rather than investigate each one, unless the
-owner asks. Two of them need care:
+owner asks. One needs care:
 
-- **`email-client-replied`** — the client wrote back and nobody answered. Read
-  the thread before advising: a "thanks, received" needs no action and a "this
-  is the second time you've billed me for this" needs it today. If the finding
-  says the match was on the customer name rather than the invoice number, the
-  thread may not be about this invoice at all — check before alarming anyone.
-- **`email-not-sent`** — no trace of this invoice, while others in the same
-  month DO have one. Worth a look, but a forwarded PDF or a phone call leaves no
-  trace either. Never state it as "this was never sent".
+- **`email-unknown-sender`** — invoice-looking mail from a sender matching no
+  JobTread vendor account. There was no bill list to search, so nothing was
+  proven. Usually a new vendor; sometimes not an invoice at all. Never report it
+  as a missed bill.
 
-## Step 3a — the email finding you must NOT over-read
+## Step 3a — what the mailbox check does NOT prove
 
-**`email-no-trace`** (severity `info`) means not one invoice in the whole month
-appears in the office mailbox. That is almost always because JobTread emails
-invoices itself without copying the office — **it is not a fault**, and the
-checks deliberately report it once rather than flagging every invoice.
+The sweep reads **All Mail** for the billing window, not the inbox, so an
+archived or labelled invoice is still seen. But:
 
-Relay it as context in a single clause and move on. Do not build a
-recommendation around it, and never tell the owner their invoices weren't sent
-on the strength of it.
-
-If `evidence.emailChecked` is `false`, the mailbox was not searched at all.
-**Say the email leg was skipped.** Do not report it as clean.
+- **A miss is a strong signal, not a verdict.** Matching is by vendor + date
+  window + amount, deliberately lenient. Confirm before you accuse.
+- **`checked: false` on an email means nothing was searched** — that vendor's
+  bills could not be read. Those are never flagged, and neither should you.
+- **A truncated sweep proves nothing about what it did not see.** If
+  `evidence.mailTruncated` is true, say the capture check is partial for the
+  month.
+- **If `evidence.emailChecked` is false the mailbox was not searched at all.**
+  Say the capture check was skipped. Do not report it as clean.
 
 ## Step 4 — report
 
@@ -155,9 +181,12 @@ the only thing that will explain the silence. To lift one:
   let a human decide which side is wrong.
 - **Never suppress a finding on your own judgement.** Only the owner rules.
 - **Never say the month is clean** unless `findings` is empty *and*
-  `evidence.warnings` is empty *and* `evidence.emailChecked` is true. If the
-  mailbox leg was skipped, the month is "clean on everything checked", and you
-  must say which part wasn't.
+  `evidence.warnings` is empty *and* `evidence.emailChecked` is true *and*
+  `evidence.mailTruncated` is false. If the mailbox leg was skipped or truncated,
+  the month is "clean on everything checked", and you must say which part wasn't.
+- **Never report Office or Shop as under-billed.** They are Ascent's own overhead
+  and are never invoiced. The checks already skip them; don't reintroduce them in
+  your prose.
 - **Never read a message body.** The Apps Script side returns headers only, by
   design. If you need what a thread says, open it in Gmail — don't try to get
   the body through the review.
