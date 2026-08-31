@@ -21,11 +21,11 @@ export async function runInvoiceReview(
   cfg: PaveConfig,
   year: number,
   month: number,
-  opts: { narrate?: boolean } = {},
+  opts: { narrate?: boolean; email?: boolean } = {},
 ): Promise<ReviewPayload> {
   const started = Date.now();
 
-  const evidence = await loadMonthEvidence(cfg, year, month);
+  const evidence = await loadMonthEvidence(cfg, year, month, { email: opts.email });
   const raw = runChecks(evidence);
 
   // Rulings are best-effort: a companion DB that is unreachable must not cost

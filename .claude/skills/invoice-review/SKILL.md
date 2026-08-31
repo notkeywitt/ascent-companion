@@ -1,12 +1,16 @@
 ---
 name: invoice-review
-description: Review a month's CLIENT invoices for Ascent — cross-check the JobTread customerInvoice documents against the vendor bills behind them and the backup PDFs filed in the Drive invoicing tree, then report what needs fixing. Use when asked to review, check, audit, or sanity-check a billing month's client invoices or invoicing, or when the owner says "review July's invoices" / "check the invoices before I send them".
+description: Review a month's CLIENT invoices for Ascent — cross-check the JobTread customerInvoice documents against the vendor bills behind them, the backup PDFs filed in the Drive invoicing tree, and the office mailbox, then report what needs fixing. Use when asked to review, check, audit, or sanity-check a billing month's client invoices or invoicing, or when the owner says "review July's invoices" / "check the invoices before I send them".
 ---
 
 # Monthly client-invoice review
 
-Check that what a client was billed for a month is right, complete, and backed
-by paperwork — **before** the invoices go out.
+Check that what a client was billed for a month is right, complete, backed by
+paperwork, and actually sent — **before** the invoices go out.
+
+**No Anthropic API key is needed for any of this.** The checks are ordinary code.
+The only thing a key would buy is the app writing its own summary paragraph; you
+are the summary.
 
 Every number comes from `src/lib/invoiceReview/checks.ts`, which is deterministic
 and unit-tested. Your job is to run it, read what it found, chase the ones it
@@ -22,6 +26,8 @@ you have gone off the rails.
   Ascent. These are the *evidence*, not the subject.
 - **Backup** = the PDF of a vendor bill, filed in the Drive invoicing tree. One
   per vendor bill, named by the pipeline's own convention.
+- **Trace** = a thread in the office mailbox that looks like this invoice going
+  out. Its absence is weak evidence, not proof — see the email step.
 - **Billing month** ≠ folder month. Costs for a billing month are filed in the
   month **after** it: July billing lives in
   `/2026 Invoicing/08 August 26 (July Billing)/<Customer>/<Job>/`.
@@ -38,6 +44,16 @@ GET /api/invoice-review?ym=YYYY-MM&narrate=0
 because you are going to write a better one with the context of this
 conversation. Use the production URL, or `http://localhost:3000` against a
 `npm run dev` with `.env.local` in place.
+
+Two other switches:
+
+- `&format=brief` returns the whole review as a markdown briefing instead of
+  JSON. Use it if you only want to read and relay; use JSON when you intend to
+  chase individual findings, because JSON carries the `key` you need to record a
+  ruling.
+- `&email=0` skips the mailbox sweep, which is the slow half (up to two Gmail
+  searches per invoice). Only for a quick pass — the email findings then report
+  nothing at all rather than passing.
 
 If the owner is in this repo without a running app, the same thing is reachable
 in code: `runInvoiceReview(getPaveConfig(), year, month, { narrate: false })`
@@ -71,7 +87,30 @@ Take them in the order they come. For each one that is `severity: "error"`:
   verbatim; it already shows both figures and the difference.
 
 For `warning` findings, summarize rather than investigate each one, unless the
-owner asks.
+owner asks. Two of them need care:
+
+- **`email-client-replied`** — the client wrote back and nobody answered. Read
+  the thread before advising: a "thanks, received" needs no action and a "this
+  is the second time you've billed me for this" needs it today. If the finding
+  says the match was on the customer name rather than the invoice number, the
+  thread may not be about this invoice at all — check before alarming anyone.
+- **`email-not-sent`** — no trace of this invoice, while others in the same
+  month DO have one. Worth a look, but a forwarded PDF or a phone call leaves no
+  trace either. Never state it as "this was never sent".
+
+## Step 3a — the email finding you must NOT over-read
+
+**`email-no-trace`** (severity `info`) means not one invoice in the whole month
+appears in the office mailbox. That is almost always because JobTread emails
+invoices itself without copying the office — **it is not a fault**, and the
+checks deliberately report it once rather than flagging every invoice.
+
+Relay it as context in a single clause and move on. Do not build a
+recommendation around it, and never tell the owner their invoices weren't sent
+on the strength of it.
+
+If `evidence.emailChecked` is `false`, the mailbox was not searched at all.
+**Say the email leg was skipped.** Do not report it as clean.
 
 ## Step 4 — report
 
@@ -82,6 +121,11 @@ list on their phone and record rulings.
 
 Keep it short enough to read on a phone. The owner is a knowledgeable novice —
 concrete and plain, no dev jargon.
+
+If the owner would rather work the list themselves in a Claude chat, tell them
+about the **Copy for Claude** button on `/invoice-review`: it puts this same
+briefing on the clipboard (or straight into the share sheet on a phone) to paste
+into the Claude app. That path needs no API key either.
 
 ## Step 5 — the memory
 
@@ -111,18 +155,24 @@ the only thing that will explain the silence. To lift one:
   let a human decide which side is wrong.
 - **Never suppress a finding on your own judgement.** Only the owner rules.
 - **Never say the month is clean** unless `findings` is empty *and*
-  `evidence.warnings` is empty.
+  `evidence.warnings` is empty *and* `evidence.emailChecked` is true. If the
+  mailbox leg was skipped, the month is "clean on everything checked", and you
+  must say which part wasn't.
+- **Never read a message body.** The Apps Script side returns headers only, by
+  design. If you need what a thread says, open it in Gmail — don't try to get
+  the body through the review.
 
 ## Where the parts live
 
 | Piece | File |
 | --- | --- |
 | The checks (pure, tested) | `src/lib/invoiceReview/checks.ts` |
-| Evidence gathering (JobTread + Drive) | `src/lib/invoiceReview/evidence.ts` |
+| Evidence gathering (JobTread + Drive + Gmail) | `src/lib/invoiceReview/evidence.ts` |
+| The paste-into-Claude briefing | `src/lib/invoiceReview/brief.ts` |
 | Rulings / the memory | `src/lib/invoiceReview/rulings.ts` |
 | The route | `src/app/api/invoice-review/route.ts` |
 | The page | `src/app/invoice-review/InvoiceReview.tsx` |
-| The Drive listing (other repo) | `ascent-appscript/ClientInvoiceReview.js` |
+| The Drive + Gmail reads (other repo) | `ascent-appscript/ClientInvoiceReview.js` |
 
 ## Known limitation, worth saying out loud
 

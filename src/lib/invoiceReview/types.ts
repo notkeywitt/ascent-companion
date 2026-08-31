@@ -51,6 +51,14 @@ export type FindingKind =
   | "scope-uninvoiced"
   /** Bills for the month are still in draft, so they can't be invoiced yet. */
   | "scope-drafts"
+  // ── The office mailbox ───────────────────────────────────────────────────
+  /** No invoice in the whole month left a trace in the mailbox — context, not
+   *  a fault. Almost certainly means JobTread sends without copying the office. */
+  | "email-no-trace"
+  /** Other invoices this month were traceable in the mailbox; this one was not. */
+  | "email-not-sent"
+  /** The last word in the invoice's email thread came from the client. */
+  | "email-client-replied"
   /** The same vendor bill is carried by two different live invoices. */
   | "scope-duplicate-bill";
 
@@ -149,6 +157,33 @@ export interface BackupFile {
   tail: string;
 }
 
+/** One email thread the office mailbox holds about an invoice. Metadata only —
+ *  no message body is ever fetched, so a subject line is as deep as this goes. */
+export interface EmailThread {
+  threadId: string;
+  subject: string;
+  url: string;
+  messages: number;
+  firstDate: string;
+  lastDate: string;
+  lastFrom: string;
+  lastFromName: string;
+  /** The last message came from OUTSIDE the company — i.e. the client wrote
+   *  back and may still be waiting. Mechanical: sender is not an Ascent address
+   *  or an ascentbuildingco.com domain. */
+  lastInbound: boolean;
+  /** Which search found it: "number" is JobTread's own "Invoice #186" subject
+   *  (strong); "customer" is an invoice-ish subject naming the customer (weak). */
+  matchedOn: "number" | "customer" | "";
+  labels: string[];
+}
+
+/** What the office mailbox knows about one invoice. */
+export interface EmailTrace {
+  matchedOn: "number" | "customer" | "";
+  threads: EmailThread[];
+}
+
 /** One client invoice, with everything needed to check it. */
 export interface InvoiceEvidence {
   id: string;
@@ -171,6 +206,9 @@ export interface InvoiceEvidence {
   /** Bills this invoice references directly. */
   billIds: string[];
   jtUrl: string;
+  /** The office mailbox's record of this invoice going out, or null when the
+   *  mailbox wasn't searched (the action isn't deployed, or ?email=0). */
+  email: EmailTrace | null;
 }
 
 /** One job's slice of the month. */
@@ -209,6 +247,12 @@ export interface MonthEvidence {
   /** "/2026 Invoicing/08 August 26 (July Billing)/" — where backup is filed. */
   folderRoot: string;
   jobs: JobEvidence[];
+  /**
+   * Whether the office mailbox was actually searched. False means the email
+   * checks are SKIPPED, not that they passed — the difference matters, because
+   * silently passing a check nobody ran is how a review starts lying.
+   */
+  emailChecked: boolean;
   /** Non-fatal problems assembling the evidence (a Drive call that failed, a
    *  job whose reconciliation errored). Surfaced so a partial review is never
    *  mistaken for a clean one. */

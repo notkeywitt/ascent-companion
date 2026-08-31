@@ -476,6 +476,131 @@ function periodFindings(job: JobEvidence, month: MonthEvidence): Finding[] {
 }
 
 // ---------------------------------------------------------------------------
+// THE OFFICE MAILBOX
+// ---------------------------------------------------------------------------
+
+/** Subject-line words that mean the client's reply is probably not "thanks". */
+const REPLY_CONCERNS = [
+  "credit", "dispute", "disputed", "wrong", "incorrect", "error", "mistake",
+  "question", "overcharge", "overbilled", "adjust", "refund", "discrepancy",
+];
+
+/**
+ * What the office mailbox says about the month's invoices.
+ *
+ * ## The calibration, which is the whole design
+ *
+ * JobTread sends a client invoice itself. If it does that without copying the
+ * office, a perfectly-sent invoice leaves NO trace in the mailbox — so a naive
+ * "no email found ⇒ not sent" check would flag every invoice, every month,
+ * forever. That is the cry-wolf failure this whole feature is built to avoid.
+ *
+ * So the check calibrates against the month it is looking at:
+ *
+ *   • NO invoice in the month has a trace  → ONE `email-no-trace` info finding,
+ *     saying the mailbox has no record of any of them and why that is probably
+ *     not a problem. Zero per-invoice findings.
+ *   • SOME have traces, some don't → the ones without are genuinely odd, because
+ *     the same sending path evidently does reach this mailbox. Those get
+ *     `email-not-sent`, as warnings.
+ *
+ * A `email-client-replied` finding is independent of all that: if the last word
+ * in an invoice's thread came from outside the company, someone should read it
+ * before the next invoice goes out.
+ *
+ * Nothing here runs at all when `emailChecked` is false — a skipped check must
+ * never render as a passed one.
+ */
+function emailFindings(month: MonthEvidence): Finding[] {
+  const out: Finding[] = [];
+  if (!month.emailChecked) return out;
+
+  const invoiced = month.jobs.flatMap((j) => j.invoices.map((inv) => ({ job: j, inv })));
+  if (!invoiced.length) return out;
+
+  const withTrace = invoiced.filter(({ inv }) => (inv.email?.threads.length ?? 0) > 0);
+
+  if (!withTrace.length) {
+    const first = invoiced[0];
+    out.push({
+      key: findingKey("email-no-trace", "", month.ym),
+      kind: "email-no-trace",
+      severity: "info",
+      jobId: "",
+      jobName: "",
+      customerName: first.job.customerName,
+      invoiceId: "",
+      invoiceNumber: "",
+      title: `No email record of any ${month.monthLabel} invoice`,
+      detail:
+        `The office mailbox has no thread matching any of the ${invoiced.length} client ` +
+        `invoice${invoiced.length === 1 ? "" : "s"} for ${month.monthLabel}. That is most ` +
+        `likely because JobTread emails invoices directly without copying the office — in ` +
+        `which case there is nothing wrong here and nothing to do. It is reported once, as ` +
+        `context, rather than as a fault against every invoice.`,
+    });
+    return out;
+  }
+
+  for (const { job, inv } of invoiced) {
+    const base = {
+      jobId: job.jobId,
+      jobName: job.jobName,
+      customerName: job.customerName,
+      invoiceId: inv.id,
+      invoiceNumber: inv.number,
+    };
+    const label = `Invoice #${inv.number || inv.id}`;
+    const threads = inv.email?.threads ?? [];
+
+    if (!threads.length) {
+      out.push({
+        ...base,
+        key: findingKey("email-not-sent", job.jobId, inv.id),
+        kind: "email-not-sent",
+        severity: "warning",
+        title: `${label} — no email record`,
+        detail:
+          `${withTrace.length} of this month's ${invoiced.length} invoices show up in the ` +
+          `office mailbox, but this one does not. Check it actually went to the client.`,
+        amount: inv.priceWithTax,
+        sourceLink: inv.jtUrl,
+        sourceLabel: "Open in JobTread",
+      });
+      continue;
+    }
+
+    // Only the newest thread matters for "did they write back?" — an older one
+    // ending inbound was answered by whatever came next.
+    const newest = [...threads].sort((a, b) => (a.lastDate < b.lastDate ? 1 : -1))[0];
+    if (!newest.lastInbound) continue;
+
+    const concern = REPLY_CONCERNS.find((w) => newest.subject.toLowerCase().includes(w));
+    out.push({
+      ...base,
+      key: findingKey("email-client-replied", job.jobId, newest.threadId),
+      kind: "email-client-replied",
+      severity: "warning",
+      title: `${label} — ${job.customerName || "the client"} replied and nobody answered`,
+      detail:
+        `The last message on "${newest.subject}" came from ` +
+        `${newest.lastFromName || newest.lastFrom} on ${newest.lastDate.slice(0, 10)}, and ` +
+        `no one at Ascent has replied since` +
+        (concern ? `. The subject mentions "${concern}", so read it before billing again` : "") +
+        `.` +
+        (newest.matchedOn === "customer"
+          ? ` (Matched on the customer name rather than the invoice number, so this thread ` +
+            `may be about something else.)`
+          : ""),
+      sourceLink: newest.url,
+      sourceLabel: "Open the thread",
+    });
+  }
+
+  return out;
+}
+
+// ---------------------------------------------------------------------------
 // THE RUN
 // ---------------------------------------------------------------------------
 
@@ -493,6 +618,9 @@ export function runChecks(month: MonthEvidence): Finding[] {
     for (const inv of job.invoices) out.push(...mathFindings(job, inv));
     out.push(...periodFindings(job, month));
   }
+  // Month-wide, because its whole point is comparing the invoices against each
+  // other rather than each against a rule.
+  out.push(...emailFindings(month));
   return out.sort(compareFindings);
 }
 

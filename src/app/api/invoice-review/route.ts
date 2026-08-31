@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { auth } from "@/auth";
 import { getPaveConfig, hasGrant } from "@/lib/config";
+import { buildBrief } from "@/lib/invoiceReview/brief";
 import { parseYm } from "@/lib/invoiceReview/evidence";
 import { liftRuling, recordRuling } from "@/lib/invoiceReview/rulings";
 import { runInvoiceReview } from "@/lib/invoiceReview/run";
@@ -10,7 +11,10 @@ import type { FindingKind } from "@/lib/invoiceReview/types";
 /**
  * The monthly client-invoice review.
  *
- * GET  ?ym=YYYY-MM[&narrate=0]  → run the review for a billing month.
+ * GET  ?ym=YYYY-MM[&narrate=0][&email=0][&format=brief]
+ *        → run the review for a billing month. `format=brief` returns the
+ *          paste-into-Claude briefing as markdown instead of JSON, which is how
+ *          the review is used when there is no ANTHROPIC_API_KEY.
  * POST { key, kind, jobId, scope, reason }  → record a standing ruling.
  * POST { key, lift: true }                  → lift one.
  *
@@ -54,9 +58,27 @@ export async function GET(req: NextRequest) {
   // ?narrate=0 skips the Claude paragraph — for the skill, which writes its own
   // narrative, and for anyone debugging a check without burning a model call.
   const narrate = req.nextUrl.searchParams.get("narrate") !== "0";
+  // ?email=0 skips the mailbox sweep, which is the slow half (up to two Gmail
+  // searches per invoice). The email checks then report nothing at all rather
+  // than passing — see `emailChecked` in evidence.ts.
+  const email = req.nextUrl.searchParams.get("email") !== "0";
 
   try {
-    const payload = await runInvoiceReview(getPaveConfig(), parsed.year, parsed.month, { narrate });
+    const payload = await runInvoiceReview(getPaveConfig(), parsed.year, parsed.month, {
+      narrate,
+      email,
+    });
+    // ?format=brief hands back the paste-into-Claude briefing instead of JSON —
+    // the no-API-key path (see brief.ts).
+    if (req.nextUrl.searchParams.get("format") === "brief") {
+      return new NextResponse(buildBrief(payload), {
+        status: 200,
+        headers: {
+          "Content-Type": "text/markdown; charset=utf-8",
+          "Cache-Control": "no-store",
+        },
+      });
+    }
     return NextResponse.json(payload);
   } catch (e) {
     return NextResponse.json(

@@ -60,7 +60,7 @@ matching row here.
 | **The design system** | `src/components/ui.tsx` (build every UI on these primitives) |
 | **Editable on-screen text** (office reword, no deploy) | add a key to `src/lib/copy.ts`, render it via `useCopy()`; edited at `/admin/copy` → `src/app/api/admin/copy/route.ts` |
 | **The Admin Daily Digest** (morning report on Home) | `src/lib/digest/` — `settings.ts` (EVERY threshold/exclusion), `registry.ts` (the check list), `checks/*` (one file per check), `run.ts` (aggregator); UI `src/components/DailyDigest.tsx`; routes `src/app/api/digest/*`; Google data via appscript `DailyDigest.js` |
-| **Reviewing a month's client invoices** | `src/lib/invoiceReview/` — `checks.ts` (every judgement, pure + tested), `evidence.ts` (JobTread + Drive), `rulings.ts` (the memory); page `src/app/invoice-review/`; route `src/app/api/invoice-review`; Drive listing via appscript `ClientInvoiceReview.js`; skill `.claude/skills/invoice-review/` |
+| **Reviewing a month's client invoices** | `src/lib/invoiceReview/` — `checks.ts` (every judgement, pure + tested), `evidence.ts` (JobTread + Drive + Gmail), `rulings.ts` (the memory), `brief.ts` (the no-API-key hand-off); page `src/app/invoice-review/`; route `src/app/api/invoice-review`; Drive + Gmail reads via appscript `ClientInvoiceReview.js`; skill `.claude/skills/invoice-review/` |
 | **Adding a digest check** | write `src/lib/digest/checks/<id>.ts`, add its config block to `src/lib/digest/settings.ts`, add one line to `src/lib/digest/registry.ts` — the aggregator, the cron route and the UI are untouched |
 
 ## `src/lib/` — shared logic (the most-reused code)
@@ -108,21 +108,24 @@ including edge middleware.
 ### `src/lib/invoiceReview/` — the monthly client-invoice review
 
 Cross-checks a billing month's CLIENT invoices (JobTread `customerInvoice`
-documents) against the vendor bills behind them and the backup PDFs filed in the
-Drive invoicing tree. READ-ONLY against JobTread, Drive and the Sheet; the only
-thing it writes anywhere is a standing "ruling" in the companion DB.
+documents) against the vendor bills behind them, the backup PDFs filed in the
+Drive invoicing tree, and the office mailbox. READ-ONLY against JobTread, Drive,
+Gmail and the Sheet; the only thing it writes anywhere is a standing "ruling" in
+the companion DB.
 
 | File | Purpose |
 |---|---|
 | `types.ts` ⟂ | The evidence and finding shapes, the `FindingKind` list, and the `findingKey` identity a ruling suppresses by. Pure — imported by the checks, the route and the page alike. |
-| `checks.ts` ⟂ | **Every judgement lives here**, as pure functions over the evidence: backup coverage (amount-matched one-to-one against the filename convention), the invoice math (line, total, tax, balance), and billing period + scope (issue date, cost pulled from another month, a bill on two invoices, cost left uninvoiced, drafts). Never fetches, never writes, never "corrects" a number. |
-| `evidence.ts` | All the fetching: the job roster, each job's month bills and live invoices (413-safe two-phase reads), and the Drive backup listing via the Apps Script bridge. Per-job failures become warnings, never a dead review. |
+| `checks.ts` ⟂ | **Every judgement lives here**, as pure functions over the evidence: backup coverage (amount-matched one-to-one against the filename convention), the invoice math (line, total, tax, balance), billing period + scope (issue date, cost pulled from another month, a bill on two invoices, cost left uninvoiced, drafts), and the mailbox. Never fetches, never writes, never "corrects" a number. The email check CALIBRATES against the month — if no invoice has a mailbox trace it says so once instead of flagging every one, because JobTread sends invoices without copying the office. |
+| `evidence.ts` | All the fetching: the job roster, each job's month bills and live invoices (413-safe two-phase reads), the Drive backup listing, and one mailbox sweep for the whole month — the last two via the Apps Script bridge. Per-job failures become warnings, never a dead review. Sets `emailChecked`, so a mailbox that couldn't be searched never looks like one that came back clean. |
+| `brief.ts` ⟂ | The review as a self-contained markdown briefing, for the **no-API-key path**: the page's "Copy for Claude" button and `GET /api/invoice-review?format=brief`. Opens by telling Claude the arithmetic is already done and must not be redone. |
 | `rulings.ts` | The memory — what the office has already overruled, so a structurally-true finding stops coming back every month. Two scopes: this finding, or this kind on this job. The ONLY write in the feature. |
 | `narrate.ts` | One Claude paragraph over the STRUCTURED findings (never the raw evidence, so it cannot invent a figure). Silent fallback to the locally-built summary. |
 | `run.ts` | The order of operations: evidence → checks → rulings → narrative. Thin by design. |
 
 Tests: `checks.test.ts` (the backup matcher against the real filename
-convention, every math tolerance, the period/scope rules, finding order).
+convention, every math tolerance, the period/scope rules, the mailbox
+calibration, the briefing, finding order).
 Skill: `.claude/skills/invoice-review/SKILL.md` drives the same review from a
 Claude Code session. Drive half: `ascent-appscript/ClientInvoiceReview.js`.
 
@@ -199,7 +202,8 @@ Grouped by domain; each folder is `…/route.ts`.
   `vendor-bills/*`, `vendor-bill-count`, `stuck-vendors`, `needs-project`,
   `reassign-job`.
 - **Invoicing surfaces:** `stage/*`, `invoice-review` (GET runs a month's
-  client-invoice review; POST records or lifts one standing ruling), `lswdd`,
+  client-invoice review, or `?format=brief` for the paste-into-Claude version;
+  POST records or lifts one standing ruling), `lswdd`,
   `amazon-import/*`,
   `sunset-statements/*`, `sunset-duplicates`, `buyback`.
 - **Labor / time:** `employee-time/*`, `labor-rates/*`, `labor-review/*`,

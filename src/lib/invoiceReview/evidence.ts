@@ -24,13 +24,17 @@
  * `document(id).costItems` call each. `referencedDocuments` is fine nested at
  * size 25, which is the size used here (the same one getUninvoicedBills uses).
  *
- * ## Drive
+ * ## Drive and Gmail
  *
- * The Assistant has no Drive grant, so the backup listing goes through the Apps
- * Script bridge (`listBillingFolder`, in ascent-appscript/ClientInvoiceReview.js).
- * A Drive failure is collected as a WARNING and the review continues — a review
- * that renders the math findings is worth more than one that errors out because
- * the script deployment was slow.
+ * The Assistant has neither grant, so both go through the Apps Script bridge
+ * (`listBillingFolder` and `listInvoiceEmails`, in
+ * ascent-appscript/ClientInvoiceReview.js). Either failing is collected as a
+ * WARNING and the review continues — a review that renders the math findings is
+ * worth more than one that errors out because the script deployment was slow.
+ *
+ * The email leg additionally sets `emailChecked`, and the checks read it: a
+ * mailbox that could not be searched must never look like a mailbox that was
+ * searched and came back clean.
  */
 import { callAppsScript } from "@/lib/appsScript";
 import {
@@ -43,6 +47,7 @@ import {
 import type {
   BackupFile,
   BillRef,
+  EmailTrace,
   InvoiceEvidence,
   InvoiceLine,
   JobEvidence,
@@ -267,6 +272,8 @@ async function loadInvoice(
       .filter((n) => n?.type === "vendorBill" && n?.id)
       .map((n) => n.id as string),
     jtUrl: `https://app.jobtread.com/jobs/${encodeURIComponent(jobId)}/documents/${encodeURIComponent(invoiceId)}`,
+    // Filled in later, in one mailbox sweep across the whole month.
+    email: null,
   };
 }
 
@@ -305,6 +312,54 @@ async function loadFolder(
   };
 }
 
+/** Apps Script's own cap per call (_CIV_MAX_INVOICES). Batched, not truncated. */
+const EMAIL_BATCH = 40;
+
+/**
+ * What the office mailbox knows about each invoice, in as few Apps Script calls
+ * as possible.
+ *
+ * ONE SWEEP FOR THE WHOLE MONTH, not one per job: each invoice costs up to two
+ * Gmail searches, and Gmail searches are slow enough that doing them inside the
+ * per-job fan-out would double the review's wall clock for no benefit.
+ *
+ * Returns an empty map AND a warning when the mailbox could not be searched —
+ * which the caller turns into `emailChecked: false`. That distinction is the
+ * whole safety of this leg: a mailbox that was never searched must never look
+ * like a mailbox that was searched and came back clean.
+ */
+async function loadInvoiceEmails(
+  invoices: { id: string; number: string; customer: string; issueDate: string }[],
+): Promise<{ traces: Map<string, EmailTrace>; warning?: string }> {
+  const traces = new Map<string, EmailTrace>();
+  if (!invoices.length) return { traces };
+
+  for (let i = 0; i < invoices.length; i += EMAIL_BATCH) {
+    const batch = invoices.slice(i, i + EMAIL_BATCH);
+    const r = await callAppsScript<{
+      ok?: boolean;
+      error?: string;
+      results?: { invoiceId: string; matchedOn: EmailTrace["matchedOn"]; threads: EmailTrace["threads"]; error?: string }[];
+    }>(
+      { action: "listInvoiceEmails", invoices: batch },
+      // Up to 80 Gmail searches in one call; the default 25s budget is far too
+      // short. The route's own maxDuration is 300s, so this fits inside it.
+      { timeoutMs: 120_000 },
+    );
+
+    if (r.error) return { traces, warning: `The office mailbox could not be searched: ${r.error}` };
+    const d = r.data ?? {};
+    if (d.ok === false) {
+      return { traces, warning: `The office mailbox could not be searched: ${d.error ?? "unknown"}` };
+    }
+    for (const row of d.results ?? []) {
+      traces.set(row.invoiceId, { matchedOn: row.matchedOn ?? "", threads: row.threads ?? [] });
+    }
+  }
+
+  return { traces };
+}
+
 /**
  * Everything the review needs for one billing month.
  *
@@ -315,6 +370,7 @@ export async function loadMonthEvidence(
   cfg: PaveConfig,
   year: number,
   month: number,
+  opts: { email?: boolean } = {},
 ): Promise<MonthEvidence> {
   const ym = `${year}-${String(month).padStart(2, "0")}`;
   const monthLabel = `${MONTH_NAMES[month - 1]} ${year}`;
@@ -381,12 +437,38 @@ export async function loadMonthEvidence(
     return shell;
   });
 
+  // The mailbox sweep, once the invoices are known. Off entirely when the caller
+  // says so (?email=0), and self-disabling when the Apps Script action isn't
+  // deployed — in both cases `emailChecked` stays false and the email checks are
+  // skipped rather than silently passing.
+  let emailChecked = false;
+  if (opts.email !== false) {
+    const flat = jobs.flatMap((j) =>
+      j.invoices.map((inv) => ({
+        id: inv.id,
+        number: inv.number,
+        customer: j.customerName || j.jobName,
+        issueDate: inv.issueDate,
+      })),
+    );
+    const { traces, warning } = await loadInvoiceEmails(flat);
+    if (warning) {
+      warnings.push(warning);
+    } else {
+      emailChecked = true;
+      for (const j of jobs) {
+        for (const inv of j.invoices) inv.email = traces.get(inv.id) ?? { matchedOn: "", threads: [] };
+      }
+    }
+  }
+
   return {
     ym,
     year,
     month,
     monthLabel,
     folderRoot: billingFolderRoot(year, month),
+    emailChecked,
     // Customer first, so the review reads the way the office works through it.
     jobs: jobs.sort((a, b) =>
       (a.customerName || a.jobName).localeCompare(b.customerName || b.jobName, undefined, {

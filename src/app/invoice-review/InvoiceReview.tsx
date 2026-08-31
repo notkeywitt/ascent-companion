@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
   Banner,
@@ -19,6 +19,7 @@ import {
   Textarea,
   Toggle,
 } from "@/components/ui";
+import { buildBrief } from "@/lib/invoiceReview/brief";
 import { money } from "@/lib/invoiceReview/types";
 import type { Finding, ReviewPayload } from "@/lib/invoiceReview/types";
 
@@ -95,6 +96,9 @@ export function InvoiceReview() {
   const [ruling, setRuling] = useState<{ finding: Finding; reason: string; wide: boolean } | null>(null);
   const [saving, setSaving] = useState(false);
 
+  // "Copied" / "Couldn't copy" on the hand-to-Claude button.
+  const [copied, setCopied] = useState("");
+
   const run = useCallback(async () => {
     setLoading(true);
     setError("");
@@ -158,6 +162,51 @@ export function InvoiceReview() {
       setSaving(false);
     }
   }, [ruling]);
+
+  /**
+   * Hand the whole review to Claude without an API key.
+   *
+   * The app's own paragraph needs ANTHROPIC_API_KEY; this needs nothing. It puts
+   * a self-contained briefing on the clipboard — the findings, the gaps, and an
+   * instruction not to redo the arithmetic — to paste into Claude wherever the
+   * office already has it. Clipboard rather than a share sheet or a download,
+   * because pasting into a chat is the one gesture that works identically on a
+   * phone and a laptop.
+   */
+  const copyForClaude = useCallback(async () => {
+    if (!data) return;
+    try {
+      await navigator.clipboard.writeText(buildBrief(data));
+      setCopied("Copied — paste it into Claude");
+    } catch {
+      setCopied("Couldn't copy. Long-press to select instead.");
+    }
+    setTimeout(() => setCopied(""), 4000);
+  }, [data]);
+
+  /**
+   * The same briefing, through the OS share sheet — one tap to the Claude app on
+   * a phone, instead of copy, switch app, paste. Offered only where the browser
+   * actually has it (so: not desktop Chrome), which is why it is state rather
+   * than a render-time check — reading navigator during render would disagree
+   * between the server and the first client paint.
+   */
+  const [canShare, setCanShare] = useState(false);
+  useEffect(() => {
+    setCanShare(typeof navigator !== "undefined" && typeof navigator.share === "function");
+  }, []);
+
+  const shareForClaude = useCallback(async () => {
+    if (!data) return;
+    try {
+      await navigator.share({
+        title: `Invoice review — ${data.evidence.monthLabel}`,
+        text: buildBrief(data),
+      });
+    } catch {
+      // A cancelled share sheet lands here too, so say nothing.
+    }
+  }, [data]);
 
   // Memoized, not inline: both feed useMemo dependency lists below, and a fresh
   // array identity on every render would re-group the whole list each keystroke
@@ -225,7 +274,25 @@ export function InvoiceReview() {
           <Button onClick={run} disabled={loading}>
             {loading ? "Reviewing…" : "Run review"}
           </Button>
+          {data ? (
+            <Button variant="outline" onClick={copyForClaude}>
+              Copy for Claude
+            </Button>
+          ) : null}
+          {data && canShare ? (
+            <Button variant="ghost" onClick={shareForClaude}>
+              Share…
+            </Button>
+          ) : null}
         </div>
+        {copied ? <p className="mt-2 text-xs opacity-70">{copied}</p> : null}
+        {data && data.summarySource === "fallback" ? (
+          <p className="mt-2 text-xs opacity-60">
+            The summary is written from the checks, not by Claude — either no API key is
+            set or the call didn&apos;t answer. “Copy for Claude” hands the whole review
+            to Claude anywhere you already have it.
+          </p>
+        ) : null}
         {data ? (
           <p className="mt-3 text-xs opacity-60">
             Backup is filed in {data.evidence.folderRoot}
@@ -265,6 +332,14 @@ export function InvoiceReview() {
             <Banner tone="error" className="mt-3">
               <span className="font-medium">This review is incomplete.</span>{" "}
               {data.evidence.warnings.join(" · ")}
+            </Banner>
+          ) : null}
+
+          {/* A skipped check must never read as a passed one. */}
+          {!data.evidence.emailChecked && !data.evidence.warnings.length ? (
+            <Banner tone="neutral" className="mt-3">
+              The office mailbox wasn&apos;t searched, so nothing here says whether these
+              invoices were actually emailed.
             </Banner>
           ) : null}
 

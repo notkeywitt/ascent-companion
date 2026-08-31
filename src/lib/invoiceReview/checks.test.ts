@@ -7,14 +7,18 @@
  */
 import { describe, expect, it } from "vitest";
 
+import { buildBrief } from "./brief";
 import { matchBackup, runChecks, fallbackSummary } from "./checks";
 import type {
   BackupFile,
   BillRef,
+  EmailThread,
+  Finding,
   InvoiceEvidence,
   InvoiceLine,
   JobEvidence,
   MonthEvidence,
+  ReviewPayload,
 } from "./types";
 
 function file(partial: Partial<BackupFile> & { id: string; amount: number }): BackupFile {
@@ -57,6 +61,7 @@ function invoice(partial: Partial<InvoiceEvidence> & { id: string }): InvoiceEvi
     balance: 0,
     lines: [],
     billIds: [],
+    email: null,
     jtUrl: "https://app.jobtread.com/jobs/J/documents/" + partial.id,
     ...partial,
   };
@@ -86,7 +91,7 @@ function job(partial: Partial<JobEvidence> = {}): JobEvidence {
   };
 }
 
-function month(jobs: JobEvidence[]): MonthEvidence {
+function month(jobs: JobEvidence[], over: Partial<MonthEvidence> = {}): MonthEvidence {
   return {
     ym: "2026-07",
     year: 2026,
@@ -94,7 +99,39 @@ function month(jobs: JobEvidence[]): MonthEvidence {
     monthLabel: "July 2026",
     folderRoot: "/2026 Invoicing/08 August 26 (July Billing)/",
     jobs,
+    // Off by default: the pre-existing cases are all about JobTread and Drive,
+    // and every one of them would otherwise grow an email finding.
+    emailChecked: false,
     warnings: [],
+    ...over,
+  };
+}
+
+function thread(partial: Partial<EmailThread> & { threadId: string }): EmailThread {
+  return {
+    subject: "Invoice #100 from Ascent Building Co.",
+    url: `https://mail.google.com/mail/u/0/#all/${partial.threadId}`,
+    messages: 1,
+    firstDate: "2026-08-01T17:00:00.000Z",
+    lastDate: "2026-08-01T17:00:00.000Z",
+    lastFrom: "office@ascentbuildingco.com",
+    lastFromName: "Ascent Office",
+    lastInbound: false,
+    matchedOn: "number",
+    labels: [],
+    ...partial,
+  };
+}
+
+/** A ReviewPayload around a month + findings, for the briefing tests. */
+function payload(m: MonthEvidence, findings: Finding[]): ReviewPayload {
+  return {
+    evidence: m,
+    findings,
+    summary: fallbackSummary(m, findings),
+    summarySource: "fallback",
+    generatedAt: "2026-08-11T00:00:00.000Z",
+    durationMs: 1,
   };
 }
 
@@ -411,5 +448,199 @@ describe("ordering and summary", () => {
       suppressedBy: { reason: "held back on purpose", by: "office", at: "", scope: "finding" as const },
     }));
     expect(fallbackSummary(m, suppressed)).toContain("nothing to flag");
+  });
+});
+
+describe("the office mailbox", () => {
+  const withEmail = (jobs: JobEvidence[]) => month(jobs, { emailChecked: true });
+
+  it("reports nothing at all when the mailbox was not searched", () => {
+    // The dangerous case: a skipped check must never read as a passed one.
+    const f = runChecks(month([job({ invoices: [invoice({ id: "i1", email: null })] })]));
+    expect(kinds(f).filter((k) => k.startsWith("email"))).toEqual([]);
+  });
+
+  it("says so ONCE when no invoice in the month has any trace", () => {
+    // JobTread sending invoices without copying the office is the normal case;
+    // flagging all three would be the cry-wolf failure this design exists to avoid.
+    const f = runChecks(
+      withEmail([
+        job({
+          invoices: [
+            invoice({ id: "i1", email: { matchedOn: "", threads: [] } }),
+            invoice({ id: "i2", number: "101", email: { matchedOn: "", threads: [] } }),
+            invoice({ id: "i3", number: "102", email: { matchedOn: "", threads: [] } }),
+          ],
+        }),
+      ]),
+    );
+    const email = f.filter((x) => x.kind.startsWith("email"));
+    expect(email.map((x) => x.kind)).toEqual(["email-no-trace"]);
+    expect(email[0].severity).toBe("info");
+  });
+
+  it("flags the odd one out when the others DO have traces", () => {
+    const f = runChecks(
+      withEmail([
+        job({
+          invoices: [
+            invoice({ id: "i1", email: { matchedOn: "number", threads: [thread({ threadId: "t1" })] } }),
+            invoice({ id: "i2", number: "101", email: { matchedOn: "", threads: [] } }),
+          ],
+        }),
+      ]),
+    );
+    const email = f.filter((x) => x.kind.startsWith("email"));
+    expect(email.map((x) => x.kind)).toEqual(["email-not-sent"]);
+    expect(email[0].invoiceNumber).toBe("101");
+  });
+
+  it("flags a client reply nobody answered", () => {
+    const f = runChecks(
+      withEmail([
+        job({
+          invoices: [
+            invoice({
+              id: "i1",
+              email: {
+                matchedOn: "number",
+                threads: [
+                  thread({
+                    threadId: "t1",
+                    messages: 3,
+                    lastFrom: "kevin@ferron.example",
+                    lastFromName: "Kevin Ferron",
+                    lastInbound: true,
+                  }),
+                ],
+              },
+            }),
+          ],
+        }),
+      ]),
+    );
+    expect(kinds(f)).toContain("email-client-replied");
+  });
+
+  it("names the concern when the reply's subject raises one", () => {
+    const f = runChecks(
+      withEmail([
+        job({
+          invoices: [
+            invoice({
+              id: "i1",
+              email: {
+                matchedOn: "number",
+                threads: [
+                  thread({
+                    threadId: "t1",
+                    subject: "Re: Invoice #100 — I think this is a duplicate charge, wrong amount?",
+                    lastFrom: "kevin@ferron.example",
+                    lastInbound: true,
+                  }),
+                ],
+              },
+            }),
+          ],
+        }),
+      ]),
+    );
+    const hit = f.find((x) => x.kind === "email-client-replied");
+    expect(hit?.detail).toContain("wrong");
+  });
+
+  it("says nothing when we had the last word", () => {
+    const f = runChecks(
+      withEmail([
+        job({
+          invoices: [
+            invoice({ id: "i1", email: { matchedOn: "number", threads: [thread({ threadId: "t1" })] } }),
+          ],
+        }),
+      ]),
+    );
+    expect(kinds(f).filter((k) => k.startsWith("email"))).toEqual([]);
+  });
+
+  it("judges by the newest thread, not an old one that ended inbound", () => {
+    const f = runChecks(
+      withEmail([
+        job({
+          invoices: [
+            invoice({
+              id: "i1",
+              email: {
+                matchedOn: "number",
+                threads: [
+                  thread({ threadId: "old", lastDate: "2026-08-01T00:00:00.000Z", lastInbound: true }),
+                  thread({ threadId: "new", lastDate: "2026-08-09T00:00:00.000Z", lastInbound: false }),
+                ],
+              },
+            }),
+          ],
+        }),
+      ]),
+    );
+    expect(kinds(f).filter((k) => k.startsWith("email"))).toEqual([]);
+  });
+
+  it("warns that a weak customer-name match may be about something else", () => {
+    const f = runChecks(
+      withEmail([
+        job({
+          invoices: [
+            invoice({
+              id: "i1",
+              email: {
+                matchedOn: "customer",
+                threads: [thread({ threadId: "t1", matchedOn: "customer", lastInbound: true })],
+              },
+            }),
+          ],
+        }),
+      ]),
+    );
+    const hit = f.find((x) => x.kind === "email-client-replied");
+    expect(hit?.detail).toContain("may be about something else");
+  });
+});
+
+describe("the paste-into-Claude briefing", () => {
+  it("tells Claude not to redo the arithmetic", () => {
+    const m = month([job({ invoices: [invoice({ id: "i1" })] })]);
+    const brief = buildBrief(payload(m, runChecks(m)));
+    expect(brief).toContain("Do not redo the");
+    expect(brief).toContain("July 2026");
+  });
+
+  it("says plainly that the mailbox was not searched", () => {
+    const m = month([job({ invoices: [invoice({ id: "i1" })] })]);
+    expect(buildBrief(payload(m, runChecks(m)))).toContain("not** searched");
+  });
+
+  it("does not claim a gap when every leg ran", () => {
+    const m = month([job({ invoices: [invoice({ id: "i1" })] })], { emailChecked: true });
+    expect(buildBrief(payload(m, runChecks(m)))).not.toContain("This review is incomplete");
+  });
+
+  it("carries the findings, their money, and the rulings already made", () => {
+    const m = month([job({ invoices: [invoice({ id: "i1" })], uninvoicedBillsCost: 5000 })]);
+    const findings = runChecks(m);
+    const brief = buildBrief(payload(m, findings));
+    expect(brief).toContain("Needs fixing");
+    expect(brief).toContain("$5,000.00");
+
+    const suppressed = findings.map((f) => ({
+      ...f,
+      suppressedBy: { reason: "held back on purpose", by: "office", at: "", scope: "finding" as const },
+    }));
+    const asideBrief = buildBrief(payload(m, suppressed));
+    expect(asideBrief).toContain("Already set aside");
+    expect(asideBrief).toContain("held back on purpose");
+  });
+
+  it("can be built without the preamble, for a caller that framed the task itself", () => {
+    const m = month([job()]);
+    expect(buildBrief(payload(m, []), { includePreamble: false })).not.toContain("You are helping me");
   });
 });
