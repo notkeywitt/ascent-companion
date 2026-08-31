@@ -67,6 +67,8 @@ function timeOf(iso: string): string {
   return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
 }
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
 export function DailyDigest() {
   const access = useAccess();
   const canSee = access.can("digest");
@@ -75,20 +77,27 @@ export function DailyDigest() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [err, setErr] = useState("");
+  const [note, setNote] = useState("");
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const [openItems, setOpenItems] = useState<Record<string, boolean>>({});
 
-  const load = useCallback(async () => {
+  // Returns what it loaded so `refresh` can tell a fresh digest apart from the
+  // one that was already showing, without relying on `data` state (which
+  // wouldn't have updated yet inside the same async call).
+  const load = useCallback(async (): Promise<DigestResponse | null> => {
     try {
       const res = await fetch("/api/digest");
       if (!res.ok) {
         setErr(res.status === 403 ? "" : "Couldn't load the digest.");
-        return;
+        return null;
       }
-      setData(await res.json());
+      const json: DigestResponse = await res.json();
+      setData(json);
       setErr("");
+      return json;
     } catch {
       setErr("Couldn't load the digest.");
+      return null;
     } finally {
       setLoading(false);
     }
@@ -102,21 +111,48 @@ export function DailyDigest() {
     load();
   }, [canSee, load]);
 
+  /**
+   * "Refresh now" only has to START the run — /api/digest/run detaches the
+   * actual work (`after()`) so it keeps going on the server for its full
+   * duration even if this tab closes right after tapping it, which is a real
+   * risk on a phone for something that can take tens of seconds. Once
+   * started, this polls for the fresh result while the tab happens to stay
+   * open; if it doesn't stick around, the next normal load shows it anyway.
+   */
   async function refresh() {
     setRefreshing(true);
     setErr("");
+    setNote("");
+    const before = data?.digest?.generatedAt ?? null;
+
+    let started = false;
     try {
       const res = await fetch("/api/digest/run", { method: "POST" });
+      started = res.ok;
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        setErr(body.error || "The refresh didn't finish. Try again in a moment.");
+        setErr(body.error || "The refresh didn't start. Try again in a moment.");
       }
-      await load();
     } catch {
-      setErr("The refresh didn't finish. Try again in a moment.");
-    } finally {
-      setRefreshing(false);
+      setErr("The refresh didn't start. Try again in a moment.");
     }
+
+    if (started) {
+      const MAX_ATTEMPTS = 40; // ~80s — a run reads several sources plus two Claude calls
+      let found = false;
+      for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+        await sleep(2000);
+        const latest = await load();
+        if (latest?.digest && latest.digest.generatedAt !== before) {
+          found = true;
+          break;
+        }
+      }
+      if (!found) {
+        setNote("Still working — it'll show up next time you open this page.");
+      }
+    }
+    setRefreshing(false);
   }
 
   const categories = useMemo(
@@ -153,6 +189,7 @@ export function DailyDigest() {
       </SectionHeading>
 
       {err && <Banner tone="error">{err}</Banner>}
+      {!err && note && <Banner tone="info">{note}</Banner>}
 
       {loading && (
         <Card>

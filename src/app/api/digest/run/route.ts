@@ -1,8 +1,16 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { timingSafeEqual } from "node:crypto";
 
 import { auth, envAllowed } from "@/auth";
 import { runDigest } from "@/lib/digest/run";
+
+/** Runs the digest and logs the outcome — shared by the synchronous scheduler
+ *  path and the detached admin-button path below. */
+async function runAndLog(ranBy: string) {
+  const digest = await runDigest();
+  console.log(`[digest] run by ${ranBy}:\n${digest.log.join("\n")}`);
+  return digest;
+}
 
 /**
  * POST /api/digest/run — build today's digest and store it.
@@ -25,6 +33,16 @@ import { runDigest } from "@/lib/digest/run";
  *
  * GET is accepted as well, because some schedulers only issue GETs; it is the
  * same code path with the same credentials.
+ *
+ * TWO RESPONSE SHAPES, ON PURPOSE. The scheduler gets a synchronous, fully
+ * awaited run — its invocation has nothing to "close", and its execution log
+ * is more useful with the real outcome in it. The admin button instead
+ * detaches the run via `after()` and responds immediately: a run reads
+ * several external sources plus two Claude calls, easily tens of seconds, and
+ * this button is tapped from a phone — without `after()`, closing the tab or
+ * backgrounding the app mid-run would abort the underlying request before it
+ * finished. `after()` keeps the function alive for the run's own maxDuration
+ * regardless of what the client does next.
  */
 export const dynamic = "force-dynamic";
 // The full sweep — Gmail scans, an org-wide draft-bill query, one rollup per open
@@ -76,29 +94,40 @@ async function handle(req: NextRequest) {
     );
   }
 
-  try {
-    const digest = await runDigest();
-    // The log is the debugging record — which checks ran, when, and how they
-    // came out — so it is echoed to the server console as well as stored.
-    console.log(`[digest] run by ${authorized.who}:\n${digest.log.join("\n")}`);
-    return NextResponse.json({
-      ok: true,
-      ranBy: authorized.who,
-      date: digest.date,
-      status: digest.status,
-      durationMs: digest.durationMs,
-      checks: digest.results.map((r) => ({
-        id: r.id,
-        status: r.status,
-        items: r.items.length,
-        durationMs: r.durationMs,
-      })),
-    });
-  } catch (e) {
-    const message = e instanceof Error ? e.message : "Unknown error";
-    console.error("[digest] run failed:", message);
-    return NextResponse.json({ error: message }, { status: 500 });
+  // The scheduler waits for the real result — Vercel Cron's own invocation
+  // stays open regardless, and its execution log is more useful with the full
+  // per-check outcome in it.
+  if (authorized.who === "scheduler") {
+    try {
+      const digest = await runAndLog(authorized.who);
+      return NextResponse.json({
+        ok: true,
+        ranBy: authorized.who,
+        date: digest.date,
+        status: digest.status,
+        durationMs: digest.durationMs,
+        checks: digest.results.map((r) => ({
+          id: r.id,
+          status: r.status,
+          items: r.items.length,
+          durationMs: r.durationMs,
+        })),
+      });
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Unknown error";
+      console.error("[digest] run failed:", message);
+      return NextResponse.json({ error: message }, { status: 500 });
+    }
   }
+
+  // The "Refresh now" button: detach the run via `after()` so it keeps going
+  // on the server for its full maxDuration even if the tab/app closes right
+  // after this responds — a real risk here since a run can take a while
+  // (several external reads plus two Claude calls) and this is tapped from a
+  // phone. The client polls GET /api/digest afterward to pick up the result
+  // if it's still around; if not, the next normal load shows it anyway.
+  after(() => runAndLog(authorized.who).catch((e) => console.error("[digest] run failed:", e)));
+  return NextResponse.json({ ok: true, started: true });
 }
 
 export async function POST(req: NextRequest) {
