@@ -653,3 +653,32 @@ export const dailyDigest = sqliteTable("daily_digest", {
 
 export type DailyDigestRow = typeof dailyDigest.$inferSelect;
 export type NewDailyDigestRow = typeof dailyDigest.$inferInsert;
+
+/**
+ * The monthly client-invoice review's memory — what the office has already
+ * ruled on, so a finding they overruled once stops coming back every month.
+ *
+ * `key` is the finding's stable identity (`findingKey` in lib/invoiceReview/
+ * types.ts: kind|jobId|subject) and is the primary key, so ruling on the same
+ * finding twice rewrites the note instead of stacking rows. A "job-kind" ruling
+ * is stored under the wildcard key (kind|jobId|*) and covers every sibling
+ * finding of that kind on that job.
+ *
+ * Lifting a ruling flips `active` rather than deleting the row, so "we decided
+ * this was fine in August and changed our minds in October" stays on the record.
+ * This is the ONLY thing the invoice review writes anywhere — it never touches
+ * JobTread, Drive, or a number.
+ */
+export const invoiceReviewRulings = sqliteTable("invoice_review_rulings", {
+  key: text("key").primaryKey(),
+  kind: text("kind").notNull().default(""), // FindingKind
+  jobId: text("job_id").notNull().default(""),
+  scope: text("scope").notNull().default("finding"), // finding | job-kind
+  reason: text("reason").notNull().default(""), // why the office overruled it
+  createdBy: text("created_by").notNull().default(""), // signed-in email
+  createdAt: text("created_at").notNull().default(""), // ISO
+  active: integer("active", { mode: "boolean" }).notNull().default(true),
+});
+
+export type InvoiceReviewRulingRow = typeof invoiceReviewRulings.$inferSelect;
+export type NewInvoiceReviewRulingRow = typeof invoiceReviewRulings.$inferInsert;
