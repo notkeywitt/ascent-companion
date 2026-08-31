@@ -176,8 +176,9 @@ Each page is a server component (`page.tsx`) that hands non-secret context to a
   `tracking-sheet`.
 - **Field:** `safety-meeting`, `mileage-tracker`, `employee-time`, `tools`,
   `tool-tracker`, `rfis`, `time-off`, `requisitions`, `more` ("The Rest" — the
-  last button on the field/lead launcher: the curated menu of everything else
-  that role can open; the lists are `TILE_LAUNCHERS` in `src/lib/nav.ts`).
+  last button on the field/lead/office tile launcher: the curated menu of
+  everything else that role can open; the lists are `TILE_LAUNCHERS` in
+  `src/lib/nav.ts`).
 - **Assistant:** `chat`.
 - **Office:** `employees`, `leads`, `labor-import`, `labor-rates`,
   `time-sync`.
@@ -232,9 +233,12 @@ Grouped by domain; each folder is `…/route.ts`.
   in `CLAUDE.md`). Never hand-roll styles.
 - **Chrome / nav:** `AppHeader`, `GlobalSearch` (the app's ONE search box, in the
   header under the job picker — pages + vendors + bills + line items, from any
-  page — hidden for the FIELD role), `TabBar`, `TileLauncher` (the field/lead
-  home launcher — large buttons in place of the office area lists: field gets
-  4, lead 6; curated in `src/lib/nav.ts` → `TILE_LAUNCHERS`),
+  page — hidden for the FIELD role), `TabBar` (bottom shortcut bar; hidden
+  entirely for LEAD, whose home page already carries the same shortcuts as
+  bigger buttons), `TileLauncher` (the field/lead/office home launcher — large
+  buttons in place of the admin area lists: field and office get 4, lead 6;
+  curated in `src/lib/nav.ts` → `TILE_LAUNCHERS`; also renders the office-only
+  `OfficeDigestPlaceholder` reserved slot),
   `PageTitle`, `ThemeToggle`,
   `AscentLogo`, `RefreshButton`/`RefreshProvider`, `SyncNowButton`,
   `AdminActionBar`, `AccessProvider`, `CopyProvider` (editable page text —

@@ -33,11 +33,12 @@ import { AREAS, PREVIEW_ROWS, tileLauncherFor } from "@/lib/nav";
  * pages, vendors, bills and line items from every page. This file just renders
  * the lists.
  *
- * TWO LAUNCHERS. The above describes what OFFICE and ADMIN see. A FIELD or LEAD
- * user gets <TileLauncher> instead: large buttons, ending in "The Rest", which
- * opens /more — a curated menu. Field gets four buttons, lead six. Both
- * launchers read from src/lib/nav.ts (AREAS for the office lists,
- * TILE_LAUNCHERS for the buttons) and both gate every entry on the same view ids.
+ * TWO LAUNCHERS. The above describes what ADMIN sees. FIELD, LEAD, and OFFICE
+ * all get <TileLauncher> instead: large buttons, ending in "The Rest", which
+ * opens /more — a curated menu. Field and office get four buttons, lead six.
+ * Both launchers read from src/lib/nav.ts (AREAS for the admin list,
+ * TILE_LAUNCHERS for the buttons) and both gate every entry on the same view
+ * ids.
  */
 
 function Home() {
@@ -81,13 +82,13 @@ function Home() {
   const badges: Record<string, number> =
     needsProject.count > 0 ? { "needs-project": needsProject.count } : {};
 
-  // Field and lead get a different launcher entirely: large buttons ending in
-  // "The Rest", instead of the office's area lists. Rendered here rather than as
-  // its own route so the phone's home button, the PWA icon, and every "/" link
-  // land on the right launcher without anyone choosing a URL. The banners and
-  // the digest above are all self-gating, so they cost a field phone nothing;
-  // the account footer stays, because signing out and back in is how a changed
-  // role is picked up.
+  // Field, lead, and office get a different launcher entirely: large buttons
+  // ending in "The Rest", instead of the admin area lists. Rendered here rather
+  // than as its own route so the phone's home button, the PWA icon, and every
+  // "/" link land on the right launcher without anyone choosing a URL. The
+  // banners and the digest above are all self-gating, so they cost a field
+  // phone nothing; the account footer stays, because signing out and back in
+  // is how a changed role is picked up.
   const tiles = tileLauncherFor(access.role) !== null;
 
   return (

@@ -4,21 +4,25 @@ import Link from "next/link";
 import { useAccess } from "@/components/AccessProvider";
 import { useCopy } from "@/components/CopyProvider";
 import { LinkPendingOverlay } from "@/components/LinkPending";
+import { EmptyState } from "@/components/ui";
 import { MORE_HREF, tileLauncherFor, type Dest } from "@/lib/nav";
 
 /**
- * The TILE launcher — what a field or lead user sees on the home page.
+ * The TILE launcher — what a field, lead, or office user sees on the home page.
  *
- * Big buttons, nothing else: a field user gets four (Miles · Time · Tools ·
- * The Rest), a lead gets six (those, plus Tracking Sheets and Requisitions
- * before The Rest). A phone in a work glove gets large targets for the pages
- * opened every day and one door to everything else (/more), instead of
- * scrolling past twenty office rows to reach the mileage form.
+ * Big buttons, nothing else: field gets four (Miles · Time · Tools · The
+ * Rest), lead gets six (those three, plus Tracking Sheets and Requisitions,
+ * before The Rest), office gets four (Tools · Requisitions · Time Off · The
+ * Rest — Tracking Sheets/Time/Miles stay off the grid because office keeps the
+ * bottom tab bar, which already carries them). A phone in a work glove gets
+ * large targets for the pages opened every day and one door to everything
+ * else (/more), instead of scrolling past twenty office rows to reach the
+ * mileage form.
  *
- * The office/admin launcher (the area lists in src/app/page.tsx) is untouched —
- * this renders only for roles listed in TILE_LAUNCHERS, and the admin
- * role-preview lens shows it too, so the owner can check either version from
- * /admin without a second login.
+ * The admin launcher (the area lists in src/app/page.tsx) is untouched — this
+ * renders only for roles listed in TILE_LAUNCHERS, and the admin role-preview
+ * lens shows it too, so the owner can check any of the three from /admin
+ * without a second login.
  *
  * WHAT SHOWS HERE IS CURATED IN src/lib/nav.ts (TILE_LAUNCHERS). Every tile is
  * still gated on the same view id as the launcher and the middleware, so a tile
@@ -73,6 +77,12 @@ const ClipboardIcon = () => (
     <path d="M9 12h6M9 16h4" />
   </IconBase>
 );
+const SunIcon = () => (
+  <IconBase>
+    <circle cx="12" cy="12" r="4" />
+    <path d="M12 3v2M12 19v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M3 12h2M19 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4" />
+  </IconBase>
+);
 const GridIcon = () => (
   <IconBase>
     <circle cx="6" cy="6" r="1.6" />
@@ -94,6 +104,7 @@ const ICONS: Record<string, () => React.ReactNode> = {
   tools: WrenchIcon,
   recode: BanknoteIcon,
   requisitions: ClipboardIcon,
+  "time-off": SunIcon,
 };
 
 export function FieldTile({
@@ -121,6 +132,24 @@ export function FieldTile({
   );
 }
 
+/**
+ * Reserved slot for an office version of the admin morning digest (see
+ * DailyDigest.tsx — Gmail/Calendar/Sheet checks, admin-only today). Not wired
+ * to anything yet: this is a placeholder so the office grid below doesn't sit
+ * at the very top of the screen, and so the eventual office digest has a
+ * ready spot rather than needing a layout change to add. Sized to roughly a
+ * third of a phone screen, matching where the real digest sits for admin.
+ */
+function OfficeDigestPlaceholder() {
+  const c = useCopy();
+  return (
+    <EmptyState className="flex min-h-[30vh] flex-col items-center justify-center">
+      {c("home.office-digest.text") ||
+        "Office Daily Digest — coming soon. A morning summary of billing, invoicing, and follow-ups for the office."}
+    </EmptyState>
+  );
+}
+
 export function TileLauncher({ qs = "" }: { qs?: string }) {
   const access = useAccess();
   const c = useCopy();
@@ -132,22 +161,25 @@ export function TileLauncher({ qs = "" }: { qs?: string }) {
   const restCount = (launcher?.rest ?? []).filter((d) => access.can(d.view)).length;
 
   return (
-    <div className="grid grid-cols-2 gap-3">
-      {quick.map((d) => (
-        <FieldTile
-          key={d.href}
-          href={d.href + qs}
-          label={label(d)}
-          Icon={ICONS[d.view] ?? GridIcon}
-        />
-      ))}
-      {restCount > 0 && (
-        <FieldTile
-          href={MORE_HREF + qs}
-          label={c("home.quick.more.label") || "The Rest"}
-          Icon={GridIcon}
-        />
-      )}
+    <div className="space-y-4">
+      {access.role === "office" && <OfficeDigestPlaceholder />}
+      <div className="grid grid-cols-2 gap-3">
+        {quick.map((d) => (
+          <FieldTile
+            key={d.href}
+            href={d.href + qs}
+            label={label(d)}
+            Icon={ICONS[d.view] ?? GridIcon}
+          />
+        ))}
+        {restCount > 0 && (
+          <FieldTile
+            href={MORE_HREF + qs}
+            label={c("home.quick.more.label") || "The Rest"}
+            Icon={GridIcon}
+          />
+        )}
+      </div>
     </div>
   );
 }

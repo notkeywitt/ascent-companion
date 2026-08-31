@@ -101,15 +101,26 @@ export const COPY: Record<string, CopyEntry> = {
   "home.quick.tools.full": { text: "Tools", label: "Tools — full name", group: "Home — quick buttons" },
   "home.quick.requisitions.label": { text: "Reqs", label: "Requisitions — button", group: "Home — quick buttons", short: true },
   "home.quick.requisitions.full": { text: "Requisitions", label: "Requisitions — full name", group: "Home — quick buttons" },
-  // Lead-only buttons (the lead launcher's 4th and 5th tiles). "Reqs" above is
-  // the button word for the 5th; this is the 4th.
+  // Lead-only button (the lead launcher's 4th tile; Reqs above is its 5th).
   "home.quick.recode.label": { text: "Tracking Sheets", label: "Tracking Sheets — button", group: "Home — quick buttons", short: true },
   "home.quick.recode.full": { text: "Tracking Sheets", label: "Tracking Sheets — full name", group: "Home — quick buttons" },
+  // Office-only button (the office launcher's 3rd tile).
+  "home.quick.time-off.label": { text: "Time Off", label: "Time Off — button", group: "Home — quick buttons", short: true },
+  "home.quick.time-off.full": { text: "Time off", label: "Time Off — full name", group: "Home — quick buttons" },
 
-  // The last button on the FIELD and LEAD launchers — it opens /more, the curated menu
-  // of everything else that role can reach (src/lib/nav.ts → TILE_LAUNCHERS).
+  // The last button on the FIELD, LEAD, and OFFICE launchers — it opens /more,
+  // the curated menu of everything else that role can reach (src/lib/nav.ts →
+  // TILE_LAUNCHERS).
   "home.quick.more.label": { text: "The Rest", label: "The Rest — button", group: "Home — quick buttons", short: true },
   "home.quick.more.full": { text: "Everything else", label: "The Rest — full name", group: "Home — quick buttons" },
+
+  // The office launcher's reserved top slot — not wired to real data yet, see
+  // TileLauncher.tsx's OfficeDigestPlaceholder.
+  "home.office-digest.text": {
+    text: "Office Daily Digest — coming soon. A morning summary of billing, invoicing, and follow-ups for the office.",
+    label: "Office Digest placeholder — text",
+    group: "Home — quick buttons",
+  },
 
   // ── Home launcher: Financials destinations ───────────────────────────────
   "home.dest.recode.label": { text: "Tracking Sheets", label: "Tracking Sheets — name", group: "Home — Financials" },

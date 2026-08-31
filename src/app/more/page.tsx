@@ -8,23 +8,23 @@ import { useCopy } from "@/components/CopyProvider";
 import { TILE_LAUNCHERS, tileLauncherFor } from "@/lib/nav";
 
 /**
- * "The Rest" — the fourth button on the field launcher.
+ * "The Rest" — the last button on every TILE launcher (field, lead, office).
  *
- * A plain, one-screen menu of everything a field user can open besides Miles,
- * Time, and Tools. It is deliberately a PAGE, not a popup menu: it is a normal
- * link the back button leaves, and it can grow to any length without fighting a
+ * A plain, one-screen menu of everything that role can open besides what's on
+ * its grid. It is deliberately a PAGE, not a popup menu: it is a normal link
+ * the back button leaves, and it can grow to any length without fighting a
  * phone keyboard.
  *
  * CURATE IT in src/lib/nav.ts → TILE_LAUNCHERS[role].rest — the list differs by
- * role (a lead's carries the billing pages a field user never sees). Rows are
- * still gated on the same view ids as everything else, so listing a page here
- * does not grant it — the role has to grant the view too (Admin → Role
- * Defaults).
+ * role (a lead's carries the billing pages a field user never sees; office's is
+ * derived from AREAS — everything minus its grid and minus the tab bar's three).
+ * Rows are still gated on the same view ids as everything else, so listing a
+ * page here does not grant it — the role has to grant the view too (Admin →
+ * Role Defaults).
  *
  * The route itself needs no gate in lib/views: it renders nothing but links the
- * viewer already has. Office and admin have no tile launcher and never link
- * here; if one lands on the URL anyway, they get the lead menu, filtered to
- * what they can open.
+ * viewer already has. Admin has no tile launcher and never links here; if it
+ * lands on the URL anyway, it gets the lead menu, filtered to what it can open.
  */
 function More() {
   const search = useSearchParams();

@@ -107,18 +107,30 @@ export const AREAS: Area[] = [
 ];
 
 /**
- * ── The TILE launchers (field + lead) ─────────────────────────────────────
+ * ── The TILE launchers (field + lead + office) ────────────────────────────
  *
- * A field or lead user's home page is NOT the area lists above. It is a grid of
- * large buttons: the pages that role opens all day, plus one final button —
- * "The Rest" — that opens /more, a plain menu of everything else they may open.
+ * A field, lead, or office user's home page is NOT the area lists above. It is
+ * a grid of large buttons: the pages that role opens all day, plus one final
+ * button — "The Rest" — that opens /more, a plain menu of everything else they
+ * may open.
  *
- *   field — 4 buttons: Miles · Time · Tools · The Rest. No search box either
- *           (see AppHeader): the four buttons are the whole app.
- *   lead  — 6 buttons: the field three plus Tracking Sheets and Requisitions,
- *           then The Rest. Leads keep the header search box.
+ *   field  — 4 buttons: Miles · Time · Tools · The Rest. No search box either
+ *            (see AppHeader): the four buttons are the whole app. No bottom
+ *            tab bar either — the same shortcuts, so a second row would repeat
+ *            the grid one screen down. See TabBar.tsx.
+ *   lead   — 6 buttons: the field three plus Tracking Sheets and Requisitions,
+ *            then The Rest. Leads keep the header search box AND the bottom
+ *            tab bar — TabBar's own default 3 (Tracking Sheets/Time/Miles)
+ *            duplicate three of these six, which reads as "redundant" the way
+ *            field's did; unlike field, a lead's grid is 6 wide rather than a
+ *            clean subset of the bar's 3, so the bar stays off for lead only
+ *            by role check in TabBar.tsx, not by shrinking the grid.
+ *   office — 4 buttons: Tools · Requisitions · Time Off · The Rest. Office
+ *            KEEPS the bottom tab bar (Tracking Sheets/Time/Miles), so those
+ *            three are deliberately left OFF this grid — see OFFICE_REST
+ *            below, which excludes them for the same reason.
  *
- * Office and admin are unaffected — they get the AREAS lists above.
+ * Admin is unaffected — it gets the AREAS lists above.
  *
  * TO CURATE A ROLE'S BUTTONS, edit TILE_LAUNCHERS below — this is the only
  * place to change. Three rules:
@@ -136,7 +148,7 @@ export interface TileLauncher {
   rest: Dest[];
 }
 
-// The everyday three, shared by both tile roles. `label` here is the SHORT
+// The everyday few, shared across tile roles. `label` here is the SHORT
 // button word (the launcher reads home.quick.<view>.label first, so the office
 // can reword it); the long name is what /more and search show.
 const TILE_MILES: Dest = { label: "Miles", href: "/mileage-tracker", desc: "Track your mileage", view: "mileage" };
@@ -144,16 +156,29 @@ const TILE_TIME: Dest = { label: "Time", href: "/employee-time", desc: "Log and 
 const TILE_TOOLS: Dest = { label: "Tools", href: "/tools", desc: "The tool tracker", view: "tools" };
 const TILE_SHEETS: Dest = { label: "Tracking Sheets", href: "/trackingsheet", desc: "Code a month's bills against live budget headroom", view: "recode" };
 const TILE_REQS: Dest = { label: "Requisitions", href: "/requisitions", desc: "Request materials & supplies", view: "requisitions" };
+const TILE_TIME_OFF: Dest = { label: "Time Off", href: "/time-off", desc: "Request time off & see your balance", view: "time-off" };
 
-// Menu rows both tile roles get. Entries a role doesn't grant simply don't
+// Menu rows both field and lead get. Entries a role doesn't grant simply don't
 // render, so one list serves both (a field user sees the first two today).
 const REST_COMMON: Dest[] = [
-  { label: "Time Off", href: "/time-off", desc: "Request time off & see your balance", view: "time-off" },
+  TILE_TIME_OFF,
   { label: "Safety Meeting", href: "/safety-meeting", desc: "Pass the iPad and collect sign-ins", view: "safety-meeting" },
   { label: "RFIs", href: "/rfis", desc: "View and create a job's RFIs", view: "rfis" },
   { label: "Requests", href: "/requests", desc: "Ask for fixes and new features", view: "requests" },
   { label: "Assistant", href: "/chat", desc: "Ask about a job's bills or budget", view: "chat" },
 ];
+
+// Office's grid leaves off Tracking Sheets, Miles, and Time — the bottom tab
+// bar already carries them for this role (see the header comment above and
+// TabBar.tsx's TAB_CANDIDATES). Its "rest" menu is everything ELSE office can
+// reach: every AREAS destination minus those three and minus the three grid
+// buttons, so this stays derived from the one list rather than a second copy
+// that can drift from it as pages are added.
+const OFFICE_GRID_VIEWS = new Set(["tools", "requisitions", "time-off"]);
+const OFFICE_TABBAR_VIEWS = new Set(["recode", "mileage", "employee-time"]);
+const OFFICE_REST: Dest[] = AREAS.flatMap((a) => a.dests).filter(
+  (d) => !OFFICE_GRID_VIEWS.has(d.view) && !OFFICE_TABBAR_VIEWS.has(d.view),
+);
 
 export const TILE_LAUNCHERS: Record<string, TileLauncher> = {
   field: {
@@ -171,6 +196,10 @@ export const TILE_LAUNCHERS: Record<string, TileLauncher> = {
       { label: "Labor Review", href: "/labor-review", desc: "Code a month's logged time against the same headroom", view: "labor-review" },
       ...REST_COMMON,
     ],
+  },
+  office: {
+    quick: [TILE_TOOLS, TILE_REQS, TILE_TIME_OFF],
+    rest: OFFICE_REST,
   },
 };
 
