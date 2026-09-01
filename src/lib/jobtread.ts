@@ -1596,6 +1596,12 @@ export interface MonthBill {
   invoiced: boolean;
   /** Attached files (the scanned invoice) — 0 means nothing to review against. */
   fileCount: number;
+  /** Money recorded against the bill. Computed by JobTread from QuickBooks (see
+   *  setBillStatus) — not settable here. A draft reads 0 / 0, so `balance === 0`
+   *  alone does NOT mean paid; `billPaidState` reads the pair together. */
+  amountPaid: number;
+  /** Still owed on the bill: cost − amountPaid. */
+  balance: number;
 }
 
 /**
@@ -1663,6 +1669,8 @@ export async function getJobBillsForMonth(
               nonRecoverableTax: {},
               nonRecoverableTaxName: {},
               qboIsIgnored: {},
+              amountPaid: {},
+              balance: {},
               account: { name: {} },
               referencedDocuments: { nodes: { type: {} } },
               files: { count: {} },
@@ -1722,6 +1730,8 @@ export async function getJobBillsForMonth(
         qboIsIgnored: !!b?.qboIsIgnored,
         invoiced: isInvoiced(b),
         fileCount: typeof b?.files?.count === "number" ? b.files.count : 0,
+        amountPaid: typeof b?.amountPaid === "number" ? b.amountPaid : 0,
+        balance: typeof b?.balance === "number" ? b.balance : 0,
       };
     })
     // Newest first: the board is worked as bills arrive, so the ones that just
@@ -3475,6 +3485,11 @@ export interface AllJobsBill {
   createdAt: string;
   status: string;
   invoiced: boolean;
+  /** Money recorded against the bill — JobTread computes both from QuickBooks.
+   *  A draft reads 0 / 0, so read them as a pair (`billPaidState`). */
+  amountPaid: number;
+  /** Still owed on the bill: cost − amountPaid. */
+  balance: number;
   jobId: string;
   jobName: string;
   customerName: string;
@@ -3532,12 +3547,14 @@ export async function getAllBillsForMonth(
   // selection (same guard as getMonthlyInvoiceJobs / getAllDraftBills).
   const rich = {
     id: {}, cost: {}, status: {}, issueDate: {}, createdAt: {}, fromName: {},
+    amountPaid: {}, balance: {},
     account: { name: {} },
     job: { id: {}, name: {}, location: { account: { name: {} } } },
     referencedDocuments: { nodes: { type: {} } },
   };
   const min = {
     id: {}, cost: {}, status: {}, issueDate: {}, createdAt: {}, fromName: {},
+    amountPaid: {}, balance: {},
     job: { id: {}, name: {} },
     referencedDocuments: { nodes: { type: {} } },
   };
@@ -3575,6 +3592,8 @@ export async function getAllBillsForMonth(
       createdAt: b.createdAt ?? "",
       status: b.status ?? "",
       invoiced,
+      amountPaid: typeof b.amountPaid === "number" ? b.amountPaid : 0,
+      balance: typeof b.balance === "number" ? b.balance : 0,
       jobId: job.id,
       jobName: job.name ?? "",
       customerName: job.location?.account?.name ?? "",

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { JtLink } from "@/components/JtLink";
-import { driveMainWindowToDoc, money } from "@/components/BillingSummary";
+import { billPaidState, driveMainWindowToDoc, money } from "@/components/BillingSummary";
 import { Banner, Card, Chip, EmptyState, Label, Loading, SectionLabel, inputCls } from "@/components/ui";
 import { useUnsavedChanges } from "@/lib/useUnsavedChanges";
 import { monthOptions } from "./Roster";
@@ -38,6 +38,9 @@ interface AllBill {
   createdAt: string;
   status: string;
   invoiced: boolean;
+  /** Paid-in-QuickBooks figures JobTread computes — read as a pair, see billPaidState. */
+  amountPaid: number;
+  balance: number;
   needsReview: boolean;
   jobId: string;
   jobName: string;
@@ -193,6 +196,7 @@ export function AllBills({ ym, setYm }: { ym: string; setYm: (ym: string) => voi
   // it's a plain link to the bill's own page, same as before.
   const renderBillCard = (b: AllBill) => {
     const active = wide && b.id === selId;
+    const paid = billPaidState(b);
     const body = (
       <>
         <span className="flex items-baseline justify-between gap-3">
@@ -222,6 +226,19 @@ export function AllBills({ ym, setYm }: { ym: string; setYm: (ym: string) => voi
                 uninvoiced
               </Chip>
             )
+          )}
+          {/* Paid = money recorded against the bill in QuickBooks. It is a
+              different axis from "invoiced" (what the CLIENT has been billed),
+              so both chips can sit on one row. */}
+          {paid === "paid" && (
+            <Chip tone="success" title={`Paid in full — ${money(b.amountPaid)} recorded in QuickBooks`}>
+              ✓ paid
+            </Chip>
+          )}
+          {paid === "partial" && (
+            <Chip tone="warning" title={`${money(b.amountPaid)} paid · ${money(b.balance)} still owed`}>
+              part paid
+            </Chip>
           )}
         </span>
       </>

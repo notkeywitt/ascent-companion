@@ -50,6 +50,7 @@ import { InvoiceReconcile, type Recon } from "@/components/InvoiceReconcile";
 import { UncapturedBills } from "@/components/UncapturedBills";
 import {
   Breakdown,
+  billPaidState,
   driveMainWindowToDoc,
   printJob,
   type Detail,
@@ -103,6 +104,9 @@ interface BillRef {
   nonRecoverableTax: number;
   nonRecoverableTaxName: string | null;
   qboIsIgnored: boolean;
+  /** Paid-in-QuickBooks figures JobTread computes — read as a pair, see billPaidState. */
+  amountPaid: number;
+  balance: number;
   saved: boolean;
   reviewed: boolean;
   needsReview: boolean;
@@ -2272,6 +2276,25 @@ export function Board() {
                     uninvoiced
                   </Chip>
                 )
+              )}
+              {/* Paid = money recorded against the bill in QuickBooks — a
+                  different axis from "invoiced" (what the CLIENT has been
+                  billed), so both chips can sit on one row. */}
+              {billPaidState(b) === "paid" && (
+                <Chip
+                  tone="success"
+                  title={`Paid in full — ${money(b.amountPaid)} recorded in QuickBooks`}
+                >
+                  ✓ paid
+                </Chip>
+              )}
+              {billPaidState(b) === "partial" && (
+                <Chip
+                  tone="warning"
+                  title={`${money(b.amountPaid)} paid · ${money(b.balance)} still owed`}
+                >
+                  part paid
+                </Chip>
               )}
               {movedHere > 0 && <Chip tone="warning">{movedHere} moved</Chip>}
               {/* Same pair the coding queue shows. */}
