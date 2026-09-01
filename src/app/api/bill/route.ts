@@ -14,19 +14,24 @@ export async function GET(req: NextRequest) {
     );
   }
   const docId = req.nextUrl.searchParams.get("docId")?.trim();
-  const jobId = req.nextUrl.searchParams.get("jobId")?.trim();
-  if (!docId || !jobId) {
-    return NextResponse.json({ error: "Pass ?docId=<bill id>&jobId=<job id>" }, { status: 400 });
+  // jobId is optional: it's only needed for the job's budget + CTC. The bill
+  // itself knows its own job, so a link that arrives without ?jobId (some review
+  // and digest links) still resolves — we read the bill, then use its job.
+  const jobIdParam = req.nextUrl.searchParams.get("jobId")?.trim();
+  if (!docId) {
+    return NextResponse.json({ error: "Pass ?docId=<bill id> (and optional &jobId=<job id>)" }, { status: 400 });
   }
   try {
     const cfg = getPaveConfig();
-    // getBillDetail carries the attached files, so this is 4 Pave calls total
-    // (header+lines+files, budget leaves, and the two CTC aggregates).
-    const [detail, budget, costToComplete] = await Promise.all([
-      getBillDetail(cfg, docId),
-      getJobBudget(cfg, jobId),
-      getCostToComplete(cfg, jobId),
-    ]);
+    // The bill first (it carries its own jobId); then the job's budget + CTC,
+    // keyed on the passed jobId when present, else the bill's own job.
+    const detail = await getBillDetail(cfg, docId);
+    const jobId = jobIdParam || detail.jobId;
+    // getBillDetail already fetched header+lines+files; budget leaves and the two
+    // CTC aggregates are the remaining calls, skipped when the job is unknown.
+    const [budget, costToComplete] = jobId
+      ? await Promise.all([getJobBudget(cfg, jobId), getCostToComplete(cfg, jobId)])
+      : [[], {}];
 
     // Assistant-local flags for this bill: saved (Save clicked) and reviewed
     // (explicitly marked done) — the same pair the coding queue shows. Best-effort.
@@ -51,6 +56,9 @@ export async function GET(req: NextRequest) {
       budget,
       files: detail.files,
       costToComplete,
+      // The bill's resolved job, so a page opened without ?jobId can adopt it for
+      // its back link, coding-queue pager and neighbour prefetch.
+      jobId,
       writesEnabled: writesEnabled(),
       reviewed,
       saved,

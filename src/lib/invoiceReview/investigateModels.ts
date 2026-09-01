@@ -58,10 +58,16 @@ export const INVESTIGATE_MODELS: InvestigateModel[] = [
 /**
  * The default.
  *
- * Sonnet, deliberately: most months are a handful of findings with obvious
- * answers, and the office can escalate to Opus on a month that looks messy.
- * `ANTHROPIC_MODEL_INVESTIGATE` still overrides it for a deploy-wide change,
- * but only to something on the list above.
+ * Sonnet, deliberately, for two reasons that arrived independently and agree:
+ * most months are a handful of findings with obvious answers and do not need
+ * the frontier model; and a verdict never suppresses a finding on its own, so
+ * the blast radius of a cautious or wrong call is bounded by design. Keeping
+ * Opus out of the default path here matches the rest of the app, which was
+ * moved off Opus for the same reason.
+ *
+ * The office can escalate to Opus per run on a month that looks messy.
+ * `ANTHROPIC_MODEL_INVESTIGATE` still overrides the default deploy-wide, but
+ * only to something on the list above.
  */
 export const DEFAULT_INVESTIGATE_MODEL = "claude-sonnet-5";
 

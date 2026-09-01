@@ -41,16 +41,16 @@ import { ALL_CHECKS } from "./registry";
 import type { ReviewMiss } from "./misses";
 
 /**
- * Opus by default, unlike the rest of the feature.
+ * Sonnet by default.
  *
  * narrate.ts summarizes findings that are already decided, which is not a
  * reasoning task. This IS one: it reads a pile of half-written notes about
  * things that went wrong and works out what they have in common and whether a
- * rule could catch it. It runs a handful of times a year, so the frontier model
- * is the obvious call — the expensive thing here would be a bad check, not a
- * bad token.
+ * rule could catch it. It only proposes a spec for a human to implement — it
+ * never writes a check itself — so Sonnet carries it, keeping Opus out of every
+ * app path. ANTHROPIC_MODEL_LEARN overrides the default.
  */
-const MODEL = process.env.ANTHROPIC_MODEL_LEARN?.trim() || "claude-opus-5";
+const MODEL = process.env.ANTHROPIC_MODEL_LEARN?.trim() || "claude-sonnet-5";
 /** Room for thinking AND for several full proposals. See the note in
  *  digest/claude.ts about ceilings that only fit the prose. */
 const MAX_TOKENS = 32_000;

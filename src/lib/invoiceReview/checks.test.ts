@@ -648,11 +648,11 @@ describe("the paste-into-Claude briefing", () => {
 });
 
 describe("the links a finding hands the office", () => {
-  it("carries jobId on a bill link, which /bill/[docId] requires", () => {
-    // The page reads the doc id from the PATH and the job id from the QUERY,
-    // and passes both to /api/bill. Without jobId the route answers
-    // "Pass ?docId=<bill id>&jobId=<job id>" where the bill should be — so the
-    // button looks fine and does nothing.
+  it("carries jobId on a bill link so the page's pager works on arrival", () => {
+    // The page reads the doc id from the PATH and the job id from the QUERY.
+    // /api/bill can now recover the job from the bill when jobId is absent, so a
+    // link without it still opens — but we pass it anyway to power the page's
+    // coding-queue pager and Back link without an extra lookup.
     expect(billLink("J1", "b1")).toBe("/bill/b1?jobId=J1");
   });
 

@@ -63,6 +63,9 @@ interface BillPayload {
   budget?: Option[];
   costToComplete?: Record<string, { budget: number; actual: number; remaining: number }>;
   files?: FileNode[];
+  /** The bill's own job, resolved server-side — present even when the link that
+   *  opened this page carried no ?jobId. */
+  jobId?: string;
   writesEnabled?: boolean;
   reviewed?: boolean;
   saved?: boolean;
@@ -162,7 +165,13 @@ function BillDetail() {
   const params = useParams<{ docId: string }>();
   const search = useSearchParams();
   const docId = params.docId;
-  const jobId = search.get("jobId") ?? "";
+  // The link that opened this page usually carries ?jobId, but some review /
+  // digest bill links don't. When it's absent, /api/bill still returns the bill
+  // (it knows its own job) plus that job's id, which we adopt below so the Back
+  // link, coding-queue pager and neighbour prefetch keep working.
+  const urlJobId = search.get("jobId") ?? "";
+  const [resolvedJobId, setResolvedJobId] = useState("");
+  const jobId = urlJobId || resolvedJobId;
   // Where Back returns to. Pages that deep-link here say so with ?from=… — the
   // three Tracking Sheets surfaces (`recode` the workbench, `invoicing` the
   // all-jobs month roster, `drafts` the needs-coding queue) and the Sunset
@@ -274,6 +283,8 @@ function BillDetail() {
     setWrites(Boolean(json.writesEnabled));
     setReviewed(Boolean(json.reviewed));
     setSaved(Boolean(json.saved));
+    // Adopt the bill's own job when the URL didn't provide one.
+    if (json.jobId) setResolvedJobId(json.jobId);
   }
 
   useEffect(() => {
