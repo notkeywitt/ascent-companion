@@ -44,7 +44,7 @@ Two options:
 | `COMPANION_WRITES_ENABLED` | leave unset (writes stay off) |
 | `GEMINI_KEY` | Gemini key — **Add a Bill** extraction + Sunset statement extraction |
 | `ANTHROPIC_API_KEY` | Anthropic API key (powers the **Assistant** chat, and the **Daily Digest**'s summary + email-signals check) |
-| `ANTHROPIC_MODEL` | `claude-sonnet-5` (or leave unset for Opus 4.8) — the **Assistant** chat's model |
+| `ANTHROPIC_MODEL` | defaults to `claude-sonnet-5` — the **Assistant** chat's model |
 | `ANTHROPIC_MODEL_DIGEST` | optional; defaults to `claude-sonnet-5` — the **Daily Digest**'s own model knob, separate from the chat assistant's |
 | `GOOGLE_MAPS_API_KEY` | Maps key for **Mileage** (enable the **Routes API**; **Geocoding API** for addresses) |
 | `APPS_SCRIPT_SYNC_URL` | the Apps Script `/exec` URL (Sheets/Drive features: employees, tools, safety, mileage, email logging, payments) |

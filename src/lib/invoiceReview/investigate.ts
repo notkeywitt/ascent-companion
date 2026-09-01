@@ -48,13 +48,14 @@ import {
 import type { ReviewPayload } from "./types";
 
 /**
- * Opus by default. This is the reasoning surface of the feature — it decides
- * what a pile of half-explained discrepancies actually means, and a cheap wrong
- * verdict on a real double-bill costs far more than the call ever will.
+ * Sonnet by default. This is the reasoning surface of the feature — it decides
+ * what a pile of half-explained discrepancies actually means — but a verdict
+ * never suppresses a finding on its own, so a cautious call is bounded, and the
+ * feature runs on Sonnet to keep Opus out of every app path.
  * ANTHROPIC_MODEL_INVESTIGATE overrides it without disturbing the summary's own
  * model setting.
  */
-const MODEL = process.env.ANTHROPIC_MODEL_INVESTIGATE?.trim() || "claude-opus-5";
+const MODEL = process.env.ANTHROPIC_MODEL_INVESTIGATE?.trim() || "claude-sonnet-5";
 /** Room for thinking AND for a verdict on every finding. See the ceiling note
  *  in digest/claude.ts — a budget sized for the visible output alone fails by
  *  returning nothing at all. */
