@@ -756,6 +756,27 @@ async function applySchema() {
     )
   `);
 
+  // Claude's verdict on each finding, from the investigation pass. Kept apart
+  // from the findings themselves because a finding is what a check COMPUTED and
+  // a disposition is what a model JUDGED — see db/schema.ts. A disposition
+  // never suppresses anything; only a ruling does that.
+  await getClient().execute(`
+    CREATE TABLE IF NOT EXISTS invoice_review_dispositions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      ym TEXT NOT NULL,
+      key TEXT NOT NULL,
+      verdict TEXT NOT NULL DEFAULT 'needs-human',
+      why TEXT NOT NULL DEFAULT '',
+      suggested_action TEXT NOT NULL DEFAULT '',
+      model TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL
+    )
+  `);
+  await getClient().execute(`
+    CREATE UNIQUE INDEX IF NOT EXISTS invoice_review_dispositions_ym_key_idx
+      ON invoice_review_dispositions (ym, key)
+  `);
+
   // The Daily Digest's todo/reminder memory, sender ignore-rules, and reply audit
   // trail — written only by POST /api/digest/reply, read by the digest-todos
   // check and (ignore rules) the email-followups check. See db/schema.ts.

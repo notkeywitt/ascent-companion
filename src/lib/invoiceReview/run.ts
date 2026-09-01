@@ -13,6 +13,7 @@
  * finding. A reviewer still cannot change anything it reviews.
  */
 import { loadMonthEvidence } from "./evidence";
+import { attachDispositions, readDispositions } from "./dispositions";
 import { activeInstructions } from "./instructions";
 import { attachHistory, readFindingState, recordFindings } from "./lifecycle";
 import { narrateReview } from "./narrate";
@@ -66,6 +67,12 @@ export async function runInvoiceReview(
   // new. `attachHistory` no-ops when there is no memory yet.
   const ranAt = new Date().toISOString();
   findings = attachHistory(findings, await readFindingState(evidence.ym), ranAt);
+
+  // Any verdict Claude already reached on these findings (investigate.ts).
+  // Carried through so an expensive pass survives a reload — and applied by
+  // KEY, so a finding whose evidence moved keeps its verdict only if it is
+  // still recognisably the same finding.
+  findings = attachDispositions(findings, await readDispositions(evidence.ym));
 
   // Claude writes the opening paragraph; the checks own every number in it.
   // A failure here is never allowed to cost the office the review, but it is no

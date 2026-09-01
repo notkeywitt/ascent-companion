@@ -111,6 +111,33 @@ export interface Finding {
    * first time". A month reviewed once has no history for anything.
    */
   history?: FindingHistoryNote;
+  /**
+   * What Claude made of this after investigating it (see investigate.ts).
+   * Absent until someone runs the investigation pass for the month.
+   *
+   * A DISPOSITION IS NOT A RULING. It changes nothing, hides nothing, and does
+   * not alter the severity — it only says where to start. Only the office can
+   * silence a finding, and only through `suppressedBy`.
+   */
+  disposition?: FindingDisposition;
+}
+
+/** Claude's reading of one finding after chasing it. See investigate.ts. */
+export interface FindingDisposition {
+  /**
+   * "confirmed"     — a real problem; act on it.
+   * "probably-fine" — a benign explanation was found, and `why` states it.
+   *                   The finding STAYS on the list at full severity.
+   * "needs-human"   — could not be settled from the evidence available.
+   */
+  verdict: "confirmed" | "probably-fine" | "needs-human";
+  /** What was checked and what it showed — not a restatement of the finding. */
+  why: string;
+  /** A concrete next step, when there is one. */
+  suggestedAction: string;
+  /** Which model produced it, so a change in quality is attributable. */
+  model: string;
+  at: string;
 }
 
 /** What the review remembers about one finding. */

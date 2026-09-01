@@ -65,6 +65,7 @@ matching row here.
 | **Adding an invoice-review check** | write `src/lib/invoiceReview/checks/<id>.ts`, add its config block to `settings.ts`, add one line to `registry.ts` — the runner, the route, the history and the page are untouched |
 | **Why the review missed something / making it learn** | file it via the page's "Something this missed?" box → `src/lib/invoiceReview/misses.ts`; `POST /api/invoice-review/learn` asks Claude what check would have caught it (`learn.ts`) — the answer is a proposal a person implements |
 | **Is a check any good?** | `GET /api/invoice-review/accuracy` — precision derived in `src/lib/invoiceReview/lifecycle.ts` from what the office did next, not from anyone scoring anything |
+| **Having Claude chase the findings** | `POST /api/invoice-review/investigate` → `src/lib/invoiceReview/investigate.ts` + `investigateTools.ts`; verdicts stored by `dispositions.ts` and drawn on each finding |
 | **Adding a digest check** | write `src/lib/digest/checks/<id>.ts`, add its config block to `src/lib/digest/settings.ts`, add one line to `src/lib/digest/registry.ts` — the aggregator, the cron route and the UI are untouched |
 
 ## `src/lib/` — shared logic (the most-reused code)
@@ -144,6 +145,9 @@ Staged expansion plan: `INVOICE_ACCURACY_PLAN.md`.
 | `norms.ts` ⟂-ish | What normal looks like, learned from stored payloads: vendor cadence, and each CUSTOMER'S typical markup (median, and name normalizers so three spellings of one supplier aren't three vendors). Attached to the evidence by the runner so checks stay pure. Below 3 months of history it returns nothing: no baseline is NO signal. |
 | `misses.ts` | **The training set** — billing mistakes the review did NOT catch. The only input a genuinely new check can come from; every other memory here can only make it quieter. Deliberately cheap to file (description is the one required field). |
 | `learn.ts` | Claude reads the miss log + the current check list and PROPOSES checks that would have caught them. Opus, thinking on — this is a reasoning task, unlike narrate.ts. Returns a spec for a human to implement; never writes a check, moves a setting, or suppresses anything. |
+| `investigateTools.ts` ⟂-ish | The investigator's read-only tool surface, bound to ONE review. Almost all pure functions over the already-loaded month — which is why they are unit-tested like the checks are, and why Claude cannot reach past the month. `search_backup_by_amount` does the cross-job Drive search `SKILL.md` asks a human for; `record_disposition` refuses a key not in the review. |
+| `investigate.ts` | The tool loop. Claude chases each finding and returns a verdict — confirmed / probably-fine / needs-human. Opus, thinking on. Verdicts arrive through a tool, not a final JSON blob, so a truncated run still yields what it settled. |
+| `dispositions.ts` | Stores those verdicts so an expensive pass survives a reload. **A disposition is NOT a ruling** — it changes no number, no severity, and hides nothing. Only the office silences a finding. |
 | `instructions.ts` | Standing preferences for how the month is READ OUT, injected into the summary prompt. Cannot hide a finding — that is what a ruling is for — which is what makes them safe to add casually. |
 | `checks/margin.ts` ⟂ | **The check that matters most for cost-plus** — a line that reached a client invoice at cost, or under it. The markup IS the revenue, and nothing else notices: the invoice foots, the bill is captured, the backup is filed, the client pays it. Needs no history. Its whole false-positive risk is lines with NO cost recorded (JobTread holds 0 for a flat-priced line), so it judges only lines with a real cost and price above a floor; `passThroughCodes` in settings.ts is the valve for codes billed at cost on purpose. |
 | `checks/markupDrift.ts` ⟂ | A customer's blended markup this month against their OWN recent median. Ascent charges different markups to different customers, so there is no house rate to check against — this check has no configured version that would work, only a learned one. Month-scoped so a customer with three jobs yields one finding, and it reports both directions (under-billing is the loss; over-billing is what the client notices). |
@@ -158,7 +162,9 @@ off, and a check that throws without taking the review down), `norms.test.ts`
 (the vendor-name key, and mostly the SILENCE — every case where a
 pattern-based check must not speak), `margin.test.ts` (the markup checks, and
 above all the lines they must NOT judge — a no-cost line, a credit, a
-pass-through code) and `rulings.test.ts` (how far each
+pass-through code) and `investigate.test.ts` (the investigator's lookups — what
+Claude is SHOWN can be pinned exactly even though its judgement cannot, plus the
+guard that stops a hallucinated key becoming a stored verdict) and `rulings.test.ts` (how far each
 suppression scope reaches, and where it must stop).
 Skill: `.claude/skills/invoice-review/SKILL.md` drives the same review from a
 Claude Code session. Drive half: `ascent-appscript/ClientInvoiceReview.js`.
@@ -311,8 +317,9 @@ Grouped by domain; each folder is `…/route.ts`.
 has run — the history the learning layer reads), `invoice_review_finding_state`
 (when each finding appeared and whether it went away — ages + check precision),
 `invoice_review_misses` (mistakes the review didn't catch — the training set),
-`invoice_review_instructions` (how the month is read out). Access via
-`src/db/index.ts`.
+`invoice_review_instructions` (how the month is read out),
+`invoice_review_dispositions` (Claude's verdict on each finding — a reading, not
+a ruling). Access via `src/db/index.ts`.
 
 (`bill_index`/`bill_line_index`/`bill_index_meta` back the `/bill-search` index —
 the searchable snapshot of every bill + line item, plus its refresh/seed

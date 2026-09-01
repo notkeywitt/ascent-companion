@@ -915,6 +915,44 @@ export const invoiceReviewInstructions = sqliteTable("invoice_review_instruction
 export type InvoiceReviewInstructionRow = typeof invoiceReviewInstructions.$inferSelect;
 
 /**
+ * CLAUDE'S VERDICT ON ONE FINDING — the output of the investigation pass.
+ *
+ * WHY THIS IS SEPARATE FROM THE FINDING. A finding is what a CHECK decided, and
+ * it is reproducible: run the same evidence through the same check and you get
+ * the same finding. A disposition is what CLAUDE made of it after chasing it —
+ * a judgement, not a computation, and one that could come out differently on a
+ * second pass. Keeping them in different tables keeps that distinction visible
+ * instead of letting a model's opinion harden into a fact about the month.
+ *
+ * THE BOUNDARY THIS TABLE MUST NOT CROSS. A disposition never changes a number,
+ * never suppresses a finding, and never counts as a ruling. Only the office can
+ * rule (see `invoice_review_rulings`), and only a ruling silences anything.
+ * `verdict: "probably-fine"` still leaves the finding on the list — it just
+ * tells the reader where to start.
+ *
+ * Keyed (ym, key) so a second investigation of the same month overwrites rather
+ * than stacking: the newest reading is the one worth keeping, and the run
+ * history already records what the month looked like at each point in time.
+ */
+export const invoiceReviewDispositions = sqliteTable("invoice_review_dispositions", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  ym: text("ym").notNull(),
+  /** The finding's stable identity (`findingKey` in lib/invoiceReview/types.ts). */
+  key: text("key").notNull(),
+  /** confirmed | probably-fine | needs-human. See investigate.ts for what each means. */
+  verdict: text("verdict").notNull().default("needs-human"),
+  /** Claude's reasoning, in a sentence or two. The whole value of the pass. */
+  why: text("why").notNull().default(""),
+  /** What it suggests doing about it, when it has a concrete suggestion. */
+  suggestedAction: text("suggested_action").notNull().default(""),
+  /** Which model produced this, so a change in quality is attributable. */
+  model: text("model").notNull().default(""),
+  createdAt: text("created_at").notNull(),
+});
+
+export type InvoiceReviewDispositionRow = typeof invoiceReviewDispositions.$inferSelect;
+
+/**
  * The Daily Digest's todo/reminder memory — what the owner asked to be reminded
  * of via the reply box (see src/lib/digest/checks/digestTodos.ts and
  * src/app/api/digest/reply/route.ts). Assistant-owned; JobTread has no such

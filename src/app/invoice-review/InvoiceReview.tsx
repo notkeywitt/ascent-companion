@@ -83,6 +83,23 @@ function inLens(f: Finding, lens: Lens): boolean {
   return lens === "fix" ? f.severity === "error" : f.severity === "warning";
 }
 
+/** How a verdict reads on screen. Wording matters here: "probably fine" must not
+ *  sound like a dismissal, because the finding is still on the list. */
+const VERDICT_LABEL: Record<NonNullable<Finding["disposition"]>["verdict"], string> = {
+  confirmed: "Looks real",
+  "probably-fine": "Probably fine",
+  "needs-human": "Needs a look",
+};
+
+const VERDICT_TONE: Record<
+  NonNullable<Finding["disposition"]>["verdict"],
+  "danger" | "warning" | "neutral"
+> = {
+  confirmed: "danger",
+  "probably-fine": "neutral",
+  "needs-human": "warning",
+};
+
 /**
  * How long this finding has been showing up — "new", or "standing since 3 Aug".
  *
@@ -142,6 +159,11 @@ export function InvoiceReview() {
   // "Copied" / "Couldn't copy" on the hand-to-Claude button.
   const [copied, setCopied] = useState("");
 
+  // The investigation pass — Claude chasing each finding with read-only tools.
+  const [investigating, setInvestigating] = useState(false);
+  const [investigateNote, setInvestigateNote] = useState("");
+  const [investigateError, setInvestigateError] = useState("");
+
   /**
    * Load a month. `stored` reads the last FILED run — instant, because it is
    * that run rather than a fresh sweep of JobTread, Drive and Gmail — and
@@ -184,6 +206,60 @@ export function InvoiceReview() {
   useEffect(() => {
     void load(true);
   }, [load]);
+
+  /**
+   * Ask Claude to work the list — search Drive for a missing amount, check a
+   * vendor's other spellings, open a suspected double-bill. The verdicts come
+   * back per finding and are stored, so this is paid for once.
+   */
+  const investigate = useCallback(async () => {
+    setInvestigating(true);
+    setInvestigateError("");
+    setInvestigateNote("");
+    try {
+      const res = await fetch("/api/invoice-review/investigate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ym }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.error ?? "The investigation failed.");
+      setInvestigateNote(json.note ?? "");
+      // Stamp the verdicts onto what is already on screen rather than
+      // re-running a minute-long review to see them.
+      const byKey = new Map(
+        (json.dispositions ?? []).map((d: { key: string }) => [d.key, d]),
+      );
+      setData((prev) =>
+        prev
+          ? {
+              ...prev,
+              findings: prev.findings.map((f) => {
+                const d = byKey.get(f.key) as
+                  | { verdict: string; why: string; suggestedAction: string }
+                  | undefined;
+                return d
+                  ? {
+                      ...f,
+                      disposition: {
+                        verdict: d.verdict as NonNullable<Finding["disposition"]>["verdict"],
+                        why: d.why,
+                        suggestedAction: d.suggestedAction,
+                        model: json.model ?? "",
+                        at: new Date().toISOString(),
+                      },
+                    }
+                  : f;
+              }),
+            }
+          : prev,
+      );
+    } catch (e) {
+      setInvestigateError(e instanceof Error ? e.message : "The investigation failed.");
+    } finally {
+      setInvestigating(false);
+    }
+  }, [ym]);
 
   const saveRuling = useCallback(async () => {
     if (!ruling || !ruling.reason.trim()) return;
@@ -350,7 +426,12 @@ export function InvoiceReview() {
             {loading ? "Reviewing…" : data ? "Check again" : "Run review"}
           </Button>
           {data ? (
-            <Button variant="outline" onClick={copyForClaude}>
+            <Button variant="outline" onClick={investigate} disabled={investigating}>
+              {investigating ? "Investigating…" : "Investigate"}
+            </Button>
+          ) : null}
+          {data ? (
+            <Button variant="ghost" onClick={copyForClaude}>
               Copy for Claude
             </Button>
           ) : null}
@@ -361,6 +442,12 @@ export function InvoiceReview() {
           ) : null}
         </div>
         {copied ? <p className="mt-2 text-xs opacity-70">{copied}</p> : null}
+        {investigating ? (
+          <p className="mt-2 text-xs opacity-70">
+            Claude is chasing each finding — searching the filed backup for missing amounts,
+            checking other spellings of a vendor, opening bills. This takes a minute or two.
+          </p>
+        ) : null}
         {data && data.summarySource === "fallback" ? (
           <p className="mt-2 text-xs opacity-60">
             {/* Say WHY, not just that it happened. A silent fallback hid a real
@@ -415,6 +502,18 @@ export function InvoiceReview() {
           <Banner tone={counts.fix ? "warning" : "success"} className="mt-4">
             {data.summary}
           </Banner>
+
+          {investigateError ? (
+            <Banner tone="error" className="mt-3">
+              {investigateError}
+            </Banner>
+          ) : null}
+
+          {investigateNote ? (
+            <Banner tone="neutral" className="mt-3">
+              <span className="font-medium">Where to start.</span> {investigateNote}
+            </Banner>
+          ) : null}
 
           {data.evidence.warnings.length ? (
             <Banner tone="error" className="mt-3">
@@ -485,6 +584,16 @@ export function InvoiceReview() {
                                 look identical, or the list gets skimmed. */}
                             {ageNote(f) ? ` · ${ageNote(f)}` : ""}
                           </span>
+                          {/* Claude's read, when it has one. Deliberately below
+                              the title and quiet: it orders the work, it does
+                              not overrule the check. */}
+                          {f.disposition ? (
+                            <span className="mt-1 flex items-center gap-1.5">
+                              <Chip tone={VERDICT_TONE[f.disposition.verdict]}>
+                                {VERDICT_LABEL[f.disposition.verdict]}
+                              </Chip>
+                            </span>
+                          ) : null}
                         </span>
                         <span className="shrink-0 text-sm tabular-nums opacity-70">
                           {f.amount == null ? "" : money(f.amount)}
@@ -494,6 +603,29 @@ export function InvoiceReview() {
                       {isOpen ? (
                         <div className="border-t border-line-soft px-4 py-3">
                           <p className="text-sm leading-relaxed opacity-80">{f.detail}</p>
+
+                          {f.disposition ? (
+                            <div className="mt-3 border-l-2 border-line-strong pl-3">
+                              <SectionLabel>
+                                Claude looked into this — {VERDICT_LABEL[f.disposition.verdict]}
+                              </SectionLabel>
+                              <p className="mt-1 text-sm leading-relaxed opacity-80">
+                                {f.disposition.why}
+                              </p>
+                              {f.disposition.suggestedAction ? (
+                                <p className="mt-1 text-sm leading-relaxed opacity-80">
+                                  <span className="font-medium">Suggested:</span>{" "}
+                                  {f.disposition.suggestedAction}
+                                </p>
+                              ) : null}
+                              <p className="mt-1 text-xs opacity-50">
+                                {/* Say plainly that this is a reading, not a ruling —
+                                    it is the difference between triage and a decision. */}
+                                A reading, not a decision. The finding stays until you set it
+                                aside yourself.
+                              </p>
+                            </div>
+                          ) : null}
 
                           {f.suppressedBy ? (
                             <p className="mt-3 text-xs opacity-60">

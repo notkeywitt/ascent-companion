@@ -190,6 +190,30 @@ about the **Copy for Claude** button on `/invoice-review`: it puts this same
 briefing on the clipboard (or straight into the share sheet on a phone) to paste
 into the Claude app. That path needs no API key either.
 
+## Step 3b — let the app do the chasing
+
+Most of Step 3's legwork is now a button. `POST /api/invoice-review/investigate`
+with `{ "ym": "YYYY-MM" }` runs Claude over the month's findings with read-only
+tools and returns a verdict on each:
+
+- **`confirmed`** — checked, and it looks real.
+- **`probably-fine`** — a benign explanation was found, and `why` states it.
+- **`needs-human`** — cannot be settled from the evidence; `why` says what is missing.
+
+It does exactly what Step 3 asks you to do by hand: searches every job's filed
+backup for a missing amount, checks a vendor's other spellings, opens a suspected
+double-bill to see whether one half is a credit. Verdicts are stored, so a month
+already investigated comes back with them attached to each finding
+(`finding.disposition`).
+
+**Run it before working the list yourself** on a month with more than a handful
+of findings — it is far quicker than repeating the searches, and it tells you
+which ones it could NOT settle.
+
+**A verdict is not a ruling.** `probably-fine` leaves the finding on the list at
+full severity. Relay it as "Claude found X, worth confirming", never as "this one
+is fine". Only the owner settles a finding, and only through a ruling.
+
 ## Step 4a — say what it missed
 
 If the owner tells you about a billing mistake **this review didn't catch**,
@@ -262,6 +286,9 @@ the only thing that will explain the silence. To lift one:
   the month is "clean on everything checked", and you must say which part wasn't.
   A check that FAILED also lands in `evidence.warnings` — a check that stopped
   working and a check that found nothing must never read the same.
+- **Never let a verdict stand in for a ruling.** A `probably-fine` disposition is
+  Claude's reading, stored for triage. It does not silence anything and must not
+  be reported as settled. If the owner agrees with it, record a real ruling.
 - **Never treat `vendor-silent` as proof of anything.** It reasons from a
   pattern, not from a document: a vendor can simply have had a quiet month. It
   is a reason to look at an account, and the wording says so. Relay it that way.
@@ -292,6 +319,9 @@ the only thing that will explain the silence. To lift one:
 | Learned baselines (vendor cadence) | `src/lib/invoiceReview/norms.ts` |
 | The miss log — what it failed to catch | `src/lib/invoiceReview/misses.ts` |
 | Claude proposing new checks from misses | `src/lib/invoiceReview/learn.ts` |
+| Claude investigating findings (the tool loop) | `src/lib/invoiceReview/investigate.ts` |
+| What Claude is allowed to look at | `src/lib/invoiceReview/investigateTools.ts` |
+| Stored verdicts | `src/lib/invoiceReview/dispositions.ts` |
 | Standing instructions for the summary | `src/lib/invoiceReview/instructions.ts` |
 | The route | `src/app/api/invoice-review/route.ts` |
 | The filing run (manual/admin only — no cron) | `src/app/api/invoice-review/run/route.ts` |

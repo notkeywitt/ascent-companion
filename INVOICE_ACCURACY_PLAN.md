@@ -328,8 +328,8 @@ to it, and nothing here races the hourly mirror.
 | 2 | Contract/retainage/tax/delivery checks | Large | ⏭️ **Skipped** — cost-plus |
 | 2m | Margin checks only (the pared-down Stage 2) | Small | ✅ **Landed** |
 | 3 | Norms, miss log, instructions, precision | Medium | ✅ **Landed** |
-| 4 | The investigating Claude loop | Medium | Next |
-| 5 | Pre-send gate + mid-month run | Medium | |
+| 4 | The investigating Claude loop | Medium | ✅ **Landed** |
+| 5 | Pre-send gate + mid-month run | Medium | Next |
 | 6 | PDF amount confirmation | Small | |
 
 **What landed in 0 and 1.** `narrate.ts` raised to a 16k ceiling at low effort
@@ -380,6 +380,34 @@ scope for arrangements that belong to the client rather than to one job.
 
 **Still true, and load-bearing:** learning only ever ADDS scrutiny
 automatically. Removing it is always a human ruling with a reason attached.
+
+### What landed in 4 — Claude investigates
+
+`narrate.ts` could only rephrase what the checks decided, because it had nothing
+to look anything up with. Meanwhile `SKILL.md` had always told a HUMAN to do the
+real work — search Drive for the amount behind missing backup, check whether a
+"missing" bill is filed under a different spelling, open a suspected double-bill
+and see whether one half is a credit. That happened only when somebody had time.
+
+`investigate.ts` runs a tool loop that does it. The tools (`investigateTools.ts`)
+are almost all **pure functions over the already-loaded month**, which is what
+makes them unit-testable and what stops Claude reaching past the month under
+review. `search_backup_by_amount` searches every job's filed backup at once —
+the exact chore the skill file describes — and `get_bill_detail` is the one tool
+that leaves the evidence, because whether a bill is really a credit is the one
+thing the month cannot answer about itself.
+
+Verdicts arrive through a `record_disposition` TOOL rather than one JSON blob at
+the end, so a run that hits its ceiling still yields everything it settled. The
+tool refuses a key that is not in the review, so a hallucinated finding can never
+become a stored verdict attached to nothing.
+
+**The safety line, and it is the point of the stage:** a verdict is not a ruling.
+`probably-fine` leaves the finding on the list at full severity, in the same
+place. Only the office silences a finding, through the ruling path, with a reason
+against their name. The UI says so under every verdict it draws.
+
+Never automatic — the most expensive call in the feature runs only on a button.
 
 ### Stage 2m — the margin checks, and only those
 
