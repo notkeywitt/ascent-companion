@@ -83,11 +83,34 @@ function inLens(f: Finding, lens: Lens): boolean {
   return lens === "fix" ? f.severity === "error" : f.severity === "warning";
 }
 
+/**
+ * "this morning" / "yesterday" / "on 12 Aug" for a filed run's timestamp.
+ *
+ * Deliberately coarse. The exact minute a sweep ran is never the question; the
+ * question is only ever whether what's on screen is current enough to act on.
+ */
+function whenChecked(iso: string): string {
+  const then = new Date(iso);
+  if (Number.isNaN(then.getTime())) return "earlier";
+  const mins = Math.round((Date.now() - then.getTime()) / 60000);
+  if (mins < 2) return "just now";
+  if (mins < 60) return `${mins} minutes ago`;
+  const hours = Math.round(mins / 60);
+  if (hours < 24) return `${hours} hour${hours === 1 ? "" : "s"} ago`;
+  const days = Math.round(hours / 24);
+  if (days === 1) return "yesterday";
+  if (days < 7) return `${days} days ago`;
+  return `on ${then.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
+}
+
 export function InvoiceReview() {
   const months = useMemo(monthChoices, []);
   const [ym, setYm] = useState(defaultYm);
   const [data, setData] = useState<ReviewPayload | null>(null);
   const [loading, setLoading] = useState(false);
+  /** True only while a LIVE sweep is running. Reading a filed run is instant,
+   *  and telling someone it "takes a minute" while it doesn't is its own bug. */
+  const [sweeping, setSweeping] = useState(false);
   const [error, setError] = useState("");
   const [lens, setLens] = useState<Lens>("fix");
   const [open, setOpen] = useState<Set<string>>(new Set());
@@ -99,22 +122,48 @@ export function InvoiceReview() {
   // "Copied" / "Couldn't copy" on the hand-to-Claude button.
   const [copied, setCopied] = useState("");
 
-  const run = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    setData(null);
-    try {
-      const res = await fetch(`/api/invoice-review?ym=${encodeURIComponent(ym)}`);
-      const json = await res.json();
-      if (!res.ok) throw new Error(json?.error ?? `Review failed (${res.status})`);
-      setData(json as ReviewPayload);
-      setOpen(new Set());
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Review failed.");
-    } finally {
-      setLoading(false);
-    }
-  }, [ym]);
+  /**
+   * Load a month. `stored` reads the last FILED run — instant, because it is
+   * that run rather than a fresh sweep of JobTread, Drive and Gmail — and
+   * answers nothing at all when the month has never been reviewed. A live run
+   * is the explicit "Run review" action, and files itself on the way out.
+   */
+  const load = useCallback(
+    async (stored: boolean) => {
+      setLoading(true);
+      setSweeping(!stored);
+      setError("");
+      setData(null);
+      try {
+        const q = stored ? "&stored=only" : "";
+        const res = await fetch(`/api/invoice-review?ym=${encodeURIComponent(ym)}${q}`);
+        const json = await res.json();
+        if (!res.ok) throw new Error(json?.error ?? `Review failed (${res.status})`);
+        // stored=only answers `{ stored: null }` for a month nobody has checked.
+        // That is not an error and not an empty review — it is "no run on file",
+        // and the page falls back to prompting for one.
+        if (stored && json && json.stored === null) return;
+        setData(json as ReviewPayload);
+        setOpen(new Set());
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Review failed.");
+      } finally {
+        setLoading(false);
+        setSweeping(false);
+      }
+    },
+    [ym],
+  );
+
+  /** The explicit action: sweep everything again, now. */
+  const run = useCallback(() => load(false), [load]);
+
+  // Opening a month shows what was last found for it straight away — the
+  // scheduled run means that is usually this morning's. Nothing is fetched from
+  // JobTread here, so this costs a single row read.
+  useEffect(() => {
+    void load(true);
+  }, [load]);
 
   const saveRuling = useCallback(async () => {
     if (!ruling || !ruling.reason.trim()) return;
@@ -272,7 +321,7 @@ export function InvoiceReview() {
             </Select>
           </label>
           <Button onClick={run} disabled={loading}>
-            {loading ? "Reviewing…" : "Run review"}
+            {loading ? "Reviewing…" : data ? "Check again" : "Run review"}
           </Button>
           {data ? (
             <Button variant="outline" onClick={copyForClaude}>
@@ -288,13 +337,20 @@ export function InvoiceReview() {
         {copied ? <p className="mt-2 text-xs opacity-70">{copied}</p> : null}
         {data && data.summarySource === "fallback" ? (
           <p className="mt-2 text-xs opacity-60">
-            The summary is written from the checks, not by Claude — either no API key is
-            set or the call didn&apos;t answer. “Copy for Claude” hands the whole review
-            to Claude anywhere you already have it.
+            {/* Say WHY, not just that it happened. A silent fallback hid a real
+                outage for as long as it lasted — see narrate.ts. */}
+            {data.summaryNote ||
+              "The summary is written from the checks, not by Claude."}{" "}
+            “Copy for Claude” hands the whole review to Claude anywhere you already have
+            it.
           </p>
         ) : null}
         {data ? (
           <p className="mt-3 text-xs opacity-60">
+            {/* A filed run must never be mistaken for a fresh one. */}
+            {data.storedAt
+              ? `Last checked ${whenChecked(data.storedAt)} — press “Check again” to sweep it now. `
+              : "Checked just now. "}
             Backup is filed in {data.evidence.folderRoot}
           </p>
         ) : null}
@@ -307,7 +363,13 @@ export function InvoiceReview() {
       ) : null}
 
       {loading ? (
-        <Loading label={`Reviewing ${monthLabel} — this takes a minute`} />
+        <Loading
+          label={
+            sweeping
+              ? `Reviewing ${monthLabel} — this takes a minute`
+              : `Opening ${monthLabel}…`
+          }
+        />
       ) : null}
 
       {data ? (

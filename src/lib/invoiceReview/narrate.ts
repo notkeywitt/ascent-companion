@@ -15,10 +15,16 @@
  * never the raw evidence, never a PDF, never a JobTread document — so it cannot
  * invent a figure that no check verified.
  *
- * Failure is always silent and always falls back to the locally-built summary
- * (`fallbackSummary` in checks.ts). A review that lists real problems in dull
- * language is completely fine; a review that doesn't render because an API key
- * expired is not.
+ * Failure always falls back to the locally-built summary (`fallbackSummary` in
+ * summary.ts). A review that lists real problems in dull language is completely
+ * fine; a review that doesn't render because an API key expired is not.
+ *
+ * But it is NOT silent. This function THROWS with a described reason rather
+ * than returning a bare null, and the caller (`runInvoiceReview`) stamps that
+ * reason onto the payload as `summaryNote`. The silent version hid a real
+ * outage for as long as it lasted: a missing key, an expired key, a bad model
+ * id and a timeout were all indistinguishable from "Claude wrote nothing much".
+ * Same fix, same reasoning as src/lib/digest/claude.ts.
  */
 import Anthropic from "@anthropic-ai/sdk";
 
@@ -28,7 +34,24 @@ import type { Finding, MonthEvidence } from "./types";
  *  which is not work that needs the frontier model. ANTHROPIC_MODEL_REVIEW
  *  overrides it without disturbing the /chat assistant's own model setting. */
 const MODEL = process.env.ANTHROPIC_MODEL_REVIEW?.trim() || "claude-sonnet-5";
-const MAX_TOKENS = 600;
+/**
+ * ⚠️ THIS CEILING MUST LEAVE ROOM FOR THINKING, NOT JUST FOR THE ANSWER.
+ *
+ * On Sonnet 5 (and the rest of the current family) OMITTING the `thinking`
+ * parameter runs ADAPTIVE THINKING — it is on by default, not off — and thinking
+ * tokens are drawn from `max_tokens` before a single text block is emitted.
+ * `display` also defaults to "omitted", so those blocks come back empty. A
+ * ceiling sized for the prose alone therefore fails in the worst possible way:
+ * the whole budget goes to thinking, the response carries NO text block at all,
+ * and `stop_reason` is "max_tokens".
+ *
+ * This was 600 — BELOW the 900 that took out the digest summary on 2026-08-31
+ * (see the same note in src/lib/digest/claude.ts), on a path whose fallback was
+ * silent, so nothing ever said it was happening. A ceiling is not a spend: you
+ * are billed for tokens actually generated, so the headroom is free. Do not
+ * "optimize" this back down to the size of the expected paragraph.
+ */
+const MAX_TOKENS = 16_000;
 /** The review route has its own budget; don't let one slow call eat it. */
 const TIMEOUT_MS = 30_000;
 
@@ -62,14 +85,19 @@ const SYSTEM = [
 ].join("\n");
 
 /**
- * A paragraph over the month's findings, or null if Claude isn't configured or
- * didn't answer. The caller falls back to `fallbackSummary`.
+ * A paragraph over the month's findings.
+ *
+ * THROWS with a described reason when it cannot answer — it does not return a
+ * bare null. The caller catches, records the reason, and falls back to
+ * `fallbackSummary`.
  */
 export async function narrateReview(
   month: MonthEvidence,
   findings: Finding[],
-): Promise<string | null> {
-  if (!process.env.ANTHROPIC_API_KEY?.trim()) return null;
+): Promise<string> {
+  if (!process.env.ANTHROPIC_API_KEY?.trim()) {
+    throw new Error("ANTHROPIC_API_KEY is not set");
+  }
 
   // Only the shape Claude is allowed to reason about. Deliberately excludes the
   // evidence bundle: no line items, no file lists, no invoice headers — so there
@@ -92,24 +120,36 @@ export async function narrateReview(
     })),
   };
 
+  let res: Anthropic.Message;
   try {
-    const res = await client().messages.create(
+    res = await client().messages.create(
       {
         model: MODEL,
         max_tokens: MAX_TOKENS,
+        // Low effort: this ranks findings the checks have already decided, in
+        // about 80 words. It is not a reasoning task, and since thinking is on
+        // by default (see the max_tokens note above) capping its DEPTH is what
+        // keeps the call quick — the token ceiling only stops it failing.
+        output_config: { effort: "low" },
         system: SYSTEM,
         messages: [{ role: "user", content: JSON.stringify(payload) }],
       },
       { timeout: TIMEOUT_MS },
     );
-    const text = res.content
-      .filter((b): b is Anthropic.TextBlock => b.type === "text")
-      .map((b) => b.text)
-      .join("")
-      .trim();
-    return text || null;
-  } catch {
-    // Silent by design — see the module note.
-    return null;
+  } catch (e) {
+    // The model id rides along because a bad ANTHROPIC_MODEL_REVIEW is one of
+    // the likeliest causes and is otherwise invisible from the review screen.
+    throw new Error(`model "${MODEL}" — ${e instanceof Error ? e.message : String(e)}`);
   }
+
+  if (res.stop_reason === "refusal") throw new Error("Claude declined to write the summary");
+  const text = res.content
+    .filter((b): b is Anthropic.TextBlock => b.type === "text")
+    .map((b) => b.text)
+    .join("")
+    .trim();
+  // The empty-text case the ceiling above exists to prevent. Naming stop_reason
+  // makes a recurrence diagnosable from the screen instead of from a log.
+  if (!text) throw new Error(`Claude returned no text (stop_reason: ${res.stop_reason})`);
+  return text;
 }

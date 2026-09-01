@@ -669,6 +669,33 @@ async function applySchema() {
     )
   `);
 
+  // Every client-invoice review that has ever run — the feature's history, and
+  // what the learning layer reads. Appended, never overwritten: many rows per
+  // billing month, newest first. See db/schema.ts for why.
+  await getClient().execute(`
+    CREATE TABLE IF NOT EXISTS invoice_review_runs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      ym TEXT NOT NULL,
+      ran_at TEXT NOT NULL,
+      ran_by TEXT NOT NULL DEFAULT '',
+      payload TEXT NOT NULL DEFAULT '{}',
+      error_count INTEGER NOT NULL DEFAULT 0,
+      warning_count INTEGER NOT NULL DEFAULT 0,
+      info_count INTEGER NOT NULL DEFAULT 0,
+      suppressed_count INTEGER NOT NULL DEFAULT 0,
+      amount_at_stake REAL NOT NULL DEFAULT 0,
+      capture_complete INTEGER NOT NULL DEFAULT 0,
+      evidence_warning_count INTEGER NOT NULL DEFAULT 0,
+      evidence_hash TEXT NOT NULL DEFAULT '',
+      duration_ms INTEGER NOT NULL DEFAULT 0
+    )
+  `);
+  // Reads are always "the newest run(s) for this billing month".
+  await getClient().execute(`
+    CREATE INDEX IF NOT EXISTS invoice_review_runs_ym_idx
+      ON invoice_review_runs (ym, ran_at DESC)
+  `);
+
   // The Daily Digest's todo/reminder memory, sender ignore-rules, and reply audit
   // trail — written only by POST /api/digest/reply, read by the digest-todos
   // check and (ignore rules) the email-followups check. See db/schema.ts.

@@ -284,8 +284,23 @@ export interface ReviewPayload {
    *  locally from the findings — `summarySource` says which. */
   summary: string;
   summarySource: "claude" | "fallback";
+  /**
+   * Why the summary fell back, when it did. Empty on the Claude path.
+   *
+   * The fallback used to be silent, which meant a missing key, an expired key,
+   * a bad model id and a timeout all looked identical to "Claude wrote
+   * something dull" — so a real outage could run for weeks unnoticed. Surfacing
+   * the reason is the whole point; see narrate.ts.
+   */
+  summaryNote?: string;
   generatedAt: string;
   durationMs: number;
+  /**
+   * Set when this payload came out of the run history rather than being
+   * computed just now — the ISO time of the run it was stored from. The page
+   * shows it so a stored review can never be mistaken for a fresh one.
+   */
+  storedAt?: string;
 }
 
 // ---------------------------------------------------------------------------

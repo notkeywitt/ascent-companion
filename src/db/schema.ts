@@ -723,6 +723,64 @@ export type InvoiceReviewRulingRow = typeof invoiceReviewRulings.$inferSelect;
 export type NewInvoiceReviewRulingRow = typeof invoiceReviewRulings.$inferInsert;
 
 /**
+ * Every client-invoice review that has ever run — the feature's HISTORY.
+ *
+ * WHY THIS EXISTS. Until this table, a review was computed, read, and thrown
+ * away. That made three things structurally impossible: knowing what a month
+ * looked like last time it was checked, telling a NEW problem from one that has
+ * been sitting there since March, and learning what "normal" is for a customer
+ * so an anomaly can be noticed at all. A reviewer with no memory of its own
+ * work cannot get better at the job. Everything in the learning layer reads
+ * from here.
+ *
+ * MANY ROWS PER MONTH, not one. A month is re-reviewed as the office fixes
+ * things, and the sequence of runs IS the record of that being worked — so a
+ * run is appended, never overwritten (contrast `daily_digest`, which is keyed
+ * by date and rewritten in place, because yesterday's morning brief has no
+ * second draft). The newest row for a `ym` is the current view of that month.
+ *
+ * `payload` is the whole `ReviewPayload` as JSON — evidence, findings and
+ * summary — so a stored run re-renders exactly as it did live, without
+ * re-reading JobTread, Drive or Gmail. The counts beside it are denormalized
+ * from those same findings purely so a trend can be read without parsing every
+ * blob; `payload` is the source of truth if they ever disagree.
+ *
+ * `evidenceHash` fingerprints what the checks were run against, so a re-run
+ * that found the world unchanged is recognisable as such.
+ *
+ * Written by `saveRun` (src/lib/invoiceReview/runs.ts) — from the review route
+ * and from the scheduled run. Still nothing here touches JobTread.
+ */
+export const invoiceReviewRuns = sqliteTable("invoice_review_runs", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  /** The BILLING month reviewed, YYYY-MM. Not the month the run happened in. */
+  ym: text("ym").notNull(),
+  ranAt: text("ran_at").notNull(), // ISO timestamp
+  /** Signed-in email, or "cron" for the scheduled run. */
+  ranBy: text("ran_by").notNull().default(""),
+  /** The full ReviewPayload as JSON. */
+  payload: text("payload").notNull().default("{}"),
+  /** Denormalized from the findings — live (unsuppressed) counts. */
+  errorCount: integer("error_count").notNull().default(0),
+  warningCount: integer("warning_count").notNull().default(0),
+  infoCount: integer("info_count").notNull().default(0),
+  suppressedCount: integer("suppressed_count").notNull().default(0),
+  /** Absolute dollars across live findings that carry an amount. */
+  amountAtStake: real("amount_at_stake").notNull().default(0),
+  /** True only when the mailbox leg actually ran AND wasn't truncated — i.e.
+   *  when the capture question was fully answered. */
+  captureComplete: integer("capture_complete", { mode: "boolean" }).notNull().default(false),
+  /** Count of `evidence.warnings` — non-zero means the run was partial. */
+  evidenceWarningCount: integer("evidence_warning_count").notNull().default(0),
+  /** Fingerprint of the evidence the checks ran against. */
+  evidenceHash: text("evidence_hash").notNull().default(""),
+  durationMs: integer("duration_ms").notNull().default(0),
+});
+
+export type InvoiceReviewRunRow = typeof invoiceReviewRuns.$inferSelect;
+export type NewInvoiceReviewRunRow = typeof invoiceReviewRuns.$inferInsert;
+
+/**
  * The Daily Digest's todo/reminder memory — what the owner asked to be reminded
  * of via the reply box (see src/lib/digest/checks/digestTodos.ts and
  * src/app/api/digest/reply/route.ts). Assistant-owned; JobTread has no such
