@@ -63,6 +63,8 @@ matching row here.
 | **The Admin Daily Digest** (morning report on Home) | `src/lib/digest/` — `settings.ts` (EVERY threshold/exclusion), `registry.ts` (the check list), `checks/*` (one file per check), `run.ts` (aggregator); UI `src/components/DailyDigest.tsx`; routes `src/app/api/digest/*`; Google data via appscript `DailyDigest.js` |
 | **Reviewing a month's client invoices** | `src/lib/invoiceReview/` — `checks/*` (one file per check, pure + tested), `settings.ts` (EVERY threshold), `registry.ts` (the check list + the runner), `evidence.ts` (JobTread + Drive + Gmail), `rulings.ts` (the memory), `runs.ts` (the history), `brief.ts` (the no-API-key hand-off); page `src/app/invoice-review/`; routes `src/app/api/invoice-review` (+ `/run`, scheduled); Drive + Gmail reads via appscript `ClientInvoiceReview.js`; skill `.claude/skills/invoice-review/` |
 | **Adding an invoice-review check** | write `src/lib/invoiceReview/checks/<id>.ts`, add its config block to `settings.ts`, add one line to `registry.ts` — the runner, the route, the history and the page are untouched |
+| **Why the review missed something / making it learn** | file it via the page's "Something this missed?" box → `src/lib/invoiceReview/misses.ts`; `POST /api/invoice-review/learn` asks Claude what check would have caught it (`learn.ts`) — the answer is a proposal a person implements |
+| **Is a check any good?** | `GET /api/invoice-review/accuracy` — precision derived in `src/lib/invoiceReview/lifecycle.ts` from what the office did next, not from anyone scoring anything |
 | **Adding a digest check** | write `src/lib/digest/checks/<id>.ts`, add its config block to `src/lib/digest/settings.ts`, add one line to `src/lib/digest/registry.ts` — the aggregator, the cron route and the UI are untouched |
 
 ## `src/lib/` — shared logic (the most-reused code)
@@ -135,16 +137,25 @@ Staged expansion plan: `INVOICE_ACCURACY_PLAN.md`.
 | `summary.ts` ⟂ | The locally-built one-line summary, used whenever Claude didn't write one. |
 | `evidence.ts` | All the fetching: the job roster, each job's month bills and live invoices (413-safe two-phase reads), the Drive backup listing, and one mailbox sweep for the period — the last two via the Apps Script bridge. It also does the mail→JobTread JOIN, reusing the Daily Digest's `matchVendor`/`billMatchesEmail` so there is one answer in the codebase to "is this the same invoice". Per-job failures become warnings, never a dead review. Sets `emailChecked`, so a mailbox that couldn't be searched never looks like one that came back clean. |
 | `brief.ts` ⟂ | The review as a self-contained markdown briefing, for the **no-API-key path**: the page's "Copy for Claude" button and `GET /api/invoice-review?format=brief`. Opens by telling Claude the arithmetic is already done and must not be redone. |
-| `rulings.ts` | The memory — what the office has already overruled, so a structurally-true finding stops coming back every month. Two scopes: this finding, or this kind on this job. The ONLY write in the feature. |
+| `rulings.ts` | The memory — what the office has already overruled, so a structurally-true finding stops coming back every month. Three scopes: this finding, this kind on this job, or this kind for this customer across every job (for an arrangement that belongs to the client). Wider is not better; it always opens at the narrowest. |
 | `narrate.ts` | One Claude paragraph over the STRUCTURED findings (never the raw evidence, so it cannot invent a figure). THROWS a described reason rather than falling back silently — the reason rides the payload as `summaryNote` and is drawn on the page, because a silent fallback hid a real outage for as long as it lasted. |
-| `runs.ts` | The HISTORY — every run that has happened, appended (many rows per month; the newest is the current view). What the page opens onto, and what the learning layer will read. Best-effort throughout: an unreachable DB costs a row, never a review. |
+| `runs.ts` | The HISTORY — every run that has happened, appended (many rows per month; the newest is the current view). What the page opens onto, and what the learning layer reads. Best-effort throughout: an unreachable DB costs a row, never a review. |
+| `lifecycle.ts` | When each finding appeared and whether it ever went away — so a row can say "new" or "standing since 3 Aug", and so per-check precision falls out of what the office does next. Fixed (stopped appearing) and set-aside (ruled on) are counted SEPARATELY: a check finding real standing facts is not a check that is wrong. |
+| `norms.ts` ⟂-ish | What normal looks like, learned from stored payloads — today, vendor cadence (median, and a name normalizer so three spellings of one supplier aren't three vendors). Attached to the evidence by the runner so checks stay pure. Below 3 months of history it returns nothing: no baseline is NO signal. |
+| `misses.ts` | **The training set** — billing mistakes the review did NOT catch. The only input a genuinely new check can come from; every other memory here can only make it quieter. Deliberately cheap to file (description is the one required field). |
+| `learn.ts` | Claude reads the miss log + the current check list and PROPOSES checks that would have caught them. Opus, thinking on — this is a reasoning task, unlike narrate.ts. Returns a spec for a human to implement; never writes a check, moves a setting, or suppresses anything. |
+| `instructions.ts` | Standing preferences for how the month is READ OUT, injected into the summary prompt. Cannot hide a finding — that is what a ruling is for — which is what makes them safe to add casually. |
+| `checks/vendorSilent.ts` ⟂ | The first check that reads the review's own memory rather than this month's evidence: a vendor who bills four months in five and billed nothing this month. Cost-plus means that is missing REVENUE, and an invoice that was never sent leaves no trace anywhere else. Strict by design, and silent without enough history. |
 | `run.ts` | The order of operations: evidence → checks → rulings → narrative → file the run. Thin by design. |
 
 Tests: `checks.test.ts` (what each check decides about money — the backup
 matcher against the real filename convention, every math tolerance, the
 period/scope rules, the mailbox calibration, the briefing, finding order) and
 `registry.test.ts` (the machinery — policy from settings, a check that is turned
-off, and a check that throws without taking the review down).
+off, and a check that throws without taking the review down), `norms.test.ts`
+(the vendor-name key, and mostly the SILENCE — every case where a
+pattern-based check must not speak) and `rulings.test.ts` (how far each
+suppression scope reaches, and where it must stop).
 Skill: `.claude/skills/invoice-review/SKILL.md` drives the same review from a
 Claude Code session. Drive half: `ascent-appscript/ClientInvoiceReview.js`.
 
@@ -293,7 +304,11 @@ Grouped by domain; each folder is `…/route.ts`.
 `notice_reads`, `rfis`, `sunset_statements`, `page_copy`, `bill_index`,
 `bill_line_index`, `bill_index_meta`, `daily_digest`, `invoice_review_rulings`
 (the invoice review's standing rulings), `invoice_review_runs` (every review that
-has run — the history the learning layer reads). Access via `src/db/index.ts`.
+has run — the history the learning layer reads), `invoice_review_finding_state`
+(when each finding appeared and whether it went away — ages + check precision),
+`invoice_review_misses` (mistakes the review didn't catch — the training set),
+`invoice_review_instructions` (how the month is read out). Access via
+`src/db/index.ts`.
 
 (`bill_index`/`bill_line_index`/`bill_index_meta` back the `/bill-search` index —
 the searchable snapshot of every bill + line item, plus its refresh/seed

@@ -85,6 +85,13 @@ Other switches:
 A payload carrying `storedAt` came out of the history rather than being computed
 just now. Say so if you relay it, and say when.
 
+Each finding may carry `history`: `isNew` means no earlier run saw it,
+`firstSeenAt`/`runsSeen` say how long it has been standing. **Lead with what is
+new**, and say plainly when something has been sitting unfixed for months — that
+is usually the more useful fact. A finding with no `history` at all means the
+review has no memory of it yet (a month checked for the first time); that is not
+the same as new, so don't call it new.
+
 If the owner is in this repo without a running app, the same thing is reachable
 in code: `runInvoiceReview(getPaveConfig(), year, month, { narrate: false })`
 from `src/lib/invoiceReview/run.ts`.
@@ -166,6 +173,28 @@ about the **Copy for Claude** button on `/invoice-review`: it puts this same
 briefing on the clipboard (or straight into the share sheet on a phone) to paste
 into the Claude app. That path needs no API key either.
 
+## Step 4a — say what it missed
+
+If the owner tells you about a billing mistake **this review didn't catch**,
+record it. This is the single most valuable thing you can do here — a ruling
+teaches the review to say less, and only a miss teaches it to look somewhere new.
+
+```
+POST /api/invoice-review/misses
+{ "ym": "YYYY-MM", "description": "<their words>", "howCaught": "<how it surfaced>",
+  "jobName": "...", "customerName": "...", "amount": 0 }
+```
+
+Only `description` is required — file a thin one rather than none. `howCaught`
+is the field that most often says where a new check should look, so ask for it
+if it's natural, and don't interrogate them if it isn't.
+
+To ask what checks the accumulated log calls for (admin only, uses the frontier
+model, takes a while): `POST /api/invoice-review/learn`. It answers with
+proposals — a rule, what would make it fire wrongly, and whether new evidence
+would be needed. **They are proposals.** Implementing one is a code change a
+person decides on; nothing about it is automatic.
+
 ## Step 5 — the memory
 
 When the owner overrules a finding ("that's fine, that client's allowance draws
@@ -174,12 +203,29 @@ never have vendor backup"), **record it** so it never comes back:
 ```
 POST /api/invoice-review
 { "key": "<finding.key>", "kind": "<finding.kind>", "jobId": "<finding.jobId>",
-  "scope": "finding" | "job-kind", "reason": "<their words>" }
+  "customerName": "<finding.customerName>",
+  "scope": "finding" | "job-kind" | "customer-kind", "reason": "<their words>" }
 ```
 
 - `scope: "finding"` — this one thing. The default; use it unless told otherwise.
 - `scope: "job-kind"` — every finding of this kind on this job, forever. Only for
   a standing arrangement, never to quiet one awkward month.
+- `scope: "customer-kind"` — that kind for this customer on every job, including
+  jobs they haven't started. Only when the arrangement is a property of the
+  CLIENT ("their allowance draws never have vendor backup"), not of one job.
+  `customerName` is required for this scope.
+
+Wider is not better. A ruling that reaches past what the owner meant is how a
+real finding gets silenced years later by a note nobody remembers writing — when
+in doubt, take the narrower scope and record another one next month.
+
+Separately, if the owner says how they want the month READ to them rather than
+what to stop finding ("always lead with anything on Ferron"), that is a standing
+instruction, not a ruling — it shapes the summary and hides nothing:
+
+```
+POST /api/invoice-review/instructions   { "text": "<their words>" }
+```
 
 Always record the owner's **actual reason**, not your paraphrase. Next year it is
 the only thing that will explain the silence. To lift one:
@@ -199,6 +245,9 @@ the only thing that will explain the silence. To lift one:
   the month is "clean on everything checked", and you must say which part wasn't.
   A check that FAILED also lands in `evidence.warnings` — a check that stopped
   working and a check that found nothing must never read the same.
+- **Never treat `vendor-silent` as proof of anything.** It reasons from a
+  pattern, not from a document: a vendor can simply have had a quiet month. It
+  is a reason to look at an account, and the wording says so. Relay it that way.
 - **Never disable a check to quiet a finding.** A ruling says "we looked at this
   one and it's fine", with a reason and a name against it. `enabled: false` in
   `settings.ts` makes a whole class of problem stop being looked for, org-wide,
@@ -221,6 +270,11 @@ the only thing that will explain the silence. To lift one:
 | The paste-into-Claude briefing | `src/lib/invoiceReview/brief.ts` |
 | Rulings / the memory | `src/lib/invoiceReview/rulings.ts` |
 | Run history | `src/lib/invoiceReview/runs.ts` |
+| Finding ages + per-check accuracy | `src/lib/invoiceReview/lifecycle.ts` |
+| Learned baselines (vendor cadence) | `src/lib/invoiceReview/norms.ts` |
+| The miss log — what it failed to catch | `src/lib/invoiceReview/misses.ts` |
+| Claude proposing new checks from misses | `src/lib/invoiceReview/learn.ts` |
+| Standing instructions for the summary | `src/lib/invoiceReview/instructions.ts` |
 | The route | `src/app/api/invoice-review/route.ts` |
 | The scheduled run | `src/app/api/invoice-review/run/route.ts` |
 | The page | `src/app/invoice-review/InvoiceReview.tsx` |

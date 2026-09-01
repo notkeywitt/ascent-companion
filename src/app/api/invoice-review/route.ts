@@ -7,7 +7,7 @@ import { parseYm } from "@/lib/invoiceReview/evidence";
 import { liftRuling, recordRuling } from "@/lib/invoiceReview/rulings";
 import { runInvoiceReview } from "@/lib/invoiceReview/run";
 import { listRuns, readLatestRun } from "@/lib/invoiceReview/runs";
-import type { FindingKind, ReviewPayload } from "@/lib/invoiceReview/types";
+import type { FindingKind, ReviewPayload, RulingScope } from "@/lib/invoiceReview/types";
 
 /**
  * The monthly client-invoice review.
@@ -22,8 +22,8 @@ import type { FindingKind, ReviewPayload } from "@/lib/invoiceReview/types";
  *          the month has never been reviewed; `stored=only` instead answers
  *          `{ stored: null }`, which is what the page opens with.
  *          `history=1` returns the month's run list (no payloads) instead.
- * POST { key, kind, jobId, scope, reason }  → record a standing ruling.
- * POST { key, lift: true }                  → lift one.
+ * POST { key, kind, jobId, scope, reason[, customerName] } → record a ruling.
+ * POST { key, lift: true }                                 → lift one.
  *
  * ## Every live run is filed
  *
@@ -59,7 +59,7 @@ export const dynamic = "force-dynamic";
 // trip), plus the Claude pass. The default 10s budget is nowhere near enough.
 export const maxDuration = 300;
 
-const SCOPES = new Set(["finding", "job-kind"]);
+const SCOPES = new Set<RulingScope>(["finding", "job-kind", "customer-kind"]);
 
 export async function GET(req: NextRequest) {
   if (!hasGrant()) {
@@ -149,6 +149,7 @@ export async function POST(req: NextRequest) {
     key?: string;
     kind?: string;
     jobId?: string;
+    customerName?: string;
     scope?: string;
     reason?: string;
     lift?: boolean;
@@ -174,16 +175,29 @@ export async function POST(req: NextRequest) {
     if (!reason) {
       return NextResponse.json({ error: "Say why this is not a problem." }, { status: 400 });
     }
-    const scope = String(body.scope ?? "finding");
+    const scope = String(body.scope ?? "finding") as RulingScope;
     if (!SCOPES.has(scope)) {
-      return NextResponse.json({ error: "scope must be 'finding' or 'job-kind'." }, { status: 400 });
+      return NextResponse.json(
+        { error: "scope must be 'finding', 'job-kind' or 'customer-kind'." },
+        { status: 400 },
+      );
+    }
+    const customerName = String(body.customerName ?? "").trim();
+    // A customer-kind ruling with no customer would be stored under an empty
+    // wildcard and then silence that kind for EVERY customer. Refuse it.
+    if (scope === "customer-kind" && !customerName) {
+      return NextResponse.json(
+        { error: "A customer-wide ruling needs the customer's name." },
+        { status: 400 },
+      );
     }
 
     await recordRuling({
       key,
       kind: String(body.kind ?? "") as FindingKind,
       jobId: String(body.jobId ?? ""),
-      scope: scope as "finding" | "job-kind",
+      customerName,
+      scope,
       reason,
       by: who,
     });

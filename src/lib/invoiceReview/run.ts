@@ -13,6 +13,7 @@
  * finding. A reviewer still cannot change anything it reviews.
  */
 import { loadMonthEvidence } from "./evidence";
+import { activeInstructions } from "./instructions";
 import { attachHistory, readFindingState, recordFindings } from "./lifecycle";
 import { narrateReview } from "./narrate";
 import { learnNorms } from "./norms";
@@ -76,7 +77,10 @@ export async function runInvoiceReview(
     summaryNote = "The summary was skipped for this run.";
   } else {
     try {
-      narrated = await narrateReview(evidence, findings);
+      // The owner's standing instructions shape the paragraph — never what was
+      // found. Read here rather than in narrate.ts, which stays DB-free.
+      const instructions = (await activeInstructions()).map((i) => i.text);
+      narrated = await narrateReview(evidence, findings, instructions);
     } catch (e) {
       summaryNote = `Claude didn't write the summary (${
         e instanceof Error ? e.message : "unknown error"

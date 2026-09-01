@@ -124,9 +124,29 @@ export interface SuppressionNote {
   by: string;
   /** ISO timestamp of the ruling. */
   at: string;
-  /** True when the ruling covers this KIND on this job, not just this one key. */
-  scope: "finding" | "job-kind";
+  /** How wide the ruling reaches — see `RulingScope`. */
+  scope: RulingScope;
 }
+
+/**
+ * How wide a standing ruling reaches.
+ *
+ *   "finding"       this exact finding on this exact subject. The default, and
+ *                   the safe one.
+ *   "job-kind"      every finding of this kind on this job, forever.
+ *   "customer-kind" every finding of this kind on every job for this customer.
+ *
+ * `customer-kind` exists because some standing arrangements are a property of
+ * the CLIENT, not of one job — "this customer's allowance draws never have
+ * vendor backup" is true on all four of their jobs and on the fifth they
+ * haven't started yet. Recording it once, at the level it is actually true at,
+ * beats re-ruling it every time a job is opened.
+ *
+ * There is deliberately no vendor scope yet: a `Finding` carries no structured
+ * vendor, only a name inside its title, and matching on that would silence by
+ * string coincidence. It needs a `vendorName` on the finding first.
+ */
+export type RulingScope = "finding" | "job-kind" | "customer-kind";
 
 // ---------------------------------------------------------------------------
 // EVIDENCE — what the reviewer is shown. Assembled by evidence.ts; every field
@@ -421,6 +441,18 @@ export function findingKey(kind: FindingKind, jobId: string, subject: string): s
 /** The suppression key for a whole KIND on a job — the broader ruling scope. */
 export function jobKindKey(kind: FindingKind, jobId: string): string {
   return findingKey(kind, jobId, "*");
+}
+
+/**
+ * The suppression key for a whole KIND for a customer, across every job.
+ *
+ * Keyed on the customer NAME rather than an id because a finding carries the
+ * name and not the id, and because a rename is easier to spot than a stale id
+ * (the same reasoning as `NEVER_INVOICED_JOB_NAMES`). Normalized so casing and
+ * spacing can't quietly create a second, non-matching ruling.
+ */
+export function customerKindKey(kind: FindingKind, customerName: string): string {
+  return findingKey(kind, "customer", `${String(customerName ?? "").trim().toLowerCase()}|*`);
 }
 
 /** Severity order for sorting: worst first, then by dollars at stake. */

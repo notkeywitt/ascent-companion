@@ -82,7 +82,30 @@ const SYSTEM = [
   "- If nothing is flagged, say so in one sentence and stop.",
   "- If the data lists warnings about evidence that could not be gathered, say the review is",
   "  incomplete and why, because a partial review must never read as a clean one.",
+  "- A finding marked new is one no earlier run saw; one marked standing has been there a while.",
+  "  Lead with what is new when it matters, and it is worth saying when something has been",
+  "  sitting unfixed for months.",
 ].join("\n");
+
+/**
+ * The owner's standing instructions, as a block appended to the system prompt.
+ *
+ * These shape HOW the month is read out — never what was found. Nothing here
+ * can hide a finding, and the rule above it says so in the prompt itself,
+ * because these are the owner's words going into a model and the model should
+ * not treat "don't mention Shop" as licence to drop a real problem.
+ */
+function instructionBlock(instructions: string[]): string {
+  if (!instructions.length) return "";
+  return [
+    "",
+    "STANDING INSTRUCTIONS from the owner about how they want the month read to them.",
+    "Follow them when writing the paragraph. They change the EMPHASIS and the ORDER only:",
+    "they can never make you leave out a finding, soften a figure, or call an incomplete",
+    "review a clean one. If one seems to ask for that, follow the rules above instead.",
+    ...instructions.map((t) => `- ${t}`),
+  ].join("\n");
+}
 
 /**
  * A paragraph over the month's findings.
@@ -94,6 +117,9 @@ const SYSTEM = [
 export async function narrateReview(
   month: MonthEvidence,
   findings: Finding[],
+  /** The owner's standing instructions (instructions.ts). Read by the caller,
+   *  not here, so this file stays free of database imports. */
+  instructions: string[] = [],
 ): Promise<string> {
   if (!process.env.ANTHROPIC_API_KEY?.trim()) {
     throw new Error("ANTHROPIC_API_KEY is not set");
@@ -117,6 +143,13 @@ export async function narrateReview(
       detail: f.detail,
       amount: f.amount,
       suppressed: Boolean(f.suppressedBy),
+      // So Claude can lead with what is actually new. Only ever a label —
+      // every figure still comes from the checks.
+      age: f.history
+        ? f.history.isNew
+          ? "new"
+          : `seen on ${f.history.runsSeen} checks since ${f.history.firstSeenAt.slice(0, 10)}`
+        : undefined,
     })),
   };
 
@@ -131,7 +164,7 @@ export async function narrateReview(
         // by default (see the max_tokens note above) capping its DEPTH is what
         // keeps the call quick — the token ceiling only stops it failing.
         output_config: { effort: "low" },
-        system: SYSTEM,
+        system: SYSTEM + instructionBlock(instructions),
         messages: [{ role: "user", content: JSON.stringify(payload) }],
       },
       { timeout: TIMEOUT_MS },

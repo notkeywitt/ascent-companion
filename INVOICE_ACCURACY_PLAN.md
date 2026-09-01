@@ -130,6 +130,27 @@ which is what lets the office tune a threshold or mute a check at `/admin` with 
 deploy (precedent: `digest_settings_overrides`), and it's what Stage 3's precision
 tracking attaches to.
 
+### Stage 2 — SKIPPED (owner's decision, 2026-09)
+
+**Ascent bills cost-plus.** An estimate is given, but there is no contractual
+ceiling on spending a client's money, so the whole contract family —
+`contract-overbilled`, `co-billed-unapproved`, `co-approved-unbilled`,
+`contract-balance-drift` — is checking for a failure mode that does not exist
+here. Skipped, not deferred.
+
+**One piece of it is worth revisiting.** The MARGIN checks (`markup-missing`,
+`markup-rate-drift`, `billed-below-cost`) are arguably *more* relevant to
+cost-plus, not less: cost × markup is the entire revenue model, so a line that
+reaches a client invoice at cost is silent lost revenue with nothing else in the
+system to catch it. Left out with the rest by decision, and recorded here so it
+is a choice rather than an oversight.
+
+The retainage, allowance, tax-policy and delivery families remain unbuilt and
+unjudged — they were never the reason Stage 2 was skipped.
+
+<details>
+<summary>The original Stage 2, kept for reference</summary>
+
 ### Stage 2 — Close the evidence gaps (large — this is the substance)
 
 **Precondition to verify first:** does the org actually keep contracts and change
@@ -179,6 +200,8 @@ already does.
 Every one ships at `warning` severity (see Stage 3's promotion rule), and every
 number it produces comes from a pure, unit-tested function — golden vectors in the
 style of `BILLING_VECTORS` for any new dated or rate-based rule.
+
+</details>
 
 ### Stage 3 — The learning layer (medium — this is what "learns as it goes" means)
 
@@ -304,9 +327,9 @@ to it, and nothing here races the hourly mirror.
 |---|---|---|---|
 | 0 | Fixed narration, run history, cron | Small | ✅ **Landed** |
 | 1 | Check registry + settings | Medium | ✅ **Landed** |
-| 2 | Contract/margin/retainage/tax/delivery checks | Large | Next |
-| 3 | Norms, miss log, instructions, precision | Medium | |
-| 4 | The investigating Claude loop | Medium | |
+| 2 | Contract/margin/retainage/tax/delivery checks | Large | ⏭️ **Skipped** — cost-plus |
+| 3 | Norms, miss log, instructions, precision | Medium | ✅ **Landed** |
+| 4 | The investigating Claude loop | Medium | Next |
 | 5 | Pre-send gate + mid-month run | Medium | |
 | 6 | PDF amount confirmation | Small | |
 
@@ -322,9 +345,38 @@ two checks share a finding kind and catches a throwing check onto
 every assertion it had (247 passing, unchanged) and `registry.test.ts` adds 11
 for the new machinery.
 
-**Before starting Stage 2**, verify the precondition it names: are contracts and
-change orders kept as `customerOrder` documents in the live org, consistently?
-If not, the honest first deliverable there is a data-hygiene report.
+**What landed in 3.** Four memories, kept separate because they fail
+differently, and only one of them can silence anything.
+
+*Derived — nobody has to do anything.* `invoice_review_finding_state` watches
+findings appear and disappear, so every row now says whether it is new or has
+been standing since March, and per-check precision falls out of what the office
+does next (a finding that stops appearing was fixed; one that gets a ruling was
+set aside — counted separately and never merged). `norms.ts` learns vendor
+cadence from the stored payloads, which made `vendor-silent` possible: a vendor
+who bills four months in five and billed nothing this month. For a cost-plus
+builder that is missing *revenue*, and it is the one failure with no evidence
+anywhere — an invoice that was never sent leaves no email, no bill, no PDF, only
+a hole in a pattern.
+
+*Written by the office.* The **miss log** (`invoice_review_misses`) records
+mistakes the review did not catch — the only input a genuinely new check can
+come from — and `/api/invoice-review/learn` hands it to Claude with the current
+check list and asks what would have caught them. The answer is a **proposal a
+person implements**; nothing writes a check. **Standing instructions** shape how
+the month is read out, never what is found. Rulings gained a `customer-kind`
+scope for arrangements that belong to the client rather than to one job.
+
+**Still true, and load-bearing:** learning only ever ADDS scrutiny
+automatically. Removing it is always a human ruling with a reason attached.
+
+**Not built yet, from this stage's original sketch:** severity promotion and
+demotion. The precision numbers now exist and are exposed at
+`/api/invoice-review/accuracy`, but nothing acts on them — a check's severity is
+still fixed in its own file. That is deliberate: there is no history to promote
+*from* until the review has been running for a few months, and wiring an
+automatic demotion before there is data to drive it would just be a random
+number generator with a good story.
 
 Stages 0 and 1 are prerequisites for everything. Stage 2 is where mistakes actually
 start getting caught. Stage 3 is what makes it improve without being rebuilt.

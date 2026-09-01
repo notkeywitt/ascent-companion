@@ -14,14 +14,14 @@ import {
   Loading,
   PageHeader,
   SectionHeading,
+  SectionLabel,
   Select,
   StatementBlock,
   Textarea,
-  Toggle,
 } from "@/components/ui";
 import { buildBrief } from "@/lib/invoiceReview/brief";
 import { money } from "@/lib/invoiceReview/types";
-import type { Finding, ReviewPayload } from "@/lib/invoiceReview/types";
+import type { Finding, ReviewPayload, RulingScope } from "@/lib/invoiceReview/types";
 
 /**
  * Pick a billing month, run the review, work the list.
@@ -132,8 +132,11 @@ export function InvoiceReview() {
   const [lens, setLens] = useState<Lens>("fix");
   const [open, setOpen] = useState<Set<string>>(new Set());
 
-  // The ruling being written, if any: which finding, the note, and how wide.
-  const [ruling, setRuling] = useState<{ finding: Finding; reason: string; wide: boolean } | null>(null);
+  // The ruling being written, if any: which finding, the note, and how wide it
+  // reaches. Wider is not better — see rulings.ts — so it always opens narrow.
+  const [ruling, setRuling] = useState<
+    { finding: Finding; reason: string; scope: RulingScope } | null
+  >(null);
   const [saving, setSaving] = useState(false);
 
   // "Copied" / "Couldn't copy" on the hand-to-Claude button.
@@ -193,7 +196,8 @@ export function InvoiceReview() {
           key: ruling.finding.key,
           kind: ruling.finding.kind,
           jobId: ruling.finding.jobId,
-          scope: ruling.wide ? "job-kind" : "finding",
+          customerName: ruling.finding.customerName,
+          scope: ruling.scope,
           reason: ruling.reason.trim(),
         }),
       });
@@ -206,14 +210,19 @@ export function InvoiceReview() {
               ...d,
               findings: d.findings.map((f) =>
                 f.key === ruling.finding.key ||
-                (ruling.wide && f.kind === ruling.finding.kind && f.jobId === ruling.finding.jobId)
+                (ruling.scope === "job-kind" &&
+                  f.kind === ruling.finding.kind &&
+                  f.jobId === ruling.finding.jobId) ||
+                (ruling.scope === "customer-kind" &&
+                  f.kind === ruling.finding.kind &&
+                  f.customerName === ruling.finding.customerName)
                   ? {
                       ...f,
                       suppressedBy: {
                         reason: ruling.reason.trim(),
                         by: "you",
                         at: new Date().toISOString(),
-                        scope: ruling.wide ? "job-kind" : "finding",
+                        scope: ruling.scope,
                       },
                     }
                   : f,
@@ -512,7 +521,9 @@ export function InvoiceReview() {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => setRuling({ finding: f, reason: "", wide: false })}
+                                onClick={() =>
+                                  setRuling({ finding: f, reason: "", scope: "finding" })
+                                }
                               >
                                 Not an issue…
                               </Button>
@@ -535,12 +546,41 @@ export function InvoiceReview() {
                                   setRuling({ ...ruling, reason: e.target.value })
                                 }
                               />
-                              <div className="mt-2">
-                                <Toggle
-                                  checked={ruling.wide}
-                                  onChange={(wide) => setRuling({ ...ruling, wide })}
-                                  label="Apply to every finding like this on this job"
-                                />
+                              {/* How far it reaches. Always opens at the
+                                  narrowest — a ruling that reaches past what
+                                  was meant is how a real finding gets silenced
+                                  years later by a note nobody remembers. */}
+                              <div className="mt-3">
+                                <SectionLabel>How far does this go?</SectionLabel>
+                                <div className="mt-1 flex flex-col gap-1">
+                                  {(
+                                    [
+                                      { id: "finding", label: "Just this one" },
+                                      {
+                                        id: "job-kind",
+                                        label: `Everything like this on ${f.jobName || "this job"}`,
+                                      },
+                                      {
+                                        id: "customer-kind",
+                                        label: `Everything like this for ${f.customerName || "this customer"}, on every job`,
+                                      },
+                                    ] as { id: RulingScope; label: string }[]
+                                  ).map((opt) => (
+                                    <label
+                                      key={opt.id}
+                                      className="flex items-start gap-2 text-sm"
+                                    >
+                                      <input
+                                        type="radio"
+                                        name={`scope-${f.key}`}
+                                        className="mt-1"
+                                        checked={ruling.scope === opt.id}
+                                        onChange={() => setRuling({ ...ruling, scope: opt.id })}
+                                      />
+                                      <span>{opt.label}</span>
+                                    </label>
+                                  ))}
+                                </div>
                               </div>
                               <div className="mt-3 flex gap-2">
                                 <Button
@@ -569,8 +609,113 @@ export function InvoiceReview() {
               </div>
             </section>
           ))}
+
+          <MissBox ym={ym} />
         </>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * "We found something this didn't."
+ *
+ * The most valuable thing the office can give the review, and the only input a
+ * genuinely new check can come from — every other memory here can only make it
+ * quieter (see misses.ts).
+ *
+ * So it is deliberately the easiest thing on the page to fill in. One box is
+ * required. A form that demands a job, an invoice number and a dollar figure at
+ * the exact moment somebody is annoyed about a billing error is a form that
+ * stays empty, and an empty log teaches the review nothing.
+ *
+ * It lives at the BOTTOM, after the findings: the moment you realise something
+ * is missing is the moment you finish reading the list and it isn't there.
+ */
+function MissBox({ ym }: { ym: string }) {
+  const [open, setOpen] = useState(false);
+  const [description, setDescription] = useState("");
+  const [howCaught, setHowCaught] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [done, setDone] = useState("");
+  const [error, setError] = useState("");
+
+  const save = useCallback(async () => {
+    if (!description.trim()) return;
+    setSaving(true);
+    setError("");
+    try {
+      const res = await fetch("/api/invoice-review/misses", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ym, description: description.trim(), howCaught: howCaught.trim() }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.error ?? "Couldn't record that.");
+      setDescription("");
+      setHowCaught("");
+      setOpen(false);
+      setDone("Recorded. It'll be used to work out what check would have caught it.");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn't record that.");
+    } finally {
+      setSaving(false);
+    }
+  }, [description, howCaught, ym]);
+
+  return (
+    <Card className="mt-8">
+      <SectionLabel>Something this missed?</SectionLabel>
+      <p className="mt-1 text-sm opacity-70">
+        If you found a billing mistake this review didn&apos;t catch, say so here. It gets
+        used to work out what check would have caught it — it&apos;s the only way the
+        review learns to look somewhere new.
+      </p>
+
+      {done ? <Banner tone="success" className="mt-3">{done}</Banner> : null}
+      {error ? <Banner tone="error" className="mt-3">{error}</Banner> : null}
+
+      {open ? (
+        <div className="mt-3">
+          <Textarea
+            rows={3}
+            autoFocus
+            value={description}
+            placeholder="e.g. billed Ferron twice for the same dumpster — two bills, same ticket number"
+            onChange={(e) => setDescription(e.target.value)}
+          />
+          <div className="mt-2">
+            <SectionLabel>How did it come to light? (optional)</SectionLabel>
+            <Textarea
+              className="mt-1"
+              rows={2}
+              value={howCaught}
+              placeholder="e.g. the client queried it / spotted it reading the PDF"
+              onChange={(e) => setHowCaught(e.target.value)}
+            />
+          </div>
+          <div className="mt-3 flex gap-2">
+            <Button size="sm" onClick={save} disabled={saving || !description.trim()}>
+              {saving ? "Recording…" : "Record it"}
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setOpen(false)} disabled={saving}>
+              Cancel
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <Button
+          className="mt-3"
+          size="sm"
+          variant="outline"
+          onClick={() => {
+            setOpen(true);
+            setDone("");
+          }}
+        >
+          Tell it what it missed
+        </Button>
+      )}
+    </Card>
   );
 }
