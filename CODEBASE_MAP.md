@@ -45,6 +45,7 @@ matching row here.
 | **Billing period / bill-date rules** | `src/lib/billing.ts` (keep in lockstep with appscript `Config.js`) |
 | **Bill line money math** (edit/save a bill's lines) | `src/lib/billLineMath.ts` |
 | **Unsynced coding surviving a page you left** | `src/lib/codingDraft.ts` (autosave + reconciled restore) + `src/app/api/coding-draft`; wired into `Board.tsx` (scoped per job-month) and, scoped per BILL, `DraftWorkbench.tsx` + `src/app/bill/[docId]/page.tsx` — the same scope key, so a bill started on a phone is waiting at the desk |
+| **"Where did I leave off"** | `src/app/trackingsheet/UnsyncedDrafts.tsx` — the unfinished-coding list on the Tracking Sheets landing, from `listDrafts()` (this device merged with the companion DB, so work left on another device is visible too) |
 | **Coding / Tracking Sheets workflow** | `src/app/trackingsheet/*` (Board, BillCodingCard, TimeCodingCard, ClientInvoicing, DraftQueue, DraftWorkbench,
   AllJobs, Roster) + `src/app/api/trackingsheet/*`, `src/app/api/code` |
 | **Editing ONE time entry** (code / hours / day / job) | `src/app/trackingsheet/TimeCodingCard.tsx` + `src/app/api/time-entry`; batch recodes stay in `labor-review` |
@@ -109,7 +110,7 @@ including edge middleware.
 | `amazonImport.ts` | Amazon Business monthly CSV → JobTread vendor bills. |
 | `taskRunner.ts` | Tiny background scheduler (keyed serialization + parallelism cap) used by the Tracking Sheet page. |
 | `usage.ts` | Activity tracking (login/view/coding) — the data layer behind Admin → Activity. |
-| `codingDraft.ts` ⟂-ish | **Unsynced Tracking Sheets coding, made durable.** Staged coding is autosaved on every change — localStorage first (the layer that actually catches a killed tab), the companion DB a couple of seconds behind (the layer that follows you to another device) — and offered back on return. `reconcileDraft` is the judgement and the tested part: it re-tests a stored draft against the data that just loaded, dropping anything JobTread has since taken or lost. It never writes to JobTread; Sync still does that. |
+| `codingDraft.ts` ⟂-ish | **Unsynced Tracking Sheets coding, made durable.** Staged coding is autosaved on every change — localStorage first (the layer that actually catches a killed tab), the companion DB a couple of seconds behind (the layer that follows you to another device) — and offered back on return. `reconcileDraft` is the judgement and the tested part: it re-tests a stored draft against the data that just loaded, dropping anything JobTread has since taken or lost. `listDrafts`/`describeDraft` feed the landing page's unfinished-coding list. It never writes to JobTread; Sync still does that. |
 | `useUnsavedChanges.ts` | React hook guarding navigation away from unsaved edits. Now a reminder rather than the safety net — `codingDraft.ts` is what stops the work being lost. |
 | `sentry.shared.ts` | Shared Sentry init. |
 

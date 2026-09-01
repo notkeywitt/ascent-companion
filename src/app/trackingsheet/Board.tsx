@@ -649,8 +649,14 @@ export function Board() {
     if (!draftKey || autosaveArmedRef.current !== draftKey) return;
     const compactEdits: Record<string, LineEdit> = {};
     for (const [id, e] of Object.entries(edits)) if (e) compactEdits[id] = e;
-    saveDraft(draftKey, { staged: Object.fromEntries(staged), edits: compactEdits, taxEdits });
-  }, [draftKey, staged, edits, taxEdits]);
+    // The label is what the "unfinished work" list on the landing page shows —
+    // that list reads storage alone and has no job to look a name up from.
+    saveDraft(
+      draftKey,
+      { staged: Object.fromEntries(staged), edits: compactEdits, taxEdits },
+      `${data?.job?.name || "This job"} · ${monthLabel(ym)}`,
+    );
+  }, [draftKey, staged, edits, taxEdits, data?.job?.name, ym]);
 
   const load = useCallback(
     async (opts?: { preserveStaged?: boolean }) => {

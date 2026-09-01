@@ -52,6 +52,14 @@ export interface CodingDraft {
   key: string;
   /** ISO timestamp of the last change, for the "restored from…" line. */
   savedAt: string;
+  /**
+   * How to NAME this work on the "unfinished" list — "Harper Residence · August",
+   * "Ferguson Plumbing · 44821". Written by whichever screen staged it, because
+   * only that screen knows: the list is read from storage alone and has no job or
+   * bill to look the name up from. Optional, and the list falls back to the key,
+   * so a draft written by an older build still shows up rather than vanishing.
+   */
+  label?: string;
   /** costItemId → the budget leaf it's been staged onto. */
   staged: Record<string, string>;
   /** costItemId → in-flight description / qty / unit-cost text. */
@@ -214,6 +222,7 @@ function parseDraft(raw: string | null): CodingDraft | null {
     return {
       key: typeof d.key === "string" ? d.key : "",
       savedAt: typeof d.savedAt === "string" ? d.savedAt : "",
+      label: typeof d.label === "string" ? d.label : undefined,
       staged: (d.staged ?? {}) as Record<string, string>,
       edits: (d.edits ?? {}) as Record<string, LineEdit>,
       taxEdits: (d.taxEdits ?? {}) as Record<string, string>,
@@ -235,13 +244,17 @@ export function readLocalDraft(key: string): CodingDraft | null {
   return draft;
 }
 
-export function writeLocalDraft(key: string, parts: DraftParts): CodingDraft | null {
+export function writeLocalDraft(
+  key: string,
+  parts: DraftParts,
+  label?: string,
+): CodingDraft | null {
   const store = ls();
   if (isEmptyDraft(parts)) {
     store?.removeItem(LS_PREFIX + key);
     return null;
   }
-  const draft: CodingDraft = { key, savedAt: new Date().toISOString(), ...parts };
+  const draft: CodingDraft = { key, savedAt: new Date().toISOString(), label, ...parts };
   try {
     store?.setItem(LS_PREFIX + key, JSON.stringify(draft));
   } catch {
@@ -336,8 +349,8 @@ if (typeof window !== "undefined") {
  * Save the staged work for one scope. Local first and synchronously — that half
  * has landed by the time this returns — then queued for the companion DB.
  */
-export function saveDraft(key: string, parts: DraftParts) {
-  const draft = writeLocalDraft(key, parts);
+export function saveDraft(key: string, parts: DraftParts, label?: string) {
+  const draft = writeLocalDraft(key, parts, label);
   queueServerPush(key, draft);
 }
 
@@ -346,6 +359,99 @@ export function discardDraft(key: string) {
   clearLocalDraft(key);
   queueServerPush(key, null);
   flushDrafts(false); // a discard shouldn't sit in the debounce
+}
+
+// ---------------------------------------------------------------------------
+// THE UNFINISHED LIST — every scope still holding work, across both layers
+// ---------------------------------------------------------------------------
+
+/** One row of the "you left work unfinished" list. */
+export interface DraftSummary {
+  key: string;
+  /** "job" — a job-month on the board · "bill" — one bill's coding. */
+  kind: "job" | "bill";
+  /** What the screen that staged it called it, or the key when it predates labels. */
+  label: string;
+  savedAt: string;
+  /** How many staged changes it holds. */
+  count: number;
+  /** Where to go to finish it. */
+  href: string;
+  /** True when only the SERVER had it — work left on another device. */
+  elsewhere: boolean;
+}
+
+/**
+ * Read a scope key back into somewhere to go.
+ *
+ * Job ids never contain a colon, but this parses from the ENDS anyway (kind
+ * before the first, month after the last) rather than splitting into three: a
+ * key that ever grew a colon in the middle would otherwise send somebody to the
+ * wrong job, and quietly.
+ */
+export function describeDraft(draft: CodingDraft, fromServerOnly = false): DraftSummary | null {
+  const key = draft.key ?? "";
+  const count = draftSize(draft);
+  if (count === 0) return null; // an empty draft is not unfinished work
+  const base = {
+    key,
+    label: draft.label?.trim() || key,
+    savedAt: draft.savedAt,
+    count,
+    elsewhere: fromServerOnly,
+  };
+  if (key.startsWith("bill:")) {
+    const docId = key.slice("bill:".length);
+    if (!docId) return null;
+    return { ...base, kind: "bill", href: `/bill/${encodeURIComponent(docId)}` };
+  }
+  if (key.startsWith("job:")) {
+    const rest = key.slice("job:".length);
+    const cut = rest.lastIndexOf(":");
+    if (cut <= 0) return null;
+    const jobId = rest.slice(0, cut);
+    const ym = rest.slice(cut + 1);
+    return {
+      ...base,
+      kind: "job",
+      href: `/trackingsheet?jobId=${encodeURIComponent(jobId)}&ym=${encodeURIComponent(ym)}`,
+    };
+  }
+  return null; // an unknown scope — nowhere to send anyone, so don't offer it
+}
+
+/**
+ * Every scope still holding unfinished work, newest first — this device's
+ * drafts merged with the ones the companion DB is keeping.
+ *
+ * The merge is the whole point: a draft that exists ONLY on the server is work
+ * left on ANOTHER device, which is exactly what the office can't otherwise see.
+ * Local wins a tie because it is written on every change and the mirror trails
+ * it, and the survivors are marked `elsewhere` so the list can say where the
+ * work is waiting.
+ */
+export async function listDrafts(): Promise<DraftSummary[]> {
+  const local = listLocalDrafts();
+  const byKey = new Map<string, DraftSummary>();
+  for (const d of local) {
+    const row = describeDraft(d);
+    if (row) byKey.set(row.key, row);
+  }
+  try {
+    const res = await fetch("/api/coding-draft?all=1", { cache: "no-store" });
+    if (res.ok) {
+      const json = (await res.json()) as { drafts?: CodingDraft[] };
+      for (const d of json.drafts ?? []) {
+        if (!d?.key || byKey.has(d.key)) continue; // this device already has it, and newer
+        if (draftAgeDays(d) > DRAFT_TTL_DAYS) continue;
+        const row = describeDraft(d, true);
+        if (row) byKey.set(row.key, row);
+      }
+    }
+  } catch {
+    /* offline — the local half still answers, which is the half that matters here */
+  }
+  return [...byKey.values()].sort((a, b) => b.savedAt.localeCompare(a.savedAt));
 }
 
 /**

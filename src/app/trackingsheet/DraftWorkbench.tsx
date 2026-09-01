@@ -372,12 +372,18 @@ export function useBillEditor(
     if (!draftKey || autosaveArmedRef.current !== draftKey) return;
     const compactEdits: Record<string, LineEdit> = {};
     for (const [id, e] of Object.entries(edits)) if (e) compactEdits[id] = e;
-    saveDraft(draftKey, {
-      staged: picked,
-      edits: compactEdits,
-      taxEdits: taxEdit !== null && taxEdit !== "" ? { [docId]: taxEdit } : {},
-    });
-  }, [draftKey, docId, picked, edits, taxEdit]);
+    saveDraft(
+      draftKey,
+      {
+        staged: picked,
+        edits: compactEdits,
+        taxEdits: taxEdit !== null && taxEdit !== "" ? { [docId]: taxEdit } : {},
+      },
+      // What the "unfinished work" list on the landing page calls this row: the
+      // bill as the queue names it, and the job it is on.
+      [sel?.label, sel?.jobName].filter(Boolean).join(" · "),
+    );
+  }, [draftKey, docId, picked, edits, taxEdit, sel?.label, sel?.jobName]);
 
   /**
    * What this bill would add to each cost code once saved.

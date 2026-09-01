@@ -2,14 +2,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   DRAFT_TTL_DAYS,
   clearLocalDraft,
+  describeDraft,
   draftAgeDays,
   draftSavedAtLabel,
   draftSize,
   isEmptyDraft,
+  listDrafts,
   listLocalDrafts,
   readLocalDraft,
   reconcileDraft,
   writeLocalDraft,
+  type CodingDraft,
   type DraftParts,
 } from "@/lib/codingDraft";
 
@@ -228,5 +231,109 @@ describe("local draft storage", () => {
     expect(readLocalDraft("bill:D1")).toBeNull();
     expect(listLocalDrafts()).toEqual([]);
     expect(() => clearLocalDraft("bill:D1")).not.toThrow();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The "unfinished coding" list. Its job is to send somebody to the right
+// screen — so the parsing of a scope key back into a destination is the part
+// worth pinning, along with the merge that is the only way work left on
+// ANOTHER device is ever seen.
+// ---------------------------------------------------------------------------
+
+const draft = (over: Partial<CodingDraft> = {}): CodingDraft => ({
+  key: "bill:D1",
+  savedAt: "2026-09-01T10:00:00.000Z",
+  staged: { L1: "leafB" },
+  edits: {},
+  taxEdits: {},
+  ...over,
+});
+
+describe("describeDraft", () => {
+  it("sends a bill draft to that bill", () => {
+    const row = describeDraft(draft({ key: "bill:D1", label: "Ferguson · 44821" }));
+    expect(row).toMatchObject({ kind: "bill", href: "/bill/D1", label: "Ferguson · 44821", count: 1 });
+  });
+
+  it("sends a job draft to that job AND that month, not just the job", () => {
+    // Landing on the right job in the wrong month shows none of the work.
+    const row = describeDraft(draft({ key: "job:J7:2026-08" }));
+    expect(row?.kind).toBe("job");
+    expect(row?.href).toBe("/trackingsheet?jobId=J7&ym=2026-08");
+  });
+
+  it("falls back to the key when a draft predates labels, rather than vanishing", () => {
+    expect(describeDraft(draft({ key: "bill:D1", label: undefined }))?.label).toBe("bill:D1");
+    expect(describeDraft(draft({ key: "bill:D1", label: "   " }))?.label).toBe("bill:D1");
+  });
+
+  it("offers nothing for an empty draft or a scope it can't place", () => {
+    expect(describeDraft(draft({ staged: {} }))).toBeNull();
+    expect(describeDraft(draft({ key: "whoknows:D1" }))).toBeNull();
+    expect(describeDraft(draft({ key: "job:nomonth" }))).toBeNull();
+  });
+});
+
+describe("listDrafts", () => {
+  let store: ReturnType<typeof fakeStorage>;
+
+  beforeEach(() => {
+    store = fakeStorage();
+    vi.stubGlobal("window", { localStorage: store });
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  const serverReturns = (drafts: CodingDraft[]) =>
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({ ok: true, json: async () => ({ drafts }) })),
+    );
+
+  it("marks a draft only the server has as work left on another device", async () => {
+    serverReturns([draft({ key: "bill:PHONE", savedAt: "2026-08-31T09:00:00.000Z" })]);
+    writeLocalDraft("bill:HERE", parts({ staged: { L1: "leafB" } }), "Here");
+
+    const rows = await listDrafts();
+    expect(rows.map((r) => r.key).sort()).toEqual(["bill:HERE", "bill:PHONE"]);
+    expect(rows.find((r) => r.key === "bill:PHONE")?.elsewhere).toBe(true);
+    expect(rows.find((r) => r.key === "bill:HERE")?.elsewhere).toBe(false);
+  });
+
+  it("lets the local copy win a scope both layers hold — the mirror trails it", async () => {
+    serverReturns([draft({ key: "bill:D1", label: "stale from the mirror" })]);
+    writeLocalDraft("bill:D1", parts({ staged: { L1: "leafB", L2: "leafC" } }), "current");
+
+    const rows = await listDrafts();
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ label: "current", count: 2, elsewhere: false });
+  });
+
+  it("ignores a server draft past its TTL", async () => {
+    const old = new Date(Date.now() - (DRAFT_TTL_DAYS + 1) * 86_400_000).toISOString();
+    serverReturns([draft({ key: "bill:ANCIENT", savedAt: old })]);
+    expect(await listDrafts()).toEqual([]);
+  });
+
+  it("still answers from this device when the server can't be reached", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new Error("offline");
+      }),
+    );
+    writeLocalDraft("bill:HERE", parts({ staged: { L1: "leafB" } }), "Here");
+    const rows = await listDrafts();
+    expect(rows.map((r) => r.key)).toEqual(["bill:HERE"]);
+  });
+
+  it("orders the list newest first — where you just were is the row you want", async () => {
+    serverReturns([]);
+    writeLocalDraft("bill:OLD", parts({ staged: { L1: "leafB" } }), "old");
+    // savedAt is stamped at write time, so a later write sorts first.
+    await new Promise((r) => setTimeout(r, 5));
+    writeLocalDraft("bill:NEW", parts({ staged: { L2: "leafC" } }), "new");
+    const rows = await listDrafts();
+    expect(rows.map((r) => r.key)).toEqual(["bill:NEW", "bill:OLD"]);
   });
 });

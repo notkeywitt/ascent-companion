@@ -523,12 +523,18 @@ function BillDetail() {
 
   useEffect(() => {
     if (!draftKey || autosaveArmedRef.current !== draftKey) return;
-    saveDraft(draftKey, {
-      staged: picked,
-      edits,
-      taxEdits: taxEdit !== null && taxEdit !== "" ? { [docId]: taxEdit } : {},
-    });
-  }, [draftKey, docId, picked, edits, taxEdit]);
+    saveDraft(
+      draftKey,
+      {
+        staged: picked,
+        edits,
+        taxEdits: taxEdit !== null && taxEdit !== "" ? { [docId]: taxEdit } : {},
+      },
+      // What the "unfinished work" list on Tracking Sheets calls this row — the
+      // vendor and their own invoice number, the way the bill is named here.
+      [vendor, header?.externalId || header?.number].filter(Boolean).join(" · "),
+    );
+  }, [draftKey, docId, picked, edits, taxEdit, vendor, header?.externalId, header?.number]);
 
   // Same signal, readable from the load effect's async callback (see dirtyRef).
   dirtyRef.current = changeCount > 0;
