@@ -12,11 +12,12 @@
  * and, from the route rather than here, a ruling when a human overrules a
  * finding. A reviewer still cannot change anything it reviews.
  */
-import { fallbackSummary, runChecks } from "./checks";
 import { loadMonthEvidence } from "./evidence";
 import { narrateReview } from "./narrate";
 import { applyRulings, listRulings } from "./rulings";
+import { runChecks } from "./registry";
 import { saveRun } from "./runs";
+import { fallbackSummary } from "./summary";
 import type { ReviewPayload } from "./types";
 import type { PaveConfig } from "@/lib/jobtread";
 

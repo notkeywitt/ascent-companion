@@ -21,11 +21,11 @@ reconcile, and the charge is simply absent. Only the mailbox still has it.
 The only thing a key would buy is the app writing its own summary paragraph; you
 are the summary.
 
-Every number comes from `src/lib/invoiceReview/checks.ts`, which is deterministic
-and unit-tested. Your job is to run it, read what it found, chase the ones it
-can't settle on its own, and tell the owner what to do. **Do not do the
-arithmetic yourself** — if you find yourself adding up line items in your head,
-you have gone off the rails.
+Every number comes from the checks in `src/lib/invoiceReview/checks/`, which are
+deterministic and unit-tested. Your job is to run them, read what they found,
+chase the ones they can't settle on their own, and tell the owner what to do.
+**Do not do the arithmetic yourself** — if you find yourself adding up line
+items in your head, you have gone off the rails.
 
 ## Vocabulary — get this right first
 
@@ -62,7 +62,7 @@ because you are going to write a better one with the context of this
 conversation. Use the production URL, or `http://localhost:3000` against a
 `npm run dev` with `.env.local` in place.
 
-Two other switches:
+Other switches:
 
 - `&format=brief` returns the whole review as a markdown briefing instead of
   JSON. Use it if you only want to read and relay; use JSON when you intend to
@@ -71,6 +71,19 @@ Two other switches:
 - `&email=0` skips the mailbox sweep, which is the slow half (a month of All Mail
   is a few hundred threads). Only for a quick pass — the capture findings then
   report nothing at all rather than passing.
+- `&stored=1` hands back the most recently FILED run instead of sweeping
+  everything again — instant, and identical to what that run showed, because it
+  IS that run. A scheduled run files one nightly, so this is usually current.
+  Use it when you want to read the month rather than re-check it; use a plain
+  call when the owner has just fixed something and wants it re-checked.
+  (`&stored=only` answers `{ "stored": null }` rather than falling through to a
+  live run, which is what the page opens with.)
+- `&history=1` lists the month's past runs — when it was last checked, by whom,
+  and how the counts have moved. Useful for "is this new, or has it been there
+  since March".
+
+A payload carrying `storedAt` came out of the history rather than being computed
+just now. Say so if you relay it, and say when.
 
 If the owner is in this repo without a running app, the same thing is reachable
 in code: `runInvoiceReview(getPaveConfig(), year, month, { narrate: false })`
@@ -184,6 +197,12 @@ the only thing that will explain the silence. To lift one:
   `evidence.warnings` is empty *and* `evidence.emailChecked` is true *and*
   `evidence.mailTruncated` is false. If the mailbox leg was skipped or truncated,
   the month is "clean on everything checked", and you must say which part wasn't.
+  A check that FAILED also lands in `evidence.warnings` — a check that stopped
+  working and a check that found nothing must never read the same.
+- **Never disable a check to quiet a finding.** A ruling says "we looked at this
+  one and it's fine", with a reason and a name against it. `enabled: false` in
+  `settings.ts` makes a whole class of problem stop being looked for, org-wide,
+  for everyone, silently. Record a ruling instead.
 - **Never report Office or Shop as under-billed.** They are Ascent's own overhead
   and are never invoiced. The checks already skip them; don't reintroduce them in
   your prose.
@@ -195,13 +214,21 @@ the only thing that will explain the silence. To lift one:
 
 | Piece | File |
 | --- | --- |
-| The checks (pure, tested) | `src/lib/invoiceReview/checks.ts` |
+| The checks (pure, tested) — one file each | `src/lib/invoiceReview/checks/` |
+| Every threshold and which checks run | `src/lib/invoiceReview/settings.ts` |
+| The check list + the runner | `src/lib/invoiceReview/registry.ts` |
 | Evidence gathering (JobTread + Drive + Gmail) | `src/lib/invoiceReview/evidence.ts` |
 | The paste-into-Claude briefing | `src/lib/invoiceReview/brief.ts` |
 | Rulings / the memory | `src/lib/invoiceReview/rulings.ts` |
+| Run history | `src/lib/invoiceReview/runs.ts` |
 | The route | `src/app/api/invoice-review/route.ts` |
+| The scheduled run | `src/app/api/invoice-review/run/route.ts` |
 | The page | `src/app/invoice-review/InvoiceReview.tsx` |
 | The Drive + Gmail reads (other repo) | `ascent-appscript/ClientInvoiceReview.js` |
+| Where this is all going | `INVOICE_ACCURACY_PLAN.md` |
+
+**Adding a check** is a new file in `checks/`, a config block in `settings.ts`,
+and one line in `registry.ts`. Nothing else needs touching.
 
 ## Known limitation, worth saying out loud
 

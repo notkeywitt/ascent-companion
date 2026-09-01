@@ -61,7 +61,8 @@ matching row here.
 | **The design system** | `src/components/ui.tsx` (build every UI on these primitives) |
 | **Editable on-screen text** (office reword, no deploy) | add a key to `src/lib/copy.ts`, render it via `useCopy()`; edited at `/admin/copy` → `src/app/api/admin/copy/route.ts` |
 | **The Admin Daily Digest** (morning report on Home) | `src/lib/digest/` — `settings.ts` (EVERY threshold/exclusion), `registry.ts` (the check list), `checks/*` (one file per check), `run.ts` (aggregator); UI `src/components/DailyDigest.tsx`; routes `src/app/api/digest/*`; Google data via appscript `DailyDigest.js` |
-| **Reviewing a month's client invoices** | `src/lib/invoiceReview/` — `checks.ts` (every judgement, pure + tested), `evidence.ts` (JobTread + Drive + Gmail), `rulings.ts` (the memory), `brief.ts` (the no-API-key hand-off); page `src/app/invoice-review/`; route `src/app/api/invoice-review`; Drive + Gmail reads via appscript `ClientInvoiceReview.js`; skill `.claude/skills/invoice-review/` |
+| **Reviewing a month's client invoices** | `src/lib/invoiceReview/` — `checks/*` (one file per check, pure + tested), `settings.ts` (EVERY threshold), `registry.ts` (the check list + the runner), `evidence.ts` (JobTread + Drive + Gmail), `rulings.ts` (the memory), `runs.ts` (the history), `brief.ts` (the no-API-key hand-off); page `src/app/invoice-review/`; routes `src/app/api/invoice-review` (+ `/run`, scheduled); Drive + Gmail reads via appscript `ClientInvoiceReview.js`; skill `.claude/skills/invoice-review/` |
+| **Adding an invoice-review check** | write `src/lib/invoiceReview/checks/<id>.ts`, add its config block to `settings.ts`, add one line to `registry.ts` — the runner, the route, the history and the page are untouched |
 | **Adding a digest check** | write `src/lib/digest/checks/<id>.ts`, add its config block to `src/lib/digest/settings.ts`, add one line to `src/lib/digest/registry.ts` — the aggregator, the cron route and the UI are untouched |
 
 ## `src/lib/` — shared logic (the most-reused code)
@@ -111,22 +112,39 @@ including edge middleware.
 Cross-checks a billing month's CLIENT invoices (JobTread `customerInvoice`
 documents) against the vendor bills behind them, the backup PDFs filed in the
 Drive invoicing tree, and the office mailbox. READ-ONLY against JobTread, Drive,
-Gmail and the Sheet; the only thing it writes anywhere is a standing "ruling" in
-the companion DB.
+Gmail and the Sheet; the only things it writes anywhere are two rows in the
+companion DB — a standing "ruling", and the run itself.
+
+Staged expansion plan: `INVOICE_ACCURACY_PLAN.md`.
 
 | File | Purpose |
 |---|---|
 | `types.ts` ⟂ | The evidence and finding shapes, the `FindingKind` list, and the `findingKey` identity a ruling suppresses by. Pure — imported by the checks, the route and the page alike. |
-| `checks.ts` ⟂ | **Every judgement lives here**, as pure functions over the evidence: CAPTURE (a vendor invoice arrived in the 10th-to-10th window and JobTread has no matching bill — the one failure no other check can see), COVERAGE (everything captured reached a client invoice, per bill), backup coverage (amount-matched one-to-one against the filename convention), the invoice math (line, total, tax, balance), and billing period + scope. Never fetches, never writes, never "corrects" a number. Skips Office and Shop, which are Ascent's own overhead and are never billed to anyone (`isNeverInvoiced` in types.ts). |
+| `checkTypes.ts` ⟂ | The check contract: the three SCOPES (`month`/`job`/`invoice` — the unit a check reasons about) and the context each is handed. Separate types rather than one context with optional fields, so a month-scoped check can't read a job that was never meaningful for it. |
+| `checks/mailCapture.ts` ⟂ | **The most important check.** A vendor invoice arrived in the 10th-to-10th window and JobTread has no matching bill — the one failure no other check can see, because everything downstream only sees what got captured. Month-scoped: an arriving invoice belongs to the PERIOD, not to whichever job it landed on. |
+| `checks/uninvoiced.ts` ⟂ | Everything captured for the month reached a client invoice — one job-level finding when nothing was billed at all, one per bill when the job WAS invoiced, plus rolled-up labor. Skips Office and Shop, Ascent's own overhead (`isNeverInvoiced` in types.ts). |
+| `checks/backup.ts` ⟂ | Backup coverage both ways: every billed bill has its PDF, every filed PDF is accounted for, and two copies of one charge are flagged. Amount-matched one-to-one against the pipeline's filename convention. |
+| `checks/invoiceMath.ts` ⟂ | Does the invoice foot — line multiplies out, lines sum to the total, tax and balance reconcile. Recomputes only to COMPARE with what JobTread states; never decides which side is right. |
+| `checks/duplicateBill.ts` ⟂ | One vendor bill carried by two live client invoices. The finding most likely to cost real money and real trust, and the one that can be true with every other check passing. |
+| `checks/issueDate.ts` ⟂ | The invoice is dated inside the month it carries. In JobTread the issue date IS the billing period, so one mis-typed date bills the wrong month AND re-files the backup into the wrong Drive folder. |
+| `checks/costBasis.ts` ⟂ | The invoice's cost basis is accounted for by the month's bills on it. One direction only — an invoice covering part of a month is normal. |
+| `checks/draftBills.ts` ⟂ | Bills left in the coding queue when the month closed. JobTread can't pull a draft onto an invoice, so none of it was billed. |
+| `checks/shared.ts` ⟂ | Only what more than one check needs: name-token comparison and the one-to-one backup pairing (`matchBackup`). Anything one check owns stays in that check. |
+| `settings.ts` ⟂ | POLICY, in one editable file: every threshold, and `enabled` per check. A check declares behavior; this declares what it runs with. Severity is deliberately NOT here yet — that's set from evidence in the plan's Stage 3. |
+| `registry.ts` ⟂ | The one list of checks, and the runner. Asserts at load that no two checks share an id or a finding KIND (a kind is half of a suppression identity — two owners would let one ruling silence findings nobody saw). A check that throws is caught, recorded on `evidence.warnings`, and does not take the review down. |
+| `summary.ts` ⟂ | The locally-built one-line summary, used whenever Claude didn't write one. |
 | `evidence.ts` | All the fetching: the job roster, each job's month bills and live invoices (413-safe two-phase reads), the Drive backup listing, and one mailbox sweep for the period — the last two via the Apps Script bridge. It also does the mail→JobTread JOIN, reusing the Daily Digest's `matchVendor`/`billMatchesEmail` so there is one answer in the codebase to "is this the same invoice". Per-job failures become warnings, never a dead review. Sets `emailChecked`, so a mailbox that couldn't be searched never looks like one that came back clean. |
 | `brief.ts` ⟂ | The review as a self-contained markdown briefing, for the **no-API-key path**: the page's "Copy for Claude" button and `GET /api/invoice-review?format=brief`. Opens by telling Claude the arithmetic is already done and must not be redone. |
 | `rulings.ts` | The memory — what the office has already overruled, so a structurally-true finding stops coming back every month. Two scopes: this finding, or this kind on this job. The ONLY write in the feature. |
-| `narrate.ts` | One Claude paragraph over the STRUCTURED findings (never the raw evidence, so it cannot invent a figure). Silent fallback to the locally-built summary. |
-| `run.ts` | The order of operations: evidence → checks → rulings → narrative. Thin by design. |
+| `narrate.ts` | One Claude paragraph over the STRUCTURED findings (never the raw evidence, so it cannot invent a figure). THROWS a described reason rather than falling back silently — the reason rides the payload as `summaryNote` and is drawn on the page, because a silent fallback hid a real outage for as long as it lasted. |
+| `runs.ts` | The HISTORY — every run that has happened, appended (many rows per month; the newest is the current view). What the page opens onto, and what the learning layer will read. Best-effort throughout: an unreachable DB costs a row, never a review. |
+| `run.ts` | The order of operations: evidence → checks → rulings → narrative → file the run. Thin by design. |
 
-Tests: `checks.test.ts` (the backup matcher against the real filename
-convention, every math tolerance, the period/scope rules, the mailbox
-calibration, the briefing, finding order).
+Tests: `checks.test.ts` (what each check decides about money — the backup
+matcher against the real filename convention, every math tolerance, the
+period/scope rules, the mailbox calibration, the briefing, finding order) and
+`registry.test.ts` (the machinery — policy from settings, a check that is turned
+off, and a check that throws without taking the review down).
 Skill: `.claude/skills/invoice-review/SKILL.md` drives the same review from a
 Claude Code session. Drive half: `ascent-appscript/ClientInvoiceReview.js`.
 
@@ -274,7 +292,8 @@ Grouped by domain; each folder is `…/route.ts`.
 `leave_requests`, `leave_transactions`, `jt_user_links`, `notices`,
 `notice_reads`, `rfis`, `sunset_statements`, `page_copy`, `bill_index`,
 `bill_line_index`, `bill_index_meta`, `daily_digest`, `invoice_review_rulings`
-(the invoice review's standing rulings). Access via `src/db/index.ts`.
+(the invoice review's standing rulings), `invoice_review_runs` (every review that
+has run — the history the learning layer reads). Access via `src/db/index.ts`.
 
 (`bill_index`/`bill_line_index`/`bill_index_meta` back the `/bill-search` index —
 the searchable snapshot of every bill + line item, plus its refresh/seed

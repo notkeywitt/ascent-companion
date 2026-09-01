@@ -8,7 +8,9 @@
 import { describe, expect, it } from "vitest";
 
 import { buildBrief } from "./brief";
-import { matchBackup, runChecks, fallbackSummary } from "./checks";
+import { runChecks } from "./registry";
+import { matchBackup } from "./checks/shared";
+import { fallbackSummary } from "./summary";
 import { isNeverInvoiced } from "./types";
 import type {
   BackupFile,

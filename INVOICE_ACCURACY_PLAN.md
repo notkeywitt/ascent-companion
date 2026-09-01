@@ -300,15 +300,31 @@ to it, and nothing here races the hourly mirror.
 
 ## 6. Sequencing
 
-| Stage | Ships | Size |
-|---|---|---|
-| 0 | Fixed narration, run history, cron | Small |
-| 1 | Check registry + settings | Medium |
-| 2 | Contract/margin/retainage/tax/delivery checks | Large |
-| 3 | Norms, miss log, instructions, precision | Medium |
-| 4 | The investigating Claude loop | Medium |
-| 5 | Pre-send gate + mid-month run | Medium |
-| 6 | PDF amount confirmation | Small |
+| Stage | Ships | Size | Status |
+|---|---|---|---|
+| 0 | Fixed narration, run history, cron | Small | ✅ **Landed** |
+| 1 | Check registry + settings | Medium | ✅ **Landed** |
+| 2 | Contract/margin/retainage/tax/delivery checks | Large | Next |
+| 3 | Norms, miss log, instructions, precision | Medium | |
+| 4 | The investigating Claude loop | Medium | |
+| 5 | Pre-send gate + mid-month run | Medium | |
+| 6 | PDF amount confirmation | Small | |
+
+**What landed in 0 and 1.** `narrate.ts` raised to a 16k ceiling at low effort
+and now reports why it fell back instead of failing silently;
+`invoice_review_runs` keeps every run (appended, many per month), written by the
+review route and by a nightly `/api/invoice-review/run`; the page opens onto the
+last filed run, stamped, with "Check again" to sweep live. The 688-line
+`checks.ts` is now eight files under `checks/`, a `settings.ts` holding every
+threshold and an `enabled` flag per check, and a `registry.ts` that asserts no
+two checks share a finding kind and catches a throwing check onto
+`evidence.warnings` rather than losing the whole review. `checks.test.ts` kept
+every assertion it had (247 passing, unchanged) and `registry.test.ts` adds 11
+for the new machinery.
+
+**Before starting Stage 2**, verify the precondition it names: are contracts and
+change orders kept as `customerOrder` documents in the live org, consistently?
+If not, the honest first deliverable there is a data-hygiene report.
 
 Stages 0 and 1 are prerequisites for everything. Stage 2 is where mistakes actually
 start getting caught. Stage 3 is what makes it improve without being rebuilt.
