@@ -20,6 +20,11 @@ import {
   Textarea,
 } from "@/components/ui";
 import { buildBrief } from "@/lib/invoiceReview/brief";
+import {
+  DEFAULT_INVESTIGATE_MODEL,
+  INVESTIGATE_MODELS,
+  investigateModel,
+} from "@/lib/invoiceReview/investigateModels";
 import { money } from "@/lib/invoiceReview/types";
 import type { Finding, ReviewPayload, RulingScope } from "@/lib/invoiceReview/types";
 
@@ -161,6 +166,17 @@ export function InvoiceReview() {
 
   // The investigation pass — Claude chasing each finding with read-only tools.
   const [investigating, setInvestigating] = useState(false);
+  // Remembered per browser, so the office is not re-picking Sonnet every month.
+  // Read lazily rather than in an effect, so the first paint is already right.
+  const [model, setModel] = useState<string>(() => {
+    if (typeof window === "undefined") return DEFAULT_INVESTIGATE_MODEL;
+    try {
+      const saved = window.localStorage.getItem("invoiceReview.investigateModel");
+      return saved && investigateModel(saved) ? saved : DEFAULT_INVESTIGATE_MODEL;
+    } catch {
+      return DEFAULT_INVESTIGATE_MODEL;
+    }
+  });
   const [investigateNote, setInvestigateNote] = useState("");
   const [investigateError, setInvestigateError] = useState("");
 
@@ -220,7 +236,7 @@ export function InvoiceReview() {
       const res = await fetch("/api/invoice-review/investigate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ym }),
+        body: JSON.stringify({ ym, model }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json?.error ?? "The investigation failed.");
@@ -259,7 +275,16 @@ export function InvoiceReview() {
     } finally {
       setInvestigating(false);
     }
-  }, [ym]);
+  }, [ym, model]);
+
+  const chooseModel = useCallback((id: string) => {
+    setModel(id);
+    try {
+      window.localStorage.setItem("invoiceReview.investigateModel", id);
+    } catch {
+      // A browser that refuses storage just forgets the choice. Not worth saying.
+    }
+  }, []);
 
   const saveRuling = useCallback(async () => {
     if (!ruling || !ruling.reason.trim()) return;
@@ -426,6 +451,24 @@ export function InvoiceReview() {
             {loading ? "Reviewing…" : data ? "Check again" : "Run review"}
           </Button>
           {data ? (
+            <label className="flex-none">
+              <span className="mb-1 block text-xs uppercase tracking-wide opacity-70">
+                Investigate with
+              </span>
+              <Select
+                value={model}
+                onChange={(e) => chooseModel(e.target.value)}
+                disabled={investigating}
+              >
+                {INVESTIGATE_MODELS.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.label}
+                  </option>
+                ))}
+              </Select>
+            </label>
+          ) : null}
+          {data ? (
             <Button variant="outline" onClick={investigate} disabled={investigating}>
               {investigating ? "Investigating…" : "Investigate"}
             </Button>
@@ -442,6 +485,18 @@ export function InvoiceReview() {
           ) : null}
         </div>
         {copied ? <p className="mt-2 text-xs opacity-70">{copied}</p> : null}
+        {data && !investigating ? (
+          <p className="mt-2 text-xs opacity-60">
+            {/* Say what it costs BEFORE it is pressed. The office should never
+                find out the price of a button afterwards. */}
+            <span className="font-medium">Investigate</span> has Claude chase each finding —
+            searching the filed backup for a missing amount, checking a vendor&apos;s other
+            spellings, opening a bill to see whether it is a credit. Runs on{" "}
+            {investigateModel(model)?.label ?? model}, roughly{" "}
+            {investigateModel(model)?.busyMonthEstimate ?? "a few cents"} on a busy month.{" "}
+            {investigateModel(model)?.blurb}
+          </p>
+        ) : null}
         {investigating ? (
           <p className="mt-2 text-xs opacity-70">
             Claude is chasing each finding — searching the filed backup for missing amounts,

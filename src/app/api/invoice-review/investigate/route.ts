@@ -5,11 +5,12 @@ import { getPaveConfig, hasGrant } from "@/lib/config";
 import { saveDispositions } from "@/lib/invoiceReview/dispositions";
 import { parseYm } from "@/lib/invoiceReview/evidence";
 import { investigateReview } from "@/lib/invoiceReview/investigate";
+import { resolveInvestigateModel } from "@/lib/invoiceReview/investigateModels";
 import { runInvoiceReview } from "@/lib/invoiceReview/run";
 import { readLatestRun } from "@/lib/invoiceReview/runs";
 
 /**
- * POST /api/invoice-review/investigate  { ym }
+ * POST /api/invoice-review/investigate  { ym, model? }
  *
  * Claude works the month's findings with read-only tools and returns a verdict
  * on each — see investigate.ts. This is the pass that does what the skill file
@@ -33,9 +34,16 @@ import { readLatestRun } from "@/lib/invoiceReview/runs";
  *
  * ## Cost
  *
- * The most expensive call in the feature — the frontier model, thinking on, a
- * tool loop over the whole month. It is deliberately never automatic: nothing
- * schedules it, and it runs only when somebody presses the button.
+ * The most expensive call in the feature — a tool loop over the whole month
+ * with thinking on. It is deliberately never automatic: nothing schedules it,
+ * and it runs only when somebody presses the button.
+ *
+ * `model` picks which model runs it, from the allowlist in
+ * investigateModels.ts (Sonnet by default, Opus for a messy month). The static
+ * prefix — system prompt plus tool schemas — is cached across the loop's
+ * iterations, which is where most of the cost used to go. The response carries
+ * `usage`, cache counters included, so a caching regression is visible instead
+ * of just being a bigger bill.
  *
  * Gated by the `invoice-review` view in middleware, the same as the review
  * itself: whoever can see the month's billing can ask for it to be chased.
@@ -47,7 +55,7 @@ export async function POST(req: NextRequest) {
   const session = await auth();
   const who = session?.user?.email ?? "";
 
-  let body: { ym?: string };
+  let body: { ym?: string; model?: string };
   try {
     body = await req.json();
   } catch {
@@ -76,7 +84,13 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    const result = await investigateReview(payload, hasGrant() ? getPaveConfig() : null);
+    // The model id comes from the browser, so it is resolved against the
+    // allowlist rather than passed through — otherwise anyone with access to
+    // the review could point the most expensive call in the app anywhere.
+    const model = resolveInvestigateModel(body.model);
+    const result = await investigateReview(payload, hasGrant() ? getPaveConfig() : null, {
+      model,
+    });
 
     const failed = await saveDispositions(ym, result.model, result.dispositions);
     return NextResponse.json({

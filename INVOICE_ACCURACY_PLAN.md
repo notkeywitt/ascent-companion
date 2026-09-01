@@ -409,6 +409,25 @@ against their name. The UI says so under every verdict it draws.
 
 Never automatic — the most expensive call in the feature runs only on a button.
 
+**Cost, and the model picker.** The loop re-sends everything on every iteration,
+so uncached it billed the system prompt and all six tool schemas up to 24 times
+per run — the single biggest cost in the feature, and pure waste, since none of
+that prefix changes. It now carries two cache breakpoints: an explicit one on
+the system block (which caches tools + system together, given the
+tools → system → messages render order) and top-level automatic caching for the
+growing conversation tail. The result reports cache counters, because a caching
+regression is otherwise silent — requests keep succeeding and the bill is just
+higher.
+
+The office picks the model on the page, remembered per browser. **Sonnet is the
+default** — most months are a handful of findings with obvious answers — with
+Opus a click away for a messy one. The picker is an ALLOWLIST
+(`investigateModels.ts`): the id arrives from the browser and selects the
+priciest call in the app, so an unrecognised one becomes the default rather than
+being passed through. Haiku is deliberately absent — it strips prior-turn
+thinking blocks, so every turn after the first would fall out of cache and the
+"cheaper" model would cost more here.
+
 ### Stage 2m — the margin checks, and only those
 
 The one piece of Stage 2 that survives cost-plus, built after Stage 3 because

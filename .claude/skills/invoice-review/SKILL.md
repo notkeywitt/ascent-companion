@@ -210,6 +210,12 @@ already investigated comes back with them attached to each finding
 of findings — it is far quicker than repeating the searches, and it tells you
 which ones it could NOT settle.
 
+Optional `"model"` in the body picks which model runs it, from the allowlist in
+`investigateModels.ts` — Sonnet by default, Opus for a messy month. Anything
+else falls back to the default rather than erroring. The response carries
+`usage` with cache counters; `cacheRead` staying at zero across a multi-step run
+means the prefix cache broke and the run cost more than it should have.
+
 **A verdict is not a ruling.** `probably-fine` leaves the finding on the list at
 full severity. Relay it as "Claude found X, worth confirming", never as "this one
 is fine". Only the owner settles a finding, and only through a ruling.

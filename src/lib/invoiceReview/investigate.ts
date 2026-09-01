@@ -45,16 +45,9 @@ import {
   findingDigest,
   type DispositionInput,
 } from "./investigateTools";
+import { resolveInvestigateModel } from "./investigateModels";
 import type { ReviewPayload } from "./types";
 
-/**
- * Opus by default. This is the reasoning surface of the feature — it decides
- * what a pile of half-explained discrepancies actually means, and a cheap wrong
- * verdict on a real double-bill costs far more than the call ever will.
- * ANTHROPIC_MODEL_INVESTIGATE overrides it without disturbing the summary's own
- * model setting.
- */
-const MODEL = process.env.ANTHROPIC_MODEL_INVESTIGATE?.trim() || "claude-opus-5";
 /** Room for thinking AND for a verdict on every finding. See the ceiling note
  *  in digest/claude.ts — a budget sized for the visible output alone fails by
  *  returning nothing at all. */
@@ -133,6 +126,22 @@ export interface InvestigationResult {
   /** Which tools ran, and how often — so a pass that did no chasing is visible
    *  as such rather than looking like a thorough one. */
   toolCalls: Record<string, number>;
+  /**
+   * Token usage across the whole loop, cache counters included.
+   *
+   * These exist because THE COSTLIEST CACHING FAILURE IS SILENT: the requests
+   * keep succeeding and the bill is just higher — nothing errors, nothing
+   * announces it. A healthy loop shows `cacheRead` climbing well past
+   * `cacheWrite` after the first iteration. If `cacheRead` stays at zero
+   * across a multi-iteration run, the prefix is being invalidated somewhere
+   * and the caching is doing nothing.
+   */
+  usage: {
+    input: number;
+    output: number;
+    cacheWrite: number;
+    cacheRead: number;
+  };
 }
 
 /**
@@ -145,10 +154,14 @@ export interface InvestigationResult {
 export async function investigateReview(
   payload: ReviewPayload,
   cfg: PaveConfig | null,
+  opts: { model?: string } = {},
 ): Promise<InvestigationResult> {
   if (!process.env.ANTHROPIC_API_KEY?.trim()) {
     throw new Error("ANTHROPIC_API_KEY is not set");
   }
+  // Never trusted raw: an id off the allowlist becomes the default rather than
+  // failing a run the office already waited on. See investigateModels.ts.
+  const MODEL = resolveInvestigateModel(opts.model);
 
   // Findings the office has already ruled on are settled; re-litigating them
   // wastes the pass and risks a model arguing with a human decision.
@@ -161,6 +174,7 @@ export async function investigateReview(
       findingsConsidered: 0,
       truncated: false,
       toolCalls: {},
+      usage: { input: 0, output: 0, cacheWrite: 0, cacheRead: 0 },
     };
   }
 
@@ -180,6 +194,13 @@ export async function investigateReview(
   const tools = buildInvestigateTools(payload, cfg, record);
   const byName = new Map(tools.map((t) => [t.name, t]));
   const toolCalls: Record<string, number> = {};
+  const usage = { input: 0, output: 0, cacheWrite: 0, cacheRead: 0 };
+  const tally = (u: Anthropic.Usage) => {
+    usage.input += u.input_tokens ?? 0;
+    usage.output += u.output_tokens ?? 0;
+    usage.cacheWrite += u.cache_creation_input_tokens ?? 0;
+    usage.cacheRead += u.cache_read_input_tokens ?? 0;
+  };
 
   const digest = findingDigest(live, MAX_FINDINGS);
   const opening = [
@@ -206,7 +227,35 @@ export async function investigateReview(
           model: MODEL,
           max_tokens: MAX_TOKENS,
           thinking: { type: "adaptive" },
-          system: SYSTEM,
+          // ── CACHING ────────────────────────────────────────────────────
+          // This loop runs up to MAX_ITERATIONS times and re-sends everything
+          // each time. Uncached, the system prompt and all six tool schemas
+          // were billed in full on every iteration, and the conversation was
+          // re-billed from the top as it grew — the single biggest cost in the
+          // feature, and pure waste, since none of that prefix ever changes.
+          //
+          // Two breakpoints, the standard combination for an agent loop:
+          //  1. An explicit marker on the system block. Render order is
+          //     tools → system → messages, so a marker on the last system
+          //     block caches the TOOLS AND THE SYSTEM PROMPT TOGETHER — the
+          //     expensive static prefix gets one guaranteed read point that
+          //     survives whatever happens later in `messages`.
+          //  2. Top-level `cache_control`, which auto-places a breakpoint on
+          //     the last block and walks it forward as the conversation grows,
+          //     so each iteration reads everything accumulated so far and
+          //     writes only what the last turn added.
+          //
+          // Both models on the allowlist PRESERVE previous-turn thinking
+          // blocks (Opus 4.5+ / Sonnet 4.6+), which is what keeps breakpoint 2
+          // valid with adaptive thinking on. Haiku 4.5 and earlier strip them
+          // and every turn after the first would fall out of cache — which is
+          // why the picker does not offer one. Do not add a model here without
+          // checking that behaviour.
+          //
+          // `thinking` is pinned, never varied per request: changing it
+          // invalidates the messages cache on every model.
+          cache_control: { type: "ephemeral" },
+          system: [{ type: "text", text: SYSTEM, cache_control: { type: "ephemeral" } }],
           tools: tools.map(({ name, description, input_schema }) => ({
             name,
             description,
@@ -226,11 +275,13 @@ export async function investigateReview(
           findingsConsidered: digest.length,
           truncated: true,
           toolCalls,
+          usage,
         };
       }
       throw new Error(`model "${MODEL}" — ${e instanceof Error ? e.message : String(e)}`);
     }
 
+    tally(message.usage);
     if (message.stop_reason === "refusal") throw new Error("Claude declined to investigate");
     convo.push({ role: "assistant", content: message.content });
 
@@ -278,5 +329,6 @@ export async function investigateReview(
     findingsConsidered: digest.length,
     truncated,
     toolCalls,
+    usage,
   };
 }
