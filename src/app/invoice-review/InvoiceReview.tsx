@@ -14,14 +14,19 @@ import {
   Loading,
   PageHeader,
   SectionHeading,
+  SectionLabel,
   Select,
   StatementBlock,
   Textarea,
-  Toggle,
 } from "@/components/ui";
 import { buildBrief } from "@/lib/invoiceReview/brief";
+import {
+  DEFAULT_INVESTIGATE_MODEL,
+  INVESTIGATE_MODELS,
+  investigateModel,
+} from "@/lib/invoiceReview/investigateModels";
 import { money } from "@/lib/invoiceReview/types";
-import type { Finding, ReviewPayload } from "@/lib/invoiceReview/types";
+import type { Finding, ReviewPayload, RulingScope } from "@/lib/invoiceReview/types";
 
 /**
  * Pick a billing month, run the review, work the list.
@@ -83,38 +88,203 @@ function inLens(f: Finding, lens: Lens): boolean {
   return lens === "fix" ? f.severity === "error" : f.severity === "warning";
 }
 
+/** How a verdict reads on screen. Wording matters here: "probably fine" must not
+ *  sound like a dismissal, because the finding is still on the list. */
+const VERDICT_LABEL: Record<NonNullable<Finding["disposition"]>["verdict"], string> = {
+  confirmed: "Looks real",
+  "probably-fine": "Probably fine",
+  "needs-human": "Needs a look",
+};
+
+const VERDICT_TONE: Record<
+  NonNullable<Finding["disposition"]>["verdict"],
+  "danger" | "warning" | "neutral"
+> = {
+  confirmed: "danger",
+  "probably-fine": "neutral",
+  "needs-human": "warning",
+};
+
+/**
+ * How long this finding has been showing up — "new", or "standing since 3 Aug".
+ *
+ * Empty when the review has no memory of it yet (a month reviewed for the first
+ * time), because "we don't know" and "it's new" are different things and
+ * printing the second for the first would be a lie the office would act on.
+ */
+function ageNote(f: Finding): string {
+  const h = f.history;
+  if (!h) return "";
+  if (h.isNew) return "new";
+  if (h.runsSeen < 3) return "seen before";
+  const since = new Date(h.firstSeenAt);
+  if (Number.isNaN(since.getTime())) return `on ${h.runsSeen} checks`;
+  return `standing since ${since.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
+}
+
+/**
+ * "this morning" / "yesterday" / "on 12 Aug" for a filed run's timestamp.
+ *
+ * Deliberately coarse. The exact minute a sweep ran is never the question; the
+ * question is only ever whether what's on screen is current enough to act on.
+ */
+function whenChecked(iso: string): string {
+  const then = new Date(iso);
+  if (Number.isNaN(then.getTime())) return "earlier";
+  const mins = Math.round((Date.now() - then.getTime()) / 60000);
+  if (mins < 2) return "just now";
+  if (mins < 60) return `${mins} minutes ago`;
+  const hours = Math.round(mins / 60);
+  if (hours < 24) return `${hours} hour${hours === 1 ? "" : "s"} ago`;
+  const days = Math.round(hours / 24);
+  if (days === 1) return "yesterday";
+  if (days < 7) return `${days} days ago`;
+  return `on ${then.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
+}
+
 export function InvoiceReview() {
   const months = useMemo(monthChoices, []);
   const [ym, setYm] = useState(defaultYm);
   const [data, setData] = useState<ReviewPayload | null>(null);
   const [loading, setLoading] = useState(false);
+  /** True only while a LIVE sweep is running. Reading a filed run is instant,
+   *  and telling someone it "takes a minute" while it doesn't is its own bug. */
+  const [sweeping, setSweeping] = useState(false);
   const [error, setError] = useState("");
   const [lens, setLens] = useState<Lens>("fix");
   const [open, setOpen] = useState<Set<string>>(new Set());
 
-  // The ruling being written, if any: which finding, the note, and how wide.
-  const [ruling, setRuling] = useState<{ finding: Finding; reason: string; wide: boolean } | null>(null);
+  // The ruling being written, if any: which finding, the note, and how wide it
+  // reaches. Wider is not better — see rulings.ts — so it always opens narrow.
+  const [ruling, setRuling] = useState<
+    { finding: Finding; reason: string; scope: RulingScope } | null
+  >(null);
   const [saving, setSaving] = useState(false);
 
   // "Copied" / "Couldn't copy" on the hand-to-Claude button.
   const [copied, setCopied] = useState("");
 
-  const run = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    setData(null);
+  // The investigation pass — Claude chasing each finding with read-only tools.
+  const [investigating, setInvestigating] = useState(false);
+  // Remembered per browser, so the office is not re-picking Sonnet every month.
+  // Read lazily rather than in an effect, so the first paint is already right.
+  const [model, setModel] = useState<string>(() => {
+    if (typeof window === "undefined") return DEFAULT_INVESTIGATE_MODEL;
     try {
-      const res = await fetch(`/api/invoice-review?ym=${encodeURIComponent(ym)}`);
-      const json = await res.json();
-      if (!res.ok) throw new Error(json?.error ?? `Review failed (${res.status})`);
-      setData(json as ReviewPayload);
-      setOpen(new Set());
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Review failed.");
-    } finally {
-      setLoading(false);
+      const saved = window.localStorage.getItem("invoiceReview.investigateModel");
+      return saved && investigateModel(saved) ? saved : DEFAULT_INVESTIGATE_MODEL;
+    } catch {
+      return DEFAULT_INVESTIGATE_MODEL;
     }
-  }, [ym]);
+  });
+  const [investigateNote, setInvestigateNote] = useState("");
+  const [investigateError, setInvestigateError] = useState("");
+
+  /**
+   * Load a month. `stored` reads the last FILED run — instant, because it is
+   * that run rather than a fresh sweep of JobTread, Drive and Gmail — and
+   * answers nothing at all when the month has never been reviewed. A live run
+   * is the explicit "Run review" action, and files itself on the way out.
+   */
+  const load = useCallback(
+    async (stored: boolean) => {
+      setLoading(true);
+      setSweeping(!stored);
+      setError("");
+      setData(null);
+      try {
+        const q = stored ? "&stored=only" : "";
+        const res = await fetch(`/api/invoice-review?ym=${encodeURIComponent(ym)}${q}`);
+        const json = await res.json();
+        if (!res.ok) throw new Error(json?.error ?? `Review failed (${res.status})`);
+        // stored=only answers `{ stored: null }` for a month nobody has checked.
+        // That is not an error and not an empty review — it is "no run on file",
+        // and the page falls back to prompting for one.
+        if (stored && json && json.stored === null) return;
+        setData(json as ReviewPayload);
+        setOpen(new Set());
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Review failed.");
+      } finally {
+        setLoading(false);
+        setSweeping(false);
+      }
+    },
+    [ym],
+  );
+
+  /** The explicit action: sweep everything again, now. */
+  const run = useCallback(() => load(false), [load]);
+
+  // Opening a month shows what was last found for it straight away — the
+  // scheduled run means that is usually this morning's. Nothing is fetched from
+  // JobTread here, so this costs a single row read.
+  useEffect(() => {
+    void load(true);
+  }, [load]);
+
+  /**
+   * Ask Claude to work the list — search Drive for a missing amount, check a
+   * vendor's other spellings, open a suspected double-bill. The verdicts come
+   * back per finding and are stored, so this is paid for once.
+   */
+  const investigate = useCallback(async () => {
+    setInvestigating(true);
+    setInvestigateError("");
+    setInvestigateNote("");
+    try {
+      const res = await fetch("/api/invoice-review/investigate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ym, model }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.error ?? "The investigation failed.");
+      setInvestigateNote(json.note ?? "");
+      // Stamp the verdicts onto what is already on screen rather than
+      // re-running a minute-long review to see them.
+      const byKey = new Map(
+        (json.dispositions ?? []).map((d: { key: string }) => [d.key, d]),
+      );
+      setData((prev) =>
+        prev
+          ? {
+              ...prev,
+              findings: prev.findings.map((f) => {
+                const d = byKey.get(f.key) as
+                  | { verdict: string; why: string; suggestedAction: string }
+                  | undefined;
+                return d
+                  ? {
+                      ...f,
+                      disposition: {
+                        verdict: d.verdict as NonNullable<Finding["disposition"]>["verdict"],
+                        why: d.why,
+                        suggestedAction: d.suggestedAction,
+                        model: json.model ?? "",
+                        at: new Date().toISOString(),
+                      },
+                    }
+                  : f;
+              }),
+            }
+          : prev,
+      );
+    } catch (e) {
+      setInvestigateError(e instanceof Error ? e.message : "The investigation failed.");
+    } finally {
+      setInvestigating(false);
+    }
+  }, [ym, model]);
+
+  const chooseModel = useCallback((id: string) => {
+    setModel(id);
+    try {
+      window.localStorage.setItem("invoiceReview.investigateModel", id);
+    } catch {
+      // A browser that refuses storage just forgets the choice. Not worth saying.
+    }
+  }, []);
 
   const saveRuling = useCallback(async () => {
     if (!ruling || !ruling.reason.trim()) return;
@@ -127,7 +297,8 @@ export function InvoiceReview() {
           key: ruling.finding.key,
           kind: ruling.finding.kind,
           jobId: ruling.finding.jobId,
-          scope: ruling.wide ? "job-kind" : "finding",
+          customerName: ruling.finding.customerName,
+          scope: ruling.scope,
           reason: ruling.reason.trim(),
         }),
       });
@@ -140,14 +311,19 @@ export function InvoiceReview() {
               ...d,
               findings: d.findings.map((f) =>
                 f.key === ruling.finding.key ||
-                (ruling.wide && f.kind === ruling.finding.kind && f.jobId === ruling.finding.jobId)
+                (ruling.scope === "job-kind" &&
+                  f.kind === ruling.finding.kind &&
+                  f.jobId === ruling.finding.jobId) ||
+                (ruling.scope === "customer-kind" &&
+                  f.kind === ruling.finding.kind &&
+                  f.customerName === ruling.finding.customerName)
                   ? {
                       ...f,
                       suppressedBy: {
                         reason: ruling.reason.trim(),
                         by: "you",
                         at: new Date().toISOString(),
-                        scope: ruling.wide ? "job-kind" : "finding",
+                        scope: ruling.scope,
                       },
                     }
                   : f,
@@ -272,10 +448,33 @@ export function InvoiceReview() {
             </Select>
           </label>
           <Button onClick={run} disabled={loading}>
-            {loading ? "Reviewing…" : "Run review"}
+            {loading ? "Reviewing…" : data ? "Check again" : "Run review"}
           </Button>
           {data ? (
-            <Button variant="outline" onClick={copyForClaude}>
+            <label className="flex-none">
+              <span className="mb-1 block text-xs uppercase tracking-wide opacity-70">
+                Investigate with
+              </span>
+              <Select
+                value={model}
+                onChange={(e) => chooseModel(e.target.value)}
+                disabled={investigating}
+              >
+                {INVESTIGATE_MODELS.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.label}
+                  </option>
+                ))}
+              </Select>
+            </label>
+          ) : null}
+          {data ? (
+            <Button variant="outline" onClick={investigate} disabled={investigating}>
+              {investigating ? "Investigating…" : "Investigate"}
+            </Button>
+          ) : null}
+          {data ? (
+            <Button variant="ghost" onClick={copyForClaude}>
               Copy for Claude
             </Button>
           ) : null}
@@ -286,15 +485,40 @@ export function InvoiceReview() {
           ) : null}
         </div>
         {copied ? <p className="mt-2 text-xs opacity-70">{copied}</p> : null}
+        {data && !investigating ? (
+          <p className="mt-2 text-xs opacity-60">
+            {/* Say what it costs BEFORE it is pressed. The office should never
+                find out the price of a button afterwards. */}
+            <span className="font-medium">Investigate</span> has Claude chase each finding —
+            searching the filed backup for a missing amount, checking a vendor&apos;s other
+            spellings, opening a bill to see whether it is a credit. Runs on{" "}
+            {investigateModel(model)?.label ?? model}, roughly{" "}
+            {investigateModel(model)?.busyMonthEstimate ?? "a few cents"} on a busy month.{" "}
+            {investigateModel(model)?.blurb}
+          </p>
+        ) : null}
+        {investigating ? (
+          <p className="mt-2 text-xs opacity-70">
+            Claude is chasing each finding — searching the filed backup for missing amounts,
+            checking other spellings of a vendor, opening bills. This takes a minute or two.
+          </p>
+        ) : null}
         {data && data.summarySource === "fallback" ? (
           <p className="mt-2 text-xs opacity-60">
-            The summary is written from the checks, not by Claude — either no API key is
-            set or the call didn&apos;t answer. “Copy for Claude” hands the whole review
-            to Claude anywhere you already have it.
+            {/* Say WHY, not just that it happened. A silent fallback hid a real
+                outage for as long as it lasted — see narrate.ts. */}
+            {data.summaryNote ||
+              "The summary is written from the checks, not by Claude."}{" "}
+            “Copy for Claude” hands the whole review to Claude anywhere you already have
+            it.
           </p>
         ) : null}
         {data ? (
           <p className="mt-3 text-xs opacity-60">
+            {/* A filed run must never be mistaken for a fresh one. */}
+            {data.storedAt
+              ? `Last checked ${whenChecked(data.storedAt)} — press “Check again” to sweep it now. `
+              : "Checked just now. "}
             Backup is filed in {data.evidence.folderRoot}
           </p>
         ) : null}
@@ -307,7 +531,13 @@ export function InvoiceReview() {
       ) : null}
 
       {loading ? (
-        <Loading label={`Reviewing ${monthLabel} — this takes a minute`} />
+        <Loading
+          label={
+            sweeping
+              ? `Reviewing ${monthLabel} — this takes a minute`
+              : `Opening ${monthLabel}…`
+          }
+        />
       ) : null}
 
       {data ? (
@@ -327,6 +557,18 @@ export function InvoiceReview() {
           <Banner tone={counts.fix ? "warning" : "success"} className="mt-4">
             {data.summary}
           </Banner>
+
+          {investigateError ? (
+            <Banner tone="error" className="mt-3">
+              {investigateError}
+            </Banner>
+          ) : null}
+
+          {investigateNote ? (
+            <Banner tone="neutral" className="mt-3">
+              <span className="font-medium">Where to start.</span> {investigateNote}
+            </Banner>
+          ) : null}
 
           {data.evidence.warnings.length ? (
             <Banner tone="error" className="mt-3">
@@ -393,7 +635,20 @@ export function InvoiceReview() {
                           <span className="block text-xs opacity-60">
                             {f.jobName}
                             {f.invoiceNumber ? ` · invoice #${f.invoiceNumber}` : ""}
+                            {/* A fresh problem and a nine-month-old one must not
+                                look identical, or the list gets skimmed. */}
+                            {ageNote(f) ? ` · ${ageNote(f)}` : ""}
                           </span>
+                          {/* Claude's read, when it has one. Deliberately below
+                              the title and quiet: it orders the work, it does
+                              not overrule the check. */}
+                          {f.disposition ? (
+                            <span className="mt-1 flex items-center gap-1.5">
+                              <Chip tone={VERDICT_TONE[f.disposition.verdict]}>
+                                {VERDICT_LABEL[f.disposition.verdict]}
+                              </Chip>
+                            </span>
+                          ) : null}
                         </span>
                         <span className="shrink-0 text-sm tabular-nums opacity-70">
                           {f.amount == null ? "" : money(f.amount)}
@@ -403,6 +658,29 @@ export function InvoiceReview() {
                       {isOpen ? (
                         <div className="border-t border-line-soft px-4 py-3">
                           <p className="text-sm leading-relaxed opacity-80">{f.detail}</p>
+
+                          {f.disposition ? (
+                            <div className="mt-3 border-l-2 border-line-strong pl-3">
+                              <SectionLabel>
+                                Claude looked into this — {VERDICT_LABEL[f.disposition.verdict]}
+                              </SectionLabel>
+                              <p className="mt-1 text-sm leading-relaxed opacity-80">
+                                {f.disposition.why}
+                              </p>
+                              {f.disposition.suggestedAction ? (
+                                <p className="mt-1 text-sm leading-relaxed opacity-80">
+                                  <span className="font-medium">Suggested:</span>{" "}
+                                  {f.disposition.suggestedAction}
+                                </p>
+                              ) : null}
+                              <p className="mt-1 text-xs opacity-50">
+                                {/* Say plainly that this is a reading, not a ruling —
+                                    it is the difference between triage and a decision. */}
+                                A reading, not a decision. The finding stays until you set it
+                                aside yourself.
+                              </p>
+                            </div>
+                          ) : null}
 
                           {f.suppressedBy ? (
                             <p className="mt-3 text-xs opacity-60">
@@ -430,7 +708,9 @@ export function InvoiceReview() {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => setRuling({ finding: f, reason: "", wide: false })}
+                                onClick={() =>
+                                  setRuling({ finding: f, reason: "", scope: "finding" })
+                                }
                               >
                                 Not an issue…
                               </Button>
@@ -453,12 +733,41 @@ export function InvoiceReview() {
                                   setRuling({ ...ruling, reason: e.target.value })
                                 }
                               />
-                              <div className="mt-2">
-                                <Toggle
-                                  checked={ruling.wide}
-                                  onChange={(wide) => setRuling({ ...ruling, wide })}
-                                  label="Apply to every finding like this on this job"
-                                />
+                              {/* How far it reaches. Always opens at the
+                                  narrowest — a ruling that reaches past what
+                                  was meant is how a real finding gets silenced
+                                  years later by a note nobody remembers. */}
+                              <div className="mt-3">
+                                <SectionLabel>How far does this go?</SectionLabel>
+                                <div className="mt-1 flex flex-col gap-1">
+                                  {(
+                                    [
+                                      { id: "finding", label: "Just this one" },
+                                      {
+                                        id: "job-kind",
+                                        label: `Everything like this on ${f.jobName || "this job"}`,
+                                      },
+                                      {
+                                        id: "customer-kind",
+                                        label: `Everything like this for ${f.customerName || "this customer"}, on every job`,
+                                      },
+                                    ] as { id: RulingScope; label: string }[]
+                                  ).map((opt) => (
+                                    <label
+                                      key={opt.id}
+                                      className="flex items-start gap-2 text-sm"
+                                    >
+                                      <input
+                                        type="radio"
+                                        name={`scope-${f.key}`}
+                                        className="mt-1"
+                                        checked={ruling.scope === opt.id}
+                                        onChange={() => setRuling({ ...ruling, scope: opt.id })}
+                                      />
+                                      <span>{opt.label}</span>
+                                    </label>
+                                  ))}
+                                </div>
                               </div>
                               <div className="mt-3 flex gap-2">
                                 <Button
@@ -487,8 +796,113 @@ export function InvoiceReview() {
               </div>
             </section>
           ))}
+
+          <MissBox ym={ym} />
         </>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * "We found something this didn't."
+ *
+ * The most valuable thing the office can give the review, and the only input a
+ * genuinely new check can come from — every other memory here can only make it
+ * quieter (see misses.ts).
+ *
+ * So it is deliberately the easiest thing on the page to fill in. One box is
+ * required. A form that demands a job, an invoice number and a dollar figure at
+ * the exact moment somebody is annoyed about a billing error is a form that
+ * stays empty, and an empty log teaches the review nothing.
+ *
+ * It lives at the BOTTOM, after the findings: the moment you realise something
+ * is missing is the moment you finish reading the list and it isn't there.
+ */
+function MissBox({ ym }: { ym: string }) {
+  const [open, setOpen] = useState(false);
+  const [description, setDescription] = useState("");
+  const [howCaught, setHowCaught] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [done, setDone] = useState("");
+  const [error, setError] = useState("");
+
+  const save = useCallback(async () => {
+    if (!description.trim()) return;
+    setSaving(true);
+    setError("");
+    try {
+      const res = await fetch("/api/invoice-review/misses", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ym, description: description.trim(), howCaught: howCaught.trim() }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.error ?? "Couldn't record that.");
+      setDescription("");
+      setHowCaught("");
+      setOpen(false);
+      setDone("Recorded. It'll be used to work out what check would have caught it.");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn't record that.");
+    } finally {
+      setSaving(false);
+    }
+  }, [description, howCaught, ym]);
+
+  return (
+    <Card className="mt-8">
+      <SectionLabel>Something this missed?</SectionLabel>
+      <p className="mt-1 text-sm opacity-70">
+        If you found a billing mistake this review didn&apos;t catch, say so here. It gets
+        used to work out what check would have caught it — it&apos;s the only way the
+        review learns to look somewhere new.
+      </p>
+
+      {done ? <Banner tone="success" className="mt-3">{done}</Banner> : null}
+      {error ? <Banner tone="error" className="mt-3">{error}</Banner> : null}
+
+      {open ? (
+        <div className="mt-3">
+          <Textarea
+            rows={3}
+            autoFocus
+            value={description}
+            placeholder="e.g. billed Ferron twice for the same dumpster — two bills, same ticket number"
+            onChange={(e) => setDescription(e.target.value)}
+          />
+          <div className="mt-2">
+            <SectionLabel>How did it come to light? (optional)</SectionLabel>
+            <Textarea
+              className="mt-1"
+              rows={2}
+              value={howCaught}
+              placeholder="e.g. the client queried it / spotted it reading the PDF"
+              onChange={(e) => setHowCaught(e.target.value)}
+            />
+          </div>
+          <div className="mt-3 flex gap-2">
+            <Button size="sm" onClick={save} disabled={saving || !description.trim()}>
+              {saving ? "Recording…" : "Record it"}
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setOpen(false)} disabled={saving}>
+              Cancel
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <Button
+          className="mt-3"
+          size="sm"
+          variant="outline"
+          onClick={() => {
+            setOpen(true);
+            setDone("");
+          }}
+        >
+          Tell it what it missed
+        </Button>
+      )}
+    </Card>
   );
 }

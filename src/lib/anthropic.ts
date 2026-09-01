@@ -18,9 +18,9 @@ import Anthropic from "@anthropic-ai/sdk";
 import { getPaveConfig } from "@/lib/config";
 import { anthropicToolDefs, toolByName } from "@/lib/chatTools";
 
-// Default to the most capable model; ANTHROPIC_MODEL lets the owner pick the
-// cheaper/faster claude-sonnet-5 for this high-volume conversational surface.
-const MODEL = process.env.ANTHROPIC_MODEL?.trim() || "claude-opus-4-8";
+// Sonnet by default — fast enough for this high-volume conversational surface
+// and keeps Opus out of every app path. ANTHROPIC_MODEL overrides it.
+const MODEL = process.env.ANTHROPIC_MODEL?.trim() || "claude-sonnet-5";
 const MAX_TOKENS = 8192;
 const MAX_ITERATIONS = 8; // safety bound on the tool loop
 

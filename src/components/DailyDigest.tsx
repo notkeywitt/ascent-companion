@@ -193,10 +193,12 @@ export function DailyDigest() {
   }
 
   /**
-   * Reply box — turns a free-text note into a reminder, a snooze, or an email
-   * ignore rule (see /api/digest/reply). The confirmation echoes back exactly
-   * what was applied; it never re-fetches the digest, since a new reminder only
-   * shows up under To-Do on the NEXT run, not this one.
+   * Reply box — turns a free-text note into a reminder, a snooze, an email
+   * ignore rule, or a STANDING INSTRUCTION that shapes how every future brief is
+   * written (see /api/digest/reply). It's memory the owner talks to, not a
+   * notepad. The confirmation echoes back exactly what was applied; it never
+   * re-fetches the digest, since anything set here only takes effect on the NEXT
+   * run, not this one.
    */
   async function sendReply() {
     const text = replyText.trim();
@@ -304,11 +306,12 @@ export function DailyDigest() {
           </Card>
 
           {/* The reply box — talk back to the digest: add a reminder, snooze one,
-              or tell it to stop flagging a sender. Applied on the NEXT run. */}
+              tell it to stop flagging a sender, or give it a standing instruction
+              for how to write the brief. Applied on the NEXT run. */}
           <Card>
             <Textarea
               rows={2}
-              placeholder={`Tell it something — "remind me about the L&I thing tomorrow", "ignore emails from so-and-so"…`}
+              placeholder={`Tell it something — "remind me about the L&I thing tomorrow", "stop mentioning the logo-update emails"…`}
               value={replyText}
               onChange={(e) => setReplyText(e.target.value)}
               disabled={replySending}

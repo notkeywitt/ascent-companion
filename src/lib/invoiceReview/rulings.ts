@@ -13,12 +13,20 @@
  * returned, carrying the reason and who gave it, so the review can show its
  * work and a ruling can be lifted without re-running anything.
  *
- * TWO SCOPES, and the difference matters:
- *   • "finding"  — this exact finding on this exact subject (one bill, one file,
- *                  one invoice). The default, and the safe one.
- *   • "job-kind" — every finding of this KIND on this job, forever. Use for a
- *                  standing arrangement ("this client's allowance draws never
- *                  have vendor backup"), not to quiet one awkward month.
+ * THREE SCOPES, and the difference matters:
+ *   • "finding"       — this exact finding on this exact subject (one bill, one
+ *                       file, one invoice). The default, and the safe one.
+ *   • "job-kind"      — every finding of this KIND on this job, forever. Use for
+ *                       a standing arrangement ("this client's allowance draws
+ *                       never have vendor backup"), not to quiet one awkward month.
+ *   • "customer-kind" — every finding of this kind on every job for this
+ *                       customer. For an arrangement that is a property of the
+ *                       CLIENT rather than of one job, so it also covers the job
+ *                       they haven't started yet.
+ *
+ * Wider is not better. A scope that reaches past what the office actually meant
+ * is how a real finding gets silenced years later by a ruling nobody remembers
+ * writing — which is why the reason is mandatory and is kept in their words.
  *
  * This is the ONLY thing the invoice review writes anywhere.
  */
@@ -27,13 +35,24 @@ import { and, eq } from "drizzle-orm";
 import { db, ensureDb } from "@/db";
 import { invoiceReviewRulings } from "@/db/schema";
 
-import { jobKindKey, type Finding, type FindingKind, type SuppressionNote } from "./types";
+import {
+  customerKindKey,
+  jobKindKey,
+  type Finding,
+  type FindingKind,
+  type RulingScope,
+  type SuppressionNote,
+} from "./types";
+
+/** The scopes a stored ruling may carry. An unrecognised one (a row written by
+ *  a newer deploy, or by hand) falls back to the NARROWEST — never the widest. */
+const SCOPES = new Set<RulingScope>(["finding", "job-kind", "customer-kind"]);
 
 export interface Ruling {
   key: string;
   kind: string;
   jobId: string;
-  scope: "finding" | "job-kind";
+  scope: RulingScope;
   reason: string;
   createdBy: string;
   createdAt: string;
@@ -51,7 +70,7 @@ export async function listRulings(): Promise<Ruling[]> {
     key: r.key,
     kind: r.kind,
     jobId: r.jobId,
-    scope: r.scope === "job-kind" ? "job-kind" : "finding",
+    scope: SCOPES.has(r.scope as RulingScope) ? (r.scope as RulingScope) : "finding",
     reason: r.reason,
     createdBy: r.createdBy,
     createdAt: r.createdAt,
@@ -67,14 +86,21 @@ export async function recordRuling(input: {
   key: string;
   kind: FindingKind;
   jobId: string;
-  scope: "finding" | "job-kind";
+  scope: RulingScope;
   reason: string;
   by: string;
+  /** Required for a customer-kind ruling; ignored otherwise. */
+  customerName?: string;
 }): Promise<void> {
   await ensureDb();
-  // A job-kind ruling is stored under the wildcard key regardless of which
+  // A widened ruling is stored under its WILDCARD key regardless of which
   // finding it was raised from, so it matches every sibling next month.
-  const key = input.scope === "job-kind" ? jobKindKey(input.kind, input.jobId) : input.key;
+  const key =
+    input.scope === "job-kind"
+      ? jobKindKey(input.kind, input.jobId)
+      : input.scope === "customer-kind"
+        ? customerKindKey(input.kind, input.customerName ?? "")
+        : input.key;
   const row = {
     key,
     kind: input.kind,
@@ -113,7 +139,12 @@ export function applyRulings(findings: Finding[], rulings: Ruling[]): Finding[] 
   if (!rulings.length) return findings;
   const byKey = new Map(rulings.map((r) => [r.key, r]));
   return findings.map((f) => {
-    const hit = byKey.get(f.key) ?? byKey.get(jobKindKey(f.kind, f.jobId));
+    // Narrowest first, so the note the office reads is the most specific one
+    // they actually wrote about this finding.
+    const hit =
+      byKey.get(f.key) ??
+      byKey.get(jobKindKey(f.kind, f.jobId)) ??
+      byKey.get(customerKindKey(f.kind, f.customerName));
     if (!hit) return f;
     const note: SuppressionNote = {
       reason: hit.reason,

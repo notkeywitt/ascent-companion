@@ -723,6 +723,236 @@ export type InvoiceReviewRulingRow = typeof invoiceReviewRulings.$inferSelect;
 export type NewInvoiceReviewRulingRow = typeof invoiceReviewRulings.$inferInsert;
 
 /**
+ * Every client-invoice review that has ever run — the feature's HISTORY.
+ *
+ * WHY THIS EXISTS. Until this table, a review was computed, read, and thrown
+ * away. That made three things structurally impossible: knowing what a month
+ * looked like last time it was checked, telling a NEW problem from one that has
+ * been sitting there since March, and learning what "normal" is for a customer
+ * so an anomaly can be noticed at all. A reviewer with no memory of its own
+ * work cannot get better at the job. Everything in the learning layer reads
+ * from here.
+ *
+ * MANY ROWS PER MONTH, not one. A month is re-reviewed as the office fixes
+ * things, and the sequence of runs IS the record of that being worked — so a
+ * run is appended, never overwritten (contrast `daily_digest`, which is keyed
+ * by date and rewritten in place, because yesterday's morning brief has no
+ * second draft). The newest row for a `ym` is the current view of that month.
+ *
+ * `payload` is the whole `ReviewPayload` as JSON — evidence, findings and
+ * summary — so a stored run re-renders exactly as it did live, without
+ * re-reading JobTread, Drive or Gmail. The counts beside it are denormalized
+ * from those same findings purely so a trend can be read without parsing every
+ * blob; `payload` is the source of truth if they ever disagree.
+ *
+ * `evidenceHash` fingerprints what the checks were run against, so a re-run
+ * that found the world unchanged is recognisable as such.
+ *
+ * Written by `saveRun` (src/lib/invoiceReview/runs.ts) — from the review route
+ * and from the scheduled run. Still nothing here touches JobTread.
+ */
+export const invoiceReviewRuns = sqliteTable("invoice_review_runs", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  /** The BILLING month reviewed, YYYY-MM. Not the month the run happened in. */
+  ym: text("ym").notNull(),
+  ranAt: text("ran_at").notNull(), // ISO timestamp
+  /** Signed-in email, or "cron" for the scheduled run. */
+  ranBy: text("ran_by").notNull().default(""),
+  /** The full ReviewPayload as JSON. */
+  payload: text("payload").notNull().default("{}"),
+  /** Denormalized from the findings — live (unsuppressed) counts. */
+  errorCount: integer("error_count").notNull().default(0),
+  warningCount: integer("warning_count").notNull().default(0),
+  infoCount: integer("info_count").notNull().default(0),
+  suppressedCount: integer("suppressed_count").notNull().default(0),
+  /** Absolute dollars across live findings that carry an amount. */
+  amountAtStake: real("amount_at_stake").notNull().default(0),
+  /** True only when the mailbox leg actually ran AND wasn't truncated — i.e.
+   *  when the capture question was fully answered. */
+  captureComplete: integer("capture_complete", { mode: "boolean" }).notNull().default(false),
+  /** Count of `evidence.warnings` — non-zero means the run was partial. */
+  evidenceWarningCount: integer("evidence_warning_count").notNull().default(0),
+  /** Fingerprint of the evidence the checks ran against. */
+  evidenceHash: text("evidence_hash").notNull().default(""),
+  durationMs: integer("duration_ms").notNull().default(0),
+});
+
+export type InvoiceReviewRunRow = typeof invoiceReviewRuns.$inferSelect;
+export type NewInvoiceReviewRunRow = typeof invoiceReviewRuns.$inferInsert;
+
+/**
+ * ONE ROW PER FINDING PER BILLING MONTH — when it first appeared, when it was
+ * last seen, and whether it ever went away.
+ *
+ * WHY THIS EXISTS. Two questions the review could never answer, both of which
+ * the office asks constantly:
+ *
+ *   1. "Is this new, or has it been sitting there since March?" A list where a
+ *      fresh problem and a nine-month-old one look identical gets skimmed.
+ *   2. "Is this check any good?" A check nobody ever acts on is noise, and
+ *      noise is the failure mode that kills a review — but nothing measured it.
+ *
+ * Both fall out of the same observation: a finding that STOPS APPEARING was
+ * fixed, and a finding that gets a ruling was set aside. So this table watches
+ * findings come and go, and the precision of every check is derived from the
+ * behaviour that follows it. Nobody has to score anything; the office's
+ * ordinary work IS the signal.
+ *
+ * DENORMALIZED ON PURPOSE. The findings are already in each run's `payload`,
+ * but answering "how old is this one" from JSON blobs means parsing every run
+ * of the month on every page load. This is the same data shaped for the
+ * question actually being asked.
+ *
+ * Keyed by (ym, key), not key alone: a finding's key is stable but not always
+ * unique across months — `backup-duplicate`, for one, keys on a vendor and an
+ * amount that can recur — and merging two months into one row would report a
+ * brand-new problem as nine months old.
+ *
+ * `resolvedAt` empty means still open. Rows are never deleted: "this came back
+ * after we fixed it" is exactly the thing worth being able to see.
+ */
+export const invoiceReviewFindingState = sqliteTable("invoice_review_finding_state", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  /** The BILLING month this finding belongs to, YYYY-MM. */
+  ym: text("ym").notNull(),
+  /** The finding's stable identity (`findingKey` in lib/invoiceReview/types.ts). */
+  key: text("key").notNull(),
+  kind: text("kind").notNull().default(""),
+  /** Which check emitted it, resolved from the registry — so precision can be
+   *  attributed to a check rather than to a kind. */
+  checkId: text("check_id").notNull().default(""),
+  jobId: text("job_id").notNull().default(""),
+  severity: text("severity").notNull().default(""),
+  amount: real("amount").notNull().default(0),
+  /** The finding's one-line title at last sight, so history reads without a payload. */
+  title: text("title").notNull().default(""),
+  firstSeenAt: text("first_seen_at").notNull(),
+  lastSeenAt: text("last_seen_at").notNull(),
+  /** How many runs have carried it. A high count with no ruling is a finding
+   *  nobody is acting on — which is a signal about the CHECK. */
+  runsSeen: integer("runs_seen").notNull().default(1),
+  /** ISO time of the first run that no longer carried it. "" = still open. */
+  resolvedAt: text("resolved_at").notNull().default(""),
+  /** True if it carried a standing ruling when last seen — i.e. it was set
+   *  aside rather than fixed. The two must never be counted together. */
+  wasSuppressed: integer("was_suppressed", { mode: "boolean" }).notNull().default(false),
+});
+
+export type InvoiceReviewFindingStateRow = typeof invoiceReviewFindingState.$inferSelect;
+
+/**
+ * MISTAKES THE REVIEW DIDN'T CATCH — the training set.
+ *
+ * THIS IS THE MOST IMPORTANT TABLE IN THE FEATURE, and the one that makes the
+ * system get better rather than merely quieter. Every other memory here
+ * records what the review already knows. This one records where it was BLIND:
+ * the office found a billing mistake, and no check saw it.
+ *
+ * That is the only input from which a genuinely new check can be written. A
+ * ruling teaches the review to say less; a miss teaches it to look somewhere it
+ * has never looked. Claude reads the accumulated log and proposes a check
+ * specification; a human accepts it and it becomes a file under `checks/`. The
+ * proposal is never applied automatically — see the note in learn.ts.
+ *
+ * Deliberately cheap to file. A half-filled row that says "billed Ferron twice
+ * for the same dumpster, caught it reading the PDF" is worth more than a
+ * perfect row nobody had time to write, so only `description` is required.
+ */
+export const invoiceReviewMisses = sqliteTable("invoice_review_misses", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  /** The billing month the mistake was in, YYYY-MM. */
+  ym: text("ym").notNull().default(""),
+  /** What was wrong, in the office's own words. The only required field. */
+  description: text("description").notNull(),
+  /** Dollars, when it had a figure. */
+  amount: real("amount").notNull().default(0),
+  jobId: text("job_id").notNull().default(""),
+  jobName: text("job_name").notNull().default(""),
+  customerName: text("customer_name").notNull().default(""),
+  /** The JobTread invoice, when it was about one. */
+  invoiceId: text("invoice_id").notNull().default(""),
+  /** How it actually came to light — "client called", "spotted in the PDF".
+   *  This is the field that most often suggests where a check should look. */
+  howCaught: text("how_caught").notNull().default(""),
+  /** An existing check id the office thinks SHOULD have caught it, if any. A
+   *  miss attributed to an existing check is a bug in that check; a miss
+   *  attributed to nothing is a check that doesn't exist yet. */
+  shouldHaveBeenCaughtBy: text("should_have_been_caught_by").notNull().default(""),
+  /** Set once a check exists that would now catch it — the loop closing. */
+  addressedAt: text("addressed_at").notNull().default(""),
+  addressedNote: text("addressed_note").notNull().default(""),
+  recordedBy: text("recorded_by").notNull().default(""),
+  recordedAt: text("recorded_at").notNull(),
+});
+
+export type InvoiceReviewMissRow = typeof invoiceReviewMisses.$inferSelect;
+export type NewInvoiceReviewMissRow = typeof invoiceReviewMisses.$inferInsert;
+
+/**
+ * THE REVIEW'S STANDING INSTRUCTIONS — the owner's durable preferences for how
+ * the monthly summary is written ("always lead with anything on the Ferron
+ * job", "we never bill Shop, stop mentioning it").
+ *
+ * DIFFERENT FROM A RULING. A ruling silences one finding, or one kind on one
+ * job, and it changes what the review REPORTS. An instruction changes nothing
+ * about what is found — every active row is injected into the summary prompt on
+ * every run, so Claude shapes the paragraph around it. It is memory for Claude,
+ * not a note the office reads back.
+ *
+ * The same split, and the same reasoning, as `digest_instructions`.
+ *
+ * Deactivated rather than deleted, so "why did the review stop leading with
+ * that" stays answerable.
+ */
+export const invoiceReviewInstructions = sqliteTable("invoice_review_instructions", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  text: text("text").notNull(),
+  active: integer("active", { mode: "boolean" }).notNull().default(true),
+  createdBy: text("created_by").notNull().default(""),
+  createdAt: text("created_at").notNull(),
+});
+
+export type InvoiceReviewInstructionRow = typeof invoiceReviewInstructions.$inferSelect;
+
+/**
+ * CLAUDE'S VERDICT ON ONE FINDING — the output of the investigation pass.
+ *
+ * WHY THIS IS SEPARATE FROM THE FINDING. A finding is what a CHECK decided, and
+ * it is reproducible: run the same evidence through the same check and you get
+ * the same finding. A disposition is what CLAUDE made of it after chasing it —
+ * a judgement, not a computation, and one that could come out differently on a
+ * second pass. Keeping them in different tables keeps that distinction visible
+ * instead of letting a model's opinion harden into a fact about the month.
+ *
+ * THE BOUNDARY THIS TABLE MUST NOT CROSS. A disposition never changes a number,
+ * never suppresses a finding, and never counts as a ruling. Only the office can
+ * rule (see `invoice_review_rulings`), and only a ruling silences anything.
+ * `verdict: "probably-fine"` still leaves the finding on the list — it just
+ * tells the reader where to start.
+ *
+ * Keyed (ym, key) so a second investigation of the same month overwrites rather
+ * than stacking: the newest reading is the one worth keeping, and the run
+ * history already records what the month looked like at each point in time.
+ */
+export const invoiceReviewDispositions = sqliteTable("invoice_review_dispositions", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  ym: text("ym").notNull(),
+  /** The finding's stable identity (`findingKey` in lib/invoiceReview/types.ts). */
+  key: text("key").notNull(),
+  /** confirmed | probably-fine | needs-human. See investigate.ts for what each means. */
+  verdict: text("verdict").notNull().default("needs-human"),
+  /** Claude's reasoning, in a sentence or two. The whole value of the pass. */
+  why: text("why").notNull().default(""),
+  /** What it suggests doing about it, when it has a concrete suggestion. */
+  suggestedAction: text("suggested_action").notNull().default(""),
+  /** Which model produced this, so a change in quality is attributable. */
+  model: text("model").notNull().default(""),
+  createdAt: text("created_at").notNull(),
+});
+
+export type InvoiceReviewDispositionRow = typeof invoiceReviewDispositions.$inferSelect;
+
+/**
  * The Daily Digest's todo/reminder memory — what the owner asked to be reminded
  * of via the reply box (see src/lib/digest/checks/digestTodos.ts and
  * src/app/api/digest/reply/route.ts). Assistant-owned; JobTread has no such
@@ -785,3 +1015,33 @@ export const digestReplies = sqliteTable("digest_replies", {
 
 export type DigestReply = typeof digestReplies.$inferSelect;
 export type NewDigestReply = typeof digestReplies.$inferInsert;
+
+/**
+ * The Daily Digest's STANDING INSTRUCTIONS — the owner's durable preferences for
+ * how the morning brief is written ("stop telling me about the Simon logo
+ * emails", "always list overdue invoices first"), set via the reply box (see
+ * src/app/api/digest/reply/route.ts) or Admin → Digest, and read by
+ * getActiveInstructions (src/lib/digest/instructions.ts).
+ *
+ * DIFFERENT FROM `digestTodos`. A todo is a one-time reminder that gets
+ * completed and then disappears. A standing instruction never "finishes": every
+ * active row is injected into the digest SUMMARY prompt on EVERY run (see
+ * summarizeDigestWithClaude in src/lib/digest/claude.ts), so the model shapes
+ * the brief around it — it is memory for Claude, not a note the owner reads
+ * back. This is the fix for the reply box turning "ignore the logo emails" into
+ * a bullet reminding the owner to ignore them.
+ *
+ * Deactivated (`active` false) rather than deleted when the owner says to forget
+ * one, so "why did the digest stop mentioning X" stays answerable.
+ */
+export const digestInstructions = sqliteTable("digest_instructions", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  text: text("text").notNull(),
+  active: integer("active", { mode: "boolean" }).notNull().default(true),
+  createdBy: text("created_by").notNull().default(""), // signed-in email, if known
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull().default(""),
+});
+
+export type DigestInstruction = typeof digestInstructions.$inferSelect;
+export type NewDigestInstruction = typeof digestInstructions.$inferInsert;

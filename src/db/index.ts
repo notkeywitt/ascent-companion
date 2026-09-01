@@ -669,6 +669,114 @@ async function applySchema() {
     )
   `);
 
+  // Every client-invoice review that has ever run — the feature's history, and
+  // what the learning layer reads. Appended, never overwritten: many rows per
+  // billing month, newest first. See db/schema.ts for why.
+  await getClient().execute(`
+    CREATE TABLE IF NOT EXISTS invoice_review_runs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      ym TEXT NOT NULL,
+      ran_at TEXT NOT NULL,
+      ran_by TEXT NOT NULL DEFAULT '',
+      payload TEXT NOT NULL DEFAULT '{}',
+      error_count INTEGER NOT NULL DEFAULT 0,
+      warning_count INTEGER NOT NULL DEFAULT 0,
+      info_count INTEGER NOT NULL DEFAULT 0,
+      suppressed_count INTEGER NOT NULL DEFAULT 0,
+      amount_at_stake REAL NOT NULL DEFAULT 0,
+      capture_complete INTEGER NOT NULL DEFAULT 0,
+      evidence_warning_count INTEGER NOT NULL DEFAULT 0,
+      evidence_hash TEXT NOT NULL DEFAULT '',
+      duration_ms INTEGER NOT NULL DEFAULT 0
+    )
+  `);
+  // Reads are always "the newest run(s) for this billing month".
+  await getClient().execute(`
+    CREATE INDEX IF NOT EXISTS invoice_review_runs_ym_idx
+      ON invoice_review_runs (ym, ran_at DESC)
+  `);
+
+  // The learning layer (see db/schema.ts for what each is FOR):
+  //   finding_state — when each finding appeared, and whether it ever went away.
+  //                   "is this new or has it been there since March", and the
+  //                   per-check precision derived from what the office does next.
+  //   misses        — billing mistakes the review did NOT catch. The training
+  //                   set: the only input a genuinely new check can come from.
+  //   instructions  — durable preferences injected into the summary prompt.
+  await getClient().execute(`
+    CREATE TABLE IF NOT EXISTS invoice_review_finding_state (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      ym TEXT NOT NULL,
+      key TEXT NOT NULL,
+      kind TEXT NOT NULL DEFAULT '',
+      check_id TEXT NOT NULL DEFAULT '',
+      job_id TEXT NOT NULL DEFAULT '',
+      severity TEXT NOT NULL DEFAULT '',
+      amount REAL NOT NULL DEFAULT 0,
+      title TEXT NOT NULL DEFAULT '',
+      first_seen_at TEXT NOT NULL,
+      last_seen_at TEXT NOT NULL,
+      runs_seen INTEGER NOT NULL DEFAULT 1,
+      resolved_at TEXT NOT NULL DEFAULT '',
+      was_suppressed INTEGER NOT NULL DEFAULT 0
+    )
+  `);
+  // (ym, key), not key alone — a finding key is stable but not unique across
+  // months, and merging two months into one row would report a brand-new
+  // problem as nine months old.
+  await getClient().execute(`
+    CREATE UNIQUE INDEX IF NOT EXISTS invoice_review_finding_state_ym_key_idx
+      ON invoice_review_finding_state (ym, key)
+  `);
+  await getClient().execute(`
+    CREATE TABLE IF NOT EXISTS invoice_review_misses (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      ym TEXT NOT NULL DEFAULT '',
+      description TEXT NOT NULL,
+      amount REAL NOT NULL DEFAULT 0,
+      job_id TEXT NOT NULL DEFAULT '',
+      job_name TEXT NOT NULL DEFAULT '',
+      customer_name TEXT NOT NULL DEFAULT '',
+      invoice_id TEXT NOT NULL DEFAULT '',
+      how_caught TEXT NOT NULL DEFAULT '',
+      should_have_been_caught_by TEXT NOT NULL DEFAULT '',
+      addressed_at TEXT NOT NULL DEFAULT '',
+      addressed_note TEXT NOT NULL DEFAULT '',
+      recorded_by TEXT NOT NULL DEFAULT '',
+      recorded_at TEXT NOT NULL
+    )
+  `);
+  await getClient().execute(`
+    CREATE TABLE IF NOT EXISTS invoice_review_instructions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      text TEXT NOT NULL,
+      active INTEGER NOT NULL DEFAULT 1,
+      created_by TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL
+    )
+  `);
+
+  // Claude's verdict on each finding, from the investigation pass. Kept apart
+  // from the findings themselves because a finding is what a check COMPUTED and
+  // a disposition is what a model JUDGED — see db/schema.ts. A disposition
+  // never suppresses anything; only a ruling does that.
+  await getClient().execute(`
+    CREATE TABLE IF NOT EXISTS invoice_review_dispositions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      ym TEXT NOT NULL,
+      key TEXT NOT NULL,
+      verdict TEXT NOT NULL DEFAULT 'needs-human',
+      why TEXT NOT NULL DEFAULT '',
+      suggested_action TEXT NOT NULL DEFAULT '',
+      model TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL
+    )
+  `);
+  await getClient().execute(`
+    CREATE UNIQUE INDEX IF NOT EXISTS invoice_review_dispositions_ym_key_idx
+      ON invoice_review_dispositions (ym, key)
+  `);
+
   // The Daily Digest's todo/reminder memory, sender ignore-rules, and reply audit
   // trail — written only by POST /api/digest/reply, read by the digest-todos
   // check and (ignore rules) the email-followups check. See db/schema.ts.
@@ -702,6 +810,20 @@ async function applySchema() {
       actions_applied TEXT NOT NULL DEFAULT '[]',
       created_by TEXT NOT NULL DEFAULT '',
       created_at TEXT NOT NULL
+    )
+  `);
+  // The Daily Digest's STANDING INSTRUCTIONS — the owner's durable preferences
+  // for how the morning brief is written, injected into the summary prompt on
+  // every run (see src/lib/digest/instructions.ts + claude.ts). Distinct from
+  // digest_todos (a one-time reminder); this is memory for Claude, not a note.
+  await getClient().execute(`
+    CREATE TABLE IF NOT EXISTS digest_instructions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      text TEXT NOT NULL,
+      active INTEGER NOT NULL DEFAULT 1,
+      created_by TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL DEFAULT ''
     )
   `);
 }

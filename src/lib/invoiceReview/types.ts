@@ -61,7 +61,17 @@ export type FindingKind =
   /** Invoice-looking mail from a sender that matches no JobTread vendor. */
   | "email-unknown-sender"
   /** The same vendor bill is carried by two different live invoices. */
-  | "scope-duplicate-bill";
+  | "scope-duplicate-bill"
+  // ── Margin: cost-plus means the markup IS the revenue ────────────────────
+  /** A line reached the client invoice at cost — the markup was dropped. */
+  | "markup-missing"
+  /** A line is billed for less than it cost. */
+  | "billed-below-cost"
+  // ── Learned from history (norms.ts), not from this month's evidence ───────
+  /** A vendor who bills nearly every month has no bill this month at all. */
+  | "vendor-silent"
+  /** An invoice's markup is off what this customer is normally billed. */
+  | "markup-rate-drift";
 
 /** One thing the review wants a human to look at. */
 export interface Finding {
@@ -91,6 +101,53 @@ export interface Finding {
   sourceLabel?: string;
   /** Set when a standing ruling suppresses this finding — see rulings.ts. */
   suppressedBy?: SuppressionNote;
+  /**
+   * How long this has been showing up, from the review's own memory. Attached
+   * AFTER the checks run (see lifecycle.ts) — a check is pure and has no idea
+   * what happened last month.
+   *
+   * Absent when there is no history yet, which is not the same as `isNew`:
+   * absent means "we don't know", `isNew` means "we looked and this is the
+   * first time". A month reviewed once has no history for anything.
+   */
+  history?: FindingHistoryNote;
+  /**
+   * What Claude made of this after investigating it (see investigate.ts).
+   * Absent until someone runs the investigation pass for the month.
+   *
+   * A DISPOSITION IS NOT A RULING. It changes nothing, hides nothing, and does
+   * not alter the severity — it only says where to start. Only the office can
+   * silence a finding, and only through `suppressedBy`.
+   */
+  disposition?: FindingDisposition;
+}
+
+/** Claude's reading of one finding after chasing it. See investigate.ts. */
+export interface FindingDisposition {
+  /**
+   * "confirmed"     — a real problem; act on it.
+   * "probably-fine" — a benign explanation was found, and `why` states it.
+   *                   The finding STAYS on the list at full severity.
+   * "needs-human"   — could not be settled from the evidence available.
+   */
+  verdict: "confirmed" | "probably-fine" | "needs-human";
+  /** What was checked and what it showed — not a restatement of the finding. */
+  why: string;
+  /** A concrete next step, when there is one. */
+  suggestedAction: string;
+  /** Which model produced it, so a change in quality is attributable. */
+  model: string;
+  at: string;
+}
+
+/** What the review remembers about one finding. */
+export interface FindingHistoryNote {
+  /** ISO time of the earliest run that carried it. */
+  firstSeenAt: string;
+  /** How many runs have carried it, this one included. */
+  runsSeen: number;
+  /** True when no previous run had seen it — a genuinely new problem. */
+  isNew: boolean;
 }
 
 /** Why a finding is not being shown as a problem. */
@@ -101,9 +158,29 @@ export interface SuppressionNote {
   by: string;
   /** ISO timestamp of the ruling. */
   at: string;
-  /** True when the ruling covers this KIND on this job, not just this one key. */
-  scope: "finding" | "job-kind";
+  /** How wide the ruling reaches — see `RulingScope`. */
+  scope: RulingScope;
 }
+
+/**
+ * How wide a standing ruling reaches.
+ *
+ *   "finding"       this exact finding on this exact subject. The default, and
+ *                   the safe one.
+ *   "job-kind"      every finding of this kind on this job, forever.
+ *   "customer-kind" every finding of this kind on every job for this customer.
+ *
+ * `customer-kind` exists because some standing arrangements are a property of
+ * the CLIENT, not of one job — "this customer's allowance draws never have
+ * vendor backup" is true on all four of their jobs and on the fifth they
+ * haven't started yet. Recording it once, at the level it is actually true at,
+ * beats re-ruling it every time a job is opened.
+ *
+ * There is deliberately no vendor scope yet: a `Finding` carries no structured
+ * vendor, only a name inside its title, and matching on that would silence by
+ * string coincidence. It needs a `vendorName` on the finding first.
+ */
+export type RulingScope = "finding" | "job-kind" | "customer-kind";
 
 // ---------------------------------------------------------------------------
 // EVIDENCE — what the reviewer is shown. Assembled by evidence.ts; every field
@@ -118,6 +195,14 @@ export interface InvoiceLine {
   /** CSI cost-code number, when the line is coded. */
   code: string;
   codeName: string;
+  /**
+   * What the line COST Ascent, as JobTread holds it — the basis the markup is
+   * applied to. 0 when the line has no cost recorded, which is normal for a
+   * flat-priced line and means every margin check must skip it rather than
+   * read it as "billed at zero cost".
+   */
+  cost: number;
+  unitCost: number;
   quantity: number;
   unitPrice: number;
   /** The extended price JobTread holds for the line — READ, never recomputed. */
@@ -274,9 +359,78 @@ export interface MonthEvidence {
    *  job whose reconciliation errored). Surfaced so a partial review is never
    *  mistaken for a clean one. */
   warnings: string[];
+  /**
+   * What the months BEFORE this one looked like (norms.ts), attached by the
+   * runner before the checks run.
+   *
+   * It lives on the evidence rather than being read by a check directly for one
+   * reason: checks are pure. A check that reached into the database would stop
+   * being unit-testable, and the arithmetic in this review being testable is
+   * the reason it can be trusted at all.
+   *
+   * Absent when there isn't enough history yet — which every check reading it
+   * must treat as "say nothing", never as "nothing was unusual".
+   */
+  norms?: ReviewNorms;
 }
 
 /** The whole answer: the evidence, what it turned up, and the narrative. */
+/**
+ * What one vendor's billing normally looks like, learned from run history.
+ * See norms.ts — a norm is a reason to ASK, never a verdict.
+ */
+export interface VendorNorm {
+  /** The normalized comparison key (see `vendorKey`). */
+  key: string;
+  /** The vendor as most recently spelled, for showing a human. */
+  name: string;
+  /** In how many months of the window they billed at least once. */
+  monthsSeen: number;
+  /** How many months of history the baseline is built on. */
+  monthsOfHistory: number;
+  /** Median monthly cost across the months they appeared in. */
+  typicalMonthlyCost: number;
+  lastSeenYm: string;
+}
+
+/**
+ * What one customer is normally billed, learned from run history.
+ *
+ * Ascent charges DIFFERENT MARKUPS TO DIFFERENT CUSTOMERS, so there is no such
+ * thing as a house markup to measure an invoice against. The only meaningful
+ * baseline is this customer's own recent history, which is exactly what a
+ * learned norm is for — and why the drift check could not have been written
+ * before the run history existed.
+ */
+export interface CustomerNorm {
+  /** Normalized comparison key (see `customerKey`). */
+  key: string;
+  /** The customer as most recently spelled, for showing a human. */
+  name: string;
+  /** How many months of the window they were invoiced in. */
+  monthsSeen: number;
+  monthsOfHistory: number;
+  /**
+   * Median of the monthly blended markup RATIO (invoice price ÷ invoice cost).
+   * 1.22 means "cost plus 22%". Median, not mean, so one odd month can't move
+   * what "normal" is for a client billed steadily for years.
+   */
+  typicalMarkup: number;
+  /** Median monthly billed price. Used only to judge whether a drift is
+   *  material enough to be worth saying. */
+  typicalMonthlyPrice: number;
+}
+
+/** The baselines a month is judged against. Absent when there isn't enough
+ *  history — which every check that reads them must treat as "say nothing". */
+export interface ReviewNorms {
+  ym: string;
+  windowMonths: number;
+  monthsOfHistory: number;
+  vendors: VendorNorm[];
+  customers: CustomerNorm[];
+}
+
 export interface ReviewPayload {
   evidence: MonthEvidence;
   findings: Finding[];
@@ -284,8 +438,23 @@ export interface ReviewPayload {
    *  locally from the findings — `summarySource` says which. */
   summary: string;
   summarySource: "claude" | "fallback";
+  /**
+   * Why the summary fell back, when it did. Empty on the Claude path.
+   *
+   * The fallback used to be silent, which meant a missing key, an expired key,
+   * a bad model id and a timeout all looked identical to "Claude wrote
+   * something dull" — so a real outage could run for weeks unnoticed. Surfacing
+   * the reason is the whole point; see narrate.ts.
+   */
+  summaryNote?: string;
   generatedAt: string;
   durationMs: number;
+  /**
+   * Set when this payload came out of the run history rather than being
+   * computed just now — the ISO time of the run it was stored from. The page
+   * shows it so a stored review can never be mistaken for a fresh one.
+   */
+  storedAt?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -343,6 +512,18 @@ export function findingKey(kind: FindingKind, jobId: string, subject: string): s
 /** The suppression key for a whole KIND on a job — the broader ruling scope. */
 export function jobKindKey(kind: FindingKind, jobId: string): string {
   return findingKey(kind, jobId, "*");
+}
+
+/**
+ * The suppression key for a whole KIND for a customer, across every job.
+ *
+ * Keyed on the customer NAME rather than an id because a finding carries the
+ * name and not the id, and because a rename is easier to spot than a stale id
+ * (the same reasoning as `NEVER_INVOICED_JOB_NAMES`). Normalized so casing and
+ * spacing can't quietly create a second, non-matching ruling.
+ */
+export function customerKindKey(kind: FindingKind, customerName: string): string {
+  return findingKey(kind, "customer", `${String(customerName ?? "").trim().toLowerCase()}|*`);
 }
 
 /** Severity order for sorting: worst first, then by dollars at stake. */

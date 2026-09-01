@@ -21,11 +21,11 @@ reconcile, and the charge is simply absent. Only the mailbox still has it.
 The only thing a key would buy is the app writing its own summary paragraph; you
 are the summary.
 
-Every number comes from `src/lib/invoiceReview/checks.ts`, which is deterministic
-and unit-tested. Your job is to run it, read what it found, chase the ones it
-can't settle on its own, and tell the owner what to do. **Do not do the
-arithmetic yourself** — if you find yourself adding up line items in your head,
-you have gone off the rails.
+Every number comes from the checks in `src/lib/invoiceReview/checks/`, which are
+deterministic and unit-tested. Your job is to run them, read what they found,
+chase the ones they can't settle on their own, and tell the owner what to do.
+**Do not do the arithmetic yourself** — if you find yourself adding up line
+items in your head, you have gone off the rails.
 
 ## Vocabulary — get this right first
 
@@ -62,7 +62,7 @@ because you are going to write a better one with the context of this
 conversation. Use the production URL, or `http://localhost:3000` against a
 `npm run dev` with `.env.local` in place.
 
-Two other switches:
+Other switches:
 
 - `&format=brief` returns the whole review as a markdown briefing instead of
   JSON. Use it if you only want to read and relay; use JSON when you intend to
@@ -71,6 +71,31 @@ Two other switches:
 - `&email=0` skips the mailbox sweep, which is the slow half (a month of All Mail
   is a few hundred threads). Only for a quick pass — the capture findings then
   report nothing at all rather than passing.
+- `&stored=1` hands back the most recently FILED run instead of sweeping
+  everything again — instant, and identical to what that run showed, because it
+  IS that run. **There is currently no automatic nightly run** — a Vercel Cron
+  entry for it briefly existed and was reverted (it pushed the project over
+  Vercel Hobby's 2-cron cap and took the Daily Digest's schedule down with it;
+  see the incident note in `INVOICE_ACCURACY_PLAN.md`) — so a stored run is only
+  as current as the last time someone opened the page or it was triggered
+  manually. Check `storedAt` before assuming it's fresh. Use it when you want to
+  read the month rather than re-check it; use a plain call when the owner has
+  just fixed something and wants it re-checked.
+  (`&stored=only` answers `{ "stored": null }` rather than falling through to a
+  live run, which is what the page opens with.)
+- `&history=1` lists the month's past runs — when it was last checked, by whom,
+  and how the counts have moved. Useful for "is this new, or has it been there
+  since March".
+
+A payload carrying `storedAt` came out of the history rather than being computed
+just now. Say so if you relay it, and say when.
+
+Each finding may carry `history`: `isNew` means no earlier run saw it,
+`firstSeenAt`/`runsSeen` say how long it has been standing. **Lead with what is
+new**, and say plainly when something has been sitting unfixed for months — that
+is usually the more useful fact. A finding with no `history` at all means the
+review has no memory of it yet (a month checked for the first time); that is not
+the same as new, so don't call it new.
 
 If the owner is in this repo without a running app, the same thing is reachable
 in code: `runInvoiceReview(getPaveConfig(), year, month, { narrate: false })`
@@ -114,6 +139,18 @@ Take them in the order they come. For each one that is `severity: "error"`:
   finding above). Confirm against the tracking sheet whether it was held back.
 - **`math-*`** — the invoice does not foot. Quote the arithmetic from `detail`
   verbatim; it already shows both figures and the difference.
+- **`markup-missing` / `billed-below-cost`** — a line reached the invoice at
+  cost, or under it. Ascent bills COST-PLUS, so the markup is the revenue and
+  this is money that will never be recovered once the invoice goes out. Before
+  reporting, check whether the line is a deliberate pass-through (a permit, a
+  fee); if it is, the fix is adding its cost code to `passThroughCodes` in
+  `settings.ts`, NOT a ruling every month forever — say so.
+- **`markup-rate-drift`** — a customer's blended markup this month is off what
+  they are usually billed. Ascent charges different rates to different
+  customers, so this is measured against that customer's own history and nothing
+  else. It reasons from a pattern: treat it as a reason to look at the month,
+  not as proof. A month weighted toward work at a different rate does this
+  innocently, so ask before alarming anyone.
 
 For `warning` findings, summarize rather than investigate each one, unless the
 owner asks. One needs care:
@@ -153,6 +190,58 @@ about the **Copy for Claude** button on `/invoice-review`: it puts this same
 briefing on the clipboard (or straight into the share sheet on a phone) to paste
 into the Claude app. That path needs no API key either.
 
+## Step 3b — let the app do the chasing
+
+Most of Step 3's legwork is now a button. `POST /api/invoice-review/investigate`
+with `{ "ym": "YYYY-MM" }` runs Claude over the month's findings with read-only
+tools and returns a verdict on each:
+
+- **`confirmed`** — checked, and it looks real.
+- **`probably-fine`** — a benign explanation was found, and `why` states it.
+- **`needs-human`** — cannot be settled from the evidence; `why` says what is missing.
+
+It does exactly what Step 3 asks you to do by hand: searches every job's filed
+backup for a missing amount, checks a vendor's other spellings, opens a suspected
+double-bill to see whether one half is a credit. Verdicts are stored, so a month
+already investigated comes back with them attached to each finding
+(`finding.disposition`).
+
+**Run it before working the list yourself** on a month with more than a handful
+of findings — it is far quicker than repeating the searches, and it tells you
+which ones it could NOT settle.
+
+Optional `"model"` in the body picks which model runs it, from the allowlist in
+`investigateModels.ts` — Sonnet by default, Opus for a messy month. Anything
+else falls back to the default rather than erroring. The response carries
+`usage` with cache counters; `cacheRead` staying at zero across a multi-step run
+means the prefix cache broke and the run cost more than it should have.
+
+**A verdict is not a ruling.** `probably-fine` leaves the finding on the list at
+full severity. Relay it as "Claude found X, worth confirming", never as "this one
+is fine". Only the owner settles a finding, and only through a ruling.
+
+## Step 4a — say what it missed
+
+If the owner tells you about a billing mistake **this review didn't catch**,
+record it. This is the single most valuable thing you can do here — a ruling
+teaches the review to say less, and only a miss teaches it to look somewhere new.
+
+```
+POST /api/invoice-review/misses
+{ "ym": "YYYY-MM", "description": "<their words>", "howCaught": "<how it surfaced>",
+  "jobName": "...", "customerName": "...", "amount": 0 }
+```
+
+Only `description` is required — file a thin one rather than none. `howCaught`
+is the field that most often says where a new check should look, so ask for it
+if it's natural, and don't interrogate them if it isn't.
+
+To ask what checks the accumulated log calls for (admin only, uses the frontier
+model, takes a while): `POST /api/invoice-review/learn`. It answers with
+proposals — a rule, what would make it fire wrongly, and whether new evidence
+would be needed. **They are proposals.** Implementing one is a code change a
+person decides on; nothing about it is automatic.
+
 ## Step 5 — the memory
 
 When the owner overrules a finding ("that's fine, that client's allowance draws
@@ -161,12 +250,29 @@ never have vendor backup"), **record it** so it never comes back:
 ```
 POST /api/invoice-review
 { "key": "<finding.key>", "kind": "<finding.kind>", "jobId": "<finding.jobId>",
-  "scope": "finding" | "job-kind", "reason": "<their words>" }
+  "customerName": "<finding.customerName>",
+  "scope": "finding" | "job-kind" | "customer-kind", "reason": "<their words>" }
 ```
 
 - `scope: "finding"` — this one thing. The default; use it unless told otherwise.
 - `scope: "job-kind"` — every finding of this kind on this job, forever. Only for
   a standing arrangement, never to quiet one awkward month.
+- `scope: "customer-kind"` — that kind for this customer on every job, including
+  jobs they haven't started. Only when the arrangement is a property of the
+  CLIENT ("their allowance draws never have vendor backup"), not of one job.
+  `customerName` is required for this scope.
+
+Wider is not better. A ruling that reaches past what the owner meant is how a
+real finding gets silenced years later by a note nobody remembers writing — when
+in doubt, take the narrower scope and record another one next month.
+
+Separately, if the owner says how they want the month READ to them rather than
+what to stop finding ("always lead with anything on Ferron"), that is a standing
+instruction, not a ruling — it shapes the summary and hides nothing:
+
+```
+POST /api/invoice-review/instructions   { "text": "<their words>" }
+```
 
 Always record the owner's **actual reason**, not your paraphrase. Next year it is
 the only thing that will explain the silence. To lift one:
@@ -184,6 +290,18 @@ the only thing that will explain the silence. To lift one:
   `evidence.warnings` is empty *and* `evidence.emailChecked` is true *and*
   `evidence.mailTruncated` is false. If the mailbox leg was skipped or truncated,
   the month is "clean on everything checked", and you must say which part wasn't.
+  A check that FAILED also lands in `evidence.warnings` — a check that stopped
+  working and a check that found nothing must never read the same.
+- **Never let a verdict stand in for a ruling.** A `probably-fine` disposition is
+  Claude's reading, stored for triage. It does not silence anything and must not
+  be reported as settled. If the owner agrees with it, record a real ruling.
+- **Never treat `vendor-silent` as proof of anything.** It reasons from a
+  pattern, not from a document: a vendor can simply have had a quiet month. It
+  is a reason to look at an account, and the wording says so. Relay it that way.
+- **Never disable a check to quiet a finding.** A ruling says "we looked at this
+  one and it's fine", with a reason and a name against it. `enabled: false` in
+  `settings.ts` makes a whole class of problem stop being looked for, org-wide,
+  for everyone, silently. Record a ruling instead.
 - **Never report Office or Shop as under-billed.** They are Ascent's own overhead
   and are never invoiced. The checks already skip them; don't reintroduce them in
   your prose.
@@ -195,13 +313,30 @@ the only thing that will explain the silence. To lift one:
 
 | Piece | File |
 | --- | --- |
-| The checks (pure, tested) | `src/lib/invoiceReview/checks.ts` |
+| The checks (pure, tested) — one file each | `src/lib/invoiceReview/checks/` |
+| Cost codes billed at cost on purpose | `passThroughCodes` in `src/lib/invoiceReview/settings.ts` |
+| Every threshold and which checks run | `src/lib/invoiceReview/settings.ts` |
+| The check list + the runner | `src/lib/invoiceReview/registry.ts` |
 | Evidence gathering (JobTread + Drive + Gmail) | `src/lib/invoiceReview/evidence.ts` |
 | The paste-into-Claude briefing | `src/lib/invoiceReview/brief.ts` |
 | Rulings / the memory | `src/lib/invoiceReview/rulings.ts` |
+| Run history | `src/lib/invoiceReview/runs.ts` |
+| Finding ages + per-check accuracy | `src/lib/invoiceReview/lifecycle.ts` |
+| Learned baselines (vendor cadence) | `src/lib/invoiceReview/norms.ts` |
+| The miss log — what it failed to catch | `src/lib/invoiceReview/misses.ts` |
+| Claude proposing new checks from misses | `src/lib/invoiceReview/learn.ts` |
+| Claude investigating findings (the tool loop) | `src/lib/invoiceReview/investigate.ts` |
+| What Claude is allowed to look at | `src/lib/invoiceReview/investigateTools.ts` |
+| Stored verdicts | `src/lib/invoiceReview/dispositions.ts` |
+| Standing instructions for the summary | `src/lib/invoiceReview/instructions.ts` |
 | The route | `src/app/api/invoice-review/route.ts` |
+| The filing run (manual/admin only — no cron) | `src/app/api/invoice-review/run/route.ts` |
 | The page | `src/app/invoice-review/InvoiceReview.tsx` |
 | The Drive + Gmail reads (other repo) | `ascent-appscript/ClientInvoiceReview.js` |
+| Where this is all going | `INVOICE_ACCURACY_PLAN.md` |
+
+**Adding a check** is a new file in `checks/`, a config block in `settings.ts`,
+and one line in `registry.ts`. Nothing else needs touching.
 
 ## Known limitation, worth saying out loud
 

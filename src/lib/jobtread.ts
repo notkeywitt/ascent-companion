@@ -366,6 +366,10 @@ export interface BillDetail {
   };
   lines: BillLine[];
   files: BillFile[]; // attached invoice PDF/image — same document, same round trip
+  /** The bill's own job id, read from the document. Lets a caller that only has
+   *  a docId (e.g. a bill link with no ?jobId) recover the job to load its
+   *  budget/CTC, instead of erroring for want of a query param. "" if unknown. */
+  jobId: string;
 }
 
 /**
@@ -396,6 +400,7 @@ export async function getBillDetail(cfg: PaveConfig, docId: string): Promise<Bil
       $: { id: docId },
       id: {}, name: {}, status: {}, cost: {}, issueDate: {}, subject: {}, fromName: {}, number: {}, externalId: {},
       qboIsIgnored: {}, nonRecoverableTax: {}, nonRecoverableTaxName: {},
+      job: { id: {} }, // the bill's own job — lets /api/bill work without ?jobId
       ...lineSel,
     },
   };
@@ -403,6 +408,7 @@ export async function getBillDetail(cfg: PaveConfig, docId: string): Promise<Bil
     document: {
       $: { id: docId },
       id: {}, name: {}, status: {}, cost: {}, issueDate: {}, nonRecoverableTax: {},
+      job: { id: {} },
       ...lineSel,
     },
   };
@@ -430,6 +436,7 @@ export async function getBillDetail(cfg: PaveConfig, docId: string): Promise<Bil
     },
     lines: d.costItems?.nodes ?? [],
     files: d.files?.nodes ?? [],
+    jobId: d.job?.id ?? "",
   };
 }
 
