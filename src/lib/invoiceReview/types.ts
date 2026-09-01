@@ -61,7 +61,10 @@ export type FindingKind =
   /** Invoice-looking mail from a sender that matches no JobTread vendor. */
   | "email-unknown-sender"
   /** The same vendor bill is carried by two different live invoices. */
-  | "scope-duplicate-bill";
+  | "scope-duplicate-bill"
+  // ── Learned from history (norms.ts), not from this month's evidence ───────
+  /** A vendor who bills nearly every month has no bill this month at all. */
+  | "vendor-silent";
 
 /** One thing the review wants a human to look at. */
 export interface Finding {
@@ -91,6 +94,26 @@ export interface Finding {
   sourceLabel?: string;
   /** Set when a standing ruling suppresses this finding — see rulings.ts. */
   suppressedBy?: SuppressionNote;
+  /**
+   * How long this has been showing up, from the review's own memory. Attached
+   * AFTER the checks run (see lifecycle.ts) — a check is pure and has no idea
+   * what happened last month.
+   *
+   * Absent when there is no history yet, which is not the same as `isNew`:
+   * absent means "we don't know", `isNew` means "we looked and this is the
+   * first time". A month reviewed once has no history for anything.
+   */
+  history?: FindingHistoryNote;
+}
+
+/** What the review remembers about one finding. */
+export interface FindingHistoryNote {
+  /** ISO time of the earliest run that carried it. */
+  firstSeenAt: string;
+  /** How many runs have carried it, this one included. */
+  runsSeen: number;
+  /** True when no previous run had seen it — a genuinely new problem. */
+  isNew: boolean;
 }
 
 /** Why a finding is not being shown as a problem. */
@@ -274,9 +297,49 @@ export interface MonthEvidence {
    *  job whose reconciliation errored). Surfaced so a partial review is never
    *  mistaken for a clean one. */
   warnings: string[];
+  /**
+   * What the months BEFORE this one looked like (norms.ts), attached by the
+   * runner before the checks run.
+   *
+   * It lives on the evidence rather than being read by a check directly for one
+   * reason: checks are pure. A check that reached into the database would stop
+   * being unit-testable, and the arithmetic in this review being testable is
+   * the reason it can be trusted at all.
+   *
+   * Absent when there isn't enough history yet — which every check reading it
+   * must treat as "say nothing", never as "nothing was unusual".
+   */
+  norms?: ReviewNorms;
 }
 
 /** The whole answer: the evidence, what it turned up, and the narrative. */
+/**
+ * What one vendor's billing normally looks like, learned from run history.
+ * See norms.ts — a norm is a reason to ASK, never a verdict.
+ */
+export interface VendorNorm {
+  /** The normalized comparison key (see `vendorKey`). */
+  key: string;
+  /** The vendor as most recently spelled, for showing a human. */
+  name: string;
+  /** In how many months of the window they billed at least once. */
+  monthsSeen: number;
+  /** How many months of history the baseline is built on. */
+  monthsOfHistory: number;
+  /** Median monthly cost across the months they appeared in. */
+  typicalMonthlyCost: number;
+  lastSeenYm: string;
+}
+
+/** The baselines a month is judged against. Absent when there isn't enough
+ *  history — which every check that reads them must treat as "say nothing". */
+export interface ReviewNorms {
+  ym: string;
+  windowMonths: number;
+  monthsOfHistory: number;
+  vendors: VendorNorm[];
+}
+
 export interface ReviewPayload {
   evidence: MonthEvidence;
   findings: Finding[];

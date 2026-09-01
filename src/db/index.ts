@@ -696,6 +696,66 @@ async function applySchema() {
       ON invoice_review_runs (ym, ran_at DESC)
   `);
 
+  // The learning layer (see db/schema.ts for what each is FOR):
+  //   finding_state — when each finding appeared, and whether it ever went away.
+  //                   "is this new or has it been there since March", and the
+  //                   per-check precision derived from what the office does next.
+  //   misses        — billing mistakes the review did NOT catch. The training
+  //                   set: the only input a genuinely new check can come from.
+  //   instructions  — durable preferences injected into the summary prompt.
+  await getClient().execute(`
+    CREATE TABLE IF NOT EXISTS invoice_review_finding_state (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      ym TEXT NOT NULL,
+      key TEXT NOT NULL,
+      kind TEXT NOT NULL DEFAULT '',
+      check_id TEXT NOT NULL DEFAULT '',
+      job_id TEXT NOT NULL DEFAULT '',
+      severity TEXT NOT NULL DEFAULT '',
+      amount REAL NOT NULL DEFAULT 0,
+      title TEXT NOT NULL DEFAULT '',
+      first_seen_at TEXT NOT NULL,
+      last_seen_at TEXT NOT NULL,
+      runs_seen INTEGER NOT NULL DEFAULT 1,
+      resolved_at TEXT NOT NULL DEFAULT '',
+      was_suppressed INTEGER NOT NULL DEFAULT 0
+    )
+  `);
+  // (ym, key), not key alone — a finding key is stable but not unique across
+  // months, and merging two months into one row would report a brand-new
+  // problem as nine months old.
+  await getClient().execute(`
+    CREATE UNIQUE INDEX IF NOT EXISTS invoice_review_finding_state_ym_key_idx
+      ON invoice_review_finding_state (ym, key)
+  `);
+  await getClient().execute(`
+    CREATE TABLE IF NOT EXISTS invoice_review_misses (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      ym TEXT NOT NULL DEFAULT '',
+      description TEXT NOT NULL,
+      amount REAL NOT NULL DEFAULT 0,
+      job_id TEXT NOT NULL DEFAULT '',
+      job_name TEXT NOT NULL DEFAULT '',
+      customer_name TEXT NOT NULL DEFAULT '',
+      invoice_id TEXT NOT NULL DEFAULT '',
+      how_caught TEXT NOT NULL DEFAULT '',
+      should_have_been_caught_by TEXT NOT NULL DEFAULT '',
+      addressed_at TEXT NOT NULL DEFAULT '',
+      addressed_note TEXT NOT NULL DEFAULT '',
+      recorded_by TEXT NOT NULL DEFAULT '',
+      recorded_at TEXT NOT NULL
+    )
+  `);
+  await getClient().execute(`
+    CREATE TABLE IF NOT EXISTS invoice_review_instructions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      text TEXT NOT NULL,
+      active INTEGER NOT NULL DEFAULT 1,
+      created_by TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL
+    )
+  `);
+
   // The Daily Digest's todo/reminder memory, sender ignore-rules, and reply audit
   // trail — written only by POST /api/digest/reply, read by the digest-todos
   // check and (ignore rules) the email-followups check. See db/schema.ts.

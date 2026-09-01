@@ -13,7 +13,9 @@
  * finding. A reviewer still cannot change anything it reviews.
  */
 import { loadMonthEvidence } from "./evidence";
+import { attachHistory, readFindingState, recordFindings } from "./lifecycle";
 import { narrateReview } from "./narrate";
+import { learnNorms } from "./norms";
 import { applyRulings, listRulings } from "./rulings";
 import { runChecks } from "./registry";
 import { saveRun } from "./runs";
@@ -36,6 +38,13 @@ export async function runInvoiceReview(
   const started = Date.now();
 
   const evidence = await loadMonthEvidence(cfg, year, month, { email: opts.email });
+
+  // What the months BEFORE this one looked like. Attached to the evidence so
+  // the checks that reason from a pattern stay pure — see norms.ts. Absent
+  // history is a perfectly good state; those checks then say nothing.
+  const norms = await learnNorms(evidence.ym);
+  if (norms) evidence.norms = norms;
+
   const raw = runChecks(evidence);
 
   // Rulings are best-effort: a companion DB that is unreachable must not cost
@@ -50,6 +59,12 @@ export async function runInvoiceReview(
         `${e instanceof Error ? e.message : "unknown error"}`,
     );
   }
+
+  // Age each finding against the review's memory. Read BEFORE this run is
+  // recorded, or every finding looks like one already seen and nothing is ever
+  // new. `attachHistory` no-ops when there is no memory yet.
+  const ranAt = new Date().toISOString();
+  findings = attachHistory(findings, await readFindingState(evidence.ym), ranAt);
 
   // Claude writes the opening paragraph; the checks own every number in it.
   // A failure here is never allowed to cost the office the review, but it is no
@@ -75,7 +90,7 @@ export async function runInvoiceReview(
     summary: narrated || fallbackSummary(evidence, findings),
     summarySource: narrated ? "claude" : "fallback",
     summaryNote,
-    generatedAt: new Date().toISOString(),
+    generatedAt: ranAt,
     durationMs: Date.now() - started,
   };
 
@@ -86,6 +101,17 @@ export async function runInvoiceReview(
   if (opts.saveAs) {
     const failed = await saveRun(payload, opts.saveAs);
     if (failed) payload.evidence.warnings.push(`This run could not be filed in the history — ${failed}`);
+    // And fold the findings into the month's memory: what is new, what is
+    // still here, and what has stopped appearing since last time. The
+    // disappearances are the signal every precision figure is built on, so
+    // this must happen on every recorded run, not only on the last one.
+    const lost = await recordFindings(evidence.ym, payload.findings, ranAt);
+    if (lost) {
+      payload.evidence.warnings.push(
+        `This run's findings could not be added to the review's memory — ${lost}. ` +
+          `Ages and check accuracy will be missing a run.`,
+      );
+    }
   }
 
   return payload;

@@ -43,6 +43,7 @@ import type { InvoiceMathConfig } from "./checks/invoiceMath";
 import type { IssueDateConfig } from "./checks/issueDate";
 import type { MailCaptureConfig } from "./checks/mailCapture";
 import type { UninvoicedConfig } from "./checks/uninvoiced";
+import type { VendorSilentConfig } from "./checks/vendorSilent";
 
 /** One check's policy: whether it runs, and what it runs with. */
 export interface SettingsBlock<C> {
@@ -61,6 +62,7 @@ export interface InvoiceReviewSettings {
     uninvoiced: SettingsBlock<UninvoicedConfig>;
     "draft-bills": SettingsBlock<DraftBillsConfig>;
     "mail-capture": SettingsBlock<MailCaptureConfig>;
+    "vendor-silent": SettingsBlock<VendorSilentConfig>;
   };
 }
 
@@ -103,6 +105,18 @@ export const DEFAULT_SETTINGS: InvoiceReviewSettings = {
         // first invoice was never filed is exactly the thing worth catching,
         // and the finding says plainly that it proves nothing.
         reportUnknownSenders: true,
+      },
+    },
+    "vendor-silent": {
+      enabled: true,
+      config: {
+        // Deliberately strict. This check reasons from a pattern rather than
+        // from a document, so it earns its place only by being right nearly
+        // every time it speaks — one wrong nag a month and it gets ignored,
+        // and then so does everything near it.
+        minMonthsRatio: 0.8, // four months in five
+        minMonthsSeen: 3,
+        minTypicalCost: 250, // the month a $12 hardware run didn't happen is not news
       },
     },
   },

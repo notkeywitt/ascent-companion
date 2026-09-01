@@ -34,6 +34,7 @@ import { invoiceMathCheck } from "./checks/invoiceMath";
 import { issueDateCheck } from "./checks/issueDate";
 import { mailCaptureCheck } from "./checks/mailCapture";
 import { uninvoicedCheck } from "./checks/uninvoiced";
+import { vendorSilentCheck } from "./checks/vendorSilent";
 
 /** Once per job. */
 const JOB_CHECKS: JobCheck<never>[] = [
@@ -51,10 +52,31 @@ const INVOICE_CHECKS: InvoiceCheck<never>[] = [
 ] as unknown as InvoiceCheck<never>[];
 
 /** Once per review. */
-const MONTH_CHECKS: MonthCheck<never>[] = [mailCaptureCheck] as unknown as MonthCheck<never>[];
+const MONTH_CHECKS: MonthCheck<never>[] = [
+  mailCaptureCheck,
+  vendorSilentCheck,
+] as unknown as MonthCheck<never>[];
 
 /** Every declared check, whatever its scope — for listing and validation. */
 export const ALL_CHECKS = [...JOB_CHECKS, ...INVOICE_CHECKS, ...MONTH_CHECKS];
+
+/**
+ * kind → the id of the check that emits it.
+ *
+ * Findings carry a KIND, but precision is a property of a CHECK — one check
+ * can emit four kinds, and blaming a kind tells you nothing about which file to
+ * go and fix. The registry is the only place that knows the mapping, so it
+ * publishes it. Safe to build eagerly: `assertRegistryIsSane` below guarantees
+ * one owner per kind.
+ */
+const KIND_TO_CHECK = new Map<string, string>();
+for (const c of ALL_CHECKS) for (const k of c.kinds) KIND_TO_CHECK.set(k, c.id);
+
+/** Which check emits this kind, or "" for a kind no check claims (a finding
+ *  from a check that has since been deleted — history outlives code). */
+export function checkIdForKind(kind: string): string {
+  return KIND_TO_CHECK.get(kind) ?? "";
+}
 
 /**
  * Two things that must be true of the registry, asserted once at module load

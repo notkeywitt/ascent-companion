@@ -84,6 +84,23 @@ function inLens(f: Finding, lens: Lens): boolean {
 }
 
 /**
+ * How long this finding has been showing up — "new", or "standing since 3 Aug".
+ *
+ * Empty when the review has no memory of it yet (a month reviewed for the first
+ * time), because "we don't know" and "it's new" are different things and
+ * printing the second for the first would be a lie the office would act on.
+ */
+function ageNote(f: Finding): string {
+  const h = f.history;
+  if (!h) return "";
+  if (h.isNew) return "new";
+  if (h.runsSeen < 3) return "seen before";
+  const since = new Date(h.firstSeenAt);
+  if (Number.isNaN(since.getTime())) return `on ${h.runsSeen} checks`;
+  return `standing since ${since.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
+}
+
+/**
  * "this morning" / "yesterday" / "on 12 Aug" for a filed run's timestamp.
  *
  * Deliberately coarse. The exact minute a sweep ran is never the question; the
@@ -455,6 +472,9 @@ export function InvoiceReview() {
                           <span className="block text-xs opacity-60">
                             {f.jobName}
                             {f.invoiceNumber ? ` · invoice #${f.invoiceNumber}` : ""}
+                            {/* A fresh problem and a nine-month-old one must not
+                                look identical, or the list gets skimmed. */}
+                            {ageNote(f) ? ` · ${ageNote(f)}` : ""}
                           </span>
                         </span>
                         <span className="shrink-0 text-sm tabular-nums opacity-70">
