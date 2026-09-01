@@ -113,6 +113,35 @@ describe("reconcileDraft", () => {
     expect(r.dropped).toBe(1);
   });
 
+  it("keeps a staged LABOR recode that still means something", () => {
+    const r = reconcileDraft(parts({ timeStaged: { T1: "leafC" } }), {
+      ...world,
+      timeEntries: [{ id: "T1", costItemId: "leafA" }],
+    });
+    expect(r.timeStaged).toEqual({ T1: "leafC" });
+    expect(r.kept).toBe(1);
+  });
+
+  it("drops a labor recode whose entry is gone, or that JobTread already took", () => {
+    const timeEntries = [{ id: "T1", costItemId: "leafA" }];
+    // The entry isn't in the month any more (re-filed, deleted, month changed).
+    expect(
+      reconcileDraft(parts({ timeStaged: { GONE: "leafC" } }), { ...world, timeEntries }).timeStaged,
+    ).toEqual({});
+    // …and the no-op: JobTread already has T1 on leafA.
+    const already = reconcileDraft(parts({ timeStaged: { T1: "leafA" } }), { ...world, timeEntries });
+    expect(already.timeStaged).toEqual({});
+    expect(already.dropped).toBe(1);
+  });
+
+  it("drops every labor recode when the world carries no time entries at all", () => {
+    // A bill-scoped surface reconciling a draft that happens to hold labor:
+    // there is nothing to check it against, so it cannot be restored.
+    const r = reconcileDraft(parts({ timeStaged: { T1: "leafC" } }), world);
+    expect(r.timeStaged).toEqual({});
+    expect(r.kept).toBe(0);
+  });
+
   it("counts kept and dropped across all three kinds together", () => {
     const r = reconcileDraft(
       parts({
@@ -132,6 +161,9 @@ describe("draft shape helpers", () => {
     expect(isEmptyDraft(parts())).toBe(true);
     expect(isEmptyDraft(parts({ staged: { L1: "leafB" } }))).toBe(false);
     expect(draftSize(parts({ staged: { L1: "leafB" }, taxEdits: { D1: "1" } }))).toBe(2);
+    // Staged LABOR is work too — a draft holding only that is not empty.
+    expect(isEmptyDraft(parts({ timeStaged: { T1: "leafC" } }))).toBe(false);
+    expect(draftSize(parts({ timeStaged: { T1: "leafC", T2: "leafB" } }))).toBe(2);
   });
 
   it("treats an unreadable timestamp as infinitely old, so it is swept", () => {

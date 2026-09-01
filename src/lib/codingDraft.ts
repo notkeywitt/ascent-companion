@@ -66,10 +66,17 @@ export interface CodingDraft {
   edits: Record<string, LineEdit>;
   /** docId → in-flight sales-tax text. */
   taxEdits: Record<string, string>;
+  /**
+   * timeEntryId → the budget leaf it's been staged onto — the labor half of the
+   * board's staged work, which rides the same Sync as the bill lines and so
+   * must survive the same accidents. Optional: the bill-scoped surfaces stage no
+   * labor, and a draft written before this existed simply has none.
+   */
+  timeStaged?: Record<string, string>;
 }
 
 /** The editable half of a draft — what a caller hands in to be saved. */
-export type DraftParts = Pick<CodingDraft, "staged" | "edits" | "taxEdits">;
+export type DraftParts = Pick<CodingDraft, "staged" | "edits" | "taxEdits" | "timeStaged">;
 
 /** The job workbench: one job, one billing month. */
 export const jobDraftKey = (jobId: string, ym: string) => `job:${jobId}:${ym}`;
@@ -78,11 +85,7 @@ export const billDraftKey = (docId: string) => `bill:${docId}`;
 
 /** True when there is nothing staged — an empty draft is deleted, not stored. */
 export function isEmptyDraft(parts: DraftParts): boolean {
-  return (
-    Object.keys(parts.staged).length === 0 &&
-    Object.keys(parts.edits).length === 0 &&
-    Object.keys(parts.taxEdits).length === 0
-  );
+  return draftSize(parts) === 0;
 }
 
 /** How many distinct staged changes a draft carries, for the restore banner. */
@@ -90,7 +93,8 @@ export function draftSize(parts: DraftParts): number {
   return (
     Object.keys(parts.staged).length +
     Object.keys(parts.edits).length +
-    Object.keys(parts.taxEdits).length
+    Object.keys(parts.taxEdits).length +
+    Object.keys(parts.timeStaged ?? {}).length
   );
 }
 
@@ -135,8 +139,10 @@ export interface DraftWorld {
   lines: readonly { id: string; jobCostItemId?: string | null }[];
   /** Every bill on screen, with the sales tax JobTread currently stores. */
   bills: readonly { id: string; nonRecoverableTax?: number }[];
-  /** The budget leaves a line may legally be coded to. */
+  /** The budget leaves a line — or a time entry — may legally be coded to. */
   budgetIds: readonly string[];
+  /** The month's time entries, for a draft that staged labor recodes. */
+  timeEntries?: readonly { id: string; costItemId?: string | null }[];
 }
 
 export interface Reconciled extends DraftParts {
@@ -188,6 +194,17 @@ export function reconcileDraft(draft: DraftParts, world: DraftWorld): Reconciled
     edits[lineId] = edit;
   }
 
+  const timeById = new Map((world.timeEntries ?? []).map((t) => [t.id, t]));
+  const timeStaged: Record<string, string> = {};
+  for (const [entryId, leafId] of Object.entries(draft.timeStaged ?? {})) {
+    const entry = timeById.get(entryId);
+    if (!entry || !leaves.has(leafId) || (entry.costItemId ?? "") === leafId) {
+      dropped++;
+      continue;
+    }
+    timeStaged[entryId] = leafId;
+  }
+
   for (const [docId, value] of Object.entries(draft.taxEdits)) {
     const bill = billById.get(docId);
     if (!bill || value === "" || round2(Number(value) || 0) === round2(bill.nonRecoverableTax ?? 0)) {
@@ -197,7 +214,8 @@ export function reconcileDraft(draft: DraftParts, world: DraftWorld): Reconciled
     taxEdits[docId] = value;
   }
 
-  return { staged, edits, taxEdits, kept: draftSize({ staged, edits, taxEdits }), dropped };
+  const kept = draftSize({ staged, edits, taxEdits, timeStaged });
+  return { staged, edits, taxEdits, timeStaged, kept, dropped };
 }
 
 // ---------------------------------------------------------------------------
@@ -226,6 +244,7 @@ function parseDraft(raw: string | null): CodingDraft | null {
       staged: (d.staged ?? {}) as Record<string, string>,
       edits: (d.edits ?? {}) as Record<string, LineEdit>,
       taxEdits: (d.taxEdits ?? {}) as Record<string, string>,
+      timeStaged: (d.timeStaged ?? {}) as Record<string, string>,
     };
   } catch {
     return null; // a truncated write from a killed tab — treat as no draft
