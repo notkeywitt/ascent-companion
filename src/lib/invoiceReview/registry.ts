@@ -145,9 +145,25 @@ function blockFor(id: string, settings: InvoiceReviewSettings) {
 export function runChecks(
   month: MonthEvidence,
   settings: InvoiceReviewSettings = DEFAULT_SETTINGS,
+  opts: {
+    /**
+     * Which SCOPES to run. Defaults to all three.
+     *
+     * The pre-send gate passes `["job", "invoice"]`, and that is a correctness
+     * requirement rather than a speed one. A month-scoped check reasons about
+     * the WHOLE month: `vendor-silent` asks which vendors billed nothing
+     * anywhere, and `markup-drift` sums a customer's totals across every job
+     * they have. Run either against evidence scoped to a single job and both
+     * are simply wrong — nearly every vendor looks silent, and a customer with
+     * three jobs gets a markup computed from one of them. Leaving them out is
+     * the honest answer; the monthly review still asks those questions.
+     */
+    scopes?: ReadonlyArray<"job" | "invoice" | "month">;
+  } = {},
 ): Finding[] {
   const out: Finding[] = [];
   const global = settings.global;
+  const scopes = new Set(opts.scopes ?? ["job", "invoice", "month"]);
 
   const guard = (id: string, subject: string, fn: () => Finding[]) => {
     try {
@@ -162,7 +178,7 @@ export function runChecks(
   };
 
   for (const job of month.jobs) {
-    for (const check of JOB_CHECKS) {
+    for (const check of scopes.has("job") ? JOB_CHECKS : []) {
       const block = blockFor(check.id, settings);
       if (!block?.enabled) continue;
       guard(check.id, job.jobName || job.customerName || job.jobId, () =>
@@ -170,7 +186,7 @@ export function runChecks(
       );
     }
     for (const invoice of job.invoices) {
-      for (const check of INVOICE_CHECKS) {
+      for (const check of scopes.has("invoice") ? INVOICE_CHECKS : []) {
         const block = blockFor(check.id, settings);
         if (!block?.enabled) continue;
         guard(check.id, `invoice #${invoice.number || invoice.id}`, () =>
@@ -180,7 +196,7 @@ export function runChecks(
     }
   }
 
-  for (const check of MONTH_CHECKS) {
+  for (const check of scopes.has("month") ? MONTH_CHECKS : []) {
     const block = blockFor(check.id, settings);
     if (!block?.enabled) continue;
     guard(check.id, month.monthLabel, () =>

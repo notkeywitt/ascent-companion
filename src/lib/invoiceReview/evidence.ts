@@ -506,7 +506,22 @@ export async function loadMonthEvidence(
   cfg: PaveConfig,
   year: number,
   month: number,
-  opts: { email?: boolean } = {},
+  opts: {
+    email?: boolean;
+    /**
+     * Load only these jobs. Used by the pre-send gate, which checks ONE job
+     * before its invoice goes out and has no reason to sweep the other eleven.
+     *
+     * The roster query still runs — it is one call and it is how a job's name
+     * and customer are resolved — but the expensive per-job work (bills,
+     * invoices, the Drive folder listing) is skipped for everything else.
+     *
+     * ⚠️ Evidence loaded this way is NOT a month. Any check that reasons about
+     * the whole month is wrong against it — see the `scopes` option on
+     * `runChecks`, which is how the pre-send gate leaves those out.
+     */
+    onlyJobIds?: string[];
+  } = {},
 ): Promise<MonthEvidence> {
   const ym = `${year}-${String(month).padStart(2, "0")}`;
   const monthLabel = `${MONTH_NAMES[month - 1]} ${year}`;
@@ -515,7 +530,9 @@ export async function loadMonthEvidence(
   // The roster: every job with bills in the billing month, invoiced or not,
   // drafts included — a job whose whole month is still in draft is precisely
   // the one the review needs to shout about.
-  const roster = await getMonthlyInvoiceJobs(cfg, year, month, true, true);
+  const fullRoster = await getMonthlyInvoiceJobs(cfg, year, month, true, true);
+  const only = opts.onlyJobIds?.length ? new Set(opts.onlyJobIds) : null;
+  const roster = only ? fullRoster.filter((r) => only.has(r.jobId)) : fullRoster;
 
   const jobs = await mapWithLimit(roster, CONCURRENCY, async (row): Promise<JobEvidence> => {
     const shell: JobEvidence = {
