@@ -9,10 +9,6 @@
     {
       "path": "/api/digest/run",
       "schedule": "0 17 * * *"
-    },
-    {
-      "path": "/api/invoice-review/run",
-      "schedule": "0 11 * * *"
     }
   ]
 }

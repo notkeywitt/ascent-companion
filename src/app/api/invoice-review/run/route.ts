@@ -10,13 +10,22 @@ import { runInvoiceReview } from "@/lib/invoiceReview/run";
 /**
  * POST|GET /api/invoice-review/run — review a billing month and FILE the run.
  *
- * WHY A SCHEDULED RUN EXISTS. The review is only useful if somebody runs it,
- * and until now the only way was to open the page and wait out a full sweep of
- * JobTread, Drive and Gmail. That had two costs: the month was never checked
- * unless a person remembered to check it, and the history the learning layer
- * reads only got a row when somebody happened to look. A nightly run fixes both
- * — the month is always current, the page opens instantly onto a stored result,
- * and the history fills whether or not anyone visited.
+ * WHY THIS ROUTE EXISTS. The review is only useful if somebody runs it, and
+ * without a scheduled run the only way was to open the page and wait out a
+ * full sweep of JobTread, Drive and Gmail. A recurring call here fixes both —
+ * the month stays current, the page opens instantly onto a stored result, and
+ * the history fills whether or not anyone visited.
+ *
+ * ⚠️ NOT ON A VERCEL CRON TODAY. It was, briefly (a third `crons` entry in
+ * vercel.json, alongside the digest's two), but Vercel Hobby caps a project at
+ * TWO Cron Jobs total — the digest's 8am/5pm pair already uses both — and
+ * adding a third appears to make Vercel reject the whole `crons` array for the
+ * deployment rather than just the extra one: the digest went silent the same
+ * night this route's cron entry shipped, with no code of its own touched. The
+ * entry was reverted; this route still works, called manually or from a admin
+ * button, but nothing calls it on a timer right now. Recovering the schedule
+ * needs either a Pro-tier project (raises the cap) or folding this call inside
+ * one of the digest's existing two firings rather than claiming a third slot.
  *
  * ?ym=YYYY-MM picks the billing month; the default is the one currently being
  * accumulated, per `deriveBillingPeriod` (the same 10th-to-10th rule the rest

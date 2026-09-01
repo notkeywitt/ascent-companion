@@ -73,9 +73,14 @@ Other switches:
   report nothing at all rather than passing.
 - `&stored=1` hands back the most recently FILED run instead of sweeping
   everything again — instant, and identical to what that run showed, because it
-  IS that run. A scheduled run files one nightly, so this is usually current.
-  Use it when you want to read the month rather than re-check it; use a plain
-  call when the owner has just fixed something and wants it re-checked.
+  IS that run. **There is currently no automatic nightly run** — a Vercel Cron
+  entry for it briefly existed and was reverted (it pushed the project over
+  Vercel Hobby's 2-cron cap and took the Daily Digest's schedule down with it;
+  see the incident note in `INVOICE_ACCURACY_PLAN.md`) — so a stored run is only
+  as current as the last time someone opened the page or it was triggered
+  manually. Check `storedAt` before assuming it's fresh. Use it when you want to
+  read the month rather than re-check it; use a plain call when the owner has
+  just fixed something and wants it re-checked.
   (`&stored=only` answers `{ "stored": null }` rather than falling through to a
   live run, which is what the page opens with.)
 - `&history=1` lists the month's past runs — when it was last checked, by whom,
@@ -289,7 +294,7 @@ the only thing that will explain the silence. To lift one:
 | Claude proposing new checks from misses | `src/lib/invoiceReview/learn.ts` |
 | Standing instructions for the summary | `src/lib/invoiceReview/instructions.ts` |
 | The route | `src/app/api/invoice-review/route.ts` |
-| The scheduled run | `src/app/api/invoice-review/run/route.ts` |
+| The filing run (manual/admin only — no cron) | `src/app/api/invoice-review/run/route.ts` |
 | The page | `src/app/invoice-review/InvoiceReview.tsx` |
 | The Drive + Gmail reads (other repo) | `ascent-appscript/ClientInvoiceReview.js` |
 | Where this is all going | `INVOICE_ACCURACY_PLAN.md` |

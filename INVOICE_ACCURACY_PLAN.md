@@ -323,7 +323,7 @@ to it, and nothing here races the hourly mirror.
 
 | Stage | Ships | Size | Status |
 |---|---|---|---|
-| 0 | Fixed narration, run history, cron | Small | ✅ **Landed** |
+| 0 | Fixed narration, run history, scheduled-run route | Small | ✅ **Landed** — schedule itself reverted, see below |
 | 1 | Check registry + settings | Medium | ✅ **Landed** |
 | 2 | Contract/retainage/tax/delivery checks | Large | ⏭️ **Skipped** — cost-plus |
 | 2m | Margin checks only (the pared-down Stage 2) | Small | ✅ **Landed** |
@@ -335,7 +335,7 @@ to it, and nothing here races the hourly mirror.
 **What landed in 0 and 1.** `narrate.ts` raised to a 16k ceiling at low effort
 and now reports why it fell back instead of failing silently;
 `invoice_review_runs` keeps every run (appended, many per month), written by the
-review route and by a nightly `/api/invoice-review/run`; the page opens onto the
+review route and by `/api/invoice-review/run`; the page opens onto the
 last filed run, stamped, with "Check again" to sweep live. The 688-line
 `checks.ts` is now eight files under `checks/`, a `settings.ts` holding every
 threshold and an `enabled` flag per check, and a `registry.ts` that asserts no
@@ -343,6 +343,18 @@ two checks share a finding kind and catches a throwing check onto
 `evidence.warnings` rather than losing the whole review. `checks.test.ts` kept
 every assertion it had (247 passing, unchanged) and `registry.test.ts` adds 11
 for the new machinery.
+
+**Incident: the third cron.** `vercel.json` originally gained a THIRD entry —
+`/api/invoice-review/run` at 11:00 UTC — alongside the digest's existing 8am and
+5pm. Vercel Hobby caps a project at two Cron Jobs total, and the deployment
+appears to have silently dropped the whole `crons` array rather than just the
+extra entry: the Daily Digest, whose code nobody touched, stopped firing the
+same night. Reverted back to the digest's original two-entry config. The route
+still exists and still works — called manually, or from an admin button — but
+nothing calls it on a schedule right now. Recovering automatic filing needs
+either a Pro-tier project, or folding the call inside one of the digest's two
+existing firings instead of asking for a third slot. Left as an open item
+rather than guessed at further.
 
 **What landed in 3.** Four memories, kept separate because they fail
 differently, and only one of them can silence anything.
