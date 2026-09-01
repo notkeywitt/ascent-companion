@@ -44,6 +44,7 @@ import {
   type RecodeEntry,
 } from "@/lib/billLineMath";
 import { TimeCodingCard, laborOptions } from "./TimeCodingCard";
+import { AddTimeCard } from "./AddTimeCard";
 import { orgDay } from "@/lib/orgTime";
 import { InvoiceReconcile, type Recon } from "@/components/InvoiceReconcile";
 import { UncapturedBills } from "@/components/UncapturedBills";
@@ -528,6 +529,13 @@ export function Board() {
    * See the guards on the bill list's own clicks.
    */
   const [openTimeId, setOpenTimeId] = useState<string | null>(null);
+  /**
+   * The "Add time" dialog — logging an entry that was never clocked, for
+   * somebody else. A dialog rather than a claim on the coding column: it is a
+   * one-off errand with its own Close, and it must not evict a bill the office
+   * is halfway through coding.
+   */
+  const [addTimeOpen, setAddTimeOpen] = useState(false);
   /** How the Time & labor list is grouped: flat, or by day / person / code. */
   const [timeGroupBy, setTimeGroupBy] = useState<"none" | "date" | "employee" | "code">("none");
   /**
@@ -2867,31 +2875,47 @@ export function Board() {
                 code / day / span / job is fixed without leaving the month.
                 Labor Review remains the place to move a WEEK of hours around
                 against the budget; this is the place to fix ONE entry. ---- */}
-            {mode !== "summary" && monthTime.length > 0 && (
+            {mode !== "summary" && (
               <Card pad={false} className="mb-2 overflow-hidden">
-                <button
-                  type="button"
-                  onClick={() => setTimeBlockOpen((v) => !v)}
-                  aria-expanded={timeBlockOpen}
-                  className="flex w-full items-baseline justify-between gap-2 px-3 py-3 text-left transition hover:bg-accent/5 dark:hover:bg-white/5 lg:py-2"
-                >
-                  <span className="min-w-0 truncate text-sm font-semibold">
+                {/* The header is a ROW, not one button: the chevron toggles the
+                    list and "Add time" opens the dialog, and a button inside a
+                    button is invalid markup (the inner click would also fire the
+                    outer one). The block itself now renders even with no entries
+                    — a month with no labor logged is exactly when the office
+                    needs the Add time link. */}
+                <div className="flex w-full items-baseline gap-2 px-3 py-3 lg:py-2">
+                  <button
+                    type="button"
+                    onClick={() => setTimeBlockOpen((v) => !v)}
+                    aria-expanded={timeBlockOpen}
+                    disabled={monthTime.length === 0}
+                    className="min-w-0 flex-1 truncate text-left text-sm font-semibold transition hover:text-accent disabled:cursor-default disabled:hover:text-inherit"
+                  >
                     <span
                       aria-hidden
                       className={`mr-1.5 inline-block text-[9px] text-neutral-500 transition-transform dark:text-neutral-400 ${
                         timeBlockOpen ? "rotate-90" : ""
-                      }`}
+                      } ${monthTime.length === 0 ? "opacity-0" : ""}`}
                     >
                       ▶
                     </span>
                     Time &amp; labor ({monthTime.length}{" "}
                     {monthTime.length === 1 ? "entry" : "entries"})
-                  </span>
+                  </button>
+                  {/* Logging FOR somebody — /employee-time can only log for the
+                      person signed in, so the office does it here. */}
+                  <button
+                    type="button"
+                    onClick={() => setAddTimeOpen(true)}
+                    className="shrink-0 text-xs font-semibold text-accent transition hover:underline"
+                  >
+                    + Add time
+                  </button>
                   <span className="shrink-0 text-sm font-semibold tabular-nums">
                     {money(monthTimeTotal)}
                   </span>
-                </button>
-                {timeBlockOpen && (
+                </div>
+                {timeBlockOpen && monthTime.length > 0 && (
                   <>
                     {/* ---- filter, then group ----
                         THREE INDEPENDENT SELECTIONS, ANDed: a cost code, and/or
@@ -3527,6 +3551,39 @@ export function Board() {
                 load({ preserveStaged: true });
               }}
               onClose={() => setOpenTimeId(null)}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* The Add time dialog. A modal at EVERY width, unlike the edit panel:
+          the panel belongs to the coding column (a bill or an entry is always
+          open there), while adding time is a short errand that ends in a Close
+          — and it must not push the bill being coded out of that column. */}
+      {addTimeOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Add time"
+          onClick={() => setAddTimeOpen(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-lg pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:pb-0"
+          >
+            <AddTimeCard
+              jobId={jobId}
+              jobLabel={jobTitle}
+              codeOptions={timeCodeOptions}
+              writes={Boolean(data?.writesEnabled)}
+              onSaved={() => {
+                setAddTimeOpen(false);
+                // The write already landed in JobTread — a re-read, not a sync,
+                // and it must keep the staged bill work untouched.
+                load({ preserveStaged: true });
+              }}
+              onClose={() => setAddTimeOpen(false)}
             />
           </div>
         </div>
