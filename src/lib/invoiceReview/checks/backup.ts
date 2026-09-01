@@ -9,7 +9,7 @@
  */
 import { defineJobCheck } from "../checkTypes";
 import { cents, findingKey, money, type BackupFile, type Finding } from "../types";
-import { dedupeName, matchBackup } from "./shared";
+import { billLink, dedupeName, matchBackup } from "./shared";
 
 export interface BackupConfig {
   /** Report PDFs on file that no billed bill accounts for. Off makes the check
@@ -74,7 +74,7 @@ export const backupCheck = defineJobCheck<BackupConfig>({
           `month's invoice, but no PDF in ${job.folder.path} totals ${money(bill.cost)}. ` +
           `Either the backup was never filed or it is filed under the wrong job.`,
         amount: bill.cost,
-        sourceLink: `/bill/${encodeURIComponent(bill.id)}`,
+        sourceLink: billLink(job.jobId, bill.id),
         sourceLabel: "Open the bill",
       });
     }

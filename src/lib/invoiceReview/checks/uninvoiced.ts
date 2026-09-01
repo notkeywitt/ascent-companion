@@ -15,6 +15,7 @@
  */
 import { defineJobCheck } from "../checkTypes";
 import { cents, findingKey, money, type Finding } from "../types";
+import { billLink } from "./shared";
 
 export interface UninvoicedConfig {
   /** Below this, an "unbilled remainder" is rounding, not a missed charge. */
@@ -75,7 +76,7 @@ export const uninvoicedCheck = defineJobCheck<UninvoicedConfig>({
             `for ${month.monthLabel} but sits on no client invoice, even though this job WAS ` +
             `invoiced this month. That cost is absorbed unless it was held back on purpose.`,
           amount: bill.cost,
-          sourceLink: `/bill/${encodeURIComponent(bill.id)}`,
+          sourceLink: billLink(job.jobId, bill.id),
           sourceLabel: "Open the bill",
         });
       }

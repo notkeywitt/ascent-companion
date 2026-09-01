@@ -9,7 +9,7 @@ import { describe, expect, it } from "vitest";
 
 import { buildBrief } from "./brief";
 import { runChecks } from "./registry";
-import { matchBackup } from "./checks/shared";
+import { billLink, matchBackup } from "./checks/shared";
 import { fallbackSummary } from "./summary";
 import { isNeverInvoiced } from "./types";
 import type {
@@ -644,5 +644,41 @@ describe("the paste-into-Claude briefing", () => {
   it("can be built without the preamble, for a caller that framed the task itself", () => {
     const m = month([job()]);
     expect(buildBrief(payload(m, []), { includePreamble: false })).not.toContain("You are helping me");
+  });
+});
+
+describe("the links a finding hands the office", () => {
+  it("carries jobId on a bill link, which /bill/[docId] requires", () => {
+    // The page reads the doc id from the PATH and the job id from the QUERY,
+    // and passes both to /api/bill. Without jobId the route answers
+    // "Pass ?docId=<bill id>&jobId=<job id>" where the bill should be — so the
+    // button looks fine and does nothing.
+    expect(billLink("J1", "b1")).toBe("/bill/b1?jobId=J1");
+  });
+
+  it("escapes both ids", () => {
+    expect(billLink("J/1", "b 1")).toBe("/bill/b%201?jobId=J%2F1");
+  });
+
+  it("omits the query rather than sending an empty jobId", () => {
+    expect(billLink("", "b1")).toBe("/bill/b1");
+  });
+
+  it("gives every bill-level finding a usable link", () => {
+    // Guards all three checks at once: a bill link with no jobId is dead.
+    const f = runChecks(
+      month([
+        job({
+          invoices: [invoice({ id: "i1" })],
+          bills: [
+            bill({ id: "b1", cost: 900, invoiced: false }),
+            bill({ id: "b2", cost: 400, invoiceIds: ["i1", "i2"] }),
+          ],
+        }),
+      ]),
+    );
+    const billLinks = f.map((x) => x.sourceLink).filter((l) => l?.startsWith("/bill/"));
+    expect(billLinks.length).toBeGreaterThan(0);
+    for (const l of billLinks) expect(l).toContain("jobId=");
   });
 });

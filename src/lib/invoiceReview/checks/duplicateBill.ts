@@ -9,6 +9,7 @@
  */
 import { defineJobCheck } from "../checkTypes";
 import { findingKey, money, type Finding } from "../types";
+import { billLink } from "./shared";
 
 export type DuplicateBillConfig = Record<string, never>;
 
@@ -37,7 +38,7 @@ export const duplicateBillCheck = defineJobCheck<DuplicateBillConfig>({
           `live client invoices at once. Unless one is a credit, the client has been billed ` +
           `for it more than once.`,
         amount: bill.cost,
-        sourceLink: `/bill/${encodeURIComponent(bill.id)}`,
+        sourceLink: billLink(job.jobId, bill.id),
         sourceLabel: "Open the bill",
       });
     }

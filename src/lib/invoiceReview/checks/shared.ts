@@ -40,6 +40,21 @@ export function dedupeName(tail: string): string {
   return String(tail ?? "").replace(/\s*\(\d+\)\s*$/, "").trim().toLowerCase();
 }
 
+/**
+ * A link to the Assistant's own bill page.
+ *
+ * The `jobId` query parameter is NOT optional. `/bill/[docId]` reads the doc id
+ * from the path but the job id from the query string, and passes BOTH to
+ * `/api/bill` — which refuses the call without them and renders
+ * "Pass ?docId=<bill id>&jobId=<job id>" where the bill should be. Every other
+ * link to that page in the app appends it; three checks here did not, and every
+ * "Open the bill" button in the review was dead until this existed.
+ */
+export function billLink(jobId: string, billId: string): string {
+  const doc = `/bill/${encodeURIComponent(billId)}`;
+  return jobId ? `${doc}?jobId=${encodeURIComponent(jobId)}` : doc;
+}
+
 export interface BackupMatch {
   /** Bills on a live invoice with no backup PDF filed. */
   unmatchedBills: BillRef[];
