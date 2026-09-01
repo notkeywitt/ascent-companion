@@ -25,6 +25,7 @@ matching row here.
 | The Pave/JobTread schema + query grammar + gotchas | `JT_API_REFERENCE.md` |
 | Why the gateway exists, where new views belong | `FRONTEND_ARCHITECTURE.md` |
 | Standing structural review, agreed cleanup checklist | `ARCHITECTURE_REVIEW.md` |
+| The staged plan for ending client invoicing mistakes | `INVOICE_ACCURACY_PLAN.md` |
 | What each screen does, for the owner (end-user manual) | `USER_MANUAL.md` |
 | How to deploy / env vars / Vercel | `DEPLOY.md` |
 | **Where a given file/feature lives (this doc)** | `CODEBASE_MAP.md` |
