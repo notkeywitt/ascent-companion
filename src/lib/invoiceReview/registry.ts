@@ -33,6 +33,8 @@ import { duplicateBillCheck } from "./checks/duplicateBill";
 import { invoiceMathCheck } from "./checks/invoiceMath";
 import { issueDateCheck } from "./checks/issueDate";
 import { mailCaptureCheck } from "./checks/mailCapture";
+import { marginCheck } from "./checks/margin";
+import { markupDriftCheck } from "./checks/markupDrift";
 import { uninvoicedCheck } from "./checks/uninvoiced";
 import { vendorSilentCheck } from "./checks/vendorSilent";
 
@@ -47,6 +49,7 @@ const JOB_CHECKS: JobCheck<never>[] = [
 /** Once per client invoice. */
 const INVOICE_CHECKS: InvoiceCheck<never>[] = [
   invoiceMathCheck,
+  marginCheck,
   issueDateCheck,
   costBasisCheck,
 ] as unknown as InvoiceCheck<never>[];
@@ -55,6 +58,7 @@ const INVOICE_CHECKS: InvoiceCheck<never>[] = [
 const MONTH_CHECKS: MonthCheck<never>[] = [
   mailCaptureCheck,
   vendorSilentCheck,
+  markupDriftCheck,
 ] as unknown as MonthCheck<never>[];
 
 /** Every declared check, whatever its scope — for listing and validation. */

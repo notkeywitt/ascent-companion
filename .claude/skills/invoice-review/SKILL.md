@@ -134,6 +134,18 @@ Take them in the order they come. For each one that is `severity: "error"`:
   finding above). Confirm against the tracking sheet whether it was held back.
 - **`math-*`** — the invoice does not foot. Quote the arithmetic from `detail`
   verbatim; it already shows both figures and the difference.
+- **`markup-missing` / `billed-below-cost`** — a line reached the invoice at
+  cost, or under it. Ascent bills COST-PLUS, so the markup is the revenue and
+  this is money that will never be recovered once the invoice goes out. Before
+  reporting, check whether the line is a deliberate pass-through (a permit, a
+  fee); if it is, the fix is adding its cost code to `passThroughCodes` in
+  `settings.ts`, NOT a ruling every month forever — say so.
+- **`markup-rate-drift`** — a customer's blended markup this month is off what
+  they are usually billed. Ascent charges different rates to different
+  customers, so this is measured against that customer's own history and nothing
+  else. It reasons from a pattern: treat it as a reason to look at the month,
+  not as proof. A month weighted toward work at a different rate does this
+  innocently, so ask before alarming anyone.
 
 For `warning` findings, summarize rather than investigate each one, unless the
 owner asks. One needs care:
@@ -264,6 +276,7 @@ the only thing that will explain the silence. To lift one:
 | Piece | File |
 | --- | --- |
 | The checks (pure, tested) — one file each | `src/lib/invoiceReview/checks/` |
+| Cost codes billed at cost on purpose | `passThroughCodes` in `src/lib/invoiceReview/settings.ts` |
 | Every threshold and which checks run | `src/lib/invoiceReview/settings.ts` |
 | The check list + the runner | `src/lib/invoiceReview/registry.ts` |
 | Evidence gathering (JobTread + Drive + Gmail) | `src/lib/invoiceReview/evidence.ts` |

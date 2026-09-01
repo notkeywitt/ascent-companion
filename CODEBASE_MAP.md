@@ -141,10 +141,12 @@ Staged expansion plan: `INVOICE_ACCURACY_PLAN.md`.
 | `narrate.ts` | One Claude paragraph over the STRUCTURED findings (never the raw evidence, so it cannot invent a figure). THROWS a described reason rather than falling back silently — the reason rides the payload as `summaryNote` and is drawn on the page, because a silent fallback hid a real outage for as long as it lasted. |
 | `runs.ts` | The HISTORY — every run that has happened, appended (many rows per month; the newest is the current view). What the page opens onto, and what the learning layer reads. Best-effort throughout: an unreachable DB costs a row, never a review. |
 | `lifecycle.ts` | When each finding appeared and whether it ever went away — so a row can say "new" or "standing since 3 Aug", and so per-check precision falls out of what the office does next. Fixed (stopped appearing) and set-aside (ruled on) are counted SEPARATELY: a check finding real standing facts is not a check that is wrong. |
-| `norms.ts` ⟂-ish | What normal looks like, learned from stored payloads — today, vendor cadence (median, and a name normalizer so three spellings of one supplier aren't three vendors). Attached to the evidence by the runner so checks stay pure. Below 3 months of history it returns nothing: no baseline is NO signal. |
+| `norms.ts` ⟂-ish | What normal looks like, learned from stored payloads: vendor cadence, and each CUSTOMER'S typical markup (median, and name normalizers so three spellings of one supplier aren't three vendors). Attached to the evidence by the runner so checks stay pure. Below 3 months of history it returns nothing: no baseline is NO signal. |
 | `misses.ts` | **The training set** — billing mistakes the review did NOT catch. The only input a genuinely new check can come from; every other memory here can only make it quieter. Deliberately cheap to file (description is the one required field). |
 | `learn.ts` | Claude reads the miss log + the current check list and PROPOSES checks that would have caught them. Opus, thinking on — this is a reasoning task, unlike narrate.ts. Returns a spec for a human to implement; never writes a check, moves a setting, or suppresses anything. |
 | `instructions.ts` | Standing preferences for how the month is READ OUT, injected into the summary prompt. Cannot hide a finding — that is what a ruling is for — which is what makes them safe to add casually. |
+| `checks/margin.ts` ⟂ | **The check that matters most for cost-plus** — a line that reached a client invoice at cost, or under it. The markup IS the revenue, and nothing else notices: the invoice foots, the bill is captured, the backup is filed, the client pays it. Needs no history. Its whole false-positive risk is lines with NO cost recorded (JobTread holds 0 for a flat-priced line), so it judges only lines with a real cost and price above a floor; `passThroughCodes` in settings.ts is the valve for codes billed at cost on purpose. |
+| `checks/markupDrift.ts` ⟂ | A customer's blended markup this month against their OWN recent median. Ascent charges different markups to different customers, so there is no house rate to check against — this check has no configured version that would work, only a learned one. Month-scoped so a customer with three jobs yields one finding, and it reports both directions (under-billing is the loss; over-billing is what the client notices). |
 | `checks/vendorSilent.ts` ⟂ | The first check that reads the review's own memory rather than this month's evidence: a vendor who bills four months in five and billed nothing this month. Cost-plus means that is missing REVENUE, and an invoice that was never sent leaves no trace anywhere else. Strict by design, and silent without enough history. |
 | `run.ts` | The order of operations: evidence → checks → rulings → narrative → file the run. Thin by design. |
 
@@ -154,7 +156,9 @@ period/scope rules, the mailbox calibration, the briefing, finding order) and
 `registry.test.ts` (the machinery — policy from settings, a check that is turned
 off, and a check that throws without taking the review down), `norms.test.ts`
 (the vendor-name key, and mostly the SILENCE — every case where a
-pattern-based check must not speak) and `rulings.test.ts` (how far each
+pattern-based check must not speak), `margin.test.ts` (the markup checks, and
+above all the lines they must NOT judge — a no-cost line, a credit, a
+pass-through code) and `rulings.test.ts` (how far each
 suppression scope reaches, and where it must stop).
 Skill: `.claude/skills/invoice-review/SKILL.md` drives the same review from a
 Claude Code session. Drive half: `ascent-appscript/ClientInvoiceReview.js`.

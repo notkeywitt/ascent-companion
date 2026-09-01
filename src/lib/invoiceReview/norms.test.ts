@@ -53,7 +53,7 @@ function month(bills: BillRef[], norms?: ReviewNorms | null): MonthEvidence {
 }
 
 function norms(vendors: VendorNorm[], monthsOfHistory = 10): ReviewNorms {
-  return { ym: "2026-07", windowMonths: 12, monthsOfHistory, vendors };
+  return { ym: "2026-07", windowMonths: 12, monthsOfHistory, vendors, customers: [] };
 }
 
 const run = (m: MonthEvidence) =>

@@ -13,7 +13,18 @@
  * new evidence gathering: everything here comes out of payloads the review has
  * already filed. That is Stage 0 paying for itself.
  *
- * ## The one norm built so far: vendor cadence
+ * ## Customer markup — the norm that only exists because rates differ
+ *
+ * Ascent charges DIFFERENT MARKUPS TO DIFFERENT CUSTOMERS. That single fact
+ * rules out the obvious version of a margin check: there is no house rate to
+ * measure an invoice against, so "is this marked up correctly" has no fixed
+ * answer and never will. The only honest baseline is what this customer has
+ * been billed for the last several months, which is precisely a learned norm.
+ *
+ * So the drift check could not have been written before the history existed —
+ * not as a simplification, but at all.
+ *
+ * ## The other norm: vendor cadence
  *
  * For a cost-plus builder, essentially every vendor cost gets billed on. So a
  * vendor who invoices Ascent every single month and then doesn't is either a
@@ -38,7 +49,7 @@ import { desc, eq, ne } from "drizzle-orm";
 import { db, ensureDb } from "@/db";
 import { invoiceReviewRuns } from "@/db/schema";
 
-import type { MonthEvidence, ReviewNorms, VendorNorm } from "./types";
+import type { CustomerNorm, MonthEvidence, ReviewNorms, VendorNorm } from "./types";
 
 /** Below this many months on record, there is no baseline — say nothing. */
 export const MIN_MONTHS = 3;
@@ -60,6 +71,24 @@ export function vendorKey(name: string): string {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, " ")
     .replace(/\b(llc|inc|co|corp|ltd|company|the)\b/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * A customer name reduced to something comparable.
+ *
+ * Same reasoning as `vendorKey`, and the same consequence if it is skipped:
+ * "Ferron" and "Ferron " would be two customers with half the history each,
+ * and a markup baseline built on half the months is a baseline that says
+ * nothing. Kept deliberately gentler than `vendorKey` — no company-suffix
+ * stripping — because customer names are people and places more often than
+ * they are companies, and "Co" is a real syllable in some of them.
+ */
+export function customerKey(name: string): string {
+  return String(name ?? "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -152,7 +181,59 @@ export async function learnNorms(ym: string): Promise<ReviewNorms | null> {
     }
     vendors.sort((a, b) => b.typicalMonthlyCost - a.typicalMonthlyCost);
 
-    return { ym, windowMonths: WINDOW_MONTHS, monthsOfHistory, vendors };
+    // ── Customer markup ─────────────────────────────────────────────────
+    // Per month, per customer: the blended markup ratio across everything
+    // invoiced to them (total price ÷ total cost). Blended rather than
+    // per-invoice so a customer billed on three invoices in a month gets one
+    // number, which is what "what do we charge them" actually means.
+    const byCustomer = new Map<
+      string,
+      { name: string; markupByMonth: Map<string, number>; priceByMonth: Map<string, number> }
+    >();
+    for (const [m, ev] of perMonth) {
+      // customer → this month's totals
+      const totals = new Map<string, { name: string; cost: number; price: number }>();
+      for (const job of ev.jobs) {
+        // Ascent's own overhead is never billed to anyone, so it has no markup
+        // and must not dilute a real customer's baseline.
+        if (job.neverInvoiced) continue;
+        const key = customerKey(job.customerName);
+        if (!key) continue;
+        const t = totals.get(key) ?? { name: job.customerName, cost: 0, price: 0 };
+        for (const inv of job.invoices) {
+          t.cost += inv.cost;
+          t.price += inv.price;
+        }
+        totals.set(key, t);
+      }
+      for (const [key, t] of totals) {
+        // A month with no cost basis has no markup to speak of — a deposit-only
+        // month, say. Skipping it is right: including it as a zero would drag
+        // the median toward a rate the customer was never charged.
+        if (t.cost <= 0 || t.price <= 0) continue;
+        const entry =
+          byCustomer.get(key) ?? { name: t.name, markupByMonth: new Map(), priceByMonth: new Map() };
+        entry.name = t.name;
+        entry.markupByMonth.set(m, t.price / t.cost);
+        entry.priceByMonth.set(m, t.price);
+        byCustomer.set(key, entry);
+      }
+    }
+
+    const customers: CustomerNorm[] = [];
+    for (const [key, entry] of byCustomer) {
+      customers.push({
+        key,
+        name: entry.name,
+        monthsSeen: entry.markupByMonth.size,
+        monthsOfHistory,
+        typicalMarkup: median([...entry.markupByMonth.values()]),
+        typicalMonthlyPrice: median([...entry.priceByMonth.values()]),
+      });
+    }
+    customers.sort((a, b) => b.typicalMonthlyPrice - a.typicalMonthlyPrice);
+
+    return { ym, windowMonths: WINDOW_MONTHS, monthsOfHistory, vendors, customers };
   } catch {
     return null;
   }

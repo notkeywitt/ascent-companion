@@ -247,7 +247,9 @@ async function loadInvoice(
             name: {},
             description: {},
             quantity: {},
+            unitCost: {},
             unitPrice: {},
+            cost: {},
             price: {},
             isTaxable: {},
             costCode: { number: {}, name: {} },
@@ -263,7 +265,18 @@ async function loadInvoice(
         code: l.costCode?.number ?? "",
         codeName: l.costCode?.name ?? "",
         quantity: l.quantity ?? 0,
+        unitCost: l.unitCost ?? 0,
         unitPrice: l.unitPrice ?? 0,
+        // The markup basis. Null/absent becomes 0, and every margin check
+        // treats 0 as "no cost recorded, say nothing" rather than as free.
+        //
+        // `cost`/`unitCost` are documented costItem scalars (JT_API_REFERENCE),
+        // but this is the first place the review reads them off a
+        // customerInvoice line specifically. If they come back empty in
+        // production, the margin checks go quiet rather than wrong — the
+        // cost>0 guard sees to that — so the symptom to look for is silence,
+        // not noise. Worth confirming against a live invoice once.
+        cost: l.cost ?? 0,
         price: l.price ?? 0,
         isTaxable: l.isTaxable !== false,
       });

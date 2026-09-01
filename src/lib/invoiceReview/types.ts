@@ -62,9 +62,16 @@ export type FindingKind =
   | "email-unknown-sender"
   /** The same vendor bill is carried by two different live invoices. */
   | "scope-duplicate-bill"
+  // ── Margin: cost-plus means the markup IS the revenue ────────────────────
+  /** A line reached the client invoice at cost — the markup was dropped. */
+  | "markup-missing"
+  /** A line is billed for less than it cost. */
+  | "billed-below-cost"
   // ── Learned from history (norms.ts), not from this month's evidence ───────
   /** A vendor who bills nearly every month has no bill this month at all. */
-  | "vendor-silent";
+  | "vendor-silent"
+  /** An invoice's markup is off what this customer is normally billed. */
+  | "markup-rate-drift";
 
 /** One thing the review wants a human to look at. */
 export interface Finding {
@@ -161,6 +168,14 @@ export interface InvoiceLine {
   /** CSI cost-code number, when the line is coded. */
   code: string;
   codeName: string;
+  /**
+   * What the line COST Ascent, as JobTread holds it — the basis the markup is
+   * applied to. 0 when the line has no cost recorded, which is normal for a
+   * flat-priced line and means every margin check must skip it rather than
+   * read it as "billed at zero cost".
+   */
+  cost: number;
+  unitCost: number;
   quantity: number;
   unitPrice: number;
   /** The extended price JobTread holds for the line — READ, never recomputed. */
@@ -351,6 +366,34 @@ export interface VendorNorm {
   lastSeenYm: string;
 }
 
+/**
+ * What one customer is normally billed, learned from run history.
+ *
+ * Ascent charges DIFFERENT MARKUPS TO DIFFERENT CUSTOMERS, so there is no such
+ * thing as a house markup to measure an invoice against. The only meaningful
+ * baseline is this customer's own recent history, which is exactly what a
+ * learned norm is for — and why the drift check could not have been written
+ * before the run history existed.
+ */
+export interface CustomerNorm {
+  /** Normalized comparison key (see `customerKey`). */
+  key: string;
+  /** The customer as most recently spelled, for showing a human. */
+  name: string;
+  /** How many months of the window they were invoiced in. */
+  monthsSeen: number;
+  monthsOfHistory: number;
+  /**
+   * Median of the monthly blended markup RATIO (invoice price ÷ invoice cost).
+   * 1.22 means "cost plus 22%". Median, not mean, so one odd month can't move
+   * what "normal" is for a client billed steadily for years.
+   */
+  typicalMarkup: number;
+  /** Median monthly billed price. Used only to judge whether a drift is
+   *  material enough to be worth saying. */
+  typicalMonthlyPrice: number;
+}
+
 /** The baselines a month is judged against. Absent when there isn't enough
  *  history — which every check that reads them must treat as "say nothing". */
 export interface ReviewNorms {
@@ -358,6 +401,7 @@ export interface ReviewNorms {
   windowMonths: number;
   monthsOfHistory: number;
   vendors: VendorNorm[];
+  customers: CustomerNorm[];
 }
 
 export interface ReviewPayload {

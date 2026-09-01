@@ -138,12 +138,10 @@ ceiling on spending a client's money, so the whole contract family —
 `contract-balance-drift` — is checking for a failure mode that does not exist
 here. Skipped, not deferred.
 
-**One piece of it is worth revisiting.** The MARGIN checks (`markup-missing`,
-`markup-rate-drift`, `billed-below-cost`) are arguably *more* relevant to
-cost-plus, not less: cost × markup is the entire revenue model, so a line that
-reaches a client invoice at cost is silent lost revenue with nothing else in the
-system to catch it. Left out with the rest by decision, and recorded here so it
-is a choice rather than an oversight.
+**The margin piece was pulled back in** (owner's call, same conversation) and is
+now BUILT — see "Stage 2m" below. Cost × markup is the entire revenue model, so
+a line that reaches a client invoice at cost is silent lost revenue with nothing
+else in the system to catch it.
 
 The retainage, allowance, tax-policy and delivery families remain unbuilt and
 unjudged — they were never the reason Stage 2 was skipped.
@@ -327,7 +325,8 @@ to it, and nothing here races the hourly mirror.
 |---|---|---|---|
 | 0 | Fixed narration, run history, cron | Small | ✅ **Landed** |
 | 1 | Check registry + settings | Medium | ✅ **Landed** |
-| 2 | Contract/margin/retainage/tax/delivery checks | Large | ⏭️ **Skipped** — cost-plus |
+| 2 | Contract/retainage/tax/delivery checks | Large | ⏭️ **Skipped** — cost-plus |
+| 2m | Margin checks only (the pared-down Stage 2) | Small | ✅ **Landed** |
 | 3 | Norms, miss log, instructions, precision | Medium | ✅ **Landed** |
 | 4 | The investigating Claude loop | Medium | Next |
 | 5 | Pre-send gate + mid-month run | Medium | |
@@ -369,6 +368,35 @@ scope for arrangements that belong to the client rather than to one job.
 
 **Still true, and load-bearing:** learning only ever ADDS scrutiny
 automatically. Removing it is always a human ruling with a reason attached.
+
+### Stage 2m — the margin checks, and only those
+
+The one piece of Stage 2 that survives cost-plus, built after Stage 3 because
+the interesting half of it needed the norms.
+
+`checks/margin.ts` (no history needed) flags a line billed **at** cost
+(`markup-missing`) or **under** it (`billed-below-cost`). Its entire
+false-positive risk is lines with no cost recorded — JobTread holds 0 for a
+flat-priced line, a deposit, an allowance draw — so it judges only lines with a
+real cost and a real price above a floor, skips credits, and takes a
+`passThroughCodes` list for the codes billed at cost on purpose. That list
+starts EMPTY on purpose: it should be filled from what the first month actually
+reports, not from a guess made in advance about which codes are pass-through.
+
+`checks/markupDrift.ts` (needs norms) compares a customer's blended markup this
+month against their own recent median. **Ascent charges different markups to
+different customers**, so there is no house rate to check against and no
+configured version of this check that would work — only a learned one. It is
+month-scoped so a customer with three jobs produces one finding, and it reports
+both directions: under-billing is the lost revenue, over-billing is what the
+client notices first.
+
+All three ship at `warning`, per the rule set in Stage 1: a new check is
+promoted on evidence, and the precision data to promote from does not exist yet.
+
+**Left unbuilt from the original Stage 2**, and unjudged — these were never the
+reason it was skipped: retainage, allowances, tax policy, and invoice delivery
+(bounced, never sent, never opened).
 
 **Not built yet, from this stage's original sketch:** severity promotion and
 demotion. The precision numbers now exist and are exposed at

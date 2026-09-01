@@ -72,7 +72,7 @@ function invoice(partial: Partial<InvoiceEvidence> & { id: string }): InvoiceEvi
 function line(partial: Partial<InvoiceLine> & { id: string; price: number }): InvoiceLine {
   return {
     name: "Line", description: "", code: "", codeName: "",
-    quantity: 0, unitPrice: 0, isTaxable: true,
+    quantity: 0, unitCost: 0, unitPrice: 0, cost: 0, isTaxable: true,
     ...partial,
   };
 }

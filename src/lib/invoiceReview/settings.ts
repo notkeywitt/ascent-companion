@@ -42,6 +42,8 @@ import type { DuplicateBillConfig } from "./checks/duplicateBill";
 import type { InvoiceMathConfig } from "./checks/invoiceMath";
 import type { IssueDateConfig } from "./checks/issueDate";
 import type { MailCaptureConfig } from "./checks/mailCapture";
+import type { MarginConfig } from "./checks/margin";
+import type { MarkupDriftConfig } from "./checks/markupDrift";
 import type { UninvoicedConfig } from "./checks/uninvoiced";
 import type { VendorSilentConfig } from "./checks/vendorSilent";
 
@@ -63,6 +65,8 @@ export interface InvoiceReviewSettings {
     "draft-bills": SettingsBlock<DraftBillsConfig>;
     "mail-capture": SettingsBlock<MailCaptureConfig>;
     "vendor-silent": SettingsBlock<VendorSilentConfig>;
+    margin: SettingsBlock<MarginConfig>;
+    "markup-drift": SettingsBlock<MarkupDriftConfig>;
   };
 }
 
@@ -117,6 +121,43 @@ export const DEFAULT_SETTINGS: InvoiceReviewSettings = {
         minMonthsRatio: 0.8, // four months in five
         minMonthsSeen: 3,
         minTypicalCost: 250, // the month a $12 hardware run didn't happen is not news
+      },
+    },
+    // ── Margin ────────────────────────────────────────────────────────────
+    // Ascent bills cost-plus, so the markup IS the revenue: a line that reaches
+    // a client invoice at cost earns nothing, and nothing else in the review
+    // would ever notice — the invoice foots, the bill is captured, the backup
+    // is filed, and the client pays it without a murmur.
+    margin: {
+      enabled: true,
+      config: {
+        // The whole false-positive risk here is lines with NO cost recorded:
+        // JobTread holds 0 for a flat-priced line, and reading that as "billed
+        // at zero cost" would fire on every deposit and allowance draw on every
+        // invoice. The floor plus the cost>0 guard in the check is what keeps
+        // this out of the flood category.
+        minLineCost: 25,
+        // Cost codes billed at cost ON PURPOSE. Empty to start: the office
+        // should fill it from what the first month or two actually reports,
+        // rather than from a guess made here about which codes are
+        // pass-through. This list is the pressure valve that stops them ruling
+        // on the same permit line every month forever.
+        passThroughCodes: [],
+        reportMissingMarkup: true,
+        reportBelowCost: true,
+      },
+    },
+    "markup-drift": {
+      enabled: true,
+      config: {
+        // Ascent charges different markups to different customers, so this is
+        // measured against the CUSTOMER'S OWN history and nothing else. Strict,
+        // like vendor-silent and for the same reason: a check that reasons from
+        // a pattern earns its place only by being right nearly every time.
+        minMonthsSeen: 3,
+        minPointsOff: 3, // percentage points off their usual rate
+        minDollarsOff: 500, // and worth this much, so a wide swing on a tiny month is silent
+        minMonthCost: 2000, // a trivial month can produce a wild ratio; ignore it
       },
     },
   },
