@@ -25,6 +25,14 @@ import { TrackingSheetSyncFor } from "@/components/TrackingSheetSync";
 import { billLineMath, recodeLog } from "@/lib/billLineMath";
 import { markBillTouched } from "@/lib/billTouch";
 import { useUnsavedChanges } from "@/lib/useUnsavedChanges";
+import {
+  billDraftKey,
+  discardDraft,
+  draftSavedAtLabel,
+  loadDraft,
+  reconcileDraft,
+  saveDraft,
+} from "@/lib/codingDraft";
 
 interface Line {
   id: string;
@@ -248,6 +256,12 @@ function BillDetail() {
   const [deletingId, setDeletingId] = useState("");
   const [buybackId, setBuybackId] = useState("");
   const [taxEdit, setTaxEdit] = useState<string | null>(null); // null = not editing (shows JT's value)
+  /** Set when unsynced coding for this bill was offered back on open. */
+  const [restored, setRestored] = useState<{
+    kept: number;
+    dropped: number;
+    savedAt: string;
+  } | null>(null);
   // Vendor Bill Number editor (JobTread externalId). Local draft synced from the
   // header; committed on blur so we don't write on every keystroke.
   const [billNumber, setBillNumber] = useState("");
@@ -298,6 +312,7 @@ function BillDetail() {
     // starts clean (and keeps `dirtyRef` honest for the revalidation below).
     setPicked({});
     setEdits({});
+    setRestored(null);
     if (cached) applyBill(cached);
     setLoading(!cached);
     (async () => {
@@ -447,8 +462,73 @@ function BillDetail() {
   const changeCount = pendingCount + (taxChanged ? 1 : 0);
 
   // Warn before leaving with unsaved edits (the same changes the sticky Save bar counts)
-  // — covers refresh/close, in-app links, and Back/Forward.
-  useUnsavedChanges(changeCount > 0);
+  // — covers refresh/close, in-app links, and Back/Forward. A reminder that
+  // JobTread hasn't got them yet, not a warning that they're about to go: the
+  // autosave below keeps them (see src/lib/codingDraft.ts).
+  useUnsavedChanges(
+    changeCount > 0,
+    "This bill has unsaved coding changes. They'll be saved and offered back when you return — leave now?",
+  );
+
+  // ---- durable drafts -----------------------------------------------------
+  /**
+   * Unsaved coding on this bill is written continuously and offered back when
+   * the bill is next opened — ANYWHERE. The scope key is the bill, the same one
+   * the Tracking Sheets coding panel uses, so coding started on a phone here is
+   * waiting in the desktop workbench (and the other way round). It is not sent
+   * to JobTread; Save still is. See src/lib/codingDraft.ts.
+   *
+   * TWO refs, not one: opening a bill empties the staged state and the restore
+   * that follows is async, so arming the autosave when the restore STARTS would
+   * fire it on that emptiness and delete the draft still being read.
+   */
+  const draftKey = docId ? billDraftKey(docId) : "";
+  const restoreStartedRef = useRef("");
+  const autosaveArmedRef = useRef("");
+
+  useEffect(() => {
+    if (!draftKey || !header || !lines) return;
+    if (restoreStartedRef.current === draftKey) return;
+    restoreStartedRef.current = draftKey;
+    let alive = true;
+    (async () => {
+      try {
+        const draft = await loadDraft(draftKey);
+        if (!alive || !draft) return;
+        const r = reconcileDraft(draft, {
+          lines: lines.map((l) => ({ id: l.id, jobCostItemId: l.jobCostItem?.id ?? null })),
+          bills: [{ id: docId, nonRecoverableTax: header.nonRecoverableTax ?? 0 }],
+          budgetIds: budget.map((b) => b.id),
+        });
+        if (r.kept === 0) {
+          if (r.dropped > 0) discardDraft(draftKey);
+          return;
+        }
+        // Only ever ADD to an empty state — the read is async, and anything typed
+        // while it was in flight outranks what was stored earlier.
+        setPicked((prev) => (Object.keys(prev).length > 0 ? prev : r.staged));
+        setEdits((prev) => (Object.keys(prev).length > 0 ? prev : r.edits));
+        setTaxEdit((prev) => (prev !== null ? prev : (r.taxEdits[docId] ?? null)));
+        setRestored({ kept: r.kept, dropped: r.dropped, savedAt: draft.savedAt });
+      } finally {
+        if (alive) autosaveArmedRef.current = draftKey;
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+    // `budget` arrives with `lines` in the same payload; those two are the trigger.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draftKey, header, lines]);
+
+  useEffect(() => {
+    if (!draftKey || autosaveArmedRef.current !== draftKey) return;
+    saveDraft(draftKey, {
+      staged: picked,
+      edits,
+      taxEdits: taxEdit !== null && taxEdit !== "" ? { [docId]: taxEdit } : {},
+    });
+  }, [draftKey, docId, picked, edits, taxEdit]);
 
   // Same signal, readable from the load effect's async callback (see dirtyRef).
   dirtyRef.current = changeCount > 0;
@@ -789,6 +869,17 @@ function BillDetail() {
       setPicked({});
       setEdits({});
       setTaxEdit(null);
+      setRestored(null);
+      if (failed) {
+        // Some lines didn't land, and the state on screen is about to be emptied
+        // and re-read. Re-arm the restore rather than dropping the draft:
+        // reconcileDraft removes everything JobTread has now taken, which leaves
+        // exactly the changes that failed.
+        restoreStartedRef.current = "";
+        autosaveArmedRef.current = "";
+      } else {
+        discardDraft(billDraftKey(docId)); // it's in JobTread now
+      }
       setSaveMsg(failed ? `Saved, ${failed} line(s) failed.` : "Saved.");
       // The stored flag only records a LINE write (same rule the coding queue uses),
       // so flip the marker optimistically on that condition; loadBill re-reads it.
@@ -1132,6 +1223,29 @@ function BillDetail() {
         {saveMsg && (
           <Banner tone="neutral" className="mt-3 !px-3 !py-2.5 !text-xs">
             {saveMsg}
+          </Banner>
+        )}
+
+        {/* Unsaved coding on this bill came back. Said out loud rather than
+            restored silently: the figures below now include changes JobTread
+            doesn't have, and Save is what sends them. */}
+        {restored && (
+          <Banner tone="info" className="mt-3 !px-3 !py-2.5 !text-xs">
+            <div className="flex items-center justify-between gap-2">
+              <span>
+                Restored {restored.kept} unsaved change{restored.kept === 1 ? "" : "s"} from{" "}
+                {draftSavedAtLabel(restored.savedAt)}
+                {restored.dropped > 0 && <> · {restored.dropped} no longer applied</>}. Nothing is
+                in JobTread until you Save.
+              </span>
+              <button
+                type="button"
+                onClick={() => setRestored(null)}
+                className="shrink-0 underline underline-offset-2 opacity-80 hover:opacity-100"
+              >
+                Dismiss
+              </button>
+            </div>
           </Banner>
         )}
 
@@ -1931,6 +2045,10 @@ function BillDetail() {
                     setPicked({});
                     setEdits({});
                     setTaxEdit(null);
+                    setRestored(null);
+                    // Discard is the office saying "I don't want this work" — so
+                    // the saved draft goes with it, on every device.
+                    discardDraft(billDraftKey(docId));
                   }}
                   disabled={saving || changeCount === 0}
                 >

@@ -197,27 +197,28 @@ export function DraftQueue() {
   }, []);
   const editor = useBillEditor(sel, { onSaved, onReviewed });
 
-  // The panel's edits are staged in the browser until Save, so every way off
-  // this page has to warn — including the tab switch back to "This month".
+  // The panel's edits are staged in the browser until Save — but they are now
+  // also autosaved and offered back on return, so the prompt is a reminder that
+  // JobTread hasn't got them yet, not a warning that they're about to go.
   useUnsavedChanges(
     editor.changeCount > 0,
-    "This bill has unsaved coding changes. Leave without saving? Your changes will be lost.",
+    "This bill has unsaved coding changes. They'll be saved and offered back when you return — leave now?",
   );
 
-  /** Move the panel to another bill, keeping unsaved work from vanishing silently. */
+  /**
+   * Move the panel to another bill. No longer a decision: the outgoing bill's
+   * unsaved coding is saved under its own key and offered straight back when it
+   * is reopened (src/lib/codingDraft.ts), so stepping down the list costs
+   * nothing and the old "discard them?" prompt would now be a lie.
+   */
   const select = useCallback(
     (id: string) => {
       if (id === selId) return;
-      if (
-        editor.changeCount > 0 &&
-        !window.confirm("This bill has unsaved coding changes. Discard them and open the next bill?")
-      )
-        return;
       setSelId(id);
       const b = bills?.find((x) => x.id === id);
       if (b) driveMainWindowToDoc((b.jobId ?? "").trim(), b.id);
     },
-    [selId, editor.changeCount, bills],
+    [selId, bills],
   );
 
   /**

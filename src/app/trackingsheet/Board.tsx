@@ -65,6 +65,14 @@ import { PreSendCheck } from "./PreSendCheck";
 import { useAccess } from "@/components/AccessProvider";
 import { useCopy } from "@/components/CopyProvider";
 import { useUnsavedChanges } from "@/lib/useUnsavedChanges";
+import {
+  discardDraft,
+  draftSavedAtLabel,
+  jobDraftKey,
+  loadDraft,
+  reconcileDraft,
+  saveDraft,
+} from "@/lib/codingDraft";
 
 /**
  * Invoicing coding board — the desktop workbench for deciding which cost code
@@ -563,10 +571,86 @@ export function Board() {
     return round2(Number(v) || 0) !== round2(bill.nonRecoverableTax);
   });
   const dirty = staged.size > 0 || Object.keys(edits).length > 0 || taxDirty;
+  // Still worth a prompt — leaving means the coding hasn't reached JobTread —
+  // but it no longer says "lose them", because it isn't true any more: the
+  // autosave below has already put the work somewhere it survives (see
+  // src/lib/codingDraft.ts). The dialog is now a reminder, not the safety net.
   useUnsavedChanges(
     dirty,
-    "You have staged coding changes that haven't been synced to JobTread. Leave and lose them?",
+    "You have staged coding changes that haven't been synced to JobTread. They'll be saved and offered back when you return — leave now?",
   );
+
+  // ---- durable drafts -----------------------------------------------------
+  /**
+   * Staged coding is saved continuously, scoped to this job and month, and
+   * offered back when you return. It is NOT sent to JobTread — see
+   * src/lib/codingDraft.ts for why the Sync button stays the only thing that
+   * writes to the live org.
+   */
+  const draftKey = useMemo(() => (jobId ? jobDraftKey(jobId, ym) : ""), [jobId, ym]);
+  /**
+   * TWO refs, not one, and the difference matters.
+   *
+   * A load empties the staged state, and the restore that follows it is async.
+   * If the autosave were armed the moment the restore STARTED, it would fire on
+   * that empty state — deleting the very draft still being read. So the restore
+   * marks itself started, and only arms the autosave once it has finished (with
+   * work, or with nothing).
+   */
+  const restoreStartedRef = useRef("");
+  const autosaveArmedRef = useRef("");
+  const [restoreMsg, setRestoreMsg] = useState<{
+    kept: number;
+    dropped: number;
+    savedAt: string;
+  } | null>(null);
+
+  // Offer the draft back once the month's data is on screen — reconciled
+  // against it, so a change JobTread has since taken (or a line that no longer
+  // exists) is dropped rather than restored as a phantom edit.
+  useEffect(() => {
+    if (!draftKey || loading || !data) return;
+    if (restoreStartedRef.current === draftKey) return;
+    restoreStartedRef.current = draftKey;
+    let alive = true;
+    (async () => {
+      try {
+        const draft = await loadDraft(draftKey);
+        if (!alive || !draft) return;
+        const r = reconcileDraft(draft, {
+          lines: data.lines,
+          bills: data.bills,
+          budgetIds: data.budget.map((b) => b.id),
+        });
+        if (r.kept === 0) {
+          // Everything in it has since landed or gone stale — nothing to offer.
+          if (r.dropped > 0) discardDraft(draftKey);
+          return;
+        }
+        // Only ever ADD to an empty state: the read is async, and work typed
+        // while it was in flight outranks anything stored earlier.
+        setStaged((prev) => (prev.size > 0 ? prev : new Map(Object.entries(r.staged))));
+        setEdits((prev) => (Object.keys(prev).length > 0 ? prev : r.edits));
+        setTaxEdits((prev) => (Object.keys(prev).length > 0 ? prev : r.taxEdits));
+        setRestoreMsg({ kept: r.kept, dropped: r.dropped, savedAt: draft.savedAt });
+      } finally {
+        // Whatever came of it, this scope is now the browser's to save.
+        if (alive) autosaveArmedRef.current = draftKey;
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [draftKey, loading, data]);
+
+  // …and save it on every change. Cheap: localStorage synchronously, the
+  // companion DB on a debounce (and flushed when the tab is hidden or closed).
+  useEffect(() => {
+    if (!draftKey || autosaveArmedRef.current !== draftKey) return;
+    const compactEdits: Record<string, LineEdit> = {};
+    for (const [id, e] of Object.entries(edits)) if (e) compactEdits[id] = e;
+    saveDraft(draftKey, { staged: Object.fromEntries(staged), edits: compactEdits, taxEdits });
+  }, [draftKey, staged, edits, taxEdits]);
 
   const load = useCallback(
     async (opts?: { preserveStaged?: boolean }) => {
@@ -1782,6 +1866,10 @@ export function Board() {
     setEdits({});
     setTaxEdits({});
     setSyncMsg(null);
+    setRestoreMsg(null);
+    // Revert is the one place the office says "I don't want this work" — so it
+    // throws the saved draft away too, on every device. Everything else keeps it.
+    if (draftKey) discardDraft(draftKey);
   };
 
   // ---- drag and drop -------------------------------------------------------
@@ -2076,12 +2164,21 @@ export function Board() {
     const summary = parts.length ? parts.join(" + ") : "0 changes";
     if (failures.length === 0) {
       setSyncMsg({ tone: "success", text: `Synced ${summary} to JobTread.` });
+      setRestoreMsg(null);
+      if (draftKey) discardDraft(draftKey); // it's in JobTread now — nothing left to hold
       await load(); // load() clears staged
     } else {
       setSyncMsg({
         tone: "error",
         text: `Synced ${summary}, ${failures.length} failed: ${[...new Set(failures)].slice(0, 2).join("; ")}`,
       });
+      // A PARTLY failed sync is the worst moment to drop the draft: load() is
+      // about to empty the staged state, and the changes that didn't land would
+      // go with it. Re-arm the restore instead — reconcileDraft drops everything
+      // JobTread has now taken, so what comes back is exactly what failed.
+      restoreStartedRef.current = "";
+      autosaveArmedRef.current = "";
+      setRestoreMsg(null);
       await load();
     }
   };
@@ -2468,6 +2565,32 @@ export function Board() {
         <p className="mb-4 text-[11px] text-amber-600 dark:text-amber-400">
           Writes are disabled on this deployment — Sync will preview only.
         </p>
+      )}
+
+      {/* Unsynced work came back. Said out loud rather than restored silently:
+          the figures on this page now include coding JobTread doesn't have yet,
+          and that has to be visible the moment you land. Revert is one tap
+          away in the toolbar and the sticky bar. */}
+      {restoreMsg && (
+        <Banner tone="info" className="mb-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span>
+              Restored {restoreMsg.kept} unsynced coding change
+              {restoreMsg.kept === 1 ? "" : "s"} from {draftSavedAtLabel(restoreMsg.savedAt)}
+              {restoreMsg.dropped > 0 && (
+                <> · {restoreMsg.dropped} no longer applied and were dropped</>
+              )}
+              . Nothing is in JobTread until you press Sync.
+            </span>
+            <button
+              type="button"
+              onClick={() => setRestoreMsg(null)}
+              className="shrink-0 text-xs underline underline-offset-2 opacity-80 hover:opacity-100"
+            >
+              Dismiss
+            </button>
+          </div>
+        </Banner>
       )}
 
       {syncMsg && (

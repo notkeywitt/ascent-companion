@@ -44,6 +44,7 @@ matching row here.
 | **Verified JobTread reads/writes** (not the generic gateway) | `src/lib/jobtread.ts` |
 | **Billing period / bill-date rules** | `src/lib/billing.ts` (keep in lockstep with appscript `Config.js`) |
 | **Bill line money math** (edit/save a bill's lines) | `src/lib/billLineMath.ts` |
+| **Unsynced coding surviving a page you left** | `src/lib/codingDraft.ts` (autosave + reconciled restore) + `src/app/api/coding-draft`; wired into `Board.tsx` (scoped per job-month) and, scoped per BILL, `DraftWorkbench.tsx` + `src/app/bill/[docId]/page.tsx` — the same scope key, so a bill started on a phone is waiting at the desk |
 | **Coding / Tracking Sheets workflow** | `src/app/trackingsheet/*` (Board, BillCodingCard, TimeCodingCard, ClientInvoicing, DraftQueue, DraftWorkbench,
   AllJobs, Roster) + `src/app/api/trackingsheet/*`, `src/app/api/code` |
 | **Editing ONE time entry** (code / hours / day / job) | `src/app/trackingsheet/TimeCodingCard.tsx` + `src/app/api/time-entry`; batch recodes stay in `labor-review` |
@@ -108,7 +109,8 @@ including edge middleware.
 | `amazonImport.ts` | Amazon Business monthly CSV → JobTread vendor bills. |
 | `taskRunner.ts` | Tiny background scheduler (keyed serialization + parallelism cap) used by the Tracking Sheet page. |
 | `usage.ts` | Activity tracking (login/view/coding) — the data layer behind Admin → Activity. |
-| `useUnsavedChanges.ts` | React hook guarding navigation away from unsaved edits. |
+| `codingDraft.ts` ⟂-ish | **Unsynced Tracking Sheets coding, made durable.** Staged coding is autosaved on every change — localStorage first (the layer that actually catches a killed tab), the companion DB a couple of seconds behind (the layer that follows you to another device) — and offered back on return. `reconcileDraft` is the judgement and the tested part: it re-tests a stored draft against the data that just loaded, dropping anything JobTread has since taken or lost. It never writes to JobTread; Sync still does that. |
+| `useUnsavedChanges.ts` | React hook guarding navigation away from unsaved edits. Now a reminder rather than the safety net — `codingDraft.ts` is what stops the work being lost. |
 | `sentry.shared.ts` | Shared Sentry init. |
 
 ### `src/lib/invoiceReview/` — the monthly client-invoice review
@@ -259,7 +261,8 @@ Grouped by domain; each folder is `…/route.ts`.
   `bill-fields`, `bill-issuedate`, `bill-number` (the vendor's own invoice
   number — JobTread's `externalId`), `bill-tax`, `bill-reviewed`, `uncaptured`,
   `vendor-bills/*`, `vendor-bill-count`, `stuck-vendors`, `needs-project`,
-  `reassign-job`.
+  `reassign-job`, `coding-draft` (the cross-device backup for staged, not-yet-
+  synced coding — companion DB only, never JobTread; see `lib/codingDraft.ts`).
 - **Invoicing surfaces:** `stage/*`, `invoice-review` (GET runs a month's
   client-invoice review, or `?format=brief` for the paste-into-Claude version;
   POST records or lifts one standing ruling), `lswdd`,
@@ -323,6 +326,8 @@ has run — the history the learning layer reads), `invoice_review_finding_state
 (when each finding appeared and whether it went away — ages + check precision),
 `invoice_review_misses` (mistakes the review didn't catch — the training set),
 `invoice_review_instructions` (how the month is read out),
+`coding_drafts` (unsynced Tracking Sheets coding, per user and per scope — the
+cross-device BACKUP for a staged draft; localStorage is the primary),
 `invoice_review_dispositions` (Claude's verdict on each finding — a reading, not
 a ruling). Access via `src/db/index.ts`.
 

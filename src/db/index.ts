@@ -826,6 +826,24 @@ async function applySchema() {
       updated_at TEXT NOT NULL DEFAULT ''
     )
   `);
+
+  // Unsynced Tracking Sheets coding, per user and per scope — the cross-device
+  // BACKUP for a staged draft (localStorage is the primary; see
+  // src/lib/codingDraft.ts and the table's note in db/schema.ts). Deleted on
+  // Sync and on Revert, and swept once a row passes DRAFT_TTL_DAYS.
+  await getClient().execute(`
+    CREATE TABLE IF NOT EXISTS coding_drafts (
+      email TEXT NOT NULL,
+      key TEXT NOT NULL,
+      payload TEXT NOT NULL DEFAULT '{}',
+      updated_at TEXT NOT NULL DEFAULT '',
+      PRIMARY KEY (email, key)
+    )
+  `);
+  // Reads are always "this user's drafts", newest first.
+  await getClient().execute(
+    `CREATE INDEX IF NOT EXISTS coding_drafts_email_idx ON coding_drafts (email, updated_at DESC)`,
+  );
 }
 
 export { schema };
