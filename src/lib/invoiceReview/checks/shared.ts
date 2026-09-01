@@ -43,12 +43,12 @@ export function dedupeName(tail: string): string {
 /**
  * A link to the Assistant's own bill page.
  *
- * The `jobId` query parameter is NOT optional. `/bill/[docId]` reads the doc id
- * from the path but the job id from the query string, and passes BOTH to
- * `/api/bill` — which refuses the call without them and renders
- * "Pass ?docId=<bill id>&jobId=<job id>" where the bill should be. Every other
- * link to that page in the app appends it; three checks here did not, and every
- * "Open the bill" button in the review was dead until this existed.
+ * Always append `jobId` when we have it: `/bill/[docId]` reads the doc id from
+ * the path but the job id from the query string, and the job powers the page's
+ * coding-queue pager, Back link and neighbour prefetch. It is no longer strictly
+ * required — `/api/bill` recovers the job from the bill itself when the query
+ * param is missing (so a link built with an empty jobId still opens the bill) —
+ * but passing it avoids the extra lookup and keeps the pager working on arrival.
  */
 export function billLink(jobId: string, billId: string): string {
   const doc = `/bill/${encodeURIComponent(billId)}`;
