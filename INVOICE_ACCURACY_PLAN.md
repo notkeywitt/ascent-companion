@@ -329,8 +329,8 @@ to it, and nothing here races the hourly mirror.
 | 2m | Margin checks only (the pared-down Stage 2) | Small | ✅ **Landed** |
 | 3 | Norms, miss log, instructions, precision | Medium | ✅ **Landed** |
 | 4 | The investigating Claude loop | Medium | ✅ **Landed** |
-| 5 | Pre-send gate + mid-month run | Medium | Next |
-| 6 | PDF amount confirmation | Small | |
+| 5 | Pre-send gate | Medium | ✅ **Landed** (the gate; the cron half is blocked) |
+| 6 | PDF amount confirmation | Small | Next |
 
 **What landed in 0 and 1.** `narrate.ts` raised to a 16k ceiling at low effort
 and now reports why it fell back instead of failing silently;
@@ -427,6 +427,43 @@ priciest call in the app, so an unrecognised one becomes the default rather than
 being passed through. Haiku is deliberately absent — it strips prior-turn
 thinking blocks, so every turn after the first would fall out of cache and the
 "cheaper" model would cost more here.
+
+### What landed in 5 — the pre-send gate
+
+The monthly review is a late catch: by the time it runs the invoice may already
+be with the client, and every mistake costs a credit or a conversation. The gate
+runs **the same check files** against one job, on demand, from the job's
+workbench on `/trackingsheet?jobId=…`.
+
+**The scope rule is the interesting part, and it is correctness, not speed.**
+Evidence is loaded for one job (`onlyJobIds`), so the runner is called with
+`scopes: ["job", "invoice"]` and the month-scoped checks are left out. Against
+single-job evidence they are not slow — they are WRONG: `vendor-silent` would
+find almost every vendor silent, and `markup-drift` would compute a customer's
+rate from one of their three jobs. There is a test that runs those checks
+against exactly that evidence to prove the false positives are real, then
+asserts the gate excludes them.
+
+The gate says what it did **not** look at every single time, including when it
+finds nothing — otherwise "all clear" quietly implies the whole month was
+checked. Findings keep the same keys as the monthly review, so a ruling recorded
+either place suppresses in both; there is a test pinning that too.
+
+It files nothing in the run history: a per-job spot check is not a review of the
+month, and writing rows would corrupt the trend the learning layer reads.
+
+**Still blocked — the mid-month run.** Stage 5 also called for a cron around the
+10th–15th. That remains impossible on Vercel Hobby's two-cron cap (see the
+incident note above). The documented way out is folding the call into one of the
+digest's two existing firings rather than claiming a third slot; not done here,
+because coupling the two features deserves its own decision rather than being
+smuggled in with a UI change.
+
+**Not done — re-enabling the digest's billing checks.** Stage 5 justified that
+with "contract-aware checks behind them", and those were skipped as cost-plus.
+The margin checks are a better reason, but turning them on changes the owner's
+morning brief org-wide, which is their call rather than an implementation
+detail.
 
 ### Stage 2m — the margin checks, and only those
 

@@ -190,6 +190,29 @@ about the **Copy for Claude** button on `/invoice-review`: it puts this same
 briefing on the clipboard (or straight into the share sheet on a phone) to paste
 into the Claude app. That path needs no API key either.
 
+## Checking ONE job before its invoice goes out
+
+If the owner is about to invoice a job and wants it checked first, that is the
+pre-send gate, not the monthly review:
+
+```
+GET /api/invoice-review/job?jobId=<job id>&ym=YYYY-MM
+```
+
+Same check files, one job, on demand. It is also a card on
+`/trackingsheet?jobId=…` ("Before you send").
+
+**It deliberately does not answer three questions**, and the response says so in
+`notChecked`: whether every vendor invoice that arrived was captured, whether a
+regular vendor billed nothing, and whether the customer's markup is off their
+usual rate. All three need the whole month — run against one job they produce
+confident false findings, which is why they are excluded rather than merely
+skipped. **Relay that caveat whenever you relay a clean result**, or "nothing to
+fix" reads as "the month is fine".
+
+Findings carry the same keys as the monthly review, so a ruling recorded from
+either place suppresses in both.
+
 ## Step 3b — let the app do the chasing
 
 Most of Step 3's legwork is now a button. `POST /api/invoice-review/investigate`

@@ -59,6 +59,7 @@ import {
   type TrackingTarget,
 } from "@/components/TrackingSheetSync";
 import { TrackingSheetRisks } from "@/components/TrackingSheetRisks";
+import { PreSendCheck } from "./PreSendCheck";
 import { useAccess } from "@/components/AccessProvider";
 import { useCopy } from "@/components/CopyProvider";
 import { useUnsavedChanges } from "@/lib/useUnsavedChanges";
@@ -2495,6 +2496,10 @@ export function Board() {
           {error}
         </Banner>
       )}
+
+      {/* The invoice review's checks, on this job, before the invoice goes out.
+          Independent of the board's own loading — it fetches on demand. */}
+      {jobId && <PreSendCheck jobId={jobId} ym={ym} />}
 
       {loading && <Loading label={c("recode.loading.billsAndBudget")} />}
 

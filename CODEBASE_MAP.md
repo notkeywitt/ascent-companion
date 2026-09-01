@@ -65,6 +65,7 @@ matching row here.
 | **Adding an invoice-review check** | write `src/lib/invoiceReview/checks/<id>.ts`, add its config block to `settings.ts`, add one line to `registry.ts` — the runner, the route, the history and the page are untouched |
 | **Why the review missed something / making it learn** | file it via the page's "Something this missed?" box → `src/lib/invoiceReview/misses.ts`; `POST /api/invoice-review/learn` asks Claude what check would have caught it (`learn.ts`) — the answer is a proposal a person implements |
 | **Is a check any good?** | `GET /api/invoice-review/accuracy` — precision derived in `src/lib/invoiceReview/lifecycle.ts` from what the office did next, not from anyone scoring anything |
+| **Checking one job before its invoice goes out** | the "Before you send" card on `/trackingsheet?jobId=…` → `src/app/trackingsheet/PreSendCheck.tsx` → `GET /api/invoice-review/job` → `src/lib/invoiceReview/preSend.ts` |
 | **Having Claude chase the findings** | `POST /api/invoice-review/investigate` → `src/lib/invoiceReview/investigate.ts` + `investigateTools.ts`; verdicts stored by `dispositions.ts` and drawn on each finding |
 | **Adding a digest check** | write `src/lib/digest/checks/<id>.ts`, add its config block to `src/lib/digest/settings.ts`, add one line to `src/lib/digest/registry.ts` — the aggregator, the cron route and the UI are untouched |
 
@@ -148,6 +149,7 @@ Staged expansion plan: `INVOICE_ACCURACY_PLAN.md`.
 | `investigateTools.ts` ⟂-ish | The investigator's read-only tool surface, bound to ONE review. Almost all pure functions over the already-loaded month — which is why they are unit-tested like the checks are, and why Claude cannot reach past the month. `search_backup_by_amount` does the cross-job Drive search `SKILL.md` asks a human for; `record_disposition` refuses a key not in the review. |
 | `investigate.ts` | The tool loop. Claude chases each finding and returns a verdict — confirmed / probably-fine / needs-human. Sonnet by default, thinking on. Verdicts arrive through a tool, not a final JSON blob, so a truncated run still yields what it settled. The static prefix (tool schemas + system prompt) is cached across iterations, and the result carries cache counters — a caching regression is silent otherwise, showing up only as a bigger bill. |
 | `investigateModels.ts` ⟂ | Which models the investigation may run on, shared by the page's picker and the route that validates it. An allowlist, because the id comes from the browser and selects the priciest call in the app. Sonnet by default; no Haiku, which strips prior-turn thinking blocks and would break the loop's cache. |
+| `preSend.ts` | **The pre-send gate** — the same checks against ONE job, before its invoice goes out, from the job workbench. Loads evidence for that job only and therefore runs `scopes: ["job","invoice"]`: month-scoped checks are not slow against single-job evidence, they are wrong. Files nothing — a spot check is not a review of the month. |
 | `dispositions.ts` | Stores those verdicts so an expensive pass survives a reload. **A disposition is NOT a ruling** — it changes no number, no severity, and hides nothing. Only the office silences a finding. |
 | `instructions.ts` | Standing preferences for how the month is READ OUT, injected into the summary prompt. Cannot hide a finding — that is what a ruling is for — which is what makes them safe to add casually. |
 | `checks/margin.ts` ⟂ | **The check that matters most for cost-plus** — a line that reached a client invoice at cost, or under it. The markup IS the revenue, and nothing else notices: the invoice foots, the bill is captured, the backup is filed, the client pays it. Needs no history. Its whole false-positive risk is lines with NO cost recorded (JobTread holds 0 for a flat-priced line), so it judges only lines with a real cost and price above a floor; `passThroughCodes` in settings.ts is the valve for codes billed at cost on purpose. |
@@ -163,7 +165,9 @@ off, and a check that throws without taking the review down), `norms.test.ts`
 (the vendor-name key, and mostly the SILENCE — every case where a
 pattern-based check must not speak), `margin.test.ts` (the markup checks, and
 above all the lines they must NOT judge — a no-cost line, a credit, a
-pass-through code) and `investigate.test.ts` (the investigator's lookups — what
+pass-through code) `preSend.test.ts` (the SCOPE RULE — it proves the month-scoped
+checks fire wrongly against single-job evidence, then pins that the gate leaves
+them out) and `investigate.test.ts` (the investigator's lookups — what
 Claude is SHOWN can be pinned exactly even though its judgement cannot, plus the
 guard that stops a hallucinated key becoming a stored verdict) and `rulings.test.ts` (how far each
 suppression scope reaches, and where it must stop).
