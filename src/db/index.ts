@@ -834,6 +834,19 @@ async function applySchema() {
       created_at TEXT NOT NULL
     )
   `);
+  // Dismissed digest items — "this one is handled, stop showing it to me" from
+  // the To-Do and Follow-ups lists. Written by POST /api/digest/dismiss, read by
+  // the run and by GET /api/digest. See db/schema.ts.
+  await getClient().execute(`
+    CREATE TABLE IF NOT EXISTS digest_dismissals (
+      key TEXT PRIMARY KEY,
+      check_id TEXT NOT NULL DEFAULT '',
+      title TEXT NOT NULL DEFAULT '',
+      dismissed_by TEXT NOT NULL DEFAULT '',
+      dismissed_at TEXT NOT NULL DEFAULT '',
+      active INTEGER NOT NULL DEFAULT 1
+    )
+  `);
   await getClient().execute(`
     CREATE TABLE IF NOT EXISTS digest_replies (
       id INTEGER PRIMARY KEY AUTOINCREMENT,

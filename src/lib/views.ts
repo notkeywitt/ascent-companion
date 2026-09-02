@@ -241,7 +241,8 @@ export const VIEWS: ViewDef[] = [
   // OFFICE + ADMIN. The digest reports the office's own work — billing, the
   // inbox, the calendar, follow-ups — so office reads it too (it is NOT in
   // ADMIN_MENU below). The gate also covers /api/digest/reply, so office can
-  // talk back to it (add a reminder, snooze one, silence a sender).
+  // talk back to it (add a reminder, snooze one, silence a sender), and
+  // /api/digest/dismiss, the Dismiss button on a To-Do / Follow-up item.
   //
   // NOTE /api/digest/run is deliberately NOT gated here: the scheduler that
   // calls it has no session at all, so it is PUBLIC in middleware and does its

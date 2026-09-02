@@ -14,6 +14,8 @@ export interface CategoryView {
   id: string;
   label: string;
   blurb?: string;
+  /** Passed through from settings.ts — do the items get a Dismiss button. */
+  dismissible?: boolean;
   results: StoredCheckResult[];
   itemCount: number;
   status: CheckStatus;
@@ -66,6 +68,7 @@ export function groupByCategory(
       id: c.id,
       label: c.label,
       blurb: c.blurb,
+      dismissible: c.dismissible,
       results: own,
       itemCount: own.reduce((n, r) => n + r.items.length, 0),
       status: worstStatus(own),

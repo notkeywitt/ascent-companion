@@ -35,13 +35,28 @@ export interface DigestCategory {
   label: string;
   /** One line under the category header, when it has items. */
   blurb?: string;
+  /**
+   * Whether each item in this category gets a Dismiss button — "this one is
+   * handled, stop showing it to me" (see src/lib/digest/dismissals.ts).
+   *
+   * DATA, not a list in the component: a category earns it when its items are
+   * things a person WORKS THROUGH (a to-do, an unanswered email). A category
+   * that reports a measurement — crew hours, a budget gap — does not, because
+   * there is nothing to resolve and hiding it would only hide the number.
+   */
+  dismissible?: boolean;
 }
 
 export const DIGEST_CATEGORIES: DigestCategory[] = [
   { id: "crew", label: "Crew Activity", blurb: "Who worked where yesterday, and who's clocked in right now." },
   { id: "calendar", label: "Calendar", blurb: "What's on the shared calendars and the JobTread schedule." },
-  { id: "todo", label: "To-Do", blurb: "Open JobTread to-dos, office reminders, and appointments/action items found in email." },
-  { id: "followup", label: "Follow-ups", blurb: "Conversations waiting on us." },
+  {
+    id: "todo",
+    label: "To-Do",
+    blurb: "Open JobTread to-dos, office reminders, and appointments/action items found in email.",
+    dismissible: true,
+  },
+  { id: "followup", label: "Follow-ups", blurb: "Conversations waiting on us.", dismissible: true },
   // Off by default (2026-08-31) — billing has its own screen (Tracking Sheets /
   // /unbilled), so the digest no longer duplicates it. The checks are OFF, not
   // deleted (see `enabled: false` below); this row stays registered so turning

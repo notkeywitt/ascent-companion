@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { digestDateKey } from "@/lib/digest/run";
-import { readDigest, readLatestDigest } from "@/lib/digest/store";
+import { applyDismissals } from "@/lib/digest/dismissals";
+import { readActiveDismissals, readDigest, readLatestDigest } from "@/lib/digest/store";
 import { DIGEST_CATEGORIES } from "@/lib/digest/settings";
 import { CHECKS } from "@/lib/digest/registry";
 
@@ -17,6 +18,11 @@ import { CHECKS } from "@/lib/digest/registry";
  * `stale: true` and its own date, so the UI can say "from yesterday" rather than
  * show an empty screen. Pass ?date=YYYY-MM-DD to read a specific day.
  *
+ * Dismissed items are filtered out on the way through. The run does the same
+ * before it stores (see run.ts), so this only matters for the digest ALREADY on
+ * disk — which is the whole point: dismiss something at 8am and it is gone on
+ * the next load, not tomorrow morning.
+ *
  * Gated by the `digest` view (see lib/views.ts), enforced in middleware.
  */
 export const dynamic = "force-dynamic";
@@ -26,7 +32,11 @@ export async function GET(req: NextRequest) {
   const asked = req.nextUrl.searchParams.get("date")?.trim();
 
   try {
-    const digest = asked ? await readDigest(asked) : ((await readDigest(today)) ?? (await readLatestDigest()));
+    const [stored, dismissed] = await Promise.all([
+      asked ? readDigest(asked) : (await readDigest(today)) ?? (await readLatestDigest()),
+      readActiveDismissals(),
+    ]);
+    const digest = stored ? { ...stored, results: applyDismissals(stored.results, dismissed) } : null;
     return NextResponse.json({
       today,
       digest,

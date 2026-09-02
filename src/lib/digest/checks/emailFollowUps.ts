@@ -105,6 +105,10 @@ export const emailFollowUpsCheck = defineCheck<EmailFollowUpsConfig>({
 
     const items: DigestItem[] = overdue.map((t) => ({
       title: `${t.fromName || t.fromAddress || "Unknown sender"} — ${t.subject ?? "(no subject)"}`,
+      // Thread + the time of its newest message. Dismissing says "this one is
+      // handled"; a NEW message on the same thread changes the key, so the
+      // conversation comes back rather than staying hidden forever.
+      key: `thread:${t.threadId ?? t.subject ?? ""}:${t.lastMessageAt ?? ""}`,
       detail:
         `Last message ${(t.lastMessageAt ?? "").slice(0, 10)} from ${t.from ?? "an unknown sender"}, ` +
         `${plural(t.businessDaysOld ?? 0, "business day")} ago with no reply from us. ` +

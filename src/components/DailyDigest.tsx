@@ -14,6 +14,7 @@ import {
   type ChipTone,
 } from "@/components/ui";
 import { useAccess } from "@/components/AccessProvider";
+import { applyDismissals, dismissalKey } from "@/lib/digest/dismissals";
 import { categoryTone, groupByCategory, type CategoryTone } from "@/lib/digest/grouping";
 import type { DigestCategory } from "@/lib/digest/settings";
 import { parseSummary } from "@/lib/digest/summary";
@@ -32,6 +33,14 @@ import type { DigestItem, DigestPayload, StoredCheckResult } from "@/lib/digest/
  * group simply appears, in its configured place, with its own count and status.
  * That is the reason there are no hardcoded "Billing / Calendar / Follow-ups"
  * tabs below.
+ *
+ * DISMISSING. Items in a `dismissible` category (To-Do, Follow-ups — the flag
+ * comes from settings.ts, not from a list here) carry a Dismiss button meaning
+ * "this one is handled". The row goes immediately, the key is POSTed to
+ * /api/digest/dismiss, and an Undo stays under the check for the rest of the
+ * visit. The key is built by the SAME pure function the server stores
+ * (`dismissalKey`), which is what lets the button name an item the server can
+ * recognise without the digest carrying ids the UI would have to pass around.
  *
  * IT NEVER RUNS THE CHECKS. It GETs /api/digest, which reads the row the
  * scheduled job wrote. "Refresh now" is the one exception and it is an explicit
@@ -138,6 +147,13 @@ export function DailyDigest() {
   const [note, setNote] = useState("");
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const [openItems, setOpenItems] = useState<Record<string, boolean>>({});
+
+  // Dismissals made in THIS visit. The server already filters the ones it knows
+  // about, so this list only has to cover the gap between tapping Dismiss and
+  // the next load — and to keep an Undo on screen while the reader is still
+  // looking at the card.
+  const [dismissed, setDismissed] = useState<{ key: string; checkId: string; title: string }[]>([]);
+  const [dismissing, setDismissing] = useState<Record<string, boolean>>({});
 
   const [replyText, setReplyText] = useState("");
   const [replySending, setReplySending] = useState(false);
@@ -251,9 +267,53 @@ export function DailyDigest() {
     }
   }
 
+  /**
+   * Post a dismissal (or its undo). Optimistic: the row disappears on tap and
+   * comes back only if the write fails, because the alternative — a spinner on
+   * every item in a list you are working through — is worse than a rare
+   * reappearing row.
+   */
+  const postDismiss = useCallback(
+    async (entry: { key: string; checkId: string; title: string }, undo: boolean) => {
+      setDismissing((d) => ({ ...d, [entry.key]: true }));
+      setDismissed((list) =>
+        undo ? list.filter((d) => d.key !== entry.key) : [...list, entry],
+      );
+      try {
+        const res = await fetch("/api/digest/dismiss", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...entry, undo }),
+        });
+        if (!res.ok) throw new Error("failed");
+      } catch {
+        // Put it back the way it was and say so.
+        setDismissed((list) =>
+          undo ? [...list, entry] : list.filter((d) => d.key !== entry.key),
+        );
+        setErr(undo ? "Couldn't undo that. Try again." : "Couldn't dismiss that. Try again.");
+      } finally {
+        setDismissing((d) => {
+          const next = { ...d };
+          delete next[entry.key];
+          return next;
+        });
+      }
+    },
+    [],
+  );
+
+  const dismissedKeys = useMemo(() => new Set(dismissed.map((d) => d.key)), [dismissed]);
+
+  // Filtered through the SAME pure function the server uses, so a just-dismissed
+  // item leaves the counts and the category chip exactly as it will after the
+  // next load — no second definition of "what a dismissal does".
   const categories = useMemo(
-    () => (data?.digest ? groupByCategory(data.digest.results, data.categories ?? []) : []),
-    [data],
+    () =>
+      data?.digest
+        ? groupByCategory(applyDismissals(data.digest.results, dismissedKeys), data.categories ?? [])
+        : [],
+    [data, dismissedKeys],
   );
 
   if (!canSee) return null;
@@ -426,6 +486,16 @@ export function DailyDigest() {
                         result={r}
                         openItems={openItems}
                         toggleItem={(key) => setOpenItems((o) => ({ ...o, [key]: !o[key] }))}
+                        dismissible={!!cat.dismissible}
+                        dismissedHere={dismissed.filter((d) => d.checkId === r.id)}
+                        busy={dismissing}
+                        onDismiss={(item) =>
+                          postDismiss(
+                            { key: dismissalKey(r.id, item), checkId: r.id, title: item.title },
+                            false,
+                          )
+                        }
+                        onUndo={(entry) => postDismiss(entry, true)}
                       />
                     ))}
                   </div>
@@ -477,10 +547,22 @@ function CheckBlock({
   result,
   openItems,
   toggleItem,
+  dismissible,
+  dismissedHere,
+  busy,
+  onDismiss,
+  onUndo,
 }: {
   result: StoredCheckResult;
   openItems: Record<string, boolean>;
   toggleItem: (key: string) => void;
+  /** Does this check's category allow "handled, stop showing it" (settings.ts). */
+  dismissible: boolean;
+  /** Dismissed during this visit — drawn under the list so Undo stays reachable. */
+  dismissedHere: { key: string; checkId: string; title: string }[];
+  busy: Record<string, boolean>;
+  onDismiss: (item: DigestItem) => void;
+  onUndo: (entry: { key: string; checkId: string; title: string }) => void;
 }) {
   const mark = TONE_MARK[categoryTone({ status: result.status, itemCount: result.items.length })];
   // Items keep whatever `group` their check gave them — a calendar day, a vendor,
@@ -518,26 +600,42 @@ function CheckBlock({
               const key = `${result.id}:${group}:${i}`;
               const isOpen = !!openItems[key];
               const expandable = Boolean(item.detail || item.sourceLink);
+              const dismissKey = dismissalKey(result.id, item);
               return (
                 <li key={key}>
-                  <button
-                    type="button"
-                    onClick={() => expandable && toggleItem(key)}
-                    aria-expanded={expandable ? isOpen : undefined}
-                    className={`flex w-full items-start gap-2 rounded py-1 text-left text-[12.5px] leading-snug ${
-                      expandable ? "hover:text-accent dark:hover:text-accent-soft" : "cursor-default"
-                    }`}
-                  >
-                    {expandable && (
-                      <span
-                        aria-hidden
-                        className={`mt-0.5 shrink-0 text-[10px] text-neutral-400 transition ${isOpen ? "rotate-90" : ""}`}
+                  {/* The row and its Dismiss are SIBLINGS, not nested buttons —
+                      tapping the title still expands the item. */}
+                  <div className="flex items-start gap-1">
+                    <button
+                      type="button"
+                      onClick={() => expandable && toggleItem(key)}
+                      aria-expanded={expandable ? isOpen : undefined}
+                      className={`flex min-w-0 flex-1 items-start gap-2 rounded py-1 text-left text-[12.5px] leading-snug ${
+                        expandable ? "hover:text-accent dark:hover:text-accent-soft" : "cursor-default"
+                      }`}
+                    >
+                      {expandable && (
+                        <span
+                          aria-hidden
+                          className={`mt-0.5 shrink-0 text-[10px] text-neutral-400 transition ${isOpen ? "rotate-90" : ""}`}
+                        >
+                          ›
+                        </span>
+                      )}
+                      <span className="min-w-0 flex-1">{item.title}</span>
+                    </button>
+                    {dismissible && (
+                      <button
+                        type="button"
+                        onClick={() => onDismiss(item)}
+                        disabled={!!busy[dismissKey]}
+                        aria-label={`Dismiss: ${item.title}`}
+                        className="shrink-0 rounded px-1.5 py-1 text-[11px] font-semibold text-neutral-400 transition hover:text-red-600 disabled:opacity-50 dark:hover:text-red-400"
                       >
-                        ›
-                      </span>
+                        {busy[dismissKey] ? "…" : "Dismiss"}
+                      </button>
                     )}
-                    <span className="min-w-0 flex-1">{item.title}</span>
-                  </button>
+                  </div>
                   {isOpen && (
                     <div className="mb-1 ml-4 border-l-2 border-line pl-2.5">
                       {item.detail && (
@@ -561,6 +659,27 @@ function CheckBlock({
           </ul>
         </div>
       ))}
+
+      {/* Just-dismissed items, kept on screen with an Undo for the rest of the
+          visit — a mis-tap on a phone list must not be a one-way door. They are
+          already out of every count above. */}
+      {dismissedHere.length > 0 && (
+        <ul className="ml-5 mt-1.5 space-y-0.5">
+          {dismissedHere.map((d) => (
+            <li key={d.key} className="flex items-start gap-2 py-0.5 text-[11.5px] text-neutral-400">
+              <span className="min-w-0 flex-1 truncate line-through">{d.title}</span>
+              <button
+                type="button"
+                onClick={() => onUndo(d)}
+                disabled={!!busy[d.key]}
+                className="shrink-0 font-semibold text-accent hover:underline disabled:opacity-50 dark:text-accent-soft"
+              >
+                {busy[d.key] ? "…" : "Undo"}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

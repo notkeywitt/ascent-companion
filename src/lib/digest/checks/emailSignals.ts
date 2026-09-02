@@ -92,6 +92,10 @@ export const emailSignalsCheck = defineCheck<EmailSignalsConfig>({
       if (!e) continue;
       items.push({
         title: a.title,
+        // Thread + what Claude called it. Claude re-words a title between runs,
+        // so a dismissal here holds only while the wording holds — which is why
+        // the to-do checks key on a real id instead.
+        key: `appt:${e.threadId ?? e.messageId ?? a.emailIndex}:${a.title}`,
         detail: `Mentioned by ${e.fromName || e.from || "someone"} in "${e.subject}"${a.time ? ` — ${a.time}` : ""}.`,
         sourceLink: e.threadUrl,
         sourceLabel: "Gmail thread",
@@ -104,6 +108,7 @@ export const emailSignalsCheck = defineCheck<EmailSignalsConfig>({
       if (!e) continue;
       items.push({
         title: a.title,
+        key: `action:${e.threadId ?? e.messageId ?? a.emailIndex}:${a.title}`,
         detail:
           `${a.owner === "us" ? "Asked of us" : "We're on the hook"} by ${e.fromName || e.from || "someone"}` +
           ` in "${e.subject}"${a.dueHint ? ` — ${a.dueHint}` : ""}.`,

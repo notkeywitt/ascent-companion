@@ -14,6 +14,7 @@ import { desc, eq, or, and, lte } from "drizzle-orm";
 import { db, ensureDb } from "@/db";
 import { digestTodos } from "@/db/schema";
 import { defineCheck, allClear, checkError, type CheckResult, type DigestItem } from "../types";
+import { todoItemKey } from "../dismissals";
 import type { DigestTodosConfig } from "../settings";
 
 export const digestTodosCheck = defineCheck<DigestTodosConfig>({
@@ -48,6 +49,9 @@ export const digestTodosCheck = defineCheck<DigestTodosConfig>({
     }
     const items: DigestItem[] = rows.map((r) => ({
       title: r.text,
+      // The row's own id: dismissing one of these MARKS IT DONE in digest_todos
+      // (see POST /api/digest/dismiss), because the digest owns these reminders.
+      key: todoItemKey(r.id),
       detail: r.snoozeUntil ? `Snoozed until ${r.snoozeUntil}` : undefined,
       date: r.snoozeUntil || undefined,
       group: "Reminders",

@@ -89,6 +89,9 @@ export const jobtreadTodosCheck = defineCheck<JobTreadTodosConfig>({
       const where = jobWhere(t);
       items.push({
         title: t.name,
+        // JobTread's own task id — so dismissing one hides THAT to-do, and
+        // re-titling it in JobTread doesn't bring it back.
+        key: `task:${t.id}`,
         detail: [
           where ? `Where: ${where}` : "",
           `When: ${due ? `${overdue ? "overdue, was due " : "due "}${due}` : "no due date"}`,

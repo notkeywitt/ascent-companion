@@ -207,7 +207,8 @@ while its checks are off.
 | `registry.ts` | The one list of checks, each bound to its settings block. Adding a check = one import + one line here. |
 | `run.ts` | The aggregator: runs each enabled check in isolation (per-check timeout; a failure becomes one `status:"error"` entry, never a broken digest), makes the single Gemini summary call, stores the result. Knows nothing about any individual check. |
 | `grouping.ts` ⟂ | Stored results → the categories the screen draws, worst status rolled up. Also `categoryTone`, which separates PRESENTATION from status: a check reporting `ok` with items (the calendar) draws as informational with its count, not as a green "Clear". Pure, so "categories are data, not tabs" is testable. |
-| `store.ts` | Read/write the `daily_digest` row — the ONLY thing this feature writes anywhere. |
+| `store.ts` | Read/write the `daily_digest` row and the `digest_dismissals` rows — the ONLY things this feature writes anywhere. |
+| `dismissals.ts` ⟂ | "This one is handled, stop showing it to me." Pure: builds an item's stable dismissal key (`<checkId>::<item key>`, falling back to the title) and filters a set of results by it — the same code the browser, the aggregator and GET `/api/digest` all use, so a dismissal means one thing. Dismissing never closes a JobTread to-do or touches Gmail; the office's own reminders are the one item a dismissal also marks done, in `digest_todos`. |
 | `checks/uncapturedBills.ts` | Invoice-looking mail with no matching JobTread bill (sender → vendor account → date/amount window). |
 | `checks/draftBillsPastCutoff.ts` | Draft vendor bills left over from a billing month that already closed. |
 | `checks/reconciliationFlags.ts` | The Expenditure sheet's own `Reconciliation Flags` column, grouped by flag type. Reads the sheet's verdict; never re-derives it. |
@@ -217,9 +218,18 @@ while its checks are off.
 | `checks/emailSignals.ts` | Appointments and action items *mentioned in* recent inbox email, via ONE Gemini pass. **The only check that sends email BODY text off-site** — every other one reads metadata only. The body is truncated and quote-stripped on the Apps Script side (`digestEmailContent`) before it ever reaches this app, and only the extracted result is kept. |
 | `checks/emailFollowUps.ts` | Inbox threads whose last message came from outside and went unanswered past a business-day threshold. |
 
+Items in a category flagged `dismissible` in `settings.ts` (To-Do, Follow-ups)
+carry a Dismiss button on the card. It POSTs `/api/digest/dismiss`, which stores
+the item's key; the run filters those out before Claude writes the brief, and
+GET `/api/digest` filters the already-stored digest, so a dismissal takes effect
+on the current card and every later one. Undo lifts it (deactivated, not
+deleted). A follow-up's key carries the thread's last-message time, so a NEW
+reply on a dismissed thread comes back.
+
 Tests: `digest.test.ts` (registry wiring, category grouping, the informational
 vs. clear tone, the billing-cutoff rule, vendor/amount matching, the exclusion
-lists).
+lists); `dismissals.test.ts` (item identity across re-runs, and what filtering
+does to a check's status and summary).
 
 Tests live beside their module (`*.test.ts`): `billing`, `billLineMath`,
 `jobtread`, `paveGateway`, `leadInquiry`, `taskRunner`, `appsScript`.
@@ -291,7 +301,8 @@ Grouped by domain; each folder is `…/route.ts`.
   `usage-track`, `digest` (GET the stored digest — gated by the admin-only
   `digest` view; `digest/run` builds one and is the ONE route listed as PUBLIC
   in middleware, because the daily cron carries no session — it checks a bearer
-  secret or an admin session itself).
+  secret or an admin session itself; `digest/reply` the reply box;
+  `digest/dismiss` marks one To-Do / Follow-up item handled, and undoes it).
 
 > Gateway rule of thumb: reads are open to any signed-in role; writes are
 > triple-gated (see `CLAUDE.md` → "The Pave gateway"). New pages are read-first.
@@ -334,7 +345,9 @@ Grouped by domain; each folder is `…/route.ts`.
 `lead_inquiries`, `lead_inquiry_dismissals`, `leave_policies`, `leave_balances`,
 `leave_requests`, `leave_transactions`, `jt_user_links`, `notices`,
 `notice_reads`, `rfis`, `sunset_statements`, `page_copy`, `bill_index`,
-`bill_line_index`, `bill_index_meta`, `daily_digest`, `invoice_review_rulings`
+`bill_line_index`, `bill_index_meta`, `daily_digest`, `digest_dismissals`
+(items the office marked handled on the digest — hidden from every later run),
+`invoice_review_rulings`
 (the invoice review's standing rulings), `invoice_review_runs` (every review that
 has run — the history the learning layer reads), `invoice_review_finding_state`
 (when each finding appeared and whether it went away — ages + check precision),

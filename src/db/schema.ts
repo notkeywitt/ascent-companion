@@ -1069,6 +1069,36 @@ export type DigestIgnoreRule = typeof digestIgnoreRules.$inferSelect;
 export type NewDigestIgnoreRule = typeof digestIgnoreRules.$inferInsert;
 
 /**
+ * DISMISSED DIGEST ITEMS — one row per "this one is handled, stop showing it".
+ *
+ * `key` is the item's stable identity (`dismissalKey` in
+ * src/lib/digest/dismissals.ts: "<checkId>::<item key>"), so dismissing the same
+ * thing twice rewrites the row instead of stacking them. The digest run filters
+ * these out before it summarizes, and GET /api/digest filters the already-stored
+ * digest with the same set, so a dismissal takes effect on the current card and
+ * on every later one.
+ *
+ * Lifted (`active` false) rather than deleted on Undo, so "why did that stop
+ * showing up" stays answerable — same convention as `digest_ignore_rules`.
+ *
+ * A dismissal hides an item HERE ONLY. Nothing in this feature closes a
+ * JobTread to-do or touches a Gmail thread; the office's own reminders are the
+ * one thing a dismissal also resolves at the source, in `digest_todos`, because
+ * the digest is where those live.
+ */
+export const digestDismissals = sqliteTable("digest_dismissals", {
+  key: text("key").primaryKey(), // "<checkId>::<item key>"
+  checkId: text("check_id").notNull().default(""),
+  title: text("title").notNull().default(""), // the item's title when dismissed, for the record
+  dismissedBy: text("dismissed_by").notNull().default(""), // signed-in email
+  dismissedAt: text("dismissed_at").notNull().default(""), // ISO
+  active: integer("active", { mode: "boolean" }).notNull().default(true),
+});
+
+export type DigestDismissal = typeof digestDismissals.$inferSelect;
+export type NewDigestDismissal = typeof digestDismissals.$inferInsert;
+
+/**
  * Audit trail for the digest reply box — one row per submitted reply, with the
  * raw text and what Claude parsed out of it. Never read back by the digest
  * itself (the todos/ignore-rules tables above are what checks actually read);

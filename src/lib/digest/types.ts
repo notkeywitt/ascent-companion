@@ -25,6 +25,18 @@ export type CheckStatus = "ok" | "warning" | "error";
 export interface DigestItem {
   /** The one line shown collapsed. Keep it scannable — a name, not a sentence. */
   title: string;
+  /**
+   * STABLE IDENTITY, for dismissal. Set it to something that names the same
+   * real-world thing on every run — a JobTread to-do id, a Gmail thread id.
+   * `dismissalKey` (dismissals.ts) falls back to the title when it is absent,
+   * which works but is fragile: a check whose titles are re-worded each run
+   * (anything Claude writes) should set this itself.
+   *
+   * Put whatever SHOULD un-dismiss the item into the key. The follow-ups check
+   * keys on thread + last-message time, so a new reply on a dismissed thread
+   * comes back as a new item rather than staying hidden.
+   */
+  key?: string;
   /** The expanded explanation. Shown when the item is opened. */
   detail?: string;
   /** Where this came from: a Gmail thread, a JobTread document, a page here. */

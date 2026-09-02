@@ -17,17 +17,19 @@
  *
  * ── READ-ONLY, END TO END ───────────────────────────────────────────────────
  * Every check reads. Nothing here writes to Gmail, Calendar, Drive, the Sheet
- * or JobTread. The ONLY thing this feature writes is its own `daily_digest` row
- * in the companion database.
+ * or JobTread. The only things this feature writes are its own `daily_digest`
+ * row and the `digest_dismissals` rows the Dismiss button makes — both in the
+ * companion database.
  */
 import { companyDateParts } from "@/lib/billing";
 import { getPaveConfig, hasGrant } from "@/lib/config";
 import { summarizeDigestWithClaude } from "./claude";
 import { CHECKS } from "./registry";
 import { resolveChecks } from "./overrides";
+import { applyDismissals } from "./dismissals";
 import { getInstructionTexts } from "./instructions";
 import { DIGEST_GLOBAL } from "./settings";
-import { saveDigest } from "./store";
+import { readActiveDismissals, saveDigest } from "./store";
 import type { DigestCheck, DigestPayload, StoredCheckResult } from "./types";
 
 /** YYYY-MM-DD in the company timezone — the digest's date key. */
@@ -66,12 +68,17 @@ function reasonOf(e: unknown): string {
  * `allChecks` defaults to the static `CHECKS` (settings.ts only, no DB) so
  * every existing caller — including the isolation test below — is unaffected.
  * `runDigest` is the one real caller that passes the live, override-aware
- * list from `resolveChecks()`.
+ * list from `resolveChecks()`, plus the office's dismissals.
+ *
+ * `dismissed` is the set of item keys the office has marked handled (see
+ * dismissals.ts). They are taken out BEFORE the summary is written, so Claude
+ * never briefs the owner on something they already dealt with.
  */
 export async function computeDigest(
   now: Date = new Date(),
   allChecks: DigestCheck<never>[] = CHECKS,
   instructions: string[] = [],
+  dismissed: ReadonlySet<string> = new Set(),
 ): Promise<DigestPayload> {
   const startedAt = Date.now();
   const today = digestDateKey(now);
@@ -85,7 +92,7 @@ export async function computeDigest(
   if (!pave) stamp("JT_GRANT_KEY is not set — JobTread-backed checks will report an error");
   if (instructions.length) stamp(`${instructions.length} standing instruction(s) will shape the summary`);
 
-  const results: StoredCheckResult[] = [];
+  let results: StoredCheckResult[] = [];
   for (const check of checks) {
     const checkStart = Date.now();
     stamp(`→ ${check.id} started`);
@@ -130,6 +137,13 @@ export async function computeDigest(
       });
       stamp(`← ${check.id} ERROR (${Date.now() - checkStart}ms): ${error}`);
     }
+  }
+
+  if (dismissed.size > 0) {
+    const before = results.reduce((n, r) => n + r.items.length, 0);
+    results = applyDismissals(results, dismissed);
+    const after = results.reduce((n, r) => n + r.items.length, 0);
+    stamp(`${before - after} item(s) hidden by ${dismissed.size} dismissal(s)`);
   }
 
   const errored = results.filter((r) => r.status === "error").length;
@@ -222,8 +236,12 @@ export function fallbackSummary(results: StoredCheckResult[]): string {
  * next run with no redeploy.
  */
 export async function runDigest(now: Date = new Date()): Promise<DigestPayload> {
-  const [checks, instructions] = await Promise.all([resolveChecks(), getInstructionTexts()]);
-  const payload = await computeDigest(now, checks, instructions);
+  const [checks, instructions, dismissed] = await Promise.all([
+    resolveChecks(),
+    getInstructionTexts(),
+    readActiveDismissals(),
+  ]);
+  const payload = await computeDigest(now, checks, instructions, dismissed);
   await saveDigest(payload);
   return payload;
 }

@@ -9,12 +9,13 @@
  * month?" without re-running anything. "Refresh now" rewrites the same row, so
  * a day never accumulates duplicates.
  *
- * This is the ONLY thing the Daily Digest writes anywhere.
+ * The digest row and the dismissals below (one row per item the office marked
+ * handled) are the ONLY things the Daily Digest writes anywhere.
  */
 import { desc, eq } from "drizzle-orm";
 
 import { db, ensureDb } from "@/db";
-import { dailyDigest } from "@/db/schema";
+import { dailyDigest, digestDismissals } from "@/db/schema";
 import type { DigestPayload, StoredCheckResult } from "./types";
 
 /** Persist (or overwrite) the digest for its date. */
@@ -75,4 +76,57 @@ export async function readLatestDigest(): Promise<DigestPayload | null> {
   await ensureDb();
   const rows = await db.select().from(dailyDigest).orderBy(desc(dailyDigest.date)).limit(1);
   return rows[0] ? hydrate(rows[0]) : null;
+}
+
+/* ------------------------------------------------------------- dismissals */
+
+/**
+ * Every item key the office has dismissed and not undone — the set both the run
+ * and GET /api/digest filter with (see `applyDismissals` in dismissals.ts).
+ *
+ * Fail-soft: an unreachable DB degrades to "nothing dismissed", so the digest
+ * still renders in full rather than erroring over a hide list.
+ */
+export async function readActiveDismissals(): Promise<Set<string>> {
+  try {
+    await ensureDb();
+    const rows = await db
+      .select({ key: digestDismissals.key })
+      .from(digestDismissals)
+      .where(eq(digestDismissals.active, true));
+    return new Set(rows.map((r) => r.key));
+  } catch {
+    return new Set();
+  }
+}
+
+/** Dismiss one item, or re-dismiss one that was undone. Keyed, so it can't stack. */
+export async function saveDismissal(row: {
+  key: string;
+  checkId: string;
+  title: string;
+  by: string;
+}): Promise<void> {
+  await ensureDb();
+  const values = {
+    key: row.key,
+    checkId: row.checkId,
+    title: row.title.slice(0, 300),
+    dismissedBy: row.by,
+    dismissedAt: new Date().toISOString(),
+    active: true,
+  };
+  await db
+    .insert(digestDismissals)
+    .values(values)
+    .onConflictDoUpdate({ target: digestDismissals.key, set: values });
+}
+
+/** Undo a dismissal — deactivated, not deleted, so the record survives. */
+export async function liftDismissal(key: string): Promise<void> {
+  await ensureDb();
+  await db
+    .update(digestDismissals)
+    .set({ active: false })
+    .where(eq(digestDismissals.key, key));
 }
