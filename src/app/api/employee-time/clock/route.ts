@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 
 import { auth } from "@/auth";
 import {
@@ -36,6 +36,22 @@ import { resolveJtUserLink } from "@/lib/jtUserLink";
  * logs anything (a cancelled clock-in never happened, same as Mileage's "Cancel
  * trip").
  *
+ * ## CLOCKING OUT IS DETACHED, CLOCKING IN IS NOT
+ *
+ * "out" validates, answers `{ accepted: true }` at once, and finishes in
+ * `after()` — the photos to Drive, the Time Entries row, then the JobTread
+ * update. It is the slowest thing this page does and it happens at the end of a
+ * day in a truck, where holding a request open for all of it meant a locked
+ * screen or one dead bar killed the write mid-flight. The phone therefore hears
+ * "accepted", not "pushed"; the outcome lands in the Time Entries row's
+ * `jtStatus` and in this function's log, and a JobTread refusal is
+ * self-correcting because the entry stays OPEN and the GET above offers the
+ * Clock Out button back.
+ *
+ * "in" stays synchronous ON PURPOSE: its whole point is to hand back the new
+ * JobTread entry id, which is what the later clock-out updates. It is one API
+ * call with no upload behind it, so there is nothing slow to detach.
+ *
  * GET  → { ok, openEntry: {entryId, startedAt, jobId, jobLabel, costItemId,
  *          costCode, costItemName, payType, employee} | null, openCount }
  *        startedAt is the org-LOCAL wall clock ("YYYY-MM-DDTHH:MM:SS"), the same
@@ -45,8 +61,7 @@ import { resolveJtUserLink } from "@/lib/jtUserLink";
  * POST { op:"out", entryId, userId, jobId, jobLabel?, costItemId, costCode?,
  *        payType?, employee?, startTime, endTime, note,
  *        photos:[{base64, mimeType, name}] }
- *      → { ok, previewed, wrote, jtEntryId, jtStatus, jtError?, entryId,
- *          photoCount, date }
+ *      → { ok, accepted, previewed, jtEntryId, photoCount }
  * POST { op:"cancel", entryId } → { ok }
  * POST { op:"edit", entryId, jobId, costItemId, startTime, endTime, note }
  *      → { ok, previewed, wrote, jtStatus, minutes? }
@@ -60,6 +75,9 @@ import { resolveJtUserLink } from "@/lib/jtUserLink";
  *        entry) — it rides along for display only.
  */
 export const dynamic = "force-dynamic";
+// Room for the DETACHED clock-out work (Drive upload + Sheet append + JobTread
+// update), which keeps this function alive after the response has gone out.
+export const maxDuration = 300;
 
 // "YYYY-MM-DDTHH:MM" (or with :SS) → a normalised local wall clock for the Time
 // Entries log; the JobTread write converts it with orgLocalToJtIso. Mirrors
@@ -233,8 +251,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "Stop time must be after the start time." }, { status: 400 });
     }
 
-    // Reserve the record first, keyed by clientKey — a retry returns this row
-    // instead of appending a second one, and we skip the JobTread update below.
     const pushable = !!entryId && writesEnabled();
     const pendingStatus = !writesEnabled()
       ? "not pushed (writes off)"
@@ -242,81 +258,74 @@ export async function POST(req: NextRequest) {
         ? "pending push"
         : "not pushed (no JobTread clock-in id)"; // clock-in never got an id
     const photos = (body.photos ?? []).filter((p) => p && p.base64);
-    const reserved = await callAppsScript({
-      action: "logTimeEntry",
-      clientKey,
-      employee: body.employee ?? "",
-      employeeEmail: email,
-      jtUserId: (body.userId ?? "").trim(),
-      jobLabel: body.jobLabel ?? "",
-      jobId: (body.jobId ?? "").trim(),
-      costCode: body.costCode ?? "",
-      costItemId: (body.costItemId ?? "").trim(),
-      payType: body.payType ?? "",
-      startTime: startLocal,
-      endTime: endLocal,
-      note,
-      jtEntryId: pushable ? "" : entryId, // no-push rows still record the clock-in id if any
-      jtStatus: pendingStatus,
-      loggedBy: email,
-      photos,
-    });
-    if (reserved.error) {
-      return NextResponse.json({ ok: false, error: reserved.error }, { status: reserved.status });
-    }
-    const l = (reserved.data ?? {}) as {
-      ok?: boolean;
-      error?: string;
-      duplicate?: boolean;
-      entryId?: string;
-      date?: string;
-      photoCount?: number;
-      jtEntryId?: string;
-      jtStatus?: string;
-    };
-    if (l?.ok === false) {
-      return NextResponse.json(l, { status: 200 });
-    }
-    if (l.duplicate) {
-      const priorStatus = l.jtStatus ?? "";
-      return NextResponse.json({
-        ok: true,
-        duplicate: true,
-        previewed: /writes off/i.test(priorStatus),
-        wrote: priorStatus === "pushed",
-        jtEntryId: l.jtEntryId ?? entryId,
-        jtStatus: priorStatus,
-        entryId: l.entryId ?? "",
-        date: l.date ?? "",
-        photoCount: l.photoCount ?? 0,
-      });
-    }
 
-    // First time for this key: set endedAt on the open JobTread entry, then
-    // record the outcome back onto the reserved row.
-    let jtStatus = pendingStatus;
-    let jtError = "";
-    if (pushable) {
+    // DETACHED — see the note at the top of this file. Clocking out is the
+    // slowest thing this page does (photos to Drive, a Sheet append, then the
+    // JobTread update) and it happens where service is worst, so the phone is
+    // answered now and the work finishes on the server.
+    after(async () => {
+      // Reserve the record first, keyed by clientKey — a retry returns this row
+      // instead of appending a second one, and we skip the JobTread update below.
+      const reserved = await callAppsScript({
+        action: "logTimeEntry",
+        clientKey,
+        employee: body.employee ?? "",
+        employeeEmail: email,
+        jtUserId: (body.userId ?? "").trim(),
+        jobLabel: body.jobLabel ?? "",
+        jobId: (body.jobId ?? "").trim(),
+        costCode: body.costCode ?? "",
+        costItemId: (body.costItemId ?? "").trim(),
+        payType: body.payType ?? "",
+        startTime: startLocal,
+        endTime: endLocal,
+        note,
+        jtEntryId: pushable ? "" : entryId, // no-push rows still record the clock-in id if any
+        jtStatus: pendingStatus,
+        loggedBy: email,
+        photos,
+      });
+      if (reserved.error) {
+        console.error(`[clock-out] ${clientKey}: could not file the record:`, reserved.error);
+        return;
+      }
+      const l = (reserved.data ?? {}) as {
+        ok?: boolean;
+        error?: string;
+        duplicate?: boolean;
+      };
+      if (l?.ok === false) {
+        console.error(`[clock-out] ${clientKey}: the record was refused:`, l.error ?? "");
+        return;
+      }
+      // Already handled under this key — the outcome is on the row; never
+      // update JobTread twice.
+      if (l.duplicate) return;
+
+      // First time for this key: set endedAt on the open JobTread entry, then
+      // record the outcome back onto the reserved row.
+      if (!pushable) return;
+      let jtStatus = "pending push";
       try {
         await updateTimeEntry(getPaveConfig(), entryId, { endedAt, notes: note });
         jtStatus = "pushed";
       } catch (e) {
-        jtError = e instanceof Error ? e.message : "Unknown error";
-        jtStatus = "JobTread error: " + jtError;
+        const message = e instanceof Error ? e.message : "Unknown error";
+        jtStatus = "JobTread error: " + message;
+        // A clock-out JobTread refuses leaves the entry OPEN in JobTread, which
+        // is self-correcting: the GET above finds it again and the page offers
+        // the Clock Out button back.
+        console.error(`[clock-out] ${clientKey}: JobTread refused the clock-out:`, message);
       }
       await callAppsScript({ action: "finalizeTimeEntryLog", clientKey, jtEntryId: entryId, jtStatus });
-    }
+    });
 
     return NextResponse.json({
       ok: true,
+      accepted: true,
       previewed: !writesEnabled(),
-      wrote: !!entryId && jtStatus === "pushed",
       jtEntryId: entryId,
-      jtStatus,
-      jtError: jtError || undefined,
-      entryId: l.entryId ?? "",
-      date: l.date ?? "",
-      photoCount: l.photoCount ?? 0,
+      photoCount: photos.length,
     });
   }
 

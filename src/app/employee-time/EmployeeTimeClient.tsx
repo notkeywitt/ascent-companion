@@ -80,6 +80,10 @@ interface Photo {
 interface SubmitResult {
   ok?: boolean;
   error?: string;
+  /** The server took the entry and is finishing it in the background — see the
+   *  "detached" note in api/employee-time/route.ts. The push outcome is no
+   *  longer known in this same second, and deliberately so. */
+  accepted?: boolean;
   previewed?: boolean;
   wrote?: boolean;
   jtStatus?: string;
@@ -1275,8 +1279,17 @@ export function EmployeeTimeClient({
 
           {done.result.previewed ? (
             <Banner tone="warning">
-              Saved to the Time Entries record. JobTread push is OFF
-              (COMPANION_WRITES_ENABLED not set) — nothing was written to JobTread.
+              Sent to the Time Entries record. JobTread push is OFF
+              (COMPANION_WRITES_ENABLED not set) — nothing will be written to JobTread.
+            </Banner>
+          ) : done.result.accepted ? (
+            /* The server has the entry and is finishing it — the photos, the
+               record, then the JobTread push. Saying "sent" rather than
+               "pushed" is the honest word for what is known at this point; the
+               entry itself shows up under Timesheets. */
+            <Banner tone="success">
+              Sent. Your time is being filed and pushed to JobTread — you can close the app.
+              It appears under Timesheets once JobTread has it.
             </Banner>
           ) : done.result.wrote ? (
             <Banner tone="success">Pushed to JobTread and saved to the record.</Banner>
@@ -1294,7 +1307,12 @@ export function EmployeeTimeClient({
             <Row label="Start" value={displayStamp(done.summary.startTime)} />
             <Row label="Stop" value={displayStamp(done.summary.endTime)} />
             {done.summary.note && <Row label="Note" value={done.summary.note} />}
-            {done.result.photoCount ? <Row label="Photos" value={`${done.result.photoCount} saved`} /> : null}
+            {done.result.photoCount ? (
+              <Row
+                label="Photos"
+                value={`${done.result.photoCount} ${done.result.accepted ? "sent" : "saved"}`}
+              />
+            ) : null}
           </Card>
 
           <button

@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 
 import { auth } from "@/auth";
 import {
@@ -41,14 +41,37 @@ import { resolveJtUserLink } from "@/lib/jtUserLink";
  *   APPS_SCRIPT_SYNC_URL, APPS_SCRIPT_SYNC_SECRET, JT_GRANT_KEY, JT_ORG_ID,
  *   COMPANION_WRITES_ENABLED
  *
+ * ## THE WRITE IS DETACHED
+ *
+ * POST validates, answers `{ accepted: true }` at once, and does the work in
+ * `after()` — which keeps the function alive for its own maxDuration no matter
+ * what the client does next. This is a phone in a truck: a clock-out with three
+ * job photos is a Drive upload plus a Sheet append plus a JobTread write, and
+ * holding that request open meant a locked screen or a dropped bar killed it
+ * mid-flight, with the employee left staring at an error over work that may or
+ * may not have been saved. The record now always finishes on the server.
+ *
+ * WHAT THE PHONE GIVES UP is the per-entry outcome: it is told the entry was
+ * accepted, not whether JobTread took it. The outcome still lands in two
+ * durable places — the Time Entries row's `jtStatus`, and this function's log —
+ * and the employee can see the entry itself on the Timesheets tab, which reads
+ * JobTread. Losing an entry was the real failure; not confirming the push in
+ * the same second is not.
+ *
+ * The `clientKey` dedupe survives the change and still matters: it is what
+ * makes a double-tap or a replay reconcile to one row instead of two.
+ *
  *   GET                → { ok, me, jtUsers, orgTypes }           (page bootstrap)
  *   GET ?jobId=<id>    → { ok, costItems:[{id, number, name}] }  (cost-code list)
  *   POST { userId, jobId, jobLabel?, costItemId, costCode?, payType?, startTime,
  *          endTime, note, employee?, photos:[{base64, mimeType, name}] }
- *        → { ok, previewed, wrote, jtEntryId, jtStatus, jtError?, entryId,
- *            photoCount, date }
+ *        → { ok, accepted, previewed, photoCount }
  */
 export const dynamic = "force-dynamic";
+// Room for the detached work, not for the answer: the response goes out in
+// milliseconds, but the Drive upload + Sheet append + JobTread write behind it
+// keep this function alive and must not be cut off half-written.
+export const maxDuration = 300;
 
 // datetime-local ("YYYY-MM-DDTHH:MM") → a normalised local wall clock with
 // seconds. This is what the Time Entries sheet logs (the office reads it as
@@ -192,71 +215,61 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "Pick a pay type." }, { status: 400 });
   }
 
-  // 1) RESERVE the durable record FIRST, keyed by clientKey. On a retry this
-  //    returns the row already written (duplicate:true) instead of appending a
-  //    second one — and, because we haven't touched JobTread yet, a replay never
-  //    creates a duplicate JobTread entry either. Photos are saved here (once).
+  // Everything below is DETACHED — see the note at the top of this file. The
+  // phone is answered now; the Drive upload, the Sheet row and the JobTread
+  // write finish on the server.
   const photos = (body.photos ?? []).filter((p) => p && p.base64);
-  const reserved = await callAppsScript({
-    action: "logTimeEntry",
-    clientKey,
-    employee: body.employee ?? "",
-    employeeEmail: email,
-    jtUserId: userId,
-    jobLabel: body.jobLabel ?? "",
-    jobId,
-    costCode: body.costCode ?? "",
-    costItemId,
-    payType: body.payType ?? "",
-    startTime: startLocal,
-    endTime: endLocal,
-    note,
-    jtEntryId: "",
-    jtStatus: writesEnabled() ? "pending push" : "not pushed (writes off)",
-    loggedBy: email,
-    photos,
-  });
-  if (reserved.error) {
-    return NextResponse.json({ ok: false, error: reserved.error }, { status: reserved.status });
-  }
-  const l = (reserved.data ?? {}) as {
-    ok?: boolean;
-    error?: string;
-    duplicate?: boolean;
-    entryId?: string;
-    date?: string;
-    photoCount?: number;
-    jtEntryId?: string;
-    jtStatus?: string;
-  };
-  if (l?.ok === false) {
-    return NextResponse.json(l, { status: 200 });
-  }
-
-  // Replay of an entry we already handled — echo its recorded outcome, do NOT
-  // write to JobTread again.
-  if (l.duplicate) {
-    const priorStatus = l.jtStatus ?? "";
-    return NextResponse.json({
-      ok: true,
-      duplicate: true,
-      previewed: /writes off/i.test(priorStatus),
-      wrote: !!l.jtEntryId,
-      jtEntryId: l.jtEntryId ?? "",
-      jtStatus: priorStatus,
-      entryId: l.entryId ?? "",
-      date: l.date ?? "",
-      photoCount: l.photoCount ?? 0,
+  after(async () => {
+    // 1) RESERVE the durable record FIRST, keyed by clientKey. On a retry this
+    //    returns the row already written (duplicate:true) instead of appending a
+    //    second one — and, because we haven't touched JobTread yet, a replay never
+    //    creates a duplicate JobTread entry either. Photos are saved here (once).
+    const reserved = await callAppsScript({
+      action: "logTimeEntry",
+      clientKey,
+      employee: body.employee ?? "",
+      employeeEmail: email,
+      jtUserId: userId,
+      jobLabel: body.jobLabel ?? "",
+      jobId,
+      costCode: body.costCode ?? "",
+      costItemId,
+      payType: body.payType ?? "",
+      startTime: startLocal,
+      endTime: endLocal,
+      note,
+      jtEntryId: "",
+      jtStatus: writesEnabled() ? "pending push" : "not pushed (writes off)",
+      loggedBy: email,
+      photos,
     });
-  }
+    if (reserved.error) {
+      console.error(`[employee-time] ${clientKey}: could not file the record:`, reserved.error);
+      return;
+    }
+    const l = (reserved.data ?? {}) as {
+      ok?: boolean;
+      error?: string;
+      duplicate?: boolean;
+      entryId?: string;
+      jtEntryId?: string;
+      jtStatus?: string;
+    };
+    if (l?.ok === false) {
+      console.error(`[employee-time] ${clientKey}: the record was refused:`, l.error ?? "");
+      return;
+    }
 
-  // 2) First time for this key: create the JobTread entry (gated), then record
-  //    its id/status back onto the reserved row. A JobTread failure never loses
-  //    the record — the row already exists; we just mark why it didn't push.
-  let jtEntryId = "";
-  let jtStatus = writesEnabled() ? "pending push" : "not pushed (writes off)";
-  let jtError = "";
-  if (writesEnabled()) {
+    // Replay of an entry we already handled — the outcome is already on the
+    // row, so do NOT write to JobTread again.
+    if (l.duplicate) return;
+
+    // 2) First time for this key: create the JobTread entry (gated), then record
+    //    its id/status back onto the reserved row. A JobTread failure never loses
+    //    the record — the row already exists; we just mark why it didn't push.
+    if (!writesEnabled()) return;
+    let jtEntryId = "";
+    let jtStatus = "pending push";
     try {
       const { id } = await createTimeEntry(getPaveConfig(), {
         userId,
@@ -271,21 +284,19 @@ export async function POST(req: NextRequest) {
       jtEntryId = id;
       jtStatus = "pushed";
     } catch (e) {
-      jtError = e instanceof Error ? e.message : "Unknown error";
-      jtStatus = "JobTread error: " + jtError;
+      const message = e instanceof Error ? e.message : "Unknown error";
+      jtStatus = "JobTread error: " + message;
+      console.error(`[employee-time] ${clientKey}: JobTread refused the entry:`, message);
     }
     await callAppsScript({ action: "finalizeTimeEntryLog", clientKey, jtEntryId, jtStatus });
-  }
+  });
 
   return NextResponse.json({
     ok: true,
+    accepted: true,
+    // Known without waiting for anything: the gate is read from the environment,
+    // so the "writes are off" warning is still honest on an immediate answer.
     previewed: !writesEnabled(),
-    wrote: !!jtEntryId,
-    jtEntryId,
-    jtStatus,
-    jtError: jtError || undefined,
-    entryId: l.entryId ?? "",
-    date: l.date ?? "",
-    photoCount: l.photoCount ?? 0,
+    photoCount: photos.length,
   });
 }
