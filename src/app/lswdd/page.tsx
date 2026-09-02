@@ -28,6 +28,9 @@ interface Line {
   expId: string;
   notes: string;
   knownAlias: boolean;
+  /** The job this name is remembered as today — "" when nothing is remembered. */
+  aliasProjectId: string;
+  aliasProjectName: string;
   candidates: { id: string; name: string; customer: string }[];
 }
 
@@ -79,7 +82,9 @@ interface Edit {
  * becomes its own draft vendor bill, so job costing lands where it belongs.
  *
  * Ticking "Remember" teaches the sweep that name, so next month's statement
- * arrives pre-filled.
+ * arrives pre-filled. A name it already knows shows what it's remembered as,
+ * and picking a different job offers to repoint it — LSWDD prints one surname
+ * for a customer with two jobs, so which job "Berger" means changes over time.
  */
 export default function LswddPage() {
   const [statements, setStatements] = useState<Statement[]>([]);
@@ -104,7 +109,16 @@ export default function LswddPage() {
         setError(json.error ?? "Request failed");
         return;
       }
-      const stmts: Statement[] = json.statements ?? [];
+      // Tolerate a back end that predates the alias fields: before they
+      // shipped, a remembered name simply arrived pre-filled with its job.
+      const stmts: Statement[] = (json.statements ?? []).map((s: Statement) => ({
+        ...s,
+        lines: s.lines.map((l) => ({
+          ...l,
+          aliasProjectId: l.aliasProjectId ?? (l.knownAlias ? l.projectId : ""),
+          aliasProjectName: l.aliasProjectName ?? (l.knownAlias ? l.projectName : ""),
+        })),
+      }));
       setStatements(stmts);
       setProjects(json.projects ?? []);
       setDefaultCsi(json.defaultCsi ?? "");
@@ -393,7 +407,7 @@ export default function LswddPage() {
                           {l.rawName}
                           {l.knownAlias && (
                             <Chip tone="neutral" className="ml-2 align-middle">
-                              known name
+                              remembered: {l.aliasProjectName || l.aliasProjectId}
                             </Chip>
                           )}
                         </div>
@@ -434,7 +448,14 @@ export default function LswddPage() {
                           includeAll={false}
                           placeholder="Pick a job"
                           value={e.projectId}
-                          onChange={(id) => setEdit(l.ref, { projectId: id })}
+                          onChange={(id) =>
+                            setEdit(
+                              l.ref,
+                              l.knownAlias
+                                ? { projectId: id, learnAlias: id !== l.aliasProjectId }
+                                : { projectId: id },
+                            )
+                          }
                         />
                       </div>
 
@@ -472,12 +493,20 @@ export default function LswddPage() {
                       </Button>
                     </div>
 
-                    {e.projectId && !l.knownAlias && (
+                    {/* A new name offers to be remembered. A remembered name
+                        offers to be REPOINTED, but only once you've picked a
+                        different job — LSWDD calls two Berger jobs "Berger",
+                        and the one we haul from changes as a build moves on. */}
+                    {e.projectId && (!l.knownAlias || e.projectId !== l.aliasProjectId) && (
                       <div className="mt-2">
                         <Toggle
                           checked={e.learnAlias}
                           onChange={(v) => setEdit(l.ref, { learnAlias: v })}
-                          label={`Remember “${l.rawName}” for next month`}
+                          label={
+                            l.knownAlias
+                              ? `Point “${l.rawName}” at this job from now on (now: ${l.aliasProjectName || l.aliasProjectId})`
+                              : `Remember “${l.rawName}” for next month`
+                          }
                         />
                       </div>
                     )}
