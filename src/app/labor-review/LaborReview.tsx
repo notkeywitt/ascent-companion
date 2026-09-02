@@ -669,7 +669,7 @@ export function LaborReview() {
       {data && !loading && (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
           {/* ─────────── LEFT: budget / cost-code rail ─────────── */}
-          <section className="min-w-0 lg:sticky lg:top-16 lg:self-start">
+          <section className="min-w-0 lg:sticky sticky-below-header lg:self-start">
             <div className="mb-2 flex items-baseline justify-between gap-2">
               <button
                 type="button"
@@ -864,7 +864,7 @@ export function LaborReview() {
           {/* ─────────── RIGHT: coding drawer ─────────── */}
           {/* Sticky lives on the SECTION (the grid item) so it has the row's
               full height to travel within — same reasoning as the board's. */}
-          <section className="min-w-0 xl:sticky xl:top-16 xl:self-start">
+          <section className="min-w-0 xl:sticky sticky-below-header xl:self-start">
             <SectionLabel className="mb-2">Coding</SectionLabel>
             {selectedEntries.length === 0 ? (
               <EmptyState>Select one or more time entries to recode them.</EmptyState>

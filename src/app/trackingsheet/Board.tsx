@@ -2700,7 +2700,7 @@ export function Board() {
               scrolling a long bill list, so it stays put. `self-start` is what
               makes sticky work in a grid — items stretch to the row height by
               default, leaving nothing to scroll within. */}
-          <section className="min-w-0 lg:sticky lg:top-16 lg:self-start">
+          <section className="min-w-0 lg:sticky sticky-below-header lg:self-start">
             <div className="mb-2 flex items-baseline justify-between gap-2">
               {/* On mobile the label itself is the toggle for the whole rail;
                   on desktop the rail is always docked, so the tap is disabled
@@ -3370,7 +3370,7 @@ export function Board() {
               to the row's height in the first place. Opens level with the top
               of the screen (not the clicked bill) — simpler and more
               predictable than tracking the click position. */}
-          <section className="hidden min-w-0 xl:block xl:sticky xl:top-16 xl:self-start">
+          <section className="hidden min-w-0 xl:block xl:sticky sticky-below-header xl:self-start">
             {/* One column, three subjects, in order of how specific the claim
                 is: ONE entry being edited (a row clicked), then a SELECTION
                 being recoded, then the bills. The office codes labor exactly where it

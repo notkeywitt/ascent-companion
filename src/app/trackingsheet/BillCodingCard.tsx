@@ -326,10 +326,10 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
     {!bill ? (
       <EmptyState>{c("recode.empty.selectBill")}</EmptyState>
     ) : (
-      // Height-capped to the room left below the sticky top-16 so a
-      // long bill still scrolls (within the card) instead of running
-      // off-screen — independent of the section's own sticky position.
-      <Card className="max-h-[calc(100vh-5rem)] overflow-y-auto">
+      // Height-capped to the room left below the app header (the measured
+      // one — see globals.css) so a long bill still scrolls within the card
+      // instead of running off-screen.
+      <Card className="max-h-below-header overflow-y-auto">
         <div className="flex items-baseline justify-between gap-2">
           <p className="min-w-0 truncate text-sm font-semibold">{bill.label}</p>
           <JtLink

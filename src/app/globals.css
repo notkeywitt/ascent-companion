@@ -112,6 +112,28 @@
      and everything offset by this variable overlaps the tab bar by exactly
      one pixel. */
   --tabbar-h: calc(3.5rem + 1px + env(safe-area-inset-bottom));
+
+  /* Height of the sticky TOP chrome (components/AppHeader — the job bar and the
+     search box under it). Unlike the tab bar this is not a fixed number: the
+     job bar grows a second line when a job is picked, and the search box is
+     absent for the field role. AppHeader measures itself and rewrites this on
+     every resize, so the value below is only the pre-paint fallback: the job
+     bar (≈3.4rem) + the search row (2.75rem) + the brand hairline. */
+  --appheader-h: 6.25rem;
+}
+
+/* The two things that must clear the top chrome, reading the ONE measured
+   number instead of each guessing at it. A sticky right-hand column that
+   guesses low slides its own heading under the search box the moment the page
+   scrolls — which is exactly what a hardcoded `top-16` did.
+
+   `top` on a static element does nothing, so these are safe to put on a section
+   that only turns sticky at lg/xl. */
+.sticky-below-header {
+  top: calc(var(--appheader-h) + 0.5rem);
+}
+.max-h-below-header {
+  max-height: calc(100dvh - var(--appheader-h) - 1.5rem);
 }
 
 body {

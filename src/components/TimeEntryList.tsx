@@ -882,7 +882,7 @@ export function TimeRecodeCard({
 }) {
   const staged = entries.filter(isStaged);
   return (
-    <Card className="max-h-[calc(100vh-5rem)] overflow-y-auto">
+    <Card className="max-h-below-header overflow-y-auto">
       <div className="flex items-baseline justify-between gap-2">
         <p className="min-w-0 truncate text-sm font-semibold">
           {entries.length} {entries.length === 1 ? "entry" : "entries"}

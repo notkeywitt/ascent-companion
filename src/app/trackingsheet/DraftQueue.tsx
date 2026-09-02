@@ -400,13 +400,13 @@ export function DraftQueue() {
     // side columns. `self-start` is what lets a sticky grid item scroll within
     // its row instead of being stretched to the row's full height.
     <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
-      <section className="hidden min-w-0 xl:block xl:sticky xl:top-16 xl:self-start">
+      <section className="hidden min-w-0 xl:block xl:sticky sticky-below-header xl:self-start">
         <DraftBudgetRail editor={editor} sel={sel} />
       </section>
 
       <section className="min-w-0">{list}</section>
 
-      <section className="hidden min-w-0 xl:block xl:sticky xl:top-16 xl:self-start">
+      <section className="hidden min-w-0 xl:block xl:sticky sticky-below-header xl:self-start">
         <DraftCodingPanel
           editor={editor}
           sel={sel}
