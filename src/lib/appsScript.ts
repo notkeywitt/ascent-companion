@@ -80,6 +80,7 @@ export interface AppsScriptResult<T = unknown> {
  * as a write.
  */
 const EXTRA_READ_ACTIONS = new Set([
+  "billDriveLinks", // read-only Drive lookup for one bill; safe to run twice
   "toolsBootstrap",
   "timeEntryBootstrap",
   "sunsetDuplicates", // an org-wide scan; writes nothing
