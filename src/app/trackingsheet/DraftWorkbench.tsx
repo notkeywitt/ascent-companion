@@ -564,6 +564,16 @@ interface RailRow {
   pending: number;
 }
 
+/**
+ * Is this cost code the DIVISION itself ("04 00 00", "26 00 00")? Everything
+ * after the first two digits is zero. JobTread leaves these without a
+ * parentCostCode — they ARE the parent — so their own name names the division.
+ */
+function isDivisionLevelCode(number: string): boolean {
+  const digits = String(number ?? "").replace(/\D/g, "");
+  return digits.length >= 4 && /^0+$/.test(digits.slice(2));
+}
+
 const railRemaining = (r: RailRow) => r.budget - r.actual - r.pending;
 
 /**
@@ -623,8 +633,11 @@ export function DraftBudgetRail({ editor, sel }: { editor: BillEditor; sel: Sele
     const g = new Map<string, { code: string; name: string; rows: RailRow[] }>();
     for (const r of filtered) {
       const dc = r.code.replace(/\D/g, "").slice(0, 2) || "—";
-      const e = g.get(dc) ?? { code: dc, name: r.division, rows: [] };
-      if (!e.name && r.division) e.name = r.division;
+      const e = g.get(dc) ?? { code: dc, name: "", rows: [] };
+      // Same rule the job rail uses: a code that IS its division
+      // ("04 00 00 Masonry") has no parentCostCode in JobTread, so its own name
+      // names the division — otherwise the header shows a bare number.
+      if (!e.name) e.name = r.division || (isDivisionLevelCode(r.code) ? r.name : "");
       e.rows.push(r);
       g.set(dc, e);
     }
