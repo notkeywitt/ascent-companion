@@ -2,6 +2,11 @@ import { withSentryConfig } from "@sentry/nextjs";
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Overridable so a build can be run without stomping on `.next`. Two Next
+  // builds (or a build and a running `next dev`) share `.next` and wipe each
+  // other's manifests, which surfaces as ENOENT on pages-manifest.json during
+  // "Collecting page data". `.githooks/pre-push` sets this for that reason.
+  distDir: process.env.NEXT_DIST_DIR || '.next',
   eslint: {
     // Lint runs in CI (.github/workflows/ci.yml), NOT in the deploy path.
     //

@@ -1,0 +1,37 @@
+#!/bin/sh
+# Blocks a push to main unless typecheck and build pass.
+#
+# main is production on Vercel: a push deploys straight to the live app, with
+# JobTread writes armed. This hook is the only gate between a bad commit and
+# field staff, so do not bypass it with --no-verify.
+#
+# Arm it on a fresh clone (once per machine):
+#   git config core.hooksPath .githooks
+
+pushing_main=0
+while read -r local_ref local_sha remote_ref remote_sha; do
+  case "$remote_ref" in
+    refs/heads/main) pushing_main=1 ;;
+  esac
+done
+
+if [ "$pushing_main" -eq 0 ]; then
+  exit 0
+fi
+
+echo "pre-push: main is production — running typecheck and build"
+
+if ! npm run typecheck; then
+  echo "pre-push: typecheck FAILED — push blocked" >&2
+  exit 1
+fi
+
+# Build into its own directory. Sharing `.next` with a dev server or a second
+# build makes both fail on a missing manifest.
+if ! NEXT_DIST_DIR=.next-prepush npm run build; then
+  echo "pre-push: build FAILED — push blocked" >&2
+  exit 1
+fi
+
+echo "pre-push: checks passed"
+exit 0

@@ -28,43 +28,44 @@ Simplified Technical English, relaxed. These rules apply to every response.
   in parentheses. The owner knows this system's logic well but not dev jargon.
   That is the only reason to add words.
 
-## The mobile build loop (read this first)
+## Shipping (read this first)
 
-You may be invoked from a **phone**. The owner will describe a feature or page in
-plain language; your job is to build it, get it onto a **Vercel preview**, and let
-them test it from their phone before it goes to production. The loop:
+**`main` is production.** A push to `main` deploys to Vercel at once. The owner
+does not use branch previews, so there is no review step between your push and
+the live app that field staff use.
 
-1. **Work on a branch, never straight on `main`.** Claude Code already puts your
-   work on a `claude/*` branch — keep it there. `main` = production; a branch = a
-   preview.
-2. **Build the page** following "How to build a new page" below.
-3. **Verify before you commit** — both must pass:
-   ```
-   npm run typecheck
-   npm run build
-   ```
-   Files must be valid UTF-8 text (a stray control/NUL byte makes git treat a
-   source file as binary and can still compile — if `git` shows a `.tsx` as
-   `Bin`, find and remove the byte).
-4. **Push the branch.** Vercel builds a **preview deployment** for every branch —
-   its URL appears on the GitHub PR (Vercel bot comment) and in the Vercel
-   dashboard. Give the owner that preview URL to test on their phone.
-5. **Promote when approved.** Merging the branch into `main` ships it to
-   production. Only merge when the owner says so.
+Work on `main`. If a session put you on a `claude/*` branch, merge it into `main`
+when the change is done, then push `main`.
 
-Keep new pages **read-only** unless the owner explicitly asks for writes (see the
-gateway rules) — a preview that only reads JobTread is safe to hand to a phone.
+**Commit and push to `main` when a change is done.** Do not wait to be asked.
+Every one of these must hold first:
 
-## How code reaches production
+1. `npm run typecheck` and `npm run build` both pass. A failure blocks the push.
+   The `.githooks/pre-push` hook enforces this. Never bypass it with
+   `--no-verify`. Check the hook is armed with `git config core.hooksPath` — it
+   must print `.githooks`. On a fresh clone it is empty; run
+   `git config core.hooksPath .githooks` once to arm it.
+2. Every file is valid UTF-8 text. A stray control or NUL byte makes git treat a
+   source file as binary, and it still compiles. If `git` shows a `.tsx` as
+   `Bin`, find the byte and remove it.
+3. Stage only the files this change touched, by name. Never `git add -A`, never
+   `git commit -a`. If the tree holds edits you did not make, leave them alone
+   and name the files you left.
+4. Say in one line what is about to reach production. Then push.
 
-- Edits → a `claude/*` branch → `git push` → **Vercel preview**. Merge to `main`
-  → **Vercel production**.
+**Stop and ask instead of pushing** when the change touches `src/auth.ts`,
+`src/middleware.ts`, `src/lib/config.ts`, `src/lib/paveGateway.ts`, or any
+JobTread write path. Writes are armed in production, so those changes reach live
+data on deploy.
+
+If the push is rejected, pull and rebase. Never force-push. Never rewrite history
+that is already on `origin`.
+
 - Git + the private GitHub repo (`notkeywitt/ascent-companion`) is the source of
-  truth. Assume pull-before-edit, push-after.
+  truth. Pull before you edit.
 - **Claude writes the commit message.** Style: short, lowercase, imperative,
-  prefixed `companion:` — e.g. `companion: add jobs budget view`. End commits with
-  `Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>`. Only run
-  `git commit`/`git push` when asked, but always propose the message.
+  prefixed `companion:` — e.g. `companion: add jobs budget view`. End it with a
+  `Co-Authored-By:` trailer naming the model in use.
 
 ## Stack & where things live
 
@@ -131,7 +132,8 @@ gateway rules) — a preview that only reads JobTread is safe to hand to a phone
 4. **Build the UI on `ui.tsx` primitives.** Mobile-first (`max-w-2xl`, thumb-sized
    targets), theme-aware. Match the look of existing pages (`src/app/jobs`,
    `src/app/unbilled`, `src/app/stage`).
-5. **Verify** (`npm run typecheck` && `npm run build`) before committing.
+5. **Verify** (`npm run typecheck` && `npm run build`) before committing — see
+   "Shipping"; the pre-push hook runs both again.
 
 For the bigger picture of why the gateway exists and where views should go, see
 **`FRONTEND_ARCHITECTURE.md`** (in this repo).
