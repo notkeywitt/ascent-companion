@@ -545,14 +545,56 @@ export interface TimeEntryListProps {
   /** Given → each row carries the review flag. */
   onFlag?: (id: string, flagged: boolean) => void;
   /**
-   * Given → each row carries an Edit button, for the surfaces that can open ONE
-   * entry (hours, day, job). Selection is what both pages share; this is an
-   * extra affordance where the host supports it, not a different row.
+   * Given → CLICKING A ROW opens that one entry, for the surfaces that can edit
+   * one (hours, day, code, job). Selection stays on the checkbox either way, so
+   * a host with no editor keeps a row that selects and nothing is lost.
    */
   onEdit?: (id: string) => void;
   editingId?: string | null;
   /** Shown when the month has entries but the filters leave none. */
   emptyFiltered?: React.ReactNode;
+}
+
+/**
+ * The clickable body of a row — everything right of the checkbox.
+ *
+ * A BUTTON where the host can open one entry (Tracking Sheets' panel), because
+ * the row IS the way in: reading "8h on General Labor" and wanting to look at
+ * it is one motion, and a ✎ made the office aim at a glyph for it. A LABEL for
+ * the checkbox where the host has no editor (Labor Review), where selecting is
+ * the only thing a row does and taking that off the row would leave it inert.
+ */
+function RowBody({
+  t,
+  onEdit,
+  editing,
+  children,
+}: {
+  t: TimeEntryRow;
+  onEdit?: (id: string) => void;
+  editing: boolean;
+  children: React.ReactNode;
+}) {
+  const cls =
+    "flex min-w-0 flex-1 cursor-pointer items-start gap-2 py-2 pl-1 pr-3 text-left transition hover:bg-accent/5 dark:hover:bg-white/5";
+  if (!onEdit) {
+    return (
+      <label htmlFor={`tel-sel-${t.id}`} className={cls}>
+        {children}
+      </label>
+    );
+  }
+  return (
+    <button
+      type="button"
+      onClick={() => onEdit(t.id)}
+      aria-expanded={editing}
+      title="Open this entry — hours, day, cost code, job"
+      className={cls}
+    >
+      {children}
+    </button>
+  );
 }
 
 export function TimeEntryList({
@@ -674,13 +716,25 @@ export function TimeEntryList({
                       } ${editingId === t.id ? "bg-accent/10" : ""}`}
                     >
                       <div className="flex items-start">
-                        <label className="flex min-w-0 flex-1 cursor-pointer items-start gap-2 px-3 py-2 transition hover:bg-accent/5 dark:hover:bg-white/5">
+                        {/* THE CHECKBOX IS THE SELECTION, and the only thing
+                            that is: a strip down the left of the row, full row
+                            height, so ticking several is a column of taps. The
+                            row itself opens the entry (below), because a list
+                            you read is a list you tap to look closer at. */}
+                        <label
+                          htmlFor={`tel-sel-${t.id}`}
+                          className="flex shrink-0 cursor-pointer items-start self-stretch py-2 pl-3 pr-2 transition hover:bg-accent/5 dark:hover:bg-white/5"
+                        >
                           <input
+                            id={`tel-sel-${t.id}`}
                             type="checkbox"
                             checked={selected.has(t.id)}
                             onChange={() => toggleOne(t.id)}
                             className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--accent)]"
                           />
+                          <span className="sr-only">Select this entry</span>
+                        </label>
+                        <RowBody t={t} onEdit={onEdit} editing={editingId === t.id}>
                           <span className="min-w-0 flex-1">
                             {/* HOURS is the display figure on a labor list — the
                                 question being reviewed is "how long did this
@@ -750,28 +804,10 @@ export function TimeEntryList({
                               </span>
                             )}
                           </span>
-                        </label>
-                        {/* Outside the label on purpose — nested in it, every tap
-                            on these would also toggle the row's checkbox. Small
-                            glyphs, full 44px targets (IconButton). */}
-                        {onEdit && (
-                          <IconButton
-                            label="Edit this entry"
-                            title="Edit this entry's hours, day, code or job"
-                            aria-pressed={editingId === t.id}
-                            onClick={() => onEdit(t.id)}
-                            className="mt-1"
-                          >
-                            <span
-                              aria-hidden
-                              className={`text-sm ${
-                                editingId === t.id ? "text-accent" : "opacity-50"
-                              }`}
-                            >
-                              ✎
-                            </span>
-                          </IconButton>
-                        )}
+                        </RowBody>
+                        {/* Outside the row body on purpose — nested in it, every
+                            tap on this would also open the editor. Small glyph,
+                            full 44px target (IconButton). */}
                         {onFlag && (
                           <IconButton
                             label={t.flagged ? "Remove review flag" : "Flag for review"}

@@ -33,7 +33,12 @@ import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
  * sending a bare wall clock to the API lands the entry 7 hours early (see the
  * timestamp note in lib/jobtread.ts).
  *
- * ALL THREE WRITES ARE PROBE-CONFIRMED (2026-08-25, see the note on
+ * THE APPROVAL MARK rides the same route. `isApproved` is a field on
+ * updateTimeEntry, so "Approve time" is this POST with nothing but the id and
+ * the flag — the panel sends it alone rather than folding it into Save, so a
+ * press that approves the hours can never also rewrite them.
+ *
+ * ALL THREE EDIT WRITES ARE PROBE-CONFIRMED (2026-08-25, see the note on
  * updateTimeEntry in lib/jobtread.ts): a recode leaves the money alone, a
  * re-time makes JobTread recompute minutes and therefore cost, and a job move
  * is only legal WITH a cost item on the target job — `jobId` alone comes back
@@ -71,6 +76,8 @@ interface EditBody {
   /** Org-local "HH:MM"; may be on the NEXT day, which is inferred from the start. */
   endTime?: string;
   notes?: string;
+  /** The payroll approval mark. Sent alone by the panel's "Approve time". */
+  isApproved?: boolean;
 }
 
 export async function POST(req: NextRequest) {
@@ -93,6 +100,7 @@ export async function POST(req: NextRequest) {
     costItemId?: string;
     jobId?: string;
     notes?: string;
+    isApproved?: boolean;
   } = {};
 
   // ---- the timestamps ----
@@ -155,6 +163,12 @@ export async function POST(req: NextRequest) {
   }
   if (costItemId) fields.costItemId = costItemId;
   if (typeof body.notes === "string") fields.notes = body.notes;
+
+  // ---- the approval mark ----
+  // The panel sends this on its own, so it is a write in its own right and not
+  // a rider on an edit. A recode leaves it untouched (probe-confirmed), which
+  // is why approving is a separate press rather than a side effect of Save.
+  if (typeof body.isApproved === "boolean") fields.isApproved = body.isApproved;
 
   if (Object.keys(fields).length === 0) {
     return NextResponse.json({ error: "Nothing to change" }, { status: 400 });

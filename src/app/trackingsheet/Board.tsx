@@ -3043,8 +3043,8 @@ export function Board() {
                 Review's list — src/components/TimeEntryList, the same component
                 that page renders. Tick rows to recode a week of them together
                 (the drawer takes the coding column, where a bill is coded, so
-                there's no second layout to learn); tap ✎ on one to fix its
-                hours, day, code or job without leaving the month. ---- */}
+                there's no second layout to learn); tap a row to fix its hours,
+                day, code or job without leaving the month. ---- */}
             {mode !== "summary" && (
               <Card pad={false} className="mb-2 overflow-hidden">
                 {/* The header is a ROW, not one button: the chevron toggles the
@@ -3089,11 +3089,11 @@ export function Board() {
                   <>
                     {/* The list, its filters and its grouping are the SAME
                         component Labor Review renders — see
-                        src/components/TimeEntryList. Checking rows selects them
-                        for the coding column's bulk recode; the ✎ on a row opens
-                        the single-entry editor (hours, day, code, job), which is
-                        this board's own affordance and the reason a correction
-                        no longer means leaving the month. */}
+                        src/components/TimeEntryList. The CHECKBOX selects rows
+                        for the coding column's bulk recode; the ROW opens the
+                        single-entry editor (hours, day, code, job, approve),
+                        which is this board's own affordance and the reason a
+                        correction no longer means leaving the month. */}
                     <TimeEntryList
                       filters={timeFilters}
                       monthEntries={monthTime}
@@ -3372,8 +3372,8 @@ export function Board() {
               predictable than tracking the click position. */}
           <section className="hidden min-w-0 xl:block xl:sticky xl:top-16 xl:self-start">
             {/* One column, three subjects, in order of how specific the claim
-                is: ONE entry being edited (the ✎), then a SELECTION being
-                recoded, then the bills. The office codes labor exactly where it
+                is: ONE entry being edited (a row clicked), then a SELECTION
+                being recoded, then the bills. The office codes labor exactly where it
                 codes a bill instead of learning a second layout — and the
                 recode drawer is the same component Labor Review shows, so the
                 two pages move a week of hours identically. */}

@@ -19,6 +19,10 @@ import { clockOfMinutes, minutesOfClock, orgParts, prettyClock, spanHours } from
  * travel together because they're one correction: "that was Thursday, on the
  * other house, and it was six hours not eight."
  *
+ * APPROVING IS A FIFTH PRESS, not a fifth field. It writes `isApproved` on its
+ * own, so approving hours can never also rewrite them — and it is disabled
+ * while an edit is pending, because the write reloads the board under it.
+ *
  * SAVES IMMEDIATELY — deliberately unlike the board around it. Bill-line recodes
  * stage because the whole point is trying a month of moves against the budget
  * before committing them; an entry that was logged on the wrong day is simply
@@ -114,6 +118,7 @@ export function TimeCodingCard({
   const [end, setEnd] = useState(ended.time);
   const [hoursText, setHoursText] = useState(entry.hours ? entry.hours.toFixed(2) : "");
   const [saving, setSaving] = useState(false);
+  const [approving, setApproving] = useState(false);
   const [msg, setMsg] = useState<{ tone: "success" | "error" | "info"; text: string } | null>(null);
 
   // Another entry clicked: the panel is describing something else now, so every
@@ -221,10 +226,15 @@ export function TimeCodingCard({
     writes &&
     dirty &&
     !saving &&
+    !approving &&
     !openEntry &&
     Boolean(date && start) &&
     (!movingJob || Boolean(leafId)) &&
     (!timeChanged || (spanned != null && spanned > 0));
+
+  // An entry that is already approved has nothing to press, and a running one
+  // has no hours to approve yet.
+  const canApprove = writes && !entry.isApproved && !openEntry && !saving && !approving && !dirty;
 
   async function save() {
     setSaving(true);
@@ -256,6 +266,37 @@ export function TimeCodingCard({
       setMsg({ tone: "error", text: e instanceof Error ? e.message : "Failed to save" });
     } finally {
       setSaving(false);
+    }
+  }
+
+  /* ---- approving the hours ----
+     A separate press and a separate write, sending nothing but the flag. The
+     office reads the entry, then says the hours are good for payroll; folding
+     that into Save would let one press both approve the time and rewrite it.
+     Disabled while the panel is dirty for the same reason — approving reloads
+     the board, and an unsaved edit would go with it. */
+  async function approve() {
+    setApproving(true);
+    setMsg(null);
+    try {
+      const r = await fetch("/api/time-entry", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: entry.id, isApproved: true }),
+      });
+      const b = await r.json();
+      if (b.error) {
+        setMsg({ tone: "error", text: b.error });
+      } else if (b.previewed) {
+        setMsg({ tone: "info", text: b.message });
+      } else {
+        setMsg({ tone: "success", text: "Approved in JobTread." });
+        onSaved();
+      }
+    } catch (e) {
+      setMsg({ tone: "error", text: e instanceof Error ? e.message : "Failed to approve" });
+    } finally {
+      setApproving(false);
     }
   }
 
@@ -449,6 +490,29 @@ export function TimeCodingCard({
           Revert
         </Button>
       </div>
+
+      {/* APPROVING is its own press, under the edit rather than beside it: the
+          office reads the entry, fixes what's wrong, and only then says the
+          hours are good for payroll. Gone once the entry is approved — JobTread
+          keeps the mark, and un-approving is not this panel's job. */}
+      {!entry.isApproved && (
+        <div className="mt-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={approve}
+            disabled={!canApprove}
+            className="w-full"
+          >
+            {approving ? "Approving…" : "Approve time"}
+          </Button>
+          <p className="mt-1 text-[11px] leading-relaxed text-neutral-500 dark:text-neutral-400">
+            {dirty
+              ? "Save or revert your changes first — approving reloads the entry."
+              : "Marks the hours approved in JobTread. It changes nothing else — not the coding, not the cost."}
+          </p>
+        </div>
+      )}
     </Card>
   );
 }
