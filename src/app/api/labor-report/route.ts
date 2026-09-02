@@ -4,7 +4,7 @@ import { auth } from "@/auth";
 import { callAppsScript } from "@/lib/appsScript";
 import { getPaveConfig, hasGrant } from "@/lib/config";
 import { getOrgTimeEntriesForMonth } from "@/lib/jobtread";
-import { buildQbLaborRows, laborReportTitle } from "@/lib/qbLaborCsv";
+import { QB_LABOR_COLUMN_TYPES, buildQbLaborRows, laborReportTitle } from "@/lib/qbLaborCsv";
 
 /**
  * The monthly Labor Report — one Google Sheet per month in the Drive Labor
@@ -88,7 +88,13 @@ export async function POST(req: NextRequest) {
       fileId?: string;
       created?: boolean;
       rows?: number;
-    }>({ action: "writeLaborReport", title, rows }, { timeoutMs: 240_000 });
+    }>(
+      // columnTypes rides along so the sheet gets real numbers and dates. The
+      // tracking sheets QUERY the report with sum(hours) and min/max(date), and
+      // a text column fails that outright — see QB_LABOR_COLUMN_TYPES.
+      { action: "writeLaborReport", title, rows, columnTypes: [...QB_LABOR_COLUMN_TYPES] },
+      { timeoutMs: 240_000 },
+    );
 
     if (r.error) return NextResponse.json({ error: r.error }, { status: r.status });
     if (!r.data?.ok) {

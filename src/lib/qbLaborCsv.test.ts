@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  QB_LABOR_COLUMN_TYPES,
   QB_LABOR_HEADERS,
   buildQbLaborCsv,
   buildQbLaborRows,
@@ -119,6 +120,34 @@ describe("buildQbLaborRows", () => {
       ["Cedar", "later"],
       ["Wyatt", "framing"],
     ]);
+  });
+});
+
+describe("QB_LABOR_COLUMN_TYPES", () => {
+  it("names a type for every column, parallel to the headers", () => {
+    expect(QB_LABOR_COLUMN_TYPES).toHaveLength(QB_LABOR_HEADERS.length);
+  });
+
+  // The per-project tracking sheets run
+  //   QUERY(IMPORTRANGE(...), "select Col18, sum(Col12), min(Col7), max(Col7)
+  //                            where Col13 = '...' group by Col18", 1)
+  // and QUERY fails the whole cell with AVG_SUM_ONLY_NUMERIC if the summed
+  // column is text. These four columns are that formula, pinned.
+  it("keeps the columns the tracking sheets aggregate out of text format", () => {
+    const typeOf = (name: (typeof QB_LABOR_HEADERS)[number]) =>
+      QB_LABOR_COLUMN_TYPES[QB_LABOR_HEADERS.indexOf(name)];
+    expect(typeOf("hours")).toBe("number"); // Col12 — sum()
+    expect(typeOf("local_date")).toBe("date"); // Col7 — min()/max()
+    expect(typeOf("jobcode_1")).toBe("text"); // Col13 — matched as a string
+    expect(typeOf("service item")).toBe("text"); // Col18 — "01 31 20" is a code
+  });
+
+  it("pins free text so Sheets cannot coerce it", () => {
+    const typeOf = (name: (typeof QB_LABOR_HEADERS)[number]) =>
+      QB_LABOR_COLUMN_TYPES[QB_LABOR_HEADERS.indexOf(name)];
+    // A note reading "12/2 delivery" must not become a date.
+    expect(typeOf("notes")).toBe("text");
+    expect(typeOf("local_day")).toBe("text");
   });
 });
 

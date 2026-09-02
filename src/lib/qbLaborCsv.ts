@@ -74,6 +74,48 @@ export const QB_LABOR_HEADERS = [
   "flag_types",
 ] as const;
 
+/**
+ * What each column IS, parallel to QB_LABOR_HEADERS — sent to Apps Script so the
+ * written sheet ends up with the same cell types a CSV import produced.
+ *
+ * THIS IS NOT COSMETIC. The tracking sheets read the report with
+ * `QUERY(IMPORTRANGE(…), "select Col18, sum(Col12), min(Col7), max(Col7) …")`.
+ * `sum()` over a TEXT column fails outright with AVG_SUM_ONLY_NUMERIC, so
+ * `hours` must land as a number and `local_date` as a date. Writing the whole
+ * grid as text broke exactly that formula.
+ *
+ * "text" columns are pinned to text format, which stops Google Sheets coercing
+ * them — `service item` must stay "01 31 20" and not become a number, and a
+ * note reading "12/2 delivery" must not silently become a date. Everything else
+ * is written as a string into an unformatted cell, so Sheets parses it the same
+ * way it parsed the hand-uploaded CSVs.
+ */
+export const QB_LABOR_COLUMN_TYPES = [
+  "text", // username
+  "text", // payroll_id
+  "text", // fname
+  "text", // lname
+  "number", // number
+  "text", // group
+  "date", // local_date — min()/max() in the tracking sheets' QUERY
+  "text", // local_day
+  "datetime", // local_start_time
+  "datetime", // local_end_time
+  "number", // tz
+  "number", // hours — sum() in the tracking sheets' QUERY
+  "text", // jobcode_1
+  "text", // jobcode_2
+  "text", // jobcode_3
+  "text", // billable
+  "text", // class
+  "text", // service item — "01 31 20" is a cost code, never a number
+  "text", // location
+  "text", // notes — free text; must never be read as a date
+  "text", // approved_status
+  "text", // has_flags
+  "text", // flag_types
+] as const;
+
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December",
