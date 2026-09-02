@@ -67,7 +67,18 @@ export function GlobalJobBar() {
       </Link>
       {/* The only flexible item — it absorbs whatever the buttons leave. */}
       <div className="min-w-0 flex-1">
-        <JobPicker value={jobId} onChange={onChange} onResolved={setJob} showPhaseFilter />
+        {/* Each job's "to be invoiced" for this billing month rides in the list,
+            for the roles that bill: picking the next job to work is a money
+            decision, and this puts the figure where the choice is made. Gated on
+            the same view as the page those figures come from, so a field user's
+            picker is unchanged. */}
+        <JobPicker
+          value={jobId}
+          onChange={onChange}
+          onResolved={setJob}
+          showPhaseFilter
+          showToBeInvoiced={access.can("recode")}
+        />
       </div>
       {/* /add-bill is part of the (admin-only) Coding Review view — without the
           gate the middleware would just bounce a non-admin back to home. */}

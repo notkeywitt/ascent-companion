@@ -18,6 +18,15 @@ export const jobLabel = (j: JobRef) => (j.customer ? `${j.customer} - ${j.name}`
 /** Drop the trailing ", USA" Google tacks on — every job is domestic. */
 export const jobAddress = (j: JobRef) => (j.address ?? "").replace(/,\s*USA$/i, "").trim();
 
+/** Whole dollars — a dropdown row has space for the figure, not for its cents. */
+const money0 = (n: number) => "$" + Math.round(n).toLocaleString("en-US");
+/** "2026-08" → "August 2026", for the caption over the amounts. */
+const monthLabel = (ym: string) => {
+  const [y, m] = ym.split("-").map(Number);
+  if (!y || !m) return "";
+  return new Date(y, m - 1, 1).toLocaleString("en-US", { month: "long", year: "numeric" });
+};
+
 /**
  * Searchable dropdown of the org's jobs. `value` is the selected job id.
  * `onSelect` (optional) also hands back the full chosen job — or null for
@@ -45,6 +54,15 @@ export const jobAddress = (j: JobRef) => (j.address ?? "").replace(/,\s*USA$/i, 
  * /api/jobs?withPhase=1 instead of the plain /api/jobs — same "open jobs"
  * scope, with the Phase join added server-side as a separate cache entry so
  * the far more common plain read doesn't pay for it.
+ *
+ * `showToBeInvoiced` prints, beside each job, what that job still has to invoice
+ * this billing month — so choosing a job to work is a decision made with the
+ * money in view. Opt-in and off by default: it costs an org-wide bill scan, and
+ * most pickers (mileage, requisitions, employee time) are field surfaces with no
+ * business showing billing figures. The figures load when the dropdown FIRST
+ * opens, not on mount, so a page that merely renders the header pays nothing.
+ * Bills only, drafts included, invoiced ones dropped — the Tracking Sheets month
+ * view's own defaults, minus uninvoiced time (that needs a fetch per job).
  */
 export function JobPicker({
   value,
@@ -57,6 +75,7 @@ export function JobPicker({
   allDescription = "Draft bills across every job",
   placeholder,
   showPhaseFilter = false,
+  showToBeInvoiced = false,
 }: {
   value: string;
   onChange: (id: string) => void;
@@ -68,6 +87,7 @@ export function JobPicker({
   allDescription?: string;
   placeholder?: string;
   showPhaseFilter?: boolean;
+  showToBeInvoiced?: boolean;
 }) {
   const [fetched, setFetched] = useState<JobRef[]>([]);
   const [open, setOpen] = useState(false);
@@ -78,6 +98,15 @@ export function JobPicker({
   // ever populated with real phases) when showPhaseFilter fetched them.
   const [phaseFilter, setPhaseFilter] = useState(showPhaseFilter ? "Active" : "");
   const [loading, setLoading] = useState(!jobsProp);
+  // jobId → what that job still has to invoice this billing month, plus the
+  // month it covers. Null until the dropdown has been opened once.
+  const [toInvoice, setToInvoice] = useState<{ ym: string; totals: Record<string, number> } | null>(
+    null,
+  );
+  // Starts true on a picker that shows the figures: the fetch fires on the same
+  // render as the first open, so a false start would flash "unavailable".
+  const [toInvoiceLoading, setToInvoiceLoading] = useState(showToBeInvoiced);
+  const askedToInvoice = useRef(false);
   const ref = useRef<HTMLDivElement>(null);
 
   const jobs = jobsProp ?? fetched;
@@ -92,6 +121,23 @@ export function JobPicker({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- showPhaseFilter is
     // a mount-time choice of endpoint, not something a caller flips at runtime.
   }, [jobsProp]);
+
+  // The money figures, fetched on the FIRST open and then kept — the scan behind
+  // them pages the whole org's bills for the month, so it is not something to
+  // repeat every time the list opens. A failure leaves the amounts off; the
+  // picker still picks jobs.
+  useEffect(() => {
+    if (!showToBeInvoiced || !open || askedToInvoice.current) return;
+    askedToInvoice.current = true;
+    setToInvoiceLoading(true);
+    fetch("/api/jobs/to-be-invoiced")
+      .then((r) => r.json())
+      .then((j) => {
+        if (!j?.error) setToInvoice({ ym: j.ym ?? "", totals: j.totals ?? {} });
+      })
+      .catch(() => {})
+      .finally(() => setToInvoiceLoading(false));
+  }, [showToBeInvoiced, open]);
 
   useEffect(() => {
     function onDoc(e: MouseEvent) {
@@ -190,6 +236,19 @@ export function JobPicker({
               {hasNoPhase && <option value={NO_PHASE}>(No phase)</option>}
             </select>
           )}
+          {/* What the amounts on the right ARE. Without this line the figure is
+              a naked number: it is one month's uninvoiced bills, not the job's
+              balance and not its budget. */}
+          {showToBeInvoiced && (
+            <div className="flex items-center justify-between gap-2 border-b border-line px-3 py-1.5 text-[11px] text-neutral-500 dark:border-white/10 dark:text-neutral-400">
+              <span>
+                To be invoiced{toInvoice?.ym ? ` · ${monthLabel(toInvoice.ym)}` : ""}
+              </span>
+              <span>
+                {toInvoiceLoading ? "checking JobTread…" : toInvoice ? "bills only" : "unavailable"}
+              </span>
+            </div>
+          )}
           <ul className="overflow-auto">
             {!q && includeAll && (
               <li>
@@ -218,11 +277,22 @@ export function JobPicker({
                     onSelect?.(j);
                     setOpen(false);
                   }}
-                  className="w-full px-3 py-2 text-left hover:bg-neutral-100 dark:hover:bg-white/5"
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-neutral-100 dark:hover:bg-white/5"
                 >
-                  <span className="block truncate text-sm">{jobLabel(j)}</span>
-                  {jobAddress(j) && (
-                    <span className="block truncate text-xs text-neutral-500">{jobAddress(j)}</span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm">{jobLabel(j)}</span>
+                    {jobAddress(j) && (
+                      <span className="block truncate text-xs text-neutral-500">
+                        {jobAddress(j)}
+                      </span>
+                    )}
+                  </span>
+                  {/* Only jobs with something to invoice carry a figure — a
+                      column of "$0" would say nothing and cost a line of width. */}
+                  {showToBeInvoiced && !!toInvoice?.totals[j.id] && (
+                    <span className="shrink-0 text-xs font-medium tabular-nums text-neutral-700 dark:text-neutral-200">
+                      {money0(toInvoice.totals[j.id])}
+                    </span>
                   )}
                 </button>
               </li>

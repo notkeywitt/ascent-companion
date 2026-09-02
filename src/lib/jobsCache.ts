@@ -1,6 +1,6 @@
 import { unstable_cache } from "next/cache";
 
-import { getJobPhaseMap, getJobs } from "@/lib/jobtread";
+import { getJobPhaseMap, getJobs, getMonthlyInvoiceJobs } from "@/lib/jobtread";
 import { getPaveConfig } from "@/lib/config";
 
 /**
@@ -35,4 +35,20 @@ export const getCachedJobsWithPhase = unstable_cache(
   },
   ["api-jobs-open-with-phase"],
   { revalidate: 300, tags: ["jt-jobs"] },
+);
+
+/**
+ * Per-job "to be invoiced" totals for one billing month — the figure the header's
+ * job picker prints beside each job. Uninvoiced bills only, drafts included: the
+ * same two defaults the Tracking Sheets month view uses, so the picker and that
+ * page can't disagree. Bills only — uninvoiced TIME needs a per-job fetch, which
+ * a dropdown can't afford.
+ *
+ * Cached like the jobs list, and for a stronger reason: the scan pages every
+ * vendor bill the org issued in the month, far too slow to re-run on each open.
+ */
+export const getCachedMonthlyInvoiceJobs = unstable_cache(
+  (year: number, month: number) => getMonthlyInvoiceJobs(getPaveConfig(), year, month, false, true),
+  ["job-picker-to-be-invoiced"],
+  { revalidate: 300, tags: ["jt-bills"] },
 );

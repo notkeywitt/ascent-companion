@@ -64,6 +64,11 @@ export const VIEWS: ViewDef[] = [
       // a longer path wins in viewIdForPath, so listing it here is what makes it
       // reachable for a role that has Tracking Sheets but not Labor Review.
       "/api/time-entry",
+      // The job picker's per-job "to be invoiced" figures. /api/jobs itself is
+      // ungated (every role picks a job); this SUBPATH carries money, so it
+      // rides the same gate as the page whose month it reports — and a longer
+      // path wins, so the plain jobs list stays open.
+      "/api/jobs/to-be-invoiced",
     ],
   },
   // Labor Review — Tracking Sheets' workbench applied to time entries: the
