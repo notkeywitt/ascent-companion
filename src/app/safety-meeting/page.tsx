@@ -111,7 +111,16 @@ export default function SafetyMeetingPage() {
       const res = await fetch("/api/safety-meeting", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ date, topic: topic.trim(), admin: admin.trim(), attendees }),
+        // Points ride along so the roster PDF records what was covered, not
+        // just the topic — WA wants minutes of each crew safety meeting. A
+        // hand-typed topic has none, and the PDF simply omits the section.
+        body: JSON.stringify({
+          date,
+          topic: topic.trim(),
+          admin: admin.trim(),
+          points: pickedTopic?.points ?? [],
+          attendees,
+        }),
       });
       const json: SaveResult = await res.json();
       if (!res.ok || json.ok === false) {
