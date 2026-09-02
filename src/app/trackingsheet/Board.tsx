@@ -421,7 +421,7 @@ export function Board() {
     null,
   );
 
-  // The Tracking Sheet push rides along with "Sync to JobTread" — one button,
+  // The Tracking Sheet push rides along with "Save Changes" — one button,
   // one step from the office's point of view — so it needs its own target
   // resolution and result state the way /stage drives TrackingSheetSync,
   // rather than the self-contained TrackingSheetSyncFor this page used before.
@@ -2557,7 +2557,7 @@ export function Board() {
                 disabled={!dirty || syncing || trackingBusy}
                 className="hidden lg:inline-flex"
               >
-                {syncing ? "Syncing…" : trackingBusy ? "Syncing sheet…" : "Sync to JobTread"}
+                {syncing ? "Saving…" : trackingBusy ? "Syncing sheet…" : "Save Changes"}
               </Button>
             </div>
           </div>
@@ -3456,7 +3456,7 @@ export function Board() {
       )}
 
       {/* The phone's commit bar — the action drawer. With staged coding it
-          carries Revert + Sync to JobTread; with nothing staged it holds the
+          carries Revert + Save Changes; with nothing staged it holds the
           "Check this job" trigger for the Before-you-send card, so that action
           is under the thumb rather than up in the card header. It pins above the
           tab bar, so the action is in reach wherever you've scrolled to.
@@ -3484,7 +3484,7 @@ export function Board() {
                 Revert
               </Button>
               <Button size="sm" onClick={sync} disabled={syncing} className="min-h-11">
-                {syncing ? "Syncing…" : "Sync to JT"}
+                {syncing ? "Saving…" : "Save Changes"}
               </Button>
             </>
           ) : (
