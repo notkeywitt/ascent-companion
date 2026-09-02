@@ -1872,6 +1872,153 @@ export async function getJobTimeEntriesForMonth(
     .sort((a, b) => String(b.startedAt ?? "").localeCompare(String(a.startedAt ?? "")));
 }
 
+/**
+ * One org-wide time entry for the monthly Labor Report — a MonthTimeEntry plus
+ * the job it belongs to, because this pull spans every job at once.
+ */
+export interface OrgMonthTimeEntry extends MonthTimeEntry {
+  /** JobTread's user email address — the QuickBooks Time `username` column. */
+  username: string;
+  jobId: string;
+  jobName: string;
+  customer: string;
+}
+
+/**
+ * EVERY job's time entries for one month, for the monthly Labor Report.
+ *
+ * The org-wide twin of getJobTimeEntriesForMonth. It reads
+ * `organization.timeEntries` — the same connection, one level up — so the report
+ * covers labor logged against jobs nobody opened in Labor Review, which is the
+ * whole point of a company-wide report.
+ *
+ * TWO PHASES, on purpose. The entry nodes carry only `job { id }`; the job's
+ * customer comes from the already-cached getJobs() and is joined by id here.
+ * Nesting `job { location { account { name } } }` inside a paged connection is
+ * the 413 rule in JT_API_REFERENCE.md, and getJobs is a cached read this page
+ * would very likely have warmed anyway.
+ *
+ * Closed jobs are included in that join (`getJobs(cfg, true)`): a job closed in
+ * August still has July labor, and dropping it would silently shorten the month.
+ *
+ * It THROWS rather than returning a short month — see the walk below. The
+ * report this feeds is what payroll reads, so "fewer rows than JobTread holds"
+ * is the one answer it must never quietly give.
+ */
+export async function getOrgTimeEntriesForMonth(
+  cfg: PaveConfig,
+  year: number,
+  month: number,
+): Promise<OrgMonthTimeEntry[]> {
+  const mm = String(month).padStart(2, "0");
+  const first = `${year}-${mm}-01`;
+  const last = `${year}-${mm}-${String(new Date(year, month, 0).getDate()).padStart(2, "0")}`;
+  const inMonth = (d?: string | null) => {
+    const s = String(d ?? "").slice(0, 10);
+    return s >= first && s <= last;
+  };
+
+  // 200 pages × 100 = 20,000 entries. A month has run a few hundred, so this is
+  // a runaway guard, not a limit — but the walk still reports when it stops
+  // early, because a SILENTLY short month is the one failure a payroll report
+  // must never have.
+  const MAX_PAGES = 200;
+
+  const walk = async (where: unknown): Promise<{ nodes: any[]; truncated: boolean }> => {
+    const nodes: any[] = [];
+    let cursor: string | null = null;
+    let truncated = false;
+    for (let page = 0; page < MAX_PAGES; page++) {
+      const args: Record<string, unknown> = { size: 100, ...(where ? { where } : {}) };
+      if (cursor) args.page = cursor;
+      const r = await pave(cfg, {
+        organization: {
+          $: { id: cfg.orgId },
+          id: {},
+          timeEntries: {
+            $: args,
+            nextPage: {},
+            nodes: {
+              id: {},
+              cost: {},
+              startedAt: {},
+              endedAt: {},
+              minutes: {},
+              notes: {},
+              isApproved: {},
+              type: {},
+              user: { name: {}, emailAddress: {} },
+              job: { id: {} },
+              costItem: { id: {}, costCode: { number: {}, name: {} } },
+            },
+          },
+        },
+      });
+      const tc = r?.organization?.timeEntries ?? {};
+      nodes.push(...(tc.nodes ?? []));
+      cursor = tc.nextPage ?? null;
+      if (!cursor) break;
+      if (page === MAX_PAGES - 1) truncated = true;
+    }
+    return { nodes, truncated };
+  };
+
+  // NO UNNARROWED FALLBACK, unlike the per-job twin above. One job's whole
+  // history fits in a client-side filter; the ORG's does not, so a fallback
+  // walk would hit the page cap somewhere in 2024 and hand back a month that
+  // looks empty. If the narrowing shape is ever rejected, say so and stop.
+  const { nodes, truncated } = await walk({
+    and: [
+      ["startedAt", ">=", first],
+      ["startedAt", "<=", `${last}T23:59:59`],
+    ],
+  }).catch((e) => {
+    throw new Error(
+      `JobTread rejected the month filter on organization.timeEntries (${
+        e instanceof Error ? e.message : String(e)
+      }).`,
+    );
+  });
+  if (truncated) {
+    throw new Error(
+      `More than ${MAX_PAGES * 100} time entries in ${first.slice(0, 7)} — refusing to report a partial month.`,
+    );
+  }
+
+  const jobs = await getJobs(cfg, true);
+  const jobById = new Map(jobs.map((j) => [j.id, j]));
+
+  return nodes
+    .filter((n) => inMonth(n?.startedAt))
+    .map((n) => {
+      const job = n?.job?.id ? jobById.get(n.job.id) : undefined;
+      return {
+        id: n.id,
+        employee: n?.user?.name ?? "Unknown",
+        username: String(n?.user?.emailAddress ?? "").trim(),
+        startedAt: n.startedAt ?? null,
+        hours: (n.minutes ?? 0) / 60,
+        cost: typeof n?.cost === "number" ? n.cost : 0,
+        code: n?.costItem?.costCode?.number?.toString().trim() ?? "",
+        codeName: n?.costItem?.costCode?.name ?? "",
+        notes: String(n?.notes ?? "").trim(),
+        isApproved: Boolean(n?.isApproved),
+        costItemId: n?.costItem?.id ?? null,
+        type: String(n?.type ?? "").trim(),
+        endedAt: n.endedAt ?? null,
+        minutes: typeof n?.minutes === "number" ? n.minutes : 0,
+        jobId: n?.job?.id ?? "",
+        jobName: job?.name ?? "",
+        customer: job?.customer ?? "",
+      };
+    })
+    .sort(
+      (a, b) =>
+        (a.employee ?? "").localeCompare(b.employee ?? "") ||
+        String(a.startedAt ?? "").localeCompare(String(b.startedAt ?? "")),
+    );
+}
+
 /** One vendor-bill line, with the coding target the Invoicing board moves it between. */
 export interface JobBillLine {
   id: string; // costItemId — what updateLine() edits

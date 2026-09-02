@@ -26,7 +26,6 @@ import {
   type CodeHeadroom,
 } from "@/components/TimeEntryList";
 import { useUnsavedChanges } from "@/lib/useUnsavedChanges";
-import { buildQbLaborCsv } from "@/lib/qbLaborCsv";
 
 /**
  * Labor Review — the time-entry twin of the Tracking Sheets board.
@@ -186,6 +185,11 @@ export function LaborReview() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [syncing, setSyncing] = useState(false);
   const [syncMsg, setSyncMsg] = useState<{ tone: "success" | "error"; text: string } | null>(null);
+  /** The Drive Labor Report write — org-wide, so it is not the job's own sync. */
+  const [reporting, setReporting] = useState(false);
+  const [reportMsg, setReportMsg] = useState<
+    { tone: "success" | "error"; text: string; url?: string } | null
+  >(null);
 
   // ---- filters (cost code / employee(s) / date / grouping) ----------------
   // Owned by the shared list — see useTimeFilters. Held here rather than inside
@@ -539,30 +543,41 @@ export function LaborReview() {
   }
 
   /**
-   * Export the month's labor as a QuickBooks-format CSV — the reverse of
-   * /labor-import. Uses `monthEntries` (the whole month, narrowed only by the
-   * approval toggle, NOT the on-screen employee/code/date filters) so the file
-   * is "the month's labor", not whatever slice is on screen. Staged recodes are
-   * deliberately ignored: the CSV reflects what JobTread actually holds, since
-   * nothing is written until Sync. Client-side only — no data leaves the browser.
+   * File the month's COMPANY-WIDE labor as a Google Sheet in the Drive Labor
+   * folder — the same "July '26 Labor" the office used to hand-export out of
+   * QuickBooks Time, built from JobTread instead.
+   *
+   * NOT this job, and not the on-screen filters: the report covers EVERY job's
+   * time entries for the selected month, because that is what payroll reads.
+   * The page's job selection only picks the month here. Staged recodes are
+   * deliberately ignored — nothing is written to JobTread until Sync, so the
+   * sheet reflects what JobTread actually holds.
+   *
+   * One file per month, overwritten in place, so re-running keeps the same URL.
    */
-  const exportQbCsv = () => {
-    if (!data?.job || monthEntries.length === 0) return;
-    const csv = buildQbLaborCsv(monthEntries, {
-      name: data.job.name,
-      customer: data.job.customer,
-    });
-    const safe = (s: string) => (s || "job").replace(/[^\w.-]+/g, " ").trim();
-    const filename = `Labor ${safe(data.job.name)} ${ym} (QB format).csv`;
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
+  const createLaborReport = async () => {
+    setReporting(true);
+    setReportMsg(null);
+    try {
+      const res = await fetch("/api/labor-report", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ym }),
+      });
+      const j = await res.json();
+      if (!res.ok || j?.error) throw new Error(j?.error ?? `HTTP ${res.status}`);
+      setReportMsg({
+        tone: "success",
+        text: `${j.created ? "Created" : "Updated"} “${j.title}” in Drive — ${j.entries} time ${
+          j.entries === 1 ? "entry" : "entries"
+        } across ${j.jobs} ${j.jobs === 1 ? "job" : "jobs"}.`,
+        url: typeof j.url === "string" ? j.url : undefined,
+      });
+    } catch (e) {
+      setReportMsg({ tone: "error", text: e instanceof Error ? e.message : "Report failed" });
+    } finally {
+      setReporting(false);
+    }
   };
 
   // ---- render -------------------------------------------------------------
@@ -658,6 +673,24 @@ export function LaborReview() {
           {syncMsg.text}
         </Banner>
       )}
+      {reportMsg && (
+        <Banner tone={reportMsg.tone} className="mb-4">
+          {reportMsg.text}
+          {reportMsg.url && (
+            <>
+              {" "}
+              <a
+                href={reportMsg.url}
+                target="_blank"
+                rel="noreferrer"
+                className="text-accent underline"
+              >
+                Open the sheet
+              </a>
+            </>
+          )}
+        </Banner>
+      )}
       {error && (
         <Banner tone="error" className="mb-4">
           {error}
@@ -748,11 +781,11 @@ export function LaborReview() {
                 <Button
                   variant="secondary"
                   size="sm"
-                  onClick={exportQbCsv}
-                  disabled={monthEntries.length === 0}
-                  title="Download this month's labor as a QuickBooks-format CSV — the reverse of Labor Import. Exports the whole month (not the on-screen filters)."
+                  onClick={createLaborReport}
+                  disabled={reporting}
+                  title="File the whole COMPANY's labor for this month as a Google Sheet in the Drive Labor folder — every job, not just this one, and not the on-screen filters. One file per month, overwritten each time."
                 >
-                  Export QB CSV ({monthEntries.length})
+                  {reporting ? "Writing…" : "Create Labor Report in Drive"}
                 </Button>
               </div>
             </div>
