@@ -30,6 +30,7 @@ import { backupCheck } from "./checks/backup";
 import { costBasisCheck } from "./checks/costBasis";
 import { draftBillsCheck } from "./checks/draftBills";
 import { duplicateBillCheck } from "./checks/duplicateBill";
+import { duplicateDraftCheck } from "./checks/duplicateDraft";
 import { invoiceMathCheck } from "./checks/invoiceMath";
 import { issueDateCheck } from "./checks/issueDate";
 import { laborRateCheck } from "./checks/laborRate";
@@ -43,6 +44,7 @@ import { vendorSilentCheck } from "./checks/vendorSilent";
 const JOB_CHECKS: JobCheck<never>[] = [
   backupCheck,
   duplicateBillCheck,
+  duplicateDraftCheck,
   uninvoicedCheck,
   draftBillsCheck,
   laborRateCheck,

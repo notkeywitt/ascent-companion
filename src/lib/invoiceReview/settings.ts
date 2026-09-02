@@ -39,6 +39,7 @@ import type { BackupConfig } from "./checks/backup";
 import type { CostBasisConfig } from "./checks/costBasis";
 import type { DraftBillsConfig } from "./checks/draftBills";
 import type { DuplicateBillConfig } from "./checks/duplicateBill";
+import type { DuplicateDraftConfig } from "./checks/duplicateDraft";
 import type { InvoiceMathConfig } from "./checks/invoiceMath";
 import type { IssueDateConfig } from "./checks/issueDate";
 import type { LaborRateConfig } from "./checks/laborRate";
@@ -62,6 +63,7 @@ export interface InvoiceReviewSettings {
     "issue-date": SettingsBlock<IssueDateConfig>;
     "cost-basis": SettingsBlock<CostBasisConfig>;
     "duplicate-bill": SettingsBlock<DuplicateBillConfig>;
+    "duplicate-draft": SettingsBlock<DuplicateDraftConfig>;
     uninvoiced: SettingsBlock<UninvoicedConfig>;
     "draft-bills": SettingsBlock<DraftBillsConfig>;
     "labor-rate": SettingsBlock<LaborRateConfig>;
@@ -94,6 +96,21 @@ export const DEFAULT_SETTINGS: InvoiceReviewSettings = {
     "issue-date": { enabled: true, config: {} },
     "cost-basis": { enabled: true, config: {} },
     "duplicate-bill": { enabled: true, config: {} },
+    // ── Duplicate drafts ──────────────────────────────────────────────────
+    // A re-ingested bill sits in the coding queue looking like ordinary
+    // unfinished work. duplicate-bill can't see it (a draft is on no invoice)
+    // and draft-bills only counts it. See the Main House case in the check.
+    "duplicate-draft": {
+      enabled: true,
+      config: {
+        // The issue date IS the billing period in JobTread, so sharing one
+        // turns "same vendor, same figure" from a coincidence into a duplicate.
+        requireSameIssueDate: true,
+        // An abandoned empty shell matches every other empty shell and is
+        // worth nothing.
+        minCost: 1,
+      },
+    },
     uninvoiced: {
       enabled: true,
       config: {

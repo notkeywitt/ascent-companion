@@ -156,6 +156,7 @@ async function loadMonthBills(
   year: number,
   month: number,
   liveInvoiceIds: Set<string>,
+  statuses: string[] = ["pending", "approved"],
 ): Promise<BillRef[]> {
   const mm = String(month).padStart(2, "0");
   const first = `${year}-${mm}-01`;
@@ -171,7 +172,7 @@ async function loadMonthBills(
         documents: {
           $: {
             where: {
-              and: [["type", "vendorBill"], ["status", "in", ["pending", "approved"]]],
+              and: [["type", "vendorBill"], ["status", "in", statuses]],
             },
             // 25, not 100: referencedDocuments nested in a paged documents
             // connection answers 413 at larger sizes (confirmed behavior).
@@ -208,6 +209,7 @@ async function loadMonthBills(
         invoiceIds: Array.from(
           new Set(invoiceRefs.map((n) => n.id as string).filter((id) => liveInvoiceIds.has(id))),
         ),
+        issueDate: issued,
       });
     }
     page = r?.job?.documents?.nextPage || undefined;
@@ -652,6 +654,7 @@ export async function loadMonthEvidence(
       uninvoicedTimeCost: 0,
       draftBillsCost: 0,
       draftBillCount: 0,
+      draftBills: [],
       labor: [],
     };
 
@@ -670,10 +673,19 @@ export async function loadMonthEvidence(
       );
     }
 
-    const [bills, invoices, folder, labor] = await Promise.all([
+    const [bills, drafts, invoices, folder, labor] = await Promise.all([
       loadMonthBills(cfg, row.jobId, year, month, liveIds).catch((e) => {
         warnings.push(
           `${row.jobName || row.jobId}: could not read the month's bills — ` +
+            `${e instanceof Error ? e.message : "unknown error"}`,
+        );
+        return [] as BillRef[];
+      }),
+      // The month's drafts, in full. `draftBillCount` from the reconciliation
+      // says how many there are; the duplicate-draft check needs to see them.
+      loadMonthBills(cfg, row.jobId, year, month, liveIds, ["draft"]).catch((e) => {
+        warnings.push(
+          `${row.jobName || row.jobId}: could not read the month's draft bills — ` +
             `${e instanceof Error ? e.message : "unknown error"}`,
         );
         return [] as BillRef[];
@@ -699,6 +711,7 @@ export async function loadMonthEvidence(
 
     if (folder.warning) warnings.push(folder.warning);
     shell.bills = bills;
+    shell.draftBills = drafts;
     shell.invoices = invoices.filter((i): i is InvoiceEvidence => i !== null);
     shell.folder = folder.folder;
     shell.labor = labor;

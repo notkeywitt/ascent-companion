@@ -49,6 +49,7 @@ function job(partial: Partial<JobEvidence> = {}): JobEvidence {
     neverInvoiced: false, invoices: [], bills: [],
     folder: { path: "/x/", found: true, folderId: "F", files: [], truncated: false },
     uninvoicedBillsCost: 0, uninvoicedTimeCost: 0, draftBillsCost: 0, draftBillCount: 0,
+    draftBills: [],
     labor: [],
     ...partial,
   };

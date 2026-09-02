@@ -39,6 +39,7 @@ function job(labor: LaborEntryRef[]): JobEvidence {
     uninvoicedTimeCost: 0,
     draftBillsCost: 0,
     draftBillCount: 0,
+    draftBills: [],
     labor,
   };
 }

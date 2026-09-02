@@ -49,7 +49,7 @@ function file(partial: Partial<BackupFile> & { id: string; amount: number }): Ba
 }
 
 function bill(partial: Partial<BillRef> & { id: string; cost: number }): BillRef {
-  return { label: partial.id, vendor: "Sunset Builders Supply", status: "approved", invoiced: true, invoiceIds: [], ...partial };
+  return { label: partial.id, vendor: "Sunset Builders Supply", status: "approved", invoiced: true, invoiceIds: [], issueDate: '2026-07-15', ...partial };
 }
 
 function job(partial: Partial<JobEvidence> = {}): JobEvidence {
@@ -58,6 +58,7 @@ function job(partial: Partial<JobEvidence> = {}): JobEvidence {
     neverInvoiced: false, invoices: [], bills: [],
     folder: { path: "/2026/Ferron/Otis/", found: true, folderId: "F", files: [], truncated: false },
     uninvoicedBillsCost: 0, uninvoicedTimeCost: 0, draftBillsCost: 0, draftBillCount: 0,
+    draftBills: [],
     labor: [],
     ...partial,
   };

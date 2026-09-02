@@ -44,6 +44,7 @@ function bill(partial: Partial<BillRef> & { id: string; cost: number }): BillRef
     status: "approved",
     invoiced: true,
     invoiceIds: [],
+    issueDate: '2026-07-15',
     ...partial,
   };
 }
@@ -90,6 +91,7 @@ function job(partial: Partial<JobEvidence> = {}): JobEvidence {
     uninvoicedTimeCost: 0,
     draftBillsCost: 0,
     draftBillCount: 0,
+    draftBills: [],
     labor: [],
     ...partial,
   };

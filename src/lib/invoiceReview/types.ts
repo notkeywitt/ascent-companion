@@ -80,7 +80,9 @@ export type FindingKind =
   /** A time entry's pay type is gone from the person's membership. */
   | "labor-rate-unknown"
   /** One cost code carries more than one labor rate in the month. */
-  | "labor-rate-code-spread";
+  | "labor-rate-code-spread"
+  /** A draft bill looks like a copy of another bill on the same job. */
+  | "bill-duplicate-draft";
 
 /** One thing the review wants a human to look at. */
 export interface Finding {
@@ -232,6 +234,9 @@ export interface BillRef {
   invoiceIds: string[];
   /** True when the bill is on a LIVE (non-denied, or re-issued) invoice. */
   invoiced: boolean;
+  /** The bill's issue date, "YYYY-MM-DD" — in JobTread this IS the billing
+   *  period, and it is half of what makes two bills look like the same one. */
+  issueDate: string;
 }
 
 /** A backup PDF filed in the job's billing folder, as parsed by the Apps Script
@@ -363,6 +368,16 @@ export interface JobEvidence {
   uninvoicedTimeCost: number;
   draftBillsCost: number;
   draftBillCount: number;
+  /**
+   * The month's DRAFT vendor bills, in full.
+   *
+   * Deliberately a separate list from `bills`, which carries only finalized
+   * ones. Several checks (backup coverage, uninvoiced) iterate `bills` and
+   * would change what they report if drafts appeared in it — a draft has no
+   * backup filed yet and is not supposed to be invoiced, so it is not their
+   * business. This list exists for the checks whose business it IS.
+   */
+  draftBills: BillRef[];
   /** The job's time entries for the month, each with the rate it was costed at. */
   labor: LaborEntryRef[];
 }
