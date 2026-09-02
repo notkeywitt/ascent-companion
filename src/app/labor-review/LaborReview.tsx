@@ -26,6 +26,7 @@ import {
   type CodeHeadroom,
 } from "@/components/TimeEntryList";
 import { useUnsavedChanges } from "@/lib/useUnsavedChanges";
+import { buildQbLaborCsv } from "@/lib/qbLaborCsv";
 
 /**
  * Labor Review — the time-entry twin of the Tracking Sheets board.
@@ -61,6 +62,9 @@ interface TimeEntry {
   id: string;
   employee: string;
   startedAt: string | null;
+  /** Clock-out instant (UTC), null on a running entry. Carried for the QB export.
+   *  Optional so this stays assignable to the shared TimeEntryRow, which omits it. */
+  endedAt?: string | null;
   hours: number;
   cost: number;
   code: string;
@@ -96,7 +100,7 @@ interface CostDivisionRow {
   codes: CostCodeRow[];
 }
 interface Payload {
-  job: { id: string; name: string; address: string } | null;
+  job: { id: string; name: string; address: string; customer: string } | null;
   timeEntries: TimeEntry[];
   budget: BudgetItem[];
   costDetail: { divisions: CostDivisionRow[]; budgetBasis: string };
@@ -534,6 +538,33 @@ export function LaborReview() {
     }
   }
 
+  /**
+   * Export the month's labor as a QuickBooks-format CSV — the reverse of
+   * /labor-import. Uses `monthEntries` (the whole month, narrowed only by the
+   * approval toggle, NOT the on-screen employee/code/date filters) so the file
+   * is "the month's labor", not whatever slice is on screen. Staged recodes are
+   * deliberately ignored: the CSV reflects what JobTread actually holds, since
+   * nothing is written until Sync. Client-side only — no data leaves the browser.
+   */
+  const exportQbCsv = () => {
+    if (!data?.job || monthEntries.length === 0) return;
+    const csv = buildQbLaborCsv(monthEntries, {
+      name: data.job.name,
+      customer: data.job.customer,
+    });
+    const safe = (s: string) => (s || "job").replace(/[^\w.-]+/g, " ").trim();
+    const filename = `Labor ${safe(data.job.name)} ${ym} (QB format).csv`;
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
   // ---- render -------------------------------------------------------------
   if (!jobId) {
     return (
@@ -710,9 +741,20 @@ export function LaborReview() {
                 Time entries ({entries.length}
                 {f.on ? ` of ${monthEntries.length}` : ""})
               </SectionLabel>
-              <span className="shrink-0 text-xs font-semibold tabular-nums">
-                {hrs(f.shownHours)} · {money(f.shownCost)}
-              </span>
+              <div className="flex shrink-0 items-baseline gap-3">
+                <span className="text-xs font-semibold tabular-nums">
+                  {hrs(f.shownHours)} · {money(f.shownCost)}
+                </span>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={exportQbCsv}
+                  disabled={monthEntries.length === 0}
+                  title="Download this month's labor as a QuickBooks-format CSV — the reverse of Labor Import. Exports the whole month (not the on-screen filters)."
+                >
+                  Export QB CSV ({monthEntries.length})
+                </Button>
+              </div>
             </div>
 
             {/* ---- the cost codes these filters landed on ----
