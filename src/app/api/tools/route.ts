@@ -1,7 +1,8 @@
+import { revalidateTag, unstable_cache } from "next/cache";
 import { NextRequest, NextResponse } from "next/server";
 
 import { auth } from "@/auth";
-import { callAppsScript } from "@/lib/appsScript";
+import { callAppsScript, callAppsScriptOrThrow } from "@/lib/appsScript";
 
 // Stay just under this route's maxDuration (60s) so a stall returns a readable
 // 504 rather than an opaque platform timeout.
@@ -25,32 +26,58 @@ const TIMEOUT = { timeoutMs: 50_000 };
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-export async function GET() {
-  // One combined Apps Script action instead of two separate POSTs — half the network
-  // round-trips + cold-starts for the page bootstrap. Apps Script caches both halves.
-  const res = await callAppsScript({ action: "toolsBootstrap" }, TIMEOUT);
-  if (res.error) return NextResponse.json({ error: res.error }, { status: res.status });
+/** Shared Data Cache tag for the tools bootstrap. Every write below drops it. */
+const TOOLS_TAG = "tools";
 
-  const b = res.data as {
-    ok?: boolean;
-    error?: string;
-    tools?: unknown;
-    projects?: unknown;
-    conditions?: unknown;
-    toolGroups?: unknown;
-  };
-  if (b?.ok === false) return NextResponse.json(b, { status: 200 });
+interface ToolsBootstrap {
+  ok?: boolean;
+  error?: string;
+  tools?: unknown;
+  projects?: unknown;
+  conditions?: unknown;
+  toolGroups?: unknown;
+}
 
-  return NextResponse.json(
-    {
-      ok: true,
-      tools: b?.tools ?? [],
-      projects: b?.projects ?? [],
-      conditions: b?.conditions ?? [],
-      toolGroups: b?.toolGroups ?? [],
-    },
-    { status: 200 },
-  );
+const shape = (b: ToolsBootstrap) => ({
+  ok: true,
+  tools: b?.tools ?? [],
+  projects: b?.projects ?? [],
+  conditions: b?.conditions ?? [],
+  toolGroups: b?.toolGroups ?? [],
+});
+
+// One combined Apps Script action instead of two separate POSTs — half the network
+// round-trips + cold-starts for the page bootstrap. Apps Script caches both halves.
+const readBootstrap = () =>
+  callAppsScriptOrThrow<ToolsBootstrap>({ action: "toolsBootstrap" }, TIMEOUT);
+
+// Shared Data Cache over that call. The Apps Script hop is a POST→302→follow plus a
+// script execution — about a second even warm — and the inventory is org-wide, so one
+// shared entry is right for every viewer. Failures THROW (callAppsScriptOrThrow also
+// throws on { ok:false }), so only a good payload is ever cached. Every write path in
+// this file, and the scan in /api/tool-tracker, drops the tag, so an edit still shows
+// on the next load rather than after the TTL.
+const getCachedBootstrap = unstable_cache(readBootstrap, ["api-tools-bootstrap"], {
+  revalidate: 60,
+  tags: [TOOLS_TAG],
+});
+
+// GET /api/tools[?refresh=1] — `refresh=1` skips the cache and drops the entry.
+export async function GET(req: NextRequest) {
+  const forceFresh = req.nextUrl.searchParams.get("refresh") === "1";
+  try {
+    if (forceFresh) {
+      const fresh = await readBootstrap();
+      revalidateTag(TOOLS_TAG); // so every other reader agrees with what we just read
+      return NextResponse.json(shape(fresh), { status: 200 });
+    }
+    return NextResponse.json(shape(await getCachedBootstrap()), { status: 200 });
+  } catch (e) {
+    return NextResponse.json(
+      { error: e instanceof Error ? e.message : "Could not load tools." },
+      { status: 502 },
+    );
+  }
 }
 
 export async function PATCH(req: NextRequest) {
@@ -62,6 +89,7 @@ export async function PATCH(req: NextRequest) {
   }
   const result = await callAppsScript({ ...body, action: "updateTool" }, TIMEOUT);
   if (result.error) return NextResponse.json({ error: result.error }, { status: result.status });
+  revalidateTag(TOOLS_TAG); // the edit must show on the next bootstrap, not after the TTL
   return NextResponse.json(result.data, { status: 200 });
 }
 
@@ -74,6 +102,7 @@ export async function POST(req: NextRequest) {
   }
   const result = await callAppsScript({ ...body, action: "updateToolPhoto" }, TIMEOUT);
   if (result.error) return NextResponse.json({ error: result.error }, { status: result.status });
+  revalidateTag(TOOLS_TAG);
   return NextResponse.json(result.data, { status: 200 });
 }
 
@@ -91,5 +120,6 @@ export async function PUT(req: NextRequest) {
 
   const result = await callAppsScript({ ...body, action: "createTool", lastScanEmail }, TIMEOUT);
   if (result.error) return NextResponse.json({ error: result.error }, { status: result.status });
+  revalidateTag(TOOLS_TAG);
   return NextResponse.json(result.data, { status: 200 });
 }

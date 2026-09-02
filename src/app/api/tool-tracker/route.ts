@@ -1,3 +1,4 @@
+import { revalidateTag } from "next/cache";
 import { NextRequest, NextResponse } from "next/server";
 
 import { auth } from "@/auth";
@@ -54,5 +55,8 @@ export async function POST(req: NextRequest) {
     lastScanEmail,
   });
   if (result.error) return NextResponse.json({ error: result.error }, { status: result.status });
+  // A scan moves a tool, so drop /api/tools' shared cache entry — otherwise the
+  // relocation would not show on the next page load until that TTL expired.
+  revalidateTag("tools");
   return NextResponse.json(result.data, { status: 200 });
 }

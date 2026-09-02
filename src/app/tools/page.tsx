@@ -112,6 +112,39 @@ function downscaleToDataUrl(file: File, maxDim = 1600, quality = 0.8): Promise<s
   });
 }
 
+// Last good page payload, kept per browser session so a return visit paints the
+// inventory immediately instead of waiting on the Apps Script round-trip. It is a
+// display cache only: the page always re-fetches behind it and replaces what it
+// shows, and every write posts to the server, never to this. Bump the version
+// suffix if the payload shape changes, so an old entry can't be read as a new one.
+const BOOTSTRAP_CACHE_KEY = "tools:bootstrap:v1";
+
+interface Bootstrap {
+  tools: Tool[];
+  projects: Project[];
+  conditions: string[];
+  toolGroups: string[];
+}
+
+function readCachedBootstrap(): Bootstrap | null {
+  try {
+    const raw = sessionStorage.getItem(BOOTSTRAP_CACHE_KEY);
+    if (!raw) return null;
+    const b = JSON.parse(raw) as Bootstrap;
+    return Array.isArray(b?.tools) && Array.isArray(b?.projects) ? b : null;
+  } catch {
+    return null; // private mode, blocked storage, or a half-written entry
+  }
+}
+
+function writeCachedBootstrap(b: Bootstrap): void {
+  try {
+    sessionStorage.setItem(BOOTSTRAP_CACHE_KEY, JSON.stringify(b));
+  } catch {
+    /* quota or blocked storage — the page just loads from the network next time */
+  }
+}
+
 // An empty tool record — the starting point when a scan hits a ToolId that isn't
 // in the inventory yet (the QR value becomes the new row's id).
 function blankTool(id: string): Tool {
@@ -187,7 +220,23 @@ function OptionSelect({
   );
 }
 
-function ToolPhoto({ url, className }: { url: string; className: string }) {
+// Drive's thumbnail endpoint takes the pixel width in its `sz` param, and the
+// back end hands us a w800 URL. A list row renders it at 44px, so asking for
+// w800 there downloads roughly 30x the bytes the phone can show — across a whole
+// inventory that is the page's biggest cost. Re-ask for the size actually needed.
+function thumbAt(url: string, width: number): string {
+  return url.replace(/([?&]sz=)w\d+/, "$1w" + width);
+}
+
+function ToolPhoto({
+  url,
+  className,
+  width = 800,
+}: {
+  url: string;
+  className: string;
+  width?: number;
+}) {
   const [failed, setFailed] = useState(false);
   if (!url || failed) {
     return (
@@ -204,9 +253,11 @@ function ToolPhoto({ url, className }: { url: string; className: string }) {
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
-      src={url}
+      src={thumbAt(url, width)}
       alt=""
       referrerPolicy="no-referrer"
+      loading="lazy"
+      decoding="async"
       onError={() => setFailed(true)}
       className={className + " object-cover"}
     />
@@ -219,6 +270,7 @@ export default function ToolsPage() {
   const [conditionOpts, setConditionOpts] = useState<string[]>([]);
   const [toolGroupOpts, setToolGroupOpts] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false); // cached list shown, fresh read in flight
   const [loadErr, setLoadErr] = useState("");
 
   // ---- Inventory list: search / filter / edit --------------------------------
@@ -258,26 +310,60 @@ export default function ToolsPage() {
   const [createSerialBusy, setCreateSerialBusy] = useState(false);
   const [createSerialMsg, setCreateSerialMsg] = useState("");
 
+  // Stale-while-revalidate: paint the last session's inventory at once, then
+  // replace it with a fresh read. A cached first paint means the spinner only
+  // appears on the very first visit; after that the page is usable immediately
+  // and the (slower) Apps Script read lands under it.
   useEffect(() => {
+    const cached = readCachedBootstrap();
+    if (cached) {
+      setRefreshing(true);
+      setTools(cached.tools);
+      setProjects(cached.projects);
+      setConditionOpts(cached.conditions ?? []);
+      setToolGroupOpts(cached.toolGroups ?? []);
+      setLoading(false);
+    }
     (async () => {
       try {
         const res = await fetch("/api/tools");
         const json = await res.json();
         if (!res.ok || json.ok === false) {
-          setLoadErr(json.error || "Could not load tools.");
+          // Keep showing the cached inventory rather than replacing it with an
+          // error the user can do nothing about.
+          if (!cached) setLoadErr(json.error || "Could not load tools.");
           return;
         }
-        setTools(json.tools ?? []);
-        setProjects(json.projects ?? []);
-        setConditionOpts(json.conditions ?? []);
-        setToolGroupOpts(json.toolGroups ?? []);
+        const fresh: Bootstrap = {
+          tools: json.tools ?? [],
+          projects: json.projects ?? [],
+          conditions: json.conditions ?? [],
+          toolGroups: json.toolGroups ?? [],
+        };
+        setTools(fresh.tools);
+        setProjects(fresh.projects);
+        setConditionOpts(fresh.conditions);
+        setToolGroupOpts(fresh.toolGroups);
       } catch (e) {
-        setLoadErr(e instanceof Error ? e.message : "Could not load tools.");
+        if (!cached) setLoadErr(e instanceof Error ? e.message : "Could not load tools.");
       } finally {
         setLoading(false);
+        setRefreshing(false);
       }
     })();
   }, []);
+
+  // Keep that cache in step with whatever the page currently shows, so an edit, a
+  // scan or a newly registered tool is what the next visit paints.
+  useEffect(() => {
+    if (loading || loadErr) return;
+    writeCachedBootstrap({
+      tools,
+      projects,
+      conditions: conditionOpts,
+      toolGroups: toolGroupOpts,
+    });
+  }, [loading, loadErr, tools, projects, conditionOpts, toolGroupOpts]);
 
   const conditions = useMemo(() => {
     const set = new Set<string>();
@@ -712,6 +798,7 @@ export default function ToolsPage() {
         <>
           <div className="mb-2 text-xs text-neutral-500">
             {view.length} of {tools.length} tools
+            {refreshing && " · refreshing…"}
           </div>
 
           {groups.length === 0 && (
@@ -736,7 +823,11 @@ export default function ToolsPage() {
                         (i > 0 ? "border-t border-line-soft/70" : "")
                       }
                     >
-                      <ToolPhoto url={t.photoUrl} className="h-11 w-11 shrink-0 rounded-lg" />
+                      <ToolPhoto
+                        url={t.photoUrl}
+                        width={128}
+                        className="h-11 w-11 shrink-0 rounded-lg"
+                      />
                       <div className="min-w-0 flex-1">
                         <div className="truncate text-sm font-medium">{t.name || t.id}</div>
                         <div className="truncate text-xs text-neutral-500">
@@ -825,7 +916,11 @@ export default function ToolsPage() {
             ) : (
               <>
                 <div className="mb-3 flex items-center gap-3">
-                  <ToolPhoto url={scanTool.photoUrl} className="h-14 w-14 shrink-0 rounded-lg" />
+                  <ToolPhoto
+                    url={scanTool.photoUrl}
+                    width={160}
+                    className="h-14 w-14 shrink-0 rounded-lg"
+                  />
                   <div className="min-w-0">
                     <div className="truncate text-base font-semibold">
                       {scanTool.name || scanTool.id}
@@ -946,6 +1041,7 @@ export default function ToolsPage() {
                 <div className="mb-4 flex items-center gap-3">
                   <ToolPhoto
                     url={createPhoto}
+                    width={240}
                     className="h-20 w-20 shrink-0 rounded-lg border border-line"
                   />
                   <div>
@@ -1091,6 +1187,7 @@ export default function ToolsPage() {
             <div className="mb-4 flex items-center gap-3">
               <ToolPhoto
                 url={newPhoto || form.photoUrl}
+                width={240}
                 className="h-20 w-20 shrink-0 rounded-lg border border-line"
               />
               <div>
