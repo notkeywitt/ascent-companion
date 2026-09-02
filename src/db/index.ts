@@ -540,6 +540,17 @@ async function applySchema() {
       updated_by TEXT NOT NULL DEFAULT ''
     )
   `);
+  // Editable admin home-launcher layout — one JSON row (id='home'). Absent row
+  // means the shipped AREAS launcher renders, so an empty table is the correct
+  // default state (see src/lib/navLayout.ts).
+  await getClient().execute(`
+    CREATE TABLE IF NOT EXISTS nav_layout (
+      id TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      updated_at TEXT NOT NULL DEFAULT '',
+      updated_by TEXT NOT NULL DEFAULT ''
+    )
+  `);
   // Admin notices — announcements pushed to users as a global popup. Companion-
   // owned; a notice_reads row per (notice, reader) is the "seen it" mark.
   await getClient().execute(`
@@ -847,6 +858,24 @@ async function applySchema() {
       updated_at TEXT NOT NULL DEFAULT ''
     )
   `);
+
+  // Unsynced Tracking Sheets coding, per user and per scope — the cross-device
+  // BACKUP for a staged draft (localStorage is the primary; see
+  // src/lib/codingDraft.ts and the table's note in db/schema.ts). Deleted on
+  // Sync and on Revert, and swept once a row passes DRAFT_TTL_DAYS.
+  await getClient().execute(`
+    CREATE TABLE IF NOT EXISTS coding_drafts (
+      email TEXT NOT NULL,
+      key TEXT NOT NULL,
+      payload TEXT NOT NULL DEFAULT '{}',
+      updated_at TEXT NOT NULL DEFAULT '',
+      PRIMARY KEY (email, key)
+    )
+  `);
+  // Reads are always "this user's drafts", newest first.
+  await getClient().execute(
+    `CREATE INDEX IF NOT EXISTS coding_drafts_email_idx ON coding_drafts (email, updated_at DESC)`,
+  );
 }
 
 export { schema };

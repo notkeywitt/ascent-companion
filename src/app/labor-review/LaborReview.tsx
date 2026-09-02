@@ -9,7 +9,6 @@ import {
   Card,
   EmptyState,
   FilterChip,
-  IconButton,
   Label,
   Loading,
   Meter,
@@ -19,12 +18,25 @@ import {
   StickyActionBar,
   Toggle,
 } from "@/components/ui";
-import { CostCodeSelect, type Option } from "@/components/CostCodeSelect";
-import { JtLink } from "@/components/JtLink";
+import { type Option } from "@/components/CostCodeSelect";
+import {
+  TimeEntryList,
+  TimeRecodeCard,
+  useTimeFilters,
+  type CodeHeadroom,
+} from "@/components/TimeEntryList";
 import { useUnsavedChanges } from "@/lib/useUnsavedChanges";
+import { buildQbLaborCsv } from "@/lib/qbLaborCsv";
 
 /**
  * Labor Review — the time-entry twin of the Tracking Sheets board.
+ *
+ * THE LIST IN THE MIDDLE IS NOT WRITTEN HERE. It is
+ * `src/components/TimeEntryList.tsx`, rendered identically by the board's
+ * "Time & labor" panel — the two were hand-written twins that drifted, and each
+ * had capabilities the other lacked. This page owns the budget rail, the money,
+ * and what a recode WRITES; the list owns filtering, grouping, drawing and
+ * selecting the entries.
  *
  * Same premise, same three columns: the decision is "this week of General Labor
  * really belongs to Framing", and you can only make it if the hours and the
@@ -50,6 +62,9 @@ interface TimeEntry {
   id: string;
   employee: string;
   startedAt: string | null;
+  /** Clock-out instant (UTC), null on a running entry. Carried for the QB export.
+   *  Optional so this stays assignable to the shared TimeEntryRow, which omits it. */
+  endedAt?: string | null;
   hours: number;
   cost: number;
   code: string;
@@ -85,7 +100,7 @@ interface CostDivisionRow {
   codes: CostCodeRow[];
 }
 interface Payload {
-  job: { id: string; name: string; address: string } | null;
+  job: { id: string; name: string; address: string; customer: string } | null;
   timeEntries: TimeEntry[];
   budget: BudgetItem[];
   costDetail: { divisions: CostDivisionRow[]; budgetBasis: string };
@@ -136,16 +151,6 @@ function monthOptions(): { value: string; label: string }[] {
   return out;
 }
 
-/** First/last day of `ym` as "YYYY-MM-DD" — the date filter's natural bounds. */
-function monthBounds(ym: string): { first: string; last: string } {
-  const [y, m] = ym.split("-").map(Number);
-  const last = new Date(y, m, 0).getDate();
-  return { first: `${ym}-01`, last: `${ym}-${String(last).padStart(2, "0")}` };
-}
-
-/** The entry's calendar day, as JobTread's own list shows it. */
-const dayOf = (t: TimeEntry) => (t.startedAt ?? "").slice(0, 10);
-
 /** Per-cost-code money for the left rail, after staged recodes. */
 interface Headroom {
   code: string;
@@ -182,17 +187,10 @@ export function LaborReview() {
   const [syncing, setSyncing] = useState(false);
   const [syncMsg, setSyncMsg] = useState<{ tone: "success" | "error"; text: string } | null>(null);
 
-  // ---- filters (cost code / employee / date) ------------------------------
-  const [fCode, setFCode] = useState("");
-  /**
-   * Employees to show. EMPTY MEANS EVERYONE — reviewing a crew is the normal
-   * case ("Bret and Ty on siding last week"), and a single-select filter made
-   * that two passes over the month with no way to see them side by side or add
-   * up what they cost together.
-   */
-  const [fEmployees, setFEmployees] = useState<Set<string>>(new Set());
-  const [fFrom, setFFrom] = useState("");
-  const [fTo, setFTo] = useState("");
+  // ---- filters (cost code / employee(s) / date / grouping) ----------------
+  // Owned by the shared list — see useTimeFilters. Held here rather than inside
+  // it because this page reads what's on screen for its own figures (the shown
+  // total, and the "cost codes in view" card below).
   const [codeQuery, setCodeQuery] = useState("");
   // On a phone the rail stacks above the list, so it starts rolled up — same
   // choice the board makes, for the same reason (land on the work, not the
@@ -233,13 +231,6 @@ export function LaborReview() {
   useEffect(() => {
     void load();
   }, [load]);
-
-  // The date filter is scoped to the month on screen, so changing months resets
-  // it — a July 3–9 window left over from June would silently empty the list.
-  useEffect(() => {
-    setFFrom("");
-    setFTo("");
-  }, [ym]);
 
   // ---- derived ------------------------------------------------------------
   const leafById = useMemo(() => {
@@ -292,50 +283,14 @@ export function LaborReview() {
     [data, includeUnapproved],
   );
 
-  const employees = useMemo(
-    () => [...new Set(monthEntries.map((t) => t.employee))].sort((a, b) => a.localeCompare(b)),
-    [monthEntries],
-  );
-  /** Codes present in the month's labor — the filter offers what's actually there. */
-  const codesPresent = useMemo(() => {
-    const m = new Map<string, string>();
-    for (const t of monthEntries) {
-      const c = codeOf(t);
-      if (c && !m.has(c)) m.set(c, leafById.get(leafOf(t))?.name || t.codeName);
-    }
-    return [...m.entries()]
-      .map(([number, name]) => ({ number, name }))
-      .sort((a, b) => a.number.localeCompare(b.number));
-  }, [monthEntries, codeOf, leafOf, leafById]);
-
-  /** The middle column: the month's entries after all three filters. */
-  const entries = useMemo(() => {
-    return monthEntries.filter((t) => {
-      if (fCode && codeOf(t) !== fCode) return false;
-      if (fEmployees.size > 0 && !fEmployees.has(t.employee)) return false;
-      const d = dayOf(t);
-      if (fFrom && d < fFrom) return false;
-      if (fTo && d > fTo) return false;
-      return true;
-    });
-  }, [monthEntries, fCode, fEmployees, fFrom, fTo, codeOf]);
-
-  const shownTotal = useMemo(() => entries.reduce((s, t) => s + t.cost, 0), [entries]);
-  const shownHours = useMemo(() => entries.reduce((s, t) => s + t.hours, 0), [entries]);
-  const filtered = Boolean(fCode || fEmployees.size > 0 || fFrom || fTo);
-  const clearFilters = () => {
-    setFCode("");
-    setFEmployees(new Set());
-    setFFrom("");
-    setFTo("");
-  };
-  const toggleEmployee = (name: string) =>
-    setFEmployees((prev) => {
-      const next = new Set(prev);
-      if (next.has(name)) next.delete(name);
-      else next.add(name);
-      return next;
-    });
+  /**
+   * The middle column: filtering, grouping and what's on screen — all of it the
+   * shared list's, so this page and the board narrow a month of hours the same
+   * way. `codeOf` is passed in so a filter matches the code an entry sits under
+   * NOW, staged moves included.
+   */
+  const f = useTimeFilters(monthEntries, { codeOf, resetKey: `${jobId}|${ym}` });
+  const entries = f.visible;
 
   /**
    * Headroom per cost code, with staged recodes applied as transfers.
@@ -420,6 +375,20 @@ export function LaborReview() {
     return map;
   }, [data, monthEntries, codeOf, leavesByCode, includeUnapproved]);
 
+  /**
+   * What a cost code has left, for the chip the shared list draws on every row.
+   * This page's answer deliberately omits DRAFT bills — they live on the bills
+   * it doesn't fetch — so a code reads slightly roomier here than on Tracking
+   * Sheets. The footnote under the rail says so.
+   */
+  const headroomFor = useCallback(
+    (code: string): CodeHeadroom | null => {
+      const h = headroom.get(code);
+      return h ? { name: h.name, remaining: remainingOf(h) } : null;
+    },
+    [headroom],
+  );
+
   const railRows = useMemo(() => {
     const q = codeQuery.trim().toLowerCase();
     const rows = [...headroom.values()].filter(
@@ -487,23 +456,6 @@ export function LaborReview() {
     () => entries.filter((t) => selected.has(t.id)),
     [entries, selected],
   );
-
-  const toggleOne = (id: string) =>
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-
-  const allShownSelected = entries.length > 0 && entries.every((t) => selected.has(t.id));
-  const toggleAllShown = () =>
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (allShownSelected) for (const t of entries) next.delete(t.id);
-      else for (const t of entries) next.add(t.id);
-      return next;
-    });
 
   /** Stage the selection onto one budget leaf. */
   const stageSelection = (leafId: string) => {
@@ -586,6 +538,33 @@ export function LaborReview() {
     }
   }
 
+  /**
+   * Export the month's labor as a QuickBooks-format CSV — the reverse of
+   * /labor-import. Uses `monthEntries` (the whole month, narrowed only by the
+   * approval toggle, NOT the on-screen employee/code/date filters) so the file
+   * is "the month's labor", not whatever slice is on screen. Staged recodes are
+   * deliberately ignored: the CSV reflects what JobTread actually holds, since
+   * nothing is written until Sync. Client-side only — no data leaves the browser.
+   */
+  const exportQbCsv = () => {
+    if (!data?.job || monthEntries.length === 0) return;
+    const csv = buildQbLaborCsv(monthEntries, {
+      name: data.job.name,
+      customer: data.job.customer,
+    });
+    const safe = (s: string) => (s || "job").replace(/[^\w.-]+/g, " ").trim();
+    const filename = `Labor ${safe(data.job.name)} ${ym} (QB format).csv`;
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
   // ---- render -------------------------------------------------------------
   if (!jobId) {
     return (
@@ -601,8 +580,6 @@ export function LaborReview() {
       </main>
     );
   }
-
-  const bounds = monthBounds(ym);
 
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-col px-4 pb-[calc(6rem+env(safe-area-inset-bottom))] pt-6 lg:max-w-[110rem]">
@@ -730,14 +707,14 @@ export function LaborReview() {
                     <RailGroup
                       title="Carrying labor"
                       rows={railWithLabor}
-                      activeCode={fCode}
-                      onPick={(code) => setFCode((c) => (c === code ? "" : code))}
+                      activeCode={f.code}
+                      onPick={(code) => f.setCode(f.code === code ? "" : code)}
                     />
                     <RailGroup
                       title="Everything else"
                       rows={railRest}
-                      activeCode={fCode}
-                      onPick={(code) => setFCode((c) => (c === code ? "" : code))}
+                      activeCode={f.code}
+                      onPick={(code) => f.setCode(f.code === code ? "" : code)}
                     />
                   </>
                 )}
@@ -762,89 +739,23 @@ export function LaborReview() {
             <div className="mb-2 flex items-baseline justify-between gap-3">
               <SectionLabel>
                 Time entries ({entries.length}
-                {filtered ? ` of ${monthEntries.length}` : ""})
+                {f.on ? ` of ${monthEntries.length}` : ""})
               </SectionLabel>
-              <span className="shrink-0 text-xs font-semibold tabular-nums">
-                {hrs(shownHours)} · {money(shownTotal)}
-              </span>
-            </div>
-
-            {/* Filters: cost code, employee(s), date. */}
-            <Card className="mb-2">
-              <div className="grid grid-cols-2 gap-2">
-                <div className="col-span-2">
-                  <Label htmlFor="f-code">Cost code</Label>
-                  <Select id="f-code" value={fCode} onChange={(e) => setFCode(e.target.value)}>
-                    <option value="">All cost codes</option>
-                    {codesPresent.map((c) => (
-                      <option key={c.number} value={c.number}>
-                        {c.number} {c.name}
-                      </option>
-                    ))}
-                  </Select>
-                </div>
-                {/* Employees are a MULTI-select: chips rather than a <select
-                    multiple>, which on a phone is a scroll-trap and on desktop
-                    needs a modifier key nobody discovers. Each name toggles;
-                    none picked means everyone, so the filter starts wide. */}
-                <fieldset className="col-span-2">
-                  <legend className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
-                    Employees{fEmployees.size > 0 ? ` (${fEmployees.size})` : ""}
-                  </legend>
-                  <div className="flex flex-wrap gap-1.5">
-                    <FilterChip
-                      on={fEmployees.size === 0}
-                      onClick={() => setFEmployees(new Set())}
-                      title="Show every employee's time"
-                    >
-                      Everyone
-                    </FilterChip>
-                    {employees.map((e) => (
-                      <FilterChip
-                        key={e}
-                        on={fEmployees.has(e)}
-                        onClick={() => toggleEmployee(e)}
-                      >
-                        {e}
-                      </FilterChip>
-                    ))}
-                  </div>
-                </fieldset>
-                <div>
-                  <Label htmlFor="f-from">From</Label>
-                  <input
-                    id="f-from"
-                    type="date"
-                    value={fFrom}
-                    min={bounds.first}
-                    max={bounds.last}
-                    onChange={(e) => setFFrom(e.target.value)}
-                    className="h-11 w-full rounded-lg border border-line bg-white px-2 text-sm dark:bg-ink-raised lg:h-9"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="f-to">To</Label>
-                  <input
-                    id="f-to"
-                    type="date"
-                    value={fTo}
-                    min={bounds.first}
-                    max={bounds.last}
-                    onChange={(e) => setFTo(e.target.value)}
-                    className="h-11 w-full rounded-lg border border-line bg-white px-2 text-sm dark:bg-ink-raised lg:h-9"
-                  />
-                </div>
-              </div>
-              {filtered && (
-                <button
-                  type="button"
-                  onClick={clearFilters}
-                  className="mt-2 text-[11px] font-semibold text-accent"
+              <div className="flex shrink-0 items-baseline gap-3">
+                <span className="text-xs font-semibold tabular-nums">
+                  {hrs(f.shownHours)} · {money(f.shownCost)}
+                </span>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={exportQbCsv}
+                  disabled={monthEntries.length === 0}
+                  title="Download this month's labor as a QuickBooks-format CSV — the reverse of Labor Import. Exports the whole month (not the on-screen filters)."
                 >
-                  Clear filters
-                </button>
-              )}
-            </Card>
+                  Export QB CSV ({monthEntries.length})
+                </Button>
+              </div>
+            </div>
 
             {/* ---- the cost codes these filters landed on ----
                 Styled as the budget card, because it IS one: the same rows,
@@ -871,7 +782,7 @@ export function LaborReview() {
                         <li
                           key={c.code || "uncoded"}
                           className={`border-b border-line-soft last:border-0 dark:border-neutral-800 ${
-                            c.code && fCode === c.code
+                            c.code && f.code === c.code
                               ? "bg-accent/10 ring-1 ring-inset ring-accent"
                               : ""
                           }`}
@@ -881,7 +792,7 @@ export function LaborReview() {
                             // Uncoded isn't a filterable code — there's nothing
                             // to narrow to, so the row is a readout only.
                             disabled={!c.code}
-                            onClick={() => setFCode((v) => (v === c.code ? "" : c.code))}
+                            onClick={() => f.setCode(f.code === c.code ? "" : c.code)}
                             title={
                               `${c.code || "Uncoded"} ${c.name}\n` +
                               `${hrs(c.hours)} shown here (${money(c.inView)} of labor)\n` +
@@ -931,144 +842,21 @@ export function LaborReview() {
               </div>
             )}
 
-            {entries.length === 0 ? (
-              <EmptyState>
-                {monthEntries.length === 0
-                  ? "No time logged to this job this month."
-                  : "No entries match these filters."}
-              </EmptyState>
+            {monthEntries.length === 0 ? (
+              <EmptyState>No time logged to this job this month.</EmptyState>
             ) : (
               <Card pad={false} className="overflow-hidden">
-                <div className="flex items-center justify-between gap-2 border-b border-line-soft px-3 py-2 dark:border-neutral-800">
-                  <label className="flex min-w-0 items-center gap-2 text-xs">
-                    <input
-                      type="checkbox"
-                      checked={allShownSelected}
-                      onChange={toggleAllShown}
-                      className="h-4 w-4 shrink-0 accent-[var(--accent)]"
-                    />
-                    <span className="truncate">
-                      {selected.size > 0 ? `${selected.size} selected` : "Select all shown"}
-                    </span>
-                  </label>
-                  {selected.size > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => setSelected(new Set())}
-                      className="shrink-0 text-[11px] font-semibold text-accent"
-                    >
-                      Clear
-                    </button>
-                  )}
-                </div>
-                <ul>
-                  {entries.map((t) => {
-                    const movedTo = staged.get(t.id);
-                    const nowCode = codeOf(t);
-                    // Headroom on the code this entry currently sits under —
-                    // staged moves included, so the pill reacts as you recode.
-                    const entryHead = headroom.get(nowCode);
-                    const entryLeft = entryHead ? remainingOf(entryHead) : 0;
-                    const entryOver = Boolean(entryHead) && entryLeft < 0;
-                    return (
-                      <li
-                        key={t.id}
-                        className={`border-b border-line-soft last:border-0 dark:border-neutral-800 ${
-                          movedTo ? "bg-amber-50/60 dark:bg-amber-950/20" : ""
-                        }`}
-                      >
-                        <div className="flex items-start">
-                          <label className="flex min-w-0 flex-1 cursor-pointer items-start gap-2 px-3 py-2 transition hover:bg-accent/5 dark:hover:bg-white/5">
-                            <input
-                              type="checkbox"
-                              checked={selected.has(t.id)}
-                              onChange={() => toggleOne(t.id)}
-                              className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--accent)]"
-                            />
-                            <span className="min-w-0 flex-1">
-                              {/* HOURS is the display figure on a labor page —
-                                  the question being reviewed is "how long did
-                                  this take", and the dollars are that number
-                                  times a pay rate nobody is editing here. Cost
-                                  keeps its place on the detail line below. */}
-                              <span className="flex items-baseline justify-between gap-2">
-                                <span className="min-w-0 truncate text-[13px] font-semibold">
-                                  {t.employee}
-                                </span>
-                                <span className="shrink-0 text-sm font-semibold tabular-nums">
-                                  {hrs(t.hours)}
-                                </span>
-                              </span>
-                              <span className="mt-0.5 block truncate text-[11px] text-neutral-500 dark:text-neutral-400">
-                                {dayOf(t)} · {money(t.cost)}
-                                {t.type ? ` · ${t.type}` : ""}
-                                {t.isApproved ? "" : " · unapproved"}
-                              </span>
-                              {/* The code chip, in the same shape a bill card
-                                  carries: code · what this charges it · what's
-                                  left there. Reads red once the code is over.
-                                  Staged entries show it for the code they'd move
-                                  TO, with the old one struck through beside it. */}
-                              <span className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px]">
-                                <span
-                                  className={`inline-flex items-baseline gap-1.5 rounded-md px-2 py-1 ${
-                                    entryOver
-                                      ? "bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300"
-                                      : "bg-neutral-100 text-neutral-600 dark:bg-white/10 dark:text-neutral-300"
-                                  }`}
-                                  title={`${entryHead?.name ?? ""} — ${
-                                    entryHead ? money(entryLeft) : "no budget row"
-                                  } remaining`}
-                                >
-                                  <span className="tabular-nums">{nowCode || "uncoded"}</span>
-                                  <span className="tabular-nums">{money0(t.cost)}</span>
-                                  <span className="opacity-60">·</span>
-                                  <span className="tabular-nums">
-                                    {entryHead ? `${money0(entryLeft)} left` : "no budget"}
-                                  </span>
-                                </span>
-                                {movedTo && (
-                                  <span className="truncate text-neutral-500 dark:text-neutral-400">
-                                    moved from{" "}
-                                    <span className="line-through">{t.code || "uncoded"}</span>
-                                  </span>
-                                )}
-                              </span>
-                              {t.notes && (
-                                <span className="mt-0.5 block truncate text-[11px] italic text-neutral-500 dark:text-neutral-400">
-                                  {t.notes}
-                                </span>
-                              )}
-                            </span>
-                          </label>
-                          {/* Outside the label on purpose — nested in it, every
-                              tap on the flag would also toggle the row's
-                              checkbox. Small glyph, full 44px target (IconButton). */}
-                          <IconButton
-                            label={t.flagged ? "Remove review flag" : "Flag for review"}
-                            title={
-                              t.flagged
-                                ? "Flagged for review — tap to clear. Saved in the Assistant, not JobTread."
-                                : "Flag this entry for review. Saved in the Assistant, not JobTread."
-                            }
-                            aria-pressed={Boolean(t.flagged)}
-                            onClick={() => void toggleFlag(t.id, !t.flagged)}
-                            className="mt-1"
-                          >
-                            <span
-                              aria-hidden
-                              className={`text-sm ${
-                                t.flagged ? "text-amber-600 dark:text-amber-400" : "opacity-50"
-                              }`}
-                            >
-                              ⚑
-                            </span>
-                          </IconButton>
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
+                <TimeEntryList
+                  filters={f}
+                  monthEntries={monthEntries}
+                  codeOf={codeOf}
+                  headroomFor={headroomFor}
+                  isMoved={(t) => staged.has(t.id)}
+                  selected={selected}
+                  onSelectedChange={setSelected}
+                  onFlag={(id, flagged) => void toggleFlag(id, flagged)}
+                  emptyFiltered="No entries match these filters."
+                />
               </Card>
             )}
           </section>
@@ -1081,78 +869,25 @@ export function LaborReview() {
             {selectedEntries.length === 0 ? (
               <EmptyState>Select one or more time entries to recode them.</EmptyState>
             ) : (
-              <Card className="max-h-[calc(100vh-5rem)] overflow-y-auto">
-                <div className="flex items-baseline justify-between gap-2">
-                  <p className="min-w-0 truncate text-sm font-semibold">
-                    {selectedEntries.length} {selectedEntries.length === 1 ? "entry" : "entries"}
-                  </p>
-                  <JtLink
-                    href={`https://app.jobtread.com/jobs/${jobId}/time`}
-                    className="shrink-0 text-xs font-semibold text-neutral-400 transition hover:text-accent"
-                  >
-                    JT ↗
-                  </JtLink>
-                </div>
-                <p className="mb-3 text-xs text-neutral-500">
-                  {hrs(selectedEntries.reduce((s, t) => s + t.hours, 0))} ·{" "}
-                  {money(selectedEntries.reduce((s, t) => s + t.cost, 0))}
-                </p>
-
-                <span className="mb-1 block text-[10px] uppercase tracking-wide text-neutral-400">
-                  Code {selectedEntries.length === 1 ? "this entry" : "all selected"} to
-                </span>
-                <CostCodeSelect
-                  options={codingOptions}
-                  value={
-                    // One shared value only when every selected entry agrees —
-                    // otherwise the box would claim a code most of them aren't on.
-                    selectedEntries.every((t) => leafOf(t) === leafOf(selectedEntries[0]))
-                      ? leafOf(selectedEntries[0])
-                      : ""
-                  }
-                  onChange={stageSelection}
-                />
-                <p className="mt-2 text-[11px] leading-relaxed text-neutral-500 dark:text-neutral-400">
-                  Only cost codes with a budget line are targets. Recoding moves the hours and
-                  their cost to another code — it never changes the amount, the pay type, or
-                  approval. Nothing is written until you Sync.
-                </p>
-
-                {selectedEntries.some((t) => staged.has(t.id)) && (
-                  <div className="mt-3 border-t border-line-soft pt-3 dark:border-neutral-800">
-                    <span className="mb-1 block text-[10px] uppercase tracking-wide text-neutral-400">
-                      Staged
-                    </span>
-                    <ul className="space-y-1">
-                      {selectedEntries
-                        .filter((t) => staged.has(t.id))
-                        .map((t) => (
-                          <li
-                            key={t.id}
-                            className="flex items-baseline justify-between gap-2 text-[11px]"
-                          >
-                            <span className="min-w-0 truncate">
-                              {t.employee} · {dayOf(t)}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setStaged((prev) => {
-                                  const next = new Map(prev);
-                                  next.delete(t.id);
-                                  return next;
-                                })
-                              }
-                              className="shrink-0 font-semibold text-accent"
-                            >
-                              Undo
-                            </button>
-                          </li>
-                        ))}
-                    </ul>
-                  </div>
-                )}
-              </Card>
+              /* The drawer is shared with the board's Time & labor panel for the
+                 same reason the list is — this is the other half of "select
+                 several entries and move them", and a copy on each page is a
+                 copy that drifts. It stages nothing: the leaf comes back here. */
+              <TimeRecodeCard
+                entries={selectedEntries}
+                codeOptions={codingOptions}
+                leafOf={leafOf}
+                onPick={stageSelection}
+                isStaged={(t) => staged.has(t.id)}
+                onUndo={(id) =>
+                  setStaged((prev) => {
+                    const next = new Map(prev);
+                    next.delete(id);
+                    return next;
+                  })
+                }
+                jtHref={`https://app.jobtread.com/jobs/${jobId}/time`}
+              />
             )}
           </section>
         </div>

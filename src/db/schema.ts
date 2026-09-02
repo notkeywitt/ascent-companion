@@ -1,4 +1,4 @@
-import { sqliteTable, integer, real, text } from "drizzle-orm/sqlite-core";
+import { sqliteTable, integer, primaryKey, real, text } from "drizzle-orm/sqlite-core";
 
 /**
  * RFIs — assistant-owned (JobTread has no RFI object). Linked to a JobTread job
@@ -536,6 +536,25 @@ export const pageCopy = sqliteTable("page_copy", {
 });
 
 export type PageCopyRow = typeof pageCopy.$inferSelect;
+
+/**
+ * Editable admin home-launcher layout — the menus, page links, and buttons an
+ * admin arranges from the home page's Edit mode (see src/lib/navLayout.ts).
+ *
+ * Override-only, exactly like page_copy: a single row (`id = 'home'`) holding
+ * the whole layout as JSON in `value`. No row → the launcher renders the
+ * shipped AREAS default (src/lib/nav.ts), so an empty or unreachable DB can
+ * never blank the home page; deleting the row is how you revert to the shipped
+ * launcher. Companion-owned UI state — nothing to do with JobTread.
+ */
+export const navLayout = sqliteTable("nav_layout", {
+  id: text("id").primaryKey(), // "home" — one row today, keyed for future launchers
+  value: text("value").notNull(), // a NavLayout serialized as JSON
+  updatedAt: text("updated_at").notNull().default(""),
+  updatedBy: text("updated_by").notNull().default(""), // signed-in email
+});
+
+export type NavLayoutRow = typeof navLayout.$inferSelect;
 
 /**
  * Admin notices — short announcements an admin pushes to users, shown as a global
@@ -1096,3 +1115,39 @@ export const digestInstructions = sqliteTable("digest_instructions", {
 
 export type DigestInstruction = typeof digestInstructions.$inferSelect;
 export type NewDigestInstruction = typeof digestInstructions.$inferInsert;
+
+/**
+ * UNSYNCED CODING WORK — the cross-device backup for a Tracking Sheets draft.
+ *
+ * Tracking Sheets stages coding in the browser and writes JobTread only on Sync
+ * (see src/lib/codingDraft.ts for why that stays true). localStorage is what
+ * actually catches the accident — it is written on every change and survives a
+ * crash — and THIS table is the second layer: it is what lets the work follow
+ * the office from the phone to the desk, and what survives a cleared browser.
+ *
+ * So it is a BACKUP, never the source of truth. A restore reads localStorage
+ * first and only falls back here; a row can legitimately be a couple of seconds
+ * behind the browser, because it is pushed on a debounce.
+ *
+ * Per user (`email`) and per SCOPE (`key`): one job-month on the board
+ * ("job:<jtJobId>:<YYYY-MM>"), or one bill in the needs-coding queue
+ * ("bill:<docId>"). Two people coding the same job hold their own drafts, which
+ * is the point — a draft is somebody's unfinished decision, not shared state.
+ *
+ * `payload` is the whole CodingDraft as JSON: staged recodes, in-flight line
+ * text, staged sales tax. Rows are deleted on Sync and on Revert, and swept once
+ * they pass DRAFT_TTL_DAYS.
+ */
+export const codingDrafts = sqliteTable(
+  "coding_drafts",
+  {
+    email: text("email").notNull(), // signed-in user, lowercased
+    key: text("key").notNull(), // the scope — see jobDraftKey / billDraftKey
+    payload: text("payload").notNull().default("{}"), // JSON CodingDraft
+    updatedAt: text("updated_at").notNull().default(""),
+  },
+  (t) => [primaryKey({ columns: [t.email, t.key] })],
+);
+
+export type CodingDraftRow = typeof codingDrafts.$inferSelect;
+export type NewCodingDraftRow = typeof codingDrafts.$inferInsert;

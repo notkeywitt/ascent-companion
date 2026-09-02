@@ -12,6 +12,7 @@ import {
   EmptyState,
   Label,
   Loading,
+  MetaLine,
   Meter,
   PageHeader,
   SectionHeading,
@@ -44,8 +45,14 @@ import {
   type RecodeEntry,
 } from "@/lib/billLineMath";
 import { TimeCodingCard, laborOptions } from "./TimeCodingCard";
+import {
+  TimeEntryList,
+  TimeRecodeCard,
+  useTimeFilters,
+  type CodeHeadroom,
+  type TimeEntryRow,
+} from "@/components/TimeEntryList";
 import { AddTimeCard } from "./AddTimeCard";
-import { orgDay } from "@/lib/orgTime";
 import { InvoiceReconcile, type Recon } from "@/components/InvoiceReconcile";
 import { UncapturedBills } from "@/components/UncapturedBills";
 import {
@@ -62,9 +69,18 @@ import {
 } from "@/components/TrackingSheetSync";
 import { TrackingSheetRisks } from "@/components/TrackingSheetRisks";
 import { PreSendCheck } from "./PreSendCheck";
+import type { PreSendResult } from "@/lib/invoiceReview/preSend";
 import { useAccess } from "@/components/AccessProvider";
 import { useCopy } from "@/components/CopyProvider";
 import { useUnsavedChanges } from "@/lib/useUnsavedChanges";
+import {
+  discardDraft,
+  draftSavedAtLabel,
+  jobDraftKey,
+  loadDraft,
+  reconcileDraft,
+  saveDraft,
+} from "@/lib/codingDraft";
 
 /**
  * Invoicing coding board — the desktop workbench for deciding which cost code
@@ -126,25 +142,17 @@ interface JobBillLine {
   jobCostItemId: string | null;
 }
 /**
- * One time entry in the month. Mirrors lib/jobtread's MonthTimeEntry — the
- * board passes these straight into the Time & labor panel, which edits them,
- * so the coding target (`costItemId`) and the raw clock (`endedAt`/`minutes`)
- * have to survive the trip rather than being flattened to a display string.
+ * One time entry in the month: the shared list's row (see TimeEntryList) plus
+ * the raw clock only this page edits.
+ *
+ * Declared as an EXTENSION rather than a second copy of the same fields — the
+ * two drifted once already, which is the whole reason the list is shared now.
+ * `endedAt`/`minutes` survive the trip because the single-entry editor rewrites
+ * the actual window worked, not just the duration JobTread derived from it.
  */
-interface MonthTimeEntry {
-  id: string;
-  employee: string;
-  startedAt: string | null;
+interface MonthTimeEntry extends TimeEntryRow {
   endedAt: string | null;
-  hours: number;
   minutes: number;
-  cost: number;
-  code: string;
-  codeName: string;
-  notes: string;
-  isApproved: boolean;
-  costItemId: string | null;
-  type: string;
 }
 interface BudgetItem {
   id: string;
@@ -352,65 +360,6 @@ function useIsMobile() {
  * rendered. Mirrors the `hidden xl:block` on that section — one source of truth
  * would be better, but a media query is what CSS is doing there too.
  */
-/** Stands in for the empty cost code in the Time & labor filter's <select>. */
-const UNCODED = "__uncoded__";
-/** …and for a range the from/to boxes define, rather than a listed week. */
-const CUSTOM_RANGE = "__range__";
-/** Prefix marking a whole-week option in the Date select: `W:<from>:<to>`. */
-const WEEK = "W:";
-
-/**
- * "2026-08-11" → "Tue Aug 11". Parsed as UTC and formatted as UTC: the string
- * is already an ORG-local day (orgDay did that conversion), so re-reading it in
- * the viewer's zone would shift it back a day west of the org.
- */
-function dayLabel(day: string): string {
-  const t = Date.parse(`${day}T00:00:00Z`);
-  if (!Number.isFinite(t)) return day;
-  return new Date(t).toLocaleDateString(undefined, {
-    timeZone: "UTC",
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-  });
-}
-/** The same day without its weekday — "Aug 11" — for the two ends of a range. */
-function shortDay(day: string): string {
-  const t = Date.parse(`${day}T00:00:00Z`);
-  if (!Number.isFinite(t)) return day;
-  return new Date(t).toLocaleDateString(undefined, {
-    timeZone: "UTC",
-    month: "short",
-    day: "numeric",
-  });
-}
-/** `day` shifted by n days, as another "YYYY-MM-DD". UTC throughout — see dayLabel. */
-function addDays(day: string, n: number): string {
-  const d = new Date(`${day}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + n);
-  return d.toISOString().slice(0, 10);
-}
-/**
- * The MONDAY of the week `day` falls in. Weeks run Monday–Sunday because that
- * is how a crew's week is counted here; a range that splits a week in half is
- * exactly the thing these presets exist to avoid.
- */
-function weekStart(day: string): string {
-  const d = new Date(`${day}T00:00:00Z`);
-  if (Number.isNaN(d.getTime())) return day;
-  // getUTCDay: 0 = Sunday, so Sunday steps back 6 rather than 0.
-  return addDays(day, -((d.getUTCDay() + 6) % 7));
-}
-/** Decode a Date-select value into the range it means, or null for a single day / all. */
-function rangeOfSelection(sel: string, from: string, to: string): { from: string; to: string } | null {
-  if (sel === CUSTOM_RANGE) return { from, to };
-  if (sel.startsWith(WEEK)) {
-    const [, f, t] = sel.split(":");
-    return { from: f, to: t };
-  }
-  return null;
-}
-
 function useIsBelowXl() {
   const [below, setBelow] = useState(false);
   useEffect(() => {
@@ -481,6 +430,10 @@ export function Board() {
   const canApprove = can("bill-approve");
   const canLaborReview = can("labor-review");
   const [trackingTarget, setTrackingTarget] = useState<TrackingTarget | null>(null);
+  // Have we finished reading whether THIS job has a tracking sheet? Until we
+  // have, the month-side button renders nothing rather than flashing the wrong
+  // label (a real "Sync" vs a "Link one" for a job that in fact has a sheet).
+  const [trackingChecked, setTrackingChecked] = useState(false);
   const [trackingSync, setTrackingSync] = useState<TrackingSyncState | undefined>(undefined);
   // The sheet push runs on its own task runner, so `syncing` (the JobTread write
   // loop) is already false while it's still going. Without this the button would
@@ -489,20 +442,27 @@ export function Board() {
     trackingSync?.status === "queued" || trackingSync?.status === "running";
 
   useEffect(() => {
+    // A new job starts unresolved — clear the old job's target so its Sync
+    // button can't linger on the wrong sheet while the new read is in flight.
+    setTrackingTarget(null);
+    setTrackingChecked(false);
     if (!canTrack || !jobId) return;
     let alive = true;
     (async () => {
       try {
         const res = await fetch("/api/tracking-sheet", { cache: "no-store" });
-        if (!res.ok) return; // non-fatal — the tracking sync just doesn't fire
+        if (!res.ok) return; // non-fatal — stays unchecked, button stays hidden
         const b = await res.json();
         if (!alive) return;
         const hit = (
           (b.jobs ?? []) as { id: string; label: string; jtJobId: string; url: string }[]
         ).find((j) => j.jtJobId === jobId);
         if (hit) setTrackingTarget({ projectId: hit.id, label: hit.label, url: hit.url });
+        // Only a clean read flips this on: a transient API failure hides the
+        // button rather than wrongly offering to "Link" a sheet that exists.
+        setTrackingChecked(true);
       } catch {
-        /* non-fatal */
+        /* non-fatal — stays unchecked */
       }
     })();
     return () => {
@@ -513,6 +473,37 @@ export function Board() {
   // A month change invalidates the result on screen — it describes another
   // billing period.
   useEffect(() => setTrackingSync(undefined), [ym]);
+
+  // ---- pre-send check (the invoice review's checks, on this job) -----------
+  // State lives here, not inside PreSendCheck, so the trigger can sit in the
+  // phone's action drawer while the card stays purely the result.
+  const [preSend, setPreSend] = useState<PreSendResult | null>(null);
+  const [preSendRunning, setPreSendRunning] = useState(false);
+  const [preSendError, setPreSendError] = useState("");
+  const runPreSend = useCallback(async () => {
+    if (!jobId) return;
+    setPreSendRunning(true);
+    setPreSendError("");
+    setPreSend(null);
+    try {
+      const res = await fetch(
+        `/api/invoice-review/job?jobId=${encodeURIComponent(jobId)}&ym=${encodeURIComponent(ym)}`,
+      );
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.error ?? "The check failed.");
+      setPreSend(json as PreSendResult);
+    } catch (e) {
+      setPreSendError(e instanceof Error ? e.message : "The check failed.");
+    } finally {
+      setPreSendRunning(false);
+    }
+  }, [jobId, ym]);
+  // A month or job change describes another period — drop the stale result.
+  useEffect(() => {
+    setPreSend(null);
+    setPreSendError("");
+  }, [jobId, ym]);
+
   const [codeQuery, setCodeQuery] = useState("");
   // Divisions the user has rolled up. Empty = all open, so the rail keeps
   // showing every code until it's deliberately tidied.
@@ -541,20 +532,18 @@ export function Board() {
    * is halfway through coding.
    */
   const [addTimeOpen, setAddTimeOpen] = useState(false);
-  /** How the Time & labor list is grouped: flat, or by day / person / code. */
-  const [timeGroupBy, setTimeGroupBy] = useState<"none" | "date" | "employee" | "code">("none");
   /**
-   * …and narrowed, on the same three axes, because they're the same three
-   * questions. Each is independent and they AND together: a cost code, and/or
-   * an employee, and/or a date, in any combination — "Miguel's Tuesday",
-   * "everything on 06 10 00", "the whole crew on the 14th".
+   * Filtering and grouping the month's hours is the shared list's — see
+   * useTimeFilters. What stays here is what the PAGE does with a selection.
    */
-  const [timeEmployee, setTimeEmployee] = useState("");
-  const [timeCode, setTimeCode] = useState("");
-  /** "" = every day · a "YYYY-MM-DD" · CUSTOM_RANGE = use timeFrom/timeTo. */
-  const [timeDay, setTimeDay] = useState("");
-  const [timeFrom, setTimeFrom] = useState("");
-  const [timeTo, setTimeTo] = useState("");
+  /** The time entries the coding column is acting on. */
+  const [timeSelected, setTimeSelected] = useState<Set<string>>(new Set());
+  /**
+   * timeEntryId → the budget leaf it's been staged onto. The labor twin of
+   * `staged` above, and it rides the same Sync: recoding a week of hours is now
+   * something this board does, not only Labor Review.
+   */
+  const [timeStaged, setTimeStaged] = useState<Map<string, string>>(new Map());
 
   const taxDirty = Object.entries(taxEdits).some(([docId, v]) => {
     if (v === "") return false;
@@ -562,11 +551,105 @@ export function Board() {
     if (!bill) return false;
     return round2(Number(v) || 0) !== round2(bill.nonRecoverableTax);
   });
-  const dirty = staged.size > 0 || Object.keys(edits).length > 0 || taxDirty;
+  const dirty =
+    staged.size > 0 || timeStaged.size > 0 || Object.keys(edits).length > 0 || taxDirty;
+  /** Everything Sync would write, for the toolbar's chip. */
+  const stagedCount = staged.size + timeStaged.size;
+  // Still worth a prompt — leaving means the coding hasn't reached JobTread —
+  // but it no longer says "lose them", because it isn't true any more: the
+  // autosave below has already put the work somewhere it survives (see
+  // src/lib/codingDraft.ts). The dialog is now a reminder, not the safety net.
   useUnsavedChanges(
     dirty,
-    "You have staged coding changes that haven't been synced to JobTread. Leave and lose them?",
+    "You have staged coding changes that haven't been synced to JobTread. They'll be saved and offered back when you return — leave now?",
   );
+
+  // ---- durable drafts -----------------------------------------------------
+  /**
+   * Staged coding is saved continuously, scoped to this job and month, and
+   * offered back when you return. It is NOT sent to JobTread — see
+   * src/lib/codingDraft.ts for why the Sync button stays the only thing that
+   * writes to the live org.
+   */
+  const draftKey = useMemo(() => (jobId ? jobDraftKey(jobId, ym) : ""), [jobId, ym]);
+  /**
+   * TWO refs, not one, and the difference matters.
+   *
+   * A load empties the staged state, and the restore that follows it is async.
+   * If the autosave were armed the moment the restore STARTED, it would fire on
+   * that empty state — deleting the very draft still being read. So the restore
+   * marks itself started, and only arms the autosave once it has finished (with
+   * work, or with nothing).
+   */
+  const restoreStartedRef = useRef("");
+  const autosaveArmedRef = useRef("");
+  const [restoreMsg, setRestoreMsg] = useState<{
+    kept: number;
+    dropped: number;
+    savedAt: string;
+  } | null>(null);
+
+  // Offer the draft back once the month's data is on screen — reconciled
+  // against it, so a change JobTread has since taken (or a line that no longer
+  // exists) is dropped rather than restored as a phantom edit.
+  useEffect(() => {
+    if (!draftKey || loading || !data) return;
+    if (restoreStartedRef.current === draftKey) return;
+    restoreStartedRef.current = draftKey;
+    let alive = true;
+    (async () => {
+      try {
+        const draft = await loadDraft(draftKey);
+        if (!alive || !draft) return;
+        const r = reconcileDraft(draft, {
+          lines: data.lines,
+          bills: data.bills,
+          budgetIds: data.budget.map((b) => b.id),
+          timeEntries: data.timeEntries,
+        });
+        if (r.kept === 0) {
+          // Everything in it has since landed or gone stale — nothing to offer.
+          if (r.dropped > 0) discardDraft(draftKey);
+          return;
+        }
+        // Only ever ADD to an empty state: the read is async, and work typed
+        // while it was in flight outranks anything stored earlier.
+        setStaged((prev) => (prev.size > 0 ? prev : new Map(Object.entries(r.staged))));
+        setEdits((prev) => (Object.keys(prev).length > 0 ? prev : r.edits));
+        setTaxEdits((prev) => (Object.keys(prev).length > 0 ? prev : r.taxEdits));
+        setTimeStaged((prev) =>
+          prev.size > 0 ? prev : new Map(Object.entries(r.timeStaged ?? {})),
+        );
+        setRestoreMsg({ kept: r.kept, dropped: r.dropped, savedAt: draft.savedAt });
+      } finally {
+        // Whatever came of it, this scope is now the browser's to save.
+        if (alive) autosaveArmedRef.current = draftKey;
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [draftKey, loading, data]);
+
+  // …and save it on every change. Cheap: localStorage synchronously, the
+  // companion DB on a debounce (and flushed when the tab is hidden or closed).
+  useEffect(() => {
+    if (!draftKey || autosaveArmedRef.current !== draftKey) return;
+    const compactEdits: Record<string, LineEdit> = {};
+    for (const [id, e] of Object.entries(edits)) if (e) compactEdits[id] = e;
+    // The label is what the "unfinished work" list on the landing page shows —
+    // that list reads storage alone and has no job to look a name up from.
+    saveDraft(
+      draftKey,
+      {
+        staged: Object.fromEntries(staged),
+        edits: compactEdits,
+        taxEdits,
+        timeStaged: Object.fromEntries(timeStaged),
+      },
+      `${data?.job?.name || "This job"} · ${monthLabel(ym)}`,
+    );
+  }, [draftKey, staged, edits, taxEdits, timeStaged, data?.job?.name, ym]);
 
   const load = useCallback(
     async (opts?: { preserveStaged?: boolean }) => {
@@ -592,6 +675,12 @@ export function Board() {
             // another the office hasn't synced yet.
             const liveIds = new Set(j.lines.map((l) => l.id));
             const liveDocIds = new Set(j.bills.map((b) => b.id));
+            const liveTimeIds = new Set(j.timeEntries.map((t) => t.id));
+            setTimeStaged((prev) => {
+              const next = new Map(prev);
+              for (const id of next.keys()) if (!liveTimeIds.has(id)) next.delete(id);
+              return next;
+            });
             setStaged((prev) => {
               const next = new Map(prev);
               for (const id of next.keys()) if (!liveIds.has(id)) next.delete(id);
@@ -611,6 +700,8 @@ export function Board() {
             // A fresh pull (month/filter change, or after Sync) invalidates
             // everything staged against the old data.
             setStaged(new Map());
+            setTimeStaged(new Map());
+            setTimeSelected(new Set());
             setEdits({});
             setTaxEdits({});
           }
@@ -708,6 +799,17 @@ export function Board() {
     (l: JobBillLine) => staged.get(l.id) ?? l.jobCostItemId ?? "",
     [staged],
   );
+  /** The leaf a time entry points at, staged moves winning. */
+  const timeLeafOf = useCallback(
+    (t: TimeEntryRow) => timeStaged.get(t.id) ?? t.costItemId ?? "",
+    [timeStaged],
+  );
+  /** …and the cost code that puts it under. */
+  const timeCodeOf = useCallback(
+    (t: TimeEntryRow) => leafById.get(timeLeafOf(t))?.number ?? t.code,
+    [timeLeafOf, leafById],
+  );
+
   /** The cost code a line currently sits under, staged edits winning. */
   const codeOf = useCallback(
     (l: JobBillLine) => {
@@ -787,8 +889,21 @@ export function Board() {
         ensure(now).drafts += l.cost;
       }
     }
+
+    // …and the same transfer for staged LABOR. costDetail.labor already counts
+    // every entry under its ORIGINAL code, so a staged move subtracts there and
+    // adds here. Without this the rail — and the budget-left chip on every time
+    // row — would sit perfectly still while you recoded a week of hours, which
+    // is the one moment those figures matter most.
+    for (const t of data?.timeEntries ?? []) {
+      const now = timeCodeOf(t);
+      const was = t.code;
+      if (now === was) continue;
+      if (was) ensure(was).labor -= t.cost;
+      if (now) ensure(now).labor += t.cost;
+    }
     return map;
-  }, [data, codeOf, leavesByCode]);
+  }, [data, codeOf, timeCodeOf, leavesByCode]);
 
   const railRows = useMemo(() => {
     const q = codeQuery.trim().toLowerCase();
@@ -925,157 +1040,82 @@ export function Board() {
   );
   const monthTimeTotal = useMemo(() => monthTime.reduce((s, t) => s + t.cost, 0), [monthTime]);
 
-  /* ---------------- Time & labor: filtering, grouping, editing ----------------
-     The block is no longer a reference list. Its rows open the coding column,
-     and a list you edit from has to be a list you can NARROW first — "Tuesday",
-     "just Miguel", "everything on 06 10 00" — because the correction always
-     arrives phrased as one of those three. Grouping is the same three axes:
-     what you filtered by is usually what you want subtotalled. */
+  /* ---------------- Time & labor ----------------------------------------
+     The list, its filters and its grouping are src/components/TimeEntryList —
+     the SAME component Labor Review renders, so a month of hours is narrowed,
+     grouped, selected and read identically wherever you meet it. What lives
+     here is what this page does with it: the budget it measures against, the
+     staged recodes, and the single-entry editor the Edit button opens. */
 
-  /** The day an entry belongs to, read in the ORG's zone — never sliced off the
-      ISO string, which would push an afternoon entry onto the next day. */
-  const dayOfEntry = useCallback((t: MonthTimeEntry) => orgDay(t.startedAt), []);
-
-  /** The people with hours this month — the filter offers who's actually there. */
-  const timeEmployeeNames = useMemo(
-    () => [...new Set(monthTime.map((t) => t.employee))].sort((a, b) => a.localeCompare(b)),
-    [monthTime],
-  );
-  /** …and the codes those hours landed on, likewise. */
-  const timeCodesPresent = useMemo(() => {
-    const m = new Map<string, string>();
-    for (const t of monthTime) if (!m.has(t.code)) m.set(t.code, t.codeName);
-    return [...m.entries()]
-      .map(([number, name]) => ({ number, name }))
-      .sort((a, b) => a.number.localeCompare(b.number));
-  }, [monthTime]);
-  /**
-   * …and the days somebody actually worked, newest first, each carrying how
-   * many entries landed on it. A month-scoped list only ever has a couple of
-   * dozen, so offering the real days beats a date box you can miss by one —
-   * you pick "Tue Aug 11 · 4" and the list is that day.
-   */
-  const timeDaysPresent = useMemo(() => {
-    const m = new Map<string, number>();
-    for (const t of monthTime) {
-      const d = dayOfEntry(t);
-      if (d) m.set(d, (m.get(d) ?? 0) + 1);
-    }
-    return [...m.entries()]
-      .map(([day, count]) => ({ day, count }))
-      .sort((a, b) => b.day.localeCompare(a.day));
-  }, [monthTime, dayOfEntry]);
+  const timeFilters = useTimeFilters(monthTime, {
+    codeOf: timeCodeOf,
+    resetKey: `${jobId}|${ym}`,
+  });
 
   /**
-   * The weeks the month's hours actually fall in — the presets behind the Date
-   * select's range half. A week is the unit a crew's time is read in (and the
-   * one payroll asks about), so offering the real Mon–Sun weeks turns "the week
-   * of the 10th" into one pick instead of two date boxes and an off-by-one.
+   * What a cost code has left, for the chip on every row. Unlike Labor Review's,
+   * this counts DRAFT bills — the board loads them, and a code with open drafts
+   * genuinely has less room than that page can see.
    */
-  const timeWeeksPresent = useMemo(() => {
-    const m = new Map<string, number>();
-    for (const t of monthTime) {
-      const d = dayOfEntry(t);
-      if (d) m.set(weekStart(d), (m.get(weekStart(d)) ?? 0) + 1);
-    }
-    return [...m.entries()]
-      .map(([from, count]) => ({ from, to: addDays(from, 6), count }))
-      .sort((a, b) => b.from.localeCompare(a.from));
-  }, [monthTime, dayOfEntry]);
-
-  /** The range currently selected — a listed week, or the from/to boxes. */
-  const timeRange = rangeOfSelection(timeDay, timeFrom, timeTo);
-  const rangeOn = Boolean(timeRange && (timeRange.from || timeRange.to));
-  const timeFiltered = useMemo(
-    () =>
-      monthTime.filter((t) => {
-        // "" is a real value here — an uncoded entry — so the filter can't use
-        // it as its own "no filter". UNCODED is the sentinel that lets both
-        // live in one <select>.
-        if (timeCode && t.code !== (timeCode === UNCODED ? "" : timeCode)) return false;
-        if (timeEmployee && t.employee !== timeEmployee) return false;
-        const d = dayOfEntry(t);
-        const r = rangeOfSelection(timeDay, timeFrom, timeTo);
-        if (r) {
-          // Either end may be blank — "everything since" / "everything up to".
-          if (r.from && d < r.from) return false;
-          if (r.to && d > r.to) return false;
-        } else if (timeDay && d !== timeDay) {
-          return false;
-        }
-        return true;
-      }),
-    [monthTime, timeCode, timeEmployee, timeDay, timeFrom, timeTo, dayOfEntry],
-  );
-  const timeShownTotal = useMemo(
-    () => timeFiltered.reduce((s, t) => s + t.cost, 0),
-    [timeFiltered],
-  );
-  const timeShownHours = useMemo(
-    () => timeFiltered.reduce((s, t) => s + t.hours, 0),
-    [timeFiltered],
-  );
-  const timeFilterOn = Boolean(
-    timeCode || timeEmployee || (timeDay && !rangeOfSelection(timeDay, timeFrom, timeTo)) || rangeOn,
+  const timeHeadroomFor = useCallback(
+    (code: string): CodeHeadroom | null => {
+      const h = headroom.get(code);
+      return h ? { name: h.name, remaining: h.budget - usedOf(h) } : null;
+    },
+    [headroom],
   );
 
-  /**
-   * Picking a week FILLS the from/to boxes rather than hiding behind them: the
-   * range is then visible, and nudging either end turns the same selection into
-   * a custom one (see the boxes' onChange) instead of making you start again.
-   */
-  const pickDateSelection = (value: string) => {
-    setTimeDay(value);
-    const r = rangeOfSelection(value, timeFrom, timeTo);
-    if (value.startsWith(WEEK) && r) {
-      setTimeFrom(r.from);
-      setTimeTo(r.to);
-    } else if (value !== CUSTOM_RANGE) {
-      setTimeFrom("");
-      setTimeTo("");
-    }
-  };
-  const clearTimeFilters = () => {
-    setTimeCode("");
-    setTimeEmployee("");
-    setTimeDay("");
-    setTimeFrom("");
-    setTimeTo("");
+  /** The entries the coding column is recoding — the selection, in month order. */
+  const timeSelectedEntries = useMemo(
+    () => monthTime.filter((t) => timeSelected.has(t.id)),
+    [monthTime, timeSelected],
+  );
+
+  /** Stage every selected entry onto one budget leaf. */
+  const stageTimeSelection = (leafId: string) => {
+    if (!leafId) return;
+    setTimeStaged((prev) => {
+      const next = new Map(prev);
+      for (const t of monthTime) {
+        if (!timeSelected.has(t.id)) continue;
+        // Re-picking an entry's ORIGINAL leaf is an un-stage, not a change.
+        if (t.costItemId === leafId) next.delete(t.id);
+        else next.set(t.id, leafId);
+      }
+      return next;
+    });
+    setSyncMsg(null);
   };
 
+  /** Un-stage one entry from the drawer's Staged list. */
+  const undoTimeStage = (id: string) =>
+    setTimeStaged((prev) => {
+      const next = new Map(prev);
+      next.delete(id);
+      return next;
+    });
+
   /**
-   * The filtered entries in their groups, each with its own hours and dollars.
-   * "none" is one unnamed group, so the list markup below never forks.
+   * "Flag for review" — the assistant-local mark, identical to Labor Review's
+   * (same endpoint, same table). NOT a JobTread write, so it's independent of
+   * the write gate and of Sync: flagging never syncs, and Sync never clears one.
    */
-  const timeGroups = useMemo(() => {
-    const key = (t: MonthTimeEntry) => {
-      if (timeGroupBy === "date") return dayOfEntry(t) || "No date";
-      if (timeGroupBy === "employee") return t.employee || "Unknown";
-      if (timeGroupBy === "code") return t.code ? `${t.code} ${t.codeName}`.trim() : "Uncoded";
-      return "";
-    };
-    const map = new Map<string, MonthTimeEntry[]>();
-    for (const t of timeFiltered) {
-      const k = key(t);
-      const list = map.get(k);
-      if (list) list.push(t);
-      else map.set(k, [t]);
+  const toggleTimeFlag = async (id: string, flagged: boolean) => {
+    setData((d) =>
+      d
+        ? { ...d, timeEntries: d.timeEntries.map((t) => (t.id === id ? { ...t, flagged } : t)) }
+        : d,
+    );
+    try {
+      await fetch("/api/labor-review/flag", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, jobId, flagged }),
+      });
+    } catch {
+      /* best-effort — same as the bill list's Reviewed tag */
     }
-    const groups = [...map.entries()].map(([key, entries]) => ({
-      key,
-      // A day sorts as "2026-08-11" and reads as "Tue Aug 11" — so the heading
-      // is formatted for the eye while the key it sorts on stays the ISO one.
-      label: timeGroupBy === "date" && key !== "No date" ? dayLabel(key) : key,
-      entries,
-      cost: entries.reduce((s, t) => s + t.cost, 0),
-      hours: entries.reduce((s, t) => s + t.hours, 0),
-    }));
-    // Days newest first (the list's own order); people and codes alphabetically,
-    // which is how you scan for one.
-    if (timeGroupBy === "date") groups.sort((a, b) => b.key.localeCompare(a.key));
-    else if (timeGroupBy !== "none") groups.sort((a, b) => a.key.localeCompare(b.key));
-    return groups;
-  }, [timeFiltered, timeGroupBy, dayOfEntry]);
+  };
 
   const openTime = monthTime.find((t) => t.id === openTimeId) ?? null;
 
@@ -1090,22 +1130,19 @@ export function Board() {
     [data],
   );
 
-  // A filter (or the approval toggle) that hides the open entry would otherwise
-  // leave the column describing a row that isn't on screen.
+  // A filter that hides the entry being edited would otherwise leave the coding
+  // column describing a row that isn't on screen. (The filters themselves reset
+  // on a job/month change inside useTimeFilters — see its `resetKey`.)
+  const timeVisible = timeFilters.visible;
   useEffect(() => {
-    if (openTimeId && !timeFiltered.some((t) => t.id === openTimeId)) setOpenTimeId(null);
-  }, [openTimeId, timeFiltered]);
+    if (openTimeId && !timeVisible.some((t) => t.id === openTimeId)) setOpenTimeId(null);
+  }, [openTimeId, timeVisible]);
 
-  // Another job or another month is a different set of people, codes and days,
-  // so a filter held over from the last one names something that isn't there —
-  // the <select> would show a blank and the list would read as empty for no
-  // visible reason. Start each month clean.
+  // A selection is about entries in a particular month on a particular job, so
+  // it can't survive a change of either — nor a fresh pull, where the staged
+  // moves it belongs to are dropped too (see load()).
   useEffect(() => {
-    setTimeEmployee("");
-    setTimeCode("");
-    setTimeDay("");
-    setTimeFrom("");
-    setTimeTo("");
+    setTimeSelected(new Set());
   }, [jobId, ym]);
 
   const openBill = data?.bills.find((b) => b.id === openDocId) ?? null;
@@ -1779,9 +1816,15 @@ export function Board() {
 
   const revertAll = () => {
     setStaged(new Map());
+    setTimeStaged(new Map());
+    setTimeSelected(new Set());
     setEdits({});
     setTaxEdits({});
     setSyncMsg(null);
+    setRestoreMsg(null);
+    // Revert is the one place the office says "I don't want this work" — so it
+    // throws the saved draft away too, on every device. Everything else keeps it.
+    if (draftKey) discardDraft(draftKey);
   };
 
   // ---- drag and drop -------------------------------------------------------
@@ -2035,6 +2078,32 @@ export function Board() {
       }
     }
 
+    // Push staged LABOR recodes — one POST for the lot, to the same endpoint
+    // Labor Review uses, so a week of hours moved from this board and a week
+    // moved from that page write the identical thing.
+    let timeOk = 0;
+    if (timeStaged.size > 0) {
+      const changes = [...timeStaged.entries()].map(([id, costItemId]) => ({ id, costItemId }));
+      try {
+        const r = await fetch("/api/labor-review", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ changes }),
+        });
+        const j = await r.json();
+        if (j.error) failures.push(j.error);
+        else if (j.previewed) failures.push(j.message ?? "Writes are disabled.");
+        else {
+          for (const res of (j.results ?? []) as { ok: boolean; error?: string }[]) {
+            if (res.ok) timeOk++;
+            else failures.push(res.error ?? "Unknown error");
+          }
+        }
+      } catch (e) {
+        failures.push(e instanceof Error ? e.message : "Time recode request failed");
+      }
+    }
+
     // Push any staged document-level tax edits — a separate loop since tax
     // isn't a line change (see taxEdits above).
     let taxOk = 0;
@@ -2066,22 +2135,32 @@ export function Board() {
     // Gated on ANY successful write, not just line recodes: a tax-only sync
     // still changes what the sheet should report, and gating on `ok` alone
     // silently skipped it.
-    if (trackingTarget && (ok > 0 || taxOk > 0)) {
+    if (trackingTarget && (ok > 0 || taxOk > 0 || timeOk > 0)) {
       const [y, m] = ym.split("-").map(Number);
       runTrackingSync(trackingTarget.projectId, m, y, setTrackingSync);
     }
     const parts = [];
     if (ok > 0) parts.push(`${ok} line${ok === 1 ? "" : "s"}`);
+    if (timeOk > 0) parts.push(`${timeOk} time ${timeOk === 1 ? "entry" : "entries"}`);
     if (taxOk > 0) parts.push(`${taxOk} tax edit${taxOk === 1 ? "" : "s"}`);
     const summary = parts.length ? parts.join(" + ") : "0 changes";
     if (failures.length === 0) {
       setSyncMsg({ tone: "success", text: `Synced ${summary} to JobTread.` });
+      setRestoreMsg(null);
+      if (draftKey) discardDraft(draftKey); // it's in JobTread now — nothing left to hold
       await load(); // load() clears staged
     } else {
       setSyncMsg({
         tone: "error",
         text: `Synced ${summary}, ${failures.length} failed: ${[...new Set(failures)].slice(0, 2).join("; ")}`,
       });
+      // A PARTLY failed sync is the worst moment to drop the draft: load() is
+      // about to empty the staged state, and the changes that didn't land would
+      // go with it. Re-arm the restore instead — reconcileDraft drops everything
+      // JobTread has now taken, so what comes back is exactly what failed.
+      restoreStartedRef.current = "";
+      autosaveArmedRef.current = "";
+      setRestoreMsg(null);
       await load();
     }
   };
@@ -2184,19 +2263,32 @@ export function Board() {
         `/bill/${b.id}?jobId=${encodeURIComponent(jobId)}&from=recode` +
           `&ym=${encodeURIComponent(ym)}`,
       );
+    // Ordinary state — what stage the bill is at, whether it's paid, whether
+    // anyone has been through it — reads as one quiet line of text. It used to
+    // be six or seven coloured pills per bill, and once "uninvoiced" (the
+    // normal case, on most rows) shouted as loudly as "needs review", none of
+    // them meant anything at scrolling speed. A chip is spent below only on the
+    // exceptions.
+    const meta: string[] = [];
+    if (b.status === "draft") meta.push("draft");
+    else meta.push(b.invoiced ? "invoiced" : "uninvoiced");
+    if (billPaidState(b) === "paid") meta.push("paid");
+    else if (billPaidState(b) === "partial") meta.push("part paid");
+    if (b.reviewed) meta.push("✓ reviewed");
+    else if (b.saved) meta.push("✓ saved");
+
     return (
       <li key={b.id} id={`bill-${b.id}`} className="scroll-mt-20">
-        <Card
-          pad={false}
+        {/* A ROW of the month's one bill card, not a card of its own. Thirty
+            bills used to draw thirty rectangles with a gap between each pair;
+            they are divided by a hairline now, and the open row is marked by a
+            tint rather than a ring, so the list reads as one list. */}
+        <div
           draggable={lines.length > 0 && !b.invoiced}
           onDragStart={beginDrag(lines.map((l) => l.id))}
           onDragEnd={endDrag}
-          className={`flex items-stretch overflow-hidden ${
-            isOpen
-              ? "ring-1 ring-accent"
-              : b.needsReview
-                ? "ring-2 ring-red-400 dark:ring-red-500/70"
-                : ""
+          className={`flex items-stretch transition ${
+            isOpen ? "bg-accent/10" : ""
           } ${
             lines.length > 0 && !b.invoiced ? "cursor-grab active:cursor-grabbing" : ""
           }`}
@@ -2211,7 +2303,7 @@ export function Board() {
               scannable at scrolling speed. */}
           <span
             aria-hidden
-            className={`shrink-0 ${b.needsReview ? "w-[5px] bg-red-500" : "w-[3px]"} ${
+            className={`shrink-0 ${b.needsReview ? "w-1 bg-red-500" : "w-0.5"} ${
               b.needsReview
                 ? ""
                 : b.invoiced
@@ -2236,7 +2328,7 @@ export function Board() {
               }
             }}
             aria-expanded={isMobile ? undefined : isOpen}
-            className="min-w-0 flex-1 p-3 text-left transition hover:bg-accent/5 dark:hover:bg-white/5"
+            className="min-w-0 flex-1 px-3 py-2.5 text-left transition hover:bg-accent/5 dark:hover:bg-white/5"
           >
             {/* Vendor and amount own the first line; the status
                 badges get their own wrapping line below. Inline,
@@ -2252,89 +2344,69 @@ export function Board() {
               </span>
             </span>
 
-            <span className="mt-1.5 flex flex-wrap gap-1.5 empty:mt-0">
-              {/* Leads the row in red — a flagged bill is the one to act on,
-                  so it must be the first thing read on the card. */}
-              {b.needsReview && (
-                <Chip tone="danger" title="Flagged for a billing correction — open the bill to see the note">
-                  ⚑ Needs review
-                </Chip>
-              )}
-              {b.status === "draft" && <Chip tone="neutral">draft</Chip>}
-              {b.fileCount === 0 && (
-                <Chip tone="warning" title="No file attached to this bill in JobTread">
-                  No file
-                </Chip>
-              )}
-              {b.invoiced ? (
-                <Chip tone="info" title="Already on a customer invoice — read-only">
-                  invoiced
-                </Chip>
-              ) : (
-                b.status !== "draft" && (
-                  <Chip tone="neutral" title="Not yet on a customer invoice">
-                    uninvoiced
+            {/* Ordinary state as quiet text; a chip only where something is
+                actually wrong or waiting. */}
+            <MetaLine
+              className="mt-1"
+              items={[
+                b.needsReview && (
+                  <Chip
+                    key="flag"
+                    tone="danger"
+                    title="Flagged for a billing correction — open the bill to see the note"
+                  >
+                    ⚑ Needs review
                   </Chip>
-                )
-              )}
-              {/* Paid = money recorded against the bill in QuickBooks — a
-                  different axis from "invoiced" (what the CLIENT has been
-                  billed), so both chips can sit on one row. */}
-              {billPaidState(b) === "paid" && (
-                <Chip
-                  tone="success"
-                  title={`Paid in full — ${money(b.amountPaid)} recorded in QuickBooks`}
-                >
-                  ✓ paid
-                </Chip>
-              )}
-              {billPaidState(b) === "partial" && (
-                <Chip
-                  tone="warning"
-                  title={`${money(b.amountPaid)} paid · ${money(b.balance)} still owed`}
-                >
-                  part paid
-                </Chip>
-              )}
-              {movedHere > 0 && <Chip tone="warning">{movedHere} moved</Chip>}
-              {/* Same pair the coding queue shows. */}
-              {b.reviewed ? (
-                <Chip tone="success" title="Marked reviewed in the Assistant">
-                  ✓ Reviewed
-                </Chip>
-              ) : b.saved ? (
-                <Chip tone="success" title="Save has been clicked on this bill">
-                  ✓ Saved
-                </Chip>
-              ) : null}
-            </span>
+                ),
+                b.fileCount === 0 && (
+                  <Chip key="nofile" tone="warning" title="No file attached to this bill in JobTread">
+                    No file
+                  </Chip>
+                ),
+                movedHere > 0 && (
+                  <Chip key="moved" tone="warning">
+                    {movedHere} moved
+                  </Chip>
+                ),
+                ...meta,
+              ]}
+            />
 
-            {/* Per-code chips: what this bill is charging, and what's left there. */}
-            <span className="mt-2 flex flex-wrap gap-1.5">
-              {[...codes.entries()]
-                .sort((x, y) => y[1] - x[1])
-                .map(([code, amt]) => {
-                  const h = headroom.get(code);
-                  const left = h ? remainingOf(h) : 0;
-                  const over = left < 0;
-                  return (
-                    <span
-                      key={code}
-                      className={`inline-flex items-baseline gap-1.5 rounded-md px-2 py-1 text-[11px] ${
-                        over
-                          ? "bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300"
-                          : "bg-neutral-100 text-neutral-600 dark:bg-white/10 dark:text-neutral-300"
-                      }`}
-                      title={`${h?.name ?? ""} — ${money(left)} remaining`}
-                    >
-                      <span className="tabular-nums">{code || "uncoded"}</span>
-                      <span className="tabular-nums">{money0(amt)}</span>
-                      <span className="opacity-60">·</span>
-                      <span className="tabular-nums">{money0(left)} left</span>
-                    </span>
-                  );
-                })}
-            </span>
+            {/* What this bill is charging, and where. One line of quiet
+                figures: each code used to be a filled box carrying its amount
+                AND its remaining headroom, which on a four-code bill was four
+                boxes of nine words — the headroom is what the rail beside this
+                list and the headroom strip above it are FOR. Over-budget codes
+                still turn red here, so the warning survives the diet. */}
+            {codes.size > 0 && (
+              <span className="mt-1 block truncate text-[11.5px] tabular-nums text-neutral-500 dark:text-neutral-400">
+                {[...codes.entries()]
+                  .sort((x, y) => y[1] - x[1])
+                  .map(([code, amt], i) => {
+                    const h = headroom.get(code);
+                    const over = !!h && remainingOf(h) < 0;
+                    return (
+                      <span key={code}>
+                        {i > 0 && (
+                          <span aria-hidden className="text-neutral-300 dark:text-neutral-600">
+                            {"  ·  "}
+                          </span>
+                        )}
+                        <span
+                          className={over ? "font-semibold text-red-600 dark:text-red-400" : ""}
+                          title={
+                            h
+                              ? `${h.name} — ${money(remainingOf(h))} remaining`
+                              : "No budget line for this code"
+                          }
+                        >
+                          {code || "uncoded"} {money0(amt)}
+                        </span>
+                      </span>
+                    );
+                  })}
+              </span>
+            )}
           </button>
           {/* Outside the button — a link nested in a button is
               invalid, and clicking it would also toggle the card.
@@ -2345,17 +2417,52 @@ export function Board() {
               e.preventDefault();
               e.stopPropagation();
             }}
-            className="flex shrink-0 items-start border-l border-line-soft"
+            className="flex shrink-0 items-start"
           >
             <JtLink
               href={`https://app.jobtread.com/jobs/${jobId}/documents/${b.id}`}
-              className="inline-flex min-h-11 min-w-11 items-center justify-center px-3 text-xs font-semibold text-neutral-500 transition hover:text-accent dark:text-neutral-400"
+              className="inline-flex min-h-11 min-w-11 items-center justify-center px-3 text-xs font-semibold text-neutral-400 transition hover:text-accent dark:text-neutral-500"
             >
               JT ↗
             </JtLink>
           </span>
-        </Card>
+        </div>
       </li>
+    );
+  };
+
+  /**
+   * The per-job Tracking Sheet action, for the action bar. It writes the
+   * selected month's sub/vendor invoices into this job's own Google tracking
+   * sheet. With no sheet linked it instead links to the Tracking Sheet page to
+   * connect one (the URL lives on the Projects sheet — no in-app write for it).
+   * Rendered nothing until we've read whether the job has a sheet, so the label
+   * is never wrong. Shared by the desktop toolbar and the mobile action drawer,
+   * so `cls` carries the width each context wants.
+   */
+  const trackingSheetAction = (cls: string) => {
+    if (!canTrack || !trackingChecked) return null;
+    if (trackingTarget) {
+      return (
+        <Button
+          variant="secondary"
+          size="sm"
+          className={cls}
+          disabled={syncing || trackingBusy}
+          title={`Push ${monthLabel(ym)} into ${trackingTarget.label}`}
+          onClick={() => {
+            const [y, m] = ym.split("-").map(Number);
+            runTrackingSync(trackingTarget.projectId, m, y, setTrackingSync);
+          }}
+        >
+          {trackingBusy ? "Syncing sheet…" : "Sync to Tracking Sheet"}
+        </Button>
+      );
+    }
+    return (
+      <Link href="/tracking-sheet" className={btn("secondary", "sm", `text-center ${cls}`)}>
+        Link Google tracking sheet
+      </Link>
     );
   };
 
@@ -2381,27 +2488,38 @@ export function Board() {
               <Label htmlFor="recode-month" className="lg:hidden">
                 Billing month
               </Label>
-              <Select
-                id="recode-month"
-                value={ym}
-                onChange={(e) => setYm(e.target.value)}
-                className="!h-11 lg:!h-auto lg:w-52"
-                aria-label="Billing month"
-              >
-                {monthOptions().map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-              </Select>
+              {/* The month selector and, docked to it, the per-job Tracking
+                  Sheet push: it writes the SELECTED month's sub/vendor invoices
+                  into the SELECTED job's own Google tracking sheet. It sits by
+                  the month because that is the one thing it acts on. Stacked
+                  under the selector on a phone, inline beside it from lg up. */}
+              <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
+                <Select
+                  id="recode-month"
+                  value={ym}
+                  onChange={(e) => setYm(e.target.value)}
+                  className="!h-11 lg:!h-auto lg:w-52"
+                  aria-label="Billing month"
+                >
+                  {monthOptions().map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </Select>
+                {trackingSheetAction("!h-11 w-full shrink-0 lg:!h-auto lg:w-auto")}
+              </div>
             </div>
             {/* The list always shows every bill in the month — draft,
                 uninvoiced, and invoiced, each tagged with its state — and every
                 time entry counts toward the figures, approved or not, each row
                 tagged with its own approval state. No view filter to set. */}
+            {/* Bill lines AND labor — both ride the same Sync, so a chip that
+                counted only the lines read "0 staged changes" next to an armed
+                Sync button after a week of hours had been moved. */}
             {dirty && (
               <span className="inline-flex shrink-0 items-center self-start rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
-                {staged.size} staged change{staged.size === 1 ? "" : "s"}
+                {stagedCount} staged change{stagedCount === 1 ? "" : "s"}
               </span>
             )}
             {/* The three actions share ONE full-width row on mobile — button
@@ -2426,29 +2544,20 @@ export function Board() {
               >
                 Revert
               </Button>
-              {/* One button, both destinations. With staged coding it writes to
-                  JobTread and then pushes the month into the Tracking Sheet;
-                  with nothing staged there is nothing to send to JobTread, so it
-                  is the sheet push alone — and says so rather than sitting
-                  greyed out with the sheet quietly out of date. */}
+              {/* The coding commit: it writes staged coding to JobTread and
+                  then pushes the month into the Tracking Sheet in the same step
+                  (coding must settle before the sheet reads costCode off each
+                  line). The standalone sheet push, with nothing staged, is the
+                  Tracking Sheet button beside the month selector above, so this
+                  one is purely the JobTread write and stays greyed out until
+                  dirty. */}
               <Button
                 size="sm"
                 onClick={sync}
-                disabled={syncing || trackingBusy || (!dirty && !trackingTarget)}
-                title={
-                  !dirty && trackingTarget
-                    ? `Push ${monthLabel(ym)} into ${trackingTarget.label}`
-                    : undefined
-                }
+                disabled={!dirty || syncing || trackingBusy}
                 className="hidden lg:inline-flex"
               >
-                {syncing
-                  ? "Syncing…"
-                  : trackingBusy
-                    ? "Syncing sheet…"
-                    : dirty
-                      ? "Sync to JobTread"
-                      : "Sync Tracking Sheet"}
+                {syncing ? "Syncing…" : trackingBusy ? "Syncing sheet…" : "Sync to JobTread"}
               </Button>
             </div>
           </div>
@@ -2468,6 +2577,32 @@ export function Board() {
         <p className="mb-4 text-[11px] text-amber-600 dark:text-amber-400">
           Writes are disabled on this deployment — Sync will preview only.
         </p>
+      )}
+
+      {/* Unsynced work came back. Said out loud rather than restored silently:
+          the figures on this page now include coding JobTread doesn't have yet,
+          and that has to be visible the moment you land. Revert is one tap
+          away in the toolbar and the sticky bar. */}
+      {restoreMsg && (
+        <Banner tone="info" className="mb-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span>
+              Restored {restoreMsg.kept} unsynced coding change
+              {restoreMsg.kept === 1 ? "" : "s"} from {draftSavedAtLabel(restoreMsg.savedAt)}
+              {restoreMsg.dropped > 0 && (
+                <> · {restoreMsg.dropped} no longer applied and were dropped</>
+              )}
+              . Nothing is in JobTread until you press Sync.
+            </span>
+            <button
+              type="button"
+              onClick={() => setRestoreMsg(null)}
+              className="shrink-0 text-xs underline underline-offset-2 opacity-80 hover:opacity-100"
+            >
+              Dismiss
+            </button>
+          </div>
+        </Banner>
       )}
 
       {syncMsg && (
@@ -2530,7 +2665,15 @@ export function Board() {
 
       {/* The invoice review's checks, on this job, before the invoice goes out.
           Independent of the board's own loading — it fetches on demand. */}
-      {jobId && <PreSendCheck jobId={jobId} ym={ym} />}
+      {jobId && (
+        <PreSendCheck
+          jobId={jobId}
+          result={preSend}
+          running={preSendRunning}
+          error={preSendError}
+          onRun={runPreSend}
+        />
+      )}
 
       {loading && <Loading label={c("recode.loading.billsAndBudget")} />}
 
@@ -2851,16 +2994,18 @@ export function Board() {
               </div>
             )}
 
-            <div className="mb-2 flex items-baseline justify-between gap-3">
-              <SectionLabel>
-                {`${data.bills.length} bill${data.bills.length === 1 ? "" : "s"}`} ·{" "}
-                {money(data.billTotal)}
-              </SectionLabel>
-              {/* Grouping switch, as a segmented control: one bordered track so
-                  the two options read as a pair, with 44px-tall segments on
-                  touch (they were 26px) and the desktop density restored at
-                  lg. */}
-              <div className="flex shrink-0 gap-1 rounded-lg border border-line p-0.5 text-xs lg:border-0 lg:p-0">
+            <SectionHeading
+              // Wraps, because the label and a three-way switch do not fit on
+              // one 375px line: the switch drops to its own right-aligned row
+              // on a phone and sits inline again as soon as there is room.
+              className="mb-2 flex-wrap gap-y-2"
+              trailing={
+              /* Grouping switch, as a segmented control: one soft-filled track
+                 so the three options read as a set, with 44px-tall segments on
+                 touch (they were 26px) and the desktop density restored at
+                 lg. Filled rather than bordered — the same trade the quiet
+                 fields make, and one less rectangle beside the heading. */
+              <div className="flex shrink-0 gap-1 rounded-lg bg-neutral-100 p-0.5 text-xs dark:bg-white/[0.07] lg:bg-transparent lg:p-0 lg:dark:bg-transparent">
                 {(
                   [
                     ["bill", "By bill"],
@@ -2886,7 +3031,11 @@ export function Board() {
                   </button>
                 ))}
               </div>
-            </div>
+              }
+            >
+              {`${data.bills.length} bill${data.bills.length === 1 ? "" : "s"}`} ·{" "}
+              {money(data.billTotal)}
+            </SectionHeading>
 
             {mode !== "summary" && (
               <p className="mb-2 hidden text-[11px] text-neutral-400 lg:block">
@@ -2897,12 +3046,13 @@ export function Board() {
 
             {/* ---- this month's time entries ----
                 Not a drop target: a time entry is coded independently of any
-                bill, and this board's drag only moves bill lines. It IS
-                editable though — a row opens the Time & labor panel in the
-                coding column, the same column a bill is coded in, so a wrong
-                code / day / span / job is fixed without leaving the month.
-                Labor Review remains the place to move a WEEK of hours around
-                against the budget; this is the place to fix ONE entry. ---- */}
+                bill, and this board's drag only moves bill lines. Everything
+                else about it is Labor Review's list, because it IS Labor
+                Review's list — src/components/TimeEntryList, the same component
+                that page renders. Tick rows to recode a week of them together
+                (the drawer takes the coding column, where a bill is coded, so
+                there's no second layout to learn); tap ✎ on one to fix its
+                hours, day, code or job without leaving the month. ---- */}
             {mode !== "summary" && (
               <Card pad={false} className="mb-2 overflow-hidden">
                 {/* The header is a ROW, not one button: the chevron toggles the
@@ -2945,306 +3095,65 @@ export function Board() {
                 </div>
                 {timeBlockOpen && monthTime.length > 0 && (
                   <>
-                    {/* ---- filter, then group ----
-                        THREE INDEPENDENT SELECTIONS, ANDed: a cost code, and/or
-                        an employee, and/or a date. Each one is the way somebody
-                        actually asks for this — "what did Miguel do Tuesday",
-                        "who's been charging 06 10 00", "show me the 14th" — and
-                        the answers only get useful when they combine.
-
-                        Always on screen, not folded behind a Filter button: on
-                        a job with a month of crew hours this list is long enough
-                        that narrowing it is the FIRST thing you do, and a
-                        control you have to find first isn't one you use.
-
-                        Each select offers only what the month actually contains,
-                        so no combination can land on an empty list by accident.
-                        Grouping sits in the same strip because it's the same
-                        three axes at a different strength: "show me Tuesday"
-                        and "break it down by day" are one thought. ---- */}
-                    <div className="border-t border-line-soft bg-neutral-50 px-3 py-2 dark:bg-ink-raised/50">
-                      <div className="flex flex-wrap items-end gap-2">
-                        <div className="min-w-[8rem] flex-1">
-                          <Label htmlFor="tl-employee">Employee</Label>
-                          <Select
-                            id="tl-employee"
-                            value={timeEmployee}
-                            onChange={(e) => setTimeEmployee(e.target.value)}
-                            className="!py-1 !text-xs"
+                    {/* The list, its filters and its grouping are the SAME
+                        component Labor Review renders — see
+                        src/components/TimeEntryList. Checking rows selects them
+                        for the coding column's bulk recode; the ✎ on a row opens
+                        the single-entry editor (hours, day, code, job), which is
+                        this board's own affordance and the reason a correction
+                        no longer means leaving the month. */}
+                    <TimeEntryList
+                      filters={timeFilters}
+                      monthEntries={monthTime}
+                      codeOf={timeCodeOf}
+                      headroomFor={timeHeadroomFor}
+                      isMoved={(t) => timeStaged.has(t.id)}
+                      selected={timeSelected}
+                      onSelectedChange={setTimeSelected}
+                      onFlag={(id, flagged) => void toggleTimeFlag(id, flagged)}
+                      onEdit={(id) => {
+                        setOpenDocId(null);
+                        setOpenTimeId((cur) => (cur === id ? null : id));
+                      }}
+                      editingId={openTimeId}
+                    />
+                    {/* BELOW xl the coding column isn't rendered, so the recode
+                        drawer sits inline under the rows it acts on. Not a
+                        modal: a sheet that opened on the first tick would cover
+                        the list you are still selecting from. */}
+                    {belowXl && timeSelectedEntries.length > 0 && (
+                      <div className="border-t border-line-soft p-3">
+                        <div className="mb-2 flex items-baseline justify-between gap-2">
+                          <SectionLabel>Recode time</SectionLabel>
+                          <button
+                            type="button"
+                            onClick={() => setTimeSelected(new Set())}
+                            className="shrink-0 text-[11px] font-semibold text-accent"
                           >
-                            <option value="">Everyone</option>
-                            {timeEmployeeNames.map((name) => (
-                              <option key={name} value={name}>
-                                {name}
-                              </option>
-                            ))}
-                          </Select>
+                            Clear selection
+                          </button>
                         </div>
-                        <div className="min-w-[10rem] flex-1">
-                          <Label htmlFor="tl-code">Cost code</Label>
-                          <Select
-                            id="tl-code"
-                            value={timeCode}
-                            onChange={(e) => setTimeCode(e.target.value)}
-                            className="!py-1 !text-xs"
-                          >
-                            <option value="">All codes</option>
-                            {timeCodesPresent.map((c2) => (
-                              <option key={c2.number || UNCODED} value={c2.number || UNCODED}>
-                                {c2.number ? `${c2.number} ${c2.name}` : "Uncoded"}
-                              </option>
-                            ))}
-                          </Select>
-                        </div>
-                        {/* One control, two shapes of answer — a span of days
-                            or a single one — because "when" is one question and
-                            splitting it across two controls makes you decide
-                            which one you're using before you can answer it. The
-                            optgroups keep the two apart inside the list.
-
-                            RANGES FIRST, and Custom range at the top of them:
-                            the wider the answer, the earlier it sits, so the
-                            list reads from "a span I'll name" down through the
-                            weeks to one day. The days are the longest section
-                            and the easiest to scan for, so they lose nothing by
-                            sitting last. */}
-                        <div className="min-w-[11rem] flex-1">
-                          <Label htmlFor="tl-day">Date</Label>
-                          <Select
-                            id="tl-day"
-                            value={timeDay}
-                            onChange={(e) => pickDateSelection(e.target.value)}
-                            className="!py-1 !text-xs"
-                          >
-                            <option value="">All dates</option>
-                            <optgroup label="A range">
-                              <option value={CUSTOM_RANGE}>Custom range…</option>
-                              {timeWeeksPresent.map((w) => (
-                                <option key={w.from} value={`${WEEK}${w.from}:${w.to}`}>
-                                  Week of {shortDay(w.from)} – {shortDay(w.to)} · {w.count}
-                                </option>
-                              ))}
-                            </optgroup>
-                            {timeDaysPresent.length > 0 && (
-                              <optgroup label="One day">
-                                {timeDaysPresent.map((d) => (
-                                  <option key={d.day} value={d.day}>
-                                    {dayLabel(d.day)} · {d.count}
-                                  </option>
-                                ))}
-                              </optgroup>
-                            )}
-                          </Select>
-                        </div>
-                        {/* Also offered while a Custom range sits empty: the
-                            boxes are on screen by then, so a way out of them
-                            has to be too. */}
-                        {(timeFilterOn || timeDay) && (
-                          <Button variant="secondary" size="sm" onClick={clearTimeFilters}>
-                            Clear
-                          </Button>
-                        )}
-                      </div>
-
-                      {/* The two ends of the range, shown for a picked week as
-                          well as a custom one — so the week you chose is legible
-                          as dates, and nudging either end just makes it custom
-                          rather than sending you back to the select. */}
-                      {timeRange && (
-                        <div className="mt-2 flex flex-wrap items-end gap-2">
-                          <div>
-                            <Label htmlFor="tl-from">From</Label>
-                            <input
-                              id="tl-from"
-                              type="date"
-                              value={timeFrom}
-                              onChange={(e) => {
-                                setTimeDay(CUSTOM_RANGE);
-                                setTimeFrom(e.target.value);
-                              }}
-                              className="rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs dark:border-neutral-600 dark:bg-ink-raised"
-                            />
-                          </div>
-                          <div>
-                            <Label htmlFor="tl-to">To</Label>
-                            <input
-                              id="tl-to"
-                              type="date"
-                              value={timeTo}
-                              onChange={(e) => {
-                                setTimeDay(CUSTOM_RANGE);
-                                setTimeTo(e.target.value);
-                              }}
-                              className="rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs dark:border-neutral-600 dark:bg-ink-raised"
-                            />
-                          </div>
-                          {/* A backwards range matches nothing and looks like a
-                              bug in the list rather than in the dates. */}
-                          {timeFrom && timeTo && timeFrom > timeTo ? (
-                            <p className="pb-1 text-[11px] font-semibold text-amber-700 dark:text-amber-300">
-                              From is after To — nothing can match.
-                            </p>
-                          ) : (
-                            <p className="pb-1 text-[11px] text-neutral-400">
-                              Leave either end empty for &ldquo;everything since&rdquo; or
-                              &ldquo;everything up to&rdquo;.
-                            </p>
-                          )}
-                        </div>
-                      )}
-
-                      <div className="mt-2 flex flex-wrap items-center gap-2">
-                        <span className="text-[10px] uppercase tracking-wide text-neutral-400">
-                          Group
-                        </span>
-                        <div className="flex rounded-md bg-neutral-100 p-0.5 text-[11px] dark:bg-white/5">
-                          {(
-                            [
-                              ["none", "None"],
-                              ["date", "Date"],
-                              ["employee", "Employee"],
-                              ["code", "Cost code"],
-                            ] as const
-                          ).map(([g, label]) => (
-                            <button
-                              key={g}
-                              type="button"
-                              onClick={() => setTimeGroupBy(g)}
-                              aria-pressed={timeGroupBy === g}
-                              className={`inline-flex min-h-9 items-center rounded px-2 transition lg:min-h-0 lg:py-1 ${
-                                timeGroupBy === g
-                                  ? "bg-accent text-accent-fg font-semibold"
-                                  : "text-neutral-500 hover:text-accent dark:text-neutral-400"
-                              }`}
-                            >
-                              {label}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* What's on screen, when that isn't the whole month — and
-                        what narrowed it, in words. A range especially: "12 of
-                        87 shown" reads as a mistake until you can see it means
-                        Aug 10 – Aug 16. */}
-                    {timeFilterOn && (
-                      <div className="flex flex-wrap items-baseline justify-between gap-x-2 border-t border-line-soft px-3 py-1.5 text-[11px] text-neutral-500 dark:text-neutral-400">
-                        <span className="min-w-0">
-                          {timeFiltered.length} of {monthTime.length} shown ·{" "}
-                          {timeShownHours.toFixed(1)}h
-                          {(() => {
-                            const bits = [];
-                            if (timeEmployee) bits.push(timeEmployee);
-                            if (timeCode)
-                              bits.push(timeCode === UNCODED ? "uncoded" : timeCode);
-                            if (rangeOn && timeRange) {
-                              bits.push(
-                                timeRange.from && timeRange.to
-                                  ? `${shortDay(timeRange.from)} – ${shortDay(timeRange.to)}`
-                                  : timeRange.from
-                                    ? `from ${shortDay(timeRange.from)}`
-                                    : `up to ${shortDay(timeRange.to)}`,
-                              );
-                            } else if (timeDay && !timeRange) {
-                              bits.push(dayLabel(timeDay));
-                            }
-                            return bits.length > 0 ? ` · ${bits.join(" · ")}` : "";
-                          })()}
-                        </span>
-                        <span className="tabular-nums font-semibold">{money(timeShownTotal)}</span>
+                        <TimeRecodeCard
+                          entries={timeSelectedEntries}
+                          codeOptions={timeCodeOptions}
+                          leafOf={timeLeafOf}
+                          onPick={stageTimeSelection}
+                          isStaged={(t) => timeStaged.has(t.id)}
+                          onUndo={undoTimeStage}
+                          jtHref={`https://app.jobtread.com/jobs/${jobId}/time`}
+                        />
                       </div>
                     )}
 
-                    {timeFiltered.length === 0 ? (
-                      <p className="border-t border-line-soft px-3 py-3 text-xs text-neutral-500">
-                        No time entries match those filters.
-                      </p>
-                    ) : (
-                      timeGroups.map((g) => (
-                        <div key={g.key || "all"}>
-                          {timeGroupBy !== "none" && (
-                            <div className="flex items-baseline justify-between gap-2 border-t border-line-soft bg-neutral-50 px-3 py-1.5 text-[11px] font-semibold dark:bg-ink-raised/50">
-                              <span className="min-w-0 truncate">{g.label}</span>
-                              <span className="shrink-0 tabular-nums text-neutral-500 dark:text-neutral-400">
-                                {g.hours.toFixed(1)}h · {money(g.cost)}
-                              </span>
-                            </div>
-                          )}
-                          <ul className="border-t border-line-soft">
-                            {g.entries.map((t) => {
-                              const isOpenTime = openTimeId === t.id;
-                              return (
-                                <li
-                                  key={t.id}
-                                  className="border-b border-line-soft text-xs last:border-0 dark:border-neutral-800"
-                                >
-                                  {/* The whole row is the control. On a phone
-                                      the coding column is hidden, so the same
-                                      tap opens the panel as a sheet instead —
-                                      see the dialog at the foot of the page. */}
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setOpenDocId(null);
-                                      setOpenTimeId(isOpenTime ? null : t.id);
-                                    }}
-                                    aria-pressed={isOpenTime}
-                                    className={`block w-full px-3 py-2 text-left transition hover:bg-accent/5 dark:hover:bg-white/5 lg:py-1.5 ${
-                                      isOpenTime ? "bg-accent/10" : ""
-                                    }`}
-                                  >
-                                    <span className="flex items-baseline gap-2">
-                                      <span className="min-w-0 flex-1 truncate">
-                                        <span className="font-medium">{t.employee}</span>
-                                        <span className="ml-1 text-neutral-500 dark:text-neutral-400">
-                                          {dayLabel(dayOfEntry(t))}
-                                          {t.code ? ` · ${t.code} ${t.codeName}` : " · uncoded"}
-                                        </span>
-                                      </span>
-                                      <Chip
-                                        tone={t.isApproved ? "success" : "warning"}
-                                        className="shrink-0 self-center"
-                                        title={
-                                          t.isApproved
-                                            ? "This time entry is approved in JobTread"
-                                            : "This time entry is not yet approved in JobTread"
-                                        }
-                                      >
-                                        {t.isApproved ? "approved" : "unapproved"}
-                                      </Chip>
-                                      {/* Hours read alongside the amount they cost —
-                                          "1.0h · $85" — so the rate is legible at a glance. */}
-                                      <span className="shrink-0 tabular-nums font-semibold">
-                                        {t.hours.toFixed(1)}h · {money(t.cost)}
-                                      </span>
-                                    </span>
-                                    {/* The note is what the crew actually typed
-                                        about the hours — the most useful line on
-                                        the entry, so it wraps in full rather
-                                        than truncating. */}
-                                    {t.notes && (
-                                      <span className="mt-0.5 block whitespace-pre-line text-[11px] leading-snug text-neutral-600 dark:text-neutral-400">
-                                        {t.notes}
-                                      </span>
-                                    )}
-                                  </button>
-                                </li>
-                              );
-                            })}
-                          </ul>
-                        </div>
-                      ))
-                    )}
-                    {/* Labor Review is still the surface for moving a whole
-                        week of hours between codes against the rail — this
-                        block edits one entry at a time. */}
+                    {/* Labor Review shows the same list against a whole-job
+                        budget rail and a "cost codes in view" readout — the
+                        wider view of the same work, not a different tool. */}
                     {canLaborReview && (
                       <Link
                         href={`/labor-review?jobId=${encodeURIComponent(jobId)}&ym=${ym}`}
                         className="block border-t border-line-soft px-3 py-2.5 text-xs font-semibold text-accent transition hover:bg-accent/5 dark:border-neutral-800 dark:hover:bg-white/5"
                       >
-                        Recode a whole week in Labor Review →
+                        Open this month in Labor Review →
                       </Link>
                     )}
                   </>
@@ -3408,7 +3317,11 @@ export function Board() {
             ) : mode === "bill" ? (
               <>
                 {nonSunsetBills.length > 0 && (
-                  <ul className="space-y-2">{nonSunsetBills.map(renderBillCard)}</ul>
+                  <Card pad={false} className="overflow-hidden">
+                    <ul className="divide-y divide-line-soft">
+                      {nonSunsetBills.map(renderBillCard)}
+                    </ul>
+                  </Card>
                 )}
 
                 {/* Sunset bills, folded into their own collapsible pane — the
@@ -3441,7 +3354,7 @@ export function Board() {
                       </span>
                     </button>
                     {sunsetBlockOpen && (
-                      <ul className="space-y-2 border-t border-line-soft bg-neutral-50 p-2 dark:bg-ink-raised/50">
+                      <ul className="divide-y divide-line-soft border-t border-line-soft bg-neutral-50 dark:bg-ink-raised/50">
                         {sunsetBills.map(renderBillCard)}
                       </ul>
                     )}
@@ -3466,10 +3379,12 @@ export function Board() {
               of the screen (not the clicked bill) — simpler and more
               predictable than tracking the click position. */}
           <section className="hidden min-w-0 xl:block xl:sticky xl:top-16 xl:self-start">
-            {/* One column, two subjects. A time entry claims it when its row is
-                clicked (and releases it back to the bills on Close), so the
-                office codes labor exactly where it codes a bill instead of
-                learning a second layout. */}
+            {/* One column, three subjects, in order of how specific the claim
+                is: ONE entry being edited (the ✎), then a SELECTION being
+                recoded, then the bills. The office codes labor exactly where it
+                codes a bill instead of learning a second layout — and the
+                recode drawer is the same component Labor Review shows, so the
+                two pages move a week of hours identically. */}
             {openTime && !belowXl ? (
               <>
                 <SectionLabel className="mb-2">Time &amp; labor</SectionLabel>
@@ -3486,6 +3401,28 @@ export function Board() {
                     load({ preserveStaged: true });
                   }}
                   onClose={() => setOpenTimeId(null)}
+                />
+              </>
+            ) : timeSelectedEntries.length > 0 ? (
+              <>
+                <div className="mb-2 flex items-baseline justify-between gap-2">
+                  <SectionLabel>Recode time</SectionLabel>
+                  <button
+                    type="button"
+                    onClick={() => setTimeSelected(new Set())}
+                    className="shrink-0 text-[11px] font-semibold text-accent"
+                  >
+                    Clear selection
+                  </button>
+                </div>
+                <TimeRecodeCard
+                  entries={timeSelectedEntries}
+                  codeOptions={timeCodeOptions}
+                  leafOf={timeLeafOf}
+                  onPick={stageTimeSelection}
+                  isStaged={(t) => timeStaged.has(t.id)}
+                  onUndo={undoTimeStage}
+                  jtHref={`https://app.jobtread.com/jobs/${jobId}/time`}
                 />
               </>
             ) : (
@@ -3518,34 +3455,49 @@ export function Board() {
         </div>
       )}
 
-      {/* The phone's commit bar. It appears only once there IS something staged
-          — a bar that is always docked spends the screen's most valuable strip
-          on a disabled button — and it pins above the tab bar, so Sync is under
-          the thumb wherever you've scrolled to. `order-last` keeps it at the
-          bottom of the flex column even though the reconcile block above also
-          claims that order on a phone; both are last in DOM order here, so they
-          stack in source order. From lg up the toolbar's own buttons take over
-          and this is hidden. */}
-      {dirty && (
+      {/* The phone's commit bar — the action drawer. With staged coding it
+          carries Revert + Sync to JobTread; with nothing staged it holds the
+          "Check this job" trigger for the Before-you-send card, so that action
+          is under the thumb rather than up in the card header. It pins above the
+          tab bar, so the action is in reach wherever you've scrolled to.
+          `order-last` keeps it at the bottom of the flex column even though the
+          reconcile block above also claims that order on a phone; both are last
+          in DOM order here, so they stack in source order. From lg up the
+          toolbar and the card's own button take over and this is hidden. */}
+      {(dirty || !!jobId) && (
         <StickyActionBar className="order-last mt-4 lg:hidden">
-          <span className="flex-1 text-xs font-bold tabular-nums text-amber-700 dark:text-amber-300">
-            {staged.size} staged change{staged.size === 1 ? "" : "s"}
-            <span className="block text-[10.5px] font-medium text-neutral-500 dark:text-neutral-400">
-              Nothing is written until you sync
-            </span>
-          </span>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={revertAll}
-            disabled={syncing}
-            className="min-h-11"
-          >
-            Revert
-          </Button>
-          <Button size="sm" onClick={sync} disabled={syncing} className="min-h-11">
-            {syncing ? "Syncing…" : "Sync to JT"}
-          </Button>
+          {dirty ? (
+            <>
+              <span className="flex-1 text-xs font-bold tabular-nums text-amber-700 dark:text-amber-300">
+                {stagedCount} staged change{stagedCount === 1 ? "" : "s"}
+                <span className="block text-[10.5px] font-medium text-neutral-500 dark:text-neutral-400">
+                  Nothing is written until you sync
+                </span>
+              </span>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={revertAll}
+                disabled={syncing}
+                className="min-h-11"
+              >
+                Revert
+              </Button>
+              <Button size="sm" onClick={sync} disabled={syncing} className="min-h-11">
+                {syncing ? "Syncing…" : "Sync to JT"}
+              </Button>
+            </>
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={runPreSend}
+              disabled={preSendRunning || !jobId}
+              className="min-h-11 w-full"
+            >
+              {preSendRunning ? "Checking…" : preSend ? "Check again" : "Check this job"}
+            </Button>
+          )}
         </StickyActionBar>
       )}
 

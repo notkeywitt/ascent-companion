@@ -12,7 +12,9 @@ import { StuckVendorBanner } from "@/components/StuckVendors";
 import { NeedsProjectBanner, useNeedsProjectCount } from "@/components/NeedsProject";
 import { DailyDigest } from "@/components/DailyDigest";
 import { TileLauncher } from "@/components/TileLauncher";
-import { AREAS, PREVIEW_ROWS, tileLauncherFor } from "@/lib/nav";
+import { HomeLayoutEditor } from "@/components/HomeLayoutEditor";
+import { useEffectiveLayout } from "@/components/NavLayoutProvider";
+import { PREVIEW_ROWS, tileLauncherFor } from "@/lib/nav";
 
 /**
  * The Assistant's front page — the launcher, and still the only place EVERY
@@ -52,6 +54,15 @@ function Home() {
   // Which areas the user has expanded past their preview rows.
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
+  // The admin launcher's layout — the shipped AREAS default, or the admin's
+  // customized menus/links/buttons (Edit mode). `isCustom` tells us whether the
+  // stored strings are authoritative or whether we still resolve wording through
+  // the copy registry (so office Page-Text edits keep working on the default).
+  const { menus, isCustom } = useEffectiveLayout();
+
+  // Home-layout Edit mode (admin only — see the button below).
+  const [editing, setEditing] = useState(false);
+
   // Show only what this user can access; hide an area whose links all filter out.
   //
   // Every user-visible string is resolved through `c()` HERE, at the one place
@@ -59,21 +70,29 @@ function Home() {
   // (possibly office-edited) wording — see src/lib/copy.ts. The `|| a.title`
   // fallbacks mean a destination added to AREAS but not yet registered renders
   // its inline English instead of going blank.
+  // On the SHIPPED launcher, wording still resolves through the copy registry so
+  // an office Page-Text edit shows here; on a CUSTOM launcher the stored strings
+  // are authoritative (the Edit surface is the naming surface). An item with an
+  // empty `view` is a link everyone with this launcher can see; otherwise it's
+  // gated exactly as before via `access.can`.
   const areas = useMemo(
     () =>
-      AREAS.map((a) => ({
-        ...a,
-        title: c(`home.area.${a.id}.title`) || a.title,
-        blurb: c(`home.area.${a.id}.blurb`) || a.blurb,
-        dests: a.dests
-          .filter((d) => access.can(d.view))
-          .map((d) => ({
-            ...d,
-            label: c(`home.dest.${d.view}.label`) || d.label,
-            desc: c(`home.dest.${d.view}.desc`) || d.desc,
-          })),
-      })).filter((a) => a.dests.length > 0),
-    [access, c],
+      menus
+        .map((m) => ({
+          id: m.id,
+          title: isCustom ? m.title : c(`home.area.${m.id}.title`) || m.title,
+          blurb: isCustom ? m.blurb : c(`home.area.${m.id}.blurb`) || m.blurb,
+          preview: m.preview,
+          items: m.items
+            .filter((it) => it.view === "" || access.can(it.view))
+            .map((it) => ({
+              ...it,
+              label: isCustom ? it.label : c(`home.dest.${it.view}.label`) || it.label,
+              desc: isCustom ? it.desc : c(`home.dest.${it.view}.desc`) || it.desc,
+            })),
+        }))
+        .filter((a) => a.items.length > 0),
+    [menus, isCustom, access, c],
   );
 
   // Queue counts, keyed by view id. Add a future queue here and both the area
@@ -115,16 +134,48 @@ function Home() {
 
       {tiles ? (
         <TileLauncher qs={qs} />
+      ) : editing ? (
+        // Admin-only Edit mode: arrange, create, name, and delete menus, page
+        // links, and buttons. Replaces the lists while open; Save re-reads the
+        // launcher from the server (see HomeLayoutEditor / /api/admin/home-layout).
+        <div>
+          <div className="mb-4 flex items-center justify-between">
+            <h1 className="text-base font-semibold">Edit home page</h1>
+            <button
+              type="button"
+              onClick={() => setEditing(false)}
+              className="text-sm font-semibold text-neutral-500 hover:text-accent"
+            >
+              Close
+            </button>
+          </div>
+          <HomeLayoutEditor onClose={() => setEditing(false)} />
+        </div>
       ) : (
         <div className="space-y-6">
+          {access.role === "admin" && (
+            // The one control that opens Edit mode. Admin-only: only admin sees
+            // this launcher, and only admin can write the layout.
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => setEditing(true)}
+                className="text-[11px] font-semibold text-accent hover:underline dark:text-accent-soft"
+              >
+                Edit home page
+              </button>
+            </div>
+          )}
           {areas.map((area) => {
+            const buttons = area.items.filter((it) => it.kind === "button");
+            const links = area.items.filter((it) => it.kind !== "button");
             const previewRows = area.preview ?? PREVIEW_ROWS;
             const isExpanded = !!expanded[area.id];
-            const hidden = Math.max(0, area.dests.length - previewRows);
-            const shown = isExpanded ? area.dests : area.dests.slice(0, previewRows);
+            const hidden = Math.max(0, links.length - previewRows);
+            const shown = isExpanded ? links : links.slice(0, previewRows);
             // Work queued behind the fold still shows on the heading, so a
             // collapsed tail never hides the one row that needs attention.
-            const hiddenCount = area.dests
+            const hiddenCount = links
               .slice(shown.length)
               .reduce((n, d) => n + (badges[d.view] ?? 0), 0);
             return (
@@ -134,34 +185,60 @@ function Home() {
                     <span className="flex items-center gap-2">
                       {hiddenCount > 0 && <CountBadge n={hiddenCount} />}
                       <span className="text-[11px] tabular-nums text-neutral-500">
-                        {area.dests.length}
+                        {area.items.length}
                       </span>
                     </span>
                   }
                 >
                   {area.title}
                 </SectionHeading>
-                <ListCard>
-                  {shown.map((d) => (
-                    <ListRow
-                      key={d.href}
-                      href={d.href + qs}
-                      label={d.label}
-                      desc={d.desc}
-                      badge={(badges[d.view] ?? 0) > 0 ? <CountBadge n={badges[d.view]} /> : undefined}
-                    />
-                  ))}
-                  {hidden > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => setExpanded((e) => ({ ...e, [area.id]: !isExpanded }))}
-                      aria-expanded={isExpanded}
-                      className="min-h-11 w-full px-3 py-2.5 text-left text-[12.5px] font-semibold text-neutral-500 transition hover:text-accent dark:text-neutral-400"
-                    >
-                      {isExpanded ? "Show fewer" : `Show ${hidden} more in ${area.title}`}
-                    </button>
-                  )}
-                </ListCard>
+
+                {/* Buttons first — the prominent tiles, in a 2-across grid. */}
+                {buttons.length > 0 && (
+                  <div className="grid grid-cols-2 gap-2">
+                    {buttons.map((b) => (
+                      <Link
+                        key={b.id}
+                        href={b.href + qs}
+                        className="flex min-h-[64px] flex-col justify-center rounded-xl border border-line bg-white px-3 py-2 text-center transition hover:border-accent hover:bg-accent/5 dark:bg-ink-raised"
+                      >
+                        <span className="flex items-center justify-center gap-1.5 text-sm font-semibold tracking-tight">
+                          {b.label}
+                          {(badges[b.view] ?? 0) > 0 && <CountBadge n={badges[b.view]} />}
+                        </span>
+                        {b.desc && (
+                          <span className="mt-0.5 block text-[11px] text-neutral-500 dark:text-neutral-400">
+                            {b.desc}
+                          </span>
+                        )}
+                      </Link>
+                    ))}
+                  </div>
+                )}
+
+                {links.length > 0 && (
+                  <ListCard>
+                    {shown.map((d) => (
+                      <ListRow
+                        key={d.id}
+                        href={d.href + qs}
+                        label={d.label}
+                        desc={d.desc}
+                        badge={(badges[d.view] ?? 0) > 0 ? <CountBadge n={badges[d.view]} /> : undefined}
+                      />
+                    ))}
+                    {hidden > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setExpanded((e) => ({ ...e, [area.id]: !isExpanded }))}
+                        aria-expanded={isExpanded}
+                        className="min-h-11 w-full px-3 py-2.5 text-left text-[12.5px] font-semibold text-neutral-500 transition hover:text-accent dark:text-neutral-400"
+                      >
+                        {isExpanded ? "Show fewer" : `Show ${hidden} more in ${area.title}`}
+                      </button>
+                    )}
+                  </ListCard>
+                )}
               </section>
             );
           })}

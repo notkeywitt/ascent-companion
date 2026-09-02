@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { inArray } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { db, ensureDb } from "@/db";
-import { savedBills } from "@/db/schema";
+import { flaggedTimeEntries, savedBills } from "@/db/schema";
 import {
   getBillLinesForJob,
   getJobBillsForMonth,
@@ -100,6 +100,22 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    // …and the labor twin of those flags: the assistant-local "flag for review"
+    // marks on time entries. The board's Time & labor panel is now the same
+    // component Labor Review renders, so it shows and sets the same flags —
+    // which means this payload has to carry them too. Best-effort, like above.
+    const flaggedTime = new Set<string>();
+    try {
+      await ensureDb();
+      const rows = await db
+        .select({ id: flaggedTimeEntries.timeEntryId })
+        .from(flaggedTimeEntries)
+        .where(and(eq(flaggedTimeEntries.jobId, jobId), eq(flaggedTimeEntries.flagged, true)));
+      for (const r of rows) flaggedTime.add(r.id);
+    } catch {
+      /* flags are best-effort */
+    }
+
     return NextResponse.json({
       job: { id: jobId, name: header.name, address: header.address, customer: header.customer },
       bills: bills.map((b) => ({
@@ -110,7 +126,7 @@ export async function GET(req: NextRequest) {
       })),
       billTotal: bills.reduce((s, b) => s + (b.cost ?? 0), 0),
       lines,
-      timeEntries,
+      timeEntries: timeEntries.map((t) => ({ ...t, flagged: flaggedTime.has(t.id) })),
       budget,
       costDetail,
       writesEnabled: writesEnabled(),

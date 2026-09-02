@@ -7,6 +7,7 @@ import { useCopy } from "@/components/CopyProvider";
 import { UncapturedBills } from "@/components/UncapturedBills";
 import { monthOptions } from "./Roster";
 import { AllBills } from "./AllBills";
+import { UnsyncedDrafts } from "./UnsyncedDrafts";
 
 /**
  * Tracking Sheets with no job selected — every vendor bill issued in the
@@ -65,6 +66,14 @@ export function AllJobs() {
           billing period — scoping it to the selected month is exactly how it
           stays hidden. Renders nothing when the queue is empty. */}
       <UncapturedBills />
+
+      {/* Where you left off — coding staged in this app that never reached
+          JobTread, on any device. Below the uncaptured queue (a bill missing
+          from JobTread entirely outranks one you simply haven't finished) and
+          above the month, because like that queue it is not scoped to a month:
+          unfinished work from July is exactly the kind the month picker would
+          hide. Renders nothing when there is none. */}
+      <UnsyncedDrafts />
 
       <AllBills ym={ym} setYm={setYm} />
     </main>
