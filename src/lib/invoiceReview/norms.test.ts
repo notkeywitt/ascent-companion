@@ -28,6 +28,7 @@ function job(bills: BillRef[]): JobEvidence {
     neverInvoiced: false, invoices: [], bills,
     folder: { path: "/x/", found: true, folderId: "F", files: [], truncated: false },
     uninvoicedBillsCost: 0, uninvoicedTimeCost: 0, draftBillsCost: 0, draftBillCount: 0,
+    labor: [],
   };
 }
 
@@ -47,7 +48,8 @@ function month(bills: BillRef[], norms?: ReviewNorms | null): MonthEvidence {
     ym: "2026-07", year: 2026, month: 7, monthLabel: "July 2026",
     folderRoot: "/2026 Invoicing/08 August 26 (July Billing)/",
     jobs: [job(bills)],
-    emailChecked: false, emails: [], mailWindow: null, mailTruncated: false, warnings: [],
+    emailChecked: false, emails: [], mailWindow: null, mailTruncated: false,
+    laborRates: null, warnings: [],
     ...(norms ? { norms } : {}),
   };
 }

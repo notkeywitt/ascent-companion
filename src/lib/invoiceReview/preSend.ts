@@ -33,6 +33,13 @@
  * when it has not run. "Did every vendor invoice that arrived get captured" is
  * a question about the period, not about this invoice.
  *
+ * ## Labor rates
+ *
+ * `labor-rate` is job-scoped, so it runs here — and it is the reason the
+ * evidence loader will build a shell for a named job that has no bills at all.
+ * A month whose only content is time entries still has a rate to get wrong, and
+ * the roster (which is built from bills) would otherwise not carry that job.
+ *
  * ## Still read-only
  *
  * Loads, checks, applies the office's standing rulings, and returns. It files
@@ -101,6 +108,9 @@ export async function preSendCheck(
     errors: live.filter((f) => f.severity === "error").length,
     warnings: live.filter((f) => f.severity === "warning").length,
     evidenceWarnings: evidence.warnings,
-    empty: !job || (job.bills.length === 0 && job.invoices.length === 0),
+    // Labor counts. A month with no bills but a rate problem on its time
+    // entries is exactly the case that must not render as "nothing to check".
+    empty:
+      !job || (job.bills.length === 0 && job.invoices.length === 0 && job.labor.length === 0),
   };
 }

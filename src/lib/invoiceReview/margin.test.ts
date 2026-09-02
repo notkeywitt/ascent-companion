@@ -49,6 +49,7 @@ function job(partial: Partial<JobEvidence> = {}): JobEvidence {
     neverInvoiced: false, invoices: [], bills: [],
     folder: { path: "/x/", found: true, folderId: "F", files: [], truncated: false },
     uninvoicedBillsCost: 0, uninvoicedTimeCost: 0, draftBillsCost: 0, draftBillCount: 0,
+    labor: [],
     ...partial,
   };
 }
@@ -57,7 +58,8 @@ function month(jobs: JobEvidence[], norms?: ReviewNorms): MonthEvidence {
   return {
     ym: "2026-07", year: 2026, month: 7, monthLabel: "July 2026",
     folderRoot: "/x/", jobs,
-    emailChecked: false, emails: [], mailWindow: null, mailTruncated: false, warnings: [],
+    emailChecked: false, emails: [], mailWindow: null, mailTruncated: false,
+    laborRates: null, warnings: [],
     ...(norms ? { norms } : {}),
   };
 }

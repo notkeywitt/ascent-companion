@@ -1801,6 +1801,17 @@ export interface MonthTimeEntry {
    * so an editor that rewrites the span must expect JobTread to recompute.
    */
   minutes: number;
+  /**
+   * The hourly rate STORED ON THE ENTRY — what `cost` was actually computed
+   * from, and not necessarily what the person's pay type carries today.
+   *
+   * JobTread snapshots the rate when the entry is written and never revisits
+   * it: probe-confirmed 2026-09-02, where two people's entries stayed at $65
+   * for weeks after their membership was raised to $75, and one pay-type name
+   * held two different rates inside a single month. Read this, never a rate
+   * looked up live, when explaining a cost.
+   */
+  hourlyRate: number;
 }
 
 /**
@@ -1845,6 +1856,7 @@ export async function getJobTimeEntriesForMonth(
             nodes: {
               id: {},
               cost: {},
+              hourlyRate: {},
               startedAt: {},
               minutes: {},
               endedAt: {},
@@ -1893,6 +1905,7 @@ export async function getJobTimeEntriesForMonth(
       type: String(n?.type ?? "").trim(),
       endedAt: n.endedAt ?? null,
       minutes: typeof n?.minutes === "number" ? n.minutes : 0,
+      hourlyRate: typeof n?.hourlyRate === "number" ? n.hourlyRate : 0,
     }))
     .sort((a, b) => String(b.startedAt ?? "").localeCompare(String(a.startedAt ?? "")));
 }
@@ -1969,6 +1982,7 @@ export async function getOrgTimeEntriesForMonth(
               startedAt: {},
               endedAt: {},
               minutes: {},
+              hourlyRate: {},
               notes: {},
               isApproved: {},
               type: {},
@@ -2032,6 +2046,7 @@ export async function getOrgTimeEntriesForMonth(
         type: String(n?.type ?? "").trim(),
         endedAt: n.endedAt ?? null,
         minutes: typeof n?.minutes === "number" ? n.minutes : 0,
+        hourlyRate: typeof n?.hourlyRate === "number" ? n.hourlyRate : 0,
         jobId: n?.job?.id ?? "",
         jobName: job?.name ?? "",
         customer: job?.customer ?? "",

@@ -41,6 +41,7 @@ import type { DraftBillsConfig } from "./checks/draftBills";
 import type { DuplicateBillConfig } from "./checks/duplicateBill";
 import type { InvoiceMathConfig } from "./checks/invoiceMath";
 import type { IssueDateConfig } from "./checks/issueDate";
+import type { LaborRateConfig } from "./checks/laborRate";
 import type { MailCaptureConfig } from "./checks/mailCapture";
 import type { MarginConfig } from "./checks/margin";
 import type { MarkupDriftConfig } from "./checks/markupDrift";
@@ -63,6 +64,7 @@ export interface InvoiceReviewSettings {
     "duplicate-bill": SettingsBlock<DuplicateBillConfig>;
     uninvoiced: SettingsBlock<UninvoicedConfig>;
     "draft-bills": SettingsBlock<DraftBillsConfig>;
+    "labor-rate": SettingsBlock<LaborRateConfig>;
     "mail-capture": SettingsBlock<MailCaptureConfig>;
     "vendor-silent": SettingsBlock<VendorSilentConfig>;
     margin: SettingsBlock<MarginConfig>;
@@ -101,6 +103,22 @@ export const DEFAULT_SETTINGS: InvoiceReviewSettings = {
       },
     },
     "draft-bills": { enabled: true, config: {} },
+    // ── Labor rates ───────────────────────────────────────────────────────
+    // JobTread snapshots the hourly rate onto a time entry and never re-costs
+    // it, so a rate changed today leaves every entry already logged behind.
+    // The symptom is a month that will not reconcile and no visible cause.
+    "labor-rate": {
+      enabled: true,
+      config: {
+        // A dollar of cost difference. Below that it is a rate that moved by
+        // pennies on a short entry, not a rate anybody changed.
+        minVarianceCost: 1,
+        // On by default: a pay type that vanished from a membership means the
+        // month's cost cannot be verified against anything, and silence there
+        // reads as a pass.
+        reportUnknownTypes: true,
+      },
+    },
     "mail-capture": {
       enabled: true,
       config: {

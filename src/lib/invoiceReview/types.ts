@@ -71,7 +71,14 @@ export type FindingKind =
   /** A vendor who bills nearly every month has no bill this month at all. */
   | "vendor-silent"
   /** An invoice's markup is off what this customer is normally billed. */
-  | "markup-rate-drift";
+  | "markup-rate-drift"
+  // ── Labor rates: is the month's labor costed at the rate it should be? ────
+  /** A time entry is costed at a rate the person's pay type no longer carries. */
+  | "labor-rate-stale"
+  /** One person + pay type carries two different rates within the month. */
+  | "labor-rate-split"
+  /** A time entry's pay type is gone from the person's membership. */
+  | "labor-rate-unknown";
 
 /** One thing the review wants a human to look at. */
 export interface Finding {
@@ -303,6 +310,31 @@ export interface InvoiceEvidence {
 }
 
 /** One job's slice of the month. */
+/**
+ * One time entry, reduced to what a rate check needs.
+ *
+ * `rate` is the rate STORED ON THE ENTRY, which is the number JobTread actually
+ * multiplied to get `cost`. It is a snapshot taken when the entry was written
+ * and it does NOT follow the person's pay type afterwards — probe-confirmed
+ * 2026-09-02 on the Berger Bunkhouse month, where two people's entries stayed
+ * at $65 for weeks after their membership was raised to $75. That divergence is
+ * exactly what `laborRateCheck` exists to find.
+ */
+export interface LaborEntryRef {
+  id: string;
+  employee: string;
+  /** JobTread's pay-type name on the entry, e.g. "Regular Pay". */
+  payType: string;
+  /** The rate stored on the entry — what its cost was computed from. */
+  rate: number;
+  hours: number;
+  cost: number;
+  /** Cost-code number the entry is coded to, "" when uncoded. */
+  code: string;
+  /** Org-local day, "YYYY-MM-DD". */
+  day: string;
+}
+
 export interface JobEvidence {
   jobId: string;
   jobName: string;
@@ -329,6 +361,8 @@ export interface JobEvidence {
   uninvoicedTimeCost: number;
   draftBillsCost: number;
   draftBillCount: number;
+  /** The job's time entries for the month, each with the rate it was costed at. */
+  labor: LaborEntryRef[];
 }
 
 /** A whole month of client invoices, as reviewed. */
@@ -355,6 +389,16 @@ export interface MonthEvidence {
   mailWindow: { first: string; last: string } | null;
   /** Gmail returned more than the cap, so the sweep is not exhaustive. */
   mailTruncated: boolean;
+  /**
+   * employee → pay-type name → the rate that pay type carries on their
+   * membership RIGHT NOW. The reference the labor-rate check compares each
+   * entry's stored rate against.
+   *
+   * Null when the grant could not read per-member pay types (it needs
+   * `createTimeEntryForMembership`). Null means the check is SKIPPED, not
+   * passed — the same rule the mailbox sweep follows.
+   */
+  laborRates: Map<string, Map<string, number>> | null;
   /** Non-fatal problems assembling the evidence (a Drive call that failed, a
    *  job whose reconciliation errored). Surfaced so a partial review is never
    *  mistaken for a clean one. */

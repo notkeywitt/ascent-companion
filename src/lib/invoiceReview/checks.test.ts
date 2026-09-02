@@ -90,6 +90,7 @@ function job(partial: Partial<JobEvidence> = {}): JobEvidence {
     uninvoicedTimeCost: 0,
     draftBillsCost: 0,
     draftBillCount: 0,
+    labor: [],
     ...partial,
   };
 }
@@ -108,6 +109,7 @@ function month(jobs: JobEvidence[], over: Partial<MonthEvidence> = {}): MonthEvi
     emails: [],
     mailWindow: null,
     mailTruncated: false,
+    laborRates: null,
     warnings: [],
     ...over,
   };

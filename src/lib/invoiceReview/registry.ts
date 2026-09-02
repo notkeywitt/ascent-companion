@@ -32,6 +32,7 @@ import { draftBillsCheck } from "./checks/draftBills";
 import { duplicateBillCheck } from "./checks/duplicateBill";
 import { invoiceMathCheck } from "./checks/invoiceMath";
 import { issueDateCheck } from "./checks/issueDate";
+import { laborRateCheck } from "./checks/laborRate";
 import { mailCaptureCheck } from "./checks/mailCapture";
 import { marginCheck } from "./checks/margin";
 import { markupDriftCheck } from "./checks/markupDrift";
@@ -44,6 +45,7 @@ const JOB_CHECKS: JobCheck<never>[] = [
   duplicateBillCheck,
   uninvoicedCheck,
   draftBillsCheck,
+  laborRateCheck,
 ] as unknown as JobCheck<never>[];
 
 /** Once per client invoice. */

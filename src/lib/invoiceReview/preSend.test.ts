@@ -12,7 +12,7 @@
  */
 import { describe, expect, it } from "vitest";
 
-import { runChecks } from "./registry";
+import { ALL_CHECKS, runChecks } from "./registry";
 import { findingKey } from "./types";
 import type { BillRef, InvoiceEvidence, JobEvidence, MonthEvidence, ReviewNorms } from "./types";
 
@@ -36,6 +36,7 @@ function job(partial: Partial<JobEvidence> = {}): JobEvidence {
     neverInvoiced: false, invoices: [], bills: [],
     folder: { path: "/x/", found: true, folderId: "F", files: [], truncated: false },
     uninvoicedBillsCost: 0, uninvoicedTimeCost: 0, draftBillsCost: 0, draftBillCount: 0,
+    labor: [],
     ...partial,
   };
 }
@@ -65,6 +66,7 @@ function oneJobMonth(): MonthEvidence {
       }),
     ],
     emailChecked: false, emails: [], mailWindow: null, mailTruncated: false,
+    laborRates: null,
     warnings: [], norms,
   };
 }
@@ -85,6 +87,12 @@ describe("the scope filter", () => {
     const gate = kinds(oneJobMonth(), ["job", "invoice"]);
     expect(gate).not.toContain("vendor-silent");
     expect(gate).not.toContain("markup-rate-drift");
+  });
+
+  it("runs the labor-rate check, which is job-scoped and belongs in the gate", () => {
+    // The rate is snapshotted onto each entry, so a raise applied today leaves
+    // the month behind — and the month before it goes out is when that matters.
+    expect(ALL_CHECKS.find((c) => c.id === "labor-rate")?.scope).toBe("job");
   });
 
   it("still runs the job-scoped checks that ARE meaningful for one job", () => {

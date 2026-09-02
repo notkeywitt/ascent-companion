@@ -52,9 +52,13 @@ import { callAppsScript } from "@/lib/appsScript";
 import { billMatchesEmail, matchVendor } from "@/lib/digest/checks/uncapturedBills";
 import {
   getInvoiceReconciliation,
+  getJobHeaderInfo,
+  getJobTimeEntriesForMonth,
   getMonthlyInvoiceJobs,
+  getOrgUsers,
   getVendorBills,
   getVendors,
+  jtIsoToOrgLocal,
   pave,
   type PaveConfig,
   type VendorBillRow,
@@ -69,6 +73,7 @@ import type {
   InvoiceEvidence,
   InvoiceLine,
   JobEvidence,
+  LaborEntryRef,
   MonthEvidence,
 } from "./types";
 
@@ -502,6 +507,81 @@ async function loadPeriodMail(
  * Per-job failures are collected as warnings rather than thrown: one job whose
  * reconciliation errors out must not cost the office the other eleven.
  */
+/**
+ * The org's CURRENT rate card: employee name → pay-type name → hourly rate.
+ *
+ * This is the reference the labor-rate check measures each entry against. It
+ * comes from the memberships, which is where a rate actually lives — JobTread
+ * has no central pay-type catalog (see the labor-rates page), so every person
+ * carries their own copy and two people can hold the same pay-type name at
+ * different rates.
+ *
+ * Returns null when the grant cannot read per-member pay types (it needs the
+ * `createTimeEntryForMembership` action). Null means the check is SKIPPED, and
+ * the caller says so — a rate check that silently passes because it had no
+ * reference is worse than no check.
+ */
+async function loadLaborRates(
+  cfg: PaveConfig,
+): Promise<{ rates: Map<string, Map<string, number>> | null; warning?: string }> {
+  try {
+    const users = await getOrgUsers(cfg);
+    const rates = new Map<string, Map<string, number>>();
+    let sawTypes = false;
+    for (const u of users) {
+      if (!u.types) continue;
+      sawTypes = true;
+      const byName = new Map<string, number>();
+      for (const t of u.types) {
+        if (typeof t.hourlyRate === "number") byName.set(t.name.trim(), t.hourlyRate);
+      }
+      rates.set(u.name.trim(), byName);
+    }
+    // Every member came back without types ⇒ the grant can't read them.
+    if (!sawTypes) {
+      return {
+        rates: null,
+        warning:
+          "Labor rates were not checked — this grant cannot read per-member pay types.",
+      };
+    }
+    return { rates };
+  } catch (e) {
+    return {
+      rates: null,
+      warning: `Labor rates were not checked — ${e instanceof Error ? e.message : "unknown error"}.`,
+    };
+  }
+}
+
+/**
+ * One job's month of time entries, reduced to what the rate check reads.
+ *
+ * The CALENDAR month, deliberately, not the 10th-to-10th billing window every
+ * other loader here uses. This is the same window Labor Review and the monthly
+ * Labor Report use, and those are what the office reconciles the sheet against
+ * — a rate anomaly reported over a different window than the one they are
+ * looking at is a rate anomaly they cannot find.
+ */
+async function loadMonthLabor(
+  cfg: PaveConfig,
+  jobId: string,
+  year: number,
+  month: number,
+): Promise<LaborEntryRef[]> {
+  const entries = await getJobTimeEntriesForMonth(cfg, jobId, year, month);
+  return entries.map((t) => ({
+    id: t.id,
+    employee: t.employee,
+    payType: String(t.type ?? "").trim(),
+    rate: t.hourlyRate,
+    hours: t.hours,
+    cost: t.cost,
+    code: t.code,
+    day: jtIsoToOrgLocal(t.startedAt ?? "").slice(0, 10),
+  }));
+}
+
 export async function loadMonthEvidence(
   cfg: PaveConfig,
   year: number,
@@ -534,6 +614,31 @@ export async function loadMonthEvidence(
   const only = opts.onlyJobIds?.length ? new Set(opts.onlyJobIds) : null;
   const roster = only ? fullRoster.filter((r) => only.has(r.jobId)) : fullRoster;
 
+  // The roster is built from BILLS, so a job whose month is labor-only is not
+  // in it. That is right for a monthly review — a job with no bills has no
+  // invoice to review — but wrong for the pre-send gate, which was ASKED about
+  // one job by name and must not answer "nothing to check" when that job has a
+  // month of time entries on it. So a named job missing from the roster gets a
+  // shell built from its own header.
+  if (only) {
+    const have = new Set(roster.map((r) => r.jobId));
+    const missing = [...only].filter((id) => !have.has(id));
+    for (const jobId of missing) {
+      try {
+        const header = await getJobHeaderInfo(cfg, jobId);
+        roster.push({
+          jobId,
+          jobName: header.name,
+          customerName: header.customer,
+        } as (typeof roster)[number]);
+      } catch (e) {
+        warnings.push(
+          `${jobId}: could not read the job — ${e instanceof Error ? e.message : "unknown error"}`,
+        );
+      }
+    }
+  }
+
   const jobs = await mapWithLimit(roster, CONCURRENCY, async (row): Promise<JobEvidence> => {
     const shell: JobEvidence = {
       jobId: row.jobId,
@@ -547,6 +652,7 @@ export async function loadMonthEvidence(
       uninvoicedTimeCost: 0,
       draftBillsCost: 0,
       draftBillCount: 0,
+      labor: [],
     };
 
     let liveIds = new Set<string>();
@@ -564,7 +670,7 @@ export async function loadMonthEvidence(
       );
     }
 
-    const [bills, invoices, folder] = await Promise.all([
+    const [bills, invoices, folder, labor] = await Promise.all([
       loadMonthBills(cfg, row.jobId, year, month, liveIds).catch((e) => {
         warnings.push(
           `${row.jobName || row.jobId}: could not read the month's bills — ` +
@@ -582,18 +688,31 @@ export async function loadMonthEvidence(
         }),
       ),
       loadFolder(year, month, row.customerName, row.jobName),
+      loadMonthLabor(cfg, row.jobId, year, month).catch((e) => {
+        warnings.push(
+          `${row.jobName || row.jobId}: could not read the month's time entries — ` +
+            `${e instanceof Error ? e.message : "unknown error"}`,
+        );
+        return [] as LaborEntryRef[];
+      }),
     ]);
 
     if (folder.warning) warnings.push(folder.warning);
     shell.bills = bills;
     shell.invoices = invoices.filter((i): i is InvoiceEvidence => i !== null);
     shell.folder = folder.folder;
+    shell.labor = labor;
     return shell;
   });
 
   // The mailbox sweep. One call for the whole period, not one per invoice: the
   // question is about the period's ARRIVING vendor invoices, which have nothing
   // to do with which job they eventually landed on.
+  // The rate card the labor-rate check measures each entry against. One cached
+  // call for the whole org, not one per job.
+  const laborRateCard = await loadLaborRates(cfg);
+  if (laborRateCard.warning) warnings.push(laborRateCard.warning);
+
   let emailChecked = false;
   let emails: BillEmail[] = [];
   let mailWindow: { first: string; last: string } | null = null;
@@ -616,6 +735,7 @@ export async function loadMonthEvidence(
     month,
     monthLabel,
     folderRoot: billingFolderRoot(year, month),
+    laborRates: laborRateCard.rates,
     emailChecked,
     emails,
     mailWindow,
