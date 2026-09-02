@@ -1,5 +1,3 @@
-Do NOT read HANDOFF.md automatically. Only check it when I explicitly ask you to.
-
 # CLAUDE.md — Ascent Assistant (companion)
 
 The human-facing app for Ascent Building Co. — a **Next.js (App Router) app on
@@ -8,13 +6,27 @@ database (Drizzle + libSQL). It replaces the retired AppSheet UI and progressive
 absorbs those functions. The sibling repo `ascent-appscript` runs the automated
 back end (Gmail→Gemini invoice ingestion, the hourly JobTread↔Sheet↔Drive mirror).
 
-The owner is a **knowledgeable novice** — understands the business logic deeply,
-but is not a professional developer. Explanations should be clear and concrete;
-don't assume dev-tooling fluency.
+**Read `CODEBASE_MAP.md` before you touch `src/`.** It is the orientation index:
+which doc answers what, a task-to-file table, and a directory map of `src/`. It is
+too large to auto-import, so open it. Do not guess where a file lives.
 
-> 🗺️ **New session? Read `CODEBASE_MAP.md` first.** It's the orientation index —
-> which doc answers what, a task → files jump table, and a directory-by-directory
-> map of `src/` — so you can find the right file without re-searching the tree.
+## Write like this
+
+Simplified Technical English, relaxed. These rules apply to every response.
+
+- One idea per sentence. Keep sentences under 25 words.
+- Active voice. Present tense. Say who does what.
+- Use one word for one thing. Do not vary wording for style.
+- Answer first. Add a reason only when it changes a decision.
+- Prefer lists and tables to paragraphs. Six sentences per paragraph, maximum.
+- Cut: "essentially", "basically", "it's worth noting", "I should mention",
+  "let me", "great question", and any clause that restates the clause before it.
+- State a risk once, in one sentence. Do not soften it. Do not repeat it.
+- Do not narrate your process. Report the result.
+- Do not summarize a change the user can read in the diff.
+- Define a dev-tooling term the first time you use it, in eight words or fewer,
+  in parentheses. The owner knows this system's logic well but not dev jargon.
+  That is the only reason to add words.
 
 ## The mobile build loop (read this first)
 
