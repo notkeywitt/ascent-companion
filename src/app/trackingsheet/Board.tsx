@@ -52,6 +52,7 @@ import {
   type CodeHeadroom,
   type TimeEntryRow,
 } from "@/components/TimeEntryList";
+import { LaborReportButton } from "@/components/LaborReportButton";
 import { AddTimeCard } from "./AddTimeCard";
 import { InvoiceReconcile, type Recon } from "@/components/InvoiceReconcile";
 import { UncapturedBills } from "@/components/UncapturedBills";
@@ -3163,6 +3164,18 @@ export function Board() {
                   <span className="shrink-0 text-sm font-semibold tabular-nums">
                     {money(monthTimeTotal)}
                   </span>
+                </div>
+                {/* The month's COMPANY-WIDE Labor Report, on its own hairline row
+                    rather than in the header above: it is the one control in
+                    this card that is NOT about this job. It takes only the
+                    selected month and reports every job's hours, which is why
+                    it says so beside itself. Outside the collapse, because a
+                    month with the list shut is exactly when payroll wants it. */}
+                <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-t border-line-soft px-3 py-2">
+                  <span className="min-w-0 text-[11.5px] text-neutral-500 dark:text-neutral-400">
+                    Every job&apos;s hours this month, filed in the Drive Labor folder.
+                  </span>
+                  <LaborReportButton ym={ym} className="items-end text-right" />
                 </div>
                 {timeBlockOpen && monthTime.length > 0 && (
                   <>

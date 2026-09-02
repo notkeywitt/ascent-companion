@@ -25,6 +25,7 @@ import {
   useTimeFilters,
   type CodeHeadroom,
 } from "@/components/TimeEntryList";
+import { LaborReportButton } from "@/components/LaborReportButton";
 import { useUnsavedChanges } from "@/lib/useUnsavedChanges";
 
 /**
@@ -185,11 +186,6 @@ export function LaborReview() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [syncing, setSyncing] = useState(false);
   const [syncMsg, setSyncMsg] = useState<{ tone: "success" | "error"; text: string } | null>(null);
-  /** The Drive Labor Report write — org-wide, so it is not the job's own sync. */
-  const [reporting, setReporting] = useState(false);
-  const [reportMsg, setReportMsg] = useState<
-    { tone: "success" | "error"; text: string; url?: string } | null
-  >(null);
 
   // ---- filters (cost code / employee(s) / date / grouping) ----------------
   // Owned by the shared list — see useTimeFilters. Held here rather than inside
@@ -561,44 +557,6 @@ export function LaborReview() {
     }
   }
 
-  /**
-   * File the month's COMPANY-WIDE labor as a Google Sheet in the Drive Labor
-   * folder — the same "July '26 Labor" the office used to hand-export out of
-   * QuickBooks Time, built from JobTread instead.
-   *
-   * NOT this job, and not the on-screen filters: the report covers EVERY job's
-   * time entries for the selected month, because that is what payroll reads.
-   * The page's job selection only picks the month here. Staged recodes are
-   * deliberately ignored — nothing is written to JobTread until Sync, so the
-   * sheet reflects what JobTread actually holds.
-   *
-   * One file per month, overwritten in place, so re-running keeps the same URL.
-   */
-  const createLaborReport = async () => {
-    setReporting(true);
-    setReportMsg(null);
-    try {
-      const res = await fetch("/api/labor-report", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ym }),
-      });
-      const j = await res.json();
-      if (!res.ok || j?.error) throw new Error(j?.error ?? `HTTP ${res.status}`);
-      setReportMsg({
-        tone: "success",
-        text: `${j.created ? "Created" : "Updated"} “${j.title}” in Drive — ${j.entries} time ${
-          j.entries === 1 ? "entry" : "entries"
-        } across ${j.jobs} ${j.jobs === 1 ? "job" : "jobs"}.`,
-        url: typeof j.url === "string" ? j.url : undefined,
-      });
-    } catch (e) {
-      setReportMsg({ tone: "error", text: e instanceof Error ? e.message : "Report failed" });
-    } finally {
-      setReporting(false);
-    }
-  };
-
   // ---- render -------------------------------------------------------------
   if (!jobId) {
     return (
@@ -692,24 +650,6 @@ export function LaborReview() {
           {syncMsg.text}
         </Banner>
       )}
-      {reportMsg && (
-        <Banner tone={reportMsg.tone} className="mb-4">
-          {reportMsg.text}
-          {reportMsg.url && (
-            <>
-              {" "}
-              <a
-                href={reportMsg.url}
-                target="_blank"
-                rel="noreferrer"
-                className="text-accent underline"
-              >
-                Open the sheet
-              </a>
-            </>
-          )}
-        </Banner>
-      )}
       {error && (
         <Banner tone="error" className="mb-4">
           {error}
@@ -788,24 +728,19 @@ export function LaborReview() {
 
           {/* ─────────── MIDDLE: the month's time entries ─────────── */}
           <section className="min-w-0">
-            <div className="mb-2 flex items-baseline justify-between gap-3">
+            <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
               <SectionLabel>
                 Time entries ({entries.length}
                 {f.on ? ` of ${monthEntries.length}` : ""})
               </SectionLabel>
-              <div className="flex shrink-0 items-baseline gap-3">
-                <span className="text-xs font-semibold tabular-nums">
+              <div className="flex min-w-0 items-baseline gap-3">
+                <span className="shrink-0 text-xs font-semibold tabular-nums">
                   {hrs(f.shownHours)} · {money(f.shownCost)}
                 </span>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={createLaborReport}
-                  disabled={reporting}
-                  title="File the whole COMPANY's labor for this month as a Google Sheet in the Drive Labor folder — every job, not just this one, and not the on-screen filters. One file per month, overwritten each time."
-                >
-                  {reporting ? "Writing…" : "Create Labor Report in Drive"}
-                </Button>
+                {/* Org-wide, not this job: the report covers EVERY job's time
+                    entries for the selected month. The page's job selection
+                    only supplies the month. */}
+                <LaborReportButton ym={ym} className="items-end text-right" />
               </div>
             </div>
 
