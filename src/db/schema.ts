@@ -538,6 +538,25 @@ export const pageCopy = sqliteTable("page_copy", {
 export type PageCopyRow = typeof pageCopy.$inferSelect;
 
 /**
+ * Editable admin home-launcher layout — the menus, page links, and buttons an
+ * admin arranges from the home page's Edit mode (see src/lib/navLayout.ts).
+ *
+ * Override-only, exactly like page_copy: a single row (`id = 'home'`) holding
+ * the whole layout as JSON in `value`. No row → the launcher renders the
+ * shipped AREAS default (src/lib/nav.ts), so an empty or unreachable DB can
+ * never blank the home page; deleting the row is how you revert to the shipped
+ * launcher. Companion-owned UI state — nothing to do with JobTread.
+ */
+export const navLayout = sqliteTable("nav_layout", {
+  id: text("id").primaryKey(), // "home" — one row today, keyed for future launchers
+  value: text("value").notNull(), // a NavLayout serialized as JSON
+  updatedAt: text("updated_at").notNull().default(""),
+  updatedBy: text("updated_by").notNull().default(""), // signed-in email
+});
+
+export type NavLayoutRow = typeof navLayout.$inferSelect;
+
+/**
  * Admin notices — short announcements an admin pushes to users, shown as a global
  * popup on whatever page the reader has open (the same mechanism as the
  * unmatched-vendor alert; see src/components/Notices.tsx). Companion-owned;

@@ -69,7 +69,7 @@ export async function GET(req: NextRequest) {
     }
 
     return NextResponse.json({
-      job: { id: jobId, name: header.name, address: header.address },
+      job: { id: jobId, name: header.name, address: header.address, customer: header.customer },
       timeEntries: timeEntries.map((t) => ({ ...t, flagged: flagged.has(t.id) })),
       budget,
       costDetail,

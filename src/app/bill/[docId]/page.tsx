@@ -1,7 +1,7 @@
 "use client";
 
-import { Suspense, useEffect, useRef, useState } from "react";
-import { useParams, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useRef, useState, type MouseEvent } from "react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { CostCodeSelect, type Option } from "@/components/CostCodeSelect";
 import { JtLink } from "@/components/JtLink";
@@ -172,6 +172,7 @@ function reloadJtWindow() {
 function BillDetail() {
   const params = useParams<{ docId: string }>();
   const search = useSearchParams();
+  const router = useRouter();
   const docId = params.docId;
   // The link that opened this page usually carries ?jobId, but some review /
   // digest bill links don't. When it's absent, /api/bill still returns the bill
@@ -180,11 +181,15 @@ function BillDetail() {
   const urlJobId = search.get("jobId") ?? "";
   const [resolvedJobId, setResolvedJobId] = useState("");
   const jobId = urlJobId || resolvedJobId;
-  // Where Back returns to. Pages that deep-link here say so with ?from=… — the
-  // three Tracking Sheets surfaces (`recode` the workbench, `invoicing` the
-  // all-jobs month roster, `drafts` the needs-coding queue) and the Sunset
-  // Statements page (`payments`). `stage` is the retired Invoicing page, still
-  // reachable by URL; anything unrecognised falls back to the workbench.
+  // Where Back returns to WHEN there's no in-app history to step back through
+  // (a bill opened cold from a digest / search / shared link). Back itself is a
+  // general "‹ Back" that prefers the browser's own history — see the handler on
+  // the link below — and only uses this computed destination as the fallback.
+  // Pages that deep-link here say so with ?from=… — the three Tracking Sheets
+  // surfaces (`recode` the workbench, `invoicing` the all-jobs month roster,
+  // `drafts` the needs-coding queue) and the Sunset Statements page (`payments`).
+  // `stage` is the retired Invoicing page, still reachable by URL; anything
+  // unrecognised falls back to the workbench.
   const from = search.get("from");
   // Tracking Sheets carries its billing month through so Back lands on the same
   // month; the `#bill-<id>` anchor is the bill you tapped, so you return to your
@@ -203,14 +208,17 @@ function BillDetail() {
           : from === "payments"
             ? "/payments"
             : `/trackingsheet?jobId=${encodeURIComponent(jobId)}${ymQs}#bill-${docId}`;
-  const backLabel =
-    from === "stage"
-      ? "‹ Invoicing"
-      : from === "drafts"
-        ? "‹ Needs coding"
-        : from === "payments"
-          ? "‹ Sunset statements"
-          : "‹ Tracking Sheets";
+  // A general Back: return to the previous page via the browser's history when
+  // there is one, so Back lands wherever you actually came from (search, the
+  // digest, a shared link) instead of always claiming "Tracking Sheets". Falls
+  // back to the computed destination above when the bill was opened cold (no
+  // in-app history), which also keeps a right-click / open-in-new-tab useful.
+  function goBack(e: MouseEvent<HTMLAnchorElement>) {
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      e.preventDefault();
+      router.back();
+    }
+  }
   // Stepping ‹ prev / next › between bills must keep the SAME Back destination —
   // otherwise the neighbour loses ?from/?ym and Back falls back to the coding
   // queue. Carry both through every bill link.
@@ -223,6 +231,15 @@ function BillDetail() {
   const [budget, setBudget] = useState<Option[]>([]);
   const [ctc, setCtc] = useState<Record<string, { budget: number; actual: number; remaining: number }>>({});
   const [files, setFiles] = useState<FileNode[]>([]);
+  // The bill's backup in Google Drive — the file itself and the folder it's filed
+  // in. The Assistant has no Drive grant, so /api/bill/drive asks the Apps Script
+  // web app, which resolves both from the Expenditure sheet's file link. Best-
+  // effort: null until it answers, and links the lookup can't supply stay "".
+  const [drive, setDrive] = useState<{
+    fileUrl: string;
+    folderUrl: string;
+    folderName: string;
+  } | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [picked, setPicked] = useState<Record<string, string>>({});
@@ -374,6 +391,31 @@ function BillDetail() {
       });
     }
   }, [prevId, nextId, jobId, loading, cacheEpoch]);
+
+  // Fetch the bill's Google Drive links (the file + its folder) once per bill.
+  // Best-effort and out of band from the main load — the page is fully usable
+  // without it, so a slow or unconfigured Apps Script just leaves the links off.
+  useEffect(() => {
+    let cancelled = false;
+    setDrive(null);
+    if (!docId) return;
+    fetch(`/api/bill/drive?docId=${encodeURIComponent(docId)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (cancelled || !j) return;
+        setDrive({
+          fileUrl: j.fileUrl ?? "",
+          folderUrl: j.folderUrl ?? "",
+          folderName: j.folderName ?? "",
+        });
+      })
+      .catch(() => {
+        /* best-effort — no Drive links is fine */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [docId]);
 
   // Keep the Bill Number draft in step with the header JobTread returns (on load,
   // navigation between bills, and after a save re-reads the doc).
@@ -1104,9 +1146,10 @@ function BillDetail() {
       <div className="flex items-center gap-2">
         <Link
           href={backHref}
+          onClick={goBack}
           className="-ml-2 inline-flex min-h-11 items-center rounded-lg px-2 text-sm font-semibold text-accent transition hover:bg-accent/10 dark:text-accent-soft"
         >
-          {backLabel}
+          ‹ Back
         </Link>
       </div>
 
@@ -1796,6 +1839,38 @@ function BillDetail() {
                   {f.name}
                 </span>
               ),
+            )}
+          </div>
+        </section>
+      )}
+
+      {/* In Google Drive — the durable backup the hourly mirror keeps: the bill's
+          own PDF, and the Customer/Job/month folder it's filed in. Shown whenever
+          the Apps Script lookup found either; each link hides on its own if the
+          lookup couldn't supply it. */}
+      {drive && (drive.fileUrl || drive.folderUrl) && (
+        <section className="mt-8">
+          <SectionLabel className="mb-2">In Google Drive</SectionLabel>
+          <div className="flex flex-col">
+            {drive.fileUrl && (
+              <a
+                href={drive.fileUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex min-h-11 items-center text-sm font-semibold text-accent dark:text-accent-soft"
+              >
+                Open the file in Drive ↗
+              </a>
+            )}
+            {drive.folderUrl && (
+              <a
+                href={drive.folderUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex min-h-11 items-center text-sm font-semibold text-accent dark:text-accent-soft"
+              >
+                Open {drive.folderName ? `“${drive.folderName}”` : "the folder"} in Drive ↗
+              </a>
             )}
           </div>
         </section>

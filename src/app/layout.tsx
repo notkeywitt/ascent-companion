@@ -6,6 +6,7 @@ import { AppHeader } from "@/components/AppHeader";
 import { TabBar } from "@/components/TabBar";
 import { AccessProvider } from "@/components/AccessProvider";
 import { CopyProvider } from "@/components/CopyProvider";
+import { NavLayoutProvider } from "@/components/NavLayoutProvider";
 import { RefreshBoundary, RefreshProvider } from "@/components/RefreshProvider";
 import { StuckVendorPopup, StuckVendorsProvider } from "@/components/StuckVendors";
 import { NoticePopup } from "@/components/Notices";
@@ -14,6 +15,7 @@ import { cookies } from "next/headers";
 import { auth, roleBaseFor } from "@/auth";
 import { ALL_VIEW_IDS, resolveAllowedViews, type Role } from "@/lib/views";
 import { loadCopyOverrides } from "@/lib/copyService";
+import { loadNavLayout } from "@/lib/navLayoutService";
 import { PREVIEW_COOKIE, parsePreviewRole } from "@/lib/preview";
 import { PreviewBanner } from "@/components/PreviewBanner";
 
@@ -67,6 +69,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   // edited wording is server-rendered — no client fetch, no flash of old text.
   // Falls back to {} (i.e. the shipped English) if the DB is unreachable.
   const copyOverrides = await loadCopyOverrides();
+  // The admin's customized home launcher (Edit mode on the home page), or null
+  // for the shipped AREAS default. Read here so the launcher is server-rendered
+  // with no client fetch and no flash. Falls back to null if the DB is
+  // unreachable — the home page then renders the shipped launcher.
+  const navLayoutOverride = await loadNavLayout();
   const devOpen = !process.env.AUTH_GOOGLE_ID && !process.env.APP_PASSWORD;
   let role: Role = "field";
   let views: string[] = [];
@@ -116,6 +123,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             no-ops without a session, so it's inert in dev-open mode too. */}
         {session?.user && <UsageBeacon />}
         <CopyProvider overrides={copyOverrides}>
+        <NavLayoutProvider layout={navLayoutOverride}>
         <AccessProvider role={role} views={views}>
           {/* Global refresh: the header's button remounts the page subtree
               (RefreshBoundary keys {children}) so every page's mount-time /api
@@ -145,6 +153,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             </StuckVendorsProvider>
           </RefreshProvider>
         </AccessProvider>
+        </NavLayoutProvider>
         </CopyProvider>
       </body>
     </html>
