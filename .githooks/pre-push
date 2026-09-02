@@ -21,6 +21,19 @@ fi
 
 echo "pre-push: main is production — running typecheck and build"
 
+# `next build` rewrites next-env.d.ts and tsconfig.json to point at whatever
+# output dir it used. Both are tracked, so keep a copy and put them back exactly
+# as they were — committed or not — however this hook exits.
+saved=$(mktemp -d)
+[ -f next-env.d.ts ] && cp next-env.d.ts "$saved/next-env.d.ts"
+[ -f tsconfig.json ] && cp tsconfig.json "$saved/tsconfig.json"
+restore_configs() {
+  [ -f "$saved/next-env.d.ts" ] && cp "$saved/next-env.d.ts" next-env.d.ts
+  [ -f "$saved/tsconfig.json" ] && cp "$saved/tsconfig.json" tsconfig.json
+  rm -rf "$saved"
+}
+trap restore_configs EXIT
+
 if ! npm run typecheck; then
   echo "pre-push: typecheck FAILED — push blocked" >&2
   exit 1
