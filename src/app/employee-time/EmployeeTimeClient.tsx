@@ -28,7 +28,9 @@ import {
  *    Note as rows that each open a bottom sheet picker. The docked pill clocks
  *    in; while running it becomes Clock out and the elapsed time counts up.
  *    Clock-in creates an OPEN JobTread time entry (startedAt only); clock-out
- *    sets its endedAt + the required note (updateTimeEntry). The running clock
+ *    sets its endedAt + the required note (updateTimeEntry). The Clock out
+ *    sheet can also CORRECT the start time — "I started at 7, I clocked in at
+ *    9" — and only a corrected one is written back. The running clock
  *    is resumed FROM JOBTREAD on load (GET /api/employee-time/clock returns the
  *    open entry), so opening the page anywhere — a new phone, a cleared
  *    browser, the office desktop — shows Clock out with the real start time and
@@ -495,6 +497,11 @@ export function EmployeeTimeClient({
   // change it — that is the "we forgot to clock out at 3" case.
   const [endAt, setEndAt] = useState(nowLocal());
   const [endTouched, setEndTouched] = useState(false);
+  // The START time, correctable on the way out — the "I actually started at 7,
+  // I only clocked in at 9" case. Seeded from the running clock every time the
+  // Clock out sheet opens; an untouched value is never written back.
+  const [outStartAt, setOutStartAt] = useState(nowLocal());
+  const [outStartTouched, setOutStartTouched] = useState(false);
 
   // Log-a-range idempotency key — one per logical submission, held here so a
   // retry after a dropped response reuses it (backend dedupes on it). Cleared on
@@ -808,10 +815,17 @@ export function EmployeeTimeClient({
     setStartTouched(false);
   }
 
-  // The stop time the clock-out will send, and how long that makes the shift.
+  // The start and stop times the clock-out will send, and how long that makes
+  // the shift. An untouched start stays exactly as the clock-in recorded it
+  // (seconds included); a touched one is used as typed, to the minute.
+  const clockOutStart = activeClock
+    ? outStartTouched
+      ? `${outStartAt}:00`
+      : activeClock.startedAt
+    : "";
   const clockOutEnd = endTouched ? `${endAt}:00` : "";
   const clockOutDuration = activeClock
-    ? fmtDuration(activeClock.startedAt, clockOutEnd || nowLocalSeconds())
+    ? fmtDuration(clockOutStart, clockOutEnd || nowLocalSeconds())
     : "";
 
   // ------------------------------------------------------------- Clock in/out
@@ -889,15 +903,24 @@ export function EmployeeTimeClient({
     // An edited stop time is used as typed (to the minute); an untouched one is
     // "right now", to the second.
     const endedAt = endTouched ? `${endAt}:00` : nowLocalSeconds();
+    const startedAt = clockOutStart;
+    if (!startedAt) {
+      setErr("Missing the clock-in time.");
+      return;
+    }
+    if (new Date(startedAt).getTime() > Date.now() + 60000) {
+      setErr("That start time is in the future.");
+      return;
+    }
     if (new Date(endedAt).getTime() > Date.now() + 60000) {
       setErr("That stop time is in the future.");
       return;
     }
     // JobTread requires end > start strictly; a sub-second session would 400.
     // That's a mis-tap, not real work — point at Cancel instead.
-    if (endedAt <= activeClock.startedAt) {
+    if (endedAt <= startedAt) {
       setErr(
-        endTouched
+        endTouched || outStartTouched
           ? "The stop time must be after the start time."
           : "You've been clocked in less than a second — use “Cancel this clock-in” instead.",
       );
@@ -920,7 +943,10 @@ export function EmployeeTimeClient({
           costItemId: activeClock.costItemId,
           costCode: activeClock.costCode,
           payType: activeClock.payType,
-          startTime: activeClock.startedAt,
+          startTime: startedAt,
+          // Only a corrected start is written back to JobTread — an untouched
+          // one is already the entry's own startedAt.
+          startEdited: outStartTouched,
           endTime: endedAt,
           note: note.trim(),
           photos,
@@ -937,7 +963,7 @@ export function EmployeeTimeClient({
           jobLabel: activeClock.jobLabel,
           costLabel: [activeClock.costCode, activeClock.costItemName].filter(Boolean).join(" — "),
           payType: activeClock.payType,
-          startTime: activeClock.startedAt,
+          startTime: startedAt,
           endTime: endedAt,
           note: note.trim(),
         },
@@ -953,6 +979,8 @@ export function EmployeeTimeClient({
       resetStart();
       setEndAt(nowLocal());
       setEndTouched(false);
+      setOutStartAt(nowLocal());
+      setOutStartTouched(false);
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Could not clock out.");
     } finally {
@@ -1538,6 +1566,10 @@ export function EmployeeTimeClient({
                       // Always open on "now"; an earlier stop is a deliberate edit.
                       setEndAt(nowLocal());
                       setEndTouched(false);
+                      // The start opens on the clock's own time — correcting it
+                      // is the deliberate edit here.
+                      setOutStartAt((activeClock?.startedAt || nowLocal()).slice(0, 16));
+                      setOutStartTouched(false);
                       setErr("");
                       openSheet("out");
                     }
@@ -1733,8 +1765,41 @@ export function EmployeeTimeClient({
         {/* Stop time — "now" unless you say otherwise. This is the fix for a
             clock-out nobody remembered at 3 o'clock. */}
         <Card pad={false} className="mb-4 overflow-hidden">
+          {/* Start time — the clock's own, correctable here. This is the fix for
+              a crew member who started at 7 and only clocked in at 9. */}
           {activeClock && (
-            <FieldRow label="Started" value={displayStamp(activeClock.startedAt)} static />
+            <div className="flex min-h-[56px] items-center justify-between gap-3 border-b border-line-soft px-3 py-2.5">
+              <span className="text-[13px] text-neutral-500">
+                Start time
+                {outStartTouched ? (
+                  <span className="ml-2 text-amber-600 dark:text-amber-400">edited</span>
+                ) : null}
+              </span>
+              <span className="flex items-center gap-2">
+                <ChipInput
+                  type="date"
+                  value={outStartAt.slice(0, 10)}
+                  display={dayChipLabel(outStartAt.slice(0, 10))}
+                  ariaLabel="Start date"
+                  onChange={(v) => {
+                    if (!v) return;
+                    setOutStartTouched(true);
+                    setOutStartAt(`${v}T${outStartAt.slice(11, 16)}`);
+                  }}
+                />
+                <ChipInput
+                  type="time"
+                  value={outStartAt.slice(11, 16)}
+                  display={fmt12h(outStartAt.slice(11, 16))}
+                  ariaLabel="Start time"
+                  onChange={(v) => {
+                    if (!v) return;
+                    setOutStartTouched(true);
+                    setOutStartAt(`${outStartAt.slice(0, 10)}T${v.slice(0, 5)}`);
+                  }}
+                />
+              </span>
+            </div>
           )}
           <div className="flex min-h-[56px] items-center justify-between gap-3 px-3 py-2.5">
             <span className="text-[13px] text-neutral-500">

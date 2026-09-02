@@ -372,6 +372,10 @@ need to pick yourself from **"Who are you in JobTread?"** — it's remembered af
 6. If you forgot to clock out on time, change the **Stop time** in that same panel. Tap the
    day chip or the time chip and set the correct time. The panel shows the new length, and
    the button shows it too. A stop time after the current time is not permitted.
+7. The **Start time** is in that same panel too, and you can correct it there — that is the
+   "I started at 7 but only clocked in at 9" case. Tap the day chip or the time chip. The
+   row marks it **edited**, the length updates, and the corrected start is written to
+   JobTread with the clock-out. A start time after the current time is not permitted.
 
 > **The last job stays with you.** The page remembers your last job, cost code and pay type
 > on the phone. On a new phone it reads them from your most recent JobTread entry.

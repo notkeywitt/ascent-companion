@@ -59,9 +59,12 @@ import { resolveJtUserLink } from "@/lib/jtUserLink";
  * POST { op:"in",  userId, jobId, costItemId, payType, startTime }
  *      → { ok, previewed, entryId, jtStatus, jtError? }
  * POST { op:"out", entryId, userId, jobId, jobLabel?, costItemId, costCode?,
- *        payType?, employee?, startTime, endTime, note,
+ *        payType?, employee?, startTime, startEdited?, endTime, note,
  *        photos:[{base64, mimeType, name}] }
  *      → { ok, accepted, previewed, jtEntryId, photoCount }
+ *        `startEdited` means the crew member CORRECTED the clock-in time in the
+ *        Clock out sheet; only then does the JobTread update write startedAt.
+ *        The Time Entries log row always records the startTime as sent.
  * POST { op:"cancel", entryId } → { ok }
  * POST { op:"edit", entryId, jobId, costItemId, startTime, endTime, note }
  *      → { ok, previewed, wrote, jtStatus, minutes? }
@@ -142,6 +145,7 @@ interface Body {
   costCode?: string;
   payType?: string;
   startTime?: string;
+  startEdited?: boolean;
   endTime?: string;
   note?: string;
   photos?: Photo[];
@@ -238,6 +242,9 @@ export async function POST(req: NextRequest) {
     const endLocal = toLocalStamp(body.endTime ?? "");
     const startedAt = orgLocalToJtIso(startLocal);
     const endedAt = orgLocalToJtIso(endLocal);
+    // The crew member corrected the clock-in time on the way out ("started at
+    // 7, clocked in at 9"). Only then does the JobTread update carry startedAt.
+    const startEdited = body.startEdited === true;
     // Idempotency key for the clock-out log — the phone generates it at clock-in
     // and resends it on every clock-out retry (bad service drops the response,
     // not the work). Falls back to a per-request id for older clients.
@@ -307,7 +314,13 @@ export async function POST(req: NextRequest) {
       if (!pushable) return;
       let jtStatus = "pending push";
       try {
-        await updateTimeEntry(getPaveConfig(), entryId, { endedAt, notes: note });
+        // startedAt only rides along when the crew member CORRECTED it on the
+        // way out. Left alone, the entry keeps the instant its clock-in wrote.
+        await updateTimeEntry(getPaveConfig(), entryId, {
+          endedAt,
+          notes: note,
+          ...(startEdited ? { startedAt } : {}),
+        });
         jtStatus = "pushed";
       } catch (e) {
         const message = e instanceof Error ? e.message : "Unknown error";
