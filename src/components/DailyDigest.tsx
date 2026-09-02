@@ -8,7 +8,7 @@ import {
   Chip,
   CountBadge,
   Loading,
-  SectionHeading,
+  SectionLabel,
   Textarea,
   btn,
   type ChipTone,
@@ -105,6 +105,31 @@ export function DailyDigest() {
   // session. So the button is hidden for office rather than shown and answered
   // with a 403; office sees the digest the morning run stored.
   const canRefresh = access.role === "admin";
+
+  // Collapsed by default — the digest is a morning read, not something that
+  // should own the top of the launcher on every visit. The choice is remembered
+  // per device (localStorage), so once you open it it stays open; a fresh
+  // browser starts collapsed. Reads are wrapped because storage can throw
+  // (private windows, blocked site data).
+  const [expanded, setExpanded] = useState(false);
+  useEffect(() => {
+    try {
+      if (localStorage.getItem("digest.expanded") === "1") setExpanded(true);
+    } catch {
+      /* storage unavailable — stay collapsed */
+    }
+  }, []);
+  const toggleExpanded = useCallback(() => {
+    setExpanded((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem("digest.expanded", next ? "1" : "0");
+      } catch {
+        /* storage unavailable — the choice just won't persist */
+      }
+      return next;
+    });
+  }, []);
 
   const [data, setData] = useState<DigestResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -241,26 +266,42 @@ export function DailyDigest() {
 
   return (
     <section className="mb-6 space-y-2">
-      <SectionHeading
-        trailing={
-          <span className="flex items-center gap-2">
-            {flagged > 0 && <CountBadge n={flagged} />}
-            {canRefresh && (
-              <button
-                type="button"
-                onClick={refresh}
-                disabled={refreshing}
-                className="text-[11px] font-semibold text-accent hover:underline disabled:opacity-50 dark:text-accent-soft"
-              >
-                {refreshing ? "Refreshing…" : "Refresh now"}
-              </button>
-            )}
+      {/* The heading is the collapse toggle. The flagged count rides alongside
+          it so a collapsed digest still shows when work is waiting; "Refresh
+          now" (admin) is only offered once it's open. */}
+      <div className="flex min-h-[28px] items-center gap-2.5">
+        <span aria-hidden className="h-0.5 w-5 shrink-0 rounded-full bg-accent" />
+        <button
+          type="button"
+          onClick={toggleExpanded}
+          aria-expanded={expanded}
+          className="flex items-center gap-2 text-left"
+        >
+          <SectionLabel>Daily Digest</SectionLabel>
+          <span
+            aria-hidden
+            className={`text-neutral-400 transition ${expanded ? "rotate-90" : ""}`}
+          >
+            ›
           </span>
-        }
-      >
-        Daily Digest
-      </SectionHeading>
+        </button>
+        <span className="ml-auto flex shrink-0 items-center gap-2">
+          {flagged > 0 && <CountBadge n={flagged} />}
+          {canRefresh && expanded && (
+            <button
+              type="button"
+              onClick={refresh}
+              disabled={refreshing}
+              className="text-[11px] font-semibold text-accent hover:underline disabled:opacity-50 dark:text-accent-soft"
+            >
+              {refreshing ? "Refreshing…" : "Refresh now"}
+            </button>
+          )}
+        </span>
+      </div>
 
+      {expanded && (
+        <>
       {err && <Banner tone="error">{err}</Banner>}
       {!err && note && <Banner tone="info">{note}</Banner>}
 
@@ -423,6 +464,8 @@ export function DailyDigest() {
               )}
             </Card>
           )}
+        </>
+      )}
         </>
       )}
     </section>

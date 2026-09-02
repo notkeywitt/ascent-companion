@@ -540,6 +540,17 @@ async function applySchema() {
       updated_by TEXT NOT NULL DEFAULT ''
     )
   `);
+  // Editable admin home-launcher layout — one JSON row (id='home'). Absent row
+  // means the shipped AREAS launcher renders, so an empty table is the correct
+  // default state (see src/lib/navLayout.ts).
+  await getClient().execute(`
+    CREATE TABLE IF NOT EXISTS nav_layout (
+      id TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      updated_at TEXT NOT NULL DEFAULT '',
+      updated_by TEXT NOT NULL DEFAULT ''
+    )
+  `);
   // Admin notices — announcements pushed to users as a global popup. Companion-
   // owned; a notice_reads row per (notice, reader) is the "seen it" mark.
   await getClient().execute(`
