@@ -305,6 +305,21 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
   // The bill's Drive backup, beside the JobTread attachment the hosts fetch.
   const drive = useDriveBackup(bill?.id);
 
+  // "Recode All Lines" is a dialog, not a field parked above the list: it is a
+  // once-a-bill decision, and inline it read as the first line's cost code.
+  const [recodeAllOpen, setRecodeAllOpen] = useState(false);
+
+  // The two bill-level buttons under the list. Each keeps the condition it
+  // was rendered on before, so neither appears where it used to be hidden.
+  const showRecodeAll = Boolean(bill && !bill.invoiced && codeOptions.length > 0 && lines.length > 1);
+  const showCombine = Boolean(bill && !bill.invoiced && writes && anyCombinable);
+
+  // A different bill in the panel closes the dialog: it was opened against the
+  // bill that was on screen, and its pick applies to whatever is open now.
+  useEffect(() => {
+    setRecodeAllOpen(false);
+  }, [bill?.id]);
+
   return (
     <>
     <SectionLabel className="mb-2">Coding</SectionLabel>
@@ -340,64 +355,11 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
           </Button>
         </div>
 
-        {/* Document-level sales tax = JobTread's "Tax" (nonRecoverableTax),
-            a fixed dollar. Staged like a line edit — nothing writes until
-            Sync — so typing here moves math.total live. */}
-        {math.isDraft && writes && !bill.invoiced && (
-          <div className="mb-1 flex items-center justify-end gap-1.5">
-            <span className="text-[10px] uppercase tracking-wide text-neutral-400">
-              {bill.nonRecoverableTaxName || "Tax"}
-            </span>
-            <div className="relative">
-              <span className="pointer-events-none absolute left-1.5 top-1/2 -translate-y-1/2 text-xs text-neutral-400">
-                $
-              </span>
-              <input
-                type="number"
-                inputMode="decimal"
-                min="0"
-                step="0.01"
-                value={taxEdit ?? String(storedTax)}
-                onChange={(e) =>
-                  setTax(e.target.value)
-                }
-                aria-label="Sales tax"
-                className={`${quietSm} w-24 py-1 pl-4 pr-1.5 text-right tabular-nums`}
-              />
-            </div>
-          </div>
-        )}
-        {taxView > 0 && (
-          <p className="mb-3 text-right text-[10px] text-neutral-400">
-            subtotal {money(math.subtotal)} + {money(taxView)}{" "}
-            {(bill.nonRecoverableTaxName || "tax").toLowerCase()}
-          </p>
-        )}
-
         {bill.invoiced && (
           <Banner tone="info" className="mb-3 !py-1.5 !text-[11px]">
             Already on a customer invoice — coding is read-only here so recoding can&apos;t
             change numbers already sent to the client.
           </Banner>
-        )}
-
-        {/* Code every line at once. A field and its button — the dashed box
-            that used to be drawn round them said nothing the button didn't. */}
-        {!bill.invoiced && codeOptions.length > 0 && lines.length > 1 && (
-          <div className="mb-3 flex items-center gap-1.5">
-            <div className="min-w-0 flex-1">
-              <CostCodeSelect options={codeOptions} value={bulkCode} onChange={setBulkCode} />
-            </div>
-            <Button
-              size="sm"
-              className="shrink-0 !py-1.5 !text-xs"
-              onClick={() => applyCodeToAll(bulkCode)}
-              disabled={!bulkCode}
-              title={`Apply one code to all ${lines.length} lines`}
-            >
-              All {lines.length}
-            </Button>
-          </div>
         )}
 
         <ul className="space-y-3">
@@ -580,15 +542,51 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
           </Banner>
         )}
 
-        {/* Combine rows: appears once 2+ of this bill's lines share a
-            code. Sits below the list, alongside Add line, since both
-            are structural edits rather than per-line coding decisions.
-            Unlike a recode, this writes to JobTread immediately — it's
-            a structural merge, not a trial-and-error choice. */}
-        {!bill.invoiced && writes && anyCombinable && (
+        {/* Document-level sales tax = JobTread's "Tax" (nonRecoverableTax),
+            a fixed dollar. Staged like a line edit — nothing writes until
+            Sync — so typing here moves math.total live. It sits at the FOOT
+            of the list, where a paper invoice puts it: under the lines it is
+            charged on, above the bill-level buttons. */}
+        {math.isDraft && writes && !bill.invoiced && (
+          <div className="mt-3 flex items-center justify-end gap-1.5">
+            <span className="text-[10px] uppercase tracking-wide text-neutral-400">
+              {bill.nonRecoverableTaxName || "Tax"}
+            </span>
+            <div className="relative">
+              <span className="pointer-events-none absolute left-1.5 top-1/2 -translate-y-1/2 text-xs text-neutral-400">
+                $
+              </span>
+              <input
+                type="number"
+                inputMode="decimal"
+                min="0"
+                step="0.01"
+                value={taxEdit ?? String(storedTax)}
+                onChange={(e) =>
+                  setTax(e.target.value)
+                }
+                aria-label="Sales tax"
+                className={`${quietSm} w-24 py-1 pl-4 pr-1.5 text-right tabular-nums`}
+              />
+            </div>
+          </div>
+        )}
+        {taxView > 0 && (
+          <p className="mt-1 text-right text-[10px] text-neutral-400">
+            subtotal {money(math.subtotal)} + {money(taxView)}{" "}
+            {(bill.nonRecoverableTaxName || "tax").toLowerCase()}
+          </p>
+        )}
+
+        {/* Bill-level actions: recode every line at once, and merge lines that
+            already share a code. Both act on the whole bill rather than on one
+            line, so they sit together under the list, alongside Add line.
+            Combine writes to JobTread immediately — it's a structural merge,
+            not a trial-and-error choice; a recode only stages. */}
+        {(showRecodeAll || showCombine) && (
           <div className="mt-3 border-t border-line-soft pt-2.5">
-            <div className="flex items-center justify-between gap-2">
-              <p className="min-w-0 text-[11px] text-neutral-500">
+            {showCombine && (
+              <p className="mb-1.5 text-[11px] text-neutral-500">
                 {combineSelected.length < 2
                   ? "Check 2+ lines with the same code."
                   : combineCodeSet.size > 1
@@ -597,16 +595,31 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                       ? "Sync or discard edits first."
                       : `Merging ${combineSelected.length} lines.`}
               </p>
-              <Button
-                size="sm"
-                className="shrink-0 !py-1.5 !text-xs"
-                onClick={combineRows}
-                disabled={!canCombine || combining}
-              >
-                {combining
-                  ? "Combining…"
-                  : `Combine${combineSelected.length >= 2 ? ` (${combineSelected.length})` : ""}`}
-              </Button>
+            )}
+            <div className="flex flex-wrap items-center justify-end gap-1.5">
+              {showRecodeAll && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="shrink-0 !py-1.5 !text-xs"
+                  onClick={() => setRecodeAllOpen(true)}
+                  title={`Apply one code to all ${lines.length} lines`}
+                >
+                  Recode All Lines
+                </Button>
+              )}
+              {showCombine && (
+                <Button
+                  size="sm"
+                  className="shrink-0 !py-1.5 !text-xs"
+                  onClick={combineRows}
+                  disabled={!canCombine || combining}
+                >
+                  {combining
+                    ? "Combining…"
+                    : `Combine${combineSelected.length >= 2 ? ` (${combineSelected.length})` : ""}`}
+                </Button>
+              )}
             </div>
             {combineMsg && (
               <Banner tone="neutral" className="mt-1.5 !px-2 !py-1.5 !text-[11px]">
@@ -859,6 +872,53 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
           </div>
         )}
       </Card>
+    )}
+
+    {/* Recode All Lines. A modal at every width — a bottom sheet on a phone,
+        a centred dialog from sm up, like the board's other dialogs — so the
+        one code it asks for is the only thing on screen, and picking it can't
+        be mistaken for coding the line it sat above. */}
+    {recodeAllOpen && showRecodeAll && (
+      <div
+        className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Recode all lines"
+        onClick={() => setRecodeAllOpen(false)}
+      >
+        <Card
+          className="w-full max-w-sm rounded-b-none pb-[max(0.75rem,env(safe-area-inset-bottom))] !p-4 sm:rounded-b-xl sm:pb-4"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <p className="text-sm font-semibold">Recode all lines</p>
+          <p className="mb-2 text-[11px] text-neutral-500">
+            One cost code for all {lines.length} lines of this bill. Staged like any
+            other recode — nothing writes until you sync.
+          </p>
+          <CostCodeSelect options={codeOptions} value={bulkCode} onChange={setBulkCode} />
+          <div className="mt-3 flex items-center justify-end gap-1.5">
+            <Button
+              variant="secondary"
+              size="sm"
+              className="!py-1.5 !text-xs"
+              onClick={() => setRecodeAllOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              className="!py-1.5 !text-xs"
+              disabled={!bulkCode}
+              onClick={() => {
+                applyCodeToAll(bulkCode);
+                setRecodeAllOpen(false);
+              }}
+            >
+              Apply to all {lines.length}
+            </Button>
+          </div>
+        </Card>
+      </div>
     )}
     </>
   );
