@@ -242,6 +242,7 @@ function BillDetail() {
   // effort: null until it answers, and links the lookup can't supply stay "".
   const [drive, setDrive] = useState<{
     fileUrl: string;
+    fileName: string;
     folderUrl: string;
     folderName: string;
   } | null>(null);
@@ -421,6 +422,7 @@ function BillDetail() {
         if (cancelled || !j) return;
         setDrive({
           fileUrl: j.fileUrl ?? "",
+          fileName: j.fileName ?? "",
           folderUrl: j.folderUrl ?? "",
           folderName: j.folderName ?? "",
         });
@@ -1916,6 +1918,12 @@ function BillDetail() {
       {drive && (drive.fileUrl || drive.folderUrl) && (
         <section className="mt-8">
           <SectionHeading className="mb-2">In Google Drive</SectionHeading>
+          {/* The file's LIVE name. The hourly re-file pipeline rewrites it from the
+              bill's JobTread coding and amounts, so this line is where you check
+              that a re-code in JobTread actually reached the filed backup. */}
+          {drive.fileName && (
+            <MetaLine items={[<span key="n" className="break-all">{drive.fileName}</span>]} className="mb-1" />
+          )}
           <div className="flex flex-col">
             {drive.fileUrl && (
               <a
