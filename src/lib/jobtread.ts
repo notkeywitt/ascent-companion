@@ -3662,6 +3662,76 @@ export async function getMonthlyInvoiceJobs(
   );
 }
 
+/**
+ * Every job's UNINVOICED TIME cost for one billing month, keyed by job id — the
+ * other half of "to be invoiced". A client invoice pulls logged labor along with
+ * the vendor bills, so a roster figure built from bills alone reads low on every
+ * job the crew actually worked. Same rule as the per-job `getUninvoicedBills`
+ * total, which is bills + time.
+ *
+ * ONE org-wide paged `organization.timeEntries` walk — the same connection the
+ * monthly Labor Report reads — narrowed server-side to the month's `startedAt`.
+ * That is why this is affordable where a per-job time fetch is not.
+ *
+ * Entries already on a customer invoice drop, by the same `referencedDocuments`
+ * flag getUninvoicedBills uses. Paged at 25, not the Labor Report's 100, because
+ * referencedDocuments nested inside a paged connection 413s at larger sizes.
+ */
+export async function getMonthlyInvoiceTime(
+  cfg: PaveConfig,
+  year: number,
+  month: number,
+): Promise<Record<string, number>> {
+  const mm = String(month).padStart(2, "0");
+  const first = `${year}-${mm}-01`;
+  const last = `${year}-${mm}-${String(new Date(year, month, 0).getDate()).padStart(2, "0")}`;
+
+  const byJob: Record<string, number> = {};
+  let page: string | undefined;
+  let guard = 0;
+  do {
+    const r: any = await pave(cfg, {
+      organization: {
+        $: { id: cfg.orgId },
+        id: {},
+        timeEntries: {
+          $: {
+            where: {
+              and: [
+                ["startedAt", ">=", first],
+                ["startedAt", "<=", `${last}T23:59:59`],
+              ],
+            },
+            size: 25,
+            ...(page ? { page } : {}),
+          },
+          nextPage: {},
+          nodes: {
+            id: {},
+            cost: {},
+            job: { id: {} },
+            referencedDocuments: { nodes: { type: {} } },
+          },
+        },
+      },
+    });
+    const tc = r?.organization?.timeEntries ?? {};
+    for (const t of (tc.nodes ?? []) as any[]) {
+      const jobId = t.job?.id;
+      if (!jobId) continue;
+      const invoiced = (t.referencedDocuments?.nodes ?? []).some(
+        (n: any) => n.type === "customerInvoice",
+      );
+      if (invoiced) continue;
+      byJob[jobId] = (byJob[jobId] ?? 0) + (t.cost ?? 0);
+    }
+    page = tc.nextPage || undefined;
+    // 200 pages x 25 = 5,000 entries: a runaway guard, not a month's size.
+  } while (page && ++guard < 200);
+
+  return byJob;
+}
+
 /** One vendor bill in the all-jobs month list — carries its own job + customer,
  *  since this list spans every job. */
 export interface AllJobsBill {

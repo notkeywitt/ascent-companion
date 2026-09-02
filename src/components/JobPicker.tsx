@@ -61,8 +61,9 @@ const monthLabel = (ym: string) => {
  * most pickers (mileage, requisitions, employee time) are field surfaces with no
  * business showing billing figures. The figures load when the dropdown FIRST
  * opens, not on mount, so a page that merely renders the header pays nothing.
- * Bills only, drafts included, invoiced ones dropped — the Tracking Sheets month
- * view's own defaults, minus uninvoiced time (that needs a fetch per job).
+ * Uninvoiced bills PLUS uninvoiced time, drafts included, invoiced ones dropped
+ * — the same sum a job's own Tracking Sheets card shows, since a client invoice
+ * pulls logged labor along with the bills.
  */
 export function JobPicker({
   value,
@@ -100,9 +101,11 @@ export function JobPicker({
   const [loading, setLoading] = useState(!jobsProp);
   // jobId → what that job still has to invoice this billing month, plus the
   // month it covers. Null until the dropdown has been opened once.
-  const [toInvoice, setToInvoice] = useState<{ ym: string; totals: Record<string, number> } | null>(
-    null,
-  );
+  const [toInvoice, setToInvoice] = useState<{
+    ym: string;
+    totals: Record<string, number>;
+    includesTime: boolean;
+  } | null>(null);
   // Starts true on a picker that shows the figures: the fetch fires on the same
   // render as the first open, so a false start would flash "unavailable".
   const [toInvoiceLoading, setToInvoiceLoading] = useState(showToBeInvoiced);
@@ -133,7 +136,12 @@ export function JobPicker({
     fetch("/api/jobs/to-be-invoiced")
       .then((r) => r.json())
       .then((j) => {
-        if (!j?.error) setToInvoice({ ym: j.ym ?? "", totals: j.totals ?? {} });
+        if (!j?.error)
+          setToInvoice({
+            ym: j.ym ?? "",
+            totals: j.totals ?? {},
+            includesTime: !!j.includesTime,
+          });
       })
       .catch(() => {})
       .finally(() => setToInvoiceLoading(false));
@@ -237,15 +245,21 @@ export function JobPicker({
             </select>
           )}
           {/* What the amounts on the right ARE. Without this line the figure is
-              a naked number: it is one month's uninvoiced bills, not the job's
-              balance and not its budget. */}
+              a naked number: it is one month's uninvoiced bills and time, not
+              the job's balance and not its budget. */}
           {showToBeInvoiced && (
             <div className="flex items-center justify-between gap-2 border-b border-line px-3 py-1.5 text-[11px] text-neutral-500 dark:border-white/10 dark:text-neutral-400">
               <span>
                 To be invoiced{toInvoice?.ym ? ` · ${monthLabel(toInvoice.ym)}` : ""}
               </span>
               <span>
-                {toInvoiceLoading ? "checking JobTread…" : toInvoice ? "bills only" : "unavailable"}
+                {toInvoiceLoading
+                  ? "checking JobTread…"
+                  : !toInvoice
+                    ? "unavailable"
+                    : toInvoice.includesTime
+                      ? "bills + time"
+                      : "bills only"}
               </span>
             </div>
           )}

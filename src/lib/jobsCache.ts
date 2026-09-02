@@ -1,6 +1,11 @@
 import { unstable_cache } from "next/cache";
 
-import { getJobPhaseMap, getJobs, getMonthlyInvoiceJobs } from "@/lib/jobtread";
+import {
+  getJobPhaseMap,
+  getJobs,
+  getMonthlyInvoiceJobs,
+  getMonthlyInvoiceTime,
+} from "@/lib/jobtread";
 import { getPaveConfig } from "@/lib/config";
 
 /**
@@ -38,11 +43,10 @@ export const getCachedJobsWithPhase = unstable_cache(
 );
 
 /**
- * Per-job "to be invoiced" totals for one billing month — the figure the header's
- * job picker prints beside each job. Uninvoiced bills only, drafts included: the
- * same two defaults the Tracking Sheets month view uses, so the picker and that
- * page can't disagree. Bills only — uninvoiced TIME needs a per-job fetch, which
- * a dropdown can't afford.
+ * Per-job uninvoiced BILL totals for one billing month — half of the figure the
+ * header's job picker prints beside each job. Uninvoiced bills only, drafts
+ * included: the same two defaults the Tracking Sheets month view uses, so the
+ * picker and that page can't disagree. The other half is the time below.
  *
  * Cached like the jobs list, and for a stronger reason: the scan pages every
  * vendor bill the org issued in the month, far too slow to re-run on each open.
@@ -50,5 +54,20 @@ export const getCachedJobsWithPhase = unstable_cache(
 export const getCachedMonthlyInvoiceJobs = unstable_cache(
   (year: number, month: number) => getMonthlyInvoiceJobs(getPaveConfig(), year, month, false, true),
   ["job-picker-to-be-invoiced"],
+  { revalidate: 300, tags: ["jt-bills"] },
+);
+
+/**
+ * Per-job uninvoiced TIME cost for the same billing month — the rest of the
+ * picker's "to be invoiced" figure. A client invoice pulls labor along with the
+ * bills, so the picker adds this to the bill total above.
+ *
+ * A SEPARATE cache entry from the bill scan on purpose: the two walks are
+ * independent, and a time walk that fails should not throw away a bill scan the
+ * picker can still show.
+ */
+export const getCachedMonthlyInvoiceTime = unstable_cache(
+  (year: number, month: number) => getMonthlyInvoiceTime(getPaveConfig(), year, month),
+  ["job-picker-to-be-invoiced-time"],
   { revalidate: 300, tags: ["jt-bills"] },
 );
