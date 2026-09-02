@@ -63,12 +63,6 @@ export interface PreSendResult {
   /** True when the job had no bills or invoices in the month at all — there is
    *  nothing to check rather than nothing wrong. */
   empty: boolean;
-  /**
-   * What this gate did not look at. Carried in the payload rather than left to
-   * the UI to remember, so "it said we were fine" can never mean more than it
-   * should.
-   */
-  notChecked: string[];
 }
 
 export async function preSendCheck(
@@ -108,12 +102,5 @@ export async function preSendCheck(
     warnings: live.filter((f) => f.severity === "warning").length,
     evidenceWarnings: evidence.warnings,
     empty: !job || (job.bills.length === 0 && job.invoices.length === 0),
-    // ASD-STE 100: short sentences, active voice, one idea per sentence. The
-    // PreSendCheck card shows these as prose, so each entry is a full sentence
-    // (or two), not a clause.
-    notChecked: [
-      "It does not check that the system received all the vendor invoices from email. This is a question about the full month.",
-      "It does not check for a usual vendor that sent no bill this month. It does not check that the markup agrees with the usual rate for this customer. You must have the full month to do these two checks.",
-    ],
   };
 }

@@ -68,6 +68,7 @@ import {
 } from "@/components/TrackingSheetSync";
 import { TrackingSheetRisks } from "@/components/TrackingSheetRisks";
 import { PreSendCheck } from "./PreSendCheck";
+import type { PreSendResult } from "@/lib/invoiceReview/preSend";
 import { useAccess } from "@/components/AccessProvider";
 import { useCopy } from "@/components/CopyProvider";
 import { useUnsavedChanges } from "@/lib/useUnsavedChanges";
@@ -471,6 +472,37 @@ export function Board() {
   // A month change invalidates the result on screen — it describes another
   // billing period.
   useEffect(() => setTrackingSync(undefined), [ym]);
+
+  // ---- pre-send check (the invoice review's checks, on this job) -----------
+  // State lives here, not inside PreSendCheck, so the trigger can sit in the
+  // phone's action drawer while the card stays purely the result.
+  const [preSend, setPreSend] = useState<PreSendResult | null>(null);
+  const [preSendRunning, setPreSendRunning] = useState(false);
+  const [preSendError, setPreSendError] = useState("");
+  const runPreSend = useCallback(async () => {
+    if (!jobId) return;
+    setPreSendRunning(true);
+    setPreSendError("");
+    setPreSend(null);
+    try {
+      const res = await fetch(
+        `/api/invoice-review/job?jobId=${encodeURIComponent(jobId)}&ym=${encodeURIComponent(ym)}`,
+      );
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.error ?? "The check failed.");
+      setPreSend(json as PreSendResult);
+    } catch (e) {
+      setPreSendError(e instanceof Error ? e.message : "The check failed.");
+    } finally {
+      setPreSendRunning(false);
+    }
+  }, [jobId, ym]);
+  // A month or job change describes another period — drop the stale result.
+  useEffect(() => {
+    setPreSend(null);
+    setPreSendError("");
+  }, [jobId, ym]);
+
   const [codeQuery, setCodeQuery] = useState("");
   // Divisions the user has rolled up. Empty = all open, so the rail keeps
   // showing every code until it's deliberately tidied.
@@ -2405,6 +2437,41 @@ export function Board() {
     );
   };
 
+  /**
+   * The per-job Tracking Sheet action, for the action bar. It writes the
+   * selected month's sub/vendor invoices into this job's own Google tracking
+   * sheet. With no sheet linked it instead links to the Tracking Sheet page to
+   * connect one (the URL lives on the Projects sheet — no in-app write for it).
+   * Rendered nothing until we've read whether the job has a sheet, so the label
+   * is never wrong. Shared by the desktop toolbar and the mobile action drawer,
+   * so `cls` carries the width each context wants.
+   */
+  const trackingSheetAction = (cls: string) => {
+    if (!canTrack || !trackingChecked) return null;
+    if (trackingTarget) {
+      return (
+        <Button
+          variant="secondary"
+          size="sm"
+          className={cls}
+          disabled={syncing || trackingBusy}
+          title={`Push ${monthLabel(ym)} into ${trackingTarget.label}`}
+          onClick={() => {
+            const [y, m] = ym.split("-").map(Number);
+            runTrackingSync(trackingTarget.projectId, m, y, setTrackingSync);
+          }}
+        >
+          {trackingBusy ? "Syncing sheet…" : "Sync to Tracking Sheet"}
+        </Button>
+      );
+    }
+    return (
+      <Link href="/tracking-sheet" className={btn("secondary", "sm", `text-center ${cls}`)}>
+        Link Google tracking sheet
+      </Link>
+    );
+  };
+
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-col px-4 pb-[calc(6rem+env(safe-area-inset-bottom))] pt-6 lg:max-w-[110rem]">
       {/* The job and its address used to be printed here — once as a phone-only
@@ -2446,41 +2513,7 @@ export function Board() {
                     </option>
                   ))}
                 </Select>
-
-                {/* Only for a role that can reach the sheet, and only once
-                    we've read whether this job HAS one (see trackingChecked) so
-                    the label is never wrong. With a sheet linked it pushes the
-                    month; with none it points at the Tracking Sheet page to
-                    connect one — the URL lives on the Projects sheet, there is
-                    no in-app write for it. */}
-                {canTrack && trackingChecked && (
-                  trackingTarget ? (
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      className="!h-11 w-full shrink-0 lg:!h-auto lg:w-auto"
-                      disabled={syncing || trackingBusy}
-                      title={`Push ${monthLabel(ym)} into ${trackingTarget.label}`}
-                      onClick={() => {
-                        const [y, m] = ym.split("-").map(Number);
-                        runTrackingSync(trackingTarget.projectId, m, y, setTrackingSync);
-                      }}
-                    >
-                      {trackingBusy ? "Syncing sheet…" : "Sync to Tracking Sheet"}
-                    </Button>
-                  ) : (
-                    <Link
-                      href="/tracking-sheet"
-                      className={btn(
-                        "secondary",
-                        "sm",
-                        "!h-11 w-full shrink-0 text-center lg:!h-auto lg:w-auto",
-                      )}
-                    >
-                      Link Google tracking sheet
-                    </Link>
-                  )
-                )}
+                {trackingSheetAction("!h-11 w-full shrink-0 lg:!h-auto lg:w-auto")}
               </div>
             </div>
             {/* The list always shows every bill in the month — draft,
@@ -2520,9 +2553,10 @@ export function Board() {
               {/* The coding commit: it writes staged coding to JobTread and
                   then pushes the month into the Tracking Sheet in the same step
                   (coding must settle before the sheet reads costCode off each
-                  line). The standalone sheet push, with nothing staged, is now
-                  its own button beside the month selector above, so this one is
-                  purely the JobTread write and stays greyed out until dirty. */}
+                  line). The standalone sheet push, with nothing staged, is the
+                  Tracking Sheet button beside the month selector above, so this
+                  one is purely the JobTread write and stays greyed out until
+                  dirty. */}
               <Button
                 size="sm"
                 onClick={sync}
@@ -2637,7 +2671,15 @@ export function Board() {
 
       {/* The invoice review's checks, on this job, before the invoice goes out.
           Independent of the board's own loading — it fetches on demand. */}
-      {jobId && <PreSendCheck jobId={jobId} ym={ym} />}
+      {jobId && (
+        <PreSendCheck
+          jobId={jobId}
+          result={preSend}
+          running={preSendRunning}
+          error={preSendError}
+          onRun={runPreSend}
+        />
+      )}
 
       {loading && <Loading label={c("recode.loading.billsAndBudget")} />}
 
@@ -3409,34 +3451,49 @@ export function Board() {
         </div>
       )}
 
-      {/* The phone's commit bar. It appears only once there IS something staged
-          — a bar that is always docked spends the screen's most valuable strip
-          on a disabled button — and it pins above the tab bar, so Sync is under
-          the thumb wherever you've scrolled to. `order-last` keeps it at the
-          bottom of the flex column even though the reconcile block above also
-          claims that order on a phone; both are last in DOM order here, so they
-          stack in source order. From lg up the toolbar's own buttons take over
-          and this is hidden. */}
-      {dirty && (
+      {/* The phone's commit bar — the action drawer. With staged coding it
+          carries Revert + Sync to JobTread; with nothing staged it holds the
+          "Check this job" trigger for the Before-you-send card, so that action
+          is under the thumb rather than up in the card header. It pins above the
+          tab bar, so the action is in reach wherever you've scrolled to.
+          `order-last` keeps it at the bottom of the flex column even though the
+          reconcile block above also claims that order on a phone; both are last
+          in DOM order here, so they stack in source order. From lg up the
+          toolbar and the card's own button take over and this is hidden. */}
+      {(dirty || !!jobId) && (
         <StickyActionBar className="order-last mt-4 lg:hidden">
-          <span className="flex-1 text-xs font-bold tabular-nums text-amber-700 dark:text-amber-300">
-            {stagedCount} staged change{stagedCount === 1 ? "" : "s"}
-            <span className="block text-[10.5px] font-medium text-neutral-500 dark:text-neutral-400">
-              Nothing is written until you sync
-            </span>
-          </span>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={revertAll}
-            disabled={syncing}
-            className="min-h-11"
-          >
-            Revert
-          </Button>
-          <Button size="sm" onClick={sync} disabled={syncing} className="min-h-11">
-            {syncing ? "Syncing…" : "Sync to JT"}
-          </Button>
+          {dirty ? (
+            <>
+              <span className="flex-1 text-xs font-bold tabular-nums text-amber-700 dark:text-amber-300">
+                {stagedCount} staged change{stagedCount === 1 ? "" : "s"}
+                <span className="block text-[10.5px] font-medium text-neutral-500 dark:text-neutral-400">
+                  Nothing is written until you sync
+                </span>
+              </span>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={revertAll}
+                disabled={syncing}
+                className="min-h-11"
+              >
+                Revert
+              </Button>
+              <Button size="sm" onClick={sync} disabled={syncing} className="min-h-11">
+                {syncing ? "Syncing…" : "Sync to JT"}
+              </Button>
+            </>
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={runPreSend}
+              disabled={preSendRunning || !jobId}
+              className="min-h-11 w-full"
+            >
+              {preSendRunning ? "Checking…" : preSend ? "Check again" : "Check this job"}
+            </Button>
+          )}
         </StickyActionBar>
       )}
 
