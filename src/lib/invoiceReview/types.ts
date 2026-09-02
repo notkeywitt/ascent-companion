@@ -78,7 +78,9 @@ export type FindingKind =
   /** One person + pay type carries two different rates within the month. */
   | "labor-rate-split"
   /** A time entry's pay type is gone from the person's membership. */
-  | "labor-rate-unknown";
+  | "labor-rate-unknown"
+  /** One cost code carries more than one labor rate in the month. */
+  | "labor-rate-code-spread";
 
 /** One thing the review wants a human to look at. */
 export interface Finding {

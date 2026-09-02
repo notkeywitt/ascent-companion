@@ -79,6 +79,83 @@ const run = (labor: LaborEntryRef[], rates: Map<string, Map<string, number>> | n
     global: DEFAULT_SETTINGS.global,
   });
 
+describe("laborRateCheck — one cost code, two rates", () => {
+  // Ferron / Otis Perkins Addition, August 2026. Nine of ten codes carried one
+  // rate; 01 31 10 carried two, and that one code was the whole $229 gap
+  // against the tracking sheet. Every per-person check passed, because $75 is
+  // genuinely Cedar's Regular Pay rate — he just isn't the code's rate.
+  const ferron = [
+    entry({ id: "a", employee: "Ty O'Steen", code: "01 31 10", rate: 85, hours: 26.5, cost: 2252.5 }),
+    entry({ id: "b", employee: "Cedar", code: "01 31 10", rate: 75, hours: 22.93, cost: 1719.75 }),
+  ];
+
+  it("flags the code and prices it at the dominant rate", () => {
+    const out = run(
+      ferron,
+      card([
+        ["Ty O'Steen", "Regular Pay", 85],
+        ["Cedar", "Regular Pay", 75],
+      ]),
+    );
+    expect(out.map((f) => f.kind)).toEqual(["labor-rate-code-spread"]);
+    expect(out[0].title).toBe("01 31 10: 2 labor rates on one cost code");
+    // Ty carries the most hours, so $85 is dominant: 49.43h × 85 = 4201.55
+    // against 3972.25 recorded.
+    expect(out[0].amount).toBeCloseTo(229.3, 1);
+    expect(out[0].detail).toContain("Ty O'Steen 26.5h at $85/hr");
+    expect(out[0].detail).toContain("Cedar 22.9h at $75/hr");
+  });
+
+  it("says nothing when every hour on a code is at one rate", () => {
+    const out = run(
+      [
+        entry({ id: "a", employee: "Greg Danforth", code: "06 42 00", rate: 75, hours: 93, cost: 6975 }),
+        entry({ id: "b", employee: "Cedar", code: "06 42 00", rate: 75, hours: 17.3, cost: 1297.5 }),
+      ],
+      card([
+        ["Greg Danforth", "Regular Pay", 75],
+        ["Cedar", "Regular Pay", 75],
+      ]),
+    );
+    expect(out).toEqual([]);
+  });
+
+  it("ignores uncoded time and paid leave", () => {
+    const out = run(
+      [
+        // Uncoded time at two rates, but on two people who are each at their own
+        // correct rate — nothing for either loop to say.
+        entry({ id: "a", employee: "Ty O'Steen", code: "", rate: 85, hours: 10, cost: 850 }),
+        entry({ id: "b", employee: "Cedar", code: "", rate: 75, hours: 10, cost: 750 }),
+        // Paid leave sits on a real code at $0 and must not read as a second rate.
+        entry({ id: "c", employee: "Cedar", code: "06 42 00", payType: "Paid time off", rate: 0, hours: 8, cost: 0 }),
+        entry({ id: "d", employee: "Cedar", code: "06 42 00", rate: 75, hours: 8, cost: 600 }),
+      ],
+      card([
+        ["Ty O'Steen", "Regular Pay", 85],
+        ["Cedar", "Regular Pay", 75],
+        ["Cedar", "Paid time off", 0],
+      ]),
+    );
+    expect(out).toEqual([]);
+  });
+
+  it("can be turned off when mixed crews on one code are normal", () => {
+    const out = laborRateCheck.run({
+      job: job(ferron),
+      month: month(
+        card([
+          ["Ty O'Steen", "Regular Pay", 85],
+          ["Cedar", "Regular Pay", 75],
+        ]),
+      ),
+      config: { ...CONFIG, reportCodeRateSpread: false },
+      global: DEFAULT_SETTINGS.global,
+    });
+    expect(out).toEqual([]);
+  });
+});
+
 describe("laborRateCheck", () => {
   it("says nothing when every entry matches the current rate", () => {
     const out = run(
@@ -111,8 +188,10 @@ describe("laborRateCheck", () => {
   it("flags one pay type costed at two different rates", () => {
     const out = run(
       [
-        entry({ id: "a", employee: "Seth June", rate: 75, hours: 24.72, cost: 1854 }),
-        entry({ id: "b", employee: "Seth June", rate: 85, hours: 15.25, cost: 1296.25 }),
+        // Different codes, so this isolates the per-person split from the
+        // cost-code spread — the two findings are about different things.
+        entry({ id: "a", employee: "Seth June", code: "06 20 13", rate: 75, hours: 24.72, cost: 1854 }),
+        entry({ id: "b", employee: "Seth June", code: "06 15 00", rate: 85, hours: 15.25, cost: 1296.25 }),
       ],
       card([["Seth June", "Regular Pay", 75]]),
     );
@@ -128,8 +207,8 @@ describe("laborRateCheck", () => {
   it("reports a split once, not also as stale", () => {
     const out = run(
       [
-        entry({ id: "a", rate: 65, hours: 40, cost: 2600 }),
-        entry({ id: "b", rate: 75, hours: 40, cost: 3000 }),
+        entry({ id: "a", code: "07 46 23", rate: 65, hours: 40, cost: 2600 }),
+        entry({ id: "b", code: "07 10 00", rate: 75, hours: 40, cost: 3000 }),
       ],
       card([["Eric Johnson", "Regular Pay", 75]]),
     );
@@ -177,6 +256,38 @@ describe("laborRateCheck", () => {
   it("says nothing at all when the grant could not read the rate card", () => {
     const out = run([entry({ rate: 65, hours: 88.97, cost: 5783.05 })], null);
     expect(out).toEqual([]);
+  });
+
+  it("reports one root cause once, not again for every code it touched", () => {
+    // One person, one pay type, two rates, all on one code. The code DOES carry
+    // two rates today — but fixing the split fixes the code too, so saying both
+    // would be one problem reported twice.
+    const out = run(
+      [
+        entry({ id: "a", employee: "Seth June", code: "06 20 13", rate: 75, hours: 24.72, cost: 1854 }),
+        entry({ id: "b", employee: "Seth June", code: "06 20 13", rate: 85, hours: 15.25, cost: 1296.25 }),
+      ],
+      card([["Seth June", "Regular Pay", 75]]),
+    );
+    expect(out.map((f) => f.kind)).toEqual(["labor-rate-split"]);
+  });
+
+  it("still flags a code whose spread survives every per-person fix", () => {
+    // The Ferron case: two people, each at their OWN correct rate, on one code.
+    // Nothing is stale and nothing is split, so no per-person finding fires and
+    // the code is the only thing left to notice.
+    const out = run(
+      [
+        entry({ id: "a", employee: "Ty O'Steen", code: "01 31 10", rate: 85, hours: 26.5, cost: 2252.5 }),
+        entry({ id: "b", employee: "Cedar", code: "01 31 10", rate: 75, hours: 22.93, cost: 1719.75 }),
+      ],
+      card([
+        ["Ty O'Steen", "Regular Pay", 85],
+        ["Cedar", "Regular Pay", 75],
+      ]),
+    );
+    expect(out.map((f) => f.kind)).toEqual(["labor-rate-code-spread"]);
+    expect(out[0].amount).toBeCloseTo(229.3, 1);
   });
 
   it("says nothing on a job with no labor", () => {

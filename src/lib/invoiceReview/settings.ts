@@ -117,6 +117,10 @@ export const DEFAULT_SETTINGS: InvoiceReviewSettings = {
         // month's cost cannot be verified against anything, and silence there
         // reads as a pass.
         reportUnknownTypes: true,
+        // The proxy for the tracking sheets' per-cost-code contract rate, which
+        // this side cannot read. On Ferron/Otis Perkins in August it fired on
+        // exactly one code of ten — the one that was the whole $229 gap.
+        reportCodeRateSpread: true,
       },
     },
     "mail-capture": {
