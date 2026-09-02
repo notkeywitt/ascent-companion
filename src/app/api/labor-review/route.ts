@@ -30,6 +30,12 @@ import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
  * cost, minutes, pay type and approval survive a recode untouched, so this moves
  * labor between cost codes without changing any amount.
  *
+ * POST also APPROVES entries — `approvals: [id, …]` writes `isApproved: true`
+ * and nothing else. It rides this route rather than a new one because it is the
+ * same shape of job: a selection of entries, one write each, one result list
+ * back. The two halves are independent — a body may carry either or both — and
+ * an approval never touches an entry's coding, hours or cost.
+ *
  * DRY_RUN-equivalent: like every other write route here, it respects
  * writesEnabled() and returns a preview instead of writing when the gate is off.
  */
@@ -88,19 +94,28 @@ interface TimeChange {
   costItemId: string; // the budget leaf to re-point it to
 }
 
+/** One write's outcome, per entry — recodes and approvals share the shape. */
+interface WriteResult {
+  id: string;
+  ok: boolean;
+  error?: string;
+}
+
 export async function POST(req: NextRequest) {
   if (!hasGrant()) {
     return NextResponse.json({ error: "JT_GRANT_KEY is not set." }, { status: 400 });
   }
-  let body: { changes?: TimeChange[] };
+  let body: { changes?: TimeChange[]; approvals?: string[] };
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
   const changes = (body.changes ?? []).filter((c) => c?.id && c?.costItemId);
-  if (changes.length === 0) {
-    return NextResponse.json({ error: "No time-entry recodes provided" }, { status: 400 });
+  // De-duplicated: the same id twice would write twice for one press.
+  const approvals = [...new Set((body.approvals ?? []).map((id) => id?.trim()).filter(Boolean))];
+  if (changes.length === 0 && approvals.length === 0) {
+    return NextResponse.json({ error: "No time-entry recodes or approvals provided" }, { status: 400 });
   }
 
   if (!writesEnabled()) {
@@ -109,6 +124,7 @@ export async function POST(req: NextRequest) {
       wrote: false,
       message: "Writes are OFF (COMPANION_WRITES_ENABLED not set). Nothing was sent to JobTread.",
       changes,
+      approvals,
     });
   }
 
@@ -116,7 +132,7 @@ export async function POST(req: NextRequest) {
   await auth();
 
   const cfg = getPaveConfig();
-  const results: { id: string; ok: boolean; error?: string }[] = [];
+  const results: WriteResult[] = [];
   for (const c of changes) {
     try {
       await updateTimeEntry(cfg, c.id, { costItemId: c.costItemId });
@@ -130,9 +146,23 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // Labor moved between cost codes, so every cached per-code total for this job
-  // (this page's rail AND Tracking Sheets') is now stale.
-  if (results.some((r) => r.ok)) clearJobCostCaches();
+  // The approvals, reported separately: a caller that sent both needs to know
+  // which half failed, and "3 recoded, 1 approval rejected" is unreadable from
+  // one merged list.
+  const approved: WriteResult[] = [];
+  for (const id of approvals) {
+    try {
+      await updateTimeEntry(cfg, id, { isApproved: true });
+      approved.push({ id, ok: true });
+    } catch (e) {
+      approved.push({ id, ok: false, error: e instanceof Error ? e.message : "Unknown error" });
+    }
+  }
 
-  return NextResponse.json({ previewed: false, wrote: true, results });
+  // Labor moved between cost codes, so every cached per-code total for this job
+  // (this page's rail AND Tracking Sheets') is now stale. An approval counts
+  // too: the rail can be read approved-only, so the mark changes the figures.
+  if ([...results, ...approved].some((r) => r.ok)) clearJobCostCaches();
+
+  return NextResponse.json({ previewed: false, wrote: true, results, approved });
 }

@@ -61,8 +61,8 @@ interface TimeEntry {
   id: string;
   employee: string;
   startedAt: string | null;
-  /** Clock-out instant (UTC), null on a running entry. Carried for the QB export.
-   *  Optional so this stays assignable to the shared TimeEntryRow, which omits it. */
+  /** Clock-out instant (UTC), null on a running entry. Carried for the QB export,
+   *  and read by the shared drawer so a bulk approve skips a running entry. */
   endedAt?: string | null;
   hours: number;
   cost: number;
@@ -502,6 +502,25 @@ export function LaborReview() {
     }
   };
 
+  /**
+   * The drawer approved some entries in JobTread — mark them here. Deliberately
+   * NOT a reload: load() clears the staged recodes, and approving hours says
+   * nothing about where they are coded.
+   */
+  const markApproved = (ids: string[]) => {
+    const done = new Set(ids);
+    setData((d) =>
+      d
+        ? {
+            ...d,
+            timeEntries: d.timeEntries.map((t) =>
+              done.has(t.id) ? { ...t, isApproved: true } : t,
+            ),
+          }
+        : d,
+    );
+  };
+
   async function sync() {
     if (!dirty) return;
     setSyncing(true);
@@ -920,6 +939,8 @@ export function LaborReview() {
                   })
                 }
                 jtHref={`https://app.jobtread.com/jobs/${jobId}/time`}
+                onApproved={markApproved}
+                writes={Boolean(data?.writesEnabled)}
               />
             )}
           </section>

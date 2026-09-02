@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Button, Card, Chip, FilterChip, IconButton, Label, Select } from "@/components/ui";
+import { Banner, Button, Card, Chip, FilterChip, IconButton, Label, Select } from "@/components/ui";
 import { CostCodeSelect, type Option } from "@/components/CostCodeSelect";
 import { JtLink } from "@/components/JtLink";
 import { orgDay } from "@/lib/orgTime";
@@ -56,6 +56,9 @@ export interface TimeEntryRow {
   isApproved: boolean;
   costItemId: string | null;
   type: string;
+  /** Null on an entry still running. Optional — a host that has no clock-out to
+   *  give simply can't have its running entries skipped by a bulk approve. */
+  endedAt?: string | null;
   /** Assistant-local "flag for review" mark — companion DB, not JobTread. */
   flagged?: boolean;
 }
@@ -852,8 +855,16 @@ export function TimeEntryList({
  *
  * Shared for the same reason the list is: this is the other half of "select
  * several entries and move them", and a copy on each page is a copy that
- * drifts. It stages nothing itself — `onPick` hands the leaf back to the page,
- * which owns the staging and the Sync that writes it.
+ * drifts. A RECODE stages: `onPick` hands the leaf back to the page, which owns
+ * the staging and the Sync that writes it.
+ *
+ * APPROVING IS THE EXCEPTION, and writes from here. It follows the rule the
+ * single-entry panel already follows (TimeCodingCard): a recode stages because
+ * the whole point is trying a month of moves against the budget first, and an
+ * approval has nothing to try — the hours are either good for payroll or they
+ * are not. The write is one POST for the whole selection; the page is handed
+ * the ids that landed so it can mark them without re-pulling, which matters
+ * because Labor Review's reload would discard its staged recodes.
  *
  * A time entry, like a bill line, derives its cost code from the budget leaf it
  * points at, so `costItemId` is the whole edit. Confirmed live: the entry's
@@ -868,6 +879,8 @@ export function TimeRecodeCard({
   isStaged,
   onUndo,
   jtHref,
+  onApproved,
+  writes = true,
 }: {
   entries: TimeEntryRow[];
   /** The legal targets — LABOR leaves, plus any leaf an entry already sits on. */
@@ -879,8 +892,69 @@ export function TimeRecodeCard({
   onUndo: (id: string) => void;
   /** The job's time tab in JobTread, for the ↗ link. */
   jtHref?: string;
+  /**
+   * Given → the drawer can approve the selection. Called with the ids JobTread
+   * actually approved, so the page marks those rows itself rather than
+   * re-pulling the month (a reload would drop its staged recodes).
+   */
+  onApproved?: (ids: string[]) => void;
+  /** The page's write gate. False → the button says so instead of trying. */
+  writes?: boolean;
 }) {
   const staged = entries.filter(isStaged);
+  const [approving, setApproving] = useState(false);
+  const [msg, setMsg] = useState<{ tone: "success" | "error"; text: string } | null>(null);
+
+  /* Only the entries an approval would actually change: already-approved ones
+     have nothing to write, and a RUNNING entry has no hours yet to approve —
+     the same two exclusions the single-entry panel makes. */
+  const toApprove = entries.filter((t) => !t.isApproved && t.endedAt !== null);
+  const running = entries.filter((t) => !t.isApproved && t.endedAt === null).length;
+
+  async function approveSelected() {
+    if (toApprove.length === 0) return;
+    const ids = toApprove.map((t) => t.id);
+    setApproving(true);
+    setMsg(null);
+    try {
+      const r = await fetch("/api/labor-review", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ approvals: ids }),
+      });
+      const j = await r.json();
+      if (j.error) {
+        setMsg({ tone: "error", text: j.error });
+      } else if (j.previewed) {
+        setMsg({ tone: "error", text: j.message });
+      } else {
+        const done = (j.approved ?? []) as { id: string; ok: boolean; error?: string }[];
+        const ok = done.filter((x) => x.ok);
+        const failed = done.filter((x) => !x.ok);
+        // The ones that landed are marked either way — a partial failure must
+        // not leave nine approved entries showing as unapproved.
+        if (ok.length > 0) onApproved?.(ok.map((x) => x.id));
+        setMsg(
+          failed.length > 0
+            ? {
+                tone: "error",
+                text: `${ok.length} of ${done.length} approved. ${failed.length} failed: ${
+                  failed[0].error ?? "unknown error"
+                }`,
+              }
+            : {
+                tone: "success",
+                text: `Approved ${ok.length} ${ok.length === 1 ? "entry" : "entries"} in JobTread.`,
+              },
+        );
+      }
+    } catch (e) {
+      setMsg({ tone: "error", text: e instanceof Error ? e.message : "Failed to approve" });
+    } finally {
+      setApproving(false);
+    }
+  }
+
   return (
     <Card className="max-h-below-header overflow-y-auto">
       <div className="flex items-baseline justify-between gap-2">
@@ -920,6 +994,55 @@ export function TimeRecodeCard({
         another code — it never changes the amount, the pay type, or approval. Nothing is written
         until you Sync.
       </p>
+
+      {/* ---- approving the selection ----
+          Under the recode and behind its own rule: this one writes when pressed,
+          so it is separated by a line rather than sitting in the same block as
+          a control that stages. */}
+      {onApproved && (
+        <div className="mt-3 border-t border-line-soft pt-3">
+          <span className="mb-1 block text-[10px] uppercase tracking-wide text-neutral-400">
+            Approve
+          </span>
+          {toApprove.length === 0 ? (
+            <p className="text-[11px] leading-relaxed text-neutral-500 dark:text-neutral-400">
+              {running > 0
+                ? `Nothing to approve — ${running} of these ${
+                    running === 1 ? "is" : "are"
+                  } still running.`
+                : "Every selected entry is already approved."}
+            </p>
+          ) : (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={approveSelected}
+                disabled={!writes || approving}
+                className="w-full"
+              >
+                {approving
+                  ? "Approving…"
+                  : `Approve ${toApprove.length} selected ${
+                      toApprove.length === 1 ? "entry" : "entries"
+                    }`}
+              </Button>
+              <p className="mt-1 text-[11px] leading-relaxed text-neutral-500 dark:text-neutral-400">
+                {writes
+                  ? "Writes to JobTread now — unlike a recode, it isn't staged. It marks the hours approved and changes nothing else."
+                  : "Writes are off, so nothing would reach JobTread."}
+                {running > 0 &&
+                  ` ${running} still-running ${running === 1 ? "entry is" : "entries are"} skipped.`}
+              </p>
+            </>
+          )}
+          {msg && (
+            <Banner tone={msg.tone} className="mt-2 !py-1.5 !text-[11px]">
+              {msg.text}
+            </Banner>
+          )}
+        </div>
+      )}
 
       {staged.length > 0 && (
         <div className="mt-3 border-t border-line-soft pt-3">

@@ -1156,6 +1156,16 @@ async function _approvedCustomerInvoices(
 }
 
 /**
+ * Is this cost code the DIVISION itself ("04 00 00", "26 00 00")? Everything
+ * after the first two digits is zero. JobTread leaves these without a
+ * parentCostCode — they ARE the parent — so their own name is the division's.
+ */
+export function isDivisionLevelCode(number: string): boolean {
+  const digits = String(number ?? "").replace(/\D/g, "");
+  return digits.length >= 4 && /^0+$/.test(digits.slice(2));
+}
+
+/**
  * Everything the /jobs browser needs for one job, as a division → cost code →
  * estimate line tree, in ~6 JobTread calls instead of the browser's old 13–33.
  *
@@ -1261,7 +1271,17 @@ async function _getJobCostDetailUncached(cfg: PaveConfig, jobId: string): Promis
 
   // ---- fold into the tree ------------------------------------------------
   const codes = new Map<string, CostCodeRow>();
+  // Three ways a division can get its name, best first: a child's
+  // parentCostCode name, the division-level code's OWN name, that parent's
+  // number. Kept apart so a later, better source still wins.
   const divisionNames = new Map<string, string>();
+  const divisionSelfNames = new Map<string, string>();
+  const divisionNumbers = new Map<string, string>();
+  const divisionNameOf = (division: string) =>
+    divisionNames.get(division) ??
+    divisionSelfNames.get(division) ??
+    divisionNumbers.get(division) ??
+    (division === "—" ? "Uncategorized" : "");
 
   const codeRow = (
     number: string,
@@ -1271,8 +1291,13 @@ async function _getJobCostDetailUncached(cfg: PaveConfig, jobId: string): Promis
   ): CostCodeRow => {
     const digits = number.replace(/\D/g, "");
     const division = digits ? digits.slice(0, 2) : "—";
-    if (parentName && !divisionNames.get(division)) divisionNames.set(division, parentName);
-    else if (parentNumber && !divisionNames.get(division)) divisionNames.set(division, parentNumber);
+    if (parentName) divisionNames.set(division, divisionNames.get(division) ?? parentName);
+    // A code that IS its division ("04 00 00 Masonry", "05 00 00 Metals") has no
+    // parentCostCode in JobTread, so nothing else can name that division. Jobs
+    // code straight to these, and without this the header read "04 04".
+    if (name && isDivisionLevelCode(number))
+      divisionSelfNames.set(division, divisionSelfNames.get(division) ?? name);
+    if (parentNumber) divisionNumbers.set(division, divisionNumbers.get(division) ?? parentNumber);
     let row = codes.get(number);
     if (!row) {
       row = {
@@ -1353,7 +1378,7 @@ async function _getJobCostDetailUncached(cfg: PaveConfig, jobId: string): Promis
     if (!d) {
       d = {
         division: row.division,
-        name: divisionNames.get(row.division) ?? (row.division === "—" ? "Uncategorized" : ""),
+        name: divisionNameOf(row.division),
         budget: 0,
         bills: 0,
         labor: 0,

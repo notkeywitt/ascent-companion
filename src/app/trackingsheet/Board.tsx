@@ -161,6 +161,8 @@ interface BudgetItem {
   detail?: string;
   costType?: string;
   cost?: number;
+  /** JobTread's own division name for the code (`costCode.parentCostCode`). */
+  division?: string;
 }
 interface CostCodeRow {
   number: string;
@@ -303,6 +305,18 @@ function issueDateFor(ym: string): string {
   return `${ym}-${String(new Date(y, m, 0).getDate()).padStart(2, "0")}`;
 }
 
+/**
+ * Is this cost code the DIVISION itself ("04 00 00", "26 00 00")? Everything
+ * after the first two digits is zero. JobTread leaves these without a
+ * parentCostCode — they ARE the parent — so their own name names the division.
+ * (Mirrors `isDivisionLevelCode` in lib/jobtread.ts; this file is a client
+ * component and can't import that server module.)
+ */
+function isDivisionLevelCode(number: string): boolean {
+  const digits = String(number ?? "").replace(/\D/g, "");
+  return digits.length >= 4 && /^0+$/.test(digits.slice(2));
+}
+
 /** Per-cost-code money, after staged moves. */
 interface Headroom {
   code: string;
@@ -327,6 +341,31 @@ interface Headroom {
  */
 const usedOf = (h: Headroom) => h.spent + h.drafts + h.labor;
 const remainingOf = (h: Headroom) => h.budget - usedOf(h);
+
+/**
+ * "$11,848 used of $23,697 budget · $11,849 remaining" — the rail's one-line
+ * budget sentence, identical on a cost code and on a division so the two read
+ * the same way. Used is committed + drafts + labor, the same figure the meter
+ * fills to, so the three numbers always tie out.
+ */
+function BudgetLine({
+  used,
+  budget,
+  remaining,
+}: {
+  used: number;
+  budget: number;
+  remaining: number;
+}) {
+  return (
+    <div className="mt-0.5 text-[10px] leading-tight tabular-nums text-neutral-500 dark:text-neutral-400">
+      {money0(used)} used of {money0(budget)} budget ·{" "}
+      <span className={remaining < 0 ? "font-semibold text-red-600 dark:text-red-400" : ""}>
+        {money0(remaining)} remaining
+      </span>
+    </div>
+  );
+}
 
 /* <Meter> now lives in components/ui — the budget bar is the same object here,
    on the mobile headroom rail, and on any future page that shows spend against
@@ -827,11 +866,13 @@ export function Board() {
 
     for (const d of data?.costDetail?.divisions ?? []) {
       for (const c of d.codes) {
-        divisionOf.set(c.number, d.name || d.division);
+        // The NAME only. Falling back to the number here put "04" in the name
+        // slot, and the rail header renders number + name — hence "04 04".
+        if (d.name) divisionOf.set(c.number, d.name);
         map.set(c.number, {
           code: c.number,
           name: c.name,
-          division: d.name || d.division,
+          division: d.name,
           budget: c.budget,
           spent: c.bills,
           drafts: 0,
@@ -847,7 +888,9 @@ export function Board() {
       map.set(code, {
         code,
         name: leaves[0]?.name ?? "",
-        division: divisionOf.get(code) ?? "",
+        // A code with a budget leaf but no spend never reaches costDetail, so
+        // divisionOf can't name it — the leaf carries its own division name.
+        division: divisionOf.get(code) ?? leaves.find((l) => l.division)?.division ?? "",
         budget: leaves.reduce((s, l) => s + (l.cost ?? 0), 0),
         spent: 0,
         drafts: 0,
@@ -928,8 +971,12 @@ export function Board() {
     const g = new Map<string, { code: string; name: string; rows: Headroom[] }>();
     for (const h of railRows) {
       const dc = h.code.replace(/\D/g, "").slice(0, 2) || "—";
-      const e = g.get(dc) ?? { code: dc, name: h.division || "", rows: [] };
-      if (!e.name && h.division) e.name = h.division;
+      const e = g.get(dc) ?? { code: dc, name: "", rows: [] };
+      // A division is named by JobTread's parent cost code. A code that IS the
+      // division ("04 00 00 Masonry") has no parent, so its own name names the
+      // division — otherwise the header falls back to the number and reads
+      // "04 04".
+      if (!e.name) e.name = h.division || (isDivisionLevelCode(h.code) ? h.name : "");
       e.rows.push(h);
       g.set(dc, e);
     }
@@ -1119,6 +1166,25 @@ export function Board() {
     } catch {
       /* best-effort — same as the bill list's Reviewed tag */
     }
+  };
+
+  /**
+   * The drawer approved some entries in JobTread — mark them here rather than
+   * re-pulling the month. A reload would be a second round trip for a change we
+   * already know landed, and the staged bill work has nothing to do with it.
+   */
+  const markTimeApproved = (ids: string[]) => {
+    const done = new Set(ids);
+    setData((d) =>
+      d
+        ? {
+            ...d,
+            timeEntries: d.timeEntries.map((t) =>
+              done.has(t.id) ? { ...t, isApproved: true } : t,
+            ),
+          }
+        : d,
+    );
   };
 
   const openTime = monthTime.find((t) => t.id === openTimeId) ?? null;
@@ -2775,30 +2841,38 @@ export function Board() {
                           // open a drill-down, so on touch they get real height
                           // (they were ~26px); `lg` restores the dense rail the
                           // desktop workbench scans dozens of codes in.
-                          className="flex w-full items-center gap-1.5 border-b border-line bg-neutral-50/80 px-3 py-2.5 text-left transition hover:bg-accent/5 dark:border-neutral-800 dark:bg-white/[0.04] dark:hover:bg-white/[0.07] lg:items-baseline lg:px-2 lg:py-1"
+                          className="w-full border-b border-line bg-neutral-50/80 px-3 py-2.5 text-left transition hover:bg-accent/5 dark:border-neutral-800 dark:bg-white/[0.04] dark:hover:bg-white/[0.07] lg:px-2 lg:py-1"
                         >
-                          <span
-                            aria-hidden
-                            className={`shrink-0 text-[9px] text-neutral-500 transition-transform dark:text-neutral-400 ${open ? "rotate-90" : ""}`}
-                          >
-                            ▶
-                          </span>
-                          <span className="min-w-0 flex-1 truncate text-xs font-semibold">
-                            <span className="tabular-nums text-neutral-500 dark:text-neutral-400">
-                              {g.code}
-                            </span>{" "}
-                            {g.name}
-                          </span>
-                          <span className="shrink-0 text-[10px] tabular-nums text-neutral-500 dark:text-neutral-400">
-                            {g.rows.length}
-                          </span>
-                          <span
-                            className={`shrink-0 text-xs font-semibold tabular-nums ${
-                              g.remaining < 0 ? "text-red-600 dark:text-red-400" : ""
-                            }`}
-                          >
-                            {money0(g.remaining)}
-                          </span>
+                          <div className="flex items-center gap-1.5 lg:items-baseline">
+                            <span
+                              aria-hidden
+                              className={`shrink-0 text-[9px] text-neutral-500 transition-transform dark:text-neutral-400 ${open ? "rotate-90" : ""}`}
+                            >
+                              ▶
+                            </span>
+                            <span className="min-w-0 flex-1 truncate text-xs font-semibold">
+                              <span className="tabular-nums text-neutral-500 dark:text-neutral-400">
+                                {g.code}
+                              </span>{" "}
+                              {g.name}
+                            </span>
+                            <span className="shrink-0 text-[10px] tabular-nums text-neutral-500 dark:text-neutral-400">
+                              {g.rows.length}
+                            </span>
+                            <span
+                              className={`shrink-0 text-xs font-semibold tabular-nums ${
+                                g.remaining < 0 ? "text-red-600 dark:text-red-400" : ""
+                              }`}
+                            >
+                              {money0(g.remaining)}
+                            </span>
+                          </div>
+                          {/* The whole sentence, on every division and every
+                              code: what's been used, of what, and what's left.
+                              Reading one number and having to open a tooltip
+                              for the other two is what made the rail hard to
+                              trust. */}
+                          <BudgetLine used={g.used} budget={g.budget} remaining={g.remaining} />
                         </button>
 
                         {/* Rolled up, the division still shows its own bar, so a
@@ -2877,6 +2951,11 @@ export function Board() {
                                         )}
                                       </span>
                                     </div>
+                                    <BudgetLine
+                                      used={usedOf(h)}
+                                      budget={h.budget}
+                                      remaining={left}
+                                    />
                                     <Meter budget={h.budget} used={usedOf(h)} label={h.code} />
                                   </button>
                                 </li>
@@ -3133,6 +3212,8 @@ export function Board() {
                           isStaged={(t) => timeStaged.has(t.id)}
                           onUndo={undoTimeStage}
                           jtHref={`https://app.jobtread.com/jobs/${jobId}/time`}
+                          onApproved={markTimeApproved}
+                          writes={Boolean(data?.writesEnabled)}
                         />
                       </div>
                     )}
@@ -3415,6 +3496,8 @@ export function Board() {
                   isStaged={(t) => timeStaged.has(t.id)}
                   onUndo={undoTimeStage}
                   jtHref={`https://app.jobtread.com/jobs/${jobId}/time`}
+                  onApproved={markTimeApproved}
+                  writes={Boolean(data?.writesEnabled)}
                 />
               </>
             ) : (
