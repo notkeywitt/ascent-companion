@@ -953,6 +953,57 @@ export const invoiceReviewDispositions = sqliteTable("invoice_review_disposition
 export type InvoiceReviewDispositionRow = typeof invoiceReviewDispositions.$inferSelect;
 
 /**
+ * ONE ROW PER MONTH — the state of that month's investigation pass.
+ *
+ * WHY THIS EXISTS. The pass is a minutes-long tool loop, and it used to be
+ * awaited inside the browser's own request: a phone that locked, a tab that
+ * went to the background, or a network hop killed the fetch, the office saw
+ * "Load failed", and there was no record anywhere of what had happened. The run
+ * is now DETACHED (`after()` in the investigate route) and reports its progress
+ * here, so the page polls a fact in the database instead of holding a
+ * connection open for five minutes.
+ *
+ * KEYED BY `ym`, REWRITTEN IN PLACE. A month has one current investigation, not
+ * a history of them — the verdicts themselves are the output worth keeping, and
+ * they live in `invoice_review_dispositions`. This table is the run's status
+ * line: who started it, whether it is still going, and why it stopped if it
+ * did.
+ *
+ * `status` is 'running' | 'done' | 'error'. A 'running' row whose `startedAt`
+ * is older than the route's own ceiling is READ as a failure without being
+ * rewritten — a run that was killed mid-flight (a deploy, a timeout) cannot
+ * come back and file its own defeat, so the reader has to infer it.
+ */
+export const invoiceReviewInvestigations = sqliteTable("invoice_review_investigations", {
+  /** The BILLING month investigated, YYYY-MM. */
+  ym: text("ym").primaryKey(),
+  /** running | done | error. */
+  status: text("status").notNull().default("running"),
+  /** Which model ran it, from the allowlist in lib/invoiceReview/investigateModels.ts. */
+  model: text("model").notNull().default(""),
+  /** Claude's closing "where to start" paragraph. Now durable — it used to live
+   *  only in the response and vanished on reload. */
+  note: text("note").notNull().default(""),
+  /** Why it stopped, when status is 'error'. */
+  error: text("error").notNull().default(""),
+  startedAt: text("started_at").notNull(),
+  /** Signed-in email of whoever pressed the button. */
+  startedBy: text("started_by").notNull().default(""),
+  finishedAt: text("finished_at").notNull().default(""),
+  /** How many findings the pass was given. */
+  findingsConsidered: integer("findings_considered").notNull().default(0),
+  /** How many verdicts it came back with. */
+  dispositionCount: integer("disposition_count").notNull().default(0),
+  /** True when it hit its step limit before finishing the list. */
+  truncated: integer("truncated", { mode: "boolean" }).notNull().default(false),
+  /** The loop's token usage as JSON, cache counters included — a silent caching
+   *  regression is only visible if it is written down. */
+  usage: text("usage").notNull().default("{}"),
+});
+
+export type InvoiceReviewInvestigationRow = typeof invoiceReviewInvestigations.$inferSelect;
+
+/**
  * The Daily Digest's todo/reminder memory — what the owner asked to be reminded
  * of via the reply box (see src/lib/digest/checks/digestTodos.ts and
  * src/app/api/digest/reply/route.ts). Assistant-owned; JobTread has no such

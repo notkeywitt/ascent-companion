@@ -28,6 +28,27 @@ import {
 import { money } from "@/lib/invoiceReview/types";
 import type { Finding, ReviewPayload, RulingScope } from "@/lib/invoiceReview/types";
 
+/** One stored verdict, as GET /api/invoice-review/investigate hands it back. */
+interface DispositionRow {
+  key: string;
+  verdict: string;
+  why: string;
+  suggestedAction: string;
+  model: string;
+  at: string;
+}
+
+/** The state of a month's investigation pass — see
+ *  lib/invoiceReview/investigations.ts. */
+interface InvestigationState {
+  status: "running" | "done" | "error";
+  model: string;
+  note: string;
+  error: string;
+  startedAt: string;
+  startedBy: string;
+}
+
 /**
  * Pick a billing month, run the review, work the list.
  *
@@ -224,9 +245,53 @@ export function InvoiceReview() {
   }, [load]);
 
   /**
+   * Stamp verdicts onto what is already on screen, rather than re-running a
+   * minute-long review just to see them.
+   */
+  const applyDispositions = useCallback(
+    (list: DispositionRow[], model: string) => {
+      if (!list.length) return;
+      const byKey = new Map(list.map((d) => [d.key, d]));
+      setData((prev) =>
+        prev
+          ? {
+              ...prev,
+              findings: prev.findings.map((f) => {
+                const d = byKey.get(f.key);
+                return d
+                  ? {
+                      ...f,
+                      disposition: {
+                        verdict: d.verdict as NonNullable<Finding["disposition"]>["verdict"],
+                        why: d.why,
+                        suggestedAction: d.suggestedAction,
+                        model: d.model || model,
+                        at: d.at || new Date().toISOString(),
+                      },
+                    }
+                  : f;
+              }),
+            }
+          : prev,
+      );
+    },
+    [],
+  );
+
+  /**
    * Ask Claude to work the list — search Drive for a missing amount, check a
    * vendor's other spellings, open a suspected double-bill. The verdicts come
    * back per finding and are stored, so this is paid for once.
+   *
+   * THE RUN IS DETACHED. The POST only STARTS the pass; the server finishes it
+   * in the background and the effect below polls for the outcome. This page
+   * used to hold the request open for the whole loop, which a phone cannot do —
+   * locking the screen killed the fetch and the office got "Load failed" with
+   * nothing to show for the minutes already spent. Closing the page now costs
+   * nothing: the verdicts are on file when it is next opened.
+   *
+   * A 409 means somebody else's pass is already running on this month — which
+   * is not an error, so we just start watching theirs.
    */
   const investigate = useCallback(async () => {
     setInvestigating(true);
@@ -239,43 +304,88 @@ export function InvoiceReview() {
         body: JSON.stringify({ ym, model }),
       });
       const json = await res.json();
-      if (!res.ok) throw new Error(json?.error ?? "The investigation failed.");
-      setInvestigateNote(json.note ?? "");
-      // Stamp the verdicts onto what is already on screen rather than
-      // re-running a minute-long review to see them.
-      const byKey = new Map(
-        (json.dispositions ?? []).map((d: { key: string }) => [d.key, d]),
-      );
-      setData((prev) =>
-        prev
-          ? {
-              ...prev,
-              findings: prev.findings.map((f) => {
-                const d = byKey.get(f.key) as
-                  | { verdict: string; why: string; suggestedAction: string }
-                  | undefined;
-                return d
-                  ? {
-                      ...f,
-                      disposition: {
-                        verdict: d.verdict as NonNullable<Finding["disposition"]>["verdict"],
-                        why: d.why,
-                        suggestedAction: d.suggestedAction,
-                        model: json.model ?? "",
-                        at: new Date().toISOString(),
-                      },
-                    }
-                  : f;
-              }),
-            }
-          : prev,
-      );
+      if (res.status === 409) return; // already running — the poll picks it up
+      if (!res.ok) throw new Error(json?.error ?? "The investigation could not be started.");
     } catch (e) {
-      setInvestigateError(e instanceof Error ? e.message : "The investigation failed.");
-    } finally {
       setInvestigating(false);
+      setInvestigateError(
+        e instanceof Error ? e.message : "The investigation could not be started.",
+      );
     }
   }, [ym, model]);
+
+  /**
+   * Read the month's investigation state once, and pick up a pass that is
+   * already running — one started on the office desktop, or one this browser
+   * started before it was closed. Returns whether a run is still going.
+   */
+  const readInvestigation = useCallback(
+    async (watching: boolean): Promise<boolean> => {
+      try {
+        const res = await fetch(`/api/invoice-review/investigate?ym=${encodeURIComponent(ym)}`);
+        if (!res.ok) return watching; // says nothing about the run; keep watching
+        const json = (await res.json()) as {
+          investigation: InvestigationState | null;
+          dispositions?: DispositionRow[];
+        };
+        const st = json.investigation;
+        if (!st) {
+          // No status row at all. On open that just means the month has never
+          // been investigated. While WATCHING one it means the row we were
+          // promised has gone — which must be said, not fallen quiet over.
+          if (watching) {
+            setInvestigateError(
+              "Lost track of the investigation — its status is no longer on file. It may still be running; reload in a minute.",
+            );
+          }
+          return false;
+        }
+        if (st.status === "running") return true;
+        applyDispositions(json.dispositions ?? [], st.model);
+        setInvestigateNote(st.note ?? "");
+        // A failure is announced only to whoever is waiting on the run. Opening
+        // the month a week later should not raise a red banner about a pass
+        // somebody has long since given up on.
+        if (st.status === "error" && watching) setInvestigateError(st.error);
+        return false;
+      } catch {
+        // A poll that cannot reach the server says nothing about the run, which
+        // is still going on the server either way. Keep watching.
+        return watching;
+      }
+    },
+    [ym, applyDispositions],
+  );
+
+  // Opening a month also asks whether a pass is running on it, so the button
+  // reads "Investigating…" instead of inviting a second, paid-for run — and
+  // shows the last pass's "where to start" note, which is now durable.
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const running = await readInvestigation(false);
+      if (!cancelled && running) setInvestigating(true);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [readInvestigation]);
+
+  // While a pass is running, poll for its outcome. Five seconds: the run takes
+  // a minute or two, and this is one indexed row read.
+  useEffect(() => {
+    if (!investigating) return;
+    let stop = false;
+    const tick = async () => {
+      const running = await readInvestigation(true);
+      if (!stop && !running) setInvestigating(false);
+    };
+    const id = setInterval(() => void tick(), 5000);
+    return () => {
+      stop = true;
+      clearInterval(id);
+    };
+  }, [investigating, readInvestigation]);
 
   const chooseModel = useCallback((id: string) => {
     setModel(id);
@@ -501,6 +611,8 @@ export function InvoiceReview() {
           <p className="mt-2 text-xs opacity-70">
             Claude is chasing each finding — searching the filed backup for missing amounts,
             checking other spellings of a vendor, opening bills. This takes a minute or two.
+            It runs on the server, so you can lock your phone or close this page — the verdicts
+            will be here when you come back.
           </p>
         ) : null}
         {data && data.summarySource === "fallback" ? (

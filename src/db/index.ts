@@ -777,6 +777,27 @@ async function applySchema() {
       ON invoice_review_dispositions (ym, key)
   `);
 
+  // The state of each month's INVESTIGATION PASS — one row per month, rewritten
+  // in place. The pass is detached (`after()` in the investigate route) because
+  // a minutes-long tool loop cannot be held open by a phone; this row is what
+  // the page polls instead. See db/schema.ts + lib/invoiceReview/investigations.ts.
+  await getClient().execute(`
+    CREATE TABLE IF NOT EXISTS invoice_review_investigations (
+      ym TEXT PRIMARY KEY,
+      status TEXT NOT NULL DEFAULT 'running',
+      model TEXT NOT NULL DEFAULT '',
+      note TEXT NOT NULL DEFAULT '',
+      error TEXT NOT NULL DEFAULT '',
+      started_at TEXT NOT NULL,
+      started_by TEXT NOT NULL DEFAULT '',
+      finished_at TEXT NOT NULL DEFAULT '',
+      findings_considered INTEGER NOT NULL DEFAULT 0,
+      disposition_count INTEGER NOT NULL DEFAULT 0,
+      truncated INTEGER NOT NULL DEFAULT 0,
+      usage TEXT NOT NULL DEFAULT '{}'
+    )
+  `);
+
   // The Daily Digest's todo/reminder memory, sender ignore-rules, and reply audit
   // trail — written only by POST /api/digest/reply, read by the digest-todos
   // check and (ignore rules) the email-followups check. See db/schema.ts.
