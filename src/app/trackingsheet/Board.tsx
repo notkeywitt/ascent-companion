@@ -318,6 +318,16 @@ function isDivisionLevelCode(number: string): boolean {
   return digits.length >= 4 && /^0+$/.test(digits.slice(2));
 }
 
+/**
+ * Hours as a headline figure: "350 hrs", "349.8 hrs". One decimal, but only
+ * when there is one — a month's total reading "350.0 hrs" is noise, and
+ * rounding it away entirely would hide a part-hour.
+ */
+const hoursLabel = (n: number) => {
+  const v = Math.round(n * 10) / 10;
+  return `${Number.isInteger(v) ? v : v.toFixed(1)} hrs`;
+};
+
 /** Per-cost-code money, after staged moves. */
 interface Headroom {
   code: string;
@@ -1091,6 +1101,9 @@ export function Board() {
     [data],
   );
   const monthTimeTotal = useMemo(() => monthTime.reduce((s, t) => s + t.cost, 0), [monthTime]);
+  /** The same set's hours, shown beside the money on the card's title line —
+   *  "what did labor cost" and "how much labor was it" are one question. */
+  const monthTimeHours = useMemo(() => monthTime.reduce((s, t) => s + t.hours, 0), [monthTime]);
 
   /* ---------------- Time & labor ----------------------------------------
      The list, its filters and its grouping are src/components/TimeEntryList —
@@ -3162,7 +3175,7 @@ export function Board() {
                     + Add time
                   </button>
                   <span className="shrink-0 text-sm font-semibold tabular-nums">
-                    {money(monthTimeTotal)}
+                    {money(monthTimeTotal)} · {hoursLabel(monthTimeHours)}
                   </span>
                 </div>
                 {/* The month's COMPANY-WIDE Labor Report, on its own hairline row
