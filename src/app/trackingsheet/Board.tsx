@@ -12,6 +12,7 @@ import {
   EmptyState,
   Label,
   Loading,
+  MetaLine,
   Meter,
   PageHeader,
   SectionHeading,
@@ -2262,19 +2263,32 @@ export function Board() {
         `/bill/${b.id}?jobId=${encodeURIComponent(jobId)}&from=recode` +
           `&ym=${encodeURIComponent(ym)}`,
       );
+    // Ordinary state — what stage the bill is at, whether it's paid, whether
+    // anyone has been through it — reads as one quiet line of text. It used to
+    // be six or seven coloured pills per bill, and once "uninvoiced" (the
+    // normal case, on most rows) shouted as loudly as "needs review", none of
+    // them meant anything at scrolling speed. A chip is spent below only on the
+    // exceptions.
+    const meta: string[] = [];
+    if (b.status === "draft") meta.push("draft");
+    else meta.push(b.invoiced ? "invoiced" : "uninvoiced");
+    if (billPaidState(b) === "paid") meta.push("paid");
+    else if (billPaidState(b) === "partial") meta.push("part paid");
+    if (b.reviewed) meta.push("✓ reviewed");
+    else if (b.saved) meta.push("✓ saved");
+
     return (
       <li key={b.id} id={`bill-${b.id}`} className="scroll-mt-20">
-        <Card
-          pad={false}
+        {/* A ROW of the month's one bill card, not a card of its own. Thirty
+            bills used to draw thirty rectangles with a gap between each pair;
+            they are divided by a hairline now, and the open row is marked by a
+            tint rather than a ring, so the list reads as one list. */}
+        <div
           draggable={lines.length > 0 && !b.invoiced}
           onDragStart={beginDrag(lines.map((l) => l.id))}
           onDragEnd={endDrag}
-          className={`flex items-stretch overflow-hidden ${
-            isOpen
-              ? "ring-1 ring-accent"
-              : b.needsReview
-                ? "ring-2 ring-red-400 dark:ring-red-500/70"
-                : ""
+          className={`flex items-stretch transition ${
+            isOpen ? "bg-accent/10" : ""
           } ${
             lines.length > 0 && !b.invoiced ? "cursor-grab active:cursor-grabbing" : ""
           }`}
@@ -2289,7 +2303,7 @@ export function Board() {
               scannable at scrolling speed. */}
           <span
             aria-hidden
-            className={`shrink-0 ${b.needsReview ? "w-[5px] bg-red-500" : "w-[3px]"} ${
+            className={`shrink-0 ${b.needsReview ? "w-1 bg-red-500" : "w-0.5"} ${
               b.needsReview
                 ? ""
                 : b.invoiced
@@ -2314,7 +2328,7 @@ export function Board() {
               }
             }}
             aria-expanded={isMobile ? undefined : isOpen}
-            className="min-w-0 flex-1 p-3 text-left transition hover:bg-accent/5 dark:hover:bg-white/5"
+            className="min-w-0 flex-1 px-3 py-2.5 text-left transition hover:bg-accent/5 dark:hover:bg-white/5"
           >
             {/* Vendor and amount own the first line; the status
                 badges get their own wrapping line below. Inline,
@@ -2330,89 +2344,69 @@ export function Board() {
               </span>
             </span>
 
-            <span className="mt-1.5 flex flex-wrap gap-1.5 empty:mt-0">
-              {/* Leads the row in red — a flagged bill is the one to act on,
-                  so it must be the first thing read on the card. */}
-              {b.needsReview && (
-                <Chip tone="danger" title="Flagged for a billing correction — open the bill to see the note">
-                  ⚑ Needs review
-                </Chip>
-              )}
-              {b.status === "draft" && <Chip tone="neutral">draft</Chip>}
-              {b.fileCount === 0 && (
-                <Chip tone="warning" title="No file attached to this bill in JobTread">
-                  No file
-                </Chip>
-              )}
-              {b.invoiced ? (
-                <Chip tone="info" title="Already on a customer invoice — read-only">
-                  invoiced
-                </Chip>
-              ) : (
-                b.status !== "draft" && (
-                  <Chip tone="neutral" title="Not yet on a customer invoice">
-                    uninvoiced
+            {/* Ordinary state as quiet text; a chip only where something is
+                actually wrong or waiting. */}
+            <MetaLine
+              className="mt-1"
+              items={[
+                b.needsReview && (
+                  <Chip
+                    key="flag"
+                    tone="danger"
+                    title="Flagged for a billing correction — open the bill to see the note"
+                  >
+                    ⚑ Needs review
                   </Chip>
-                )
-              )}
-              {/* Paid = money recorded against the bill in QuickBooks — a
-                  different axis from "invoiced" (what the CLIENT has been
-                  billed), so both chips can sit on one row. */}
-              {billPaidState(b) === "paid" && (
-                <Chip
-                  tone="success"
-                  title={`Paid in full — ${money(b.amountPaid)} recorded in QuickBooks`}
-                >
-                  ✓ paid
-                </Chip>
-              )}
-              {billPaidState(b) === "partial" && (
-                <Chip
-                  tone="warning"
-                  title={`${money(b.amountPaid)} paid · ${money(b.balance)} still owed`}
-                >
-                  part paid
-                </Chip>
-              )}
-              {movedHere > 0 && <Chip tone="warning">{movedHere} moved</Chip>}
-              {/* Same pair the coding queue shows. */}
-              {b.reviewed ? (
-                <Chip tone="success" title="Marked reviewed in the Assistant">
-                  ✓ Reviewed
-                </Chip>
-              ) : b.saved ? (
-                <Chip tone="success" title="Save has been clicked on this bill">
-                  ✓ Saved
-                </Chip>
-              ) : null}
-            </span>
+                ),
+                b.fileCount === 0 && (
+                  <Chip key="nofile" tone="warning" title="No file attached to this bill in JobTread">
+                    No file
+                  </Chip>
+                ),
+                movedHere > 0 && (
+                  <Chip key="moved" tone="warning">
+                    {movedHere} moved
+                  </Chip>
+                ),
+                ...meta,
+              ]}
+            />
 
-            {/* Per-code chips: what this bill is charging, and what's left there. */}
-            <span className="mt-2 flex flex-wrap gap-1.5">
-              {[...codes.entries()]
-                .sort((x, y) => y[1] - x[1])
-                .map(([code, amt]) => {
-                  const h = headroom.get(code);
-                  const left = h ? remainingOf(h) : 0;
-                  const over = left < 0;
-                  return (
-                    <span
-                      key={code}
-                      className={`inline-flex items-baseline gap-1.5 rounded-md px-2 py-1 text-[11px] ${
-                        over
-                          ? "bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300"
-                          : "bg-neutral-100 text-neutral-600 dark:bg-white/10 dark:text-neutral-300"
-                      }`}
-                      title={`${h?.name ?? ""} — ${money(left)} remaining`}
-                    >
-                      <span className="tabular-nums">{code || "uncoded"}</span>
-                      <span className="tabular-nums">{money0(amt)}</span>
-                      <span className="opacity-60">·</span>
-                      <span className="tabular-nums">{money0(left)} left</span>
-                    </span>
-                  );
-                })}
-            </span>
+            {/* What this bill is charging, and where. One line of quiet
+                figures: each code used to be a filled box carrying its amount
+                AND its remaining headroom, which on a four-code bill was four
+                boxes of nine words — the headroom is what the rail beside this
+                list and the headroom strip above it are FOR. Over-budget codes
+                still turn red here, so the warning survives the diet. */}
+            {codes.size > 0 && (
+              <span className="mt-1 block truncate text-[11.5px] tabular-nums text-neutral-500 dark:text-neutral-400">
+                {[...codes.entries()]
+                  .sort((x, y) => y[1] - x[1])
+                  .map(([code, amt], i) => {
+                    const h = headroom.get(code);
+                    const over = !!h && remainingOf(h) < 0;
+                    return (
+                      <span key={code}>
+                        {i > 0 && (
+                          <span aria-hidden className="text-neutral-300 dark:text-neutral-600">
+                            {"  ·  "}
+                          </span>
+                        )}
+                        <span
+                          className={over ? "font-semibold text-red-600 dark:text-red-400" : ""}
+                          title={
+                            h
+                              ? `${h.name} — ${money(remainingOf(h))} remaining`
+                              : "No budget line for this code"
+                          }
+                        >
+                          {code || "uncoded"} {money0(amt)}
+                        </span>
+                      </span>
+                    );
+                  })}
+              </span>
+            )}
           </button>
           {/* Outside the button — a link nested in a button is
               invalid, and clicking it would also toggle the card.
@@ -2423,16 +2417,16 @@ export function Board() {
               e.preventDefault();
               e.stopPropagation();
             }}
-            className="flex shrink-0 items-start border-l border-line-soft"
+            className="flex shrink-0 items-start"
           >
             <JtLink
               href={`https://app.jobtread.com/jobs/${jobId}/documents/${b.id}`}
-              className="inline-flex min-h-11 min-w-11 items-center justify-center px-3 text-xs font-semibold text-neutral-500 transition hover:text-accent dark:text-neutral-400"
+              className="inline-flex min-h-11 min-w-11 items-center justify-center px-3 text-xs font-semibold text-neutral-400 transition hover:text-accent dark:text-neutral-500"
             >
               JT ↗
             </JtLink>
           </span>
-        </Card>
+        </div>
       </li>
     );
   };
@@ -3000,16 +2994,18 @@ export function Board() {
               </div>
             )}
 
-            <div className="mb-2 flex items-baseline justify-between gap-3">
-              <SectionLabel>
-                {`${data.bills.length} bill${data.bills.length === 1 ? "" : "s"}`} ·{" "}
-                {money(data.billTotal)}
-              </SectionLabel>
-              {/* Grouping switch, as a segmented control: one bordered track so
-                  the two options read as a pair, with 44px-tall segments on
-                  touch (they were 26px) and the desktop density restored at
-                  lg. */}
-              <div className="flex shrink-0 gap-1 rounded-lg border border-line p-0.5 text-xs lg:border-0 lg:p-0">
+            <SectionHeading
+              // Wraps, because the label and a three-way switch do not fit on
+              // one 375px line: the switch drops to its own right-aligned row
+              // on a phone and sits inline again as soon as there is room.
+              className="mb-2 flex-wrap gap-y-2"
+              trailing={
+              /* Grouping switch, as a segmented control: one soft-filled track
+                 so the three options read as a set, with 44px-tall segments on
+                 touch (they were 26px) and the desktop density restored at
+                 lg. Filled rather than bordered — the same trade the quiet
+                 fields make, and one less rectangle beside the heading. */
+              <div className="flex shrink-0 gap-1 rounded-lg bg-neutral-100 p-0.5 text-xs dark:bg-white/[0.07] lg:bg-transparent lg:p-0 lg:dark:bg-transparent">
                 {(
                   [
                     ["bill", "By bill"],
@@ -3035,7 +3031,11 @@ export function Board() {
                   </button>
                 ))}
               </div>
-            </div>
+              }
+            >
+              {`${data.bills.length} bill${data.bills.length === 1 ? "" : "s"}`} ·{" "}
+              {money(data.billTotal)}
+            </SectionHeading>
 
             {mode !== "summary" && (
               <p className="mb-2 hidden text-[11px] text-neutral-400 lg:block">
@@ -3317,7 +3317,11 @@ export function Board() {
             ) : mode === "bill" ? (
               <>
                 {nonSunsetBills.length > 0 && (
-                  <ul className="space-y-2">{nonSunsetBills.map(renderBillCard)}</ul>
+                  <Card pad={false} className="overflow-hidden">
+                    <ul className="divide-y divide-line-soft">
+                      {nonSunsetBills.map(renderBillCard)}
+                    </ul>
+                  </Card>
                 )}
 
                 {/* Sunset bills, folded into their own collapsible pane — the
@@ -3350,7 +3354,7 @@ export function Board() {
                       </span>
                     </button>
                     {sunsetBlockOpen && (
-                      <ul className="space-y-2 border-t border-line-soft bg-neutral-50 p-2 dark:bg-ink-raised/50">
+                      <ul className="divide-y divide-line-soft border-t border-line-soft bg-neutral-50 dark:bg-ink-raised/50">
                         {sunsetBills.map(renderBillCard)}
                       </ul>
                     )}

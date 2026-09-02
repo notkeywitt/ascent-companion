@@ -164,6 +164,38 @@ export function Select({
   return <select {...props} className={`${inputCls} ${className}`} />;
 }
 
+/**
+ * A QUIET field — same size and behaviour as `Input`, but it carries no border
+ * of its own until it is focused.
+ *
+ * A dense editing surface (a bill's line items) puts three or four fields on
+ * every row, and a bordered box around each one costs a rectangle per field:
+ * eight lines of a bill drew ~30 boxes, which is what made the page read as
+ * a wall of edges rather than a list of numbers. A soft fill says "you can
+ * type here" just as clearly as a stroke does (the same trade Material's
+ * filled fields and GitHub Primer make), and the border returns on focus so
+ * the field you are actually in is the only one outlined.
+ *
+ * `border-transparent` — not "no border" — is what keeps the row from shifting
+ * by a pixel when focus adds one.
+ *
+ * Carries NO width, unlike `inputCls`. Tailwind resolves two competing
+ * utilities by their order in the stylesheet, not by the order they are
+ * written in the attribute, and `w-full` is emitted after every fixed width —
+ * so a base that included it would silently swallow the `w-16` a caller adds
+ * for a quantity field. `QuietInput` supplies `w-full` for the ordinary
+ * full-width case; a sized caller states its own.
+ */
+export const quietInputCls =
+  "rounded-lg border border-transparent bg-neutral-100 px-2.5 py-2 text-sm transition placeholder:text-neutral-400 focus:border-accent focus:bg-white focus:outline-none focus:ring-2 focus:ring-accent/25 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white/10 dark:focus:bg-ink";
+
+export function QuietInput({
+  className = "",
+  ...props
+}: React.InputHTMLAttributes<HTMLInputElement>) {
+  return <input {...props} className={`w-full ${quietInputCls} ${className}`} />;
+}
+
 export function Textarea({
   className = "",
   ...props
@@ -436,6 +468,46 @@ export function CountBadge({ n, className = "" }: { n: number; className?: strin
       className={`shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold tabular-nums text-amber-800 dark:bg-amber-950/50 dark:text-amber-300 ${className}`}
     >
       {n}
+    </span>
+  );
+}
+
+/**
+ * A row of quiet, dot-separated facts — "draft · uninvoiced · ✓ saved".
+ *
+ * The counterpart to `Chip`, and the reason chips can stay rare. A list row
+ * that spells out every one of its states as a coloured pill ends up with six
+ * or seven of them, and once everything is highlighted nothing is: the two
+ * that mean "act on this" get exactly as much attention as "uninvoiced", which
+ * is the normal case. So ordinary state reads as plain small text here, and a
+ * `Chip` is spent only on the exception — flagged, over budget, unsaved work.
+ *
+ * Falsy entries are dropped, so callers can build the list inline without
+ * filtering it first.
+ */
+export function MetaLine({
+  items,
+  className = "",
+}: {
+  items: React.ReactNode[];
+  className?: string;
+}) {
+  const shown = items.filter(Boolean);
+  if (shown.length === 0) return null;
+  return (
+    <span
+      className={`flex flex-wrap items-center gap-x-1.5 text-[11.5px] text-neutral-500 dark:text-neutral-400 ${className}`}
+    >
+      {shown.map((item, i) => (
+        <span key={i} className="inline-flex items-center gap-1.5">
+          {i > 0 && (
+            <span aria-hidden className="text-neutral-300 dark:text-neutral-600">
+              ·
+            </span>
+          )}
+          {item}
+        </span>
+      ))}
     </span>
   );
 }

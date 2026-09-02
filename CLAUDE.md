@@ -66,8 +66,19 @@ gateway rules) — a preview that only reads JobTread is safe to hand to a phone
   `Textarea`, `Button`, `Banner`, `Loading`, `EmptyState`, `SectionLabel`, `Toggle`),
   plus the "Ledger" set: `SectionHeading` (ochre rule + caption), `ListCard`/`ListRow`
   (hairline-divided rows), `StatementBlock` (the page's ONE display figure), `Chip`
-  (status marks), `CountBadge`, `FilterChip`/`ChipScroller` (swipeable filter pills),
+  (status marks), `MetaLine` (dot-separated quiet state — the reason chips stay rare),
+  `QuietInput`/`quietInputCls` (a field with no border until focus, for dense editing
+  rows), `CountBadge`, `FilterChip`/`ChipScroller` (swipeable filter pills),
   `Meter` (spend vs budget), `StickyActionBar` (a page's commit action, docked).
+- **Prefer a hairline to a box, and text to a pill.** A list of records is ONE
+  `Card pad={false}` with `divide-y divide-line-soft` rows — never a bordered card
+  per record. Ordinary state goes in a `MetaLine`; a `Chip` is spent only on the
+  exception (flagged, over budget, unsaved). A dense editing row uses quiet fields,
+  not a stroke around every input.
+- **Two Tailwind utilities for the same property are resolved by STYLESHEET order,
+  not attribute order.** `` `${quietInputCls} w-16` `` only works because the base
+  carries no width — if a base class string and a caller's extra both set one, the
+  one Tailwind emits later silently wins. Check the built CSS when overriding.
 - **Hairlines are tokens, not Tailwind neutrals.** Use `border-line` (card edge),
   `border-line-soft` (divider between rows inside one card) and `border-line-strong`
   (form controls). They're theme variables, so they flip light/dark on their own —

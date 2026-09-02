@@ -43,6 +43,17 @@ export const money = (n: number) =>
 export const money0 = (n: number) =>
   `$${n.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 
+/**
+ * The panel's field style: a soft fill instead of a stroke, with the border
+ * arriving on focus. This card puts four fields on every line of a bill, and
+ * a box around each one turned a five-line bill into twenty rectangles — the
+ * same reason `quietInputCls` exists in the design system, at this panel's
+ * smaller size. (Kept local rather than parameterising the shared one: this is
+ * the only surface that wants an 11px field.)
+ */
+const quietSm =
+  "rounded border border-transparent bg-neutral-100 px-1.5 py-1 text-xs transition focus:border-accent focus:bg-white focus:outline-none dark:bg-white/10 dark:focus:bg-ink-raised";
+
 export const isImageFile = (f: BillFile) =>
   /^image\//i.test(f.type ?? "") || /\.(png|jpe?g|gif|webp)$/i.test(f.name ?? "");
 
@@ -304,7 +315,7 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                   setTax(e.target.value)
                 }
                 aria-label="Sales tax"
-                className="w-24 rounded border border-neutral-300 bg-white py-1 pl-4 pr-1.5 text-right text-xs tabular-nums transition focus:border-accent focus:outline-none dark:border-neutral-600 dark:bg-ink-raised"
+                className={`${quietSm} w-24 py-1 pl-4 pr-1.5 text-right tabular-nums`}
               />
             </div>
           </div>
@@ -323,24 +334,22 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
           </Banner>
         )}
 
+        {/* Code every line at once. A field and its button — the dashed box
+            that used to be drawn round them said nothing the button didn't. */}
         {!bill.invoiced && codeOptions.length > 0 && lines.length > 1 && (
-          <div className="mb-3 rounded-lg border border-dashed border-neutral-300 bg-neutral-50 p-2 dark:border-neutral-700 dark:bg-ink-raised/60">
-            <span className="mb-1 block text-[10px] uppercase tracking-wide text-neutral-400">
-              Apply one code to all {lines.length} lines
-            </span>
-            <div className="flex items-center gap-1.5">
-              <div className="min-w-0 flex-1">
-                <CostCodeSelect options={codeOptions} value={bulkCode} onChange={setBulkCode} />
-              </div>
-              <Button
-                size="sm"
-                className="shrink-0 !py-1.5 !text-xs"
-                onClick={() => applyCodeToAll(bulkCode)}
-                disabled={!bulkCode}
-              >
-                Apply
-              </Button>
+          <div className="mb-3 flex items-center gap-1.5">
+            <div className="min-w-0 flex-1">
+              <CostCodeSelect options={codeOptions} value={bulkCode} onChange={setBulkCode} />
             </div>
+            <Button
+              size="sm"
+              className="shrink-0 !py-1.5 !text-xs"
+              onClick={() => applyCodeToAll(bulkCode)}
+              disabled={!bulkCode}
+              title={`Apply one code to all ${lines.length} lines`}
+            >
+              All {lines.length}
+            </Button>
           </div>
         )}
 
@@ -378,7 +387,7 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                         value={edits[l.id]?.name ?? l.name ?? ""}
                         onChange={(e) => setEdit({ name: e.target.value })}
                         placeholder="Description"
-                        className="mb-1 w-full rounded border border-neutral-300 bg-white px-1.5 py-1 text-xs transition focus:border-accent focus:outline-none dark:border-neutral-600 dark:bg-ink-raised"
+                        className={`${quietSm} mb-1 w-full`}
                       />
                     ) : (
                       <div className="mb-1 flex items-baseline justify-between gap-2">
@@ -484,7 +493,7 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                       value={edits[l.id]?.quantity ?? String(l.quantity ?? 0)}
                       onChange={(e) => setEdit({ quantity: e.target.value })}
                       aria-label="Quantity"
-                      className="w-14 rounded border border-neutral-300 bg-white px-1.5 py-1 text-right text-xs tabular-nums transition focus:border-accent focus:outline-none dark:border-neutral-600 dark:bg-ink-raised"
+                      className={`${quietSm} w-14 text-right tabular-nums`}
                     />
                     <span className="text-[11px] text-neutral-400">×</span>
                     <input
@@ -492,7 +501,7 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                       value={edits[l.id]?.unitCost ?? t.curPreTaxUnit.toFixed(2)}
                       onChange={(e) => setEdit({ unitCost: e.target.value })}
                       aria-label="Unit cost (pre-tax)"
-                      className="w-24 rounded border border-neutral-300 bg-white px-1.5 py-1 text-right text-xs tabular-nums transition focus:border-accent focus:outline-none dark:border-neutral-600 dark:bg-ink-raised"
+                      className={`${quietSm} w-24 text-right tabular-nums`}
                     />
                     <span className="flex-1 text-right text-xs font-semibold tabular-nums">
                       {money(t.qty * t.preTaxUnit)}
@@ -530,10 +539,7 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
             Unlike a recode, this writes to JobTread immediately — it's
             a structural merge, not a trial-and-error choice. */}
         {!bill.invoiced && writes && anyCombinable && (
-          <div className="mt-3 rounded-lg border border-dashed border-neutral-300 bg-neutral-50 p-2 dark:border-neutral-700 dark:bg-ink-raised/60">
-            <span className="mb-1 block text-[10px] uppercase tracking-wide text-neutral-400">
-              Combine lines sharing a code
-            </span>
+          <div className="mt-3 border-t border-line-soft pt-2.5">
             <div className="flex items-center justify-between gap-2">
               <p className="min-w-0 text-[11px] text-neutral-500">
                 {combineSelected.length < 2
@@ -574,18 +580,18 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                   setAddLineMsg("");
                   setAddingLine(true);
                 }}
-                className="w-full rounded-lg border border-dashed border-neutral-300 px-3 py-2 text-xs font-semibold text-accent transition hover:border-accent hover:bg-accent/5 dark:border-neutral-700 dark:text-accent-soft"
+                className="w-full rounded-lg bg-neutral-100 px-3 py-2 text-xs font-semibold text-accent transition hover:bg-accent/10 dark:bg-white/10 dark:text-accent-soft"
               >
                 + Add line
               </button>
             ) : (
-              <div className="rounded-lg border border-line bg-white p-2 dark:bg-ink-raised">
+              <div className="rounded-lg bg-neutral-50 p-2 dark:bg-white/[0.04]">
                 <input
                   type="text"
                   value={newLine.name}
                   onChange={(e) => setNewLine((n) => ({ ...n, name: e.target.value }))}
                   placeholder={c("recode.placeholder.lineDescription")}
-                  className="w-full rounded border border-neutral-300 bg-white px-1.5 py-1 text-xs transition focus:border-accent focus:outline-none dark:border-neutral-600 dark:bg-ink-raised"
+                  className={`${quietSm} w-full`}
                 />
                 <div className="mt-1.5 flex items-center gap-1.5">
                   <input
@@ -594,7 +600,7 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                     value={newLine.quantity}
                     onChange={(e) => setNewLine((n) => ({ ...n, quantity: e.target.value }))}
                     aria-label="Quantity"
-                    className="w-14 rounded border border-neutral-300 bg-white px-1.5 py-1 text-right text-xs tabular-nums transition focus:border-accent focus:outline-none dark:border-neutral-600 dark:bg-ink-raised"
+                    className={`${quietSm} w-14 text-right tabular-nums`}
                   />
                   <span className="text-[11px] text-neutral-400">×</span>
                   <input
@@ -603,7 +609,7 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                     value={newLine.unitCost}
                     onChange={(e) => setNewLine((n) => ({ ...n, unitCost: e.target.value }))}
                     aria-label="Unit cost (pre-tax)"
-                    className="w-24 rounded border border-neutral-300 bg-white px-1.5 py-1 text-right text-xs tabular-nums transition focus:border-accent focus:outline-none dark:border-neutral-600 dark:bg-ink-raised"
+                    className={`${quietSm} w-24 text-right tabular-nums`}
                   />
                 </div>
                 <div className="mt-1.5">
@@ -714,7 +720,7 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                 if (e.key === "Enter") e.currentTarget.blur();
               }}
               placeholder={bill.number ? `#${bill.number}` : "Invoice / bill number"}
-              className="mb-3 h-9 w-full rounded-lg border border-neutral-300 bg-white px-2.5 font-mono text-xs transition focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 disabled:opacity-50 dark:border-neutral-600 dark:bg-ink"
+              className={`${quietSm} mb-3 h-9 w-full px-2.5 font-mono`}
             />
             <Label htmlFor="filing-billing-month">Billing month</Label>
             <Select
