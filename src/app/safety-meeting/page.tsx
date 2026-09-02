@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
+import SafetyTopicPicker, { TopicPoints } from "@/components/SafetyTopicPicker";
 import { SignaturePad, type SignaturePadHandle } from "@/components/SignaturePad";
 import { Banner, Button, Label, PageHeader, btn, inputCls } from "@/components/ui";
+import { findSafetyTopic } from "@/lib/safetyTopics";
 
 interface Employee {
   name: string;
@@ -39,6 +41,7 @@ export default function SafetyMeetingPage() {
 
   const [date, setDate] = useState(today());
   const [topic, setTopic] = useState("");
+  const [browsing, setBrowsing] = useState(false);
   const [admin, setAdmin] = useState("");
 
   const [attendees, setAttendees] = useState<Attendee[]>([]);
@@ -66,6 +69,11 @@ export default function SafetyMeetingPage() {
       }
     })();
   }, []);
+
+  // The topic stays free text. When it matches a catalog title — picked, or
+  // typed exactly — the talking points come back with it, so the lead can run
+  // the meeting off the screen.
+  const pickedTopic = useMemo(() => findSafetyTopic(topic), [topic]);
 
   const added = new Set(attendees.map((a) => a.name));
   // Everyone can be the meeting lead; the signer list drops those already added.
@@ -121,6 +129,7 @@ export default function SafetyMeetingPage() {
   function startAnother() {
     setResult(null);
     setTopic("");
+    setBrowsing(false);
     setAttendees([]);
     setCurrentName("");
     setHasInk(false);
@@ -188,12 +197,40 @@ export default function SafetyMeetingPage() {
         <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={inputCls} />
 
         <Label className="!mb-0 pt-1">Topic</Label>
-        <input
-          value={topic}
-          onChange={(e) => setTopic(e.target.value)}
-          placeholder="e.g. Ladder safety"
-          className={inputCls}
-        />
+        <div className="flex gap-2">
+          <input
+            value={topic}
+            onChange={(e) => setTopic(e.target.value)}
+            placeholder="e.g. Extension ladder setup"
+            className={inputCls + " min-w-0 flex-1"}
+          />
+          <Button
+            variant={topic ? "secondary" : "primary"}
+            className="shrink-0"
+            onClick={() => setBrowsing((v) => !v)}
+          >
+            {browsing ? "Hide" : "Browse"}
+          </Button>
+        </div>
+
+        {browsing && (
+          <SafetyTopicPicker
+            onPick={(title) => {
+              setTopic(title);
+              setBrowsing(false);
+            }}
+            onClose={() => setBrowsing(false)}
+          />
+        )}
+
+        {pickedTopic && !browsing && (
+          <div className="rounded-lg border border-line bg-neutral-50 p-2.5 dark:bg-ink">
+            <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
+              Talking points
+            </div>
+            <TopicPoints topic={pickedTopic} />
+          </div>
+        )}
 
         <Label className="!mb-0 pt-1">Meeting lead</Label>
         <select value={admin} onChange={(e) => setAdmin(e.target.value)} className={inputCls}>
