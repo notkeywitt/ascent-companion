@@ -1,8 +1,5 @@
 "use client";
 
-import { useCallback, useState } from "react";
-import Link from "next/link";
-
 import { Banner, Button, Card, Chip, SectionHeading } from "@/components/ui";
 import { money } from "@/lib/invoiceReview/types";
 import type { Finding } from "@/lib/invoiceReview/types";
@@ -19,33 +16,23 @@ import type { PreSendResult } from "@/lib/invoiceReview/preSend";
  * JobTread round trips, and a check that fires every time the page loads is a
  * check people learn to ignore.
  *
- * It says what it did NOT look at, every time, including when it finds nothing.
- * A gate that reports "all clear" without that caveat quietly implies the whole
- * month was checked — see `notChecked` in preSend.ts.
+ * Presentational: the run state lives on the Board so the trigger can sit in
+ * the phone's action drawer. This card is the RESULT. Its own trigger button is
+ * desktop-only (`hidden lg:inline-flex`); on a phone the drawer carries it.
  */
-export function PreSendCheck({ jobId, ym }: { jobId: string; ym: string }) {
-  const [result, setResult] = useState<PreSendResult | null>(null);
-  const [running, setRunning] = useState(false);
-  const [error, setError] = useState("");
-
-  const run = useCallback(async () => {
-    setRunning(true);
-    setError("");
-    setResult(null);
-    try {
-      const res = await fetch(
-        `/api/invoice-review/job?jobId=${encodeURIComponent(jobId)}&ym=${encodeURIComponent(ym)}`,
-      );
-      const json = await res.json();
-      if (!res.ok) throw new Error(json?.error ?? "The check failed.");
-      setResult(json as PreSendResult);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "The check failed.");
-    } finally {
-      setRunning(false);
-    }
-  }, [jobId, ym]);
-
+export function PreSendCheck({
+  result,
+  running,
+  error,
+  onRun,
+  jobId,
+}: {
+  result: PreSendResult | null;
+  running: boolean;
+  error: string;
+  onRun: () => void;
+  jobId: string;
+}) {
   const live: Finding[] = (result?.findings ?? []).filter((f) => !f.suppressedBy);
 
   return (
@@ -53,22 +40,19 @@ export function PreSendCheck({ jobId, ym }: { jobId: string; ym: string }) {
       <SectionHeading
         className="mb-2"
         trailing={
-          <Button size="sm" variant="outline" onClick={run} disabled={running || !jobId}>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={onRun}
+            disabled={running || !jobId}
+            className="hidden lg:inline-flex"
+          >
             {running ? "Checking…" : result ? "Check again" : "Check this job"}
           </Button>
         }
       >
         Before you send
       </SectionHeading>
-
-      {!result && !running && !error ? (
-        <p className="text-xs opacity-60">
-          Runs the invoice review&apos;s checks against this job for {ym} — the backup on
-          file, the arithmetic, anything captured but not billed, and whether the markup
-          reached the invoice. Quicker than reviewing the whole month, and the cheapest
-          moment to fix something is before it goes out.
-        </p>
-      ) : null}
 
       {error ? (
         <Banner tone="error" className="mt-1">
@@ -123,17 +107,6 @@ export function PreSendCheck({ jobId, ym }: { jobId: string; ym: string }) {
               ))}
             </ul>
           ) : null}
-
-          {/* Always shown, including on a clean result — "all clear" must not be
-              read as "the whole month was checked". */}
-          <p className="text-xs opacity-55">
-            This check does not cover:{" "}
-            {result.notChecked.map((n) => n.replace(/\.$/, "")).join("; ")}. The{" "}
-            <Link href={`/invoice-review?ym=${encodeURIComponent(result.ym)}`} className="underline">
-              monthly review
-            </Link>{" "}
-            asks those.
-          </p>
         </>
       ) : null}
     </Card>

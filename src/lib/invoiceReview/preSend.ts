@@ -63,12 +63,6 @@ export interface PreSendResult {
   /** True when the job had no bills or invoices in the month at all — there is
    *  nothing to check rather than nothing wrong. */
   empty: boolean;
-  /**
-   * What this gate did not look at. Carried in the payload rather than left to
-   * the UI to remember, so "it said we were fine" can never mean more than it
-   * should.
-   */
-  notChecked: string[];
 }
 
 export async function preSendCheck(
@@ -108,9 +102,5 @@ export async function preSendCheck(
     warnings: live.filter((f) => f.severity === "warning").length,
     evidenceWarnings: evidence.warnings,
     empty: !job || (job.bills.length === 0 && job.invoices.length === 0),
-    notChecked: [
-      "Whether every vendor invoice that arrived by email was captured — that is a question about the whole month.",
-      "Whether a regular vendor billed nothing this month, and whether this customer's markup is off their usual rate — both need the whole month to judge.",
-    ],
   };
 }
