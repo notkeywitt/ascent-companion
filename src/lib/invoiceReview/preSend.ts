@@ -108,9 +108,12 @@ export async function preSendCheck(
     warnings: live.filter((f) => f.severity === "warning").length,
     evidenceWarnings: evidence.warnings,
     empty: !job || (job.bills.length === 0 && job.invoices.length === 0),
+    // ASD-STE 100: short sentences, active voice, one idea per sentence. The
+    // PreSendCheck card shows these as prose, so each entry is a full sentence
+    // (or two), not a clause.
     notChecked: [
-      "Whether every vendor invoice that arrived by email was captured — that is a question about the whole month.",
-      "Whether a regular vendor billed nothing this month, and whether this customer's markup is off their usual rate — both need the whole month to judge.",
+      "It does not check that the system received all the vendor invoices from email. This is a question about the full month.",
+      "It does not check for a usual vendor that sent no bill this month. It does not check that the markup agrees with the usual rate for this customer. You must have the full month to do these two checks.",
     ],
   };
 }

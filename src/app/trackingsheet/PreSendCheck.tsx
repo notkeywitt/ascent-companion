@@ -127,12 +127,11 @@ export function PreSendCheck({ jobId, ym }: { jobId: string; ym: string }) {
           {/* Always shown, including on a clean result — "all clear" must not be
               read as "the whole month was checked". */}
           <p className="text-xs opacity-55">
-            This check does not cover:{" "}
-            {result.notChecked.map((n) => n.replace(/\.$/, "")).join("; ")}. The{" "}
+            This check does not do all the tests. {result.notChecked.join(" ")} The{" "}
             <Link href={`/invoice-review?ym=${encodeURIComponent(result.ym)}`} className="underline">
               monthly review
             </Link>{" "}
-            asks those.
+            does these tests.
           </p>
         </>
       ) : null}

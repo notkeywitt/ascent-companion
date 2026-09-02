@@ -428,6 +428,10 @@ export function Board() {
   const canApprove = can("bill-approve");
   const canLaborReview = can("labor-review");
   const [trackingTarget, setTrackingTarget] = useState<TrackingTarget | null>(null);
+  // Have we finished reading whether THIS job has a tracking sheet? Until we
+  // have, the month-side button renders nothing rather than flashing the wrong
+  // label (a real "Sync" vs a "Link one" for a job that in fact has a sheet).
+  const [trackingChecked, setTrackingChecked] = useState(false);
   const [trackingSync, setTrackingSync] = useState<TrackingSyncState | undefined>(undefined);
   // The sheet push runs on its own task runner, so `syncing` (the JobTread write
   // loop) is already false while it's still going. Without this the button would
@@ -436,20 +440,27 @@ export function Board() {
     trackingSync?.status === "queued" || trackingSync?.status === "running";
 
   useEffect(() => {
+    // A new job starts unresolved — clear the old job's target so its Sync
+    // button can't linger on the wrong sheet while the new read is in flight.
+    setTrackingTarget(null);
+    setTrackingChecked(false);
     if (!canTrack || !jobId) return;
     let alive = true;
     (async () => {
       try {
         const res = await fetch("/api/tracking-sheet", { cache: "no-store" });
-        if (!res.ok) return; // non-fatal — the tracking sync just doesn't fire
+        if (!res.ok) return; // non-fatal — stays unchecked, button stays hidden
         const b = await res.json();
         if (!alive) return;
         const hit = (
           (b.jobs ?? []) as { id: string; label: string; jtJobId: string; url: string }[]
         ).find((j) => j.jtJobId === jobId);
         if (hit) setTrackingTarget({ projectId: hit.id, label: hit.label, url: hit.url });
+        // Only a clean read flips this on: a transient API failure hides the
+        // button rather than wrongly offering to "Link" a sheet that exists.
+        setTrackingChecked(true);
       } catch {
-        /* non-fatal */
+        /* non-fatal — stays unchecked */
       }
     })();
     return () => {
@@ -2416,19 +2427,61 @@ export function Board() {
               <Label htmlFor="recode-month" className="lg:hidden">
                 Billing month
               </Label>
-              <Select
-                id="recode-month"
-                value={ym}
-                onChange={(e) => setYm(e.target.value)}
-                className="!h-11 lg:!h-auto lg:w-52"
-                aria-label="Billing month"
-              >
-                {monthOptions().map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-              </Select>
+              {/* The month selector and, docked to it, the per-job Tracking
+                  Sheet push: it writes the SELECTED month's sub/vendor invoices
+                  into the SELECTED job's own Google tracking sheet. It sits by
+                  the month because that is the one thing it acts on. Stacked
+                  under the selector on a phone, inline beside it from lg up. */}
+              <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
+                <Select
+                  id="recode-month"
+                  value={ym}
+                  onChange={(e) => setYm(e.target.value)}
+                  className="!h-11 lg:!h-auto lg:w-52"
+                  aria-label="Billing month"
+                >
+                  {monthOptions().map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </Select>
+
+                {/* Only for a role that can reach the sheet, and only once
+                    we've read whether this job HAS one (see trackingChecked) so
+                    the label is never wrong. With a sheet linked it pushes the
+                    month; with none it points at the Tracking Sheet page to
+                    connect one — the URL lives on the Projects sheet, there is
+                    no in-app write for it. */}
+                {canTrack && trackingChecked && (
+                  trackingTarget ? (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      className="!h-11 w-full shrink-0 lg:!h-auto lg:w-auto"
+                      disabled={syncing || trackingBusy}
+                      title={`Push ${monthLabel(ym)} into ${trackingTarget.label}`}
+                      onClick={() => {
+                        const [y, m] = ym.split("-").map(Number);
+                        runTrackingSync(trackingTarget.projectId, m, y, setTrackingSync);
+                      }}
+                    >
+                      {trackingBusy ? "Syncing sheet…" : "Sync to Tracking Sheet"}
+                    </Button>
+                  ) : (
+                    <Link
+                      href="/tracking-sheet"
+                      className={btn(
+                        "secondary",
+                        "sm",
+                        "!h-11 w-full shrink-0 text-center lg:!h-auto lg:w-auto",
+                      )}
+                    >
+                      Link Google tracking sheet
+                    </Link>
+                  )
+                )}
+              </div>
             </div>
             {/* The list always shows every bill in the month — draft,
                 uninvoiced, and invoiced, each tagged with its state — and every
@@ -2464,29 +2517,19 @@ export function Board() {
               >
                 Revert
               </Button>
-              {/* One button, both destinations. With staged coding it writes to
-                  JobTread and then pushes the month into the Tracking Sheet;
-                  with nothing staged there is nothing to send to JobTread, so it
-                  is the sheet push alone — and says so rather than sitting
-                  greyed out with the sheet quietly out of date. */}
+              {/* The coding commit: it writes staged coding to JobTread and
+                  then pushes the month into the Tracking Sheet in the same step
+                  (coding must settle before the sheet reads costCode off each
+                  line). The standalone sheet push, with nothing staged, is now
+                  its own button beside the month selector above, so this one is
+                  purely the JobTread write and stays greyed out until dirty. */}
               <Button
                 size="sm"
                 onClick={sync}
-                disabled={syncing || trackingBusy || (!dirty && !trackingTarget)}
-                title={
-                  !dirty && trackingTarget
-                    ? `Push ${monthLabel(ym)} into ${trackingTarget.label}`
-                    : undefined
-                }
+                disabled={!dirty || syncing || trackingBusy}
                 className="hidden lg:inline-flex"
               >
-                {syncing
-                  ? "Syncing…"
-                  : trackingBusy
-                    ? "Syncing sheet…"
-                    : dirty
-                      ? "Sync to JobTread"
-                      : "Sync Tracking Sheet"}
+                {syncing ? "Syncing…" : trackingBusy ? "Syncing sheet…" : "Sync to JobTread"}
               </Button>
             </div>
           </div>
