@@ -1,6 +1,6 @@
 "use client";
 
-import type { Dispatch, SetStateAction } from "react";
+import { useEffect, useState, type Dispatch, type SetStateAction } from "react";
 import { CostCodeSelect, type Option } from "@/components/CostCodeSelect";
 import { JobPicker, type JobRef } from "@/components/JobPicker";
 import { JtLink } from "@/components/JtLink";
@@ -56,6 +56,50 @@ const quietSm =
 
 export const isImageFile = (f: BillFile) =>
   /^image\//i.test(f.type ?? "") || /\.(png|jpe?g|gif|webp)$/i.test(f.name ?? "");
+
+/**
+ * The bill's backup in Google Drive — the filed PDF and the Customer/Job/month
+ * folder around it. Fetched HERE rather than threaded from the two hosts: both
+ * already fetch the JobTread attachment and would each need the same second
+ * request, and this one is best-effort (null until it answers, "" for a link
+ * Drive can't supply, and no error surface at all).
+ *
+ * The Assistant has no Drive grant, so /api/bill/drive asks the Apps Script web
+ * app, which resolves both from the Expenditure row's file link.
+ */
+interface DriveBackup {
+  fileUrl: string;
+  fileName: string;
+  folderUrl: string;
+  folderName: string;
+}
+
+function useDriveBackup(docId: string | undefined): DriveBackup | null {
+  const [drive, setDrive] = useState<DriveBackup | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    setDrive(null);
+    if (!docId) return;
+    fetch(`/api/bill/drive?docId=${encodeURIComponent(docId)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (cancelled || !j) return;
+        setDrive({
+          fileUrl: j.fileUrl ?? "",
+          fileName: j.fileName ?? "",
+          folderUrl: j.folderUrl ?? "",
+          folderName: j.folderName ?? "",
+        });
+      })
+      .catch(() => {
+        /* best-effort — no Drive links is fine */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [docId]);
+  return drive;
+}
 
 /** The bill the card is coding, as both callers can describe it. */
 export interface CodingBill {
@@ -257,6 +301,9 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
     reassigning,
     filingMsg,
   } = ctl;
+
+  // The bill's Drive backup, beside the JobTread attachment the hosts fetch.
+  const drive = useDriveBackup(bill?.id);
 
   return (
     <>
@@ -694,6 +741,46 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
             )}
           </div>
         </div>
+
+        {/* In Google Drive — the durable backup the hourly mirror keeps: the
+            bill's own PDF and the Customer/Job/month folder it's filed in.
+            Same position as on /bill, right after the scan. Read-only, so it
+            is NOT writes-gated. The filename is the one the re-file pipeline
+            rewrites from this bill's coding, so it is where you check that a
+            recode reached the filed backup — JobTread's attachment name above
+            is set once at upload and only follows on the next sync. */}
+        {drive && (drive.fileUrl || drive.folderUrl) && (
+          <div className="mt-4 border-t border-line-soft pt-3 dark:border-neutral-800">
+            <SectionLabel className="mb-1.5">In Google Drive</SectionLabel>
+            {drive.fileName && (
+              <p className="mb-1 break-all text-[11px] text-neutral-500 dark:text-neutral-400">
+                {drive.fileName}
+              </p>
+            )}
+            <div className="flex flex-col gap-0.5">
+              {drive.fileUrl && (
+                <a
+                  href={drive.fileUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-xs font-semibold text-accent"
+                >
+                  Open the file in Drive ↗
+                </a>
+              )}
+              {drive.folderUrl && (
+                <a
+                  href={drive.folderUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-xs font-semibold text-accent"
+                >
+                  Open {drive.folderName ? `“${drive.folderName}”` : "the folder"} in Drive ↗
+                </a>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Filing — the bill page's Filing card, in the panel where the
             invoice is already on screen: both answers are read off the
