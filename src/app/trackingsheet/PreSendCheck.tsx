@@ -1,6 +1,6 @@
 "use client";
 
-import { Banner, Button, Card, Chip, SectionHeading } from "@/components/ui";
+import { Banner, Card, Chip, SectionHeading } from "@/components/ui";
 import { money } from "@/lib/invoiceReview/types";
 import type { Finding } from "@/lib/invoiceReview/types";
 import type { PreSendResult } from "@/lib/invoiceReview/preSend";
@@ -16,43 +16,23 @@ import type { PreSendResult } from "@/lib/invoiceReview/preSend";
  * JobTread round trips, and a check that fires every time the page loads is a
  * check people learn to ignore.
  *
- * Presentational: the run state lives on the Board so the trigger can sit in
- * the phone's action drawer. This card is the RESULT. Its own trigger button is
- * desktop-only (`hidden lg:inline-flex`); on a phone the drawer carries it.
+ * Presentational: the run state lives on the Board, and so does the trigger —
+ * the bottom action row beside Approve Draft Bills on a desktop, the action
+ * drawer on a phone. This card is the RESULT, and the Board renders it only
+ * once there is one.
  */
 export function PreSendCheck({
   result,
-  running,
   error,
-  onRun,
-  jobId,
 }: {
   result: PreSendResult | null;
-  running: boolean;
   error: string;
-  onRun: () => void;
-  jobId: string;
 }) {
   const live: Finding[] = (result?.findings ?? []).filter((f) => !f.suppressedBy);
 
   return (
     <Card className="mb-4">
-      <SectionHeading
-        className="mb-2"
-        trailing={
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={onRun}
-            disabled={running || !jobId}
-            className="hidden lg:inline-flex"
-          >
-            {running ? "Checking…" : result ? "Check again" : "Check this job"}
-          </Button>
-        }
-      >
-        Before you send
-      </SectionHeading>
+      <SectionHeading className="mb-2">Before you send</SectionHeading>
 
       {error ? (
         <Banner tone="error" className="mt-1">

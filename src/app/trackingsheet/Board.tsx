@@ -475,8 +475,9 @@ export function Board() {
   useEffect(() => setTrackingSync(undefined), [ym]);
 
   // ---- pre-send check (the invoice review's checks, on this job) -----------
-  // State lives here, not inside PreSendCheck, so the trigger can sit in the
-  // phone's action drawer while the card stays purely the result.
+  // State lives here, not inside PreSendCheck, so both triggers — the bottom
+  // action row and the phone's action drawer — sit outside the card, which
+  // stays purely the result.
   const [preSend, setPreSend] = useState<PreSendResult | null>(null);
   const [preSendRunning, setPreSendRunning] = useState(false);
   const [preSendError, setPreSendError] = useState("");
@@ -1026,6 +1027,9 @@ export function Board() {
     () => (data?.bills ?? []).filter((b) => b.status === "draft"),
     [data],
   );
+  /** Does the bottom action row carry an Approve button? It needs the role AND a
+   *  loaded month — the check button beside it needs neither. */
+  const showApprove = canApprove && !!data && !loading;
   // Mirrors approveBill() on the bill detail page: a Bill is a payable (draft →
   // pending, "approved for payment"); an Expense is already paid (draft →
   // approved, "record payment").
@@ -2663,18 +2667,6 @@ export function Board() {
         </Banner>
       )}
 
-      {/* The invoice review's checks, on this job, before the invoice goes out.
-          Independent of the board's own loading — it fetches on demand. */}
-      {jobId && (
-        <PreSendCheck
-          jobId={jobId}
-          result={preSend}
-          running={preSendRunning}
-          error={preSendError}
-          onRun={runPreSend}
-        />
-      )}
-
       {loading && <Loading label={c("recode.loading.billsAndBudget")} />}
 
       {/* What this month is worth, and whether JobTread is ready to bill it.
@@ -3432,25 +3424,51 @@ export function Board() {
         </div>
       )}
 
-      {/* Approve, docked at the bottom of the page. It's the last step of the
-          month — you approve the drafts once their coding is settled — so it
-          lives after the bills rather than in the top toolbar. `order-last`
-          drops it below the columns on a phone; disabled while there's staged
-          coding to sync first, or nothing left to approve. */}
-      {canApprove && data && !loading && (
-        <div className="order-last mt-4 border-t border-line pt-4 lg:order-none">
-          <div className="mx-auto flex max-w-2xl items-center justify-end">
+      {/* The month's closing actions, docked at the bottom of the page: check
+          the job, then approve its drafts. Both are last steps — you check what
+          the invoice will say, and you approve the drafts once their coding is
+          settled — so they share one row after the bills rather than sitting up
+          in the toolbar. `order-last` drops the block below the columns on a
+          phone. The check's result card sits directly above the row it was run
+          from, and only once there is a result to show; the check itself is
+          independent of the board's own loading, since it fetches on demand.
+          The check button is lg-only — on a phone the action drawer carries it,
+          so this row holds the full-width Approve button alone, exactly as
+          before. Approve is disabled while there's staged coding to sync first,
+          or nothing left to approve. */}
+      {jobId && (
+        <div
+          className={`order-last mt-4 border-t border-line pt-4 lg:order-none ${
+            // Nothing visible below lg until there's a result or an Approve
+            // button — without this the phone would show a bare divider.
+            showApprove || preSend || preSendError || preSendRunning ? "" : "hidden lg:block"
+          }`}
+        >
+          {(preSend || preSendError || preSendRunning) && (
+            <PreSendCheck result={preSend} error={preSendError} />
+          )}
+          <div className="mx-auto flex max-w-2xl items-center justify-end gap-2">
             <Button
-              onClick={() => {
-                setApproveMsg(null);
-                setApproveOpen(true);
-              }}
-              disabled={draftBills.length === 0 || dirty || syncing || approving}
-              title={dirty ? "Sync staged coding changes to JobTread first" : undefined}
-              className="min-h-11 w-full lg:w-auto"
+              variant="outline"
+              onClick={runPreSend}
+              disabled={preSendRunning}
+              className="hidden min-h-11 lg:inline-flex"
             >
-              Approve Draft Bills{draftBills.length > 0 ? ` (${draftBills.length})` : ""}
+              {preSendRunning ? "Checking…" : preSend ? "Check again" : "Check this job"}
             </Button>
+            {showApprove && (
+              <Button
+                onClick={() => {
+                  setApproveMsg(null);
+                  setApproveOpen(true);
+                }}
+                disabled={draftBills.length === 0 || dirty || syncing || approving}
+                title={dirty ? "Sync staged coding changes to JobTread first" : undefined}
+                className="min-h-11 w-full lg:w-auto"
+              >
+                Approve Draft Bills{draftBills.length > 0 ? ` (${draftBills.length})` : ""}
+              </Button>
+            )}
           </div>
         </div>
       )}
