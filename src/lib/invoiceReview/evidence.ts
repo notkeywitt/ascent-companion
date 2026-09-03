@@ -188,6 +188,9 @@ async function loadMonthBills(
             externalId: {},
             number: {},
             fromName: {},
+            // QuickBooks is the general ledger, and this flag decides whether
+            // the cost ever reaches it. Read here so the qbo-push check has it.
+            qboIsIgnored: {},
             account: { name: {} },
             referencedDocuments: { nodes: { id: {}, type: {} } },
           },
@@ -210,6 +213,9 @@ async function loadMonthBills(
           new Set(invoiceRefs.map((n) => n.id as string).filter((id) => liveInvoiceIds.has(id))),
         ),
         issueDate: issued,
+        // null, not false, when the field is absent: a bill whose flag could
+        // not be read must not be reported as one that WILL push.
+        qboIsIgnored: typeof b.qboIsIgnored === "boolean" ? b.qboIsIgnored : null,
       });
     }
     page = r?.job?.documents?.nextPage || undefined;

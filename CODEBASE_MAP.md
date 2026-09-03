@@ -74,6 +74,8 @@ matching row here.
 | **Is a check any good?** | `GET /api/invoice-review/accuracy` — precision derived in `src/lib/invoiceReview/lifecycle.ts` from what the office did next, not from anyone scoring anything |
 | **Checking one job before its invoice goes out** | the "Before you send" card on `/trackingsheet?jobId=…` → `src/app/trackingsheet/PreSendCheck.tsx` → `GET /api/invoice-review/job` → `src/lib/invoiceReview/preSend.ts` |
 | **The same vendor bill captured twice** | `checks/duplicateDraft.ts` (a draft copying another bill — runs in "Check this job") vs `checks/duplicateBill.ts` (one finalized bill on two client invoices). Different questions; neither sees the other's case |
+| **Who changed this bill / line / time entry** | `src/lib/financialJournal.ts` (the recorder + reader), `src/lib/billJournal.ts` (the bill-header wrapper), page `/journal`, route `/api/journal`, table `financial_events`. Append-only and never trimmed |
+| **A captured cost that never reached QuickBooks** | `checks/qboPush.ts` — QBO is the general ledger, and `qboIsIgnored` turns the push off in one tap. Also runs in "Check this job", which is the useful moment: the fix is one tap before the invoice goes out |
 | **A month's labor total not reconciling** | `checks/laborRate.ts` — runs inside "Check this job". The usual cause is JobTread's rate snapshot: a pay rate changed after the entries were written, so the month keeps the old rate with nothing on screen to say so |
 | **Having Claude chase the findings** | `POST /api/invoice-review/investigate` → `src/lib/invoiceReview/investigate.ts` + `investigateTools.ts`; verdicts stored by `dispositions.ts` and drawn on each finding |
 | **Adding a digest check** | write `src/lib/digest/checks/<id>.ts`, add its config block to `src/lib/digest/settings.ts`, add one line to `src/lib/digest/registry.ts` — the aggregator, the cron route and the UI are untouched |
@@ -117,6 +119,8 @@ including edge middleware.
 | `amazonImport.ts` | Amazon Business monthly CSV → JobTread vendor bills. |
 | `taskRunner.ts` | Tiny background scheduler (keyed serialization + parallelism cap) used by the Tracking Sheet page. |
 | `usage.ts` | Activity tracking (login/view/coding) — the data layer behind Admin → Activity. |
+| `financialJournal.ts` | **THE FINANCIAL JOURNAL** — one append-only record of every write the app makes to a money record. It exists because every JobTread write carries ONE grant key, so JobTread's own history attributes all of it to the API rather than to a person, and a deleted bill line used to leave no trace at all. Four rules, stated in the file: append only (no update, no delete, no sweep — the Apps Script side's `writeAuditLog` trims its oldest 500 rows past 2,000, which is the failure this must not repeat); never break a write (every function swallows its own errors); record failures too (a rejected write is part of the record); and be honest about `before` — `beforeSource` says whether the prior value was read live, reported by the browser, or not captured. The pure half (`valueToText`, `diffFields`, `redactMeta`, `describeEvent`) is unit-tested. |
+| `billJournal.ts` | The journal wrapper for a bill HEADER write — the one copy of "read the prior value, write, record the change, record the failure" that the six single-field bill routes (tax, issue date, vendor bill number, status, the Bill/Expense + QuickBooks flags) share. Rethrows unchanged, so each route keeps its own error response. |
 | `codingDraft.ts` ⟂-ish | **Unsynced Tracking Sheets coding, made durable.** Staged coding is autosaved on every change — localStorage first (the layer that actually catches a killed tab), the companion DB a couple of seconds behind (the layer that follows you to another device) — and offered back on return. `reconcileDraft` is the judgement and the tested part: it re-tests a stored draft against the data that just loaded, dropping anything JobTread has since taken or lost. `listDrafts`/`describeDraft` feed the landing page's unfinished-coding list. It never writes to JobTread; Sync still does that. |
 | `timeEntryDates.ts` ⟂ | The date arithmetic behind the shared time filter — Monday-based `weekStart`, `addDays`, the `W:`/custom-range encoding, and the UTC day labels. Split out of the component because every failure in it is SILENT (a week off by one just shows the wrong hours) and this is where the unit suite can reach it. |
 | `useUnsavedChanges.ts` | React hook guarding navigation away from unsaved edits. Now a reminder rather than the safety net — `codingDraft.ts` is what stops the work being lost. |
@@ -146,6 +150,7 @@ Staged expansion plan: `INVOICE_ACCURACY_PLAN.md`.
 | `checks/draftBills.ts` ⟂ | Bills left in the coding queue when the month closed. JobTread can't pull a draft onto an invoice, so none of it was billed. |
 | `checks/duplicateDraft.ts` ⟂ | **Is a draft bill a second copy of one the job already has?** `duplicate-bill` asks about CLIENT INVOICES and a draft is on none, so it cannot see this; `draft-bills` counts drafts without looking at what they are. Between them a re-ingested bill sits in the coding queue looking like ordinary unfinished work. Matches on same job + vendor + cost to the cent + issue date (the issue date IS the billing period, which is what makes the coincidence implausible), and reports a group only when at least one member is a draft — a draft twinning an approved bill counts too. `amount` is the SURPLUS, not the group total. Built from Kevin Berger / Main House Aug 2026: two drafts, Island Custom Woodworks, $4,163.75 each, nine identical lines, different externalIds so the ingestion guard missed them. |
 | `checks/laborRate.ts` ⟂ | **Is the month's labor costed at the rate it should be?** JobTread SNAPSHOTS the hourly rate onto a time entry when it is written and never re-costs it, so a raise applied today leaves every entry already logged behind — invisibly. Four findings: `stale` (an entry's rate ≠ what that pay type carries on the person's membership now), `split` (one person + pay type at two rates inside one month), `unknown` (the pay type is gone from the membership, so the rate cannot be verified), and `code-spread` (one COST CODE carrying two labor rates — the proxy for the tracking sheets' per-code contract rate, which this side cannot read). The code loop re-prices anything the per-person loop already reported, so one stale rate is never reported again for every code it touched. Skipped, not passed, when the grant can't read per-member pay types. |
+| `checks/qboPush.ts` ⟂ | **Did the cost reach the BOOKS?** The first check that asks about Ascent's own ledger rather than about the client. QuickBooks is the GL: approving a vendor bill is what pushes it there, and `amountPaid` comes back FROM QBO — while `qboIsIgnored` turns the push off in one tap, on the bill page and on the board. So a bill can be captured, coded, invoiced, backed by its PDF and paid with the flag set the whole time: the revenue lands, the cost never does, and the month's profit is overstated by exactly that amount. Two findings: `qbo-not-pushed` (the flag is set) and `qbo-never-approved` (a `pending` bill already on a live client invoice, so only approval is missing). It does NOT claim a push succeeded — JobTread exposes no per-document sync result this app can read — and a `qboIsIgnored` of `null` is SKIPPED, not passed. Overhead jobs are deliberately not skipped: that cost is never billed to a client but it belongs in the books. |
 | `checks/shared.ts` ⟂ | Only what more than one check needs: name-token comparison and the one-to-one backup pairing (`matchBackup`). Anything one check owns stays in that check. |
 | `settings.ts` ⟂ | POLICY, in one editable file: every threshold, and `enabled` per check. A check declares behavior; this declares what it runs with. Severity is deliberately NOT here yet — that's set from evidence in the plan's Stage 3. |
 | `registry.ts` ⟂ | The one list of checks, and the runner. Asserts at load that no two checks share an id or a finding KIND (a kind is half of a suppression identity — two owners would let one ruling silence findings nobody saw). A check that throws is caught, recorded on `evidence.warnings`, and does not take the review down. |
@@ -176,7 +181,9 @@ period/scope rules, the mailbox calibration, the briefing, finding order) and
 `registry.test.ts` (the machinery — policy from settings, a check that is turned
 off, and a check that throws without taking the review down), `norms.test.ts`
 (the vendor-name key, and mostly the SILENCE — every case where a
-pattern-based check must not speak), `margin.test.ts` (the markup checks, and
+pattern-based check must not speak), `qboPush.test.ts` (the QuickBooks handoff, and mostly the bills it must NOT
+report — an unreadable flag, a near-zero item, a pending bill nobody has billed
+yet), `margin.test.ts` (the markup checks, and
 above all the lines they must NOT judge — a no-cost line, a credit, a
 pass-through code) `preSend.test.ts` (the SCOPE RULE — it proves the month-scoped
 checks fire wrongly against single-job evidence, then pins that the gate leaves
@@ -262,7 +269,9 @@ Each page is a server component (`page.tsx`) that hands non-secret context to a
 - **Office:** `employees`, `leads`, `labor-import`, `labor-rates`,
   `time-sync`.
 - **System / admin:** `admin`, `logs`, `historical-cost`, `requests`,
-  `actions`, `changelog` (what each working session changed and what is still
+  `actions`, `journal` (the financial journal — every write the app has made to a bill, a
+    line or a time entry, read-only; admin by default alongside Logs, and
+    grantable per user for a bookkeeper), `changelog` (what each working session changed and what is still
   in flight — reads `src/lib/sessionLog.generated.json`; see "The session
   ledger" below), `course` (the in-app "Reading Your Own App" walkthrough —
   `course/page.tsx` + `course/[seg]` reader; metadata `src/lib/course.ts`,
@@ -301,7 +310,10 @@ Grouped by domain; each folder is `…/route.ts`.
 - **Leads:** `leads/*`.
 - **Assistant / misc:** `chat`, `ocr-serial`, `tracking-sheet`, `vendors`,
   `bank-details`, `notices/*` (the per-user popup feed + dismiss).
-- **Platform:** `auth/[...nextauth]`, `login`, `logs`, `actions`, `usage`,
+- **Platform:** `auth/[...nextauth]`, `login`, `logs`, `journal` (GET only —
+  read the financial journal, filtered by bill, job or person; there is
+  deliberately no POST, because a journal you can amend answers nothing),
+  `actions`, `usage`,
   `usage-track`, `digest` (GET the stored digest — gated by the admin-only
   `digest` view; `digest/run` builds one and is the ONE route listed as PUBLIC
   in middleware, because the daily cron carries no session — it checks a bearer
@@ -360,7 +372,11 @@ has run — the history the learning layer reads), `invoice_review_finding_state
 `coding_drafts` (unsynced Tracking Sheets coding, per user and per scope — the
 cross-device BACKUP for a staged draft; localStorage is the primary),
 `invoice_review_dispositions` (Claude's verdict on each finding — a reading, not
-a ruling). Access via `src/db/index.ts`.
+a ruling),
+`financial_events` (**the financial journal** — every write the app makes to a
+money record: actor from the session, field, before, after, and which of
+read/client/none that before-value is. Append-only, never trimmed; see
+`src/lib/financialJournal.ts`). Access via `src/db/index.ts`.
 
 (`bill_index`/`bill_line_index`/`bill_index_meta` back the `/bill-search` index —
 the searchable snapshot of every bill + line item, plus its refresh/seed

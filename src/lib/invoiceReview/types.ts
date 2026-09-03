@@ -82,7 +82,12 @@ export type FindingKind =
   /** One cost code carries more than one labor rate in the month. */
   | "labor-rate-code-spread"
   /** A draft bill looks like a copy of another bill on the same job. */
-  | "bill-duplicate-draft";
+  | "bill-duplicate-draft"
+  // ── The books: did the cost reach QuickBooks at all? ──────────────────────
+  /** An approved bill is flagged "don't push", so the GL never sees the cost. */
+  | "qbo-not-pushed"
+  /** A bill was billed to the client but never approved, so it never pushed. */
+  | "qbo-never-approved";
 
 /** One thing the review wants a human to look at. */
 export interface Finding {
@@ -237,6 +242,17 @@ export interface BillRef {
   /** The bill's issue date, "YYYY-MM-DD" — in JobTread this IS the billing
    *  period, and it is half of what makes two bills look like the same one. */
   issueDate: string;
+  /**
+   * JobTread's "don't push this to QuickBooks" flag.
+   *
+   * QuickBooks is the general ledger: approving a bill is what pushes it there,
+   * and `amountPaid` comes back from QBO afterwards. A bill with this set true
+   * is captured, coded, invoiced to the client — and never reaches the books.
+   *
+   * `null` when the field could not be read, which is NOT the same as false.
+   * The check skips a null rather than reporting a bill it could not see.
+   */
+  qboIsIgnored: boolean | null;
 }
 
 /** A backup PDF filed in the job's billing folder, as parsed by the Apps Script

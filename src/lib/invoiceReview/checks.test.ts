@@ -45,6 +45,7 @@ function bill(partial: Partial<BillRef> & { id: string; cost: number }): BillRef
     invoiced: true,
     invoiceIds: [],
     issueDate: '2026-07-15',
+    qboIsIgnored: false,
     ...partial,
   };
 }

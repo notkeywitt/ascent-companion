@@ -37,6 +37,7 @@ import { laborRateCheck } from "./checks/laborRate";
 import { mailCaptureCheck } from "./checks/mailCapture";
 import { marginCheck } from "./checks/margin";
 import { markupDriftCheck } from "./checks/markupDrift";
+import { qboPushCheck } from "./checks/qboPush";
 import { uninvoicedCheck } from "./checks/uninvoiced";
 import { vendorSilentCheck } from "./checks/vendorSilent";
 
@@ -48,6 +49,7 @@ const JOB_CHECKS: JobCheck<never>[] = [
   uninvoicedCheck,
   draftBillsCheck,
   laborRateCheck,
+  qboPushCheck,
 ] as unknown as JobCheck<never>[];
 
 /** Once per client invoice. */

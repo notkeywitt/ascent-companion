@@ -46,6 +46,7 @@ import type { LaborRateConfig } from "./checks/laborRate";
 import type { MailCaptureConfig } from "./checks/mailCapture";
 import type { MarginConfig } from "./checks/margin";
 import type { MarkupDriftConfig } from "./checks/markupDrift";
+import type { QboPushConfig } from "./checks/qboPush";
 import type { UninvoicedConfig } from "./checks/uninvoiced";
 import type { VendorSilentConfig } from "./checks/vendorSilent";
 
@@ -71,6 +72,7 @@ export interface InvoiceReviewSettings {
     "vendor-silent": SettingsBlock<VendorSilentConfig>;
     margin: SettingsBlock<MarginConfig>;
     "markup-drift": SettingsBlock<MarkupDriftConfig>;
+    "qbo-push": SettingsBlock<QboPushConfig>;
   };
 }
 
@@ -120,6 +122,24 @@ export const DEFAULT_SETTINGS: InvoiceReviewSettings = {
       },
     },
     "draft-bills": { enabled: true, config: {} },
+    // ── The books ─────────────────────────────────────────────────────────
+    // QuickBooks is the general ledger. Approving a bill is what pushes it
+    // there, and `qboIsIgnored` turns that push off in one tap. A bill can be
+    // captured, coded, invoiced and paid with the flag set the whole time — the
+    // revenue lands and the cost never does. Nothing else in this review looks
+    // at the books, only at the client.
+    "qbo-push": {
+      enabled: true,
+      config: {
+        // A near-zero bill kept out of QuickBooks is housekeeping, not a hole
+        // in the ledger. Raise this if the office excludes small items by habit.
+        minCost: 1,
+        // Only approval pushes, so a pending bill on a live client invoice has
+        // billed the client for a cost the ledger has not taken. Turn this off
+        // if invoicing before approving is deliberate here.
+        reportNeverApproved: true,
+      },
+    },
     // ── Labor rates ───────────────────────────────────────────────────────
     // JobTread snapshots the hourly rate onto a time entry and never re-costs
     // it, so a rate changed today leaves every entry already logged behind.

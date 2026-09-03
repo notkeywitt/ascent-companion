@@ -19,7 +19,7 @@ const CONFIG = DEFAULT_SETTINGS.checks["vendor-silent"].config;
 const GLOBAL = DEFAULT_SETTINGS.global;
 
 function bill(vendor: string, cost = 100): BillRef {
-  return { id: `b-${vendor}`, label: vendor, vendor, cost, status: "approved", invoiced: true, invoiceIds: [], issueDate: "2026-07-15" };
+  return { id: `b-${vendor}`, label: vendor, vendor, cost, status: "approved", invoiced: true, invoiceIds: [], issueDate: "2026-07-15", qboIsIgnored: false };
 }
 
 function job(bills: BillRef[]): JobEvidence {
