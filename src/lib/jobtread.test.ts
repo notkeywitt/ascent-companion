@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { getAllBillsForMonth, pave, type PaveConfig } from "./jobtread";
+import { getAllBillsForMonth, getInvoiceReconciliation, pave, type PaveConfig } from "./jobtread";
 
 /**
  * pave()'s retry policy.
@@ -218,5 +218,96 @@ describe("getAllBillsForMonth — a draft invoice leaves a bill uninvoiced", () 
     await getAllBillsForMonth(cfg, 2026, 8);
     const body = String(fetchMock.mock.calls[0][1].body);
     expect(body).toContain('"referencedDocuments":{"nodes":{"type":{},"status":{}}}');
+  });
+});
+
+/**
+ * getInvoiceReconciliation's completeness math — same draft bug, different
+ * function. `resolveLive` treats any non-denied invoice as "live", draft
+ * included, so a bill referencing only a draft invoice counted as invoiced and
+ * the board's "to be invoiced" header (recon.remaining) undercounted by the
+ * bill's whole cost. Reported live on Berger Main House against draft invoice
+ * #12. Fixed WITHOUT touching what counts as "linked" — the `invoices` list
+ * still surfaces a draft (so the office can see it exists, and so the
+ * duplicate-billing check in the invoice review can still catch a bill
+ * duplicated onto one) — only the completeness figures narrow to non-draft.
+ */
+describe("getInvoiceReconciliation — a draft invoice leaves the bill uninvoiced", () => {
+  const stub = (invoiceStatus: string) => {
+    const fetchMock = vi.fn(async (_url: string, init: RequestInit) => {
+      const body = JSON.parse(String(init.body))?.query;
+      // Three sequential queries, in order: vendor bills, time entries,
+      // customer invoices. Route each by its shape rather than call count, so
+      // the test doesn't depend on the paging loop's exact structure.
+      if (body?.job?.documents?.$?.where?.and?.[0]?.[1] === "vendorBill") {
+        return reply(
+          200,
+          okBody({
+            job: {
+              documents: {
+                nextPage: null,
+                nodes: [
+                  {
+                    id: "b1",
+                    cost: 4163.75,
+                    issueDate: "2026-08-31",
+                    status: "pending",
+                    referencedDocuments: { nodes: [{ id: "inv1", type: "customerInvoice", status: invoiceStatus }] },
+                  },
+                ],
+              },
+            },
+          }),
+        );
+      }
+      if (body?.job?.timeEntries) {
+        return reply(200, okBody({ job: { timeEntries: { nextPage: null, nodes: [] } } }));
+      }
+      // customerInvoice documents query
+      return reply(
+        200,
+        okBody({
+          job: {
+            documents: {
+              nextPage: null,
+              nodes: [
+                {
+                  id: "inv1", number: 12, issueDate: null, status: invoiceStatus,
+                  cost: 4163.75, priceWithTax: 4163.75, amountPaid: 0,
+                  referencedDocuments: { nodes: [] },
+                },
+              ],
+            },
+          },
+        }),
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    return fetchMock;
+  };
+
+  it("keeps the bill's cost in uninvoicedBillsCost while its invoice is a draft", async () => {
+    stub("draft");
+    const recon = await getInvoiceReconciliation(cfg, "j1", 2026, 8);
+    expect(recon.uninvoicedBillsCost).toBe(4163.75);
+    expect(recon.invoicedBillsCost).toBe(0);
+    expect(recon.remaining).toBe(4163.75);
+    expect(recon.reconciled).toBe(false);
+  });
+
+  it("still lists the draft invoice — visibility isn't what's wrong", async () => {
+    stub("draft");
+    const recon = await getInvoiceReconciliation(cfg, "j1", 2026, 8);
+    expect(recon.invoices.map((i) => i.id)).toEqual(["inv1"]);
+  });
+
+  it("moves the bill to invoicedBillsCost once the invoice leaves draft", async () => {
+    for (const status of ["pending", "approved"]) {
+      stub(status);
+      const recon = await getInvoiceReconciliation(cfg, "j1", 2026, 8);
+      expect(recon.uninvoicedBillsCost, `status ${status}`).toBe(0);
+      expect(recon.invoicedBillsCost, `status ${status}`).toBe(4163.75);
+      expect(recon.reconciled, `status ${status}`).toBe(true);
+    }
   });
 });

@@ -4142,7 +4142,7 @@ export async function getAllBillsForMonth(
 export interface InvoiceRef {
   id: string;
   number: string; // JT invoice #
-  status: string; // draft | pending | approved (denied invoices are excluded)
+  status: string; // draft | pending | approved (denied invoices are excluded; a draft here has NOT been counted as invoiced — see getInvoiceReconciliation)
   issueDate: string;
   cost: number; // cost basis
   total: number; // priceWithTax (billed amount)
@@ -4170,7 +4170,11 @@ export interface InvoiceReconciliation {
  * Confirmed live (2026-07, `probe-invoices*`): a customer invoice's `cost`
  * equals the sum of the vendor bills it pulled (a JT invariant, so cost-vs-bills
  * is not a useful check); the meaningful verification is whether EVERY finalized
- * bill (and uninvoiced time) for the month is on a LIVE (non-denied) invoice.
+ * bill (and uninvoiced time) for the month is on an invoice that has actually
+ * gone out — non-denied AND non-draft. A DRAFT invoice does not count: it has
+ * not been sent, so the bills on it still need invoicing. See the note at the
+ * partition below for exactly where that distinction applies and where it
+ * deliberately does not.
  *
  * We reconcile from the BILL side — each bill's `referencedDocuments` lists the
  * invoice(s) it sits on with their status (a tiny list, no nested pagination).
@@ -4345,14 +4349,27 @@ export async function getInvoiceReconciliation(
 
   // 4. Partition the month's bills/time into invoiced (on a live invoice, directly
   //    or via a re-issue) vs still uninvoiced, and collect the live invoices hit.
+  //
+  //    "Live" here means non-denied, and DELIBERATELY still includes draft — a
+  //    bill's only invoice being a draft is exactly the case a re-issue chain
+  //    needs to keep pointing at, and evidence.ts's duplicate-billing check
+  //    needs to see a draft to catch a bill duplicated onto it. So `linkedIds`
+  //    (-> the `invoices` list this function returns) counts a draft as linked.
+  //
+  //    The COMPLETENESS math is a narrower question — has this bill actually
+  //    been invoiced — and a draft has not gone out, so it has not. Reported
+  //    live on Berger Main House: a bill referencing only draft invoice #12
+  //    counted as invoiced, `uninvoicedBillsCost` (the board's "to be invoiced"
+  //    figure) undercounted by the bill's whole cost, and `reconciled` came back
+  //    true for a month nothing had actually been sent for.
   const linkedIds = new Set<string>();
   let invoicedBillsCost = 0;
   let uninvoicedBillsCost = 0;
   for (const b of monthBills) {
     const live = liveInvoiceFor(b.invIds);
-    if (live) {
+    if (live) linkedIds.add(live.id);
+    if (live && live.status !== "draft") {
       invoicedBillsCost += b.cost;
-      linkedIds.add(live.id);
     } else {
       uninvoicedBillsCost += b.cost;
     }
@@ -4361,7 +4378,7 @@ export async function getInvoiceReconciliation(
   for (const t of monthTime) {
     const live = liveInvoiceFor(t.invIds);
     if (live) linkedIds.add(live.id);
-    else uninvoicedTimeCost += t.cost;
+    if (!live || live.status === "draft") uninvoicedTimeCost += t.cost;
   }
 
   const invoices: InvoiceRef[] = [...linkedIds]
