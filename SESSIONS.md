@@ -7,10 +7,10 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 ## In flight
 
-| Session | Branch | Last active | Commits | Next step |
-|---|---|---|---|---|
-| [session-progress-tracking](.claude/sessions/2026-09-03-session-progress-tracking.md) | `claude/session-progress-tracking-qtse7l` | 2m ago | 1 | Build a per-session ledger so interrupted work is recoverable |
+_Nothing open._
 
 ## Shipped
 
-_Nothing shipped yet._
+| Session | Shipped | Commits | What it did |
+|---|---|---|---|
+| [session-progress-tracking](.claude/sessions/2026-09-03-session-progress-tracking.md) | 2026-09-03 | 3 | Build a per-session ledger so interrupted work is recoverable |

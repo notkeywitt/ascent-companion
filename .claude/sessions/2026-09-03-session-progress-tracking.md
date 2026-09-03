@@ -2,9 +2,9 @@
 slug: session-progress-tracking
 repo: ascent-companion
 branch: claude/session-progress-tracking-qtse7l
-status: in-progress
+status: shipped
 started: 2026-09-03T04:38:15Z
-updated: 2026-09-03T04:41:34Z
+updated: 2026-09-03T04:41:35Z
 goal: Build a per-session ledger so interrupted work is recoverable
 next: Optional part 4: a /changelog page in the Assistant, fed by a build-time JSON of the session files
 ---
