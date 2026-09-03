@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/session-progress-tracking-qtse7l
 status: shipped
 started: 2026-09-03T04:38:15Z
-updated: 2026-09-03T04:41:35Z
+updated: 2026-09-03T04:43:14Z
 goal: Build a per-session ledger so interrupted work is recoverable
 next: Optional part 4: a /changelog page in the Assistant, fed by a build-time JSON of the session files
 ---
@@ -18,5 +18,7 @@ next: Optional part 4: a /changelog page in the Assistant, fed by a build-time J
   CLAUDE.md, CODEBASE_MAP.md, SESSIONS.md, scripts/session.mjs
 - 2026-09-03 04:41 · `458f45d` companion: let ship commit the ledger without logging itself
   .githooks/post-commit, scripts/ship.sh
+- 2026-09-03 04:43 · `2befcac` companion: make ship's push loop stop retrying a failure that will not change
+  scripts/ship.sh
 
 ## Notes
