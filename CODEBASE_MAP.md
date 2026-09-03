@@ -262,7 +262,9 @@ Each page is a server component (`page.tsx`) that hands non-secret context to a
 - **Office:** `employees`, `leads`, `labor-import`, `labor-rates`,
   `time-sync`.
 - **System / admin:** `admin`, `logs`, `historical-cost`, `requests`,
-  `actions`, `course` (the in-app "Reading Your Own App" walkthrough —
+  `actions`, `changelog` (what each working session changed and what is still
+  in flight — reads `src/lib/sessionLog.generated.json`; see "The session
+  ledger" below), `course` (the in-app "Reading Your Own App" walkthrough —
   `course/page.tsx` + `course/[seg]` reader; metadata `src/lib/course.ts`,
   bodies `course/segments.tsx`, progress `src/lib/useCourseProgress.ts`), plus
   `login`, `privacy` (ungated).
@@ -383,6 +385,8 @@ it was doing. The same six files live in `ascent-appscript`.
 | `.claude/hooks/session-start.sh` | Arms `core.hooksPath` (a fresh CCR clone has it unset), fetches `origin/main`, safe-fast-forwards, reads the ledger into Claude's context. |
 | `.claude/hooks/session-stop.sh` | Stamps `updated`, and asks once for `next:` when the session has commits but no next step. |
 | `SESSIONS.md` | **GENERATED** index over every session file. Do not hand-edit — `ship` regenerates it after the rebase, which is what keeps two sessions from conflicting on it. |
+| `src/lib/sessionLog.generated.json` | **GENERATED** by the same command — the ledger as data. Committed because the deployed bundle can't read `.claude/sessions/`. |
+| `src/app/changelog/page.tsx` | The page over that JSON (view `changelog`, System group). Pure server component; `<details>` does the expansion, so it ships no JavaScript. |
 
 ## The cross-repo boundary
 

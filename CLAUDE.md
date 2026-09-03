@@ -88,8 +88,10 @@ branch's record, so the next session can pick the work up cold. Read
   `node scripts/session.mjs set next "the next concrete step"`.
 - `node scripts/session.mjs note "..."` records a decision or a dead end.
   `set status parked` marks work you are stepping away from unfinished.
-- `SESSIONS.md` is **generated** — `npm run session board -- --write`, or let
-  `ship` do it. Do not hand-edit it.
+- `SESSIONS.md` and `src/lib/sessionLog.generated.json` are both **generated** —
+  `npm run session board -- --write`, or let `ship` do it. Do not hand-edit
+  either. The JSON is what `/changelog` renders; it is committed because the
+  deployed bundle cannot read `.claude/sessions/`.
 - On a fresh clone the `SessionStart` hook arms `core.hooksPath`, fetches
   `origin/main` and reads the ledger into context. Nothing to run by hand.
 

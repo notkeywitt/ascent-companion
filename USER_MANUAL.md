@@ -552,6 +552,19 @@ syncs, ingestion, diagnostics), each with a timestamp, a level (red error / ambe
 an action, and details. Type in the search/level boxes and click **Search** (it searches
 the whole log, not just what's on screen); **Refresh** reloads the latest.
 
+### Changelog — `More ▾ → Changelog`
+
+What changed in this app, newest first, and what is still half-finished. Each row is one
+working session: the headline says what it set out to do, and tapping it opens the list of
+individual changes with dates. A session still in progress shows an **in flight** mark and
+a "Next:" line saying where it stopped — that is the answer to "what was I in the middle
+of" when you come back to a job days later.
+
+The big number at the top counts changes that reached the live app in the last 30 days.
+
+Only pushed work appears. Something being built right now shows up once it ships. The back
+end (the Google Apps Script half) keeps its own record in its own repository.
+
 ---
 
 ## Tips, permissions & troubleshooting

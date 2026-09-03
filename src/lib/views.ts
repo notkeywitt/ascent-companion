@@ -266,6 +266,12 @@ export const VIEWS: ViewDef[] = [
   // the page so a non-admin can't rewrite the UI by calling the route directly.
   { id: "page-copy", label: "Page Text", group: "System", paths: ["/admin/copy", "/api/admin/copy"] },
   { id: "logs", label: "Logs", group: "System", paths: ["/logs"] },
+  // What each working session changed — the session ledger, rendered. Read-only
+  // and self-contained: the data is a generated JSON module imported at build
+  // time, so there is no API route to gate alongside it. Office + admin by
+  // default (not in ADMIN_MENU): it answers "what changed in the app and when",
+  // which is the office's question as much as anyone's.
+  { id: "changelog", label: "Changelog", group: "System", paths: ["/changelog"] },
   // No page of its own — this gates the header's Sync button and the API route
   // behind it, so a non-admin can neither see nor POST the full JT sync.
   { id: "sync", label: "Sync Now", group: "System", paths: ["/api/jt-sync"] },

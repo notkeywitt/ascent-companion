@@ -90,6 +90,7 @@ export const AREAS: Area[] = [
       { label: "Time Sync", href: "/time-sync", desc: "Records not yet in JobTread — retry", view: "time-sync" },
       { label: "Requests", href: "/requests", desc: "Ask for fixes and new features", view: "requests" },
       { label: "Actions", href: "/actions", desc: "Run a script job on demand", view: "actions" },
+      { label: "Changelog", href: "/changelog", desc: "What changed in the app, and what is still unfinished", view: "changelog" },
     ],
   },
   {

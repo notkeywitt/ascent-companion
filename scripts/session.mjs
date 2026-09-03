@@ -72,6 +72,10 @@ if (!ROOT) {
 
 const SESSIONS_DIR = join(ROOT, ".claude", "sessions");
 const BOARD_PATH = join(ROOT, "SESSIONS.md");
+// The same ledger, as data the Assistant's /changelog page imports. Written
+// only in the companion (the repo that HAS a src/lib); the Apps Script repo
+// gets the markdown board and nothing else.
+const JSON_PATH = join(ROOT, "src", "lib", "sessionLog.generated.json");
 const REPO = basename(ROOT);
 
 // This repo's ship command. The companion has npm; the Apps Script repo has no
@@ -348,9 +352,56 @@ function cmdBrief() {
   return out.join("\n");
 }
 
+/**
+ * The commit rows in a session's ## Log, parsed back out.
+ *
+ * The hook writes them, so the shape is ours and this regex is the only place
+ * that has to know it:  `- <date> <time> · \`<sha>\` <subject>` followed by an
+ * optional indented line of file paths.
+ */
+const LOG_ROW = /^- (\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}) · `([0-9a-f]{7})` (.*)$(?:\n {2}(.+))?/gm;
+
+function commits(session) {
+  const out = [];
+  for (const m of session.body.matchAll(LOG_ROW)) {
+    out.push({ date: m[1], time: m[2], sha: m[3], subject: m[4].trim(), files: (m[5] ?? "").trim() });
+  }
+  return out;
+}
+
 /** How many commits this session's log holds. */
 function commitCount(session) {
-  return (session.body.match(/^- \d{4}-\d{2}-\d{2} .+ · `[0-9a-f]{7}`/gm) ?? []).length;
+  return commits(session).length;
+}
+
+/**
+ * The ledger as JSON, for the Assistant's /changelog page.
+ *
+ * Committed rather than built on demand: the deployed app cannot read
+ * `.claude/sessions/` (Next.js only bundles files it can trace), and `ship`
+ * regenerates this right after the rebase — the same moment it regenerates
+ * SESSIONS.md, and for the same reason.
+ */
+function renderJson() {
+  return `${JSON.stringify(
+    {
+      generatedAt: isoNow(),
+      repo: REPO,
+      sessions: readAll().map((s) => ({
+        slug: s.meta.slug ?? s.file.replace(/\.md$/, ""),
+        file: s.file,
+        branch: s.meta.branch ?? "",
+        status: s.meta.status ?? "in-progress",
+        started: s.meta.started ?? "",
+        updated: s.meta.updated ?? "",
+        goal: s.meta.goal ?? "",
+        next: s.meta.next ?? "",
+        commits: commits(s),
+      })),
+    },
+    null,
+    2,
+  )}\n`;
 }
 
 function escapePipes(s) {
@@ -493,6 +544,11 @@ switch (cmd) {
     if (rest.includes("--write")) {
       writeFileSync(BOARD_PATH, md);
       console.log(relative(ROOT, BOARD_PATH));
+      // Only where there is an app to read it.
+      if (existsSync(join(ROOT, "src", "lib"))) {
+        writeFileSync(JSON_PATH, renderJson());
+        console.log(relative(ROOT, JSON_PATH));
+      }
     } else {
       process.stdout.write(md);
     }

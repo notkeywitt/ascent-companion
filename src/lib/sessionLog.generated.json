@@ -1,0 +1,46 @@
+{
+  "generatedAt": "2026-09-03T04:46:54Z",
+  "repo": "ascent-companion",
+  "sessions": [
+    {
+      "slug": "session-progress-tracking",
+      "file": "2026-09-03-session-progress-tracking.md",
+      "branch": "claude/session-progress-tracking-qtse7l",
+      "status": "shipped",
+      "started": "2026-09-03T04:38:15Z",
+      "updated": "2026-09-03T04:43:15Z",
+      "goal": "Build a per-session ledger so interrupted work is recoverable",
+      "next": "Optional part 4: a /changelog page in the Assistant, fed by a build-time JSON of the session files",
+      "commits": [
+        {
+          "date": "2026-09-03",
+          "time": "04:38",
+          "sha": "71aa9f7",
+          "subject": "companion: add the per-session ledger, its hooks, and npm run ship",
+          "files": ".claude/hooks/session-start.sh, .claude/hooks/session-stop.sh, .claude/settings.json, .githooks/post-commit, package.json, scripts/session.mjs, +1 more"
+        },
+        {
+          "date": "2026-09-03",
+          "time": "04:40",
+          "sha": "9d08493",
+          "subject": "companion: document the session ledger and generate SESSIONS.md",
+          "files": "CLAUDE.md, CODEBASE_MAP.md, SESSIONS.md, scripts/session.mjs"
+        },
+        {
+          "date": "2026-09-03",
+          "time": "04:41",
+          "sha": "458f45d",
+          "subject": "companion: let ship commit the ledger without logging itself",
+          "files": ".githooks/post-commit, scripts/ship.sh"
+        },
+        {
+          "date": "2026-09-03",
+          "time": "04:43",
+          "sha": "2befcac",
+          "subject": "companion: make ship's push loop stop retrying a failure that will not change",
+          "files": "scripts/ship.sh"
+        }
+      ]
+    }
+  ]
+}

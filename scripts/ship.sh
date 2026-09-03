@@ -72,16 +72,23 @@ behind=$(git rev-list --count HEAD..origin/main)
 if [ "$behind" != "0" ]; then
   echo "ship: rebasing onto origin/main (+$behind)"
   if ! git rebase origin/main; then
-    # SESSIONS.md is generated from the session files, so a conflict in it is
-    # never a real disagreement — regenerate and carry on. Any other conflict
-    # is a genuine one and stays for a human (or Claude) to resolve.
+    # Both boards are generated from the session files, so a conflict in either
+    # is never a real disagreement — regenerate and carry on. Any other
+    # conflict is genuine and stays for a human (or Claude) to resolve.
     conflicts=$(git diff --name-only --diff-filter=U)
-    if [ "$conflicts" = "SESSIONS.md" ]; then
+    generated_only=1
+    for f in $conflicts; do
+      case "$f" in
+        SESSIONS.md | src/lib/sessionLog.generated.json) ;;
+        *) generated_only=0 ;;
+      esac
+    done
+    if [ -n "$conflicts" ] && [ "$generated_only" = "1" ]; then
       node scripts/session.mjs board --write >/dev/null
-      git add SESSIONS.md
+      git add -- $conflicts
       GIT_EDITOR=true git rebase --continue >/dev/null 2>&1 \
         || { echo "ship: rebase still blocked — resolve it, then run ship again" >&2; exit 1; }
-      echo "ship: regenerated SESSIONS.md through the rebase"
+      echo "ship: regenerated the session boards through the rebase"
     else
       echo "ship: rebase conflict — resolve these, \`git rebase --continue\`, then run ship again:" >&2
       echo "$conflicts" >&2
@@ -96,7 +103,7 @@ if [ -n "$ledger" ]; then
   ledger=$(node scripts/session.mjs path)
 fi
 node scripts/session.mjs board --write >/dev/null
-git add -- SESSIONS.md ${ledger:+"$ledger"}
+git add -- SESSIONS.md src/lib/sessionLog.generated.json ${ledger:+"$ledger"}
 if ! git diff --cached --quiet; then
   SESSION_LEDGER_SKIP=1 git commit -q -m "companion: close session $(basename "${ledger:-session}" .md)"
 fi
