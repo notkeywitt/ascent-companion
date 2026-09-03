@@ -10,7 +10,9 @@ matching row here.
 > `scripts/check-codebase-map.mjs`). It walks both repos and flags any source
 > file, route, or table that's on disk but missing from the map — and any map row
 > whose file is gone. It never rewrites the map: the one-line descriptions are
-> yours to write. Exit 1 on drift, so it fits a pre-commit hook or CI.
+> yours to write. **CI runs it on every push** (`.github/workflows/ci.yml` →
+> "Codebase map"), so drift fails the branch — it is deliberately NOT in
+> `.githooks/pre-push`, where a missing row would block a production fix.
 
 > Companion = the Next.js/Vercel phone UI over JobTread ("Pave" API) plus a small
 > companion DB. The sibling repo `ascent-appscript` is the automated back end
@@ -96,6 +98,8 @@ including edge middleware.
 | `copyService.ts` | Server half of the above: reads `page_copy` overrides. Returns `{}` on any DB failure so copy can never blank a page. |
 | `views.ts` ⟂ | **Single source of truth for role-gated views** — `VIEWS`, `ROLE_VIEWS`, `resolveAllowedViews`, `viewIdForPath`. |
 | `nav.ts` ⟂ | **The launcher's destination list** (`AREAS`) — the one place every gateable view is named. Read by BOTH the home launcher and the header's global search, which is why it's a module rather than living in `page.tsx`. |
+| `navLayout.ts` ⟂ | **The editable admin home launcher, as a document** — menus, the page links inside them, and buttons. Override-only, exactly like `copy.ts`: `AREAS` (`nav.ts`) is the shipped default in code, a `nav_layout` row REPLACES it wholesale, and a missing or invalid row renders the default rather than a broken launcher. Every item keeps its `views.ts` gate id, so role gating is unchanged. |
+| `navLayoutService.ts` | Server half of the above — reads the `nav_layout` row. Returns null on any DB failure, so a custom launcher can never stop Home rendering (mirrors `copyService.ts` beside `copy.ts`). |
 | `preview.ts` ⟂ | **Role preview** — the cookie name + helpers letting an admin view the app AS each role. The layout reads the cookie (honoring it only for a real admin) and hands that role's live view set to the nav, so the launcher/tabs render as that role sees them. Narrows only, never elevates. |
 | `previewClient.ts` | Browser half of the above: `startPreview`/`stopPreview` set/clear the cookie and reload so the server layout re-reads it. |
 | `auth.ts` ⟂ | Shared-password auth helpers (Web Crypto only; works in edge + node). |
@@ -106,6 +110,7 @@ including edge middleware.
 | `leave.ts` ⟂ | PTO/sick accrual math (bi-monthly pay periods). |
 | `leaveService.ts` | Accrual server orchestration: roster + JobTread worked-hours + companion DB. |
 | `leaveFormat.ts` | Leave display formatting helpers. |
+| `leaveImport.ts` ⟂ | The TSheets/QuickBooks balance CSV, parsed and matched to the roster: what each employee's balance SHOULD be, and therefore the signed adjustment that lands the companion ledger on it. Pure, so the matching is unit-testable; the DB half lives in `leaveService.ts`. "Paid Time Off" and "Vacation" are ONE pool, `Sick` is its own. |
 | `leads.ts` | Reads the org's "New Lead" customers out of JobTread (there is no lead object in Pave). |
 | `leadPush.ts` | The ONE write in the leads feature — pushes a logged lead into JobTread as a customer. |
 | `leadInquiry.ts` | Web-inquiry lead parsing/normalization. |
@@ -117,6 +122,7 @@ including edge middleware.
 | `amazonImport.ts` | Amazon Business monthly CSV → JobTread vendor bills. |
 | `taskRunner.ts` | Tiny background scheduler (keyed serialization + parallelism cap) used by the Tracking Sheet page. |
 | `usage.ts` | Activity tracking (login/view/coding) — the data layer behind Admin → Activity. |
+| `safetyTopics.ts` ⟂ | The safety-meeting topic catalog — a year-plus of weekly talks, each carrying its OWN talking points because the lead runs the meeting off an iPad with no signal. Hand-built for a 2-6 person residential crew (the free toolbox-talk lists are commercial work) and season-tagged to local weather. Every WA rule number was read before it was cited; a topic without a verified one carries no `rule`. |
 | `codingDraft.ts` ⟂-ish | **Unsynced Tracking Sheets coding, made durable.** Staged coding is autosaved on every change — localStorage first (the layer that actually catches a killed tab), the companion DB a couple of seconds behind (the layer that follows you to another device) — and offered back on return. `reconcileDraft` is the judgement and the tested part: it re-tests a stored draft against the data that just loaded, dropping anything JobTread has since taken or lost. `listDrafts`/`describeDraft` feed the landing page's unfinished-coding list. It never writes to JobTread; Sync still does that. |
 | `timeEntryDates.ts` ⟂ | The date arithmetic behind the shared time filter — Monday-based `weekStart`, `addDays`, the `W:`/custom-range encoding, and the UTC day labels. Split out of the component because every failure in it is SILENT (a week off by one just shows the wrong hours) and this is where the unit suite can reach it. |
 | `useUnsavedChanges.ts` | React hook guarding navigation away from unsaved edits. Now a reminder rather than the safety net — `codingDraft.ts` is what stops the work being lost. |
@@ -164,6 +170,7 @@ Staged expansion plan: `INVOICE_ACCURACY_PLAN.md`.
 | `investigateModels.ts` ⟂ | Which models the investigation may run on, shared by the page's picker and the route that validates it. An allowlist, because the id comes from the browser and selects the priciest call in the app. Sonnet by default; no Haiku, which strips prior-turn thinking blocks and would break the loop's cache. |
 | `preSend.ts` | **The pre-send gate** — the same checks against ONE job, before its invoice goes out, from the job workbench. Loads evidence for that job only and therefore runs `scopes: ["job","invoice"]`: month-scoped checks are not slow against single-job evidence, they are wrong. Files nothing — a spot check is not a review of the month. |
 | `dispositions.ts` | Stores those verdicts so an expensive pass survives a reload. **A disposition is NOT a ruling** — it changes no number, no severity, and hides nothing. Only the office silences a finding. |
+| `investigations.ts` | The investigation pass's STATUS LINE — one row per month (`invoice_review_investigations`), rewritten in place. It exists so a pass that runs for minutes can be DETACHED (`after()`) and the page can poll a fact in the DB instead of holding a fetch open through a locked phone. Not best-effort, unlike its neighbours: if the row can't be written the run is refused, because the row is how the browser learns the answer. |
 | `instructions.ts` | Standing preferences for how the month is READ OUT, injected into the summary prompt. Cannot hide a finding — that is what a ruling is for — which is what makes them safe to add casually. |
 | `checks/margin.ts` ⟂ | **The check that matters most for cost-plus** — a line that reached a client invoice at cost, or under it. The markup IS the revenue, and nothing else notices: the invoice foots, the bill is captured, the backup is filed, the client pays it. Needs no history. Its whole false-positive risk is lines with NO cost recorded (JobTread holds 0 for a flat-priced line), so it judges only lines with a real cost and price above a floor; `passThroughCodes` in settings.ts is the valve for codes billed at cost on purpose. |
 | `checks/markupDrift.ts` ⟂ | A customer's blended markup this month against their OWN recent median. Ascent charges different markups to different customers, so there is no house rate to check against — this check has no configured version that would work, only a learned one. Month-scoped so a customer with three jobs yields one finding, and it reports both directions (under-billing is the loss; over-billing is what the client notices). |
@@ -191,7 +198,7 @@ Claude Code session. Drive half: `ascent-appscript/ClientInvoiceReview.js`.
 
 The morning report on the home launcher: independent "checks" over the
 calendar, to-dos and inbox, run once a day by a Vercel cron, summarized by ONE
-Gemini call, stored in `daily_digest`, and read (never recomputed) on page load.
+Claude call, stored in `daily_digest`, and read (never recomputed) on page load.
 Every check is READ-ONLY against Gmail, Calendar, the Sheet and JobTread.
 
 **It is a schedule/to-do report, not a billing report** (pivoted 2026-08-31).
@@ -207,10 +214,14 @@ while its checks are off.
 | `settings.ts` ⟂ | **THE one place every knob lives** — categories, the billing cutoff day, vendor/job exclusion lists, thresholds, which calendars to read, and each check's `enabled` flag. Edit here, never inside a check. |
 | `types.ts` ⟂ | The check contract (`DigestCheck`, `CheckContext`, `CheckResult`, `DigestItem`) plus the stored payload shape. Why the feature is extensible: a check knows nothing about scheduling, storage, or rendering. |
 | `registry.ts` | The one list of checks, each bound to its settings block. Adding a check = one import + one line here. |
-| `run.ts` | The aggregator: runs each enabled check in isolation (per-check timeout; a failure becomes one `status:"error"` entry, never a broken digest), makes the single Gemini summary call, stores the result. Knows nothing about any individual check. |
+| `overrides.ts` | The LIVE settings — `DIGEST_SETTINGS` layered with whatever an admin changed from Admin → Digest (`digest_settings_overrides`). A pure merge (`mergeSettings`, unit-tested) split from the DB read, and read FRESH on every run: the caller is a scheduler with no session to bake an override into. |
+| `claude.ts` | The digest's OWN Claude engine — the summary brief and the email-signals extraction. Replaces the Gemini versions in `lib/gemini.ts`, which stay in place for the pipelines still on Gemini (invoice capture, tool-serial OCR). Server-only, own model env var (`ANTHROPIC_MODEL_DIGEST`). ⚠️ Its token ceilings must leave room for THINKING, not just the answer: omitting `thinking` runs adaptive thinking, which draws from `max_tokens` BEFORE any text block, so a ceiling sized for the paragraph returns no text at all — how the summary died on 2026-08-31. |
+| `run.ts` | The aggregator: runs each enabled check in isolation (per-check timeout; a failure becomes one `status:"error"` entry, never a broken digest), makes the single Claude summary call (`claude.ts`), stores the result. Knows nothing about any individual check. |
 | `grouping.ts` ⟂ | Stored results → the categories the screen draws, worst status rolled up. Also `categoryTone`, which separates PRESENTATION from status: a check reporting `ok` with items (the calendar) draws as informational with its count, not as a green "Clear". Pure, so "categories are data, not tabs" is testable. |
 | `store.ts` | Read/write the `daily_digest` row and the `digest_dismissals` rows — the ONLY things this feature writes anywhere. |
 | `dismissals.ts` ⟂ | "This one is handled, stop showing it to me." Pure: builds an item's stable dismissal key (`<checkId>::<item key>`, falling back to the title) and filters a set of results by it — the same code the browser, the aggregator and GET `/api/digest` all use, so a dismissal means one thing. Dismissing never closes a JobTread to-do or touches Gmail; the office's own reminders are the one item a dismissal also marks done, in `digest_todos`. |
+| `instructions.ts` | The owner's STANDING preferences for how the brief is written ("stop telling me about the logo emails"), stored in `digest_instructions` and injected into the summary prompt on every run. Unlike a todo it never finishes — it is memory for Claude, not a note the owner reads back. Read fresh each run, and fail-soft: an unreachable DB means "no instructions", never a dead digest. |
+| `summary.ts` ⟂ | READER for the brief. The brief is one string written in topic blocks (blank-line paragraphs, `- ` bullets) by BOTH writers — the Claude prompt and `run.ts`'s local fallback — so this parses it into blocks the card draws. Deliberately forgiving, because one of the two writers is a language model; kept out of the component so the no-React unit suite can reach it. |
 | `checks/uncapturedBills.ts` | Invoice-looking mail with no matching JobTread bill (sender → vendor account → date/amount window). |
 | `checks/draftBillsPastCutoff.ts` | Draft vendor bills left over from a billing month that already closed. |
 | `checks/reconciliationFlags.ts` | The Expenditure sheet's own `Reconciliation Flags` column, grouped by flag type. Reads the sheet's verdict; never re-derives it. |
@@ -219,6 +230,9 @@ while its checks are off.
 | `checks/jobtreadTodos.ts` | Open JobTread to-dos (`isToDo=true`, `progress` null or `<1`), overdue or due within the window, grouped by assignee. Undated ones are skipped by default — a morning glance, not a backlog dump. Live-confirmed 2026-08-31: 223 to-dos org-wide, 42 open, 7 overdue + 3 due inside 7 days. |
 | `checks/emailSignals.ts` | Appointments and action items *mentioned in* recent inbox email, via ONE Gemini pass. **The only check that sends email BODY text off-site** — every other one reads metadata only. The body is truncated and quote-stripped on the Apps Script side (`digestEmailContent`) before it ever reaches this app, and only the extracted result is kept. |
 | `checks/emailFollowUps.ts` | Inbox threads whose last message came from outside and went unanswered past a business-day threshold. |
+| `checks/crewActivity.ts` | Who worked where yesterday, and who is clocked in right now, from JobTread time entries. ONE check answers both halves; the time-of-day distinction comes entirely from WHEN the scheduler calls it, not from any branching here. Read-only, two bounded queries. |
+| `checks/jobtreadSchedule.ts` | JobTread's own schedule (`isToDo=false`) — dated job work like a site visit, an inspection or an install date, today or soon. The sibling of `jobtread-todos`, filed under Calendar because it is "what's happening when". An item already past its date is skipped rather than flagged: a missed inspection date usually means it moved. |
+| `checks/digestTodos.ts` | The office's own reminders, set through the digest reply box and stored in `digest_todos`. The one check that reads the Companion's OWN database instead of an external source — still read-only here; a todo is only created, snoozed or completed by a parsed reply. |
 
 Items in a category flagged `dismissible` in `settings.ts` (To-Do, Follow-ups)
 carry a Dismiss button on the card. It POSTs `/api/digest/dismiss`, which stores
@@ -324,7 +338,8 @@ Grouped by domain; each folder is `…/route.ts`.
   `PageTitle`, `ThemeToggle`,
   `AscentLogo`, `RefreshButton`/`RefreshProvider`, `SyncNowButton`,
   `AdminActionBar`, `AccessProvider`, `CopyProvider` (editable page text —
-  `useCopy()`), `UsageBeacon`, `PreviewBanner` (the admin's "viewing as {role}"
+  `useCopy()`), `NavLayoutProvider` (the saved admin launcher, handed down by the
+  server layout so Home never flashes the shipped one — `src/lib/navLayout.ts`), `UsageBeacon`, `PreviewBanner` (the admin's "viewing as {role}"
   bar + its "Return to my view" link — see `src/lib/preview.ts`).
 - **JobTread pickers / links:** `JobPicker`, `GlobalJobBar`, `CostCodeSelect`,
   `JtLink`, `LinkPending`, `BillStatusBadge`, `BillingSummary`.
@@ -337,7 +352,11 @@ Grouped by domain; each folder is `…/route.ts`.
   can't drift again; money stays the caller's, since the two pages legitimately
   differ on what a code has left), `Donut`, `SignaturePad`, `QrScanner`, `CopyButton`,
   `Spinner`, `DailyDigest` (the admin morning digest card on Home — renders
-  whatever categories and checks the stored digest carries; no hardcoded tabs).
+  whatever categories and checks the stored digest carries; no hardcoded tabs),
+  `HomeLayoutEditor` (the launcher's Edit mode — arrange, rename, add and delete
+  menus, links and buttons; saves the whole layout as one `nav_layout` row),
+  `SafetyTopicPicker` (browse the `safetyTopics.ts` catalog by search, season or
+  category, one filter at a time, and close on pick — the crew is waiting).
 
 ## `src/db/` — companion DB (Drizzle + libSQL; companion-only data, NOT JobTread)
 
@@ -358,7 +377,18 @@ has run — the history the learning layer reads), `invoice_review_finding_state
 `coding_drafts` (unsynced Tracking Sheets coding, per user and per scope — the
 cross-device BACKUP for a staged draft; localStorage is the primary),
 `invoice_review_dispositions` (Claude's verdict on each finding — a reading, not
-a ruling). Access via `src/db/index.ts`.
+a ruling), `invoice_review_investigations` (one row per month: the investigation
+pass's status line, so a detached run is pollable), `digest_settings_overrides`
+(per-check `enabled`/config changes from Admin → Digest — a partial merge over
+the shipped default, read fresh every run), `digest_instructions` (standing
+preferences injected into the summary prompt on EVERY run — memory for Claude,
+not a note the owner reads back), `digest_ignore_rules` (sender patterns the
+owner told the digest to stop flagging), `digest_replies` (an audit trail of the
+reply box — the raw text and what Claude parsed from it, kept only so a
+confusing parse is debuggable), `leave_import_aliases` (the CSV-line → employee
+mappings a human had to resolve in the balance import, so the next import
+remembers) and `nav_layout` (the saved admin home launcher; no row = the shipped
+`AREAS` default). Access via `src/db/index.ts`.
 
 (`bill_index`/`bill_line_index`/`bill_index_meta` back the `/bill-search` index —
 the searchable snapshot of every bill + line item, plus its refresh/seed

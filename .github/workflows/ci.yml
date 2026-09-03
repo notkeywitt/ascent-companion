@@ -56,3 +56,15 @@ jobs:
       # deploy. Lint blocks the branch, not the ship.
       - name: Lint
         run: npm run lint
+
+      # CODEBASE_MAP.md is the orientation index a new session reads instead of
+      # searching the tree, so a module, route or table missing from it costs
+      # every later session time. The script only REPORTS drift — it never
+      # writes the map, because the one-line descriptions are human prose.
+      #
+      # Last, and not in .githooks/pre-push: a missing doc row must never be
+      # what blocks a production fix pushed from a phone. The appscript half
+      # self-skips here (that repo isn't checked out beside this one on a
+      # runner), so this gate covers the companion map only.
+      - name: Codebase map
+        run: npm run check:map
