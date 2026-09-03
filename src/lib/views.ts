@@ -104,6 +104,18 @@ export const VIEWS: ViewDef[] = [
   // Jobs list + budget, built on the generic /api/pave gateway. Office+admin by
   // default (financial data); not in FIELD/LEAD sets below.
   { id: "jobs", label: "Jobs", group: "Financials", paths: ["/jobs"] },
+  // Clients & Jobs — the JobTread customer/job DIRECTORY, and the one page that
+  // edits those records rather than reporting on them. The /api/clients prefix
+  // rides the same gate as the page: those routes read every customer in the org
+  // and write to a job, a customer, a contact or a site, so a role without the
+  // view must not reach them by calling the route directly. Office + admin by
+  // default, like the rest of Financials.
+  {
+    id: "clients",
+    label: "Clients & Jobs",
+    group: "Financials",
+    paths: ["/clients", "/api/clients"],
+  },
   // RETIRED 2026-08-10 alongside "coding": the standalone Invoicing page is now
   // the "This month" tab of Tracking Sheets. Unlinked but still reachable by
   // URL, so the gate stays. NOTE the /api/stage routes are deliberately NOT

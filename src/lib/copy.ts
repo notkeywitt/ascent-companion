@@ -145,6 +145,16 @@ export const COPY: Record<string, CopyEntry> = {
     label: "Sunset Statements — description",
     group: "Home — Financials",
   },
+  "home.dest.clients.label": {
+    text: "Clients & Jobs",
+    label: "Clients & Jobs — name",
+    group: "Home — Financials",
+  },
+  "home.dest.clients.desc": {
+    text: "Every customer and job in JobTread — edit the record",
+    label: "Clients & Jobs — description",
+    group: "Home — Financials",
+  },
   "home.dest.vendors.label": { text: "Vendors", label: "Vendors — name", group: "Home — Financials" },
   "home.dest.vendors.desc": {
     text: "Search a vendor's bills — job, date, amount",

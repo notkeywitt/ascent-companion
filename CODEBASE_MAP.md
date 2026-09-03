@@ -38,6 +38,8 @@ matching row here.
 | To work on… | Start in |
 |---|---|
 | A **new read-only page** over JobTread | copy `src/app/jobs/` (`page.tsx` → `JobsBrowser.tsx`), compose query per `JT_API_REFERENCE.md`, call `gatewayQuery` (`src/lib/paveGatewayClient.ts`) |
+| **A customer's or job's JobTread RECORD** (name, number, phase, address, contact, price type) | `src/lib/clientDirectory.ts` (reads + the write allowlist) → routes `src/app/api/clients/*` → page `src/app/clients/`. Editing lives HERE; `/jobs` reports a job's cost and changes nothing |
+| **A job's invoice capture email tag** (the `_JT Invoice <Customer> - <Job>` Gmail label) | button on `src/app/clients/` → `src/app/clients/InvoiceTagCard.tsx` → `/api/clients/invoice-tag` → appscript `EmailToJtInvoice.js` (`listInvoiceTags`/`createInvoiceTag`). The label TEXT is always composed on the Apps Script side |
 | **Gating / who sees what** | `src/lib/views.ts` (the single source of truth: `VIEWS`, `ROLE_VIEWS`), enforced by `src/middleware.ts` |
 | **Nav / launcher / tabs** | `src/lib/nav.ts` (`AREAS` — the destination list), `src/app/page.tsx` (renders it), `src/components/TabBar.tsx` |
 | **The global search box** | `src/components/GlobalSearch.tsx` (in `AppHeader`, under the job picker) — matches pages via `src/lib/nav.ts`, vendors via `/api/vendors`, bills/line items via `/api/bill-search` |
@@ -111,6 +113,7 @@ including edge middleware.
 | `leaveService.ts` | Accrual server orchestration: roster + JobTread worked-hours + companion DB. |
 | `leaveFormat.ts` | Leave display formatting helpers. |
 | `leads.ts` | Reads the org's "New Lead" customers out of JobTread (there is no lead object in Pave). |
+| `clientDirectory.ts` | **The customer/job directory, and the only write path onto those records.** Reads are two-phase because they must be: `jobs` nested inside a paged `organization.accounts` returns 413, so it pages the two flat connections and joins on `job.location.account.id`; custom-field VALUES are the same trap, so the list carries Phase and Status read per FIELD and the rest per record. Writes are an ALLOWLIST (`JOB_WRITABLE` and its three siblings) — everything else JobTread exposes stays read-only, and two kinds are held back on purpose: `defaultRetainagePercentage` (a bare unbounded "number" — the unit is stated nowhere) and `customTaxRate` (bounds ARE stated; it is withheld because it decides what a client is taxed), plus MULTI-VALUE custom fields, whose array-replace behaviour is unprobed. `updateAccount` always sends `notify:false` — it defaults to TRUE, and fixing a spelling must not mail the customer. Every write re-reads the record, because `update*` returns a bare `root` and because a location's tidied address/city/state/ZIP are derived from what was typed. |
 | `leadPush.ts` | The ONE write in the leads feature — pushes a logged lead into JobTread as a customer. |
 | `leadInquiry.ts` | Web-inquiry lead parsing/normalization. |
 | `timeSync.ts` | Worked-time reconciliation/retry — surfaces records saved to the sheet but not yet in JobTread. |
@@ -257,7 +260,8 @@ Each page is a server component (`page.tsx`) that hands non-secret context to a
   DraftQueue, DraftWorkbench, AllJobs, Roster), `bill/[docId]`, `add-bill`,
   `coding` (retired), `stage` (retired), `labor-review`, `invoice-review`
   (a month's client invoices checked against the bills and the Drive backup),
-  `jobs`, `unbilled`, `ar-aging` (Receivables — unpaid
+  `jobs`, `clients` (Clients & Jobs — the customer/job directory, and the one
+  page that EDITS a JobTread record), `unbilled`, `ar-aging` (Receivables — unpaid
   client invoices, aged),
   `vendors`, `bill-search` (fast full-text search over every bill + line item,
   live JobTread plus seeded pre-JobTread history), `email`, `needs-review` (the
@@ -292,7 +296,13 @@ Grouped by domain; each folder is `…/route.ts`.
 - **JobTread access:** `pave` (the guarded generic gateway), `jt-sync`,
   `jt-users`, `jobs/*`, `job-budget`, `unbilled`, `historical-cost`,
   `bill-search` (query the local bill/line index; `bill-search/refresh` sweeps
-  JobTread into it, `bill-search/seed` imports the pre-JobTread sheet history).
+  JobTread into it, `bill-search/seed` imports the pre-JobTread sheet history),
+  `clients` (the whole customer/job directory — uncached on purpose, since the
+  page that reads it is the page that edits it), `clients/customer`,
+  `clients/job`, `clients/update` (the ONE write onto a job / customer /
+  contact / location — allowlisted, journalled with its prior value, and behind
+  `writesEnabled()`), `clients/invoice-tag` (the Gmail capture label, via Apps
+  Script).
 - **Bills / coding:** `bill/*`, `add-bill`, `add-line`, `delete-line`,
   `combine-lines`, `code`, `coding-queue`, `trackingsheet/*`, `bill-status`,
   `bill-fields`, `bill-issuedate`, `bill-number` (the vendor's own invoice
