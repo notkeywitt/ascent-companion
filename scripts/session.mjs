@@ -74,6 +74,10 @@ const SESSIONS_DIR = join(ROOT, ".claude", "sessions");
 const BOARD_PATH = join(ROOT, "SESSIONS.md");
 const REPO = basename(ROOT);
 
+// This repo's ship command. The companion has npm; the Apps Script repo has no
+// package.json, so there the script is called directly. Same file, both repos.
+const SHIP = existsSync(join(ROOT, "package.json")) ? "npm run ship" : "./scripts/ship.sh";
+
 /** The branch we are on, or "" in a detached HEAD (where a session makes no sense). */
 function currentBranch() {
   const b = git(["rev-parse", "--abbrev-ref", "HEAD"]);
@@ -312,7 +316,7 @@ function cmdBrief() {
   out.push(`repo: ${REPO} · branch: ${branch || "(detached HEAD)"}`);
   out.push(
     `git: ${ahead} commit(s) not on origin/main, ${behind} commit(s) on origin/main not here` +
-      (behind > 0 ? " — `npm run ship` rebases before it pushes" : ""),
+      (behind > 0 ? ` — \`${SHIP}\` rebases before it pushes` : ""),
   );
 
   if (session) {
@@ -339,7 +343,7 @@ function cmdBrief() {
   out.push("keep it current:");
   out.push("  · commits log themselves (.githooks/post-commit) — do not hand-write log rows");
   out.push('  · before you stop: node scripts/session.mjs set next "the next concrete step"');
-  out.push("  · to ship: npm run ship — fetches, rebases onto origin/main, verifies, pushes to main");
+  out.push(`  · to ship: ${SHIP} — fetches, rebases onto origin/main, verifies, pushes to main`);
   out.push("</session-ledger>");
   return out.join("\n");
 }

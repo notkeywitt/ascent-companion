@@ -30,6 +30,7 @@ matching row here.
 | How to deploy / env vars / Vercel | `DEPLOY.md` |
 | **Where a given file/feature lives (this doc)** | `CODEBASE_MAP.md` |
 | A guided course through the whole system, for the owner | `docs/course/README.md` |
+| What each session did and where it stopped | `SESSIONS.md` (generated index) → `.claude/sessions/*.md` |
 | Session-to-session handoff notes | `HANDOFF.md` — **do NOT read unless asked** |
 
 ## Task → where to look
@@ -367,6 +368,21 @@ bookkeeping; the FTS5 `bill_fts` virtual table over them lives only in
 (`notices`/`notice_reads` back the global popup feed — a notice is dismissed
 per-user and stays gone; `lead_inquiry_dismissals` hides a web-form inquiry from
 the leads board without deleting it.)
+
+## The session ledger — what each session did
+
+Not application code. It exists because work here is sporadic and interrupted,
+and a session that stops mid-thought used to leave nothing on disk saying what
+it was doing. The same six files live in `ascent-appscript`.
+
+| File | Role |
+|---|---|
+| `scripts/session.mjs` | The ledger CLI: `start`, `log`, `set`, `note`, `brief`, `board`. One file per session under `.claude/sessions/`, keyed to the branch. Dependency-free. |
+| `scripts/ship.sh` | Ends a session (`npm run ship`): commits the ledger, rebases onto `origin/main`, pushes `HEAD:main`. The pre-push hook still runs typecheck + build. |
+| `.githooks/post-commit` | Appends each commit to the session file and stages it. Skips mid-rebase/merge/cherry-pick, and never fails a commit. |
+| `.claude/hooks/session-start.sh` | Arms `core.hooksPath` (a fresh CCR clone has it unset), fetches `origin/main`, safe-fast-forwards, reads the ledger into Claude's context. |
+| `.claude/hooks/session-stop.sh` | Stamps `updated`, and asks once for `next:` when the session has commits but no next step. |
+| `SESSIONS.md` | **GENERATED** index over every session file. Do not hand-edit — `ship` regenerates it after the rebase, which is what keeps two sessions from conflicting on it. |
 
 ## The cross-repo boundary
 

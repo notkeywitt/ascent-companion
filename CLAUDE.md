@@ -70,6 +70,29 @@ that is already on `origin`.
   prefixed `companion:` — e.g. `companion: add jobs budget view`. End it with a
   `Co-Authored-By:` trailer naming the model in use.
 
+**Use `npm run ship` to finish a session.** It commits the session ledger,
+fetches, rebases onto `origin/main`, then pushes `HEAD:main` — the pre-push hook
+still runs typecheck and build. Rebasing before the push is what stops a stale
+branch turning into a push conflict; `main` moves dozens of commits a day.
+
+## Where you left off — the session ledger
+
+Work here is interrupted often. `.claude/sessions/<date>-<slug>.md` is this
+branch's record, so the next session can pick the work up cold. Read
+`SESSIONS.md` for the index over every session.
+
+- **The log writes itself.** `.githooks/post-commit` appends each commit and
+  stages the file. Never hand-write a row under `## Log`.
+- **Set `next:` before you stop.** It is the one field a machine cannot fill,
+  and the one that answers "what was I in the middle of":
+  `node scripts/session.mjs set next "the next concrete step"`.
+- `node scripts/session.mjs note "..."` records a decision or a dead end.
+  `set status parked` marks work you are stepping away from unfinished.
+- `SESSIONS.md` is **generated** — `npm run session board -- --write`, or let
+  `ship` do it. Do not hand-edit it.
+- On a fresh clone the `SessionStart` hook arms `core.hooksPath`, fetches
+  `origin/main` and reads the ledger into context. Nothing to run by hand.
+
 ## Stack & where things live
 
 - **Pages / routes:** `src/app/**` (App Router). A page is `src/app/<route>/page.tsx`.
