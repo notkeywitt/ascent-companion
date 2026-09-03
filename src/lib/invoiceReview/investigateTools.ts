@@ -26,7 +26,7 @@
  */
 import { getBillDetail, type PaveConfig } from "@/lib/jobtread";
 
-import { cents, type Finding, type ReviewPayload } from "./types";
+import { cents, withinTolerance, type Finding, type ReviewPayload } from "./types";
 
 export interface InvestigateToolDef {
   name: string;
@@ -144,7 +144,7 @@ export function searchBackupByAmount(payload: ReviewPayload, amount: number, tol
   for (const job of payload.evidence.jobs) {
     for (const f of job.folder?.files ?? []) {
       if (!f.parsed) continue;
-      if (Math.abs(cents(Math.abs(f.amount)) - want) > tolerance) continue;
+      if (!withinTolerance(Math.abs(f.amount), want, tolerance)) continue;
       hits.push({
         fileName: f.name,
         amount: f.amount,

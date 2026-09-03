@@ -92,8 +92,19 @@ export const invoiceMathCheck = defineInvoiceCheck<InvoiceMathConfig>({
     }
 
     // ── Balance: what's still owed must be the total less what's been paid.
+    //
+    // DRAFTS ARE EXEMPT. JobTread holds `balance: 0` on every draft invoice no
+    // matter what it totals — probe-confirmed 2026-09-03 across the org: five
+    // drafts from $773.37 to $20,664.06, every one with `balance: 0`, including
+    // one carrying an issue date. Nothing is owed on a document that was never
+    // issued, so JobTread does not compute a balance for it. On every non-draft
+    // the identity holds exactly, paid or unpaid.
+    //
+    // Without this the check fired on each draft in the month and reported the
+    // whole invoice total as a reconciliation gap — an alarming number, and an
+    // invented one.
     const balGap = cents(cents(inv.priceWithTax) - cents(inv.amountPaid) - cents(inv.balance));
-    if (Math.abs(balGap) > TOL) {
+    if (inv.status !== "draft" && Math.abs(balGap) > TOL) {
       out.push({
         ...base,
         key: findingKey("math-balance", job.jobId, inv.id),

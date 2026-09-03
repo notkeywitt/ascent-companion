@@ -8,7 +8,7 @@
  *
  * Pure. Nothing here fetches, writes, or reads a clock.
  */
-import { cents, type BackupFile, type BillRef } from "../types";
+import { cents, withinTolerance, type BackupFile, type BillRef } from "../types";
 
 /** Words that carry no identity in a vendor name, so they must not create a match. */
 const NOISE_TOKENS = new Set([
@@ -86,9 +86,11 @@ export interface BackupMatch {
 export function matchBackup(
   bills: BillRef[],
   files: BackupFile[],
-  /** Below this, two amounts are the same amount. The configured value is
+  /** At or below this, two amounts are the same amount. The configured value is
    *  `tolerance` in settings.ts; the default here matches it so the function
-   *  stays callable on its own (it is unit-tested directly). */
+   *  stays callable on its own (it is unit-tested directly). Compared in whole
+   *  cents by `withinTolerance` — a bill and its backup filename round in a
+   *  different ORDER and legitimately land a cent apart. */
   tolerance = 0.01,
 ): BackupMatch {
   const parsed = files.filter((f) => f.parsed);
@@ -103,7 +105,7 @@ export function matchBackup(
     let bestScore = -1;
     for (const f of parsed) {
       if (taken.has(f.id)) continue;
-      if (Math.abs(cents(f.amount) - want) > tolerance) continue;
+      if (!withinTolerance(f.amount, want, tolerance)) continue;
       const score = overlap(f.tail, bill.vendor || bill.label);
       if (score > bestScore) {
         best = f;

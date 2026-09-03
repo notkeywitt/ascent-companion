@@ -544,6 +544,28 @@ export function cents(n: number): number {
   return Math.round((Number(n) || 0) * 100) / 100;
 }
 
+/**
+ * Are two amounts the same amount, within a dollar `tolerance`?
+ *
+ * The comparison runs in WHOLE CENTS on purpose. `cents()` rounds to two
+ * decimals but stays in dollars, and subtracting two such values reintroduces
+ * the drift it just removed: `4163.75 - 4163.74` is `0.010000000000218279`,
+ * which is greater than a `0.01` tolerance. Written as `> tolerance`, that
+ * rejected a genuine one-cent difference for ~11% of all one-cent-apart
+ * amounts — including a Berger backup PDF that was filed, and that the review
+ * then reported as never filed.
+ *
+ * And a one-cent gap between a bill and its backup is not noise, it is a
+ * rounding ORDER difference that recurs: JobTread rounds each bill line to
+ * cents and sums those, while the Drive backup filename sums quantity x rate at
+ * full precision and rounds once at the end. Both are right. They land a cent
+ * apart whenever a line has a sub-cent remainder.
+ */
+export function withinTolerance(a: number, b: number, tolerance: number): boolean {
+  const whole = (n: number) => Math.round((Number(n) || 0) * 100);
+  return Math.abs(whole(a) - whole(b)) <= Math.abs(whole(tolerance));
+}
+
 /** Dollars, for a finding's text. */
 export function money(n: number): string {
   return (n < 0 ? "-$" : "$") + Math.abs(cents(n)).toLocaleString("en-US", {

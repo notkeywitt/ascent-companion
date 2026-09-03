@@ -206,6 +206,34 @@ describe("matchBackup", () => {
     expect(r.matched.get("b1")?.id).toBe("f1");
   });
 
+  it("pairs a bill with a backup filed one cent apart", () => {
+    // Berger Main House, August 2026 billing: Island Custom Woodworks bill #10
+    // is $4,163.75 in JobTread and the filed PDF is named "... - $4163.74 - ...".
+    // Neither side is wrong — JobTread rounds each bill line to cents and sums
+    // those, the filename sums quantity x rate at full precision and rounds
+    // once — and the tolerance exists to absorb exactly this. It did not, because
+    // 4163.75 - 4163.74 is 0.010000000000218279 in floating point, which is
+    // greater than a 0.01 tolerance. The review called a filed PDF unfiled.
+    const r = matchBackup(
+      [bill({ id: "b1", cost: 4163.75, vendor: "Island Custom Woodworks" })],
+      [file({ id: "f1", amount: 4163.74, tail: "Island Custom Woodworks Kevin Berger Pushed to JT" })],
+    );
+    expect(r.unmatchedBills).toHaveLength(0);
+    expect(r.unmatchedFiles).toHaveLength(0);
+    expect(r.matched.get("b1")?.id).toBe("f1");
+  });
+
+  it("still separates amounts more than a cent apart", () => {
+    // The tolerance absorbs a rounding cent, not a real difference. Two cents is
+    // a different number and must stay unmatched, or the check stops checking.
+    const r = matchBackup(
+      [bill({ id: "b1", cost: 4163.75, vendor: "Island Custom Woodworks" })],
+      [file({ id: "f1", amount: 4163.73, tail: "Island Custom Woodworks Kevin Berger Pushed to JT" })],
+    );
+    expect(r.unmatchedBills.map((b) => b.id)).toEqual(["b1"]);
+    expect(r.unmatchedFiles.map((f) => f.id)).toEqual(["f1"]);
+  });
+
   it("reports a bill with no PDF and a PDF with no bill separately", () => {
     const r = matchBackup([bill({ id: "b1", cost: 100 })], [file({ id: "f1", amount: 250 })]);
     expect(r.unmatchedBills.map((b) => b.id)).toEqual(["b1"]);
@@ -352,6 +380,49 @@ describe("math", () => {
       month([
         job({
           invoices: [invoice({ id: "i1", price: 1000, priceWithTax: 1000, amountPaid: 400, balance: 500 })],
+        }),
+      ]),
+    );
+    expect(kinds(f)).toContain("math-balance");
+  });
+
+  it("does not flag a draft invoice's balance — JobTread holds 0 on every draft", () => {
+    // Berger Main House invoice #12: a draft totalling $8,610.42 with
+    // `balance: 0`, which is what JobTread stores on EVERY draft regardless of
+    // total (probe-confirmed org-wide 2026-09-03). Nothing is owed on a
+    // document that was never issued. The check used to read that 0 as a gap and
+    // report the entire invoice total as unreconciled.
+    const f = runChecks(
+      month([
+        job({
+          invoices: [
+            invoice({
+              id: "i1", status: "draft", issueDate: "",
+              price: 7946.86, tax: 663.56, priceWithTax: 8610.42,
+              amountPaid: 0, balance: 0,
+            }),
+          ],
+        }),
+      ]),
+    );
+    expect(kinds(f)).not.toContain("math-balance");
+    // The other three sums still run on a draft — only the balance is exempt.
+    expect(kinds(f)).not.toContain("math-tax");
+  });
+
+  it("still flags a non-draft invoice whose balance reads zero while unpaid", () => {
+    // The exemption is keyed to draft status alone. An ISSUED invoice with a
+    // zero balance and nothing paid is a real problem and must survive.
+    const f = runChecks(
+      month([
+        job({
+          invoices: [
+            invoice({
+              id: "i1", status: "pending",
+              price: 7946.86, tax: 663.56, priceWithTax: 8610.42,
+              amountPaid: 0, balance: 0,
+            }),
+          ],
         }),
       ]),
     );
