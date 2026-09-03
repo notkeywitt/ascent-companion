@@ -20,6 +20,7 @@ import type {
   InvoiceEvidence,
   InvoiceLine,
   JobEvidence,
+  LaborEntryRef,
   MonthEvidence,
   ReviewPayload,
 } from "./types";
@@ -37,6 +38,19 @@ function file(partial: Partial<BackupFile> & { id: string; amount: number }): Ba
   };
 }
 
+function labor(partial: Partial<LaborEntryRef> & { id: string; cost: number }): LaborEntryRef {
+  return {
+    employee: "Ty O'Steen",
+    payType: "Regular Pay",
+    rate: 85,
+    hours: partial.cost / 85,
+    code: "01 31 10",
+    day: "2026-08-15",
+    invoiceIds: [],
+    ...partial,
+  };
+}
+
 function bill(partial: Partial<BillRef> & { id: string; cost: number }): BillRef {
   return {
     label: partial.id,
@@ -44,6 +58,7 @@ function bill(partial: Partial<BillRef> & { id: string; cost: number }): BillRef
     status: "approved",
     invoiced: true,
     invoiceIds: [],
+    sentInvoiceIds: [],
     issueDate: '2026-07-15',
     lineCount: 1,
     qboIsIgnored: false,
@@ -567,6 +582,54 @@ describe("period & scope", () => {
             bill({ id: "b1", cost: 400, invoiceIds: ["i1"], invoiced: true }),
             bill({ id: "b2", cost: 300, invoiced: false }),
           ],
+        }),
+      ]),
+    );
+    expect(kinds(f)).not.toContain("math-cost-basis");
+  });
+
+  it("explains an invoice's cost with time entries, not just bills", () => {
+    // Berger Main House, August 2026: invoice #12 totalled $6,735 against one
+    // $4,163.75 bill and 20 time entries worth $2,571.25. Comparing bills alone
+    // called the $2,571.25 "cost from outside the month" and blamed bills that
+    // did not exist — it was labor, on this invoice, this month.
+    const f = runChecks(
+      month([
+        job({
+          invoices: [invoice({ id: "i1", cost: 6735, price: 6735, priceWithTax: 6735 })],
+          bills: [bill({ id: "b1", cost: 4163.75, invoiceIds: ["i1"], invoiced: true })],
+          labor: [labor({ id: "t1", cost: 2571.25, invoiceIds: ["i1"] })],
+        }),
+      ]),
+    );
+    expect(kinds(f)).not.toContain("math-cost-basis");
+  });
+
+  it("still flags a real gap once bills and time are both counted", () => {
+    const f = runChecks(
+      month([
+        job({
+          invoices: [invoice({ id: "i1", cost: 1000, price: 1000, priceWithTax: 1000 })],
+          bills: [bill({ id: "b1", cost: 400, invoiceIds: ["i1"], invoiced: true })],
+          labor: [labor({ id: "t1", cost: 200, invoiceIds: ["i1"] })],
+        }),
+      ]),
+    );
+    const finding = f.find((x) => x.kind === "math-cost-basis");
+    expect(finding).toBeTruthy();
+    expect(finding?.amount).toBe(400);
+    expect(finding?.detail).toContain("1 bill and 1 time entry");
+  });
+
+  it("does not skip a time-only invoice — no bills is not 'nothing to compare'", () => {
+    // The short-circuit used to be `!onThisInvoice.length` alone, which bailed
+    // before a time-only invoice's time entries ever got a chance to explain
+    // the cost — the exact shape a pure-labor invoice takes.
+    const f = runChecks(
+      month([
+        job({
+          invoices: [invoice({ id: "i1", cost: 500, price: 500, priceWithTax: 500 })],
+          labor: [labor({ id: "t1", cost: 500, invoiceIds: ["i1"] })],
         }),
       ]),
     );

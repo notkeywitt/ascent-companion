@@ -17,7 +17,7 @@ import { findingKey } from "./types";
 import type { BillRef, InvoiceEvidence, JobEvidence, MonthEvidence, ReviewNorms } from "./types";
 
 function bill(partial: Partial<BillRef> & { id: string; cost: number }): BillRef {
-  return { label: partial.id, vendor: "Sunset Builders Supply", status: "approved", invoiced: true, invoiceIds: [], issueDate: '2026-07-15', lineCount: 1, qboIsIgnored: false, ...partial };
+  return { label: partial.id, vendor: "Sunset Builders Supply", status: "approved", invoiced: true, invoiceIds: [], sentInvoiceIds: [], issueDate: '2026-07-15', lineCount: 1, qboIsIgnored: false, ...partial };
 }
 
 function invoice(partial: Partial<InvoiceEvidence> & { id: string }): InvoiceEvidence {

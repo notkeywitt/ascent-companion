@@ -1911,6 +1911,15 @@ export interface MonthTimeEntry {
    * looked up live, when explaining a cost.
    */
   hourlyRate: number;
+  /**
+   * The non-denied customerInvoice ids this entry references (any status,
+   * draft included) — the SAME "linked" question `referencedDocuments`
+   * answers for a vendor bill, kept as raw ids rather than resolved so a
+   * caller decides for itself what "invoiced" means for its own purpose (a
+   * draft counts for some questions and not others — see
+   * `invoiceReview/evidence.ts`).
+   */
+  invoiceIds: string[];
 }
 
 /**
@@ -1943,7 +1952,10 @@ export async function getJobTimeEntriesForMonth(
     const nodes: any[] = [];
     let cursor: string | null = null;
     for (let page = 0; page < 30; page++) {
-      const args: Record<string, unknown> = { size: 100, ...(where ? { where } : {}) };
+      // 50, not 100: referencedDocuments nested in a paged timeEntries
+      // connection 413s at 100 (probed 2026-09-03, same rule getUninvoicedBills
+      // and getInvoiceReconciliation already follow for this connection).
+      const args: Record<string, unknown> = { size: 50, ...(where ? { where } : {}) };
       if (cursor) args.page = cursor;
       const r = await pave(cfg, {
         job: {
@@ -1964,6 +1976,7 @@ export async function getJobTimeEntriesForMonth(
               type: {},
               user: { name: {} },
               costItem: { id: {}, costCode: { number: {}, name: {} } },
+              referencedDocuments: { nodes: { id: {}, type: {}, status: {} } },
             },
           },
         },
@@ -2005,6 +2018,9 @@ export async function getJobTimeEntriesForMonth(
       endedAt: n.endedAt ?? null,
       minutes: typeof n?.minutes === "number" ? n.minutes : 0,
       hourlyRate: typeof n?.hourlyRate === "number" ? n.hourlyRate : 0,
+      invoiceIds: ((n?.referencedDocuments?.nodes ?? []) as any[])
+        .filter((ref) => ref?.type === "customerInvoice" && ref?.status !== "denied" && ref?.id)
+        .map((ref) => ref.id as string),
     }))
     .sort((a, b) => String(b.startedAt ?? "").localeCompare(String(a.startedAt ?? "")));
 }
@@ -2146,6 +2162,11 @@ export async function getOrgTimeEntriesForMonth(
         endedAt: n.endedAt ?? null,
         minutes: typeof n?.minutes === "number" ? n.minutes : 0,
         hourlyRate: typeof n?.hourlyRate === "number" ? n.hourlyRate : 0,
+        // Not read for the Labor Report — this query doesn't select
+        // referencedDocuments (an org-wide connection is the wrong place to
+        // add a second paged connection nested inside it), so this stays
+        // empty rather than silently wrong.
+        invoiceIds: [] as string[],
         jobId: n?.job?.id ?? "",
         jobName: job?.name ?? "",
         customer: job?.customer ?? "",

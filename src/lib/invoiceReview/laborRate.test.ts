@@ -22,6 +22,7 @@ function entry(over: Partial<LaborEntryRef> = {}): LaborEntryRef {
     cost: 520,
     code: "07 46 23",
     day: "2026-08-04",
+    invoiceIds: [],
     ...over,
   };
 }

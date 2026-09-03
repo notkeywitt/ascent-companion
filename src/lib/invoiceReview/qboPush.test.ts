@@ -24,6 +24,7 @@ function bill(over: Partial<BillRef> & { id: string }): BillRef {
     status: "approved",
     invoiced: true,
     invoiceIds: ["inv-1"],
+    sentInvoiceIds: ["inv-1"],
     issueDate: "2026-07-31",
     lineCount: 1,
     qboIsIgnored: false,
@@ -114,8 +115,8 @@ describe("qbo-push — the flag", () => {
 });
 
 describe("qbo-push — never approved", () => {
-  it("reports a pending bill that is already on a live client invoice", () => {
-    const found = run(job([bill({ id: "b1", status: "pending", invoiceIds: ["inv-1"] })]));
+  it("reports a pending bill that is already on a SENT client invoice", () => {
+    const found = run(job([bill({ id: "b1", status: "pending", sentInvoiceIds: ["inv-1"] })]));
     expect(found).toHaveLength(1);
     expect(found[0].kind).toBe("qbo-never-approved");
   });
@@ -123,18 +124,44 @@ describe("qbo-push — never approved", () => {
   it("says nothing about a pending bill that has not been invoiced", () => {
     // Pending and unbilled is ordinary work in progress — the coding queue's
     // normal state, and draft-bills already speaks for what is left behind.
-    expect(run(job([bill({ id: "b1", status: "pending", invoiceIds: [] })]))).toHaveLength(0);
+    expect(
+      run(job([bill({ id: "b1", status: "pending", invoiceIds: [], sentInvoiceIds: [] })])),
+    ).toHaveLength(0);
+  });
+
+  it("says nothing about a bill whose ONLY invoice is still a draft", () => {
+    // Berger Main House, August 2026: Island Custom Woodworks sat on invoice
+    // #12 while #12 was a draft, and this check reported "invoiced but never
+    // approved" — but the client had not been billed for anything yet, since
+    // nothing had been sent. `invoiceIds` (any status, draft included) is
+    // nonempty here on purpose — the bill IS on an invoice record — but
+    // `sentInvoiceIds` is empty, because that invoice has not gone out, and
+    // that is the field this finding must key off.
+    const found = run(
+      job([bill({ id: "b1", status: "pending", invoiceIds: ["inv-1"], sentInvoiceIds: [] })]),
+    );
+    expect(found).toHaveLength(0);
+  });
+
+  it("fires once the invoice leaves draft", () => {
+    const found = run(
+      job([bill({ id: "b1", status: "pending", invoiceIds: ["inv-1"], sentInvoiceIds: ["inv-1"] })]),
+    );
+    expect(found).toHaveLength(1);
+    expect(found[0].kind).toBe("qbo-never-approved");
   });
 
   it("says nothing about an approved bill on an invoice", () => {
-    expect(run(job([bill({ id: "b1", status: "approved", invoiceIds: ["inv-1"] })]))).toHaveLength(
-      0,
-    );
+    expect(
+      run(job([bill({ id: "b1", status: "approved", sentInvoiceIds: ["inv-1"] })])),
+    ).toHaveLength(0);
   });
 
   it("can be turned off without disabling the flag finding", () => {
     const config = { ...CONFIG, reportNeverApproved: false };
-    expect(run(job([bill({ id: "b1", status: "pending", invoiceIds: ["inv-1"] })]), config)).toHaveLength(0);
+    expect(
+      run(job([bill({ id: "b1", status: "pending", sentInvoiceIds: ["inv-1"] })]), config),
+    ).toHaveLength(0);
     expect(run(job([bill({ id: "b1", qboIsIgnored: true })]), config)).toHaveLength(1);
   });
 });

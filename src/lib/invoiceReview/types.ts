@@ -246,9 +246,30 @@ export interface BillRef {
    */
   lineCount: number;
   status: string;
-  /** Ids of the client invoices this bill sits on (any status). */
+  /**
+   * Non-denied client invoice ids this bill sits on, DRAFT INCLUDED. (This
+   * doc comment previously said "any status" and swapped meanings with
+   * `invoiced` below — corrected 2026-09-03; the code itself never changed.)
+   *
+   * A draft counts here on purpose: the duplicate-billing check reads this to
+   * catch a bill sitting on 2+ invoices, and a bill duplicated onto a fresh
+   * draft is exactly the case that most needs catching. For "has this bill
+   * actually reached the client" — a different question — see
+   * `sentInvoiceIds`.
+   */
   invoiceIds: string[];
-  /** True when the bill is on a LIVE (non-denied, or re-issued) invoice. */
+  /**
+   * Non-denied, NON-DRAFT invoice ids this bill sits on — has the client
+   * actually been billed for it. The `qbo-never-approved` check reads this:
+   * a bill on a live client invoice while still `pending` means the client
+   * was billed for a cost the ledger hasn't recorded, which isn't true yet
+   * while the only invoice is a draft.
+   */
+  sentInvoiceIds: string[];
+  /** True when the bill references ANY client invoice at all, any status —
+   *  draft and denied included. (This doc comment previously described a
+   *  live/re-issue resolution that the code has never actually done;
+   *  corrected 2026-09-03, code unchanged.) */
   invoiced: boolean;
   /** The bill's issue date, "YYYY-MM-DD" — in JobTread this IS the billing
    *  period, and it is half of what makes two bills look like the same one. */
@@ -367,6 +388,14 @@ export interface LaborEntryRef {
   code: string;
   /** Org-local day, "YYYY-MM-DD". */
   day: string;
+  /**
+   * Non-denied customerInvoice ids this entry references, draft included —
+   * BillRef.invoiceIds' exact counterpart for time. An entry captured on a
+   * DRAFT invoice is here, because JobTread's own `invoice.cost` already
+   * counts it; only a genuinely empty array means the entry was never pulled
+   * onto anything.
+   */
+  invoiceIds: string[];
 }
 
 export interface JobEvidence {

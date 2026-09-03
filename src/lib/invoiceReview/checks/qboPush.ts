@@ -106,12 +106,18 @@ export const qboPushCheck = defineJobCheck<QboPushConfig>({
       }
 
       // ── The approval ──────────────────────────────────────────────────────
-      // Only "approved" pushes. A pending bill already on a live client invoice
+      // Only "approved" pushes. A pending bill already on a SENT client invoice
       // means the client was billed for a cost the ledger has not taken.
+      //
+      // sentInvoiceIds, not invoiceIds: `invoiceIds` counts a DRAFT invoice too,
+      // and a draft has not gone out — the client has not been billed for
+      // anything yet, so there is no urgency to approve. Reported on Berger
+      // Main House, where a bill sitting only on a draft invoice was told it
+      // had already been billed. sentInvoiceIds excludes drafts (and denied).
       if (
         config.reportNeverApproved &&
         bill.status === "pending" &&
-        bill.invoiceIds.length > 0
+        bill.sentInvoiceIds.length > 0
       ) {
         out.push({
           ...jobBits,

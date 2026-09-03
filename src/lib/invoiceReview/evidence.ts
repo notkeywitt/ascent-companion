@@ -65,7 +65,7 @@ import {
   type VendorRef,
 } from "@/lib/jobtread";
 
-import { isNeverInvoiced } from "./types";
+import { cents, isNeverInvoiced } from "./types";
 import type {
   BackupFile,
   BillEmail,
@@ -156,6 +156,9 @@ async function loadMonthBills(
   year: number,
   month: number,
   liveInvoiceIds: Set<string>,
+  /** Non-denied invoice ids whose status is NOT "draft" — see
+   *  BillRef.sentInvoiceIds. A subset of liveInvoiceIds. */
+  sentInvoiceIds: Set<string>,
   statuses: string[] = ["pending", "approved"],
 ): Promise<BillRef[]> {
   const mm = String(month).padStart(2, "0");
@@ -217,6 +220,9 @@ async function loadMonthBills(
         invoiced: invoiceRefs.length > 0,
         invoiceIds: Array.from(
           new Set(invoiceRefs.map((n) => n.id as string).filter((id) => liveInvoiceIds.has(id))),
+        ),
+        sentInvoiceIds: Array.from(
+          new Set(invoiceRefs.map((n) => n.id as string).filter((id) => sentInvoiceIds.has(id))),
         ),
         issueDate: issued,
         // null, not false, when the field is absent: a bill whose flag could
@@ -582,6 +588,8 @@ async function loadMonthLabor(
   jobId: string,
   year: number,
   month: number,
+  /** Non-denied invoice ids (draft included) — see LaborEntryRef.invoiceIds. */
+  liveInvoiceIds: Set<string>,
 ): Promise<LaborEntryRef[]> {
   const entries = await getJobTimeEntriesForMonth(cfg, jobId, year, month);
   return entries.map((t) => ({
@@ -593,6 +601,7 @@ async function loadMonthLabor(
     cost: t.cost,
     code: t.code,
     day: jtIsoToOrgLocal(t.startedAt ?? "").slice(0, 10),
+    invoiceIds: t.invoiceIds.filter((id) => liveInvoiceIds.has(id)),
   }));
 }
 
@@ -671,13 +680,24 @@ export async function loadMonthEvidence(
     };
 
     let liveIds = new Set<string>();
+    // Non-denied AND non-draft — has the client actually been billed. A subset
+    // of liveIds. See BillRef.sentInvoiceIds / LaborEntryRef.invoiceIds.
+    let sentIds = new Set<string>();
     try {
       const recon = await getInvoiceReconciliation(cfg, row.jobId, year, month);
       liveIds = new Set(recon.invoices.map((i) => i.id));
+      sentIds = new Set(recon.invoices.filter((i) => i.status !== "draft").map((i) => i.id));
       shell.uninvoicedBillsCost = recon.uninvoicedBillsCost;
-      shell.uninvoicedTimeCost = recon.uninvoicedTimeCost;
       shell.draftBillsCost = recon.draftBillsCost;
       shell.draftBillCount = recon.draftBillCount;
+      // uninvoicedTimeCost is NOT set from recon: recon's own figure excludes
+      // a draft's time from "invoiced" (right for the tracking sheet, whose
+      // total should stay live until an invoice is actually sent), but this
+      // check asks a different question — was this time captured onto
+      // anything at all, matching bill.invoiced's any-status semantics. Set
+      // below once `labor` has real per-entry invoice references to answer it
+      // from, so a draft-only invoice does not read as "labor never billed"
+      // when the labor is sitting right there on the draft.
     } catch (e) {
       warnings.push(
         `${row.jobName || row.jobId}: could not reconcile the month — ` +
@@ -686,7 +706,7 @@ export async function loadMonthEvidence(
     }
 
     const [bills, drafts, invoices, folder, labor] = await Promise.all([
-      loadMonthBills(cfg, row.jobId, year, month, liveIds).catch((e) => {
+      loadMonthBills(cfg, row.jobId, year, month, liveIds, sentIds).catch((e) => {
         warnings.push(
           `${row.jobName || row.jobId}: could not read the month's bills — ` +
             `${e instanceof Error ? e.message : "unknown error"}`,
@@ -695,7 +715,7 @@ export async function loadMonthEvidence(
       }),
       // The month's drafts, in full. `draftBillCount` from the reconciliation
       // says how many there are; the duplicate-draft check needs to see them.
-      loadMonthBills(cfg, row.jobId, year, month, liveIds, ["draft"]).catch((e) => {
+      loadMonthBills(cfg, row.jobId, year, month, liveIds, sentIds, ["draft"]).catch((e) => {
         warnings.push(
           `${row.jobName || row.jobId}: could not read the month's draft bills — ` +
             `${e instanceof Error ? e.message : "unknown error"}`,
@@ -712,7 +732,7 @@ export async function loadMonthEvidence(
         }),
       ),
       loadFolder(year, month, row.customerName, row.jobName),
-      loadMonthLabor(cfg, row.jobId, year, month).catch((e) => {
+      loadMonthLabor(cfg, row.jobId, year, month, liveIds).catch((e) => {
         warnings.push(
           `${row.jobName || row.jobId}: could not read the month's time entries — ` +
             `${e instanceof Error ? e.message : "unknown error"}`,
@@ -727,6 +747,12 @@ export async function loadMonthEvidence(
     shell.invoices = invoices.filter((i): i is InvoiceEvidence => i !== null);
     shell.folder = folder.folder;
     shell.labor = labor;
+    // Was this time captured on ANYTHING, draft included — bill.invoiced's
+    // exact semantics, applied to time. See the comment where sentIds/liveIds
+    // are built above for why this isn't recon.uninvoicedTimeCost.
+    shell.uninvoicedTimeCost = cents(
+      labor.reduce((s, t) => (t.invoiceIds.length === 0 ? s + t.cost : s), 0),
+    );
     return shell;
   });
 
