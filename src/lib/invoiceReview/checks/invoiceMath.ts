@@ -93,28 +93,45 @@ export const invoiceMathCheck = defineInvoiceCheck<InvoiceMathConfig>({
 
     // ── Balance: what's still owed must be the total less what's been paid.
     //
-    // DRAFTS ARE EXEMPT. JobTread holds `balance: 0` on every draft invoice no
-    // matter what it totals — probe-confirmed 2026-09-03 across the org: five
-    // drafts from $773.37 to $20,664.06, every one with `balance: 0`, including
-    // one carrying an issue date. Nothing is owed on a document that was never
-    // issued, so JobTread does not compute a balance for it. On every non-draft
-    // the identity holds exactly, paid or unpaid.
+    // A DRAFT GETS A DIFFERENT ASSERTION, NOT AN EXEMPTION. Reviewing drafts is
+    // the entire point: once an invoice is issued it can no longer be edited, so
+    // a draft is the only window in which a finding can still be acted on. No
+    // check here may quietly stop looking at one.
     //
-    // Without this the check fired on each draft in the month and reported the
-    // whole invoice total as a reconciliation gap — an alarming number, and an
-    // invented one.
-    const balGap = cents(cents(inv.priceWithTax) - cents(inv.amountPaid) - cents(inv.balance));
-    if (inv.status !== "draft" && Math.abs(balGap) > TOL) {
+    // But JobTread does not compute `balance` until a document is issued.
+    // Probe-confirmed org-wide 2026-09-03: EVERY draft carries `balance: 0` AND
+    // `amountPaid: 0`, whatever it totals — not one exception in the whole
+    // organization, drafts with an issue date included. So on a draft the
+    // identity below reduces to `priceWithTax - 0 - 0` and fires on every draft
+    // that totals anything at all. That is a 100% false-positive rate, and it
+    // reported the full invoice total as the size of the discrepancy.
+    //
+    // So a draft is checked against the state a draft is SUPPOSED to be in —
+    // nothing paid, nothing owed — and reports when JobTread breaks it. That is
+    // the one thing a draft's balance can actually be wrong about. It has never
+    // yet been seen wrong, which is precisely what makes it worth hearing.
+    const isDraft = inv.status === "draft";
+    const balGap = isDraft
+      ? cents(cents(inv.amountPaid) + cents(inv.balance))
+      : cents(cents(inv.priceWithTax) - cents(inv.amountPaid) - cents(inv.balance));
+    if (Math.abs(balGap) > TOL) {
       out.push({
         ...base,
         key: findingKey("math-balance", job.jobId, inv.id),
         kind: "math-balance",
         severity: "warning",
-        title: `${label} — balance doesn't reconcile`,
-        detail:
-          `${money(inv.priceWithTax)} billed − ${money(inv.amountPaid)} paid = ` +
-          `${money(cents(inv.priceWithTax) - cents(inv.amountPaid))}, but the invoice's ` +
-          `balance reads ${money(inv.balance)} — off by ${money(balGap)}.`,
+        title: isDraft
+          ? `${label} — draft already carries a payment or a balance`
+          : `${label} — balance doesn't reconcile`,
+        detail: isDraft
+          ? `This invoice is still a draft, so JobTread should hold nothing paid and ` +
+            `nothing owed against it. It states ${money(inv.amountPaid)} paid and a ` +
+            `balance of ${money(inv.balance)}. Every other draft in the organization ` +
+            `holds zero for both, so this one is being treated differently and it is ` +
+            `worth finding out why before the invoice is issued.`
+          : `${money(inv.priceWithTax)} billed − ${money(inv.amountPaid)} paid = ` +
+            `${money(cents(inv.priceWithTax) - cents(inv.amountPaid))}, but the invoice's ` +
+            `balance reads ${money(inv.balance)} — off by ${money(balGap)}.`,
         amount: balGap,
         sourceLink: inv.jtUrl,
         sourceLabel: "Open in JobTread",

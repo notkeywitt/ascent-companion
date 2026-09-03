@@ -386,12 +386,13 @@ describe("math", () => {
     expect(kinds(f)).toContain("math-balance");
   });
 
-  it("does not flag a draft invoice's balance — JobTread holds 0 on every draft", () => {
+  it("does not flag a draft holding the zero paid and zero balance every draft holds", () => {
     // Berger Main House invoice #12: a draft totalling $8,610.42 with
-    // `balance: 0`, which is what JobTread stores on EVERY draft regardless of
-    // total (probe-confirmed org-wide 2026-09-03). Nothing is owed on a
-    // document that was never issued. The check used to read that 0 as a gap and
-    // report the entire invoice total as unreconciled.
+    // `amountPaid: 0, balance: 0`, which is what JobTread stores on EVERY draft
+    // regardless of total (probe-confirmed org-wide 2026-09-03 — no exceptions).
+    // JobTread does not compute a balance until a document is issued, so the
+    // issued-invoice identity reduces to `priceWithTax - 0 - 0` here and used to
+    // report the entire invoice total as the discrepancy.
     const f = runChecks(
       month([
         job({
@@ -406,8 +407,49 @@ describe("math", () => {
       ]),
     );
     expect(kinds(f)).not.toContain("math-balance");
-    // The other three sums still run on a draft — only the balance is exempt.
+    // The other three sums must still run on a draft. A draft is the only
+    // window in which a finding can still be acted on, so nothing here may stop
+    // looking at one — this asserts the tax sum really did run and pass.
     expect(kinds(f)).not.toContain("math-tax");
+  });
+
+  it("flags a draft that already carries a payment", () => {
+    // The draft branch is an assertion, not an exemption: a draft is checked
+    // against the state a draft is supposed to be in. No draft in the
+    // organization holds a payment, so one that does is worth hearing about —
+    // and it is still a draft, so it can still be fixed.
+    const f = runChecks(
+      month([
+        job({
+          invoices: [
+            invoice({
+              id: "i1", status: "draft", issueDate: "",
+              price: 7946.86, tax: 663.56, priceWithTax: 8610.42,
+              amountPaid: 500, balance: 0,
+            }),
+          ],
+        }),
+      ]),
+    );
+    expect(kinds(f)).toContain("math-balance");
+    expect(f.find((x) => x.kind === "math-balance")?.amount).toBe(500);
+  });
+
+  it("flags a draft that already carries a balance", () => {
+    const f = runChecks(
+      month([
+        job({
+          invoices: [
+            invoice({
+              id: "i1", status: "draft", issueDate: "",
+              price: 7946.86, tax: 663.56, priceWithTax: 8610.42,
+              amountPaid: 0, balance: 8610.42,
+            }),
+          ],
+        }),
+      ]),
+    );
+    expect(kinds(f)).toContain("math-balance");
   });
 
   it("still flags a non-draft invoice whose balance reads zero while unpaid", () => {
