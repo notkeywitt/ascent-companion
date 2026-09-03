@@ -13,4 +13,5 @@ _Nothing open._
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
+| [bookkeeping-record-keeping](.claude/sessions/2026-09-03-bookkeeping-record-keeping.md) | 2026-09-03 | 5 | — |
 | [session-progress-tracking](.claude/sessions/2026-09-03-session-progress-tracking.md) | 2026-09-03 | 5 | Build a per-session ledger so interrupted work is recoverable |

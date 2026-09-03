@@ -2,9 +2,9 @@
 slug: bookkeeping-record-keeping
 repo: ascent-companion
 branch: claude/bookkeeping-record-keeping-gn1dm7
-status: in-progress
+status: shipped
 started: 2026-09-03T15:06:06Z
-updated: 2026-09-03T15:18:05Z
+updated: 2026-09-03T15:59:02Z
 goal: 
 next: Owner review before this reaches production: it touches every JobTread write path, so CLAUDE.md's stop-and-ask rule applies. Then push branch:main and run /journal once to confirm financial_events created.
 ---

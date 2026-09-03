@@ -1,7 +1,54 @@
 {
-  "generatedAt": "2026-09-03T04:50:28Z",
+  "generatedAt": "2026-09-03T15:59:02Z",
   "repo": "ascent-companion",
   "sessions": [
+    {
+      "slug": "bookkeeping-record-keeping",
+      "file": "2026-09-03-bookkeeping-record-keeping.md",
+      "branch": "claude/bookkeeping-record-keeping-gn1dm7",
+      "status": "shipped",
+      "started": "2026-09-03T15:06:06Z",
+      "updated": "2026-09-03T15:59:02Z",
+      "goal": "",
+      "next": "Owner review before this reaches production: it touches every JobTread write path, so CLAUDE.md's stop-and-ask rule applies. Then push branch:main and run /journal once to confirm financial_events created.",
+      "commits": [
+        {
+          "date": "2026-09-03",
+          "time": "15:06",
+          "sha": "9799b1d",
+          "subject": "companion: journal every write to a money record",
+          "files": "src/app/api/add-bill/route.ts, src/app/api/add-line/route.ts, src/app/api/bill-fields/route.ts, src/app/api/bill-issuedate/route.ts, src/app/api/bill-number/route.ts, src/app/api/bill-status/route.ts, +18 more"
+        },
+        {
+          "date": "2026-09-03",
+          "time": "15:10",
+          "sha": "d3bdd04",
+          "subject": "companion: check that a captured cost reached QuickBooks",
+          "files": "CODEBASE_MAP.md, src/lib/invoiceReview/checks.test.ts, src/lib/invoiceReview/checks/qboPush.ts, src/lib/invoiceReview/duplicateDraft.test.ts, src/lib/invoiceReview/evidence.ts, src/lib/invoiceReview/investigate.test.ts, +7 more"
+        },
+        {
+          "date": "2026-09-03",
+          "time": "15:17",
+          "sha": "117b87e",
+          "subject": "companion: show what clients owe, aged",
+          "files": "CODEBASE_MAP.md, src/app/api/ar-aging/route.ts, src/app/ar-aging/page.tsx, src/lib/arAging.test.ts, src/lib/arAging.ts, src/lib/jobtread.ts, +2 more"
+        },
+        {
+          "date": "2026-09-03",
+          "time": "15:17",
+          "sha": "9a3f2a2",
+          "subject": "companion: log session ledger",
+          "files": ""
+        },
+        {
+          "date": "2026-09-03",
+          "time": "15:18",
+          "sha": "584ba64",
+          "subject": "companion: log session ledger row",
+          "files": ""
+        }
+      ]
+    },
     {
       "slug": "session-progress-tracking",
       "file": "2026-09-03-session-progress-tracking.md",
