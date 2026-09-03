@@ -234,6 +234,17 @@ export interface BillRef {
   vendor: string;
   /** Pre-tax cost — the figure a backup PDF's filename total should equal. */
   cost: number;
+  /**
+   * How many cost-item lines the bill carries, from JobTread's own `count`.
+   *
+   * Only the backup pairing uses it, and only to size the rounding tolerance:
+   * JobTread rounds each line to cents and sums, the Drive filename sums per
+   * CSI group and rounds each group, so the two disagree by up to half a cent
+   * per rounded sum. See `backupTolerance` in checks/shared.ts.
+   *
+   * 0 when it could not be read, which must widen nothing.
+   */
+  lineCount: number;
   status: string;
   /** Ids of the client invoices this bill sits on (any status). */
   invoiceIds: string[];

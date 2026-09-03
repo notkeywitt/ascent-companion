@@ -192,6 +192,11 @@ async function loadMonthBills(
             // the cost ever reaches it. Read here so the qbo-push check has it.
             qboIsIgnored: {},
             account: { name: {} },
+            // A count, not the lines themselves: the backup pairing needs only
+            // how MANY lines there are, to size its rounding tolerance. Probed
+            // 2026-09-03 — the aggregate rides along at size 25 beside
+            // referencedDocuments without tipping the connection into a 413.
+            costItems: { count: {} },
             referencedDocuments: { nodes: { id: {}, type: {} } },
           },
         },
@@ -207,6 +212,7 @@ async function loadMonthBills(
         vendor: b.account?.name ?? b.fromName ?? "",
         label: String(b.externalId || b.number || b.account?.name || b.fromName || b.id),
         cost: b.cost ?? 0,
+        lineCount: b.costItems?.count ?? 0,
         status: b.status ?? "",
         invoiced: invoiceRefs.length > 0,
         invoiceIds: Array.from(

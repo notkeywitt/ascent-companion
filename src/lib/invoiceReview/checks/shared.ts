@@ -55,6 +55,46 @@ export function billLink(jobId: string, billId: string): string {
   return jobId ? `${doc}?jobId=${encodeURIComponent(jobId)}` : doc;
 }
 
+/**
+ * How far apart a bill's cost and its backup filename's total may legitimately
+ * be, in dollars.
+ *
+ * The two sides round in a different ORDER, and neither is wrong:
+ *
+ *   JobTread  rounds EACH LINE to cents, then sums them  -> the bill's cost
+ *   filename  sums per CSI GROUP, rounds each group      -> the filename total
+ *              (`_formatAggCsi`, Sheets_AppSheet.js)
+ *
+ * Every rounded sum can be out by at most half a cent, so the gap is bounded by
+ * half a cent per line plus half a cent per CSI group. That is a bound, not a
+ * guess: `ceil((lines + groups) / 2)` cents, computed as integers.
+ *
+ * Berger Main House proved it real — Island Custom Woodworks, 9 lines in 1
+ * group, $4,163.75 in JobTread against `12 30 00 - $4163.74` on the PDF. The
+ * bound allows 5 cents there and the actual drift was 1.
+ *
+ * A single-line bill lands on exactly 1 cent, which is what the flat tolerance
+ * already gave it — so the common case does not loosen at all. That matters:
+ * pairing is one-to-one and consuming, and only UNMATCHED bills are reported,
+ * so a window wider than the real drift buys nothing and costs accuracy. A bill
+ * could pair with a neighbour's PDF and its own missing backup would go
+ * unreported. Widening is a false-negative risk, which is why this is derived
+ * from the bill's shape instead of set to a round number.
+ *
+ * `lineCount: 0` means JobTread's count could not be read, so it falls back to
+ * `globalTolerance` and widens nothing.
+ */
+export function backupTolerance(
+  bill: BillRef,
+  file: BackupFile,
+  globalTolerance: number,
+): number {
+  if (!bill.lineCount) return globalTolerance;
+  const rounded = bill.lineCount + Math.max(1, file.csi.length);
+  const boundCents = Math.ceil(rounded / 2);
+  return Math.max(globalTolerance, boundCents / 100);
+}
+
 export interface BackupMatch {
   /** Bills on a live invoice with no backup PDF filed. */
   unmatchedBills: BillRef[];
@@ -86,11 +126,11 @@ export interface BackupMatch {
 export function matchBackup(
   bills: BillRef[],
   files: BackupFile[],
-  /** At or below this, two amounts are the same amount. The configured value is
-   *  `tolerance` in settings.ts; the default here matches it so the function
-   *  stays callable on its own (it is unit-tested directly). Compared in whole
-   *  cents by `withinTolerance` — a bill and its backup filename round in a
-   *  different ORDER and legitimately land a cent apart. */
+  /** The FLOOR on how far apart two amounts may be and still be the same
+   *  amount. The configured value is `tolerance` in settings.ts; the default
+   *  here matches it so the function stays callable on its own (it is
+   *  unit-tested directly). Each pair then gets its own allowance from
+   *  `backupTolerance`, which is never tighter than this. */
   tolerance = 0.01,
 ): BackupMatch {
   const parsed = files.filter((f) => f.parsed);
@@ -105,7 +145,7 @@ export function matchBackup(
     let bestScore = -1;
     for (const f of parsed) {
       if (taken.has(f.id)) continue;
-      if (!withinTolerance(f.amount, want, tolerance)) continue;
+      if (!withinTolerance(f.amount, want, backupTolerance(bill, f, tolerance))) continue;
       const score = overlap(f.tail, bill.vendor || bill.label);
       if (score > bestScore) {
         best = f;

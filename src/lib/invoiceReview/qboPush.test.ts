@@ -25,6 +25,7 @@ function bill(over: Partial<BillRef> & { id: string }): BillRef {
     invoiced: true,
     invoiceIds: ["inv-1"],
     issueDate: "2026-07-31",
+    lineCount: 1,
     qboIsIgnored: false,
     ...over,
   };

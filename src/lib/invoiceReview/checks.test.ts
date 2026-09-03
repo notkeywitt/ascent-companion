@@ -45,6 +45,7 @@ function bill(partial: Partial<BillRef> & { id: string; cost: number }): BillRef
     invoiced: true,
     invoiceIds: [],
     issueDate: '2026-07-15',
+    lineCount: 1,
     qboIsIgnored: false,
     ...partial,
   };
@@ -220,6 +221,64 @@ describe("matchBackup", () => {
     );
     expect(r.unmatchedBills).toHaveLength(0);
     expect(r.unmatchedFiles).toHaveLength(0);
+    expect(r.matched.get("b1")?.id).toBe("f1");
+  });
+
+  it("allows a nine-line bill the drift nine lines can produce", () => {
+    // Berger's real bill has 9 lines in 1 CSI group. JobTread rounds each line
+    // and sums; the filename sums the group and rounds once. Each rounded sum
+    // can be out half a cent, so the bound is ceil((9 + 1) / 2) = 5 cents.
+    // The real drift was 1 cent, but the bound is what has to hold.
+    const nineLine = bill({ id: "b1", cost: 4163.75, lineCount: 9, vendor: "Island Custom Woodworks" });
+    for (const amount of [4163.7, 4163.74, 4163.8]) {
+      const r = matchBackup([nineLine], [file({ id: "f1", amount })]);
+      expect(r.matched.get("b1")?.id).toBe("f1");
+    }
+  });
+
+  it("stops at the bound — six cents is past what nine lines can explain", () => {
+    const r = matchBackup(
+      [bill({ id: "b1", cost: 4163.75, lineCount: 9 })],
+      [file({ id: "f1", amount: 4163.69 })],
+    );
+    expect(r.unmatchedBills.map((b) => b.id)).toEqual(["b1"]);
+  });
+
+  it("does not loosen a single-line bill", () => {
+    // The common case by far, and the one where loosening would cost most:
+    // pairing is consuming and only UNMATCHED bills are reported, so too wide a
+    // window pairs a bill with a neighbour's PDF and hides a real gap. One line
+    // in one group is ceil(2 / 2) = 1 cent, exactly the old flat tolerance.
+    const r = matchBackup(
+      [bill({ id: "b1", cost: 100, lineCount: 1 })],
+      [file({ id: "f1", amount: 100.02 })],
+    );
+    expect(r.unmatchedBills.map((b) => b.id)).toEqual(["b1"]);
+  });
+
+  it("widens nothing when the line count could not be read", () => {
+    // lineCount 0 is "JobTread did not tell us", not "zero lines". It must fall
+    // back to the flat tolerance rather than compute a bound from a 0.
+    const r = matchBackup(
+      [bill({ id: "b1", cost: 100, lineCount: 0 })],
+      [file({ id: "f1", amount: 100.02 })],
+    );
+    expect(r.unmatchedBills.map((b) => b.id)).toEqual(["b1"]);
+  });
+
+  it("counts the filename's CSI groups too, not just the bill's lines", () => {
+    // Each group is its own rounded sum in `_formatAggCsi`, so a 4-line bill
+    // split across 4 codes is ceil((4 + 4) / 2) = 4 cents, not ceil(5/2) = 3.
+    const fourCodes = [
+      { code: "06 42 00", amount: 25 },
+      { code: "01 71 13", amount: 25 },
+      { code: "09 91 00", amount: 25 },
+      { code: "07 46 23", amount: 25.04 },
+    ];
+    const r = matchBackup(
+      [bill({ id: "b1", cost: 100, lineCount: 4 })],
+      [file({ id: "f1", amount: 100.04, csi: fourCodes })],
+    );
     expect(r.matched.get("b1")?.id).toBe("f1");
   });
 
