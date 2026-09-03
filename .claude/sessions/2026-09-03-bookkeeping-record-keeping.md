@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/bookkeeping-record-keeping-gn1dm7
 status: in-progress
 started: 2026-09-03T15:06:06Z
-updated: 2026-09-03T15:17:33Z
+updated: 2026-09-03T15:18:05Z
 goal: 
 next: Owner review before this reaches production: it touches every JobTread write path, so CLAUDE.md's stop-and-ask rule applies. Then push branch:main and run /journal once to confirm financial_events created.
 ---
@@ -19,6 +19,7 @@ next: Owner review before this reaches production: it touches every JobTread wri
 - 2026-09-03 15:17 · `117b87e` companion: show what clients owe, aged
   CODEBASE_MAP.md, src/app/api/ar-aging/route.ts, src/app/ar-aging/page.tsx, src/lib/arAging.test.ts, src/lib/arAging.ts, src/lib/jobtread.ts, +2 more
 - 2026-09-03 15:17 · `9a3f2a2` companion: log session ledger
+- 2026-09-03 15:18 · `584ba64` companion: log session ledger row
 
 ## Notes
 - 2026-09-03 15:06 — Three bookkeeping gaps, from the record-keeping review: (1) an append-only financial journal over every JobTread write, (2) a check that the JobTread to QuickBooks handoff actually happened, (3) an AR aging view.
