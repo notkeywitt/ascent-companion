@@ -104,19 +104,32 @@ fi
 # ── 4. push ─────────────────────────────────────────────────────────────────
 # Branch → remote main directly. Merging into a local `main` first is what
 # breaks in an ephemeral container, where the local ref is stale or unrelated.
+#
+# Three ways a push fails, and only one of them is worth retrying:
+#   · the pre-push gate said no  → a real failure; retrying just rebuilds it
+#   · the remote moved           → rebase once, push again
+#   · the network                → back off and retry
+log=$(mktemp)
+trap 'rm -f "$log"' EXIT
 n=0
 while :; do
-  if git push origin "HEAD:main"; then
+  # Captured, not piped: a pipeline's exit status is `tee`'s, so the push's own
+  # failure would be swallowed and every push would look like it worked.
+  if git push origin "HEAD:main" >"$log" 2>&1; then
+    cat "$log"
     echo "ship: pushed — $(git rev-parse --short HEAD) is deploying to production"
     exit 0
   fi
-  status=$?
+  cat "$log" >&2
 
-  # A rejected push means main moved while we were verifying. Rebase and retry
-  # once; a second rejection means something needs a human.
-  if [ "$n" -eq 0 ] && git fetch origin main && [ "$(git rev-list --count HEAD..origin/main)" != "0" ]; then
+  if grep -qE "pre-push|hook declined" "$log"; then
+    echo "ship: the pre-push gate blocked this push — fix what it reported, then run ship again" >&2
+    exit 1
+  fi
+
+  if [ "$n" -eq 0 ] && grep -qiE "rejected|non-fast-forward|fetch first" "$log"; then
     echo "ship: main moved — rebasing and retrying"
-    git rebase origin/main || {
+    git fetch origin main && git rebase origin/main || {
       echo "ship: rebase conflict on retry — resolve it, then run ship again" >&2
       exit 1
     }
@@ -125,7 +138,7 @@ while :; do
   fi
 
   n=$((n + 1))
-  [ "$n" -ge 5 ] && { echo "ship: push failed (exit $status)" >&2; exit 1; }
+  [ "$n" -ge 5 ] && { echo "ship: push failed — see the output above" >&2; exit 1; }
   echo "ship: push failed — retrying in $((1 << n))s"
   sleep $((1 << n))
 done
