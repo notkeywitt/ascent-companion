@@ -393,7 +393,10 @@ export async function getBillDetail(cfg: PaveConfig, docId: string): Promise<Bil
         jobCostItem: { id: {} }, // ← the coding target (budget cost item)
       },
     },
-    files: { $: { size: 20 }, nodes: { id: {}, name: {}, type: {}, url: {} } },
+    files: {
+      $: { size: 20 }, // 20 = how many FILES; the `size` under `url` is pixels
+      nodes: { id: {}, name: {}, type: {}, url: {}, imageUrl: { _: "url", $: { size: 2048 } } },
+    },
   };
   const rich = {
     document: {
@@ -527,6 +530,14 @@ export interface BillFile {
   name?: string;
   type?: string;
   url?: string;
+  /** JobTread's own FLAT RENDER of the file — page 1 as a JPEG, served from the
+   *  same CDN with no viewer around it (probe-confirmed 2026-09-03: a PDF's
+   *  `url({size})` answers `content-type: image/jpeg`, `access-control-allow-
+   *  origin: *`). It exists so a scan can be shown as an `<img>` in the page
+   *  flow instead of an `<iframe>`, which hands the browser's PDF viewer its
+   *  own scrollbox and swallows the wheel. Null for anything JobTread cannot
+   *  rasterise, which is the exact signal to fall back to a link. */
+  imageUrl?: string | null;
 }
 
 /** Files attached to a bill (the invoice PDF/image). Defensive — [] on any error. */
@@ -536,7 +547,10 @@ export async function getBillFiles(cfg: PaveConfig, docId: string): Promise<Bill
       document: {
         $: { id: docId },
         id: {},
-        files: { $: { size: 20 }, nodes: { id: {}, name: {}, type: {}, url: {} } },
+        files: {
+          $: { size: 20 }, // 20 = how many FILES; the `size` under `url` is pixels
+          nodes: { id: {}, name: {}, type: {}, url: {}, imageUrl: { _: "url", $: { size: 2048 } } },
+        },
       },
     });
     return r?.document?.files?.nodes ?? [];
