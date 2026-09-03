@@ -27,6 +27,7 @@ import {
   quietInputCls,
 } from "@/components/ui";
 import { TrackingSheetSyncFor } from "@/components/TrackingSheetSync";
+import { InvoiceAttachment } from "@/components/InvoiceViewer";
 import { billLineMath, recodeLog } from "@/lib/billLineMath";
 import { markBillTouched } from "@/lib/billTouch";
 import { useUnsavedChanges } from "@/lib/useUnsavedChanges";
@@ -67,6 +68,10 @@ interface FileNode {
   name?: string;
   type?: string;
   url?: string;
+  /** JobTread's own flat render of the file — page 1 as a JPEG. See BillFile in
+   *  src/lib/jobtread.ts, and InvoiceViewer.tsx for why the scan is never
+   *  iframed. */
+  imageUrl?: string | null;
 }
 
 /** Everything /api/bill returns — the whole bill view in one payload. */
@@ -124,9 +129,6 @@ const money = (n?: number) =>
   typeof n === "number"
     ? "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
     : "—";
-
-const isImage = (f: FileNode) =>
-  /^image\//i.test(f.type ?? "") || /\.(png|jpe?g|gif|webp)$/i.test(f.name ?? "");
 
 // Billing-month options (current + prior 14 months). Value = last day of the
 // month (the issueDate convention); ym is the year-month key for matching.
@@ -1868,45 +1870,24 @@ function BillDetail() {
         </>
       )}
 
-      {/* Attached invoice image / PDF — at the bottom. Labelled like every
-          other section, and sized in `dvh` so a phone's collapsing browser
-          chrome can't crop the scan mid-scroll. */}
+      {/* Attached invoice image / PDF — at the bottom. A flat image with a
+          lightbox behind it, never an iframe: an iframed PDF took the wheel off
+          this page whenever the pointer crossed it, and on iOS it showed page 1
+          with no way to scroll at all. InvoiceViewer.tsx carries the reasoning.
+          Capped in `dvh` so a phone's collapsing browser chrome can't crop the
+          scan mid-scroll. */}
       {files.length > 0 && (
         <section className="mt-8">
           <SectionHeading className="mb-2">Invoice</SectionHeading>
           <div className="space-y-3">
-            {files.map((f) =>
-              f.url && isImage(f) ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <a key={f.id} href={f.url} target="_blank" rel="noreferrer" title="Open full size">
-                  <img
-                    src={f.url}
-                    alt={f.name ?? "invoice"}
-                    className="max-h-[70dvh] w-full rounded-xl border border-line object-contain dark:border-neutral-800"
-                  />
-                </a>
-              ) : f.url ? (
-                <div key={f.id}>
-                  <iframe
-                    src={f.url}
-                    title={f.name ?? "invoice"}
-                    className="h-[70dvh] w-full rounded-xl border border-line dark:border-neutral-800"
-                  />
-                  <a
-                    href={f.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="mt-1.5 inline-flex min-h-11 items-center text-xs font-semibold text-accent dark:text-accent-soft"
-                  >
-                    Open {f.name || "attachment"} ↗
-                  </a>
-                </div>
-              ) : (
-                <span key={f.id} className="text-sm text-neutral-500 dark:text-neutral-400">
-                  {f.name}
-                </span>
-              ),
-            )}
+            {files.map((f) => (
+              <InvoiceAttachment
+                key={f.id}
+                file={f}
+                maxHClass="max-h-[70dvh]"
+                radiusClass="rounded-xl"
+              />
+            ))}
           </div>
         </section>
       )}

@@ -5,6 +5,7 @@ import { CostCodeSelect, type Option } from "@/components/CostCodeSelect";
 import { JobPicker, type JobRef } from "@/components/JobPicker";
 import { JtLink } from "@/components/JtLink";
 import { Banner, Button, Card, EmptyState, Label, SectionLabel, Select } from "@/components/ui";
+import { InvoiceAttachment } from "@/components/InvoiceViewer";
 import type { LineEdit } from "@/lib/billLineMath";
 import { round2 } from "@/lib/billLineMath";
 
@@ -57,20 +58,8 @@ export const money0 = (n: number) =>
 const quietSm =
   "rounded border border-transparent bg-neutral-100 px-1.5 py-1 text-xs transition focus:border-accent focus:bg-white focus:outline-none dark:bg-white/10 dark:focus:bg-ink-raised";
 
-export const isImageFile = (f: BillFile) =>
-  /^image\//i.test(f.type ?? "") || /\.(png|jpe?g|gif|webp)$/i.test(f.name ?? "");
-
-/**
- * The src that shows an attachment as a FLAT IMAGE — no `<iframe>`, so no
- * browser PDF viewer, so nothing inside the card that eats the mouse wheel
- * while you are scrolling the coding panel past it.
- *
- * A scan is already an image, so it is its own answer. A PDF gets JobTread's
- * rasterised page 1 (`file.url({size})`, which answers image/jpeg off the same
- * CDN). "" for anything JobTread will not rasterise and that is not an image —
- * an attachment there gets a link, not a viewer.
- */
-export const flatImageSrc = (f: BillFile) => f.imageUrl || (isImageFile(f) ? f.url : "") || "";
+/** Re-exported: this card owned it before /bill wanted the same answer. */
+export { isImageFile, flatImageSrc } from "@/components/InvoiceViewer";
 
 /**
  * The bill's backup in Google Drive — the filed PDF and the Customer/Job/month
@@ -729,20 +718,12 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
             made — otherwise you're recoding a line from its description
             alone, or bouncing to the bill page to see what it was for.
 
-            Shown as a FLAT IMAGE, never an `<iframe>`. An iframed PDF hands the
-            browser's own viewer a scrollbox inside this panel: put the pointer
-            over the invoice on the way down the card and the wheel drives the
-            PDF instead of the page, which is how you get stuck halfway through
-            coding a bill. An `<img>` has no such box — the wheel always belongs
-            to the panel. A PDF gets JobTread's rasterised page 1 (see
-            `flatImageSrc`), so the trade is real but small: page 2 onward lives
-            behind the link, and the card stays scrollable throughout.
-
-            Capped at 32rem because this panel is `sticky`. A sticky column
+            Shown as a flat image with a lightbox behind it — never an iframe.
+            InvoiceViewer.tsx carries the reasoning; the cap is this card's own
+            business. 32rem, because this panel is `sticky`: a sticky column
             taller than the viewport pins its own top and strands its bottom, so
-            the invoice is not allowed to set the card's height. `object-contain`
-            shrinks to fit rather than cropping; the whole thing is a link to the
-            original at full size. */}
+            the invoice is not allowed to set the card's height. Reading it
+            properly is the lightbox's job, not this thumbnail's. */}
         <div className="mt-4 border-t border-line-soft pt-3 dark:border-neutral-800">
           <SectionLabel className="mb-1.5">Invoice</SectionLabel>
           {filesLoading && <p className="text-xs text-neutral-400">Loading…</p>}
@@ -750,40 +731,9 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
             <p className="text-xs text-neutral-400">No file attached to this bill.</p>
           )}
           <div className="space-y-2">
-            {files.map((f) => {
-              const flat = flatImageSrc(f);
-              if (!f.url) {
-                return (
-                  <span key={f.id} className="text-xs text-neutral-500">
-                    {f.name}
-                  </span>
-                );
-              }
-              return (
-                <div key={f.id}>
-                  {flat ? (
-                    <a href={f.url} target="_blank" rel="noreferrer" title="Open full size">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={flat}
-                        alt={f.name ?? "invoice"}
-                        className="max-h-[32rem] w-full cursor-zoom-in rounded-lg border border-line object-contain dark:border-neutral-800"
-                      />
-                    </a>
-                  ) : null}
-                  {!isImageFile(f) && (
-                    <a
-                      href={f.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="mt-1 inline-block text-xs font-semibold text-accent"
-                    >
-                      Open {f.name || "attachment"} ↗
-                    </a>
-                  )}
-                </div>
-              );
-            })}
+            {files.map((f) => (
+              <InvoiceAttachment key={f.id} file={f} maxHClass="max-h-[32rem]" />
+            ))}
           </div>
         </div>
 
