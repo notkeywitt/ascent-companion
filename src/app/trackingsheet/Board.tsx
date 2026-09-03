@@ -1085,6 +1085,11 @@ export function Board() {
     () => (data?.bills ?? []).filter((b) => b.status === "draft"),
     [data],
   );
+  /** Nothing left to approve: the month HAS bills and not one of them is still
+   *  a draft. That is the moment the row's action stops being "approve these"
+   *  and becomes "create the invoice". A month with no bills at all is not
+   *  approved, it is empty — so it keeps the (disabled) Approve button. */
+  const allApproved = (data?.bills?.length ?? 0) > 0 && draftBills.length === 0;
   /** Does the bottom action row carry an Approve button? It needs the role AND a
    *  loaded month — the check button beside it needs neither. */
   const showApprove = canApprove && !!data && !loading;
@@ -3537,14 +3542,17 @@ export function Board() {
           the job, then approve its drafts. Both are last steps — you check what
           the invoice will say, and you approve the drafts once their coding is
           settled — so they share one row after the bills rather than sitting up
-          in the toolbar. `order-last` drops the block below the columns on a
-          phone. The check's result card sits directly above the row it was run
-          from, and only once there is a result to show; the check itself is
-          independent of the board's own loading, since it fetches on demand.
-          The check button is lg-only — on a phone the action drawer carries it,
-          so this row holds the full-width Approve button alone, exactly as
-          before. Approve is disabled while there's staged coding to sync first,
-          or nothing left to approve. */}
+          in the toolbar. Once every bill in the month is approved the Approve
+          button becomes "Create Invoice in JobTread", which opens the job's
+          documents page — approving IS the last thing this page does, and the
+          invoice itself is built in JobTread. `order-last` drops the block
+          below the columns on a phone. The check's result card sits directly
+          above the row it was run from, and only once there is a result to
+          show; the check itself is independent of the board's own loading,
+          since it fetches on demand. The check button is lg-only — on a phone
+          the action drawer carries it, so this row holds the full-width action
+          button alone, exactly as before. Either button is dead while there's
+          staged coding to sync first. */}
       {jobId && (
         <div
           className={`order-last mt-4 border-t border-line pt-4 lg:order-none ${
@@ -3565,19 +3573,44 @@ export function Board() {
             >
               {preSendRunning ? "Checking…" : preSend ? "Check again" : "Check this job"}
             </Button>
-            {showApprove && (
-              <Button
-                onClick={() => {
-                  setApproveMsg(null);
-                  setApproveOpen(true);
-                }}
-                disabled={draftBills.length === 0 || dirty || syncing || approving}
-                title={dirty ? "Sync staged coding changes to JobTread first" : undefined}
-                className="min-h-11 w-full lg:w-auto"
-              >
-                Approve Draft Bills{draftBills.length > 0 ? ` (${draftBills.length})` : ""}
-              </Button>
-            )}
+            {showApprove &&
+              (allApproved ? (
+                /* Every bill is approved, so the next step is JobTread's own
+                   invoice builder — New → Customer Invoice on the job's
+                   documents page pulls exactly these uninvoiced bills. Same
+                   destination and same wording as /stage's button. Staged
+                   coding still blocks it: an invoice built now would carry the
+                   OLD cost codes, so sync first. A disabled <a> is not a
+                   thing, hence the button/link swap. */
+                dirty ? (
+                  <Button
+                    disabled
+                    title="Sync staged coding changes to JobTread first"
+                    className="min-h-11 w-full lg:w-auto"
+                  >
+                    Create Invoice in JobTread ↗
+                  </Button>
+                ) : (
+                  <JtLink
+                    href={`https://app.jobtread.com/jobs/${jobId}/documents`}
+                    className={btn("primary", "md", "min-h-11 w-full lg:w-auto")}
+                  >
+                    Create Invoice in JobTread ↗
+                  </JtLink>
+                )
+              ) : (
+                <Button
+                  onClick={() => {
+                    setApproveMsg(null);
+                    setApproveOpen(true);
+                  }}
+                  disabled={draftBills.length === 0 || dirty || syncing || approving}
+                  title={dirty ? "Sync staged coding changes to JobTread first" : undefined}
+                  className="min-h-11 w-full lg:w-auto"
+                >
+                  Approve Draft Bills{draftBills.length > 0 ? ` (${draftBills.length})` : ""}
+                </Button>
+              ))}
           </div>
         </div>
       )}
