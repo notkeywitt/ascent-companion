@@ -1,7 +1,37 @@
+import { execSync } from "node:child_process";
+
 import { withSentryConfig } from "@sentry/nextjs";
+
+/**
+ * Which commit this bundle came from. Vercel sets the VERCEL_GIT_* system vars
+ * on every deploy; a local build falls back to git, and to "" when git can't
+ * answer. Never throws — a missing stamp shows as "unknown" in the Admin build
+ * footer, which is not worth failing a production build over.
+ */
+function git(args) {
+  try {
+    return execSync(`git ${args}`, { stdio: ["ignore", "pipe", "ignore"] })
+      .toString()
+      .trim();
+  } catch {
+    return "";
+  }
+}
+
+// Read once, at config load, so the value is frozen into the bundle. `env`
+// entries are string substitutions made at build time — they are what lets the
+// footer render the build with no API call.
+const BUILD = {
+  APP_BUILD_SHA: process.env.VERCEL_GIT_COMMIT_SHA || git("rev-parse HEAD"),
+  APP_BUILD_REF: process.env.VERCEL_GIT_COMMIT_REF || git("rev-parse --abbrev-ref HEAD"),
+  APP_BUILD_MESSAGE: (process.env.VERCEL_GIT_COMMIT_MESSAGE || git("log -1 --pretty=%s")).split("\n")[0],
+  APP_BUILD_TIME: new Date().toISOString(),
+  APP_BUILD_ENV: process.env.VERCEL_ENV || "local",
+};
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  env: BUILD,
   // Overridable so a build can be run without stomping on `.next`. Two Next
   // builds (or a build and a running `next dev`) share `.next` and wipe each
   // other's manifests, which surfaces as ENOENT on pages-manifest.json during

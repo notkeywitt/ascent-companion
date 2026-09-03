@@ -25,6 +25,7 @@ import { ActivityPanel } from "./ActivityPanel";
 import { NoticesPanel } from "./NoticesPanel";
 import { DigestSettingsPanel } from "./DigestSettingsPanel";
 import { DigestInstructionsPanel } from "./DigestInstructionsPanel";
+import { BuildFooter } from "./BuildFooter";
 
 interface Member {
   email: string;
@@ -84,6 +85,7 @@ export default function AdminPage() {
           <DigestSettingsPanel />
         </>
       )}
+      <BuildFooter />
     </main>
   );
 }

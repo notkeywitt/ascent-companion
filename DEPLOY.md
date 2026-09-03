@@ -99,6 +99,12 @@ The digest's Gmail, Calendar and Sheet reads run in the **Apps Script** repo
   responsive app).
 - Point the Chrome side-panel at the deployed URL: open the panel, edit the address
   bar from `http://localhost:3000` to your Vercel URL, hit **Go**.
+- **Confirming a deploy landed:** the bottom of `/admin` shows the build running.
+  *Assistant* is this app's commit, branch and build time, frozen into the bundle
+  at build time — if the short commit does not match what you just pushed, Vercel
+  is still building or the deploy failed. *Back end* is the Apps Script stamp, read
+  live from its `/exec` health check when you press **Check back end** — it should
+  match the description you last deployed with `./deploy.sh`.
 
 ## Google sign-in (Auth.js)
 
