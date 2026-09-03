@@ -141,6 +141,33 @@ describe("billed-below-cost", () => {
   it("does not fire on a rounding-sized difference", () => {
     expect(margin([line({ id: "l1", cost: 1000, price: 999.995 })])).toEqual(["markup-missing"]);
   });
+
+  it("calls a line exactly one cent under cost at-cost, not under cost", () => {
+    // A cent is the tolerance, so one cent under cost is AT cost: the finding
+    // owed here is the dropped markup. Both of these used to come out wrong,
+    // in opposite directions, because the two tests were asked in dollars.
+    //
+    // $100.00 / $99.99 satisfied NEITHER test and was reported by nothing —
+    // 38.1% of one-cent-under lines went silently unreported this way.
+    expect(margin([line({ id: "l1", cost: 100, price: 99.99 })])).toEqual(["markup-missing"]);
+    // $128.02 / $128.01 was wrongly called below cost — the other 20.6%.
+    expect(margin([line({ id: "l1", cost: 128.02, price: 128.01 })])).toEqual(["markup-missing"]);
+  });
+
+  it("still calls two cents under cost what it is", () => {
+    // The tolerance absorbs a rounding cent, not a real shortfall.
+    expect(margin([line({ id: "l1", cost: 100, price: 99.98 })])).toEqual(["billed-below-cost"]);
+  });
+
+  it("leaves no gap between at-cost and below-cost across a range of values", () => {
+    // The two tests must PARTITION. Asked in dollars they did not, and a line
+    // could satisfy neither. Every one-cent-under line owes exactly one finding.
+    for (let c = 2600; c < 40000; c += 7) { // above minLineCost on BOTH sides
+      const cost = c / 100;
+      const price = (c - 1) / 100;
+      expect(margin([line({ id: "l1", cost, price })])).toEqual(["markup-missing"]);
+    }
+  });
 });
 
 describe("markup-rate-drift", () => {

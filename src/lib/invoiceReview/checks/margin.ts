@@ -37,7 +37,7 @@
  * line per month.
  */
 import { defineInvoiceCheck } from "../checkTypes";
-import { cents, findingKey, money, type Finding } from "../types";
+import { cents, centsGap, findingKey, money, type Finding } from "../types";
 
 export interface MarginConfig {
   /** A line must have cost and price above this to be judged. Keeps rounding
@@ -98,7 +98,17 @@ export const marginCheck = defineInvoiceCheck<MarginConfig>({
 
       const where = line.code ? `${line.code} ${line.name}`.trim() : line.name || "an uncoded line";
 
-      if (config.reportBelowCost && price < cost - TOL) {
+      // WHOLE CENTS, because the two tests below have to partition. Asked in
+      // dollars — `price < cost - TOL` here and `Math.abs(price - cost) <= TOL`
+      // for at-cost — they disagree on a line priced exactly one cent under
+      // cost: 20.6% were wrongly called below cost, and 38.1% satisfied NEITHER
+      // and so were reported by nothing at all. That second half is the bad
+      // one: a line billed at cost is the dropped markup this check exists to
+      // find, and it was being silently lost. Integers cannot leave a gap.
+      const underByC = centsGap(cost, price); // > 0 when billed under cost
+      const tolC = centsGap(TOL, 0);
+
+      if (config.reportBelowCost && underByC > tolC) {
         out.push({
           ...base,
           key: findingKey("billed-below-cost", job.jobId, `${inv.id}:${line.id}`),
@@ -121,7 +131,7 @@ export const marginCheck = defineInvoiceCheck<MarginConfig>({
         continue; // Below cost supersedes "no markup" — don't say both.
       }
 
-      if (config.reportMissingMarkup && Math.abs(price - cost) <= TOL) {
+      if (config.reportMissingMarkup && Math.abs(underByC) <= tolC) {
         out.push({
           ...base,
           key: findingKey("markup-missing", job.jobId, `${inv.id}:${line.id}`),

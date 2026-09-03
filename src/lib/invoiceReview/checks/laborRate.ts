@@ -64,7 +64,7 @@
  * because it had nothing to check with would be worse than no check.
  */
 import { defineJobCheck } from "../checkTypes";
-import { findingKey, money, type Finding, type LaborEntryRef } from "../types";
+import { findingKey, money, withinTolerance, type Finding, type LaborEntryRef } from "../types";
 
 export interface LaborRateConfig {
   /**
@@ -220,7 +220,11 @@ export const laborRateCheck = defineJobCheck<LaborRateConfig>({
       }
 
       // ── stale: one rate, and it is not the current one ────────────────────
-      const off = rates.filter((r) => Math.abs(r - current) > global.tolerance);
+      // Compared in whole cents. `Math.abs(r - current) > tolerance` on raw
+      // rates called 66% of one-cent-apart rates stale, because subtracting two
+      // dollar values reintroduces the drift the tolerance is there to absorb.
+      // Low exposure while pay rates stay whole dollars; wrong regardless.
+      const off = rates.filter((r) => !withinTolerance(r, current, global.tolerance));
       if (off.length === 0) continue;
       const staleHours = off.reduce((s, r) => s + (g.byRate.get(r) ?? 0), 0);
       const atCurrent = staleHours * current;

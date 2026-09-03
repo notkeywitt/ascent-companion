@@ -245,6 +245,28 @@ describe("laborRateCheck", () => {
     expect(out).toEqual([]);
   });
 
+  it("does not call a rate one cent from the current rate stale", () => {
+    // The case above passes only because the variance floor catches it, which
+    // hid this: a cent IS the tolerance, so $65.01 against a current $65.00 is
+    // the same rate. `Math.abs(65.01 - 65)` is 0.010000000000005116 in floating
+    // point, so the dollars comparison called it stale — as it did for 66% of
+    // one-cent-apart rates. 150 hours clears the $1 floor, so nothing else
+    // stops the finding.
+    const out = run(
+      [entry({ rate: 65.01, hours: 150, cost: 9751.5 })],
+      card([["Eric Johnson", "Regular Pay", 65]]),
+    );
+    expect(out).toEqual([]);
+  });
+
+  it("still flags a rate a real distance from the current one", () => {
+    const out = run(
+      [entry({ rate: 65, hours: 150, cost: 9750 })],
+      card([["Eric Johnson", "Regular Pay", 75]]),
+    );
+    expect(out.map((f) => f.kind)).toEqual(["labor-rate-stale"]);
+  });
+
   it("ignores paid leave, which JobTread carries at $0 by design", () => {
     const out = run(
       [entry({ payType: "Paid time off", rate: 0, hours: 8, cost: 0 })],

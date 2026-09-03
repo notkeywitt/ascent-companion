@@ -562,8 +562,26 @@ export function cents(n: number): number {
  * apart whenever a line has a sub-cent remainder.
  */
 export function withinTolerance(a: number, b: number, tolerance: number): boolean {
-  const whole = (n: number) => Math.round((Number(n) || 0) * 100);
-  return Math.abs(whole(a) - whole(b)) <= Math.abs(whole(tolerance));
+  return Math.abs(centsGap(a, b)) <= Math.abs(centsGap(tolerance, 0));
+}
+
+/**
+ * `a - b` in WHOLE CENTS, as an integer.
+ *
+ * The form every money comparison should reduce to. `withinTolerance` answers
+ * "are these the same amount"; this one is for the DIRECTIONAL questions —
+ * "is this below that by more than a cent" — where a sign matters and a
+ * `<`/`<=` pair has to partition without leaving a gap.
+ *
+ * Differencing dollars leaves that gap. `margin.ts` asked `price < cost - TOL`
+ * for below-cost and `Math.abs(price - cost) <= TOL` for at-cost, and for a line
+ * priced exactly one cent under cost the two disagreed: 20.6% were wrongly
+ * called below cost, and 38.1% matched NEITHER test and were reported by
+ * nothing — a dropped markup the review exists to catch, silently lost.
+ * Integers cannot do that.
+ */
+export function centsGap(a: number, b: number): number {
+  return Math.round((Number(a) || 0) * 100) - Math.round((Number(b) || 0) * 100);
 }
 
 /** Dollars, for a finding's text. */
