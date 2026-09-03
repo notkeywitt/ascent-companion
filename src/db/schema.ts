@@ -1181,3 +1181,79 @@ export const codingDrafts = sqliteTable(
 
 export type CodingDraftRow = typeof codingDrafts.$inferSelect;
 export type NewCodingDraftRow = typeof codingDrafts.$inferInsert;
+
+/**
+ * THE FINANCIAL JOURNAL — every write this app makes to a money record, kept
+ * forever, in one append-only list.
+ *
+ * ── WHY IT EXISTS ───────────────────────────────────────────────────────────
+ * Every JobTread write leaves this app carrying ONE grant key, so JobTread's own
+ * history shows the API, not the person. Before this table the app wrote to bill
+ * amounts, sales tax, issue dates, vendor invoice numbers, bill status, cost
+ * codes and time entries with no record of who changed what, from what, to
+ * what. A deleted bill line left no trace at all. This is the record a dispute,
+ * an audit or a "who moved this charge" question is answered from.
+ *
+ * ── APPEND-ONLY, AND NEVER TRIMMED ──────────────────────────────────────────
+ * There is no update path and no delete path in `src/lib/financialJournal.ts`,
+ * on purpose. The Apps Script side's `writeAuditLog` deletes its oldest 500 rows
+ * once it passes 2,000 — the audit trail expiring first is exactly the failure
+ * this table must not repeat. Rows are small (a few hundred bytes) and the write
+ * rate is human-paced, so keeping every row is cheap.
+ *
+ * ── WHAT ONE ROW IS ─────────────────────────────────────────────────────────
+ * One field-level change, or one whole-record create/delete. A single user
+ * action that changes four lines writes four rows sharing one `requestId`, so
+ * the journal can be read either as a stream of changes or as a list of actions.
+ *
+ * `before` is only as good as its provenance, which is why `beforeSource` is
+ * stored next to it: "read" means the app read the live value immediately before
+ * writing, "client" means the browser reported what it was showing (useful, not
+ * evidence), "none" means it was not captured. A journal that hides which of
+ * the three it holds is worse than one that admits it.
+ */
+export const financialEvents = sqliteTable(
+  "financial_events",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    /** ISO timestamp the event was recorded. */
+    at: text("at").notNull(),
+    /** Signed-in email, from the SESSION — never from the request body. */
+    actor: text("actor").notNull().default(""),
+    /** The actor's role at the time, so a later role change can't rewrite history. */
+    actorRole: text("actor_role").notNull().default(""),
+    /** Dotted verb: "bill.tax.set", "line.delete", "time-entry.update". */
+    action: text("action").notNull(),
+    /** What kind of thing changed: "bill" | "line" | "time-entry" | "invoice" | … */
+    entity: text("entity").notNull().default(""),
+    /** The changed record's JobTread id. */
+    entityId: text("entity_id").notNull().default(""),
+    /** Parent document (the bill a line belongs to), when there is one. */
+    docId: text("doc_id").notNull().default(""),
+    /** JobTread job id, when known — the journal's most useful filter. */
+    jobId: text("job_id").notNull().default(""),
+    /** Which field changed; "" for a whole-record create or delete. */
+    field: text("field").notNull().default(""),
+    /** Prior value as text (JSON for anything not a scalar). */
+    before: text("before").notNull().default(""),
+    /** New value as text. */
+    after: text("after").notNull().default(""),
+    /** How `before` was obtained: "read" | "client" | "none". See the note above. */
+    beforeSource: text("before_source").notNull().default("none"),
+    /** Dollars this event moved, when the change has a figure. Null when it doesn't. */
+    amount: real("amount"),
+    /** The API route that wrote it, for tracing a row back to code. */
+    route: text("route").notNull().default(""),
+    /** Groups every row written by ONE user action. */
+    requestId: text("request_id").notNull().default(""),
+    /** "ok" | "error" | "preview" — an attempt that failed is still a record. */
+    outcome: text("outcome").notNull().default("ok"),
+    /** The failure message when `outcome` is "error". */
+    error: text("error").notNull().default(""),
+    /** Anything else worth keeping, as JSON. Never load-bearing. */
+    meta: text("meta").notNull().default("{}"),
+  },
+);
+
+export type FinancialEventRow = typeof financialEvents.$inferSelect;
+export type NewFinancialEventRow = typeof financialEvents.$inferInsert;

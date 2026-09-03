@@ -17,6 +17,7 @@ import {
   taxReconcileWarning,
 } from "@/lib/billing";
 import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
+import { openJournal } from "@/lib/financialJournal";
 import { kickJtSync } from "@/lib/appsScript";
 
 /**
@@ -449,6 +450,29 @@ export async function POST(req: NextRequest) {
 
     // ---- 8. create the draft bill, then attach the file ---------------------
     const { id: docId } = await createVendorBill(cfg, billArgs);
+
+    // The bill's own birth certificate: who captured it, from which vendor, for
+    // how much, off which file. This is the row every later edit in the journal
+    // hangs off.
+    const j = await openJournal("/api/add-bill");
+    await j.record([
+      {
+        action: "bill.create",
+        entity: "bill",
+        entityId: docId,
+        docId,
+        jobId,
+        after: {
+          vendor: billArgs.vendorName ?? "",
+          externalId: billArgs.externalId ?? "",
+          issueDate: billArgs.issueDate ?? "",
+          lines: billArgs.lines?.length ?? 0,
+        },
+        beforeSource: "none",
+        amount: typeof summary.amount === "number" ? summary.amount : null,
+        meta: { fileName: file.name ?? "", source: "add-bill" },
+      },
+    ]);
 
     let fileAttached = true;
     try {

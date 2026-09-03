@@ -441,6 +441,66 @@ export async function getBillDetail(cfg: PaveConfig, docId: string): Promise<Bil
 }
 
 /**
+ * The bill header fields the FINANCIAL JOURNAL records, and nothing else.
+ *
+ * Deliberately not `getBillDetail`: that pulls 100 cost items and every attached
+ * file, and a journal's before-read runs on the critical path of a tap on a
+ * phone. This is one small document read — the fields a header write can change,
+ * plus the job id so the journal row is filterable by job.
+ *
+ * Returns `null` on ANY failure. A missing before-value is recorded honestly as
+ * `beforeSource: "none"`; it must never stop the write it was going to describe.
+ */
+export async function getBillJournalSnapshot(
+  cfg: PaveConfig,
+  docId: string,
+): Promise<{
+  status?: string;
+  issueDate?: string;
+  externalId?: string;
+  name?: string;
+  cost?: number;
+  nonRecoverableTax?: number;
+  qboIsIgnored?: boolean;
+  qboDocumentType?: string;
+  jobId: string;
+} | null> {
+  try {
+    const r: any = await pave(cfg, {
+      document: {
+        $: { id: docId },
+        id: {},
+        status: {},
+        issueDate: {},
+        externalId: {},
+        name: {},
+        cost: {},
+        nonRecoverableTax: {},
+        qboIsIgnored: {},
+        qboDocumentType: {},
+        job: { id: {} },
+      },
+    });
+    const d = r?.document;
+    if (!d) return null;
+    return {
+      status: d.status ?? undefined,
+      issueDate: d.issueDate ? String(d.issueDate).slice(0, 10) : undefined,
+      externalId: d.externalId ?? undefined,
+      name: d.name ?? undefined,
+      cost: typeof d.cost === "number" ? d.cost : undefined,
+      nonRecoverableTax:
+        typeof d.nonRecoverableTax === "number" ? d.nonRecoverableTax : undefined,
+      qboIsIgnored: typeof d.qboIsIgnored === "boolean" ? d.qboIsIgnored : undefined,
+      qboDocumentType: d.qboDocumentType ?? undefined,
+      jobId: d.job?.id ?? "",
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
  * WRITE — set a bill's header flags. `name` is "Bill" | "Expense" (the JT doc
  * name / template), `qboDocumentType` is how it SYNCS to QuickBooks ("bill" vs
  * "purchase" = expense) — changing name alone doesn't change the QBO type, so the
@@ -2653,6 +2713,67 @@ export async function createLine(
   return { id };
 }
 
+/**
+ * One bill LINE, as the financial journal records it before a destructive edit.
+ *
+ * `deleteCostItem` removes a line outright and JobTread keeps nothing that says
+ * what it held. This read is what turns a delete from a disappearance into a
+ * record: the amount, the code it was coded to, and the bill it was on, captured
+ * immediately before the line stops existing.
+ *
+ * Returns `null` on ANY failure, for the same reason as
+ * `getBillJournalSnapshot` — a missing before-value is recorded honestly and
+ * must never block the write.
+ */
+export async function getLineJournalSnapshot(
+  cfg: PaveConfig,
+  costItemId: string,
+): Promise<{
+  name: string;
+  description: string;
+  cost: number | null;
+  quantity: number | null;
+  unitCost: number | null;
+  code: string;
+  codeName: string;
+  jobCostItemId: string;
+  docId: string;
+  jobId: string;
+} | null> {
+  try {
+    const r: any = await pave(cfg, {
+      costItem: {
+        $: { id: costItemId },
+        id: {},
+        name: {},
+        description: {},
+        cost: {},
+        quantity: {},
+        unitCost: {},
+        costCode: { number: {}, name: {} },
+        jobCostItem: { id: {} },
+        document: { id: {}, job: { id: {} } },
+      },
+    });
+    const c = r?.costItem;
+    if (!c) return null;
+    return {
+      name: c.name ?? "",
+      description: c.description ?? "",
+      cost: typeof c.cost === "number" ? c.cost : null,
+      quantity: typeof c.quantity === "number" ? c.quantity : null,
+      unitCost: typeof c.unitCost === "number" ? c.unitCost : null,
+      code: c.costCode?.number ?? "",
+      codeName: c.costCode?.name ?? "",
+      jobCostItemId: c.jobCostItem?.id ?? "",
+      docId: c.document?.id ?? "",
+      jobId: c.document?.job?.id ?? "",
+    };
+  } catch {
+    return null;
+  }
+}
+
 /** WRITE — delete a bill line (cost item). Confirmed mutation `deleteCostItem`
  * (ascent-appscript JobTread.js), no response selection. Draft-only per callers. */
 export async function deleteLine(cfg: PaveConfig, costItemId: string): Promise<void> {
@@ -4257,6 +4378,73 @@ export async function createTimeEntry(
     return { id };
   } catch (e) {
     throw new Error(rewriteTimeEntryError(e instanceof Error ? e.message : "Unknown error"));
+  }
+}
+
+/**
+ * One TIME ENTRY, as the financial journal records it before an edit.
+ *
+ * Time is labor cost, so a recode moves real money between cost codes and
+ * sometimes between jobs. JobTread keeps no history of that move, and the entry
+ * itself is rewritten in place — which is why the prior job, code, hours and
+ * rate are read here first.
+ *
+ * Returns `null` on ANY failure. Same rule as the bill and line snapshots: a
+ * missing before-value is recorded honestly, never allowed to block the write.
+ */
+export async function getTimeEntryJournalSnapshot(
+  cfg: PaveConfig,
+  id: string,
+): Promise<{
+  jobId: string;
+  jobName: string;
+  costItemId: string;
+  code: string;
+  minutes: number | null;
+  hourlyRate: number | null;
+  cost: number | null;
+  startedAt: string;
+  endedAt: string;
+  isApproved: boolean | null;
+  notes: string;
+  userName: string;
+} | null> {
+  try {
+    const r: any = await pave(cfg, {
+      timeEntry: {
+        $: { id },
+        id: {},
+        startedAt: {},
+        endedAt: {},
+        minutes: {},
+        hourlyRate: {},
+        cost: {},
+        isApproved: {},
+        notes: {},
+        type: {},
+        user: { name: {} },
+        job: { id: {}, name: {} },
+        costItem: { id: {}, costCode: { number: {} } },
+      },
+    });
+    const t = r?.timeEntry;
+    if (!t) return null;
+    return {
+      jobId: t.job?.id ?? "",
+      jobName: t.job?.name ?? "",
+      costItemId: t.costItem?.id ?? "",
+      code: t.costItem?.costCode?.number ?? "",
+      minutes: typeof t.minutes === "number" ? t.minutes : null,
+      hourlyRate: typeof t.hourlyRate === "number" ? t.hourlyRate : null,
+      cost: typeof t.cost === "number" ? t.cost : null,
+      startedAt: t.startedAt ?? "",
+      endedAt: t.endedAt ?? "",
+      isApproved: typeof t.isApproved === "boolean" ? t.isApproved : null,
+      notes: t.notes ?? "",
+      userName: t.user?.name ?? "",
+    };
+  } catch {
+    return null;
   }
 }
 

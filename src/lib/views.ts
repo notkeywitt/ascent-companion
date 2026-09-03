@@ -266,6 +266,14 @@ export const VIEWS: ViewDef[] = [
   // the page so a non-admin can't rewrite the UI by calling the route directly.
   { id: "page-copy", label: "Page Text", group: "System", paths: ["/admin/copy", "/api/admin/copy"] },
   { id: "logs", label: "Logs", group: "System", paths: ["/logs"] },
+  // THE FINANCIAL JOURNAL — every write the app has made to a money record.
+  // Admin-only by default (it is in ADMIN_MENU, alongside the other audit
+  // surface): it names who changed what, so handing it out is handing out an
+  // audit trail over everyone's work. A per-user grant can still give it to an
+  // individual — the bookkeeper is the obvious case. The API route is listed
+  // alongside the page so a non-admin cannot read the journal by calling it
+  // directly.
+  { id: "journal", label: "Financial Journal", group: "System", paths: ["/journal", "/api/journal"] },
   // What each working session changed — the session ledger, rendered. Read-only
   // and self-contained: the data is a generated JSON module imported at build
   // time, so there is no API route to gate alongside it. Office + admin by
@@ -295,7 +303,14 @@ const FIELD_VIEWS: string[] = ["mileage", "employee-time", "tools", "requisition
 const LEAD_VIEWS: string[] = [...FIELD_VIEWS, "coding", "stage", "recode", "payments"];
 // The admin-only consoles — access control + the audit log. No one below admin
 // gets these by default (a per-user grant can still hand them to an individual).
-const ADMIN_MENU: string[] = ["admin", "logs", "historical-cost", "bank-details", "page-copy"];
+const ADMIN_MENU: string[] = [
+  "admin",
+  "logs",
+  "journal",
+  "historical-cost",
+  "bank-details",
+  "page-copy",
+];
 // Office gets Financials, HR, and Utilities ("everything else") — i.e. every
 // view except the admin consoles, including the header Sync button.
 const OFFICE_VIEWS: string[] = ALL_VIEW_IDS.filter((id) => !ADMIN_MENU.includes(id));

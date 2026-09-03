@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { clearJobCostCaches, updateLine } from "@/lib/jobtread";
 import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
 import { recordCoding } from "@/lib/usage";
+import { openJournal } from "@/lib/financialJournal";
 import type { RecodeEntry } from "@/lib/billLineMath";
 import { db, ensureDb } from "@/db";
 import { savedBills } from "@/db/schema";
@@ -59,22 +60,63 @@ export async function POST(req: NextRequest) {
 
   const cfg = getPaveConfig();
   const results: { costItemId: string; ok: boolean; error?: string }[] = [];
+  // One journal for the whole save, so every line edited by this tap shares a
+  // requestId and reads back as ONE action.
+  //
+  // `before` here is the browser's own diff (`codingLog`), so `beforeSource` is
+  // "client" — useful, not evidence. Reading each line's prior value live would
+  // be one extra JobTread round trip PER LINE on a save that routinely carries
+  // twenty, which is why the honest label is preferred over the slow read. The
+  // single-record routes (tax, status, issue date, delete) all read live.
+  const j = await openJournal("/api/code", { email, role: (session?.user as { role?: string })?.role ?? "" });
+  const priorCode = new Map<string, string>();
+  for (const entry of body.codingLog ?? []) {
+    if (entry?.line) priorCode.set(String(entry.line), String(entry.from ?? ""));
+  }
   for (const c of changes) {
+    const line = {
+      name: c.name,
+      jobCostItemId: c.jobCostItemId,
+      quantity: c.quantity,
+      unitCost: c.unitCost,
+      description: c.description,
+    };
+    const extended =
+      typeof c.quantity === "number" && typeof c.unitCost === "number"
+        ? Math.round(c.quantity * c.unitCost * 100) / 100
+        : null;
     try {
-      await updateLine(cfg, c.costItemId, {
-        name: c.name,
-        jobCostItemId: c.jobCostItemId,
-        quantity: c.quantity,
-        unitCost: c.unitCost,
-        description: c.description,
-      });
+      await updateLine(cfg, c.costItemId, line);
       results.push({ costItemId: c.costItemId, ok: true });
+      await j.record([
+        {
+          action: "line.update",
+          entity: "line",
+          entityId: c.costItemId,
+          docId: (body.docId ?? "").trim(),
+          field: "",
+          before: c.name ? priorCode.get(c.name) : undefined,
+          after: line,
+          beforeSource: c.name && priorCode.has(c.name) ? "client" : "none",
+          amount: extended,
+        },
+      ]);
     } catch (e) {
-      results.push({
-        costItemId: c.costItemId,
-        ok: false,
-        error: e instanceof Error ? e.message : "Unknown error",
-      });
+      const message = e instanceof Error ? e.message : "Unknown error";
+      results.push({ costItemId: c.costItemId, ok: false, error: message });
+      await j.record([
+        {
+          action: "line.update",
+          entity: "line",
+          entityId: c.costItemId,
+          docId: (body.docId ?? "").trim(),
+          after: line,
+          beforeSource: "none",
+          amount: extended,
+          outcome: "error",
+          error: message,
+        },
+      ]);
     }
   }
 

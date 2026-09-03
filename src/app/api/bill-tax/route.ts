@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { setBillTax } from "@/lib/jobtread";
 import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
+import { journalBillWrite } from "@/lib/billJournal";
 
 // Set a bill's document-level sales tax (nonRecoverableTax, a dollar amount).
 // Gated by the writes flag: with writes OFF it previews and sends nothing to JT.
@@ -25,8 +26,20 @@ export async function POST(req: NextRequest) {
   if (!writesEnabled()) {
     return NextResponse.json({ previewed: true, wrote: false, taxAmount });
   }
+  const cfg = getPaveConfig();
   try {
-    const saved = await setBillTax(getPaveConfig(), docId, taxAmount);
+    const saved = await journalBillWrite({
+      route: "/api/bill-tax",
+      action: "bill.tax.set",
+      cfg,
+      docId,
+      field: "nonRecoverableTax",
+      priorField: "nonRecoverableTax",
+      attempted: taxAmount,
+      amount: taxAmount,
+      run: () => setBillTax(cfg, docId, taxAmount),
+      after: (saved) => saved,
+    });
     return NextResponse.json({ wrote: true, taxAmount: saved });
   } catch (e) {
     return NextResponse.json(

@@ -3,10 +3,12 @@ import { auth } from "@/auth";
 import {
   clearJobCostCaches,
   getJobBudget,
+  getTimeEntryJournalSnapshot,
   orgLocalToJtIso,
   updateTimeEntry,
 } from "@/lib/jobtread";
 import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
+import { diffFields, openJournal } from "@/lib/financialJournal";
 
 /**
  * ONE time entry, edited in place — the write behind Tracking Sheets'
@@ -183,19 +185,55 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  // Attribution comes from the session, never the body — same rule as /api/code.
-  await auth();
+  // Attribution comes from the session, never the body — same rule as /api/code
+  // — and it is now RECORDED rather than merely checked: this route rewrites a
+  // labor cost in place, and JobTread keeps no history of the change.
+  const session = await auth();
+  const cfg = getPaveConfig();
+  const j = await openJournal("/api/time-entry", {
+    email: (session?.user?.email ?? "").trim().toLowerCase(),
+    role: (session?.user as { role?: string } | undefined)?.role ?? "",
+  });
+  const prior = await getTimeEntryJournalSnapshot(cfg, id);
+  const base = {
+    action: "time-entry.update",
+    entity: "time-entry",
+    entityId: id,
+    jobId: prior?.jobId ?? jobId ?? "",
+    beforeSource: (prior ? "read" : "none") as "read" | "none",
+    amount: prior?.cost ?? null,
+    meta: { employee: prior?.userName ?? "", priorCode: prior?.code ?? "" },
+  };
+  // The snapshot's field names differ from the mutation's (`costItemId` vs the
+  // entry's `costItem`), so the before-map is mapped onto the written names —
+  // otherwise every field would read as a change from nothing.
+  const priorAsWritten = prior
+    ? {
+        jobId: prior.jobId,
+        costItemId: prior.costItemId,
+        startedAt: prior.startedAt,
+        endedAt: prior.endedAt,
+        notes: prior.notes,
+        isApproved: prior.isApproved,
+      }
+    : undefined;
 
   try {
-    const res = await updateTimeEntry(getPaveConfig(), id, fields);
+    const res = await updateTimeEntry(cfg, id, fields);
     // Hours and dollars moved between cost codes — and possibly between jobs —
     // so every cached per-code total is stale, on this board and Labor Review's.
     clearJobCostCaches();
+    await j.record(diffFields(priorAsWritten, { ...fields }, base));
     return NextResponse.json({ previewed: false, wrote: true, entry: res });
   } catch (e) {
-    return NextResponse.json(
-      { error: e instanceof Error ? e.message : "Unknown error" },
-      { status: 502 },
+    const message = e instanceof Error ? e.message : "Unknown error";
+    await j.record(
+      diffFields(priorAsWritten, { ...fields }, base).map((ev) => ({
+        ...ev,
+        outcome: "error" as const,
+        error: message,
+      })),
     );
+    return NextResponse.json({ error: message }, { status: 502 });
   }
 }

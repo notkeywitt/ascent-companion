@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { setBillIssueDate } from "@/lib/jobtread";
 import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
+import { journalBillWrite } from "@/lib/billJournal";
 
 // Set a bill's issueDate (its billing month = last day). Gated by writes flag.
 export async function POST(req: NextRequest) {
@@ -21,8 +22,22 @@ export async function POST(req: NextRequest) {
   if (!writesEnabled()) {
     return NextResponse.json({ previewed: true, wrote: false, issueDate });
   }
+  const cfg = getPaveConfig();
   try {
-    const saved = await setBillIssueDate(getPaveConfig(), docId, issueDate);
+    // The issue date IS the billing period in JobTread, so this is one of the
+    // most consequential single-field edits in the app — and the one most worth
+    // being able to trace back to a person and a prior value.
+    const saved = await journalBillWrite({
+      route: "/api/bill-issuedate",
+      action: "bill.issueDate.set",
+      cfg,
+      docId,
+      field: "issueDate",
+      priorField: "issueDate",
+      attempted: issueDate,
+      run: () => setBillIssueDate(cfg, docId, issueDate),
+      after: (saved) => saved,
+    });
     return NextResponse.json({ wrote: true, issueDate: saved });
   } catch (e) {
     return NextResponse.json(

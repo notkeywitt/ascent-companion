@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { clearJobCostCaches, createLine } from "@/lib/jobtread";
 import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
+import { openJournal } from "@/lib/financialJournal";
 
 interface Body {
   docId?: string;
@@ -38,21 +39,50 @@ export async function POST(req: NextRequest) {
     });
   }
 
+  const cfg = getPaveConfig();
+  const j = await openJournal("/api/add-line");
+  const line = {
+    name,
+    quantity: typeof body.quantity === "number" ? body.quantity : undefined,
+    unitCost: typeof body.unitCost === "number" ? body.unitCost : undefined,
+    jobCostItemId: body.jobCostItemId || undefined,
+    description: body.description,
+  };
+  // A create has no prior value by definition, so `beforeSource` is "none" and
+  // `after` carries the whole line rather than one field.
+  const extended =
+    typeof line.quantity === "number" && typeof line.unitCost === "number"
+      ? Math.round(line.quantity * line.unitCost * 100) / 100
+      : (line.unitCost ?? null);
   try {
-    const cfg = getPaveConfig();
-    const { id } = await createLine(cfg, docId, {
-      name,
-      quantity: typeof body.quantity === "number" ? body.quantity : undefined,
-      unitCost: typeof body.unitCost === "number" ? body.unitCost : undefined,
-      jobCostItemId: body.jobCostItemId || undefined,
-      description: body.description,
-    });
+    const { id } = await createLine(cfg, docId, line);
     clearJobCostCaches(); // a new line changes the job's actuals per cost code
+    await j.record([
+      {
+        action: "line.create",
+        entity: "line",
+        entityId: id,
+        docId,
+        after: line,
+        beforeSource: "none",
+        amount: extended,
+      },
+    ]);
     return NextResponse.json({ previewed: false, wrote: true, id });
   } catch (e) {
-    return NextResponse.json(
-      { error: e instanceof Error ? e.message : "Unknown error" },
-      { status: 502 },
-    );
+    const message = e instanceof Error ? e.message : "Unknown error";
+    await j.record([
+      {
+        action: "line.create",
+        entity: "line",
+        docId,
+        after: line,
+        beforeSource: "none",
+        amount: extended,
+        outcome: "error",
+        error: message,
+      },
+    ]);
+    return NextResponse.json({ error: message }, { status: 502 });
   }
 }

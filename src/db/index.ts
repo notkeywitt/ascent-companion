@@ -889,6 +889,44 @@ async function applySchema() {
   await getClient().execute(
     `CREATE INDEX IF NOT EXISTS coding_drafts_email_idx ON coding_drafts (email, updated_at DESC)`,
   );
+
+  // THE FINANCIAL JOURNAL — every write the app makes to a money record, kept
+  // forever. Append-only: nothing in src/lib/financialJournal.ts updates or
+  // deletes a row, and no sweep trims this table. See db/schema.ts for why.
+  await getClient().execute(`
+    CREATE TABLE IF NOT EXISTS financial_events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      at TEXT NOT NULL,
+      actor TEXT NOT NULL DEFAULT '',
+      actor_role TEXT NOT NULL DEFAULT '',
+      action TEXT NOT NULL,
+      entity TEXT NOT NULL DEFAULT '',
+      entity_id TEXT NOT NULL DEFAULT '',
+      doc_id TEXT NOT NULL DEFAULT '',
+      job_id TEXT NOT NULL DEFAULT '',
+      field TEXT NOT NULL DEFAULT '',
+      before TEXT NOT NULL DEFAULT '',
+      after TEXT NOT NULL DEFAULT '',
+      before_source TEXT NOT NULL DEFAULT 'none',
+      amount REAL,
+      route TEXT NOT NULL DEFAULT '',
+      request_id TEXT NOT NULL DEFAULT '',
+      outcome TEXT NOT NULL DEFAULT 'ok',
+      error TEXT NOT NULL DEFAULT '',
+      meta TEXT NOT NULL DEFAULT '{}'
+    )
+  `);
+  // The journal is read newest-first, and filtered by the record, the job, the
+  // person, or the one action a row belonged to.
+  for (const idx of [
+    `CREATE INDEX IF NOT EXISTS financial_events_at_idx ON financial_events (at DESC)`,
+    `CREATE INDEX IF NOT EXISTS financial_events_doc_idx ON financial_events (doc_id, at DESC)`,
+    `CREATE INDEX IF NOT EXISTS financial_events_job_idx ON financial_events (job_id, at DESC)`,
+    `CREATE INDEX IF NOT EXISTS financial_events_actor_idx ON financial_events (actor, at DESC)`,
+    `CREATE INDEX IF NOT EXISTS financial_events_request_idx ON financial_events (request_id)`,
+  ]) {
+    await getClient().execute(idx);
+  }
 }
 
 export { schema };

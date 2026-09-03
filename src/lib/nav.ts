@@ -100,6 +100,7 @@ export const AREAS: Area[] = [
     dests: [
       { label: "Admin", href: "/admin", desc: "Who can sign in", view: "admin" },
       { label: "Logs", href: "/logs", desc: "The automation audit trail", view: "logs" },
+      { label: "Financial Journal", href: "/journal", desc: "Who changed which bill, line or time entry — and from what", view: "journal" },
       { label: "Historical Cost Import", href: "/historical-cost", desc: "Backfill a job's pre-JobTread costs as one draft bill", view: "historical-cost" },
       { label: "Page Text", href: "/admin/copy", desc: "Reword the app's on-screen text", view: "page-copy" },
       { label: "Course", href: "/course", desc: "Learn how this app works, one segment at a time", view: "course" },

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { setBillExternalId } from "@/lib/jobtread";
 import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
+import { journalBillWrite } from "@/lib/billJournal";
 
 // Set a bill's Vendor Bill Number (JobTread's externalId, the vendor's invoice/
 // bill number). An empty value clears it. Capped at JobTread's 32-char limit.
@@ -29,8 +30,19 @@ export async function POST(req: NextRequest) {
   if (!writesEnabled()) {
     return NextResponse.json({ previewed: true, wrote: false, externalId });
   }
+  const cfg = getPaveConfig();
   try {
-    const saved = await setBillExternalId(getPaveConfig(), docId, externalId);
+    const saved = await journalBillWrite({
+      route: "/api/bill-number",
+      action: "bill.externalId.set",
+      cfg,
+      docId,
+      field: "externalId",
+      priorField: "externalId",
+      attempted: externalId,
+      run: () => setBillExternalId(cfg, docId, externalId),
+      after: (saved) => saved,
+    });
     return NextResponse.json({ wrote: true, externalId: saved });
   } catch (e) {
     return NextResponse.json(

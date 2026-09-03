@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { clearJobCostCaches, combineLines } from "@/lib/jobtread";
+import { clearJobCostCaches, combineLines, getLineJournalSnapshot } from "@/lib/jobtread";
 import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
+import { openJournal } from "@/lib/financialJournal";
 
 interface Body {
   docId?: string;
@@ -49,8 +50,39 @@ export async function POST(req: NextRequest) {
     });
   }
 
+  const cfg = getPaveConfig();
+  const j = await openJournal("/api/combine-lines");
+  // Combining DELETES lines, so each one that is about to go is snapshotted
+  // first — same rule as /api/delete-line. Read in parallel; a failed read
+  // costs a before-value, never the write.
+  const doomed = await Promise.all(
+    deleteIds.map(async (id) => ({ id, prior: await getLineJournalSnapshot(cfg, id) })),
+  );
+  const combineEvents = () => [
+    {
+      action: "line.combine",
+      entity: "line",
+      entityId: keepId,
+      docId,
+      jobId: doomed.find((d) => d.prior?.jobId)?.prior?.jobId ?? "",
+      after: { name: body.name ?? "Line item", extendedCost: body.extendedCost },
+      beforeSource: "none" as const,
+      amount: body.extendedCost as number,
+      meta: { absorbed: deleteIds.length },
+    },
+    ...doomed.map((d) => ({
+      action: "line.delete",
+      entity: "line",
+      entityId: d.id,
+      docId,
+      jobId: d.prior?.jobId ?? "",
+      before: d.prior ?? undefined,
+      beforeSource: (d.prior ? "read" : "none") as "read" | "none",
+      amount: d.prior?.cost ?? null,
+      meta: { via: "combine", keptId: keepId },
+    })),
+  ];
   try {
-    const cfg = getPaveConfig();
     const { keptId, deleted } = await combineLines(cfg, {
       docId,
       keepId,
@@ -61,11 +93,13 @@ export async function POST(req: NextRequest) {
       description: body.description,
     });
     clearJobCostCaches(); // merging lines re-spreads cost across codes
+    await j.record(combineEvents());
     return NextResponse.json({ previewed: false, wrote: true, keptId, deleted });
   } catch (e) {
-    return NextResponse.json(
-      { error: e instanceof Error ? e.message : "Unknown error" },
-      { status: 502 },
+    const message = e instanceof Error ? e.message : "Unknown error";
+    await j.record(
+      combineEvents().map((ev) => ({ ...ev, outcome: "error" as const, error: message })),
     );
+    return NextResponse.json({ error: message }, { status: 502 });
   }
 }

@@ -9,6 +9,7 @@ import {
   orgLocalToJtIso,
 } from "@/lib/jobtread";
 import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
+import { openJournal } from "@/lib/financialJournal";
 
 /**
  * A NEW time entry, logged for somebody else — the write behind Tracking
@@ -131,28 +132,44 @@ export async function POST(req: NextRequest) {
   }
 
   // Attribution comes from the session, never the body — same rule as the
-  // sibling POST and /api/code.
-  await auth();
+  // sibling POST and /api/code — and it is recorded, because a hand-entered
+  // time entry adds labor cost to a job with no other trace of who added it.
+  const session = await auth();
+  const j = await openJournal("/api/time-entry/create", {
+    email: (session?.user?.email ?? "").trim().toLowerCase(),
+    role: (session?.user as { role?: string } | undefined)?.role ?? "",
+  });
+  const entry = { userId, jobId, costItemId, type: payType, startedAt, endedAt, notes };
 
   try {
-    const { id } = await createTimeEntry(getPaveConfig(), {
-      userId,
-      jobId,
-      costItemId,
-      type: payType,
-      startedAt,
-      endedAt,
-      notes,
-      isApproved: false,
-    });
+    const { id } = await createTimeEntry(getPaveConfig(), { ...entry, isApproved: false });
     // New hours and dollars against a cost code — every cached per-code total
     // on this board and Labor Review's is stale.
     clearJobCostCaches();
+    await j.record([
+      {
+        action: "time-entry.create",
+        entity: "time-entry",
+        entityId: id,
+        jobId,
+        after: entry,
+        beforeSource: "none",
+      },
+    ]);
     return NextResponse.json({ previewed: false, wrote: true, jtEntryId: id });
   } catch (e) {
-    return NextResponse.json(
-      { error: e instanceof Error ? e.message : "Unknown error" },
-      { status: 502 },
-    );
+    const message = e instanceof Error ? e.message : "Unknown error";
+    await j.record([
+      {
+        action: "time-entry.create",
+        entity: "time-entry",
+        jobId,
+        after: entry,
+        beforeSource: "none",
+        outcome: "error",
+        error: message,
+      },
+    ]);
+    return NextResponse.json({ error: message }, { status: 502 });
   }
 }

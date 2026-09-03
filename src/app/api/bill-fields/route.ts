@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { setBillFields } from "@/lib/jobtread";
+import { getBillJournalSnapshot, setBillFields } from "@/lib/jobtread";
 import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
+import { diffFields, openJournal } from "@/lib/financialJournal";
 
 // Set a bill's header flags: name ("Bill"|"Expense") and/or qboIsIgnored
 // (Push-to-QB = !qboIsIgnored). Gated by the writes flag.
@@ -31,13 +32,34 @@ export async function POST(req: NextRequest) {
   if (!writesEnabled()) {
     return NextResponse.json({ previewed: true, wrote: false, ...fields });
   }
+  // `qboIsIgnored` decides whether this cost ever reaches QuickBooks — the
+  // general ledger — so every flip of it is journalled with its prior value.
+  // Multi-field write, so `diffFields` produces one row per field that actually
+  // changed rather than a row per field sent.
+  const cfg = getPaveConfig();
+  const j = await openJournal("/api/bill-fields");
+  const prior = await getBillJournalSnapshot(cfg, docId);
+  const base = {
+    action: "bill.fields.set",
+    entity: "bill",
+    entityId: docId,
+    docId,
+    jobId: prior?.jobId ?? "",
+    beforeSource: (prior ? "read" : "none") as "read" | "none",
+  };
   try {
-    const saved = await setBillFields(getPaveConfig(), docId, fields);
+    const saved = await setBillFields(cfg, docId, fields);
+    await j.record(diffFields(prior ?? undefined, { ...saved }, base));
     return NextResponse.json({ wrote: true, ...saved });
   } catch (e) {
-    return NextResponse.json(
-      { error: e instanceof Error ? e.message : "Unknown error" },
-      { status: 502 },
+    const message = e instanceof Error ? e.message : "Unknown error";
+    await j.record(
+      diffFields(prior ?? undefined, { ...fields }, base).map((ev) => ({
+        ...ev,
+        outcome: "error" as const,
+        error: message,
+      })),
     );
+    return NextResponse.json({ error: message }, { status: 502 });
   }
 }

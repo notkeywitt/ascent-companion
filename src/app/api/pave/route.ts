@@ -4,6 +4,7 @@ import { pave } from "@/lib/jobtread";
 import { getPaveConfig, hasGrant, writesEnabled, gatewayWritesEnabled } from "@/lib/config";
 import type { Role } from "@/lib/views";
 import { findMutations, sanitizeQuery, isMutationAllowed } from "@/lib/paveGateway";
+import { openJournal, type JournalEventInput } from "@/lib/financialJournal";
 
 /**
  * Generic guarded Pave gateway.
@@ -97,6 +98,23 @@ export async function POST(req: NextRequest) {
     }
     const denied = mutations.filter((m) => !isMutationAllowed(role, m));
     if (denied.length > 0) {
+      // A REFUSED write is journalled too. This is the generic gateway: a
+      // mutation a role may not run is the one event an audit most wants to see,
+      // and refusing it silently is how a probe goes unnoticed.
+      const j = await openJournal("/api/pave", {
+        email: (session?.user?.email ?? "").trim().toLowerCase(),
+        role,
+      });
+      await j.record(
+        denied.map((m) => ({
+          action: `gateway.${m}`,
+          entity: "gateway",
+          after: safeQuery,
+          beforeSource: "none" as const,
+          outcome: "error" as const,
+          error: `Role "${role}" is not allowed to run ${m}.`,
+        })),
+      );
       return NextResponse.json(
         { error: `Role "${role}" is not allowed to run: ${denied.join(", ")}`, denied },
         { status: 403 },
@@ -105,13 +123,32 @@ export async function POST(req: NextRequest) {
   }
 
   // --- Execute -------------------------------------------------------------
+  // Only WRITES are journalled here. Reads through this gateway are ordinary
+  // page loads by the thousand; journalling them would bury the money trail in
+  // noise, which is the failure mode of every audit log nobody reads.
+  const journal =
+    mutations.length > 0
+      ? await openJournal("/api/pave", {
+          email: (session?.user?.email ?? "").trim().toLowerCase(),
+          role,
+        })
+      : null;
+  const gatewayEvents = (extra: Partial<JournalEventInput>): JournalEventInput[] =>
+    mutations.map((m) => ({
+      action: `gateway.${m}`,
+      entity: "gateway",
+      after: safeQuery,
+      beforeSource: "none" as const,
+      ...extra,
+    }));
+
   try {
     const data = await pave(getPaveConfig(), safeQuery);
+    await journal?.record(gatewayEvents({}));
     return NextResponse.json({ data });
   } catch (e) {
-    return NextResponse.json(
-      { error: e instanceof Error ? e.message : "Unknown Pave error" },
-      { status: 502 },
-    );
+    const message = e instanceof Error ? e.message : "Unknown Pave error";
+    await journal?.record(gatewayEvents({ outcome: "error", error: message }));
+    return NextResponse.json({ error: message }, { status: 502 });
   }
 }

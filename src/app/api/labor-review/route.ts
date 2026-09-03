@@ -9,8 +9,10 @@ import {
   getJobCostDetail,
   getJobHeaderInfo,
   getJobTimeEntriesForMonth,
+  getTimeEntryJournalSnapshot,
   updateTimeEntry,
 } from "@/lib/jobtread";
+import { openJournal } from "@/lib/financialJournal";
 import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
 
 /**
@@ -128,21 +130,41 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  // Attribution comes from the session, never the body — same rule as /api/code.
-  await auth();
-
+  // Attribution comes from the session, never the body — same rule as /api/code
+  // — and every recode below is journalled under ONE requestId, because a Sync
+  // press moving twenty entries is one action the office took, not twenty.
+  const session = await auth();
   const cfg = getPaveConfig();
+  const j = await openJournal("/api/labor-review", {
+    email: (session?.user?.email ?? "").trim().toLowerCase(),
+    role: (session?.user as { role?: string } | undefined)?.role ?? "",
+  });
+
   const results: WriteResult[] = [];
   for (const c of changes) {
+    // Read live per entry: a batch is at most a screen's worth of rows, and the
+    // prior cost code is the whole point of the record.
+    const prior = await getTimeEntryJournalSnapshot(cfg, c.id);
+    const event = {
+      action: "time-entry.recode",
+      entity: "time-entry",
+      entityId: c.id,
+      jobId: prior?.jobId ?? "",
+      field: "costItemId",
+      before: prior?.costItemId,
+      after: c.costItemId,
+      beforeSource: (prior ? "read" : "none") as "read" | "none",
+      amount: prior?.cost ?? null,
+      meta: { employee: prior?.userName ?? "", priorCode: prior?.code ?? "" },
+    };
     try {
       await updateTimeEntry(cfg, c.id, { costItemId: c.costItemId });
       results.push({ id: c.id, ok: true });
+      await j.record([event]);
     } catch (e) {
-      results.push({
-        id: c.id,
-        ok: false,
-        error: e instanceof Error ? e.message : "Unknown error",
-      });
+      const message = e instanceof Error ? e.message : "Unknown error";
+      results.push({ id: c.id, ok: false, error: message });
+      await j.record([{ ...event, outcome: "error" as const, error: message }]);
     }
   }
 
@@ -151,11 +173,24 @@ export async function POST(req: NextRequest) {
   // one merged list.
   const approved: WriteResult[] = [];
   for (const id of approvals) {
+    // No before-read for an approval: `isApproved` false → true is the only
+    // move the button makes, and the row's own existence is the record.
+    const event = {
+      action: "time-entry.approve",
+      entity: "time-entry",
+      entityId: id,
+      field: "isApproved",
+      after: true,
+      beforeSource: "none" as const,
+    };
     try {
       await updateTimeEntry(cfg, id, { isApproved: true });
       approved.push({ id, ok: true });
+      await j.record([event]);
     } catch (e) {
-      approved.push({ id, ok: false, error: e instanceof Error ? e.message : "Unknown error" });
+      const message = e instanceof Error ? e.message : "Unknown error";
+      approved.push({ id, ok: false, error: message });
+      await j.record([{ ...event, outcome: "error" as const, error: message }]);
     }
   }
 

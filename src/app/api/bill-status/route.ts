@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { clearJobCostCaches, setBillStatus } from "@/lib/jobtread";
 import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
+import { journalBillWrite } from "@/lib/billJournal";
 
 const ALLOWED = ["draft", "pending", "approved"] as const;
 type Status = (typeof ALLOWED)[number];
@@ -28,8 +29,22 @@ export async function POST(req: NextRequest) {
   if (!writesEnabled()) {
     return NextResponse.json({ previewed: true, wrote: false, status });
   }
+  const cfg = getPaveConfig();
   try {
-    const saved = await setBillStatus(getPaveConfig(), docId, status);
+    // "approved" is the moment a bill leaves this app for QuickBooks, so this
+    // row is the journal's record of when a cost entered the books, and who
+    // sent it.
+    const saved = await journalBillWrite({
+      route: "/api/bill-status",
+      action: "bill.status.set",
+      cfg,
+      docId,
+      field: "status",
+      priorField: "status",
+      attempted: status,
+      run: () => setBillStatus(cfg, docId, status),
+      after: (saved) => saved,
+    });
     // approved/pending bills count toward cost-to-complete; drafts don't — so any
     // status change moves the job's actuals.
     clearJobCostCaches();
