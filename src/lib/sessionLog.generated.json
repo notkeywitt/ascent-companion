@@ -1,7 +1,26 @@
 {
-  "generatedAt": "2026-09-03T15:59:02Z",
+  "generatedAt": "2026-09-03T18:23:02Z",
   "repo": "ascent-companion",
   "sessions": [
+    {
+      "slug": "main",
+      "file": "2026-09-03-main.md",
+      "branch": "main",
+      "status": "shipped",
+      "started": "2026-09-03T18:22:54Z",
+      "updated": "2026-09-03T18:23:02Z",
+      "goal": "",
+      "next": "",
+      "commits": [
+        {
+          "date": "2026-09-03",
+          "time": "11:22",
+          "sha": "fd870fd",
+          "subject": "show the recode panel's invoice as a flat image, not an iframed pdf",
+          "files": "src/app/trackingsheet/BillCodingCard.tsx, src/lib/jobtread.ts"
+        }
+      ]
+    },
     {
       "slug": "bookkeeping-record-keeping",
       "file": "2026-09-03-bookkeeping-record-keeping.md",
