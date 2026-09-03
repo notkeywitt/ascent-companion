@@ -14,6 +14,11 @@
 # does it for you):
 #   git config core.hooksPath .githooks
 
+# `ship` sets this for the ledger's OWN commits. Without it they log themselves,
+# re-dirtying the file the commit just cleaned, and the next step sees an
+# unclean tree forever.
+[ -n "${SESSION_LEDGER_SKIP:-}" ] && exit 0
+
 root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
 
 # Never run mid-rebase, mid-merge or mid-cherry-pick. Those replay commits that

@@ -49,7 +49,7 @@ if [ -n "$ledger" ] && ! git diff --quiet -- "$ledger" 2>/dev/null; then
   git add -- "$ledger"
 fi
 if [ -n "$ledger" ] && ! git diff --cached --quiet -- "$ledger" 2>/dev/null; then
-  git commit -q --only -- "$ledger" -m "companion: log session $(basename "$ledger" .md)" \
+  SESSION_LEDGER_SKIP=1 git commit -q --only -m "companion: log session $(basename "$ledger" .md)" -- "$ledger" \
     || { echo "ship: could not commit the session ledger" >&2; exit 1; }
   echo "ship: committed the session ledger"
 fi
@@ -98,7 +98,7 @@ fi
 node scripts/session.mjs board --write >/dev/null
 git add -- SESSIONS.md ${ledger:+"$ledger"}
 if ! git diff --cached --quiet; then
-  git commit -q -m "companion: close session $(basename "${ledger:-session}" .md)"
+  SESSION_LEDGER_SKIP=1 git commit -q -m "companion: close session $(basename "${ledger:-session}" .md)"
 fi
 
 # ── 4. push ─────────────────────────────────────────────────────────────────
