@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-03T04:46:54Z",
+  "generatedAt": "2026-09-03T04:50:28Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "claude/session-progress-tracking-qtse7l",
       "status": "shipped",
       "started": "2026-09-03T04:38:15Z",
-      "updated": "2026-09-03T04:43:15Z",
+      "updated": "2026-09-03T04:50:28Z",
       "goal": "Build a per-session ledger so interrupted work is recoverable",
-      "next": "Optional part 4: a /changelog page in the Assistant, fed by a build-time JSON of the session files",
+      "next": "Nothing pending — parts 1-4 are shipped",
       "commits": [
         {
           "date": "2026-09-03",
@@ -39,6 +39,13 @@
           "sha": "2befcac",
           "subject": "companion: make ship's push loop stop retrying a failure that will not change",
           "files": "scripts/ship.sh"
+        },
+        {
+          "date": "2026-09-03",
+          "time": "04:50",
+          "sha": "f5784da",
+          "subject": "companion: add /changelog — the session ledger, on a phone",
+          "files": "CLAUDE.md, CODEBASE_MAP.md, USER_MANUAL.md, scripts/session.mjs, scripts/ship.sh, src/app/changelog/page.tsx, +3 more"
         }
       ]
     }
