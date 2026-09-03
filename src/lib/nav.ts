@@ -81,6 +81,7 @@ export const AREAS: Area[] = [
     blurb: "Everything else — imports, assistant, records, and script jobs.",
     dests: [
       { label: "Unbilled", href: "/unbilled", desc: "Uninvoiced expenses by cost code", view: "unbilled" },
+      { label: "Receivables", href: "/ar-aging", desc: "Unpaid client invoices, oldest first", view: "ar-aging" },
       { label: "Email Invoices", href: "/email", desc: "Log invoices from the office inbox", view: "email" },
       { label: "Needs Project", href: "/needs-project", desc: "Ingested bills with no job yet", view: "needs-project" },
       { label: "Amazon Import", href: "/amazon-import", desc: "Monthly Amazon report → batch of bills", view: "amazon-import" },

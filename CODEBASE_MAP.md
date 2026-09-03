@@ -74,6 +74,7 @@ matching row here.
 | **Is a check any good?** | `GET /api/invoice-review/accuracy` — precision derived in `src/lib/invoiceReview/lifecycle.ts` from what the office did next, not from anyone scoring anything |
 | **Checking one job before its invoice goes out** | the "Before you send" card on `/trackingsheet?jobId=…` → `src/app/trackingsheet/PreSendCheck.tsx` → `GET /api/invoice-review/job` → `src/lib/invoiceReview/preSend.ts` |
 | **The same vendor bill captured twice** | `checks/duplicateDraft.ts` (a draft copying another bill — runs in "Check this job") vs `checks/duplicateBill.ts` (one finalized bill on two client invoices). Different questions; neither sees the other's case |
+| **What a client owes, and how late** | `src/lib/arAging.ts` (the buckets, pure + tested), route `/api/ar-aging` (one org-wide `getOpenCustomerInvoices` walk), page `/ar-aging` |
 | **Who changed this bill / line / time entry** | `src/lib/financialJournal.ts` (the recorder + reader), `src/lib/billJournal.ts` (the bill-header wrapper), page `/journal`, route `/api/journal`, table `financial_events`. Append-only and never trimmed |
 | **A captured cost that never reached QuickBooks** | `checks/qboPush.ts` — QBO is the general ledger, and `qboIsIgnored` turns the push off in one tap. Also runs in "Check this job", which is the useful moment: the fix is one tap before the invoice goes out |
 | **A month's labor total not reconciling** | `checks/laborRate.ts` — runs inside "Check this job". The usual cause is JobTread's rate snapshot: a pay rate changed after the entries were written, so the month keeps the old rate with nothing on screen to say so |
@@ -102,6 +103,7 @@ including edge middleware.
 | `previewClient.ts` | Browser half of the above: `startPreview`/`stopPreview` set/clear the cookie and reload so the server layout re-reads it. |
 | `auth.ts` ⟂ | Shared-password auth helpers (Web Crypto only; works in edge + node). |
 | `billing.ts` ⟂ | Billing-period + bill-date standard, ported from appscript `Config.js`. Keep in lockstep. |
+| `arAging.ts` ⟂ | **Accounts receivable ageing** — the buckets behind `/ar-aging`. Pure arithmetic over rows the caller fetched; every money figure is JobTread's own (it derives `balance`/`amountPaid` from QuickBooks) and nothing here recomputes one. The rule worth knowing: an invoice ages from its DUE date where it has one and its ISSUE date where it does not — never whichever is later — and each row carries `basis` so the page can say which it used. An invoice with no usable date counts toward what is OUTSTANDING and never toward what is OVERDUE. |
 | `billLineMath.ts` ⟂ | Money math for editing a vendor bill's lines (JobTread's tax carve, confirmed live). |
 | `billTouch.ts` | One-bit "a bill was written through the app" signal, shared across pages so list caches know when to refresh. |
 | `billSearch.ts` | The bill-search index engine: sweeps live JobTread vendorBills + lines, seeds pre-JobTread history from the sheets, and answers `/bill-search` queries from a local FTS5 index in under a second. Companion-owned cache, not a source of truth. |
@@ -240,7 +242,9 @@ vs. clear tone, the billing-cutoff rule, vendor/amount matching, the exclusion
 lists); `dismissals.test.ts` (item identity across re-runs, and what filtering
 does to a check's status and summary).
 
-Tests live beside their module (`*.test.ts`): `billing`, `billLineMath`,
+Tests live beside their module (`*.test.ts`): `arAging` (the bucket BOUNDARIES,
+exactly — every failure in that module is silent, since an invoice in the wrong
+bucket still shows a correct balance), `billing`, `billLineMath`,
 `jobtread`, `paveGateway`, `leadInquiry`, `taskRunner`, `appsScript`.
 
 ## `src/app/` — pages (grouped by the view group in `views.ts`)
@@ -253,7 +257,8 @@ Each page is a server component (`page.tsx`) that hands non-secret context to a
   DraftQueue, DraftWorkbench, AllJobs, Roster), `bill/[docId]`, `add-bill`,
   `coding` (retired), `stage` (retired), `labor-review`, `invoice-review`
   (a month's client invoices checked against the bills and the Drive backup),
-  `jobs`, `unbilled`,
+  `jobs`, `unbilled`, `ar-aging` (Receivables — unpaid
+  client invoices, aged),
   `vendors`, `bill-search` (fast full-text search over every bill + line item,
   live JobTread plus seeded pre-JobTread history), `email`, `needs-review` (the
   queue of bills flagged "Needs review" — corrections the app can't make itself),
@@ -295,7 +300,9 @@ Grouped by domain; each folder is `…/route.ts`.
   `vendor-bills/*`, `vendor-bill-count`, `stuck-vendors`, `needs-project`,
   `reassign-job`, `coding-draft` (the cross-device backup for staged, not-yet-
   synced coding — companion DB only, never JobTread; see `lib/codingDraft.ts`).
-- **Invoicing surfaces:** `stage/*`, `invoice-review` (GET runs a month's
+- **Invoicing surfaces:** `ar-aging` (GET — every open client invoice, bucketed
+  by age; "today" is resolved in the ORG timezone, because a UTC lambda would
+  age a boundary invoice a day early), `stage/*`, `invoice-review` (GET runs a month's
   client-invoice review, or `?format=brief` for the paste-into-Claude version;
   POST records or lifts one standing ruling), `lswdd`,
   `amazon-import/*`,

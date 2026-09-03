@@ -3784,6 +3784,114 @@ export async function getMonthlyInvoiceJobs(
 }
 
 /**
+ * Every OPEN client invoice in the org — the raw rows behind AR ageing.
+ *
+ * "Open" = a live (`pending` or `approved`) `customerInvoice` with a balance
+ * still on it. `denied` is excluded because a denied invoice was withdrawn, and
+ * `draft` because it was never sent — neither is money anyone owes.
+ *
+ * `balance` and `amountPaid` are READ, never recomputed. JobTread derives them
+ * from QuickBooks (approving pushes the document; the payment comes back), so
+ * they are the accounting system's own answer. Recomputing them here would
+ * produce a second, disagreeing figure for the same question — which is exactly
+ * the failure the invoice review's math checks exist to catch elsewhere.
+ *
+ * ONE org-wide paged `organization.documents` walk, the same connection
+ * getMonthlyInvoiceJobs uses. Nothing heavy is nested inside it (no lines, no
+ * referencedDocuments), so it pages at 100 rather than 25 — the 413 rule bites
+ * only when a heavy connection sits inside a paged one.
+ *
+ * The `job.location.account` nest is the customer name; a grant that cannot
+ * read it falls back to job id/name only, the same downgrade-once guard
+ * getMonthlyInvoiceJobs and getAllDraftBills use.
+ */
+export async function getOpenCustomerInvoices(cfg: PaveConfig): Promise<OpenInvoiceRow[]> {
+  const q = (nodes: Record<string, unknown>, page?: string) => ({
+    organization: {
+      $: { id: cfg.orgId },
+      id: {},
+      documents: {
+        $: {
+          where: {
+            and: [
+              ["type", "customerInvoice"],
+              ["status", "in", ["pending", "approved"]],
+            ],
+          },
+          size: 100,
+          ...(page ? { page } : {}),
+        },
+        nextPage: {},
+        nodes,
+      },
+    },
+  });
+  const scalars = {
+    id: {},
+    number: {},
+    status: {},
+    issueDate: {},
+    dueDate: {},
+    price: {},
+    priceWithTax: {},
+    amountPaid: {},
+    balance: {},
+  };
+  const rich = { ...scalars, job: { id: {}, name: {}, location: { account: { name: {} } } } };
+  const min = { ...scalars, job: { id: {}, name: {} } };
+
+  const out: OpenInvoiceRow[] = [];
+  let page: string | undefined;
+  let guard = 0;
+  let sel: Record<string, unknown> = rich;
+  do {
+    let r: any;
+    try {
+      r = await pave(cfg, q(sel, page));
+    } catch {
+      sel = min; // downgrade once; an unreadable customer name is not a dead page
+      r = await pave(cfg, q(sel, page));
+    }
+    for (const d of (r?.organization?.documents?.nodes ?? []) as any[]) {
+      out.push({
+        id: d.id,
+        number: d.number != null ? String(d.number) : "",
+        status: d.status ?? "",
+        jobId: d.job?.id ?? "",
+        jobName: d.job?.name ?? "",
+        customerName: d.job?.location?.account?.name ?? "",
+        issueDate: d.issueDate ? String(d.issueDate).slice(0, 10) : "",
+        dueDate: d.dueDate ? String(d.dueDate).slice(0, 10) : "",
+        total: typeof d.priceWithTax === "number" ? d.priceWithTax : (d.price ?? 0),
+        amountPaid: typeof d.amountPaid === "number" ? d.amountPaid : 0,
+        balance: typeof d.balance === "number" ? d.balance : 0,
+      });
+    }
+    page = r?.organization?.documents?.nextPage || undefined;
+  } while (page && ++guard < 100);
+
+  return out;
+}
+
+/** One open client invoice, as `getOpenCustomerInvoices` returns it. */
+export interface OpenInvoiceRow {
+  id: string;
+  number: string;
+  status: string;
+  jobId: string;
+  jobName: string;
+  customerName: string;
+  issueDate: string;
+  dueDate: string;
+  /** Billed to the customer including tax. */
+  total: number;
+  /** Recorded against it, from QuickBooks. */
+  amountPaid: number;
+  /** Still owed, as JobTread states it. */
+  balance: number;
+}
+
+/**
  * Every job's UNINVOICED TIME cost for one billing month, keyed by job id — the
  * other half of "to be invoiced". A client invoice pulls logged labor along with
  * the vendor bills, so a roster figure built from bills alone reads low on every

@@ -111,6 +111,12 @@ export const VIEWS: ViewDef[] = [
   // gating them here would lock out anyone without this retired view.
   { id: "stage", label: "Invoicing (retired)", group: "Financials", paths: ["/stage"] },
   { id: "unbilled", label: "Unbilled", group: "Financials", paths: ["/unbilled"] },
+  // Receivables — unpaid client invoices, aged. Read-only, and every figure is
+  // JobTread's own (it derives balance/amountPaid from QuickBooks). Office +
+  // admin by default, like the rest of Financials; the API route is listed
+  // alongside the page so the whole org's receivables can't be read by calling
+  // it directly.
+  { id: "ar-aging", label: "Receivables", group: "Financials", paths: ["/ar-aging", "/api/ar-aging"] },
   // The monthly client-invoice review — a month's client invoices cross-checked
   // against the vendor bills behind them and the backup PDFs in the Drive
   // invoicing tree. The API prefix rides the same gate as the page: the route
