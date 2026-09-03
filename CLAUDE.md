@@ -34,8 +34,11 @@ Simplified Technical English, relaxed. These rules apply to every response.
 does not use branch previews, so there is no review step between your push and
 the live app that field staff use.
 
-Work on `main`. If a session put you on a `claude/*` branch, merge it into `main`
-when the change is done, then push `main`.
+Work on `main`. If a session put you on a `claude/*` branch, push it directly to
+remote main when the change is done:
+`git push origin <branch>:main`. Do not merge into local `main` — in ephemeral
+environments (CCR) the local `main` ref is often stale or unrelated to
+`origin/main`. Pushing branch-to-remote-main avoids that entirely.
 
 **Commit and push to `main` when a change is done.** Do not wait to be asked.
 Every one of these must hold first:
