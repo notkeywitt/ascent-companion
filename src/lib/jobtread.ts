@@ -241,6 +241,32 @@ export function computeUnbilled(rollup: DocRollupRow[]) {
   };
 }
 
+/**
+ * Is this vendor bill / time entry already invoiced to the client?
+ *
+ * A DRAFT customer invoice DOES NOT COUNT. A draft has not gone out, so the
+ * work on it still needs invoicing — the money stays live in every
+ * "to be invoiced" total until the invoice leaves draft (pending, approved,
+ * paid). Staging a draft used to drop a job's monthly total straight to $0,
+ * which read as "nothing left to bill" at exactly the moment there was.
+ * `computeUnbilled` above has always drawn the line this way; these callers had
+ * not.
+ *
+ * Every other status counts, `denied` included — a denied invoice is a
+ * reconciliation question (see `getInvoiceReconciliation`, which follows the
+ * denial/re-issue chain), not a reason to re-bill the same cost here.
+ *
+ * REQUIRES `status` in the `referencedDocuments` node selection. Without it
+ * `n.status` is undefined, undefined !== "draft" is true, and the draft silently
+ * counts as invoiced again — the exact bug this fixes. Confirmed 2026-09-03 that
+ * `referencedDocuments { nodes { status } }` reads fine wherever `type` does.
+ */
+function _isInvoicedToClient(node: any): boolean {
+  return (node?.referencedDocuments?.nodes ?? []).some(
+    (n: any) => n?.type === "customerInvoice" && n?.status !== "draft",
+  );
+}
+
 // TODO(per-cost-code): same idea grouped by costCode.number on the cost items of
 // each doc type, to show unbilled per code. Confirm the costItems group shape.
 
@@ -1771,7 +1797,7 @@ export async function getJobBillsForMonth(
               amountPaid: {},
               balance: {},
               account: { name: {} },
-              referencedDocuments: { nodes: { type: {} } },
+              referencedDocuments: { nodes: { type: {}, status: {} } },
               files: { count: {} },
             },
           },
@@ -1801,8 +1827,7 @@ export async function getJobBillsForMonth(
     const s = String(d ?? "").slice(0, 10);
     return s >= first && s <= last;
   };
-  const isInvoiced = (b: any) =>
-    (b.referencedDocuments?.nodes ?? []).some((n: any) => n.type === "customerInvoice");
+  const isInvoiced = _isInvoicedToClient;
 
   return nodes
     .filter((b) => inMonth(b.issueDate) && (includeInvoiced || !isInvoiced(b)))
@@ -2965,8 +2990,12 @@ export async function getMonthlyBills(
  * Confirmed (probes + native-UI network capture, 2026-07): a vendor bill's
  * `referencedDocuments` is the per-bill "already invoiced" flag. When a customer
  * invoice pulls a bill, that bill's referencedDocuments gains a node of type
- * customerInvoice (any status). Uninvoiced = no customerInvoice reference. This is
- * how JT's builder discriminates — per bill, not per cost code.
+ * customerInvoice. This is how JT's builder discriminates — per bill, not per
+ * cost code.
+ *
+ * The reference appears at ANY status, DRAFT INCLUDED, so the node's own
+ * `status` is what decides here: a bill on a draft invoice is still uninvoiced,
+ * because a draft has not gone out. See `_isInvoicedToClient`.
  *
  * NOTE: referencedDocuments nested in paged documents 413s at size 100 (like
  * costItems), but works at ≤50 — we page at 25. A bare "Create invoice" also
@@ -3492,7 +3521,7 @@ export async function getUninvoicedBills(
             issueDate: {},
             status: {},
             account: { name: {} },
-            referencedDocuments: { nodes: { type: {} } },
+            referencedDocuments: { nodes: { type: {}, status: {} } },
           },
         },
       },
@@ -3501,8 +3530,7 @@ export async function getUninvoicedBills(
     page = r?.job?.documents?.nextPage || undefined;
   } while (page && ++guard < 100);
 
-  const isInvoiced = (b: any) =>
-    (b.referencedDocuments?.nodes ?? []).some((n: any) => n.type === "customerInvoice");
+  const isInvoiced = _isInvoicedToClient;
   // includeInvoiced relaxes the uninvoiced filter (shows bills already on a
   // customer invoice too); the invoiced flag lets the UI mark them.
   const open = bills.filter((b) => (includeInvoiced || !isInvoiced(b)) && inMonth(b.issueDate));
@@ -3527,7 +3555,7 @@ export async function getUninvoicedBills(
             hourlyRate: {},
             user: { name: {} },
             costItem: { costCode: { number: {}, name: {} } },
-            referencedDocuments: { nodes: { type: {} } },
+            referencedDocuments: { nodes: { type: {}, status: {} } },
           },
         },
       },
@@ -3739,12 +3767,12 @@ export async function getMonthlyInvoiceJobs(
   const rich = {
     id: {}, cost: {}, status: {},
     job: { id: {}, name: {}, location: { account: { id: {}, name: {} } } },
-    referencedDocuments: { nodes: { type: {} } },
+    referencedDocuments: { nodes: { type: {}, status: {} } },
   };
   const min = {
     id: {}, cost: {}, status: {},
     job: { id: {}, name: {} },
-    referencedDocuments: { nodes: { type: {} } },
+    referencedDocuments: { nodes: { type: {}, status: {} } },
   };
 
   let bills: any[] = [];
@@ -3763,8 +3791,7 @@ export async function getMonthlyInvoiceJobs(
     page = r?.organization?.documents?.nextPage || undefined;
   } while (page && ++guard < 100);
 
-  const isInvoiced = (b: any) =>
-    (b.referencedDocuments?.nodes ?? []).some((n: any) => n.type === "customerInvoice");
+  const isInvoiced = _isInvoicedToClient;
 
   const byJob = new Map<string, MonthlyInvoiceJob>();
   for (const b of bills) {
@@ -3953,7 +3980,7 @@ export async function getMonthlyInvoiceTime(
             id: {},
             cost: {},
             job: { id: {} },
-            referencedDocuments: { nodes: { type: {} } },
+            referencedDocuments: { nodes: { type: {}, status: {} } },
           },
         },
       },
@@ -3962,9 +3989,7 @@ export async function getMonthlyInvoiceTime(
     for (const t of (tc.nodes ?? []) as any[]) {
       const jobId = t.job?.id;
       if (!jobId) continue;
-      const invoiced = (t.referencedDocuments?.nodes ?? []).some(
-        (n: any) => n.type === "customerInvoice",
-      );
+      const invoiced = _isInvoicedToClient(t);
       if (invoiced) continue;
       byJob[jobId] = (byJob[jobId] ?? 0) + (t.cost ?? 0);
     }
@@ -4050,13 +4075,13 @@ export async function getAllBillsForMonth(
     amountPaid: {}, balance: {},
     account: { name: {} },
     job: { id: {}, name: {}, location: { account: { name: {} } } },
-    referencedDocuments: { nodes: { type: {} } },
+    referencedDocuments: { nodes: { type: {}, status: {} } },
   };
   const min = {
     id: {}, cost: {}, status: {}, issueDate: {}, createdAt: {}, fromName: {},
     amountPaid: {}, balance: {},
     job: { id: {}, name: {} },
-    referencedDocuments: { nodes: { type: {} } },
+    referencedDocuments: { nodes: { type: {}, status: {} } },
   };
 
   let raw: any[] = [];
@@ -4075,8 +4100,7 @@ export async function getAllBillsForMonth(
     page = r?.organization?.documents?.nextPage || undefined;
   } while (page && ++guard < 100);
 
-  const isInvoiced = (b: any) =>
-    (b.referencedDocuments?.nodes ?? []).some((n: any) => n.type === "customerInvoice");
+  const isInvoiced = _isInvoicedToClient;
 
   const out: AllJobsBill[] = [];
   for (const b of raw) {

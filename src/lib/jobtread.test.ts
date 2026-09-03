@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { pave, type PaveConfig } from "./jobtread";
+import { getAllBillsForMonth, pave, type PaveConfig } from "./jobtread";
 
 /**
  * pave()'s retry policy.
@@ -155,5 +155,68 @@ describe("pave — request shape", () => {
     vi.stubGlobal("fetch", fetchMock);
     await pave(cfg, { job: { id: {} } });
     expect(fetchMock.mock.calls[0][1].body).toBe(fetchMock.mock.calls[1][1].body);
+  });
+});
+
+/**
+ * A DRAFT customer invoice does not invoice anything.
+ *
+ * `referencedDocuments` gains a customerInvoice node the moment a bill is
+ * staged, at ANY status — so reading `type` alone counted a draft as invoiced
+ * and a job's monthly "to be invoiced" total fell to $0 the instant someone
+ * staged a draft. It read as "nothing left to bill" at exactly the moment there
+ * was. Reported live on Berger Main House, September 2026.
+ */
+describe("getAllBillsForMonth — a draft invoice leaves a bill uninvoiced", () => {
+  const bill = (invoiceStatus: string) => ({
+    id: "b1",
+    cost: 4163.75,
+    status: "pending",
+    issueDate: "2026-08-31",
+    createdAt: "2026-08-31T00:00:00Z",
+    fromName: "Island Custom Woodworks",
+    account: { name: "Island Custom Woodworks" },
+    job: { id: "j1", name: "Main House", location: { account: { name: "Kevin Berger" } } },
+    referencedDocuments: { nodes: [{ type: "customerInvoice", status: invoiceStatus }] },
+  });
+
+  const stub = (invoiceStatus: string) => {
+    const fetchMock = vi.fn(async (_url: string, _init: RequestInit) =>
+      reply(200, okBody({ organization: { documents: { nextPage: null, nodes: [bill(invoiceStatus)] } } })),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    return fetchMock;
+  };
+
+  it("keeps a bill on a DRAFT invoice in the to-be-invoiced list", async () => {
+    stub("draft");
+    const out = await getAllBillsForMonth(cfg, 2026, 8);
+    expect(out).toHaveLength(1);
+    expect(out[0].invoiced).toBe(false);
+    expect(out[0].cost).toBe(4163.75);
+  });
+
+  it("drops a bill once its invoice leaves draft", async () => {
+    for (const status of ["pending", "approved", "paid"]) {
+      stub(status);
+      const out = await getAllBillsForMonth(cfg, 2026, 8);
+      expect(out, `invoice status ${status}`).toHaveLength(0);
+    }
+  });
+
+  it("still marks it invoiced when the caller asks to see invoiced bills", async () => {
+    stub("approved");
+    const out = await getAllBillsForMonth(cfg, 2026, 8, { includeInvoiced: true });
+    expect(out[0].invoiced).toBe(true);
+  });
+
+  it("ASKS JobTread for the referenced invoice's status", async () => {
+    // The silent-failure guard. Without `status` in the selection every
+    // n.status is undefined, undefined !== "draft" is true, and the draft counts
+    // as invoiced again — the original bug, with the fix still in place.
+    const fetchMock = stub("draft");
+    await getAllBillsForMonth(cfg, 2026, 8);
+    const body = String(fetchMock.mock.calls[0][1].body);
+    expect(body).toContain('"referencedDocuments":{"nodes":{"type":{},"status":{}}}');
   });
 });
