@@ -1,0 +1,33 @@
+#!/bin/sh
+# Append every commit to this branch's session file, the moment it lands.
+#
+# This is the part HANDOFF.md never had: the record writes itself. A session
+# that ends mid-thought — the normal case here — still leaves an accurate log
+# of what it changed, because nobody had to remember to write one.
+#
+# The entry is STAGED, not committed. Committing here would recurse (a commit
+# inside post-commit fires post-commit again) and amending would rewrite the
+# commit the owner just made. Staged instead: the next `git commit` picks it
+# up, and `ship` commits whatever is left before it pushes.
+#
+# Arm it on a fresh clone (once per machine, and .claude/hooks/session-start.sh
+# does it for you):
+#   git config core.hooksPath .githooks
+
+root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
+
+# Never run mid-rebase, mid-merge or mid-cherry-pick. Those replay commits that
+# are already logged, and a `git add` there can confuse the operation in flight.
+for state in rebase-merge rebase-apply MERGE_HEAD CHERRY_PICK_HEAD REVERT_HEAD; do
+  [ -e "$root/.git/$state" ] && exit 0
+done
+
+command -v node >/dev/null 2>&1 || exit 0
+
+# Best-effort throughout: a ledger problem must never fail a commit.
+node "$root/scripts/session.mjs" log HEAD >/dev/null 2>&1 || exit 0
+
+file=$(node "$root/scripts/session.mjs" path 2>/dev/null) || exit 0
+[ -n "$file" ] && git add -- "$root/$file" >/dev/null 2>&1
+
+exit 0

@@ -10,6 +10,8 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "check:map": "node scripts/check-codebase-map.mjs",
+    "session": "node scripts/session.mjs",
+    "ship": "sh scripts/ship.sh",
     "test": "vitest run",
     "test:watch": "vitest"
   },
