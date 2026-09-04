@@ -9,12 +9,25 @@
  * fix — a misspelled name, a missing job number, the Phase, the site address.
  *
  * ── READS ARE TWO-PHASE, AND THAT IS NOT A CHOICE ───────────────────────────
- * Nesting `jobs` inside a paged `organization.accounts` connection returns HTTP
- * 413 (confirmed live 2026-09-03 at accounts size 100 / jobs size 50 — the 413
- * rule in JT_API_REFERENCE.md). So the directory pages the two flat connections
- * separately and joins on `job.location.account.id`. Custom-field VALUES are the
- * same trap, so the list carries only Phase and Status (paged per FIELD, the
- * `getJobPhaseMap` shape) and the rest are read per record on demand.
+ * The 413 rule in JT_API_REFERENCE.md — never nest a heavy connection inside
+ * another PAGED one — bit this module twice, both confirmed live:
+ *
+ *   • `jobs` inside a paged `organization.accounts` (size 100 / 50) → 413
+ *     (2026-09-03). The directory pages the two flat connections separately and
+ *     joins on `job.location.account.id`.
+ *   • `customFieldValues` inside `account.contacts` / `account.locations`
+ *     (size 50 / 50) → 413 (2026-09-04, AFTER this shipped — it broke every
+ *     customer on the page). The same query answers with the nested connection
+ *     removed, so `getCustomerDetail` reads contacts and locations FLAT and
+ *     `ownerValueMap` walks each field once, joining on the value node's own
+ *     `contact`/`location` back-reference.
+ *
+ * The lesson the second one cost: probing a query at smaller page sizes than the
+ * code ships does not test the code. Probe the sizes you are shipping.
+ *
+ * A SINGLE-record read (`job(id)`, `account(id)`, `contact(id)`) may nest
+ * `customFieldValues` safely — there is no outer paging to multiply it — which is
+ * why `getJobDetail` and `readRecordFlat` still do.
  *
  * ── WRITES ARE AN ALLOWLIST, NOT A PASSTHROUGH ──────────────────────────────
  * `JOB_WRITABLE` / `ACCOUNT_WRITABLE` / `CONTACT_WRITABLE` / `LOCATION_WRITABLE`
@@ -253,27 +266,91 @@ async function jobFieldMap(
   cfg: PaveConfig,
   field: CustomFieldDef | undefined,
 ): Promise<Record<string, string>> {
+  const map = await ownerValueMap(cfg, field, "job");
   const out: Record<string, string> = {};
+  for (const [id, values] of Object.entries(map)) out[id] = values[0] ?? "";
+  return out;
+}
+
+/**
+ * ownerId -> that owner's value(s) for ONE custom field.
+ *
+ * The generalized form of the two-phase read, and the fix for a 413 that
+ * reached production: `getCustomerDetail` used to nest `customFieldValues`
+ * inside the paged `contacts` and `locations` connections, which is precisely
+ * the pattern the 413 rule forbids (confirmed live 2026-09-04 — the same query
+ * answers at contacts/locations size 50 with the nested connection REMOVED, and
+ * returns Request Entity Too Large with it present). So the field is walked once
+ * and every value node carries its owner: `customFieldValue` exposes nullable
+ * `job`, `contact`, `location` and `account` back-references.
+ *
+ * One walk answers for the whole org, whatever the owner count — cheaper than a
+ * read per contact, and the reason a customer's contacts cost 2 queries (Email,
+ * Phone) rather than one per person.
+ */
+async function ownerValueMap(
+  cfg: PaveConfig,
+  field: CustomFieldDef | undefined,
+  owner: "job" | "contact" | "location" | "account",
+): Promise<Record<string, string[]>> {
+  const out: Record<string, string[]> = {};
   if (!field?.id) return out;
-  const nodes = await pageAll<{ value?: unknown; job?: { id?: string } }>(
+  const nodes = await pageAll<Record<string, unknown>>(
     cfg,
     (args) => ({
       customField: {
         $: { id: field.id },
         id: {},
-        customFieldValues: { $: args, nextPage: {}, nodes: { value: {}, job: { id: {} } } },
+        customFieldValues: {
+          $: args,
+          nextPage: {},
+          nodes: { value: {}, [owner]: { id: {} } },
+        },
       },
     }),
     (r) => r?.customField?.customFieldValues,
     20,
   );
   for (const n of nodes) {
-    const jobId = n?.job?.id;
-    if (!jobId || n?.value == null) continue;
+    const ownerId = (n?.[owner] as { id?: string } | null | undefined)?.id;
+    if (!ownerId || n?.value == null) continue;
     const v = typeof n.value === "string" ? n.value : String(n.value);
-    if (v.trim()) out[jobId] = v.trim();
+    if (!v.trim()) continue;
+    (out[ownerId] ??= []).push(v.trim());
   }
   return out;
+}
+
+/**
+ * Build the `CustomFieldValue[]` a record's editor renders, from field defs plus
+ * the owner maps phase 2 produced. Same output shape as `pairFieldValues`, which
+ * still serves the single-record reads where nesting is safe.
+ */
+function fieldValuesFor(
+  ownerId: string,
+  defs: CustomFieldDef[],
+  maps: Map<string, Record<string, string[]>>,
+): CustomFieldValue[] {
+  return defs.map((d) => ({
+    fieldId: d.id,
+    name: d.name,
+    type: d.type,
+    options: d.options,
+    values: maps.get(d.id)?.[ownerId] ?? [],
+    editable: d.editable,
+  }));
+}
+
+/** Walk each of a target's fields once, keyed by field id. */
+async function ownerMapsFor(
+  cfg: PaveConfig,
+  defs: CustomFieldDef[],
+  owner: "contact" | "location",
+): Promise<Map<string, Record<string, string[]>>> {
+  const entries = await Promise.all(
+    defs.map(async (d) => [d.id, await ownerValueMap(cfg, d, owner)] as const),
+  );
+  return new Map(entries);
 }
 
 interface RawAccount {
@@ -615,6 +692,12 @@ export async function getCustomerDetail(
   fields?: Record<CfTarget, CustomFieldDef[]>,
 ): Promise<CustomerDetail> {
   const defs = fields ?? (await getCustomFields(cfg));
+
+  // PHASE 1 — the account, its own custom fields, and its contacts and
+  // locations FLAT. `customFieldValues` must not ride inside `contacts` or
+  // `locations`: both are paged connections, and nesting it there returns 413
+  // (this shipped once and broke the page — see `ownerValueMap`). The account's
+  // own values are safe, because `account(id)` is a single record.
   const r = await pave(cfg, {
     account: {
       $: { id: accountId },
@@ -630,7 +713,7 @@ export async function getCustomerDetail(
       customFieldValues: CF_SELECTION,
       contacts: {
         $: { size: 50 },
-        nodes: { id: {}, name: {}, title: {}, createdAt: {}, customFieldValues: CF_SELECTION },
+        nodes: { id: {}, name: {}, title: {}, createdAt: {} },
       },
       locations: {
         $: { size: 50 },
@@ -647,13 +730,22 @@ export async function getCustomerDetail(
           timeZone: {},
           createdAt: {},
           contact: { id: {}, name: {} },
-          customFieldValues: CF_SELECTION,
         },
       },
     },
   });
   const a = r?.account;
   if (!a?.id) throw new Error(`Customer ${accountId} not found in JobTread.`);
+
+  // PHASE 2 — one walk per contact/location field, joined by owner id below.
+  // A target with no fields configured costs nothing: `ownerMapsFor` maps an
+  // empty list to an empty Map without a request (the org has no `location`
+  // fields today, so that half is free).
+  const [contactMaps, locationMaps] = await Promise.all([
+    ownerMapsFor(cfg, defs.customerContact, "contact"),
+    ownerMapsFor(cfg, defs.location, "location"),
+  ]);
+
   const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : null);
 
   return {
@@ -671,7 +763,7 @@ export async function getCustomerDetail(
       name: String(c.name ?? ""),
       title: String(c.title ?? ""),
       createdAt: String(c.createdAt ?? ""),
-      fields: pairFieldValues(c.customFieldValues, defs.customerContact),
+      fields: fieldValuesFor(String(c.id ?? ""), defs.customerContact, contactMaps),
     })),
     locations: ((a.locations?.nodes ?? []) as any[]).map((l) => ({
       id: String(l.id ?? ""),
@@ -687,7 +779,7 @@ export async function getCustomerDetail(
       contactId: String(l.contact?.id ?? ""),
       contactName: String(l.contact?.name ?? ""),
       createdAt: String(l.createdAt ?? ""),
-      fields: pairFieldValues(l.customFieldValues, defs.location),
+      fields: fieldValuesFor(String(l.id ?? ""), defs.location, locationMaps),
     })),
   };
 }
