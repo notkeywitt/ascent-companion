@@ -245,6 +245,19 @@ export interface BillRef {
    * 0 when it could not be read, which must widen nothing.
    */
   lineCount: number;
+  /**
+   * The bill's recorded sales tax, from JobTread's `nonRecoverableTax`.
+   *
+   * `cost` above is TAX-INCLUSIVE: `_jtGrossUpLineCostsForTax` (JobTread.js)
+   * grosses each line up from the receipt's pre-tax face value before pushing,
+   * because JobTread treats a stored unitCost as tax-inclusive and de-taxes it
+   * for display. The Drive backup filename is built from the SHEET's pre-tax
+   * amounts, so `cost - taxAmount` is the figure that compares against it.
+   *
+   * 0 when the bill records no tax, which is also the right answer for a bill
+   * whose lines were never grossed up — `cost` is then already pre-tax.
+   */
+  taxAmount: number;
   status: string;
   /**
    * Non-denied client invoice ids this bill sits on, DRAFT INCLUDED. (This

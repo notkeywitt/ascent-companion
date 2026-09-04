@@ -140,12 +140,36 @@ export function matchBackup(
 
   const byCost = [...bills].sort((a, b) => Math.abs(b.cost) - Math.abs(a.cost));
   for (const bill of byCost) {
-    const want = cents(bill.cost);
+    // TWO figures can legitimately be the filename's total, and which one
+    // depends on whether the bill carries tax:
+    //
+    //   cost               — a bill with no tax, and any bill whose lines were
+    //                        never grossed up (older captures)
+    //   cost - taxAmount   — the normal taxed case. `cost` is TAX-INCLUSIVE
+    //                        (_jtGrossUpLineCostsForTax grosses each line from
+    //                        the receipt's pre-tax face value before pushing,
+    //                        because JobTread stores unitCost tax-inclusive),
+    //                        while the filename is built from the SHEET's
+    //                        pre-tax amounts.
+    //
+    // Berger Bunkhouse, July 2026 proved both live: JR Granite matched at cost
+    // ($11,030, no tax) while Fasteners Plus ($574.03 vs a $529.79 filename,
+    // $44.24 of tax) and Home Depot ($59.50 vs $55.24) only match de-taxed.
+    // Comparing cost alone reported seven bills as having no backup filed AND
+    // the very PDFs backing them as billed to nobody — both halves of every
+    // pair wrong.
+    //
+    // Accepting either is safe: pairing is one-to-one and consuming, and only
+    // UNMATCHED bills are reported, so a second valid candidate can only
+    // resolve a pair that is genuinely the same charge.
+    const wants = [cents(bill.cost)];
+    if (bill.taxAmount) wants.push(cents(bill.cost - bill.taxAmount));
     let best: BackupFile | null = null;
     let bestScore = -1;
     for (const f of parsed) {
       if (taken.has(f.id)) continue;
-      if (!withinTolerance(f.amount, want, backupTolerance(bill, f, tolerance))) continue;
+      const tol = backupTolerance(bill, f, tolerance);
+      if (!wants.some((want) => withinTolerance(f.amount, want, tol))) continue;
       const score = overlap(f.tail, bill.vendor || bill.label);
       if (score > bestScore) {
         best = f;

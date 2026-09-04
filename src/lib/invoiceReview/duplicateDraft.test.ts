@@ -23,7 +23,7 @@ function bill(over: Partial<BillRef> = {}): BillRef {
     invoiceIds: [],
     sentInvoiceIds: [],
     issueDate: "2026-08-31",
-    lineCount: 1,
+    lineCount: 1, taxAmount: 0,
     qboIsIgnored: false,
     ...over,
   };

@@ -14,7 +14,7 @@ import { DEFAULT_SETTINGS, type InvoiceReviewSettings } from "./settings";
 import type { BillRef, InvoiceEvidence, JobEvidence, MonthEvidence } from "./types";
 
 function bill(partial: Partial<BillRef> & { id: string; cost: number }): BillRef {
-  return { label: partial.id, vendor: "Vendor", status: "approved", invoiced: true, invoiceIds: [], sentInvoiceIds: [], issueDate: '2026-07-15', lineCount: 1, qboIsIgnored: false, ...partial };
+  return { label: partial.id, vendor: "Vendor", status: "approved", invoiced: true, invoiceIds: [], sentInvoiceIds: [], issueDate: '2026-07-15', lineCount: 1, taxAmount: 0, qboIsIgnored: false, ...partial };
 }
 
 function invoice(partial: Partial<InvoiceEvidence> & { id: string }): InvoiceEvidence {

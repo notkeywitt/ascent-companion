@@ -60,7 +60,7 @@ function bill(partial: Partial<BillRef> & { id: string; cost: number }): BillRef
     invoiceIds: [],
     sentInvoiceIds: [],
     issueDate: '2026-07-15',
-    lineCount: 1,
+    lineCount: 1, taxAmount: 0,
     qboIsIgnored: false,
     ...partial,
   };
@@ -295,6 +295,58 @@ describe("matchBackup", () => {
       [file({ id: "f1", amount: 100.04, csi: fourCodes })],
     );
     expect(r.matched.get("b1")?.id).toBe("f1");
+  });
+
+  it("pairs a taxed bill with its PRE-TAX backup filename", () => {
+    // Berger Bunkhouse, July 2026. JobTread stores a bill's line costs
+    // TAX-INCLUSIVE (_jtGrossUpLineCostsForTax grosses the receipt's pre-tax
+    // face value before pushing), while the Drive filename carries the SHEET's
+    // pre-tax amounts. Comparing cost alone reported the bill as unbacked AND
+    // the PDF backing it as billed to nobody — both halves of the pair wrong.
+    for (const [cost, tax, filed] of [
+      [574.03, 44.24, 529.79], // Fasteners Plus
+      [484.29, 34.65, 449.64], // Fasteners Plus
+      [59.5, 4.26, 55.24], // Home Depot
+    ]) {
+      const r = matchBackup(
+        [bill({ id: "b1", cost, taxAmount: tax, vendor: "Fasteners Plus" })],
+        [file({ id: "f1", amount: filed, tail: "Fasteners Plus Kevin Berger Pushed to JT" })],
+      );
+      expect(r.matched.get("b1")?.id, `${cost} vs ${filed}`).toBe("f1");
+      expect(r.unmatchedFiles, `${cost} vs ${filed}`).toHaveLength(0);
+    }
+  });
+
+  it("still pairs an untaxed bill on its face value", () => {
+    // JR Granite & Tile, same month, no tax: cost IS the pre-tax total, and
+    // three CSI segments sum to it exactly. De-taxing must not break this.
+    const r = matchBackup(
+      [bill({ id: "b1", cost: 11030, taxAmount: 0, lineCount: 3, vendor: "JR Granite & Tile" })],
+      [
+        file({
+          id: "f1",
+          amount: 11030,
+          csi: [
+            { code: "12 36 00", amount: 4780 },
+            { code: "09 30 10", amount: 4000 },
+            { code: "09 65 19", amount: 2250 },
+          ],
+          tail: "JR Granite & Tile Kevin Berger Pushed to JT",
+        }),
+      ],
+    );
+    expect(r.matched.get("b1")?.id).toBe("f1");
+  });
+
+  it("does not let the tax allowance pair a bill with the wrong PDF", () => {
+    // De-taxing adds a second valid figure, not a wider window. A PDF that
+    // matches neither the bill's cost nor its de-taxed cost stays unmatched.
+    const r = matchBackup(
+      [bill({ id: "b1", cost: 574.03, taxAmount: 44.24 })],
+      [file({ id: "f1", amount: 500 })],
+    );
+    expect(r.unmatchedBills.map((b) => b.id)).toEqual(["b1"]);
+    expect(r.unmatchedFiles.map((f) => f.id)).toEqual(["f1"]);
   });
 
   it("still separates amounts more than a cent apart", () => {
