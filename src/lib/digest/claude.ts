@@ -1,10 +1,13 @@
 /**
- * Claude engine for the Daily Digest — the summary brief and the
- * email-signals extraction. Replaces the Gemini versions in src/lib/gemini.ts
- * (`summarizeDigestWithGemini`, `extractEmailSignalsWithGemini`), which stay in
- * place for the pipelines that still use Gemini (invoice capture, tool-serial
- * OCR) — this file is the digest's own, so a future Gemini removal there
- * doesn't touch this one.
+ * Claude engine for the Daily Digest — the email-signals extraction and the
+ * reply-box parser. Replaces the Gemini versions in src/lib/gemini.ts, which
+ * stay in place for the pipelines that still use Gemini (invoice capture,
+ * tool-serial OCR) — this file is the digest's own, so a future Gemini removal
+ * there doesn't touch this one.
+ *
+ * The morning BRIEF is no longer written by a model (removed 2026-09-04): the
+ * owner prefers the item list to the prose, and the call wasn't worth its
+ * tokens. `fallbackSummary` in run.ts is now the only writer.
  *
  * Server-only; the API key stays here (same convention as gemini.ts,
  * src/lib/anthropic.ts, src/lib/invoiceReview/narrate.ts — each of those keeps
@@ -34,7 +37,6 @@ const MODEL = process.env.ANTHROPIC_MODEL_DIGEST?.trim() || "claude-sonnet-5";
  * spend: you are billed for tokens actually generated, so headroom is free.
  * Do not "optimize" these back down to the size of the expected output.
  */
-const MAX_TOKENS_SUMMARY = 16_000;
 const MAX_TOKENS_EXTRACTION = 16_000;
 const MAX_TOKENS_REPLY = 16_000;
 /** The digest route has its own budget; don't let one slow call eat it. */
@@ -45,114 +47,6 @@ function client(): Anthropic {
   const key = process.env.ANTHROPIC_API_KEY?.trim();
   if (!key) throw new Error("ANTHROPIC_API_KEY is not set.");
   return (_client ??= new Anthropic({ apiKey: key }));
-}
-
-/**
- * The Daily Digest's morning brief. ONE Claude call per digest run.
- *
- * The answer is PLAIN TEXT ORGANISED INTO BLOCKS: topics separated by a blank
- * line, with the two "here's what needs an answer" topics as "- " bullet
- * lines. It is stored and carried as one string (no schema change), and the
- * card parses it back into paragraphs and lists — see `parseSummary` in
- * src/components/DailyDigest.tsx, which is the reader for exactly the format
- * the prompt below asks for. Change one and change the other.
- *
- * ⚠️ `structured` MUST already be the digest's check RESULTS — titles, counts,
- * amounts and one-line summaries — never raw source data. No email bodies, no
- * document text, no customer contact details are sent here. That is a privacy
- * rule first (this leaves our infrastructure) and a cost/latency one second:
- * the digest is small, so the call is fast and cheap, and the model has nothing
- * to do but prioritize what the checks already decided.
- *
- * THROWS with a described reason when it can't answer — it does NOT return a
- * bare null. The caller (`computeDigest`) already catches, stamps the reason
- * into the digest's run log, and composes a local fallback paragraph, so the
- * digest still renders either way. This used to swallow every failure and
- * return null, which surfaced on screen as "Claude unavailable" with no way to
- * find out why — a missing API key, an unknown model id, a rate limit and a
- * timeout were all indistinguishable. The reason is the whole point.
- */
-export async function summarizeDigestWithClaude(
-  structured: unknown,
-  instructions: string[] = [],
-): Promise<string | null> {
-  if (!process.env.ANTHROPIC_API_KEY?.trim()) throw new Error("ANTHROPIC_API_KEY is not set");
-
-  // The owner's STANDING INSTRUCTIONS (see src/lib/digest/instructions.ts) — the
-  // durable preferences set through the reply box or Admin → Digest. They are
-  // memory for how the brief is written, NOT items to list back: the explicit
-  // "leave it out silently, don't add a bullet about the instruction" is what
-  // fixes the reply box turning "ignore the logo emails" into a bullet telling
-  // the owner to ignore them.
-  const standing = instructions.length
-    ? `\n\nSTANDING INSTRUCTIONS FROM THE OWNER — ongoing preferences for how you write this brief, to
-apply every time. Follow them silently: if one says to leave something out or downplay it, simply do
-so; NEVER add a bullet or sentence restating the instruction itself or reminding the owner of it.
-${instructions.map((s) => `- ${s}`).join("\n")}\n`
-    : "";
-
-  const prompt = `You are the owner's executive assistant at a small construction company, writing
-their morning brief. Below is the STRUCTURED OUTPUT of this morning's automated checks — crew time
-entries, the JobTread and calendar schedule, open to-dos and office reminders, and email needing a
-reply.${standing}
-
-Write a short brief — no more than about 200 words total — ORGANISED INTO SEPARATE BLOCKS, one
-topic per block, separated by a BLANK LINE, in this order:
-
-1. YESTERDAY — one short paragraph (1-2 sentences) recapping what the crew did yesterday, by job:
-   who was where, doing what (from the "Crew Activity" check's "Yesterday" items).
-2. TODAY — one short paragraph (1-2 sentences) saying who is on site today and where (the same
-   check's "Right now" items), plus anything on the calendar or JobTread schedule for today.
-3. NEEDS A REPLY — a bulleted list: one bullet per email that needs an answer, named and in brief.
-4. KEEP IN MIND — a bulleted list: one bullet per open reminder or to-do, named specifically (never
-   just a count). Put any check whose status is "error" in a final bullet here, worded as
-   "<check> couldn't be checked".
-
-FORMAT RULES, exactly:
-- Blocks 1 and 2 are prose — complete sentences a person would say out loud.
-- Blocks 3 and 4 are bullets. Start EVERY bullet line with "- " (a hyphen and a space) and keep
-  each bullet to one line, one idea.
-- Separate every block from the next with one blank line.
-- Do NOT write the block names ("YESTERDAY", "TODAY", …) or any other heading, label, title or
-  greeting. The blank line between blocks is the only separator.
-- No other markdown: no "**", no "#", no numbered lists, no tables.
-
-If a whole block has nothing to report, LEAVE IT OUT entirely rather than saying "nothing to
-report" — don't pad. Name people and jobs directly (e.g. "Cedar, Rachel, and Greg were at Ferron
-installing siding") and name concrete numbers and dollar figures when the data has them. Do not
-invent anything that is not in the data — every name, job, and number must come from what's given.
-
-DATA:
-${JSON.stringify(structured)}`;
-
-  let res: Anthropic.Message;
-  try {
-    res = await client().messages.create(
-      {
-        model: MODEL,
-        max_tokens: MAX_TOKENS_SUMMARY,
-        // Low effort: this restates check results the checks already decided,
-        // in ~200 words. It is not a reasoning task, and since thinking is on
-        // by default (see the max_tokens note above) capping its depth is what
-        // keeps the call cheap and quick rather than the token ceiling.
-        output_config: { effort: "low" },
-        messages: [{ role: "user", content: prompt }],
-      },
-      { timeout: TIMEOUT_MS },
-    );
-  } catch (e) {
-    // The model id rides along because a bad ANTHROPIC_MODEL_DIGEST is one of
-    // the likeliest causes and is otherwise invisible from the digest screen.
-    throw new Error(`model "${MODEL}" — ${e instanceof Error ? e.message : String(e)}`);
-  }
-  if (res.stop_reason === "refusal") throw new Error("Claude declined to write the summary");
-  const text = res.content
-    .filter((b): b is Anthropic.TextBlock => b.type === "text")
-    .map((b) => b.text)
-    .join("")
-    .trim();
-  if (!text) throw new Error(`Claude returned no text (stop_reason: ${res.stop_reason})`);
-  return text;
 }
 
 /* -------------------------------------------------------------------------
@@ -225,9 +119,8 @@ const EMAIL_SIGNAL_SCHEMA = {
 /**
  * One Claude pass over a batch of recent inbox emails, returning appointments
  * and action items it can support directly from the text. Batched (all emails
- * in one call, indexed) rather than one call per email — same reasoning as
- * `summarizeDigestWithClaude`: fast, cheap, and it's the only way to keep this
- * to ONE extra Claude call per digest run.
+ * in one call, indexed) rather than one call per email: fast, cheap, and it
+ * keeps the digest run to ONE Claude call.
  *
  * Returns `{appointments:[],actionItems:[]}` for an empty input, and `null`
  * when Claude is unconfigured or the response can't be trusted (refused,

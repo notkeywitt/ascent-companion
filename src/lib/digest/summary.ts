@@ -2,13 +2,12 @@
  * Reader for the Daily Digest's morning brief.
  *
  * The brief is ONE STRING, but it is written in TOPIC BLOCKS: paragraphs
- * separated by a blank line, and lines beginning "- " meaning a bullet. Both
- * writers emit exactly that — the prompt in src/lib/digest/claude.ts and the
- * local `fallbackSummary` in src/lib/digest/run.ts — so the two render
- * identically, and neither the API nor the stored row needed a new shape.
+ * separated by a blank line, and lines beginning "- " meaning a bullet. The
+ * writer is `fallbackSummary` in src/lib/digest/run.ts (a Claude-written brief
+ * was the other writer until 2026-09-04).
  *
- * Parsing is deliberately forgiving, because one of the two writers is a
- * language model: any of "-", "*" or "•" opens a bullet, consecutive bullets
+ * Parsing stays forgiving, which is also what lets stored rows from the model
+ * era still render: any of "-", "*" or "•" opens a bullet, consecutive bullets
  * collect into one list, consecutive prose lines collect into one paragraph,
  * and stray "**" bold markers are stripped rather than shown as literal
  * asterisks. Kept OUT of the component (src/components/DailyDigest.tsx draws

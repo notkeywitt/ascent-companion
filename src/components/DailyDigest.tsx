@@ -109,7 +109,7 @@ export function DailyDigest() {
   const access = useAccess();
   const canSee = access.can("digest");
   // OFFICE READS IT, ADMIN REBUILDS IT. The card is granted to office as well
-  // as admin, but /api/digest/run — an org-wide sweep plus two Claude calls —
+  // as admin, but /api/digest/run — an org-wide sweep plus a Claude call —
   // authenticates on its own and accepts only the scheduler or an admin
   // session. So the button is hidden for office rather than shown and answered
   // with a 403; office sees the digest the morning run stored.
@@ -216,7 +216,7 @@ export function DailyDigest() {
     }
 
     if (started) {
-      const MAX_ATTEMPTS = 40; // ~80s — a run reads several sources plus two Claude calls
+      const MAX_ATTEMPTS = 40; // ~80s — a run reads several sources plus a Claude call
       let found = false;
       for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
         await sleep(2000);
@@ -235,9 +235,9 @@ export function DailyDigest() {
 
   /**
    * Reply box — turns a free-text note into a reminder, a snooze, an email
-   * ignore rule, or a STANDING INSTRUCTION that shapes how every future brief is
-   * written (see /api/digest/reply). It's memory the owner talks to, not a
-   * notepad. The confirmation echoes back exactly what was applied; it never
+   * ignore rule, or a STANDING INSTRUCTION — stored, but inert since the brief
+   * stopped being model-written (see /api/digest/reply). Memory the owner
+   * talks to, not a notepad. The confirmation echoes back exactly what was applied; it never
    * re-fetches the digest, since anything set here only takes effect on the NEXT
    * run, not this one.
    */
@@ -388,9 +388,9 @@ export function DailyDigest() {
 
       {!loading && digest && (
         <>
-          {/* The Claude brief, first — the one thing to read if nothing else.
-              Drawn as its own topic blocks (see parseSummary above), not as one
-              run-on paragraph. */}
+          {/* The brief, first — the one thing to read if nothing else. Built
+              locally from the check results (fallbackSummary in
+              src/lib/digest/run.ts), drawn as topic blocks. */}
           <Card>
             <SummaryBody text={digest.summary} />
             <p className="mt-2 text-[11px] text-neutral-500">
@@ -401,14 +401,14 @@ export function DailyDigest() {
               ) : (
                 <>Generated {timeOf(digest.generatedAt)}</>
               )}
-              {digest.summarySource === "fallback" && " · summary written locally (Claude unavailable)"}
               {digest.status === "partial" && " · some checks couldn't run"}
             </p>
           </Card>
 
-          {/* The reply box — talk back to the digest: add a reminder, snooze one,
-              tell it to stop flagging a sender, or give it a standing instruction
-              for how to write the brief. Applied on the NEXT run. */}
+          {/* The reply box — talk back to the digest: add a reminder, snooze
+              one, or tell it to stop flagging a sender. Applied on the NEXT
+              run. (Standing instructions still save, but the brief stopped
+              being model-written on 2026-09-04, so nothing reads them.) */}
           <Card>
             <Textarea
               rows={2}

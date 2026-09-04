@@ -2,8 +2,9 @@
  * THE AGGREGATOR — runs the registry, summarizes it once, stores the result.
  *
  * This file knows nothing about any individual check. It loops the enabled ones,
- * runs each in isolation, collects the structured results, asks Claude for one
- * paragraph, and writes the whole thing to the `daily_digest` row for today.
+ * runs each in isolation, collects the structured results, builds the brief
+ * from them locally, and writes the whole thing to the `daily_digest` row for
+ * today.
  * Adding, removing or reordering checks does not touch this file — that is the
  * point of the registry.
  *
@@ -23,7 +24,6 @@
  */
 import { companyDateParts } from "@/lib/billing";
 import { getPaveConfig, hasGrant } from "@/lib/config";
-import { summarizeDigestWithClaude } from "./claude";
 import { CHECKS } from "./registry";
 import { resolveChecks } from "./overrides";
 import { applyDismissals } from "./dismissals";
@@ -71,8 +71,8 @@ function reasonOf(e: unknown): string {
  * list from `resolveChecks()`, plus the office's dismissals.
  *
  * `dismissed` is the set of item keys the office has marked handled (see
- * dismissals.ts). They are taken out BEFORE the summary is written, so Claude
- * never briefs the owner on something they already dealt with.
+ * dismissals.ts). They are taken out BEFORE the summary is written, so the
+ * brief never counts something the office already dealt with.
  */
 export async function computeDigest(
   now: Date = new Date(),
@@ -90,7 +90,8 @@ export async function computeDigest(
   const off = allChecks.filter((c) => !c.enabled).map((c) => c.id);
   stamp(`digest ${today}: running ${checks.length} check(s)${off.length ? `; disabled: ${off.join(", ")}` : ""}`);
   if (!pave) stamp("JT_GRANT_KEY is not set — JobTread-backed checks will report an error");
-  if (instructions.length) stamp(`${instructions.length} standing instruction(s) will shape the summary`);
+  if (instructions.length)
+    stamp(`${instructions.length} standing instruction(s) on file — the brief is a plain item list and does not read them`);
 
   let results: StoredCheckResult[] = [];
   for (const check of checks) {
@@ -150,33 +151,13 @@ export async function computeDigest(
   const status: DigestPayload["status"] =
     results.length > 0 && errored === results.length ? "error" : errored > 0 ? "partial" : "ok";
 
-  // ONE Claude call, over the structured results only — never the raw source
-  // data the checks read (see summarizeDigestWithClaude).
-  let summary = "";
-  let summarySource: DigestPayload["summarySource"] = "fallback";
-  try {
-    const generated = await summarizeDigestWithClaude(
-      results.map((r) => ({
-        check: r.title,
-        category: r.category,
-        status: r.status,
-        summary: r.summary,
-        itemCount: r.items.length,
-        topItems: r.items.slice(0, 5).map((i) => ({ title: i.title, amount: i.amount, date: i.date })),
-      })),
-      instructions,
-    );
-    if (generated) {
-      summary = generated;
-      summarySource = "claude";
-      stamp("summary written by Claude");
-    } else {
-      stamp("Claude unavailable — using the built-in summary");
-    }
-  } catch (e) {
-    stamp(`Claude summary failed (${reasonOf(e)}) — using the built-in summary`);
-  }
-  if (!summary) summary = fallbackSummary(results);
+  // The brief is built locally from the check results — no model call. A
+  // Claude-written paragraph used to sit here; it was dropped 2026-09-04
+  // because the owner reads the item list, not the prose (and it cost tokens
+  // every morning). `summarySource` stays on the payload only because the
+  // stored column is NOT NULL and old rows still carry "claude".
+  const summary = fallbackSummary(results);
+  const summarySource: DigestPayload["summarySource"] = "fallback";
 
   const payload: DigestPayload = {
     date: today,
@@ -193,15 +174,14 @@ export async function computeDigest(
 }
 
 /**
- * The brief shown when Claude is unconfigured or unreachable.
+ * THE BRIEF. Built here, from the check results, with no model call.
  *
- * Deliberately plain and mechanical — its job is to keep the digest useful, not
- * to imitate the model. It never claims all-clear when a check errored.
+ * Deliberately plain and mechanical — a count and one bullet per flagged check,
+ * which is what the owner actually reads. It never claims all-clear when a
+ * check errored.
  *
- * SAME SHAPE AS THE MODEL'S ANSWER: topic blocks separated by a blank line,
- * with per-check detail as "- " bullet lines, so the card renders the fallback
- * and the real brief through the identical parser (`parseSummary` in
- * src/components/DailyDigest.tsx) instead of one wall of text for one of them.
+ * Topic blocks separated by a blank line, per-check detail as "- " bullet
+ * lines, read back by `parseSummary` (src/lib/digest/summary.ts).
  */
 export function fallbackSummary(results: StoredCheckResult[]): string {
   const flagged = results.filter((r) => r.status === "warning");

@@ -12,13 +12,13 @@ import { parseDigestReplyWithClaude, type DigestReplyAction } from "@/lib/digest
  * ("remind me about the L&I thing tomorrow, stop mentioning the logo emails")
  * into durable state: a row in `digest_todos`, `digest_ignore_rules`, and/or
  * `digest_instructions`, read back on the NEXT digest run — a todo by the
- * `digest-todos` check, an ignore rule by `email-followups`, and a standing
- * instruction injected into the summary prompt (see src/lib/digest/claude.ts).
- * This route never touches today's already-stored digest.
+ * `digest-todos` check and an ignore rule by `email-followups`. This route
+ * never touches today's already-stored digest.
  *
- * The reply box is memory the owner talks to, not a notepad: a lasting "how to
- * write the brief" preference becomes a standing instruction the model applies
- * every morning, rather than a bullet reminding the owner of their own note.
+ * The reply box is memory the owner talks to, not a notepad. A lasting "how to
+ * write the brief" preference still saves as a standing instruction, but it is
+ * INERT SINCE 2026-09-04: the brief is built from the check results, not
+ * written by a model, so nothing reads those rows.
  *
  * Session-gated (unlike /api/digest/run, which a scheduler with no session must
  * call) — the office is the only caller, from the home screen's reply box.

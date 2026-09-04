@@ -6,10 +6,15 @@ import { Banner, Button, Loading, SectionLabel, Textarea } from "@/components/ui
 
 /**
  * Admin → Digest — the STANDING INSTRUCTIONS manager. These are the owner's
- * durable "how to write the brief" preferences, injected into the digest
- * summary prompt every morning (see src/lib/digest/instructions.ts). The reply
- * box on the home screen adds and drops them conversationally; this is the
- * see-them-all-and-remove surface, talking to /api/admin/digest-instructions.
+ * durable "how to write the brief" preferences (see
+ * src/lib/digest/instructions.ts). The reply box on the home screen adds and
+ * drops them conversationally; this is the see-them-all-and-remove surface,
+ * talking to /api/admin/digest-instructions.
+ *
+ * ⚠️ INERT SINCE 2026-09-04. The brief is no longer model-written — it is built
+ * from the check results by `fallbackSummary` (src/lib/digest/run.ts) — so
+ * nothing reads these rows. They are still stored and manageable so the
+ * preferences survive if a written brief ever comes back.
  */
 
 interface Instruction {
@@ -105,7 +110,7 @@ export function DigestInstructionsPanel() {
         <Loading label="Loading instructions…" />
       ) : items.length === 0 ? (
         <p className="rounded-lg border border-dashed border-line px-3 py-4 text-center text-sm text-neutral-500">
-          No standing instructions yet. Claude writes the brief from the checks alone.
+          No standing instructions. The brief is built from the checks alone.
         </p>
       ) : (
         <ul className="space-y-2">

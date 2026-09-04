@@ -2,9 +2,12 @@
  * The Daily Digest's STANDING INSTRUCTIONS — the owner's durable "stop telling
  * me about…" / "always do…" preferences that shape how the morning brief is
  * written. Set via the reply box (src/app/api/digest/reply/route.ts) or Admin →
- * Digest, stored in the `digest_instructions` table (src/db/schema.ts), and
- * injected into the summary prompt on every run (summarizeDigestWithClaude in
- * ./claude.ts).
+ * Digest, stored in the `digest_instructions` table (src/db/schema.ts).
+ *
+ * ⚠️ NOTHING READS THEM SINCE 2026-09-04. They existed to shape the brief's
+ * prompt; the brief is now built from the check results with no model call
+ * (`fallbackSummary` in ./run.ts). Add/list/remove still work — the rows are
+ * kept so the preferences survive if a written brief returns.
  *
  * READ FRESH ON EVERY RUN, never baked into a session — the same reasoning as
  * getDigestOverrides in ./overrides.ts (the digest's caller is a scheduler with

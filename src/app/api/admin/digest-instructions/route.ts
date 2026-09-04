@@ -12,10 +12,11 @@ import { auth, envAllowed } from "@/auth";
  * see-everything-and-remove surface for an admin, and the place to add one
  * without going through the reply parser.
  *
- * Injected into the summary prompt on every run — see
- * src/lib/digest/instructions.ts and summarizeDigestWithClaude in
- * src/lib/digest/claude.ts. Deactivated (not deleted) on removal, same as the
- * reply box, so "why did the digest stop mentioning X" stays answerable.
+ * ⚠️ INERT SINCE 2026-09-04 — these fed the brief's prompt, and the brief is
+ * now built from the check results with no model call (`fallbackSummary` in
+ * src/lib/digest/run.ts). Rows are kept and manageable, but no run reads them.
+ * Deactivated (not deleted) on removal, same as the reply box, so "why did the
+ * digest stop mentioning X" stays answerable.
  *
  * Same admin gate as every other /api/admin/* route (duplicated per-route —
  * this codebase's existing convention).

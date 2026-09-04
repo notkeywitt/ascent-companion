@@ -703,7 +703,7 @@ export const dailyDigest = sqliteTable("daily_digest", {
   generatedAt: text("generated_at").notNull(), // ISO timestamp of the run
   status: text("status").notNull().default("ok"), // ok | partial | error
   summary: text("summary").notNull().default(""), // the one-paragraph summary
-  summarySource: text("summary_source").notNull().default("fallback"), // gemini | fallback
+  summarySource: text("summary_source").notNull().default("fallback"), // always "fallback" since 2026-09-04; old rows carry gemini|claude
   results: text("results").notNull().default("[]"), // JSON StoredCheckResult[]
   durationMs: integer("duration_ms").notNull().default(0),
   log: text("log").notNull().default("[]"), // JSON string[]
@@ -1124,12 +1124,13 @@ export type NewDigestReply = typeof digestReplies.$inferInsert;
  * getActiveInstructions (src/lib/digest/instructions.ts).
  *
  * DIFFERENT FROM `digestTodos`. A todo is a one-time reminder that gets
- * completed and then disappears. A standing instruction never "finishes": every
- * active row is injected into the digest SUMMARY prompt on EVERY run (see
- * summarizeDigestWithClaude in src/lib/digest/claude.ts), so the model shapes
- * the brief around it — it is memory for Claude, not a note the owner reads
- * back. This is the fix for the reply box turning "ignore the logo emails" into
- * a bullet reminding the owner to ignore them.
+ * completed and then disappears. A standing instruction never "finishes": it
+ * was memory for the model that wrote the brief, not a note the owner reads
+ * back.
+ *
+ * ⚠️ INERT SINCE 2026-09-04 — the brief is no longer model-written
+ * (`fallbackSummary` in src/lib/digest/run.ts), so no run reads these rows.
+ * Kept, not dropped, so the preferences survive a written brief coming back.
  *
  * Deactivated (`active` false) rather than deleted when the owner says to forget
  * one, so "why did the digest stop mentioning X" stays answerable.
