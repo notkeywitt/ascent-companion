@@ -15,6 +15,7 @@ import {
   Label,
   Loading,
   PageHeader,
+  Select,
   Textarea,
 } from "@/components/ui";
 
@@ -368,6 +369,21 @@ function shiftMonth(month: string, delta: number): string {
 function monthLabel(month: string): string {
   const d = ymdToDate(`${month}-01`);
   return d ? d.toLocaleDateString(undefined, { month: "long", year: "numeric" }) : month;
+}
+
+// The months the timesheet's month picker offers: this month back through two
+// years, newest first. The arrows can step outside that window, so the month in
+// hand is always in the list — a select cannot show a value it has no option for.
+const MONTH_CHOICE_COUNT = 24;
+function monthChoices(selected: string): string[] {
+  const now = defaultMonth();
+  const list: string[] = [];
+  for (let i = 0; i < MONTH_CHOICE_COUNT; i++) list.push(shiftMonth(now, -i));
+  if (selected && !list.includes(selected)) {
+    list.push(selected);
+    list.sort().reverse();
+  }
+  return list;
 }
 
 // Downscale a picked image to a JPEG data URL (max 1600px, quality 0.85) so a
@@ -1141,6 +1157,9 @@ export function EmployeeTimeClient({
     if (tab === "sheets") loadHistory();
   }, [tab, loadHistory]);
 
+  // The month picker's options, recomputed only when the month steps outside them.
+  const monthPicks = useMemo(() => monthChoices(historyMonth), [historyMonth]);
+
   // The period's entries as day groups — newest day first, the API's own order.
   const dayGroups: DayGroup[] = useMemo(() => {
     const shown = openOnly ? historyEntries.filter((e) => e.open) : historyEntries;
@@ -1605,12 +1624,24 @@ export function EmployeeTimeClient({
       {/* ========================================================= TIMESHEETS */}
       {tab === "sheets" && (
         <div className="space-y-3">
-          {/* Pay period: month arrows, then the two halves + an open filter. */}
-          <div className="flex items-center justify-between gap-2">
+          {/* Pay period: pick the month (arrows step it), then the two halves
+              + an open filter. */}
+          <div className="flex items-center gap-2">
             <IconButton label="Previous month" onClick={() => setHistoryMonth((m) => shiftMonth(m, -1))}>
               ‹
             </IconButton>
-            <span className="text-sm font-bold">{monthLabel(historyMonth)}</span>
+            <Select
+              aria-label="Month"
+              value={historyMonth}
+              onChange={(e) => setHistoryMonth(e.target.value)}
+              className="min-h-11 flex-1 text-center text-sm font-bold"
+            >
+              {monthPicks.map((m) => (
+                <option key={m} value={m}>
+                  {monthLabel(m)}
+                </option>
+              ))}
+            </Select>
             <IconButton label="Next month" onClick={() => setHistoryMonth((m) => shiftMonth(m, 1))}>
               ›
             </IconButton>
