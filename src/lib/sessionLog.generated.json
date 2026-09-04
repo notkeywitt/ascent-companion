@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-04T01:00:11Z",
+  "generatedAt": "2026-09-04T03:02:32Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,7 +8,7 @@
       "branch": "claude/jobs-page-client-listings-tpb0cy",
       "status": "shipped",
       "started": "2026-09-03T23:03:57Z",
-      "updated": "2026-09-04T01:00:11Z",
+      "updated": "2026-09-04T03:02:32Z",
       "goal": "",
       "next": "Probe the multi-value customFieldValues write against one internal Ascent job, then let /clients edit job Status and Job Type (isEditableField in clientDirectory.ts is the single gate).",
       "commits": [
@@ -18,6 +18,13 @@
           "sha": "dbd199b",
           "subject": "companion: add the clients & jobs directory, editable, with the invoice capture tag",
           "files": "CODEBASE_MAP.md, src/app/api/clients/customer/route.ts, src/app/api/clients/invoice-tag/route.ts, src/app/api/clients/job/route.ts, src/app/api/clients/route.ts, src/app/api/clients/update/route.ts, +11 more"
+        },
+        {
+          "date": "2026-09-04",
+          "time": "03:02",
+          "sha": "78c70fd",
+          "subject": "companion: fix the 413 that broke every customer on /clients",
+          "files": "src/lib/clientDirectory.ts"
         }
       ]
     },
@@ -27,9 +34,9 @@
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-09-04T00:30:34Z",
+      "updated": "2026-09-04T01:27:58Z",
       "goal": "",
-      "next": "Berger Bunkhouse July: re-run the check after 033fd85 + 5a3c5df. Then chase the JR Granite filename ('12 36 00 - $4780.00 _ 09 30 10 - $4000.00 _ 09 65 19 - $2250.00 - JR Granite & Tile...pdf') — the repo's _civParseBackupName returns 11030 for that exact string in node, but the live review reported 4780, so the real filename likely has a character that breaks the segment regex. Get the bytes from Drive.",
+      "next": "Berger Bunkhouse July: re-run the check. Companion fixes are live (issue-date 033fd85, tax 5a3c5df, amount-mismatch + create-invoice CTA 9f01f9c). ⚠️ The JR Granite parser fix (appscript febcd7f) is PUSHED BUT NOT DEPLOYED — owner must run ./deploy.sh before that $11,030 finding clears.",
       "commits": [
         {
           "date": "2026-09-03",
@@ -156,6 +163,20 @@
           "sha": "5a3c5df",
           "subject": "companion: match a backup PDF against the bill's PRE-TAX total, not its gross",
           "files": "src/lib/invoiceReview/checks.test.ts, src/lib/invoiceReview/checks/shared.ts, src/lib/invoiceReview/duplicateDraft.test.ts, src/lib/invoiceReview/evidence.ts, src/lib/invoiceReview/investigate.test.ts, src/lib/invoiceReview/norms.test.ts, +4 more"
+        },
+        {
+          "date": "2026-09-03",
+          "time": "17:30",
+          "sha": "5cb96ec",
+          "subject": "companion: log session 2026-09-03-main",
+          "files": ""
+        },
+        {
+          "date": "2026-09-03",
+          "time": "18:26",
+          "sha": "4d24b34",
+          "subject": "companion: name a bill/backup amount gap as itself, and stop offering to create an invoice that exists",
+          "files": "src/app/trackingsheet/Board.tsx, src/lib/invoiceReview/checks.test.ts, src/lib/invoiceReview/checks/backup.ts, src/lib/invoiceReview/checks/shared.ts, src/lib/invoiceReview/settings.ts, src/lib/invoiceReview/types.ts"
         }
       ]
     },
