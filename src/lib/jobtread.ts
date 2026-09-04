@@ -267,6 +267,32 @@ function _isInvoicedToClient(node: any): boolean {
   );
 }
 
+/**
+ * Is this bill/time entry ON a customer invoice AT ALL — draft included?
+ *
+ * The wider twin of `_isInvoicedToClient`, and a different question: that one
+ * asks whether the client has been billed (a draft has not gone out, so it
+ * says no), this one asks whether the document has been PICKED UP by an
+ * invoice yet. Only `denied` is excluded, because a denied invoice is a void
+ * (see the void rule in the Apps Script repo) and everything here already
+ * treats it as though it never existed.
+ *
+ * Used for the bill row's invoicing-lifecycle stripe: a bill on no invoice at
+ * all, in a month where an invoice exists, is the one that got left off.
+ *
+ * KNOWN BLIND SPOT, shared with `_isInvoicedToClient`: JobTread's re-issue
+ * pattern leaves a bill pointing at the DENIED original while the live
+ * re-issue references that original rather than the bill, so a re-issued
+ * month reads as "on no invoice" here. `getInvoiceReconciliation` is the one
+ * place that walks the replacement chain; it costs three paged queries, which
+ * a list of rows cannot pay per bill.
+ */
+function _isOnAnyInvoice(node: any): boolean {
+  return (node?.referencedDocuments?.nodes ?? []).some(
+    (n: any) => n?.type === "customerInvoice" && n?.status !== "denied",
+  );
+}
+
 // TODO(per-cost-code): same idea grouped by costCode.number on the cost items of
 // each doc type, to show unbilled per code. Confirm the costItems group shape.
 
@@ -710,6 +736,14 @@ export interface BudgetItem {
   detail?: string;
   /** Labor / Materials / Subcontractor / Other. */
   costType?: string;
+  /**
+   * `costType.isTimeTrackable` — JobTread REFUSES a time entry on a cost item
+   * whose cost type isn't time-trackable ("Cannot create time entry for cost
+   * item with a cost type that is not able to be time tracked."). One cost code
+   * routinely carries both a Materials leaf and a Labor leaf, so labor has to
+   * pick the time-trackable one, not the first one.
+   */
+  timeTrackable?: boolean;
   /** This row's estimated amount — 0 marks a placeholder row nobody budgeted. */
   cost?: number;
   /**
@@ -761,7 +795,7 @@ async function _getJobBudgetUncached(cfg: PaveConfig, jobId: string): Promise<Bu
               cost: {},
               document: { id: {} },
               costCode: { number: {}, name: {}, parentCostCode: { name: {} } },
-              costType: { name: {} },
+              costType: { name: {}, isTimeTrackable: {} },
             },
           },
         },
@@ -778,6 +812,7 @@ async function _getJobBudgetUncached(cfg: PaveConfig, jobId: string): Promise<Bu
           name: n?.costCode?.name ?? n?.name ?? "",
           detail: n?.name ?? "",
           costType: n?.costType?.name ?? "",
+          timeTrackable: n?.costType?.isTimeTrackable === true,
           cost: typeof n?.cost === "number" ? n.cost : undefined,
           division: n?.costCode?.parentCostCode?.name ?? undefined,
         });
@@ -1719,6 +1754,14 @@ export interface MonthBill {
   qboIsIgnored: boolean;
   /** Already on a customer invoice — the board renders these read-only. */
   invoiced: boolean;
+  /** On a customer invoice of ANY status but denied — draft included. Wider
+   *  than `invoiced`; see `_isOnAnyInvoice` for why the two differ. */
+  onInvoice: boolean;
+  /** Does an invoice exist for this job + month at all? Derived from the WHOLE
+   *  month's bills before `includeInvoiced` filters any out, so it stays true
+   *  in a month whose invoice already went out. Same for every row in one
+   *  response — carried per bill so the row can decide its own state. */
+  monthInvoiceExists: boolean;
   /** Attached files (the scanned invoice) — 0 means nothing to review against. */
   fileCount: number;
   /** Money recorded against the bill. Computed by JobTread from QuickBooks (see
@@ -1828,6 +1871,11 @@ export async function getJobBillsForMonth(
     return s >= first && s <= last;
   };
   const isInvoiced = _isInvoicedToClient;
+  // Computed BEFORE the includeInvoiced filter: once an invoice has gone out
+  // its bills drop from the list, and asking the surviving rows whether the
+  // month has an invoice would then always answer no — the exact case the
+  // "left off the invoice" stripe exists to catch.
+  const monthInvoiceExists = nodes.some((b) => inMonth(b.issueDate) && _isOnAnyInvoice(b));
 
   return nodes
     .filter((b) => inMonth(b.issueDate) && (includeInvoiced || !isInvoiced(b)))
@@ -1853,6 +1901,8 @@ export async function getJobBillsForMonth(
         nonRecoverableTaxName: b?.nonRecoverableTaxName ?? null,
         qboIsIgnored: !!b?.qboIsIgnored,
         invoiced: isInvoiced(b),
+        onInvoice: _isOnAnyInvoice(b),
+        monthInvoiceExists,
         fileCount: typeof b?.files?.count === "number" ? b.files.count : 0,
         amountPaid: typeof b?.amountPaid === "number" ? b.amountPaid : 0,
         balance: typeof b?.balance === "number" ? b.balance : 0,
@@ -4031,6 +4081,11 @@ export interface AllJobsBill {
   createdAt: string;
   status: string;
   invoiced: boolean;
+  /** On a customer invoice of ANY status but denied — see `_isOnAnyInvoice`. */
+  onInvoice: boolean;
+  /** Does an invoice exist for THIS bill's job + month? Derived per job from
+   *  every bill in the month before `includeInvoiced` filters any out. */
+  monthInvoiceExists: boolean;
   /** Money recorded against the bill — JobTread computes both from QuickBooks.
    *  A draft reads 0 / 0, so read them as a pair (`billPaidState`). */
   amountPaid: number;
@@ -4122,6 +4177,11 @@ export async function getAllBillsForMonth(
   } while (page && ++guard < 100);
 
   const isInvoiced = _isInvoicedToClient;
+  // Which jobs already have an invoice for this month — read off the FULL walk,
+  // before includeInvoiced drops the bills that are on it (see the same note in
+  // getJobBillsForMonth).
+  const jobsWithInvoice = new Set<string>();
+  for (const b of raw) if (b?.job?.id && _isOnAnyInvoice(b)) jobsWithInvoice.add(b.job.id);
 
   const out: AllJobsBill[] = [];
   for (const b of raw) {
@@ -4137,6 +4197,8 @@ export async function getAllBillsForMonth(
       createdAt: b.createdAt ?? "",
       status: b.status ?? "",
       invoiced,
+      onInvoice: _isOnAnyInvoice(b),
+      monthInvoiceExists: jobsWithInvoice.has(job.id),
       amountPaid: typeof b.amountPaid === "number" ? b.amountPaid : 0,
       balance: typeof b.balance === "number" ? b.balance : 0,
       jobId: job.id,

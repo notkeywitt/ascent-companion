@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { JtLink } from "@/components/JtLink";
+import { BILL_STRIPE_COLOR, billInvoiceState } from "@/lib/billInvoiceState";
 import { billPaidState, driveMainWindowToDoc, money } from "@/components/BillingSummary";
 import { Banner, Card, Chip, EmptyState, Label, Loading, SectionLabel, inputCls } from "@/components/ui";
 import { useUnsavedChanges } from "@/lib/useUnsavedChanges";
@@ -38,10 +39,17 @@ interface AllBill {
   createdAt: string;
   status: string;
   invoiced: boolean;
+  /** On any non-denied customer invoice, draft included, and whether this
+   *  bill's job has an invoice for the month at all — the stripe's two inputs
+   *  (billInvoiceState). */
+  onInvoice: boolean;
+  monthInvoiceExists: boolean;
   /** Paid-in-QuickBooks figures JobTread computes — read as a pair, see billPaidState. */
   amountPaid: number;
   balance: number;
   needsReview: boolean;
+  /** The bill-detail card's "reviewed" toggle — coding looked at and done. */
+  reviewed: boolean;
   jobId: string;
   jobName: string;
   customerName: string;
@@ -199,6 +207,7 @@ export function AllBills({ ym, setYm }: { ym: string; setYm: (ym: string) => voi
   const renderBillCard = (b: AllBill) => {
     const active = wide && b.id === selId;
     const paid = billPaidState(b);
+    const stripe = billInvoiceState(b);
     const body = (
       <>
         <span className="flex items-baseline justify-between gap-3">
@@ -258,19 +267,15 @@ export function AllBills({ ym, setYm }: { ym: string; setYm: (ym: string) => voi
                 : ""
           }`}
         >
-          {/* Status as a 3px edge stripe, same as the job board:
-              red = flagged for review (outranks everything — it's the thing to
-              act on), amber = draft, blue = already invoiced. */}
+          {/* Invoicing lifecycle as an edge stripe, same one axis and the
+              same colours as the job board (billInvoiceState): wide red =
+              flagged for review, blue = reviewed but still a draft in
+              JobTread, green = out of draft and on an invoice, thin red = the
+              job's month has an invoice and this bill is NOT on it. */}
           <span
             aria-hidden
-            className={`shrink-0 ${b.needsReview ? "w-[5px] bg-red-500" : "w-[3px]"} ${
-              b.needsReview
-                ? ""
-                : b.invoiced
-                  ? "bg-sky-500"
-                  : b.status === "draft"
-                    ? "bg-amber-500"
-                    : "bg-transparent"
+            className={`shrink-0 ${stripe === "needs-review" ? "w-[5px]" : "w-[3px]"} ${
+              BILL_STRIPE_COLOR[stripe]
             }`}
           />
           {wide ? (

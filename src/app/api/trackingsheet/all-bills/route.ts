@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { eq } from "drizzle-orm";
+import { eq, or } from "drizzle-orm";
 import { getAllBillsForMonth } from "@/lib/jobtread";
 import { getPaveConfig, hasGrant } from "@/lib/config";
 import { db, ensureDb } from "@/db";
@@ -27,20 +27,33 @@ export async function GET(req: NextRequest) {
     const cfg = getPaveConfig();
     const bills = await getAllBillsForMonth(cfg, year, month, { includeInvoiced, includeDrafts });
 
-    // Attach the companion-local "Needs review" flag so the list can tag it.
-    // One indexed read of the flagged set, then a membership test per bill.
+    // Attach the companion-local per-bill flags the list renders: "Needs
+    // review" (a correction the office has to make) and "reviewed" (the bill
+    // card's coding-done toggle, which the row's stripe reads on a draft — see
+    // billInvoiceState). One read of the bills carrying either flag, then a
+    // lookup per bill.
     let flagged = new Set<string>();
+    let reviewed = new Set<string>();
     try {
       await ensureDb();
       const rows = await db
-        .select({ docId: savedBills.docId })
+        .select({
+          docId: savedBills.docId,
+          needsReview: savedBills.needsReview,
+          reviewed: savedBills.reviewed,
+        })
         .from(savedBills)
-        .where(eq(savedBills.needsReview, true));
-      flagged = new Set(rows.map((r) => r.docId));
+        .where(or(eq(savedBills.needsReview, true), eq(savedBills.reviewed, true)));
+      flagged = new Set(rows.filter((r) => r.needsReview).map((r) => r.docId));
+      reviewed = new Set(rows.filter((r) => r.reviewed).map((r) => r.docId));
     } catch {
       /* non-fatal — the list still renders, just without the review flags */
     }
-    const tagged = bills.map((b) => ({ ...b, needsReview: flagged.has(b.id) }));
+    const tagged = bills.map((b) => ({
+      ...b,
+      needsReview: flagged.has(b.id),
+      reviewed: reviewed.has(b.id),
+    }));
 
     return NextResponse.json({
       bills: tagged,

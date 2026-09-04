@@ -56,6 +56,7 @@ import { LaborReportButton } from "@/components/LaborReportButton";
 import { AddTimeCard } from "./AddTimeCard";
 import { InvoiceReconcile, type Recon } from "@/components/InvoiceReconcile";
 import { UncapturedBills } from "@/components/UncapturedBills";
+import { BILL_STRIPE_COLOR, billInvoiceState } from "@/lib/billInvoiceState";
 import {
   Breakdown,
   billPaidState,
@@ -128,6 +129,10 @@ interface BillRef {
   reviewed: boolean;
   needsReview: boolean;
   invoiced: boolean;
+  /** On any non-denied customer invoice, draft included, and whether the job's
+   *  month has an invoice at all — the stripe's two inputs (billInvoiceState). */
+  onInvoice: boolean;
+  monthInvoiceExists: boolean;
   fileCount: number;
 }
 interface JobBillLine {
@@ -2376,12 +2381,7 @@ export function Board() {
       if (staged.has(l.id)) movedHere++;
     }
     const isOpen = openDocId === b.id;
-    // Drives the red edge stripe: this bill is charging at least
-    // one code that has already gone past its budget.
-    const overBudget = [...codes.keys()].some((c) => {
-      const h = headroom.get(c);
-      return !!h && remainingOf(h) < 0;
-    });
+    const stripe = billInvoiceState(b);
     // On a phone this page is read-only and the coding drawer is
     // hidden, so a tapped bill opens its full detail page instead of
     // the (invisible) drawer. `from=recode` + `ym` + the `#bill-…`
@@ -2421,26 +2421,18 @@ export function Board() {
             lines.length > 0 && !b.invoiced ? "cursor-grab active:cursor-grabbing" : ""
           }`}
         >
-          {/* Status as an edge stripe, so a month can be triaged by
-              colour down the left margin before a word is read: a
-              wide red = flagged for review (the thing to act on,
-              outranks all else), red = its coding is over budget,
-              blue = already invoiced (read-only), amber = still a
-              draft, none = nothing to look at. The chips below still
-              spell each state out; the stripe is what makes the list
-              scannable at scrolling speed. */}
+          {/* Invoicing lifecycle as an edge stripe, so a month can be
+              triaged by colour down the left margin before a word is
+              read: wide red = flagged for review, blue = reviewed but
+              still a draft in JobTread, green = out of draft and on an
+              invoice, thin red = an invoice exists for the month and
+              this bill is NOT on it. ONE axis only — see
+              billInvoiceState. Budget headroom, coding progress and
+              paid state are chips on the row, not stripe colours. */}
           <span
             aria-hidden
-            className={`shrink-0 ${b.needsReview ? "w-1 bg-red-500" : "w-0.5"} ${
-              b.needsReview
-                ? ""
-                : b.invoiced
-                  ? "bg-sky-500"
-                  : overBudget
-                    ? "bg-red-500"
-                    : b.status === "draft"
-                      ? "bg-amber-500"
-                      : "bg-transparent"
+            className={`shrink-0 ${stripe === "needs-review" ? "w-1" : "w-0.5"} ${
+              BILL_STRIPE_COLOR[stripe]
             }`}
           />
           <button
