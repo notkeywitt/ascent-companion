@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getJobBudget } from "@/lib/jobtread";
+import { budgetCodeMaps, getJobBudget } from "@/lib/jobtread";
 import { getPaveConfig, hasGrant } from "@/lib/config";
 
 const MAX_JOBS = 25;
@@ -12,7 +12,14 @@ const MAX_JOBS = 25;
  * CSI up against *its own* job's budget. First budget leaf wins per code, the same
  * rule the Apps Script budget map uses.
  *
- * GET /api/job-budget?jobIds=a,b  →  { budgets: { [jobId]: { [code]: costItemId } }, errors }
+ * `timeTrackable` is the same map built ONLY from leaves whose cost type is
+ * time-trackable. JobTread refuses a time entry on any other leaf, and a single
+ * code often has both a Materials leaf and a Labor leaf — first-leaf-wins picks
+ * the wrong one. The labor importer resolves against this map; bill coding keeps
+ * using `budgets`.
+ *
+ * GET /api/job-budget?jobIds=a,b  →  { budgets, timeTrackable, errors }
+ *   both maps: { [jobId]: { [code]: costItemId } }
  */
 export async function GET(req: NextRequest) {
   if (!hasGrant()) {
@@ -35,20 +42,21 @@ export async function GET(req: NextRequest) {
 
   const cfg = getPaveConfig();
   const budgets: Record<string, Record<string, string>> = {};
+  const timeTrackable: Record<string, Record<string, string>> = {};
   const errors: Record<string, string> = {};
 
   await Promise.all(
     ids.map(async (jobId) => {
       try {
         const items = await getJobBudget(cfg, jobId);
-        const byCode: Record<string, string> = {};
-        for (const b of items) if (!byCode[b.number]) byCode[b.number] = b.id;
-        budgets[jobId] = byCode;
+        const maps = budgetCodeMaps(items);
+        budgets[jobId] = maps.byCode;
+        timeTrackable[jobId] = maps.timeTrackable;
       } catch (e) {
         errors[jobId] = e instanceof Error ? e.message : "Unknown error";
       }
     }),
   );
 
-  return NextResponse.json({ budgets, errors });
+  return NextResponse.json({ budgets, timeTrackable, errors });
 }

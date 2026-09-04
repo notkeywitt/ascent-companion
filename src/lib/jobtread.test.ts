@@ -1,5 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { getAllBillsForMonth, getInvoiceReconciliation, pave, type PaveConfig } from "./jobtread";
+import {
+  budgetCodeMaps,
+  getAllBillsForMonth,
+  getInvoiceReconciliation,
+  pave,
+  type PaveConfig,
+} from "./jobtread";
 
 /**
  * pave()'s retry policy.
@@ -325,5 +331,38 @@ describe("getInvoiceReconciliation — a draft invoice leaves the bill uninvoice
       expect(recon.invoicedBillsCost, `status ${status}`).toBe(4163.75);
       expect(recon.reconciled, `status ${status}`).toBe(true);
     }
+  });
+});
+
+/**
+ * The real Apartment Remod shape that broke a live import: cost code 26 20 00
+ * carries a Materials leaf FIRST and a Labor leaf second. First-leaf-wins hands
+ * the labor CSV the Materials leaf, and JobTread rejects the row mid-import with
+ * "Cannot create time entry for cost item with a cost type that is not able to
+ * be time tracked."
+ */
+describe("budgetCodeMaps — a time entry needs the time-trackable leaf", () => {
+  const items = [
+    { id: "materials", number: "26 20 00", name: "Electrical Post-Cover", timeTrackable: false },
+    { id: "labor", number: "26 20 00", name: "Electrical Post-Cover", timeTrackable: true },
+    { id: "sub-only", number: "01 51 10", name: "Temporary Sanitation", timeTrackable: false },
+    { id: "labor-first", number: "01 31 00", name: "Principal", timeTrackable: true },
+    { id: "labor-second", number: "01 31 00", name: "Principal", timeTrackable: true },
+  ];
+
+  it("keeps first-leaf-wins for coding but picks the Labor leaf for time", () => {
+    const { byCode, timeTrackable } = budgetCodeMaps(items);
+    expect(byCode["26 20 00"]).toBe("materials");
+    expect(timeTrackable["26 20 00"]).toBe("labor");
+  });
+
+  it("omits a code with no time-trackable leaf, so the row is held back", () => {
+    const { byCode, timeTrackable } = budgetCodeMaps(items);
+    expect(byCode["01 51 10"]).toBe("sub-only");
+    expect(timeTrackable["01 51 10"]).toBeUndefined();
+  });
+
+  it("first wins among several time-trackable leaves", () => {
+    expect(budgetCodeMaps(items).timeTrackable["01 31 00"]).toBe("labor-first");
   });
 });

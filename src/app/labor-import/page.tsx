@@ -413,7 +413,14 @@ export default function LaborImportPage() {
   const [projectsErr, setProjectsErr] = useState("");
 
   // JobTread cost items are PER-JOB: { jobId: { costCode: costItemId } }.
+  // `budgets` = every budget leaf. `ttBudgets` = only the leaves whose cost type
+  // is time-trackable. JobTread refuses a time entry on any other leaf ("Cannot
+  // create time entry for cost item with a cost type that is not able to be time
+  // tracked."), and a code like "26 20 00" often carries BOTH a Materials leaf
+  // and a Labor leaf — so a time entry must resolve against ttBudgets, and
+  // `budgets` is kept only to tell "code missing" from "code has no labor line".
   const [budgets, setBudgets] = useState<Record<string, Record<string, string>>>({});
+  const [ttBudgets, setTtBudgets] = useState<Record<string, Record<string, string>>>({});
   const [budgetsLoading, setBudgetsLoading] = useState(false);
   const [budgetsErr, setBudgetsErr] = useState("");
 
@@ -655,12 +662,23 @@ export default function LaborImportPage() {
   const idSource = (jobRaw: string): "manual" | "projects" | "" =>
     (jobIdMap[jobRaw] ?? "").trim() ? "manual" : projectsId(jobRaw) ? "projects" : "";
 
-  // A row's JT Cost Item ID: its CSI looked up in ITS OWN job's budget.
+  // A row's JT Cost Item ID: its CSI looked up in ITS OWN job's TIME-TRACKABLE
+  // budget leaves. Never the plain budget — see the ttBudgets note above.
   const costItemIdFor = (e: Entry) => {
     const jid = effectiveId(e.jobRaw);
     if (!jid) return "";
-    const byCode = budgets[jid];
+    const byCode = ttBudgets[jid];
     return byCode ? matchCostItem(byCode, e.serviceItem) : "";
+  };
+
+  // The code IS in the job's budget, but every leaf under it is a non-time-
+  // trackable cost type (Materials / Subcontractor / Other). This is the row that
+  // makes JobTread reject the import mid-run; the fix is in the job's budget.
+  const notTimeTrackable = (e: Entry) => {
+    const jid = effectiveId(e.jobRaw);
+    if (!jid || costItemIdFor(e)) return false;
+    const byCode = budgets[jid];
+    return !!byCode && !!matchCostItem(byCode, e.serviceItem);
   };
 
   // The JT Job IDs we need budgets for (the selected, mapped jobs).
@@ -687,23 +705,29 @@ export default function LaborImportPage() {
         if (!r.ok) throw new Error(j.error ?? "Failed to load job budgets");
         return j as {
           budgets: Record<string, Record<string, string>>;
+          timeTrackable?: Record<string, Record<string, string>>;
           errors?: Record<string, string>;
         };
       })
       .then((j) => {
         const merged: Record<string, Record<string, string>> = { ...j.budgets };
+        const mergedTt: Record<string, Record<string, string>> = { ...(j.timeTrackable ?? {}) };
         for (const id of Object.keys(j.errors ?? {})) merged[id] = {}; // attempted
+        for (const id of Object.keys(merged)) mergedTt[id] ??= {};
         setBudgets((prev) => ({ ...prev, ...merged }));
+        setTtBudgets((prev) => ({ ...prev, ...mergedTt }));
         const firstErr = Object.values(j.errors ?? {})[0];
         if (firstErr) setBudgetsErr(firstErr);
       })
       .catch((e) => {
         setBudgetsErr(e instanceof Error ? e.message : "Could not load job budgets");
-        setBudgets((prev) => {
+        const blank = (prev: Record<string, Record<string, string>>) => {
           const next = { ...prev };
           for (const id of missing) if (!(id in next)) next[id] = {};
           return next;
-        });
+        };
+        setBudgets(blank);
+        setTtBudgets(blank);
       })
       .finally(() => setBudgetsLoading(false));
   }, [neededJobIds, budgets]);
@@ -729,7 +753,7 @@ export default function LaborImportPage() {
         (e) => userIdFor(e.worker) && effectiveId(e.jobRaw) && costItemIdFor(e) && typeFor(e),
       ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [selected, jobIdMap, projectsMap, jobInfo, budgets, workerIdMap, typeMap, jtUsers, orgTypes],
+    [selected, jobIdMap, projectsMap, jobInfo, budgets, ttBudgets, workerIdMap, typeMap, jtUsers, orgTypes],
   );
 
   // (worker × job) pairs in play, and those still missing a pay type.
@@ -751,11 +775,23 @@ export default function LaborImportPage() {
     [typePairs, typeMap, workerIdMap, jtUsers, orgTypes],
   );
 
-  // Mapped to a job, but the CSI isn't a cost item in that job's budget.
-  const noCostItem = useMemo(
+  // Mapped to a job, but the CSI has no time-trackable cost item in that job's
+  // budget — either the code is absent entirely, or every leaf under it is a
+  // non-time-trackable cost type. The two need different fixes, so split them.
+  const held = useMemo(
     () => selected.filter((e) => effectiveId(e.jobRaw) && !costItemIdFor(e)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [selected, jobIdMap, projectsMap, jobInfo, budgets],
+    [selected, jobIdMap, projectsMap, jobInfo, budgets, ttBudgets],
+  );
+  const wrongCostType = useMemo(
+    () => held.filter(notTimeTrackable),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [held, budgets, ttBudgets],
+  );
+  const noCostItem = useMemo(
+    () => held.filter((e) => !notTimeTrackable(e)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [held, budgets, ttBudgets],
   );
 
   // Distinct workers in the file, and those still missing a JT user.
@@ -1126,6 +1162,37 @@ export default function LaborImportPage() {
                 })}
               </div>
             </div>
+          )}
+
+          {/* The code exists on the job, but only on non-time-trackable leaves.
+              This is the one JobTread rejects MID-IMPORT, so it gets a loud
+              Banner, not a collapsed <details>. */}
+          {wrongCostType.length > 0 && (
+            <Banner tone="warning" className="mb-5">
+              <div className="font-medium">
+                {wrongCostType.length} row{wrongCostType.length === 1 ? "" : "s"} held back — that
+                cost code has no time-trackable line on the job
+              </div>
+              <p className="mt-1 text-xs">
+                JobTread only accepts a time entry on a cost item whose cost type is time-trackable
+                (Labor). These codes are on the job&apos;s budget, but every line under them is
+                Materials / Subcontractor / Other, so importing them fails with{" "}
+                <em>&ldquo;Cannot create time entry for cost item with a cost type that is not able
+                to be time tracked.&rdquo;</em>{" "}
+                Add a Labor line under the code in that job&apos;s budget, then reload this page.
+              </p>
+              <ul className="mt-2 space-y-1 text-xs">
+                {[
+                  ...new Set(
+                    wrongCostType.map((e) => `${e.serviceItem || "(blank)"} @ ${e.jobRaw}`),
+                  ),
+                ]
+                  .slice(0, 50)
+                  .map((t) => (
+                    <li key={t}>{t}</li>
+                  ))}
+              </ul>
+            </Banner>
           )}
 
           {/* CSI codes that aren't a cost item in that job's JobTread budget */}

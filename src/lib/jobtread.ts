@@ -769,6 +769,25 @@ export interface BudgetItem {
  * Cached per job (see JOB_COST_TTL_MS) — stepping through a job's coding queue asks
  * for the same dropdown on every bill.
  */
+/**
+ * Budget leaves → two `costCode → costItemId` maps: every leaf (first wins), and
+ * only the TIME-TRACKABLE leaves (first wins). Bill coding uses `byCode`; a time
+ * entry must use `timeTrackable`, because JobTread rejects a time entry on a
+ * Materials/Subcontractor/Other leaf and one code routinely has both kinds.
+ */
+export function budgetCodeMaps(items: BudgetItem[]): {
+  byCode: Record<string, string>;
+  timeTrackable: Record<string, string>;
+} {
+  const byCode: Record<string, string> = {};
+  const timeTrackable: Record<string, string> = {};
+  for (const b of items) {
+    if (!byCode[b.number]) byCode[b.number] = b.id;
+    if (b.timeTrackable && !timeTrackable[b.number]) timeTrackable[b.number] = b.id;
+  }
+  return { byCode, timeTrackable };
+}
+
 export function getJobBudget(cfg: PaveConfig, jobId: string): Promise<BudgetItem[]> {
   return cachedRef(_jobCostKey("budget", cfg.orgId, jobId), JOB_COST_TTL_MS, () =>
     _getJobBudgetUncached(cfg, jobId),
