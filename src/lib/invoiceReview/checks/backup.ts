@@ -17,13 +17,26 @@ export interface BackupConfig {
   reportUnmatchedFiles: boolean;
   /** Report two files with the same vendor and amount as a probable re-file. */
   reportDuplicates: boolean;
+  /**
+   * Report a bill and its own backup PDF disagreeing on the amount.
+   *
+   * This is the office's own "the amounts and tax on several bills are wrong"
+   * made visible. Off makes the pair fall back to the two separate findings.
+   */
+  reportAmountMismatch: boolean;
 }
 
 export const backupCheck = defineJobCheck<BackupConfig>({
   id: "backup",
   title: "Backup coverage",
   description: "Every bill billed to the client has its PDF filed, and every filed PDF is accounted for.",
-  kinds: ["backup-folder-missing", "backup-missing", "backup-unmatched", "backup-duplicate"],
+  kinds: [
+    "backup-folder-missing",
+    "backup-missing",
+    "backup-unmatched",
+    "backup-duplicate",
+    "backup-amount-mismatch",
+  ],
   scope: "job",
   run({ config, global, job, month }) {
     const out: Finding[] = [];
@@ -54,11 +67,45 @@ export const backupCheck = defineJobCheck<BackupConfig>({
 
     // Only bills that were actually BILLED to the client need backup on file.
     const invoicedBills = job.bills.filter((b) => b.invoiced);
-    const { unmatchedBills, unmatchedFiles } = matchBackup(
-      invoicedBills,
-      job.folder.files,
-      global.tolerance,
-    );
+    const m = matchBackup(invoicedBills, job.folder.files, global.tolerance);
+    const { mismatched } = m;
+    // With the mismatch finding off, the pair has to fall back to the two
+    // separate findings — otherwise turning a report OFF would make the money
+    // disappear from the review entirely, which is the one thing a switch here
+    // must never do.
+    const unmatchedBills = config.reportAmountMismatch
+      ? m.unmatchedBills
+      : [...m.unmatchedBills, ...mismatched.map((x) => x.bill)];
+    const unmatchedFiles = config.reportAmountMismatch
+      ? m.unmatchedFiles
+      : [...m.unmatchedFiles, ...mismatched.map((x) => x.file)];
+
+    // A bill and the PDF backing it that disagree on the amount. Reported here
+    // rather than as "no backup filed" plus "filed but not billed", which named
+    // the same money twice and pointed at neither cause.
+    if (config.reportAmountMismatch) {
+      for (const { bill, file: f, gap } of mismatched) {
+        out.push({
+          ...base,
+          key: findingKey("backup-amount-mismatch", job.jobId, bill.id),
+          kind: "backup-amount-mismatch",
+          severity: "error",
+          invoiceId: "",
+          invoiceNumber: "",
+          title: `Bill and backup disagree — ${bill.vendor || bill.label} ${money(gap)}`,
+          detail:
+            `${bill.vendor || bill.label} is ${money(bill.cost)} in JobTread` +
+            (bill.taxAmount ? ` (${money(bill.taxAmount)} of that tax)` : "") +
+            `, but the PDF filed for it totals ${money(f.amount)} — a difference of ` +
+            `${money(gap)}. ${f.name} is plainly the backup for this bill, so one of the two ` +
+            `figures is wrong: either the bill was coded at the wrong amount, or its tax is ` +
+            `off. The client is billed from the JobTread figure.`,
+          amount: Math.abs(gap),
+          sourceLink: billLink(job.jobId, bill.id),
+          sourceLabel: "Open the bill",
+        });
+      }
+    }
 
     for (const bill of unmatchedBills) {
       out.push({

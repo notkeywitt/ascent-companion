@@ -256,7 +256,10 @@ describe("matchBackup", () => {
       [bill({ id: "b1", cost: 4163.75, lineCount: 9 })],
       [file({ id: "f1", amount: 4163.69 })],
     );
-    expect(r.unmatchedBills.map((b) => b.id)).toEqual(["b1"]);
+    // Same vendor, so it pairs as a DISAGREEMENT rather than two absences —
+    // but it must not pass as the same amount.
+    expect(r.matched.has("b1")).toBe(false);
+    expect(r.mismatched.map((x) => x.bill.id)).toEqual(["b1"]);
   });
 
   it("does not loosen a single-line bill", () => {
@@ -268,7 +271,7 @@ describe("matchBackup", () => {
       [bill({ id: "b1", cost: 100, lineCount: 1 })],
       [file({ id: "f1", amount: 100.02 })],
     );
-    expect(r.unmatchedBills.map((b) => b.id)).toEqual(["b1"]);
+    expect(r.matched.has("b1")).toBe(false);
   });
 
   it("widens nothing when the line count could not be read", () => {
@@ -278,7 +281,7 @@ describe("matchBackup", () => {
       [bill({ id: "b1", cost: 100, lineCount: 0 })],
       [file({ id: "f1", amount: 100.02 })],
     );
-    expect(r.unmatchedBills.map((b) => b.id)).toEqual(["b1"]);
+    expect(r.matched.has("b1")).toBe(false);
   });
 
   it("counts the filename's CSI groups too, not just the bill's lines", () => {
@@ -345,6 +348,32 @@ describe("matchBackup", () => {
       [bill({ id: "b1", cost: 574.03, taxAmount: 44.24 })],
       [file({ id: "f1", amount: 500 })],
     );
+    expect(r.matched.has("b1")).toBe(false);
+  });
+
+  it("pairs a bill with its own backup by vendor when the amounts disagree", () => {
+    const r = matchBackup(
+      [bill({ id: "b1", cost: 500, vendor: "Fasteners Plus" })],
+      [file({ id: "f1", amount: 460, tail: "Fasteners Plus Kevin Berger Pushed to JT" })],
+    );
+    expect(r.mismatched).toHaveLength(1);
+    expect(r.mismatched[0].bill.id).toBe("b1");
+    expect(r.mismatched[0].file.id).toBe("f1");
+    expect(r.mismatched[0].gap).toBe(-40);
+    // and it is NOT double-reported as an absence on either side
+    expect(r.unmatchedBills).toHaveLength(0);
+    expect(r.unmatchedFiles).toHaveLength(0);
+  });
+
+  it("does not invent a pair across unrelated vendors", () => {
+    // Without a shared identity token these are two separate facts, and saying
+    // "these disagree" about a bill and someone else's PDF would be worse than
+    // reporting each as missing.
+    const r = matchBackup(
+      [bill({ id: "b1", cost: 500, vendor: "Fasteners Plus" })],
+      [file({ id: "f1", amount: 460, tail: "Island Custom Woodworks Kevin Berger Pushed to JT" })],
+    );
+    expect(r.mismatched).toHaveLength(0);
     expect(r.unmatchedBills.map((b) => b.id)).toEqual(["b1"]);
     expect(r.unmatchedFiles.map((f) => f.id)).toEqual(["f1"]);
   });
@@ -356,18 +385,50 @@ describe("matchBackup", () => {
       [bill({ id: "b1", cost: 4163.75, vendor: "Island Custom Woodworks" })],
       [file({ id: "f1", amount: 4163.73, tail: "Island Custom Woodworks Kevin Berger Pushed to JT" })],
     );
-    expect(r.unmatchedBills.map((b) => b.id)).toEqual(["b1"]);
-    expect(r.unmatchedFiles.map((f) => f.id)).toEqual(["f1"]);
+    expect(r.matched.has("b1")).toBe(false);
+    expect(r.mismatched).toHaveLength(1);
   });
 
   it("reports a bill with no PDF and a PDF with no bill separately", () => {
-    const r = matchBackup([bill({ id: "b1", cost: 100 })], [file({ id: "f1", amount: 250 })]);
+    // Different vendors, so there is nothing to pair them by — two separate
+    // facts, reported separately.
+    const r = matchBackup(
+      [bill({ id: "b1", cost: 100, vendor: "Fasteners Plus" })],
+      [file({ id: "f1", amount: 250, tail: "Island Custom Woodworks Ferron Pushed to JT" })],
+    );
     expect(r.unmatchedBills.map((b) => b.id)).toEqual(["b1"]);
     expect(r.unmatchedFiles.map((f) => f.id)).toEqual(["f1"]);
   });
 });
 
 describe("backup coverage", () => {
+  it("reports a bill disagreeing with its own backup ONCE, not as two absences", () => {
+    // The office's report: the same money as "No backup filed — Fasteners Plus
+    // $574.03" AND "Filed but not billed — $529.79", for a bill and the very
+    // PDF backing it. One discrepancy, named once.
+    const f = runChecks(
+      month([
+        job({
+          invoices: [invoice({ id: "i1", cost: 574.03, price: 574.03, priceWithTax: 574.03 })],
+          bills: [
+            bill({ id: "b1", cost: 574.03, taxAmount: 0, vendor: "Fasteners Plus", invoiced: true }),
+          ],
+          folder: {
+            path: "/x/", found: true, folderId: "F", truncated: false,
+            files: [
+              file({ id: "f1", amount: 529.79, tail: "Fasteners Plus Kevin Berger Pushed to JT" }),
+            ],
+          },
+        }),
+      ]),
+    );
+    expect(kinds(f)).toContain("backup-amount-mismatch");
+    expect(kinds(f)).not.toContain("backup-missing");
+    expect(kinds(f)).not.toContain("backup-unmatched");
+    const hit = f.find((x) => x.kind === "backup-amount-mismatch");
+    expect(hit?.amount).toBeCloseTo(44.24, 2);
+  });
+
   it("flags an invoiced bill with no backup on file", () => {
     const f = runChecks(
       month([

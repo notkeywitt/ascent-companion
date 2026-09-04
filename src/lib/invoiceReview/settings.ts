@@ -92,6 +92,10 @@ export const DEFAULT_SETTINGS: InvoiceReviewSettings = {
         // also the half that catches a charge nobody ever billed on.
         reportUnmatchedFiles: true,
         reportDuplicates: true,
+        // On: a bill disagreeing with its own backup is the office's own
+        // "the amounts and tax on several bills are wrong", and it replaces
+        // two misleading findings rather than adding a third.
+        reportAmountMismatch: true,
       },
     },
     "invoice-math": { enabled: true, config: {} },

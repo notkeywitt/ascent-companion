@@ -33,6 +33,8 @@ export type FindingKind =
   | "backup-unmatched"
   /** Two backup PDFs parse to the same vendor and amount — a probable re-file. */
   | "backup-duplicate"
+  /** A bill and the PDF backing it disagree on the amount — a coding or tax error. */
+  | "backup-amount-mismatch"
   // ── Math & totals ────────────────────────────────────────────────────────
   /** A line's quantity × unit price doesn't equal its extended price. */
   | "math-line"

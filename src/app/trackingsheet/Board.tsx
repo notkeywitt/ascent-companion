@@ -3300,17 +3300,50 @@ export function Board() {
                 {summary && (
                   <>
                     <Breakdown detail={summary} groupByCsi={summaryByCsi} from="recode" />
-                    <JtLink
-                      href={`https://app.jobtread.com/jobs/${jobId}/documents`}
-                      className={btn("primary", "md", "mt-3 w-full")}
-                    >
-                      Create invoice in JobTread ↗
-                    </JtLink>
-                    <p className="mt-2 text-xs text-neutral-500">
-                      Open this job in JobTread, then <b>New → Customer Invoice</b> — its builder
-                      pulls exactly these uninvoiced bills (and any uninvoiced time). Date it{" "}
-                      {issueDateFor(ym)}, review &amp; send.
-                    </p>
+                    {/* The month's invoice may already exist — recon knows, and
+                        prompting to "create" one then invites a duplicate. Link
+                        to what's there instead, and keep the create CTA for the
+                        case it's actually for. */}
+                    {recon && recon.invoices.length > 0 ? (
+                      <>
+                        {recon.invoices.map((iv) => (
+                          <JtLink
+                            key={iv.id}
+                            href={`https://app.jobtread.com/jobs/${jobId}/documents/${iv.id}`}
+                            className={btn("secondary", "md", "mt-3 w-full")}
+                          >
+                            Open invoice #{iv.number || iv.id}
+                            {iv.status === "draft" ? " (draft)" : ""} ↗
+                          </JtLink>
+                        ))}
+                        <p className="mt-2 text-xs text-neutral-500">
+                          {recon.invoices.length === 1 ? "An invoice" : "Invoices"} for{" "}
+                          {monthLabel(ym)} already {recon.invoices.length === 1 ? "exists" : "exist"}
+                          {recon.remaining > 0.01 ? (
+                            <>
+                              , but {money(recon.remaining)} is still uninvoiced — add it to the
+                              existing invoice rather than raising a second one.
+                            </>
+                          ) : (
+                            <>. Everything for the month is on it.</>
+                          )}
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <JtLink
+                          href={`https://app.jobtread.com/jobs/${jobId}/documents`}
+                          className={btn("primary", "md", "mt-3 w-full")}
+                        >
+                          Create invoice in JobTread ↗
+                        </JtLink>
+                        <p className="mt-2 text-xs text-neutral-500">
+                          Open this job in JobTread, then <b>New → Customer Invoice</b> — its builder
+                          pulls exactly these uninvoiced bills (and any uninvoiced time). Date it{" "}
+                          {issueDateFor(ym)}, review &amp; send.
+                        </p>
+                      </>
+                    )}
                   </>
                 )}
               </>

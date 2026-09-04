@@ -102,6 +102,14 @@ export interface BackupMatch {
   unmatchedFiles: BackupFile[];
   /** bill id → the file matched to it. */
   matched: Map<string, BackupFile>;
+  /**
+   * A bill and a PDF that are plainly the SAME charge — same vendor, nothing
+   * else claiming either — whose amounts still disagree after the tax
+   * allowance. Reported as one discrepancy instead of two wrong findings
+   * ("no backup filed" for the bill AND "filed but not billed" for the very
+   * PDF backing it), which is what the office saw before this existed.
+   */
+  mismatched: { bill: BillRef; file: BackupFile; gap: number }[];
 }
 
 /**
@@ -184,9 +192,40 @@ export function matchBackup(
     }
   }
 
+  // Second pass: of what is left, pair anything that is obviously the same
+  // charge by VENDOR alone and report the amount gap. Amount is the primary key
+  // precisely because both sides state it exactly — so when it disagrees and
+  // the vendor does not, the amount is the thing that is wrong, and saying so
+  // is more useful than reporting the bill and its own backup as two separate
+  // absences. Requires a real identity-token overlap (`overlap` drops the noise
+  // words), so "Sunset" and "Sunset" pair and two unrelated vendors never do.
+  const leftoverFiles = parsed.filter((f) => !taken.has(f.id));
+  const mismatched: { bill: BillRef; file: BackupFile; gap: number }[] = [];
+  const stillUnmatchedBills: BillRef[] = [];
+  const claimed = new Set<string>();
+  for (const bill of unmatchedBills) {
+    let best: BackupFile | null = null;
+    let bestScore = 0;
+    for (const f of leftoverFiles) {
+      if (claimed.has(f.id)) continue;
+      const score = overlap(f.tail, bill.vendor || bill.label);
+      if (score > bestScore) {
+        best = f;
+        bestScore = score;
+      }
+    }
+    if (best) {
+      claimed.add(best.id);
+      mismatched.push({ bill, file: best, gap: cents(cents(best.amount) - cents(bill.cost)) });
+    } else {
+      stillUnmatchedBills.push(bill);
+    }
+  }
+
   return {
-    unmatchedBills,
-    unmatchedFiles: parsed.filter((f) => !taken.has(f.id)),
+    unmatchedBills: stillUnmatchedBills,
+    unmatchedFiles: leftoverFiles.filter((f) => !claimed.has(f.id)),
     matched,
+    mismatched,
   };
 }
