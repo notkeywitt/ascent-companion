@@ -200,6 +200,17 @@ export interface CodingCardCtl {
   /* ---- reviewed marker ---- */
   toggleReviewed: (docId: string, reviewed: boolean) => void;
 
+  /* ---- per-bill approve (JobTread status write) ---- */
+  /** Approve THIS bill in JobTread. Absent = the host offers no per-bill
+      approve, and the button doesn't render (the needs-coding queue). */
+  approveBill?: (docId: string) => void;
+  /** An approve write is in flight on the host. */
+  approvingBill?: boolean;
+  /** Why approving is blocked right now (staged coding not yet synced), else
+      null. Approving locks a draft's descriptions and quantities in JobTread,
+      so unsynced coding has to reach JobTread first. */
+  approveBlocked?: string | null;
+
   /* ---- structural edits: these WRITE immediately on both surfaces ---- */
   isCombinable: (l: CodingLine) => boolean;
   anyCombinable: boolean;
@@ -269,6 +280,9 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
     taxView,
     setTax,
     toggleReviewed,
+    approveBill,
+    approvingBill,
+    approveBlocked,
     isCombinable,
     anyCombinable,
     combineSelected,
@@ -349,14 +363,31 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
             {lines.length} line{lines.length === 1 ? "" : "s"}
             {bill.status ? ` · ${bill.status}` : ""}
           </p>
-          <Button
-            variant={bill.reviewed ? "primary" : "secondary"}
-            size="sm"
-            className="shrink-0 !px-2 !py-1 !text-[11px]"
-            onClick={() => toggleReviewed(bill.id, !bill.reviewed)}
-          >
-            {bill.reviewed ? "✓ Reviewed" : "Mark reviewed"}
-          </Button>
+          <div className="flex shrink-0 items-center gap-1.5">
+            <Button
+              variant={bill.reviewed ? "primary" : "secondary"}
+              size="sm"
+              className="!px-2 !py-1 !text-[11px]"
+              onClick={() => toggleReviewed(bill.id, !bill.reviewed)}
+            >
+              {bill.reviewed ? "✓ Reviewed" : "Mark reviewed"}
+            </Button>
+            {/* Approve this one bill, beside the batch "Approve Draft Bills"
+                below — same write, same gate, one bill. Only a draft has a
+                status to leave. */}
+            {approveBill && bill.status === "draft" && (
+              <Button
+                variant="secondary"
+                size="sm"
+                className="!px-2 !py-1 !text-[11px]"
+                onClick={() => approveBill(bill.id)}
+                disabled={Boolean(approvingBill) || Boolean(approveBlocked)}
+                title={approveBlocked ?? undefined}
+              >
+                {approvingBill ? "Approving…" : "Approve in JT"}
+              </Button>
+            )}
+          </div>
         </div>
 
         {bill.invoiced && (

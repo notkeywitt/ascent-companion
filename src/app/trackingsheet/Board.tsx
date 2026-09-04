@@ -1802,6 +1802,48 @@ export function Board() {
   }, []);
 
   /**
+   * One bill's approve POST. The batch button below loops it; the coding card's
+   * own "Approve in JT" fires it once. Returns the failure line, or the
+   * write-gate's preview flag on success.
+   */
+  const postApproval = async (b: BillRef): Promise<{ failure?: string; previewed?: boolean }> => {
+    try {
+      const r = await fetch("/api/bill-status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ docId: b.id, status: approvalTarget(b) }),
+      });
+      const j = await r.json();
+      if (!r.ok || j.error) return { failure: `${b.label}: ${j.error ?? "Approve failed"}` };
+      return { previewed: Boolean(j.previewed) };
+    } catch (e) {
+      return { failure: `${b.label}: ${e instanceof Error ? e.message : "Request failed"}` };
+    }
+  };
+
+  /**
+   * Approve ONE bill — the card's button, beside the batch one at the bottom
+   * of the page. Same write, same role gate, no confirmation dialog: the batch
+   * dialog exists to say how many bills one press would move, and here the
+   * answer is one. `dirty` blocks it for the reason it blocks the batch —
+   * approving locks a draft's lines in JobTread, so staged coding syncs first.
+   */
+  const approveOneBill = async (docId: string) => {
+    const b = data?.bills.find((x) => x.id === docId);
+    if (!b || dirty || approving) return;
+    setApproveMsg(null);
+    setApproving(true);
+    const r = await postApproval(b);
+    setApproving(false);
+    setApproveMsg(
+      r.failure
+        ? { tone: "error", text: r.failure }
+        : { tone: "success", text: `${r.previewed ? "Would approve" : "Approved"} ${b.label}.` },
+    );
+    await load();
+  };
+
+  /**
    * The Assistant-local "reviewed" flag — not a JobTread write, so it works
    * regardless of the write gate. Optimistic: the tag flips immediately and the
    * request is best-effort, same as the bill page.
@@ -1866,6 +1908,9 @@ export function Board() {
       if (openBill) setTaxEdits((p) => ({ ...p, [openBill.id]: v }));
     },
     toggleReviewed,
+    approveBill: canApprove ? approveOneBill : undefined,
+    approvingBill: approving,
+    approveBlocked: dirty ? "Sync staged coding changes to JobTread first" : null,
     isCombinable,
     anyCombinable,
     combineSelected,
@@ -2263,20 +2308,11 @@ export function Board() {
     let previewed = false;
     const failures: string[] = [];
     for (const b of draftBills) {
-      try {
-        const r = await fetch("/api/bill-status", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ docId: b.id, status: approvalTarget(b) }),
-        });
-        const j = await r.json();
-        if (!r.ok || j.error) failures.push(`${b.label}: ${j.error ?? "Approve failed"}`);
-        else {
-          if (j.previewed) previewed = true;
-          ok++;
-        }
-      } catch (e) {
-        failures.push(`${b.label}: ${e instanceof Error ? e.message : "Request failed"}`);
+      const r = await postApproval(b);
+      if (r.failure) failures.push(r.failure);
+      else {
+        if (r.previewed) previewed = true;
+        ok++;
       }
     }
     setApproving(false);
