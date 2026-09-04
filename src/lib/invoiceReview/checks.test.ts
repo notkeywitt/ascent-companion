@@ -547,9 +547,16 @@ describe("math", () => {
 });
 
 describe("period & scope", () => {
-  it("flags an invoice issued outside the billing month", () => {
+  it("flags an invoice issued well after the period closed", () => {
     const f = runChecks(
-      month([job({ invoices: [invoice({ id: "i1", issueDate: "2026-08-05" })] })]),
+      month([job({ invoices: [invoice({ id: "i1", issueDate: "2026-09-15" })] })]),
+    );
+    expect(kinds(f)).toContain("period-issue-date");
+  });
+
+  it("flags an invoice dated before the period it bills", () => {
+    const f = runChecks(
+      month([job({ invoices: [invoice({ id: "i1", issueDate: "2026-06-20" })] })]),
     );
     expect(kinds(f)).toContain("period-issue-date");
   });
@@ -557,6 +564,29 @@ describe("period & scope", () => {
   it("accepts the last day of the billing month", () => {
     const f = runChecks(
       month([job({ invoices: [invoice({ id: "i1", issueDate: "2026-07-31" })] })]),
+    );
+    expect(kinds(f)).not.toContain("period-issue-date");
+  });
+
+  it("accepts an invoice raised after the period closes on the 10th", () => {
+    // The office's actual convention. deriveBillingPeriod (Config.js) puts a
+    // bill received on or before the 10th into the PREVIOUS month, so July
+    // billing runs ~July 11 → Aug 10 and the invoice can only go out after
+    // that. Berger Bunkhouse's July invoice #221, issued 2026-08-11, was
+    // reported as billing "the client for the wrong month".
+    for (const issueDate of ["2026-08-01", "2026-08-11", "2026-08-31"]) {
+      const f = runChecks(month([job({ invoices: [invoice({ id: "i1", issueDate })] })]));
+      expect(kinds(f), `issued ${issueDate}`).not.toContain("period-issue-date");
+    }
+  });
+
+  it("rolls the year for December billing", () => {
+    // December billing is raised in January of the NEXT year — the window has
+    // to roll with it or every December invoice fires this every year.
+    const f = runChecks(
+      month([job({ invoices: [invoice({ id: "i1", issueDate: "2027-01-12" })] })], {
+        ym: "2026-12", year: 2026, month: 12, monthLabel: "December 2026",
+      }),
     );
     expect(kinds(f)).not.toContain("period-issue-date");
   });
