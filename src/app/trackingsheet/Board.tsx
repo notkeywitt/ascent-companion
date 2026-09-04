@@ -3319,10 +3319,11 @@ export function Board() {
                         <p className="mt-2 text-xs text-neutral-500">
                           {recon.invoices.length === 1 ? "An invoice" : "Invoices"} for{" "}
                           {monthLabel(ym)} already {recon.invoices.length === 1 ? "exists" : "exist"}
-                          {recon.remaining > 0.01 ? (
+                          {recon.remaining - recon.onDraftInvoiceCost > 0.01 ? (
                             <>
-                              , but {money(recon.remaining)} is still uninvoiced — add it to the
-                              existing invoice rather than raising a second one.
+                              , but {money(recon.remaining - recon.onDraftInvoiceCost)} is on no
+                              invoice at all — add it to the existing invoice rather than raising a
+                              second one.
                             </>
                           ) : (
                             <>. Everything for the month is on it.</>

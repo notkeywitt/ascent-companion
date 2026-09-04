@@ -4177,6 +4177,11 @@ export interface InvoiceReconciliation {
   uninvoicedTimeCost: number; // Σ cost of the month's uninvoiced time
   remaining: number; // uninvoicedBillsCost + uninvoicedTimeCost — still to invoice
   reconciled: boolean; // an invoice exists AND nothing is left uninvoiced
+  // The slice of `remaining` that already sits on a DRAFT customer invoice, i.e.
+  // captured but not sent. `remaining - onDraftInvoiceCost` is the money on no
+  // invoice at all — the only part an "add or extend an invoice" instruction is
+  // true of. When that's zero the month is staged and just needs sending.
+  onDraftInvoiceCost: number;
   // Draft (still-coding) bills for the month. NOT part of remaining/reconciled —
   // JobTread won't pull a draft onto an invoice — but reported so the office can
   // see why the card's preview total is higher than the invoiceable amount.
@@ -4386,6 +4391,7 @@ export async function getInvoiceReconciliation(
   const linkedIds = new Set<string>();
   let invoicedBillsCost = 0;
   let uninvoicedBillsCost = 0;
+  let onDraftInvoiceCost = 0;
   for (const b of monthBills) {
     const live = liveInvoiceFor(b.invIds);
     if (live) linkedIds.add(live.id);
@@ -4393,13 +4399,17 @@ export async function getInvoiceReconciliation(
       invoicedBillsCost += b.cost;
     } else {
       uninvoicedBillsCost += b.cost;
+      if (live) onDraftInvoiceCost += b.cost;
     }
   }
   let uninvoicedTimeCost = 0;
   for (const t of monthTime) {
     const live = liveInvoiceFor(t.invIds);
     if (live) linkedIds.add(live.id);
-    if (!live || live.status === "draft") uninvoicedTimeCost += t.cost;
+    if (!live || live.status === "draft") {
+      uninvoicedTimeCost += t.cost;
+      if (live) onDraftInvoiceCost += t.cost;
+    }
   }
 
   const invoices: InvoiceRef[] = [...linkedIds]
@@ -4428,6 +4438,7 @@ export async function getInvoiceReconciliation(
     uninvoicedTimeCost,
     remaining,
     reconciled: invoices.length > 0 && Math.abs(remaining) < 0.01,
+    onDraftInvoiceCost: Math.round(onDraftInvoiceCost * 100) / 100,
     draftBillsCost: Math.round(draftBillsCost * 100) / 100,
     draftBillCount,
   };

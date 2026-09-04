@@ -295,6 +295,22 @@ describe("getInvoiceReconciliation — a draft invoice leaves the bill uninvoice
     expect(recon.reconciled).toBe(false);
   });
 
+  it("reports that whole remainder as sitting on the draft, not stranded", async () => {
+    stub("draft");
+    const recon = await getInvoiceReconciliation(cfg, "j1", 2026, 8);
+    // remaining - onDraftInvoiceCost == 0 is what turns the banner green
+    // ("Ready to Invoice"): captured, just not sent. Anything > 0 is money on
+    // no invoice at all, the only case "add or extend an invoice" is true of.
+    expect(recon.onDraftInvoiceCost).toBe(4163.75);
+    expect(recon.remaining - recon.onDraftInvoiceCost).toBe(0);
+  });
+
+  it("counts nothing as on-draft once the invoice leaves draft", async () => {
+    stub("pending");
+    const recon = await getInvoiceReconciliation(cfg, "j1", 2026, 8);
+    expect(recon.onDraftInvoiceCost).toBe(0);
+  });
+
   it("still lists the draft invoice — visibility isn't what's wrong", async () => {
     stub("draft");
     const recon = await getInvoiceReconciliation(cfg, "j1", 2026, 8);

@@ -29,6 +29,7 @@ export interface Recon {
   uninvoicedTimeCost: number;
   remaining: number;
   reconciled: boolean;
+  onDraftInvoiceCost: number;
   draftBillsCost: number;
   draftBillCount: number;
 }
@@ -103,7 +104,14 @@ export function InvoiceReconcile({
     );
   }
 
-  const { invoices, remaining, reconciled, draftBillsCost, draftBillCount } = data;
+  const { invoices, remaining, reconciled, onDraftInvoiceCost, draftBillsCost, draftBillCount } =
+    data;
+
+  // Everything left to invoice is already sitting on a draft invoice — nothing
+  // is stranded off-invoice, so "add or extend an invoice" would be false. The
+  // month is staged; it just hasn't been sent.
+  const readyToInvoice = !reconciled && remaining > 0.01 && remaining - onDraftInvoiceCost < 0.01;
+  const good = reconciled || readyToInvoice;
 
   // No live (non-denied) invoice pulls this month's work yet.
   if (invoices.length === 0) {
@@ -121,7 +129,7 @@ export function InvoiceReconcile({
     <div
       className={
         "rounded-lg border px-2.5 py-2 text-xs " +
-        (reconciled
+        (good
           ? "border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-300"
           : "border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300")
       }
@@ -130,16 +138,25 @@ export function InvoiceReconcile({
         <span>
           {reconciled
             ? "✓ Reconciled — every finalized bill this month is on an invoice"
-            : `⚠ ${money(remaining)} still uninvoiced`}
+            : readyToInvoice
+              ? `✓ Ready to Invoice — ${money(remaining)} on a draft`
+              : `⚠ ${money(remaining)} still uninvoiced`}
         </span>
         <span className="tabular-nums">
           {invoices.length} invoice{invoices.length === 1 ? "" : "s"} in JT
         </span>
       </div>
-      {!reconciled && (
+      {readyToInvoice && (
         <div className="mt-0.5 opacity-80">
-          Some finalized bills or time for this month aren&apos;t on an invoice yet — extend or add
-          an invoice to capture the rest.
+          Every finalized bill and hour for this month is on the draft invoice below — send it in
+          JobTread to invoice it.
+        </div>
+      )}
+      {!good && (
+        <div className="mt-0.5 opacity-80">
+          {onDraftInvoiceCost > 0.01
+            ? `${money(remaining - onDraftInvoiceCost)} of that is on no invoice at all — extend or add an invoice to capture it.`
+            : "Some finalized bills or time for this month aren't on an invoice yet — extend or add an invoice to capture the rest."}
         </div>
       )}
       <DraftNote cost={draftBillsCost} count={draftBillCount} />
