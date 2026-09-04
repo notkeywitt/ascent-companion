@@ -107,11 +107,23 @@ export function InvoiceReconcile({
   const { invoices, remaining, reconciled, onDraftInvoiceCost, draftBillsCost, draftBillCount } =
     data;
 
-  // Everything left to invoice is already sitting on a draft invoice — nothing
-  // is stranded off-invoice, so "add or extend an invoice" would be false. The
-  // month is staged; it just hasn't been sent.
-  const readyToInvoice = !reconciled && remaining > 0.01 && remaining - onDraftInvoiceCost < 0.01;
-  const good = reconciled || readyToInvoice;
+  // What's missing from the invoice, in two flavours:
+  //   stranded          — finalized money on no invoice at all. The ONLY case
+  //                       "extend or add an invoice" is true of.
+  //   draftBillsPending — a still-coding bill for the month. JobTread can't pull
+  //                       a draft onto an invoice, so the invoice is incomplete
+  //                       even though the completeness math (which excludes
+  //                       drafts by design) says nothing is left to invoice.
+  // Both have to be clear before the box goes green. Reported live on Otis
+  // Perkins Addition: every finalized bill sat on the draft invoice and a
+  // $1,991.00 draft bill did not, and the banner still read "Ready to Invoice".
+  const stranded = remaining - onDraftInvoiceCost;
+  const draftBillsPending = draftBillCount > 0 && Math.abs(draftBillsCost) >= 0.01;
+  // Nothing stranded, nothing still coding: the draft invoice holds the whole
+  // month and only needs sending.
+  const readyToInvoice =
+    !reconciled && remaining > 0.01 && stranded < 0.01 && !draftBillsPending;
+  const good = (reconciled && !draftBillsPending) || readyToInvoice;
 
   // No live (non-denied) invoice pulls this month's work yet.
   if (invoices.length === 0) {
@@ -137,10 +149,14 @@ export function InvoiceReconcile({
       <div className="flex items-center justify-between gap-2 font-semibold">
         <span>
           {reconciled
-            ? "✓ Reconciled — every finalized bill this month is on an invoice"
+            ? draftBillsPending
+              ? "⚠ Invoiced, but a draft bill for this month isn't on it"
+              : "✓ Reconciled — every finalized bill this month is on an invoice"
             : readyToInvoice
               ? `✓ Ready to Invoice — ${money(remaining)} on a draft`
-              : `⚠ ${money(remaining)} still uninvoiced`}
+              : stranded < 0.01
+                ? `⚠ ${money(remaining)} on a draft — not ready to send`
+                : `⚠ ${money(remaining)} still uninvoiced`}
         </span>
         <span className="tabular-nums">
           {invoices.length} invoice{invoices.length === 1 ? "" : "s"} in JT
@@ -152,10 +168,12 @@ export function InvoiceReconcile({
           JobTread to invoice it.
         </div>
       )}
-      {!good && (
+      {/* Only when money is on no invoice at all. When the sole blocker is a
+          draft bill, DraftNote on the next line already names it and the fix. */}
+      {!good && stranded > 0.01 && (
         <div className="mt-0.5 opacity-80">
           {onDraftInvoiceCost > 0.01
-            ? `${money(remaining - onDraftInvoiceCost)} of that is on no invoice at all — extend or add an invoice to capture it.`
+            ? `${money(stranded)} of that is on no invoice at all — extend or add an invoice to capture it.`
             : "Some finalized bills or time for this month aren't on an invoice yet — extend or add an invoice to capture the rest."}
         </div>
       )}

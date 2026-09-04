@@ -3325,6 +3325,12 @@ export function Board() {
                               invoice at all — add it to the existing invoice rather than raising a
                               second one.
                             </>
+                          ) : recon.draftBillCount > 0 ? (
+                            <>
+                              , but {money(recon.draftBillsCost)} in {recon.draftBillCount} draft
+                              bill{recon.draftBillCount === 1 ? "" : "s"} can&apos;t go on it until
+                              approved in JobTread.
+                            </>
                           ) : (
                             <>. Everything for the month is on it.</>
                           )}
