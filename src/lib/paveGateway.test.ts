@@ -90,19 +90,33 @@ describe("sanitizeQuery", () => {
 
 describe("isMutationAllowed", () => {
   it("lets admin through", () => {
-    expect(isMutationAllowed("admin", "deleteDocument")).toBe(true);
+    expect(isMutationAllowed("admin", "createDocument")).toBe(true);
+  });
+
+  it("refuses deleteDocument to EVERY role, admin included", () => {
+    // A bill is voided (updateDocument -> status "denied"), never deleted. The
+    // deny list is checked before the per-role allowlist so admin's "all" can't
+    // route around it.
+    for (const role of ["admin", "office", "lead", "field"] as const) {
+      expect(isMutationAllowed(role, "deleteDocument")).toBe(false);
+    }
+  });
+
+  it("still allows the VOID that replaces the delete", () => {
+    // updateDocument carries `status: "denied"` — the void.
+    expect(isMutationAllowed("office", "updateDocument")).toBe(true);
+    expect(isMutationAllowed("lead", "updateDocument")).toBe(true);
   });
 
   it("refuses a role an unlisted mutation", () => {
-    // field is the least-privileged role; it should not be deleting documents.
-    expect(isMutationAllowed("field", "deleteDocument")).toBe(false);
+    // field is the least-privileged role; it should not be creating documents.
+    expect(isMutationAllowed("field", "createDocument")).toBe(false);
   });
 
-  it("does not let a lead create or delete whole documents", () => {
-    // Documented policy: leads may CODE existing documents, not create/delete them.
+  it("does not let a lead create whole documents", () => {
+    // Documented policy: leads may CODE existing documents, not create them.
     expect(isMutationAllowed("lead", "updateDocument")).toBe(true);
     expect(isMutationAllowed("lead", "createDocument")).toBe(false);
-    expect(isMutationAllowed("lead", "deleteDocument")).toBe(false);
   });
 
   it("refuses an unknown mutation name for every non-admin role", () => {

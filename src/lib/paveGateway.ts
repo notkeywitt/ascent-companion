@@ -55,6 +55,22 @@ export function sanitizeQuery(query: Record<string, unknown>): Record<string, un
 }
 
 /**
+ * Mutations NO role may run through the gateway — not even admin's `"all"`.
+ *
+ * `deleteDocument` destroys a bill/invoice outright: its lines, its history, its
+ * PDF link and the Expenditure row's only handle on it. Nothing in either repo
+ * deletes a bill any more — a bill that should stop counting is VOIDED (every
+ * payment removed, status set to `denied`), which every report, job-cost roll-up
+ * and reconcile on both sides already excludes. The Apps Script side does that
+ * through `_jtVoidDocument` (ascent-appscript/JobTread.js); from here it is an
+ * `updateDocument { status: "denied" }`, which office and lead already hold.
+ *
+ * This is a DENY list, checked before the per-role allowlist, precisely so
+ * admin's `"all"` can't route around it.
+ */
+export const FORBIDDEN_MUTATIONS: readonly string[] = ["deleteDocument"];
+
+/**
  * Per-role write allowlist for the gateway. `"all"` = any mutation; an array =
  * exactly those mutation names. A role may only run a mutation through the
  * gateway if it is listed here (AND both write gates are on — see config).
@@ -62,11 +78,11 @@ export function sanitizeQuery(query: Record<string, unknown>): Record<string, un
  * Policy confirmed with the owner 2026-07-30:
  *  - FIELD: time entries + daily logs + schedule tasks/to-dos.
  *  - LEAD:  field + CODE existing documents (updateDocument + cost-item lines).
- *           Leads may NOT create or delete whole bills/invoices.
+ *           Leads may NOT create whole bills/invoices.
  *  - OFFICE: lead + create documents, apply/manage payments, files, comments,
  *           memberships (pay rates), contacts/locations/accounts (create+edit),
- *           AND delete whole bills/invoices & payments.
- *  - ADMIN: everything.
+ *           AND delete payments.
+ *  - ADMIN: everything EXCEPT FORBIDDEN_MUTATIONS above.
  * Structural/config mutations (jobs, roles, workflows, webhooks, cost-code /
  * cost-type / unit catalogs, document templates, custom-field definitions,
  * dashboards, data views, forms) are ADMIN-ONLY — they're simply absent from the
@@ -91,7 +107,9 @@ const FIELD_WRITES: string[] = [
 const LEAD_WRITES: string[] = [
   ...FIELD_WRITES,
   // CODE existing bills/invoices: header/status/tax/date edits + line coding.
-  // (No createDocument / deleteDocument — leads can't create or delete whole docs.)
+  // updateDocument carries the VOID too (status -> "denied"), which is how a bill
+  // is retired here — see FORBIDDEN_MUTATIONS. (No createDocument — leads can't
+  // create whole docs.)
   "updateDocument",
   "createCostItem",
   "updateCostItem",
@@ -100,9 +118,9 @@ const LEAD_WRITES: string[] = [
 
 const OFFICE_WRITES: string[] = [
   ...LEAD_WRITES,
-  // Create bills/invoices, and delete whole documents & payments.
+  // Create bills/invoices, and manage payments. NOT deleteDocument — see
+  // FORBIDDEN_MUTATIONS: a bill is voided (status denied), never deleted.
   "createDocument",
-  "deleteDocument",
   "createPayment",
   "updatePayment",
   "deletePayment",
@@ -143,8 +161,10 @@ export const ROLE_WRITE_ALLOWLIST: Record<Role, "all" | string[]> = {
   field: FIELD_WRITES,
 };
 
-/** True if `role` may run `mutation` through the gateway (allowlist check only). */
+/** True if `role` may run `mutation` through the gateway (policy check only). */
 export function isMutationAllowed(role: Role, mutation: string): boolean {
+  // The deny list wins over every role, admin's "all" included.
+  if (FORBIDDEN_MUTATIONS.includes(mutation)) return false;
   const set = ROLE_WRITE_ALLOWLIST[role];
   return set === "all" ? true : set.includes(mutation);
 }

@@ -78,10 +78,12 @@ interface GapReport {
 
 interface UpsertResult {
   ok: true;
-  mode: "create" | "replace" | "delete" | "no-op";
+  // "void": Apps Script retires a superseded historical bill by VOIDING it
+  // (status denied). Nothing deletes a bill any more.
+  mode: "create" | "replace" | "void" | "no-op";
   docId?: string;
   replacedDocId?: string | null;
-  deletedDocId?: string;
+  voidedDocId?: string;
   lineCount?: number;
   total?: number;
   unmappedCount?: number;

@@ -193,6 +193,13 @@ browser composes. Rules baked in:
 > `false` in `.env.example` is a safe **local** default, not a statement about
 > production. **Don't tell the owner writes are off; you can't see that from here.**
 > If it matters, ask or check Vercel.
+- **`deleteDocument` is forbidden for EVERY role, admin included** —
+  `FORBIDDEN_MUTATIONS` in `src/lib/paveGateway.ts` is a deny list checked before
+  the per-role allowlist, so admin's `"all"` can't route around it. Nothing in
+  either repo deletes a bill. To retire one, VOID it: `updateDocument` with
+  `status: "denied"` (office and lead already hold that), which every report and
+  cost roll-up on both sides excludes. Apps Script does the same through
+  `_jtVoidDocument`. Do not re-add `deleteDocument` anywhere.
 - The **grant key is server-only** (env `JT_GRANT_KEY`). Never send it to the
   browser; never call `https://api.jobtread.com/pave` from client code.
 
