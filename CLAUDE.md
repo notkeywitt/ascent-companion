@@ -196,6 +196,30 @@ browser composes. Rules baked in:
 - The **grant key is server-only** (env `JT_GRANT_KEY`). Never send it to the
   browser; never call `https://api.jobtread.com/pave` from client code.
 
+## Never delete a bill. Void it.
+
+Deleting a JobTread document destroys history that the void keeps. A bill that
+must stop counting is **voided**: remove every applied payment, then set its
+status to `denied`. Pave has no void mutation — `denied` IS the void, and every
+report, cost roll-up, reconcile and invoice check in both repos already excludes
+it. A voided bill keeps its `externalId` forever, which is what stops the
+appscript mirror re-creating it as an unmatched row.
+
+The reference implementation is `_jtVoidDocument` in `ascent-appscript/JobTread.js`
+(it also quarantines the bill's Drive PDF). Route a void through the appscript side
+rather than writing a second one here.
+
+`deleteDocument`, `deletePayment` and `deleteDocumentPayment` sit on the
+office/admin allowlist in `src/lib/paveGateway.ts`, so the gateway will run them.
+Nothing but this rule stops it. Do not compose a document delete, and do not add
+one to a purpose-built route.
+
+A single bill **line** is different, and deleting one is allowed: `/api/delete-line`
+does it deliberately, and `getLineJournalSnapshot` (`src/lib/jobtread.ts`) captures
+the line's amount, code and bill immediately before it stops existing, so the delete
+leaves a record instead of a disappearance. Keep that snapshot on any new path that
+removes a line. The ban is on deleting a whole document.
+
 ## JobTread / Pave gotchas (the expensive ones)
 
 `JT_API_REFERENCE.md` is the full schema + query grammar. Key rules when composing
