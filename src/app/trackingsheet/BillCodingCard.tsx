@@ -200,6 +200,15 @@ export interface CodingCardCtl {
   /* ---- reviewed marker ---- */
   toggleReviewed: (docId: string, reviewed: boolean) => void;
 
+  /* ---- commit staged coding ---- */
+  /** Write this page's staged coding to JobTread. Absent = the host commits
+      somewhere else (the queue's Save sits above the card). */
+  saveChanges?: () => void;
+  /** A save is in flight, or the sheet push behind it is. */
+  saveBusy?: boolean;
+  /** Something is staged to save. */
+  saveDirty?: boolean;
+
   /* ---- per-bill approve (JobTread status write) ---- */
   /** Approve THIS bill in JobTread. Absent = the host offers no per-bill
       approve, and the button doesn't render (the needs-coding queue). */
@@ -280,6 +289,9 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
     taxView,
     setTax,
     toggleReviewed,
+    saveChanges,
+    saveBusy,
+    saveDirty,
     approveBill,
     approvingBill,
     approveBlocked,
@@ -372,6 +384,18 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
             >
               {bill.reviewed ? "✓ Reviewed" : "Mark reviewed"}
             </Button>
+            {/* The same commit as the toolbar's Save Changes, put where the
+                coding is done: on a long bill the toolbar is scrolled off. */}
+            {saveChanges && (
+              <Button
+                size="sm"
+                className="!px-2 !py-1 !text-[11px]"
+                onClick={saveChanges}
+                disabled={!saveDirty || Boolean(saveBusy)}
+              >
+                {saveBusy ? "Saving…" : "Save Changes"}
+              </Button>
+            )}
             {/* Approve this one bill, beside the batch "Approve Draft Bills"
                 below — same write, same gate, one bill. Only a draft has a
                 status to leave. */}

@@ -1908,6 +1908,9 @@ export function Board() {
       if (openBill) setTaxEdits((p) => ({ ...p, [openBill.id]: v }));
     },
     toggleReviewed,
+    saveChanges: () => sync(),
+    saveBusy: syncing || trackingBusy,
+    saveDirty: dirty,
     approveBill: canApprove ? approveOneBill : undefined,
     approvingBill: approving,
     approveBlocked: dirty ? "Sync staged coding changes to JobTread first" : null,
