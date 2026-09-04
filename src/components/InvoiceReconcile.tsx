@@ -121,8 +121,7 @@ export function InvoiceReconcile({
   const draftBillsPending = draftBillCount > 0 && Math.abs(draftBillsCost) >= 0.01;
   // Nothing stranded, nothing still coding: the draft invoice holds the whole
   // month and only needs sending.
-  const readyToInvoice =
-    !reconciled && remaining > 0.01 && stranded < 0.01 && !draftBillsPending;
+  const readyToInvoice = !reconciled && remaining > 0.01 && stranded < 0.01 && !draftBillsPending;
   const good = (reconciled && !draftBillsPending) || readyToInvoice;
 
   // No live (non-denied) invoice pulls this month's work yet.
