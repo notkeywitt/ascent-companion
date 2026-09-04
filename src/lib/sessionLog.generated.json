@@ -1,16 +1,35 @@
 {
-  "generatedAt": "2026-09-03T18:23:02Z",
+  "generatedAt": "2026-09-04T01:00:11Z",
   "repo": "ascent-companion",
   "sessions": [
+    {
+      "slug": "jobs-page-client-listings",
+      "file": "2026-09-03-jobs-page-client-listings.md",
+      "branch": "claude/jobs-page-client-listings-tpb0cy",
+      "status": "shipped",
+      "started": "2026-09-03T23:03:57Z",
+      "updated": "2026-09-04T01:00:11Z",
+      "goal": "",
+      "next": "Probe the multi-value customFieldValues write against one internal Ascent job, then let /clients edit job Status and Job Type (isEditableField in clientDirectory.ts is the single gate).",
+      "commits": [
+        {
+          "date": "2026-09-03",
+          "time": "23:04",
+          "sha": "dbd199b",
+          "subject": "companion: add the clients & jobs directory, editable, with the invoice capture tag",
+          "files": "CODEBASE_MAP.md, src/app/api/clients/customer/route.ts, src/app/api/clients/invoice-tag/route.ts, src/app/api/clients/job/route.ts, src/app/api/clients/route.ts, src/app/api/clients/update/route.ts, +11 more"
+        }
+      ]
+    },
     {
       "slug": "main",
       "file": "2026-09-03-main.md",
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-09-03T18:23:02Z",
+      "updated": "2026-09-04T00:30:34Z",
       "goal": "",
-      "next": "",
+      "next": "Berger Bunkhouse July: re-run the check after 033fd85 + 5a3c5df. Then chase the JR Granite filename ('12 36 00 - $4780.00 _ 09 30 10 - $4000.00 _ 09 65 19 - $2250.00 - JR Granite & Tile...pdf') — the repo's _civParseBackupName returns 11030 for that exact string in node, but the live review reported 4780, so the real filename likely has a character that breaks the segment regex. Get the bytes from Drive.",
       "commits": [
         {
           "date": "2026-09-03",
@@ -18,6 +37,125 @@
           "sha": "fd870fd",
           "subject": "show the recode panel's invoice as a flat image, not an iframed pdf",
           "files": "src/app/trackingsheet/BillCodingCard.tsx, src/lib/jobtread.ts"
+        },
+        {
+          "date": "2026-09-03",
+          "time": "11:32",
+          "sha": "1c35585",
+          "subject": "add a full-screen lightbox for the invoice scan, and use it on /bill too",
+          "files": "src/app/bill/[docId]/page.tsx, src/app/trackingsheet/BillCodingCard.tsx, src/components/InvoiceViewer.tsx"
+        },
+        {
+          "date": "2026-09-03",
+          "time": "11:37",
+          "sha": "e677068",
+          "subject": "companion: stop the invoice review flagging filed backup and draft balances",
+          "files": "src/lib/invoiceReview/checks.test.ts, src/lib/invoiceReview/checks/invoiceMath.ts, src/lib/invoiceReview/checks/shared.ts, src/lib/invoiceReview/investigateTools.ts, src/lib/invoiceReview/types.ts"
+        },
+        {
+          "date": "2026-09-03",
+          "time": "11:39",
+          "sha": "d9be4ff",
+          "subject": "companion: log session 2026-09-03-main",
+          "files": ""
+        },
+        {
+          "date": "2026-09-03",
+          "time": "12:01",
+          "sha": "2f4f585",
+          "subject": "companion: check a draft invoice's balance instead of skipping it",
+          "files": "src/lib/invoiceReview/checks.test.ts, src/lib/invoiceReview/checks/invoiceMath.ts"
+        },
+        {
+          "date": "2026-09-03",
+          "time": "12:02",
+          "sha": "45aa63b",
+          "subject": "companion: log session 2026-09-03-main",
+          "files": ""
+        },
+        {
+          "date": "2026-09-03",
+          "time": "12:08",
+          "sha": "92d6dc5",
+          "subject": "companion: compare margin and labor rates in whole cents",
+          "files": "src/lib/invoiceReview/checks/laborRate.ts, src/lib/invoiceReview/checks/margin.ts, src/lib/invoiceReview/laborRate.test.ts, src/lib/invoiceReview/margin.test.ts, src/lib/invoiceReview/types.ts"
+        },
+        {
+          "date": "2026-09-03",
+          "time": "12:10",
+          "sha": "96cee7c",
+          "subject": "companion: log session 2026-09-03-main",
+          "files": ""
+        },
+        {
+          "date": "2026-09-03",
+          "time": "12:21",
+          "sha": "e100512",
+          "subject": "companion: size the backup match tolerance from the bill's own shape",
+          "files": "src/lib/invoiceReview/checks.test.ts, src/lib/invoiceReview/checks/shared.ts, src/lib/invoiceReview/duplicateDraft.test.ts, src/lib/invoiceReview/evidence.ts, src/lib/invoiceReview/investigate.test.ts, src/lib/invoiceReview/norms.test.ts, +4 more"
+        },
+        {
+          "date": "2026-09-03",
+          "time": "12:22",
+          "sha": "31c86ca",
+          "subject": "companion: log session 2026-09-03-main",
+          "files": ""
+        },
+        {
+          "date": "2026-09-03",
+          "time": "12:30",
+          "sha": "83a1b34",
+          "subject": "companion: a draft customer invoice no longer counts a bill as invoiced",
+          "files": "src/lib/jobtread.test.ts, src/lib/jobtread.ts"
+        },
+        {
+          "date": "2026-09-03",
+          "time": "12:31",
+          "sha": "b124ac2",
+          "subject": "companion: log session 2026-09-03-main",
+          "files": ""
+        },
+        {
+          "date": "2026-09-03",
+          "time": "12:41",
+          "sha": "ed7c397",
+          "subject": "companion: a draft invoice no longer reconciles the month on Board.tsx either",
+          "files": "src/lib/jobtread.test.ts, src/lib/jobtread.ts"
+        },
+        {
+          "date": "2026-09-03",
+          "time": "12:42",
+          "sha": "3264843",
+          "subject": "companion: log session 2026-09-03-main",
+          "files": ""
+        },
+        {
+          "date": "2026-09-03",
+          "time": "13:01",
+          "sha": "a9b233b",
+          "subject": "companion: the invoice review conflates a draft invoice with an unsent one, three times",
+          "files": "src/lib/invoiceReview/checks.test.ts, src/lib/invoiceReview/checks/costBasis.ts, src/lib/invoiceReview/checks/qboPush.ts, src/lib/invoiceReview/duplicateDraft.test.ts, src/lib/invoiceReview/evidence.ts, src/lib/invoiceReview/investigate.test.ts, +7 more"
+        },
+        {
+          "date": "2026-09-03",
+          "time": "13:02",
+          "sha": "a2be126",
+          "subject": "companion: log session 2026-09-03-main",
+          "files": ""
+        },
+        {
+          "date": "2026-09-03",
+          "time": "17:26",
+          "sha": "033fd85",
+          "subject": "companion: an invoice is raised AFTER its billing period closes, not inside it",
+          "files": "src/lib/invoiceReview/checks.test.ts, src/lib/invoiceReview/checks/issueDate.ts"
+        },
+        {
+          "date": "2026-09-03",
+          "time": "17:29",
+          "sha": "5a3c5df",
+          "subject": "companion: match a backup PDF against the bill's PRE-TAX total, not its gross",
+          "files": "src/lib/invoiceReview/checks.test.ts, src/lib/invoiceReview/checks/shared.ts, src/lib/invoiceReview/duplicateDraft.test.ts, src/lib/invoiceReview/evidence.ts, src/lib/invoiceReview/investigate.test.ts, src/lib/invoiceReview/norms.test.ts, +4 more"
         }
       ]
     },

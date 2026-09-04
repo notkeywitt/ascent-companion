@@ -13,6 +13,7 @@ _Nothing open._
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
-| [main](.claude/sessions/2026-09-03-main.md) | 2026-09-03 | 1 | — |
+| [jobs-page-client-listings](.claude/sessions/2026-09-03-jobs-page-client-listings.md) | 2026-09-04 | 1 | — |
+| [main](.claude/sessions/2026-09-03-main.md) | 2026-09-04 | 18 | — |
 | [bookkeeping-record-keeping](.claude/sessions/2026-09-03-bookkeeping-record-keeping.md) | 2026-09-03 | 5 | — |
 | [session-progress-tracking](.claude/sessions/2026-09-03-session-progress-tracking.md) | 2026-09-03 | 5 | Build a per-session ledger so interrupted work is recoverable |

@@ -2,9 +2,9 @@
 slug: jobs-page-client-listings
 repo: ascent-companion
 branch: claude/jobs-page-client-listings-tpb0cy
-status: in-progress
+status: shipped
 started: 2026-09-03T23:03:57Z
-updated: 2026-09-03T23:04:39Z
+updated: 2026-09-04T01:00:11Z
 goal: 
 next: Probe the multi-value customFieldValues write against one internal Ascent job, then let /clients edit job Status and Job Type (isEditableField in clientDirectory.ts is the single gate).
 ---
