@@ -365,6 +365,47 @@ describe("matchBackup", () => {
     expect(r.unmatchedFiles).toHaveLength(0);
   });
 
+  it("refuses to guess when one vendor has several of each", () => {
+    // Berger Bunkhouse, July 2026. Three unmatched Sunset bills against three
+    // unmatched Sunset PDFs — every one sharing the token "sunset", so a
+    // best-overlap scan paired them by iteration order and announced ticket
+    // 689659's $142.13 as "plainly the backup" for an unrelated $68.99 bill.
+    // Nothing here earns that claim, so it must fall back to separate findings.
+    const sunset = (n: string) => `Sunset Builders Supply ${n} Kevin Berger Pushed to JT`;
+    const r = matchBackup(
+      [
+        bill({ id: "b1", cost: 78.97, vendor: "Sunset Builders Supply" }),
+        bill({ id: "b2", cost: 68.99, vendor: "Sunset Builders Supply" }),
+        bill({ id: "b3", cost: 39.99, vendor: "Sunset Builders Supply" }),
+      ],
+      [
+        file({ id: "f1", amount: 142.13, tail: sunset("689659") }),
+        file({ id: "f2", amount: 103.96, tail: sunset("692251") }),
+        file({ id: "f3", amount: 69.01, tail: sunset("696457") }),
+      ],
+    );
+    expect(r.mismatched).toHaveLength(0);
+    expect(r.unmatchedBills.map((b) => b.id).sort()).toEqual(["b1", "b2", "b3"]);
+    expect(r.unmatchedFiles.map((f) => f.id).sort()).toEqual(["f1", "f2", "f3"]);
+  });
+
+  it("still pairs when that vendor has exactly one of each left", () => {
+    // The ambiguity guard must not silence the unambiguous case: one bill, one
+    // PDF, same vendor, nothing else competing for either.
+    const r = matchBackup(
+      [
+        bill({ id: "b1", cost: 500, vendor: "Fasteners Plus" }),
+        bill({ id: "b2", cost: 900, vendor: "Island Custom Woodworks" }),
+      ],
+      [
+        file({ id: "f1", amount: 460, tail: "Fasteners Plus Kevin Berger Pushed to JT" }),
+        file({ id: "f2", amount: 900, tail: "Island Custom Woodworks Kevin Berger Pushed to JT" }),
+      ],
+    );
+    expect(r.matched.get("b2")?.id).toBe("f2"); // exact amount, paired normally
+    expect(r.mismatched.map((x) => [x.bill.id, x.file.id])).toEqual([["b1", "f1"]]);
+  });
+
   it("does not invent a pair across unrelated vendors", () => {
     // Without a shared identity token these are two separate facts, and saying
     // "these disagree" about a bill and someone else's PDF would be worse than

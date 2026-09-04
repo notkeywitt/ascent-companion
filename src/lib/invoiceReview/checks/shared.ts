@@ -192,31 +192,40 @@ export function matchBackup(
     }
   }
 
-  // Second pass: of what is left, pair anything that is obviously the same
-  // charge by VENDOR alone and report the amount gap. Amount is the primary key
-  // precisely because both sides state it exactly — so when it disagrees and
-  // the vendor does not, the amount is the thing that is wrong, and saying so
-  // is more useful than reporting the bill and its own backup as two separate
-  // absences. Requires a real identity-token overlap (`overlap` drops the noise
-  // words), so "Sunset" and "Sunset" pair and two unrelated vendors never do.
+  // Second pass: of what is left, pair a bill with its own backup by VENDOR and
+  // report the amount gap. Amount is the primary key precisely because both
+  // sides state it exactly — so when the vendor agrees and the amount does not,
+  // the amount is the thing that is wrong, and saying so beats reporting a bill
+  // and its own backup as two separate absences.
+  //
+  // BUT ONLY WHEN THE PAIRING IS UNAMBIGUOUS. The finding claims a specific PDF
+  // is "plainly the backup for this bill", and that claim is only earned when
+  // nothing else could be: exactly one candidate file for the bill, and exactly
+  // one candidate bill for that file. A vendor who bills many small tickets in a
+  // month breaks every weaker rule — Berger Bunkhouse July left three unmatched
+  // Sunset bills ($78.97, $68.99, $39.99) against three unmatched Sunset PDFs
+  // ($142.13, $103.96, $69.01). They all share the token "sunset", so a
+  // best-overlap scan paired them by ITERATION ORDER and reported ticket
+  // 689659's $142.13 as the backup for an unrelated $68.99 bill. Where it is
+  // ambiguous, the honest answer is the two separate findings.
   const leftoverFiles = parsed.filter((f) => !taken.has(f.id));
+  const candidates = new Map<string, BackupFile[]>();
+  const claimants = new Map<string, BillRef[]>();
+  for (const bill of unmatchedBills) {
+    const hits = leftoverFiles.filter((f) => overlap(f.tail, bill.vendor || bill.label) > 0);
+    candidates.set(bill.id, hits);
+    for (const f of hits) claimants.set(f.id, [...(claimants.get(f.id) ?? []), bill]);
+  }
+
   const mismatched: { bill: BillRef; file: BackupFile; gap: number }[] = [];
   const stillUnmatchedBills: BillRef[] = [];
   const claimed = new Set<string>();
   for (const bill of unmatchedBills) {
-    let best: BackupFile | null = null;
-    let bestScore = 0;
-    for (const f of leftoverFiles) {
-      if (claimed.has(f.id)) continue;
-      const score = overlap(f.tail, bill.vendor || bill.label);
-      if (score > bestScore) {
-        best = f;
-        bestScore = score;
-      }
-    }
-    if (best) {
-      claimed.add(best.id);
-      mismatched.push({ bill, file: best, gap: cents(cents(best.amount) - cents(bill.cost)) });
+    const hits = candidates.get(bill.id) ?? [];
+    const only = hits.length === 1 ? hits[0] : null;
+    if (only && (claimants.get(only.id) ?? []).length === 1) {
+      claimed.add(only.id);
+      mismatched.push({ bill, file: only, gap: cents(cents(only.amount) - cents(bill.cost)) });
     } else {
       stillUnmatchedBills.push(bill);
     }
