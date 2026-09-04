@@ -2773,7 +2773,6 @@ export function Board() {
               </p>
               <TrackingSheetRisks
                 unmatched={trackingSync.result.unmatched}
-                whitespaceOnly={trackingSync.result.whitespaceOnly}
                 deadColumns={trackingSync.result.deadColumns}
                 compact
                 className="mt-1.5 !py-2"

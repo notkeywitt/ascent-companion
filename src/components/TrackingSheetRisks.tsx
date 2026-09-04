@@ -6,14 +6,17 @@ import { Banner } from "@/components/ui";
  * The "this money won't reach the Tracking Sheet" warning, shared by the Tracking
  * Sheet page and the Invoicing job cards.
  *
- * Three distinct failures, kept apart because the fix differs and because
+ * Two distinct failures, kept apart because the fix differs and because
  * lumping them together taught the office the wrong lesson — a code with a dead
  * column looks identical to a missing one but needs a different repair:
- *   unmatched      → no column for the code: add it (in ascending position).
- *   whitespaceOnly → column exists, header holds a non-breaking space. Reads
- *                    correctly on screen and can never match. Retype it.
- *   deadColumns    → column exists but has no FILTER/total formula, so it reads
- *                    $0 forever. repairTrackingSheetLookups() rebuilds it.
+ *   unmatched   → no column for the code: add it (in ascending position).
+ *   deadColumns → column exists but has no FILTER/total formula, so it reads
+ *                 $0 forever. repairTrackingSheetLookups() rebuilds it.
+ *
+ * There used to be a third, whitespaceOnly: a header holding a non-breaking
+ * space. It was a false positive. The sheet's own `=` treats a non-breaking
+ * space as a normal space, so those columns match and their money arrives.
+ * Probe in TrackingSheets.js `_tsCodeKeyLoose` (ascent-appscript).
  */
 export interface RiskCode {
   csi: string;
@@ -71,19 +74,17 @@ function Group({
 
 export function TrackingSheetRisks({
   unmatched = [],
-  whitespaceOnly = [],
   deadColumns = [],
   compact = false,
   className = "",
 }: {
   unmatched?: RiskCode[];
-  whitespaceOnly?: RiskCode[];
   deadColumns?: RiskCode[];
   /** Compact renders one line of codes per group instead of a per-code table. */
   compact?: boolean;
   className?: string;
 }) {
-  const total = unmatched.length + whitespaceOnly.length + deadColumns.length;
+  const total = unmatched.length + deadColumns.length;
   if (total === 0) return null;
 
   return (
@@ -93,12 +94,6 @@ export function TrackingSheetRisks({
         compact={compact}
         headline={`${unmatched.length} cost code${unmatched.length === 1 ? "" : "s"} missing from the sheet`}
         fix="Add each code to row 1 of the SubVendor Invoices tab, in ascending position."
-      />
-      <Group
-        codes={whitespaceOnly}
-        compact={compact}
-        headline={`${whitespaceOnly.length} header cell${whitespaceOnly.length === 1 ? "" : "s"} with a non-breaking space`}
-        fix="The header looks right but can never match. Retype it with normal spaces, or run repairTrackingSheetLookups()."
       />
       <Group
         codes={deadColumns}

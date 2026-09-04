@@ -94,8 +94,6 @@ interface SyncResult {
   billCount: number;
   total: number;
   unmatched: UnmatchedCsi[];
-  /** Header cell holds different whitespace (a non-breaking space) — retype it. */
-  whitespaceOnly?: UnmatchedCsi[];
   /** Column exists but has no FILTER/total formulas, so it reads $0 forever. */
   deadColumns?: (UnmatchedCsi & { column?: string; missing?: string[] })[];
   unmatchedTotal: number;
@@ -739,7 +737,6 @@ function QueueRow({ item }: { item: QueueItem }) {
           )}
           <TrackingSheetRisks
             unmatched={s.unmatched}
-            whitespaceOnly={s.whitespaceOnly}
             deadColumns={s.deadColumns}
             className="mt-2"
           />

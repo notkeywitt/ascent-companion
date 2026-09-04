@@ -37,7 +37,6 @@ export interface TrackingSyncResult {
   billCount: number;
   total: number;
   unmatched: { csi: string; amount: number; vendors: string[] }[];
-  whitespaceOnly?: { csi: string; amount: number; vendors: string[] }[];
   deadColumns?: { csi: string; amount: number; vendors: string[]; column?: string }[];
   unmatchedTotal: number;
   trackingSheetName: string;
@@ -96,7 +95,6 @@ function SyncOutcome({
           </p>
           <TrackingSheetRisks
             unmatched={result.unmatched}
-            whitespaceOnly={result.whitespaceOnly}
             deadColumns={result.deadColumns}
             compact
             className="mt-1.5 !py-2"
