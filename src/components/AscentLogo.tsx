@@ -10,9 +10,10 @@
  * cream on dark (both AA-safe per the type-pairing page).
  *
  * `tone="white"` is the single-color REVERSED lockup: white square, peak
- * knocked out in black, white wordmark. It is for a black ground only — the
- * loading screen — and ignores the theme, because that ground is black in
- * both themes.
+ * knocked out in black, white wordmark. It ignores the theme, for use on a
+ * dark photo or a black ground. Nothing renders it today — the loading screen
+ * did, until that screen took the theme's own ground — but it is the guide's
+ * inverse lockup and is kept for the next surface that needs one.
  */
 export type LogoTone = "brand" | "white";
 

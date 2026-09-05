@@ -216,14 +216,22 @@ textarea:focus-visible {
 }
 
 /* --- Loading screen ------------------------------------------------------
-   The black brand cover (components/LoadingScreen). A page swap is usually
-   faster than the eye, so the ROUTE cover starts invisible and only fades in
-   after 180ms: a quick navigation shows nothing at all, a slow one gets the
-   logo instead of a stalled page. The app-open splash does NOT use this — it
-   must paint on the first frame. */
+   The brand cover (components/LoadingScreen), on the theme's own ground. A
+   page swap is usually faster than the eye, so the ROUTE cover starts
+   invisible and only fades in once the wait is worth showing: a quick
+   navigation shows nothing at all, a slow one gets the logo instead of a
+   stalled page.
+
+   The threshold is 400ms, up from 180ms. At 180ms every middling navigation —
+   the 200-400ms ones, which are most of them — began the fade and then tore it
+   away half-drawn, which is what read as the cover flashing. 400ms clears that
+   whole band: either the page arrives and nothing was ever shown, or the wait
+   is genuinely long and the cover commits.
+
+   The app-open splash does NOT use this — it must paint on the first frame. */
 .loading-screen-in {
   opacity: 0;
-  animation: loading-screen-in 260ms ease-out 180ms forwards;
+  animation: loading-screen-in 200ms ease-out 400ms forwards;
 }
 @keyframes loading-screen-in {
   to {
@@ -231,7 +239,7 @@ textarea:focus-visible {
   }
 }
 
-/* Brand-tinted text selection (ochre in light, olive in dark, at low alpha). */
+/* Brand-tinted text selection — ochre in both themes, at low alpha. */
 ::selection {
   background: rgb(var(--brand) / 0.28);
 }
