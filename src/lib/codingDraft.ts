@@ -137,8 +137,11 @@ export function draftAgeDays(draft: Pick<CodingDraft, "savedAt">, now = Date.now
 export interface DraftWorld {
   /** Every line currently on screen, with the leaf JobTread has it coded to. */
   lines: readonly { id: string; jobCostItemId?: string | null }[];
-  /** Every bill on screen, with the sales tax JobTread currently stores. */
-  bills: readonly { id: string; nonRecoverableTax?: number }[];
+  /**
+   * Every bill on screen with the sales tax it currently carries — the 88 80 00
+   * line plus any legacy `nonRecoverableTax`, already resolved by the caller.
+   */
+  bills: readonly { id: string; salesTax?: number }[];
   /** The budget leaves a line — or a time entry — may legally be coded to. */
   budgetIds: readonly string[];
   /** The month's time entries, for a draft that staged labor recodes. */
@@ -207,7 +210,7 @@ export function reconcileDraft(draft: DraftParts, world: DraftWorld): Reconciled
 
   for (const [docId, value] of Object.entries(draft.taxEdits)) {
     const bill = billById.get(docId);
-    if (!bill || value === "" || round2(Number(value) || 0) === round2(bill.nonRecoverableTax ?? 0)) {
+    if (!bill || value === "" || round2(Number(value) || 0) === round2(bill.salesTax ?? 0)) {
       dropped++;
       continue;
     }

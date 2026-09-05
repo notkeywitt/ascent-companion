@@ -11,6 +11,7 @@
  */
 
 import { findMutations } from "@/lib/paveGateway";
+import { SALES_TAX_CSI, SALES_TAX_LINE_NAME, isSalesTaxLine } from "@/lib/salesTax";
 
 const PAVE_URL = "https://api.jobtread.com/pave";
 
@@ -395,6 +396,7 @@ export async function getAllDraftBills(cfg: PaveConfig): Promise<DraftBill[]> {
 export interface BillLine {
   id: string;
   name?: string;
+  description?: string; // the raw CSI — how isSalesTaxLine recognises an uncoded tax line
   cost?: number;
   quantity?: number;
   unitCost?: number;
@@ -413,8 +415,10 @@ export interface BillDetail {
     cost?: number;
     issueDate?: string;
     qboIsIgnored?: boolean;
-    nonRecoverableTax?: number; // recorded sales tax (document-level, "Tax")
-    nonRecoverableTaxName?: string;
+    /** Legacy document tax field — non-zero only on a bill pushed before
+     *  2026-09-05. A bill's real sales tax is its 88 80 00 line plus this;
+     *  `splitSalesTax` in src/lib/salesTax.ts resolves the pair. */
+    nonRecoverableTax?: number;
   };
   lines: BillLine[];
   files: BillFile[]; // attached invoice PDF/image — same document, same round trip
@@ -438,6 +442,7 @@ export async function getBillDetail(cfg: PaveConfig, docId: string): Promise<Bil
       nodes: {
         id: {},
         name: {},
+        description: {},
         cost: {},
         quantity: {},
         unitCost: {},
@@ -454,7 +459,7 @@ export async function getBillDetail(cfg: PaveConfig, docId: string): Promise<Bil
     document: {
       $: { id: docId },
       id: {}, name: {}, status: {}, cost: {}, issueDate: {}, subject: {}, fromName: {}, number: {}, externalId: {},
-      qboIsIgnored: {}, nonRecoverableTax: {}, nonRecoverableTaxName: {},
+      qboIsIgnored: {}, nonRecoverableTax: {},
       job: { id: {} }, // the bill's own job — lets /api/bill work without ?jobId
       ...lineSel,
     },
@@ -487,7 +492,6 @@ export async function getBillDetail(cfg: PaveConfig, docId: string): Promise<Bil
       issueDate: d.issueDate,
       qboIsIgnored: d.qboIsIgnored,
       nonRecoverableTax: d.nonRecoverableTax,
-      nonRecoverableTaxName: d.nonRecoverableTaxName,
     },
     lines: d.costItems?.nodes ?? [],
     files: d.files?.nodes ?? [],
@@ -653,29 +657,80 @@ export async function setBillExternalId(
 }
 
 /**
- * WRITE — set a bill's document-level sales tax. This is JobTread's "Tax" field:
- * `nonRecoverableTax` (a DOLLAR amount) with `nonRecoverableTaxName` "Tax" — the
- * same field/name the Apps Script push uses (JobTread.js). Confirmed live 2026-07-29
- * that JobTread stores line costs at face value (unitCost × quantity) and keeps this
- * tax SEPARATE and ON TOP (total = Σ line cost + nonRecoverableTax), so setting it
- * never changes the line amounts or the subtotal. Setting it as a dollar amount (not
- * a per-document `taxRate` %) also avoids JobTread's tax-carve on line writes
- * (see [[jt-createcostitem-tax-carve]]). Never touches lineItems (updateDocument with
- * lineItems wipes cost items — CLAUDE.md).
+ * WRITE — set a bill's sales tax, which is a LINE (88 80 00), not a field.
+ *
+ * Reads the bill, then does the one thing that is needed: update the tax line,
+ * create it, or delete it when the tax drops to zero. Also clears any legacy
+ * `nonRecoverableTax` the bill still carries, so a bill touched here comes away
+ * fully on the current model instead of counting its tax twice.
+ *
+ * `salesTaxJobCostItemId` codes the line to the job's 88 80 00 budget leaf. Omit
+ * it and the line is left uncoded rather than routed to a fallback code — sales
+ * tax posted to the wrong QuickBooks account is worse than a visible gap.
+ *
+ * Never sends `lineItems` on updateDocument (that wipes every cost item —
+ * CLAUDE.md); line work goes through createCostItem/updateCostItem/deleteCostItem.
+ *
+ * @return the tax the bill carries afterwards.
  */
 export async function setBillTax(
   cfg: PaveConfig,
   docId: string,
   taxAmount: number,
+  salesTaxJobCostItemId?: string,
 ): Promise<number> {
   const amount = Math.round((Number(taxAmount) || 0) * 100) / 100;
-  const r = await pave(cfg, {
-    updateDocument: {
-      $: { id: docId, nonRecoverableTax: amount, nonRecoverableTaxName: "Tax" },
-      document: { $: { id: docId }, id: {}, nonRecoverableTax: {} },
+
+  const read = await pave(cfg, {
+    document: {
+      $: { id: docId },
+      id: {},
+      nonRecoverableTax: {},
+      costItems: {
+        $: { size: 100 },
+        nodes: { id: {}, name: {}, description: {}, cost: {}, costCode: { number: {} } },
+      },
     },
   });
-  return r?.updateDocument?.document?.nonRecoverableTax ?? amount;
+  const doc = read?.document ?? {};
+  const existing: BillLine[] = doc.costItems?.nodes ?? [];
+  const taxLine = existing.find((l) => isSalesTaxLine(l)) ?? null;
+
+  if (amount > 0) {
+    const $: Record<string, unknown> = {
+      name: SALES_TAX_LINE_NAME,
+      description: SALES_TAX_CSI,
+      unitCost: amount,
+      quantity: 1,
+      isTaxable: false,
+      customFieldValues: [{ customFieldId: CF_COST_CODES, value: SALES_TAX_CSI }],
+    };
+    if (salesTaxJobCostItemId) $.jobCostItemId = salesTaxJobCostItemId;
+    if (taxLine) {
+      await pave(cfg, {
+        updateCostItem: { $: { ...$, id: taxLine.id }, costItem: { $: { id: taxLine.id }, id: {} } },
+      });
+    } else {
+      await pave(cfg, {
+        createCostItem: { $: { ...$, documentId: docId }, createdCostItem: { id: {} } },
+      });
+    }
+  } else if (taxLine) {
+    await pave(cfg, { deleteCostItem: { $: { id: taxLine.id } } });
+  }
+
+  // Clear the legacy field if this bill still carries one. Left set, its amount
+  // would keep spreading across the cost items on top of the line just written.
+  if ((Number(doc.nonRecoverableTax) || 0) !== 0) {
+    await pave(cfg, {
+      updateDocument: {
+        $: { id: docId, nonRecoverableTax: 0 },
+        document: { $: { id: docId }, id: {} },
+      },
+    });
+  }
+
+  return amount;
 }
 
 /**
@@ -792,6 +847,30 @@ export function getJobBudget(cfg: PaveConfig, jobId: string): Promise<BudgetItem
   return cachedRef(_jobCostKey("budget", cfg.orgId, jobId), JOB_COST_TTL_MS, () =>
     _getJobBudgetUncached(cfg, jobId),
   );
+}
+
+/**
+ * The job budget's 88 80 00 leaf — where a bill's sales-tax line is coded.
+ *
+ * REFRESH-ON-MISS, like the Apps Script budget map: a miss re-reads the budget
+ * live before giving up, because the common miss is a leaf the owner added to
+ * the budget inside the cache TTL. Returns undefined when the job genuinely has
+ * no such leaf; callers then push the tax line UNCODED rather than routing it to
+ * a fallback code, which would post sales tax to the wrong QuickBooks account.
+ */
+export async function getSalesTaxLeafId(
+  cfg: PaveConfig,
+  jobId: string,
+): Promise<string | undefined> {
+  if (!jobId) return undefined;
+  const find = (items: BudgetItem[]) => items.find((b) => b.number === SALES_TAX_CSI)?.id;
+  const hit = find(await getJobBudget(cfg, jobId));
+  if (hit) return hit;
+  try {
+    return find(await _getJobBudgetUncached(cfg, jobId));
+  } catch {
+    return undefined;
+  }
 }
 async function _getJobBudgetUncached(cfg: PaveConfig, jobId: string): Promise<BudgetItem[]> {
   const walk = async (where?: unknown): Promise<BudgetItem[]> => {
@@ -1765,10 +1844,9 @@ export interface MonthBill {
   createdAt: string | null;
   /** "Bill" (payable, approves to pending) or "Expense" (already paid, approves to approved). */
   name: string;
-  /** Fixed sales tax carved out of the bill total — the gross-up input. */
+  /** Legacy document tax field — non-zero only on a bill pushed before
+   *  2026-09-05. A bill's real sales tax is its 88 80 00 line plus this. */
   nonRecoverableTax: number;
-  /** Label for the fixed tax amount, e.g. "Sales Tax" — shown alongside the amount. */
-  nonRecoverableTaxName: string | null;
   /** false = this bill will sync to QuickBooks on approval. */
   qboIsIgnored: boolean;
   /** Already on a customer invoice — the board renders these read-only. */
@@ -1854,7 +1932,6 @@ export async function getJobBillsForMonth(
               createdAt: {},
               status: {},
               nonRecoverableTax: {},
-              nonRecoverableTaxName: {},
               qboIsIgnored: {},
               amountPaid: {},
               balance: {},
@@ -1917,7 +1994,6 @@ export async function getJobBillsForMonth(
         createdAt: b?.createdAt ?? null,
         name: b?.name ?? "Bill",
         nonRecoverableTax: typeof b?.nonRecoverableTax === "number" ? b.nonRecoverableTax : 0,
-        nonRecoverableTaxName: b?.nonRecoverableTaxName ?? null,
         qboIsIgnored: !!b?.qboIsIgnored,
         invoiced: isInvoiced(b),
         onInvoice: _isOnAnyInvoice(b),
@@ -3171,7 +3247,14 @@ export interface CreateVendorBillArgs {
   issueDate: string; // yyyy-MM-dd
   dueDate?: string | null; // yyyy-MM-dd; when null, dueDays applies
   dueDays?: number | null;
-  taxAmount: number; // document-level sales tax → nonRecoverableTax
+  /** Sales tax printed on the invoice. Becomes its own 88 80 00 cost item. */
+  taxAmount: number;
+  /**
+   * The job budget's 88 80 00 leaf, for coding the tax line. Omit and the tax
+   * line lands UNCODED — deliberate: better a visible uncoded line than sales
+   * tax routed to a fallback code and posted to the wrong QuickBooks account.
+   */
+  salesTaxJobCostItemId?: string;
   jobLocationName?: string;
   jobLocationAddress?: string;
   pushToQuickBooks?: boolean; // default true (qboIsIgnored = !push)
@@ -3181,9 +3264,12 @@ export interface CreateVendorBillArgs {
 /**
  * WRITE — create a draft vendor bill (createDocument type:vendorBill). No
  * `status` arg: newly created bills land as DRAFT (the coding queue), exactly
- * like the production Apps Script push. Tax rides in nonRecoverableTax with
- * lines non-taxable (or taxable lines with 0 when the document shows no tax) —
- * see computeLineTaxability in billing.ts.
+ * like the production Apps Script push.
+ *
+ * Sales tax goes on as its OWN cost item coded 88 80 00, and the document's tax
+ * field is pinned to 0 — see src/lib/salesTax.ts for why the field cannot carry
+ * it. Line costs are the face values printed on the invoice; nothing is grossed
+ * up, because nothing de-taxes them on the way back.
  */
 export async function createVendorBill(
   cfg: PaveConfig,
@@ -3205,6 +3291,22 @@ export async function createVendorBill(
     return li;
   });
 
+  // Sales tax as its own line, last, so the material lines keep their order.
+  const taxAmount = Math.round((Number(args.taxAmount) || 0) * 100) / 100;
+  if (taxAmount > 0) {
+    const taxLine: Record<string, unknown> = {
+      _type: "costItem",
+      name: SALES_TAX_LINE_NAME,
+      description: SALES_TAX_CSI,
+      unitCost: taxAmount,
+      quantity: 1,
+      isTaxable: false,
+      customFieldValues: [{ customFieldId: CF_COST_CODES, value: SALES_TAX_CSI }],
+    };
+    if (args.salesTaxJobCostItemId) taxLine.jobCostItemId = args.salesTaxJobCostItemId;
+    lineItems.push(taxLine);
+  }
+
   const docArgs: Record<string, unknown> = {
     type: "vendorBill",
     jobId: args.jobId,
@@ -3216,8 +3318,10 @@ export async function createVendorBill(
     fromName: args.vendorName,
     toName: "Ascent Building Co",
     taxRate: 0,
-    nonRecoverableTaxName: "Tax",
-    nonRecoverableTax: args.taxAmount,
+    // Tax is a line item now. The tax NAME is never sent — sending it is what
+    // un-hides the document tax field, and the amount is pinned to 0 so a
+    // template default cannot re-introduce the spread.
+    nonRecoverableTax: 0,
     lineItems,
     includeInBudget: true,
     qboIsIgnored: !(args.pushToQuickBooks ?? true),

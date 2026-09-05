@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
-import { getBillDetail, getJobBudget, getCostToComplete } from "@/lib/jobtread";
+import { getBillDetail, getJobBudget, getCostToComplete, getJobPhaseMap } from "@/lib/jobtread";
 import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
 import { db, ensureDb } from "@/db";
 import { savedBills } from "@/db/schema";
@@ -29,9 +29,15 @@ export async function GET(req: NextRequest) {
     const jobId = jobIdParam || detail.jobId;
     // getBillDetail already fetched header+lines+files; budget leaves and the two
     // CTC aggregates are the remaining calls, skipped when the job is unknown.
-    const [budget, costToComplete] = jobId
-      ? await Promise.all([getJobBudget(cfg, jobId), getCostToComplete(cfg, jobId)])
-      : [[], {}];
+    // The job's Phase comes along because it is what says whether sales tax on
+    // this bill is recoverable (src/lib/salesTax.ts). One cached org-wide read.
+    const [budget, costToComplete, phases] = jobId
+      ? await Promise.all([
+          getJobBudget(cfg, jobId),
+          getCostToComplete(cfg, jobId),
+          getJobPhaseMap(cfg).catch(() => ({}) as Record<string, string>),
+        ])
+      : [[], {}, {} as Record<string, string>];
 
     // Assistant-local flags for this bill: saved (Save clicked) and reviewed
     // (explicitly marked done) — the same pair the coding queue shows. Best-effort.
@@ -59,6 +65,7 @@ export async function GET(req: NextRequest) {
       // The bill's resolved job, so a page opened without ?jobId can adopt it for
       // its back link, coding-queue pager and neighbour prefetch.
       jobId,
+      jobPhase: jobId ? (phases[jobId] ?? "") : "",
       writesEnabled: writesEnabled(),
       reviewed,
       saved,

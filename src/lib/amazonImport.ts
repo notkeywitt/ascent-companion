@@ -37,7 +37,7 @@ export interface AmazonOrder {
   paymentDate: string; // Payment Date (for reference)
   cardLast4: string; // Payment Identifier, e.g. "1468"
   subtotal: number; // Order Subtotal — pre-tax
-  tax: number; // Order Tax → the bill's nonRecoverableTax
+  tax: number; // Order Tax → its own 88 80 00 sales-tax line on the bill
   netTotal: number; // Order Net Total — the bill amount (subtotal + tax)
   lines: AmazonLine[];
 }

@@ -2,20 +2,22 @@
  * The money math behind editing a vendor bill's lines — shared by the bill page
  * and Tracking Sheets so the two can never disagree about what a save writes.
  *
- * THE MODEL (confirmed live 2026-07-30 by capturing JobTread's own save — stored
- * $59.54 displayed as $54.95; see the tax-nonrecoverable-intended memory, which
- * also records two WRONG models that were tried first):
+ * THE MODEL (2026-09-05 on). Sales tax is its OWN cost item coded 88 80 00, and
+ * the document's tax field is 0 (src/lib/salesTax.ts). Nothing de-taxes a line,
+ * so a line's stored cost IS its face value and the maths is an identity: the
+ * office edits the number JobTread holds. A bill's total is the sum of its line
+ * costs, tax line included.
  *
- *  - JobTread stores each line's cost TAX-INCLUSIVE.
- *  - A bill's total is ALWAYS the sum of its line costs. Nothing adds tax on top.
- *  - The fixed sales tax (`nonRecoverableTax`, a dollar amount) is carved OUT of
- *    that total to give the subtotal.
+ * Callers pass `lines` with the tax line ALREADY REMOVED (`splitSalesTax`) and
+ * `storedTax` as the amount that line carries. Leaving it in would let the
+ * office edit sales tax as if it were a material line.
  *
- * So we mirror JobTread: read each line DE-TAXED (what JobTread shows), let the
- * office edit in pre-tax terms, and on save gross EVERY line back up. Every line
- * must move together — editing one line, or the tax, shifts the shared
- * subtotal/total factor, so re-sending only the touched lines would make the
- * untouched ones appear to drift.
+ * THE LEGACY HALF. A bill pushed before 2026-09-05 carries its tax in the
+ * document's `nonRecoverableTax` field instead, and JobTread stores THAT bill's
+ * line costs tax-INCLUSIVE, de-taxing them for display by subtotal/total
+ * (confirmed live 2026-07-30: stored $59.54 shown as $54.95). Pass that field as
+ * `legacyTaxField` and the same de-tax runs, so those bills still read right.
+ * The gross-up back is gone in both directions — see `reTax` below.
  *
  * JobTread also LOCKS name/description/quantity/unitCost once a bill leaves
  * draft (pending = payable, approved = paid); writing them errors. Re-coding
@@ -117,9 +119,16 @@ export function recodeLog(
 }
 
 export interface BillMathInput {
+  /** The bill's cost items with the 88 80 00 tax line removed (splitSalesTax). */
   lines: readonly MathLine[];
-  /** The bill's stored nonRecoverableTax. */
+  /** The sales tax that line carries, plus any legacy field. */
   storedTax: number;
+  /**
+   * The bill's `nonRecoverableTax`, for a bill not yet migrated. Drives the
+   * de-tax of its tax-inclusive line costs. 0 (the default) on every bill
+   * written under the current model, which makes the de-tax an identity.
+   */
+  legacyTaxField?: number;
   /** Tax being previewed while the office edits it; defaults to storedTax. */
   taxView?: number;
   /** JobTread document status — draft unlocks the editable fields. */
@@ -132,13 +141,19 @@ export interface BillMathInput {
 
 export interface BillMath {
   isDraft: boolean;
-  /** Stored (tax-inclusive) → displayed (pre-tax). */
+  /** Stored → displayed. An identity except on a legacy, un-migrated bill. */
   deTax: (stored: number) => number;
   /** Per line: the target quantity and PRE-TAX unit cost. */
   targets: { line: MathLine; qty: number; preTaxUnit: number; curPreTaxUnit: number }[];
   subtotal: number;
   total: number;
-  /** Pre-tax → stored gross-up factor for the bill's edited state. */
+  /**
+   * Displayed → stored. Always 1: sales tax is a line of its own, so a line's
+   * stored cost is its face value and a save writes exactly what is on screen.
+   * Kept as a named field because the callers read it, and because a future
+   * model that re-introduced a spread would have to change it here and nowhere
+   * else.
+   */
   reTax: number;
   /**
    * How many LINES differ from what JobTread holds — the "N unsaved changes"
@@ -160,6 +175,7 @@ export interface BillMath {
 export function billLineMath({
   lines,
   storedTax,
+  legacyTaxField = 0,
   taxView,
   status,
   edits,
@@ -168,10 +184,13 @@ export function billLineMath({
 }: BillMathInput): BillMath {
   const isDraft = status === "draft";
   const storedTotal = lines.reduce((s, l) => s + (l.cost ?? 0), 0);
-  // Per-line de-tax uses the STORED tax, not an in-progress tax edit, so typing a
-  // new tax never makes the line amounts drift — only the total moves.
+  // De-tax uses the LEGACY FIELD, never an in-progress tax edit: only a bill
+  // still carrying that field has tax-inclusive line costs, and typing a new tax
+  // must move the total without making the line amounts drift.
   const deTax = (stored: number) =>
-    storedTotal > 0 ? stored * ((storedTotal - storedTax) / storedTotal) : stored;
+    legacyTaxField > 0 && storedTotal > 0
+      ? stored * ((storedTotal - legacyTaxField) / storedTotal)
+      : stored;
   const tax = taxView ?? storedTax;
 
   const targets = lines.map((line) => {
@@ -185,7 +204,8 @@ export function billLineMath({
   });
 
   const sumPreTax = targets.reduce((s, t) => s + t.preTaxUnit * t.qty, 0);
-  const reTax = sumPreTax > 0 ? (sumPreTax + tax) / sumPreTax : 1;
+  // No gross-up: the tax is its own line, so what is on screen is what is stored.
+  const reTax = 1;
 
   let pendingCount = 0;
   const wholeBillChanges = targets.map(({ line, qty, preTaxUnit, curPreTaxUnit }) => {

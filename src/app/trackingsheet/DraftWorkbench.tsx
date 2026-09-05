@@ -39,6 +39,7 @@ import {
   reconcileDraft,
   saveDraft,
 } from "@/lib/codingDraft";
+import { SALES_TAX_LINE_NAME, splitSalesTax } from "@/lib/salesTax";
 
 /**
  * The two side columns of the needs-coding workbench — the budget rail and the
@@ -88,7 +89,6 @@ export interface WorkbenchHeader {
   cost?: number;
   issueDate?: string;
   nonRecoverableTax?: number;
-  nonRecoverableTaxName?: string;
 }
 
 /** One cost code's budget vs. approved+pending spend, from getCostToComplete. */
@@ -104,6 +104,8 @@ interface BillPayload {
   budget?: Option[];
   costToComplete?: Record<string, Ctc>;
   files?: BillFile[];
+  /** The bill's job Phase — what decides whether its sales tax is recoverable. */
+  jobPhase?: string;
   writesEnabled?: boolean;
   reviewed?: boolean;
   saved?: boolean;
@@ -189,6 +191,8 @@ export interface BillEditor {
   taxEdit: string | null;
   setTaxEdit: (v: string | null) => void;
   storedTax: number;
+  /** The bill's job Phase — decides whether its sales tax is recoverable. */
+  jobPhase: string;
   taxView: number;
   taxChanged: boolean;
   taxName: string;
@@ -292,25 +296,41 @@ export function useBillEditor(
   const budget = useMemo(() => payload?.budget ?? [], [payload]);
   const ctc = useMemo(() => payload?.costToComplete ?? {}, [payload]);
   const files = useMemo(() => payload?.files ?? [], [payload]);
+  const jobPhase = payload?.jobPhase ?? "";
   const writes = Boolean(payload?.writesEnabled);
 
-  const storedTax = header?.nonRecoverableTax ?? 0;
-  const taxName = header?.nonRecoverableTaxName || "Tax";
+  // Sales tax is its own 88 80 00 cost item, so it leaves the codeable line list
+  // and drives the Tax row instead. See the note in bill/[docId]/page.tsx.
+  const legacyTaxField = header?.nonRecoverableTax ?? 0;
+  const { lines: codeableLines, taxAmount: storedTax } = useMemo(
+    () =>
+      splitSalesTax(
+        lines.map((l) => ({ ...l, jobCostItemId: l.jobCostItem?.id ?? null })),
+        legacyTaxField,
+      ),
+    [lines, legacyTaxField],
+  );
+  const taxName = SALES_TAX_LINE_NAME;
   const taxView = taxEdit !== null && taxEdit !== "" ? Number(taxEdit) || 0 : storedTax;
   const taxChanged = taxEdit !== null && round2(taxView) !== round2(storedTax);
+  // A bill still carrying tax in the document field is migrated by any save: the
+  // line write sends de-taxed costs, so the tax must move onto its own 88 80 00
+  // line in the same save or the bill's total falls by the tax amount.
+  const needsTaxMigration = legacyTaxField > 0;
 
   const math = useMemo(
     () =>
       billLineMath({
-        lines: lines.map((l) => ({ ...l, jobCostItemId: l.jobCostItem?.id ?? null })),
+        lines: codeableLines,
         storedTax,
+        legacyTaxField,
         taxView,
         status: header?.status,
         edits,
         picked,
         budget,
       }),
-    [lines, storedTax, taxView, header?.status, edits, picked, budget],
+    [codeableLines, storedTax, legacyTaxField, taxView, header?.status, edits, picked, budget],
   );
 
   const changeCount = math.pendingCount + (taxChanged ? 1 : 0);
@@ -344,7 +364,7 @@ export function useBillEditor(
         if (!alive || !draft) return;
         const r = reconcileDraft(draft, {
           lines: lines.map((l) => ({ id: l.id, jobCostItemId: l.jobCostItem?.id ?? null })),
-          bills: [{ id: header.id, nonRecoverableTax: header.nonRecoverableTax ?? 0 }],
+          bills: [{ id: header.id, salesTax: storedTax }],
           budgetIds: budget.map((b) => b.id),
         });
         if (r.kept === 0) {
@@ -407,7 +427,7 @@ export function useBillEditor(
 
   const save = useCallback(async () => {
     if (!docId) return;
-    if (math.wholeBillChanges.length === 0 && !taxChanged) {
+    if (math.wholeBillChanges.length === 0 && !taxChanged && !needsTaxMigration) {
       setSaveMsg("Nothing to save.");
       return;
     }
@@ -444,7 +464,7 @@ export function useBillEditor(
         failed = ((json.results ?? []) as { ok: boolean }[]).filter((r) => !r.ok).length;
       }
       // 2) The document-level sales tax rides along in the same Save.
-      if (taxChanged) {
+      if (taxChanged || needsTaxMigration) {
         const res = await fetch("/api/bill-tax", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -486,7 +506,7 @@ export function useBillEditor(
     } finally {
       setSaving(false);
     }
-  }, [docId, jobId, draftKey, math, taxChanged, taxView, lines, picked, budget, fetchInto]);
+  }, [docId, jobId, draftKey, math, taxChanged, needsTaxMigration, taxView, lines, picked, budget, fetchInto]);
 
   /** Re-read this bill from JobTread, keeping the staged edits on screen. */
   const reload = useCallback(async () => {
@@ -536,6 +556,7 @@ export function useBillEditor(
     taxEdit,
     setTaxEdit,
     storedTax,
+    jobPhase,
     taxView,
     taxChanged,
     taxName,
@@ -885,6 +906,7 @@ export function DraftCodingPanel({
     taxEdit,
     setTaxEdit,
     storedTax,
+    jobPhase,
     taxView,
     math,
     changeCount,
@@ -1341,7 +1363,7 @@ export function DraftCodingPanel({
           // A draft can't be on a customer invoice — that's what makes it a
           // draft — so the card's read-only path never applies here.
           invoiced: false,
-          nonRecoverableTaxName: header.nonRecoverableTaxName,
+          jobPhase,
           number: header.number,
           issueDate: header.issueDate,
         }

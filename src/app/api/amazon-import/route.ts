@@ -8,7 +8,8 @@ import {
   type BudgetItem,
   type NewBillLine,
 } from "@/lib/jobtread";
-import { computeLineTaxability } from "@/lib/billing";
+import { salesTaxAmount } from "@/lib/billing";
+import { SALES_TAX_CSI } from "@/lib/salesTax";
 import { orderExternalId } from "@/lib/amazonImport";
 import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
 import { kickJtSync } from "@/lib/appsScript";
@@ -77,7 +78,7 @@ interface OrderInput {
   billingMonth: number; // 1..12
   billingYear: number;
   lines: { name: string; unitCost: number; quantity: number }[];
-  tax?: number; // order-level tax → nonRecoverableTax
+  tax?: number; // order-level tax → its own 88 80 00 cost item on the bill
   amount?: number; // net total, for the response summary only
 }
 
@@ -172,14 +173,17 @@ export async function POST(req: NextRequest) {
     const jobCostItemId = costCode ? codeMap.get(costCode) : undefined;
     const codedNote = costCode && !jobCostItemId ? " (cost code not in this job's budget — left uncoded)" : "";
 
-    const { lineIsTaxable, taxAmount } = computeLineTaxability(o.tax);
+    const taxAmount = salesTaxAmount(o.tax);
+    // The order's tax becomes its own 88 80 00 line inside createVendorBill; this
+    // is the budget leaf it codes to, undefined when the job has no such leaf.
+    const salesTaxLeafId = codeMap.get(SALES_TAX_CSI);
     const rawLines = Array.isArray(o.lines) ? o.lines : [];
     let lines: NewBillLine[] = rawLines.map((l) => ({
       name: String(l.name ?? "Amazon item"),
       description: costCode,
       unitCost: Number(l.unitCost) || 0,
       quantity: Number(l.quantity) || 1,
-      isTaxable: lineIsTaxable,
+      isTaxable: true,
       jobCostItemId,
       costCode: costCode || undefined,
     }));
@@ -190,7 +194,7 @@ export async function POST(req: NextRequest) {
           description: costCode,
           unitCost: amount - taxAmount,
           quantity: 1,
-          isTaxable: lineIsTaxable,
+          isTaxable: true,
           jobCostItemId,
           costCode: costCode || undefined,
         },
@@ -242,6 +246,7 @@ export async function POST(req: NextRequest) {
         issueDate,
         dueDays: 30,
         taxAmount,
+        salesTaxJobCostItemId: salesTaxLeafId,
         // JobTread requires a location name or address on the bill. Pass the job's
         // name (and address when it has one) — an overhead job like "Ascent - Shop"
         // has a name but no street address, so name alone satisfies it.

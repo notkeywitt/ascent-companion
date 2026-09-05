@@ -2,12 +2,14 @@ import { describe, expect, it } from "vitest";
 import { billLineMath, descriptionForCode, round2, type MathLine, type CodeOption } from "./billLineMath";
 
 /**
- * Bill line money maths — the tax-inclusive ↔ pre-tax conversion behind the
- * coding screen and the recode board.
+ * Bill line money maths — what the coding screen shows and what a save writes.
  *
- * JobTread stores line costs TAX-INCLUSIVE. The UI shows pre-tax, and a save
- * grosses back up. Getting that round-trip wrong changes what a job is billed,
- * so the cases below are mostly about it being lossless when nothing is edited.
+ * Sales tax is its own 88 80 00 line, which callers strip before calling this,
+ * so the current model is an identity: what is on screen is what JobTread holds.
+ * A bill pushed before 2026-09-05 still carries its tax in `nonRecoverableTax`
+ * and its line costs tax-INCLUSIVE — `legacyTaxField` is what de-taxes those.
+ * Getting either wrong changes what a job is billed, so the cases below are
+ * mostly about the round trip being lossless when nothing is edited.
  */
 
 const budget: CodeOption[] = [
@@ -58,7 +60,7 @@ describe("round2", () => {
   });
 });
 
-describe("billLineMath — de-tax / re-tax round trip", () => {
+describe("billLineMath — the current model (tax is its own line)", () => {
   it("is a no-op on a tax-free bill", () => {
     const m = billLineMath({ ...base, lines: [line()] });
     expect(m.deTax(100)).toBe(100);
@@ -66,19 +68,20 @@ describe("billLineMath — de-tax / re-tax round trip", () => {
     expect(m.targets[0].preTaxUnit).toBe(50);
   });
 
-  it("splits stored tax out of the displayed unit cost", () => {
-    // One line, stored cost 110 of which 10 is tax → pre-tax unit is 100/1 = 100.
+  it("leaves a line alone when the bill has tax — the tax line is already out", () => {
+    // storedTax is what the 88 80 00 line carries. It is NOT inside this line,
+    // so nothing is split out of it: 110 stored shows as 110.
     const m = billLineMath({
       ...base,
       storedTax: 10,
       lines: [line({ quantity: 1, unitCost: 110, cost: 110 })],
     });
-    expect(m.targets[0].preTaxUnit).toBeCloseTo(100, 6);
+    expect(m.targets[0].preTaxUnit).toBeCloseTo(110, 6);
+    expect(m.reTax).toBe(1);
   });
 
   it("round-trips an untouched taxed bill back to its stored value", () => {
-    // This is the important one: opening a bill and saving it unchanged must not
-    // move any number.
+    // The important one: opening a bill and saving it unchanged moves no number.
     const m = billLineMath({
       ...base,
       storedTax: 10,
@@ -89,13 +92,14 @@ describe("billLineMath — de-tax / re-tax round trip", () => {
     expect(m.pendingCount).toBe(0);
   });
 
-  it("keeps the total equal to pre-tax subtotal plus tax", () => {
+  it("keeps the total equal to the line subtotal plus tax", () => {
     const m = billLineMath({
       ...base,
       storedTax: 10,
       lines: [line({ quantity: 1, unitCost: 110, cost: 110 })],
     });
-    expect(m.total).toBeCloseTo(m.subtotal + 10, 2);
+    expect(m.subtotal).toBeCloseTo(110, 2);
+    expect(m.total).toBeCloseTo(120, 2);
   });
 
   it("an in-progress tax edit moves the total but NOT the line amounts", () => {
@@ -103,7 +107,56 @@ describe("billLineMath — de-tax / re-tax round trip", () => {
     const before = billLineMath({ ...base, storedTax: 10, lines });
     const after = billLineMath({ ...base, storedTax: 10, taxView: 25, lines });
     expect(after.targets[0].preTaxUnit).toBeCloseTo(before.targets[0].preTaxUnit, 6);
-    expect(after.total).not.toBeCloseTo(before.total, 2);
+    expect(after.total).toBeCloseTo(before.total + 15, 2);
+  });
+
+  it("writes back exactly what the office typed — no gross-up", () => {
+    const m = billLineMath({
+      ...base,
+      storedTax: 10,
+      lines: [line({ quantity: 1, unitCost: 110, cost: 110 })],
+      edits: { l1: { unitCost: "95" } },
+    });
+    expect(m.wholeBillChanges[0].unitCost).toBe(95);
+  });
+});
+
+describe("billLineMath — a legacy bill still carrying nonRecoverableTax", () => {
+  it("de-taxes its tax-inclusive line costs for display", () => {
+    // Stored cost 110 of which the document field says 10 is tax → shows 100.
+    const m = billLineMath({
+      ...base,
+      storedTax: 10,
+      legacyTaxField: 10,
+      lines: [line({ quantity: 1, unitCost: 110, cost: 110 })],
+    });
+    expect(m.targets[0].preTaxUnit).toBeCloseTo(100, 6);
+    expect(m.subtotal).toBeCloseTo(100, 2);
+    expect(m.total).toBeCloseTo(110, 2);
+  });
+
+  it("is clean when untouched, so opening one does not look dirty", () => {
+    const m = billLineMath({
+      ...base,
+      storedTax: 10,
+      legacyTaxField: 10,
+      lines: [line({ quantity: 1, unitCost: 110, cost: 110 })],
+    });
+    expect(m.dirty).toBe(false);
+    expect(m.pendingCount).toBe(0);
+  });
+
+  it("saves the DE-TAXED value, which is the migration: 110 stored becomes 100", () => {
+    // The save that moves this bill onto the current model. The tax it used to
+    // carry in the field is written as an 88 80 00 line by /api/bill-tax in the
+    // same save, so the bill total is unchanged: 100 + 10 instead of 110 + 0.
+    const m = billLineMath({
+      ...base,
+      storedTax: 10,
+      legacyTaxField: 10,
+      lines: [line({ quantity: 1, unitCost: 110, cost: 110 })],
+    });
+    expect(m.wholeBillChanges[0].unitCost).toBeCloseTo(100, 2);
   });
 });
 

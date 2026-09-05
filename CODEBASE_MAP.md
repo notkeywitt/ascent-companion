@@ -47,6 +47,7 @@ matching row here.
 | **Verified JobTread reads/writes** (not the generic gateway) | `src/lib/jobtread.ts` |
 | **Billing period / bill-date rules** | `src/lib/billing.ts` (keep in lockstep with appscript `Config.js`) |
 | **Bill line money math** (edit/save a bill's lines) | `src/lib/billLineMath.ts` |
+| **Sales tax on a vendor bill** (where it lives, whether it's recoverable) | `src/lib/salesTax.ts` |
 | **Unsynced coding surviving a page you left** | `src/lib/codingDraft.ts` (autosave + reconciled restore) + `src/app/api/coding-draft`; wired into `Board.tsx` (scoped per job-month) and, scoped per BILL, `DraftWorkbench.tsx` + `src/app/bill/[docId]/page.tsx` — the same scope key, so a bill started on a phone is waiting at the desk |
 | **"Where did I leave off"** | `src/app/trackingsheet/UnsyncedDrafts.tsx` — the unfinished-coding list on the Tracking Sheets landing, from `listDrafts()` (this device merged with the companion DB, so work left on another device is visible too) |
 | **Coding / Tracking Sheets workflow** | `src/app/trackingsheet/*` (Board, BillCodingCard, TimeCodingCard, ClientInvoicing, DraftQueue, DraftWorkbench,
@@ -106,7 +107,8 @@ including edge middleware.
 | `auth.ts` ⟂ | Shared-password auth helpers (Web Crypto only; works in edge + node). |
 | `billing.ts` ⟂ | Billing-period + bill-date standard, ported from appscript `Config.js`. Keep in lockstep. |
 | `arAging.ts` ⟂ | **Accounts receivable ageing** — the buckets behind `/ar-aging`. Pure arithmetic over rows the caller fetched; every money figure is JobTread's own (it derives `balance`/`amountPaid` from QuickBooks) and nothing here recomputes one. The rule worth knowing: an invoice ages from its DUE date where it has one and its ISSUE date where it does not — never whichever is later — and each row carries `basis` so the page can say which it used. An invoice with no usable date counts toward what is OUTSTANDING and never toward what is OVERDUE. |
-| `billLineMath.ts` ⟂ | Money math for editing a vendor bill's lines (JobTread's tax carve, confirmed live). |
+| `billLineMath.ts` ⟂ | Money math for editing a vendor bill's lines. Identity now; still de-taxes a pre-2026-09-05 bill. |
+| `salesTax.ts` ⟂ | Sales tax is a bill LINE coded 88 80 00, not the document tax field: the constants, the line matcher, and the job-derived recoverable/consumed split. Mirrors `CONFIG.JOBTREAD.SALES_TAX_*` in appscript `Config.js`. |
 | `billInvoiceState.ts` ⟂ | **What the edge stripe on a bill row means** — one bill's place in the monthly invoicing lifecycle (flagged / reviewed-but-draft / on an invoice / left off the month's invoice), plus the colour per state. One axis on purpose: the stripe used to mix budget headroom, coding progress and invoiced state, which made it unreadable. `missing` depends on `monthInvoiceExists`, which `jobtread.ts` derives from the whole month BEFORE already-invoiced bills are filtered out. Unit-tested. |
 | `billTouch.ts` | One-bit "a bill was written through the app" signal, shared across pages so list caches know when to refresh. |
 | `billSearch.ts` | The bill-search index engine: sweeps live JobTread vendorBills + lines, seeds pre-JobTread history from the sheets, and answers `/bill-search` queries from a local FTS5 index in under a second. Companion-owned cache, not a source of truth. |

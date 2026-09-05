@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-05T16:14:05Z",
+  "generatedAt": "2026-09-05T16:14:17Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -81,6 +81,32 @@
           "sha": "ce3dbcd",
           "subject": "companion: drop the budget rail's formula footnote",
           "files": "src/app/trackingsheet/Board.tsx"
+        }
+      ]
+    },
+    {
+      "slug": "jobtread-qbo-sales-tax",
+      "file": "2026-09-05-jobtread-qbo-sales-tax.md",
+      "branch": "claude/jobtread-qbo-sales-tax-lfqctd",
+      "status": "shipped",
+      "started": "2026-09-05T05:30:35Z",
+      "updated": "2026-09-05T15:44:42Z",
+      "goal": "",
+      "next": "Owner setup before this goes live: map cost code 88 80 00 to a QuickBooks item (its qboId is null), add the 88 80 00 leaf to every job budget, turn Record Tax off on the Vendor Bill template. Then merge both branches and deploy (appscript needs clasp push).",
+      "commits": [
+        {
+          "date": "2026-09-05",
+          "time": "05:31",
+          "sha": "c5ffbe3",
+          "subject": "companion: sales tax is an 88 80 00 bill line, not the document tax field",
+          "files": "CODEBASE_MAP.md, src/app/api/add-bill/route.ts, src/app/api/amazon-import/route.ts, src/app/api/bill-tax/route.ts, src/app/api/bill/route.ts, src/app/api/trackingsheet/route.ts, +22 more"
+        },
+        {
+          "date": "2026-09-05",
+          "time": "05:31",
+          "sha": "6d1914d",
+          "subject": "log session 2026-09-05-jobtread-qbo-sales-tax",
+          "files": ""
         }
       ]
     },

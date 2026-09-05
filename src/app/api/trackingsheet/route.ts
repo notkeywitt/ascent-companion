@@ -8,6 +8,7 @@ import {
   getJobBudget,
   getJobCostDetail,
   getJobHeaderInfo,
+  getJobPhaseMap,
   getJobTimeEntriesForMonth,
 } from "@/lib/jobtread";
 import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
@@ -117,7 +118,15 @@ export async function GET(req: NextRequest) {
     }
 
     return NextResponse.json({
-      job: { id: jobId, name: header.name, address: header.address, customer: header.customer },
+      // `phase` rides along because it is what says whether sales tax on this
+      // job's bills is recoverable (src/lib/salesTax.ts). One cached org read.
+      job: {
+        id: jobId,
+        name: header.name,
+        address: header.address,
+        customer: header.customer,
+        phase: (await getJobPhaseMap(cfg).catch(() => ({}) as Record<string, string>))[jobId] ?? "",
+      },
       bills: bills.map((b) => ({
         ...b,
         saved: flags.get(b.id)?.saved ?? false,
