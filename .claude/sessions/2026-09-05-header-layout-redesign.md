@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/header-layout-redesign-xid33s
 status: in-progress
 started: 2026-09-05T06:17:43Z
-updated: 2026-09-05T18:07:17Z
+updated: 2026-09-05T19:56:08Z
 goal: 
 next: rearrange the tracking-sheet action buttons for mobile and desktop — they read as scattered right now
 ---
@@ -37,6 +37,8 @@ next: rearrange the tracking-sheet action buttons for mobile and desktop — the
 - 2026-09-05 17:06 · `6ea671a` companion: rank budget headroom by dollars, not percent of budget
   src/app/trackingsheet/Board.tsx
 - 2026-09-05 18:07 · `0b53e0e` companion: fold and flip the phone's budget headroom row
+  src/app/trackingsheet/Board.tsx
+- 2026-09-05 19:56 · `e6a7e55` companion: on a phone, lead with the month's figure and fold the budget under it
   src/app/trackingsheet/Board.tsx
 
 ## Notes

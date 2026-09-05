@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-05T18:07:17Z",
+  "generatedAt": "2026-09-05T19:56:08Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,7 +8,7 @@
       "branch": "claude/header-layout-redesign-xid33s",
       "status": "in-progress",
       "started": "2026-09-05T06:17:43Z",
-      "updated": "2026-09-05T18:07:17Z",
+      "updated": "2026-09-05T19:56:08Z",
       "goal": "",
       "next": "rearrange the tracking-sheet action buttons for mobile and desktop — they read as scattered right now",
       "commits": [
@@ -108,6 +108,13 @@
           "time": "18:07",
           "sha": "0b53e0e",
           "subject": "companion: fold and flip the phone's budget headroom row",
+          "files": "src/app/trackingsheet/Board.tsx"
+        },
+        {
+          "date": "2026-09-05",
+          "time": "19:56",
+          "sha": "e6a7e55",
+          "subject": "companion: on a phone, lead with the month's figure and fold the budget under it",
           "files": "src/app/trackingsheet/Board.tsx"
         }
       ]
