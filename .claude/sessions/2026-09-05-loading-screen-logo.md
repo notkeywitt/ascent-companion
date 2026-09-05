@@ -2,9 +2,9 @@
 slug: loading-screen-logo
 repo: ascent-companion
 branch: claude/loading-screen-logo-s537f1
-status: in-progress
+status: shipped
 started: 2026-09-05T06:17:44Z
-updated: 2026-09-05T06:20:15Z
+updated: 2026-09-05T06:20:24Z
 goal: 
 next: watch the loading screen on a real phone; if the 500ms app-open hold reads long, drop HOLD_MS in src/components/SplashScreen.tsx
 ---
