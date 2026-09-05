@@ -578,8 +578,7 @@ export function Board() {
   // header to open it. The desktop sidebar ignores this (it's always docked,
   // via the `lg:` overrides), so defaulting to collapsed is a mobile-only cost.
   const [railCollapsed, setRailCollapsed] = useState(true);
-  /** The phone's headroom row: folded away, and which end of the list leads. */
-  const [headroomOpen, setHeadroomOpen] = useState(true);
+  /** Which end of the phone's headroom cards leads. They fold with the rail. */
   const [headroomMostLeft, setHeadroomMostLeft] = useState(false);
   // The "Time & labor" block in the bills list starts collapsed to a single
   // summary row — expand it to see each entry, same collapse-by-default
@@ -2799,10 +2798,41 @@ export function Board() {
         }
       />
 
+      {/* The month's headline figure — the one number worth reading from arm's
+          length, so on a phone it comes FIRST, directly under the address, with
+          the budget folded in under it. From lg up it heads the bills column
+          instead, where the eye already starts. It renders on each side of that
+          breakpoint because CSS can hide a box but cannot move one between two
+          parents; it is a pure read of `recon`, so two mounts cost nothing.
+
+          No accent rule over it — the page header's own brand hairline is a few
+          lines up, and a second one read as a stray divider between the two. The
+          `sub` line carries the split that matters at invoicing time: JobTread
+          won't pull a draft onto an invoice, so the figure is what the month
+          WILL bill and the approved half is what it can bill today. */}
+      <StatementBlock
+        rule={false}
+        className="mb-4 lg:hidden"
+        label={c("recode.statement.toBeInvoiced")}
+        value={recon ? money(recon.remaining + recon.draftBillsCost) : "—"}
+        sub={
+          recon
+            ? `${money(recon.remaining)} approved${
+                recon.draftBillCount > 0
+                  ? ` · ${money(recon.draftBillsCost)} in ${recon.draftBillCount} draft${
+                      recon.draftBillCount === 1 ? "" : "s"
+                    }`
+                  : ""
+              }`
+            : "checking JobTread…"
+        }
+      />
+
       {/* This job's ingested bills that never reached JobTread — the green
           "all in JobTread" all-clear, or the amber "Not in JobTread" queue.
-          Placed directly beneath the title: it's the first thing to know about
-          the job before reading any of its numbers. They're absent from every
+          Under the month's figure, which is the one thing asked to come first;
+          this is the next, because the figure is only true if nothing is
+          stranded outside JobTread. They're absent from every
           figure on this page (budget rail, "to be invoiced", coding queue)
           because none of it is in JobTread yet. Scoped to this job; the all-jobs
           view lists the rest. Renders nothing when the queue is empty. */}
@@ -2943,24 +2973,37 @@ export function Board() {
               }`}
             >
               {/* On mobile the label itself is the toggle for the whole rail;
-                  on desktop the rail is always docked, so the tap is disabled
-                  and the chevron hidden. */}
+                  on desktop the rail is always docked, so the tap is disabled.
+                  The mark is the ochre dash every other SectionHeading on the
+                  page carries, not a rotating chevron — one heading style for
+                  the whole page. What the fold is doing is then said by whether
+                  the cards below are there, which on a phone is the whole
+                  screen. */}
               <button
                 type="button"
                 onClick={() => setRailCollapsed((v) => !v)}
                 aria-expanded={!railCollapsed}
-                className="-ml-1 -my-2 flex min-h-11 min-w-0 items-center gap-1.5 px-1 text-left lg:pointer-events-none lg:my-0 lg:ml-0 lg:min-h-0 lg:px-0"
+                className="-ml-1 -my-2 flex min-h-11 min-w-0 items-center gap-2.5 px-1 text-left lg:pointer-events-none lg:my-0 lg:ml-0 lg:min-h-0 lg:px-0"
               >
-                <span
-                  aria-hidden
-                  className={`shrink-0 text-[9px] text-neutral-500 transition-transform dark:text-neutral-400 lg:hidden ${
-                    railCollapsed ? "" : "rotate-90"
-                  }`}
-                >
-                  ▶
-                </span>
+                <span aria-hidden className="h-0.5 w-5 shrink-0 rounded-full bg-accent" />
                 <SectionLabel>Budget</SectionLabel>
               </button>
+              <span className="-my-2 flex shrink-0 items-center gap-3 lg:my-0">
+                {/* Which end of the headroom cards leads. Mobile only — the
+                    cards themselves are, and on desktop the full rail below
+                    answers the same question in order. */}
+                {tightestCodes.length > 0 && !railCollapsed && (
+                  <button
+                    type="button"
+                    onClick={() => setHeadroomMostLeft((v) => !v)}
+                    className="inline-flex min-h-11 items-center gap-1 text-[11px] text-neutral-500 transition hover:text-accent dark:text-neutral-400 lg:hidden"
+                  >
+                    {headroomMostLeft ? "most left first" : "least left first"}
+                    <span aria-hidden className="text-[9px]">
+                      ⇅
+                    </span>
+                  </button>
+                )}
               <button
                 type="button"
                 onClick={() =>
@@ -2968,13 +3011,54 @@ export function Board() {
                     prev.size > 0 ? new Set() : new Set(railGroups.map((g) => g.code)),
                   )
                 }
-                className={`-mr-1 -my-2 inline-flex min-h-11 shrink-0 items-center px-1 text-[11px] text-neutral-500 transition hover:text-accent dark:text-neutral-400 lg:my-0 lg:mr-0 lg:min-h-0 lg:px-0 ${
+                className={`-mr-1 inline-flex min-h-11 shrink-0 items-center px-1 text-[11px] text-neutral-500 transition hover:text-accent dark:text-neutral-400 lg:mr-0 lg:min-h-0 lg:px-0 ${
                   railCollapsed ? "hidden lg:inline-flex" : ""
                 }`}
               >
                 {collapsedDivs.size > 0 ? "Expand all" : "Collapse all"}
               </button>
+              </span>
             </div>
+            {/* Budget headroom, INSIDE the budget fold — same tap, one
+                heading. The desktop rail is a docked column; below lg it is
+                folded behind that tap, and these cards are what the budget
+                looks like on the device the month is actually reviewed on.
+                Swipeable; tapping a card opens the same drill-down the rail's
+                rows do. Which end leads is the flip beside the heading. */}
+            {tightestCodes.length > 0 && !railCollapsed && (
+              <div className="mb-2 lg:hidden">
+                <ChipScroller bleed="1rem">
+                  {tightestCodes.map((h) => {
+                    const left = remainingOf(h);
+                    const pct = Math.round((left / h.budget) * 100);
+                    return (
+                      <button
+                        key={h.code}
+                        type="button"
+                        onClick={() => openCodeDrill(h.code)}
+                        className="w-[170px] shrink-0 rounded-xl border border-line bg-white p-2.5 text-left transition hover:border-accent dark:bg-ink-raised"
+                      >
+                        <div className="text-[11px] tabular-nums text-neutral-500 dark:text-neutral-400">
+                          {h.code}
+                        </div>
+                        <div className="truncate text-[12.5px] font-semibold">{h.name}</div>
+                        <div
+                          className={`mt-0.5 text-[15px] font-bold tabular-nums tracking-tight ${
+                            left < 0 ? "text-red-600 dark:text-red-400" : ""
+                          }`}
+                        >
+                          {money0(left)}
+                        </div>
+                        <Meter budget={h.budget} used={usedOf(h)} label={h.code} className="mt-1.5 h-1" />
+                        <div className="mt-1 text-[10.5px] text-neutral-500 dark:text-neutral-400">
+                          {left < 0 ? `over by ${-pct}%` : `${pct}% of budget left`}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </ChipScroller>
+              </div>
+            )}
             <Card
               pad={false}
               className={`overflow-hidden ${railCollapsed ? "hidden lg:block" : ""}`}
@@ -3147,17 +3231,11 @@ export function Board() {
 
           {/* ─────────── CENTRE: the month's bills ─────────── */}
           <section className="min-w-0">
-            {/* The month's headline figure. It's what the whole page is working
-                toward, and on a phone it's the one number worth reading from
-                arm's length. No accent rule over it — the page header's own
-                brand hairline is a few lines up, and a second one read as a
-                stray divider between the two. The `sub` line carries the split
-                that matters at invoicing time: JobTread won't pull a draft onto
-                an invoice, so the figure is what the month WILL bill and the
-                approved half is what it can bill today. */}
+            {/* The desktop copy of the headline figure — see the mobile one
+                under the page header for why there are two. */}
             <StatementBlock
               rule={false}
-              className="mb-4"
+              className="mb-4 hidden lg:block"
               label={c("recode.statement.toBeInvoiced")}
               value={recon ? money(recon.remaining + recon.draftBillsCost) : "—"}
               sub={
@@ -3173,70 +3251,6 @@ export function Board() {
               }
             />
 
-            {/* Budget headroom on the phone — the desktop rail is a docked
-                column, which below lg is collapsed behind a tap, so this is
-                where the budget becomes visible on the device the month is
-                actually reviewed on. Swipeable; tapping a card opens the same
-                drill-down the rail's rows do. The heading folds the row away,
-                and the caption beside it flips which end of the list leads:
-                what am I running out of, or where do I still have room. */}
-            {tightestCodes.length > 0 && (
-              <div className={`lg:hidden ${headroomOpen ? "mb-4" : "mb-2"}`}>
-                <SectionHeading
-                  className="mb-2"
-                  onToggle={() => setHeadroomOpen((v) => !v)}
-                  open={headroomOpen}
-                  trailing={
-                    /* `-my-2` again: a 44px target that doesn't make this
-                       heading taller than the others on the page. */
-                    <button
-                      type="button"
-                      onClick={() => setHeadroomMostLeft((v) => !v)}
-                      className="-my-2 inline-flex min-h-11 items-center gap-1 py-2 text-[11px] text-neutral-500 transition hover:text-accent dark:text-neutral-400"
-                    >
-                      {headroomMostLeft ? "most left first" : "least left first"}
-                      <span aria-hidden className="text-[9px]">
-                        ⇅
-                      </span>
-                    </button>
-                  }
-                >
-                  Budget headroom
-                </SectionHeading>
-                {headroomOpen && (
-                  <ChipScroller bleed="1rem">
-                    {tightestCodes.map((h) => {
-                      const left = remainingOf(h);
-                      const pct = Math.round((left / h.budget) * 100);
-                      return (
-                        <button
-                          key={h.code}
-                          type="button"
-                          onClick={() => openCodeDrill(h.code)}
-                          className="w-[170px] shrink-0 rounded-xl border border-line bg-white p-2.5 text-left transition hover:border-accent dark:bg-ink-raised"
-                        >
-                          <div className="text-[11px] tabular-nums text-neutral-500 dark:text-neutral-400">
-                            {h.code}
-                          </div>
-                          <div className="truncate text-[12.5px] font-semibold">{h.name}</div>
-                          <div
-                            className={`mt-0.5 text-[15px] font-bold tabular-nums tracking-tight ${
-                              left < 0 ? "text-red-600 dark:text-red-400" : ""
-                            }`}
-                          >
-                            {money0(left)}
-                          </div>
-                          <Meter budget={h.budget} used={usedOf(h)} label={h.code} className="mt-1.5 h-1" />
-                          <div className="mt-1 text-[10.5px] text-neutral-500 dark:text-neutral-400">
-                            {left < 0 ? `over by ${-pct}%` : `${pct}% of budget left`}
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </ChipScroller>
-                )}
-              </div>
-            )}
 
             <SectionHeading
               // Wraps, because the label and a three-way switch do not fit on
