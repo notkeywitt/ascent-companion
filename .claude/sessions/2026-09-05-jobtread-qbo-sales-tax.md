@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/jobtread-qbo-sales-tax-lfqctd
 status: in-progress
 started: 2026-09-05T05:30:35Z
-updated: 2026-09-05T05:31:54Z
+updated: 2026-09-05T05:31:55Z
 goal: 
 next: Owner setup before this goes live: map cost code 88 80 00 to a QuickBooks item (its qboId is null), add the 88 80 00 leaf to every job budget, turn Record Tax off on the Vendor Bill template. Then merge both branches and deploy (appscript needs clasp push).
 ---
@@ -14,6 +14,7 @@ next: Owner setup before this goes live: map cost code 88 80 00 to a QuickBooks 
 <!-- Appended by .githooks/post-commit. Do not hand-write rows here. -->
 - 2026-09-05 05:31 · `c5ffbe3` companion: sales tax is an 88 80 00 bill line, not the document tax field
   CODEBASE_MAP.md, src/app/api/add-bill/route.ts, src/app/api/amazon-import/route.ts, src/app/api/bill-tax/route.ts, src/app/api/bill/route.ts, src/app/api/trackingsheet/route.ts, +22 more
+- 2026-09-05 05:31 · `6d1914d` log session 2026-09-05-jobtread-qbo-sales-tax
 
 ## Notes
 - 2026-09-05 05:30 — Companion half of the sales-tax move. src/lib/salesTax.ts is the single definition: the 88 80 00 constants, the line matcher, splitSalesTax, and the job-Phase-derived recoverable/consumed flag. createVendorBill appends the tax line and pins nonRecoverableTax to 0; setBillTax now creates/updates/deletes that LINE and clears any legacy field.
