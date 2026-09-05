@@ -16,9 +16,8 @@ interface FeatureRequest {
 
 const STATUS = ["open", "planned", "done", "declined"];
 const statusClass: Record<string, string> = {
-  // "open" = needs attention → filled theme accent (ochre in light, olive in
-  // dark); "planned" is the same accent tinted. The rest keep distinct
-  // semantic hues.
+  // "open" = needs attention → filled brand ochre in both themes; "planned"
+  // is the same accent tinted. The rest keep distinct semantic hues.
   open: "text-accent-fg bg-accent",
   planned: "text-accent bg-accent/10",
   done: "text-green-700 bg-green-100 dark:text-green-300 dark:bg-green-950/50",

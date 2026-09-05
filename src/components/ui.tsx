@@ -4,9 +4,10 @@
  * Every page previously hand-rolled its buttons, inputs, cards, banners, and
  * empty states, so paddings/radii/colors drifted page by page. These primitives
  * pin the brand look (Brand Guidelines, May 2024) and the dark-mode surface
- * scale (cards sit LIGHTER than the page — bg-ink-raised). Each theme uses one
- * brand pairing — light = cream + ochre, dark = off-black + olive green — which
- * the theme-variable `accent` / `brand` colors resolve; see globals.css.
+ * scale (cards sit LIGHTER than the page — bg-ink-raised). OCHRE is the accent
+ * in both themes and the theme swaps the ground under it — cream in light,
+ * off-black in dark — which the theme-variable `accent` / `brand` colors
+ * resolve; see globals.css. Olive is the supporting graphic band (`brand`).
  *
  * Class-string helpers (`btn`, `inputCls`) are exported for the cases where a
  * component wrapper is awkward (e.g. a Next <Link> styled as a button).
@@ -608,7 +609,7 @@ export function FilterChip({
 /**
  * Budget-usage meter — amber past 90%, red past 100%.
  *
- * The dark track is `white/10`, NOT `neutral-800`: neutral-800 (#262626) sits
+ * The dark track is `white/10`, NOT `neutral-800`: neutral-800 (#282620) sits
  * within a couple of points of the raised card it's drawn on (#23231E), so the
  * unfilled part of every bar was invisible and a bar at 30% read as one at 100%.
  */

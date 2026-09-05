@@ -77,7 +77,7 @@ async function UnbilledData({ jobId }: { jobId: string }) {
   return (
     <>
       <div className="mb-5 overflow-hidden rounded-2xl border border-accent/30 bg-accent/5">
-        {/* Brand marquee rule (ochre in light, olive in dark) framing the headline number. */}
+        {/* Brand marquee rule — a graphic band, so it's ochre in light and olive in dark. */}
         <div className="h-1 bg-brand" />
         <div className="p-4">
           <div className="text-[11px] font-semibold uppercase tracking-wide text-accent dark:text-accent-soft">

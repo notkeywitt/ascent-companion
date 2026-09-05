@@ -4,10 +4,11 @@
  *
  * The mountain icon is drawn inline as SVG so it stays crisp at any size (the
  * guide allows the icon down to 20px) and reads correctly in both themes. The
- * square follows the theme's brand hue — OCHRE in light, brand OLIVE in dark —
- * so each theme stays on one pairing (page 17's olive-backed icon is the dark
- * variant), with the peak always knocked out in cream. The wordmark is
- * off-black on light / cream on dark (both AA-safe per the type-pairing page).
+ * square follows the theme's brand hue — OCHRE in light, brand OLIVE in dark.
+ * It stays olive in dark even though the interactive accent there is now ochre:
+ * page 17 sanctions the olive square with a cream peak, and it keeps olive in
+ * the frame as the usage ratios on p.14 intend. The wordmark is off-black on
+ * light / cream on dark (both AA-safe per the type-pairing page).
  *
  * `tone="white"` is the single-color REVERSED lockup: white square, peak
  * knocked out in black, white wordmark. It is for a black ground only — the

@@ -3,18 +3,31 @@
 @tailwind utilities;
 
 /* --- Theme tokens --------------------------------------------------------
-   Each theme uses ONE brand pairing, not both:
-     light = cream + ochre        dark = off-black + olive green
+   ONE accent hue across both themes — OCHRE. The theme swaps the GROUND under
+   it, not the color of the thing you click:
+     light = ochre on cream        dark = ochre on off-black
    Tailwind's `accent` / `brand` colors read these vars (see tailwind.config.ts),
    so every existing bg-accent / border-accent flips with the theme without
    touching the component that uses it.
+
+   Why ochre in dark, when this used to be olive: the guide's type-pairing page
+   (p.15) lists "Ochre on Black" as a PASSING pairing — it measures 6.70:1, so
+   ochre carries small text on off-black, which it cannot do on cream. The old
+   dark accent was olive LIFTED to #9A9260 to reach 5.5:1, and lifting olive is
+   what drained it toward grey-green. Ochre needs no lift, so dark mode gets the
+   real brand color at its real value.
+
+   OLIVE keeps its own job in dark: the supporting GRAPHIC band. At 4.31:1 on
+   off-black it passes for graphics and large text but NOT small text, which is
+   exactly the narrow role the usage ratios on p.14 give it. It stays `--brand`
+   here — the logo square, the peak mark, the meter fill — and never becomes
+   body copy.
 
    LIGHT theme is strictly white / black / cream / ochre — no brown. Because
    pure ochre is only ~2.4:1 on cream, it can never carry small text, so the
    roles split by USE, not by one interactive color:
      • FILLS / borders / rings / tints → ochre  (`accent`, black text via `-fg`)
      • interactive TEXT (`text-accent`) → BLACK  (see the light override below)
-   DARK theme keeps olive as a single interactive color (it passes AA as text).
 
    `accent`  = the fill / border / ring / tint color for the active theme.
    `brand`   = the pure brand hue, for GRAPHICS ONLY (hairlines, the peak mark,
@@ -46,18 +59,25 @@
 }
 .dark {
   color-scheme: dark;
-  --accent: 154 146 96; /* #9A9260 lifted olive — 5.5:1 on off-black */
-  --accent-hover: 178 170 118; /* #B2AA76 */
-  --accent-soft: 207 200 166; /* #CFC8A6 */
-  --accent-fg: 27 27 23; /* off-black on a filled olive */
-  --brand: 135 128 84; /* #878054 brand olive — graphics only */
+  --accent: 207 152 3; /* #CF9803 BRAND ochre — 6.70:1 on off-black, so unlike
+                          light this one value is both the fill and the text */
+  --accent-hover: 229 172 23; /* #E5AC17 — brighter gold for fill hover */
+  --accent-soft: 232 184 74; /* #E8B84A — the lifted step for small text. Still
+                                needed: a Chip paints `bg-accent/15` under its
+                                own label, and that tint drops plain ochre to
+                                5.24:1 where this holds 7.33:1. */
+  --accent-fg: 27 27 23; /* off-black on a filled ochre — "Black on Ochre",
+                            p.15, 6.70:1 */
+  --brand: 135 128 84; /* #878054 brand olive — graphics only, 4.31:1 */
 
   /* Dark hairlines sit LIGHTER than the raised card (#23231E) they edge, the
      same direction the surface scale runs. `line-soft` is the in-card row
-     divider — barely there, so a long list doesn't turn into a ladder. */
-  --line: 51 51 43; /* #33332B */
-  --line-soft: 42 42 36; /* #2A2A24 */
-  --line-strong: 69 69 58; /* #45453A */
+     divider — barely there, so a long list doesn't turn into a ladder. Warmed
+     off the old values, which were near-neutral and read as a grey stroke
+     across an otherwise warm surface. */
+  --line: 56 53 42; /* #38352A */
+  --line-soft: 43 41 33; /* #2B2921 */
+  --line-strong: 74 70 55; /* #4A4637 */
 }
 
 /* --- Categorical data-viz palette ---------------------------------------
