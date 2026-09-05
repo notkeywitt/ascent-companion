@@ -3136,11 +3136,11 @@ export function Board() {
             {/* The month's headline figure. It's what the whole page is working
                 toward, and on a phone it's the one number worth reading from
                 arm's length. No accent rule over it — the page header's own
-                brand hairline is a few lines up, and a second one here read as
-                a stray divider between the two. The footnote carries the
-                distinction that matters at invoicing time: JobTread won't pull a
-                draft onto an invoice, so the figure above is what the month WILL
-                bill and the footnote is what it can bill today. */}
+                brand hairline is a few lines up, and a second one read as a
+                stray divider between the two. The `sub` line carries the split
+                that matters at invoicing time: JobTread won't pull a draft onto
+                an invoice, so the figure is what the month WILL bill and the
+                approved half is what it can bill today. */}
             <StatementBlock
               rule={false}
               className="mb-4"
@@ -3156,16 +3156,6 @@ export function Board() {
                         : ""
                     }`
                   : "checking JobTread…"
-              }
-              footnote={
-                recon
-                  ? `${money(recon.uninvoicedBillsCost)} uninvoiced bills + ${money(
-                      recon.uninvoicedTimeCost,
-                    )} uninvoiced time.` +
-                    (recon.draftBillCount > 0
-                      ? " Drafts join the invoiceable total once approved in JobTread."
-                      : "")
-                  : undefined
               }
             />
 

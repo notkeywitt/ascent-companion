@@ -153,19 +153,6 @@ function Home() {
         </div>
       ) : (
         <div className="space-y-6">
-          {access.role === "admin" && (
-            // The one control that opens Edit mode. Admin-only: only admin sees
-            // this launcher, and only admin can write the layout.
-            <div className="flex justify-end">
-              <button
-                type="button"
-                onClick={() => setEditing(true)}
-                className="text-[11px] font-semibold text-accent hover:underline dark:text-accent-soft"
-              >
-                Edit home page
-              </button>
-            </div>
-          )}
           {areas.map((area) => {
             const buttons = area.items.filter((it) => it.kind === "button");
             const links = area.items.filter((it) => it.kind !== "button");
@@ -242,6 +229,21 @@ function Home() {
               </section>
             );
           })}
+          {access.role === "admin" && (
+            // The one control that opens Edit mode. Admin-only: only admin sees
+            // this launcher, and only admin can write the layout. It sits UNDER
+            // the menus it rearranges — above them it was the first thing on the
+            // page for the one person who almost never wants it.
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => setEditing(true)}
+                className="text-[11px] font-semibold text-accent hover:underline dark:text-accent-soft"
+              >
+                Edit home page
+              </button>
+            </div>
+          )}
         </div>
       )}
 
