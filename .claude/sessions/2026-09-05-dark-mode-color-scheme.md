@@ -2,9 +2,9 @@
 slug: dark-mode-color-scheme
 repo: ascent-companion
 branch: claude/dark-mode-color-scheme-31ail8
-status: in-progress
+status: shipped
 started: 2026-09-05T18:18:55Z
-updated: 2026-09-05T18:25:34Z
+updated: 2026-09-05T18:26:01Z
 goal: Rebuild dark mode from the Ascent Brand Guidelines: replace the lifted-olive accent with brand ochre, and Tailwind's pure-grey neutrals with a luminance-matched warm ramp
 next: Owner review of the ochre dark mode on device; if approved ship with: git push origin claude/dark-mode-color-scheme-31ail8:main
 ---
