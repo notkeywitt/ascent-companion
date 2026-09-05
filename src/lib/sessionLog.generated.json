@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-05T18:26:01Z",
+  "generatedAt": "2026-09-05T18:35:44Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,7 +8,7 @@
       "branch": "claude/dark-mode-color-scheme-31ail8",
       "status": "shipped",
       "started": "2026-09-05T18:18:55Z",
-      "updated": "2026-09-05T18:26:01Z",
+      "updated": "2026-09-05T18:35:44Z",
       "goal": "Rebuild dark mode from the Ascent Brand Guidelines: replace the lifted-olive accent with brand ochre, and Tailwind's pure-grey neutrals with a luminance-matched warm ramp",
       "next": "Owner review of the ochre dark mode on device; if approved ship with: git push origin claude/dark-mode-color-scheme-31ail8:main",
       "commits": [
@@ -32,6 +32,13 @@
           "sha": "27a1b45",
           "subject": "companion: fix light mode's cream-on-ochre knockout",
           "files": "src/app/globals.css, src/components/AscentLogo.tsx"
+        },
+        {
+          "date": "2026-09-05",
+          "time": "18:35",
+          "sha": "aa9d04b",
+          "subject": "companion: make the brand mark ochre in dark too",
+          "files": "CLAUDE.md, src/app/globals.css, src/app/unbilled/page.tsx, src/components/AscentLogo.tsx, src/components/PageTitle.tsx"
         }
       ]
     },
