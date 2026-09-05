@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { Button } from "@/components/ui";
 
 type State = "idle" | "busy" | "done" | "error";
 
@@ -10,9 +11,13 @@ type State = "idle" | "busy" | "done" | "error";
  * The button confirms the queue, not the sync result; results land in the
  * script's Audit Log under "Full JT Sync".
  *
- * It sits beside Approve Draft Bills at the foot of Tracking Sheets, not in the
- * header: kicking the mirror is something you do after settling a job's month,
- * next to the action that settles it.
+ * It sits with the other closing actions at the foot of Tracking Sheets, not in
+ * the header: kicking the mirror is something you do after settling a job's
+ * month, next to the actions that settle it. "Sync Drive" is the label, because
+ * the row also carries "Sync to Tracking Sheet" — one pushes THIS job's month
+ * into its Google sheet, this one pulls all of JobTread into the Sheets and
+ * Drive tree. Same shape as its neighbours; the RESULT is the only thing it
+ * says in a color.
  *
  * A full sync takes ~15 min and holds the script's shared sync lock throughout,
  * so a click landing in that window CANNOT start a run. Apps Script reports that
@@ -64,28 +69,30 @@ export function SyncNowButton({ className = "" }: { className?: string }) {
         ? doneLabel
         : state === "error"
           ? "Failed ✕"
-          : "Sync";
+          : "Sync Drive";
+
+  // The finished states repaint the LABEL only — the button keeps its neighbours'
+  // shape either way, so a row of actions doesn't change size when one reports.
+  const tone =
+    state === "error"
+      ? " !text-red-600 dark:!text-red-400"
+      : state === "done"
+        ? mode === "queued"
+          ? " !text-green-700 dark:!text-green-400"
+          : " !text-amber-600 dark:!text-amber-400" // nothing started — not success
+        : "";
 
   return (
-    <button
+    <Button
+      variant="secondary"
       onClick={fire}
       disabled={state === "busy"}
       title={detail || "Sync Sheets + Drive with JobTread now"}
-      aria-label="Sync with JobTread now"
       className={
-        "shrink-0 whitespace-nowrap rounded-md px-2 py-1 text-sm font-semibold transition " +
-        (state === "error"
-          ? "text-red-600 dark:text-red-400"
-          : state === "done"
-            ? mode === "queued"
-              ? "text-green-700 dark:text-green-400"
-              : "text-amber-600 dark:text-amber-400" // nothing was started — don't read as success
-            : "text-neutral-500 hover:text-accent") +
-        (state === "busy" ? " animate-pulse cursor-wait" : "") +
-        (className ? " " + className : "")
+        className + tone + (state === "busy" ? " animate-pulse cursor-wait" : "")
       }
     >
-      ⟳ <span>{label}</span>
-    </button>
+      {label}
+    </Button>
   );
 }

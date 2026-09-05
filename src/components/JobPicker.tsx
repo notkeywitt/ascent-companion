@@ -255,7 +255,10 @@ export function JobPicker({
   return (
     <div
       ref={ref}
-      className="relative min-w-0 flex-1"
+      // A title is stacked in a column with whatever line sits under it (the
+      // job's address), so it takes the column's width rather than growing
+      // along a row — `flex-1` there would size it against the wrong axis.
+      className={`relative min-w-0 ${variant === "title" ? "w-full" : "flex-1"}`}
       onKeyDown={(e) => {
         if (e.key === "Escape") setOpen(false);
       }}

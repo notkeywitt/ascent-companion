@@ -77,16 +77,18 @@ export function AllJobs() {
     <main className="mx-auto max-w-2xl px-4 pb-24 pt-6 xl:max-w-[110rem]">
       <PageHeader
         titleSlot={
-          <JobPicker
-            variant="title"
-            value=""
-            onChange={onPickJob}
-            placeholder={c("page.recode.title")}
-            allLabel="All jobs"
-            allDescription="Every job's month, side by side"
-            showPhaseFilter
-            showToBeInvoiced={can("recode")}
-          />
+          <div className="flex min-w-0 flex-1 flex-col">
+            <JobPicker
+              variant="title"
+              value=""
+              onChange={onPickJob}
+              placeholder={c("page.recode.title")}
+              allLabel="All jobs"
+              allDescription="Every job's month, side by side"
+              showPhaseFilter
+              showToBeInvoiced={can("recode")}
+            />
+          </div>
         }
         className="!mb-4"
       />

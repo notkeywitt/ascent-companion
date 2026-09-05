@@ -396,16 +396,21 @@ export function StatementBlock({
   value,
   sub,
   footnote,
+  rule = true,
   className = "",
 }: {
   label: React.ReactNode;
   value: React.ReactNode;
   sub?: React.ReactNode;
   footnote?: React.ReactNode;
+  /** The accent rule above the label. Drop it (`rule={false}`) where the block
+   *  already sits under a heading or a header of its own and the second line
+   *  reads as a stray divider. */
+  rule?: boolean;
   className?: string;
 }) {
   return (
-    <div className={`border-t-[3px] border-accent pt-3 ${className}`}>
+    <div className={`${rule ? "border-t-[3px] border-accent pt-3" : ""} ${className}`}>
       <SectionLabel>{label}</SectionLabel>
       <p className="mt-1 text-[32px] font-bold leading-none tracking-tight tabular-nums">{value}</p>
       {sub && <p className="mt-1.5 text-xs text-neutral-500 dark:text-neutral-400">{sub}</p>}

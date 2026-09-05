@@ -1103,6 +1103,10 @@ export function Board() {
    *  belongs to no one job, but this is where a month gets settled, so it rides
    *  the same closing row as Approve. */
   const canSync = can("sync");
+  /** Does the closing row carry the per-job Tracking Sheet push? Same condition
+   *  `trackingSheetAction` renders on — the row needs it to decide whether it
+   *  has anything to show below lg. */
+  const showTracking = canTrack && trackingChecked;
   // Mirrors approveBill() on the bill detail page: a Bill is a payable (draft →
   // pending, "approved for payment"); an Expense is already paid (draft →
   // approved, "record payment").
@@ -2582,8 +2586,7 @@ export function Board() {
    * sheet. With no sheet linked it instead links to the Tracking Sheet page to
    * connect one (the URL lives on the Projects sheet — no in-app write for it).
    * Rendered nothing until we've read whether the job has a sheet, so the label
-   * is never wrong. Shared by the desktop toolbar and the mobile action drawer,
-   * so `cls` carries the width each context wants.
+   * is never wrong. `cls` carries whatever width the row it sits in wants.
    */
   const trackingSheetAction = (cls: string) => {
     if (!canTrack || !trackingChecked) return null;
@@ -2591,7 +2594,6 @@ export function Board() {
       return (
         <Button
           variant="secondary"
-          size="sm"
           className={cls}
           disabled={syncing || trackingBusy}
           title={`Push ${monthLabel(ym)} into ${trackingTarget.label}`}
@@ -2605,7 +2607,7 @@ export function Board() {
       );
     }
     return (
-      <Link href="/tracking-sheet" className={btn("secondary", "sm", `text-center ${cls}`)}>
+      <Link href="/tracking-sheet" className={btn("secondary", "md", `text-center ${cls}`)}>
         Link Google tracking sheet
       </Link>
     );
@@ -2615,21 +2617,30 @@ export function Board() {
     <main className="mx-auto flex w-full max-w-2xl flex-col px-4 pb-[calc(6rem+env(safe-area-inset-bottom))] pt-6 lg:max-w-[110rem]">
       {/* The title IS the picker — this page's subject is one job, so the name
           of the job and the control that changes it are the same thing. The
-          address rides under it as the header's description. */}
+          address is INSIDE the title slot, not the header's `description`: the
+          toolbar wraps below the title on a phone, so a description would print
+          the address under the whole toolbar instead of under the job it
+          names. */}
       <PageHeader
         titleSlot={
-          <JobPicker
-            variant="title"
-            value={jobId}
-            onChange={onPickJob}
-            fallbackLabel={headerTitle}
-            allLabel="All jobs"
-            allDescription="Every job's month, side by side"
-            showPhaseFilter
-            showToBeInvoiced={can("recode")}
-          />
+          <div className="flex min-w-0 flex-1 flex-col">
+            <JobPicker
+              variant="title"
+              value={jobId}
+              onChange={onPickJob}
+              fallbackLabel={headerTitle}
+              allLabel="All jobs"
+              allDescription="Every job's month, side by side"
+              showPhaseFilter
+              showToBeInvoiced={can("recode")}
+            />
+            {headerAddress && (
+              <p className="mt-1 truncate text-sm text-neutral-500 dark:text-neutral-400">
+                {headerAddress}
+              </p>
+            )}
+          </div>
         }
-        description={headerAddress || undefined}
         actionsClassName="w-full min-w-0 items-center lg:w-auto"
         actions={
           // On a phone the toolbar is a stack of clearly separated groups —
@@ -2644,27 +2655,22 @@ export function Board() {
               <Label htmlFor="recode-month" className="lg:hidden">
                 Billing month
               </Label>
-              {/* The month selector and, docked to it, the per-job Tracking
-                  Sheet push: it writes the SELECTED month's sub/vendor invoices
-                  into the SELECTED job's own Google tracking sheet. It sits by
-                  the month because that is the one thing it acts on. Stacked
-                  under the selector on a phone, inline beside it from lg up. */}
-              <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
-                <Select
-                  id="recode-month"
-                  value={ym}
-                  onChange={(e) => setYm(e.target.value)}
-                  className="!h-11 lg:!h-auto lg:w-52"
-                  aria-label="Billing month"
-                >
-                  {monthOptions().map((o) => (
-                    <option key={o.value} value={o.value}>
-                      {o.label}
-                    </option>
-                  ))}
-                </Select>
-                {trackingSheetAction("!h-11 w-full shrink-0 lg:!h-auto lg:w-auto")}
-              </div>
+              {/* The per-job Tracking Sheet push used to dock here, under the
+                  month it acts on. It sits in the closing row at the foot of
+                  the page now, with the other end-of-month actions. */}
+              <Select
+                id="recode-month"
+                value={ym}
+                onChange={(e) => setYm(e.target.value)}
+                className="!h-11 lg:!h-auto lg:w-52"
+                aria-label="Billing month"
+              >
+                {monthOptions().map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </Select>
             </div>
             {/* The list always shows every bill in the month — draft,
                 uninvoiced, and invoiced, each tagged with its state — and every
@@ -3069,13 +3075,16 @@ export function Board() {
 
           {/* ─────────── CENTRE: the month's bills ─────────── */}
           <section className="min-w-0">
-            {/* The month's headline figure, over the ochre rule. It's what the
-                whole page is working toward, and on a phone it's the one number
-                worth reading from arm's length. The footnote carries the
+            {/* The month's headline figure. It's what the whole page is working
+                toward, and on a phone it's the one number worth reading from
+                arm's length. No accent rule over it — the page header's own
+                brand hairline is a few lines up, and a second one here read as
+                a stray divider between the two. The footnote carries the
                 distinction that matters at invoicing time: JobTread won't pull a
                 draft onto an invoice, so the figure above is what the month WILL
                 bill and the footnote is what it can bill today. */}
             <StatementBlock
+              rule={false}
               className="mb-4"
               label={c("recode.statement.toBeInvoiced")}
               value={recon ? money(recon.remaining + recon.draftBillsCost) : "—"}
@@ -3645,11 +3654,10 @@ export function Board() {
       )}
 
       {/* The month's closing actions, docked at the bottom of the page: sync the
-          mirror, check the job, then approve its drafts. All three are last
-          steps — you pull JobTread's latest, you check what the invoice will
-          say, and you approve the drafts once their coding is settled — so they
-          share one row after the bills rather than sitting up in the toolbar or
-          the app header. Once every bill in the month is approved the Approve
+          Drive mirror, push this job's month into its Google tracking sheet,
+          check the job, then approve its drafts. All four are last steps — so
+          they share one row after the bills rather than being scattered across
+          the toolbar and the app header, which is where they used to live. Once every bill in the month is approved the Approve
           button becomes "Create Invoice in JobTread", which opens the job's
           documents page — approving IS the last thing this page does, and the
           invoice itself is built in JobTread. `order-last` drops the block
@@ -3658,14 +3666,15 @@ export function Board() {
           show; the check itself is independent of the board's own loading,
           since it fetches on demand. The check button is lg-only — on a phone
           the action drawer carries it. Approve is dead while there's staged
-          coding to sync first; Sync is not — it drives the BACK END mirror, not
-          this page's staged edits. */}
+          coding to sync first; neither Sync is — one drives the BACK END mirror
+          and the other writes a Google sheet, and neither reads this page's
+          staged edits. */}
       {jobId && (
         <div
           className={`order-last mt-4 border-t border-line pt-4 lg:order-none ${
             // Nothing visible below lg until there's a result, an Approve
             // button or Sync — without this the phone shows a bare divider.
-            showApprove || canSync || preSend || preSendError || preSendRunning
+            showApprove || canSync || showTracking || preSend || preSendError || preSendRunning
               ? ""
               : "hidden lg:block"
           }`}
@@ -3673,8 +3682,9 @@ export function Board() {
           {(preSend || preSendError || preSendRunning) && (
             <PreSendCheck result={preSend} error={preSendError} />
           )}
-          <div className="mx-auto flex max-w-2xl items-center justify-end gap-2">
+          <div className="mx-auto flex max-w-2xl flex-wrap items-center justify-end gap-2">
             {canSync && <SyncNowButton className="min-h-11" />}
+            {trackingSheetAction("min-h-11")}
             <Button
               variant="outline"
               onClick={runPreSend}

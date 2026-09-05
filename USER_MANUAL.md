@@ -146,9 +146,10 @@ job from anywhere.
   for every page, grouped into **Financials, Tools, Safety, Utilities**. This is the
   easiest way to get around on a phone.
 
-### ⟳ Sync
+### Sync Drive
 
-At the **bottom of Tracking Sheets**, beside **Approve Draft Bills**. It pushes
+At the **bottom of Tracking Sheets**, in the closing row with **Sync to Tracking
+Sheet**, **Check this job** and **Approve Draft Bills**. It pushes
 JobTread's latest changes into the Sheets and Drive folders right now, instead of
 waiting for the hourly automatic sync. It confirms the sync was *queued*, not that it
 finished (a full sync takes ~15 minutes). If a sync is already running you'll see
@@ -593,8 +594,8 @@ end (the Google Apps Script half) keeps its own record in its own repository.
   JobTread, but time entries and records are still saved locally.
 - **Fix bills in JobTread, not the sheet.** JobTread is the source of truth. Re-coding,
   re-dating, reassigning, or deleting a bill in JobTread flows back to the Assistant and
-  Drive automatically through the hourly sync (or the **⟳ Sync** button).
-- **Sync button says "Already running":** that's fine — a full sync takes ~15 minutes and
+  Drive automatically through the hourly sync (or the **Sync Drive** button).
+- **Sync Drive says "Already running":** that's fine — a full sync takes ~15 minutes and
   only one runs at a time. Wait and check **Logs** for the result.
 - **Side panel won't sign in:** open it in a normal browser tab once (use the "Open in a
   new tab to sign in" button), then return to the panel.
