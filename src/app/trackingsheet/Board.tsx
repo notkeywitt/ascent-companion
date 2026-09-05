@@ -2858,7 +2858,17 @@ export function Board() {
               makes sticky work in a grid — items stretch to the row height by
               default, leaving nothing to scroll within. */}
           <section className="min-w-0 lg:sticky sticky-below-header lg:self-start">
-            <div className="mb-2 flex items-baseline justify-between gap-2">
+            {/* The row keeps a SectionHeading's 28px height on a phone even
+                though both taps inside it are 44px tall: `-my-2` lets each
+                button's hit area overhang the row instead of inflating it, the
+                way a 44px target normally would. Without it this heading stood
+                16px taller than every other heading on the page, and the
+                collapsed rail left another 8px of dead margin under itself. */}
+            <div
+              className={`flex items-baseline justify-between gap-2 lg:mb-2 ${
+                railCollapsed ? "mb-0" : "mb-2"
+              }`}
+            >
               {/* On mobile the label itself is the toggle for the whole rail;
                   on desktop the rail is always docked, so the tap is disabled
                   and the chevron hidden. */}
@@ -2866,7 +2876,7 @@ export function Board() {
                 type="button"
                 onClick={() => setRailCollapsed((v) => !v)}
                 aria-expanded={!railCollapsed}
-                className="-ml-1 flex min-h-11 min-w-0 items-center gap-1.5 px-1 text-left lg:pointer-events-none lg:ml-0 lg:min-h-0 lg:px-0"
+                className="-ml-1 -my-2 flex min-h-11 min-w-0 items-center gap-1.5 px-1 text-left lg:pointer-events-none lg:my-0 lg:ml-0 lg:min-h-0 lg:px-0"
               >
                 <span
                   aria-hidden
@@ -2885,7 +2895,7 @@ export function Board() {
                     prev.size > 0 ? new Set() : new Set(railGroups.map((g) => g.code)),
                   )
                 }
-                className={`-mr-1 inline-flex min-h-11 shrink-0 items-center px-1 text-[11px] text-neutral-500 transition hover:text-accent dark:text-neutral-400 lg:mr-0 lg:min-h-0 lg:px-0 ${
+                className={`-mr-1 -my-2 inline-flex min-h-11 shrink-0 items-center px-1 text-[11px] text-neutral-500 transition hover:text-accent dark:text-neutral-400 lg:my-0 lg:mr-0 lg:min-h-0 lg:px-0 ${
                   railCollapsed ? "hidden lg:inline-flex" : ""
                 }`}
               >
