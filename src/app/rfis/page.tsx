@@ -26,9 +26,9 @@ interface Vendor {
 
 const STATUS = ["open", "answered", "closed"];
 const statusClass: Record<string, string> = {
-  // "open" = needs attention → filled theme accent (ochre in light, olive in
-  // dark; `accent-fg` is the AA-safe text on it). Other states keep distinct
-  // semantic hues.
+  // "open" = needs attention → filled brand ochre in both themes (`accent-fg`
+  // is the off-black label on it, "Black on Ochre" per guide p.15). Other
+  // states keep distinct semantic hues.
   open: "text-accent-fg bg-accent",
   answered: "text-green-700 bg-green-100 dark:text-green-300 dark:bg-green-950/50",
   closed: "text-neutral-600 bg-neutral-200 dark:text-neutral-300 dark:bg-neutral-800",

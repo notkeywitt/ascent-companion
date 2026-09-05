@@ -14,8 +14,8 @@ interface LogItem {
 }
 
 // The Level column is free-form (writeAuditLog callers set it), so color by
-// keyword rather than an enum: red for errors, amber for warnings, olive for the
-// rest (INFO and friends). Status gets the same treatment so a "Failed" stands out.
+// keyword rather than an enum: red for errors, amber for warnings, warm grey for
+// the rest (INFO and friends). Status gets the same treatment so a "Failed" stands out.
 function toneClass(text: string): string {
   const t = text.toLowerCase();
   if (/error|fail|denied|unmatched|critical/.test(t))

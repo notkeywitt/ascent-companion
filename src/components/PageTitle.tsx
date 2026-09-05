@@ -1,8 +1,9 @@
 /**
  * Page heading with the Ascent "peak" mark — carries the logo motif into the
- * page bodies as a consistent brand signature. The mark is the theme's brand
- * hue (ochre in light, olive in dark); it's purely decorative (the <h1> carries
- * the name), so the low brand-on-surface contrast that fails for text is fine.
+ * page bodies as a consistent brand signature. The mark is brand ochre in both
+ * themes (guide p.17 sanctions it on cream and on off-black alike), so the
+ * signature doesn't change color when the theme flips. It's purely decorative —
+ * the <h1> carries the name.
  * Callers may override with any CSS color (EmptyState uses webgrey).
  */
 export function PeakMark({

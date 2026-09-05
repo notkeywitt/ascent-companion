@@ -76,7 +76,12 @@ export function AppHeader() {
           every page as the app's top rule. */}
       <div className="h-0.5 bg-brand" aria-hidden />
       <div className="flex items-center gap-1.5 px-2 py-2 sm:gap-2">
-        <ThemeToggle className="shrink-0 rounded-lg p-1 transition active:bg-accent/10">
+        {/* `inline-flex` on the BUTTON, not just the logo: a <button> lays its
+            child out in a line box, and an inline-level logo then sits on that
+            box's text baseline. The line-height strut adds its descender space
+            BELOW the mark, which pushed the lockup 3.5px above centre. A flex
+            container makes no line box, so the mark centres on its own height. */}
+        <ThemeToggle className="inline-flex shrink-0 items-center rounded-lg p-1 transition active:bg-accent/10">
           {/* Wordmark hidden on narrow / side-panel widths; icon always shows. */}
           <AscentLogo className="hidden sm:inline-flex" />
           <AscentLogo wordmark={false} className="sm:hidden" />

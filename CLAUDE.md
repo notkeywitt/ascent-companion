@@ -123,8 +123,23 @@ branch's record, so the next session can pick the work up cold. Read
 - **Hairlines are tokens, not Tailwind neutrals.** Use `border-line` (card edge),
   `border-line-soft` (divider between rows inside one card) and `border-line-strong`
   (form controls). They're theme variables, so they flip light/dark on their own —
-  writing `border-neutral-200 dark:border-neutral-700/60` again re-introduces the
-  cool grey the palette was swept off.
+  writing `border-neutral-200 dark:border-neutral-700/60` again spells out by hand
+  what the token already does.
+- **One brand hue, two grounds.** OCHRE is BOTH the interactive accent and the
+  graphic `brand` hue, in BOTH themes; the theme swaps the ground, not the color
+  (guide p.15 passes ochre on off-black at 6.70:1, and blocks it on cream at
+  2.41:1 — which is why light mode redirects `text-accent` to black). The logo
+  square, peak mark and marquee rules are `brand`; a filled accent takes an
+  off-black label (`accent-fg`), and so does the logo's knocked-out peak — p.17
+  pairs an ochre square with black, never cream.
+- **OLIVE is currently unpainted.** It stays in the palette as `olive`, but no
+  surface uses it: the owner asked for ochre marks in dark (2026-09-05). If a
+  future view wants olive back as a supporting band (p.14's website ratio), it
+  passes for GRAPHICS and large text only — 4.31:1 on off-black — never body copy.
+- **`neutral-*` is a warm ramp, not Tailwind's.** `tailwind.config.ts` overrides
+  every `neutral` step with a brand-warm equivalent solved to the same relative
+  luminance, so contrast is unchanged and the grey stops reading blue. Keep using
+  `text-neutral-500` / `dark:text-neutral-400` for quiet text — they're warm now.
 - **Nav:** the home launcher lists EVERY view, from `AREAS` in `src/lib/nav.ts`
   (a shared module, because the header's search reads the same list);
   `src/components/TabBar.tsx` is the

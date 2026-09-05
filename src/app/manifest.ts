@@ -7,11 +7,16 @@ export default function manifest(): MetadataRoute.Manifest {
     description: "JobTread coding, unbilled expenses, and invoice staging",
     start_url: "/",
     display: "standalone",
-    // Black is the LAUNCH screen the OS paints for the installed app, and it
-    // hands straight over to the app's own black loading screen
-    // (components/LoadingScreen) with no color change in between.
-    // `theme_color` is the browser/status-bar chrome and stays cream.
-    background_color: "#000000",
+    // The LAUNCH screen the OS paints for the installed app, before any of our
+    // HTML runs. It hands over to the app's own loading screen, which wears the
+    // theme — so the ideal value is whichever ground that screen is about to
+    // paint, and a manifest cannot carry a media query to know. Off-black by
+    // the owner's call (2026-09-05): a bright frame before a dark app is the
+    // worse of the two misses, since it flashes in the dark rather than merely
+    // reading dim in the light. A device on light gets one brief dark frame.
+    // `theme_color` stays cream for the status-bar chrome; the real per-theme
+    // status colors are the `themeColor` media queries in app/layout.tsx.
+    background_color: "#1B1B17",
     theme_color: "#FAF7EE",
     icons: [
       { src: "/icon-192.png", sizes: "192x192", type: "image/png" },

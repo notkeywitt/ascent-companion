@@ -4,15 +4,16 @@
  *
  * The mountain icon is drawn inline as SVG so it stays crisp at any size (the
  * guide allows the icon down to 20px) and reads correctly in both themes. The
- * square follows the theme's brand hue — OCHRE in light, brand OLIVE in dark —
- * so each theme stays on one pairing (page 17's olive-backed icon is the dark
- * variant), with the peak always knocked out in cream. The wordmark is
- * off-black on light / cream on dark (both AA-safe per the type-pairing page).
+ * square is brand OCHRE in both themes with the peak knocked out in off-black —
+ * p.17's ochre pairing, 6.70:1. The mark does not change color when the theme
+ * flips; only the ground behind it does. The wordmark is off-black on light /
+ * cream on dark (both AA-safe per the type-pairing page).
  *
  * `tone="white"` is the single-color REVERSED lockup: white square, peak
- * knocked out in black, white wordmark. It is for a black ground only — the
- * loading screen — and ignores the theme, because that ground is black in
- * both themes.
+ * knocked out in black, white wordmark. It ignores the theme, for use on a
+ * dark photo or a black ground. Nothing renders it today — the loading screen
+ * did, until that screen took the theme's own ground — but it is the guide's
+ * inverse lockup and is kept for the next surface that needs one.
  */
 export type LogoTone = "brand" | "white";
 
@@ -66,11 +67,12 @@ export function AscentIcon({
       ) : (
         <rect width="100" height="100" className="fill-brand" />
       )}
-      {/* Notched double-peak mountain, always knocked out in cream — never dark.
-          The mark reads as a light peak on the brand square in BOTH themes; a
-          dark knockout on ochre is off-brand (guide p.17 shows it light-out).
-          The reversed lockup inverts the pair, so the peak goes black there. */}
-      <polygon points="18,74 40,41 46,47 56,30 82,74" fill={white ? "#000000" : "#FAF7EE"} />
+      {/* Notched double-peak mountain, knocked out of the brand square. The
+          square is ochre in BOTH themes, and p.17 pairs an ochre square with an
+          OFF-BLACK peak — so the knockout is off-black in both, at 6.70:1. It
+          is never cream: cream on ochre is the 2.41:1 pairing p.16 restricts.
+          The reversed lockup is its own pair: black peak on a white square. */}
+      <polygon points="18,74 40,41 46,47 56,30 82,74" fill={white ? "#000000" : "#1B1B17"} />
     </svg>
   );
 }
