@@ -9,14 +9,14 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Branch | Last active | Commits | Next step |
 |---|---|---|---|---|
-| [header-layout-redesign](.claude/sessions/2026-09-05-header-layout-redesign.md) | `claude/header-layout-redesign-xid33s` | 28m ago | 14 | rearrange the tracking-sheet action buttons for mobile and desktop — they read … |
+| [header-layout-redesign](.claude/sessions/2026-09-05-header-layout-redesign.md) | `claude/header-layout-redesign-xid33s` | 50m ago | 14 | rearrange the tracking-sheet action buttons for mobile and desktop — they read … |
 | [timesheet-month-selection](.claude/sessions/2026-09-04-timesheet-month-selection.md) | `claude/timesheet-month-selection-2hih55` | 23h ago | 3 | none — month picker shipped; verify on the phone that the dropdown reads well n… |
 
 ## Shipped
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
-| [dark-mode-color-scheme](.claude/sessions/2026-09-05-dark-mode-color-scheme.md) | 2026-09-05 | 4 | Rebuild dark mode from the Ascent Brand Guidelines: replace the lifted-olive ac… |
+| [dark-mode-color-scheme](.claude/sessions/2026-09-05-dark-mode-color-scheme.md) | 2026-09-05 | 5 | Rebuild dark mode from the Ascent Brand Guidelines: replace the lifted-olive ac… |
 | [jobtread-qbo-sales-tax](.claude/sessions/2026-09-05-jobtread-qbo-sales-tax.md) | 2026-09-05 | 2 | — |
 | [loading-screen-logo](.claude/sessions/2026-09-05-loading-screen-logo.md) | 2026-09-05 | 3 | — |
 | [main](.claude/sessions/2026-09-03-main.md) | 2026-09-04 | 37 | — |
