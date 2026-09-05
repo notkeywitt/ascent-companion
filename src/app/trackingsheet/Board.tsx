@@ -10,7 +10,6 @@ import {
   Chip,
   ChipScroller,
   EmptyState,
-  Label,
   Loading,
   MetaLine,
   Meter,
@@ -2386,6 +2385,31 @@ export function Board() {
   // is the "All jobs" row, which is this route with no ?jobId. `replace`, not
   // push: it's a change of subject, not a step deeper. The staged-coding guard
   // has to be asked by hand — a router call isn't an anchor click it can catch.
+  /**
+   * The billing month, as a control. It renders TWICE and only ever one of the
+   * two is visible: inline beside the page title on a phone (the title line has
+   * room to its right and the month is the control changed most often here), and
+   * in the desktop toolbar from lg up, where the row has space for it. CSS can
+   * hide a box but it cannot move one between two parents, so the alternative
+   * was a single select in the wrong place at one width or the other. Only the
+   * desktop copy carries the id, since two elements cannot share one.
+   */
+  const monthSelect = (cls: string, id?: string) => (
+    <Select
+      id={id}
+      value={ym}
+      onChange={(e) => setYm(e.target.value)}
+      className={cls}
+      aria-label="Billing month"
+    >
+      {monthOptions().map((o) => (
+        <option key={o.value} value={o.value}>
+          {o.label}
+        </option>
+      ))}
+    </Select>
+  );
+
   const onPickJob = (id: string) => {
     if (id === jobId) return;
     if (!confirmLeaveIfDirty()) return;
@@ -2624,16 +2648,25 @@ export function Board() {
       <PageHeader
         titleSlot={
           <div className="flex min-w-0 flex-1 flex-col">
-            <JobPicker
-              variant="title"
-              value={jobId}
-              onChange={onPickJob}
-              fallbackLabel={headerTitle}
-              allLabel="All jobs"
-              allDescription="Every job's month, side by side"
-              showPhaseFilter
-              showToBeInvoiced={can("recode")}
-            />
+            <div className="flex min-w-0 items-center gap-2">
+              <JobPicker
+                variant="title"
+                value={jobId}
+                onChange={onPickJob}
+                fallbackLabel={headerTitle}
+                allLabel="All jobs"
+                allDescription="Every job's month, side by side"
+                showPhaseFilter
+                showToBeInvoiced={can("recode")}
+              />
+              {/* The month, in the empty half of the title line — it used to
+                  take a labelled full-width row of its own under the address,
+                  which is a lot of phone for one word and a year. The width is
+                  on the WRAPPER: `inputCls` carries `w-full`, which Tailwind
+                  emits after any fixed width, so a `w-[8.5rem]` on the select
+                  itself would silently lose. */}
+              <div className="w-[8.5rem] shrink-0 lg:hidden">{monthSelect("!h-11")}</div>
+            </div>
             {headerAddress && (
               <p className="mt-1 truncate text-sm text-neutral-500 dark:text-neutral-400">
                 {headerAddress}
@@ -2648,30 +2681,11 @@ export function Board() {
           // of eleven controls at mixed sizes. From lg up it collapses back to
           // the single inline row the desktop workbench has always had.
           <div className="flex w-full min-w-0 flex-col gap-3 lg:w-auto lg:flex-row lg:flex-wrap lg:items-center lg:justify-end">
-            {/* The month is the control changed most often here, so on mobile
-                it gets a label and the full width instead of being an
-                unlabelled box wedged between the title and four toggles. */}
-            <div className="min-w-0">
-              <Label htmlFor="recode-month" className="lg:hidden">
-                Billing month
-              </Label>
-              {/* The per-job Tracking Sheet push used to dock here, under the
-                  month it acts on. It sits in the closing row at the foot of
-                  the page now, with the other end-of-month actions. */}
-              <Select
-                id="recode-month"
-                value={ym}
-                onChange={(e) => setYm(e.target.value)}
-                className="!h-11 lg:!h-auto lg:w-52"
-                aria-label="Billing month"
-              >
-                {monthOptions().map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-              </Select>
-            </div>
+            {/* The desktop copy of the month. On a phone it rides the title
+                line instead (see `monthSelect`), so this one is hidden there.
+                The per-job Tracking Sheet push used to dock under it; that sits
+                in the closing row at the foot of the page now. */}
+            {monthSelect("hidden lg:block lg:w-52", "recode-month")}
             {/* The list always shows every bill in the month — draft,
                 uninvoiced, and invoiced, each tagged with its state — and every
                 time entry counts toward the figures, approved or not, each row
