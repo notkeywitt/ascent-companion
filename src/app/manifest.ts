@@ -7,7 +7,11 @@ export default function manifest(): MetadataRoute.Manifest {
     description: "JobTread coding, unbilled expenses, and invoice staging",
     start_url: "/",
     display: "standalone",
-    background_color: "#FAF7EE",
+    // Black is the LAUNCH screen the OS paints for the installed app, and it
+    // hands straight over to the app's own black loading screen
+    // (components/LoadingScreen) with no color change in between.
+    // `theme_color` is the browser/status-bar chrome and stays cream.
+    background_color: "#000000",
     theme_color: "#FAF7EE",
     icons: [
       { src: "/icon-192.png", sizes: "192x192", type: "image/png" },

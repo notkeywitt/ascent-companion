@@ -354,7 +354,12 @@ Grouped by domain; each folder is `…/route.ts`.
   curated in `src/lib/nav.ts` → `TILE_LAUNCHERS`; also renders the office-only
   `OfficeDigestPlaceholder` reserved slot),
   `PageTitle`, `ThemeToggle`,
-  `AscentLogo`, `RefreshButton`/`RefreshProvider`, `SyncNowButton`,
+  `AscentLogo` (the lockup; `tone="white"` is the reversed, black-ground
+  variant), `LoadingScreen` (the logo-on-black cover — one look, three
+  triggers: `SplashScreen` on app open, `RouteLoadingScreen` on an in-app tap,
+  and `src/app/loading.tsx` for hard loads; the last two only fade in past
+  180ms, so a fast page swap stays silent),
+  `RefreshButton`/`RefreshProvider`, `SyncNowButton`,
   `AdminActionBar`, `AccessProvider`, `CopyProvider` (editable page text —
   `useCopy()`), `UsageBeacon`, `PreviewBanner` (the admin's "viewing as {role}"
   bar + its "Return to my view" link — see `src/lib/preview.ts`).
