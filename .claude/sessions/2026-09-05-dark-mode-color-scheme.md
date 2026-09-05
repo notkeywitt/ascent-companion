@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/dark-mode-color-scheme-31ail8
 status: shipped
 started: 2026-09-05T18:18:55Z
-updated: 2026-09-05T18:35:44Z
+updated: 2026-09-05T18:57:36Z
 goal: Rebuild dark mode from the Ascent Brand Guidelines: replace the lifted-olive accent with brand ochre, and Tailwind's pure-grey neutrals with a luminance-matched warm ramp
 next: Owner review of the ochre dark mode on device; if approved ship with: git push origin claude/dark-mode-color-scheme-31ail8:main
 ---
@@ -19,5 +19,7 @@ next: Owner review of the ochre dark mode on device; if approved ship with: git 
   src/app/globals.css, src/components/AscentLogo.tsx
 - 2026-09-05 18:35 · `aa9d04b` companion: make the brand mark ochre in dark too
   CLAUDE.md, src/app/globals.css, src/app/unbilled/page.tsx, src/components/AscentLogo.tsx, src/components/PageTitle.tsx
+- 2026-09-05 18:57 · `cd69f74` companion: centre the header logo, and put the splash in the theme
+  src/app/globals.css, src/app/manifest.ts, src/components/AppHeader.tsx, src/components/AscentLogo.tsx, src/components/LoadingScreen.tsx, src/components/SplashScreen.tsx
 
 ## Notes
