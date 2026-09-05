@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-05T18:57:40Z",
+  "generatedAt": "2026-09-05T19:20:02Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,7 +8,7 @@
       "branch": "claude/dark-mode-color-scheme-31ail8",
       "status": "shipped",
       "started": "2026-09-05T18:18:55Z",
-      "updated": "2026-09-05T18:57:40Z",
+      "updated": "2026-09-05T19:20:02Z",
       "goal": "Rebuild dark mode from the Ascent Brand Guidelines: replace the lifted-olive accent with brand ochre, and Tailwind's pure-grey neutrals with a luminance-matched warm ramp",
       "next": "Owner review of the ochre dark mode on device; if approved ship with: git push origin claude/dark-mode-color-scheme-31ail8:main",
       "commits": [
@@ -46,6 +46,13 @@
           "sha": "cd69f74",
           "subject": "companion: centre the header logo, and put the splash in the theme",
           "files": "src/app/globals.css, src/app/manifest.ts, src/components/AppHeader.tsx, src/components/AscentLogo.tsx, src/components/LoadingScreen.tsx, src/components/SplashScreen.tsx"
+        },
+        {
+          "date": "2026-09-05",
+          "time": "19:20",
+          "sha": "97a41ad",
+          "subject": "companion: launch the installed app on off-black",
+          "files": "src/app/manifest.ts"
         }
       ]
     },
