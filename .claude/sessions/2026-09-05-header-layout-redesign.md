@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/header-layout-redesign-xid33s
 status: in-progress
 started: 2026-09-05T06:17:43Z
-updated: 2026-09-05T15:08:00Z
+updated: 2026-09-05T16:14:05Z
 goal: 
 next: rearrange the tracking-sheet action buttons for mobile and desktop — they read as scattered right now
 ---
@@ -27,6 +27,8 @@ next: rearrange the tracking-sheet action buttons for mobile and desktop — the
 - 2026-09-05 14:47 · `d93a987` companion: tighten the budget expander's heading row on mobile
   src/app/trackingsheet/Board.tsx
 - 2026-09-05 15:08 · `e4a7854` companion: put the billing month on the title line on mobile
+  src/app/trackingsheet/Board.tsx
+- 2026-09-05 16:14 · `ce3dbcd` companion: drop the budget rail's formula footnote
   src/app/trackingsheet/Board.tsx
 
 ## Notes
