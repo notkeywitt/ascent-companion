@@ -3084,17 +3084,6 @@ export function Board() {
                 )}
               </div>
             </Card>
-            <p
-              className={`mt-2 text-[11px] leading-relaxed text-neutral-500 dark:text-neutral-400 ${
-                railCollapsed ? "hidden lg:block" : ""
-              }`}
-            >
-              Remaining = budget − committed − this month&apos;s drafts − labor. Committed is
-              approved and pending bills across all time; drafts aren&apos;t committed spend yet;
-              labor is logged time entries, which a customer invoice bills alongside the bills —
-              every entry counts, approved or not, and each is tagged with its approval state.
-              Hover a code for the breakdown. Bars and remaining update as you recode.
-            </p>
           </section>
 
           {/* ─────────── CENTRE: the month's bills ─────────── */}
