@@ -71,7 +71,12 @@
                                 needed: a Chip paints `bg-accent/15` under its
                                 own label, and that tint drops plain ochre to
                                 5.24:1 where this holds 7.33:1. */
-  --brand: 135 128 84; /* #878054 brand olive — graphics only, 4.31:1 */
+  --brand: 207 152 3; /* #CF9803 brand ochre — the logo square, the peak mark,
+                         the header hairline and the marquee rules. Ochre here
+                         too, not olive: the mark is the app's identity and it
+                         should not change color when the theme flips. p.17
+                         sanctions the ochre square on off-black, and at 6.70:1
+                         the peak mark reads where olive's 4.31:1 went muddy. */
 
   /* Dark hairlines sit LIGHTER than the raised card (#23231E) they edge, the
      same direction the surface scale runs. `line-soft` is the in-card row

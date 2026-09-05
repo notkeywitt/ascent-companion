@@ -4,13 +4,10 @@
  *
  * The mountain icon is drawn inline as SVG so it stays crisp at any size (the
  * guide allows the icon down to 20px) and reads correctly in both themes. The
- * square follows the theme's brand hue — OCHRE in light, brand OLIVE in dark.
- * It stays olive in dark even though the interactive accent there is now ochre:
- * page 17 sanctions the olive square with a cream peak, and it keeps olive in
- * the frame as the usage ratios on p.14 intend. The knocked-out peak follows
- * that square — off-black on light's ochre, cream on dark's olive — since each
- * ground takes a different one of p.17's pairings. The wordmark is off-black on
- * light / cream on dark (both AA-safe per the type-pairing page).
+ * square is brand OCHRE in both themes with the peak knocked out in off-black —
+ * p.17's ochre pairing, 6.70:1. The mark does not change color when the theme
+ * flips; only the ground behind it does. The wordmark is off-black on light /
+ * cream on dark (both AA-safe per the type-pairing page).
  *
  * `tone="white"` is the single-color REVERSED lockup: white square, peak
  * knocked out in black, white wordmark. It is for a black ground only — the
@@ -70,19 +67,11 @@ export function AscentIcon({
         <rect width="100" height="100" className="fill-brand" />
       )}
       {/* Notched double-peak mountain, knocked out of the brand square. The
-          knockout FLIPS with the theme because the square underneath does:
-          p.17 sanctions the ochre square with an OFF-BLACK peak (light) and the
-          olive square with a CREAM peak (dark). Cream on ochre is the pairing
-          p.16 restricts — 2.41:1 — so a single cream peak cannot serve both.
+          square is ochre in BOTH themes, and p.17 pairs an ochre square with an
+          OFF-BLACK peak — so the knockout is off-black in both, at 6.70:1. It
+          is never cream: cream on ochre is the 2.41:1 pairing p.16 restricts.
           The reversed lockup is its own pair: black peak on a white square. */}
-      {white ? (
-        <polygon points="18,74 40,41 46,47 56,30 82,74" fill="#000000" />
-      ) : (
-        <polygon
-          points="18,74 40,41 46,47 56,30 82,74"
-          className="fill-offblack dark:fill-cream"
-        />
-      )}
+      <polygon points="18,74 40,41 46,47 56,30 82,74" fill={white ? "#000000" : "#1B1B17"} />
     </svg>
   );
 }
