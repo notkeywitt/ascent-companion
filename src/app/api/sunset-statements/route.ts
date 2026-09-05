@@ -5,17 +5,17 @@ import { sunsetStatements } from "@/db/schema";
 import { callAppsScriptOrThrow } from "@/lib/appsScript";
 
 // The Sunset "/payments" list. Reads the statements from the sheet via Apps
-// Script (listSunsetStatements — lightweight, no Gemini), reconciles them into
+// Script (listSunsetStatements — lightweight, no model call), reconciles them into
 // the companion cache, and returns the merged rows with paid-state IMMEDIATELY.
 //
 // It deliberately does NOT extract here: the payment header (account name,
-// statement #, printed discount, net) comes from a Gemini pass on each PDF, and
-// doing that for every uncached statement in one request times the function out
-// once there are more than a handful. The page fills the uncached rows in small
+// statement #, printed discount, net) comes from OCR + regex on each PDF (with
+// Claude as the fallback), and doing that for every uncached statement in one
+// request times the function out once there are more than a handful. The page fills the uncached rows in small
 // bounded batches via POST /api/sunset-statements/extract instead.
 //
 // Env (shared): APPS_SCRIPT_SYNC_URL, APPS_SCRIPT_SYNC_SECRET.
-export const maxDuration = 30; // one lightweight Apps Script call, no Gemini
+export const maxDuration = 30; // one lightweight Apps Script call, no extraction
 
 interface ListItem {
   expId: string;
@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
   try {
     await ensureDb();
 
-    // 1. The authoritative list of statements (from the sheet). Fast, no Gemini.
+    // 1. The authoritative list of statements (from the sheet). Fast, no extraction.
     const listResp = await callAppsScriptOrThrow({ action: "listSunsetStatements" });
     const items = (listResp.items as ListItem[]) ?? [];
 

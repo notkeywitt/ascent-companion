@@ -5,15 +5,15 @@ import { sunsetStatements } from "@/db/schema";
 import { callAppsScriptOrThrow } from "@/lib/appsScript";
 
 // POST /api/sunset-statements/extract  { expIds: string[] }
-// Gemini-extract the pay-at-TSYS header for a SMALL batch of statements and cache
+// Extract the pay-at-TSYS header for a SMALL batch of statements and cache
 // it. The /payments page calls this in bounded batches to progressively fill the
-// list, so no single request ever runs unbounded Gemini work (which timed the old
+// list, so no single request ever runs unbounded extraction work (which timed the old
 // all-in-one GET out). Extraction never touches paid-state; re-extracting is safe.
 //
 // Returns { ok, extracted: { <expId>: row }, failed: string[] } — `failed` lists
 // asked ids the extractor couldn't read (e.g. missing/garbled PDF) so the page can
 // stop waiting on them.
-export const maxDuration = 60; // capped batch of Gemini reads
+export const maxDuration = 60; // capped batch of statement reads
 
 const MAX_BATCH = 8;
 
@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
     await ensureDb();
     const resp = await callAppsScriptOrThrow(
       { action: "extractSunsetStatements", expIds },
-      // A bounded batch of Gemini reads; stay under maxDuration (60s). A write.
+      // A bounded batch of statement reads; stay under maxDuration (60s). A write.
       { timeoutMs: 50_000 },
     );
     const extracted = (resp.extracted as Record<string, Extracted>) ?? {};
