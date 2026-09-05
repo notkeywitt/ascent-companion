@@ -56,6 +56,7 @@ import { LaborReportButton } from "@/components/LaborReportButton";
 import { AddTimeCard } from "./AddTimeCard";
 import { InvoiceReconcile, type Recon } from "@/components/InvoiceReconcile";
 import { UncapturedBills } from "@/components/UncapturedBills";
+import { SyncNowButton } from "@/components/SyncNowButton";
 import { BILL_STRIPE_COLOR, billInvoiceState } from "@/lib/billInvoiceState";
 import {
   Breakdown,
@@ -1098,6 +1099,10 @@ export function Board() {
   /** Does the bottom action row carry an Approve button? It needs the role AND a
    *  loaded month — the check button beside it needs neither. */
   const showApprove = canApprove && !!data && !loading;
+  /** The JT → Sheets/Drive mirror kick, which used to sit in the app header. It
+   *  belongs to no one job, but this is where a month gets settled, so it rides
+   *  the same closing row as Approve. */
+  const canSync = can("sync");
   // Mirrors approveBill() on the bill detail page: a Bill is a payable (draft →
   // pending, "approved for payment"); an Expense is already paid (draft →
   // approved, "record payment").
@@ -3634,11 +3639,12 @@ export function Board() {
         </div>
       )}
 
-      {/* The month's closing actions, docked at the bottom of the page: check
-          the job, then approve its drafts. Both are last steps — you check what
-          the invoice will say, and you approve the drafts once their coding is
-          settled — so they share one row after the bills rather than sitting up
-          in the toolbar. Once every bill in the month is approved the Approve
+      {/* The month's closing actions, docked at the bottom of the page: sync the
+          mirror, check the job, then approve its drafts. All three are last
+          steps — you pull JobTread's latest, you check what the invoice will
+          say, and you approve the drafts once their coding is settled — so they
+          share one row after the bills rather than sitting up in the toolbar or
+          the app header. Once every bill in the month is approved the Approve
           button becomes "Create Invoice in JobTread", which opens the job's
           documents page — approving IS the last thing this page does, and the
           invoice itself is built in JobTread. `order-last` drops the block
@@ -3646,21 +3652,24 @@ export function Board() {
           above the row it was run from, and only once there is a result to
           show; the check itself is independent of the board's own loading,
           since it fetches on demand. The check button is lg-only — on a phone
-          the action drawer carries it, so this row holds the full-width action
-          button alone, exactly as before. Either button is dead while there's
-          staged coding to sync first. */}
+          the action drawer carries it. Approve is dead while there's staged
+          coding to sync first; Sync is not — it drives the BACK END mirror, not
+          this page's staged edits. */}
       {jobId && (
         <div
           className={`order-last mt-4 border-t border-line pt-4 lg:order-none ${
-            // Nothing visible below lg until there's a result or an Approve
-            // button — without this the phone would show a bare divider.
-            showApprove || preSend || preSendError || preSendRunning ? "" : "hidden lg:block"
+            // Nothing visible below lg until there's a result, an Approve
+            // button or Sync — without this the phone shows a bare divider.
+            showApprove || canSync || preSend || preSendError || preSendRunning
+              ? ""
+              : "hidden lg:block"
           }`}
         >
           {(preSend || preSendError || preSendRunning) && (
             <PreSendCheck result={preSend} error={preSendError} />
           )}
           <div className="mx-auto flex max-w-2xl items-center justify-end gap-2">
+            {canSync && <SyncNowButton className="min-h-11" />}
             <Button
               variant="outline"
               onClick={runPreSend}

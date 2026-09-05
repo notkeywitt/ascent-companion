@@ -10,13 +10,17 @@ type State = "idle" | "busy" | "done" | "error";
  * The button confirms the queue, not the sync result; results land in the
  * script's Audit Log under "Full JT Sync".
  *
+ * It sits beside Approve Draft Bills at the foot of Tracking Sheets, not in the
+ * header: kicking the mirror is something you do after settling a job's month,
+ * next to the action that settles it.
+ *
  * A full sync takes ~15 min and holds the script's shared sync lock throughout,
  * so a click landing in that window CANNOT start a run. Apps Script reports that
  * back as mode "already-running" (or "already-queued") rather than pretending to
  * queue one — surface it, or the button reads as success while nothing happens
  * and the natural response is to keep clicking.
  */
-export function SyncNowButton() {
+export function SyncNowButton({ className = "" }: { className?: string }) {
   const [state, setState] = useState<State>("idle");
   const [mode, setMode] = useState("");
   const [detail, setDetail] = useState("");
@@ -77,14 +81,11 @@ export function SyncNowButton() {
               ? "text-green-700 dark:text-green-400"
               : "text-amber-600 dark:text-amber-400" // nothing was started — don't read as success
             : "text-neutral-500 hover:text-accent") +
-        (state === "busy" ? " animate-pulse cursor-wait" : "")
+        (state === "busy" ? " animate-pulse cursor-wait" : "") +
+        (className ? " " + className : "")
       }
     >
-      {/* Sharing one row with the job picker, the idle word "Sync" is dropped on
-          phone widths — the glyph plus the tooltip/aria-label carry it. Every
-          other state keeps its label: that text IS the result feedback. */}
-      ⟳
-      <span className={"ml-1 " + (state === "idle" ? "hidden sm:inline" : "")}>{label}</span>
+      ⟳ <span>{label}</span>
     </button>
   );
 }

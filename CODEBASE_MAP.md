@@ -345,7 +345,8 @@ Grouped by domain; each folder is `…/route.ts`.
 
 - **Design system:** `ui.tsx` — build EVERY UI on these primitives (see the list
   in `CLAUDE.md`). Never hand-roll styles.
-- **Chrome / nav:** `AppHeader` (logo, search, Add bill, Sync, theme — one row),
+- **Chrome / nav:** `AppHeader` (logo, search, Add bill — one row; the logo IS
+  the light/dark switch),
   `GlobalSearch` (the app's ONE search box, in that
   row — pages + vendors + bills + line items, from any
   page — hidden for the FIELD role), `TabBar` (bottom shortcut bar; hidden
@@ -354,7 +355,8 @@ Grouped by domain; each folder is `…/route.ts`.
   buttons in place of the admin area lists: field and office get 4, lead 6;
   curated in `src/lib/nav.ts` → `TILE_LAUNCHERS`; also renders the office-only
   `OfficeDigestPlaceholder` reserved slot),
-  `PageTitle`, `ThemeToggle`,
+  `PageTitle`, `ThemeToggle` (takes any face as `children` — the header gives it
+  the logo),
   `AscentLogo` (the lockup; `tone="white"` is the reversed, black-ground
   variant), `LoadingScreen` (the logo-on-black cover — one look, three
   triggers: `SplashScreen` on app open, `RouteLoadingScreen` on an in-app tap,

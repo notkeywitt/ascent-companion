@@ -6,14 +6,17 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { AscentLogo } from "@/components/AscentLogo";
 import { GlobalSearch } from "@/components/GlobalSearch";
 import { LinkPendingOverlay } from "@/components/LinkPending";
-import { SyncNowButton } from "@/components/SyncNowButton";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useAccess } from "@/components/AccessProvider";
 import { btn } from "@/components/ui";
 
 /**
- * Sticky top chrome, on one line: home logo, the app's one search box, Add bill,
- * Sync, theme.
+ * Sticky top chrome, on one line: the Ascent logo, the app's one search box, and
+ * Add bill.
+ *
+ * THE LOGO IS THE LIGHT/DARK SWITCH. It was a home link beside a separate ☀/☾
+ * button; the tab bar's Home tab already carries home from every page, so the
+ * mark takes the switch and the row loses a control.
  *
  * SEARCH is the widest item because "take me to a thing" is the question you ask
  * before any page can help you. It used to live on a second line under an
@@ -73,18 +76,11 @@ export function AppHeader() {
           every page as the app's top rule. */}
       <div className="h-0.5 bg-brand" aria-hidden />
       <div className="flex items-center gap-1.5 px-2 py-2 sm:gap-2">
-        <Link
-          href="/"
-          aria-label="Ascent Assistant home"
-          className="relative shrink-0 rounded-lg p-1 transition active:bg-accent/10"
-        >
+        <ThemeToggle className="shrink-0 rounded-lg p-1 transition active:bg-accent/10">
           {/* Wordmark hidden on narrow / side-panel widths; icon always shows. */}
           <AscentLogo className="hidden sm:inline-flex" />
           <AscentLogo wordmark={false} className="sm:hidden" />
-          {/* Tapping the logo navigates home — show a spinner over it while that
-              load is in flight so the tap visibly registers. */}
-          <LinkPendingOverlay spinnerClassName="h-5 w-5" />
-        </Link>
+        </ThemeToggle>
         {/* The only flexible item — it absorbs whatever the buttons leave. The
             spacer keeps the rest right-aligned for the field role, which has no
             search box. */}
@@ -103,9 +99,6 @@ export function AppHeader() {
             <LinkPendingOverlay spinnerClassName="h-4 w-4" />
           </Link>
         )}
-        {/* Gated — this one drives the backend mirror, not a local reload. */}
-        {access.can("sync") && <SyncNowButton />}
-        <ThemeToggle />
       </div>
     </div>
   );

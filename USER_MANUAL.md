@@ -109,8 +109,11 @@ JobTread, the panel **follows along** and shows the same job automatically.
 ## Finding your way around
 
 The bar at the very top of every screen follows you everywhere. Left to right:
-the **Ascent logo**, the **search box**, **➕ Add bill**, **Sync**, and the
-light/dark switch.
+the **Ascent logo**, the **search box**, and **➕ Add bill**.
+
+**Tap the Ascent logo to switch between light and dark theme.** It is the only
+light/dark control — there is no separate ☀/☾ button. Use the **Home** tab at the
+bottom of the screen to reach the Home launcher.
 
 ### Search (important)
 
@@ -139,18 +142,18 @@ job from anywhere.
 - **Coding Review** and **Invoicing** are always-visible tabs.
 - **More ▾** holds everything else, grouped by purpose (Assistant, Billing, Field,
   Office, System).
-- The **Ascent logo** (top-left) opens the **Home** launcher — big, thumb-sized buttons
+- The **Home** tab (bottom-left) opens the **Home** launcher — big, thumb-sized buttons
   for every page, grouped into **Financials, Tools, Safety, Utilities**. This is the
   easiest way to get around on a phone.
 
-### The two little buttons on the right
+### ⟳ Sync
 
-- **⟳ Sync** — pushes JobTread's latest changes into the Sheets and Drive folders right
-  now, instead of waiting for the hourly automatic sync. It confirms the sync was
-  *queued*, not that it finished (a full sync takes ~15 minutes). If a sync is already
-  running you'll see **"Already running"** in amber — that's normal; nothing new was
-  started, so don't keep clicking.
-- **☀ / ☾** — switch between light and dark theme.
+At the **bottom of Tracking Sheets**, beside **Approve Draft Bills**. It pushes
+JobTread's latest changes into the Sheets and Drive folders right now, instead of
+waiting for the hourly automatic sync. It confirms the sync was *queued*, not that it
+finished (a full sync takes ~15 minutes). If a sync is already running you'll see
+**"Already running"** in amber — that's normal; nothing new was started, so don't keep
+clicking.
 
 ---
 

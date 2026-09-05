@@ -113,8 +113,8 @@
      one pixel. */
   --tabbar-h: calc(3.5rem + 1px + env(safe-area-inset-bottom));
 
-  /* Height of the sticky TOP chrome (components/AppHeader — logo, search, Add
-     bill, Sync, theme, all on one row). Unlike the tab bar this is not a fixed
+  /* Height of the sticky TOP chrome (components/AppHeader — logo, search and
+     Add bill, all on one row). Unlike the tab bar this is not a fixed
      number: the controls are view-gated and the browser's own font settings
      move it. AppHeader measures itself and rewrites this on every resize, so
      the value below is only the pre-paint fallback: the row (≈3.4rem) + the
