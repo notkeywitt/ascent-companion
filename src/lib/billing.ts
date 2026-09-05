@@ -122,17 +122,17 @@ export function computeBillDates(
 }
 
 /**
- * Vendor-bill taxability (port of _computeLineTaxability): when the document
- * shows a tax amount, lines are NOT taxable and the tax rides in the document's
- * nonRecoverableTax field; when it shows none, lines stay taxable.
+ * A vendor bill's sales tax, from whatever the extractor read off the invoice.
+ * Blank, negative and unparseable all read 0.
+ *
+ * There is no per-line taxability decision any more: the tax is its own cost
+ * item coded 88 80 00 (src/lib/salesTax.ts), the document's tax field is pinned
+ * to 0, and a vendor bill carries no tax rate — so `isTaxable` on a bill line
+ * moves no money and stays at JobTread's own default.
  */
-export function computeLineTaxability(taxAmountRaw: unknown): {
-  lineIsTaxable: boolean;
-  taxAmount: number;
-} {
-  const taxAmount = Number(taxAmountRaw) || 0;
-  if (taxAmount > 0) return { lineIsTaxable: false, taxAmount };
-  return { lineIsTaxable: true, taxAmount: 0 };
+export function salesTaxAmount(taxAmountRaw: unknown): number {
+  const n = Number(taxAmountRaw);
+  return !Number.isFinite(n) || n <= 0 ? 0 : Math.round(n * 100) / 100;
 }
 
 /**

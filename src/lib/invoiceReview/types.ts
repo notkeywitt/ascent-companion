@@ -248,16 +248,16 @@ export interface BillRef {
    */
   lineCount: number;
   /**
-   * The bill's recorded sales tax, from JobTread's `nonRecoverableTax`.
+   * The bill's sales tax: its 88 80 00 line, plus the legacy `nonRecoverableTax`
+   * field on a bill pushed before 2026-09-05.
    *
-   * `cost` above is TAX-INCLUSIVE: `_jtGrossUpLineCostsForTax` (JobTread.js)
-   * grosses each line up from the receipt's pre-tax face value before pushing,
-   * because JobTread treats a stored unitCost as tax-inclusive and de-taxes it
-   * for display. The Drive backup filename is built from the SHEET's pre-tax
-   * amounts, so `cost - taxAmount` is the figure that compares against it.
+   * `cost` above includes it either way — as one of the summed cost items now,
+   * or spread across the lines under the old model. The Drive backup filename is
+   * built from the SHEET's pre-tax amounts, and the sheet has no tax line, so
+   * `cost - taxAmount` is the figure that compares against it.
    *
-   * 0 when the bill records no tax, which is also the right answer for a bill
-   * whose lines were never grossed up — `cost` is then already pre-tax.
+   * 0 when the bill has no tax, which is also the right answer for a bill whose
+   * lines were never grossed up — `cost` is then already pre-tax.
    */
   taxAmount: number;
   status: string;

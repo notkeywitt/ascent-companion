@@ -83,6 +83,7 @@ import {
   reconcileDraft,
   saveDraft,
 } from "@/lib/codingDraft";
+import { isSalesTaxLine, SALES_TAX_LINE_NAME } from "@/lib/salesTax";
 
 /**
  * Invoicing coding board — the desktop workbench for deciding which cost code
@@ -119,8 +120,9 @@ interface BillRef {
   issueDate: string | null;
   createdAt: string | null;
   name: string;
+  /** Legacy document tax field — non-zero only on a bill pushed before 2026-09-05.
+   *  A bill's real sales tax is `billTax(bill)`: its 88 80 00 line plus this. */
   nonRecoverableTax: number;
-  nonRecoverableTaxName: string | null;
   qboIsIgnored: boolean;
   /** Paid-in-QuickBooks figures JobTread computes — read as a pair, see billPaidState. */
   amountPaid: number;
@@ -186,7 +188,14 @@ interface CostDivisionRow {
   codes: CostCodeRow[];
 }
 interface BoardPayload {
-  job: { id: string; name: string; address: string; customer: string } | null;
+  job: {
+    id: string;
+    name: string;
+    address: string;
+    customer: string;
+    /** The job's Phase — decides whether sales tax on its bills is recoverable. */
+    phase?: string;
+  } | null;
   bills: BillRef[];
   billTotal: number;
   lines: JobBillLine[];
@@ -605,7 +614,7 @@ export function Board() {
     if (v === "") return false;
     const bill = data?.bills.find((b) => b.id === docId);
     if (!bill) return false;
-    return round2(Number(v) || 0) !== round2(bill.nonRecoverableTax);
+    return round2(Number(v) || 0) !== round2(billTax(bill));
   });
   const dirty =
     staged.size > 0 || timeStaged.size > 0 || Object.keys(edits).length > 0 || taxDirty;
@@ -1046,15 +1055,34 @@ export function Board() {
   }, [railGroups]);
 
   // ---- derived: bills + their lines ---------------------------------------
-  const linesByDoc = useMemo(() => {
+  // Codeable lines per bill, with the 88 80 00 sales-tax line taken OUT — it is
+  // not something the office codes, and leaving it in would let a tax amount be
+  // edited as if it were a material line. `taxByDoc` keeps what each one carried.
+  const { linesByDoc, taxByDoc } = useMemo(() => {
     const m = new Map<string, JobBillLine[]>();
+    const tax = new Map<string, number>();
     for (const l of data?.lines ?? []) {
+      if (isSalesTaxLine(l)) {
+        tax.set(l.docId, round2((tax.get(l.docId) ?? 0) + (Number(l.cost) || 0)));
+        continue;
+      }
       const arr = m.get(l.docId) ?? [];
       arr.push(l);
       m.set(l.docId, arr);
     }
-    return m;
+    return { linesByDoc: m, taxByDoc: tax };
   }, [data]);
+
+  /**
+   * A bill's sales tax: its 88 80 00 line plus any legacy `nonRecoverableTax`.
+   * Summed, not preferred, so a bill halfway through the migration reports all
+   * of its tax. Exactly one of the two is non-zero in practice.
+   */
+  const billTax = useCallback(
+    (b: { id: string; nonRecoverableTax?: number } | undefined | null) =>
+      b ? round2((taxByDoc.get(b.id) ?? 0) + (Number(b.nonRecoverableTax) || 0)) : 0,
+    [taxByDoc],
+  );
 
   /**
    * Splitting Sunset off is a VIEW convenience and nothing more. Every budget
@@ -1245,7 +1273,7 @@ export function Board() {
   // Tax is staged the same way as edits/staged (keyed by docId, not line id) —
   // nothing writes until Sync. Previewed here so the total/subtotal below move
   // live as the office types, same as bill/[docId]'s tax field.
-  const openStoredTax = openBill?.nonRecoverableTax ?? 0;
+  const openStoredTax = billTax(openBill);
   const openTaxEdit = openBill ? taxEdits[openBill.id] : undefined;
   const openTaxView =
     openTaxEdit !== undefined && openTaxEdit !== "" ? Number(openTaxEdit) || 0 : openStoredTax;
@@ -1255,14 +1283,15 @@ export function Board() {
     () =>
       billLineMath({
         lines: openLines,
-        storedTax: openBill?.nonRecoverableTax ?? 0,
+        storedTax: openStoredTax,
+        legacyTaxField: openBill?.nonRecoverableTax ?? 0,
         taxView: openTaxView,
         status: openBill?.status,
         edits,
         picked: Object.fromEntries(staged),
         budget: data?.budget ?? [],
       }),
-    [openLines, openBill, openTaxView, edits, staged, data],
+    [openLines, openBill, openStoredTax, openTaxView, edits, staged, data],
   );
 
   // ---- coding-drawer bulk actions: Apply to all + Combine ------------------
@@ -1877,7 +1906,8 @@ export function Board() {
    * changing what the card shows.
    */
   const codingCtl: CodingCardCtl = {
-    bill: openBill,
+    // The board is one job, so its Phase answers for every bill on it.
+    bill: openBill ? { ...openBill, jobPhase: data?.job?.phase ?? "" } : openBill,
     lines: openLines,
     math: openMath,
     jobId,
@@ -2185,7 +2215,8 @@ export function Board() {
       const docLines = linesByDoc.get(docId) ?? [];
       const { wholeBillChanges } = billLineMath({
         lines: docLines,
-        storedTax: bill.nonRecoverableTax,
+        storedTax: billTax(bill),
+        legacyTaxField: bill.nonRecoverableTax,
         status: bill.status,
         edits,
         picked: pickedAll,
@@ -2246,15 +2277,29 @@ export function Board() {
       }
     }
 
-    // Push any staged document-level tax edits — a separate loop since tax
-    // isn't a line change (see taxEdits above).
+    // Push tax — a separate loop, since tax is not one of the line changes above.
+    //
+    // Two reasons a bill lands here. A STAGED EDIT is the obvious one. The other
+    // is a bill this Sync just re-coded that still carries its tax in the legacy
+    // document field: the line write above sent de-taxed costs, so the tax has to
+    // move onto its own 88 80 00 line in the same Sync or the bill's total falls
+    // by the tax amount. Re-sending the tax it already has is what migrates it.
     let taxOk = 0;
+    const taxWork = new Map<string, number>();
     for (const [docId, v] of Object.entries(taxEdits)) {
       if (v === "") continue;
+      taxWork.set(docId, round2(Number(v) || 0));
+    }
+    for (const docId of touched) {
+      if (taxWork.has(docId)) continue;
+      const bill = data.bills.find((b) => b.id === docId);
+      if (bill && (bill.nonRecoverableTax ?? 0) > 0) taxWork.set(docId, billTax(bill));
+    }
+    for (const [docId, amount] of taxWork) {
       const bill = data.bills.find((b) => b.id === docId);
       if (!bill) continue;
-      const amount = round2(Number(v) || 0);
-      if (amount === round2(bill.nonRecoverableTax)) continue; // unchanged
+      // Unchanged AND already on the current model — nothing to write.
+      if (amount === round2(billTax(bill)) && (bill.nonRecoverableTax ?? 0) === 0) continue;
       try {
         const r = await fetch("/api/bill-tax", {
           method: "POST",
@@ -4049,7 +4094,7 @@ export function Board() {
             <ul className="max-h-[40dvh] space-y-2 overflow-y-auto">
               {draftBills.map((b) => {
                 const target = approvalTarget(b);
-                const taxOn = (b.nonRecoverableTax ?? 0) > 0;
+                const taxOn = billTax(b) > 0;
                 const pushQb = !b.qboIsIgnored;
                 return (
                   <li
@@ -4078,7 +4123,7 @@ export function Board() {
                             : "text-neutral-500 dark:text-neutral-400"
                         }
                       >
-                        {b.nonRecoverableTaxName || "Tax"}: {taxOn ? money(b.nonRecoverableTax) : "Off"}
+                        {SALES_TAX_LINE_NAME}: {taxOn ? money(billTax(b)) : "Off"}
                       </span>
                     </div>
                   </li>

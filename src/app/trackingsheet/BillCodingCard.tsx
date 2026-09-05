@@ -8,6 +8,7 @@ import { Banner, Button, Card, EmptyState, Label, SectionLabel, Select } from "@
 import { InvoiceAttachment } from "@/components/InvoiceViewer";
 import type { LineEdit } from "@/lib/billLineMath";
 import { round2 } from "@/lib/billLineMath";
+import { isTaxRecoverable, SALES_TAX_LINE_NAME } from "@/lib/salesTax";
 
 /**
  * THE CODING CARD — the one place a vendor bill gets coded, wherever you
@@ -115,7 +116,8 @@ export interface CodingBill {
   /** On a customer invoice already — coding goes read-only rather than
       changing numbers the client has been sent. */
   invoiced?: boolean;
-  nonRecoverableTaxName?: string | null;
+  /** The job's Phase — what says whether this bill's sales tax is recoverable. */
+  jobPhase?: string | null;
   /** JobTread's own document number, shown as the Bill Number placeholder. */
   number?: string | null;
   issueDate?: string | null;
@@ -601,15 +603,16 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
           </Banner>
         )}
 
-        {/* Document-level sales tax = JobTread's "Tax" (nonRecoverableTax),
-            a fixed dollar. Staged like a line edit — nothing writes until
-            Sync — so typing here moves math.total live. It sits at the FOOT
-            of the list, where a paper invoice puts it: under the lines it is
-            charged on, above the bill-level buttons. */}
+        {/* Sales tax — a LINE on the bill coded 88 80 00, split out of the list
+            above so it reads as a total rather than as something to code
+            (src/lib/salesTax.ts). Staged like a line edit — nothing writes until
+            Sync — so typing here moves math.total live. It sits at the FOOT of
+            the list, where a paper invoice puts it: under the lines it is charged
+            on, above the bill-level buttons. */}
         {math.isDraft && writes && !bill.invoiced && (
           <div className="mt-3 flex items-center justify-end gap-1.5">
             <span className="text-[10px] uppercase tracking-wide text-neutral-400">
-              {bill.nonRecoverableTaxName || "Tax"}
+              {SALES_TAX_LINE_NAME}
             </span>
             <div className="relative">
               <span className="pointer-events-none absolute left-1.5 top-1/2 -translate-y-1/2 text-xs text-neutral-400">
@@ -632,8 +635,8 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
         )}
         {taxView > 0 && (
           <p className="mt-1 text-right text-[10px] text-neutral-400">
-            subtotal {money(math.subtotal)} + {money(taxView)}{" "}
-            {(bill.nonRecoverableTaxName || "tax").toLowerCase()}
+            subtotal {money(math.subtotal)} + {money(taxView)} tax ·{" "}
+            {isTaxRecoverable(bill.jobPhase) ? "recoverable" : "not recoverable"}
           </p>
         )}
 

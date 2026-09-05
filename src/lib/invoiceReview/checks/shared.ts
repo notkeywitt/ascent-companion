@@ -153,12 +153,11 @@ export function matchBackup(
     //
     //   cost               — a bill with no tax, and any bill whose lines were
     //                        never grossed up (older captures)
-    //   cost - taxAmount   — the normal taxed case. `cost` is TAX-INCLUSIVE
-    //                        (_jtGrossUpLineCostsForTax grosses each line from
-    //                        the receipt's pre-tax face value before pushing,
-    //                        because JobTread stores unitCost tax-inclusive),
-    //                        while the filename is built from the SHEET's
-    //                        pre-tax amounts.
+    //   cost - taxAmount   — the normal taxed case. `cost` is the whole bill,
+    //                        tax included: as the 88 80 00 line now, or spread
+    //                        across the lines on a bill pushed before
+    //                        2026-09-05. The filename is built from the SHEET's
+    //                        amounts, and the sheet carries no tax line.
     //
     // Berger Bunkhouse, July 2026 proved both live: JR Granite matched at cost
     // ($11,030, no tax) while Fasteners Plus ($574.03 vs a $529.79 filename,

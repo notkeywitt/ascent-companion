@@ -15,7 +15,7 @@ interface Bill {
   externalId?: string;
   status?: string;
   cost?: number; // pre-tax line subtotal
-  nonRecoverableTax?: number; // recorded sales tax (document-level, "Tax")
+  nonRecoverableTax?: number; // legacy document tax field — see src/lib/salesTax.ts
   issueDate?: string;
   jobId?: string; // set only when listing across all jobs
   jobName?: string;
@@ -48,10 +48,9 @@ function driveMainWindowToDoc(jobId: string, docId: string) {
   }
 }
 
-// A bill's amount owed is JobTread's document `cost` = the sum of the line costs, which
-// IS JobTread's bill total. The fixed sales tax (`nonRecoverableTax`) is carved OUT of
-// that total for the subtotal, never added on top (confirmed live 2026-07-30). Matches
-// the bill page's total exactly.
+// A bill's amount owed is JobTread's document `cost` = the sum of the line costs,
+// which IS JobTread's bill total — sales tax included, because the 88 80 00 tax line
+// is one of those costs. Nothing is ever added on top. Matches the bill page exactly.
 const billAmount = (b: Bill) => b.cost ?? 0;
 
 const invoiceId = (b: Bill) => b.externalId || b.number || "";

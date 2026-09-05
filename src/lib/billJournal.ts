@@ -31,6 +31,12 @@ export type BillSnapshotField = Exclude<keyof BillSnapshot, "jobId">;
  * `field` is the JobTread field name as it goes in the journal row. `priorField`
  * is where to read the prior value from the snapshot — usually the same name,
  * but not always (the Bill/Expense toggle writes `name` and `qboDocumentType`).
+ *
+ * `before` overrides that read, for a value no single header field holds. Sales
+ * tax is the case: it is the 88 80 00 LINE plus any legacy `nonRecoverableTax`,
+ * so the caller resolves it from the bill's lines and passes it here. Passing it
+ * still counts as `beforeSource: "read"` — the caller read it from JobTread, not
+ * from the browser.
  */
 export async function journalBillWrite<T>(args: {
   route: string;
@@ -40,6 +46,8 @@ export async function journalBillWrite<T>(args: {
   docId: string;
   field: string;
   priorField: BillSnapshotField;
+  /** Prior value the caller already read live; overrides `priorField`. */
+  before?: unknown;
   /** The value being written — recorded as `after` if the write throws. */
   attempted: unknown;
   /** Dollars at stake, when the field is a figure. */
@@ -57,8 +65,8 @@ export async function journalBillWrite<T>(args: {
     docId: args.docId,
     jobId: prior?.jobId ?? "",
     field: args.field,
-    before: prior?.[args.priorField],
-    beforeSource: prior ? "read" : "none",
+    before: "before" in args ? args.before : prior?.[args.priorField],
+    beforeSource: "before" in args || prior ? "read" : "none",
     amount: args.amount ?? null,
   };
   try {

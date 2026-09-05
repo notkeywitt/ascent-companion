@@ -39,6 +39,7 @@ import {
   reconcileDraft,
   saveDraft,
 } from "@/lib/codingDraft";
+import { isTaxRecoverable, SALES_TAX_LINE_NAME, splitSalesTax } from "@/lib/salesTax";
 
 interface Line {
   id: string;
@@ -60,8 +61,9 @@ interface Header {
   cost?: number;
   issueDate?: string;
   qboIsIgnored?: boolean;
-  nonRecoverableTax?: number; // recorded sales tax (document-level, "Tax")
-  nonRecoverableTaxName?: string;
+  /** Legacy document tax field — non-zero only on a bill pushed before 2026-09-05.
+   *  A bill's real sales tax comes off its 88 80 00 line (splitSalesTax). */
+  nonRecoverableTax?: number;
 }
 interface FileNode {
   id: string;
@@ -84,6 +86,8 @@ interface BillPayload {
   /** The bill's own job, resolved server-side — present even when the link that
    *  opened this page carried no ?jobId. */
   jobId?: string;
+  /** That job's Phase — what decides whether this bill's sales tax is recoverable. */
+  jobPhase?: string;
   writesEnabled?: boolean;
   reviewed?: boolean;
   saved?: boolean;
@@ -238,6 +242,8 @@ function BillDetail() {
   const [budget, setBudget] = useState<Option[]>([]);
   const [ctc, setCtc] = useState<Record<string, { budget: number; actual: number; remaining: number }>>({});
   const [files, setFiles] = useState<FileNode[]>([]);
+  // The bill's job Phase — the one input to whether its sales tax is recoverable.
+  const [jobPhase, setJobPhase] = useState<string>("");
   // The bill's backup in Google Drive — the file itself and the folder it's filed
   // in. The Assistant has no Drive grant, so /api/bill/drive asks the Apps Script
   // web app, which resolves both from the Expenditure sheet's file link. Best-
@@ -333,6 +339,7 @@ function BillDetail() {
     setWrites(Boolean(json.writesEnabled));
     setReviewed(Boolean(json.reviewed));
     setSaved(Boolean(json.saved));
+    setJobPhase(json.jobPhase ?? "");
     // Adopt the bill's own job when the URL didn't provide one.
     if (json.jobId) setResolvedJobId(json.jobId);
   }
@@ -480,16 +487,18 @@ function BillDetail() {
   }
 
   const round2 = (n: number) => Math.round(n * 100) / 100;
-  // JobTread stores each line's cost tax-INCLUSIVE, and a bill's TOTAL is ALWAYS the sum of
-  // the line costs; the fixed sales tax (`nonRecoverableTax`, a dollar) is carved OUT of that
-  // total for the subtotal — no field adds tax on top of a vendor bill. Confirmed live
-  // 2026-07-30 by capturing JobTread's own save (stored $59.54 → screen shows $54.95). So we
-  // MIRROR JobTread: read each line DE-TAXED (what JobTread shows), let the office edit
-  // pre-tax, and on Save gross EVERY line back up (see allLineChanges) so the stored costs
-  // stay mutually consistent — editing one line, or the tax, shifts the shared subtotal/total
-  // factor, so all lines must move together or the untouched ones appear to drift.
-  const storedTax = header?.nonRecoverableTax ?? 0;
-  const taxName = header?.nonRecoverableTaxName || "Tax";
+  // Sales tax is its OWN cost item coded 88 80 00 (src/lib/salesTax.ts), so it comes
+  // out of the line list here and drives the Tax row in the totals block instead. A
+  // bill pushed before 2026-09-05 still carries it in `nonRecoverableTax` and has its
+  // line costs stored tax-INCLUSIVE; `legacyTaxField` is what de-taxes those, and a
+  // Save migrates the bill by writing the de-taxed costs and moving the tax onto a
+  // line. On every current bill both are inert and what is on screen is what is stored.
+  const legacyTaxField = header?.nonRecoverableTax ?? 0;
+  const { lines: codeableLines, taxAmount: storedTax } = splitSalesTax(
+    (lines ?? []).map((l) => ({ ...l, jobCostItemId: l.jobCostItem?.id ?? null })),
+    legacyTaxField,
+  );
+  const taxName = SALES_TAX_LINE_NAME;
   // While the office edits the Tax field, preview with the typed value.
   const taxView = taxEdit !== null && taxEdit !== "" ? Number(taxEdit) || 0 : storedTax;
   const taxChanged = taxEdit !== null && round2(taxView) !== round2(storedTax);
@@ -510,14 +519,20 @@ function BillDetail() {
     pendingCount,
     wholeBillChanges: allLineChanges,
   } = billLineMath({
-    lines: (lines ?? []).map((l) => ({ ...l, jobCostItemId: l.jobCostItem?.id ?? null })),
+    lines: codeableLines,
     storedTax,
+    legacyTaxField,
     taxView,
     status: header?.status,
     edits,
     picked,
     budget,
   });
+
+  // A bill still carrying tax in the document field is migrated by any Save: the
+  // line write below sends de-taxed costs, so the tax must move to its own line
+  // in the same Save or the bill total falls by the tax amount.
+  const needsTaxMigration = legacyTaxField > 0;
 
   // Edits made here but not yet pushed. Save stays enabled at zero (it re-sends the bill
   // regardless); this only drives the bar's label and the Discard button.
@@ -559,7 +574,7 @@ function BillDetail() {
         if (!alive || !draft) return;
         const r = reconcileDraft(draft, {
           lines: lines.map((l) => ({ id: l.id, jobCostItemId: l.jobCostItem?.id ?? null })),
-          bills: [{ id: docId, nonRecoverableTax: header.nonRecoverableTax ?? 0 }],
+          bills: [{ id: docId, salesTax: storedTax }],
           budgetIds: budget.map((b) => b.id),
         });
         if (r.kept === 0) {
@@ -882,7 +897,7 @@ function BillDetail() {
   async function saveCoding() {
     // Save is always live, so it can land here with nothing edited — that still re-pushes
     // every line. Only a bill with no lines and no tax change has literally nothing to send.
-    if (allLineChanges.length === 0 && !taxChanged) {
+    if (allLineChanges.length === 0 && !taxChanged && !needsTaxMigration) {
       setSaveMsg("Nothing to save.");
       return;
     }
@@ -915,8 +930,11 @@ function BillDetail() {
         const results = (json.results ?? []) as { costItemId: string; ok: boolean }[];
         failed = results.filter((r) => !r.ok).length;
       }
-      // 2) Push the document-level sales tax (nonRecoverableTax) in the same Save.
-      if (taxChanged) {
+      // 2) Push the sales tax in the same Save. Also runs UNCHANGED on a bill
+      //    still carrying the legacy document field: step 1 just wrote the
+      //    de-taxed line costs, so the tax has to move onto its 88 80 00 line
+      //    and the field has to be cleared, or the bill's total drops by the tax.
+      if (taxChanged || needsTaxMigration) {
         const res = await fetch("/api/bill-tax", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -1803,11 +1821,13 @@ function BillDetail() {
             {/* Totals, where a paper invoice puts them: under the line items,
                 right-aligned, subtotal → tax → total — and in the SAME card as
                 the lines they add up, separated by a change of background
-                rather than a second bordered box floating below the first. The
-                document-level sales tax is JobTread's "Tax" (nonRecoverableTax),
-                a fixed dollar — editable on draft bills (writes on), where it
-                holds each line's pre-tax amount steady and moves the total.
-                Nothing writes until the drawer's Save (see saveCoding). */}
+                rather than a second bordered box floating below the first.
+
+                Sales tax is a LINE on the bill, coded 88 80 00 — split out of the
+                line list above so it reads here instead of as something to code
+                (src/lib/salesTax.ts). Editable on draft bills (writes on), where
+                it holds each line's amount steady and moves the total. Nothing
+                writes until the drawer's Save (see saveCoding). */}
             <div className="border-t border-line bg-neutral-50 px-3 py-3 dark:bg-white/[0.04]">
               <dl className="ml-auto max-w-[16rem] space-y-1.5 text-sm">
                 <div className="flex items-center justify-between gap-4">
@@ -1852,6 +1872,21 @@ function BillDetail() {
                       <dd className="tabular-nums">{money(taxView)}</dd>
                     </div>
                   )
+                )}
+
+                {/* Whether this tax comes back. Derived from the job's Phase, not
+                    stored anywhere: Ascent's own jobs consume what they buy, so
+                    their tax is a cost; every other job resells, so its tax is
+                    claimable as taxable amount for tax paid at source. Quiet text,
+                    not a Chip — it is true of most taxed bills, not an exception. */}
+                {taxView > 0 && (
+                  <div className="flex justify-end">
+                    <dd className="text-xs text-neutral-500 dark:text-neutral-400">
+                      {isTaxRecoverable(jobPhase)
+                        ? "Recoverable — resold to the client"
+                        : "Not recoverable — Ascent overhead"}
+                    </dd>
+                  </div>
                 )}
 
                 <div className="flex items-baseline justify-between gap-4 border-t border-line-soft pt-1.5">
