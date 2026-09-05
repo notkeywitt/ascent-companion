@@ -7,13 +7,16 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 ## In flight
 
-_Nothing open._
+| Session | Branch | Last active | Commits | Next step |
+|---|---|---|---|---|
+| [header-layout-redesign](.claude/sessions/2026-09-05-header-layout-redesign.md) | `claude/header-layout-redesign-xid33s` | 0m ago | 3 | verify the new header + tracking-sheet title picker on a phone; decide whether … |
+| [timesheet-month-selection](.claude/sessions/2026-09-04-timesheet-month-selection.md) | `claude/timesheet-month-selection-2hih55` | 10h ago | 3 | none — month picker shipped; verify on the phone that the dropdown reads well n… |
 
 ## Shipped
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
+| [main](.claude/sessions/2026-09-03-main.md) | 2026-09-04 | 37 | — |
 | [jobs-page-client-listings](.claude/sessions/2026-09-03-jobs-page-client-listings.md) | 2026-09-04 | 2 | — |
-| [main](.claude/sessions/2026-09-03-main.md) | 2026-09-04 | 20 | — |
 | [bookkeeping-record-keeping](.claude/sessions/2026-09-03-bookkeeping-record-keeping.md) | 2026-09-03 | 5 | — |
 | [session-progress-tracking](.claude/sessions/2026-09-03-session-progress-tracking.md) | 2026-09-03 | 5 | Build a per-session ledger so interrupted work is recoverable |

@@ -1,30 +1,70 @@
 {
-  "generatedAt": "2026-09-04T03:02:32Z",
+  "generatedAt": "2026-09-05T06:19:08Z",
   "repo": "ascent-companion",
   "sessions": [
     {
-      "slug": "jobs-page-client-listings",
-      "file": "2026-09-03-jobs-page-client-listings.md",
-      "branch": "claude/jobs-page-client-listings-tpb0cy",
-      "status": "shipped",
-      "started": "2026-09-03T23:03:57Z",
-      "updated": "2026-09-04T03:02:32Z",
+      "slug": "header-layout-redesign",
+      "file": "2026-09-05-header-layout-redesign.md",
+      "branch": "claude/header-layout-redesign-xid33s",
+      "status": "in-progress",
+      "started": "2026-09-05T06:17:43Z",
+      "updated": "2026-09-05T06:18:54Z",
       "goal": "",
-      "next": "Probe the multi-value customFieldValues write against one internal Ascent job, then let /clients edit job Status and Job Type (isEditableField in clientDirectory.ts is the single gate).",
+      "next": "verify the new header + tracking-sheet title picker on a phone; decide whether Sync stays in the header row",
       "commits": [
         {
-          "date": "2026-09-03",
-          "time": "23:04",
-          "sha": "dbd199b",
-          "subject": "companion: add the clients & jobs directory, editable, with the invoice capture tag",
-          "files": "CODEBASE_MAP.md, src/app/api/clients/customer/route.ts, src/app/api/clients/invoice-tag/route.ts, src/app/api/clients/job/route.ts, src/app/api/clients/route.ts, src/app/api/clients/update/route.ts, +11 more"
+          "date": "2026-09-05",
+          "time": "06:17",
+          "sha": "d453024",
+          "subject": "companion: move search into the header row, job picker onto the tracking sheet",
+          "files": "CLAUDE.md, CODEBASE_MAP.md, USER_MANUAL.md, src/app/globals.css, src/app/trackingsheet/AllJobs.tsx, src/app/trackingsheet/Board.tsx, +6 more"
+        },
+        {
+          "date": "2026-09-05",
+          "time": "06:18",
+          "sha": "07e414a",
+          "subject": "companion: record session ledger for the header layout redesign",
+          "files": ""
+        },
+        {
+          "date": "2026-09-05",
+          "time": "06:18",
+          "sha": "ea79706",
+          "subject": "companion: log the ledger commit row",
+          "files": ""
+        }
+      ]
+    },
+    {
+      "slug": "timesheet-month-selection",
+      "file": "2026-09-04-timesheet-month-selection.md",
+      "branch": "claude/timesheet-month-selection-2hih55",
+      "status": "in-progress",
+      "started": "2026-09-04T19:59:59Z",
+      "updated": "2026-09-04T20:00:38Z",
+      "goal": "",
+      "next": "none — month picker shipped; verify on the phone that the dropdown reads well next to the arrows",
+      "commits": [
+        {
+          "date": "2026-09-04",
+          "time": "19:59",
+          "sha": "747a5e3",
+          "subject": "companion: let the timesheet pick a month directly",
+          "files": "src/app/employee-time/EmployeeTimeClient.tsx"
         },
         {
           "date": "2026-09-04",
-          "time": "03:02",
-          "sha": "78c70fd",
-          "subject": "companion: fix the 413 that broke every customer on /clients",
-          "files": "src/lib/clientDirectory.ts"
+          "time": "20:00",
+          "sha": "5da7a6d",
+          "subject": "companion: record session ledger for the timesheet month picker",
+          "files": ""
+        },
+        {
+          "date": "2026-09-04",
+          "time": "20:00",
+          "sha": "afc4e05",
+          "subject": "companion: log the ledger commit row",
+          "files": ""
         }
       ]
     },
@@ -34,9 +74,9 @@
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-09-04T01:27:58Z",
+      "updated": "2026-09-04T18:44:16Z",
       "goal": "",
-      "next": "Berger Bunkhouse July: re-run the check. Companion fixes are live (issue-date 033fd85, tax 5a3c5df, amount-mismatch + create-invoice CTA 9f01f9c). ⚠️ The JR Granite parser fix (appscript febcd7f) is PUSHED BUT NOT DEPLOYED — owner must run ./deploy.sh before that $11,030 finding clears.",
+      "next": "Digest brief is now local-only. Open question for owner: rip out standing instructions (DB table + admin panel + reply-parser actions) or leave them stored and inert.",
       "commits": [
         {
           "date": "2026-09-03",
@@ -177,6 +217,151 @@
           "sha": "4d24b34",
           "subject": "companion: name a bill/backup amount gap as itself, and stop offering to create an invoice that exists",
           "files": "src/app/trackingsheet/Board.tsx, src/lib/invoiceReview/checks.test.ts, src/lib/invoiceReview/checks/backup.ts, src/lib/invoiceReview/checks/shared.ts, src/lib/invoiceReview/settings.ts, src/lib/invoiceReview/types.ts"
+        },
+        {
+          "date": "2026-09-03",
+          "time": "18:27",
+          "sha": "c4ff583",
+          "subject": "companion: log session 2026-09-03-main",
+          "files": ""
+        },
+        {
+          "date": "2026-09-03",
+          "time": "22:17",
+          "sha": "c4ed14d",
+          "subject": "companion: only claim a PDF backs a bill when nothing else could",
+          "files": "src/lib/invoiceReview/checks.test.ts, src/lib/invoiceReview/checks/shared.ts"
+        },
+        {
+          "date": "2026-09-03",
+          "time": "22:18",
+          "sha": "9b49fcd",
+          "subject": "companion: log session 2026-09-03-main",
+          "files": ""
+        },
+        {
+          "date": "2026-09-03",
+          "time": "22:29",
+          "sha": "2ddc3a4",
+          "subject": "companion: log session 2026-09-03-main",
+          "files": ""
+        },
+        {
+          "date": "2026-09-03",
+          "time": "22:30",
+          "sha": "b10c337",
+          "subject": "companion: log session 2026-09-03-main",
+          "files": ""
+        },
+        {
+          "date": "2026-09-03",
+          "time": "22:37",
+          "sha": "21f20c9",
+          "subject": "companion: log session 2026-09-03-main",
+          "files": ""
+        },
+        {
+          "date": "2026-09-03",
+          "time": "22:44",
+          "sha": "5093c58",
+          "subject": "companion: log session 2026-09-03-main",
+          "files": ""
+        },
+        {
+          "date": "2026-09-04",
+          "time": "08:06",
+          "sha": "128dc5b",
+          "subject": "green the reconcile banner when the month is fully on a draft invoice",
+          "files": "src/app/trackingsheet/Board.tsx, src/components/InvoiceReconcile.tsx, src/lib/jobtread.test.ts, src/lib/jobtread.ts"
+        },
+        {
+          "date": "2026-09-04",
+          "time": "08:26",
+          "sha": "6527abf",
+          "subject": "keep the reconcile banner amber while a draft bill is off the invoice",
+          "files": "src/app/trackingsheet/Board.tsx, src/components/InvoiceReconcile.tsx"
+        },
+        {
+          "date": "2026-09-04",
+          "time": "08:39",
+          "sha": "b50d34f",
+          "subject": "pin Prettier's print width to the one this codebase is written at",
+          "files": ".prettierrc, src/components/InvoiceReconcile.tsx"
+        },
+        {
+          "date": "2026-09-04",
+          "time": "08:46",
+          "sha": "f14829f",
+          "subject": "companion: add the never-delete-a-bill rule from the appscript repo",
+          "files": "CLAUDE.md"
+        },
+        {
+          "date": "2026-09-04",
+          "time": "08:46",
+          "sha": "ca49a8f",
+          "subject": "companion: drop the model-written digest brief, keep the item list",
+          "files": "src/app/admin/DigestInstructionsPanel.tsx, src/app/api/admin/digest-instructions/route.ts, src/app/api/digest/reply/route.ts, src/components/DailyDigest.tsx, src/db/schema.ts, src/lib/digest/claude.ts, +3 more"
+        },
+        {
+          "date": "2026-09-04",
+          "time": "08:48",
+          "sha": "10190a1",
+          "subject": "companion: log the digest-brief session",
+          "files": ""
+        },
+        {
+          "date": "2026-09-04",
+          "time": "10:55",
+          "sha": "e342027",
+          "subject": "add a per-bill Approve in JT button to the coding card",
+          "files": "src/app/trackingsheet/BillCodingCard.tsx, src/app/trackingsheet/Board.tsx"
+        },
+        {
+          "date": "2026-09-04",
+          "time": "11:31",
+          "sha": "4e4aa52",
+          "subject": "drop the tracking-sheet header-whitespace warning, it was a false positive",
+          "files": "src/app/tracking-sheet/page.tsx, src/app/trackingsheet/Board.tsx, src/components/TrackingSheetRisks.tsx, src/components/TrackingSheetSync.tsx"
+        },
+        {
+          "date": "2026-09-04",
+          "time": "11:35",
+          "sha": "72f9e1d",
+          "subject": "add a Save Changes button to the coding card header",
+          "files": "src/app/trackingsheet/BillCodingCard.tsx, src/app/trackingsheet/Board.tsx"
+        },
+        {
+          "date": "2026-09-04",
+          "time": "11:44",
+          "sha": "8adc483",
+          "subject": "companion: make the bill row stripe mean only invoicing state",
+          "files": "CODEBASE_MAP.md, src/app/api/trackingsheet/all-bills/route.ts, src/app/trackingsheet/AllBills.tsx, src/app/trackingsheet/Board.tsx, src/lib/billInvoiceState.test.ts, src/lib/billInvoiceState.ts, +1 more"
+        }
+      ]
+    },
+    {
+      "slug": "jobs-page-client-listings",
+      "file": "2026-09-03-jobs-page-client-listings.md",
+      "branch": "claude/jobs-page-client-listings-tpb0cy",
+      "status": "shipped",
+      "started": "2026-09-03T23:03:57Z",
+      "updated": "2026-09-04T03:02:32Z",
+      "goal": "",
+      "next": "Probe the multi-value customFieldValues write against one internal Ascent job, then let /clients edit job Status and Job Type (isEditableField in clientDirectory.ts is the single gate).",
+      "commits": [
+        {
+          "date": "2026-09-03",
+          "time": "23:04",
+          "sha": "dbd199b",
+          "subject": "companion: add the clients & jobs directory, editable, with the invoice capture tag",
+          "files": "CODEBASE_MAP.md, src/app/api/clients/customer/route.ts, src/app/api/clients/invoice-tag/route.ts, src/app/api/clients/job/route.ts, src/app/api/clients/route.ts, src/app/api/clients/update/route.ts, +11 more"
+        },
+        {
+          "date": "2026-09-04",
+          "time": "03:02",
+          "sha": "78c70fd",
+          "subject": "companion: fix the 413 that broke every customer on /clients",
+          "files": "src/lib/clientDirectory.ts"
         }
       ]
     },
