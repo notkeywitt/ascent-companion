@@ -7,7 +7,9 @@
  * square follows the theme's brand hue — OCHRE in light, brand OLIVE in dark.
  * It stays olive in dark even though the interactive accent there is now ochre:
  * page 17 sanctions the olive square with a cream peak, and it keeps olive in
- * the frame as the usage ratios on p.14 intend. The wordmark is off-black on
+ * the frame as the usage ratios on p.14 intend. The knocked-out peak follows
+ * that square — off-black on light's ochre, cream on dark's olive — since each
+ * ground takes a different one of p.17's pairings. The wordmark is off-black on
  * light / cream on dark (both AA-safe per the type-pairing page).
  *
  * `tone="white"` is the single-color REVERSED lockup: white square, peak
@@ -67,11 +69,20 @@ export function AscentIcon({
       ) : (
         <rect width="100" height="100" className="fill-brand" />
       )}
-      {/* Notched double-peak mountain, always knocked out in cream — never dark.
-          The mark reads as a light peak on the brand square in BOTH themes; a
-          dark knockout on ochre is off-brand (guide p.17 shows it light-out).
-          The reversed lockup inverts the pair, so the peak goes black there. */}
-      <polygon points="18,74 40,41 46,47 56,30 82,74" fill={white ? "#000000" : "#FAF7EE"} />
+      {/* Notched double-peak mountain, knocked out of the brand square. The
+          knockout FLIPS with the theme because the square underneath does:
+          p.17 sanctions the ochre square with an OFF-BLACK peak (light) and the
+          olive square with a CREAM peak (dark). Cream on ochre is the pairing
+          p.16 restricts — 2.41:1 — so a single cream peak cannot serve both.
+          The reversed lockup is its own pair: black peak on a white square. */}
+      {white ? (
+        <polygon points="18,74 40,41 46,47 56,30 82,74" fill="#000000" />
+      ) : (
+        <polygon
+          points="18,74 40,41 46,47 56,30 82,74"
+          className="fill-offblack dark:fill-cream"
+        />
+      )}
     </svg>
   );
 }

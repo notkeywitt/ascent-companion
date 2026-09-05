@@ -39,9 +39,14 @@
   --accent: 207 152 3; /* #CF9803 ochre — fills/borders/rings/tints */
   --accent-hover: 185 136 3; /* #B98803 — a touch deeper gold for fill hover */
   --accent-soft: 207 152 3; /* light has no lifted variant (dark-only in use) */
-  --accent-fg: 250 247 238; /* cream text/knockout on a filled ochre — matches
-                               the cream mountain; ~2.4:1, so keep it to short
-                               button/badge labels, not paragraphs */
+  --accent-fg: 27 27 23; /* The label ON a filled accent. Ochre is the accent in
+                            BOTH themes, so its knockout is off-black in both —
+                            "Black on Ochre", p.15, 6.70:1 — and this is
+                            declared once here rather than per theme.
+                            It was cream (2.41:1): a pairing p.16 lists as a
+                            restriction, which put every primary button, the
+                            mileage tracker's field buttons and every filled
+                            status chip below AA in light mode. */
   --brand: 207 152 3; /* #CF9803 brand ochre — graphics only */
 
   /* Hairlines. The app used Tailwind's `neutral-200` (#E5E5E5), a COOL grey that
@@ -66,8 +71,6 @@
                                 needed: a Chip paints `bg-accent/15` under its
                                 own label, and that tint drops plain ochre to
                                 5.24:1 where this holds 7.33:1. */
-  --accent-fg: 27 27 23; /* off-black on a filled ochre — "Black on Ochre",
-                            p.15, 6.70:1 */
   --brand: 135 128 84; /* #878054 brand olive — graphics only, 4.31:1 */
 
   /* Dark hairlines sit LIGHTER than the raised card (#23231E) they edge, the
