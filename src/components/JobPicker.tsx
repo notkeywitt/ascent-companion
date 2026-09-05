@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { PeakMark } from "@/components/PageTitle";
 
 export interface JobRef {
   id: string;
@@ -64,6 +65,17 @@ const monthLabel = (ym: string) => {
  * Uninvoiced bills PLUS uninvoiced time, drafts included, invoiced ones dropped
  * — the same sum a job's own Tracking Sheets card shows, since a client invoice
  * pulls logged labor along with the bills.
+ *
+ * `variant="title"` draws the trigger as the PAGE HEADING instead of a form
+ * control — peak mark, `<h1>`, one chevron — for a job-scoped page whose title
+ * IS the job (Tracking Sheets). Same dropdown; only the closed state changes.
+ * Pass it through `PageHeader`'s `titleSlot`, which skips the `PageTitle` this
+ * variant renders itself.
+ *
+ * `fallbackLabel` is what the trigger reads while `value` names a job the list
+ * hasn't loaded yet. Without it the raw job id shows, which is fine inside a
+ * form control and wrong as a page title — a caller that already knows the
+ * job's name (its own fetch) passes it here.
  */
 export function JobPicker({
   value,
@@ -75,8 +87,10 @@ export function JobPicker({
   allLabel = "All jobs",
   allDescription = "Draft bills across every job",
   placeholder,
+  fallbackLabel,
   showPhaseFilter = false,
   showToBeInvoiced = false,
+  variant = "control",
 }: {
   value: string;
   onChange: (id: string) => void;
@@ -87,8 +101,10 @@ export function JobPicker({
   allLabel?: string;
   allDescription?: string;
   placeholder?: string;
+  fallbackLabel?: string;
   showPhaseFilter?: boolean;
   showToBeInvoiced?: boolean;
+  variant?: "control" | "title";
 }) {
   const [fetched, setFetched] = useState<JobRef[]>([]);
   const [open, setOpen] = useState(false);
@@ -171,7 +187,7 @@ export function JobPicker({
   const label = selected
     ? jobLabel(selected)
     : value
-      ? value // e.g. arrived from the panel before jobs loaded
+      ? (fallbackLabel ?? value) // e.g. arrived from the panel before jobs loaded
       : loading
         ? "Loading jobs…"
         : (placeholder ?? allLabel);
@@ -197,30 +213,60 @@ export function JobPicker({
       .includes(q);
   });
 
-  return (
-    <div
-      ref={ref}
-      className="relative flex-1"
-      onKeyDown={(e) => {
-        if (e.key === "Escape") setOpen(false);
-      }}
-    >
+  const toggle = () => {
+    setOpen((o) => !o);
+    setQuery("");
+  };
+
+  // The closed state. Both variants are the same button with the same aria — a
+  // title just wears the page heading's type instead of a field's border.
+  const trigger =
+    variant === "title" ? (
+      <h1 className="flex min-w-0 items-center gap-2.5 text-xl font-bold tracking-tight">
+        <PeakMark className="h-3.5 w-[22px] shrink-0" />
+        <button
+          type="button"
+          aria-haspopup="listbox"
+          aria-expanded={open}
+          onClick={toggle}
+          className="flex min-w-0 items-center gap-1.5 rounded text-left transition hover:text-accent"
+        >
+          <span className={"truncate " + (selected ? "" : "text-neutral-400")}>{label}</span>
+          <span className="shrink-0 text-base font-normal text-neutral-400">▾</span>
+        </button>
+      </h1>
+    ) : (
       <button
         type="button"
         aria-haspopup="listbox"
         aria-expanded={open}
-        onClick={() => {
-          setOpen((o) => !o);
-          setQuery("");
-        }}
+        onClick={toggle}
         className="flex w-full items-center justify-between gap-2 rounded-lg border border-neutral-300 bg-white px-3 py-2 text-left text-sm transition hover:border-accent dark:border-neutral-600 dark:bg-ink-raised"
       >
         <span className={"truncate " + (selected ? "font-medium" : "text-neutral-400")}>{label}</span>
         <span className="text-neutral-400">▾</span>
       </button>
+    );
 
+  return (
+    <div
+      ref={ref}
+      className="relative min-w-0 flex-1"
+      onKeyDown={(e) => {
+        if (e.key === "Escape") setOpen(false);
+      }}
+    >
+      {trigger}
+
+      {/* A title is only as wide as the job's name, and the toolbar beside it
+          can leave that narrow — so the panel keeps its own floor there rather
+          than inheriting a width that clips every address. */}
       {open && (
-        <div className="absolute z-30 mt-1 flex max-h-80 w-full flex-col overflow-hidden rounded-lg border border-neutral-300 bg-white shadow-lg dark:border-neutral-700 dark:bg-ink-overlay">
+        <div
+          className={`absolute z-30 mt-1 flex max-h-80 w-full flex-col overflow-hidden rounded-lg border border-neutral-300 bg-white shadow-lg dark:border-neutral-700 dark:bg-ink-overlay ${
+            variant === "title" ? "min-w-[min(24rem,calc(100vw-2rem))]" : ""
+          }`}
+        >
           <input
             autoFocus
             value={query}

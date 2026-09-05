@@ -9,7 +9,7 @@ import { useCopy } from "@/components/CopyProvider";
 import { AREAS } from "@/lib/nav";
 
 /**
- * The app's one search box, in the header under the job picker.
+ * The app's one search box — the widest item in the header row.
  *
  * It replaces TWO separate things: the launcher's "search N pages" field (which
  * only existed on the home page, and also matched vendor names and offered a
@@ -189,10 +189,10 @@ export function GlobalSearch() {
   const showPanel = open && q.length > 0;
 
   return (
-    <div ref={boxRef} className="relative px-2 pb-2">
+    <div ref={boxRef} className="relative min-w-0 flex-1">
       <span
         aria-hidden
-        className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400"
+        className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-400"
       >
         <SearchIcon className="h-4 w-4" />
       </span>
@@ -210,13 +210,16 @@ export function GlobalSearch() {
             (e.target as HTMLInputElement).blur();
           }
         }}
-        placeholder="Search pages, vendors, bills & line items…"
+        placeholder="Search pages, vendors, bills…"
         aria-label="Search pages, vendors, bills and line items"
-        className={`${inputCls} h-9 pl-9 text-[13px]`}
+        className={`${inputCls} h-9 pl-8 text-[13px]`}
       />
 
+      {/* The box shares its line with the logo and the buttons now, so it can be
+          narrow — the panel is anchored to its right edge and sized to the
+          viewport instead, rather than inheriting that width. */}
       {showPanel && (
-        <div className="absolute left-2 right-2 z-30 mt-1 max-h-[70vh] overflow-y-auto overscroll-contain rounded-lg border border-neutral-300 bg-white shadow-lg dark:border-neutral-700 dark:bg-ink-overlay">
+        <div className="absolute right-0 z-30 mt-1 max-h-[70vh] w-[min(30rem,calc(100vw-1rem))] overflow-y-auto overscroll-contain rounded-lg border border-neutral-300 bg-white shadow-lg dark:border-neutral-700 dark:bg-ink-overlay">
           {!hasAnything && !billsLoading && (
             <p className="px-3 py-4 text-center text-[13px] text-neutral-500">
               Nothing matches “{query.trim()}”.

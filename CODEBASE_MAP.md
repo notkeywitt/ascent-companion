@@ -42,7 +42,7 @@ matching row here.
 | **A job's invoice capture email tag** (the `_JT Invoice <Customer> - <Job>` Gmail label) | button on `src/app/clients/` → `src/app/clients/InvoiceTagCard.tsx` → `/api/clients/invoice-tag` → appscript `EmailToJtInvoice.js` (`listInvoiceTags`/`createInvoiceTag`). The label TEXT is always composed on the Apps Script side |
 | **Gating / who sees what** | `src/lib/views.ts` (the single source of truth: `VIEWS`, `ROLE_VIEWS`), enforced by `src/middleware.ts` |
 | **Nav / launcher / tabs** | `src/lib/nav.ts` (`AREAS` — the destination list), `src/app/page.tsx` (renders it), `src/components/TabBar.tsx` |
-| **The global search box** | `src/components/GlobalSearch.tsx` (in `AppHeader`, under the job picker) — matches pages via `src/lib/nav.ts`, vendors via `/api/vendors`, bills/line items via `/api/bill-search` |
+| **The global search box** | `src/components/GlobalSearch.tsx` (the wide item in `AppHeader`'s one row) — matches pages via `src/lib/nav.ts`, vendors via `/api/vendors`, bills/line items via `/api/bill-search` |
 | **The Pave gateway** (generic JobTread access + write policy) | `src/app/api/pave/route.ts` + `src/lib/paveGateway.ts` (policy) + `src/lib/paveGatewayClient.ts` (browser) |
 | **Verified JobTread reads/writes** (not the generic gateway) | `src/lib/jobtread.ts` |
 | **Billing period / bill-date rules** | `src/lib/billing.ts` (keep in lockstep with appscript `Config.js`) |
@@ -345,8 +345,9 @@ Grouped by domain; each folder is `…/route.ts`.
 
 - **Design system:** `ui.tsx` — build EVERY UI on these primitives (see the list
   in `CLAUDE.md`). Never hand-roll styles.
-- **Chrome / nav:** `AppHeader`, `GlobalSearch` (the app's ONE search box, in the
-  header under the job picker — pages + vendors + bills + line items, from any
+- **Chrome / nav:** `AppHeader` (logo, search, Add bill, Sync, theme — one row),
+  `GlobalSearch` (the app's ONE search box, in that
+  row — pages + vendors + bills + line items, from any
   page — hidden for the FIELD role), `TabBar` (bottom shortcut bar; hidden
   entirely for LEAD, whose home page already carries the same shortcuts as
   bigger buttons), `TileLauncher` (the field/lead/office home launcher — large
@@ -358,7 +359,7 @@ Grouped by domain; each folder is `…/route.ts`.
   `AdminActionBar`, `AccessProvider`, `CopyProvider` (editable page text —
   `useCopy()`), `UsageBeacon`, `PreviewBanner` (the admin's "viewing as {role}"
   bar + its "Return to my view" link — see `src/lib/preview.ts`).
-- **JobTread pickers / links:** `JobPicker`, `GlobalJobBar`, `CostCodeSelect`,
+- **JobTread pickers / links:** `JobPicker`, `CostCodeSelect`,
   `JtLink`, `LinkPending`, `BillStatusBadge`, `BillingSummary`.
 - **Feature widgets:** `InvoiceReconcile`, `InvoiceSweepResult`,
   `UncapturedBills`, `StuckVendors`, `NeedsProject`, `Notices` (the global

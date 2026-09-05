@@ -113,13 +113,13 @@
      one pixel. */
   --tabbar-h: calc(3.5rem + 1px + env(safe-area-inset-bottom));
 
-  /* Height of the sticky TOP chrome (components/AppHeader — the job bar and the
-     search box under it). Unlike the tab bar this is not a fixed number: the
-     job bar grows a second line when a job is picked, and the search box is
-     absent for the field role. AppHeader measures itself and rewrites this on
-     every resize, so the value below is only the pre-paint fallback: the job
-     bar (≈3.4rem) + the search row (2.75rem) + the brand hairline. */
-  --appheader-h: 6.25rem;
+  /* Height of the sticky TOP chrome (components/AppHeader — logo, search, Add
+     bill, Sync, theme, all on one row). Unlike the tab bar this is not a fixed
+     number: the controls are view-gated and the browser's own font settings
+     move it. AppHeader measures itself and rewrites this on every resize, so
+     the value below is only the pre-paint fallback: the row (≈3.4rem) + the
+     brand hairline. */
+  --appheader-h: 3.5rem;
 }
 
 /* The two things that must clear the top chrome, reading the ONE measured

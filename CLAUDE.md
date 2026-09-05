@@ -132,8 +132,8 @@ branch's record, so the next session can pick the work up cold. Read
   role can reach. Reorder that array to change the tabs — nothing else needs touching.
   Its height is `--tabbar-h` (globals.css); anything docking to the bottom of the
   screen must offset by that variable rather than a hardcoded number.
-- **Search:** one box for the whole app — `src/components/GlobalSearch.tsx`, in the
-  header under the job picker. It searches pages (`lib/nav`), vendors
+- **Search:** one box for the whole app — `src/components/GlobalSearch.tsx`, the
+  widest item in the header row. It searches pages (`lib/nav`), vendors
   (`/api/vendors`) and bills + line items (`/api/bill-search`), each self-hiding
   and view-gated. Don't add a second search field to a page; add a kind of answer
   here instead.

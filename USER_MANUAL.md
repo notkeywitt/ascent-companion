@@ -108,23 +108,31 @@ JobTread, the panel **follows along** and shows the same job automatically.
 
 ## Finding your way around
 
-Two things sit at the very top of every screen and follow you everywhere:
+The bar at the very top of every screen follows you everywhere. Left to right:
+the **Ascent logo**, the **search box**, **➕ Add bill**, **Sync**, and the
+light/dark switch.
+
+### Search (important)
+
+The search box answers "take me to the thing I'm thinking of" from any page. Type
+and it offers **pages**, **vendors**, and **bills and line items** (search "2x4" and
+it finds the bill that line is on). A number on its own offers an org-wide bill
+lookup.
 
 ### The job picker (important)
 
-At the top is a **searchable job dropdown**. **The job you pick here is the job the
-financial pages act on.** Type to search by customer, job number, name, or address, then
-choose a job — or choose **"All jobs"** to leave it unscoped.
+The job picker is the **title of the Tracking Sheets page** — the job's name, with a
+small ▾ beside it. **The job you pick there is the job the financial pages act on.**
+Tap it, then type to search by customer, job number, name, or address, and choose a
+job — or choose **"All jobs"** for the month's every-job view.
 
-- Your choice is remembered as you move between tabs.
+- Your choice rides in the address bar, so it is remembered as you move between tabs.
 - Some pages (Coding Review) can show *all* jobs at once; others (Invoicing, Unbilled,
-  Add a Bill) need one specific job and will simply prompt you to pick one.
-- If you switch jobs while looking at a single bill, the app takes you back to that job's
-  Coding Review (the old bill belonged to the previous job), and warns you first if you
-  have unsaved edits.
+  Add a Bill) need one specific job and will prompt you to pick one on Tracking Sheets.
+- It warns you first if you have unsaved coding on the job you are leaving.
 
-Next to the picker is a green **➕ Add bill** button — a shortcut to add a bill to the
-currently selected job from anywhere.
+**➕ Add bill** in the top bar is a shortcut to add a bill to the currently selected
+job from anywhere.
 
 ### The tabs and the Home launcher
 
@@ -222,7 +230,7 @@ You can also set the **Billing month**, add a line with **+ Add line**, **Move t
 ### Needs Project — `/needs-project`
 
 Bills that were ingested automatically but the system couldn't tell which job they belong
-to. Each row here has its **own** job picker (it doesn't use the top job bar).
+to. Each row here has its **own** job picker (it doesn't use the Tracking Sheets one).
 
 1. Tap **View PDF ↗** to see what the bill is.
 2. Pick the correct **job** and tap **Assign** — the bill is pushed to that job in

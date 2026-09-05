@@ -25,7 +25,7 @@ import {
   btn,
 } from "@/components/ui";
 import { CostCodeSelect, type Option } from "@/components/CostCodeSelect";
-import { JobPicker, jobLabel, type JobRef } from "@/components/JobPicker";
+import { JobPicker, jobAddress, jobLabel, type JobRef } from "@/components/JobPicker";
 import { JtLink } from "@/components/JtLink";
 import {
   BillCodingCard,
@@ -74,7 +74,7 @@ import { PreSendCheck } from "./PreSendCheck";
 import type { PreSendResult } from "@/lib/invoiceReview/preSend";
 import { useAccess } from "@/components/AccessProvider";
 import { useCopy } from "@/components/CopyProvider";
-import { useUnsavedChanges } from "@/lib/useUnsavedChanges";
+import { confirmLeaveIfDirty, useUnsavedChanges } from "@/lib/useUnsavedChanges";
 import {
   discardDraft,
   draftSavedAtLabel,
@@ -2360,13 +2360,28 @@ export function Board() {
   const jobTitle = data?.job?.name ?? "";
   // The page title is the job in context — "Customer - Job" once loaded, falling
   // back to the generic page name before data arrives (or if the job carries no
-  // customer). The GlobalJobBar still carries the picker + address below it.
+  // customer). It's the JOB PICKER's closed state now: the title names the job,
+  // so the title is the control that changes it. This string is only what the
+  // picker reads until the jobs list resolves the same job for itself.
   const customerName = data?.job?.customer ?? "";
   const headerTitle = jobTitle
     ? customerName
       ? `${customerName} - ${jobTitle}`
       : jobTitle
     : c("page.recode.title");
+  // Where the job IS, under the title. It rode in the app header while the
+  // picker did; both belong to the page whose subject is one job.
+  const headerAddress = data?.job ? jobAddress(data.job) : "";
+
+  // Switching jobs stays on Tracking Sheets — same page, new subject. Empty id
+  // is the "All jobs" row, which is this route with no ?jobId. `replace`, not
+  // push: it's a change of subject, not a step deeper. The staged-coding guard
+  // has to be asked by hand — a router call isn't an anchor click it can catch.
+  const onPickJob = (id: string) => {
+    if (id === jobId) return;
+    if (!confirmLeaveIfDirty()) return;
+    router.replace(id ? `/trackingsheet?jobId=${encodeURIComponent(id)}` : "/trackingsheet");
+  };
 
   // One bill's card, shared by the main by-bill list and the Sunset pane — both
   // render exactly the same row, so the drag, drawer and detail-link behaviour
@@ -2588,12 +2603,23 @@ export function Board() {
 
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-col px-4 pb-[calc(6rem+env(safe-area-inset-bottom))] pt-6 lg:max-w-[110rem]">
-      {/* The job and its address used to be printed here — once as a phone-only
-          line above the title and again as the header description from lg up.
-          The GlobalJobBar carries both now (picker + address line), so this page
-          says what it's FOR instead of repeating where you are. */}
+      {/* The title IS the picker — this page's subject is one job, so the name
+          of the job and the control that changes it are the same thing. The
+          address rides under it as the header's description. */}
       <PageHeader
-        title={headerTitle}
+        titleSlot={
+          <JobPicker
+            variant="title"
+            value={jobId}
+            onChange={onPickJob}
+            fallbackLabel={headerTitle}
+            allLabel="All jobs"
+            allDescription="Every job's month, side by side"
+            showPhaseFilter
+            showToBeInvoiced={can("recode")}
+          />
+        }
+        description={headerAddress || undefined}
         actionsClassName="w-full min-w-0 items-center lg:w-auto"
         actions={
           // On a phone the toolbar is a stack of clearly separated groups —

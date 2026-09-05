@@ -15,7 +15,7 @@ const money = (n?: number) =>
     : "—";
 
 /**
- * Server component. `jobId` comes from the URL (set by the global job bar), so
+ * Server component. `jobId` comes from the URL (set by the Tracking Sheets job picker), so
  * the rollup is computed on the server and arrives in the initial HTML — no
  * client fetch waterfall. The Pave call is wrapped in <Suspense> below, so the
  * page shell (title/description) streams immediately and the totals stream in

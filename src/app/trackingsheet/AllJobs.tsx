@@ -12,8 +12,9 @@ import { UnsyncedDrafts } from "./UnsyncedDrafts";
 /**
  * Tracking Sheets with no job selected — every vendor bill issued in the
  * selected month across all jobs (draft, uninvoiced, and invoiced alike, each
- * tagged with its state). Picking a job (global job bar, or a bill's own detail
- * page) opens the workbench: same route, `?jobId=`.
+ * tagged with its state). Picking a job (the title picker on the workbench, a
+ * row here, or a bill's own detail page) opens the workbench: same route,
+ * `?jobId=`.
  */
 
 /**
@@ -40,8 +41,8 @@ export function AllJobs() {
   });
 
   /**
-   * The month lives in the URL as well as in state, so "Code this job" and the
-   * global job bar can carry it into the workbench. `replace`, not `push` — a
+   * The month lives in the URL as well as in state, so "Code this job" can
+   * carry it into the workbench. `replace`, not `push` — a
    * month picker shouldn't fill the back button with one entry per change.
    */
   const setYm = useCallback(

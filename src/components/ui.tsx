@@ -736,6 +736,7 @@ export function CardSkeletonList({ rows = 3 }: { rows?: number }) {
  */
 export function PageHeader({
   title,
+  titleSlot,
   description,
   actions,
   className = "",
@@ -745,7 +746,12 @@ export function PageHeader({
   // rather than sit at its full unwrapped width and overflow the page.
   actionsClassName = "shrink-0 items-center gap-2",
 }: {
-  title: React.ReactNode;
+  title?: React.ReactNode;
+  // A title that draws its OWN heading (peak mark + <h1>) because it is
+  // interactive — Tracking Sheets puts the job picker here, so the page name and
+  // the control that changes it are one thing. Given a titleSlot, `title` is
+  // ignored: the slot owns the <h1>, and nesting one inside another is invalid.
+  titleSlot?: React.ReactNode;
   description?: React.ReactNode;
   actions?: React.ReactNode;
   className?: string;
@@ -754,7 +760,7 @@ export function PageHeader({
   return (
     <header className={`mb-5 ${className}`}>
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <PageTitle className="min-w-0">{title}</PageTitle>
+        {titleSlot ?? <PageTitle className="min-w-0">{title}</PageTitle>}
         {actions && <div className={`flex ${actionsClassName}`}>{actions}</div>}
       </div>
       {description && <p className="mt-1 text-sm text-neutral-500">{description}</p>}
