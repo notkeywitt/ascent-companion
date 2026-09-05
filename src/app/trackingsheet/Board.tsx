@@ -578,6 +578,9 @@ export function Board() {
   // header to open it. The desktop sidebar ignores this (it's always docked,
   // via the `lg:` overrides), so defaulting to collapsed is a mobile-only cost.
   const [railCollapsed, setRailCollapsed] = useState(true);
+  /** The phone's headroom row: folded away, and which end of the list leads. */
+  const [headroomOpen, setHeadroomOpen] = useState(true);
+  const [headroomMostLeft, setHeadroomMostLeft] = useState(false);
   // The "Time & labor" block in the bills list starts collapsed to a single
   // summary row — expand it to see each entry, same collapse-by-default
   // pattern as the rail's divisions.
@@ -1030,14 +1033,20 @@ export function Board() {
    * code's big percentage is usually a rounding decision. Codes with no budget
    * are still excluded: the card divides by the budget for its bar and its
    * percentage, and an unbudgeted code would sit at the front forever.
+   *
+   * Reversed, it answers the OTHER question — "where do I still have room?" —
+   * so it flips the whole list before taking the eight, rather than reading the
+   * same eight backwards. The cards you get are different ones.
    */
   const tightestCodes = useMemo(
     () =>
       railRows
         .filter((h) => h.budget > 0)
-        .sort((a, b) => remainingOf(a) - remainingOf(b))
+        .sort((a, b) =>
+          headroomMostLeft ? remainingOf(b) - remainingOf(a) : remainingOf(a) - remainingOf(b),
+        )
         .slice(0, 8),
-    [railRows],
+    [railRows, headroomMostLeft],
   );
 
   const toggleDiv = (code: string) =>
@@ -3167,48 +3176,65 @@ export function Board() {
             {/* Budget headroom on the phone — the desktop rail is a docked
                 column, which below lg is collapsed behind a tap, so this is
                 where the budget becomes visible on the device the month is
-                actually reviewed on. Swipeable, fewest dollars left first;
-                tapping one opens the same drill-down the rail's rows do. */}
+                actually reviewed on. Swipeable; tapping a card opens the same
+                drill-down the rail's rows do. The heading folds the row away,
+                and the caption beside it flips which end of the list leads:
+                what am I running out of, or where do I still have room. */}
             {tightestCodes.length > 0 && (
-              <div className="mb-4 lg:hidden">
+              <div className={`lg:hidden ${headroomOpen ? "mb-4" : "mb-2"}`}>
                 <SectionHeading
                   className="mb-2"
+                  onToggle={() => setHeadroomOpen((v) => !v)}
+                  open={headroomOpen}
                   trailing={
-                    <span className="text-[11px] text-neutral-500">least left first</span>
+                    /* `-my-2` again: a 44px target that doesn't make this
+                       heading taller than the others on the page. */
+                    <button
+                      type="button"
+                      onClick={() => setHeadroomMostLeft((v) => !v)}
+                      className="-my-2 inline-flex min-h-11 items-center gap-1 py-2 text-[11px] text-neutral-500 transition hover:text-accent dark:text-neutral-400"
+                    >
+                      {headroomMostLeft ? "most left first" : "least left first"}
+                      <span aria-hidden className="text-[9px]">
+                        ⇅
+                      </span>
+                    </button>
                   }
                 >
                   Budget headroom
                 </SectionHeading>
-                <ChipScroller bleed="1rem">
-                  {tightestCodes.map((h) => {
-                    const left = remainingOf(h);
-                    const pct = Math.round((left / h.budget) * 100);
-                    return (
-                      <button
-                        key={h.code}
-                        type="button"
-                        onClick={() => openCodeDrill(h.code)}
-                        className="w-[170px] shrink-0 rounded-xl border border-line bg-white p-2.5 text-left transition hover:border-accent dark:bg-ink-raised"
-                      >
-                        <div className="text-[11px] tabular-nums text-neutral-500 dark:text-neutral-400">
-                          {h.code}
-                        </div>
-                        <div className="truncate text-[12.5px] font-semibold">{h.name}</div>
-                        <div
-                          className={`mt-0.5 text-[15px] font-bold tabular-nums tracking-tight ${
-                            left < 0 ? "text-red-600 dark:text-red-400" : ""
-                          }`}
+                {headroomOpen && (
+                  <ChipScroller bleed="1rem">
+                    {tightestCodes.map((h) => {
+                      const left = remainingOf(h);
+                      const pct = Math.round((left / h.budget) * 100);
+                      return (
+                        <button
+                          key={h.code}
+                          type="button"
+                          onClick={() => openCodeDrill(h.code)}
+                          className="w-[170px] shrink-0 rounded-xl border border-line bg-white p-2.5 text-left transition hover:border-accent dark:bg-ink-raised"
                         >
-                          {money0(left)}
-                        </div>
-                        <Meter budget={h.budget} used={usedOf(h)} label={h.code} className="mt-1.5 h-1" />
-                        <div className="mt-1 text-[10.5px] text-neutral-500 dark:text-neutral-400">
-                          {left < 0 ? `over by ${-pct}%` : `${pct}% of budget left`}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </ChipScroller>
+                          <div className="text-[11px] tabular-nums text-neutral-500 dark:text-neutral-400">
+                            {h.code}
+                          </div>
+                          <div className="truncate text-[12.5px] font-semibold">{h.name}</div>
+                          <div
+                            className={`mt-0.5 text-[15px] font-bold tabular-nums tracking-tight ${
+                              left < 0 ? "text-red-600 dark:text-red-400" : ""
+                            }`}
+                          >
+                            {money0(left)}
+                          </div>
+                          <Meter budget={h.budget} used={usedOf(h)} label={h.code} className="mt-1.5 h-1" />
+                          <div className="mt-1 text-[10.5px] text-neutral-500 dark:text-neutral-400">
+                            {left < 0 ? `over by ${-pct}%` : `${pct}% of budget left`}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </ChipScroller>
+                )}
               </div>
             )}
 
