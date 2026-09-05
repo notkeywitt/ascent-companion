@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-05T13:53:29Z",
+  "generatedAt": "2026-09-05T14:04:49Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,7 +8,7 @@
       "branch": "claude/header-layout-redesign-xid33s",
       "status": "in-progress",
       "started": "2026-09-05T06:17:43Z",
-      "updated": "2026-09-05T13:53:29Z",
+      "updated": "2026-09-05T14:04:42Z",
       "goal": "",
       "next": "rearrange the tracking-sheet action buttons for mobile and desktop — they read as scattered right now",
       "commits": [
@@ -46,6 +46,13 @@
           "sha": "cdec68d",
           "subject": "companion: logo is the theme switch, Sync moves to the tracking sheet's closing row",
           "files": "CODEBASE_MAP.md, USER_MANUAL.md, src/app/globals.css, src/app/trackingsheet/Board.tsx, src/components/AppHeader.tsx, src/components/SyncNowButton.tsx, +1 more"
+        },
+        {
+          "date": "2026-09-05",
+          "time": "14:04",
+          "sha": "61b7a12",
+          "subject": "companion: make the Tracking Sheets title a job picker when no job is selected",
+          "files": "src/app/trackingsheet/AllJobs.tsx, src/app/trackingsheet/Board.tsx, src/components/JobPicker.tsx"
         }
       ]
     },
