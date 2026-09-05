@@ -1022,15 +1022,20 @@ export function Board() {
    * — and on a phone it's collapsed behind a tap, which in practice meant the
    * budget simply wasn't visible on the device the month gets reviewed on. This
    * is the answer to the question you actually have there ("what am I about to
-   * run out of?"): every code with a real budget, worst headroom first. Codes
-   * with no budget to divide by are excluded — an unbudgeted code is over by
-   * definition and would permanently occupy the front of the row.
+   * run out of?"): every code with a real budget, fewest DOLLARS left first.
+   *
+   * Ranked by dollars, not by percent of budget. A percentage put a $400 code
+   * $250 over ahead of a $60,000 code $9,000 over, which is the wrong end of the
+   * list to be looking at — the money is what has to be covered, and a small
+   * code's big percentage is usually a rounding decision. Codes with no budget
+   * are still excluded: the card divides by the budget for its bar and its
+   * percentage, and an unbudgeted code would sit at the front forever.
    */
   const tightestCodes = useMemo(
     () =>
       railRows
         .filter((h) => h.budget > 0)
-        .sort((a, b) => remainingOf(a) / a.budget - remainingOf(b) / b.budget)
+        .sort((a, b) => remainingOf(a) - remainingOf(b))
         .slice(0, 8),
     [railRows],
   );
@@ -3162,14 +3167,14 @@ export function Board() {
             {/* Budget headroom on the phone — the desktop rail is a docked
                 column, which below lg is collapsed behind a tap, so this is
                 where the budget becomes visible on the device the month is
-                actually reviewed on. Swipeable, tightest code first; tapping one
-                opens the same drill-down the rail's rows do. */}
+                actually reviewed on. Swipeable, fewest dollars left first;
+                tapping one opens the same drill-down the rail's rows do. */}
             {tightestCodes.length > 0 && (
               <div className="mb-4 lg:hidden">
                 <SectionHeading
                   className="mb-2"
                   trailing={
-                    <span className="text-[11px] text-neutral-500">tightest first</span>
+                    <span className="text-[11px] text-neutral-500">least left first</span>
                   }
                 >
                   Budget headroom
