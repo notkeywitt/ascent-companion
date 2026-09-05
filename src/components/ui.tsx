@@ -272,16 +272,44 @@ export function Card({
 export function SectionHeading({
   children,
   trailing,
+  onToggle,
+  open = true,
   className = "",
 }: {
   children: React.ReactNode;
   trailing?: React.ReactNode;
+  /** Given, the label becomes the show/hide control for the section under it. */
+  onToggle?: () => void;
+  /** Whether that section is currently showing. Only read when `onToggle` is set. */
+  open?: boolean;
   className?: string;
 }) {
   return (
     <div className={`flex min-h-[28px] items-center gap-2.5 ${className}`}>
       <span aria-hidden className="h-0.5 w-5 shrink-0 rounded-full bg-accent" />
-      <SectionLabel>{children}</SectionLabel>
+      {onToggle ? (
+        // `-my-2` keeps a thumb-sized 44px tap area without making the heading
+        // row taller than every other SectionHeading on the page — the same
+        // trick the budget rail's Budget toggle uses.
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-expanded={open}
+          className="-my-2 flex min-h-11 min-w-0 items-center gap-1.5 py-2 text-left"
+        >
+          <SectionLabel>{children}</SectionLabel>
+          <span
+            aria-hidden
+            className={`shrink-0 text-[9px] text-neutral-500 transition-transform dark:text-neutral-400 ${
+              open ? "rotate-90" : ""
+            }`}
+          >
+            ▶
+          </span>
+        </button>
+      ) : (
+        <SectionLabel>{children}</SectionLabel>
+      )}
       {trailing && <div className="ml-auto shrink-0">{trailing}</div>}
     </div>
   );

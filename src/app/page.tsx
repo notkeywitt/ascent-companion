@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { signOut } from "next-auth/react";
@@ -43,6 +43,9 @@ import { PREVIEW_ROWS, tileLauncherFor } from "@/lib/nav";
  * ids.
  */
 
+/** Where the launcher remembers which menus you folded away. */
+const COLLAPSED_KEY = "home.collapsedAreas";
+
 function Home() {
   const search = useSearchParams();
   const access = useAccess();
@@ -53,6 +56,35 @@ function Home() {
 
   // Which areas the user has expanded past their preview rows.
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+
+  /* Which areas the user has FOLDED AWAY entirely. Different from `expanded`,
+     which only reaches past an area's preview rows: this hides the whole
+     section, heading aside. An admin sees every menu here, and most days cares
+     about two of them.
+
+     Remembered per device in localStorage, because a launcher that forgets is
+     one you re-collapse after every trip to a page and back. Read in an effect
+     rather than in the initial state: this component is server-rendered too, and
+     a first render that read `window` would disagree with the server's HTML. */
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(COLLAPSED_KEY);
+      if (raw) setCollapsed(JSON.parse(raw));
+    } catch {
+      /* private mode, or a value written by an older shape — start open */
+    }
+  }, []);
+  const toggleArea = (id: string) =>
+    setCollapsed((prev) => {
+      const next = { ...prev, [id]: !prev[id] };
+      try {
+        localStorage.setItem(COLLAPSED_KEY, JSON.stringify(next));
+      } catch {
+        /* nothing to do — the fold still works for this visit */
+      }
+      return next;
+    });
 
   // The admin launcher's layout — the shipped AREAS default, or the admin's
   // customized menus/links/buttons (Edit mode). `isCustom` tells us whether the
@@ -158,16 +190,20 @@ function Home() {
             const links = area.items.filter((it) => it.kind !== "button");
             const previewRows = area.preview ?? PREVIEW_ROWS;
             const isExpanded = !!expanded[area.id];
+            const isOpen = !collapsed[area.id];
             const hidden = Math.max(0, links.length - previewRows);
             const shown = isExpanded ? links : links.slice(0, previewRows);
             // Work queued behind the fold still shows on the heading, so a
-            // collapsed tail never hides the one row that needs attention.
-            const hiddenCount = links
-              .slice(shown.length)
-              .reduce((n, d) => n + (badges[d.view] ?? 0), 0);
+            // collapsed tail — or a whole folded menu — never hides the one row
+            // that needs attention.
+            const hiddenCount = (
+              isOpen ? links.slice(shown.length) : area.items
+            ).reduce((n, d) => n + (badges[d.view] ?? 0), 0);
             return (
               <section key={area.id} className="space-y-2">
                 <SectionHeading
+                  onToggle={() => toggleArea(area.id)}
+                  open={isOpen}
                   trailing={
                     <span className="flex items-center gap-2">
                       {hiddenCount > 0 && <CountBadge n={hiddenCount} />}
@@ -181,7 +217,7 @@ function Home() {
                 </SectionHeading>
 
                 {/* Buttons first — the prominent tiles, in a 2-across grid. */}
-                {buttons.length > 0 && (
+                {isOpen && buttons.length > 0 && (
                   <div className="grid grid-cols-2 gap-2">
                     {buttons.map((b) => (
                       <Link
@@ -203,7 +239,7 @@ function Home() {
                   </div>
                 )}
 
-                {links.length > 0 && (
+                {isOpen && links.length > 0 && (
                   <ListCard>
                     {shown.map((d) => (
                       <ListRow
