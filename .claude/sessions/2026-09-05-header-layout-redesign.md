@@ -4,9 +4,9 @@ repo: ascent-companion
 branch: claude/header-layout-redesign-xid33s
 status: in-progress
 started: 2026-09-05T06:17:43Z
-updated: 2026-09-05T13:14:07Z
+updated: 2026-09-05T13:53:29Z
 goal: 
-next: verify the new header + tracking-sheet title picker on a phone; decide whether Sync stays in the header row
+next: rearrange the tracking-sheet action buttons for mobile and desktop — they read as scattered right now
 ---
 
 ## Log
@@ -18,5 +18,7 @@ next: verify the new header + tracking-sheet title picker on a phone; decide whe
 - 2026-09-05 06:18 · `ea79706` companion: log the ledger commit row
 - 2026-09-05 13:14 · `0bede08` Merge remote-tracking branch 'origin/main' into claude/header-layout-redesign-xid33s
   CODEBASE_MAP.md, SESSIONS.md, src/app/globals.css, src/lib/sessionLog.generated.json
+- 2026-09-05 13:53 · `cdec68d` companion: logo is the theme switch, Sync moves to the tracking sheet's closing row
+  CODEBASE_MAP.md, USER_MANUAL.md, src/app/globals.css, src/app/trackingsheet/Board.tsx, src/components/AppHeader.tsx, src/components/SyncNowButton.tsx, +1 more
 
 ## Notes

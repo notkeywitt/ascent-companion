@@ -9,8 +9,8 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Branch | Last active | Commits | Next step |
 |---|---|---|---|---|
-| [header-layout-redesign](.claude/sessions/2026-09-05-header-layout-redesign.md) | `claude/header-layout-redesign-xid33s` | 7h ago | 3 | verify the new header + tracking-sheet title picker on a phone; decide whether … |
-| [timesheet-month-selection](.claude/sessions/2026-09-04-timesheet-month-selection.md) | `claude/timesheet-month-selection-2hih55` | 17h ago | 3 | none — month picker shipped; verify on the phone that the dropdown reads well n… |
+| [header-layout-redesign](.claude/sessions/2026-09-05-header-layout-redesign.md) | `claude/header-layout-redesign-xid33s` | 0m ago | 5 | rearrange the tracking-sheet action buttons for mobile and desktop — they read … |
+| [timesheet-month-selection](.claude/sessions/2026-09-04-timesheet-month-selection.md) | `claude/timesheet-month-selection-2hih55` | 18h ago | 3 | none — month picker shipped; verify on the phone that the dropdown reads well n… |
 
 ## Shipped
 

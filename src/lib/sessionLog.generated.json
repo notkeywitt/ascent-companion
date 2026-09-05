@@ -1,7 +1,54 @@
 {
-  "generatedAt": "2026-09-05T13:11:45Z",
+  "generatedAt": "2026-09-05T13:53:29Z",
   "repo": "ascent-companion",
   "sessions": [
+    {
+      "slug": "header-layout-redesign",
+      "file": "2026-09-05-header-layout-redesign.md",
+      "branch": "claude/header-layout-redesign-xid33s",
+      "status": "in-progress",
+      "started": "2026-09-05T06:17:43Z",
+      "updated": "2026-09-05T13:53:29Z",
+      "goal": "",
+      "next": "rearrange the tracking-sheet action buttons for mobile and desktop — they read as scattered right now",
+      "commits": [
+        {
+          "date": "2026-09-05",
+          "time": "06:17",
+          "sha": "d453024",
+          "subject": "companion: move search into the header row, job picker onto the tracking sheet",
+          "files": "CLAUDE.md, CODEBASE_MAP.md, USER_MANUAL.md, src/app/globals.css, src/app/trackingsheet/AllJobs.tsx, src/app/trackingsheet/Board.tsx, +6 more"
+        },
+        {
+          "date": "2026-09-05",
+          "time": "06:18",
+          "sha": "07e414a",
+          "subject": "companion: record session ledger for the header layout redesign",
+          "files": ""
+        },
+        {
+          "date": "2026-09-05",
+          "time": "06:18",
+          "sha": "ea79706",
+          "subject": "companion: log the ledger commit row",
+          "files": ""
+        },
+        {
+          "date": "2026-09-05",
+          "time": "13:14",
+          "sha": "0bede08",
+          "subject": "Merge remote-tracking branch 'origin/main' into claude/header-layout-redesign-xid33s",
+          "files": "CODEBASE_MAP.md, SESSIONS.md, src/app/globals.css, src/lib/sessionLog.generated.json"
+        },
+        {
+          "date": "2026-09-05",
+          "time": "13:53",
+          "sha": "cdec68d",
+          "subject": "companion: logo is the theme switch, Sync moves to the tracking sheet's closing row",
+          "files": "CODEBASE_MAP.md, USER_MANUAL.md, src/app/globals.css, src/app/trackingsheet/Board.tsx, src/components/AppHeader.tsx, src/components/SyncNowButton.tsx, +1 more"
+        }
+      ]
+    },
     {
       "slug": "loading-screen-logo",
       "file": "2026-09-05-loading-screen-logo.md",
@@ -32,39 +79,6 @@
           "sha": "2025a18",
           "subject": "companion: regenerate the session board for the loading screen",
           "files": "SESSIONS.md, src/lib/sessionLog.generated.json"
-        }
-      ]
-    },
-    {
-      "slug": "header-layout-redesign",
-      "file": "2026-09-05-header-layout-redesign.md",
-      "branch": "claude/header-layout-redesign-xid33s",
-      "status": "in-progress",
-      "started": "2026-09-05T06:17:43Z",
-      "updated": "2026-09-05T06:18:54Z",
-      "goal": "",
-      "next": "verify the new header + tracking-sheet title picker on a phone; decide whether Sync stays in the header row",
-      "commits": [
-        {
-          "date": "2026-09-05",
-          "time": "06:17",
-          "sha": "d453024",
-          "subject": "companion: move search into the header row, job picker onto the tracking sheet",
-          "files": "CLAUDE.md, CODEBASE_MAP.md, USER_MANUAL.md, src/app/globals.css, src/app/trackingsheet/AllJobs.tsx, src/app/trackingsheet/Board.tsx, +6 more"
-        },
-        {
-          "date": "2026-09-05",
-          "time": "06:18",
-          "sha": "07e414a",
-          "subject": "companion: record session ledger for the header layout redesign",
-          "files": ""
-        },
-        {
-          "date": "2026-09-05",
-          "time": "06:18",
-          "sha": "ea79706",
-          "subject": "companion: log the ledger commit row",
-          "files": ""
         }
       ]
     },
