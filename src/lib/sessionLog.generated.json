@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-05T16:26:44Z",
+  "generatedAt": "2026-09-05T17:06:49Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,7 +8,7 @@
       "branch": "claude/header-layout-redesign-xid33s",
       "status": "in-progress",
       "started": "2026-09-05T06:17:43Z",
-      "updated": "2026-09-05T16:26:44Z",
+      "updated": "2026-09-05T17:06:49Z",
       "goal": "",
       "next": "rearrange the tracking-sheet action buttons for mobile and desktop — they read as scattered right now",
       "commits": [
@@ -95,6 +95,13 @@
           "sha": "7371a4d",
           "subject": "companion: fold the launcher's menus away",
           "files": "src/app/page.tsx, src/components/ui.tsx"
+        },
+        {
+          "date": "2026-09-05",
+          "time": "17:06",
+          "sha": "6ea671a",
+          "subject": "companion: rank budget headroom by dollars, not percent of budget",
+          "files": "src/app/trackingsheet/Board.tsx"
         }
       ]
     },
