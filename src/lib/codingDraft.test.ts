@@ -37,7 +37,7 @@ const world = {
     { id: "L2", jobCostItemId: null },
     { id: "L3", jobCostItemId: "leafB" },
   ],
-  bills: [{ id: "D1", nonRecoverableTax: 12.5 }],
+  bills: [{ id: "D1", salesTax: 12.5 }],
   budgetIds: ["leafA", "leafB", "leafC"],
 };
 

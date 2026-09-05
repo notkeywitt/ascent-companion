@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { SALES_TAX_CSI } from "@/lib/salesTax";
 import {
   attachFileToDocument,
   createVendorBill,
@@ -13,7 +14,7 @@ import { extractBillWithGemini, type ExtractedBill } from "@/lib/gemini";
 import {
   companyDateParts,
   computeBillDates,
-  computeLineTaxability,
+  salesTaxAmount,
   taxReconcileWarning,
 } from "@/lib/billing";
 import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
@@ -233,7 +234,7 @@ export async function POST(req: NextRequest) {
     }
 
     // ---- 5. line items — code against the budget, uncoded when out-of-budget
-    const tax = computeLineTaxability(extracted.Tax);
+    const taxAmount = salesTaxAmount(extracted.Tax);
     const items = extracted.items ?? [];
     let uncoded = 0;
     let lines: NewBillLine[] = items.map((it) => {
@@ -266,7 +267,7 @@ export async function POST(req: NextRequest) {
         description: csi,
         unitCost,
         quantity,
-        isTaxable: tax.lineIsTaxable,
+        isTaxable: true,
         jobCostItemId: target?.id,
         costCode: csi || undefined,
       };
@@ -283,7 +284,7 @@ export async function POST(req: NextRequest) {
         name: `${vendor.name} ${billNumber} — Review Required`,
         unitCost: Number(extracted.Amount) || 0,
         quantity: 1,
-        isTaxable: tax.lineIsTaxable,
+        isTaxable: true,
       });
       warnings.push("No line items extracted — created a single summary line.");
     }
@@ -296,7 +297,7 @@ export async function POST(req: NextRequest) {
     // READ, NEVER COMPUTED" we don't rescale the lines; we surface the gap and let
     // the operator decide (collapse to the invoice net, or push the lines as-is).
     const printedAmount = Number(extracted.Amount) || 0;
-    const printedNet = printedAmount > 0 ? printedAmount - tax.taxAmount : 0;
+    const printedNet = printedAmount > 0 ? printedAmount - taxAmount : 0;
     const linesNet = lines.reduce(
       (s, l) => s + (Number(l.unitCost) || 0) * (Number(l.quantity) || 0),
       0,
@@ -313,11 +314,11 @@ export async function POST(req: NextRequest) {
           printedAmount,
           printedNet,
           linesNet,
-          tax: tax.taxAmount,
+          tax: taxAmount,
           delta: printedNet - linesNet,
           message:
             `The extracted line items total $${linesNet.toFixed(2)}, but the invoice net ` +
-            `(total $${printedAmount.toFixed(2)} minus tax $${tax.taxAmount.toFixed(2)}) is ` +
+            `(total $${printedAmount.toFixed(2)} minus tax $${taxAmount.toFixed(2)}) is ` +
             `$${printedNet.toFixed(2)} — off by $${(printedNet - linesNet).toFixed(2)}. ` +
             `Gemini probably missed or misread a line. Check the invoice, then choose how to proceed.`,
           lines: lines.map((l) => ({
@@ -339,7 +340,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Optional "don't itemize": collapse the extracted lines into ONE cost item at
-    // the net total (tax stays on nonRecoverableTax). Carries the shared cost
+    // the net total (tax stays its own 88 80 00 line). Carries the shared cost
     // code if every line agrees on one, otherwise leaves it uncoded to code once in
     // the queue. For invoices with a ton of lines that don't need breaking down.
     if (singleLine && lines.length > 1) {
@@ -361,7 +362,7 @@ export async function POST(req: NextRequest) {
           description: oneCode ?? "",
           unitCost: net,
           quantity: 1,
-          isTaxable: tax.lineIsTaxable,
+          isTaxable: true,
           jobCostItemId: oneCode ? codeToItem.get(oneCode)?.id : undefined,
           costCode: oneCode,
         },
@@ -384,7 +385,10 @@ export async function POST(req: NextRequest) {
       issueDate: dates.issueDate,
       dueDate: dates.dueDate,
       dueDays: dates.dueDays,
-      taxAmount: tax.taxAmount,
+      taxAmount,
+      // The budget leaf the sales-tax line codes to. Undefined when this job's
+      // budget has no 88 80 00 leaf — the line then lands uncoded on purpose.
+      salesTaxJobCostItemId: codeToItem.get(SALES_TAX_CSI)?.id,
       jobLocationName: jobInfo.name || undefined,
       jobLocationAddress: jobInfo.address || undefined,
       lines,
@@ -395,7 +399,7 @@ export async function POST(req: NextRequest) {
       vendorId: vendor.id,
       isSunset,
       amount: Number(extracted.Amount) || 0,
-      tax: tax.taxAmount,
+      tax: taxAmount,
       lineCount: lines.length,
       codedLines: lines.filter((l) => l.jobCostItemId).length,
       billingMonth: dates.billing.billingMonthNum,

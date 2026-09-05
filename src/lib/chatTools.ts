@@ -45,8 +45,8 @@ export interface ChatTool extends ChatToolDef {
 }
 
 /** A bill's amount owed is JobTread's document `cost` = the sum of the line costs =
- *  JobTread's bill total. The fixed sales tax (`nonRecoverableTax`) is carved OUT of that
- *  total for the subtotal, never added on top (confirmed live 2026-07-30). */
+ *  JobTread's bill total, sales tax included: the 88 80 00 tax line is one of those
+ *  costs. Nothing is ever added on top. */
 const billAmount = (b: DraftBill) => b.cost ?? 0;
 
 const compactBill = (b: DraftBill) => ({
@@ -136,8 +136,8 @@ export const CHAT_TOOLS: ChatTool[] = [
     name: "get_bill_detail",
     description:
       "Get one vendor bill's full detail by its document id: header (vendor, invoice id, " +
-      "status, amount, issue date; `cost` is the bill total = sum of line costs, and " +
-      "`nonRecoverableTax` is how much of that total is sales tax) plus every line item " +
+      "status, amount, issue date; `cost` is the bill total = sum of line costs, sales " +
+      "tax included — the tax is a line of its own coded 88 80 00) plus every line item " +
       "(name, cost, cost code, current coding) and any attached invoice files.",
     input_schema: {
       type: "object",

@@ -3,7 +3,7 @@ import vectorFile from "./billing-vectors.json";
 import {
   companyDateParts,
   computeBillDates,
-  computeLineTaxability,
+  salesTaxAmount,
   deriveBillingPeriod,
   taxReconcileWarning,
 } from "./billing";
@@ -122,16 +122,18 @@ describe("computeBillDates", () => {
   });
 });
 
-describe("computeLineTaxability", () => {
-  it("a document showing tax makes lines NON-taxable (tax rides on the doc)", () => {
-    expect(computeLineTaxability(12.34)).toEqual({ lineIsTaxable: false, taxAmount: 12.34 });
+describe("salesTaxAmount", () => {
+  it("reads the tax the extractor found, to the cent", () => {
+    expect(salesTaxAmount(12.34)).toBe(12.34);
+    expect(salesTaxAmount("12.345")).toBe(12.35);
   });
 
-  it("no tax shown leaves lines taxable", () => {
-    expect(computeLineTaxability(0)).toEqual({ lineIsTaxable: true, taxAmount: 0 });
-    expect(computeLineTaxability(null)).toEqual({ lineIsTaxable: true, taxAmount: 0 });
-    expect(computeLineTaxability(undefined)).toEqual({ lineIsTaxable: true, taxAmount: 0 });
-    expect(computeLineTaxability("nonsense")).toEqual({ lineIsTaxable: true, taxAmount: 0 });
+  it("treats absent, zero, negative and unparseable alike as no tax", () => {
+    expect(salesTaxAmount(0)).toBe(0);
+    expect(salesTaxAmount(null)).toBe(0);
+    expect(salesTaxAmount(undefined)).toBe(0);
+    expect(salesTaxAmount("nonsense")).toBe(0);
+    expect(salesTaxAmount(-5)).toBe(0);
   });
 });
 

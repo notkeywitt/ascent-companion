@@ -65,6 +65,7 @@ import {
   type VendorRef,
 } from "@/lib/jobtread";
 
+import { SALES_TAX_CSI } from "@/lib/salesTax";
 import { cents, isNeverInvoiced } from "./types";
 import type {
   BackupFile,
@@ -191,11 +192,23 @@ async function loadMonthBills(
             externalId: {},
             number: {},
             fromName: {},
-            // The bill's recorded sales tax. `cost` is tax-INCLUSIVE (the push
-            // path grosses each line up), while the Drive filename carries the
-            // sheet's PRE-TAX amounts — so the backup pairing needs this to
-            // compare like with like. See BillRef.taxAmount.
+            // The bill's sales tax. `cost` includes it either way — as the
+            // 88 80 00 LINE now, or spread across the lines on a bill pushed
+            // before 2026-09-05 — while the Drive filename carries the sheet's
+            // PRE-TAX amounts, so the backup pairing needs it to compare like
+            // with like. See BillRef.taxAmount.
+            //
+            // The line is read as a FILTERED AGGREGATE, not as nodes: nesting
+            // cost-item nodes inside this paged connection returns 413, but an
+            // aliased connection with a `where` and a `sum` rides along the same
+            // way `costItems { count }` does. Probed live 2026-09-05 against
+            // document 22Pd4uDiixE2 (count 1, costSum 54.04).
             nonRecoverableTax: {},
+            salesTaxLines: {
+              _: "costItems",
+              $: { where: [["costCode", "number"], "=", SALES_TAX_CSI] },
+              costSum: { _: "sum", $: "cost" },
+            },
             // QuickBooks is the general ledger, and this flag decides whether
             // the cost ever reaches it. Read here so the qbo-push check has it.
             qboIsIgnored: {},
@@ -221,7 +234,10 @@ async function loadMonthBills(
         label: String(b.externalId || b.number || b.account?.name || b.fromName || b.id),
         cost: b.cost ?? 0,
         lineCount: b.costItems?.count ?? 0,
-        taxAmount: typeof b.nonRecoverableTax === "number" ? b.nonRecoverableTax : 0,
+        // Line plus legacy field, summed rather than one preferred, so a bill
+        // halfway through the migration reports all of its tax.
+        taxAmount:
+          (Number(b.salesTaxLines?.costSum) || 0) + (Number(b.nonRecoverableTax) || 0),
         status: b.status ?? "",
         invoiced: invoiceRefs.length > 0,
         invoiceIds: Array.from(

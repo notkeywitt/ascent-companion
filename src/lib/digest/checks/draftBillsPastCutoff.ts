@@ -88,7 +88,10 @@ export const draftBillsPastCutoffCheck = defineCheck<DraftBillsPastCutoffConfig>
         tooOld++;
         continue;
       }
-      const amount = (b.cost ?? 0) + (b.nonRecoverableTax ?? 0);
+      // `cost` is the whole bill: JobTread carves the tax OUT of the total for
+      // display, it never adds it on top, and the 88 80 00 tax line is one of the
+      // cost items summed into it. Adding the tax field again double-counted it.
+      const amount = b.cost ?? 0;
       if (amount < config.minAmount) {
         belowMin++;
         continue;
