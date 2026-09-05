@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-05T16:21:21Z",
+  "generatedAt": "2026-09-05T16:26:44Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,7 +8,7 @@
       "branch": "claude/header-layout-redesign-xid33s",
       "status": "in-progress",
       "started": "2026-09-05T06:17:43Z",
-      "updated": "2026-09-05T16:21:21Z",
+      "updated": "2026-09-05T16:26:44Z",
       "goal": "",
       "next": "rearrange the tracking-sheet action buttons for mobile and desktop — they read as scattered right now",
       "commits": [
@@ -88,6 +88,13 @@
           "sha": "db2e745",
           "subject": "companion: drop the to-be-invoiced footnote, move Edit home page under the menus",
           "files": "src/app/page.tsx, src/app/trackingsheet/Board.tsx"
+        },
+        {
+          "date": "2026-09-05",
+          "time": "16:26",
+          "sha": "7371a4d",
+          "subject": "companion: fold the launcher's menus away",
+          "files": "src/app/page.tsx, src/components/ui.tsx"
         }
       ]
     },

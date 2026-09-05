@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/header-layout-redesign-xid33s
 status: in-progress
 started: 2026-09-05T06:17:43Z
-updated: 2026-09-05T16:21:21Z
+updated: 2026-09-05T16:26:44Z
 goal: 
 next: rearrange the tracking-sheet action buttons for mobile and desktop — they read as scattered right now
 ---
@@ -32,5 +32,7 @@ next: rearrange the tracking-sheet action buttons for mobile and desktop — the
   src/app/trackingsheet/Board.tsx
 - 2026-09-05 16:21 · `db2e745` companion: drop the to-be-invoiced footnote, move Edit home page under the menus
   src/app/page.tsx, src/app/trackingsheet/Board.tsx
+- 2026-09-05 16:26 · `7371a4d` companion: fold the launcher's menus away
+  src/app/page.tsx, src/components/ui.tsx
 
 ## Notes
