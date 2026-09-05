@@ -2385,7 +2385,12 @@ export function Board() {
   const onPickJob = (id: string) => {
     if (id === jobId) return;
     if (!confirmLeaveIfDirty()) return;
-    router.replace(id ? `/trackingsheet?jobId=${encodeURIComponent(id)}` : "/trackingsheet");
+    // The month rides along, so switching jobs keeps you in the billing period
+    // you were reading rather than snapping back to the current one.
+    const month = `ym=${encodeURIComponent(ym)}`;
+    router.replace(
+      id ? `/trackingsheet?jobId=${encodeURIComponent(id)}&${month}` : `/trackingsheet?${month}`,
+    );
   };
 
   // One bill's card, shared by the main by-bill list and the Sunset pane — both

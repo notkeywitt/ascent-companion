@@ -184,13 +184,15 @@ export function JobPicker({
   }, [selected?.id]);
   // Empty value == the all-jobs view (job-scoped pages read no ?jobId as "every
   // job"). Surface that as an explicit, selectable "All jobs" state.
+  // A caller's own `placeholder` wins over "Loading jobs…": it is a deliberate
+  // word for the empty state (Tracking Sheets' page title, say), and a title
+  // that flickers through a loading message on every mount is worse than one
+  // that simply names the page until you open it.
   const label = selected
     ? jobLabel(selected)
     : value
       ? (fallbackLabel ?? value) // e.g. arrived from the panel before jobs loaded
-      : loading
-        ? "Loading jobs…"
-        : (placeholder ?? allLabel);
+      : (placeholder ?? (loading ? "Loading jobs…" : allLabel));
 
   // Distinct phases present, for the filter <select> — only meaningful once
   // showPhaseFilter has actually fetched jobs carrying a `phase` field.
@@ -231,7 +233,9 @@ export function JobPicker({
           onClick={toggle}
           className="flex min-w-0 items-center gap-1.5 rounded text-left transition hover:text-accent"
         >
-          <span className={"truncate " + (selected ? "" : "text-neutral-400")}>{label}</span>
+          {/* No grey-out for the empty state here: with no job picked the label
+              is the PAGE'S NAME, which is not placeholder text. */}
+          <span className="truncate">{label}</span>
           <span className="shrink-0 text-base font-normal text-neutral-400">▾</span>
         </button>
       </h1>

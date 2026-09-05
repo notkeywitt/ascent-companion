@@ -3,6 +3,8 @@
 import { useCallback, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { PageHeader } from "@/components/ui";
+import { JobPicker } from "@/components/JobPicker";
+import { useAccess } from "@/components/AccessProvider";
 import { useCopy } from "@/components/CopyProvider";
 import { UncapturedBills } from "@/components/UncapturedBills";
 import { monthOptions } from "./Roster";
@@ -12,9 +14,14 @@ import { UnsyncedDrafts } from "./UnsyncedDrafts";
 /**
  * Tracking Sheets with no job selected — every vendor bill issued in the
  * selected month across all jobs (draft, uninvoiced, and invoiced alike, each
- * tagged with its state). Picking a job (the title picker on the workbench, a
- * row here, or a bill's own detail page) opens the workbench: same route,
+ * tagged with its state). Picking a job opens the workbench: same route,
  * `?jobId=`.
+ *
+ * THE TITLE IS THE JOB PICKER, exactly as it is on the workbench — the same
+ * control in the same place, reading the page's own name while nothing is
+ * picked. Without it this view was a dead end: the app-wide picker left the
+ * header, so a job could only be reached by finding one of its bills in the
+ * month's list.
  */
 
 /**
@@ -32,6 +39,7 @@ function defaultYm(): string {
 export function AllJobs() {
   const params = useSearchParams();
   const router = useRouter();
+  const { can } = useAccess();
   const c = useCopy();
 
   // Seeded from the URL so returning from a bill lands on the month you left.
@@ -55,9 +63,33 @@ export function AllJobs() {
     [params, router],
   );
 
+  /**
+   * Picking a job from the title opens its workbench, carrying the month you
+   * were looking at so you land on the same billing period. Empty id is the
+   * "All jobs" row, which is this view — nothing to do.
+   */
+  const onPickJob = (id: string) => {
+    if (!id) return;
+    router.push(`/trackingsheet?jobId=${encodeURIComponent(id)}&ym=${encodeURIComponent(ym)}`);
+  };
+
   return (
     <main className="mx-auto max-w-2xl px-4 pb-24 pt-6 xl:max-w-[110rem]">
-      <PageHeader title={c("page.recode.title")} className="!mb-4" />
+      <PageHeader
+        titleSlot={
+          <JobPicker
+            variant="title"
+            value=""
+            onChange={onPickJob}
+            placeholder={c("page.recode.title")}
+            allLabel="All jobs"
+            allDescription="Every job's month, side by side"
+            showPhaseFilter
+            showToBeInvoiced={can("recode")}
+          />
+        }
+        className="!mb-4"
+      />
 
       {/* Ingested bills that never reached JobTread at all — the step before the
           list. They're on no invoice and aren't even a JobTread draft yet, so
