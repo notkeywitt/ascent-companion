@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-05T14:47:53Z",
+  "generatedAt": "2026-09-05T15:08:01Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,7 +8,7 @@
       "branch": "claude/header-layout-redesign-xid33s",
       "status": "in-progress",
       "started": "2026-09-05T06:17:43Z",
-      "updated": "2026-09-05T14:47:53Z",
+      "updated": "2026-09-05T15:08:00Z",
       "goal": "",
       "next": "rearrange the tracking-sheet action buttons for mobile and desktop — they read as scattered right now",
       "commits": [
@@ -66,6 +66,13 @@
           "time": "14:47",
           "sha": "d93a987",
           "subject": "companion: tighten the budget expander's heading row on mobile",
+          "files": "src/app/trackingsheet/Board.tsx"
+        },
+        {
+          "date": "2026-09-05",
+          "time": "15:08",
+          "sha": "e4a7854",
+          "subject": "companion: put the billing month on the title line on mobile",
           "files": "src/app/trackingsheet/Board.tsx"
         }
       ]
