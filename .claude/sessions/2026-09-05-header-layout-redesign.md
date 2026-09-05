@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/header-layout-redesign-xid33s
 status: in-progress
 started: 2026-09-05T06:17:43Z
-updated: 2026-09-05T14:04:42Z
+updated: 2026-09-05T14:17:38Z
 goal: 
 next: rearrange the tracking-sheet action buttons for mobile and desktop — they read as scattered right now
 ---
@@ -22,5 +22,7 @@ next: rearrange the tracking-sheet action buttons for mobile and desktop — the
   CODEBASE_MAP.md, USER_MANUAL.md, src/app/globals.css, src/app/trackingsheet/Board.tsx, src/components/AppHeader.tsx, src/components/SyncNowButton.tsx, +1 more
 - 2026-09-05 14:04 · `61b7a12` companion: make the Tracking Sheets title a job picker when no job is selected
   src/app/trackingsheet/AllJobs.tsx, src/app/trackingsheet/Board.tsx, src/components/JobPicker.tsx
+- 2026-09-05 14:17 · `d9f961d` companion: gather the tracking sheet's closing actions into one row
+  USER_MANUAL.md, src/app/trackingsheet/AllJobs.tsx, src/app/trackingsheet/Board.tsx, src/components/JobPicker.tsx, src/components/SyncNowButton.tsx, src/components/ui.tsx
 
 ## Notes
