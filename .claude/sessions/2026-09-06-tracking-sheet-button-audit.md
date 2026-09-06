@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/tracking-sheet-button-audit-ufg3yl
 status: shipped
 started: 2026-09-06T15:59:56Z
-updated: 2026-09-06T17:21:59Z
+updated: 2026-09-06T17:22:44Z
 goal: audit the tracking sheet page's buttons and re-lay them out for desktop workflow
 next: Bill panel merge is LIVE on main. Nothing was exercised against a real bill before shipping — walk one draft through save, combine, delete line, buyback, approve, move-to-job and the needs-review flag on /bill and in the workbench drawer
 ---
