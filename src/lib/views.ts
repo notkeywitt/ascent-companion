@@ -301,6 +301,10 @@ export const VIEWS: ViewDef[] = [
   // No page of its own — this gates the header's Sync button and the API route
   // behind it, so a non-admin can neither see nor POST the full JT sync.
   { id: "sync", label: "Sync Now", group: "System", paths: ["/api/jt-sync"] },
+  // The theme editor. Admin-only (it is in ADMIN_MENU below) because it is a
+  // design tool, not a view onto anything. It writes nothing but this device's
+  // own localStorage, so the gate is about clutter rather than safety.
+  { id: "theme-editor", label: "Theme", group: "System", paths: ["/theme"] },
 ];
 
 export const ALL_VIEW_IDS: string[] = VIEWS.map((v) => v.id);
@@ -328,6 +332,7 @@ const ADMIN_MENU: string[] = [
   "historical-cost",
   "bank-details",
   "page-copy",
+  "theme-editor",
 ];
 // Office gets Financials, HR, and Utilities ("everything else") — i.e. every
 // view except the admin consoles, including the header Sync button.

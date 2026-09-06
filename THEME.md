@@ -33,6 +33,33 @@ effect would run one frame late and flash the wrong ground.
 sibling) in `globals.css`, add the id to `PALETTES` in `src/lib/palette.ts`,
 match it in the layout.tsx script, and record it here. No component changes.
 
+## Editing a palette — `/theme`
+
+**Tune it with the editor, then paste the result into `globals.css`.** The
+editor is admin-only and reachable from Appearance on the home page.
+
+Why it works: every value above is a CSS variable on `<html>`, so the editor
+writes them as INLINE styles, which beat any stylesheet rule. One change
+repaints the whole app on the next frame. There is no preview pane because the
+app itself is the preview — open a draft, navigate to Tracking Sheets, and the
+draft is still on.
+
+| It gives you | |
+|---|---|
+| A row per token | native colour picker, hex field, and H/S/L sliders |
+| Live WCAG ratios | the eight pairs that actually decide a palette, recomputed as you drag |
+| A sampler | every `ui.tsx` primitive on one card |
+| **Copy CSS** | the token block to paste into `globals.css`, listing only what changed |
+
+A draft is **per device and never committed** — it is localStorage, like the
+palette and theme choices beside it. Shipping means pasting the Copy CSS output
+into the matching block here and in `globals.css`, in one commit.
+
+Two files back it: `src/lib/paletteDraft.ts` (the token list, the hex/HSL and
+contrast maths, the draft store) and `src/app/theme/page.tsx` (the UI). The
+token list in that lib IS the editor's rows, so a new token in `globals.css`
+needs a line there too.
+
 ---
 
 ## Marks are monochrome — every palette, every theme

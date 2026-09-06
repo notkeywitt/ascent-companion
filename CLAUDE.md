@@ -133,7 +133,10 @@ branch's record, so the next session can pick the work up cold. Read
   reach for the TOKEN (`accent`, `brand`, `line`, `ink`, `accent-fg`), never the
   literal (`ochre`, `offblack`), or your view will only be right in one palette
   — and never assume `brand` is a hue, because in one palette it is black.
-  `THEME.md` carries both palettes and how to add a third.
+  `THEME.md` carries both palettes and how to add a third. **To change a value,
+  tune it in `/theme`** (the admin-only editor — pickers, H/S/L sliders, live
+  contrast) and paste its Copy CSS output into `globals.css`; the editor writes
+  the tokens as inline styles, so the whole app is its own live preview.
 - **One brand hue, two grounds.** OCHRE is BOTH the interactive accent and the
   graphic `brand` hue, in BOTH themes; the theme swaps the ground, not the color
   (guide p.15 passes ochre on off-black at 6.70:1, and blocks it on cream at

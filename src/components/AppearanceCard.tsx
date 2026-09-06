@@ -1,7 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { Card, SectionHeading, SectionLabel } from "@/components/ui";
+import { useAccess } from "@/components/AccessProvider";
+
 import {
   PALETTES,
   PALETTE_DESC,
@@ -42,6 +45,7 @@ export function AppearanceCard() {
   // Both start at their defaults and are corrected on mount. The server has no
   // way to know a localStorage value, so rendering the real one straight away
   // would be a hydration mismatch.
+  const access = useAccess();
   const [palette, setPalette] = useState<Palette>("guidelines");
   const [dark, setDark] = useState(false);
 
@@ -112,6 +116,14 @@ export function AppearanceCard() {
             <SectionLabel>Theme</SectionLabel>
             <p className="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">
               Tapping the logo up top does this too.
+              {access.can("theme-editor") && (
+                <>
+                  {" "}
+                  <Link href="/theme" className="font-semibold text-accent">
+                    Tune the colours →
+                  </Link>
+                </>
+              )}
             </p>
           </div>
           <div className="flex shrink-0 gap-1.5">

@@ -360,8 +360,8 @@ Grouped by domain; each folder is `…/route.ts`.
   `OfficeDigestPlaceholder` reserved slot),
   `PageTitle`, `ThemeToggle` (takes any face as `children` — the header gives it
   the logo), `AppearanceCard` (the home page's Appearance block — picks the
-  PALETTE and the theme, both per device; see `src/lib/palette.ts` and
-  `THEME.md`),
+  PALETTE and the theme, both per device, and links admins to the theme editor;
+  see `src/lib/palette.ts`, `src/lib/paletteDraft.ts` and `THEME.md`),
   `AscentLogo` (the lockup; `tone="white"` is the reversed, black-ground
   variant), `LoadingScreen` (the logo-on-black cover — one look, three
   triggers: `SplashScreen` on app open, `RouteLoadingScreen` on an in-app tap,
@@ -434,6 +434,21 @@ it was doing. The same six files live in `ascent-appscript`.
 | `SESSIONS.md` | **GENERATED** index over every session file. Do not hand-edit — `ship` regenerates it after the rebase, which is what keeps two sessions from conflicting on it. |
 | `src/lib/sessionLog.generated.json` | **GENERATED** by the same command — the ledger as data. Committed because the deployed bundle can't read `.claude/sessions/`. |
 | `src/app/changelog/page.tsx` | The page over that JSON (view `changelog`, System group). Pure server component; `<details>` does the expansion, so it ships no JavaScript. |
+
+## The theme editor
+
+| File | Role |
+|---|---|
+| `src/app/globals.css` | The token blocks — one per palette per theme. The only place a palette's values live. |
+| `tailwind.config.ts` | Maps `accent`/`brand`/`line`/`ink` onto those variables, plus the warm `neutral` ramp. |
+| `src/lib/palette.ts` | Which palette is painted: the `data-palette` attribute, the localStorage key, the labels. |
+| `src/lib/paletteDraft.ts` | The editor's data layer — the editable token list (which IS its UI), hex/HSL maths, WCAG contrast, and the per-device draft store. |
+| `src/app/theme/page.tsx` | The editor (view `theme-editor`, admin-only). Pickers, H/S/L sliders, live contrast, a sampler, and Copy CSS. |
+| `THEME.md` | Both palettes with every value and the reasoning, plus how to add a third. |
+
+The editor needs no preview pane: the tokens are CSS variables on `<html>`, so
+it writes them as inline styles and the whole app repaints. A draft is per
+device and never committed — shipping is pasting Copy CSS into `globals.css`.
 
 ## The cross-repo boundary
 

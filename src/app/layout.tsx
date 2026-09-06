@@ -109,15 +109,21 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang="en" className={`${roboto.variable} ${robotoMono.variable}`}>
       <head>
-        {/* Theme and palette, set on <html> BEFORE the first paint. Both are
-            per-device choices held in localStorage, so the server cannot know
-            them and a React effect would run one frame too late — the page
-            would flash the wrong ground. See src/lib/palette.ts for the two
-            keys and src/components/AppearanceCard.tsx for the control. */}
+        {/* Theme, palette and any theme-editor draft, set on <html> BEFORE the
+            first paint. All three are per-device choices held in localStorage,
+            so the server cannot know them and a React effect would run one
+            frame too late — the page would flash the wrong ground. See
+            src/lib/palette.ts and src/lib/paletteDraft.ts for the three keys,
+            src/components/AppearanceCard.tsx and /theme for the controls.
+
+            The draft loop writes the same inline custom properties `applyDraft`
+            does, which is what carries an open draft across a navigation. It
+            validates each value as a 6-digit hex before writing, so a hand-
+            mangled localStorage entry cannot inject a declaration. */}
         <script
           dangerouslySetInnerHTML={{
             __html:
-              "(function(){try{var e=document.documentElement;var t=localStorage.getItem('theme');var d=t?t==='dark':matchMedia('(prefers-color-scheme:dark)').matches;if(d)e.classList.add('dark');var p=localStorage.getItem('palette');if(p==='website')e.setAttribute('data-palette','website');}catch(e){}})();",
+              "(function(){try{var e=document.documentElement;var t=localStorage.getItem('theme');var d=t?t==='dark':matchMedia('(prefers-color-scheme:dark)').matches;if(d)e.classList.add('dark');var p=localStorage.getItem('palette');if(p==='website')e.setAttribute('data-palette','website');var j=localStorage.getItem('paletteDraft');if(j){var s=JSON.parse(j)[p==='website'?'website':'guidelines'];if(s){var v=Object.assign({},s.shared,s[d?'dark':'light']);for(var k in v){var m=/^#?([0-9a-f]{6})$/i.exec(v[k]);if(m){var n=parseInt(m[1],16);e.style.setProperty('--'+k,(n>>16&255)+' '+(n>>8&255)+' '+(n&255));}}}}}catch(e){}})();",
           }}
         />
       </head>

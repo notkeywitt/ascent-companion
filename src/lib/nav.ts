@@ -101,6 +101,12 @@ export const AREAS: Area[] = [
     blurb: "Access control and the automation audit log.",
     dests: [
       { label: "Admin", href: "/admin", desc: "Who can sign in", view: "admin" },
+      {
+        label: "Theme",
+        href: "/theme",
+        desc: "Tune the palette with pickers and sliders, and see it live",
+        view: "theme-editor",
+      },
       { label: "Logs", href: "/logs", desc: "The automation audit trail", view: "logs" },
       { label: "Financial Journal", href: "/journal", desc: "Who changed which bill, line or time entry — and from what", view: "journal" },
       { label: "Historical Cost Import", href: "/historical-cost", desc: "Backfill a job's pre-JobTread costs as one draft bill", view: "historical-cost" },

@@ -39,6 +39,10 @@
   --accent: 207 152 3; /* #CF9803 ochre — fills/borders/rings/tints */
   --accent-hover: 185 136 3; /* #B98803 — a touch deeper gold for fill hover */
   --accent-soft: 207 152 3; /* light has no lifted variant (dark-only in use) */
+  --accent-text: 27 27 23; /* #1B1B17 — interactive TEXT is BLACK in light, not
+                              ochre: ochre is 2.41:1 on cream (p.16 restricts
+                              it), so it can fill a shape but never carry a
+                              word. See the one redirect rule further down. */
   --accent-fg: 27 27 23; /* The label ON a filled accent. Ochre is the accent in
                             BOTH themes, so its knockout is off-black in both —
                             "Black on Ochre", p.15, 6.70:1 — and this is
@@ -82,6 +86,9 @@
                                 needed: a Chip paints `bg-accent/15` under its
                                 own label, and that tint drops plain ochre to
                                 5.24:1 where this holds 7.33:1. */
+  --accent-text: 207 152 3; /* #CF9803 — unlike light, ochre DOES carry a word
+                               on off-black (6.70:1), so interactive text is the
+                               accent itself here. */
   --brand: 207 152 3; /* #CF9803 brand ochre — the logo square, the peak mark,
                          the header hairline and the marquee rules. Ochre here
                          too, not olive: the mark is the app's identity and it
@@ -142,6 +149,8 @@
   --accent: 0 0 0; /* #000000 */
   --accent-hover: 43 43 43; /* #2B2B2B — a step off black for fill hover */
   --accent-soft: 0 0 0; /* no lifted variant: black needs none */
+  --accent-text: 0 0 0; /* #000000 — a step past the #1B1B1B body copy, which is
+                           how a link separates in a palette with no hue */
   --accent-fg: 250 247 238; /* #FAF7EE — cream label on a black fill, the site's
                                own button: solid off-black, cream text */
   --brand: 0 0 0; /* #000000 — the logo square, the peak mark and every heading
@@ -184,6 +193,7 @@
   --accent: 255 255 255; /* #FFFFFF — the site's own white */
   --accent-hover: 232 228 216; /* #E8E4D8 — a step down off white for fill hover */
   --accent-soft: 255 255 255; /* no lifted variant needed */
+  --accent-text: 255 255 255; /* #FFFFFF — a step past the cream body copy */
   --accent-fg: 27 27 27; /* #1B1B1B — off-black label on a white fill */
   --brand: 255 255 255; /* #FFFFFF — the logo square, the peak, heading rules */
 
@@ -244,30 +254,25 @@
   --viz-other: #6f6d64;
 }
 
-/* Light theme: ochre is a fill/graphic accent only, so interactive TEXT stays
-   black (ochre fails contrast as small text on cream/white). This redirects the
-   Tailwind text-accent utilities for light mode without editing every call site;
-   scoped to :not(.dark) so dark mode keeps its olive text untouched. Fills,
-   borders, rings and tints (bg-accent, border-accent, ring-accent, bg-accent/NN)
-   still resolve to ochre. */
-:root:not(.dark) .text-accent,
-:root:not(.dark) .hover\:text-accent:hover,
-:root:not(.dark) .group:hover .group-hover\:text-accent {
-  color: #1b1b17;
-}
+/* Interactive TEXT gets its own token, because it is NOT always the accent.
+   Palette 1's light half is the reason: its accent is ochre, and ochre is
+   2.41:1 on cream, so a link painted in it fails as small text while the same
+   ochre is fine as a fill. Every palette therefore declares `--accent-text`
+   alongside `--accent`, and this ONE rule redirects the Tailwind utilities to
+   it — no call site changes, and no per-palette rule to add when a palette is
+   added. Fills, borders, rings and tints (bg-accent, border-accent,
+   ring-accent, bg-accent/NN) still resolve to `--accent`.
 
-/* Website palette, LIGHT: the rule above redirects `text-accent` to `#1b1b17`
-   for every palette, which is this palette's BODY copy — a link would land on
-   exactly the colour of the sentence holding it. Take the accent's own pure
-   black instead, one step past the text.
-   The leading `html` is what makes this outrank the rule above; the two are
-   otherwise the same specificity, and stylesheet order is not something to
-   lean on (see CLAUDE.md). Dark needs no rule at all: `--accent` is white
-   there, which is already correct for text. */
-html[data-palette="website"]:not(.dark) .text-accent,
-html[data-palette="website"]:not(.dark) .hover\:text-accent:hover,
-html[data-palette="website"]:not(.dark) .group:hover .group-hover\:text-accent {
-  color: #000000;
+   Being a variable is also what lets the theme editor (/theme) drive this
+   colour live; it was two rules of hardcoded hex before.
+
+   The leading `html` is what beats Tailwind's own `.text-accent` — element +
+   class outranks class alone, so this does not depend on stylesheet order (see
+   the ordering note in CLAUDE.md). */
+html .text-accent,
+html .hover\:text-accent:hover,
+html .group:hover .group-hover\:text-accent {
+  color: rgb(var(--accent-text));
 }
 
 /* --- Website palette, type ----------------------------------------------
