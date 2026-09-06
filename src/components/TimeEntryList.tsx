@@ -46,6 +46,9 @@ import {
 export interface TimeEntryRow {
   id: string;
   employee: string;
+  /** The JobTread user id behind `employee`, for a link that filters to one
+   *  person. Optional — a host with only a name simply gets an unfiltered link. */
+  userId?: string;
   startedAt: string | null;
   hours: number;
   cost: number;

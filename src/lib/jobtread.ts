@@ -2018,6 +2018,12 @@ export async function getJobBillsForMonth(
 export interface MonthTimeEntry {
   id: string;
   employee: string;
+  /**
+   * The JobTread USER id behind `employee` — the same id JobTread's time page
+   * filters on. Carried so a link out can open one person's entries rather
+   * than the whole job's; a name cannot do that. "" when JT reports no user.
+   */
+  userId: string;
   startedAt: string | null;
   hours: number;
   cost: number;
@@ -2119,7 +2125,7 @@ export async function getJobTimeEntriesForMonth(
               notes: {},
               isApproved: {},
               type: {},
-              user: { name: {} },
+              user: { id: {}, name: {} },
               costItem: { id: {}, costCode: { number: {}, name: {} } },
               referencedDocuments: { nodes: { id: {}, type: {}, status: {} } },
             },
@@ -2151,6 +2157,7 @@ export async function getJobTimeEntriesForMonth(
     .map((n) => ({
       id: n.id,
       employee: n?.user?.name ?? "Unknown",
+      userId: n?.user?.id ?? "",
       startedAt: n.startedAt ?? null,
       hours: (n.minutes ?? 0) / 60,
       cost: typeof n?.cost === "number" ? n.cost : 0,
@@ -2246,7 +2253,7 @@ export async function getOrgTimeEntriesForMonth(
               notes: {},
               isApproved: {},
               type: {},
-              user: { name: {}, emailAddress: {} },
+              user: { id: {}, name: {}, emailAddress: {} },
               job: { id: {} },
               costItem: { id: {}, costCode: { number: {}, name: {} } },
             },
@@ -2294,6 +2301,7 @@ export async function getOrgTimeEntriesForMonth(
       return {
         id: n.id,
         employee: n?.user?.name ?? "Unknown",
+        userId: n?.user?.id ?? "",
         username: String(n?.user?.emailAddress ?? "").trim(),
         startedAt: n.startedAt ?? null,
         hours: (n.minutes ?? 0) / 60,
