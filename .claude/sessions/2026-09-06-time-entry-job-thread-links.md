@@ -2,9 +2,9 @@
 slug: time-entry-job-thread-links
 repo: ascent-companion
 branch: claude/time-entry-job-thread-links-3b94si
-status: in-progress
+status: shipped
 started: 2026-09-06T05:34:43Z
-updated: 2026-09-06T05:39:37Z
+updated: 2026-09-06T05:39:42Z
 goal: 
 next: verify on a phone that the ↗ from a time entry opens JobTread's time page on the right person and day; if a job filter turns out to exist, add it to jtTimeUrl
 ---

@@ -1,7 +1,33 @@
 {
-  "generatedAt": "2026-09-06T05:23:32Z",
+  "generatedAt": "2026-09-06T05:39:43Z",
   "repo": "ascent-companion",
   "sessions": [
+    {
+      "slug": "time-entry-job-thread-links",
+      "file": "2026-09-06-time-entry-job-thread-links.md",
+      "branch": "claude/time-entry-job-thread-links-3b94si",
+      "status": "shipped",
+      "started": "2026-09-06T05:34:43Z",
+      "updated": "2026-09-06T05:39:42Z",
+      "goal": "",
+      "next": "verify on a phone that the ↗ from a time entry opens JobTread's time page on the right person and day; if a job filter turns out to exist, add it to jtTimeUrl",
+      "commits": [
+        {
+          "date": "2026-09-06",
+          "time": "05:34",
+          "sha": "7996de3",
+          "subject": "companion: carry the jobtread user id on a time entry",
+          "files": "src/components/TimeEntryList.tsx, src/lib/jobtread.ts"
+        },
+        {
+          "date": "2026-09-06",
+          "time": "05:39",
+          "sha": "3665fc9",
+          "subject": "companion: point time-entry links at the filtered jobtread time page",
+          "files": "src/app/api/employee-time/history/route.ts, src/app/labor-review/LaborReview.tsx, src/app/trackingsheet/Board.tsx, src/components/JtLink.tsx, src/components/TimeEntryList.tsx, src/lib/jtLinks.test.ts, +1 more"
+        }
+      ]
+    },
     {
       "slug": "dark-mode-color-scheme",
       "file": "2026-09-05-dark-mode-color-scheme.md",
