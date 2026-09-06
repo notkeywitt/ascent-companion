@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/ascent-building-theme-rz1o6h
 status: in-progress
 started: 2026-09-06T06:08:00Z
-updated: 2026-09-06T14:09:09Z
+updated: 2026-09-06T14:09:22Z
 goal: 
 next: Look at the Website palette on the phone and say whether the black buttons hold up in daylight; if they do, decide whether it becomes the default.
 ---
@@ -20,6 +20,8 @@ next: Look at the Website palette on the phone and say whether the black buttons
   THEME.md, src/app/globals.css, src/components/AppearanceCard.tsx
 - 2026-09-06 14:09 · `5814946` companion: make the Website palette black and white
   CLAUDE.md, THEME.md, src/app/globals.css, src/components/AppearanceCard.tsx, src/components/AscentLogo.tsx, src/lib/palette.ts
+- 2026-09-06 14:09 · `f1c021a` companion: no colour emoji anywhere
+  src/app/amazon-import/page.tsx, src/app/email/page.tsx, src/app/employees/page.tsx, src/app/labor-rates/page.tsx, src/app/lswdd/page.tsx, src/app/needs-project/page.tsx, +5 more
 
 ## Notes
 - 2026-09-06 06:19 — Palette 2 built from the live site, not the brand deck — earlier sessions could not reach ascentbuildingco.com; this one could (curl works, Chromium's proxy tunnel does not, so the page was mirrored locally to screenshot).
