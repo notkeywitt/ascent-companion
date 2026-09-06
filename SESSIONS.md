@@ -17,7 +17,7 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
-| [tracking-sheet-button-audit](.claude/sessions/2026-09-06-tracking-sheet-button-audit.md) | 2026-09-06 | 2 | audit the tracking sheet page's buttons and re-lay them out for desktop workflow |
+| [tracking-sheet-button-audit](.claude/sessions/2026-09-06-tracking-sheet-button-audit.md) | 2026-09-06 | 3 | audit the tracking sheet page's buttons and re-lay them out for desktop workflow |
 | [collapsible-appearance-section](.claude/sessions/2026-09-06-collapsible-appearance-section.md) | 2026-09-06 | 3 | — |
 | [dark-mode-color-scheme](.claude/sessions/2026-09-05-dark-mode-color-scheme.md) | 2026-09-06 | 8 | Rebuild dark mode from the Ascent Brand Guidelines: replace the lifted-olive ac… |
 | [time-entry-job-thread-links](.claude/sessions/2026-09-06-time-entry-job-thread-links.md) | 2026-09-06 | 2 | — |

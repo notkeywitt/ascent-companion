@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-06T16:10:22Z",
+  "generatedAt": "2026-09-06T16:16:15Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "claude/tracking-sheet-button-audit-ufg3yl",
       "status": "shipped",
       "started": "2026-09-06T15:59:56Z",
-      "updated": "2026-09-06T16:10:22Z",
+      "updated": "2026-09-06T16:16:15Z",
       "goal": "audit the tracking sheet page's buttons and re-lay them out for desktop workflow",
-      "next": "verify the search panel on a real phone: portalled to <body>, spans left-2/right-2 below sm, height off visualViewport with the keyboard up",
+      "next": "Website is now the default palette; confirm on a device that never opened Appearance, and that an existing Guidelines choice survives",
       "commits": [
         {
           "date": "2026-09-06",
@@ -25,6 +25,13 @@
           "sha": "f3daabf",
           "subject": "companion: stop the search panel hanging off the left of the screen",
           "files": "src/components/GlobalSearch.tsx"
+        },
+        {
+          "date": "2026-09-06",
+          "time": "16:16",
+          "sha": "0108295",
+          "subject": "companion: default every device to the Website palette",
+          "files": "CLAUDE.md, THEME.md, src/app/layout.tsx, src/app/theme/page.tsx, src/components/AppearanceCard.tsx, src/lib/palette.ts, +1 more"
         }
       ]
     },

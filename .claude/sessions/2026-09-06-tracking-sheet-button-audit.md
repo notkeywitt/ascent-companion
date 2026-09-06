@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/tracking-sheet-button-audit-ufg3yl
 status: shipped
 started: 2026-09-06T15:59:56Z
-updated: 2026-09-06T16:16:14Z
+updated: 2026-09-06T16:16:15Z
 goal: audit the tracking sheet page's buttons and re-lay them out for desktop workflow
 next: Website is now the default palette; confirm on a device that never opened Appearance, and that an existing Guidelines choice survives
 ---
