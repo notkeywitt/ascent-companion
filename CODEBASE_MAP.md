@@ -359,7 +359,9 @@ Grouped by domain; each folder is `…/route.ts`.
   curated in `src/lib/nav.ts` → `TILE_LAUNCHERS`; also renders the office-only
   `OfficeDigestPlaceholder` reserved slot),
   `PageTitle`, `ThemeToggle` (takes any face as `children` — the header gives it
-  the logo),
+  the logo), `AppearanceCard` (the home page's Appearance block — picks the
+  PALETTE and the theme, both per device; see `src/lib/palette.ts` and
+  `THEME.md`),
   `AscentLogo` (the lockup; `tone="white"` is the reversed, black-ground
   variant), `LoadingScreen` (the logo-on-black cover — one look, three
   triggers: `SplashScreen` on app open, `RouteLoadingScreen` on an in-app tap,

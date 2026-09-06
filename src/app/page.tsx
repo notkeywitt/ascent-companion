@@ -15,6 +15,7 @@ import { TileLauncher } from "@/components/TileLauncher";
 import { HomeLayoutEditor } from "@/components/HomeLayoutEditor";
 import { useEffectiveLayout } from "@/components/NavLayoutProvider";
 import { PREVIEW_ROWS, tileLauncherFor } from "@/lib/nav";
+import { AppearanceCard } from "@/components/AppearanceCard";
 
 /**
  * The Assistant's front page — the launcher, and still the only place EVERY
@@ -308,6 +309,10 @@ function Home() {
           </Link>
         </div>
       )}
+
+      {/* Per-device display settings. Here rather than on /more because /more
+          is the tile launcher's overflow — office and admin never link to it. */}
+      <AppearanceCard />
 
       {/* Account / sign out. Access (which menus you see) is baked in at
           sign-in, so signing out and back in is how you pick up a changed

@@ -61,6 +61,17 @@
      as something you can type into, and at card weight it stops looking like a
      control at all. Warm equivalent of the neutral-300 it replaces. */
   --line-strong: 214 205 182; /* #D6CDB6 */
+
+  /* Surfaces, as variables so a PALETTE can move them (see the Website palette
+     below). `page`/`page-fg` are what <body> paints; `ink*` is the DARK surface
+     scale (page → raised card → overlay), read by Tailwind's `bg-ink-raised`
+     and friends. The ink scale is declared once per palette, not per theme,
+     because every call site already reaches it through a `dark:` prefix. */
+  --page: 250 247 238; /* #FAF7EE cream */
+  --page-fg: 27 27 23; /* #1B1B17 off-black */
+  --ink: 27 27 23; /* #1B1B17 */
+  --ink-raised: 35 35 30; /* #23231E */
+  --ink-overlay: 43 43 37; /* #2B2B25 */
 }
 .dark {
   color-scheme: dark;
@@ -86,6 +97,87 @@
   --line: 56 53 42; /* #38352A */
   --line-soft: 43 41 33; /* #2B2921 */
   --line-strong: 74 70 55; /* #4A4637 */
+
+  --page: 27 27 23; /* #1B1B17 off-black */
+  --page-fg: 236 232 219; /* #ECE8DB */
+}
+
+/* --- Palette 2 — "Website" ----------------------------------------------
+   Built from www.ascentbuildingco.com itself, not from the print guide. The
+   site is a Squarespace 7.1 build running ONE section theme (`light-bold`)
+   on every section, and its palette resolves to:
+
+     lightAccent  #FAF7EE  the ground, every section
+     accent       #1B1B1B  body copy and nav — a NEUTRAL off-black, not the
+                           guide's warm #1B1B17
+     safeDarkAccent #1B1B1B  headings and every button fill
+     black slot   #CF9803  ochre — the logo, and nothing else on the page
+     darkAccent   #878054  olive — defined, painted nowhere
+
+   So the site inverts the guide's emphasis. On the site the thing you CLICK is
+   off-black with a cream label, and ochre is demoted to the mark. That is the
+   whole palette: same grounds, opposite accent.
+
+   Roles, against palette 1:
+     • `accent` (fills, borders, rings, tints)  ochre → off-black
+     • `accent-fg` (the label ON a fill)        off-black → cream
+     • `brand` (graphics: logo, peak, rules)    ochre → ochre, unchanged
+     • hairlines                                softer; the site has none
+
+   Off-black on cream is 15.9:1, so unlike ochre this accent carries small text
+   as well as fills, and light mode needs no text redirect.
+
+   Surfaces do NOT move in light: cream ground, white card. Both are the site's
+   own values (`--lightAccent` and `--white`), and its `light` theme puts a
+   white block on the cream ground exactly this way. */
+[data-palette="website"] {
+  --accent: 27 27 27; /* #1B1B1B — the site's ink IS its interactive colour */
+  --accent-hover: 58 58 56; /* #3A3A38 — a step off the ground for fill hover */
+  --accent-soft: 27 27 27; /* no lifted variant needed; see the dark block */
+  --accent-fg: 250 247 238; /* #FAF7EE — cream label on a black fill, the site's
+                               own button: solid off-black, cream text */
+  --brand: 207 152 3; /* #CF9803 — ochre stays the mark, which is the ONE place
+                         the site itself still uses it */
+
+  /* The site draws no rules at all; it separates with space. A phone app can't,
+     so the hairlines stay — a step lighter than palette 1's, so a list of rows
+     reads as spacing first and lines second. */
+  --line: 236 231 219; /* #ECE7DB */
+  --line-soft: 244 240 231; /* #F4F0E7 */
+  --line-strong: 219 211 194; /* #DBD3C2 */
+
+  --page: 250 247 238; /* #FAF7EE — the site's ground, unchanged */
+  --page-fg: 27 27 27; /* #1B1B1B — the site's neutral ink, not the warm one */
+
+  /* Dark surfaces on the site's neutral off-black. This is what a phone
+     actually shows apart from palette 1: the same layout on a cool-neutral
+     grey rather than a warm brown-black. */
+  --ink: 27 27 27; /* #1B1B1B */
+  --ink-raised: 36 36 36; /* #242424 */
+  --ink-overlay: 44 44 44; /* #2C2C2C */
+}
+
+/* The site has no dark mode, so this half is DERIVED — by inverting the rule
+   the site does state. There, the ground is cream and the thing you click is
+   the ink. Here the ground is the ink, so the thing you click is the cream: a
+   cream button with an off-black label, at 15.9:1.
+
+   Interactive TEXT can't follow it — cream text is the body copy, so a cream
+   link would be invisible as a link. It takes ochre instead, the one brand
+   colour that carries small text on off-black (6.70:1, guide p.15). Same split
+   palette 1 uses in light, mirrored: fills take one value, text takes another. */
+[data-palette="website"].dark {
+  --accent: 250 247 238; /* #FAF7EE — cream fill */
+  --accent-hover: 255 255 255; /* #FFFFFF */
+  --accent-soft: 232 184 74; /* #E8B84A — lifted ochre, for a chip's own tint */
+  --accent-fg: 27 27 27; /* #1B1B1B — off-black label on a cream fill */
+
+  --line: 58 58 58; /* #3A3A3A */
+  --line-soft: 44 44 44; /* #2C2C2C */
+  --line-strong: 76 76 76; /* #4C4C4C */
+
+  --page: 27 27 27; /* #1B1B1B */
+  --page-fg: 250 247 238; /* #FAF7EE */
 }
 
 /* --- Categorical data-viz palette ---------------------------------------
@@ -130,6 +222,38 @@
   color: #1b1b17;
 }
 
+/* Website palette, DARK: the fill accent is cream, and cream is also the body
+   copy — so a link painted in it would not read as a link. Interactive text
+   takes ochre, the one brand colour that carries small text on off-black
+   (6.70:1, guide p.15). Fills, borders and rings stay cream.
+   Two classes plus an attribute outrank the bare `.text-accent` utility, so
+   this holds wherever Tailwind emits it. */
+[data-palette="website"].dark .text-accent,
+[data-palette="website"].dark .hover\:text-accent:hover,
+[data-palette="website"].dark .group:hover .group-hover\:text-accent {
+  color: #cf9803;
+}
+
+/* --- Website palette, type ----------------------------------------------
+   The site's other signature is spacing, not colour: small labels are set in
+   wide-tracked caps (its h4 runs .175em, its list titles .3em) and buttons in
+   caps at .15em. These two hooks carry that across without touching a page:
+   `ui-caption` is every SectionLabel and Label, `ui-btn` every Button.
+
+   Buttons take the tracking and the lighter weight but NOT the caps. The site
+   sets three words per button; this app sets "Save coding and post to
+   JobTread", and upper-casing that wraps it on a phone.
+
+   Specificity, not stylesheet order, is what makes these win over the Tailwind
+   utility they override — see the note in CLAUDE.md. */
+[data-palette="website"] .ui-caption {
+  letter-spacing: 0.18em;
+}
+[data-palette="website"] .ui-btn {
+  letter-spacing: 0.06em;
+  font-weight: 500;
+}
+
 /* Height of the fixed bottom tab bar (components/TabBar). Published as a
    variable so the two things that must clear it — the page's own bottom padding
    and <StickyActionBar>'s `bottom` — both read the ONE number instead of each
@@ -165,15 +289,13 @@
 }
 
 body {
-  background: #faf7ee;
-  color: #1b1b17;
+  /* Both grounds are palette variables — one rule serves every palette and both
+     themes, so a new palette is a token block and nothing else. */
+  background: rgb(var(--page));
+  color: rgb(var(--page-fg));
   /* Unconditional, so no page can hide its last row behind the tab bar — each
      page's own `pb-*` stacks on top of this rather than having to include it. */
   padding-bottom: var(--tabbar-h);
-}
-.dark body {
-  background: #1b1b17;
-  color: #ece8db;
 }
 
 /* Keyboard focus is always visible, in the theme's accent. Text inputs opt out

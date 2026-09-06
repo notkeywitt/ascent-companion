@@ -105,7 +105,7 @@ branch's record, so the next session can pick the work up cold. Read
 - **UI design system:** `src/components/ui.tsx` — **build every UI on these
   primitives**, never hand-rolled styles (`PageHeader`, `Card`, `Input`, `Select`,
   `Textarea`, `Button`, `Banner`, `Loading`, `EmptyState`, `SectionLabel`, `Toggle`),
-  plus the "Ledger" set: `SectionHeading` (ochre rule + caption), `ListCard`/`ListRow`
+  plus the "Ledger" set: `SectionHeading` (brand rule + caption), `ListCard`/`ListRow`
   (hairline-divided rows), `StatementBlock` (the page's ONE display figure), `Chip`
   (status marks), `MetaLine` (dot-separated quiet state — the reason chips stay rare),
   `QuietInput`/`quietInputCls` (a field with no border until focus, for dense editing
@@ -125,6 +125,14 @@ branch's record, so the next session can pick the work up cold. Read
   (form controls). They're theme variables, so they flip light/dark on their own —
   writing `border-neutral-200 dark:border-neutral-700/60` again spells out by hand
   what the token already does.
+- **TWO palettes, and every colour rule below describes the DEFAULT one.**
+  `data-palette="website"` on `<html>` swaps the whole token set for a second
+  palette read off ascentbuildingco.com, where the accent is off-black and ochre
+  falls back to being the mark. It is a per-device choice (Appearance, on the
+  home page). What this means when you write a component: reach for the TOKEN
+  (`accent`, `brand`, `line`, `ink`, `accent-fg`), never the literal (`ochre`,
+  `offblack`), or your view will only be right in one palette. `THEME.md`
+  carries both palettes and how to add a third.
 - **One brand hue, two grounds.** OCHRE is BOTH the interactive accent and the
   graphic `brand` hue, in BOTH themes; the theme swaps the ground, not the color
   (guide p.15 passes ochre on off-black at 6.70:1, and blocks it on cream at

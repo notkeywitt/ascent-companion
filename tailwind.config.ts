@@ -79,7 +79,14 @@ export default {
         brand: { DEFAULT: "rgb(var(--brand) / <alpha-value>)" },
         // Dark-mode surface scale: page (= offblack), raised cards, overlays
         // (menus/modals). Cards must sit LIGHTER than the page, not darker.
-        ink: { DEFAULT: "#1B1B17", raised: "#23231E", overlay: "#2B2B25" },
+        // Variables, not fixed hex, so a PALETTE can move the whole scale — the
+        // Website palette's off-black is the site's neutral #1B1B1B, not the
+        // guide's warm #1B1B17. Values live in globals.css.
+        ink: {
+          DEFAULT: "rgb(var(--ink) / <alpha-value>)",
+          raised: "rgb(var(--ink-raised) / <alpha-value>)",
+          overlay: "rgb(var(--ink-overlay) / <alpha-value>)",
+        },
         // Hairlines, as theme variables (see globals.css) so `border-line`
         // flips with the theme and no page has to spell out the
         // `border-neutral-200 dark:border-neutral-700/60` pair again.

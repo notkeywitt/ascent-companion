@@ -27,8 +27,11 @@ export { Spinner };
 export type BtnVariant = "primary" | "secondary" | "outline" | "ghost" | "danger";
 export type BtnSize = "sm" | "md" | "lg";
 
+// `ui-btn` is a styling HOOK, not a class that paints anything here: it is what
+// a palette reaches for to restyle every button at once (globals.css gives the
+// Website palette its wider tracking through it). Keep it on the base string.
 const BTN_BASE =
-  "inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-lg font-semibold transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100";
+  "ui-btn inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-lg font-semibold transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100";
 
 const BTN_VARIANT: Record<BtnVariant, string> = {
   primary: "bg-accent text-accent-fg shadow-sm hover:bg-accent-hover",
@@ -217,7 +220,7 @@ export function Label({
   return (
     <label
       htmlFor={htmlFor}
-      className={`mb-1 block text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400 ${className}`}
+      className={`ui-caption mb-1 block text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400 ${className}`}
     >
       {children}
     </label>
@@ -234,7 +237,7 @@ export function SectionLabel({
 }) {
   return (
     <div
-      className={`text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400 ${className}`}
+      className={`ui-caption text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400 ${className}`}
     >
       {children}
     </div>
@@ -287,7 +290,10 @@ export function SectionHeading({
 }) {
   return (
     <div className={`flex min-h-[28px] items-center gap-2.5 ${className}`}>
-      <span aria-hidden className="h-0.5 w-5 shrink-0 rounded-full bg-accent" />
+      {/* The heading rule is a GRAPHIC mark, so it reads `brand`, not `accent`.
+          Identical under the Guidelines palette (both are ochre) and the reason
+          the Website palette keeps its ochre mark while the accent goes black. */}
+      <span aria-hidden className="h-0.5 w-5 shrink-0 rounded-full bg-brand" />
       {onToggle ? (
         // `-my-2` keeps a thumb-sized 44px tap area without making the heading
         // row taller than every other SectionHeading on the page — the same

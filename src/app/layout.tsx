@@ -109,10 +109,15 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang="en" className={`${roboto.variable} ${robotoMono.variable}`}>
       <head>
+        {/* Theme and palette, set on <html> BEFORE the first paint. Both are
+            per-device choices held in localStorage, so the server cannot know
+            them and a React effect would run one frame too late — the page
+            would flash the wrong ground. See src/lib/palette.ts for the two
+            keys and src/components/AppearanceCard.tsx for the control. */}
         <script
           dangerouslySetInnerHTML={{
             __html:
-              "(function(){try{var t=localStorage.getItem('theme');var d=t?t==='dark':matchMedia('(prefers-color-scheme:dark)').matches;if(d)document.documentElement.classList.add('dark');}catch(e){}})();",
+              "(function(){try{var e=document.documentElement;var t=localStorage.getItem('theme');var d=t?t==='dark':matchMedia('(prefers-color-scheme:dark)').matches;if(d)e.classList.add('dark');var p=localStorage.getItem('palette');if(p==='website')e.setAttribute('data-palette','website');}catch(e){}})();",
           }}
         />
       </head>
