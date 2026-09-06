@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useRef, useState, type MouseEvent } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { CostCodeSelect, type Option } from "@/components/CostCodeSelect";
+import { type Option } from "@/components/CostCodeSelect";
 import { JtLink } from "@/components/JtLink";
 import { JobPicker } from "@/components/JobPicker";
 import { PageTitle } from "@/components/PageTitle";
@@ -13,22 +13,21 @@ import {
   Button,
   Card,
   Chip,
-  IconButton,
-  Label,
   Loading,
   MetaLine,
   SectionHeading,
-  SectionLabel,
-  Select,
-  Spinner,
   StatementBlock,
-  Textarea,
   btn,
-  quietInputCls,
 } from "@/components/ui";
 import { TrackingSheetSyncFor } from "@/components/TrackingSheetSync";
-import { InvoiceAttachment } from "@/components/InvoiceViewer";
 import { billLineMath, recodeLog } from "@/lib/billLineMath";
+import { billingMonths, issueDateFor, monthLabel } from "@/lib/billingMonths";
+import {
+  BillCodingCard,
+  type CodingCardCtl,
+  type CodingLine,
+} from "@/app/trackingsheet/BillCodingCard";
+import { useCopy } from "@/components/CopyProvider";
 import { markBillTouched } from "@/lib/billTouch";
 import { useUnsavedChanges } from "@/lib/useUnsavedChanges";
 import {
@@ -134,25 +133,6 @@ const money = (n?: number) =>
     ? "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
     : "—";
 
-// Billing-month options (current + prior 14 months). Value = last day of the
-// month (the issueDate convention); ym is the year-month key for matching.
-function billingMonthOptions() {
-  const opts: { value: string; ym: string; label: string }[] = [];
-  const now = new Date();
-  for (let i = 0; i < 15; i++) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const y = d.getFullYear();
-    const m = d.getMonth() + 1;
-    const last = new Date(y, m, 0).getDate();
-    opts.push({
-      value: `${y}-${String(m).padStart(2, "0")}-${String(last).padStart(2, "0")}`,
-      ym: `${y}-${String(m).padStart(2, "0")}`,
-      label: d.toLocaleString("en-US", { month: "long", year: "numeric" }),
-    });
-  }
-  return opts;
-}
-
 // In the side panel, ask the extension to open a bill in the docked JobTread
 // window (no-op on mobile / standalone).
 function driveMainWindowToDoc(jobId: string, docId: string) {
@@ -190,6 +170,8 @@ function BillDetail() {
   // (it knows its own job) plus that job's id, which we adopt below so the Back
   // link, coding-queue pager and neighbour prefetch keep working.
   const urlJobId = search.get("jobId") ?? "";
+  // Office-edited wording (Admin → Page Text), for the shared coding card.
+  const c = useCopy();
   const [resolvedJobId, setResolvedJobId] = useState("");
   const jobId = urlJobId || resolvedJobId;
   // Where Back returns to WHEN there's no in-app history to step back through
@@ -244,16 +226,6 @@ function BillDetail() {
   const [files, setFiles] = useState<FileNode[]>([]);
   // The bill's job Phase — the one input to whether its sales tax is recoverable.
   const [jobPhase, setJobPhase] = useState<string>("");
-  // The bill's backup in Google Drive — the file itself and the folder it's filed
-  // in. The Assistant has no Drive grant, so /api/bill/drive asks the Apps Script
-  // web app, which resolves both from the Expenditure sheet's file link. Best-
-  // effort: null until it answers, and links the lookup can't supply stay "".
-  const [drive, setDrive] = useState<{
-    fileUrl: string;
-    fileName: string;
-    folderUrl: string;
-    folderName: string;
-  } | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [picked, setPicked] = useState<Record<string, string>>({});
@@ -265,6 +237,8 @@ function BillDetail() {
   const [writes, setWrites] = useState(false);
   const [queue, setQueue] = useState<string[]>([]);
   const [reassignMsg, setReassignMsg] = useState("");
+  const [reassigning, setReassigning] = useState(false);
+  const [monthSaving, setMonthSaving] = useState(false);
   const [bulkCode, setBulkCode] = useState("");
   const [reviewed, setReviewed] = useState(false);
   const [saved, setSaved] = useState(false); // Save has been clicked on this bill (assistant-local)
@@ -284,17 +258,6 @@ function BillDetail() {
   const [selected, setSelected] = useState<string[]>([]); // line ids checked to combine
   const [combining, setCombining] = useState(false);
   const [combineMsg, setCombineMsg] = useState("");
-  /**
-   * Which bulk tool the line list is currently offering, if any.
-   *
-   * "Code all the lines" and "combine lines sharing a code" used to be two
-   * dashed boxes sitting permanently above the list — two rectangles of
-   * furniture, plus a checkbox column on every row, in front of the content on
-   * every visit, for two things the office reaches for occasionally. They're
-   * one text link each now, and the control they open replaces the link, so
-   * the list starts where the heading ends.
-   */
-  const [tool, setTool] = useState<null | "code-all" | "combine">(null);
   const [deletingId, setDeletingId] = useState("");
   const [buybackId, setBuybackId] = useState("");
   const [taxEdit, setTaxEdit] = useState<string | null>(null); // null = not editing (shows JT's value)
@@ -418,32 +381,6 @@ function BillDetail() {
     }
   }, [prevId, nextId, jobId, loading, cacheEpoch]);
 
-  // Fetch the bill's Google Drive links (the file + its folder) once per bill.
-  // Best-effort and out of band from the main load — the page is fully usable
-  // without it, so a slow or unconfigured Apps Script just leaves the links off.
-  useEffect(() => {
-    let cancelled = false;
-    setDrive(null);
-    if (!docId) return;
-    fetch(`/api/bill/drive?docId=${encodeURIComponent(docId)}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((j) => {
-        if (cancelled || !j) return;
-        setDrive({
-          fileUrl: j.fileUrl ?? "",
-          fileName: j.fileName ?? "",
-          folderUrl: j.folderUrl ?? "",
-          folderName: j.folderName ?? "",
-        });
-      })
-      .catch(() => {
-        /* best-effort — no Drive links is fine */
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [docId]);
-
   // Keep the Bill Number draft in step with the header JobTread returns (on load,
   // navigation between bills, and after a save re-reads the doc).
   useEffect(() => {
@@ -515,7 +452,7 @@ function BillDetail() {
     deTax,
     subtotal,
     total,
-    reTax,
+    targets,
     pendingCount,
     wholeBillChanges: allLineChanges,
   } = billLineMath({
@@ -755,6 +692,7 @@ function BillDetail() {
       )
     )
       return;
+    setReassigning(true);
     setReassignMsg("Moving…");
     try {
       const res = await fetch("/api/reassign-job", {
@@ -765,14 +703,41 @@ function BillDetail() {
       const json = await res.json();
       if (!res.ok || !json.ok) {
         setReassignMsg(json.error ?? "Reassign failed");
+        setReassigning(false);
         return;
       }
       reloadJtWindow(); // refresh JobTread's view (old doc gone, new one created)
       // New docId on the new job — this page's docId is stale; open Client
-      // Invoicing on the job the bill just moved to.
+      // Invoicing on the job the bill just moved to. Deliberately still
+      // `reassigning` — the navigation is what ends it, and re-enabling the
+      // picker first would offer a second move against a dead docId.
       window.location.href = `/trackingsheet?jobId=${encodeURIComponent(targetJobId)}`;
     } catch (e) {
       setReassignMsg(e instanceof Error ? e.message : "Network error");
+      setReassigning(false);
+    }
+  }
+
+  /**
+   * File this bill in a different billing month. Lifted verbatim out of the
+   * Select this page used to draw; the card calls it with a `ym`, and
+   * `issueDateFor` turns that into the last-day issueDate `/api/bill-issuedate`
+   * expects — the same helper the board uses, so the two can't disagree.
+   */
+  async function setBillingMonth(targetYm: string) {
+    if (!targetYm) return;
+    setMonthSaving(true);
+    try {
+      const issueDate = issueDateFor(targetYm);
+      setHeader((h) => (h ? { ...h, issueDate } : h));
+      await fetch("/api/bill-issuedate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ docId, issueDate }),
+      });
+      invalidateBills(); // cached payload still carries the old issueDate
+    } finally {
+      setMonthSaving(false);
     }
   }
 
@@ -1058,7 +1023,6 @@ function BillDetail() {
         setCombineMsg("Preview only — writes are OFF. Nothing was combined in JobTread.");
       else {
         setSelected([]);
-        setTool(null); // the errand is done — close the tool with it
         setPicked((p) => {
           const n = { ...p };
           [keep.id, ...deleteIds].forEach((id) => delete n[id]);
@@ -1172,6 +1136,148 @@ function BillDetail() {
     }
   }
 
+  /**
+   * The card's control object — this page's half of the shared contract.
+   *
+   * Every handler here already existed; none of them changed. What changed is
+   * that the MARKUP they drive is now BillCodingCard's instead of a second copy
+   * written out on this page. The adapters below exist only because the card
+   * speaks `CodingLine` (the board's line shape) while this page's handlers were
+   * written against its own `Line` — so each one looks the real line back up by
+   * id rather than the two shapes being forced to converge.
+   */
+  const cardLines: CodingLine[] = codeableLines.map((l) => ({
+    id: l.id,
+    docId,
+    billStatus: header?.status ?? "draft",
+    name: l.name ?? "",
+    cost: l.cost ?? 0,
+    quantity: l.quantity,
+    unitCost: l.unitCost,
+    code: l.costCode?.number ?? "",
+    codeName: l.costCode?.name ?? "",
+    jobCostItemId: l.jobCostItem?.id ?? null,
+  }));
+  const lineById = (id: string) => codeableLines.find((l) => l.id === id);
+
+  const codingCtl: CodingCardCtl = {
+    bill: header
+      ? {
+          id: docId,
+          label: title,
+          cost: total,
+          status: header.status,
+          reviewed,
+          // Left unset on purpose. `invoiced` makes the card read-only, and
+          // /api/bill does not report whether this bill is on a customer
+          // invoice — only the board's payload does. Editing here stays gated on
+          // draft status alone (math.isDraft), exactly as this page always
+          // gated it; claiming `false` would be asserting something unknown.
+          jobPhase,
+          number: header.number ?? null,
+          issueDate: header.issueDate ?? null,
+        }
+      : null,
+    lines: cardLines,
+    math: { isDraft: linesEditable, subtotal, total, deTax, targets },
+    jobId,
+    c,
+    writes,
+
+    codeOptions: budget,
+    leafOf: (l) => picked[l.id] ?? lineById(l.id)?.jobCostItem?.id ?? "",
+    codeOf: (l) =>
+      budget.find((o) => o.id === (picked[l.id] ?? lineById(l.id)?.jobCostItem?.id ?? ""))?.number ??
+      "",
+    // This page commits with its own Save bar, so a pick is staged in `picked`
+    // exactly as it always was — the card does not know or care which.
+    stageLine: (lineId, leafId) => setPicked((prev) => ({ ...prev, [lineId]: leafId })),
+    staged: { has: (lineId) => picked[lineId] !== undefined },
+    remainingFor: (code) => (code && ctc[code] ? ctc[code].remaining : null),
+    bulkCode,
+    setBulkCode,
+    applyCodeToAll,
+
+    edits,
+    setLineEdit: (lineId, patch) =>
+      setEdits((prev) => ({ ...prev, [lineId]: { ...prev[lineId], ...patch } })),
+
+    taxEdit,
+    storedTax,
+    taxView,
+    setTax: (v) => setTaxEdit(v),
+
+    toggleReviewed: () => void toggleReviewed(),
+
+    review: {
+      flagged: needsReview,
+      note: reviewNote,
+      setNote: setReviewNote,
+      save: (flagged) => void saveReview(flagged),
+      saving: reviewSaving,
+      msg: reviewMsg,
+      by: reviewFlaggedBy,
+      at: reviewFlaggedAt,
+    },
+
+    approveBill: writes ? () => void approveBill() : undefined,
+    approvingBill: approving,
+    approveBlocked: null,
+
+    isCombinable: (l) => {
+      const real = lineById(l.id);
+      return real ? isCombinable(real) : false;
+    },
+    anyCombinable,
+    combineSelected: selected,
+    toggleCombineSel: toggleSel,
+    combineCodeSet: selCodeSet,
+    combineHasEdit: selHasEdit,
+    canCombine,
+    combining,
+    combineRows: () => void combineRows(),
+    combineMsg,
+
+    buybackId,
+    buybackLineById: (l, name, extended) => {
+      const real = lineById(l.id);
+      if (real) void buybackLineById(real, name, extended);
+    },
+
+    deletingLineId: deletingId,
+    deleteLineById: (id, label) => void deleteLineById(id, label),
+    // Empty on purpose: this page reports a failed delete through `saveMsg`, in
+    // the banner under the header, which is where it has always appeared.
+    deleteLineMsg: "",
+
+    addingLine,
+    setAddingLine,
+    newLine,
+    setNewLine,
+    addLine: () => void addLine(),
+    addLineSaving,
+    addLineMsg,
+    setAddLineMsg,
+
+    files,
+    filesLoading: loading,
+    // This page IS the card — it scrolls, and its header already names the bill.
+    standalone: true,
+    // Not a sticky column here — the scan can be as tall as it wants.
+    scanMaxHClass: "max-h-[70dvh]",
+
+    billNumberDraft: billNumber,
+    setBillNumberDraft: setBillNumber,
+    saveBillNumber: () => void saveBillNumber(),
+    billNumberSaving,
+    monthOptions: billingMonths(),
+    setBillingMonth,
+    monthSaving,
+    reassignJob: (j) => void reassignJob(j.id),
+    reassigning,
+    filingMsg: reassignMsg || billNumberMsg,
+  };
+
   return (
     // The bottom action drawer is `fixed` to the bottom edge, so the page's own
     // bottom padding has to clear BOTH the drawer and the home-indicator inset
@@ -1194,8 +1300,8 @@ function BillDetail() {
 
       {/* Flagged for a billing correction — shown up top, and made loud on
           purpose (thick red edge, uppercase heading) so it's the first thing
-          seen without opening the actions drawer, where the note and controls
-          live. */}
+          seen without scrolling to the coding panel, where the note and its
+          controls live. */}
       {needsReview && (
         <Banner tone="warning" className="mt-3 !py-2.5">
           <span aria-hidden className="mr-1.5">
@@ -1421,10 +1527,24 @@ function BillDetail() {
       {loading && <Loading label="Loading bill from JobTread…" />}
       {error && <Banner tone="error">{error}</Banner>}
 
+      {/* THE CODING PANEL — the SAME component the Tracking Sheets workbench
+          shows in its right-hand column (BillCodingCard). This page used to
+          hand-write its own copy of it: two implementations of one bill, ~480
+          lines each, that had to be fixed twice and had already drifted three
+          ways (per-line headroom, the needs-review flag, and a billing-month
+          picker whose option values did not match the board's, so the same
+          Select showed the month on one surface and blank on the other).
+
+          The page keeps what is genuinely page chrome — the title, the status
+          badge, the bill total, the sticky Save bar and the tracking-sheet push
+          — and the card carries the bill itself: the lines, the coding, the
+          scan, the Drive backup, Filing and the needs-review flag. `writes` and
+          the commit stay this page's business, exactly as they are the board's:
+          the card owns no write of its own. */}
       {lines && (
         <>
-          {/* The preview warning qualifies the whole list, so it sits above
-              the heading — the heading stays the last thing before the lines. */}
+          {/* The preview warning qualifies the whole panel, so it sits above
+              it. */}
           {!writes && (
             <Banner tone="warning" className="mb-3 !px-3 !py-2.5 !text-xs">
               Writes are OFF (COMPANION_WRITES_ENABLED not <span className="font-mono">true</span> on
@@ -1432,619 +1552,8 @@ function BillDetail() {
               <b>redeploy</b>.
             </Banner>
           )}
-
-          {/* The two bulk tools ride in the heading's trailing slot as plain
-              text links. They used to be two permanently-open dashed boxes
-              stacked above the list — furniture in front of the content on
-              every visit, for two things reached for occasionally. */}
-          <SectionHeading
-            className="mb-2"
-            trailing={
-              linesEditable &&
-              ((budget.length > 0 && lines.length > 1) || (writes && anyCombinable)) ? (
-                <div className="flex items-center gap-3 text-[12px] font-semibold">
-                  {budget.length > 0 && lines.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => setTool((t) => (t === "code-all" ? null : "code-all"))}
-                      className={
-                        tool === "code-all"
-                          ? "text-neutral-500 underline underline-offset-2 dark:text-neutral-400"
-                          : "text-accent dark:text-accent-soft"
-                      }
-                    >
-                      {tool === "code-all" ? "Cancel" : "Code all"}
-                    </button>
-                  )}
-                  {writes && anyCombinable && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setCombineMsg("");
-                        setSelected([]);
-                        setTool((t) => (t === "combine" ? null : "combine"));
-                      }}
-                      className={
-                        tool === "combine"
-                          ? "text-neutral-500 underline underline-offset-2 dark:text-neutral-400"
-                          : "text-accent dark:text-accent-soft"
-                      }
-                    >
-                      {tool === "combine" ? "Cancel" : "Combine"}
-                    </button>
-                  )}
-                </div>
-              ) : undefined
-            }
-          >
-            Lines
-          </SectionHeading>
-
-          {/* Whichever tool is open takes ONE row under the heading — a field
-              and its button, no box around them. */}
-          {tool === "code-all" && (
-            <div className="mb-3 flex items-center gap-2">
-              <div className="min-w-0 flex-1">
-                <CostCodeSelect options={budget} value={bulkCode} onChange={setBulkCode} />
-              </div>
-              <Button
-                className="min-h-11 shrink-0"
-                onClick={() => {
-                  applyCodeToAll(bulkCode);
-                  setTool(null);
-                }}
-                disabled={!bulkCode}
-              >
-                Apply to {lines.length}
-              </Button>
-            </div>
-          )}
-
-          {tool === "combine" && (
-            <div className="mb-3 flex items-center gap-2">
-              <p className="min-w-0 flex-1 text-xs text-neutral-500 dark:text-neutral-400">
-                {selected.length < 2
-                  ? "Tick 2+ lines that share a cost code."
-                  : selCodeSet.size > 1
-                    ? "Those lines have different codes."
-                    : selHasEdit
-                      ? "Save or discard your line edits first."
-                      : `Merging ${selected.length} lines into one.`}
-              </p>
-              <Button
-                className="min-h-11 shrink-0"
-                onClick={combineRows}
-                disabled={!canCombine || combining}
-              >
-                {combining ? "Combining…" : `Combine${selected.length >= 2 ? ` (${selected.length})` : ""}`}
-              </Button>
-            </div>
-          )}
-          {combineMsg && (
-            <Banner tone="neutral" className="mb-3 !px-3 !py-2.5 !text-xs">
-              {combineMsg}
-            </Banner>
-          )}
-
-          {/* ONE card, hairline-divided rows — not a bordered card per line.
-              Eight lines used to draw eight rectangles separated by gaps, each
-              holding four more rectangles (three inputs and a select) under
-              three uppercase captions: roughly fifty edges on a screen whose
-              actual content is a description, two numbers and a code. The rows
-              are divided by the lightest hairline the palette has, the fields
-              are quiet until focused, and the captions are gone — a number
-              field that is right-aligned, tabular and 56px wide next to a "×"
-              does not need to be told it is a quantity. */}
-          <Card pad={false} className="overflow-hidden">
-            <ul className="divide-y divide-line-soft">
-              {lines.map((l) => {
-                const current = picked[l.id] ?? l.jobCostItem?.id ?? "";
-                const nameVal = edits[l.id]?.name ?? (l.name ?? "");
-                const qtyVal = edits[l.id]?.quantity ?? (l.quantity != null ? String(l.quantity) : "");
-                // Unit $ is shown and edited PRE-TAX (what JobTread shows): the stored cost
-                // de-taxed. When a line isn't being edited, take its pre-tax extended amount
-                // straight from the stored cost (matches JobTread to the penny); only
-                // recompute qty × unit while the office is editing it.
-                const edited =
-                  edits[l.id]?.unitCost !== undefined || edits[l.id]?.quantity !== undefined;
-                const unitVal =
-                  edits[l.id]?.unitCost ??
-                  (l.unitCost != null ? String(round2(deTax(l.unitCost))) : "");
-                const extended =
-                  edited && qtyVal !== "" && unitVal !== ""
-                    ? Number(qtyVal) * Number(unitVal)
-                    : deTax(l.cost ?? 0);
-                const codeNum = budget.find((o) => o.id === current)?.number;
-                const head = codeNum ? ctc[codeNum] : undefined;
-                // The tick column exists only while Combine is the open tool,
-                // so an ordinary read of the list has no checkboxes in it.
-                const picking = tool === "combine" && linesEditable && writes && isCombinable(l);
-                return (
-                  <li key={l.id} className="px-3 py-2.5">
-                    {/* What it was, and what it came to — the two things read
-                        on every line, on the line's first row. */}
-                    <div className="flex items-start gap-2">
-                      {picking && (
-                        <input
-                          type="checkbox"
-                          checked={selected.includes(l.id)}
-                          onChange={() => toggleSel(l.id)}
-                          aria-label="Select line to combine"
-                          title="Combine with other lines that share this cost code"
-                          className="mt-3 h-5 w-5 shrink-0 cursor-pointer accent-accent"
-                        />
-                      )}
-                      {linesEditable ? (
-                        <input
-                          type="text"
-                          value={nameVal}
-                          onChange={(e) =>
-                            setEdits((p) => ({ ...p, [l.id]: { ...p[l.id], name: e.target.value } }))
-                          }
-                          placeholder="Description"
-                          aria-label="Line description"
-                          className={`${quietInputCls} min-w-0 flex-1 font-medium`}
-                        />
-                      ) : (
-                        <div className="min-w-0 flex-1 py-2 text-sm font-medium">
-                          {l.name || "Line item"}
-                        </div>
-                      )}
-                      <p className="shrink-0 py-2 text-right text-[15px] font-semibold tabular-nums">
-                        {money(extended)}
-                      </p>
-                    </div>
-
-                    {/* The maths behind that amount, and — pushed to the far
-                        end, away from the fields — the two structural actions.
-                        They had a bordered row of their own; sharing this one
-                        costs nothing and saves a row per line. */}
-                    {linesEditable && (
-                      <div className="mt-1.5 flex items-center gap-1.5">
-                        <input
-                          id={`qty-${l.id}`}
-                          type="number"
-                          inputMode="decimal"
-                          value={qtyVal}
-                          aria-label="Quantity"
-                          onChange={(e) =>
-                            setEdits((p) => ({
-                              ...p,
-                              [l.id]: { ...p[l.id], quantity: e.target.value },
-                            }))
-                          }
-                          className={`${quietInputCls} w-16 shrink-0 text-right tabular-nums`}
-                        />
-                        <span aria-hidden className="shrink-0 text-xs text-neutral-400">
-                          ×
-                        </span>
-                        <span className="relative shrink-0">
-                          <span
-                            aria-hidden
-                            className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-xs text-neutral-400"
-                          >
-                            $
-                          </span>
-                          <input
-                            id={`unit-${l.id}`}
-                            type="number"
-                            inputMode="decimal"
-                            value={unitVal}
-                            aria-label="Unit cost, before tax"
-                            onChange={(e) =>
-                              setEdits((p) => ({
-                                ...p,
-                                [l.id]: { ...p[l.id], unitCost: e.target.value },
-                              }))
-                            }
-                            className={`${quietInputCls} w-28 pl-5 pr-2 text-right tabular-nums`}
-                          />
-                        </span>
-                        {writes && (
-                          <span className="ml-auto flex shrink-0">
-                            <IconButton
-                              onClick={() =>
-                                buybackLineById(l, nameVal || l.name || "Line item", extended)
-                              }
-                              disabled={buybackId === l.id || deletingId === l.id}
-                              label="Buy back to Ascent - Shop"
-                              title="Move this line to a draft bill on Ascent - Shop"
-                            >
-                              {buybackId === l.id ? (
-                                <Spinner />
-                              ) : (
-                                <svg
-                                  viewBox="0 0 24 24"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  strokeWidth="2"
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  aria-hidden="true"
-                                  className="h-[18px] w-[18px]"
-                                >
-                                  <path d="M4 12h13" />
-                                  <path d="M12 6l7 6-7 6" />
-                                </svg>
-                              )}
-                            </IconButton>
-                            <IconButton
-                              tone="danger"
-                              onClick={() => deleteLineById(l.id, l.name || "Line item")}
-                              disabled={deletingId === l.id}
-                              label="Delete line"
-                              title="Delete this line"
-                            >
-                              {deletingId === l.id ? (
-                                <Spinner />
-                              ) : (
-                                <svg
-                                  viewBox="0 0 24 24"
-                                  fill="currentColor"
-                                  aria-hidden="true"
-                                  className="h-[18px] w-[18px]"
-                                >
-                                  <path
-                                    fillRule="evenodd"
-                                    clipRule="evenodd"
-                                    d="M16.5 4.478v.227a48.816 48.816 0 0 1 3.878.512.75.75 0 1 1-.256 1.478l-.209-.035-1.005 13.07a3 3 0 0 1-2.991 2.77H8.084a3 3 0 0 1-2.991-2.77L4.087 6.66l-.209.035a.75.75 0 0 1-.256-1.478A48.567 48.567 0 0 1 7.5 4.705v-.227c0-1.564 1.213-2.9 2.816-2.951a52.662 52.662 0 0 1 3.369 0c1.603.051 2.815 1.387 2.815 2.951Zm-6.136-1.452a51.196 51.196 0 0 1 3.273 0C14.39 3.05 15 3.684 15 4.478v.113a49.488 49.488 0 0 0-6 0v-.113c0-.794.609-1.428 1.364-1.452Zm-.355 5.945a.75.75 0 1 0-1.5.058l.347 9a.75.75 0 1 0 1.499-.058l-.346-9Zm5.48.058a.75.75 0 1 0-1.498-.058l-.347 9a.75.75 0 0 0 1.5.058l.345-9Z"
-                                  />
-                                </svg>
-                              )}
-                            </IconButton>
-                          </span>
-                        )}
-                      </div>
-                    )}
-
-                    {/* The coding decision, and the one number it depends on.
-                        The select keeps its border — it is the row's primary
-                        control — and the headroom is one line beside it rather
-                        than a caption plus a three-part sentence below. */}
-                    <div className="mt-1.5 flex items-center gap-2">
-                      <div className="min-w-0 flex-1">
-                        <CostCodeSelect
-                          options={budget}
-                          value={current}
-                          onChange={(id) => setPicked((p) => ({ ...p, [l.id]: id }))}
-                        />
-                      </div>
-                      {head && (
-                        <span
-                          title={`budget ${money(head.budget)} − actual ${money(head.actual)}`}
-                          className={`shrink-0 text-[11px] font-semibold tabular-nums ${
-                            head.remaining < 0
-                              ? "text-red-600 dark:text-red-400"
-                              : "text-neutral-500 dark:text-neutral-400"
-                          }`}
-                        >
-                          {money(head.remaining)} left
-                        </span>
-                      )}
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-
-            {/* Add a new line (createCostItem). Draft-only — JobTread locks a
-                bill's amounts once it's payable/paid. It is a row of the same
-                card now, so it stops reading as a separate dashed widget
-                floating under the list. */}
-            {linesEditable && !addingLine && (
-              <button
-                type="button"
-                onClick={() => {
-                  setAddLineMsg("");
-                  setAddingLine(true);
-                }}
-                className="flex min-h-12 w-full items-center justify-center border-t border-line-soft text-sm font-semibold text-accent transition hover:bg-accent/5 dark:text-accent-soft dark:hover:bg-white/5"
-              >
-                + Add line
-              </button>
-            )}
-            {linesEditable && addingLine && (
-              // Same field layout as an existing line, so adding one and
-              // editing one look and behave identically.
-              <div className="border-t border-line-soft px-3 py-2.5">
-                <input
-                  type="text"
-                  value={newLine.name}
-                  onChange={(e) => setNewLine((n) => ({ ...n, name: e.target.value }))}
-                  placeholder="Line description"
-                  aria-label="Line description"
-                  className={`${quietInputCls} w-full font-medium`}
-                />
-                <div className="mt-1.5 flex items-center gap-1.5">
-                  <input
-                    id="new-line-qty"
-                    type="number"
-                    inputMode="decimal"
-                    value={newLine.quantity}
-                    aria-label="Quantity"
-                    onChange={(e) => setNewLine((n) => ({ ...n, quantity: e.target.value }))}
-                    className={`${quietInputCls} w-16 shrink-0 text-right tabular-nums`}
-                  />
-                  <span aria-hidden className="shrink-0 text-xs text-neutral-400">
-                    ×
-                  </span>
-                  <span className="relative shrink-0">
-                    <span
-                      aria-hidden
-                      className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-xs text-neutral-400"
-                    >
-                      $
-                    </span>
-                    <input
-                      id="new-line-unit"
-                      type="number"
-                      inputMode="decimal"
-                      value={newLine.unitCost}
-                      aria-label="Unit cost, before tax"
-                      onChange={(e) => setNewLine((n) => ({ ...n, unitCost: e.target.value }))}
-                      className={`${quietInputCls} w-28 pl-5 pr-2 text-right tabular-nums`}
-                    />
-                  </span>
-                  <p className="min-w-0 flex-1 text-right text-[15px] font-semibold tabular-nums">
-                    {money((Number(newLine.quantity) || 0) * (Number(newLine.unitCost) || 0))}
-                  </p>
-                </div>
-                <div className="mt-1.5">
-                  <CostCodeSelect
-                    options={budget}
-                    value={newLine.code}
-                    onChange={(id) => setNewLine((n) => ({ ...n, code: id }))}
-                  />
-                </div>
-                <div className="mt-2.5 grid grid-cols-2 gap-2">
-                  <Button
-                    className="min-h-11 w-full"
-                    onClick={addLine}
-                    disabled={addLineSaving || !newLine.name.trim()}
-                  >
-                    {addLineSaving ? "Adding…" : "Add line"}
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    className="min-h-11 w-full"
-                    onClick={() => {
-                      setAddingLine(false);
-                      setAddLineMsg("");
-                    }}
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            {/* Totals, where a paper invoice puts them: under the line items,
-                right-aligned, subtotal → tax → total — and in the SAME card as
-                the lines they add up, separated by a change of background
-                rather than a second bordered box floating below the first.
-
-                Sales tax is a LINE on the bill, coded 88 80 00 — split out of the
-                line list above so it reads here instead of as something to code
-                (src/lib/salesTax.ts). Editable on draft bills (writes on), where
-                it holds each line's amount steady and moves the total. Nothing
-                writes until the drawer's Save (see saveCoding). */}
-            <div className="border-t border-line bg-neutral-50 px-3 py-3 dark:bg-white/[0.04]">
-              <dl className="ml-auto max-w-[16rem] space-y-1.5 text-sm">
-                <div className="flex items-center justify-between gap-4">
-                  <dt className="text-neutral-500 dark:text-neutral-400">Subtotal</dt>
-                  <dd className="tabular-nums">{money(subtotal)}</dd>
-                </div>
-
-                {linesEditable && writes ? (
-                  <div className="flex items-center justify-between gap-4">
-                    {/* A plain <label>, not the uppercase-caption `Label`
-                        primitive: in a totals column this reads as a row title
-                        beside its amount, the same weight as Subtotal above it. */}
-                    <dt>
-                      <label htmlFor="bill-tax" className="text-neutral-500 dark:text-neutral-400">
-                        {taxName}
-                      </label>
-                    </dt>
-                    <dd className="relative">
-                      <span
-                        aria-hidden
-                        className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-neutral-500 dark:text-neutral-400"
-                      >
-                        $
-                      </span>
-                      <input
-                        id="bill-tax"
-                        type="number"
-                        inputMode="decimal"
-                        min="0"
-                        step="0.01"
-                        value={taxEdit ?? String(storedTax)}
-                        onChange={(e) => setTaxEdit(e.target.value)}
-                        aria-label={`${taxName} amount`}
-                        className="h-10 w-28 rounded-lg border border-transparent bg-white pl-6 pr-2.5 text-right text-sm tabular-nums transition focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 dark:bg-white/10"
-                      />
-                    </dd>
-                  </div>
-                ) : (
-                  taxView > 0 && (
-                    <div className="flex items-center justify-between gap-4">
-                      <dt className="text-neutral-500 dark:text-neutral-400">{taxName}</dt>
-                      <dd className="tabular-nums">{money(taxView)}</dd>
-                    </div>
-                  )
-                )}
-
-                {/* Whether this tax comes back. Derived from the job's Phase, not
-                    stored anywhere: Ascent's own jobs consume what they buy, so
-                    their tax is a cost; every other job resells, so its tax is
-                    claimable as taxable amount for tax paid at source. Quiet text,
-                    not a Chip — it is true of most taxed bills, not an exception. */}
-                {taxView > 0 && (
-                  <div className="flex justify-end">
-                    <dd className="text-xs text-neutral-500 dark:text-neutral-400">
-                      {isTaxRecoverable(jobPhase)
-                        ? "Recoverable — resold to the client"
-                        : "Not recoverable — Ascent overhead"}
-                    </dd>
-                  </div>
-                )}
-
-                <div className="flex items-baseline justify-between gap-4 border-t border-line-soft pt-1.5">
-                  <dt className="font-semibold">Total</dt>
-                  <dd className="text-lg font-bold tabular-nums">{money(total)}</dd>
-                </div>
-              </dl>
-            </div>
-          </Card>
-
-          {addLineMsg && (
-            <Banner tone="neutral" className="mt-2 !px-3 !py-2.5 !text-xs">
-              {addLineMsg}
-            </Banner>
-          )}
+          <BillCodingCard ctl={codingCtl} />
         </>
-      )}
-
-      {/* Attached invoice image / PDF — at the bottom. A flat image with a
-          lightbox behind it, never an iframe: an iframed PDF took the wheel off
-          this page whenever the pointer crossed it, and on iOS it showed page 1
-          with no way to scroll at all. InvoiceViewer.tsx carries the reasoning.
-          Capped in `dvh` so a phone's collapsing browser chrome can't crop the
-          scan mid-scroll. */}
-      {files.length > 0 && (
-        <section className="mt-8">
-          <SectionHeading className="mb-2">Invoice</SectionHeading>
-          <div className="space-y-3">
-            {files.map((f) => (
-              <InvoiceAttachment
-                key={f.id}
-                file={f}
-                maxHClass="max-h-[70dvh]"
-                radiusClass="rounded-xl"
-              />
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* In Google Drive — the durable backup the hourly mirror keeps: the bill's
-          own PDF, and the Customer/Job/month folder it's filed in. Shown whenever
-          the Apps Script lookup found either; each link hides on its own if the
-          lookup couldn't supply it. */}
-      {drive && (drive.fileUrl || drive.folderUrl) && (
-        <section className="mt-8">
-          <SectionHeading className="mb-2">In Google Drive</SectionHeading>
-          {/* The file's LIVE name. The hourly re-file pipeline rewrites it from the
-              bill's JobTread coding and amounts, so this line is where you check
-              that a re-code in JobTread actually reached the filed backup. */}
-          {drive.fileName && (
-            <MetaLine items={[<span key="n" className="break-all">{drive.fileName}</span>]} className="mb-1" />
-          )}
-          <div className="flex flex-col">
-            {drive.fileUrl && (
-              <a
-                href={drive.fileUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex min-h-11 items-center text-sm font-semibold text-accent dark:text-accent-soft"
-              >
-                Open the file in Drive ↗
-              </a>
-            )}
-            {drive.folderUrl && (
-              <a
-                href={drive.folderUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex min-h-11 items-center text-sm font-semibold text-accent dark:text-accent-soft"
-              >
-                Open {drive.folderName ? `“${drive.folderName}”` : "the folder"} in Drive ↗
-              </a>
-            )}
-          </div>
-        </section>
-      )}
-
-      {/* Filing details — which month the bill belongs to, and which job it
-          belongs to — sit AFTER the scan, because both are answered by looking
-          at the document: you read the date off the invoice, and you work out
-          the right job from what's on it. */}
-      {header && (
-        <section className="mt-8">
-          <SectionHeading className="mb-2">Filing</SectionHeading>
-          <Card className="!p-3">
-          {/* Vendor Bill Number — the invoice/bill number carried on the document
-              (JobTread's externalId, set from the invoice at ingestion). Editable
-              here; commits on blur. JobTread's own document number (#…) shows as a
-              placeholder for bills logged before the number was captured. */}
-          <div>
-            <Label htmlFor="bill-number">Bill number</Label>
-            <input
-              id="bill-number"
-              data-field="bill-number"
-              type="text"
-              value={billNumber}
-              maxLength={32}
-              disabled={billNumberSaving}
-              onChange={(e) => setBillNumber(e.target.value)}
-              onBlur={saveBillNumber}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") e.currentTarget.blur();
-              }}
-              placeholder={header.number ? `#${header.number}` : "Invoice / bill number"}
-              className={`${quietInputCls} h-11 w-full font-mono`}
-            />
-            {billNumberMsg && (
-              <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">{billNumberMsg}</p>
-            )}
-          </div>
-
-          <div className="mt-4">
-            <Label htmlFor="billing-month">Billing month</Label>
-            <Select
-              id="billing-month"
-              className="!h-11"
-              value={
-                billingMonthOptions().find((o) => o.ym === (header?.issueDate ?? "").slice(0, 7))
-                  ?.value ?? ""
-              }
-              onChange={async (e) => {
-                const issueDate = e.target.value;
-                if (!issueDate) return;
-                setHeader((h) => (h ? { ...h, issueDate } : h));
-                await fetch("/api/bill-issuedate", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ docId, issueDate }),
-                });
-                invalidateBills(); // cached payload still carries the old issueDate
-              }}
-            >
-              <option value="">— set billing month —</option>
-              {billingMonthOptions().map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </Select>
-          </div>
-
-          {/* Move this bill to a different job (draft only). JT can't move bills, so
-              this delete+recreates it on the chosen job. Writes-off deploys hide it,
-              matching the rest of the page. */}
-          {writes && (header?.status ?? "draft") === "draft" && (
-            <div className="mt-4">
-              <Label>Move to job</Label>
-              <JobPicker value={jobId} onChange={reassignJob} />
-              {reassignMsg && (
-                <Banner tone="neutral" className="mt-2 !px-3 !py-2.5 !text-xs">
-                  {reassignMsg}
-                </Banner>
-              )}
-            </div>
-          )}
-          </Card>
-        </section>
       )}
 
       {/* Sticky bottom drawer — always shown once the bill loads, so Save can re-push the
@@ -2101,78 +1610,13 @@ function BillDetail() {
                     Open in JobTread ↗
                   </JtLink>
                 )}
-                <button
-                  type="button"
-                  onClick={toggleReviewed}
-                  disabled={reviewLoading}
-                  title={reviewed ? "Marked reviewed — click to unmark" : "Mark this bill reviewed"}
-                  className={
-                    reviewed
-                      ? btn("primary", "md", "min-h-11 w-full !bg-emerald-600 hover:!bg-emerald-700")
-                      : btn("outline", "md", "min-h-11 w-full")
-                  }
-                >
-                  {reviewed ? "✓ Reviewed" : "Mark reviewed"}
-                </button>
               </div>
 
-              {/* Needs review — flag a bill that needs a correction the app can't
-                  make itself (a paid / invoiced / QuickBooks-pushed bill), with a
-                  note about the issue. Companion-local; not a JobTread write. */}
-              <div className="mt-3 border-t border-line-soft pt-3">
-                <div className="flex items-center justify-between gap-2">
-                  <SectionLabel>Needs review</SectionLabel>
-                  {needsReview && (
-                    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800 dark:bg-amber-950/50 dark:text-amber-300">
-                      ⚑ Flagged
-                    </span>
-                  )}
-                </div>
-                <p className="mt-1 text-[11px] text-neutral-500 dark:text-neutral-400">
-                  For a fix this app can’t make — a paid, invoiced, or
-                  QuickBooks-pushed bill that needs work in JobTread or QuickBooks.
-                </p>
-                <Textarea
-                  value={reviewNote}
-                  onChange={(e) => setReviewNote(e.target.value)}
-                  placeholder="What needs fixing?"
-                  rows={2}
-                  className="mt-2"
-                />
-                <div className="mt-2 flex flex-wrap items-center gap-2">
-                  <Button
-                    variant={needsReview ? "primary" : "outline"}
-                    size="sm"
-                    disabled={reviewSaving}
-                    onClick={() => saveReview(true)}
-                    className={needsReview ? "!bg-amber-600 hover:!bg-amber-700" : ""}
-                  >
-                    {reviewSaving ? <Spinner className="mr-1.5" /> : null}
-                    {needsReview ? "Save note" : "⚑ Flag for review"}
-                  </Button>
-                  {needsReview && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={reviewSaving}
-                      onClick={() => saveReview(false)}
-                    >
-                      Clear flag
-                    </Button>
-                  )}
-                  {reviewMsg && (
-                    <span className="text-[11px] text-neutral-500 dark:text-neutral-400">
-                      {reviewMsg}
-                    </span>
-                  )}
-                </div>
-                {needsReview && reviewFlaggedBy && (
-                  <p className="mt-2 text-[11px] text-neutral-400 dark:text-neutral-500">
-                    Flagged by {reviewFlaggedBy}
-                    {reviewFlaggedAt ? ` · ${new Date(reviewFlaggedAt).toLocaleDateString()}` : ""}
-                  </p>
-                )}
-              </div>
+              {/* "Mark reviewed" and the "Needs review" flag both used to sit here
+                  as well as in the coding panel. They are the panel's now — one
+                  bill, one place to say something about it — and this drawer
+                  keeps only what is genuinely the PAGE's: the way out to
+                  JobTread, the tracking-sheet push, and Save. */}
 
               {/* Push this bill's billing month into the job's tracking sheet.
                   The sheet reads costCode off each bill line, so it belongs
@@ -2184,10 +1628,7 @@ function BillDetail() {
                 <TrackingSheetSyncFor
                   jtJobId={jobId}
                   ym={header.issueDate.slice(0, 7)}
-                  monthLabel={
-                    billingMonthOptions().find((o) => o.ym === header.issueDate!.slice(0, 7))
-                      ?.label ?? header.issueDate.slice(0, 7)
-                  }
+                  monthLabel={monthLabel(header.issueDate.slice(0, 7))}
                   className="mt-2"
                 />
               )}

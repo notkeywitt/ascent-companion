@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { jobLabel, type JobRef } from "@/components/JobPicker";
 import { type Option } from "@/components/CostCodeSelect";
 import { useCopy } from "@/components/CopyProvider";
+import { billingMonths, issueDateFor } from "@/lib/billingMonths";
 import {
   BillCodingCard,
   money,
@@ -136,36 +137,6 @@ export function useIsWide() {
     return () => mq.removeEventListener("change", update);
   }, []);
   return wide;
-}
-
-/**
- * Billing-month options for the card's Filing section.
- *
- * Value is a `ym` ("2026-07"), NOT a date — the card's Select compares it
- * against `bill.issueDate.slice(0, 7)`, so anything else leaves the control
- * showing nothing selected. Same list and same convention as the board's.
- */
-function billingMonthOptions(): { value: string; label: string }[] {
-  const out: { value: string; label: string }[] = [];
-  const d = new Date();
-  d.setDate(1);
-  for (let i = 0; i < 18; i++) {
-    out.push({
-      value: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`,
-      label: d.toLocaleString("en-US", { month: "long", year: "numeric" }),
-    });
-    d.setMonth(d.getMonth() - 1);
-  }
-  return out;
-}
-
-/**
- * The issueDate that files a bill in `ym`: the last day of that month, the
- * convention /api/bill-issuedate expects and the board writes.
- */
-function issueDateFor(ym: string): string {
-  const [y, m] = ym.split("-").map(Number);
-  return `${ym}-${String(new Date(y, m, 0).getDate()).padStart(2, "0")}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -1419,7 +1390,7 @@ export function DraftCodingPanel({
     setBillNumberDraft,
     saveBillNumber,
     billNumberSaving,
-    monthOptions: billingMonthOptions(),
+    monthOptions: billingMonths(),
     setBillingMonth,
     monthSaving,
     reassignJob,

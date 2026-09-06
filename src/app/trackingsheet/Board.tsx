@@ -82,6 +82,7 @@ import {
   saveDraft,
 } from "@/lib/codingDraft";
 import { isSalesTaxLine, SALES_TAX_LINE_NAME } from "@/lib/salesTax";
+import { billingMonths, issueDateFor, monthLabel } from "@/lib/billingMonths";
 
 /**
  * Invoicing coding board — the desktop workbench for deciding which cost code
@@ -258,21 +259,6 @@ const isCommitted = (status: string) => status === "pending" || status === "appr
  */
 const isSunsetVendor = (vendor: string) => /sunset/i.test(vendor);
 
-const MONTHS = [
-  "January",
-  "February",
-  "March",
-  "April",
-  "May",
-  "June",
-  "July",
-  "August",
-  "September",
-  "October",
-  "November",
-  "December",
-];
-
 /**
  * Default billing month. A bill's billing month is simply the month of its
  * Invoice Date; the 10th-of-the-month rule is an INGESTION convention (it
@@ -284,38 +270,6 @@ function defaultYm(): string {
   const d = new Date(now.getFullYear(), now.getMonth(), 1);
   if (now.getDate() <= 10) d.setMonth(d.getMonth() - 1);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-}
-
-function monthOptions(): { value: string; label: string }[] {
-  const out: { value: string; label: string }[] = [];
-  const d = new Date();
-  d.setDate(1);
-  for (let i = 0; i < 18; i++) {
-    out.push({
-      value: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`,
-      label: `${MONTHS[d.getMonth()]} ${d.getFullYear()}`,
-    });
-    d.setMonth(d.getMonth() - 1);
-  }
-  return out;
-}
-
-/** "2026-07" → "July 2026". */
-function monthLabel(ym: string): string {
-  const [y, m] = ym.split("-").map(Number);
-  return `${MONTHS[m - 1] ?? ym} ${y}`;
-}
-
-/**
- * The issueDate that files a bill in `ym`: the last day of that month, the same
- * convention the bill page's Filing card writes. (Sunset bills carry their
- * arrival date instead — re-filing one from here re-dates it to the month end
- * like any other bill, which is what the office is asking for when they change
- * the month by hand.)
- */
-function issueDateFor(ym: string): string {
-  const [y, m] = ym.split("-").map(Number);
-  return `${ym}-${String(new Date(y, m, 0).getDate()).padStart(2, "0")}`;
 }
 
 /**
@@ -395,32 +349,16 @@ function BudgetLine({
    a budget, so it belongs to the design system rather than to this board. */
 
 /**
- * True on a phone-width screen — the same `lg` boundary this page uses to switch
- * to its read-only single-column layout (see the "read-only view on a narrow
- * screen" note). Below it, recoding is off and the coding drawer is hidden, so a
- * tapped bill has nowhere useful to open; instead we send it to the full bill
- * detail page. Starts false so server and first client render agree, then
- * corrects in the effect.
- */
-function useIsMobile() {
-  const [mobile, setMobile] = useState(false);
-  useEffect(() => {
-    const mq = window.matchMedia("(max-width: 1023px)");
-    const update = () => setMobile(mq.matches);
-    update();
-    mq.addEventListener("change", update);
-    return () => mq.removeEventListener("change", update);
-  }, []);
-  return mobile;
-}
-
-/**
  * True below the `xl` boundary — where the coding column itself is hidden.
- * NOT the same line as `useIsMobile` (lg): between 1024 and 1280 the page still
- * has its full three-column behaviour but only two columns fit, so a time entry
- * clicked there needs the panel as a sheet rather than in a column that isn't
- * rendered. Mirrors the `hidden xl:block` on that section — one source of truth
- * would be better, but a media query is what CSS is doing there too.
+ * Mirrors the `hidden xl:block` on that section: one source of truth would be
+ * better, but a media query is what CSS is doing there too.
+ *
+ * There used to be a SECOND hook on the `lg` line, and the gap between them was
+ * a bug. The bill list sent `lg` and below to /bill, but the column it kept the
+ * rest for only exists from `xl` — so between 1024 and 1280 a tapped bill
+ * selected a row and rendered its card nowhere. One line now: below xl a bill
+ * opens the bill page, which shows the same BillCodingCard the column does, and
+ * a time entry opens it as a sheet.
  */
 function useIsBelowXl() {
   const [below, setBelow] = useState(false);
@@ -439,7 +377,6 @@ export function Board() {
   const c = useCopy();
   const params = useSearchParams();
   const router = useRouter();
-  const isMobile = useIsMobile();
   const belowXl = useIsBelowXl();
   const jobId = params.get("jobId") ?? "";
 
@@ -478,6 +415,22 @@ export function Board() {
   const [syncMsg, setSyncMsg] = useState<{ tone: "success" | "error"; text: string } | null>(null);
 
   const [approveOpen, setApproveOpen] = useState(false);
+  /**
+   * The open bill's "Needs review" flag and note, for the shared coding card.
+   * Fetched per bill rather than carried on the board's payload: the flag is on
+   * every row already (BillRef.needsReview, the ⚑ chip), but the NOTE is only
+   * ever read for the one bill you have open, and putting it on the month's
+   * payload would fetch a paragraph per bill to show none of them.
+   */
+  const [review, setReview] = useState({
+    flagged: false,
+    note: "",
+    by: "",
+    at: "",
+    saving: false,
+    msg: "",
+  });
+
   const [approving, setApproving] = useState(false);
   const [approveMsg, setApproveMsg] = useState<{ tone: "success" | "error"; text: string } | null>(
     null,
@@ -1284,6 +1237,71 @@ export function Board() {
   }, [jobId, ym]);
 
   const openBill = data?.bills.find((b) => b.id === openDocId) ?? null;
+
+  // Load the open bill's review flag + note. Seeded from the row the board
+  // already has, so the ⚑ shows instantly and only the note arrives late.
+  useEffect(() => {
+    if (!openDocId) return;
+    const seed = data?.bills.find((b) => b.id === openDocId)?.needsReview ?? false;
+    setReview({ flagged: seed, note: "", by: "", at: "", saving: false, msg: "" });
+    let alive = true;
+    fetch(`/api/bill-review?docId=${encodeURIComponent(openDocId)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (!alive || !j) return;
+        setReview((prev) => ({
+          ...prev,
+          flagged: !!j.needsReview,
+          note: j.note ?? "",
+          by: j.flaggedBy ?? "",
+          at: j.flaggedAt ?? "",
+        }));
+      })
+      .catch(() => {
+        /* best-effort — the flag from the row still shows */
+      });
+    return () => {
+      alive = false;
+    };
+    // `data` is read only to seed the flag; refetching on every board reload
+    // would stamp on a note being typed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openDocId]);
+
+  /** Flag / unflag the open bill, with the note. Companion-local, not JobTread. */
+  const saveReview = async (flagged: boolean) => {
+    if (!openDocId) return;
+    setReview((p) => ({ ...p, saving: true, msg: "" }));
+    try {
+      const res = await fetch("/api/bill-review", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ docId: openDocId, needsReview: flagged, note: review.note }),
+      });
+      const j = await res.json();
+      if (!res.ok) {
+        setReview((p) => ({ ...p, saving: false, msg: j?.error ?? "Couldn't save." }));
+        return;
+      }
+      setReview((p) => ({
+        ...p,
+        flagged,
+        note: flagged ? p.note : "",
+        by: flagged ? p.by : "",
+        at: flagged ? p.at : "",
+        saving: false,
+        msg: flagged ? "Flagged for review." : "Cleared.",
+      }));
+      // The month's rows carry the ⚑ too — re-read so the list agrees.
+      await load({ preserveStaged: true });
+    } catch (e) {
+      setReview((p) => ({
+        ...p,
+        saving: false,
+        msg: e instanceof Error ? e.message : "Network error",
+      }));
+    }
+  };
   const openLines = openDocId ? (linesByDoc.get(openDocId) ?? []) : [];
 
   // Tax is staged the same way as edits/staged (keyed by docId, not line id) —
@@ -1959,6 +1977,16 @@ export function Board() {
       if (openBill) setTaxEdits((p) => ({ ...p, [openBill.id]: v }));
     },
     toggleReviewed,
+    review: {
+      flagged: review.flagged,
+      note: review.note,
+      setNote: (v) => setReview((p) => ({ ...p, note: v })),
+      save: (flagged) => void saveReview(flagged),
+      saving: review.saving,
+      msg: review.msg,
+      by: review.by,
+      at: review.at,
+    },
     approveBill: canApprove ? approveOneBill : undefined,
     approvingBill: approving,
     approveBlocked: dirty ? "Save staged coding changes to JobTread first" : null,
@@ -1991,7 +2019,7 @@ export function Board() {
     setBillNumberDraft,
     saveBillNumber,
     billNumberSaving,
-    monthOptions: monthOptions(),
+    monthOptions: billingMonths(),
     setBillingMonth,
     monthSaving,
     reassignJob,
@@ -2452,7 +2480,7 @@ export function Board() {
       className={cls}
       aria-label="Billing month"
     >
-      {monthOptions().map((o) => (
+      {billingMonths().map((o) => (
         <option key={o.value} value={o.value}>
           {o.label}
         </option>
@@ -2543,14 +2571,20 @@ export function Board() {
             onClick={() => {
               // Side-panel dual navigation — see the note on the
               // cost-code lane's chips above.
-              if (isMobile || !isOpen) driveMainWindowToDoc(jobId, b.id);
-              if (isMobile) openBillDetail();
+              // belowXl, not isMobile. The coding column is `xl:block`, so
+              // between lg and xl (a small laptop, a split window, the Chrome
+              // side panel) `setOpenDocId` used to select a bill and render its
+              // card NOWHERE — the row tinted and nothing else happened. Sending
+              // that band to /bill costs nothing now: the bill page shows the
+              // SAME BillCodingCard this column would have.
+              if (belowXl || !isOpen) driveMainWindowToDoc(jobId, b.id);
+              if (belowXl) openBillDetail();
               else {
                 setOpenTimeId(null);
                 setOpenDocId(isOpen ? null : b.id);
               }
             }}
-            aria-expanded={isMobile ? undefined : isOpen}
+            aria-expanded={belowXl ? undefined : isOpen}
             className="min-w-0 flex-1 px-3 py-2.5 text-left transition hover:bg-accent/5 dark:hover:bg-white/5"
           >
             {/* Vendor and amount own the first line; the status
@@ -3510,7 +3544,8 @@ export function Board() {
                                     // bill here drives that window to the same
                                     // document. No-op when unframed.
                                     driveMainWindowToDoc(jobId, s.docId);
-                                    if (isMobile) {
+                                    // Same rule as the bill list — see there.
+                                    if (belowXl) {
                                       router.push(
                                         `/bill/${s.docId}?jobId=${encodeURIComponent(jobId)}` +
                                           `&from=recode&ym=${encodeURIComponent(ym)}`,
@@ -4144,7 +4179,7 @@ export function Board() {
               Approve {draftBills.length} draft bill{draftBills.length === 1 ? "" : "s"}?
             </p>
             <p className="mb-3 text-xs text-neutral-500 dark:text-neutral-400">
-              {monthOptions().find((o) => o.value === ym)?.label ?? ym}
+              {billingMonths().find((o) => o.value === ym)?.label ?? ym}
               {jobTitle ? ` · ${jobTitle}` : ""}. Bills move to Pending (approved for payment);
               Expenses move straight to Approved (paid).
             </p>

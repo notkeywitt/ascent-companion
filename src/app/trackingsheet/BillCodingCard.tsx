@@ -4,7 +4,17 @@ import { useEffect, useState, type Dispatch, type SetStateAction } from "react";
 import { CostCodeSelect, type Option } from "@/components/CostCodeSelect";
 import { JobPicker, type JobRef } from "@/components/JobPicker";
 import { JtLink } from "@/components/JtLink";
-import { Banner, Button, Card, EmptyState, Label, SectionLabel, Select } from "@/components/ui";
+import {
+  Banner,
+  Button,
+  Card,
+  EmptyState,
+  Label,
+  SectionLabel,
+  Select,
+  Spinner,
+  Textarea,
+} from "@/components/ui";
 import { InvoiceAttachment } from "@/components/InvoiceViewer";
 import type { LineEdit } from "@/lib/billLineMath";
 import { round2 } from "@/lib/billLineMath";
@@ -207,6 +217,23 @@ export interface CodingCardCtl {
      every width, so a copy in this card was a second button for one write,
      on screen at the same time as the first. */
 
+  /* ---- needs-review flag (companion-local, NOT a JobTread write) ---- */
+  /** Flag a bill for a correction this app cannot make itself — a paid,
+      invoiced or QuickBooks-pushed bill that needs work in JobTread or
+      QuickBooks — with a note saying what. Absent = the host offers no flag and
+      the block does not render. */
+  review?: {
+    flagged: boolean;
+    note: string;
+    setNote: (v: string) => void;
+    /** `true` flags (or re-saves the note), `false` clears the flag. */
+    save: (flagged: boolean) => void;
+    saving: boolean;
+    msg: string;
+    by?: string;
+    at?: string;
+  };
+
   /* ---- per-bill approve (JobTread status write) ---- */
   /** Approve THIS bill in JobTread. Absent = the host offers no per-bill
       approve, and the button doesn't render (the needs-coding queue). */
@@ -249,6 +276,22 @@ export interface CodingCardCtl {
   /* ---- the scan ---- */
   files: BillFile[];
   filesLoading: boolean;
+  /**
+   * The card IS the host's content, rather than one panel beside others.
+   *
+   * Two things follow, and both are wrong the other way round. It stops
+   * capping its own height and scrolling inside itself — right for a docked
+   * column that must not outgrow the viewport, a nested scrollbox on an
+   * ordinary page. And it drops the "Coding" label and the bill's name, which
+   * the host's own page header already carries.
+   */
+  standalone?: boolean;
+
+  /** Height cap on the scan thumbnail. The board's panel is STICKY, so a tall
+      scan there pins the column's top and strands its bottom — hence the 32rem
+      default. A host that is an ordinary scrolling page (the bill page) passes
+      a taller one, because there it costs nothing. */
+  scanMaxHClass?: string;
 
   /* ---- filing ---- */
   billNumberDraft: string;
@@ -287,6 +330,7 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
     taxView,
     setTax,
     toggleReviewed,
+    review,
     approveBill,
     approvingBill,
     approveBlocked,
@@ -315,6 +359,8 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
     setAddLineMsg,
     files,
     filesLoading,
+    standalone = false,
+    scanMaxHClass = "max-h-[32rem]",
     billNumberDraft,
     setBillNumberDraft,
     saveBillNumber,
@@ -347,16 +393,22 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
 
   return (
     <>
-    <SectionLabel className="mb-2">Coding</SectionLabel>
+    {!standalone && <SectionLabel className="mb-2">Coding</SectionLabel>}
     {!bill ? (
       <EmptyState>{c("recode.empty.selectBill")}</EmptyState>
     ) : (
-      // Height-capped to the room left below the app header (the measured
-      // one — see globals.css) so a long bill still scrolls within the card
-      // instead of running off-screen.
-      <Card className="max-h-below-header overflow-y-auto">
+      // Docked, the card is height-capped to the room left below the app header
+      // (the measured one — see globals.css) so a long bill scrolls within the
+      // card instead of running off-screen. Standalone, the PAGE scrolls, and
+      // capping here would put a scrollbox inside a scrollbox.
+      <Card className={standalone ? "" : "max-h-below-header overflow-y-auto"}>
         <div className="flex items-baseline justify-between gap-2">
-          <p className="min-w-0 truncate text-sm font-semibold">{bill.label}</p>
+          {/* The host's page header already names the bill when the card is its
+              whole content; the JT link still belongs to the bill, so the row
+              stays and just loses its label. */}
+          {standalone ? <span className="flex-1" /> : (
+            <p className="min-w-0 truncate text-sm font-semibold">{bill.label}</p>
+          )}
           <JtLink
             href={`https://app.jobtread.com/jobs/${jobId}/documents/${bill.id}`}
             className="shrink-0 text-xs font-semibold text-neutral-400 transition hover:text-accent"
@@ -773,7 +825,7 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
           )}
           <div className="space-y-2">
             {files.map((f) => (
-              <InvoiceAttachment key={f.id} file={f} maxHClass="max-h-[32rem]" />
+              <InvoiceAttachment key={f.id} file={f} maxHClass={scanMaxHClass} />
             ))}
           </div>
         </div>
@@ -815,6 +867,68 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                 </a>
               )}
             </div>
+          </div>
+        )}
+
+        {/* Needs review — flag a bill for a correction this app cannot make
+            itself (a paid, invoiced or QuickBooks-pushed bill), with a note
+            saying what. Companion-local, NOT a JobTread write, which is why it
+            is the one block here that an invoiced bill still gets: an invoiced
+            bill is exactly the kind that needs flagging rather than editing. */}
+        {review && (
+          <div className="mt-4 border-t border-line-soft pt-3 dark:border-neutral-800">
+            <div className="flex items-center justify-between gap-2">
+              <SectionLabel>Needs review</SectionLabel>
+              {review.flagged && (
+                <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800 dark:bg-amber-950/50 dark:text-amber-300">
+                  ⚑ Flagged
+                </span>
+              )}
+            </div>
+            <p className="mt-1 text-[11px] text-neutral-500 dark:text-neutral-400">
+              For a fix this app can&rsquo;t make — a paid, invoiced, or QuickBooks-pushed bill
+              that needs work in JobTread or QuickBooks.
+            </p>
+            <Textarea
+              value={review.note}
+              onChange={(e) => review.setNote(e.target.value)}
+              placeholder="What needs fixing?"
+              rows={2}
+              className="mt-2"
+            />
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <Button
+                variant={review.flagged ? "primary" : "outline"}
+                size="sm"
+                disabled={review.saving}
+                onClick={() => review.save(true)}
+                className={review.flagged ? "!bg-amber-600 hover:!bg-amber-700" : ""}
+              >
+                {review.saving ? <Spinner className="mr-1.5" /> : null}
+                {review.flagged ? "Save note" : "⚑ Flag for review"}
+              </Button>
+              {review.flagged && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={review.saving}
+                  onClick={() => review.save(false)}
+                >
+                  Clear flag
+                </Button>
+              )}
+              {review.msg && (
+                <span className="text-[11px] text-neutral-500 dark:text-neutral-400">
+                  {review.msg}
+                </span>
+              )}
+            </div>
+            {review.flagged && review.by && (
+              <p className="mt-2 text-[11px] text-neutral-400 dark:text-neutral-500">
+                Flagged by {review.by}
+                {review.at ? ` · ${new Date(review.at).toLocaleDateString()}` : ""}
+              </p>
+            )}
           </div>
         )}
 
