@@ -2,9 +2,9 @@
 slug: tracking-sheet-button-audit
 repo: ascent-companion
 branch: claude/tracking-sheet-button-audit-ufg3yl
-status: in-progress
+status: shipped
 started: 2026-09-06T15:59:56Z
-updated: 2026-09-06T16:00:12Z
+updated: 2026-09-06T16:00:17Z
 goal: audit the tracking sheet page's buttons and re-lay them out for desktop workflow
 next: watch for the desktop commit bar overlapping the sticky rail/drawer on a real 1440px screen; the rail heading's left half is still a dead button at lg (lg:pointer-events-none) and was left alone
 ---
