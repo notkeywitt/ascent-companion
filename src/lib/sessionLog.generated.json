@@ -1,7 +1,40 @@
 {
-  "generatedAt": "2026-09-06T14:55:03Z",
+  "generatedAt": "2026-09-06T15:58:01Z",
   "repo": "ascent-companion",
   "sessions": [
+    {
+      "slug": "collapsible-appearance-section",
+      "file": "2026-09-06-collapsible-appearance-section.md",
+      "branch": "claude/collapsible-appearance-section-8c3qe1",
+      "status": "shipped",
+      "started": "2026-09-06T15:57:29Z",
+      "updated": "2026-09-06T15:58:01Z",
+      "goal": "",
+      "next": "none — appearance card collapse shipped",
+      "commits": [
+        {
+          "date": "2026-09-06",
+          "time": "15:57",
+          "sha": "b402001",
+          "subject": "companion: make the home appearance section collapsible",
+          "files": "src/components/AppearanceCard.tsx"
+        },
+        {
+          "date": "2026-09-06",
+          "time": "15:57",
+          "sha": "30afd28",
+          "subject": "companion: log session 2026-09-06-collapsible-appearance-section",
+          "files": ""
+        },
+        {
+          "date": "2026-09-06",
+          "time": "15:57",
+          "sha": "44795f7",
+          "subject": "companion: log session 2026-09-06-collapsible-appearance-section",
+          "files": ""
+        }
+      ]
+    },
     {
       "slug": "ascent-building-theme",
       "file": "2026-09-06-ascent-building-theme.md",
