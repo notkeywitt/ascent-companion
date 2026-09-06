@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Banner, Button, Card, Chip, FilterChip, IconButton, Label, Select } from "@/components/ui";
 import { CostCodeSelect, type Option } from "@/components/CostCodeSelect";
 import { JtLink } from "@/components/JtLink";
+import { jtTimeUrl } from "@/lib/jtLinks";
 import { orgDay } from "@/lib/orgTime";
 import {
   CUSTOM_RANGE,
@@ -881,7 +882,6 @@ export function TimeRecodeCard({
   onPick,
   isStaged,
   onUndo,
-  jtHref,
   onApproved,
   writes = true,
 }: {
@@ -893,8 +893,6 @@ export function TimeRecodeCard({
   onPick: (leafId: string) => void;
   isStaged: (t: TimeEntryRow) => boolean;
   onUndo: (id: string) => void;
-  /** The job's time tab in JobTread, for the ↗ link. */
-  jtHref?: string;
   /**
    * Given → the drawer can approve the selection. Called with the ids JobTread
    * actually approved, so the page marks those rows itself rather than
@@ -905,6 +903,23 @@ export function TimeRecodeCard({
   writes?: boolean;
 }) {
   const staged = entries.filter(isStaged);
+  /* THE ↗ GOES WHERE THE SELECTION IS, not to the job. JobTread's time page is
+     org-wide and narrows by person and date (see lib/jtLinks), so a link built
+     from the selection lands on exactly the entries in this drawer: one
+     employee's one day when that is what's ticked, their span when several days
+     are, and the whole crew's when the selection crosses people. */
+  const jtHref = useMemo(() => {
+    const days = entries.map(dayOfEntry).filter(Boolean).sort();
+    const ids = entries.map((t) => (t.userId ?? "").trim());
+    const one = new Set(ids);
+    return jtTimeUrl({
+      // One person only when EVERY entry names the same one — a selection with
+      // an id missing from any row would filter the others out of view.
+      userId: one.size === 1 && !one.has("") ? ids[0] : "",
+      from: days[0],
+      to: days[days.length - 1],
+    });
+  }, [entries]);
   const [approving, setApproving] = useState(false);
   const [msg, setMsg] = useState<{ tone: "success" | "error"; text: string } | null>(null);
 
@@ -964,14 +979,13 @@ export function TimeRecodeCard({
         <p className="min-w-0 truncate text-sm font-semibold">
           {entries.length} {entries.length === 1 ? "entry" : "entries"}
         </p>
-        {jtHref && (
-          <JtLink
-            href={jtHref}
-            className="shrink-0 text-xs font-semibold text-neutral-400 transition hover:text-accent"
-          >
-            JT ↗
-          </JtLink>
-        )}
+        <JtLink
+          href={jtHref}
+          title="Open these entries on JobTread's time page"
+          className="shrink-0 text-xs font-semibold text-neutral-400 transition hover:text-accent"
+        >
+          JT ↗
+        </JtLink>
       </div>
       <p className="mb-3 text-xs text-neutral-500">
         {hrs(entries.reduce((s, t) => s + t.hours, 0))} ·{" "}

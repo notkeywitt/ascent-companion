@@ -61,6 +61,8 @@ import { useUnsavedChanges } from "@/lib/useUnsavedChanges";
 interface TimeEntry {
   id: string;
   employee: string;
+  /** The JobTread user id behind `employee` — what the ↗ filters its time page to. */
+  userId?: string;
   startedAt: string | null;
   /** Clock-out instant (UTC), null on a running entry. Carried for the QB export,
    *  and read by the shared drawer so a bulk approve skips a running entry. */
@@ -873,7 +875,6 @@ export function LaborReview() {
                     return next;
                   })
                 }
-                jtHref={`https://app.jobtread.com/jobs/${jobId}/time`}
                 onApproved={markApproved}
                 writes={Boolean(data?.writesEnabled)}
               />

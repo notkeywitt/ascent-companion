@@ -10,14 +10,17 @@
 export function JtLink({
   href,
   className,
+  title,
   children,
 }: {
   href: string;
   className?: string;
+  /** Hover text — where the link actually lands, when the label is a glyph. */
+  title?: string;
   children: React.ReactNode;
 }) {
   return (
-    <a href={href} target="_blank" rel="noreferrer" className={className}>
+    <a href={href} target="_blank" rel="noreferrer" title={title} className={className}>
       {children}
     </a>
   );

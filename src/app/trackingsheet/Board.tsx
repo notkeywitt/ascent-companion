@@ -3410,7 +3410,6 @@ export function Board() {
                           onPick={stageTimeSelection}
                           isStaged={(t) => timeStaged.has(t.id)}
                           onUndo={undoTimeStage}
-                          jtHref={`https://app.jobtread.com/jobs/${jobId}/time`}
                           onApproved={markTimeApproved}
                           writes={Boolean(data?.writesEnabled)}
                         />
@@ -3734,7 +3733,6 @@ export function Board() {
                   onPick={stageTimeSelection}
                   isStaged={(t) => timeStaged.has(t.id)}
                   onUndo={undoTimeStage}
-                  jtHref={`https://app.jobtread.com/jobs/${jobId}/time`}
                   onApproved={markTimeApproved}
                   writes={Boolean(data?.writesEnabled)}
                 />

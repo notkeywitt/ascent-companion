@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { getUserTimeEntries, jtIsoToOrgLocal } from "@/lib/jobtread";
 import { getPaveConfig, hasGrant } from "@/lib/config";
+import { jtTimeUrl } from "@/lib/jtLinks";
 import { resolveJtUserLink } from "@/lib/jtUserLink";
 
 /**
@@ -18,9 +19,10 @@ import { resolveJtUserLink } from "@/lib/jtUserLink";
  * Reading the digits literally, as this route used to, showed each entry 7 hours
  * off.
  *
- * Each row's jtUrl is the employee's own JobTread time page
- * (app.jobtread.com/time?userId=…), where they review/adjust their hours — not
- * the job page (an individual entry isn't deep-linkable).
+ * Each row's jtUrl is the employee's own JobTread time page, narrowed to THAT
+ * ROW'S DAY (app.jobtread.com/time?userId=…&startDate=…&endDate=…) — where they
+ * review/adjust their hours, and not the job page (an individual entry isn't
+ * deep-linkable). The URL shape lives in lib/jtLinks.
  *
  * GET ?start=YYYY-MM-DD&end=YYYY-MM-DD (inclusive, calendar-day range)
  *   → { ok, entries:[{id, date, startTime, endTime, minutes, jobId, jobName,
@@ -66,11 +68,6 @@ export async function GET(req: NextRequest) {
       error: "No linked JobTread user for your login — an admin can link you on the Employees page.",
     });
   }
-
-  // Every row links to the employee's own JobTread time page (all their entries
-  // in one place), not the job page — the entry itself isn't deep-linkable, and
-  // this is where they'd review/adjust their hours.
-  const timeUrl = `https://app.jobtread.com/time?userId=${encodeURIComponent(userId)}`;
 
   try {
     // Bound the fetch server-side instead of pulling the worker's whole history
@@ -128,7 +125,9 @@ export async function GET(req: NextRequest) {
         notes: e.notes,
         approved: e.approved,
         open,
-        jtUrl: timeUrl,
+        // Narrowed to this entry's own day, so the link opens on the hours the
+        // row is about rather than the employee's whole history.
+        jtUrl: jtTimeUrl({ userId, from: dateOf(e.startedAt) }),
       };
     });
 
