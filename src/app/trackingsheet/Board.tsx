@@ -51,11 +51,9 @@ import {
   type CodeHeadroom,
   type TimeEntryRow,
 } from "@/components/TimeEntryList";
-import { LaborReportButton } from "@/components/LaborReportButton";
 import { AddTimeCard } from "./AddTimeCard";
 import { InvoiceReconcile, type Recon } from "@/components/InvoiceReconcile";
 import { UncapturedBills } from "@/components/UncapturedBills";
-import { SyncNowButton } from "@/components/SyncNowButton";
 import { BILL_STRIPE_COLOR, billInvoiceState } from "@/lib/billInvoiceState";
 import {
   Breakdown,
@@ -1139,13 +1137,10 @@ export function Board() {
   /** Does the bottom action row carry an Approve button? It needs the role AND a
    *  loaded month — the check button beside it needs neither. */
   const showApprove = canApprove && !!data && !loading;
-  /** The JT → Sheets/Drive mirror kick, which used to sit in the app header. It
-   *  belongs to no one job, but this is where a month gets settled, so it rides
-   *  the same closing row as Approve. */
-  const canSync = can("sync");
   /** Does the closing row carry the per-job Tracking Sheet push? Same condition
    *  `trackingSheetAction` renders on — the row needs it to decide whether it
-   *  has anything to show below lg. */
+   *  has anything to show. (The JT → Sheets/Drive mirror kick used to ride this
+   *  row too; it belongs to no one job, so it moved to the all-jobs view.) */
   const showTracking = canTrack && trackingChecked;
   // Mirrors approveBill() on the bill detail page: a Bill is a payable (draft →
   // pending, "approved for payment"); an Expense is already paid (draft →
@@ -1964,12 +1959,9 @@ export function Board() {
       if (openBill) setTaxEdits((p) => ({ ...p, [openBill.id]: v }));
     },
     toggleReviewed,
-    saveChanges: () => sync(),
-    saveBusy: syncing || trackingBusy,
-    saveDirty: dirty,
     approveBill: canApprove ? approveOneBill : undefined,
     approvingBill: approving,
-    approveBlocked: dirty ? "Sync staged coding changes to JobTread first" : null,
+    approveBlocked: dirty ? "Save staged coding changes to JobTread first" : null,
     isCombinable,
     anyCombinable,
     combineSelected,
@@ -2734,66 +2726,15 @@ export function Board() {
         }
         actionsClassName="w-full min-w-0 items-center lg:w-auto"
         actions={
-          // On a phone the toolbar is a stack of clearly separated groups —
-          // month, then filters, then actions — rather than one wrapping row
-          // of eleven controls at mixed sizes. From lg up it collapses back to
-          // the single inline row the desktop workbench has always had.
+          // The toolbar carries the month and nothing else. Revert, Save
+          // Changes and the staged-change count moved to the docked action bar
+          // at the foot of the screen, which is now rendered at EVERY width:
+          // the commit belongs where the coding happens, and the top of the
+          // page is the one place you are not looking after dragging a line.
           <div className="flex w-full min-w-0 flex-col gap-3 lg:w-auto lg:flex-row lg:flex-wrap lg:items-center lg:justify-end">
             {/* The desktop copy of the month. On a phone it rides the title
-                line instead (see `monthSelect`), so this one is hidden there.
-                The per-job Tracking Sheet push used to dock under it; that sits
-                in the closing row at the foot of the page now. */}
+                line instead (see `monthSelect`), so this one is hidden there. */}
             {monthSelect("hidden lg:block lg:w-52", "recode-month")}
-            {/* The list always shows every bill in the month — draft,
-                uninvoiced, and invoiced, each tagged with its state — and every
-                time entry counts toward the figures, approved or not, each row
-                tagged with its own approval state. No view filter to set. */}
-            {/* Bill lines AND labor — both ride the same Sync, so a chip that
-                counted only the lines read "0 staged changes" next to an armed
-                Sync button after a week of hours had been moved. */}
-            {dirty && (
-              <span className="inline-flex shrink-0 items-center self-start rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
-                {stagedCount} staged change{stagedCount === 1 ? "" : "s"}
-              </span>
-            )}
-            {/* The three actions share ONE full-width row on mobile — button
-                labels are nowrap, so the long ones are shortened below the lg
-                breakpoint to make three fit across a phone. `lg:contents`
-                dissolves this wrapper from lg up, putting the buttons back as
-                direct children of the toolbar exactly as before. `min-h-11`
-                gives them a thumb-sized hit area on touch and is dropped again
-                at lg so the desktop toolbar keeps its density. */}
-            <div className="flex w-full items-center gap-2 lg:contents">
-              {/* Revert and Sync are the page's commit actions, so on a phone
-                  they ride the sticky bar at the bottom of the screen (near the
-                  thumb, and in view wherever you've scrolled to) instead of the
-                  toolbar at the top, which is the one place you are NOT looking
-                  after dragging a line. The desktop toolbar keeps them inline. */}
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={revertAll}
-                disabled={!dirty || syncing}
-                className="hidden lg:inline-flex"
-              >
-                Revert
-              </Button>
-              {/* The coding commit: it writes staged coding to JobTread and
-                  then pushes the month into the Tracking Sheet in the same step
-                  (coding must settle before the sheet reads costCode off each
-                  line). The standalone sheet push, with nothing staged, is the
-                  Tracking Sheet button beside the month selector above, so this
-                  one is purely the JobTread write and stays greyed out until
-                  dirty. */}
-              <Button
-                size="sm"
-                onClick={sync}
-                disabled={!dirty || syncing || trackingBusy}
-                className="hidden lg:inline-flex"
-              >
-                {syncing ? "Saving…" : trackingBusy ? "Syncing sheet…" : "Save Changes"}
-              </Button>
-            </div>
           </div>
         }
       />
@@ -3351,18 +3292,11 @@ export function Board() {
                     {money(monthTimeTotal)} · {hoursLabel(monthTimeHours)}
                   </span>
                 </div>
-                {/* The month's COMPANY-WIDE Labor Report, on its own hairline row
-                    rather than in the header above: it is the one control in
-                    this card that is NOT about this job. It takes only the
-                    selected month and reports every job's hours, which is why
-                    it says so beside itself. Outside the collapse, because a
-                    month with the list shut is exactly when payroll wants it. */}
-                <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-t border-line-soft px-3 py-2">
-                  <span className="min-w-0 text-[11.5px] text-neutral-500 dark:text-neutral-400">
-                    Every job&apos;s hours this month, filed in the Drive Labor folder.
-                  </span>
-                  <LaborReportButton ym={ym} className="items-end text-right" />
-                </div>
+                {/* The month's COMPANY-WIDE Labor Report used to sit here, on
+                    its own hairline row. It takes only the month and reports
+                    EVERY job's hours, so a job workbench was the wrong host for
+                    it — it now sits with the other company-wide tools on the
+                    all-jobs view (AllJobs.tsx), beside the Drive sync. */}
                 {timeBlockOpen && monthTime.length > 0 && (
                   <>
                     {/* The list, its filters and its grouping are the SAME
@@ -3504,19 +3438,19 @@ export function Board() {
                         </p>
                       </>
                     ) : (
-                      <>
-                        <JtLink
-                          href={`https://app.jobtread.com/jobs/${jobId}/documents`}
-                          className={btn("primary", "md", "mt-3 w-full")}
-                        >
-                          Create invoice in JobTread ↗
-                        </JtLink>
-                        <p className="mt-2 text-xs text-neutral-500">
-                          Open this job in JobTread, then <b>New → Customer Invoice</b> — its builder
-                          pulls exactly these uninvoiced bills (and any uninvoiced time). Date it{" "}
-                          {issueDateFor(ym)}, review &amp; send.
-                        </p>
-                      </>
+                      /* No BUTTON here. The month has exactly one
+                         create-invoice action and it lives in the closing row
+                         below, gated on every bill being approved and nothing
+                         being staged — a second primary CTA at this spot fired
+                         under neither gate and pointed at the same URL. What is
+                         left is the instruction, which the closing row's button
+                         does not carry. */
+                      <p className="mt-3 text-xs text-neutral-500">
+                        No invoice for {monthLabel(ym)} yet. Approve the month&apos;s draft bills
+                        below, then <b>Create Invoice in JobTread</b> — its builder pulls exactly
+                        these uninvoiced bills (and any uninvoiced time). Date it{" "}
+                        {issueDateFor(ym)}, review &amp; send.
+                      </p>
                     )}
                   </>
                 )}
@@ -3744,59 +3678,52 @@ export function Board() {
         </div>
       )}
 
-      {/* The month's closing actions, docked at the bottom of the page: sync the
-          Drive mirror, push this job's month into its Google tracking sheet,
-          check the job, then approve its drafts. All four are last steps — so
-          they share one row after the bills rather than being scattered across
-          the toolbar and the app header, which is where they used to live. Once every bill in the month is approved the Approve
-          button becomes "Create Invoice in JobTread", which opens the job's
-          documents page — approving IS the last thing this page does, and the
-          invoice itself is built in JobTread. `order-last` drops the block
-          below the columns on a phone. The check's result card sits directly
-          above the row it was run from, and only once there is a result to
-          show; the check itself is independent of the board's own loading,
-          since it fetches on demand. The check button is lg-only — on a phone
-          the action drawer carries it. Approve is dead while there's staged
-          coding to sync first; neither Sync is — one drives the BACK END mirror
-          and the other writes a Google sheet, and neither reads this page's
-          staged edits. */}
+      {/* THE MONTH'S LAST STEP, and now only that: approve the month's draft
+          bills, then raise its invoice in JobTread. It used to be a row of four
+          buttons at three different scopes — the whole-company Drive mirror,
+          this job's sheet push, a read-only check and a real JobTread write —
+          all the same size, right-aligned, indistinguishable. The mirror and the
+          month's Labor Report are company-wide, so they moved to the all-jobs
+          view; the check moved to the commit bar.
+
+          What is left is the terminal action and one conditional companion. The
+          standalone sheet push only appears with NOTHING staged, because Save
+          Changes already runs it as part of the same commit — two buttons for
+          one push is what made the row read as noise.
+
+          Approve is dead while there is staged coding to save first. Once every
+          bill in the month is approved it becomes "Create Invoice in JobTread",
+          which opens the job's documents page — approving IS the last thing this
+          page does, and the invoice itself is built in JobTread. `order-last`
+          drops the block below the columns on a phone. The check's result card
+          sits directly above, and only once there is a result to show. */}
       {jobId && (
         <div
           className={`order-last mt-4 border-t border-line pt-4 lg:order-none ${
-            // Nothing visible below lg until there's a result, an Approve
-            // button or Sync — without this the phone shows a bare divider.
-            showApprove || canSync || showTracking || preSend || preSendError || preSendRunning
+            // Nothing to show yet — don't draw a bare divider. The sheet push
+            // is gated on `!dirty` below, so the divider has to be too.
+            showApprove || (!dirty && showTracking) || preSend || preSendError || preSendRunning
               ? ""
-              : "hidden lg:block"
+              : "hidden"
           }`}
         >
           {(preSend || preSendError || preSendRunning) && (
             <PreSendCheck result={preSend} error={preSendError} />
           )}
           <div className="mx-auto flex max-w-2xl flex-wrap items-center justify-end gap-2">
-            {canSync && <SyncNowButton className="min-h-11" />}
-            {trackingSheetAction("min-h-11")}
-            <Button
-              variant="outline"
-              onClick={runPreSend}
-              disabled={preSendRunning}
-              className="hidden min-h-11 lg:inline-flex"
-            >
-              {preSendRunning ? "Checking…" : preSend ? "Check again" : "Check this job"}
-            </Button>
+            {!dirty && trackingSheetAction("min-h-11")}
             {showApprove &&
               (allApproved ? (
                 /* Every bill is approved, so the next step is JobTread's own
                    invoice builder — New → Customer Invoice on the job's
-                   documents page pulls exactly these uninvoiced bills. Same
-                   destination and same wording as /stage's button. Staged
+                   documents page pulls exactly these uninvoiced bills. Staged
                    coding still blocks it: an invoice built now would carry the
-                   OLD cost codes, so sync first. A disabled <a> is not a
-                   thing, hence the button/link swap. */
+                   OLD cost codes, so save first. A disabled <a> is not a thing,
+                   hence the button/link swap. */
                 dirty ? (
                   <Button
                     disabled
-                    title="Sync staged coding changes to JobTread first"
+                    title="Save staged coding changes to JobTread first"
                     className="min-h-11 w-full lg:w-auto"
                   >
                     Create Invoice in JobTread ↗
@@ -3816,7 +3743,7 @@ export function Board() {
                     setApproveOpen(true);
                   }}
                   disabled={draftBills.length === 0 || dirty || syncing || approving}
-                  title={dirty ? "Sync staged coding changes to JobTread first" : undefined}
+                  title={dirty ? "Save staged coding changes to JobTread first" : undefined}
                   className="min-h-11 w-full lg:w-auto"
                 >
                   Approve Draft Bills{draftBills.length > 0 ? ` (${draftBills.length})` : ""}
@@ -3826,25 +3753,47 @@ export function Board() {
         </div>
       )}
 
-      {/* The phone's commit bar — the action drawer. With staged coding it
-          carries Revert + Save Changes; with nothing staged it holds the
-          "Check this job" trigger for the Before-you-send card, so that action
-          is under the thumb rather than up in the card header. It pins above the
-          tab bar, so the action is in reach wherever you've scrolled to.
-          `order-last` keeps it at the bottom of the flex column even though the
-          reconcile block above also claims that order on a phone; both are last
-          in DOM order here, so they stack in source order. From lg up the
-          toolbar and the card's own button take over and this is hidden. */}
-      {(dirty || !!jobId) && (
-        <StickyActionBar className="order-last mt-4 lg:hidden">
-          {dirty ? (
-            <>
-              <span className="flex-1 text-xs font-bold tabular-nums text-amber-700 dark:text-amber-300">
-                {stagedCount} staged change{stagedCount === 1 ? "" : "s"}
-                <span className="block text-[10.5px] font-medium text-neutral-500 dark:text-neutral-400">
-                  Nothing is written until you sync
-                </span>
+      {/* THE COMMIT BAR — docked at the foot of the screen, at every width.
+          It carries the three things that act on the whole month: the staged
+          count, Revert, Save Changes, and the "Check this job" trigger for the
+          Before-you-send card.
+
+          It used to be `lg:hidden`, with Revert and Save duplicated in the top
+          toolbar and Save duplicated AGAIN in the coding drawer — so the desktop
+          workbench, the one that scrolls furthest, was the only surface with no
+          commit in reach. One bar, three call sites collapsed into it.
+
+          The check rides it in BOTH states now. Behind the old `!dirty` branch
+          it was unreachable on a phone the moment anything was staged, which is
+          exactly when you want to run it.
+
+          It pins above the tab bar (`--tabbar-h`), so it clears the tab bar at
+          desktop widths too. `order-last` keeps it at the bottom of the flex
+          column even though the reconcile block above also claims that order on
+          a phone; both are last in DOM order here, so they stack in source
+          order. `flex-wrap` is what lets the staged sentence take its own line
+          on a 375px screen instead of squeezing three buttons off the edge. */}
+      {jobId && (
+        <StickyActionBar className="order-last mt-4 flex-wrap">
+          {dirty && (
+            <span className="w-full text-xs font-bold tabular-nums text-amber-700 dark:text-amber-300 sm:w-auto sm:flex-1">
+              {stagedCount} staged change{stagedCount === 1 ? "" : "s"}
+              <span className="block text-[10.5px] font-medium text-neutral-500 dark:text-neutral-400">
+                Nothing is written until you save
               </span>
+            </span>
+          )}
+          <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto sm:flex-1">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={runPreSend}
+              disabled={preSendRunning}
+              className="min-h-11"
+            >
+              {preSendRunning ? "Checking…" : preSend ? "Check again" : "Check this job"}
+            </Button>
+            {dirty && (
               <Button
                 variant="secondary"
                 size="sm"
@@ -3854,21 +3803,33 @@ export function Board() {
               >
                 Revert
               </Button>
-              <Button size="sm" onClick={sync} disabled={syncing} className="min-h-11">
-                {syncing ? "Saving…" : "Save Changes"}
-              </Button>
-            </>
-          ) : (
+            )}
+            {/* The coding commit: it writes staged coding to JobTread and then
+                pushes the month into the Tracking Sheet in the same step (coding
+                must settle before the sheet reads costCode off each line) —
+                which is why the standalone sheet push in the closing row only
+                appears with nothing staged. Says so on itself, so the pairing
+                isn't something you have to know. */}
             <Button
-              variant="outline"
               size="sm"
-              onClick={runPreSend}
-              disabled={preSendRunning || !jobId}
-              className="min-h-11 w-full"
+              onClick={sync}
+              disabled={!dirty || syncing || trackingBusy}
+              title={
+                trackingTarget
+                  ? "Write staged coding to JobTread, then push the month into the tracking sheet"
+                  : "Write staged coding to JobTread"
+              }
+              className="min-h-11"
             >
-              {preSendRunning ? "Checking…" : preSend ? "Check again" : "Check this job"}
+              {syncing
+                ? "Saving…"
+                : trackingBusy
+                  ? "Syncing sheet…"
+                  : trackingTarget
+                    ? "Save + push sheet"
+                    : "Save Changes"}
             </Button>
-          )}
+          </div>
         </StickyActionBar>
       )}
 

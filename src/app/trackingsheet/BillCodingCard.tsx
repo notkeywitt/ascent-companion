@@ -202,14 +202,10 @@ export interface CodingCardCtl {
   /* ---- reviewed marker ---- */
   toggleReviewed: (docId: string, reviewed: boolean) => void;
 
-  /* ---- commit staged coding ---- */
-  /** Write this page's staged coding to JobTread. Absent = the host commits
-      somewhere else (the queue's Save sits above the card). */
-  saveChanges?: () => void;
-  /** A save is in flight, or the sheet push behind it is. */
-  saveBusy?: boolean;
-  /** Something is staged to save. */
-  saveDirty?: boolean;
+  /* The card carries NO commit of its own. Both hosts dock Save Changes in
+     their own action bar — the board's is pinned to the foot of the screen at
+     every width, so a copy in this card was a second button for one write,
+     on screen at the same time as the first. */
 
   /* ---- per-bill approve (JobTread status write) ---- */
   /** Approve THIS bill in JobTread. Absent = the host offers no per-bill
@@ -291,9 +287,6 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
     taxView,
     setTax,
     toggleReviewed,
-    saveChanges,
-    saveBusy,
-    saveDirty,
     approveBill,
     approvingBill,
     approveBlocked,
@@ -386,21 +379,11 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
             >
               {bill.reviewed ? "✓ Reviewed" : "Mark reviewed"}
             </Button>
-            {/* The same commit as the toolbar's Save Changes, put where the
-                coding is done: on a long bill the toolbar is scrolled off. */}
-            {saveChanges && (
-              <Button
-                size="sm"
-                className="!px-2 !py-1 !text-[11px]"
-                onClick={saveChanges}
-                disabled={!saveDirty || Boolean(saveBusy)}
-              >
-                {saveBusy ? "Saving…" : "Save Changes"}
-              </Button>
-            )}
-            {/* Approve this one bill, beside the batch "Approve Draft Bills"
-                below — same write, same gate, one bill. Only a draft has a
-                status to leave. */}
+            {/* Approve this ONE bill — the single-bill case of the closing
+                row's "Approve Draft Bills", same write and same gate. The label
+                says "this bill" so the two read as one action at two scales
+                rather than two unrelated approvals. Only a draft has a status to
+                leave. */}
             {approveBill && bill.status === "draft" && (
               <Button
                 variant="secondary"
@@ -410,7 +393,7 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                 disabled={Boolean(approvingBill) || Boolean(approveBlocked)}
                 title={approveBlocked ?? undefined}
               >
-                {approvingBill ? "Approving…" : "Approve in JT"}
+                {approvingBill ? "Approving…" : "Approve this bill"}
               </Button>
             )}
           </div>

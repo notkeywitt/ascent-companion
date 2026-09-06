@@ -2,11 +2,13 @@
 
 import { useCallback, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { PageHeader } from "@/components/ui";
+import { Card, PageHeader, SectionHeading } from "@/components/ui";
 import { JobPicker } from "@/components/JobPicker";
 import { useAccess } from "@/components/AccessProvider";
 import { useCopy } from "@/components/CopyProvider";
 import { UncapturedBills } from "@/components/UncapturedBills";
+import { SyncNowButton } from "@/components/SyncNowButton";
+import { LaborReportButton } from "@/components/LaborReportButton";
 import { monthOptions } from "./Roster";
 import { AllBills } from "./AllBills";
 import { UnsyncedDrafts } from "./UnsyncedDrafts";
@@ -111,6 +113,39 @@ export function AllJobs() {
       <UnsyncedDrafts />
 
       <AllBills ym={ym} setYm={setYm} />
+
+      {/* COMPANY-WIDE TOOLS — the two actions that take no job at all. Both used
+          to sit on the job workbench: the Drive sync in its closing row beside
+          two job-and-month buttons, and the Labor Report inside that job's own
+          "Time & labor" card. Neither reads the job on screen, and sitting among
+          controls that do is what made them read as job actions. This is the
+          all-jobs view, so it is the one place on this page where "every job" is
+          already the subject.
+
+          Each is a row with its scope written beside it, rather than a bare
+          button: what they touch is exactly the thing a label on a pill cannot
+          say. */}
+      <section className="mt-6">
+        <SectionHeading className="mb-2">Company tools</SectionHeading>
+        <Card pad={false} className="overflow-hidden">
+          {can("sync") && (
+            <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-line-soft px-4 py-3 last:border-b-0">
+              <span className="min-w-0 flex-1 text-[11.5px] text-neutral-500 dark:text-neutral-400">
+                Pull all of JobTread into the Sheet and Drive tree now. Runs hourly on its own;
+                this only asks for it early.
+              </span>
+              <SyncNowButton className="min-h-11 shrink-0" />
+            </div>
+          )}
+          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 py-3">
+            <span className="min-w-0 flex-1 text-[11.5px] text-neutral-500 dark:text-neutral-400">
+              Every job&apos;s hours for the selected month, filed as one sheet in the Drive Labor
+              folder. Not scoped to a job or to the list above.
+            </span>
+            <LaborReportButton ym={ym} size="md" className="shrink-0 items-end text-right" />
+          </div>
+        </Card>
+      </section>
     </main>
   );
 }
