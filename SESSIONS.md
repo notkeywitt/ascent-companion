@@ -16,8 +16,8 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
+| [dark-mode-color-scheme](.claude/sessions/2026-09-05-dark-mode-color-scheme.md) | 2026-09-06 | 8 | Rebuild dark mode from the Ascent Brand Guidelines: replace the lifted-olive ac… |
 | [time-entry-job-thread-links](.claude/sessions/2026-09-06-time-entry-job-thread-links.md) | 2026-09-06 | 2 | — |
-| [dark-mode-color-scheme](.claude/sessions/2026-09-05-dark-mode-color-scheme.md) | 2026-09-06 | 7 | Rebuild dark mode from the Ascent Brand Guidelines: replace the lifted-olive ac… |
 | [jobtread-qbo-sales-tax](.claude/sessions/2026-09-05-jobtread-qbo-sales-tax.md) | 2026-09-05 | 2 | — |
 | [loading-screen-logo](.claude/sessions/2026-09-05-loading-screen-logo.md) | 2026-09-05 | 3 | — |
 | [main](.claude/sessions/2026-09-03-main.md) | 2026-09-04 | 37 | — |
