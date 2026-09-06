@@ -1,7 +1,26 @@
 {
-  "generatedAt": "2026-09-06T19:08:21Z",
+  "generatedAt": "2026-09-06T19:52:44Z",
   "repo": "ascent-companion",
   "sessions": [
+    {
+      "slug": "ci-verify-job-failures",
+      "file": "2026-09-06-ci-verify-job-failures.md",
+      "branch": "claude/ci-verify-job-failures-wcfpyk",
+      "status": "in-progress",
+      "started": "2026-09-06T19:51:56Z",
+      "updated": "2026-09-06T19:52:44Z",
+      "goal": "fix the red CI verify job",
+      "next": "push this branch to remote main — main is still red until the Link fix lands there",
+      "commits": [
+        {
+          "date": "2026-09-06",
+          "time": "19:51",
+          "sha": "4dc2c03",
+          "subject": "companion: link, not anchor, on the theme editor's back button",
+          "files": "src/app/theme/page.tsx"
+        }
+      ]
+    },
     {
       "slug": "tracking-sheet-button-audit",
       "file": "2026-09-06-tracking-sheet-button-audit.md",
