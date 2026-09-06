@@ -24,6 +24,7 @@ matching row here.
 | Working rules, the mobile build loop, write-safety gates | `CLAUDE.md` |
 | The Pave/JobTread schema + query grammar + gotchas | `JT_API_REFERENCE.md` |
 | Why the gateway exists, where new views belong | `FRONTEND_ARCHITECTURE.md` |
+| The colour palettes — every value, and the reasoning that fixed it | `THEME.md` |
 | Standing structural review, agreed cleanup checklist | `ARCHITECTURE_REVIEW.md` |
 | The staged plan for ending client invoicing mistakes | `INVOICE_ACCURACY_PLAN.md` |
 | What each screen does, for the owner (end-user manual) | `USER_MANUAL.md` |
