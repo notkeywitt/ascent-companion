@@ -149,12 +149,18 @@
   --page: 250 247 238; /* #FAF7EE — the site's ground, unchanged */
   --page-fg: 27 27 27; /* #1B1B1B — the site's neutral ink, not the warm one */
 
-  /* Dark surfaces on the site's neutral off-black. This is what a phone
-     actually shows apart from palette 1: the same layout on a cool-neutral
-     grey rather than a warm brown-black. */
-  --ink: 27 27 27; /* #1B1B1B */
-  --ink-raised: 36 36 36; /* #242424 */
-  --ink-overlay: 44 44 44; /* #2C2C2C */
+  /* Dark surfaces. The site's black is the CARD, and the ground goes deeper
+     than it — the opposite arrangement from palette 1, where the page IS the
+     brand off-black and the card lifts off it.
+     Reason: the site uses no grey as a surface, and a #242424 card on a
+     #1B1B1B page read as one (owner, 2026-09-06). Putting the site's own
+     #1B1B1B on the cards, which cover most of a phone screen, makes the black
+     the thing you see; the grey that was the card demotes to the overlay, which
+     is only menus and sheets. Cards still sit LIGHTER than the page, which is
+     the direction the whole surface scale runs. */
+  --ink: 10 10 10; /* #0A0A0A — near-black ground */
+  --ink-raised: 27 27 27; /* #1B1B1B — the site's own black */
+  --ink-overlay: 38 38 38; /* #262626 — menus and bottom sheets only */
 }
 
 /* The site has no dark mode, so this half is DERIVED — by inverting the rule
@@ -172,12 +178,31 @@
   --accent-soft: 232 184 74; /* #E8B84A — lifted ochre, for a chip's own tint */
   --accent-fg: 27 27 27; /* #1B1B1B — off-black label on a cream fill */
 
-  --line: 58 58 58; /* #3A3A3A */
-  --line-soft: 44 44 44; /* #2C2C2C */
-  --line-strong: 76 76 76; /* #4C4C4C */
+  /* Hairlines go with the greys. A card on a near-black page no longer needs a
+     stroke to be a card — the surface step does that — so the edge drops to a
+     value you read as an edge and not as a line. `line-strong` is the one that
+     stays up: a form control has to look like something you can type into. */
+  --line: 36 36 36; /* #242424 — card edge, barely there */
+  --line-soft: 35 35 35; /* #232323 — row divider inside a card */
+  --line-strong: 51 51 51; /* #333333 — form controls */
 
-  --page: 27 27 27; /* #1B1B1B */
+  --page: 10 10 10; /* #0A0A0A */
   --page-fg: 250 247 238; /* #FAF7EE */
+}
+
+/* The other prominent grey was not a token at all: ~40 places spell a dark
+   border as Tailwind's warm `neutral-600` (#53524E) or `neutral-700` (#41403D)
+   instead of reaching for `border-line`. Both are lighter than this palette's
+   whole surface scale AND warm, so on the site's neutral black they read as a
+   grey stroke in a different colour family. Point them at the palette's own
+   hairlines rather than editing 40 call sites — the same redirect trick the
+   light-mode `text-accent` rule above uses.
+   `neutral-600` is the form-control weight, `neutral-700` the card weight. */
+[data-palette="website"].dark .dark\:border-neutral-600 {
+  border-color: rgb(var(--line-strong));
+}
+[data-palette="website"].dark .dark\:border-neutral-700 {
+  border-color: rgb(var(--line));
 }
 
 /* --- Categorical data-viz palette ---------------------------------------

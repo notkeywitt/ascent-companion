@@ -187,29 +187,44 @@ as well as fills — light mode needs no `text-accent` redirect.
 | `--accent-fg` | `#FAF7EE` | `#1B1B1B` | the label ON a fill — inverted from palette 1 |
 | `--brand` | `#CF9803` | `#CF9803` | unchanged: the logo, peak mark and rules stay ochre |
 | `text-accent` | `#1B1B1B` | `#CF9803` | see below |
-| `--line` | `#ECE7DB` | `#3A3A3A` | card edge |
-| `--line-soft` | `#F4F0E7` | `#2C2C2C` | row divider inside a card |
-| `--line-strong` | `#DBD3C2` | `#4C4C4C` | form controls |
+| `--line` | `#ECE7DB` | `#242424` | card edge |
+| `--line-soft` | `#F4F0E7` | `#232323` | row divider inside a card |
+| `--line-strong` | `#DBD3C2` | `#333333` | form controls |
 
-Hairlines are a step lighter than palette 1's. The site draws none at all — it
-separates with space — and a phone app cannot go that far, so this is as close
-as it gets while a dense list stays readable.
+Hairlines are lighter than palette 1's in light and much darker in dark. The
+site draws none at all — it separates with space — and a phone app cannot go
+that far, so this is as close as it gets while a dense list stays readable.
+
+Two dark hairlines are **redirected**, not retokened. About 40 call sites spell
+a dark border as Tailwind's warm `neutral-600` or `neutral-700` rather than
+`border-line`. Both are lighter than this palette's whole surface scale and
+warm, so on a neutral black they read as a grey stroke in the wrong colour
+family. `globals.css` points them at `--line-strong` and `--line` under this
+palette, the same way light mode redirects `text-accent`.
 
 ### Surfaces
 
 | | Light | Dark |
 |---|---|---|
-| Page | `#FAF7EE` | `#1B1B1B` |
-| Raised card | `#FFFFFF` | `#242424` |
-| Overlay | `#FFFFFF` | `#2C2C2C` |
+| Page | `#FAF7EE` | `#0A0A0A` |
+| Raised card | `#FFFFFF` | `#1B1B1B` — the site's own black |
+| Overlay | `#FFFFFF` | `#262626` — menus and sheets only |
 | Body text | `#1B1B1B` | `#FAF7EE` |
 
 Light surfaces **do not move**: cream ground, white card. Both are the site's
 own values, and its `light` theme puts a white block on the cream ground in
 exactly this way.
 
-Dark is where the two palettes diverge on a phone: the same layout on the
-site's **cool-neutral** off-black rather than the guide's warm brown-black.
+Dark **inverts palette 1's arrangement**. There the page IS the brand off-black
+and the card lifts off it. Here the site's black is the CARD and the ground goes
+deeper than it, because the site uses no grey as a surface: a `#242424` card on
+a `#1B1B1B` page read as one (owner, 2026-09-06). Cards cover most of a phone
+screen, so putting `#1B1B1B` on them makes the black the thing you see, and the
+grey that was the card demotes to the overlay. Cards still sit lighter than the
+page — that direction never changes.
+
+Palette 1's dark is untouched and still the guide's warm brown-black; this is
+the neutral one.
 
 ### Dark is derived, not read
 
@@ -244,8 +259,11 @@ JobTread", and upper-casing that wraps it on a phone.
 | Cream on off-black | 15.91:1 | AAA |
 | Cream label on an off-black fill | 15.91:1 | AAA |
 | Off-black label on a cream fill | 15.91:1 | AAA |
-| Ochre link on the dark page | 6.70:1 | AA |
-| `accent-soft` on a dark `bg-accent/15` chip | 5.1:1 | AA |
+| Cream body copy on the dark page | 18.48:1 | AAA |
+| Cream body copy on a dark card | 16.08:1 | AAA |
+| Ochre link on the dark page | 7.68:1 | AA |
+| Ochre link on a dark card | 6.68:1 | AA |
+| `accent-soft` on a dark `bg-accent/15` chip | 6.85:1 | AA |
 | Ochre mark on cream | 2.41:1 | graphics only — the logo, never text |
 
 ### What is unpainted
