@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/tracking-sheet-button-audit-ufg3yl
 status: shipped
 started: 2026-09-06T15:59:56Z
-updated: 2026-09-06T16:10:21Z
+updated: 2026-09-06T16:10:22Z
 goal: audit the tracking sheet page's buttons and re-lay them out for desktop workflow
 next: verify the search panel on a real phone: portalled to <body>, spans left-2/right-2 below sm, height off visualViewport with the keyboard up
 ---

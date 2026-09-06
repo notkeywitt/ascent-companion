@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-06T16:00:17Z",
+  "generatedAt": "2026-09-06T16:10:22Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "claude/tracking-sheet-button-audit-ufg3yl",
       "status": "shipped",
       "started": "2026-09-06T15:59:56Z",
-      "updated": "2026-09-06T16:00:17Z",
+      "updated": "2026-09-06T16:10:22Z",
       "goal": "audit the tracking sheet page's buttons and re-lay them out for desktop workflow",
-      "next": "watch for the desktop commit bar overlapping the sticky rail/drawer on a real 1440px screen; the rail heading's left half is still a dead button at lg (lg:pointer-events-none) and was left alone",
+      "next": "verify the search panel on a real phone: portalled to <body>, spans left-2/right-2 below sm, height off visualViewport with the keyboard up",
       "commits": [
         {
           "date": "2026-09-06",
@@ -18,6 +18,13 @@
           "sha": "0916dda",
           "subject": "companion: one commit bar for tracking sheets, at every width",
           "files": "src/app/trackingsheet/AllJobs.tsx, src/app/trackingsheet/BillCodingCard.tsx, src/app/trackingsheet/Board.tsx"
+        },
+        {
+          "date": "2026-09-06",
+          "time": "16:10",
+          "sha": "f3daabf",
+          "subject": "companion: stop the search panel hanging off the left of the screen",
+          "files": "src/components/GlobalSearch.tsx"
         }
       ]
     },
