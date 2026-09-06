@@ -4,9 +4,9 @@ repo: ascent-companion
 branch: claude/ascent-building-theme-rz1o6h
 status: in-progress
 started: 2026-09-06T06:08:00Z
-updated: 2026-09-06T14:09:22Z
+updated: 2026-09-06T14:55:03Z
 goal: 
-next: Look at the Website palette on the phone and say whether the black buttons hold up in daylight; if they do, decide whether it becomes the default.
+next: Tune the palettes in /theme on the phone, then paste the Copy CSS output back so it ships.
 ---
 
 ## Log
@@ -22,6 +22,8 @@ next: Look at the Website palette on the phone and say whether the black buttons
   CLAUDE.md, THEME.md, src/app/globals.css, src/components/AppearanceCard.tsx, src/components/AscentLogo.tsx, src/lib/palette.ts
 - 2026-09-06 14:09 · `f1c021a` companion: no colour emoji anywhere
   src/app/amazon-import/page.tsx, src/app/email/page.tsx, src/app/employees/page.tsx, src/app/labor-rates/page.tsx, src/app/lswdd/page.tsx, src/app/needs-project/page.tsx, +5 more
+- 2026-09-06 14:55 · `c40ba06` companion: add a live theme editor at /theme
+  CLAUDE.md, CODEBASE_MAP.md, THEME.md, src/app/globals.css, src/app/layout.tsx, src/app/theme/page.tsx, +4 more
 
 ## Notes
 - 2026-09-06 06:19 — Palette 2 built from the live site, not the brand deck — earlier sessions could not reach ascentbuildingco.com; this one could (curl works, Chromium's proxy tunnel does not, so the page was mirrored locally to screenshot).
@@ -33,3 +35,5 @@ next: Look at the Website palette on the phone and say whether the black buttons
 - 2026-09-06 14:09 — The accent sits a step PAST the body copy rather than equal to it (pure black under #1B1B1B text, pure white over #FAF7EE text): with no hue, a link separates by value or not at all.
 - 2026-09-06 14:09 — AscentLogo's peak was a hardcoded #1B1B17 — near-invisible once the square went black. It reads fill-accent-fg now, the same pair every filled accent uses, so the mark is right in any palette.
 - 2026-09-06 14:09 — Colour emoji removed app-wide. Two traps: a U+FE0F selector forces the colour form of a dual-presentation glyph, and an emoji-ONLY codepoint has no text form so font-variant-emoji:text cannot save it. Dropped the mark where the words already said it.
+- 2026-09-06 14:55 — Theme editor at /theme (admin-only). No preview pane needed: the tokens are CSS variables on <html>, so the editor writes them as INLINE styles, which beat any stylesheet rule and repaint the whole app. A draft is per-device localStorage and never committed; Copy CSS emits the globals.css block.
+- 2026-09-06 14:55 — text-accent was two rules of hardcoded hex (one per palette). Now ONE rule reading a new --accent-text token, so the editor can drive it and a new palette needs no rule of its own.
