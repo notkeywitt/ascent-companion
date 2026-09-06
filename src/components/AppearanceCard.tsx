@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { Card, SectionHeading, SectionLabel } from "@/components/ui";
+import { Card, MetaLine, SectionHeading, SectionLabel } from "@/components/ui";
 import { useAccess } from "@/components/AccessProvider";
 
 import {
@@ -27,7 +27,10 @@ import {
  * label on it, for anyone who never found the tap.
  *
  * It renders on the home page, above the account footer, because that is the
- * one screen every role lands on.
+ * one screen every role lands on. It starts COLLAPSED — a display choice is
+ * set once and then left alone, so it should not own a slab of the launcher —
+ * and the open/closed choice is remembered per device like every other choice
+ * here.
  */
 /** Ground + fill per palette per theme — the two squares on each choice. */
 const SWATCH: Record<Palette, Record<"light" | "dark", { ground: string; fill: string }>> = {
@@ -48,10 +51,28 @@ export function AppearanceCard() {
   const access = useAccess();
   const [palette, setPalette] = useState<Palette>("guidelines");
   const [dark, setDark] = useState(false);
+  const [open, setOpen] = useState(false);
 
   useEffect(() => {
     setPalette(readPalette());
     setDark(document.documentElement.classList.contains("dark"));
+    try {
+      if (localStorage.getItem("appearance.expanded") === "1") setOpen(true);
+    } catch {
+      /* storage unavailable — stay collapsed */
+    }
+  }, []);
+
+  const toggleOpen = useCallback(() => {
+    setOpen((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem("appearance.expanded", next ? "1" : "0");
+      } catch {
+        /* storage unavailable — the choice just won't persist */
+      }
+      return next;
+    });
   }, []);
 
   function pickPalette(p: Palette) {
@@ -69,85 +90,97 @@ export function AppearanceCard() {
 
   return (
     <section className="mt-8 text-left">
-      <SectionHeading>Appearance</SectionHeading>
-      <Card className="mt-3" pad={false}>
-        <div className="border-b border-line-soft p-4">
-          <SectionLabel>Colours</SectionLabel>
-          <div className="mt-2.5 grid grid-cols-2 gap-2">
-            {PALETTES.map((p) => (
-              <button
-                key={p}
-                type="button"
-                onClick={() => pickPalette(p)}
-                aria-pressed={palette === p}
-                className={`rounded-xl border p-3 text-left transition ${
-                  palette === p
-                    ? "border-accent ring-2 ring-accent/25"
-                    : "border-line hover:border-line-strong"
-                }`}
-              >
-                {/* Two squares: the palette's ground, then the colour a filled
+      {/* The heading is the collapse toggle. Closed, it still says what is set,
+          so the card answers "which colours am I on" without being opened. */}
+      <SectionHeading
+        onToggle={toggleOpen}
+        open={open}
+        trailing={
+          open ? undefined : <MetaLine items={[PALETTE_LABEL[palette], dark ? "Dark" : "Light"]} />
+        }
+      >
+        Appearance
+      </SectionHeading>
+      {open && (
+        <Card className="mt-3" pad={false}>
+          <div className="border-b border-line-soft p-4">
+            <SectionLabel>Colours</SectionLabel>
+            <div className="mt-2.5 grid grid-cols-2 gap-2">
+              {PALETTES.map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => pickPalette(p)}
+                  aria-pressed={palette === p}
+                  className={`rounded-xl border p-3 text-left transition ${
+                    palette === p
+                      ? "border-accent ring-2 ring-accent/25"
+                      : "border-line hover:border-line-strong"
+                  }`}
+                >
+                  {/* Two squares: the palette's ground, then the colour a filled
                     button takes on it. Fixed hex rather than tokens, because a
                     swatch has to show the palette you are NOT in — and read
                     against the CURRENT theme, which is why both squares follow
                     `dark`. Guidelines fills ochre in either theme; Website
                     fills with whichever of its two values the ground is not. */}
-                <span aria-hidden className="flex gap-1">
-                  <span
-                    className="h-5 w-5 rounded border border-black/10 dark:border-white/15"
-                    style={{ background: SWATCH[p][dark ? "dark" : "light"].ground }}
-                  />
-                  <span
-                    className="h-5 w-5 rounded border border-black/10 dark:border-white/15"
-                    style={{ background: SWATCH[p][dark ? "dark" : "light"].fill }}
-                  />
-                </span>
-                <span className="mt-2 block text-sm font-semibold">{PALETTE_LABEL[p]}</span>
-                <span className="mt-0.5 block text-xs text-neutral-500 dark:text-neutral-400">
-                  {PALETTE_DESC[p]}
-                </span>
-              </button>
-            ))}
+                  <span aria-hidden className="flex gap-1">
+                    <span
+                      className="h-5 w-5 rounded border border-black/10 dark:border-white/15"
+                      style={{ background: SWATCH[p][dark ? "dark" : "light"].ground }}
+                    />
+                    <span
+                      className="h-5 w-5 rounded border border-black/10 dark:border-white/15"
+                      style={{ background: SWATCH[p][dark ? "dark" : "light"].fill }}
+                    />
+                  </span>
+                  <span className="mt-2 block text-sm font-semibold">{PALETTE_LABEL[p]}</span>
+                  <span className="mt-0.5 block text-xs text-neutral-500 dark:text-neutral-400">
+                    {PALETTE_DESC[p]}
+                  </span>
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
 
-        <div className="flex items-center justify-between gap-3 p-4">
-          <div className="min-w-0">
-            <SectionLabel>Theme</SectionLabel>
-            <p className="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">
-              Tapping the logo up top does this too.
-              {access.can("theme-editor") && (
-                <>
-                  {" "}
-                  <Link href="/theme" className="font-semibold text-accent">
-                    Tune the colours →
-                  </Link>
-                </>
-              )}
-            </p>
+          <div className="flex items-center justify-between gap-3 p-4">
+            <div className="min-w-0">
+              <SectionLabel>Theme</SectionLabel>
+              <p className="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">
+                Tapping the logo up top does this too.
+                {access.can("theme-editor") && (
+                  <>
+                    {" "}
+                    <Link href="/theme" className="font-semibold text-accent">
+                      Tune the colours →
+                    </Link>
+                  </>
+                )}
+              </p>
+            </div>
+            <div className="flex shrink-0 gap-1.5">
+              {[
+                { on: false, label: "Light" },
+                { on: true, label: "Dark" },
+              ].map((o) => (
+                <button
+                  key={o.label}
+                  type="button"
+                  onClick={() => pickTheme(o.on)}
+                  aria-pressed={dark === o.on}
+                  className={`min-h-11 rounded-full border px-4 text-[12.5px] font-semibold transition ${
+                    dark === o.on
+                      ? "border-accent bg-accent text-accent-fg"
+                      : "border-line text-neutral-500 hover:border-accent dark:text-neutral-400"
+                  }`}
+                >
+                  {o.label}
+                </button>
+              ))}
+            </div>
           </div>
-          <div className="flex shrink-0 gap-1.5">
-            {[
-              { on: false, label: "Light" },
-              { on: true, label: "Dark" },
-            ].map((o) => (
-              <button
-                key={o.label}
-                type="button"
-                onClick={() => pickTheme(o.on)}
-                aria-pressed={dark === o.on}
-                className={`min-h-11 rounded-full border px-4 text-[12.5px] font-semibold transition ${
-                  dark === o.on
-                    ? "border-accent bg-accent text-accent-fg"
-                    : "border-line text-neutral-500 hover:border-accent dark:text-neutral-400"
-                }`}
-              >
-                {o.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      </Card>
+        </Card>
+      )}
     </section>
   );
 }
