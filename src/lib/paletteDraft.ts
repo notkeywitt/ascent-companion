@@ -18,7 +18,7 @@
  * re-applies the other half.
  */
 
-import { DEFAULT_PALETTE, type Palette } from "./palette";
+import { ROOT_PALETTE, type Palette } from "./palette";
 
 /** localStorage key. Must match the inline script in src/app/layout.tsx. */
 export const DRAFT_KEY = "paletteDraft";
@@ -337,8 +337,12 @@ export function draftToCss(
   draft: PaletteDraft,
   base: { light: Record<string, string>; dark: Record<string, string> },
 ): string {
+  // ROOT_PALETTE, not DEFAULT_PALETTE: this picks the SELECTOR the tokens are
+  // declared under in globals.css, which is a fact about the stylesheet and not
+  // about what a new device gets. The two were the same constant until the
+  // default moved to website (2026-09-06).
   const sel =
-    palette === DEFAULT_PALETTE
+    palette === ROOT_PALETTE
       ? { light: ":root", dark: ".dark" }
       : {
           light: `[data-palette="${palette}"]`,

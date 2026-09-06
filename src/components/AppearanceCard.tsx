@@ -6,6 +6,7 @@ import { Card, MetaLine, SectionHeading, SectionLabel } from "@/components/ui";
 import { useAccess } from "@/components/AccessProvider";
 
 import {
+  DEFAULT_PALETTE,
   PALETTES,
   PALETTE_DESC,
   PALETTE_LABEL,
@@ -49,7 +50,7 @@ export function AppearanceCard() {
   // way to know a localStorage value, so rendering the real one straight away
   // would be a hydration mismatch.
   const access = useAccess();
-  const [palette, setPalette] = useState<Palette>("guidelines");
+  const [palette, setPalette] = useState<Palette>(DEFAULT_PALETTE);
   const [dark, setDark] = useState(false);
   const [open, setOpen] = useState(false);
 

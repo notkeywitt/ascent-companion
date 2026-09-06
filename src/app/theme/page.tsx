@@ -15,6 +15,7 @@ import {
 } from "@/components/ui";
 import { AscentLogo } from "@/components/AscentLogo";
 import {
+  DEFAULT_PALETTE,
   PALETTES,
   PALETTE_LABEL,
   applyPalette,
@@ -54,7 +55,7 @@ import {
  * design tool, and a field phone has no use for it.
  */
 export default function ThemeEditorPage() {
-  const [palette, setPalette] = useState<Palette>("guidelines");
+  const [palette, setPalette] = useState<Palette>(DEFAULT_PALETTE);
   const [theme, setTheme] = useState<ThemeName>("light");
   const [draft, setDraft] = useState<PaletteDraft>(emptyDraft);
   const [base, setBase] = useState<{ light: Record<string, string>; dark: Record<string, string> }>(

@@ -125,11 +125,15 @@ branch's record, so the next session can pick the work up cold. Read
   (form controls). They're theme variables, so they flip light/dark on their own —
   writing `border-neutral-200 dark:border-neutral-700/60` again spells out by hand
   what the token already does.
-- **TWO palettes, and every colour rule below describes the DEFAULT one.**
-  `data-palette="website"` on `<html>` swaps the whole token set for a second
-  palette read off ascentbuildingco.com, which is **black and white with no
-  chroma at all** — the accent AND the mark. It is a per-device choice
-  (Appearance, on the home page). What this means when you write a component:
+- **TWO palettes, and every colour rule below describes the GUIDELINES one —
+  which is no longer the default.** `data-palette` on `<html>` names the palette
+  and is always present. **`website` is what a new device gets** (2026-09-06):
+  the set read off ascentbuildingco.com, **black and white with no chroma at
+  all** — the accent AND the mark. `guidelines` is the ochre-on-cream set the
+  rules below describe, now the opt-in; its tokens are the bare `:root` block,
+  so its attribute value matches no rule and needs none. It is a per-device
+  choice (Appearance, on the home page). What this means when you write a
+  component:
   reach for the TOKEN (`accent`, `brand`, `line`, `ink`, `accent-fg`), never the
   literal (`ochre`, `offblack`), or your view will only be right in one palette
   — and never assume `brand` is a hue, because in one palette it is black.

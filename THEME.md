@@ -21,9 +21,20 @@ account — the office desktop and a phone in the field can differ).
 | **Palette** | which set of colours | `data-palette` on `<html>` | Appearance, on the home page |
 | **Theme** | light or dark within it | `.dark` on `<html>` | the same card, or tap the header logo |
 
-Every palette defines BOTH themes, so all four combinations are real. The
-default palette (Guidelines) carries no attribute — its tokens are the bare
-`:root` block, so nothing has to be set for the app to look right.
+Every palette defines BOTH themes, so all four combinations are real.
+
+**Website is the default** (2026-09-06). A device with no stored choice gets it;
+Guidelines is the opt-in. Two constants say so, and they are not the same thing:
+
+| Constant | Answers |
+|---|---|
+| `DEFAULT_PALETTE` = `website` | what a device with no stored choice gets |
+| `ROOT_PALETTE` = `guidelines` | whose tokens are the bare `:root` block in `globals.css` |
+
+They used to be one constant, because the default was also the one in `:root`.
+Moving the default split them. `data-palette` is now ALWAYS written, naming the
+palette either way — `[data-palette="guidelines"]` matches no rule, so the
+`:root` tokens keep applying and the result is identical.
 
 `src/lib/palette.ts` owns the key, the attribute and the storage. The inline
 script in `src/app/layout.tsx` applies both before the first paint; a React
@@ -81,13 +92,15 @@ replaced — which is also what the site does, using no icons at all.
 
 ---
 
-## Palette 1 — "Guidelines" (shipped 2026-09-05, the default)
+## Palette 1 — "Guidelines" (shipped 2026-09-05; the default until 2026-09-06)
 
 Built from **ASCENT - Brand Guidelines - 2024** (Claiborne Colombo, May 2024),
 Drive id `1c4QiE61j9-K-7d7JdfSz7JtVeKekifpH9-WGSeNEFNk`.
 
-Recoverable at commit `cab6303`, or by restoring the two files above. It is
-the default palette, so it carries no `data-palette` attribute.
+Recoverable at commit `cab6303`, or by restoring the two files above. Its
+tokens are the bare `:root` block (`ROOT_PALETTE`), so
+`[data-palette="guidelines"]` matches no rule and does not need one. It is no
+longer the DEFAULT — see the two constants above.
 
 ### The brand constants — fixed, never theme-dependent
 

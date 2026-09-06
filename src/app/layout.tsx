@@ -123,7 +123,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <script
           dangerouslySetInnerHTML={{
             __html:
-              "(function(){try{var e=document.documentElement;var t=localStorage.getItem('theme');var d=t?t==='dark':matchMedia('(prefers-color-scheme:dark)').matches;if(d)e.classList.add('dark');var p=localStorage.getItem('palette');if(p==='website')e.setAttribute('data-palette','website');var j=localStorage.getItem('paletteDraft');if(j){var s=JSON.parse(j)[p==='website'?'website':'guidelines'];if(s){var v=Object.assign({},s.shared,s[d?'dark':'light']);for(var k in v){var m=/^#?([0-9a-f]{6})$/i.exec(v[k]);if(m){var n=parseInt(m[1],16);e.style.setProperty('--'+k,(n>>16&255)+' '+(n>>8&255)+' '+(n&255));}}}}}catch(e){}})();",
+              "(function(){try{var e=document.documentElement;var t=localStorage.getItem('theme');var d=t?t==='dark':matchMedia('(prefers-color-scheme:dark)').matches;if(d)e.classList.add('dark');var p=localStorage.getItem('palette')==='guidelines'?'guidelines':'website';e.setAttribute('data-palette',p);var j=localStorage.getItem('paletteDraft');if(j){var s=JSON.parse(j)[p];if(s){var v=Object.assign({},s.shared,s[d?'dark':'light']);for(var k in v){var m=/^#?([0-9a-f]{6})$/i.exec(v[k]);if(m){var n=parseInt(m[1],16);e.style.setProperty('--'+k,(n>>16&255)+' '+(n>>8&255)+' '+(n&255));}}}}}catch(e){}})();",
           }}
         />
       </head>

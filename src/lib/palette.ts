@@ -21,7 +21,26 @@
 export const PALETTES = ["guidelines", "website"] as const;
 export type Palette = (typeof PALETTES)[number];
 
-export const DEFAULT_PALETTE: Palette = "guidelines";
+/**
+ * What a device with no stored choice gets. Changed to "website" 2026-09-06
+ * (owner's call) — the app now paints the site's black and white by default,
+ * and Guidelines is the opt-in. Anyone who has ever picked a palette has it in
+ * localStorage and keeps it; this only moves people who never chose.
+ */
+export const DEFAULT_PALETTE: Palette = "website";
+
+/**
+ * The palette whose tokens are the bare `:root` block in globals.css, so it is
+ * the one a `data-palette` value does not have to name.
+ *
+ * NOT the same thing as DEFAULT_PALETTE, and it used to be — the default was
+ * guidelines, so "the default" and "the one in :root" were one idea and one
+ * constant. Changing the default split them: the CSS still declares guidelines
+ * at `:root` and website under `[data-palette="website"]`. Anything reasoning
+ * about SELECTORS (the /theme editor's Copy CSS output) wants this one;
+ * anything reasoning about what a new device gets wants DEFAULT_PALETTE.
+ */
+export const ROOT_PALETTE: Palette = "guidelines";
 
 /** localStorage key. Must match the inline script in src/app/layout.tsx. */
 export const PALETTE_KEY = "palette";
@@ -50,14 +69,16 @@ export function readPalette(): Palette {
 /**
  * Paint a palette and remember it on this device.
  *
- * The default palette carries NO attribute — its tokens are the `:root` block —
- * so switching back to it removes the attribute rather than writing a second
- * name that globals.css would have to match.
+ * ALWAYS writes the attribute, including for the palette that has no CSS block
+ * of its own. `[data-palette="guidelines"]` matches no rule, so the `:root`
+ * tokens keep applying and the result is identical — but the attribute is then
+ * the single answer to "which palette is on", for readPalette() and for anyone
+ * reading the DOM. The old code removed it for the default, which now that the
+ * default is website would have removed the attribute the website tokens are
+ * selected BY, and painted guidelines instead.
  */
 export function applyPalette(p: Palette): void {
-  const el = document.documentElement;
-  if (p === DEFAULT_PALETTE) el.removeAttribute("data-palette");
-  else el.setAttribute("data-palette", p);
+  document.documentElement.setAttribute("data-palette", p);
   try {
     localStorage.setItem(PALETTE_KEY, p);
   } catch {}
