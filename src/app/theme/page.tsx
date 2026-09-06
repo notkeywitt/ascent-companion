@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Button,
@@ -374,9 +375,9 @@ export default function ThemeEditorPage() {
         </pre>
         <div className="mt-3 flex flex-wrap gap-2">
           <Button onClick={copyCss}>{copied ? "Copied ✓" : "Copy CSS"}</Button>
-          <a href="/" className={btn("secondary")}>
+          <Link href="/" className={btn("secondary")}>
             Back to home
-          </a>
+          </Link>
         </div>
       </Card>
     </main>
