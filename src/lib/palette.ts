@@ -6,8 +6,8 @@
  * so the existing light/dark switch keeps working whichever palette is on.
  *
  *   guidelines — from ASCENT Brand Guidelines (2024). Ochre is what you click.
- *   website    — from www.ascentbuildingco.com. Off-black is what you click,
- *                and ochre falls back to being the mark.
+ *   website    — from www.ascentbuildingco.com. Black and white, no chroma at
+ *                all: the accent and the mark alike.
  *
  * The values themselves live in `src/app/globals.css` as token blocks, and
  * THEME.md records both palettes with their reasoning. Nothing here knows a
@@ -33,7 +33,7 @@ export const PALETTE_LABEL: Record<Palette, string> = {
 
 export const PALETTE_DESC: Record<Palette, string> = {
   guidelines: "Ochre accents on cream — the 2024 brand deck.",
-  website: "Black accents on cream — ascentbuildingco.com.",
+  website: "Black and white, no colour — ascentbuildingco.com.",
 };
 
 function isPalette(v: string | null): v is Palette {

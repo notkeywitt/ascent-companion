@@ -34,7 +34,7 @@ const SWATCH: Record<Palette, Record<"light" | "dark", { ground: string; fill: s
   },
   website: {
     light: { ground: "#FAF7EE", fill: "#1B1B1B" },
-    dark: { ground: "#0A0A0A", fill: "#FAF7EE" },
+    dark: { ground: "#0A0A0A", fill: "#FFFFFF" },
   },
 };
 

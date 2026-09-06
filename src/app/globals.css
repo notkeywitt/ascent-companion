@@ -131,13 +131,21 @@
    own values (`--lightAccent` and `--white`), and its `light` theme puts a
    white block on the cream ground exactly this way. */
 [data-palette="website"] {
-  --accent: 27 27 27; /* #1B1B1B — the site's ink IS its interactive colour */
-  --accent-hover: 58 58 56; /* #3A3A38 — a step off the ground for fill hover */
-  --accent-soft: 27 27 27; /* no lifted variant needed; see the dark block */
+  /* BLACK AND WHITE, with no chroma at all — the accent AND the mark (owner,
+     2026-09-06). The palette started with ochre kept as `brand` (the logo
+     square, the peak, the heading rules), because that is the one place the
+     site itself still uses it. It is gone now: this palette is the site's two
+     grounds and nothing else.
+     `accent` is a step PAST the body copy rather than equal to it — pure black
+     under `#1B1B1B` text in light, pure white over `#FAF7EE` text in dark — so
+     a link still separates from the sentence around it without a hue. */
+  --accent: 0 0 0; /* #000000 */
+  --accent-hover: 43 43 43; /* #2B2B2B — a step off black for fill hover */
+  --accent-soft: 0 0 0; /* no lifted variant: black needs none */
   --accent-fg: 250 247 238; /* #FAF7EE — cream label on a black fill, the site's
                                own button: solid off-black, cream text */
-  --brand: 207 152 3; /* #CF9803 — ochre stays the mark, which is the ONE place
-                         the site itself still uses it */
+  --brand: 0 0 0; /* #000000 — the logo square, the peak mark and every heading
+                     rule. Was ochre; the mark is monochrome now too. */
 
   /* The site draws no rules at all; it separates with space. A phone app can't,
      so the hairlines stay — a step lighter than palette 1's, so a list of rows
@@ -165,18 +173,19 @@
 
 /* The site has no dark mode, so this half is DERIVED — by inverting the rule
    the site does state. There, the ground is cream and the thing you click is
-   the ink. Here the ground is the ink, so the thing you click is the cream: a
-   cream button with an off-black label, at 15.9:1.
+   the ink. Here the ground is the ink, so the thing you click is the light: a
+   white button with an off-black label.
 
-   Interactive TEXT can't follow it — cream text is the body copy, so a cream
-   link would be invisible as a link. It takes ochre instead, the one brand
-   colour that carries small text on off-black (6.70:1, guide p.15). Same split
-   palette 1 uses in light, mirrored: fills take one value, text takes another. */
+   White, not the cream of the body copy. Nothing here has a hue to fall back
+   on, so the accent has to earn its separation from the sentence around it by
+   being one step brighter than the text — the mirror of light mode, where it is
+   one step darker. */
 [data-palette="website"].dark {
-  --accent: 250 247 238; /* #FAF7EE — cream fill */
-  --accent-hover: 255 255 255; /* #FFFFFF */
-  --accent-soft: 232 184 74; /* #E8B84A — lifted ochre, for a chip's own tint */
-  --accent-fg: 27 27 27; /* #1B1B1B — off-black label on a cream fill */
+  --accent: 255 255 255; /* #FFFFFF — the site's own white */
+  --accent-hover: 232 228 216; /* #E8E4D8 — a step down off white for fill hover */
+  --accent-soft: 255 255 255; /* no lifted variant needed */
+  --accent-fg: 27 27 27; /* #1B1B1B — off-black label on a white fill */
+  --brand: 255 255 255; /* #FFFFFF — the logo square, the peak, heading rules */
 
   /* Hairlines go with the greys. A card on a near-black page no longer needs a
      stroke to be a card — the surface step does that — so the edge drops to a
@@ -247,16 +256,18 @@
   color: #1b1b17;
 }
 
-/* Website palette, DARK: the fill accent is cream, and cream is also the body
-   copy — so a link painted in it would not read as a link. Interactive text
-   takes ochre, the one brand colour that carries small text on off-black
-   (6.70:1, guide p.15). Fills, borders and rings stay cream.
-   Two classes plus an attribute outrank the bare `.text-accent` utility, so
-   this holds wherever Tailwind emits it. */
-[data-palette="website"].dark .text-accent,
-[data-palette="website"].dark .hover\:text-accent:hover,
-[data-palette="website"].dark .group:hover .group-hover\:text-accent {
-  color: #cf9803;
+/* Website palette, LIGHT: the rule above redirects `text-accent` to `#1b1b17`
+   for every palette, which is this palette's BODY copy — a link would land on
+   exactly the colour of the sentence holding it. Take the accent's own pure
+   black instead, one step past the text.
+   The leading `html` is what makes this outrank the rule above; the two are
+   otherwise the same specificity, and stylesheet order is not something to
+   lean on (see CLAUDE.md). Dark needs no rule at all: `--accent` is white
+   there, which is already correct for text. */
+html[data-palette="website"]:not(.dark) .text-accent,
+html[data-palette="website"]:not(.dark) .hover\:text-accent:hover,
+html[data-palette="website"]:not(.dark) .group:hover .group-hover\:text-accent {
+  color: #000000;
 }
 
 /* --- Website palette, type ----------------------------------------------
@@ -318,6 +329,14 @@ body {
      themes, so a new palette is a token block and nothing else. */
   background: rgb(var(--page));
   color: rgb(var(--page-fg));
+  /* No colour emoji anywhere. A glyph like ⚠ or ✓ has TWO presentations, and
+     the platform picks the colour one by default (or whenever a U+FE0F
+     variation selector follows it). This asks for the text presentation, so
+     those glyphs paint in `currentColor` like the words around them.
+     It is a safety net, not the rule: a codepoint that is emoji-ONLY (📎, 📷,
+     🎉) has no text presentation to fall back to and will still render in
+     colour. Do not add one — see the icon rule in CLAUDE.md. */
+  font-variant-emoji: text;
   /* Unconditional, so no page can hide its last row behind the tab bar — each
      page's own `pb-*` stacks on top of this rather than having to include it. */
   padding-bottom: var(--tabbar-h);

@@ -3,11 +3,14 @@
  * the icon square next to the wordmark, equal in height and visual weight.
  *
  * The mountain icon is drawn inline as SVG so it stays crisp at any size (the
- * guide allows the icon down to 20px) and reads correctly in both themes. The
- * square is brand OCHRE in both themes with the peak knocked out in off-black —
- * p.17's ochre pairing, 6.70:1. The mark does not change color when the theme
- * flips; only the ground behind it does. The wordmark is off-black on light /
- * cream on dark (both AA-safe per the type-pairing page).
+ * guide allows the icon down to 20px) and reads correctly in both themes. Its
+ * square is `brand` and its knocked-out peak is `accent-fg` — the same pair
+ * every filled accent in the app uses, so the mark is right in any palette
+ * without this file knowing a colour. Under the Guidelines palette that
+ * resolves to p.17's pairing, an ochre square with an off-black peak at
+ * 6.70:1; under the Website palette it is black-on-cream, or white-on-black in
+ * the dark. The wordmark is off-black on light / cream on dark (both AA-safe
+ * per the type-pairing page).
  *
  * `tone="white"` is the single-color REVERSED lockup: white square, peak
  * knocked out in black, white wordmark. It ignores the theme, for use on a
@@ -68,11 +71,16 @@ export function AscentIcon({
         <rect width="100" height="100" className="fill-brand" />
       )}
       {/* Notched double-peak mountain, knocked out of the brand square. The
-          square is ochre in BOTH themes, and p.17 pairs an ochre square with an
-          OFF-BLACK peak — so the knockout is off-black in both, at 6.70:1. It
-          is never cream: cream on ochre is the 2.41:1 pairing p.16 restricts.
-          The reversed lockup is its own pair: black peak on a white square. */}
-      <polygon points="18,74 40,41 46,47 56,30 82,74" fill={white ? "#000000" : "#1B1B17"} />
+          knockout is `accent-fg` — the token for "the label ON a filled brand
+          shape" — so it tracks the square instead of naming a colour. That is
+          what keeps it legible when a palette makes the square black or white:
+          hardcoding off-black here painted a near-invisible peak on a black
+          square. The reversed lockup is its own fixed pair, black on white. */}
+      {white ? (
+        <polygon points="18,74 40,41 46,47 56,30 82,74" fill="#000000" />
+      ) : (
+        <polygon points="18,74 40,41 46,47 56,30 82,74" className="fill-accent-fg" />
+      )}
     </svg>
   );
 }

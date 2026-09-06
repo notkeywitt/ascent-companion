@@ -127,12 +127,13 @@ branch's record, so the next session can pick the work up cold. Read
   what the token already does.
 - **TWO palettes, and every colour rule below describes the DEFAULT one.**
   `data-palette="website"` on `<html>` swaps the whole token set for a second
-  palette read off ascentbuildingco.com, where the accent is off-black and ochre
-  falls back to being the mark. It is a per-device choice (Appearance, on the
-  home page). What this means when you write a component: reach for the TOKEN
-  (`accent`, `brand`, `line`, `ink`, `accent-fg`), never the literal (`ochre`,
-  `offblack`), or your view will only be right in one palette. `THEME.md`
-  carries both palettes and how to add a third.
+  palette read off ascentbuildingco.com, which is **black and white with no
+  chroma at all** — the accent AND the mark. It is a per-device choice
+  (Appearance, on the home page). What this means when you write a component:
+  reach for the TOKEN (`accent`, `brand`, `line`, `ink`, `accent-fg`), never the
+  literal (`ochre`, `offblack`), or your view will only be right in one palette
+  — and never assume `brand` is a hue, because in one palette it is black.
+  `THEME.md` carries both palettes and how to add a third.
 - **One brand hue, two grounds.** OCHRE is BOTH the interactive accent and the
   graphic `brand` hue, in BOTH themes; the theme swaps the ground, not the color
   (guide p.15 passes ochre on off-black at 6.70:1, and blocks it on cream at
@@ -148,6 +149,15 @@ branch's record, so the next session can pick the work up cold. Read
   every `neutral` step with a brand-warm equivalent solved to the same relative
   luminance, so contrast is unchanged and the grey stops reading blue. Keep using
   `text-neutral-500` / `dark:text-neutral-400` for quiet text — they're warm now.
+- **No colour emoji. Every mark is flat monochrome, in both palettes and both
+  themes.** A mark paints in `currentColor` and gets its colour from the text
+  around it — so it is a text glyph (`→ ↗ ✓ ✕ ⚠ ⚑ ★`) or an inline SVG, never
+  an emoji. Two traps: a U+FE0F variation selector after a dual-presentation
+  glyph (`⚠️`) forces the colour form, so leave it off; and an emoji-ONLY
+  codepoint (📎 📷 🎉 👤 🌐 ➕ ❗ ✅ ❌) has no text form at all and will render in
+  colour whatever the CSS says — `font-variant-emoji: text` on `body` cannot
+  save it. If the neighbouring words already say it, drop the mark; that is what
+  the site does, which uses no icons at all.
 - **Nav:** the home launcher lists EVERY view, from `AREAS` in `src/lib/nav.ts`
   (a shared module, because the header's search reads the same list);
   `src/components/TabBar.tsx` is the

@@ -35,6 +35,25 @@ match it in the layout.tsx script, and record it here. No component changes.
 
 ---
 
+## Marks are monochrome — every palette, every theme
+
+No colour emoji anywhere in the app (owner, 2026-09-06). A mark paints in
+`currentColor` and takes its colour from the text around it, so it is a text
+glyph (`→ ↗ ✓ ✕ ⚠ ⚑ ★`) or an inline SVG — never an emoji.
+
+Two traps, both silent:
+
+- A **U+FE0F variation selector** after a dual-presentation glyph (`⚠️` rather
+  than `⚠`) forces the colour form. Leave it off.
+- An **emoji-only codepoint** (📎 📷 🎉 👤 🌐 ➕ ❗ ✅ ❌) has no text form at all
+  and renders in colour whatever the CSS says. `font-variant-emoji: text` on
+  `body` covers the first case and cannot save this one.
+
+Where the neighbouring words already say it, the mark is dropped rather than
+replaced — which is also what the site does, using no icons at all.
+
+---
+
 ## Palette 1 — "Guidelines" (shipped 2026-09-05, the default)
 
 Built from **ASCENT - Brand Guidelines - 2024** (Claiborne Colombo, May 2024),
@@ -170,23 +189,29 @@ titles uppercase at `.3em`, buttons uppercase at `.15em` with a 6.8px radius.
 
 ### The one rule this palette turns on
 
-**Off-black is what you click. Ochre is the mark.** That is the inversion: same
-two grounds as palette 1, opposite accent. On the site the button is a solid
-off-black block with a cream label, and ochre survives only in the logo.
+**Black and white, with no chroma at all.** Same two grounds as palette 1, and
+nothing else. On the site the button is a solid off-black block with a cream
+label; the accent follows it, and the MARK follows the accent.
 
-Off-black on cream is **15.9:1**, so unlike ochre this accent carries small text
-as well as fills — light mode needs no `text-accent` redirect.
+It shipped on 2026-09-06 with ochre kept as `brand` — the logo square, the peak
+and the heading rules — because that is the one place the site itself still
+uses it. The owner removed it the same day. There is now no hue in this palette.
+
+That costs the usual way of showing a link, so the accent sits a step **past**
+the body copy rather than equal to it: pure black under `#1B1B1B` text in light,
+pure white over `#FAF7EE` text in dark. A link separates by value, not by hue —
+which is what the site itself does, where a link is simply the ink.
 
 ### Theme roles
 
 | Var | Light | Dark | Note |
 |---|---|---|---|
-| `--accent` | `#1B1B1B` | `#FAF7EE` | fills, borders, rings, tints |
-| `--accent-hover` | `#3A3A38` | `#FFFFFF` | one step off the ground |
-| `--accent-soft` | `#1B1B1B` | `#E8B84A` | dark: lifted ochre, for a chip's own tint |
+| `--accent` | `#000000` | `#FFFFFF` | fills, borders, rings, tints |
+| `--accent-hover` | `#2B2B2B` | `#E8E4D8` | one step off the fill |
+| `--accent-soft` | `#000000` | `#FFFFFF` | no lifted variant: b/w needs none |
 | `--accent-fg` | `#FAF7EE` | `#1B1B1B` | the label ON a fill — inverted from palette 1 |
-| `--brand` | `#CF9803` | `#CF9803` | unchanged: the logo, peak mark and rules stay ochre |
-| `text-accent` | `#1B1B1B` | `#CF9803` | see below |
+| `--brand` | `#000000` | `#FFFFFF` | the logo square, the peak mark, heading rules |
+| `text-accent` | `#000000` | `#FFFFFF` | one step past the body copy — see below |
 | `--line` | `#ECE7DB` | `#242424` | card edge |
 | `--line-soft` | `#F4F0E7` | `#232323` | row divider inside a card |
 | `--line-strong` | `#DBD3C2` | `#333333` | form controls |
@@ -230,13 +255,13 @@ the neutral one.
 
 The site has no dark mode. This half inverts the rule the site does state:
 there the ground is cream and the thing you click is the ink, so here the
-ground is the ink and the thing you click is the cream — a cream button with an
-off-black label, at 15.9:1.
+ground is the ink and the thing you click is the light — a white button with an
+off-black label.
 
-Interactive **text** cannot follow it. Cream is also the body copy, so a cream
-link would not read as a link. It takes **ochre** instead — the one brand
-colour that carries small text on off-black (6.70:1, guide p.15). That is the
-same split-by-use palette 1 runs in light, mirrored.
+**White, not the cream of the body copy.** With no hue to fall back on, the
+accent earns its separation from the surrounding sentence by value alone, so it
+sits one step brighter than the text — the mirror of light, where it is one step
+darker.
 
 ### Type
 
@@ -255,18 +280,29 @@ JobTread", and upper-casing that wraps it on a phone.
 
 | Pair | Ratio | |
 |---|---|---|
-| Off-black on cream | 15.91:1 | AAA |
-| Cream on off-black | 15.91:1 | AAA |
-| Cream label on an off-black fill | 15.91:1 | AAA |
-| Off-black label on a cream fill | 15.91:1 | AAA |
+| Black link on cream | 19.60:1 | AAA |
+| Cream label on a black fill | 19.60:1 | AAA |
+| Black on the white card | 21.00:1 | AAA |
 | Cream body copy on the dark page | 18.48:1 | AAA |
 | Cream body copy on a dark card | 16.08:1 | AAA |
-| Ochre link on the dark page | 7.68:1 | AA |
-| Ochre link on a dark card | 6.68:1 | AA |
-| `accent-soft` on a dark `bg-accent/15` chip | 6.85:1 | AA |
-| Ochre mark on cream | 2.41:1 | graphics only — the logo, never text |
+| White link on the dark page | 19.80:1 | AAA |
+| White link on a dark card | 17.22:1 | AAA |
+| Off-black label on a white fill | 17.22:1 | AAA |
+
+Nothing in this palette is near a limit — which is the point of dropping the
+hue. Palette 1's tight pairings were all ochre's.
+
+### The mark
+
+The logo's square is `brand` and its knocked-out peak is `accent-fg` — the same
+pair every filled accent in the app uses. `AscentLogo` names no colour of its
+own, so the mark is right in any palette: an ochre square with an off-black
+peak under palette 1, black-on-cream here, white-on-black in the dark. It used
+to hardcode that peak as off-black, which painted a near-invisible peak the
+moment the square went black.
 
 ### What is unpainted
 
-Olive, same as palette 1 — the site defines it and paints nothing with it.
-White (`#FFFFFF`) is used, as the card.
+Olive and **ochre**, both. Olive the site defines and never paints; ochre it
+paints on the logo, and this palette does not. Palette 1 is where the brand hue
+lives.
