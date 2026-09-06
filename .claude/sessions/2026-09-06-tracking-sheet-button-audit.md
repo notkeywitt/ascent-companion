@@ -4,9 +4,9 @@ repo: ascent-companion
 branch: claude/tracking-sheet-button-audit-ufg3yl
 status: shipped
 started: 2026-09-06T15:59:56Z
-updated: 2026-09-06T18:03:51Z
+updated: 2026-09-06T18:55:25Z
 goal: audit the tracking sheet page's buttons and re-lay them out for desktop workflow
-next: Bulk tools now head the line list on both bill surfaces. Still unverified against a real bill: the write checklist in section 5.3 (save, combine, delete, buyback, approve, move-to-job, needs-review)
+next: Combine now stages and Save applies it, on all three surfaces. NOT on main — write-path change. Test: stage a merge, check the lines lock, Revert takes it back, Save merges them, and a merge saved alongside a qty edit on a DIFFERENT line lands both
 ---
 
 ## Log
@@ -23,6 +23,8 @@ next: Bulk tools now head the line list on both bill surfaces. Still unverified 
 - 2026-09-06 17:06 · `258d2eb` companion: log session — bill panel merge held for review
 - 2026-09-06 18:03 · `9216ad4` companion: put Recode All Lines and Combine above the line list
   src/app/trackingsheet/BillCodingCard.tsx
+- 2026-09-06 18:55 · `c49ce1e` companion: reorder the line row, and make Combine stage like every other edit
+  src/app/bill/[docId]/page.tsx, src/app/trackingsheet/BillCodingCard.tsx, src/app/trackingsheet/Board.tsx, src/app/trackingsheet/DraftWorkbench.tsx, src/lib/combineLines.ts
 
 ## Notes
 - 2026-09-06 17:05 — Held the bill-panel merge off main: CLAUDE.md says stop and ask before pushing a JobTread write path. Branch claude/tracking-sheet-button-audit-ufg3yl, commit 6b88fce.
