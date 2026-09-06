@@ -26,27 +26,41 @@ export default {
         olive: "#878054",
         ochre: "#CF9803",
         webgrey: "#8D8D8B",
-        // Tailwind's stock `neutral` is a PURE grey (R=G=B). On this palette's
-        // warm cream and warm off-black grounds it reads cold and blue, and it
-        // is the app's most-used color — ~370 text sites plus the surface and
-        // border fills. These replacements are the same ramp rotated onto the
-        // brand's warm axis (hue 48°, between ochre's 44° and olive's 52°),
-        // with each step solved to hold the stock step's RELATIVE LUMINANCE.
-        // Matching luminance is the point: every existing contrast ratio is
-        // preserved to within 0.01, so nothing that passed AA stops passing —
-        // the grey only loses its blue cast. Saturation tapers at the pale end
-        // so white and near-white surfaces don't read as yellowed.
+        // Tailwind's stock `neutral` is a PURE grey (R=G=B), which reads cold
+        // and blue on this palette's warm grounds. This ramp keeps the brand's
+        // warm axis (hue 48°, between ochre's 44° and olive's 52°) but carries
+        // only a TRACE of it — saturation 0.035, down from the first pass's
+        // 0.12. That pass was too warm on the dark ground: quiet text read
+        // khaki against the off-black instead of grey. This is far enough off
+        // pure grey to kill the blue cast, not far enough to have a colour.
+        //
+        // Lightness moves for TWO steps only. 300 and 400 are what dark mode
+        // paints as quiet text (400 alone covers ~219 sites), and they sat too
+        // bright to recede from the body copy — both drop 0.075 in HSL
+        // lightness. 400 lands at 5.55:1 on the page and 300 at 9.70:1, both
+        // still AA.
+        //
+        // Every OTHER step holds the stock step's relative luminance, and the
+        // reasons are load-bearing:
+        //   • 500 is written BARE (no `dark:` sibling) at ~390 sites, so it
+        //     renders in dark mode too, where it is already only 3.64:1.
+        //     Darkening it would push a lot of quiet text further down.
+        //   • 600/700/800 are dark mode's borders and fills, not its text.
+        //     They have to stay LIGHTER than the page (#1B1B17) or a card
+        //     sinks below its own background and 70 borders stop being
+        //     visible. Darkening them would invert the surface scale.
+        //   • 50-200 are light-mode surfaces; the owner asked about dark.
         neutral: {
           50: "#FAFAFA",
           100: "#F5F5F4",
-          200: "#E6E5E2",
-          300: "#D6D4CD",
-          400: "#A8A390",
-          500: "#78735F",
-          600: "#565243",
-          700: "#434035",
-          800: "#282620",
-          900: "#181714",
+          200: "#E5E5E4",
+          300: "#C3C2BF",
+          400: "#94928C",
+          500: "#75736D",
+          600: "#53524E",
+          700: "#41403D",
+          800: "#272624",
+          900: "#171716",
           950: "#0A0A09",
         },
         // Active-theme accent — ochre in both themes (see the note above).
