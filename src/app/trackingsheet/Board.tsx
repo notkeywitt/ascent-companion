@@ -83,6 +83,7 @@ import {
 } from "@/lib/codingDraft";
 import { isSalesTaxLine, SALES_TAX_LINE_NAME } from "@/lib/salesTax";
 import { billingMonths, issueDateFor, monthLabel } from "@/lib/billingMonths";
+import { buildCombine, postCombine, type CombineRequest } from "@/lib/combineLines";
 
 /**
  * Invoicing coding board — the desktop workbench for deciding which cost code
@@ -395,6 +396,8 @@ export function Board() {
   const [edits, setEdits] = useState<Record<string, LineEdit | undefined>>({});
   /** docId → in-flight sales-tax text, staged the same way as edits/staged. */
   const [taxEdits, setTaxEdits] = useState<Record<string, string>>({});
+  /** The merge waiting for Save — see combineRows. */
+  const [combinePending, setCombinePending] = useState<CombineRequest | null>(null);
   const [openDocId, setOpenDocId] = useState<string | null>(null);
   const [mode, setMode] = useState<"bill" | "code" | "summary">("bill");
   /**
@@ -570,9 +573,14 @@ export function Board() {
     return round2(Number(v) || 0) !== round2(billTax(bill));
   });
   const dirty =
-    staged.size > 0 || timeStaged.size > 0 || Object.keys(edits).length > 0 || taxDirty;
-  /** Everything Sync would write, for the toolbar's chip. */
-  const stagedCount = staged.size + timeStaged.size;
+    staged.size > 0 ||
+    timeStaged.size > 0 ||
+    Object.keys(edits).length > 0 ||
+    taxDirty ||
+    combinePending !== null;
+  /** Everything Sync would write, for the toolbar's chip. A staged merge counts
+   *  as one change however many lines it folds together — it is one decision. */
+  const stagedCount = staged.size + timeStaged.size + (combinePending ? 1 : 0);
   // Still worth a prompt — leaving means the coding hasn't reached JobTread —
   // but it no longer says "lose them", because it isn't true any more: the
   // autosave below has already put the work somewhere it survives (see
@@ -1437,51 +1445,31 @@ export function Board() {
   // Combine WRITES immediately (unlike a recode) — it's a structural line
   // merge (delete + sum), not a "which code" decision worth trying on and
   // reverting, and the bill page's combine has always worked this way.
-  const combineRows = async () => {
-    const sel = combineSelected.map((id) => combineById.get(id)).filter((l): l is JobBillLine => !!l);
-    if (sel.length < 2 || !openBill) return;
-    const codeId = leafOf(sel[0]);
-    if (!codeId || !sel.every((l) => leafOf(l) === codeId)) return; // mixed codes
-    const keep = sel[0];
-    const deleteIds = sel.slice(1).map((l) => l.id);
-    const extendedCost = round2(sel.reduce((s, l) => s + l.cost, 0));
-    const name =
-      sel
-        .map((l) => (l.name || "").trim())
-        .filter(Boolean)
-        .join(" + ")
-        .substring(0, 250) || "Line item";
-    const description = descriptionForCode(codeId, data?.budget ?? []);
-
-    setCombining(true);
+  /**
+   * STAGE the merge. It used to POST straight to /api/combine-lines, which made
+   * it the one edit in the coding card that Revert could not take back. It is
+   * held here now and applied by sync() AFTER the line writes — combining
+   * deletes lines, so running it first would leave those writes naming ids that
+   * no longer exist.
+   */
+  const combineRows = () => {
+    const sel = combineSelected
+      .map((id) => combineById.get(id))
+      .filter((l): l is JobBillLine => !!l);
+    if (!openBill) return;
+    const req = buildCombine(openBill.id, sel, leafOf, (leafId) =>
+      descriptionForCode(leafId, data?.budget ?? []),
+    );
+    if (!req) return;
     setCombineMsg("");
-    try {
-      const res = await fetch("/api/combine-lines", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          docId: openBill.id,
-          keepId: keep.id,
-          deleteIds,
-          name,
-          extendedCost,
-          jobCostItemId: codeId || undefined,
-          description,
-        }),
-      });
-      const json = await res.json();
-      if (!res.ok) setCombineMsg(json.error ?? "Combine failed");
-      else if (json.previewed)
-        setCombineMsg("Preview only — writes are OFF. Nothing was combined in JobTread.");
-      else {
-        setCombineSelected([]);
-        await load({ preserveStaged: true });
-      }
-    } catch (e) {
-      setCombineMsg(e instanceof Error ? e.message : "Network error");
-    } finally {
-      setCombining(false);
-    }
+    setCombinePending(req);
+    setCombineSelected([]);
+  };
+
+  /** Drop the staged merge. Revert clears it too, with everything else. */
+  const cancelCombine = () => {
+    setCombinePending(null);
+    setCombineMsg("");
   };
 
   // Delete a single line from the open bill — ported from the bill page.
@@ -2000,6 +1988,8 @@ export function Board() {
     combining,
     combineRows,
     combineMsg,
+    combinePending,
+    cancelCombine,
     buybackId,
     buybackLineById,
     deletingLineId,
@@ -2033,6 +2023,8 @@ export function Board() {
     setTimeSelected(new Set());
     setEdits({});
     setTaxEdits({});
+    setCombinePending(null);
+    setCombineMsg("");
     setSyncMsg(null);
     setRestoreMsg(null);
     // Revert is the one place the office says "I don't want this work" — so it
@@ -2270,6 +2262,7 @@ export function Board() {
     }
 
     let ok = 0;
+    let combineOk = 0;
     const failures: string[] = [];
     for (const [docId, { changes, codingLog }] of byDoc) {
       try {
@@ -2356,6 +2349,27 @@ export function Board() {
       }
     }
 
+    // THE STAGED MERGE GOES LAST, after every line write.
+    //
+    // Ordering matters and this is the safe end. Combining DELETES lines, so
+    // running it first would leave the whole-bill push above posting updates
+    // against ids that no longer exist — and it could not simply skip them,
+    // because `data` in this closure is the list from before the merge. Run
+    // last, every write above targets a line that still exists, and the merge
+    // then collapses them. The card blocks edits on a line a staged merge
+    // touches, so the summed cost it carries cannot go stale in between.
+    let combineErr = "";
+    if (combinePending) {
+      setCombining(true);
+      combineErr = await postCombine(combinePending);
+      setCombining(false);
+      setCombineMsg(combineErr);
+      if (!combineErr) {
+        setCombinePending(null);
+        combineOk = combinePending.deleteIds.length + 1;
+      }
+    }
+
     setSyncing(false);
     // Same step, in order: the coding just landed in JobTread, so pull the
     // month into the Tracking Sheet too — it reads costCode off each bill
@@ -2363,7 +2377,7 @@ export function Board() {
     // Gated on ANY successful write, not just line recodes: a tax-only sync
     // still changes what the sheet should report, and gating on `ok` alone
     // silently skipped it.
-    if (trackingTarget && (ok > 0 || taxOk > 0 || timeOk > 0)) {
+    if (trackingTarget && (ok > 0 || taxOk > 0 || timeOk > 0 || combineOk > 0)) {
       const [y, m] = ym.split("-").map(Number);
       runTrackingSync(trackingTarget.projectId, m, y, setTrackingSync);
     }
@@ -2371,7 +2385,9 @@ export function Board() {
     if (ok > 0) parts.push(`${ok} line${ok === 1 ? "" : "s"}`);
     if (timeOk > 0) parts.push(`${timeOk} time ${timeOk === 1 ? "entry" : "entries"}`);
     if (taxOk > 0) parts.push(`${taxOk} tax edit${taxOk === 1 ? "" : "s"}`);
+    if (combineOk > 0) parts.push(`${combineOk} lines merged`);
     const summary = parts.length ? parts.join(" + ") : "0 changes";
+    if (combineErr) failures.push(`Combine: ${combineErr}`);
     if (failures.length === 0) {
       setSyncMsg({ tone: "success", text: `Synced ${summary} to JobTread.` });
       setRestoreMsg(null);

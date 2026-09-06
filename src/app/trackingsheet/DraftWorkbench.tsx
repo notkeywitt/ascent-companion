@@ -5,6 +5,7 @@ import { jobLabel, type JobRef } from "@/components/JobPicker";
 import { type Option } from "@/components/CostCodeSelect";
 import { useCopy } from "@/components/CopyProvider";
 import { billingMonths, issueDateFor } from "@/lib/billingMonths";
+import { buildCombine, postCombine, type CombineRequest } from "@/lib/combineLines";
 import {
   BillCodingCard,
   money,
@@ -176,6 +177,10 @@ export interface BillEditor {
    * src/lib/codingDraft.ts.
    */
   restored: { kept: number; dropped: number; savedAt: string } | null;
+  /** The merge waiting for Save. Held by the EDITOR, not the card, because
+      `save` is what applies it — see combineRows in the panel below. */
+  combinePending: CombineRequest | null;
+  setCombinePending: React.Dispatch<React.SetStateAction<CombineRequest | null>>;
   dismissRestored: () => void;
   saving: boolean;
   saveMsg: string;
@@ -207,6 +212,9 @@ export function useBillEditor(
   const [error, setError] = useState("");
   const [picked, setPicked] = useState<Record<string, string>>({});
   const [edits, setEdits] = useState<Record<string, LineEdit | undefined>>({});
+  /** The merge waiting for Save — see combineRows in the coding panel. It lives
+   *  here with the other staged state because `save` is what applies it. */
+  const [combinePending, setCombinePending] = useState<CombineRequest | null>(null);
   const [taxEdit, setTaxEdit] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState("");
@@ -304,7 +312,9 @@ export function useBillEditor(
     [codeableLines, storedTax, legacyTaxField, taxView, header?.status, edits, picked, budget],
   );
 
-  const changeCount = math.pendingCount + (taxChanged ? 1 : 0);
+  // A staged merge counts as one change however many lines it folds
+  // together — it is one decision.
+  const changeCount = math.pendingCount + (taxChanged ? 1 : 0) + (combinePending ? 1 : 0);
 
   // ---- durable drafts -----------------------------------------------------
   /**
@@ -398,7 +408,12 @@ export function useBillEditor(
 
   const save = useCallback(async () => {
     if (!docId) return;
-    if (math.wholeBillChanges.length === 0 && !taxChanged && !needsTaxMigration) {
+    if (
+      math.wholeBillChanges.length === 0 &&
+      !taxChanged &&
+      !needsTaxMigration &&
+      !combinePending
+    ) {
       setSaveMsg("Nothing to save.");
       return;
     }
@@ -465,7 +480,22 @@ export function useBillEditor(
       } else if (draftKey) {
         discardDraft(draftKey); // it's in JobTread now — nothing left to hold
       }
-      setSaveMsg(failed ? `Saved, ${failed} line(s) failed.` : "Saved.");
+      // THE STAGED MERGE GOES LAST, after every line write. Combining deletes
+      // lines, so running it first would post updates against ids that no
+      // longer exist. The card locks the lines it touches, so its summed cost
+      // cannot go stale in between.
+      let combineErr = "";
+      if (combinePending) {
+        combineErr = await postCombine(combinePending);
+        if (!combineErr) setCombinePending(null);
+      }
+      setSaveMsg(
+        combineErr
+          ? `Saved the lines, but the merge failed. ${combineErr}`
+          : failed
+            ? `Saved, ${failed} line(s) failed.`
+            : "Saved.",
+      );
       markBillTouched(docId);
       hRef.current.onSaved?.(docId);
       // Re-read JobTread's truth, so the rail and the totals reflect the write.
@@ -477,7 +507,7 @@ export function useBillEditor(
     } finally {
       setSaving(false);
     }
-  }, [docId, jobId, draftKey, math, taxChanged, needsTaxMigration, taxView, lines, picked, budget, fetchInto]);
+  }, [docId, jobId, draftKey, math, taxChanged, needsTaxMigration, taxView, lines, picked, budget, fetchInto, combinePending]);
 
   /** Re-read this bill from JobTread, keeping the staged edits on screen. */
   const reload = useCallback(async () => {
@@ -534,6 +564,8 @@ export function useBillEditor(
     math,
     changeCount,
     restored,
+    combinePending,
+    setCombinePending,
     dismissRestored: () => setRestored(null),
     saving,
     saveMsg,
@@ -833,11 +865,14 @@ export function DraftBudgetRail({ editor, sel }: { editor: BillEditor; sel: Sele
  * behind it: the queue's own coding state (which is saved a bill at a time,
  * not staged for a page-level Sync) and the structural writes the card offers.
  *
- * Those writes go to the same endpoints the board uses — /api/combine-lines,
- * /api/delete-line, /api/add-line, /api/buyback, /api/bill-issuedate,
- * /api/bill-number, /api/reassign-job — with the same confirms. What differs
- * is what happens afterwards: the board reloads a month, this reloads one bill
- * and tells the queue its row may have changed.
+ * Those writes go to the same endpoints the board uses — /api/delete-line,
+ * /api/add-line, /api/buyback, /api/bill-issuedate, /api/bill-number,
+ * /api/reassign-job — with the same confirms. What differs is what happens
+ * afterwards: the board reloads a month, this reloads one bill and tells the
+ * queue its row may have changed.
+ *
+ * Combining is NOT in that list any more. It stages like a recode and `save`
+ * applies it (/api/combine-lines), so Revert can take it back.
  */
 export function DraftCodingPanel({
   editor,
@@ -896,7 +931,6 @@ export function DraftCodingPanel({
   // ---- the card's own transient state ------------------------------------
   const [bulkCode, setBulkCode] = useState("");
   const [combineSelected, setCombineSelected] = useState<string[]>([]);
-  const [combining, setCombining] = useState(false);
   const [combineMsg, setCombineMsg] = useState("");
   const [buybackId, setBuybackId] = useState("");
   const [deletingLineId, setDeletingLineId] = useState("");
@@ -1050,49 +1084,29 @@ export function DraftCodingPanel({
   const toggleCombineSel = (id: string) =>
     setCombineSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
 
-  const combineRows = async () => {
+  /**
+   * STAGE the merge. It used to POST straight to /api/combine-lines, which made
+   * it the one edit in this workbench that Revert could not take back. It is
+   * held here now and `save` applies it, AFTER the line writes — see there.
+   */
+  const combineRows = () => {
     const chosen = combineSelected
       .map((id) => combineById.get(id))
       .filter((l): l is CodingLine => !!l);
-    if (chosen.length < 2 || !header) return;
-    const codeId = leafOf(chosen[0]);
-    if (!codeId || !chosen.every((l) => leafOf(l) === codeId)) return; // mixed codes
-    const keep = chosen[0];
-    const name =
-      chosen
-        .map((l) => l.name.trim())
-        .filter(Boolean)
-        .join(" + ")
-        .substring(0, 250) || "Line item";
-    setCombining(true);
+    if (!header) return;
+    const req = buildCombine(docId, chosen, leafOf, (leafId) =>
+      descriptionForCode(leafId, budget),
+    );
+    if (!req) return;
     setCombineMsg("");
-    try {
-      const res = await fetch("/api/combine-lines", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          docId,
-          keepId: keep.id,
-          deleteIds: chosen.slice(1).map((l) => l.id),
-          name,
-          extendedCost: round2(chosen.reduce((s, l) => s + l.cost, 0)),
-          jobCostItemId: codeId || undefined,
-          description: descriptionForCode(codeId, budget),
-        }),
-      });
-      const json = await res.json();
-      if (!res.ok) setCombineMsg(json.error ?? "Combine failed");
-      else if (json.previewed)
-        setCombineMsg("Preview only — writes are OFF. Nothing was combined in JobTread.");
-      else {
-        setCombineSelected([]);
-        await reload();
-      }
-    } catch (e) {
-      setCombineMsg(e instanceof Error ? e.message : "Network error");
-    } finally {
-      setCombining(false);
-    }
+    editor.setCombinePending(req);
+    setCombineSelected([]);
+  };
+
+  /** Drop the staged merge without saving. */
+  const cancelCombine = () => {
+    editor.setCombinePending(null);
+    setCombineMsg("");
   };
 
   // ---- delete / add / buyback --------------------------------------------
@@ -1368,9 +1382,11 @@ export function DraftCodingPanel({
     combineCodeSet,
     combineHasEdit,
     canCombine,
-    combining,
+    combining: false,
     combineRows,
     combineMsg,
+    combinePending: editor.combinePending,
+    cancelCombine,
     buybackId,
     buybackLineById,
     deletingLineId,

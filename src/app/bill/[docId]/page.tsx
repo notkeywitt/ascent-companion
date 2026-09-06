@@ -22,6 +22,7 @@ import {
 import { TrackingSheetSyncFor } from "@/components/TrackingSheetSync";
 import { billLineMath, recodeLog } from "@/lib/billLineMath";
 import { billingMonths, issueDateFor, monthLabel } from "@/lib/billingMonths";
+import { buildCombine, postCombine, type CombineRequest } from "@/lib/combineLines";
 import {
   BillCodingCard,
   type CodingCardCtl,
@@ -256,7 +257,8 @@ function BillDetail() {
   const [addLineSaving, setAddLineSaving] = useState(false);
   const [addLineMsg, setAddLineMsg] = useState("");
   const [selected, setSelected] = useState<string[]>([]); // line ids checked to combine
-  const [combining, setCombining] = useState(false);
+  /** The merge waiting for Save — see combineRows. */
+  const [combinePending, setCombinePending] = useState<CombineRequest | null>(null);
   const [combineMsg, setCombineMsg] = useState("");
   const [deletingId, setDeletingId] = useState("");
   const [buybackId, setBuybackId] = useState("");
@@ -473,7 +475,9 @@ function BillDetail() {
 
   // Edits made here but not yet pushed. Save stays enabled at zero (it re-sends the bill
   // regardless); this only drives the bar's label and the Discard button.
-  const changeCount = pendingCount + (taxChanged ? 1 : 0);
+  // A staged merge counts as one change however many lines it folds
+  // together — it is one decision, and the bar counts decisions.
+  const changeCount = pendingCount + (taxChanged ? 1 : 0) + (combinePending ? 1 : 0);
 
   // Warn before leaving with unsaved edits (the same changes the sticky Save bar counts)
   // — covers refresh/close, in-app links, and Back/Forward. A reminder that
@@ -862,7 +866,7 @@ function BillDetail() {
   async function saveCoding() {
     // Save is always live, so it can land here with nothing edited — that still re-pushes
     // every line. Only a bill with no lines and no tax change has literally nothing to send.
-    if (allLineChanges.length === 0 && !taxChanged && !needsTaxMigration) {
+    if (allLineChanges.length === 0 && !taxChanged && !needsTaxMigration && !combinePending) {
       setSaveMsg("Nothing to save.");
       return;
     }
@@ -931,7 +935,29 @@ function BillDetail() {
       } else {
         discardDraft(billDraftKey(docId)); // it's in JobTread now
       }
-      setSaveMsg(failed ? `Saved, ${failed} line(s) failed.` : "Saved.");
+      // THE STAGED MERGE GOES LAST, after every line write.
+      //
+      // Combining DELETES lines, so running it first would leave the whole-bill
+      // push above posting updates against ids that no longer exist. Run last,
+      // every write above targets a line that still exists. The card locks the
+      // lines a staged merge touches, so its summed cost cannot go stale in
+      // between.
+      let combineErr = "";
+      if (combinePending) {
+        combineErr = await postCombine(combinePending);
+        setCombineMsg(combineErr);
+        if (!combineErr) {
+          setCombinePending(null);
+          setSelected([]);
+        }
+      }
+      setSaveMsg(
+        combineErr
+          ? `Saved the lines, but the merge failed. ${combineErr}`
+          : failed
+            ? `Saved, ${failed} line(s) failed.`
+            : "Saved.",
+      );
       // The stored flag only records a LINE write (same rule the coding queue uses),
       // so flip the marker optimistically on that condition; loadBill re-reads it.
       if (allLineChanges.length && failed < allLineChanges.length) setSaved(true);
@@ -984,58 +1010,27 @@ function BillDetail() {
   const toggleSel = (id: string) =>
     setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
 
-  async function combineRows() {
+  /**
+   * STAGE the merge. It used to POST straight to /api/combine-lines, which made
+   * it the one edit on this page that Discard could not take back. It is held
+   * here now and saveCoding applies it, AFTER the line writes — see there.
+   */
+  function combineRows() {
     const sel = selected.map((id) => byId.get(id)).filter(Boolean) as Line[];
-    if (sel.length < 2) return;
-    const codeId = effCode(sel[0]);
-    if (!codeId || !sel.every((l) => effCode(l) === codeId)) return; // mixed codes
-    const keep = sel[0];
-    const deleteIds = sel.slice(1).map((l) => l.id);
-    // Sum the lines' stored costs so the bill total (and subtotal) is unchanged.
-    const extendedCost = round2(sel.reduce((s, l) => s + (l.cost ?? 0), 0));
-    const name = sel
-      .map((l) => (l.name || "").trim())
-      .filter(Boolean)
-      .join(" + ")
-      .substring(0, 250) || "Line item";
-    const opt = budget.find((o) => o.id === codeId);
-    const description = opt ? (opt.name ? `${opt.number} - ${opt.name}` : opt.number) : undefined;
-
-    setCombining(true);
+    const req = buildCombine(docId, sel, effCode, (leafId) => {
+      const opt = budget.find((o) => o.id === leafId);
+      return opt ? (opt.name ? `${opt.number} - ${opt.name}` : opt.number) : undefined;
+    });
+    if (!req) return;
     setCombineMsg("");
-    try {
-      const res = await fetch("/api/combine-lines", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          docId,
-          keepId: keep.id,
-          deleteIds,
-          name,
-          extendedCost,
-          jobCostItemId: codeId || undefined,
-          description,
-        }),
-      });
-      const json = await res.json();
-      if (!res.ok) setCombineMsg(json.error ?? "Combine failed");
-      else if (json.previewed)
-        setCombineMsg("Preview only — writes are OFF. Nothing was combined in JobTread.");
-      else {
-        setSelected([]);
-        setPicked((p) => {
-          const n = { ...p };
-          [keep.id, ...deleteIds].forEach((id) => delete n[id]);
-          return n;
-        });
-        await loadBill(); // pull the combined line from JobTread
-        reloadJtWindow();
-      }
-    } catch (e) {
-      setCombineMsg(e instanceof Error ? e.message : "Network error");
-    } finally {
-      setCombining(false);
-    }
+    setCombinePending(req);
+    setSelected([]);
+  }
+
+  /** Drop the staged merge. Discard clears it too, with everything else. */
+  function cancelCombine() {
+    setCombinePending(null);
+    setCombineMsg("");
   }
 
   // Delete a single line from the bill (draft only; writes-gated on the server).
@@ -1234,9 +1229,11 @@ function BillDetail() {
     combineCodeSet: selCodeSet,
     combineHasEdit: selHasEdit,
     canCombine,
-    combining,
-    combineRows: () => void combineRows(),
+    combining: false,
+    combineRows,
     combineMsg,
+    combinePending,
+    cancelCombine,
 
     buybackId,
     buybackLineById: (l, name, extended) => {
@@ -1659,6 +1656,9 @@ function BillDetail() {
                     setPicked({});
                     setEdits({});
                     setTaxEdit(null);
+                    setCombinePending(null);
+                    setCombineMsg("");
+                    setSelected([]);
                     setRestored(null);
                     // Discard is the office saying "I don't want this work" — so
                     // the saved draft goes with it, on every device.

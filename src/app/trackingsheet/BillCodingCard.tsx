@@ -254,8 +254,15 @@ export interface CodingCardCtl {
   combineHasEdit: boolean;
   canCombine: boolean;
   combining: boolean;
+  /** STAGE the merge. It no longer writes — the host holds it and Save applies
+      it, before the line writes, because it deletes lines those would target. */
   combineRows: () => void;
   combineMsg: string;
+  /** The merge waiting for Save, so the rows it touches can say so. Null when
+      nothing is staged. */
+  combinePending?: { keepId: string; deleteIds: string[] } | null;
+  /** Drop the staged merge without saving. */
+  cancelCombine?: () => void;
 
   buybackId: string;
   buybackLineById: (l: CodingLine, name: string, extended: number) => void;
@@ -344,6 +351,8 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
     combining,
     combineRows,
     combineMsg,
+    combinePending,
+    cancelCombine,
     buybackId,
     buybackLineById,
     deletingLineId,
@@ -381,6 +390,12 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
   // own code. The button moved to the top of the list; the picker did not.
   const [recodeAllOpen, setRecodeAllOpen] = useState(false);
 
+  // Is the merge PICKER open? The tick boxes used to sit on every combinable
+  // line all the time — a column of empty boxes down a bill nobody was merging,
+  // and the commonest question they raised was "what are these for". "Combine"
+  // opens them now, and it is the only thing that does.
+  const [combineOpen, setCombineOpen] = useState(false);
+
   // The two bill-level tools, now above the list they act on. Each keeps the
   // condition it was rendered on before, so neither appears where it used to
   // be hidden.
@@ -391,6 +406,7 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
   // bill that was on screen, and its pick applies to whatever is open now.
   useEffect(() => {
     setRecodeAllOpen(false);
+    setCombineOpen(false);
   }, [bill?.id]);
 
   return (
@@ -485,31 +501,79 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                   Recode All Lines
                 </Button>
               )}
-              {showCombine && (
+              {/* COMBINE IS TWO STEPS. The first opens the tick boxes on the
+                  lines that can merge; the second stages the merge. Nothing
+                  reaches JobTread from either — Save does that, like every
+                  other edit in this card. */}
+              {showCombine && !combineOpen && !combinePending && (
                 <Button
+                  variant="secondary"
                   size="sm"
                   className="shrink-0 !py-1.5 !text-xs"
-                  onClick={combineRows}
-                  disabled={!canCombine || combining}
+                  onClick={() => setCombineOpen(true)}
+                  title="Merge lines that share a cost code"
                 >
-                  {combining
-                    ? "Combining…"
-                    : `Combine${combineSelected.length >= 2 ? ` (${combineSelected.length})` : ""}`}
+                  Combine
+                </Button>
+              )}
+              {showCombine && combineOpen && !combinePending && (
+                <>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="shrink-0 !py-1.5 !text-xs"
+                    onClick={() => {
+                      setCombineOpen(false);
+                      combineSelected.forEach(toggleCombineSel);
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="shrink-0 !py-1.5 !text-xs"
+                    onClick={() => {
+                      combineRows();
+                      setCombineOpen(false);
+                    }}
+                    disabled={!canCombine || combining}
+                  >
+                    {`Merge${combineSelected.length >= 2 ? ` (${combineSelected.length})` : ""}`}
+                  </Button>
+                </>
+              )}
+              {/* Staged: the only thing left to do here is take it back. Save
+                  applies it; Revert on the host's action bar drops it along
+                  with everything else staged. */}
+              {combinePending && cancelCombine && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="shrink-0 !py-1.5 !text-xs"
+                  onClick={cancelCombine}
+                >
+                  Undo merge
                 </Button>
               )}
             </div>
-            {/* What Combine is waiting for, under the button rather than above
-                it: the tick boxes it refers to are in the list below, so the
-                sentence sits between the two. */}
-            {showCombine && (
+
+            {/* What the button is waiting for, under it rather than above: the
+                tick boxes it refers to are in the list below, so the sentence
+                sits between the two. */}
+            {showCombine && combineOpen && !combinePending && (
               <p className="mt-1.5 text-right text-[11px] text-neutral-500">
                 {combineSelected.length < 2
                   ? "Check 2+ lines with the same code."
                   : combineCodeSet.size > 1
                     ? "Different codes selected."
                     : combineHasEdit
-                      ? "Sync or discard edits first."
+                      ? "Save or discard those lines' edits first."
                       : `Merging ${combineSelected.length} lines.`}
+              </p>
+            )}
+            {combinePending && (
+              <p className="mt-1.5 text-right text-[11px] font-semibold text-amber-600 dark:text-amber-400">
+                {combinePending.deleteIds.length + 1} lines merge on Save.
               </p>
             )}
             {combineMsg && (
@@ -529,16 +593,27 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
             const t = math.targets[i];
             const extended = t ? round2(t.qty * t.preTaxUnit) : math.deTax(l.cost);
             const setEdit = (patch: LineEdit) => setLineEdit(l.id, patch);
+            // Staged merge, seen from this line: it is either the survivor or
+            // one of the lines folded into it.
+            const mergeKeeps = combinePending?.keepId === l.id;
+            const mergeInto = Boolean(combinePending?.deleteIds.includes(l.id));
+            // A staged merge carries the SUMMED cost and the code of the lines
+            // as they were when it was staged. Editing one of them afterwards
+            // would make that sum wrong by the time Save applies it, so the
+            // lines it touches are locked until the merge is saved or undone.
+            const mergeLocked = mergeKeeps || mergeInto;
             return (
               <li
                 key={l.id}
-                className="border-t border-line-soft pt-3 first:border-0 first:pt-0 dark:border-neutral-800"
+                className={`border-t border-line-soft pt-3 first:border-0 first:pt-0 dark:border-neutral-800 ${
+                  mergeInto ? "opacity-50" : ""
+                }`}
               >
                 {/* Description. JobTread locks it (with qty/amount) once a
                     bill leaves draft, so those inputs only appear on
                     drafts; re-coding still works in any status. */}
                 <div className="flex items-start gap-1.5">
-                  {!bill.invoiced && writes && isCombinable(l) && (
+                  {combineOpen && !bill.invoiced && writes && isCombinable(l) && (
                     <input
                       type="checkbox"
                       checked={combineSelected.includes(l.id)}
@@ -554,7 +629,9 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                         value={edits[l.id]?.name ?? l.name ?? ""}
                         onChange={(e) => setEdit({ name: e.target.value })}
                         placeholder="Description"
-                        className={`${quietSm} mb-1 w-full`}
+                        disabled={mergeLocked}
+                        title={mergeLocked ? "Locked until the staged merge is saved or undone" : undefined}
+                        className={`${quietSm} mb-1 w-full disabled:opacity-60`}
                       />
                     ) : (
                       <div className="mb-1 flex items-baseline justify-between gap-2">
@@ -572,7 +649,7 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                       buybackLineById). Draft-only + writes-gated, like
                       Combine. Repeat clicks against other lines of THIS
                       bill land on the same Shop bill. */}
-                  {math.isDraft && writes && (
+                  {math.isDraft && writes && !mergeLocked && (
                     <button
                       type="button"
                       onClick={() =>
@@ -607,7 +684,7 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                   {/* Delete: removes this line from the bill entirely —
                       ported from the bill page. Draft-only + writes-gated,
                       like Buyback/Combine/Add line. */}
-                  {math.isDraft && writes && (
+                  {math.isDraft && writes && !mergeLocked && (
                     <button
                       type="button"
                       onClick={() =>
@@ -639,7 +716,34 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                     </button>
                   )}
                 </div>
-                {bill.invoiced ? (
+                {math.isDraft && t && (
+                  /* Qty × pre-tax unit cost. The office types what
+                     JobTread SHOWS (de-taxed); the save grosses every
+                     line back up together. */
+                  <div className="mb-1 flex items-center gap-1.5">
+                    <input
+                      inputMode="decimal"
+                      value={edits[l.id]?.quantity ?? String(l.quantity ?? 0)}
+                      onChange={(e) => setEdit({ quantity: e.target.value })}
+                      aria-label="Quantity"
+                      disabled={mergeLocked}
+                      className={`${quietSm} w-14 text-right tabular-nums disabled:opacity-60`}
+                    />
+                    <span className="text-[11px] text-neutral-400">×</span>
+                    <input
+                      inputMode="decimal"
+                      value={edits[l.id]?.unitCost ?? t.curPreTaxUnit.toFixed(2)}
+                      onChange={(e) => setEdit({ unitCost: e.target.value })}
+                      aria-label="Unit cost (pre-tax)"
+                      disabled={mergeLocked}
+                      className={`${quietSm} w-24 text-right tabular-nums disabled:opacity-60`}
+                    />
+                    <span className="flex-1 text-right text-xs font-semibold tabular-nums">
+                      {money(t.qty * t.preTaxUnit)}
+                    </span>
+                  </div>
+                )}
+                {bill.invoiced || mergeLocked ? (
                   <p className="rounded-md border border-line bg-neutral-50 px-2 py-1.5 text-xs text-neutral-500 dark:border-neutral-700 dark:bg-ink-raised/60">
                     {code || "uncoded"}
                   </p>
@@ -650,34 +754,27 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                     onChange={(leafId) => stageLine(l.id, leafId, l.jobCostItemId)}
                   />
                 )}
-                {math.isDraft && t && (
-                  /* Qty × pre-tax unit cost. The office types what
-                     JobTread SHOWS (de-taxed); the save grosses every
-                     line back up together. */
-                  <div className="mt-1 flex items-center gap-1.5">
-                    <input
-                      inputMode="decimal"
-                      value={edits[l.id]?.quantity ?? String(l.quantity ?? 0)}
-                      onChange={(e) => setEdit({ quantity: e.target.value })}
-                      aria-label="Quantity"
-                      className={`${quietSm} w-14 text-right tabular-nums`}
-                    />
-                    <span className="text-[11px] text-neutral-400">×</span>
-                    <input
-                      inputMode="decimal"
-                      value={edits[l.id]?.unitCost ?? t.curPreTaxUnit.toFixed(2)}
-                      onChange={(e) => setEdit({ unitCost: e.target.value })}
-                      aria-label="Unit cost (pre-tax)"
-                      className={`${quietSm} w-24 text-right tabular-nums`}
-                    />
-                    <span className="flex-1 text-right text-xs font-semibold tabular-nums">
-                      {money(t.qty * t.preTaxUnit)}
-                    </span>
-                  </div>
-                )}
                 <div className="mt-1 flex items-baseline justify-between gap-2 text-[11px]">
-                  <span className={moved ? "text-amber-600 dark:text-amber-400" : "text-neutral-400"}>
-                    {moved ? `moved from ${l.code || "uncoded"}` : "unchanged"}
+                  {/* A staged merge outranks a staged recode in this slot: the
+                      line is about to stop existing, which is the more useful
+                      thing to know about it. Both are undone by the same
+                      Revert. */}
+                  <span
+                    className={
+                      mergeInto || mergeKeeps || moved
+                        ? "text-amber-600 dark:text-amber-400"
+                        : "text-neutral-400"
+                    }
+                  >
+                    {mergeInto
+                      ? "merging into the line above"
+                      : mergeKeeps
+                        ? `absorbing ${combinePending!.deleteIds.length} line${
+                            combinePending!.deleteIds.length === 1 ? "" : "s"
+                          }`
+                        : moved
+                          ? `moved from ${l.code || "uncoded"}`
+                          : "unchanged"}
                   </span>
                   {left !== null && (
                     <span
