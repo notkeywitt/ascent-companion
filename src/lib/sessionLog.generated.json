@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-06T18:03:51Z",
+  "generatedAt": "2026-09-06T19:08:21Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "claude/tracking-sheet-button-audit-ufg3yl",
       "status": "shipped",
       "started": "2026-09-06T15:59:56Z",
-      "updated": "2026-09-06T18:03:51Z",
+      "updated": "2026-09-06T19:08:21Z",
       "goal": "audit the tracking sheet page's buttons and re-lay them out for desktop workflow",
-      "next": "Bulk tools now head the line list on both bill surfaces. Still unverified against a real bill: the write checklist in section 5.3 (save, combine, delete, buyback, approve, move-to-job, needs-review)",
+      "next": "Combine now stages and Save applies it, on all three surfaces. NOT on main — write-path change. Test: stage a merge, check the lines lock, Revert takes it back, Save merges them, and a merge saved alongside a qty edit on a DIFFERENT line lands both",
       "commits": [
         {
           "date": "2026-09-06",
@@ -53,6 +53,13 @@
           "sha": "9216ad4",
           "subject": "companion: put Recode All Lines and Combine above the line list",
           "files": "src/app/trackingsheet/BillCodingCard.tsx"
+        },
+        {
+          "date": "2026-09-06",
+          "time": "18:55",
+          "sha": "c49ce1e",
+          "subject": "companion: reorder the line row, and make Combine stage like every other edit",
+          "files": "src/app/bill/[docId]/page.tsx, src/app/trackingsheet/BillCodingCard.tsx, src/app/trackingsheet/Board.tsx, src/app/trackingsheet/DraftWorkbench.tsx, src/lib/combineLines.ts"
         }
       ]
     },

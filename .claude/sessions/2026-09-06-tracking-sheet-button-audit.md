@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/tracking-sheet-button-audit-ufg3yl
 status: shipped
 started: 2026-09-06T15:59:56Z
-updated: 2026-09-06T18:55:25Z
+updated: 2026-09-06T19:08:21Z
 goal: audit the tracking sheet page's buttons and re-lay them out for desktop workflow
 next: Combine now stages and Save applies it, on all three surfaces. NOT on main — write-path change. Test: stage a merge, check the lines lock, Revert takes it back, Save merges them, and a merge saved alongside a qty edit on a DIFFERENT line lands both
 ---
