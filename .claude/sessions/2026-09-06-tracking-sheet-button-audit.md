@@ -4,9 +4,9 @@ repo: ascent-companion
 branch: claude/tracking-sheet-button-audit-ufg3yl
 status: shipped
 started: 2026-09-06T15:59:56Z
-updated: 2026-09-06T17:06:13Z
+updated: 2026-09-06T17:21:59Z
 goal: audit the tracking sheet page's buttons and re-lay them out for desktop workflow
-next: MERGE IS ON THE BRANCH, NOT MAIN — awaiting owner ok (JobTread write path). /bill now hosts BillCodingCard; verify save, combine, delete, buyback, approve, move-to-job and the needs-review flag on a real bill before shipping
+next: Bill panel merge is LIVE on main. Nothing was exercised against a real bill before shipping — walk one draft through save, combine, delete line, buyback, approve, move-to-job and the needs-review flag on /bill and in the workbench drawer
 ---
 
 ## Log
@@ -24,3 +24,4 @@ next: MERGE IS ON THE BRANCH, NOT MAIN — awaiting owner ok (JobTread write pat
 
 ## Notes
 - 2026-09-06 17:05 — Held the bill-panel merge off main: CLAUDE.md says stop and ask before pushing a JobTread write path. Branch claude/tracking-sheet-button-audit-ufg3yl, commit 6b88fce.
+- 2026-09-06 17:21 — Owner authorised the push to main after the write-path hold (2026-09-06).
