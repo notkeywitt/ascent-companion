@@ -376,12 +376,14 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
   // The bill's Drive backup, beside the JobTread attachment the hosts fetch.
   const drive = useDriveBackup(bill?.id);
 
-  // "Recode All Lines" is a dialog, not a field parked above the list: it is a
-  // once-a-bill decision, and inline it read as the first line's cost code.
+  // "Recode All Lines" is a BUTTON that opens a dialog, never an open cost-code
+  // field sitting above the list — inline, that field read as the first line's
+  // own code. The button moved to the top of the list; the picker did not.
   const [recodeAllOpen, setRecodeAllOpen] = useState(false);
 
-  // The two bill-level buttons under the list. Each keeps the condition it
-  // was rendered on before, so neither appears where it used to be hidden.
+  // The two bill-level tools, now above the list they act on. Each keeps the
+  // condition it was rendered on before, so neither appears where it used to
+  // be hidden.
   const showRecodeAll = Boolean(bill && !bill.invoiced && codeOptions.length > 0 && lines.length > 1);
   const showCombine = Boolean(bill && !bill.invoiced && writes && anyCombinable);
 
@@ -456,6 +458,66 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
             Already on a customer invoice — coding is read-only here so recoding can&apos;t
             change numbers already sent to the client.
           </Banner>
+        )}
+
+        {/* Bill-level tools, ABOVE the list they act on. Both apply to the
+            whole bill rather than to one line, and both are things you decide
+            BEFORE you start working down the lines — "code the whole thing to
+            one place" is usually the first move on a bill, not the last. They
+            used to sit under the list, past the tax row, where a long bill hid
+            them below the fold.
+
+            Combine writes to JobTread immediately — it is a structural merge,
+            not a trial-and-error choice; a recode only stages. The hairline is
+            BELOW the row here, so the tools read as a header over the list
+            instead of a footer under the tax. */}
+        {(showRecodeAll || showCombine) && (
+          <div className="mb-3 border-b border-line-soft pb-2.5">
+            <div className="flex flex-wrap items-center justify-end gap-1.5">
+              {showRecodeAll && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="shrink-0 !py-1.5 !text-xs"
+                  onClick={() => setRecodeAllOpen(true)}
+                  title={`Apply one code to all ${lines.length} lines`}
+                >
+                  Recode All Lines
+                </Button>
+              )}
+              {showCombine && (
+                <Button
+                  size="sm"
+                  className="shrink-0 !py-1.5 !text-xs"
+                  onClick={combineRows}
+                  disabled={!canCombine || combining}
+                >
+                  {combining
+                    ? "Combining…"
+                    : `Combine${combineSelected.length >= 2 ? ` (${combineSelected.length})` : ""}`}
+                </Button>
+              )}
+            </div>
+            {/* What Combine is waiting for, under the button rather than above
+                it: the tick boxes it refers to are in the list below, so the
+                sentence sits between the two. */}
+            {showCombine && (
+              <p className="mt-1.5 text-right text-[11px] text-neutral-500">
+                {combineSelected.length < 2
+                  ? "Check 2+ lines with the same code."
+                  : combineCodeSet.size > 1
+                    ? "Different codes selected."
+                    : combineHasEdit
+                      ? "Sync or discard edits first."
+                      : `Merging ${combineSelected.length} lines.`}
+              </p>
+            )}
+            {combineMsg && (
+              <Banner tone="neutral" className="mt-1.5 !px-2 !py-1.5 !text-[11px]">
+                {combineMsg}
+              </Banner>
+            )}
+          </div>
         )}
 
         <ul className="space-y-3">
@@ -643,7 +705,8 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
             (src/lib/salesTax.ts). Staged like a line edit — nothing writes until
             Sync — so typing here moves math.total live. It sits at the FOOT of
             the list, where a paper invoice puts it: under the lines it is charged
-            on, above the bill-level buttons. */}
+            on. The bill-level tools that used to follow it are above the
+            list now. */}
         {math.isDraft && writes && !bill.invoiced && (
           <div className="mt-3 flex items-center justify-end gap-1.5">
             <span className="text-[10px] uppercase tracking-wide text-neutral-400">
@@ -673,57 +736,6 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
             subtotal {money(math.subtotal)} + {money(taxView)} tax ·{" "}
             {isTaxRecoverable(bill.jobPhase) ? "recoverable" : "not recoverable"}
           </p>
-        )}
-
-        {/* Bill-level actions: recode every line at once, and merge lines that
-            already share a code. Both act on the whole bill rather than on one
-            line, so they sit together under the list, alongside Add line.
-            Combine writes to JobTread immediately — it's a structural merge,
-            not a trial-and-error choice; a recode only stages. */}
-        {(showRecodeAll || showCombine) && (
-          <div className="mt-3 border-t border-line-soft pt-2.5">
-            {showCombine && (
-              <p className="mb-1.5 text-[11px] text-neutral-500">
-                {combineSelected.length < 2
-                  ? "Check 2+ lines with the same code."
-                  : combineCodeSet.size > 1
-                    ? "Different codes selected."
-                    : combineHasEdit
-                      ? "Sync or discard edits first."
-                      : `Merging ${combineSelected.length} lines.`}
-              </p>
-            )}
-            <div className="flex flex-wrap items-center justify-end gap-1.5">
-              {showRecodeAll && (
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  className="shrink-0 !py-1.5 !text-xs"
-                  onClick={() => setRecodeAllOpen(true)}
-                  title={`Apply one code to all ${lines.length} lines`}
-                >
-                  Recode All Lines
-                </Button>
-              )}
-              {showCombine && (
-                <Button
-                  size="sm"
-                  className="shrink-0 !py-1.5 !text-xs"
-                  onClick={combineRows}
-                  disabled={!canCombine || combining}
-                >
-                  {combining
-                    ? "Combining…"
-                    : `Combine${combineSelected.length >= 2 ? ` (${combineSelected.length})` : ""}`}
-                </Button>
-              )}
-            </div>
-            {combineMsg && (
-              <Banner tone="neutral" className="mt-1.5 !px-2 !py-1.5 !text-[11px]">
-                {combineMsg}
-              </Banner>
-            )}
-          </div>
         )}
 
         {/* Add a new line (createCostItem) — ported from the bill page.
