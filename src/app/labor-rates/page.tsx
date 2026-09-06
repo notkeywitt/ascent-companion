@@ -64,7 +64,7 @@ function GroupSection({
     <div className="mb-3 overflow-hidden rounded-xl border border-line bg-white dark:bg-ink-raised">
       <div className="flex items-center gap-2 border-b border-line-soft bg-neutral-50 px-3 py-2 dark:border-neutral-800/70 dark:bg-white/5">
         {isGlobal ? (
-          <span className="text-sm font-bold">🌐 Global <span className="font-normal text-neutral-500">— pushes with no prefix</span></span>
+          <span className="text-sm font-bold">Global <span className="font-normal text-neutral-500">— pushes with no prefix</span></span>
         ) : (
           <>
             <input

@@ -208,7 +208,7 @@ function Rfis() {
                     <span className="font-mono text-xs text-neutral-400">#{r.id}</span> {r.subject}
                   </div>
                   <div className="mt-0.5 text-xs text-neutral-500">
-                    {r.assignee && <>👤 {r.assignee} </>}
+                    {r.assignee && <>{r.assignee} </>}
                     {r.dateSent && <>· sent {r.dateSent} </>}
                     {r.dateAnswered && <>· answered {r.dateAnswered} </>}
                     {r.dueDate && !r.dateAnswered && <>· due {r.dueDate}</>}

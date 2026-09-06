@@ -412,7 +412,7 @@ export default function EmployeesPage() {
           ))}
         </select>
         <Button variant="secondary" onClick={openComposer} disabled={loading || !!loadErr}>
-          ✉️ Email employees
+          ✉ Email employees
         </Button>
       </div>
 

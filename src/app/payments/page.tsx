@@ -507,7 +507,7 @@ export default function PaymentsPage() {
       {!loading && items.length === 0 && (
         <EmptyState>
           {filter === "unpaid"
-            ? "Nothing to pay — every Sunset statement is marked paid. 🎉"
+            ? "Nothing to pay — every Sunset statement is marked paid."
             : "No statements here."}
         </EmptyState>
       )}
@@ -655,7 +655,7 @@ export default function PaymentsPage() {
                       {m.missing.length > 0 && (
                         <div>
                           <div className="text-[11px] font-semibold">
-                            ❗ On statement, not in system ({m.missing.length})
+                            ⚠ On statement, not in system ({m.missing.length})
                           </div>
                           <ul className="mt-0.5 space-y-0.5 text-[11px]">
                             {m.missing.map((x, i) => (
@@ -705,7 +705,7 @@ export default function PaymentsPage() {
                       {m.extra.length > 0 && (
                         <div>
                           <div className="text-[11px] font-semibold">
-                            ➕ In system, not on statement ({m.extra.length})
+                            + In system, not on statement ({m.extra.length})
                           </div>
                           <ul className="mt-0.5 space-y-0.5 text-[11px]">
                             {m.extra.map((x, i) => {

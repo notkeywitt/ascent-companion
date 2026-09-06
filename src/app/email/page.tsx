@@ -366,7 +366,7 @@ export default function EmailPage() {
                 {fmtFrom(row.from)}
                 {row.attachmentCount > 0 && (
                   <span className="ml-2">
-                    📎 {row.attachmentCount} attachment{row.attachmentCount === 1 ? "" : "s"}
+                    {row.attachmentCount} attachment{row.attachmentCount === 1 ? "" : "s"}
                   </span>
                 )}
               </p>
@@ -403,7 +403,7 @@ export default function EmailPage() {
                           className="rounded-lg border border-line p-2.5 "
                         >
                           <p className="mb-1.5 truncate text-xs font-medium text-neutral-600 dark:text-neutral-300">
-                            📄 {a.name}
+                            {a.name}
                           </p>
                           <div className="flex flex-wrap items-center gap-2">
                             <Select

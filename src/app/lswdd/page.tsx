@@ -327,7 +327,7 @@ export default function LswddPage() {
           <ul className="mt-1 space-y-0.5 text-xs">
             {result.map((b) => (
               <li key={b.expId}>
-                {b.pushed ? "✔" : "✖"} {b.projectName || b.projectId} · {money(b.amount)} ·{" "}
+                {b.pushed ? "✓" : "✕"} {b.projectName || b.projectId} · {money(b.amount)} ·{" "}
                 {b.lines} line{b.lines === 1 ? "" : "s"}
                 {b.error ? ` — ${b.error}` : ""}
               </li>

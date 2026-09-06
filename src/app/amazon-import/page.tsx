@@ -706,14 +706,14 @@ export default function AmazonImportPage() {
                                 <div
                                   className={`mt-0.5 text-xs ${att.fail > 0 ? "text-amber-600 dark:text-amber-400" : "text-emerald-600 dark:text-emerald-400"}`}
                                 >
-                                  📎 {att.ok} attached{att.fail > 0 ? `, ${att.fail} failed` : ""}
+                                  {att.ok} attached{att.fail > 0 ? `, ${att.fail} failed` : ""}
                                 </div>
                               );
                             }
                             if (pdfs.length > 0) {
                               return (
                                 <div className="mt-0.5 truncate text-xs text-neutral-500">
-                                  📎 {pdfs.length === 1 ? pdfs[0].name : `${pdfs.length} PDFs`}
+                                  {pdfs.length === 1 ? pdfs[0].name : `${pdfs.length} PDFs`}
                                 </div>
                               );
                             }

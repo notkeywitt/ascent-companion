@@ -163,7 +163,7 @@ export default function NeedsProjectPage() {
       {loading && <CardSkeletonList rows={3} />}
       {error && <Banner tone="error">{error}</Banner>}
       {!loading && !error && items.length === 0 && (
-        <EmptyState>Nothing waiting — every ingested bill has a job. 🎉</EmptyState>
+        <EmptyState>Nothing waiting — every ingested bill has a job.</EmptyState>
       )}
 
       <ul className="space-y-3">

@@ -385,7 +385,7 @@ function RequisitionCard({
   const meta = useMemo(() => {
     const bits = [
       r["Type"],
-      r["Priority"] && r["Priority"] !== "Normal" ? `⚡ ${r["Priority"]}` : r["Priority"],
+      r["Priority"],
       r["Needed By"] ? `by ${r["Needed By"]}` : "",
       r["Est. Cost"] ? `~$${r["Est. Cost"]}` : "",
     ].filter(Boolean);

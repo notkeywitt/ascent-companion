@@ -1094,7 +1094,7 @@ export default function ToolsPage() {
                             disabled={createSerialBusy}
                             title="Scan the serial number with the camera"
                           >
-                            {createSerialBusy ? "Reading…" : "📷 Scan"}
+                            {createSerialBusy ? "Reading…" : "Scan"}
                           </Button>
                         </div>
                         {createSerialMsg && (
@@ -1234,7 +1234,7 @@ export default function ToolsPage() {
                         disabled={serialOcrBusy}
                         title="Scan the serial number with the camera"
                       >
-                        {serialOcrBusy ? "Reading…" : "📷 Scan"}
+                        {serialOcrBusy ? "Reading…" : "Scan"}
                       </Button>
                     </div>
                     {serialOcrMsg && <p className="mt-1 text-xs text-neutral-500">{serialOcrMsg}</p>}

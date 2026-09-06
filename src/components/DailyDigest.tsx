@@ -66,10 +66,10 @@ interface DigestResponse {
  * and a calm blue, deliberately not the amber that means work is waiting.
  */
 const TONE_MARK: Record<CategoryTone, { icon: string; tone: ChipTone; label: string }> = {
-  clear: { icon: "✅", tone: "success", label: "All clear" },
+  clear: { icon: "✓", tone: "success", label: "All clear" },
   info: { icon: "•", tone: "info", label: "For your information" },
-  warning: { icon: "⚠️", tone: "warning", label: "Needs attention" },
-  error: { icon: "❌", tone: "danger", label: "Couldn't check" },
+  warning: { icon: "⚠", tone: "warning", label: "Needs attention" },
+  error: { icon: "✕", tone: "danger", label: "Couldn't check" },
 };
 
 /** "2026-08-31T13:04:11Z" → "6:04 AM". */
