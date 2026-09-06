@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/tracking-sheet-button-audit-ufg3yl
 status: shipped
 started: 2026-09-06T15:59:56Z
-updated: 2026-09-06T18:03:50Z
+updated: 2026-09-06T18:03:51Z
 goal: audit the tracking sheet page's buttons and re-lay them out for desktop workflow
 next: Bulk tools now head the line list on both bill surfaces. Still unverified against a real bill: the write checklist in section 5.3 (save, combine, delete, buyback, approve, move-to-job, needs-review)
 ---
