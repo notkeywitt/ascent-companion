@@ -25,12 +25,14 @@ import {
  * gets ONE full-width panel for the job they last logged time to. A field phone
  * never asks.
  *
- * DRILL DOWN. A card opens, in place, into the job's cost by CSI division — the
- * same numbers the /jobs browser's table is built on, from the same cached
- * route (/api/jobs/cost-detail), fetched only when someone actually opens a
- * card. One level deep on purpose: below division sits cost code and then the
- * estimate line, and that is the Tracking Sheet's job, which every panel links
- * to rather than reproducing.
+ * DRILL DOWN. The CARD is a link to the job's tracking sheet — clicking it goes
+ * there, the way it reads. The drilldown is its own toggle LINE at the foot of
+ * the card ("Cost by division"), the same gesture as every other collapsing
+ * element in the app, and it opens the job's cost by CSI division under the row:
+ * the numbers the /jobs browser's table is built on, from the same cached route
+ * (/api/jobs/cost-detail), fetched only when someone actually opens one. One
+ * level deep on purpose — below division sits cost code and then the estimate
+ * line, and that is the Tracking Sheet's job.
  *
  * Self-hiding, like the banners it sits with: no cards, no board, no heading.
  * The board is READ-ONLY — one cached JobTread roll-up (getJobBoard) behind one
@@ -247,7 +249,11 @@ function DetailBody({ state }: { state: DetailState | undefined }) {
 
 /* ------------------------------------------------------------------ cards */
 
-/** One job, as a board card. Opens the drilldown rather than navigating. */
+/**
+ * One job, as a board card. The card itself goes to the tracking sheet; the
+ * line at its foot toggles the drilldown, so the two gestures never fight over
+ * one click (and a button inside a link would be invalid markup besides).
+ */
 function BoardCard({
   c,
   expanded,
@@ -258,16 +264,14 @@ function BoardCard({
   onToggle: () => void;
 }) {
   return (
-    <button
-      type="button"
-      onClick={onToggle}
-      aria-expanded={expanded}
-      className="w-72 shrink-0 text-left"
+    <Card
+      className={`flex h-full w-72 shrink-0 flex-col gap-2 transition ${
+        expanded ? "border-accent" : ""
+      }`}
     >
-      <Card
-        className={`flex h-full flex-col gap-2 transition hover:border-accent ${
-          expanded ? "border-accent" : ""
-        }`}
+      <Link
+        href={`/trackingsheet?jobId=${encodeURIComponent(c.id)}`}
+        className="flex flex-1 flex-col gap-2 rounded-lg transition hover:opacity-80"
       >
         <div className="min-w-0">
           <div className="truncate text-sm font-semibold tracking-tight">{c.name}</div>
@@ -291,7 +295,34 @@ function BoardCard({
           </div>
           <MetaLine items={[...scheduleMeta(c.schedule), basisNote(c)]} />
         </div>
-      </Card>
+      </Link>
+      <DrilldownToggle open={expanded} onToggle={onToggle} />
+    </Card>
+  );
+}
+
+/**
+ * The line that opens the cost drilldown. A row, not a control cluster — the
+ * same "tap the label to fold" gesture SectionHeading and the launcher's "show
+ * more" row use, with a caret that turns.
+ */
+function DrilldownToggle({ open, onToggle }: { open: boolean; onToggle: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-expanded={open}
+      className="-mx-1 flex min-h-9 items-center justify-between gap-2 rounded-lg border-t border-line-soft px-1 pt-2 text-left text-[11.5px] font-semibold text-neutral-500 transition hover:text-accent dark:text-neutral-400"
+    >
+      Cost by division
+      {/* Same mark and rotation SectionHeading uses, so a fold reads the same
+          everywhere in the app. */}
+      <span
+        aria-hidden
+        className={`shrink-0 text-[9px] transition-transform ${open ? "rotate-90" : ""}`}
+      >
+        ▶
+      </span>
     </button>
   );
 }
@@ -385,15 +416,8 @@ function LeadPanel({
         </div>
       </div>
 
-      <div className="border-t border-line-soft pt-2">
-        <button
-          type="button"
-          onClick={onToggle}
-          aria-expanded={open}
-          className="text-[11.5px] font-semibold text-accent hover:underline dark:text-accent-soft"
-        >
-          {open ? "Hide cost by division" : "Cost by division"}
-        </button>
+      <div>
+        <DrilldownToggle open={open} onToggle={onToggle} />
         {open && (
           <div className="mt-2">
             <DetailBody state={state} />

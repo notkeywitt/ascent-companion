@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useMemo, type ReactNode } from "react";
-import { defaultLayout, type NavLayout } from "@/lib/navLayout";
+import { clampColumns, defaultLayout, type NavItem, type NavLayout } from "@/lib/navLayout";
 
 /**
  * Provides the admin home launcher's layout to client components. Fed by the
@@ -45,11 +45,25 @@ export function useNavLayout(): NavLayoutValue {
   return useContext(NavLayoutContext);
 }
 
-/** The effective launcher: the saved layout, or the shipped AREAS default. */
-export function useEffectiveLayout(): { menus: NavLayout["menus"]; isCustom: boolean } {
+/**
+ * The effective launcher: the saved layout, or the shipped AREAS default.
+ * `items` are the buttons that belong to no menu (the launcher's top row) and
+ * `columns` is how many menus sit side by side once the page is full width.
+ */
+export function useEffectiveLayout(): {
+  menus: NavLayout["menus"];
+  items: NavItem[];
+  columns: number;
+  isCustom: boolean;
+} {
   const { custom } = useNavLayout();
-  return useMemo(
-    () => ({ menus: (custom ?? defaultLayout()).menus, isCustom: custom !== null }),
-    [custom],
-  );
+  return useMemo(() => {
+    const layout = custom ?? defaultLayout();
+    return {
+      menus: layout.menus,
+      items: layout.items ?? [],
+      columns: clampColumns(layout.columns),
+      isCustom: custom !== null,
+    };
+  }, [custom]);
 }

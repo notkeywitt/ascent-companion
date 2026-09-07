@@ -15,7 +15,14 @@ import {
   Toggle,
   btn,
 } from "@/components/ui";
-import type { NavItem, NavItemKind, NavMenu } from "@/lib/navLayout";
+import {
+  DEFAULT_COLUMNS,
+  MAX_COLUMNS,
+  clampColumns,
+  type NavItem,
+  type NavItemKind,
+  type NavMenu,
+} from "@/lib/navLayout";
 
 /**
  * The admin home launcher's EDIT mode — arrange, create, name, and delete
@@ -30,7 +37,17 @@ import type { NavItem, NavItemKind, NavMenu } from "@/lib/navLayout";
  *
  * Ordering is done with up/down buttons rather than drag — reliable under a
  * thumb, which is where this app is used.
+ *
+ * TWO THINGS ARE NOT MENUS. "Menus per row" is how many menus sit side by side
+ * once the page is full width (xl), and the FIRST card is the top-button
+ * bucket — buttons that belong to no menu, across the top of the launcher.
+ * That bucket is carried in this editor's `menus` array as a pseudo-menu with
+ * the id TOP, so every existing edit, move and reassign handler works on it
+ * unchanged; save() lifts it back out into `layout.items`.
  */
+
+/** Id of the pseudo-menu that holds the buttons outside every menu. */
+const TOP = "__top__";
 
 interface ViewOpt {
   id: string;
@@ -59,6 +76,7 @@ export function HomeLayoutEditor({ onClose }: { onClose: () => void }) {
   const router = useRouter();
   const [views, setViews] = useState<ViewOpt[]>([]);
   const [menus, setMenus] = useState<NavMenu[]>([]);
+  const [columns, setColumns] = useState(DEFAULT_COLUMNS);
   const [isCustom, setIsCustom] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -70,9 +88,19 @@ export function HomeLayoutEditor({ onClose }: { onClose: () => void }) {
     setError("");
     try {
       const res = await fetch("/api/admin/home-layout");
-      if (!res.ok) throw new Error(res.status === 403 ? "Admins only." : `Load failed (${res.status})`);
-      const json = (await res.json()) as { layout: { menus: NavMenu[] }; isCustom: boolean; views: ViewOpt[] };
-      setMenus(json.layout.menus);
+      if (!res.ok)
+        throw new Error(res.status === 403 ? "Admins only." : `Load failed (${res.status})`);
+      const json = (await res.json()) as {
+        layout: { menus: NavMenu[]; items?: NavItem[]; columns?: number };
+        isCustom: boolean;
+        views: ViewOpt[];
+      };
+      // The top buttons ride along as the first pseudo-menu (see TOP above).
+      setMenus([
+        { id: TOP, title: "Buttons (no menu)", blurb: "", items: json.layout.items ?? [] },
+        ...json.layout.menus,
+      ]);
+      setColumns(clampColumns(json.layout.columns));
       setViews(json.views);
       setIsCustom(json.isCustom);
     } catch (e) {
@@ -108,11 +136,15 @@ export function HomeLayoutEditor({ onClose }: { onClose: () => void }) {
     );
 
   const moveItem = (menuId: string, idx: number, dir: -1 | 1) =>
-    setMenus((ms) => ms.map((m) => (m.id === menuId ? { ...m, items: move(m.items, idx, idx + dir) } : m)));
+    setMenus((ms) =>
+      ms.map((m) => (m.id === menuId ? { ...m, items: move(m.items, idx, idx + dir) } : m)),
+    );
 
   const deleteItem = (menuId: string, itemId: string) =>
     setMenus((ms) =>
-      ms.map((m) => (m.id === menuId ? { ...m, items: m.items.filter((it) => it.id !== itemId) } : m)),
+      ms.map((m) =>
+        m.id === menuId ? { ...m, items: m.items.filter((it) => it.id !== itemId) } : m,
+      ),
     );
 
   const addItem = (menuId: string, kind: NavItemKind) => {
@@ -133,9 +165,11 @@ export function HomeLayoutEditor({ onClose }: { onClose: () => void }) {
     setMenus((ms) => {
       const item = ms.find((m) => m.id === fromMenuId)?.items.find((it) => it.id === itemId);
       if (!item) return ms;
+      // Outside a menu, only a button makes sense — nothing labels a bare row.
+      const moved = toMenuId === TOP ? { ...item, kind: "button" as const } : item;
       return ms.map((m) => {
         if (m.id === fromMenuId) return { ...m, items: m.items.filter((it) => it.id !== itemId) };
-        if (m.id === toMenuId) return { ...m, items: [...m.items, item] };
+        if (m.id === toMenuId) return { ...m, items: [...m.items, moved] };
         return m;
       });
     });
@@ -163,7 +197,15 @@ export function HomeLayoutEditor({ onClose }: { onClose: () => void }) {
       const res = await fetch("/api/admin/home-layout", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ layout: { version: 1, menus } }),
+        body: JSON.stringify({
+          layout: {
+            version: 1,
+            columns,
+            // Lift the pseudo-menu back out: its items are the top buttons.
+            items: menus.find((m) => m.id === TOP)?.items ?? [],
+            menus: menus.filter((m) => m.id !== TOP),
+          },
+        }),
       });
       const json = (await res.json()) as { error?: string };
       if (!res.ok) throw new Error(json.error ?? `Save failed (${res.status})`);
@@ -195,203 +237,267 @@ export function HomeLayoutEditor({ onClose }: { onClose: () => void }) {
   return (
     <div className="space-y-4">
       <Banner tone="info">
-        Arrange your home page: rename menus, add or remove page links and buttons, and reorder
-        with the arrows. Nothing changes for anyone until you tap <strong>Save</strong>.
+        Arrange your home page: choose how many menus sit side by side on a wide screen, put buttons
+        above the menus or inside them, rename menus, and reorder with the arrows. Nothing changes
+        for anyone until you tap <strong>Save</strong>.
       </Banner>
 
       {error && <Banner tone="error">{error}</Banner>}
 
+      {/* Page-level choice: how wide the launcher lays out on a big screen. */}
+      <Card className="flex items-center gap-3">
+        <div className="min-w-0 flex-1">
+          <Label htmlFor="columns">Menus per row (wide screens)</Label>
+          <p className="text-[11.5px] text-neutral-500 dark:text-neutral-400">
+            A phone always shows one. This is the desktop layout.
+          </p>
+        </div>
+        <Select
+          id="columns"
+          className="w-20 shrink-0"
+          value={String(columns)}
+          onChange={(e) => setColumns(clampColumns(Number(e.target.value)))}
+        >
+          {Array.from({ length: MAX_COLUMNS }, (_, i) => i + 1).map((n) => (
+            <option key={n} value={n}>
+              {n}
+            </option>
+          ))}
+        </Select>
+      </Card>
+
       <div className="space-y-4">
-        {menus.map((menu, mi) => (
-          <Card key={menu.id} className="space-y-3">
-            {/* Menu header — name, blurb, and menu-level controls. */}
-            <div className="flex items-start gap-2">
-              <div className="min-w-0 flex-1 space-y-2">
-                <div>
-                  <Label htmlFor={`title-${menu.id}`}>Menu name</Label>
-                  <Input
-                    id={`title-${menu.id}`}
-                    value={menu.title}
-                    placeholder="Menu name"
-                    onChange={(e) => patchMenu(menu.id, { title: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor={`blurb-${menu.id}`}>Description (optional)</Label>
-                  <Input
-                    id={`blurb-${menu.id}`}
-                    value={menu.blurb}
-                    placeholder="Short description"
-                    onChange={(e) => patchMenu(menu.id, { blurb: e.target.value })}
-                  />
-                </div>
-              </div>
-              <div className="flex shrink-0 flex-col items-center">
-                <IconButton
-                  label="Move menu up"
-                  disabled={mi === 0}
-                  onClick={() => moveMenu(mi, -1)}
-                >
-                  ↑
-                </IconButton>
-                <IconButton
-                  label="Move menu down"
-                  disabled={mi === menus.length - 1}
-                  onClick={() => moveMenu(mi, 1)}
-                >
-                  ↓
-                </IconButton>
-                <IconButton
-                  label="Delete menu"
-                  tone="danger"
-                  onClick={() => {
-                    if (menu.items.length === 0 || confirm(`Delete the "${menu.title}" menu and its ${menu.items.length} item(s)?`))
-                      deleteMenu(menu.id);
-                  }}
-                >
-                  ✕
-                </IconButton>
-              </div>
-            </div>
-
-            {/* Items — links and buttons in this menu, in order. */}
-            <div className="space-y-2">
-              {menu.items.map((item, ii) => {
-                const isEditing = editingItem === item.id;
-                return (
-                  <div key={item.id} className="rounded-lg border border-line-soft">
-                    <div className="flex items-center gap-2 px-2 py-1.5">
-                      <span
-                        className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
-                          item.kind === "button"
-                            ? "bg-accent/15 text-accent dark:text-accent-soft"
-                            : "bg-neutral-100 text-neutral-500 dark:bg-white/10 dark:text-neutral-400"
-                        }`}
-                      >
-                        {item.kind}
-                      </span>
-                      <span className="min-w-0 flex-1 truncate text-sm font-medium">
-                        {item.label || <span className="text-neutral-400">Untitled</span>}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => setEditingItem(isEditing ? null : item.id)}
-                        className="shrink-0 text-[11px] font-semibold text-accent hover:underline dark:text-accent-soft"
-                      >
-                        {isEditing ? "Done" : "Edit"}
-                      </button>
-                      <IconButton
-                        label="Move up"
-                        disabled={ii === 0}
-                        onClick={() => moveItem(menu.id, ii, -1)}
-                      >
-                        ↑
-                      </IconButton>
-                      <IconButton
-                        label="Move down"
-                        disabled={ii === menu.items.length - 1}
-                        onClick={() => moveItem(menu.id, ii, 1)}
-                      >
-                        ↓
-                      </IconButton>
-                      <IconButton
-                        label="Delete item"
-                        tone="danger"
-                        onClick={() => deleteItem(menu.id, item.id)}
-                      >
-                        ✕
-                      </IconButton>
+        {menus.map((menu, mi) => {
+          // The first card is the top-button bucket, not a menu: it has no name,
+          // no description, no position, and holds only buttons.
+          const isTop = menu.id === TOP;
+          return (
+            <Card key={menu.id} className="space-y-3">
+              {/* Menu header — name, blurb, and menu-level controls. The bucket
+                has none of those: it is one fixed row at the top of the page. */}
+              <div className="flex items-start gap-2">
+                <div className="min-w-0 flex-1 space-y-2">
+                  {isTop ? (
+                    <div>
+                      <p className="text-sm font-semibold">Buttons outside every menu</p>
+                      <p className="text-[11.5px] text-neutral-500 dark:text-neutral-400">
+                        A row of big buttons across the top of the home page, above the menus. Leave
+                        it empty for none.
+                      </p>
                     </div>
-
-                    {isEditing && (
-                      <div className="space-y-2 border-t border-line-soft px-2 py-2.5">
-                        <Toggle
-                          checked={item.kind === "button"}
-                          onChange={(on) => patchItem(menu.id, item.id, { kind: on ? "button" : "link" })}
-                          label="Show as a big button"
+                  ) : (
+                    <>
+                      <div>
+                        <Label htmlFor={`title-${menu.id}`}>Menu name</Label>
+                        <Input
+                          id={`title-${menu.id}`}
+                          value={menu.title}
+                          placeholder="Menu name"
+                          onChange={(e) => patchMenu(menu.id, { title: e.target.value })}
                         />
-                        <div>
-                          <Label htmlFor={`view-${item.id}`}>Links to a page</Label>
-                          <Select
-                            id={`view-${item.id}`}
-                            value={item.view}
-                            onChange={(e) => pickView(menu.id, item, e.target.value)}
-                          >
-                            <option value="">Custom link (type the address below)</option>
-                            {views.map((v) => (
-                              <option key={v.id} value={v.id}>
-                                {v.label}
-                              </option>
-                            ))}
-                          </Select>
-                        </div>
-                        <div>
-                          <Label htmlFor={`label-${item.id}`}>Name</Label>
-                          <Input
-                            id={`label-${item.id}`}
-                            value={item.label}
-                            placeholder="What it's called"
-                            onChange={(e) => patchItem(menu.id, item.id, { label: e.target.value })}
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor={`href-${item.id}`}>Address</Label>
-                          <Input
-                            id={`href-${item.id}`}
-                            value={item.href}
-                            placeholder="/page or https://…"
-                            onChange={(e) => patchItem(menu.id, item.id, { href: e.target.value })}
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor={`desc-${item.id}`}>Description (optional)</Label>
-                          <Input
-                            id={`desc-${item.id}`}
-                            value={item.desc}
-                            placeholder="Second line under the name"
-                            onChange={(e) => patchItem(menu.id, item.id, { desc: e.target.value })}
-                          />
-                        </div>
-                        {menus.length > 1 && (
+                      </div>
+                      <div>
+                        <Label htmlFor={`blurb-${menu.id}`}>Description (optional)</Label>
+                        <Input
+                          id={`blurb-${menu.id}`}
+                          value={menu.blurb}
+                          placeholder="Short description"
+                          onChange={(e) => patchMenu(menu.id, { blurb: e.target.value })}
+                        />
+                      </div>
+                    </>
+                  )}
+                </div>
+                <div className={`flex shrink-0 flex-col items-center ${isTop ? "hidden" : ""}`}>
+                  <IconButton
+                    label="Move menu up"
+                    disabled={mi <= 1}
+                    onClick={() => moveMenu(mi, -1)}
+                  >
+                    ↑
+                  </IconButton>
+                  <IconButton
+                    label="Move menu down"
+                    disabled={mi === menus.length - 1}
+                    onClick={() => moveMenu(mi, 1)}
+                  >
+                    ↓
+                  </IconButton>
+                  <IconButton
+                    label="Delete menu"
+                    tone="danger"
+                    onClick={() => {
+                      if (
+                        menu.items.length === 0 ||
+                        confirm(
+                          `Delete the "${menu.title}" menu and its ${menu.items.length} item(s)?`,
+                        )
+                      )
+                        deleteMenu(menu.id);
+                    }}
+                  >
+                    ✕
+                  </IconButton>
+                </div>
+              </div>
+
+              {/* Items — links and buttons in this menu, in order. */}
+              <div className="space-y-2">
+                {menu.items.map((item, ii) => {
+                  const isEditing = editingItem === item.id;
+                  return (
+                    <div key={item.id} className="rounded-lg border border-line-soft">
+                      <div className="flex items-center gap-2 px-2 py-1.5">
+                        <span
+                          className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+                            item.kind === "button"
+                              ? "bg-accent/15 text-accent dark:text-accent-soft"
+                              : "bg-neutral-100 text-neutral-500 dark:bg-white/10 dark:text-neutral-400"
+                          }`}
+                        >
+                          {item.kind}
+                        </span>
+                        <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                          {item.label || <span className="text-neutral-400">Untitled</span>}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setEditingItem(isEditing ? null : item.id)}
+                          className="shrink-0 text-[11px] font-semibold text-accent hover:underline dark:text-accent-soft"
+                        >
+                          {isEditing ? "Done" : "Edit"}
+                        </button>
+                        <IconButton
+                          label="Move up"
+                          disabled={ii === 0}
+                          onClick={() => moveItem(menu.id, ii, -1)}
+                        >
+                          ↑
+                        </IconButton>
+                        <IconButton
+                          label="Move down"
+                          disabled={ii === menu.items.length - 1}
+                          onClick={() => moveItem(menu.id, ii, 1)}
+                        >
+                          ↓
+                        </IconButton>
+                        <IconButton
+                          label="Delete item"
+                          tone="danger"
+                          onClick={() => deleteItem(menu.id, item.id)}
+                        >
+                          ✕
+                        </IconButton>
+                      </div>
+
+                      {isEditing && (
+                        <div className="space-y-2 border-t border-line-soft px-2 py-2.5">
+                          {!isTop && (
+                            <Toggle
+                              checked={item.kind === "button"}
+                              onChange={(on) =>
+                                patchItem(menu.id, item.id, { kind: on ? "button" : "link" })
+                              }
+                              label="Show as a big button"
+                            />
+                          )}
                           <div>
-                            <Label htmlFor={`menu-${item.id}`}>In menu</Label>
+                            <Label htmlFor={`view-${item.id}`}>Links to a page</Label>
                             <Select
-                              id={`menu-${item.id}`}
-                              value={menu.id}
-                              onChange={(e) => {
-                                reassignItem(menu.id, item.id, e.target.value);
-                                setEditingItem(null);
-                              }}
+                              id={`view-${item.id}`}
+                              value={item.view}
+                              onChange={(e) => pickView(menu.id, item, e.target.value)}
                             >
-                              {menus.map((m) => (
-                                <option key={m.id} value={m.id}>
-                                  {m.title || "Untitled menu"}
+                              <option value="">Custom link (type the address below)</option>
+                              {views.map((v) => (
+                                <option key={v.id} value={v.id}>
+                                  {v.label}
                                 </option>
                               ))}
                             </Select>
                           </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+                          <div>
+                            <Label htmlFor={`label-${item.id}`}>Name</Label>
+                            <Input
+                              id={`label-${item.id}`}
+                              value={item.label}
+                              placeholder="What it's called"
+                              onChange={(e) =>
+                                patchItem(menu.id, item.id, { label: e.target.value })
+                              }
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor={`href-${item.id}`}>Address</Label>
+                            <Input
+                              id={`href-${item.id}`}
+                              value={item.href}
+                              placeholder="/page or https://…"
+                              onChange={(e) =>
+                                patchItem(menu.id, item.id, { href: e.target.value })
+                              }
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor={`desc-${item.id}`}>Description (optional)</Label>
+                            <Input
+                              id={`desc-${item.id}`}
+                              value={item.desc}
+                              placeholder="Second line under the name"
+                              onChange={(e) =>
+                                patchItem(menu.id, item.id, { desc: e.target.value })
+                              }
+                            />
+                          </div>
+                          {menus.length > 1 && (
+                            <div>
+                              <Label htmlFor={`menu-${item.id}`}>In menu</Label>
+                              <Select
+                                id={`menu-${item.id}`}
+                                value={menu.id}
+                                onChange={(e) => {
+                                  reassignItem(menu.id, item.id, e.target.value);
+                                  setEditingItem(null);
+                                }}
+                              >
+                                {menus.map((m) => (
+                                  <option key={m.id} value={m.id}>
+                                    {m.id === TOP
+                                      ? "No menu — top buttons"
+                                      : m.title || "Untitled menu"}
+                                  </option>
+                                ))}
+                              </Select>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
 
-              {menu.items.length === 0 && (
-                <p className="px-1 text-xs text-neutral-500">No items yet — add a link or a button.</p>
-              )}
+                {menu.items.length === 0 && (
+                  <p className="px-1 text-xs text-neutral-500">
+                    {isTop
+                      ? "No buttons here — the top row is off."
+                      : "No items yet — add a link or a button."}
+                  </p>
+                )}
 
-              <div className="flex gap-2 pt-1">
-                <Button variant="outline" size="sm" onClick={() => addItem(menu.id, "link")}>
-                  + Page link
-                </Button>
-                <Button variant="outline" size="sm" onClick={() => addItem(menu.id, "button")}>
-                  + Button
-                </Button>
+                <div className="flex gap-2 pt-1">
+                  {!isTop && (
+                    <Button variant="outline" size="sm" onClick={() => addItem(menu.id, "link")}>
+                      + Page link
+                    </Button>
+                  )}
+                  <Button variant="outline" size="sm" onClick={() => addItem(menu.id, "button")}>
+                    + Button
+                  </Button>
+                </div>
               </div>
-            </div>
-          </Card>
-        ))}
+            </Card>
+          );
+        })}
       </div>
 
       <button type="button" onClick={addMenu} className={btn("secondary", "md", "w-full")}>

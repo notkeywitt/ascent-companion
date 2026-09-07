@@ -47,6 +47,26 @@ export interface NavMenu {
 export interface NavLayout {
   version: 1;
   menus: NavMenu[];
+  /**
+   * Buttons that belong to NO menu — the launcher's own top row, above every
+   * menu. Everyday destinations that don't need a heading over them.
+   */
+  items?: NavItem[];
+  /**
+   * How many menus sit side by side once the page is full width (xl and up).
+   * The phone is always one column; this is the desktop choice, 1-4.
+   */
+  columns?: number;
+}
+
+/** Menus per row at xl when the layout doesn't say. */
+export const DEFAULT_COLUMNS = 3;
+export const MAX_COLUMNS = 4;
+
+/** Clamp a stored/entered column count into 1…MAX_COLUMNS. */
+export function clampColumns(n: unknown): number {
+  const v = typeof n === "number" && Number.isFinite(n) ? Math.floor(n) : DEFAULT_COLUMNS;
+  return Math.min(MAX_COLUMNS, Math.max(1, v));
 }
 
 /**
@@ -57,6 +77,8 @@ export interface NavLayout {
 export function defaultLayout(): NavLayout {
   return {
     version: 1,
+    items: [],
+    columns: DEFAULT_COLUMNS,
     menus: AREAS.map((a) => ({
       id: a.id,
       title: a.title,
@@ -82,19 +104,43 @@ function asString(v: unknown): string {
 }
 
 /**
+ * One untrusted item → a NavItem, or null when it is too incomplete to render.
+ * `forceKind` is what makes a top-level item always a button: a hairline link
+ * row with no menu heading above it has nothing to belong to.
+ */
+function sanitizeItem(raw: unknown, forceKind?: NavItemKind): NavItem | null {
+  if (!raw || typeof raw !== "object") return null;
+  const id = asString((raw as { id?: unknown }).id).trim();
+  const label = asString((raw as { label?: unknown }).label).trim();
+  const href = asString((raw as { href?: unknown }).href).trim();
+  // A link must go somewhere and be named; skip a half-built row rather than
+  // render a blank, dead entry.
+  if (!id || !label || !href) return null;
+  const kind: NavItemKind =
+    forceKind ?? ((raw as { kind?: unknown }).kind === "button" ? "button" : "link");
+  return {
+    id,
+    kind,
+    label,
+    href,
+    desc: asString((raw as { desc?: unknown }).desc),
+    view: asString((raw as { view?: unknown }).view).trim(),
+  };
+}
+
+/**
  * Coerce an untrusted value (a stored JSON blob, a request body) into a valid
  * NavLayout, or null when it can't be salvaged. A null result is the signal to
  * fall back to the shipped launcher, so validation is deliberately strict: a
- * layout with no menus, or menus with no id, is treated as absent rather than
- * rendered as an empty page.
+ * layout with nothing to render — no menus AND no top buttons — is treated as
+ * absent rather than rendered as an empty page.
  */
 export function sanitizeLayout(raw: unknown): NavLayout | null {
   if (!raw || typeof raw !== "object") return null;
   const menusRaw = (raw as { menus?: unknown }).menus;
-  if (!Array.isArray(menusRaw)) return null;
 
   const menus: NavMenu[] = [];
-  for (const m of menusRaw) {
+  for (const m of Array.isArray(menusRaw) ? menusRaw : []) {
     if (!m || typeof m !== "object") continue;
     const id = asString((m as { id?: unknown }).id).trim();
     if (!id) continue;
@@ -102,23 +148,8 @@ export function sanitizeLayout(raw: unknown): NavLayout | null {
     const items: NavItem[] = [];
     if (Array.isArray(itemsRaw)) {
       for (const it of itemsRaw) {
-        if (!it || typeof it !== "object") continue;
-        const itemId = asString((it as { id?: unknown }).id).trim();
-        const label = asString((it as { label?: unknown }).label).trim();
-        const href = asString((it as { href?: unknown }).href).trim();
-        // A link must go somewhere and be named; skip a half-built row rather
-        // than render a blank, dead entry.
-        if (!itemId || !label || !href) continue;
-        const kind: NavItemKind =
-          (it as { kind?: unknown }).kind === "button" ? "button" : "link";
-        items.push({
-          id: itemId,
-          kind,
-          label,
-          href,
-          desc: asString((it as { desc?: unknown }).desc),
-          view: asString((it as { view?: unknown }).view).trim(),
-        });
+        const item = sanitizeItem(it);
+        if (item) items.push(item);
       }
     }
     const previewRaw = (m as { preview?: unknown }).preview;
@@ -135,6 +166,22 @@ export function sanitizeLayout(raw: unknown): NavLayout | null {
     });
   }
 
-  if (menus.length === 0) return null;
-  return { version: 1, menus };
+  const topRaw = (raw as { items?: unknown }).items;
+  const items: NavItem[] = [];
+  if (Array.isArray(topRaw)) {
+    for (const it of topRaw) {
+      const item = sanitizeItem(it, "button");
+      if (item) items.push(item);
+    }
+  }
+
+  // A launcher of nothing but top buttons is legitimate, so "empty" now means
+  // no menus AND no buttons — that is the only case that falls back to AREAS.
+  if (menus.length === 0 && items.length === 0) return null;
+  return {
+    version: 1,
+    menus,
+    items,
+    columns: clampColumns((raw as { columns?: unknown }).columns),
+  };
 }

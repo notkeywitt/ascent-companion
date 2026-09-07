@@ -16,6 +16,7 @@ import { HomeLayoutEditor } from "@/components/HomeLayoutEditor";
 import { HomeJobBoard } from "@/components/HomeJobBoard";
 import { useEffectiveLayout } from "@/components/NavLayoutProvider";
 import { PREVIEW_ROWS, tileLauncherFor } from "@/lib/nav";
+import { DEFAULT_COLUMNS, type NavItem } from "@/lib/navLayout";
 import { AppearanceCard } from "@/components/AppearanceCard";
 
 /**
@@ -47,6 +48,49 @@ import { AppearanceCard } from "@/components/AppearanceCard";
 
 /** Where the launcher remembers which menus you folded away. */
 const COLLAPSED_KEY = "home.collapsedAreas";
+
+/**
+ * How many menus sit side by side at xl. STATIC strings on purpose — Tailwind
+ * scans the source for class names, so `xl:grid-cols-${n}` would be compiled
+ * away to nothing. One column stays a plain stack rather than a 1-wide grid.
+ */
+const COLUMN_CLS: Record<number, string> = {
+  1: "space-y-6",
+  2: "space-y-6 xl:grid xl:grid-cols-2 xl:items-start xl:gap-6 xl:space-y-0",
+  3: "space-y-6 xl:grid xl:grid-cols-3 xl:items-start xl:gap-6 xl:space-y-0",
+  4: "space-y-6 xl:grid xl:grid-cols-4 xl:items-start xl:gap-6 xl:space-y-0",
+};
+
+/**
+ * A launcher BUTTON — the large tile. Used both inside a menu and, for the
+ * buttons that belong to no menu, in the row above every menu.
+ */
+function LauncherButton({
+  b,
+  qs,
+  badge = 0,
+}: {
+  b: Pick<NavItem, "id" | "href" | "label" | "desc">;
+  qs: string;
+  badge?: number;
+}) {
+  return (
+    <Link
+      href={b.href + qs}
+      className="flex min-h-[64px] flex-col justify-center rounded-xl border border-line bg-white px-3 py-2 text-center transition hover:border-accent hover:bg-accent/5 dark:bg-ink-raised"
+    >
+      <span className="flex items-center justify-center gap-1.5 text-sm font-semibold tracking-tight">
+        {b.label}
+        {badge > 0 && <CountBadge n={badge} />}
+      </span>
+      {b.desc && (
+        <span className="mt-0.5 block text-[11px] text-neutral-500 dark:text-neutral-400">
+          {b.desc}
+        </span>
+      )}
+    </Link>
+  );
+}
 
 function Home() {
   const search = useSearchParams();
@@ -92,7 +136,7 @@ function Home() {
   // customized menus/links/buttons (Edit mode). `isCustom` tells us whether the
   // stored strings are authoritative or whether we still resolve wording through
   // the copy registry (so office Page-Text edits keep working on the default).
-  const { menus, isCustom } = useEffectiveLayout();
+  const { menus, items: topItemsRaw, columns, isCustom } = useEffectiveLayout();
 
   // Home-layout Edit mode (admin only — see the button below).
   const [editing, setEditing] = useState(false);
@@ -127,6 +171,15 @@ function Home() {
         }))
         .filter((a) => a.items.length > 0),
     [menus, isCustom, access, c],
+  );
+
+  // Buttons that belong to no menu — the launcher's own top row. Gated exactly
+  // like a menu item, so one a role can't reach simply isn't there. These only
+  // exist on a CUSTOM layout, so their strings are authoritative (no copy
+  // registry lookup — the Edit surface is the naming surface).
+  const topItems = useMemo(
+    () => topItemsRaw.filter((it) => it.view === "" || access.can(it.view)),
+    [topItemsRaw, access],
   );
 
   // Queue counts, keyed by view id. Add a future queue here and both the area
@@ -192,10 +245,21 @@ function Home() {
         </div>
       ) : (
         <div className="space-y-6">
+          {/* Buttons outside every menu, across the top of the launcher. Two
+              across on a phone, four once the page is full width. */}
+          {topItems.length > 0 && (
+            <div className="grid grid-cols-2 gap-2 xl:grid-cols-4">
+              {topItems.map((b) => (
+                <LauncherButton key={b.id} b={b} qs={qs} badge={badges[b.view] ?? 0} />
+              ))}
+            </div>
+          )}
+
           {/* One column on a phone; at xl the page is full width, and twenty
               hairline rows stretched across a desktop monitor read worse than
-              three columns of them. */}
-          <div className="space-y-6 xl:grid xl:grid-cols-3 xl:items-start xl:gap-6 xl:space-y-0">
+              several columns of them. How many is the admin's choice (Edit home
+              page → Menus per row). */}
+          <div className={COLUMN_CLS[columns] ?? COLUMN_CLS[DEFAULT_COLUMNS]}>
             {areas.map((area) => {
               const buttons = area.items.filter((it) => it.kind === "button");
               const links = area.items.filter((it) => it.kind !== "button");
@@ -232,21 +296,7 @@ function Home() {
                   {isOpen && buttons.length > 0 && (
                     <div className="grid grid-cols-2 gap-2">
                       {buttons.map((b) => (
-                        <Link
-                          key={b.id}
-                          href={b.href + qs}
-                          className="flex min-h-[64px] flex-col justify-center rounded-xl border border-line bg-white px-3 py-2 text-center transition hover:border-accent hover:bg-accent/5 dark:bg-ink-raised"
-                        >
-                          <span className="flex items-center justify-center gap-1.5 text-sm font-semibold tracking-tight">
-                            {b.label}
-                            {(badges[b.view] ?? 0) > 0 && <CountBadge n={badges[b.view]} />}
-                          </span>
-                          {b.desc && (
-                            <span className="mt-0.5 block text-[11px] text-neutral-500 dark:text-neutral-400">
-                              {b.desc}
-                            </span>
-                          )}
-                        </Link>
+                        <LauncherButton key={b.id} b={b} qs={qs} badge={badges[b.view] ?? 0} />
                       ))}
                     </div>
                   )}
