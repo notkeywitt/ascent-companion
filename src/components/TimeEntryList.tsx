@@ -594,7 +594,7 @@ function RowBody({
   children: React.ReactNode;
 }) {
   const cls =
-    "flex min-w-0 flex-1 cursor-pointer items-start gap-2 py-2 pl-1 pr-3 text-left transition hover:bg-accent/5 dark:hover:bg-white/5";
+    "flex min-w-0 flex-1 cursor-pointer items-start gap-2 py-2.5 pl-1 pr-3 text-left transition hover:bg-accent/5 dark:hover:bg-white/5";
   if (!onEdit) {
     return (
       <label htmlFor={`tel-sel-${t.id}`} className={cls}>
@@ -755,7 +755,7 @@ export function TimeEntryList({
                   onClick={() => toggleGroup(g.key)}
                   aria-expanded={isOpen(g.key)}
                   disabled={f.on}
-                  className="flex w-full items-baseline justify-between gap-2 border-t border-line-soft bg-neutral-50 px-3 py-2 text-left text-[11px] font-semibold transition hover:bg-accent/5 disabled:cursor-default disabled:hover:bg-neutral-50 dark:bg-ink-raised/50 dark:hover:bg-white/5 dark:disabled:hover:bg-ink-raised/50 lg:py-1.5"
+                  className="flex w-full items-baseline justify-between gap-2 border-t border-line-soft bg-neutral-50 px-3 py-2 text-left text-xs font-semibold transition hover:bg-accent/5 disabled:cursor-default disabled:hover:bg-neutral-50 dark:bg-ink-raised/50 dark:hover:bg-white/5 dark:disabled:hover:bg-ink-raised/50 lg:py-1.5"
                 >
                   <span className="min-w-0 truncate">
                     <span
@@ -785,7 +785,7 @@ export function TimeEntryList({
                     return (
                       <li
                         key={t.id}
-                        className={`border-b border-line-soft text-xs last:border-0 ${
+                        className={`border-b border-line-soft text-[11.5px] last:border-0 ${
                           moved ? "bg-amber-50/60 dark:bg-amber-950/20" : ""
                         } ${editingId === t.id ? "bg-accent/10" : ""}`}
                       >
@@ -797,7 +797,7 @@ export function TimeEntryList({
                             you read is a list you tap to look closer at. */}
                           <label
                             htmlFor={`tel-sel-${t.id}`}
-                            className="flex shrink-0 cursor-pointer items-start self-stretch py-2 pl-3 pr-2 transition hover:bg-accent/5 dark:hover:bg-white/5"
+                            className="flex shrink-0 cursor-pointer items-start self-stretch py-2.5 pl-3 pr-2 transition hover:bg-accent/5 dark:hover:bg-white/5"
                           >
                             <input
                               id={`tel-sel-${t.id}`}
@@ -816,14 +816,14 @@ export function TimeEntryList({
                                 pay rate nobody is editing here. Cost keeps its
                                 place on the detail line below. */}
                               <span className="flex items-baseline justify-between gap-2">
-                                <span className="min-w-0 truncate text-[13px] font-semibold">
+                                <span className="min-w-0 truncate text-sm font-semibold">
                                   {t.employee}
                                 </span>
-                                <span className="shrink-0 text-sm font-semibold tabular-nums">
+                                <span className="shrink-0 text-base font-semibold tabular-nums">
                                   {hrs(t.hours)}
                                 </span>
                               </span>
-                              <span className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[11px] text-neutral-500 dark:text-neutral-400">
+                              <span className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[11.5px] text-neutral-500 dark:text-neutral-400">
                                 <span>
                                   {dayLabel(dayOfEntry(t))} · {money(t.cost)}
                                   {t.type ? ` · ${t.type}` : ""}
@@ -844,7 +844,7 @@ export function TimeEntryList({
                                 left there. Reads red once the code is over.
                                 A staged entry shows it for the code it would
                                 move TO, with the old one struck through. */}
-                              <span className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px]">
+                              <span className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11.5px]">
                                 <span
                                   className={`inline-flex items-baseline gap-1.5 rounded-md px-2 py-1 ${
                                     over
