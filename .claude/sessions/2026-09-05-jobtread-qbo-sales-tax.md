@@ -4,9 +4,9 @@ repo: ascent-companion
 branch: claude/jobtread-qbo-sales-tax-lfqctd
 status: shipped
 started: 2026-09-05T05:30:35Z
-updated: 2026-09-07T05:27:54Z
+updated: 2026-09-07T05:33:02Z
 goal: 
-next: Verify on the wide monitor: drag the trackingsheet column handles, confirm the split sticks after reload and dark-mode budget bars read calmer.
+next: Look at the new Home board on the wide monitor: card width, the donut's legend at 288px, and whether 9 active cards in a scroll row reads right.
 ---
 
 ## Log
@@ -17,6 +17,10 @@ next: Verify on the wide monitor: drag the trackingsheet column handles, confirm
 - 2026-09-05 05:31 · `6d1914d` log session 2026-09-05-jobtread-qbo-sales-tax
 - 2026-09-06 22:10 · `54bfdef` companion: drag-resizable trackingsheet columns, dimmer dark budget bars
   src/app/trackingsheet/Board.tsx, src/components/ui.tsx
+- 2026-09-06 22:27 · `90134a9` companion: shared SplitGrid resizer, static bill header, invoice first
+  src/app/trackingsheet/AllBills.tsx, src/app/trackingsheet/BillCodingCard.tsx, src/app/trackingsheet/Board.tsx, src/app/trackingsheet/DraftQueue.tsx, src/components/SplitGrid.tsx
+- 2026-09-06 22:32 · `b934399` companion: home job board — budget donut + calendar position
+  CODEBASE_MAP.md, src/app/api/home/board/route.ts, src/app/page.tsx, src/components/HomeJobBoard.tsx, src/lib/jobBoard.test.ts, src/lib/jobBoard.ts, +1 more
 
 ## Notes
 - 2026-09-05 05:30 — Companion half of the sales-tax move. src/lib/salesTax.ts is the single definition: the 88 80 00 constants, the line matcher, splitSalesTax, and the job-Phase-derived recoverable/consumed flag. createVendorBill appends the tax line and pins nonRecoverableTax to 0; setBillTax now creates/updates/deletes that LINE and clears any legacy field.
