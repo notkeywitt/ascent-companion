@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-07T15:09:03Z",
+  "generatedAt": "2026-09-07T15:13:45Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,7 +8,7 @@
       "branch": "claude/pwa-dock-homescreen-logo-88g8qu",
       "status": "shipped",
       "started": "2026-09-07T15:08:26Z",
-      "updated": "2026-09-07T15:09:03Z",
+      "updated": "2026-09-07T15:13:45Z",
       "goal": "",
       "next": "none — icon change is complete",
       "commits": [
@@ -18,6 +18,13 @@
           "sha": "a124414",
           "subject": "companion: use the reversed mark for the installed app icon",
           "files": "public/icon-192.png, public/icon-512.png, src/app/apple-icon.png, src/app/icon.png, src/app/manifest.ts"
+        },
+        {
+          "date": "2026-09-07",
+          "time": "15:13",
+          "sha": "a074fd7",
+          "subject": "companion: rasterize the install icon from the brand asset",
+          "files": "ascent_logo_icon_bk.svg, public/icon-192.png, public/icon-512.png, src/app/apple-icon.png, src/app/icon.png, src/app/manifest.ts"
         }
       ]
     },
