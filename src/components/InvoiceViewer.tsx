@@ -17,9 +17,15 @@ import { useCallback, useEffect, useState } from "react";
  * with a fit/actual-size toggle. The lightbox is a dialog with nothing behind it
  * to scroll, so scrolling a zoomed image there is the point rather than a trap.
  *
- * The original PDF is always one click away, and is the ONLY way to page 2 —
- * JobTread's render is page 1. Both surfaces say so out loud rather than
- * quietly showing a first page as if it were the document.
+ * MULTI-PAGE. `?page=N` on the rasteriser URL renders page N, 1-based, and
+ * answers HTTP 400 past the last page (probed live 2026-09-07 against a 3-page
+ * bill: pages 1-3 are JPEG, page 4 is a 400). Nothing in the Pave schema says
+ * how many pages a file has, so `usePageCount` asks for the next one until the
+ * CDN says no. The pages then sit in a horizontal snap strip — swipe or scroll
+ * sideways for page 2 — and the lightbox opens on whichever page you tapped.
+ *
+ * The original PDF is still one click away, for printing and for anything the
+ * rasteriser will not render.
  */
 
 /** A file attached to a bill. Structurally the `BillFile` both callers already
@@ -46,21 +52,94 @@ export const isImageFile = (f: InvoiceFile) =>
  */
 export const flatImageSrc = (f: InvoiceFile) => f.imageUrl || (isImageFile(f) ? f.url : "") || "";
 
+/**
+ * The same rasteriser URL, for page `n` (1-based). `imageUrl` already carries
+ * `?size=`, so this is always an extra parameter. An actual image has one page
+ * and ignores this.
+ */
+export const pageSrc = (f: InvoiceFile, n: number) => {
+  const base = flatImageSrc(f);
+  if (!base || n <= 1 || isImageFile(f)) return base;
+  return `${base}${base.includes("?") ? "&" : "?"}page=${n}`;
+};
+
+// ponytail: a scan longer than this stops at 20 pages rather than probing on
+// forever. Raise it if a real vendor ever sends a longer bill.
+const MAX_PAGES = 20;
+
+/**
+ * How many pages the rasteriser will give us for this file.
+ *
+ * There is no page count in the Pave schema, and `?page=N` past the end is a
+ * 400 — so ask for the next page and believe the answer. Each probe is the very
+ * image the strip then shows, so the browser cache makes the second request
+ * free.
+ */
+function usePageCount(file: InvoiceFile) {
+  const src = flatImageSrc(file);
+  const isPdf = !isImageFile(file);
+  const [count, setCount] = useState(1);
+
+  useEffect(() => {
+    setCount(1);
+    if (!src || !isPdf) return;
+    let alive = true;
+    const probe = (n: number) => {
+      if (!alive || n > MAX_PAGES) return;
+      const img = new Image();
+      img.onload = () => {
+        if (!alive) return;
+        setCount(n);
+        probe(n + 1);
+      };
+      // A 400 is the expected end of the document, not a failure to report.
+      img.onerror = () => {};
+      img.src = pageSrc(file, n);
+    };
+    probe(2);
+    return () => {
+      alive = false;
+    };
+    // `file` is re-created each render by its caller; the URL is the identity.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [src, isPdf]);
+
+  return count;
+}
+
 /* ------------------------------------------------------------------ lightbox */
 
 /**
  * The scan, full screen. Fit-to-screen by default; click to jump to actual size
  * and scroll around it. Escape or the backdrop closes it, and the page behind is
  * frozen while it is open so dismissing it puts you back where you were.
+ *
+ * `page` is which page of a multi-page PDF to open on — the one that was tapped
+ * in the strip. ← and → walk the rest.
  */
-export function InvoiceLightbox({ file, onClose }: { file: InvoiceFile; onClose: () => void }) {
+export function InvoiceLightbox({
+  file,
+  page = 1,
+  onClose,
+}: {
+  file: InvoiceFile;
+  page?: number;
+  onClose: () => void;
+}) {
   const [actual, setActual] = useState(false);
-  const src = flatImageSrc(file);
+  const [n, setN] = useState(page);
+  const pages = usePageCount(file);
+  const src = pageSrc(file, n);
   const isPdf = !isImageFile(file);
+
+  // A page change re-fits: actual size on page 1 says nothing about page 2.
+  useEffect(() => setActual(false), [n]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
+      if (e.key === "ArrowRight") setN((v) => Math.min(v + 1, pages));
+      if (e.key === "ArrowLeft") setN((v) => Math.max(v - 1, 1));
     };
     window.addEventListener("keydown", onKey);
     // Freeze the page underneath: without this the wheel falls through to the
@@ -71,7 +150,10 @@ export function InvoiceLightbox({ file, onClose }: { file: InvoiceFile; onClose:
       window.removeEventListener("keydown", onKey);
       document.body.style.overflow = prev;
     };
-  }, [onClose]);
+  }, [onClose, pages]);
+
+  const stepBtn =
+    "shrink-0 rounded-lg px-2 py-1 text-sm leading-none text-white/80 hover:text-white disabled:opacity-30 disabled:hover:text-white/80";
 
   return (
     <div
@@ -89,8 +171,32 @@ export function InvoiceLightbox({ file, onClose }: { file: InvoiceFile; onClose:
       >
         <span className="min-w-0 flex-1 truncate text-xs" title={file.name}>
           {file.name || "Invoice"}
-          {isPdf && <span className="ml-2 text-white/50">page 1</span>}
         </span>
+        {/* Page stepping, only when there IS another page. ← and → do the same
+            thing, so a keyboard never needs the buttons. */}
+        {pages > 1 && (
+          <span className="flex shrink-0 items-center gap-1 text-xs tabular-nums text-white/80">
+            <button
+              type="button"
+              className={stepBtn}
+              onClick={() => setN((v) => Math.max(v - 1, 1))}
+              disabled={n <= 1}
+              aria-label="Previous page"
+            >
+              ‹
+            </button>
+            page {n} / {pages}
+            <button
+              type="button"
+              className={stepBtn}
+              onClick={() => setN((v) => Math.min(v + 1, pages))}
+              disabled={n >= pages}
+              aria-label="Next page"
+            >
+              ›
+            </button>
+          </span>
+        )}
         {file.url && (
           <a
             href={file.url}
@@ -121,8 +227,9 @@ export function InvoiceLightbox({ file, onClose }: { file: InvoiceFile; onClose:
         {src ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
+            key={n}
             src={src}
-            alt={file.name ?? "invoice"}
+            alt={pages > 1 ? `${file.name ?? "invoice"} page ${n}` : (file.name ?? "invoice")}
             onClick={(e) => {
               e.stopPropagation();
               setActual((a) => !a);
@@ -159,10 +266,12 @@ export function InvoiceAttachment({
   maxHClass?: string;
   radiusClass?: string;
 }) {
-  const [open, setOpen] = useState(false);
-  const close = useCallback(() => setOpen(false), []);
+  /** The page the lightbox opens on, or 0 for closed — pages are 1-based. */
+  const [open, setOpen] = useState(0);
+  const close = useCallback(() => setOpen(0), []);
   const src = flatImageSrc(file);
   const isPdf = !isImageFile(file);
+  const pages = usePageCount(file);
 
   // Nothing to show and nowhere to send them: just name the file.
   if (!file.url) {
@@ -172,19 +281,40 @@ export function InvoiceAttachment({
   return (
     <div>
       {src ? (
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          title="View full screen"
-          className="block w-full"
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={src}
-            alt={file.name ?? "invoice"}
-            className={`${maxHClass} ${radiusClass} w-full cursor-zoom-in border border-line object-contain dark:border-neutral-800`}
-          />
-        </button>
+        <>
+          {/* ONE PAGE PER SCREENFUL, scrolled sideways. Each page is `w-full
+              shrink-0`, so a single-page bill is exactly what it was before —
+              no scrollbar, no snap to fight — and a three-page one swipes.
+              Horizontal only: the vertical wheel still belongs to the panel,
+              which is the whole point of this file. */}
+          <div
+            className={`flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain ${
+              pages > 1 ? "gap-2" : ""
+            }`}
+          >
+            {Array.from({ length: pages }, (_, i) => i + 1).map((n) => (
+              <button
+                key={n}
+                type="button"
+                onClick={() => setOpen(n)}
+                title={pages > 1 ? `View page ${n} full screen` : "View full screen"}
+                className="block w-full shrink-0 snap-start"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={pageSrc(file, n)}
+                  alt={pages > 1 ? `${file.name ?? "invoice"} page ${n}` : (file.name ?? "invoice")}
+                  className={`${maxHClass} ${radiusClass} w-full cursor-zoom-in border border-line object-contain dark:border-neutral-800`}
+                />
+              </button>
+            ))}
+          </div>
+          {pages > 1 && (
+            <p className="mt-1 text-[11px] text-neutral-500 dark:text-neutral-400">
+              {pages} pages · scroll sideways
+            </p>
+          )}
+        </>
       ) : null}
       {isPdf && (
         <a
@@ -196,7 +326,7 @@ export function InvoiceAttachment({
           Open {file.name || "the PDF"} ↗
         </a>
       )}
-      {open && <InvoiceLightbox file={file} onClose={close} />}
+      {open > 0 && <InvoiceLightbox file={file} page={open} onClose={close} />}
     </div>
   );
 }
