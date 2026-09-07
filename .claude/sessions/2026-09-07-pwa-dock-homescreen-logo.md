@@ -16,6 +16,8 @@ next: none — icon change is complete
   public/icon-192.png, public/icon-512.png, src/app/apple-icon.png, src/app/icon.png, src/app/manifest.ts
 - 2026-09-07 15:13 · `a074fd7` companion: rasterize the install icon from the brand asset
   ascent_logo_icon_bk.svg, public/icon-192.png, public/icon-512.png, src/app/apple-icon.png, src/app/icon.png, src/app/manifest.ts
+- 2026-09-07 21:06 · `62a13ca` companion: draw the real mark geometry in AscentIcon
+  src/components/AscentLogo.tsx
 
 ## Notes
 - 2026-09-07 15:08 — install icon is now the reversed mark: white peak on pure black. Recoloured from ascent_logo_icon_ochre@1x.png (ochre->black, cream->white, projected onto the two-colour axis so antialiased edges survive), resized to 512/192/180. The SVG polygon in AscentLogo.tsx is an approximation of the mark, not the real geometry, so the PNG asset is the source for icon art.
