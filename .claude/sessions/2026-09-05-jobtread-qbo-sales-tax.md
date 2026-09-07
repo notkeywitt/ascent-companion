@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/jobtread-qbo-sales-tax-lfqctd
 status: shipped
 started: 2026-09-05T05:30:35Z
-updated: 2026-09-07T05:59:19Z
+updated: 2026-09-07T06:05:09Z
 goal: 
 next: Look at the new Home board on the wide monitor: card width, the donut's legend at 288px, and whether 9 active cards in a scroll row reads right.
 ---
@@ -34,6 +34,8 @@ next: Look at the new Home board on the wide monitor: card width, the donut's le
 - 2026-09-06 22:59 · `92a2274` companion: menus per row, buttons outside menus, drilldown on its own line
   src/app/page.tsx, src/components/HomeJobBoard.tsx, src/components/HomeLayoutEditor.tsx, src/components/NavLayoutProvider.tsx, src/lib/navLayout.test.ts, src/lib/navLayout.ts
 - 2026-09-06 22:59 · `223a884` companion: log session 2026-09-05-jobtread-qbo-sales-tax
+- 2026-09-06 23:05 · `a183d86` companion: fix the menus-per-row row collapsing to one word per line
+  src/components/HomeLayoutEditor.tsx
 
 ## Notes
 - 2026-09-05 05:30 — Companion half of the sales-tax move. src/lib/salesTax.ts is the single definition: the 88 80 00 constants, the line matcher, splitSalesTax, and the job-Phase-derived recoverable/consumed flag. createVendorBill appends the tax line and pins nonRecoverableTax to 0; setBillTax now creates/updates/deletes that LINE and clears any legacy field.
