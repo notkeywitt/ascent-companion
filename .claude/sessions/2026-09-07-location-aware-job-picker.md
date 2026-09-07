@@ -15,5 +15,6 @@ next: watch for field feedback on the pinned Nearest row; consider the same show
 - 2026-09-07 14:16 · `a4a6d68` companion: surface the nearest job in the mileage and time pickers
   CODEBASE_MAP.md, src/app/employee-time/EmployeeTimeClient.tsx, src/app/mileage-tracker/page.tsx, src/components/JobPicker.tsx, src/lib/jobtread.ts, src/lib/nearestJob.ts
 - 2026-09-07 14:16 · `dedd6cc` companion: log session 2026-09-07-location-aware-job-picker
+- 2026-09-07 14:16 · `b87eab7` companion: close session ledger for the location-aware job picker
 
 ## Notes
