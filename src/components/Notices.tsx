@@ -1,20 +1,36 @@
 "use client";
 
-import { useCallback, useEffect, useState, type ReactNode } from "react";
-import { Button } from "@/components/ui";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Banner, Button, type BannerTone } from "@/components/ui";
 
 /**
- * The admin-notice popup — an announcement an admin pushed (Admin → Notices)
- * shown as a modal on whatever page the reader has open, the same "find you where
- * you are" mechanism as the unmatched-vendor alert (StuckVendors.tsx).
+ * The two reader surfaces for a notice — the BANNER stack and the POPUP.
  *
- * Self-contained: it fetches its own feed (/api/notices, which the server scopes
- * to this signed-in user and filters out anything they've already dismissed) and
- * has no context provider because nothing else consumes it. Notices show one at a
- * time, newest first; acknowledging one records the read server-side (so it stays
- * gone across devices and sessions) and advances to the next.
+ * `NoticeCenter` is mounted once in the root layout, directly under the header,
+ * and owns both. It fetches the reader's own scoped feed (`/api/notices`, which
+ * resolves identity, targeting and the schedule window server-side) ONE time per
+ * load and splits it by each notice's `display`:
  *
- * Mounted once in the root layout, only for signed-in users.
+ *  - **banner** — a tinted strip in the page flow, under the header, on whatever
+ *    page the reader has open. The default, and what a scheduled announcement
+ *    should be: it says its piece without standing between the reader and their
+ *    work. A standing banner (`dismissible` off) has no ✕ and stays for its
+ *    whole window.
+ *  - **popup** — the interrupting modal, kept for the announcement that must be
+ *    acknowledged before anything else. Always dismissible; one at a time,
+ *    newest first.
+ *
+ * Both surfaces live in one component because they share one feed. Two
+ * components would mean two requests for the same answer on every page load.
+ *
+ * The popup renders as `fixed inset-0`, so its position on screen does not
+ * depend on where in the tree this sits — only the banner stack does.
+ *
+ * WHY IT RE-FETCHES: a scheduled notice starts while the app is already open,
+ * and this app is installed to home screens and left open for days. So the feed
+ * is re-read when the tab becomes visible again and every five minutes it stays
+ * visible. Anything already dismissed on this device is held back locally too,
+ * so a re-fetch that races the dismiss write can't flash it back.
  */
 
 interface Notice {
@@ -22,67 +38,161 @@ interface Notice {
   title: string;
   body: string;
   tone: "info" | "warning" | "success" | string;
+  display: "banner" | "popup" | string;
+  dismissible: boolean;
   createdAt: string;
 }
 
-const TONE_STYLE: Record<string, { badge: string; icon: ReactNode }> = {
-  info: {
-    badge: "bg-accent/10 text-accent dark:bg-accent/15 dark:text-accent-soft",
-    icon: (
-      <path d="M12 16v-4M12 8h.01M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z" />
-    ),
-  },
-  warning: {
-    badge: "bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300",
-    icon: (
-      <>
-        <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-        <path d="M12 9v4M12 17h.01" />
-      </>
-    ),
-  },
-  success: {
-    badge: "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300",
-    icon: (
-      <>
-        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-        <path d="m9 11 3 3L22 4" />
-      </>
-    ),
-  },
+const REFETCH_MS = 5 * 60 * 1000;
+
+/** Notice tone → the design system's banner tone. */
+const TONE: Record<string, BannerTone> = {
+  info: "info",
+  warning: "warning",
+  success: "success",
 };
 
-export function NoticePopup() {
-  const [queue, setQueue] = useState<Notice[]>([]);
+/** The tone mark, as inline SVG paths — monochrome, painted in `currentColor`. */
+const TONE_ICON: Record<string, ReactNode> = {
+  info: <path d="M12 16v-4M12 8h.01M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z" />,
+  warning: (
+    <>
+      <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+      <path d="M12 9v4M12 17h.01" />
+    </>
+  ),
+  success: (
+    <>
+      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+      <path d="m9 11 3 3L22 4" />
+    </>
+  ),
+};
 
-  useEffect(() => {
-    let alive = true;
+function ToneMark({ tone, className = "h-5 w-5" }: { tone: string; className?: string }) {
+  return (
+    <svg
+      aria-hidden
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      {TONE_ICON[tone] ?? TONE_ICON.info}
+    </svg>
+  );
+}
+
+export function NoticeCenter() {
+  const [feed, setFeed] = useState<Notice[]>([]);
+  // Dismissed on THIS device, this load — the local half of the read mark, so a
+  // re-fetch in flight beside the dismiss write can't bring one back.
+  const dismissed = useRef<Set<number>>(new Set());
+  const mounted = useRef(true);
+
+  const load = useCallback(() => {
     fetch("/api/notices")
       .then((r) => r.json())
       .then((j) => {
-        if (alive && Array.isArray(j.notices)) setQueue(j.notices);
+        if (!mounted.current || !Array.isArray(j.notices)) return;
+        setFeed((j.notices as Notice[]).filter((n) => !dismissed.current.has(n.id)));
       })
-      // A failed fetch must never break the page it's mounted on — the popup is
-      // additive. Stay silent and show nothing.
+      // A failed fetch must never break the page this is mounted on — both
+      // surfaces are additive. Stay silent and show nothing.
       .catch(() => {});
-    return () => {
-      alive = false;
-    };
   }, []);
 
-  const current = queue[0];
+  useEffect(() => {
+    mounted.current = true;
+    load();
+    const onVisible = () => {
+      if (document.visibilityState === "visible") load();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    const timer = setInterval(onVisible, REFETCH_MS);
+    return () => {
+      mounted.current = false;
+      document.removeEventListener("visibilitychange", onVisible);
+      clearInterval(timer);
+    };
+  }, [load]);
 
-  const dismiss = useCallback(() => {
-    if (!current) return;
-    const id = current.id;
-    // Advance immediately; record the read in the background.
-    setQueue((q) => q.slice(1));
+  const dismiss = useCallback((id: number) => {
+    dismissed.current.add(id);
+    // Clear it immediately; record the read in the background.
+    setFeed((f) => f.filter((n) => n.id !== id));
     fetch("/api/notices/dismiss", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id }),
     }).catch(() => {});
-  }, [current]);
+  }, []);
+
+  const banners = useMemo(() => feed.filter((n) => n.display !== "popup"), [feed]);
+  const popups = useMemo(() => feed.filter((n) => n.display === "popup"), [feed]);
+
+  return (
+    <>
+      <NoticeBanners notices={banners} onDismiss={dismiss} />
+      <NoticePopup queue={popups} onDismiss={dismiss} />
+    </>
+  );
+}
+
+/** The banner stack: one tinted strip per live notice, in the page flow. */
+function NoticeBanners({
+  notices,
+  onDismiss,
+}: {
+  notices: Notice[];
+  onDismiss: (id: number) => void;
+}) {
+  if (notices.length === 0) return null;
+  return (
+    <div className="mx-auto w-full max-w-2xl space-y-2 px-4 pt-3">
+      {notices.map((n) => (
+        <Banner key={n.id} tone={TONE[n.tone] ?? "info"}>
+          <div className="flex items-start gap-2.5">
+            <ToneMark tone={n.tone} className="mt-px h-4 w-4 shrink-0" />
+            <div className="min-w-0 flex-1">
+              <p className="font-semibold tracking-tight">{n.title}</p>
+              {n.body && <p className="mt-0.5 whitespace-pre-wrap opacity-90">{n.body}</p>}
+            </div>
+            {n.dismissible && (
+              <button
+                type="button"
+                onClick={() => onDismiss(n.id)}
+                aria-label={`Dismiss: ${n.title}`}
+                title="Dismiss"
+                // Inherits the banner's own tone colour rather than the icon
+                // button's neutral/accent hover, which would fight the tint.
+                className="-my-1.5 -mr-2 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-base leading-none opacity-60 transition hover:bg-black/5 hover:opacity-100 active:scale-95 dark:hover:bg-white/10"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+        </Banner>
+      ))}
+    </div>
+  );
+}
+
+/** The interrupting modal — one notice at a time, newest first. */
+function NoticePopup({
+  queue,
+  onDismiss,
+}: {
+  queue: Notice[];
+  onDismiss: (id: number) => void;
+}) {
+  const current = queue[0];
+  const dismiss = useCallback(() => {
+    if (current) onDismiss(current.id);
+  }, [current, onDismiss]);
 
   // Escape closes the current notice, matching the backdrop click.
   useEffect(() => {
@@ -95,9 +205,13 @@ export function NoticePopup() {
   }, [current, dismiss]);
 
   if (!current) return null;
-
-  const tone = TONE_STYLE[current.tone] ?? TONE_STYLE.info;
   const remaining = queue.length - 1;
+  const badge =
+    current.tone === "warning"
+      ? "bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300"
+      : current.tone === "success"
+        ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300"
+        : "bg-accent/10 text-accent dark:bg-accent/15 dark:text-accent-soft";
 
   return (
     <div
@@ -114,19 +228,9 @@ export function NoticePopup() {
         <div className="flex items-start gap-3">
           <span
             aria-hidden
-            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${tone.badge}`}
+            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${badge}`}
           >
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={2}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="h-5 w-5"
-            >
-              {tone.icon}
-            </svg>
+            <ToneMark tone={current.tone} />
           </span>
           <div className="min-w-0">
             <h2 id="notice-title" className="text-base font-bold tracking-tight">

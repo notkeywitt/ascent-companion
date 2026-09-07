@@ -557,31 +557,58 @@ export const navLayout = sqliteTable("nav_layout", {
 export type NavLayoutRow = typeof navLayout.$inferSelect;
 
 /**
- * Admin notices — short announcements an admin pushes to users, shown as a global
- * popup on whatever page the reader has open (the same mechanism as the
- * unmatched-vendor alert; see src/components/Notices.tsx). Companion-owned;
- * nothing to do with JobTread.
+ * Notices — short announcements office or admin pushes to the team, shown on
+ * whatever page the reader has open (the same "find you where you are"
+ * mechanism as the unmatched-vendor alert; see src/components/Notices.tsx).
+ * Companion-owned; nothing to do with JobTread.
  *
- * Targeting is one row: `audienceType` is "all" | "role" | "user", and
- * `audienceValue` names the role ("field"/"office"/…) or the individual's email
- * when the type isn't "all" (empty for "all"). `tone` drives the popup's colour
- * ("info" | "warning" | "success"). `active` is the on/off switch — flip it off
- * to stop showing a notice without deleting it (and its read history).
+ * ONE row carries all four decisions: what it says (`title`/`body`/`tone`), how
+ * it shows (`display` banner or popup, `dismissible`), when it shows
+ * (`startsAt`/`endsAt` + `active`) and who sees it (`audienceRoles` +
+ * `audienceEmails`). The when and the who are decided by the pure helpers in
+ * src/lib/notices.ts, which the feed, the authoring route and the authoring
+ * panel all share — see the column notes below.
+ *
+ * `active` is the manual on/off switch, independent of the schedule: flip it
+ * off to stop showing a notice without deleting it (and its read history).
  *
  * A notice is dismissed PER USER and stays gone: an acknowledgement writes a
  * `notice_reads` row, and the user-facing feed never returns a notice that reader
  * has a read row for. So re-activating an old notice won't re-nag people who
  * already saw it — deliberately; author a NEW notice to reach everyone again.
+ * An UNDISMISSIBLE notice writes no read row, which is what keeps a standing
+ * banner in view for its whole window.
  */
 export const notices = sqliteTable("notices", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   title: text("title").notNull(),
   body: text("body").notNull().default(""),
   tone: text("tone").notNull().default("info"), // "info" | "warning" | "success"
-  audienceType: text("audience_type").notNull().default("all"), // "all" | "role" | "user"
-  audienceValue: text("audience_value").notNull().default(""), // role name or email; "" for "all"
+  // How it reaches the reader: an in-flow BANNER under the header (the default,
+  // and what a scheduled announcement should be), or the interrupting POPUP.
+  display: text("display").notNull().default("banner"), // "banner" | "popup"
+  // A banner the reader can clear. Off makes it a STANDING notice — it stays on
+  // every page until its end time passes or an author switches it off, which is
+  // the only way to keep something in view that must not be dismissed away.
+  dismissible: integer("dismissible", { mode: "boolean" }).notNull().default(true),
+  // The schedule window, ISO stamps; "" means open-ended at that end. A notice
+  // shows only inside it (see `noticeStatus` in src/lib/notices.ts) — so an
+  // author writes Monday's announcement on Friday and it appears on its own.
+  startsAt: text("starts_at").notNull().default(""),
+  endsAt: text("ends_at").notNull().default(""),
+  // WHO sees it. Both lists empty = everyone; otherwise the two are OR'd, so a
+  // notice can hit a group and a named person at once. The rules live in
+  // src/lib/notices.ts — read them there, don't re-derive the match here.
+  audienceRoles: text("audience_roles").notNull().default(""), // CSV of role names
+  audienceEmails: text("audience_emails").notNull().default(""), // CSV of login emails
+  // LEGACY single-target pair, kept so rows written before multi-targeting
+  // still resolve. `audienceType` is "all" | "targeted" on everything written
+  // today; "role"/"user" + `audienceValue` is the old shape, folded into the
+  // lists above by `noticeRoles`/`noticeEmails`.
+  audienceType: text("audience_type").notNull().default("all"),
+  audienceValue: text("audience_value").notNull().default(""),
   active: integer("active", { mode: "boolean" }).notNull().default(true),
-  createdBy: text("created_by").notNull().default(""), // signed-in admin email
+  createdBy: text("created_by").notNull().default(""), // the author's login email
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });

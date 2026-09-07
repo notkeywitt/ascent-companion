@@ -259,6 +259,12 @@ export const COPY: Record<string, CopyEntry> = {
     label: "Time Sync — description",
     group: "Home — Utilities",
   },
+  "home.dest.notices.label": { text: "Notices", label: "Notices — name", group: "Home — Utilities" },
+  "home.dest.notices.desc": {
+    text: "Post a banner to the team — now or scheduled",
+    label: "Notices — description",
+    group: "Home — Utilities",
+  },
   "home.dest.requests.label": { text: "Requests", label: "Requests — name", group: "Home — Utilities" },
   "home.dest.requests.desc": {
     text: "Ask for fixes and new features",
