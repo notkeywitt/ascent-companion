@@ -1,19 +1,21 @@
 import { NextResponse } from "next/server";
-import { and, desc, eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { db, ensureDb } from "@/db";
 import { notices, noticeReads } from "@/db/schema";
 import { auth } from "@/auth";
+import { audienceMatches, isLive } from "@/lib/notices";
 
 /**
- * GET /api/notices — the reader's feed: active notices aimed at THIS signed-in
- * user that they haven't dismissed yet. Powers the global popup
- * (src/components/Notices.tsx).
+ * GET /api/notices — the reader's feed: notices that are LIVE right now, aimed
+ * at THIS signed-in user, and not already dismissed. Powers both notice
+ * surfaces (src/components/Notices.tsx) — the banner stack under the header and
+ * the interrupting popup — from one request, so a page load asks once.
  *
  * Targeting and identity are resolved server-side from the session — the client
  * never says who it is or what role it has, so a notice can't be fished out by
- * spoofing the request. A notice matches when it's active AND either aimed at
- * everyone, at the caller's role, or at the caller's email; already-read notices
- * (a notice_reads row for this email) are filtered out.
+ * spoofing the request. `audienceMatches` and `isLive` (src/lib/notices.ts) are
+ * the same functions the authoring page shows its Live/Scheduled status from,
+ * which is what keeps "it says live" and "it shows" the same claim.
  */
 export async function GET() {
   const session = await auth();
@@ -35,13 +37,12 @@ export async function GET() {
     .where(eq(noticeReads.email, email));
   const readIds = new Set(readRows.map((r) => r.noticeId));
 
-  const forMe = active.filter((n) => {
-    if (readIds.has(n.id)) return false;
-    if (n.audienceType === "all") return true;
-    if (n.audienceType === "role") return n.audienceValue === role;
-    if (n.audienceType === "user") return n.audienceValue.toLowerCase() === email;
-    return false;
-  });
+  // One `now` for the whole request, so two notices sharing an edge of the same
+  // window can't disagree about whether it has passed.
+  const now = Date.now();
+  const forMe = active.filter(
+    (n) => !readIds.has(n.id) && isLive(n, now) && audienceMatches(n, { email, role }),
+  );
 
   return NextResponse.json({
     notices: forMe.map((n) => ({
@@ -49,6 +50,8 @@ export async function GET() {
       title: n.title,
       body: n.body,
       tone: n.tone,
+      display: n.display,
+      dismissible: n.dismissible,
       createdAt: n.createdAt,
     })),
   });

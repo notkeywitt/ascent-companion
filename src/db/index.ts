@@ -551,14 +551,22 @@ async function applySchema() {
       updated_by TEXT NOT NULL DEFAULT ''
     )
   `);
-  // Admin notices — announcements pushed to users as a global popup. Companion-
-  // owned; a notice_reads row per (notice, reader) is the "seen it" mark.
+  // Notices — announcements office/admin push to the team, shown as a banner
+  // under the header or as a popup. Companion-owned; a notice_reads row per
+  // (notice, reader) is the "seen it" mark. See db/schema.ts for the model and
+  // src/lib/notices.ts for the schedule + targeting rules.
   await getClient().execute(`
     CREATE TABLE IF NOT EXISTS notices (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       title TEXT NOT NULL,
       body TEXT NOT NULL DEFAULT '',
       tone TEXT NOT NULL DEFAULT 'info',
+      display TEXT NOT NULL DEFAULT 'banner',
+      dismissible INTEGER NOT NULL DEFAULT 1,
+      starts_at TEXT NOT NULL DEFAULT '',
+      ends_at TEXT NOT NULL DEFAULT '',
+      audience_roles TEXT NOT NULL DEFAULT '',
+      audience_emails TEXT NOT NULL DEFAULT '',
       audience_type TEXT NOT NULL DEFAULT 'all',
       audience_value TEXT NOT NULL DEFAULT '',
       active INTEGER NOT NULL DEFAULT 1,
@@ -567,6 +575,32 @@ async function applySchema() {
       updated_at TEXT NOT NULL
     )
   `);
+  // Banner/schedule/multi-target columns, for a table created when a notice was
+  // popup-only and aimed at one role or one person (idempotent — same pattern as
+  // lead_inquiries above). The DEFAULTS are what make the backfill safe: an
+  // existing row keeps its audience_type/value pair, gains an empty schedule
+  // (which reads as "no window", i.e. unchanged), and 'popup' is written over
+  // the column default for those rows only, so nothing that used to interrupt
+  // silently turns into a banner.
+  let noticesGainedDisplay = false;
+  for (const column of [
+    "display TEXT NOT NULL DEFAULT 'banner'",
+    "dismissible INTEGER NOT NULL DEFAULT 1",
+    "starts_at TEXT NOT NULL DEFAULT ''",
+    "ends_at TEXT NOT NULL DEFAULT ''",
+    "audience_roles TEXT NOT NULL DEFAULT ''",
+    "audience_emails TEXT NOT NULL DEFAULT ''",
+  ]) {
+    try {
+      await getClient().execute(`ALTER TABLE notices ADD COLUMN ${column}`);
+      if (column.startsWith("display ")) noticesGainedDisplay = true;
+    } catch {
+      /* column already exists */
+    }
+  }
+  if (noticesGainedDisplay) {
+    await getClient().execute("UPDATE notices SET display = 'popup'");
+  }
   await getClient().execute(`
     CREATE TABLE IF NOT EXISTS notice_reads (
       notice_id INTEGER NOT NULL,

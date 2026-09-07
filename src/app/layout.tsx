@@ -9,7 +9,7 @@ import { CopyProvider } from "@/components/CopyProvider";
 import { NavLayoutProvider } from "@/components/NavLayoutProvider";
 import { RefreshBoundary, RefreshProvider } from "@/components/RefreshProvider";
 import { StuckVendorPopup, StuckVendorsProvider } from "@/components/StuckVendors";
-import { NoticePopup } from "@/components/Notices";
+import { NoticeCenter } from "@/components/Notices";
 import { UsageBeacon } from "@/components/UsageBeacon";
 import { cookies } from "next/headers";
 import { auth, roleBaseFor } from "@/auth";
@@ -159,6 +159,14 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               <Suspense fallback={null}>
                 <AppHeader />
               </Suspense>
+              {/* Notices — announcements office/admin push to the team. The
+                  banner stack sits here, in the flow under the header, so it
+                  reads as app chrome on every page rather than as part of the
+                  page's own content; the popup surface it also owns is fixed,
+                  so it does not care where it is mounted. Outside
+                  RefreshBoundary on purpose: a refresh remounts the page, not
+                  the chrome. */}
+              {session?.user && <NoticeCenter />}
               <RefreshBoundary>{children}</RefreshBoundary>
               {/* Bottom tab bar — the fast path between the pages opened all
                   day. Gated on the same view ids as the launcher, so it only
@@ -167,9 +175,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 <TabBar />
               </Suspense>
               <StuckVendorPopup />
-              {/* Admin-pushed announcements — shown to signed-in users on
-                  whatever page they opened. Self-fetches its own scoped feed. */}
-              {session?.user && <NoticePopup />}
             </StuckVendorsProvider>
           </RefreshProvider>
         </AccessProvider>

@@ -22,7 +22,7 @@ import {
 import { ROLE_LABEL, PREVIEW_COOKIE, parsePreviewRole } from "@/lib/preview";
 import { startPreview, stopPreview } from "@/lib/previewClient";
 import { ActivityPanel } from "./ActivityPanel";
-import { NoticesPanel } from "./NoticesPanel";
+import { NoticesAdmin } from "@/components/NoticesAdmin";
 import { DigestSettingsPanel } from "./DigestSettingsPanel";
 import { DigestInstructionsPanel } from "./DigestInstructionsPanel";
 import { BuildFooter } from "./BuildFooter";
@@ -78,7 +78,7 @@ export default function AdminPage() {
       ) : tab === "activity" ? (
         <ActivityPanel />
       ) : tab === "notices" ? (
-        <NoticesPanel />
+        <NoticesAdmin />
       ) : (
         <>
           <DigestInstructionsPanel />

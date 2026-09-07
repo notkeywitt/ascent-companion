@@ -487,6 +487,32 @@ A suggestion box for fixes and new features. Tap **+ Request**, give it a title 
 and optional detail, and **Submit**. Anyone can reclassify a request's status (**open /
 planned / done / declined**).
 
+### Notices — `/notices`
+
+Announcements the whole team sees inside the app. Office and admin can post them; it is
+also the **Notices** tab on the Admin page.
+
+Tap **New notice** and answer four things:
+
+| Field | What it does |
+|---|---|
+| **Title / Message** | What it says. The title is required; the message is optional. |
+| **Show as** | **Banner** sits under the header on every page. **Popup** covers the page until it is closed — keep it for something that must be read now. |
+| **Reader can dismiss it** | Banners only. Off means it stays for the whole window, with no ✕. |
+| **Starts / Ends** | Leave blank to start now and never expire. Set a start to write it today and have it appear on its own. Times are your own device's clock. |
+| **Who sees it** | **Everyone**, or pick any mix of **groups** (Admins / Office / Leads / Field) and **people** by name. A person on the list gets it whether or not their group is picked. |
+
+Each person sees a notice **once**: dismissing it keeps it gone on every device they sign in
+on. To reach someone again, post a new notice.
+
+The list below the form shows every notice with **Live** or **Scheduled** marked, who it
+targets, its window, and how many people have seen it. **Edit** changes any of it, including
+the schedule. The **On/Off** switch stops a notice without deleting it (and keeps its read
+history); **Delete** removes it and that history for good.
+
+> A notice that has not started yet is cancelled with the **Off** switch, not by setting an
+> end time — an end time before the start is refused.
+
 ### Admin (Team Access) — `More ▾ → Admin`
 
 Controls who can sign in with Google. Type a teammate's email and tap **Add**; tap

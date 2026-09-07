@@ -102,6 +102,7 @@ including edge middleware.
 | `copy.ts` ⟂ | **Registry of editable on-screen text** — every string the office can reword from Admin → Page Text. English lives here as the shipped default; the DB only overrides. |
 | `copyService.ts` | Server half of the above: reads `page_copy` overrides. Returns `{}` on any DB failure so copy can never blank a page. |
 | `views.ts` ⟂ | **Single source of truth for role-gated views** — `VIEWS`, `ROLE_VIEWS`, `resolveAllowedViews`, `viewIdForPath`. |
+| `notices.ts` ⟂ | **Who sees a notice, and when** — the audience match (groups OR named people, legacy single-target rows folded in) and the schedule window (`noticeStatus`: off / scheduled / live / ended). The reader's feed, the authoring route and the authoring panel all decide from here, so "it says Live" and "it shows" stay one claim. |
 | `nav.ts` ⟂ | **The launcher's destination list** (`AREAS`) — the one place every gateable view is named. Read by BOTH the home launcher and the header's global search, which is why it's a module rather than living in `page.tsx`. |
 | `preview.ts` ⟂ | **Role preview** — the cookie name + helpers letting an admin view the app AS each role. The layout reads the cookie (honoring it only for a real admin) and hands that role's live view set to the nav, so the launcher/tabs render as that role sees them. Narrows only, never elevates. |
 | `previewClient.ts` | Browser half of the above: `startPreview`/`stopPreview` set/clear the cookie and reload so the server layout re-reads it. |
@@ -282,7 +283,9 @@ Each page is a server component (`page.tsx`) that hands non-secret context to a
   `src/lib/nav.ts`).
 - **Assistant:** `chat`.
 - **Office:** `employees`, `leads`, `labor-import`, `labor-rates`,
-  `time-sync`.
+  `time-sync`, `notices` (post an announcement to the team — banner or popup,
+  targeted at groups and/or named people, now or on a schedule; office + admin,
+  and the same panel is Admin → Notices).
 - **System / admin:** `admin`, `logs`, `historical-cost`, `requests`,
   `actions`, `journal` (the financial journal — every write the app has made to a bill, a
     line or a time entry, read-only; admin by default alongside Logs, and
@@ -332,7 +335,9 @@ Grouped by domain; each folder is `…/route.ts`.
   `feature-requests/*`.
 - **Leads:** `leads/*`.
 - **Assistant / misc:** `chat`, `ocr-serial`, `tracking-sheet`, `vendors`,
-  `bank-details`, `notices/*` (the per-user popup feed + dismiss).
+  `bank-details`, `notices/*` (the reader's own feed + dismiss — UNGATED, every
+  role must be able to receive a notice; the authoring CRUD is
+  `admin/notices`, gated by the `notices` view so office can post too).
 - **Platform:** `auth/[...nextauth]`, `login`, `logs`, `journal` (GET only —
   read the financial journal, filtered by bill, job or person; there is
   deliberately no POST, because a journal you can amend answers nothing),
@@ -376,8 +381,13 @@ Grouped by domain; each folder is `…/route.ts`.
 - **JobTread pickers / links:** `JobPicker`, `CostCodeSelect`,
   `JtLink`, `LinkPending`, `BillStatusBadge`, `BillingSummary`.
 - **Feature widgets:** `InvoiceReconcile`, `InvoiceSweepResult`,
-  `UncapturedBills`, `StuckVendors`, `NeedsProject`, `Notices` (the global
-  per-user popup feed), `SunsetDuplicateScan`, `TrackingSheetSync`,
+  `UncapturedBills`, `StuckVendors`, `NeedsProject`, `Notices` (`NoticeCenter` —
+  BOTH reader surfaces for a notice, the banner stack under the header and the
+  interrupting popup, off ONE feed request; mounted in the root layout, and it
+  re-reads the feed on tab focus so a scheduled notice appears without a
+  reload), `NoticesAdmin` (the authoring panel — what it says, banner or popup,
+  the schedule window, and the groups/people it targets; rendered by both
+  `/notices` and Admin → Notices), `SunsetDuplicateScan`, `TrackingSheetSync`,
   `TrackingSheetRisks`, `TimeEntryList` (**the month's time entries, rendered by
   BOTH Labor Review and the board's Time & labor panel** — the list, its filters,
   its grouping, the selection and the recode drawer, in one place so the two
@@ -422,8 +432,10 @@ the searchable snapshot of every bill + line item, plus its refresh/seed
 bookkeeping; the FTS5 `bill_fts` virtual table over them lives only in
 `db/index.ts`'s DDL, as Drizzle can't model it.)
 
-(`notices`/`notice_reads` back the global popup feed — a notice is dismissed
-per-user and stays gone; `lead_inquiry_dismissals` hides a web-form inquiry from
+(`notices`/`notice_reads` back both notice surfaces — one row carries the text,
+the banner/popup choice, the schedule window and the audience (roles + emails);
+a notice is dismissed per-user and stays gone, and an undismissible banner
+writes no read row, which is what keeps it standing for its whole window; `lead_inquiry_dismissals` hides a web-form inquiry from
 the leads board without deleting it.)
 
 ## The session ledger — what each session did

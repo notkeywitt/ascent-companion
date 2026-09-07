@@ -233,6 +233,13 @@ export const VIEWS: ViewDef[] = [
   // Reconciliation — records captured but not yet in JobTread, with retry.
   // Office/admin (not field, not admin-only).
   { id: "time-sync", label: "Time Sync", group: "Office", paths: ["/time-sync", "/api/time-sync"] },
+  // Notices — AUTHORING the announcements every user sees (banner under the
+  // header, or popup). Office + admin: telling the team something is office
+  // work, so this is deliberately NOT in ADMIN_MENU, unlike the access console.
+  // The authoring API rides the same gate as the page. The READER's feed
+  // (/api/notices + /api/notices/dismiss) is ungated on purpose — every role
+  // must be able to receive a notice and clear it.
+  { id: "notices", label: "Notices", group: "Office", paths: ["/notices", "/api/admin/notices"] },
   // System
   // Bulk-writes a real JobTread draft bill — admin only, not office (unlike
   // every other Financials view). The API prefix is listed alongside so a
