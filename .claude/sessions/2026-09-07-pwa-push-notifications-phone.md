@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/pwa-push-notifications-phone-sxpzzj
 status: shipped
 started: 2026-09-07T21:25:15Z
-updated: 2026-09-07T21:57:24Z
+updated: 2026-09-07T21:59:28Z
 goal: in-app banner notice system: office+admin authoring, scheduled windows, group + person targeting
 next: Owner check on a desktop: Home -> Desktop alerts -> Turn on -> Send a test, then post a notice from another device and confirm the toast lands while the tab is in the background.
 ---
@@ -15,6 +15,8 @@ next: Owner check on a desktop: Home -> Desktop alerts -> Turn on -> Send a test
 - 2026-09-07 21:26 · `22da358` companion: in-app notice banners, scheduled and targeted
   CODEBASE_MAP.md, USER_MANUAL.md, src/app/admin/NoticesPanel.tsx, src/app/admin/page.tsx, src/app/api/admin/notices/route.ts, src/app/api/notices/route.ts, +11 more
 - 2026-09-07 21:26 · `21cd8fe` companion: log session 2026-09-07-pwa-push-notifications-phone
+- 2026-09-07 21:59 · `5b37365` companion: notices on desktop — wider banner, OS alerts
+  CODEBASE_MAP.md, USER_MANUAL.md, src/app/page.tsx, src/components/DesktopAlertsCard.tsx, src/components/Notices.tsx, src/lib/noticeToasts.test.ts, +1 more
 
 ## Notes
 - 2026-09-07 21:25 — Held the PWA push work: no service worker, no VAPID keys, no push_subscriptions table shipped. Answered the question in chat instead.
