@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-07T05:27:54Z",
+  "generatedAt": "2026-09-07T05:42:08Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "claude/jobtread-qbo-sales-tax-lfqctd",
       "status": "shipped",
       "started": "2026-09-05T05:30:35Z",
-      "updated": "2026-09-07T05:27:54Z",
+      "updated": "2026-09-07T05:42:08Z",
       "goal": "",
-      "next": "Verify on the wide monitor: drag the trackingsheet column handles, confirm the split sticks after reload and dark-mode budget bars read calmer.",
+      "next": "Look at the new Home board on the wide monitor: card width, the donut's legend at 288px, and whether 9 active cards in a scroll row reads right.",
       "commits": [
         {
           "date": "2026-09-05",
@@ -32,6 +32,34 @@
           "sha": "54bfdef",
           "subject": "companion: drag-resizable trackingsheet columns, dimmer dark budget bars",
           "files": "src/app/trackingsheet/Board.tsx, src/components/ui.tsx"
+        },
+        {
+          "date": "2026-09-06",
+          "time": "22:27",
+          "sha": "90134a9",
+          "subject": "companion: shared SplitGrid resizer, static bill header, invoice first",
+          "files": "src/app/trackingsheet/AllBills.tsx, src/app/trackingsheet/BillCodingCard.tsx, src/app/trackingsheet/Board.tsx, src/app/trackingsheet/DraftQueue.tsx, src/components/SplitGrid.tsx"
+        },
+        {
+          "date": "2026-09-06",
+          "time": "22:32",
+          "sha": "b934399",
+          "subject": "companion: home job board — budget donut + calendar position",
+          "files": "CODEBASE_MAP.md, src/app/api/home/board/route.ts, src/app/page.tsx, src/components/HomeJobBoard.tsx, src/lib/jobBoard.test.ts, src/lib/jobBoard.ts, +1 more"
+        },
+        {
+          "date": "2026-09-06",
+          "time": "22:38",
+          "sha": "5ce8c18",
+          "subject": "companion: touch session ledger timestamp",
+          "files": ""
+        },
+        {
+          "date": "2026-09-06",
+          "time": "22:42",
+          "sha": "3445e76",
+          "subject": "companion: save writes JobTread only, sheet push is its own button",
+          "files": "src/app/trackingsheet/Board.tsx"
         }
       ]
     },
