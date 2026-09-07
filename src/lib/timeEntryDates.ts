@@ -79,3 +79,26 @@ export function rangeOfSelection(
   }
   return null;
 }
+
+/**
+ * The Monday-first calendar weeks that cover `from`..`to`, inclusive — a
+ * rectangular month grid, so the calendar view can render 7 cells a row without
+ * counting anything itself.
+ *
+ * Both ends are pulled out to their own week's edges: a month starting on a
+ * Thursday still gets Mon–Wed drawn (empty), which is what makes the columns
+ * line up as weekdays. Returns [] when either end is unparseable, so a list with
+ * no dated entries draws nothing rather than a grid of "Invalid Date".
+ */
+export function calendarWeeks(from: string, to: string): string[][] {
+  if (!Number.isFinite(Date.parse(`${from}T00:00:00Z`))) return [];
+  if (!Number.isFinite(Date.parse(`${to}T00:00:00Z`))) return [];
+  if (from > to) return [];
+  const weeks: string[][] = [];
+  // A crew's month is five or six weeks; the cap is a guard against a bad range
+  // spinning here, not a real limit.
+  for (let cur = weekStart(from), i = 0; cur <= to && i < 120; cur = addDays(cur, 7), i++) {
+    weeks.push(Array.from({ length: 7 }, (_, d) => addDays(cur, d)));
+  }
+  return weeks;
+}

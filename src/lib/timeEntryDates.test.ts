@@ -3,6 +3,7 @@ import {
   CUSTOM_RANGE,
   WEEK,
   addDays,
+  calendarWeeks,
   rangeOfSelection,
   shortDay,
   weekStart,
@@ -88,5 +89,43 @@ describe("shortDay", () => {
 
   it("returns an unparseable value unchanged", () => {
     expect(shortDay("")).toBe("");
+  });
+});
+
+describe("calendarWeeks", () => {
+  it("draws whole Monday-first weeks around the range", () => {
+    // 2026-08-01 is a Saturday, so the first row starts on Mon Jul 27.
+    const weeks = calendarWeeks("2026-08-01", "2026-08-31");
+    expect(weeks[0][0]).toBe("2026-07-27");
+    expect(weeks.every((w) => w.length === 7)).toBe(true);
+    // Every row starts a Monday — the thing that makes the columns weekdays.
+    expect(weeks.map((w) => new Date(`${w[0]}T00:00:00Z`).getUTCDay())).toEqual(
+      weeks.map(() => 1),
+    );
+  });
+
+  it("covers the last day rather than stopping at the week that contains it", () => {
+    const weeks = calendarWeeks("2026-08-01", "2026-08-31");
+    const last = weeks[weeks.length - 1];
+    expect(last[6] >= "2026-08-31").toBe(true);
+  });
+
+  it("gives one week when both ends are the same day", () => {
+    expect(calendarWeeks("2026-08-12", "2026-08-12")).toEqual([
+      [
+        "2026-08-10",
+        "2026-08-11",
+        "2026-08-12",
+        "2026-08-13",
+        "2026-08-14",
+        "2026-08-15",
+        "2026-08-16",
+      ],
+    ]);
+  });
+
+  it("draws nothing for an unparseable or backwards range", () => {
+    expect(calendarWeeks("", "2026-08-31")).toEqual([]);
+    expect(calendarWeeks("2026-08-31", "2026-08-01")).toEqual([]);
   });
 });

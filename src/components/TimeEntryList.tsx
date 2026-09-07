@@ -11,6 +11,7 @@ import {
   UNCODED,
   WEEK,
   addDays,
+  calendarWeeks,
   dayLabel,
   rangeOfSelection,
   shortDay,
@@ -548,6 +549,153 @@ export function TimeFilterStrip({
 // THE ROWS
 // ---------------------------------------------------------------------------
 
+/* ----------------------------------------------------------------- calendar */
+
+/**
+ * THE MONTH AS A GRID — the same visible entries, laid out by the day they were
+ * worked instead of stacked in groups.
+ *
+ * The list answers "what landed on this cost code"; the calendar answers "who
+ * was on site that week", which is the question a crew's hours actually get
+ * challenged on. It is deliberately the EXPANDED view: every entry draws its own
+ * line, so there is nothing to unfold.
+ *
+ * Read-and-open, not select: the checkbox column has no place in a 50px cell,
+ * and bulk recode belongs to the list. A cell's entry opens the same editor a
+ * row does.
+ */
+function TimeCalendar({
+  entries,
+  codeOf,
+  onEdit,
+  editingId,
+  isMoved,
+}: {
+  entries: TimeEntryRow[];
+  codeOf: (t: TimeEntryRow) => string;
+  onEdit?: (id: string) => void;
+  editingId?: string | null;
+  isMoved: (t: TimeEntryRow) => boolean;
+}) {
+  const byDay = useMemo(() => {
+    const m = new Map<string, TimeEntryRow[]>();
+    for (const t of entries) {
+      const d = dayOfEntry(t);
+      if (!d) continue;
+      const list = m.get(d);
+      if (list) list.push(t);
+      else m.set(d, [t]);
+    }
+    return m;
+  }, [entries]);
+
+  const dated = [...byDay.keys()].sort();
+  const weeks = dated.length > 0 ? calendarWeeks(dated[0], dated[dated.length - 1]) : [];
+  const undated = entries.filter((t) => !dayOfEntry(t));
+  const today = orgDay(new Date().toISOString());
+
+  if (weeks.length === 0 && undated.length === 0) {
+    return (
+      <p className="border-t border-line-soft px-3 py-3 text-xs text-neutral-500">
+        No dated time entries to lay out.
+      </p>
+    );
+  }
+
+  return (
+    <div className="border-t border-line-soft">
+      {/* Seven columns do not fit a phone at a readable size, so the grid keeps
+          its width and scrolls sideways rather than crushing a day to 40px. */}
+      <div className="overflow-x-auto">
+        <div className="min-w-[42rem] p-2">
+          <div className="grid grid-cols-7 gap-1 pb-1 text-center text-[10px] uppercase tracking-wide text-neutral-400">
+            {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => (
+              <span key={d}>{d}</span>
+            ))}
+          </div>
+          <div className="grid grid-cols-7 gap-1">
+            {weeks.flat().map((day) => {
+              const list = byDay.get(day) ?? [];
+              const dayHours = list.reduce((n, t) => n + t.hours, 0);
+              return (
+                <div
+                  key={day}
+                  className={`min-h-[5.5rem] rounded-md border p-1 ${
+                    list.length > 0
+                      ? "border-line bg-white dark:bg-ink-raised"
+                      : "border-line-soft bg-neutral-50/60 dark:bg-white/[0.02]"
+                  } ${day === today ? "ring-1 ring-accent" : ""}`}
+                >
+                  <div className="mb-1 flex items-baseline justify-between gap-1 px-0.5">
+                    <span className="text-[11px] font-semibold tabular-nums text-neutral-500 dark:text-neutral-400">
+                      {Number(day.slice(8, 10))}
+                    </span>
+                    {dayHours > 0 && (
+                      <span className="text-[11px] font-semibold tabular-nums">
+                        {hrs(dayHours)}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex flex-col gap-0.5">
+                    {list.map((t) => {
+                      const body = (
+                        <>
+                          <span className="flex items-baseline justify-between gap-1">
+                            <span className="min-w-0 truncate font-semibold">{t.employee}</span>
+                            <span className="shrink-0 tabular-nums">{hrs(t.hours)}</span>
+                          </span>
+                          <span className="block truncate text-neutral-500 dark:text-neutral-400">
+                            {codeOf(t) || "uncoded"}
+                          </span>
+                        </>
+                      );
+                      const cls = `w-full rounded px-1 py-0.5 text-left text-[11px] leading-tight transition ${
+                        isMoved(t)
+                          ? "bg-amber-50 dark:bg-amber-950/30"
+                          : "bg-neutral-100 dark:bg-white/[0.06]"
+                      } ${editingId === t.id ? "ring-1 ring-accent" : ""} ${
+                        onEdit ? "hover:bg-accent/10" : ""
+                      }`;
+                      return onEdit ? (
+                        <button
+                          key={t.id}
+                          type="button"
+                          onClick={() => onEdit(t.id)}
+                          title={`${t.employee} · ${hrs(t.hours)} · ${money(t.cost)}${t.notes ? ` — ${t.notes}` : ""}`}
+                          className={cls}
+                        >
+                          {body}
+                        </button>
+                      ) : (
+                        <span
+                          key={t.id}
+                          title={`${t.employee} · ${hrs(t.hours)} · ${money(t.cost)}`}
+                          className={cls}
+                        >
+                          {body}
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* An entry with no start time has no square to sit in, and dropping it
+          silently would hide hours. */}
+      {undated.length > 0 && (
+        <p className="border-t border-line-soft px-3 py-2 text-[11.5px] text-neutral-500 dark:text-neutral-400">
+          {undated.length} entr{undated.length === 1 ? "y has" : "ies have"} no date and cannot be
+          placed — switch to the list to see {undated.length === 1 ? "it" : "them"}.
+        </p>
+      )}
+    </div>
+  );
+}
+
 export interface TimeEntryListProps {
   filters: TimeFilters;
   /** Every entry in the month, for the "12 of 87" line. */
@@ -643,6 +791,15 @@ export function TimeEntryList({
    */
   const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
   useEffect(() => setOpenGroups(new Set()), [f.groupBy]);
+
+  /**
+   * List or calendar. The calendar is the FULLY EXPANDED reading of the same
+   * filtered entries: every one draws its own line, in the day it was worked,
+   * so there is nothing to unfold. Grouping does not apply to it — the Group
+   * control stays put rather than vanishing, so switching back lands you in the
+   * arrangement you left.
+   */
+  const [view, setView] = useState<"list" | "calendar">("list");
   const isOpen = (key: string) => !grouped || f.on || openGroups.has(key);
   const toggleGroup = (key: string) =>
     setOpenGroups((prev) => {
@@ -720,6 +877,28 @@ export function TimeEntryList({
               </span>
             </label>
             <span className="flex shrink-0 items-center gap-3">
+              <span className="flex rounded-md bg-neutral-100 p-0.5 text-[11px] dark:bg-white/5">
+                {(
+                  [
+                    ["list", "List"],
+                    ["calendar", "Calendar"],
+                  ] as const
+                ).map(([v, label]) => (
+                  <button
+                    key={v}
+                    type="button"
+                    onClick={() => setView(v)}
+                    aria-pressed={view === v}
+                    className={`inline-flex min-h-8 items-center rounded px-2 transition lg:min-h-0 lg:py-1 ${
+                      view === v
+                        ? "bg-accent font-semibold text-accent-fg"
+                        : "text-neutral-500 hover:text-accent dark:text-neutral-400"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </span>
               {selected.size > 0 && (
                 <button
                   type="button"
@@ -731,7 +910,7 @@ export function TimeEntryList({
               )}
               {/* Hidden while a filter is on, because a filter already forces
                   every group open — the control would do nothing. */}
-              {grouped && !f.on && f.groups.length > 1 && (
+              {view === "list" && grouped && !f.on && f.groups.length > 1 && (
                 <button
                   type="button"
                   onClick={() =>
@@ -745,175 +924,185 @@ export function TimeEntryList({
             </span>
           </div>
 
-          {f.groups.map((g) => (
-            <div key={g.key || "all"}>
-              {grouped && (
-                // The whole header is the toggle. Its figures are what a shut
-                // group has to be judged on, so the count rides beside them.
-                <button
-                  type="button"
-                  onClick={() => toggleGroup(g.key)}
-                  aria-expanded={isOpen(g.key)}
-                  disabled={f.on}
-                  className="flex w-full items-baseline justify-between gap-2 border-t border-line-soft bg-neutral-50 px-3 py-2 text-left text-xs font-semibold transition hover:bg-accent/5 disabled:cursor-default disabled:hover:bg-neutral-50 dark:bg-ink-raised/50 dark:hover:bg-white/5 dark:disabled:hover:bg-ink-raised/50 lg:py-1.5"
-                >
-                  <span className="min-w-0 truncate">
-                    <span
-                      aria-hidden
-                      className={`mr-1.5 inline-block text-[9px] text-neutral-500 transition-transform dark:text-neutral-400 ${
-                        isOpen(g.key) ? "rotate-90" : ""
-                      } ${f.on ? "opacity-0" : ""}`}
-                    >
-                      ▶
-                    </span>
-                    {g.label}
-                  </span>
-                  <span className="shrink-0 tabular-nums text-neutral-500 dark:text-neutral-400">
-                    {g.entries.length} · {hrs(g.hours)} · {money(g.cost)}
-                  </span>
-                </button>
-              )}
-              {isOpen(g.key) && (
-                <ul className="border-t border-line-soft">
-                  {g.entries.map((t) => {
-                    const moved = isMoved(t);
-                    const nowCode = codeOf(t);
-                    // Headroom on the code this entry currently sits under —
-                    // staged moves included, so the chip reacts as you recode.
-                    const head = headroomFor(nowCode);
-                    const over = Boolean(head) && (head as CodeHeadroom).remaining < 0;
-                    return (
-                      <li
-                        key={t.id}
-                        className={`border-b border-line-soft text-[11.5px] last:border-0 ${
-                          moved ? "bg-amber-50/60 dark:bg-amber-950/20" : ""
-                        } ${editingId === t.id ? "bg-accent/10" : ""}`}
+          {view === "calendar" ? (
+            <TimeCalendar
+              entries={visible}
+              codeOf={codeOf}
+              onEdit={onEdit}
+              editingId={editingId}
+              isMoved={isMoved}
+            />
+          ) : (
+            f.groups.map((g) => (
+              <div key={g.key || "all"}>
+                {grouped && (
+                  // The whole header is the toggle. Its figures are what a shut
+                  // group has to be judged on, so the count rides beside them.
+                  <button
+                    type="button"
+                    onClick={() => toggleGroup(g.key)}
+                    aria-expanded={isOpen(g.key)}
+                    disabled={f.on}
+                    className="flex w-full items-baseline justify-between gap-2 border-t border-line-soft bg-neutral-50 px-3 py-2 text-left text-xs font-semibold transition hover:bg-accent/5 disabled:cursor-default disabled:hover:bg-neutral-50 dark:bg-ink-raised/50 dark:hover:bg-white/5 dark:disabled:hover:bg-ink-raised/50 lg:py-1.5"
+                  >
+                    <span className="min-w-0 truncate">
+                      <span
+                        aria-hidden
+                        className={`mr-1.5 inline-block text-[9px] text-neutral-500 transition-transform dark:text-neutral-400 ${
+                          isOpen(g.key) ? "rotate-90" : ""
+                        } ${f.on ? "opacity-0" : ""}`}
                       >
-                        <div className="flex items-start">
-                          {/* THE CHECKBOX IS THE SELECTION, and the only thing
+                        ▶
+                      </span>
+                      {g.label}
+                    </span>
+                    <span className="shrink-0 tabular-nums text-neutral-500 dark:text-neutral-400">
+                      {g.entries.length} · {hrs(g.hours)} · {money(g.cost)}
+                    </span>
+                  </button>
+                )}
+                {isOpen(g.key) && (
+                  <ul className="border-t border-line-soft">
+                    {g.entries.map((t) => {
+                      const moved = isMoved(t);
+                      const nowCode = codeOf(t);
+                      // Headroom on the code this entry currently sits under —
+                      // staged moves included, so the chip reacts as you recode.
+                      const head = headroomFor(nowCode);
+                      const over = Boolean(head) && (head as CodeHeadroom).remaining < 0;
+                      return (
+                        <li
+                          key={t.id}
+                          className={`border-b border-line-soft text-[11.5px] last:border-0 ${
+                            moved ? "bg-amber-50/60 dark:bg-amber-950/20" : ""
+                          } ${editingId === t.id ? "bg-accent/10" : ""}`}
+                        >
+                          <div className="flex items-start">
+                            {/* THE CHECKBOX IS THE SELECTION, and the only thing
                             that is: a strip down the left of the row, full row
                             height, so ticking several is a column of taps. The
                             row itself opens the entry (below), because a list
                             you read is a list you tap to look closer at. */}
-                          <label
-                            htmlFor={`tel-sel-${t.id}`}
-                            className="flex shrink-0 cursor-pointer items-start self-stretch py-2.5 pl-3 pr-2 transition hover:bg-accent/5 dark:hover:bg-white/5"
-                          >
-                            <input
-                              id={`tel-sel-${t.id}`}
-                              type="checkbox"
-                              checked={selected.has(t.id)}
-                              onChange={() => toggleOne(t.id)}
-                              className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--accent)]"
-                            />
-                            <span className="sr-only">Select this entry</span>
-                          </label>
-                          <RowBody t={t} onEdit={onEdit} editing={editingId === t.id}>
-                            <span className="min-w-0 flex-1">
-                              {/* HOURS is the display figure on a labor list — the
+                            <label
+                              htmlFor={`tel-sel-${t.id}`}
+                              className="flex shrink-0 cursor-pointer items-start self-stretch py-2.5 pl-3 pr-2 transition hover:bg-accent/5 dark:hover:bg-white/5"
+                            >
+                              <input
+                                id={`tel-sel-${t.id}`}
+                                type="checkbox"
+                                checked={selected.has(t.id)}
+                                onChange={() => toggleOne(t.id)}
+                                className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--accent)]"
+                              />
+                              <span className="sr-only">Select this entry</span>
+                            </label>
+                            <RowBody t={t} onEdit={onEdit} editing={editingId === t.id}>
+                              <span className="min-w-0 flex-1">
+                                {/* HOURS is the display figure on a labor list — the
                                 question being reviewed is "how long did this
                                 take", and the dollars are that number times a
                                 pay rate nobody is editing here. Cost keeps its
                                 place on the detail line below. */}
-                              <span className="flex items-baseline justify-between gap-2">
-                                <span className="min-w-0 truncate text-sm font-semibold">
-                                  {t.employee}
+                                <span className="flex items-baseline justify-between gap-2">
+                                  <span className="min-w-0 truncate text-sm font-semibold">
+                                    {t.employee}
+                                  </span>
+                                  <span className="shrink-0 text-base font-semibold tabular-nums">
+                                    {hrs(t.hours)}
+                                  </span>
                                 </span>
-                                <span className="shrink-0 text-base font-semibold tabular-nums">
-                                  {hrs(t.hours)}
+                                <span className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[11.5px] text-neutral-500 dark:text-neutral-400">
+                                  <span>
+                                    {dayLabel(dayOfEntry(t))} · {money(t.cost)}
+                                    {t.type ? ` · ${t.type}` : ""}
+                                  </span>
+                                  <Chip
+                                    tone={t.isApproved ? "success" : "warning"}
+                                    title={
+                                      t.isApproved
+                                        ? "This time entry is approved in JobTread"
+                                        : "This time entry is not yet approved in JobTread"
+                                    }
+                                  >
+                                    {t.isApproved ? "approved" : "unapproved"}
+                                  </Chip>
                                 </span>
-                              </span>
-                              <span className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[11.5px] text-neutral-500 dark:text-neutral-400">
-                                <span>
-                                  {dayLabel(dayOfEntry(t))} · {money(t.cost)}
-                                  {t.type ? ` · ${t.type}` : ""}
-                                </span>
-                                <Chip
-                                  tone={t.isApproved ? "success" : "warning"}
-                                  title={
-                                    t.isApproved
-                                      ? "This time entry is approved in JobTread"
-                                      : "This time entry is not yet approved in JobTread"
-                                  }
-                                >
-                                  {t.isApproved ? "approved" : "unapproved"}
-                                </Chip>
-                              </span>
-                              {/* The code chip, in the same shape a bill card
+                                {/* The code chip, in the same shape a bill card
                                 carries: code · what this charges it · what's
                                 left there. Reads red once the code is over.
                                 A staged entry shows it for the code it would
                                 move TO, with the old one struck through. */}
-                              <span className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11.5px]">
-                                <span
-                                  className={`inline-flex items-baseline gap-1.5 rounded-md px-2 py-1 ${
-                                    over
-                                      ? "bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300"
-                                      : "bg-neutral-100 text-neutral-600 dark:bg-white/10 dark:text-neutral-300"
-                                  }`}
-                                  title={`${head?.name ?? ""} — ${
-                                    head ? money(head.remaining) : "no budget row"
-                                  } remaining`}
-                                >
-                                  <span className="tabular-nums">{nowCode || "uncoded"}</span>
-                                  <span className="tabular-nums">{money0(t.cost)}</span>
-                                  <span className="opacity-60">·</span>
-                                  <span className="tabular-nums">
-                                    {head ? `${money0(head.remaining)} left` : "no budget"}
+                                <span className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11.5px]">
+                                  <span
+                                    className={`inline-flex items-baseline gap-1.5 rounded-md px-2 py-1 ${
+                                      over
+                                        ? "bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300"
+                                        : "bg-neutral-100 text-neutral-600 dark:bg-white/10 dark:text-neutral-300"
+                                    }`}
+                                    title={`${head?.name ?? ""} — ${
+                                      head ? money(head.remaining) : "no budget row"
+                                    } remaining`}
+                                  >
+                                    <span className="tabular-nums">{nowCode || "uncoded"}</span>
+                                    <span className="tabular-nums">{money0(t.cost)}</span>
+                                    <span className="opacity-60">·</span>
+                                    <span className="tabular-nums">
+                                      {head ? `${money0(head.remaining)} left` : "no budget"}
+                                    </span>
                                   </span>
+                                  {moved && (
+                                    <span className="truncate text-neutral-500 dark:text-neutral-400">
+                                      moved from{" "}
+                                      <span className="line-through">{t.code || "uncoded"}</span>
+                                    </span>
+                                  )}
                                 </span>
-                                {moved && (
-                                  <span className="truncate text-neutral-500 dark:text-neutral-400">
-                                    moved from{" "}
-                                    <span className="line-through">{t.code || "uncoded"}</span>
-                                  </span>
-                                )}
-                              </span>
-                              {/* The note is what the crew actually typed about
+                                {/* The note is what the crew actually typed about
                                 the hours — the most useful line on the entry, so
                                 it wraps in full rather than truncating, and it
                                 is set at the employee's own size rather than the
                                 [11px] the metadata around it uses. */}
-                              {t.notes && (
-                                <span className="mt-1 block whitespace-pre-line text-[13px] italic leading-snug text-neutral-600 dark:text-neutral-300">
-                                  {t.notes}
-                                </span>
-                              )}
-                            </span>
-                          </RowBody>
-                          {/* Outside the row body on purpose — nested in it, every
+                                {t.notes && (
+                                  <span className="mt-1 block whitespace-pre-line text-[13px] italic leading-snug text-neutral-600 dark:text-neutral-300">
+                                    {t.notes}
+                                  </span>
+                                )}
+                              </span>
+                            </RowBody>
+                            {/* Outside the row body on purpose — nested in it, every
                             tap on this would also open the editor. Small glyph,
                             full 44px target (IconButton). */}
-                          {onFlag && (
-                            <IconButton
-                              label={t.flagged ? "Remove review flag" : "Flag for review"}
-                              title={
-                                t.flagged
-                                  ? "Flagged for review — tap to clear. Saved in the Assistant, not JobTread."
-                                  : "Flag this entry for review. Saved in the Assistant, not JobTread."
-                              }
-                              aria-pressed={Boolean(t.flagged)}
-                              onClick={() => onFlag(t.id, !t.flagged)}
-                              className="mt-1"
-                            >
-                              <span
-                                aria-hidden
-                                className={`text-sm ${
-                                  t.flagged ? "text-amber-600 dark:text-amber-400" : "opacity-50"
-                                }`}
+                            {onFlag && (
+                              <IconButton
+                                label={t.flagged ? "Remove review flag" : "Flag for review"}
+                                title={
+                                  t.flagged
+                                    ? "Flagged for review — tap to clear. Saved in the Assistant, not JobTread."
+                                    : "Flag this entry for review. Saved in the Assistant, not JobTread."
+                                }
+                                aria-pressed={Boolean(t.flagged)}
+                                onClick={() => onFlag(t.id, !t.flagged)}
+                                className="mt-1"
                               >
-                                ⚑
-                              </span>
-                            </IconButton>
-                          )}
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </div>
-          ))}
+                                <span
+                                  aria-hidden
+                                  className={`text-sm ${
+                                    t.flagged ? "text-amber-600 dark:text-amber-400" : "opacity-50"
+                                  }`}
+                                >
+                                  ⚑
+                                </span>
+                              </IconButton>
+                            )}
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+            ))
+          )}
         </>
       )}
     </>

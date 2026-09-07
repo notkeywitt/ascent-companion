@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/jobtread-qbo-sales-tax-lfqctd
 status: shipped
 started: 2026-09-05T05:30:35Z
-updated: 2026-09-07T06:22:29Z
+updated: 2026-09-07T06:22:39Z
 goal: 
 next: Look at the new Home board on the wide monitor: card width, the donut's legend at 288px, and whether 9 active cards in a scroll row reads right.
 ---
@@ -48,6 +48,7 @@ next: Look at the new Home board on the wide monitor: card width, the donut's le
   src/components/TimeEntryList.tsx
 - 2026-09-06 23:22 · `61f55d8` companion: link every Gantt row into JobTread's own schedule
   src/components/HomeJobBoard.tsx, src/components/JobGantt.tsx, src/lib/jtLinks.test.ts, src/lib/jtLinks.ts
+- 2026-09-06 23:22 · `057a8b9` companion: log session 2026-09-05-jobtread-qbo-sales-tax
 
 ## Notes
 - 2026-09-05 05:30 — Companion half of the sales-tax move. src/lib/salesTax.ts is the single definition: the 88 80 00 constants, the line matcher, splitSalesTax, and the job-Phase-derived recoverable/consumed flag. createVendorBill appends the tax line and pins nonRecoverableTax to 0; setBillTax now creates/updates/deletes that LINE and clears any legacy field.
