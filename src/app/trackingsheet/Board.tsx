@@ -1112,6 +1112,10 @@ export function Board() {
   const timeFilters = useTimeFilters(monthTime, {
     codeOf: timeCodeOf,
     resetKey: `${jobId}|${ym}`,
+    // By cost code, and every group shut: on this page the question is which
+    // codes the month's hours landed on and whether they fit the budget, not
+    // who worked when. Labor Review asks the other question and stays flat.
+    defaultGroupBy: "code",
   });
 
   /**
