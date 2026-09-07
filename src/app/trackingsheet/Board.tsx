@@ -26,6 +26,7 @@ import {
 import { CostCodeSelect, type Option } from "@/components/CostCodeSelect";
 import { JobPicker, jobAddress, jobLabel, type JobRef } from "@/components/JobPicker";
 import { JtLink } from "@/components/JtLink";
+import { SplitGrid } from "@/components/SplitGrid";
 import {
   BillCodingCard,
   isImageFile,
@@ -245,10 +246,8 @@ interface DrillBillRow {
   draft: boolean;
 }
 
-
 /** Draft bills are coded but not yet committed spend — JobTread's own budget math excludes them. */
 const isCommitted = (status: string) => status === "pending" || status === "approved";
-
 
 /**
  * Sunset Builders Supply, matched the same way the rest of the codebase does
@@ -373,39 +372,6 @@ function useIsBelowXl() {
   return below;
 }
 
-/** Width of one drag handle track, in px. Also the grid's only column gap at
- *  xl — the handle IS the gutter, so widening it doesn't cost panel width. */
-const HANDLE_PX = 20;
-
-/** The grab strip between two panels. A hairline until you point at it. */
-function ColHandle({
-  label,
-  onPointerDown,
-  onNudge,
-}: {
-  label: string;
-  onPointerDown: (e: React.PointerEvent<HTMLDivElement>) => void;
-  onNudge: (delta: number) => void;
-}) {
-  return (
-    <div
-      role="separator"
-      aria-orientation="vertical"
-      aria-label={label}
-      tabIndex={0}
-      onPointerDown={onPointerDown}
-      onKeyDown={(e) => {
-        if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
-        e.preventDefault();
-        onNudge(e.key === "ArrowLeft" ? -0.1 : 0.1);
-      }}
-      className="group hidden cursor-col-resize touch-none select-none outline-none xl:flex xl:items-stretch xl:justify-center"
-    >
-      <div className="w-px bg-line-soft transition group-hover:w-0.5 group-hover:bg-accent group-focus:w-0.5 group-focus:bg-accent" />
-    </div>
-  );
-}
-
 export function Board() {
   // Office-edited wording (Admin → Page Text); see src/lib/copy.ts.
   const c = useCopy();
@@ -489,8 +455,7 @@ export function Board() {
   // The sheet push runs on its own task runner, so `syncing` (the JobTread write
   // loop) is already false while it's still going. Without this the button would
   // re-enable mid-push and a second click would queue a duplicate sync.
-  const trackingBusy =
-    trackingSync?.status === "queued" || trackingSync?.status === "running";
+  const trackingBusy = trackingSync?.status === "queued" || trackingSync?.status === "running";
 
   useEffect(() => {
     // A new job starts unresolved — clear the old job's target so its Sync
@@ -560,81 +525,6 @@ export function Board() {
   // Divisions the user has rolled up. Empty = all open, so the rail keeps
   // showing every code until it's deliberately tidied.
   const [collapsedDivs, setCollapsedDivs] = useState<Set<string>>(new Set());
-  /**
-   * Column widths for the xl three-up layout, as `fr` fractions summing to 3.
-   * Two drag handles sit between the sections and move a fraction from one
-   * neighbour to the other. Persisted, because a width you set once should
-   * survive the next bill you open. Below xl the grid uses its own
-   * breakpoint classes and these are ignored.
-   */
-  const [cols, setCols] = useState<[number, number, number]>([1, 1, 1]);
-  const gridRef = useRef<HTMLDivElement | null>(null);
-  // The drag reads the widths at pointerdown; a state updater would not run
-  // until the next render, so the live value is mirrored here.
-  const colsRef = useRef(cols);
-  colsRef.current = cols;
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem("ts.cols");
-      if (raw) {
-        const v = JSON.parse(raw);
-        if (Array.isArray(v) && v.length === 3 && v.every((n) => typeof n === "number" && n > 0))
-          setCols(v as [number, number, number]);
-      }
-    } catch {}
-  }, []);
-  // `i` is the handle index: 0 sits between cols 0 and 1, 1 between 1 and 2.
-  const startColDrag = useCallback(
-    (i: 0 | 1) => (e: React.PointerEvent<HTMLDivElement>) => {
-      const grid = gridRef.current;
-      if (!grid) return;
-      e.preventDefault();
-      const el = e.currentTarget;
-      el.setPointerCapture(e.pointerId);
-      const x0 = e.clientX;
-      // The two handle tracks are fixed px, so only the rest is shared by fr.
-      const flexible = grid.getBoundingClientRect().width - 2 * HANDLE_PX;
-      const start = colsRef.current;
-      const MIN = 0.4;
-      const move = (ev: PointerEvent) => {
-        const d = ((ev.clientX - x0) / Math.max(flexible, 1)) * 3;
-        const room = Math.min(start[i + 1] - MIN, Math.max(-(start[i] - MIN), d));
-        const next: [number, number, number] = [...start] as [number, number, number];
-        next[i] = start[i] + room;
-        next[i + 1] = start[i + 1] - room;
-        setCols(next);
-      };
-      const up = () => {
-        el.releasePointerCapture(e.pointerId);
-        el.removeEventListener("pointermove", move);
-        el.removeEventListener("pointerup", up);
-        setCols((c) => {
-          try {
-            localStorage.setItem("ts.cols", JSON.stringify(c));
-          } catch {}
-          return c;
-        });
-      };
-      el.addEventListener("pointermove", move);
-      el.addEventListener("pointerup", up);
-    },
-    [],
-  );
-  const nudgeCol = useCallback(
-    (i: 0 | 1) => (delta: number) =>
-      setCols((c) => {
-        const MIN = 0.4;
-        const room = Math.min(c[i + 1] - MIN, Math.max(-(c[i] - MIN), delta));
-        const next: [number, number, number] = [...c] as [number, number, number];
-        next[i] = c[i] + room;
-        next[i + 1] = c[i + 1] - room;
-        try {
-          localStorage.setItem("ts.cols", JSON.stringify(next));
-        } catch {}
-        return next;
-      }),
-    [],
-  );
   // Mobile-only: roll the whole cost-code rail away. On a phone it stacks on
   // top of the bills, so it starts collapsed to land you on the list — tap the
   // header to open it. The desktop sidebar ignores this (it's always docked,
@@ -1050,9 +940,7 @@ export function Board() {
     const rows = [...headroom.values()].filter(
       (h) => h.budget !== 0 || h.spent !== 0 || h.drafts !== 0 || h.labor !== 0,
     );
-    const matched = q
-      ? rows.filter((h) => `${h.code} ${h.name}`.toLowerCase().includes(q))
-      : rows;
+    const matched = q ? rows.filter((h) => `${h.code} ${h.name}`.toLowerCase().includes(q)) : rows;
     return matched.sort((a, b) => a.code.localeCompare(b.code));
   }, [headroom, codeQuery]);
 
@@ -1187,17 +1075,11 @@ export function Board() {
     () => (data?.bills ?? []).filter((b) => sunsetDocIds.has(b.id)),
     [data, sunsetDocIds],
   );
-  const sunsetTotal = useMemo(
-    () => sunsetBills.reduce((s, b) => s + b.cost, 0),
-    [sunsetBills],
-  );
+  const sunsetTotal = useMemo(() => sunsetBills.reduce((s, b) => s + b.cost, 0), [sunsetBills]);
 
   // Every draft bill on screen — both panes — so "Approve" acts on exactly what
   // the office can see (Sunset drafts included; they're one tap away in the pane).
-  const draftBills = useMemo(
-    () => (data?.bills ?? []).filter((b) => b.status === "draft"),
-    [data],
-  );
+  const draftBills = useMemo(() => (data?.bills ?? []).filter((b) => b.status === "draft"), [data]);
   /** Nothing left to approve: the month HAS bills and not one of them is still
    *  a draft. That is the moment the row's action stops being "approve these"
    *  and becomes "create the invoice". A month with no bills at all is not
@@ -1219,10 +1101,7 @@ export function Board() {
   // Every time entry counts toward the month's labor, approved or not — each
   // row is tagged with its own approval state so nothing is hidden. The rail's
   // labor figure counts the same set, so the two always agree.
-  const monthTime = useMemo(
-    () => data?.timeEntries ?? [],
-    [data],
-  );
+  const monthTime = useMemo(() => data?.timeEntries ?? [], [data]);
   const monthTimeTotal = useMemo(() => monthTime.reduce((s, t) => s + t.cost, 0), [monthTime]);
   /** The same set's hours, shown beside the money on the card's title line —
    *  "what did labor cost" and "how much labor was it" are one question. */
@@ -1333,7 +1212,11 @@ export function Board() {
    * rule.
    */
   const timeCodeOptions = useMemo(
-    () => laborOptions(data?.budget ?? [], (data?.timeEntries ?? []).map((t) => t.costItemId)),
+    () =>
+      laborOptions(
+        data?.budget ?? [],
+        (data?.timeEntries ?? []).map((t) => t.costItemId),
+      ),
     [data],
   );
 
@@ -1543,7 +1426,9 @@ export function Board() {
   );
   const combineHasEdit = combineSelected.some((id) => {
     const e = edits[id];
-    return Boolean(e && (e.name !== undefined || e.quantity !== undefined || e.unitCost !== undefined));
+    return Boolean(
+      e && (e.name !== undefined || e.quantity !== undefined || e.unitCost !== undefined),
+    );
   });
   const canCombine = combineSelected.length >= 2 && combineCodeSet.size === 1 && !combineHasEdit;
 
@@ -1735,9 +1620,7 @@ export function Board() {
   // only their errors stay in the card.
 
   /** True when the open bill carries coding work that hasn't been synced yet. */
-  const openBillDirty = openLines.some(
-    (l) => staged.has(l.id) || edits[l.id] !== undefined,
-  );
+  const openBillDirty = openLines.some((l) => staged.has(l.id) || edits[l.id] !== undefined);
 
   // Re-date the bill (JobTread's issueDate = its billing month; the sheet and
   // the Drive month folder follow it via the hourly mirror). Any status — a
@@ -2014,9 +1897,7 @@ export function Board() {
    */
   const toggleReviewed = async (docId: string, reviewed: boolean) => {
     setData((d) =>
-      d
-        ? { ...d, bills: d.bills.map((b) => (b.id === docId ? { ...b, reviewed } : b)) }
-        : d,
+      d ? { ...d, bills: d.bills.map((b) => (b.id === docId ? { ...b, reviewed } : b)) } : d,
     );
     try {
       await fetch("/api/bill-reviewed", {
@@ -2196,7 +2077,7 @@ export function Board() {
     const committed = (contributors?.data.bills ?? [])
       .filter((b) => {
         const leaf = staged.get(b.id);
-        const effective = leaf ? leafById.get(leaf)?.number ?? b.code : b.code;
+        const effective = leaf ? (leafById.get(leaf)?.number ?? b.code) : b.code;
         return effective === codeDrill;
       })
       .map((b): DrillBillRow => ({
@@ -2222,7 +2103,8 @@ export function Board() {
         draft: true,
       }));
     return [...committed, ...drafts].sort(
-      (a, b) => String(b.issueDate ?? "").localeCompare(String(a.issueDate ?? "")) || b.cost - a.cost,
+      (a, b) =>
+        String(b.issueDate ?? "").localeCompare(String(a.issueDate ?? "")) || b.cost - a.cost,
     );
   }, [contributors, codeDrill, staged, leafById, data, billsById]);
 
@@ -2305,7 +2187,8 @@ export function Board() {
           onDrop: (e: React.DragEvent) => {
             e.preventDefault();
             const ids =
-              dragLineIds ?? (e.dataTransfer.getData("text/plain") || "").split(",").filter(Boolean);
+              dragLineIds ??
+              (e.dataTransfer.getData("text/plain") || "").split(",").filter(Boolean);
             if (ids.length) dropOnCode(code, ids);
             endDrag();
           },
@@ -2670,9 +2553,7 @@ export function Board() {
           draggable={lines.length > 0 && !b.invoiced}
           onDragStart={beginDrag(lines.map((l) => l.id))}
           onDragEnd={endDrag}
-          className={`flex items-stretch transition ${
-            isOpen ? "bg-accent/10" : ""
-          } ${
+          className={`flex items-stretch transition ${isOpen ? "bg-accent/10" : ""} ${
             lines.length > 0 && !b.invoiced ? "cursor-grab active:cursor-grabbing" : ""
           }`}
         >
@@ -2720,9 +2601,7 @@ export function Board() {
                 most. */}
             <span className="flex items-baseline justify-between gap-3">
               <span className="min-w-0 truncate text-sm font-semibold">{b.label}</span>
-              <span className="shrink-0 text-base font-semibold tabular-nums">
-                {money(b.cost)}
-              </span>
+              <span className="shrink-0 text-base font-semibold tabular-nums">{money(b.cost)}</span>
             </span>
 
             {/* Ordinary state as quiet text; a chip only where something is
@@ -2740,7 +2619,11 @@ export function Board() {
                   </Chip>
                 ),
                 b.fileCount === 0 && (
-                  <Chip key="nofile" tone="warning" title="No file attached to this bill in JobTread">
+                  <Chip
+                    key="nofile"
+                    tone="warning"
+                    title="No file attached to this bill in JobTread"
+                  >
                     No file
                   </Chip>
                 ),
@@ -3052,19 +2935,7 @@ export function Board() {
       )}
 
       {data && !loading && (
-        // Three equal columns to start; the two handles between them move
-        // width from one neighbour to the other. `!` on the arbitrary template
-        // because two utilities set grid-template-columns and stylesheet order
-        // — not attribute order — decides which wins.
-        <div
-          ref={gridRef}
-          style={
-            {
-              "--tsc": `${cols[0]}fr ${HANDLE_PX}px ${cols[1]}fr ${HANDLE_PX}px ${cols[2]}fr`,
-            } as React.CSSProperties
-          }
-          className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:gap-x-0 xl:![grid-template-columns:var(--tsc)]"
-        >
+        <SplitGrid className="lg:grid-cols-2">
           {/* ─────────── LEFT: cost-code reference rail ─────────── */}
           {/* Docked: the rail is the reference you're constantly checking while
               scrolling a long bill list, so it stays put. `self-start` is what
@@ -3114,19 +2985,19 @@ export function Board() {
                     </span>
                   </button>
                 )}
-              <button
-                type="button"
-                onClick={() =>
-                  setCollapsedDivs((prev) =>
-                    prev.size > 0 ? new Set() : new Set(railGroups.map((g) => g.code)),
-                  )
-                }
-                className={`-mr-1 inline-flex min-h-11 shrink-0 items-center px-1 text-[11px] text-neutral-500 transition hover:text-accent dark:text-neutral-400 lg:mr-0 lg:min-h-0 lg:px-0 ${
-                  railCollapsed ? "hidden lg:inline-flex" : ""
-                }`}
-              >
-                {collapsedDivs.size > 0 ? "Expand all" : "Collapse all"}
-              </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setCollapsedDivs((prev) =>
+                      prev.size > 0 ? new Set() : new Set(railGroups.map((g) => g.code)),
+                    )
+                  }
+                  className={`-mr-1 inline-flex min-h-11 shrink-0 items-center px-1 text-[11px] text-neutral-500 transition hover:text-accent dark:text-neutral-400 lg:mr-0 lg:min-h-0 lg:px-0 ${
+                    railCollapsed ? "hidden lg:inline-flex" : ""
+                  }`}
+                >
+                  {collapsedDivs.size > 0 ? "Expand all" : "Collapse all"}
+                </button>
               </span>
             </div>
             {/* Budget headroom, INSIDE the budget fold — same tap, one
@@ -3159,7 +3030,12 @@ export function Board() {
                         >
                           {money0(left)}
                         </div>
-                        <Meter budget={h.budget} used={usedOf(h)} label={h.code} className="mt-1.5 h-1" />
+                        <Meter
+                          budget={h.budget}
+                          used={usedOf(h)}
+                          label={h.code}
+                          className="mt-1.5 h-1"
+                        />
                         <div className="mt-1 text-[10.5px] text-neutral-500 dark:text-neutral-400">
                           {left < 0 ? `over by ${-pct}%` : `${pct}% of budget left`}
                         </div>
@@ -3339,12 +3215,6 @@ export function Board() {
             </Card>
           </section>
 
-          <ColHandle
-            label="Resize budget rail"
-            onPointerDown={startColDrag(0)}
-            onNudge={nudgeCol(0)}
-          />
-
           {/* ─────────── CENTRE: the month's bills ─────────── */}
           <section className="min-w-0">
             {/* The desktop copy of the headline figure — see the mobile one
@@ -3367,44 +3237,43 @@ export function Board() {
               }
             />
 
-
             <SectionHeading
               // Wraps, because the label and a three-way switch do not fit on
               // one 375px line: the switch drops to its own right-aligned row
               // on a phone and sits inline again as soon as there is room.
               className="mb-2 flex-wrap gap-y-2"
               trailing={
-              /* Grouping switch, as a segmented control: one soft-filled track
+                /* Grouping switch, as a segmented control: one soft-filled track
                  so the three options read as a set, with 44px-tall segments on
                  touch (they were 26px) and the desktop density restored at
                  lg. Filled rather than bordered — the same trade the quiet
                  fields make, and one less rectangle beside the heading. */
-              <div className="flex shrink-0 gap-1 rounded-lg bg-neutral-100 p-0.5 text-xs dark:bg-white/[0.07] lg:bg-transparent lg:p-0 lg:dark:bg-transparent">
-                {(
-                  [
-                    ["bill", "By bill"],
-                    ["code", "By cost code"],
-                    // The client-facing rollup — what the month bills, in the
-                    // shape the customer sees it, and the source of the printed
-                    // summary. Not a drag surface.
-                    ["summary", "Summary"],
-                  ] as const
-                ).map(([m, label]) => (
-                  <button
-                    key={m}
-                    type="button"
-                    onClick={() => setMode(m)}
-                    aria-pressed={mode === m}
-                    className={`inline-flex min-h-10 items-center rounded-md px-2.5 transition lg:min-h-0 lg:py-1 ${
-                      mode === m
-                        ? "bg-accent text-accent-fg font-semibold"
-                        : "text-neutral-500 hover:text-accent dark:text-neutral-400"
-                    }`}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
+                <div className="flex shrink-0 gap-1 rounded-lg bg-neutral-100 p-0.5 text-xs dark:bg-white/[0.07] lg:bg-transparent lg:p-0 lg:dark:bg-transparent">
+                  {(
+                    [
+                      ["bill", "By bill"],
+                      ["code", "By cost code"],
+                      // The client-facing rollup — what the month bills, in the
+                      // shape the customer sees it, and the source of the printed
+                      // summary. Not a drag surface.
+                      ["summary", "Summary"],
+                    ] as const
+                  ).map(([m, label]) => (
+                    <button
+                      key={m}
+                      type="button"
+                      onClick={() => setMode(m)}
+                      aria-pressed={mode === m}
+                      className={`inline-flex min-h-10 items-center rounded-md px-2.5 transition lg:min-h-0 lg:py-1 ${
+                        mode === m
+                          ? "bg-accent text-accent-fg font-semibold"
+                          : "text-neutral-500 hover:text-accent dark:text-neutral-400"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
               }
             >
               {`${data.bills.length} bill${data.bills.length === 1 ? "" : "s"}`} ·{" "}
@@ -3594,7 +3463,8 @@ export function Board() {
                         ))}
                         <p className="mt-2 text-xs text-neutral-500">
                           {recon.invoices.length === 1 ? "An invoice" : "Invoices"} for{" "}
-                          {monthLabel(ym)} already {recon.invoices.length === 1 ? "exists" : "exist"}
+                          {monthLabel(ym)} already{" "}
+                          {recon.invoices.length === 1 ? "exists" : "exist"}
                           {recon.remaining - recon.onDraftInvoiceCost > 0.01 ? (
                             <>
                               , but {money(recon.remaining - recon.onDraftInvoiceCost)} is on no
@@ -3623,8 +3493,8 @@ export function Board() {
                       <p className="mt-3 text-xs text-neutral-500">
                         No invoice for {monthLabel(ym)} yet. Approve the month&apos;s draft bills
                         below, then <b>Create Invoice in JobTread</b> — its builder pulls exactly
-                        these uninvoiced bills (and any uninvoiced time). Date it{" "}
-                        {issueDateFor(ym)}, review &amp; send.
+                        these uninvoiced bills (and any uninvoiced time). Date it {issueDateFor(ym)}
+                        , review &amp; send.
                       </p>
                     )}
                   </>
@@ -3785,12 +3655,6 @@ export function Board() {
             ) : null}
           </section>
 
-          <ColHandle
-            label="Resize coding drawer"
-            onPointerDown={startColDrag(1)}
-            onNudge={nudgeCol(1)}
-          />
-
           {/* ─────────── RIGHT: coding drawer ─────────── */}
           {/* `sticky` + `top` live on the SECTION itself (the actual grid
               item), not on a card nested inside it — a sticky descendant is
@@ -3857,7 +3721,7 @@ export function Board() {
               <BillCodingCard ctl={codingCtl} />
             )}
           </section>
-        </div>
+        </SplitGrid>
       )}
 
       {/* THE MONTH'S LAST STEP, and now only that: approve the month's draft
@@ -4146,9 +4010,7 @@ export function Board() {
                   ) : (
                     <div className="space-y-4">
                       <div>
-                        <SectionLabel className="mb-1.5">
-                          Bills ({drillBills.length})
-                        </SectionLabel>
+                        <SectionLabel className="mb-1.5">Bills ({drillBills.length})</SectionLabel>
                         {drillBills.length === 0 ? (
                           <p className="text-xs text-neutral-500 dark:text-neutral-400">
                             No bills coded to this code.
@@ -4165,7 +4027,11 @@ export function Board() {
                                   {b.lineName && b.lineName !== b.vendor ? ` · ${b.lineName}` : ""}
                                   <span className="ml-1 text-neutral-500 dark:text-neutral-400">
                                     {b.issueDate ?? ""}
-                                    {b.draft ? " · draft, not yet synced" : b.status ? ` · ${b.status}` : ""}
+                                    {b.draft
+                                      ? " · draft, not yet synced"
+                                      : b.status
+                                        ? ` · ${b.status}`
+                                        : ""}
                                   </span>
                                 </span>
                                 <span className="shrink-0 tabular-nums font-semibold">
@@ -4265,10 +4131,7 @@ export function Board() {
             <p className="text-sm font-semibold">Which budget line under {leafPicker.code}?</p>
             <p className="mb-3 text-xs text-neutral-500 dark:text-neutral-400">
               This cost code has several budget rows. Moving{" "}
-              {leafPicker.lineIds.length === 1
-                ? "1 line"
-                : `${leafPicker.lineIds.length} lines`}
-              .
+              {leafPicker.lineIds.length === 1 ? "1 line" : `${leafPicker.lineIds.length} lines`}.
             </p>
             {/* Each option is a decision you commit with one tap, so they get
                 full-height rows rather than 34px slivers. */}

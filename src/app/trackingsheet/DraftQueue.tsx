@@ -6,6 +6,7 @@ import { BillStatusBadge } from "@/components/BillStatusBadge";
 import { driveMainWindowToDoc, money } from "@/components/BillingSummary";
 import { Banner, CardSkeletonList, EmptyState, Toggle } from "@/components/ui";
 import { useCopy } from "@/components/CopyProvider";
+import { SplitGrid } from "@/components/SplitGrid";
 import { useUnsavedChanges } from "@/lib/useUnsavedChanges";
 import {
   DraftBudgetRail,
@@ -91,7 +92,12 @@ function RowShell({
     active ? "border-accent ring-1 ring-accent" : "border-line"
   }`;
   return wide ? (
-    <button type="button" onClick={onSelect} aria-current={active ? "true" : undefined} className={cls}>
+    <button
+      type="button"
+      onClick={onSelect}
+      aria-current={active ? "true" : undefined}
+      className={cls}
+    >
       {children}
     </button>
   ) : (
@@ -166,8 +172,7 @@ export function DraftQueue() {
       bills
         ? bills.filter(
             (b) =>
-              (!hideReviewed || !flagged(b).reviewed) &&
-              (!hideCurrentMonth || !isCurrentMonth(b)),
+              (!hideReviewed || !flagged(b).reviewed) && (!hideCurrentMonth || !isCurrentMonth(b)),
           )
         : null,
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -283,7 +288,9 @@ export function DraftQueue() {
                   {visible.length} draft {visible.length === 1 ? "bill" : "bills"}
                 </span>
                 {hideReviewed && reviewedCount > 0 && (
-                  <span className="text-xs text-neutral-400">· {reviewedCount} reviewed hidden</span>
+                  <span className="text-xs text-neutral-400">
+                    · {reviewedCount} reviewed hidden
+                  </span>
                 )}
                 {hideCurrentMonth && currentMonthCount > 0 && (
                   <span className="text-xs text-neutral-400">
@@ -315,7 +322,7 @@ export function DraftQueue() {
 
           {/* The list scrolls inside itself on the workbench layout, so the two
               docked columns beside it stay put while you work down the queue. */}
-          <ul className="space-y-2 xl:max-h-[calc(100dvh-13rem)] xl:overflow-y-auto xl:pr-1">
+          <ul className="space-y-2 xl:-mx-1 xl:max-h-[calc(100dvh-13rem)] xl:overflow-y-auto xl:px-1 xl:py-1">
             {visible.map((b) => {
               // Each bill carries its own job — this list spans every job, and
               // the bill view needs it to load the right budget/CTC.
@@ -366,7 +373,9 @@ export function DraftQueue() {
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="font-mono text-sm font-semibold">{money(billAmount(b))}</div>
+                        <div className="font-mono text-sm font-semibold">
+                          {money(billAmount(b))}
+                        </div>
                         <div className="text-xs text-neutral-500">{b.issueDate || ""}</div>
                       </div>
                     </div>
@@ -398,7 +407,7 @@ export function DraftQueue() {
     // Budget | bills | Coding shape as the job workbench, and the same docked
     // side columns. `self-start` is what lets a sticky grid item scroll within
     // its row instead of being stretched to the row's full height.
-    <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+    <SplitGrid>
       <section className="hidden min-w-0 xl:block xl:sticky sticky-below-header xl:self-start">
         <DraftBudgetRail editor={editor} sel={sel} />
       </section>
@@ -416,6 +425,6 @@ export function DraftQueue() {
           onBillMoved={dropBill}
         />
       </section>
-    </div>
+    </SplitGrid>
   );
 }

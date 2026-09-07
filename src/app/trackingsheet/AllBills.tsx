@@ -5,7 +5,17 @@ import Link from "next/link";
 import { JtLink } from "@/components/JtLink";
 import { BILL_STRIPE_COLOR, billInvoiceState } from "@/lib/billInvoiceState";
 import { billPaidState, driveMainWindowToDoc, money } from "@/components/BillingSummary";
-import { Banner, Card, Chip, EmptyState, Label, Loading, SectionLabel, inputCls } from "@/components/ui";
+import {
+  Banner,
+  Card,
+  Chip,
+  EmptyState,
+  Label,
+  Loading,
+  SectionLabel,
+  inputCls,
+} from "@/components/ui";
+import { SplitGrid } from "@/components/SplitGrid";
 import { useUnsavedChanges } from "@/lib/useUnsavedChanges";
 import { monthOptions } from "./Roster";
 import {
@@ -126,10 +136,7 @@ export function AllBills({ ym, setYm }: { ym: string; setYm: (ym: string) => voi
     () => (bills ?? []).filter((b) => !isSunsetVendor(b.vendor)),
     [bills],
   );
-  const sunsetBills = useMemo(
-    () => (bills ?? []).filter((b) => isSunsetVendor(b.vendor)),
-    [bills],
-  );
+  const sunsetBills = useMemo(() => (bills ?? []).filter((b) => isSunsetVendor(b.vendor)), [bills]);
   const sunsetTotal = useMemo(() => sunsetBills.reduce((s, b) => s + b.cost, 0), [sunsetBills]);
 
   // ---- the coding workbench (xl and up) ------------------------------------
@@ -139,7 +146,10 @@ export function AllBills({ ym, setYm }: { ym: string; setYm: (ym: string) => voi
 
   // Visual order — main list then the Sunset pane — so ‹ Prev / Next › steps
   // the same way the eye reads the page.
-  const orderedBills = useMemo(() => [...nonSunsetBills, ...sunsetBills], [nonSunsetBills, sunsetBills]);
+  const orderedBills = useMemo(
+    () => [...nonSunsetBills, ...sunsetBills],
+    [nonSunsetBills, sunsetBills],
+  );
   const selIdx = orderedBills.findIndex((b) => b.id === selId);
   const selBill = selIdx >= 0 ? orderedBills[selIdx] : null;
   const sel: Selection | null = selBill
@@ -222,7 +232,10 @@ export function AllBills({ ym, setYm }: { ym: string; setYm: (ym: string) => voi
           {/* Leads the row and rendered in red — a flagged bill is the one the
               office needs to act on, so it must be impossible to miss. */}
           {b.needsReview && (
-            <Chip tone="danger" title="Flagged for a billing correction — open the bill to see the note">
+            <Chip
+              tone="danger"
+              title="Flagged for a billing correction — open the bill to see the note"
+            >
               ⚑ Needs review
             </Chip>
           )}
@@ -242,12 +255,18 @@ export function AllBills({ ym, setYm }: { ym: string; setYm: (ym: string) => voi
               different axis from "invoiced" (what the CLIENT has been billed),
               so both chips can sit on one row. */}
           {paid === "paid" && (
-            <Chip tone="success" title={`Paid in full — ${money(b.amountPaid)} recorded in QuickBooks`}>
+            <Chip
+              tone="success"
+              title={`Paid in full — ${money(b.amountPaid)} recorded in QuickBooks`}
+            >
               ✓ paid
             </Chip>
           )}
           {paid === "partial" && (
-            <Chip tone="warning" title={`${money(b.amountPaid)} paid · ${money(b.balance)} still owed`}>
+            <Chip
+              tone="warning"
+              title={`${money(b.amountPaid)} paid · ${money(b.balance)} still owed`}
+            >
               part paid
             </Chip>
           )}
@@ -339,7 +358,7 @@ export function AllBills({ ym, setYm }: { ym: string; setYm: (ym: string) => voi
         // Budget | bills | Coding shape as the job workbench and the
         // needs-coding queue. `self-start` is what lets a sticky grid item
         // scroll within its row instead of stretching to the row's height.
-        <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+        <SplitGrid>
           <section className="hidden min-w-0 xl:block xl:sticky sticky-below-header xl:self-start">
             <DraftBudgetRail editor={editor} sel={sel} />
           </section>
@@ -363,7 +382,7 @@ export function AllBills({ ym, setYm }: { ym: string; setYm: (ym: string) => voi
                     the two docked side columns stay put while you work down
                     the month. */}
                 {nonSunsetBills.length > 0 && (
-                  <ul className="space-y-2 xl:max-h-[calc(100dvh-13rem)] xl:overflow-y-auto xl:pr-1">
+                  <ul className="space-y-2 xl:-mx-1 xl:max-h-[calc(100dvh-13rem)] xl:overflow-y-auto xl:px-1 xl:py-1">
                     {nonSunsetBills.map(renderBillCard)}
                   </ul>
                 )}
@@ -416,7 +435,7 @@ export function AllBills({ ym, setYm }: { ym: string; setYm: (ym: string) => voi
               onBillMoved={dropBill}
             />
           </section>
-        </div>
+        </SplitGrid>
       )}
     </>
   );
