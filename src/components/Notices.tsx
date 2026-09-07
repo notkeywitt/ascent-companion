@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Banner, Button, type BannerTone } from "@/components/ui";
+import { planToasts, readToasted, showToast, toastState, writeToasted } from "@/lib/noticeToasts";
 
 /**
  * The two reader surfaces for a notice — the BANNER stack and the POPUP.
@@ -26,11 +27,18 @@ import { Banner, Button, type BannerTone } from "@/components/ui";
  * The popup renders as `fixed inset-0`, so its position on screen does not
  * depend on where in the tree this sits — only the banner stack does.
  *
+ *  - **desktop toast** — the OS notification in the corner, for a notice that
+ *    arrives while the app is in the BACKGROUND on a computer. Off until the
+ *    reader turns it on for that device (Home → Desktop alerts); the rule for
+ *    what toasts lives in `src/lib/noticeToasts.ts`.
+ *
  * WHY IT RE-FETCHES: a scheduled notice starts while the app is already open,
  * and this app is installed to home screens and left open for days. So the feed
- * is re-read when the tab becomes visible again and every five minutes it stays
- * visible. Anything already dismissed on this device is held back locally too,
- * so a re-fetch that races the dismiss write can't flash it back.
+ * is re-read when the tab becomes visible again, and every five minutes
+ * whatever the tab is doing — the background poll is what gives the desktop
+ * toast something to announce. Anything already dismissed on this device is
+ * held back locally too, so a re-fetch that races the dismiss write can't flash
+ * it back.
  */
 
 interface Notice {
@@ -98,10 +106,25 @@ export function NoticeCenter() {
       .then((r) => r.json())
       .then((j) => {
         if (!mounted.current || !Array.isArray(j.notices)) return;
-        setFeed((j.notices as Notice[]).filter((n) => !dismissed.current.has(n.id)));
+        const mine = (j.notices as Notice[]).filter((n) => !dismissed.current.has(n.id));
+        setFeed(mine);
+
+        // Desktop toast for anything that turned up while the app was in the
+        // background. `planToasts` owns the whole rule; this only draws.
+        const { toast, ledger } = planToasts({
+          feed: mine.map((n) => n.id),
+          toasted: readToasted(),
+          hidden: document.visibilityState === "hidden",
+          enabled: toastState() === "on",
+        });
+        for (const id of toast) {
+          const notice = mine.find((n) => n.id === id);
+          if (notice) showToast(notice);
+        }
+        writeToasted(ledger);
       })
-      // A failed fetch must never break the page this is mounted on — both
-      // surfaces are additive. Stay silent and show nothing.
+      // A failed fetch must never break the page this is mounted on — every
+      // surface here is additive. Stay silent and show nothing.
       .catch(() => {});
   }, []);
 
@@ -112,7 +135,11 @@ export function NoticeCenter() {
       if (document.visibilityState === "visible") load();
     };
     document.addEventListener("visibilitychange", onVisible);
-    const timer = setInterval(onVisible, REFETCH_MS);
+    // Unconditional, unlike the listener above: a hidden tab has to keep
+    // reading the feed or a desktop toast would only ever fire on return,
+    // which is the one moment it is not wanted. Browsers throttle a background
+    // timer to about once a minute, which this interval already clears.
+    const timer = setInterval(load, REFETCH_MS);
     return () => {
       mounted.current = false;
       document.removeEventListener("visibilitychange", onVisible);
@@ -152,10 +179,15 @@ function NoticeBanners({
 }) {
   if (notices.length === 0) return null;
   return (
-    <div className="mx-auto w-full max-w-2xl space-y-2 px-4 pt-3">
+    // Aligned to the page under it: `max-w-2xl px-4` is what almost every page
+    // uses, and the xl rule mirrors the HOME container (`xl:max-w-none
+    // xl:px-8`) so a wide screen doesn't put a narrow centred strip over a
+    // full-bleed launcher. The tint spans, the CONTENT is capped below — a
+    // dismiss ✕ a metre from its own sentence is not a target anyone aims at.
+    <div className="mx-auto w-full max-w-2xl space-y-2 px-4 pt-3 xl:max-w-none xl:px-8">
       {notices.map((n) => (
         <Banner key={n.id} tone={TONE[n.tone] ?? "info"}>
-          <div className="flex items-start gap-2.5">
+          <div className="flex items-start gap-2.5 xl:max-w-5xl">
             <ToneMark tone={n.tone} className="mt-px h-4 w-4 shrink-0" />
             <div className="min-w-0 flex-1">
               <p className="font-semibold tracking-tight">{n.title}</p>

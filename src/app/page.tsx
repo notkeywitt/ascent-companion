@@ -18,6 +18,7 @@ import { useEffectiveLayout } from "@/components/NavLayoutProvider";
 import { PREVIEW_ROWS, tileLauncherFor } from "@/lib/nav";
 import { DEFAULT_COLUMNS, type NavItem } from "@/lib/navLayout";
 import { AppearanceCard } from "@/components/AppearanceCard";
+import { DesktopAlertsCard } from "@/components/DesktopAlertsCard";
 
 /**
  * The Assistant's front page — the launcher, and still the only place EVERY
@@ -379,6 +380,11 @@ function Home() {
       {/* Per-device display settings. Here rather than on /more because /more
           is the tile launcher's overflow — office and admin never link to it. */}
       <AppearanceCard />
+
+      {/* The per-device switch for OS notifications about notices. Self-hiding
+          on any browser without the Notification API — i.e. every iPhone — so
+          it only shows where it can actually deliver. */}
+      <DesktopAlertsCard />
 
       {/* Account / sign out. Access (which menus you see) is baked in at
           sign-in, so signing out and back in is how you pick up a changed

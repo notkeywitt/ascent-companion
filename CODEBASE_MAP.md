@@ -103,6 +103,7 @@ including edge middleware.
 | `copyService.ts` | Server half of the above: reads `page_copy` overrides. Returns `{}` on any DB failure so copy can never blank a page. |
 | `views.ts` ⟂ | **Single source of truth for role-gated views** — `VIEWS`, `ROLE_VIEWS`, `resolveAllowedViews`, `viewIdForPath`. |
 | `notices.ts` ⟂ | **Who sees a notice, and when** — the audience match (groups OR named people, legacy single-target rows folded in) and the schedule window (`noticeStatus`: off / scheduled / live / ended). The reader's feed, the authoring route and the authoring panel all decide from here, so "it says Live" and "it shows" stay one claim. |
+| `noticeToasts.ts` | **Desktop alerts** — the browser's own Notification API, so a notice that arrives while the app sits in a BACKGROUND tab pops up in the corner of a computer's screen. `planToasts` is the pure rule (nothing toasts while the reader is looking at the app, nothing toasts twice per device, a burst is capped); the rest is the per-device on/off + already-toasted ledger in localStorage. NOT Web Push: nothing arrives with the app closed, and no iPhone has the API at all. |
 | `nav.ts` ⟂ | **The launcher's destination list** (`AREAS`) — the one place every gateable view is named. Read by BOTH the home launcher and the header's global search, which is why it's a module rather than living in `page.tsx`. |
 | `preview.ts` ⟂ | **Role preview** — the cookie name + helpers letting an admin view the app AS each role. The layout reads the cookie (honoring it only for a real admin) and hands that role's live view set to the nav, so the launcher/tabs render as that role sees them. Narrows only, never elevates. |
 | `previewClient.ts` | Browser half of the above: `startPreview`/`stopPreview` set/clear the cookie and reload so the server layout re-reads it. |
@@ -369,6 +370,9 @@ Grouped by domain; each folder is `…/route.ts`.
   the logo), `AppearanceCard` (the home page's Appearance block — picks the
   PALETTE and the theme, both per device, and links admins to the theme editor;
   see `src/lib/palette.ts`, `src/lib/paletteDraft.ts` and `THEME.md`),
+  `DesktopAlertsCard` (the block under it — the per-device switch for OS
+  notifications about notices, plus a test alert; SELF-HIDING where the browser
+  has no Notification API, i.e. every iPhone; rule in `src/lib/noticeToasts.ts`),
   `AscentLogo` (the lockup; `tone="white"` is the reversed, black-ground
   variant), `LoadingScreen` (the logo-on-black cover — one look, three
   triggers: `SplashScreen` on app open, `RouteLoadingScreen` on an in-app tap,
@@ -384,8 +388,9 @@ Grouped by domain; each folder is `…/route.ts`.
   `UncapturedBills`, `StuckVendors`, `NeedsProject`, `Notices` (`NoticeCenter` —
   BOTH reader surfaces for a notice, the banner stack under the header and the
   interrupting popup, off ONE feed request; mounted in the root layout, and it
-  re-reads the feed on tab focus so a scheduled notice appears without a
-  reload), `NoticesAdmin` (the authoring panel — what it says, banner or popup,
+  re-reads the feed on tab focus — and every five minutes whatever the tab is
+  doing, which is what lets a background tab raise a DESKTOP TOAST for a notice
+  that arrives while the reader is elsewhere), `NoticesAdmin` (the authoring panel — what it says, banner or popup,
   the schedule window, and the groups/people it targets; rendered by both
   `/notices` and Admin → Notices), `SunsetDuplicateScan`, `TrackingSheetSync`,
   `TrackingSheetRisks`, `TimeEntryList` (**the month's time entries, rendered by

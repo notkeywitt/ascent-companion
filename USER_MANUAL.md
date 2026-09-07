@@ -513,6 +513,20 @@ history); **Delete** removes it and that history for good.
 > A notice that has not started yet is cancelled with the **Off** switch, not by setting an
 > end time — an end time before the start is refused.
 
+#### Desktop alerts — **Home → Desktop alerts**
+
+On a computer, a notice can also pop up in the corner of the screen. Open **Desktop
+alerts** on Home, tap **Turn on**, and allow notifications when the browser asks. **Send a
+test** proves it works.
+
+- It is **per computer**, like the theme — turning it on at the office desk does nothing to
+  anyone else's machine, or to your phone.
+- It fires only for a notice that arrives while the Assistant is **open in another tab**. A
+  notice you are looking at stays a banner; no alert repeats what is on screen.
+- **Nothing arrives when the app is closed.** That needs phone-style push notifications,
+  which the app does not have yet.
+- iPhones and iPads don't offer this at all, so the card hides itself there.
+
 ### Admin (Team Access) — `More ▾ → Admin`
 
 Controls who can sign in with Google. Type a teammate's email and tap **Add**; tap
