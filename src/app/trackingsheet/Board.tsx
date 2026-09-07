@@ -438,10 +438,10 @@ export function Board() {
     null,
   );
 
-  // The Tracking Sheet push rides along with "Save Changes" — one button,
-  // one step from the office's point of view — so it needs its own target
-  // resolution and result state the way /stage drives TrackingSheetSync,
-  // rather than the self-contained TrackingSheetSyncFor this page used before.
+  // The Tracking Sheet push is its own button in the closing row, never a step
+  // inside Save. It still needs target resolution and result state held HERE
+  // the way /stage drives TrackingSheetSync, rather than the self-contained
+  // TrackingSheetSyncFor, so a result outlives whatever the office does next.
   const { can } = useAccess();
   const canTrack = can("tracking-sheet");
   const canApprove = can("bill-approve");
@@ -2195,21 +2195,18 @@ export function Board() {
         }
       : {};
 
-  // ---- sync ---------------------------------------------------------------
-  const sync = async () => {
-    if (!data) return;
-
-    // NOTHING STAGED — the button is the Tracking Sheet push on its own.
-    // The two halves are one step from the office's point of view, but the
-    // coding half is the only one that can be "dirty", so gating the whole
-    // button on staged changes meant a job whose coding was already settled had
-    // no way to refresh its sheet from this page short of inventing an edit.
-    if (!dirty) {
-      if (!trackingTarget) return;
-      const [y, m] = ym.split("-").map(Number);
-      runTrackingSync(trackingTarget.projectId, m, y, setTrackingSync);
-      return;
-    }
+  // ---- save ---------------------------------------------------------------
+  /**
+   * Write staged coding to JobTread. THAT IS ALL IT DOES.
+   *
+   * It used to push the month into the Google tracking sheet in the same step.
+   * The sheet push is a long Apps Script round trip against a document the
+   * office also edits by hand, so riding it on every save meant a one-line
+   * recode rewrote the whole sheet. It is its own button now — "Sync to
+   * Tracking Sheet", in the closing row here and on the bill page.
+   */
+  const save = async () => {
+    if (!data || !dirty) return;
 
     setSyncing(true);
     setSyncMsg(null);
@@ -2362,16 +2359,6 @@ export function Board() {
     }
 
     setSyncing(false);
-    // Same step, in order: the coding just landed in JobTread, so pull the
-    // month into the Tracking Sheet too — it reads costCode off each bill
-    // line and wants the coding settled first.
-    // Gated on ANY successful write, not just line recodes: a tax-only sync
-    // still changes what the sheet should report, and gating on `ok` alone
-    // silently skipped it.
-    if (trackingTarget && (ok > 0 || taxOk > 0 || timeOk > 0 || combineOk > 0)) {
-      const [y, m] = ym.split("-").map(Number);
-      runTrackingSync(trackingTarget.projectId, m, y, setTrackingSync);
-    }
     const parts = [];
     if (ok > 0) parts.push(`${ok} line${ok === 1 ? "" : "s"}`);
     if (timeOk > 0) parts.push(`${timeOk} time ${timeOk === 1 ? "entry" : "entries"}`);
@@ -2380,14 +2367,14 @@ export function Board() {
     const summary = parts.length ? parts.join(" + ") : "0 changes";
     if (combineErr) failures.push(`Combine: ${combineErr}`);
     if (failures.length === 0) {
-      setSyncMsg({ tone: "success", text: `Synced ${summary} to JobTread.` });
+      setSyncMsg({ tone: "success", text: `Saved ${summary} to JobTread.` });
       setRestoreMsg(null);
       if (draftKey) discardDraft(draftKey); // it's in JobTread now — nothing left to hold
       await load(); // load() clears staged
     } else {
       setSyncMsg({
         tone: "error",
-        text: `Synced ${summary}, ${failures.length} failed: ${[...new Set(failures)].slice(0, 2).join("; ")}`,
+        text: `Saved ${summary}, ${failures.length} failed: ${[...new Set(failures)].slice(0, 2).join("; ")}`,
       });
       // A PARTLY failed sync is the worst moment to drop the draft: load() is
       // about to empty the staged state, and the changes that didn't land would
@@ -2711,7 +2698,15 @@ export function Board() {
           variant="secondary"
           className={cls}
           disabled={syncing || trackingBusy}
-          title={`Push ${monthLabel(ym)} into ${trackingTarget.label}`}
+          // The sheet reads costCode off the bill lines IN JOBTREAD, so staged
+          // coding that has not been saved simply will not appear in it. Said
+          // here rather than blocking the push: refreshing the sheet from what
+          // JobTread holds today is still a legitimate thing to want.
+          title={
+            dirty
+              ? `Push ${monthLabel(ym)} into ${trackingTarget.label} — your ${stagedCount} staged change${stagedCount === 1 ? "" : "s"} are not saved yet, so the sheet won't show them`
+              : `Push ${monthLabel(ym)} into ${trackingTarget.label}`
+          }
           onClick={() => {
             const [y, m] = ym.split("-").map(Number);
             runTrackingSync(trackingTarget.projectId, m, y, setTrackingSync);
@@ -3746,18 +3741,15 @@ export function Board() {
       {jobId && (
         <div
           className={`order-last mt-4 border-t border-line pt-4 lg:order-none ${
-            // Nothing to show yet — don't draw a bare divider. The sheet push
-            // is gated on `!dirty` below, so the divider has to be too.
-            showApprove || (!dirty && showTracking) || preSend || preSendError || preSendRunning
-              ? ""
-              : "hidden"
+            // Nothing to show yet — don't draw a bare divider.
+            showApprove || showTracking || preSend || preSendError || preSendRunning ? "" : "hidden"
           }`}
         >
           {(preSend || preSendError || preSendRunning) && (
             <PreSendCheck result={preSend} error={preSendError} />
           )}
           <div className="mx-auto flex max-w-2xl flex-wrap items-center justify-end gap-2">
-            {!dirty && trackingSheetAction("min-h-11")}
+            {trackingSheetAction("min-h-11")}
             {showApprove &&
               (allApproved ? (
                 /* Every bill is approved, so the next step is JobTread's own
@@ -3850,30 +3842,16 @@ export function Board() {
                 Revert
               </Button>
             )}
-            {/* The coding commit: it writes staged coding to JobTread and then
-                pushes the month into the Tracking Sheet in the same step (coding
-                must settle before the sheet reads costCode off each line) —
-                which is why the standalone sheet push in the closing row only
-                appears with nothing staged. Says so on itself, so the pairing
-                isn't something you have to know. */}
+            {/* The coding commit, and only that. The tracking sheet is pushed
+                by its own button in the closing row — see save(). */}
             <Button
               size="sm"
-              onClick={sync}
-              disabled={!dirty || syncing || trackingBusy}
-              title={
-                trackingTarget
-                  ? "Write staged coding to JobTread, then push the month into the tracking sheet"
-                  : "Write staged coding to JobTread"
-              }
+              onClick={save}
+              disabled={!dirty || syncing}
+              title="Write staged coding to JobTread"
               className="min-h-11"
             >
-              {syncing
-                ? "Saving…"
-                : trackingBusy
-                  ? "Syncing sheet…"
-                  : trackingTarget
-                    ? "Save + push sheet"
-                    : "Save Changes"}
+              {syncing ? "Saving…" : "Save Changes"}
             </Button>
           </div>
         </StickyActionBar>
