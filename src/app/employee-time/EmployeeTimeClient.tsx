@@ -6,6 +6,7 @@ import Link from "next/link";
 import { jobAddress, jobLabel as jobRefLabel, type JobRef } from "@/components/JobPicker";
 import { JtLink } from "@/components/JtLink";
 import { fmtHM } from "@/lib/leaveFormat";
+import { fmtMiles, useNearestJobs } from "@/lib/nearestJob";
 import {
   Banner,
   Card,
@@ -2348,11 +2349,14 @@ function OptionRow({
   selected,
   label,
   sub,
+  right,
   onClick,
 }: {
   selected: boolean;
   label: string;
   sub?: string;
+  /** A quiet figure on the right — the job sheet's distance from here. */
+  right?: string;
   onClick: () => void;
 }) {
   return (
@@ -2368,6 +2372,11 @@ function OptionRow({
           </span>
           {sub && <span className="block truncate text-xs text-neutral-500">{sub}</span>}
         </span>
+        {right && (
+          <span className="shrink-0 text-xs tabular-nums text-neutral-500 dark:text-neutral-400">
+            {right}
+          </span>
+        )}
         {selected && (
           <span aria-hidden className="shrink-0 text-accent dark:text-accent-soft">
             ✓
@@ -2378,7 +2387,13 @@ function OptionRow({
   );
 }
 
-/** The job picker sheet — searchable, because the org has a lot of jobs. */
+/**
+ * The job picker sheet — searchable, because the org has a lot of jobs, and
+ * location-aware, because the job a crew member wants is nearly always the one
+ * they are standing on. The sheet asks for the device's location when it OPENS
+ * (never on page load) and lifts the nearest job above the list; the field's
+ * default is still the last job logged, which the screen sets on its own.
+ */
 function JobSheet({
   open,
   jobs,
@@ -2396,12 +2411,15 @@ function JobSheet({
   useEffect(() => {
     if (open) setQ("");
   }, [open]);
+  const { status: geoStatus, milesById, nearest, nearestMiles } = useNearestJobs(jobs, open);
   const query = q.trim().toLowerCase();
   const shown = query
     ? jobs.filter((j) =>
         `${j.customer ?? ""} ${j.number ?? ""} ${j.name} ${j.address ?? ""}`.toLowerCase().includes(query),
       )
     : jobs;
+  // A search is a deliberate answer to "which job", so it outranks the GPS.
+  const showNearest = !query && (geoStatus === "locating" || !!nearest);
   return (
     <Sheet open={open} title="Job" onClose={onClose} tall>
       <Input
@@ -2412,12 +2430,35 @@ function JobSheet({
         className="mb-2"
       />
       <ul className="pb-2">
+        {showNearest && (
+          <>
+            <li className="flex items-center justify-between gap-2 px-1 pb-1 pt-2 text-[11px] uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
+              <span>Nearest</span>
+              <span className="normal-case tracking-normal">
+                {nearest ? fmtMiles(nearestMiles ?? NaN) : "locating…"}
+              </span>
+            </li>
+            {nearest && (
+              <OptionRow
+                selected={nearest.id === selectedId}
+                label={jobRefLabel(nearest)}
+                sub={jobAddress(nearest) || undefined}
+                right={fmtMiles(milesById[nearest.id])}
+                onClick={() => onPick(nearest)}
+              />
+            )}
+            <li className="px-1 pb-1 pt-3 text-[11px] uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
+              All jobs
+            </li>
+          </>
+        )}
         {shown.map((j) => (
           <OptionRow
             key={j.id}
             selected={j.id === selectedId}
             label={jobRefLabel(j)}
             sub={jobAddress(j) || undefined}
+            right={typeof milesById[j.id] === "number" ? fmtMiles(milesById[j.id]) : undefined}
             onClick={() => onPick(j)}
           />
         ))}

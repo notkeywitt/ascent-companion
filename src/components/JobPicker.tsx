@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { PeakMark } from "@/components/PageTitle";
+import { fmtMiles, useNearestJobs } from "@/lib/nearestJob";
 
 export interface JobRef {
   id: string;
@@ -9,6 +10,9 @@ export interface JobRef {
   number?: string;
   customer?: string;
   address?: string;
+  /** job.location coordinates — null on a job whose address never geocoded. */
+  lat?: number | null;
+  lng?: number | null;
   phase?: string | null;
 }
 
@@ -66,6 +70,13 @@ const monthLabel = (ym: string) => {
  * — the same sum a job's own Tracking Sheets card shows, since a client invoice
  * pulls logged labor along with the bills.
  *
+ * `showNearest` puts the job you are STANDING ON at the top of the open list,
+ * with every job's distance beside it — for a field picker whose answer is
+ * usually "this site" (mileage, time). It changes the menu only: the trigger
+ * still reads whatever `value` the caller defaulted to, which on those pages is
+ * the last job logged. The device's location is asked for on the first OPEN,
+ * never on mount, so a page that merely renders the picker prompts nobody.
+ *
  * `variant="title"` draws the trigger as the PAGE HEADING instead of a form
  * control — peak mark, `<h1>`, one chevron — for a job-scoped page whose title
  * IS the job (Tracking Sheets). Same dropdown; only the closed state changes.
@@ -90,6 +101,7 @@ export function JobPicker({
   fallbackLabel,
   showPhaseFilter = false,
   showToBeInvoiced = false,
+  showNearest = false,
   variant = "control",
 }: {
   value: string;
@@ -104,6 +116,7 @@ export function JobPicker({
   fallbackLabel?: string;
   showPhaseFilter?: boolean;
   showToBeInvoiced?: boolean;
+  showNearest?: boolean;
   variant?: "control" | "title";
 }) {
   const [fetched, setFetched] = useState<JobRef[]>([]);
@@ -204,20 +217,39 @@ export function JobPicker({
   const hasNoPhase = showPhaseFilter && jobs.some((j) => !j.phase);
 
   const q = query.trim().toLowerCase();
-  const filtered = jobs.filter((j) => {
-    if (phaseFilter) {
-      const phaseOk = phaseFilter === NO_PHASE ? !j.phase : j.phase === phaseFilter;
-      if (!phaseOk) return false;
-    }
-    if (!q) return true;
-    return `${j.customer ?? ""} ${j.number ?? ""} ${j.name} ${j.address ?? ""}`
-      .toLowerCase()
-      .includes(q);
-  });
+  // The phase filter alone. It is also what the nearest job is ranked over, so
+  // the pinned row can never name a job the list below has filtered out.
+  const inPhase = phaseFilter
+    ? jobs.filter((j) => (phaseFilter === NO_PHASE ? !j.phase : j.phase === phaseFilter))
+    : jobs;
+  const filtered = q
+    ? inPhase.filter((j) =>
+        `${j.customer ?? ""} ${j.number ?? ""} ${j.name} ${j.address ?? ""}`
+          .toLowerCase()
+          .includes(q),
+      )
+    : inPhase;
+
+  // Where the picker is standing. Asked for on the first open of a `showNearest`
+  // picker and never otherwise — see lib/nearestJob.
+  const {
+    status: geoStatus,
+    milesById,
+    nearest,
+    nearestMiles,
+  } = useNearestJobs(inPhase, showNearest && open);
 
   const toggle = () => {
     setOpen((o) => !o);
     setQuery("");
+  };
+
+  // One place to choose a job, because a `showNearest` picker renders the same
+  // job twice — pinned at the top and again in the list.
+  const pick = (j: JobRef) => {
+    onChange(j.id);
+    onSelect?.(j);
+    setOpen(false);
   };
 
   // The closed state. Both variants are the same button with the same aria — a
@@ -317,6 +349,36 @@ export function JobPicker({
             </div>
           )}
           <ul className="overflow-auto">
+            {/* The job under your feet, lifted to the TOP of the list. Only on a
+                showNearest picker, only with the list unfiltered (a search is a
+                deliberate answer to "which job", and outranks the GPS), and
+                only once a fix has landed — a denied or absent location leaves
+                the picker exactly as it was. */}
+            {showNearest && !q && (geoStatus === "locating" || nearest) && (
+              <>
+                <li
+                  className="flex items-center justify-between gap-2 border-b border-line px-3 py-1.5 text-[11px] uppercase tracking-wide text-neutral-500 dark:border-white/10 dark:text-neutral-400"
+                  aria-hidden
+                >
+                  <span>Nearest</span>
+                  <span className="normal-case tracking-normal">
+                    {nearest ? fmtMiles(nearestMiles ?? NaN) : "locating…"}
+                  </span>
+                </li>
+                {nearest && (
+                  <JobOption
+                    job={nearest}
+                    selected={nearest.id === value}
+                    onPick={pick}
+                    miles={milesById[nearest.id]}
+                    amount={showToBeInvoiced ? toInvoice?.totals[nearest.id] : undefined}
+                    // The rule under the pinned row is what stops it reading as
+                    // a duplicate of the same job further down the list.
+                    className="border-b border-line dark:border-white/10"
+                  />
+                )}
+              </>
+            )}
             {!q && includeAll && (
               <li>
                 <button
@@ -336,33 +398,14 @@ export function JobPicker({
               </li>
             )}
             {filtered.map((j) => (
-              <li key={j.id}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    onChange(j.id);
-                    onSelect?.(j);
-                    setOpen(false);
-                  }}
-                  className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-neutral-100 dark:hover:bg-white/5"
-                >
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm">{jobLabel(j)}</span>
-                    {jobAddress(j) && (
-                      <span className="block truncate text-xs text-neutral-500">
-                        {jobAddress(j)}
-                      </span>
-                    )}
-                  </span>
-                  {/* Only jobs with something to invoice carry a figure — a
-                      column of "$0" would say nothing and cost a line of width. */}
-                  {showToBeInvoiced && !!toInvoice?.totals[j.id] && (
-                    <span className="shrink-0 text-xs font-medium tabular-nums text-neutral-700 dark:text-neutral-200">
-                      {money0(toInvoice.totals[j.id])}
-                    </span>
-                  )}
-                </button>
-              </li>
+              <JobOption
+                key={j.id}
+                job={j}
+                selected={j.id === value}
+                onPick={pick}
+                miles={showNearest ? milesById[j.id] : undefined}
+                amount={showToBeInvoiced ? toInvoice?.totals[j.id] : undefined}
+              />
             ))}
             {filtered.length === 0 && (
               <li className="px-3 py-3 text-xs text-neutral-500">
@@ -373,5 +416,60 @@ export function JobPicker({
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * One job in the open list: name, address, and whichever right-hand figure the
+ * picker is configured for. A `showNearest` picker renders this twice for the
+ * nearest job — pinned at the top, then again in its alphabetical place — so the
+ * row is a component rather than an inlined map body.
+ */
+function JobOption({
+  job,
+  selected,
+  onPick,
+  miles,
+  amount,
+  className = "",
+}: {
+  job: JobRef;
+  selected: boolean;
+  onPick: (j: JobRef) => void;
+  /** Miles from the device, when the picker knows where it is. */
+  miles?: number;
+  /** What the job still has to invoice this month, on the pickers that show it. */
+  amount?: number;
+  className?: string;
+}) {
+  return (
+    <li className={className}>
+      <button
+        type="button"
+        onClick={() => onPick(job)}
+        className={`flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-neutral-100 dark:hover:bg-white/5 ${
+          selected ? "bg-neutral-100 dark:bg-white/10" : ""
+        }`}
+      >
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-sm">{jobLabel(job)}</span>
+          {jobAddress(job) && (
+            <span className="block truncate text-xs text-neutral-500">{jobAddress(job)}</span>
+          )}
+        </span>
+        {/* Only jobs with something to invoice carry a figure — a column of "$0"
+            would say nothing and cost a line of width. */}
+        {!!amount && (
+          <span className="shrink-0 text-xs font-medium tabular-nums text-neutral-700 dark:text-neutral-200">
+            {money0(amount)}
+          </span>
+        )}
+        {typeof miles === "number" && (
+          <span className="shrink-0 text-xs tabular-nums text-neutral-500 dark:text-neutral-400">
+            {fmtMiles(miles)}
+          </span>
+        )}
+      </button>
+    </li>
   );
 }

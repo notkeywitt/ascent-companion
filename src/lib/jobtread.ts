@@ -2440,6 +2440,11 @@ export interface JobRef {
   number?: string;
   customer?: string; // job.location.account.name
   address?: string; // job.location.formattedAddress (Google-normalized)
+  // job.location.latitude/longitude — Google's geocode of that address, which
+  // JobTread stores when the location is created. Null on a job whose address
+  // never resolved, so every distance check has to tolerate a missing pair.
+  lat?: number | null;
+  lng?: number | null;
   closedOn?: string | null;
 }
 
@@ -2467,7 +2472,12 @@ async function _getJobsUncached(cfg: PaveConfig, includeClosed = false): Promise
             name: {},
             number: {},
             closedOn: {},
-            location: { account: { name: {} }, formattedAddress: {} },
+            location: {
+              account: { name: {} },
+              formattedAddress: {},
+              latitude: {},
+              longitude: {},
+            },
           },
         },
       },
@@ -2481,6 +2491,8 @@ async function _getJobsUncached(cfg: PaveConfig, includeClosed = false): Promise
         number: n.number,
         customer: n.location?.account?.name ?? "",
         address: n.location?.formattedAddress ?? "",
+        lat: typeof n.location?.latitude === "number" ? n.location.latitude : null,
+        lng: typeof n.location?.longitude === "number" ? n.location.longitude : null,
         closedOn: n.closedOn,
       });
     }

@@ -90,6 +90,28 @@ interface TripResult {
 
 const LS_TRIP = "mileage.activeTrip";
 const LS_DRIVER = "mileage.driver";
+// The last job a trip was logged against on this device. It is the job field's
+// default on the next trip — a driver on the same job all week picks nothing.
+// The picker's LIST is location-aware (nearest job first); the field is not.
+const LS_LAST_JOB = "mileage.lastJob";
+
+function readLastJob(): { id: string; label: string } | null {
+  try {
+    const raw = localStorage.getItem(LS_LAST_JOB);
+    if (!raw) return null;
+    const j = JSON.parse(raw) as { id?: string; label?: string };
+    return j?.id ? { id: j.id, label: j.label ?? "" } : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveLastJob(id: string, label: string) {
+  if (!id) return;
+  try {
+    localStorage.setItem(LS_LAST_JOB, JSON.stringify({ id, label }));
+  } catch {}
+}
 
 // Auto-tracking: drop a breadcrumb only when it's this far from the last one (km)
 // — filters GPS jitter and idling. The Routes API caps intermediates at 25, so
@@ -314,6 +336,22 @@ export default function MileageTrackerPage() {
     } catch {}
   }, []);
 
+  // Default the job to the last one this device logged a trip against. It waits
+  // for the job list, so a job JobTread has since closed simply doesn't come
+  // back — and it never overrides a job a restored in-progress trip carries.
+  const lastJobApplied = useRef(false);
+  useEffect(() => {
+    if (lastJobApplied.current || !jobs.length) return;
+    lastJobApplied.current = true;
+    if (jobId) return;
+    const last = readLastJob();
+    const j = last && jobs.find((x) => x.id === last.id);
+    if (j) {
+      setJobId(j.id);
+      setJobLabel(jobRefLabel(j));
+    }
+  }, [jobs, jobId]);
+
   // Default the driver to whoever is signed in, matched to the roster by email
   // (reliable) then name. Only if that fails do we fall back to the last driver
   // used on this device. We wait for the session fetch to settle so the
@@ -514,6 +552,7 @@ export default function MileageTrackerPage() {
         polyline: json.polyline ?? "",
         warning: json.warning,
       });
+      saveLastJob(jobId, jobLabel);
       try {
         localStorage.removeItem(LS_TRIP);
       } catch {}
@@ -554,6 +593,7 @@ export default function MileageTrackerPage() {
         setErr(json.error || "Could not save the trip.");
         return;
       }
+      saveLastJob(jobId, jobLabel);
       setSummary({
         miles: json.miles ?? m,
         startAddress: "",
@@ -578,8 +618,11 @@ export default function MileageTrackerPage() {
   function logAnother() {
     setSummary(null);
     setPurpose("");
-    setJobId("");
-    setJobLabel("");
+    // The next trip starts on the job the last one was logged against — the same
+    // default a fresh load gets.
+    const last = readLastJob();
+    setJobId(last?.id ?? "");
+    setJobLabel(last?.label ?? "");
     setMiles("");
     setManualDate(today());
     setWaypoints([]);
@@ -700,7 +743,13 @@ export default function MileageTrackerPage() {
             <div>
               <Label>Job (optional)</Label>
               <div className="flex">
-                <JobPicker value={jobId} onChange={onPickJob} />
+                <JobPicker
+                  value={jobId}
+                  onChange={onPickJob}
+                  showNearest
+                  allLabel="No job"
+                  allDescription="Leave this trip unassigned"
+                />
               </div>
             </div>
 
@@ -803,7 +852,13 @@ export default function MileageTrackerPage() {
             <div>
               <Label>Job (optional)</Label>
               <div className="flex">
-                <JobPicker value={jobId} onChange={onPickJob} />
+                <JobPicker
+                  value={jobId}
+                  onChange={onPickJob}
+                  showNearest
+                  allLabel="No job"
+                  allDescription="Leave this trip unassigned"
+                />
               </div>
             </div>
 
@@ -870,7 +925,13 @@ export default function MileageTrackerPage() {
             <div>
               <Label>Job (optional)</Label>
               <div className="flex">
-                <JobPicker value={jobId} onChange={onPickJob} />
+                <JobPicker
+                  value={jobId}
+                  onChange={onPickJob}
+                  showNearest
+                  allLabel="No job"
+                  allDescription="Leave this trip unassigned"
+                />
               </div>
             </div>
             <div>
