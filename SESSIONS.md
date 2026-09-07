@@ -9,16 +9,17 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Branch | Last active | Commits | Next step |
 |---|---|---|---|---|
-| [ci-verify-job-failures](.claude/sessions/2026-09-06-ci-verify-job-failures.md) | `claude/ci-verify-job-failures-wcfpyk` | 10h ago | 1 | push this branch to remote main — main is still red until the Link fix lands th… |
-| [ascent-building-theme](.claude/sessions/2026-09-06-ascent-building-theme.md) | `claude/ascent-building-theme-rz1o6h` | 15h ago | 6 | Tune the palettes in /theme on the phone, then paste the Copy CSS output back s… |
-| [header-layout-redesign](.claude/sessions/2026-09-05-header-layout-redesign.md) | `claude/header-layout-redesign-xid33s` | 34h ago | 15 | rearrange the tracking-sheet action buttons for mobile and desktop — they read … |
-| [timesheet-month-selection](.claude/sessions/2026-09-04-timesheet-month-selection.md) | `claude/timesheet-month-selection-2hih55` | 2d ago | 3 | none — month picker shipped; verify on the phone that the dropdown reads well n… |
+| [ci-verify-job-failures](.claude/sessions/2026-09-06-ci-verify-job-failures.md) | `claude/ci-verify-job-failures-wcfpyk` | 19h ago | 1 | push this branch to remote main — main is still red until the Link fix lands th… |
+| [ascent-building-theme](.claude/sessions/2026-09-06-ascent-building-theme.md) | `claude/ascent-building-theme-rz1o6h` | 24h ago | 6 | Tune the palettes in /theme on the phone, then paste the Copy CSS output back s… |
+| [header-layout-redesign](.claude/sessions/2026-09-05-header-layout-redesign.md) | `claude/header-layout-redesign-xid33s` | 43h ago | 15 | rearrange the tracking-sheet action buttons for mobile and desktop — they read … |
+| [timesheet-month-selection](.claude/sessions/2026-09-04-timesheet-month-selection.md) | `claude/timesheet-month-selection-2hih55` | 3d ago | 3 | none — month picker shipped; verify on the phone that the dropdown reads well n… |
 
 ## Shipped
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
-| [jobtread-qbo-sales-tax](.claude/sessions/2026-09-05-jobtread-qbo-sales-tax.md) | 2026-09-07 | 19 | — |
+| [pwa-dock-homescreen-logo](.claude/sessions/2026-09-07-pwa-dock-homescreen-logo.md) | 2026-09-07 | 1 | — |
+| [jobtread-qbo-sales-tax](.claude/sessions/2026-09-05-jobtread-qbo-sales-tax.md) | 2026-09-07 | 22 | — |
 | [tracking-sheet-button-audit](.claude/sessions/2026-09-06-tracking-sheet-button-audit.md) | 2026-09-06 | 7 | audit the tracking sheet page's buttons and re-lay them out for desktop workflow |
 | [collapsible-appearance-section](.claude/sessions/2026-09-06-collapsible-appearance-section.md) | 2026-09-06 | 3 | — |
 | [dark-mode-color-scheme](.claude/sessions/2026-09-05-dark-mode-color-scheme.md) | 2026-09-06 | 8 | Rebuild dark mode from the Ascent Brand Guidelines: replace the lifted-olive ac… |

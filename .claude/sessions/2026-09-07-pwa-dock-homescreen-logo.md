@@ -2,9 +2,9 @@
 slug: pwa-dock-homescreen-logo
 repo: ascent-companion
 branch: claude/pwa-dock-homescreen-logo-88g8qu
-status: in-progress
+status: shipped
 started: 2026-09-07T15:08:26Z
-updated: 2026-09-07T15:08:55Z
+updated: 2026-09-07T15:09:03Z
 goal: 
 next: none — icon change is complete
 ---
