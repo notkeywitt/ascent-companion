@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-07T21:26:34Z",
+  "generatedAt": "2026-09-07T21:59:41Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "claude/pwa-push-notifications-phone-sxpzzj",
       "status": "shipped",
       "started": "2026-09-07T21:25:15Z",
-      "updated": "2026-09-07T21:26:34Z",
+      "updated": "2026-09-07T21:59:41Z",
       "goal": "in-app banner notice system: office+admin authoring, scheduled windows, group + person targeting",
-      "next": "Owner check: post one banner to Everyone from /notices and confirm it lands on a phone. Then decide whether office should be able to reach a whole role's phones via push (held this session).",
+      "next": "Owner check on a desktop: Home -> Desktop alerts -> Turn on -> Send a test, then post a notice from another device and confirm the toast lands while the tab is in the background.",
       "commits": [
         {
           "date": "2026-09-07",
@@ -25,6 +25,13 @@
           "sha": "21cd8fe",
           "subject": "companion: log session 2026-09-07-pwa-push-notifications-phone",
           "files": ""
+        },
+        {
+          "date": "2026-09-07",
+          "time": "21:59",
+          "sha": "5b37365",
+          "subject": "companion: notices on desktop — wider banner, OS alerts",
+          "files": "CODEBASE_MAP.md, USER_MANUAL.md, src/app/page.tsx, src/components/DesktopAlertsCard.tsx, src/components/Notices.tsx, src/lib/noticeToasts.test.ts, +1 more"
         }
       ]
     },

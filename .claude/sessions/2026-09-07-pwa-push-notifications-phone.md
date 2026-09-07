@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/pwa-push-notifications-phone-sxpzzj
 status: shipped
 started: 2026-09-07T21:25:15Z
-updated: 2026-09-07T21:59:28Z
+updated: 2026-09-07T21:59:41Z
 goal: in-app banner notice system: office+admin authoring, scheduled windows, group + person targeting
 next: Owner check on a desktop: Home -> Desktop alerts -> Turn on -> Send a test, then post a notice from another device and confirm the toast lands while the tab is in the background.
 ---
