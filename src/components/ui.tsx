@@ -154,10 +154,7 @@ export function Toggle({
 export const inputCls =
   "w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm transition placeholder:text-neutral-400 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 disabled:cursor-not-allowed disabled:opacity-50 dark:border-neutral-600 dark:bg-ink-raised";
 
-export function Input({
-  className = "",
-  ...props
-}: React.InputHTMLAttributes<HTMLInputElement>) {
+export function Input({ className = "", ...props }: React.InputHTMLAttributes<HTMLInputElement>) {
   return <input {...props} className={`${inputCls} ${className}`} />;
 }
 
@@ -330,10 +327,7 @@ export function SectionHeading({
  * `overflow-hidden` is what keeps the first/last row's corners inside the card
  * radius, so callers never have to round the rows themselves.
  */
-export function ListCard({
-  className = "",
-  ...props
-}: React.HTMLAttributes<HTMLDivElement>) {
+export function ListCard({ className = "", ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return <Card pad={false} {...props} className={`overflow-hidden ${className}`} />;
 }
 
@@ -615,9 +609,12 @@ export function FilterChip({
 /**
  * Budget-usage meter — amber past 90%, red past 100%.
  *
- * Dark mode dims every fill. At full saturation the red and amber bars glow
- * against the off-black card and pull the eye off the numbers, which are the
- * thing being read; the bar only has to say which band it is in.
+ * Dark mode swaps in DESATURATED fills. A full-strength red or amber glows
+ * against the off-black card and pulls the eye off the numbers, which are the
+ * thing being read; the bar only has to say which band it is in. Dimming the
+ * saturated colour with opacity was not enough — the hue still shouted — so
+ * these are muted brick and tan, kept far enough apart in hue to tell from
+ * each other and from the olive accent.
  *
  * The dark track is `white/10`, NOT `neutral-800`: neutral-800 (#282620) sits
  * within a couple of points of the raised card it's drawn on (#23231E), so the
@@ -649,9 +646,9 @@ export function Meter({
       <div
         className={`h-full rounded-full transition-all ${
           over
-            ? "bg-red-500 dark:bg-red-500/55"
+            ? "bg-red-500 dark:bg-[#8c544e]"
             : near
-              ? "bg-amber-500 dark:bg-amber-500/55"
+              ? "bg-amber-500 dark:bg-[#a3764a]"
               : "bg-accent dark:bg-accent/70"
         }`}
         style={{ width: `${Math.min(pct, 1) * 100}%` }}
@@ -751,7 +748,10 @@ export function Loading({ label = "Loading…" }: { label?: string }) {
 
 export function Skeleton({ className = "" }: { className?: string }) {
   return (
-    <div aria-hidden className={`animate-pulse rounded bg-neutral-200/70 dark:bg-white/10 ${className}`} />
+    <div
+      aria-hidden
+      className={`animate-pulse rounded bg-neutral-200/70 dark:bg-white/10 ${className}`}
+    />
   );
 }
 
@@ -760,10 +760,7 @@ export function CardSkeletonList({ rows = 3 }: { rows?: number }) {
   return (
     <ul className="space-y-2" aria-hidden>
       {Array.from({ length: rows }).map((_, i) => (
-        <li
-          key={i}
-          className="rounded-xl border border-line bg-white p-3 dark:bg-ink-raised"
-        >
+        <li key={i} className="rounded-xl border border-line bg-white p-3 dark:bg-ink-raised">
           <div className="flex items-start justify-between gap-3">
             <Skeleton className="h-4 w-2/3" />
             <Skeleton className="h-4 w-16" />

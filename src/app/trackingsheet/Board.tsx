@@ -1088,11 +1088,6 @@ export function Board() {
   /** Does the bottom action row carry an Approve button? It needs the role AND a
    *  loaded month — the check button beside it needs neither. */
   const showApprove = canApprove && !!data && !loading;
-  /** Does the closing row carry the per-job Tracking Sheet push? Same condition
-   *  `trackingSheetAction` renders on — the row needs it to decide whether it
-   *  has anything to show. (The JT → Sheets/Drive mirror kick used to ride this
-   *  row too; it belongs to no one job, so it moved to the all-jobs view.) */
-  const showTracking = canTrack && trackingChecked;
   // Mirrors approveBill() on the bill detail page: a Bill is a payable (draft →
   // pending, "approved for payment"); an Expense is already paid (draft →
   // approved, "record payment").
@@ -3739,16 +3734,25 @@ export function Board() {
           drops the block below the columns on a phone. The check's result card
           sits directly above, and only once there is a result to show. */}
       {jobId && (
-        <div
-          className={`order-last mt-4 border-t border-line pt-4 lg:order-none ${
-            // Nothing to show yet — don't draw a bare divider.
-            showApprove || showTracking || preSend || preSendError || preSendRunning ? "" : "hidden"
-          }`}
-        >
+        <div className="order-last mt-4 border-t border-line pt-4 lg:order-none">
           {(preSend || preSendError || preSendRunning) && (
             <PreSendCheck result={preSend} error={preSendError} />
           )}
-          <div className="mx-auto flex max-w-2xl flex-wrap items-center justify-end gap-2">
+          {/* The month's three closing actions on ONE centred row, in the order
+              you do them: check the job, push the sheet, approve the drafts.
+              The check used to sit in the commit bar beside Save, which put a
+              read-only report next to the write. It wears the same secondary
+              style as the sheet push, because both are things you run and read;
+              Approve stays primary — it is the one that ends the month. */}
+          <div className="mx-auto flex max-w-2xl flex-wrap items-center justify-center gap-2">
+            <Button
+              variant="secondary"
+              onClick={runPreSend}
+              disabled={preSendRunning}
+              className="min-h-11"
+            >
+              {preSendRunning ? "Checking…" : preSend ? "Check again" : "Check this job"}
+            </Button>
             {trackingSheetAction("min-h-11")}
             {showApprove &&
               (allApproved ? (
@@ -3762,14 +3766,14 @@ export function Board() {
                   <Button
                     disabled
                     title="Save staged coding changes to JobTread first"
-                    className="min-h-11 w-full lg:w-auto"
+                    className="min-h-11"
                   >
                     Create Invoice in JobTread ↗
                   </Button>
                 ) : (
                   <JtLink
                     href={`https://app.jobtread.com/jobs/${jobId}/documents`}
-                    className={btn("primary", "md", "min-h-11 w-full lg:w-auto")}
+                    className={btn("primary", "md", "min-h-11")}
                   >
                     Create Invoice in JobTread ↗
                   </JtLink>
@@ -3782,7 +3786,7 @@ export function Board() {
                   }}
                   disabled={draftBills.length === 0 || dirty || syncing || approving}
                   title={dirty ? "Save staged coding changes to JobTread first" : undefined}
-                  className="min-h-11 w-full lg:w-auto"
+                  className="min-h-11"
                 >
                   Approve Draft Bills{draftBills.length > 0 ? ` (${draftBills.length})` : ""}
                 </Button>
@@ -3792,25 +3796,22 @@ export function Board() {
       )}
 
       {/* THE COMMIT BAR — docked at the foot of the screen, at every width.
-          It carries the three things that act on the whole month: the staged
-          count, Revert, Save Changes, and the "Check this job" trigger for the
-          Before-you-send card.
+          It carries the staged count, Revert and Save Changes: the write, and
+          nothing else. The month's closing actions — check, sheet push,
+          approve — are one centred row above, since none of them commits the
+          staged coding this bar is about.
 
           It used to be `lg:hidden`, with Revert and Save duplicated in the top
           toolbar and Save duplicated AGAIN in the coding drawer — so the desktop
           workbench, the one that scrolls furthest, was the only surface with no
           commit in reach. One bar, three call sites collapsed into it.
 
-          The check rides it in BOTH states now. Behind the old `!dirty` branch
-          it was unreachable on a phone the moment anything was staged, which is
-          exactly when you want to run it.
-
           It pins above the tab bar (`--tabbar-h`), so it clears the tab bar at
           desktop widths too. `order-last` keeps it at the bottom of the flex
           column even though the reconcile block above also claims that order on
           a phone; both are last in DOM order here, so they stack in source
           order. `flex-wrap` is what lets the staged sentence take its own line
-          on a 375px screen instead of squeezing three buttons off the edge. */}
+          on a 375px screen instead of squeezing the buttons off the edge. */}
       {jobId && (
         <StickyActionBar className="order-last mt-4 flex-wrap">
           {dirty && (
@@ -3822,15 +3823,6 @@ export function Board() {
             </span>
           )}
           <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto sm:flex-1">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={runPreSend}
-              disabled={preSendRunning}
-              className="min-h-11"
-            >
-              {preSendRunning ? "Checking…" : preSend ? "Check again" : "Check this job"}
-            </Button>
             {dirty && (
               <Button
                 variant="secondary"
