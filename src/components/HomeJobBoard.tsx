@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Card, MetaLine, SectionHeading, Meter, Skeleton } from "@/components/ui";
+import { Card, Loading, Meter, MetaLine, SectionHeading, Skeleton } from "@/components/ui";
 import { Donut, type DonutSlice } from "@/components/Donut";
 import { useAccess } from "@/components/AccessProvider";
 import {
@@ -25,6 +25,13 @@ import {
  * gets ONE full-width panel for the job they last logged time to. A field phone
  * never asks.
  *
+ * DRILL DOWN. A card opens, in place, into the job's cost by CSI division — the
+ * same numbers the /jobs browser's table is built on, from the same cached
+ * route (/api/jobs/cost-detail), fetched only when someone actually opens a
+ * card. One level deep on purpose: below division sits cost code and then the
+ * estimate line, and that is the Tracking Sheet's job, which every panel links
+ * to rather than reproducing.
+ *
  * Self-hiding, like the banners it sits with: no cards, no board, no heading.
  * The board is READ-ONLY — one cached JobTread roll-up (getJobBoard) behind one
  * fetch, no writes anywhere in this path.
@@ -32,11 +39,71 @@ import {
 
 const money0 = (n: number) => `$${Math.round(n).toLocaleString("en-US")}`;
 
+/* ------------------------------------------------------------ cost detail */
+
+/**
+ * Only the fields the drilldown reads, out of /api/jobs/cost-detail's tree —
+ * declared locally, the same way JobsBrowser declares its own view of it, so
+ * this component pulls nothing server-side into the bundle.
+ */
+interface DivisionRow {
+  division: string;
+  name: string;
+  budget: number;
+  bills: number;
+  labor: number;
+  laborHours: number;
+}
+
+interface CostDetail {
+  divisions: DivisionRow[];
+}
+
+/** What the drilldown knows about one job's cost tree right now. */
+type DetailState =
+  { status: "loading" } | { status: "error" } | { status: "ok"; detail: CostDetail };
+
+/**
+ * One job's cost detail, fetched on first open and then kept — a card the
+ * office opens, closes and reopens while scanning the row shouldn't re-fetch,
+ * and the route is cached server-side anyway.
+ */
+function useCostDetail(jobId: string | null) {
+  const [byJob, setByJob] = useState<Record<string, DetailState>>({});
+
+  useEffect(() => {
+    if (!jobId || byJob[jobId]) return;
+    let cancelled = false;
+    setByJob((m) => ({ ...m, [jobId]: { status: "loading" } }));
+    fetch(`/api/jobs/cost-detail?jobId=${encodeURIComponent(jobId)}`)
+      .then((r) => r.json())
+      .then((j: CostDetail & { error?: string }) => {
+        if (cancelled) return;
+        setByJob((m) => ({
+          ...m,
+          [jobId]: j.error ? { status: "error" } : { status: "ok", detail: j },
+        }));
+      })
+      .catch(() => {
+        if (!cancelled) setByJob((m) => ({ ...m, [jobId]: { status: "error" } }));
+      });
+    return () => {
+      cancelled = true;
+    };
+    // byJob is deliberately not a dependency: it is the cache this effect writes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jobId]);
+
+  return jobId ? byJob[jobId] : undefined;
+}
+
+/* ----------------------------------------------------------------- pieces */
+
 /**
  * The budget donut: spent against budget, with the overrun as its own red
  * slice when there is one. Two slices, never more — the question is "how much
- * of the budget is gone", not "on what" (the /jobs browser's rings answer
- * that, by CSI division).
+ * of the budget is gone", not "on what" (the drilldown below answers that, by
+ * CSI division).
  */
 function budgetSlices(c: JobBoardCard): DonutSlice[] {
   const spent = spentOf(c);
@@ -70,28 +137,138 @@ const basisNote = (c: JobBoardCard) =>
       ? "no budget set"
       : "";
 
-/** Every card opens that job's tracking sheet — the page these numbers live on. */
-function JobCardLink({
-  c,
-  className = "block",
-  children,
-}: {
-  c: JobBoardCard;
-  className?: string;
-  children: React.ReactNode;
-}) {
+/** The way out of every panel: the page these numbers are actually worked on. */
+function TrackingSheetLink({ c }: { c: JobBoardCard }) {
   return (
-    <Link href={`/trackingsheet?jobId=${encodeURIComponent(c.id)}`} className={className}>
-      {children}
+    <Link
+      href={`/trackingsheet?jobId=${encodeURIComponent(c.id)}`}
+      className="shrink-0 text-[11.5px] font-semibold text-accent hover:underline dark:text-accent-soft"
+    >
+      Tracking sheet →
     </Link>
   );
 }
 
-/** One job, as a board card. */
-function BoardCard({ c }: { c: JobBoardCard }) {
+/** What is on the JobTread calendar today, and what starts next. */
+function ScheduleBlock({ c }: { c: JobBoardCard }) {
+  const s = c.schedule;
   return (
-    <JobCardLink c={c} className="block w-72 shrink-0">
-      <Card className="flex h-full flex-col gap-2 transition hover:border-accent">
+    <div>
+      <div className="text-[12.5px] font-semibold">{scheduleHeadline(s)}</div>
+      <MetaLine items={scheduleMeta(s)} />
+      {/* Everything else open on the calendar, then what starts next — "what am
+          I on" is the whole open window, not one bar. */}
+      {s && s.now.length > 1 && (
+        <ul className="mt-2 space-y-0.5">
+          {s.now.slice(1).map((t) => (
+            <li key={`${t.name}${t.start}`} className="flex justify-between gap-3 text-[11.5px]">
+              <span className="min-w-0 truncate text-neutral-600 dark:text-neutral-300">
+                {t.name}
+              </span>
+              <span className="shrink-0 tabular-nums text-neutral-500">{dateRange(t)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {s?.next && s.now.length > 0 && (
+        <p className="mt-2 text-[11.5px] text-neutral-500 dark:text-neutral-400">
+          Next: {s.next.name} · starts {shortDate(s.next.start)}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/** Cost by CSI division, biggest spend first — the drilldown's one table. */
+function DivisionList({ detail }: { detail: CostDetail }) {
+  const rows = detail.divisions
+    .map((d) => ({ ...d, spent: d.bills + d.labor }))
+    .filter((d) => d.budget > 0 || d.spent > 0)
+    .sort((a, b) => b.spent - a.spent);
+
+  if (rows.length === 0) {
+    return (
+      <p className="px-3 py-2 text-[11.5px] text-neutral-500 dark:text-neutral-400">
+        No coded cost on this job yet.
+      </p>
+    );
+  }
+  return (
+    <Card pad={false} className="divide-y divide-line-soft">
+      {rows.map((d) => {
+        const left = d.budget - d.spent;
+        return (
+          <div key={d.division} className="flex items-start gap-3 px-3 py-2">
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-[12.5px] font-semibold">
+                {d.division}
+                {d.name ? ` · ${d.name}` : ""}
+              </div>
+              <Meter budget={d.budget} used={d.spent} label={d.name || d.division} />
+              <MetaLine
+                items={[
+                  d.bills > 0 && `${money0(d.bills)} bills`,
+                  d.labor > 0 && `${money0(d.labor)} labor · ${Math.round(d.laborHours)} h`,
+                ].filter(Boolean)}
+              />
+            </div>
+            <div className="shrink-0 text-right">
+              <div className="text-[12.5px] font-semibold tabular-nums">{money0(d.spent)}</div>
+              <div className="text-[11px] tabular-nums text-neutral-500 dark:text-neutral-400">
+                of {money0(d.budget)}
+              </div>
+              <div
+                className={`text-[11px] tabular-nums ${
+                  left < 0 ? "font-semibold text-red-600 dark:text-red-400" : "text-neutral-500"
+                }`}
+              >
+                {money0(Math.abs(left))} {left < 0 ? "over" : "left"}
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </Card>
+  );
+}
+
+/** The drilldown body — the cost table, however far along its fetch is. */
+function DetailBody({ state }: { state: DetailState | undefined }) {
+  if (!state || state.status === "loading") return <Loading label="Loading cost detail…" />;
+  if (state.status === "error") {
+    return (
+      <p className="text-[11.5px] text-neutral-500 dark:text-neutral-400">
+        Couldn&apos;t load this job&apos;s cost detail.
+      </p>
+    );
+  }
+  return <DivisionList detail={state.detail} />;
+}
+
+/* ------------------------------------------------------------------ cards */
+
+/** One job, as a board card. Opens the drilldown rather than navigating. */
+function BoardCard({
+  c,
+  expanded,
+  onToggle,
+}: {
+  c: JobBoardCard;
+  expanded: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-expanded={expanded}
+      className="w-72 shrink-0 text-left"
+    >
+      <Card
+        className={`flex h-full flex-col gap-2 transition hover:border-accent ${
+          expanded ? "border-accent" : ""
+        }`}
+      >
         <div className="min-w-0">
           <div className="truncate text-sm font-semibold tracking-tight">{c.name}</div>
           <div className="truncate text-[11px] text-neutral-500 dark:text-neutral-400">
@@ -115,77 +292,126 @@ function BoardCard({ c }: { c: JobBoardCard }) {
           <MetaLine items={[...scheduleMeta(c.schedule), basisNote(c)]} />
         </div>
       </Card>
-    </JobCardLink>
+    </button>
+  );
+}
+
+/** The opened card, under the row: the job's cost by division, full width. */
+function BoardDrilldown({
+  c,
+  state,
+  onClose,
+}: {
+  c: JobBoardCard;
+  state: DetailState | undefined;
+  onClose: () => void;
+}) {
+  return (
+    <Card className="space-y-2">
+      <div className="flex items-baseline gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-sm font-semibold tracking-tight">{c.name}</div>
+          <MetaLine
+            items={[
+              c.customer,
+              `${money0(spentOf(c))} of ${money0(c.budget)}`,
+              `${usedPct(c)} of budget`,
+              basisNote(c),
+            ]}
+          />
+        </div>
+        <TrackingSheetLink c={c} />
+        <button
+          type="button"
+          onClick={onClose}
+          className="shrink-0 text-[11.5px] font-semibold text-neutral-500 hover:text-accent"
+        >
+          Close
+        </button>
+      </div>
+      <ScheduleBlock c={c} />
+      <DetailBody state={state} />
+    </Card>
   );
 }
 
 /** A lead's own job, across the full width: the same numbers, room to spell out. */
-function LeadPanel({ c }: { c: JobBoardCard }) {
+function LeadPanel({
+  c,
+  open,
+  state,
+  onToggle,
+}: {
+  c: JobBoardCard;
+  open: boolean;
+  state: DetailState | undefined;
+  onToggle: () => void;
+}) {
   const spent = spentOf(c);
-  const s = c.schedule;
   return (
-    <JobCardLink c={c}>
-      <Card className="transition hover:border-accent">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
-          <Donut
-            slices={budgetSlices(c)}
-            size={120}
-            centerValue={usedPct(c)}
-            centerLabel="of budget"
-            emptyLabel="No budget"
+    <Card className="space-y-3">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+        <Donut
+          slices={budgetSlices(c)}
+          size={120}
+          centerValue={usedPct(c)}
+          centerLabel="of budget"
+          emptyLabel="No budget"
+        />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-baseline gap-3">
+            <div className="min-w-0 flex-1">
+              <div className="text-base font-semibold tracking-tight">{c.name}</div>
+              <MetaLine items={[c.customer, basisNote(c)]} className="mt-0.5" />
+            </div>
+            <TrackingSheetLink c={c} />
+          </div>
+
+          <div className="mt-3 flex items-baseline justify-between text-[12.5px]">
+            <span className="font-semibold">{money0(spent)} spent</span>
+            <span className="tabular-nums text-neutral-500 dark:text-neutral-400">
+              of {money0(c.budget)}
+            </span>
+          </div>
+          <Meter budget={c.budget} used={spent} label={c.name} className="mt-1 h-1.5" />
+          <MetaLine
+            className="mt-1"
+            items={[`${money0(c.bills)} bills`, `${money0(c.labor)} labor`]}
           />
-          <div className="min-w-0 flex-1">
-            <div className="text-base font-semibold tracking-tight">{c.name}</div>
-            <MetaLine items={[c.customer, basisNote(c)]} className="mt-0.5" />
 
-            <div className="mt-3 flex items-baseline justify-between text-[12.5px]">
-              <span className="font-semibold">{money0(spent)} spent</span>
-              <span className="tabular-nums text-neutral-500 dark:text-neutral-400">
-                of {money0(c.budget)}
-              </span>
-            </div>
-            <Meter budget={c.budget} used={spent} label={c.name} className="mt-1 h-1.5" />
-            <MetaLine
-              className="mt-1"
-              items={[`${money0(c.bills)} bills`, `${money0(c.labor)} labor`]}
-            />
-
-            <div className="mt-3 border-t border-line-soft pt-2">
-              <div className="text-[12.5px] font-semibold">{scheduleHeadline(s)}</div>
-              <MetaLine items={scheduleMeta(s)} />
-              {/* Everything else on the calendar today, then what starts next —
-                  a lead's "what am I on" is the whole open window, not one bar. */}
-              {s && s.now.length > 1 && (
-                <ul className="mt-2 space-y-0.5">
-                  {s.now.slice(1).map((t) => (
-                    <li
-                      key={`${t.name}${t.start}`}
-                      className="flex justify-between gap-3 text-[11.5px]"
-                    >
-                      <span className="min-w-0 truncate text-neutral-600 dark:text-neutral-300">
-                        {t.name}
-                      </span>
-                      <span className="shrink-0 tabular-nums text-neutral-500">{dateRange(t)}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              {s?.next && s.now.length > 0 && (
-                <p className="mt-2 text-[11.5px] text-neutral-500 dark:text-neutral-400">
-                  Next: {s.next.name} · starts {shortDate(s.next.start)}
-                </p>
-              )}
-            </div>
+          <div className="mt-3 border-t border-line-soft pt-2">
+            <ScheduleBlock c={c} />
           </div>
         </div>
-      </Card>
-    </JobCardLink>
+      </div>
+
+      <div className="border-t border-line-soft pt-2">
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-expanded={open}
+          className="text-[11.5px] font-semibold text-accent hover:underline dark:text-accent-soft"
+        >
+          {open ? "Hide cost by division" : "Cost by division"}
+        </button>
+        {open && (
+          <div className="mt-2">
+            <DetailBody state={state} />
+          </div>
+        )}
+      </div>
+    </Card>
   );
 }
+
+/* ------------------------------------------------------------------ board */
 
 export function HomeJobBoard() {
   const access = useAccess();
   const [cards, setCards] = useState<JobBoardCard[] | null>(null);
+  /** Which job is drilled into — one at a time, so the page can't grow legs. */
+  const [openId, setOpenId] = useState<string | null>(null);
+  const detail = useCostDetail(openId);
 
   useEffect(() => {
     if (access.role === "field") return; // nothing for this role — don't even ask
@@ -214,6 +440,9 @@ export function HomeJobBoard() {
   if (cards.length === 0) return null;
 
   const lead = access.role === "lead";
+  const open = cards.find((c) => c.id === openId) ?? null;
+  const toggle = (id: string) => setOpenId((cur) => (cur === id ? null : id));
+
   return (
     <section className="mb-6 space-y-2">
       <SectionHeading
@@ -226,15 +455,28 @@ export function HomeJobBoard() {
         {lead ? "Your job" : "Active jobs"}
       </SectionHeading>
       {lead ? (
-        <LeadPanel c={cards[0]} />
+        <LeadPanel
+          c={cards[0]}
+          open={openId === cards[0].id}
+          state={detail}
+          onToggle={() => toggle(cards[0].id)}
+        />
       ) : (
-        // The row bleeds to the page's edges so the next card is visibly cut
-        // off — the same trick ChipScroller uses to say "there is more".
-        <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-1 xl:-mx-8 xl:px-8">
-          {cards.map((c) => (
-            <BoardCard key={c.id} c={c} />
-          ))}
-        </div>
+        <>
+          {/* The row bleeds to the page's edges so the next card is visibly cut
+              off — the same trick ChipScroller uses to say "there is more". */}
+          <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-1 xl:-mx-8 xl:px-8">
+            {cards.map((c) => (
+              <BoardCard
+                key={c.id}
+                c={c}
+                expanded={c.id === openId}
+                onToggle={() => toggle(c.id)}
+              />
+            ))}
+          </div>
+          {open && <BoardDrilldown c={open} state={detail} onClose={() => setOpenId(null)} />}
+        </>
       )}
     </section>
   );
