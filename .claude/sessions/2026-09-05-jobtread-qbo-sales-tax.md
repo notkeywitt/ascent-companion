@@ -4,9 +4,9 @@ repo: ascent-companion
 branch: claude/jobtread-qbo-sales-tax-lfqctd
 status: shipped
 started: 2026-09-05T05:30:35Z
-updated: 2026-09-05T15:44:42Z
+updated: 2026-09-07T05:10:38Z
 goal: 
-next: Owner setup before this goes live: map cost code 88 80 00 to a QuickBooks item (its qboId is null), add the 88 80 00 leaf to every job budget, turn Record Tax off on the Vendor Bill template. Then merge both branches and deploy (appscript needs clasp push).
+next: Verify on the wide monitor: drag the trackingsheet column handles, confirm the split sticks after reload and dark-mode budget bars read calmer.
 ---
 
 ## Log
@@ -15,6 +15,8 @@ next: Owner setup before this goes live: map cost code 88 80 00 to a QuickBooks 
 - 2026-09-05 05:31 · `c5ffbe3` companion: sales tax is an 88 80 00 bill line, not the document tax field
   CODEBASE_MAP.md, src/app/api/add-bill/route.ts, src/app/api/amazon-import/route.ts, src/app/api/bill-tax/route.ts, src/app/api/bill/route.ts, src/app/api/trackingsheet/route.ts, +22 more
 - 2026-09-05 05:31 · `6d1914d` log session 2026-09-05-jobtread-qbo-sales-tax
+- 2026-09-06 22:10 · `54bfdef` companion: drag-resizable trackingsheet columns, dimmer dark budget bars
+  src/app/trackingsheet/Board.tsx, src/components/ui.tsx
 
 ## Notes
 - 2026-09-05 05:30 — Companion half of the sales-tax move. src/lib/salesTax.ts is the single definition: the 88 80 00 constants, the line matcher, splitSalesTax, and the job-Phase-derived recoverable/consumed flag. createVendorBill appends the tax line and pins nonRecoverableTax to 0; setBillTax now creates/updates/deletes that LINE and clears any legacy field.
