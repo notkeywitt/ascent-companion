@@ -115,3 +115,79 @@ export function scheduleMeta(s: JobSchedule | null): string[] {
   out.push(`ends ${shortDate(s.end)}`);
   return out;
 }
+
+/* ------------------------------------------------------------------- gantt */
+
+/** One bar on the job's Gantt chart — a JobTread schedule GROUP (a phase). */
+export interface GanttBar {
+  id: string;
+  name: string;
+  start: string; // YYYY-MM-DD
+  end: string; // YYYY-MM-DD
+  /** 0..1 from JobTread, or null when it tracks none. */
+  progress: number | null;
+  /** 0 for a top-level phase, 1 for a phase nested under another. */
+  depth: number;
+}
+
+/** A job's Gantt: the span every bar is measured against, and the bars. */
+export interface JobGanttData {
+  start: string;
+  end: string;
+  bars: GanttBar[];
+}
+
+/** Where a bar sits in the span, as CSS percentages. */
+export function barPct(
+  spanStart: string,
+  spanEnd: string,
+  start: string,
+  end: string,
+): { left: number; width: number } {
+  const a = dayMs(spanStart);
+  const b = dayMs(spanEnd) + 86_400_000; // the span's last day counts in full
+  const total = b - a;
+  if (!Number.isFinite(total) || total <= 0) return { left: 0, width: 100 };
+  const s = Math.max(a, dayMs(start));
+  const e = Math.min(b, dayMs(end) + 86_400_000);
+  const left = ((s - a) / total) * 100;
+  const width = ((e - s) / total) * 100;
+  return {
+    left: Math.min(100, Math.max(0, left)),
+    width: Math.min(100 - Math.min(100, Math.max(0, left)), Math.max(0, width)),
+  };
+}
+
+/**
+ * Month labels across the top of the chart. A two-year job would carry 25 of
+ * them, so the step widens with the span — every month up to ~7 months, every
+ * second up to ~18, every quarter beyond. January carries its year.
+ */
+export function axisTicks(spanStart: string, spanEnd: string): { pct: number; label: string }[] {
+  const a = dayMs(spanStart);
+  const b = dayMs(spanEnd);
+  if (!Number.isFinite(a) || !Number.isFinite(b) || b <= a) return [];
+  const months = (b - a) / 86_400_000 / 30.4;
+  const step = months > 18 ? 3 : months > 7 ? 2 : 1;
+
+  const out: { pct: number; label: string }[] = [];
+  const first = new Date(a);
+  const cursor = new Date(Date.UTC(first.getUTCFullYear(), first.getUTCMonth(), 1));
+  // Start on the first whole month INSIDE the span, so a label never sits left
+  // of the chart.
+  if (cursor.getTime() < a) cursor.setUTCMonth(cursor.getUTCMonth() + 1);
+  while (cursor.getTime() <= b) {
+    const iso = cursor.toISOString().slice(0, 10);
+    const { left } = barPct(spanStart, spanEnd, iso, iso);
+    out.push({
+      pct: left,
+      label: cursor.toLocaleDateString("en-US", {
+        month: "short",
+        timeZone: "UTC",
+        ...(cursor.getUTCMonth() === 0 ? { year: "2-digit" } : {}),
+      }),
+    });
+    cursor.setUTCMonth(cursor.getUTCMonth() + step);
+  }
+  return out;
+}

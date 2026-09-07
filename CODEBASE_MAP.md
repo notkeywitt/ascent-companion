@@ -386,7 +386,10 @@ Grouped by domain; each folder is `…/route.ts`.
   whatever categories and checks the stored digest carries; no hardcoded tabs),
   `HomeJobBoard` (the board across the top of Home: a budget donut + calendar
   position per active job for office/admin, one wide panel for a lead's own job;
-  the ROLE decides which, server-side in `/api/home/board`).
+  the ROLE decides which, server-side in `/api/home/board`), `JobGantt` (one
+  job's JobTread schedule PHASES as bars on a shared timeline with today marked
+  — `isGroup` tasks only, ~15 bars instead of ~110; geometry from `barPct` /
+  `axisTicks` in `lib/jobBoard.ts`, data from `/api/home/gantt`).
 
 ## `src/db/` — companion DB (Drizzle + libSQL; companion-only data, NOT JobTread)
 

@@ -12,7 +12,14 @@
 
 import { findMutations } from "@/lib/paveGateway";
 import { SALES_TAX_CSI, SALES_TAX_LINE_NAME, isSalesTaxLine } from "@/lib/salesTax";
-import { byWindow, spanPct, type JobBoardCard, type ScheduleTask } from "@/lib/jobBoard";
+import {
+  byWindow,
+  spanPct,
+  type GanttBar,
+  type JobBoardCard,
+  type JobGanttData,
+  type ScheduleTask,
+} from "@/lib/jobBoard";
 
 const PAVE_URL = "https://api.jobtread.com/pave";
 
@@ -2703,6 +2710,78 @@ async function _getJobBoardUncached(cfg: PaveConfig): Promise<JobBoardCard[]> {
         : null,
     };
   });
+}
+
+/**
+ * One job's Gantt chart, as JobTread draws it: the schedule GROUPS (phases),
+ * their dates and their progress, plus the span every bar is measured against.
+ *
+ * Groups only — `isGroup` is JobTread's own parent-bar flag, and a job carries
+ * ~15 of them against ~110 leaf tasks (Bunkhouse, 2026-09-06). 15 bars is a
+ * chart; 110 is a wall. The leaf task in flight today is already named on the
+ * card's schedule line, and the Tracking Sheet has the rest.
+ */
+export function getJobGantt(cfg: PaveConfig, jobId: string): Promise<JobGanttData | null> {
+  return cachedRef(_jobCostKey("gantt", cfg.orgId, jobId), 5 * 60_000, () =>
+    _getJobGanttUncached(cfg, jobId),
+  );
+}
+async function _getJobGanttUncached(cfg: PaveConfig, jobId: string): Promise<JobGanttData | null> {
+  const bars: GanttBar[] = [];
+  let page: string | undefined;
+  for (let guard = 0; guard < 10; guard++) {
+    const r = await pave(cfg, {
+      organization: {
+        $: { id: cfg.orgId },
+        id: {},
+        tasks: {
+          $: {
+            size: 100,
+            where: {
+              and: [
+                ["isToDo", false],
+                ["isGroup", true],
+                [["job", "id"], jobId],
+                { "!=": [{ field: "startDate" }, { value: null }] },
+                { "!=": [{ field: "endDate" }, { value: null }] },
+              ],
+            },
+            sortBy: [{ field: "startDate", order: "asc" }],
+            ...(page ? { page } : {}),
+          },
+          nextPage: {},
+          nodes: {
+            id: {},
+            name: {},
+            startDate: {},
+            endDate: {},
+            progress: {},
+            parentTask: { id: {} },
+          },
+        },
+      },
+    });
+    const conn = r?.organization?.tasks ?? {};
+    for (const n of conn.nodes ?? []) {
+      if (!n?.startDate || !n?.endDate) continue;
+      bars.push({
+        id: n.id,
+        name: n.name || "(untitled)",
+        start: n.startDate,
+        end: n.endDate,
+        progress: typeof n.progress === "number" ? n.progress : null,
+        depth: n.parentTask?.id ? 1 : 0,
+      });
+    }
+    page = conn.nextPage || undefined;
+    if (!page) break;
+  }
+  if (bars.length === 0) return null;
+  return {
+    start: bars.reduce((min, b) => (b.start < min ? b.start : min), bars[0].start),
+    end: bars.reduce((max, b) => (b.end > max ? b.end : max), bars[0].end),
+    bars,
+  };
 }
 
 /** The job a member last logged time to — "the job you're on" for a lead. */

@@ -1,5 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import {
+  axisTicks,
+  barPct,
   byWindow,
   dateRange,
   scheduleHeadline,
@@ -85,5 +87,35 @@ describe("the schedule line", () => {
 
   it("prints a single-day bar as one date", () => {
     expect(dateRange(task("Footer Inspection", "2026-09-06", "2026-09-06"))).toBe("Sep 6");
+  });
+});
+
+describe("gantt geometry", () => {
+  // A 100-day span, so a percentage reads as "days in".
+  const start = "2026-01-01";
+  const end = "2026-04-10";
+
+  it("places a bar by its own dates, last day included", () => {
+    expect(barPct(start, end, "2026-01-01", "2026-01-01")).toEqual({ left: 0, width: 1 });
+    const b = barPct(start, end, "2026-02-10", "2026-02-19");
+    expect(b.left).toBeCloseTo(40);
+    expect(b.width).toBeCloseTo(10);
+  });
+
+  it("clips a bar that runs past either end of the span", () => {
+    const b = barPct(start, end, "2025-06-01", "2026-12-31");
+    expect(b).toEqual({ left: 0, width: 100 });
+    expect(barPct(start, end, "2027-01-01", "2027-02-01").width).toBe(0);
+  });
+
+  it("labels every month on a short span and every quarter on a long one", () => {
+    expect(axisTicks(start, end).map((t) => t.label)).toEqual(["Jan 26", "Feb", "Mar", "Apr"]);
+    // Every third month over a 27-month span, and January carries its year.
+    const long = axisTicks("2025-07-09", "2027-10-15").map((t) => t.label);
+    expect(long).toEqual(["Aug", "Nov", "Feb", "May", "Aug", "Nov", "Feb", "May", "Aug"]);
+  });
+
+  it("has nothing to label when the span is a single day", () => {
+    expect(axisTicks("2026-09-06", "2026-09-06")).toEqual([]);
   });
 });

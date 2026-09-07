@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Card, Loading, Meter, MetaLine, SectionHeading, Skeleton } from "@/components/ui";
 import { Donut, type DonutSlice } from "@/components/Donut";
+import { JobGantt } from "@/components/JobGantt";
 import { useAccess } from "@/components/AccessProvider";
 import {
   dateRange,
@@ -32,7 +33,9 @@ import {
  * the numbers the /jobs browser's table is built on, from the same cached route
  * (/api/jobs/cost-detail), fetched only when someone actually opens one. One
  * level deep on purpose — below division sits cost code and then the estimate
- * line, and that is the Tracking Sheet's job.
+ * line, and that is the Tracking Sheet's job. The open panel also draws the
+ * job's Gantt chart (JobGantt), which is the same schedule the card summarises
+ * in one line, with every phase and today's position on it.
  *
  * Self-hiding, like the banners it sits with: no cards, no board, no heading.
  * The board is READ-ONLY — one cached JobTread roll-up (getJobBoard) behind one
@@ -234,17 +237,26 @@ function DivisionList({ detail }: { detail: CostDetail }) {
   );
 }
 
-/** The drilldown body — the cost table, however far along its fetch is. */
-function DetailBody({ state }: { state: DetailState | undefined }) {
-  if (!state || state.status === "loading") return <Loading label="Loading cost detail…" />;
-  if (state.status === "error") {
-    return (
-      <p className="text-[11.5px] text-neutral-500 dark:text-neutral-400">
-        Couldn&apos;t load this job&apos;s cost detail.
-      </p>
-    );
-  }
-  return <DivisionList detail={state.detail} />;
+/**
+ * The drilldown body: the job's Gantt chart, then its cost by division. Two
+ * independent fetches — the chart carries its own (JobGantt), so a slow cost
+ * tree never holds up the schedule or the other way round.
+ */
+function DetailBody({ jobId, state }: { jobId: string; state: DetailState | undefined }) {
+  return (
+    <div className="space-y-3">
+      <JobGantt jobId={jobId} />
+      {!state || state.status === "loading" ? (
+        <Loading label="Loading cost detail…" />
+      ) : state.status === "error" ? (
+        <p className="text-[11.5px] text-neutral-500 dark:text-neutral-400">
+          Couldn&apos;t load this job&apos;s cost detail.
+        </p>
+      ) : (
+        <DivisionList detail={state.detail} />
+      )}
+    </div>
+  );
 }
 
 /* ------------------------------------------------------------------ cards */
@@ -314,7 +326,7 @@ function DrilldownToggle({ open, onToggle }: { open: boolean; onToggle: () => vo
       aria-expanded={open}
       className="-mx-1 flex min-h-9 items-center justify-between gap-2 rounded-lg border-t border-line-soft px-1 pt-2 text-left text-[11.5px] font-semibold text-neutral-500 transition hover:text-accent dark:text-neutral-400"
     >
-      Cost by division
+      Schedule & cost by division
       {/* Same mark and rotation SectionHeading uses, so a fold reads the same
           everywhere in the app. */}
       <span
@@ -361,7 +373,7 @@ function BoardDrilldown({
         </button>
       </div>
       <ScheduleBlock c={c} />
-      <DetailBody state={state} />
+      <DetailBody jobId={c.id} state={state} />
     </Card>
   );
 }
@@ -420,7 +432,7 @@ function LeadPanel({
         <DrilldownToggle open={open} onToggle={onToggle} />
         {open && (
           <div className="mt-2">
-            <DetailBody state={state} />
+            <DetailBody jobId={c.id} state={state} />
           </div>
         )}
       </div>
