@@ -117,6 +117,7 @@ including edge middleware.
 | `leaveService.ts` | Accrual server orchestration: roster + JobTread worked-hours + companion DB. |
 | `leaveFormat.ts` | Leave display formatting helpers. |
 | `leads.ts` | Reads the org's "New Lead" customers out of JobTread (there is no lead object in Pave). |
+| `jobBoard.ts` ⟂ | **The home job board's card shape + its schedule math** — where a job sits on JobTread's Gantt chart (span, share elapsed, the tasks covering today, the next one) and how that reads as a line. Client-safe: the cards render in the browser, so nothing here touches the Pave layer. `ACTIVE_PHASE` is what "active job" means — every job in the org is open, so Phase, not `closedOn`, separates site work from budgets and prospects. Filled by `getJobBoard` (`jobtread.ts`) in ONE org-wide aggregate query. Unit-tested. |
 | `clientDirectory.ts` | **The customer/job directory, and the only write path onto those records.** Reads are two-phase because they must be: `jobs` nested inside a paged `organization.accounts` returns 413, so it pages the two flat connections and joins on `job.location.account.id`; custom-field VALUES are the same trap, so the list carries Phase and Status read per FIELD and the rest per record. Writes are an ALLOWLIST (`JOB_WRITABLE` and its three siblings) — everything else JobTread exposes stays read-only, and two kinds are held back on purpose: `defaultRetainagePercentage` (a bare unbounded "number" — the unit is stated nowhere) and `customTaxRate` (bounds ARE stated; it is withheld because it decides what a client is taxed), plus MULTI-VALUE custom fields, whose array-replace behaviour is unprobed. `updateAccount` always sends `notify:false` — it defaults to TRUE, and fixing a spelling must not mail the customer. Every write re-reads the record, because `update*` returns a bare `root` and because a location's tidied address/city/state/ZIP are derived from what was typed. |
 | `leadPush.ts` | The ONE write in the leads feature — pushes a logged lead into JobTread as a customer. |
 | `leadInquiry.ts` | Web-inquiry lead parsing/normalization. |
@@ -382,7 +383,10 @@ Grouped by domain; each folder is `…/route.ts`.
   can't drift again; money stays the caller's, since the two pages legitimately
   differ on what a code has left), `Donut`, `SignaturePad`, `QrScanner`, `CopyButton`,
   `Spinner`, `DailyDigest` (the admin morning digest card on Home — renders
-  whatever categories and checks the stored digest carries; no hardcoded tabs).
+  whatever categories and checks the stored digest carries; no hardcoded tabs),
+  `HomeJobBoard` (the board across the top of Home: a budget donut + calendar
+  position per active job for office/admin, one wide panel for a lead's own job;
+  the ROLE decides which, server-side in `/api/home/board`).
 
 ## `src/db/` — companion DB (Drizzle + libSQL; companion-only data, NOT JobTread)
 

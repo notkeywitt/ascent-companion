@@ -13,6 +13,7 @@ import { NeedsProjectBanner, useNeedsProjectCount } from "@/components/NeedsProj
 import { DailyDigest } from "@/components/DailyDigest";
 import { TileLauncher } from "@/components/TileLauncher";
 import { HomeLayoutEditor } from "@/components/HomeLayoutEditor";
+import { HomeJobBoard } from "@/components/HomeJobBoard";
 import { useEffectiveLayout } from "@/components/NavLayoutProvider";
 import { PREVIEW_ROWS, tileLauncherFor } from "@/lib/nav";
 import { AppearanceCard } from "@/components/AppearanceCard";
@@ -144,7 +145,7 @@ function Home() {
   const tiles = tileLauncherFor(access.role) !== null;
 
   return (
-    <main className="mx-auto max-w-2xl px-4 pb-10 pt-5">
+    <main className="mx-auto max-w-2xl px-4 pb-10 pt-5 xl:max-w-none xl:px-8">
       {/* No page title here on purpose: the logo in the header already says
           where you are, and an <h1>Home</h1> plus its description cost the top
           fifth of a phone screen to repeat it. */}
@@ -156,6 +157,11 @@ function Home() {
       {/* Ingested bills whose job couldn't be resolved (Sunset "Sold-To" names a
           customer with more than one job). Self-hiding when the queue is empty. */}
       <NeedsProjectBanner state={needsProject} />
+
+      {/* Budget + calendar position for the work in flight — a card per active
+          job for office/admin, one wide panel for a lead's own job. Self-hiding,
+          and a field phone never fetches it (see HomeJobBoard). */}
+      <HomeJobBoard />
 
       {/* The morning digest — billing scan, calendar, follow-ups. Reads the
           digest the scheduled job stored; it does NOT run the checks on load.
@@ -186,86 +192,96 @@ function Home() {
         </div>
       ) : (
         <div className="space-y-6">
-          {areas.map((area) => {
-            const buttons = area.items.filter((it) => it.kind === "button");
-            const links = area.items.filter((it) => it.kind !== "button");
-            const previewRows = area.preview ?? PREVIEW_ROWS;
-            const isExpanded = !!expanded[area.id];
-            const isOpen = !collapsed[area.id];
-            const hidden = Math.max(0, links.length - previewRows);
-            const shown = isExpanded ? links : links.slice(0, previewRows);
-            // Work queued behind the fold still shows on the heading, so a
-            // collapsed tail — or a whole folded menu — never hides the one row
-            // that needs attention.
-            const hiddenCount = (
-              isOpen ? links.slice(shown.length) : area.items
-            ).reduce((n, d) => n + (badges[d.view] ?? 0), 0);
-            return (
-              <section key={area.id} className="space-y-2">
-                <SectionHeading
-                  onToggle={() => toggleArea(area.id)}
-                  open={isOpen}
-                  trailing={
-                    <span className="flex items-center gap-2">
-                      {hiddenCount > 0 && <CountBadge n={hiddenCount} />}
-                      <span className="text-[11px] tabular-nums text-neutral-500">
-                        {area.items.length}
-                      </span>
-                    </span>
-                  }
-                >
-                  {area.title}
-                </SectionHeading>
-
-                {/* Buttons first — the prominent tiles, in a 2-across grid. */}
-                {isOpen && buttons.length > 0 && (
-                  <div className="grid grid-cols-2 gap-2">
-                    {buttons.map((b) => (
-                      <Link
-                        key={b.id}
-                        href={b.href + qs}
-                        className="flex min-h-[64px] flex-col justify-center rounded-xl border border-line bg-white px-3 py-2 text-center transition hover:border-accent hover:bg-accent/5 dark:bg-ink-raised"
-                      >
-                        <span className="flex items-center justify-center gap-1.5 text-sm font-semibold tracking-tight">
-                          {b.label}
-                          {(badges[b.view] ?? 0) > 0 && <CountBadge n={badges[b.view]} />}
+          {/* One column on a phone; at xl the page is full width, and twenty
+              hairline rows stretched across a desktop monitor read worse than
+              three columns of them. */}
+          <div className="space-y-6 xl:grid xl:grid-cols-3 xl:items-start xl:gap-6 xl:space-y-0">
+            {areas.map((area) => {
+              const buttons = area.items.filter((it) => it.kind === "button");
+              const links = area.items.filter((it) => it.kind !== "button");
+              const previewRows = area.preview ?? PREVIEW_ROWS;
+              const isExpanded = !!expanded[area.id];
+              const isOpen = !collapsed[area.id];
+              const hidden = Math.max(0, links.length - previewRows);
+              const shown = isExpanded ? links : links.slice(0, previewRows);
+              // Work queued behind the fold still shows on the heading, so a
+              // collapsed tail — or a whole folded menu — never hides the one row
+              // that needs attention.
+              const hiddenCount = (isOpen ? links.slice(shown.length) : area.items).reduce(
+                (n, d) => n + (badges[d.view] ?? 0),
+                0,
+              );
+              return (
+                <section key={area.id} className="space-y-2">
+                  <SectionHeading
+                    onToggle={() => toggleArea(area.id)}
+                    open={isOpen}
+                    trailing={
+                      <span className="flex items-center gap-2">
+                        {hiddenCount > 0 && <CountBadge n={hiddenCount} />}
+                        <span className="text-[11px] tabular-nums text-neutral-500">
+                          {area.items.length}
                         </span>
-                        {b.desc && (
-                          <span className="mt-0.5 block text-[11px] text-neutral-500 dark:text-neutral-400">
-                            {b.desc}
-                          </span>
-                        )}
-                      </Link>
-                    ))}
-                  </div>
-                )}
+                      </span>
+                    }
+                  >
+                    {area.title}
+                  </SectionHeading>
 
-                {isOpen && links.length > 0 && (
-                  <ListCard>
-                    {shown.map((d) => (
-                      <ListRow
-                        key={d.id}
-                        href={d.href + qs}
-                        label={d.label}
-                        desc={d.desc}
-                        badge={(badges[d.view] ?? 0) > 0 ? <CountBadge n={badges[d.view]} /> : undefined}
-                      />
-                    ))}
-                    {hidden > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => setExpanded((e) => ({ ...e, [area.id]: !isExpanded }))}
-                        aria-expanded={isExpanded}
-                        className="min-h-11 w-full px-3 py-2.5 text-left text-[12.5px] font-semibold text-neutral-500 transition hover:text-accent dark:text-neutral-400"
-                      >
-                        {isExpanded ? "Show fewer" : `Show ${hidden} more in ${area.title}`}
-                      </button>
-                    )}
-                  </ListCard>
-                )}
-              </section>
-            );
-          })}
+                  {/* Buttons first — the prominent tiles, in a 2-across grid. */}
+                  {isOpen && buttons.length > 0 && (
+                    <div className="grid grid-cols-2 gap-2">
+                      {buttons.map((b) => (
+                        <Link
+                          key={b.id}
+                          href={b.href + qs}
+                          className="flex min-h-[64px] flex-col justify-center rounded-xl border border-line bg-white px-3 py-2 text-center transition hover:border-accent hover:bg-accent/5 dark:bg-ink-raised"
+                        >
+                          <span className="flex items-center justify-center gap-1.5 text-sm font-semibold tracking-tight">
+                            {b.label}
+                            {(badges[b.view] ?? 0) > 0 && <CountBadge n={badges[b.view]} />}
+                          </span>
+                          {b.desc && (
+                            <span className="mt-0.5 block text-[11px] text-neutral-500 dark:text-neutral-400">
+                              {b.desc}
+                            </span>
+                          )}
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+
+                  {isOpen && links.length > 0 && (
+                    <ListCard>
+                      {shown.map((d) => (
+                        <ListRow
+                          key={d.id}
+                          href={d.href + qs}
+                          label={d.label}
+                          desc={d.desc}
+                          badge={
+                            (badges[d.view] ?? 0) > 0 ? (
+                              <CountBadge n={badges[d.view]} />
+                            ) : undefined
+                          }
+                        />
+                      ))}
+                      {hidden > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setExpanded((e) => ({ ...e, [area.id]: !isExpanded }))}
+                          aria-expanded={isExpanded}
+                          className="min-h-11 w-full px-3 py-2.5 text-left text-[12.5px] font-semibold text-neutral-500 transition hover:text-accent dark:text-neutral-400"
+                        >
+                          {isExpanded ? "Show fewer" : `Show ${hidden} more in ${area.title}`}
+                        </button>
+                      )}
+                    </ListCard>
+                  )}
+                </section>
+              );
+            })}
+          </div>
           {access.role === "admin" && (
             // The one control that opens Edit mode. Admin-only: only admin sees
             // this launcher, and only admin can write the layout. It sits UNDER
@@ -301,8 +317,8 @@ function Home() {
         <div className="rounded-xl border border-dashed border-neutral-300 px-6 py-8 text-center dark:border-neutral-700">
           <p className="text-sm font-semibold">No views are available for your account yet.</p>
           <p className="mx-auto mt-2 max-w-sm text-xs text-neutral-500">
-            If you signed in with the temporary password, sign in with Google to load your
-            access. Otherwise, ask an admin to grant you access.
+            If you signed in with the temporary password, sign in with Google to load your access.
+            Otherwise, ask an admin to grant you access.
           </p>
           <Link href="/login" className={btn("primary", "md", "mt-4")}>
             Sign in with Google

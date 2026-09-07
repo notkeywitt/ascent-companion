@@ -12,6 +12,7 @@
 
 import { findMutations } from "@/lib/paveGateway";
 import { SALES_TAX_CSI, SALES_TAX_LINE_NAME, isSalesTaxLine } from "@/lib/salesTax";
+import { byWindow, spanPct, type JobBoardCard, type ScheduleTask } from "@/lib/jobBoard";
 
 const PAVE_URL = "https://api.jobtread.com/pave";
 
@@ -2542,6 +2543,182 @@ async function _getJobPhaseMapUncached(cfg: PaveConfig): Promise<Record<string, 
     if (!cursor) break;
   }
   return out;
+}
+
+// ---------------------------------------------------------------------------
+// HOME JOB BOARD — every active job's budget + Gantt position, in ONE call
+// ---------------------------------------------------------------------------
+
+/**
+ * One card per active job for the home board: budget, actuals, and where the
+ * job sits on JobTread's own calendar/Gantt chart.
+ *
+ * ONE Pave request does the lot, because every part of it is an org-wide
+ * aggregate that JobTread can sum itself (confirmed live 2026-09-06). The six
+ * aliased connections are:
+ *   budgetByJob  Σ approved, includeInBudget customerOrder lines  = Budgeted Cost
+ *   leafByJob    Σ budget leaves (document == null) — the fallback basis, for the
+ *                8-of-24 jobs whose budget was never issued as a customer order
+ *   billsByJob   Σ approved + pending vendorBill lines            = spend
+ *   laborByJob   Σ time-entry cost                                = labor
+ *   spanByJob    min startDate / max endDate over the job's schedule tasks
+ *   nowTasks     the tasks whose window covers today
+ *   nextTasks    the tasks starting after today, earliest first
+ * The `_` alias is what lets one query read the same connection under several
+ * filters (JT_API_REFERENCE.md, "FIELD ALIAS").
+ *
+ * ponytail: single page per aggregate (size 100). The org has ~30 jobs, so the
+ * group pages fit; past 100 jobs with schedules, page the `withValues`.
+ */
+export function getJobBoard(cfg: PaveConfig): Promise<JobBoardCard[]> {
+  return cachedRef(`jobboard:${cfg.orgId}`, 5 * 60_000, () => _getJobBoardUncached(cfg));
+}
+
+const BOARD_TASK_WHERE = [["isToDo", false], { "!=": [{ field: ["job", "id"] }, { value: null }] }];
+
+async function _getJobBoardUncached(cfg: PaveConfig): Promise<JobBoardCard[]> {
+  const today = jtIsoToOrgLocal(new Date().toISOString()).slice(0, 10);
+  const groupByJob = (where: unknown) => ({
+    _: "costItems",
+    $: { size: 100, where, group: { by: [["job", "id"]], aggs: { total: { sum: "cost" } } } },
+    withValues: {},
+  });
+  const taskNodes = { name: {}, startDate: {}, endDate: {}, job: { id: {} } };
+
+  const [jobs, phases, r] = await Promise.all([
+    getJobs(cfg),
+    getJobPhaseMap(cfg),
+    pave(cfg, {
+      organization: {
+        $: { id: cfg.orgId },
+        id: {},
+        budgetByJob: groupByJob(CTC_BUDGET_WHERE),
+        leafByJob: groupByJob({ and: [{ "=": [{ field: ["document", "id"] }, { value: null }] }] }),
+        billsByJob: groupByJob(CTC_ACTUAL_WHERE),
+        laborByJob: {
+          _: "timeEntries",
+          $: { size: 100, group: { by: [["job", "id"]], aggs: { total: { sum: "cost" } } } },
+          withValues: {},
+        },
+        spanByJob: {
+          _: "tasks",
+          $: {
+            size: 100,
+            where: {
+              and: [...BOARD_TASK_WHERE, { "!=": [{ field: "endDate" }, { value: null }] }],
+            },
+            group: {
+              by: [["job", "id"]],
+              aggs: { start: { min: "startDate" }, end: { max: "endDate" } },
+            },
+          },
+          withValues: {},
+        },
+        nowTasks: {
+          _: "tasks",
+          $: {
+            size: 100,
+            where: {
+              and: [
+                ...BOARD_TASK_WHERE,
+                { "<=": [{ field: "startDate" }, { value: today }] },
+                { ">=": [{ field: "endDate" }, { value: today }] },
+              ],
+            },
+            sortBy: [{ field: "startDate", order: "asc" }],
+          },
+          nodes: taskNodes,
+        },
+        nextTasks: {
+          _: "tasks",
+          $: {
+            size: 100,
+            where: {
+              and: [...BOARD_TASK_WHERE, { ">": [{ field: "startDate" }, { value: today }] }],
+            },
+            sortBy: [{ field: "startDate", order: "asc" }],
+          },
+          nodes: taskNodes,
+        },
+      },
+    }),
+  ]);
+
+  const org = r?.organization ?? {};
+  /** A grouped `withValues` row set → { jobId: total }. */
+  const totals = (conn: any): Record<string, number> => {
+    const out: Record<string, number> = {};
+    for (const row of conn?.withValues ?? []) {
+      const id = row?.job?.id;
+      if (id) out[id] = (out[id] ?? 0) + (row.total ?? 0);
+    }
+    return out;
+  };
+  const budgets = totals(org.budgetByJob);
+  const leaves = totals(org.leafByJob);
+  const bills = totals(org.billsByJob);
+  const labor = totals(org.laborByJob);
+
+  const spans: Record<string, { start: string; end: string }> = {};
+  for (const row of org.spanByJob?.withValues ?? []) {
+    const id = row?.job?.id;
+    if (id && row.start && row.end) spans[id] = { start: row.start, end: row.end };
+  }
+  /** Schedule tasks per job, in the order JobTread returned them (startDate asc). */
+  const tasksByJob = (conn: any): Record<string, ScheduleTask[]> => {
+    const out: Record<string, ScheduleTask[]> = {};
+    for (const n of conn?.nodes ?? []) {
+      const id = n?.job?.id;
+      if (!id || !n.startDate || !n.endDate) continue;
+      (out[id] ??= []).push({ name: n.name || "(untitled)", start: n.startDate, end: n.endDate });
+    }
+    return out;
+  };
+  const now = tasksByJob(org.nowTasks);
+  const next = tasksByJob(org.nextTasks);
+
+  return jobs.map((j) => {
+    const budget = budgets[j.id] ?? 0;
+    const leaf = leaves[j.id] ?? 0;
+    const span = spans[j.id];
+    return {
+      id: j.id,
+      name: j.name,
+      customer: j.customer ?? "",
+      phase: phases[j.id] ?? null,
+      // Same rule as getJobCostDetail: no approved customer order means the
+      // budget IS the base estimate, or there is no budget at all.
+      budget: budget || leaf,
+      budgetBasis: budget ? "orders" : leaf ? "leaves" : "none",
+      bills: bills[j.id] ?? 0,
+      labor: labor[j.id] ?? 0,
+      schedule: span
+        ? {
+            start: span.start,
+            end: span.end,
+            pctElapsed: spanPct(span.start, span.end, today),
+            now: byWindow(now[j.id] ?? []),
+            next: (next[j.id] ?? [])[0] ?? null,
+          }
+        : null,
+    };
+  });
+}
+
+/** The job a member last logged time to — "the job you're on" for a lead. */
+export async function getLatestJobForUser(cfg: PaveConfig, userId: string): Promise<string | null> {
+  if (!userId) return null;
+  const r = await pave(cfg, {
+    organization: {
+      $: { id: cfg.orgId },
+      id: {},
+      timeEntries: {
+        $: { size: 1, sortBy: [{ field: "startedAt", order: "desc" }], where: [["user", "id"], userId] },
+        nodes: { job: { id: {} } },
+      },
+    },
+  });
+  return r?.organization?.timeEntries?.nodes?.[0]?.job?.id ?? null;
 }
 
 export interface VendorRef {
