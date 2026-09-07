@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/jobtread-qbo-sales-tax-lfqctd
 status: shipped
 started: 2026-09-05T05:30:35Z
-updated: 2026-09-07T05:33:02Z
+updated: 2026-09-07T05:35:40Z
 goal: 
 next: Look at the new Home board on the wide monitor: card width, the donut's legend at 288px, and whether 9 active cards in a scroll row reads right.
 ---
