@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Skeleton } from "@/components/ui";
 import { axisTicks, barPct, shortDate, type JobGanttData } from "@/lib/jobBoard";
+import { jtScheduleUrl } from "@/lib/jtLinks";
 import { orgDay } from "@/lib/orgTime";
 
 /**
@@ -21,6 +22,12 @@ import { orgDay } from "@/lib/orgTime";
  * Plain divs positioned in percentages rather than an SVG or a chart library:
  * the geometry is two numbers per bar (`barPct`), and CSS handles the theme,
  * the hairlines and the text for free.
+ *
+ * EVERY ROW IS A LINK to that phase on JobTread's own schedule
+ * (`/jobs/<id>/schedule?taskId=<task>`), which is where it gets edited. The row
+ * is an <a> carrying the same grid classes the <div> carried, and Tailwind's
+ * preflight makes an anchor inherit its colour and decoration, so the chart
+ * looks exactly as it did.
  */
 
 const pctLabel = (p: number | null) => (p === null ? "" : `${Math.round(p * 100)}% done`);
@@ -92,7 +99,13 @@ export function JobGantt({
           const { left, width } = barPct(data.start, data.end, b.start, b.end);
           const fill = Math.min(1, Math.max(0, b.progress ?? 0));
           return (
-            <div key={b.id} className={`${ROW} py-[2px]`}>
+            <a
+              key={b.id}
+              href={jtScheduleUrl(jobId, b.id)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`${ROW} py-[2px]`}
+            >
               <span
                 className={`truncate text-[11.5px] ${
                   b.depth > 0
@@ -128,13 +141,14 @@ export function JobGantt({
                   />
                 </div>
               </div>
-            </div>
+            </a>
           );
         })}
       </div>
 
       <p className="mt-1.5 text-[10.5px] text-neutral-400 dark:text-neutral-500">
-        Each bar is a JobTread schedule phase; the fill is its progress. The line is today.
+        Each bar is a JobTread schedule phase; the fill is its progress. The line is today. A row
+        opens that phase in JobTread.
       </p>
     </figure>
   );

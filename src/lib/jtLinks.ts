@@ -48,3 +48,25 @@ export function jtTimeUrl(
   const q = p.toString();
   return q ? `${APP}/time?${q}` : `${APP}/time`;
 }
+
+/** A job's home page in JobTread. */
+export const jtJobUrl = (jobId: string) => `${APP}/jobs/${encodeURIComponent(jobId)}`;
+
+/**
+ * A job's SCHEDULE (its Gantt chart), opened on one task when a task id is
+ * given — `?taskId=` is what selects a bar there (owner-supplied address,
+ * 2026-09-06).
+ */
+export function jtScheduleUrl(jobId: string, taskId?: string | null): string {
+  const id = String(taskId ?? "").trim();
+  return id
+    ? `${jtJobUrl(jobId)}/schedule?taskId=${encodeURIComponent(id)}`
+    : `${jtJobUrl(jobId)}/schedule`;
+}
+
+/**
+ * A job's BUDGET page. There is no confirmed per-cost-code parameter, so a
+ * link on one division row stops at the budget — the same rule as the time
+ * page above: never guess a param.
+ */
+export const jtBudgetUrl = (jobId: string) => `${jtJobUrl(jobId)}/budget`;

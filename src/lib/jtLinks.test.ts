@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { jtTimeUrl } from "./jtLinks";
+import { jtBudgetUrl, jtJobUrl, jtScheduleUrl, jtTimeUrl } from "./jtLinks";
 
 /* The param names are the owner's, copied from a real filtered JobTread address
    bar (2026-09-06). This suite pins them: a rename here is a silently wrong
@@ -36,5 +36,29 @@ describe("jtTimeUrl", () => {
     expect(jtTimeUrl({ userId: "u1", from: "2026-08-23T09:15:00Z" })).toBe(
       "https://app.jobtread.com/time?userId=u1",
     );
+  });
+});
+
+/* The job-page shapes are the owner's too (2026-09-06): a schedule row deep-
+   links with `?taskId=`, and the budget page takes no confirmed per-code param. */
+describe("job pages", () => {
+  const JOB = "22PXejdnU4hm";
+
+  it("points a schedule row at that task", () => {
+    expect(jtScheduleUrl(JOB, "22PY5id5uLWs")).toBe(
+      "https://app.jobtread.com/jobs/22PXejdnU4hm/schedule?taskId=22PY5id5uLWs",
+    );
+  });
+
+  it("falls back to the whole schedule with no task", () => {
+    const whole = "https://app.jobtread.com/jobs/22PXejdnU4hm/schedule";
+    expect(jtScheduleUrl(JOB)).toBe(whole);
+    expect(jtScheduleUrl(JOB, null)).toBe(whole);
+    expect(jtScheduleUrl(JOB, "  ")).toBe(whole);
+  });
+
+  it("has one shape for the job and its budget", () => {
+    expect(jtJobUrl(JOB)).toBe("https://app.jobtread.com/jobs/22PXejdnU4hm");
+    expect(jtBudgetUrl(JOB)).toBe("https://app.jobtread.com/jobs/22PXejdnU4hm/budget");
   });
 });

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Card, Loading, Meter, MetaLine, SectionHeading, Skeleton } from "@/components/ui";
 import { Donut, type DonutSlice } from "@/components/Donut";
 import { JobGantt } from "@/components/JobGantt";
+import { jtBudgetUrl } from "@/lib/jtLinks";
 import { useAccess } from "@/components/AccessProvider";
 import {
   dateRange,
@@ -184,8 +185,13 @@ function ScheduleBlock({ c }: { c: JobBoardCard }) {
   );
 }
 
-/** Cost by CSI division, biggest spend first — the drilldown's one table. */
-function DivisionList({ detail }: { detail: CostDetail }) {
+/**
+ * Cost by CSI division, biggest spend first — the drilldown's one table. Each
+ * row opens the job's BUDGET in JobTread, which is where a division's codes
+ * are; JobTread exposes no confirmed per-code parameter, so the link stops
+ * there rather than guessing one (see lib/jtLinks.ts).
+ */
+function DivisionList({ jobId, detail }: { jobId: string; detail: CostDetail }) {
   const rows = detail.divisions
     .map((d) => ({ ...d, spent: d.bills + d.labor }))
     .filter((d) => d.budget > 0 || d.spent > 0)
@@ -203,7 +209,13 @@ function DivisionList({ detail }: { detail: CostDetail }) {
       {rows.map((d) => {
         const left = d.budget - d.spent;
         return (
-          <div key={d.division} className="flex items-start gap-3 px-3 py-2">
+          <a
+            key={d.division}
+            href={jtBudgetUrl(jobId)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-start gap-3 px-3 py-2"
+          >
             <div className="min-w-0 flex-1">
               <div className="truncate text-[12.5px] font-semibold">
                 {d.division}
@@ -230,7 +242,7 @@ function DivisionList({ detail }: { detail: CostDetail }) {
                 {money0(Math.abs(left))} {left < 0 ? "over" : "left"}
               </div>
             </div>
-          </div>
+          </a>
         );
       })}
     </Card>
@@ -253,7 +265,7 @@ function DetailBody({ jobId, state }: { jobId: string; state: DetailState | unde
           Couldn&apos;t load this job&apos;s cost detail.
         </p>
       ) : (
-        <DivisionList detail={state.detail} />
+        <DivisionList jobId={jobId} detail={state.detail} />
       )}
     </div>
   );
