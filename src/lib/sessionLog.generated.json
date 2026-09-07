@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-07T15:13:45Z",
+  "generatedAt": "2026-09-07T21:06:35Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,7 +8,7 @@
       "branch": "claude/pwa-dock-homescreen-logo-88g8qu",
       "status": "shipped",
       "started": "2026-09-07T15:08:26Z",
-      "updated": "2026-09-07T15:13:45Z",
+      "updated": "2026-09-07T21:06:35Z",
       "goal": "",
       "next": "none — icon change is complete",
       "commits": [
@@ -25,6 +25,13 @@
           "sha": "a074fd7",
           "subject": "companion: rasterize the install icon from the brand asset",
           "files": "ascent_logo_icon_bk.svg, public/icon-192.png, public/icon-512.png, src/app/apple-icon.png, src/app/icon.png, src/app/manifest.ts"
+        },
+        {
+          "date": "2026-09-07",
+          "time": "21:06",
+          "sha": "62a13ca",
+          "subject": "companion: draw the real mark geometry in AscentIcon",
+          "files": "src/components/AscentLogo.tsx"
         }
       ]
     },
