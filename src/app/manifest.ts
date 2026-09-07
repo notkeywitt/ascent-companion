@@ -19,22 +19,28 @@ export default function manifest(): MetadataRoute.Manifest {
     background_color: "#1B1B17",
     theme_color: "#FAF7EE",
     // The INSTALLED icon — what Chrome and Safari put on a home screen, a dock
-    // or a taskbar. It is the REVERSED mark: white peak on a black square.
+    // or a taskbar. It is the REVERSED mark: a white peak on the off-black
+    // square, which is the brand's own `ascent_logo_icon_bk` asset.
     //
     // It is one fixed piece of art on purpose. Neither surface can pick an icon
     // per theme: manifest `icons` entries carry no media query, and iOS reads a
     // single `apple-touch-icon`. So the icon cannot follow the device the way
     // `themeColor` and the palette do — it has to read correctly on a light
     // home screen AND a dark one, which the reversed mark does and the ochre
-    // square did not. Its ground is the reversed lockup's own pure black, one
-    // step off the off-black launch frame above, so tapping it opens into
-    // roughly the ground it left.
+    // square did not. Its ground is #1B1B17, the SAME value as
+    // `background_color` above — so tapping the icon opens into the ground the
+    // icon just left, with no step between them.
     //
-    // Art: `ascent_logo_icon_ochre@1x.png` (repo root, the 1080px brand asset)
-    // recoloured ochre→black, cream→white, then resized. Sizes live in
-    // `public/` for the manifest, and `src/app/apple-icon.png` (180px, iOS) +
-    // `src/app/icon.png` (192px, favicon) for Next's file conventions. Redo all
-    // four together or the install icon and the tab icon drift apart.
+    // Art: `ascent_logo_icon_bk.svg` (repo root) — the brand asset itself, from
+    // Drive at `8) Ascent Marketing / 2024 Brand Refresh / Logos / 04_Icon /
+    // Full Color / SVG`. It is a #1B1B17 square with the mountain filled
+    // #FFFFFF. Rasterize it, do not redraw it: the polygon in
+    // `src/components/AscentLogo.tsx` is a near-miss of this geometry, so
+    // rendering that one instead puts a slightly wrong mark on the home screen.
+    // Sizes live in `public/` for the manifest, and `src/app/apple-icon.png`
+    // (180px, iOS) + `src/app/icon.png` (192px, favicon) for Next's file
+    // conventions. Redo all four together or the install icon and the tab icon
+    // drift apart.
     icons: [
       { src: "/icon-192.png", sizes: "192x192", type: "image/png" },
       { src: "/icon-512.png", sizes: "512x512", type: "image/png" },
