@@ -1,7 +1,33 @@
 {
-  "generatedAt": "2026-09-07T21:06:35Z",
+  "generatedAt": "2026-09-07T21:26:34Z",
   "repo": "ascent-companion",
   "sessions": [
+    {
+      "slug": "pwa-push-notifications-phone",
+      "file": "2026-09-07-pwa-push-notifications-phone.md",
+      "branch": "claude/pwa-push-notifications-phone-sxpzzj",
+      "status": "shipped",
+      "started": "2026-09-07T21:25:15Z",
+      "updated": "2026-09-07T21:26:34Z",
+      "goal": "in-app banner notice system: office+admin authoring, scheduled windows, group + person targeting",
+      "next": "Owner check: post one banner to Everyone from /notices and confirm it lands on a phone. Then decide whether office should be able to reach a whole role's phones via push (held this session).",
+      "commits": [
+        {
+          "date": "2026-09-07",
+          "time": "21:26",
+          "sha": "22da358",
+          "subject": "companion: in-app notice banners, scheduled and targeted",
+          "files": "CODEBASE_MAP.md, USER_MANUAL.md, src/app/admin/NoticesPanel.tsx, src/app/admin/page.tsx, src/app/api/admin/notices/route.ts, src/app/api/notices/route.ts, +11 more"
+        },
+        {
+          "date": "2026-09-07",
+          "time": "21:26",
+          "sha": "21cd8fe",
+          "subject": "companion: log session 2026-09-07-pwa-push-notifications-phone",
+          "files": ""
+        }
+      ]
+    },
     {
       "slug": "pwa-dock-homescreen-logo",
       "file": "2026-09-07-pwa-dock-homescreen-logo.md",

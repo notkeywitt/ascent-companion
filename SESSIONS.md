@@ -9,8 +9,8 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Branch | Last active | Commits | Next step |
 |---|---|---|---|---|
-| [ci-verify-job-failures](.claude/sessions/2026-09-06-ci-verify-job-failures.md) | `claude/ci-verify-job-failures-wcfpyk` | 25h ago | 1 | push this branch to remote main — main is still red until the Link fix lands th… |
-| [ascent-building-theme](.claude/sessions/2026-09-06-ascent-building-theme.md) | `claude/ascent-building-theme-rz1o6h` | 30h ago | 6 | Tune the palettes in /theme on the phone, then paste the Copy CSS output back s… |
+| [ci-verify-job-failures](.claude/sessions/2026-09-06-ci-verify-job-failures.md) | `claude/ci-verify-job-failures-wcfpyk` | 26h ago | 1 | push this branch to remote main — main is still red until the Link fix lands th… |
+| [ascent-building-theme](.claude/sessions/2026-09-06-ascent-building-theme.md) | `claude/ascent-building-theme-rz1o6h` | 31h ago | 6 | Tune the palettes in /theme on the phone, then paste the Copy CSS output back s… |
 | [header-layout-redesign](.claude/sessions/2026-09-05-header-layout-redesign.md) | `claude/header-layout-redesign-xid33s` | 2d ago | 15 | rearrange the tracking-sheet action buttons for mobile and desktop — they read … |
 | [timesheet-month-selection](.claude/sessions/2026-09-04-timesheet-month-selection.md) | `claude/timesheet-month-selection-2hih55` | 3d ago | 3 | none — month picker shipped; verify on the phone that the dropdown reads well n… |
 
@@ -18,6 +18,7 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
+| [pwa-push-notifications-phone](.claude/sessions/2026-09-07-pwa-push-notifications-phone.md) | 2026-09-07 | 2 | in-app banner notice system: office+admin authoring, scheduled windows, group +… |
 | [pwa-dock-homescreen-logo](.claude/sessions/2026-09-07-pwa-dock-homescreen-logo.md) | 2026-09-07 | 3 | — |
 | [jobtread-qbo-sales-tax](.claude/sessions/2026-09-05-jobtread-qbo-sales-tax.md) | 2026-09-07 | 22 | — |
 | [tracking-sheet-button-audit](.claude/sessions/2026-09-06-tracking-sheet-button-audit.md) | 2026-09-06 | 7 | audit the tracking sheet page's buttons and re-lay them out for desktop workflow |
