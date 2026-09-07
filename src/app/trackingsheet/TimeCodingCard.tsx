@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { CostCodeSelect, type Option } from "@/components/CostCodeSelect";
 import { JobPicker, jobLabel, type JobRef } from "@/components/JobPicker";
-import { Banner, Button, Card, Chip, Input, Label, Loading, SectionLabel } from "@/components/ui";
+import { Banner, Button, Card, Chip, Input, Label, Loading } from "@/components/ui";
 import { clockOfMinutes, minutesOfClock, orgParts, prettyClock, spanHours } from "@/lib/orgTime";
 
 /**
@@ -322,8 +322,14 @@ export function TimeCodingCard({
           Close
         </button>
       </div>
+      {/* The pay rate is cost ÷ hours, not a stored field — JobTread keeps the
+          rate on the pay TYPE, and what this entry was actually charged at is
+          the only rate that describes it. It is also what makes the re-time
+          warning below concrete: change the hours and the cost moves by this. */}
       <p className="mb-2 min-w-0 truncate text-xs text-neutral-500">
-        {money(entry.cost)} · {entry.hours.toFixed(2)}h{entry.type ? ` · ${entry.type}` : ""}
+        {money(entry.cost)} · {entry.hours.toFixed(2)}h
+        {entry.hours > 0 ? ` · ${money(entry.cost / entry.hours)}/h` : ""}
+        {entry.type ? ` · ${entry.type}` : ""}
       </p>
       <div className="mb-3 flex flex-wrap gap-1.5">
         {entry.isApproved ? (
@@ -341,8 +347,8 @@ export function TimeCodingCard({
       )}
       {openEntry && (
         <Banner tone="info" className="mb-3 !py-1.5 !text-[11px]">
-          This entry has no clock-out yet. It gets its hours when it&apos;s closed out — edit it after
-          that.
+          This entry has no clock-out yet. It gets its hours when it&apos;s closed out — edit it
+          after that.
         </Banner>
       )}
 
@@ -433,17 +439,18 @@ export function TimeCodingCard({
         {/* JobTread's own minute count can be SHORTER than the span — a break
             deduction — so a rewritten span quietly drops that deduction. Say it
             where the difference is visible, not after the fact. */}
-        {!openEntry && Math.abs(entry.minutes - (spanHours(started.time, ended.time) ?? 0) * 60) > 1 && (
-          <Banner tone="warning" className="!py-1.5 !text-[11px]">
-            JobTread counts {(entry.minutes / 60).toFixed(2)}h on this entry, but its clock reads{" "}
-            {(spanHours(started.time, ended.time) ?? 0).toFixed(2)}h — usually a deducted break.
-            Saving new times replaces both figures with the span you set.
-          </Banner>
-        )}
+        {!openEntry &&
+          Math.abs(entry.minutes - (spanHours(started.time, ended.time) ?? 0) * 60) > 1 && (
+            <Banner tone="warning" className="!py-1.5 !text-[11px]">
+              JobTread counts {(entry.minutes / 60).toFixed(2)}h on this entry, but its clock reads{" "}
+              {(spanHours(started.time, ended.time) ?? 0).toFixed(2)}h — usually a deducted break.
+              Saving new times replaces both figures with the span you set.
+            </Banner>
+          )}
         {timeChanged && (
           <Banner tone="info" className="!py-1.5 !text-[11px]">
-            The cost follows the hours — JobTread recalculates it as the new hours × this entry&apos;s
-            pay rate.
+            The cost follows the hours — JobTread recalculates it as the new hours × this
+            entry&apos;s pay rate.
           </Banner>
         )}
 

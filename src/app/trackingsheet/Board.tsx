@@ -3672,7 +3672,9 @@ export function Board() {
                 two pages move a week of hours identically. */}
             {openTime && !belowXl ? (
               <>
-                <SectionLabel className="mb-2">Time &amp; labor</SectionLabel>
+                {/* No section title: the card names the person and the entry,
+                    and a "Time & labor" caption over it only repeated the block
+                    the entry was clicked in. */}
                 <TimeCodingCard
                   entry={openTime}
                   jobId={jobId}

@@ -871,9 +871,11 @@ export function TimeEntryList({
                               </span>
                               {/* The note is what the crew actually typed about
                                 the hours — the most useful line on the entry, so
-                                it wraps in full rather than truncating. */}
+                                it wraps in full rather than truncating, and it
+                                is set at the employee's own size rather than the
+                                [11px] the metadata around it uses. */}
                               {t.notes && (
-                                <span className="mt-0.5 block whitespace-pre-line text-[11px] italic leading-snug text-neutral-500 dark:text-neutral-400">
+                                <span className="mt-1 block whitespace-pre-line text-[13px] italic leading-snug text-neutral-600 dark:text-neutral-300">
                                   {t.notes}
                                 </span>
                               )}
