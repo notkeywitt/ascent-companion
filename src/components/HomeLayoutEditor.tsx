@@ -244,26 +244,31 @@ export function HomeLayoutEditor({ onClose }: { onClose: () => void }) {
 
       {error && <Banner tone="error">{error}</Banner>}
 
-      {/* Page-level choice: how wide the launcher lays out on a big screen. */}
-      <Card className="flex items-center gap-3">
-        <div className="min-w-0 flex-1">
+      {/* Page-level choice: how wide the launcher lays out on a big screen.
+          The field is narrowed by a WRAPPER, not by a class on <Select>:
+          inputCls carries `w-full`, and Tailwind resolves two width utilities
+          by stylesheet order, so a `w-20` on the control loses and the row's
+          text column gets crushed to one word per line. */}
+      <Card className="space-y-2">
+        <div>
           <Label htmlFor="columns">Menus per row (wide screens)</Label>
           <p className="text-[11.5px] text-neutral-500 dark:text-neutral-400">
             A phone always shows one. This is the desktop layout.
           </p>
         </div>
-        <Select
-          id="columns"
-          className="w-20 shrink-0"
-          value={String(columns)}
-          onChange={(e) => setColumns(clampColumns(Number(e.target.value)))}
-        >
-          {Array.from({ length: MAX_COLUMNS }, (_, i) => i + 1).map((n) => (
-            <option key={n} value={n}>
-              {n}
-            </option>
-          ))}
-        </Select>
+        <div className="w-24">
+          <Select
+            id="columns"
+            value={String(columns)}
+            onChange={(e) => setColumns(clampColumns(Number(e.target.value)))}
+          >
+            {Array.from({ length: MAX_COLUMNS }, (_, i) => i + 1).map((n) => (
+              <option key={n} value={n}>
+                {n}
+              </option>
+            ))}
+          </Select>
+        </div>
       </Card>
 
       <div className="space-y-4">
