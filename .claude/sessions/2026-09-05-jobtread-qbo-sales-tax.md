@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/jobtread-qbo-sales-tax-lfqctd
 status: shipped
 started: 2026-09-05T05:30:35Z
-updated: 2026-09-07T05:10:38Z
+updated: 2026-09-07T05:11:30Z
 goal: 
 next: Verify on the wide monitor: drag the trackingsheet column handles, confirm the split sticks after reload and dark-mode budget bars read calmer.
 ---

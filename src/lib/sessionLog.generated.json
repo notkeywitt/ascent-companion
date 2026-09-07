@@ -1,7 +1,40 @@
 {
-  "generatedAt": "2026-09-06T19:52:44Z",
+  "generatedAt": "2026-09-07T05:11:30Z",
   "repo": "ascent-companion",
   "sessions": [
+    {
+      "slug": "jobtread-qbo-sales-tax",
+      "file": "2026-09-05-jobtread-qbo-sales-tax.md",
+      "branch": "claude/jobtread-qbo-sales-tax-lfqctd",
+      "status": "shipped",
+      "started": "2026-09-05T05:30:35Z",
+      "updated": "2026-09-07T05:11:30Z",
+      "goal": "",
+      "next": "Verify on the wide monitor: drag the trackingsheet column handles, confirm the split sticks after reload and dark-mode budget bars read calmer.",
+      "commits": [
+        {
+          "date": "2026-09-05",
+          "time": "05:31",
+          "sha": "c5ffbe3",
+          "subject": "companion: sales tax is an 88 80 00 bill line, not the document tax field",
+          "files": "CODEBASE_MAP.md, src/app/api/add-bill/route.ts, src/app/api/amazon-import/route.ts, src/app/api/bill-tax/route.ts, src/app/api/bill/route.ts, src/app/api/trackingsheet/route.ts, +22 more"
+        },
+        {
+          "date": "2026-09-05",
+          "time": "05:31",
+          "sha": "6d1914d",
+          "subject": "log session 2026-09-05-jobtread-qbo-sales-tax",
+          "files": ""
+        },
+        {
+          "date": "2026-09-06",
+          "time": "22:10",
+          "sha": "54bfdef",
+          "subject": "companion: drag-resizable trackingsheet columns, dimmer dark budget bars",
+          "files": "src/app/trackingsheet/Board.tsx, src/components/ui.tsx"
+        }
+      ]
+    },
     {
       "slug": "ci-verify-job-failures",
       "file": "2026-09-06-ci-verify-job-failures.md",
@@ -381,32 +414,6 @@
       ]
     },
     {
-      "slug": "jobtread-qbo-sales-tax",
-      "file": "2026-09-05-jobtread-qbo-sales-tax.md",
-      "branch": "claude/jobtread-qbo-sales-tax-lfqctd",
-      "status": "shipped",
-      "started": "2026-09-05T05:30:35Z",
-      "updated": "2026-09-05T15:44:42Z",
-      "goal": "",
-      "next": "Owner setup before this goes live: map cost code 88 80 00 to a QuickBooks item (its qboId is null), add the 88 80 00 leaf to every job budget, turn Record Tax off on the Vendor Bill template. Then merge both branches and deploy (appscript needs clasp push).",
-      "commits": [
-        {
-          "date": "2026-09-05",
-          "time": "05:31",
-          "sha": "c5ffbe3",
-          "subject": "companion: sales tax is an 88 80 00 bill line, not the document tax field",
-          "files": "CODEBASE_MAP.md, src/app/api/add-bill/route.ts, src/app/api/amazon-import/route.ts, src/app/api/bill-tax/route.ts, src/app/api/bill/route.ts, src/app/api/trackingsheet/route.ts, +22 more"
-        },
-        {
-          "date": "2026-09-05",
-          "time": "05:31",
-          "sha": "6d1914d",
-          "subject": "log session 2026-09-05-jobtread-qbo-sales-tax",
-          "files": ""
-        }
-      ]
-    },
-    {
       "slug": "loading-screen-logo",
       "file": "2026-09-05-loading-screen-logo.md",
       "branch": "claude/loading-screen-logo-s537f1",
@@ -478,7 +485,7 @@
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-09-04T18:44:16Z",
+      "updated": "2026-09-04T18:45:40Z",
       "goal": "",
       "next": "Digest brief is now local-only. Open question for owner: rip out standing instructions (DB table + admin panel + reply-parser actions) or leave them stored and inert.",
       "commits": [
@@ -740,6 +747,13 @@
           "sha": "8adc483",
           "subject": "companion: make the bill row stripe mean only invoicing state",
           "files": "CODEBASE_MAP.md, src/app/api/trackingsheet/all-bills/route.ts, src/app/trackingsheet/AllBills.tsx, src/app/trackingsheet/Board.tsx, src/lib/billInvoiceState.test.ts, src/lib/billInvoiceState.ts, +1 more"
+        },
+        {
+          "date": "2026-09-04",
+          "time": "11:45",
+          "sha": "70d03eb",
+          "subject": "resolve labor-import cost items to the time-trackable budget leaf",
+          "files": "src/app/api/job-budget/route.ts, src/app/labor-import/page.tsx, src/lib/jobtread.test.ts, src/lib/jobtread.ts"
         }
       ]
     },
