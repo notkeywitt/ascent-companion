@@ -373,6 +373,39 @@ function useIsBelowXl() {
   return below;
 }
 
+/** Width of one drag handle track, in px. Also the grid's only column gap at
+ *  xl — the handle IS the gutter, so widening it doesn't cost panel width. */
+const HANDLE_PX = 20;
+
+/** The grab strip between two panels. A hairline until you point at it. */
+function ColHandle({
+  label,
+  onPointerDown,
+  onNudge,
+}: {
+  label: string;
+  onPointerDown: (e: React.PointerEvent<HTMLDivElement>) => void;
+  onNudge: (delta: number) => void;
+}) {
+  return (
+    <div
+      role="separator"
+      aria-orientation="vertical"
+      aria-label={label}
+      tabIndex={0}
+      onPointerDown={onPointerDown}
+      onKeyDown={(e) => {
+        if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+        e.preventDefault();
+        onNudge(e.key === "ArrowLeft" ? -0.1 : 0.1);
+      }}
+      className="group hidden cursor-col-resize touch-none select-none outline-none xl:flex xl:items-stretch xl:justify-center"
+    >
+      <div className="w-px bg-line-soft transition group-hover:w-0.5 group-hover:bg-accent group-focus:w-0.5 group-focus:bg-accent" />
+    </div>
+  );
+}
+
 export function Board() {
   // Office-edited wording (Admin → Page Text); see src/lib/copy.ts.
   const c = useCopy();
@@ -527,6 +560,81 @@ export function Board() {
   // Divisions the user has rolled up. Empty = all open, so the rail keeps
   // showing every code until it's deliberately tidied.
   const [collapsedDivs, setCollapsedDivs] = useState<Set<string>>(new Set());
+  /**
+   * Column widths for the xl three-up layout, as `fr` fractions summing to 3.
+   * Two drag handles sit between the sections and move a fraction from one
+   * neighbour to the other. Persisted, because a width you set once should
+   * survive the next bill you open. Below xl the grid uses its own
+   * breakpoint classes and these are ignored.
+   */
+  const [cols, setCols] = useState<[number, number, number]>([1, 1, 1]);
+  const gridRef = useRef<HTMLDivElement | null>(null);
+  // The drag reads the widths at pointerdown; a state updater would not run
+  // until the next render, so the live value is mirrored here.
+  const colsRef = useRef(cols);
+  colsRef.current = cols;
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("ts.cols");
+      if (raw) {
+        const v = JSON.parse(raw);
+        if (Array.isArray(v) && v.length === 3 && v.every((n) => typeof n === "number" && n > 0))
+          setCols(v as [number, number, number]);
+      }
+    } catch {}
+  }, []);
+  // `i` is the handle index: 0 sits between cols 0 and 1, 1 between 1 and 2.
+  const startColDrag = useCallback(
+    (i: 0 | 1) => (e: React.PointerEvent<HTMLDivElement>) => {
+      const grid = gridRef.current;
+      if (!grid) return;
+      e.preventDefault();
+      const el = e.currentTarget;
+      el.setPointerCapture(e.pointerId);
+      const x0 = e.clientX;
+      // The two handle tracks are fixed px, so only the rest is shared by fr.
+      const flexible = grid.getBoundingClientRect().width - 2 * HANDLE_PX;
+      const start = colsRef.current;
+      const MIN = 0.4;
+      const move = (ev: PointerEvent) => {
+        const d = ((ev.clientX - x0) / Math.max(flexible, 1)) * 3;
+        const room = Math.min(start[i + 1] - MIN, Math.max(-(start[i] - MIN), d));
+        const next: [number, number, number] = [...start] as [number, number, number];
+        next[i] = start[i] + room;
+        next[i + 1] = start[i + 1] - room;
+        setCols(next);
+      };
+      const up = () => {
+        el.releasePointerCapture(e.pointerId);
+        el.removeEventListener("pointermove", move);
+        el.removeEventListener("pointerup", up);
+        setCols((c) => {
+          try {
+            localStorage.setItem("ts.cols", JSON.stringify(c));
+          } catch {}
+          return c;
+        });
+      };
+      el.addEventListener("pointermove", move);
+      el.addEventListener("pointerup", up);
+    },
+    [],
+  );
+  const nudgeCol = useCallback(
+    (i: 0 | 1) => (delta: number) =>
+      setCols((c) => {
+        const MIN = 0.4;
+        const room = Math.min(c[i + 1] - MIN, Math.max(-(c[i] - MIN), delta));
+        const next: [number, number, number] = [...c] as [number, number, number];
+        next[i] = c[i] + room;
+        next[i + 1] = c[i + 1] - room;
+        try {
+          localStorage.setItem("ts.cols", JSON.stringify(next));
+        } catch {}
+        return next;
+      }),
+    [],
+  );
   // Mobile-only: roll the whole cost-code rail away. On a phone it stacks on
   // top of the bills, so it starts collapsed to land you on the list — tap the
   // header to open it. The desktop sidebar ignores this (it's always docked,
@@ -2944,8 +3052,19 @@ export function Board() {
       )}
 
       {data && !loading && (
-        // All three columns share the row equally.
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
+        // Three equal columns to start; the two handles between them move
+        // width from one neighbour to the other. `!` on the arbitrary template
+        // because two utilities set grid-template-columns and stylesheet order
+        // — not attribute order — decides which wins.
+        <div
+          ref={gridRef}
+          style={
+            {
+              "--tsc": `${cols[0]}fr ${HANDLE_PX}px ${cols[1]}fr ${HANDLE_PX}px ${cols[2]}fr`,
+            } as React.CSSProperties
+          }
+          className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:gap-x-0 xl:![grid-template-columns:var(--tsc)]"
+        >
           {/* ─────────── LEFT: cost-code reference rail ─────────── */}
           {/* Docked: the rail is the reference you're constantly checking while
               scrolling a long bill list, so it stays put. `self-start` is what
@@ -3219,6 +3338,12 @@ export function Board() {
               </div>
             </Card>
           </section>
+
+          <ColHandle
+            label="Resize budget rail"
+            onPointerDown={startColDrag(0)}
+            onNudge={nudgeCol(0)}
+          />
 
           {/* ─────────── CENTRE: the month's bills ─────────── */}
           <section className="min-w-0">
@@ -3659,6 +3784,12 @@ export function Board() {
               </>
             ) : null}
           </section>
+
+          <ColHandle
+            label="Resize coding drawer"
+            onPointerDown={startColDrag(1)}
+            onNudge={nudgeCol(1)}
+          />
 
           {/* ─────────── RIGHT: coding drawer ─────────── */}
           {/* `sticky` + `top` live on the SECTION itself (the actual grid

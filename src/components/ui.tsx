@@ -615,6 +615,10 @@ export function FilterChip({
 /**
  * Budget-usage meter — amber past 90%, red past 100%.
  *
+ * Dark mode dims every fill. At full saturation the red and amber bars glow
+ * against the off-black card and pull the eye off the numbers, which are the
+ * thing being read; the bar only has to say which band it is in.
+ *
  * The dark track is `white/10`, NOT `neutral-800`: neutral-800 (#282620) sits
  * within a couple of points of the raised card it's drawn on (#23231E), so the
  * unfilled part of every bar was invisible and a bar at 30% read as one at 100%.
@@ -644,7 +648,11 @@ export function Meter({
     >
       <div
         className={`h-full rounded-full transition-all ${
-          over ? "bg-red-500" : near ? "bg-amber-500" : "bg-accent"
+          over
+            ? "bg-red-500 dark:bg-red-500/55"
+            : near
+              ? "bg-amber-500 dark:bg-amber-500/55"
+              : "bg-accent dark:bg-accent/70"
         }`}
         style={{ width: `${Math.min(pct, 1) * 100}%` }}
       />
