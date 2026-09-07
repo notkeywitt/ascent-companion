@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-07T06:14:05Z",
+  "generatedAt": "2026-09-07T06:16:08Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,7 +8,7 @@
       "branch": "claude/jobtread-qbo-sales-tax-lfqctd",
       "status": "shipped",
       "started": "2026-09-05T05:30:35Z",
-      "updated": "2026-09-07T06:14:05Z",
+      "updated": "2026-09-07T06:16:08Z",
       "goal": "",
       "next": "Look at the new Home board on the wide monitor: card width, the donut's legend at 288px, and whether 9 active cards in a scroll row reads right.",
       "commits": [
@@ -137,6 +137,13 @@
           "sha": "0bed60b",
           "subject": "companion: collapsible time groups, code-grouped by default on the board",
           "files": "src/app/trackingsheet/Board.tsx, src/components/TimeEntryList.tsx"
+        },
+        {
+          "date": "2026-09-06",
+          "time": "23:16",
+          "sha": "0f639c9",
+          "subject": "companion: bigger time notes, pay rate on the entry panel, no panel title",
+          "files": "src/app/trackingsheet/Board.tsx, src/app/trackingsheet/TimeCodingCard.tsx, src/components/TimeEntryList.tsx"
         }
       ]
     },
