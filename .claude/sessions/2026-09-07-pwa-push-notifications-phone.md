@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/pwa-push-notifications-phone-sxpzzj
 status: in-progress
 started: 2026-09-07T21:25:15Z
-updated: 2026-09-07T21:25:55Z
+updated: 2026-09-07T21:26:10Z
 goal: in-app banner notice system: office+admin authoring, scheduled windows, group + person targeting
 next: Owner check: post one banner to Everyone from /notices and confirm it lands on a phone. Then decide whether office should be able to reach a whole role's phones via push (held this session).
 ---
@@ -12,6 +12,8 @@ next: Owner check: post one banner to Everyone from /notices and confirm it land
 ## Log
 
 <!-- Appended by .githooks/post-commit. Do not hand-write rows here. -->
+- 2026-09-07 21:26 · `22da358` companion: in-app notice banners, scheduled and targeted
+  CODEBASE_MAP.md, USER_MANUAL.md, src/app/admin/NoticesPanel.tsx, src/app/admin/page.tsx, src/app/api/admin/notices/route.ts, src/app/api/notices/route.ts, +11 more
 
 ## Notes
 - 2026-09-07 21:25 — Held the PWA push work: no service worker, no VAPID keys, no push_subscriptions table shipped. Answered the question in chat instead.
