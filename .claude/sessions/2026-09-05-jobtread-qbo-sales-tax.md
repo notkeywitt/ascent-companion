@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/jobtread-qbo-sales-tax-lfqctd
 status: shipped
 started: 2026-09-05T05:30:35Z
-updated: 2026-09-08T19:07:30Z
+updated: 2026-09-08T19:24:00Z
 goal: bill move: background + Drive re-file + real error; buyback picker dialog; approve advances; cost-code names on the bills list
 next: owner review + push: /api/time-entry now writes the pay type (a live money field), so it needs the ok before shipping
 ---
@@ -74,6 +74,8 @@ next: owner review + push: /api/time-entry now writes the pay type (a live money
   src/app/api/shop-job/route.ts, src/app/globals.css, src/app/trackingsheet/BillCodingCard.tsx
 - 2026-09-08 11:56 · `601d3f8` companion: cap the coding column by measurement, not by guess
   src/app/globals.css, src/app/trackingsheet/BillCodingCard.tsx, src/components/StickyActionBar.tsx, src/components/ui.tsx
+- 2026-09-08 12:24 · `70ea62c` companion: link time entries to jobtread and edit their labor rate
+  scripts/probe-time-entry-type.mjs, src/app/api/time-entry/route.ts, src/app/trackingsheet/TimeCodingCard.tsx, src/components/TimeEntryList.tsx, src/lib/jobtread.ts, src/lib/jtLinks.test.ts, +1 more
 
 ## Notes
 - 2026-09-05 05:30 — Companion half of the sales-tax move. src/lib/salesTax.ts is the single definition: the 88 80 00 constants, the line matcher, splitSalesTax, and the job-Phase-derived recoverable/consumed flag. createVendorBill appends the tax line and pins nonRecoverableTax to 0; setBillTax now creates/updates/deletes that LINE and clears any legacy field.
