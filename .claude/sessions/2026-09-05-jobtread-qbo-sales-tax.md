@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/jobtread-qbo-sales-tax-lfqctd
 status: shipped
 started: 2026-09-05T05:30:35Z
-updated: 2026-09-08T18:56:28Z
+updated: 2026-09-08T18:56:29Z
 goal: bill move: background + Drive re-file + real error; buyback picker dialog; approve advances; cost-code names on the bills list
 next: ascent-appscript needs a clasp push (WebApp.js + Sheets_AppSheet.js) before the move fix is live; companion side is built but NOT pushed — writes are armed in production and the buyback dialog fires N writes with no per-line confirm.
 ---
