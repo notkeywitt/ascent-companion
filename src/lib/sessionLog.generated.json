@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-08T04:57:52Z",
+  "generatedAt": "2026-09-08T05:16:41Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "claude/leads-panel-admin-home-3rkum8",
       "status": "shipped",
       "started": "2026-09-08T04:33:47Z",
-      "updated": "2026-09-08T04:57:52Z",
+      "updated": "2026-09-08T05:16:41Z",
       "goal": "",
-      "next": "Digest + admin action bar are off the office home page. Still to confirm with the owner: whether to push this branch to remote main (CLAUDE.md says main, session brief says the branch).",
+      "next": "Leads panel: thresholds are settable and card clicks land on the lead. Nothing pending.",
       "commits": [
         {
           "date": "2026-09-08",
@@ -39,6 +39,13 @@
           "sha": "2afb884",
           "subject": "companion: take the digest and the admin action bar off the office home page",
           "files": "USER_MANUAL.md, src/app/page.tsx, src/components/DailyDigest.tsx, src/components/TileLauncher.tsx, src/lib/views.ts"
+        },
+        {
+          "date": "2026-09-08",
+          "time": "05:16",
+          "sha": "dc9c143",
+          "subject": "companion: make the leads amber/red thresholds settable, and land on the lead",
+          "files": "CODEBASE_MAP.md, USER_MANUAL.md, src/app/api/leads/route.ts, src/app/api/leads/settings/route.ts, src/app/globals.css, src/app/leads/page.tsx, +6 more"
         }
       ]
     },

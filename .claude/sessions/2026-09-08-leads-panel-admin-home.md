@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/leads-panel-admin-home-3rkum8
 status: shipped
 started: 2026-09-08T04:33:47Z
-updated: 2026-09-08T05:16:40Z
+updated: 2026-09-08T05:16:41Z
 goal: 
 next: Leads panel: thresholds are settable and card clicks land on the lead. Nothing pending.
 ---
