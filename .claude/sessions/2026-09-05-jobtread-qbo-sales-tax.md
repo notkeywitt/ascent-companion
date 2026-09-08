@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/jobtread-qbo-sales-tax-lfqctd
 status: shipped
 started: 2026-09-05T05:30:35Z
-updated: 2026-09-08T13:27:26Z
+updated: 2026-09-08T16:30:22Z
 goal: 
 next: Check the lead card on the phone: autosave feedback reads as 'Saving…' next to Job Details only.
 ---
@@ -55,6 +55,8 @@ next: Check the lead card on the phone: autosave feedback reads as 'Saving…' n
   src/app/leads/page.tsx
 - 2026-09-08 06:27 · `5fa33cb` companion: move project scope into job details
   src/app/leads/page.tsx
+- 2026-09-08 09:30 · `36b93fd` companion: put a job picker on the add bill page
+  src/app/add-bill/page.tsx
 
 ## Notes
 - 2026-09-05 05:30 — Companion half of the sales-tax move. src/lib/salesTax.ts is the single definition: the 88 80 00 constants, the line matcher, splitSalesTax, and the job-Phase-derived recoverable/consumed flag. createVendorBill appends the tax line and pins nonRecoverableTax to 0; setBillTax now creates/updates/deletes that LINE and clears any legacy field.
