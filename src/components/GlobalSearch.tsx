@@ -8,6 +8,7 @@ import { inputCls } from "@/components/ui";
 import { useAccess } from "@/components/AccessProvider";
 import { useCopy } from "@/components/CopyProvider";
 import { AREAS } from "@/lib/nav";
+import { searchHelp } from "@/lib/help";
 
 /**
  * The app's one search box — the widest item in the header row.
@@ -19,8 +20,12 @@ import { AREAS } from "@/lib/nav";
  * places, so you had to know which page to be on before you could ask. Here it
  * is chrome: every page can be searched from every page.
  *
- * FOUR KINDS OF ANSWER, cheapest first, each self-hiding and view-gated:
+ * FIVE KINDS OF ANSWER, cheapest first, each self-hiding and view-gated:
  *  - PAGES    — client-side over lib/nav's AREAS. Free, instant, always there.
+ *  - HELP     — client-side over lib/help's topics. "How do I clock in?" is a
+ *               question you ask the search box, not a page name you can guess,
+ *               so the answer belongs in the same panel. Each row opens the
+ *               topic on /help by its hash.
  *  - VENDORS  — client-side over the cached /api/vendors name list.
  *  - BILLS    — debounced /api/bill-search: vendors, invoice numbers AND line
  *               item text ("2x4"), out of the local index. The only network
@@ -145,6 +150,12 @@ export function GlobalSearch() {
       .slice(0, MAX_PAGES);
   }, [q, access, c]);
 
+  /* ------------------------------------------------------------------ help */
+  // The instructions, matched over the question, its steps, its notes and its
+  // keywords (see lib/help). Gated topic by topic — a topic about a page this
+  // role cannot open never appears.
+  const helpMatches = useMemo(() => searchHelp(q, access.can), [q, access]);
+
   /* --------------------------------------------------------------- vendors */
   const canSeeVendors = access.can("vendors");
   const [vendors, setVendors] = useState<{ id: string; name: string }[]>([]);
@@ -198,7 +209,11 @@ export function GlobalSearch() {
   const close = useCallback(() => setOpen(false), []);
 
   const hasAnything =
-    pageMatches.length > 0 || vendorMatches.length > 0 || bills.length > 0 || !!billNumberQuery;
+    pageMatches.length > 0 ||
+    helpMatches.length > 0 ||
+    vendorMatches.length > 0 ||
+    bills.length > 0 ||
+    !!billNumberQuery;
   const showPanel = open && q.length > 0;
 
   /**
@@ -271,7 +286,7 @@ export function GlobalSearch() {
           }
         }}
         placeholder="Search pages, vendors, bills…"
-        aria-label="Search pages, vendors, bills and line items"
+        aria-label="Search pages, help topics, vendors, bills and line items"
         className={`${inputCls} h-9 pl-8 text-[13px]`}
       />
 
@@ -327,6 +342,24 @@ export function GlobalSearch() {
                     onNavigate={close}
                     label={d.label}
                     desc={`${d.area} · ${d.desc}`}
+                  />
+                ))}
+              </Group>
+            )}
+
+            {helpMatches.length > 0 && (
+              <Group label="Help">
+                {helpMatches.map((t) => (
+                  <Row
+                    key={t.id}
+                    href={`/help#${t.id}`}
+                    onNavigate={close}
+                    label={t.q}
+                    desc={
+                      t.steps?.length
+                        ? `${t.steps.length} steps · ${t.steps[0].replace(/\*\*/g, "")}`
+                        : "Read the answer"
+                    }
                   />
                 ))}
               </Group>

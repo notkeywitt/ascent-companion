@@ -28,6 +28,7 @@ matching row here.
 | Standing structural review, agreed cleanup checklist | `ARCHITECTURE_REVIEW.md` |
 | The staged plan for ending client invoicing mistakes | `INVOICE_ACCURACY_PLAN.md` |
 | What each screen does, for the owner (end-user manual) | `USER_MANUAL.md` |
+| **The instructions the staff read INSIDE the app** — "how do I clock in?" | `src/lib/help.ts` (the topics) → the `/help` page |
 | How to deploy / env vars / Vercel | `DEPLOY.md` |
 | **Where a given file/feature lives (this doc)** | `CODEBASE_MAP.md` |
 | A guided course through the whole system, for the owner | `docs/course/README.md` |
@@ -43,7 +44,8 @@ matching row here.
 | **A job's invoice capture email tag** (the `_JT Invoice <Customer> - <Job>` Gmail label) | button on `src/app/clients/` → `src/app/clients/InvoiceTagCard.tsx` → `/api/clients/invoice-tag` → appscript `EmailToJtInvoice.js` (`listInvoiceTags`/`createInvoiceTag`). The label TEXT is always composed on the Apps Script side |
 | **Gating / who sees what** | `src/lib/views.ts` (the single source of truth: `VIEWS`, `ROLE_VIEWS`), enforced by `src/middleware.ts` |
 | **Nav / launcher / tabs** | `src/lib/nav.ts` (`AREAS` — the destination list), `src/app/page.tsx` (renders it), `src/components/TabBar.tsx` |
-| **The global search box** | `src/components/GlobalSearch.tsx` (the wide item in `AppHeader`'s one row) — matches pages via `src/lib/nav.ts`, vendors via `/api/vendors`, bills/line items via `/api/bill-search` |
+| **The global search box** | `src/components/GlobalSearch.tsx` (the wide item in `AppHeader`'s one row) — matches pages via `src/lib/nav.ts`, help topics via `src/lib/help.ts`, vendors via `/api/vendors`, bills/line items via `/api/bill-search` |
+| **The in-app instructions** (a wrong step, a new "how do I…") | `src/lib/help.ts` — the topics as data, written to ASD-STE100 (its header carries the rules, `help.test.ts` enforces the countable ones). Page: `src/app/help/` |
 | **The Pave gateway** (generic JobTread access + write policy) | `src/app/api/pave/route.ts` + `src/lib/paveGateway.ts` (policy) + `src/lib/paveGatewayClient.ts` (browser) |
 | **Verified JobTread reads/writes** (not the generic gateway) | `src/lib/jobtread.ts` |
 | **Billing period / bill-date rules** | `src/lib/billing.ts` (keep in lockstep with appscript `Config.js`) |
@@ -105,6 +107,7 @@ including edge middleware.
 | `notices.ts` ⟂ | **Who sees a notice, and when** — the audience match (groups OR named people, legacy single-target rows folded in) and the schedule window (`noticeStatus`: off / scheduled / live / ended). The reader's feed, the authoring route and the authoring panel all decide from here, so "it says Live" and "it shows" stay one claim. |
 | `noticeToasts.ts` | **Desktop alerts** — the browser's own Notification API, so a notice that arrives while the app sits in a BACKGROUND tab pops up in the corner of a computer's screen. `planToasts` is the pure rule (nothing toasts while the reader is looking at the app, nothing toasts twice per device, a burst is capped); the rest is the per-device on/off + already-toasted ledger in localStorage. NOT Web Push: nothing arrives with the app closed, and no iPhone has the API at all. |
 | `nav.ts` ⟂ | **The launcher's destination list** (`AREAS`) — the one place every gateable view is named. Read by BOTH the home launcher and the header's global search, which is why it's a module rather than living in `page.tsx`. |
+| `help.ts` ⟂ | **The in-app instructions, as data** — one topic per question ("How do I clock in?"), each naming the view it belongs to so a topic for a page you can't open is hidden. Read by BOTH the `/help` page and the header's search (`searchHelp`), the same reason `nav.ts` is a module. Written to **ASD-STE100** Simplified Technical English: the rules are in the file header, and `help.test.ts` enforces the countable ones (20 words a step, 25 a note, one sentence per step, no banned words). Every `**bold**` string is the text on a real control — when a page rewords a button, this file changes with it. |
 | `preview.ts` ⟂ | **Role preview** — the cookie name + helpers letting an admin view the app AS each role. The layout reads the cookie (honoring it only for a real admin) and hands that role's live view set to the nav, so the launcher/tabs render as that role sees them. Narrows only, never elevates. |
 | `previewClient.ts` | Browser half of the above: `startPreview`/`stopPreview` set/clear the cookie and reload so the server layout re-reads it. |
 | `auth.ts` ⟂ | Shared-password auth helpers (Web Crypto only; works in edge + node). |
@@ -296,8 +299,11 @@ Each page is a server component (`page.tsx`) that hands non-secret context to a
   in flight — reads `src/lib/sessionLog.generated.json`; see "The session
   ledger" below), `course` (the in-app "Reading Your Own App" walkthrough —
   `course/page.tsx` + `course/[seg]` reader; metadata `src/lib/course.ts`,
-  bodies `course/segments.tsx`, progress `src/lib/useCourseProgress.ts`), plus
-  `login`, `privacy` (ungated).
+  bodies `course/segments.tsx`, progress `src/lib/useCourseProgress.ts`),
+  `help` (the staff instructions — `help/page.tsx` + `help/HelpBrowser.tsx`
+  over the topics in `src/lib/help.ts`; the ONE view every role holds, and
+  `/help#<topic-id>` opens a single answer, which is what the header's search
+  links to), plus `login`, `privacy` (ungated).
 - **Root:** `page.tsx` (home launcher — the primary nav), `layout.tsx`,
   `manifest.ts`, `global-error.tsx`.
 

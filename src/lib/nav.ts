@@ -94,6 +94,7 @@ export const AREAS: Area[] = [
       { label: "Requests", href: "/requests", desc: "Ask for fixes and new features", view: "requests" },
       { label: "Actions", href: "/actions", desc: "Run a script job on demand", view: "actions" },
       { label: "Changelog", href: "/changelog", desc: "What changed in the app, and what is still unfinished", view: "changelog" },
+      { label: "Help", href: "/help", desc: "How to do the things this app does, step by step", view: "help" },
     ],
   },
   {
@@ -177,6 +178,9 @@ const REST_COMMON: Dest[] = [
   { label: "RFIs", href: "/rfis", desc: "View and create a job's RFIs", view: "rfis" },
   { label: "Requests", href: "/requests", desc: "Ask for fixes and new features", view: "requests" },
   { label: "Assistant", href: "/chat", desc: "Ask about a job's bills or budget", view: "chat" },
+  // Every role holds the "help" view (FIELD_VIEWS in lib/views), so this row is
+  // the one entry in this list that never hides — which is the point of it.
+  { label: "Help", href: "/help", desc: "How to do the things this app does, step by step", view: "help" },
 ];
 
 // Office's grid leaves off Tracking Sheets, Miles, and Time — the bottom tab

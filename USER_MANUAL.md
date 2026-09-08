@@ -11,6 +11,13 @@ back the specific changes you make (a cost code, a new draft bill, a time entry)
 not keep its own copy of your job data. When something looks wrong on a bill, you fix it
 in JobTread and it flows back — not the other way around.
 
+> **Looking for one answer, not the whole manual?** The app carries its own
+> instructions at **/help** — one short procedure per question ("How do I clock
+> in?"), written in Simplified Technical English, filtered to the pages your role
+> can open. The header's search box finds those answers too. This manual is the
+> long form: it explains a *screen*; a help topic answers a *question*. Keep the
+> two in step — the topics live in `src/lib/help.ts`.
+
 The app works two ways:
 
 - **On your phone** — a full mobile web app you can install to your home screen (see

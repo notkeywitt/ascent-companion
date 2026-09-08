@@ -69,6 +69,11 @@ The launcher (`src/app/page.tsx`) groups every screen into four areas:
 - **Admin** (`/admin`) — manage who can sign in (extra allowed emails on top of
   the env founders).
 - **Logs** (`/logs`) — the automation audit trail.
+- **Help** (`/help`) — the app's own instructions: one procedure per question,
+  written to ASD-STE100 Simplified Technical English, filtered to the pages the
+  signed-in role can open. Topics are data (`src/lib/help.ts`), so the header's
+  search offers them as answers and `/help#<topic>` links to one. The long-form
+  manual is `USER_MANUAL.md`.
 
 There is also a **Payments** screen (`/payments`) — one-click Sunset statement
 paying at TSYS, showing the printed early-pay discount (Gemini-extracted once and

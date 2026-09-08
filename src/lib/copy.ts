@@ -277,6 +277,12 @@ export const COPY: Record<string, CopyEntry> = {
     label: "Actions — description",
     group: "Home — Utilities",
   },
+  "home.dest.help.label": { text: "Help", label: "Help — name", group: "Home — Utilities" },
+  "home.dest.help.desc": {
+    text: "How to do the things this app does, step by step",
+    label: "Help — description",
+    group: "Home — Utilities",
+  },
 
   // ── Home launcher: Admin destinations ────────────────────────────────────
   "home.dest.admin.label": { text: "Admin", label: "Admin — name", group: "Home — Admin" },

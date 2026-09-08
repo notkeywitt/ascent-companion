@@ -279,6 +279,13 @@ export const VIEWS: ViewDef[] = [
   // /api/todos rides the same gate: it reads and CREATES JobTread to-dos for
   // the card, so it must not be reachable by a role the card is hidden from.
   { id: "digest", label: "To Dos", group: "System", paths: ["/api/digest", "/api/todos"] },
+  // The in-app instructions — /help. EVERY role holds this one (it is in
+  // FIELD_VIEWS below, the base every role inherits): a help page a crew member
+  // cannot open is worse than no help page. Read-only and self-contained — the
+  // topics are a data module compiled into the bundle (src/lib/help.ts) — so
+  // there is no API prefix to gate alongside it. The gate exists at all because
+  // the launcher and the header's search filter their rows by a view id.
+  { id: "help", label: "Help", group: "System", paths: ["/help"] },
   // "Reading Your Own App" — the in-app course through this codebase. Read-only,
   // no JobTread/DB access of its own (progress lives in the browser), so it needs
   // no API prefix. Office+admin by default (not in the FIELD/LEAD sets below).
@@ -326,12 +333,20 @@ export const ALL_VIEW_IDS: string[] = VIEWS.map((v) => v.id);
  * top of these.
  *
  * Field = every employee: the four one-tap launcher buttons plus self-service
- * time off (everyone must be able to request time off). Leads add the
+ * time off (everyone must be able to request time off) and the help page
+ * (everyone must be able to read how to use their own app). Leads add the
  * Financials menu. Office adds everything except the admin consoles. Admin gets
  * all of it.
  */
-// The four launcher quick buttons + self-service Time Off — granted to all.
-const FIELD_VIEWS: string[] = ["mileage", "employee-time", "tools", "requisitions", "time-off"];
+// The four launcher quick buttons + self-service Time Off + Help — granted to all.
+const FIELD_VIEWS: string[] = [
+  "mileage",
+  "employee-time",
+  "tools",
+  "requisitions",
+  "time-off",
+  "help",
+];
 // Leads additionally see the Financials menu (coding, invoicing, Sunset pay).
 const LEAD_VIEWS: string[] = [...FIELD_VIEWS, "coding", "stage", "recode", "payments"];
 // The admin-only consoles — access control + the audit log. No one below admin
