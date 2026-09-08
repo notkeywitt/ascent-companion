@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-08T13:27:27Z",
+  "generatedAt": "2026-09-08T17:50:09Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "claude/jobtread-qbo-sales-tax-lfqctd",
       "status": "shipped",
       "started": "2026-09-05T05:30:35Z",
-      "updated": "2026-09-08T13:27:26Z",
+      "updated": "2026-09-08T17:50:09Z",
       "goal": "",
-      "next": "Check the lead card on the phone: autosave feedback reads as 'Saving…' next to Job Details only.",
+      "next": "Check on the phone that approving a bill on /trackingsheet keeps the board and scroll position, with the quiet Refreshing line",
       "commits": [
         {
           "date": "2026-09-05",
@@ -186,6 +186,34 @@
           "sha": "5fa33cb",
           "subject": "companion: move project scope into job details",
           "files": "src/app/leads/page.tsx"
+        },
+        {
+          "date": "2026-09-08",
+          "time": "09:30",
+          "sha": "36b93fd",
+          "subject": "companion: put a job picker on the add bill page",
+          "files": "src/app/add-bill/page.tsx"
+        },
+        {
+          "date": "2026-09-08",
+          "time": "09:30",
+          "sha": "4e0c1b3",
+          "subject": "companion: log session 2026-09-05-jobtread-qbo-sales-tax",
+          "files": ""
+        },
+        {
+          "date": "2026-09-08",
+          "time": "09:57",
+          "sha": "e9b692a",
+          "subject": "companion: give every job-scoped page its own job picker",
+          "files": "src/app/chat/page.tsx, src/app/coding/page.tsx, src/app/labor-review/LaborReview.tsx, src/app/rfis/page.tsx, src/app/unbilled/page.tsx, src/components/JobPicker.tsx"
+        },
+        {
+          "date": "2026-09-08",
+          "time": "10:50",
+          "sha": "7bde0a8",
+          "subject": "companion: keep the tracking sheet on screen while it reloads",
+          "files": "src/app/trackingsheet/Board.tsx"
         }
       ]
     },

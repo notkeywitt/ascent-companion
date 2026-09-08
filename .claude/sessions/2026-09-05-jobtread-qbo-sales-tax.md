@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/jobtread-qbo-sales-tax-lfqctd
 status: shipped
 started: 2026-09-05T05:30:35Z
-updated: 2026-09-08T17:50:07Z
+updated: 2026-09-08T17:50:09Z
 goal: 
 next: Check on the phone that approving a bill on /trackingsheet keeps the board and scroll position, with the quiet Refreshing line
 ---
