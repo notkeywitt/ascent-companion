@@ -549,13 +549,16 @@ export default function LeadsPage() {
           return;
         }
         setScanErr("");
+        // Tagging the emails is the cosmetic half — the leads are filed either
+        // way — so a tagging failure is a footnote on the note, never an error.
+        const tagNote = json.tagError ? " Couldn't tag the emails in Gmail." : "";
         if (json.added > 0) {
           const what = json.added === 1 ? "inquiry" : "inquiries";
           const who = json.names?.length ? `: ${json.names.join(", ")}` : "";
-          setScanNote(`${json.added} new website ${what}${who}.`);
+          setScanNote(`${json.added} new website ${what}${who}.${tagNote}`);
           await load();
         } else if (manual) {
-          setScanNote("No new website inquiries.");
+          setScanNote(`No new website inquiries.${tagNote}`);
         }
       } catch (e) {
         if (manual) setScanErr(e instanceof Error ? e.message : "Network error");
