@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { JobPicker } from "@/components/JobPicker";
 import { Banner, Button, Card, Label, PageHeader, Select, btn } from "@/components/ui";
 
 interface VendorRef {
@@ -88,7 +89,10 @@ function BillPreview({
 
 function AddBill() {
   const search = useSearchParams();
-  const jobId = (search.get("jobId") ?? "").trim();
+  // The job is picked HERE. It seeds from ?jobId so the header's Add bill button
+  // still lands on the job you were looking at, but the header no longer carries
+  // an app-wide picker — so without one on the page there was no way to set it.
+  const [jobId, setJobId] = useState((search.get("jobId") ?? "").trim());
 
   const [file, setFile] = useState<File | null>(null);
   // Idempotency key — generated ONCE per chosen file so a retry of the same
@@ -228,14 +232,19 @@ function AddBill() {
         description="Snap or upload an invoice — Gemini extracts and codes it, and it lands as a draft vendor bill in the coding queue."
       />
 
-      {!jobId && (
-        <Banner tone="info" className="mb-4">
-          Pick a job above first — the bill is created on that job.
-        </Banner>
-      )}
-
       {!done && (
         <section className="space-y-4">
+          <div>
+            <Label>Job</Label>
+            <JobPicker
+              value={jobId}
+              onChange={setJobId}
+              includeAll={false}
+              placeholder="Choose a job…"
+            />
+            <p className="mt-1 text-xs text-neutral-500">The bill is created on this job.</p>
+          </div>
+
           <div>
             <Label>Invoice (PDF or photo)</Label>
             <input
