@@ -2,9 +2,9 @@
 slug: daily-digest-to-todos
 repo: ascent-companion
 branch: claude/daily-digest-to-todos-kosc2a
-status: in-progress
+status: shipped
 started: 2026-09-08T05:31:42Z
-updated: 2026-09-08T05:32:10Z
+updated: 2026-09-08T05:32:16Z
 goal: 
 next: on the phone: add a to-do from the card and confirm it lands on the right job in JobTread; then decide whether digest_todos (Reminders) and /api/digest/reply get retired
 ---
