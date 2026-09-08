@@ -471,12 +471,10 @@ const STALE_TONE: Record<QuietBand, ChipTone> = {
 const staleTone = (days: number | null, t: LeadQuietThresholds): ChipTone =>
   STALE_TONE[quietBand(days, t)];
 
-const URGENCY_CHIP: Record<Urgency, { tone: ChipTone; label: string } | null> = {
-  overdue: { tone: "danger", label: "Overdue" },
-  unset: { tone: "warning", label: "No next step" },
-  due: { tone: "info", label: "Due today" },
-  ok: null,
-};
+/** The saved fields of a tracking row, as one string — used to tell an edited
+ *  form from the row it came from, without comparing updatedAt. */
+const trackingKey = (t: Tracking) =>
+  [t.stage, t.nextAction, t.nextActionDate, t.lastContactDate, t.estValue, t.notes].join("\u0000");
 
 /* -------------------------------------------------------------------- page */
 
@@ -1103,7 +1101,6 @@ function LeadCard({
   /** Reload the board — a push, edit or delete changes more than one card. */
   onChanged: () => void;
 }) {
-  const urgency = URGENCY_CHIP[derived.urgency];
   const quiet = derived.quietDays;
 
   return (
@@ -1135,7 +1132,6 @@ function LeadCard({
                 Not in JT
               </Chip>
             )}
-            {urgency && <Chip tone={urgency.tone}>{urgency.label}</Chip>}
             {quiet !== null && (
               <Chip
                 tone={staleTone(quiet, thresholds)}
@@ -1212,24 +1208,36 @@ function LeadDetail({
     void loadLog();
   }, [loadLog]);
 
-  async function saveTracking() {
-    setSaving(true);
-    setErr("");
-    try {
-      const res = await fetch("/api/leads", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ accountId: lead.id, ...form }),
-      });
-      const json = await res.json();
-      if (!res.ok) setErr(json.error ?? "Save failed");
-      else onTracking(json.tracking);
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : "Network error");
-    } finally {
-      setSaving(false);
-    }
-  }
+  const saveTracking = useCallback(
+    async (t: Tracking) => {
+      setSaving(true);
+      setErr("");
+      try {
+        const res = await fetch("/api/leads", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ accountId: lead.id, ...t }),
+        });
+        const json = await res.json();
+        if (!res.ok) setErr(json.error ?? "Save failed");
+        else onTracking(json.tracking);
+      } catch (e) {
+        setErr(e instanceof Error ? e.message : "Network error");
+      } finally {
+        setSaving(false);
+      }
+    },
+    [lead.id, onTracking],
+  );
+
+  // The tracking fields have no save button: an edit writes itself once typing
+  // stops. The saved row comes back through onTracking, so the next run of this
+  // effect sees the form and the row agree and does nothing.
+  useEffect(() => {
+    if (trackingKey(form) === trackingKey(lead.tracking)) return;
+    const id = setTimeout(() => void saveTracking(form), 700);
+    return () => clearTimeout(id);
+  }, [form, lead.tracking, saveTracking]);
 
   async function logTouch() {
     setLogging(true);
@@ -1269,20 +1277,7 @@ function LeadDetail({
 
       {/* --------------------------------------- where the lead lives today */}
       <section className="space-y-2">
-        <SectionHeading
-          trailing={
-            lead.local ? undefined : (
-              <JtLink
-                href={`https://app.jobtread.com/customers/${lead.id}`}
-                className="text-xs font-semibold text-accent hover:underline"
-              >
-                Open in JobTread ↗
-              </JtLink>
-            )
-          }
-        >
-          {lead.local ? "Logged here" : "From JobTread"}
-        </SectionHeading>
+        <SectionHeading>{lead.local ? "Logged here" : "Customer Details"}</SectionHeading>
 
         <dl className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs">
           <Field label={lead.local ? "Logged" : "Created"} value={fmtDate(lead.createdAt)} />
@@ -1324,27 +1319,10 @@ function LeadDetail({
         {lead.notes && (
           <details className="text-xs">
             <summary className="cursor-pointer font-semibold text-neutral-600 dark:text-neutral-300">
-              {lead.local ? "Our notes" : "JobTread notes"}
+              Notes
             </summary>
             <p className="mt-1 whitespace-pre-wrap text-neutral-600 dark:text-neutral-400">{lead.notes}</p>
           </details>
-        )}
-
-        {lead.jobs.length > 0 && (
-          <div className="text-xs">
-            <span className="font-semibold text-neutral-600 dark:text-neutral-300">Jobs: </span>
-            {lead.jobs.map((j, i) => (
-              <span key={j.id}>
-                {i > 0 && ", "}
-                <JtLink
-                  href={`https://app.jobtread.com/jobs/${j.id}`}
-                  className="text-accent hover:underline"
-                >
-                  {j.name}
-                </JtLink>
-              </span>
-            ))}
-          </div>
         )}
 
         {openTasks.length > 0 && (
@@ -1357,17 +1335,13 @@ function LeadDetail({
         )}
       </section>
 
-      {/* ----------------------------------------- the intake answers, if any */}
-      {lead.inquiry && <InquiryPanel inquiry={lead.inquiry} onChanged={onChanged} />}
-
-      {/* ------------------------- what a local lead can do that a JT one can't */}
-      {lead.local && lead.inquiry && (
-        <LocalLeadPanel inquiry={lead.inquiry} onChanged={onChanged} />
-      )}
-
-      {/* ------------------------------------------------------- tracking */}
+      {/* ------------------------------------------------------- job details */}
       <section className="space-y-2">
-        <SectionHeading>Tracking</SectionHeading>
+        <SectionHeading
+          trailing={saving ? <span className="text-[11px] text-neutral-500">Saving…</span> : undefined}
+        >
+          Job Details
+        </SectionHeading>
         <div className="grid grid-cols-2 gap-2">
           <div>
             <Label htmlFor={`stage-${lead.id}`}>Stage</Label>
@@ -1393,6 +1367,21 @@ function LeadDetail({
               onChange={(e) => setForm({ ...form, estValue: e.target.value })}
             />
           </div>
+        </div>
+      </section>
+
+      {/* ----------------------------------------- the intake answers, if any */}
+      {lead.inquiry && <InquiryPanel inquiry={lead.inquiry} onChanged={onChanged} />}
+
+      {/* ------------------------- what a local lead can do that a JT one can't */}
+      {lead.local && lead.inquiry && (
+        <LocalLeadPanel inquiry={lead.inquiry} onChanged={onChanged} />
+      )}
+
+      {/* ------------------------------------------------------- contact log */}
+      <section className="space-y-2">
+        <SectionHeading>Contact log</SectionHeading>
+        <div className="grid grid-cols-2 gap-2">
           <div className="col-span-2">
             <Label htmlFor={`scope-${lead.id}`}>Project scope</Label>
             <Textarea
@@ -1434,24 +1423,14 @@ function LeadDetail({
             />
           </div>
           <div className="col-span-2">
-            <Label htmlFor={`notes-${lead.id}`}>Our notes</Label>
+            <Label htmlFor={`ournotes-${lead.id}`}>Our notes</Label>
             <Textarea
-              id={`notes-${lead.id}`}
+              id={`ournotes-${lead.id}`}
               rows={2}
               value={form.notes}
               onChange={(e) => setForm({ ...form, notes: e.target.value })}
             />
           </div>
-        </div>
-        <Button size="sm" onClick={() => void saveTracking()} disabled={saving}>
-          {saving ? "Saving…" : "Save tracking"}
-        </Button>
-      </section>
-
-      {/* ------------------------------------------------------- contact log */}
-      <section className="space-y-2">
-        <SectionHeading>Contact log</SectionHeading>
-        <div className="grid grid-cols-2 gap-2">
           <div>
             <Label htmlFor={`kind-${lead.id}`}>What happened</Label>
             <Select
@@ -1513,6 +1492,15 @@ function LeadDetail({
           </ul>
         )}
       </section>
+
+      {!lead.local && (
+        <JtLink
+          href={`https://app.jobtread.com/customers/${lead.id}`}
+          className="block text-xs font-semibold text-accent hover:underline"
+        >
+          Open in JobTread ↗
+        </JtLink>
+      )}
     </div>
   );
 }
