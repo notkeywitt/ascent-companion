@@ -1,10 +1,14 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import {
+  LEAD_QUIET_DEFAULTS,
+  LEAD_QUIET_MAX,
   contactLine,
   daysSince,
   fmtDate,
   leadAddress,
   leadScope,
+  normalizeThresholds,
+  quietBand,
   sortLeadCards,
   toLeadCard,
   type LeadLike,
@@ -136,5 +140,75 @@ describe("contactLine", () => {
       "No contact logged · 7 days since it arrived",
     );
     expect(contactLine(toLeadCard(lead({ id: "a", createdAt: "" })))).toBe("No contact logged");
+  });
+});
+
+describe("normalizeThresholds", () => {
+  it("keeps a sane pair as typed", () => {
+    expect(normalizeThresholds({ warnDays: 5, alertDays: 21 })).toEqual({
+      warnDays: 5,
+      alertDays: 21,
+    });
+  });
+  it("takes the numbers out of strings, which is what a form sends", () => {
+    expect(normalizeThresholds({ warnDays: "3", alertDays: "9" })).toEqual({
+      warnDays: 3,
+      alertDays: 9,
+    });
+  });
+  it("falls back to the defaults for a blank or unreadable field", () => {
+    expect(normalizeThresholds({})).toEqual(LEAD_QUIET_DEFAULTS);
+    // A BLANK field is absent, not zero — Number("") is 0, and clamping that to
+    // 1 day would turn every lead amber.
+    expect(normalizeThresholds({ warnDays: "", alertDays: "soon" })).toEqual(
+      LEAD_QUIET_DEFAULTS,
+    );
+    expect(normalizeThresholds({ warnDays: "  ", alertDays: null })).toEqual(
+      LEAD_QUIET_DEFAULTS,
+    );
+  });
+  it("never lets a threshold be zero, negative, or fractional", () => {
+    expect(normalizeThresholds({ warnDays: 0, alertDays: -4 })).toEqual({
+      warnDays: 1,
+      alertDays: 2,
+    });
+    expect(normalizeThresholds({ warnDays: 2.6, alertDays: 8.2 })).toEqual({
+      warnDays: 3,
+      alertDays: 8,
+    });
+  });
+  it("widens red past amber rather than rejecting a swapped pair", () => {
+    expect(normalizeThresholds({ warnDays: 20, alertDays: 5 })).toEqual({
+      warnDays: 20,
+      alertDays: 21,
+    });
+    // Equal is not a band either — red must start strictly after amber.
+    expect(normalizeThresholds({ warnDays: 10, alertDays: 10 })).toEqual({
+      warnDays: 10,
+      alertDays: 11,
+    });
+  });
+  it("caps both ends at a year", () => {
+    expect(normalizeThresholds({ warnDays: 9999, alertDays: 9999 })).toEqual({
+      warnDays: LEAD_QUIET_MAX,
+      alertDays: LEAD_QUIET_MAX,
+    });
+  });
+});
+
+describe("quietBand", () => {
+  const t = { warnDays: 7, alertDays: 14 };
+  it("bands on the threshold day itself, not the day after", () => {
+    expect(quietBand(6, t)).toBe("ok");
+    expect(quietBand(7, t)).toBe("warn");
+    expect(quietBand(13, t)).toBe("warn");
+    expect(quietBand(14, t)).toBe("alert");
+  });
+  it("follows a threshold the office moves", () => {
+    expect(quietBand(4, { warnDays: 3, alertDays: 5 })).toBe("warn");
+    expect(quietBand(4, { warnDays: 10, alertDays: 20 })).toBe("ok");
+  });
+  it("says unknown when there is no date to judge", () => {
+    expect(quietBand(null, t)).toBe("unknown");
   });
 });

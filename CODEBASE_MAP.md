@@ -61,7 +61,7 @@ matching row here.
 | **A single bill page** | `src/app/bill/[docId]/page.tsx` + `src/app/api/bill/*` |
 | **PTO / sick accrual** | pure math `src/lib/leave.ts`; server orchestration `src/lib/leaveService.ts`; UI `src/app/time-off/` + `src/app/api/time-off/*` |
 | **Employee time / clock** | `src/app/employee-time/` + `src/app/api/employee-time/*`; back end is appscript `EmployeeTime.js` |
-| **Leads / lead board** | read `src/lib/leads.ts`; the one write `src/lib/leadPush.ts`; UI `src/app/leads/` + `src/app/api/leads/*`; the home page's Leads panel `src/components/HomeLeadBoard.tsx` + `src/lib/leadBoard.ts` |
+| **Leads / lead board** | read `src/lib/leads.ts`; the one write `src/lib/leadPush.ts`; UI `src/app/leads/` + `src/app/api/leads/*`; the home page's Leads panel `src/components/HomeLeadBoard.tsx` + `src/lib/leadBoard.ts`; the org's amber/red thresholds `src/lib/leadSettings.ts` + `/api/leads/settings` |
 | **The chat assistant** | engine `src/lib/anthropic.ts`, tools `src/lib/chatTools.ts`, UI `src/app/chat/` + `src/app/api/chat` |
 | **Anything Sheets/Drive-backed** (employees, tools, mileage, safety, requisitions, Sunset, tracking sheets, audit log) | `src/lib/appsScript.ts` (the one client over the shared secret) → the matching appscript `.js` file |
 | **Invoice/Amazon extraction (Gemini)** | `src/lib/gemini.ts`, `src/lib/amazonImport.ts` |
@@ -123,7 +123,8 @@ including edge middleware.
 | `clientDirectory.ts` | **The customer/job directory, and the only write path onto those records.** Reads are two-phase because they must be: `jobs` nested inside a paged `organization.accounts` returns 413, so it pages the two flat connections and joins on `job.location.account.id`; custom-field VALUES are the same trap, so the list carries Phase and Status read per FIELD and the rest per record. Writes are an ALLOWLIST (`JOB_WRITABLE` and its three siblings) — everything else JobTread exposes stays read-only, and two kinds are held back on purpose: `defaultRetainagePercentage` (a bare unbounded "number" — the unit is stated nowhere) and `customTaxRate` (bounds ARE stated; it is withheld because it decides what a client is taxed), plus MULTI-VALUE custom fields, whose array-replace behaviour is unprobed. `updateAccount` always sends `notify:false` — it defaults to TRUE, and fixing a spelling must not mail the customer. Every write re-reads the record, because `update*` returns a bare `root` and because a location's tidied address/city/state/ZIP are derived from what was typed. |
 | `leadPush.ts` | The ONE write in the leads feature — pushes a logged lead into JobTread as a customer. |
 | `leadInquiry.ts` | Web-inquiry lead parsing/normalization. |
-| `leadBoard.ts` ⟂ | **The lead card's shape + the date math both lead surfaces share** — the day arithmetic (`daysSince`, `fmtDate`, `today`), the scope/address fallback chains, and the order-by-last-contact sort the home panel offers. Client-safe, like `jobBoard.ts`. The rule worth knowing: a lead with NO touch ever logged is ordered from the day it arrived, so a new lead nobody has called cannot hide at the fresh end of the row. Unit-tested. |
+| `leadSettings.ts` | The DB half of the quiet thresholds — read and write the ONE `lead_settings` row. Server-only, which is why it is not in `leadBoard.ts`: the pure half (defaults, validation, banding) has to stay client-safe. Read fresh, never cached; the point of the setting is that moving it shows on the next load. |
+| `leadBoard.ts` ⟂ | **The lead card's shape + the date math both lead surfaces share** — the day arithmetic (`daysSince`, `fmtDate`, `today`), the scope/address fallback chains, and the order-by-last-contact sort the home panel offers. Client-safe, like `jobBoard.ts`. Also the PURE half of the amber/red thresholds — `LEAD_QUIET_DEFAULTS`, `normalizeThresholds` (clamps rather than rejects; a BLANK field is absent, not zero, or it would clamp to 1 day and turn every lead amber) and `quietBand`, the one function both surfaces colour from. The rule worth knowing: a lead with NO touch ever logged is ordered from the day it arrived, so a new lead nobody has called cannot hide at the fresh end of the row. Unit-tested. |
 | `timeSync.ts` | Worked-time reconciliation/retry — surfaces records saved to the sheet but not yet in JobTread. |
 | `appsScript.ts` | The one client for the Apps Script web app — every Sheets/Drive feature POSTs `{action, secret, …}` here. |
 | `anthropic.ts` | Claude chat engine — the server-side tool-use loop behind `/chat` (server-only). |
@@ -413,6 +414,8 @@ Grouped by domain; each folder is `…/route.ts`.
 `schema.ts` tables: `allowed_users`, `role_access`, `usage_events`,
 `saved_bills`, `feature_requests`, `flagged_time_entries`,
 `labor_rate_catalog`, `labor_rate_groups`, `leads`, `lead_activities`,
+`lead_settings` (ONE row — the org's amber/red quiet thresholds; no row means
+the defaults in `lib/leadBoard.ts`),
 `lead_inquiries`, `lead_inquiry_dismissals`, `leave_policies`, `leave_balances`,
 `leave_requests`, `leave_transactions`, `jt_user_links`, `notices`,
 `notice_reads`, `rfis`, `sunset_statements`, `page_copy`, `bill_index`,

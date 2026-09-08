@@ -14,13 +14,18 @@ import {
 import { useAccess } from "@/components/AccessProvider";
 import {
   LEAD_ORDERS,
+  LEAD_QUIET_DEFAULTS,
   contactLine,
   fmtDate,
+  normalizeThresholds,
+  quietBand,
   sortLeadCards,
   toLeadCard,
   type LeadCard,
   type LeadLike,
   type LeadOrder,
+  type LeadQuietThresholds,
+  type QuietBand,
 } from "@/lib/leadBoard";
 
 /**
@@ -46,13 +51,17 @@ const OPEN_KEY = "home.leadsOpen";
 /** Where it remembers which end of the contact timeline comes first. */
 const ORDER_KEY = "home.leadsOrder";
 
-/** Amber past a week of silence, red past two — the same bands as /leads. */
-function quietColor(days: number | null): string {
-  if (days === null) return "text-neutral-500";
-  if (days >= 14) return "text-red-600 dark:text-red-400";
-  if (days >= 7) return "text-amber-600 dark:text-amber-400";
-  return "text-neutral-800 dark:text-neutral-100";
-}
+/**
+ * The figure's colour, from the org's own thresholds (Leads → Colour
+ * thresholds). The same `quietBand` the /leads chips read, so the two surfaces
+ * cannot disagree about when a lead has gone quiet.
+ */
+const QUIET_COLOR: Record<QuietBand, string> = {
+  unknown: "text-neutral-500",
+  ok: "text-neutral-800 dark:text-neutral-100",
+  warn: "text-amber-600 dark:text-amber-400",
+  alert: "text-red-600 dark:text-red-400",
+};
 
 const STAGE_LABELS: Record<string, string> = {
   new: "New",
@@ -68,8 +77,9 @@ const stageLabel = (id: string) => STAGE_LABELS[id] ?? id;
  * lead opened — every control that could change the lead lives there, so the
  * card needs no second gesture of its own (unlike the job card's drilldown).
  */
-function LeadBoardCard({ c }: { c: LeadCard }) {
+function LeadBoardCard({ c, thresholds }: { c: LeadCard; thresholds: LeadQuietThresholds }) {
   const quiet = c.quietDays;
+  const band = quietBand(quiet, thresholds);
   return (
     <Link
       href={`/leads#${encodeURIComponent(c.id)}`}
@@ -95,7 +105,7 @@ function LeadBoardCard({ c }: { c: LeadCard }) {
         {/* The card's ONE figure: how long this lead has been quiet. It is what
             the row is ordered by, so it is what the eye should land on. */}
         <div className="flex items-baseline gap-2 border-t border-line-soft pt-2">
-          <span className={`text-2xl font-bold tabular-nums ${quietColor(quiet)}`}>
+          <span className={`text-2xl font-bold tabular-nums ${QUIET_COLOR[band]}`}>
             {quiet === null ? "—" : quiet}
           </span>
           <span className="text-[11px] text-neutral-500 dark:text-neutral-400">
@@ -140,6 +150,10 @@ export function HomeLeadBoard() {
   const [leads, setLeads] = useState<LeadLike[] | null>(null);
   const [open, setOpen] = useState(true);
   const [order, setOrder] = useState<LeadOrder>("quiet");
+  /* The org's amber/red thresholds, which arrive with the leads in one fetch
+     (see /api/leads). The defaults stand in only for the moment before that
+     answers, so the first paint can never be a wrong colour for long. */
+  const [thresholds, setThresholds] = useState<LeadQuietThresholds>(LEAD_QUIET_DEFAULTS);
 
   /* Read the two remembered choices in an effect, not in the initial state:
      this page is server-rendered too, and a first render that read `window`
@@ -180,7 +194,9 @@ export function HomeLeadBoard() {
     fetch("/api/leads")
       .then((r) => r.json())
       .then((j) => {
-        if (!cancelled) setLeads(j.error ? [] : (j.leads ?? []));
+        if (cancelled) return;
+        setLeads(j.error ? [] : (j.leads ?? []));
+        if (j.quiet) setThresholds(normalizeThresholds(j.quiet));
       })
       .catch(() => {
         if (!cancelled) setLeads([]); // a panel that can't load just isn't there
@@ -205,7 +221,9 @@ export function HomeLeadBoard() {
   }
   if (cards.length === 0) return null;
 
-  const quiet14 = cards.filter((c) => (c.quietDays ?? 0) >= 14).length;
+  // The heading's own count uses the RED threshold, so the chip and the red
+  // figures on the cards are always counting the same leads.
+  const overAlert = cards.filter((c) => quietBand(c.quietDays, thresholds) === "alert").length;
 
   return (
     <section className="mb-6 space-y-2">
@@ -214,9 +232,12 @@ export function HomeLeadBoard() {
         open={open}
         trailing={
           <span className="flex items-center gap-2">
-            {quiet14 > 0 && (
-              <Chip tone="danger" title="No contact logged in 14+ days">
-                {quiet14} quiet
+            {overAlert > 0 && (
+              <Chip
+                tone="danger"
+                title={`No contact logged in ${thresholds.alertDays}+ days`}
+              >
+                {overAlert} quiet
               </Chip>
             )}
             <span className="text-[11px] tabular-nums text-neutral-500">{cards.length}</span>
@@ -250,7 +271,7 @@ export function HomeLeadBoard() {
               off — the same trick the job board and ChipScroller use. */}
           <div className="-mx-4 flex items-stretch gap-3 overflow-x-auto px-4 pb-1 xl:-mx-8 xl:px-8">
             {cards.map((c) => (
-              <LeadBoardCard key={c.id} c={c} />
+              <LeadBoardCard key={c.id} c={c} thresholds={thresholds} />
             ))}
           </div>
         </>

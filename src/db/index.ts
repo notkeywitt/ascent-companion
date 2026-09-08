@@ -441,6 +441,17 @@ async function applySchema() {
   } catch {
     /* column already exists */
   }
+  // When a quiet lead turns amber, then red — one row, org-wide. No row means
+  // the defaults in lib/leadBoard.ts, so this table only holds a real change.
+  await getClient().execute(`
+    CREATE TABLE IF NOT EXISTS lead_settings (
+      id TEXT PRIMARY KEY,
+      warn_days INTEGER NOT NULL DEFAULT 7,
+      alert_days INTEGER NOT NULL DEFAULT 14,
+      updated_at TEXT NOT NULL DEFAULT '',
+      updated_by TEXT NOT NULL DEFAULT ''
+    )
+  `);
   await getClient().execute(`
     CREATE TABLE IF NOT EXISTS lead_activities (
       id INTEGER PRIMARY KEY AUTOINCREMENT,

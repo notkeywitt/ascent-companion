@@ -128,6 +128,68 @@ export function toLeadCard(lead: LeadLike): LeadCard {
   };
 }
 
+/* ------------------------------------------------------- quiet thresholds */
+
+/**
+ * When a quiet lead starts showing amber, and when it goes red. ONE definition
+ * for the whole app: the home panel's card colour, the /leads card chips, that
+ * page's "Gone quiet" filter and its headline count all read these, so the
+ * board cannot say a lead is quiet while the panel paints it calm.
+ *
+ * Org-wide and DB-backed (`lead_settings`, one row) rather than per device —
+ * a threshold the office and the owner disagree about is not a threshold.
+ * These are the values a database with no row yet falls back to.
+ */
+export interface LeadQuietThresholds {
+  /** Days of silence before a lead reads amber. */
+  warnDays: number;
+  /** Days of silence before it reads red. */
+  alertDays: number;
+}
+
+export const LEAD_QUIET_DEFAULTS: LeadQuietThresholds = { warnDays: 7, alertDays: 14 };
+
+/** The widest either threshold may be set to. A year of silence is not a lead. */
+export const LEAD_QUIET_MAX = 365;
+
+/**
+ * Force any input into a usable pair. The route and the form both run this, so
+ * a hand-typed 0, a blank field, a swapped pair or a string out of JSON can
+ * never reach the colour maths.
+ *
+ * `alertDays` is pushed to at least `warnDays + 1`, not rejected: a saved pair
+ * where red starts before amber would paint amber on a band that no longer
+ * exists, and silently widening the red band is the reading the office meant.
+ */
+export function normalizeThresholds(raw: Partial<Record<keyof LeadQuietThresholds, unknown>>): LeadQuietThresholds {
+  const whole = (v: unknown, fallback: number): number => {
+    // A BLANK field is absent, not zero. Number("") is 0, which is finite, so
+    // without this an empty input would clamp to 1 day and silently make every
+    // lead amber instead of leaving the threshold alone.
+    if (v === null || v === undefined) return fallback;
+    if (typeof v === "string" && v.trim() === "") return fallback;
+    const n = Math.round(Number(v));
+    if (!Number.isFinite(n)) return fallback;
+    return Math.min(LEAD_QUIET_MAX, Math.max(1, n));
+  };
+  const warnDays = whole(raw.warnDays, LEAD_QUIET_DEFAULTS.warnDays);
+  const alertDays = Math.min(
+    LEAD_QUIET_MAX,
+    Math.max(warnDays + 1, whole(raw.alertDays, LEAD_QUIET_DEFAULTS.alertDays)),
+  );
+  return { warnDays, alertDays };
+}
+
+/** Which band a lead's silence falls in. `null` days = no dates to judge. */
+export type QuietBand = "unknown" | "ok" | "warn" | "alert";
+
+export function quietBand(days: number | null, t: LeadQuietThresholds): QuietBand {
+  if (days === null) return "unknown";
+  if (days >= t.alertDays) return "alert";
+  if (days >= t.warnDays) return "warn";
+  return "ok";
+}
+
 /* ------------------------------------------------------------------ order */
 
 /**

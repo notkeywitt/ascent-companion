@@ -404,6 +404,28 @@ export type Lead = typeof leads.$inferSelect;
 export type NewLead = typeof leads.$inferInsert;
 
 /**
+ * When a quiet lead turns amber, and when it turns red. ONE row, org-wide.
+ *
+ * Org-wide rather than per device on purpose: these thresholds are also what
+ * the /leads "Gone quiet" filter and its headline count mean, so a per-device
+ * value would let the board call a lead quiet while the home panel painted it
+ * calm. The defaults live in lib/leadBoard.ts (`LEAD_QUIET_DEFAULTS`) and are
+ * what NO ROW means — this table only ever holds a deliberate change.
+ */
+export const leadSettings = sqliteTable("lead_settings", {
+  id: text("id").primaryKey(), // always LEAD_SETTINGS_ID — one row, ever
+  warnDays: integer("warn_days").notNull().default(7),
+  alertDays: integer("alert_days").notNull().default(14),
+  updatedAt: text("updated_at").notNull().default(""),
+  updatedBy: text("updated_by").notNull().default(""),
+});
+
+/** The only primary key `lead_settings` ever uses. */
+export const LEAD_SETTINGS_ID = "default";
+
+export type LeadSettingsRow = typeof leadSettings.$inferSelect;
+
+/**
  * The contact log for a lead — one row per touch (call, email, meeting, site
  * visit, or a bare note). Append-only from the UI's point of view.
  *

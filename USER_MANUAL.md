@@ -158,9 +158,15 @@ the row of admin action buttons at the very bottom of the page.
   Each card carries the client name, the address, the date of the last logged
   contact, the project scope and the next step. Two chips flip the order:
   **Longest ago** (the default — who has gone quiet) and **Most recent**. Tap the
-  heading to fold the whole panel away; the phone remembers. Tap a card to open
-  that lead on the **Leads** page, which is where you write the scope and the next
-  step.
+  heading to fold the whole panel away; the phone remembers. Tap a card and you
+  land on that lead on the **Leads** page — it scrolls to it and opens it, which
+  is where you write the scope and the next step.
+
+  The day count on each card turns **amber**, then **red**, as a lead goes quiet.
+  You set both points yourself: **Leads → Colour thresholds**. That one setting
+  also drives the quiet marks on the Leads page, its **Gone quiet** filter and its
+  **Quiet** headline count, so nothing can call a lead quiet while the panel
+  paints it calm. It applies to everyone, not just the device you set it on.
 
 ### Sync Drive
 

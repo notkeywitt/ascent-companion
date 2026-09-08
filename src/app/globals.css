@@ -328,6 +328,13 @@ html .group:hover .group-hover\:text-accent {
 .max-h-below-header {
   max-height: calc(100dvh - var(--appheader-h) - 1.5rem);
 }
+/* For an element scrollIntoView() must land BELOW the sticky header — without
+   this it stops with the element's top at viewport 0, i.e. hidden under the
+   chrome. Reads the same measured number as the two rules above. Used by the
+   Leads page when the home panel deep-links a lead (/leads#<id>). */
+.scroll-below-header {
+  scroll-margin-top: calc(var(--appheader-h) + 0.75rem);
+}
 
 body {
   /* Both grounds are palette variables — one rule serves every palette and both

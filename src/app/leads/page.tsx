@@ -42,7 +42,17 @@ import {
   type ChipTone,
 } from "@/components/ui";
 import { BLANK_INQUIRY, INQUIRY_ROWS, type InquiryFields } from "@/lib/leadInquiry";
-import { daysSince, fmtDate, today } from "@/lib/leadBoard";
+import {
+  LEAD_QUIET_DEFAULTS,
+  LEAD_QUIET_MAX,
+  daysSince,
+  fmtDate,
+  normalizeThresholds,
+  quietBand,
+  today,
+  type LeadQuietThresholds,
+  type QuietBand,
+} from "@/lib/leadBoard";
 
 import { LeadIntakeForm } from "./LeadIntakeForm";
 
@@ -446,13 +456,20 @@ function printLeads(rows: { lead: Lead; d: Derived }[]): void {
   win.document.close();
 }
 
-/** Amber past a week of silence, red past two. */
-function staleTone(days: number | null): ChipTone {
-  if (days === null) return "neutral";
-  if (days >= 14) return "danger";
-  if (days >= 7) return "warning";
-  return "neutral";
-}
+/**
+ * The quiet chip's tone, from the org's own thresholds (the "Colour thresholds"
+ * control below). The banding itself is `quietBand` in lib/leadBoard.ts, shared
+ * with the home page's Leads panel — so the chip here and the figure there
+ * always turn amber and red on the same day.
+ */
+const STALE_TONE: Record<QuietBand, ChipTone> = {
+  unknown: "neutral",
+  ok: "neutral",
+  warn: "warning",
+  alert: "danger",
+};
+const staleTone = (days: number | null, t: LeadQuietThresholds): ChipTone =>
+  STALE_TONE[quietBand(days, t)];
 
 const URGENCY_CHIP: Record<Urgency, { tone: ChipTone; label: string } | null> = {
   overdue: { tone: "danger", label: "Overdue" },
@@ -478,6 +495,14 @@ export default function LeadsPage() {
   const [draftNote, setDraftNote] = useState<{ tone: "info" | "warning"; text: string } | null>(
     null,
   );
+  /* The org's amber/red thresholds. They arrive with the leads in the same
+     fetch, so the chips are never painted with the wrong bands first. */
+  const [thresholds, setThresholds] = useState<LeadQuietThresholds>(LEAD_QUIET_DEFAULTS);
+  /* The lead named in the URL fragment, until we have scrolled to it. Separate
+     from `openId` because openId survives (the card stays open) while this is
+     cleared the moment the scroll happens — otherwise every later reload would
+     yank the page back to it. */
+  const [pendingScroll, setPendingScroll] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -486,7 +511,10 @@ export default function LeadsPage() {
       const res = await fetch("/api/leads");
       const json = await res.json();
       if (!res.ok) setError(json.error ?? "Failed to load leads");
-      else setLeads(json.leads ?? []);
+      else {
+        setLeads(json.leads ?? []);
+        if (json.quiet) setThresholds(normalizeThresholds(json.quiet));
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Network error");
     } finally {
@@ -540,11 +568,27 @@ export default function LeadsPage() {
   /* Open the lead named in the URL fragment — the home page's Leads panel links
      each card to /leads#<id>. Read from location.hash rather than a query
      parameter on purpose: useSearchParams would need this whole page wrapped in
-     a Suspense boundary, and the fragment costs nothing. */
+     a Suspense boundary, and the fragment costs nothing.
+     The filters are per-visit state that start at "all", so arriving here always
+     starts with nothing hidden — there is no filter to clear. */
   useEffect(() => {
     const id = decodeURIComponent(window.location.hash.replace(/^#/, "")).trim();
-    if (id) setOpenId(id);
+    if (!id) return;
+    setOpenId(id);
+    setPendingScroll(id);
   }, []);
+
+  /* Scroll the deep-linked lead into view, ONCE, after the board has rendered
+     it. Native hash scrolling can't do this: the element does not exist at
+     first paint, because the list arrives from /api/leads. `scroll-below-header`
+     is what stops it landing under the sticky header. */
+  useEffect(() => {
+    if (!pendingScroll || loading) return;
+    const el = document.getElementById(`lead-${pendingScroll}`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "start" });
+    setPendingScroll(null);
+  }, [pendingScroll, loading, leads]);
 
   /** Merge a saved tracking row back into the list without a full reload. */
   const applyTracking = useCallback((accountId: string, tracking: Tracking) => {
@@ -575,16 +619,16 @@ export default function LeadsPage() {
     let review = 0;
     for (const { lead, d } of rows) {
       if (d.urgency === "overdue" || d.urgency === "unset") attention++;
-      if ((d.quietDays ?? 0) >= 14) stale++;
+      if (quietBand(d.quietDays, thresholds) === "alert") stale++;
       if (lead.local) local++;
       if (needsReview(lead)) review++;
     }
     return { total: rows.length, attention, stale, local, review };
-  }, [rows]);
+  }, [rows, thresholds]);
 
   const visible = rows.filter(({ lead, d }) => {
     if (filter === "attention" && d.urgency !== "overdue" && d.urgency !== "unset") return false;
-    if (filter === "stale" && (d.quietDays ?? 0) < 14) return false;
+    if (filter === "stale" && quietBand(d.quietDays, thresholds) !== "alert") return false;
     if (filter === "local" && !lead.local) return false;
     if (filter === "review" && !needsReview(lead)) return false;
     if (stageFilter && lead.tracking.stage !== stageFilter) return false;
@@ -736,7 +780,11 @@ export default function LeadsPage() {
       <div className="mb-4 grid grid-cols-3 gap-2">
         <Stat label="Leads" value={counts.total} />
         <Stat label="Need action" value={counts.attention} tone={counts.attention ? "danger" : "ok"} />
-        <Stat label="Quiet 14d+" value={counts.stale} tone={counts.stale ? "warning" : "ok"} />
+        <Stat
+          label={`Quiet ${thresholds.alertDays}d+`}
+          value={counts.stale}
+          tone={counts.stale ? "warning" : "ok"}
+        />
       </div>
 
       <ChipScroller className="mb-4">
@@ -753,7 +801,7 @@ export default function LeadsPage() {
         <FilterChip
           on={filter === "stale"}
           onClick={() => setFilter("stale")}
-          title="No contact logged in 14+ days"
+          title={`No contact logged in ${thresholds.alertDays}+ days`}
         >
           Gone quiet
         </FilterChip>
@@ -785,6 +833,10 @@ export default function LeadsPage() {
           </FilterChip>
         ))}
       </ChipScroller>
+
+      {/* The one place the amber/red bands are set — org-wide, and read by the
+          home page's Leads panel too. Folded away by default. */}
+      <QuietThresholdEditor thresholds={thresholds} onSaved={setThresholds} />
 
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
@@ -837,10 +889,15 @@ export default function LeadsPage() {
       ) : (
         <ul className="space-y-2">
           {visible.map(({ lead, d }) => (
-            <li key={lead.id}>
+            // The id is what the deep-link scroll targets (/leads#<id> from the
+            // home panel). Prefixed, because a bare JobTread id as a DOM id
+            // would collide with the fragment the browser tries to jump to
+            // itself before the list exists.
+            <li key={lead.id} id={`lead-${lead.id}`} className="scroll-below-header">
               <LeadCard
                 lead={lead}
                 derived={d}
+                thresholds={thresholds}
                 open={openId === lead.id}
                 onToggle={() => setOpenId(openId === lead.id ? null : lead.id)}
                 onTracking={(t) => applyTracking(lead.id, t)}
@@ -851,6 +908,150 @@ export default function LeadsPage() {
         </ul>
       )}
     </main>
+  );
+}
+
+/* -------------------------------------------------------- quiet thresholds */
+
+/**
+ * The two numbers behind every amber and red mark on a lead — here, and on the
+ * home page's Leads panel. Org-wide, so this is the ONE place they are set.
+ *
+ * Folded away by default: it is a setting, not a daily control. The heading
+ * carries the current pair so it can be read without opening it.
+ */
+function QuietThresholdEditor({
+  thresholds,
+  onSaved,
+}: {
+  thresholds: LeadQuietThresholds;
+  onSaved: (t: LeadQuietThresholds) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  // Held as STRINGS while editing: a number input mid-edit is legitimately
+  // empty ("" while you retype it), and forcing that through Number() every
+  // keystroke fights the person typing. normalizeThresholds settles it on save.
+  const [warn, setWarn] = useState(String(thresholds.warnDays));
+  const [alert, setAlert] = useState(String(thresholds.alertDays));
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState("");
+  const [note, setNote] = useState("");
+
+  // Follow a value loaded (or changed) elsewhere, unless a save is in flight.
+  useEffect(() => {
+    setWarn(String(thresholds.warnDays));
+    setAlert(String(thresholds.alertDays));
+  }, [thresholds.warnDays, thresholds.alertDays]);
+
+  async function save() {
+    setSaving(true);
+    setErr("");
+    setNote("");
+    try {
+      const res = await fetch("/api/leads/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ warnDays: warn, alertDays: alert }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setErr(json.error ?? "Could not save the thresholds");
+        return;
+      }
+      const saved = normalizeThresholds(json.quiet ?? {});
+      onSaved(saved);
+      // Say so when the stored pair is not what was typed — the route clamps a
+      // 0, a blank or a swapped pair rather than refusing it, and a silent
+      // correction would read as the save not working.
+      const changed =
+        String(saved.warnDays) !== warn.trim() || String(saved.alertDays) !== alert.trim();
+      setNote(
+        changed
+          ? `Saved as amber at ${saved.warnDays} days, red at ${saved.alertDays} — red has to come after amber.`
+          : "Saved.",
+      );
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Network error");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const dirty =
+    warn.trim() !== String(thresholds.warnDays) || alert.trim() !== String(thresholds.alertDays);
+
+  return (
+    <section className="mb-4 space-y-2">
+      <SectionHeading
+        onToggle={() => setOpen((v) => !v)}
+        open={open}
+        trailing={
+          <span className="text-[11px] tabular-nums text-neutral-500">
+            {thresholds.warnDays}d / {thresholds.alertDays}d
+          </span>
+        }
+      >
+        Colour thresholds
+      </SectionHeading>
+
+      {open && (
+        <Card className="space-y-3">
+          <p className="text-[11.5px] text-neutral-500 dark:text-neutral-400">
+            Days of silence before a lead turns amber, then red. Applies to the quiet marks
+            here, the “Gone quiet” filter, and the Leads panel on the home page — for
+            everyone, not just this device.
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <Label htmlFor="quiet-warn">Amber after</Label>
+              <Input
+                id="quiet-warn"
+                type="number"
+                inputMode="numeric"
+                min={1}
+                max={LEAD_QUIET_MAX}
+                value={warn}
+                onChange={(e) => setWarn(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label htmlFor="quiet-alert">Red after</Label>
+              <Input
+                id="quiet-alert"
+                type="number"
+                inputMode="numeric"
+                min={2}
+                max={LEAD_QUIET_MAX}
+                value={alert}
+                onChange={(e) => setAlert(e.target.value)}
+              />
+            </div>
+          </div>
+
+          {/* What the numbers on screen will look like, before saving them. */}
+          <div className="flex flex-wrap items-center gap-2 border-t border-line-soft pt-2">
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
+              Preview
+            </span>
+            {[0, Number(warn) || 0, Number(alert) || 0].map((d, i) => (
+              <Chip
+                key={i}
+                tone={staleTone(d, normalizeThresholds({ warnDays: warn, alertDays: alert }))}
+              >
+                {d}d quiet
+              </Chip>
+            ))}
+          </div>
+
+          {err && <Banner tone="error">{err}</Banner>}
+          {note && !err && <Banner tone="info">{note}</Banner>}
+
+          <Button size="sm" onClick={() => void save()} disabled={saving || !dirty}>
+            {saving ? "Saving…" : dirty ? "Save thresholds" : "Saved"}
+          </Button>
+        </Card>
+      )}
+    </section>
   );
 }
 
@@ -886,6 +1087,7 @@ function Stat({
 function LeadCard({
   lead,
   derived,
+  thresholds,
   open,
   onToggle,
   onTracking,
@@ -893,6 +1095,8 @@ function LeadCard({
 }: {
   lead: Lead;
   derived: Derived;
+  /** The org's amber/red bands — see the "Colour thresholds" control. */
+  thresholds: LeadQuietThresholds;
   open: boolean;
   onToggle: () => void;
   onTracking: (t: Tracking) => void;
@@ -934,7 +1138,7 @@ function LeadCard({
             {urgency && <Chip tone={urgency.tone}>{urgency.label}</Chip>}
             {quiet !== null && (
               <Chip
-                tone={staleTone(quiet)}
+                tone={staleTone(quiet, thresholds)}
                 title={
                   derived.neverContacted
                     ? "No contact ever logged — measured from when JobTread created the account"

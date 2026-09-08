@@ -6,6 +6,7 @@ import { db, ensureDb } from "@/db";
 import { leadInquiries, leads as leadsTable, type LeadInquiry } from "@/db/schema";
 import { getPaveConfig, hasGrant } from "@/lib/config";
 import { getLeads, type LeadJt } from "@/lib/leads";
+import { readQuietThresholds } from "@/lib/leadSettings";
 
 /**
  * The leads board: JobTread's "New Lead" customers PLUS the leads logged here
@@ -130,13 +131,20 @@ function asLead(row: LeadInquiry): LeadJt {
 }
 
 // GET /api/leads — every New Lead customer and every locally-logged lead, each
-// with its tracking row.
+// with its tracking row, plus the org's quiet thresholds.
+//
+// The thresholds ride along rather than sitting behind their own fetch: the home
+// panel needs them to colour its very first paint, and a second round trip there
+// would flash the default bands before correcting itself.
 export async function GET() {
   if (!hasGrant()) {
     return NextResponse.json({ error: "JT_GRANT_KEY is not set." }, { status: 400 });
   }
   try {
-    const jt: LeadJt[] = await getCachedLeads();
+    const [jt, quiet] = await Promise.all([
+      getCachedLeads() as Promise<LeadJt[]>,
+      readQuietThresholds(),
+    ]);
     await ensureDb();
     const inquiries = await db.select().from(leadInquiries);
     // A pushed inquiry is represented by its JobTread account; its answers hang
@@ -188,7 +196,7 @@ export async function GET() {
         tracking: trackingFor(i.id),
       })),
     ];
-    return NextResponse.json({ leads: out });
+    return NextResponse.json({ leads: out, quiet });
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : "Unknown error";
     return NextResponse.json({ error: message }, { status: 502 });
