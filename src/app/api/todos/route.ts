@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { auth } from "@/auth";
 import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
-import { createToDo, getOpenToDos, type OpenToDo } from "@/lib/jobtread";
+import { createToDo, findMemberByEmail, getOpenToDos, type OpenToDo } from "@/lib/jobtread";
 import { resolveJtUserLink } from "@/lib/jtUserLink";
 import { orgDay } from "@/lib/orgTime";
 
@@ -15,13 +15,17 @@ import { orgDay } from "@/lib/orgTime";
  * the card never shows a to-do the digest happened to catch at 6am.
  *
  * "RELEVANT" MEANS MINE, THEN NOBODY'S. Ordered overdue first, then by due date,
- * then undated — the order you would work them in. The signed-in person is
- * matched to their JobTread user through the Employee roster link
- * (src/lib/jtUserLink.ts), not by name, so two people called Casey stay apart.
- * An account with no roster link gets the unassigned + org-wide list rather
- * than an empty card.
+ * then undated — the order you would work them in. Mine and unclaimed are
+ * returned SEPARATELY (`mine`, `unclaimed`) so the card can label them; a list
+ * that silently mixes in other work reads as the wrong list.
  *
- * GET  ?limit=5          → { ok, me, todos, counts }
+ * WHO AM I is answered by EMAIL first — the signed-in address matched against
+ * JobTread's own memberships (`findMemberByEmail`). The Employee roster link is
+ * the fallback, not the primary: it is only right once an admin has linked that
+ * person, and an unlinked account silently matched nothing, which is why this
+ * card first shipped showing unassigned work instead of the reader's own.
+ *
+ * GET  ?limit=5          → { ok, me, mine, unclaimed, counts }
  * POST { name, jobId?, membershipIds?, dueDate?, description?, notify? }
  *                        → { ok, wrote, previewed?, id? }
  *
@@ -68,10 +72,18 @@ export async function GET(req: NextRequest) {
 
   const session = await auth();
   const email = (session?.user?.email ?? "").trim().toLowerCase();
-  // The cached roster link. `resolve` can cost one Apps Script round trip on a
-  // cold row, which this route can afford — the card fetches it once per visit.
-  const link = email ? await resolveJtUserLink(email).catch(() => null) : null;
-  const myUserId = (link?.jtUserId ?? "").trim();
+  // The membership that signs in with this address — one cached JobTread read,
+  // no Google round trip, right whether or not anybody has been linked.
+  const member = email
+    ? await findMemberByEmail(getPaveConfig(), email).catch(() => null)
+    : null;
+  // Fallback only: an office account that is not itself a JobTread member (a
+  // shared mailbox, say) can still be resolved through the Employee roster.
+  // `resolve` can cost one Apps Script round trip on a cold row, which this
+  // route can afford — the card fetches it once per visit.
+  const link = !member && email ? await resolveJtUserLink(email).catch(() => null) : null;
+  const myUserId = (member?.userId || link?.jtUserId || "").trim();
+  const myName = member?.name || link?.jtUserName || link?.name || "";
 
   let todos: OpenToDo[];
   try {
@@ -100,20 +112,23 @@ export async function GET(req: NextRequest) {
   });
 
   const mine = rows.filter((r) => r.mine).sort(byWorkOrder);
-  const unassigned = rows.filter((r) => !r.mine && r.who === "").sort(byWorkOrder);
-  // Mine first, then the ones nobody has picked up. Somebody else's to-do is
-  // not on this card at all — /jobs and JobTread itself are where you read
-  // another person's list.
-  const shown = [...mine, ...unassigned].slice(0, limit);
+  // Nobody has picked these up, so they are everyone's. Somebody ELSE's to-do
+  // is not on this card at all — JobTread's own list is where you read theirs.
+  const unclaimed = rows.filter((r) => !r.mine && r.who === "").sort(byWorkOrder);
+  // Mine gets the whole allowance; the unclaimed only fill what is left, so a
+  // busy person never sees someone else's backlog ahead of their own.
+  const shownMine = mine.slice(0, limit);
+  const shownUnclaimed = unclaimed.slice(0, Math.max(0, limit - shownMine.length));
 
   return NextResponse.json({
     ok: true,
-    me: { name: link?.name ?? "", jtUserName: link?.jtUserName ?? "", linked: Boolean(myUserId) },
-    todos: shown,
+    me: { name: myName, linked: Boolean(myUserId) },
+    mine: shownMine,
+    unclaimed: shownUnclaimed,
     counts: {
       mine: mine.length,
-      unassigned: unassigned.length,
-      overdue: [...mine, ...unassigned].filter((r) => r.overdue).length,
+      unclaimed: unclaimed.length,
+      overdue: mine.filter((r) => r.overdue).length,
       open: rows.length,
     },
   });

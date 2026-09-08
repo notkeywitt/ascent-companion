@@ -16,6 +16,7 @@
  * READ-ONLY: one org-wide JobTread query, no writes.
  */
 import { getOpenToDos, type OpenToDo } from "@/lib/jobtread";
+import { jtToDoUrl } from "@/lib/jtLinks";
 import { defineCheck, allClear, checkError, type CheckResult, type DigestItem } from "../types";
 import type { JobTreadTodosConfig } from "../settings";
 
@@ -99,8 +100,10 @@ export const jobtreadTodosCheck = defineCheck<JobTreadTodosConfig>({
         ]
           .filter(Boolean)
           .join(" · "),
-        sourceLink: t.jobId ? `https://app.jobtread.com/jobs/${t.jobId}` : undefined,
-        sourceLabel: t.jobId ? "Open job in JobTread" : undefined,
+        // JobTread's TO-DO list, opened on this to-do — not its job's home
+        // page, which is where this used to land and left the reader hunting.
+        sourceLink: jtToDoUrl(t.id),
+        sourceLabel: "Open to-do in JobTread",
         date: due ?? undefined,
         group: who,
       });

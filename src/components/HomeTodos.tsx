@@ -21,7 +21,7 @@ import {
 } from "@/components/ui";
 import { useAccess } from "@/components/AccessProvider";
 import { JobPicker } from "@/components/JobPicker";
-import { jtJobUrl } from "@/lib/jtLinks";
+import { jtToDoUrl } from "@/lib/jtLinks";
 import { applyDismissals, dismissalKey } from "@/lib/digest/dismissals";
 import { categoryTone, groupByCategory, type CategoryTone } from "@/lib/digest/grouping";
 import type { DigestCategory } from "@/lib/digest/settings";
@@ -94,15 +94,16 @@ interface TodoRow {
   overdue: boolean;
   jobId: string | null;
   jobName: string | null;
-  who: string;
-  mine: boolean;
 }
 
 interface TodosResponse {
   ok: boolean;
-  me: { name: string; jtUserName: string; linked: boolean };
-  todos: TodoRow[];
-  counts: { mine: number; unassigned: number; overdue: number; open: number };
+  me: { name: string; linked: boolean };
+  /** Assigned to the person reading the card. */
+  mine: TodoRow[];
+  /** Assigned to nobody, so fair game — kept apart from `mine` on purpose. */
+  unclaimed: TodoRow[];
+  counts: { mine: number; unclaimed: number; overdue: number; open: number };
   error?: string;
 }
 
@@ -347,11 +348,10 @@ export function HomeTodos() {
     (n, c) => n + (c.status === "warning" ? c.itemCount : 0),
     0,
   );
-  // A badge means work is waiting, so it counts every to-do this card is
-  // responsible for — mine and the unclaimed ones, not just the few it lists —
+  // A badge means work is waiting on YOU, so it counts every to-do assigned to
+  // the reader — not just the few the card lists, and never the unclaimed ones —
   // plus whatever the digest flagged. A folded card still says what is in it.
-  const badge =
-    (todos ? todos.counts.mine + todos.counts.unassigned : 0) + flaggedInDigest;
+  const badge = (todos?.counts.mine ?? 0) + flaggedInDigest;
 
   return (
     <section className="mb-6 space-y-2">
@@ -523,8 +523,9 @@ export function HomeTodos() {
 
 /**
  * The live list: your open JobTread to-dos, overdue first, then the ones nobody
- * has picked up. Read-only — a to-do is finished in JobTread, which is the one
- * place its progress and its comments live, so each row links there.
+ * has picked up — under their own label, because a list that mixes them reads
+ * as somebody else's list. Read-only: a to-do is finished in JobTread, which is
+ * where its progress, comments and files live, so every row links there.
  */
 function TodoList({
   data,
@@ -545,7 +546,8 @@ function TodoList({
   if (error) return <Banner tone="error">{error}</Banner>;
   if (!data) return null;
 
-  if (data.todos.length === 0) {
+  const nothing = data.mine.length === 0 && data.unclaimed.length === 0;
+  if (nothing) {
     return (
       <Card>
         <p className="text-sm text-neutral-500">
@@ -553,8 +555,8 @@ function TodoList({
           {!data.me.linked && (
             <>
               {" "}
-              Your account isn&rsquo;t linked to a JobTread user yet, so this only shows
-              unassigned to-dos — ask an admin to link you on the Employees page.
+              Your sign-in isn&rsquo;t a JobTread member, so this can only show
+              unclaimed to-dos.
             </>
           )}
         </p>
@@ -562,47 +564,70 @@ function TodoList({
     );
   }
 
-  const more = data.counts.mine + data.counts.unassigned - data.todos.length;
+  const moreMine = data.counts.mine - data.mine.length;
+  const moreUnclaimed = data.counts.unclaimed - data.unclaimed.length;
 
   return (
     <ListCard className="divide-y divide-line-soft">
-      {data.todos.map((t) => (
-        <div key={t.id} className="px-3 py-2.5">
-          <div className="flex items-start gap-2">
-            <span className="min-w-0 flex-1 text-[13.5px] font-semibold leading-snug">{t.name}</span>
-            {t.overdue && <Chip tone="warning">Overdue</Chip>}
-          </div>
-          <MetaLine
-            className="mt-0.5"
-            items={[
-              t.jobName ?? "Company-wide",
-              t.due ? `${t.overdue ? "was due " : "due "}${dayOf(t.due)}` : "no due date",
-              t.mine ? "" : "unassigned",
-            ]}
-          />
-          {t.description && (
-            <p className="mt-1 line-clamp-2 text-[11.5px] leading-relaxed text-neutral-500">
-              {t.description}
-            </p>
-          )}
-          {t.jobId && (
-            <a
-              href={jtJobUrl(t.jobId)}
-              target="_blank"
-              rel="noreferrer"
-              className="mt-1 inline-block text-[11px] font-semibold text-accent hover:underline dark:text-accent-soft"
-            >
-              Open in JobTread ↗
-            </a>
-          )}
-        </div>
-      ))}
-      {more > 0 && (
+      {data.mine.length === 0 && (
         <p className="px-3 py-2 text-[11.5px] text-neutral-500">
-          {more} more open — the rest are in JobTread.
+          Nothing assigned to you. These are unclaimed:
+        </p>
+      )}
+      {data.mine.map((t) => (
+        <TodoRowView key={t.id} t={t} />
+      ))}
+      {moreMine > 0 && (
+        <p className="px-3 py-2 text-[11.5px] text-neutral-500">
+          {moreMine} more of yours — the rest are in JobTread.
+        </p>
+      )}
+
+      {data.mine.length > 0 && data.unclaimed.length > 0 && (
+        <p className="bg-neutral-50 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-neutral-400 dark:bg-white/5">
+          Unclaimed
+        </p>
+      )}
+      {data.unclaimed.map((t) => (
+        <TodoRowView key={t.id} t={t} />
+      ))}
+      {data.unclaimed.length > 0 && moreUnclaimed > 0 && (
+        <p className="px-3 py-2 text-[11.5px] text-neutral-500">
+          {moreUnclaimed} more unclaimed in JobTread.
         </p>
       )}
     </ListCard>
+  );
+}
+
+/** One to-do row. Links to JobTread's TO-DO list, opened on this to-do. */
+function TodoRowView({ t }: { t: TodoRow }) {
+  return (
+    <div className="px-3 py-2.5">
+      <div className="flex items-start gap-2">
+        <a
+          href={jtToDoUrl(t.id)}
+          target="_blank"
+          rel="noreferrer"
+          className="min-w-0 flex-1 text-[13.5px] font-semibold leading-snug hover:text-accent dark:hover:text-accent-soft"
+        >
+          {t.name}
+        </a>
+        {t.overdue && <Chip tone="warning">Overdue</Chip>}
+      </div>
+      <MetaLine
+        className="mt-0.5"
+        items={[
+          t.jobName ?? "Company-wide",
+          t.due ? `${t.overdue ? "was due " : "due "}${dayOf(t.due)}` : "no due date",
+        ]}
+      />
+      {t.description && (
+        <p className="mt-1 line-clamp-2 text-[11.5px] leading-relaxed text-neutral-500">
+          {t.description}
+        </p>
+      )}
+    </div>
   );
 }
 

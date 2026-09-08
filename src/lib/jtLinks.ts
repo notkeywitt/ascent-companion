@@ -53,6 +53,19 @@ export function jtTimeUrl(
 export const jtJobUrl = (jobId: string) => `${APP}/jobs/${encodeURIComponent(jobId)}`;
 
 /**
+ * The TO-DO list, opened on one to-do when a task id is given — `?taskId=` is
+ * what selects it there (owner-supplied address, 2026-09-08).
+ *
+ * NOT per-job, the same trap as the time page above: a to-do links to
+ * `/to-dos?taskId=<id>`, never to its job. Linking a to-do at its job's home
+ * page lands the reader on the job and leaves them to find the to-do.
+ */
+export function jtToDoUrl(taskId?: string | null): string {
+  const id = String(taskId ?? "").trim();
+  return id ? `${APP}/to-dos?taskId=${encodeURIComponent(id)}` : `${APP}/to-dos`;
+}
+
+/**
  * A job's SCHEDULE (its Gantt chart), opened on one task when a task id is
  * given — `?taskId=` is what selects a bar there (owner-supplied address,
  * 2026-09-06).

@@ -5582,6 +5582,83 @@ async function fetchTasks(cfg: PaveConfig, isToDo: boolean): Promise<OpenToDo[]>
   return out;
 }
 
+/**
+ * A JobTread member, found by the email address they sign in with.
+ *
+ * WHO AM I, IN JOBTREAD — the reliable answer. The Employee roster link
+ * (src/lib/jtUserLink.ts) answers the same question through the Google Sheet,
+ * but it is only right when an admin has linked that person, and an unlinked
+ * account silently becomes "nobody" — which is how the To Dos card first
+ * shipped showing unassigned work instead of the reader's own. A JobTread
+ * membership already carries the person's email, so matching on it needs no
+ * roster row and no display-name guess.
+ *
+ * Case- and whitespace-insensitive: JobTread stores whatever case the invite
+ * used ("Rachelzable@gmail.com").
+ *
+ * Cached 30 minutes, next to `getOrgUsers` — a membership's email changes when
+ * somebody is re-invited, which is not a per-request concern.
+ */
+export interface MemberRef {
+  userId: string;
+  membershipId: string;
+  name: string;
+  email: string;
+}
+
+export function getMembersByEmail(cfg: PaveConfig): Promise<Map<string, MemberRef>> {
+  return cachedRef(`membersByEmail:${cfg.orgId}`, 30 * 60_000, () =>
+    _getMembersByEmailUncached(cfg),
+  );
+}
+async function _getMembersByEmailUncached(cfg: PaveConfig): Promise<Map<string, MemberRef>> {
+  const out = new Map<string, MemberRef>();
+  let cursor: string | null = null;
+  for (let page = 0; page < 10; page++) {
+    const args: Record<string, unknown> = { size: 100 };
+    if (cursor) args.page = cursor;
+    const r = await pave(cfg, {
+      organization: {
+        $: { id: cfg.orgId },
+        id: {},
+        memberships: {
+          $: args,
+          nextPage: {},
+          nodes: { id: {}, user: { id: {}, name: {}, emailAddress: {} } },
+        },
+      },
+    });
+    const mc = r?.organization?.memberships ?? {};
+    for (const n of mc.nodes ?? []) {
+      const email = String(n?.user?.emailAddress ?? "").trim().toLowerCase();
+      if (!email || !n?.user?.id) continue;
+      // First membership wins: one address can hold both an internal seat and a
+      // customer-contact seat, and the internal one is created first.
+      if (!out.has(email)) {
+        out.set(email, {
+          userId: n.user.id,
+          membershipId: n.id ?? "",
+          name: n.user.name ?? "",
+          email,
+        });
+      }
+    }
+    cursor = mc.nextPage ?? null;
+    if (!cursor) break;
+  }
+  return out;
+}
+
+/** The JobTread member who signs in with `email`, or null. */
+export async function findMemberByEmail(
+  cfg: PaveConfig,
+  email: string,
+): Promise<MemberRef | null> {
+  const key = (email ?? "").trim().toLowerCase();
+  if (!key) return null;
+  return (await getMembersByEmail(cfg)).get(key) ?? null;
+}
+
 /** Every open to-do across the org, for the Daily Digest — the `isToDo=true` half. */
 export async function getOpenToDos(cfg: PaveConfig): Promise<OpenToDo[]> {
   return fetchTasks(cfg, true);
