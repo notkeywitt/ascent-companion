@@ -288,9 +288,9 @@ export function AllBills({ ym, setYm }: { ym: string; setYm: (ym: string) => voi
         >
           {/* Invoicing lifecycle as an edge stripe, same one axis and the
               same colours as the job board (billInvoiceState): wide red =
-              flagged for review, blue = reviewed but still a draft in
-              JobTread, green = out of draft and on an invoice, thin red = the
-              job's month has an invoice and this bill is NOT on it. */}
+              flagged for review, green = out of draft and on an invoice, thin
+              red = the job's month has an invoice and this bill is NOT on it,
+              blue = out of draft, reviewed, and no invoice raised yet. */}
           <span
             aria-hidden
             className={`shrink-0 ${stripe === "needs-review" ? "w-[5px]" : "w-[3px]"} ${

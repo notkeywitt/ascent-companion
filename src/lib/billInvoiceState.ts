@@ -12,13 +12,16 @@
  *
  *   needs-review  a correction the office has to make. Outranks everything:
  *                 it is the only state that is a task rather than a stage.
- *   reviewed      the bill card's "reviewed" toggle is on and the bill is still
- *                 a DRAFT in JobTread — coded and checked, awaiting approval.
  *   invoiced      out of draft AND on a customer invoice. Nothing to do.
  *   missing       an invoice exists for the job's month and this bill is NOT on
  *                 it. The alarm: finalized money left off the invoice.
- *   none          nothing to say yet — an unreviewed draft, or a finalized bill
- *                 in a month whose invoice has not been raised.
+ *   reviewed      out of draft, the bill card's "reviewed" toggle on, and NOT
+ *                 on an invoice — coded, checked, approved, ready for the
+ *                 month's invoice once it is raised. Sits BELOW `missing` on
+ *                 purpose: once the invoice exists, a bill left off it is a
+ *                 task, and red says so louder than "ready" does.
+ *   none          nothing to say yet — any draft, or a finalized unreviewed
+ *                 bill in a month whose invoice has not been raised.
  *
  * `missing` rests on `monthInvoiceExists`, which the jobtread.ts readers derive
  * from the WHOLE month before dropping already-invoiced bills (see
@@ -43,9 +46,10 @@ export interface BillInvoiceStateInput {
 
 export const billInvoiceState = (b: BillInvoiceStateInput): BillInvoiceState => {
   if (b.needsReview) return "needs-review";
-  if (b.status === "draft") return b.reviewed ? "reviewed" : "none";
+  if (b.status === "draft") return "none";
   if (b.onInvoice) return "invoiced";
-  return b.monthInvoiceExists ? "missing" : "none";
+  if (b.monthInvoiceExists) return "missing";
+  return b.reviewed ? "reviewed" : "none";
 };
 
 /** The stripe colour per state. `needs-review` and `missing` share red on

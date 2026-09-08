@@ -17,14 +17,29 @@ describe("billInvoiceState", () => {
     );
   });
 
-  it("marks a draft blue only once it has been reviewed", () => {
-    expect(billInvoiceState({ status: "draft", reviewed: true })).toBe("reviewed");
+  it("says nothing about a draft, reviewed or not", () => {
+    expect(billInvoiceState({ status: "draft", reviewed: true })).toBe("none");
     expect(billInvoiceState({ status: "draft" })).toBe("none");
   });
 
   it("never calls a draft invoiced or missing, whatever the month looks like", () => {
     expect(billInvoiceState({ status: "draft", onInvoice: true })).toBe("none");
     expect(billInvoiceState({ status: "draft", monthInvoiceExists: true })).toBe("none");
+  });
+
+  it("is blue for a reviewed, approved bill that no invoice carries yet", () => {
+    expect(billInvoiceState({ status: "approved", reviewed: true })).toBe("reviewed");
+    expect(billInvoiceState({ status: "pending", reviewed: true })).toBe("reviewed");
+    expect(billInvoiceState({ status: "approved" })).toBe("none");
+  });
+
+  it("keeps the left-off-the-invoice alarm above blue", () => {
+    expect(
+      billInvoiceState({ status: "approved", reviewed: true, monthInvoiceExists: true }),
+    ).toBe("missing");
+    expect(
+      billInvoiceState({ status: "approved", reviewed: true, onInvoice: true }),
+    ).toBe("invoiced");
   });
 
   it("is green when a finalized bill sits on an invoice", () => {

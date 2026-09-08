@@ -2559,10 +2559,10 @@ export function Board() {
         >
           {/* Invoicing lifecycle as an edge stripe, so a month can be
               triaged by colour down the left margin before a word is
-              read: wide red = flagged for review, blue = reviewed but
-              still a draft in JobTread, green = out of draft and on an
-              invoice, thin red = an invoice exists for the month and
-              this bill is NOT on it. ONE axis only — see
+              read: wide red = flagged for review, green = out of draft
+              and on an invoice, thin red = an invoice exists for the
+              month and this bill is NOT on it, blue = out of draft,
+              reviewed, and no invoice raised yet. ONE axis only — see
               billInvoiceState. Budget headroom, coding progress and
               paid state are chips on the row, not stripe colours. */}
           <span
