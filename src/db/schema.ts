@@ -391,6 +391,10 @@ export const leads = sqliteTable("leads", {
   nextActionDate: text("next_action_date").notNull().default(""), // YYYY-MM-DD; past = overdue
   lastContactDate: text("last_contact_date").notNull().default(""), // YYYY-MM-DD; drives staleness
   estValue: text("est_value").notNull().default(""), // as text; Number() only for display
+  // What the job actually is, in our words. JobTread has nowhere to put a lead's
+  // scope, and the website form's answer only exists for a lead that used it —
+  // so this is the one field that reads the same for every lead on the board.
+  projectScope: text("project_scope").notNull().default(""),
   notes: text("notes").notNull().default(""), // our working notes (JT's Notes field stays read-only)
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),

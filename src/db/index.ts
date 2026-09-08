@@ -428,11 +428,19 @@ async function applySchema() {
       next_action_date TEXT NOT NULL DEFAULT '',
       last_contact_date TEXT NOT NULL DEFAULT '',
       est_value TEXT NOT NULL DEFAULT '',
+      project_scope TEXT NOT NULL DEFAULT '',
       notes TEXT NOT NULL DEFAULT '',
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     )
   `);
+  // The project scope, for a table created before the field existed (idempotent
+  // — same pattern as labor_rate_catalog.group_id).
+  try {
+    await getClient().execute("ALTER TABLE leads ADD COLUMN project_scope TEXT NOT NULL DEFAULT ''");
+  } catch {
+    /* column already exists */
+  }
   await getClient().execute(`
     CREATE TABLE IF NOT EXISTS lead_activities (
       id INTEGER PRIMARY KEY AUTOINCREMENT,

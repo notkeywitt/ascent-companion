@@ -14,6 +14,7 @@ import { DailyDigest } from "@/components/DailyDigest";
 import { TileLauncher } from "@/components/TileLauncher";
 import { HomeLayoutEditor } from "@/components/HomeLayoutEditor";
 import { HomeJobBoard } from "@/components/HomeJobBoard";
+import { HomeLeadBoard } from "@/components/HomeLeadBoard";
 import { useEffectiveLayout } from "@/components/NavLayoutProvider";
 import { PREVIEW_ROWS, tileLauncherFor } from "@/lib/nav";
 import { DEFAULT_COLUMNS, type NavItem } from "@/lib/navLayout";
@@ -216,6 +217,12 @@ function Home() {
           job for office/admin, one wide panel for a lead's own job. Self-hiding,
           and a field phone never fetches it (see HomeJobBoard). */}
       <HomeJobBoard />
+
+      {/* The pipeline, as the same kanban row of cards — ordered by last
+          contact so a lead going quiet is the first thing on it. Collapsible
+          and remembered per device; self-gating on the `leads` view, so office
+          and admin get it and a field or lead phone never fetches it. */}
+      <HomeLeadBoard />
 
       {/* The morning digest — billing scan, calendar, follow-ups. Reads the
           digest the scheduled job stored; it does NOT run the checks on load.

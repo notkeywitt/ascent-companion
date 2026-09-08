@@ -146,6 +146,22 @@ job from anywhere.
   for every page, grouped into **Financials, Tools, Safety, Utilities**. This is the
   easiest way to get around on a phone.
 
+### The panels above the Home launcher (office and admin)
+
+Three panels sit above the buttons, in this order. Each one hides itself when it
+has nothing to say.
+
+- **Active jobs** — a card per job JobTread marks Phase = Active: budget spent, and
+  what is on the calendar today. Tap the card for the job's tracking sheet.
+- **Leads** — the pipeline as the same row of cards, **ordered by last contact**.
+  Each card carries the client name, the address, the date of the last logged
+  contact, the project scope and the next step. Two chips flip the order:
+  **Longest ago** (the default — who has gone quiet) and **Most recent**. Tap the
+  heading to fold the whole panel away; the phone remembers. Tap a card to open
+  that lead on the **Leads** page, which is where you write the scope and the next
+  step.
+- **Daily Digest** — the morning report (see below).
+
 ### Sync Drive
 
 At the **bottom of Tracking Sheets**, in the closing row with **Sync to Tracking

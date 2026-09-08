@@ -45,6 +45,7 @@ interface Tracking {
   nextActionDate: string;
   lastContactDate: string;
   estValue: string;
+  projectScope: string;
   notes: string;
   updatedAt: string;
 }
@@ -55,6 +56,7 @@ const BLANK: Tracking = {
   nextActionDate: "",
   lastContactDate: "",
   estValue: "",
+  projectScope: "",
   notes: "",
   updatedAt: "",
 };
@@ -162,6 +164,7 @@ export async function GET() {
             nextActionDate: t.nextActionDate,
             lastContactDate: t.lastContactDate,
             estValue: t.estValue,
+            projectScope: t.projectScope,
             notes: t.notes,
             updatedAt: t.updatedAt,
           }
@@ -193,7 +196,8 @@ export async function GET() {
 }
 
 // PATCH /api/leads — upsert one lead's tracking row.
-// Body: { accountId, stage?, nextAction?, nextActionDate?, lastContactDate?, estValue?, notes? }
+// Body: { accountId, stage?, nextAction?, nextActionDate?, lastContactDate?,
+//         estValue?, projectScope?, notes? }
 // Only the keys PRESENT in the body are written, so a partial save from one
 // control can't blank the fields it didn't touch.
 export async function PATCH(req: NextRequest) {
@@ -215,6 +219,7 @@ export async function PATCH(req: NextRequest) {
   str("nextActionDate", body.nextActionDate);
   str("lastContactDate", body.lastContactDate);
   str("estValue", body.estValue);
+  str("projectScope", body.projectScope);
   str("notes", body.notes);
   if (patch.stage && !(STAGES as readonly string[]).includes(patch.stage)) {
     return NextResponse.json({ error: `Unknown stage "${patch.stage}"` }, { status: 400 });

@@ -42,6 +42,7 @@ import {
   type ChipTone,
 } from "@/components/ui";
 import { BLANK_INQUIRY, INQUIRY_ROWS, type InquiryFields } from "@/lib/leadInquiry";
+import { daysSince, fmtDate, today } from "@/lib/leadBoard";
 
 import { LeadIntakeForm } from "./LeadIntakeForm";
 
@@ -60,6 +61,8 @@ interface Tracking {
   nextActionDate: string;
   lastContactDate: string;
   estValue: string;
+  /** What the job is, in our words — the one scope line every lead can have. */
+  projectScope: string;
   notes: string;
   updatedAt: string;
 }
@@ -122,37 +125,6 @@ const KINDS: { id: string; label: string }[] = [
   { id: "note", label: "Note (no contact)" },
 ];
 const kindLabel = (id: string) => KINDS.find((k) => k.id === id)?.label ?? id;
-
-/* ------------------------------------------------------------------- dates */
-
-const today = () => new Date().toISOString().slice(0, 10);
-
-/**
- * Whole days between a date and today. Null if unparseable.
- *
- * The date part is taken FIRST, so a full ISO timestamp (JobTread's
- * `createdAt`) is compared midnight-to-midnight like a plain YYYY-MM-DD is —
- * otherwise an account created at 17:22Z reads a day younger than it is.
- */
-function daysSince(date: string): number | null {
-  if (!date) return null;
-  const then = Date.parse(`${date.slice(0, 10)}T00:00:00Z`);
-  if (Number.isNaN(then)) return null;
-  const now = Date.parse(`${today()}T00:00:00Z`);
-  return Math.round((now - then) / 86_400_000);
-}
-
-function fmtDate(date: string): string {
-  if (!date) return "—";
-  const t = Date.parse(date.length <= 10 ? `${date}T00:00:00Z` : date);
-  if (Number.isNaN(t)) return date;
-  return new Date(t).toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    timeZone: "UTC",
-  });
-}
 
 /* ---------------------------------------------------------------- sorting */
 
@@ -227,12 +199,20 @@ function normalizePhone(raw: string): string {
   return raw.trim();
 }
 
-/** The free-text worth quoting for a lead: the project write-up first, then the
- *  location blurb, then whatever notes we have. `max` trims it (the email caps at
+/** The free-text worth quoting for a lead: the scope we wrote first, then the
+ *  project write-up they gave the website, then the location blurb, then whatever
+ *  notes we have. `max` trims it (the email caps at
  *  600 so the mail body stays sane); the PDF passes no cap and prints it whole. */
 function leadDescription(lead: Lead, max = Infinity): string {
   const inq = lead.inquiry;
-  const raw = (inq?.projectDetails || lead.address || inq?.notes || lead.notes || "").trim();
+  const raw = (
+    lead.tracking.projectScope ||
+    inq?.projectDetails ||
+    lead.address ||
+    inq?.notes ||
+    lead.notes ||
+    ""
+  ).trim();
   return raw.length > max ? `${raw.slice(0, max - 3).trimEnd()}…` : raw;
 }
 
@@ -556,6 +536,15 @@ export default function LeadsPage() {
     void load();
     void scan();
   }, [load, scan]);
+
+  /* Open the lead named in the URL fragment — the home page's Leads panel links
+     each card to /leads#<id>. Read from location.hash rather than a query
+     parameter on purpose: useSearchParams would need this whole page wrapped in
+     a Suspense boundary, and the fragment costs nothing. */
+  useEffect(() => {
+    const id = decodeURIComponent(window.location.hash.replace(/^#/, "")).trim();
+    if (id) setOpenId(id);
+  }, []);
 
   /** Merge a saved tracking row back into the list without a full reload. */
   const applyTracking = useCallback((accountId: string, tracking: Tracking) => {
@@ -1199,6 +1188,19 @@ function LeadDetail({
               value={form.estValue}
               onChange={(e) => setForm({ ...form, estValue: e.target.value })}
             />
+          </div>
+          <div className="col-span-2">
+            <Label htmlFor={`scope-${lead.id}`}>Project scope</Label>
+            <Textarea
+              id={`scope-${lead.id}`}
+              rows={2}
+              placeholder="e.g. Re-side the house and rebuild the south deck"
+              value={form.projectScope}
+              onChange={(e) => setForm({ ...form, projectScope: e.target.value })}
+            />
+            <p className="mt-1 text-[11px] text-neutral-500">
+              What the job is, in our words. Shows on the home page&apos;s Leads panel.
+            </p>
           </div>
           <div className="col-span-2">
             <Label htmlFor={`next-${lead.id}`}>Next action</Label>
