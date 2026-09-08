@@ -1,7 +1,40 @@
 {
-  "generatedAt": "2026-09-08T20:18:32Z",
+  "generatedAt": "2026-09-08T20:21:07Z",
   "repo": "ascent-companion",
   "sessions": [
+    {
+      "slug": "lead-email-capture-tagging",
+      "file": "2026-09-08-lead-email-capture-tagging.md",
+      "branch": "claude/lead-email-capture-tagging-63onc0",
+      "status": "shipped",
+      "started": "2026-09-08T20:14:08Z",
+      "updated": "2026-09-08T20:21:07Z",
+      "goal": "",
+      "next": "deploy the appscript side (./deploy.sh) so markFormSubmissionsCaptured is live, then open /leads and confirm the _Lead Captured label lands on a website submission",
+      "commits": [
+        {
+          "date": "2026-09-08",
+          "time": "20:14",
+          "sha": "9517920",
+          "subject": "companion: tag captured lead emails in gmail",
+          "files": "src/app/api/leads/ingest/route.ts, src/app/api/leads/inquiries/route.ts, src/app/leads/page.tsx"
+        },
+        {
+          "date": "2026-09-08",
+          "time": "20:14",
+          "sha": "2c115b8",
+          "subject": "companion: set session next step",
+          "files": ""
+        },
+        {
+          "date": "2026-09-08",
+          "time": "20:15",
+          "sha": "b6b661f",
+          "subject": "companion: log session lead-email-capture-tagging",
+          "files": ""
+        }
+      ]
+    },
     {
       "slug": "time-entry-notes-persist",
       "file": "2026-09-08-time-entry-notes-persist.md",

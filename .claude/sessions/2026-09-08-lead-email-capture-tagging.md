@@ -2,9 +2,9 @@
 slug: lead-email-capture-tagging
 repo: ascent-companion
 branch: claude/lead-email-capture-tagging-63onc0
-status: in-progress
+status: shipped
 started: 2026-09-08T20:14:08Z
-updated: 2026-09-08T20:15:15Z
+updated: 2026-09-08T20:21:07Z
 goal: 
 next: deploy the appscript side (./deploy.sh) so markFormSubmissionsCaptured is live, then open /leads and confirm the _Lead Captured label lands on a website submission
 ---

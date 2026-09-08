@@ -18,6 +18,7 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
+| [lead-email-capture-tagging](.claude/sessions/2026-09-08-lead-email-capture-tagging.md) | 2026-09-08 | 3 | — |
 | [time-entry-notes-persist](.claude/sessions/2026-09-08-time-entry-notes-persist.md) | 2026-09-08 | 1 | — |
 | [jobtread-qbo-sales-tax](.claude/sessions/2026-09-05-jobtread-qbo-sales-tax.md) | 2026-09-08 | 36 | bill move: background + Drive re-file + real error; buyback picker dialog; appr… |
 | [daily-digest-to-todos](.claude/sessions/2026-09-08-daily-digest-to-todos.md) | 2026-09-08 | 2 | — |
@@ -32,4 +33,3 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 | [loading-screen-logo](.claude/sessions/2026-09-05-loading-screen-logo.md) | 2026-09-05 | 3 | — |
 | [main](.claude/sessions/2026-09-03-main.md) | 2026-09-04 | 38 | — |
 | [jobs-page-client-listings](.claude/sessions/2026-09-03-jobs-page-client-listings.md) | 2026-09-04 | 2 | — |
-| [bookkeeping-record-keeping](.claude/sessions/2026-09-03-bookkeeping-record-keeping.md) | 2026-09-03 | 5 | — |
