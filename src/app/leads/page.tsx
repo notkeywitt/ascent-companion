@@ -474,7 +474,15 @@ const staleTone = (days: number | null, t: LeadQuietThresholds): ChipTone =>
 /** The saved fields of a tracking row, as one string — used to tell an edited
  *  form from the row it came from, without comparing updatedAt. */
 const trackingKey = (t: Tracking) =>
-  [t.stage, t.nextAction, t.nextActionDate, t.lastContactDate, t.estValue, t.notes].join("\u0000");
+  [
+    t.stage,
+    t.projectScope,
+    t.nextAction,
+    t.nextActionDate,
+    t.lastContactDate,
+    t.estValue,
+    t.notes,
+  ].join("\u0000");
 
 /* -------------------------------------------------------------------- page */
 
@@ -1343,6 +1351,19 @@ function LeadDetail({
           Job Details
         </SectionHeading>
         <div className="grid grid-cols-2 gap-2">
+          <div className="col-span-2">
+            <Label htmlFor={`scope-${lead.id}`}>Project scope</Label>
+            <Textarea
+              id={`scope-${lead.id}`}
+              rows={2}
+              placeholder="e.g. Re-side the house and rebuild the south deck"
+              value={form.projectScope}
+              onChange={(e) => setForm({ ...form, projectScope: e.target.value })}
+            />
+            <p className="mt-1 text-[11px] text-neutral-500">
+              What the job is, in our words. Shows on the home page&apos;s Leads panel.
+            </p>
+          </div>
           <div>
             <Label htmlFor={`stage-${lead.id}`}>Stage</Label>
             <Select
@@ -1382,19 +1403,6 @@ function LeadDetail({
       <section className="space-y-2">
         <SectionHeading>Contact log</SectionHeading>
         <div className="grid grid-cols-2 gap-2">
-          <div className="col-span-2">
-            <Label htmlFor={`scope-${lead.id}`}>Project scope</Label>
-            <Textarea
-              id={`scope-${lead.id}`}
-              rows={2}
-              placeholder="e.g. Re-side the house and rebuild the south deck"
-              value={form.projectScope}
-              onChange={(e) => setForm({ ...form, projectScope: e.target.value })}
-            />
-            <p className="mt-1 text-[11px] text-neutral-500">
-              What the job is, in our words. Shows on the home page&apos;s Leads panel.
-            </p>
-          </div>
           <div className="col-span-2">
             <Label htmlFor={`next-${lead.id}`}>Next action</Label>
             <Input
