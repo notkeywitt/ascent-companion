@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/jobtread-qbo-sales-tax-lfqctd
 status: shipped
 started: 2026-09-05T05:30:35Z
-updated: 2026-09-08T18:10:32Z
+updated: 2026-09-08T18:14:14Z
 goal: 
 next: Owner to confirm the Record Tax toggle reads OFF on bill 115 in JobTread, then push HEAD:main.
 ---

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-08T17:56:48Z",
+  "generatedAt": "2026-09-08T18:14:14Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "claude/jobtread-qbo-sales-tax-lfqctd",
       "status": "shipped",
       "started": "2026-09-05T05:30:35Z",
-      "updated": "2026-09-08T17:56:48Z",
+      "updated": "2026-09-08T18:14:14Z",
       "goal": "",
-      "next": "Check the blue stripe reads right on a real month in Tracking Sheets — reviewed+approved bills before the invoice is raised.",
+      "next": "Owner to confirm the Record Tax toggle reads OFF on bill 115 in JobTread, then push HEAD:main.",
       "commits": [
         {
           "date": "2026-09-05",
@@ -221,6 +221,20 @@
           "sha": "2b6c71a",
           "subject": "companion: make the blue bill stripe mean reviewed and approved",
           "files": "src/app/trackingsheet/AllBills.tsx, src/app/trackingsheet/Board.tsx, src/lib/billInvoiceState.test.ts, src/lib/billInvoiceState.ts"
+        },
+        {
+          "date": "2026-09-08",
+          "time": "11:08",
+          "sha": "2d7ac0b",
+          "subject": "companion: a save turns JobTread's Record Tax toggle back off",
+          "files": "src/app/bill/[docId]/page.tsx, src/app/trackingsheet/Board.tsx, src/app/trackingsheet/DraftWorkbench.tsx, src/lib/jobtread.ts, src/lib/salesTax.ts"
+        },
+        {
+          "date": "2026-09-08",
+          "time": "11:10",
+          "sha": "5f089b7",
+          "subject": "companion: probe script for the Record Tax toggle write",
+          "files": "scripts/probe-record-tax.mjs"
         }
       ]
     },
