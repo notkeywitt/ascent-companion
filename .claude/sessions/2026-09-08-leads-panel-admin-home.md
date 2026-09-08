@@ -2,9 +2,9 @@
 slug: leads-panel-admin-home
 repo: ascent-companion
 branch: claude/leads-panel-admin-home-3rkum8
-status: in-progress
+status: shipped
 started: 2026-09-08T04:33:47Z
-updated: 2026-09-08T04:40:08Z
+updated: 2026-09-08T04:57:52Z
 goal: 
 next: Digest + admin action bar are off the office home page. Still to confirm with the owner: whether to push this branch to remote main (CLAUDE.md says main, session brief says the branch).
 ---

@@ -1,7 +1,47 @@
 {
-  "generatedAt": "2026-09-07T21:59:41Z",
+  "generatedAt": "2026-09-08T04:57:52Z",
   "repo": "ascent-companion",
   "sessions": [
+    {
+      "slug": "leads-panel-admin-home",
+      "file": "2026-09-08-leads-panel-admin-home.md",
+      "branch": "claude/leads-panel-admin-home-3rkum8",
+      "status": "shipped",
+      "started": "2026-09-08T04:33:47Z",
+      "updated": "2026-09-08T04:57:52Z",
+      "goal": "",
+      "next": "Digest + admin action bar are off the office home page. Still to confirm with the owner: whether to push this branch to remote main (CLAUDE.md says main, session brief says the branch).",
+      "commits": [
+        {
+          "date": "2026-09-08",
+          "time": "04:33",
+          "sha": "8c2afd4",
+          "subject": "companion: add leads panel to the home page",
+          "files": "CODEBASE_MAP.md, USER_MANUAL.md, src/app/api/leads/route.ts, src/app/leads/page.tsx, src/app/page.tsx, src/components/HomeLeadBoard.tsx, +4 more"
+        },
+        {
+          "date": "2026-09-08",
+          "time": "04:34",
+          "sha": "8c6a840",
+          "subject": "companion: log session 2026-09-08-leads-panel-admin-home",
+          "files": ""
+        },
+        {
+          "date": "2026-09-08",
+          "time": "04:34",
+          "sha": "4fb84c9",
+          "subject": "companion: log the ledger commit's own row",
+          "files": ""
+        },
+        {
+          "date": "2026-09-08",
+          "time": "04:40",
+          "sha": "2afb884",
+          "subject": "companion: take the digest and the admin action bar off the office home page",
+          "files": "USER_MANUAL.md, src/app/page.tsx, src/components/DailyDigest.tsx, src/components/TileLauncher.tsx, src/lib/views.ts"
+        }
+      ]
+    },
     {
       "slug": "pwa-push-notifications-phone",
       "file": "2026-09-07-pwa-push-notifications-phone.md",
