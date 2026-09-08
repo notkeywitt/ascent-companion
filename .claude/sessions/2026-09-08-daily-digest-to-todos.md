@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/daily-digest-to-todos-kosc2a
 status: shipped
 started: 2026-09-08T05:31:42Z
-updated: 2026-09-08T12:52:01Z
+updated: 2026-09-08T12:52:03Z
 goal: 
 next: on the phone: confirm the To Dos list is your own and a row opens the right to-do in JobTread
 ---
