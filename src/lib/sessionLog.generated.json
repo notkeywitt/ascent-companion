@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-08T13:08:07Z",
+  "generatedAt": "2026-09-08T13:27:27Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,7 +8,7 @@
       "branch": "claude/jobtread-qbo-sales-tax-lfqctd",
       "status": "shipped",
       "started": "2026-09-05T05:30:35Z",
-      "updated": "2026-09-08T13:08:07Z",
+      "updated": "2026-09-08T13:27:26Z",
       "goal": "",
       "next": "Check the lead card on the phone: autosave feedback reads as 'Saving…' next to Job Details only.",
       "commits": [
@@ -178,6 +178,13 @@
           "time": "06:07",
           "sha": "8ff7eb2",
           "subject": "companion: autosave lead tracking, regroup the lead card",
+          "files": "src/app/leads/page.tsx"
+        },
+        {
+          "date": "2026-09-08",
+          "time": "06:27",
+          "sha": "5fa33cb",
+          "subject": "companion: move project scope into job details",
           "files": "src/app/leads/page.tsx"
         }
       ]

@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/jobtread-qbo-sales-tax-lfqctd
 status: shipped
 started: 2026-09-05T05:30:35Z
-updated: 2026-09-08T13:27:24Z
+updated: 2026-09-08T13:27:26Z
 goal: 
 next: Check the lead card on the phone: autosave feedback reads as 'Saving…' next to Job Details only.
 ---
