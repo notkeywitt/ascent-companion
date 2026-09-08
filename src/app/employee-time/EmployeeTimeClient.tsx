@@ -32,7 +32,9 @@ import {
  *    Clock-in creates an OPEN JobTread time entry (startedAt only); clock-out
  *    sets its endedAt + the required note (updateTimeEntry). The Clock out
  *    sheet can also CORRECT the start time — "I started at 7, I clocked in at
- *    9" — and only a corrected one is written back. The running clock
+ *    9" — and only a corrected one is written back. The note is mirrored to
+ *    this device as it is typed, so leaving the screen mid-shift and coming
+ *    back does not lose it. The running clock
  *    is resumed FROM JOBTREAD on load (GET /api/employee-time/clock returns the
  *    open entry), so opening the page anywhere — a new phone, a cleared
  *    browser, the office desktop — shows Clock out with the real start time and
@@ -175,6 +177,64 @@ const MAX_PHOTOS = 8;
 const LS_JT_USER = "employeeTime.jtUser."; // + email → remembered JobTread user id
 const LS_CLOCK = "employeeTime.activeClock";
 const LS_LAST_PICK = "employeeTime.lastPick."; // + email → last job/cost/pay used
+const LS_NOTE = "employeeTime.note"; // the note in progress, kept across visits
+
+// A note typed with no clock running is dropped after this long, so a note
+// abandoned in Log a range never turns up days later on someone else's shift.
+// A note that belongs to a RUNNING clock ignores this — it stands until that
+// clock is closed, however long the crew member stays on it.
+const NOTE_TTL_MS = 12 * 60 * 60 * 1000;
+
+/** The note in progress: what was typed, which clock it was typed on, when. */
+interface SavedNote {
+  note: string;
+  entryId: string; // the running clock it belongs to ("" = typed with no clock)
+  savedAt: number;
+}
+
+// The note survives leaving the page. A crew member writes what they worked on
+// while the clock runs, walks away from the screen, and finds it still there —
+// the same mirror-to-this-device rule the running clock itself uses.
+function readSavedNote(): SavedNote | null {
+  try {
+    const raw = localStorage.getItem(LS_NOTE);
+    if (!raw) return null;
+    const s = JSON.parse(raw) as Partial<SavedNote>;
+    if (!s || typeof s.note !== "string" || !s.note.trim()) return null;
+    return { note: s.note, entryId: s.entryId ?? "", savedAt: Number(s.savedAt) || 0 };
+  } catch {
+    return null;
+  }
+}
+
+function saveNote(note: string, entryId: string) {
+  try {
+    if (!note.trim()) {
+      localStorage.removeItem(LS_NOTE);
+      return;
+    }
+    const rec: SavedNote = { note, entryId, savedAt: Date.now() };
+    localStorage.setItem(LS_NOTE, JSON.stringify(rec));
+  } catch {}
+}
+
+function clearSavedNote() {
+  try {
+    localStorage.removeItem(LS_NOTE);
+  } catch {}
+}
+
+/** The entry id of this device's clock record, without parsing the rest of it. */
+function readClockEntryId(): string {
+  try {
+    const raw = localStorage.getItem(LS_CLOCK);
+    if (!raw) return "";
+    const c = JSON.parse(raw) as Partial<ActiveClock>;
+    return c?.entryId ?? "";
+  } catch {
+    return "";
+  }
+}
 
 // The last job, cost code and pay type this person logged ON THIS DEVICE. It is
 // the first default; JobTread's own last entry (the `lastUsed` prop) is the
@@ -625,6 +685,12 @@ export function EmployeeTimeClient({
         try {
           localStorage.removeItem(LS_CLOCK);
         } catch {}
+        // The note belonged to that closed clock, so it goes with it.
+        const saved = readSavedNote();
+        if (saved && saved.entryId === local.entryId) {
+          clearSavedNote();
+          setNote("");
+        }
         setActiveClock(null);
         setClockNote("That clock-in is already closed in JobTread — starting fresh.");
       } else if (local) {
@@ -683,6 +749,32 @@ export function EmployeeTimeClient({
     // Mount-only: every prop above is a render-time constant from the server.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // --- The note in progress -------------------------------------------------
+  // Restore it on mount, then mirror every keystroke to this device. It comes
+  // back for the clock it was typed on (that clock can run overnight), and
+  // otherwise only while it is fresh. Restoring in an effect, not in the
+  // useState initializer, keeps the first paint identical to the server's.
+  const noteRestoredRef = useRef(false);
+  useEffect(() => {
+    const saved = readSavedNote();
+    if (saved) {
+      const openId = initialOpenEntry?.entryId || readClockEntryId();
+      const onThisClock = !!saved.entryId && saved.entryId === openId;
+      if (onThisClock || Date.now() - saved.savedAt < NOTE_TTL_MS) setNote(saved.note);
+      else clearSavedNote();
+    }
+    noteRestoredRef.current = true;
+    // Mount-only: initialOpenEntry is a render-time constant from the server.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const clockEntryId = activeClock?.entryId ?? "";
+  useEffect(() => {
+    // Never before the restore above, or the empty first value erases the note.
+    if (!noteRestoredRef.current) return;
+    saveNote(note, clockEntryId);
+  }, [note, clockEntryId]);
 
   // Remembered JobTread-user pick (only used when the roster link is missing).
   useEffect(() => {
