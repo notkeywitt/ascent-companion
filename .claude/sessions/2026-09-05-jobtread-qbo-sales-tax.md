@@ -4,9 +4,9 @@ repo: ascent-companion
 branch: claude/jobtread-qbo-sales-tax-lfqctd
 status: shipped
 started: 2026-09-05T05:30:35Z
-updated: 2026-09-08T18:56:29Z
+updated: 2026-09-08T19:07:30Z
 goal: bill move: background + Drive re-file + real error; buyback picker dialog; approve advances; cost-code names on the bills list
-next: ascent-appscript needs a clasp push (WebApp.js + Sheets_AppSheet.js) before the move fix is live; companion side is built but NOT pushed — writes are armed in production and the buyback dialog fires N writes with no per-line confirm.
+next: owner review + push: /api/time-entry now writes the pay type (a live money field), so it needs the ok before shipping
 ---
 
 ## Log
@@ -85,3 +85,4 @@ next: ascent-appscript needs a clasp push (WebApp.js + Sheets_AppSheet.js) befor
 - 2026-09-08 18:10 — Probed live 2026-09-08: updateDocument with nonRecoverableTax 0 + nonRecoverableTaxName null is accepted and leaves the document cost untouched (bill 115, 22PdwYuQV3VB: "Tax" -> null, cost 2485 -> 2485). scripts/probe-record-tax.mjs holds the probe and a --restore flag.
 - 2026-09-08 18:24 — Move-bill failure 'Void+recreate did not complete' is a swallowed reason — every failure inside syncExpenditureUpdateToJobTread returns null and writes the cause to the Audit Log only. _companionReassignJob now reads back the row Status + the newest Audit Log line for that ExpID and returns it. Needs a clasp push to take effect; read /logs (listSystemLogs) meanwhile.
 - 2026-09-08 18:24 — Drive folder on a move: verified. A bill's folder is a pure function of the Expenditure row (reconcileDriveFiling), so setting Project ID IS the re-file — there is no re-file flag despite three comments saying so. It only ran on the hourly pass, so the backup sat in the old job's folder for up to an hour. reconcileDriveFiling now takes { onlyExpId } and the reassign runs it for that one row before returning.
+- 2026-09-08 19:07 — time & labor: per-entry JT link (timeEntryId param, owner-supplied) + labor-rate (pay type) edit on the coding panel. Probed live: updateTimeEntry type re-rates the entry (85->95/h, cost 170->190, minutes unchanged); an unknown type is 400. Rate field is office/admin only in /api/time-entry.
