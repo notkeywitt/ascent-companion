@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/jobtread-qbo-sales-tax-lfqctd
 status: shipped
 started: 2026-09-05T05:30:35Z
-updated: 2026-09-08T13:08:07Z
+updated: 2026-09-08T13:27:24Z
 goal: 
 next: Check the lead card on the phone: autosave feedback reads as 'Saving…' next to Job Details only.
 ---
@@ -52,6 +52,8 @@ next: Check the lead card on the phone: autosave feedback reads as 'Saving…' n
 - 2026-09-06 23:25 · `628bba4` companion: calendar view for the labor list
   src/components/TimeEntryList.tsx, src/lib/timeEntryDates.test.ts, src/lib/timeEntryDates.ts
 - 2026-09-08 06:07 · `8ff7eb2` companion: autosave lead tracking, regroup the lead card
+  src/app/leads/page.tsx
+- 2026-09-08 06:27 · `5fa33cb` companion: move project scope into job details
   src/app/leads/page.tsx
 
 ## Notes
