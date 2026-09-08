@@ -18,6 +18,7 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
+| [help-page-ste-100](.claude/sessions/2026-09-08-help-page-ste-100.md) | 2026-09-08 | 2 | — |
 | [daily-digest-to-todos](.claude/sessions/2026-09-08-daily-digest-to-todos.md) | 2026-09-08 | 1 | — |
 | [leads-panel-admin-home](.claude/sessions/2026-09-08-leads-panel-admin-home.md) | 2026-09-08 | 5 | — |
 | [pwa-push-notifications-phone](.claude/sessions/2026-09-07-pwa-push-notifications-phone.md) | 2026-09-07 | 3 | in-app banner notice system: office+admin authoring, scheduled windows, group +… |

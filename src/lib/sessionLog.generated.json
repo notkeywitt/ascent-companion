@@ -1,7 +1,33 @@
 {
-  "generatedAt": "2026-09-08T05:32:16Z",
+  "generatedAt": "2026-09-08T05:56:00Z",
   "repo": "ascent-companion",
   "sessions": [
+    {
+      "slug": "help-page-ste-100",
+      "file": "2026-09-08-help-page-ste-100.md",
+      "branch": "claude/help-page-ste-100-ogxpzp",
+      "status": "shipped",
+      "started": "2026-09-08T05:38:15Z",
+      "updated": "2026-09-08T05:56:00Z",
+      "goal": "",
+      "next": "watch for stale labels: a page that rewords a button must reword its help topic",
+      "commits": [
+        {
+          "date": "2026-09-08",
+          "time": "05:55",
+          "sha": "38e2049",
+          "subject": "companion: add the /help page — staff instructions in ASD-STE100",
+          "files": "CODEBASE_MAP.md, README.md, USER_MANUAL.md, src/app/help/HelpBrowser.tsx, src/app/help/page.tsx, src/components/GlobalSearch.tsx, +5 more"
+        },
+        {
+          "date": "2026-09-08",
+          "time": "05:55",
+          "sha": "ce4a8d8",
+          "subject": "companion: log session 2026-09-08-help-page-ste-100",
+          "files": ""
+        }
+      ]
+    },
     {
       "slug": "daily-digest-to-todos",
       "file": "2026-09-08-daily-digest-to-todos.md",
