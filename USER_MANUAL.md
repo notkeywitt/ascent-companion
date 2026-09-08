@@ -148,8 +148,9 @@ job from anywhere.
 
 ### The panels above the Home launcher (office and admin)
 
-Three panels sit above the buttons, in this order. Each one hides itself when it
-has nothing to say.
+Two panels sit above the buttons, in this order. Each one hides itself when it
+has nothing to say. Admins get a third, the **Daily Digest** (see below), and
+the row of admin action buttons at the very bottom of the page.
 
 - **Active jobs** — a card per job JobTread marks Phase = Active: budget spent, and
   what is on the calendar today. Tap the card for the job's tracking sheet.
@@ -160,7 +161,6 @@ has nothing to say.
   heading to fold the whole panel away; the phone remembers. Tap a card to open
   that lead on the **Leads** page, which is where you write the scope and the next
   step.
-- **Daily Digest** — the morning report (see below).
 
 ### Sync Drive
 

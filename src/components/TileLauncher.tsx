@@ -143,10 +143,11 @@ export function TileLauncher({ qs = "" }: { qs?: string }) {
 
   return (
     <div className="space-y-4">
-      {/* The office digest that used to be a "coming soon" placeholder here is
-          now the real <DailyDigest /> card, rendered ABOVE this launcher by
-          src/app/page.tsx — the same card admin sees, gated on the `digest`
-          view, which office now holds (src/lib/views.ts). Nothing to reserve. */}
+      {/* Nothing to reserve for a digest here. This slot once held a "coming
+          soon" placeholder, then the real <DailyDigest /> card for office —
+          rendered ABOVE this launcher by src/app/page.tsx, never inside it. The
+          `digest` view went ADMIN-ONLY on 2026-09-08 (src/lib/views.ts), and no
+          role that gets THIS launcher holds it. */}
       <div className="grid grid-cols-2 gap-3">
         {quick.map((d) => (
           <FieldTile

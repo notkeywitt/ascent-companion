@@ -108,11 +108,13 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 export function DailyDigest() {
   const access = useAccess();
   const canSee = access.can("digest");
-  // OFFICE READS IT, ADMIN REBUILDS IT. The card is granted to office as well
-  // as admin, but /api/digest/run — an org-wide sweep plus a Claude call —
-  // authenticates on its own and accepts only the scheduler or an admin
-  // session. So the button is hidden for office rather than shown and answered
-  // with a 403; office sees the digest the morning run stored.
+  // ADMIN-ONLY since 2026-09-08 (the owner asked for it off the office home
+  // page), so the view now carries the whole gate — see src/lib/views.ts.
+  // Refresh stays a SEPARATE check because /api/digest/run — an org-wide sweep
+  // plus a Claude call — authenticates on its own and accepts only the
+  // scheduler or an admin session. That matters for the one case the view still
+  // allows: a per-user grant handing this card to a non-admin, who then reads
+  // the digest the morning run stored without the button that rebuilds it.
   const canRefresh = access.role === "admin";
 
   // Collapsed by default — the digest is a morning read, not something that

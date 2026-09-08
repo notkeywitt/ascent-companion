@@ -263,11 +263,13 @@ export const VIEWS: ViewDef[] = [
   // field phone. /api/digest is listed here so a non-admin can't read the
   // stored digest by calling the route directly.
   //
-  // OFFICE + ADMIN. The digest reports the office's own work — billing, the
-  // inbox, the calendar, follow-ups — so office reads it too (it is NOT in
-  // ADMIN_MENU below). The gate also covers /api/digest/reply, so office can
-  // talk back to it (add a reminder, snooze one, silence a sender), and
-  // /api/digest/dismiss, the Dismiss button on a To-Do / Follow-up item.
+  // ADMIN-ONLY as of 2026-09-08, at the owner's request — it is in ADMIN_MENU
+  // below. It used to be office + admin, on the reasoning that the digest
+  // reports the office's own work. The card on "/" is the ONLY digest surface,
+  // so the view and the card are the same thing: dropping office from the view
+  // is what takes the card off the office home page, and it closes
+  // /api/digest/reply and /api/digest/dismiss to them in the same move. A
+  // per-user grant in the admin editor still hands it back to an individual.
   //
   // NOTE /api/digest/run is deliberately NOT gated here: the scheduler that
   // calls it has no session at all, so it is PUBLIC in middleware and does its
@@ -340,6 +342,9 @@ const ADMIN_MENU: string[] = [
   "bank-details",
   "page-copy",
   "theme-editor",
+  // The morning report on "/". Admin-only since 2026-09-08 — see the view's own
+  // note above for why dropping the view is what removes the card.
+  "digest",
 ];
 // Office gets Financials, HR, and Utilities ("everything else") — i.e. every
 // view except the admin consoles, including the header Sync button.

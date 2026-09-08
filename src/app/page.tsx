@@ -226,10 +226,11 @@ function Home() {
 
       {/* The morning digest — billing scan, calendar, follow-ups. Reads the
           digest the scheduled job stored; it does NOT run the checks on load.
-          Self-hiding: renders nothing without the `digest` view — office and
-          admin hold it, so a field or lead phone loading this same page pays
-          nothing for it. Office reads the stored digest and can reply to it;
-          only admin gets the "Refresh now" button (see DailyDigest.tsx). */}
+          Self-hiding: renders nothing without the `digest` view, which is
+          ADMIN-ONLY as of 2026-09-08 (the owner asked for it off the office
+          home page). Office, lead and field all load this same page and pay
+          nothing for it. Only admin gets the "Refresh now" button, which is a
+          separate check — see DailyDigest.tsx. */}
       <DailyDigest />
 
       {tiles ? (
@@ -360,9 +361,17 @@ function Home() {
 
       {/* Admin-only: quick-jump links to the busiest queues plus buttons that
           run a script job without leaving the launcher. Sits at the bottom, out
-          of the field/office user's way. Gated on the same `actions` view as the
-          /actions page and the /api/actions route. */}
-      {access.can("actions") && (
+          of the field/office user's way.
+
+          TWO conditions, not one, and that is the point. The bar used to be
+          gated on the `actions` view alone, which office holds — so the comment
+          above said "admin-only" while office saw it. The ROLE check is what
+          makes that true (the owner asked for it off the office home page on
+          2026-09-08); the VIEW check stays so an admin denied `actions` in the
+          admin editor still doesn't get it. The /actions PAGE keeps the view's
+          own gate and is unchanged — office can still reach it from the
+          Utilities menu, which is where a destination belongs. */}
+      {access.role === "admin" && access.can("actions") && (
         <div className="mt-6">
           <AdminActionBar jobQs={qs} />
         </div>
