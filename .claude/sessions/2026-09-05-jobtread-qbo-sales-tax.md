@@ -4,9 +4,9 @@ repo: ascent-companion
 branch: claude/jobtread-qbo-sales-tax-lfqctd
 status: shipped
 started: 2026-09-05T05:30:35Z
-updated: 2026-09-08T17:50:09Z
+updated: 2026-09-08T17:56:47Z
 goal: 
-next: Check on the phone that approving a bill on /trackingsheet keeps the board and scroll position, with the quiet Refreshing line
+next: Check the blue stripe reads right on a real month in Tracking Sheets — reviewed+approved bills before the invoice is raised.
 ---
 
 ## Log
@@ -62,6 +62,8 @@ next: Check on the phone that approving a bill on /trackingsheet keeps the board
   src/app/chat/page.tsx, src/app/coding/page.tsx, src/app/labor-review/LaborReview.tsx, src/app/rfis/page.tsx, src/app/unbilled/page.tsx, src/components/JobPicker.tsx
 - 2026-09-08 10:50 · `7bde0a8` companion: keep the tracking sheet on screen while it reloads
   src/app/trackingsheet/Board.tsx
+- 2026-09-08 10:56 · `2b6c71a` companion: make the blue bill stripe mean reviewed and approved
+  src/app/trackingsheet/AllBills.tsx, src/app/trackingsheet/Board.tsx, src/lib/billInvoiceState.test.ts, src/lib/billInvoiceState.ts
 
 ## Notes
 - 2026-09-05 05:30 — Companion half of the sales-tax move. src/lib/salesTax.ts is the single definition: the 88 80 00 constants, the line matcher, splitSalesTax, and the job-Phase-derived recoverable/consumed flag. createVendorBill appends the tax line and pins nonRecoverableTax to 0; setBillTax now creates/updates/deletes that LINE and clears any legacy field.
