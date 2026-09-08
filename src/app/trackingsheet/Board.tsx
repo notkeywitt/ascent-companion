@@ -387,6 +387,15 @@ export function Board() {
   const [sunsetBlockOpen, setSunsetBlockOpen] = useState(false);
   const [data, setData] = useState<BoardPayload | null>(null);
   const [loading, setLoading] = useState(true);
+  /** A reload over a board that's already on screen. Unlike `loading` it does
+      NOT unmount the page — every write here (approve, sync, delete, combine)
+      re-pulls the month, and blanking the board threw away your scroll spot
+      every time. Only the FIRST pull of a job+month has nothing to show. */
+  const [refreshing, setRefreshing] = useState(false);
+  /** The job+month the board is currently showing, so load() can tell a first
+      pull from a refresh without depending on `data` (which would rebuild
+      load() and re-fire its effect). */
+  const shownKey = useRef("");
   const [error, setError] = useState("");
 
   /** costItemId → the budget leaf it's been staged onto. */
@@ -678,7 +687,10 @@ export function Board() {
   const load = useCallback(
     async (opts?: { preserveStaged?: boolean }) => {
       if (!jobId) return;
-      setLoading(true);
+      const key = `${jobId}|${ym}`;
+      const firstPull = shownKey.current !== key;
+      if (firstPull) setLoading(true);
+      else setRefreshing(true);
       setError("");
       const [y, m] = ym.split("-");
       try {
@@ -692,6 +704,7 @@ export function Board() {
         if (j.error) setError(j.error);
         else {
           setData(j);
+          shownKey.current = key;
           if (opts?.preserveStaged) {
             // Combining deletes lines. Drop any staged pick/edit that pointed at
             // an id JobTread no longer has, but leave every OTHER bill's staged
@@ -734,6 +747,7 @@ export function Board() {
         setError(e instanceof Error ? e.message : "Failed to load");
       } finally {
         setLoading(false);
+        setRefreshing(false);
       }
     },
     [jobId, ym],
@@ -2904,6 +2918,18 @@ export function Board() {
       )}
 
       {loading && <Loading label={c("recode.loading.billsAndBudget")} />}
+
+      {/* A refresh keeps the board where it is and says so quietly here. */}
+      {refreshing && (
+        <MetaLine
+          className="mb-2"
+          items={[
+            <>
+              <Spinner /> Refreshing…
+            </>,
+          ]}
+        />
+      )}
 
       {/* What this month is worth, and whether JobTread is ready to bill it.
           Same endpoint and same rectangle the Invoicing page uses, so the two
