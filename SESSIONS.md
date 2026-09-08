@@ -18,12 +18,12 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
+| [jobtread-qbo-sales-tax](.claude/sessions/2026-09-05-jobtread-qbo-sales-tax.md) | 2026-09-08 | 24 | — |
 | [daily-digest-to-todos](.claude/sessions/2026-09-08-daily-digest-to-todos.md) | 2026-09-08 | 2 | — |
 | [help-page-ste-100](.claude/sessions/2026-09-08-help-page-ste-100.md) | 2026-09-08 | 2 | — |
 | [leads-panel-admin-home](.claude/sessions/2026-09-08-leads-panel-admin-home.md) | 2026-09-08 | 5 | — |
 | [pwa-push-notifications-phone](.claude/sessions/2026-09-07-pwa-push-notifications-phone.md) | 2026-09-07 | 3 | in-app banner notice system: office+admin authoring, scheduled windows, group +… |
 | [pwa-dock-homescreen-logo](.claude/sessions/2026-09-07-pwa-dock-homescreen-logo.md) | 2026-09-07 | 3 | — |
-| [jobtread-qbo-sales-tax](.claude/sessions/2026-09-05-jobtread-qbo-sales-tax.md) | 2026-09-07 | 22 | — |
 | [tracking-sheet-button-audit](.claude/sessions/2026-09-06-tracking-sheet-button-audit.md) | 2026-09-06 | 7 | audit the tracking sheet page's buttons and re-lay them out for desktop workflow |
 | [collapsible-appearance-section](.claude/sessions/2026-09-06-collapsible-appearance-section.md) | 2026-09-06 | 3 | — |
 | [dark-mode-color-scheme](.claude/sessions/2026-09-05-dark-mode-color-scheme.md) | 2026-09-06 | 8 | Rebuild dark mode from the Ascent Brand Guidelines: replace the lifted-olive ac… |
