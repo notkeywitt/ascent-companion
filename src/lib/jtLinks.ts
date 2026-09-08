@@ -9,10 +9,11 @@
  *
  * THE TIME PAGE IS NOT PER-JOB. JobTread files time under ONE org-wide page,
  * `/time`, and narrows it with query params — `userId`, `startDate`, `endDate`
- * (owner-supplied, from a real filtered address bar, 2026-09-06). There is no
- * confirmed JOB parameter, so these links narrow to the person and the day and
- * stop there. Do not add a `jobId` guess: an unrecognised param is the same
- * silent wrong-page failure this module exists to end.
+ * (owner-supplied, from a real filtered address bar, 2026-09-06) and
+ * `timeEntryId`, which OPENS one entry (owner-supplied, 2026-09-08). There is
+ * no confirmed JOB parameter, so these links narrow to the person, the day and
+ * the entry, and stop there. Do not add a `jobId` guess: an unrecognised param
+ * is the same silent wrong-page failure this module exists to end.
  *
  * Dates are ORG-LOCAL calendar days (YYYY-MM-DD) — the day the office would
  * call the entry's, not a UTC slice of its timestamp. Read them with `orgDay`.
@@ -31,20 +32,29 @@ function day(v?: string | null): string {
  *
  * Every argument is optional and each narrows independently: no `userId` gives
  * the whole crew's day, no dates give one person's whole history. Passing the
- * same day as `from` and `to` is the single-day case — what a link on ONE entry
- * wants.
+ * same day as `from` and `to` is the single-day case; `entryId` is the case
+ * after that — a link on ONE entry, which JobTread opens rather than merely
+ * filters to. Pair `entryId` with its `userId`, the way the owner's own address
+ * does: the entry list is still the person's.
  */
 export function jtTimeUrl(
-  opts: { userId?: string | null; from?: string | null; to?: string | null } = {},
+  opts: {
+    userId?: string | null;
+    from?: string | null;
+    to?: string | null;
+    entryId?: string | null;
+  } = {},
 ): string {
   const p = new URLSearchParams();
   const userId = String(opts.userId ?? "").trim();
+  const entryId = String(opts.entryId ?? "").trim();
   const from = day(opts.from);
   const to = day(opts.to);
   if (userId) p.set("userId", userId);
   if (from) p.set("startDate", from);
   // A range needs both ends; a lone `from` reads as "that day".
   if (to || from) p.set("endDate", to || from);
+  if (entryId) p.set("timeEntryId", entryId);
   const q = p.toString();
   return q ? `${APP}/time?${q}` : `${APP}/time`;
 }

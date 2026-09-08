@@ -5086,6 +5086,8 @@ export async function getTimeEntryJournalSnapshot(
   isApproved: boolean | null;
   notes: string;
   userName: string;
+  /** The pay type (labor rate) name — a writable field, so a before-value. */
+  type: string;
 } | null> {
   try {
     const r: any = await pave(cfg, {
@@ -5120,6 +5122,7 @@ export async function getTimeEntryJournalSnapshot(
       isApproved: typeof t.isApproved === "boolean" ? t.isApproved : null,
       notes: t.notes ?? "",
       userName: t.user?.name ?? "",
+      type: t.type ?? "",
     };
   } catch {
     return null;
@@ -5159,6 +5162,15 @@ export async function getTimeEntryJournalSnapshot(
  *     `{ jobId, costItemId }` moves the entry and leaves cost and minutes
  *     untouched. Cost items are per-job, so the pair is the only legal form.
  *
+ * `type` RE-RATES the entry — the pay type IS the labor rate. Confirmed live
+ * 2026-09-08 (scripts/probe-time-entry-type.mjs: a [PROBE] 2h entry created at
+ * "Regular Pay" $85, switched to "Ruhmann-Warren - PM" $95, read back, deleted):
+ * minutes stayed 120, hourlyRate went 85 → 95 and cost 170 → 190. So this
+ * changes the dollars, exactly like a re-time. Only a pay type the MEMBER
+ * already carries is accepted — anything else is HTTP 400 "Unknown time entry
+ * type '<name>' for user <who>" — so add the rate to their membership
+ * (updateMembershipRates) before writing it onto an entry.
+ *
  * Timestamps here are UTC INSTANTS — build them with orgLocalToJtIso(), never
  * from a bare wall clock (see the note at the top of this section).
  */
@@ -5172,8 +5184,17 @@ export async function updateTimeEntry(
     costItemId?: string;
     jobId?: string;
     isApproved?: boolean;
+    type?: string;
   },
-): Promise<{ id: string; startedAt?: string; endedAt?: string; minutes?: number }> {
+): Promise<{
+  id: string;
+  startedAt?: string;
+  endedAt?: string;
+  minutes?: number;
+  type?: string;
+  hourlyRate?: number;
+  cost?: number;
+}> {
   const $: Record<string, unknown> = { id };
   if (fields.startedAt !== undefined) $.startedAt = fields.startedAt;
   if (fields.endedAt !== undefined) $.endedAt = fields.endedAt;
@@ -5181,15 +5202,33 @@ export async function updateTimeEntry(
   if (fields.costItemId !== undefined) $.costItemId = fields.costItemId;
   if (fields.jobId !== undefined) $.jobId = fields.jobId;
   if (fields.isApproved !== undefined) $.isApproved = fields.isApproved;
+  if (fields.type !== undefined) $.type = fields.type;
   try {
     const r = await pave(cfg, {
       updateTimeEntry: {
         $,
-        timeEntry: { $: { id }, id: {}, startedAt: {}, endedAt: {}, minutes: {} },
+        timeEntry: {
+          $: { id },
+          id: {},
+          startedAt: {},
+          endedAt: {},
+          minutes: {},
+          type: {},
+          hourlyRate: {},
+          cost: {},
+        },
       },
     });
     const t = r?.updateTimeEntry?.timeEntry;
-    return { id: t?.id ?? id, startedAt: t?.startedAt, endedAt: t?.endedAt, minutes: t?.minutes };
+    return {
+      id: t?.id ?? id,
+      startedAt: t?.startedAt,
+      endedAt: t?.endedAt,
+      minutes: t?.minutes,
+      type: t?.type,
+      hourlyRate: t?.hourlyRate,
+      cost: t?.cost,
+    };
   } catch (e) {
     throw new Error(rewriteTimeEntryError(e instanceof Error ? e.message : "Unknown error"));
   }

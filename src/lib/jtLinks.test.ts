@@ -31,6 +31,13 @@ describe("jtTimeUrl", () => {
     expect(jtTimeUrl()).toBe("https://app.jobtread.com/time");
   });
 
+  it("opens one entry, on that person's list", () => {
+    // The owner's own address, verbatim (2026-09-08).
+    expect(jtTimeUrl({ userId: "22Pbh8yNT5nK", entryId: "22PdvvExRzQK" })).toBe(
+      "https://app.jobtread.com/time?userId=22Pbh8yNT5nK&timeEntryId=22PdvvExRzQK",
+    );
+  });
+
   it("ignores a date that is not a calendar day", () => {
     // An ISO instant sliced wrong, or an empty string, must not reach the URL.
     expect(jtTimeUrl({ userId: "u1", from: "2026-08-23T09:15:00Z" })).toBe(

@@ -40,6 +40,12 @@ import { diffFields, openJournal } from "@/lib/financialJournal";
  * the flag — the panel sends it alone rather than folding it into Save, so a
  * press that approves the hours can never also rewrite them.
  *
+ * THE LABOR RATE rides it too, and is the one field with its own ROLE check:
+ * `type` is the pay type, and writing it recomputes the entry's cost (probed
+ * 2026-09-08 — see updateTimeEntry). This route sits on the Tracking Sheets
+ * gate, which leads can hold; rates live behind the office-only "labor-rates"
+ * view everywhere else, so the field is refused for anyone below office here.
+ *
  * ALL THREE EDIT WRITES ARE PROBE-CONFIRMED (2026-08-25, see the note on
  * updateTimeEntry in lib/jobtread.ts): a recode leaves the money alone, a
  * re-time makes JobTread recompute minutes and therefore cost, and a job move
@@ -80,6 +86,12 @@ interface EditBody {
   notes?: string;
   /** The payroll approval mark. Sent alone by the panel's "Approve time". */
   isApproved?: boolean;
+  /**
+   * The pay-type NAME — the labor rate. Writing it RE-RATES the entry (cost =
+   * minutes × that type's rate), so it is office/admin only, matching the
+   * "labor-rates" view that owns rates everywhere else.
+   */
+  type?: string;
 }
 
 export async function POST(req: NextRequest) {
@@ -103,6 +115,7 @@ export async function POST(req: NextRequest) {
     jobId?: string;
     notes?: string;
     isApproved?: boolean;
+    type?: string;
   } = {};
 
   // ---- the timestamps ----
@@ -166,6 +179,24 @@ export async function POST(req: NextRequest) {
   if (costItemId) fields.costItemId = costItemId;
   if (typeof body.notes === "string") fields.notes = body.notes;
 
+  // ---- the labor rate ----
+  // The route rides the Tracking Sheets gate, which reaches further down the
+  // roles than rates do (/labor-rates is office/admin). A lead may fix a day,
+  // an hour or a cost code; changing what an hour is PAID at is the office's.
+  // The panel hides the control for them; this is the half that can't be
+  // bypassed by posting the field directly.
+  const payType = body.type?.trim();
+  if (payType) {
+    const role = ((await auth())?.user as { role?: string } | undefined)?.role ?? "";
+    if (role !== "admin" && role !== "office") {
+      return NextResponse.json(
+        { error: "Changing the labor rate on an entry is office-only." },
+        { status: 403 },
+      );
+    }
+    fields.type = payType;
+  }
+
   // ---- the approval mark ----
   // The panel sends this on its own, so it is a write in its own right and not
   // a rider on an edit. A recode leaves it untouched (probe-confirmed), which
@@ -215,6 +246,7 @@ export async function POST(req: NextRequest) {
         endedAt: prior.endedAt,
         notes: prior.notes,
         isApproved: prior.isApproved,
+        type: prior.type,
       }
     : undefined;
 

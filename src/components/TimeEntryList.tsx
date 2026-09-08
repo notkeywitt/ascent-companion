@@ -1069,6 +1069,18 @@ export function TimeEntryList({
                                 )}
                               </span>
                             </RowBody>
+                            {/* THE ENTRY, ON JOBTREAD. Outside the row body for the
+                            same reason the flag is: nested in it, the tap would
+                            also open the editor. `timeEntryId` opens the entry
+                            itself rather than filtering to its day (lib/jtLinks). */}
+                            <JtLink
+                              href={jtTimeUrl({ userId: t.userId, entryId: t.id })}
+                              title="Open this entry on JobTread's time page"
+                              className="mt-1 flex h-11 w-8 shrink-0 items-center justify-center text-xs font-semibold text-neutral-400 transition hover:text-accent"
+                            >
+                              <span aria-hidden>↗</span>
+                              <span className="sr-only">Open in JobTread</span>
+                            </JtLink>
                             {/* Outside the row body on purpose — nested in it, every
                             tap on this would also open the editor. Small glyph,
                             full 44px target (IconButton). */}

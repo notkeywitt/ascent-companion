@@ -3,7 +3,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { CostCodeSelect, type Option } from "@/components/CostCodeSelect";
 import { JobPicker, jobLabel, type JobRef } from "@/components/JobPicker";
-import { Banner, Button, Card, Chip, Input, Label, Loading } from "@/components/ui";
+import { Banner, Button, Card, Chip, Input, Label, Loading, Select } from "@/components/ui";
+import { JtLink } from "@/components/JtLink";
+import { jtTimeUrl } from "@/lib/jtLinks";
 import { clockOfMinutes, minutesOfClock, orgParts, prettyClock, spanHours } from "@/lib/orgTime";
 
 /**
@@ -15,9 +17,10 @@ import { clockOfMinutes, minutesOfClock, orgParts, prettyClock, spanHours } from
  * the panel that closes that loop — click an entry, fix it in the same column
  * the bills are coded in.
  *
- * FOUR EDITS, one write. Cost code, the hours worked, the day, and the job. They
- * travel together because they're one correction: "that was Thursday, on the
- * other house, and it was six hours not eight."
+ * FIVE EDITS, one write. Cost code, the hours worked, the day, the job, and the
+ * PAY TYPE — the labor rate the entry is charged at. They travel together
+ * because they're one correction: "that was Thursday, on the other house, six
+ * hours not eight, and at the Ruhmann rate."
  *
  * APPROVING IS A FIFTH PRESS, not a fifth field. It writes `isApproved` on its
  * own, so approving hours can never also rewrite them — and it is disabled
@@ -38,7 +41,13 @@ import { clockOfMinutes, minutesOfClock, orgParts, prettyClock, spanHours } from
  *     The panel warns on screen rather than letting that surprise anyone;
  *   - a JOB MOVE only works together with a cost code on the target job — cost
  *     items are per-job, and JobTread rejects the move without one. Hence the
- *     fetch of the target job's own leaves below.
+ *     fetch of the target job's own leaves below;
+ *   - a PAY TYPE change RE-RATES the entry (probed 2026-09-08): sending
+ *     `type: "Ruhmann-Warren - PM"` on an $85/h entry came back hourlyRate 95
+ *     and cost 170 → 190, minutes untouched. Only a type the MEMBER already
+ *     carries is legal — anything else is HTTP 400 "Unknown time entry type
+ *     '<name>' for user <who>" — which is why a rate this person lacks has to
+ *     be added to their membership first, and why the panel offers that.
  */
 
 /** The entry as the board holds it — same shape as lib's MonthTimeEntry. */
@@ -56,6 +65,9 @@ export interface TimeEntryRow {
   isApproved: boolean;
   costItemId: string | null;
   type: string;
+  /** The JobTread user id behind `employee` — the link out, and the key the
+   *  member's own pay types are looked up by. */
+  userId?: string;
 }
 
 interface BudgetLeaf {
@@ -117,6 +129,7 @@ export function TimeCodingCard({
   const [start, setStart] = useState(started.time);
   const [end, setEnd] = useState(ended.time);
   const [hoursText, setHoursText] = useState(entry.hours ? entry.hours.toFixed(2) : "");
+  const [payType, setPayType] = useState(entry.type);
   const [saving, setSaving] = useState(false);
   const [approving, setApproving] = useState(false);
   const [msg, setMsg] = useState<{ tone: "success" | "error" | "info"; text: string } | null>(null);
@@ -132,9 +145,84 @@ export function TimeCodingCard({
     setStart(started.time);
     setEnd(ended.time);
     setHoursText(entry.hours ? entry.hours.toFixed(2) : "");
+    setPayType(entry.type);
+    setNewRate(null);
     setMsg(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entry.id]);
+
+  /* ---- the labor rate ----
+     JobTread keeps rates on the MEMBERSHIP, as named pay types, and an entry
+     names one of them. So the choices here are this person's own types, read
+     off the same route /labor-rates uses — no second endpoint, and no second
+     idea of what a rate is.
+
+     THE FETCH IS ALLOWED TO FAIL, silently. /api/labor-rates is office/admin;
+     Tracking Sheets reaches further down the roles. A lead therefore sees the
+     entry's rate written on the card and no control to change it, which is the
+     correct outcome — the route the Save would call refuses the field for that
+     role too. */
+  const [rates, setRates] = useState<{ name: string; hourlyRate: number }[] | null>(null);
+  const [membershipId, setMembershipId] = useState("");
+  const [newRate, setNewRate] = useState<{ name: string; rate: string } | null>(null);
+  const [addingRate, setAddingRate] = useState(false);
+
+  const loadRates = useCallback(async () => {
+    if (!entry.userId) return;
+    try {
+      const r = await fetch("/api/labor-rates/members", { cache: "no-store" });
+      if (!r.ok) return;
+      const b = await r.json();
+      const me = (b.members ?? []).find(
+        (m: { userId?: string }) => m.userId === entry.userId,
+      ) as { membershipId?: string; types?: { name: string; hourlyRate: number }[] } | undefined;
+      if (!me) return;
+      setMembershipId(me.membershipId ?? "");
+      setRates(me.types ?? []);
+    } catch {
+      /* read-only nicety — the panel works without it */
+    }
+  }, [entry.userId]);
+
+  useEffect(() => {
+    setRates(null);
+    setMembershipId("");
+    void loadRates();
+  }, [loadRates]);
+
+  const rateOf = (name: string) => rates?.find((t) => t.name === name)?.hourlyRate ?? null;
+  const typeChanged = payType !== entry.type;
+
+  /** Add a pay type to THIS person's membership, then select it.
+   *  Additive server-side (mode "applyRate" reads their current set and writes
+   *  it back with this one upserted), so it can't drop another rate. */
+  async function addRate() {
+    const name = (newRate?.name ?? "").trim();
+    const hourlyRate = Number(String(newRate?.rate ?? "").replace(/[$,\s]/g, ""));
+    if (!name || !Number.isFinite(hourlyRate) || hourlyRate < 0 || !membershipId) return;
+    setAddingRate(true);
+    setMsg(null);
+    try {
+      const r = await fetch("/api/labor-rates/apply", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: "applyRate", membershipIds: [membershipId], rate: { name, hourlyRate } }),
+      });
+      const b = await r.json();
+      if (b.error) setMsg({ tone: "error", text: b.error });
+      else if (b.previewed) setMsg({ tone: "info", text: b.message });
+      else {
+        await loadRates();
+        setPayType(name);
+        setNewRate(null);
+        setMsg({ tone: "success", text: `Added ${name} to ${entry.employee}. Save to charge this entry at it.` });
+      }
+    } catch (e) {
+      setMsg({ tone: "error", text: e instanceof Error ? e.message : "Failed to add the rate" });
+    } finally {
+      setAddingRate(false);
+    }
+  }
 
   /* ---- moving the entry to another job ----
      Cost items are per-job, so the code picked on THIS job means nothing on the
@@ -215,8 +303,11 @@ export function TimeCodingCard({
   );
 
   const timeChanged = date !== started.date || start !== started.time || end !== ended.time;
+  /** The hours a re-rate would be charged on. JobTread multiplies by its OWN
+   *  minute count unless the span is being rewritten in the same save. */
+  const ratedHours = timeChanged ? (spanned ?? entry.hours) : entry.hours;
   const codeChanged = leafId !== (entry.costItemId ?? "");
-  const dirty = timeChanged || codeChanged || movingJob;
+  const dirty = timeChanged || codeChanged || movingJob || typeChanged;
 
   // An entry with no end time is still running — JobTread derives nothing to
   // rewrite, and clock-out belongs on the Employee Time page, not here.
@@ -243,6 +334,7 @@ export function TimeCodingCard({
       const body: Record<string, string> = { id: entry.id };
       if (movingJob && job) body.jobId = job.id;
       if (codeChanged || movingJob) body.costItemId = leafId;
+      if (typeChanged) body.type = payType;
       if (timeChanged) {
         body.date = date;
         body.startTime = start;
@@ -307,6 +399,8 @@ export function TimeCodingCard({
     setStart(started.time);
     setEnd(ended.time);
     setHoursText(entry.hours ? entry.hours.toFixed(2) : "");
+    setPayType(entry.type);
+    setNewRate(null);
     setMsg(null);
   }
 
@@ -314,13 +408,24 @@ export function TimeCodingCard({
     <Card className="max-h-[85dvh] overflow-y-auto">
       <div className="flex items-baseline justify-between gap-2">
         <p className="min-w-0 truncate text-sm font-semibold">{entry.employee}</p>
-        <button
-          type="button"
-          onClick={onClose}
-          className="shrink-0 text-xs font-semibold text-neutral-400 transition hover:text-accent"
-        >
-          Close
-        </button>
+        <span className="flex shrink-0 items-baseline gap-3">
+          {/* `timeEntryId` OPENS the entry on JobTread's time page, rather than
+              filtering to its day — see lib/jtLinks. */}
+          <JtLink
+            href={jtTimeUrl({ userId: entry.userId, entryId: entry.id })}
+            title="Open this entry on JobTread"
+            className="text-xs font-semibold text-neutral-400 transition hover:text-accent"
+          >
+            JT ↗
+          </JtLink>
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-xs font-semibold text-neutral-400 transition hover:text-accent"
+          >
+            Close
+          </button>
+        </span>
       </div>
       {/* The pay rate is cost ÷ hours, not a stored field — JobTread keeps the
           rate on the pay TYPE, and what this entry was actually charged at is
@@ -452,6 +557,90 @@ export function TimeCodingCard({
             The cost follows the hours — JobTread recalculates it as the new hours × this
             entry&apos;s pay rate.
           </Banner>
+        )}
+
+        {/* ---- the labor rate ----
+            Under the hours because it multiplies them: cost is minutes × this
+            rate, so changing it changes the dollars exactly the way a re-time
+            does. Only the person's own pay types are offered — JobTread rejects
+            any other name outright — and the "+ New rate" row below adds one to
+            their membership when the one you want isn't there yet. */}
+        {rates !== null && (
+          <div>
+            <Label htmlFor="te-rate">Labor rate</Label>
+            <Select
+              id="te-rate"
+              value={payType}
+              disabled={!writes || openEntry}
+              onChange={(e) => setPayType(e.target.value)}
+            >
+              {/* The entry's own type stays listed even when the membership has
+                  dropped it, or the box would silently claim another rate. */}
+              {!rates.some((t) => t.name === entry.type) && entry.type && (
+                <option value={entry.type}>{entry.type} (not on this member)</option>
+              )}
+              {rates.map((t) => (
+                <option key={t.name} value={t.name}>
+                  {t.name} — {money(t.hourlyRate)}/h
+                </option>
+              ))}
+            </Select>
+            {typeChanged && rateOf(payType) != null && (
+              <Banner tone="warning" className="mt-1 !py-1.5 !text-[11px]">
+                {/* The hours JobTread will multiply are ITS OWN minute count,
+                    not the clock span — a break deduction makes the two differ.
+                    Only a re-time replaces that count with the span. */}
+                Re-rates the entry: {ratedHours.toFixed(2)}h × {money(rateOf(payType) as number)} ={" "}
+                {money(ratedHours * (rateOf(payType) as number))}, from {money(entry.cost)}.
+              </Banner>
+            )}
+
+            {/* ADDING A RATE writes to the PERSON, not to this entry — it puts
+                the pay type on their JobTread membership, the same write
+                /labor-rates makes. The entry then has to be saved onto it. */}
+            {writes && membershipId ? (
+              newRate ? (
+                <div className="mt-2 space-y-2 rounded-lg border border-line-soft p-2">
+                  <Input
+                    value={newRate.name}
+                    placeholder="Rate name — e.g. Ruhmann-Warren - PM"
+                    onChange={(e) => setNewRate({ ...newRate, name: e.target.value })}
+                  />
+                  <div className="flex items-center gap-2">
+                    <Input
+                      value={newRate.rate}
+                      inputMode="decimal"
+                      placeholder="$ per hour"
+                      onChange={(e) => setNewRate({ ...newRate, rate: e.target.value })}
+                      className="tabular-nums"
+                    />
+                    <Button
+                      size="sm"
+                      onClick={addRate}
+                      disabled={addingRate || !newRate.name.trim() || !newRate.rate.trim()}
+                    >
+                      {addingRate ? "Adding…" : "Add"}
+                    </Button>
+                    <Button variant="secondary" size="sm" onClick={() => setNewRate(null)}>
+                      Cancel
+                    </Button>
+                  </div>
+                  <p className="text-[11px] leading-relaxed text-neutral-500 dark:text-neutral-400">
+                    Adds this rate to {entry.employee} in JobTread, alongside the ones they already
+                    have. It changes no entry until you Save.
+                  </p>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setNewRate({ name: "", rate: "" })}
+                  className="mt-1 text-[11px] font-semibold text-accent"
+                >
+                  + New rate for {entry.employee}
+                </button>
+              )
+            ) : null}
+          </div>
         )}
 
         {/* ---- the job ---- */}
