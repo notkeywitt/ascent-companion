@@ -22,9 +22,19 @@ import { callAppsScript } from "@/lib/appsScript";
  * onConflictDoNothing, so:
  *  • a re-scan of the same window files nothing twice,
  *  • two scans racing each other can't both win,
- *  • and Apps Script never has to label mail as "processed", which would put two
- *    systems in charge of the same question.
+ *  • and no Gmail label is ever READ to decide what to file.
  * That is what makes it safe for the leads page to scan on every visit.
+ *
+ * TAGGING RUNS LAST, AND ONLY OUTWARD. Once a submission is on the board, this
+ * asks Apps Script to put the `_Lead Captured` label on its thread, so the
+ * office mailbox shows which inquiries the app already holds. The label is
+ * written, never read: the database stays the only answer to "have we seen
+ * this", and a label deleted by hand re-files nothing. A submission that was
+ * ingested and then DELETED is deliberately left untagged — the delete takes the
+ * label off again (see /api/leads/inquiries).
+ *
+ * A tagging failure is not an ingest failure. The leads are already filed by
+ * then, so the label is reported (`tagged`, `tagError`) and never thrown.
  *
  * An ALREADY-FILED submission is deliberately NOT updated: once it's on the
  * board, the office may have edited it, and a re-scan must not overwrite that.
@@ -33,6 +43,11 @@ import { callAppsScript } from "@/lib/appsScript";
 /** How far back to look when the caller doesn't say. */
 const DEFAULT_DAYS = 120;
 
+/** Two Apps Script calls now (scan, then tag), so the route needs a budget that
+ *  holds both. The tag call gets the smaller half — it is the optional one. */
+export const maxDuration = 60;
+const TAG_TIMEOUT_MS = 20_000;
+
 interface ScriptFile {
   name?: string;
   url?: string;
@@ -40,6 +55,8 @@ interface ScriptFile {
 interface ScriptSubmission {
   messageId?: string;
   threadId?: string;
+  /** Does the thread already carry the captured label? Only false ones are tagged. */
+  captured?: boolean;
   receivedAt?: string;
   subject?: string;
   form?: string;
@@ -54,6 +71,15 @@ interface ScriptResponse {
   count?: number;
   scanned?: number;
   submissions?: ScriptSubmission[];
+}
+
+/** What the tagging half answers with. `missing` counts ids Gmail no longer knows. */
+interface TagResponse {
+  ok?: boolean;
+  error?: string;
+  tagged?: number;
+  alreadyTagged?: number;
+  missing?: number;
 }
 
 const str = (v: unknown): string => String(v ?? "").trim();
@@ -106,10 +132,8 @@ export async function POST(req: NextRequest) {
           .where(inArray(leadInquiryDismissals.sourceMessageId, ids)),
       ])
     : [[], []];
-  const known = new Set([
-    ...existing.map((r) => r.sourceMessageId),
-    ...dismissed.map((r) => r.sourceMessageId),
-  ]);
+  const onBoard = new Set(existing.map((r) => r.sourceMessageId));
+  const known = new Set([...onBoard, ...dismissed.map((r) => r.sourceMessageId)]);
 
   const now = new Date().toISOString();
   let added = 0;
@@ -163,7 +187,28 @@ export async function POST(req: NextRequest) {
     if (inserted.length) {
       added++;
       names.push(name);
+      onBoard.add(messageId);
     }
+  }
+
+  // Everything the board now holds, minus what Gmail already shows as captured.
+  // A dismissed submission is NOT in `onBoard`, so a lead thrown away stays
+  // untagged however many times this runs.
+  const toTag = usable
+    .filter((s) => !s.captured && onBoard.has(str(s.messageId)))
+    .map((s) => str(s.messageId));
+
+  let tagged = 0;
+  let tagError = "";
+  if (toTag.length) {
+    // Retry is safe here and nowhere else in this route: the action only adds a
+    // Gmail label, so running it twice lands in exactly the same place.
+    const tag = await callAppsScript<TagResponse>(
+      { action: "markFormSubmissionsCaptured", messageIds: toTag },
+      { retry: true, timeoutMs: TAG_TIMEOUT_MS },
+    );
+    tagged = tag.data?.tagged ?? 0;
+    tagError = tag.error ?? (tag.data?.ok ? "" : (tag.data?.error ?? "Could not tag the emails."));
   }
 
   return NextResponse.json({
@@ -172,5 +217,7 @@ export async function POST(req: NextRequest) {
     skipped: usable.length - added,
     unreadable,
     names,
+    tagged,
+    ...(tagError ? { tagError } : {}),
   });
 }

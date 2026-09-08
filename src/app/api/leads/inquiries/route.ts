@@ -9,6 +9,7 @@ import {
   leadInquiryDismissals,
   leads as leadsTable,
 } from "@/db/schema";
+import { callAppsScript } from "@/lib/appsScript";
 import { normalizeInquiry, type InquiryFields } from "@/lib/leadInquiry";
 
 /**
@@ -22,6 +23,10 @@ import { normalizeInquiry, type InquiryFields } from "@/lib/leadInquiry";
  * Editing and deleting stop the moment a lead has been pushed: from then on
  * JobTread owns it (and the answers here are kept only as the record of what was
  * asked at intake).
+ *
+ * DELETING A WEBSITE INQUIRY also removes the `_Lead Captured` Gmail label the
+ * ingest put on its email, so the mailbox keeps telling the truth about what the
+ * app holds. That call is best-effort — see the DELETE handler.
  */
 
 /** A short, collision-proof id that can never be mistaken for a JobTread one. */
@@ -142,6 +147,19 @@ export async function DELETE(req: NextRequest) {
         dismissedBy: session?.user?.email ?? "",
       })
       .onConflictDoNothing();
+
+    // …and take the `_Lead Captured` label back off the email, because the app no
+    // longer holds it. Best-effort on purpose: the delete is done either way, and
+    // a mailbox blip must not fail it. The label is cosmetic — nothing reads it.
+    const untag = await callAppsScript<{ ok?: boolean; error?: string }>(
+      { action: "markFormSubmissionsCaptured", messageId: existing.sourceMessageId, undo: true },
+      // Removing a label twice lands in the same place, so a retry is free.
+      { retry: true, timeoutMs: 20_000 },
+    );
+    if (untag.error || !untag.data?.ok) {
+      const why = untag.error ?? untag.data?.error ?? "unknown";
+      console.warn(`[leads] could not untag ${existing.sourceMessageId}: ${why}`);
+    }
   }
 
   await db.delete(leadInquiries).where(eq(leadInquiries.id, id));
