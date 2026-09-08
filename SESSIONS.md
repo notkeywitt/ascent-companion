@@ -18,7 +18,7 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
-| [jobtread-qbo-sales-tax](.claude/sessions/2026-09-05-jobtread-qbo-sales-tax.md) | 2026-09-08 | 29 | — |
+| [jobtread-qbo-sales-tax](.claude/sessions/2026-09-05-jobtread-qbo-sales-tax.md) | 2026-09-08 | 30 | — |
 | [daily-digest-to-todos](.claude/sessions/2026-09-08-daily-digest-to-todos.md) | 2026-09-08 | 2 | — |
 | [help-page-ste-100](.claude/sessions/2026-09-08-help-page-ste-100.md) | 2026-09-08 | 2 | — |
 | [leads-panel-admin-home](.claude/sessions/2026-09-08-leads-panel-admin-home.md) | 2026-09-08 | 5 | — |

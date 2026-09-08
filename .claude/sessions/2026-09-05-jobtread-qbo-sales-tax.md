@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/jobtread-qbo-sales-tax-lfqctd
 status: shipped
 started: 2026-09-05T05:30:35Z
-updated: 2026-09-08T17:56:47Z
+updated: 2026-09-08T17:56:48Z
 goal: 
 next: Check the blue stripe reads right on a real month in Tracking Sheets — reviewed+approved bills before the invoice is raised.
 ---

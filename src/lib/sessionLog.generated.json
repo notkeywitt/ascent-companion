@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-08T17:50:09Z",
+  "generatedAt": "2026-09-08T17:56:48Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "claude/jobtread-qbo-sales-tax-lfqctd",
       "status": "shipped",
       "started": "2026-09-05T05:30:35Z",
-      "updated": "2026-09-08T17:50:09Z",
+      "updated": "2026-09-08T17:56:48Z",
       "goal": "",
-      "next": "Check on the phone that approving a bill on /trackingsheet keeps the board and scroll position, with the quiet Refreshing line",
+      "next": "Check the blue stripe reads right on a real month in Tracking Sheets — reviewed+approved bills before the invoice is raised.",
       "commits": [
         {
           "date": "2026-09-05",
@@ -214,6 +214,13 @@
           "sha": "7bde0a8",
           "subject": "companion: keep the tracking sheet on screen while it reloads",
           "files": "src/app/trackingsheet/Board.tsx"
+        },
+        {
+          "date": "2026-09-08",
+          "time": "10:56",
+          "sha": "2b6c71a",
+          "subject": "companion: make the blue bill stripe mean reviewed and approved",
+          "files": "src/app/trackingsheet/AllBills.tsx, src/app/trackingsheet/Board.tsx, src/lib/billInvoiceState.test.ts, src/lib/billInvoiceState.ts"
         }
       ]
     },
