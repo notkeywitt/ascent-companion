@@ -427,6 +427,11 @@ export interface BillDetail {
      *  2026-09-05. A bill's real sales tax is its 88 80 00 line plus this;
      *  `splitSalesTax` in src/lib/salesTax.ts resolves the pair. */
     nonRecoverableTax?: number;
+    /** Is JobTread's "Record Tax" toggle ON? Stored as `nonRecoverableTaxName` — a
+     *  name means the bill shows a document tax row, null means the row is off.
+     *  Under the 2026-09-05 model that row must not exist (src/lib/salesTax.ts), so
+     *  a save turns it back off. */
+    recordsTax?: boolean;
   };
   lines: BillLine[];
   files: BillFile[]; // attached invoice PDF/image — same document, same round trip
@@ -467,7 +472,7 @@ export async function getBillDetail(cfg: PaveConfig, docId: string): Promise<Bil
     document: {
       $: { id: docId },
       id: {}, name: {}, status: {}, cost: {}, issueDate: {}, subject: {}, fromName: {}, number: {}, externalId: {},
-      qboIsIgnored: {}, nonRecoverableTax: {},
+      qboIsIgnored: {}, nonRecoverableTax: {}, nonRecoverableTaxName: {},
       job: { id: {} }, // the bill's own job — lets /api/bill work without ?jobId
       ...lineSel,
     },
@@ -476,6 +481,7 @@ export async function getBillDetail(cfg: PaveConfig, docId: string): Promise<Bil
     document: {
       $: { id: docId },
       id: {}, name: {}, status: {}, cost: {}, issueDate: {}, nonRecoverableTax: {},
+      nonRecoverableTaxName: {},
       job: { id: {} },
       ...lineSel,
     },
@@ -500,6 +506,7 @@ export async function getBillDetail(cfg: PaveConfig, docId: string): Promise<Bil
       issueDate: d.issueDate,
       qboIsIgnored: d.qboIsIgnored,
       nonRecoverableTax: d.nonRecoverableTax,
+      recordsTax: d.nonRecoverableTaxName != null,
     },
     lines: d.costItems?.nodes ?? [],
     files: d.files?.nodes ?? [],
@@ -694,6 +701,7 @@ export async function setBillTax(
       $: { id: docId },
       id: {},
       nonRecoverableTax: {},
+      nonRecoverableTaxName: {},
       costItems: {
         $: { size: 100 },
         nodes: { id: {}, name: {}, description: {}, cost: {}, costCode: { number: {} } },
@@ -727,12 +735,19 @@ export async function setBillTax(
     await pave(cfg, { deleteCostItem: { $: { id: taxLine.id } } });
   }
 
-  // Clear the legacy field if this bill still carries one. Left set, its amount
-  // would keep spreading across the cost items on top of the line just written.
-  if ((Number(doc.nonRecoverableTax) || 0) !== 0) {
+  // Clear the legacy field AND JobTread's "Record Tax" toggle. Left set, the
+  // field's amount would keep spreading across the cost items on top of the line
+  // just written. Left toggled ON with the amount at 0, the bill still shows a
+  // document tax row anyone can type into — which is how a bill ends up taxed
+  // twice, once on its 88 80 00 line and once on the document.
+  //
+  // The toggle IS `nonRecoverableTaxName`: a name means the row shows, null means
+  // it is off. Nothing else stores it (confirmed live 2026-09-08 — every bill
+  // created since the template default changed reads null, every older one "Tax").
+  if ((Number(doc.nonRecoverableTax) || 0) !== 0 || doc.nonRecoverableTaxName != null) {
     await pave(cfg, {
       updateDocument: {
-        $: { id: docId, nonRecoverableTax: 0 },
+        $: { id: docId, nonRecoverableTax: 0, nonRecoverableTaxName: null },
         document: { $: { id: docId }, id: {} },
       },
     });
@@ -1855,6 +1870,11 @@ export interface MonthBill {
   /** Legacy document tax field — non-zero only on a bill pushed before
    *  2026-09-05. A bill's real sales tax is its 88 80 00 line plus this. */
   nonRecoverableTax: number;
+  /** Is JobTread's "Record Tax" toggle ON? Stored as `nonRecoverableTaxName` — a
+   *  name means the bill shows a document tax row, null means the row is off.
+   *  Under the 2026-09-05 model that row must not exist (src/lib/salesTax.ts), so
+   *  a save turns it back off. */
+  recordsTax: boolean;
   /** false = this bill will sync to QuickBooks on approval. */
   qboIsIgnored: boolean;
   /** Already on a customer invoice — the board renders these read-only. */
@@ -1940,6 +1960,7 @@ export async function getJobBillsForMonth(
               createdAt: {},
               status: {},
               nonRecoverableTax: {},
+              nonRecoverableTaxName: {},
               qboIsIgnored: {},
               amountPaid: {},
               balance: {},
@@ -2002,6 +2023,7 @@ export async function getJobBillsForMonth(
         createdAt: b?.createdAt ?? null,
         name: b?.name ?? "Bill",
         nonRecoverableTax: typeof b?.nonRecoverableTax === "number" ? b.nonRecoverableTax : 0,
+        recordsTax: b?.nonRecoverableTaxName != null,
         qboIsIgnored: !!b?.qboIsIgnored,
         invoiced: isInvoiced(b),
         onInvoice: _isOnAnyInvoice(b),

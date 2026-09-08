@@ -64,6 +64,9 @@ interface Header {
   /** Legacy document tax field — non-zero only on a bill pushed before 2026-09-05.
    *  A bill's real sales tax comes off its 88 80 00 line (splitSalesTax). */
   nonRecoverableTax?: number;
+  /** JobTread's "Record Tax" toggle. On means the bill shows a document tax row —
+   *  which the 88 80 00 model forbids, so a Save turns it off. */
+  recordsTax?: boolean;
 }
 interface FileNode {
   id: string;
@@ -471,7 +474,11 @@ function BillDetail() {
   // A bill still carrying tax in the document field is migrated by any Save: the
   // line write below sends de-taxed costs, so the tax must move to its own line
   // in the same Save or the bill total falls by the tax amount.
-  const needsTaxMigration = legacyTaxField > 0;
+  //
+  // A bill with "Record Tax" still toggled ON is migrated too, even at 0.00. The
+  // empty tax row it leaves on the document is the one anyone can type into, and
+  // a figure typed there is counted on top of the 88 80 00 line.
+  const needsTaxMigration = legacyTaxField > 0 || header?.recordsTax === true;
 
   // Edits made here but not yet pushed. Save stays enabled at zero (it re-sends the bill
   // regardless); this only drives the bar's label and the Discard button.

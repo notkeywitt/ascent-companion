@@ -14,6 +14,13 @@
  * QuickBooks intact, because a cost code carries a `qboId` that maps it to a
  * QuickBooks item, and so to an account.
  *
+ * THE "RECORD TAX" TOGGLE. JobTread stores it as the document's
+ * `nonRecoverableTaxName`: a name means the bill shows a document tax row, null
+ * means the row is off. The row has to stay off — a figure typed into it counts
+ * on top of the 88 80 00 line, so the bill is taxed twice. `setBillTax` clears
+ * the name with the field, and every save surface treats a bill with the toggle
+ * still on as a bill to migrate, even when its amount is already 0.00.
+ *
  * WHAT WENT WITH IT. The tax-inclusive ↔ pre-tax gross-up is gone. It existed
  * only because JobTread de-taxes a line for display while that field is set;
  * with the field at 0, a line's stored cost IS the face value on the receipt.

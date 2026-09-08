@@ -4,9 +4,9 @@ repo: ascent-companion
 branch: claude/jobtread-qbo-sales-tax-lfqctd
 status: shipped
 started: 2026-09-05T05:30:35Z
-updated: 2026-09-08T17:56:48Z
+updated: 2026-09-08T18:08:09Z
 goal: 
-next: Check the blue stripe reads right on a real month in Tracking Sheets — reviewed+approved bills before the invoice is raised.
+next: Probe the nonRecoverableTaxName:null write on one draft bill (22PdwYuQV3VB, Record Tax on, 0.00 tax) and check the toggle reads off in JobTread, then push.
 ---
 
 ## Log
@@ -70,3 +70,5 @@ next: Check the blue stripe reads right on a real month in Tracking Sheets — r
 - 2026-09-05 05:30 — billLineMath's gross-up is gone (reTax is 1). Its de-tax stays but is driven by the new legacyTaxField input, so only a pre-2026-09-05 bill is de-taxed. Callers strip the tax line before calling it — leaving it in would let the office edit sales tax as a material line.
 - 2026-09-05 05:30 — MIGRATION IS ATOMIC WITH ANY SAVE. A legacy bill's line write sends de-taxed costs, so the bill page, the workbench and the Board's Sync all call /api/bill-tax in the same save when nonRecoverableTax > 0 — otherwise the bill total would drop by the tax.
 - 2026-09-05 05:30 — Probed live 2026-09-05: an aliased costItems connection with a where on costCode.number and a sum over cost rides inside the paged documents connection without a 413 (document 22Pd4uDiixE2 returned count 1, costSum 54.04). That is how invoiceReview/evidence.ts reads each bill's tax line.
+- 2026-09-08 18:08 — Record Tax IS the document field nonRecoverableTaxName: a name means the row shows, null means off. Confirmed live 2026-09-08 by sampling 25 vendorBills — every bill created since the template default changed reads null, every older one reads "Tax". setBillTax now clears the name with the field, and needsTaxMigration on all three save surfaces widened to legacyTaxField > 0 || recordsTax so a toggle-on bill migrates even at 0.00.
+- 2026-09-08 18:08 — Bill 240 (22Pd4uDiixE2) failed with 'You don't have permission to create a cost item' because the bill was marked paid, so JobTread would not accept a new cost item on it. Its two line updates went through; only the createCostItem for the tax line was refused. Not a grant-permission problem and not the missing 88 80 00 budget leaf.

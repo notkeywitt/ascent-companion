@@ -124,6 +124,9 @@ interface BillRef {
   /** Legacy document tax field — non-zero only on a bill pushed before 2026-09-05.
    *  A bill's real sales tax is `billTax(bill)`: its 88 80 00 line plus this. */
   nonRecoverableTax: number;
+  /** JobTread's "Record Tax" toggle. On means the bill shows a document tax row —
+   *  which the 88 80 00 model forbids, so a Sync turns it off. */
+  recordsTax: boolean;
   qboIsIgnored: boolean;
   /** Paid-in-QuickBooks figures JobTread computes — read as a pair, see billPaidState. */
   amountPaid: number;
@@ -2320,6 +2323,7 @@ export function Board() {
     // move onto its own 88 80 00 line in the same Sync or the bill's total falls
     // by the tax amount. Re-sending the tax it already has is what migrates it.
     let taxOk = 0;
+    let taxOffCount = 0; // bills whose "Record Tax" toggle this Sync turns back off
     const taxWork = new Map<string, number>();
     for (const [docId, v] of Object.entries(taxEdits)) {
       if (v === "") continue;
@@ -2328,13 +2332,21 @@ export function Board() {
     for (const docId of touched) {
       if (taxWork.has(docId)) continue;
       const bill = data.bills.find((b) => b.id === docId);
-      if (bill && (bill.nonRecoverableTax ?? 0) > 0) taxWork.set(docId, billTax(bill));
+      // `recordsTax` queues a bill whose "Record Tax" toggle is still on even at
+      // 0.00: the empty document tax row it leaves is the one anyone can type
+      // into, and a figure typed there counts on top of the 88 80 00 line. The
+      // amount pushed is the tax the bill already has, so this changes no money.
+      if (bill && ((bill.nonRecoverableTax ?? 0) > 0 || bill.recordsTax))
+        taxWork.set(docId, billTax(bill));
     }
     for (const [docId, amount] of taxWork) {
       const bill = data.bills.find((b) => b.id === docId);
       if (!bill) continue;
-      // Unchanged AND already on the current model — nothing to write.
-      if (amount === round2(billTax(bill)) && (bill.nonRecoverableTax ?? 0) === 0) continue;
+      const amountChanged = amount !== round2(billTax(bill));
+      const migrating = (bill.nonRecoverableTax ?? 0) > 0;
+      // Unchanged AND already on the current model AND the toggle already off —
+      // nothing to write.
+      if (!amountChanged && !migrating && !bill.recordsTax) continue;
       try {
         const r = await fetch("/api/bill-tax", {
           method: "POST",
@@ -2344,7 +2356,12 @@ export function Board() {
         const j = await r.json();
         if (j.error) failures.push(j.error);
         else if (j.wrote === false) failures.push(j.message ?? "Writes are disabled.");
-        else taxOk++;
+        else {
+          // Counted apart: a bill can reach here for the toggle alone, and
+          // reporting that as a "tax edit" would claim money moved when none did.
+          if (amountChanged || migrating) taxOk++;
+          if (bill.recordsTax) taxOffCount++;
+        }
       } catch (e) {
         failures.push(e instanceof Error ? e.message : "Tax request failed");
       }
@@ -2376,6 +2393,8 @@ export function Board() {
     if (ok > 0) parts.push(`${ok} line${ok === 1 ? "" : "s"}`);
     if (timeOk > 0) parts.push(`${timeOk} time ${timeOk === 1 ? "entry" : "entries"}`);
     if (taxOk > 0) parts.push(`${taxOk} tax edit${taxOk === 1 ? "" : "s"}`);
+    if (taxOffCount > 0)
+      parts.push(`Record Tax off on ${taxOffCount} bill${taxOffCount === 1 ? "" : "s"}`);
     if (combineOk > 0) parts.push(`${combineOk} lines merged`);
     const summary = parts.length ? parts.join(" + ") : "0 changes";
     if (combineErr) failures.push(`Combine: ${combineErr}`);

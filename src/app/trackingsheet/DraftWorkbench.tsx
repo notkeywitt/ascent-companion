@@ -91,6 +91,9 @@ export interface WorkbenchHeader {
   cost?: number;
   issueDate?: string;
   nonRecoverableTax?: number;
+  /** JobTread's "Record Tax" toggle — on means a document tax row the 88 80 00
+   *  model forbids, so a save turns it off. */
+  recordsTax?: boolean;
 }
 
 /** One cost code's budget vs. approved+pending spend, from getCostToComplete. */
@@ -294,8 +297,10 @@ export function useBillEditor(
   const taxChanged = taxEdit !== null && round2(taxView) !== round2(storedTax);
   // A bill still carrying tax in the document field is migrated by any save: the
   // line write sends de-taxed costs, so the tax must move onto its own 88 80 00
-  // line in the same save or the bill's total falls by the tax amount.
-  const needsTaxMigration = legacyTaxField > 0;
+  // line in the same save or the bill's total falls by the tax amount. A bill with
+  // "Record Tax" still toggled on is migrated too, even at 0.00 — see the note in
+  // bill/[docId]/page.tsx.
+  const needsTaxMigration = legacyTaxField > 0 || header?.recordsTax === true;
 
   const math = useMemo(
     () =>
