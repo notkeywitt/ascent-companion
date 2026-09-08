@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/jobtread-qbo-sales-tax-lfqctd
 status: shipped
 started: 2026-09-05T05:30:35Z
-updated: 2026-09-08T18:43:26Z
+updated: 2026-09-08T18:56:28Z
 goal: bill move: background + Drive re-file + real error; buyback picker dialog; approve advances; cost-code names on the bills list
 next: ascent-appscript needs a clasp push (WebApp.js + Sheets_AppSheet.js) before the move fix is live; companion side is built but NOT pushed — writes are armed in production and the buyback dialog fires N writes with no per-line confirm.
 ---
@@ -72,6 +72,8 @@ next: ascent-appscript needs a clasp push (WebApp.js + Sheets_AppSheet.js) befor
   src/app/bill/[docId]/page.tsx, src/app/layout.tsx, src/app/trackingsheet/BillCodingCard.tsx, src/app/trackingsheet/Board.tsx, src/app/trackingsheet/DraftWorkbench.tsx, src/components/BillMove.tsx
 - 2026-09-08 11:43 · `374389f` companion: stop the coding card ending below the viewport, and buy back a whole bill
   src/app/api/shop-job/route.ts, src/app/globals.css, src/app/trackingsheet/BillCodingCard.tsx
+- 2026-09-08 11:56 · `601d3f8` companion: cap the coding column by measurement, not by guess
+  src/app/globals.css, src/app/trackingsheet/BillCodingCard.tsx, src/components/StickyActionBar.tsx, src/components/ui.tsx
 
 ## Notes
 - 2026-09-05 05:30 — Companion half of the sales-tax move. src/lib/salesTax.ts is the single definition: the 88 80 00 constants, the line matcher, splitSalesTax, and the job-Phase-derived recoverable/consumed flag. createVendorBill appends the tax line and pins nonRecoverableTax to 0; setBillTax now creates/updates/deletes that LINE and clears any legacy field.
