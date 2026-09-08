@@ -1,7 +1,26 @@
 {
-  "generatedAt": "2026-09-08T19:24:41Z",
+  "generatedAt": "2026-09-08T20:18:32Z",
   "repo": "ascent-companion",
   "sessions": [
+    {
+      "slug": "time-entry-notes-persist",
+      "file": "2026-09-08-time-entry-notes-persist.md",
+      "branch": "claude/time-entry-notes-persist-2qo1fx",
+      "status": "shipped",
+      "started": "2026-09-08T20:17:42Z",
+      "updated": "2026-09-08T20:18:32Z",
+      "goal": "",
+      "next": "verify the note survives a reload on a phone while clocked in",
+      "commits": [
+        {
+          "date": "2026-09-08",
+          "time": "20:17",
+          "sha": "278b28f",
+          "subject": "companion: keep the time entry note across visits",
+          "files": "src/app/employee-time/EmployeeTimeClient.tsx"
+        }
+      ]
+    },
     {
       "slug": "jobtread-qbo-sales-tax",
       "file": "2026-09-05-jobtread-qbo-sales-tax.md",

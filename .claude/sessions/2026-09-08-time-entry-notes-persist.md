@@ -2,9 +2,9 @@
 slug: time-entry-notes-persist
 repo: ascent-companion
 branch: claude/time-entry-notes-persist-2qo1fx
-status: in-progress
+status: shipped
 started: 2026-09-08T20:17:42Z
-updated: 2026-09-08T20:18:05Z
+updated: 2026-09-08T20:18:32Z
 goal: 
 next: verify the note survives a reload on a phone while clocked in
 ---
