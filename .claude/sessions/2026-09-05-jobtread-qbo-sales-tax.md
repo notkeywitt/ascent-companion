@@ -4,9 +4,9 @@ repo: ascent-companion
 branch: claude/jobtread-qbo-sales-tax-lfqctd
 status: shipped
 started: 2026-09-05T05:30:35Z
-updated: 2026-09-08T18:08:17Z
+updated: 2026-09-08T18:10:32Z
 goal: 
-next: Probe the nonRecoverableTaxName:null write on one draft bill (22PdwYuQV3VB, Record Tax on, 0.00 tax) and check the toggle reads off in JobTread, then push.
+next: Owner to confirm the Record Tax toggle reads OFF on bill 115 in JobTread, then push HEAD:main.
 ---
 
 ## Log
@@ -66,6 +66,8 @@ next: Probe the nonRecoverableTaxName:null write on one draft bill (22PdwYuQV3VB
   src/app/trackingsheet/AllBills.tsx, src/app/trackingsheet/Board.tsx, src/lib/billInvoiceState.test.ts, src/lib/billInvoiceState.ts
 - 2026-09-08 11:08 · `2d7ac0b` companion: a save turns JobTread's Record Tax toggle back off
   src/app/bill/[docId]/page.tsx, src/app/trackingsheet/Board.tsx, src/app/trackingsheet/DraftWorkbench.tsx, src/lib/jobtread.ts, src/lib/salesTax.ts
+- 2026-09-08 11:10 · `5f089b7` companion: probe script for the Record Tax toggle write
+  scripts/probe-record-tax.mjs
 
 ## Notes
 - 2026-09-05 05:30 — Companion half of the sales-tax move. src/lib/salesTax.ts is the single definition: the 88 80 00 constants, the line matcher, splitSalesTax, and the job-Phase-derived recoverable/consumed flag. createVendorBill appends the tax line and pins nonRecoverableTax to 0; setBillTax now creates/updates/deletes that LINE and clears any legacy field.
@@ -74,3 +76,4 @@ next: Probe the nonRecoverableTaxName:null write on one draft bill (22PdwYuQV3VB
 - 2026-09-05 05:30 — Probed live 2026-09-05: an aliased costItems connection with a where on costCode.number and a sum over cost rides inside the paged documents connection without a 413 (document 22Pd4uDiixE2 returned count 1, costSum 54.04). That is how invoiceReview/evidence.ts reads each bill's tax line.
 - 2026-09-08 18:08 — Record Tax IS the document field nonRecoverableTaxName: a name means the row shows, null means off. Confirmed live 2026-09-08 by sampling 25 vendorBills — every bill created since the template default changed reads null, every older one reads "Tax". setBillTax now clears the name with the field, and needsTaxMigration on all three save surfaces widened to legacyTaxField > 0 || recordsTax so a toggle-on bill migrates even at 0.00.
 - 2026-09-08 18:08 — Bill 240 (22Pd4uDiixE2) failed with 'You don't have permission to create a cost item' because the bill was marked paid, so JobTread would not accept a new cost item on it. Its two line updates went through; only the createCostItem for the tax line was refused. Not a grant-permission problem and not the missing 88 80 00 budget leaf.
+- 2026-09-08 18:10 — Probed live 2026-09-08: updateDocument with nonRecoverableTax 0 + nonRecoverableTaxName null is accepted and leaves the document cost untouched (bill 115, 22PdwYuQV3VB: "Tax" -> null, cost 2485 -> 2485). scripts/probe-record-tax.mjs holds the probe and a --restore flag.
