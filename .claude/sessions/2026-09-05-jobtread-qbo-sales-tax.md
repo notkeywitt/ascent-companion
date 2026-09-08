@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/jobtread-qbo-sales-tax-lfqctd
 status: shipped
 started: 2026-09-05T05:30:35Z
-updated: 2026-09-08T18:08:09Z
+updated: 2026-09-08T18:08:17Z
 goal: 
 next: Probe the nonRecoverableTaxName:null write on one draft bill (22PdwYuQV3VB, Record Tax on, 0.00 tax) and check the toggle reads off in JobTread, then push.
 ---
@@ -64,6 +64,8 @@ next: Probe the nonRecoverableTaxName:null write on one draft bill (22PdwYuQV3VB
   src/app/trackingsheet/Board.tsx
 - 2026-09-08 10:56 · `2b6c71a` companion: make the blue bill stripe mean reviewed and approved
   src/app/trackingsheet/AllBills.tsx, src/app/trackingsheet/Board.tsx, src/lib/billInvoiceState.test.ts, src/lib/billInvoiceState.ts
+- 2026-09-08 11:08 · `2d7ac0b` companion: a save turns JobTread's Record Tax toggle back off
+  src/app/bill/[docId]/page.tsx, src/app/trackingsheet/Board.tsx, src/app/trackingsheet/DraftWorkbench.tsx, src/lib/jobtread.ts, src/lib/salesTax.ts
 
 ## Notes
 - 2026-09-05 05:30 — Companion half of the sales-tax move. src/lib/salesTax.ts is the single definition: the 88 80 00 constants, the line matcher, splitSalesTax, and the job-Phase-derived recoverable/consumed flag. createVendorBill appends the tax line and pins nonRecoverableTax to 0; setBillTax now creates/updates/deletes that LINE and clears any legacy field.
