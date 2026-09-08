@@ -264,8 +264,11 @@ export interface CodingCardCtl {
   /** Drop the staged merge without saving. */
   cancelCombine?: () => void;
 
+  /** The line a buyback write is currently on, "" when idle. */
   buybackId: string;
-  buybackLineById: (l: CodingLine, name: string, extended: number) => void;
+  /** Move ONE line to the Shop bill. Returns when that write has settled, so
+      the picker below can walk a multi-line selection in order. */
+  buybackLineById: (l: CodingLine, name: string, extended: number) => Promise<void>;
 
   deletingLineId: string;
   deleteLineById: (id: string, label: string) => void;
@@ -392,6 +395,14 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
   // own code. The button moved to the top of the list; the picker did not.
   const [recodeAllOpen, setRecodeAllOpen] = useState(false);
 
+  // Buyback is a dialog too, for the same reason. It used to be a bare arrow
+  // on every line — an unlabelled icon that wrote to JobTread on ONE click, and
+  // whose neighbour is Delete. It sits by "Flag for review" now: one labelled
+  // button, and the lines it moves are ticked in the dialog it opens.
+  const [buybackOpen, setBuybackOpen] = useState(false);
+  const [buybackSel, setBuybackSel] = useState<string[]>([]);
+  const [buybackRunning, setBuybackRunning] = useState(false);
+
   // Is the merge PICKER open? The tick boxes used to sit on every combinable
   // line all the time — a column of empty boxes down a bill nobody was merging,
   // and the commonest question they raised was "what are these for". "Combine"
@@ -405,13 +416,71 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
     bill && !bill.invoiced && codeOptions.length > 0 && lines.length > 1,
   );
   const showCombine = Boolean(bill && !bill.invoiced && writes && anyCombinable);
+  // Same gate the per-line arrow carried: draft-only and writes-gated, because
+  // buyback deletes a line off this bill and adds it to another.
+  const showBuyback = Boolean(bill && math.isDraft && writes && lines.length > 0);
 
   // A different bill in the panel closes the dialog: it was opened against the
   // bill that was on screen, and its pick applies to whatever is open now.
   useEffect(() => {
     setRecodeAllOpen(false);
     setCombineOpen(false);
+    setBuybackOpen(false);
+    setBuybackSel([]);
   }, [bill?.id]);
+
+  /** Every line the buyback dialog can offer, with the pre-tax dollar amount
+   *  the write sends — the same figure the line row shows, read off the same
+   *  math, so the dialog and the list can't disagree. */
+  const buybackRows = lines.map((l, i) => {
+    const t = math.targets[i];
+    return {
+      line: l,
+      name: edits[l.id]?.name ?? l.name ?? "Line item",
+      extended: t ? round2(t.qty * t.preTaxUnit) : math.deTax(l.cost),
+    };
+  });
+  const buybackTotal = buybackRows
+    .filter((r) => buybackSel.includes(r.line.id))
+    .reduce((sum, r) => sum + r.extended, 0);
+
+  /** Run the ticked lines, one write each. Repeat writes against the same
+   *  source bill land on the SAME Shop bill (buybackLine's externalId
+   *  idempotency), so a selection needs no batch endpoint — only an order.
+   *  ponytail: each write re-reads the bill, so N lines cost N reloads.
+   *  Batch it server-side if the office starts moving whole bills. */
+  /** The button itself, so the review row and the fallback row render the SAME
+   *  control rather than two that drift apart. */
+  const buybackButton = showBuyback ? (
+    <Button
+      variant="outline"
+      size="sm"
+      disabled={buybackRunning || Boolean(buybackId)}
+      onClick={() => {
+        setBuybackSel([]);
+        setBuybackOpen(true);
+      }}
+      title="Move lines off this bill onto a draft bill on Ascent - Shop"
+    >
+      {buybackRunning ? <Spinner className="mr-1.5" /> : null}
+      {buybackRunning ? "Buying back…" : "→ Buy back"}
+    </Button>
+  ) : null;
+
+  const runBuyback = async () => {
+    const picked = buybackRows.filter((r) => buybackSel.includes(r.line.id));
+    if (picked.length === 0 || buybackRunning) return;
+    setBuybackRunning(true);
+    try {
+      for (const r of picked) {
+        await buybackLineById(r.line, r.name, r.extended);
+      }
+    } finally {
+      setBuybackRunning(false);
+      setBuybackSel([]);
+      setBuybackOpen(false);
+    }
+  };
 
   return (
     <>
@@ -698,43 +767,6 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                           </div>
                         )}
                       </div>
-                      {/* Buyback: move this line onto a draft bill on Ascent -
-                      Shop instead of billing it to the client (see
-                      buybackLineById). Draft-only + writes-gated, like
-                      Combine. Repeat clicks against other lines of THIS
-                      bill land on the same Shop bill. */}
-                      {math.isDraft && writes && !mergeLocked && (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            buybackLineById(l, edits[l.id]?.name ?? l.name ?? "Line item", extended)
-                          }
-                          disabled={buybackId === l.id}
-                          aria-label="Buy back to Ascent - Shop"
-                          title="Move this line to a draft bill on Ascent - Shop"
-                          className="mt-0.5 shrink-0 rounded p-1 text-neutral-400 transition hover:bg-accent/10 hover:text-accent disabled:opacity-40 dark:hover:bg-accent/20 dark:hover:text-accent-soft"
-                        >
-                          {buybackId === l.id ? (
-                            <span className="block h-3.5 w-3.5 text-center text-[10px] leading-[14px]">
-                              …
-                            </span>
-                          ) : (
-                            <svg
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              aria-hidden="true"
-                              className="h-3.5 w-3.5"
-                            >
-                              <path d="M4 12h13" />
-                              <path d="M12 6l7 6-7 6" />
-                            </svg>
-                          )}
-                        </button>
-                      )}
                       {/* Delete: removes this line from the bill entirely —
                       ported from the bill page. Draft-only + writes-gated,
                       like Buyback/Combine/Add line. */}
@@ -1055,6 +1087,7 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                       Clear flag
                     </Button>
                   )}
+                  {buybackButton}
                   {review.msg && (
                     <span className="text-[11px] text-neutral-500 dark:text-neutral-400">
                       {review.msg}
@@ -1067,6 +1100,14 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                     {review.at ? ` · ${new Date(review.at).toLocaleDateString()}` : ""}
                   </p>
                 )}
+              </div>
+            )}
+
+            {/* No review block on this host — buyback still needs a home, in the
+            same place and the same style it has when there is one. */}
+            {!review && buybackButton && (
+              <div className="mt-4 border-t border-line-soft pt-3 dark:border-neutral-800">
+                {buybackButton}
               </div>
             )}
 
@@ -1148,6 +1189,82 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
             )}
           </div>
         </Card>
+      )}
+
+      {/* Buy back — pick the lines. Same modal shape as Recode All: a bottom
+        sheet on a phone, a centred dialog from sm up. The tick boxes are the
+        whole point; nothing writes until the button at the foot is pressed. */}
+      {buybackOpen && showBuyback && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Buy back lines"
+          onClick={() => !buybackRunning && setBuybackOpen(false)}
+        >
+          <Card
+            className="flex max-h-[85vh] w-full max-w-sm flex-col rounded-b-none pb-[max(0.75rem,env(safe-area-inset-bottom))] !p-4 sm:rounded-b-xl sm:pb-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="text-sm font-semibold">Buy back to Ascent - Shop</p>
+            <p className="mb-2 text-[11px] text-neutral-500">
+              Ticked lines move onto a draft bill on the Shop job and come off this bill. They
+              all land on the SAME Shop bill. This writes to JobTread straight away.
+            </p>
+            <ul className="-mx-1 min-h-0 flex-1 overflow-y-auto px-1">
+              {buybackRows.map((r) => (
+                <li key={r.line.id} className="border-t border-line-soft first:border-0 dark:border-neutral-800">
+                  <label className="flex cursor-pointer items-start gap-2 py-2">
+                    <input
+                      type="checkbox"
+                      checked={buybackSel.includes(r.line.id)}
+                      disabled={buybackRunning}
+                      onChange={() =>
+                        setBuybackSel((sel) =>
+                          sel.includes(r.line.id)
+                            ? sel.filter((x) => x !== r.line.id)
+                            : [...sel, r.line.id],
+                        )
+                      }
+                      className="mt-0.5 h-3.5 w-3.5 shrink-0 accent-accent"
+                    />
+                    <span className="min-w-0 flex-1 text-xs">{r.name}</span>
+                    <span className="shrink-0 text-xs font-semibold tabular-nums">
+                      {money(r.extended)}
+                    </span>
+                  </label>
+                </li>
+              ))}
+            </ul>
+            <div className="mt-3 flex items-center justify-between gap-1.5">
+              <span className="text-[11px] tabular-nums text-neutral-500">
+                {buybackSel.length === 0
+                  ? "Nothing selected"
+                  : `${buybackSel.length} line${buybackSel.length === 1 ? "" : "s"} · ${money(buybackTotal)}`}
+              </span>
+              <span className="flex items-center gap-1.5">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="!py-1.5 !text-xs"
+                  disabled={buybackRunning}
+                  onClick={() => setBuybackOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  className="!py-1.5 !text-xs"
+                  disabled={buybackSel.length === 0 || buybackRunning}
+                  onClick={() => void runBuyback()}
+                >
+                  {buybackRunning ? <Spinner className="mr-1.5" /> : null}
+                  {buybackRunning ? "Buying back…" : `Buy back ${buybackSel.length || ""}`.trim()}
+                </Button>
+              </span>
+            </div>
+          </Card>
+        </div>
       )}
 
       {/* Recode All Lines. A modal at every width — a bottom sheet on a phone,

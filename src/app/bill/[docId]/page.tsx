@@ -5,7 +5,8 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { type Option } from "@/components/CostCodeSelect";
 import { JtLink } from "@/components/JtLink";
-import { JobPicker } from "@/components/JobPicker";
+import { jobLabel as jobRefLabel, type JobRef } from "@/components/JobPicker";
+import { useBillMove } from "@/components/BillMove";
 import { PageTitle } from "@/components/PageTitle";
 import { BillStatusBadge } from "@/components/BillStatusBadge";
 import {
@@ -168,6 +169,8 @@ function BillDetail() {
   const params = useParams<{ docId: string }>();
   const search = useSearchParams();
   const router = useRouter();
+  // Bill moves run in the background, owned by the root layout — see BillMove.tsx.
+  const { start: startBillMove } = useBillMove();
   const docId = params.docId;
   // The link that opened this page usually carries ?jobId, but some review /
   // digest bill links don't. When it's absent, /api/bill still returns the bill
@@ -688,45 +691,37 @@ function BillDetail() {
   }
 
   // Move this bill to a different JobTread job. JT can't move bills, so Apps
-  // Script delete+recreates it on the new job (draft only) via its reassignment
-  // guard, keeping the sheet + Drive in sync. The recreate yields a NEW docId, so
-  // on success we leave for the new job's coding queue (this bill's URL is stale).
-  async function reassignJob(targetJobId: string) {
-    if (!targetJobId || targetJobId === jobId) return;
+  // Script voids and recreates it on the new job (draft only) via its
+  // reassignment guard, keeping the sheet + Drive in sync. That chain runs for
+  // 30-90 seconds, so it is handed to BillMoveProvider and runs in the
+  // BACKGROUND: we leave for the new job's coding queue at once (this page's
+  // docId dies with the void) and the provider's banner reports the result on
+  // whatever page the user is looking at by then.
+  function reassignJob(target: JobRef) {
+    if (!target.id || target.id === jobId) return;
     if ((header?.status ?? "draft") !== "draft") {
       setReassignMsg("Only draft bills can be moved. Set it back to Draft in JobTread first.");
       return;
     }
     if (
       !window.confirm(
-        "Move this bill to a different job?\n\nJobTread can't move bills, so it will be deleted and recreated on the new job. It stays a draft, keeps its PDF, and re-files in Drive.",
+        `Move this bill to ${jobRefLabel(target)}?\n\nJobTread can't move bills, so it will be voided and recreated on the new job. It stays a draft, keeps its PDF, and re-files in Drive.` +
+          (changeCount > 0
+            ? `\n\nIts ${changeCount} unsaved change${changeCount === 1 ? "" : "s"} will be lost — the recreated bill is a new document, so they can't be applied to it.`
+            : "") +
+          `\n\nThe move runs in the background — you can keep working while it finishes.`,
       )
     )
       return;
     setReassigning(true);
-    setReassignMsg("Moving…");
-    try {
-      const res = await fetch("/api/reassign-job", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ docId, jobId: targetJobId }),
-      });
-      const json = await res.json();
-      if (!res.ok || !json.ok) {
-        setReassignMsg(json.error ?? "Reassign failed");
-        setReassigning(false);
-        return;
-      }
-      reloadJtWindow(); // refresh JobTread's view (old doc gone, new one created)
-      // New docId on the new job — this page's docId is stale; open Client
-      // Invoicing on the job the bill just moved to. Deliberately still
-      // `reassigning` — the navigation is what ends it, and re-enabling the
-      // picker first would offer a second move against a dead docId.
-      window.location.href = `/trackingsheet?jobId=${encodeURIComponent(targetJobId)}`;
-    } catch (e) {
-      setReassignMsg(e instanceof Error ? e.message : "Network error");
-      setReassigning(false);
-    }
+    // The recreate mints a NEW document, so any draft held against this docId is
+    // dead — same reason the workbench drops its own.
+    discardDraft(billDraftKey(docId));
+    startBillMove({ docId, jobId: target.id, jobLabel: jobRefLabel(target) });
+    // Deliberately still `reassigning` — the navigation is what ends it, and
+    // re-enabling the picker first would offer a second move against a doc
+    // that is already being voided.
+    router.push(`/trackingsheet?jobId=${encodeURIComponent(target.id)}`);
   }
 
   /**
@@ -1085,14 +1080,8 @@ function BillDetail() {
   // gated, like Delete/Add/Combine line. `extended` is the line's current
   // pre-tax dollar amount (handles both a stored line and one mid-edit).
   async function buybackLineById(l: Line, name: string, extended: number) {
-    if (
-      !window.confirm(
-        `Buy back this line to Ascent - Shop?\n\n${name} — ${money(extended)}\n\n` +
-          `This moves it onto a draft bill on the Shop job (creating one if needed) and ` +
-          `removes it from this bill.`,
-      )
-    )
-      return;
+    // No confirm here: the card's buyback dialog is the confirmation, and it can
+    // hand over several lines in a row.
     setBuybackId(l.id);
     setSaveMsg("");
     try {
@@ -1243,9 +1232,9 @@ function BillDetail() {
     cancelCombine,
 
     buybackId,
-    buybackLineById: (l, name, extended) => {
+    buybackLineById: async (l, name, extended) => {
       const real = lineById(l.id);
-      if (real) void buybackLineById(real, name, extended);
+      if (real) await buybackLineById(real, name, extended);
     },
 
     deletingLineId: deletingId,
@@ -1277,7 +1266,7 @@ function BillDetail() {
     monthOptions: billingMonths(),
     setBillingMonth,
     monthSaving,
-    reassignJob: (j) => void reassignJob(j.id),
+    reassignJob,
     reassigning,
     filingMsg: reassignMsg || billNumberMsg,
   };

@@ -9,6 +9,7 @@ import { CopyProvider } from "@/components/CopyProvider";
 import { NavLayoutProvider } from "@/components/NavLayoutProvider";
 import { RefreshBoundary, RefreshProvider } from "@/components/RefreshProvider";
 import { StuckVendorPopup, StuckVendorsProvider } from "@/components/StuckVendors";
+import { BillMoveProvider } from "@/components/BillMove";
 import { NoticeCenter } from "@/components/Notices";
 import { UsageBeacon } from "@/components/UsageBeacon";
 import { cookies } from "next/headers";
@@ -156,6 +157,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 them on whatever page they opened, and the Home banner keeps it
                 visible after the popup is dismissed. */}
             <StuckVendorsProvider>
+            {/* Moving a bill between jobs is a 30-90s void+recreate in Apps
+                Script. The provider owns that request from up here so the page
+                that started it can be closed or navigated away from, and its
+                progress banner follows the user to whatever page they open. */}
+            <BillMoveProvider>
               <Suspense fallback={null}>
                 <AppHeader />
               </Suspense>
@@ -175,6 +181,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 <TabBar />
               </Suspense>
               <StuckVendorPopup />
+            </BillMoveProvider>
             </StuckVendorsProvider>
           </RefreshProvider>
         </AccessProvider>

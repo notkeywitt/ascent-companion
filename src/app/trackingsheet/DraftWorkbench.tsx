@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { jobLabel, type JobRef } from "@/components/JobPicker";
+import { useBillMove } from "@/components/BillMove";
 import { type Option } from "@/components/CostCodeSelect";
 import { useCopy } from "@/components/CopyProvider";
 import { billingMonths, issueDateFor } from "@/lib/billingMonths";
@@ -947,8 +948,10 @@ export function DraftCodingPanel({
   const [billNumberDraft, setBillNumberDraft] = useState("");
   const [billNumberSaving, setBillNumberSaving] = useState(false);
   const [monthSaving, setMonthSaving] = useState(false);
-  const [reassigning, setReassigning] = useState(false);
   const [filingMsg, setFilingMsg] = useState("");
+  // Bill moves run in the background, owned by the root layout — see BillMove.tsx.
+  const billMove = useBillMove();
+  const startBillMove = billMove.start;
 
   // Every one of these belongs to the bill it was opened on.
   useEffect(() => {
@@ -1196,14 +1199,8 @@ export function DraftCodingPanel({
   };
 
   const buybackLineById = async (l: CodingLine, name: string, extended: number) => {
-    if (
-      !window.confirm(
-        `Buy back this line to Ascent - Shop?\n\n${name} — ${money(extended)}\n\n` +
-          `This moves it onto a draft bill on the Shop job (creating one if needed) and ` +
-          `removes it from this bill.`,
-      )
-    )
-      return;
+    // No confirm here: the card's buyback dialog is the confirmation, and it can
+    // hand over several lines in a row.
     setBuybackId(l.id);
     setDeleteLineMsg("");
     try {
@@ -1304,42 +1301,28 @@ export function DraftCodingPanel({
     }
   };
 
-  const reassignJob = async (target: JobRef) => {
+  const reassignJob = (target: JobRef) => {
     if (!header || !target.id || target.id === jobId) return;
     if (
       !window.confirm(
         `Move this bill to ${jobLabel(target)}?\n\nJobTread can't move bills, so it will be ` +
-          `deleted and recreated on that job. It stays a draft, keeps its PDF, and re-files ` +
+          `voided and recreated on that job. It stays a draft, keeps its PDF, and re-files ` +
           `in Drive.` +
           (changeCount > 0
             ? "\n\nIts unsaved coding changes go with it — the recreated bill is a new " +
               "document, so they can't be applied to it."
-            : ""),
+            : "") +
+          `\n\nThe move runs in the background — you can keep working while it finishes.`,
       )
     )
       return;
-    setReassigning(true);
     setFilingMsg("");
-    try {
-      const res = await fetch("/api/reassign-job", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ docId, jobId: target.id }),
-      });
-      const json = await res.json();
-      if (!res.ok || !json.ok) {
-        setFilingMsg(json.error ?? "Reassign failed");
-        return;
-      }
-      // The recreate minted a NEW document on another job, so this row is stale —
-      // and so is any draft held against the old document id.
-      discardDraft(billDraftKey(docId));
-      onBillMoved(docId);
-    } catch (e) {
-      setFilingMsg(e instanceof Error ? e.message : "Network error");
-    } finally {
-      setReassigning(false);
-    }
+    // Handed to the root layout's BillMoveProvider: the void+recreate runs for
+    // 30-90 seconds and must not hold this workbench open. The row is dropped
+    // optimistically — the provider's banner reports a failure.
+    startBillMove({ docId, jobId: target.id, jobLabel: jobLabel(target) });
+    discardDraft(billDraftKey(docId));
+    onBillMoved(docId);
   };
 
   const ctl: CodingCardCtl = {
@@ -1415,7 +1398,7 @@ export function DraftCodingPanel({
     setBillingMonth,
     monthSaving,
     reassignJob,
-    reassigning,
+    reassigning: billMove.isMoving(docId),
     filingMsg,
   };
 

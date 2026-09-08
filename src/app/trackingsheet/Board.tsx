@@ -25,6 +25,7 @@ import {
 } from "@/components/ui";
 import { CostCodeSelect, type Option } from "@/components/CostCodeSelect";
 import { JobPicker, jobAddress, jobLabel, type JobRef } from "@/components/JobPicker";
+import { useBillMove } from "@/components/BillMove";
 import { JtLink } from "@/components/JtLink";
 import { SplitGrid } from "@/components/SplitGrid";
 import {
@@ -380,6 +381,9 @@ export function Board() {
   const c = useCopy();
   const params = useSearchParams();
   const router = useRouter();
+  // Bill moves run in the background, owned by the root layout — see BillMove.tsx.
+  const billMove = useBillMove();
+  const startBillMove = billMove.start;
   const belowXl = useIsBelowXl();
   const jobId = params.get("jobId") ?? "";
 
@@ -1092,6 +1096,12 @@ export function Board() {
     () => (data?.bills ?? []).filter((b) => sunsetDocIds.has(b.id)),
     [data, sunsetDocIds],
   );
+  /** The two panes read end to end — the order a person works down the page,
+   *  and so the order "the next bill" means after an approve. */
+  const orderedBills = useMemo(
+    () => [...nonSunsetBills, ...sunsetBills],
+    [nonSunsetBills, sunsetBills],
+  );
   const sunsetTotal = useMemo(() => sunsetBills.reduce((s, b) => s + b.cost, 0), [sunsetBills]);
 
   // Every draft bill on screen — both panes — so "Approve" acts on exactly what
@@ -1358,7 +1368,6 @@ export function Board() {
   const [deletingLineId, setDeletingLineId] = useState("");
   const [deleteLineMsg, setDeleteLineMsg] = useState("");
   const [monthSaving, setMonthSaving] = useState(false);
-  const [reassigning, setReassigning] = useState(false);
   const [filingMsg, setFilingMsg] = useState("");
   // Vendor Bill Number (JobTread externalId) editor for the open bill. Local draft
   // synced from the bill; committed on blur so we don't write on every keystroke.
@@ -1572,14 +1581,8 @@ export function Board() {
   // source bill land on the SAME Ascent - Shop bill instead of minting a new
   // one each time.
   const buybackLineById = async (l: JobBillLine, name: string, extended: number) => {
-    if (
-      !window.confirm(
-        `Buy back this line to Ascent - Shop?\n\n${name} — ${money(extended)}\n\n` +
-          `This moves it onto a draft bill on the Shop job (creating one if needed) and ` +
-          `removes it from this bill.`,
-      )
-    )
-      return;
+    // No confirm here: the card's buyback dialog is the confirmation, and it can
+    // hand over several lines in a row.
     setBuybackId(l.id);
     setSyncMsg(null);
     try {
@@ -1719,40 +1722,28 @@ export function Board() {
   // delete+recreates it on the target job (draft only) and re-files the sheet
   // row + Drive folder. The recreate mints a NEW docId on a job this board
   // isn't showing, so afterwards we simply drop it from the list.
-  const reassignJob = async (target: JobRef) => {
+  const reassignJob = (target: JobRef) => {
     if (!openBill || !target.id || target.id === jobId) return;
     if (
       !window.confirm(
         `Move this bill to ${jobLabel(target)}?\n\nJobTread can't move bills, so it will be ` +
-          `deleted and recreated on that job. It stays a draft, keeps its PDF, and re-files ` +
+          `voided and recreated on that job. It stays a draft, keeps its PDF, and re-files ` +
           `in Drive.` +
           (openBillDirty
             ? "\n\nIts staged coding changes haven't been synced and will be lost."
-            : ""),
+            : "") +
+          `\n\nThe move runs in the background — you can keep working while it finishes.`,
       )
     )
       return;
-    setReassigning(true);
     setFilingMsg("");
-    try {
-      const res = await fetch("/api/reassign-job", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ docId: openBill.id, jobId: target.id }),
-      });
-      const json = await res.json();
-      if (!res.ok || !json.ok) {
-        setFilingMsg(json.error ?? "Reassign failed");
-        return;
-      }
-      setOpenDocId(null);
-      setSyncMsg({ tone: "success", text: `Moved to ${jobLabel(target)} — it's on that job now.` });
-      await load({ preserveStaged: true });
-    } catch (e) {
-      setFilingMsg(e instanceof Error ? e.message : "Network error");
-    } finally {
-      setReassigning(false);
-    }
+    // Handed to the root layout's BillMoveProvider, so the 30-90s void+recreate
+    // is not tied to this drawer. The row is dropped OPTIMISTICALLY — it is
+    // leaving this job either way, and the provider's banner is what reports a
+    // failure. A refresh puts it back if the move did not land.
+    startBillMove({ docId: openBill.id, jobId: target.id, jobLabel: jobLabel(target) });
+    setOpenDocId(null);
+    setData((d) => (d ? { ...d, bills: d.bills.filter((b) => b.id !== openBill.id) } : d));
   };
 
   // The scanned invoice, fetched only when a bill is opened and then remembered —
@@ -1894,6 +1885,11 @@ export function Board() {
   const approveOneBill = async (docId: string) => {
     const b = data?.bills.find((x) => x.id === docId);
     if (!b || dirty || approving) return;
+    // Read the next bill off the CURRENT order, before the reload: approving
+    // changes a bill's status, never its place in the list, so this is the same
+    // row either way — and reading it after `load()` would use a stale closure.
+    const at = orderedBills.findIndex((x) => x.id === docId);
+    const next = at >= 0 ? orderedBills[at + 1] : undefined;
     setApproveMsg(null);
     setApproving(true);
     const r = await postApproval(b);
@@ -1903,6 +1899,9 @@ export function Board() {
         ? { tone: "error", text: r.failure }
         : { tone: "success", text: `${r.previewed ? "Would approve" : "Approved"} ${b.label}.` },
     );
+    // Approving is queue work, so land on the next bill rather than on the one
+    // just finished. A failure stays put — the message is about THIS bill.
+    if (!r.failure) setOpenDocId(next ? next.id : null);
     await load();
   };
 
@@ -2018,7 +2017,7 @@ export function Board() {
     setBillingMonth,
     monthSaving,
     reassignJob,
-    reassigning,
+    reassigning: billMove.isMoving(openDocId ?? ""),
     filingMsg,
   };
 
@@ -2662,7 +2661,7 @@ export function Board() {
                 list and the headroom strip above it are FOR. Over-budget codes
                 still turn red here, so the warning survives the diet. */}
             {codes.size > 0 && (
-              <span className="mt-1 block truncate text-[11.5px] tabular-nums text-neutral-500 dark:text-neutral-400">
+              <span className="mt-1 block line-clamp-2 text-[11.5px] tabular-nums text-neutral-500 dark:text-neutral-400">
                 {[...codes.entries()]
                   .sort((x, y) => y[1] - x[1])
                   .map(([code, amt], i) => {
@@ -2683,7 +2682,11 @@ export function Board() {
                               : "No budget line for this code"
                           }
                         >
-                          {code || "uncoded"} {money0(amt)}
+                          {code || "uncoded"}
+                          {h?.name ? (
+                            <span className="font-normal normal-nums"> {h.name}</span>
+                          ) : null}{" "}
+                          {money0(amt)}
                         </span>
                       </span>
                     );
