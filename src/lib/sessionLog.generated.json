@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-08T18:14:14Z",
+  "generatedAt": "2026-09-08T18:31:03Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "claude/jobtread-qbo-sales-tax-lfqctd",
       "status": "shipped",
       "started": "2026-09-05T05:30:35Z",
-      "updated": "2026-09-08T18:14:14Z",
-      "goal": "",
-      "next": "Owner to confirm the Record Tax toggle reads OFF on bill 115 in JobTread, then push HEAD:main.",
+      "updated": "2026-09-08T18:31:03Z",
+      "goal": "bill move: background + Drive re-file + real error; buyback picker dialog; approve advances; cost-code names on the bills list",
+      "next": "ascent-appscript needs a clasp push (WebApp.js + Sheets_AppSheet.js) before the move fix is live; companion side is built but NOT pushed — writes are armed in production and the buyback dialog fires N writes with no per-line confirm.",
       "commits": [
         {
           "date": "2026-09-05",
@@ -235,6 +235,13 @@
           "sha": "5f089b7",
           "subject": "companion: probe script for the Record Tax toggle write",
           "files": "scripts/probe-record-tax.mjs"
+        },
+        {
+          "date": "2026-09-08",
+          "time": "11:30",
+          "sha": "5e776c5",
+          "subject": "companion: run bill moves in the background, and rework buyback into a picker",
+          "files": "src/app/bill/[docId]/page.tsx, src/app/layout.tsx, src/app/trackingsheet/BillCodingCard.tsx, src/app/trackingsheet/Board.tsx, src/app/trackingsheet/DraftWorkbench.tsx, src/components/BillMove.tsx"
         }
       ]
     },
