@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/trip-recording-persistence-evilps
 status: in-progress
 started: 2026-09-08T19:53:11Z
-updated: 2026-09-08T19:53:33Z
+updated: 2026-09-08T19:54:05Z
 goal: 
 next: verify on the phone: start a trip, force-quit the app, reopen — the trip should still be running; then confirm mileage_open_trips is created on the hosted DB
 ---
@@ -15,5 +15,6 @@ next: verify on the phone: start a trip, force-quit the app, reopen — the trip
 - 2026-09-08 19:53 · `0ca64a1` companion: keep a started mileage trip on the server, not just the phone
   CODEBASE_MAP.md, src/app/api/mileage/active/route.ts, src/app/mileage-tracker/page.tsx, src/db/index.ts, src/db/schema.ts, src/lib/mileageTrip.test.ts, +1 more
 - 2026-09-08 19:53 · `e802a6a` companion: log session 2026-09-08-trip-recording-persistence
+- 2026-09-08 19:54 · `b874b09` companion: log the ledger commit's own row
 
 ## Notes
