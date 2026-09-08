@@ -141,6 +141,7 @@ including edge middleware.
 | `codingDraft.ts` ⟂-ish | **Unsynced Tracking Sheets coding, made durable.** Staged coding is autosaved on every change — localStorage first (the layer that actually catches a killed tab), the companion DB a couple of seconds behind (the layer that follows you to another device) — and offered back on return. `reconcileDraft` is the judgement and the tested part: it re-tests a stored draft against the data that just loaded, dropping anything JobTread has since taken or lost. `listDrafts`/`describeDraft` feed the landing page's unfinished-coding list. It never writes to JobTread; Sync still does that. |
 | `timeEntryDates.ts` ⟂ | The date arithmetic behind the shared time filter — Monday-based `weekStart`, `addDays`, the `W:`/custom-range encoding, and the UTC day labels. Split out of the component because every failure in it is SILENT (a week off by one just shows the wrong hours) and this is where the unit suite can reach it. |
 | `useUnsavedChanges.ts` | React hook guarding navigation away from unsaved edits. Now a reminder rather than the safety net — `codingDraft.ts` is what stops the work being lost. |
+| `mileageTrip.ts` | **The OPEN mileage trip — started, not yet ended.** A browser cannot follow a phone down the road, so the tracker takes a start point and an end point and lets Google Routes do the driving miles; this is what keeps the started trip alive between the two taps. Same two layers as `codingDraft.ts`: localStorage on every change (survives a force-quit with no signal), the companion DB behind it (`/api/mileage/active` — survives a cleared browser and lets the trip be ended on a different device). On reopen the LATER start wins, local on a tie. One open trip per driver; deleted on End and on Cancel. |
 | `nearestJob.ts` | **"Which job am I standing on?"** — the location-aware half of the field job pickers (`JobPicker`'s `showNearest`, Employee Time's job sheet). `useNearestJobs(jobs, enabled)` turns the device's fix plus each job's `location.latitude/longitude` into a distance per job and one nearest job. It asks for the fix only when a picker OPENS, never on mount, and remembers a denial for two minutes so re-opening the list can't nag. The picker's DEFAULT is still the last job logged; this only reorders the menu. |
 | `sentry.shared.ts` | Shared Sentry init. |
 
@@ -436,6 +437,9 @@ has run — the history the learning layer reads), `invoice_review_finding_state
 `invoice_review_instructions` (how the month is read out),
 `coding_drafts` (unsynced Tracking Sheets coding, per user and per scope — the
 cross-device BACKUP for a staged draft; localStorage is the primary),
+`mileage_open_trips` (the started-but-not-ended trip, one row per driver — the
+cross-device backup for the phone's copy; a finished trip goes to the Mileage
+sheet instead, see `src/lib/mileageTrip.ts`),
 `invoice_review_dispositions` (Claude's verdict on each finding — a reading, not
 a ruling),
 `financial_events` (**the financial journal** — every write the app makes to a

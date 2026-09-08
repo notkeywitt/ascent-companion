@@ -1237,6 +1237,24 @@ export type CodingDraftRow = typeof codingDrafts.$inferSelect;
 export type NewCodingDraftRow = typeof codingDrafts.$inferInsert;
 
 /**
+ * The OPEN mileage trip — one per driver, deleted the moment the trip is ended
+ * or cancelled. It is the cross-device backup for a trip the phone's
+ * localStorage is holding; see the two-layer note in src/lib/mileageTrip.ts.
+ *
+ * This is not the mileage RECORD. A finished trip goes to the Project Database
+ * "Mileage" tab through Apps Script, as it always has — a half-finished trip has
+ * no miles yet and must never reach that sheet.
+ */
+export const mileageOpenTrips = sqliteTable("mileage_open_trips", {
+  email: text("email").primaryKey(), // signed-in user, lowercased
+  payload: text("payload").notNull().default("{}"), // JSON ActiveTrip
+  updatedAt: text("updated_at").notNull().default(""),
+});
+
+export type MileageOpenTripRow = typeof mileageOpenTrips.$inferSelect;
+export type NewMileageOpenTripRow = typeof mileageOpenTrips.$inferInsert;
+
+/**
  * THE FINANCIAL JOURNAL — every write this app makes to a money record, kept
  * forever, in one append-only list.
  *

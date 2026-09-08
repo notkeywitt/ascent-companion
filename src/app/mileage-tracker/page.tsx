@@ -4,6 +4,19 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { JobPicker } from "@/components/JobPicker";
 import {
+  clearLocalTrip,
+  clearServerTrip,
+  downsample,
+  fetchServerTrip,
+  isStale,
+  pickTrip,
+  pushTrip,
+  readLocalTrip,
+  writeLocalTrip,
+  type ActiveTrip,
+  type TripPoint,
+} from "@/lib/mileageTrip";
+import {
   Banner,
   Card,
   EmptyState,
@@ -22,9 +35,12 @@ import {
  * the phone locks), so this captures the START point + time on the first tap and
  * the END point + time on the second; /api/mileage turns the two endpoints into
  * driving miles + street addresses via Google Directions and logs the trip to
- * the Project Database "Mileage" tab. The in-progress trip is mirrored to
- * localStorage, so the driver can lock the phone / close the app between taps and
- * reopen it at the destination to tap "End."
+ * the Project Database "Mileage" tab.
+ *
+ * THE OPEN TRIP IS SAVED IN TWO PLACES — localStorage on the phone, and the
+ * companion DB behind it (`/api/mileage/active`). That is what lets the driver
+ * lock the phone, close the app, or even swap to another device between the two
+ * taps and still finish the trip. See src/lib/mileageTrip.ts for the model.
  */
 
 interface Employee {
@@ -53,11 +69,7 @@ interface StartFix {
   startTime: string; // ISO
 }
 
-interface Waypoint {
-  lat: number;
-  lng: number;
-  time: string; // ISO
-}
+type Waypoint = TripPoint;
 
 interface Summary {
   miles: number | null;
@@ -88,7 +100,6 @@ interface TripResult {
   error?: string;
 }
 
-const LS_TRIP = "mileage.activeTrip";
 const LS_DRIVER = "mileage.driver";
 // The last job a trip was logged against on this device. It is the job field's
 // default on the next trip — a driver on the same job all week picks nothing.
@@ -119,14 +130,10 @@ function saveLastJob(id: string, label: string) {
 const TRAIL_MIN_GAP_KM = 0.08;
 const MAX_INTERMEDIATES = 23;
 
-// Evenly reduce an ordered list to at most `max` items, keeping first and last.
-function downsample<T>(arr: T[], max: number): T[] {
-  if (arr.length <= max) return arr;
-  const out: T[] = [];
-  const step = (arr.length - 1) / (max - 1);
-  for (let i = 0; i < max; i++) out.push(arr[Math.round(i * step)]);
-  return out;
-}
+// How long to sit on a change before mirroring the open trip to the server, and
+// the longest the debounce may hold it back while breadcrumbs keep arriving.
+const SERVER_DEBOUNCE_MS = 4000;
+const SERVER_MAX_WAIT_MS = 45000;
 
 // Great-circle distance in km — reused from the tools page to label the nearest
 // job site (display only; the billed miles come from Google Directions).
@@ -141,18 +148,30 @@ function haversineKm(a: { lat: number; lng: number }, b: { lat: number; lng: num
   return 2 * R * Math.asin(Math.sqrt(s));
 }
 
-function getPosition(): Promise<GeolocationPosition> {
+function getPosition(opts: PositionOptions): Promise<GeolocationPosition> {
   return new Promise((resolve, reject) => {
     if (typeof navigator === "undefined" || !navigator.geolocation) {
       reject(new Error("This device can't share its location."));
       return;
     }
-    navigator.geolocation.getCurrentPosition(resolve, reject, {
-      enableHighAccuracy: true,
-      timeout: 15000,
-      maximumAge: 0, // a fresh fix — never a stale cached location for mileage
-    });
+    navigator.geolocation.getCurrentPosition(resolve, reject, opts);
   });
+}
+
+/**
+ * The fix for a trip endpoint, in two attempts. First ask for a fresh
+ * high-accuracy one. If the phone cannot produce it in time — a metal shop, a
+ * garage, a canyon, a cold GPS chip — fall back to a coarse fix up to a minute
+ * old rather than losing the whole trip. A DENIED permission is never retried:
+ * that is an answer, not a timeout.
+ */
+async function getTripFix(): Promise<GeolocationPosition> {
+  try {
+    return await getPosition({ enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
+  } catch (e) {
+    if ((e as GeolocationPositionError)?.code === 1) throw e;
+    return getPosition({ enableHighAccuracy: false, timeout: 12000, maximumAge: 60000 });
+  }
 }
 
 function geoError(e: unknown): string {
@@ -274,6 +293,15 @@ export default function MileageTrackerPage() {
   const [tripKey, setTripKey] = useState(""); // idempotency key for the active GPS trip
   const [nowMs, setNowMs] = useState(0);
   const [summary, setSummary] = useState<Summary | null>(null);
+  // The open trip came back from the companion DB, not from this phone — the
+  // driver started it somewhere else (or this browser was cleared).
+  const [restoredElsewhere, setRestoredElsewhere] = useState(false);
+  // True once the driver has acted on this page, so a slow server restore can
+  // never overwrite a trip they just started.
+  const actedRef = useRef(false);
+  // When the open trip was last mirrored to the server, so a long drive still
+  // gets a backup instead of resetting the debounce on every breadcrumb.
+  const lastPushRef = useRef(0);
 
   // Manual entry (no GPS — a forgotten or after-the-fact trip).
   const [miles, setMiles] = useState("");
@@ -293,6 +321,20 @@ export default function MileageTrackerPage() {
   const [pdfBusy, setPdfBusy] = useState(false);
   const [pdfUrl, setPdfUrl] = useState("");
   const [pdfErr, setPdfErr] = useState("");
+
+  // Put a saved open trip back on screen — the same code path for the local copy
+  // and the server one.
+  const applyTrip = useCallback((t: ActiveTrip) => {
+    setStart({ startLat: t.startLat, startLng: t.startLng, startTime: t.startTime });
+    if (t.driver) setDriver(t.driver);
+    setJobId(t.jobId);
+    setJobLabel(t.jobLabel);
+    setPurpose(t.purpose);
+    setWaypoints(t.waypoints);
+    setTrail(t.trail);
+    setTripKey(t.tripKey || genKey());
+    setPhase("active");
+  }, []);
 
   // --- Load reference data + restore an in-progress trip on mount. ----------
   useEffect(() => {
@@ -317,24 +359,24 @@ export default function MileageTrackerPage() {
       .catch(() => {})
       .finally(() => setSessionLoaded(true));
 
-    try {
-      const raw = localStorage.getItem(LS_TRIP);
-      if (raw) {
-        const t = JSON.parse(raw);
-        if (Number.isFinite(t.startLat) && Number.isFinite(t.startLng) && t.startTime) {
-          setStart({ startLat: t.startLat, startLng: t.startLng, startTime: t.startTime });
-          setDriver(t.driver ?? "");
-          setJobId(t.jobId ?? "");
-          setJobLabel(t.jobLabel ?? "");
-          setPurpose(t.purpose ?? "");
-          setWaypoints(Array.isArray(t.waypoints) ? t.waypoints : []);
-          setTrail(Array.isArray(t.trail) ? t.trail : []);
-          setTripKey(t.tripKey ?? genKey());
-          setPhase("active");
-        }
-      }
-    } catch {}
-  }, []);
+    // The phone's own copy first — it is synchronous, so a reopened app shows the
+    // trip in progress before any network call.
+    const local = readLocalTrip();
+    if (local) applyTrip(local);
+
+    // Then the server's copy, which is what survives a cleared browser and what
+    // carries a trip started on another device. It only wins when it started
+    // later than the local one, and never over a trip started here since.
+    (async () => {
+      const server = await fetchServerTrip();
+      if (!server || actedRef.current) return;
+      if (pickTrip(local, server) !== server) return;
+      applyTrip(server);
+      // The server copy only wins when it started later, so it always came from
+      // somewhere other than this browser's current copy.
+      setRestoredElsewhere(true);
+    })();
+  }, [applyTrip]);
 
   // Default the job to the last one this device logged a trip against. It waits
   // for the job list, so a job JobTread has since closed simply doesn't come
@@ -382,13 +424,61 @@ export default function MileageTrackerPage() {
     } catch {}
   }, [driver]);
 
-  // Mirror the in-progress trip to localStorage so a lock/reopen can resume it.
-  useEffect(() => {
-    if (phase !== "active" || !start) return;
-    try {
-      localStorage.setItem(LS_TRIP, JSON.stringify({ ...start, driver, jobId, jobLabel, purpose, waypoints, trail, tripKey }));
-    } catch {}
+  // The open trip as one object — what both copies below store.
+  const currentTrip = useMemo<ActiveTrip | null>(() => {
+    if (phase !== "active" || !start) return null;
+    return {
+      tripKey,
+      startLat: start.startLat,
+      startLng: start.startLng,
+      startTime: start.startTime,
+      driver,
+      jobId,
+      jobLabel,
+      purpose,
+      waypoints,
+      trail,
+      savedAt: new Date().toISOString(),
+    };
   }, [phase, start, driver, jobId, jobLabel, purpose, waypoints, trail, tripKey]);
+
+  // COPY 1 — localStorage, on every change. Synchronous and offline, so a
+  // force-quit or a locked phone with no signal still leaves the trip on disk.
+  useEffect(() => {
+    if (currentTrip) writeLocalTrip(currentTrip);
+  }, [currentTrip]);
+
+  // COPY 2 — the companion DB, behind a debounce. A driving trail changes every
+  // few seconds, so the debounce is capped: past SERVER_MAX_WAIT_MS the next
+  // change is mirrored at once instead of waiting for the trail to go quiet.
+  useEffect(() => {
+    if (!currentTrip) return;
+    const wait = Date.now() - lastPushRef.current > SERVER_MAX_WAIT_MS ? 0 : SERVER_DEBOUNCE_MS;
+    const id = setTimeout(() => {
+      lastPushRef.current = Date.now();
+      void pushTrip(currentTrip);
+    }, wait);
+    return () => clearTimeout(id);
+  }, [currentTrip]);
+
+  // Flush the backup the moment the app is backgrounded or closed — the exact
+  // moment the debounce above would otherwise be cancelled mid-flight.
+  useEffect(() => {
+    if (!currentTrip) return;
+    const flush = () => {
+      lastPushRef.current = Date.now();
+      void pushTrip(currentTrip, { beacon: true });
+    };
+    const onHide = () => {
+      if (document.visibilityState === "hidden") flush();
+    };
+    document.addEventListener("visibilitychange", onHide);
+    window.addEventListener("pagehide", flush);
+    return () => {
+      document.removeEventListener("visibilitychange", onHide);
+      window.removeEventListener("pagehide", flush);
+    };
+  }, [currentTrip]);
 
   // Tick the elapsed clock while a trip is active.
   useEffect(() => {
@@ -461,16 +551,32 @@ export default function MileageTrackerPage() {
   async function startTrip() {
     setErr("");
     setBusy(true);
+    actedRef.current = true;
     try {
-      const pos = await getPosition();
-      setStart({
+      const pos = await getTripFix();
+      const trip: ActiveTrip = {
+        tripKey: genKey(),
         startLat: pos.coords.latitude,
         startLng: pos.coords.longitude,
         startTime: new Date().toISOString(),
-      });
+        driver,
+        jobId,
+        jobLabel,
+        purpose,
+        waypoints: [],
+        trail: [],
+        savedAt: new Date().toISOString(),
+      };
+      // Both copies are written HERE, at the tap — not left to the mirror effect.
+      // A driver who taps Start and pockets the phone has already left.
+      writeLocalTrip(trip);
+      lastPushRef.current = Date.now();
+      void pushTrip(trip);
+      setRestoredElsewhere(false);
+      setStart({ startLat: trip.startLat, startLng: trip.startLng, startTime: trip.startTime });
       setWaypoints([]);
       setTrail([]);
-      setTripKey(genKey());
+      setTripKey(trip.tripKey);
       setPhase("active");
     } catch (e) {
       setErr(geoError(e));
@@ -486,7 +592,7 @@ export default function MileageTrackerPage() {
     setAddingStop(true);
     setBusy(true);
     try {
-      const pos = await getPosition();
+      const pos = await getTripFix();
       setWaypoints((w) => [
         ...w,
         { lat: pos.coords.latitude, lng: pos.coords.longitude, time: new Date().toISOString() },
@@ -504,7 +610,7 @@ export default function MileageTrackerPage() {
     setErr("");
     setBusy(true);
     try {
-      const pos = await getPosition();
+      const pos = await getTripFix();
       const endTime = new Date().toISOString();
       // Route-shaping points = marked stops + auto trail, in travel (time) order,
       // downsampled to fit the Routes API's intermediate cap.
@@ -553,9 +659,9 @@ export default function MileageTrackerPage() {
         warning: json.warning,
       });
       saveLastJob(jobId, jobLabel);
-      try {
-        localStorage.removeItem(LS_TRIP);
-      } catch {}
+      clearLocalTrip();
+      void clearServerTrip();
+      setRestoredElsewhere(false);
       setStart(null);
       setPhase("done");
     } catch (e) {
@@ -567,6 +673,7 @@ export default function MileageTrackerPage() {
 
   async function saveManual() {
     setErr("");
+    actedRef.current = true;
     const m = Number(miles);
     if (!Number.isFinite(m) || m <= 0) {
       setErr("Enter the miles driven (a number greater than 0).");
@@ -632,9 +739,10 @@ export default function MileageTrackerPage() {
   }
 
   function cancelTrip() {
-    try {
-      localStorage.removeItem(LS_TRIP);
-    } catch {}
+    actedRef.current = true;
+    clearLocalTrip();
+    void clearServerTrip();
+    setRestoredElsewhere(false);
     setStart(null);
     setWaypoints([]);
     setTrail([]);
@@ -775,9 +883,9 @@ export default function MileageTrackerPage() {
           </button>
 
           <p className="text-center text-xs text-neutral-500">
-            Tap Start when you leave. The app records your route while it&apos;s open, and picks it
-            back up each time you reopen it — so just reopening updates the route. Lock the phone
-            freely; tap End when you arrive. Miles cover the whole route.
+            Tap Start when you leave, then close the app if you like — the trip is saved to your
+            account, so it is still waiting when you reopen it, even on another phone. The route
+            fills in whenever the app is open; tap End when you arrive. Miles cover the whole route.
           </p>
 
           <div className="flex items-center justify-center gap-4">
@@ -785,6 +893,7 @@ export default function MileageTrackerPage() {
               type="button"
               onClick={() => {
                 setErr("");
+                actedRef.current = true;
                 setManualKey(genKey());
                 setPhase("manual");
               }}
@@ -900,6 +1009,25 @@ export default function MileageTrackerPage() {
       {/* ------------------------------------------------------------- ACTIVE */}
       {phase === "active" && start && (
         <div className="space-y-4">
+          {restoredElsewhere && (
+            <Banner tone="info">
+              Picked up a trip you started on another device. Tap End when you arrive and the miles
+              are figured from that start point.
+            </Banner>
+          )}
+
+          {isStale(start.startTime, nowMs || Date.now()) && (
+            <Banner tone="warning">
+              This trip started{" "}
+              {new Date(start.startTime).toLocaleString([], {
+                weekday: "short",
+                hour: "numeric",
+                minute: "2-digit",
+              })}
+              . If you forgot to end it, cancel it and add the miles by hand.
+            </Banner>
+          )}
+
           <Card className="text-center">
             <div className="flex items-center justify-center gap-2 text-sm font-semibold text-accent dark:text-accent-soft">
               <span className="inline-block h-2.5 w-2.5 animate-pulse rounded-full bg-accent" aria-hidden />

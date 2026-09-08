@@ -943,6 +943,17 @@ async function applySchema() {
     `CREATE INDEX IF NOT EXISTS coding_drafts_email_idx ON coding_drafts (email, updated_at DESC)`,
   );
 
+  // The open (started, not yet ended) mileage trip, one row per driver — the
+  // cross-device backup for the copy the phone holds in localStorage. Deleted on
+  // End and on Cancel; see src/lib/mileageTrip.ts.
+  await getClient().execute(`
+    CREATE TABLE IF NOT EXISTS mileage_open_trips (
+      email TEXT PRIMARY KEY,
+      payload TEXT NOT NULL DEFAULT '{}',
+      updated_at TEXT NOT NULL DEFAULT ''
+    )
+  `);
+
   // THE FINANCIAL JOURNAL — every write the app makes to a money record, kept
   // forever. Append-only: nothing in src/lib/financialJournal.ts updates or
   // deletes a row, and no sweep trims this table. See db/schema.ts for why.
