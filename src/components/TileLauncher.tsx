@@ -144,7 +144,7 @@ export function TileLauncher({ qs = "" }: { qs?: string }) {
   return (
     <div className="space-y-4">
       {/* Nothing to reserve for a digest here. This slot once held a "coming
-          soon" placeholder, then the real <DailyDigest /> card for office —
+          soon" placeholder, then the real <HomeTodos /> card for office —
           rendered ABOVE this launcher by src/app/page.tsx, never inside it. The
           `digest` view went ADMIN-ONLY on 2026-09-08 (src/lib/views.ts), and no
           role that gets THIS launcher holds it. */}

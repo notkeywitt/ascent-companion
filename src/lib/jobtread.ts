@@ -5499,6 +5499,9 @@ export interface OpenToDo {
   jobName?: string | null;
   jobAddress?: string | null; // job.location.address — the "where" for a digest item
   assignees: string[]; // display names, from assignedMemberships.user.name
+  /** The same people as JobTread USER ids — how "is this mine?" is decided
+   *  without matching on a display name. Empty when the fallback selection ran. */
+  assigneeIds: string[];
 }
 
 /**
@@ -5553,8 +5556,12 @@ async function fetchTasks(cfg: PaveConfig, isToDo: boolean): Promise<OpenToDo[]>
     for (const n of nodes) {
       const progress = typeof n.progress === "number" ? n.progress : null;
       if (progress !== null && progress >= 1) continue; // done
-      const assignees = ((n.assignedMemberships?.nodes ?? []) as any[])
+      const members = (n.assignedMemberships?.nodes ?? []) as any[];
+      const assignees = members
         .map((m) => m?.user?.name)
+        .filter((x): x is string => typeof x === "string" && x.length > 0);
+      const assigneeIds = members
+        .map((m) => m?.user?.id)
         .filter((x): x is string => typeof x === "string" && x.length > 0);
       out.push({
         id: n.id,
@@ -5567,6 +5574,7 @@ async function fetchTasks(cfg: PaveConfig, isToDo: boolean): Promise<OpenToDo[]>
         jobName: n.job?.name ?? null,
         jobAddress: n.job?.location?.address ?? null,
         assignees,
+        assigneeIds,
       });
     }
     page = r?.organization?.tasks?.nextPage || undefined;
@@ -5588,4 +5596,68 @@ export async function getOpenToDos(cfg: PaveConfig): Promise<OpenToDo[]> {
  */
 export async function getScheduledTasks(cfg: PaveConfig): Promise<OpenToDo[]> {
   return fetchTasks(cfg, false);
+}
+
+/** One to-do to create in JobTread — the input to `createToDo` below. */
+export interface NewToDo {
+  /** What to do. Required; JobTread collapses runs of whitespace. */
+  name: string;
+  /** Longer note. JobTread caps this at 4096 characters. */
+  description?: string;
+  /** Org-local "YYYY-MM-DD". Written to `endDate`, which is what a to-do shows
+   *  as its due date and what `dueDateOf` (digest/checks/jobtreadTodos.ts) reads. */
+  dueDate?: string;
+  /** The job this to-do is about. Omitted → the to-do is filed on the ORG. */
+  jobId?: string;
+  /** Who it is for — MEMBERSHIP ids (`UserRef.membershipId`), not user ids. Max 20. */
+  membershipIds?: string[];
+  /** Whether JobTread notifies the assignees. Defaults to true, same as Pave. */
+  notify?: boolean;
+}
+
+/**
+ * Create a JobTread TO-DO (`task` with `isToDo: true`) — the write behind the
+ * To Dos card's create form on the home page.
+ *
+ * TARGET, not parent: a to-do is filed against a record, and the pair
+ * (`targetType`, `targetId`) is how. `job` + the job's id puts it on that job's
+ * to-do list, which is where a to-do about work belongs; with no job it goes on
+ * the ORGANIZATION, JobTread's company-wide list. `account` (a customer) is the
+ * third target Pave accepts and there is no `document` one — a to-do cannot be
+ * attached to a bill or an invoice.
+ *
+ * ASSIGNMENT IS BY MEMBERSHIP. `assignedMembershipIds` takes membership ids, so
+ * a caller holding a JobTread USER id has to map it first (`UserRef.membershipId`
+ * from `getOrgUsers`). Passing a user id here silently assigns nobody.
+ *
+ * Callers gate behind `writesEnabled()`. Input shape confirmed by introspecting
+ * `root.createTask.$` 2026-09-08; the write itself is NOT live-probed.
+ */
+export async function createToDo(cfg: PaveConfig, todo: NewToDo): Promise<{ id: string }> {
+  const name = (todo.name ?? "").trim();
+  if (!name) throw new Error("A to-do needs a name.");
+  const membershipIds = (todo.membershipIds ?? []).map((s) => s.trim()).filter(Boolean);
+  if (membershipIds.length > 20) {
+    throw new Error(`A to-do can be assigned to at most 20 people (got ${membershipIds.length}).`);
+  }
+  const jobId = (todo.jobId ?? "").trim();
+  const args: Record<string, unknown> = {
+    name,
+    isToDo: true,
+    targetType: jobId ? "job" : "organization",
+    targetId: jobId || cfg.orgId,
+    assignedMembershipIds: membershipIds,
+  };
+  const description = (todo.description ?? "").trim();
+  if (description) args.description = description.slice(0, 4096);
+  const dueDate = (todo.dueDate ?? "").trim();
+  if (dueDate) args.endDate = dueDate;
+  if (todo.notify === false) args.notify = false;
+
+  const r = await pave(cfg, {
+    createTask: { $: args, createdTask: { id: {} } },
+  });
+  const id = r?.createTask?.createdTask?.id;
+  if (!id) throw new Error("JobTread accepted the to-do but returned no id.");
+  return { id: String(id) };
 }

@@ -10,10 +10,16 @@
  * era still render: any of "-", "*" or "•" opens a bullet, consecutive bullets
  * collect into one list, consecutive prose lines collect into one paragraph,
  * and stray "**" bold markers are stripped rather than shown as literal
- * asterisks. Kept OUT of the component (src/components/DailyDigest.tsx draws
- * what this returns) so the unit suite — which runs no React — can test it. A brief with no blank lines and no bullets at all — an older
+ * asterisks. A brief with no blank lines and no bullets at all — an older
  * stored digest, or a model that ignored the format — comes back as a single
- * paragraph, which is exactly what this card used to draw.
+ * paragraph.
+ *
+ * NOTHING RENDERS THIS TODAY. The card stopped drawing the brief when it became
+ * To Dos (2026-09-08, src/components/HomeTodos.tsx): a paragraph restating the
+ * rows under it was the first thing on the screen every morning. `run.ts` still
+ * writes a summary into every stored digest, so this parser stays — it is what
+ * a future surface reads that text back with, and the unit suite tests it
+ * already.
  */
 export type SummaryBlock = { kind: "p"; text: string } | { kind: "ul"; items: string[] };
 

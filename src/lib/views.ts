@@ -275,8 +275,10 @@ export const VIEWS: ViewDef[] = [
   // calls it has no session at all, so it is PUBLIC in middleware and does its
   // own authentication (a cron bearer secret, or an admin session). See that
   // route. So "Refresh now" stays ADMIN-ONLY even though the card is shared —
-  // the card hides that button for everyone else (see DailyDigest.tsx).
-  { id: "digest", label: "Daily Digest", group: "System", paths: ["/api/digest"] },
+  // the card hides that button for everyone else (see HomeTodos.tsx).
+  // /api/todos rides the same gate: it reads and CREATES JobTread to-dos for
+  // the card, so it must not be reachable by a role the card is hidden from.
+  { id: "digest", label: "To Dos", group: "System", paths: ["/api/digest", "/api/todos"] },
   // "Reading Your Own App" — the in-app course through this codebase. Read-only,
   // no JobTread/DB access of its own (progress lives in the browser), so it needs
   // no API prefix. Office+admin by default (not in the FIELD/LEAD sets below).

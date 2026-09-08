@@ -10,7 +10,7 @@ import { useCopy } from "@/components/CopyProvider";
 import { AdminActionBar } from "@/components/AdminActionBar";
 import { StuckVendorBanner } from "@/components/StuckVendors";
 import { NeedsProjectBanner, useNeedsProjectCount } from "@/components/NeedsProject";
-import { DailyDigest } from "@/components/DailyDigest";
+import { HomeTodos } from "@/components/HomeTodos";
 import { TileLauncher } from "@/components/TileLauncher";
 import { HomeLayoutEditor } from "@/components/HomeLayoutEditor";
 import { HomeJobBoard } from "@/components/HomeJobBoard";
@@ -224,14 +224,15 @@ function Home() {
           and admin get it and a field or lead phone never fetches it. */}
       <HomeLeadBoard />
 
-      {/* The morning digest — billing scan, calendar, follow-ups. Reads the
-          digest the scheduled job stored; it does NOT run the checks on load.
-          Self-hiding: renders nothing without the `digest` view, which is
-          ADMIN-ONLY as of 2026-09-08 (the owner asked for it off the office
-          home page). Office, lead and field all load this same page and pay
-          nothing for it. Only admin gets the "Refresh now" button, which is a
-          separate check — see DailyDigest.tsx. */}
-      <DailyDigest />
+      {/* To Dos — your open JobTread to-dos, a form that creates one, and the
+          morning digest's other findings (calendar, follow-ups) under them. The
+          to-dos are read live; the digest half is the report the scheduled job
+          stored, and this does NOT run the checks on load. Self-hiding: renders
+          nothing without the `digest` view, which is ADMIN-ONLY as of
+          2026-09-08. Office, lead and field all load this same page and pay
+          nothing for it. Only admin gets "Refresh", which is a separate check —
+          see HomeTodos.tsx. */}
+      <HomeTodos />
 
       {tiles ? (
         <TileLauncher qs={qs} />
