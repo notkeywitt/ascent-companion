@@ -402,6 +402,11 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
   const [buybackOpen, setBuybackOpen] = useState(false);
   const [buybackSel, setBuybackSel] = useState<string[]>([]);
   const [buybackRunning, setBuybackRunning] = useState(false);
+  // "Buy back the entire bill" reassigns to Ascent - Shop, so the browser needs
+  // that job's id. /api/shop-job resolves it the same way buyback itself does
+  // (by name, server-side), so the UI never grows a second idea of which job
+  // Shop is. Fetched on first open, not on mount — most bills never buy back.
+  const [shopJobId, setShopJobId] = useState("");
 
   // Is the merge PICKER open? The tick boxes used to sit on every combinable
   // line all the time — a column of empty boxes down a bill nobody was merging,
@@ -459,6 +464,12 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
       onClick={() => {
         setBuybackSel([]);
         setBuybackOpen(true);
+        if (!shopJobId) {
+          void fetch("/api/shop-job")
+            .then((r) => r.json())
+            .then((j) => setShopJobId(String(j?.id ?? "")))
+            .catch(() => setShopJobId("")); // no id → the whole-bill row stays hidden
+        }
       }}
       title="Move lines off this bill onto a draft bill on Ascent - Shop"
     >
@@ -562,7 +573,16 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
             </div>
           </div>
 
-          <div className={standalone ? "" : "min-h-0 flex-1 overflow-y-auto px-3 pb-3 pt-3"}>
+          {/* pb-16, not pb-3: docked, the page's <StickyActionBar> (Sync / Save)
+            floats over the foot of this card whenever there is something to
+            commit, and Filing — the last block — sat under it. The bar is
+            `sticky`, so it is only in the way until the page itself scrolls to
+            the bottom, which is exactly the "it's cut off unless I scroll the
+            bills list all the way down" shape. The padding gives the last
+            section somewhere to scroll to.
+            ponytail: 4rem is the bar's height plus slack, not a measurement.
+            Publish an --actionbar-h if the bar ever grows a second row. */}
+          <div className={standalone ? "" : "min-h-0 flex-1 overflow-y-auto px-3 pb-16 pt-3"}>
             {/* The scanned invoice, FIRST — the coding decision is read off it,
               so it opens the panel rather than sitting under a long line list.
               It scrolls away with everything else; the vendor and the total
@@ -1000,46 +1020,6 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
               </div>
             )}
 
-            {/* In Google Drive — the durable backup the hourly mirror keeps: the
-            bill's own PDF and the Customer/Job/month folder it's filed in.
-            Same position as on /bill, right after the scan. Read-only, so it
-            is NOT writes-gated. The filename is the one the re-file pipeline
-            rewrites from this bill's coding, so it is where you check that a
-            recode reached the filed backup — JobTread's attachment name above
-            is set once at upload and only follows on the next sync. */}
-            {drive && (drive.fileUrl || drive.folderUrl) && (
-              <div className="mt-4 border-t border-line-soft pt-3 dark:border-neutral-800">
-                <SectionLabel className="mb-1.5">In Google Drive</SectionLabel>
-                {drive.fileName && (
-                  <p className="mb-1 break-all text-[11px] text-neutral-500 dark:text-neutral-400">
-                    {drive.fileName}
-                  </p>
-                )}
-                <div className="flex flex-col gap-0.5">
-                  {drive.fileUrl && (
-                    <a
-                      href={drive.fileUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-xs font-semibold text-accent"
-                    >
-                      Open the file in Drive ↗
-                    </a>
-                  )}
-                  {drive.folderUrl && (
-                    <a
-                      href={drive.folderUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-xs font-semibold text-accent"
-                    >
-                      Open {drive.folderName ? `“${drive.folderName}”` : "the folder"} in Drive ↗
-                    </a>
-                  )}
-                </div>
-              </div>
-            )}
-
             {/* Needs review — flag a bill for a correction this app cannot make
             itself (a paid, invoiced or QuickBooks-pushed bill), with a note
             saying what. Companion-local, NOT a JobTread write, which is why it
@@ -1108,6 +1088,49 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
             {!review && buybackButton && (
               <div className="mt-4 border-t border-line-soft pt-3 dark:border-neutral-800">
                 {buybackButton}
+              </div>
+            )}
+
+            {/* In Google Drive — the durable backup the hourly mirror keeps: the
+            bill's own PDF and the Customer/Job/month folder it's filed in.
+            Read-only, so it is NOT writes-gated. It sits BELOW Needs review:
+            the links are a reference you open once, and putting them above a
+            block with a text field and two buttons pushed the thing you act on
+            further down a card that is already tall. The filename is the one
+            the re-file pipeline
+            rewrites from this bill's coding, so it is where you check that a
+            recode reached the filed backup — JobTread's attachment name above
+            is set once at upload and only follows on the next sync. */}
+            {drive && (drive.fileUrl || drive.folderUrl) && (
+              <div className="mt-4 border-t border-line-soft pt-3 dark:border-neutral-800">
+                <SectionLabel className="mb-1.5">In Google Drive</SectionLabel>
+                {drive.fileName && (
+                  <p className="mb-1 break-all text-[11px] text-neutral-500 dark:text-neutral-400">
+                    {drive.fileName}
+                  </p>
+                )}
+                <div className="flex flex-col gap-0.5">
+                  {drive.fileUrl && (
+                    <a
+                      href={drive.fileUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-xs font-semibold text-accent"
+                    >
+                      Open the file in Drive ↗
+                    </a>
+                  )}
+                  {drive.folderUrl && (
+                    <a
+                      href={drive.folderUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-xs font-semibold text-accent"
+                    >
+                      Open {drive.folderName ? `“${drive.folderName}”` : "the folder"} in Drive ↗
+                    </a>
+                  )}
+                </div>
               </div>
             )}
 
@@ -1211,6 +1234,30 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
               Ticked lines move onto a draft bill on the Shop job and come off this bill. They
               all land on the SAME Shop bill. This writes to JobTread straight away.
             </p>
+
+            {/* The WHOLE bill is a different operation, not "tick every line".
+              Moving every line one at a time would leave an empty bill behind on
+              the client job; moving the BILL is the job reassignment — one
+              void+recreate on Shop, PDF and all, re-filed in Drive. So it is the
+              reassign path, and it runs in the background like any other move. */}
+            {shopJobId && shopJobId !== jobId && (
+              <button
+                type="button"
+                disabled={buybackRunning || reassigning}
+                onClick={() => {
+                  setBuybackOpen(false);
+                  reassignJob({ id: shopJobId, name: "Shop", customer: "Ascent" });
+                }}
+                className="mb-2 w-full rounded-lg border border-line-strong px-2.5 py-2 text-left transition hover:bg-accent/5 disabled:opacity-50 dark:hover:bg-accent/10"
+              >
+                <span className="block text-xs font-semibold">Buy back the entire bill</span>
+                <span className="mt-0.5 block text-[11px] text-neutral-500">
+                  Moves the whole bill — every line and its PDF — onto Ascent - Shop, instead of
+                  copying lines across. {money(math.isDraft ? math.total : (bill?.cost ?? 0))}
+                </span>
+              </button>
+            )}
+
             <ul className="-mx-1 min-h-0 flex-1 overflow-y-auto px-1">
               {buybackRows.map((r) => (
                 <li key={r.line.id} className="border-t border-line-soft first:border-0 dark:border-neutral-800">
