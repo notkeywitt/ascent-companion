@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { PeakMark } from "@/components/PageTitle";
 import { fmtMiles, useNearestJobs } from "@/lib/nearestJob";
+import { confirmLeaveIfDirty } from "@/lib/useUnsavedChanges";
 
 export interface JobRef {
   id: string;
@@ -31,6 +33,44 @@ const monthLabel = (ym: string) => {
   if (!y || !m) return "";
   return new Date(y, m - 1, 1).toLocaleString("en-US", { month: "long", year: "numeric" });
 };
+
+/**
+ * The URL's `?jobId`, and the setter that writes it back — for a job-scoped page
+ * that carries its own picker now that the header carries none.
+ *
+ * The URL stays the source of truth rather than component state, because these
+ * pages are linked INTO with a job already chosen (the digest links straight at
+ * `/unbilled?jobId=…`, Coding Review hands its job to Unbilled and Stage) and
+ * because /unbilled reads the job on the SERVER. `replace`, not `push`: picking
+ * a job is refining the page you are on, not a stop to go back to — the same
+ * behaviour the header's picker had.
+ *
+ * Every caller is a page that may hold unsaved coding, so the write clears
+ * `confirmLeaveIfDirty` first; a programmatic navigation emits no anchor click
+ * for useUnsavedChanges to intercept.
+ */
+export function useJobIdParam() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const search = useSearchParams();
+  const jobId = (search.get("jobId") ?? "").trim();
+
+  const setJobId = useCallback(
+    (id: string) => {
+      if (id === jobId) return;
+      if (!confirmLeaveIfDirty()) return;
+      // Every other param is kept — these pages also carry ?ym, ?year, ?month.
+      const params = new URLSearchParams(search.toString());
+      if (id) params.set("jobId", id);
+      else params.delete("jobId");
+      const qs = params.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname);
+    },
+    [jobId, pathname, router, search],
+  );
+
+  return [jobId, setJobId] as const;
+}
 
 /**
  * Searchable dropdown of the org's jobs. `value` is the selected job id.
@@ -88,6 +128,23 @@ const monthLabel = (ym: string) => {
  * form control and wrong as a page title — a caller that already knows the
  * job's name (its own fetch) passes it here.
  */
+export interface JobPickerProps {
+  value: string;
+  onChange: (id: string) => void;
+  onSelect?: (job: JobRef | null) => void;
+  onResolved?: (job: JobRef | null) => void;
+  jobs?: JobRef[];
+  includeAll?: boolean;
+  allLabel?: string;
+  allDescription?: string;
+  placeholder?: string;
+  fallbackLabel?: string;
+  showPhaseFilter?: boolean;
+  showToBeInvoiced?: boolean;
+  showNearest?: boolean;
+  variant?: "control" | "title";
+}
+
 export function JobPicker({
   value,
   onChange,
@@ -103,22 +160,7 @@ export function JobPicker({
   showToBeInvoiced = false,
   showNearest = false,
   variant = "control",
-}: {
-  value: string;
-  onChange: (id: string) => void;
-  onSelect?: (job: JobRef | null) => void;
-  onResolved?: (job: JobRef | null) => void;
-  jobs?: JobRef[];
-  includeAll?: boolean;
-  allLabel?: string;
-  allDescription?: string;
-  placeholder?: string;
-  fallbackLabel?: string;
-  showPhaseFilter?: boolean;
-  showToBeInvoiced?: boolean;
-  showNearest?: boolean;
-  variant?: "control" | "title";
-}) {
+}: JobPickerProps) {
   const [fetched, setFetched] = useState<JobRef[]>([]);
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -472,4 +514,18 @@ function JobOption({
       </button>
     </li>
   );
+}
+
+/**
+ * The picker wired to the URL — what a job-scoped page renders. Same dropdown as
+ * `JobPicker`, with `value`/`onChange` bound to `?jobId` by `useJobIdParam`, so
+ * a page adds a working picker in one line and /unbilled (a SERVER component,
+ * which reads the job out of searchParams) can have one at all.
+ *
+ * A page that also has to READ the job — to fetch that job's rows — calls
+ * `useJobIdParam` itself; the two share the URL, not state.
+ */
+export function JobParamPicker(props: Omit<JobPickerProps, "value" | "onChange">) {
+  const [jobId, setJobId] = useJobIdParam();
+  return <JobPicker {...props} value={jobId} onChange={setJobId} />;
 }

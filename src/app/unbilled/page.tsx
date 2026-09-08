@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { billStatusLabel } from "@/components/BillStatusBadge";
+import { JobParamPicker } from "@/components/JobPicker";
 import { Banner, Loading, PageHeader } from "@/components/ui";
 import {
   getJobDocumentRollup,
@@ -15,7 +16,9 @@ const money = (n?: number) =>
     : "—";
 
 /**
- * Server component. `jobId` comes from the URL (set by the Tracking Sheets job picker), so
+ * Server component. `jobId` comes from the URL — set by this page's own picker
+ * (a client child; the header carries none) or by whoever linked here with a job
+ * already chosen (Coding Review, the daily digest's cost-vs-invoice check). So
  * the rollup is computed on the server and arrives in the initial HTML — no
  * client fetch waterfall. The Pave call is wrapped in <Suspense> below, so the
  * page shell (title/description) streams immediately and the totals stream in
@@ -37,7 +40,7 @@ export default async function UnbilledPage({
         description={
           jobId
             ? "Approved bill cost not yet on an approved customer invoice."
-            : "Pick a job above to see unbilled expenses."
+            : "Pick a job to see its unbilled expenses."
         }
         actions={
           jobId ? (
@@ -50,6 +53,10 @@ export default async function UnbilledPage({
           ) : undefined
         }
       />
+
+      <div className="mb-4">
+        <JobParamPicker includeAll={false} placeholder="Choose a job…" />
+      </div>
 
       {jobId && (
         <Suspense key={jobId} fallback={<Loading label="Computing unbilled totals…" />}>

@@ -2,8 +2,8 @@
 
 import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
 import { BillStatusBadge } from "@/components/BillStatusBadge";
+import { JobParamPicker, useJobIdParam } from "@/components/JobPicker";
 import { Banner, CardSkeletonList, EmptyState, PageHeader } from "@/components/ui";
 
 interface Bill {
@@ -97,8 +97,7 @@ function ToggleSwitch({
 }
 
 function CodingQueue() {
-  const search = useSearchParams();
-  const jobId = (search.get("jobId") ?? "").trim();
+  const [jobId] = useJobIdParam();
   const [bills, setBills] = useState<Bill[] | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -126,8 +125,8 @@ function CodingQueue() {
     }
   }
 
-  // Load whenever the URL's job changes (global picker writes it there); with no
-  // job selected, load every job's drafts.
+  // Load whenever the URL's job changes (the picker below writes it there); with
+  // no job selected, load every job's drafts.
   useEffect(() => {
     run(jobId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -156,7 +155,7 @@ function CodingQueue() {
         description={
           jobId.trim()
             ? "Draft bills on this job, waiting to be coded."
-            : "Draft bills across all jobs. Pick a job above to narrow to one."
+            : "Draft bills across all jobs. Pick a job to narrow to one."
         }
         actions={
           jobId.trim() ? (
@@ -177,6 +176,14 @@ function CodingQueue() {
           ) : undefined
         }
       />
+
+      <div className="mb-4">
+        <JobParamPicker
+          allLabel="All jobs"
+          allDescription="Draft bills across every job"
+          showPhaseFilter
+        />
+      </div>
 
       {loading && <CardSkeletonList rows={4} />}
 

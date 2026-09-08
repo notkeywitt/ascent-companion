@@ -1,8 +1,8 @@
 "use client";
 
 import { Suspense, useEffect, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
 
+import { JobParamPicker, useJobIdParam } from "@/components/JobPicker";
 import { Banner, Button, EmptyState, PageHeader, Spinner, Textarea } from "@/components/ui";
 
 interface Msg {
@@ -22,8 +22,7 @@ const TOOL_LABEL: Record<string, string> = {
 };
 
 function Chat() {
-  const search = useSearchParams();
-  const jobId = (search.get("jobId") ?? "").trim();
+  const [jobId] = useJobIdParam();
 
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
@@ -152,9 +151,15 @@ function Chat() {
         description={
           jobId
             ? "Ask about the selected job's bills, budget, or unbilled amounts."
-            : "Ask about jobs, vendor bills, budgets, and unbilled amounts. Pick a job above to scope questions to it."
+            : "Ask about jobs, vendor bills, budgets, and unbilled amounts. Pick a job to scope questions to it."
         }
       />
+
+      {/* Unscoped is a real answer here — the assistant can look up any job — so
+          the "All jobs" row stays. */}
+      <div className="mb-3">
+        <JobParamPicker allLabel="All jobs" allDescription="Ask about any job" showPhaseFilter />
+      </div>
 
       <div ref={scrollRef} className="min-h-0 flex-1 space-y-3 overflow-y-auto pb-2">
         {messages.length === 0 && (

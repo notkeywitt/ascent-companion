@@ -18,6 +18,7 @@ import {
   StickyActionBar,
   Toggle,
 } from "@/components/ui";
+import { JobParamPicker, useJobIdParam } from "@/components/JobPicker";
 import { type Option } from "@/components/CostCodeSelect";
 import {
   TimeEntryList,
@@ -169,7 +170,7 @@ const remainingOf = (h: Headroom) => h.budget - usedOf(h);
 
 export function LaborReview() {
   const params = useSearchParams();
-  const jobId = params.get("jobId") ?? "";
+  const [jobId] = useJobIdParam();
 
   const [ym, setYm] = useState(() => params.get("ym") || defaultYm());
   /**
@@ -563,7 +564,13 @@ export function LaborReview() {
   if (!jobId) {
     return (
       <main className="mx-auto max-w-2xl px-4 pb-24 pt-6">
-        <PageHeader title="Labor Review" />
+        <PageHeader
+          title="Labor Review"
+          description="Move logged time between cost codes against live budget headroom."
+        />
+        <div className="mb-4">
+          <JobParamPicker includeAll={false} placeholder="Choose a job…" showPhaseFilter />
+        </div>
         <EmptyState>
           No job selected. Pick one above to review its labor, or{" "}
           <Link href="/trackingsheet" className="text-accent underline">
@@ -641,6 +648,10 @@ export function LaborReview() {
           </div>
         }
       />
+
+      <div className="mb-4 lg:max-w-md">
+        <JobParamPicker includeAll={false} placeholder="Choose a job…" showPhaseFilter />
+      </div>
 
       {data && !data.writesEnabled && (
         <p className="mb-4 text-[11px] text-amber-600 dark:text-amber-400">

@@ -1,8 +1,8 @@
 "use client";
 
 import { Suspense, useCallback, useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
 
+import { JobParamPicker, useJobIdParam } from "@/components/JobPicker";
 import { Banner, Button, EmptyState, Loading, PageHeader, inputCls } from "@/components/ui";
 
 interface Rfi {
@@ -36,8 +36,7 @@ const statusClass: Record<string, string> = {
 const today = () => new Date().toISOString().slice(0, 10);
 
 function Rfis() {
-  const search = useSearchParams();
-  const jobId = search.get("jobId") ?? "";
+  const [jobId] = useJobIdParam();
 
   const [rfis, setRfis] = useState<Rfi[]>([]);
   const [vendors, setVendors] = useState<Vendor[]>([]);
@@ -108,13 +107,20 @@ function Rfis() {
       ))}
     </datalist>
   );
+  /* Rendered in BOTH states, which is why it is a variable: the page is reached
+     from the launcher menu with no job at all, and the empty state has to be
+     able to choose one. */
+  const picker = (
+    <div className="mb-4">
+      <JobParamPicker includeAll={false} placeholder="Choose a job…" />
+    </div>
+  );
   if (!jobId) {
     return (
       <main className="mx-auto max-w-xl px-4 pb-24 pt-6">
-        <PageHeader
-          title="RFIs"
-          description="Open a job in JobTread (or pick one above) to see and create its RFIs."
-        />
+        <PageHeader title="RFIs" description="View and create a job's RFIs." />
+        {picker}
+        <EmptyState>Pick a job to see and create its RFIs.</EmptyState>
       </main>
     );
   }
@@ -124,7 +130,6 @@ function Rfis() {
       {vendorList}
       <PageHeader
         title="RFIs"
-        description={<span className="font-mono text-xs">job {jobId}</span>}
         actions={
           <Button variant={showNew ? "secondary" : "primary"} size="sm" onClick={() => setShowNew((s) => !s)}>
             {showNew ? "Cancel" : "+ New RFI"}
@@ -132,6 +137,8 @@ function Rfis() {
         }
         className="!mb-4"
       />
+
+      {picker}
 
       {showNew && (
         <form
