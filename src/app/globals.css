@@ -313,6 +313,14 @@ html .group:hover .group-hover\:text-accent {
      the value below is only the pre-paint fallback: the row (≈3.4rem) + the
      brand hairline. */
   --appheader-h: 3.5rem;
+
+  /* Height of the page's commit bar (components/StickyActionBar), which docks
+     ABOVE the tab bar. 0 when nothing is staged, because the bar only exists
+     then; the bar measures itself and rewrites this, for the same reason the
+     header does — it is `flex-wrap`, so it is one row or two depending on the
+     page and the font size, and a panel beside it that guessed the number ended
+     up underneath it. */
+  --actionbar-h: 0px;
 }
 
 /* The two things that must clear the top chrome, reading the ONE measured
@@ -326,14 +334,17 @@ html .group:hover .group-hover\:text-accent {
   top: calc(var(--appheader-h) + 0.5rem);
 }
 .max-h-below-header {
-  /* BOTH chromes, not just the top one. A card pinned at `sticky-below-header`
+  /* EVERY chrome, not just the top one. A card pinned at `sticky-below-header`
      and sized to `100dvh - appheader` ends a whole tab bar BELOW the viewport,
-     so its last section is unreachable — `body`'s padding-bottom does not help
-     an element that is measuring the viewport rather than sitting in the flow.
-     Anything docking above the tab bar (StickyActionBar) still overlaps the
-     final rem or two, so a card with a commit bar under it also pads its own
-     scroll body — see BillCodingCard. */
-  max-height: calc(100dvh - var(--appheader-h) - var(--tabbar-h) - 1.5rem);
+     and then a commit bar's worth further under <StickyActionBar> — `body`'s
+     padding-bottom does not help an element measuring the viewport rather than
+     sitting in the flow. Both are measured, not assumed: --actionbar-h is 0
+     while nothing is staged and the bar's real height once it appears.
+     The 1.5rem is breathing room, and also covers the caption a panel may
+     carry between the sticky top and the card itself. */
+  max-height: calc(
+    100dvh - var(--appheader-h) - var(--tabbar-h) - var(--actionbar-h, 0px) - 1.5rem
+  );
 }
 /* For an element scrollIntoView() must land BELOW the sticky header — without
    this it stops with the element's top at viewport 0, i.e. hidden under the

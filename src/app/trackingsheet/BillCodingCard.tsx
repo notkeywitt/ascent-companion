@@ -495,95 +495,95 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
 
   return (
     <>
-      {!standalone && <SectionLabel className="mb-2">Coding</SectionLabel>}
-      {!bill ? (
-        <EmptyState>{c("recode.empty.selectBill")}</EmptyState>
-      ) : (
-        // Docked, the card is height-capped to the room left below the app header
-        // (the measured one — see globals.css) so a long bill scrolls within the
-        // card instead of running off-screen. Standalone, the PAGE scrolls, and
-        // capping here would put a scrollbox inside a scrollbox.
-        //
-        // Docked it is also a flex column of two parts: a header that stays, and
-        // a body that scrolls. `pad={false}` because the two need their own
-        // padding — the header's has to reach the card edge for its hairline.
-        <Card pad={false} className={standalone ? "p-3" : "flex max-h-below-header flex-col"}>
-          {/* THE HEADER STAYS PUT. Vendor and total are what you check every
+      {/* THE HEIGHT CAP GOES ON THIS WRAPPER, not on the Card, and that is the
+        whole point of the wrapper: the cap is measured from the top of the
+        sticky column, and the "Coding" caption sits inside that column too. Cap
+        the Card alone and the card ends one caption's height too low — which is
+        how Filing kept landing behind the commit bar. Capping the pair spends
+        the same budget the column actually has.
+        Docked only. Standalone the PAGE scrolls, and capping here would put a
+        scrollbox inside a scrollbox. */}
+      <div className={standalone ? "" : "flex max-h-below-header flex-col"}>
+        {!standalone && <SectionLabel className="mb-2">Coding</SectionLabel>}
+        {!bill ? (
+          <EmptyState>{c("recode.empty.selectBill")}</EmptyState>
+        ) : (
+          // Docked, the card is a flex column of two parts: a header that stays,
+          // and a body that scrolls. `min-h-0 flex-1` lets it take what the capped
+          // wrapper has left. `pad={false}` because the two parts need their own
+          // padding — the header's has to reach the card edge for its hairline.
+          <Card pad={false} className={standalone ? "p-3" : "flex min-h-0 flex-1 flex-col"}>
+            {/* THE HEADER STAYS PUT. Vendor and total are what you check every
             line against, so they must not scroll away with the bill. */}
-          <div
-            className={
-              standalone
-                ? ""
-                : "shrink-0 border-b border-line-soft px-3 pb-2 pt-3 dark:border-neutral-800"
-            }
-          >
-            <div className="flex items-baseline justify-between gap-2">
-              {/* The host's page header already names the bill when the card is its
+            <div
+              className={
+                standalone
+                  ? ""
+                  : "shrink-0 border-b border-line-soft px-3 pb-2 pt-3 dark:border-neutral-800"
+              }
+            >
+              <div className="flex items-baseline justify-between gap-2">
+                {/* The host's page header already names the bill when the card is its
               whole content; the JT link still belongs to the bill, so the row
               stays and just loses its label. */}
-              {standalone ? (
-                <span className="flex-1" />
-              ) : (
-                <p className="min-w-0 truncate text-sm font-semibold">{bill.label}</p>
-              )}
-              {/* Same size and weight as the vendor: the two together ARE the
+                {standalone ? (
+                  <span className="flex-1" />
+                ) : (
+                  <p className="min-w-0 truncate text-sm font-semibold">{bill.label}</p>
+                )}
+                {/* Same size and weight as the vendor: the two together ARE the
               bill's identity, so neither is the quiet half. */}
-              <p className="shrink-0 text-sm font-semibold tabular-nums">
-                {money(math.isDraft ? math.total : bill.cost)}
-              </p>
-              <JtLink
-                href={`https://app.jobtread.com/jobs/${jobId}/documents/${bill.id}`}
-                className="shrink-0 text-xs font-semibold text-neutral-400 transition hover:text-accent"
-              >
-                JT ↗
-              </JtLink>
-            </div>
-            <div className="mb-1 flex items-center justify-between gap-2">
-              <p className="min-w-0 truncate text-xs text-neutral-500">
-                {lines.length} line{lines.length === 1 ? "" : "s"}
-                {bill.status ? ` · ${bill.status}` : ""}
-              </p>
-              <div className="flex shrink-0 items-center gap-1.5">
-                <Button
-                  variant={bill.reviewed ? "primary" : "secondary"}
-                  size="sm"
-                  className="!px-2 !py-1 !text-[11px]"
-                  onClick={() => toggleReviewed(bill.id, !bill.reviewed)}
+                <p className="shrink-0 text-sm font-semibold tabular-nums">
+                  {money(math.isDraft ? math.total : bill.cost)}
+                </p>
+                <JtLink
+                  href={`https://app.jobtread.com/jobs/${jobId}/documents/${bill.id}`}
+                  className="shrink-0 text-xs font-semibold text-neutral-400 transition hover:text-accent"
                 >
-                  {bill.reviewed ? "✓ Reviewed" : "Mark reviewed"}
-                </Button>
-                {/* Approve this ONE bill — the single-bill case of the closing
+                  JT ↗
+                </JtLink>
+              </div>
+              <div className="mb-1 flex items-center justify-between gap-2">
+                <p className="min-w-0 truncate text-xs text-neutral-500">
+                  {lines.length} line{lines.length === 1 ? "" : "s"}
+                  {bill.status ? ` · ${bill.status}` : ""}
+                </p>
+                <div className="flex shrink-0 items-center gap-1.5">
+                  <Button
+                    variant={bill.reviewed ? "primary" : "secondary"}
+                    size="sm"
+                    className="!px-2 !py-1 !text-[11px]"
+                    onClick={() => toggleReviewed(bill.id, !bill.reviewed)}
+                  >
+                    {bill.reviewed ? "✓ Reviewed" : "Mark reviewed"}
+                  </Button>
+                  {/* Approve this ONE bill — the single-bill case of the closing
                 row's "Approve Draft Bills", same write and same gate. The label
                 says "this bill" so the two read as one action at two scales
                 rather than two unrelated approvals. Only a draft has a status to
                 leave. */}
-                {approveBill && bill.status === "draft" && (
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    className="!px-2 !py-1 !text-[11px]"
-                    onClick={() => approveBill(bill.id)}
-                    disabled={Boolean(approvingBill) || Boolean(approveBlocked)}
-                    title={approveBlocked ?? undefined}
-                  >
-                    {approvingBill ? "Approving…" : "Approve this bill"}
-                  </Button>
-                )}
+                  {approveBill && bill.status === "draft" && (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      className="!px-2 !py-1 !text-[11px]"
+                      onClick={() => approveBill(bill.id)}
+                      disabled={Boolean(approvingBill) || Boolean(approveBlocked)}
+                      title={approveBlocked ?? undefined}
+                    >
+                      {approvingBill ? "Approving…" : "Approve this bill"}
+                    </Button>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* pb-16, not pb-3: docked, the page's <StickyActionBar> (Sync / Save)
-            floats over the foot of this card whenever there is something to
-            commit, and Filing — the last block — sat under it. The bar is
-            `sticky`, so it is only in the way until the page itself scrolls to
-            the bottom, which is exactly the "it's cut off unless I scroll the
-            bills list all the way down" shape. The padding gives the last
-            section somewhere to scroll to.
-            ponytail: 4rem is the bar's height plus slack, not a measurement.
-            Publish an --actionbar-h if the bar ever grows a second row. */}
-          <div className={standalone ? "" : "min-h-0 flex-1 overflow-y-auto px-3 pb-16 pt-3"}>
-            {/* The scanned invoice, FIRST — the coding decision is read off it,
+            {/* pb-8, not pb-3: the card now ENDS above the commit bar, so this is
+            slack rather than the fix. A scroll container whose last line stops
+            flush with its own bottom edge reads as cut off whether it is or
+            not, and Filing is the block that gets read that way. */}
+            <div className={standalone ? "" : "min-h-0 flex-1 overflow-y-auto px-3 pb-8 pt-3"}>
+              {/* The scanned invoice, FIRST — the coding decision is read off it,
               so it opens the panel rather than sitting under a long line list.
               It scrolls away with everything else; the vendor and the total
               stay put in the header above.
@@ -595,27 +595,27 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
               strands its bottom, so the invoice is not allowed to set the
               card's height. Reading it properly is the lightbox's job, not
               this thumbnail's. */}
-            <div className="mb-3 border-b border-line-soft pb-3 dark:border-neutral-800">
-              <SectionLabel className="mb-1.5">Invoice</SectionLabel>
-              {filesLoading && <p className="text-xs text-neutral-400">Loading…</p>}
-              {!filesLoading && files.length === 0 && (
-                <p className="text-xs text-neutral-400">No file attached to this bill.</p>
-              )}
-              <div className="space-y-2">
-                {files.map((f) => (
-                  <InvoiceAttachment key={f.id} file={f} maxHClass={scanMaxHClass} />
-                ))}
+              <div className="mb-3 border-b border-line-soft pb-3 dark:border-neutral-800">
+                <SectionLabel className="mb-1.5">Invoice</SectionLabel>
+                {filesLoading && <p className="text-xs text-neutral-400">Loading…</p>}
+                {!filesLoading && files.length === 0 && (
+                  <p className="text-xs text-neutral-400">No file attached to this bill.</p>
+                )}
+                <div className="space-y-2">
+                  {files.map((f) => (
+                    <InvoiceAttachment key={f.id} file={f} maxHClass={scanMaxHClass} />
+                  ))}
+                </div>
               </div>
-            </div>
 
-            {bill.invoiced && (
-              <Banner tone="info" className="mb-3 !py-1.5 !text-[11px]">
-                Already on a customer invoice — coding is read-only here so recoding can&apos;t
-                change numbers already sent to the client.
-              </Banner>
-            )}
+              {bill.invoiced && (
+                <Banner tone="info" className="mb-3 !py-1.5 !text-[11px]">
+                  Already on a customer invoice — coding is read-only here so recoding can&apos;t
+                  change numbers already sent to the client.
+                </Banner>
+              )}
 
-            {/* Bill-level tools, ABOVE the list they act on. Both apply to the
+              {/* Bill-level tools, ABOVE the list they act on. Both apply to the
             whole bill rather than to one line, and both are things you decide
             BEFORE you start working down the lines — "code the whole thing to
             one place" is usually the first move on a bill, not the last. They
@@ -626,472 +626,472 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
             not a trial-and-error choice; a recode only stages. The hairline is
             BELOW the row here, so the tools read as a header over the list
             instead of a footer under the tax. */}
-            {(showRecodeAll || showCombine) && (
-              <div className="mb-3 border-b border-line-soft pb-2.5">
-                <div className="flex flex-wrap items-center justify-end gap-1.5">
-                  {showRecodeAll && (
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      className="shrink-0 !py-1.5 !text-xs"
-                      onClick={() => setRecodeAllOpen(true)}
-                      title={`Apply one code to all ${lines.length} lines`}
-                    >
-                      Recode All Lines
-                    </Button>
-                  )}
-                  {/* COMBINE IS TWO STEPS. The first opens the tick boxes on the
-                  lines that can merge; the second stages the merge. Nothing
-                  reaches JobTread from either — Save does that, like every
-                  other edit in this card. */}
-                  {showCombine && !combineOpen && !combinePending && (
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      className="shrink-0 !py-1.5 !text-xs"
-                      onClick={() => setCombineOpen(true)}
-                      title="Merge lines that share a cost code"
-                    >
-                      Combine
-                    </Button>
-                  )}
-                  {showCombine && combineOpen && !combinePending && (
-                    <>
+              {(showRecodeAll || showCombine) && (
+                <div className="mb-3 border-b border-line-soft pb-2.5">
+                  <div className="flex flex-wrap items-center justify-end gap-1.5">
+                    {showRecodeAll && (
                       <Button
                         variant="secondary"
                         size="sm"
                         className="shrink-0 !py-1.5 !text-xs"
-                        onClick={() => {
-                          setCombineOpen(false);
-                          combineSelected.forEach(toggleCombineSel);
-                        }}
+                        onClick={() => setRecodeAllOpen(true)}
+                        title={`Apply one code to all ${lines.length} lines`}
                       >
-                        Cancel
+                        Recode All Lines
                       </Button>
+                    )}
+                    {/* COMBINE IS TWO STEPS. The first opens the tick boxes on the
+                  lines that can merge; the second stages the merge. Nothing
+                  reaches JobTread from either — Save does that, like every
+                  other edit in this card. */}
+                    {showCombine && !combineOpen && !combinePending && (
                       <Button
+                        variant="secondary"
                         size="sm"
                         className="shrink-0 !py-1.5 !text-xs"
-                        onClick={() => {
-                          combineRows();
-                          setCombineOpen(false);
-                        }}
-                        disabled={!canCombine || combining}
+                        onClick={() => setCombineOpen(true)}
+                        title="Merge lines that share a cost code"
                       >
-                        {`Merge${combineSelected.length >= 2 ? ` (${combineSelected.length})` : ""}`}
+                        Combine
                       </Button>
-                    </>
-                  )}
-                  {/* Staged: the only thing left to do here is take it back. Save
+                    )}
+                    {showCombine && combineOpen && !combinePending && (
+                      <>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          className="shrink-0 !py-1.5 !text-xs"
+                          onClick={() => {
+                            setCombineOpen(false);
+                            combineSelected.forEach(toggleCombineSel);
+                          }}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          size="sm"
+                          className="shrink-0 !py-1.5 !text-xs"
+                          onClick={() => {
+                            combineRows();
+                            setCombineOpen(false);
+                          }}
+                          disabled={!canCombine || combining}
+                        >
+                          {`Merge${combineSelected.length >= 2 ? ` (${combineSelected.length})` : ""}`}
+                        </Button>
+                      </>
+                    )}
+                    {/* Staged: the only thing left to do here is take it back. Save
                   applies it; Revert on the host's action bar drops it along
                   with everything else staged. */}
-                  {combinePending && cancelCombine && (
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      className="shrink-0 !py-1.5 !text-xs"
-                      onClick={cancelCombine}
-                    >
-                      Undo merge
-                    </Button>
-                  )}
-                </div>
+                    {combinePending && cancelCombine && (
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        className="shrink-0 !py-1.5 !text-xs"
+                        onClick={cancelCombine}
+                      >
+                        Undo merge
+                      </Button>
+                    )}
+                  </div>
 
-                {/* What the button is waiting for, under it rather than above: the
+                  {/* What the button is waiting for, under it rather than above: the
                 tick boxes it refers to are in the list below, so the sentence
                 sits between the two. */}
-                {showCombine && combineOpen && !combinePending && (
-                  <p className="mt-1.5 text-right text-[11px] text-neutral-500">
-                    {combineSelected.length < 2
-                      ? "Check 2+ lines with the same code."
-                      : combineCodeSet.size > 1
-                        ? "Different codes selected."
-                        : combineHasEdit
-                          ? "Save or discard those lines' edits first."
-                          : `Merging ${combineSelected.length} lines.`}
-                  </p>
-                )}
-                {combinePending && (
-                  <p className="mt-1.5 text-right text-[11px] font-semibold text-amber-600 dark:text-amber-400">
-                    {combinePending.deleteIds.length + 1} lines merge on Save.
-                  </p>
-                )}
-                {combineMsg && (
-                  <Banner tone="neutral" className="mt-1.5 !px-2 !py-1.5 !text-[11px]">
-                    {combineMsg}
-                  </Banner>
-                )}
-              </div>
-            )}
+                  {showCombine && combineOpen && !combinePending && (
+                    <p className="mt-1.5 text-right text-[11px] text-neutral-500">
+                      {combineSelected.length < 2
+                        ? "Check 2+ lines with the same code."
+                        : combineCodeSet.size > 1
+                          ? "Different codes selected."
+                          : combineHasEdit
+                            ? "Save or discard those lines' edits first."
+                            : `Merging ${combineSelected.length} lines.`}
+                    </p>
+                  )}
+                  {combinePending && (
+                    <p className="mt-1.5 text-right text-[11px] font-semibold text-amber-600 dark:text-amber-400">
+                      {combinePending.deleteIds.length + 1} lines merge on Save.
+                    </p>
+                  )}
+                  {combineMsg && (
+                    <Banner tone="neutral" className="mt-1.5 !px-2 !py-1.5 !text-[11px]">
+                      {combineMsg}
+                    </Banner>
+                  )}
+                </div>
+              )}
 
-            <ul className="space-y-3">
-              {lines.map((l, i) => {
-                const current = leafOf(l);
-                const moved = staged.has(l.id);
-                const code = codeOf(l);
-                const left = remainingFor(code);
-                const t = math.targets[i];
-                const extended = t ? round2(t.qty * t.preTaxUnit) : math.deTax(l.cost);
-                const setEdit = (patch: LineEdit) => setLineEdit(l.id, patch);
-                // Staged merge, seen from this line: it is either the survivor or
-                // one of the lines folded into it.
-                const mergeKeeps = combinePending?.keepId === l.id;
-                const mergeInto = Boolean(combinePending?.deleteIds.includes(l.id));
-                // A staged merge carries the SUMMED cost and the code of the lines
-                // as they were when it was staged. Editing one of them afterwards
-                // would make that sum wrong by the time Save applies it, so the
-                // lines it touches are locked until the merge is saved or undone.
-                const mergeLocked = mergeKeeps || mergeInto;
-                return (
-                  <li
-                    key={l.id}
-                    className={`border-t border-line-soft pt-3 first:border-0 first:pt-0 dark:border-neutral-800 ${
-                      mergeInto ? "opacity-50" : ""
-                    }`}
-                  >
-                    {/* Description. JobTread locks it (with qty/amount) once a
+              <ul className="space-y-3">
+                {lines.map((l, i) => {
+                  const current = leafOf(l);
+                  const moved = staged.has(l.id);
+                  const code = codeOf(l);
+                  const left = remainingFor(code);
+                  const t = math.targets[i];
+                  const extended = t ? round2(t.qty * t.preTaxUnit) : math.deTax(l.cost);
+                  const setEdit = (patch: LineEdit) => setLineEdit(l.id, patch);
+                  // Staged merge, seen from this line: it is either the survivor or
+                  // one of the lines folded into it.
+                  const mergeKeeps = combinePending?.keepId === l.id;
+                  const mergeInto = Boolean(combinePending?.deleteIds.includes(l.id));
+                  // A staged merge carries the SUMMED cost and the code of the lines
+                  // as they were when it was staged. Editing one of them afterwards
+                  // would make that sum wrong by the time Save applies it, so the
+                  // lines it touches are locked until the merge is saved or undone.
+                  const mergeLocked = mergeKeeps || mergeInto;
+                  return (
+                    <li
+                      key={l.id}
+                      className={`border-t border-line-soft pt-3 first:border-0 first:pt-0 dark:border-neutral-800 ${
+                        mergeInto ? "opacity-50" : ""
+                      }`}
+                    >
+                      {/* Description. JobTread locks it (with qty/amount) once a
                     bill leaves draft, so those inputs only appear on
                     drafts; re-coding still works in any status. */}
-                    <div className="flex items-start gap-1.5">
-                      {combineOpen && !bill.invoiced && writes && isCombinable(l) && (
-                        <input
-                          type="checkbox"
-                          checked={combineSelected.includes(l.id)}
-                          onChange={() => toggleCombineSel(l.id)}
-                          aria-label="Select line to combine"
-                          title="Combine with other lines that share this code"
-                          className="mt-1.5 h-3.5 w-3.5 shrink-0 cursor-pointer accent-accent"
-                        />
-                      )}
-                      <div className="min-w-0 flex-1">
-                        {math.isDraft ? (
+                      <div className="flex items-start gap-1.5">
+                        {combineOpen && !bill.invoiced && writes && isCombinable(l) && (
                           <input
-                            value={edits[l.id]?.name ?? l.name ?? ""}
-                            onChange={(e) => setEdit({ name: e.target.value })}
-                            placeholder="Description"
-                            disabled={mergeLocked}
-                            title={
-                              mergeLocked
-                                ? "Locked until the staged merge is saved or undone"
-                                : undefined
-                            }
-                            className={`${quietSm} mb-1 w-full disabled:opacity-60`}
+                            type="checkbox"
+                            checked={combineSelected.includes(l.id)}
+                            onChange={() => toggleCombineSel(l.id)}
+                            aria-label="Select line to combine"
+                            title="Combine with other lines that share this code"
+                            className="mt-1.5 h-3.5 w-3.5 shrink-0 cursor-pointer accent-accent"
                           />
-                        ) : (
-                          <div className="mb-1 flex items-baseline justify-between gap-2">
-                            <span className="min-w-0 truncate text-xs">
-                              {l.name || "(unnamed line)"}
-                            </span>
-                            <span className="shrink-0 text-xs font-semibold tabular-nums">
-                              {money(l.cost)}
-                            </span>
-                          </div>
                         )}
-                      </div>
-                      {/* Delete: removes this line from the bill entirely —
+                        <div className="min-w-0 flex-1">
+                          {math.isDraft ? (
+                            <input
+                              value={edits[l.id]?.name ?? l.name ?? ""}
+                              onChange={(e) => setEdit({ name: e.target.value })}
+                              placeholder="Description"
+                              disabled={mergeLocked}
+                              title={
+                                mergeLocked
+                                  ? "Locked until the staged merge is saved or undone"
+                                  : undefined
+                              }
+                              className={`${quietSm} mb-1 w-full disabled:opacity-60`}
+                            />
+                          ) : (
+                            <div className="mb-1 flex items-baseline justify-between gap-2">
+                              <span className="min-w-0 truncate text-xs">
+                                {l.name || "(unnamed line)"}
+                              </span>
+                              <span className="shrink-0 text-xs font-semibold tabular-nums">
+                                {money(l.cost)}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                        {/* Delete: removes this line from the bill entirely —
                       ported from the bill page. Draft-only + writes-gated,
                       like Buyback/Combine/Add line. */}
-                      {math.isDraft && writes && !mergeLocked && (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            deleteLineById(l.id, edits[l.id]?.name ?? l.name ?? "Line item")
-                          }
-                          disabled={deletingLineId === l.id}
-                          aria-label="Delete line"
-                          title="Delete this line"
-                          className="mt-0.5 shrink-0 rounded p-1 text-neutral-400 transition hover:bg-red-50 hover:text-red-600 disabled:opacity-40 dark:hover:bg-red-950/40 dark:hover:text-red-400"
-                        >
-                          {deletingLineId === l.id ? (
-                            <span className="block h-3.5 w-3.5 text-center text-[10px] leading-[14px]">
-                              …
-                            </span>
-                          ) : (
-                            <svg
-                              viewBox="0 0 24 24"
-                              fill="currentColor"
-                              aria-hidden="true"
-                              className="h-3.5 w-3.5"
-                            >
-                              <path
-                                fillRule="evenodd"
-                                clipRule="evenodd"
-                                d="M16.5 4.478v.227a48.816 48.816 0 0 1 3.878.512.75.75 0 1 1-.256 1.478l-.209-.035-1.005 13.07a3 3 0 0 1-2.991 2.77H8.084a3 3 0 0 1-2.991-2.77L4.087 6.66l-.209.035a.75.75 0 0 1-.256-1.478A48.567 48.567 0 0 1 7.5 4.705v-.227c0-1.564 1.213-2.9 2.816-2.951a52.662 52.662 0 0 1 3.369 0c1.603.051 2.815 1.387 2.815 2.951Zm-6.136-1.452a51.196 51.196 0 0 1 3.273 0C14.39 3.05 15 3.684 15 4.478v.113a49.488 49.488 0 0 0-6 0v-.113c0-.794.609-1.428 1.364-1.452Zm-.355 5.945a.75.75 0 1 0-1.5.058l.347 9a.75.75 0 1 0 1.499-.058l-.346-9Zm5.48.058a.75.75 0 1 0-1.498-.058l-.347 9a.75.75 0 0 0 1.5.058l.345-9Z"
-                              />
-                            </svg>
-                          )}
-                        </button>
-                      )}
-                    </div>
-                    {math.isDraft && t && (
-                      /* Qty × pre-tax unit cost. The office types what
+                        {math.isDraft && writes && !mergeLocked && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              deleteLineById(l.id, edits[l.id]?.name ?? l.name ?? "Line item")
+                            }
+                            disabled={deletingLineId === l.id}
+                            aria-label="Delete line"
+                            title="Delete this line"
+                            className="mt-0.5 shrink-0 rounded p-1 text-neutral-400 transition hover:bg-red-50 hover:text-red-600 disabled:opacity-40 dark:hover:bg-red-950/40 dark:hover:text-red-400"
+                          >
+                            {deletingLineId === l.id ? (
+                              <span className="block h-3.5 w-3.5 text-center text-[10px] leading-[14px]">
+                                …
+                              </span>
+                            ) : (
+                              <svg
+                                viewBox="0 0 24 24"
+                                fill="currentColor"
+                                aria-hidden="true"
+                                className="h-3.5 w-3.5"
+                              >
+                                <path
+                                  fillRule="evenodd"
+                                  clipRule="evenodd"
+                                  d="M16.5 4.478v.227a48.816 48.816 0 0 1 3.878.512.75.75 0 1 1-.256 1.478l-.209-.035-1.005 13.07a3 3 0 0 1-2.991 2.77H8.084a3 3 0 0 1-2.991-2.77L4.087 6.66l-.209.035a.75.75 0 0 1-.256-1.478A48.567 48.567 0 0 1 7.5 4.705v-.227c0-1.564 1.213-2.9 2.816-2.951a52.662 52.662 0 0 1 3.369 0c1.603.051 2.815 1.387 2.815 2.951Zm-6.136-1.452a51.196 51.196 0 0 1 3.273 0C14.39 3.05 15 3.684 15 4.478v.113a49.488 49.488 0 0 0-6 0v-.113c0-.794.609-1.428 1.364-1.452Zm-.355 5.945a.75.75 0 1 0-1.5.058l.347 9a.75.75 0 1 0 1.499-.058l-.346-9Zm5.48.058a.75.75 0 1 0-1.498-.058l-.347 9a.75.75 0 0 0 1.5.058l.345-9Z"
+                                />
+                              </svg>
+                            )}
+                          </button>
+                        )}
+                      </div>
+                      {math.isDraft && t && (
+                        /* Qty × pre-tax unit cost. The office types what
                      JobTread SHOWS (de-taxed); the save grosses every
                      line back up together. */
-                      <div className="mb-1 flex items-center gap-1.5">
-                        <input
-                          inputMode="decimal"
-                          value={edits[l.id]?.quantity ?? String(l.quantity ?? 0)}
-                          onChange={(e) => setEdit({ quantity: e.target.value })}
-                          aria-label="Quantity"
-                          disabled={mergeLocked}
-                          className={`${quietSm} w-14 text-right tabular-nums disabled:opacity-60`}
+                        <div className="mb-1 flex items-center gap-1.5">
+                          <input
+                            inputMode="decimal"
+                            value={edits[l.id]?.quantity ?? String(l.quantity ?? 0)}
+                            onChange={(e) => setEdit({ quantity: e.target.value })}
+                            aria-label="Quantity"
+                            disabled={mergeLocked}
+                            className={`${quietSm} w-14 text-right tabular-nums disabled:opacity-60`}
+                          />
+                          <span className="text-[11px] text-neutral-400">×</span>
+                          <input
+                            inputMode="decimal"
+                            value={edits[l.id]?.unitCost ?? t.curPreTaxUnit.toFixed(2)}
+                            onChange={(e) => setEdit({ unitCost: e.target.value })}
+                            aria-label="Unit cost (pre-tax)"
+                            disabled={mergeLocked}
+                            className={`${quietSm} w-24 text-right tabular-nums disabled:opacity-60`}
+                          />
+                          <span className="flex-1 text-right text-xs font-semibold tabular-nums">
+                            {money(t.qty * t.preTaxUnit)}
+                          </span>
+                        </div>
+                      )}
+                      {bill.invoiced || mergeLocked ? (
+                        <p className="rounded-md border border-line bg-neutral-50 px-2 py-1.5 text-xs text-neutral-500 dark:border-neutral-700 dark:bg-ink-raised/60">
+                          {code || "uncoded"}
+                        </p>
+                      ) : (
+                        <CostCodeSelect
+                          options={codeOptions}
+                          value={current}
+                          onChange={(leafId) => stageLine(l.id, leafId, l.jobCostItemId)}
                         />
-                        <span className="text-[11px] text-neutral-400">×</span>
-                        <input
-                          inputMode="decimal"
-                          value={edits[l.id]?.unitCost ?? t.curPreTaxUnit.toFixed(2)}
-                          onChange={(e) => setEdit({ unitCost: e.target.value })}
-                          aria-label="Unit cost (pre-tax)"
-                          disabled={mergeLocked}
-                          className={`${quietSm} w-24 text-right tabular-nums disabled:opacity-60`}
-                        />
-                        <span className="flex-1 text-right text-xs font-semibold tabular-nums">
-                          {money(t.qty * t.preTaxUnit)}
-                        </span>
-                      </div>
-                    )}
-                    {bill.invoiced || mergeLocked ? (
-                      <p className="rounded-md border border-line bg-neutral-50 px-2 py-1.5 text-xs text-neutral-500 dark:border-neutral-700 dark:bg-ink-raised/60">
-                        {code || "uncoded"}
-                      </p>
-                    ) : (
-                      <CostCodeSelect
-                        options={codeOptions}
-                        value={current}
-                        onChange={(leafId) => stageLine(l.id, leafId, l.jobCostItemId)}
-                      />
-                    )}
-                    <div className="mt-1 flex items-baseline justify-between gap-2 text-[11px]">
-                      {/* A staged merge outranks a staged recode in this slot: the
+                      )}
+                      <div className="mt-1 flex items-baseline justify-between gap-2 text-[11px]">
+                        {/* A staged merge outranks a staged recode in this slot: the
                       line is about to stop existing, which is the more useful
                       thing to know about it. Both are undone by the same
                       Revert. */}
-                      <span
-                        className={
-                          mergeInto || mergeKeeps || moved
-                            ? "text-amber-600 dark:text-amber-400"
-                            : "text-neutral-400"
-                        }
-                      >
-                        {mergeInto
-                          ? "merging into the line above"
-                          : mergeKeeps
-                            ? `absorbing ${combinePending!.deleteIds.length} line${
-                                combinePending!.deleteIds.length === 1 ? "" : "s"
-                              }`
-                            : moved
-                              ? `moved from ${l.code || "uncoded"}`
-                              : "unchanged"}
-                      </span>
-                      {left !== null && (
                         <span
                           className={
-                            left < 0 ? "text-red-600 dark:text-red-400" : "text-neutral-400"
+                            mergeInto || mergeKeeps || moved
+                              ? "text-amber-600 dark:text-amber-400"
+                              : "text-neutral-400"
                           }
                         >
-                          {money0(left)} left on {code}
+                          {mergeInto
+                            ? "merging into the line above"
+                            : mergeKeeps
+                              ? `absorbing ${combinePending!.deleteIds.length} line${
+                                  combinePending!.deleteIds.length === 1 ? "" : "s"
+                                }`
+                              : moved
+                                ? `moved from ${l.code || "uncoded"}`
+                                : "unchanged"}
                         </span>
-                      )}
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
+                        {left !== null && (
+                          <span
+                            className={
+                              left < 0 ? "text-red-600 dark:text-red-400" : "text-neutral-400"
+                            }
+                          >
+                            {money0(left)} left on {code}
+                          </span>
+                        )}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
 
-            {deleteLineMsg && (
-              <Banner tone="neutral" className="mt-2 !px-2 !py-1.5 !text-[11px]">
-                {deleteLineMsg}
-              </Banner>
-            )}
+              {deleteLineMsg && (
+                <Banner tone="neutral" className="mt-2 !px-2 !py-1.5 !text-[11px]">
+                  {deleteLineMsg}
+                </Banner>
+              )}
 
-            {/* Sales tax — a LINE on the bill coded 88 80 00, split out of the list
+              {/* Sales tax — a LINE on the bill coded 88 80 00, split out of the list
             above so it reads as a total rather than as something to code
             (src/lib/salesTax.ts). Staged like a line edit — nothing writes until
             Sync — so typing here moves math.total live. It sits at the FOOT of
             the list, where a paper invoice puts it: under the lines it is charged
             on. The bill-level tools that used to follow it are above the
             list now. */}
-            {math.isDraft && writes && !bill.invoiced && (
-              <div className="mt-3 flex items-center justify-end gap-1.5">
-                <span className="text-[10px] uppercase tracking-wide text-neutral-400">
-                  {SALES_TAX_LINE_NAME}
-                </span>
-                <div className="relative">
-                  <span className="pointer-events-none absolute left-1.5 top-1/2 -translate-y-1/2 text-xs text-neutral-400">
-                    $
+              {math.isDraft && writes && !bill.invoiced && (
+                <div className="mt-3 flex items-center justify-end gap-1.5">
+                  <span className="text-[10px] uppercase tracking-wide text-neutral-400">
+                    {SALES_TAX_LINE_NAME}
                   </span>
-                  <input
-                    type="number"
-                    inputMode="decimal"
-                    min="0"
-                    step="0.01"
-                    value={taxEdit ?? String(storedTax)}
-                    onChange={(e) => setTax(e.target.value)}
-                    aria-label="Sales tax"
-                    className={`${quietSm} w-24 py-1 pl-4 pr-1.5 text-right tabular-nums`}
-                  />
-                </div>
-              </div>
-            )}
-            {taxView > 0 && (
-              <p className="mt-1 text-right text-[10px] text-neutral-400">
-                subtotal {money(math.subtotal)} + {money(taxView)} tax ·{" "}
-                {isTaxRecoverable(bill.jobPhase) ? "recoverable" : "not recoverable"}
-              </p>
-            )}
-
-            {/* Add a new line (createCostItem) — ported from the bill page.
-            Draft-only + writes-gated, like Delete/Combine/Buyback. */}
-            {math.isDraft && writes && (
-              <div className="mt-3">
-                {!addingLine ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setAddLineMsg("");
-                      setAddingLine(true);
-                    }}
-                    className="w-full rounded-lg bg-neutral-100 px-3 py-2 text-xs font-semibold text-accent transition hover:bg-accent/10 dark:bg-white/10 dark:text-accent-soft"
-                  >
-                    + Add line
-                  </button>
-                ) : (
-                  <div className="rounded-lg bg-neutral-50 p-2 dark:bg-white/[0.04]">
+                  <div className="relative">
+                    <span className="pointer-events-none absolute left-1.5 top-1/2 -translate-y-1/2 text-xs text-neutral-400">
+                      $
+                    </span>
                     <input
-                      type="text"
-                      value={newLine.name}
-                      onChange={(e) => setNewLine((n) => ({ ...n, name: e.target.value }))}
-                      placeholder={c("recode.placeholder.lineDescription")}
-                      className={`${quietSm} w-full`}
+                      type="number"
+                      inputMode="decimal"
+                      min="0"
+                      step="0.01"
+                      value={taxEdit ?? String(storedTax)}
+                      onChange={(e) => setTax(e.target.value)}
+                      aria-label="Sales tax"
+                      className={`${quietSm} w-24 py-1 pl-4 pr-1.5 text-right tabular-nums`}
                     />
-                    <div className="mt-1.5 flex items-center gap-1.5">
-                      <input
-                        type="number"
-                        inputMode="decimal"
-                        value={newLine.quantity}
-                        onChange={(e) => setNewLine((n) => ({ ...n, quantity: e.target.value }))}
-                        aria-label="Quantity"
-                        className={`${quietSm} w-14 text-right tabular-nums`}
-                      />
-                      <span className="text-[11px] text-neutral-400">×</span>
-                      <input
-                        type="number"
-                        inputMode="decimal"
-                        value={newLine.unitCost}
-                        onChange={(e) => setNewLine((n) => ({ ...n, unitCost: e.target.value }))}
-                        aria-label="Unit cost (pre-tax)"
-                        className={`${quietSm} w-24 text-right tabular-nums`}
-                      />
-                    </div>
-                    <div className="mt-1.5">
-                      <CostCodeSelect
-                        options={codeOptions}
-                        value={newLine.code}
-                        onChange={(id) => setNewLine((n) => ({ ...n, code: id }))}
-                      />
-                    </div>
-                    <div className="mt-2 flex items-center gap-1.5">
-                      <Button
-                        size="sm"
-                        className="!py-1.5 !text-xs"
-                        onClick={addLine}
-                        disabled={addLineSaving || !newLine.name.trim()}
-                      >
-                        {addLineSaving ? "Adding…" : "Add line"}
-                      </Button>
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        className="!py-1.5 !text-xs"
-                        onClick={() => {
-                          setAddingLine(false);
-                          setAddLineMsg("");
-                        }}
-                      >
-                        Cancel
-                      </Button>
-                    </div>
                   </div>
-                )}
-                {addLineMsg && (
-                  <Banner tone="neutral" className="mt-1.5 !px-2 !py-1.5 !text-[11px]">
-                    {addLineMsg}
-                  </Banner>
-                )}
-              </div>
-            )}
+                </div>
+              )}
+              {taxView > 0 && (
+                <p className="mt-1 text-right text-[10px] text-neutral-400">
+                  subtotal {money(math.subtotal)} + {money(taxView)} tax ·{" "}
+                  {isTaxRecoverable(bill.jobPhase) ? "recoverable" : "not recoverable"}
+                </p>
+              )}
 
-            {/* Needs review — flag a bill for a correction this app cannot make
+              {/* Add a new line (createCostItem) — ported from the bill page.
+            Draft-only + writes-gated, like Delete/Combine/Buyback. */}
+              {math.isDraft && writes && (
+                <div className="mt-3">
+                  {!addingLine ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAddLineMsg("");
+                        setAddingLine(true);
+                      }}
+                      className="w-full rounded-lg bg-neutral-100 px-3 py-2 text-xs font-semibold text-accent transition hover:bg-accent/10 dark:bg-white/10 dark:text-accent-soft"
+                    >
+                      + Add line
+                    </button>
+                  ) : (
+                    <div className="rounded-lg bg-neutral-50 p-2 dark:bg-white/[0.04]">
+                      <input
+                        type="text"
+                        value={newLine.name}
+                        onChange={(e) => setNewLine((n) => ({ ...n, name: e.target.value }))}
+                        placeholder={c("recode.placeholder.lineDescription")}
+                        className={`${quietSm} w-full`}
+                      />
+                      <div className="mt-1.5 flex items-center gap-1.5">
+                        <input
+                          type="number"
+                          inputMode="decimal"
+                          value={newLine.quantity}
+                          onChange={(e) => setNewLine((n) => ({ ...n, quantity: e.target.value }))}
+                          aria-label="Quantity"
+                          className={`${quietSm} w-14 text-right tabular-nums`}
+                        />
+                        <span className="text-[11px] text-neutral-400">×</span>
+                        <input
+                          type="number"
+                          inputMode="decimal"
+                          value={newLine.unitCost}
+                          onChange={(e) => setNewLine((n) => ({ ...n, unitCost: e.target.value }))}
+                          aria-label="Unit cost (pre-tax)"
+                          className={`${quietSm} w-24 text-right tabular-nums`}
+                        />
+                      </div>
+                      <div className="mt-1.5">
+                        <CostCodeSelect
+                          options={codeOptions}
+                          value={newLine.code}
+                          onChange={(id) => setNewLine((n) => ({ ...n, code: id }))}
+                        />
+                      </div>
+                      <div className="mt-2 flex items-center gap-1.5">
+                        <Button
+                          size="sm"
+                          className="!py-1.5 !text-xs"
+                          onClick={addLine}
+                          disabled={addLineSaving || !newLine.name.trim()}
+                        >
+                          {addLineSaving ? "Adding…" : "Add line"}
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          className="!py-1.5 !text-xs"
+                          onClick={() => {
+                            setAddingLine(false);
+                            setAddLineMsg("");
+                          }}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                  {addLineMsg && (
+                    <Banner tone="neutral" className="mt-1.5 !px-2 !py-1.5 !text-[11px]">
+                      {addLineMsg}
+                    </Banner>
+                  )}
+                </div>
+              )}
+
+              {/* Needs review — flag a bill for a correction this app cannot make
             itself (a paid, invoiced or QuickBooks-pushed bill), with a note
             saying what. Companion-local, NOT a JobTread write, which is why it
             is the one block here that an invoiced bill still gets: an invoiced
             bill is exactly the kind that needs flagging rather than editing. */}
-            {review && (
-              <div className="mt-4 border-t border-line-soft pt-3 dark:border-neutral-800">
-                <div className="flex items-center justify-between gap-2">
-                  <SectionLabel>Needs review</SectionLabel>
-                  {review.flagged && (
-                    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800 dark:bg-amber-950/50 dark:text-amber-300">
-                      ⚑ Flagged
-                    </span>
-                  )}
-                </div>
-                <p className="mt-1 text-[11px] text-neutral-500 dark:text-neutral-400">
-                  For a fix this app can&rsquo;t make — a paid, invoiced, or QuickBooks-pushed bill
-                  that needs work in JobTread or QuickBooks.
-                </p>
-                <Textarea
-                  value={review.note}
-                  onChange={(e) => review.setNote(e.target.value)}
-                  placeholder="What needs fixing?"
-                  rows={2}
-                  className="mt-2"
-                />
-                <div className="mt-2 flex flex-wrap items-center gap-2">
-                  <Button
-                    variant={review.flagged ? "primary" : "outline"}
-                    size="sm"
-                    disabled={review.saving}
-                    onClick={() => review.save(true)}
-                    className={review.flagged ? "!bg-amber-600 hover:!bg-amber-700" : ""}
-                  >
-                    {review.saving ? <Spinner className="mr-1.5" /> : null}
-                    {review.flagged ? "Save note" : "⚑ Flag for review"}
-                  </Button>
-                  {review.flagged && (
+              {review && (
+                <div className="mt-4 border-t border-line-soft pt-3 dark:border-neutral-800">
+                  <div className="flex items-center justify-between gap-2">
+                    <SectionLabel>Needs review</SectionLabel>
+                    {review.flagged && (
+                      <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800 dark:bg-amber-950/50 dark:text-amber-300">
+                        ⚑ Flagged
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-1 text-[11px] text-neutral-500 dark:text-neutral-400">
+                    For a fix this app can&rsquo;t make — a paid, invoiced, or QuickBooks-pushed
+                    bill that needs work in JobTread or QuickBooks.
+                  </p>
+                  <Textarea
+                    value={review.note}
+                    onChange={(e) => review.setNote(e.target.value)}
+                    placeholder="What needs fixing?"
+                    rows={2}
+                    className="mt-2"
+                  />
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
                     <Button
-                      variant="outline"
+                      variant={review.flagged ? "primary" : "outline"}
                       size="sm"
                       disabled={review.saving}
-                      onClick={() => review.save(false)}
+                      onClick={() => review.save(true)}
+                      className={review.flagged ? "!bg-amber-600 hover:!bg-amber-700" : ""}
                     >
-                      Clear flag
+                      {review.saving ? <Spinner className="mr-1.5" /> : null}
+                      {review.flagged ? "Save note" : "⚑ Flag for review"}
                     </Button>
-                  )}
-                  {buybackButton}
-                  {review.msg && (
-                    <span className="text-[11px] text-neutral-500 dark:text-neutral-400">
-                      {review.msg}
-                    </span>
+                    {review.flagged && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={review.saving}
+                        onClick={() => review.save(false)}
+                      >
+                        Clear flag
+                      </Button>
+                    )}
+                    {buybackButton}
+                    {review.msg && (
+                      <span className="text-[11px] text-neutral-500 dark:text-neutral-400">
+                        {review.msg}
+                      </span>
+                    )}
+                  </div>
+                  {review.flagged && review.by && (
+                    <p className="mt-2 text-[11px] text-neutral-400 dark:text-neutral-500">
+                      Flagged by {review.by}
+                      {review.at ? ` · ${new Date(review.at).toLocaleDateString()}` : ""}
+                    </p>
                   )}
                 </div>
-                {review.flagged && review.by && (
-                  <p className="mt-2 text-[11px] text-neutral-400 dark:text-neutral-500">
-                    Flagged by {review.by}
-                    {review.at ? ` · ${new Date(review.at).toLocaleDateString()}` : ""}
-                  </p>
-                )}
-              </div>
-            )}
+              )}
 
-            {/* No review block on this host — buyback still needs a home, in the
+              {/* No review block on this host — buyback still needs a home, in the
             same place and the same style it has when there is one. */}
-            {!review && buybackButton && (
-              <div className="mt-4 border-t border-line-soft pt-3 dark:border-neutral-800">
-                {buybackButton}
-              </div>
-            )}
+              {!review && buybackButton && (
+                <div className="mt-4 border-t border-line-soft pt-3 dark:border-neutral-800">
+                  {buybackButton}
+                </div>
+              )}
 
-            {/* In Google Drive — the durable backup the hourly mirror keeps: the
+              {/* In Google Drive — the durable backup the hourly mirror keeps: the
             bill's own PDF and the Customer/Job/month folder it's filed in.
             Read-only, so it is NOT writes-gated. It sits BELOW Needs review:
             the links are a reference you open once, and putting them above a
@@ -1101,118 +1101,119 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
             rewrites from this bill's coding, so it is where you check that a
             recode reached the filed backup — JobTread's attachment name above
             is set once at upload and only follows on the next sync. */}
-            {drive && (drive.fileUrl || drive.folderUrl) && (
-              <div className="mt-4 border-t border-line-soft pt-3 dark:border-neutral-800">
-                <SectionLabel className="mb-1.5">In Google Drive</SectionLabel>
-                {drive.fileName && (
-                  <p className="mb-1 break-all text-[11px] text-neutral-500 dark:text-neutral-400">
-                    {drive.fileName}
-                  </p>
-                )}
-                <div className="flex flex-col gap-0.5">
-                  {drive.fileUrl && (
-                    <a
-                      href={drive.fileUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-xs font-semibold text-accent"
-                    >
-                      Open the file in Drive ↗
-                    </a>
+              {drive && (drive.fileUrl || drive.folderUrl) && (
+                <div className="mt-4 border-t border-line-soft pt-3 dark:border-neutral-800">
+                  <SectionLabel className="mb-1.5">In Google Drive</SectionLabel>
+                  {drive.fileName && (
+                    <p className="mb-1 break-all text-[11px] text-neutral-500 dark:text-neutral-400">
+                      {drive.fileName}
+                    </p>
                   )}
-                  {drive.folderUrl && (
-                    <a
-                      href={drive.folderUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-xs font-semibold text-accent"
-                    >
-                      Open {drive.folderName ? `“${drive.folderName}”` : "the folder"} in Drive ↗
-                    </a>
-                  )}
+                  <div className="flex flex-col gap-0.5">
+                    {drive.fileUrl && (
+                      <a
+                        href={drive.fileUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-xs font-semibold text-accent"
+                      >
+                        Open the file in Drive ↗
+                      </a>
+                    )}
+                    {drive.folderUrl && (
+                      <a
+                        href={drive.folderUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-xs font-semibold text-accent"
+                      >
+                        Open {drive.folderName ? `“${drive.folderName}”` : "the folder"} in Drive ↗
+                      </a>
+                    )}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* Filing — the bill page's Filing card, in the panel where the
+              {/* Filing — the bill page's Filing card, in the panel where the
             invoice is already on screen: both answers are read off the
             document, so they sit AFTER it, same as on /bill. Writes-
             gated like the rest of the card, and hidden on an invoiced
             bill, whose month and job are fixed by what the client was
             already sent. */}
-            {writes && !bill.invoiced && (
-              <div className="mt-4 border-t border-line-soft pt-3 dark:border-neutral-800">
-                <SectionLabel className="mb-1.5">Filing</SectionLabel>
-                {/* Vendor Bill Number (JobTread externalId) — the invoice/bill
+              {writes && !bill.invoiced && (
+                <div className="mt-4 border-t border-line-soft pt-3 dark:border-neutral-800">
+                  <SectionLabel className="mb-1.5">Filing</SectionLabel>
+                  {/* Vendor Bill Number (JobTread externalId) — the invoice/bill
                 number, editable here; commits on blur. JobTread's own
                 document number shows as the placeholder when it's unset. */}
-                <Label htmlFor="filing-bill-number">Bill number</Label>
-                <input
-                  id="filing-bill-number"
-                  type="text"
-                  value={billNumberDraft}
-                  maxLength={32}
-                  disabled={billNumberSaving || monthSaving || reassigning}
-                  onChange={(e) => setBillNumberDraft(e.target.value)}
-                  onBlur={saveBillNumber}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") e.currentTarget.blur();
-                  }}
-                  placeholder={bill.number ? `#${bill.number}` : "Invoice / bill number"}
-                  className={`${quietSm} mb-3 h-9 w-full px-2.5 font-mono`}
-                />
-                <Label htmlFor="filing-billing-month">Billing month</Label>
-                <Select
-                  id="filing-billing-month"
-                  className="!py-1.5 !text-xs"
-                  disabled={monthSaving || reassigning}
-                  value={(bill.issueDate ?? "").slice(0, 7)}
-                  onChange={(e) => setBillingMonth(e.target.value)}
-                >
-                  <option value="">— set billing month —</option>
-                  {monthOptions.map((o) => (
-                    <option key={o.value} value={o.value}>
-                      {o.label}
-                    </option>
-                  ))}
-                </Select>
+                  <Label htmlFor="filing-bill-number">Bill number</Label>
+                  <input
+                    id="filing-bill-number"
+                    type="text"
+                    value={billNumberDraft}
+                    maxLength={32}
+                    disabled={billNumberSaving || monthSaving || reassigning}
+                    onChange={(e) => setBillNumberDraft(e.target.value)}
+                    onBlur={saveBillNumber}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") e.currentTarget.blur();
+                    }}
+                    placeholder={bill.number ? `#${bill.number}` : "Invoice / bill number"}
+                    className={`${quietSm} mb-3 h-9 w-full px-2.5 font-mono`}
+                  />
+                  <Label htmlFor="filing-billing-month">Billing month</Label>
+                  <Select
+                    id="filing-billing-month"
+                    className="!py-1.5 !text-xs"
+                    disabled={monthSaving || reassigning}
+                    value={(bill.issueDate ?? "").slice(0, 7)}
+                    onChange={(e) => setBillingMonth(e.target.value)}
+                  >
+                    <option value="">— set billing month —</option>
+                    {monthOptions.map((o) => (
+                      <option key={o.value} value={o.value}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </Select>
 
-                {/* Draft-only, like the bill page: JobTread locks a
+                  {/* Draft-only, like the bill page: JobTread locks a
                 committed bill, and the move is a delete+recreate. */}
-                {math.isDraft && (
-                  <div className="mt-3">
-                    <Label>Move to job</Label>
-                    {/* The picker is an action here, not a selection — what
+                  {math.isDraft && (
+                    <div className="mt-3">
+                      <Label>Move to job</Label>
+                      {/* The picker is an action here, not a selection — what
                     it displays stays this board's job — so the move runs
                     off onSelect, which also hands back the label the
                     confirm and the banner name. */}
-                    <JobPicker
-                      value={jobId}
-                      includeAll={false}
-                      placeholder={c("recode.placeholder.chooseJob")}
-                      onChange={() => {}}
-                      onSelect={(j) => {
-                        if (j) reassignJob(j);
-                      }}
-                    />
-                  </div>
-                )}
+                      <JobPicker
+                        value={jobId}
+                        includeAll={false}
+                        placeholder={c("recode.placeholder.chooseJob")}
+                        onChange={() => {}}
+                        onSelect={(j) => {
+                          if (j) reassignJob(j);
+                        }}
+                      />
+                    </div>
+                  )}
 
-                {(monthSaving || reassigning) && (
-                  <p className="mt-1.5 text-[11px] text-neutral-400">
-                    {reassigning ? "Moving…" : "Saving…"}
-                  </p>
-                )}
-                {filingMsg && (
-                  <Banner tone="neutral" className="mt-1.5 !px-2 !py-1.5 !text-[11px]">
-                    {filingMsg}
-                  </Banner>
-                )}
-              </div>
-            )}
-          </div>
-        </Card>
-      )}
+                  {(monthSaving || reassigning) && (
+                    <p className="mt-1.5 text-[11px] text-neutral-400">
+                      {reassigning ? "Moving…" : "Saving…"}
+                    </p>
+                  )}
+                  {filingMsg && (
+                    <Banner tone="neutral" className="mt-1.5 !px-2 !py-1.5 !text-[11px]">
+                      {filingMsg}
+                    </Banner>
+                  )}
+                </div>
+              )}
+            </div>
+          </Card>
+        )}
+      </div>
 
       {/* Buy back — pick the lines. Same modal shape as Recode All: a bottom
         sheet on a phone, a centred dialog from sm up. The tick boxes are the
@@ -1231,8 +1232,8 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
           >
             <p className="text-sm font-semibold">Buy back to Ascent - Shop</p>
             <p className="mb-2 text-[11px] text-neutral-500">
-              Ticked lines move onto a draft bill on the Shop job and come off this bill. They
-              all land on the SAME Shop bill. This writes to JobTread straight away.
+              Ticked lines move onto a draft bill on the Shop job and come off this bill. They all
+              land on the SAME Shop bill. This writes to JobTread straight away.
             </p>
 
             {/* The WHOLE bill is a different operation, not "tick every line".
@@ -1260,7 +1261,10 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
 
             <ul className="-mx-1 min-h-0 flex-1 overflow-y-auto px-1">
               {buybackRows.map((r) => (
-                <li key={r.line.id} className="border-t border-line-soft first:border-0 dark:border-neutral-800">
+                <li
+                  key={r.line.id}
+                  className="border-t border-line-soft first:border-0 dark:border-neutral-800"
+                >
                   <label className="flex cursor-pointer items-start gap-2 py-2">
                     <input
                       type="checkbox"

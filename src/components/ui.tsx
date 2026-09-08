@@ -17,10 +17,15 @@ import Link from "next/link";
 import { PageTitle, PeakMark } from "@/components/PageTitle";
 import { LinkPendingOverlay } from "@/components/LinkPending";
 import { Spinner } from "@/components/Spinner";
+import { StickyActionBar } from "@/components/StickyActionBar";
 
 // Spinner moved to its own module to keep ui → LinkPending a one-way import
 // (see components/Spinner.tsx). Re-exported so existing call sites are unchanged.
 export { Spinner };
+// StickyActionBar moved out for a different reason: it measures itself with a
+// ResizeObserver, so it has to be a client module and ui.tsx is imported by
+// server components too. Re-exported, so no call site changes.
+export { StickyActionBar };
 
 /* ------------------------------------------------------------------ buttons */
 
@@ -653,34 +658,6 @@ export function Meter({
         }`}
         style={{ width: `${Math.min(pct, 1) * 100}%` }}
       />
-    </div>
-  );
-}
-
-/* -------------------------------------------------------- sticky action bar */
-
-/**
- * The bar that carries a page's commit action (Sync, Save, Post) and pins
- * itself to the bottom of the screen while there is something to commit.
- *
- * It sits ABOVE the tab bar via `--tabbar-h` (see globals.css) rather than a
- * hardcoded offset, so the two can never overlap and neither has to know the
- * other's height. Show it only when there IS a staged change — a permanently
- * docked bar spends the screen's most valuable strip on a disabled button.
- */
-export function StickyActionBar({
-  children,
-  className = "",
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return (
-    <div
-      className={`sticky z-10 -mx-4 flex items-center gap-2 border-t border-line bg-cream/95 px-4 py-2.5 backdrop-blur dark:bg-ink/95 print:hidden ${className}`}
-      style={{ bottom: "var(--tabbar-h, 0px)" }}
-    >
-      {children}
     </div>
   );
 }
