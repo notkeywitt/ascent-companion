@@ -3,6 +3,7 @@ import { getBillDetail, getSalesTaxLeafId, setBillTax } from "@/lib/jobtread";
 import { splitSalesTax } from "@/lib/salesTax";
 import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
 import { journalBillWrite } from "@/lib/billJournal";
+import { qboLock } from "@/lib/qboLock";
 
 // Set a bill's sales tax. The tax is a LINE coded 88 80 00, not a document field
 // (src/lib/salesTax.ts), so this reads the bill first: to find the line to write,
@@ -30,6 +31,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ previewed: true, wrote: false, taxAmount });
   }
   const cfg = getPaveConfig();
+  // Frozen once it is in QuickBooks — see src/lib/qboLock.ts.
+  const locked = await qboLock(cfg, { docId });
+  if (locked) return locked;
   try {
     // The bill's job gives us the 88 80 00 leaf to code the line to. A job whose
     // budget has no such leaf leaves the line uncoded — never routed to a

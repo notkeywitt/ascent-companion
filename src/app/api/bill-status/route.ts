@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { clearJobCostCaches, setBillStatus } from "@/lib/jobtread";
 import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
 import { journalBillWrite } from "@/lib/billJournal";
+import { qboLock } from "@/lib/qboLock";
 
 const ALLOWED = ["draft", "pending", "approved"] as const;
 type Status = (typeof ALLOWED)[number];
@@ -30,6 +31,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ previewed: true, wrote: false, status });
   }
   const cfg = getPaveConfig();
+  // Frozen once it is in QuickBooks — see src/lib/qboLock.ts.
+  const locked = await qboLock(cfg, { docId });
+  if (locked) return locked;
   try {
     // "approved" is the moment a bill leaves this app for QuickBooks, so this
     // row is the journal's record of when a cost entered the books, and who

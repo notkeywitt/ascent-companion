@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { clearJobCostCaches, deleteLine, getLineJournalSnapshot } from "@/lib/jobtread";
 import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
 import { openJournal } from "@/lib/financialJournal";
+import { qboLock } from "@/lib/qboLock";
 
 interface Body {
   docId?: string;
@@ -40,6 +41,9 @@ export async function POST(req: NextRequest) {
   // says what it held. This snapshot is the whole reason a deleted charge is
   // now recoverable: amount, cost code, and the bill it was on.
   const cfg = getPaveConfig();
+  // Frozen once it is in QuickBooks — see src/lib/qboLock.ts.
+  const locked = await qboLock(cfg, { docId: body.docId, costItemId });
+  if (locked) return locked;
   const j = await openJournal("/api/delete-line");
   const prior = await getLineJournalSnapshot(cfg, costItemId);
   const event = {

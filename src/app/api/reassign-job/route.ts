@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { clearJobCostCaches } from "@/lib/jobtread";
 import { callAppsScript } from "@/lib/appsScript";
+import { getPaveConfig } from "@/lib/config";
+import { qboLock } from "@/lib/qboLock";
 
 // Proxy the Assistant's "move this bill to another job" action to the Apps Script
 // doPost router (action "reassignJob"). JobTread can't move a bill between jobs,
@@ -29,6 +31,11 @@ export async function POST(req: NextRequest) {
   if (!docId || !jobId) {
     return NextResponse.json({ error: "docId and jobId are required." }, { status: 400 });
   }
+
+  // This DELETES the bill and recreates it on the new job, so a bill already in
+  // QuickBooks must not pass — see src/lib/qboLock.ts.
+  const locked = await qboLock(getPaveConfig(), { docId });
+  if (locked) return locked;
 
   // Not callAppsScriptResponse: the cache clear below has to happen between the
   // call and the reply. Delete+recreate is a write, so this is never retried.

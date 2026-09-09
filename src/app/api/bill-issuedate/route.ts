@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { setBillIssueDate } from "@/lib/jobtread";
 import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
 import { journalBillWrite } from "@/lib/billJournal";
+import { qboLock } from "@/lib/qboLock";
 
 // Set a bill's issueDate (its billing month = last day). Gated by writes flag.
 export async function POST(req: NextRequest) {
@@ -23,6 +24,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ previewed: true, wrote: false, issueDate });
   }
   const cfg = getPaveConfig();
+  // Frozen once it is in QuickBooks — see src/lib/qboLock.ts.
+  const locked = await qboLock(cfg, { docId });
+  if (locked) return locked;
   try {
     // The issue date IS the billing period in JobTread, so this is one of the
     // most consequential single-field edits in the app — and the one most worth

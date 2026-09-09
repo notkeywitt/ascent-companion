@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getBillDetail, setBillDueDate } from "@/lib/jobtread";
 import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
 import { journalBillWrite } from "@/lib/billJournal";
+import { qboLock } from "@/lib/qboLock";
 
 /**
  * Set a bill's dueDate — JobTread's "Payment Due", the date the VENDOR's invoice
@@ -39,6 +40,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ previewed: true, wrote: false, dueDate });
   }
   const cfg = getPaveConfig();
+  // Frozen once it is in QuickBooks — see src/lib/qboLock.ts.
+  const locked = await qboLock(cfg, { docId });
+  if (locked) return locked;
   try {
     if (dueDate) {
       const issueDate = String((await getBillDetail(cfg, docId)).header.issueDate ?? "").slice(0, 10);

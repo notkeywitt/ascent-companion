@@ -5,6 +5,7 @@ import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
 import { recordCoding } from "@/lib/usage";
 import { openJournal } from "@/lib/financialJournal";
 import type { RecodeEntry } from "@/lib/billLineMath";
+import { qboLock } from "@/lib/qboLock";
 import { db, ensureDb } from "@/db";
 import { savedBills } from "@/db/schema";
 
@@ -59,6 +60,9 @@ export async function POST(req: NextRequest) {
   const email = (session?.user?.email ?? "").trim().toLowerCase();
 
   const cfg = getPaveConfig();
+  // Frozen once it is in QuickBooks — see src/lib/qboLock.ts.
+  const locked = await qboLock(cfg, { docId: body.docId, costItemId: changes[0]?.costItemId });
+  if (locked) return locked;
   const results: { costItemId: string; ok: boolean; error?: string }[] = [];
   // One journal for the whole save, so every line edited by this tap shares a
   // requestId and reads back as ONE action.

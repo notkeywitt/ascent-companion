@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getBillJournalSnapshot, setBillFields } from "@/lib/jobtread";
 import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
 import { diffFields, openJournal } from "@/lib/financialJournal";
+import { qboLock } from "@/lib/qboLock";
 
 // Set a bill's header flags: name ("Bill"|"Expense") and/or qboIsIgnored
 // (Push-to-QB = !qboIsIgnored). Gated by the writes flag.
@@ -37,6 +38,9 @@ export async function POST(req: NextRequest) {
   // Multi-field write, so `diffFields` produces one row per field that actually
   // changed rather than a row per field sent.
   const cfg = getPaveConfig();
+  // Frozen once it is in QuickBooks — see src/lib/qboLock.ts.
+  const locked = await qboLock(cfg, { docId });
+  if (locked) return locked;
   const j = await openJournal("/api/bill-fields");
   const prior = await getBillJournalSnapshot(cfg, docId);
   const base = {

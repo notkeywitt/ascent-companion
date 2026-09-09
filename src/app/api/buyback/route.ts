@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { buybackLine, clearJobCostCaches } from "@/lib/jobtread";
 import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
+import { qboLock } from "@/lib/qboLock";
 
 interface Body {
   sourceDocId?: string;
@@ -56,6 +57,10 @@ export async function POST(req: NextRequest) {
 
   try {
     const cfg = getPaveConfig();
+    // The SOURCE bill is the one being changed (a line comes off it), so it is
+    // the one that must not be in QuickBooks — see src/lib/qboLock.ts.
+    const locked = await qboLock(cfg, { docId: sourceDocId, costItemId });
+    if (locked) return locked;
     const { shopDocId, created } = await buybackLine(cfg, {
       sourceDocId,
       costItemId,

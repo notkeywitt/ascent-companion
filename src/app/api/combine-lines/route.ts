@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { clearJobCostCaches, combineLines, getLineJournalSnapshot } from "@/lib/jobtread";
 import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
 import { openJournal } from "@/lib/financialJournal";
+import { qboLock } from "@/lib/qboLock";
 
 interface Body {
   docId?: string;
@@ -51,6 +52,9 @@ export async function POST(req: NextRequest) {
   }
 
   const cfg = getPaveConfig();
+  // Frozen once it is in QuickBooks — see src/lib/qboLock.ts.
+  const locked = await qboLock(cfg, { docId });
+  if (locked) return locked;
   const j = await openJournal("/api/combine-lines");
   // Combining DELETES lines, so each one that is about to go is snapshotted
   // first — same rule as /api/delete-line. Read in parallel; a failed read

@@ -90,19 +90,29 @@ describe("sanitizeQuery", () => {
 
 describe("isMutationAllowed", () => {
   it("lets admin through", () => {
-    expect(isMutationAllowed("admin", "deleteDocument")).toBe(true);
+    // A structural mutation no other role holds — admin's "all" covers it.
+    expect(isMutationAllowed("admin", "updateJob")).toBe(true);
+  });
+
+  it("refuses deleteDocument to every role, admin included", () => {
+    // NEVER_ALLOWED — a bill that must stop counting is voided, not deleted.
+    for (const role of ["admin", "office", "lead", "field"] as const) {
+      expect(isMutationAllowed(role, "deleteDocument"), role).toBe(false);
+    }
   });
 
   it("refuses a role an unlisted mutation", () => {
-    // field is the least-privileged role; it should not be deleting documents.
-    expect(isMutationAllowed("field", "deleteDocument")).toBe(false);
+    // field is the least-privileged role; it should not be creating documents.
+    expect(isMutationAllowed("field", "createDocument")).toBe(false);
   });
 
-  it("does not let a lead create or delete whole documents", () => {
-    // Documented policy: leads may CODE existing documents, not create/delete them.
-    expect(isMutationAllowed("lead", "updateDocument")).toBe(true);
+  it("does not let a lead touch a document at all", () => {
+    // Policy revised 2026-09-09: bill/invoice editing is office+admin. A lead
+    // used to hold updateDocument (CODE an existing bill); it moved to office.
+    expect(isMutationAllowed("lead", "updateDocument")).toBe(false);
     expect(isMutationAllowed("lead", "createDocument")).toBe(false);
     expect(isMutationAllowed("lead", "deleteDocument")).toBe(false);
+    expect(isMutationAllowed("lead", "updateCostItem")).toBe(false);
   });
 
   it("refuses an unknown mutation name for every non-admin role", () => {

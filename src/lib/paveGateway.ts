@@ -61,9 +61,10 @@ export function sanitizeQuery(query: Record<string, unknown>): Record<string, un
  *
  * Policy confirmed with the owner 2026-07-30:
  *  - FIELD: time entries + daily logs + schedule tasks/to-dos.
- *  - LEAD:  field + CODE existing documents (updateDocument + cost-item lines).
- *           Leads may NOT create or delete whole bills/invoices.
- *  - OFFICE: lead + create documents, apply/manage payments, files, comments,
+ *  - LEAD:  field only. Revised 2026-09-09: a lead may no longer CODE a
+ *           document (updateDocument + the cost-item trio moved to office).
+ *  - OFFICE: lead + CODE existing documents (updateDocument + cost-item lines),
+ *           create documents, apply/manage payments, files, comments,
  *           memberships (pay rates), contacts/locations/accounts (create+edit),
  *           AND delete whole bills/invoices & payments.
  *  - ADMIN: everything.
@@ -88,21 +89,25 @@ const FIELD_WRITES: string[] = [
   "deleteTask",
 ];
 
-const LEAD_WRITES: string[] = [
-  ...FIELD_WRITES,
-  // CODE existing bills/invoices: header/status/tax/date edits + line coding.
-  // (No createDocument / deleteDocument — leads can't create or delete whole docs.)
+// Leads add NOTHING to the gateway allowlist. Bill/invoice editing is
+// office+admin only (owner, 2026-09-09): a lead used to hold updateDocument +
+// the cost-item trio, which is exactly "recode a bill", and updateCostItem also
+// edits a job's BUDGET leaves (a cost item with document == null). Both are
+// office work, so the four moved to OFFICE_WRITES below. Leads keep their
+// FIELD_WRITES (time, daily logs, tasks) through this alias.
+const LEAD_WRITES: string[] = [...FIELD_WRITES];
+
+const OFFICE_WRITES: string[] = [
+  ...LEAD_WRITES,
+  // CODE existing bills/invoices: header/status/tax/date edits + line coding,
+  // and the budget leaves those lines are coded against.
   "updateDocument",
   "createCostItem",
   "updateCostItem",
   "deleteCostItem",
-];
-
-const OFFICE_WRITES: string[] = [
-  ...LEAD_WRITES,
-  // Create bills/invoices, and delete whole documents & payments.
+  // Create bills/invoices, and manage payments. NOT deleteDocument — see
+  // NEVER_ALLOWED above: a bill that must stop counting is voided, not deleted.
   "createDocument",
-  "deleteDocument",
   "createPayment",
   "updatePayment",
   "deletePayment",
@@ -136,6 +141,52 @@ const OFFICE_WRITES: string[] = [
   "updateAccount",
 ];
 
+/**
+ * Mutations NO role may run through this gateway — admin included, which is why
+ * they are a separate check from the per-role allowlist below.
+ *
+ * `deleteDocument` destroys a bill's history. The rule (see CLAUDE.md, and
+ * `_jtVoidDocument` in the ascent-appscript repo) is that a bill which must stop
+ * counting is VOIDED — payments removed, status `denied` — never deleted, because
+ * the void keeps the externalId that stops the hourly mirror re-creating the bill
+ * as an unmatched row. That rule used to live only in prose while the mutation
+ * sat on the office allowlist. Now the gateway refuses it.
+ */
+export const NEVER_ALLOWED: string[] = ["deleteDocument"];
+
+/**
+ * The bill/invoice a document-or-line mutation would change, so the caller can
+ * apply the QuickBooks lock (src/lib/qboLock.ts) to the generic gateway too.
+ * Reads only the query ROOT, same model as `findMutations`.
+ *
+ * `$.id` means different things per mutation: on a document mutation it is the
+ * document, on a cost-item one it is the LINE — and a line still names its bill,
+ * which is why qboLock takes either.
+ */
+export function billRefsForMutations(
+  query: Record<string, unknown>,
+): { docId?: string; costItemId?: string }[] {
+  const refs: { docId?: string; costItemId?: string }[] = [];
+  for (const [key, val] of Object.entries(query)) {
+    if (key === "$" || !val || typeof val !== "object" || Array.isArray(val)) continue;
+    const node = val as Record<string, unknown>;
+    const alias = typeof node["_"] === "string" ? (node["_"] as string) : "";
+    const name = alias || key;
+    const args = (node["$"] ?? {}) as Record<string, unknown>;
+    const id = typeof args.id === "string" ? args.id : "";
+    const documentId = typeof args.documentId === "string" ? args.documentId : "";
+    if (name === "updateDocument" || name === "deleteDocument") {
+      if (id) refs.push({ docId: id });
+    } else if (name === "updateCostItem" || name === "deleteCostItem") {
+      if (id) refs.push({ costItemId: id });
+    } else if (name === "createCostItem") {
+      // A budget leaf (jobId, no documentId) is not on a bill, so nothing to lock.
+      if (documentId) refs.push({ docId: documentId });
+    }
+  }
+  return refs;
+}
+
 export const ROLE_WRITE_ALLOWLIST: Record<Role, "all" | string[]> = {
   admin: "all",
   office: OFFICE_WRITES,
@@ -145,6 +196,7 @@ export const ROLE_WRITE_ALLOWLIST: Record<Role, "all" | string[]> = {
 
 /** True if `role` may run `mutation` through the gateway (allowlist check only). */
 export function isMutationAllowed(role: Role, mutation: string): boolean {
+  if (NEVER_ALLOWED.includes(mutation)) return false;
   const set = ROLE_WRITE_ALLOWLIST[role];
   return set === "all" ? true : set.includes(mutation);
 }

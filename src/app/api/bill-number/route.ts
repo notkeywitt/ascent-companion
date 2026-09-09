@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { setBillExternalId } from "@/lib/jobtread";
 import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
 import { journalBillWrite } from "@/lib/billJournal";
+import { qboLock } from "@/lib/qboLock";
 
 // Set a bill's Vendor Bill Number (JobTread's externalId, the vendor's invoice/
 // bill number). An empty value clears it. Capped at JobTread's 32-char limit.
@@ -31,6 +32,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ previewed: true, wrote: false, externalId });
   }
   const cfg = getPaveConfig();
+  // Frozen once it is in QuickBooks — see src/lib/qboLock.ts.
+  const locked = await qboLock(cfg, { docId });
+  if (locked) return locked;
   try {
     const saved = await journalBillWrite({
       route: "/api/bill-number",

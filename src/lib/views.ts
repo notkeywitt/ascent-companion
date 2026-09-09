@@ -69,6 +69,26 @@ export const VIEWS: ViewDef[] = [
       // rides the same gate as the page whose month it reports — and a longer
       // path wins, so the plain jobs list stays open.
       "/api/jobs/to-be-invoiced",
+      // EVERY purpose-built bill/invoice WRITE route. These were ungated until
+      // 2026-09-09 — the pages that call them ride this gate, but the routes
+      // themselves did not, so any signed-in role could POST one directly.
+      // Listing them here is what makes "bill editing is office+admin" true at
+      // the route, not just in the UI. Read-only bill routes (/api/bill,
+      // /api/coding-queue, /api/bill-review, /api/bill-reviewed) stay OFF this
+      // list on purpose: anyone may look at a bill and flag one for review.
+      "/api/add-bill",
+      "/api/add-line",
+      "/api/combine-lines",
+      "/api/delete-line",
+      "/api/code",
+      "/api/coding-draft",
+      "/api/bill-fields",
+      "/api/bill-number",
+      "/api/bill-issuedate",
+      "/api/bill-duedate",
+      "/api/bill-tax",
+      "/api/buyback",
+      "/api/reassign-job",
     ],
   },
   // Labor Review — Tracking Sheets' workbench applied to time entries: the
@@ -83,8 +103,9 @@ export const VIEWS: ViewDef[] = [
     paths: ["/labor-review", "/api/labor-review"],
   },
   // Approving a bill (draft → pending/approved) can push it to QuickBooks, so it
-  // sits behind its own gate rather than riding on "recode" — leads keep coding
-  // access without the approval action. No page of its own.
+  // sits behind its own gate rather than riding on "recode". (It was split off
+  // when leads still held coding access; since 2026-09-09 they hold neither, so
+  // the separate gate now only matters for a per-user grant.) No page of its own.
   { id: "bill-approve", label: "Bill Approval", group: "Financials", paths: ["/api/bill-status"] },
   // Per-project Google tracking sheets. The API prefix is listed alongside the
   // page so a role without the view can't push to a job's sheet by calling the
@@ -150,7 +171,16 @@ export const VIEWS: ViewDef[] = [
   // The stuck-vendor alert (popup + home banner) rides on this gate: its API
   // route is listed here so a non-billing user can neither see the warning nor
   // read the bill list behind it by calling the route directly.
-  { id: "email", label: "Email Invoices", group: "Financials", paths: ["/email", "/api/stuck-vendors"] },
+  // /api/email is listed as of 2026-09-09. Its `logInvoice` action CREATES a
+  // JobTread bill (Apps Script reads the Gmail attachment through Claude), so it
+  // is a bill write and belongs behind the same office+admin gate as the page —
+  // it was ungated, and `/email` does not prefix-match it.
+  {
+    id: "email",
+    label: "Email Invoices",
+    group: "Financials",
+    paths: ["/email", "/api/email", "/api/stuck-vendors"],
+  },
   // The home-page count badge + banner ride on this gate too, so its API route is
   // listed here (same reasoning as `email` above): a non-billing user can neither
   // see the indicator nor read the queued bills by calling the route directly.
@@ -348,7 +378,11 @@ const FIELD_VIEWS: string[] = [
   "help",
 ];
 // Leads additionally see the Financials menu (coding, invoicing, Sunset pay).
-const LEAD_VIEWS: string[] = [...FIELD_VIEWS, "coding", "stage", "recode", "payments"];
+// Leads additionally see the Financials menu. "recode" (Tracking Sheets) is
+// deliberately NOT here as of 2026-09-09: it is the coding workbench, so it
+// EDITS bills — and the owner limited bill/invoice editing to office+admin.
+// "coding" and "stage" stay: both are retired, unlinked and read-only.
+const LEAD_VIEWS: string[] = [...FIELD_VIEWS, "coding", "stage", "payments"];
 // The admin-only consoles — access control + the audit log. No one below admin
 // gets these by default (a per-user grant can still hand them to an individual).
 const ADMIN_MENU: string[] = [

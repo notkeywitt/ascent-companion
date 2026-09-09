@@ -3,7 +3,8 @@ import { auth } from "@/auth";
 import { pave } from "@/lib/jobtread";
 import { getPaveConfig, hasGrant, writesEnabled, gatewayWritesEnabled } from "@/lib/config";
 import type { Role } from "@/lib/views";
-import { findMutations, sanitizeQuery, isMutationAllowed } from "@/lib/paveGateway";
+import { findMutations, sanitizeQuery, isMutationAllowed, billRefsForMutations } from "@/lib/paveGateway";
+import { qboLock } from "@/lib/qboLock";
 import { openJournal, type JournalEventInput } from "@/lib/financialJournal";
 
 /**
@@ -19,7 +20,9 @@ import { openJournal, type JournalEventInput } from "@/lib/financialJournal";
  *  - READS (no mutation at the query root): allowed for any signed-in role.
  *  - WRITES (any create / update / delete / … root field): allowed only when
  *    writesEnabled() AND gatewayWritesEnabled() are both on AND every mutation
- *    in the query is on the caller's per-role allowlist (src/lib/paveGateway.ts).
+ *    in the query is on the caller's per-role allowlist (src/lib/paveGateway.ts)
+ *    AND the mutation is not in NEVER_ALLOWED (deleteDocument, for any role)
+ *    AND no bill/invoice it targets is already in QuickBooks (src/lib/qboLock.ts).
  *
  * NOTE (v1 limitation): reads are not yet gated per entity by role — any signed-in
  * user can read any entity through this route. The role-gated *views* are what
@@ -119,6 +122,13 @@ export async function POST(req: NextRequest) {
         { error: `Role "${role}" is not allowed to run: ${denied.join(", ")}`, denied },
         { status: 403 },
       );
+    }
+    // The QuickBooks lock applies here too, or the generic gateway would be the
+    // one way around it. Same rule as the purpose-built bill routes: a document
+    // already in QuickBooks is frozen for every role (src/lib/qboLock.ts).
+    for (const ref of billRefsForMutations(safeQuery)) {
+      const locked = await qboLock(getPaveConfig(), ref);
+      if (locked) return locked;
     }
   }
 
