@@ -47,6 +47,7 @@ import type { MailCaptureConfig } from "./checks/mailCapture";
 import type { MarginConfig } from "./checks/margin";
 import type { MarkupDriftConfig } from "./checks/markupDrift";
 import type { QboPushConfig } from "./checks/qboPush";
+import type { SalesTaxLineConfig } from "./checks/salesTaxLine";
 import type { UninvoicedConfig } from "./checks/uninvoiced";
 import type { VendorSilentConfig } from "./checks/vendorSilent";
 
@@ -63,6 +64,7 @@ export interface InvoiceReviewSettings {
     "invoice-math": SettingsBlock<InvoiceMathConfig>;
     "issue-date": SettingsBlock<IssueDateConfig>;
     "cost-basis": SettingsBlock<CostBasisConfig>;
+    "sales-tax-line": SettingsBlock<SalesTaxLineConfig>;
     "duplicate-bill": SettingsBlock<DuplicateBillConfig>;
     "duplicate-draft": SettingsBlock<DuplicateDraftConfig>;
     uninvoiced: SettingsBlock<UninvoicedConfig>;
@@ -101,6 +103,10 @@ export const DEFAULT_SETTINGS: InvoiceReviewSettings = {
     "invoice-math": { enabled: true, config: {} },
     "issue-date": { enabled: true, config: {} },
     "cost-basis": { enabled: true, config: {} },
+    // Sales tax paid to a vendor is QuickBooks-only. Nothing in JobTread stops
+    // an 88 80 00 line being pulled onto a client invoice, so this is the
+    // backstop — no threshold, because any amount of it is wrong.
+    "sales-tax-line": { enabled: true, config: {} },
     "duplicate-bill": { enabled: true, config: {} },
     // ── Duplicate drafts ──────────────────────────────────────────────────
     // A re-ingested bill sits in the coding queue looking like ordinary

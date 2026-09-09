@@ -943,6 +943,63 @@ export async function getSalesTaxLeafId(
     return undefined;
   }
 }
+/**
+ * A month's sales tax PER BILL — the 88 80 00 line on each vendor bill, keyed by
+ * document id. Pass `jobId` to narrow to one job.
+ *
+ * WHY IT EXISTS. A bill's JobTread `cost` includes its sales-tax line, and every
+ * "to be invoiced" figure is a sum of bill costs. Tax paid to a vendor is not
+ * client-billable (src/lib/salesTax.ts) — it is recorded only so QuickBooks gets
+ * a sales-tax figure — so those totals have to net it out. A document-level sum
+ * cannot see the line, so the lines are read directly: ONE paged costItems
+ * query, filtered server-side to the code, the bill type and the month.
+ *
+ * ponytail: matches the CODE only, not the legacy line name. A pre-2026-09-05
+ * bill carries its tax in `nonRecoverableTax`, which JobTread spreads across the
+ * cost items — there is no line to subtract there, so nothing is lost.
+ */
+export async function getSalesTaxByDoc(
+  cfg: PaveConfig,
+  year: number,
+  month: number,
+  jobId?: string,
+): Promise<Map<string, number>> {
+  const mm = String(month).padStart(2, "0");
+  const first = `${year}-${mm}-01`;
+  const last = `${year}-${mm}-${String(new Date(year, month, 0).getDate()).padStart(2, "0")}`;
+  const and: unknown[] = [
+    [["costCode", "number"], "=", SALES_TAX_CSI],
+    [["document", "type"], "=", "vendorBill"],
+    [["document", "issueDate"], ">=", first],
+    [["document", "issueDate"], "<=", last],
+  ];
+  if (jobId) and.push([["document", "job", "id"], "=", jobId]);
+
+  const out = new Map<string, number>();
+  let page: string | undefined;
+  let guard = 0;
+  do {
+    const r: any = await pave(cfg, {
+      organization: {
+        $: { id: cfg.orgId },
+        id: {},
+        costItems: {
+          $: { where: { and }, size: 100, ...(page ? { page } : {}) },
+          nextPage: {},
+          nodes: { cost: {}, document: { id: {} } },
+        },
+      },
+    });
+    for (const n of (r?.organization?.costItems?.nodes ?? []) as any[]) {
+      const id = n?.document?.id;
+      if (!id) continue;
+      out.set(id, Math.round(((out.get(id) ?? 0) + (Number(n.cost) || 0)) * 100) / 100);
+    }
+    page = r?.organization?.costItems?.nextPage || undefined;
+  } while (page && ++guard < 50);
+  return out;
+}
+
 async function _getJobBudgetUncached(cfg: PaveConfig, jobId: string): Promise<BudgetItem[]> {
   const walk = async (where?: unknown): Promise<BudgetItem[]> => {
     const items: BudgetItem[] = [];
@@ -4665,6 +4722,10 @@ export interface AllJobsBill {
   createdAt: string;
   status: string;
   invoiced: boolean;
+  /** The bill's 88 80 00 sales-tax line. Part of `cost` (which is what the
+   *  vendor billed), and taken OUT of any "to be invoiced" figure — the client
+   *  is never billed the tax Ascent paid. */
+  tax: number;
   /** On a customer invoice of ANY status but denied — see `_isOnAnyInvoice`. */
   onInvoice: boolean;
   /** Does an invoice exist for THIS bill's job + month? Derived per job from
@@ -4761,6 +4822,9 @@ export async function getAllBillsForMonth(
   } while (page && ++guard < 100);
 
   const isInvoiced = _isInvoicedToClient;
+  // Each bill's sales-tax line, so a caller can net it out of a "to be
+  // invoiced" total (`cost` itself stays what the vendor billed).
+  const taxByDoc = await getSalesTaxByDoc(cfg, year, month);
   // Which jobs already have an invoice for this month — read off the FULL walk,
   // before includeInvoiced drops the bills that are on it (see the same note in
   // getJobBillsForMonth).
@@ -4781,6 +4845,7 @@ export async function getAllBillsForMonth(
       createdAt: b.createdAt ?? "",
       status: b.status ?? "",
       invoiced,
+      tax: taxByDoc.get(b.id) ?? 0,
       onInvoice: _isOnAnyInvoice(b),
       monthInvoiceExists: jobsWithInvoice.has(job.id),
       amountPaid: typeof b.amountPaid === "number" ? b.amountPaid : 0,
@@ -4816,6 +4881,8 @@ export interface InvoiceRef {
   amountPaid: number;
 }
 export interface InvoiceReconciliation {
+  // EVERY bill figure below is NET OF SALES TAX — the 88 80 00 line comes out
+  // before the sum, because tax paid to a vendor is never billed to the client.
   // Non-denied customer invoices this month's bills/time landed on (links).
   invoices: InvoiceRef[];
   invoicedBillsCost: number; // Σ cost of the month's bills now on a live invoice
@@ -4888,6 +4955,13 @@ export async function getInvoiceReconciliation(
   //    FINALIZED ones (pending/approved) feed the completeness math; drafts are
   //    pulled in the same query and merely tallied (see draftBillsCost).
   //    Paged at 25 — referencedDocuments nested in paged documents 413s larger.
+  //    Every cost here is NET OF SALES TAX: a bill's JobTread cost includes its
+  //    88 80 00 line, and that tax is never billed to the client, so counting it
+  //    would leave `remaining` permanently short of zero by the month's tax.
+  const taxByDoc = await getSalesTaxByDoc(cfg, year, month, jobId);
+  const netCost = (b: { id: string; cost?: number }) =>
+    Math.round(((b.cost ?? 0) - (taxByDoc.get(b.id) ?? 0)) * 100) / 100;
+
   const monthBills: { cost: number; invIds: string[] }[] = [];
   let draftBillsCost = 0;
   let draftBillCount = 0;
@@ -4919,11 +4993,11 @@ export async function getInvoiceReconciliation(
     for (const b of (r?.job?.documents?.nodes ?? []) as any[]) {
       if (!inMonth(b.issueDate)) continue;
       if (b.status === "draft") {
-        draftBillsCost += b.cost ?? 0;
+        draftBillsCost += netCost(b);
         draftBillCount++;
         continue;
       }
-      monthBills.push({ cost: b.cost ?? 0, invIds: invRefIds(b) });
+      monthBills.push({ cost: netCost(b), invIds: invRefIds(b) });
     }
     page = r?.job?.documents?.nextPage || undefined;
   } while (page && ++guard < 100);

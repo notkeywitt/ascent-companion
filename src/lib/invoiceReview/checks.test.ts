@@ -860,6 +860,64 @@ describe("period & scope", () => {
   });
 });
 
+describe("sales tax never reaches a client invoice", () => {
+  it("flags an 88 80 00 line billed to the client, at its PRICE", () => {
+    const f = runChecks(
+      month([
+        job({
+          invoices: [
+            invoice({
+              id: "i1", price: 27.79, priceWithTax: 27.79, cost: 23.55,
+              lines: [
+                line({ id: "l1", name: "Sales Tax", code: "88 80 00", cost: 23.55, price: 27.79 }),
+              ],
+            }),
+          ],
+        }),
+      ]),
+    );
+    const hit = f.find((x) => x.kind === "invoice-sales-tax-line");
+    expect(hit).toBeDefined();
+    // The markup on the tax is the part the client asks about, so the finding
+    // is worth what they were CHARGED, not what Ascent paid.
+    expect(hit?.amount).toBe(27.79);
+  });
+
+  it("says nothing about an invoice with no tax line", () => {
+    const f = runChecks(
+      month([
+        job({
+          invoices: [
+            invoice({
+              id: "i1", price: 118, priceWithTax: 118, cost: 100,
+              lines: [line({ id: "l1", name: "Framing", code: "06 10 00", cost: 100, price: 118 })],
+            }),
+          ],
+        }),
+      ]),
+    );
+    expect(kinds(f)).not.toContain("invoice-sales-tax-line");
+  });
+
+  it("catches a tax line that landed uncoded, by its name", () => {
+    // A job budget with no 88 80 00 leaf pushes the line uncoded on purpose
+    // (setBillTax) — the name is what is left to recognise it by.
+    const f = runChecks(
+      month([
+        job({
+          invoices: [
+            invoice({
+              id: "i1", price: 9.16, priceWithTax: 9.16, cost: 7.76,
+              lines: [line({ id: "l1", name: "Sales Tax", cost: 7.76, price: 9.16 })],
+            }),
+          ],
+        }),
+      ]),
+    );
+    expect(kinds(f)).toContain("invoice-sales-tax-line");
+  });
+});
+
 describe("ordering and summary", () => {
   it("puts errors before warnings and big money before small", () => {
     const f = runChecks(

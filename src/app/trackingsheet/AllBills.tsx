@@ -49,6 +49,8 @@ interface AllBill {
   createdAt: string;
   status: string;
   invoiced: boolean;
+  /** The bill's 88 80 00 sales-tax line — inside `cost`, out of TO BE INVOICED. */
+  tax: number;
   /** On any non-denied customer invoice, draft included, and whether this
    *  bill's job has an invoice for the month at all — the stripe's two inputs
    *  (billInvoiceState). */
@@ -121,11 +123,15 @@ export function AllBills({ ym, setYm }: { ym: string; setYm: (ym: string) => voi
   // isn't invoiceable until it's approved — JobTread won't pull either onto a
   // customer invoice. So only committed, uninvoiced bills (the ones tagged
   // "uninvoiced") count toward it, even though the list shows every bill.
+  //
+  // Each bill counts NET OF ITS SALES TAX. A bill's cost carries its 88 80 00
+  // line, and that tax is recorded for QuickBooks only — the client is never
+  // billed the tax Ascent paid, so it is not money to be invoiced.
   const toBeInvoiced = useMemo(
     () =>
       (bills ?? [])
         .filter((b) => !b.invoiced && b.status !== "draft")
-        .reduce((s, b) => s + b.cost, 0),
+        .reduce((s, b) => s + b.cost - (b.tax ?? 0), 0),
     [bills],
   );
   const monthLabel = monthOptions().find((o) => o.ym === ym)?.label ?? ym;

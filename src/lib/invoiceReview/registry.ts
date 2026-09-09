@@ -38,6 +38,7 @@ import { mailCaptureCheck } from "./checks/mailCapture";
 import { marginCheck } from "./checks/margin";
 import { markupDriftCheck } from "./checks/markupDrift";
 import { qboPushCheck } from "./checks/qboPush";
+import { salesTaxLineCheck } from "./checks/salesTaxLine";
 import { uninvoicedCheck } from "./checks/uninvoiced";
 import { vendorSilentCheck } from "./checks/vendorSilent";
 
@@ -58,6 +59,7 @@ const INVOICE_CHECKS: InvoiceCheck<never>[] = [
   marginCheck,
   issueDateCheck,
   costBasisCheck,
+  salesTaxLineCheck,
 ] as unknown as InvoiceCheck<never>[];
 
 /** Once per review. */

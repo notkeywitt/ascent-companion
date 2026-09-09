@@ -85,6 +85,9 @@ export type FindingKind =
   | "labor-rate-code-spread"
   /** A draft bill looks like a copy of another bill on the same job. */
   | "bill-duplicate-draft"
+  // ── Sales tax: recorded for QuickBooks, never billed to the client ────────
+  /** A client invoice carries an 88 80 00 sales-tax line. */
+  | "invoice-sales-tax-line"
   // ── The books: did the cost reach QuickBooks at all? ──────────────────────
   /** An approved bill is flagged "don't push", so the GL never sees the cost. */
   | "qbo-not-pushed"
