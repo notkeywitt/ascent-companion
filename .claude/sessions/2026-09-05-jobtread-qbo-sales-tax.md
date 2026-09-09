@@ -4,9 +4,9 @@ repo: ascent-companion
 branch: claude/jobtread-qbo-sales-tax-lfqctd
 status: shipped
 started: 2026-09-05T05:30:35Z
-updated: 2026-09-09T18:48:45Z
+updated: 2026-09-09T19:24:19Z
 goal: bill move: background + Drive re-file + real error; buyback picker dialog; approve advances; cost-code names on the bills list
-next: add-bill dedup was correct (Screaming Arrow 1016 = doc 22PdHU9CtwhE, logged 2026-08-24); watch whether the reader's real error now shows on a failed upload
+next: test the revised-invoice replace on Screaming Arrow 1016 (doc 22PdHU9CtwhE, draft) with the resent invoice: expect the two-column compare, then Replace
 ---
 
 ## Log
@@ -78,6 +78,8 @@ next: add-bill dedup was correct (Screaming Arrow 1016 = doc 22PdHU9CtwhE, logge
   scripts/probe-time-entry-type.mjs, src/app/api/time-entry/route.ts, src/app/trackingsheet/TimeCodingCard.tsx, src/components/TimeEntryList.tsx, src/lib/jobtread.ts, src/lib/jtLinks.test.ts, +1 more
 - 2026-09-09 11:09 · `dc2c047` companion: say why an add-bill upload failed
   src/app/add-bill/page.tsx, src/app/api/add-bill/route.ts, src/lib/claudeExtract.ts
+- 2026-09-09 12:24 · `9858d46` companion: compare a re-sent invoice against the bill on file
+  src/app/add-bill/page.tsx, src/app/api/add-bill/route.ts, src/lib/billing.test.ts, src/lib/billing.ts, src/lib/jobtread.ts
 
 ## Notes
 - 2026-09-05 05:30 — Companion half of the sales-tax move. src/lib/salesTax.ts is the single definition: the 88 80 00 constants, the line matcher, splitSalesTax, and the job-Phase-derived recoverable/consumed flag. createVendorBill appends the tax line and pins nonRecoverableTax to 0; setBillTax now creates/updates/deletes that LINE and clears any legacy field.
