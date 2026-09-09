@@ -230,20 +230,20 @@ export interface JobTreadScheduleConfig {
 
 /**
  * Check "email-signals" — appointments and action items mentioned in recent
- * inbox email, found by ONE Gemini pass over truncated message bodies.
+ * inbox email, found by ONE Claude pass over truncated message bodies.
  *
- * ⚠️ This is the one check that sends email BODY TEXT (truncated) to Gemini —
+ * ⚠️ This is the one check that sends email BODY TEXT (truncated) to Claude —
  * every other check reads sender/subject/date only. See the comment on
- * `extractEmailSignalsWithGemini` in src/lib/gemini.ts for exactly what is and
- * isn't sent, and why it can't be done any other way.
+ * `extractEmailSignalsWithClaude` in src/lib/digest/claude.ts for exactly what
+ * is and isn't sent, and why it can't be done any other way.
  */
 export interface EmailSignalsConfig {
   /** How far back to read inbox mail. Kept short — this check is for what's
    *  fresh, not a backlog sweep, and every day of lookback costs more tokens. */
   lookbackDays: number;
-  /** Most emails to read in one run (also the most that reach Gemini). */
+  /** Most emails to read in one run (also the most that reach Claude). */
   maxEmails: number;
-  /** Per-email body truncation BEFORE it reaches Gemini, in characters. */
+  /** Per-email body truncation BEFORE it reaches Claude, in characters. */
   maxBodyChars: number;
 }
 

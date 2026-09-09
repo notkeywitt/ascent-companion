@@ -4,7 +4,7 @@ The human-facing app for Ascent Building Co. — a phone-first PWA (plus a Chrom
 side panel that docks next to JobTread) that puts the day-to-day office and field
 work in one place. It replaced the retired AppSheet front end and is the UI layer
 over two back ends: **JobTread** (via its Pave API) and the **Ascent Apps Script
-engine** (the Gmail→Gemini→JobTread ingestion/sync suite in the sibling
+engine** (the Gmail→Claude→JobTread ingestion/sync suite in the sibling
 `../ascent-appscript` repo).
 
 **JobTread is the source of truth for anything financial** — bills, jobs,
@@ -32,7 +32,7 @@ The launcher (`src/app/page.tsx`) groups every screen into four areas:
 - **Email Invoices** (`/email`) — log an invoice sitting in the office inbox.
 - **Needs Project** (`/needs-project`) — ingested bills that arrived without a
   matchable job; assign the job here.
-- **Add a Bill** (`/add-bill`) — manual capture: upload a photo/PDF, Gemini
+- **Add a Bill** (`/add-bill`) — manual capture: upload a photo/PDF, Claude
   extracts and codes it against the job's live budget, and a draft vendor bill
   lands in the coding queue with the file attached.
 
@@ -76,7 +76,7 @@ The launcher (`src/app/page.tsx`) groups every screen into four areas:
   manual is `USER_MANUAL.md`.
 
 There is also a **Payments** screen (`/payments`) — one-click Sunset statement
-paying at TSYS, showing the printed early-pay discount (Gemini-extracted once and
+paying at TSYS, showing the printed early-pay discount (model-extracted once and
 cached).
 
 ## Architecture
@@ -117,7 +117,7 @@ primitives in `src/components/ui.tsx` (shadcn-style; the ink dark-surface scale 
 Roboto brand font) · Auth.js (next-auth) Google sign-in with a `APP_PASSWORD`
 fallback · Drizzle ORM over libSQL/Turso · deployed on Vercel.
 
-External services: **JobTread Pave API** (financial source of truth), **Gemini**
+External services: **JobTread Pave API** (financial source of truth), **Claude**
 (bill + Sunset-statement extraction), **Anthropic Claude** (the `/chat`
 assistant), **Google Maps** Routes/Geocoding (mileage), and the **Apps Script web
 app** (Sheets/Drive features).
@@ -137,7 +137,7 @@ npm run dev                  # http://localhost:3000
 ```
 
 `.env.example` is the authoritative list of configuration — every secret is
-documented there (JobTread grant, Gemini/Anthropic/Maps keys, the Apps Script
+documented there (JobTread grant, Anthropic/Maps keys, the Apps Script
 sync URL+secret, the DB URL, and the auth vars). With `APP_PASSWORD` unset, auth
 is off for local dev.
 

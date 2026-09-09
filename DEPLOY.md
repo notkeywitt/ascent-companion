@@ -42,7 +42,7 @@ Two options:
 | `DATABASE_AUTH_TOKEN` | the Turso token |
 | `APP_PASSWORD` | a strong shared password (required on deploy) |
 | `COMPANION_WRITES_ENABLED` | leave unset (writes stay off) |
-| `GEMINI_KEY` | Gemini key — **Add a Bill** extraction + Sunset statement extraction |
+| ~~`GEMINI_KEY`~~ | **Removed 2026-09-09.** No longer read by any code — delete it from Vercel. Extraction runs on `ANTHROPIC_API_KEY`. |
 | `ANTHROPIC_API_KEY` | Anthropic API key (powers the **Assistant** chat, and the **Daily Digest**'s summary + email-signals check) |
 | `ANTHROPIC_MODEL` | defaults to `claude-sonnet-5` — the **Assistant** chat's model |
 | `ANTHROPIC_MODEL_DIGEST` | optional; defaults to `claude-sonnet-5` — the **Daily Digest**'s own model knob, separate from the chat assistant's |

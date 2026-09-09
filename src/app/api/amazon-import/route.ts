@@ -24,7 +24,7 @@ import { kickJtSync } from "@/lib/appsScript";
  * choices) happens in the browser; POST receives the finished selections. Each
  * order becomes a bill exactly like /api/add-bill's create path — same tax-safe
  * createVendorBill, same idempotency (findBillByExternalId), same writes gate —
- * only the source is a CSV row instead of a Gemini extraction, and the coding is
+ * only the source is a CSV row instead of a model extraction, and the coding is
  * the user's up-front pick instead of an AI guess.
  */
 

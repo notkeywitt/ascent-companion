@@ -99,7 +99,7 @@ function AddBill() {
   // upload can't create a second bill in JobTread.
   const [externalId, setExternalId] = useState("");
   const [vendors, setVendors] = useState<VendorRef[]>([]);
-  const [vendorId, setVendorId] = useState(""); // "" = let Gemini match
+  const [vendorId, setVendorId] = useState(""); // "" = let the extractor match
   const [singleLine, setSingleLine] = useState(false); // collapse to one cost item
   const [needVendor, setNeedVendor] = useState(""); // 422 message when unmatched
   const [mismatch, setMismatch] = useState<TotalsMismatch | null>(null); // 422 lines != invoice
@@ -122,6 +122,39 @@ function AddBill() {
       if (previewUrl) URL.revokeObjectURL(previewUrl);
     };
   }, [previewUrl]);
+
+  // Claude vision reads JPEG/PNG/GIF/WebP but NOT HEIC, which is what an iPhone
+  // hands over when the camera is set to "High Efficiency". Safari can still
+  // DECODE that file, so drawing it to a canvas and re-encoding gives us a JPEG
+  // the reader accepts — and shrinks a 4 MB phone photo on the way. Same
+  // technique the /tools serial-photo picker uses.
+  //
+  // Returns the original file untouched for a PDF, and for any image the browser
+  // could not decode: the route then answers with the HEIC message rather than
+  // this failing silently.
+  async function toReadableUpload(f: File): Promise<File> {
+    if (!f.type.startsWith("image/")) return f;
+    try {
+      const bitmap = await createImageBitmap(f);
+      const scale = Math.min(1, 2200 / Math.max(bitmap.width, bitmap.height));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+      canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return f;
+      ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+      bitmap.close();
+      const blob = await new Promise<Blob | null>((resolve) =>
+        canvas.toBlob(resolve, "image/jpeg", 0.9),
+      );
+      if (!blob) return f;
+      return new File([blob], f.name.replace(/\.[^.]+$/, "") + ".jpg", {
+        type: "image/jpeg",
+      });
+    } catch {
+      return f;
+    }
+  }
 
   function onPickFile(f: File | null) {
     setFile(f);
@@ -150,7 +183,7 @@ function AddBill() {
     setMismatch(null);
     try {
       const fd = new FormData();
-      fd.set("file", file);
+      fd.set("file", await toReadableUpload(file));
       fd.set("jobId", jobId);
       fd.set("externalId", externalId);
       if (vendorId) fd.set("vendorId", vendorId);
@@ -160,7 +193,7 @@ function AddBill() {
       const json = await res.json();
       if (res.status === 422 && json.vendorUnresolved) {
         setNeedVendor(
-          `${json.message}${json.extractedVendor ? ` (Gemini read: "${json.extractedVendor}")` : ""}`,
+          `${json.message}${json.extractedVendor ? ` (read as: "${json.extractedVendor}")` : ""}`,
         );
       } else if (res.status === 422 && json.totalsMismatch) {
         setMismatch(json as TotalsMismatch);
@@ -229,7 +262,7 @@ function AddBill() {
     <main className={`mx-auto px-4 pb-24 pt-6 ${wide ? "max-w-4xl" : "max-w-xl"}`}>
       <PageHeader
         title="Add Bill"
-        description="Snap or upload an invoice — Gemini extracts and codes it, and it lands as a draft vendor bill in the coding queue."
+        description="Snap or upload an invoice — Claude extracts and codes it, and it lands as a draft vendor bill in the coding queue."
       />
 
       {!done && (
@@ -261,9 +294,9 @@ function AddBill() {
           </div>
 
           <div>
-            <Label>Vendor {needVendor ? "(required)" : "(optional — Gemini matches it)"}</Label>
+            <Label>Vendor {needVendor ? "(required)" : "(optional — matched from the invoice)"}</Label>
             <Select value={vendorId} disabled={busy} onChange={(e) => setVendorId(e.target.value)}>
-              <option value="">Let Gemini match the vendor</option>
+              <option value="">Match the vendor from the invoice</option>
               {vendors.map((v) => (
                 <option key={v.id} value={v.id}>
                   {v.name}
@@ -296,7 +329,7 @@ function AddBill() {
             onClick={() => submit()}
             disabled={!file || !jobId || busy || (Boolean(needVendor) && !vendorId)}
           >
-            {busy ? "Extracting with Gemini…" : "Log Bill"}
+            {busy ? "Extracting with Claude…" : "Log Bill"}
           </Button>
 
           {(error || mismatch) && file && previewUrl ? (

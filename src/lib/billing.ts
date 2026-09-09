@@ -5,7 +5,7 @@
  * in lockstep with the Apps Script originals.
  *
  * THE rule: the billing period derives from the bill's ARRIVAL date (here, the
- * moment it's uploaded), NEVER from a date printed on the document. Gemini's
+ * moment it's uploaded), NEVER from a date printed on the document. The model's
  * extracted dates are only ever used for the vendor's payment Due Date.
  */
 

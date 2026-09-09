@@ -33,7 +33,7 @@
  * check, or move a threshold.
  *
  * Server-only; the API key stays here (same convention as narrate.ts,
- * digest/claude.ts and gemini.ts — each keeps its own client and model var).
+ * digest/claude.ts and claudeExtract.ts — each keeps its own client and model var).
  */
 import Anthropic from "@anthropic-ai/sdk";
 

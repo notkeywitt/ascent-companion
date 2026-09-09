@@ -224,7 +224,7 @@ describe("presentation helpers", () => {
   });
 });
 
-describe("fallback summary (used when Gemini is unreachable)", () => {
+describe("fallback summary (used when the model is unreachable)", () => {
   it("says all clear only when nothing is flagged or broken", () => {
     expect(fallbackSummary([result(), result()])).toBe("All checks are clear this morning.");
   });
@@ -261,7 +261,6 @@ describe("the isolation contract: one dead source must not kill the digest", () 
     delete process.env.APPS_SCRIPT_SYNC_URL;
     delete process.env.APPS_SCRIPT_SYNC_SECRET;
     delete process.env.JT_GRANT_KEY;
-    delete process.env.GEMINI_KEY;
     delete process.env.ANTHROPIC_API_KEY;
     delete process.env.ANTHROPIC_MODEL_DIGEST;
     process.env.DATABASE_URL = "file:/nonexistent-directory/unopenable.db";

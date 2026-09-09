@@ -4,7 +4,7 @@ The human-facing app for Ascent Building Co. — a **Next.js (App Router) app on
 Vercel** that is the UI over **JobTread** (its "Pave" API) plus a small companion
 database (Drizzle + libSQL). It replaces the retired AppSheet UI and progressively
 absorbs those functions. The sibling repo `ascent-appscript` runs the automated
-back end (Gmail→Gemini invoice ingestion, the hourly JobTread↔Sheet↔Drive mirror).
+back end (Gmail→Claude invoice ingestion, the hourly JobTread↔Sheet↔Drive mirror).
 
 **Read `CODEBASE_MAP.md` before you touch `src/`.** It is the orientation index:
 which doc answers what, a task-to-file table, and a directory map of `src/`. It is

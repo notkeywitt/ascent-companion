@@ -160,7 +160,7 @@ export type SavedBill = typeof savedBills.$inferSelect;
  * Sunset monthly statement payment cache, keyed by the sheet ExpID ("STMT-…").
  * The /payments view lists Sunset statements and shows what to type at the TSYS
  * hosted page. The payment header (account name, statement #, printed early-pay
- * discount, net) only exists on the statement PDF, so it's Gemini-extracted once
+ * discount, net) only exists on the statement PDF, so it's model-extracted once
  * (via the listSunsetStatements/extractSunsetStatements Apps Script actions) and
  * cached here. `status`/`paidAt` are companion-owned workflow state — re-reading
  * a statement refreshes the extracted fields but must NEVER reset paid state.
@@ -176,7 +176,7 @@ export const sunsetStatements = sqliteTable("sunset_statements", {
   total: text("total").notNull().default(""), // statement grand total
   discount: text("discount").notNull().default(""), // printed prompt discount
   net: text("net").notNull().default(""), // total - discount (what you pay)
-  extractedAt: text("extracted_at").notNull().default(""), // "" = not yet Gemini'd
+  extractedAt: text("extracted_at").notNull().default(""), // "" = not yet extracted
   status: text("status").notNull().default("unpaid"), // unpaid | paid
   paidAt: text("paid_at").notNull().default(""),
   paidBy: text("paid_by").notNull().default(""),
@@ -739,8 +739,8 @@ export type BillIndexMetaRow = typeof billIndexMeta.$inferSelect;
  * category, status, summary, items), NOT rendered text. Storing the structure is
  * what lets the home screen re-render and re-group a digest generated hours
  * earlier, and what would let a later feature trend "uncaptured bills per week"
- * without re-running anything. `summary` is the single Gemini paragraph written
- * over those results; `summary_source` says whether Gemini actually answered or
+ * without re-running anything. `summary` is the single model paragraph written
+ * over those results; `summary_source` says whether a model actually answered or
  * the local fallback wrote it.
  *
  * "Refresh now" overwrites the row for the same date rather than appending, so a

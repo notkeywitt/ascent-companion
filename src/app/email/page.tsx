@@ -7,7 +7,7 @@ import { Banner, Button, CardSkeletonList, EmptyState, PageHeader, Select } from
 // The Assistant's replacement for the Gmail add-on "Log Invoice" card. Lists
 // unprocessed inbox emails (from Apps Script), and for each one you pick a
 // project, optionally mark PAID, and log it — the identical one-click import
-// (capture → Gemini → Drive → sheet row → optional JT draft → Gmail labels)
+// (capture → Claude → Drive → sheet row → optional JT draft → Gmail labels)
 // runs server-side in Apps Script via _addonLogInvoiceCore.
 
 interface EmailRow {

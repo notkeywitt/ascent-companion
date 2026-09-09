@@ -46,7 +46,7 @@ async function runAndLog(ranBy: string) {
  */
 export const dynamic = "force-dynamic";
 // The full sweep — Gmail scans, an org-wide draft-bill query, one rollup per open
-// job, and one Gemini call. Give it room; the per-check timeout in the aggregator
+// job, and one Claude call. Give it room; the per-check timeout in the aggregator
 // is what actually stops any single source from hanging the run.
 export const maxDuration = 300;
 

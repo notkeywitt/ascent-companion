@@ -23,7 +23,7 @@ import { callAppsScriptResponse } from "@/lib/appsScript";
 //   markNotRelevant { messageId, undo?, wasTagged? } → { ok, kind, ... }
 //     (not an invoice: tag "Not an Invoice", drop from the list)
 //
-// logInvoice runs Gemini inline in Apps Script (~15–45s), so allow a longer
+// logInvoice runs Claude inline in Apps Script (~15–45s), so allow a longer
 // function timeout than the default (the effective ceiling still depends on the
 // Vercel plan — 60s Hobby / up to 300s Pro).
 export const maxDuration = 120;
@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: `Unsupported action: ${action || "(none)"}` }, { status: 400 });
   }
 
-  // logInvoice runs Gemini inline in Apps Script (~15-45s); stay just under this
+  // logInvoice runs Claude inline in Apps Script (~15-45s); stay just under this
   // route's maxDuration (120s). listProjects/listEmails retry automatically.
   return callAppsScriptResponse(body, { timeoutMs: 110_000 });
 }

@@ -10,7 +10,11 @@ import {
   type NewBillLine,
   type VendorRef,
 } from "@/lib/jobtread";
-import { extractBillWithGemini, type ExtractedBill } from "@/lib/gemini";
+import {
+  CLAUDE_IMAGE_MIME,
+  extractBillWithClaude,
+  type ExtractedBill,
+} from "@/lib/claudeExtract";
 import {
   companyDateParts,
   computeBillDates,
@@ -23,20 +27,20 @@ import { kickJtSync } from "@/lib/appsScript";
 
 /**
  * Roadmap D — add a bill without the email card: upload a photo/PDF of an
- * invoice, run it through the Gemini coding engine, and create a DRAFT vendor
+ * invoice, run it through the Claude coding engine, and create a DRAFT vendor
  * bill in JobTread (= the coding queue). Mirrors the Gmail add-on's onLogInvoice
  * orchestration:
  *   - the JOB is always human-picked (never AI);
  *   - billing period derives from the UPLOAD moment (arrival date standard),
  *     never a date printed on the document;
  *   - the Vendor Bill Number (JobTread externalId) is the invoice/bill number
- *     Gemini reads off the document; when none is legible it falls back to
+ *     Claude reads off the document; when none is legible it falls back to
  *     <Vendor><MMDDYY>-<tag> of the arrival date (e.g. "HomeDepot081926-a1b2c3d4"),
  *     where <tag> is the per-file token so two no-number bills from one vendor on
  *     one day don't collide. That number also serves as the dedup key, so a
  *     re-upload of the same invoice is caught. Sunset bills keep the per-file
  *     idempotency token instead (their numbering is owned by the statement flow);
- *   - Gemini codes each line against the job's live budget; out-of-budget codes
+ *   - Claude codes each line against the job's live budget; out-of-budget codes
  *     land UNCODED (the assistant's coding queue is the review step, replacing
  *     the AppSheet placeholder-CSI convention);
  *   - respects the COMPANION_WRITES_ENABLED gate — off = full preview, no write.
@@ -47,18 +51,20 @@ import { kickJtSync } from "@/lib/appsScript";
  *   externalId  required per-file token from the UI ("INV-xxxxxxxx"); the dedup
  *               key for Sunset bills, superseded by the extracted Vendor Bill
  *               Number for everyone else
- *   vendorId    optional JT account override (skip/replace Gemini's match)
+ *   vendorId    optional JT account override (skip/replace the model's match)
  */
 
 const MAX_BYTES = 15 * 1024 * 1024;
-const ALLOWED_MIME = new Set([
-  "application/pdf",
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-  "image/heic",
-  "image/heif",
-]);
+/**
+ * What the extractor can actually read: a PDF, or one of Claude's vision image
+ * types. HEIC/HEIF are deliberately NOT here — Claude vision does not accept
+ * them, where the retired Gemini engine did. An iPhone pick is canvas-converted
+ * to JPEG by the add-bill page before upload, so HEIC should never reach this
+ * route; the explicit branch below is for the case where that conversion failed
+ * and the browser sent the original anyway.
+ */
+const ALLOWED_MIME = new Set(["application/pdf", ...CLAUDE_IMAGE_MIME]);
+const HEIC_MIME = new Set(["image/heic", "image/heif"]);
 
 /** Clean an extracted invoice/bill number for JobTread's externalId (≤32 chars).
  *  Invoice numbers never carry internal spaces, so we strip whitespace and cap
@@ -88,7 +94,7 @@ function fallbackBillNumber(vendorName: string, arrival: Date, tag: string): str
   return (v + mmddyy + suffix).slice(0, 32);
 }
 
-/** Resolve Gemini's Vendor answer (ideally a JT account id) to an account. */
+/** Resolve the model's Vendor answer (ideally a JT account id) to an account. */
 function resolveVendor(extractedVendor: string, vendors: VendorRef[]): VendorRef | null {
   const raw = extractedVendor.trim();
   if (!raw) return null;
@@ -109,8 +115,8 @@ export async function POST(req: NextRequest) {
   if (!hasGrant()) {
     return NextResponse.json({ error: "JT_GRANT_KEY is not set." }, { status: 400 });
   }
-  if (!process.env.GEMINI_KEY) {
-    return NextResponse.json({ error: "GEMINI_KEY is not set." }, { status: 400 });
+  if (!process.env.ANTHROPIC_API_KEY) {
+    return NextResponse.json({ error: "ANTHROPIC_API_KEY is not set." }, { status: 400 });
   }
 
   let form: FormData;
@@ -137,6 +143,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Missing or malformed externalId." }, { status: 400 });
   }
   const mime = (file.type || "").toLowerCase();
+  if (HEIC_MIME.has(mime)) {
+    return NextResponse.json(
+      {
+        error:
+          "This photo is in HEIC format, which the reader can't open. " +
+          "Retake it with your camera set to \u201cMost Compatible\u201d, or share it as a JPEG or PDF.",
+      },
+      { status: 400 },
+    );
+  }
   if (!ALLOWED_MIME.has(mime)) {
     return NextResponse.json(
       { error: `Unsupported file type "${mime}". Upload a PDF or photo.` },
@@ -159,7 +175,7 @@ export async function POST(req: NextRequest) {
       getJobHeaderInfo(cfg, jobId),
     ]);
     // one coding target per cost code (first budget leaf wins, like the
-    // Apps Script budget map); Gemini sees each code once
+    // Apps Script budget map); the model sees each code once
     const codeToItem = new Map<string, { id: string; name: string }>();
     for (const b of budget) {
       if (!codeToItem.has(b.number)) codeToItem.set(b.number, { id: b.id, name: b.name });
@@ -169,8 +185,8 @@ export async function POST(req: NextRequest) {
       name: v.name,
     }));
 
-    // ---- 2. Gemini extraction (job comes from the picker, not AI) ----------
-    const extracted: ExtractedBill | null = await extractBillWithGemini(
+    // ---- 2. Claude extraction (job comes from the picker, not AI) ----------
+    const extracted: ExtractedBill | null = await extractBillWithClaude(
       bytes,
       mime,
       vendors,
@@ -178,7 +194,7 @@ export async function POST(req: NextRequest) {
     );
     if (!extracted) {
       return NextResponse.json(
-        { error: "Gemini extraction failed — nothing was created. Try again." },
+        { error: "Extraction failed — nothing was created. Try again." },
         { status: 502 },
       );
     }
@@ -216,7 +232,7 @@ export async function POST(req: NextRequest) {
     warnings.push(...dates.warnings);
 
     // Vendor Bill Number (JobTread's externalId, shown as the bill's number and
-    // used for dedup). For non-Sunset bills, use the invoice/bill number Gemini
+    // used for dedup). For non-Sunset bills, use the invoice/bill number Claude
     // read off the document; when none is legible, fall back to <Vendor><MMDDYY>
     // of the arrival date. Sunset keeps the per-file idempotency token it already
     // carried (its own numbering convention is handled by the statement flow).
@@ -290,7 +306,7 @@ export async function POST(req: NextRequest) {
     }
 
     // ---- 5b. reconcile the extracted lines against the invoice's printed total
-    // Gemini reads the grand total reliably but the individual lines imperfectly
+    // Claude reads the grand total reliably but the individual lines imperfectly
     // (a dropped or misread line is the common failure). A bill whose cost lines
     // don't add up to the invoice must NOT be created silently — this once pushed
     // a $1688.57 invoice as a $49.39 bill. Per the extraction rule "AMOUNTS ARE
@@ -320,7 +336,7 @@ export async function POST(req: NextRequest) {
             `The extracted line items total $${linesNet.toFixed(2)}, but the invoice net ` +
             `(total $${printedAmount.toFixed(2)} minus tax $${taxAmount.toFixed(2)}) is ` +
             `$${printedNet.toFixed(2)} — off by $${(printedNet - linesNet).toFixed(2)}. ` +
-            `Gemini probably missed or misread a line. Check the invoice, then choose how to proceed.`,
+            `A line was probably missed or misread. Check the invoice, then choose how to proceed.`,
           lines: lines.map((l) => ({
             name: l.name,
             csi: l.costCode ?? "",

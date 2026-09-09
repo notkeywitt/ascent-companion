@@ -2,7 +2,7 @@
  * Claude's read of the month — the paragraph at the top of the review.
  *
  * Server-only; the API key stays here (same convention as src/lib/anthropic.ts
- * and src/lib/gemini.ts). Uses the plain Messages API, not the chat engine's
+ * and src/lib/claudeExtract.ts). Uses the plain Messages API, not the chat engine's
  * tool loop: there is nothing to look up, because everything Claude is allowed
  * to say is already in the findings.
  *

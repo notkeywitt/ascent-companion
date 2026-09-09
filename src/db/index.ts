@@ -701,7 +701,7 @@ async function applySchema() {
     /* FTS5 unavailable in this libSQL build — search degrades to LIKE (see billSearch.ts) */
   }
   // The Admin Daily Digest: one row per day holding each check's STRUCTURED
-  // result plus the single Gemini summary paragraph over them. Rewritten in
+  // result plus the single model summary paragraph over them. Rewritten in
   // place by "Refresh now", so a date has exactly one digest. The only thing
   // that feature writes anywhere — see src/lib/digest/.
   await getClient().execute(`

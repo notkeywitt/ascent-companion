@@ -608,7 +608,7 @@ through to the Gmail thread or the JobTread record.
 
 > **One thing to know about the email scan.** To find an appointment buried in an
 > email's text, that check sends a short slice of recent inbox messages to Google's
-> Gemini. It is trimmed and stripped of quoted reply history first, only the
+> Claude. It is trimmed and stripped of quoted reply history first, only the
 > extracted result is kept, and no other check sends message text anywhere — they
 > read sender, subject and date only.
 

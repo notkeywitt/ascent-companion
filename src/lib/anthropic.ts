@@ -1,7 +1,7 @@
 /**
  * Claude chat engine — the server-side tool-use loop behind the /chat assistant.
  *
- * Mirrors src/lib/gemini.ts's "server-only, never import from the browser"
+ * Mirrors src/lib/claudeExtract.ts's "server-only, never import from the browser"
  * convention: the API key stays here. The assistant is given the read-only
  * JobTread tools from chatTools.ts and answers questions by calling them; this
  * module runs the agentic loop and streams text + tool activity out via a

@@ -14,7 +14,7 @@ matching row here.
 
 > Companion = the Next.js/Vercel phone UI over JobTread ("Pave" API) plus a small
 > companion DB. The sibling repo `ascent-appscript` is the automated back end
-> (Gmail→Gemini ingestion, the hourly JobTread↔Sheet↔Drive mirror) and the
+> (Gmail→Claude ingestion, the hourly JobTread↔Sheet↔Drive mirror) and the
 > Sheets/Drive data layer the companion reaches over a shared secret.
 
 ## Which doc answers what
@@ -66,7 +66,7 @@ matching row here.
 | **Leads / lead board** | read `src/lib/leads.ts`; the one write `src/lib/leadPush.ts`; UI `src/app/leads/` + `src/app/api/leads/*`; the home page's Leads panel `src/components/HomeLeadBoard.tsx` + `src/lib/leadBoard.ts`; the org's amber/red thresholds `src/lib/leadSettings.ts` + `/api/leads/settings` |
 | **The chat assistant** | engine `src/lib/anthropic.ts`, tools `src/lib/chatTools.ts`, UI `src/app/chat/` + `src/app/api/chat` |
 | **Anything Sheets/Drive-backed** (employees, tools, mileage, safety, requisitions, Sunset, tracking sheets, audit log) | `src/lib/appsScript.ts` (the one client over the shared secret) → the matching appscript `.js` file |
-| **Invoice/Amazon extraction (Gemini)** | `src/lib/gemini.ts`, `src/lib/amazonImport.ts` |
+| **Invoice/Amazon extraction (Claude)** | `src/lib/claudeExtract.ts`, `src/lib/amazonImport.ts` |
 | **Auth / session / roles** | `src/auth.ts`, `src/middleware.ts`, `src/lib/auth.ts` |
 | **Env, gates, Pave config** | `src/lib/config.ts` |
 | **Companion DB tables** | `src/db/schema.ts` |
@@ -131,7 +131,7 @@ including edge middleware.
 | `timeSync.ts` | Worked-time reconciliation/retry — surfaces records saved to the sheet but not yet in JobTread. |
 | `appsScript.ts` | The one client for the Apps Script web app — every Sheets/Drive feature POSTs `{action, secret, …}` here. |
 | `anthropic.ts` | Claude chat engine — the server-side tool-use loop behind `/chat` (server-only). |
-| `gemini.ts` | Gemini invoice extraction — port of appscript `Ingestion.js` (server-only). |
+| `claudeExtract.ts` | Claude document extraction — invoice/bill reading for `/add-bill` and tool-serial OCR for `/api/ocr-serial`. Port of appscript `Ingestion.js` `callClaude` (server-only). Replaced the Gemini module, deleted 2026-09-09. |
 | `chatTools.ts` | Read-only JobTread tool registry exposed to the chat assistant. Phase 1 is READ-ONLY — do not add writes. |
 | `amazonImport.ts` | Amazon Business monthly CSV → JobTread vendor bills. |
 | `taskRunner.ts` | Tiny background scheduler (keyed serialization + parallelism cap) used by the Tracking Sheet page. |
@@ -217,7 +217,7 @@ Claude Code session. Drive half: `ascent-appscript/ClientInvoiceReview.js`.
 
 The morning report on the home launcher: independent "checks" over the
 calendar, to-dos and inbox, run once a day by a Vercel cron, summarized by ONE
-Gemini call, stored in `daily_digest`, and read (never recomputed) on page load.
+Claude call, stored in `daily_digest`, and read (never recomputed) on page load.
 Every check is READ-ONLY against Gmail, Calendar, the Sheet and JobTread.
 
 **It is a schedule/to-do report, not a billing report** (pivoted 2026-08-31).
@@ -233,7 +233,7 @@ while its checks are off.
 | `settings.ts` ⟂ | **THE one place every knob lives** — categories, the billing cutoff day, vendor/job exclusion lists, thresholds, which calendars to read, and each check's `enabled` flag. Edit here, never inside a check. |
 | `types.ts` ⟂ | The check contract (`DigestCheck`, `CheckContext`, `CheckResult`, `DigestItem`) plus the stored payload shape. Why the feature is extensible: a check knows nothing about scheduling, storage, or rendering. |
 | `registry.ts` | The one list of checks, each bound to its settings block. Adding a check = one import + one line here. |
-| `run.ts` | The aggregator: runs each enabled check in isolation (per-check timeout; a failure becomes one `status:"error"` entry, never a broken digest), makes the single Gemini summary call, stores the result. Knows nothing about any individual check. |
+| `run.ts` | The aggregator: runs each enabled check in isolation (per-check timeout; a failure becomes one `status:"error"` entry, never a broken digest), makes the single Claude summary call, stores the result. Knows nothing about any individual check. |
 | `grouping.ts` ⟂ | Stored results → the categories the screen draws, worst status rolled up. Also `categoryTone`, which separates PRESENTATION from status: a check reporting `ok` with items (the calendar) draws as informational with its count, not as a green "Clear". Pure, so "categories are data, not tabs" is testable. |
 | `store.ts` | Read/write the `daily_digest` row and the `digest_dismissals` rows — the ONLY things this feature writes anywhere. |
 | `dismissals.ts` ⟂ | "This one is handled, stop showing it to me." Pure: builds an item's stable dismissal key (`<checkId>::<item key>`, falling back to the title) and filters a set of results by it — the same code the browser, the aggregator and GET `/api/digest` all use, so a dismissal means one thing. Dismissing never closes a JobTread to-do or touches Gmail; the office's own reminders are the one item a dismissal also marks done, in `digest_todos`. |
@@ -243,7 +243,7 @@ while its checks are off.
 | `checks/costVsInvoice.ts` | Jobs whose approved spend has outrun approved client invoices, past a configurable gap. |
 | `checks/calendarEvents.ts` | Today's / this week's shared-calendar events (read-only scope; never a personal calendar by default). Reports `ok` WITH items — a full calendar is information, not a problem — which is what `categoryTone` exists to draw correctly. Prefixes whose calendar an event is on only when more than one calendar has events that day. |
 | `checks/jobtreadTodos.ts` | Open JobTread to-dos (`isToDo=true`, `progress` null or `<1`), overdue or due within the window, grouped by assignee. Undated ones are skipped by default — a morning glance, not a backlog dump. Live-confirmed 2026-08-31: 223 to-dos org-wide, 42 open, 7 overdue + 3 due inside 7 days. |
-| `checks/emailSignals.ts` | Appointments and action items *mentioned in* recent inbox email, via ONE Gemini pass. **The only check that sends email BODY text off-site** — every other one reads metadata only. The body is truncated and quote-stripped on the Apps Script side (`digestEmailContent`) before it ever reaches this app, and only the extracted result is kept. |
+| `checks/emailSignals.ts` | Appointments and action items *mentioned in* recent inbox email, via ONE Claude pass. **The only check that sends email BODY text off-site** — every other one reads metadata only. The body is truncated and quote-stripped on the Apps Script side (`digestEmailContent`) before it ever reaches this app, and only the extracted result is kept. |
 | `checks/emailFollowUps.ts` | Inbox threads whose last message came from outside and went unanswered past a business-day threshold. |
 
 Items in a category flagged `dismissible` in `settings.ts` (To-Do, Follow-ups)
@@ -500,5 +500,5 @@ JobTread is the source of truth; the appscript hourly loop mirrors it to the
 Sheet + Drive. Don't add companion write paths that race that mirror.
 
 (`daily_digest` holds one row per day: each check's STRUCTURED result, the single
-Gemini summary paragraph over them, and the run log. Rewritten in place by
+model summary paragraph over them, and the run log. Rewritten in place by
 "Refresh now", so a date has exactly one digest — see `src/lib/digest/store.ts`.)

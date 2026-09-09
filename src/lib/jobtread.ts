@@ -3513,7 +3513,7 @@ export interface UninvoicedBills {
 }
 
 // ---------------------------------------------------------------------------
-// BILL INGESTION  (roadmap D — the Gemini engine's JobTread write path, ported
+// BILL INGESTION  (roadmap D — the extraction engine's JobTread write path, ported
 // from the PROVEN Apps Script pushExpenditureToJobTread / attachPdfToJobTread-
 // Document / findExistingBillByExternalId. Field-for-field parity with the
 // production payloads; do not add unverified fields here — probe first.)

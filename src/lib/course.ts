@@ -66,7 +66,7 @@ export const SEGMENTS: SegmentMeta[] = [
     question: "Time entries, mileage, safety sign-in, tools. Phone data in; JobTread and Sheets out." },
   { n: 10, unit: UNITS[3], minutes: 35, ready: false,
     title: "The AI Features",
-    question: "Gemini reads invoices. Claude answers questions. Why the assistant never writes data." },
+    question: "Claude reads invoices and answers questions. Why the assistant never writes data." },
   { n: 11, unit: UNITS[3], minutes: 30, ready: false,
     title: "The Design System and Editable Text",
     question: "Why every screen matches. On-screen text a user can edit, with no new deployment." },

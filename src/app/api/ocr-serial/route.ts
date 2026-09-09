@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { ocrSerialWithGemini } from "@/lib/gemini";
+import { ocrSerialWithClaude } from "@/lib/claudeExtract";
 
 // Read a tool's serial number off a phone photo. The browser sends a downscaled
-// image (data URL); we hand the bytes to Gemini vision (same engine the invoice
+// image (data URL); we hand the bytes to Claude vision (same engine the invoice
 // OCR uses) and return the extracted string for the /tools edit modal to fill in.
 // The user always reviews/edits the value before saving, so this is best-effort.
+//
+// The /tools page canvas-converts every pick to JPEG before it gets here, so the
+// mime is always one Claude reads.
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
 
@@ -27,7 +30,7 @@ export async function POST(req: NextRequest) {
   if (!bytes.length) return NextResponse.json({ error: "Empty image." }, { status: 400 });
 
   try {
-    const serial = await ocrSerialWithGemini(bytes, mimeType);
+    const serial = await ocrSerialWithClaude(bytes, mimeType);
     return NextResponse.json({ ok: true, serial: serial ?? "" }, { status: 200 });
   } catch (e) {
     return NextResponse.json(

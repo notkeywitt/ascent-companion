@@ -111,7 +111,7 @@ Every segment in this course connects to 1 of these 5 ideas. Remember these
 | 8 | **The Companion Database** | What earns a place in the app's own database. The PTO and sick-leave system, as the worked example. | `src/db/schema.ts`, `src/lib/leave.ts`, `src/lib/leaveService.ts` |
 | 9 | **The Field Screens** | Time entries, mileage, safety sign-in, tools. Data goes in from the phone. Data goes out to JobTread and to Sheets. | `src/app/employee-time/*`, `src/app/mileage-tracker/*`, `src/app/safety-meeting/*` |
 | **Unit D — Around the edges** ||||
-| 10 | **The AI Features** | Gemini reads invoices. Claude answers questions. Why the assistant only reads data; it never writes data. | `src/lib/gemini.ts`, `src/lib/anthropic.ts`, `src/lib/chatTools.ts` |
+| 10 | **The AI Features** | Claude reads invoices and answers questions. Why the assistant only reads data; it never writes data. | `src/lib/claudeExtract.ts`, `src/lib/anthropic.ts`, `src/lib/chatTools.ts` |
 | 11 | **The Design System and Editable Text** | Why every screen matches. The on-screen text a user can edit, with no new deployment. | `src/components/ui.tsx`, `src/lib/copy.ts` |
 | 12 | **Deployment and Known Problems** | Branches. Preview builds. Production. Environment variables. Tests. The known weak points in the code. | `DEPLOY.md`, `ARCHITECTURE_REVIEW.md`, `vitest.config.mts` |
 

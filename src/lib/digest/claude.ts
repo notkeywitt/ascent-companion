@@ -1,15 +1,14 @@
 /**
  * Claude engine for the Daily Digest — the email-signals extraction and the
- * reply-box parser. Replaces the Gemini versions in src/lib/gemini.ts, which
- * stay in place for the pipelines that still use Gemini (invoice capture,
- * tool-serial OCR) — this file is the digest's own, so a future Gemini removal
- * there doesn't touch this one.
+ * reply-box parser. This file is the digest's OWN engine: document extraction
+ * lives in src/lib/claudeExtract.ts and /chat in src/lib/anthropic.ts, each with
+ * its own client and model var, so a change to one never moves the others.
  *
  * The morning BRIEF is no longer written by a model (removed 2026-09-04): the
  * owner prefers the item list to the prose, and the call wasn't worth its
  * tokens. `fallbackSummary` in run.ts is now the only writer.
  *
- * Server-only; the API key stays here (same convention as gemini.ts,
+ * Server-only; the API key stays here (same convention as claudeExtract.ts,
  * src/lib/anthropic.ts, src/lib/invoiceReview/narrate.ts — each of those keeps
  * its own client and its own model env var, deliberately not shared).
  */

@@ -34,7 +34,7 @@
  * and there is no giant blob to fail to parse.
  *
  * Server-only; the API key stays here, the same convention as narrate.ts,
- * learn.ts, digest/claude.ts and gemini.ts.
+ * learn.ts, digest/claude.ts and claudeExtract.ts.
  */
 import Anthropic from "@anthropic-ai/sdk";
 

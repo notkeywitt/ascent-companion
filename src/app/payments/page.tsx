@@ -14,7 +14,7 @@ import { clearTouchedBills, touchedBillCount } from "@/lib/billTouch";
 const TSYS_URL = "https://www.sunsetbuilderssupply.com/";
 const FILTERS = ["unpaid", "paid", "all"] as const;
 type Filter = (typeof FILTERS)[number];
-const EXTRACT_BATCH = 4; // statements Gemini-read per request (bounded so it never times out)
+const EXTRACT_BATCH = 4; // statements model-read per request (bounded so it never times out)
 
 interface Statement {
   expId: string;
@@ -266,7 +266,7 @@ export default function PaymentsPage() {
     setOpenIds(Array.from(openCards));
   }
 
-  // Progressively Gemini-extract the uncached statements in small batches so no
+  // Progressively extract the uncached statements in small batches so no
   // single request ever runs unbounded work. `token` guards against a filter
   // change superseding an in-flight fill.
   const fill = useCallback(async (ids: string[], token: number) => {
@@ -399,7 +399,7 @@ export default function PaymentsPage() {
     if (!snap || touchedBillCount() > 0 || Date.now() - snap.at > SNAP_COLD_MS) loadRecon(!!snap);
   }, [loadRecon]);
 
-  // Keep the snapshot in step with what is actually on screen — the Gemini header
+  // Keep the snapshot in step with what is actually on screen — the extracted header
   // values fill in after the list arrives, and Mark paid moves a row — so a return
   // visit renders the page as you left it, not as it first loaded. The freshness
   // stamp stays the LAST FETCH's, since none of this is new data from the server.
