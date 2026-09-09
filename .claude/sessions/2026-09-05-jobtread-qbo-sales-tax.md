@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/jobtread-qbo-sales-tax-lfqctd
 status: shipped
 started: 2026-09-05T05:30:35Z
-updated: 2026-09-09T19:51:52Z
+updated: 2026-09-09T19:51:54Z
 goal: bill move: background + Drive re-file + real error; buyback picker dialog; approve advances; cost-code names on the bills list
 next: test the revised-invoice replace on Screaming Arrow 1016 (doc 22PdHU9CtwhE, draft) with the resent invoice: expect the two-column compare, then Replace
 ---

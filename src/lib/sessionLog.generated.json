@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-09T19:24:21Z",
+  "generatedAt": "2026-09-09T19:51:54Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,7 +8,7 @@
       "branch": "claude/jobtread-qbo-sales-tax-lfqctd",
       "status": "shipped",
       "started": "2026-09-05T05:30:35Z",
-      "updated": "2026-09-09T19:24:21Z",
+      "updated": "2026-09-09T19:51:54Z",
       "goal": "bill move: background + Drive re-file + real error; buyback picker dialog; approve advances; cost-code names on the bills list",
       "next": "test the revised-invoice replace on Screaming Arrow 1016 (doc 22PdHU9CtwhE, draft) with the resent invoice: expect the two-column compare, then Replace",
       "commits": [
@@ -277,6 +277,13 @@
           "sha": "9858d46",
           "subject": "companion: compare a re-sent invoice against the bill on file",
           "files": "src/app/add-bill/page.tsx, src/app/api/add-bill/route.ts, src/lib/billing.test.ts, src/lib/billing.ts, src/lib/jobtread.ts"
+        },
+        {
+          "date": "2026-09-09",
+          "time": "12:51",
+          "sha": "c7214b9",
+          "subject": "companion: warn before leaving a running invoice upload",
+          "files": "src/app/add-bill/page.tsx"
         }
       ]
     },
