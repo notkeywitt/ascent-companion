@@ -9,7 +9,6 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Branch | Last active | Commits | Next step |
 |---|---|---|---|---|
-| [bill-due-date-selector](.claude/sessions/2026-09-09-bill-due-date-selector.md) | `claude/bill-due-date-selector-n4gzoy` | 0m ago | 1 | verify the due date field on a real bill: pick a date, confirm it lands as Paym… |
 | [gemini-claude-transition-status](.claude/sessions/2026-09-09-gemini-claude-transition-status.md) | `claude/gemini-claude-transition-status-cib68c` | 14h ago | 1 | owner: delete GEMINI_KEY + GEMINI_MODEL from Vercel; decide whether ANTHROPIC_M… |
 | [trip-recording-persistence](.claude/sessions/2026-09-08-trip-recording-persistence.md) | `claude/trip-recording-persistence-evilps` | 20h ago | 3 | verify on the phone: start a trip, force-quit the app, reopen — the trip should… |
 | [ci-verify-job-failures](.claude/sessions/2026-09-06-ci-verify-job-failures.md) | `claude/ci-verify-job-failures-wcfpyk` | 3d ago | 1 | push this branch to remote main — main is still red until the Link fix lands th… |
@@ -21,6 +20,7 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
+| [bill-due-date-selector](.claude/sessions/2026-09-09-bill-due-date-selector.md) | 2026-09-09 | 2 | — |
 | [ipad-vertical-admin-home](.claude/sessions/2026-09-09-ipad-vertical-admin-home.md) | 2026-09-09 | 1 | A vertical iPad layout for the admin and office home screen. |
 | [lead-email-capture-tagging](.claude/sessions/2026-09-08-lead-email-capture-tagging.md) | 2026-09-08 | 3 | — |
 | [time-entry-notes-persist](.claude/sessions/2026-09-08-time-entry-notes-persist.md) | 2026-09-08 | 1 | — |
@@ -35,4 +35,3 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 | [dark-mode-color-scheme](.claude/sessions/2026-09-05-dark-mode-color-scheme.md) | 2026-09-06 | 8 | Rebuild dark mode from the Ascent Brand Guidelines: replace the lifted-olive ac… |
 | [time-entry-job-thread-links](.claude/sessions/2026-09-06-time-entry-job-thread-links.md) | 2026-09-06 | 2 | — |
 | [loading-screen-logo](.claude/sessions/2026-09-05-loading-screen-logo.md) | 2026-09-05 | 3 | — |
-| [main](.claude/sessions/2026-09-03-main.md) | 2026-09-04 | 38 | — |

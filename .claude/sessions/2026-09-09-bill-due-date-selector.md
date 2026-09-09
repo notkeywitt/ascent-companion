@@ -2,9 +2,9 @@
 slug: bill-due-date-selector
 repo: ascent-companion
 branch: claude/bill-due-date-selector-n4gzoy
-status: in-progress
+status: shipped
 started: 2026-09-09T15:43:28Z
-updated: 2026-09-09T15:44:40Z
+updated: 2026-09-09T15:44:57Z
 goal: 
 next: verify the due date field on a real bill: pick a date, confirm it lands as Payment Due in JobTread and survives a reload
 ---
