@@ -20,7 +20,7 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
-| [jobtread-qbo-sales-tax](.claude/sessions/2026-09-05-jobtread-qbo-sales-tax.md) | 2026-09-09 | 39 | bill move: background + Drive re-file + real error; buyback picker dialog; appr… |
+| [jobtread-qbo-sales-tax](.claude/sessions/2026-09-05-jobtread-qbo-sales-tax.md) | 2026-09-09 | 40 | bill move: background + Drive re-file + real error; buyback picker dialog; appr… |
 | [bill-due-date-selector](.claude/sessions/2026-09-09-bill-due-date-selector.md) | 2026-09-09 | 2 | — |
 | [ipad-vertical-admin-home](.claude/sessions/2026-09-09-ipad-vertical-admin-home.md) | 2026-09-09 | 1 | A vertical iPad layout for the admin and office home screen. |
 | [lead-email-capture-tagging](.claude/sessions/2026-09-08-lead-email-capture-tagging.md) | 2026-09-08 | 3 | — |
