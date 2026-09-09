@@ -7,9 +7,20 @@
  * decides which side is right and it never corrects anything.
  */
 import { defineInvoiceCheck } from "../checkTypes";
-import { cents, findingKey, money, type Finding } from "../types";
+import { cents, findingKey, money, withinTolerance, type Finding } from "../types";
 
 export type InvoiceMathConfig = Record<string, never>;
+
+/**
+ * A unit price, at the precision JobTread actually holds it.
+ *
+ * `money()` rounds to cents, which made the per-line finding contradict itself:
+ * a rate of 39295.475 printed as "$39,295.48" next to a product of
+ * "-$39,295.47". The rate is the one figure here that is not money to the cent.
+ */
+const rate = (n: number) =>
+  (n < 0 ? "-$" : "$") +
+  Math.abs(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 4 });
 
 export const invoiceMathCheck = defineInvoiceCheck<InvoiceMathConfig>({
   id: "invoice-math",
@@ -35,7 +46,7 @@ export const invoiceMathCheck = defineInvoiceCheck<InvoiceMathConfig>({
     for (const line of inv.lines) {
       if (!line.quantity || !line.unitPrice) continue;
       const expect = cents(line.quantity * line.unitPrice);
-      if (Math.abs(expect - cents(line.price)) <= TOL) continue;
+      if (withinTolerance(expect, line.price, TOL)) continue;
       out.push({
         ...base,
         key: findingKey("math-line", job.jobId, `${inv.id}:${line.id}`),
@@ -43,7 +54,7 @@ export const invoiceMathCheck = defineInvoiceCheck<InvoiceMathConfig>({
         severity: "error",
         title: `${label} — line doesn't multiply out`,
         detail:
-          `"${line.name}": ${line.quantity} × ${money(line.unitPrice)} = ${money(expect)}, ` +
+          `"${line.name}": ${line.quantity} × ${rate(line.unitPrice)} = ${money(expect)}, ` +
           `but the line is billed at ${money(line.price)} — a difference of ` +
           `${money(cents(line.price) - expect)}.`,
         amount: cents(line.price) - expect,
@@ -55,7 +66,7 @@ export const invoiceMathCheck = defineInvoiceCheck<InvoiceMathConfig>({
     // ── Lines vs. the invoice's pre-tax price.
     if (inv.lines.length) {
       const sum = cents(inv.lines.reduce((s, l) => s + l.price, 0));
-      if (Math.abs(sum - cents(inv.price)) > TOL) {
+      if (!withinTolerance(sum, inv.price, TOL)) {
         out.push({
           ...base,
           key: findingKey("math-total", job.jobId, inv.id),
@@ -74,7 +85,7 @@ export const invoiceMathCheck = defineInvoiceCheck<InvoiceMathConfig>({
 
     // ── Tax: the with-tax total minus the pre-tax total must be the stated tax.
     const taxGap = cents(cents(inv.priceWithTax) - cents(inv.price) - cents(inv.tax));
-    if (Math.abs(taxGap) > TOL) {
+    if (!withinTolerance(cents(inv.priceWithTax) - cents(inv.price), inv.tax, TOL)) {
       out.push({
         ...base,
         key: findingKey("math-tax", job.jobId, inv.id),
@@ -114,7 +125,7 @@ export const invoiceMathCheck = defineInvoiceCheck<InvoiceMathConfig>({
     const balGap = isDraft
       ? cents(cents(inv.amountPaid) + cents(inv.balance))
       : cents(cents(inv.priceWithTax) - cents(inv.amountPaid) - cents(inv.balance));
-    if (Math.abs(balGap) > TOL) {
+    if (!withinTolerance(balGap, 0, TOL)) {
       out.push({
         ...base,
         key: findingKey("math-balance", job.jobId, inv.id),

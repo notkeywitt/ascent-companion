@@ -596,7 +596,19 @@ export interface ReviewPayload {
 /** Round to cents. Money arithmetic in floating point drifts by fractions of a
  *  cent; every comparison in the checks goes through this first. */
 export function cents(n: number): number {
-  return Math.round((Number(n) || 0) * 100) / 100;
+  return roundHalfUp((Number(n) || 0) * 100) / 100;
+}
+
+/**
+ * Round HALF AWAY FROM ZERO, the way JobTread and every accounting system does.
+ *
+ * `Math.round` breaks a tie toward +infinity, so a negative half-cent goes the
+ * wrong way: `Math.round(-3929547.5)` is `-3929547`. A -$39,295.475 deposit
+ * line therefore extended to -$39,295.47 here while JobTread held -$39,295.48,
+ * and `invoice-math` reported a one-cent discrepancy that did not exist.
+ */
+function roundHalfUp(v: number): number {
+  return v < 0 ? -Math.round(-v) : Math.round(v);
 }
 
 /**
@@ -636,7 +648,7 @@ export function withinTolerance(a: number, b: number, tolerance: number): boolea
  * Integers cannot do that.
  */
 export function centsGap(a: number, b: number): number {
-  return Math.round((Number(a) || 0) * 100) - Math.round((Number(b) || 0) * 100);
+  return roundHalfUp((Number(a) || 0) * 100) - roundHalfUp((Number(b) || 0) * 100);
 }
 
 /** Dollars, for a finding's text. */

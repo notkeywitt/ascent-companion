@@ -552,6 +552,26 @@ describe("math", () => {
     expect(kinds(f)).toContain("math-line");
   });
 
+  // JobTread rounds a half-cent AWAY FROM ZERO; `Math.round` breaks the tie
+  // toward +infinity. A -1 x 39295.475 deposit line was reported one cent off.
+  it("accepts a negative line whose extension lands on a half-cent", () => {
+    const f = runChecks(
+      month([
+        job({
+          invoices: [
+            invoice({
+              id: "i1", price: -39295.48, priceWithTax: -39295.48,
+              lines: [
+                line({ id: "l1", name: "Deposit -", quantity: -1, unitPrice: 39295.475, price: -39295.48 }),
+              ],
+            }),
+          ],
+        }),
+      ]),
+    );
+    expect(kinds(f)).not.toContain("math-line");
+  });
+
   it("accepts a flat-price line with no quantity", () => {
     const f = runChecks(
       month([
