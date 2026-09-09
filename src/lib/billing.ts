@@ -23,7 +23,10 @@ export function companyDateParts(d: Date): { year: number; month: number; day: n
     day: "2-digit",
   });
   // en-CA formats as YYYY-MM-DD
-  const [y, m, day] = fmt.format(d).split("-").map((s) => parseInt(s, 10));
+  const [y, m, day] = fmt
+    .format(d)
+    .split("-")
+    .map((s) => parseInt(s, 10));
   return { year: y, month: m, day };
 }
 
@@ -38,6 +41,25 @@ export interface BillingPeriod {
   billingYear: number;
 }
 
+/** The cutoff day: a non-Sunset bill arriving on or before it bills to the
+ *  previous month. Only the AUTOMATIC rule uses it — a set billing month
+ *  (`overrideYm`) replaces the cutoff entirely. */
+export const BILLING_CUTOFF_DAY = 10;
+
+/** "2026-09" as a period, or null when the string isn't a billing month. */
+export function parseBillingYm(ym: string | null | undefined): BillingPeriod | null {
+  const m = /^(\d{4})-(\d{2})$/.exec(String(ym ?? "").trim());
+  if (!m) return null;
+  const month = Number(m[2]);
+  if (month < 1 || month > 12) return null;
+  return { billingMonthNum: month, billingYear: Number(m[1]) };
+}
+
+/** A period as the "2026-09" key every picker and filter matches on. */
+export function ymOf(p: BillingPeriod): string {
+  return `${p.billingYear}-${String(p.billingMonthNum).padStart(2, "0")}`;
+}
+
 /**
  * Billing period from the bill's arrival date (port of deriveBillingPeriod):
  *   - Non-Sunset bills arriving ON OR BEFORE the 10th bill to the PREVIOUS month
@@ -45,12 +67,26 @@ export interface BillingPeriod {
  *     10th-to-10th window the Invoicing tab (/stage) already uses.
  *   - After the 10th → arrival month.
  *   - Sunset bills ALWAYS bill in their arrival month.
+ *
+ * `overrideYm` is the billing month the office SET by hand (the home page's
+ * Billing period dropdown, stored org-wide in `billing_month_setting`). It
+ * replaces the 10th cutoff for every non-Sunset bill, however late in the month
+ * the bill arrives — the office closes the month, not the calendar. Sunset is
+ * untouched by it, exactly as the cutoff never applied to Sunset either.
  */
-export function deriveBillingPeriod(received: Date, isSunset: boolean): BillingPeriod {
+export function deriveBillingPeriod(
+  received: Date,
+  isSunset: boolean,
+  overrideYm?: string | null,
+): BillingPeriod {
+  if (!isSunset) {
+    const set = parseBillingYm(overrideYm);
+    if (set) return set;
+  }
   const p = companyDateParts(received);
   let month = p.month;
   let year = p.year;
-  if (!isSunset && p.day <= 10) {
+  if (!isSunset && p.day <= BILLING_CUTOFF_DAY) {
     month -= 1;
     if (month < 1) {
       month = 12;
@@ -60,35 +96,17 @@ export function deriveBillingPeriod(received: Date, isSunset: boolean): BillingP
   return { billingMonthNum: month, billingYear: year };
 }
 
-/** Where the 10th-to-10th window stands on a given day. */
-export interface BillingWindow {
-  /** The period a non-Sunset bill arriving now codes to. */
-  period: BillingPeriod;
-  /** That period as "2026-08" — the key `monthLabel` and the pickers use. */
-  ym: string;
-  /** Days until the window turns over. 0 means it closes at the end of today. */
-  daysLeft: number;
-}
-
 /**
- * The billing window as a person needs to read it: which month a bill arriving
- * NOW codes to, and how long that stays true.
+ * Is the billing month in force now BEHIND the calendar — i.e. is it time to
+ * switch it? True once the cutoff day has passed and `ym` is still an earlier
+ * month. The home masthead paints the month red on this.
  *
- * The month comes straight from `deriveBillingPeriod` — the one rule — so this
- * cannot disagree with what the bill writers do. Only the countdown is new, and
- * it follows from the same boundary: the 10th is the last day that codes to the
- * previous month, so on the 10th itself `daysLeft` is 0.
+ * `<` and not `!==`: a month set AHEAD of the calendar is a deliberate choice,
+ * not a thing to nag about.
  */
-export function billingWindow(now: Date): BillingWindow {
+export function billingMonthStale(now: Date, ym: string): boolean {
   const p = companyDateParts(now);
-  const period = deriveBillingPeriod(now, false);
-  const daysLeft =
-    p.day <= 10 ? 10 - p.day : lastDayOfMonth(p.year, p.month) - p.day + 10;
-  return {
-    period,
-    ym: `${period.billingYear}-${String(period.billingMonthNum).padStart(2, "0")}`,
-    daysLeft,
-  };
+  return p.day > BILLING_CUTOFF_DAY && ym < `${p.year}-${String(p.month).padStart(2, "0")}`;
 }
 
 export interface BillDates {
@@ -113,10 +131,20 @@ export function computeBillDates(
   received: Date,
   isSunset: boolean,
   extractedDueDate?: string,
+  overrideYm?: string | null,
 ): BillDates {
   const warnings: string[] = [];
-  const billing = deriveBillingPeriod(received, isSunset);
+  const billing = deriveBillingPeriod(received, isSunset, overrideYm);
   const p = companyDateParts(received);
+  // Say so when the set month, not the cutoff, decided where this bill filed —
+  // a month left set after it should have moved is the failure mode.
+  const auto = deriveBillingPeriod(received, isSunset);
+  if (ymOf(billing) !== ymOf(auto)) {
+    warnings.push(
+      `Filed in ${ymOf(billing)} — the billing month set on the home page, not ${ymOf(auto)} ` +
+        `(what the 10th cutoff would give).`,
+    );
+  }
 
   let issueDate: string;
   let dueDate: string | null = null;

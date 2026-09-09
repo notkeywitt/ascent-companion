@@ -1329,3 +1329,23 @@ export const financialEvents = sqliteTable(
 
 export type FinancialEventRow = typeof financialEvents.$inferSelect;
 export type NewFinancialEventRow = typeof financialEvents.$inferInsert;
+
+/**
+ * The billing month the office is filing bills into — ONE row, org-wide.
+ *
+ * No row means the automatic rule (the 10th cutoff in src/lib/billing.ts), so
+ * this table only ever holds a deliberate override. It is org-wide and not
+ * per-device on purpose: it decides where a bill FILES, so two people uploading
+ * bills the same afternoon must land in the same month.
+ */
+export const billingMonthSetting = sqliteTable("billing_month_setting", {
+  id: text("id").primaryKey(), // always BILLING_MONTH_SETTING_ID — one row, ever
+  ym: text("ym").notNull(), // "2026-09"
+  updatedAt: text("updated_at").notNull().default(""),
+  updatedBy: text("updated_by").notNull().default(""),
+});
+
+/** The only primary key `billing_month_setting` ever uses. */
+export const BILLING_MONTH_SETTING_ID = "default";
+
+export type BillingMonthSettingRow = typeof billingMonthSetting.$inferSelect;

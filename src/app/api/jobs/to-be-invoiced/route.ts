@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import { getCachedMonthlyInvoiceJobs, getCachedMonthlyInvoiceTime } from "@/lib/jobsCache";
 import { hasGrant } from "@/lib/config";
-import { deriveBillingPeriod } from "@/lib/billing";
+import { currentBillingPeriod } from "@/lib/billingMonth";
 
 // The scan pages every vendor bill AND every time entry the org logged in the
 // month; give it the same headroom the other org-wide JobTread scans get.
@@ -17,10 +17,11 @@ export const maxDuration = 60;
  * labor along with the vendor bills. Bills alone read low on every job the crew
  * worked, which is what this endpoint used to return.
  *
- * The month is the CURRENT billing month, derived through the one billing-period
- * rule (`deriveBillingPeriod`): through the 10th we're still closing out the
- * previous month. That is the same window Tracking Sheets opens on, so the
- * picker's figures and that page's cards read the same month.
+ * The month is the CURRENT billing month (`currentBillingPeriod`): the month
+ * set on the home page when there is one, else the 10th cutoff — through the
+ * 10th we're still closing out the previous month. That is the same window
+ * Tracking Sheets opens on, so the picker's figures and that page's cards read
+ * the same month.
  *
  * The two walks are independent and reported as such: if the time walk fails,
  * `includesTime` comes back false and the totals are still the bills, rather
@@ -31,7 +32,7 @@ export async function GET() {
   if (!hasGrant()) {
     return NextResponse.json({ error: "JT_GRANT_KEY is not set." }, { status: 400 });
   }
-  const { billingYear, billingMonthNum } = deriveBillingPeriod(new Date(), false);
+  const { billingYear, billingMonthNum } = await currentBillingPeriod();
   const [billsRes, timeRes] = await Promise.allSettled([
     getCachedMonthlyInvoiceJobs(billingYear, billingMonthNum),
     getCachedMonthlyInvoiceTime(billingYear, billingMonthNum),

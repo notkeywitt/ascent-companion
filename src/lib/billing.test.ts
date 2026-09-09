@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import vectorFile from "./billing-vectors.json";
 import {
   billSide,
-  billingWindow,
+  billingMonthStale,
   compareBillSides,
   companyDateParts,
   computeBillDates,
@@ -174,33 +174,63 @@ describe("taxReconcileWarning", () => {
   });
 });
 
-describe("billingWindow — how the 10th-to-10th window reads today", () => {
+describe("a billing month set by hand overrides the 10th cutoff", () => {
   // Noon Pacific on each day, so the company timezone conversion is unambiguous.
   const noonPacific = (iso: string) => new Date(`${iso}T19:00:00Z`);
 
-  it("counts the days left before the window turns over", () => {
-    const w = billingWindow(noonPacific("2026-09-09"));
-    expect(w.ym).toBe("2026-08");
-    expect(w.daysLeft).toBe(1);
+  it("files a non-Sunset bill in the set month, however late in the month", () => {
+    // The 25th: the cutoff would say September. The office is still on August.
+    const got = deriveBillingPeriod(noonPacific("2026-09-25"), false, "2026-08");
+    expect(got).toEqual({ billingMonthNum: 8, billingYear: 2026 });
   });
 
-  it("closes at the end of the 10th, not the start of it", () => {
-    const w = billingWindow(noonPacific("2026-09-10"));
-    expect(w.ym).toBe("2026-08");
-    expect(w.daysLeft).toBe(0);
+  it("leaves Sunset on its arrival month", () => {
+    const got = deriveBillingPeriod(noonPacific("2026-09-25"), true, "2026-08");
+    expect(got).toEqual({ billingMonthNum: 9, billingYear: 2026 });
   });
 
-  it("rolls to the arrival month on the 11th, counting to the next 10th", () => {
-    const w = billingWindow(noonPacific("2026-09-11"));
-    expect(w.ym).toBe("2026-09");
-    // 19 days left in September, plus the first 10 of October.
-    expect(w.daysLeft).toBe(29);
+  it("falls back to the cutoff when nothing is set or the value is junk", () => {
+    const d = noonPacific("2026-09-05");
+    const cutoff = { billingMonthNum: 8, billingYear: 2026 };
+    expect(deriveBillingPeriod(d, false)).toEqual(cutoff);
+    expect(deriveBillingPeriod(d, false, "")).toEqual(cutoff);
+    expect(deriveBillingPeriod(d, false, "2026-13")).toEqual(cutoff);
+    expect(deriveBillingPeriod(d, false, "August")).toEqual(cutoff);
   });
 
-  it("crosses the year boundary with the period it derives", () => {
-    const w = billingWindow(noonPacific("2026-01-05"));
-    expect(w.ym).toBe("2025-12");
-    expect(w.daysLeft).toBe(5);
+  it("carries the set month into the bill's issue date", () => {
+    const dates = computeBillDates(noonPacific("2026-09-25"), false, undefined, "2026-08");
+    expect(dates.issueDate).toBe("2026-08-31");
+    expect(dates.warnings.some((w) => w.includes("2026-08"))).toBe(true);
+  });
+
+  it("says nothing when the set month agrees with the cutoff", () => {
+    const dates = computeBillDates(noonPacific("2026-09-05"), false, undefined, "2026-08");
+    expect(dates.warnings).toEqual([]);
+  });
+});
+
+describe("billingMonthStale — when the month goes red", () => {
+  const noonPacific = (iso: string) => new Date(`${iso}T19:00:00Z`);
+
+  it("stays quiet up to and including the 10th", () => {
+    expect(billingMonthStale(noonPacific("2026-09-10"), "2026-08")).toBe(false);
+  });
+
+  it("goes red on the 11th while the month is still behind", () => {
+    expect(billingMonthStale(noonPacific("2026-09-11"), "2026-08")).toBe(true);
+  });
+
+  it("clears once the month is switched", () => {
+    expect(billingMonthStale(noonPacific("2026-09-11"), "2026-09")).toBe(false);
+  });
+
+  it("does not nag about a month set ahead", () => {
+    expect(billingMonthStale(noonPacific("2026-09-11"), "2026-10")).toBe(false);
+  });
+
+  it("compares across a year boundary", () => {
+    expect(billingMonthStale(noonPacific("2026-01-15"), "2025-12")).toBe(true);
   });
 });
 

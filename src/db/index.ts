@@ -958,6 +958,14 @@ async function applySchema() {
   // forever. Append-only: nothing in src/lib/financialJournal.ts updates or
   // deletes a row, and no sweep trims this table. See db/schema.ts for why.
   await getClient().execute(`
+    CREATE TABLE IF NOT EXISTS billing_month_setting (
+      id TEXT PRIMARY KEY,
+      ym TEXT NOT NULL,
+      updated_at TEXT NOT NULL DEFAULT '',
+      updated_by TEXT NOT NULL DEFAULT ''
+    )
+  `);
+  await getClient().execute(`
     CREATE TABLE IF NOT EXISTS financial_events (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       at TEXT NOT NULL,

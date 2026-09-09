@@ -4,8 +4,8 @@ import { useEffect, useState } from "react";
 import { Chip, MetaLine, SectionLabel } from "@/components/ui";
 import { PeakMark } from "@/components/PageTitle";
 import { useAccess } from "@/components/AccessProvider";
-import { COMPANY_TZ, billingWindow } from "@/lib/billing";
-import { monthLabel } from "@/lib/billingMonths";
+import { COMPANY_TZ, billingMonthStale } from "@/lib/billing";
+import { billingMonths, monthLabel } from "@/lib/billingMonths";
 
 /**
  * The head of the iPad home console — a dateline, and where the billing month
@@ -19,14 +19,18 @@ import { monthLabel } from "@/lib/billingMonths";
  * phone gives up — a real page heading for a screen reader, and a place to
  * stand the ONE fact this office checks before it opens anything.
  *
- * THAT FACT IS THE BILLING WINDOW. Bills code 10th-to-10th: one arriving today
- * lands in August until the 10th passes, then in September. Getting that wrong
- * is the recurring bug this business has (see src/lib/billing.ts), and the two
- * days either side of the 10th are when it happens. So the month is stated
- * plainly all month, and the countdown appears only inside the last five days —
- * as a chip in the final 24 hours, which is the one moment it changes what
- * someone does next. Gated on `recode`: a role that never codes a bill has no
- * decision to make here.
+ * THAT FACT IS THE BILLING MONTH, and here it is a CONTROL, not a readout.
+ * Bills used to code 10th-to-10th on their own; now the month picked here is
+ * the month every non-Sunset bill files into, for as long as it is set (see
+ * src/lib/billingMonth.ts — Sunset still bills in its arrival month). Nothing
+ * turns over on its own, so the reminder is the colour: once the 10th has
+ * passed and the month is still behind the calendar, it goes RED and a chip
+ * names the month to switch to.
+ *
+ * Office and admin change it; a lead reads it. It decides where money lands
+ * org-wide, so the write is role-checked at /api/billing-month too — this is
+ * only which control renders. Gated on `recode` overall: a role that never
+ * codes a bill has no decision to make here.
  *
  * The date is read in an effect, not at render. This component is server-
  * rendered too, and a server in UTC would disagree with an iPad in Pacific
@@ -36,14 +40,34 @@ import { monthLabel } from "@/lib/billingMonths";
 export function HomeMasthead() {
   const access = useAccess();
   const [today, setToday] = useState<Date | null>(null);
+  const [ym, setYm] = useState("");
+  /** True until someone picks a month: the 10th cutoff is still deciding. */
+  const [auto, setAuto] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => setToday(new Date()), []);
 
-  // BOTH halves read the COMPANY timezone, not the device's. The billing window
+  const shows = access.can("recode");
+  useEffect(() => {
+    if (!shows) return;
+    let cancelled = false;
+    fetch("/api/billing-month")
+      .then((r) => r.json())
+      .then((j) => {
+        if (cancelled || j?.error) return;
+        setYm(j.ym ?? "");
+        setAuto(!j.override);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [shows]);
+
+  // BOTH halves read the COMPANY timezone, not the device's. The billing month
   // has to (a bill uploaded at 11 PM Pacific on the 10th must not count as the
   // 11th — see billing.ts), and a date beside it that used the device's zone
-  // would disagree with it for part of every day: "Wednesday the 9th, 2 days
-  // left" is nonsense next to a window that closes on the 10th.
+  // would disagree with it for part of every day.
   const dateLine = today
     ? today.toLocaleDateString(undefined, {
         timeZone: COMPANY_TZ,
@@ -53,8 +77,32 @@ export function HomeMasthead() {
       })
     : "";
 
-  const period = today && access.can("recode") ? billingWindow(today) : null;
-  const month = period ? monthLabel(period.ym).replace(/ \d{4}$/, "") : "";
+  /** Past the 10th with the month still behind the calendar — time to switch. */
+  const stale = !!today && !!ym && billingMonthStale(today, ym);
+  const months = billingMonths(15);
+  const canSet = access.role === "admin" || access.role === "office";
+
+  // A reload, not a state update: the to-be-invoiced figures on this page and
+  // in the header's job picker are all keyed to this month, and each fetched
+  // once. Re-reading the page is the honest way to move them together.
+  async function set(next: string) {
+    if (next === ym) return;
+    setSaving(true);
+    const prev = ym;
+    setYm(next);
+    setAuto(false);
+    const r = await fetch("/api/billing-month", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ ym: next }),
+    }).catch(() => null);
+    if (!r || !r.ok) {
+      setYm(prev);
+      setSaving(false);
+      return;
+    }
+    window.location.reload();
+  }
 
   return (
     <header className="mb-6 hidden items-end justify-between gap-6 border-b border-line pb-4 pad:flex">
@@ -70,26 +118,68 @@ export function HomeMasthead() {
         </div>
       </div>
 
-      {period && (
+      {shows && (
         <div className="shrink-0 text-right">
           <SectionLabel>Billing period</SectionLabel>
-          <p className="mt-1 text-[21px] font-bold leading-tight tracking-tight">{month}</p>
+          {/* A quiet native select: it reads as the heading it replaced until
+              you touch it, and on a tablet it opens the OS month wheel. */}
+          {canSet ? (
+            <div className="mt-1 flex min-h-[26px] items-center justify-end gap-1.5">
+              {/* The caret sits LEFT of the month so the month's last character
+                  still lines up with the label above it and the chip below —
+                  a native select's own chevron would inset the text instead. */}
+              <span aria-hidden className="text-[10px] text-neutral-400 dark:text-neutral-500">
+                ▾
+              </span>
+              <select
+                value={ym}
+                disabled={saving || !ym}
+                onChange={(e) => set(e.target.value)}
+                aria-label="Billing month — every non-Sunset bill files into this month"
+                className={`cursor-pointer appearance-none rounded bg-transparent p-0 text-right text-[21px] font-bold leading-tight tracking-tight focus:outline-none focus:ring-2 focus:ring-accent/25 disabled:cursor-default ${
+                  stale ? "text-red-600 dark:text-red-400" : ""
+                }`}
+              >
+                {/* The month in force first, so a set month that has scrolled off
+                  the 15-month list still shows what it is. */}
+                {ym && !months.some((m) => m.value === ym) && (
+                  <option value={ym}>{monthLabel(ym)}</option>
+                )}
+                {months.map((m) => (
+                  <option key={m.value} value={m.value}>
+                    {m.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : (
+            <p
+              className={`mt-1 min-h-[26px] text-[21px] font-bold leading-tight tracking-tight ${
+                stale ? "text-red-600 dark:text-red-400" : ""
+              }`}
+            >
+              {ym ? monthLabel(ym) : ""}
+            </p>
+          )}
           <div className="mt-1 flex items-center justify-end gap-2">
-            {period.daysLeft <= 1 ? (
-              <Chip tone="warning">
-                {period.daysLeft === 0 ? "Closes today" : "1 day left"}
+            {stale ? (
+              <Chip tone="danger">
+                Switch to {monthLabel(nextMonth(ym)).replace(/ \d{4}$/, "")}
               </Chip>
             ) : (
-              <MetaLine
-                items={[
-                  "Bills arriving today",
-                  period.daysLeft <= 5 ? `${period.daysLeft} days left` : null,
-                ]}
-              />
+              // "Automatic" is the state before anyone picks a month: the 10th
+              // still rolls it over on its own. Picking one ends that for good.
+              <MetaLine items={[auto ? "Automatic — rolls on the 10th" : "Bills arriving today"]} />
             )}
           </div>
         </div>
       )}
     </header>
   );
+}
+
+/** "2026-09" → "2026-10". The month the stale chip points at. */
+function nextMonth(ym: string): string {
+  const [y, m] = ym.split("-").map(Number);
+  return m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, "0")}`;
 }

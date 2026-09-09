@@ -25,6 +25,7 @@ import {
   salesTaxAmount,
   taxReconcileWarning,
 } from "@/lib/billing";
+import { readBillingMonthOverride } from "@/lib/billingMonth";
 import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
 import { openJournal } from "@/lib/financialJournal";
 import { kickJtSync } from "@/lib/appsScript";
@@ -251,7 +252,14 @@ export async function POST(req: NextRequest) {
     const isSunset =
       (sunsetId !== "" && vendor.id === sunsetId) || /sunset builders/i.test(vendor.name);
     const arrival = new Date();
-    const dates = computeBillDates(arrival, isSunset, extracted.DueDate);
+    // The billing month set on the home page overrides the 10th cutoff for
+    // everything but Sunset (src/lib/billingMonth.ts).
+    const dates = computeBillDates(
+      arrival,
+      isSunset,
+      extracted.DueDate,
+      await readBillingMonthOverride(),
+    );
     warnings.push(...dates.warnings);
 
     // Vendor Bill Number (JobTread's externalId, shown as the bill's number and

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { timingSafeEqual } from "node:crypto";
 
 import { auth, envAllowed } from "@/auth";
-import { deriveBillingPeriod } from "@/lib/billing";
+import { currentBillingPeriod } from "@/lib/billingMonth";
 import { getPaveConfig, hasGrant } from "@/lib/config";
 import { parseYm } from "@/lib/invoiceReview/evidence";
 import { runInvoiceReview } from "@/lib/invoiceReview/run";
@@ -99,7 +99,7 @@ async function handle(req: NextRequest) {
   // Default to the billing month currently being accumulated — the one the
   // office is working — rather than the calendar month.
   const asked = req.nextUrl.searchParams.get("ym")?.trim();
-  const period = deriveBillingPeriod(new Date(), false);
+  const period = await currentBillingPeriod();
   const parsed = asked
     ? parseYm(asked)
     : { year: period.billingYear, month: period.billingMonthNum };

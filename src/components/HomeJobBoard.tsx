@@ -14,6 +14,7 @@ import {
 import { Donut, type DonutSlice } from "@/components/Donut";
 import { JobGantt } from "@/components/JobGantt";
 import { jtBudgetUrl } from "@/lib/jtLinks";
+import { monthLabel } from "@/lib/billingMonths";
 import { useAccess } from "@/components/AccessProvider";
 import {
   dateRange,
@@ -52,6 +53,43 @@ import {
  */
 
 const money0 = (n: number) => `$${Math.round(n).toLocaleString("en-US")}`;
+
+/* ------------------------------------------------------- to be invoiced */
+
+/**
+ * What each job still has to invoice in the CURRENT billing month — the same
+ * /api/jobs/to-be-invoiced the header's job picker prints beside each job, and
+ * the same month the home masthead's dropdown sets. Fetched ONCE for the whole
+ * board: the route scans every vendor bill and time entry the org logged in the
+ * month, so a fetch per card is not a thing to do.
+ *
+ * A failure leaves the amounts off and the board otherwise intact — the same
+ * trade the picker makes.
+ */
+interface ToInvoice {
+  ym: string;
+  totals: Record<string, number>;
+  includesTime: boolean;
+}
+
+function useToInvoice(enabled: boolean) {
+  const [data, setData] = useState<ToInvoice | null>(null);
+  useEffect(() => {
+    if (!enabled) return;
+    let cancelled = false;
+    fetch("/api/jobs/to-be-invoiced")
+      .then((r) => r.json())
+      .then((j) => {
+        if (!cancelled && !j?.error)
+          setData({ ym: j.ym ?? "", totals: j.totals ?? {}, includesTime: !!j.includesTime });
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [enabled]);
+  return data;
+}
 
 /* ------------------------------------------------------------ cost detail */
 
@@ -288,10 +326,12 @@ function DetailBody({ jobId, state }: { jobId: string; state: DetailState | unde
  */
 function BoardCard({
   c,
+  toInvoice,
   expanded,
   onToggle,
 }: {
   c: JobBoardCard;
+  toInvoice: number;
   expanded: boolean;
   onToggle: () => void;
 }) {
@@ -308,11 +348,25 @@ function BoardCard({
         href={`/trackingsheet?jobId=${encodeURIComponent(c.id)}`}
         className="flex flex-1 flex-col gap-2 rounded-lg transition hover:opacity-80"
       >
-        <div className="min-w-0">
-          <div className="truncate text-sm font-semibold tracking-tight">{c.name}</div>
-          <div className="truncate text-[11px] text-neutral-500 dark:text-neutral-400">
-            {c.customer || "—"}
+        <div className="flex items-start gap-2">
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-sm font-semibold tracking-tight">{c.name}</div>
+            <div className="truncate text-[11px] text-neutral-500 dark:text-neutral-400">
+              {c.customer || "—"}
+            </div>
           </div>
+          {/* This month's invoice, in the corner. Absent when there is nothing
+              to invoice — a $0 on every quiet job is noise, not a number. */}
+          {toInvoice > 0 && (
+            <div className="shrink-0 text-right">
+              <div className="text-[13px] font-bold tabular-nums text-accent dark:text-accent-soft">
+                {money0(toInvoice)}
+              </div>
+              <div className="text-[9.5px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
+                To invoice
+              </div>
+            </div>
+          )}
         </div>
         <Donut
           slices={budgetSlices(c)}
@@ -404,11 +458,13 @@ function BoardDrilldown({
 /** A lead's own job, across the full width: the same numbers, room to spell out. */
 function LeadPanel({
   c,
+  toInvoice,
   open,
   state,
   onToggle,
 }: {
   c: JobBoardCard;
+  toInvoice: number;
   open: boolean;
   state: DetailState | undefined;
   onToggle: () => void;
@@ -442,7 +498,11 @@ function LeadPanel({
           <Meter budget={c.budget} used={spent} label={c.name} className="mt-1 h-1.5" />
           <MetaLine
             className="mt-1"
-            items={[`${money0(c.bills)} bills`, `${money0(c.labor)} labor`]}
+            items={[
+              `${money0(c.bills)} bills`,
+              `${money0(c.labor)} labor`,
+              toInvoice > 0 ? `${money0(toInvoice)} to invoice` : null,
+            ]}
           />
 
           <div className="mt-3 border-t border-line-soft pt-2">
@@ -464,27 +524,35 @@ function LeadPanel({
 }
 
 /**
- * Every active job's budget as ONE figure — `pad` and up only.
+ * What the month invoices, as ONE figure — `pad` and up only.
  *
  * A phone cannot afford this: it already spends its first screen on the card
  * row, and a second number above it would push the first card off. An iPad has
  * the room, and the number is what the row cannot say — the cards each answer
- * "how is THIS job", and nobody adds five donuts up in their head. It is also
+ * "how is THIS job", and nobody adds five corners up in their head. It is also
  * the one thing on this page readable from across the office, which is where a
  * docked iPad usually is.
+ *
+ * The month is the one the masthead's dropdown sets, and the figure is the sum
+ * of the same per-job amounts printed in each card's corner — uninvoiced bills
+ * plus uninvoiced time. `includesTime` false means the time walk failed and the
+ * total is bills only; it says so rather than reading low in silence.
  *
  * The page's ONE display figure, so nothing else on home may claim a
  * StatementBlock. `rule={false}` because the section heading above it already
  * drew the band's rule, and two in a row read as a stray divider.
  */
-function PortfolioLine({ cards }: { cards: JobBoardCard[] }) {
-  const budget = cards.reduce((n, c) => n + c.budget, 0);
-  const spent = cards.reduce((n, c) => n + spentOf(c), 0);
-  const over = cards.filter((c) => c.budget > 0 && spentOf(c) > c.budget).length;
+function PortfolioLine({ cards, toInvoice }: { cards: JobBoardCard[]; toInvoice: ToInvoice }) {
+  const ids = new Set(cards.map((c) => c.id));
+  // The board's ACTIVE jobs only: the scan also returns jobs off the board
+  // (finished work still being closed out), and a headline over a row of cards
+  // has to add up to the cards.
+  const rows = Object.entries(toInvoice.totals).filter(([id, n]) => ids.has(id) && n > 0);
+  const total = rows.reduce((n, [, v]) => n + v, 0);
   const sub = [
-    `of ${money0(budget)} across ${cards.length} job${cards.length === 1 ? "" : "s"}`,
-    budget > 0 ? `${Math.round((spent / budget) * 100)}% of budget` : null,
-    over > 0 ? `${over} over budget` : null,
+    toInvoice.ym ? monthLabel(toInvoice.ym) : null,
+    `${rows.length} job${rows.length === 1 ? "" : "s"}`,
+    toInvoice.includesTime ? null : "bills only — labor didn't load",
   ]
     .filter(Boolean)
     .join(" \u00b7 ");
@@ -493,8 +561,8 @@ function PortfolioLine({ cards }: { cards: JobBoardCard[] }) {
     <StatementBlock
       rule={false}
       className="mb-1 hidden pad:block"
-      label="Spent against budget"
-      value={money0(spent)}
+      label="To be invoiced"
+      value={money0(total)}
       sub={sub}
     />
   );
@@ -508,6 +576,7 @@ export function HomeJobBoard() {
   /** Which job is drilled into — one at a time, so the page can't grow legs. */
   const [openId, setOpenId] = useState<string | null>(null);
   const detail = useCostDetail(openId);
+  const toInvoice = useToInvoice(access.role !== "field");
 
   useEffect(() => {
     if (access.role === "field") return; // nothing for this role — don't even ask
@@ -553,13 +622,14 @@ export function HomeJobBoard() {
       {lead ? (
         <LeadPanel
           c={cards[0]}
+          toInvoice={toInvoice?.totals[cards[0].id] ?? 0}
           open={openId === cards[0].id}
           state={detail}
           onToggle={() => toggle(cards[0].id)}
         />
       ) : (
         <>
-          <PortfolioLine cards={cards} />
+          {toInvoice && <PortfolioLine cards={cards} toInvoice={toInvoice} />}
           {/* A PHONE scrolls this row sideways, and it bleeds to the screen
               edges so the next card is visibly cut off — the same trick
               ChipScroller uses to say "there is more".
@@ -575,6 +645,7 @@ export function HomeJobBoard() {
               <BoardCard
                 key={c.id}
                 c={c}
+                toInvoice={toInvoice?.totals[c.id] ?? 0}
                 expanded={c.id === openId}
                 onToggle={() => toggle(c.id)}
               />

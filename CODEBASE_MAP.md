@@ -49,7 +49,7 @@ matching row here.
 | **The in-app instructions** (a wrong step, a new "how do I…") | `src/lib/help.ts` — the topics as data, written to ASD-STE100 (its header carries the rules, `help.test.ts` enforces the countable ones). Page: `src/app/help/` |
 | **The Pave gateway** (generic JobTread access + write policy) | `src/app/api/pave/route.ts` + `src/lib/paveGateway.ts` (policy) + `src/lib/paveGatewayClient.ts` (browser) |
 | **Verified JobTread reads/writes** (not the generic gateway) | `src/lib/jobtread.ts` |
-| **Billing period / bill-date rules** | `src/lib/billing.ts` (keep in lockstep with appscript `Config.js`) |
+| **Billing period / bill-date rules** | `src/lib/billing.ts` (keep in lockstep with appscript `Config.js`); the month the office SET, overriding the 10th cutoff — `src/lib/billingMonth.ts`, route `/api/billing-month`, control in `HomeMasthead` |
 | **Bill line money math** (edit/save a bill's lines) | `src/lib/billLineMath.ts` |
 | **Sales tax on a vendor bill** (where it lives, whether it's recoverable) | `src/lib/salesTax.ts` |
 | **Unsynced coding surviving a page you left** | `src/lib/codingDraft.ts` (autosave + reconciled restore) + `src/app/api/coding-draft`; wired into `Board.tsx` (scoped per job-month) and, scoped per BILL, `DraftWorkbench.tsx` + `src/app/bill/[docId]/page.tsx` — the same scope key, so a bill started on a phone is waiting at the desk |
@@ -112,7 +112,8 @@ including edge middleware.
 | `preview.ts` ⟂ | **Role preview** — the cookie name + helpers letting an admin view the app AS each role. The layout reads the cookie (honoring it only for a real admin) and hands that role's live view set to the nav, so the launcher/tabs render as that role sees them. Narrows only, never elevates. |
 | `previewClient.ts` | Browser half of the above: `startPreview`/`stopPreview` set/clear the cookie and reload so the server layout re-reads it. |
 | `auth.ts` ⟂ | Shared-password auth helpers (Web Crypto only; works in edge + node). |
-| `billing.ts` ⟂ | Billing-period + bill-date standard, ported from appscript `Config.js`. Keep in lockstep. |
+| `billing.ts` ⟂ | Billing-period + bill-date standard, ported from appscript `Config.js`. Keep in lockstep. Client-safe (the pure half): the 10th cutoff, `parseBillingYm`/`ymOf`, and `billingMonthStale` — when the set month has fallen behind the calendar and the masthead paints it red. `deriveBillingPeriod` takes an optional set month that REPLACES the cutoff for every non-Sunset bill. |
+| `billingMonth.ts` | The DB half of the billing month — the ONE `billing_month_setting` row, and `currentBillingPeriod()`, which every "current billing month" server read should use. Server-only, which is why the rule stays in `billing.ts`. No row means the automatic cutoff. ⚠️ Only reaches bills the COMPANION files (`/api/add-bill`); the appscript Gmail ingestion still applies the hard 10th. |
 | `arAging.ts` ⟂ | **Accounts receivable ageing** — the buckets behind `/ar-aging`. Pure arithmetic over rows the caller fetched; every money figure is JobTread's own (it derives `balance`/`amountPaid` from QuickBooks) and nothing here recomputes one. The rule worth knowing: an invoice ages from its DUE date where it has one and its ISSUE date where it does not — never whichever is later — and each row carries `basis` so the page can say which it used. An invoice with no usable date counts toward what is OUTSTANDING and never toward what is OVERDUE. |
 | `billLineMath.ts` ⟂ | Money math for editing a vendor bill's lines. Identity now; still de-taxes a pre-2026-09-05 bill. |
 | `salesTax.ts` ⟂ | Sales tax is a bill LINE coded 88 80 00, not the document tax field: the constants, the line matcher, and the job-derived recoverable/consumed split. Mirrors `CONFIG.JOBTREAD.SALES_TAX_*` in appscript `Config.js`. |
@@ -325,7 +326,10 @@ Grouped by domain; each folder is `…/route.ts`.
   Script).
 - **Bills / coding:** `bill/*`, `add-bill`, `add-line`, `delete-line`,
   `combine-lines`, `code`, `coding-queue`, `trackingsheet/*`, `bill-status`,
-  `bill-fields`, `bill-issuedate` (the BILLING MONTH — JobTread's `issueDate`),
+  `bill-fields`, `billing-month` (the org-wide billing month the office SET —
+  GET for anyone signed in, POST for office/admin, journalled; it overrides the
+  10th cutoff for every non-Sunset bill),
+  `bill-issuedate` (the BILLING MONTH — JobTread's `issueDate`),
   `bill-duedate` (JobTread's "Payment Due" — when the VENDOR gets paid; an empty
   date puts the bill back on net-30), `bill-number` (the vendor's own invoice
   number — JobTread's `externalId`), `bill-tax`, `bill-reviewed`, `uncaptured`,
@@ -378,10 +382,11 @@ Grouped by domain; each folder is `…/route.ts`.
   buttons in place of the admin area lists: field and office get 4, lead 6;
   curated in `src/lib/nav.ts` → `TILE_LAUNCHERS`; from the `pad` width up it
   drops "The Rest" and opens that whole menu in place, grouped by `groupByArea`),
-  `HomeMasthead` (the iPad home's head — the date and where the 10th-to-10th
-  billing window stands, from `billingWindow` in `src/lib/billing.ts`; renders
-  at the `pad` width and up ONLY, because a phone spends that band on the
-  launcher),
+  `HomeMasthead` (the iPad home's head — the date, and the BILLING MONTH as a
+  dropdown: office/admin set the month every non-Sunset bill files into, a lead
+  only reads it. It goes RED past the 10th while still behind the calendar
+  (`billingMonthStale`); nothing turns over on its own any more. Renders at the
+  `pad` width and up ONLY, because a phone spends that band on the launcher),
   `PageTitle`, `ThemeToggle` (takes any face as `children` — the header gives it
   the logo), `AppearanceCard` (the home page's Appearance block — picks the
   PALETTE and the theme, both per device, and links admins to the theme editor;
@@ -419,7 +424,10 @@ Grouped by domain; each folder is `…/route.ts`.
   categories under them; no hardcoded tabs),
   `HomeJobBoard` (the board across the top of Home: a budget donut + calendar
   position per active job for office/admin, one wide panel for a lead's own job;
-  the ROLE decides which, server-side in `/api/home/board`), `JobGantt` (one
+  the ROLE decides which, server-side in `/api/home/board`. Each card also
+  carries this billing month's TO BE INVOICED in its top-right corner, and the
+  headline above the row is their sum — one `/api/jobs/to-be-invoiced` fetch for
+  the whole board, in the month the masthead's dropdown sets), `JobGantt` (one
   job's JobTread schedule PHASES as bars on a shared timeline with today marked
   — `isGroup` tasks only, ~15 bars instead of ~110; geometry from `barPct` /
   `axisTicks` in `lib/jobBoard.ts`, data from `/api/home/gantt`).
@@ -431,6 +439,8 @@ Grouped by domain; each folder is `…/route.ts`.
 `labor_rate_catalog`, `labor_rate_groups`, `leads`, `lead_activities`,
 `lead_settings` (ONE row — the org's amber/red quiet thresholds; no row means
 the defaults in `lib/leadBoard.ts`),
+`billing_month_setting` (ONE row — the billing month every non-Sunset bill files
+into; no row means the automatic 10th cutoff),
 `lead_inquiries`, `lead_inquiry_dismissals`, `leave_policies`, `leave_balances`,
 `leave_requests`, `leave_transactions`, `jt_user_links`, `notices`,
 `notice_reads`, `rfis`, `sunset_statements`, `page_copy`, `bill_index`,
