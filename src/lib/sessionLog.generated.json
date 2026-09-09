@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-09T18:48:45Z",
+  "generatedAt": "2026-09-09T19:24:21Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "claude/jobtread-qbo-sales-tax-lfqctd",
       "status": "shipped",
       "started": "2026-09-05T05:30:35Z",
-      "updated": "2026-09-09T18:48:45Z",
+      "updated": "2026-09-09T19:24:21Z",
       "goal": "bill move: background + Drive re-file + real error; buyback picker dialog; approve advances; cost-code names on the bills list",
-      "next": "add-bill dedup was correct (Screaming Arrow 1016 = doc 22PdHU9CtwhE, logged 2026-08-24); watch whether the reader's real error now shows on a failed upload",
+      "next": "test the revised-invoice replace on Screaming Arrow 1016 (doc 22PdHU9CtwhE, draft) with the resent invoice: expect the two-column compare, then Replace",
       "commits": [
         {
           "date": "2026-09-05",
@@ -270,6 +270,13 @@
           "sha": "dc2c047",
           "subject": "companion: say why an add-bill upload failed",
           "files": "src/app/add-bill/page.tsx, src/app/api/add-bill/route.ts, src/lib/claudeExtract.ts"
+        },
+        {
+          "date": "2026-09-09",
+          "time": "12:24",
+          "sha": "9858d46",
+          "subject": "companion: compare a re-sent invoice against the bill on file",
+          "files": "src/app/add-bill/page.tsx, src/app/api/add-bill/route.ts, src/lib/billing.test.ts, src/lib/billing.ts, src/lib/jobtread.ts"
         }
       ]
     },
