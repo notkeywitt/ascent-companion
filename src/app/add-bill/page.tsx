@@ -4,6 +4,7 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { JobPicker } from "@/components/JobPicker";
+import { useUnsavedChanges } from "@/lib/useUnsavedChanges";
 import { Banner, Button, Card, Label, PageHeader, Select, btn } from "@/components/ui";
 
 interface VendorRef {
@@ -139,6 +140,18 @@ function AddBill() {
       .then((j) => setVendors(j.vendors ?? []))
       .catch(() => {});
   }, []);
+
+  // Don't let a tap walk off a running upload. /api/add-bill holds the request
+  // open — it is not detached like /api/employee-time — so leaving costs the
+  // answer at best: the doc id, the warnings, and any question the route came
+  // back with (vendor unmatched, totals mismatch, a revised duplicate) that
+  // creates NOTHING until it gets an answer. A refresh or tab close is worse: it
+  // aborts the connection, which can truncate the write between the bill and its
+  // file, or between the new lines and the old ones on a replace.
+  useUnsavedChanges(
+    busy,
+    "This invoice is still being read. Leaving loses the result, and can leave the bill half-written — leave anyway?",
+  );
 
   // Free the object URL when it's replaced or the page unmounts.
   useEffect(() => {
