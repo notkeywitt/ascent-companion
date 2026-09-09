@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/jobtread-qbo-sales-tax-lfqctd
 status: shipped
 started: 2026-09-05T05:30:35Z
-updated: 2026-09-09T20:45:28Z
+updated: 2026-09-09T20:45:41Z
 goal: bill move: background + Drive re-file + real error; buyback picker dialog; approve advances; cost-code names on the bills list
 next: QBO lock is live: document.qboId != null refuses edits with 409 on 12 bill routes + /api/pave, fails closed on a read error. Watch for a false lock (a bill the office still needs to fix) and for the 409 text surfacing on the bill page's header controls, which are still enabled on a non-draft bill.
 ---
