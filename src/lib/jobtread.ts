@@ -3930,40 +3930,66 @@ async function findShopBuybackBill(
   return null;
 }
 
+/** Every buyback line codes to this CSI on the Shop job — the org cost code
+ *  "99 20 00 Buybacks" the owner added 2026-09-09. */
+export const BUYBACK_CSI = "99 20 00";
+
 /**
- * The Shop job's generic "Uncategorized" catch-all budget leaf. Confirmed live
- * 2026-08-05: JobTread REJECTS createCostItem on an existing vendor bill with
- * no jobCostItemId ("A jobCostItemId is required to create a new cost item for
- * this Vendor Bill", 400) — unlike a brand-new bill's initial lineItems array,
- * which tolerates an uncoded line fine. So a buyback line can't truly land
- * uncoded; it lands on this catch-all instead, and the ORIGINAL code (if any)
- * rides along in the new line's description so the office can re-code it
- * properly from there. getJobBudget deliberately excludes "Uncategorized"
- * leaves from the coding dropdown, so this reads job.costItems directly.
+ * The Shop job's 99 20 00 budget leaf — where every buyback line codes.
+ * Confirmed live 2026-08-05: JobTread REJECTS createCostItem on an existing
+ * vendor bill with no jobCostItemId ("A jobCostItemId is required to create a
+ * new cost item for this Vendor Bill", 400) — unlike a brand-new bill's initial
+ * lineItems array, which tolerates an uncoded line fine. So a buyback line
+ * can't land uncoded; it codes to 99 20 00, and the ORIGINAL code (if any)
+ * rides along in the new line's description.
+ *
+ * REFRESH-ON-MISS then CREATE-ON-MISS, like getSalesTaxLeafId: a miss re-reads
+ * the budget live, and a genuine miss adds the $0 leaf. Buybacks used to land
+ * on an "Uncategorized" catch-all, which was one of JobTread's own auto
+ * rollups — it vanished when the Shop budget was rebuilt (2026-09-09) and every
+ * buyback started failing. A real leaf carrying the cost code stays put.
  */
-async function resolveShopCatchAllLeaf(cfg: PaveConfig, shopJobId: string): Promise<string> {
-  return cachedRef(`shopcatchall:${cfg.orgId}:${shopJobId}`, 5 * 60_000, async () => {
-    let cursor: string | null = null;
-    for (let page = 0; page < 50; page++) {
-      const args: Record<string, unknown> = { size: 100 };
-      if (cursor) args.page = cursor;
-      const r = await pave(cfg, {
-        job: {
-          $: { id: shopJobId },
-          costItems: { $: args, nextPage: {}, nodes: { id: {}, name: {}, document: { id: {} } } },
-        },
-      });
-      const co = r?.job?.costItems ?? {};
-      const nodes: any[] = co.nodes ?? [];
-      const hit = nodes.find(
-        (n) => !n.document?.id && /^uncategorized\b/i.test(String(n.name ?? "").trim()),
-      );
-      if (hit) return hit.id as string;
-      cursor = co.nextPage ?? null;
-      if (!cursor) break;
+async function resolveShopBuybackLeaf(cfg: PaveConfig, shopJobId: string): Promise<string> {
+  return cachedRef(`shopbuyback:${cfg.orgId}:${shopJobId}`, 5 * 60_000, async () => {
+    const find = (items: BudgetItem[]) => items.find((b) => b.number === BUYBACK_CSI)?.id;
+    const hit =
+      find(await getJobBudget(cfg, shopJobId)) ??
+      find(await _getJobBudgetUncached(cfg, shopJobId));
+    if (hit) return hit;
+
+    const costCodeId = await resolveCostCodeId(cfg, BUYBACK_CSI);
+    if (!costCodeId) {
+      throw new Error(`No "${BUYBACK_CSI}" cost code in JobTread — add it, then retry the buyback.`);
     }
-    throw new Error('No "Uncategorized" budget leaf found on the Shop job.');
+    const created = await pave(cfg, {
+      createCostItem: {
+        $: {
+          jobId: shopJobId,
+          costCodeId,
+          name: "Buybacks",
+          quantity: 0,
+          unitCost: 0,
+          isTaxable: false,
+        },
+        createdCostItem: { id: {} },
+      },
+    });
+    const id = created?.createCostItem?.createdCostItem?.id;
+    if (!id) throw new Error(`Could not add the ${BUYBACK_CSI} budget leaf to the Shop job.`);
+    clearJobCostCaches(); // the Shop budget just gained a leaf
+    return id as string;
   });
+}
+
+/** The org cost code with this CSI number, or undefined. */
+async function resolveCostCodeId(cfg: PaveConfig, number: string): Promise<string | undefined> {
+  const r = await pave(cfg, {
+    organization: {
+      $: { id: cfg.orgId },
+      costCodes: { $: { size: 1, where: { and: [["number", number]] } }, nodes: { id: {} } },
+    },
+  });
+  return r?.organization?.costCodes?.nodes?.[0]?.id ?? undefined;
 }
 
 /**
@@ -3977,10 +4003,10 @@ async function resolveShopCatchAllLeaf(cfg: PaveConfig, shopJobId: string): Prom
  * to track "the shop bill I already created" — a second click just finds it
  * again.
  *
- * The new line lands on Shop's generic "Uncategorized" leaf (see
- * resolveShopCatchAllLeaf — JobTread requires SOME jobCostItemId here, and a
- * client job's coding can't carry over anyway since it's a different job's
- * budget tree); `description` carries the original code's label for reference.
+ * The new line codes to 99 20 00 "Buybacks" on the Shop budget (see
+ * resolveShopBuybackLeaf — the client job's coding can't carry over anyway,
+ * it's a different job's budget tree); `description` carries the original
+ * code's label for reference.
  * Tax stays behind on the source bill's nonRecoverableTax (untouched, same as
  * deleteLine); the shop bill itself is created tax-free.
  *
@@ -4008,9 +4034,9 @@ export async function buybackLine(
   if (!accountId) throw new Error("Source bill has no vendor account — can't create a Shop copy.");
 
   const buybackExternalId = `BUYBACK-${args.sourceDocId}`.substring(0, 32);
-  const [shopDocIdFound, catchAllLeafId] = await Promise.all([
+  const [shopDocIdFound, buybackLeafId] = await Promise.all([
     findShopBuybackBill(cfg, shopJobId, buybackExternalId),
-    resolveShopCatchAllLeaf(cfg, shopJobId),
+    resolveShopBuybackLeaf(cfg, shopJobId),
   ]);
   let shopDocId = shopDocIdFound;
   let created = false;
@@ -4040,8 +4066,9 @@ export async function buybackLine(
     name: args.name,
     quantity: 1,
     unitCost: args.unitCost,
-    jobCostItemId: catchAllLeafId,
+    jobCostItemId: buybackLeafId,
     description: args.description,
+    costCode: BUYBACK_CSI, // Cost Codes custom field, same as every coded line
   });
   await deleteLine(cfg, args.costItemId);
 
