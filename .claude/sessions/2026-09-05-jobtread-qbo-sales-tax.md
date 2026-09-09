@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/jobtread-qbo-sales-tax-lfqctd
 status: shipped
 started: 2026-09-05T05:30:35Z
-updated: 2026-09-09T21:00:03Z
+updated: 2026-09-09T21:03:37Z
 goal: bill move: background + Drive re-file + real error; buyback picker dialog; approve advances; cost-code names on the bills list
 next: push 9cf75ab (half-cent rounding fix) to main, then re-run /api/invoice-review?ym=2026-08 to confirm Otis Perkins is clean
 ---
@@ -95,6 +95,8 @@ next: push 9cf75ab (half-cent rounding fix) to main, then re-run /api/invoice-re
   src/app/api/add-line/route.ts, src/app/api/bill-duedate/route.ts, src/app/api/bill-fields/route.ts, src/app/api/bill-issuedate/route.ts, src/app/api/bill-number/route.ts, src/app/api/bill-status/route.ts, +12 more
 - 2026-09-09 13:47 · `9cf75ab` companion: round a half-cent the way JobTread does
   src/lib/invoiceReview/checks.test.ts, src/lib/invoiceReview/checks/invoiceMath.ts, src/lib/invoiceReview/types.ts
+- 2026-09-09 14:03 · `b8d99f9` companion: lift the tracking sheet's closing actions to the top on desktop
+  src/app/trackingsheet/Board.tsx
 
 ## Notes
 - 2026-09-05 05:30 — Companion half of the sales-tax move. src/lib/salesTax.ts is the single definition: the 88 80 00 constants, the line matcher, splitSalesTax, and the job-Phase-derived recoverable/consumed flag. createVendorBill appends the tax line and pins nonRecoverableTax to 0; setBillTax now creates/updates/deletes that LINE and clears any legacy field.
