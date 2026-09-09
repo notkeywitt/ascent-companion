@@ -1,165 +1,16 @@
 {
-  "generatedAt": "2026-09-09T15:44:57Z",
+  "generatedAt": "2026-09-09T18:48:45Z",
   "repo": "ascent-companion",
   "sessions": [
-    {
-      "slug": "bill-due-date-selector",
-      "file": "2026-09-09-bill-due-date-selector.md",
-      "branch": "claude/bill-due-date-selector-n4gzoy",
-      "status": "shipped",
-      "started": "2026-09-09T15:43:28Z",
-      "updated": "2026-09-09T15:44:57Z",
-      "goal": "",
-      "next": "verify the due date field on a real bill: pick a date, confirm it lands as Payment Due in JobTread and survives a reload",
-      "commits": [
-        {
-          "date": "2026-09-09",
-          "time": "15:43",
-          "sha": "24c2057",
-          "subject": "companion: add a payment due date selector to the bill coding card",
-          "files": "CODEBASE_MAP.md, src/app/api/bill-duedate/route.ts, src/app/bill/[docId]/page.tsx, src/app/trackingsheet/BillCodingCard.tsx, src/app/trackingsheet/Board.tsx, src/app/trackingsheet/DraftWorkbench.tsx, +1 more"
-        },
-        {
-          "date": "2026-09-09",
-          "time": "15:44",
-          "sha": "b137774",
-          "subject": "companion: log the due-date session",
-          "files": "SESSIONS.md, src/lib/sessionLog.generated.json"
-        }
-      ]
-    },
-    {
-      "slug": "ipad-vertical-admin-home",
-      "file": "2026-09-09-ipad-vertical-admin-home.md",
-      "branch": "claude/ipad-vertical-admin-home-onkrkj",
-      "status": "shipped",
-      "started": "2026-09-09T06:11:27Z",
-      "updated": "2026-09-09T06:12:12Z",
-      "goal": "A vertical iPad layout for the admin and office home screen.",
-      "next": "Watch the office iPad home in use: the three quick tiles are pad:h-36 with the whole /more menu open under them, and the guess is that 144px is still taller than a button needs to be.",
-      "commits": [
-        {
-          "date": "2026-09-09",
-          "time": "06:11",
-          "sha": "d7c70d3",
-          "subject": "companion: build the ipad home screen for admin and office",
-          "files": "CODEBASE_MAP.md, src/app/globals.css, src/app/page.tsx, src/components/AdminActionBar.tsx, src/components/HomeJobBoard.tsx, src/components/HomeLeadBoard.tsx, +7 more"
-        }
-      ]
-    },
-    {
-      "slug": "gemini-claude-transition-status",
-      "file": "2026-09-09-gemini-claude-transition-status.md",
-      "branch": "claude/gemini-claude-transition-status-cib68c",
-      "status": "in-progress",
-      "started": "2026-09-09T02:06:37Z",
-      "updated": "2026-09-09T02:07:50Z",
-      "goal": "finish the Gemini->Claude transition: no Gemini call left in either repo",
-      "next": "owner: delete GEMINI_KEY + GEMINI_MODEL from Vercel; decide whether ANTHROPIC_MODEL_EXTRACT should be Haiku (matches appscript) instead of the Sonnet 5 default; /add-bill and /api/ocr-serial not yet exercised against a real invoice/photo",
-      "commits": [
-        {
-          "date": "2026-09-09",
-          "time": "02:06",
-          "sha": "25b6248",
-          "subject": "companion: finish the gemini to claude transition",
-          "files": ".env.example, CLAUDE.md, CODEBASE_MAP.md, DEPLOY.md, README.md, USER_MANUAL.md, +25 more"
-        }
-      ]
-    },
-    {
-      "slug": "lead-email-capture-tagging",
-      "file": "2026-09-08-lead-email-capture-tagging.md",
-      "branch": "claude/lead-email-capture-tagging-63onc0",
-      "status": "shipped",
-      "started": "2026-09-08T20:14:08Z",
-      "updated": "2026-09-08T20:21:07Z",
-      "goal": "",
-      "next": "deploy the appscript side (./deploy.sh) so markFormSubmissionsCaptured is live, then open /leads and confirm the _Lead Captured label lands on a website submission",
-      "commits": [
-        {
-          "date": "2026-09-08",
-          "time": "20:14",
-          "sha": "9517920",
-          "subject": "companion: tag captured lead emails in gmail",
-          "files": "src/app/api/leads/ingest/route.ts, src/app/api/leads/inquiries/route.ts, src/app/leads/page.tsx"
-        },
-        {
-          "date": "2026-09-08",
-          "time": "20:14",
-          "sha": "2c115b8",
-          "subject": "companion: set session next step",
-          "files": ""
-        },
-        {
-          "date": "2026-09-08",
-          "time": "20:15",
-          "sha": "b6b661f",
-          "subject": "companion: log session lead-email-capture-tagging",
-          "files": ""
-        }
-      ]
-    },
-    {
-      "slug": "time-entry-notes-persist",
-      "file": "2026-09-08-time-entry-notes-persist.md",
-      "branch": "claude/time-entry-notes-persist-2qo1fx",
-      "status": "shipped",
-      "started": "2026-09-08T20:17:42Z",
-      "updated": "2026-09-08T20:18:32Z",
-      "goal": "",
-      "next": "verify the note survives a reload on a phone while clocked in",
-      "commits": [
-        {
-          "date": "2026-09-08",
-          "time": "20:17",
-          "sha": "278b28f",
-          "subject": "companion: keep the time entry note across visits",
-          "files": "src/app/employee-time/EmployeeTimeClient.tsx"
-        }
-      ]
-    },
-    {
-      "slug": "trip-recording-persistence",
-      "file": "2026-09-08-trip-recording-persistence.md",
-      "branch": "claude/trip-recording-persistence-evilps",
-      "status": "in-progress",
-      "started": "2026-09-08T19:53:11Z",
-      "updated": "2026-09-08T19:54:05Z",
-      "goal": "",
-      "next": "verify on the phone: start a trip, force-quit the app, reopen — the trip should still be running; then confirm mileage_open_trips is created on the hosted DB",
-      "commits": [
-        {
-          "date": "2026-09-08",
-          "time": "19:53",
-          "sha": "0ca64a1",
-          "subject": "companion: keep a started mileage trip on the server, not just the phone",
-          "files": "CODEBASE_MAP.md, src/app/api/mileage/active/route.ts, src/app/mileage-tracker/page.tsx, src/db/index.ts, src/db/schema.ts, src/lib/mileageTrip.test.ts, +1 more"
-        },
-        {
-          "date": "2026-09-08",
-          "time": "19:53",
-          "sha": "e802a6a",
-          "subject": "companion: log session 2026-09-08-trip-recording-persistence",
-          "files": ""
-        },
-        {
-          "date": "2026-09-08",
-          "time": "19:54",
-          "sha": "b874b09",
-          "subject": "companion: log the ledger commit's own row",
-          "files": ""
-        }
-      ]
-    },
     {
       "slug": "jobtread-qbo-sales-tax",
       "file": "2026-09-05-jobtread-qbo-sales-tax.md",
       "branch": "claude/jobtread-qbo-sales-tax-lfqctd",
       "status": "shipped",
       "started": "2026-09-05T05:30:35Z",
-      "updated": "2026-09-08T19:24:41Z",
+      "updated": "2026-09-09T18:48:45Z",
       "goal": "bill move: background + Drive re-file + real error; buyback picker dialog; approve advances; cost-code names on the bills list",
-      "next": "owner review + push: /api/time-entry now writes the pay type (a live money field), so it needs the ok before shipping",
+      "next": "add-bill dedup was correct (Screaming Arrow 1016 = doc 22PdHU9CtwhE, logged 2026-08-24); watch whether the reader's real error now shows on a failed upload",
       "commits": [
         {
           "date": "2026-09-05",
@@ -412,6 +263,162 @@
           "sha": "70ea62c",
           "subject": "companion: link time entries to jobtread and edit their labor rate",
           "files": "scripts/probe-time-entry-type.mjs, src/app/api/time-entry/route.ts, src/app/trackingsheet/TimeCodingCard.tsx, src/components/TimeEntryList.tsx, src/lib/jobtread.ts, src/lib/jtLinks.test.ts, +1 more"
+        },
+        {
+          "date": "2026-09-09",
+          "time": "11:09",
+          "sha": "dc2c047",
+          "subject": "companion: say why an add-bill upload failed",
+          "files": "src/app/add-bill/page.tsx, src/app/api/add-bill/route.ts, src/lib/claudeExtract.ts"
+        }
+      ]
+    },
+    {
+      "slug": "bill-due-date-selector",
+      "file": "2026-09-09-bill-due-date-selector.md",
+      "branch": "claude/bill-due-date-selector-n4gzoy",
+      "status": "shipped",
+      "started": "2026-09-09T15:43:28Z",
+      "updated": "2026-09-09T15:44:57Z",
+      "goal": "",
+      "next": "verify the due date field on a real bill: pick a date, confirm it lands as Payment Due in JobTread and survives a reload",
+      "commits": [
+        {
+          "date": "2026-09-09",
+          "time": "15:43",
+          "sha": "24c2057",
+          "subject": "companion: add a payment due date selector to the bill coding card",
+          "files": "CODEBASE_MAP.md, src/app/api/bill-duedate/route.ts, src/app/bill/[docId]/page.tsx, src/app/trackingsheet/BillCodingCard.tsx, src/app/trackingsheet/Board.tsx, src/app/trackingsheet/DraftWorkbench.tsx, +1 more"
+        },
+        {
+          "date": "2026-09-09",
+          "time": "15:44",
+          "sha": "b137774",
+          "subject": "companion: log the due-date session",
+          "files": "SESSIONS.md, src/lib/sessionLog.generated.json"
+        }
+      ]
+    },
+    {
+      "slug": "ipad-vertical-admin-home",
+      "file": "2026-09-09-ipad-vertical-admin-home.md",
+      "branch": "claude/ipad-vertical-admin-home-onkrkj",
+      "status": "shipped",
+      "started": "2026-09-09T06:11:27Z",
+      "updated": "2026-09-09T06:12:12Z",
+      "goal": "A vertical iPad layout for the admin and office home screen.",
+      "next": "Watch the office iPad home in use: the three quick tiles are pad:h-36 with the whole /more menu open under them, and the guess is that 144px is still taller than a button needs to be.",
+      "commits": [
+        {
+          "date": "2026-09-09",
+          "time": "06:11",
+          "sha": "d7c70d3",
+          "subject": "companion: build the ipad home screen for admin and office",
+          "files": "CODEBASE_MAP.md, src/app/globals.css, src/app/page.tsx, src/components/AdminActionBar.tsx, src/components/HomeJobBoard.tsx, src/components/HomeLeadBoard.tsx, +7 more"
+        }
+      ]
+    },
+    {
+      "slug": "gemini-claude-transition-status",
+      "file": "2026-09-09-gemini-claude-transition-status.md",
+      "branch": "claude/gemini-claude-transition-status-cib68c",
+      "status": "in-progress",
+      "started": "2026-09-09T02:06:37Z",
+      "updated": "2026-09-09T02:07:50Z",
+      "goal": "finish the Gemini->Claude transition: no Gemini call left in either repo",
+      "next": "owner: delete GEMINI_KEY + GEMINI_MODEL from Vercel; decide whether ANTHROPIC_MODEL_EXTRACT should be Haiku (matches appscript) instead of the Sonnet 5 default; /add-bill and /api/ocr-serial not yet exercised against a real invoice/photo",
+      "commits": [
+        {
+          "date": "2026-09-09",
+          "time": "02:06",
+          "sha": "25b6248",
+          "subject": "companion: finish the gemini to claude transition",
+          "files": ".env.example, CLAUDE.md, CODEBASE_MAP.md, DEPLOY.md, README.md, USER_MANUAL.md, +25 more"
+        }
+      ]
+    },
+    {
+      "slug": "lead-email-capture-tagging",
+      "file": "2026-09-08-lead-email-capture-tagging.md",
+      "branch": "claude/lead-email-capture-tagging-63onc0",
+      "status": "shipped",
+      "started": "2026-09-08T20:14:08Z",
+      "updated": "2026-09-08T20:21:07Z",
+      "goal": "",
+      "next": "deploy the appscript side (./deploy.sh) so markFormSubmissionsCaptured is live, then open /leads and confirm the _Lead Captured label lands on a website submission",
+      "commits": [
+        {
+          "date": "2026-09-08",
+          "time": "20:14",
+          "sha": "9517920",
+          "subject": "companion: tag captured lead emails in gmail",
+          "files": "src/app/api/leads/ingest/route.ts, src/app/api/leads/inquiries/route.ts, src/app/leads/page.tsx"
+        },
+        {
+          "date": "2026-09-08",
+          "time": "20:14",
+          "sha": "2c115b8",
+          "subject": "companion: set session next step",
+          "files": ""
+        },
+        {
+          "date": "2026-09-08",
+          "time": "20:15",
+          "sha": "b6b661f",
+          "subject": "companion: log session lead-email-capture-tagging",
+          "files": ""
+        }
+      ]
+    },
+    {
+      "slug": "time-entry-notes-persist",
+      "file": "2026-09-08-time-entry-notes-persist.md",
+      "branch": "claude/time-entry-notes-persist-2qo1fx",
+      "status": "shipped",
+      "started": "2026-09-08T20:17:42Z",
+      "updated": "2026-09-08T20:18:32Z",
+      "goal": "",
+      "next": "verify the note survives a reload on a phone while clocked in",
+      "commits": [
+        {
+          "date": "2026-09-08",
+          "time": "20:17",
+          "sha": "278b28f",
+          "subject": "companion: keep the time entry note across visits",
+          "files": "src/app/employee-time/EmployeeTimeClient.tsx"
+        }
+      ]
+    },
+    {
+      "slug": "trip-recording-persistence",
+      "file": "2026-09-08-trip-recording-persistence.md",
+      "branch": "claude/trip-recording-persistence-evilps",
+      "status": "in-progress",
+      "started": "2026-09-08T19:53:11Z",
+      "updated": "2026-09-08T19:54:05Z",
+      "goal": "",
+      "next": "verify on the phone: start a trip, force-quit the app, reopen — the trip should still be running; then confirm mileage_open_trips is created on the hosted DB",
+      "commits": [
+        {
+          "date": "2026-09-08",
+          "time": "19:53",
+          "sha": "0ca64a1",
+          "subject": "companion: keep a started mileage trip on the server, not just the phone",
+          "files": "CODEBASE_MAP.md, src/app/api/mileage/active/route.ts, src/app/mileage-tracker/page.tsx, src/db/index.ts, src/db/schema.ts, src/lib/mileageTrip.test.ts, +1 more"
+        },
+        {
+          "date": "2026-09-08",
+          "time": "19:53",
+          "sha": "e802a6a",
+          "subject": "companion: log session 2026-09-08-trip-recording-persistence",
+          "files": ""
+        },
+        {
+          "date": "2026-09-08",
+          "time": "19:54",
+          "sha": "b874b09",
+          "subject": "companion: log the ledger commit's own row",
+          "files": ""
         }
       ]
     },

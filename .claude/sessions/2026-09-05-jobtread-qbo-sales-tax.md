@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/jobtread-qbo-sales-tax-lfqctd
 status: shipped
 started: 2026-09-05T05:30:35Z
-updated: 2026-09-09T18:48:37Z
+updated: 2026-09-09T18:48:45Z
 goal: bill move: background + Drive re-file + real error; buyback picker dialog; approve advances; cost-code names on the bills list
 next: add-bill dedup was correct (Screaming Arrow 1016 = doc 22PdHU9CtwhE, logged 2026-08-24); watch whether the reader's real error now shows on a failed upload
 ---
