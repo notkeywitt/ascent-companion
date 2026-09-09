@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/ipad-vertical-admin-home-onkrkj
 status: in-progress
 started: 2026-09-09T06:11:27Z
-updated: 2026-09-09T06:11:43Z
+updated: 2026-09-09T06:11:52Z
 goal: A vertical iPad layout for the admin and office home screen.
 next: Watch the office iPad home in use: the three quick tiles are pad:h-36 with the whole /more menu open under them, and the guess is that 144px is still taller than a button needs to be.
 ---
@@ -12,6 +12,8 @@ next: Watch the office iPad home in use: the three quick tiles are pad:h-36 with
 ## Log
 
 <!-- Appended by .githooks/post-commit. Do not hand-write rows here. -->
+- 2026-09-09 06:11 · `d7c70d3` companion: build the ipad home screen for admin and office
+  CODEBASE_MAP.md, src/app/globals.css, src/app/page.tsx, src/components/AdminActionBar.tsx, src/components/HomeJobBoard.tsx, src/components/HomeLeadBoard.tsx, +7 more
 
 ## Notes
 - 2026-09-09 06:11 — pad = 744px, declared in a full sorted screens object in tailwind.config.ts. Appending it through theme.extend puts the variant AFTER xl in the stylesheet, so pad:grid-cols-2 would beat xl:grid-cols-3.
