@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import vectorFile from "./billing-vectors.json";
 import {
+  billSide,
   billingWindow,
+  compareBillSides,
   companyDateParts,
   computeBillDates,
   salesTaxAmount,
@@ -199,5 +201,48 @@ describe("billingWindow — how the 10th-to-10th window reads today", () => {
     const w = billingWindow(noonPacific("2026-01-05"));
     expect(w.ym).toBe("2025-12");
     expect(w.daysLeft).toBe(5);
+  });
+});
+
+describe("compareBillSides — a revised invoice under the same number", () => {
+  const line = (name: string, amount: number) => ({ name, csi: "06 10 20", coded: true, amount });
+
+  it("sees the sub's added charges as an increase", () => {
+    // The real case: bill 1016 came back with extra work on it.
+    const onFile = billSide([line("Labor #2", 240), line("Materials", 13.05)], 0);
+    const revised = billSide(
+      [line("Labor #2", 240), line("Materials", 13.05), line("Extra trim", 480)],
+      0,
+    );
+    const { delta, changed } = compareBillSides(onFile, revised);
+    expect(changed).toBe(true);
+    expect(delta).toBe(480);
+  });
+
+  it("counts tax in the total, so a tax-only revision is caught", () => {
+    const onFile = billSide([line("Lumber", 100)], 0);
+    const revised = billSide([line("Lumber", 100)], 8.7);
+    expect(compareBillSides(onFile, revised)).toEqual({ delta: 8.7, changed: true });
+  });
+
+  it("calls a plain re-upload unchanged, through float noise", () => {
+    const onFile = billSide([line("a", 0.1), line("b", 0.2)], 0);
+    const revised = billSide([line("a", 0.1), line("b", 0.2)], 0);
+    expect(onFile.net).toBe(0.3); // not 0.30000000000000004
+    expect(compareBillSides(onFile, revised).changed).toBe(false);
+  });
+
+  it("flags a re-cut invoice that splits a charge at the same money", () => {
+    const onFile = billSide([line("Framing", 600)], 0);
+    const revised = billSide([line("Framing labor", 400), line("Framing material", 200)], 0);
+    const { delta, changed } = compareBillSides(onFile, revised);
+    expect(delta).toBe(0);
+    expect(changed).toBe(true);
+  });
+
+  it("ignores a rounding-sized difference", () => {
+    const onFile = billSide([line("Lumber", 100)], 0);
+    const revised = billSide([line("Lumber", 100.04)], 0);
+    expect(compareBillSides(onFile, revised).changed).toBe(false);
   });
 });

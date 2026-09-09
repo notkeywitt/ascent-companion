@@ -3228,6 +3228,10 @@ export async function createLine(
     quantity?: number;
     unitCost?: number;
     description?: string;
+    /** Raw CSI → the "Cost Codes" custom field, the same one createVendorBill
+     *  writes. Omit and no custom field is sent, which is what every caller
+     *  before the bill-replace path did. */
+    costCode?: string;
   },
 ): Promise<{ id: string }> {
   const quantity = fields.quantity ?? 1;
@@ -3251,6 +3255,9 @@ export async function createLine(
   };
   if (fields.jobCostItemId) $.jobCostItemId = fields.jobCostItemId;
   if (fields.description !== undefined) $.description = fields.description;
+  if (fields.costCode) {
+    $.customFieldValues = [{ customFieldId: CF_COST_CODES, value: fields.costCode }];
+  }
   const r = await pave(cfg, {
     createCostItem: { $, createdCostItem: { id: {} } },
   });
@@ -3696,6 +3703,74 @@ export async function createVendorBill(
   const id = r?.createDocument?.createdDocument?.id;
   if (!id) throw new Error("createDocument returned no document id.");
   return { id };
+}
+
+/**
+ * WRITE — put a NEW set of cost lines on an EXISTING bill, replacing the ones
+ * it carries. This is what a vendor's revised invoice needs: the same document
+ * keeps its id, number, dates, status, Drive file and QuickBooks linkage, and
+ * only what it costs changes. The bill is NEVER deleted and re-created — see
+ * the void rule in CLAUDE.md, and the appscript mirror keys on `externalId`.
+ *
+ * `deleteIds` is the caller's list of the lines to remove — normally every
+ * non-tax line it just read. The SALES TAX line is not in it and must not be:
+ * `setBillTax` owns that line, and updates, adds or removes it from the new
+ * `taxAmount` on its own.
+ *
+ * ORDER MATTERS. The new lines are created BEFORE the old ones are deleted, so
+ * a failure part-way leaves the bill DOUBLED rather than EMPTIED. A doubled
+ * bill is loud — it sits in the coding queue at twice the invoice and someone
+ * fixes it. An emptied one is silent, and silent is what loses money.
+ *
+ * The caller journals the before-image: it already holds the lines this
+ * removes, which is the snapshot CLAUDE.md requires of any path that deletes
+ * one.
+ */
+export async function replaceBillLines(
+  cfg: PaveConfig,
+  args: {
+    docId: string;
+    lines: NewBillLine[];
+    deleteIds: string[];
+    taxAmount: number;
+    salesTaxJobCostItemId?: string;
+  },
+): Promise<{ created: number; deleted: number; tax: number }> {
+  // Sales tax has exactly one home on a bill: the 88 80 00 line `setBillTax`
+  // owns. An extracted line coded there would be created AND then rewritten by
+  // that call, so fold any such line into the tax figure instead of creating it.
+  // Folding cannot lose the money the way skipping could.
+  let taxAmount = Number(args.taxAmount) || 0;
+  const newLines: NewBillLine[] = [];
+  for (const l of args.lines) {
+    if (isSalesTaxLine({ name: l.name, description: l.description, code: l.costCode })) {
+      taxAmount += (Number(l.unitCost) || 0) * (Number(l.quantity) || 0);
+      continue;
+    }
+    newLines.push(l);
+  }
+
+  let created = 0;
+  for (const l of newLines) {
+    await createLine(cfg, args.docId, {
+      name: l.name,
+      description: l.description ?? "",
+      unitCost: l.unitCost,
+      quantity: l.quantity,
+      jobCostItemId: l.jobCostItemId,
+      costCode: l.costCode,
+    });
+    created++;
+  }
+
+  let deleted = 0;
+  for (const id of args.deleteIds) {
+    await deleteLine(cfg, id);
+    deleted++;
+  }
+
+  const tax = await setBillTax(cfg, args.docId, taxAmount, args.salesTaxJobCostItemId);
+  return { created, deleted, tax };
 }
 
 /**

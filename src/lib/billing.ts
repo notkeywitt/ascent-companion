@@ -196,3 +196,59 @@ export function taxReconcileWarning(extracted: {
     `(off by ${delta.toFixed(2)}). Possible missed or mis-scoped sales tax — verify before approving.`
   );
 }
+
+/* ------------------------------------------------------------------ *
+ * REVISED-INVOICE COMPARISON
+ * ------------------------------------------------------------------ */
+
+/** One line as either side of the comparison shows it. */
+export interface BillSideLine {
+  name: string;
+  csi: string;
+  coded: boolean;
+  amount: number;
+}
+
+/** What a bill costs, for a side-by-side against another version of it. */
+export interface BillSide {
+  net: number;
+  tax: number;
+  total: number;
+  lines: BillSideLine[];
+}
+
+/** Cents, so a float sum can't make two equal bills look different. */
+const cents = (n: number) => Math.round((Number(n) || 0) * 100) / 100;
+
+/** Roll a set of lines plus a tax figure into one side of the comparison. */
+export function billSide(lines: BillSideLine[], tax: number): BillSide {
+  const net = cents(lines.reduce((s, l) => s + (Number(l.amount) || 0), 0));
+  const t = cents(tax);
+  return { net, tax: t, total: cents(net + t), lines };
+}
+
+/**
+ * Is the bill on file a different bill from the one just uploaded?
+ *
+ * A vendor who adds charges and re-sends the SAME invoice number is why this
+ * exists: the dedup is right that the number is on file, and wrong that there
+ * is nothing to do. `delta` is what the revision moves — positive when the new
+ * invoice costs more.
+ *
+ * `changed` also fires when the totals agree but the line COUNT does not: a
+ * re-cut invoice that splits one charge into two is a change worth showing,
+ * even at the same money.
+ *
+ * ponytail: compares totals and line count, not line-to-line. Pair the lines
+ * up if the two columns ever get hard to read side by side.
+ */
+export function compareBillSides(
+  existing: BillSide,
+  incoming: BillSide,
+): { delta: number; changed: boolean } {
+  const delta = cents(incoming.total - existing.total);
+  return {
+    delta,
+    changed: Math.abs(delta) > 0.05 || existing.lines.length !== incoming.lines.length,
+  };
+}

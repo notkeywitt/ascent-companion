@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { SALES_TAX_CSI } from "@/lib/salesTax";
+import { SALES_TAX_CSI, splitSalesTax } from "@/lib/salesTax";
 import {
   attachFileToDocument,
   createVendorBill,
   findBillByExternalId,
+  getBillDetail,
   getJobBudget,
   getJobHeaderInfo,
   getVendors,
+  replaceBillLines,
   type NewBillLine,
   type VendorRef,
 } from "@/lib/jobtread";
@@ -16,7 +18,9 @@ import {
   type ExtractedBill,
 } from "@/lib/claudeExtract";
 import {
+  billSide,
   companyDateParts,
+  compareBillSides,
   computeBillDates,
   salesTaxAmount,
   taxReconcileWarning,
@@ -52,6 +56,8 @@ import { kickJtSync } from "@/lib/appsScript";
  *               key for Sunset bills, superseded by the extracted Vendor Bill
  *               Number for everyone else
  *   vendorId    optional JT account override (skip/replace the model's match)
+ *   replaceDocId  the operator's "replace the original" answer to a dedup hit
+ *                 whose amount had changed — the doc id they were shown
  */
 
 /**
@@ -74,6 +80,10 @@ const MAX_BYTES = 15 * 1024 * 1024;
  */
 const ALLOWED_MIME = new Set(["application/pdf", ...CLAUDE_IMAGE_MIME]);
 const HEIC_MIME = new Set(["image/heic", "image/heif"]);
+
+/** Dollars, for the messages this route writes. */
+const money = (n: number) =>
+  "$" + (Number(n) || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 /** Clean an extracted invoice/bill number for JobTread's externalId (≤32 chars).
  *  Invoice numbers never carry internal spaces, so we strip whitespace and cap
@@ -143,6 +153,10 @@ export async function POST(req: NextRequest) {
   // Set by the UI's "create anyway" choice after it has shown the operator a
   // lines-vs-invoice-total mismatch (see section 5b).
   const acceptTotals = /^(1|true|on|yes)$/i.test(String(form.get("acceptTotals") ?? "").trim());
+  // Set by the UI's "replace the original" choice after it has shown the operator
+  // the existing bill next to this upload (see section 7b). Carries the doc id
+  // that was compared, so a re-upload can only overwrite the bill it was shown.
+  const replaceDocId = String(form.get("replaceDocId") ?? "").trim();
 
   if (!(file instanceof File)) {
     return NextResponse.json({ error: "No file uploaded." }, { status: 400 });
@@ -468,19 +482,210 @@ export async function POST(req: NextRequest) {
       );
     }
     if (existing) {
-      // Say WHICH bill it matched and on what. This card used to read as a
-      // success with a "Review coding" link, so an unwanted dedup hit looked
-      // like a bill that had landed.
+      // ---- 7b. a dupe is not always a re-upload -----------------------------
+      // A sub who adds charges and re-sends the SAME invoice number is the case
+      // this exists for: bill 1016, resent with extra work on it, matched the
+      // dedup and the app said "already logged" while the extra charges went
+      // nowhere. So read what the existing bill holds and compare it to what we
+      // just extracted. Same money = a plain re-upload, as before. Different
+      // money = show both sides and let the operator replace the lines.
+      if (replaceDocId && replaceDocId !== existing) {
+        return NextResponse.json(
+          {
+            error:
+              `The bill numbered "${billNumber}" on ${vendor.name} is not the one you were shown ` +
+              `(it is now ${existing}). Nothing was changed — upload it again to re-compare.`,
+          },
+          { status: 409 },
+        );
+      }
+
+      // A failed compare must not turn a harmless "already logged" into an
+      // error on the common path — fall back to the plain answer. A REPLACE
+      // still fails closed: it cannot rewrite lines it was unable to read.
+      let prior: Awaited<ReturnType<typeof getBillDetail>>;
+      try {
+        prior = await getBillDetail(cfg, existing);
+      } catch (e) {
+        if (replaceDocId) throw e;
+        return NextResponse.json({
+          previewed: false,
+          wrote: false,
+          alreadyExisted: true,
+          docId: existing,
+          ...summary,
+          message:
+            `${vendor.name} already has a bill numbered "${billNumber}" — nothing was created. ` +
+            `Couldn't read it to compare the amounts, so open it and check it against this invoice.`,
+        });
+      }
+      const priorSplit = splitSalesTax(prior.lines, Number(prior.header.nonRecoverableTax) || 0);
+      const existingSide = billSide(
+        priorSplit.lines.map((l) => ({
+          name: l.name ?? "",
+          csi: l.costCode?.number ?? l.description ?? "",
+          coded: Boolean(l.jobCostItem?.id),
+          amount: Number(l.cost) || 0,
+        })),
+        priorSplit.taxAmount,
+      );
+      // Summed from the FINAL lines, not the earlier `linesNet` — "don't
+      // itemize" may have collapsed them to the invoice net since.
+      const incomingSide = billSide(
+        lines.map((l) => ({
+          name: l.name,
+          csi: l.costCode ?? "",
+          coded: Boolean(l.jobCostItemId),
+          amount: (Number(l.unitCost) || 0) * (Number(l.quantity) || 0),
+        })),
+        taxAmount,
+      );
+      const { delta, changed } = compareBillSides(existingSide, incomingSide);
+
+      const comparison = {
+        docId: existing,
+        status: prior.header.status ?? "",
+        priorIssueDate: prior.header.issueDate ?? "",
+        existing: existingSide,
+        incoming: incomingSide,
+        delta,
+      };
+
+      // A bill that is already approved is in the cost roll-ups and may sit
+      // behind a client invoice; a denied one is voided. Neither may be rewritten
+      // from here — that is a decision with money already moved behind it.
+      const status = (prior.header.status ?? "").toLowerCase() || "in an unknown state";
+      const replaceable = status === "draft" || status === "pending";
+
+      if (!replaceDocId) {
+        return NextResponse.json({
+          previewed: false,
+          wrote: false,
+          alreadyExisted: true,
+          docId: existing,
+          ...summary,
+          duplicateChanged: changed,
+          replaceable,
+          comparison,
+          message: changed
+            ? `${vendor.name} already has a bill numbered "${billNumber}", but for a different ` +
+              `amount — ${money(comparison.existing.total)} on file, ${money(comparison.incoming.total)} ` +
+              `on this upload. Nothing was created yet.`
+            : `${vendor.name} already has a bill numbered "${billNumber}" for the same amount — ` +
+              `nothing was created. This invoice is already logged.`,
+        });
+      }
+
+      // ---- 7c. replace the existing bill's lines with this upload's ---------
+      if (!replaceable) {
+        return NextResponse.json(
+          {
+            error:
+              `That bill is ${status} — its cost is already in the reports, and it may sit behind a ` +
+              `client invoice. Nothing was changed. Set it back to draft in JobTread first, or ` +
+              `revise it there.`,
+          },
+          { status: 409 },
+        );
+      }
+
+      const j = await openJournal("/api/add-bill");
+      await j.record([
+        {
+          action: "bill.lines.replace",
+          entity: "bill",
+          entityId: existing,
+          docId: existing,
+          jobId,
+          // The before-image IS the snapshot CLAUDE.md requires of a path that
+          // removes a line: every line's id, code and amount, as read a moment
+          // before it stops existing.
+          before: {
+            net: existingSide.net,
+            tax: existingSide.tax,
+            lines: priorSplit.lines.map((l) => ({
+              id: l.id,
+              name: l.name ?? "",
+              csi: l.costCode?.number ?? l.description ?? "",
+              cost: Number(l.cost) || 0,
+            })),
+          },
+          after: {
+            net: incomingSide.net,
+            tax: incomingSide.tax,
+            lines: incomingSide.lines.map((l) => ({
+              name: l.name,
+              csi: l.csi,
+              cost: l.amount,
+            })),
+          },
+          beforeSource: "read",
+          amount: delta,
+          meta: {
+            fileName: file.name ?? "",
+            source: "add-bill-replace",
+            externalId: billNumber,
+          },
+        },
+      ]);
+
+      const rep = await replaceBillLines(cfg, {
+        docId: existing,
+        lines,
+        deleteIds: priorSplit.lines.map((l) => l.id).filter(Boolean),
+        taxAmount,
+        salesTaxJobCostItemId: billArgs.salesTaxJobCostItemId,
+      });
+
+      // Attach the revised document too. The original stays: two files on the
+      // bill is the honest record of an invoice that was sent twice.
+      let fileAttached = true;
+      try {
+        const ext = mime === "application/pdf" ? "pdf" : mime.split("/")[1] || "bin";
+        const name =
+          file.name && file.name.includes(".") ? file.name : `${billNumber}-revised.${ext}`;
+        await attachFileToDocument(cfg, existing, bytes, mime, name);
+      } catch (e) {
+        fileAttached = false;
+        warnings.push(
+          `Lines were replaced but the file attach failed (${e instanceof Error ? e.message : "unknown"}) — ` +
+            `attach it manually in JobTread.`,
+        );
+      }
+
+      // The bill keeps its ORIGINAL number, issue date and billing month on
+      // purpose: a revised invoice is the same purchase, and moving its date
+      // would move it into another month's reports.
+      warnings.push(
+        `Replaced ${rep.deleted} line(s) with ${rep.created} from the revised invoice. ` +
+          `The bill keeps its original number and ${prior.header.issueDate || "issue date"}.`,
+      );
+      const kickR = await kickJtSync();
+      if (kickR === false) {
+        warnings.push("The sheet/Drive sync kick didn't confirm — it'll sync on the next hourly run.");
+      }
+
       return NextResponse.json({
         previewed: false,
-        wrote: false,
-        alreadyExisted: true,
+        wrote: true,
+        replaced: true,
         docId: existing,
+        fileAttached,
+        syncKicked: kickR === true,
         ...summary,
-        message:
-          `${vendor.name} already has a bill numbered "${billNumber}" — nothing was created. ` +
-          `Open it below; if it is a different invoice, change the Vendor Bill Number in JobTread and re-upload.`,
+        comparison,
+        warnings,
       });
+    }
+
+    // The operator asked to replace a bill that is no longer findable under this
+    // number (renumbered or moved since they were shown it). Creating is still
+    // what they wanted — this invoice's charges land — but say what happened.
+    if (replaceDocId) {
+      warnings.push(
+        `The bill you chose to replace no longer carries the number "${billNumber}" — created a new ` +
+          `bill instead of replacing it. Check ${replaceDocId} in JobTread for a duplicate.`,
+      );
     }
 
     // ---- 8. create the draft bill, then attach the file ---------------------

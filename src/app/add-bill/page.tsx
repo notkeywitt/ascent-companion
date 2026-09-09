@@ -23,6 +23,14 @@ interface AddBillResult {
   previewed?: boolean;
   wrote?: boolean;
   alreadyExisted?: boolean;
+  /** The number is already on file, but for a different amount — a revised
+   *  invoice, not a re-upload. `comparison` carries both sides. */
+  duplicateChanged?: boolean;
+  /** Is the bill on file still in a state this page may rewrite (draft/pending)? */
+  replaceable?: boolean;
+  comparison?: DupeComparison;
+  /** The existing bill's lines were replaced with this upload's. */
+  replaced?: boolean;
   docId?: string;
   fileAttached?: boolean;
   message?: string;
@@ -40,6 +48,22 @@ interface AddBillResult {
   syncKicked?: boolean;
   warnings?: string[];
   lines?: PreviewLine[];
+}
+
+/** One side of the duplicate comparison — what a bill costs, line by line. */
+interface DupeSide {
+  net: number;
+  tax: number;
+  total: number;
+  lines: { name: string; csi: string; coded: boolean; amount: number }[];
+}
+interface DupeComparison {
+  docId: string;
+  status: string;
+  priorIssueDate: string;
+  existing: DupeSide;
+  incoming: DupeSide;
+  delta: number;
 }
 
 interface TotalsMismatch {
@@ -175,7 +199,11 @@ function AddBill() {
     if (fileRef.current) fileRef.current.value = "";
   }
 
-  async function submit(opts?: { acceptTotals?: boolean; forceSingleLine?: boolean }) {
+  async function submit(opts?: {
+    acceptTotals?: boolean;
+    forceSingleLine?: boolean;
+    replaceDocId?: string;
+  }) {
     if (!file || !jobId || busy) return;
     setBusy(true);
     setError("");
@@ -189,6 +217,7 @@ function AddBill() {
       if (vendorId) fd.set("vendorId", vendorId);
       if (singleLine || opts?.forceSingleLine) fd.set("singleLine", "1");
       if (opts?.acceptTotals) fd.set("acceptTotals", "1");
+      if (opts?.replaceDocId) fd.set("replaceDocId", opts.replaceDocId);
       const res = await fetch("/api/add-bill", { method: "POST", body: fd });
       const json = await res.json();
       if (res.status === 422 && json.vendorUnresolved) {
@@ -211,7 +240,38 @@ function AddBill() {
   }
 
   const done = result && (result.wrote || result.alreadyExisted);
-  const wide = Boolean((mismatch || error) && file && previewUrl);
+  const compare = result?.comparison;
+  const wide = Boolean(((mismatch || error) && file && previewUrl) || result?.duplicateChanged);
+
+  /** One side of the comparison: a column of lines with its own total. */
+  const side = (title: string, s: DupeSide, note?: string) => (
+    <div className="min-w-0 flex-1">
+      <p className="text-xs font-semibold">{title}</p>
+      {note && <p className="text-[11px] text-neutral-500">{note}</p>}
+      <div className="mt-1.5 divide-y divide-line-soft border-t border-line-soft text-xs">
+        {s.lines.map((l, i) => (
+          <div key={i} className="flex items-baseline justify-between gap-2 py-1">
+            <span className="min-w-0 truncate" title={l.name}>
+              {l.name}
+            </span>
+            <span className="whitespace-nowrap text-neutral-500">
+              {l.csi || "uncoded"} · {money(l.amount)}
+            </span>
+          </div>
+        ))}
+        {s.tax > 0 && (
+          <div className="flex items-baseline justify-between gap-2 py-1 text-neutral-500">
+            <span>Sales tax</span>
+            <span className="whitespace-nowrap">{money(s.tax)}</span>
+          </div>
+        )}
+        <div className="flex items-baseline justify-between gap-2 py-1 font-semibold">
+          <span>Total</span>
+          <span>{money(s.total)}</span>
+        </div>
+      </div>
+    </div>
+  );
 
   const mismatchBanner = mismatch ? (
       <Banner tone="warning">
@@ -357,13 +417,40 @@ function AddBill() {
       {result && (
         <Card pad={false} className="mt-4 p-4">
           <h2 className="text-sm font-bold">
-            {result.wrote
-              ? "Draft bill created"
-              : result.alreadyExisted
-                ? "Already logged — nothing created"
-                : "Preview — nothing written"}
+            {result.replaced
+              ? "Original bill updated"
+              : result.wrote
+                ? "Draft bill created"
+                : result.duplicateChanged
+                  ? "Already saved, but with a different total"
+                  : result.alreadyExisted
+                    ? "Already logged — nothing created"
+                    : "Preview — nothing written"}
           </h2>
           {result.message && <p className="mt-1 text-xs text-neutral-500">{result.message}</p>}
+
+          {compare && result.duplicateChanged && (
+            <div className="mt-3">
+              <div className="flex flex-col gap-4 sm:flex-row sm:gap-6">
+                {side(
+                  "On file in JobTread",
+                  compare.existing,
+                  `${compare.status || "draft"}${compare.priorIssueDate ? ` · ${compare.priorIssueDate}` : ""}`,
+                )}
+                {side("This upload", compare.incoming, "the revised invoice")}
+              </div>
+              <p className="mt-2 text-sm font-semibold">
+                {compare.delta >= 0 ? "Increase" : "Decrease"} of {money(Math.abs(compare.delta))}
+              </p>
+              {!result.replaceable && (
+                <p className="mt-1 text-sm text-amber-600">
+                  The bill on file is {compare.status} — it is already in the cost reports and may sit
+                  behind a client invoice, so this page won&apos;t rewrite it. Set it back to draft in
+                  JobTread first, or edit it there.
+                </p>
+              )}
+            </div>
+          )}
 
           <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
             <dt className="text-neutral-500">Vendor</dt>
@@ -414,17 +501,31 @@ function AddBill() {
             </div>
           )}
 
-          <div className="mt-4 flex gap-2">
+          {compare && result.duplicateChanged && result.replaceable && (
+            <Button
+              className="mt-4 w-full"
+              disabled={busy}
+              onClick={() => submit({ replaceDocId: compare.docId })}
+            >
+              Replace the original with this invoice ({money(compare.incoming.total)})
+            </Button>
+          )}
+
+          <div className="mt-2 flex gap-2">
             {result.docId && (
               <Link
                 href={`/bill/${encodeURIComponent(result.docId)}?jobId=${encodeURIComponent(jobId)}`}
-                className={btn("primary", "md", "flex-1")}
+                className={btn(
+                  result.duplicateChanged ? "secondary" : "primary",
+                  "md",
+                  "flex-1",
+                )}
               >
-                Review coding →
+                {result.wrote ? "Review coding →" : "Open the bill on file →"}
               </Link>
             )}
             <Button variant="secondary" className="flex-1" onClick={reset}>
-              Add another
+              {result.duplicateChanged ? "Cancel this upload" : "Add another"}
             </Button>
           </div>
         </Card>
