@@ -4,9 +4,9 @@ repo: ascent-companion
 branch: claude/jobtread-qbo-sales-tax-lfqctd
 status: shipped
 started: 2026-09-05T05:30:35Z
-updated: 2026-09-09T21:03:37Z
+updated: 2026-09-09T21:15:57Z
 goal: bill move: background + Drive re-file + real error; buyback picker dialog; approve advances; cost-code names on the bills list
-next: push 9cf75ab (half-cent rounding fix) to main, then re-run /api/invoice-review?ym=2026-08 to confirm Otis Perkins is clean
+next: watch the next tracking-sheet sync: the 88 80 00 warning should be gone (needs clasp push of ascent-appscript first); confirm the board's TO BE INVOICED for Bunkhouse dropped by $23.55
 ---
 
 ## Log
@@ -97,6 +97,9 @@ next: push 9cf75ab (half-cent rounding fix) to main, then re-run /api/invoice-re
   src/lib/invoiceReview/checks.test.ts, src/lib/invoiceReview/checks/invoiceMath.ts, src/lib/invoiceReview/types.ts
 - 2026-09-09 14:03 · `b8d99f9` companion: lift the tracking sheet's closing actions to the top on desktop
   src/app/trackingsheet/Board.tsx
+- 2026-09-09 14:04 · `ff77a53` companion: log session 2026-09-05-jobtread-qbo-sales-tax
+- 2026-09-09 14:15 · `574010e` companion: keep sales tax out of what the client is billed
+  CODEBASE_MAP.md, src/app/trackingsheet/AllBills.tsx, src/lib/invoiceReview/checks.test.ts, src/lib/invoiceReview/checks/salesTaxLine.ts, src/lib/invoiceReview/registry.ts, src/lib/invoiceReview/settings.ts, +2 more
 
 ## Notes
 - 2026-09-05 05:30 — Companion half of the sales-tax move. src/lib/salesTax.ts is the single definition: the 88 80 00 constants, the line matcher, splitSalesTax, and the job-Phase-derived recoverable/consumed flag. createVendorBill appends the tax line and pins nonRecoverableTax to 0; setBillTax now creates/updates/deletes that LINE and clears any legacy field.
@@ -111,3 +114,4 @@ next: push 9cf75ab (half-cent rounding fix) to main, then re-run /api/invoice-re
 - 2026-09-08 19:07 — time & labor: per-entry JT link (timeEntryId param, owner-supplied) + labor-rate (pay type) edit on the coding panel. Probed live: updateTimeEntry type re-rates the entry (85->95/h, cost 170->190, minutes unchanged); an unknown type is 400. Rate field is office/admin only in /api/time-entry.
 - 2026-09-09 20:40 — home: SPENT AGAINST BUDGET replaced by TO BE INVOICED for the current billing month (sum of /api/jobs/to-be-invoiced over the board's active jobs); each card carries its own amount in the top-right corner. Billing period is now a dropdown (office/admin) backed by billing_month_setting — it overrides the 10th cutoff for every non-Sunset bill via deriveBillingPeriod's new overrideYm, and goes red past the 10th while behind the calendar. NOT pushed: touches /api/add-bill, a JobTread write path.
 - 2026-09-09 20:48 — invoice #382 math-line was a false positive: cents() rounded a negative half-cent toward +inf, and invoice-math compared in dollars instead of whole cents. Fixed in types.ts + checks/invoiceMath.ts, committed 9cf75ab, NOT pushed (push blocked).
+- 2026-09-09 21:14 — Create File: a NO FILE bill can now generate its own Ascent-branded record PDF (src/lib/billPdf.ts, hand-rolled — no PDF dependency) and attach it in JobTread via POST /api/bill/create-file. New JobTread write path, so it is NOT pushed without the owner's ok.
