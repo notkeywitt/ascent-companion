@@ -54,6 +54,15 @@ import { kickJtSync } from "@/lib/appsScript";
  *   vendorId    optional JT account override (skip/replace the model's match)
  */
 
+/**
+ * The reader alone allows itself 60s (TIMEOUT_BILL_MS), and it runs after three
+ * JobTread queries and before the create + file attach. With no ceiling declared
+ * the platform default cut the function off mid-extraction and answered with an
+ * HTML 504 — which the page could not even parse into an error message. 300s
+ * matches the other long routes (/api/invoice-review, /api/employee-time).
+ */
+export const maxDuration = 300;
+
 const MAX_BYTES = 15 * 1024 * 1024;
 /**
  * What the extractor can actually read: a PDF, or one of Claude's vision image
@@ -459,12 +468,18 @@ export async function POST(req: NextRequest) {
       );
     }
     if (existing) {
+      // Say WHICH bill it matched and on what. This card used to read as a
+      // success with a "Review coding" link, so an unwanted dedup hit looked
+      // like a bill that had landed.
       return NextResponse.json({
         previewed: false,
         wrote: false,
         alreadyExisted: true,
         docId: existing,
         ...summary,
+        message:
+          `${vendor.name} already has a bill numbered "${billNumber}" — nothing was created. ` +
+          `Open it below; if it is a different invoice, change the Vendor Bill Number in JobTread and re-upload.`,
       });
     }
 

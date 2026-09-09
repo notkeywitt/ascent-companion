@@ -360,7 +360,7 @@ function AddBill() {
             {result.wrote
               ? "Draft bill created"
               : result.alreadyExisted
-                ? "Already logged"
+                ? "Already logged — nothing created"
                 : "Preview — nothing written"}
           </h2>
           {result.message && <p className="mt-1 text-xs text-neutral-500">{result.message}</p>}

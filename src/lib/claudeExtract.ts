@@ -131,10 +131,23 @@ async function callClaude(
       },
       { timeout: timeoutMs },
     );
-  } catch {
-    return null;
+  } catch (e) {
+    // A swallowed failure here is indistinguishable from "the document was
+    // unreadable", which is what made a rate limit, an expired key and a
+    // platform timeout all look like "Extraction failed — try again". Say what
+    // actually went wrong: the caller decides whether to show it or fall back.
+    const why = e instanceof Error ? e.message : String(e);
+    console.error(`[claudeExtract] ${MODEL} call failed: ${why}`);
+    throw new Error(`The reader (${MODEL}) could not be reached: ${why}`);
   }
-  if (res.stop_reason === "refusal" || res.stop_reason === "max_tokens") return null;
+  if (res.stop_reason === "refusal" || res.stop_reason === "max_tokens") {
+    console.error(`[claudeExtract] stop_reason=${res.stop_reason}`);
+    throw new Error(
+      res.stop_reason === "max_tokens"
+        ? "The reader ran out of room before it answered — the document is too long."
+        : "The reader declined to read this document.",
+    );
+  }
 
   const text = res.content
     .filter((b): b is Anthropic.TextBlock => b.type === "text")
@@ -143,6 +156,7 @@ async function callClaude(
   try {
     return JSON.parse(text);
   } catch {
+    console.error(`[claudeExtract] unparseable answer (${text.length} chars)`);
     return null;
   }
 }
@@ -174,7 +188,15 @@ RULES:
 2. If several codes appear, PREFER the one explicitly labeled as a serial number. Ignore model numbers, type/part numbers, voltage/amperage, dates, and barcodes UNLESS no labeled serial exists, in which case return the most likely primary serial.
 3. If no serial number is legible, output an empty string for "serial".`;
 
-  const out = await callClaude(prompt, SERIAL_SCHEMA, TIMEOUT_OCR_MS, bytes, mimeType);
+  // Best-effort by contract: the operator types the serial when this returns
+  // nothing, so a reader outage must not fail the tool form. callClaude now
+  // throws (and logs) instead of hiding the reason — swallow it only here.
+  let out: unknown | null = null;
+  try {
+    out = await callClaude(prompt, SERIAL_SCHEMA, TIMEOUT_OCR_MS, bytes, mimeType);
+  } catch {
+    return null;
+  }
   if (out && typeof out === "object" && !Array.isArray(out)) {
     const serial = (out as Record<string, unknown>).serial;
     if (typeof serial === "string") return serial.trim();

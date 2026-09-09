@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/jobtread-qbo-sales-tax-lfqctd
 status: shipped
 started: 2026-09-05T05:30:35Z
-updated: 2026-09-08T19:24:41Z
+updated: 2026-09-08T19:25:06Z
 goal: bill move: background + Drive re-file + real error; buyback picker dialog; approve advances; cost-code names on the bills list
 next: owner review + push: /api/time-entry now writes the pay type (a live money field), so it needs the ok before shipping
 ---
