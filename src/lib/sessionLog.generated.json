@@ -1,7 +1,26 @@
 {
-  "generatedAt": "2026-09-09T06:12:12Z",
+  "generatedAt": "2026-09-09T15:44:28Z",
   "repo": "ascent-companion",
   "sessions": [
+    {
+      "slug": "bill-due-date-selector",
+      "file": "2026-09-09-bill-due-date-selector.md",
+      "branch": "claude/bill-due-date-selector-n4gzoy",
+      "status": "in-progress",
+      "started": "2026-09-09T15:43:28Z",
+      "updated": "2026-09-09T15:44:28Z",
+      "goal": "",
+      "next": "verify the due date field on a real bill: pick a date, confirm it lands as Payment Due in JobTread and survives a reload",
+      "commits": [
+        {
+          "date": "2026-09-09",
+          "time": "15:43",
+          "sha": "24c2057",
+          "subject": "companion: add a payment due date selector to the bill coding card",
+          "files": "CODEBASE_MAP.md, src/app/api/bill-duedate/route.ts, src/app/bill/[docId]/page.tsx, src/app/trackingsheet/BillCodingCard.tsx, src/app/trackingsheet/Board.tsx, src/app/trackingsheet/DraftWorkbench.tsx, +1 more"
+        }
+      ]
+    },
     {
       "slug": "ipad-vertical-admin-home",
       "file": "2026-09-09-ipad-vertical-admin-home.md",

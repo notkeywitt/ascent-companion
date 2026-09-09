@@ -9,12 +9,13 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Branch | Last active | Commits | Next step |
 |---|---|---|---|---|
-| [gemini-claude-transition-status](.claude/sessions/2026-09-09-gemini-claude-transition-status.md) | `claude/gemini-claude-transition-status-cib68c` | 4h ago | 1 | owner: delete GEMINI_KEY + GEMINI_MODEL from Vercel; decide whether ANTHROPIC_M… |
-| [trip-recording-persistence](.claude/sessions/2026-09-08-trip-recording-persistence.md) | `claude/trip-recording-persistence-evilps` | 10h ago | 3 | verify on the phone: start a trip, force-quit the app, reopen — the trip should… |
-| [ci-verify-job-failures](.claude/sessions/2026-09-06-ci-verify-job-failures.md) | `claude/ci-verify-job-failures-wcfpyk` | 2d ago | 1 | push this branch to remote main — main is still red until the Link fix lands th… |
+| [bill-due-date-selector](.claude/sessions/2026-09-09-bill-due-date-selector.md) | `claude/bill-due-date-selector-n4gzoy` | 0m ago | 1 | verify the due date field on a real bill: pick a date, confirm it lands as Paym… |
+| [gemini-claude-transition-status](.claude/sessions/2026-09-09-gemini-claude-transition-status.md) | `claude/gemini-claude-transition-status-cib68c` | 14h ago | 1 | owner: delete GEMINI_KEY + GEMINI_MODEL from Vercel; decide whether ANTHROPIC_M… |
+| [trip-recording-persistence](.claude/sessions/2026-09-08-trip-recording-persistence.md) | `claude/trip-recording-persistence-evilps` | 20h ago | 3 | verify on the phone: start a trip, force-quit the app, reopen — the trip should… |
+| [ci-verify-job-failures](.claude/sessions/2026-09-06-ci-verify-job-failures.md) | `claude/ci-verify-job-failures-wcfpyk` | 3d ago | 1 | push this branch to remote main — main is still red until the Link fix lands th… |
 | [ascent-building-theme](.claude/sessions/2026-09-06-ascent-building-theme.md) | `claude/ascent-building-theme-rz1o6h` | 3d ago | 6 | Tune the palettes in /theme on the phone, then paste the Copy CSS output back s… |
-| [header-layout-redesign](.claude/sessions/2026-09-05-header-layout-redesign.md) | `claude/header-layout-redesign-xid33s` | 3d ago | 15 | rearrange the tracking-sheet action buttons for mobile and desktop — they read … |
-| [timesheet-month-selection](.claude/sessions/2026-09-04-timesheet-month-selection.md) | `claude/timesheet-month-selection-2hih55` | 4d ago | 3 | none — month picker shipped; verify on the phone that the dropdown reads well n… |
+| [header-layout-redesign](.claude/sessions/2026-09-05-header-layout-redesign.md) | `claude/header-layout-redesign-xid33s` | 4d ago | 15 | rearrange the tracking-sheet action buttons for mobile and desktop — they read … |
+| [timesheet-month-selection](.claude/sessions/2026-09-04-timesheet-month-selection.md) | `claude/timesheet-month-selection-2hih55` | 5d ago | 3 | none — month picker shipped; verify on the phone that the dropdown reads well n… |
 
 ## Shipped
 
