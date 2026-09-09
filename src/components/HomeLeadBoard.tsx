@@ -83,7 +83,9 @@ function LeadBoardCard({ c, thresholds }: { c: LeadCard; thresholds: LeadQuietTh
   return (
     <Link
       href={`/leads#${encodeURIComponent(c.id)}`}
-      className="w-72 shrink-0 rounded-xl transition hover:opacity-80"
+      // `w-72` is the SCROLLER's card; from `pad` up the row is a grid and the
+      // cell sets the width. See the row itself, below.
+      className="w-72 shrink-0 rounded-xl transition hover:opacity-80 pad:w-auto"
     >
       <Card className="flex h-full flex-col gap-2">
         <div className="flex items-start justify-between gap-2">
@@ -267,9 +269,12 @@ export function HomeLeadBoard() {
             ))}
           </ChipScroller>
 
-          {/* The row bleeds to the page's edges so the next card is visibly cut
-              off — the same trick the job board and ChipScroller use. */}
-          <div className="-mx-4 flex items-stretch gap-3 overflow-x-auto px-4 pb-1 xl:-mx-8 xl:px-8">
+          {/* Phone: a sideways row that bleeds to the screen edges, so the next
+              card is visibly cut off — the same trick the job board and
+              ChipScroller use. From `pad` up: a grid, for the same reason the
+              job board above becomes one. The two boards stay the same shape as
+              each other at every width, which is the point of them. */}
+          <div className="-mx-4 flex items-stretch gap-3 overflow-x-auto px-4 pb-1 pad:mx-0 pad:grid pad:grid-cols-2 pad:overflow-x-visible pad:px-0 lg:grid-cols-3 xl:grid-cols-4">
             {cards.map((c) => (
               <LeadBoardCard key={c.id} c={c} thresholds={thresholds} />
             ))}

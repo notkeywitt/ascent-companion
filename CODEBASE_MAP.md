@@ -44,6 +44,7 @@ matching row here.
 | **A job's invoice capture email tag** (the `_JT Invoice <Customer> - <Job>` Gmail label) | button on `src/app/clients/` → `src/app/clients/InvoiceTagCard.tsx` → `/api/clients/invoice-tag` → appscript `EmailToJtInvoice.js` (`listInvoiceTags`/`createInvoiceTag`). The label TEXT is always composed on the Apps Script side |
 | **Gating / who sees what** | `src/lib/views.ts` (the single source of truth: `VIEWS`, `ROLE_VIEWS`), enforced by `src/middleware.ts` |
 | **Nav / launcher / tabs** | `src/lib/nav.ts` (`AREAS` — the destination list), `src/app/page.tsx` (renders it), `src/components/TabBar.tsx` |
+| **The IPAD (tablet) layout** — home console, dock, the wide shape of anything | the `pad` breakpoint in `tailwind.config.ts` (744px, "an iPad in portrait and up"; declared in sorted position so `lg:`/`xl:` still win over it). Home: `src/app/page.tsx` + `src/components/HomeMasthead.tsx`; the office half `src/components/TileLauncher.tsx` (+ `groupByArea` in `lib/nav.ts`); the dock `src/components/TabBar.tsx`, whose height `--tabbar-h` (`globals.css`) has to match |
 | **The global search box** | `src/components/GlobalSearch.tsx` (the wide item in `AppHeader`'s one row) — matches pages via `src/lib/nav.ts`, help topics via `src/lib/help.ts`, vendors via `/api/vendors`, bills/line items via `/api/bill-search` |
 | **The in-app instructions** (a wrong step, a new "how do I…") | `src/lib/help.ts` — the topics as data, written to ASD-STE100 (its header carries the rules, `help.test.ts` enforces the countable ones). Page: `src/app/help/` |
 | **The Pave gateway** (generic JobTread access + write policy) | `src/app/api/pave/route.ts` + `src/lib/paveGateway.ts` (policy) + `src/lib/paveGatewayClient.ts` (browser) |
@@ -373,8 +374,12 @@ Grouped by domain; each folder is `…/route.ts`.
   entirely for LEAD, whose home page already carries the same shortcuts as
   bigger buttons), `TileLauncher` (the field/lead/office home launcher — large
   buttons in place of the admin area lists: field and office get 4, lead 6;
-  curated in `src/lib/nav.ts` → `TILE_LAUNCHERS`; also renders the office-only
-  `OfficeDigestPlaceholder` reserved slot),
+  curated in `src/lib/nav.ts` → `TILE_LAUNCHERS`; from the `pad` width up it
+  drops "The Rest" and opens that whole menu in place, grouped by `groupByArea`),
+  `HomeMasthead` (the iPad home's head — the date and where the 10th-to-10th
+  billing window stands, from `billingWindow` in `src/lib/billing.ts`; renders
+  at the `pad` width and up ONLY, because a phone spends that band on the
+  launcher),
   `PageTitle`, `ThemeToggle` (takes any face as `children` — the header gives it
   the logo), `AppearanceCard` (the home page's Appearance block — picks the
   PALETTE and the theme, both per device, and links admins to the theme editor;
@@ -480,7 +485,7 @@ it was doing. The same six files live in `ascent-appscript`.
 | File | Role |
 |---|---|
 | `src/app/globals.css` | The token blocks — one per palette per theme. The only place a palette's values live. |
-| `tailwind.config.ts` | Maps `accent`/`brand`/`line`/`ink` onto those variables, plus the warm `neutral` ramp. |
+| `tailwind.config.ts` | Maps `accent`/`brand`/`line`/`ink` onto those variables, plus the warm `neutral` ramp. Also owns `screens` — Tailwind's five plus `pad` (744px), declared as a full sorted object so a `pad:` rule cannot outrank an `xl:` one. |
 | `src/lib/palette.ts` | Which palette is painted: the `data-palette` attribute, the localStorage key, the labels. |
 | `src/lib/paletteDraft.ts` | The editor's data layer — the editable token list (which IS its UI), hex/HSL maths, WCAG contrast, and the per-device draft store. |
 | `src/app/theme/page.tsx` | The editor (view `theme-editor`, admin-only). Pickers, H/S/L sliders, live contrast, a sampler, and Copy CSS. |

@@ -323,6 +323,19 @@ html .group:hover .group-hover\:text-accent {
   --actionbar-h: 0px;
 }
 
+/* From `pad` up (744px — the narrowest iPad in portrait) the tab bar detaches
+   into a centred, floating dock: see components/TabBar. It stops being edge to
+   edge, so the space a page has to leave for it is the pill PLUS the gap it
+   floats in — its two borders, the 1rem it sits above the screen edge, and the
+   same 1rem again so the page's last row does not end flush against it.
+   Keep this in step with the `pad:` classes on <nav> in TabBar.tsx: they are
+   the two halves of one measurement. */
+@media (min-width: 744px) {
+  :root {
+    --tabbar-h: calc(3.5rem + 2px + 2rem + env(safe-area-inset-bottom));
+  }
+}
+
 /* The two things that must clear the top chrome, reading the ONE measured
    number instead of each guessing at it. A sticky right-hand column that
    guesses low slides its own heading under the search box the moment the page

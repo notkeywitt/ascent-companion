@@ -15,6 +15,7 @@ import { TileLauncher } from "@/components/TileLauncher";
 import { HomeLayoutEditor } from "@/components/HomeLayoutEditor";
 import { HomeJobBoard } from "@/components/HomeJobBoard";
 import { HomeLeadBoard } from "@/components/HomeLeadBoard";
+import { HomeMasthead } from "@/components/HomeMasthead";
 import { useEffectiveLayout } from "@/components/NavLayoutProvider";
 import { PREVIEW_ROWS, tileLauncherFor } from "@/lib/nav";
 import { DEFAULT_COLUMNS, type NavItem } from "@/lib/navLayout";
@@ -52,15 +53,32 @@ import { DesktopAlertsCard } from "@/components/DesktopAlertsCard";
 const COLLAPSED_KEY = "home.collapsedAreas";
 
 /**
- * How many menus sit side by side at xl. STATIC strings on purpose — Tailwind
- * scans the source for class names, so `xl:grid-cols-${n}` would be compiled
- * away to nothing. One column stays a plain stack rather than a 1-wide grid.
+ * How many menus sit side by side, per width. STATIC strings on purpose —
+ * Tailwind scans the source for class names, so `xl:columns-${n}` would be
+ * compiled away to nothing.
+ *
+ * NEWSPAPER COLUMNS, NOT A GRID. A grid locks every menu in a row to the height
+ * of the tallest one in it, and these menus are 5 rows and 14 rows: My Work
+ * beside Utilities left a 500px hole under My Work, on the screen with the most
+ * to show. CSS multi-column flows them instead, so a short menu is simply
+ * followed by the next one. `break-inside-avoid` on each section is what stops
+ * a menu being cut in half across the fold.
+ *
+ * TWO is the widest an iPad goes, and that is a legibility floor, not a
+ * guess: a row's second line is one line, and three columns of a 1024px screen
+ * give each row LESS width than a phone does — the descriptions start
+ * truncating, which is the one thing the extra screen was supposed to fix.
+ *
+ * The admin's number (Edit home page → Menus per row) is the WIDEST setting;
+ * each smaller screen steps down to what fits. ONE column is the exception: it
+ * is a deliberate "keep it a list", so it stays a list, capped at reading width
+ * rather than stretched across an iPad.
  */
 const COLUMN_CLS: Record<number, string> = {
-  1: "space-y-6",
-  2: "space-y-6 xl:grid xl:grid-cols-2 xl:items-start xl:gap-6 xl:space-y-0",
-  3: "space-y-6 xl:grid xl:grid-cols-3 xl:items-start xl:gap-6 xl:space-y-0",
-  4: "space-y-6 xl:grid xl:grid-cols-4 xl:items-start xl:gap-6 xl:space-y-0",
+  1: "pad:mx-auto pad:max-w-2xl",
+  2: "pad:columns-2 pad:gap-6",
+  3: "pad:columns-2 pad:gap-6 xl:columns-3",
+  4: "pad:columns-2 pad:gap-6 xl:columns-3 2xl:columns-4",
 };
 
 /**
@@ -200,10 +218,14 @@ function Home() {
   const tiles = tileLauncherFor(access.role) !== null;
 
   return (
-    <main className="mx-auto max-w-2xl px-4 pb-10 pt-5 xl:max-w-none xl:px-8">
-      {/* No page title here on purpose: the logo in the header already says
-          where you are, and an <h1>Home</h1> plus its description cost the top
-          fifth of a phone screen to repeat it. */}
+    <main className="mx-auto max-w-2xl px-4 pb-10 pt-5 pad:max-w-none pad:px-7 xl:px-8">
+      {/* No page title here ON A PHONE, on purpose: the logo in the header
+          already says where you are, and an <h1>Home</h1> plus its description
+          cost the top fifth of a phone screen to repeat it. From `pad` up the
+          screen is a foot tall and the same band costs nothing, so the masthead
+          below draws the heading — and stands the billing month on it, which is
+          the fact this office checks before it opens anything. */}
+      <HomeMasthead />
 
       {/* Bills that imported but couldn't push because their vendor isn't in
           JobTread. Self-hiding when there are none; gates itself on `email`. */}
@@ -256,9 +278,9 @@ function Home() {
       ) : (
         <div className="space-y-6">
           {/* Buttons outside every menu, across the top of the launcher. Two
-              across on a phone, four once the page is full width. */}
+              across on a phone, four from an iPad up. */}
           {topItems.length > 0 && (
-            <div className="grid grid-cols-2 gap-2 xl:grid-cols-4">
+            <div className="grid grid-cols-2 gap-2 pad:grid-cols-4">
               {topItems.map((b) => (
                 <LauncherButton key={b.id} b={b} qs={qs} badge={badges[b.view] ?? 0} />
               ))}
@@ -277,22 +299,29 @@ function Home() {
               const isExpanded = !!expanded[area.id];
               const isOpen = !collapsed[area.id];
               const hidden = Math.max(0, links.length - previewRows);
-              const shown = isExpanded ? links : links.slice(0, previewRows);
-              // Work queued behind the fold still shows on the heading, so a
-              // collapsed tail — or a whole folded menu — never hides the one row
-              // that needs attention.
-              const hiddenCount = (isOpen ? links.slice(shown.length) : area.items).reduce(
-                (n, d) => n + (badges[d.view] ?? 0),
-                0,
-              );
+              const countOf = (rows: typeof links) =>
+                rows.reduce((n, d) => n + (badges[d.view] ?? 0), 0);
+              // Work behind a fold still shows on the heading, so neither a
+              // folded menu nor a hidden tail buries the one row that needs
+              // attention. TWO counts, because only ONE of the two folds exists
+              // at every width: the tail is hidden on a phone and open from
+              // `pad` up, so its badge hides with the row that reveals it.
+              const foldedCount = countOf(area.items);
+              const tailCount = isExpanded ? 0 : countOf(links.slice(previewRows));
               return (
-                <section key={area.id} className="space-y-2">
+                // `mb-6` rather than the container's `space-y-6`: a
+                // multi-column flow has no "between siblings" to hang a gap on
+                // once a column breaks between two of them.
+                <section key={area.id} className="mb-6 space-y-2 break-inside-avoid">
                   <SectionHeading
                     onToggle={() => toggleArea(area.id)}
                     open={isOpen}
                     trailing={
                       <span className="flex items-center gap-2">
-                        {hiddenCount > 0 && <CountBadge n={hiddenCount} />}
+                        {!isOpen && foldedCount > 0 && <CountBadge n={foldedCount} />}
+                        {isOpen && tailCount > 0 && (
+                          <CountBadge n={tailCount} className="pad:hidden" />
+                        )}
                         <span className="text-[11px] tabular-nums text-neutral-500">
                           {area.items.length}
                         </span>
@@ -313,12 +342,34 @@ function Home() {
 
                   {isOpen && links.length > 0 && (
                     <ListCard>
-                      {shown.map((d) => (
+                      {/* EVERY row is rendered at every width; a PHONE hides the
+                          ones past the preview count with a class, and the
+                          "show more" row below reveals them. From `pad` up
+                          there is height for the whole menu, so the rows come
+                          back (`pad:flex` beats the base `hidden`, because a
+                          variant is emitted after every unprefixed utility) and
+                          the "show more" row goes away with them.
+
+                          CSS, not state, on purpose: a JS media query would
+                          render the phone's fold first and swap it a frame
+                          later, which is a visible jump on the one screen every
+                          person in the company opens first. */}
+                      {links.map((d, i) => (
                         <ListRow
                           key={d.id}
                           href={d.href + qs}
                           label={d.label}
                           desc={d.desc}
+                          className={[
+                            !isExpanded && i >= previewRows ? "hidden pad:flex" : "",
+                            // `last:border-b-0` cannot reach the last ROW while
+                            // the (hidden) "show more" button is the card's last
+                            // child, which would leave a hairline on the card's
+                            // own bottom edge.
+                            hidden > 0 && i === links.length - 1 ? "pad:border-b-0" : "",
+                          ]
+                            .filter(Boolean)
+                            .join(" ")}
                           badge={
                             (badges[d.view] ?? 0) > 0 ? (
                               <CountBadge n={badges[d.view]} />
@@ -331,7 +382,7 @@ function Home() {
                           type="button"
                           onClick={() => setExpanded((e) => ({ ...e, [area.id]: !isExpanded }))}
                           aria-expanded={isExpanded}
-                          className="min-h-11 w-full px-3 py-2.5 text-left text-[12.5px] font-semibold text-neutral-500 transition hover:text-accent dark:text-neutral-400"
+                          className="min-h-11 w-full px-3 py-2.5 text-left text-[12.5px] font-semibold text-neutral-500 transition hover:text-accent dark:text-neutral-400 pad:hidden"
                         >
                           {isExpanded ? "Show fewer" : `Show ${hidden} more in ${area.title}`}
                         </button>
@@ -394,14 +445,18 @@ function Home() {
         </div>
       )}
 
-      {/* Per-device display settings. Here rather than on /more because /more
-          is the tile launcher's overflow — office and admin never link to it. */}
-      <AppearanceCard />
+      {/* The two per-device settings blocks. Side by side from `pad` up: each
+          is a collapsed one-line heading most of the time, and two of those
+          stacked own a slab of an iPad's last screen for nothing.
 
-      {/* The per-device switch for OS notifications about notices. Self-hiding
-          on any browser without the Notification API — i.e. every iPhone — so
-          it only shows where it can actually deliver. */}
-      <DesktopAlertsCard />
+          Appearance sits here rather than on /more because /more is the tile
+          launcher's overflow — office and admin never link to it. Desktop
+          alerts self-hides on any browser without the Notification API — i.e.
+          every iPhone — so it only shows where it can actually deliver. */}
+      <div className="pad:grid pad:grid-cols-2 pad:items-start pad:gap-7">
+        <AppearanceCard />
+        <DesktopAlertsCard />
+      </div>
 
       {/* Account / sign out. Access (which menus you see) is baked in at
           sign-in, so signing out and back in is how you pick up a changed

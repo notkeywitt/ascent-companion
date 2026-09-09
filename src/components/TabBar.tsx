@@ -22,6 +22,14 @@ import { confirmLeaveIfDirty } from "@/lib/useUnsavedChanges";
  * The set adapts per role rather than being fixed: TAB_CANDIDATES is scanned in
  * order and the first three the user can reach are shown after Home.
  *
+ * FROM `pad` UP IT IS A DOCK, not a bar. Four tabs stretched across a 1024px
+ * iPad give each one a quarter of the screen to hold a 19px icon, and the row
+ * reads as a phone control that was never looked at on a tablet. So at that
+ * width it detaches: fixed-width items, a rounded pill, centred, floating a
+ * finger's width off the bottom edge. Same tabs, same gates, same active mark —
+ * only the furniture changes, and it changes in CSS, so no page pays for a
+ * media query in JavaScript.
+ *
  * LEAD gets no bar at all: its home page is already a 6-button grid (see
  * TileLauncher / TILE_LAUNCHERS.lead in src/lib/nav.ts) that carries every one
  * of these candidates a lead can reach — a second copy of the same three
@@ -132,11 +140,17 @@ export function TabBar() {
   return (
     <nav
       aria-label="Main"
-      className="fixed inset-x-0 bottom-0 z-30 grid border-t border-line bg-cream/95 backdrop-blur dark:bg-ink/95 print:hidden"
-      style={{
-        gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))`,
-        paddingBottom: "env(safe-area-inset-bottom)",
-      }}
+      // The two shapes, in one class string.
+      //   phone — edge to edge along the bottom, one top hairline, the home
+      //           indicator's inset as padding INSIDE the bar.
+      //   pad+  — shrink to its items, centre on the screen, sit a finger's
+      //           width up from the edge with the indicator's inset added to
+      //           that gap instead of padded inside the pill. `overflow-hidden`
+      //           is what keeps a tab's press tint inside the rounded corners.
+      // Whatever this ends up measuring, --tabbar-h in globals.css has to match
+      // it — that is the number every docked panel and page offsets by.
+      className="fixed inset-x-0 bottom-0 z-30 grid border-t border-line bg-cream/95 pb-[env(safe-area-inset-bottom)] backdrop-blur dark:bg-ink/95 print:hidden pad:inset-x-auto pad:bottom-[calc(1rem_+_env(safe-area-inset-bottom))] pad:left-1/2 pad:w-auto pad:-translate-x-1/2 pad:overflow-hidden pad:rounded-2xl pad:border pad:pb-0 pad:shadow-lg"
+      style={{ gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))` }}
     >
       {tabs.map((t) => {
         // Home is only "current" on exactly "/" — every other route is a page
@@ -159,7 +173,10 @@ export function TabBar() {
             // that link's navigation is actually in flight, which on a slow
             // connection is the difference between "did that register?" and
             // "it's working on it".
-            className={`relative flex h-14 flex-col items-center justify-center gap-0.5 text-[10.5px] font-semibold transition active:bg-accent/15 ${
+            // A fixed width from `pad` up is what makes the dock's items even:
+            // the pill shrinks to fit, so `1fr` has no free space to hand out
+            // and each column would otherwise size to its own longest label.
+            className={`relative flex h-14 flex-col items-center justify-center gap-0.5 text-[10.5px] font-semibold transition active:bg-accent/15 pad:w-[118px] ${
               active
                 ? "text-accent dark:text-accent-soft"
                 : "text-neutral-500 hover:text-accent dark:text-neutral-400"

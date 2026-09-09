@@ -218,6 +218,34 @@ export const TILE_LAUNCHERS: Record<string, TileLauncher> = {
   },
 };
 
+/**
+ * Regroup a role's flat "rest" list back under the AREAS menus it came from.
+ *
+ * "The Rest" is a phone compromise: one door, because twenty rows will not fit
+ * beside the buttons a crew member came for. An iPad has the room, so the tile
+ * launcher opens that list in place instead of linking to it (see
+ * TileLauncher) — and a flat run of twenty-five destinations is worse than the
+ * menu it replaced. This puts the headings back, from the ONE list that already
+ * defines them, so the office's iPad home reads the same way the admin's does.
+ *
+ * Matched on `href`, and anything that matches no menu is kept in a final
+ * group rather than dropped: a curated `rest` entry that is not in AREAS is
+ * still a page someone has to be able to reach.
+ */
+export function groupByArea(dests: Dest[]): { id: string; title: string; dests: Dest[] }[] {
+  const want = new Set(dests.map((d) => d.href));
+  const seen = new Set<string>();
+  const groups = AREAS.map((a) => {
+    const rows = a.dests.filter((d) => want.has(d.href));
+    rows.forEach((d) => seen.add(d.href));
+    return { id: a.id, title: a.title, dests: rows };
+  }).filter((a) => a.dests.length > 0);
+
+  const orphans = dests.filter((d) => !seen.has(d.href));
+  if (orphans.length > 0) groups.push({ id: "other", title: "More", dests: orphans });
+  return groups;
+}
+
 /** The tile launcher for a role, or null for the roles that get AREAS. */
 export function tileLauncherFor(role: string | null | undefined): TileLauncher | null {
   return (role && TILE_LAUNCHERS[role]) || null;

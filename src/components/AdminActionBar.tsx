@@ -134,7 +134,7 @@ export function AdminActionBar({ jobQs = "" }: { jobQs?: string }) {
       </div>
 
       {/* Quick-jump links — direct access to the queues admins work most. */}
-      <div className="mb-2 grid grid-cols-2 gap-2">
+      <div className="mb-2 grid grid-cols-2 gap-2 pad:grid-cols-4">
         {NAV_LINKS.map((l) => (
           <Link
             key={l.href}
@@ -146,7 +146,10 @@ export function AdminActionBar({ jobQs = "" }: { jobQs?: string }) {
         ))}
       </div>
 
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+      {/* Two across once there is room, three on an iPad and up — a run card is
+          a label and a button, and stretching one across 500px says nothing
+          more than it says across 330. */}
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 pad:grid-cols-3">
         {ADMIN_ACTIONS.map((a) => {
           const st: RunState = runs[a.id] ?? { status: "idle" };
           return (

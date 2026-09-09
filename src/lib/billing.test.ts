@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import vectorFile from "./billing-vectors.json";
 import {
+  billingWindow,
   companyDateParts,
   computeBillDates,
   salesTaxAmount,
@@ -168,5 +169,35 @@ describe("taxReconcileWarning", () => {
   it("has nothing to check without an amount or items", () => {
     expect(taxReconcileWarning({ Amount: 0, Tax: 0, items: [] })).toBeNull();
     expect(taxReconcileWarning({ Amount: 100, Tax: 0, items: [] })).toBeNull();
+  });
+});
+
+describe("billingWindow — how the 10th-to-10th window reads today", () => {
+  // Noon Pacific on each day, so the company timezone conversion is unambiguous.
+  const noonPacific = (iso: string) => new Date(`${iso}T19:00:00Z`);
+
+  it("counts the days left before the window turns over", () => {
+    const w = billingWindow(noonPacific("2026-09-09"));
+    expect(w.ym).toBe("2026-08");
+    expect(w.daysLeft).toBe(1);
+  });
+
+  it("closes at the end of the 10th, not the start of it", () => {
+    const w = billingWindow(noonPacific("2026-09-10"));
+    expect(w.ym).toBe("2026-08");
+    expect(w.daysLeft).toBe(0);
+  });
+
+  it("rolls to the arrival month on the 11th, counting to the next 10th", () => {
+    const w = billingWindow(noonPacific("2026-09-11"));
+    expect(w.ym).toBe("2026-09");
+    // 19 days left in September, plus the first 10 of October.
+    expect(w.daysLeft).toBe(29);
+  });
+
+  it("crosses the year boundary with the period it derives", () => {
+    const w = billingWindow(noonPacific("2026-01-05"));
+    expect(w.ym).toBe("2025-12");
+    expect(w.daysLeft).toBe(5);
   });
 });

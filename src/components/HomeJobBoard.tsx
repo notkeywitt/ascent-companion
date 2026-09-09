@@ -2,7 +2,15 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Card, Loading, Meter, MetaLine, SectionHeading, Skeleton } from "@/components/ui";
+import {
+  Card,
+  Loading,
+  Meter,
+  MetaLine,
+  SectionHeading,
+  Skeleton,
+  StatementBlock,
+} from "@/components/ui";
 import { Donut, type DonutSlice } from "@/components/Donut";
 import { JobGantt } from "@/components/JobGantt";
 import { jtBudgetUrl } from "@/lib/jtLinks";
@@ -289,7 +297,10 @@ function BoardCard({
 }) {
   return (
     <Card
-      className={`flex h-full w-72 shrink-0 flex-col gap-2 transition ${
+      // `w-72` is the SCROLLER's card. At `pad` the row becomes a grid and the
+      // cell decides the width, so the fixed one has to go — `pad:w-auto` is
+      // emitted after every unprefixed width, which is what lets it win.
+      className={`flex h-full w-72 shrink-0 flex-col gap-2 transition pad:w-auto ${
         expanded ? "border-accent" : ""
       }`}
     >
@@ -452,6 +463,43 @@ function LeadPanel({
   );
 }
 
+/**
+ * Every active job's budget as ONE figure — `pad` and up only.
+ *
+ * A phone cannot afford this: it already spends its first screen on the card
+ * row, and a second number above it would push the first card off. An iPad has
+ * the room, and the number is what the row cannot say — the cards each answer
+ * "how is THIS job", and nobody adds five donuts up in their head. It is also
+ * the one thing on this page readable from across the office, which is where a
+ * docked iPad usually is.
+ *
+ * The page's ONE display figure, so nothing else on home may claim a
+ * StatementBlock. `rule={false}` because the section heading above it already
+ * drew the band's rule, and two in a row read as a stray divider.
+ */
+function PortfolioLine({ cards }: { cards: JobBoardCard[] }) {
+  const budget = cards.reduce((n, c) => n + c.budget, 0);
+  const spent = cards.reduce((n, c) => n + spentOf(c), 0);
+  const over = cards.filter((c) => c.budget > 0 && spentOf(c) > c.budget).length;
+  const sub = [
+    `of ${money0(budget)} across ${cards.length} job${cards.length === 1 ? "" : "s"}`,
+    budget > 0 ? `${Math.round((spent / budget) * 100)}% of budget` : null,
+    over > 0 ? `${over} over budget` : null,
+  ]
+    .filter(Boolean)
+    .join(" \u00b7 ");
+
+  return (
+    <StatementBlock
+      rule={false}
+      className="mb-1 hidden pad:block"
+      label="Spent against budget"
+      value={money0(spent)}
+      sub={sub}
+    />
+  );
+}
+
 /* ------------------------------------------------------------------ board */
 
 export function HomeJobBoard() {
@@ -511,9 +559,18 @@ export function HomeJobBoard() {
         />
       ) : (
         <>
-          {/* The row bleeds to the page's edges so the next card is visibly cut
-              off — the same trick ChipScroller uses to say "there is more". */}
-          <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-1 xl:-mx-8 xl:px-8">
+          <PortfolioLine cards={cards} />
+          {/* A PHONE scrolls this row sideways, and it bleeds to the screen
+              edges so the next card is visibly cut off — the same trick
+              ChipScroller uses to say "there is more".
+
+              AN IPAD DOES NOT. Portrait gives ~1180px of height and ~760px of
+              width, so the cards go in a GRID: sideways scrolling hides content
+              along the axis a tablet has least of, and it hides it behind a
+              gesture rather than behind a scrollbar. Two across in portrait,
+              three once the 12.9" portrait width is reached, four on a desktop
+              monitor — each step keeps a card near its natural ~300px. */}
+          <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-1 pad:mx-0 pad:grid pad:grid-cols-2 pad:overflow-x-visible pad:px-0 lg:grid-cols-3 xl:grid-cols-4">
             {cards.map((c) => (
               <BoardCard
                 key={c.id}

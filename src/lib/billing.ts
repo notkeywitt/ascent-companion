@@ -12,7 +12,7 @@
 /** Company timezone — matches appsscript.json. The server may run in UTC, so all
  *  "what day is it" decisions convert to this zone first (a bill uploaded at
  *  11 PM Pacific on the 10th must NOT count as the 11th). */
-const COMPANY_TZ = "America/Los_Angeles";
+export const COMPANY_TZ = "America/Los_Angeles";
 
 /** Calendar parts of a Date in the company timezone. */
 export function companyDateParts(d: Date): { year: number; month: number; day: number } {
@@ -58,6 +58,37 @@ export function deriveBillingPeriod(received: Date, isSunset: boolean): BillingP
     }
   }
   return { billingMonthNum: month, billingYear: year };
+}
+
+/** Where the 10th-to-10th window stands on a given day. */
+export interface BillingWindow {
+  /** The period a non-Sunset bill arriving now codes to. */
+  period: BillingPeriod;
+  /** That period as "2026-08" — the key `monthLabel` and the pickers use. */
+  ym: string;
+  /** Days until the window turns over. 0 means it closes at the end of today. */
+  daysLeft: number;
+}
+
+/**
+ * The billing window as a person needs to read it: which month a bill arriving
+ * NOW codes to, and how long that stays true.
+ *
+ * The month comes straight from `deriveBillingPeriod` — the one rule — so this
+ * cannot disagree with what the bill writers do. Only the countdown is new, and
+ * it follows from the same boundary: the 10th is the last day that codes to the
+ * previous month, so on the 10th itself `daysLeft` is 0.
+ */
+export function billingWindow(now: Date): BillingWindow {
+  const p = companyDateParts(now);
+  const period = deriveBillingPeriod(now, false);
+  const daysLeft =
+    p.day <= 10 ? 10 - p.day : lastDayOfMonth(p.year, p.month) - p.day + 10;
+  return {
+    period,
+    ym: `${period.billingYear}-${String(period.billingMonthNum).padStart(2, "0")}`,
+    daysLeft,
+  };
 }
 
 export interface BillDates {

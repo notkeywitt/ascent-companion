@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useAccess } from "@/components/AccessProvider";
 import { useCopy } from "@/components/CopyProvider";
 import { LinkPendingOverlay } from "@/components/LinkPending";
-import { MORE_HREF, tileLauncherFor, type Dest } from "@/lib/nav";
+import { ListCard, ListRow, SectionHeading } from "@/components/ui";
+import { MORE_HREF, groupByArea, tileLauncherFor, type Dest } from "@/lib/nav";
 
 /**
  * The TILE launcher — what a field, lead, or office user sees on the home page.
@@ -26,6 +27,18 @@ import { MORE_HREF, tileLauncherFor, type Dest } from "@/lib/nav";
  * WHAT SHOWS HERE IS CURATED IN src/lib/nav.ts (TILE_LAUNCHERS). Every tile is
  * still gated on the same view id as the launcher and the middleware, so a tile
  * can never lead somewhere the user gets bounced from.
+ *
+ * ON AN IPAD, "The Rest" IS NOT A DOOR — IT IS THE ROOM. The door exists because
+ * a phone cannot show twenty destinations beside the four buttons someone came
+ * for; an iPad in portrait has a foot of height and shows both. So from `pad` up
+ * the last tile goes away and its menu opens in place, under the same headings
+ * the admin launcher uses (groupByArea). Office is who this matters to — it has
+ * ~25 rows behind that one tile, and reaching any of them from a desk iPad cost
+ * a page load and a page back.
+ *
+ * The swap is pure CSS. A JS media query would paint the phone's four tiles
+ * first and rearrange them a frame later, on the screen every person in the
+ * company opens first.
  */
 
 /* Flat 2px line icons on a 24×24 grid — the same set the tab bar draws. */
@@ -37,7 +50,7 @@ const IconBase = ({ children }: { children: React.ReactNode }) => (
     strokeWidth={2}
     strokeLinecap="round"
     strokeLinejoin="round"
-    className="h-8 w-8"
+    className="h-8 w-8 pad:h-9 pad:w-9"
     aria-hidden
   >
     {children}
@@ -110,17 +123,25 @@ export function FieldTile({
   href,
   label,
   Icon,
+  className = "",
 }: {
   href: string;
   label: string;
   Icon: () => React.ReactNode;
+  className?: string;
 }) {
   return (
     <Link
       href={href}
       // Big, square, thumb-first. `active:` paints on the press so the tap is
       // never in doubt; the overlay covers the wait on a job-site connection.
-      className="relative flex aspect-square flex-col items-center justify-center gap-2 rounded-2xl border border-line bg-white px-3 text-center transition active:bg-accent/15 hover:border-accent dark:bg-ink-raised"
+      //
+      // SQUARE ONLY ON A PHONE. A square is what makes a 180px phone tile read
+      // as a button; the same rule on an iPad draws a 250px box holding a 32px
+      // icon, which is not a bigger button, it is a bigger empty rectangle. From
+      // `pad` up the height is fixed instead, so the tile grows sideways with
+      // the screen and stays a button.
+      className={`relative flex aspect-square flex-col items-center justify-center gap-2 rounded-2xl border border-line bg-white px-3 text-center transition active:bg-accent/15 hover:border-accent dark:bg-ink-raised pad:aspect-auto pad:h-36 ${className}`}
     >
       <span className="text-accent dark:text-accent-soft">
         <Icon />
@@ -138,8 +159,11 @@ export function TileLauncher({ qs = "" }: { qs?: string }) {
   const launcher = tileLauncherFor(access.role);
   const label = (d: Dest) => c(`home.quick.${d.view}.label`) || d.label;
   const quick = (launcher?.quick ?? []).filter((d) => access.can(d.view));
-  // The last button is pointless with nothing behind it.
-  const restCount = (launcher?.rest ?? []).filter((d) => access.can(d.view)).length;
+  // What sits behind "The Rest": the same rows /more lists, resolved through the
+  // copy registry the same way, and grouped under the AREAS headings for the
+  // wide layout below.
+  const rest = (launcher?.rest ?? []).filter((d) => access.can(d.view));
+  const restGroups = groupByArea(rest);
 
   return (
     <div className="space-y-4">
@@ -148,7 +172,10 @@ export function TileLauncher({ qs = "" }: { qs?: string }) {
           rendered ABOVE this launcher by src/app/page.tsx, never inside it. The
           `digest` view went ADMIN-ONLY on 2026-09-08 (src/lib/views.ts), and no
           role that gets THIS launcher holds it. */}
-      <div className="grid grid-cols-2 gap-3">
+      {/* Two across on a phone. Three from `pad` up, which is exactly one row
+          for the three everyday buttons office and field each keep; four at
+          1024px, so a 12.9" iPad in portrait does not draw 330px squares. */}
+      <div className="grid grid-cols-2 gap-3 pad:grid-cols-3 lg:grid-cols-4">
         {quick.map((d) => (
           <FieldTile
             key={d.href}
@@ -157,14 +184,48 @@ export function TileLauncher({ qs = "" }: { qs?: string }) {
             Icon={ICONS[d.view] ?? GridIcon}
           />
         ))}
-        {restCount > 0 && (
+        {/* The door — and only where the room below is not already open. */}
+        {rest.length > 0 && (
           <FieldTile
             href={MORE_HREF + qs}
             label={c("home.quick.more.label") || "The Rest"}
             Icon={GridIcon}
+            className="pad:hidden"
           />
         )}
       </div>
+
+      {/* Newspaper columns, and two of them at every tablet width, for the same
+          two reasons the admin launcher uses them: a grid would lock a 5-row
+          menu to the height of a 14-row one, and a third column takes a row's
+          description below a phone's width. */}
+      {restGroups.length > 0 && (
+        <div className="hidden pad:block pad:columns-2 pad:gap-6 xl:columns-3">
+          {restGroups.map((g) => (
+            <section key={g.id} className="mb-6 space-y-2 break-inside-avoid">
+              <SectionHeading
+                trailing={
+                  <span className="text-[11px] tabular-nums text-neutral-500">
+                    {g.dests.length}
+                  </span>
+                }
+              >
+                {g.title}
+              </SectionHeading>
+              <ListCard>
+                {g.dests.map((d) => (
+                  <ListRow
+                    key={d.href}
+                    href={d.href + qs}
+                    label={c(`home.dest.${d.view}.label`) || d.label}
+                    desc={c(`home.dest.${d.view}.desc`) || d.desc}
+                  />
+                ))}
+              </ListCard>
+            </section>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

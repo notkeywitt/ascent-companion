@@ -4,6 +4,27 @@ export default {
   darkMode: "class",
   content: ["./src/**/*.{ts,tsx}"],
   theme: {
+    // Tailwind's own five, PLUS `pad` — "an iPad in portrait, and up".
+    //
+    // Declared as a full object rather than through `extend` on purpose.
+    // Tailwind emits variants in the order the screens are declared, and two
+    // utilities that set the same property are resolved by that emitted order,
+    // not by the order they are written in a class attribute. Appending `pad`
+    // through `extend` would put it AFTER `xl:` in the stylesheet, so
+    // `pad:grid-cols-2 xl:grid-cols-3` would silently stay at two columns on a
+    // desktop monitor. Listed in sorted position, each larger screen wins.
+    //
+    // 744px is the narrowest iPad in portrait (the mini); every other one is
+    // 810-1024. It is deliberately BELOW `md`, so a phone (max 430) and a Split
+    // View half-screen (507-678) both stay on the phone layout.
+    screens: {
+      sm: "640px",
+      pad: "744px",
+      md: "768px",
+      lg: "1024px",
+      xl: "1280px",
+      "2xl": "1536px",
+    },
     extend: {
       // Ascent Building Co. brand palette (Brand Guidelines, May 2024).
       // The raw hues below are fixed brand values. The THEME roles — `accent`
