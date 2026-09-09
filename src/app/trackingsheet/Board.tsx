@@ -3885,34 +3885,38 @@ export function Board() {
         </div>
       )}
 
-      {/* THE COMMIT BAR — docked at the foot of the screen, at every width.
-          It carries the staged count, Revert and Save Changes: the write, and
-          nothing else. The month's closing actions — check, sheet push,
-          approve — are one centred row above, since none of them commits the
-          staged coding this bar is about.
+      {/* THE COMMIT BAR — a compact card docked in the LOWER RIGHT corner, at
+          every width. It carries the staged count, Revert and Save Changes: the
+          write, and nothing else. The month's closing actions — check, sheet
+          push, approve — are one centred row above, since none of them commits
+          the staged coding this bar is about.
 
           It used to be `lg:hidden`, with Revert and Save duplicated in the top
           toolbar and Save duplicated AGAIN in the coding drawer — so the desktop
           workbench, the one that scrolls furthest, was the only surface with no
           commit in reach. One bar, three call sites collapsed into it.
 
+          It was a full-bleed strip until 2026-09-09, and this page runs to
+          110rem: a band that wide floating over the workbench read as an
+          overlay, not as a foot. `dock="right"` sizes it to its buttons and
+          pushes it to the column's right edge instead.
+
           It pins above the tab bar (`--tabbar-h`), so it clears the tab bar at
           desktop widths too. `order-last` keeps it at the bottom of the flex
           column even though the reconcile block above also claims that order on
           a phone; both are last in DOM order here, so they stack in source
-          order. `flex-wrap` is what lets the staged sentence take its own line
-          on a 375px screen instead of squeezing the buttons off the edge. */}
+          order. */}
       {jobId && (
-        <StickyActionBar className="order-last mt-4 flex-wrap">
+        <StickyActionBar dock="right" className="order-last mt-4 flex-wrap justify-end">
           {dirty && (
-            <span className="w-full text-xs font-bold tabular-nums text-amber-700 dark:text-amber-300 sm:w-auto sm:flex-1">
+            <span className="text-xs font-bold tabular-nums text-amber-700 dark:text-amber-300">
               {stagedCount} staged change{stagedCount === 1 ? "" : "s"}
               <span className="block text-[10.5px] font-medium text-neutral-500 dark:text-neutral-400">
                 Nothing is written until you save
               </span>
             </span>
           )}
-          <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto sm:flex-1">
+          <div className="flex items-center gap-2">
             {dirty && (
               <Button
                 variant="secondary"

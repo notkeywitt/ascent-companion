@@ -21,13 +21,21 @@ import { useCallback, useRef, type ReactNode } from "react";
  *
  * A callback ref, not an effect: this component mounts and unmounts as staged
  * work appears and clears, which is exactly when the value must change.
+ *
+ * `dock="right"` is the other shape: a compact card pinned to the lower RIGHT
+ * of the content column instead of a strip across it. A full-bleed strip reads
+ * as a floating band on a wide page (the tracking sheet runs to 110rem), so a
+ * page that wide docks its commit into the corner the thumb and the cursor both
+ * already sit in.
  */
 export function StickyActionBar({
   children,
   className = "",
+  dock = "full",
 }: {
   children: ReactNode;
   className?: string;
+  dock?: "full" | "right";
 }) {
   const observer = useRef<ResizeObserver | null>(null);
   const measure = useCallback((el: HTMLDivElement | null) => {
@@ -49,11 +57,19 @@ export function StickyActionBar({
     observer.current = ro;
   }, []);
 
+  const base =
+    dock === "right"
+      ? "sticky z-10 ml-auto flex w-fit max-w-full items-center gap-2 rounded-xl border border-line bg-cream/95 px-3 py-2 shadow-lg backdrop-blur dark:bg-ink/95 print:hidden"
+      : "sticky z-10 -mx-4 flex items-center gap-2 border-t border-line bg-cream/95 px-4 py-2.5 backdrop-blur dark:bg-ink/95 print:hidden";
+
   return (
     <div
       ref={measure}
-      className={`sticky z-10 -mx-4 flex items-center gap-2 border-t border-line bg-cream/95 px-4 py-2.5 backdrop-blur dark:bg-ink/95 print:hidden ${className}`}
-      style={{ bottom: "var(--tabbar-h, 0px)" }}
+      className={`${base} ${className}`}
+      style={{
+        bottom:
+          dock === "right" ? "calc(var(--tabbar-h, 0px) + 0.75rem)" : "var(--tabbar-h, 0px)",
+      }}
     >
       {children}
     </div>
