@@ -4,9 +4,9 @@ repo: ascent-companion
 branch: claude/jobtread-qbo-sales-tax-lfqctd
 status: shipped
 started: 2026-09-05T05:30:35Z
-updated: 2026-09-09T20:29:02Z
+updated: 2026-09-09T20:33:42Z
 goal: bill move: background + Drive re-file + real error; buyback picker dialog; approve advances; cost-code names on the bills list
-next: buyback now codes to 99 20 00 on Shop; if the Shop budget has no 99 20 00 leaf the first buyback creates it (createCostItem jobId+costCodeId — unprobed, classifier blocked the live write). Verify on the first real buyback.
+next: verify the docked commit bar on the tracking sheet at desktop and 375px; then confirm on a >100-line vendor bill that a re-upload now says the amounts were not compared instead of offering a replace
 ---
 
 ## Log
@@ -86,6 +86,9 @@ next: buyback now codes to 99 20 00 on Shop; if the Shop budget has no 99 20 00 
   src/app/trackingsheet/Board.tsx, src/components/StickyActionBar.tsx
 - 2026-09-09 13:29 · `26b2ffa` companion: code buybacks to 99 20 00 on the Shop job
   src/lib/jobtread.ts
+- 2026-09-09 13:29 · `ef00694` companion: log session 2026-09-05-jobtread-qbo-sales-tax
+- 2026-09-09 13:33 · `8ae8e49` companion: refuse a bill replace it cannot do completely
+  src/app/api/add-bill/route.ts, src/lib/jobtread.ts
 
 ## Notes
 - 2026-09-05 05:30 — Companion half of the sales-tax move. src/lib/salesTax.ts is the single definition: the 88 80 00 constants, the line matcher, splitSalesTax, and the job-Phase-derived recoverable/consumed flag. createVendorBill appends the tax line and pins nonRecoverableTax to 0; setBillTax now creates/updates/deletes that LINE and clears any legacy field.
