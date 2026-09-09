@@ -3012,8 +3012,13 @@ export function Board() {
         </div>
       )}
 
+      {/* `lg:order-1` pushes the whole workbench BELOW the month's closing-action
+          row, which is DOM-later — so on desktop those buttons read directly
+          under the "to be invoiced" figures instead of a full workbench away at
+          the foot of the page. Nothing moves on a phone: the row is `order-last`
+          there and this class starts at lg. */}
       {data && !loading && (
-        <SplitGrid className="lg:grid-cols-2">
+        <SplitGrid className="lg:order-1 lg:grid-cols-2">
           {/* ─────────── LEFT: cost-code reference rail ─────────── */}
           {/* Docked: the rail is the reference you're constantly checking while
               scrolling a long bill list, so it stays put. `self-start` is what

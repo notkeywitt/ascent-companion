@@ -4,9 +4,9 @@ repo: ascent-companion
 branch: claude/jobtread-qbo-sales-tax-lfqctd
 status: shipped
 started: 2026-09-05T05:30:35Z
-updated: 2026-09-09T20:45:41Z
+updated: 2026-09-09T21:00:03Z
 goal: bill move: background + Drive re-file + real error; buyback picker dialog; approve advances; cost-code names on the bills list
-next: QBO lock is live: document.qboId != null refuses edits with 409 on 12 bill routes + /api/pave, fails closed on a read error. Watch for a false lock (a bill the office still needs to fix) and for the 409 text surfacing on the bill page's header controls, which are still enabled on a non-draft bill.
+next: push 9cf75ab (half-cent rounding fix) to main, then re-run /api/invoice-review?ym=2026-08 to confirm Otis Perkins is clean
 ---
 
 ## Log
@@ -93,6 +93,8 @@ next: QBO lock is live: document.qboId != null refuses edits with 409 on 12 bill
   CODEBASE_MAP.md, src/app/api/add-bill/route.ts, src/app/api/billing-month/route.ts, src/app/api/invoice-review/run/route.ts, src/app/api/jobs/to-be-invoiced/route.ts, src/components/HomeJobBoard.tsx, +6 more
 - 2026-09-09 13:44 · `c7dc974` companion: bill editing is office+admin, and quickbooks freezes a bill
   src/app/api/add-line/route.ts, src/app/api/bill-duedate/route.ts, src/app/api/bill-fields/route.ts, src/app/api/bill-issuedate/route.ts, src/app/api/bill-number/route.ts, src/app/api/bill-status/route.ts, +12 more
+- 2026-09-09 13:47 · `9cf75ab` companion: round a half-cent the way JobTread does
+  src/lib/invoiceReview/checks.test.ts, src/lib/invoiceReview/checks/invoiceMath.ts, src/lib/invoiceReview/types.ts
 
 ## Notes
 - 2026-09-05 05:30 — Companion half of the sales-tax move. src/lib/salesTax.ts is the single definition: the 88 80 00 constants, the line matcher, splitSalesTax, and the job-Phase-derived recoverable/consumed flag. createVendorBill appends the tax line and pins nonRecoverableTax to 0; setBillTax now creates/updates/deletes that LINE and clears any legacy field.
@@ -106,3 +108,4 @@ next: QBO lock is live: document.qboId != null refuses edits with 409 on 12 bill
 - 2026-09-08 18:24 — Drive folder on a move: verified. A bill's folder is a pure function of the Expenditure row (reconcileDriveFiling), so setting Project ID IS the re-file — there is no re-file flag despite three comments saying so. It only ran on the hourly pass, so the backup sat in the old job's folder for up to an hour. reconcileDriveFiling now takes { onlyExpId } and the reassign runs it for that one row before returning.
 - 2026-09-08 19:07 — time & labor: per-entry JT link (timeEntryId param, owner-supplied) + labor-rate (pay type) edit on the coding panel. Probed live: updateTimeEntry type re-rates the entry (85->95/h, cost 170->190, minutes unchanged); an unknown type is 400. Rate field is office/admin only in /api/time-entry.
 - 2026-09-09 20:40 — home: SPENT AGAINST BUDGET replaced by TO BE INVOICED for the current billing month (sum of /api/jobs/to-be-invoiced over the board's active jobs); each card carries its own amount in the top-right corner. Billing period is now a dropdown (office/admin) backed by billing_month_setting — it overrides the 10th cutoff for every non-Sunset bill via deriveBillingPeriod's new overrideYm, and goes red past the 10th while behind the calendar. NOT pushed: touches /api/add-bill, a JobTread write path.
+- 2026-09-09 20:48 — invoice #382 math-line was a false positive: cents() rounded a negative half-cent toward +inf, and invoice-math compared in dollars instead of whole cents. Fixed in types.ts + checks/invoiceMath.ts, committed 9cf75ab, NOT pushed (push blocked).
