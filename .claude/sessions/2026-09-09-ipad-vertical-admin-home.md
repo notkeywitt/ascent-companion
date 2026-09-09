@@ -2,9 +2,9 @@
 slug: ipad-vertical-admin-home
 repo: ascent-companion
 branch: claude/ipad-vertical-admin-home-onkrkj
-status: in-progress
+status: shipped
 started: 2026-09-09T06:11:27Z
-updated: 2026-09-09T06:11:52Z
+updated: 2026-09-09T06:12:12Z
 goal: A vertical iPad layout for the admin and office home screen.
 next: Watch the office iPad home in use: the three quick tiles are pad:h-36 with the whole /more menu open under them, and the guess is that 144px is still taller than a button needs to be.
 ---

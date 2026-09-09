@@ -1,7 +1,26 @@
 {
-  "generatedAt": "2026-09-09T02:07:50Z",
+  "generatedAt": "2026-09-09T06:12:12Z",
   "repo": "ascent-companion",
   "sessions": [
+    {
+      "slug": "ipad-vertical-admin-home",
+      "file": "2026-09-09-ipad-vertical-admin-home.md",
+      "branch": "claude/ipad-vertical-admin-home-onkrkj",
+      "status": "shipped",
+      "started": "2026-09-09T06:11:27Z",
+      "updated": "2026-09-09T06:12:12Z",
+      "goal": "A vertical iPad layout for the admin and office home screen.",
+      "next": "Watch the office iPad home in use: the three quick tiles are pad:h-36 with the whole /more menu open under them, and the guess is that 144px is still taller than a button needs to be.",
+      "commits": [
+        {
+          "date": "2026-09-09",
+          "time": "06:11",
+          "sha": "d7c70d3",
+          "subject": "companion: build the ipad home screen for admin and office",
+          "files": "CODEBASE_MAP.md, src/app/globals.css, src/app/page.tsx, src/components/AdminActionBar.tsx, src/components/HomeJobBoard.tsx, src/components/HomeLeadBoard.tsx, +7 more"
+        }
+      ]
+    },
     {
       "slug": "gemini-claude-transition-status",
       "file": "2026-09-09-gemini-claude-transition-status.md",
