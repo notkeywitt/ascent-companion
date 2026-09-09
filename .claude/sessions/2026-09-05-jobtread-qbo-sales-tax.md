@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/jobtread-qbo-sales-tax-lfqctd
 status: shipped
 started: 2026-09-05T05:30:35Z
-updated: 2026-09-09T19:51:54Z
+updated: 2026-09-09T19:54:01Z
 goal: bill move: background + Drive re-file + real error; buyback picker dialog; approve advances; cost-code names on the bills list
 next: test the revised-invoice replace on Screaming Arrow 1016 (doc 22PdHU9CtwhE, draft) with the resent invoice: expect the two-column compare, then Replace
 ---
@@ -82,6 +82,8 @@ next: test the revised-invoice replace on Screaming Arrow 1016 (doc 22PdHU9CtwhE
   src/app/add-bill/page.tsx, src/app/api/add-bill/route.ts, src/lib/billing.test.ts, src/lib/billing.ts, src/lib/jobtread.ts
 - 2026-09-09 12:51 · `c7214b9` companion: warn before leaving a running invoice upload
   src/app/add-bill/page.tsx
+- 2026-09-09 12:54 · `744aa7c` companion: dock the tracking sheet commit bar in the lower right
+  src/app/trackingsheet/Board.tsx, src/components/StickyActionBar.tsx
 
 ## Notes
 - 2026-09-05 05:30 — Companion half of the sales-tax move. src/lib/salesTax.ts is the single definition: the 88 80 00 constants, the line matcher, splitSalesTax, and the job-Phase-derived recoverable/consumed flag. createVendorBill appends the tax line and pins nonRecoverableTax to 0; setBillTax now creates/updates/deletes that LINE and clears any legacy field.
