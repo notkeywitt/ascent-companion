@@ -1,7 +1,26 @@
 {
-  "generatedAt": "2026-09-08T20:21:07Z",
+  "generatedAt": "2026-09-09T02:07:50Z",
   "repo": "ascent-companion",
   "sessions": [
+    {
+      "slug": "gemini-claude-transition-status",
+      "file": "2026-09-09-gemini-claude-transition-status.md",
+      "branch": "claude/gemini-claude-transition-status-cib68c",
+      "status": "in-progress",
+      "started": "2026-09-09T02:06:37Z",
+      "updated": "2026-09-09T02:07:50Z",
+      "goal": "finish the Gemini->Claude transition: no Gemini call left in either repo",
+      "next": "owner: delete GEMINI_KEY + GEMINI_MODEL from Vercel; decide whether ANTHROPIC_MODEL_EXTRACT should be Haiku (matches appscript) instead of the Sonnet 5 default; /add-bill and /api/ocr-serial not yet exercised against a real invoice/photo",
+      "commits": [
+        {
+          "date": "2026-09-09",
+          "time": "02:06",
+          "sha": "25b6248",
+          "subject": "companion: finish the gemini to claude transition",
+          "files": ".env.example, CLAUDE.md, CODEBASE_MAP.md, DEPLOY.md, README.md, USER_MANUAL.md, +25 more"
+        }
+      ]
+    },
     {
       "slug": "lead-email-capture-tagging",
       "file": "2026-09-08-lead-email-capture-tagging.md",
@@ -51,6 +70,39 @@
           "sha": "278b28f",
           "subject": "companion: keep the time entry note across visits",
           "files": "src/app/employee-time/EmployeeTimeClient.tsx"
+        }
+      ]
+    },
+    {
+      "slug": "trip-recording-persistence",
+      "file": "2026-09-08-trip-recording-persistence.md",
+      "branch": "claude/trip-recording-persistence-evilps",
+      "status": "in-progress",
+      "started": "2026-09-08T19:53:11Z",
+      "updated": "2026-09-08T19:54:05Z",
+      "goal": "",
+      "next": "verify on the phone: start a trip, force-quit the app, reopen — the trip should still be running; then confirm mileage_open_trips is created on the hosted DB",
+      "commits": [
+        {
+          "date": "2026-09-08",
+          "time": "19:53",
+          "sha": "0ca64a1",
+          "subject": "companion: keep a started mileage trip on the server, not just the phone",
+          "files": "CODEBASE_MAP.md, src/app/api/mileage/active/route.ts, src/app/mileage-tracker/page.tsx, src/db/index.ts, src/db/schema.ts, src/lib/mileageTrip.test.ts, +1 more"
+        },
+        {
+          "date": "2026-09-08",
+          "time": "19:53",
+          "sha": "e802a6a",
+          "subject": "companion: log session 2026-09-08-trip-recording-persistence",
+          "files": ""
+        },
+        {
+          "date": "2026-09-08",
+          "time": "19:54",
+          "sha": "b874b09",
+          "subject": "companion: log the ledger commit's own row",
+          "files": ""
         }
       ]
     },
