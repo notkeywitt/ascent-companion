@@ -4,9 +4,9 @@ repo: ascent-companion
 branch: claude/jobtread-qbo-sales-tax-lfqctd
 status: shipped
 started: 2026-09-05T05:30:35Z
-updated: 2026-09-09T20:40:41Z
+updated: 2026-09-09T20:45:28Z
 goal: bill move: background + Drive re-file + real error; buyback picker dialog; approve advances; cost-code names on the bills list
-next: bill/invoice editing limited to office+admin (paveGateway LEAD_WRITES, views.ts recode + /api/email, billEditAccess.test.ts) — NOT pushed, needs owner OK per CLAUDE.md. Open gap: no route blocks editing/deleting a QBO-pushed or invoiced bill; only UI disables non-draft lines.
+next: QBO lock is live: document.qboId != null refuses edits with 409 on 12 bill routes + /api/pave, fails closed on a read error. Watch for a false lock (a bill the office still needs to fix) and for the 409 text surfacing on the bill page's header controls, which are still enabled on a non-draft bill.
 ---
 
 ## Log
@@ -91,6 +91,8 @@ next: bill/invoice editing limited to office+admin (paveGateway LEAD_WRITES, vie
   src/app/api/add-bill/route.ts, src/lib/jobtread.ts
 - 2026-09-09 13:40 · `2debcca` companion: the billing month is a dropdown, and home leads with what the month invoices
   CODEBASE_MAP.md, src/app/api/add-bill/route.ts, src/app/api/billing-month/route.ts, src/app/api/invoice-review/run/route.ts, src/app/api/jobs/to-be-invoiced/route.ts, src/components/HomeJobBoard.tsx, +6 more
+- 2026-09-09 13:44 · `c7dc974` companion: bill editing is office+admin, and quickbooks freezes a bill
+  src/app/api/add-line/route.ts, src/app/api/bill-duedate/route.ts, src/app/api/bill-fields/route.ts, src/app/api/bill-issuedate/route.ts, src/app/api/bill-number/route.ts, src/app/api/bill-status/route.ts, +12 more
 
 ## Notes
 - 2026-09-05 05:30 — Companion half of the sales-tax move. src/lib/salesTax.ts is the single definition: the 88 80 00 constants, the line matcher, splitSalesTax, and the job-Phase-derived recoverable/consumed flag. createVendorBill appends the tax line and pins nonRecoverableTax to 0; setBillTax now creates/updates/deletes that LINE and clears any legacy field.
