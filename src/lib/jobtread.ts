@@ -3713,7 +3713,11 @@ export async function createVendorBill(
  * the void rule in CLAUDE.md, and the appscript mirror keys on `externalId`.
  *
  * `deleteIds` is the caller's list of the lines to remove — normally every
- * non-tax line it just read. The SALES TAX line is not in it and must not be:
+ * non-tax line it just read. IT MUST BE COMPLETE: `getBillDetail` reads at most
+ * 100 cost items and does not page, so a caller that hands over a short list
+ * replaces the whole bill and deletes only part of it, leaving the tail on top
+ * of the new lines. Check the read was not truncated before calling.
+ * The SALES TAX line is not in it and must not be:
  * `setBillTax` owns that line, and updates, adds or removes it from the new
  * `taxAmount` on its own.
  *

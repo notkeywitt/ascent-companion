@@ -555,7 +555,18 @@ export async function POST(req: NextRequest) {
       // behind a client invoice; a denied one is voided. Neither may be rewritten
       // from here — that is a decision with money already moved behind it.
       const status = (prior.header.status ?? "").toLowerCase() || "in an unknown state";
-      const replaceable = status === "draft" || status === "pending";
+      // getBillDetail reads at most 100 cost items and does NOT page, so a bill
+      // longer than that was read SHORT: its total compares low, and a replace
+      // would delete only the 100 lines it saw and leave the tail — a bill
+      // costing the invoice twice over, under a journal row that says the lines
+      // were replaced. Refuse, and don't call the short total a change either.
+      const truncated = prior.lines.length >= 100;
+      // `existing` was found by VENDOR + bill number, never by job, so the bill
+      // on file can belong to a DIFFERENT job than the picker's. Its replacement
+      // lines carry THIS job's budget leaves (and this job's sales-tax leaf), so
+      // they must not land on another job's document.
+      const sameJob = !prior.jobId || prior.jobId === jobId;
+      const replaceable = (status === "draft" || status === "pending") && !truncated && sameJob;
 
       if (!replaceDocId) {
         return NextResponse.json({
@@ -564,29 +575,35 @@ export async function POST(req: NextRequest) {
           alreadyExisted: true,
           docId: existing,
           ...summary,
-          duplicateChanged: changed,
+          duplicateChanged: changed && !truncated,
           replaceable,
           comparison,
-          message: changed
-            ? `${vendor.name} already has a bill numbered "${billNumber}", but for a different ` +
-              `amount — ${money(comparison.existing.total)} on file, ${money(comparison.incoming.total)} ` +
-              `on this upload. Nothing was created yet.`
-            : `${vendor.name} already has a bill numbered "${billNumber}" for the same amount — ` +
-              `nothing was created. This invoice is already logged.`,
+          message: truncated
+            ? `${vendor.name} already has a bill numbered "${billNumber}" — nothing was created. ` +
+              `That bill carries 100 lines or more, which is past what this page can read, so the ` +
+              `amounts were NOT compared. Open it and check it against this invoice.`
+            : changed
+              ? `${vendor.name} already has a bill numbered "${billNumber}", but for a different ` +
+                `amount — ${money(comparison.existing.total)} on file, ${money(comparison.incoming.total)} ` +
+                `on this upload. Nothing was created yet.`
+              : `${vendor.name} already has a bill numbered "${billNumber}" for the same amount — ` +
+                `nothing was created. This invoice is already logged.`,
         });
       }
 
       // ---- 7c. replace the existing bill's lines with this upload's ---------
       if (!replaceable) {
-        return NextResponse.json(
-          {
-            error:
-              `That bill is ${status} — its cost is already in the reports, and it may sit behind a ` +
+        const why = truncated
+          ? `That bill carries 100 lines or more, past what this page can read, so a replace would ` +
+            `leave behind the lines it could not see. Nothing was changed. Revise it in JobTread.`
+          : !sameJob
+            ? `That bill is on a different job than the one picked here, so its lines cannot be ` +
+              `re-coded against this job's budget. Nothing was changed. Upload it under that job, ` +
+              `or revise it in JobTread.`
+            : `That bill is ${status} — its cost is already in the reports, and it may sit behind a ` +
               `client invoice. Nothing was changed. Set it back to draft in JobTread first, or ` +
-              `revise it there.`,
-          },
-          { status: 409 },
-        );
+              `revise it there.`;
+        return NextResponse.json({ error: why }, { status: 409 });
       }
 
       const j = await openJournal("/api/add-bill");
