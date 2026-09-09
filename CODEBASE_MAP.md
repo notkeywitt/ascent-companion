@@ -325,7 +325,9 @@ Grouped by domain; each folder is `…/route.ts`.
   Script).
 - **Bills / coding:** `bill/*`, `add-bill`, `add-line`, `delete-line`,
   `combine-lines`, `code`, `coding-queue`, `trackingsheet/*`, `bill-status`,
-  `bill-fields`, `bill-issuedate`, `bill-number` (the vendor's own invoice
+  `bill-fields`, `bill-issuedate` (the BILLING MONTH — JobTread's `issueDate`),
+  `bill-duedate` (JobTread's "Payment Due" — when the VENDOR gets paid; an empty
+  date puts the bill back on net-30), `bill-number` (the vendor's own invoice
   number — JobTread's `externalId`), `bill-tax`, `bill-reviewed`, `uncaptured`,
   `vendor-bills/*`, `vendor-bill-count`, `stuck-vendors`, `needs-project`,
   `reassign-job`, `coding-draft` (the cross-device backup for staged, not-yet-

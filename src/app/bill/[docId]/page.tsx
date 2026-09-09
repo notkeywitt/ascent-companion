@@ -61,6 +61,11 @@ interface Header {
   status?: string;
   cost?: number;
   issueDate?: string;
+  /** JobTread's "Payment Due" — when the vendor's invoice is due. Empty when the
+   *  bill runs on net terms instead. */
+  dueDate?: string;
+  /** Net terms in days, set only when there is no explicit due date. */
+  dueDays?: number | null;
   qboIsIgnored?: boolean;
   /** Legacy document tax field — non-zero only on a bill pushed before 2026-09-05.
    *  A bill's real sales tax comes off its 88 80 00 line (splitSalesTax). */
@@ -246,6 +251,7 @@ function BillDetail() {
   const [reassignMsg, setReassignMsg] = useState("");
   const [reassigning, setReassigning] = useState(false);
   const [monthSaving, setMonthSaving] = useState(false);
+  const [dueDateSaving, setDueDateSaving] = useState(false);
   const [bulkCode, setBulkCode] = useState("");
   const [reviewed, setReviewed] = useState(false);
   const [saved, setSaved] = useState(false); // Save has been clicked on this bill (assistant-local)
@@ -747,6 +753,49 @@ function BillDetail() {
     }
   }
 
+  /**
+   * Set this bill's PAYMENT DUE date — when the vendor has to be paid. It is a
+   * different field from the billing month above (`issueDate`), and changing it
+   * moves no money and re-files nothing.
+   *
+   * Optimistic, then reconciled: the route answers with what JobTread stored, so
+   * a rejected date (JT refuses one before the bill's own date) comes straight
+   * back as a message instead of a field that silently reverts. "" clears the
+   * date and puts the bill back on net-30.
+   */
+  async function setDueDate(next: string) {
+    const prev = header?.dueDate ?? "";
+    if (next === prev) return;
+    setDueDateSaving(true);
+    setSaveMsg("");
+    setHeader((h) => (h ? { ...h, dueDate: next } : h)); // optimistic
+    try {
+      const res = await fetch("/api/bill-duedate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ docId, dueDate: next }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setHeader((h) => (h ? { ...h, dueDate: prev } : h)); // revert
+        setSaveMsg(json.error ?? "Couldn't set the due date.");
+      } else if (json.previewed) {
+        setHeader((h) => (h ? { ...h, dueDate: prev } : h)); // nothing written
+        setSaveMsg("Preview only — writes are OFF. The due date wasn't changed.");
+      } else {
+        setHeader((h) =>
+          h ? { ...h, dueDate: json.dueDate ?? next, dueDays: json.dueDays ?? null } : h,
+        );
+        invalidateBills(); // cached payload still carries the old due date
+      }
+    } catch (e) {
+      setHeader((h) => (h ? { ...h, dueDate: prev } : h)); // revert
+      setSaveMsg(e instanceof Error ? e.message : "Network error");
+    } finally {
+      setDueDateSaving(false);
+    }
+  }
+
   // Toggle the assistant-local "reviewed" flag. Not a JobTread write — just
   // records that the office marked this bill done — so it works with writes OFF.
   async function toggleReviewed() {
@@ -1167,6 +1216,8 @@ function BillDetail() {
           jobPhase,
           number: header.number ?? null,
           issueDate: header.issueDate ?? null,
+          dueDate: header.dueDate ?? null,
+          dueDays: header.dueDays ?? null,
         }
       : null,
     lines: cardLines,
@@ -1199,6 +1250,9 @@ function BillDetail() {
     setTax: (v) => setTaxEdit(v),
 
     toggleReviewed: () => void toggleReviewed(),
+
+    setDueDate: (d) => void setDueDate(d),
+    dueDateSaving,
 
     review: {
       flagged: needsReview,

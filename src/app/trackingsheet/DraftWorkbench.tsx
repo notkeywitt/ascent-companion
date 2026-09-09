@@ -91,6 +91,11 @@ export interface WorkbenchHeader {
   status?: string;
   cost?: number;
   issueDate?: string;
+  /** JobTread's "Payment Due" — when the vendor's invoice is due. Empty when the
+   *  bill runs on net terms instead. */
+  dueDate?: string;
+  /** Net terms in days, set only when there is no explicit due date. */
+  dueDays?: number | null;
   nonRecoverableTax?: number;
   /** JobTread's "Record Tax" toggle — on means a document tax row the 88 80 00
    *  model forbids, so a save turns it off. */
@@ -948,6 +953,7 @@ export function DraftCodingPanel({
   const [billNumberDraft, setBillNumberDraft] = useState("");
   const [billNumberSaving, setBillNumberSaving] = useState(false);
   const [monthSaving, setMonthSaving] = useState(false);
+  const [dueDateSaving, setDueDateSaving] = useState(false);
   const [filingMsg, setFilingMsg] = useState("");
   // Bill moves run in the background, owned by the root layout — see BillMove.tsx.
   const billMove = useBillMove();
@@ -1274,6 +1280,34 @@ export function DraftCodingPanel({
     }
   };
 
+  /**
+   * Set the bill's PAYMENT DUE date — when the vendor has to be paid, which is a
+   * different field from the billing month above. "" clears it and puts the bill
+   * back on net-30. Reloads on success so the card shows what JobTread stored
+   * rather than what was typed.
+   */
+  const setDueDate = async (next: string) => {
+    if (!header || next === (header.dueDate ?? "")) return;
+    setDueDateSaving(true);
+    setFilingMsg("");
+    try {
+      const res = await fetch("/api/bill-duedate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ docId, dueDate: next }),
+      });
+      const json = await res.json();
+      if (!res.ok) setFilingMsg(json.error ?? "Couldn't set the due date.");
+      else if (json.previewed)
+        setFilingMsg("Preview only — writes are OFF. The due date wasn't changed.");
+      else await reload();
+    } catch (e) {
+      setFilingMsg(e instanceof Error ? e.message : "Network error");
+    } finally {
+      setDueDateSaving(false);
+    }
+  };
+
   const saveBillNumber = async () => {
     if (!header) return;
     const next = billNumberDraft.trim();
@@ -1339,6 +1373,8 @@ export function DraftCodingPanel({
           jobPhase,
           number: header.number,
           issueDate: header.issueDate,
+          dueDate: header.dueDate,
+          dueDays: header.dueDays,
         }
       : null,
     lines: cardLines,
@@ -1363,6 +1399,8 @@ export function DraftCodingPanel({
     taxView,
     setTax: setTaxEdit,
     toggleReviewed: () => toggleReviewed(),
+    setDueDate: (d) => void setDueDate(d),
+    dueDateSaving,
     isCombinable,
     anyCombinable,
     combineSelected,

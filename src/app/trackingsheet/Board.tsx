@@ -120,6 +120,11 @@ interface BillRef {
   cost: number;
   status: string;
   issueDate: string | null;
+  /** JobTread's "Payment Due" — when the vendor's invoice is due. Null when the
+   *  bill runs on net terms (`dueDays`) instead. */
+  dueDate: string | null;
+  /** Net terms in days, set only when there is no explicit due date. */
+  dueDays: number | null;
   createdAt: string | null;
   name: string;
   /** Legacy document tax field — non-zero only on a bill pushed before 2026-09-05.
@@ -1368,6 +1373,7 @@ export function Board() {
   const [deletingLineId, setDeletingLineId] = useState("");
   const [deleteLineMsg, setDeleteLineMsg] = useState("");
   const [monthSaving, setMonthSaving] = useState(false);
+  const [dueDateSaving, setDueDateSaving] = useState(false);
   const [filingMsg, setFilingMsg] = useState("");
   // Vendor Bill Number (JobTread externalId) editor for the open bill. Local draft
   // synced from the bill; committed on blur so we don't write on every keystroke.
@@ -1687,6 +1693,34 @@ export function Board() {
     }
   };
 
+  /**
+   * Set the bill's PAYMENT DUE date — when the VENDOR has to be paid. It is not
+   * the billing month above: a due date moves no money, re-files nothing, and
+   * never takes the bill off this board, so it needs none of that method's
+   * confirm. "" clears it and puts the bill back on net-30.
+   */
+  const setDueDate = async (next: string) => {
+    if (!openBill || next === (openBill.dueDate ?? "")) return;
+    setDueDateSaving(true);
+    setFilingMsg("");
+    try {
+      const res = await fetch("/api/bill-duedate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ docId: openBill.id, dueDate: next }),
+      });
+      const json = await res.json();
+      if (!res.ok) setFilingMsg(json.error ?? "Couldn't set the due date.");
+      else if (json.previewed)
+        setFilingMsg("Preview only — writes are OFF. The due date wasn't changed.");
+      else await load({ preserveStaged: true });
+    } catch (e) {
+      setFilingMsg(e instanceof Error ? e.message : "Network error");
+    } finally {
+      setDueDateSaving(false);
+    }
+  };
+
   // Save the Vendor Bill Number (JobTread externalId). Writes immediately, like
   // the billing-month edit, then reloads so the field reflects JobTread's truth.
   // A re-number keeps the bill on this board, so success is reported in the card.
@@ -1969,6 +2003,8 @@ export function Board() {
       if (openBill) setTaxEdits((p) => ({ ...p, [openBill.id]: v }));
     },
     toggleReviewed,
+    setDueDate: (d) => void setDueDate(d),
+    dueDateSaving,
     review: {
       flagged: review.flagged,
       note: review.note,

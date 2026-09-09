@@ -131,6 +131,11 @@ export interface CodingBill {
   /** JobTread's own document number, shown as the Bill Number placeholder. */
   number?: string | null;
   issueDate?: string | null;
+  /** JobTread's "Payment Due" — when the VENDOR's invoice is due, which is not
+      the billing month (`issueDate`). Empty when the bill is on net terms. */
+  dueDate?: string | null;
+  /** Net terms in days, set only when there is no explicit due date. */
+  dueDays?: number | null;
 }
 
 /**
@@ -211,6 +216,16 @@ export interface CodingCardCtl {
 
   /* ---- reviewed marker ---- */
   toggleReviewed: (docId: string, reviewed: boolean) => void;
+
+  /* ---- payment due date (a JobTread write, straight away) ---- */
+  /** Set the bill's "Payment Due" date, or clear it with "" to put the bill back
+      on net-30. Absent = the host offers no due-date edit and the field renders
+      read-only. Unlike the coding below, this writes on change rather than
+      waiting for the host's Save: it changes no money, and a date the office
+      types is the answer, not a staged proposal. */
+  setDueDate?: (dueDate: string) => void;
+  /** A due-date write is in flight on the host. */
+  dueDateSaving?: boolean;
 
   /* The card carries NO commit of its own. Both hosts dock Save Changes in
      their own action bar — the board's is pinned to the foot of the screen at
@@ -342,6 +357,8 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
     taxView,
     setTax,
     toggleReviewed,
+    setDueDate,
+    dueDateSaving,
     review,
     approveBill,
     approvingBill,
@@ -543,10 +560,36 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                   JT ↗
                 </JtLink>
               </div>
-              <div className="mb-1 flex items-center justify-between gap-2">
-                <p className="min-w-0 truncate text-xs text-neutral-500">
-                  {lines.length} line{lines.length === 1 ? "" : "s"}
-                  {bill.status ? ` · ${bill.status}` : ""}
+              <div className="mb-1 flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+                {/* Line count, status and the payment due date: all three answer
+              "what state is this bill in", so they read as one quiet line
+              rather than three labelled fields. The due date is the only one
+              you can change, which is why it alone looks like a control — a
+              field with no border until you touch it (quietSm), the same
+              treatment the line rows below get. */}
+                <p className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-neutral-500">
+                  <span>
+                    {lines.length} line{lines.length === 1 ? "" : "s"}
+                    {bill.status ? ` · ${bill.status}` : ""}
+                  </span>
+                  <span aria-hidden>·</span>
+                  <label className="inline-flex items-center gap-1">
+                    <span>due</span>
+                    <input
+                      type="date"
+                      value={(bill.dueDate ?? "").slice(0, 10)}
+                      min={(bill.issueDate ?? "").slice(0, 10) || undefined}
+                      disabled={!setDueDate || !writes || Boolean(dueDateSaving)}
+                      onChange={(e) => setDueDate?.(e.target.value)}
+                      title="Payment due — the date this vendor invoice has to be paid. JobTread calls it Payment Due."
+                      className={`${quietSm} tabular-nums disabled:opacity-60`}
+                    />
+                  </label>
+                  {/* A bill with no due date is not undated — it is on net
+                terms, and saying which is the difference between "nobody
+                filled this in" and "30 days from the bill date". */}
+                  {!bill.dueDate && bill.dueDays ? <span>net-{bill.dueDays}</span> : null}
+                  {dueDateSaving && <Spinner />}
                 </p>
                 <div className="flex shrink-0 items-center gap-1.5">
                   <Button

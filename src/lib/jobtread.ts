@@ -422,6 +422,13 @@ export interface BillDetail {
     status?: string;
     cost?: number;
     issueDate?: string;
+    /** JobTread's "Payment Due" — the date the vendor's invoice is due, when the
+     *  bill carries one. A JT document holds EITHER a `dueDate` or `dueDays`
+     *  (net terms), never both, so an empty string here with `dueDays` set means
+     *  the bill is on net terms rather than undated. */
+    dueDate?: string;
+    /** Net terms, when the bill has no explicit due date (30 = net-30). */
+    dueDays?: number | null;
     qboIsIgnored?: boolean;
     /** Legacy document tax field — non-zero only on a bill pushed before
      *  2026-09-05. A bill's real sales tax is its 88 80 00 line plus this;
@@ -471,7 +478,8 @@ export async function getBillDetail(cfg: PaveConfig, docId: string): Promise<Bil
   const rich = {
     document: {
       $: { id: docId },
-      id: {}, name: {}, status: {}, cost: {}, issueDate: {}, subject: {}, fromName: {}, number: {}, externalId: {},
+      id: {}, name: {}, status: {}, cost: {}, issueDate: {}, dueDate: {}, dueDays: {},
+      subject: {}, fromName: {}, number: {}, externalId: {},
       qboIsIgnored: {}, nonRecoverableTax: {}, nonRecoverableTaxName: {},
       job: { id: {} }, // the bill's own job — lets /api/bill work without ?jobId
       ...lineSel,
@@ -480,8 +488,8 @@ export async function getBillDetail(cfg: PaveConfig, docId: string): Promise<Bil
   const min = {
     document: {
       $: { id: docId },
-      id: {}, name: {}, status: {}, cost: {}, issueDate: {}, nonRecoverableTax: {},
-      nonRecoverableTaxName: {},
+      id: {}, name: {}, status: {}, cost: {}, issueDate: {}, dueDate: {}, dueDays: {},
+      nonRecoverableTax: {}, nonRecoverableTaxName: {},
       job: { id: {} },
       ...lineSel,
     },
@@ -504,6 +512,8 @@ export async function getBillDetail(cfg: PaveConfig, docId: string): Promise<Bil
       status: d.status,
       cost: d.cost,
       issueDate: d.issueDate,
+      dueDate: d.dueDate ? String(d.dueDate).slice(0, 10) : "",
+      dueDays: typeof d.dueDays === "number" ? d.dueDays : null,
       qboIsIgnored: d.qboIsIgnored,
       nonRecoverableTax: d.nonRecoverableTax,
       recordsTax: d.nonRecoverableTaxName != null,
@@ -531,6 +541,7 @@ export async function getBillJournalSnapshot(
 ): Promise<{
   status?: string;
   issueDate?: string;
+  dueDate?: string;
   externalId?: string;
   name?: string;
   cost?: number;
@@ -546,6 +557,7 @@ export async function getBillJournalSnapshot(
         id: {},
         status: {},
         issueDate: {},
+        dueDate: {},
         externalId: {},
         name: {},
         cost: {},
@@ -560,6 +572,7 @@ export async function getBillJournalSnapshot(
     return {
       status: d.status ?? undefined,
       issueDate: d.issueDate ? String(d.issueDate).slice(0, 10) : undefined,
+      dueDate: d.dueDate ? String(d.dueDate).slice(0, 10) : undefined,
       externalId: d.externalId ?? undefined,
       name: d.name ?? undefined,
       cost: typeof d.cost === "number" ? d.cost : undefined,
@@ -647,6 +660,41 @@ export async function setBillIssueDate(
     },
   });
   return r?.updateDocument?.document?.issueDate ?? issueDate;
+}
+
+/**
+ * WRITE — set a bill's dueDate (JobTread calls it "Payment Due"), the date the
+ * VENDOR's invoice is due. Not the billing month: that is `issueDate`.
+ *
+ * `dueDays` is nulled in the same write on purpose. A JobTread document carries
+ * EITHER an explicit `dueDate` or `dueDays` net terms, never both, and a bill
+ * still on net terms rejects a bare dueDate (probe-confirmed on the Apps Script
+ * side — see the date-repair note in ascent-appscript/Diagnostics.js). Passing an
+ * empty string clears the due date and puts the bill back on net-30, which is
+ * what ingestion gives a bill whose invoice printed no due date.
+ *
+ * Never touches lineItems (updateDocument with lineItems wipes cost items —
+ * CLAUDE.md).
+ */
+export async function setBillDueDate(
+  cfg: PaveConfig,
+  docId: string,
+  dueDate: string,
+): Promise<{ dueDate: string; dueDays: number | null }> {
+  const args = dueDate
+    ? { id: docId, dueDate, dueDays: null }
+    : { id: docId, dueDate: null, dueDays: 30 };
+  const r = await pave(cfg, {
+    updateDocument: {
+      $: args,
+      document: { $: { id: docId }, id: {}, dueDate: {}, dueDays: {} },
+    },
+  });
+  const d = r?.updateDocument?.document ?? {};
+  return {
+    dueDate: d.dueDate ? String(d.dueDate).slice(0, 10) : "",
+    dueDays: typeof d.dueDays === "number" ? d.dueDays : null,
+  };
 }
 
 /**
@@ -1863,6 +1911,11 @@ export interface MonthBill {
   cost: number;
   status: string; // draft | pending | approved
   issueDate: string | null;
+  /** JobTread's "Payment Due" — when the vendor's invoice is due. Null when the
+   *  bill runs on net terms (`dueDays`) instead. */
+  dueDate: string | null;
+  /** Net terms in days, set only when there is no explicit due date. */
+  dueDays: number | null;
   /** When the bill was created in JobTread — newest-first is the board's order. */
   createdAt: string | null;
   /** "Bill" (payable, approves to pending) or "Expense" (already paid, approves to approved). */
@@ -1957,6 +2010,8 @@ export async function getJobBillsForMonth(
               fromName: {},
               cost: {},
               issueDate: {},
+              dueDate: {},
+              dueDays: {},
               createdAt: {},
               status: {},
               nonRecoverableTax: {},
@@ -2020,6 +2075,8 @@ export async function getJobBillsForMonth(
         cost: typeof b?.cost === "number" ? b.cost : 0,
         status: b?.status ?? "",
         issueDate: b?.issueDate ?? null,
+        dueDate: b?.dueDate ? String(b.dueDate).slice(0, 10) : null,
+        dueDays: typeof b?.dueDays === "number" ? b.dueDays : null,
         createdAt: b?.createdAt ?? null,
         name: b?.name ?? "Bill",
         nonRecoverableTax: typeof b?.nonRecoverableTax === "number" ? b.nonRecoverableTax : 0,
