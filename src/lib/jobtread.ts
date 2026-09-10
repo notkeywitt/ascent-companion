@@ -417,6 +417,12 @@ export interface BillDetail {
     name?: string;
     subject?: string;
     fromName?: string;
+    /** The vendor account this bill is billed against — `document.account.name`,
+     *  JobTread's actual vendor link. `fromName` is a free-text print-header
+     *  field that JobTread defaults to whoever entered the bill, so a bill typed
+     *  in by hand shows the OFFICE'S name there, not the vendor's — a real bug
+     *  this field exists to fix. Prefer this everywhere a vendor is displayed. */
+    vendorName?: string;
     number?: string;
     externalId?: string;
     status?: string;
@@ -482,6 +488,7 @@ export async function getBillDetail(cfg: PaveConfig, docId: string): Promise<Bil
       subject: {}, fromName: {}, number: {}, externalId: {},
       qboIsIgnored: {}, nonRecoverableTax: {}, nonRecoverableTaxName: {},
       job: { id: {} }, // the bill's own job — lets /api/bill work without ?jobId
+      account: { name: {} }, // the actual vendor — see BillDetail.header.vendorName
       ...lineSel,
     },
   };
@@ -491,6 +498,7 @@ export async function getBillDetail(cfg: PaveConfig, docId: string): Promise<Bil
       id: {}, name: {}, status: {}, cost: {}, issueDate: {}, dueDate: {}, dueDays: {},
       nonRecoverableTax: {}, nonRecoverableTaxName: {},
       job: { id: {} },
+      account: { name: {} },
       ...lineSel,
     },
   };
@@ -507,6 +515,7 @@ export async function getBillDetail(cfg: PaveConfig, docId: string): Promise<Bil
       name: d.name,
       subject: d.subject,
       fromName: d.fromName,
+      vendorName: d.account?.name,
       number: d.number,
       externalId: d.externalId,
       status: d.status,

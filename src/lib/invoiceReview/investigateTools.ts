@@ -303,7 +303,7 @@ export function buildInvestigateTools(
         if (!cfg) throw new Error("JobTread is not configured, so a bill cannot be opened.");
         const bill = await getBillDetail(cfg, String(input.doc_id ?? ""));
         return {
-          vendor: bill.header.fromName ?? bill.header.subject ?? "",
+          vendor: bill.header.vendorName ?? bill.header.fromName ?? bill.header.subject ?? "",
           invoiceNumber: bill.header.externalId ?? bill.header.number ?? "",
           issueDate: bill.header.issueDate ?? "",
           status: bill.header.status ?? "",

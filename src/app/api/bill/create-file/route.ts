@@ -70,7 +70,7 @@ export async function POST(req: NextRequest) {
       lines.push({ name: "Sales tax", code: "", quantity: null, amount: h.nonRecoverableTax });
     }
 
-    const vendor = h.fromName || h.subject || h.name || "Vendor";
+    const vendor = h.vendorName || h.fromName || h.subject || h.name || "Vendor";
     const session = await auth().catch(() => null);
     const pdf = buildBillPdf({
       vendor,
