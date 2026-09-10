@@ -425,6 +425,46 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
   // Shop is. Fetched on first open, not on mount — most bills never buy back.
   const [shopJobId, setShopJobId] = useState("");
 
+  // CREATE FILE — the missing vendor invoice, written by us. Local to the card
+  // rather than threaded through CodingCardCtl: every host fetches the bill's
+  // files the same way, so the card can re-read them itself after the write and
+  // no caller needs a new prop. `madeFiles` is that re-read; it shows the new
+  // PDF straight away while the host's own cache still says the bill has none.
+  const [createFileOpen, setCreateFileOpen] = useState(false);
+  const [createFileDesc, setCreateFileDesc] = useState("");
+  const [creatingFile, setCreatingFile] = useState(false);
+  const [createFileMsg, setCreateFileMsg] = useState("");
+  const [madeFiles, setMadeFiles] = useState<BillFile[]>([]);
+  const shownFiles = files.length ? files : madeFiles;
+
+  const createFile = async () => {
+    if (!bill || !createFileDesc.trim()) return;
+    setCreatingFile(true);
+    setCreateFileMsg("");
+    try {
+      const r = await fetch("/api/bill/create-file", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ docId: bill.id, description: createFileDesc.trim() }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
+      setCreateFileOpen(false);
+      setCreateFileDesc("");
+      setCreateFileMsg("File created and attached.");
+      // Re-read the bill's files so the new PDF renders here immediately. The
+      // host's own list refreshes on its next load.
+      const f = await fetch(`/api/bill/files?docId=${encodeURIComponent(bill.id)}`)
+        .then((x) => x.json())
+        .catch(() => null);
+      if (f?.files) setMadeFiles(f.files);
+    } catch (e) {
+      setCreateFileMsg(e instanceof Error ? e.message : "Could not create the file.");
+    } finally {
+      setCreatingFile(false);
+    }
+  };
+
   // Is the merge PICKER open? The tick boxes used to sit on every combinable
   // line all the time — a column of empty boxes down a bill nobody was merging,
   // and the commonest question they raised was "what are these for". "Combine"
@@ -449,6 +489,10 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
     setCombineOpen(false);
     setBuybackOpen(false);
     setBuybackSel([]);
+    setCreateFileOpen(false);
+    setCreateFileDesc("");
+    setCreateFileMsg("");
+    setMadeFiles([]);
   }, [bill?.id]);
 
   /** Every line the buyback dialog can offer, with the pre-tax dollar amount
@@ -641,11 +685,34 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
               <div className="mb-3 border-b border-line-soft pb-3 dark:border-neutral-800">
                 <SectionLabel className="mb-1.5">Invoice</SectionLabel>
                 {filesLoading && <p className="text-xs text-neutral-400">Loading…</p>}
-                {!filesLoading && files.length === 0 && (
-                  <p className="text-xs text-neutral-400">No file attached to this bill.</p>
+                {/* NO FILE. A bill with no document never reaches Drive, so the
+                month's backup keeps a hole no amount of coding closes. Create
+                File writes the missing document instead: the bill's own figures
+                on Ascent paper, plus the office's note saying what the charge
+                was for. Offered only while there is nothing attached — it is a
+                substitute for a missing invoice, never a second copy over a
+                real one. */}
+                {!filesLoading && shownFiles.length === 0 && (
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-xs text-neutral-400">No file attached to this bill.</p>
+                    {bill && writes && (
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        className="!py-1.5 !text-xs"
+                        onClick={() => setCreateFileOpen(true)}
+                        title="Create an Ascent record PDF for this bill and attach it"
+                      >
+                        Create File
+                      </Button>
+                    )}
+                  </div>
+                )}
+                {createFileMsg && (
+                  <p className="mt-1.5 text-[11px] text-neutral-500">{createFileMsg}</p>
                 )}
                 <div className="space-y-2">
-                  {files.map((f) => (
+                  {shownFiles.map((f) => (
                     <InvoiceAttachment key={f.id} file={f} maxHClass={scanMaxHClass} />
                   ))}
                 </div>
@@ -1402,6 +1469,61 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                 }}
               >
                 Apply to all {lines.length}
+              </Button>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* Create File. Same modal shape as the two above — a bottom sheet on a
+        phone, a centred dialog from sm up. One field, because the bill already
+        knows its vendor, lines, dates and total; the only thing it cannot say
+        is WHAT the charge was for. */}
+      {createFileOpen && bill && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Create a file for this bill"
+          onClick={() => !creatingFile && setCreateFileOpen(false)}
+        >
+          <Card
+            className="w-full max-w-sm rounded-b-none pb-[max(0.75rem,env(safe-area-inset-bottom))] !p-4 sm:rounded-b-xl sm:pb-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="text-sm font-semibold">Create a file for this bill</p>
+            <p className="mb-2 text-[11px] text-neutral-500">
+              Makes an Ascent record PDF — {bill.label}, its {lines.length} line
+              {lines.length === 1 ? "" : "s"} and {money(math.total)} — and attaches it in
+              JobTread. Say what this charge was for.
+            </p>
+            <Textarea
+              rows={4}
+              value={createFileDesc}
+              autoFocus
+              placeholder="e.g. Counter charge for lumber picked up 8/14 — no invoice given at the yard."
+              onChange={(e) => setCreateFileDesc(e.target.value)}
+            />
+            {createFileMsg && (
+              <p className="mt-1.5 text-[11px] text-red-600 dark:text-red-400">{createFileMsg}</p>
+            )}
+            <div className="mt-3 flex items-center justify-end gap-1.5">
+              <Button
+                variant="secondary"
+                size="sm"
+                className="!py-1.5 !text-xs"
+                disabled={creatingFile}
+                onClick={() => setCreateFileOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                className="!py-1.5 !text-xs"
+                disabled={creatingFile || !createFileDesc.trim()}
+                onClick={createFile}
+              >
+                {creatingFile ? "Creating…" : "Create File"}
               </Button>
             </div>
           </Card>
