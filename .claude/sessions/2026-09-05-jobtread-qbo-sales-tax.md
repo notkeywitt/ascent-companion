@@ -4,9 +4,9 @@ repo: ascent-companion
 branch: claude/jobtread-qbo-sales-tax-lfqctd
 status: shipped
 started: 2026-09-05T05:30:35Z
-updated: 2026-09-10T05:10:53Z
+updated: 2026-09-10T05:30:29Z
 goal: bill move: background + Drive re-file + real error; buyback picker dialog; approve advances; cost-code names on the bills list
-next: verify on Ferron in /trackingsheet: Sheet vs JobTread panel — 08 50 00 should read matched under Spend, and Estimate should compare REVISED TOTAL (col AU) to the rail budget
+next: owner: ./deploy.sh in ascent-appscript to arm the loose CSI matching, then re-check Ferron — 08 10 20 should collapse to one row and the $0 rows should be gone
 ---
 
 ## Log
@@ -117,6 +117,8 @@ next: verify on Ferron in /trackingsheet: Sheet vs JobTread panel — 08 50 00 s
 - 2026-09-09 22:00 · `88b657b` companion: log session 2026-09-05-jobtread-qbo-sales-tax
 - 2026-09-09 22:10 · `2335e06` companion: hide create-invoice button once reconcile banner is green
   src/app/trackingsheet/Board.tsx, src/components/InvoiceReconcile.tsx
+- 2026-09-09 22:30 · `23c4dba` companion: hide sheet-gap rows that round to no difference
+  src/app/trackingsheet/SheetGap.tsx
 
 ## Notes
 - 2026-09-05 05:30 — Companion half of the sales-tax move. src/lib/salesTax.ts is the single definition: the 88 80 00 constants, the line matcher, splitSalesTax, and the job-Phase-derived recoverable/consumed flag. createVendorBill appends the tax line and pins nonRecoverableTax to 0; setBillTax now creates/updates/deletes that LINE and clears any legacy field.
