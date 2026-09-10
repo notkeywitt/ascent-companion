@@ -141,9 +141,10 @@ export default function InvoicingSummaryPage() {
   const months = useMemo(() => billingMonths(MONTH_COUNT), []);
 
   /**
-   * The month's figures. Passing no `ym` on the first load is deliberate: Apps
-   * Script answers for the PINNED tracking period, which is the month the wired
-   * sheets are actually holding — not whatever the calendar rolled to.
+   * The month's figures. Passing no `ym` on the first load is deliberate: the
+   * route answers for the BILLING MONTH IN FORCE — the one picked on the home
+   * page — so this page opens on the month the office is closing rather than
+   * on whatever the calendar rolled to.
    */
   const load = useCallback(async (period: string) => {
     setLoading(true);
@@ -221,6 +222,13 @@ export default function InvoicingSummaryPage() {
     setBuilding(true);
     setBuildNote("");
     setError("");
+    // The build re-reads the whole month and then draws two cost rings per job,
+    // which is minutes. Say so before the office decides the page has hung and
+    // reloads it — a reload throws the work away and starts another one.
+    const slow = setTimeout(
+      () => setBuildNote("Still writing. The cost rings take a few minutes — leave this page open."),
+      45_000,
+    );
     try {
       const res = await fetch("/api/invoicing-summary", {
         method: "POST",
@@ -236,6 +244,7 @@ export default function InvoicingSummaryPage() {
     } catch (e) {
       setError(e instanceof Error ? e.message : "The doc could not be written.");
     } finally {
+      clearTimeout(slow);
       setBuilding(false);
     }
   };

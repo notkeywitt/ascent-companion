@@ -26,13 +26,19 @@ import { currentBillingPeriod } from "@/lib/billingMonth";
  *
  * The read pages a whole month of JobTread cost items, time entries and
  * invoices, then walks Drive for each job's billing folder, so it runs tens of
- * seconds — hence the extended function timeout, matching /api/tracking-sheet.
+ * seconds. The BUILD does all of that again and then draws two cost rings per
+ * job in a throwaway spreadsheet, which is minutes, not seconds — 120s here
+ * failed with "Apps Script timed out after 110000ms" the first time the office
+ * pressed the button (2026-09-10). Five minutes matches the other long Apps
+ * Script routes, and MIS_COMPANION_CHART_BUDGET_MS on the far side keeps the
+ * build inside it by dropping rings rather than overrunning.
  */
 export const dynamic = "force-dynamic";
-export const maxDuration = 120;
+export const maxDuration = 300;
 
-/** Apps Script budget. Just under this route's maxDuration. */
-const SCRIPT_TIMEOUT_MS = 110_000;
+/** Apps Script budget. Just under this route's maxDuration, and well under the
+ *  6-minute ceiling Apps Script itself puts on one execution. */
+const SCRIPT_TIMEOUT_MS = 280_000;
 
 /** "2026-08" → { month: 8, year: 2026 }. Null for anything else. */
 function parseYm(ym: unknown): { month: number; year: number } | null {
