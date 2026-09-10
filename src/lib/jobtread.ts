@@ -12,6 +12,7 @@
 
 import { findMutations } from "@/lib/paveGateway";
 import { SALES_TAX_CSI, SALES_TAX_LINE_NAME, isSalesTaxLine } from "@/lib/salesTax";
+import type { UntaxedLine } from "@/lib/taxableLines";
 import {
   byWindow,
   spanPct,
@@ -1523,6 +1524,95 @@ async function _approvedCustomerInvoices(
       cost: n.cost ?? 0,
     }))
     .sort((a, b) => String(b.issueDate ?? "").localeCompare(String(a.issueDate ?? "")));
+}
+
+/**
+ * Every vendor-bill cost item in a month flagged `isTaxable: false`.
+ *
+ * READ ONLY, and the whole month org-wide in one cursor walk. It exists for the
+ * /taxable-lines worklist: a client invoice taxes only the lines that carry the
+ * flag, so one cleared by mistake under-bills the client sales tax Ascent still
+ * owes. `createLine` wrote `false` on every line added to an existing bill
+ * until 2026-09-10, which is where most of these came from.
+ *
+ * Nothing is filtered here — overhead jobs and sales-tax lines are dropped in
+ * `buildTaxableLinesReport`, which is pure and tested. This only fetches.
+ *
+ * `billLines` rides along as an aliased aggregate on the item's own document,
+ * so the caller can tell a MIXED bill from a wholly untaxed one without a
+ * second read per bill.
+ */
+export async function getUntaxedBillLines(
+  cfg: PaveConfig,
+  year: number,
+  month: number,
+): Promise<UntaxedLine[]> {
+  const mm = String(month).padStart(2, "0");
+  const first = `${year}-${mm}-01`;
+  const last = `${year}-${mm}-${String(new Date(year, month, 0).getDate()).padStart(2, "0")}`;
+
+  const out: UntaxedLine[] = [];
+  let page: string | undefined;
+  let guard = 0;
+  do {
+    const r: any = await pave(cfg, {
+      organization: {
+        $: { id: cfg.orgId },
+        costItems: {
+          $: {
+            where: {
+              and: [
+                [["document", "type"], "=", "vendorBill"],
+                [["document", "status"], "in", ["draft", "pending", "approved"]],
+                [["document", "issueDate"], ">=", first],
+                [["document", "issueDate"], "<=", last],
+                [["isTaxable"], "=", false],
+              ],
+            },
+            size: 100,
+            ...(page ? { page } : {}),
+          },
+          nextPage: {},
+          nodes: {
+            id: {},
+            name: {},
+            cost: {},
+            costCode: { number: {} },
+            document: {
+              id: {},
+              issueDate: {},
+              status: {},
+              account: { name: {} },
+              job: { id: {}, name: {}, location: { account: { name: {} } } },
+              billLines: { _: "costItems", count: {} },
+            },
+          },
+        },
+      },
+    });
+    const conn = r?.organization?.costItems;
+    for (const n of (conn?.nodes ?? []) as any[]) {
+      const doc = n.document ?? {};
+      const job = doc.job ?? {};
+      out.push({
+        id: String(n.id ?? ""),
+        name: String(n.name ?? ""),
+        cost: Number(n.cost) || 0,
+        costCode: String(n.costCode?.number ?? "").trim(),
+        billId: String(doc.id ?? ""),
+        billIssueDate: String(doc.issueDate ?? "").slice(0, 10),
+        billStatus: String(doc.status ?? ""),
+        billLineCount: doc.billLines?.count ?? 0,
+        vendor: String(doc.account?.name ?? "").trim(),
+        jobId: String(job.id ?? ""),
+        jobName: String(job.name ?? "").trim(),
+        customerName: String(job.location?.account?.name ?? "").trim(),
+      });
+    }
+    page = conn?.nextPage ?? undefined;
+  } while (page && ++guard < 50);
+
+  return out;
 }
 
 /**

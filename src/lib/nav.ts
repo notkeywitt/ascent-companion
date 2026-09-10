@@ -86,6 +86,7 @@ export const AREAS: Area[] = [
       { label: "Receivables", href: "/ar-aging", desc: "Unpaid client invoices, oldest first", view: "ar-aging" },
       { label: "Email Invoices", href: "/email", desc: "Log invoices from the office inbox", view: "email" },
       { label: "Needs Project", href: "/needs-project", desc: "Ingested bills with no job yet", view: "needs-project" },
+      { label: "Taxable flags", href: "/taxable-lines", desc: "Bill lines the client invoice will not tax", view: "taxable-lines" },
       { label: "Amazon Import", href: "/amazon-import", desc: "Monthly Amazon report → batch of bills", view: "amazon-import" },
       { label: "LSWDD Statement", href: "/lswdd", desc: "Split the dump's monthly statement across jobs", view: "lswdd" },
       { label: "Assistant", href: "/chat", desc: "Ask about a job's bills or budget", view: "chat" },

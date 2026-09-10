@@ -197,6 +197,16 @@ export const VIEWS: ViewDef[] = [
   // see the indicator nor read the queued bills by calling the route directly.
   { id: "needs-project", label: "Needs Project", group: "Financials", paths: ["/needs-project", "/api/needs-project"] },
   { id: "payments", label: "Sunset Statements", group: "Financials", paths: ["/payments"] },
+  // The stray-isTaxable worklist. READ-ONLY — it lists bill lines whose flag
+  // takes their cost out of a client invoice's tax base, and links out so a
+  // person makes each change. The API route is gated alongside the page: it
+  // walks the whole org's month, so it is not a thing to leave open.
+  {
+    id: "taxable-lines",
+    label: "Taxable flags",
+    group: "Financials",
+    paths: ["/taxable-lines", "/api/taxable-lines"],
+  },
   // Fast full-text search across EVERY bill and line item — live JobTread bills
   // plus the seeded pre-JobTread history. All three API prefixes (search,
   // refresh, seed) ride this one gate so a role without the view can neither
