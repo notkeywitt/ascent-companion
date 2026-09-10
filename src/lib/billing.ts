@@ -184,10 +184,14 @@ export function computeBillDates(
  * A vendor bill's sales tax, from whatever the extractor read off the invoice.
  * Blank, negative and unparseable all read 0.
  *
- * There is no per-line taxability decision any more: the tax is its own cost
+ * There is no per-line taxability decision on the BILL: the tax is its own cost
  * item coded 88 80 00 (src/lib/salesTax.ts), the document's tax field is pinned
- * to 0, and a vendor bill carries no tax rate — so `isTaxable` on a bill line
- * moves no money and stays at JobTread's own default.
+ * to 0, and a vendor bill carries no tax rate.
+ *
+ * That does NOT make the line's `isTaxable` flag inert, which this comment used
+ * to claim. Create Invoice copies it onto the client invoice, where it decides
+ * whether the client is taxed on that cost — so every bill line Ascent writes
+ * carries it. See BILL_LINE_IS_TAXABLE in src/lib/jobtread.ts.
  */
 export function salesTaxAmount(taxAmountRaw: unknown): number {
   const n = Number(taxAmountRaw);

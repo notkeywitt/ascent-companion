@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: ship/billing-month
 status: in-progress
 started: 2026-09-10T15:22:41Z
-updated: 2026-09-10T18:12:04Z
+updated: 2026-09-10T18:30:43Z
 goal: 
 next: owner: deploy the appscript side (./deploy.sh) — the corrected totals and the Office/Shop/Electrical exclusion only appear once that lands; then open /invoicing-summary and confirm Ferron reads $117,979
 ---
@@ -28,5 +28,7 @@ next: owner: deploy the appscript side (./deploy.sh) — the corrected totals an
   CLAUDE.md, THEME.md, src/app/globals.css, src/app/trackingsheet/CostDonuts.tsx
 - 2026-09-10 11:12 · `51b0199` companion: swap the chart palette for Tableau 10, muted
   CLAUDE.md, THEME.md, src/app/globals.css, src/app/trackingsheet/CostDonuts.tsx
+- 2026-09-10 11:30 · `b86def5` companion: catch a stray isTaxable flag on a vendor bill
+  CODEBASE_MAP.md, src/lib/invoiceReview/checks.test.ts, src/lib/invoiceReview/checks/taxableFlag.ts, src/lib/invoiceReview/duplicateDraft.test.ts, src/lib/invoiceReview/evidence.ts, src/lib/invoiceReview/investigate.test.ts, +8 more
 
 ## Notes

@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   budgetCodeMaps,
+  combineLines,
+  createLine,
   getAllBillsForMonth,
   getInvoiceReconciliation,
   pave,
@@ -364,5 +366,71 @@ describe("budgetCodeMaps — a time entry needs the time-trackable leaf", () => 
 
   it("first wins among several time-trackable leaves", () => {
     expect(budgetCodeMaps(items).timeTrackable["01 31 00"]).toBe("labor-first");
+  });
+});
+
+/**
+ * THE LINE-LEVEL TAX FLAG.
+ *
+ * `isTaxable` does nothing on the vendor bill it is written to, which is
+ * exactly why it was set to `false` for years and why nothing caught it: Create
+ * Invoice COPIES it onto the client invoice, where it decides whether the
+ * client is taxed on that cost. One line of Ferron's Element Smart Roofing bill
+ * carried a `false` and invoice #382 under-billed $409.52 of sales tax.
+ *
+ * Pinned here because the defect is invisible everywhere else — the invoice
+ * still foots, against the reduced tax JobTread then states.
+ */
+describe("bill lines are written taxable", () => {
+  /** Every `$` argument sent, across all the calls a write path makes. */
+  async function argsSentBy(run: () => Promise<unknown>) {
+    const sent: Record<string, unknown>[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_url: string, init: { body: string }) => {
+        const q = JSON.parse(init.body).query as Record<string, any>;
+        for (const root of Object.keys(q)) {
+          if (root === "$") continue;
+          if (q[root]?.$) sent.push(q[root].$);
+        }
+        return reply(
+          200,
+          okBody({
+            createCostItem: { createdCostItem: { id: "ci1" } },
+            updateCostItem: { costItem: { id: "ci1" } },
+            updateDocument: { document: { id: "doc1" } },
+          }),
+        );
+      }),
+    );
+    await run();
+    return sent;
+  }
+
+  it("createLine sends isTaxable true, on the insert and on the re-assert", async () => {
+    const sent = await argsSentBy(() =>
+      createLine(cfg, "doc1", { name: "Roof Work Scope", quantity: 1, unitCost: 4156.25 }),
+    );
+    const flags = sent.filter((a) => "isTaxable" in a).map((a) => a.isTaxable);
+    expect(flags.length).toBeGreaterThan(0);
+    expect(flags.every((f) => f === true)).toBe(true);
+    // The carve guard is the DOCUMENT's rate, not the line's flag. Both are
+    // needed, and confusing the two is what put a `false` on a bill line.
+    expect(sent.some((a) => a.taxRate === 0)).toBe(true);
+  });
+
+  it("combineLines keeps the folded line taxable", async () => {
+    const sent = await argsSentBy(() =>
+      combineLines(cfg, {
+        docId: "doc1",
+        keepId: "ci1",
+        deleteIds: [],
+        name: "Folded",
+        extendedCost: 100,
+      }),
+    );
+    const flags = sent.filter((a) => "isTaxable" in a).map((a) => a.isTaxable);
+    expect(flags.length).toBeGreaterThan(0);
+    expect(flags.every((f) => f === true)).toBe(true);
   });
 });

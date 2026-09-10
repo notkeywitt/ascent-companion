@@ -3269,11 +3269,41 @@ export async function updateLine(
 }
 
 /**
+ * THE LINE-LEVEL TAX FLAG, and why every bill line Ascent writes is TAXABLE.
+ *
+ * `isTaxable` does nothing on a vendor bill — a bill's own `taxRate` is pinned
+ * to 0 and its tax lives on an 88 80 00 line (src/lib/salesTax.ts). It was
+ * therefore written as `false` for years on the reasoning that it moved no
+ * money.
+ *
+ * IT MOVES MONEY ON THE NEXT DOCUMENT. Create Invoice COPIES the flag onto the
+ * client invoice it builds, and a client invoice taxes only the lines that
+ * carry it. So a `false` here quietly shrinks that invoice's tax base and
+ * under-bills the client sales tax Ascent still owes the state — and nothing
+ * downstream notices, because the invoice foots against the reduced tax
+ * JobTread then states.
+ *
+ * Ferron / Otis Perkins Addition, August 2026: one line of a 13-line Element
+ * Smart Roofing bill, $4,156.25, added after the bill was created. Invoice
+ * #382 came to $169,120.20 where the tracking sheet said $169,530.51.
+ *
+ * So the default is TRUE, matching /api/add-bill and the Apps Script
+ * ingestion, and a bill's lines no longer depend on whether they arrived with
+ * the bill or were added to it afterwards. The ONE line that stays false is
+ * the 88 80 00 sales-tax line itself, which must never be taxed again.
+ *
+ * This is not what suppresses the tax carve — that is the document's own
+ * `taxRate: 0`, forced before each write below.
+ */
+const BILL_LINE_IS_TAXABLE = true;
+
+/**
  * Add a new line (cost item) to an existing bill. Uses the confirmed
  * `createCostItem` mutation with `documentId` (same fields as createVendorBill's
  * lineItems — proven in the production Apps Script push). jobCostItemId is
  * optional: omit it and the line lands uncoded. Tax stays at the document level
- * (nonRecoverableTax), so new lines are non-taxable like every other bill line.
+ * (nonRecoverableTax); the line's own flag is TAXABLE, because Create Invoice
+ * copies it onto the client invoice — see BILL_LINE_IS_TAXABLE.
  *
  * TAX-CARVE GUARD (confirmed live 2026-07-18): if the target bill carries a
  * non-zero document `taxRate` (bills NOT created by the Assistant can — e.g. an
@@ -3317,7 +3347,7 @@ export async function createLine(
     name: (fields.name || "Line item").substring(0, 250),
     quantity,
     unitCost,
-    isTaxable: false,
+    isTaxable: BILL_LINE_IS_TAXABLE,
   };
   if (fields.jobCostItemId) $.jobCostItemId = fields.jobCostItemId;
   if (fields.description !== undefined) $.description = fields.description;
@@ -3335,7 +3365,7 @@ export async function createLine(
   try {
     await pave(cfg, {
       updateCostItem: {
-        $: { id, unitCost, quantity, isTaxable: false },
+        $: { id, unitCost, quantity, isTaxable: BILL_LINE_IS_TAXABLE },
         costItem: { $: { id }, id: {} },
       },
     });
@@ -3451,7 +3481,9 @@ export async function combineLines(
   }
 
   // 2) Fold everything onto the kept line: qty 1 × summed cost, concatenated name.
-  const $: Record<string, unknown> = { id: keepId, name, quantity: 1, unitCost, isTaxable: false };
+  const $: Record<string, unknown> = {
+    id: keepId, name, quantity: 1, unitCost, isTaxable: BILL_LINE_IS_TAXABLE,
+  };
   if (args.jobCostItemId) $.jobCostItemId = args.jobCostItemId;
   if (args.description !== undefined) $.description = args.description;
   await pave(cfg, { updateCostItem: { $, costItem: { $: { id: keepId }, id: {} } } });
@@ -3460,7 +3492,7 @@ export async function combineLines(
   try {
     await pave(cfg, {
       updateCostItem: {
-        $: { id: keepId, unitCost, quantity: 1, isTaxable: false },
+        $: { id: keepId, unitCost, quantity: 1, isTaxable: BILL_LINE_IS_TAXABLE },
         costItem: { $: { id: keepId }, id: {} },
       },
     });
