@@ -28,6 +28,7 @@ import { JobPicker, jobAddress, jobLabel, type JobRef } from "@/components/JobPi
 import { useBillMove } from "@/components/BillMove";
 import { JtLink } from "@/components/JtLink";
 import { SplitGrid } from "@/components/SplitGrid";
+import { CostDonuts, type CostDonutRow } from "./CostDonuts";
 import {
   BillCodingCard,
   isImageFile,
@@ -970,6 +971,27 @@ export function Board() {
    */
   const budgetByCode = useMemo(
     () => new Map([...headroom.values()].map((h) => [h.code, h.budget])),
+    [headroom],
+  );
+
+  /**
+   * The two cost rings' input — the SAME `headroom` map the budget rail draws,
+   * so the rings cannot disagree with the rail beside them and a staged recode
+   * moves a slice the moment you drop a line. Bills folds drafts in, matching
+   * `usedOf`: on this page a draft is coded money, it is just not committed
+   * yet. Codes with no cost at all sit out, so the rings never carry a legend
+   * of zeroes.
+   */
+  const costDonutRows = useMemo<CostDonutRow[]>(
+    () =>
+      [...headroom.values()]
+        .map((h) => ({
+          code: h.code,
+          name: h.name,
+          bills: h.spent + h.drafts,
+          labor: h.labor,
+        }))
+        .filter((r) => r.bills > 0 || r.labor > 0),
     [headroom],
   );
 
@@ -3347,6 +3369,13 @@ export function Board() {
                   : "checking JobTread…"
               }
             />
+
+            {/* Where this job's money went, by cost code — bills in one ring,
+                labor in the other. It heads the bills column because that is
+                where the eye starts, and because it frames the list under it:
+                the rail answers "is there room in 06 20 00", these answer "what
+                is this job made of". Folded on a phone, open from lg. */}
+            <CostDonuts rows={costDonutRows} />
 
             <SectionHeading
               // Wraps, because the label and a three-way switch do not fit on
