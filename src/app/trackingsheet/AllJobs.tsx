@@ -9,6 +9,7 @@ import { useCopy } from "@/components/CopyProvider";
 import { UncapturedBills } from "@/components/UncapturedBills";
 import { SyncNowButton } from "@/components/SyncNowButton";
 import { LaborReportButton } from "@/components/LaborReportButton";
+import { SyncAllTrackingSheetsFor } from "@/components/TrackingSheetSync";
 import { monthOptions } from "./Roster";
 import { AllBills } from "./AllBills";
 import { UnsyncedDrafts } from "./UnsyncedDrafts";
@@ -70,6 +71,8 @@ export function AllJobs() {
    * were looking at so you land on the same billing period. Empty id is the
    * "All jobs" row, which is this view — nothing to do.
    */
+  const monthLabel = monthOptions().find((o) => o.ym === ym)?.label ?? ym;
+
   const onPickJob = (id: string) => {
     if (!id) return;
     router.push(`/trackingsheet?jobId=${encodeURIComponent(id)}&ym=${encodeURIComponent(ym)}`);
@@ -135,6 +138,14 @@ export function AllJobs() {
                 this only asks for it early.
               </span>
               <SyncNowButton className="min-h-11 shrink-0" />
+            </div>
+          )}
+          {can("tracking-sheet") && (
+            <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-line-soft px-4 py-3 last:border-b-0">
+              <span className="min-w-0 flex-1 text-[11.5px] text-neutral-500 dark:text-neutral-400">
+                Push every job&apos;s {monthLabel} coding into its own Google Tracking Sheet.
+              </span>
+              <SyncAllTrackingSheetsFor ym={ym} className="shrink-0" />
             </div>
           )}
           <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 py-3">

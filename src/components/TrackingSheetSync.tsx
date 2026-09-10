@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Banner, Button, Spinner } from "@/components/ui";
 import { TrackingSheetRisks } from "@/components/TrackingSheetRisks";
 import { useAccess } from "@/components/AccessProvider";
@@ -262,5 +262,109 @@ export function TrackingSheetSyncFor({
       className={className}
       compact={compact}
     />
+  );
+}
+
+/**
+ * Self-contained "Sync All Tracking Sheets" button — every job wired to a
+ * tracking sheet (all of `/api/tracking-sheet`'s list, not just jobs with a
+ * bill this month), for the given billing month. Renders nothing without the
+ * "tracking-sheet" view or when no job has a sheet wired up.
+ */
+export function SyncAllTrackingSheetsFor({
+  ym,
+  className,
+}: {
+  ym: string;
+  className?: string;
+}) {
+  const access = useAccess();
+  const canTrack = access.can("tracking-sheet");
+  const [targets, setTargets] = useState<TrackingTarget[]>([]);
+  const [states, setStates] = useState<Record<string, TrackingSyncState>>({});
+
+  useEffect(() => {
+    if (!canTrack) return;
+    let alive = true;
+    (async () => {
+      try {
+        const res = await fetch("/api/tracking-sheet", { cache: "no-store" });
+        if (!res.ok) return; // non-fatal — the button simply doesn't appear
+        const b = await res.json();
+        if (!alive) return;
+        setTargets(
+          ((b.jobs ?? []) as { id: string; label: string; jtJobId: string; url: string }[])
+            .filter((j) => j.jtJobId)
+            .map((j) => ({ projectId: j.id, label: j.label, url: j.url })),
+        );
+      } catch {
+        /* non-fatal */
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [canTrack]);
+
+  // A month change invalidates every result on screen — they describe another
+  // billing period.
+  useEffect(() => setStates({}), [ym]);
+
+  const start = useCallback(() => {
+    const [y, m] = ym.split("-").map(Number);
+    for (const t of targets) {
+      const key = t.projectId;
+      runTrackingSync(key, m, y, (s) => setStates((prev) => ({ ...prev, [key]: s })));
+    }
+  }, [targets, ym]);
+
+  const summary = useMemo(() => {
+    let queued = 0,
+      running = 0,
+      done = 0,
+      error = 0;
+    for (const t of targets) {
+      switch (states[t.projectId]?.status) {
+        case "queued":
+          queued++;
+          break;
+        case "running":
+          running++;
+          break;
+        case "done":
+          done++;
+          break;
+        case "error":
+          error++;
+          break;
+      }
+    }
+    return { queued, running, done, error, total: targets.length };
+  }, [targets, states]);
+
+  const busy = summary.queued + summary.running > 0;
+
+  if (!canTrack || targets.length === 0) return null;
+  return (
+    <div className={className}>
+      <Button variant="secondary" size="sm" disabled={busy} onClick={start}>
+        {busy ? (
+          <>
+            <Spinner className="mr-1.5" />
+            Syncing {summary.done + summary.error}/{summary.total}…
+          </>
+        ) : (
+          "Sync All Tracking Sheets"
+        )}
+      </Button>
+      {!busy && (summary.done > 0 || summary.error > 0) && (
+        <p className="mt-1.5 text-xs text-neutral-500">
+          {summary.done} synced
+          {summary.error > 0 && (
+            <span className="text-red-600 dark:text-red-400"> · {summary.error} failed</span>
+          )}
+        </p>
+      )}
+    </div>
   );
 }
