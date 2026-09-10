@@ -22,9 +22,11 @@ import { billingMonths, monthLabel } from "@/lib/billingMonths";
  * THAT FACT IS THE BILLING MONTH, and here it is a CONTROL, not a readout.
  * Bills used to code 10th-to-10th on their own; now the month picked here is
  * the month every non-Sunset bill files into, for as long as it is set (see
- * src/lib/billingMonth.ts — Sunset still bills in its arrival month). Nothing
- * turns over on its own, so the reminder is the colour: once the 10th has
- * passed and the month is still behind the calendar, it goes RED and a chip
+ * src/lib/billingMonth.ts — Sunset still bills in its arrival month). That
+ * covers BOTH systems that file bills: this app's /api/add-bill, and the
+ * ascent-appscript Gmail capture, which the route pushes the month across to.
+ * Nothing turns over on its own, so the reminder is the colour: once the 10th
+ * has passed and the month is still behind the calendar, it goes RED and a chip
  * names the month to switch to.
  *
  * Office and admin change it; a lead reads it. It decides where money lands
@@ -44,6 +46,8 @@ export function HomeMasthead() {
   /** True until someone picks a month: the 10th cutoff is still deciding. */
   const [auto, setAuto] = useState(false);
   const [saving, setSaving] = useState(false);
+  /** Why the last save bounced. The month snaps back, so say why it did. */
+  const [err, setErr] = useState("");
 
   useEffect(() => setToday(new Date()), []);
 
@@ -85,9 +89,14 @@ export function HomeMasthead() {
   // A reload, not a state update: the to-be-invoiced figures on this page and
   // in the header's job picker are all keyed to this month, and each fetched
   // once. Re-reading the page is the honest way to move them together.
+  //
+  // The route sets this month in the Apps Script project too, and refuses the
+  // whole change if that push fails — so a rejection means NOTHING moved, and
+  // showing the old month back is the truth rather than a lost edit.
   async function set(next: string) {
     if (next === ym) return;
     setSaving(true);
+    setErr("");
     const prev = ym;
     setYm(next);
     setAuto(false);
@@ -97,7 +106,9 @@ export function HomeMasthead() {
       body: JSON.stringify({ ym: next }),
     }).catch(() => null);
     if (!r || !r.ok) {
+      const why = r ? await r.json().catch(() => null) : null;
       setYm(prev);
+      setErr(String(why?.error ?? "Couldn't save the billing month. Try again."));
       setSaving(false);
       return;
     }
@@ -162,7 +173,11 @@ export function HomeMasthead() {
             </p>
           )}
           <div className="mt-1 flex items-center justify-end gap-2">
-            {stale ? (
+            {err ? (
+              <span role="alert" className="text-[11.5px] text-red-600 dark:text-red-400">
+                {err}
+              </span>
+            ) : stale ? (
               <Chip tone="danger">
                 Switch to {monthLabel(nextMonth(ym)).replace(/ \d{4}$/, "")}
               </Chip>

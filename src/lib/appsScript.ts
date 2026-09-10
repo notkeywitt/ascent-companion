@@ -102,6 +102,16 @@ export function isRetryable(action: unknown): boolean {
   return /^(list|get)/i.test(name) || EXTRA_READ_ACTIONS.has(name);
 }
 
+/**
+ * Is the Apps Script bridge configured at all? A local dev machine usually has
+ * neither env var, and a caller that MIRRORS state across (rather than reading
+ * through) needs to tell "not wired up" apart from "the call failed" — the
+ * first is normal, the second is a divergence worth reporting.
+ */
+export function appsScriptConfigured(): boolean {
+  return !("error" in envOrError());
+}
+
 function envOrError(): { url: string; secret: string } | { error: string } {
   const url = process.env.APPS_SCRIPT_SYNC_URL;
   const secret = process.env.APPS_SCRIPT_SYNC_SECRET;
