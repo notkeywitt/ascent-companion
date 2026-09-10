@@ -78,6 +78,7 @@ matching row here.
 | **Which build is running** (after a deploy) | the footer at the bottom of `/admin` — `src/app/admin/BuildFooter.tsx`. The Assistant's own commit/branch/time are frozen into the bundle by the `env` block in `next.config.mjs` (no request); the Apps Script back end's stamp is fetched on demand from its anonymous `doGet` health check via `src/app/api/admin/build/route.ts` |
 | **The Admin To Dos card** (JobTread to-dos + the morning report on Home) | UI `src/components/HomeTodos.tsx`; the live to-do read + create is `src/app/api/todos/route.ts` → `createToDo` in `src/lib/jobtread.ts`. The report under it is the digest: `src/lib/digest/` — `settings.ts` (EVERY threshold/exclusion), `registry.ts` (the check list), `checks/*` (one file per check), `run.ts` (aggregator); routes `src/app/api/digest/*`; Google data via appscript `DailyDigest.js` |
 | **Reviewing a month's client invoices** | `src/lib/invoiceReview/` — `checks/*` (one file per check, pure + tested), `settings.ts` (EVERY threshold), `registry.ts` (the check list + the runner), `evidence.ts` (JobTread + Drive + Gmail), `rulings.ts` (the memory), `runs.ts` (the history), `brief.ts` (the no-API-key hand-off); page `src/app/invoice-review/`; routes `src/app/api/invoice-review` (+ `/run`, callable manually — NOT on a Vercel cron; see the incident note in `INVOICE_ACCURACY_PLAN.md`); Drive + Gmail reads via appscript `ClientInvoiceReview.js`; skill `.claude/skills/invoice-review/` |
+| **The month's Invoicing Package doc** | page `src/app/invoicing-summary/`, route `src/app/api/invoicing-summary/`; every figure and the doc itself come from appscript `MonthlyInvoicingSummary.js`, which the 30-minute tracking-sheet push also calls |
 | **Adding an invoice-review check** | write `src/lib/invoiceReview/checks/<id>.ts`, add its config block to `settings.ts`, add one line to `registry.ts` — the runner, the route, the history and the page are untouched |
 | **Why the review missed something / making it learn** | file it via the page's "Something this missed?" box → `src/lib/invoiceReview/misses.ts`; `POST /api/invoice-review/learn` asks Claude what check would have caught it (`learn.ts`) — the answer is a proposal a person implements |
 | **Is a check any good?** | `GET /api/invoice-review/accuracy` — precision derived in `src/lib/invoiceReview/lifecycle.ts` from what the office did next, not from anyone scoring anything |
@@ -289,7 +290,10 @@ Each page is a server component (`page.tsx`) that hands non-secret context to a
   queue of bills flagged "Needs review" — corrections the app can't make itself),
   `needs-project`,
   `payments` (Sunset Statements), `expenditure-history`, `lswdd`, `amazon-import`,
-  `tracking-sheet`.
+  `tracking-sheet`, `invoicing-summary` (Invoicing Package — the month's client
+  billing summary and the Google Doc it writes; figures and doc both come from
+  appscript `MonthlyInvoicingSummary.js`, and the tracking-sheet push rewrites
+  the doc on its own when a figure moves).
 - **Field:** `safety-meeting`, `mileage-tracker`, `employee-time`, `tools`,
   `tool-tracker`, `rfis`, `time-off`, `requisitions`, `more` ("The Rest" — the
   last button on the field/lead/office tile launcher: the curated menu of
@@ -347,7 +351,10 @@ Grouped by domain; each folder is `…/route.ts`.
   client-invoice review, or `?format=brief` for the paste-into-Claude version;
   POST records or lifts one standing ruling), `lswdd`,
   `amazon-import/*`,
-  `sunset-statements/*`, `sunset-duplicates`, `buyback`.
+  `sunset-statements/*`, `sunset-duplicates`, `buyback`,
+  `invoicing-summary` (GET reads a billing month — every job billed, its labor,
+  bills and total, plus the office's edits and where the doc is; POST saves one
+  edit or writes the doc. Both proxy appscript, which holds the Docs grant).
 - **Labor / time:** `employee-time/*`, `labor-rates/*`, `labor-review/*`,
   `labor-report` (the month's company-wide Drive sheet),
   `time-entry` (one entry, edited in place — gated under `recode`),

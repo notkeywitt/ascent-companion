@@ -116,6 +116,17 @@ export const VIEWS: ViewDef[] = [
     group: "Financials",
     paths: ["/tracking-sheet", "/api/tracking-sheet"],
   },
+  // The month's Invoicing Package doc — the client-billing summary the office
+  // reads and edits, written to Drive by Apps Script. The API prefix rides the
+  // same gate as the page: the route writes a Google Doc and edits the
+  // "Invoicing Summary" tab, so a role without the view must not reach it by
+  // calling the route directly.
+  {
+    id: "invoicing-summary",
+    label: "Invoicing Package",
+    group: "Financials",
+    paths: ["/invoicing-summary", "/api/invoicing-summary"],
+  },
   // The queue of bills flagged "Needs review" — billing corrections the app
   // can't make (paid / invoiced / QuickBooks-pushed bills). Office+admin. The
   // /api/bill-review route is deliberately NOT gated here: any signed-in user
