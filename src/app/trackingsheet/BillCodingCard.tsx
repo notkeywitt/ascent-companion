@@ -9,6 +9,7 @@ import {
   Button,
   Card,
   EmptyState,
+  Input,
   Label,
   SectionLabel,
   Select,
@@ -432,10 +433,60 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
   // PDF straight away while the host's own cache still says the bill has none.
   const [createFileOpen, setCreateFileOpen] = useState(false);
   const [createFileDesc, setCreateFileDesc] = useState("");
+  // The header facts on the record — pre-filled from the bill, but every one
+  // of them is a text field: a hand-entered bill can have the vendor's name
+  // misspelled, or the office wants "Ascent - Shop" to read as plain "Shop" on
+  // paper. Blank fields fall back to the bill's own value server-side, so a
+  // slow prefill fetch never blocks typing the one field that matters, the
+  // description.
+  const [createFileFields, setCreateFileFields] = useState({
+    vendor: "",
+    billNumber: "",
+    job: "",
+    customer: "",
+    issueDate: "",
+    dueDate: "",
+  });
+  const [prefillLoading, setPrefillLoading] = useState(false);
   const [creatingFile, setCreatingFile] = useState(false);
   const [createFileMsg, setCreateFileMsg] = useState("");
   const [madeFiles, setMadeFiles] = useState<BillFile[]>([]);
   const shownFiles = files.length ? files : madeFiles;
+
+  // Pre-fill the moment the dialog opens — read fresh rather than assembled
+  // from what the card already has, because vendor and customer names aren't
+  // otherwise known here (CodingBill carries no vendor field).
+  useEffect(() => {
+    if (!createFileOpen || !bill) return;
+    let cancelled = false;
+    setPrefillLoading(true);
+    fetch(`/api/bill/create-file?docId=${encodeURIComponent(bill.id)}`)
+      .then((r) => r.json())
+      .then((j) => {
+        if (cancelled || !j || j.error) return;
+        setCreateFileFields({
+          vendor: j.vendor ?? "",
+          billNumber: j.billNumber ?? "",
+          job: j.job ?? "",
+          customer: j.customer ?? "",
+          issueDate: j.issueDate ?? "",
+          dueDate: j.dueDate ?? "",
+        });
+      })
+      .catch(() => {
+        /* the office can still type every field by hand */
+      })
+      .finally(() => {
+        if (!cancelled) setPrefillLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [createFileOpen, bill]);
+
+  const setCreateFileField = (key: keyof typeof createFileFields) => (
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => setCreateFileFields((f) => ({ ...f, [key]: e.target.value }));
 
   const createFile = async () => {
     if (!bill || !createFileDesc.trim()) return;
@@ -445,7 +496,11 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
       const r = await fetch("/api/bill/create-file", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ docId: bill.id, description: createFileDesc.trim() }),
+        body: JSON.stringify({
+          docId: bill.id,
+          description: createFileDesc.trim(),
+          ...createFileFields,
+        }),
       });
       const j = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
@@ -1476,9 +1531,10 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
       )}
 
       {/* Create File. Same modal shape as the two above — a bottom sheet on a
-        phone, a centred dialog from sm up. One field, because the bill already
-        knows its vendor, lines, dates and total; the only thing it cannot say
-        is WHAT the charge was for. */}
+        phone, a centred dialog from sm up. Every field on the record is
+        pre-filled from the bill and editable: a hand-entered bill can carry a
+        misspelled vendor or the wrong job label, and the ONE fact the bill
+        can't supply — what the charge was for — is the field below them. */}
       {createFileOpen && bill && (
         <div
           className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4"
@@ -1488,22 +1544,75 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
           onClick={() => !creatingFile && setCreateFileOpen(false)}
         >
           <Card
-            className="w-full max-w-sm rounded-b-none pb-[max(0.75rem,env(safe-area-inset-bottom))] !p-4 sm:rounded-b-xl sm:pb-4"
+            className="w-full max-w-md rounded-b-none pb-[max(0.75rem,env(safe-area-inset-bottom))] !p-4 sm:rounded-b-xl sm:pb-4"
             onClick={(e) => e.stopPropagation()}
           >
             <p className="text-sm font-semibold">Create a file for this bill</p>
             <p className="mb-2 text-[11px] text-neutral-500">
-              Makes an Ascent record PDF — {bill.label}, its {lines.length} line
-              {lines.length === 1 ? "" : "s"} and {money(math.total)} — and attaches it in
-              JobTread. Say what this charge was for.
+              Makes an Ascent record PDF — its {lines.length} line{lines.length === 1 ? "" : "s"} and{" "}
+              {money(math.total)} — and attaches it in JobTread. Pre-filled from the bill; change
+              anything before creating it.
+              {prefillLoading && " Loading…"}
             </p>
-            <Textarea
-              rows={4}
-              value={createFileDesc}
-              autoFocus
-              placeholder="e.g. Counter charge for lumber picked up 8/14 — no invoice given at the yard."
-              onChange={(e) => setCreateFileDesc(e.target.value)}
-            />
+            <div className="grid grid-cols-2 gap-2.5">
+              <div>
+                <Label htmlFor="cf-vendor">Vendor</Label>
+                <Input
+                  id="cf-vendor"
+                  autoFocus
+                  value={createFileFields.vendor}
+                  onChange={setCreateFileField("vendor")}
+                />
+              </div>
+              <div>
+                <Label htmlFor="cf-number">Bill number</Label>
+                <Input
+                  id="cf-number"
+                  value={createFileFields.billNumber}
+                  onChange={setCreateFileField("billNumber")}
+                />
+              </div>
+              <div>
+                <Label htmlFor="cf-job">Job</Label>
+                <Input id="cf-job" value={createFileFields.job} onChange={setCreateFileField("job")} />
+              </div>
+              <div>
+                <Label htmlFor="cf-customer">Customer</Label>
+                <Input
+                  id="cf-customer"
+                  value={createFileFields.customer}
+                  onChange={setCreateFileField("customer")}
+                />
+              </div>
+              <div>
+                <Label htmlFor="cf-issue">Bill date</Label>
+                <Input
+                  id="cf-issue"
+                  type="date"
+                  value={createFileFields.issueDate}
+                  onChange={setCreateFileField("issueDate")}
+                />
+              </div>
+              <div>
+                <Label htmlFor="cf-due">Payment due</Label>
+                <Input
+                  id="cf-due"
+                  value={createFileFields.dueDate}
+                  placeholder="e.g. net-30"
+                  onChange={setCreateFileField("dueDate")}
+                />
+              </div>
+            </div>
+            <div className="mt-2.5">
+              <Label htmlFor="cf-desc">Description</Label>
+              <Textarea
+                id="cf-desc"
+                rows={4}
+                value={createFileDesc}
+                placeholder="e.g. Counter charge for lumber picked up 8/14 — no invoice given at the yard."
+                onChange={(e) => setCreateFileDesc(e.target.value)}
+              />
+            </div>
             {createFileMsg && (
               <p className="mt-1.5 text-[11px] text-red-600 dark:text-red-400">{createFileMsg}</p>
             )}
