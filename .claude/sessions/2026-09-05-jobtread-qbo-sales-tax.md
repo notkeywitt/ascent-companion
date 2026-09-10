@@ -4,9 +4,9 @@ repo: ascent-companion
 branch: claude/jobtread-qbo-sales-tax-lfqctd
 status: shipped
 started: 2026-09-05T05:30:35Z
-updated: 2026-09-10T01:38:54Z
+updated: 2026-09-10T02:49:59Z
 goal: bill move: background + Drive re-file + real error; buyback picker dialog; approve advances; cost-code names on the bills list
-next: delete file 22PdHU9FedEK off bill 22PdHU9CtwhE in JobTread (the superseded Screaming Arrow scan), then confirm the mirror trashes its Drive copy and renames Invoice 1016 (1).pdf; then push the add-bill replace change to main
+next: verify the Sheet vs JobTread toggle on a real job in /trackingsheet — the preview can run ~60s; watch for a timeout on an old, heavily-billed job
 ---
 
 ## Log
@@ -104,6 +104,8 @@ next: delete file 22PdHU9FedEK off bill 22PdHU9CtwhE in JobTread (the superseded
   src/app/api/add-bill/route.ts, src/lib/jobtread.ts
 - 2026-09-09 18:38 · `1e9e921` companion: add sync-all-tracking-sheets button when no job selected
   src/app/trackingsheet/AllJobs.tsx, src/components/TrackingSheetSync.tsx
+- 2026-09-09 19:49 · `47230b7` companion: show the tracking-sheet vs JobTread gap in the budget rail
+  src/app/historical-cost/page.tsx, src/app/trackingsheet/Board.tsx, src/app/trackingsheet/SheetGap.tsx
 
 ## Notes
 - 2026-09-05 05:30 — Companion half of the sales-tax move. src/lib/salesTax.ts is the single definition: the 88 80 00 constants, the line matcher, splitSalesTax, and the job-Phase-derived recoverable/consumed flag. createVendorBill appends the tax line and pins nonRecoverableTax to 0; setBillTax now creates/updates/deletes that LINE and clears any legacy field.
