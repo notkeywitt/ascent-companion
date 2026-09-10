@@ -71,6 +71,7 @@ import {
 } from "@/components/TrackingSheetSync";
 import { TrackingSheetRisks } from "@/components/TrackingSheetRisks";
 import { PreSendCheck } from "./PreSendCheck";
+import { SheetGap } from "./SheetGap";
 import type { PreSendResult } from "@/lib/invoiceReview/preSend";
 import { useAccess } from "@/components/AccessProvider";
 import { useCopy } from "@/components/CopyProvider";
@@ -467,6 +468,9 @@ export function Board() {
   const canTrack = can("tracking-sheet");
   const canApprove = can("bill-approve");
   const canLaborReview = can("labor-review");
+  // Admin-only: the tracking-sheet-vs-JobTread gap panel in the budget rail
+  // reads /api/historical-cost, which carries the same view gate.
+  const canSheetGap = can("historical-cost");
   const [trackingTarget, setTrackingTarget] = useState<TrackingTarget | null>(null);
   // Have we finished reading whether THIS job has a tracking sheet? Until we
   // have, the month-side button renders nothing rather than flashing the wrong
@@ -3127,6 +3131,16 @@ export function Board() {
                   })}
                 </ChipScroller>
               </div>
+            )}
+            {/* Admin: what this job's Tracking Sheet says the spend is, against
+                what JobTread holds — the historical gap, on the job you already
+                have open. Folds with the rail like the headroom cards do. */}
+            {canSheetGap && trackingTarget?.url && (
+              <SheetGap
+                jobId={jobId}
+                url={trackingTarget.url}
+                className={railCollapsed ? "hidden lg:block" : ""}
+              />
             )}
             <Card
               pad={false}

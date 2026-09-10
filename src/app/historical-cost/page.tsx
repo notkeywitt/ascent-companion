@@ -108,6 +108,18 @@ export default function HistoricalCostPage() {
   const [commitError, setCommitError] = useState("");
   const [result, setResult] = useState<UpsertResult | null>(null);
 
+  // Pre-fill from the query string, so the budget panel's "Create the bill"
+  // link on /trackingsheet lands here with the job and its sheet already set.
+  // Read off `window` in an effect rather than with useSearchParams: this page
+  // is a client page with no Suspense boundary of its own.
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search);
+    const u = q.get("url");
+    const j = q.get("job");
+    if (u) setUrl(u);
+    if (j) setJtJobId(j);
+  }, []);
+
   useEffect(() => {
     let alive = true;
     (async () => {
