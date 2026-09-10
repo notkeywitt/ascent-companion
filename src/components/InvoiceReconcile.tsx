@@ -37,6 +37,20 @@ export interface Recon {
 const money = (n: number) =>
   `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
+/**
+ * The banner's own green/amber call, pulled out so a caller (the job board's
+ * "Create Invoice in JobTread" button) can gate on the SAME verdict instead of
+ * re-deriving it — when this reads green, an invoice already holds the whole
+ * month, so a second create is a duplicate, not a next step.
+ */
+export function reconStatus(r: Recon) {
+  const stranded = r.remaining - r.onDraftInvoiceCost;
+  const draftBillsPending = r.draftBillCount > 0 && Math.abs(r.draftBillsCost) >= 0.01;
+  const readyToInvoice = !r.reconciled && r.remaining > 0.01 && stranded < 0.01 && !draftBillsPending;
+  const good = (r.reconciled && !draftBillsPending) || readyToInvoice;
+  return { readyToInvoice, good, draftBillsPending, stranded };
+}
+
 /** The month's still-coding bills, spelled out — see the note above. */
 export function DraftNote({ cost, count }: { cost: number; count: number }) {
   if (count < 1 || Math.abs(cost) < 0.01) return null;
@@ -107,22 +121,13 @@ export function InvoiceReconcile({
   const { invoices, remaining, reconciled, onDraftInvoiceCost, draftBillsCost, draftBillCount } =
     data;
 
-  // What's missing from the invoice, in two flavours:
-  //   stranded          — finalized money on no invoice at all. The ONLY case
-  //                       "extend or add an invoice" is true of.
-  //   draftBillsPending — a still-coding bill for the month. JobTread can't pull
-  //                       a draft onto an invoice, so the invoice is incomplete
-  //                       even though the completeness math (which excludes
-  //                       drafts by design) says nothing is left to invoice.
-  // Both have to be clear before the box goes green. Reported live on Otis
-  // Perkins Addition: every finalized bill sat on the draft invoice and a
-  // $1,991.00 draft bill did not, and the banner still read "Ready to Invoice".
-  const stranded = remaining - onDraftInvoiceCost;
-  const draftBillsPending = draftBillCount > 0 && Math.abs(draftBillsCost) >= 0.01;
-  // Nothing stranded, nothing still coding: the draft invoice holds the whole
-  // month and only needs sending.
-  const readyToInvoice = !reconciled && remaining > 0.01 && stranded < 0.01 && !draftBillsPending;
-  const good = (reconciled && !draftBillsPending) || readyToInvoice;
+  // stranded: finalized money on no invoice at all — the ONLY case "extend or
+  // add an invoice" is true of. draftBillsPending: a still-coding bill for the
+  // month, which can't go on until approved. Both have to be clear before the
+  // box goes green. Reported live on Otis Perkins Addition: every finalized
+  // bill sat on the draft invoice and a $1,991.00 draft bill did not, and the
+  // banner still read "Ready to Invoice".
+  const { readyToInvoice, good, draftBillsPending, stranded } = reconStatus(data);
 
   // No live (non-denied) invoice pulls this month's work yet.
   if (invoices.length === 0) {

@@ -54,7 +54,7 @@ import {
   type TimeEntryRow,
 } from "@/components/TimeEntryList";
 import { AddTimeCard } from "./AddTimeCard";
-import { InvoiceReconcile, type Recon } from "@/components/InvoiceReconcile";
+import { InvoiceReconcile, reconStatus, type Recon } from "@/components/InvoiceReconcile";
 import { UncapturedBills } from "@/components/UncapturedBills";
 import { BILL_STRIPE_COLOR, billInvoiceState } from "@/lib/billInvoiceState";
 import {
@@ -1134,6 +1134,9 @@ export function Board() {
   /** Does the bottom action row carry an Approve button? It needs the role AND a
    *  loaded month — the check button beside it needs neither. */
   const showApprove = canApprove && !!data && !loading;
+  /** The reconcile banner reads green: an invoice already holds the whole
+   *  month, so "Create Invoice in JobTread" would only raise a duplicate. */
+  const reconReady = !!recon && reconStatus(recon).good;
   // Mirrors approveBill() on the bill detail page: a Bill is a payable (draft →
   // pending, "approved for payment"); an Expense is already paid (draft →
   // approved, "record payment").
@@ -3881,8 +3884,12 @@ export function Board() {
                    documents page pulls exactly these uninvoiced bills. Staged
                    coding still blocks it: an invoice built now would carry the
                    OLD cost codes, so save first. A disabled <a> is not a thing,
-                   hence the button/link swap. */
-                dirty ? (
+                   hence the button/link swap. Hidden entirely once the
+                   reconcile banner above is already green — an invoice exists
+                   and holds the whole month, so this would only raise a
+                   duplicate one; the banner's own "Open invoice" link is the
+                   way in from here. */
+                reconReady ? null : dirty ? (
                   <Button
                     disabled
                     title="Save staged coding changes to JobTread first"

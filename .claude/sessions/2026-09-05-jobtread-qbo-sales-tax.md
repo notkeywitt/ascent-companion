@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/jobtread-qbo-sales-tax-lfqctd
 status: shipped
 started: 2026-09-05T05:30:35Z
-updated: 2026-09-10T05:00:23Z
+updated: 2026-09-10T05:06:02Z
 goal: bill move: background + Drive re-file + real error; buyback picker dialog; approve advances; cost-code names on the bills list
 next: verify on Ferron in /trackingsheet: Sheet vs JobTread panel — 08 50 00 should read matched under Spend, and Estimate should compare REVISED TOTAL (col AU) to the rail budget
 ---
