@@ -148,10 +148,13 @@ branch's record, so the next session can pick the work up cold. Read
   square, peak mark and marquee rules are `brand`; a filled accent takes an
   off-black label (`accent-fg`), and so does the logo's knocked-out peak — p.17
   pairs an ochre square with black, never cream.
-- **OLIVE is currently unpainted.** It stays in the palette as `olive`, but no
-  surface uses it: the owner asked for ochre marks in dark (2026-09-05). If a
-  future view wants olive back as a supporting band (p.14's website ratio), it
-  passes for GRAPHICS and large text only — 4.31:1 on off-black — never body copy.
+- **OLIVE is painted on exactly one surface: the BILLS cost ring** (2026-09-10),
+  against ochre on the labor ring beside it — `--ramp-bills-*` / `--ramp-labor-*`
+  in globals.css, ported to `MIS_RAMP_BILLS` in the appscript's
+  `MonthlyInvoicingSummary.js`. Both ramps are SEQUENTIAL (one hue, stepped by
+  lightness, handed out by RANK), so a cost code no longer keeps one hue across
+  the pair — the legend is where identity lives. Olive passes for GRAPHICS and
+  large text only — 4.31:1 on off-black — never body copy.
 - **`neutral-*` is a warm ramp, not Tailwind's.** `tailwind.config.ts` overrides
   every `neutral` step with a brand-warm equivalent solved to the same relative
   luminance, so contrast is unchanged and the grey stops reading blue. Keep using

@@ -13,9 +13,20 @@ import { money } from "./BillCodingCard";
  * page — the rail beside it, the drag targets, the drill-downs are all codes —
  * so cutting by division here would answer a question nobody is asking on it.
  *
- * Both rings share ONE code → color map, so a code keeps its color across them:
- * the point of a pair is comparing where the bill money went against where the
- * hours went, and that only works if 06 20 00 is the same hue in both.
+ * THE TWO RINGS ARE DIFFERENT HUES, and that is the point: olive for bills,
+ * ochre for labor (the office's call, 2026-09-10). Each ring's own ramp is
+ * SEQUENTIAL — one brand hue stepped by lightness, handed out by rank, so the
+ * biggest slice is the deepest step and the ring reads as a size order.
+ *
+ * It used to be one categorical color map shared across the pair, so a code
+ * kept its hue in both. That is gone, and it cannot come back while the rings
+ * are branded by kind. Identity therefore lives in the LEGEND, where every
+ * slice is named, and never in the colour alone.
+ *
+ * ANYTHING UNDER A TENTH OF ITS RING folds into one grey "Other", because a
+ * ring is read at a glance and a 2% sliver is noise at that size. The top
+ * three survive that rule whatever their share: a month spread evenly over
+ * twelve codes would otherwise draw one grey circle.
  *
  * TWO SCOPES, and the caption is the switch. The selected MONTH leads, because
  * that is what this page is for — you are coding one month, and "what is this
@@ -35,60 +46,66 @@ export interface CostDonutRow {
   labor: number;
 }
 
-/** Fixed-order categorical slots (globals.css); an 8th code folds to "Other". */
-const VIZ_SLOTS = [
-  "var(--viz-1)",
-  "var(--viz-2)",
-  "var(--viz-3)",
-  "var(--viz-4)",
-  "var(--viz-5)",
-  "var(--viz-6)",
-  "var(--viz-7)",
+/** One brand hue per ring, stepped by lightness (globals.css). Handed out by
+ *  RANK — index 0 is the largest slice. */
+const BILLS_RAMP = [
+  "var(--ramp-bills-1)",
+  "var(--ramp-bills-2)",
+  "var(--ramp-bills-3)",
+  "var(--ramp-bills-4)",
+  "var(--ramp-bills-5)",
+  "var(--ramp-bills-6)",
+] as const;
+const LABOR_RAMP = [
+  "var(--ramp-labor-1)",
+  "var(--ramp-labor-2)",
+  "var(--ramp-labor-3)",
+  "var(--ramp-labor-4)",
+  "var(--ramp-labor-5)",
+  "var(--ramp-labor-6)",
 ] as const;
 const VIZ_OTHER = "var(--viz-other)";
 
-/**
- * Stable cost code → color map shared by both rings. The codes with the most
- * total cost (bills + labor) claim the fixed slots; everything else folds into
- * one gray "Other". Slots are then handed out in CODE order rather than by
- * rank, so the mapping does not reshuffle when one ring outgrows the other.
- *
- * Built from whichever scope is on screen, not from the job: a code with a big
- * job-to-date total but nothing this month would otherwise hold a slot the
- * month's own codes need, and the month view is the one that leads.
- */
-function buildColorMap(rows: CostDonutRow[]): Map<string, string> {
-  const top = rows
-    .map((r) => ({ code: r.code, v: Math.max(r.bills, 0) + Math.max(r.labor, 0) }))
-    .filter((x) => x.v > 0)
-    .sort((a, b) => b.v - a.v)
-    .slice(0, VIZ_SLOTS.length)
-    .map((x) => x.code)
-    .sort((a, b) => a.localeCompare(b));
-  const map = new Map<string, string>();
-  top.forEach((code, i) => map.set(code, VIZ_SLOTS[i]));
-  return map;
-}
+/** A slice worth less than this much of its own ring folds into "Other". */
+const SLICE_FLOOR = 0.1;
+/** ...unless it is one of the top few, so a flat month still draws something. */
+const SLICE_KEEP_MIN = 3;
 
-/** Slices for one field, folding un-slotted codes into "Other". */
+/**
+ * One ring's slices: biggest first, coloured by rank, with the small ones
+ * folded together. Shared by nothing — the two rings are cut independently
+ * now, which is what lets each carry its own hue.
+ *
+ * A staged recode can drive a code negative before its new home is saved. A
+ * ring cannot draw a negative arc, so those sit out rather than distort the
+ * shares around them.
+ */
 function buildSlices(
   rows: CostDonutRow[],
-  colorMap: Map<string, string>,
   field: "bills" | "labor",
+  ramp: readonly string[],
 ): DonutSlice[] {
+  const ranked = rows
+    .filter((r) => r[field] > 0)
+    .sort((a, b) => b[field] - a[field]);
+  const total = ranked.reduce((n, r) => n + r[field], 0);
+  if (total <= 0) return [];
+
   const out: DonutSlice[] = [];
   let other = 0;
-  for (const r of rows) {
-    const v = r[field];
-    // A staged recode can drive a code negative before its new home is saved.
-    // A ring cannot draw a negative arc, so those sit out rather than distort
-    // the shares around them.
-    if (v <= 0) continue;
-    const color = colorMap.get(r.code);
-    const label = r.name ? `${r.code} · ${r.name}` : r.code;
-    if (color) out.push({ key: r.code, label, value: v, color });
-    else other += v;
-  }
+  ranked.forEach((r, i) => {
+    const big = r[field] / total >= SLICE_FLOOR;
+    if (out.length < ramp.length && (big || i < SLICE_KEEP_MIN)) {
+      out.push({
+        key: r.code,
+        label: r.name ? `${r.code} · ${r.name}` : r.code,
+        value: r[field],
+        color: ramp[out.length],
+      });
+    } else {
+      other += r[field];
+    }
+  });
   if (other > 0)
     out.push({ key: "__other", label: "Other cost codes", value: other, color: VIZ_OTHER });
   return out;
@@ -119,9 +136,8 @@ export function CostDonuts({
 
   const rows = scope === "month" ? month : jobToDate;
 
-  const colorMap = useMemo(() => buildColorMap(rows), [rows]);
-  const bills = useMemo(() => buildSlices(rows, colorMap, "bills"), [rows, colorMap]);
-  const labor = useMemo(() => buildSlices(rows, colorMap, "labor"), [rows, colorMap]);
+  const bills = useMemo(() => buildSlices(rows, "bills", BILLS_RAMP), [rows]);
+  const labor = useMemo(() => buildSlices(rows, "labor", LABOR_RAMP), [rows]);
 
   const billsTotal = sum(bills);
   const laborTotal = sum(labor);
