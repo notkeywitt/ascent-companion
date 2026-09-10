@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: ship/billing-month
 status: in-progress
 started: 2026-09-10T15:22:41Z
-updated: 2026-09-10T15:42:32Z
+updated: 2026-09-10T16:18:44Z
 goal: 
 next: owner: deploy the appscript side (./deploy.sh) — the corrected totals and the Office/Shop/Electrical exclusion only appear once that lands; then open /invoicing-summary and confirm Ferron reads $117,979
 ---
@@ -16,5 +16,7 @@ next: owner: deploy the appscript side (./deploy.sh) — the corrected totals an
   src/app/api/invoicing-summary/route.ts, src/lib/invoiceReview/types.ts
 - 2026-09-10 08:42 · `7efeba3` companion: log the invoicing package session
   SESSIONS.md, src/lib/sessionLog.generated.json
+- 2026-09-10 09:18 · `c651631` companion: give the invoicing package build five minutes
+  src/app/api/invoicing-summary/route.ts, src/app/invoicing-summary/page.tsx
 
 ## Notes

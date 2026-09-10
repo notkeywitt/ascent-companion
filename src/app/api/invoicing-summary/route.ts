@@ -12,7 +12,7 @@ import { currentBillingPeriod } from "@/lib/billingMonth";
  *
  * Env (shared): APPS_SCRIPT_SYNC_URL, APPS_SCRIPT_SYNC_SECRET
  *
- *   GET  ?ym=YYYY-MM                    → the month: jobs, figures, edits, doc
+ *   GET  ?ym=YYYY-MM[&refresh=1]        → the month: jobs, figures, edits, doc
  *   POST { op:"save",  ym, jobId?, … }  → one edit to the overrides tab
  *   POST { op:"build", ym, dryRun? }    → write the Google Doc now
  *
@@ -24,7 +24,14 @@ import { currentBillingPeriod } from "@/lib/billingMonth";
  * August's labor and bills and writes "September '26 Invoicing Package" — the
  * doc is named for the month the money goes out in.
  *
- * The read pages a whole month of JobTread cost items, time entries and
+ * `refresh=1` forces a live read. WITHOUT it the answer comes from Apps
+ * Script's cache of the last full read — the half-hourly tracking-sheet push
+ * leaves one there every time it rebuilds the doc, so opening the page is a
+ * lookup instead of a re-read of the whole month. The payload carries
+ * `computedAt`, and the page prints it; "Refresh figures" is what asks for
+ * live figures.
+ *
+ * A live read pages a whole month of JobTread cost items, time entries and
  * invoices, then walks Drive for each job's billing folder, so it runs tens of
  * seconds. The BUILD does all of that again and then draws two cost rings per
  * job in a throwaway spreadsheet, which is minutes, not seconds — 120s here
@@ -72,7 +79,11 @@ export async function GET(req: NextRequest) {
   }
 
   const res = await callAppsScript<Record<string, unknown>>(
-    { action: "invoicingSummary", ...asked },
+    {
+      action: "invoicingSummary",
+      ...asked,
+      fresh: req.nextUrl.searchParams.get("refresh") === "1",
+    },
     { timeoutMs: SCRIPT_TIMEOUT_MS },
   );
   if (res.error) return NextResponse.json({ error: res.error }, { status: res.status });

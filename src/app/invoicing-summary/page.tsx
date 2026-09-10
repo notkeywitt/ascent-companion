@@ -106,6 +106,8 @@ interface Summary {
   stale: boolean;
   /** The doc has been written at least once. */
   written: boolean;
+  /** When Apps Script last read these figures from JobTread. */
+  computedAt: string;
   headline: string;
   defaultHeadline: string;
   closing: string;
@@ -146,12 +148,18 @@ export default function InvoicingSummaryPage() {
    * page — so this page opens on the month the office is closing rather than
    * on whatever the calendar rolled to.
    */
-  const load = useCallback(async (period: string) => {
+  const load = useCallback(async (period: string, refresh = false) => {
     setLoading(true);
     setError("");
     try {
+      const q = new URLSearchParams();
+      if (period) q.set("ym", period);
+      // Without this the answer is Apps Script's cache of the last full read,
+      // which is what makes opening this page instant. "Refresh figures" is
+      // the one caller that pays for a live read of the whole month.
+      if (refresh) q.set("refresh", "1");
       const res = await fetch(
-        period ? `/api/invoicing-summary?ym=${encodeURIComponent(period)}` : "/api/invoicing-summary",
+        q.size ? `/api/invoicing-summary?${q}` : "/api/invoicing-summary",
         { cache: "no-store" },
       );
       const body = await res.json();
@@ -272,6 +280,15 @@ export default function InvoicingSummaryPage() {
   // Every headline figure is recomputed from the page's OWN state, not read off
   // `data.totals`: leaving a job out has to move the total on the tap, and a
   // whole-month refetch to learn that takes tens of seconds.
+  // When Apps Script last read the month from JobTread. The page serves that
+  // read from a cache, so it says how old it is rather than implying "now".
+  const readAt = data?.computedAt
+    ? new Date(data.computedAt).toLocaleTimeString(undefined, {
+        hour: "numeric",
+        minute: "2-digit",
+      })
+    : "";
+
   const included = data?.jobs.filter((j) => j.include) ?? [];
   const live = {
     total: included.reduce((s, j) => s + j.total, 0),
@@ -321,7 +338,7 @@ export default function InvoicingSummaryPage() {
         </Banner>
       )}
 
-      {loading && <Loading label="Reading the month from JobTread…" />}
+      {loading && <Loading label="Reading the month…" />}
 
       {!loading && data && (
         <div className="space-y-5">
@@ -338,12 +355,18 @@ export default function InvoicingSummaryPage() {
               <>
                 Labor {money(live.labor)} · Bills {money(live.bills)} ·{" "}
                 {plural(included.length, "job")} · {plural(live.customers, "client")}
+                {readAt ? <> · read {readAt}</> : null}
               </>
             }
+            // Said on every month, not only on the ones with a job missing its
+            // invoice: a job's figure is BIGGER than its labor plus its bills
+            // whenever it is invoiced, and reading that as an error is the
+            // single most reported thing about this page.
             footnote={
-              live.invoiced < included.length
-                ? `${included.length - live.invoiced} job(s) have no client invoice yet, so their line shows cost — the client is billed the invoice, which adds P&O and sales tax.`
-                : undefined
+              `An invoiced job shows what the client is billed — its cost plus P&O and sales tax, so it exceeds labor plus bills. ` +
+              (live.invoiced < included.length
+                ? `${included.length - live.invoiced} job(s) have no client invoice yet and show cost instead.`
+                : `Every job here is invoiced.`)
             }
           />
 
@@ -449,7 +472,7 @@ export default function InvoicingSummaryPage() {
             <button
               type="button"
               className={btn("ghost", "md")}
-              onClick={() => void load(ym)}
+              onClick={() => void load(ym, true)}
               disabled={building}
             >
               Refresh figures
@@ -498,6 +521,11 @@ function JobCard({
                   Not invoiced
                 </Chip>
               ),
+              // The figure above is the client INVOICE on an invoiced job, so
+              // it is bigger than labor plus bills by the markup and the tax.
+              // Printing the cost beside it is what stops that reading as a
+              // wrong total.
+              job.invoiced ? <span key="cost">{money(job.cost)} cost + P&amp;O and tax</span> : null,
               job.include ? null : (
                 <Chip key="out" tone="neutral">
                   Left out
