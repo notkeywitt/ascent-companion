@@ -963,6 +963,16 @@ export function Board() {
     return map;
   }, [data, codeOf, timeCodeOf, leavesByCode]);
 
+  /**
+   * cost code → its JobTread budget, for the admin sheet-vs-JobTread panel.
+   * Taken off `headroom` rather than re-fetched, so the panel compares the
+   * sheet against the same budget the rail under it draws.
+   */
+  const budgetByCode = useMemo(
+    () => new Map([...headroom.values()].map((h) => [h.code, h.budget])),
+    [headroom],
+  );
+
   const railRows = useMemo(() => {
     const q = codeQuery.trim().toLowerCase();
     // Labor-only codes count: a code with hours but no budget and no bills is
@@ -3139,6 +3149,7 @@ export function Board() {
               <SheetGap
                 jobId={jobId}
                 url={trackingTarget.url}
+                budgetByCode={budgetByCode}
                 className={railCollapsed ? "hidden lg:block" : ""}
               />
             )}

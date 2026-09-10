@@ -74,6 +74,9 @@ interface GapReport {
   gapSum: number;
   existingDocId: string | null;
   existingStatus: string | null;
+  /** What the Historical Job Cost account already holds on this job, in total.
+   *  Excluded from `alreadyInJtSum` by design — see the gap math. */
+  historicalSum?: number;
 }
 
 interface UpsertResult {
@@ -261,6 +264,18 @@ export default function HistoricalCostPage() {
               <> · JobTread side includes {money(gap.alreadyInJtTimeSum)} of labor</>
             )}
           </p>
+
+          {/* A Historical Job Cost bill this tool did not create. Its cost is
+              deliberately excluded from the gap, so committing would ADD a
+              second seed bill on top of it and double-count every code. */}
+          {!gap.existingDocId && (gap.historicalSum ?? 0) !== 0 && (
+            <Banner tone="error" className="mb-3 text-xs">
+              This job already carries {money(gap.historicalSum ?? 0)} on the Historical Job Cost
+              account, entered outside this tool. That cost is excluded from the gap below, so
+              committing would create a SECOND catch-up bill and double-count it. Void the existing
+              one first, or leave this job alone.
+            </Banner>
+          )}
 
           {gap.existingDocId && (
             <Banner tone={gap.existingStatus === "draft" ? "warning" : "error"} className="mb-3 text-xs">
