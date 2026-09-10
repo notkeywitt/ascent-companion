@@ -1,7 +1,26 @@
 {
-  "generatedAt": "2026-09-10T15:00:45Z",
+  "generatedAt": "2026-09-10T15:42:31Z",
   "repo": "ascent-companion",
   "sessions": [
+    {
+      "slug": "billing-month",
+      "file": "2026-09-10-billing-month.md",
+      "branch": "ship/billing-month",
+      "status": "in-progress",
+      "started": "2026-09-10T15:22:41Z",
+      "updated": "2026-09-10T15:42:27Z",
+      "goal": "",
+      "next": "owner: deploy the appscript side (./deploy.sh) — the corrected totals and the Office/Shop/Electrical exclusion only appear once that lands; then open /invoicing-summary and confirm Ferron reads $117,979",
+      "commits": [
+        {
+          "date": "2026-09-10",
+          "time": "08:41",
+          "sha": "a030aad",
+          "subject": "companion: point the invoicing package at the billing month on home",
+          "files": "src/app/api/invoicing-summary/route.ts, src/lib/invoiceReview/types.ts"
+        }
+      ]
+    },
     {
       "slug": "jobtread-qbo-sales-tax",
       "file": "2026-09-05-jobtread-qbo-sales-tax.md",
@@ -489,6 +508,39 @@
       ]
     },
     {
+      "slug": "monthly-invoicing-summary",
+      "file": "2026-09-10-monthly-invoicing-summary.md",
+      "branch": "claude/monthly-invoicing-summary-mfpunx",
+      "status": "in-progress",
+      "started": "2026-09-10T14:49:51Z",
+      "updated": "2026-09-10T14:50:49Z",
+      "goal": "",
+      "next": "Deploy the appscript side (./deploy.sh), then open /invoicing-summary and confirm the month reads before merging this branch to main.",
+      "commits": [
+        {
+          "date": "2026-09-10",
+          "time": "14:49",
+          "sha": "9daef94",
+          "subject": "companion: add the monthly Invoicing Package page",
+          "files": "CODEBASE_MAP.md, src/app/api/invoicing-summary/route.ts, src/app/invoicing-summary/page.tsx, src/lib/nav.ts, src/lib/views.ts"
+        },
+        {
+          "date": "2026-09-10",
+          "time": "14:50",
+          "sha": "9278ff5",
+          "subject": "companion: session ledger for the invoicing package page",
+          "files": ""
+        },
+        {
+          "date": "2026-09-10",
+          "time": "14:50",
+          "sha": "73488db",
+          "subject": "companion: log the ledger commit",
+          "files": ""
+        }
+      ]
+    },
+    {
       "slug": "admin-actions-menu",
       "file": "2026-09-10-admin-actions-menu.md",
       "branch": "claude/admin-actions-menu-oltvr7",
@@ -504,6 +556,39 @@
           "sha": "95c9eb2",
           "subject": "companion: replace admin actions with an all-pages menu",
           "files": "CODEBASE_MAP.md, src/app/api/admin/pages-menu/route.ts, src/app/layout.tsx, src/app/page.tsx, src/components/AdminActionBar.tsx, src/components/AllPagesMenu.tsx, +5 more"
+        }
+      ]
+    },
+    {
+      "slug": "billing-month-selector",
+      "file": "2026-09-10-billing-month-selector.md",
+      "branch": "claude/billing-month-selector-o8rbtx",
+      "status": "in-progress",
+      "started": "2026-09-10T13:09:19Z",
+      "updated": "2026-09-10T13:09:44Z",
+      "goal": "",
+      "next": "after ./deploy.sh lands on appscript: push this to main, then set a month on home and confirm a Gmail-captured bill dates into it",
+      "commits": [
+        {
+          "date": "2026-09-10",
+          "time": "13:09",
+          "sha": "e7faebe",
+          "subject": "companion: push the set billing month to the appscript project",
+          "files": "CODEBASE_MAP.md, src/app/api/billing-month/route.ts, src/components/HomeMasthead.tsx, src/lib/appsScript.ts, src/lib/billingMonth.ts"
+        },
+        {
+          "date": "2026-09-10",
+          "time": "13:09",
+          "sha": "6ca698f",
+          "subject": "companion: log the billing-month session",
+          "files": ""
+        },
+        {
+          "date": "2026-09-10",
+          "time": "13:09",
+          "sha": "e448a96",
+          "subject": "companion: log the billing-month session",
+          "files": ""
         }
       ]
     },

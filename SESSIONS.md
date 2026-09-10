@@ -9,8 +9,11 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Branch | Last active | Commits | Next step |
 |---|---|---|---|---|
-| [gemini-claude-transition-status](.claude/sessions/2026-09-09-gemini-claude-transition-status.md) | `claude/gemini-claude-transition-status-cib68c` | 37h ago | 1 | owner: delete GEMINI_KEY + GEMINI_MODEL from Vercel; decide whether ANTHROPIC_M… |
-| [trip-recording-persistence](.claude/sessions/2026-09-08-trip-recording-persistence.md) | `claude/trip-recording-persistence-evilps` | 43h ago | 3 | verify on the phone: start a trip, force-quit the app, reopen — the trip should… |
+| [billing-month](.claude/sessions/2026-09-10-billing-month.md) | `ship/billing-month` | 0m ago | 1 | owner: deploy the appscript side (./deploy.sh) — the corrected totals and the O… |
+| [monthly-invoicing-summary](.claude/sessions/2026-09-10-monthly-invoicing-summary.md) | `claude/monthly-invoicing-summary-mfpunx` | 52m ago | 3 | Deploy the appscript side (./deploy.sh), then open /invoicing-summary and confi… |
+| [billing-month-selector](.claude/sessions/2026-09-10-billing-month-selector.md) | `claude/billing-month-selector-o8rbtx` | 3h ago | 3 | after ./deploy.sh lands on appscript: push this to main, then set a month on ho… |
+| [gemini-claude-transition-status](.claude/sessions/2026-09-09-gemini-claude-transition-status.md) | `claude/gemini-claude-transition-status-cib68c` | 38h ago | 1 | owner: delete GEMINI_KEY + GEMINI_MODEL from Vercel; decide whether ANTHROPIC_M… |
+| [trip-recording-persistence](.claude/sessions/2026-09-08-trip-recording-persistence.md) | `claude/trip-recording-persistence-evilps` | 44h ago | 3 | verify on the phone: start a trip, force-quit the app, reopen — the trip should… |
 | [ci-verify-job-failures](.claude/sessions/2026-09-06-ci-verify-job-failures.md) | `claude/ci-verify-job-failures-wcfpyk` | 4d ago | 1 | push this branch to remote main — main is still red until the Link fix lands th… |
 | [ascent-building-theme](.claude/sessions/2026-09-06-ascent-building-theme.md) | `claude/ascent-building-theme-rz1o6h` | 4d ago | 6 | Tune the palettes in /theme on the phone, then paste the Copy CSS output back s… |
 | [header-layout-redesign](.claude/sessions/2026-09-05-header-layout-redesign.md) | `claude/header-layout-redesign-xid33s` | 5d ago | 15 | rearrange the tracking-sheet action buttons for mobile and desktop — they read … |
