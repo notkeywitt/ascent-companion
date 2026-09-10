@@ -225,84 +225,42 @@
 }
 
 /* --- Categorical data-viz palette ---------------------------------------
-   Fixed-order hue slots for charts (the CSI-division donuts on the Jobs
-   view). Validated colorblind-safe set (data-viz reference palette): assign
-   in order, never cycle; a slice past the last slot folds into "Other"
-   (--viz-other, a recessive gray). Each slot has a light value and a dark
-   step chosen for the off-black surface, so a donut reads in either theme
-   without repainting. `viz-N` is referenced as var(--viz-N) by <Donut>. */
+   Fixed-order hue slots for charts (the cost rings, the CSI-division donuts
+   on the Jobs view). Assign in order, never cycle; a slice past the last slot
+   folds into "Other" (--viz-other, a recessive gray).
+
+   THE SET IS TABLEAU 10 — the standard muted business palette, deliberately
+   less saturated than the primaries it replaced (2026-09-10). A chart is not
+   the place for the brand's own colours: an ochre-and-olive pair was tried and
+   read as decoration rather than as data. Slot 8 stays RED because the home
+   board spends it on "over budget", which is a meaning, not a hue.
+
+   Nearly the whole set carries into dark unchanged — only the blue and the
+   brown are too dark on off-black and get a lifted step, both at 4.5:1. So a
+   donut reads in either theme without repainting. `viz-N` is referenced as
+   var(--viz-N) by <Donut>, and copied into MIS_VIZ_COLORS on the Apps Script
+   side, which cannot see this file. */
 :root {
-  --viz-1: #2a78d6; /* blue */
-  --viz-2: #eb6834; /* orange */
-  --viz-3: #1baf7a; /* aqua */
-  --viz-4: #eda100; /* yellow */
-  --viz-5: #e87ba4; /* magenta */
-  --viz-6: #008300; /* green */
-  --viz-7: #4a3aa7; /* violet */
-  --viz-8: #e34948; /* red */
+  --viz-1: #4e79a7; /* blue */
+  --viz-2: #f28e2b; /* orange */
+  --viz-3: #76b7b2; /* teal */
+  --viz-4: #59a14f; /* green */
+  --viz-5: #b07aa1; /* purple */
+  --viz-6: #9c755f; /* brown */
+  --viz-7: #edc948; /* gold */
+  --viz-8: #e15759; /* red — "over budget" on the home board */
   --viz-other: #9c9a90; /* recessive gray — the "Other" rollup */
 }
 .dark {
-  --viz-1: #3987e5;
-  --viz-2: #d95926;
-  --viz-3: #199e70;
-  --viz-4: #c98500;
-  --viz-5: #d55181;
-  --viz-6: #008300;
-  --viz-7: #9085e9;
-  --viz-8: #e66767;
+  --viz-1: #5c86b3; /* lifted: #4e79a7 is 2.7:1 on off-black */
+  --viz-2: #f28e2b;
+  --viz-3: #76b7b2;
+  --viz-4: #59a14f;
+  --viz-5: #b07aa1;
+  --viz-6: #a17a64; /* lifted */
+  --viz-7: #edc948;
+  --viz-8: #e15759;
   --viz-other: #6f6d64;
-}
-
-/* --- The cost rings' two brand ramps -------------------------------------
-   The bills/labor PAIR does not use the categorical slots above. It is two
-   rings answering the same question about different money, and the office
-   asked for the brand to say which is which: OLIVE for bills, OCHRE for
-   labor (2026-09-10). Both are guide colours — olive #878054 and ochre
-   #CF9803, p.13 — and this is the first surface olive is painted on.
-
-   SEQUENTIAL, not categorical: one hue per ring, stepped by lightness, and
-   handed out by RANK — the largest slice takes step 1. So the ramp reads as
-   a size order rather than as seven unrelated hues, which is what "gradients
-   of Ascent colors" asks for and what a part-to-whole chart wants anyway.
-
-   WHAT THIS GIVES UP: a cost code no longer keeps one colour across the two
-   rings. It cannot — the rings are now different hues by design — so the
-   legend is the only place identity lives, and every slice is named there.
-
-   Direction flips with the theme, because contrast does. On the light ground
-   the ramp runs deep -> brand (every step at least 3:1 on white, except the
-   brand ochre tail at 2.58:1, which the guide already sanctions as a FILL,
-   p.16). On off-black it runs pale -> brand, floor 4.31:1. Six steps: past
-   the last one a slice folds into --viz-other, and so does anything under a
-   tenth of its ring. */
-:root {
-  --ramp-bills-1: #2c2916;
-  --ramp-bills-2: #403c21;
-  --ramp-bills-3: #534e2d;
-  --ramp-bills-4: #655f39;
-  --ramp-bills-5: #767047;
-  --ramp-bills-6: #878054; /* brand olive */
-  --ramp-labor-1: #423001;
-  --ramp-labor-2: #604701;
-  --ramp-labor-3: #7e5d02;
-  --ramp-labor-4: #9c7302;
-  --ramp-labor-5: #ba8903;
-  --ramp-labor-6: #cf9803; /* brand ochre */
-}
-.dark {
-  --ramp-bills-1: #d5d2b8;
-  --ramp-bills-2: #c6c19f;
-  --ramp-bills-3: #b7b185;
-  --ramp-bills-4: #a8a06b;
-  --ramp-bills-5: #978f59;
-  --ramp-bills-6: #878054; /* brand olive, 4.31:1 on off-black */
-  --ramp-labor-1: #f6e0a2;
-  --ramp-labor-2: #f2d37d;
-  --ramp-labor-3: #eec658;
-  --ramp-labor-4: #ebba33;
-  --ramp-labor-5: #e3ad16;
-  --ramp-labor-6: #cf9803; /* brand ochre, 6.70:1 on off-black */
 }
 
 /* Interactive TEXT gets its own token, because it is NOT always the accent.

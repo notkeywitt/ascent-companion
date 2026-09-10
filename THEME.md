@@ -108,7 +108,7 @@ longer the DEFAULT — see the two constants above.
 |---|---|---|
 | `cream` | `#FAF7EE` | p.13 |
 | `offblack` | `#1B1B17` | p.13 |
-| `olive` | `#878054` | p.13 — the bills cost ring, and nothing else |
+| `olive` | `#878054` | p.13 — **currently unpainted**, see below |
 | `ochre` | `#CF9803` | p.13 |
 | `webgrey` | `#8D8D8B` | p.13 |
 
@@ -189,15 +189,15 @@ reasons that are load-bearing:
 | Olive on off-black | 4.31:1 | graphics + large text only |
 | Ochre on cream | 2.41:1 | **restricted, p.16** |
 
-### Where olive is painted
+### Why olive is unpainted
 
-One surface: the BILLS cost ring (`--ramp-bills-*`), against ochre on the
-labor ring beside it (2026-09-10). Dark mode's marks were olive until the owner
-asked for ochre (2026-09-05), and it went unpainted between those two dates.
-
-That is the whole of its licence. Olive is **4.31:1 on off-black — graphics and
-large text only**, never body copy, which a donut arc satisfies and a sentence
-does not. p.14's website ratio gives it the same narrow supporting role.
+Olive is a real brand colour and stays in the palette, but no surface uses it.
+Dark mode's marks were olive until the owner asked for ochre (2026-09-05). It
+was briefly painted on the bills cost ring (2026-09-10) and taken back off the
+same day: a chart wants a neutral categorical set, and a brand tint there read
+as decoration rather than as data. If a future view wants olive back as a
+supporting band — p.14's website ratio gives it a narrow one — it passes for
+**graphics and large text only** at 4.31:1 on off-black. Never body copy.
 
 ---
 
