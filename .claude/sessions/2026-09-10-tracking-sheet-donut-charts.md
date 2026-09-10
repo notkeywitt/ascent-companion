@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/tracking-sheet-donut-charts-1n8do0
 status: shipped
 started: 2026-09-10T14:45:02Z
-updated: 2026-09-10T14:57:46Z
+updated: 2026-09-10T14:57:47Z
 goal: 
 next: confirm the month/job scope switch reads well on a real job at phone width
 ---
