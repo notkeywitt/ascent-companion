@@ -47,6 +47,7 @@ import type { MailCaptureConfig } from "./checks/mailCapture";
 import type { MarginConfig } from "./checks/margin";
 import type { MarkupDriftConfig } from "./checks/markupDrift";
 import type { QboPushConfig } from "./checks/qboPush";
+import type { TaxableFlagConfig } from "./checks/taxableFlag";
 import type { SalesTaxLineConfig } from "./checks/salesTaxLine";
 import type { UninvoicedConfig } from "./checks/uninvoiced";
 import type { VendorSilentConfig } from "./checks/vendorSilent";
@@ -75,6 +76,7 @@ export interface InvoiceReviewSettings {
     margin: SettingsBlock<MarginConfig>;
     "markup-drift": SettingsBlock<MarkupDriftConfig>;
     "qbo-push": SettingsBlock<QboPushConfig>;
+    "taxable-flag": SettingsBlock<TaxableFlagConfig>;
   };
 }
 
@@ -148,6 +150,21 @@ export const DEFAULT_SETTINGS: InvoiceReviewSettings = {
         // billed the client for a cost the ledger has not taken. Turn this off
         // if invoicing before approving is deliberate here.
         reportNeverApproved: true,
+      },
+    },
+    // ── A stray isTaxable flag ────────────────────────────────────────────
+    // One line cleared on an otherwise taxable bill takes its cost out of the
+    // client invoice's tax base, and every other check still passes: the
+    // invoice foots against the reduced tax JobTread states. Only the tracking
+    // sheet disagrees, and nobody reconciles it against the invoice.
+    "taxable-flag": {
+      enabled: true,
+      config: {
+        // A few percent of a small line is pennies. Ferron's was $4,156.25.
+        minCost: 100,
+        // San Juan County. Only ever used to SIZE the finding — the invoice's
+        // own rate is preferred whenever the job has one.
+        fallbackTaxRate: 0.0835,
       },
     },
     // ── Labor rates ───────────────────────────────────────────────────────

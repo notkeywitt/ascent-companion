@@ -204,6 +204,16 @@ async function loadMonthBills(
             // way `costItems { count }` does. Probed live 2026-09-05 against
             // document 22Pd4uDiixE2 (count 1, costSum 54.04).
             nonRecoverableTax: {},
+            // The lines JobTread will NOT tax on a client invoice. Read as a
+            // filtered aggregate for the same reason the tax line below is:
+            // cost-item NODES nested in this paged connection answer 413, an
+            // aliased connection with a `where` plus aggregates rides along.
+            untaxedLines: {
+              _: "costItems",
+              $: { where: [["isTaxable"], "=", false] },
+              count: {},
+              costSum: { _: "sum", $: "cost" },
+            },
             salesTaxLines: {
               _: "costItems",
               $: { where: [["costCode", "number"], "=", SALES_TAX_CSI] },
@@ -238,6 +248,8 @@ async function loadMonthBills(
         // halfway through the migration reports all of its tax.
         taxAmount:
           (Number(b.salesTaxLines?.costSum) || 0) + (Number(b.nonRecoverableTax) || 0),
+        untaxedLineCount: b.untaxedLines?.count ?? 0,
+        untaxedCost: Number(b.untaxedLines?.costSum) || 0,
         status: b.status ?? "",
         invoiced: invoiceRefs.length > 0,
         invoiceIds: Array.from(

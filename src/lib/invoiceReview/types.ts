@@ -88,6 +88,8 @@ export type FindingKind =
   // ── Sales tax: recorded for QuickBooks, never billed to the client ────────
   /** A client invoice carries an 88 80 00 sales-tax line. */
   | "invoice-sales-tax-line"
+  /** A bill mixes non-taxable lines with taxable ones — a stray isTaxable flag. */
+  | "bill-line-not-taxable"
   // ── The books: did the cost reach QuickBooks at all? ──────────────────────
   /** An approved bill is flagged "don't push", so the GL never sees the cost. */
   | "qbo-not-pushed"
@@ -263,6 +265,20 @@ export interface BillRef {
    * lines were never grossed up — `cost` is then already pre-tax.
    */
   taxAmount: number;
+  /**
+   * How many of this bill's lines carry `isTaxable: false`, and what they cost.
+   *
+   * A client invoice built from these items taxes only the taxable ones, so a
+   * flag cleared by mistake shrinks the invoice's tax base and nothing else in
+   * the review notices — the invoice still foots against the tax JobTread
+   * states. See checks/taxableFlag.ts.
+   *
+   * 0/0 both when the bill is wholly taxable and when the aggregate could not
+   * be read, which is the safe direction: the check needs a POSITIVE count to
+   * say anything.
+   */
+  untaxedLineCount: number;
+  untaxedCost: number;
   status: string;
   /**
    * Non-denied client invoice ids this bill sits on, DRAFT INCLUDED. (This

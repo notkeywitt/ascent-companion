@@ -61,6 +61,7 @@ function bill(partial: Partial<BillRef> & { id: string; cost: number }): BillRef
     sentInvoiceIds: [],
     issueDate: '2026-07-15',
     lineCount: 1, taxAmount: 0,
+    untaxedLineCount: 0, untaxedCost: 0,
     qboIsIgnored: false,
     ...partial,
   };

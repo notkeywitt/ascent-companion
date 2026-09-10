@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: ship/billing-month
 status: in-progress
 started: 2026-09-10T15:22:41Z
-updated: 2026-09-10T17:56:59Z
+updated: 2026-09-10T18:12:04Z
 goal: 
 next: owner: deploy the appscript side (./deploy.sh) — the corrected totals and the Office/Shop/Electrical exclusion only appear once that lands; then open /invoicing-summary and confirm Ferron reads $117,979
 ---
@@ -25,6 +25,8 @@ next: owner: deploy the appscript side (./deploy.sh) — the corrected totals an
 - 2026-09-10 10:38 · `95146c4` companion: sink Ascent's own jobs to the bottom of the invoicing package
   src/app/invoicing-summary/page.tsx
 - 2026-09-10 10:56 · `a112d77` companion: brand the cost rings olive and ochre, and fold the small slices
+  CLAUDE.md, THEME.md, src/app/globals.css, src/app/trackingsheet/CostDonuts.tsx
+- 2026-09-10 11:12 · `51b0199` companion: swap the chart palette for Tableau 10, muted
   CLAUDE.md, THEME.md, src/app/globals.css, src/app/trackingsheet/CostDonuts.tsx
 
 ## Notes
