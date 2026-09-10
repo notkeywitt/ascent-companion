@@ -158,10 +158,13 @@ export function SheetGap({
   }, [gap, mode, budgetByCode]);
 
   // Only the codes that disagree, biggest disagreement first — a code the sheet
-  // and JobTread already match on is not what this panel is for. Rounded to
-  // cents so a floating-point remainder does not render as a difference of "$0".
+  // and JobTread already match on is not what this panel is for. Filtered at
+  // the precision the row RENDERS at (whole dollars, money0), not at the cent:
+  // the sheet sums month totals already rounded to cents while JobTread sums
+  // raw, so a dozen codes carry a few cents of residue — and every one of them
+  // listed as a row reading "$0".
   const shown = lines
-    .filter((l) => Math.round(l.diff * 100) !== 0)
+    .filter((l) => Math.round(l.diff) !== 0)
     .sort((a, b) => Math.abs(b.diff) - Math.abs(a.diff));
 
   const totals = shown.length === 0 && lines.length === 0
@@ -279,7 +282,7 @@ export function SheetGap({
 
               {shown.length === 0 ? (
                 <p className="px-3 py-3 text-[11px] text-neutral-500 dark:text-neutral-400">
-                  Every cost code matches the sheet.
+                  Every cost code matches the sheet to the dollar.
                 </p>
               ) : (
                 <ul className="max-h-64 overflow-y-auto">
