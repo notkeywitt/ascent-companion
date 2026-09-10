@@ -665,18 +665,18 @@ export function money(n: number): string {
 /**
  * Ascent's own overhead jobs, which never reach a customer invoice.
  *
- * Cost lands on Office and Shop the same way it lands on a real job — a bill is
- * coded, approved and mirrored — but none of it is ever billed on, so every
- * "this was never invoiced" check would fire on them every single month. They
- * are matched by NAME rather than id because the ids differ between the two
- * repos' configs and a rename is easier to spot than a stale id; the Office job
- * id is listed too, belt and braces, since it is the one hard-coded elsewhere
- * (CONFIG.JOBTREAD.DEFAULT_JOB_ID in ascent-appscript).
+ * Cost lands on Office, Shop and Electrical the same way it lands on a real job
+ * — a bill is coded, approved and mirrored — but none of it is ever billed on,
+ * so every "this was never invoiced" check would fire on them every single
+ * month. They are matched by NAME rather than id because the ids differ between
+ * the two repos' configs and a rename is easier to spot than a stale id; the
+ * Office job id is listed too, belt and braces, since it is the one hard-coded
+ * elsewhere (CONFIG.JOBTREAD.DEFAULT_JOB_ID in ascent-appscript).
  *
  * Matching is EXACT on the job name, not a substring: "Office Remodel" for a
  * real customer is a real job whose bills really must be invoiced.
  */
-export const NEVER_INVOICED_JOB_NAMES = ["office", "shop"];
+export const NEVER_INVOICED_JOB_NAMES = ["office", "shop", "electrical"];
 export const NEVER_INVOICED_JOB_IDS = ["22PXevQbM9FQ"]; // "Office"
 
 export function isNeverInvoiced(jobId: string, jobName: string): boolean {

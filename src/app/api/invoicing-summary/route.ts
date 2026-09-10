@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { callAppsScript } from "@/lib/appsScript";
+import { currentBillingPeriod } from "@/lib/billingMonth";
 
 /**
  * The monthly Invoicing Package — proxy to Apps Script
@@ -15,9 +16,13 @@ import { callAppsScript } from "@/lib/appsScript";
  *   POST { op:"save",  ym, jobId?, … }  → one edit to the overrides tab
  *   POST { op:"build", ym, dryRun? }    → write the Google Doc now
  *
- * Omit `ym` on the GET and Apps Script answers for the PINNED tracking period —
- * the month the wired sheets actually hold, which is the month the office is
- * closing.
+ * Omit `ym` on the GET and the answer is for the BILLING MONTH IN FORCE — the
+ * month picked on the home page (`currentBillingPeriod`), falling back to the
+ * 10th cutoff when nobody has picked one. The package follows that one control
+ * rather than Apps Script's separate pinned tracking period, which is a second
+ * knob for the same idea and drifts from it. August in force therefore reads
+ * August's labor and bills and writes "September '26 Invoicing Package" — the
+ * doc is named for the month the money goes out in.
  *
  * The read pages a whole month of JobTread cost items, time entries and
  * invoices, then walks Drive for each job's billing folder, so it runs tens of
@@ -49,14 +54,19 @@ function unwrap(b: Record<string, unknown>, fallback: string) {
 
 export async function GET(req: NextRequest) {
   const raw = req.nextUrl.searchParams.get("ym");
-  // No ym is not an error: it means "the month the sheets are on".
+  // No ym is not an error: it means "the billing month in force".
   const period = raw ? parseYm(raw) : null;
   if (raw && !period) {
     return NextResponse.json({ error: "ym must look like 2026-08." }, { status: 400 });
   }
+  let asked = period;
+  if (!asked) {
+    const b = await currentBillingPeriod();
+    asked = { month: b.billingMonthNum, year: b.billingYear };
+  }
 
   const res = await callAppsScript<Record<string, unknown>>(
-    { action: "invoicingSummary", ...(period ?? {}) },
+    { action: "invoicingSummary", ...asked },
     { timeoutMs: SCRIPT_TIMEOUT_MS },
   );
   if (res.error) return NextResponse.json({ error: res.error }, { status: res.status });
