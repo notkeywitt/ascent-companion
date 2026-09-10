@@ -16,7 +16,7 @@ import { cookies } from "next/headers";
 import { auth, roleBaseFor } from "@/auth";
 import { ALL_VIEW_IDS, resolveAllowedViews, type Role } from "@/lib/views";
 import { loadCopyOverrides } from "@/lib/copyService";
-import { loadNavLayout } from "@/lib/navLayoutService";
+import { loadLaunchers } from "@/lib/navLayoutService";
 import { PREVIEW_COOKIE, parsePreviewRole } from "@/lib/preview";
 import { PreviewBanner } from "@/components/PreviewBanner";
 import { SplashScreen } from "@/components/SplashScreen";
@@ -72,11 +72,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   // edited wording is server-rendered — no client fetch, no flash of old text.
   // Falls back to {} (i.e. the shipped English) if the DB is unreachable.
   const copyOverrides = await loadCopyOverrides();
-  // The admin's customized home launcher (Edit mode on the home page), or null
-  // for the shipped AREAS default. Read here so the launcher is server-rendered
-  // with no client fetch and no flash. Falls back to null if the DB is
-  // unreachable — the home page then renders the shipped launcher.
-  const navLayoutOverride = await loadNavLayout();
+  // Both editable launcher documents, in one query: the admin's customized home
+  // launcher (Edit mode on the home page) and the All Pages menu's order and
+  // grouping. Either is null for the shipped default. Read here so both are
+  // server-rendered with no client fetch and no flash; an unreachable DB costs
+  // the customization, never the menu.
+  const launchers = await loadLaunchers();
   const devOpen = !process.env.AUTH_GOOGLE_ID && !process.env.APP_PASSWORD;
   let role: Role = "field";
   let views: string[] = [];
@@ -144,7 +145,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             no-ops without a session, so it's inert in dev-open mode too. */}
         {session?.user && <UsageBeacon />}
         <CopyProvider overrides={copyOverrides}>
-        <NavLayoutProvider layout={navLayoutOverride}>
+        <NavLayoutProvider layout={launchers.home} pagesMenu={launchers.pages}>
         <AccessProvider role={role} views={views}>
           {/* Global refresh: the header's button remounts the page subtree
               (RefreshBoundary keys {children}) so every page's mount-time /api

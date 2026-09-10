@@ -44,6 +44,7 @@ matching row here.
 | **A job's invoice capture email tag** (the `_JT Invoice <Customer> - <Job>` Gmail label) | button on `src/app/clients/` → `src/app/clients/InvoiceTagCard.tsx` → `/api/clients/invoice-tag` → appscript `EmailToJtInvoice.js` (`listInvoiceTags`/`createInvoiceTag`). The label TEXT is always composed on the Apps Script side |
 | **Gating / who sees what** | `src/lib/views.ts` (the single source of truth: `VIEWS`, `ROLE_VIEWS`), enforced by `src/middleware.ts` |
 | **Nav / launcher / tabs** | `src/lib/nav.ts` (`AREAS` — the destination list), `src/app/page.tsx` (renders it), `src/components/TabBar.tsx` |
+| **The ALL PAGES menu** (every page in the app, in one collapsible menu at the bottom of Home — office + admin) | `src/lib/pagesMenu.ts` (the derived catalog + the saved order/grouping), `src/components/AllPagesMenu.tsx` (renders it), `src/components/PagesMenuEditor.tsx` (the admin's Edit menu) → `src/app/api/admin/pages-menu` |
 | **The IPAD (tablet) layout** — home console, dock, the wide shape of anything | the `pad` breakpoint in `tailwind.config.ts` (744px, "an iPad in portrait and up"; declared in sorted position so `lg:`/`xl:` still win over it). Home: `src/app/page.tsx` + `src/components/HomeMasthead.tsx`; the office half `src/components/TileLauncher.tsx` (+ `groupByArea` in `lib/nav.ts`); the dock `src/components/TabBar.tsx`, whose height `--tabbar-h` (`globals.css`) has to match |
 | **The global search box** | `src/components/GlobalSearch.tsx` (the wide item in `AppHeader`'s one row) — matches pages via `src/lib/nav.ts`, help topics via `src/lib/help.ts`, vendors via `/api/vendors`, bills/line items via `/api/bill-search` |
 | **The in-app instructions** (a wrong step, a new "how do I…") | `src/lib/help.ts` — the topics as data, written to ASD-STE100 (its header carries the rules, `help.test.ts` enforces the countable ones). Page: `src/app/help/` |
@@ -108,6 +109,7 @@ including edge middleware.
 | `views.ts` ⟂ | **Single source of truth for role-gated views** — `VIEWS`, `ROLE_VIEWS`, `resolveAllowedViews`, `viewIdForPath`. |
 | `notices.ts` ⟂ | **Who sees a notice, and when** — the audience match (groups OR named people, legacy single-target rows folded in) and the schedule window (`noticeStatus`: off / scheduled / live / ended). The reader's feed, the authoring route and the authoring panel all decide from here, so "it says Live" and "it shows" stay one claim. |
 | `noticeToasts.ts` | **Desktop alerts** — the browser's own Notification API, so a notice that arrives while the app sits in a BACKGROUND tab pops up in the corner of a computer's screen. `planToasts` is the pure rule (nothing toasts while the reader is looking at the app, nothing toasts twice per device, a burst is capped); the rest is the per-device on/off + already-toasted ledger in localStorage. NOT Web Push: nothing arrives with the app closed, and no iPhone has the API at all. |
+| `pagesMenu.ts` ⟂ | **The All Pages menu — every page in the app, grouped by function.** The catalog is DERIVED, not typed out: every `AREAS` destination in its area, then every remaining view that has a real page, filed by the group it declares in `views.ts`. That second rule is what keeps "every page" true as the app grows — a new view appears here the day it is added. A saved layout stores VIEW IDS only, so labels and addresses stay code's; what the admin owns is the ORDER and the GROUPING. It cannot HIDE a page (that is `views.ts`), and any page a saved layout does not name is folded back into its default group. Unit-tested — every test is a way the completeness promise could fail silently. |
 | `nav.ts` ⟂ | **The launcher's destination list** (`AREAS`) — the one place every gateable view is named. Read by BOTH the home launcher and the header's global search, which is why it's a module rather than living in `page.tsx`. |
 | `help.ts` ⟂ | **The in-app instructions, as data** — one topic per question ("How do I clock in?"), each naming the view it belongs to so a topic for a page you can't open is hidden. Read by BOTH the `/help` page and the header's search (`searchHelp`), the same reason `nav.ts` is a module. Written to **ASD-STE100** Simplified Technical English: the rules are in the file header, and `help.test.ts` enforces the countable ones (20 words a step, 25 a note, one sentence per step, no banned words). Every `**bold**` string is the text on a real control — when a page rewords a button, this file changes with it. |
 | `preview.ts` ⟂ | **Role preview** — the cookie name + helpers letting an admin view the app AS each role. The layout reads the cookie (honoring it only for a real admin) and hands that role's live view set to the nav, so the launcher/tabs render as that role sees them. Narrows only, never elevates. |
@@ -403,7 +405,11 @@ Grouped by domain; each folder is `…/route.ts`.
   and `src/app/loading.tsx` for hard loads; the last two only fade in past
   180ms, so a fast page swap stays silent),
   `RefreshButton`/`RefreshProvider`, `SyncNowButton`,
-  `AdminActionBar`, `AccessProvider`, `CopyProvider` (editable page text —
+  `AllPagesMenu` (the collapsible ALL PAGES menu at the bottom of Home — every
+  page, grouped by function, office + admin; replaced `AdminActionBar`, whose
+  script-job buttons live on `/actions`) + `PagesMenuEditor` (the admin's Edit
+  menu — rename, reorder, regroup; it deliberately cannot hide a page),
+  `AccessProvider`, `CopyProvider` (editable page text —
   `useCopy()`), `UsageBeacon`, `PreviewBanner` (the admin's "viewing as {role}"
   bar + its "Return to my view" link — see `src/lib/preview.ts`).
 - **JobTread pickers / links:** `JobPicker`, `CostCodeSelect`,

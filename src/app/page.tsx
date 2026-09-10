@@ -7,7 +7,7 @@ import { signOut } from "next-auth/react";
 import { CountBadge, ListCard, ListRow, SectionHeading, btn } from "@/components/ui";
 import { useAccess } from "@/components/AccessProvider";
 import { useCopy } from "@/components/CopyProvider";
-import { AdminActionBar } from "@/components/AdminActionBar";
+import { AllPagesMenu } from "@/components/AllPagesMenu";
 import { StuckVendorBanner } from "@/components/StuckVendors";
 import { NeedsProjectBanner, useNeedsProjectCount } from "@/components/NeedsProject";
 import { HomeTodos } from "@/components/HomeTodos";
@@ -411,23 +411,19 @@ function Home() {
         </div>
       )}
 
-      {/* Admin-only: quick-jump links to the busiest queues plus buttons that
-          run a script job without leaving the launcher. Sits at the bottom, out
-          of the field/office user's way.
+      {/* ALL PAGES — one collapsible menu of every page in the app, grouped by
+          function. It replaced the Admin Actions bar on 2026-09-10: that bar
+          ran three script jobs and linked to Tracking Sheets, and a script job
+          belongs on /actions, which still carries all of them. What the bottom
+          of the home page is for is FINDING a page — the launcher above shows
+          three rows per menu and the office tile launcher shows four buttons,
+          so nothing listed everything.
 
-          TWO conditions, not one, and that is the point. The bar used to be
-          gated on the `actions` view alone, which office holds — so the comment
-          above said "admin-only" while office saw it. The ROLE check is what
-          makes that true (the owner asked for it off the office home page on
-          2026-09-08); the VIEW check stays so an admin denied `actions` in the
-          admin editor still doesn't get it. The /actions PAGE keeps the view's
-          own gate and is unchanged — office can still reach it from the
-          Utilities menu, which is where a destination belongs. */}
-      {access.role === "admin" && access.can("actions") && (
-        <div className="mt-6">
-          <AdminActionBar jobQs={qs} />
-        </div>
-      )}
+          OFFICE + ADMIN, by role: a field or lead phone has the tile launcher
+          and "The Rest", and forty rows is not that. Each row is still gated on
+          its own view id inside the component, so a page office cannot open
+          never renders. The ORDER and GROUPING are the admin's (Edit menu). */}
+      {(access.role === "admin" || access.role === "office") && <AllPagesMenu qs={qs} />}
 
       {/* No views at all — don't leave a blank page. This happens when the
           session carries no identity/role (e.g. signed in with the temporary

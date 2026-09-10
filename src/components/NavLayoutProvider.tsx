@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useMemo, type ReactNode } from "react";
 import { clampColumns, defaultLayout, type NavItem, type NavLayout } from "@/lib/navLayout";
+import { resolvePagesMenu, type PageEntry, type PagesMenuLayout } from "@/lib/pagesMenu";
 
 /**
  * Provides the admin home launcher's layout to client components. Fed by the
@@ -20,23 +21,28 @@ import { clampColumns, defaultLayout, type NavItem, type NavLayout } from "@/lib
 interface NavLayoutValue {
   /** The saved layout, or null when the shipped default is in effect. */
   custom: NavLayout | null;
+  /** The saved All Pages grouping, or null for the shipped one. */
+  pagesMenu: PagesMenuLayout | null;
 }
 
-const NavLayoutContext = createContext<NavLayoutValue>({ custom: null });
+const NavLayoutContext = createContext<NavLayoutValue>({ custom: null, pagesMenu: null });
 
 export function NavLayoutProvider({
   layout,
+  pagesMenu = null,
   children,
 }: {
   layout: NavLayout | null;
+  pagesMenu?: PagesMenuLayout | null;
   children: ReactNode;
 }) {
-  // Re-memo only when the layout actually changes (same trick CopyProvider uses).
+  // Re-memo only when a layout actually changes (same trick CopyProvider uses).
   const key = layout ? JSON.stringify(layout) : "";
+  const pagesKey = pagesMenu ? JSON.stringify(pagesMenu) : "";
   const value = useMemo<NavLayoutValue>(
-    () => ({ custom: layout }),
+    () => ({ custom: layout, pagesMenu }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [key],
+    [key, pagesKey],
   );
   return <NavLayoutContext.Provider value={value}>{children}</NavLayoutContext.Provider>;
 }
@@ -66,4 +72,21 @@ export function useEffectiveLayout(): {
       isCustom: custom !== null,
     };
   }, [custom]);
+}
+
+/**
+ * The All Pages menu as it renders — the admin's saved order and grouping, or
+ * the shipped one, with any page added since it was saved folded back in (see
+ * `resolvePagesMenu`). `isCustom` is what tells the menu's Edit mode whether
+ * "Revert to original" has anything to revert.
+ */
+export function usePagesMenu(): {
+  groups: { id: string; title: string; pages: PageEntry[] }[];
+  isCustom: boolean;
+} {
+  const { pagesMenu } = useNavLayout();
+  return useMemo(
+    () => ({ groups: resolvePagesMenu(pagesMenu), isCustom: pagesMenu !== null }),
+    [pagesMenu],
+  );
 }
