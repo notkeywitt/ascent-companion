@@ -93,6 +93,11 @@ const EXTRA_READ_ACTIONS = new Set([
   "digestCalendar",
   "digestReconciliationFlags",
   "digestEmailContent", // read + truncate; never labels, archives, or sends
+  // The Invoicing Package's month read. It writes nothing — it pages JobTread
+  // and walks Drive — and it is long enough that Google's front end sometimes
+  // drops the /exec POST and answers an HTML page instead of the script's
+  // JSON. A second attempt is free and usually finds the answer cached.
+  "invoicingSummary",
 ]);
 
 /** Whether an action is safe to send twice. Unknown ⇒ assume it writes. */
@@ -173,12 +178,19 @@ export async function callAppsScript<T = unknown>(
       try {
         return { data: JSON.parse(text) as T, status: 200 };
       } catch {
-        // Non-JSON is usually Google's HTML sign-in or error page. Not retried:
-        // it means the deployment is misconfigured, and repeating won't help.
-        return {
-          error: `Apps Script returned non-JSON (HTTP ${res.status}): ${text.slice(0, 300)}`,
-          status: 502,
-        };
+        // Non-JSON is one of Google's own HTML pages. Two very different
+        // causes wear the same face: a misconfigured deployment (a sign-in
+        // page), and a script that ran long enough for Google's front end to
+        // drop the POST, whose redirect target then answers 404. The second is
+        // transient, so a READ gets its retry here rather than being told the
+        // deployment is broken.
+        lastError =
+          `Apps Script returned non-JSON (HTTP ${res.status}): ${text.slice(0, 300)}`;
+        if (mayRetry && attempt < MAX_ATTEMPTS) {
+          await sleep(BACKOFF_MS[attempt - 1] ?? 1_200);
+          continue;
+        }
+        return { error: lastError, status: 502 };
       }
     } catch (e) {
       // AbortSignal.timeout rejects with a DOMException, which does extend Error

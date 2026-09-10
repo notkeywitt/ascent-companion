@@ -36,16 +36,26 @@ import { currentBillingPeriod } from "@/lib/billingMonth";
  * seconds. The BUILD does all of that again and then draws two cost rings per
  * job in a throwaway spreadsheet, which is minutes, not seconds — 120s here
  * failed with "Apps Script timed out after 110000ms" the first time the office
- * pressed the button (2026-09-10). Five minutes matches the other long Apps
- * Script routes, and MIS_COMPANION_CHART_BUDGET_MS on the far side keeps the
- * build inside it by dropping rings rather than overrunning.
+ * pressed the button (2026-09-10).
+ *
+ * THE CEILING THAT MATTERS IS NOT OURS. Raising this to five minutes then hit
+ * the other end of the same problem: Google's front end stops waiting on an
+ * /exec POST well before the script's own six-minute limit, and when it does,
+ * the redirect target answers an HTML 404 instead of the script's JSON — which
+ * reached the office as "Apps Script returned non-JSON (HTTP 404)" the same
+ * day. So this sits at 200s and MIS_COMPANION_CHART_BUDGET_MS keeps the build
+ * near two minutes by dropping rings rather than overrunning.
+ *
+ * Giving up here does not cancel the script: Apps Script runs the build to the
+ * end and caches its result, so a read that times out still leaves the next
+ * open fast and the doc written.
  */
 export const dynamic = "force-dynamic";
-export const maxDuration = 300;
+export const maxDuration = 240;
 
-/** Apps Script budget. Just under this route's maxDuration, and well under the
- *  6-minute ceiling Apps Script itself puts on one execution. */
-const SCRIPT_TIMEOUT_MS = 280_000;
+/** Apps Script budget. Under this route's maxDuration, and far enough under
+ *  the front end's own patience to fail as a timeout rather than an HTML 404. */
+const SCRIPT_TIMEOUT_MS = 200_000;
 
 /** "2026-08" → { month: 8, year: 2026 }. Null for anything else. */
 function parseYm(ym: unknown): { month: number; year: number } | null {

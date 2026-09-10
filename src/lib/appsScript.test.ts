@@ -110,10 +110,20 @@ describe("callAppsScript", () => {
     expect(r.status).toBe(502);
   });
 
-  it("does NOT retry a non-JSON body — a misconfigured deployment won't fix itself", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(reply(200, "<html>sign in</html>"));
+  // A long /exec POST that Google's front end drops answers an HTML 404, not
+  // the script's JSON, and that is transient — so a READ gets its retry.
+  it("retries a non-JSON body on a read", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(reply(404, "<html>ppConfig</html>"));
     vi.stubGlobal("fetch", fetchMock);
     const r = await callAppsScript({ action: "listTools" });
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(r.error).toContain("non-JSON");
+  });
+
+  it("does NOT retry a non-JSON body on a write", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(reply(200, "<html>sign in</html>"));
+    vi.stubGlobal("fetch", fetchMock);
+    const r = await callAppsScript({ action: "logTimeEntry" });
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(r.error).toContain("non-JSON");
   });

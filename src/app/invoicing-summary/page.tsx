@@ -108,6 +108,9 @@ interface Summary {
   written: boolean;
   /** When Apps Script last read these figures from JobTread. */
   computedAt: string;
+  /** How long that read took. Printed, because this month's read is the thing
+   *  that runs into Apps Script's ceiling when a month grows. */
+  readMs: number;
   headline: string;
   defaultHeadline: string;
   closing: string;
@@ -355,7 +358,13 @@ export default function InvoicingSummaryPage() {
               <>
                 Labor {money(live.labor)} · Bills {money(live.bills)} ·{" "}
                 {plural(included.length, "job")} · {plural(live.customers, "client")}
-                {readAt ? <> · read {readAt}</> : null}
+                {readAt ? (
+                  <>
+                    {" "}
+                    · read {readAt}
+                    {data && data.readMs > 0 ? ` in ${Math.round(data.readMs / 1000)}s` : ""}
+                  </>
+                ) : null}
               </>
             }
             // Said on every month, not only on the ones with a job missing its
