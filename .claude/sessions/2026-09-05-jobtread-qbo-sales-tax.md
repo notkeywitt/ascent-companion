@@ -4,9 +4,9 @@ repo: ascent-companion
 branch: claude/jobtread-qbo-sales-tax-lfqctd
 status: shipped
 started: 2026-09-05T05:30:35Z
-updated: 2026-09-09T21:15:57Z
+updated: 2026-09-10T01:38:25Z
 goal: bill move: background + Drive re-file + real error; buyback picker dialog; approve advances; cost-code names on the bills list
-next: watch the next tracking-sheet sync: the 88 80 00 warning should be gone (needs clasp push of ascent-appscript first); confirm the board's TO BE INVOICED for Bunkhouse dropped by $23.55
+next: delete file 22PdHU9FedEK off bill 22PdHU9CtwhE in JobTread (the superseded Screaming Arrow scan), then confirm the mirror trashes its Drive copy and renames Invoice 1016 (1).pdf; then push the add-bill replace change to main
 ---
 
 ## Log
@@ -100,6 +100,8 @@ next: watch the next tracking-sheet sync: the 88 80 00 warning should be gone (n
 - 2026-09-09 14:04 · `ff77a53` companion: log session 2026-09-05-jobtread-qbo-sales-tax
 - 2026-09-09 14:15 · `574010e` companion: keep sales tax out of what the client is billed
   CODEBASE_MAP.md, src/app/trackingsheet/AllBills.tsx, src/lib/invoiceReview/checks.test.ts, src/lib/invoiceReview/checks/salesTaxLine.ts, src/lib/invoiceReview/registry.ts, src/lib/invoiceReview/settings.ts, +2 more
+- 2026-09-09 18:38 · `3d64b2c` companion: replace a bill's invoice instead of stacking a second one
+  src/app/api/add-bill/route.ts, src/lib/jobtread.ts
 
 ## Notes
 - 2026-09-05 05:30 — Companion half of the sales-tax move. src/lib/salesTax.ts is the single definition: the 88 80 00 constants, the line matcher, splitSalesTax, and the job-Phase-derived recoverable/consumed flag. createVendorBill appends the tax line and pins nonRecoverableTax to 0; setBillTax now creates/updates/deletes that LINE and clears any legacy field.
@@ -115,3 +117,4 @@ next: watch the next tracking-sheet sync: the 88 80 00 warning should be gone (n
 - 2026-09-09 20:40 — home: SPENT AGAINST BUDGET replaced by TO BE INVOICED for the current billing month (sum of /api/jobs/to-be-invoiced over the board's active jobs); each card carries its own amount in the top-right corner. Billing period is now a dropdown (office/admin) backed by billing_month_setting — it overrides the 10th cutoff for every non-Sunset bill via deriveBillingPeriod's new overrideYm, and goes red past the 10th while behind the calendar. NOT pushed: touches /api/add-bill, a JobTread write path.
 - 2026-09-09 20:48 — invoice #382 math-line was a false positive: cents() rounded a negative half-cent toward +inf, and invoice-math compared in dollars instead of whole cents. Fixed in types.ts + checks/invoiceMath.ts, committed 9cf75ab, NOT pushed (push blocked).
 - 2026-09-09 21:14 — Create File: a NO FILE bill can now generate its own Ascent-branded record PDF (src/lib/billPdf.ts, hand-rolled — no PDF dependency) and attach it in JobTread via POST /api/bill/create-file. New JobTread write path, so it is NOT pushed without the owner's ok.
+- 2026-09-10 01:34 — add-bill replace now detaches the superseded scan(s) after attaching the revised one — two PDFs on a bill made the mirror rename the OLD one (first pdf = primary) and file both in Drive. Bill 22PdHU9CtwhE still carries both: old file id 22PdHU9FedEK needs deleting by hand.
