@@ -2,9 +2,9 @@
 slug: admin-actions-menu
 repo: ascent-companion
 branch: claude/admin-actions-menu-oltvr7
-status: in-progress
+status: shipped
 started: 2026-09-10T13:48:49Z
-updated: 2026-09-10T13:49:15Z
+updated: 2026-09-10T13:49:16Z
 goal: 
 next: Watch for the office's read on the All Pages grouping — the two pages AREAS never listed (Jobs, Tracking Sheet) are new to that list and may want different groups.
 ---

@@ -1,16 +1,35 @@
 {
-  "generatedAt": "2026-09-09T20:46:56Z",
+  "generatedAt": "2026-09-10T13:49:16Z",
   "repo": "ascent-companion",
   "sessions": [
+    {
+      "slug": "admin-actions-menu",
+      "file": "2026-09-10-admin-actions-menu.md",
+      "branch": "claude/admin-actions-menu-oltvr7",
+      "status": "shipped",
+      "started": "2026-09-10T13:48:49Z",
+      "updated": "2026-09-10T13:49:16Z",
+      "goal": "",
+      "next": "Watch for the office's read on the All Pages grouping — the two pages AREAS never listed (Jobs, Tracking Sheet) are new to that list and may want different groups.",
+      "commits": [
+        {
+          "date": "2026-09-10",
+          "time": "13:49",
+          "sha": "95c9eb2",
+          "subject": "companion: replace admin actions with an all-pages menu",
+          "files": "CODEBASE_MAP.md, src/app/api/admin/pages-menu/route.ts, src/app/layout.tsx, src/app/page.tsx, src/components/AdminActionBar.tsx, src/components/AllPagesMenu.tsx, +5 more"
+        }
+      ]
+    },
     {
       "slug": "jobtread-qbo-sales-tax",
       "file": "2026-09-05-jobtread-qbo-sales-tax.md",
       "branch": "claude/jobtread-qbo-sales-tax-lfqctd",
       "status": "shipped",
       "started": "2026-09-05T05:30:35Z",
-      "updated": "2026-09-09T20:46:21Z",
+      "updated": "2026-09-10T05:41:09Z",
       "goal": "bill move: background + Drive re-file + real error; buyback picker dialog; approve advances; cost-code names on the bills list",
-      "next": "QBO lock is live: document.qboId != null refuses edits with 409 on 12 bill routes + /api/pave, fails closed on a read error. Watch for a false lock (a bill the office still needs to fix) and for the 409 text surfacing on the bill page's header controls, which are still enabled on a non-draft bill.",
+      "next": "owner: ./deploy.sh in ascent-appscript to arm the loose CSI matching, then re-check Ferron — 08 10 20 should collapse to one row and the $0 rows should be gone",
       "commits": [
         {
           "date": "2026-09-05",
@@ -326,6 +345,132 @@
           "sha": "c7dc974",
           "subject": "companion: bill editing is office+admin, and quickbooks freezes a bill",
           "files": "src/app/api/add-line/route.ts, src/app/api/bill-duedate/route.ts, src/app/api/bill-fields/route.ts, src/app/api/bill-issuedate/route.ts, src/app/api/bill-number/route.ts, src/app/api/bill-status/route.ts, +12 more"
+        },
+        {
+          "date": "2026-09-09",
+          "time": "13:47",
+          "sha": "9cf75ab",
+          "subject": "companion: round a half-cent the way JobTread does",
+          "files": "src/lib/invoiceReview/checks.test.ts, src/lib/invoiceReview/checks/invoiceMath.ts, src/lib/invoiceReview/types.ts"
+        },
+        {
+          "date": "2026-09-09",
+          "time": "14:03",
+          "sha": "b8d99f9",
+          "subject": "companion: lift the tracking sheet's closing actions to the top on desktop",
+          "files": "src/app/trackingsheet/Board.tsx"
+        },
+        {
+          "date": "2026-09-09",
+          "time": "14:04",
+          "sha": "ff77a53",
+          "subject": "companion: log session 2026-09-05-jobtread-qbo-sales-tax",
+          "files": ""
+        },
+        {
+          "date": "2026-09-09",
+          "time": "14:15",
+          "sha": "574010e",
+          "subject": "companion: keep sales tax out of what the client is billed",
+          "files": "CODEBASE_MAP.md, src/app/trackingsheet/AllBills.tsx, src/lib/invoiceReview/checks.test.ts, src/lib/invoiceReview/checks/salesTaxLine.ts, src/lib/invoiceReview/registry.ts, src/lib/invoiceReview/settings.ts, +2 more"
+        },
+        {
+          "date": "2026-09-09",
+          "time": "18:38",
+          "sha": "3d64b2c",
+          "subject": "companion: replace a bill's invoice instead of stacking a second one",
+          "files": "src/app/api/add-bill/route.ts, src/lib/jobtread.ts"
+        },
+        {
+          "date": "2026-09-09",
+          "time": "18:38",
+          "sha": "1e9e921",
+          "subject": "companion: add sync-all-tracking-sheets button when no job selected",
+          "files": "src/app/trackingsheet/AllJobs.tsx, src/components/TrackingSheetSync.tsx"
+        },
+        {
+          "date": "2026-09-09",
+          "time": "19:49",
+          "sha": "47230b7",
+          "subject": "companion: show the tracking-sheet vs JobTread gap in the budget rail",
+          "files": "src/app/historical-cost/page.tsx, src/app/trackingsheet/Board.tsx, src/app/trackingsheet/SheetGap.tsx"
+        },
+        {
+          "date": "2026-09-09",
+          "time": "20:51",
+          "sha": "2fa3076",
+          "subject": "companion: count the historical bill, and compare estimates, in the sheet gap panel",
+          "files": "src/app/historical-cost/page.tsx, src/app/trackingsheet/Board.tsx, src/app/trackingsheet/SheetGap.tsx"
+        },
+        {
+          "date": "2026-09-09",
+          "time": "21:53",
+          "sha": "116db7b",
+          "subject": "companion: log session 2026-09-05-jobtread-qbo-sales-tax",
+          "files": ""
+        },
+        {
+          "date": "2026-09-09",
+          "time": "21:56",
+          "sha": "0e360d8",
+          "subject": "companion: create a record PDF for a bill with no invoice file",
+          "files": "src/app/api/bill/create-file/route.ts, src/app/trackingsheet/BillCodingCard.tsx, src/lib/billPdf.test.ts, src/lib/billPdf.ts"
+        },
+        {
+          "date": "2026-09-09",
+          "time": "21:58",
+          "sha": "cac8c7c",
+          "subject": "companion: log session 2026-09-05-jobtread-qbo-sales-tax",
+          "files": ""
+        },
+        {
+          "date": "2026-09-09",
+          "time": "21:59",
+          "sha": "8aa92e3",
+          "subject": "companion: log session 2026-09-05-jobtread-qbo-sales-tax",
+          "files": ""
+        },
+        {
+          "date": "2026-09-09",
+          "time": "22:00",
+          "sha": "d4b8a74",
+          "subject": "companion: log session 2026-09-05-jobtread-qbo-sales-tax",
+          "files": ""
+        },
+        {
+          "date": "2026-09-09",
+          "time": "22:00",
+          "sha": "88b657b",
+          "subject": "companion: log session 2026-09-05-jobtread-qbo-sales-tax",
+          "files": ""
+        },
+        {
+          "date": "2026-09-09",
+          "time": "22:10",
+          "sha": "2335e06",
+          "subject": "companion: hide create-invoice button once reconcile banner is green",
+          "files": "src/app/trackingsheet/Board.tsx, src/components/InvoiceReconcile.tsx"
+        },
+        {
+          "date": "2026-09-09",
+          "time": "22:30",
+          "sha": "23c4dba",
+          "subject": "companion: hide sheet-gap rows that round to no difference",
+          "files": "src/app/trackingsheet/SheetGap.tsx"
+        },
+        {
+          "date": "2026-09-09",
+          "time": "22:30",
+          "sha": "93c2f12",
+          "subject": "companion: log session 2026-09-05-jobtread-qbo-sales-tax",
+          "files": ""
+        },
+        {
+          "date": "2026-09-09",
+          "time": "22:41",
+          "sha": "70ebcb1",
+          "subject": "companion: read a bill's vendor off its account, not fromName",
+          "files": "src/app/api/bill/create-file/route.ts, src/lib/invoiceReview/investigateTools.ts, src/lib/jobtread.ts"
         }
       ]
     },
