@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/jobtread-qbo-sales-tax-lfqctd
 status: shipped
 started: 2026-09-05T05:30:35Z
-updated: 2026-09-10T05:52:37Z
+updated: 2026-09-10T15:00:44Z
 goal: bill move: background + Drive re-file + real error; buyback picker dialog; approve advances; cost-code names on the bills list
 next: owner: ./deploy.sh in ascent-appscript to arm the loose CSI matching, then re-check Ferron — 08 10 20 should collapse to one row and the $0 rows should be gone
 ---

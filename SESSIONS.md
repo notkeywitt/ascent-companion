@@ -20,9 +20,9 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
+| [jobtread-qbo-sales-tax](.claude/sessions/2026-09-05-jobtread-qbo-sales-tax.md) | 2026-09-10 | 64 | bill move: background + Drive re-file + real error; buyback picker dialog; appr… |
 | [tracking-sheet-donut-charts](.claude/sessions/2026-09-10-tracking-sheet-donut-charts.md) | 2026-09-10 | 2 | — |
 | [admin-actions-menu](.claude/sessions/2026-09-10-admin-actions-menu.md) | 2026-09-10 | 1 | — |
-| [jobtread-qbo-sales-tax](.claude/sessions/2026-09-05-jobtread-qbo-sales-tax.md) | 2026-09-10 | 63 | bill move: background + Drive re-file + real error; buyback picker dialog; appr… |
 | [bill-due-date-selector](.claude/sessions/2026-09-09-bill-due-date-selector.md) | 2026-09-09 | 2 | — |
 | [ipad-vertical-admin-home](.claude/sessions/2026-09-09-ipad-vertical-admin-home.md) | 2026-09-09 | 1 | A vertical iPad layout for the admin and office home screen. |
 | [lead-email-capture-tagging](.claude/sessions/2026-09-08-lead-email-capture-tagging.md) | 2026-09-08 | 3 | — |
