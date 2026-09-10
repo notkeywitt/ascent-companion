@@ -4,9 +4,9 @@ repo: ascent-companion
 branch: claude/jobtread-qbo-sales-tax-lfqctd
 status: shipped
 started: 2026-09-05T05:30:35Z
-updated: 2026-09-10T02:49:59Z
+updated: 2026-09-10T04:53:45Z
 goal: bill move: background + Drive re-file + real error; buyback picker dialog; approve advances; cost-code names on the bills list
-next: verify the Sheet vs JobTread toggle on a real job in /trackingsheet — the preview can run ~60s; watch for a timeout on an old, heavily-billed job
+next: verify on Ferron in /trackingsheet: Sheet vs JobTread panel — 08 50 00 should read matched under Spend, and Estimate should compare REVISED TOTAL (col AU) to the rail budget
 ---
 
 ## Log
@@ -105,6 +105,8 @@ next: verify the Sheet vs JobTread toggle on a real job in /trackingsheet — th
 - 2026-09-09 18:38 · `1e9e921` companion: add sync-all-tracking-sheets button when no job selected
   src/app/trackingsheet/AllJobs.tsx, src/components/TrackingSheetSync.tsx
 - 2026-09-09 19:49 · `47230b7` companion: show the tracking-sheet vs JobTread gap in the budget rail
+  src/app/historical-cost/page.tsx, src/app/trackingsheet/Board.tsx, src/app/trackingsheet/SheetGap.tsx
+- 2026-09-09 20:51 · `2fa3076` companion: count the historical bill, and compare estimates, in the sheet gap panel
   src/app/historical-cost/page.tsx, src/app/trackingsheet/Board.tsx, src/app/trackingsheet/SheetGap.tsx
 
 ## Notes
