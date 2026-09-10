@@ -10,12 +10,16 @@
  * cached: the whole point is that switching the month shows up on the next
  * bill.
  *
- * ⚠️ This override only reaches bills the COMPANION files (`/api/add-bill`).
- * The `ascent-appscript` Gmail ingestion has its own `deriveBillingPeriod` in
- * Config.js and still applies the hard 10th cutoff.
+ * TWO systems file bills, so the month has to reach both. This database row is
+ * the source of truth and `/api/add-bill` reads it directly. `ascent-appscript`
+ * cannot reach this database, so `mirrorBillingMonth` PUSHES the value into its
+ * Script Property on every change (see `_configSetBillingMonthOverride`,
+ * Config.js) — that is what carries it to the `_JT Invoice` Gmail capture, the
+ * LSWDD statement split and the uncaptured-row push.
  */
 import { eq } from "drizzle-orm";
 
+import { appsScriptConfigured, callAppsScript } from "@/lib/appsScript";
 import { db, ensureDb } from "@/db";
 import { BILLING_MONTH_SETTING_ID, billingMonthSetting } from "@/db/schema";
 import { deriveBillingPeriod, parseBillingYm, ymOf, type BillingPeriod } from "@/lib/billing";
@@ -60,6 +64,39 @@ export async function readBillingMonth(now = new Date()): Promise<BillingMonthSt
 /** The period every "current billing month" server read should use. */
 export async function currentBillingPeriod(now = new Date()): Promise<BillingPeriod> {
   return deriveBillingPeriod(now, false, await readBillingMonthOverride());
+}
+
+/** What the push to Apps Script did. `skipped` = the bridge isn't configured. */
+export interface BillingMonthMirror {
+  ok: boolean;
+  skipped: boolean;
+  error?: string;
+}
+
+/**
+ * Push the month into the Apps Script project, so bills captured THERE file
+ * into it too.
+ *
+ * Retried on purpose, against this module's default: `setBillingMonth` writes a
+ * Script Property to a fixed value, so running it twice leaves exactly what
+ * running it once leaves. The usual "a retry writes the row twice" hazard does
+ * not apply.
+ *
+ * Returns rather than throws. The caller decides what a failed push means — and
+ * it means a real divergence, because the two sides would then date the same
+ * bill differently.
+ */
+export async function mirrorBillingMonth(ym: string): Promise<BillingMonthMirror> {
+  if (!appsScriptConfigured()) return { ok: false, skipped: true };
+  const r = await callAppsScript<{ ok?: boolean; error?: unknown }>(
+    { action: "setBillingMonth", ym },
+    { retry: true },
+  );
+  if (r.error) return { ok: false, skipped: false, error: r.error };
+  if (r.data?.ok === false) {
+    return { ok: false, skipped: false, error: String(r.data.error ?? "Apps Script refused it.") };
+  }
+  return { ok: true, skipped: false };
 }
 
 /**

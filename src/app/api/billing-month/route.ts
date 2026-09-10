@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { auth } from "@/auth";
-import { readBillingMonth, writeBillingMonth } from "@/lib/billingMonth";
+import { parseBillingYm } from "@/lib/billing";
+import { mirrorBillingMonth, readBillingMonth, writeBillingMonth } from "@/lib/billingMonth";
 import { openJournal } from "@/lib/financialJournal";
 
 /**
@@ -14,6 +15,13 @@ import { openJournal } from "@/lib/financialJournal";
  *
  * Setting it decides where money lands, so the change goes in the financial
  * journal alongside the bill writes it will steer.
+ *
+ * The write lands in TWO places: this app's database, and the Apps Script
+ * project's Script Property (bills captured from Gmail are dated there, and it
+ * cannot read this database). The push goes FIRST, and a failed push returns
+ * 502 with NOTHING changed on either side. That ordering is the whole point:
+ * the two must never hold different months, because they would then date the
+ * same bill into different customer invoices.
  */
 
 // GET /api/billing-month — the month in force, and whether it was set by hand.
@@ -36,8 +44,28 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
+  // Validated up front, so an unusable month is rejected before either side is
+  // touched — writeBillingMonth checks it again on its own way in.
+  const ym = String(body.ym ?? "").trim();
+  if (ym !== "" && !parseBillingYm(ym)) {
+    return NextResponse.json({ error: 'Pass ym=YYYY-MM, or "" for automatic.' }, { status: 400 });
+  }
+
   const before = await readBillingMonth();
-  const state = await writeBillingMonth(body.ym, session?.user?.email ?? "");
+
+  const mirror = await mirrorBillingMonth(ym);
+  if (!mirror.ok && !mirror.skipped) {
+    return NextResponse.json(
+      {
+        error:
+          `Couldn't set the month in the Apps Script project, so nothing changed: ${mirror.error} ` +
+          `Try again — bills captured from Gmail are dated there.`,
+      },
+      { status: 502 },
+    );
+  }
+
+  const state = await writeBillingMonth(ym, session?.user?.email ?? "");
   if (!state) {
     return NextResponse.json({ error: 'Pass ym=YYYY-MM, or "" for automatic.' }, { status: 400 });
   }
@@ -55,5 +83,7 @@ export async function POST(req: NextRequest) {
     },
   ]);
 
-  return NextResponse.json(state);
+  // `mirrored:false` only ever means the bridge isn't configured (local dev) —
+  // a real push failure returned 502 above and never got here.
+  return NextResponse.json({ ...state, mirrored: mirror.ok });
 }
