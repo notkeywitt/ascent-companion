@@ -15,21 +15,31 @@ import {
   btn,
 } from "@/components/ui";
 import { billingMonths, monthLabel } from "@/lib/billingMonths";
-import type { TaxableLinesReport, UntaxedBill } from "@/lib/taxableLines";
+import type { TaxableLinesReport, UntaxedDoc } from "@/lib/taxableLines";
 
 /**
- * A WORKLIST, not a report. Every row exists so the office can open one bill,
- * tick the flag on the named lines and move to the next — so the bill's link is
- * the row, the lines are named under it, and the order is what each one costs
- * the client invoice.
+ * A WORKLIST, not a report, and it is in TWO PARTS because the fix is.
+ *
+ * The flag lives on a cost item, and Create Invoice COPIES it from the bill's
+ * line onto the invoice's own. From that moment they are separate records:
+ *
+ *   THE CLIENT INVOICE — the line that actually bills the client. Fixing it is
+ *                        what makes this month come out right, so it leads.
+ *   THE VENDOR BILL    — the source. Fixing it stops the next invoice pulled
+ *                        from that bill inheriting the flag again.
+ *
+ * A PUSHED OR PAID BILL CANNOT BE EDITED, which is why the split matters rather
+ * than being tidy: for those, the invoice is the only side the office can
+ * reach. A locked bill says so on its row instead of sending someone at a
+ * document that will not take the change.
  *
  * NOTHING HERE WRITES. Whether a cost is taxable is a tax decision, and a bulk
- * update across a month of live bills is the wrong shape for one.
+ * update across a month of live documents is the wrong shape for one.
  *
- * The one thing the page keeps is which bills you have already done — in this
- * browser only (`localStorage`), because it is a scratch mark on a cleanup, not
- * a fact about the bill. JobTread stays the truth: reload the month and a bill
- * you actually fixed drops off the list on its own.
+ * The one thing the page keeps is which documents you have already done — in
+ * this browser only (`localStorage`), because it is a scratch mark on a
+ * cleanup, not a fact about the document. JobTread stays the truth: reload the
+ * month and anything actually fixed drops off the list on its own.
  */
 
 const MONTH_COUNT = 18;
@@ -103,14 +113,16 @@ export function TaxableLinesBrowser() {
     });
   };
 
-  const open = data?.bills.filter((b) => !done.has(b.billId)) ?? [];
-  const openTax = open.reduce((n, b) => n + b.taxAtStake, 0);
+  const openOf = (docs: UntaxedDoc[]) => docs.filter((d) => !done.has(d.docId));
+  const openInvoices = openOf(data?.invoices ?? []);
+  const openBills = openOf(data?.bills ?? []);
+  const sum = (docs: UntaxedDoc[]) => docs.reduce((n, d) => n + d.taxAtStake, 0);
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-6">
       <PageHeader
         title="Taxable flags"
-        description="Bill lines marked non-taxable, which take their cost out of the client invoice's tax base."
+        description="Lines marked non-taxable, which take their cost out of the client invoice's tax base."
         actions={
           <div className="w-44 max-w-[50vw]">
             <Select
@@ -146,31 +158,56 @@ export function TaxableLinesBrowser() {
       {!loading && data && (
         <div className="space-y-5">
           <StatementBlock
-            label={`${monthLabel(data.ym)} — sales tax not being billed`}
-            value={money(openTax)}
+            label={`${monthLabel(data.ym)} — sales tax the client is not charged`}
+            value={money(sum(openInvoices))}
             sub={
               <>
-                {plural(open.length, "bill")} · {money(open.reduce((n, b) => n + b.cost, 0))} of
-                cost
+                on {plural(openInvoices.length, "client invoice")} · {money(sum(openBills))} more
+                waiting on {plural(openBills.length, "bill")}
                 {done.size > 0 ? <> · {done.size} ticked off</> : null}
               </>
             }
             footnote={
-              `Estimated at ${Math.round((data.markup - 1) * 100)}% P&O and ` +
-              `${(data.taxRate * 100).toFixed(2)}% tax. Ascent's own jobs and sales-tax lines are ` +
-              `left out — ${data.skipped.overheadLines} and ${data.skipped.salesTaxLines} lines ` +
-              `this month. Nothing on this page writes to JobTread.`
+              `The invoice figure is exact — it is the line's own price at ` +
+              `${(data.taxRate * 100).toFixed(2)}%. A bill has no price, so its figure adds ` +
+              `${Math.round((data.markup - 1) * 100)}% P&O and is an estimate. Ascent's own jobs ` +
+              `and sales-tax lines are left out — ${data.skipped.overheadLines} and ` +
+              `${data.skipped.salesTaxLines} lines this month. Nothing on this page writes to ` +
+              `JobTread.`
             }
           />
 
-          <Banner tone="info">
-            Fix BOTH sides. Clearing the flag on a bill does not move an invoice already built from
-            it — Create Invoice copies the flag, so the invoice line is its own record. Fix the bill
-            so it never comes back, and the draft invoice so this month bills right.
-          </Banner>
+          {data.invoices.length === 0 && data.bills.length === 0 && (
+            <EmptyState>
+              No line in {monthLabel(data.ym)} is flagged non-taxable.
+            </EmptyState>
+          )}
 
-          {data.bills.length === 0 && (
-            <EmptyState>No bill line in {monthLabel(data.ym)} is flagged non-taxable.</EmptyState>
+          {data.invoices.length > 0 && (
+            <section className="space-y-2">
+              <SectionHeading
+                trailing={
+                  <span className="text-xs tabular-nums text-neutral-500">
+                    {money(sum(openInvoices))}
+                  </span>
+                }
+              >
+                On client invoices — fix these first
+              </SectionHeading>
+              <p className="text-[11px] text-neutral-500">
+                This is the line that bills the client. Fixing it is what makes the month come out
+                right, and it is the only side you can reach when the bill behind it is already
+                pushed or paid.
+              </p>
+              {data.invoices.map((d) => (
+                <DocRow
+                  key={d.docId}
+                  doc={d}
+                  done={done.has(d.docId)}
+                  onToggle={() => toggleDone(d.docId)}
+                />
+              ))}
+            </section>
           )}
 
           {data.bills.length > 0 && (
@@ -178,21 +215,23 @@ export function TaxableLinesBrowser() {
               <SectionHeading
                 trailing={
                   <span className="text-xs tabular-nums text-neutral-500">
-                    {plural(data.totals.lines, "line")}
+                    {money(sum(openBills))}
                   </span>
                 }
               >
-                Bills to fix
+                On vendor bills — so it does not come back
               </SectionHeading>
               <p className="text-[11px] text-neutral-500">
-                Biggest first — what each one costs the client invoice.
+                The source. Clearing the flag here does not move an invoice already built from the
+                bill, but it stops the next one inheriting it. A bill with money against it cannot
+                be edited — fix its invoice above instead.
               </p>
-              {data.bills.map((b) => (
-                <BillRow
-                  key={b.billId}
-                  bill={b}
-                  done={done.has(b.billId)}
-                  onToggle={() => toggleDone(b.billId)}
+              {data.bills.map((d) => (
+                <DocRow
+                  key={d.docId}
+                  doc={d}
+                  done={done.has(d.docId)}
+                  onToggle={() => toggleDone(d.docId)}
                 />
               ))}
             </section>
@@ -203,27 +242,39 @@ export function TaxableLinesBrowser() {
   );
 }
 
-/** One bill: where it is, which lines to tick, and what it costs to leave. */
-function BillRow({
-  bill,
+/** One document: where it is, which lines to tick, and what it costs to leave. */
+function DocRow({
+  doc,
   done,
   onToggle,
 }: {
-  bill: UntaxedBill;
+  doc: UntaxedDoc;
   done: boolean;
   onToggle: () => void;
 }) {
+  const isInvoice = doc.kind === "invoice";
+  const title = isInvoice
+    ? `Invoice${doc.docNumber ? ` #${doc.docNumber}` : ""}`
+    : doc.vendor || "Unknown vendor";
+
   return (
     <Card className={done ? "opacity-50" : ""}>
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="truncate text-sm font-semibold">{bill.vendor || "Unknown vendor"}</p>
+          <p className="truncate text-sm font-semibold">{title}</p>
           <MetaLine
             items={[
-              `${bill.customerName || "—"} · ${bill.jobName}`,
-              bill.issueDate,
-              bill.status,
-              bill.mixed ? null : (
+              `${doc.customerName || "—"} · ${doc.jobName}`,
+              doc.issueDate || (isInvoice ? "not issued" : ""),
+              doc.status,
+              // The reason the two lists are separate: this one cannot be
+              // edited, so the invoice is the only side that can be fixed.
+              doc.locked ? (
+                <Chip key="locked" tone="warning">
+                  Paid — fix the invoice
+                </Chip>
+              ) : null,
+              doc.mixed ? null : (
                 <Chip key="all" tone="neutral">
                   Every line
                 </Chip>
@@ -233,40 +284,44 @@ function BillRow({
           />
         </div>
         <div className="shrink-0 text-right">
-          <p className="text-lg font-bold tabular-nums">{money(bill.taxAtStake)}</p>
-          <p className="text-[11px] text-neutral-500">tax not billed</p>
+          <p className="text-lg font-bold tabular-nums">{money(doc.taxAtStake)}</p>
+          <p className="text-[11px] text-neutral-500">
+            {doc.estimated ? "tax, estimated" : "tax not billed"}
+          </p>
         </div>
       </div>
 
       {/* The lines to tick, named exactly as JobTread names them. */}
       <ul className="mt-2.5 divide-y divide-line-soft border-t border-line-soft">
-        {bill.lines.map((l) => (
+        {doc.lines.map((l) => (
           <li key={l.id} className="flex items-baseline justify-between gap-3 py-1.5 text-[12px]">
             <span className="min-w-0 flex-1">
-              {l.costCode ? (
-                <span className="text-neutral-500">{l.costCode} · </span>
-              ) : null}
+              {l.costCode ? <span className="text-neutral-500">{l.costCode} · </span> : null}
               {l.name}
             </span>
-            <span className="shrink-0 tabular-nums text-neutral-500">{money(l.cost)}</span>
+            <span className="shrink-0 tabular-nums text-neutral-500">
+              {money(l.price || l.cost)}
+            </span>
           </li>
         ))}
       </ul>
 
       <div className="mt-2.5 flex flex-wrap items-center gap-2">
-        <a className={btn("secondary", "sm")} href={bill.jtUrl} target="_blank" rel="noreferrer">
-          Open the bill ↗
+        <a className={btn("secondary", "sm")} href={doc.jtUrl} target="_blank" rel="noreferrer">
+          Open the {isInvoice ? "invoice" : "bill"} ↗
         </a>
+        {!isInvoice && (
+          <a className={btn("ghost", "sm")} href={`/bill/${encodeURIComponent(doc.docId)}`}>
+            In the app
+          </a>
+        )}
         <a
           className={btn("ghost", "sm")}
-          href={`https://app.jobtread.com/jobs/${encodeURIComponent(bill.jobId)}/documents`}
+          href={`https://app.jobtread.com/jobs/${encodeURIComponent(doc.jobId)}/documents`}
           target="_blank"
           rel="noreferrer"
         >
-          The job&rsquo;s invoices ↗
-        </a>
-        <a className={btn("ghost", "sm")} href={`/bill/${encodeURIComponent(bill.billId)}`}>
-          In the app
+          The job&rsquo;s documents ↗
         </a>
         <button
           type="button"
@@ -278,8 +333,8 @@ function BillRow({
       </div>
 
       <p className="mt-2 text-[11px] text-neutral-500">
-        {bill.untaxedCount} of {bill.lineCount || "?"} lines flagged
-        {bill.mixed ? "" : " — the whole bill, so check it is not a real exemption"}.
+        {doc.untaxedCount} of {doc.lineCount || "?"} lines flagged
+        {doc.mixed ? "" : " — the whole document, so check it is not a real exemption"}.
       </p>
     </Card>
   );

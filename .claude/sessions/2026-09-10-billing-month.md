@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: ship/billing-month
 status: in-progress
 started: 2026-09-10T15:22:41Z
-updated: 2026-09-10T18:50:12Z
+updated: 2026-09-10T19:03:21Z
 goal: 
 next: owner: deploy the appscript side (./deploy.sh) — the corrected totals and the Office/Shop/Electrical exclusion only appear once that lands; then open /invoicing-summary and confirm Ferron reads $117,979
 ---
@@ -32,5 +32,7 @@ next: owner: deploy the appscript side (./deploy.sh) — the corrected totals an
   CODEBASE_MAP.md, src/lib/invoiceReview/checks.test.ts, src/lib/invoiceReview/checks/taxableFlag.ts, src/lib/invoiceReview/duplicateDraft.test.ts, src/lib/invoiceReview/evidence.ts, src/lib/invoiceReview/investigate.test.ts, +8 more
 - 2026-09-10 11:50 · `85af182` companion: write bill lines taxable, so the client invoice taxes them
   src/lib/billing.ts, src/lib/jobtread.test.ts, src/lib/jobtread.ts
+- 2026-09-10 12:03 · `7ad81a7` companion: list the bill lines a client invoice will not tax
+  CODEBASE_MAP.md, src/app/api/taxable-lines/route.ts, src/app/taxable-lines/TaxableLinesBrowser.tsx, src/app/taxable-lines/page.tsx, src/lib/jobtread.ts, src/lib/nav.ts, +3 more
 
 ## Notes

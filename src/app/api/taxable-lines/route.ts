@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { getPaveConfig, hasGrant } from "@/lib/config";
-import { getUntaxedBillLines } from "@/lib/jobtread";
+import { getUntaxedLines } from "@/lib/jobtread";
 import { currentBillingPeriod } from "@/lib/billingMonth";
 import { parseBillingYm } from "@/lib/billing";
 import { buildTaxableLinesReport } from "@/lib/taxableLines";
@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
   const ym = `${period.billingYear}-${String(period.billingMonthNum).padStart(2, "0")}`;
 
   try {
-    const lines = await getUntaxedBillLines(
+    const lines = await getUntaxedLines(
       getPaveConfig(),
       period.billingYear,
       period.billingMonthNum,

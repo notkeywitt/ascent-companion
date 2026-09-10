@@ -1527,22 +1527,30 @@ async function _approvedCustomerInvoices(
 }
 
 /**
- * Every vendor-bill cost item in a month flagged `isTaxable: false`.
+ * Every cost item in a month flagged `isTaxable: false` — on the month's vendor
+ * BILLS and on the client INVOICES those bills reached.
  *
- * READ ONLY, and the whole month org-wide in one cursor walk. It exists for the
- * /taxable-lines worklist: a client invoice taxes only the lines that carry the
- * flag, so one cleared by mistake under-bills the client sales tax Ascent still
- * owes. `createLine` wrote `false` on every line added to an existing bill
- * until 2026-09-10, which is where most of these came from.
+ * READ ONLY. It exists for the /taxable-lines worklist: a client invoice taxes
+ * only the lines carrying the flag, so one cleared by mistake under-bills the
+ * client sales tax Ascent still owes. `createLine` wrote `false` on every line
+ * added to an existing bill until 2026-09-10, which is where most came from.
+ *
+ * THE TWO SIDES ARE FOUND DIFFERENTLY, and they have to be. A bill's issueDate
+ * IS its billing period, so the month's bills are a date range. A client
+ * invoice for August is raised in September and is often still a DRAFT WITH NO
+ * ISSUE DATE AT ALL, so no date window can find it — the month's invoices are
+ * the ones CARRYING the month's bills, which is the same rule the Apps Script
+ * package now uses. Getting this wrong is what made August's package report
+ * July's invoice (see _misPullInvoices).
  *
  * Nothing is filtered here — overhead jobs and sales-tax lines are dropped in
  * `buildTaxableLinesReport`, which is pure and tested. This only fetches.
  *
- * `billLines` rides along as an aliased aggregate on the item's own document,
- * so the caller can tell a MIXED bill from a wholly untaxed one without a
- * second read per bill.
+ * Cost-item NODES cannot be nested inside a paged `documents` connection (413),
+ * so the invoice side is two phases: walk the invoices reading only aggregates,
+ * then read the lines of the few that have any.
  */
-export async function getUntaxedBillLines(
+export async function getUntaxedLines(
   cfg: PaveConfig,
   year: number,
   month: number,
@@ -1552,6 +1560,8 @@ export async function getUntaxedBillLines(
   const last = `${year}-${mm}-${String(new Date(year, month, 0).getDate()).padStart(2, "0")}`;
 
   const out: UntaxedLine[] = [];
+
+  // ── The month's BILLS ────────────────────────────────────────────────────
   let page: string | undefined;
   let guard = 0;
   do {
@@ -1580,11 +1590,13 @@ export async function getUntaxedBillLines(
             costCode: { number: {} },
             document: {
               id: {},
+              number: {},
               issueDate: {},
               status: {},
+              amountPaid: {},
               account: { name: {} },
               job: { id: {}, name: {}, location: { account: { name: {} } } },
-              billLines: { _: "costItems", count: {} },
+              docLines: { _: "costItems", count: {} },
             },
           },
         },
@@ -1598,11 +1610,15 @@ export async function getUntaxedBillLines(
         id: String(n.id ?? ""),
         name: String(n.name ?? ""),
         cost: Number(n.cost) || 0,
+        price: 0, // a vendor bill's lines carry no price
         costCode: String(n.costCode?.number ?? "").trim(),
-        billId: String(doc.id ?? ""),
-        billIssueDate: String(doc.issueDate ?? "").slice(0, 10),
-        billStatus: String(doc.status ?? ""),
-        billLineCount: doc.billLines?.count ?? 0,
+        docKind: "bill",
+        docId: String(doc.id ?? ""),
+        docNumber: doc.number == null ? "" : String(doc.number),
+        docIssueDate: String(doc.issueDate ?? "").slice(0, 10),
+        docStatus: String(doc.status ?? ""),
+        docLineCount: doc.docLines?.count ?? 0,
+        docAmountPaid: Number(doc.amountPaid) || 0,
         vendor: String(doc.account?.name ?? "").trim(),
         jobId: String(job.id ?? ""),
         jobName: String(job.name ?? "").trim(),
@@ -1611,6 +1627,102 @@ export async function getUntaxedBillLines(
     }
     page = conn?.nextPage ?? undefined;
   } while (page && ++guard < 50);
+
+  // ── The INVOICES those bills reached ─────────────────────────────────────
+  const candidates: any[] = [];
+  page = undefined;
+  guard = 0;
+  do {
+    const r: any = await pave(cfg, {
+      organization: {
+        $: { id: cfg.orgId },
+        documents: {
+          $: {
+            where: {
+              and: [
+                [["type"], "customerInvoice"],
+                [["status"], "in", ["draft", "pending", "approved"]],
+              ],
+            },
+            // 25: the two aliased aggregates below ride along at this size the
+            // way the invoice review's do; nodes would not.
+            size: 25,
+            ...(page ? { page } : {}),
+          },
+          nextPage: {},
+          nodes: {
+            id: {},
+            number: {},
+            issueDate: {},
+            status: {},
+            amountPaid: {},
+            job: { id: {}, name: {}, location: { account: { name: {} } } },
+            docLines: { _: "costItems", count: {} },
+            monthBills: {
+              _: "referencedDocuments",
+              $: {
+                where: {
+                  and: [
+                    [["type"], "vendorBill"],
+                    [["issueDate"], ">=", first],
+                    [["issueDate"], "<=", last],
+                  ],
+                },
+              },
+              count: {},
+            },
+            untaxed: {
+              _: "costItems",
+              $: { where: [["isTaxable"], "=", false] },
+              count: {},
+            },
+          },
+        },
+      },
+    });
+    const conn = r?.organization?.documents;
+    for (const n of (conn?.nodes ?? []) as any[]) {
+      if (!(n.monthBills?.count > 0)) continue;
+      if (!(n.untaxed?.count > 0)) continue;
+      candidates.push(n);
+    }
+    page = conn?.nextPage ?? undefined;
+  } while (page && ++guard < 50);
+
+  // Phase two: the lines themselves, one read per invoice that has any.
+  for (const inv of candidates) {
+    const job = inv.job ?? {};
+    const r: any = await pave(cfg, {
+      document: {
+        $: { id: inv.id },
+        untaxed: {
+          _: "costItems",
+          $: { where: [["isTaxable"], "=", false], size: 100 },
+          nodes: { id: {}, name: {}, cost: {}, price: {}, costCode: { number: {} } },
+        },
+      },
+    });
+    for (const n of (r?.document?.untaxed?.nodes ?? []) as any[]) {
+      out.push({
+        id: String(n.id ?? ""),
+        name: String(n.name ?? ""),
+        cost: Number(n.cost) || 0,
+        price: Number(n.price) || 0,
+        costCode: String(n.costCode?.number ?? "").trim(),
+        docKind: "invoice",
+        docId: String(inv.id ?? ""),
+        docNumber: inv.number == null ? "" : String(inv.number),
+        docIssueDate: String(inv.issueDate ?? "").slice(0, 10),
+        docStatus: String(inv.status ?? ""),
+        docLineCount: inv.docLines?.count ?? 0,
+        docAmountPaid: Number(inv.amountPaid) || 0,
+        vendor: "",
+        jobId: String(job.id ?? ""),
+        jobName: String(job.name ?? "").trim(),
+        customerName: String(job.location?.account?.name ?? "").trim(),
+      });
+    }
+  }
 
   return out;
 }

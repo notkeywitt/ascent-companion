@@ -17,17 +17,36 @@ function line(over: Partial<UntaxedLine> & { id: string }): UntaxedLine {
   return {
     name: "Excavation and Fill",
     cost: 5000,
+    price: 0,
     costCode: "31 23 00",
-    billId: "bill-1",
-    billIssueDate: "2026-08-31",
-    billStatus: "pending",
-    billLineCount: 3,
+    docKind: "bill",
+    docId: "bill-1",
+    docNumber: "",
+    docIssueDate: "2026-08-31",
+    docStatus: "pending",
+    docLineCount: 3,
+    docAmountPaid: 0,
     vendor: "Dirt Doctors",
     jobId: "J1",
     jobName: "Pole Barn",
     customerName: "Moon Spring Farm LLC",
     ...over,
   };
+}
+
+/** An invoice line — priced, so its unbilled tax is exact. */
+function invLine(over: Partial<UntaxedLine> & { id: string }): UntaxedLine {
+  return line({
+    docKind: "invoice",
+    docId: "inv-1",
+    docNumber: "382",
+    docStatus: "draft",
+    docIssueDate: "",
+    vendor: "",
+    cost: 4156.25,
+    price: 4904.38,
+    ...over,
+  });
 }
 
 describe("looksLikeSalesTax", () => {
@@ -54,7 +73,10 @@ describe("buildTaxableLinesReport", () => {
     expect(r.bills).toHaveLength(1);
     // 5,000 x 1.18 markup x 0.0835.
     expect(r.bills[0].taxAtStake).toBeCloseTo(492.65, 2);
-    expect(r.totals).toMatchObject({ bills: 1, lines: 1, cost: 5000 });
+    expect(r.bills[0].estimated).toBe(true);
+    expect(r.totals.lines).toBe(1);
+    expect(r.totals.billTax).toBeCloseTo(492.65, 2);
+    expect(r.invoices).toHaveLength(0);
   });
 
   it("drops Ascent's own jobs and says how many", () => {
@@ -75,13 +97,13 @@ describe("buildTaxableLinesReport", () => {
     ]);
     expect(r.bills).toHaveLength(1);
     expect(r.skipped.salesTaxLines).toBe(1);
-    expect(r.totals.cost).toBe(5000);
+    expect(r.totals.lines).toBe(1);
   });
 
   it("groups lines onto their bill and marks it mixed", () => {
     const r = buildTaxableLinesReport("2026-08", [
-      line({ id: "l1", cost: 30.4, name: "hinge", billLineCount: 3 }),
-      line({ id: "l2", cost: 8.95, name: "Shipping.", billLineCount: 3 }),
+      line({ id: "l1", cost: 30.4, name: "hinge", docLineCount: 3 }),
+      line({ id: "l2", cost: 8.95, name: "Shipping.", docLineCount: 3 }),
     ]);
     expect(r.bills).toHaveLength(1);
     expect(r.bills[0].untaxedCount).toBe(2);
@@ -93,8 +115,8 @@ describe("buildTaxableLinesReport", () => {
 
   it("marks a wholly flagged bill as NOT mixed, so the page can warn", () => {
     const r = buildTaxableLinesReport("2026-08", [
-      line({ id: "l1", cost: 420, billLineCount: 2 }),
-      line({ id: "l2", cost: 13.05, billLineCount: 2 }),
+      line({ id: "l1", cost: 420, docLineCount: 2 }),
+      line({ id: "l2", cost: 13.05, docLineCount: 2 }),
     ]);
     expect(r.bills[0].mixed).toBe(false);
   });
@@ -102,17 +124,52 @@ describe("buildTaxableLinesReport", () => {
   it("treats an unreadable line count as mixed rather than dropping it", () => {
     // 0 means the aggregate failed. Keeping it on the list is the safer error:
     // the alternative is quietly calling it a deliberate exemption.
-    const r = buildTaxableLinesReport("2026-08", [line({ id: "l1", billLineCount: 0 })]);
+    const r = buildTaxableLinesReport("2026-08", [line({ id: "l1", docLineCount: 0 })]);
     expect(r.bills[0].mixed).toBe(true);
   });
 
   it("orders bills by what they cost the client invoice", () => {
     const r = buildTaxableLinesReport("2026-08", [
-      line({ id: "l1", billId: "small", cost: 8.95, vendor: "MyKnobs.com" }),
-      line({ id: "l2", billId: "big", cost: 5000, vendor: "Dirt Doctors" }),
-      line({ id: "l3", billId: "mid", cost: 4156.25, vendor: "Element Smart Roofing" }),
+      line({ id: "l1", docId: "small", cost: 8.95, vendor: "MyKnobs.com" }),
+      line({ id: "l2", docId: "big", cost: 5000, vendor: "Dirt Doctors" }),
+      line({ id: "l3", docId: "mid", cost: 4156.25, vendor: "Element Smart Roofing" }),
     ]);
-    expect(r.bills.map((b) => b.billId)).toEqual(["big", "mid", "small"]);
+    expect(r.bills.map((b) => b.docId)).toEqual(["big", "mid", "small"]);
+  });
+
+  // The reason the two lists exist: a pushed or paid bill cannot be edited, so
+  // the invoice is the only side the office can reach.
+  it("keeps invoice lines and bill lines apart", () => {
+    const r = buildTaxableLinesReport("2026-08", [
+      line({ id: "b1" }),
+      invLine({ id: "i1" }),
+    ]);
+    expect(r.bills.map((d) => d.docId)).toEqual(["bill-1"]);
+    expect(r.invoices.map((d) => d.docId)).toEqual(["inv-1"]);
+  });
+
+  it("prices an invoice line exactly and a bill line as an estimate", () => {
+    const r = buildTaxableLinesReport("2026-08", [
+      invLine({ id: "i1", price: 4904.38 }),
+      line({ id: "b1", cost: 4156.25 }),
+    ]);
+    // The invoice knows what the client is charged: 4,904.38 x 0.0835.
+    expect(r.invoices[0].estimated).toBe(false);
+    expect(r.invoices[0].taxAtStake).toBeCloseTo(409.52, 2);
+    // The bill has no price, so it adds the markup and says it is a guess.
+    expect(r.bills[0].estimated).toBe(true);
+    expect(r.bills[0].taxAtStake).toBeCloseTo(409.52, 1);
+    expect(r.totals.invoiceTax).toBeCloseTo(409.52, 2);
+  });
+
+  it("marks a PAID bill locked, and never an invoice", () => {
+    const r = buildTaxableLinesReport("2026-08", [
+      line({ id: "b1", docAmountPaid: 25083.75 }),
+      invLine({ id: "i1", docAmountPaid: 43412.48 }),
+    ]);
+    expect(r.bills[0].locked).toBe(true);
+    // An invoice with payments against it is still the side that can be fixed.
+    expect(r.invoices[0].locked).toBe(false);
   });
 
   it("carries the assumptions back out, so the page can state them", () => {
