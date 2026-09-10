@@ -14,5 +14,6 @@ next: Deploy the appscript side (./deploy.sh), then open /invoicing-summary and 
 <!-- Appended by .githooks/post-commit. Do not hand-write rows here. -->
 - 2026-09-10 14:49 · `9daef94` companion: add the monthly Invoicing Package page
   CODEBASE_MAP.md, src/app/api/invoicing-summary/route.ts, src/app/invoicing-summary/page.tsx, src/lib/nav.ts, src/lib/views.ts
+- 2026-09-10 14:50 · `9278ff5` companion: session ledger for the invoicing package page
 
 ## Notes
