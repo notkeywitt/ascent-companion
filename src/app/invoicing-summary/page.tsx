@@ -262,13 +262,22 @@ export default function InvoicingSummaryPage() {
 
   // Jobs grouped the way the doc groups them: by the customer heading the office
   // set, falling back to JobTread's own customer name.
+  //
+  // WHAT IS LEFT OUT SINKS. Ascent's own jobs — Office, Shop, Electrical — sit
+  // under the customer "Ascent" and so sorted to the very top of a page about
+  // what clients are billed. They are excluded by default, so ordering on that
+  // rather than on their names puts them last without a second list of job
+  // names to keep in step with the Apps Script side. Alphabetical order still
+  // decides everything within each half, because the sort is stable.
   const customers = useMemo(() => {
     if (!data) return [];
     const order: string[] = [];
     const byName = new Map<string, JobRow[]>();
     for (const j of [...data.jobs].sort(
       (a, b) =>
-        a.customerLabel.localeCompare(b.customerLabel) || a.jobLabel.localeCompare(b.jobLabel),
+        Number(b.include) - Number(a.include) ||
+        a.customerLabel.localeCompare(b.customerLabel) ||
+        a.jobLabel.localeCompare(b.jobLabel),
     )) {
       let list = byName.get(j.customerLabel);
       if (!list) {
@@ -277,7 +286,9 @@ export default function InvoicingSummaryPage() {
       }
       list.push(j);
     }
-    return order.map((name) => ({ name, jobs: byName.get(name)! }));
+    return order
+      .map((name) => ({ name, jobs: byName.get(name)! }))
+      .sort((a, b) => Number(b.jobs.some((j) => j.include)) - Number(a.jobs.some((j) => j.include)));
   }, [data]);
 
   // Every headline figure is recomputed from the page's OWN state, not read off
