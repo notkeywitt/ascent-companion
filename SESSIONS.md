@@ -9,8 +9,8 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Branch | Last active | Commits | Next step |
 |---|---|---|---|---|
-| [gemini-claude-transition-status](.claude/sessions/2026-09-09-gemini-claude-transition-status.md) | `claude/gemini-claude-transition-status-cib68c` | 36h ago | 1 | owner: delete GEMINI_KEY + GEMINI_MODEL from Vercel; decide whether ANTHROPIC_M… |
-| [trip-recording-persistence](.claude/sessions/2026-09-08-trip-recording-persistence.md) | `claude/trip-recording-persistence-evilps` | 42h ago | 3 | verify on the phone: start a trip, force-quit the app, reopen — the trip should… |
+| [gemini-claude-transition-status](.claude/sessions/2026-09-09-gemini-claude-transition-status.md) | `claude/gemini-claude-transition-status-cib68c` | 37h ago | 1 | owner: delete GEMINI_KEY + GEMINI_MODEL from Vercel; decide whether ANTHROPIC_M… |
+| [trip-recording-persistence](.claude/sessions/2026-09-08-trip-recording-persistence.md) | `claude/trip-recording-persistence-evilps` | 43h ago | 3 | verify on the phone: start a trip, force-quit the app, reopen — the trip should… |
 | [ci-verify-job-failures](.claude/sessions/2026-09-06-ci-verify-job-failures.md) | `claude/ci-verify-job-failures-wcfpyk` | 4d ago | 1 | push this branch to remote main — main is still red until the Link fix lands th… |
 | [ascent-building-theme](.claude/sessions/2026-09-06-ascent-building-theme.md) | `claude/ascent-building-theme-rz1o6h` | 4d ago | 6 | Tune the palettes in /theme on the phone, then paste the Copy CSS output back s… |
 | [header-layout-redesign](.claude/sessions/2026-09-05-header-layout-redesign.md) | `claude/header-layout-redesign-xid33s` | 5d ago | 15 | rearrange the tracking-sheet action buttons for mobile and desktop — they read … |
@@ -20,6 +20,7 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
+| [tracking-sheet-donut-charts](.claude/sessions/2026-09-10-tracking-sheet-donut-charts.md) | 2026-09-10 | 1 | — |
 | [admin-actions-menu](.claude/sessions/2026-09-10-admin-actions-menu.md) | 2026-09-10 | 1 | — |
 | [jobtread-qbo-sales-tax](.claude/sessions/2026-09-05-jobtread-qbo-sales-tax.md) | 2026-09-10 | 63 | bill move: background + Drive re-file + real error; buyback picker dialog; appr… |
 | [bill-due-date-selector](.claude/sessions/2026-09-09-bill-due-date-selector.md) | 2026-09-09 | 2 | — |
@@ -34,4 +35,3 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 | [tracking-sheet-button-audit](.claude/sessions/2026-09-06-tracking-sheet-button-audit.md) | 2026-09-06 | 7 | audit the tracking sheet page's buttons and re-lay them out for desktop workflow |
 | [collapsible-appearance-section](.claude/sessions/2026-09-06-collapsible-appearance-section.md) | 2026-09-06 | 3 | — |
 | [dark-mode-color-scheme](.claude/sessions/2026-09-05-dark-mode-color-scheme.md) | 2026-09-06 | 8 | Rebuild dark mode from the Ascent Brand Guidelines: replace the lifted-olive ac… |
-| [time-entry-job-thread-links](.claude/sessions/2026-09-06-time-entry-job-thread-links.md) | 2026-09-06 | 2 | — |

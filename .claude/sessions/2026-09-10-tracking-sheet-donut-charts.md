@@ -2,9 +2,9 @@
 slug: tracking-sheet-donut-charts
 repo: ascent-companion
 branch: claude/tracking-sheet-donut-charts-1n8do0
-status: in-progress
+status: shipped
 started: 2026-09-10T14:45:02Z
-updated: 2026-09-10T14:45:13Z
+updated: 2026-09-10T14:45:28Z
 goal: 
 next: confirm the ring pair reads well on a real job at phone width; consider a labor-hours ring if the owner wants hours rather than dollars
 ---

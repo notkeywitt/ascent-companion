@@ -1,7 +1,26 @@
 {
-  "generatedAt": "2026-09-10T13:49:16Z",
+  "generatedAt": "2026-09-10T14:45:29Z",
   "repo": "ascent-companion",
   "sessions": [
+    {
+      "slug": "tracking-sheet-donut-charts",
+      "file": "2026-09-10-tracking-sheet-donut-charts.md",
+      "branch": "claude/tracking-sheet-donut-charts-1n8do0",
+      "status": "shipped",
+      "started": "2026-09-10T14:45:02Z",
+      "updated": "2026-09-10T14:45:28Z",
+      "goal": "",
+      "next": "confirm the ring pair reads well on a real job at phone width; consider a labor-hours ring if the owner wants hours rather than dollars",
+      "commits": [
+        {
+          "date": "2026-09-10",
+          "time": "14:45",
+          "sha": "e97cb20",
+          "subject": "companion: add bills and labor donuts to the tracking sheet job page",
+          "files": "src/app/trackingsheet/Board.tsx, src/app/trackingsheet/CostDonuts.tsx"
+        }
+      ]
+    },
     {
       "slug": "admin-actions-menu",
       "file": "2026-09-10-admin-actions-menu.md",
