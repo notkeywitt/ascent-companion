@@ -17,10 +17,14 @@ import { money } from "./BillCodingCard";
  * the point of a pair is comparing where the bill money went against where the
  * hours went, and that only works if 06 20 00 is the same hue in both.
  *
- * Job to date, not the selected month. The figures come off the same `headroom`
- * map the budget rail draws, so the rings, the rail and the drill-downs cannot
- * disagree — and staged recoding moves a slice the moment you drop a line,
- * before Sync.
+ * TWO SCOPES, and the caption is the switch. The selected MONTH leads, because
+ * that is what this page is for — you are coding one month, and "what is this
+ * month made of" is the question in front of you. Tapping the caption widens to
+ * the whole job, which is the same cut the /jobs rings draw.
+ *
+ * Either way the figures come off the caller's own maps, so the rings, the
+ * budget rail and the drill-downs cannot disagree — and staged recoding moves a
+ * slice the moment you drop a line, before Sync.
  */
 
 export interface CostDonutRow {
@@ -48,6 +52,10 @@ const VIZ_OTHER = "var(--viz-other)";
  * total cost (bills + labor) claim the fixed slots; everything else folds into
  * one gray "Other". Slots are then handed out in CODE order rather than by
  * rank, so the mapping does not reshuffle when one ring outgrows the other.
+ *
+ * Built from whichever scope is on screen, not from the job: a code with a big
+ * job-to-date total but nothing this month would otherwise hold a slot the
+ * month's own codes need, and the month view is the one that leads.
  */
 function buildColorMap(rows: CostDonutRow[]): Map<string, string> {
   const top = rows
@@ -87,12 +95,29 @@ function buildSlices(
 }
 
 const sum = (s: DonutSlice[]) => s.reduce((n, x) => n + x.value, 0);
+const hasCost = (rows: CostDonutRow[]) => rows.some((r) => r.bills > 0 || r.labor > 0);
 
-export function CostDonuts({ rows, className = "" }: { rows: CostDonutRow[]; className?: string }) {
+export function CostDonuts({
+  month,
+  jobToDate,
+  monthLabel,
+  className = "",
+}: {
+  /** The selected month's cost by code — the scope the rings open on. */
+  month: CostDonutRow[];
+  /** The whole job's cost by code. */
+  jobToDate: CostDonutRow[];
+  /** e.g. "July '26", for the caption. */
+  monthLabel: string;
+  className?: string;
+}) {
   // Folded on a phone, exactly as the budget rail beside it is, and for the
   // same reason: two rings and their legends are a screenful, and the bill list
   // under them is the work. Always open from lg, where the column has the room.
   const [collapsed, setCollapsed] = useState(true);
+  const [scope, setScope] = useState<"month" | "job">("month");
+
+  const rows = scope === "month" ? month : jobToDate;
 
   const colorMap = useMemo(() => buildColorMap(rows), [rows]);
   const bills = useMemo(() => buildSlices(rows, colorMap, "bills"), [rows, colorMap]);
@@ -101,8 +126,13 @@ export function CostDonuts({ rows, className = "" }: { rows: CostDonutRow[]; cla
   const billsTotal = sum(bills);
   const laborTotal = sum(labor);
 
-  // Nothing coded on the job yet — two empty rings say less than no rings.
-  if (billsTotal <= 0 && laborTotal <= 0) return null;
+  // Nothing coded on the job at all — two empty rings say less than no rings.
+  // An empty MONTH still renders: the caption is the only way back to the job,
+  // so hiding the block on a quiet month would strand the switch.
+  if (!hasCost(month) && !hasCost(jobToDate)) return null;
+
+  const scopeLabel = scope === "month" ? monthLabel : "job to date";
+  const emptySuffix = scope === "month" ? "this month" : "yet";
 
   return (
     <section className={className}>
@@ -122,9 +152,27 @@ export function CostDonuts({ rows, className = "" }: { rows: CostDonutRow[]; cla
           <span aria-hidden className="h-0.5 w-5 shrink-0 rounded-full bg-accent" />
           <SectionLabel>Cost by cost code</SectionLabel>
         </button>
-        <span className="shrink-0 text-[11px] text-neutral-500 dark:text-neutral-400">
-          job to date
-        </span>
+        {/* The scope switch, in the shape the rail's headroom flip already uses
+            on this page: the caption says which scope you are in, and tapping
+            it swaps. Hidden while the block is folded on a phone — a switch for
+            charts you cannot see is a trap. */}
+        <button
+          type="button"
+          onClick={() => setScope((s) => (s === "month" ? "job" : "month"))}
+          title={
+            scope === "month"
+              ? "Showing the selected month — tap for the whole job"
+              : "Showing the whole job — tap for the selected month"
+          }
+          className={`-my-2 -mr-1 inline-flex min-h-11 shrink-0 items-center gap-1 px-1 text-[11px] text-neutral-500 transition hover:text-accent dark:text-neutral-400 lg:my-0 lg:mr-0 lg:min-h-0 lg:px-0 ${
+            collapsed ? "hidden lg:inline-flex" : ""
+          }`}
+        >
+          {scopeLabel}
+          <span aria-hidden className="text-[9px]">
+            ⇅
+          </span>
+        </button>
       </div>
 
       <div
@@ -135,14 +183,14 @@ export function CostDonuts({ rows, className = "" }: { rows: CostDonutRow[]; cla
           slices={bills}
           size={120}
           centerLabel="bills"
-          emptyLabel="No vendor bills yet"
+          emptyLabel={`No vendor bills ${emptySuffix}`}
         />
         <Donut
           title={`Labor · ${money(laborTotal)}`}
           slices={labor}
           size={120}
           centerLabel="labor"
-          emptyLabel="No labor logged yet"
+          emptyLabel={`No labor logged ${emptySuffix}`}
         />
       </div>
     </section>

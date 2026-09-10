@@ -975,12 +975,12 @@ export function Board() {
   );
 
   /**
-   * The two cost rings' input — the SAME `headroom` map the budget rail draws,
-   * so the rings cannot disagree with the rail beside them and a staged recode
-   * moves a slice the moment you drop a line. Bills folds drafts in, matching
-   * `usedOf`: on this page a draft is coded money, it is just not committed
-   * yet. Codes with no cost at all sit out, so the rings never carry a legend
-   * of zeroes.
+   * The cost rings' JOB-TO-DATE scope — the SAME `headroom` map the budget rail
+   * draws, so the rings cannot disagree with the rail beside them and a staged
+   * recode moves a slice the moment you drop a line. Bills folds drafts in,
+   * matching `usedOf`: on this page a draft is coded money, it is just not
+   * committed yet. Codes with no cost at all sit out, so the rings never carry
+   * a legend of zeroes.
    */
   const costDonutRows = useMemo<CostDonutRow[]>(
     () =>
@@ -994,6 +994,43 @@ export function Board() {
         .filter((r) => r.bills > 0 || r.labor > 0),
     [headroom],
   );
+
+  /**
+   * …and the rings' SELECTED-MONTH scope, which is the one they open on. Built
+   * from the month's own bill lines and time entries rather than sliced out of
+   * `headroom`, because `headroom` is job-to-date by construction — it starts
+   * from `costDetail`, which has no month in it.
+   *
+   * Coded through `codeOf`/`timeCodeOf`, the same staged-aware readers the rail
+   * and every drill-down use, so a drag moves a slice here too. Bills counts
+   * every line in the month, draft and committed alike: the board always loads
+   * the month with `includeDrafts` and `includeInvoiced` on, and on this page a
+   * draft is coded money. Names come off `headroom` first so a code reads the
+   * same in both scopes, with the line's own `codeName` as the fallback for a
+   * code that never reached the budget.
+   */
+  const costDonutMonthRows = useMemo<CostDonutRow[]>(() => {
+    const map = new Map<string, CostDonutRow>();
+    const ensure = (code: string, fallbackName: string) => {
+      let r = map.get(code);
+      if (!r) {
+        r = { code, name: headroom.get(code)?.name || fallbackName || "", bills: 0, labor: 0 };
+        map.set(code, r);
+      }
+      return r;
+    };
+    for (const l of data?.lines ?? []) {
+      const code = codeOf(l);
+      if (!code) continue;
+      ensure(code, l.codeName).bills += l.cost;
+    }
+    for (const t of data?.timeEntries ?? []) {
+      const code = timeCodeOf(t);
+      if (!code) continue;
+      ensure(code, t.codeName).labor += t.cost;
+    }
+    return [...map.values()].filter((r) => r.bills > 0 || r.labor > 0);
+  }, [data, codeOf, timeCodeOf, headroom]);
 
   const railRows = useMemo(() => {
     const q = codeQuery.trim().toLowerCase();
@@ -3370,12 +3407,18 @@ export function Board() {
               }
             />
 
-            {/* Where this job's money went, by cost code — bills in one ring,
-                labor in the other. It heads the bills column because that is
-                where the eye starts, and because it frames the list under it:
-                the rail answers "is there room in 06 20 00", these answer "what
-                is this job made of". Folded on a phone, open from lg. */}
-            <CostDonuts rows={costDonutRows} />
+            {/* Where the money went, by cost code — bills in one ring, labor in
+                the other. Opens on the SELECTED MONTH, which is what this page
+                is for; the caption switches it to the whole job. It heads the
+                bills column because that is where the eye starts, and because
+                it frames the list under it: the rail answers "is there room in
+                06 20 00", these answer "what is this month made of". Folded on
+                a phone, open from lg. */}
+            <CostDonuts
+              month={costDonutMonthRows}
+              jobToDate={costDonutRows}
+              monthLabel={monthLabel(ym)}
+            />
 
             <SectionHeading
               // Wraps, because the label and a three-way switch do not fit on
