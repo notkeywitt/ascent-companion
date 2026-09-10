@@ -4180,6 +4180,21 @@ export async function attachFileToDocument(
   return { id: fileId };
 }
 
+/**
+ * WRITE — detach a file from a document (the record only; the bytes stay in JT
+ * storage). This exists for ONE case: a revised invoice replaces the one on
+ * file. Two PDFs on one bill misfile both — the mirror picks the FIRST pdf as
+ * the primary, so the superseded scan keeps the canonical name in JobTread and
+ * in Drive while the revision sits beside it under its upload name.
+ *
+ * Not for pruning a bill's attachments in general: the Drive tree is the
+ * archive of record, and the mirror only trashes its copy when the attachment
+ * set CHANGES (a delete with nothing put back keeps the Drive copy).
+ */
+export async function deleteDocumentFile(cfg: PaveConfig, fileId: string): Promise<void> {
+  await pave(cfg, { deleteFile: { $: { id: fileId } } });
+}
+
 export async function getUninvoicedBills(
   cfg: PaveConfig,
   jobId: string,

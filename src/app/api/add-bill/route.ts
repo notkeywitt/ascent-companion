@@ -3,6 +3,7 @@ import { SALES_TAX_CSI, splitSalesTax } from "@/lib/salesTax";
 import {
   attachFileToDocument,
   createVendorBill,
+  deleteDocumentFile,
   findBillByExternalId,
   getBillDetail,
   getJobBudget,
@@ -614,6 +615,13 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: why }, { status: 409 });
       }
 
+      // The scans this upload supersedes, read BEFORE anything is written: pdfs
+      // and photos of the invoice. Their ids are the before-image of a delete,
+      // so they are journalled with the lines.
+      const staleFiles = prior.files.filter((f) =>
+        /^(application\/pdf|image\/)/i.test(f.type ?? "") || /\.(pdf|jpe?g|png)$/i.test(f.name ?? ""),
+      );
+
       const j = await openJournal("/api/add-bill");
       await j.record([
         {
@@ -650,6 +658,7 @@ export async function POST(req: NextRequest) {
             fileName: file.name ?? "",
             source: "add-bill-replace",
             externalId: billNumber,
+            removedFiles: staleFiles.map((f) => ({ id: f.id, name: f.name ?? "" })),
           },
         },
       ]);
@@ -662,8 +671,12 @@ export async function POST(req: NextRequest) {
         salesTaxJobCostItemId: billArgs.salesTaxJobCostItemId,
       });
 
-      // Attach the revised document too. The original stays: two files on the
-      // bill is the honest record of an invoice that was sent twice.
+      // The revised invoice REPLACES the scan on file, it does not join it. Two
+      // PDFs on one bill misfile both: the mirror treats the FIRST pdf as the
+      // primary, so the superseded scan keeps the canonical name in JobTread and
+      // in Drive, and the revision sits beside it under whatever the phone
+      // called it. Attach FIRST, detach after — a half-failure leaves the bill
+      // holding both files, never neither.
       let fileAttached = true;
       try {
         const ext = mime === "application/pdf" ? "pdf" : mime.split("/")[1] || "bin";
@@ -677,13 +690,32 @@ export async function POST(req: NextRequest) {
             `attach it manually in JobTread.`,
         );
       }
+      // Only the superseded SCANS go: a pdf or a photo is the invoice this
+      // upload replaces. Anything else attached to the bill is somebody's extra
+      // document and is not ours to remove. Skipped entirely when the new file
+      // never landed — that would leave the bill with no invoice at all.
+      if (fileAttached) {
+        for (const f of staleFiles) {
+          try {
+            await deleteDocumentFile(cfg, f.id);
+          } catch (e) {
+            warnings.push(
+              `Couldn't remove the superseded file "${f.name || f.id}" (${e instanceof Error ? e.message : "unknown"}) — ` +
+                `delete it in JobTread so the bill carries one invoice.`,
+            );
+          }
+        }
+      }
 
       // The bill keeps its ORIGINAL number, issue date and billing month on
       // purpose: a revised invoice is the same purchase, and moving its date
       // would move it into another month's reports.
       warnings.push(
-        `Replaced ${rep.deleted} line(s) with ${rep.created} from the revised invoice. ` +
-          `The bill keeps its original number and ${prior.header.issueDate || "issue date"}.`,
+        `Replaced ${rep.deleted} line(s) with ${rep.created} from the revised invoice` +
+          (fileAttached && staleFiles.length
+            ? `, and the revised file replaced the ${staleFiles.length === 1 ? "one" : staleFiles.length} on file`
+            : "") +
+          `. The bill keeps its original number and ${prior.header.issueDate || "issue date"}.`,
       );
       const kickR = await kickJtSync();
       if (kickR === false) {
