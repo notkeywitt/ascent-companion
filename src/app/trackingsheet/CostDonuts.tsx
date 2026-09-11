@@ -185,7 +185,9 @@ export function CostDonuts({
    * clicked — usually to nothing at all, since a labor code rarely carries
    * bills. The labor ring stays a read, and its own list has its own filters.
    */
-  onSelect?: (sel: { key: string; label: string; codes: string[] } | null) => void;
+  onSelect?: (
+    sel: { key: string; label: string; codes: string[]; color?: string } | null,
+  ) => void;
   /** The slice key currently picked, so the rings can mark it. */
   selectedKey?: string | null;
   className?: string;
@@ -212,10 +214,15 @@ export function CostDonuts({
     if (key === selectedKey) return onSelect(null);
     if (key === "__other") {
       const codes = rows.filter((r) => !colorMap.has(r.code)).map((r) => r.code);
-      return onSelect({ key, label: "Other cost codes", codes });
+      return onSelect({ key, label: "Other cost codes", codes, color: VIZ_OTHER });
     }
     const row = rows.find((r) => r.code === key);
-    return onSelect({ key, label: row?.name ? `${key} ${row.name}` : key, codes: [key] });
+    return onSelect({
+      key,
+      label: row?.name ? `${key} ${row.name}` : key,
+      codes: [key],
+      color: colorMap.get(key),
+    });
   };
 
   /** One reader per ring: the folded codes for "Other", the caller's bills or
@@ -279,10 +286,9 @@ export function CostDonuts({
         className={`mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2 ${collapsed ? "hidden lg:grid" : ""}`}
       >
         <Donut
-          title={`Bills · ${money(billsTotal)}`}
+          title="Bills"
           slices={bills}
           size={120}
-          centerLabel="bills"
           emptyLabel={`No vendor bills ${emptySuffix}`}
           detail={ringDetail && ringDetail("bills")}
           onDetailWanted={onDetailWanted && (() => onDetailWanted(scope))}
@@ -290,10 +296,9 @@ export function CostDonuts({
           selectedKey={selectedKey}
         />
         <Donut
-          title={`Labor · ${money(laborTotal)}`}
+          title="Labor"
           slices={labor}
           size={120}
-          centerLabel="labor"
           emptyLabel={`No labor logged ${emptySuffix}`}
           detail={ringDetail && ringDetail("labor")}
           onDetailWanted={onDetailWanted && (() => onDetailWanted(scope))}

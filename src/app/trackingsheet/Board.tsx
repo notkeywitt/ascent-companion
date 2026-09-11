@@ -10,13 +10,11 @@ import {
   Chip,
   ChipScroller,
   EmptyState,
-  FilterChip,
   Label,
   Loading,
   MetaLine,
   Meter,
   PageHeader,
-  SectionHeading,
   SectionLabel,
   Select,
   Spinner,
@@ -1205,6 +1203,9 @@ export function Board() {
     key: string;
     label: string;
     codes: string[];
+    /** The ring slice's own colour, when the pick came from the ring — it is
+     *  what ties the banner below to the arc that set it. */
+    color?: string;
   } | null>(null);
 
   /**
@@ -3792,12 +3793,51 @@ export function Board() {
               }}
             />
 
-            <SectionHeading
-              // Wraps, because the label and a three-way switch do not fit on
-              // one 375px line: the switch drops to its own right-aligned row
-              // on a phone and sits inline again as soon as there is room.
-              className="mb-2 flex-wrap gap-y-2"
-              trailing={
+            {/* THE LISTS' OWN ROW — what is being filtered on the left, how the
+                bills are arranged on the right.
+
+                It used to carry "17 bills · $64,293.88" under a brand rule, and
+                that line said nothing the three block headers below do not say
+                better and per-block. What the spot is FOR is the thing there is
+                no other room for: a filter that silently drops two thirds of
+                the month off the page. */}
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+              {billCodeFilter ? (
+                <button
+                  type="button"
+                  onClick={() => setBillCodeFilter(null)}
+                  title="Clear this cost-code filter"
+                  className="flex min-w-0 max-w-full items-center gap-2 rounded-lg border border-accent bg-accent/10 py-1.5 pl-2.5 pr-2 text-left transition hover:bg-accent/20"
+                >
+                  {/* The arc's own colour, so the banner and the slice that set
+                      it are visibly the same thing. Falls back to the accent
+                      when the pick came from the dropdown instead. */}
+                  <span
+                    aria-hidden
+                    className="h-3 w-3 shrink-0 rounded-sm"
+                    style={{ backgroundColor: billCodeFilter.color ?? "var(--accent)" }}
+                  />
+                  <span className="min-w-0 truncate">
+                    <span className="text-[10px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
+                      Filtered to
+                    </span>{" "}
+                    <span className="text-sm font-semibold">{billCodeFilter.label}</span>
+                    <span className="ml-2 text-xs tabular-nums text-neutral-500 dark:text-neutral-400">
+                      {filteredBills.length} of {data.bills.length} bill
+                      {data.bills.length === 1 ? "" : "s"}
+                    </span>
+                  </span>
+                  <span
+                    aria-hidden
+                    className="shrink-0 text-sm font-semibold text-neutral-500 dark:text-neutral-400"
+                  >
+                    ✕
+                  </span>
+                </button>
+              ) : (
+                <span />
+              )}
+              {
                 /* Grouping switch, as a segmented control: one soft-filled track
                  so the three options read as a set, with 44px-tall segments on
                  touch (they were 26px) and the desktop density restored at
@@ -3830,17 +3870,7 @@ export function Board() {
                   ))}
                 </div>
               }
-            >
-              {`${data.bills.length} bill${data.bills.length === 1 ? "" : "s"}`} ·{" "}
-              {money(data.billTotal)}
-            </SectionHeading>
-
-            {mode !== "summary" && (
-              <p className="mb-2 hidden text-[11px] text-neutral-400 lg:block">
-                Drag a line — or a whole bill — onto a cost code (here or in the rail) to recode it.
-                Nothing is written until you Sync.
-              </p>
-            )}
+            </div>
 
             {/* ---- this month's time entries ----
                 Not a drop target: a time entry is coded independently of any
@@ -4164,34 +4194,6 @@ export function Board() {
                 </ul>
               ))}
 
-            {/* THE ACTIVE COST-CODE FILTER, said out loud — a list quietly
-                showing four of a month's thirty bills is the kind of thing
-                someone spends ten minutes not understanding.
-
-                In the BY-BILL mode it lives inside the list's own filter strip,
-                beside the dropdown that sets it (see below); it belongs with the
-                list it narrows, not floating between that list and the labor
-                block above. The other two modes draw no such strip, so there it
-                is this standalone row or nothing. */}
-            {billCodeFilter && mode !== "bill" && (
-              <div className="mb-2 flex items-center gap-2">
-                <FilterChip
-                  on
-                  onClick={() => setBillCodeFilter(null)}
-                  title="Clear this cost-code filter"
-                >
-                  {billCodeFilter.label}
-                  <span aria-hidden className="text-[11px] opacity-80">
-                    ✕
-                  </span>
-                </FilterChip>
-                <span className="min-w-0 truncate text-[11px] text-neutral-500 dark:text-neutral-400">
-                  {filteredBills.length} of {data.bills.length} bill
-                  {data.bills.length === 1 ? "" : "s"}
-                </span>
-              </div>
-            )}
-
             {mode === "bill" && filteredBills.length === 0 ? (
               /* A filter that empties the list takes its own strip down with it,
                  so the way out has to be here — otherwise the only way back to
@@ -4291,27 +4293,6 @@ export function Board() {
                               )}
                           </Select>
                           </div>
-                          {/* What the pick actually did, next to the pick. Only
-                              here — a chip above a CLOSED list describes a list
-                              nobody can see. */}
-                          {billCodeFilter && (
-                            <div className="flex min-w-0 items-center gap-2">
-                              <FilterChip
-                                on
-                                onClick={() => setBillCodeFilter(null)}
-                                title="Clear this cost-code filter"
-                              >
-                                {billCodeFilter.label}
-                                <span aria-hidden className="text-[11px] opacity-80">
-                                  ✕
-                                </span>
-                              </FilterChip>
-                              <span className="min-w-0 truncate text-[11px] text-neutral-500 dark:text-neutral-400">
-                                {filteredBills.length} of {data.bills.length} bill
-                                {data.bills.length === 1 ? "" : "s"}
-                              </span>
-                            </div>
-                          )}
                         </div>
                         <ul className="divide-y divide-line-soft border-t border-line-soft">
                           {nonSunsetBills.map(renderBillCard)}
