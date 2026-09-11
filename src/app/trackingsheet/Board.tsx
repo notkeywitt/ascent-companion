@@ -777,11 +777,23 @@ export function Board() {
               for (const id of Object.keys(next)) if (!liveDocIds.has(id)) delete next[id];
               return next;
             });
+            setTimeEdits((prev) => {
+              const next = { ...prev };
+              for (const id of Object.keys(next)) if (!liveTimeIds.has(id)) delete next[id];
+              return next;
+            });
           } else {
             // A fresh pull (month/filter change, or after Sync) invalidates
             // everything staged against the old data.
+            //
+            // timeEdits BELONGS IN THIS LIST and was missing from it, which is
+            // what made a saved entry correction look unsaved: Save wrote it,
+            // load() cleared every other staged map, and the correction alone
+            // came back — leaving the board dirty, the row marked, and the
+            // autosave re-writing the draft that had just been discarded.
             setStaged(new Map());
             setTimeStaged(new Map());
+            setTimeEdits({});
             setTimeSelected(new Set());
             setEdits({});
             setTaxEdits({});

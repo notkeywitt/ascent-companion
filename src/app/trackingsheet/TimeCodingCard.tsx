@@ -367,7 +367,12 @@ export function TimeCodingCard({
       if (end) patch.endTime = end;
     }
     onStage(patch);
-    setMsg({ tone: "success", text: "Queued — press Save Changes to write it." });
+    // …and get out of the way. The panel has said everything it has to say once
+    // the correction is queued, and the office is usually queueing several: a
+    // card that stays open over the list is one extra click per entry. What the
+    // queue holds is shown where the work is — the row marks itself, and the
+    // commit bar counts it.
+    onClose();
   }
 
   /* A JOB MOVE writes on the spot. It cannot queue with the rest: the entry
