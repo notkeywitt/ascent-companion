@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: ship/billing-month
 status: shipped
 started: 2026-09-10T15:22:41Z
-updated: 2026-09-11T17:01:20Z
+updated: 2026-09-11T17:01:22Z
 goal: 
 next: open a desktop window at 1280px+, tap the header hamburger, pin two pages in Edit and confirm they survive a reload
 ---

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-11T16:57:31Z",
+  "generatedAt": "2026-09-11T17:01:22Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,7 +8,7 @@
       "branch": "ship/billing-month",
       "status": "shipped",
       "started": "2026-09-10T15:22:41Z",
-      "updated": "2026-09-11T16:57:31Z",
+      "updated": "2026-09-11T17:01:22Z",
       "goal": "",
       "next": "open a desktop window at 1280px+, tap the header hamburger, pin two pages in Edit and confirm they survive a reload",
       "commits": [
@@ -284,6 +284,13 @@
           "sha": "324b40c",
           "subject": "companion: stop a hovered ring slice being clipped",
           "files": "src/components/Donut.tsx"
+        },
+        {
+          "date": "2026-09-11",
+          "time": "10:01",
+          "sha": "20f39ce",
+          "subject": "companion: portal the side menu out of the blurred header",
+          "files": "src/components/SideNav.tsx"
         }
       ]
     },
