@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: ship/billing-month
 status: shipped
 started: 2026-09-10T15:22:41Z
-updated: 2026-09-11T18:04:01Z
+updated: 2026-09-11T18:11:00Z
 goal: 
 next: open a desktop window at 1280px+, tap the header hamburger, pin two pages in Edit and confirm they survive a reload
 ---
@@ -96,5 +96,7 @@ next: open a desktop window at 1280px+, tap the header hamburger, pin two pages 
   src/components/TimeEntryList.tsx
 - 2026-09-11 11:03 · `4856099` companion: let a pure re-code through the QuickBooks lock
   src/app/api/code/route.ts, src/app/bill/[docId]/page.tsx, src/lib/billLineMath.test.ts, src/lib/billLineMath.ts, src/lib/qboLock.ts
+- 2026-09-11 11:11 · `9a12e30` companion: stop pushing the tax migration on a non-draft bill
+  src/app/trackingsheet/Board.tsx, src/app/trackingsheet/DraftWorkbench.tsx
 
 ## Notes
