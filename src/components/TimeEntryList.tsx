@@ -93,6 +93,20 @@ const money = (n: number) =>
 const money0 = (n: number) =>
   `$${n.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 const hrs = (n: number) => `${n.toFixed(1)}h`;
+/**
+ * What an entry is charged at, read back off the money: JobTread keeps the rate
+ * on the MEMBERSHIP's pay type, not on the entry, so cost ÷ hours is the only
+ * per-entry answer. Cents only when there are any — a rate is usually whole
+ * dollars and "$85.00/h" is two characters of noise on every row. Null on a
+ * running entry, which has no hours yet to divide by.
+ */
+const rateOf = (cost: number, hours: number): string | null => {
+  if (!(hours > 0)) return null;
+  const r = cost / hours;
+  return `$${r.toLocaleString(undefined, {
+    maximumFractionDigits: Number.isInteger(r) ? 0 : 2,
+  })}/h`;
+};
 
 /** The day an entry belongs to, read in the ORG's zone — never sliced off the
  *  ISO string, which would push an afternoon entry onto the next day. */
@@ -1002,22 +1016,31 @@ export function TimeEntryList({
                             </label>
                             <RowBody t={t} onEdit={onEdit} editing={editingId === t.id}>
                               <span className="min-w-0 flex-1">
-                                {/* HOURS is the display figure on a labor list — the
-                                question being reviewed is "how long did this
-                                take", and the dollars are that number times a
-                                pay rate nobody is editing here. Cost keeps its
-                                place on the detail line below. */}
+                                {/* HOURS AND WHAT THEY COST, together on the
+                                display line: a labor list is read for "how long
+                                did this take" and "what did that come to", and
+                                the two answers were a line apart. The hours
+                                lead — they are the thing being reviewed — and
+                                the money follows them, quieter. */}
                                 <span className="flex items-baseline justify-between gap-2">
                                   <span className="min-w-0 truncate text-sm font-semibold">
                                     {t.employee}
                                   </span>
                                   <span className="shrink-0 text-base font-semibold tabular-nums">
                                     {hrs(t.hours)}
+                                    <span className="ml-1.5 font-normal text-neutral-500 dark:text-neutral-400">
+                                      {money0(t.cost)}
+                                    </span>
                                   </span>
                                 </span>
                                 <span className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[11.5px] text-neutral-500 dark:text-neutral-400">
+                                  {/* The RATE, where the cost used to sit. The
+                                      cost moved up beside the hours it comes
+                                      from, and what belongs next to the pay
+                                      type is the price that type charges. */}
                                   <span>
-                                    {dayLabel(dayOfEntry(t))} · {money(t.cost)}
+                                    {dayLabel(dayOfEntry(t))}
+                                    {rateOf(t.cost, t.hours) ? ` · ${rateOf(t.cost, t.hours)}` : ""}
                                     {t.type ? ` · ${t.type}` : ""}
                                   </span>
                                   <Chip
