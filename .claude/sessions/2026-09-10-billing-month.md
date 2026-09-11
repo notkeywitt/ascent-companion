@@ -82,5 +82,7 @@ next: open the ? overlay on a desktop page: check the scaled page lines up in th
   src/app/trackingsheet/Board.tsx, src/components/SplitGrid.tsx
 - 2026-09-11 09:42 · `722fad7` companion: add a desktop slide-out pages menu
   CODEBASE_MAP.md, src/app/globals.css, src/components/AppHeader.tsx, src/components/SideNav.tsx
+- 2026-09-11 09:42 · `2865e46` companion: help mark sits at the very bottom corner, unpainted
+  src/components/PageGuide.tsx
 
 ## Notes
