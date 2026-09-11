@@ -10,6 +10,7 @@ import {
   Card,
   Chip,
   EmptyState,
+  FilterChip,
   Label,
   Loading,
   SectionLabel,
@@ -39,6 +40,11 @@ import {
  * carries its own job, so the side columns load that job's budget per
  * selection rather than one shared budget. Below `xl` there's no room for a
  * third column, so a row instead opens the bill's own full page.
+ *
+ * The list reads newest first. GROUP BY VENDOR re-cuts the same bills into one
+ * folded pane per vendor, each carrying its own count and total — how you check
+ * a vendor's month against the statement they sent, rather than hunting their
+ * bills down a list ordered by date.
  */
 
 interface AllBill {
@@ -67,6 +73,13 @@ interface AllBill {
   customerName: string;
 }
 
+/** How the month is cut up. "none" is the plain newest-first list. */
+type GroupBy = "none" | "vendor";
+
+/** Remembered per device: grouping is a way of READING the month, not a filter
+ *  on it, so whoever reconciles by vendor does it every month. */
+const GROUP_KEY = "allbills.groupBy";
+
 const jobLabel = (b: AllBill) =>
   [b.customerName, b.jobName].filter(Boolean).join(" — ") || "no job";
 
@@ -90,6 +103,27 @@ export function AllBills({ ym, setYm }: { ym: string; setYm: (ym: string) => voi
   // Sunset folds into its own collapsible pane, collapsed by default — same as
   // the per-job board.
   const [sunsetOpen, setSunsetOpen] = useState(false);
+
+  const [groupBy, setGroupBy] = useState<GroupBy>("none");
+
+  // Read in an effect, not in the initial state: this page is server-rendered
+  // too, and a first render that read `window` would disagree with the HTML.
+  useEffect(() => {
+    try {
+      if (localStorage.getItem(GROUP_KEY) === "vendor") setGroupBy("vendor");
+    } catch {
+      /* private mode — start ungrouped */
+    }
+  }, []);
+
+  const pickGroupBy = useCallback((next: GroupBy) => {
+    setGroupBy(next);
+    try {
+      localStorage.setItem(GROUP_KEY, next);
+    } catch {
+      /* nothing to do — the grouping still holds for this visit */
+    }
+  }, []);
 
   useEffect(() => {
     let alive = true;
@@ -143,18 +177,60 @@ export function AllBills({ ym, setYm }: { ym: string; setYm: (ym: string) => voi
     [bills],
   );
   const sunsetBills = useMemo(() => (bills ?? []).filter((b) => isSunsetVendor(b.vendor)), [bills]);
-  const sunsetTotal = useMemo(() => sunsetBills.reduce((s, b) => s + b.cost, 0), [sunsetBills]);
+
+  /**
+   * The same bills cut by vendor — one pane each, alphabetical, because you
+   * come here knowing the vendor's name and scan for it. Sunset keeps no
+   * special case: grouping by vendor already puts its bills behind one
+   * heading, which is all its own pane below does.
+   */
+  const vendorGroups = useMemo(() => {
+    const map = new Map<string, AllBill[]>();
+    for (const b of bills ?? []) {
+      const key = b.vendor.trim() || "No vendor";
+      const list = map.get(key);
+      if (list) list.push(b);
+      else map.set(key, [b]);
+    }
+    return [...map.entries()]
+      .map(([vendor, list]) => ({ vendor, bills: list }))
+      .sort((a, b) => a.vendor.localeCompare(b.vendor));
+  }, [bills]);
+
+  /**
+   * Which vendor panes are SHUT. Open is the default, so switching the grouping
+   * re-orders the month rather than hiding it. Sunset starts shut for the same
+   * reason it has a folded pane in the ungrouped list — its invoice count is
+   * noise — and each new month re-seeds the set.
+   */
+  const [closedVendors, setClosedVendors] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    setClosedVendors(
+      new Set(vendorGroups.filter((g) => isSunsetVendor(g.vendor)).map((g) => g.vendor)),
+    );
+  }, [vendorGroups]);
+
+  const toggleVendor = (vendor: string) =>
+    setClosedVendors((prev) => {
+      const next = new Set(prev);
+      if (next.has(vendor)) next.delete(vendor);
+      else next.add(vendor);
+      return next;
+    });
 
   // ---- the coding workbench (xl and up) ------------------------------------
 
   const wide = useIsWide();
   const [selId, setSelId] = useState("");
 
-  // Visual order — main list then the Sunset pane — so ‹ Prev / Next › steps
-  // the same way the eye reads the page.
+  // Visual order — main list then the Sunset pane, or vendor by vendor when
+  // grouped — so ‹ Prev / Next › steps the same way the eye reads the page.
   const orderedBills = useMemo(
-    () => [...nonSunsetBills, ...sunsetBills],
-    [nonSunsetBills, sunsetBills],
+    () =>
+      groupBy === "vendor"
+        ? vendorGroups.flatMap((g) => g.bills)
+        : [...nonSunsetBills, ...sunsetBills],
+    [groupBy, vendorGroups, nonSunsetBills, sunsetBills],
   );
   const selIdx = orderedBills.findIndex((b) => b.id === selId);
   const selBill = selIdx >= 0 ? orderedBills[selIdx] : null;
@@ -333,6 +409,48 @@ export function AllBills({ ym, setYm }: { ym: string; setYm: (ym: string) => voi
     );
   };
 
+  /**
+   * One folded pane of bills — the Sunset fold in the ungrouped list, and every
+   * vendor's pane in the grouped one. One shape, one definition.
+   */
+  const renderPane = (opts: {
+    title: string;
+    bills: AllBill[];
+    open: boolean;
+    onToggle: () => void;
+    className?: string;
+  }) => {
+    const total = opts.bills.reduce((s, b) => s + b.cost, 0);
+    return (
+      <Card key={opts.title} pad={false} className={`overflow-hidden ${opts.className ?? ""}`}>
+        <button
+          type="button"
+          onClick={opts.onToggle}
+          aria-expanded={opts.open}
+          className="flex w-full items-baseline justify-between gap-2 px-3 py-3 text-left transition hover:bg-accent/5 dark:hover:bg-white/5 lg:py-2"
+        >
+          <span className="min-w-0 truncate text-sm font-semibold">
+            <span
+              aria-hidden
+              className={`mr-1.5 inline-block text-[9px] text-neutral-500 transition-transform dark:text-neutral-400 ${
+                opts.open ? "rotate-90" : ""
+              }`}
+            >
+              ▶
+            </span>
+            {opts.title} ({opts.bills.length} bill{opts.bills.length === 1 ? "" : "s"})
+          </span>
+          <span className="shrink-0 text-sm font-semibold tabular-nums">{money(total)}</span>
+        </button>
+        {opts.open && (
+          <ul className="space-y-2 border-t border-line-soft bg-neutral-50 p-2 dark:bg-ink-raised/50">
+            {opts.bills.map(renderBillCard)}
+          </ul>
+        )}
+      </Card>
+    );
+  };
+
   return (
     <>
       <div className="mb-3">
@@ -380,8 +498,41 @@ export function AllBills({ ym, setYm }: { ym: string; setYm: (ym: string) => voi
               </span>
             </div>
 
+            {(bills ?? []).length > 0 && (
+              <div className="mb-2 flex items-center gap-2">
+                <SectionLabel className="shrink-0">Group</SectionLabel>
+                <FilterChip
+                  on={groupBy === "none"}
+                  onClick={() => pickGroupBy("none")}
+                  title="The month's bills, newest first"
+                >
+                  None
+                </FilterChip>
+                <FilterChip
+                  on={groupBy === "vendor"}
+                  onClick={() => pickGroupBy("vendor")}
+                  title="A folded pane per vendor, each with its own count and total"
+                >
+                  Vendor
+                </FilterChip>
+              </div>
+            )}
+
             {(bills ?? []).length === 0 ? (
               <EmptyState>No bills issued in {monthLabel}.</EmptyState>
+            ) : groupBy === "vendor" ? (
+              /* One pane per vendor, alphabetical. Same scroll-inside-itself
+                 list as below, so the two docked columns stay put. */
+              <div className="space-y-2 xl:-mx-1 xl:max-h-[calc(100dvh-13rem)] xl:overflow-y-auto xl:px-1 xl:py-1">
+                {vendorGroups.map((g) =>
+                  renderPane({
+                    title: g.vendor,
+                    bills: g.bills,
+                    open: !closedVendors.has(g.vendor),
+                    onToggle: () => toggleVendor(g.vendor),
+                  }),
+                )}
+              </div>
             ) : (
               <>
                 {/* The list scrolls inside itself on the workbench layout, so
@@ -396,36 +547,14 @@ export function AllBills({ ym, setYm }: { ym: string; setYm: (ym: string) => voi
                 {/* Sunset folded into its own collapsible pane, same treatment
                     as the per-job board: pushed to the bottom, collapsed by
                     default, with a count and total. */}
-                {sunsetBills.length > 0 && (
-                  <Card pad={false} className="mt-2 overflow-hidden">
-                    <button
-                      type="button"
-                      onClick={() => setSunsetOpen((v) => !v)}
-                      aria-expanded={sunsetOpen}
-                      className="flex w-full items-baseline justify-between gap-2 px-3 py-3 text-left transition hover:bg-accent/5 dark:hover:bg-white/5 lg:py-2"
-                    >
-                      <span className="min-w-0 truncate text-sm font-semibold">
-                        <span
-                          aria-hidden
-                          className={`mr-1.5 inline-block text-[9px] text-neutral-500 transition-transform dark:text-neutral-400 ${
-                            sunsetOpen ? "rotate-90" : ""
-                          }`}
-                        >
-                          ▶
-                        </span>
-                        Sunset ({sunsetBills.length} bill{sunsetBills.length === 1 ? "" : "s"})
-                      </span>
-                      <span className="shrink-0 text-sm font-semibold tabular-nums">
-                        {money(sunsetTotal)}
-                      </span>
-                    </button>
-                    {sunsetOpen && (
-                      <ul className="space-y-2 border-t border-line-soft bg-neutral-50 p-2 dark:bg-ink-raised/50">
-                        {sunsetBills.map(renderBillCard)}
-                      </ul>
-                    )}
-                  </Card>
-                )}
+                {sunsetBills.length > 0 &&
+                  renderPane({
+                    title: "Sunset",
+                    bills: sunsetBills,
+                    open: sunsetOpen,
+                    onToggle: () => setSunsetOpen((v) => !v),
+                    className: "mt-2",
+                  })}
               </>
             )}
           </section>
