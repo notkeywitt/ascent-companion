@@ -532,90 +532,13 @@ export function TimeCodingCard({
           )}
         </div>
 
-        {/* ---- the day ---- */}
-        <div>
-          <Label htmlFor="te-date">Date</Label>
-          <Input
-            id="te-date"
-            type="date"
-            value={date}
-            disabled={!writes || openEntry}
-            onChange={(e) => setDate(e.target.value)}
-          />
-        </div>
-
-        {/* ---- the window worked ----
-            Start and end are what JobTread stores; hours is the third side of
-            the same triangle, offered because "make it six hours" is how the
-            correction usually arrives. */}
-        <div className="grid grid-cols-3 gap-2">
-          <div>
-            <Label htmlFor="te-start">Start</Label>
-            <Input
-              id="te-start"
-              type="time"
-              value={start}
-              disabled={!writes || openEntry}
-              onChange={(e) => changeStart(e.target.value)}
-            />
-          </div>
-          <div>
-            <Label htmlFor="te-end">End</Label>
-            <Input
-              id="te-end"
-              type="time"
-              value={end}
-              disabled={!writes || openEntry}
-              onChange={(e) => changeEnd(e.target.value)}
-            />
-          </div>
-          <div>
-            <Label htmlFor="te-hours">Hours</Label>
-            <Input
-              id="te-hours"
-              type="number"
-              inputMode="decimal"
-              min="0"
-              max="24"
-              step="0.25"
-              value={hoursText}
-              disabled={!writes || openEntry}
-              onChange={(e) => changeHours(e.target.value)}
-              className="tabular-nums"
-            />
-          </div>
-        </div>
-        {start && end && (
-          <p className="text-[11px] text-neutral-400">
-            {prettyClock(start)} – {prettyClock(end)}
-            {spanned != null ? ` · ${spanned.toFixed(2)}h` : ""}
-            {spanned != null && minutesOfClock(end)! <= minutesOfClock(start)! ? " (next day)" : ""}
-          </p>
-        )}
-        {/* JobTread's own minute count can be SHORTER than the span — a break
-            deduction — so a rewritten span quietly drops that deduction. Say it
-            where the difference is visible, not after the fact. */}
-        {!openEntry &&
-          Math.abs(entry.minutes - (spanHours(started.time, ended.time) ?? 0) * 60) > 1 && (
-            <Banner tone="warning" className="!py-1.5 !text-[11px]">
-              JobTread counts {(entry.minutes / 60).toFixed(2)}h on this entry, but its clock reads{" "}
-              {(spanHours(started.time, ended.time) ?? 0).toFixed(2)}h — usually a deducted break.
-              Saving new times replaces both figures with the span you set.
-            </Banner>
-          )}
-        {timeChanged && (
-          <Banner tone="info" className="!py-1.5 !text-[11px]">
-            The cost follows the hours — JobTread recalculates it as the new hours × this
-            entry&apos;s pay rate.
-          </Banner>
-        )}
-
         {/* ---- the labor rate ----
-            Under the hours because it multiplies them: cost is minutes × this
-            rate, so changing it changes the dollars exactly the way a re-time
-            does. Only the person's own pay types are offered — JobTread rejects
-            any other name outright — and the "+ New rate" row below adds one to
-            their membership when the one you want isn't there yet. */}
+            Directly under the cost code, because the two together are what the
+            entry CHARGES: the code says which budget line the money lands on
+            and the rate says how much money it is. Only the person's own pay
+            types are offered — JobTread rejects any other name outright — and
+            the "+ New rate" row below adds one to their membership when the one
+            you want isn't there yet. */}
         {rates !== null && (
           <div>
             <Label htmlFor="te-rate">Labor rate</Label>
@@ -692,6 +615,84 @@ export function TimeCodingCard({
               )
             ) : null}
           </div>
+        )}
+
+        {/* ---- the day ---- */}
+        <div>
+          <Label htmlFor="te-date">Date</Label>
+          <Input
+            id="te-date"
+            type="date"
+            value={date}
+            disabled={!writes || openEntry}
+            onChange={(e) => setDate(e.target.value)}
+          />
+        </div>
+
+        {/* ---- the window worked ----
+            Start and end are what JobTread stores; hours is the third side of
+            the same triangle, offered because "make it six hours" is how the
+            correction usually arrives. */}
+        <div className="grid grid-cols-3 gap-2">
+          <div>
+            <Label htmlFor="te-start">Start</Label>
+            <Input
+              id="te-start"
+              type="time"
+              value={start}
+              disabled={!writes || openEntry}
+              onChange={(e) => changeStart(e.target.value)}
+            />
+          </div>
+          <div>
+            <Label htmlFor="te-end">End</Label>
+            <Input
+              id="te-end"
+              type="time"
+              value={end}
+              disabled={!writes || openEntry}
+              onChange={(e) => changeEnd(e.target.value)}
+            />
+          </div>
+          <div>
+            <Label htmlFor="te-hours">Hours</Label>
+            <Input
+              id="te-hours"
+              type="number"
+              inputMode="decimal"
+              min="0"
+              max="24"
+              step="0.25"
+              value={hoursText}
+              disabled={!writes || openEntry}
+              onChange={(e) => changeHours(e.target.value)}
+              className="tabular-nums"
+            />
+          </div>
+        </div>
+        {start && end && (
+          <p className="text-[11px] text-neutral-400">
+            {prettyClock(start)} – {prettyClock(end)}
+            {spanned != null ? ` · ${spanned.toFixed(2)}h` : ""}
+            {spanned != null && minutesOfClock(end)! <= minutesOfClock(start)! ? " (next day)" : ""}
+          </p>
+        )}
+        {/* JobTread's own minute count can be SHORTER than the span — a break
+            deduction — so a rewritten span quietly drops that deduction. Say it
+            where the difference is visible, not after the fact. */}
+        {!openEntry &&
+          Math.abs(entry.minutes - (spanHours(started.time, ended.time) ?? 0) * 60) > 1 && (
+            <Banner tone="warning" className="!py-1.5 !text-[11px]">
+              JobTread counts {(entry.minutes / 60).toFixed(2)}h on this entry, but its clock reads{" "}
+              {(spanHours(started.time, ended.time) ?? 0).toFixed(2)}h — usually a deducted break.
+              Saving new times replaces both figures with the span you set.
+            </Banner>
+          )}
+        {timeChanged && (
+          <Banner tone="info" className="!py-1.5 !text-[11px]">
+            The cost follows the hours — JobTread recalculates it as the new hours × this
+            entry&apos;s pay rate.
+          </Banner>
         )}
 
         {/* ---- the job ---- */}

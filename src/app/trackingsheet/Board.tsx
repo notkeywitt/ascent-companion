@@ -1276,6 +1276,36 @@ export function Board() {
     });
   };
 
+  /**
+   * Re-rate the whole selection — the recode's twin, staged the same way. An
+   * empty pick, or the entry's own JobTread type, un-stages it rather than
+   * queueing a write that changes nothing.
+   */
+  const stageTimeType = (type: string) => {
+    setTimeEdits((prev) => {
+      const next = { ...prev };
+      for (const t of monthTime) {
+        if (!timeSelected.has(t.id)) continue;
+        if (type && type !== t.type) {
+          next[t.id] = { ...next[t.id], type };
+        } else {
+          const rest = { ...next[t.id] };
+          delete rest.type;
+          if (Object.keys(rest).length > 0) next[t.id] = rest;
+          else delete next[t.id];
+        }
+      }
+      return next;
+    });
+    setSyncMsg(null);
+  };
+
+  /** The pay type an entry reads as now, a queued re-rate winning. */
+  const timeTypeOf = useCallback(
+    (t: { id: string; type: string }) => timeEdits[t.id]?.type ?? t.type,
+    [timeEdits],
+  );
+
   /** Un-stage one entry from the drawer's Staged list. */
   const undoTimeStage = (id: string) =>
     setTimeStaged((prev) => {
@@ -3752,6 +3782,8 @@ export function Board() {
                           codeOptions={timeCodeOptions}
                           leafOf={timeLeafOf}
                           onPick={stageTimeSelection}
+                          typeOf={timeTypeOf}
+                          onPickRate={stageTimeType}
                           isStaged={(t) => timeStaged.has(t.id)}
                           onUndo={undoTimeStage}
                           onApproved={markTimeApproved}
@@ -4083,6 +4115,8 @@ export function Board() {
                   codeOptions={timeCodeOptions}
                   leafOf={timeLeafOf}
                   onPick={stageTimeSelection}
+                  typeOf={timeTypeOf}
+                  onPickRate={stageTimeType}
                   isStaged={(t) => timeStaged.has(t.id)}
                   onUndo={undoTimeStage}
                   onApproved={markTimeApproved}

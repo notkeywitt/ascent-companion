@@ -1156,6 +1156,8 @@ export function TimeRecodeCard({
   codeOptions,
   leafOf,
   onPick,
+  typeOf,
+  onPickRate,
   isStaged,
   onUndo,
   onApproved,
@@ -1169,6 +1171,13 @@ export function TimeRecodeCard({
   /** The leaf an entry points at, staged moves winning. */
   leafOf: (t: TimeEntryRow) => string;
   onPick: (leafId: string) => void;
+  /** The pay type an entry is on, staged changes winning. Defaults to JobTread's. */
+  typeOf?: (t: TimeEntryRow) => string;
+  /**
+   * Given → the drawer can re-rate the whole selection. The host stages it the
+   * same way it stages a recode; omit it on a surface that cannot.
+   */
+  onPickRate?: (type: string) => void;
   isStaged: (t: TimeEntryRow) => boolean;
   onUndo: (id: string) => void;
   /**
@@ -1199,6 +1208,70 @@ export function TimeRecodeCard({
       to: days[days.length - 1],
     });
   }, [entries, jobId]);
+  /* ---- the rates this SELECTION can legally take ----
+     JobTread keeps rates on the MEMBERSHIP, so a name one person carries is an
+     HTTP 400 on anyone who doesn't ("Unknown time entry type"). The drawer
+     therefore offers only the types EVERY selected person has — the safe
+     intersection — and says so when that leaves nothing. The fetch is allowed
+     to fail silently: /api/labor-rates/members is office/admin and this list is
+     read further down the roles, in which case the control simply isn't there.
+
+     Members are read once; which types are legal is recomputed from the
+     selection, so re-ticking rows costs no request. */
+  const [members, setMembers] = useState<Map<string, { name: string; hourlyRate: number }[]> | null>(
+    null,
+  );
+  useEffect(() => {
+    if (!onPickRate) return;
+    let alive = true;
+    (async () => {
+      try {
+        const r = await fetch("/api/labor-rates/members", { cache: "no-store" });
+        if (!r.ok) return;
+        const b = await r.json();
+        const rows = (b.members ?? []) as {
+          userId?: string;
+          types?: { name: string; hourlyRate: number }[];
+        }[];
+        if (alive) setMembers(new Map(rows.map((m) => [m.userId ?? "", m.types ?? []])));
+      } catch {
+        /* read-only nicety — the drawer works without it */
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [onPickRate]);
+
+  const rateOptions = useMemo(() => {
+    if (!members) return null;
+    const userIds = [...new Set(entries.map((t) => (t.userId ?? "").trim()))];
+    // An entry with no user id behind it can't be checked, so nothing is safe.
+    if (userIds.length === 0 || userIds.some((id) => !id)) return [];
+    let common: { name: string; hourlyRate: number }[] | null = null;
+    for (const id of userIds) {
+      const mine = members.get(id) ?? [];
+      common =
+        common === null ? mine : common.filter((c) => mine.some((t) => t.name === c.name));
+    }
+    // One price only when every member charges the same for that name.
+    return (common ?? []).map((c) => ({
+      name: c.name,
+      hourlyRate: userIds.every((id) =>
+        (members.get(id) ?? []).some((t) => t.name === c.name && t.hourlyRate === c.hourlyRate),
+      )
+        ? c.hourlyRate
+        : null,
+    }));
+  }, [members, entries]);
+
+  /** The type every selected entry is on, or "" when they disagree. */
+  const sharedType = (() => {
+    const read = typeOf ?? ((t: TimeEntryRow) => t.type);
+    const first = entries.length > 0 ? read(entries[0]) : "";
+    return entries.length > 0 && entries.every((t) => read(t) === first) ? first : "";
+  })();
+
   const [approving, setApproving] = useState(false);
   const [msg, setMsg] = useState<{ tone: "success" | "error"; text: string } | null>(null);
 
@@ -1290,6 +1363,47 @@ export function TimeRecodeCard({
         another code — it never changes the amount, the pay type, or approval. Nothing is written
         until you Sync.
       </p>
+
+      {/* ---- the labor rate, for the whole selection ----
+          The recode's twin: the code says which budget line the hours land on,
+          the rate says what they cost. Staged the same way, so one Save writes
+          both. Only shown where the host can stage it AND the selection has a
+          rate they can all legally take. */}
+      {onPickRate && rateOptions !== null && (
+        <div className="mt-3">
+          <span className="mb-1 block text-[10px] uppercase tracking-wide text-neutral-400">
+            Rate for {entries.length === 1 ? "this entry" : "all selected"}
+          </span>
+          {rateOptions.length === 0 ? (
+            <p className="text-[11px] leading-relaxed text-neutral-500 dark:text-neutral-400">
+              These people share no pay type, so there is no rate that can be set on all of them.
+              Select one person&apos;s entries to re-rate them.
+            </p>
+          ) : (
+            <>
+              <Select
+                value={sharedType}
+                disabled={!writes}
+                onChange={(e) => onPickRate(e.target.value)}
+              >
+                <option value="">
+                  {sharedType ? "Leave as it is" : "Mixed rates — pick one to set them all"}
+                </option>
+                {rateOptions.map((t) => (
+                  <option key={t.name} value={t.name}>
+                    {t.name}
+                    {t.hourlyRate != null ? ` — ${money(t.hourlyRate)}/h` : ""}
+                  </option>
+                ))}
+              </Select>
+              <p className="mt-2 text-[11px] leading-relaxed text-neutral-500 dark:text-neutral-400">
+                Re-rates every selected entry: JobTread recalculates its cost as that entry&apos;s
+                own hours × this rate. Nothing is written until you Sync.
+              </p>
+            </>
+          )}
+        </div>
+      )}
 
       {/* ---- approving the selection ----
           Under the recode and behind its own rule: this one writes when pressed,
