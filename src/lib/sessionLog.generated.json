@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-11T13:03:27Z",
+  "generatedAt": "2026-09-11T13:04:26Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,7 +8,7 @@
       "branch": "ship/billing-month",
       "status": "shipped",
       "started": "2026-09-10T15:22:41Z",
-      "updated": "2026-09-11T13:03:27Z",
+      "updated": "2026-09-11T13:04:26Z",
       "goal": "",
       "next": "verify on desktop /trackingsheet: hover a donut slice for its top-5 bills, and check the closing actions appear in the commit bar only near the lower-right corner",
       "commits": [
@@ -116,6 +116,13 @@
           "sha": "b87ce24",
           "subject": "companion: name the codes behind a ring's \"Other\" slice",
           "files": "src/app/trackingsheet/CostDonuts.tsx, src/components/Donut.tsx"
+        },
+        {
+          "date": "2026-09-11",
+          "time": "06:04",
+          "sha": "2aebe36",
+          "subject": "companion: open the commit bar on hover, not on approach",
+          "files": "src/app/trackingsheet/Board.tsx"
         }
       ]
     },

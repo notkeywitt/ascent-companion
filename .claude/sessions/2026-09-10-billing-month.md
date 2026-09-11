@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: ship/billing-month
 status: shipped
 started: 2026-09-10T15:22:41Z
-updated: 2026-09-11T13:04:24Z
+updated: 2026-09-11T13:04:26Z
 goal: 
 next: verify on desktop /trackingsheet: hover a donut slice for its top-5 bills, and check the closing actions appear in the commit bar only near the lower-right corner
 ---
