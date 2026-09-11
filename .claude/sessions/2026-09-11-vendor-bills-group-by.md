@@ -2,9 +2,9 @@
 slug: vendor-bills-group-by
 repo: ascent-companion
 branch: claude/vendor-bills-group-by-a3aow1
-status: in-progress
+status: shipped
 started: 2026-09-11T22:55:48Z
-updated: 2026-09-11T22:56:02Z
+updated: 2026-09-11T22:56:03Z
 goal: group the tracking sheet's month of vendor bills by vendor
 next: ask the office whether a vendor pane should show its to-invoice figure as well as its cost total
 ---

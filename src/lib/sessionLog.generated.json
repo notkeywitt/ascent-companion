@@ -1,7 +1,26 @@
 {
-  "generatedAt": "2026-09-11T18:11:02Z",
+  "generatedAt": "2026-09-11T22:56:03Z",
   "repo": "ascent-companion",
   "sessions": [
+    {
+      "slug": "vendor-bills-group-by",
+      "file": "2026-09-11-vendor-bills-group-by.md",
+      "branch": "claude/vendor-bills-group-by-a3aow1",
+      "status": "shipped",
+      "started": "2026-09-11T22:55:48Z",
+      "updated": "2026-09-11T22:56:03Z",
+      "goal": "group the tracking sheet's month of vendor bills by vendor",
+      "next": "ask the office whether a vendor pane should show its to-invoice figure as well as its cost total",
+      "commits": [
+        {
+          "date": "2026-09-11",
+          "time": "22:55",
+          "sha": "18efcf3",
+          "subject": "companion: group the month's vendor bills by vendor",
+          "files": "src/app/trackingsheet/AllBills.tsx"
+        }
+      ]
+    },
     {
       "slug": "billing-month",
       "file": "2026-09-10-billing-month.md",
