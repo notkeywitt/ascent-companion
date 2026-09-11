@@ -473,6 +473,18 @@ textarea:focus-visible {
   }
 }
 
+/* The desktop slide-out menu (src/components/SideNav.tsx) — it slides in from
+   the left edge it is docked to. Mounted open, so the animation runs on the
+   element's first frame and needs no second render to trigger a transition. */
+.sidenav-in {
+  animation: sidenav-in 160ms ease-out;
+}
+@keyframes sidenav-in {
+  from {
+    transform: translateX(-100%);
+  }
+}
+
 /* Brand-tinted text selection — ochre in both themes, at low alpha. */
 ::selection {
   background: rgb(var(--brand) / 0.28);

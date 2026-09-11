@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { AscentLogo } from "@/components/AscentLogo";
 import { GlobalSearch } from "@/components/GlobalSearch";
+import { SideNav } from "@/components/SideNav";
 import { LinkPendingOverlay } from "@/components/LinkPending";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useAccess } from "@/components/AccessProvider";
@@ -66,6 +67,9 @@ export function AppHeader() {
   // /add-bill keeps the job in context when there is one, so the button lands on
   // the job you are looking at rather than an empty form.
   const addHref = jobId ? `/add-bill?jobId=${encodeURIComponent(jobId)}` : "/add-bill";
+  // The selected job travels with every menu link, exactly as it does through
+  // the launcher and the tab bar.
+  const qs = jobId ? `?jobId=${encodeURIComponent(jobId)}` : "";
 
   return (
     <div
@@ -76,6 +80,9 @@ export function AppHeader() {
           every page as the app's top rule. */}
       <div className="h-0.5 bg-brand" aria-hidden />
       <div className="flex items-center gap-1.5 px-2 py-2 sm:gap-2">
+        {/* The desktop slide-out menu — every page in the app from any page.
+            Self-hiding: office/admin only, and only from `xl` up. */}
+        <SideNav qs={qs} />
         {/* `inline-flex` on the BUTTON, not just the logo: a <button> lays its
             child out in a line box, and an inline-level logo then sits on that
             box's text baseline. The line-height strut adds its descender space
