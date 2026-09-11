@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-11T13:19:17Z",
+  "generatedAt": "2026-09-11T13:21:30Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,7 +8,7 @@
       "branch": "ship/billing-month",
       "status": "shipped",
       "started": "2026-09-10T15:22:41Z",
-      "updated": "2026-09-11T13:19:17Z",
+      "updated": "2026-09-11T13:21:30Z",
       "goal": "",
       "next": "verify on desktop /trackingsheet: (1) queue an entry edit and a bill recode, confirm one Save Changes writes both; (2) select several entries and set a rate on all; (3) Hide the budget column and reopen it from the left tab; (4) hover a donut slice — the card should float without moving the legend",
       "commits": [
@@ -158,6 +158,13 @@
           "sha": "1f8fb8b",
           "subject": "companion: put a time entry's cost beside its hours",
           "files": "src/components/TimeEntryList.tsx"
+        },
+        {
+          "date": "2026-09-11",
+          "time": "06:21",
+          "sha": "0a3482e",
+          "subject": "companion: fold the bills list, and call the block Labor",
+          "files": "src/app/trackingsheet/Board.tsx"
         }
       ]
     },
