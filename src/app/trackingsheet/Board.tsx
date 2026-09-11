@@ -3409,22 +3409,37 @@ export function Board() {
 
               `overflow-hidden` only while the rail is IN it: it is what clips
               the rail as the track narrows, and it would cut the tab's shadow
-              off once the track is the tab. */}
+              off once the track is the tab.
+
+              WHAT STICKS IS DIFFERENT IN THE TWO STATES, and this is the trap
+              the coding drawer hit in August: a sticky element can only travel
+              inside its own box, and `self-start` shrinks this item to its
+              content. With the rail in it that content is a full column, so the
+              SECTION sticks. Closed, the content is one small button — a sticky
+              section there has nowhere to go and scrolls away after a few
+              hundred pixels. So the section stretches to the row instead and the
+              BUTTON does the sticking, with the whole row to travel in. */}
           <section
-            className={`min-w-0 lg:sticky sticky-below-header lg:self-start ${
-              railHidden ? "" : "overflow-hidden"
+            className={`min-w-0 ${
+              railHidden
+                ? ""
+                : "overflow-hidden lg:sticky sticky-below-header lg:self-start"
             }`}
           >
             {/* THE WAY BACK, in the column the rail vacated. Desktop only:
                 below lg the track is the whole width and the rail folds under
                 its own heading instead, so a second control there would mean
-                almost the same thing twice. */}
+                almost the same thing twice.
+
+                `mr-3` is the gutter: at xl the grid sets `gap-x-0` and the
+                handle track beside a closed rail is 0px, so without it the tab
+                butts straight against the "to be invoiced" card. */}
             {railHidden && (
               <button
                 type="button"
                 onClick={toggleRailHidden}
                 title="Show the budget column"
-                className="hidden items-center gap-1.5 rounded-lg border border-line bg-cream/95 py-3 pl-1.5 pr-2 text-[11px] font-semibold text-neutral-500 shadow-sm transition hover:border-accent hover:text-accent dark:bg-ink-raised dark:text-neutral-400 lg:flex [writing-mode:vertical-rl]"
+                className="sticky-below-header ml-1 mr-3 hidden items-center gap-1.5 rounded-lg border border-line bg-cream/95 py-3 pl-1.5 pr-2 text-[11px] font-semibold text-neutral-500 shadow-sm transition hover:border-accent hover:text-accent dark:bg-ink-raised dark:text-neutral-400 lg:sticky lg:flex [writing-mode:vertical-rl]"
               >
                 <span aria-hidden className="text-[9px] [writing-mode:horizontal-tb]">
                   →
