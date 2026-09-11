@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-11T13:23:18Z",
+  "generatedAt": "2026-09-11T13:25:28Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,7 +8,7 @@
       "branch": "ship/billing-month",
       "status": "shipped",
       "started": "2026-09-10T15:22:41Z",
-      "updated": "2026-09-11T13:23:18Z",
+      "updated": "2026-09-11T13:25:28Z",
       "goal": "",
       "next": "verify on desktop /trackingsheet: (1) queue an entry edit and a bill recode, confirm one Save Changes writes both; (2) select several entries and set a rate on all; (3) Hide the budget column and reopen it from the left tab; (4) hover a donut slice — the card should float without moving the legend",
       "commits": [
@@ -172,6 +172,13 @@
           "sha": "39d6901",
           "subject": "companion: line the commit bar up with the tab bar",
           "files": "src/app/globals.css, src/components/StickyActionBar.tsx"
+        },
+        {
+          "date": "2026-09-11",
+          "time": "06:25",
+          "sha": "4640b06",
+          "subject": "companion: give the budget reopen tab a column of its own",
+          "files": "src/app/trackingsheet/Board.tsx, src/components/SplitGrid.tsx"
         }
       ]
     },
