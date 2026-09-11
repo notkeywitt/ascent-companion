@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-11T18:04:01Z",
+  "generatedAt": "2026-09-11T18:11:02Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,7 +8,7 @@
       "branch": "ship/billing-month",
       "status": "shipped",
       "started": "2026-09-10T15:22:41Z",
-      "updated": "2026-09-11T18:04:01Z",
+      "updated": "2026-09-11T18:11:02Z",
       "goal": "",
       "next": "open a desktop window at 1280px+, tap the header hamburger, pin two pages in Edit and confirm they survive a reload",
       "commits": [
@@ -305,6 +305,13 @@
           "sha": "4856099",
           "subject": "companion: let a pure re-code through the QuickBooks lock",
           "files": "src/app/api/code/route.ts, src/app/bill/[docId]/page.tsx, src/lib/billLineMath.test.ts, src/lib/billLineMath.ts, src/lib/qboLock.ts"
+        },
+        {
+          "date": "2026-09-11",
+          "time": "11:11",
+          "sha": "9a12e30",
+          "subject": "companion: stop pushing the tax migration on a non-draft bill",
+          "files": "src/app/trackingsheet/Board.tsx, src/app/trackingsheet/DraftWorkbench.tsx"
         }
       ]
     },
