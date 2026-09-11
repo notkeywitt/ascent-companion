@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { createPortal } from "react-dom";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -27,6 +28,11 @@ import type { PageEntry } from "@/lib/pagesMenu";
  *
  * OFFICE + ADMIN only, and only from `xl` up — the toggle is hidden below that
  * width, where the tab bar and the launcher are the right controls.
+ *
+ * THE DRAWER IS PORTALLED TO <body>, and has to be. It is mounted from inside
+ * the header, and the header carries `backdrop-blur` — a filtered element is
+ * the containing block for every `position: fixed` descendant, so the overlay
+ * sized itself to the 48px header instead of the window.
  *
  * PINNED is PER DEVICE, in localStorage: no server round trip, nothing to save,
  * and the person customizing a desktop sidebar is at that desktop.
@@ -118,94 +124,96 @@ export function SideNav({ qs = "" }: { qs?: string }) {
         <MenuIcon />
       </button>
 
-      {open && (
-        <div className="fixed inset-0 z-40 print:hidden">
-          <button
-            type="button"
-            aria-label="Close menu"
-            onClick={() => setOpen(false)}
-            className="absolute inset-0 bg-black/40"
-          />
-          <aside
-            aria-label="All pages"
-            className="sidenav-in absolute inset-y-0 left-0 flex w-[330px] flex-col border-r border-line bg-cream shadow-xl dark:bg-ink"
-          >
-            <div className="flex items-center gap-3 border-b border-line px-3 py-2.5">
-              <span className="flex-1 text-sm font-semibold tracking-tight">All Pages</span>
-              <button
-                type="button"
-                onClick={() => setEditing((was) => !was)}
-                className="text-[11px] font-semibold text-accent hover:underline dark:text-accent-soft"
-              >
-                {editing ? "Done" : "Edit"}
-              </button>
-              <button
-                type="button"
-                onClick={() => setOpen(false)}
-                aria-label="Close menu"
-                className="text-lg leading-none text-neutral-500 transition hover:text-accent"
-              >
-                ✕
-              </button>
-            </div>
+      {open &&
+        createPortal(
+          <div className="fixed inset-0 z-40 print:hidden">
+            <button
+              type="button"
+              aria-label="Close menu"
+              onClick={() => setOpen(false)}
+              className="absolute inset-0 bg-black/40"
+            />
+            <aside
+              aria-label="All pages"
+              className="sidenav-in absolute inset-y-0 left-0 flex w-[330px] flex-col border-r border-line bg-cream shadow-xl dark:bg-ink"
+            >
+              <div className="flex items-center gap-3 border-b border-line px-3 py-2.5">
+                <span className="flex-1 text-sm font-semibold tracking-tight">All Pages</span>
+                <button
+                  type="button"
+                  onClick={() => setEditing((was) => !was)}
+                  className="text-[11px] font-semibold text-accent hover:underline dark:text-accent-soft"
+                >
+                  {editing ? "Done" : "Edit"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setOpen(false)}
+                  aria-label="Close menu"
+                  className="text-lg leading-none text-neutral-500 transition hover:text-accent"
+                >
+                  ✕
+                </button>
+              </div>
 
-            <div className="flex-1 space-y-4 overflow-y-auto px-3 py-3">
-              {editing && (
-                <p className="text-[11.5px] text-neutral-500 dark:text-neutral-400">
-                  Tap a page to pin it to the top of this menu. This device only.
-                </p>
-              )}
+              <div className="flex-1 space-y-4 overflow-y-auto px-3 py-3">
+                {editing && (
+                  <p className="text-[11.5px] text-neutral-500 dark:text-neutral-400">
+                    Tap a page to pin it to the top of this menu. This device only.
+                  </p>
+                )}
 
-              {pinned.length > 0 && !editing && (
-                <div className="grid grid-cols-2 gap-2">
-                  {pinned.map((p) => (
-                    <Link
-                      key={p.view}
-                      href={p.href + qs}
-                      className="relative flex min-h-[56px] flex-col justify-center rounded-xl border border-line bg-white px-3 py-2 text-center text-sm font-semibold tracking-tight transition hover:border-accent hover:bg-accent/5 dark:bg-ink-raised"
-                    >
-                      {p.label}
-                      <LinkPendingOverlay spinnerClassName="h-5 w-5" />
-                    </Link>
-                  ))}
-                </div>
-              )}
+                {pinned.length > 0 && !editing && (
+                  <div className="grid grid-cols-2 gap-2">
+                    {pinned.map((p) => (
+                      <Link
+                        key={p.view}
+                        href={p.href + qs}
+                        className="relative flex min-h-[56px] flex-col justify-center rounded-xl border border-line bg-white px-3 py-2 text-center text-sm font-semibold tracking-tight transition hover:border-accent hover:bg-accent/5 dark:bg-ink-raised"
+                      >
+                        {p.label}
+                        <LinkPendingOverlay spinnerClassName="h-5 w-5" />
+                      </Link>
+                    ))}
+                  </div>
+                )}
 
-              {visible.map((group) => (
-                <div key={group.id} className="space-y-1.5">
-                  <SectionLabel>{group.title}</SectionLabel>
-                  <ListCard>
-                    {group.pages.map((p) =>
-                      editing ? (
-                        <ListRow
-                          key={p.view}
-                          onClick={() => togglePin(p.view)}
-                          label={p.label}
-                          chevron={false}
-                          trailing={
-                            <span
-                              aria-hidden
-                              className={`shrink-0 text-sm ${
-                                pins.includes(p.view)
-                                  ? "text-accent dark:text-accent-soft"
-                                  : "text-neutral-400 dark:text-neutral-500"
-                              }`}
-                            >
-                              {pins.includes(p.view) ? "★" : "☆"}
-                            </span>
-                          }
-                        />
-                      ) : (
-                        <ListRow key={p.view} href={p.href + qs} label={p.label} />
-                      ),
-                    )}
-                  </ListCard>
-                </div>
-              ))}
-            </div>
-          </aside>
-        </div>
-      )}
+                {visible.map((group) => (
+                  <div key={group.id} className="space-y-1.5">
+                    <SectionLabel>{group.title}</SectionLabel>
+                    <ListCard>
+                      {group.pages.map((p) =>
+                        editing ? (
+                          <ListRow
+                            key={p.view}
+                            onClick={() => togglePin(p.view)}
+                            label={p.label}
+                            chevron={false}
+                            trailing={
+                              <span
+                                aria-hidden
+                                className={`shrink-0 text-sm ${
+                                  pins.includes(p.view)
+                                    ? "text-accent dark:text-accent-soft"
+                                    : "text-neutral-400 dark:text-neutral-500"
+                                }`}
+                              >
+                                {pins.includes(p.view) ? "★" : "☆"}
+                              </span>
+                            }
+                          />
+                        ) : (
+                          <ListRow key={p.view} href={p.href + qs} label={p.label} />
+                        ),
+                      )}
+                    </ListCard>
+                  </div>
+                ))}
+              </div>
+            </aside>
+          </div>,
+          document.body,
+        )}
     </>
   );
 }
