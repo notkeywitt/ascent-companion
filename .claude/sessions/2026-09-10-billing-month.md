@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: ship/billing-month
 status: shipped
 started: 2026-09-10T15:22:41Z
-updated: 2026-09-11T15:20:11Z
+updated: 2026-09-11T16:42:19Z
 goal: 
 next: open the ? overlay on a desktop page: check the scaled page lines up in the stage, then Edit > Add element > tap a control and confirm the arrow lands on it after Save
 ---
@@ -80,5 +80,7 @@ next: open the ? overlay on a desktop page: check the scaled page lines up in th
   src/components/PageGuide.tsx
 - 2026-09-11 08:20 · `94d899f` companion: stop the budget tab spilling into the bills column
   src/app/trackingsheet/Board.tsx, src/components/SplitGrid.tsx
+- 2026-09-11 09:42 · `722fad7` companion: add a desktop slide-out pages menu
+  CODEBASE_MAP.md, src/app/globals.css, src/components/AppHeader.tsx, src/components/SideNav.tsx
 
 ## Notes

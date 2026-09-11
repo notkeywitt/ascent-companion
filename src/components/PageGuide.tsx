@@ -241,8 +241,7 @@ export function PageGuide() {
         type="button"
         onClick={() => setOpen(true)}
         aria-label="Help for this page"
-        className="fixed left-3 z-40 flex h-10 w-10 items-center justify-center rounded-full border border-line bg-white text-base font-medium text-neutral-600 shadow-sm transition hover:border-accent hover:text-accent dark:bg-ink-raised dark:text-neutral-300"
-        style={{ bottom: "calc(var(--tabbar-h) + 0.75rem)" }}
+        className="fixed bottom-0 left-0 z-40 flex h-8 w-8 items-center justify-center text-sm text-neutral-400/70 transition hover:text-accent"
       >
         ?
       </button>
