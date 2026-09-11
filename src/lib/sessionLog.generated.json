@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-11T16:42:26Z",
+  "generatedAt": "2026-09-11T16:55:05Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,7 +8,7 @@
       "branch": "ship/billing-month",
       "status": "shipped",
       "started": "2026-09-10T15:22:41Z",
-      "updated": "2026-09-11T16:42:26Z",
+      "updated": "2026-09-11T16:55:05Z",
       "goal": "",
       "next": "open a desktop window at 1280px+, tap the header hamburger, pin two pages in Edit and confirm they survive a reload",
       "commits": [
@@ -263,6 +263,13 @@
           "sha": "2865e46",
           "subject": "companion: help mark sits at the very bottom corner, unpainted",
           "files": "src/components/PageGuide.tsx"
+        },
+        {
+          "date": "2026-09-11",
+          "time": "09:55",
+          "sha": "6081210",
+          "subject": "companion: clear a saved time-entry correction, and close on queue",
+          "files": "src/app/trackingsheet/Board.tsx, src/app/trackingsheet/TimeCodingCard.tsx"
         }
       ]
     },
