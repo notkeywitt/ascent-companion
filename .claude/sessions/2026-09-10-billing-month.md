@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: ship/billing-month
 status: shipped
 started: 2026-09-10T15:22:41Z
-updated: 2026-09-11T13:03:27Z
+updated: 2026-09-11T13:04:24Z
 goal: 
 next: verify on desktop /trackingsheet: hover a donut slice for its top-5 bills, and check the closing actions appear in the commit bar only near the lower-right corner
 ---
@@ -42,5 +42,7 @@ next: verify on desktop /trackingsheet: hover a donut slice for its top-5 bills,
   src/app/trackingsheet/Board.tsx, src/app/trackingsheet/CostDonuts.tsx, src/components/Donut.tsx, src/components/StickyActionBar.tsx
 - 2026-09-11 06:03 · `b87ce24` companion: name the codes behind a ring's "Other" slice
   src/app/trackingsheet/CostDonuts.tsx, src/components/Donut.tsx
+- 2026-09-11 06:04 · `2aebe36` companion: open the commit bar on hover, not on approach
+  src/app/trackingsheet/Board.tsx
 
 ## Notes
