@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-11T16:55:05Z",
+  "generatedAt": "2026-09-11T16:56:36Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,7 +8,7 @@
       "branch": "ship/billing-month",
       "status": "shipped",
       "started": "2026-09-10T15:22:41Z",
-      "updated": "2026-09-11T16:55:05Z",
+      "updated": "2026-09-11T16:56:36Z",
       "goal": "",
       "next": "open a desktop window at 1280px+, tap the header hamburger, pin two pages in Edit and confirm they survive a reload",
       "commits": [
@@ -270,6 +270,13 @@
           "sha": "6081210",
           "subject": "companion: clear a saved time-entry correction, and close on queue",
           "files": "src/app/trackingsheet/Board.tsx, src/app/trackingsheet/TimeCodingCard.tsx"
+        },
+        {
+          "date": "2026-09-11",
+          "time": "09:56",
+          "sha": "490c84e",
+          "subject": "companion: one word for staged work",
+          "files": "src/app/trackingsheet/Board.tsx, src/app/trackingsheet/TimeCodingCard.tsx, src/lib/codingDraft.ts"
         }
       ]
     },
