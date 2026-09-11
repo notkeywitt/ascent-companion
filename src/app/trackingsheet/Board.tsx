@@ -257,15 +257,6 @@ interface DrillBillRow {
   draft: boolean;
 }
 
-/**
- * How close the pointer has to get to the lower-right corner before the commit
- * bar shows the month's closing actions. Generous, because the box is a cheap
- * approximation of "coming for the bar" — the bar's own hover keeps it open
- * once the pointer actually lands on it.
- */
-const CORNER_REVEAL_X = 460;
-const CORNER_REVEAL_Y = 320;
-
 /** Draft bills are coded but not yet committed spend — JobTread's own budget math excludes them. */
 const isCommitted = (status: string) => status === "pending" || status === "approved";
 
@@ -2881,22 +2872,15 @@ export function Board() {
   };
 
   /**
-   * Is the pointer coming for the commit bar? On desktop the month's three
-   * closing actions ride in that bar and stay hidden until it is — three
-   * buttons parked over the workbench all session read as a banner, not as a
-   * foot. Touch has no pointer, so below lg those actions keep their own row
-   * under the columns and this flag is never consulted.
+   * Is the pointer ON the commit bar? On desktop the month's three closing
+   * actions ride in that bar and stay hidden until it is — three buttons parked
+   * over the workbench all session read as a banner, not as a foot. A
+   * proximity box was tried first and fired on a cursor merely crossing the
+   * corner; the bar itself is the target, so the bar's own hover is the test.
+   * Touch has no pointer, so below lg those actions keep their own row under
+   * the columns and this flag is never consulted.
    */
-  const [nearCorner, setNearCorner] = useState(false);
-  useEffect(() => {
-    const onMove = (e: MouseEvent) =>
-      setNearCorner(
-        window.innerWidth - e.clientX < CORNER_REVEAL_X &&
-          window.innerHeight - e.clientY < CORNER_REVEAL_Y,
-      );
-    window.addEventListener("mousemove", onMove);
-    return () => window.removeEventListener("mousemove", onMove);
-  }, []);
+  const [barHover, setBarHover] = useState(false);
 
   /**
    * The per-job Tracking Sheet action, for the action bar. It writes the
@@ -4088,15 +4072,13 @@ export function Board() {
         <StickyActionBar
           dock="right"
           className="order-last mt-4 flex-wrap justify-end"
-          // The bar can be wider than the corner box once the closing actions
-          // are in it, so its own hover is what keeps them open.
-          onMouseEnter={() => setNearCorner(true)}
-          onMouseLeave={() => setNearCorner(false)}
+          onMouseEnter={() => setBarHover(true)}
+          onMouseLeave={() => setBarHover(false)}
         >
-          {/* The month's closing actions, revealed on approach — see
-              `nearCorner`. `hidden lg:flex` keeps them out of the bar on touch,
-              where they have their own row under the columns. */}
-          {nearCorner && (
+          {/* The month's closing actions, revealed while the pointer is on the
+              bar — see `barHover`. `hidden lg:flex` keeps them out of the bar on
+              touch, where they have their own row under the columns. */}
+          {barHover && (
             <div className="hidden flex-wrap items-center justify-end gap-2 lg:flex">
               {closingActions}
             </div>
