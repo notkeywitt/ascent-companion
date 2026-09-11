@@ -15,9 +15,11 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
  * the caller passes (one column on a phone), and the handles are `display:none`
  * — which takes them out of the grid entirely rather than leaving empty tracks.
  *
- * `hideFirst` closes the first panel to nothing. The track animates to 0fr
- * rather than the panel unmounting, so it SLIDES shut and comes back where it
- * was — and the caller keeps whatever width it had dragged the rail to.
+ * `hideFirst` closes the first panel down to whatever it still renders —
+ * `max-content`, not zero, because the caller puts its reopen tab in there and
+ * that tab needs a column of its own to sit in. A fixed one floating over the
+ * next panel covers the figures it is parked on. The panel is not unmounted, so
+ * the width it was dragged to comes back with it.
  */
 
 /** Width of one handle track, in px. It IS the gutter at xl (`xl:gap-x-0`). */
@@ -65,7 +67,7 @@ export function SplitGrid({
 }: {
   /** Grid classes for the breakpoints below xl (e.g. `lg:grid-cols-2`). */
   className?: string;
-  /** Close the first panel's track to nothing — see the note above. */
+  /** Shrink the first panel's track to its content — see the note above. */
   hideFirst?: boolean;
   /** Exactly three panels, in column order. */
   children: ReactNode;
@@ -144,7 +146,7 @@ export function SplitGrid({
       style={
         {
           "--tsc": hideFirst
-            ? `0fr 0px ${cols[1]}fr ${HANDLE_PX}px ${cols[2]}fr`
+            ? `max-content 0px ${cols[1]}fr ${HANDLE_PX}px ${cols[2]}fr`
             : `${cols[0]}fr ${HANDLE_PX}px ${cols[1]}fr ${HANDLE_PX}px ${cols[2]}fr`,
         } as React.CSSProperties
       }

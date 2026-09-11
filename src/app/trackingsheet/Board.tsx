@@ -3337,7 +3337,9 @@ export function Board() {
           there and this class starts at lg. */}
       {data && !loading && (
         <SplitGrid
-          className={`lg:order-1 ${railHidden ? "lg:grid-cols-1" : "lg:grid-cols-2"}`}
+          className={`lg:order-1 ${
+            railHidden ? "lg:grid-cols-[max-content_minmax(0,1fr)]" : "lg:grid-cols-2"
+          }`}
           hideFirst={railHidden}
         >
           {/* ─────────── LEFT: cost-code reference rail ─────────── */}
@@ -3345,15 +3347,43 @@ export function Board() {
               scrolling a long bill list, so it stays put. `self-start` is what
               makes sticky work in a grid — items stretch to the row height by
               default, leaving nothing to scroll within. */}
-          {/* `overflow-hidden` is what makes the close read as a SLIDE: the
-              track animates to 0fr and the rail is clipped by it rather than
-              reflowing to a one-word column on the way out. Below xl there is
-              no track to shrink, so a closed rail is simply not rendered. */}
+          {/* The rail's own column, whether the rail is in it or not. Closed,
+              the track narrows to `max-content` and holds nothing but the
+              reopen tab — a column the width of one button. That tab used to be
+              `fixed` at the screen edge, which parked it on top of the "to be
+              invoiced" figures beside it; a track of its own cannot overlap
+              anything.
+
+              `overflow-hidden` only while the rail is IN it: it is what clips
+              the rail as the track narrows, and it would cut the tab's shadow
+              off once the track is the tab. */}
           <section
-            className={`min-w-0 overflow-hidden lg:sticky sticky-below-header lg:self-start ${
-              railHidden ? "hidden xl:block" : ""
+            className={`min-w-0 lg:sticky sticky-below-header lg:self-start ${
+              railHidden ? "" : "overflow-hidden"
             }`}
           >
+            {/* THE WAY BACK, in the column the rail vacated. Desktop only:
+                below lg the track is the whole width and the rail folds under
+                its own heading instead, so a second control there would mean
+                almost the same thing twice. */}
+            {railHidden && (
+              <button
+                type="button"
+                onClick={toggleRailHidden}
+                title="Show the budget column"
+                className="hidden items-center gap-1.5 rounded-lg border border-line bg-cream/95 py-3 pl-1.5 pr-2 text-[11px] font-semibold text-neutral-500 shadow-sm transition hover:border-accent hover:text-accent dark:bg-ink-raised dark:text-neutral-400 lg:flex [writing-mode:vertical-rl]"
+              >
+                <span aria-hidden className="text-[9px] [writing-mode:horizontal-tb]">
+                  →
+                </span>
+                Budget
+              </button>
+            )}
+
+            {/* The rail proper. `lg:hidden` rather than unmounted, because
+                below lg `railHidden` means nothing and the rail is still the
+                only budget on the page there. */}
+            <div className={railHidden ? "lg:hidden" : ""}>
             {/* The row keeps a SectionHeading's 28px height on a phone even
                 though both taps inside it are 44px tall: `-my-2` lets each
                 button's hit area overhang the row instead of inflating it, the
@@ -3644,6 +3674,7 @@ export function Board() {
                 )}
               </div>
             </Card>
+            </div>
           </section>
 
           {/* ─────────── CENTRE: the month's bills ─────────── */}
@@ -4216,24 +4247,6 @@ export function Board() {
             )}
           </section>
         </SplitGrid>
-      )}
-
-      {/* THE WAY BACK, once the budget column is closed — a tab on the left
-          edge of the screen, where the column it reopens used to be. `fixed`,
-          so it costs the layout nothing and cannot be scrolled past; desktop
-          only, because below lg the rail is a fold under its own heading. */}
-      {jobId && railHidden && (
-        <button
-          type="button"
-          onClick={toggleRailHidden}
-          title="Show the budget column"
-          className="fixed left-0 top-1/2 z-20 hidden -translate-y-1/2 items-center gap-1.5 rounded-r-lg border border-l-0 border-line bg-cream/95 py-3 pl-1.5 pr-2 text-[11px] font-semibold text-neutral-500 shadow-lg backdrop-blur transition hover:text-accent dark:bg-ink/95 dark:text-neutral-400 lg:flex [writing-mode:vertical-rl]"
-        >
-          <span aria-hidden className="text-[9px] [writing-mode:horizontal-tb]">
-            →
-          </span>
-          Budget
-        </button>
       )}
 
       {/* THE CHECK'S RESULT, wherever the check was run from. It sits at this
