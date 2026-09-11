@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: ship/billing-month
 status: shipped
 started: 2026-09-10T15:22:41Z
-updated: 2026-09-11T16:55:05Z
+updated: 2026-09-11T16:56:34Z
 goal: 
 next: open a desktop window at 1280px+, tap the header hamburger, pin two pages in Edit and confirm they survive a reload
 ---
@@ -86,5 +86,7 @@ next: open a desktop window at 1280px+, tap the header hamburger, pin two pages 
   src/components/PageGuide.tsx
 - 2026-09-11 09:55 · `6081210` companion: clear a saved time-entry correction, and close on queue
   src/app/trackingsheet/Board.tsx, src/app/trackingsheet/TimeCodingCard.tsx
+- 2026-09-11 09:56 · `490c84e` companion: one word for staged work
+  src/app/trackingsheet/Board.tsx, src/app/trackingsheet/TimeCodingCard.tsx, src/lib/codingDraft.ts
 
 ## Notes
