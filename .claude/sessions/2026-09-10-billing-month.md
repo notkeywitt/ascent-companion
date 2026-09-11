@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: ship/billing-month
 status: shipped
 started: 2026-09-10T15:22:41Z
-updated: 2026-09-11T13:32:29Z
+updated: 2026-09-11T13:33:54Z
 goal: 
 next: verify on desktop /trackingsheet: (1) queue an entry edit and a bill recode, confirm one Save Changes writes both; (2) select several entries and set a rate on all; (3) Hide the budget column and reopen it from the left tab; (4) hover a donut slice — the card should float without moving the legend
 ---
@@ -65,6 +65,8 @@ next: verify on desktop /trackingsheet: (1) queue an entry edit and a bill recod
 - 2026-09-11 06:31 · `5ab3926` companion: log a bill that arrived with no invoice
   src/app/add-bill/page.tsx, src/app/api/add-bill/route.ts
 - 2026-09-11 06:32 · `006d583` companion: reach the bills cost-code filter from the list itself
+  src/app/trackingsheet/Board.tsx
+- 2026-09-11 06:33 · `9efe0fa` companion: put the bills filter chip inside the list it narrows
   src/app/trackingsheet/Board.tsx
 
 ## Notes
