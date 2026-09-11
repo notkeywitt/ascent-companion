@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-11T13:44:11Z",
+  "generatedAt": "2026-09-11T14:46:09Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,7 +8,7 @@
       "branch": "ship/billing-month",
       "status": "shipped",
       "started": "2026-09-10T15:22:41Z",
-      "updated": "2026-09-11T13:44:11Z",
+      "updated": "2026-09-11T14:46:09Z",
       "goal": "",
       "next": "verify on desktop /trackingsheet: (1) queue an entry edit and a bill recode, confirm one Save Changes writes both; (2) select several entries and set a rate on all; (3) Hide the budget column and reopen it from the left tab; (4) hover a donut slice — the card should float without moving the legend",
       "commits": [
@@ -220,6 +220,13 @@
           "time": "06:44",
           "sha": "7592c98",
           "subject": "companion: say what the bills are filtered to, and cut what said nothing",
+          "files": "src/app/trackingsheet/Board.tsx, src/app/trackingsheet/CostDonuts.tsx"
+        },
+        {
+          "date": "2026-09-11",
+          "time": "07:46",
+          "sha": "a6e6416",
+          "subject": "companion: labor ring filters the labor list, and a way to the package",
           "files": "src/app/trackingsheet/Board.tsx, src/app/trackingsheet/CostDonuts.tsx"
         }
       ]
