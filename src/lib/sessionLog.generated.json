@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-11T16:56:36Z",
+  "generatedAt": "2026-09-11T16:57:31Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,7 +8,7 @@
       "branch": "ship/billing-month",
       "status": "shipped",
       "started": "2026-09-10T15:22:41Z",
-      "updated": "2026-09-11T16:56:36Z",
+      "updated": "2026-09-11T16:57:31Z",
       "goal": "",
       "next": "open a desktop window at 1280px+, tap the header hamburger, pin two pages in Edit and confirm they survive a reload",
       "commits": [
@@ -277,6 +277,13 @@
           "sha": "490c84e",
           "subject": "companion: one word for staged work",
           "files": "src/app/trackingsheet/Board.tsx, src/app/trackingsheet/TimeCodingCard.tsx, src/lib/codingDraft.ts"
+        },
+        {
+          "date": "2026-09-11",
+          "time": "09:57",
+          "sha": "324b40c",
+          "subject": "companion: stop a hovered ring slice being clipped",
+          "files": "src/components/Donut.tsx"
         }
       ]
     },
