@@ -3,6 +3,15 @@
  * frozen. No role may edit it, and no role may delete it. Owner's rule,
  * 2026-09-09.
  *
+ * ## The one exception: re-coding
+ *
+ * Moving a line to another cost code moves no money, and JobTread allows it in
+ * any status — QuickBooks holds the amount, not the code. So /api/code skips
+ * this lock when EVERY change in the save is a pure re-code (`isRecodeOnly` in
+ * src/lib/billLineMath.ts: `jobCostItemId` set, name/quantity/unitCost/
+ * description all absent). Owner, 2026-09-11. One cost edit anywhere in the
+ * save re-arms the lock for the whole save.
+ *
  * ## What "already in QuickBooks" means
  *
  * `document.qboId` is the QBO mirror id — JobTread fills it in when the document

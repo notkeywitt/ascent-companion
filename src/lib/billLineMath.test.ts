@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { billLineMath, descriptionForCode, round2, type MathLine, type CodeOption } from "./billLineMath";
+import {
+  billLineMath,
+  descriptionForCode,
+  isRecodeOnly,
+  round2,
+  type MathLine,
+  type CodeOption,
+} from "./billLineMath";
 
 /**
  * Bill line money maths — what the coding screen shows and what a save writes.
@@ -248,5 +255,32 @@ describe("descriptionForCode", () => {
 
   it("returns undefined for an unknown id, so nothing is overwritten", () => {
     expect(descriptionForCode("nope", budget)).toBeUndefined();
+  });
+});
+
+/**
+ * The QuickBooks lock lets a pure re-code through (/api/code). A save that
+ * carries any cost or content edit must still be refused on a pushed bill, so
+ * the predicate that decides it is asserted here.
+ */
+describe("isRecodeOnly", () => {
+  it("passes a change that only moves the line to another cost code", () => {
+    expect(isRecodeOnly({ costItemId: "c1", jobCostItemId: "b2" })).toBe(true);
+  });
+
+  it("refuses a change that also touches quantity, unit cost, name or description", () => {
+    expect(isRecodeOnly({ costItemId: "c1", jobCostItemId: "b2", quantity: 2 })).toBe(false);
+    expect(isRecodeOnly({ costItemId: "c1", jobCostItemId: "b2", unitCost: 10 })).toBe(false);
+    expect(isRecodeOnly({ costItemId: "c1", jobCostItemId: "b2", name: "x" })).toBe(false);
+    expect(isRecodeOnly({ costItemId: "c1", jobCostItemId: "b2", description: "x" })).toBe(false);
+  });
+
+  it("refuses a change with no code on it at all", () => {
+    expect(isRecodeOnly({ costItemId: "c1" })).toBe(false);
+  });
+
+  it("passes every line of a non-draft whole-bill save", () => {
+    const m = billLineMath({ ...base, lines: [line()], status: "approved", picked: { l1: "b2" } });
+    expect(m.wholeBillChanges.every(isRecodeOnly)).toBe(true);
   });
 });

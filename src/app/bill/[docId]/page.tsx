@@ -917,7 +917,12 @@ function BillDetail() {
   async function saveCoding() {
     // Save is always live, so it can land here with nothing edited — that still re-pushes
     // every line. Only a bill with no lines and no tax change has literally nothing to send.
-    if (allLineChanges.length === 0 && !taxChanged && !needsTaxMigration && !combinePending) {
+    if (
+      allLineChanges.length === 0 &&
+      !taxChanged &&
+      !(needsTaxMigration && linesEditable) &&
+      !combinePending
+    ) {
       setSaveMsg("Nothing to save.");
       return;
     }
@@ -954,7 +959,11 @@ function BillDetail() {
       //    still carrying the legacy document field: step 1 just wrote the
       //    de-taxed line costs, so the tax has to move onto its 88 80 00 line
       //    and the field has to be cleared, or the bill's total drops by the tax.
-      if (taxChanged || needsTaxMigration) {
+      //    Migration is a DRAFT job: step 1 writes line costs only on a draft,
+      //    so a non-draft bill has nothing to re-tax — and on a bill already in
+      //    QuickBooks this write is refused (src/lib/qboLock.ts), which would
+      //    report a failure for a re-code that landed.
+      if (taxChanged || (needsTaxMigration && linesEditable)) {
         const res = await fetch("/api/bill-tax", {
           method: "POST",
           headers: { "Content-Type": "application/json" },

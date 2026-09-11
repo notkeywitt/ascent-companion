@@ -68,6 +68,20 @@ export interface LineChange {
   description?: string;
 }
 
+/**
+ * Does this line change move money? A change that sets ONLY `jobCostItemId`
+ * re-codes the line and leaves its cost alone — JobTread allows that in any
+ * status, including after the bill has pushed to QuickBooks, so the QuickBooks
+ * lock lets it through (owner, 2026-09-11). Anything touching name, quantity,
+ * unitCost or description is a cost/content edit and stays frozen.
+ */
+export const isRecodeOnly = (c: LineChange) =>
+  c.jobCostItemId !== undefined &&
+  c.name === undefined &&
+  c.quantity === undefined &&
+  c.unitCost === undefined &&
+  c.description === undefined;
+
 export const round2 = (n: number) => Math.round(n * 100) / 100;
 
 /** A line's description mirrors its cost code: "06 10 00 - Rough Carpentry". */
