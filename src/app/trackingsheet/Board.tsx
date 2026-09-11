@@ -375,9 +375,12 @@ export function Board() {
 
   const [ym, setYm] = useState(() => params.get("ym") || defaultYm());
   // Whether the Sunset pane in the by-bill list is expanded. Collapsed by
-  // default, same as the Time & labor block below it — Sunset is the noise you
+  // default, same as the Labor block below it — Sunset is the noise you
   // fold away, and its cost is already in every figure on the page regardless.
   const [sunsetBlockOpen, setSunsetBlockOpen] = useState(false);
+  /** …and the main bill list, which folds the SAME way but starts OPEN — it is
+   *  the month's actual work, not the noise either of its neighbours is. */
+  const [billBlockOpen, setBillBlockOpen] = useState(true);
   const [data, setData] = useState<BoardPayload | null>(null);
   const [loading, setLoading] = useState(true);
   /** A reload over a board that's already on screen. Unlike `loading` it does
@@ -561,7 +564,7 @@ export function Board() {
     });
   /** Which end of the phone's headroom cards leads. They fold with the rail. */
   const [headroomMostLeft, setHeadroomMostLeft] = useState(false);
-  // The "Time & labor" block in the bills list starts collapsed to a single
+  // The "Labor" block in the bills list starts collapsed to a single
   // summary row — expand it to see each entry, same collapse-by-default
   // pattern as the rail's divisions.
   const [timeBlockOpen, setTimeBlockOpen] = useState(false);
@@ -1201,6 +1204,10 @@ export function Board() {
     [nonSunsetBills, sunsetBills],
   );
   const sunsetTotal = useMemo(() => sunsetBills.reduce((s, b) => s + b.cost, 0), [sunsetBills]);
+  const nonSunsetTotal = useMemo(
+    () => nonSunsetBills.reduce((s, b) => s + b.cost, 0),
+    [nonSunsetBills],
+  );
 
   // Every draft bill on screen — both panes — so "Approve" acts on exactly what
   // the office can see (Sunset drafts included; they're one tap away in the pane).
@@ -1230,7 +1237,7 @@ export function Board() {
    *  "what did labor cost" and "how much labor was it" are one question. */
   const monthTimeHours = useMemo(() => monthTime.reduce((s, t) => s + t.hours, 0), [monthTime]);
 
-  /* ---------------- Time & labor ----------------------------------------
+  /* ---------------- Labor ------------------------------------------------
      The list, its filters and its grouping are src/components/TimeEntryList —
      the SAME component Labor Review renders, so a month of hours is narrowed,
      grouped, selected and read identically wherever you meet it. What lives
@@ -3764,8 +3771,7 @@ export function Board() {
                     >
                       ▶
                     </span>
-                    Time &amp; labor ({monthTime.length}{" "}
-                    {monthTime.length === 1 ? "entry" : "entries"})
+                    Labor ({monthTime.length} {monthTime.length === 1 ? "entry" : "entries"})
                   </button>
                   {/* Logging FOR somebody — /employee-time can only log for the
                       person signed in, so the office does it here. */}
@@ -4060,14 +4066,43 @@ export function Board() {
               <>
                 {nonSunsetBills.length > 0 && (
                   <Card pad={false} className="overflow-hidden">
-                    <ul className="divide-y divide-line-soft">
-                      {nonSunsetBills.map(renderBillCard)}
-                    </ul>
+                    {/* Folds like the Labor block above and the Sunset block
+                        below, so the three panes of the month behave the same
+                        way — but OPEN by default, because this is the list the
+                        page exists to work through. Closing it is what makes
+                        room to read the labor or the Sunset run on one screen. */}
+                    <button
+                      type="button"
+                      onClick={() => setBillBlockOpen((v) => !v)}
+                      aria-expanded={billBlockOpen}
+                      className="flex w-full items-baseline justify-between gap-2 px-3 py-3 text-left transition hover:bg-accent/5 dark:hover:bg-white/5 lg:py-2"
+                    >
+                      <span className="min-w-0 truncate text-sm font-semibold">
+                        <span
+                          aria-hidden
+                          className={`mr-1.5 inline-block text-[9px] text-neutral-500 transition-transform dark:text-neutral-400 ${
+                            billBlockOpen ? "rotate-90" : ""
+                          }`}
+                        >
+                          ▶
+                        </span>
+                        Bills ({nonSunsetBills.length} bill
+                        {nonSunsetBills.length === 1 ? "" : "s"})
+                      </span>
+                      <span className="shrink-0 text-sm font-semibold tabular-nums">
+                        {money(nonSunsetTotal)}
+                      </span>
+                    </button>
+                    {billBlockOpen && (
+                      <ul className="divide-y divide-line-soft border-t border-line-soft">
+                        {nonSunsetBills.map(renderBillCard)}
+                      </ul>
+                    )}
                   </Card>
                 )}
 
                 {/* Sunset bills, folded into their own collapsible pane — the
-                    same treatment as the Time & labor block above. Sunset's high
+                    same treatment as the Labor block above. Sunset's high
                     invoice count is noise when you're deciding where to move
                     money, so it's pushed to the bottom of the list and collapsed
                     by default; its cost is already in every figure on the page,
@@ -4130,7 +4165,7 @@ export function Board() {
             {openTime && !belowXl ? (
               <>
                 {/* No section title: the card names the person and the entry,
-                    and a "Time & labor" caption over it only repeated the block
+                    and a "Labor" caption over it only repeated the block
                     the entry was clicked in. */}
                 <TimeCodingCard
                   entry={openTime}
@@ -4296,7 +4331,7 @@ export function Board() {
         </StickyActionBar>
       )}
 
-      {/* The Time & labor panel, where the coding column doesn't fit. Same
+      {/* The Labor panel, where the coding column doesn't fit. Same
           component, same behaviour — a bottom sheet on a phone and a centred
           dialog from sm up, exactly like the cost-code drill-down below, so the
           Close button lands where the thumb already is. Rendered EITHER here or
@@ -4505,12 +4540,12 @@ export function Board() {
                                     {t.isApproved ? "approved" : "unapproved"}
                                   </Chip>
                                   {/* Hours read alongside the amount they cost —
-                                      "1.0h · $85" — matching the Time & labor list. */}
+                                      "1.0h · $85" — matching the Labor list. */}
                                   <span className="shrink-0 tabular-nums font-semibold">
                                     {t.hours.toFixed(1)}h · {money(t.cost)}
                                   </span>
                                 </div>
-                                {/* Same treatment as the "Time & labor" block's
+                                {/* Same treatment as the "Labor" block's
                                     entries — the note is what the crew typed
                                     about the hours, so it wraps in full rather
                                     than truncating. Reaching an entry by cost
