@@ -35,6 +35,13 @@ const TOP = 52; // the overlay's own title row
 
 type Pt = { x: number; y: number };
 
+/** Undo every style the overlay sets on the shell. */
+function clear(shell: HTMLElement) {
+  for (const k of ["transform", "transformOrigin", "position", "zIndex", "pointerEvents", "cursor"] as const) {
+    shell.style[k] = "";
+  }
+}
+
 export function PageGuide() {
   const pathname = usePathname() || "/";
   const path = guidePathKey(pathname);
@@ -80,26 +87,28 @@ export function PageGuide() {
       const w = window.innerWidth >= 744;
       setWide(w);
       if (!open || !w) {
-        shell.style.transform = "";
-        shell.style.transformOrigin = "";
-        shell.style.pointerEvents = "";
+        clear(shell);
         return;
       }
       const scale = (window.innerWidth - LIST_W - PAD * 3) / window.innerWidth;
       shell.style.transformOrigin = "0 0";
       shell.style.transform = `translate(${LIST_W + PAD * 2}px, ${TOP}px) scale(${scale})`;
+      // The shell has to sit ABOVE the overlay's backdrop, or the backdrop eats
+      // every tap meant for the page — which is what stopped Pick element
+      // working — and dims the page nobody can then read.
+      shell.style.position = "relative";
+      shell.style.zIndex = "35";
       // The page is a picture while the overlay is up — until an admin is
       // picking the element a topic points at, which is the one moment a tap
       // on the page means something.
       shell.style.pointerEvents = picking ? "auto" : "none";
+      shell.style.cursor = picking ? "crosshair" : "";
     };
     apply();
     window.addEventListener("resize", apply);
     return () => {
       window.removeEventListener("resize", apply);
-      shell.style.transform = "";
-      shell.style.transformOrigin = "";
-      shell.style.pointerEvents = "";
+      clear(shell);
     };
   }, [open, picking]);
 
@@ -156,27 +165,42 @@ export function PageGuide() {
   /* ------------------------------------------------- pick an element */
   useEffect(() => {
     if (!picking) return;
-    const grab = (e: MouseEvent) => {
+    const inShell = (e: Event) => {
       const el = e.target as Element | null;
-      if (!el || !document.getElementById("app-shell")?.contains(el)) return;
+      return !!el && !!document.getElementById("app-shell")?.contains(el);
+    };
+    // A press on the page must not ALSO drive the page: half these controls act
+    // on pointerdown, long before the click we listen for. Every event in the
+    // press is swallowed at capture, so the tap only ever names an element.
+    const swallow = (e: Event) => {
+      if (!inShell(e)) return;
       e.preventDefault();
       e.stopPropagation();
+    };
+    const grab = (e: MouseEvent) => {
+      if (!inShell(e)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const el = e.target as Element;
       const selector = selectorFor(el);
       const text = (el.textContent ?? "").trim().replace(/\s+/g, " ").slice(0, 40);
       setPicking(false);
       setDirty(true);
-      setTopics((list) => {
-        if (selected && list.some((t) => t.id === selected && !t.selector)) {
-          return list.map((t) => (t.id === selected ? { ...t, selector } : t));
-        }
-        if (selected) return list.map((t) => (t.id === selected ? { ...t, selector } : t));
-        const id = Math.random().toString(36).slice(2, 10);
-        setSelected(id);
-        return [...list, { id, label: text || "New element", selector, body: "" }];
-      });
+      if (selected) {
+        setTopics((list) => list.map((t) => (t.id === selected ? { ...t, selector } : t)));
+        return;
+      }
+      const id = Math.random().toString(36).slice(2, 10);
+      setTopics((list) => [...list, { id, label: text || "New element", selector, body: "" }]);
+      setSelected(id);
     };
+    const press = ["pointerdown", "mousedown", "touchstart", "mouseup", "pointerup"];
+    for (const type of press) document.addEventListener(type, swallow, true);
     document.addEventListener("click", grab, true);
-    return () => document.removeEventListener("click", grab, true);
+    return () => {
+      for (const type of press) document.removeEventListener(type, swallow, true);
+      document.removeEventListener("click", grab, true);
+    };
   }, [picking, selected]);
 
   /* Esc closes; the browser back gesture is not in play here. */
@@ -326,7 +350,7 @@ export function PageGuide() {
     <>
       {/* The ground behind the scaled page. Opaque panes sit on top of it, so
           the parts of the page that fall outside the stage are covered. */}
-      <div className="fixed inset-0 z-30 bg-ink/80 backdrop-blur-[1px]" aria-hidden />
+      <div className="pointer-events-none fixed inset-0 z-30 bg-ink/80" aria-hidden />
 
       {/* The arrow and the ring around the chosen element. */}
       {arrow && (
