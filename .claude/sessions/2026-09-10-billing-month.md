@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: ship/billing-month
 status: shipped
 started: 2026-09-10T15:22:41Z
-updated: 2026-09-11T16:42:26Z
+updated: 2026-09-11T16:55:03Z
 goal: 
 next: open a desktop window at 1280px+, tap the header hamburger, pin two pages in Edit and confirm they survive a reload
 ---
@@ -84,5 +84,7 @@ next: open a desktop window at 1280px+, tap the header hamburger, pin two pages 
   CODEBASE_MAP.md, src/app/globals.css, src/components/AppHeader.tsx, src/components/SideNav.tsx
 - 2026-09-11 09:42 · `2865e46` companion: help mark sits at the very bottom corner, unpainted
   src/components/PageGuide.tsx
+- 2026-09-11 09:55 · `6081210` companion: clear a saved time-entry correction, and close on queue
+  src/app/trackingsheet/Board.tsx, src/app/trackingsheet/TimeCodingCard.tsx
 
 ## Notes
