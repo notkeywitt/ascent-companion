@@ -11,6 +11,7 @@ import {
   ChipScroller,
   EmptyState,
   FilterChip,
+  Label,
   Loading,
   MetaLine,
   Meter,
@@ -258,6 +259,9 @@ interface DrillBillRow {
   cost: number;
   draft: boolean;
 }
+
+/** The dropdown's row for "no cost code at all" — "" is not a usable option value. */
+const UNCODED_KEY = "__uncoded";
 
 /** Where a device remembers whether the budget column is closed. */
 const RAIL_HIDDEN_KEY = "ts.railHidden";
@@ -1218,6 +1222,25 @@ export function Board() {
     for (const l of data?.lines ?? []) if (want.has(codeOf(l))) keep.add(l.docId);
     return all.filter((b) => keep.has(b.id));
   }, [data, billCodeFilter, codeOf]);
+
+  /**
+   * The cost codes this month's bills actually touch, for the list's own
+   * dropdown — the twin of the labor list's "Cost code" select, so the two
+   * lists are narrowed the same way. Read off the lines through `codeOf`, so a
+   * staged recode moves a bill between options before Save. "" is the uncoded
+   * bucket and is offered as its own row, because "which of these is still
+   * uncoded" is the question the queue exists for.
+   */
+  const billCodeOptions = useMemo(() => {
+    const seen = new Map<string, string>();
+    for (const l of data?.lines ?? []) {
+      const code = codeOf(l);
+      if (!seen.has(code)) seen.set(code, headroom.get(code)?.name || l.codeName || "");
+    }
+    return [...seen.entries()]
+      .map(([number, name]) => ({ number, name }))
+      .sort((a, b) => (a.number || "\uffff").localeCompare(b.number || "\uffff"));
+  }, [data, codeOf, headroom]);
 
   const nonSunsetBills = useMemo(
     () => filteredBills.filter((b) => !sunsetDocIds.has(b.id)),
@@ -4188,9 +4211,56 @@ export function Board() {
                       </span>
                     </button>
                     {billBlockOpen && (
-                      <ul className="divide-y divide-line-soft border-t border-line-soft">
-                        {nonSunsetBills.map(renderBillCard)}
-                      </ul>
+                      <>
+                        {/* The list's own way to the cost-code filter — the same
+                            control, in the same place, as the labor list's
+                            (components/TimeEntryList's TimeFilterStrip). The
+                            ring above sets the same state, so picking a slice
+                            moves this select and picking here lights that
+                            slice: one filter, two ways in. */}
+                        <div className="border-t border-line-soft bg-neutral-50 px-3 py-2 dark:bg-ink-raised/50">
+                          <Label htmlFor="bill-code">Cost code</Label>
+                          <Select
+                            id="bill-code"
+                            value={billCodeFilter?.key ?? ""}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              if (!v) return setBillCodeFilter(null);
+                              if (v === UNCODED_KEY)
+                                return setBillCodeFilter({
+                                  key: v,
+                                  label: "Uncoded",
+                                  codes: [""],
+                                });
+                              const opt = billCodeOptions.find((o) => o.number === v);
+                              setBillCodeFilter({
+                                key: v,
+                                label: opt?.name ? `${v} ${opt.name}` : v,
+                                codes: [v],
+                              });
+                            }}
+                            className="!py-1 !text-xs"
+                          >
+                            <option value="">All codes</option>
+                            {billCodeOptions.map((o) => (
+                              <option key={o.number || UNCODED_KEY} value={o.number || UNCODED_KEY}>
+                                {o.number ? `${o.number} ${o.name}`.trim() : "Uncoded"}
+                              </option>
+                            ))}
+                            {/* A pick made on the ring can name a set of codes
+                                ("Other"), which no single row here stands for —
+                                it is listed so the box never reads "All codes"
+                                over a filtered list. */}
+                            {billCodeFilter &&
+                              billCodeFilter.codes.length > 1 && (
+                                <option value={billCodeFilter.key}>{billCodeFilter.label}</option>
+                              )}
+                          </Select>
+                        </div>
+                        <ul className="divide-y divide-line-soft border-t border-line-soft">
+                          {nonSunsetBills.map(renderBillCard)}
+                        </ul>
+                      </>
                     )}
                   </Card>
                 )}
