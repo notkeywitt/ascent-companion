@@ -74,6 +74,7 @@ matching row here.
 | **Env, gates, Pave config** | `src/lib/config.ts` |
 | **Companion DB tables** | `src/db/schema.ts` |
 | **The design system** | `src/components/ui.tsx` (build every UI on these primitives) |
+| **Per-element help on a page** (the ? mark, bottom-left) | `src/components/PageGuide.tsx` (the overlay: the live page scaled into a stage, the element list, the arrow) → `src/lib/pageGuide.ts` (the topic type, the path key, the selector builder) → `/api/page-guide` → table `page_guides`. An admin writes the topics IN the overlay: Edit → Add element → tap the thing |
 | **Editable on-screen text** (office reword, no deploy) | add a key to `src/lib/copy.ts`, render it via `useCopy()`; edited at `/admin/copy` → `src/app/api/admin/copy/route.ts` |
 | **Which build is running** (after a deploy) | the footer at the bottom of `/admin` — `src/app/admin/BuildFooter.tsx`. The Assistant's own commit/branch/time are frozen into the bundle by the `env` block in `next.config.mjs` (no request); the Apps Script back end's stamp is fetched on demand from its anonymous `doGet` health check via `src/app/api/admin/build/route.ts` |
 | **The Admin To Dos card** (JobTread to-dos + the morning report on Home) | UI `src/components/HomeTodos.tsx`; the live to-do read + create is `src/app/api/todos/route.ts` → `createToDo` in `src/lib/jobtread.ts`. The report under it is the digest: `src/lib/digest/` — `settings.ts` (EVERY threshold/exclusion), `registry.ts` (the check list), `checks/*` (one file per check), `run.ts` (aggregator); routes `src/app/api/digest/*`; Google data via appscript `DailyDigest.js` |
@@ -113,6 +114,7 @@ including edge middleware.
 | `pagesMenu.ts` ⟂ | **The All Pages menu — every page in the app, grouped by function.** The catalog is DERIVED, not typed out: every `AREAS` destination in its area, then every remaining view that has a real page, filed by the group it declares in `views.ts`. That second rule is what keeps "every page" true as the app grows — a new view appears here the day it is added. A saved layout stores VIEW IDS only, so labels and addresses stay code's; what the admin owns is the ORDER and the GROUPING. It cannot HIDE a page (that is `views.ts`), and any page a saved layout does not name is folded back into its default group. Unit-tested — every test is a way the completeness promise could fail silently. |
 | `nav.ts` ⟂ | **The launcher's destination list** (`AREAS`) — the one place every gateable view is named. Read by BOTH the home launcher and the header's global search, which is why it's a module rather than living in `page.tsx`. |
 | `help.ts` ⟂ | **The in-app instructions, as data** — one topic per question ("How do I clock in?"), each naming the view it belongs to so a topic for a page you can't open is hidden. Read by BOTH the `/help` page and the header's search (`searchHelp`), the same reason `nav.ts` is a module. Written to **ASD-STE100** Simplified Technical English: the rules are in the file header, and `help.test.ts` enforces the countable ones (20 words a step, 25 a note, one sentence per step, no banned words). Every `**bold**` string is the text on a real control — when a page rewords a button, this file changes with it. |
+| `pageGuide.ts` ⟂ | **The page guide, as data** — per-element help an admin writes from inside the app, one topic per thing on the screen (`help.ts` answers a question; this names a control). `guidePathKey` is the rule worth knowing: a guide belongs to a PAGE, so a path segment that does not read as a word is folded to `*` and `/bill/22ab9x` shares one guide with every other bill. `selectorFor` builds the anchor from the element an admin TAPPED, so nobody types CSS. Unit-tested. |
 | `preview.ts` ⟂ | **Role preview** — the cookie name + helpers letting an admin view the app AS each role. The layout reads the cookie (honoring it only for a real admin) and hands that role's live view set to the nav, so the launcher/tabs render as that role sees them. Narrows only, never elevates. |
 | `previewClient.ts` | Browser half of the above: `startPreview`/`stopPreview` set/clear the cookie and reload so the server layout re-reads it. |
 | `auth.ts` ⟂ | Shared-password auth helpers (Web Crypto only; works in edge + node). |
@@ -461,7 +463,10 @@ the defaults in `lib/leadBoard.ts`),
 into; no row means the automatic 10th cutoff),
 `lead_inquiries`, `lead_inquiry_dismissals`, `leave_policies`, `leave_balances`,
 `leave_requests`, `leave_transactions`, `jt_user_links`, `notices`,
-`notice_reads`, `rfis`, `sunset_statements`, `page_copy`, `bill_index`,
+`notice_reads`, `rfis`, `sunset_statements`, `page_copy`,
+`page_guides` (one JSON row per page — the per-element help topics an admin
+wrote in the help overlay; no row means that page has no guide),
+`bill_index`,
 `bill_line_index`, `bill_index_meta`, `daily_digest`, `digest_dismissals`
 (items the office marked handled on the digest — hidden from every later run),
 `invoice_review_rulings`

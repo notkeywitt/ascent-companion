@@ -1349,3 +1349,20 @@ export const billingMonthSetting = sqliteTable("billing_month_setting", {
 export const BILLING_MONTH_SETTING_ID = "default";
 
 export type BillingMonthSettingRow = typeof billingMonthSetting.$inferSelect;
+
+/**
+ * The PAGE GUIDES — per-element help an admin writes from inside the app.
+ *
+ * One row per page (`path` = the folded pathname, see src/lib/pageGuide.ts),
+ * holding that page's whole topic list as JSON. Override-only like nav_layout:
+ * no row means the page has no guide, so an empty or unreachable table costs
+ * the help and never the page.
+ */
+export const pageGuides = sqliteTable("page_guides", {
+  path: text("path").primaryKey(), // "/bill/*", "/trackingsheet"
+  value: text("value").notNull(), // GuideTopic[] serialized as JSON
+  updatedAt: text("updated_at").notNull().default(""),
+  updatedBy: text("updated_by").notNull().default(""), // signed-in email
+});
+
+export type PageGuideRow = typeof pageGuides.$inferSelect;

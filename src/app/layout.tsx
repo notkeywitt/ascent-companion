@@ -20,6 +20,7 @@ import { loadLaunchers } from "@/lib/navLayoutService";
 import { PREVIEW_COOKIE, parsePreviewRole } from "@/lib/preview";
 import { PreviewBanner } from "@/components/PreviewBanner";
 import { SplashScreen } from "@/components/SplashScreen";
+import { PageGuide } from "@/components/PageGuide";
 import { RouteLoadingScreen } from "@/components/RouteLoadingScreen";
 
 // Brand web typeface (Brand Guidelines p.22 — Roboto is the sanctioned web
@@ -163,6 +164,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 that started it can be closed or navigated away from, and its
                 progress banner follows the user to whatever page they open. */}
             <BillMoveProvider>
+              {/* Everything the help overlay treats as "the page": the header,
+                  the content and the tab bar, in ONE element it can scale into
+                  its stage with a single transform. Nothing else belongs in
+                  here — the overlay's own chrome must not scale with it. */}
+              <div id="app-shell">
               <Suspense fallback={null}>
                 <AppHeader />
               </Suspense>
@@ -182,6 +188,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 <TabBar />
               </Suspense>
               <StuckVendorPopup />
+              </div>
+              {/* The help mark, bottom-left of every page, and the overlay it
+                  opens. Outside #app-shell on purpose. */}
+              <PageGuide />
             </BillMoveProvider>
             </StuckVendorsProvider>
           </RefreshProvider>

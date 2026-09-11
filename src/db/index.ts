@@ -988,6 +988,16 @@ async function applySchema() {
       meta TEXT NOT NULL DEFAULT '{}'
     )
   `);
+  // Page guides — the per-element help an admin writes in the help overlay.
+  // One JSON row per page; an absent row means that page has no guide yet.
+  await getClient().execute(`
+    CREATE TABLE IF NOT EXISTS page_guides (
+      path TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      updated_at TEXT NOT NULL DEFAULT '',
+      updated_by TEXT NOT NULL DEFAULT ''
+    )
+  `);
   // The journal is read newest-first, and filtered by the record, the job, the
   // person, or the one action a row belonged to.
   for (const idx of [
