@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: ship/billing-month
 status: shipped
 started: 2026-09-10T15:22:41Z
-updated: 2026-09-11T13:44:11Z
+updated: 2026-09-11T14:46:07Z
 goal: 
 next: verify on desktop /trackingsheet: (1) queue an entry edit and a bill recode, confirm one Save Changes writes both; (2) select several entries and set a rate on all; (3) Hide the budget column and reopen it from the left tab; (4) hover a donut slice — the card should float without moving the legend
 ---
@@ -71,6 +71,8 @@ next: verify on desktop /trackingsheet: (1) queue an entry edit and a bill recod
 - 2026-09-11 06:41 · `3e8ba06` companion: let the budget tab breathe, and follow the scroll
   src/app/trackingsheet/Board.tsx
 - 2026-09-11 06:44 · `7592c98` companion: say what the bills are filtered to, and cut what said nothing
+  src/app/trackingsheet/Board.tsx, src/app/trackingsheet/CostDonuts.tsx
+- 2026-09-11 07:46 · `a6e6416` companion: labor ring filters the labor list, and a way to the package
   src/app/trackingsheet/Board.tsx, src/app/trackingsheet/CostDonuts.tsx
 
 ## Notes
