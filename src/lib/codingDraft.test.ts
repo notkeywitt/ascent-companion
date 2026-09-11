@@ -134,6 +134,26 @@ describe("reconcileDraft", () => {
     expect(already.dropped).toBe(1);
   });
 
+  it("keeps an entry CORRECTION while its entry is still in the month", () => {
+    const r = reconcileDraft(parts({ timeEdits: { T1: { date: "2026-08-20", startTime: "07:00" } } }), {
+      ...world,
+      timeEntries: [{ id: "T1", costItemId: "leafA" }],
+    });
+    expect(r.timeEdits).toEqual({ T1: { date: "2026-08-20", startTime: "07:00" } });
+    expect(r.kept).toBe(1);
+  });
+
+  it("drops a correction whose entry is gone, and one with nothing in it", () => {
+    const timeEntries = [{ id: "T1", costItemId: "leafA" }];
+    expect(
+      reconcileDraft(parts({ timeEdits: { GONE: { type: "Base" } } }), { ...world, timeEntries })
+        .timeEdits,
+    ).toEqual({});
+    const empty = reconcileDraft(parts({ timeEdits: { T1: {} } }), { ...world, timeEntries });
+    expect(empty.timeEdits).toEqual({});
+    expect(empty.dropped).toBe(1);
+  });
+
   it("drops every labor recode when the world carries no time entries at all", () => {
     // A bill-scoped surface reconciling a draft that happens to hold labor:
     // there is nothing to check it against, so it cannot be restored.

@@ -73,10 +73,35 @@ export interface CodingDraft {
    * labor, and a draft written before this existed simply has none.
    */
   timeStaged?: Record<string, string>;
+  /**
+   * timeEntryId → the in-flight correction to its hours, day or pay type. The
+   * entry's COST CODE is not in here: a recode is a recode wherever it was
+   * picked, so it rides `timeStaged` above whether the drawer or the entry
+   * panel staged it, and one entry can never carry two different codes.
+   */
+  timeEdits?: Record<string, TimeEntryEdit>;
+}
+
+/**
+ * An in-flight correction to one time entry — the fields /api/time-entry takes,
+ * minus the id. Every one is optional: only what the office actually changed is
+ * staged, so a save sends the correction and nothing else.
+ */
+export interface TimeEntryEdit {
+  /** YYYY-MM-DD, org-local — the day the entry should read as. */
+  date?: string;
+  /** HH:MM, org-local. */
+  startTime?: string;
+  endTime?: string;
+  /** The member's own pay type, which re-rates the entry. */
+  type?: string;
 }
 
 /** The editable half of a draft — what a caller hands in to be saved. */
-export type DraftParts = Pick<CodingDraft, "staged" | "edits" | "taxEdits" | "timeStaged">;
+export type DraftParts = Pick<
+  CodingDraft,
+  "staged" | "edits" | "taxEdits" | "timeStaged" | "timeEdits"
+>;
 
 /** The job workbench: one job, one billing month. */
 export const jobDraftKey = (jobId: string, ym: string) => `job:${jobId}:${ym}`;
@@ -94,8 +119,15 @@ export function draftSize(parts: DraftParts): number {
     Object.keys(parts.staged).length +
     Object.keys(parts.edits).length +
     Object.keys(parts.taxEdits).length +
-    Object.keys(parts.timeStaged ?? {}).length
+    Object.keys(parts.timeStaged ?? {}).length +
+    Object.keys(parts.timeEdits ?? {}).length
   );
+}
+
+/** Same test for a time-entry correction: an all-empty patch is not a change. */
+function timeEditHasContent(e: TimeEntryEdit | undefined): e is TimeEntryEdit {
+  if (!e) return false;
+  return [e.date, e.startTime, e.endTime, e.type].some((v) => v !== undefined && v !== "");
 }
 
 /** True when this edit has any typed content — an all-empty one is not a change. */
@@ -217,8 +249,21 @@ export function reconcileDraft(draft: DraftParts, world: DraftWorld): Reconciled
     taxEdits[docId] = value;
   }
 
-  const kept = draftSize({ staged, edits, taxEdits, timeStaged });
-  return { staged, edits, taxEdits, timeStaged, kept, dropped };
+  // An entry correction survives as long as its entry does. Unlike a recode
+  // there is nothing to compare it against — "6 hours, not 8" is only wrong if
+  // someone already fixed it, and re-sending the hours it already has writes
+  // the same hours.
+  const timeEdits: Record<string, TimeEntryEdit> = {};
+  for (const [entryId, edit] of Object.entries(draft.timeEdits ?? {})) {
+    if (!timeById.has(entryId) || !timeEditHasContent(edit)) {
+      dropped++;
+      continue;
+    }
+    timeEdits[entryId] = edit;
+  }
+
+  const kept = draftSize({ staged, edits, taxEdits, timeStaged, timeEdits });
+  return { staged, edits, taxEdits, timeStaged, timeEdits, kept, dropped };
 }
 
 // ---------------------------------------------------------------------------
@@ -248,6 +293,7 @@ function parseDraft(raw: string | null): CodingDraft | null {
       edits: (d.edits ?? {}) as Record<string, LineEdit>,
       taxEdits: (d.taxEdits ?? {}) as Record<string, string>,
       timeStaged: (d.timeStaged ?? {}) as Record<string, string>,
+      timeEdits: (d.timeEdits ?? {}) as Record<string, TimeEntryEdit>,
     };
   } catch {
     return null; // a truncated write from a killed tab — treat as no draft

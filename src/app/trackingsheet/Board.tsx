@@ -84,6 +84,7 @@ import {
   loadDraft,
   reconcileDraft,
   saveDraft,
+  type TimeEntryEdit,
 } from "@/lib/codingDraft";
 import { isSalesTaxLine, SALES_TAX_LINE_NAME } from "@/lib/salesTax";
 import { billingMonths, issueDateFor, monthLabel } from "@/lib/billingMonths";
@@ -564,6 +565,14 @@ export function Board() {
    * something this board does, not only Labor Review.
    */
   const [timeStaged, setTimeStaged] = useState<Map<string, string>>(new Map());
+  /**
+   * timeEntryId → its queued correction (hours, day, pay type). The entry
+   * panel's twin of `edits` on the bill side: it stages instead of writing, so
+   * fixing three entries and recoding a month of bills is ONE Save. The cost
+   * code is deliberately NOT in here — it rides `timeStaged` above wherever it
+   * was picked, so an entry can never carry two different codes.
+   */
+  const [timeEdits, setTimeEdits] = useState<Record<string, TimeEntryEdit>>({});
 
   const taxDirty = Object.entries(taxEdits).some(([docId, v]) => {
     if (v === "") return false;
@@ -574,12 +583,19 @@ export function Board() {
   const dirty =
     staged.size > 0 ||
     timeStaged.size > 0 ||
+    Object.keys(timeEdits).length > 0 ||
     Object.keys(edits).length > 0 ||
     taxDirty ||
     combinePending !== null;
+  /** Every time entry a Save would touch, recodes and corrections together —
+   *  counted once each, because an entry moved AND re-timed is one entry. */
+  const timeTouched = useMemo(
+    () => new Set([...timeStaged.keys(), ...Object.keys(timeEdits)]),
+    [timeStaged, timeEdits],
+  );
   /** Everything Sync would write, for the toolbar's chip. A staged merge counts
    *  as one change however many lines it folds together — it is one decision. */
-  const stagedCount = staged.size + timeStaged.size + (combinePending ? 1 : 0);
+  const stagedCount = staged.size + timeTouched.size + (combinePending ? 1 : 0);
   // Still worth a prompt — leaving means the coding hasn't reached JobTread —
   // but it no longer says "lose them", because it isn't true any more: the
   // autosave below has already put the work somewhere it survives (see
@@ -645,6 +661,7 @@ export function Board() {
         setTimeStaged((prev) =>
           prev.size > 0 ? prev : new Map(Object.entries(r.timeStaged ?? {})),
         );
+        setTimeEdits((prev) => (Object.keys(prev).length > 0 ? prev : (r.timeEdits ?? {})));
         setRestoreMsg({ kept: r.kept, dropped: r.dropped, savedAt: draft.savedAt });
       } finally {
         // Whatever came of it, this scope is now the browser's to save.
@@ -671,10 +688,11 @@ export function Board() {
         edits: compactEdits,
         taxEdits,
         timeStaged: Object.fromEntries(timeStaged),
+        timeEdits,
       },
       `${data?.job?.name || "This job"} · ${monthLabel(ym)}`,
     );
-  }, [draftKey, staged, edits, taxEdits, timeStaged, data?.job?.name, ym]);
+  }, [draftKey, staged, edits, taxEdits, timeStaged, timeEdits, data?.job?.name, ym]);
 
   const load = useCallback(
     async (opts?: { preserveStaged?: boolean }) => {
@@ -1234,6 +1252,28 @@ export function Board() {
       return next;
     });
     setSyncMsg(null);
+  };
+
+  /**
+   * Queue one entry's correction from the panel. The cost code goes into the
+   * board's labor lane so the rail, the rings and the drawer all move with it;
+   * the rest is the patch a Save sends to /api/time-entry. An EMPTY patch is
+   * the panel's Revert — it clears both lanes for that entry.
+   */
+  const stageTimeEdit = (id: string, patch: TimeEntryEdit & { costItemId?: string }) => {
+    const { costItemId, ...rest } = patch;
+    setTimeStaged((prev) => {
+      const next = new Map(prev);
+      if (costItemId) next.set(id, costItemId);
+      else next.delete(id);
+      return next;
+    });
+    setTimeEdits((prev) => {
+      const next = { ...prev };
+      if (Object.keys(rest).length > 0) next[id] = rest;
+      else delete next[id];
+      return next;
+    });
   };
 
   /** Un-stage one entry from the drawer's Staged list. */
@@ -2111,6 +2151,7 @@ export function Board() {
   const revertAll = () => {
     setStaged(new Map());
     setTimeStaged(new Map());
+    setTimeEdits({});
     setTimeSelected(new Set());
     setEdits({});
     setTaxEdits({});
@@ -2468,6 +2509,27 @@ export function Board() {
       }
     }
 
+    // …and the queued ENTRY CORRECTIONS — hours, day, pay type. One POST each,
+    // to the same route the panel used to call on its own. They go after the
+    // recodes so a re-timed entry lands on its new code first: /api/time-entry
+    // re-rates off the span, and the code it is charged to is settled by then.
+    let timeEditOk = 0;
+    for (const [id, patch] of Object.entries(timeEdits)) {
+      try {
+        const r = await fetch("/api/time-entry", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id, ...patch }),
+        });
+        const j = await r.json();
+        if (j.error) failures.push(j.error);
+        else if (j.previewed) failures.push(j.message ?? "Writes are disabled.");
+        else timeEditOk++;
+      } catch (e) {
+        failures.push(e instanceof Error ? e.message : "Time edit request failed");
+      }
+    }
+
     // Push tax — a separate loop, since tax is not one of the line changes above.
     //
     // Two reasons a bill lands here. A STAGED EDIT is the obvious one. The other
@@ -2545,6 +2607,8 @@ export function Board() {
     const parts = [];
     if (ok > 0) parts.push(`${ok} line${ok === 1 ? "" : "s"}`);
     if (timeOk > 0) parts.push(`${timeOk} time ${timeOk === 1 ? "entry" : "entries"}`);
+    if (timeEditOk > 0)
+      parts.push(`${timeEditOk} entry ${timeEditOk === 1 ? "correction" : "corrections"}`);
     if (taxOk > 0) parts.push(`${taxOk} tax edit${taxOk === 1 ? "" : "s"}`);
     if (taxOffCount > 0)
       parts.push(`Record Tax off on ${taxOffCount} bill${taxOffCount === 1 ? "" : "s"}`);
@@ -3653,7 +3717,10 @@ export function Board() {
                       monthEntries={monthTime}
                       codeOf={timeCodeOf}
                       headroomFor={timeHeadroomFor}
-                      isMoved={(t) => timeStaged.has(t.id)}
+                      // "Changed", not only "moved": a queued hours or pay-type
+                      // correction is staged work the Save will write, and a row
+                      // that shows nothing looks like it was never touched.
+                      isMoved={(t) => timeTouched.has(t.id)}
                       selected={timeSelected}
                       onSelectedChange={setTimeSelected}
                       onFlag={(id, flagged) => void toggleTimeFlag(id, flagged)}
@@ -3985,6 +4052,9 @@ export function Board() {
                   jobId={jobId}
                   codeOptions={timeCodeOptions}
                   writes={Boolean(data?.writesEnabled)}
+                  staged={timeEdits[openTime.id]}
+                  stagedLeafId={timeStaged.get(openTime.id)}
+                  onStage={(patch) => stageTimeEdit(openTime.id, patch)}
                   onSaved={() => {
                     // The write already landed in JobTread, so this is a
                     // re-read, not a sync — and it must keep the staged bill
@@ -4146,6 +4216,9 @@ export function Board() {
               jobId={jobId}
               codeOptions={timeCodeOptions}
               writes={Boolean(data?.writesEnabled)}
+              staged={timeEdits[openTime.id]}
+              stagedLeafId={timeStaged.get(openTime.id)}
+              onStage={(patch) => stageTimeEdit(openTime.id, patch)}
               onSaved={() => {
                 setOpenTimeId(null);
                 load({ preserveStaged: true });

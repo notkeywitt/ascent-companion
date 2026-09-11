@@ -6,6 +6,7 @@ import { JobPicker, jobLabel, type JobRef } from "@/components/JobPicker";
 import { Banner, Button, Card, Chip, Input, Label, Loading, Select } from "@/components/ui";
 import { JtLink } from "@/components/JtLink";
 import { jtTimeUrl } from "@/lib/jtLinks";
+import type { TimeEntryEdit } from "@/lib/codingDraft";
 import { clockOfMinutes, minutesOfClock, orgParts, prettyClock, spanHours } from "@/lib/orgTime";
 
 /**
@@ -26,11 +27,22 @@ import { clockOfMinutes, minutesOfClock, orgParts, prettyClock, spanHours } from
  * own, so approving hours can never also rewrite them — and it is disabled
  * while an edit is pending, because the write reloads the board under it.
  *
- * SAVES IMMEDIATELY — deliberately unlike the board around it. Bill-line recodes
- * stage because the whole point is trying a month of moves against the budget
- * before committing them; an entry that was logged on the wrong day is simply
- * wrong, and there is nothing to try. It follows the coding card's own rule for
- * structural edits (combine, buyback, delete): those write now, coding stages.
+ * IT STAGES, like the board around it. Queue Changes puts the correction on the
+ * board's staged pile and writes nothing; the page's one Save Changes button
+ * commits the month's bill coding and its time edits together. An earlier
+ * version wrote on the spot and reloaded the board under itself, which threw
+ * away every staged bill move in the process — correcting two entries meant two
+ * round trips and two chances to lose the rest of the work.
+ *
+ * THE COST CODE RIDES THE BOARD'S OWN LABOR LANE (`timeStaged`), not the patch:
+ * a recode is a recode wherever it was picked, so the panel and the selection
+ * drawer stage into the same place and one entry can never carry two codes.
+ *
+ * TWO THINGS STILL WRITE ON THE SPOT, both structural and neither a correction:
+ * a JOB MOVE (cost items are per-job, so it must carry the target job's code in
+ * the same write, and the entry leaves this board when it lands) and APPROVE,
+ * which sends `isApproved` alone so approving hours can never also rewrite
+ * them.
  *
  * WHAT JOBTREAD DOES WITH IT — all of it probe-confirmed (2026-08-25; the note
  * on updateTimeEntry in lib/jobtread.ts carries the numbers):
@@ -108,6 +120,9 @@ export function TimeCodingCard({
   jobId,
   codeOptions,
   writes,
+  staged,
+  stagedLeafId,
+  onStage,
   onSaved,
   onClose,
 }: {
@@ -116,20 +131,30 @@ export function TimeCodingCard({
   /** The CURRENT job's labor leaves. A job move fetches the target's own. */
   codeOptions: Option[];
   writes: boolean;
-  /** Reload the board — the entry's cost code, hours, day or job just moved. */
+  /** What the board already has staged for this entry, so reopening it shows
+   *  the queued correction rather than JobTread's untouched figures. */
+  staged?: TimeEntryEdit;
+  /** …and the leaf it is staged onto, out of the board's labor lane. */
+  stagedLeafId?: string;
+  /** Queue this correction on the board. Called with only what changed. */
+  onStage: (patch: TimeEntryEdit & { costItemId?: string }) => void;
+  /** Reload the board — a job move or an approval just wrote to JobTread. */
   onSaved: () => void;
   onClose: () => void;
 }) {
   const started = useMemo(() => orgParts(entry.startedAt), [entry.startedAt]);
   const ended = useMemo(() => orgParts(entry.endedAt), [entry.endedAt]);
 
+  // Every field opens on the STAGED value where there is one, falling back to
+  // what JobTread holds. Reopening a queued entry has to show the queue, or the
+  // panel would read as "nothing changed" over a change that is about to save.
   const [job, setJob] = useState<JobRef | null>(null);
-  const [leafId, setLeafId] = useState(entry.costItemId ?? "");
-  const [date, setDate] = useState(started.date);
-  const [start, setStart] = useState(started.time);
-  const [end, setEnd] = useState(ended.time);
+  const [leafId, setLeafId] = useState(stagedLeafId || (entry.costItemId ?? ""));
+  const [date, setDate] = useState(staged?.date || started.date);
+  const [start, setStart] = useState(staged?.startTime || started.time);
+  const [end, setEnd] = useState(staged?.endTime || ended.time);
   const [hoursText, setHoursText] = useState(entry.hours ? entry.hours.toFixed(2) : "");
-  const [payType, setPayType] = useState(entry.type);
+  const [payType, setPayType] = useState(staged?.type || entry.type);
   const [saving, setSaving] = useState(false);
   const [approving, setApproving] = useState(false);
   const [msg, setMsg] = useState<{ tone: "success" | "error" | "info"; text: string } | null>(null);
@@ -140,12 +165,12 @@ export function TimeCodingCard({
   // progress, and re-running on every `entry` identity would do exactly that.
   useEffect(() => {
     setJob(null);
-    setLeafId(entry.costItemId ?? "");
-    setDate(started.date);
-    setStart(started.time);
-    setEnd(ended.time);
+    setLeafId(stagedLeafId || (entry.costItemId ?? ""));
+    setDate(staged?.date || started.date);
+    setStart(staged?.startTime || started.time);
+    setEnd(staged?.endTime || ended.time);
     setHoursText(entry.hours ? entry.hours.toFixed(2) : "");
-    setPayType(entry.type);
+    setPayType(staged?.type || entry.type);
     setNewRate(null);
     setMsg(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -302,6 +327,9 @@ export function TimeCodingCard({
     [start],
   );
 
+  // Measured against JobTread, not against the queue: the panel's job is to say
+  // what a save would send, and a correction already staged is still a
+  // correction that has not landed.
   const timeChanged = date !== started.date || start !== started.time || end !== ended.time;
   /** The hours a re-rate would be charged on. JobTread multiplies by its OWN
    *  minute count unless the span is being rewritten in the same save. */
@@ -327,13 +355,31 @@ export function TimeCodingCard({
   // has no hours to approve yet.
   const canApprove = writes && !entry.isApproved && !openEntry && !saving && !approving && !dirty;
 
-  async function save() {
+  /** Queue the correction on the board. Nothing reaches JobTread until the
+   *  page's Save Changes runs — the same deal the bill lines get. */
+  function stage() {
+    const patch: TimeEntryEdit & { costItemId?: string } = {};
+    if (codeChanged) patch.costItemId = leafId;
+    if (typeChanged) patch.type = payType;
+    if (timeChanged) {
+      patch.date = date;
+      patch.startTime = start;
+      if (end) patch.endTime = end;
+    }
+    onStage(patch);
+    setMsg({ tone: "success", text: "Queued — press Save Changes to write it." });
+  }
+
+  /* A JOB MOVE writes on the spot. It cannot queue with the rest: the entry
+     leaves this job the moment it lands, so it has no place on a board scoped
+     to one job's month, and JobTread rejects the move unless the target job's
+     own cost code travels in the same write. */
+  async function moveJob() {
+    if (!job) return;
     setSaving(true);
     setMsg(null);
     try {
-      const body: Record<string, string> = { id: entry.id };
-      if (movingJob && job) body.jobId = job.id;
-      if (codeChanged || movingJob) body.costItemId = leafId;
+      const body: Record<string, string> = { id: entry.id, jobId: job.id, costItemId: leafId };
       if (typeChanged) body.type = payType;
       if (timeChanged) {
         body.date = date;
@@ -351,15 +397,17 @@ export function TimeCodingCard({
       } else if (b.previewed) {
         setMsg({ tone: "info", text: b.message });
       } else {
-        setMsg({ tone: "success", text: "Saved to JobTread." });
+        setMsg({ tone: "success", text: "Moved in JobTread." });
         onSaved();
       }
     } catch (e) {
-      setMsg({ tone: "error", text: e instanceof Error ? e.message : "Failed to save" });
+      setMsg({ tone: "error", text: e instanceof Error ? e.message : "Failed to move" });
     } finally {
       setSaving(false);
     }
   }
+
+  const save = () => (movingJob ? void moveJob() : stage());
 
   /* ---- approving the hours ----
      A separate press and a separate write, sending nothing but the flag. The
@@ -402,6 +450,9 @@ export function TimeCodingCard({
     setPayType(entry.type);
     setNewRate(null);
     setMsg(null);
+    // Back to JobTread's own figures ON THE BOARD too — otherwise the fields
+    // would read right while a stale patch stayed queued behind them.
+    if (staged || stagedLeafId) onStage({});
   }
 
   return (
@@ -679,10 +730,17 @@ export function TimeCodingCard({
       )}
 
       <div className="mt-3 flex items-center gap-2">
+        {/* Queue, not write — the page's Save Changes is what reaches
+            JobTread. A job move is the exception and says so on the button. */}
         <Button size="sm" onClick={save} disabled={!canSave} className="flex-1">
-          {saving ? "Saving…" : "Save to JobTread"}
+          {movingJob ? (saving ? "Moving…" : "Move to job & save") : "Queue changes"}
         </Button>
-        <Button variant="secondary" size="sm" onClick={revert} disabled={!dirty || saving}>
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={revert}
+          disabled={(!dirty && !staged && !stagedLeafId) || saving}
+        >
           Revert
         </Button>
       </div>
@@ -704,7 +762,7 @@ export function TimeCodingCard({
           </Button>
           <p className="mt-1 text-[11px] leading-relaxed text-neutral-500 dark:text-neutral-400">
             {dirty
-              ? "Save or revert your changes first — approving reloads the entry."
+              ? "Save or revert the queued change first — approving reloads the entry."
               : "Marks the hours approved in JobTread. It changes nothing else — not the coding, not the cost."}
           </p>
         </div>
