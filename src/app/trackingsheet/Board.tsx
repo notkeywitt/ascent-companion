@@ -4149,12 +4149,16 @@ export function Board() {
                 </ul>
               ))}
 
-            {/* THE ACTIVE COST-CODE FILTER, said out loud. A list quietly
+            {/* THE ACTIVE COST-CODE FILTER, said out loud — a list quietly
                 showing four of a month's thirty bills is the kind of thing
-                someone spends ten minutes not understanding, so the pick gets a
-                chip that names it and clears it. Shown in every mode, because
-                the filter narrows the bills whichever way they are arranged. */}
-            {billCodeFilter && (
+                someone spends ten minutes not understanding.
+
+                In the BY-BILL mode it lives inside the list's own filter strip,
+                beside the dropdown that sets it (see below); it belongs with the
+                list it narrows, not floating between that list and the labor
+                block above. The other two modes draw no such strip, so there it
+                is this standalone row or nothing. */}
+            {billCodeFilter && mode !== "bill" && (
               <div className="mb-2 flex items-center gap-2">
                 <FilterChip
                   on
@@ -4174,10 +4178,24 @@ export function Board() {
             )}
 
             {mode === "bill" && filteredBills.length === 0 ? (
+              /* A filter that empties the list takes its own strip down with it,
+                 so the way out has to be here — otherwise the only way back to
+                 the month is finding the right slice of the ring again. */
               <EmptyState>
-                {billCodeFilter
-                  ? `No bills on ${billCodeFilter.label} this month.`
-                  : c("recode.empty.noBills")}
+                {billCodeFilter ? (
+                  <>
+                    No bills on {billCodeFilter.label} this month.{" "}
+                    <button
+                      type="button"
+                      onClick={() => setBillCodeFilter(null)}
+                      className="font-semibold text-accent underline"
+                    >
+                      Show every bill
+                    </button>
+                  </>
+                ) : (
+                  c("recode.empty.noBills")
+                )}
               </EmptyState>
             ) : mode === "bill" ? (
               <>
@@ -4218,7 +4236,8 @@ export function Board() {
                             ring above sets the same state, so picking a slice
                             moves this select and picking here lights that
                             slice: one filter, two ways in. */}
-                        <div className="border-t border-line-soft bg-neutral-50 px-3 py-2 dark:bg-ink-raised/50">
+                        <div className="flex flex-wrap items-end gap-x-3 gap-y-2 border-t border-line-soft bg-neutral-50 px-3 py-2 dark:bg-ink-raised/50">
+                          <div className="min-w-[10rem] flex-1">
                           <Label htmlFor="bill-code">Cost code</Label>
                           <Select
                             id="bill-code"
@@ -4256,6 +4275,28 @@ export function Board() {
                                 <option value={billCodeFilter.key}>{billCodeFilter.label}</option>
                               )}
                           </Select>
+                          </div>
+                          {/* What the pick actually did, next to the pick. Only
+                              here — a chip above a CLOSED list describes a list
+                              nobody can see. */}
+                          {billCodeFilter && (
+                            <div className="flex min-w-0 items-center gap-2">
+                              <FilterChip
+                                on
+                                onClick={() => setBillCodeFilter(null)}
+                                title="Clear this cost-code filter"
+                              >
+                                {billCodeFilter.label}
+                                <span aria-hidden className="text-[11px] opacity-80">
+                                  ✕
+                                </span>
+                              </FilterChip>
+                              <span className="min-w-0 truncate text-[11px] text-neutral-500 dark:text-neutral-400">
+                                {filteredBills.length} of {data.bills.length} bill
+                                {data.bills.length === 1 ? "" : "s"}
+                              </span>
+                            </div>
+                          )}
                         </div>
                         <ul className="divide-y divide-line-soft border-t border-line-soft">
                           {nonSunsetBills.map(renderBillCard)}
