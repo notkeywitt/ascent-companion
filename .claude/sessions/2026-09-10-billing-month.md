@@ -4,9 +4,9 @@ repo: ascent-companion
 branch: ship/billing-month
 status: in-progress
 started: 2026-09-10T15:22:41Z
-updated: 2026-09-10T19:24:09Z
+updated: 2026-09-11T04:40:56Z
 goal: 
-next: owner: deploy the appscript side (./deploy.sh) — the corrected totals and the Office/Shop/Electrical exclusion only appear once that lands; then open /invoicing-summary and confirm Ferron reads $117,979
+next: verify on a phone: /employee-time clock-in and clock-out time chips open a wheel of quarter hours
 ---
 
 ## Log
@@ -36,5 +36,7 @@ next: owner: deploy the appscript side (./deploy.sh) — the corrected totals an
   CODEBASE_MAP.md, src/app/api/taxable-lines/route.ts, src/app/taxable-lines/TaxableLinesBrowser.tsx, src/app/taxable-lines/page.tsx, src/lib/jobtread.ts, src/lib/nav.ts, +3 more
 - 2026-09-10 12:24 · `82f5cb6` companion: split the taxable-flag worklist by which document carries it
   CODEBASE_MAP.md, src/app/api/taxable-lines/route.ts, src/app/taxable-lines/TaxableLinesBrowser.tsx, src/lib/jobtread.ts, src/lib/taxableLines.test.ts, src/lib/taxableLines.ts
+- 2026-09-10 21:40 · `35a5443` companion: pick a clock time from a list instead of typing it
+  src/app/employee-time/EmployeeTimeClient.tsx
 
 ## Notes
