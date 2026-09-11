@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: ship/billing-month
 status: shipped
 started: 2026-09-10T15:22:41Z
-updated: 2026-09-11T13:13:27Z
+updated: 2026-09-11T13:15:27Z
 goal: 
 next: verify on desktop /trackingsheet: hover a donut slice for its top-5 bills, and check the closing actions appear in the commit bar only near the lower-right corner
 ---
@@ -50,5 +50,7 @@ next: verify on desktop /trackingsheet: hover a donut slice for its top-5 bills,
   src/app/trackingsheet/Board.tsx, src/app/trackingsheet/TimeCodingCard.tsx, src/lib/codingDraft.test.ts, src/lib/codingDraft.ts
 - 2026-09-11 06:13 · `420352f` companion: re-rate a whole selection of time entries
   src/app/trackingsheet/Board.tsx, src/app/trackingsheet/TimeCodingCard.tsx, src/components/TimeEntryList.tsx
+- 2026-09-11 06:15 · `f784c6b` companion: float the ring's breakdown, and close the budget column
+  src/app/trackingsheet/Board.tsx, src/components/Donut.tsx, src/components/SplitGrid.tsx
 
 ## Notes
