@@ -2,9 +2,9 @@
 slug: billing-month
 repo: ascent-companion
 branch: ship/billing-month
-status: in-progress
+status: shipped
 started: 2026-09-10T15:22:41Z
-updated: 2026-09-11T04:40:56Z
+updated: 2026-09-11T04:40:58Z
 goal: 
 next: verify on a phone: /employee-time clock-in and clock-out time chips open a wheel of quarter hours
 ---

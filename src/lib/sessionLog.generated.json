@@ -1,16 +1,16 @@
 {
-  "generatedAt": "2026-09-10T15:42:31Z",
+  "generatedAt": "2026-09-11T04:40:58Z",
   "repo": "ascent-companion",
   "sessions": [
     {
       "slug": "billing-month",
       "file": "2026-09-10-billing-month.md",
       "branch": "ship/billing-month",
-      "status": "in-progress",
+      "status": "shipped",
       "started": "2026-09-10T15:22:41Z",
-      "updated": "2026-09-10T15:42:27Z",
+      "updated": "2026-09-11T04:40:58Z",
       "goal": "",
-      "next": "owner: deploy the appscript side (./deploy.sh) — the corrected totals and the Office/Shop/Electrical exclusion only appear once that lands; then open /invoicing-summary and confirm Ferron reads $117,979",
+      "next": "verify on a phone: /employee-time clock-in and clock-out time chips open a wheel of quarter hours",
       "commits": [
         {
           "date": "2026-09-10",
@@ -18,6 +18,90 @@
           "sha": "a030aad",
           "subject": "companion: point the invoicing package at the billing month on home",
           "files": "src/app/api/invoicing-summary/route.ts, src/lib/invoiceReview/types.ts"
+        },
+        {
+          "date": "2026-09-10",
+          "time": "08:42",
+          "sha": "7efeba3",
+          "subject": "companion: log the invoicing package session",
+          "files": "SESSIONS.md, src/lib/sessionLog.generated.json"
+        },
+        {
+          "date": "2026-09-10",
+          "time": "09:18",
+          "sha": "c651631",
+          "subject": "companion: give the invoicing package build five minutes",
+          "files": "src/app/api/invoicing-summary/route.ts, src/app/invoicing-summary/page.tsx"
+        },
+        {
+          "date": "2026-09-10",
+          "time": "09:56",
+          "sha": "d02214a",
+          "subject": "companion: open the invoicing package on cached figures",
+          "files": "src/app/api/invoicing-summary/route.ts, src/app/invoicing-summary/page.tsx"
+        },
+        {
+          "date": "2026-09-10",
+          "time": "10:14",
+          "sha": "5b81e7b",
+          "subject": "companion: stop asking Apps Script for longer than it will answer",
+          "files": "src/app/api/invoicing-summary/route.ts, src/app/invoicing-summary/page.tsx, src/lib/appsScript.test.ts, src/lib/appsScript.ts"
+        },
+        {
+          "date": "2026-09-10",
+          "time": "10:38",
+          "sha": "95146c4",
+          "subject": "companion: sink Ascent's own jobs to the bottom of the invoicing package",
+          "files": "src/app/invoicing-summary/page.tsx"
+        },
+        {
+          "date": "2026-09-10",
+          "time": "10:56",
+          "sha": "a112d77",
+          "subject": "companion: brand the cost rings olive and ochre, and fold the small slices",
+          "files": "CLAUDE.md, THEME.md, src/app/globals.css, src/app/trackingsheet/CostDonuts.tsx"
+        },
+        {
+          "date": "2026-09-10",
+          "time": "11:12",
+          "sha": "51b0199",
+          "subject": "companion: swap the chart palette for Tableau 10, muted",
+          "files": "CLAUDE.md, THEME.md, src/app/globals.css, src/app/trackingsheet/CostDonuts.tsx"
+        },
+        {
+          "date": "2026-09-10",
+          "time": "11:30",
+          "sha": "b86def5",
+          "subject": "companion: catch a stray isTaxable flag on a vendor bill",
+          "files": "CODEBASE_MAP.md, src/lib/invoiceReview/checks.test.ts, src/lib/invoiceReview/checks/taxableFlag.ts, src/lib/invoiceReview/duplicateDraft.test.ts, src/lib/invoiceReview/evidence.ts, src/lib/invoiceReview/investigate.test.ts, +8 more"
+        },
+        {
+          "date": "2026-09-10",
+          "time": "11:50",
+          "sha": "85af182",
+          "subject": "companion: write bill lines taxable, so the client invoice taxes them",
+          "files": "src/lib/billing.ts, src/lib/jobtread.test.ts, src/lib/jobtread.ts"
+        },
+        {
+          "date": "2026-09-10",
+          "time": "12:03",
+          "sha": "7ad81a7",
+          "subject": "companion: list the bill lines a client invoice will not tax",
+          "files": "CODEBASE_MAP.md, src/app/api/taxable-lines/route.ts, src/app/taxable-lines/TaxableLinesBrowser.tsx, src/app/taxable-lines/page.tsx, src/lib/jobtread.ts, src/lib/nav.ts, +3 more"
+        },
+        {
+          "date": "2026-09-10",
+          "time": "12:24",
+          "sha": "82f5cb6",
+          "subject": "companion: split the taxable-flag worklist by which document carries it",
+          "files": "CODEBASE_MAP.md, src/app/api/taxable-lines/route.ts, src/app/taxable-lines/TaxableLinesBrowser.tsx, src/lib/jobtread.ts, src/lib/taxableLines.test.ts, src/lib/taxableLines.ts"
+        },
+        {
+          "date": "2026-09-10",
+          "time": "21:40",
+          "sha": "35a5443",
+          "subject": "companion: pick a clock time from a list instead of typing it",
+          "files": "src/app/employee-time/EmployeeTimeClient.tsx"
         }
       ]
     },
