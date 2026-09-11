@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/auth";
+import { buildBillPdf } from "@/lib/billPdf";
 import { SALES_TAX_CSI, splitSalesTax } from "@/lib/salesTax";
 import {
   attachFileToDocument,
@@ -136,10 +138,6 @@ export async function POST(req: NextRequest) {
   if (!hasGrant()) {
     return NextResponse.json({ error: "JT_GRANT_KEY is not set." }, { status: 400 });
   }
-  if (!process.env.ANTHROPIC_API_KEY) {
-    return NextResponse.json({ error: "ANTHROPIC_API_KEY is not set." }, { status: 400 });
-  }
-
   let form: FormData;
   try {
     form = await req.formData();
@@ -160,34 +158,84 @@ export async function POST(req: NextRequest) {
   // that was compared, so a re-upload can only overwrite the bill it was shown.
   const replaceDocId = String(form.get("replaceDocId") ?? "").trim();
 
-  if (!(file instanceof File)) {
+  /* ---- the NO-INVOICE path ------------------------------------------------
+     A phone order, a counter charge, a vendor who never sends anything: the
+     charge is real and the bill has to exist, but there is no document to read
+     and nothing for Claude to do. The office types the four facts instead —
+     vendor, amount, what it was for, and the vendor's own number if there is
+     one — and the route SYNTHESISES the extraction from them, so sections 3
+     through 8 below are the same code either way.
+
+     The bill does not stay fileless. Step 8 draws the same Ascent-branded
+     record /api/bill/create-file makes for a bill that arrived without one
+     (lib/billPdf) and attaches it, so the month's Drive backup has no hole in
+     it and the board never marks the bill "No file". */
+  const noFile = /^(1|true|on|yes)$/i.test(String(form.get("noFile") ?? "").trim());
+  const typedAmount = Number(String(form.get("amount") ?? "").replace(/[$,\s]/g, ""));
+  const description = String(form.get("description") ?? "").trim();
+  const typedNumber = String(form.get("billNumber") ?? "").trim();
+  const typedCsi = String(form.get("csi") ?? "").trim();
+
+  if (!noFile && !(file instanceof File)) {
     return NextResponse.json({ error: "No file uploaded." }, { status: 400 });
+  }
+  if (noFile) {
+    if (!vendorOverride) {
+      return NextResponse.json(
+        { error: "Pick the vendor — there is no invoice to read one off." },
+        { status: 400 },
+      );
+    }
+    if (!Number.isFinite(typedAmount) || typedAmount <= 0) {
+      return NextResponse.json({ error: "Enter the bill's total." }, { status: 400 });
+    }
+    if (!description) {
+      return NextResponse.json(
+        { error: "Say what the charge was for — it is what the record prints." },
+        { status: 400 },
+      );
+    }
+    if (description.length > 2000) {
+      return NextResponse.json(
+        { error: "Description is longer than 2000 characters." },
+        { status: 400 },
+      );
+    }
+  } else if (!process.env.ANTHROPIC_API_KEY) {
+    return NextResponse.json({ error: "ANTHROPIC_API_KEY is not set." }, { status: 400 });
   }
   if (!jobId) return NextResponse.json({ error: "Pick a job first." }, { status: 400 });
   if (!/^INV-[0-9a-f]{8}$/i.test(externalId)) {
     return NextResponse.json({ error: "Missing or malformed externalId." }, { status: 400 });
   }
-  const mime = (file.type || "").toLowerCase();
-  if (HEIC_MIME.has(mime)) {
-    return NextResponse.json(
-      {
-        error:
-          "This photo is in HEIC format, which the reader can't open. " +
-          "Retake it with your camera set to \u201cMost Compatible\u201d, or share it as a JPEG or PDF.",
-      },
-      { status: 400 },
-    );
+  // The upload, when there is one. `upload` is the narrowed handle every check
+  // below reads, so the no-invoice path skips all of them rather than each one
+  // learning about it.
+  const upload = file instanceof File ? file : null;
+  const mime = (upload?.type || "").toLowerCase();
+  let bytes: Buffer = Buffer.alloc(0);
+  if (upload) {
+    if (HEIC_MIME.has(mime)) {
+      return NextResponse.json(
+        {
+          error:
+            "This photo is in HEIC format, which the reader can't open. " +
+            "Retake it with your camera set to \u201cMost Compatible\u201d, or share it as a JPEG or PDF.",
+        },
+        { status: 400 },
+      );
+    }
+    if (!ALLOWED_MIME.has(mime)) {
+      return NextResponse.json(
+        { error: `Unsupported file type "${mime}". Upload a PDF or photo.` },
+        { status: 400 },
+      );
+    }
+    if (upload.size > MAX_BYTES) {
+      return NextResponse.json({ error: "File is larger than 15 MB." }, { status: 400 });
+    }
+    bytes = Buffer.from(await upload.arrayBuffer());
   }
-  if (!ALLOWED_MIME.has(mime)) {
-    return NextResponse.json(
-      { error: `Unsupported file type "${mime}". Upload a PDF or photo.` },
-      { status: 400 },
-    );
-  }
-  if (file.size > MAX_BYTES) {
-    return NextResponse.json({ error: "File is larger than 15 MB." }, { status: 400 });
-  }
-  const bytes = Buffer.from(await file.arrayBuffer());
 
   const cfg = getPaveConfig();
   const warnings: string[] = [];
@@ -211,12 +259,28 @@ export async function POST(req: NextRequest) {
     }));
 
     // ---- 2. Claude extraction (job comes from the picker, not AI) ----------
-    const extracted: ExtractedBill | null = await extractBillWithClaude(
-      bytes,
-      mime,
-      vendors,
-      budgetCodes,
-    );
+    // With no document there is nothing to read: the typed facts ARE the
+    // extraction, in the same shape, so everything downstream is unchanged.
+    // One line at the typed total, coded to the typed cost code when one was
+    // picked; no tax, because there is no printed tax to reconcile against.
+    const extracted: ExtractedBill | null = noFile
+      ? {
+          Vendor: vendorOverride,
+          InvoiceNumber: typedNumber,
+          Amount: typedAmount,
+          Tax: 0,
+          CSI: typedCsi || undefined,
+          items: [
+            {
+              description,
+              price: typedAmount,
+              quantity: 1,
+              line_total: typedAmount,
+              csi: typedCsi || undefined,
+            },
+          ],
+        }
+      : await extractBillWithClaude(bytes, mime, vendors, budgetCodes);
     if (!extracted) {
       return NextResponse.json(
         { error: "Extraction failed — nothing was created. Try again." },
@@ -476,6 +540,41 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    /* ---- 6b. the stand-in record, when no invoice came with the bill -------
+       Drawn once, here, and used by BOTH attach sites below (a fresh bill and a
+       replaced one), so a no-invoice bill never reaches JobTread fileless. It
+       is the same document /api/bill/create-file makes after the fact — the
+       office just gets it at capture time instead of having to notice the "No
+       file" chip later. */
+    const session = noFile ? await auth().catch(() => null) : null;
+    const madeFile = noFile
+      ? {
+          bytes: buildBillPdf({
+            vendor: vendor.name,
+            billNumber,
+            job: jobInfo.name,
+            customer: jobInfo.customer,
+            issueDate: dates.issueDate,
+            dueDate: dates.dueDate ?? `net-${dates.dueDays}`,
+            status: "draft",
+            description,
+            lines: lines.map((l) => ({
+              name: l.name,
+              code: l.costCode ?? "",
+              quantity: l.quantity ?? null,
+              amount: (l.unitCost ?? 0) * (l.quantity ?? 1),
+            })),
+            total: summary.amount,
+            createdBy: session?.user?.email ?? "",
+          }),
+          mime: "application/pdf",
+          name:
+            `${dates.issueDate} ` +
+            `${(vendor.name.replace(/[^A-Za-z0-9 .-]/g, "").trim() || "Vendor")}` +
+            `${typedNumber ? ` #${typedNumber}` : ""} (no invoice).pdf`,
+        }
+      : null;
+
     // ---- 7. idempotency — fail CLOSED on API error, adopt an existing doc ---
     let existing: string | null;
     try {
@@ -655,7 +754,7 @@ export async function POST(req: NextRequest) {
           beforeSource: "read",
           amount: delta,
           meta: {
-            fileName: file.name ?? "",
+            fileName: madeFile ? madeFile.name : (upload?.name ?? ""),
             source: "add-bill-replace",
             externalId: billNumber,
             removedFiles: staleFiles.map((f) => ({ id: f.id, name: f.name ?? "" })),
@@ -680,9 +779,18 @@ export async function POST(req: NextRequest) {
       let fileAttached = true;
       try {
         const ext = mime === "application/pdf" ? "pdf" : mime.split("/")[1] || "bin";
-        const name =
-          file.name && file.name.includes(".") ? file.name : `${billNumber}-revised.${ext}`;
-        await attachFileToDocument(cfg, existing, bytes, mime, name);
+        const name = madeFile
+          ? madeFile.name
+          : upload?.name && upload.name.includes(".")
+            ? upload.name
+            : `${billNumber}-revised.${ext}`;
+        await attachFileToDocument(
+          cfg,
+          existing,
+          madeFile ? madeFile.bytes : bytes,
+          madeFile ? madeFile.mime : mime,
+          name,
+        );
       } catch (e) {
         fileAttached = false;
         warnings.push(
@@ -767,15 +875,28 @@ export async function POST(req: NextRequest) {
         },
         beforeSource: "none",
         amount: typeof summary.amount === "number" ? summary.amount : null,
-        meta: { fileName: file.name ?? "", source: "add-bill" },
+        meta: {
+          fileName: madeFile ? madeFile.name : (upload?.name ?? ""),
+          source: madeFile ? "add-bill-no-invoice" : "add-bill",
+        },
       },
     ]);
 
     let fileAttached = true;
     try {
       const ext = mime === "application/pdf" ? "pdf" : mime.split("/")[1] || "bin";
-      const name = file.name && file.name.includes(".") ? file.name : `${billNumber}.${ext}`;
-      await attachFileToDocument(cfg, docId, bytes, mime, name);
+      const name = madeFile
+        ? madeFile.name
+        : upload?.name && upload.name.includes(".")
+          ? upload.name
+          : `${billNumber}.${ext}`;
+      await attachFileToDocument(
+        cfg,
+        docId,
+        madeFile ? madeFile.bytes : bytes,
+        madeFile ? madeFile.mime : mime,
+        name,
+      );
     } catch (e) {
       fileAttached = false;
       warnings.push(

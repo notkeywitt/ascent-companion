@@ -2,9 +2,9 @@
 
 import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { JobPicker } from "@/components/JobPicker";
-import { useUnsavedChanges } from "@/lib/useUnsavedChanges";
+import { confirmLeaveIfDirty, useUnsavedChanges } from "@/lib/useUnsavedChanges";
 import { Banner, Button, Card, Label, PageHeader, Select, btn } from "@/components/ui";
 
 interface VendorRef {
@@ -117,6 +117,7 @@ function AddBill() {
   // The job is picked HERE. It seeds from ?jobId so the header's Add bill button
   // still lands on the job you were looking at, but the header no longer carries
   // an app-wide picker — so without one on the page there was no way to set it.
+  const router = useRouter();
   const [jobId, setJobId] = useState((search.get("jobId") ?? "").trim());
 
   const [file, setFile] = useState<File | null>(null);
@@ -133,6 +134,17 @@ function AddBill() {
   const [error, setError] = useState("");
   const [result, setResult] = useState<AddBillResult | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  /**
+   * NO INVOICE CAME WITH THIS BILL — a phone order, a counter charge, a vendor
+   * who never sends anything. There is no document to read, so the office types
+   * the facts instead and the route draws the Ascent record that stands in for
+   * the invoice (lib/billPdf), the same one /api/bill/create-file makes after
+   * the fact. The bill is never left fileless.
+   */
+  const [noFile, setNoFile] = useState(false);
+  const [amount, setAmount] = useState("");
+  const [description, setDescription] = useState("");
+  const [billNumber, setBillNumber] = useState("");
 
   useEffect(() => {
     fetch("/api/vendors")
@@ -193,6 +205,14 @@ function AddBill() {
     }
   }
 
+  // The idempotency key is normally minted when a file is picked. With no file
+  // to pick, it is minted when the no-invoice form is opened — same purpose,
+  // same shape: one key per bill being captured, so a double-submit cannot
+  // create a second bill.
+  useEffect(() => {
+    if (noFile) setExternalId("INV-" + crypto.randomUUID().slice(0, 8));
+  }, [noFile]);
+
   function onPickFile(f: File | null) {
     setFile(f);
     setResult(null);
@@ -217,14 +237,20 @@ function AddBill() {
     forceSingleLine?: boolean;
     replaceDocId?: string;
   }) {
-    if (!file || !jobId || busy) return;
+    if ((!file && !noFile) || !jobId || busy) return;
     setBusy(true);
     setError("");
     setResult(null);
     setMismatch(null);
     try {
       const fd = new FormData();
-      fd.set("file", await toReadableUpload(file));
+      if (file) fd.set("file", await toReadableUpload(file));
+      if (noFile) {
+        fd.set("noFile", "1");
+        fd.set("amount", amount);
+        fd.set("description", description);
+        if (billNumber.trim()) fd.set("billNumber", billNumber.trim());
+      }
       fd.set("jobId", jobId);
       fd.set("externalId", externalId);
       if (vendorId) fd.set("vendorId", vendorId);
@@ -335,7 +361,33 @@ function AddBill() {
     <main className={`mx-auto px-4 pb-24 pt-6 ${wide ? "max-w-4xl" : "max-w-xl"}`}>
       <PageHeader
         title="Add Bill"
-        description="Snap or upload an invoice — Claude extracts and codes it, and it lands as a draft vendor bill in the coding queue."
+        description={
+          noFile
+            ? "No invoice to upload — type what the charge was and it lands as a draft vendor bill, filed with an Ascent record in place of the missing document."
+            : "Snap or upload an invoice — Claude extracts and codes it, and it lands as a draft vendor bill in the coding queue."
+        }
+        actions={
+          /* THE WAY OUT. This page is reached from the header's + button and
+             from a job, and until now the only way back was the browser's own
+             Back — which the unsaved-changes guard then questions. Back where
+             it came from, or Home when it was opened cold (a shared link, a
+             refresh), so the button is never a dead end. */
+          <button
+            type="button"
+            onClick={() => {
+              if (!confirmLeaveIfDirty()) return;
+              if (window.history.length > 1) router.back();
+              else router.push(jobId ? `/trackingsheet?jobId=${encodeURIComponent(jobId)}` : "/");
+            }}
+            title="Close without logging a bill"
+            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg px-2 text-sm font-semibold text-neutral-500 transition hover:text-accent dark:text-neutral-400"
+          >
+            <span aria-hidden className="text-lg leading-none">
+              ✕
+            </span>
+            <span className="sr-only">Close</span>
+          </button>
+        }
       />
 
       {!done && (
@@ -351,25 +403,104 @@ function AddBill() {
             <p className="mt-1 text-xs text-neutral-500">The bill is created on this job.</p>
           </div>
 
-          <div>
-            <Label>Invoice (PDF or photo)</Label>
+          {noFile ? (
+            /* NO INVOICE — the office types what the document would have said.
+               Vendor comes from the picker below, which stops being optional
+               here: there is nothing to match a name against. */
+            <div className="space-y-4 rounded-xl border border-line bg-neutral-50 p-3 dark:bg-ink-raised/60">
+              <div>
+                <Label htmlFor="ab-amount">Total</Label>
+                <input
+                  id="ab-amount"
+                  inputMode="decimal"
+                  value={amount}
+                  disabled={busy}
+                  onChange={(e) => setAmount(e.target.value)}
+                  placeholder="0.00"
+                  className="block w-full rounded-lg border border-line-strong bg-white px-3 py-2 text-sm tabular-nums outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/25 dark:bg-ink-raised"
+                />
+                <p className="mt-1 text-xs text-neutral-500">
+                  What the vendor charged. It lands as one line, coded in the queue.
+                </p>
+              </div>
+              <div>
+                <Label htmlFor="ab-desc">What the charge was for</Label>
+                <textarea
+                  id="ab-desc"
+                  rows={3}
+                  value={description}
+                  disabled={busy}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="e.g. Counter charge — 40 sheets 5/8 drywall, picked up by Miguel"
+                  className="block w-full rounded-lg border border-line-strong bg-white px-3 py-2 text-sm outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/25 dark:bg-ink-raised"
+                />
+                <p className="mt-1 text-xs text-neutral-500">
+                  This is the record. With no invoice behind it, what you write here is the only
+                  account of what was bought — it prints on the PDF filed to Drive.
+                </p>
+              </div>
+              <div>
+                <Label htmlFor="ab-num">Vendor&apos;s bill number (optional)</Label>
+                <input
+                  id="ab-num"
+                  value={billNumber}
+                  disabled={busy}
+                  onChange={(e) => setBillNumber(e.target.value)}
+                  placeholder="Leave blank if there isn't one"
+                  className="block w-full rounded-lg border border-line-strong bg-white px-3 py-2 text-sm outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/25 dark:bg-ink-raised"
+                />
+              </div>
+            </div>
+          ) : (
+            <div>
+              <Label>Invoice (PDF or photo)</Label>
+              <input
+                ref={fileRef}
+                type="file"
+                accept="application/pdf,image/*"
+                disabled={busy}
+                onChange={(e) => onPickFile(e.target.files?.[0] ?? null)}
+                className="block w-full rounded-lg border border-neutral-300 bg-white p-2 text-sm transition file:mr-3 file:rounded-md file:border-0 file:bg-accent file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-accent-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 dark:border-neutral-600 dark:bg-ink-raised"
+              />
+              {file && previewUrl && !mismatch && !error && (
+                <BillPreview file={file} url={previewUrl} className="mt-2 h-64" />
+              )}
+            </div>
+          )}
+
+          {/* The switch between the two ways a bill arrives. Under the input it
+              replaces, because it is the answer to "I have nothing to upload". */}
+          <label className="flex items-start gap-2 text-sm">
             <input
-              ref={fileRef}
-              type="file"
-              accept="application/pdf,image/*"
+              type="checkbox"
+              checked={noFile}
               disabled={busy}
-              onChange={(e) => onPickFile(e.target.files?.[0] ?? null)}
-              className="block w-full rounded-lg border border-neutral-300 bg-white p-2 text-sm transition file:mr-3 file:rounded-md file:border-0 file:bg-accent file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-accent-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 dark:border-neutral-600 dark:bg-ink-raised"
+              onChange={(e) => {
+                setNoFile(e.target.checked);
+                if (e.target.checked) onPickFile(null);
+                setError("");
+                setResult(null);
+              }}
+              className="mt-0.5 h-4 w-4 rounded border-neutral-300"
             />
-            {file && previewUrl && !mismatch && !error && (
-              <BillPreview file={file} url={previewUrl} className="mt-2 h-64" />
-            )}
-          </div>
+            <span>
+              No invoice to upload
+              <span className="block text-xs text-neutral-500">
+                A phone order, a counter charge, a vendor who never sends one. Type what it was and
+                the bill is filed with an Ascent record in place of the invoice.
+              </span>
+            </span>
+          </label>
 
           <div>
-            <Label>Vendor {needVendor ? "(required)" : "(optional — matched from the invoice)"}</Label>
+            <Label>
+              Vendor{" "}
+              {noFile || needVendor ? "(required)" : "(optional — matched from the invoice)"}
+            </Label>
             <Select value={vendorId} disabled={busy} onChange={(e) => setVendorId(e.target.value)}>
-              <option value="">Match the vendor from the invoice</option>
+              <option value="">
+                {noFile ? "Pick the vendor…" : "Match the vendor from the invoice"}
+              </option>
               {vendors.map((v) => (
                 <option key={v.id} value={v.id}>
                   {v.name}
@@ -379,7 +510,7 @@ function AddBill() {
             {needVendor && <p className="mt-1 text-sm text-amber-600">{needVendor}</p>}
           </div>
 
-          <label className="flex items-start gap-2 text-sm">
+          <label className={`flex items-start gap-2 text-sm ${noFile ? "hidden" : ""}`}>
             <input
               type="checkbox"
               checked={singleLine}
@@ -400,9 +531,21 @@ function AddBill() {
             size="lg"
             className="w-full"
             onClick={() => submit()}
-            disabled={!file || !jobId || busy || (Boolean(needVendor) && !vendorId)}
+            disabled={
+              !jobId ||
+              busy ||
+              (noFile
+                ? !vendorId || !amount.trim() || !description.trim()
+                : !file || (Boolean(needVendor) && !vendorId))
+            }
           >
-            {busy ? "Extracting with Claude…" : "Log Bill"}
+            {busy
+              ? noFile
+                ? "Creating the bill…"
+                : "Extracting with Claude…"
+              : noFile
+                ? "Log Bill — no invoice"
+                : "Log Bill"}
           </Button>
 
           {(error || mismatch) && file && previewUrl ? (
