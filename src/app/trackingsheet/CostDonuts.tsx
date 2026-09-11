@@ -154,6 +154,8 @@ export function CostDonuts({
   onDetailWanted,
   onSelect,
   selectedKey = null,
+  onSelectLabor,
+  selectedLaborKey = null,
   className = "",
 }: {
   /** The selected month's cost by code — the scope the rings open on. */
@@ -180,16 +182,25 @@ export function CostDonuts({
    * cost codes — null when the pick is being cleared. "Other" hands back every
    * code it folded, so the grey arc filters to exactly what it represents.
    *
-   * THE BILLS RING ONLY. What this filters is the bill list, so a click on the
-   * labor ring would narrow a list that has nothing to do with the hours
-   * clicked — usually to nothing at all, since a labor code rarely carries
-   * bills. The labor ring stays a read, and its own list has its own filters.
+   * THE BILLS RING ONLY — the labor ring has `onSelectLabor` below, because the
+   * two rings head two different lists.
    */
   onSelect?: (
     sel: { key: string; label: string; codes: string[]; color?: string } | null,
   ) => void;
-  /** The slice key currently picked, so the rings can mark it. */
+  /** The slice key currently picked on the BILLS ring, so it can be marked. */
   selectedKey?: string | null;
+  /**
+   * The labor ring's own pick, for the labor list. Separate from `onSelect`
+   * because the two rings head two different lists: a code with hours on it and
+   * a code with bills on it are rarely the same code, so one shared pick would
+   * empty whichever list was not clicked.
+   */
+  onSelectLabor?: (
+    sel: { key: string; label: string; codes: string[]; color?: string } | null,
+  ) => void;
+  /** …and its mark. */
+  selectedLaborKey?: string | null;
   className?: string;
 }) {
   // Folded on a phone, exactly as the budget rail beside it is, and for the
@@ -209,21 +220,29 @@ export function CostDonuts({
 
   /** A slice's pick, in the caller's terms: which codes it stands for, and what
    *  to call them. Clicking the picked slice again clears it. */
-  const pick = (key: string) => {
-    if (!onSelect) return;
-    if (key === selectedKey) return onSelect(null);
-    if (key === "__other") {
-      const codes = rows.filter((r) => !colorMap.has(r.code)).map((r) => r.code);
-      return onSelect({ key, label: "Other cost codes", codes, color: VIZ_OTHER });
-    }
-    const row = rows.find((r) => r.code === key);
-    return onSelect({
-      key,
-      label: row?.name ? `${key} ${row.name}` : key,
-      codes: [key],
-      color: colorMap.get(key),
-    });
-  };
+  const pick =
+    (field: "bills" | "labor") =>
+    (key: string) => {
+      const fire = field === "bills" ? onSelect : onSelectLabor;
+      const current = field === "bills" ? selectedKey : selectedLaborKey;
+      if (!fire) return;
+      if (key === current) return fire(null);
+      if (key === "__other") {
+        // The LABOR list narrows to one code at a time (useTimeFilters), and
+        // "Other" is many — so on that ring the grey arc opens its breakdown
+        // and stops there. Pick a named code from the card or the legend.
+        if (field === "labor") return;
+        const codes = rows.filter((r) => !colorMap.has(r.code)).map((r) => r.code);
+        return fire({ key, label: "Other cost codes", codes, color: VIZ_OTHER });
+      }
+      const row = rows.find((r) => r.code === key);
+      return fire({
+        key,
+        label: row?.name ? `${key} ${row.name}` : key,
+        codes: [key],
+        color: colorMap.get(key),
+      });
+    };
 
   /** One reader per ring: the folded codes for "Other", the caller's bills or
    *  time entries for everything else. */
@@ -292,7 +311,7 @@ export function CostDonuts({
           emptyLabel={`No vendor bills ${emptySuffix}`}
           detail={ringDetail && ringDetail("bills")}
           onDetailWanted={onDetailWanted && (() => onDetailWanted(scope))}
-          onSelect={onSelect && pick}
+          onSelect={onSelect && pick("bills")}
           selectedKey={selectedKey}
         />
         <Donut
@@ -302,6 +321,8 @@ export function CostDonuts({
           emptyLabel={`No labor logged ${emptySuffix}`}
           detail={ringDetail && ringDetail("labor")}
           onDetailWanted={onDetailWanted && (() => onDetailWanted(scope))}
+          onSelect={onSelectLabor && pick("labor")}
+          selectedKey={selectedLaborKey}
         />
       </div>
     </section>
