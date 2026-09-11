@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-11T13:15:29Z",
+  "generatedAt": "2026-09-11T13:19:17Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "ship/billing-month",
       "status": "shipped",
       "started": "2026-09-10T15:22:41Z",
-      "updated": "2026-09-11T13:15:29Z",
+      "updated": "2026-09-11T13:19:17Z",
       "goal": "",
-      "next": "verify on desktop /trackingsheet: hover a donut slice for its top-5 bills, and check the closing actions appear in the commit bar only near the lower-right corner",
+      "next": "verify on desktop /trackingsheet: (1) queue an entry edit and a bill recode, confirm one Save Changes writes both; (2) select several entries and set a rate on all; (3) Hide the budget column and reopen it from the left tab; (4) hover a donut slice — the card should float without moving the legend",
       "commits": [
         {
           "date": "2026-09-10",
@@ -151,6 +151,13 @@
           "sha": "f784c6b",
           "subject": "companion: float the ring's breakdown, and close the budget column",
           "files": "src/app/trackingsheet/Board.tsx, src/components/Donut.tsx, src/components/SplitGrid.tsx"
+        },
+        {
+          "date": "2026-09-11",
+          "time": "06:19",
+          "sha": "1f8fb8b",
+          "subject": "companion: put a time entry's cost beside its hours",
+          "files": "src/components/TimeEntryList.tsx"
         }
       ]
     },
