@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-11T13:04:26Z",
+  "generatedAt": "2026-09-11T13:08:21Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,7 +8,7 @@
       "branch": "ship/billing-month",
       "status": "shipped",
       "started": "2026-09-10T15:22:41Z",
-      "updated": "2026-09-11T13:04:26Z",
+      "updated": "2026-09-11T13:08:21Z",
       "goal": "",
       "next": "verify on desktop /trackingsheet: hover a donut slice for its top-5 bills, and check the closing actions appear in the commit bar only near the lower-right corner",
       "commits": [
@@ -123,6 +123,13 @@
           "sha": "2aebe36",
           "subject": "companion: open the commit bar on hover, not on approach",
           "files": "src/app/trackingsheet/Board.tsx"
+        },
+        {
+          "date": "2026-09-11",
+          "time": "06:08",
+          "sha": "487b19b",
+          "subject": "companion: open a time entry on its job's time page",
+          "files": "src/app/api/employee-time/history/route.ts, src/app/labor-review/LaborReview.tsx, src/app/trackingsheet/Board.tsx, src/app/trackingsheet/TimeCodingCard.tsx, src/components/TimeEntryList.tsx, src/lib/jtLinks.test.ts, +1 more"
         }
       ]
     },
