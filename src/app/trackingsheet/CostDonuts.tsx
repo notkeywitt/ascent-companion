@@ -122,21 +122,25 @@ function buildSlices(
   return out;
 }
 
-/** A slice key is a cost code, except the folded "Other" — which is many codes
- *  and has no single list behind it, so it opens an empty card. A null from
- *  `detail` means "not fetched yet" and is passed straight through. */
-function sliceDetail(
-  detail: (
-    code: string,
-    field: "bills" | "labor",
-    scope: "month" | "job",
-  ) => DonutDetailRow[] | null,
-  key: string,
+/**
+ * The codes behind the grey "Other" arc — every code the colour map had no slot
+ * for, with what it spent in this ring. It is the one slice whose card is not a
+ * list of bills: "Other" is the ring hiding names, so the card's job is to give
+ * them back.
+ */
+function otherCodes(
+  rows: CostDonutRow[],
+  colorMap: Map<string, string>,
   field: "bills" | "labor",
-  scope: "month" | "job",
-): DonutDetailRow[] | null {
-  if (key === "__other") return [];
-  return detail(key, field, scope);
+): DonutDetailRow[] {
+  return rows
+    .filter((r) => !colorMap.has(r.code) && r[field] > 0)
+    .map((r) => ({
+      key: r.code,
+      label: r.name ? `${r.code} · ${r.name}` : r.code,
+      value: r[field],
+    }))
+    .sort((a, b) => b.value - a.value);
 }
 
 const sum = (s: DonutSlice[]) => s.reduce((n, x) => n + x.value, 0);
@@ -185,6 +189,14 @@ export function CostDonuts({
 
   const billsTotal = sum(bills);
   const laborTotal = sum(labor);
+
+  /** One reader per ring: the folded codes for "Other", the caller's bills or
+   *  time entries for everything else. */
+  const ringDetail =
+    detail &&
+    ((field: "bills" | "labor") =>
+      (key: string): DonutDetailRow[] | null =>
+        key === "__other" ? otherCodes(rows, colorMap, field) : detail(key, field, scope));
 
   // Nothing coded on the job at all — two empty rings say less than no rings.
   // An empty MONTH still renders: the caption is the only way back to the job,
@@ -244,7 +256,7 @@ export function CostDonuts({
           size={120}
           centerLabel="bills"
           emptyLabel={`No vendor bills ${emptySuffix}`}
-          detail={detail && ((key) => sliceDetail(detail, key, "bills", scope))}
+          detail={ringDetail && ringDetail("bills")}
           onDetailWanted={onDetailWanted && (() => onDetailWanted(scope))}
         />
         <Donut
@@ -253,7 +265,7 @@ export function CostDonuts({
           size={120}
           centerLabel="labor"
           emptyLabel={`No labor logged ${emptySuffix}`}
-          detail={detail && ((key) => sliceDetail(detail, key, "labor", scope))}
+          detail={ringDetail && ringDetail("labor")}
           onDetailWanted={onDetailWanted && (() => onDetailWanted(scope))}
         />
       </div>

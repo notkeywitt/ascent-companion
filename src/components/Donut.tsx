@@ -36,9 +36,6 @@ export interface DonutDetailRow {
 const money = (n: number) =>
   `$${n.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 
-/** How many contributors a slice's card lists before it says "+N more". */
-const DETAIL_ROWS = 5;
-
 const pct = (n: number, total: number) => (total > 0 ? Math.round((n / total) * 100) : 0);
 
 export function Donut({
@@ -61,9 +58,8 @@ export function Donut({
   size?: number;
   /**
    * What a slice is MADE of. Hovering (or tapping) a segment lifts it and opens
-   * a card listing these — the top few contributors behind that arc. Return
-   * null while the answer is not in hand yet; the card then says so rather than
-   * reading as an empty slice.
+   * a card listing these, biggest first. Return null while the answer is not in
+   * hand yet; the card then says so rather than reading as an empty slice.
    */
   detail?: (sliceKey: string) => DonutDetailRow[] | null;
   /** Fired the first time a slice is hovered, so a caller can start the fetch `detail` needs. */
@@ -193,23 +189,18 @@ export function Donut({
           ) : hoverRows.length === 0 ? (
             <p className="text-[11px] text-neutral-500">Nothing to break out.</p>
           ) : (
-            <>
-              <ul className="space-y-0.5">
-                {hoverRows.slice(0, DETAIL_ROWS).map((d) => (
-                  <li key={d.key} className="flex items-baseline justify-between gap-2">
-                    <span className="min-w-0 truncate text-neutral-600 dark:text-neutral-300">
-                      {d.label}
-                    </span>
-                    <span className="shrink-0 tabular-nums text-neutral-500">{money(d.value)}</span>
-                  </li>
-                ))}
-              </ul>
-              {hoverRows.length > DETAIL_ROWS && (
-                <p className="mt-1 text-[11px] text-neutral-400">
-                  +{hoverRows.length - DETAIL_ROWS} more
-                </p>
-              )}
-            </>
+            // Everything, biggest first, scrolling past about six rows. A "+N
+            // more" cut-off answered "what is in Other" with "some of it".
+            <ul className="max-h-40 space-y-0.5 overflow-y-auto">
+              {hoverRows.map((d) => (
+                <li key={d.key} className="flex items-baseline justify-between gap-2">
+                  <span className="min-w-0 truncate text-neutral-600 dark:text-neutral-300">
+                    {d.label}
+                  </span>
+                  <span className="shrink-0 tabular-nums text-neutral-500">{money(d.value)}</span>
+                </li>
+              ))}
+            </ul>
           )}
         </div>
       )}
