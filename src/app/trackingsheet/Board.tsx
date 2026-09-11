@@ -257,6 +257,15 @@ interface DrillBillRow {
   draft: boolean;
 }
 
+/**
+ * How close the pointer has to get to the lower-right corner before the commit
+ * bar shows the month's closing actions. Generous, because the box is a cheap
+ * approximation of "coming for the bar" — the bar's own hover keeps it open
+ * once the pointer actually lands on it.
+ */
+const CORNER_REVEAL_X = 460;
+const CORNER_REVEAL_Y = 320;
+
 /** Draft bills are coded but not yet committed spend — JobTread's own budget math excludes them. */
 const isCommitted = (status: string) => status === "pending" || status === "approved";
 
@@ -329,31 +338,6 @@ interface Headroom {
  */
 const usedOf = (h: Headroom) => h.spent + h.drafts + h.labor;
 const remainingOf = (h: Headroom) => h.budget - usedOf(h);
-
-/**
- * "$11,848 used of $23,697 budget · $11,849 remaining" — the rail's one-line
- * budget sentence, identical on a cost code and on a division so the two read
- * the same way. Used is committed + drafts + labor, the same figure the meter
- * fills to, so the three numbers always tie out.
- */
-function BudgetLine({
-  used,
-  budget,
-  remaining,
-}: {
-  used: number;
-  budget: number;
-  remaining: number;
-}) {
-  return (
-    <div className="mt-0.5 text-[10px] leading-tight tabular-nums text-neutral-500 dark:text-neutral-400">
-      {money0(used)} used of {money0(budget)} budget ·{" "}
-      <span className={remaining < 0 ? "font-semibold text-red-600 dark:text-red-400" : ""}>
-        {money0(remaining)} remaining
-      </span>
-    </div>
-  );
-}
 
 /* <Meter> now lives in components/ui — the budget bar is the same object here,
    on the mobile headroom rail, and on any future page that shows spend against
@@ -2171,22 +2155,27 @@ export function Board() {
   const [contributorsLoading, setContributorsLoading] = useState(false);
   const [contributorsError, setContributorsError] = useState("");
 
+  /** One fetch per job, cached — the drill-down and the cost rings both want it. */
+  const ensureContributors = useCallback(() => {
+    if (!jobId || contributorsLoading || contributors?.jobId === jobId) return;
+    setContributorsLoading(true);
+    setContributorsError("");
+    fetch(`/api/trackingsheet/contributors?jobId=${encodeURIComponent(jobId)}`)
+      .then((r) => r.json())
+      .then((j) => {
+        if (j.error) throw new Error(j.error);
+        setContributors({ jobId, data: j as JobCostContributors });
+      })
+      .catch((e) => setContributorsError(e instanceof Error ? e.message : "Failed to load"))
+      .finally(() => setContributorsLoading(false));
+  }, [jobId, contributors, contributorsLoading]);
+
   const openCodeDrill = useCallback(
     (code: string) => {
       setCodeDrill(code);
-      if (!jobId || contributorsLoading || contributors?.jobId === jobId) return;
-      setContributorsLoading(true);
-      setContributorsError("");
-      fetch(`/api/trackingsheet/contributors?jobId=${encodeURIComponent(jobId)}`)
-        .then((r) => r.json())
-        .then((j) => {
-          if (j.error) throw new Error(j.error);
-          setContributors({ jobId, data: j as JobCostContributors });
-        })
-        .catch((e) => setContributorsError(e instanceof Error ? e.message : "Failed to load"))
-        .finally(() => setContributorsLoading(false));
+      ensureContributors();
     },
-    [jobId, contributors, contributorsLoading],
+    [ensureContributors],
   );
 
   const billsById = useMemo(() => new Map((data?.bills ?? []).map((b) => [b.id, b])), [data]);
@@ -2199,13 +2188,13 @@ export function Board() {
    * follow the same staged code, or it would list a bill under a code the rail
    * no longer counts it toward.
    */
-  const drillBills = useMemo((): DrillBillRow[] => {
-    if (!codeDrill) return [];
+  const billsForCode = useCallback(
+    (code: string): DrillBillRow[] => {
     const committed = (contributors?.data.bills ?? [])
       .filter((b) => {
         const leaf = staged.get(b.id);
         const effective = leaf ? (leafById.get(leaf)?.number ?? b.code) : b.code;
-        return effective === codeDrill;
+        return effective === code;
       })
       .map((b): DrillBillRow => ({
         key: b.id,
@@ -2218,7 +2207,7 @@ export function Board() {
         draft: false,
       }));
     const drafts = (data?.lines ?? [])
-      .filter((l) => !isCommitted(l.billStatus) && codeOf(l) === codeDrill)
+      .filter((l) => !isCommitted(l.billStatus) && codeOf(l) === code)
       .map((l): DrillBillRow => ({
         key: l.id,
         docId: l.docId,
@@ -2233,7 +2222,14 @@ export function Board() {
       (a, b) =>
         String(b.issueDate ?? "").localeCompare(String(a.issueDate ?? "")) || b.cost - a.cost,
     );
-  }, [contributors, codeDrill, staged, leafById, data, billsById]);
+    },
+    [contributors, staged, leafById, data, billsById, codeOf],
+  );
+
+  const drillBills = useMemo(
+    () => (codeDrill ? billsForCode(codeDrill) : []),
+    [codeDrill, billsForCode],
+  );
 
   // Labor is coded independently of any bill and never moves with a staged
   // recode (see the `usedOf` note above), so this needs no staged reconciliation.
@@ -2242,6 +2238,61 @@ export function Board() {
   const drillTime = useMemo(
     () => (contributors?.data.time ?? []).filter((t) => t.code === codeDrill),
     [contributors, codeDrill],
+  );
+
+  /**
+   * What one ring slice is made of, for its hover card — the biggest vendors
+   * (bills) or people (labor) behind that cost code, rolled to one row each so
+   * a bill with four lines is one line of the card.
+   *
+   * Scope matters: the MONTH ring reads the month's own lines and time entries,
+   * which are already loaded, so its card opens instantly. The JOB ring needs
+   * the same whole-job contributors the drill-down uses, so it returns null
+   * until that fetch lands and the card says "Loading…" meanwhile.
+   */
+  const donutDetail = useCallback(
+    (
+      code: string,
+      field: "bills" | "labor",
+      scope: "month" | "job",
+    ): { key: string; label: string; value: number }[] | null => {
+      const rolled = new Map<string, { label: string; value: number }>();
+      const add = (key: string, label: string, value: number) => {
+        const e = rolled.get(key) ?? { label, value: 0 };
+        e.value += value;
+        rolled.set(key, e);
+      };
+
+      if (scope === "month") {
+        if (field === "bills") {
+          for (const l of data?.lines ?? []) {
+            if (codeOf(l) !== code) continue;
+            add(l.docId, billsById.get(l.docId)?.vendor || l.name, l.cost);
+          }
+        } else {
+          for (const t of data?.timeEntries ?? []) {
+            if (timeCodeOf(t) !== code) continue;
+            add(t.employee || t.id, t.employee || "—", t.cost);
+          }
+        }
+      } else {
+        if (contributors?.jobId !== jobId) return null;
+        if (field === "bills") {
+          for (const b of billsForCode(code)) add(b.docId, b.vendor || b.lineName, b.cost);
+        } else {
+          for (const t of contributors.data.time) {
+            if (t.code !== code) continue;
+            add(t.employee || t.id, t.employee || "—", t.cost);
+          }
+        }
+      }
+
+      return [...rolled.entries()]
+        .map(([key, v]) => ({ key, ...v }))
+        .filter((r) => r.value > 0)
+        .sort((a, b) => b.value - a.value);
+    },
+    [data, codeOf, timeCodeOf, billsById, contributors, jobId, billsForCode],
   );
 
   const beginDrag = (lineIds: string[]) => (e: React.DragEvent) => {
@@ -2830,6 +2881,24 @@ export function Board() {
   };
 
   /**
+   * Is the pointer coming for the commit bar? On desktop the month's three
+   * closing actions ride in that bar and stay hidden until it is — three
+   * buttons parked over the workbench all session read as a banner, not as a
+   * foot. Touch has no pointer, so below lg those actions keep their own row
+   * under the columns and this flag is never consulted.
+   */
+  const [nearCorner, setNearCorner] = useState(false);
+  useEffect(() => {
+    const onMove = (e: MouseEvent) =>
+      setNearCorner(
+        window.innerWidth - e.clientX < CORNER_REVEAL_X &&
+          window.innerHeight - e.clientY < CORNER_REVEAL_Y,
+      );
+    window.addEventListener("mousemove", onMove);
+    return () => window.removeEventListener("mousemove", onMove);
+  }, []);
+
+  /**
    * The per-job Tracking Sheet action, for the action bar. It writes the
    * selected month's sub/vendor invoices into this job's own Google tracking
    * sheet. With no sheet linked it instead links to the Tracking Sheet page to
@@ -2869,6 +2938,67 @@ export function Board() {
       </Link>
     );
   };
+
+  /**
+   * The month's three closing actions, in the order you do them: check the job,
+   * push the sheet, approve the drafts. ONE definition, rendered in two places
+   * — its own centred row under the columns on touch, and inside the commit bar
+   * on desktop, where it appears only as the pointer reaches that corner.
+   *
+   * The check wears the same secondary style as the sheet push, because both
+   * are things you run and read; Approve stays primary — it is the one that
+   * ends the month. The standalone sheet push only appears with NOTHING staged,
+   * because Save Changes already runs it as part of the same commit.
+   */
+  const closingActions = (
+    <>
+      <Button
+        variant="secondary"
+        onClick={runPreSend}
+        disabled={preSendRunning}
+        className="min-h-11"
+      >
+        {preSendRunning ? "Checking…" : preSend ? "Check again" : "Check this job"}
+      </Button>
+      {trackingSheetAction("min-h-11")}
+      {showApprove &&
+        (allApproved ? (
+          /* Every bill is approved, so the next step is JobTread's own invoice
+             builder — New → Customer Invoice on the job's documents page pulls
+             exactly these uninvoiced bills. Staged coding still blocks it: an
+             invoice built now would carry the OLD cost codes, so save first. A
+             disabled <a> is not a thing, hence the button/link swap. Hidden
+             entirely once the reconcile banner above is already green — an
+             invoice exists and holds the whole month, so this would only raise a
+             duplicate one; the banner's own "Open invoice" link is the way in
+             from here. */
+          reconReady ? null : dirty ? (
+            <Button disabled title="Save staged coding changes to JobTread first" className="min-h-11">
+              Create Invoice in JobTread ↗
+            </Button>
+          ) : (
+            <JtLink
+              href={`https://app.jobtread.com/jobs/${jobId}/documents`}
+              className={btn("primary", "md", "min-h-11")}
+            >
+              Create Invoice in JobTread ↗
+            </JtLink>
+          )
+        ) : (
+          <Button
+            onClick={() => {
+              setApproveMsg(null);
+              setApproveOpen(true);
+            }}
+            disabled={draftBills.length === 0 || dirty || syncing || approving}
+            title={dirty ? "Save staged coding changes to JobTread first" : undefined}
+            className="min-h-11"
+          >
+            Approve Draft Bills{draftBills.length > 0 ? ` (${draftBills.length})` : ""}
+          </Button>
+        ))}
+    </>
+  );
 
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-col px-4 pb-[calc(6rem+env(safe-area-inset-bottom))] pt-6 lg:max-w-[110rem]">
@@ -3264,8 +3394,8 @@ export function Board() {
                             >
                               ▶
                             </span>
-                            <span className="min-w-0 flex-1 truncate text-xs font-semibold">
-                              <span className="tabular-nums text-neutral-500 dark:text-neutral-400">
+                            <span className="min-w-0 flex-1 truncate text-sm font-semibold">
+                              <span className="font-normal tabular-nums text-neutral-500 dark:text-neutral-400">
                                 {g.code}
                               </span>{" "}
                               {g.name}
@@ -3274,19 +3404,13 @@ export function Board() {
                               {g.rows.length}
                             </span>
                             <span
-                              className={`shrink-0 text-xs font-semibold tabular-nums ${
+                              className={`shrink-0 text-sm font-semibold tabular-nums ${
                                 g.remaining < 0 ? "text-red-600 dark:text-red-400" : ""
                               }`}
                             >
                               {money0(g.remaining)}
                             </span>
                           </div>
-                          {/* The whole sentence, on every division and every
-                              code: what's been used, of what, and what's left.
-                              Reading one number and having to open a tooltip
-                              for the other two is what made the rail hard to
-                              trust. */}
-                          <BudgetLine used={g.used} budget={g.budget} remaining={g.remaining} />
                         </button>
 
                         {/* Rolled up, the division still shows its own bar, so a
@@ -3304,14 +3428,18 @@ export function Board() {
                               const over = left < 0;
                               // Remaining ÷ budget — undefined without a real budget to
                               // divide by (a labor-only or bills-only code), same guard
-                              // the Meter's own percentage uses.
+                              // the Meter's own percentage uses. It is tooltip-only
+                              // now: the row shows the money left and the bar, and
+                              // a percent beside a dollar figure said the same thing
+                              // twice.
                               const pct = h.budget > 0 ? Math.round((left / h.budget) * 100) : null;
                               return (
-                                // Two lines, not four: the spent/budget breakdown
-                                // moves into the tooltip so the rail shows ~2× the
-                                // codes per screen. Scanning for headroom means
-                                // comparing many codes at once — density is the
-                                // feature.
+                                // ONE line and a bar. The name, the money left and
+                                // the meter — the same type scale the bill list
+                                // beside it uses, so the two columns read as one
+                                // page. Everything else (used, budget, percent) is
+                                // in the tooltip and in the drill-down this row
+                                // opens; four lines per code made the rail a wall.
                                 <li
                                   key={h.code}
                                   {...dropHandlers(h.code, h.droppable)}
@@ -3335,42 +3463,37 @@ export function Board() {
                                   <button
                                     type="button"
                                     onClick={() => openCodeDrill(h.code)}
-                                    className="w-full px-3 py-2 pl-5 text-left transition hover:opacity-70 lg:px-2 lg:py-1 lg:pl-4"
+                                    className="w-full px-3 py-2.5 pl-5 text-left transition hover:opacity-70 lg:px-2 lg:py-1.5 lg:pl-4"
                                   >
-                                    <div className="flex items-baseline justify-between gap-2">
-                                      <span className="min-w-0 truncate text-xs">
-                                        <span className="tabular-nums text-neutral-500 dark:text-neutral-400">
+                                    <div className="flex items-baseline justify-between gap-3">
+                                      <span className="min-w-0 truncate text-sm font-semibold">
+                                        <span className="font-normal tabular-nums text-neutral-500 dark:text-neutral-400">
                                           {h.code}
                                         </span>{" "}
                                         <span
                                           className={
                                             h.droppable
                                               ? ""
-                                              : "text-neutral-500 dark:text-neutral-400"
+                                              : "font-normal text-neutral-500 dark:text-neutral-400"
                                           }
                                         >
                                           {h.name}
                                         </span>
                                       </span>
                                       <span
-                                        className={`shrink-0 text-xs font-semibold tabular-nums ${
+                                        className={`shrink-0 text-base font-semibold tabular-nums ${
                                           over ? "text-red-600 dark:text-red-400" : ""
                                         }`}
                                       >
                                         {money0(left)}
-                                        {pct !== null && (
-                                          <span className="ml-1 font-normal text-neutral-500 dark:text-neutral-400">
-                                            {pct}%
-                                          </span>
-                                        )}
                                       </span>
                                     </div>
-                                    <BudgetLine
-                                      used={usedOf(h)}
+                                    <Meter
                                       budget={h.budget}
-                                      remaining={left}
+                                      used={usedOf(h)}
+                                      label={h.code}
+                                      className="mt-1"
                                     />
-                                    <Meter budget={h.budget} used={usedOf(h)} label={h.code} />
                                   </button>
                                 </li>
                               );
@@ -3418,6 +3541,13 @@ export function Board() {
               month={costDonutMonthRows}
               jobToDate={costDonutRows}
               monthLabel={monthLabel(ym)}
+              detail={donutDetail}
+              // The job-scope card needs the whole-job contributors; the month
+              // scope needs nothing. Fetching on first hover keeps a page load
+              // that never touches the rings free of it.
+              onDetailWanted={(scope) => {
+                if (scope === "job") ensureContributors();
+              }}
             />
 
             <SectionHeading
@@ -3909,87 +4039,26 @@ export function Board() {
         </SplitGrid>
       )}
 
-      {/* THE MONTH'S LAST STEP, and now only that: approve the month's draft
-          bills, then raise its invoice in JobTread. It used to be a row of four
-          buttons at three different scopes — the whole-company Drive mirror,
-          this job's sheet push, a read-only check and a real JobTread write —
-          all the same size, right-aligned, indistinguishable. The mirror and the
-          month's Labor Report are company-wide, so they moved to the all-jobs
-          view; the check moved to the commit bar.
+      {/* THE CHECK'S RESULT, wherever the check was run from. It sits at this
+          spot in the DOM so it lands above the workbench on desktop (the grid
+          below is `lg:order-1`) and below it on a phone, and it renders only
+          once there is something to report. */}
+      {jobId && (preSend || preSendError || preSendRunning) && (
+        <div className="order-last mt-4 lg:order-none lg:mb-4">
+          <PreSendCheck result={preSend} error={preSendError} />
+        </div>
+      )}
 
-          What is left is the terminal action and one conditional companion. The
-          standalone sheet push only appears with NOTHING staged, because Save
-          Changes already runs it as part of the same commit — two buttons for
-          one push is what made the row read as noise.
+      {/* THE MONTH'S LAST STEP, on touch: approve the month's draft bills, then
+          raise its invoice in JobTread. `order-last` drops it below the columns.
 
-          Approve is dead while there is staged coding to save first. Once every
-          bill in the month is approved it becomes "Create Invoice in JobTread",
-          which opens the job's documents page — approving IS the last thing this
-          page does, and the invoice itself is built in JobTread. `order-last`
-          drops the block below the columns on a phone. The check's result card
-          sits directly above, and only once there is a result to show. */}
+          Desktop does NOT render this row — the same three buttons ride in the
+          commit bar below and appear when the pointer comes for that corner.
+          Keeping both would put the month's terminal action on screen twice. */}
       {jobId && (
-        <div className="order-last mt-4 border-t border-line pt-4 lg:order-none">
-          {(preSend || preSendError || preSendRunning) && (
-            <PreSendCheck result={preSend} error={preSendError} />
-          )}
-          {/* The month's three closing actions on ONE centred row, in the order
-              you do them: check the job, push the sheet, approve the drafts.
-              The check used to sit in the commit bar beside Save, which put a
-              read-only report next to the write. It wears the same secondary
-              style as the sheet push, because both are things you run and read;
-              Approve stays primary — it is the one that ends the month. */}
+        <div className="order-last mt-4 border-t border-line pt-4 lg:hidden">
           <div className="mx-auto flex max-w-2xl flex-wrap items-center justify-center gap-2">
-            <Button
-              variant="secondary"
-              onClick={runPreSend}
-              disabled={preSendRunning}
-              className="min-h-11"
-            >
-              {preSendRunning ? "Checking…" : preSend ? "Check again" : "Check this job"}
-            </Button>
-            {trackingSheetAction("min-h-11")}
-            {showApprove &&
-              (allApproved ? (
-                /* Every bill is approved, so the next step is JobTread's own
-                   invoice builder — New → Customer Invoice on the job's
-                   documents page pulls exactly these uninvoiced bills. Staged
-                   coding still blocks it: an invoice built now would carry the
-                   OLD cost codes, so save first. A disabled <a> is not a thing,
-                   hence the button/link swap. Hidden entirely once the
-                   reconcile banner above is already green — an invoice exists
-                   and holds the whole month, so this would only raise a
-                   duplicate one; the banner's own "Open invoice" link is the
-                   way in from here. */
-                reconReady ? null : dirty ? (
-                  <Button
-                    disabled
-                    title="Save staged coding changes to JobTread first"
-                    className="min-h-11"
-                  >
-                    Create Invoice in JobTread ↗
-                  </Button>
-                ) : (
-                  <JtLink
-                    href={`https://app.jobtread.com/jobs/${jobId}/documents`}
-                    className={btn("primary", "md", "min-h-11")}
-                  >
-                    Create Invoice in JobTread ↗
-                  </JtLink>
-                )
-              ) : (
-                <Button
-                  onClick={() => {
-                    setApproveMsg(null);
-                    setApproveOpen(true);
-                  }}
-                  disabled={draftBills.length === 0 || dirty || syncing || approving}
-                  title={dirty ? "Save staged coding changes to JobTread first" : undefined}
-                  className="min-h-11"
-                >
-                  Approve Draft Bills{draftBills.length > 0 ? ` (${draftBills.length})` : ""}
-                </Button>
-              ))}
+            {closingActions}
           </div>
         </div>
       )}
@@ -4016,7 +4085,22 @@ export function Board() {
           a phone; both are last in DOM order here, so they stack in source
           order. */}
       {jobId && (
-        <StickyActionBar dock="right" className="order-last mt-4 flex-wrap justify-end">
+        <StickyActionBar
+          dock="right"
+          className="order-last mt-4 flex-wrap justify-end"
+          // The bar can be wider than the corner box once the closing actions
+          // are in it, so its own hover is what keeps them open.
+          onMouseEnter={() => setNearCorner(true)}
+          onMouseLeave={() => setNearCorner(false)}
+        >
+          {/* The month's closing actions, revealed on approach — see
+              `nearCorner`. `hidden lg:flex` keeps them out of the bar on touch,
+              where they have their own row under the columns. */}
+          {nearCorner && (
+            <div className="hidden flex-wrap items-center justify-end gap-2 lg:flex">
+              {closingActions}
+            </div>
+          )}
           {dirty && (
             <span className="text-xs font-bold tabular-nums text-amber-700 dark:text-amber-300">
               {stagedCount} staged change{stagedCount === 1 ? "" : "s"}

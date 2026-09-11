@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+
 /**
  * Donut chart — a small, dependency-free SVG ring for part-to-whole money
  * splits (the CSI-division cost breakdowns on the Jobs view). No chart library
@@ -24,8 +26,18 @@ export interface DonutSlice {
   color: string; // any CSS color, typically "var(--viz-N)"
 }
 
+/** One line of a slice's hover card — e.g. a vendor bill behind a cost code. */
+export interface DonutDetailRow {
+  key: string;
+  label: string;
+  value: number;
+}
+
 const money = (n: number) =>
   `$${n.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+
+/** How many contributors a slice's card lists before it says "+N more". */
+const DETAIL_ROWS = 5;
 
 const pct = (n: number, total: number) => (total > 0 ? Math.round((n / total) * 100) : 0);
 
@@ -36,6 +48,8 @@ export function Donut({
   centerLabel,
   emptyLabel = "No data yet",
   size = 132,
+  detail,
+  onDetailWanted,
 }: {
   slices: DonutSlice[];
   title?: string;
@@ -45,7 +59,19 @@ export function Donut({
   centerLabel?: string;
   emptyLabel?: string;
   size?: number;
+  /**
+   * What a slice is MADE of. Hovering (or tapping) a segment lifts it and opens
+   * a card listing these — the top few contributors behind that arc. Return
+   * null while the answer is not in hand yet; the card then says so rather than
+   * reading as an empty slice.
+   */
+  detail?: (sliceKey: string) => DonutDetailRow[] | null;
+  /** Fired the first time a slice is hovered, so a caller can start the fetch `detail` needs. */
+  onDetailWanted?: () => void;
 }) {
+  // Which arc is lifted. Hover on a pointer; a tap toggles it, since the rings
+  // are read on a phone too and there is no hover there.
+  const [hover, setHover] = useState<string | null>(null);
   const total = slices.reduce((s, x) => s + x.value, 0);
   const positive = slices.filter((s) => s.value > 0);
 
@@ -57,6 +83,10 @@ export function Donut({
   // A 2px surface gap between segments, expressed in circumference units, only
   // applied when there is more than one visible slice.
   const gap = positive.length > 1 ? (2 / size) * C : 0;
+
+  // The lifted slice and its breakdown, read once per render.
+  const hoverSlice = hover ? (positive.find((s) => s.key === hover) ?? null) : null;
+  const hoverRows = hoverSlice && detail ? detail(hoverSlice.key) : [];
 
   let offset = 0;
 
@@ -93,6 +123,7 @@ export function Donut({
               {positive.map((s) => {
                 const frac = s.value / total;
                 const dash = Math.max(frac * C - gap, 0.5);
+                const lifted = hover === s.key;
                 const seg = (
                   <circle
                     key={s.key}
@@ -101,9 +132,29 @@ export function Donut({
                     r={r}
                     fill="none"
                     stroke={s.color}
-                    strokeWidth={stroke}
+                    // A lifted arc thickens by 4 units rather than moving: a
+                    // radial nudge would open a seam in the ring and shift
+                    // every neighbour's apparent size. Thicker reads as
+                    // "this one" and leaves the shares honest.
+                    strokeWidth={lifted ? stroke + 4 : stroke}
                     strokeDasharray={`${dash} ${C - dash}`}
                     strokeDashoffset={-offset}
+                    style={{
+                      transition: "stroke-width 120ms ease",
+                      cursor: detail ? "pointer" : undefined,
+                    }}
+                    onMouseEnter={detail ? () => { setHover(s.key); onDetailWanted?.(); } : undefined}
+                    onMouseLeave={detail ? () => setHover((h) => (h === s.key ? null : h)) : undefined}
+                    // Touch has no hover, and these rings are read on a phone:
+                    // a tap opens the same card and a second tap closes it.
+                    onClick={
+                      detail
+                        ? () => {
+                            setHover((h) => (h === s.key ? null : s.key));
+                            onDetailWanted?.();
+                          }
+                        : undefined
+                    }
                   >
                     <title>{`${s.label} — ${money(s.value)} (${pct(s.value, total)}%)`}</title>
                   </circle>
@@ -125,6 +176,44 @@ export function Donut({
         </div>
       )}
 
+      {/* What the lifted slice is made of. Sits between the ring and the
+          legend rather than floating over either: a popover anchored to a
+          120px ring has nowhere to go on a phone, and pushing the legend down
+          moves nothing the pointer is on. */}
+      {detail && hoverSlice && (
+        <div className="mt-2 w-full rounded-lg border border-line bg-white p-2 text-xs dark:bg-ink-raised">
+          <div className="mb-1 flex items-baseline justify-between gap-2">
+            <span className="min-w-0 truncate font-semibold">{hoverSlice.label}</span>
+            <span className="shrink-0 tabular-nums text-neutral-500">
+              {money(hoverSlice.value)}
+            </span>
+          </div>
+          {hoverRows === null ? (
+            <p className="text-[11px] text-neutral-500">Loading…</p>
+          ) : hoverRows.length === 0 ? (
+            <p className="text-[11px] text-neutral-500">Nothing to break out.</p>
+          ) : (
+            <>
+              <ul className="space-y-0.5">
+                {hoverRows.slice(0, DETAIL_ROWS).map((d) => (
+                  <li key={d.key} className="flex items-baseline justify-between gap-2">
+                    <span className="min-w-0 truncate text-neutral-600 dark:text-neutral-300">
+                      {d.label}
+                    </span>
+                    <span className="shrink-0 tabular-nums text-neutral-500">{money(d.value)}</span>
+                  </li>
+                ))}
+              </ul>
+              {hoverRows.length > DETAIL_ROWS && (
+                <p className="mt-1 text-[11px] text-neutral-400">
+                  +{hoverRows.length - DETAIL_ROWS} more
+                </p>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
       {/* Legend — identity is never color-alone. Sorted by value desc. */}
       {positive.length > 0 && (
         <ul className="mt-3 w-full space-y-1">
@@ -132,7 +221,16 @@ export function Donut({
             .slice()
             .sort((a, b) => b.value - a.value)
             .map((s) => (
-              <li key={s.key} className="flex items-center gap-2 text-xs">
+              <li
+                key={s.key}
+                // The legend row is the bigger target of the two, so it opens
+                // the same card the arc does.
+                onMouseEnter={detail ? () => { setHover(s.key); onDetailWanted?.(); } : undefined}
+                onMouseLeave={detail ? () => setHover((h) => (h === s.key ? null : h)) : undefined}
+                className={`flex items-center gap-2 text-xs ${
+                  hover === s.key ? "font-semibold" : ""
+                }`}
+              >
                 <span
                   aria-hidden
                   className="h-2.5 w-2.5 shrink-0 rounded-sm"

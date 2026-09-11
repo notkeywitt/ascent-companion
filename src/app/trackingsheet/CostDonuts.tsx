@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Donut, type DonutSlice } from "@/components/Donut";
+import { Donut, type DonutDetailRow, type DonutSlice } from "@/components/Donut";
 import { SectionLabel } from "@/components/ui";
 import { money } from "./BillCodingCard";
 
@@ -122,6 +122,23 @@ function buildSlices(
   return out;
 }
 
+/** A slice key is a cost code, except the folded "Other" — which is many codes
+ *  and has no single list behind it, so it opens an empty card. A null from
+ *  `detail` means "not fetched yet" and is passed straight through. */
+function sliceDetail(
+  detail: (
+    code: string,
+    field: "bills" | "labor",
+    scope: "month" | "job",
+  ) => DonutDetailRow[] | null,
+  key: string,
+  field: "bills" | "labor",
+  scope: "month" | "job",
+): DonutDetailRow[] | null {
+  if (key === "__other") return [];
+  return detail(key, field, scope);
+}
+
 const sum = (s: DonutSlice[]) => s.reduce((n, x) => n + x.value, 0);
 const hasCost = (rows: CostDonutRow[]) => rows.some((r) => r.bills > 0 || r.labor > 0);
 
@@ -129,6 +146,8 @@ export function CostDonuts({
   month,
   jobToDate,
   monthLabel,
+  detail,
+  onDetailWanted,
   className = "",
 }: {
   /** The selected month's cost by code — the scope the rings open on. */
@@ -137,6 +156,19 @@ export function CostDonuts({
   jobToDate: CostDonutRow[];
   /** e.g. "July '26", for the caption. */
   monthLabel: string;
+  /**
+   * The bills or time entries behind one cost code, for a slice's hover card —
+   * null while the answer is still being fetched. Scope-aware, because the
+   * rings' own figures are: a card that listed the whole job under a month's
+   * arc would contradict the arc it hangs off.
+   */
+  detail?: (
+    code: string,
+    field: "bills" | "labor",
+    scope: "month" | "job",
+  ) => DonutDetailRow[] | null;
+  /** Fired on first hover, so the caller can start the fetch `detail` needs. */
+  onDetailWanted?: (scope: "month" | "job") => void;
   className?: string;
 }) {
   // Folded on a phone, exactly as the budget rail beside it is, and for the
@@ -212,6 +244,8 @@ export function CostDonuts({
           size={120}
           centerLabel="bills"
           emptyLabel={`No vendor bills ${emptySuffix}`}
+          detail={detail && ((key) => sliceDetail(detail, key, "bills", scope))}
+          onDetailWanted={onDetailWanted && (() => onDetailWanted(scope))}
         />
         <Donut
           title={`Labor · ${money(laborTotal)}`}
@@ -219,6 +253,8 @@ export function CostDonuts({
           size={120}
           centerLabel="labor"
           emptyLabel={`No labor logged ${emptySuffix}`}
+          detail={detail && ((key) => sliceDetail(detail, key, "labor", scope))}
+          onDetailWanted={onDetailWanted && (() => onDetailWanted(scope))}
         />
       </div>
     </section>

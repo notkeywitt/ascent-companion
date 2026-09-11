@@ -32,10 +32,16 @@ export function StickyActionBar({
   children,
   className = "",
   dock = "full",
+  onMouseEnter,
+  onMouseLeave,
 }: {
   children: ReactNode;
   className?: string;
   dock?: "full" | "right";
+  /** A page that reveals part of the bar on approach needs to know the pointer
+   *  reached it — the bar can be wider than any fixed "near the corner" box. */
+  onMouseEnter?: () => void;
+  onMouseLeave?: () => void;
 }) {
   const observer = useRef<ResizeObserver | null>(null);
   const measure = useCallback((el: HTMLDivElement | null) => {
@@ -65,6 +71,8 @@ export function StickyActionBar({
   return (
     <div
       ref={measure}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
       className={`${base} ${className}`}
       style={{
         bottom:
