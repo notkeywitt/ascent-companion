@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: ship/billing-month
 status: shipped
 started: 2026-09-10T15:22:41Z
-updated: 2026-09-11T13:04:26Z
+updated: 2026-09-11T13:08:19Z
 goal: 
 next: verify on desktop /trackingsheet: hover a donut slice for its top-5 bills, and check the closing actions appear in the commit bar only near the lower-right corner
 ---
@@ -44,5 +44,7 @@ next: verify on desktop /trackingsheet: hover a donut slice for its top-5 bills,
   src/app/trackingsheet/CostDonuts.tsx, src/components/Donut.tsx
 - 2026-09-11 06:04 · `2aebe36` companion: open the commit bar on hover, not on approach
   src/app/trackingsheet/Board.tsx
+- 2026-09-11 06:08 · `487b19b` companion: open a time entry on its job's time page
+  src/app/api/employee-time/history/route.ts, src/app/labor-review/LaborReview.tsx, src/app/trackingsheet/Board.tsx, src/app/trackingsheet/TimeCodingCard.tsx, src/components/TimeEntryList.tsx, src/lib/jtLinks.test.ts, +1 more
 
 ## Notes
