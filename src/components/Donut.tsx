@@ -160,6 +160,43 @@ export function Donut({
               })}
             </g>
           </svg>
+          {/* WHAT THE LIFTED SLICE IS MADE OF — a card floating over the page,
+              not a block in it. Absolute inside the ring's own box, so nothing
+              around it moves when a slice is hovered and the legend below stays
+              exactly where the eye left it. `pointer-events-none` is what keeps
+              it honest: the card can never sit between the pointer and the arc
+              that opened it, so it cannot flicker itself shut. */}
+          {detail && hoverSlice && (
+            <div className="pointer-events-none absolute left-1/2 top-full z-30 mt-2 w-72 max-w-[85vw] -translate-x-1/2 overflow-hidden rounded-xl border border-line bg-white p-3 text-sm shadow-xl dark:bg-ink-raised">
+              <div className="mb-1.5 flex items-baseline justify-between gap-3">
+                <span className="min-w-0 truncate font-semibold">{hoverSlice.label}</span>
+                <span className="shrink-0 tabular-nums text-neutral-500">
+                  {money(hoverSlice.value)}
+                </span>
+              </div>
+              {hoverRows === null ? (
+                <p className="text-neutral-500">Loading…</p>
+              ) : hoverRows.length === 0 ? (
+                <p className="text-neutral-500">Nothing to break out.</p>
+              ) : (
+                // Everything, biggest first. No scroll — the card cannot take
+                // the pointer, so a scrollbar in it would be decoration.
+                <ul className="max-h-[70vh] space-y-1 overflow-hidden">
+                  {hoverRows.map((d) => (
+                    <li key={d.key} className="flex items-baseline justify-between gap-3">
+                      <span className="min-w-0 truncate text-neutral-600 dark:text-neutral-300">
+                        {d.label}
+                      </span>
+                      <span className="shrink-0 tabular-nums text-neutral-500">
+                        {money(d.value)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+
           {/* Center readout sits in the hole. */}
           <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
             <span className="text-sm font-semibold tabular-nums">{centerValue ?? money(total)}</span>
@@ -169,39 +206,6 @@ export function Donut({
               </span>
             )}
           </div>
-        </div>
-      )}
-
-      {/* What the lifted slice is made of. Sits between the ring and the
-          legend rather than floating over either: a popover anchored to a
-          120px ring has nowhere to go on a phone, and pushing the legend down
-          moves nothing the pointer is on. */}
-      {detail && hoverSlice && (
-        <div className="mt-2 w-full rounded-lg border border-line bg-white p-2 text-xs dark:bg-ink-raised">
-          <div className="mb-1 flex items-baseline justify-between gap-2">
-            <span className="min-w-0 truncate font-semibold">{hoverSlice.label}</span>
-            <span className="shrink-0 tabular-nums text-neutral-500">
-              {money(hoverSlice.value)}
-            </span>
-          </div>
-          {hoverRows === null ? (
-            <p className="text-[11px] text-neutral-500">Loading…</p>
-          ) : hoverRows.length === 0 ? (
-            <p className="text-[11px] text-neutral-500">Nothing to break out.</p>
-          ) : (
-            // Everything, biggest first, scrolling past about six rows. A "+N
-            // more" cut-off answered "what is in Other" with "some of it".
-            <ul className="max-h-40 space-y-0.5 overflow-y-auto">
-              {hoverRows.map((d) => (
-                <li key={d.key} className="flex items-baseline justify-between gap-2">
-                  <span className="min-w-0 truncate text-neutral-600 dark:text-neutral-300">
-                    {d.label}
-                  </span>
-                  <span className="shrink-0 tabular-nums text-neutral-500">{money(d.value)}</span>
-                </li>
-              ))}
-            </ul>
-          )}
         </div>
       )}
 

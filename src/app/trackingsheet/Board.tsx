@@ -258,6 +258,9 @@ interface DrillBillRow {
   draft: boolean;
 }
 
+/** Where a device remembers whether the budget column is closed. */
+const RAIL_HIDDEN_KEY = "ts.railHidden";
+
 /** Draft bills are coded but not yet committed spend — JobTread's own budget math excludes them. */
 const isCommitted = (status: string) => status === "pending" || status === "approved";
 
@@ -532,6 +535,30 @@ export function Board() {
   // header to open it. The desktop sidebar ignores this (it's always docked,
   // via the `lg:` overrides), so defaulting to collapsed is a mobile-only cost.
   const [railCollapsed, setRailCollapsed] = useState(true);
+  /**
+   * …and the DESKTOP fold, which is a different thing: `railCollapsed` folds
+   * the cards away on a phone, this closes the rail's whole COLUMN so the bills
+   * take the width. Remembered per device — someone who codes with the rail
+   * shut wants it shut tomorrow too. Read in an effect rather than at init, so
+   * the server and the first client render agree.
+   */
+  const [railHidden, setRailHidden] = useState(false);
+  useEffect(() => {
+    try {
+      setRailHidden(localStorage.getItem(RAIL_HIDDEN_KEY) === "1");
+    } catch {
+      /* blocked storage just means the rail opens shown */
+    }
+  }, []);
+  const toggleRailHidden = () =>
+    setRailHidden((v) => {
+      try {
+        localStorage.setItem(RAIL_HIDDEN_KEY, v ? "0" : "1");
+      } catch {
+        /* per-session then */
+      }
+      return !v;
+    });
   /** Which end of the phone's headroom cards leads. They fold with the rail. */
   const [headroomMostLeft, setHeadroomMostLeft] = useState(false);
   // The "Time & labor" block in the bills list starts collapsed to a single
@@ -3302,13 +3329,24 @@ export function Board() {
           the foot of the page. Nothing moves on a phone: the row is `order-last`
           there and this class starts at lg. */}
       {data && !loading && (
-        <SplitGrid className="lg:order-1 lg:grid-cols-2">
+        <SplitGrid
+          className={`lg:order-1 ${railHidden ? "lg:grid-cols-1" : "lg:grid-cols-2"}`}
+          hideFirst={railHidden}
+        >
           {/* ─────────── LEFT: cost-code reference rail ─────────── */}
           {/* Docked: the rail is the reference you're constantly checking while
               scrolling a long bill list, so it stays put. `self-start` is what
               makes sticky work in a grid — items stretch to the row height by
               default, leaving nothing to scroll within. */}
-          <section className="min-w-0 lg:sticky sticky-below-header lg:self-start">
+          {/* `overflow-hidden` is what makes the close read as a SLIDE: the
+              track animates to 0fr and the rail is clipped by it rather than
+              reflowing to a one-word column on the way out. Below xl there is
+              no track to shrink, so a closed rail is simply not rendered. */}
+          <section
+            className={`min-w-0 overflow-hidden lg:sticky sticky-below-header lg:self-start ${
+              railHidden ? "hidden xl:block" : ""
+            }`}
+          >
             {/* The row keeps a SectionHeading's 28px height on a phone even
                 though both taps inside it are 44px tall: `-my-2` lets each
                 button's hit area overhang the row instead of inflating it, the
@@ -3364,6 +3402,21 @@ export function Board() {
                   }`}
                 >
                   {collapsedDivs.size > 0 ? "Expand all" : "Collapse all"}
+                </button>
+                {/* Close the whole column. Desktop only — on a phone the
+                    heading tap already folds the rail, and a second control
+                    that means almost the same thing is two ways to do one
+                    thing. A tab on the left edge brings it back. */}
+                <button
+                  type="button"
+                  onClick={toggleRailHidden}
+                  title="Hide the budget column — the bills take the width"
+                  className="hidden shrink-0 items-center gap-1 text-[11px] text-neutral-500 transition hover:text-accent dark:text-neutral-400 lg:inline-flex"
+                >
+                  Hide
+                  <span aria-hidden className="text-[9px]">
+                    ←
+                  </span>
                 </button>
               </span>
             </div>
@@ -4128,6 +4181,24 @@ export function Board() {
             )}
           </section>
         </SplitGrid>
+      )}
+
+      {/* THE WAY BACK, once the budget column is closed — a tab on the left
+          edge of the screen, where the column it reopens used to be. `fixed`,
+          so it costs the layout nothing and cannot be scrolled past; desktop
+          only, because below lg the rail is a fold under its own heading. */}
+      {jobId && railHidden && (
+        <button
+          type="button"
+          onClick={toggleRailHidden}
+          title="Show the budget column"
+          className="fixed left-0 top-1/2 z-20 hidden -translate-y-1/2 items-center gap-1.5 rounded-r-lg border border-l-0 border-line bg-cream/95 py-3 pl-1.5 pr-2 text-[11px] font-semibold text-neutral-500 shadow-lg backdrop-blur transition hover:text-accent dark:bg-ink/95 dark:text-neutral-400 lg:flex [writing-mode:vertical-rl]"
+        >
+          <span aria-hidden className="text-[9px] [writing-mode:horizontal-tb]">
+            →
+          </span>
+          Budget
+        </button>
       )}
 
       {/* THE CHECK'S RESULT, wherever the check was run from. It sits at this

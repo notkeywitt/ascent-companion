@@ -14,6 +14,10 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
  * Only the `xl` layout is split. Below that the grid falls back to the classes
  * the caller passes (one column on a phone), and the handles are `display:none`
  * — which takes them out of the grid entirely rather than leaving empty tracks.
+ *
+ * `hideFirst` closes the first panel to nothing. The track animates to 0fr
+ * rather than the panel unmounting, so it SLIDES shut and comes back where it
+ * was — and the caller keeps whatever width it had dragged the rail to.
  */
 
 /** Width of one handle track, in px. It IS the gutter at xl (`xl:gap-x-0`). */
@@ -56,10 +60,13 @@ function ColHandle({
 
 export function SplitGrid({
   className = "",
+  hideFirst = false,
   children,
 }: {
   /** Grid classes for the breakpoints below xl (e.g. `lg:grid-cols-2`). */
   className?: string;
+  /** Close the first panel's track to nothing — see the note above. */
+  hideFirst?: boolean;
   /** Exactly three panels, in column order. */
   children: ReactNode;
 }) {
@@ -136,14 +143,20 @@ export function SplitGrid({
       ref={gridRef}
       style={
         {
-          "--tsc": `${cols[0]}fr ${HANDLE_PX}px ${cols[1]}fr ${HANDLE_PX}px ${cols[2]}fr`,
+          "--tsc": hideFirst
+            ? `0fr 0px ${cols[1]}fr ${HANDLE_PX}px ${cols[2]}fr`
+            : `${cols[0]}fr ${HANDLE_PX}px ${cols[1]}fr ${HANDLE_PX}px ${cols[2]}fr`,
         } as React.CSSProperties
       }
       // `!` on the arbitrary template because two utilities set
       // grid-template-columns, and STYLESHEET order decides which wins.
-      className={`grid grid-cols-1 gap-4 xl:gap-x-0 xl:![grid-template-columns:var(--tsc)] ${className}`}
+      className={`grid grid-cols-1 gap-4 transition-[grid-template-columns] duration-300 xl:gap-x-0 xl:![grid-template-columns:var(--tsc)] ${className}`}
     >
       {kids[0]}
+      {/* Still rendered while the first panel is closed: the track list has a
+          fixed five slots, and dropping a child here would slide every panel
+          into the wrong one. Its own track is 0px then, so there is nothing to
+          grab. */}
       <ColHandle label="Resize the budget rail" onPointerDown={startDrag(0)} onNudge={nudge(0)} />
       {kids[1]}
       <ColHandle label="Resize the coding panel" onPointerDown={startDrag(1)} onNudge={nudge(1)} />
