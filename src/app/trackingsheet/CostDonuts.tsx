@@ -152,6 +152,8 @@ export function CostDonuts({
   monthLabel,
   detail,
   onDetailWanted,
+  onSelect,
+  selectedKey = null,
   className = "",
 }: {
   /** The selected month's cost by code — the scope the rings open on. */
@@ -173,6 +175,19 @@ export function CostDonuts({
   ) => DonutDetailRow[] | null;
   /** Fired on first hover, so the caller can start the fetch `detail` needs. */
   onDetailWanted?: (scope: "month" | "job") => void;
+  /**
+   * Clicking a slice or its legend row narrows the list this heads to those
+   * cost codes — null when the pick is being cleared. "Other" hands back every
+   * code it folded, so the grey arc filters to exactly what it represents.
+   *
+   * THE BILLS RING ONLY. What this filters is the bill list, so a click on the
+   * labor ring would narrow a list that has nothing to do with the hours
+   * clicked — usually to nothing at all, since a labor code rarely carries
+   * bills. The labor ring stays a read, and its own list has its own filters.
+   */
+  onSelect?: (sel: { key: string; label: string; codes: string[] } | null) => void;
+  /** The slice key currently picked, so the rings can mark it. */
+  selectedKey?: string | null;
   className?: string;
 }) {
   // Folded on a phone, exactly as the budget rail beside it is, and for the
@@ -189,6 +204,19 @@ export function CostDonuts({
 
   const billsTotal = sum(bills);
   const laborTotal = sum(labor);
+
+  /** A slice's pick, in the caller's terms: which codes it stands for, and what
+   *  to call them. Clicking the picked slice again clears it. */
+  const pick = (key: string) => {
+    if (!onSelect) return;
+    if (key === selectedKey) return onSelect(null);
+    if (key === "__other") {
+      const codes = rows.filter((r) => !colorMap.has(r.code)).map((r) => r.code);
+      return onSelect({ key, label: "Other cost codes", codes });
+    }
+    const row = rows.find((r) => r.code === key);
+    return onSelect({ key, label: row?.name ? `${key} ${row.name}` : key, codes: [key] });
+  };
 
   /** One reader per ring: the folded codes for "Other", the caller's bills or
    *  time entries for everything else. */
@@ -258,6 +286,8 @@ export function CostDonuts({
           emptyLabel={`No vendor bills ${emptySuffix}`}
           detail={ringDetail && ringDetail("bills")}
           onDetailWanted={onDetailWanted && (() => onDetailWanted(scope))}
+          onSelect={onSelect && pick}
+          selectedKey={selectedKey}
         />
         <Donut
           title={`Labor · ${money(laborTotal)}`}

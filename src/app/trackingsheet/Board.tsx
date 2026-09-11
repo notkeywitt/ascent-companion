@@ -10,6 +10,7 @@ import {
   Chip,
   ChipScroller,
   EmptyState,
+  FilterChip,
   Loading,
   MetaLine,
   Meter,
@@ -1189,13 +1190,42 @@ export function Board() {
 
   // The by-bill list, split in two: everything else in the main list, Sunset in
   // its own collapsible pane at the bottom.
+  /**
+   * The cost code the bill list is narrowed to, or null for the whole month.
+   * Set by clicking a ring slice or its legend row — the rings answer "what is
+   * this month made of", and the obvious next question is "show me those". It
+   * carries a list of CODES rather than one, because the grey "Other" arc
+   * stands for every code the ring folded away.
+   */
+  const [billCodeFilter, setBillCodeFilter] = useState<{
+    key: string;
+    label: string;
+    codes: string[];
+  } | null>(null);
+
+  /**
+   * The month's bills, narrowed to the picked codes. A bill is IN when any of
+   * its lines is coded there — reading a code's bills means the whole bill, not
+   * the one line that touched it, because the rest of that bill is the context
+   * for why it did. Staged recodes count, through `codeOf`, so a line dragged
+   * onto the picked code joins the list before Save.
+   */
+  const filteredBills = useMemo(() => {
+    const all = data?.bills ?? [];
+    if (!billCodeFilter) return all;
+    const want = new Set(billCodeFilter.codes);
+    const keep = new Set<string>();
+    for (const l of data?.lines ?? []) if (want.has(codeOf(l))) keep.add(l.docId);
+    return all.filter((b) => keep.has(b.id));
+  }, [data, billCodeFilter, codeOf]);
+
   const nonSunsetBills = useMemo(
-    () => (data?.bills ?? []).filter((b) => !sunsetDocIds.has(b.id)),
-    [data, sunsetDocIds],
+    () => filteredBills.filter((b) => !sunsetDocIds.has(b.id)),
+    [filteredBills, sunsetDocIds],
   );
   const sunsetBills = useMemo(
-    () => (data?.bills ?? []).filter((b) => sunsetDocIds.has(b.id)),
-    [data, sunsetDocIds],
+    () => filteredBills.filter((b) => sunsetDocIds.has(b.id)),
+    [filteredBills, sunsetDocIds],
   );
   /** The two panes read end to end — the order a person works down the page,
    *  and so the order "the next bill" means after an approve. */
@@ -3711,6 +3741,11 @@ export function Board() {
               jobToDate={costDonutRows}
               monthLabel={monthLabel(ym)}
               detail={donutDetail}
+              // Clicking a slice narrows the list under it. The rings say what
+              // the month is made of; this is the way from that answer into the
+              // bills behind it.
+              onSelect={setBillCodeFilter}
+              selectedKey={billCodeFilter?.key ?? null}
               // The job-scope card needs the whole-job contributors; the month
               // scope needs nothing. Fetching on first hover keeps a page load
               // that never touches the rings free of it.
@@ -4091,8 +4126,36 @@ export function Board() {
                 </ul>
               ))}
 
-            {mode === "bill" && data.bills.length === 0 ? (
-              <EmptyState>{c("recode.empty.noBills")}</EmptyState>
+            {/* THE ACTIVE COST-CODE FILTER, said out loud. A list quietly
+                showing four of a month's thirty bills is the kind of thing
+                someone spends ten minutes not understanding, so the pick gets a
+                chip that names it and clears it. Shown in every mode, because
+                the filter narrows the bills whichever way they are arranged. */}
+            {billCodeFilter && (
+              <div className="mb-2 flex items-center gap-2">
+                <FilterChip
+                  on
+                  onClick={() => setBillCodeFilter(null)}
+                  title="Clear this cost-code filter"
+                >
+                  {billCodeFilter.label}
+                  <span aria-hidden className="text-[11px] opacity-80">
+                    ✕
+                  </span>
+                </FilterChip>
+                <span className="min-w-0 truncate text-[11px] text-neutral-500 dark:text-neutral-400">
+                  {filteredBills.length} of {data.bills.length} bill
+                  {data.bills.length === 1 ? "" : "s"}
+                </span>
+              </div>
+            )}
+
+            {mode === "bill" && filteredBills.length === 0 ? (
+              <EmptyState>
+                {billCodeFilter
+                  ? `No bills on ${billCodeFilter.label} this month.`
+                  : c("recode.empty.noBills")}
+              </EmptyState>
             ) : mode === "bill" ? (
               <>
                 {nonSunsetBills.length > 0 && (

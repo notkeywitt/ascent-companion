@@ -47,6 +47,8 @@ export function Donut({
   size = 132,
   detail,
   onDetailWanted,
+  onSelect,
+  selectedKey = null,
 }: {
   slices: DonutSlice[];
   title?: string;
@@ -64,6 +66,14 @@ export function Donut({
   detail?: (sliceKey: string) => DonutDetailRow[] | null;
   /** Fired the first time a slice is hovered, so a caller can start the fetch `detail` needs. */
   onDetailWanted?: () => void;
+  /**
+   * Clicking a slice, or its legend row, picks it — the ring becomes a filter
+   * control for whatever list it heads. Called with the same key a second time
+   * when the picked slice is clicked again, so the caller can toggle it off.
+   */
+  onSelect?: (sliceKey: string) => void;
+  /** Which slice is picked, so the ring can mark it. */
+  selectedKey?: string | null;
 }) {
   // Which arc is lifted. Hover on a pointer; a tap toggles it, since the rings
   // are read on a phone too and there is no hover there.
@@ -119,7 +129,7 @@ export function Donut({
               {positive.map((s) => {
                 const frac = s.value / total;
                 const dash = Math.max(frac * C - gap, 0.5);
-                const lifted = hover === s.key;
+                const lifted = hover === s.key || selectedKey === s.key;
                 const seg = (
                   <circle
                     key={s.key}
@@ -137,17 +147,19 @@ export function Donut({
                     strokeDashoffset={-offset}
                     style={{
                       transition: "stroke-width 120ms ease",
-                      cursor: detail ? "pointer" : undefined,
+                      cursor: detail || onSelect ? "pointer" : undefined,
                     }}
                     onMouseEnter={detail ? () => { setHover(s.key); onDetailWanted?.(); } : undefined}
                     onMouseLeave={detail ? () => setHover((h) => (h === s.key ? null : h)) : undefined}
-                    // Touch has no hover, and these rings are read on a phone:
-                    // a tap opens the same card and a second tap closes it.
+                    // A click PICKS the slice where the caller wants that. It
+                    // also toggles the card, because touch has no hover and the
+                    // tap is the only way in to the breakdown there.
                     onClick={
-                      detail
+                      detail || onSelect
                         ? () => {
                             setHover((h) => (h === s.key ? null : s.key));
                             onDetailWanted?.();
+                            onSelect?.(s.key);
                           }
                         : undefined
                     }
@@ -222,8 +234,11 @@ export function Donut({
                 // the same card the arc does.
                 onMouseEnter={detail ? () => { setHover(s.key); onDetailWanted?.(); } : undefined}
                 onMouseLeave={detail ? () => setHover((h) => (h === s.key ? null : h)) : undefined}
+                onClick={onSelect ? () => onSelect(s.key) : undefined}
                 className={`flex items-center gap-2 text-xs ${
-                  hover === s.key ? "font-semibold" : ""
+                  hover === s.key || selectedKey === s.key ? "font-semibold" : ""
+                } ${onSelect ? "cursor-pointer" : ""} ${
+                  selectedKey === s.key ? "text-accent" : ""
                 }`}
               >
                 <span
