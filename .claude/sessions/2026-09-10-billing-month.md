@@ -4,9 +4,9 @@ repo: ascent-companion
 branch: ship/billing-month
 status: shipped
 started: 2026-09-10T15:22:41Z
-updated: 2026-09-11T04:40:58Z
+updated: 2026-09-11T12:57:24Z
 goal: 
-next: verify on a phone: /employee-time clock-in and clock-out time chips open a wheel of quarter hours
+next: verify on desktop /trackingsheet: hover a donut slice for its top-5 bills, and check the closing actions appear in the commit bar only near the lower-right corner
 ---
 
 ## Log
@@ -38,5 +38,7 @@ next: verify on a phone: /employee-time clock-in and clock-out time chips open a
   CODEBASE_MAP.md, src/app/api/taxable-lines/route.ts, src/app/taxable-lines/TaxableLinesBrowser.tsx, src/lib/jobtread.ts, src/lib/taxableLines.test.ts, src/lib/taxableLines.ts
 - 2026-09-10 21:40 · `35a5443` companion: pick a clock time from a list instead of typing it
   src/app/employee-time/EmployeeTimeClient.tsx
+- 2026-09-11 05:57 · `e185c8e` companion: quiet the budget rail and open the cost rings
+  src/app/trackingsheet/Board.tsx, src/app/trackingsheet/CostDonuts.tsx, src/components/Donut.tsx, src/components/StickyActionBar.tsx
 
 ## Notes
