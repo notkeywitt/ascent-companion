@@ -2361,18 +2361,51 @@ function ChipInput({
   ariaLabel: string;
   onChange: (v: string) => void;
 }) {
+  // Time is a list, not a keyboard: a native select gives the phone its own
+  // wheel and the desktop a dropdown, so nobody types "7:0" into a shift.
+  const options = type === "time" ? quarterHours(value) : null;
   return (
     <span className="relative inline-flex min-h-11 items-center rounded-xl bg-neutral-200/80 px-3.5 text-sm font-semibold dark:bg-white/10">
       {display}
-      <input
-        type={type}
-        value={value}
-        aria-label={ariaLabel}
-        onChange={(e) => onChange(e.target.value)}
-        className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-      />
+      {options ? (
+        <select
+          value={value}
+          aria-label={ariaLabel}
+          onChange={(e) => onChange(e.target.value)}
+          className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+        >
+          {options.map((t) => (
+            <option key={t} value={t}>
+              {fmt12h(t)}
+            </option>
+          ))}
+        </select>
+      ) : (
+        <input
+          type={type}
+          value={value}
+          aria-label={ariaLabel}
+          onChange={(e) => onChange(e.target.value)}
+          className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+        />
+      )}
     </span>
   );
+}
+
+/** Every quarter hour of the day, plus `value` itself when it sits off the grid
+ *  (an old entry at 7:07 stays selectable instead of snapping to 7:00). */
+function quarterHours(value: string): string[] {
+  const out: string[] = [];
+  for (let m = 0; m < 24 * 60; m += 15) {
+    out.push(`${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`);
+  }
+  const v = (value || "").slice(0, 5);
+  if (/^\d{2}:\d{2}$/.test(v) && !out.includes(v)) {
+    out.push(v);
+    out.sort();
+  }
+  return out;
 }
 
 /** A bottom sheet — the app's picker/confirm surface, dismissed by tap or Esc. */
