@@ -74,7 +74,7 @@ export interface CodingDraft {
    */
   timeStaged?: Record<string, string>;
   /**
-   * timeEntryId → the in-flight correction to its hours, day or pay type. The
+   * timeEntryId → the staged correction to its hours, day or pay type. The
    * entry's COST CODE is not in here: a recode is a recode wherever it was
    * picked, so it rides `timeStaged` above whether the drawer or the entry
    * panel staged it, and one entry can never carry two different codes.

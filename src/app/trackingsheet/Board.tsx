@@ -600,7 +600,7 @@ export function Board() {
    */
   const [timeStaged, setTimeStaged] = useState<Map<string, string>>(new Map());
   /**
-   * timeEntryId → its queued correction (hours, day, pay type). The entry
+   * timeEntryId → its staged correction (hours, day, pay type). The entry
    * panel's twin of `edits` on the bill side: it stages instead of writing, so
    * fixing three entries and recoding a month of bills is ONE Save. The cost
    * code is deliberately NOT in here — it rides `timeStaged` above wherever it
@@ -1356,7 +1356,7 @@ export function Board() {
   };
 
   /**
-   * Queue one entry's correction from the panel. The cost code goes into the
+   * Stage one entry's correction from the panel. The cost code goes into the
    * board's labor lane so the rail, the rings and the drawer all move with it;
    * the rest is the patch a Save sends to /api/time-entry. An EMPTY patch is
    * the panel's Revert — it clears both lanes for that entry.
@@ -1380,7 +1380,7 @@ export function Board() {
   /**
    * Re-rate the whole selection — the recode's twin, staged the same way. An
    * empty pick, or the entry's own JobTread type, un-stages it rather than
-   * queueing a write that changes nothing.
+   * staging a write that changes nothing.
    */
   const stageTimeType = (type: string) => {
     setTimeEdits((prev) => {
@@ -1401,7 +1401,7 @@ export function Board() {
     setSyncMsg(null);
   };
 
-  /** The pay type an entry reads as now, a queued re-rate winning. */
+  /** The pay type an entry reads as now, a staged re-rate winning. */
   const timeTypeOf = useCallback(
     (t: { id: string; type: string }) => timeEdits[t.id]?.type ?? t.type,
     [timeEdits],
@@ -2640,7 +2640,7 @@ export function Board() {
       }
     }
 
-    // …and the queued ENTRY CORRECTIONS — hours, day, pay type. One POST each,
+    // …and the staged ENTRY CORRECTIONS — hours, day, pay type. One POST each,
     // to the same route the panel used to call on its own. They go after the
     // recodes so a re-timed entry lands on its new code first: /api/time-entry
     // re-rates off the span, and the code it is charged to is settled by then.
@@ -3986,7 +3986,7 @@ export function Board() {
                       monthEntries={monthTime}
                       codeOf={timeCodeOf}
                       headroomFor={timeHeadroomFor}
-                      // "Changed", not only "moved": a queued hours or pay-type
+                      // "Changed", not only "moved": a staged hours or pay-type
                       // correction is staged work the Save will write, and a row
                       // that shows nothing looks like it was never touched.
                       isMoved={(t) => timeTouched.has(t.id)}
