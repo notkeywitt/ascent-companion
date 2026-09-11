@@ -412,7 +412,7 @@ export function TimeCodingCard({
           {/* `timeEntryId` OPENS the entry on JobTread's time page, rather than
               filtering to its day — see lib/jtLinks. */}
           <JtLink
-            href={jtTimeUrl({ userId: entry.userId, entryId: entry.id })}
+            href={jtTimeUrl({ jobId, userId: entry.userId, entryId: entry.id })}
             title="Open this entry on JobTread"
             className="text-xs font-semibold text-neutral-400 transition hover:text-accent"
           >

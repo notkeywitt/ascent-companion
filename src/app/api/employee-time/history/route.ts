@@ -125,9 +125,9 @@ export async function GET(req: NextRequest) {
         notes: e.notes,
         approved: e.approved,
         open,
-        // Narrowed to this entry's own day, so the link opens on the hours the
-        // row is about rather than the employee's whole history.
-        jtUrl: jtTimeUrl({ userId, from: dateOf(e.startedAt) }),
+        // Narrowed to this entry's own JOB and day, so the link opens on the
+        // hours the row is about rather than the employee's whole history.
+        jtUrl: jtTimeUrl({ jobId: e.jobId, userId, from: dateOf(e.startedAt) }),
       };
     });
 

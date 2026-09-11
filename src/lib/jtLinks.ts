@@ -2,18 +2,17 @@
  * Links OUT to JobTread's own web app.
  *
  * One definition per destination, because a URL shape that lives at three call
- * sites drifts at three call sites — which is exactly how every time-entry link
- * in the Assistant ended up pointing at `/jobs/<id>/time`, a path JobTread does
- * not have. It silently served the job's HOME page instead, so "open this
- * entry in JobTread" landed nowhere near the entry.
+ * sites drifts at three call sites — which is how every time-entry link in the
+ * Assistant once pointed at a guessed address and landed nowhere near the
+ * entry. Guess nothing here; every address below came from the owner's own
+ * address bar, dated.
  *
- * THE TIME PAGE IS NOT PER-JOB. JobTread files time under ONE org-wide page,
- * `/time`, and narrows it with query params — `userId`, `startDate`, `endDate`
- * (owner-supplied, from a real filtered address bar, 2026-09-06) and
- * `timeEntryId`, which OPENS one entry (owner-supplied, 2026-09-08). There is
- * no confirmed JOB parameter, so these links narrow to the person, the day and
- * the entry, and stop there. Do not add a `jobId` guess: an unrecognised param
- * is the same silent wrong-page failure this module exists to end.
+ * THE TIME PAGE HAS TWO ADDRESSES. Org-wide it is `/time`; a single job's is
+ * `/jobs/<jobId>/time` (owner-supplied, 2026-09-11 — the earlier note here said
+ * that path did not exist, which was wrong). Both read the same query params:
+ * `userId`, `startDate`, `endDate` (owner-supplied 2026-09-06) and
+ * `timeEntryId`, which OPENS one entry (owner-supplied 2026-09-08). A JOB is a
+ * path segment, never a param — do not put `jobId` in the query.
  *
  * Dates are ORG-LOCAL calendar days (YYYY-MM-DD) — the day the office would
  * call the entry's, not a UTC slice of its timestamp. Read them with `orgDay`.
@@ -27,18 +26,24 @@ function day(v?: string | null): string {
   return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : "";
 }
 
+/** A job's home page in JobTread. */
+export const jtJobUrl = (jobId: string) => `${APP}/jobs/${encodeURIComponent(jobId)}`;
+
 /**
  * JobTread's time page, narrowed to whichever of these are known.
  *
- * Every argument is optional and each narrows independently: no `userId` gives
- * the whole crew's day, no dates give one person's whole history. Passing the
- * same day as `from` and `to` is the single-day case; `entryId` is the case
- * after that — a link on ONE entry, which JobTread opens rather than merely
- * filters to. Pair `entryId` with its `userId`, the way the owner's own address
- * does: the entry list is still the person's.
+ * Every argument is optional and each narrows independently: a `jobId` gives
+ * that job's own time page instead of the org's, no `userId` gives the whole
+ * crew's day, no dates give one person's whole history. Passing the same day as
+ * `from` and `to` is the single-day case; `entryId` is the case after that — a
+ * link on ONE entry, which JobTread opens rather than merely filters to. Pair
+ * `entryId` with its `userId`, the way the owner's own address does: the entry
+ * list is still the person's.
  */
 export function jtTimeUrl(
   opts: {
+    /** The job whose time page to open. Omitted → the org-wide `/time`. */
+    jobId?: string | null;
     userId?: string | null;
     from?: string | null;
     to?: string | null;
@@ -55,18 +60,17 @@ export function jtTimeUrl(
   // A range needs both ends; a lone `from` reads as "that day".
   if (to || from) p.set("endDate", to || from);
   if (entryId) p.set("timeEntryId", entryId);
+  const jobId = String(opts.jobId ?? "").trim();
+  const base = jobId ? `${jtJobUrl(jobId)}/time` : `${APP}/time`;
   const q = p.toString();
-  return q ? `${APP}/time?${q}` : `${APP}/time`;
+  return q ? `${base}?${q}` : base;
 }
-
-/** A job's home page in JobTread. */
-export const jtJobUrl = (jobId: string) => `${APP}/jobs/${encodeURIComponent(jobId)}`;
 
 /**
  * The TO-DO list, opened on one to-do when a task id is given — `?taskId=` is
  * what selects it there (owner-supplied address, 2026-09-08).
  *
- * NOT per-job, the same trap as the time page above: a to-do links to
+ * NOT per-job, unlike the time page above: a to-do links to
  * `/to-dos?taskId=<id>`, never to its job. Linking a to-do at its job's home
  * page lands the reader on the job and leaves them to find the to-do.
  */

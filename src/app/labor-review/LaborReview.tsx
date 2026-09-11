@@ -848,6 +848,7 @@ export function LaborReview() {
               <Card pad={false} className="overflow-hidden">
                 <TimeEntryList
                   filters={f}
+                  jobId={jobId}
                   monthEntries={monthEntries}
                   codeOf={codeOf}
                   headroomFor={headroomFor}
@@ -875,6 +876,7 @@ export function LaborReview() {
                  copy that drifts. It stages nothing: the leaf comes back here. */
               <TimeRecodeCard
                 entries={selectedEntries}
+                jobId={jobId}
                 codeOptions={codingOptions}
                 leafOf={leafOf}
                 onPick={stageSelection}

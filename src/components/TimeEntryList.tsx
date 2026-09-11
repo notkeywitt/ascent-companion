@@ -698,6 +698,9 @@ function TimeCalendar({
 
 export interface TimeEntryListProps {
   filters: TimeFilters;
+  /** The job these entries belong to, so a row's ↗ opens THAT job's time page
+   *  rather than the org's. Omitted → the org-wide one (lib/jtLinks). */
+  jobId?: string;
   /** Every entry in the month, for the "12 of 87" line. */
   monthEntries: TimeEntryRow[];
   /** The cost code an entry sits under NOW — a staged move winning. */
@@ -765,6 +768,7 @@ function RowBody({
 
 export function TimeEntryList({
   filters,
+  jobId,
   monthEntries,
   codeOf,
   headroomFor,
@@ -1074,7 +1078,7 @@ export function TimeEntryList({
                             also open the editor. `timeEntryId` opens the entry
                             itself rather than filtering to its day (lib/jtLinks). */}
                             <JtLink
-                              href={jtTimeUrl({ userId: t.userId, entryId: t.id })}
+                              href={jtTimeUrl({ jobId, userId: t.userId, entryId: t.id })}
                               title="Open this entry on JobTread's time page"
                               className="mt-1 flex h-11 w-8 shrink-0 items-center justify-center text-xs font-semibold text-neutral-400 transition hover:text-accent"
                             >
@@ -1148,6 +1152,7 @@ export function TimeEntryList({
  */
 export function TimeRecodeCard({
   entries,
+  jobId,
   codeOptions,
   leafOf,
   onPick,
@@ -1157,6 +1162,8 @@ export function TimeRecodeCard({
   writes = true,
 }: {
   entries: TimeEntryRow[];
+  /** The job these entries belong to — see TimeEntryListProps.jobId. */
+  jobId?: string;
   /** The legal targets — LABOR leaves, plus any leaf an entry already sits on. */
   codeOptions: Option[];
   /** The leaf an entry points at, staged moves winning. */
@@ -1174,23 +1181,24 @@ export function TimeRecodeCard({
   writes?: boolean;
 }) {
   const staged = entries.filter(isStaged);
-  /* THE ↗ GOES WHERE THE SELECTION IS, not to the job. JobTread's time page is
-     org-wide and narrows by person and date (see lib/jtLinks), so a link built
-     from the selection lands on exactly the entries in this drawer: one
-     employee's one day when that is what's ticked, their span when several days
-     are, and the whole crew's when the selection crosses people. */
+  /* THE ↗ GOES WHERE THE SELECTION IS. JobTread's time page narrows by person
+     and date (see lib/jtLinks), so a link built from the selection lands on
+     exactly the entries in this drawer: one employee's one day when that is
+     what's ticked, their span when several days are, and the whole crew's when
+     the selection crosses people — on this job's own time page. */
   const jtHref = useMemo(() => {
     const days = entries.map(dayOfEntry).filter(Boolean).sort();
     const ids = entries.map((t) => (t.userId ?? "").trim());
     const one = new Set(ids);
     return jtTimeUrl({
+      jobId,
       // One person only when EVERY entry names the same one — a selection with
       // an id missing from any row would filter the others out of view.
       userId: one.size === 1 && !one.has("") ? ids[0] : "",
       from: days[0],
       to: days[days.length - 1],
     });
-  }, [entries]);
+  }, [entries, jobId]);
   const [approving, setApproving] = useState(false);
   const [msg, setMsg] = useState<{ tone: "success" | "error"; text: string } | null>(null);
 

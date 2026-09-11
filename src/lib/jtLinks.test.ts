@@ -38,6 +38,25 @@ describe("jtTimeUrl", () => {
     );
   });
 
+  it("opens the JOB's own time page when a job is known", () => {
+    // The owner's own address, verbatim (2026-09-11).
+    expect(jtTimeUrl({ jobId: "22PXGG97EiV4", userId: "22PYm2cL7K3k" })).toBe(
+      "https://app.jobtread.com/jobs/22PXGG97EiV4/time?userId=22PYm2cL7K3k",
+    );
+  });
+
+  it("keeps the job in the PATH and the filters in the query", () => {
+    expect(
+      jtTimeUrl({ jobId: "22PXGG97EiV4", userId: "u1", from: "2026-08-23", entryId: "e1" }),
+    ).toBe(
+      "https://app.jobtread.com/jobs/22PXGG97EiV4/time?userId=u1&startDate=2026-08-23&endDate=2026-08-23&timeEntryId=e1",
+    );
+  });
+
+  it("falls back to the org-wide page with no job", () => {
+    expect(jtTimeUrl({ jobId: "", userId: "u1" })).toBe("https://app.jobtread.com/time?userId=u1");
+  });
+
   it("ignores a date that is not a calendar day", () => {
     // An ISO instant sliced wrong, or an empty string, must not reach the URL.
     expect(jtTimeUrl({ userId: "u1", from: "2026-08-23T09:15:00Z" })).toBe(

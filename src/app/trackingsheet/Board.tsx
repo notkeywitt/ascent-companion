@@ -3649,6 +3649,7 @@ export function Board() {
                         correction no longer means leaving the month. */}
                     <TimeEntryList
                       filters={timeFilters}
+                      jobId={jobId}
                       monthEntries={monthTime}
                       codeOf={timeCodeOf}
                       headroomFor={timeHeadroomFor}
@@ -3680,6 +3681,7 @@ export function Board() {
                         </div>
                         <TimeRecodeCard
                           entries={timeSelectedEntries}
+                          jobId={jobId}
                           codeOptions={timeCodeOptions}
                           leafOf={timeLeafOf}
                           onPick={stageTimeSelection}
@@ -4007,6 +4009,7 @@ export function Board() {
                 </div>
                 <TimeRecodeCard
                   entries={timeSelectedEntries}
+                  jobId={jobId}
                   codeOptions={timeCodeOptions}
                   leafOf={timeLeafOf}
                   onPick={stageTimeSelection}
