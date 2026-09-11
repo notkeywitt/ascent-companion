@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: ship/billing-month
 status: shipped
 started: 2026-09-10T15:22:41Z
-updated: 2026-09-11T13:32:27Z
+updated: 2026-09-11T13:32:29Z
 goal: 
 next: verify on desktop /trackingsheet: (1) queue an entry edit and a bill recode, confirm one Save Changes writes both; (2) select several entries and set a rate on all; (3) Hide the budget column and reopen it from the left tab; (4) hover a donut slice — the card should float without moving the legend
 ---
