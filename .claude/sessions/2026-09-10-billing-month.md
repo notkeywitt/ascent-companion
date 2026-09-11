@@ -4,9 +4,9 @@ repo: ascent-companion
 branch: ship/billing-month
 status: shipped
 started: 2026-09-10T15:22:41Z
-updated: 2026-09-11T13:15:29Z
+updated: 2026-09-11T13:19:15Z
 goal: 
-next: verify on desktop /trackingsheet: hover a donut slice for its top-5 bills, and check the closing actions appear in the commit bar only near the lower-right corner
+next: verify on desktop /trackingsheet: (1) queue an entry edit and a bill recode, confirm one Save Changes writes both; (2) select several entries and set a rate on all; (3) Hide the budget column and reopen it from the left tab; (4) hover a donut slice — the card should float without moving the legend
 ---
 
 ## Log
@@ -52,5 +52,7 @@ next: verify on desktop /trackingsheet: hover a donut slice for its top-5 bills,
   src/app/trackingsheet/Board.tsx, src/app/trackingsheet/TimeCodingCard.tsx, src/components/TimeEntryList.tsx
 - 2026-09-11 06:15 · `f784c6b` companion: float the ring's breakdown, and close the budget column
   src/app/trackingsheet/Board.tsx, src/components/Donut.tsx, src/components/SplitGrid.tsx
+- 2026-09-11 06:19 · `1f8fb8b` companion: put a time entry's cost beside its hours
+  src/components/TimeEntryList.tsx
 
 ## Notes
