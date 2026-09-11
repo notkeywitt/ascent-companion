@@ -4,9 +4,9 @@ repo: ascent-companion
 branch: ship/billing-month
 status: shipped
 started: 2026-09-10T15:22:41Z
-updated: 2026-09-11T14:46:09Z
+updated: 2026-09-11T14:55:28Z
 goal: 
-next: verify on desktop /trackingsheet: (1) queue an entry edit and a bill recode, confirm one Save Changes writes both; (2) select several entries and set a rate on all; (3) Hide the budget column and reopen it from the left tab; (4) hover a donut slice — the card should float without moving the legend
+next: open the ? overlay on a desktop page: check the scaled page lines up in the stage, then Edit > Add element > tap a control and confirm the arrow lands on it after Save
 ---
 
 ## Log
@@ -74,5 +74,7 @@ next: verify on desktop /trackingsheet: (1) queue an entry edit and a bill recod
   src/app/trackingsheet/Board.tsx, src/app/trackingsheet/CostDonuts.tsx
 - 2026-09-11 07:46 · `a6e6416` companion: labor ring filters the labor list, and a way to the package
   src/app/trackingsheet/Board.tsx, src/app/trackingsheet/CostDonuts.tsx
+- 2026-09-11 07:55 · `8ffa66a` companion: per-element help overlay, editable in app
+  CODEBASE_MAP.md, src/app/api/page-guide/route.ts, src/app/layout.tsx, src/components/PageGuide.tsx, src/db/index.ts, src/db/schema.ts, +2 more
 
 ## Notes
