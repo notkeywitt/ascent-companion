@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: ship/billing-month
 status: shipped
 started: 2026-09-10T15:22:41Z
-updated: 2026-09-11T15:20:09Z
+updated: 2026-09-11T15:20:11Z
 goal: 
 next: open the ? overlay on a desktop page: check the scaled page lines up in the stage, then Edit > Add element > tap a control and confirm the arrow lands on it after Save
 ---

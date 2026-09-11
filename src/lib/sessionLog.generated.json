@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-11T15:03:39Z",
+  "generatedAt": "2026-09-11T15:20:11Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,7 +8,7 @@
       "branch": "ship/billing-month",
       "status": "shipped",
       "started": "2026-09-10T15:22:41Z",
-      "updated": "2026-09-11T15:03:39Z",
+      "updated": "2026-09-11T15:20:11Z",
       "goal": "",
       "next": "open the ? overlay on a desktop page: check the scaled page lines up in the stage, then Edit > Add element > tap a control and confirm the arrow lands on it after Save",
       "commits": [
@@ -242,6 +242,13 @@
           "sha": "6511307",
           "subject": "companion: fix Pick element — the backdrop was eating the tap",
           "files": "src/components/PageGuide.tsx"
+        },
+        {
+          "date": "2026-09-11",
+          "time": "08:20",
+          "sha": "94d899f",
+          "subject": "companion: stop the budget tab spilling into the bills column",
+          "files": "src/app/trackingsheet/Board.tsx, src/components/SplitGrid.tsx"
         }
       ]
     },
