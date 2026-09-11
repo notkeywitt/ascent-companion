@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: ship/billing-month
 status: shipped
 started: 2026-09-10T15:22:41Z
-updated: 2026-09-11T13:11:39Z
+updated: 2026-09-11T13:13:25Z
 goal: 
 next: verify on desktop /trackingsheet: hover a donut slice for its top-5 bills, and check the closing actions appear in the commit bar only near the lower-right corner
 ---
@@ -48,5 +48,7 @@ next: verify on desktop /trackingsheet: hover a donut slice for its top-5 bills,
   src/app/api/employee-time/history/route.ts, src/app/labor-review/LaborReview.tsx, src/app/trackingsheet/Board.tsx, src/app/trackingsheet/TimeCodingCard.tsx, src/components/TimeEntryList.tsx, src/lib/jtLinks.test.ts, +1 more
 - 2026-09-11 06:11 · `6b7442c` companion: queue time-entry edits onto the board's one Save
   src/app/trackingsheet/Board.tsx, src/app/trackingsheet/TimeCodingCard.tsx, src/lib/codingDraft.test.ts, src/lib/codingDraft.ts
+- 2026-09-11 06:13 · `420352f` companion: re-rate a whole selection of time entries
+  src/app/trackingsheet/Board.tsx, src/app/trackingsheet/TimeCodingCard.tsx, src/components/TimeEntryList.tsx
 
 ## Notes
