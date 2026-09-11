@@ -2682,7 +2682,12 @@ export function Board() {
       // 0.00: the empty document tax row it leaves is the one anyone can type
       // into, and a figure typed there counts on top of the 88 80 00 line. The
       // amount pushed is the tax the bill already has, so this changes no money.
-      if (bill && ((bill.nonRecoverableTax ?? 0) > 0 || bill.recordsTax))
+      //
+      // DRAFT ONLY. The line write above sends costs only on a draft bill, so a
+      // non-draft bill has nothing to re-tax — and on a bill already in
+      // QuickBooks this write is refused (src/lib/qboLock.ts), which reported a
+      // failure for a re-code that had landed.
+      if (bill && bill.status === "draft" && ((bill.nonRecoverableTax ?? 0) > 0 || bill.recordsTax))
         taxWork.set(docId, billTax(bill));
     }
     for (const [docId, amount] of taxWork) {

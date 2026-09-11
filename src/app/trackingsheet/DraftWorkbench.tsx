@@ -306,7 +306,11 @@ export function useBillEditor(
   // line in the same save or the bill's total falls by the tax amount. A bill with
   // "Record Tax" still toggled on is migrated too, even at 0.00 — see the note in
   // bill/[docId]/page.tsx.
-  const needsTaxMigration = legacyTaxField > 0 || header?.recordsTax === true;
+  // DRAFT ONLY: the line write sends costs only on a draft, so a non-draft bill
+  // has nothing to re-tax — and on a bill already in QuickBooks the tax write is
+  // refused (src/lib/qboLock.ts) after the re-code has already landed.
+  const needsTaxMigration =
+    header?.status === "draft" && (legacyTaxField > 0 || header?.recordsTax === true);
 
   const math = useMemo(
     () =>
