@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-11T13:33:56Z",
+  "generatedAt": "2026-09-11T13:41:05Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,7 +8,7 @@
       "branch": "ship/billing-month",
       "status": "shipped",
       "started": "2026-09-10T15:22:41Z",
-      "updated": "2026-09-11T13:33:56Z",
+      "updated": "2026-09-11T13:41:05Z",
       "goal": "",
       "next": "verify on desktop /trackingsheet: (1) queue an entry edit and a bill recode, confirm one Save Changes writes both; (2) select several entries and set a rate on all; (3) Hide the budget column and reopen it from the left tab; (4) hover a donut slice — the card should float without moving the legend",
       "commits": [
@@ -206,6 +206,13 @@
           "time": "06:33",
           "sha": "9efe0fa",
           "subject": "companion: put the bills filter chip inside the list it narrows",
+          "files": "src/app/trackingsheet/Board.tsx"
+        },
+        {
+          "date": "2026-09-11",
+          "time": "06:41",
+          "sha": "3e8ba06",
+          "subject": "companion: let the budget tab breathe, and follow the scroll",
           "files": "src/app/trackingsheet/Board.tsx"
         }
       ]
