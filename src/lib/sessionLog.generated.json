@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-11T13:11:39Z",
+  "generatedAt": "2026-09-11T13:13:27Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,7 +8,7 @@
       "branch": "ship/billing-month",
       "status": "shipped",
       "started": "2026-09-10T15:22:41Z",
-      "updated": "2026-09-11T13:11:39Z",
+      "updated": "2026-09-11T13:13:27Z",
       "goal": "",
       "next": "verify on desktop /trackingsheet: hover a donut slice for its top-5 bills, and check the closing actions appear in the commit bar only near the lower-right corner",
       "commits": [
@@ -137,6 +137,13 @@
           "sha": "6b7442c",
           "subject": "companion: queue time-entry edits onto the board's one Save",
           "files": "src/app/trackingsheet/Board.tsx, src/app/trackingsheet/TimeCodingCard.tsx, src/lib/codingDraft.test.ts, src/lib/codingDraft.ts"
+        },
+        {
+          "date": "2026-09-11",
+          "time": "06:13",
+          "sha": "420352f",
+          "subject": "companion: re-rate a whole selection of time entries",
+          "files": "src/app/trackingsheet/Board.tsx, src/app/trackingsheet/TimeCodingCard.tsx, src/components/TimeEntryList.tsx"
         }
       ]
     },
