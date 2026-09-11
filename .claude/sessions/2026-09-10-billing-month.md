@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: ship/billing-month
 status: shipped
 started: 2026-09-10T15:22:41Z
-updated: 2026-09-11T17:01:22Z
+updated: 2026-09-11T17:18:57Z
 goal: 
 next: open a desktop window at 1280px+, tap the header hamburger, pin two pages in Edit and confirm they survive a reload
 ---
@@ -92,5 +92,7 @@ next: open a desktop window at 1280px+, tap the header hamburger, pin two pages 
   src/components/Donut.tsx
 - 2026-09-11 10:01 · `20f39ce` companion: portal the side menu out of the blurred header
   src/components/SideNav.tsx
+- 2026-09-11 10:18 · `9145a00` companion: select all SHOWN means the rows on screen
+  src/components/TimeEntryList.tsx
 
 ## Notes
