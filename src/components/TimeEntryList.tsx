@@ -828,7 +828,23 @@ export function TimeEntryList({
     });
   const allOpen = grouped && f.groups.every((g) => openGroups.has(g.key));
 
-  const allShownSelected = visible.length > 0 && visible.every((t) => selected.has(t.id));
+  /**
+   * WHAT "SHOWN" MEANS TO THE SELECT-ALL: the rows actually drawn, not every row
+   * the filters left. A grouped list opens with its groups SHUT, so `visible`
+   * there is a couple of hundred entries behind a dozen headings — ticking the
+   * box selected all of them and the next recode moved a month of hours instead
+   * of the day that was open.
+   *
+   * The calendar view draws every filtered entry on its own line, so there it is
+   * `visible` again; so it is in an ungrouped list, and in a filtered one, where
+   * `isOpen` force-opens everything.
+   */
+  const shown = useMemo(() => {
+    if (view === "calendar" || !grouped || f.on) return visible;
+    return f.groups.filter((g) => openGroups.has(g.key)).flatMap((g) => g.entries);
+  }, [view, grouped, f.on, f.groups, openGroups, visible]);
+
+  const allShownSelected = shown.length > 0 && shown.every((t) => selected.has(t.id));
   const toggleOne = (id: string) => {
     const next = new Set(selected);
     if (next.has(id)) next.delete(id);
@@ -837,8 +853,8 @@ export function TimeEntryList({
   };
   const toggleAllShown = () => {
     const next = new Set(selected);
-    if (allShownSelected) for (const t of visible) next.delete(t.id);
-    else for (const t of visible) next.add(t.id);
+    if (allShownSelected) for (const t of shown) next.delete(t.id);
+    else for (const t of shown) next.add(t.id);
     onSelectedChange(next);
   };
 
@@ -888,10 +904,19 @@ export function TimeEntryList({
                 type="checkbox"
                 checked={allShownSelected}
                 onChange={toggleAllShown}
-                className="h-4 w-4 shrink-0 accent-[var(--accent)]"
+                // Nothing drawn, nothing to tick — a box that looks live and
+                // does nothing is worse than one that says why.
+                disabled={shown.length === 0 && selected.size === 0}
+                className="h-4 w-4 shrink-0 accent-[var(--accent)] disabled:opacity-40"
               />
               <span className="truncate">
-                {selected.size > 0 ? `${selected.size} selected` : "Select all shown"}
+                {selected.size > 0
+                  ? `${selected.size} selected`
+                  : shown.length === 0
+                    ? "Open a group to select its entries"
+                    : shown.length === visible.length
+                      ? "Select all shown"
+                      : `Select all shown (${shown.length})`}
               </span>
             </label>
             <span className="flex shrink-0 items-center gap-3">
