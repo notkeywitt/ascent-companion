@@ -3411,7 +3411,7 @@ export function Board() {
       {data && !loading && (
         <SplitGrid
           className={`lg:order-1 ${
-            railHidden ? "lg:grid-cols-[max-content_minmax(0,1fr)]" : "lg:grid-cols-2"
+            railHidden ? "lg:grid-cols-[3.5rem_minmax(0,1fr)]" : "lg:grid-cols-2"
           }`}
           hideFirst={railHidden}
         >
@@ -3421,11 +3421,15 @@ export function Board() {
               makes sticky work in a grid — items stretch to the row height by
               default, leaving nothing to scroll within. */}
           {/* The rail's own column, whether the rail is in it or not. Closed,
-              the track narrows to `max-content` and holds nothing but the
-              reopen tab — a column the width of one button. That tab used to be
-              `fixed` at the screen edge, which parked it on top of the "to be
-              invoiced" figures beside it; a track of its own cannot overlap
-              anything.
+              the track is a fixed 3.5rem — 44px of button plus the `pr-3`
+              gutter below — and holds nothing but the reopen tab.
+
+              FIXED, NOT `max-content`, and that is the fix for the overlap: the
+              tab is set in a vertical writing mode, and a grid track cannot
+              measure an orthogonal flow's intrinsic inline size, so max-content
+              came out short and the tab spilled over the "to be invoiced"
+              figures beside it. SplitGrid's CLOSED_PX is the same number at xl;
+              keep the two in step.
 
               `overflow-hidden` only while the rail is IN it: it is what clips
               the rail as the track narrows, and it would cut the tab's shadow
@@ -3442,7 +3446,7 @@ export function Board() {
           <section
             className={`min-w-0 ${
               railHidden
-                ? ""
+                ? "lg:pr-3"
                 : "overflow-hidden lg:sticky sticky-below-header lg:self-start"
             }`}
           >
@@ -3451,15 +3455,17 @@ export function Board() {
                 its own heading instead, so a second control there would mean
                 almost the same thing twice.
 
-                `mr-3` is the gutter: at xl the grid sets `gap-x-0` and the
-                handle track beside a closed rail is 0px, so without it the tab
-                butts straight against the "to be invoiced" card. */}
+                The gutter is the section's own `lg:pr-3`, not a margin here: at
+                xl the grid sets `gap-x-0` and the handle track beside a closed
+                rail is 0px, so without it the tab butts straight against the
+                "to be invoiced" card. Padding the column keeps the button's
+                width and the track's width the same conversation. */}
             {railHidden && (
               <button
                 type="button"
                 onClick={toggleRailHidden}
                 title="Show the budget column"
-                className="sticky-below-header ml-1 mr-3 hidden items-center gap-1.5 rounded-lg border border-line bg-cream/95 py-3 pl-1.5 pr-2 text-[11px] font-semibold text-neutral-500 shadow-sm transition hover:border-accent hover:text-accent dark:bg-ink-raised dark:text-neutral-400 lg:sticky lg:flex [writing-mode:vertical-rl]"
+                className="sticky-below-header hidden w-full items-center justify-center gap-1.5 rounded-lg border border-line bg-cream/95 py-3 text-[11px] font-semibold text-neutral-500 shadow-sm transition hover:border-accent hover:text-accent dark:bg-ink-raised dark:text-neutral-400 lg:sticky lg:flex [writing-mode:vertical-rl]"
               >
                 <span aria-hidden className="text-[9px] [writing-mode:horizontal-tb]">
                   →
