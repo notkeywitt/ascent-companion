@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: ship/billing-month
 status: shipped
 started: 2026-09-10T15:22:41Z
-updated: 2026-09-11T13:23:18Z
+updated: 2026-09-11T13:25:26Z
 goal: 
 next: verify on desktop /trackingsheet: (1) queue an entry edit and a bill recode, confirm one Save Changes writes both; (2) select several entries and set a rate on all; (3) Hide the budget column and reopen it from the left tab; (4) hover a donut slice — the card should float without moving the legend
 ---
@@ -58,5 +58,7 @@ next: verify on desktop /trackingsheet: (1) queue an entry edit and a bill recod
   src/app/trackingsheet/Board.tsx
 - 2026-09-11 06:23 · `39d6901` companion: line the commit bar up with the tab bar
   src/app/globals.css, src/components/StickyActionBar.tsx
+- 2026-09-11 06:25 · `4640b06` companion: give the budget reopen tab a column of its own
+  src/app/trackingsheet/Board.tsx, src/components/SplitGrid.tsx
 
 ## Notes
