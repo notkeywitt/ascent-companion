@@ -330,6 +330,19 @@ html .group:hover .group-hover\:text-accent {
      page and the font size, and a panel beside it that guessed the number ended
      up underneath it. */
   --actionbar-h: 0px;
+
+  /* Where the corner-docked commit bar's BOTTOM edge sits. On a phone the tab
+     bar is edge to edge, so the commit bar stacks a gap above it. From `pad` up
+     the tab bar detaches into a centred pill and the commit bar lines up WITH
+     it — same bottom edge, same row, one band of chrome across the foot of the
+     screen instead of two shelves. Overridden in the media query below. */
+  --actionbar-bottom: calc(var(--tabbar-h) + 0.75rem);
+
+  /* …and how wide it may grow before it would reach that centred pill. The
+     pill is at most four 118px tabs, so its right edge never passes
+     `50vw + 236px`; the bar is right-aligned, so capping it here makes it WRAP
+     rather than slide underneath the tabs. Only meaningful from `pad` up. */
+  --actionbar-max-w: 100%;
 }
 
 /* From `pad` up (744px — the narrowest iPad in portrait) the tab bar detaches
@@ -342,6 +355,9 @@ html .group:hover .group-hover\:text-accent {
 @media (min-width: 744px) {
   :root {
     --tabbar-h: calc(3.5rem + 2px + 2rem + env(safe-area-inset-bottom));
+    /* In line with the pill, not stacked above it — the pill's own offset. */
+    --actionbar-bottom: calc(1rem + env(safe-area-inset-bottom));
+    --actionbar-max-w: calc(50vw - 16rem);
   }
 }
 

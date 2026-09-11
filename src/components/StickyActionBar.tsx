@@ -27,6 +27,15 @@ import { useCallback, useRef, type ReactNode } from "react";
  * as a floating band on a wide page (the tracking sheet runs to 110rem), so a
  * page that wide docks its commit into the corner the thumb and the cursor both
  * already sit in.
+ *
+ * IT LINES UP WITH THE TAB BAR, it does not stack above it. From `pad` up the
+ * tab bar is a centred floating pill, so the commit bar takes the same bottom
+ * edge and the foot of the screen reads as one band rather than two shelves.
+ * `--actionbar-bottom` and `--actionbar-max-w` (globals.css) carry both halves
+ * of that: the offset, and the width past which the bar would run under the
+ * pill — capped, so a wide bar wraps to a second row instead of colliding. On a
+ * phone the tab bar is edge to edge and there is no room beside it, so the bar
+ * stacks above it there exactly as before.
  */
 export function StickyActionBar({
   children,
@@ -65,7 +74,7 @@ export function StickyActionBar({
 
   const base =
     dock === "right"
-      ? "sticky z-10 ml-auto flex w-fit max-w-full items-center gap-2 rounded-xl border border-line bg-cream/95 px-3 py-2 shadow-lg backdrop-blur dark:bg-ink/95 print:hidden"
+      ? "sticky z-10 ml-auto flex w-fit max-w-[var(--actionbar-max-w)] items-center gap-2 rounded-xl border border-line bg-cream/95 px-3 py-2 shadow-lg backdrop-blur dark:bg-ink/95 print:hidden"
       : "sticky z-10 -mx-4 flex items-center gap-2 border-t border-line bg-cream/95 px-4 py-2.5 backdrop-blur dark:bg-ink/95 print:hidden";
 
   return (
@@ -75,8 +84,7 @@ export function StickyActionBar({
       onMouseLeave={onMouseLeave}
       className={`${base} ${className}`}
       style={{
-        bottom:
-          dock === "right" ? "calc(var(--tabbar-h, 0px) + 0.75rem)" : "var(--tabbar-h, 0px)",
+        bottom: dock === "right" ? "var(--actionbar-bottom)" : "var(--tabbar-h, 0px)",
       }}
     >
       {children}
