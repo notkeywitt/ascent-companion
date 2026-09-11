@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-11T13:13:27Z",
+  "generatedAt": "2026-09-11T13:15:29Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,7 +8,7 @@
       "branch": "ship/billing-month",
       "status": "shipped",
       "started": "2026-09-10T15:22:41Z",
-      "updated": "2026-09-11T13:13:27Z",
+      "updated": "2026-09-11T13:15:29Z",
       "goal": "",
       "next": "verify on desktop /trackingsheet: hover a donut slice for its top-5 bills, and check the closing actions appear in the commit bar only near the lower-right corner",
       "commits": [
@@ -144,6 +144,13 @@
           "sha": "420352f",
           "subject": "companion: re-rate a whole selection of time entries",
           "files": "src/app/trackingsheet/Board.tsx, src/app/trackingsheet/TimeCodingCard.tsx, src/components/TimeEntryList.tsx"
+        },
+        {
+          "date": "2026-09-11",
+          "time": "06:15",
+          "sha": "f784c6b",
+          "subject": "companion: float the ring's breakdown, and close the budget column",
+          "files": "src/app/trackingsheet/Board.tsx, src/components/Donut.tsx, src/components/SplitGrid.tsx"
         }
       ]
     },
