@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: ship/billing-month
 status: shipped
 started: 2026-09-10T15:22:41Z
-updated: 2026-09-11T16:56:36Z
+updated: 2026-09-11T16:57:30Z
 goal: 
 next: open a desktop window at 1280px+, tap the header hamburger, pin two pages in Edit and confirm they survive a reload
 ---
@@ -88,5 +88,7 @@ next: open a desktop window at 1280px+, tap the header hamburger, pin two pages 
   src/app/trackingsheet/Board.tsx, src/app/trackingsheet/TimeCodingCard.tsx
 - 2026-09-11 09:56 · `490c84e` companion: one word for staged work
   src/app/trackingsheet/Board.tsx, src/app/trackingsheet/TimeCodingCard.tsx, src/lib/codingDraft.ts
+- 2026-09-11 09:57 · `324b40c` companion: stop a hovered ring slice being clipped
+  src/components/Donut.tsx
 
 ## Notes
