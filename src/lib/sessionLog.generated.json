@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-11T14:55:30Z",
+  "generatedAt": "2026-09-11T15:03:39Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,7 +8,7 @@
       "branch": "ship/billing-month",
       "status": "shipped",
       "started": "2026-09-10T15:22:41Z",
-      "updated": "2026-09-11T14:55:30Z",
+      "updated": "2026-09-11T15:03:39Z",
       "goal": "",
       "next": "open the ? overlay on a desktop page: check the scaled page lines up in the stage, then Edit > Add element > tap a control and confirm the arrow lands on it after Save",
       "commits": [
@@ -235,6 +235,13 @@
           "sha": "8ffa66a",
           "subject": "companion: per-element help overlay, editable in app",
           "files": "CODEBASE_MAP.md, src/app/api/page-guide/route.ts, src/app/layout.tsx, src/components/PageGuide.tsx, src/db/index.ts, src/db/schema.ts, +2 more"
+        },
+        {
+          "date": "2026-09-11",
+          "time": "08:03",
+          "sha": "6511307",
+          "subject": "companion: fix Pick element — the backdrop was eating the tap",
+          "files": "src/components/PageGuide.tsx"
         }
       ]
     },
