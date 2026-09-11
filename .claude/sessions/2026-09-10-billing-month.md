@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: ship/billing-month
 status: shipped
 started: 2026-09-10T15:22:41Z
-updated: 2026-09-11T13:19:17Z
+updated: 2026-09-11T13:21:28Z
 goal: 
 next: verify on desktop /trackingsheet: (1) queue an entry edit and a bill recode, confirm one Save Changes writes both; (2) select several entries and set a rate on all; (3) Hide the budget column and reopen it from the left tab; (4) hover a donut slice — the card should float without moving the legend
 ---
@@ -54,5 +54,7 @@ next: verify on desktop /trackingsheet: (1) queue an entry edit and a bill recod
   src/app/trackingsheet/Board.tsx, src/components/Donut.tsx, src/components/SplitGrid.tsx
 - 2026-09-11 06:19 · `1f8fb8b` companion: put a time entry's cost beside its hours
   src/components/TimeEntryList.tsx
+- 2026-09-11 06:21 · `0a3482e` companion: fold the bills list, and call the block Labor
+  src/app/trackingsheet/Board.tsx
 
 ## Notes
