@@ -85,6 +85,17 @@ export function Donut({
   // inside the box; C is its circumference (the dash budget for one full turn).
   const r = 42;
   const stroke = 15;
+  /** How much a hovered arc thickens. See the note on the segment below. */
+  const LIFT = 4;
+  /**
+   * The box has to hold the LIFTED ring, not the resting one. At rest the
+   * stroke reaches r + stroke/2 = 49.5, a hair inside a 0–100 box; lifted it
+   * reaches 51.5 and the browser clipped the outer edge of whichever arc the
+   * pointer was on — the one arc you were looking at. The viewBox grows by the
+   * overflow instead of the radius shrinking, so the ring is the same size on
+   * screen as it always was.
+   */
+  const PAD = Math.ceil(LIFT / 2) + 1;
   const C = 2 * Math.PI * r;
   // A 2px surface gap between segments, expressed in circumference units, only
   // applied when there is more than one visible slice.
@@ -113,7 +124,13 @@ export function Donut({
         </div>
       ) : (
         <div className="relative" style={{ width: size, height: size }}>
-          <svg viewBox="0 0 100 100" width={size} height={size} role="img" aria-label={title ?? "Donut chart"}>
+          <svg
+            viewBox={`${-PAD} ${-PAD} ${100 + PAD * 2} ${100 + PAD * 2}`}
+            width={size}
+            height={size}
+            role="img"
+            aria-label={title ?? "Donut chart"}
+          >
             {/* Recessive full-circle track under the segments. */}
             <circle
               cx="50"
@@ -138,11 +155,11 @@ export function Donut({
                     r={r}
                     fill="none"
                     stroke={s.color}
-                    // A lifted arc thickens by 4 units rather than moving: a
-                    // radial nudge would open a seam in the ring and shift
-                    // every neighbour's apparent size. Thicker reads as
-                    // "this one" and leaves the shares honest.
-                    strokeWidth={lifted ? stroke + 4 : stroke}
+                    // A lifted arc thickens rather than moving: a radial nudge
+                    // would open a seam in the ring and shift every neighbour's
+                    // apparent size. Thicker reads as "this one" and leaves the
+                    // shares honest. The viewBox carries the extra — see PAD.
+                    strokeWidth={lifted ? stroke + LIFT : stroke}
                     strokeDasharray={`${dash} ${C - dash}`}
                     strokeDashoffset={-offset}
                     style={{
