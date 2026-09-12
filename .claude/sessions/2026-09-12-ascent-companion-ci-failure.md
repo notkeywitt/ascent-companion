@@ -15,5 +15,6 @@ next: push ddead50 to main so CI goes green; nothing else pending
 - 2026-09-12 19:14 · `ddead50` companion: hoist the commit-bar hover state above the no-job guard
   src/app/trackingsheet/Board.tsx
 - 2026-09-12 19:14 · `e7deeff` companion: log session 2026-09-12-ascent-companion-ci-failure
+- 2026-09-12 19:15 · `add46ff` companion: log session 2026-09-12-ascent-companion-ci-failure
 
 ## Notes
