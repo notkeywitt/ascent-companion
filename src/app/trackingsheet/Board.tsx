@@ -2802,6 +2802,21 @@ export function Board() {
     await load();
   };
 
+  /**
+   * Is the pointer ON the commit bar? On desktop the month's three closing
+   * actions ride in that bar and stay hidden until it is — three buttons parked
+   * over the workbench all session read as a banner, not as a foot. A
+   * proximity box was tried first and fired on a cursor merely crossing the
+   * corner; the bar itself is the target, so the bar's own hover is the test.
+   * Touch has no pointer, so below lg those actions keep their own row under
+   * the columns and this flag is never consulted.
+   *
+   * It sits above the no-job guard below because a hook after an early
+   * return runs on some renders and not others, which is the one thing React
+   * forbids.
+   */
+  const [barHover, setBarHover] = useState(false);
+
   // Defensive only: ClientInvoicing.tsx routes the no-job case to <AllJobs />
   // before this component ever mounts, so this is the guard for a direct render,
   // not a state the office can reach.
@@ -3070,17 +3085,6 @@ export function Board() {
       </li>
     );
   };
-
-  /**
-   * Is the pointer ON the commit bar? On desktop the month's three closing
-   * actions ride in that bar and stay hidden until it is — three buttons parked
-   * over the workbench all session read as a banner, not as a foot. A
-   * proximity box was tried first and fired on a cursor merely crossing the
-   * corner; the bar itself is the target, so the bar's own hover is the test.
-   * Touch has no pointer, so below lg those actions keep their own row under
-   * the columns and this flag is never consulted.
-   */
-  const [barHover, setBarHover] = useState(false);
 
   /**
    * The per-job Tracking Sheet action, for the action bar. It writes the
