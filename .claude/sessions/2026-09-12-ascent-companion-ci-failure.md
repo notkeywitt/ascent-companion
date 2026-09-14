@@ -2,9 +2,9 @@
 slug: ascent-companion-ci-failure
 repo: ascent-companion
 branch: claude/ascent-companion-ci-failure-lxn9x9
-status: in-progress
+status: shipped
 started: 2026-09-12T19:14:39Z
-updated: 2026-09-14T14:06:56Z
+updated: 2026-09-14T14:06:57Z
 goal: fix the red CI lint error in trackingsheet/Board.tsx
 next: nothing pending — CI lint fix shipped to main
 ---

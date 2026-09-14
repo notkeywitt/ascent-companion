@@ -1,7 +1,40 @@
 {
-  "generatedAt": "2026-09-14T06:12:08Z",
+  "generatedAt": "2026-09-14T14:06:57Z",
   "repo": "ascent-companion",
   "sessions": [
+    {
+      "slug": "ascent-companion-ci-failure",
+      "file": "2026-09-12-ascent-companion-ci-failure.md",
+      "branch": "claude/ascent-companion-ci-failure-lxn9x9",
+      "status": "shipped",
+      "started": "2026-09-12T19:14:39Z",
+      "updated": "2026-09-14T14:06:57Z",
+      "goal": "fix the red CI lint error in trackingsheet/Board.tsx",
+      "next": "nothing pending — CI lint fix shipped to main",
+      "commits": [
+        {
+          "date": "2026-09-12",
+          "time": "19:14",
+          "sha": "ddead50",
+          "subject": "companion: hoist the commit-bar hover state above the no-job guard",
+          "files": "src/app/trackingsheet/Board.tsx"
+        },
+        {
+          "date": "2026-09-12",
+          "time": "19:14",
+          "sha": "e7deeff",
+          "subject": "companion: log session 2026-09-12-ascent-companion-ci-failure",
+          "files": ""
+        },
+        {
+          "date": "2026-09-12",
+          "time": "19:15",
+          "sha": "add46ff",
+          "subject": "companion: log session 2026-09-12-ascent-companion-ci-failure",
+          "files": ""
+        }
+      ]
+    },
     {
       "slug": "ascent-security-analysis",
       "file": "2026-09-14-ascent-security-analysis.md",
