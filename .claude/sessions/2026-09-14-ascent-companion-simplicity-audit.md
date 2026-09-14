@@ -4,9 +4,9 @@ repo: ascent-companion
 branch: claude/ascent-companion-simplicity-audit-0exndi
 status: done
 started: 2026-09-14T05:53:39Z
-updated: 2026-09-14T05:54:35Z
+updated: 2026-09-14T14:28:57Z
 goal: 
-next: Start finding 02 in SIMPLICITY_AUDIT.md: one shared page-reader in jobtread.ts that errors instead of returning a partial list.
+next: Finding 09 of SIMPLICITY_AUDIT.md: add npm test to .githooks/pre-push, before the build.
 ---
 
 ## Log
@@ -16,5 +16,7 @@ next: Start finding 02 in SIMPLICITY_AUDIT.md: one shared page-reader in jobtrea
   CODEBASE_MAP.md, SIMPLICITY_AUDIT.md
 - 2026-09-14 05:53 · `97ea777` companion: log session 2026-09-14-ascent-companion-simplicity-audit
 - 2026-09-14 05:53 · `5669fd8` companion: log session commit rows
+- 2026-09-14 14:28 · `04e99db` companion: one paged walk that throws instead of truncating
+  CLAUDE.md, SIMPLICITY_AUDIT.md, src/lib/billSearch.ts, src/lib/clientDirectory.ts, src/lib/invoiceReview/evidence.ts, src/lib/jobtread.test.ts, +2 more
 
 ## Notes
