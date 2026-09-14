@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { AUTH_COOKIE, tokenFor } from "@/lib/auth";
+import { noAuthConfigured } from "@/lib/authMode";
+import { isSameSiteRequest } from "@/lib/origin";
 import { resolveAllowedViews, viewIdForPath } from "@/lib/views";
 
 // Routes that skip the session check entirely. Everything here authenticates
@@ -13,17 +14,37 @@ import { resolveAllowedViews, viewIdForPath } from "@/lib/views";
 // Note the review pair: only the `/run` SUBPATH is public. `/api/invoice-review`
 // itself is not listed, so it stays behind the `invoice-review` view gate — a
 // prefix match here would have opened the whole month's billing to anyone.
-const PUBLIC = [
-  "/login",
-  "/api/auth",
-  "/api/login",
-  "/privacy",
-  "/api/digest/run",
-  "/api/invoice-review/run",
-];
+//
+// This list does NOT skip the cross-site check below, which runs first. The
+// scheduler sends no Origin header, so it passes that check on its own.
+const PUBLIC = ["/login", "/api/auth", "/privacy", "/api/digest/run", "/api/invoice-review/run"];
 
 export default auth(async (req) => {
   const { pathname } = req.nextUrl;
+
+  // 0. CROSS-SITE CHECK — before anything else, including PUBLIC.
+  //
+  // The session cookie is SameSite=None so it works inside the Chrome side
+  // panel, which switches off the browser's own CSRF protection for the whole
+  // app. Nothing replaced it until 2026-09-14 (finding C-2): any page a
+  // signed-in person visited could POST to /api/code, /api/delete-line or
+  // /api/pave with their cookie attached, and the write reached the live
+  // JobTread org. See src/lib/origin.ts for the full reasoning.
+  //
+  // Reads are untouched, so nothing about page loading changes. The side panel
+  // is untouched too: it frames the app's own pages, so their fetches are
+  // same-origin.
+  if (
+    !isSameSiteRequest(
+      req.method,
+      req.headers.get("origin"),
+      req.headers.get("host"),
+      process.env.COMPANION_ALLOWED_ORIGINS,
+    )
+  ) {
+    return NextResponse.json({ error: "Cross-site request refused" }, { status: 403 });
+  }
+
   if (PUBLIC.some((p) => pathname === p || pathname.startsWith(p + "/"))) {
     return NextResponse.next();
   }
@@ -38,36 +59,39 @@ export default auth(async (req) => {
       ? NextResponse.json({ error: "Forbidden" }, { status: 403 })
       : NextResponse.redirect(new URL("/", req.nextUrl));
 
+  const unauthenticated = () => {
+    if (isApi) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const url = req.nextUrl.clone();
+    url.pathname = "/login";
+    url.searchParams.set("next", pathname);
+    return NextResponse.redirect(url);
+  };
+
   // 1. Google session (Auth.js) — enforce per-view access from the token.
   if (req.auth?.user) {
+    // A session the periodic membership re-check marked dead: this person was
+    // removed from the team in /admin. Treat it as no session at all, so they
+    // land on /login, where signing in re-tests the allowlist and refuses them.
+    if (req.auth.user.revoked) return unauthenticated();
+
     if (!viewId) return NextResponse.next(); // ungated route
     const u = req.auth.user;
     const allowed = resolveAllowedViews(u.role, u.viewsAllow, u.viewsDeny, u.roleBase);
     return allowed.has(viewId) ? NextResponse.next() : forbidden();
   }
 
-  // 2. Shared-password fallback (transition period). Carries NO identity/role,
-  //    so it can reach ungated routes only — a role-gated view is forbidden.
-  //    Retire APP_PASSWORD in production once everyone has a Google login.
-  const pw = process.env.APP_PASSWORD;
-  if (pw) {
-    const cookie = req.cookies.get(AUTH_COOKIE)?.value;
-    if (cookie && cookie === (await tokenFor(pw))) {
-      return viewId ? forbidden() : NextResponse.next();
-    }
-  }
+  // 2. No sign-in method configured at all => open (local dev), no gating.
+  //
+  // The shared-password fallback that used to sit here was retired 2026-09-14
+  // (finding M-3). It carried no identity or role, so it could only ever reach
+  // ungated routes; it had no limit on guessing attempts; and its cookie was a
+  // plain unsalted hash of the password, good for thirty days. Everyone holds a
+  // Google login now, which the code always said was the condition for removing
+  // it. APP_PASSWORD is no longer read anywhere except as a last-resort signing
+  // key — see sessionSecret() in src/auth.ts, and delete the variable.
+  if (noAuthConfigured()) return NextResponse.next();
 
-  // 3. Neither auth configured => open (local dev), no gating.
-  if (!process.env.AUTH_GOOGLE_ID && !pw) return NextResponse.next();
-
-  // Otherwise not authenticated at all.
-  if (isApi) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  const url = req.nextUrl.clone();
-  url.pathname = "/login";
-  url.searchParams.set("next", pathname);
-  return NextResponse.redirect(url);
+  return unauthenticated();
 });
 
 export const config = {

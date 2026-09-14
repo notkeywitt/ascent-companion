@@ -22,6 +22,7 @@ import { PreviewBanner } from "@/components/PreviewBanner";
 import { SplashScreen } from "@/components/SplashScreen";
 import { PageGuide } from "@/components/PageGuide";
 import { RouteLoadingScreen } from "@/components/RouteLoadingScreen";
+import { noAuthConfigured } from "@/lib/authMode";
 
 // Brand web typeface (Brand Guidelines p.22 — Roboto is the sanctioned web
 // alternative to the print primary, LL Medium). Exposed as a CSS var wired into
@@ -79,7 +80,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   // server-rendered with no client fetch and no flash; an unreachable DB costs
   // the customization, never the menu.
   const launchers = await loadLaunchers();
-  const devOpen = !process.env.AUTH_GOOGLE_ID && !process.env.APP_PASSWORD;
+  const devOpen = noAuthConfigured();
   let role: Role = "field";
   let views: string[] = [];
   if (session?.user) {

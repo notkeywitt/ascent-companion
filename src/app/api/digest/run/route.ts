@@ -3,6 +3,7 @@ import { timingSafeEqual } from "node:crypto";
 
 import { auth, envAllowed } from "@/auth";
 import { runDigest } from "@/lib/digest/run";
+import { noAuthConfigured } from "@/lib/authMode";
 
 /** Runs the digest and logs the outcome — shared by the synchronous scheduler
  *  path and the detached admin-button path below. */
@@ -79,7 +80,7 @@ async function authorize(req: NextRequest): Promise<{ ok: true; who: string } | 
 
   // 3. Local dev with no auth configured at all — matches the middleware's own
   //    "neither auth configured => open" branch, so `npm run dev` works.
-  if (!process.env.AUTH_GOOGLE_ID && !process.env.APP_PASSWORD) {
+  if (noAuthConfigured()) {
     return { ok: true, who: "local-dev" };
   }
   return { ok: false, status: session?.user ? 403 : 401 };

@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { auth, envAllowed } from "@/auth";
 import { proposeChecks } from "@/lib/invoiceReview/learn";
 import { listMisses } from "@/lib/invoiceReview/misses";
+import { noAuthConfigured } from "@/lib/authMode";
 
 /**
  * POST /api/invoice-review/learn — "what checks would have caught these?"
@@ -35,7 +36,7 @@ export async function POST() {
   const isAdmin = session?.user?.role === "admin" || (email && envAllowed().includes(email));
   // Local dev with no auth configured at all — matches the middleware's own
   // "neither auth configured => open" branch.
-  const localDev = !process.env.AUTH_GOOGLE_ID && !process.env.APP_PASSWORD;
+  const localDev = noAuthConfigured();
   if (!isAdmin && !localDev) {
     return NextResponse.json(
       { error: session?.user ? "Forbidden" : "Unauthorized" },

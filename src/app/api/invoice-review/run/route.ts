@@ -6,6 +6,7 @@ import { currentBillingPeriod } from "@/lib/billingMonth";
 import { getPaveConfig, hasGrant } from "@/lib/config";
 import { parseYm } from "@/lib/invoiceReview/evidence";
 import { runInvoiceReview } from "@/lib/invoiceReview/run";
+import { noAuthConfigured } from "@/lib/authMode";
 
 /**
  * POST|GET /api/invoice-review/run — review a billing month and FILE the run.
@@ -78,7 +79,7 @@ async function authorize(
 
   // 3. Local dev with no auth configured at all, matching the middleware's own
   //    "neither auth configured => open" branch so `npm run dev` works.
-  if (!process.env.AUTH_GOOGLE_ID && !process.env.APP_PASSWORD) {
+  if (noAuthConfigured()) {
     return { ok: true, who: "local-dev" };
   }
   return { ok: false, status: session?.user ? 403 : 401 };

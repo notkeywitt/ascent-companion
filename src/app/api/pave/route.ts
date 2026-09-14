@@ -6,6 +6,7 @@ import type { Role } from "@/lib/views";
 import { findMutations, sanitizeQuery, isMutationAllowed, billRefsForMutations } from "@/lib/paveGateway";
 import { qboLock } from "@/lib/qboLock";
 import { openJournal, type JournalEventInput } from "@/lib/financialJournal";
+import { noAuthConfigured } from "@/lib/authMode";
 
 /**
  * Generic guarded Pave gateway.
@@ -45,10 +46,9 @@ export async function POST(req: NextRequest) {
   const session = await auth();
   let role: Role | null = (session?.user?.role as Role | undefined) ?? null;
   // Local dev with no auth configured at all → treat as admin (matches the
-  // middleware's "open" branch). In prod (Google and/or password configured),
-  // a caller with no Google role is refused below.
-  const noAuthConfigured = !process.env.AUTH_GOOGLE_ID && !process.env.APP_PASSWORD;
-  if (!role && noAuthConfigured) role = "admin";
+  // middleware's "open" branch). In prod (Google sign-in configured), a caller
+  // with no Google role is refused below.
+  if (!role && noAuthConfigured()) role = "admin";
   if (!role) {
     return NextResponse.json(
       { error: "The API gateway requires a signed-in Google account." },
