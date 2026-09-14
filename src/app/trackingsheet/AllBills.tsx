@@ -198,16 +198,13 @@ export function AllBills({ ym, setYm }: { ym: string; setYm: (ym: string) => voi
   }, [bills]);
 
   /**
-   * Which vendor panes are SHUT. Open is the default, so switching the grouping
-   * re-orders the month rather than hiding it. Sunset starts shut for the same
-   * reason it has a folded pane in the ungrouped list — its invoice count is
-   * noise — and each new month re-seeds the set.
+   * Which vendor panes are SHUT. EVERY pane starts shut: grouped by vendor the
+   * month reads as a list of vendors with counts and totals, and you open the
+   * one you came for. Each new month re-seeds the set.
    */
   const [closedVendors, setClosedVendors] = useState<Set<string>>(new Set());
   useEffect(() => {
-    setClosedVendors(
-      new Set(vendorGroups.filter((g) => isSunsetVendor(g.vendor)).map((g) => g.vendor)),
-    );
+    setClosedVendors(new Set(vendorGroups.map((g) => g.vendor)));
   }, [vendorGroups]);
 
   const toggleVendor = (vendor: string) =>
