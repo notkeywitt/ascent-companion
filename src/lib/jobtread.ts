@@ -3451,6 +3451,90 @@ export async function getVendorBills(cfg: PaveConfig, accountId: string): Promis
   }));
 }
 
+export interface VendorContact {
+  name: string;
+  title: string;
+  email: string;
+  phone: string;
+}
+
+export interface VendorDetail {
+  id: string;
+  name: string;
+  /** The account's own Email / Phone custom fields (targetType `vendor`). */
+  email: string;
+  phone: string;
+  /** One line per location, JobTread's own `address` string — `formattedAddress`
+   *  is null on a vendor address typed by hand, which most of these are. */
+  addresses: string[];
+  /** People on the account, each with their own Email / Phone custom fields
+   *  (targetType `vendorContact`). Some vendors carry the contact's details and
+   *  nothing on the account itself, so both are shown. */
+  contacts: VendorContact[];
+}
+
+/** One custom-field value node → [field name, value as text]. */
+function cfPair(n: any): [string, string] {
+  const name = String(n?.customField?.name ?? "");
+  const v = n?.value;
+  return [name, v == null || typeof v === "boolean" ? "" : String(v).trim()];
+}
+
+/**
+ * One vendor's contact details — the account's Email / Phone, its addresses,
+ * and each contact with their own Email / Phone.
+ *
+ * Email and phone are CUSTOM FIELDS in this org, not scalars: `vendor` for the
+ * account, `vendorContact` for a person (confirmed live 2026-09-14). A vendor
+ * may carry either, or both, or neither — Glacier Window has them only on the
+ * contact, HOBI Plumbing only on the account.
+ *
+ * `account(id)` is a single record, so nesting `customFieldValues` is safe on
+ * the account itself. Inside `contacts` it rides a PAGED connection, which is
+ * the 413 shape — held to size 10 here (probed live at the sizes shipped; the
+ * org's busiest vendor has 2 contacts).
+ */
+export async function getVendorDetail(cfg: PaveConfig, accountId: string): Promise<VendorDetail> {
+  const CF = { $: { size: 20 }, nodes: { value: {}, customField: { name: {} } } };
+  const r = await pave(cfg, {
+    account: {
+      $: { id: accountId },
+      id: {},
+      name: {},
+      customFieldValues: CF,
+      contacts: {
+        $: { size: 10 },
+        nodes: { id: {}, name: {}, title: {}, customFieldValues: CF },
+      },
+      locations: { $: { size: 10 }, nodes: { address: {}, formattedAddress: {} } },
+    },
+  });
+  const a = r?.account;
+  if (!a?.id) throw new Error(`Vendor ${accountId} not found in JobTread.`);
+
+  const own = new Map<string, string>(((a.customFieldValues?.nodes ?? []) as any[]).map(cfPair));
+  return {
+    id: String(a.id),
+    name: String(a.name ?? ""),
+    email: own.get("Email") ?? "",
+    phone: own.get("Phone") ?? "",
+    addresses: ((a.locations?.nodes ?? []) as any[])
+      .map((l) => String(l?.formattedAddress ?? l?.address ?? "").trim())
+      .filter(Boolean),
+    contacts: ((a.contacts?.nodes ?? []) as any[]).map((c) => {
+      const cf = new Map<string, string>(
+        ((c?.customFieldValues?.nodes ?? []) as any[]).map(cfPair),
+      );
+      return {
+        name: String(c?.name ?? ""),
+        title: String(c?.title ?? ""),
+        email: cf.get("Email") ?? "",
+        phone: cf.get("Phone") ?? "",
+      };
+    }),
+  };
+}
+
 export interface VendorBillMatch extends VendorBillRow {
   vendorName: string;
 }

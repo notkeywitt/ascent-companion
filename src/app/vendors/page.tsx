@@ -45,6 +45,20 @@ interface VendorBillRow {
 interface VendorBillMatch extends VendorBillRow {
   vendorName: string;
 }
+interface VendorContact {
+  name: string;
+  title: string;
+  email: string;
+  phone: string;
+}
+interface VendorDetail {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  addresses: string[];
+  contacts: VendorContact[];
+}
 
 const money = (n: number) =>
   "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -58,6 +72,48 @@ const dateLabel = (d: string | null) => {
 };
 
 const isDigits = (s: string) => /^\d+$/.test(s.trim());
+
+/** "+13604683952" → "(360) 468-3952". Anything else is shown as stored. */
+const phoneLabel = (p: string) => {
+  const d = p.replace(/\D/g, "").replace(/^1(?=\d{10}$)/, "");
+  return d.length === 10 ? `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}` : p;
+};
+
+/**
+ * Email, phone and address for one vendor — JobTread keeps each as a custom
+ * field, on the account or on a contact, and a vendor carries either or both.
+ * Rows tap through to the phone's own mail and dial apps; an address is text,
+ * because these are typed by hand and often a PO box.
+ */
+function VendorDetailCard({ detail }: { detail: VendorDetail }) {
+  const contacts = detail.contacts.filter((c) => c.name || c.email || c.phone);
+  if (!detail.email && !detail.phone && detail.addresses.length === 0 && contacts.length === 0) {
+    return null;
+  }
+  return (
+    <ListCard>
+      {detail.email && (
+        <ListRow href={`mailto:${detail.email}`} label={detail.email} desc="Email" />
+      )}
+      {detail.phone && (
+        <ListRow href={`tel:${detail.phone}`} label={phoneLabel(detail.phone)} desc="Phone" />
+      )}
+      {detail.addresses.map((a) => (
+        <ListRow key={a} label={a} desc="Address" />
+      ))}
+      {contacts.map((c) => (
+        <ListRow
+          key={`${c.name}-${c.email}-${c.phone}`}
+          label={c.name || "Contact"}
+          desc={
+            [c.title, c.email, c.phone && phoneLabel(c.phone)].filter(Boolean).join(" · ") ||
+            "Contact"
+          }
+        />
+      ))}
+    </ListCard>
+  );
+}
 
 /** Amount + status, stacked — the trailing slot every bill row shares. */
 function BillTrailing({ cost, status }: { cost: number; status: string }) {
@@ -85,6 +141,7 @@ function Vendors() {
 
   const [selected, setSelected] = useState<VendorRef | null>(null);
   const [bills, setBills] = useState<VendorBillRow[]>([]);
+  const [detail, setDetail] = useState<VendorDetail | null>(null);
   const [billsLoading, setBillsLoading] = useState(false);
   const [billsError, setBillsError] = useState("");
 
@@ -118,6 +175,7 @@ function Vendors() {
     setSelected(v);
     setNumberMatches(null);
     setBills([]);
+    setDetail(null);
     setBillsLoading(true);
     setBillsError("");
     fetch(`/api/vendor-bills/${encodeURIComponent(v.id)}`)
@@ -128,6 +186,7 @@ function Vendors() {
           return;
         }
         setBills(Array.isArray(j.bills) ? j.bills : []);
+        setDetail(j.detail ?? null);
       })
       .catch((e) => setBillsError(e instanceof Error ? e.message : "Network error"))
       .finally(() => setBillsLoading(false));
@@ -187,6 +246,7 @@ function Vendors() {
             onClick={() => {
               setSelected(null);
               setBills([]);
+              setDetail(null);
               setBillsError("");
             }}
             className="text-sm font-semibold text-accent hover:underline"
@@ -205,6 +265,8 @@ function Vendors() {
           >
             {selected.name}
           </SectionHeading>
+
+          {detail && <VendorDetailCard detail={detail} />}
 
           {billsError && <p className="text-sm text-red-600">{billsError}</p>}
           {billsLoading && <Loading label="Loading bills…" />}
@@ -240,7 +302,9 @@ function Vendors() {
 
             {q && (
               <div className="space-y-2 pt-2">
-                <SectionHeading>{matches.length === 1 ? "1 match" : `${matches.length} matches`}</SectionHeading>
+                <SectionHeading>
+                  {matches.length === 1 ? "1 match" : `${matches.length} matches`}
+                </SectionHeading>
                 {matches.length === 0 ? (
                   <EmptyState>Nothing matches “{query.trim()}”.</EmptyState>
                 ) : (
