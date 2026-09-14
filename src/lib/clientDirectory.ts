@@ -62,8 +62,10 @@ import { pageAll, pave, type PaveConfig } from "./jobtread";
 // CUSTOM FIELDS
 // ---------------------------------------------------------------------------
 
-/** Which record a custom field hangs off. Mirrors Pave's `customFieldTargetType`. */
-export type CfTarget = "job" | "customer" | "customerContact" | "location";
+/** Which record a custom field hangs off. Mirrors Pave's `customFieldTargetType`.
+ *  A VENDOR account carries its own target ("vendor"), separate from "customer"
+ *  — that is where a vendor's Email and Phone live (see /vendors). */
+export type CfTarget = "job" | "customer" | "customerContact" | "location" | "vendor";
 
 export interface CustomFieldDef {
   id: string;
@@ -143,6 +145,7 @@ export async function getCustomFields(
     customer: [],
     customerContact: [],
     location: [],
+    vendor: [],
   };
   for (const raw of (r?.organization?.customFields?.nodes ?? []) as RawCustomField[]) {
     const target = String(raw?.targetType ?? "");
@@ -150,7 +153,8 @@ export async function getCustomFields(
       target === "job" ||
       target === "customer" ||
       target === "customerContact" ||
-      target === "location"
+      target === "location" ||
+      target === "vendor"
     ) {
       out[target].push(toFieldDef(raw));
     }

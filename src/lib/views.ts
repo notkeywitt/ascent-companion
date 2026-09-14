@@ -160,7 +160,12 @@ export const VIEWS: ViewDef[] = [
   // admin by default, like the rest of Financials; the API route is listed
   // alongside the page so the whole org's receivables can't be read by calling
   // it directly.
-  { id: "ar-aging", label: "Receivables", group: "Financials", paths: ["/ar-aging", "/api/ar-aging"] },
+  {
+    id: "ar-aging",
+    label: "Receivables",
+    group: "Financials",
+    paths: ["/ar-aging", "/api/ar-aging"],
+  },
   // The monthly client-invoice review — a month's client invoices cross-checked
   // against the vendor bills behind them and the backup PDFs in the Drive
   // invoicing tree. The API prefix rides the same gate as the page: the route
@@ -178,7 +183,14 @@ export const VIEWS: ViewDef[] = [
   // number. A distinct API prefix ("/api/vendor-bills") from the existing
   // shared "/api/vendors" name+id list, which stays ungated (add-bill, RFIs,
   // and Amazon Import all read it regardless of who has this view).
-  { id: "vendors", label: "Vendors", group: "Financials", paths: ["/vendors", "/api/vendor-bills"] },
+  // /api/vendor-details is the WRITE (a vendor's email, phone and address), so
+  // it must ride the same gate as the page — office + admin, never a field role.
+  {
+    id: "vendors",
+    label: "Vendors",
+    group: "Financials",
+    paths: ["/vendors", "/api/vendor-bills", "/api/vendor-details"],
+  },
   // The stuck-vendor alert (popup + home banner) rides on this gate: its API
   // route is listed here so a non-billing user can neither see the warning nor
   // read the bill list behind it by calling the route directly.
@@ -195,7 +207,12 @@ export const VIEWS: ViewDef[] = [
   // The home-page count badge + banner ride on this gate too, so its API route is
   // listed here (same reasoning as `email` above): a non-billing user can neither
   // see the indicator nor read the queued bills by calling the route directly.
-  { id: "needs-project", label: "Needs Project", group: "Financials", paths: ["/needs-project", "/api/needs-project"] },
+  {
+    id: "needs-project",
+    label: "Needs Project",
+    group: "Financials",
+    paths: ["/needs-project", "/api/needs-project"],
+  },
   { id: "payments", label: "Sunset Statements", group: "Financials", paths: ["/payments"] },
   // The stray-isTaxable worklist. READ-ONLY — it lists bill lines whose flag
   // takes their cost out of a client invoice's tax base, and links out so a
@@ -213,7 +230,12 @@ export const VIEWS: ViewDef[] = [
   // search the spend history nor trigger an index rebuild by calling the routes
   // directly. The refresh/seed routes only write the companion's own search
   // cache, never JobTread — so they sit outside the write gates.
-  { id: "bill-search", label: "Bill Search", group: "Financials", paths: ["/bill-search", "/api/bill-search"] },
+  {
+    id: "bill-search",
+    label: "Bill Search",
+    group: "Financials",
+    paths: ["/bill-search", "/api/bill-search"],
+  },
   // The Expenditure sheet's own archive — the pre-JobTread years, which exist
   // nowhere else. Read-only (the Apps Script actions behind it only read), but
   // the API prefix rides the same gate as the page so a role without the view
@@ -229,7 +251,12 @@ export const VIEWS: ViewDef[] = [
   // draft bill per job. The API prefix rides the same gate as the page — it
   // pushes bills to JobTread, so a role without the view must not reach it.
   { id: "lswdd", label: "LSWDD Statement", group: "Financials", paths: ["/lswdd", "/api/lswdd"] },
-  { id: "amazon-import", label: "Amazon Import", group: "Financials", paths: ["/amazon-import", "/api/amazon-import"] },
+  {
+    id: "amazon-import",
+    label: "Amazon Import",
+    group: "Financials",
+    paths: ["/amazon-import", "/api/amazon-import"],
+  },
   // Field
   { id: "safety-meeting", label: "Safety Meeting", group: "Field", paths: ["/safety-meeting"] },
   { id: "mileage", label: "Mileage", group: "Field", paths: ["/mileage-tracker"] },
@@ -249,14 +276,24 @@ export const VIEWS: ViewDef[] = [
   },
   // Leads submit; office/admin track. The API route is listed alongside so a
   // role without the view can't reach the data by calling the route directly.
-  { id: "requisitions", label: "Requisitions", group: "Field", paths: ["/requisitions", "/api/requisitions"] },
+  {
+    id: "requisitions",
+    label: "Requisitions",
+    group: "Field",
+    paths: ["/requisitions", "/api/requisitions"],
+  },
   // Assistant
   { id: "chat", label: "Assistant", group: "Assistant", paths: ["/chat"] },
   // Office
   // The email-blast API is listed here so it inherits the office/admin gate; the
   // page-less /api/employees (read/edit) stays ungated because /safety-meeting
   // (a field view) reads the Active roster through it.
-  { id: "employees", label: "Employees", group: "Office", paths: ["/employees", "/api/employees/email"] },
+  {
+    id: "employees",
+    label: "Employees",
+    group: "Office",
+    paths: ["/employees", "/api/employees/email"],
+  },
   // Lead pipeline — JobTread's "New Lead" customers plus the Companion's
   // follow-up tracking. The API prefix is listed alongside the page so a role
   // without the view can't read customer contact details via the route directly.
@@ -266,7 +303,12 @@ export const VIEWS: ViewDef[] = [
   // Per-project labor-rate catalog + apply-to-employees. The API prefix gates all
   // /api/labor-rates/* routes (catalog CRUD, member list, and the JobTread write)
   // so a non-office user can't read or edit pay rates via the routes directly.
-  { id: "labor-rates", label: "Labor Rates", group: "Office", paths: ["/labor-rates", "/api/labor-rates"] },
+  {
+    id: "labor-rates",
+    label: "Labor Rates",
+    group: "Office",
+    paths: ["/labor-rates", "/api/labor-rates"],
+  },
   // Accrual management APIs — office/admin only (no field grant, not admin-only,
   // so office gets it by default). No page of its own; the office controls live
   // on the shared /time-off page and call these routes.
@@ -351,7 +393,12 @@ export const VIEWS: ViewDef[] = [
   // to hand out than the access-control console, so it can be granted to an
   // individual without giving them /admin. The API prefix is listed alongside
   // the page so a non-admin can't rewrite the UI by calling the route directly.
-  { id: "page-copy", label: "Page Text", group: "System", paths: ["/admin/copy", "/api/admin/copy"] },
+  {
+    id: "page-copy",
+    label: "Page Text",
+    group: "System",
+    paths: ["/admin/copy", "/api/admin/copy"],
+  },
   { id: "logs", label: "Logs", group: "System", paths: ["/logs"] },
   // THE FINANCIAL JOURNAL — every write the app has made to a money record.
   // Admin-only by default (it is in ADMIN_MENU, alongside the other audit
@@ -360,7 +407,12 @@ export const VIEWS: ViewDef[] = [
   // individual — the bookkeeper is the obvious case. The API route is listed
   // alongside the page so a non-admin cannot read the journal by calling it
   // directly.
-  { id: "journal", label: "Financial Journal", group: "System", paths: ["/journal", "/api/journal"] },
+  {
+    id: "journal",
+    label: "Financial Journal",
+    group: "System",
+    paths: ["/journal", "/api/journal"],
+  },
   // What each working session changed — the session ledger, rendered. Read-only
   // and self-contained: the data is a generated JSON module imported at build
   // time, so there is no API route to gate alongside it. Office + admin by

@@ -4,9 +4,9 @@ repo: ascent-companion
 branch: claude/allbills-vendor-collapsed
 status: in-progress
 started: 2026-09-14T17:52:26Z
-updated: 2026-09-14T18:34:06Z
+updated: 2026-09-14T18:51:23Z
 goal: 
-next: open /trackingsheet with no job, switch Group to Vendor, confirm every pane starts shut; decide whether desktop auto-select should open the selected bill's pane
+next: open /trackingsheet with no job: check Show=Expenses lists the Aug 13 Expense, Paid=Unpaid keeps part-paid bills, and vendor panes still start shut
 ---
 
 ## Log
@@ -16,5 +16,7 @@ next: open /trackingsheet with no job, switch Group to Vendor, confirm every pan
   src/app/trackingsheet/AllBills.tsx
 - 2026-09-14 11:34 · `a960ff3` companion: filter the month by paid state and bill vs expense
   src/app/trackingsheet/AllBills.tsx, src/lib/jobtread.ts
+- 2026-09-14 11:51 · `b7dc159` companion: show a vendor's email, phone and address
+  src/app/api/vendor-bills/[id]/route.ts, src/app/vendors/page.tsx, src/lib/jobtread.ts
 
 ## Notes

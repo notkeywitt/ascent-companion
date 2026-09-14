@@ -10,6 +10,7 @@ import {
   ListRow,
   Loading,
   PageHeader,
+  QuietInput,
   SectionHeading,
   btn,
 } from "@/components/ui";
@@ -80,38 +81,128 @@ const phoneLabel = (p: string) => {
 };
 
 /**
- * Email, phone and address for one vendor — JobTread keeps each as a custom
- * field, on the account or on a contact, and a vendor carries either or both.
- * Rows tap through to the phone's own mail and dial apps; an address is text,
- * because these are typed by hand and often a PO box.
+ * Email, phone and address for one vendor.
+ *
+ * JobTread keeps each as a custom field — on the account ("vendor") or on a
+ * contact ("vendorContact") — and most of the 235 vendor accounts carry none of
+ * them. So a field that is MISSING renders as an input rather than not at all:
+ * the office fills it in where the gap shows up, which is here, instead of
+ * opening JobTread. A field already on file stays a plain row that dials or
+ * mails; changing one is still JobTread's job.
  */
-function VendorDetailCard({ detail }: { detail: VendorDetail }) {
+function VendorDetailCard({
+  detail,
+  onSaved,
+}: {
+  detail: VendorDetail;
+  onSaved: (d: VendorDetail) => void;
+}) {
+  const [draft, setDraft] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  // A fresh vendor is a fresh form — otherwise a half-typed phone number
+  // follows you to the next vendor.
+  useEffect(() => {
+    setDraft({});
+    setError("");
+  }, [detail.id]);
+
   const contacts = detail.contacts.filter((c) => c.name || c.email || c.phone);
-  if (!detail.email && !detail.phone && detail.addresses.length === 0 && contacts.length === 0) {
-    return null;
+  const address = detail.addresses[0] ?? "";
+  const missing = [
+    { key: "email", label: "Email", type: "email", placeholder: "name@vendor.com" },
+    { key: "phone", label: "Phone", type: "tel", placeholder: "(360) 555-0134" },
+    { key: "address", label: "Address", type: "text", placeholder: "Street, city, state ZIP" },
+  ].filter(
+    (f) =>
+      !({ email: detail.email, phone: detail.phone, address } as Record<string, string>)[f.key],
+  );
+
+  const typed = Object.entries(draft).filter(([, v]) => v.trim());
+
+  function save() {
+    if (typed.length === 0) return;
+    setSaving(true);
+    setError("");
+    fetch("/api/vendor-details", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ accountId: detail.id, ...Object.fromEntries(typed) }),
+    })
+      .then((r) => r.json())
+      .then((j) => {
+        if (j.error) {
+          setError(String(j.error));
+          return;
+        }
+        if (j.previewed) {
+          setError("Writes are switched off — nothing was saved.");
+          return;
+        }
+        setDraft({});
+        if (j.detail) onSaved(j.detail as VendorDetail);
+      })
+      .catch((e) => setError(e instanceof Error ? e.message : "Network error"))
+      .finally(() => setSaving(false));
   }
+
   return (
-    <ListCard>
-      {detail.email && (
-        <ListRow href={`mailto:${detail.email}`} label={detail.email} desc="Email" />
+    <div className="space-y-2">
+      <ListCard>
+        {detail.email && (
+          <ListRow href={`mailto:${detail.email}`} label={detail.email} desc="Email" />
+        )}
+        {detail.phone && (
+          <ListRow href={`tel:${detail.phone}`} label={phoneLabel(detail.phone)} desc="Phone" />
+        )}
+        {detail.addresses.map((a) => (
+          <ListRow key={a} label={a} desc="Address" />
+        ))}
+
+        {/* Nothing on file for this one — the row IS the input. */}
+        {missing.map((f) => (
+          <div
+            key={f.key}
+            className="flex min-h-[56px] items-center gap-3 border-b border-line-soft px-3 py-2.5 last:border-b-0"
+          >
+            <label
+              htmlFor={`vendor-${f.key}`}
+              className="w-16 shrink-0 text-[11px] uppercase tracking-wide text-neutral-500 dark:text-neutral-400"
+            >
+              {f.label}
+            </label>
+            <QuietInput
+              id={`vendor-${f.key}`}
+              type={f.type}
+              value={draft[f.key] ?? ""}
+              onChange={(e) => setDraft((d) => ({ ...d, [f.key]: e.target.value }))}
+              placeholder={f.placeholder}
+              disabled={saving}
+            />
+          </div>
+        ))}
+
+        {contacts.map((c) => (
+          <ListRow
+            key={`${c.name}-${c.email}-${c.phone}`}
+            label={c.name || "Contact"}
+            desc={
+              [c.title, c.email, c.phone && phoneLabel(c.phone)].filter(Boolean).join(" · ") ||
+              "Contact"
+            }
+          />
+        ))}
+      </ListCard>
+
+      {error && <p className="text-sm text-red-600">{error}</p>}
+
+      {typed.length > 0 && (
+        <button type="button" className={btn("primary", "md")} onClick={save} disabled={saving}>
+          {saving ? "Saving…" : `Save to JobTread`}
+        </button>
       )}
-      {detail.phone && (
-        <ListRow href={`tel:${detail.phone}`} label={phoneLabel(detail.phone)} desc="Phone" />
-      )}
-      {detail.addresses.map((a) => (
-        <ListRow key={a} label={a} desc="Address" />
-      ))}
-      {contacts.map((c) => (
-        <ListRow
-          key={`${c.name}-${c.email}-${c.phone}`}
-          label={c.name || "Contact"}
-          desc={
-            [c.title, c.email, c.phone && phoneLabel(c.phone)].filter(Boolean).join(" · ") ||
-            "Contact"
-          }
-        />
-      ))}
-    </ListCard>
+    </div>
   );
 }
 
@@ -266,7 +357,7 @@ function Vendors() {
             {selected.name}
           </SectionHeading>
 
-          {detail && <VendorDetailCard detail={detail} />}
+          {detail && <VendorDetailCard detail={detail} onSaved={setDetail} />}
 
           {billsError && <p className="text-sm text-red-600">{billsError}</p>}
           {billsLoading && <Loading label="Loading bills…" />}
