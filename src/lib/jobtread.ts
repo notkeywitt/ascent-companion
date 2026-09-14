@@ -5240,6 +5240,9 @@ export interface AllJobsBill {
   amountPaid: number;
   /** Still owed on the bill: cost − amountPaid. */
   balance: number;
+  /** Filed as an Expense rather than a Bill — the document's own name, the same
+   *  flag the bill page's Bill/Expense toggle sets (see setBillFields). */
+  isExpense: boolean;
   jobId: string;
   jobName: string;
   customerName: string;
@@ -5304,6 +5307,7 @@ export async function getAllBillsForMonth(
     issueDate: {},
     createdAt: {},
     fromName: {},
+    name: {},
     amountPaid: {},
     balance: {},
     account: { name: {} },
@@ -5317,6 +5321,7 @@ export async function getAllBillsForMonth(
     issueDate: {},
     createdAt: {},
     fromName: {},
+    name: {},
     amountPaid: {},
     balance: {},
     job: { id: {}, name: {} },
@@ -5366,6 +5371,7 @@ export async function getAllBillsForMonth(
       monthInvoiceExists: jobsWithInvoice.has(job.id),
       amountPaid: typeof b.amountPaid === "number" ? b.amountPaid : 0,
       balance: typeof b.balance === "number" ? b.balance : 0,
+      isExpense: String(b.name ?? "") === "Expense",
       jobId: job.id,
       jobName: job.name ?? "",
       customerName: job.location?.account?.name ?? "",

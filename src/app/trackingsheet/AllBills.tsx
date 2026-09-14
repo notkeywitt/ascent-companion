@@ -65,6 +65,9 @@ interface AllBill {
   /** Paid-in-QuickBooks figures JobTread computes — read as a pair, see billPaidState. */
   amountPaid: number;
   balance: number;
+  /** Filed as an Expense (already paid out of pocket / on a card) rather than a
+   *  Bill Ascent still owes — the document's own name in JobTread. */
+  isExpense: boolean;
   needsReview: boolean;
   /** The bill-detail card's "reviewed" toggle — coding looked at and done. */
   reviewed: boolean;
@@ -75,6 +78,12 @@ interface AllBill {
 
 /** How the month is cut up. "none" is the plain newest-first list. */
 type GroupBy = "none" | "vendor";
+
+/** Two filters over the same month, each "all" by default. `paid` reads
+ *  billPaidState, so "unpaid" keeps a PART-paid bill — money is still owed on
+ *  it. `kind` reads the document's Bill/Expense name. */
+type PaidFilter = "all" | "paid" | "unpaid";
+type KindFilter = "all" | "bill" | "expense";
 
 /** Remembered per device: grouping is a way of READING the month, not a filter
  *  on it, so whoever reconciles by vendor does it every month. */
@@ -105,6 +114,10 @@ export function AllBills({ ym, setYm }: { ym: string; setYm: (ym: string) => voi
   const [sunsetOpen, setSunsetOpen] = useState(false);
 
   const [groupBy, setGroupBy] = useState<GroupBy>("none");
+  // Not remembered per device, unlike the grouping: a filter HIDES bills, and a
+  // month that silently opens short is how one gets missed.
+  const [paidFilter, setPaidFilter] = useState<PaidFilter>("all");
+  const [kindFilter, setKindFilter] = useState<KindFilter>("all");
 
   // Read in an effect, not in the initial state: this page is server-rendered
   // too, and a first render that read `window` would disagree with the HTML.
@@ -152,6 +165,19 @@ export function AllBills({ ym, setYm }: { ym: string; setYm: (ym: string) => voi
     };
   }, [ym]);
 
+  /**
+   * The month after both filters — EVERY list, count, total and pane below
+   * reads this, not `bills`, so the figures always describe what is on screen.
+   */
+  const shown = useMemo(() => {
+    let out = bills ?? [];
+    if (kindFilter !== "all") out = out.filter((b) => b.isExpense === (kindFilter === "expense"));
+    if (paidFilter !== "all") {
+      out = out.filter((b) => (billPaidState(b) === "paid") === (paidFilter === "paid"));
+    }
+    return out;
+  }, [bills, kindFilter, paidFilter]);
+
   // The headline figure is what's still TO BE INVOICED this month, so it stays
   // stable as the list grows: an already-invoiced bill is done, and a draft
   // isn't invoiceable until it's approved — JobTread won't pull either onto a
@@ -163,20 +189,17 @@ export function AllBills({ ym, setYm }: { ym: string; setYm: (ym: string) => voi
   // billed the tax Ascent paid, so it is not money to be invoiced.
   const toBeInvoiced = useMemo(
     () =>
-      (bills ?? [])
+      shown
         .filter((b) => !b.invoiced && b.status !== "draft")
         .reduce((s, b) => s + b.cost - (b.tax ?? 0), 0),
-    [bills],
+    [shown],
   );
   const monthLabel = monthOptions().find((o) => o.ym === ym)?.label ?? ym;
 
   // The list split in two, same as the job board: everything else in the main
   // list, Sunset in its own collapsible pane at the bottom.
-  const nonSunsetBills = useMemo(
-    () => (bills ?? []).filter((b) => !isSunsetVendor(b.vendor)),
-    [bills],
-  );
-  const sunsetBills = useMemo(() => (bills ?? []).filter((b) => isSunsetVendor(b.vendor)), [bills]);
+  const nonSunsetBills = useMemo(() => shown.filter((b) => !isSunsetVendor(b.vendor)), [shown]);
+  const sunsetBills = useMemo(() => shown.filter((b) => isSunsetVendor(b.vendor)), [shown]);
 
   /**
    * The same bills cut by vendor — one pane each, alphabetical, because you
@@ -186,7 +209,7 @@ export function AllBills({ ym, setYm }: { ym: string; setYm: (ym: string) => voi
    */
   const vendorGroups = useMemo(() => {
     const map = new Map<string, AllBill[]>();
-    for (const b of bills ?? []) {
+    for (const b of shown) {
       const key = b.vendor.trim() || "No vendor";
       const list = map.get(key);
       if (list) list.push(b);
@@ -195,7 +218,7 @@ export function AllBills({ ym, setYm }: { ym: string; setYm: (ym: string) => voi
     return [...map.entries()]
       .map(([vendor, list]) => ({ vendor, bills: list }))
       .sort((a, b) => a.vendor.localeCompare(b.vendor));
-  }, [bills]);
+  }, [shown]);
 
   /**
    * Which vendor panes are SHUT. EVERY pane starts shut: grouped by vendor the
@@ -289,6 +312,13 @@ export function AllBills({ ym, setYm }: { ym: string; setYm: (ym: string) => voi
     didAutoSelect.current = true;
     setSelId(orderedBills[0].id);
   }, [wide, orderedBills]);
+
+  // A filter can hide the bill the panel is on. Fall back to the first bill
+  // still listed, so the panel never codes a bill that is off screen.
+  useEffect(() => {
+    if (!selId || orderedBills.some((b) => b.id === selId)) return;
+    setSelId(orderedBills[0]?.id ?? "");
+  }, [orderedBills, selId]);
 
   // One bill's card — shared by the main list and the Sunset pane. From `xl`
   // up, tapping a bill SELECTS it (the coding panel is on screen); below that
@@ -487,8 +517,8 @@ export function AllBills({ ym, setYm }: { ym: string; setYm: (ym: string) => voi
           <section className="min-w-0">
             <div className="mb-2 flex items-baseline justify-between gap-3">
               <SectionLabel>
-                {`${(bills ?? []).length} bill${(bills ?? []).length === 1 ? "" : "s"}`} ·{" "}
-                {money(toBeInvoiced)} to invoice
+                {`${shown.length} bill${shown.length === 1 ? "" : "s"}`} · {money(toBeInvoiced)} to
+                invoice
               </SectionLabel>
               <span className="shrink-0 text-xs text-neutral-500 dark:text-neutral-400">
                 {monthLabel} · all jobs
@@ -496,27 +526,73 @@ export function AllBills({ ym, setYm }: { ym: string; setYm: (ym: string) => voi
             </div>
 
             {(bills ?? []).length > 0 && (
-              <div className="mb-2 flex items-center gap-2">
-                <SectionLabel className="shrink-0">Group</SectionLabel>
-                <FilterChip
-                  on={groupBy === "none"}
-                  onClick={() => pickGroupBy("none")}
-                  title="The month's bills, newest first"
-                >
-                  None
-                </FilterChip>
-                <FilterChip
-                  on={groupBy === "vendor"}
-                  onClick={() => pickGroupBy("vendor")}
-                  title="A folded pane per vendor, each with its own count and total"
-                >
-                  Vendor
-                </FilterChip>
-              </div>
+              <>
+                <div className="mb-2 flex flex-wrap items-center gap-2">
+                  <SectionLabel className="shrink-0">Show</SectionLabel>
+                  <FilterChip on={kindFilter === "all"} onClick={() => setKindFilter("all")}>
+                    All
+                  </FilterChip>
+                  <FilterChip
+                    on={kindFilter === "bill"}
+                    onClick={() => setKindFilter("bill")}
+                    title="Filed as a Bill — money Ascent still owes the vendor"
+                  >
+                    Bills
+                  </FilterChip>
+                  <FilterChip
+                    on={kindFilter === "expense"}
+                    onClick={() => setKindFilter("expense")}
+                    title="Filed as an Expense — already paid, on a card or out of pocket"
+                  >
+                    Expenses
+                  </FilterChip>
+                </div>
+                <div className="mb-2 flex flex-wrap items-center gap-2">
+                  <SectionLabel className="shrink-0">Paid</SectionLabel>
+                  <FilterChip on={paidFilter === "all"} onClick={() => setPaidFilter("all")}>
+                    All
+                  </FilterChip>
+                  <FilterChip
+                    on={paidFilter === "paid"}
+                    onClick={() => setPaidFilter("paid")}
+                    title="Paid in full in QuickBooks"
+                  >
+                    Paid
+                  </FilterChip>
+                  <FilterChip
+                    on={paidFilter === "unpaid"}
+                    onClick={() => setPaidFilter("unpaid")}
+                    title="Money still owed — part-paid bills included"
+                  >
+                    Unpaid
+                  </FilterChip>
+                </div>
+                <div className="mb-2 flex flex-wrap items-center gap-2">
+                  <SectionLabel className="shrink-0">Group</SectionLabel>
+                  <FilterChip
+                    on={groupBy === "none"}
+                    onClick={() => pickGroupBy("none")}
+                    title="The month's bills, newest first"
+                  >
+                    None
+                  </FilterChip>
+                  <FilterChip
+                    on={groupBy === "vendor"}
+                    onClick={() => pickGroupBy("vendor")}
+                    title="A folded pane per vendor, each with its own count and total"
+                  >
+                    Vendor
+                  </FilterChip>
+                </div>
+              </>
             )}
 
-            {(bills ?? []).length === 0 ? (
-              <EmptyState>No bills issued in {monthLabel}.</EmptyState>
+            {shown.length === 0 ? (
+              <EmptyState>
+                {(bills ?? []).length === 0
+                  ? `No bills issued in ${monthLabel}.`
+                  : `No bills in ${monthLabel} match these filters.`}
+              </EmptyState>
             ) : groupBy === "vendor" ? (
               /* One pane per vendor, alphabetical. Same scroll-inside-itself
                  list as below, so the two docked columns stay put. */
