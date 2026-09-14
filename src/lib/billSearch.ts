@@ -41,6 +41,10 @@ const LOCK_TTL_MS = 15 * 60 * 1000;
 const SEARCH_LIMIT = 200;
 /** JobTread documents page size — SMALL so nested costItems don't 413 (see rule). */
 const DOC_PAGE_SIZE = 25;
+
+/** Runaway guard for the org-wide sweep: 2,000 × 25 = 50,000 bills. Reaching it
+ *  throws — a partial index answers "no such bill" for a bill that exists. */
+const MAX_SWEEP_PAGES = 2000;
 /** Expenditure rows pulled from the sheet per seed page (the client loops pages). */
 const SEED_PAGE_ROWS = 2000;
 /** Sheet line-item lookups are batched by bill key (Apps Script caps at 400). */
@@ -165,8 +169,7 @@ export async function getIndexStatus(): Promise<IndexStatus> {
     getMeta("seed_done"),
     refreshInFlight(),
   ]);
-  const stale =
-    !lastRefreshAt || Date.now() - Date.parse(lastRefreshAt) > STALE_AFTER_MS;
+  const stale = !lastRefreshAt || Date.now() - Date.parse(lastRefreshAt) > STALE_AFTER_MS;
   return { billCount: count, lastRefreshAt, stale, refreshing, seedDone: seedDone === "1" };
 }
 
@@ -285,23 +288,46 @@ const isSunsetVendor = (name: string) => /sunset/i.test(name);
  */
 export async function sweepJobTreadBills(cfg: PaveConfig): Promise<IndexedBill[]> {
   const richLine = {
-    id: {}, name: {}, description: {}, quantity: {}, unitCost: {}, cost: {},
+    id: {},
+    name: {},
+    description: {},
+    quantity: {},
+    unitCost: {},
+    cost: {},
     costCode: { number: {}, name: {} },
   };
   const richDoc = {
-    id: {}, number: {}, externalId: {}, fromName: {}, status: {}, cost: {}, issueDate: {},
+    id: {},
+    number: {},
+    externalId: {},
+    fromName: {},
+    status: {},
+    cost: {},
+    issueDate: {},
     account: { id: {}, name: {} },
     job: { id: {}, name: {} },
     costItems: { $: { size: 100 }, nodes: richLine },
   };
   const minDoc = {
-    id: {}, number: {}, externalId: {}, fromName: {}, status: {}, cost: {}, issueDate: {},
+    id: {},
+    number: {},
+    externalId: {},
+    fromName: {},
+    status: {},
+    cost: {},
+    issueDate: {},
     account: { id: {}, name: {} },
     job: { id: {}, name: {} },
     costItems: { $: { size: 100 }, nodes: { id: {}, name: {}, cost: {} } },
   };
   const headerDoc = {
-    id: {}, number: {}, externalId: {}, fromName: {}, status: {}, cost: {}, issueDate: {},
+    id: {},
+    number: {},
+    externalId: {},
+    fromName: {},
+    status: {},
+    cost: {},
+    issueDate: {},
     account: { id: {}, name: {} },
     job: { id: {}, name: {} },
   };
@@ -369,7 +395,19 @@ export async function sweepJobTreadBills(cfg: PaveConfig): Promise<IndexedBill[]
       });
     }
     page = r?.organization?.documents?.nextPage || undefined;
-  } while (page && ++guard < 2000);
+  } while (page && ++guard < MAX_SWEEP_PAGES);
+
+  // Running out of pages means the index would be built from PART of the org's
+  // bills, and a search would then answer "no such bill" for a real one. Say so
+  // rather than write a short index. (This walk keeps its own loop instead of
+  // pageEach because its field-set fallback is PER PAGE — a page that fails on
+  // the rich shape must still advance, which a walk-level retry cannot do.)
+  if (page) {
+    throw new Error(
+      `More than ${MAX_SWEEP_PAGES * DOC_PAGE_SIZE} vendor bills in the org — ` +
+        `refusing to build a partial search index.`,
+    );
+  }
 
   return out;
 }
@@ -464,7 +502,8 @@ export async function seedFromSheet(offset = 0): Promise<SeedProgress> {
       vendorId: rawVendor,
       invoiceId,
       billNumber: "",
-      amount: typeof r[col.amount] === "number" ? (r[col.amount] as number) : Number(r[col.amount]) || 0,
+      amount:
+        typeof r[col.amount] === "number" ? (r[col.amount] as number) : Number(r[col.amount]) || 0,
       status: String(r[col.status] ?? "").trim(),
       issueDate: date,
       jobId: job?.id ?? "",
@@ -488,7 +527,13 @@ export async function seedFromSheet(offset = 0): Promise<SeedProgress> {
   const done = !!payload.done;
   if (done) await setMeta("seed_done", "1");
 
-  return { processed: bills.length, scanned: payload.scanned ?? 0, nextOffset, total: payload.total ?? 0, done };
+  return {
+    processed: bills.length,
+    scanned: payload.scanned ?? 0,
+    nextOffset,
+    total: payload.total ?? 0,
+    done,
+  };
 }
 
 /** Pull the normal (non-Electrical, non-Statement) line items for a set of keys. */
@@ -500,7 +545,20 @@ async function fetchSheetLines(keys: string[]): Promise<Map<string, IndexedLine[
     const resp = (await callAppsScriptOrThrow(
       { action: "listExpenditureLines", keys: batch },
       { timeoutMs: 110_000 },
-    )) as { lines: Record<string, { id: string; desc: string; csi: string; qty: number; price: number; amount: number; source: string }[]> };
+    )) as {
+      lines: Record<
+        string,
+        {
+          id: string;
+          desc: string;
+          csi: string;
+          qty: number;
+          price: number;
+          amount: number;
+          source: string;
+        }[]
+      >;
+    };
     for (const [key, lines] of Object.entries(resp.lines ?? {})) {
       const kept = lines
         .filter((l) => (l.source ?? "") === "") // "" = normal lineItem; skip Electrical/Statement
@@ -544,7 +602,9 @@ function toFtsQuery(q: string): string {
   return terms.map((t) => `"${t}"*`).join(" ");
 }
 
-const rowToResult = (b: Record<string, unknown>): Omit<BillSearchResult, "lines" | "matchedLines"> => ({
+const rowToResult = (
+  b: Record<string, unknown>,
+): Omit<BillSearchResult, "lines" | "matchedLines"> => ({
   id: Number(b.id),
   source: (b.source as "jobtread" | "sheet") ?? "jobtread",
   jtDocId: String(b.jt_doc_id ?? ""),

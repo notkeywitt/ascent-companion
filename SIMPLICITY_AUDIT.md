@@ -78,7 +78,7 @@ The August review flagged this file at 2,704 lines. It has grown 70% since.
 > **Caution.** A split and a feature edit at the same time cause a merge conflict
 > in the largest file you have. Do one or the other.
 
-### 02 — Page loops stop early and say nothing · FIGURES
+### 02 — Page loops stop early and say nothing · FIGURES · ✅ FIXED 2026-09-14
 
 `src/lib/jobtread.ts` — 84 uses of `nextPage`, about 42 paged queries, no shared
 helper. 25 hand-written loops of the form `do { … } while (page && ++guard < N)`.
@@ -100,6 +100,35 @@ of a client.
 6. Test the function on a job that has more than 100 bills.
 
 > **Do this first.** An error is safe. A short total is not.
+
+**What shipped.** `pageAll` / `pageEach` in `src/lib/jobtread.ts`, plus 11 tests.
+All 46 hand-written loops now call it — 40 in `jobtread.ts` and 6 more found in
+`clientDirectory.ts` (which carried its own second copy of the walk),
+`invoiceReview/evidence.ts` and `leads.ts`.
+
+Step 2 needed one correction in practice. "One limit for every caller" is too
+blunt, because the same `page < N` spelled two different intentions:
+
+| Option | Meaning | On reaching it |
+|---|---|---|
+| `maxPages` | runaway guard — the data outgrew the query | **throws** |
+| `stopAfterPages` | deliberate sample — "the newest page is all I want" | returns quietly |
+
+`readLastUsed` (`employeeClock.ts`) passes `maxPages: 1` on purpose and would
+have broken under a single rule. Splitting the two names is what makes the
+difference impossible to miss at the next call site.
+
+Two guards are unchanged because they were already correct:
+`getOrgTimeEntriesForMonth` had written this rule by hand for one function
+("a SILENTLY short month is the one failure a payroll report must never have"),
+and `billSearch.sweepJobTreadBills` keeps its own loop — its field-set fallback
+is PER PAGE, which a walk-level retry cannot express — but now throws at its
+ceiling rather than writing a partial search index.
+
+The largest real exposure found: `leaveService.ts` reads an employee's whole
+time history with no bound, and the old loop stopped at 2,000 entries. A
+full-time worker logs roughly 250 a year, so any employee past eight years
+was accruing leave from a silently truncated history.
 
 ### 03 — The database is described twice · CHANGE COST
 
@@ -381,7 +410,7 @@ Correctness first, then the cheap wins, then the two large splits.
 
 | # | Finding | Why now | Size |
 |---|---|---|---|
-| 1 | 02 · paging | The only one that can print a wrong total | Half a day |
+| 1 | 02 · paging ✅ | Done 2026-09-14 — the only one that can print a wrong total | Half a day |
 | 2 | 09 · test gate | Protects every change after it | One hour |
 | 3 | 10 · dead code | An admin can type into an inert panel today | One hour |
 | 4 | 06 · `format.ts` | Stops the same figure printing two ways | Half a day |

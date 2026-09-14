@@ -274,6 +274,19 @@ queries:
 - **Page size cap is 100**, and pagination is a **cursor**: request `nextPage: {}`
   and feed the returned token back as `page`. `offset` 400s; `size: 250` silently
   returns 0.
+- **Never hand-write the page loop. Use `pageAll` / `pageEach`** (`src/lib/jobtread.ts`).
+  Forty hand-written copies each picked their own stop limit and each ended
+  SILENTLY on reaching it, so a busy job returned a short list and a total that
+  was quietly too low. The shared walk **throws** instead. Two options, and the
+  difference is the whole point:
+  - `maxPages` is a **runaway guard** — reaching it means the answer would be
+    wrong, so it throws (default 100 pages). Raise it for a genuinely large
+    connection; never lower it to bound a read.
+  - `stopAfterPages` is a **deliberate sample** — "the newest page is all I
+    want" — and returns quietly. `readLastUsed` is the one real user.
+  A call site that catches a failed query and retries with a smaller field set
+  must re-throw `PaveTooManyPagesError` first: too much data is not a bad field
+  name, and the retry only overflows again.
 - **413 rule:** do NOT nest a heavy connection (`customFieldValues`, `costItems`)
   inside another **paged** connection — it returns HTTP 413. Fetch it in a **second
   phase** and join by id (example: `loadStatusMap` in `src/app/jobs/JobsBrowser.tsx`).

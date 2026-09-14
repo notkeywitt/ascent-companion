@@ -59,6 +59,7 @@ import {
   getVendorBills,
   getVendors,
   jtIsoToOrgLocal,
+  pageEach,
   pave,
   type PaveConfig,
   type VendorBillRow,
@@ -87,8 +88,18 @@ const CONCURRENCY = 4;
 const PAGE_GUARD = 100;
 
 const MONTH_NAMES = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December",
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
 ];
 
 /** Bounded-concurrency map, preserving input order. (The digest's costVsInvoice
@@ -167,105 +178,112 @@ async function loadMonthBills(
   const last = `${year}-${mm}-${String(new Date(year, month, 0).getDate()).padStart(2, "0")}`;
 
   const bills: BillRef[] = [];
-  let page: string | undefined;
-  let guard = 0;
-  do {
-    const r: any = await pave(cfg, {
-      job: {
-        $: { id: jobId },
-        documents: {
-          $: {
-            where: {
-              and: [["type", "vendorBill"], ["status", "in", statuses]],
+  await pageEach<any>(
+    cfg,
+    {
+      label: "job.documents (review: the month's bills)",
+      // 25, not 100: referencedDocuments nested in a paged documents
+      // connection answers 413 at larger sizes (confirmed behavior).
+      size: 25,
+      maxPages: PAGE_GUARD,
+      query: (args) => ({
+        job: {
+          $: { id: jobId },
+          documents: {
+            $: {
+              where: {
+                and: [
+                  ["type", "vendorBill"],
+                  ["status", "in", statuses],
+                ],
+              },
+              ...args,
             },
-            // 25, not 100: referencedDocuments nested in a paged documents
-            // connection answers 413 at larger sizes (confirmed behavior).
-            size: 25,
-            ...(page ? { page } : {}),
-          },
-          nextPage: {},
-          nodes: {
-            id: {},
-            cost: {},
-            issueDate: {},
-            status: {},
-            externalId: {},
-            number: {},
-            fromName: {},
-            // The bill's sales tax. `cost` includes it either way — as the
-            // 88 80 00 LINE now, or spread across the lines on a bill pushed
-            // before 2026-09-05 — while the Drive filename carries the sheet's
-            // PRE-TAX amounts, so the backup pairing needs it to compare like
-            // with like. See BillRef.taxAmount.
-            //
-            // The line is read as a FILTERED AGGREGATE, not as nodes: nesting
-            // cost-item nodes inside this paged connection returns 413, but an
-            // aliased connection with a `where` and a `sum` rides along the same
-            // way `costItems { count }` does. Probed live 2026-09-05 against
-            // document 22Pd4uDiixE2 (count 1, costSum 54.04).
-            nonRecoverableTax: {},
-            // The lines JobTread will NOT tax on a client invoice. Read as a
-            // filtered aggregate for the same reason the tax line below is:
-            // cost-item NODES nested in this paged connection answer 413, an
-            // aliased connection with a `where` plus aggregates rides along.
-            untaxedLines: {
-              _: "costItems",
-              $: { where: [["isTaxable"], "=", false] },
-              count: {},
-              costSum: { _: "sum", $: "cost" },
+            nextPage: {},
+            nodes: {
+              id: {},
+              cost: {},
+              issueDate: {},
+              status: {},
+              externalId: {},
+              number: {},
+              fromName: {},
+              // The bill's sales tax. `cost` includes it either way — as the
+              // 88 80 00 LINE now, or spread across the lines on a bill pushed
+              // before 2026-09-05 — while the Drive filename carries the sheet's
+              // PRE-TAX amounts, so the backup pairing needs it to compare like
+              // with like. See BillRef.taxAmount.
+              //
+              // The line is read as a FILTERED AGGREGATE, not as nodes: nesting
+              // cost-item nodes inside this paged connection returns 413, but an
+              // aliased connection with a `where` and a `sum` rides along the same
+              // way `costItems { count }` does. Probed live 2026-09-05 against
+              // document 22Pd4uDiixE2 (count 1, costSum 54.04).
+              nonRecoverableTax: {},
+              // The lines JobTread will NOT tax on a client invoice. Read as a
+              // filtered aggregate for the same reason the tax line below is:
+              // cost-item NODES nested in this paged connection answer 413, an
+              // aliased connection with a `where` plus aggregates rides along.
+              untaxedLines: {
+                _: "costItems",
+                $: { where: [["isTaxable"], "=", false] },
+                count: {},
+                costSum: { _: "sum", $: "cost" },
+              },
+              salesTaxLines: {
+                _: "costItems",
+                $: { where: [["costCode", "number"], "=", SALES_TAX_CSI] },
+                costSum: { _: "sum", $: "cost" },
+              },
+              // QuickBooks is the general ledger, and this flag decides whether
+              // the cost ever reaches it. Read here so the qbo-push check has it.
+              qboIsIgnored: {},
+              account: { name: {} },
+              // A count, not the lines themselves: the backup pairing needs only
+              // how MANY lines there are, to size its rounding tolerance. Probed
+              // 2026-09-03 — the aggregate rides along at size 25 beside
+              // referencedDocuments without tipping the connection into a 413.
+              costItems: { count: {} },
+              referencedDocuments: { nodes: { id: {}, type: {} } },
             },
-            salesTaxLines: {
-              _: "costItems",
-              $: { where: [["costCode", "number"], "=", SALES_TAX_CSI] },
-              costSum: { _: "sum", $: "cost" },
-            },
-            // QuickBooks is the general ledger, and this flag decides whether
-            // the cost ever reaches it. Read here so the qbo-push check has it.
-            qboIsIgnored: {},
-            account: { name: {} },
-            // A count, not the lines themselves: the backup pairing needs only
-            // how MANY lines there are, to size its rounding tolerance. Probed
-            // 2026-09-03 — the aggregate rides along at size 25 beside
-            // referencedDocuments without tipping the connection into a 413.
-            costItems: { count: {} },
-            referencedDocuments: { nodes: { id: {}, type: {} } },
           },
         },
-      },
-    });
-    for (const b of (r?.job?.documents?.nodes ?? []) as any[]) {
-      const issued = String(b.issueDate ?? "").slice(0, 10);
-      if (!issued || issued < first || issued > last) continue;
-      const refs = (b.referencedDocuments?.nodes ?? []) as any[];
-      const invoiceRefs = refs.filter((n) => n?.type === "customerInvoice" && n?.id);
-      bills.push({
-        id: b.id,
-        vendor: b.account?.name ?? b.fromName ?? "",
-        label: String(b.externalId || b.number || b.account?.name || b.fromName || b.id),
-        cost: b.cost ?? 0,
-        lineCount: b.costItems?.count ?? 0,
-        // Line plus legacy field, summed rather than one preferred, so a bill
-        // halfway through the migration reports all of its tax.
-        taxAmount:
-          (Number(b.salesTaxLines?.costSum) || 0) + (Number(b.nonRecoverableTax) || 0),
-        untaxedLineCount: b.untaxedLines?.count ?? 0,
-        untaxedCost: Number(b.untaxedLines?.costSum) || 0,
-        status: b.status ?? "",
-        invoiced: invoiceRefs.length > 0,
-        invoiceIds: Array.from(
-          new Set(invoiceRefs.map((n) => n.id as string).filter((id) => liveInvoiceIds.has(id))),
-        ),
-        sentInvoiceIds: Array.from(
-          new Set(invoiceRefs.map((n) => n.id as string).filter((id) => sentInvoiceIds.has(id))),
-        ),
-        issueDate: issued,
-        // null, not false, when the field is absent: a bill whose flag could
-        // not be read must not be reported as one that WILL push.
-        qboIsIgnored: typeof b.qboIsIgnored === "boolean" ? b.qboIsIgnored : null,
-      });
-    }
-    page = r?.job?.documents?.nextPage || undefined;
-  } while (page && ++guard < PAGE_GUARD);
+      }),
+      pick: (r) => r?.job?.documents,
+    },
+    (rows) => {
+      for (const b of rows) {
+        const issued = String(b.issueDate ?? "").slice(0, 10);
+        if (!issued || issued < first || issued > last) continue;
+        const refs = (b.referencedDocuments?.nodes ?? []) as any[];
+        const invoiceRefs = refs.filter((n) => n?.type === "customerInvoice" && n?.id);
+        bills.push({
+          id: b.id,
+          vendor: b.account?.name ?? b.fromName ?? "",
+          label: String(b.externalId || b.number || b.account?.name || b.fromName || b.id),
+          cost: b.cost ?? 0,
+          lineCount: b.costItems?.count ?? 0,
+          // Line plus legacy field, summed rather than one preferred, so a bill
+          // halfway through the migration reports all of its tax.
+          taxAmount: (Number(b.salesTaxLines?.costSum) || 0) + (Number(b.nonRecoverableTax) || 0),
+          untaxedLineCount: b.untaxedLines?.count ?? 0,
+          untaxedCost: Number(b.untaxedLines?.costSum) || 0,
+          status: b.status ?? "",
+          invoiced: invoiceRefs.length > 0,
+          invoiceIds: Array.from(
+            new Set(invoiceRefs.map((n) => n.id as string).filter((id) => liveInvoiceIds.has(id))),
+          ),
+          sentInvoiceIds: Array.from(
+            new Set(invoiceRefs.map((n) => n.id as string).filter((id) => sentInvoiceIds.has(id))),
+          ),
+          issueDate: issued,
+          // null, not false, when the field is absent: a bill whose flag could
+          // not be read must not be reported as one that WILL push.
+          qboIsIgnored: typeof b.qboIsIgnored === "boolean" ? b.qboIsIgnored : null,
+        });
+      }
+    },
+  );
 
   return bills;
 }
@@ -279,10 +297,19 @@ async function loadInvoice(
   const h: any = await pave(cfg, {
     document: {
       $: { id: invoiceId },
-      id: {}, number: {}, name: {}, status: {},
-      issueDate: {}, dueDate: {},
-      cost: {}, price: {}, priceWithTax: {}, tax: {}, taxRate: {},
-      amountPaid: {}, balance: {},
+      id: {},
+      number: {},
+      name: {},
+      status: {},
+      issueDate: {},
+      dueDate: {},
+      cost: {},
+      price: {},
+      priceWithTax: {},
+      tax: {},
+      taxRate: {},
+      amountPaid: {},
+      balance: {},
       referencedDocuments: { $: { size: 100 }, nodes: { id: {}, type: {} } },
     },
   });
@@ -292,56 +319,61 @@ async function loadInvoice(
   // fine (the header isn't paged), but keeping it separate means a job with a
   // 300-line invoice pages cleanly instead of hitting the 100-node cap.
   const lines: InvoiceLine[] = [];
-  let page: string | undefined;
-  let guard = 0;
-  do {
-    const r: any = await pave(cfg, {
-      document: {
-        $: { id: invoiceId },
-        costItems: {
-          $: { size: 100, ...(page ? { page } : {}) },
-          nextPage: {},
-          nodes: {
-            id: {},
-            name: {},
-            description: {},
-            quantity: {},
-            unitCost: {},
-            unitPrice: {},
-            cost: {},
-            price: {},
-            isTaxable: {},
-            costCode: { number: {}, name: {} },
+  await pageEach<any>(
+    cfg,
+    {
+      label: "document.costItems (review: invoice lines)",
+      maxPages: PAGE_GUARD,
+      query: (args) => ({
+        document: {
+          $: { id: invoiceId },
+          costItems: {
+            $: args,
+            nextPage: {},
+            nodes: {
+              id: {},
+              name: {},
+              description: {},
+              quantity: {},
+              unitCost: {},
+              unitPrice: {},
+              cost: {},
+              price: {},
+              isTaxable: {},
+              costCode: { number: {}, name: {} },
+            },
           },
         },
-      },
-    });
-    for (const l of (r?.document?.costItems?.nodes ?? []) as any[]) {
-      lines.push({
-        id: l.id,
-        name: l.name ?? "",
-        description: l.description ?? "",
-        code: l.costCode?.number ?? "",
-        codeName: l.costCode?.name ?? "",
-        quantity: l.quantity ?? 0,
-        unitCost: l.unitCost ?? 0,
-        unitPrice: l.unitPrice ?? 0,
-        // The markup basis. Null/absent becomes 0, and every margin check
-        // treats 0 as "no cost recorded, say nothing" rather than as free.
-        //
-        // `cost`/`unitCost` are documented costItem scalars (JT_API_REFERENCE),
-        // but this is the first place the review reads them off a
-        // customerInvoice line specifically. If they come back empty in
-        // production, the margin checks go quiet rather than wrong — the
-        // cost>0 guard sees to that — so the symptom to look for is silence,
-        // not noise. Worth confirming against a live invoice once.
-        cost: l.cost ?? 0,
-        price: l.price ?? 0,
-        isTaxable: l.isTaxable !== false,
-      });
-    }
-    page = r?.document?.costItems?.nextPage || undefined;
-  } while (page && ++guard < PAGE_GUARD);
+      }),
+      pick: (r) => r?.document?.costItems,
+    },
+    (rows) => {
+      for (const l of rows) {
+        lines.push({
+          id: l.id,
+          name: l.name ?? "",
+          description: l.description ?? "",
+          code: l.costCode?.number ?? "",
+          codeName: l.costCode?.name ?? "",
+          quantity: l.quantity ?? 0,
+          unitCost: l.unitCost ?? 0,
+          unitPrice: l.unitPrice ?? 0,
+          // The markup basis. Null/absent becomes 0, and every margin check
+          // treats 0 as "no cost recorded, say nothing" rather than as free.
+          //
+          // `cost`/`unitCost` are documented costItem scalars (JT_API_REFERENCE),
+          // but this is the first place the review reads them off a
+          // customerInvoice line specifically. If they come back empty in
+          // production, the margin checks go quiet rather than wrong — the
+          // cost>0 guard sees to that — so the symptom to look for is silence,
+          // not noise. Worth confirming against a live invoice once.
+          cost: l.cost ?? 0,
+          price: l.price ?? 0,
+          isTaxable: l.isTaxable !== false,
+        });
+      }
+    },
+  );
 
   return {
     id: invoiceId,
@@ -386,7 +418,10 @@ async function loadFolder(
   if (r.error) return { folder: null, warning: `Drive listing failed for ${customer}: ${r.error}` };
   const d = r.data ?? {};
   if (d.ok === false) {
-    return { folder: null, warning: `Drive listing failed for ${customer}: ${d.error ?? "unknown"}` };
+    return {
+      folder: null,
+      warning: `Drive listing failed for ${customer}: ${d.error ?? "unknown"}`,
+    };
   }
   return {
     folder: {
@@ -470,11 +505,21 @@ async function loadPeriodMail(
   );
 
   if (r.error) {
-    return { emails: [], window: null, truncated: false, warning: `The office mailbox could not be searched: ${r.error}` };
+    return {
+      emails: [],
+      window: null,
+      truncated: false,
+      warning: `The office mailbox could not be searched: ${r.error}`,
+    };
   }
   const d = r.data ?? {};
   if (d.ok === false) {
-    return { emails: [], window: null, truncated: false, warning: `The office mailbox could not be searched: ${d.error ?? "unknown"}` };
+    return {
+      emails: [],
+      window: null,
+      truncated: false,
+      warning: `The office mailbox could not be searched: ${d.error ?? "unknown"}`,
+    };
   }
 
   const raw = (d.emails ?? []).filter((e) => {
@@ -595,8 +640,7 @@ async function loadLaborRates(
     if (!sawTypes) {
       return {
         rates: null,
-        warning:
-          "Labor rates were not checked — this grant cannot read per-member pay types.",
+        warning: "Labor rates were not checked — this grant cannot read per-member pay types.",
       };
     }
     return { rates };

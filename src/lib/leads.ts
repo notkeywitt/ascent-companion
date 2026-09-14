@@ -20,7 +20,7 @@
  * per-lead fan-out is a handful of parallel calls, not a scan of the org.
  */
 
-import { pave, type PaveConfig } from "./jobtread";
+import { pageEach, pave, type PaveConfig } from "./jobtread";
 
 /** The Status custom-field value that marks an account as a lead. */
 export const LEAD_STATUS = "New Lead";
@@ -79,9 +79,12 @@ function cfMap(conn: unknown): Record<string, string> {
 }
 
 function toContact(raw: unknown): LeadContact | null {
-  const c = raw as
-    | { id?: string; name?: string; title?: string | null; customFieldValues?: unknown }
-    | null;
+  const c = raw as {
+    id?: string;
+    name?: string;
+    title?: string | null;
+    customFieldValues?: unknown;
+  } | null;
   if (!c?.id) return null;
   const cf = cfMap(c.customFieldValues);
   return {
@@ -163,31 +166,32 @@ export async function getLeadAccountIds(cfg: PaveConfig): Promise<{ id: string; 
   if (!fieldId) throw new Error('No customer "Status" custom field found in JobTread.');
 
   const out: { id: string; name: string }[] = [];
-  let cursor: string | null = null;
-  for (let page = 0; page < 20; page++) {
-    const args: Record<string, unknown> = { size: 100 };
-    if (cursor) args.page = cursor;
-    const r = await pave(cfg, {
-      customField: {
-        $: { id: fieldId },
-        id: {},
-        customFieldValues: {
-          $: args,
-          nextPage: {},
-          nodes: { value: {}, account: { id: {}, name: {}, archivedAt: {} } },
+  await pageEach<any>(
+    cfg,
+    {
+      label: "customField.customFieldValues (customer Status)",
+      query: (args) => ({
+        customField: {
+          $: { id: fieldId },
+          id: {},
+          customFieldValues: {
+            $: args,
+            nextPage: {},
+            nodes: { value: {}, account: { id: {}, name: {}, archivedAt: {} } },
+          },
         },
-      },
-    });
-    const conn = r?.customField?.customFieldValues ?? {};
-    for (const n of conn.nodes ?? []) {
-      // Archived accounts are dead leads — JobTread keeps their Status value.
-      if (String(n?.value ?? "") !== LEAD_STATUS) continue;
-      if (!n?.account?.id || n.account.archivedAt) continue;
-      out.push({ id: n.account.id, name: n.account.name ?? "" });
-    }
-    cursor = conn.nextPage ?? null;
-    if (!cursor) break;
-  }
+      }),
+      pick: (r) => r?.customField?.customFieldValues,
+    },
+    (rows) => {
+      for (const n of rows) {
+        // Archived accounts are dead leads — JobTread keeps their Status value.
+        if (String(n?.value ?? "") !== LEAD_STATUS) continue;
+        if (!n?.account?.id || n.account.archivedAt) continue;
+        out.push({ id: n.account.id, name: n.account.name ?? "" });
+      }
+    },
+  );
   return out;
 }
 

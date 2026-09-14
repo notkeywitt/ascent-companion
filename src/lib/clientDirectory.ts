@@ -56,7 +56,7 @@
  * journals and the page redraws is JobTread's, never the browser's guess.
  */
 
-import { pave, type PaveConfig } from "./jobtread";
+import { pageAll, pave, type PaveConfig } from "./jobtread";
 
 // ---------------------------------------------------------------------------
 // CUSTOM FIELDS
@@ -146,7 +146,12 @@ export async function getCustomFields(
   };
   for (const raw of (r?.organization?.customFields?.nodes ?? []) as RawCustomField[]) {
     const target = String(raw?.targetType ?? "");
-    if (target === "job" || target === "customer" || target === "customerContact" || target === "location") {
+    if (
+      target === "job" ||
+      target === "customer" ||
+      target === "customerContact" ||
+      target === "location"
+    ) {
       out[target].push(toFieldDef(raw));
     }
   }
@@ -234,26 +239,6 @@ export interface ClientDirectory {
   orphanJobs: DirectoryJob[];
 }
 
-/** One page of a connection, or the whole thing when it fits. */
-async function pageAll<T>(
-  cfg: PaveConfig,
-  build: (args: Record<string, unknown>) => Record<string, unknown>,
-  pick: (r: any) => { nodes?: T[]; nextPage?: string | null } | undefined,
-  maxPages = 25,
-): Promise<T[]> {
-  const out: T[] = [];
-  let cursor: string | null = null;
-  for (let i = 0; i < maxPages; i++) {
-    const args: Record<string, unknown> = { size: 100 };
-    if (cursor) args.page = cursor;
-    const conn = pick(await pave(cfg, build(args)));
-    for (const n of conn?.nodes ?? []) out.push(n);
-    cursor = conn?.nextPage ?? null;
-    if (!cursor) break;
-  }
-  return out;
-}
-
 /**
  * jobId → value for ONE job custom field, by field name.
  *
@@ -295,9 +280,9 @@ async function ownerValueMap(
 ): Promise<Record<string, string[]>> {
   const out: Record<string, string[]> = {};
   if (!field?.id) return out;
-  const nodes = await pageAll<Record<string, unknown>>(
-    cfg,
-    (args) => ({
+  const nodes = await pageAll<Record<string, unknown>>(cfg, {
+    label: `customField.customFieldValues (${owner})`,
+    query: (args) => ({
       customField: {
         $: { id: field.id },
         id: {},
@@ -308,9 +293,8 @@ async function ownerValueMap(
         },
       },
     }),
-    (r) => r?.customField?.customFieldValues,
-    20,
-  );
+    pick: (r) => r?.customField?.customFieldValues,
+  });
   for (const n of nodes) {
     const ownerId = (n?.[owner] as { id?: string } | null | undefined)?.id;
     if (!ownerId || n?.value == null) continue;
@@ -393,9 +377,9 @@ export async function getClientDirectory(
   const jobFields = defs.job;
 
   const [accounts, jobs, phaseMap, statusMap] = await Promise.all([
-    pageAll<RawAccount>(
-      cfg,
-      (args) => ({
+    pageAll<RawAccount>(cfg, {
+      label: "organization.accounts (customers)",
+      query: (args) => ({
         organization: {
           $: { id: cfg.orgId },
           id: {},
@@ -416,11 +400,11 @@ export async function getClientDirectory(
           },
         },
       }),
-      (r) => r?.organization?.accounts,
-    ),
-    pageAll<RawJob>(
-      cfg,
-      (args) => ({
+      pick: (r) => r?.organization?.accounts,
+    }),
+    pageAll<RawJob>(cfg, {
+      label: "organization.jobs (directory)",
+      query: (args) => ({
         organization: {
           $: { id: cfg.orgId },
           id: {},
@@ -439,10 +423,16 @@ export async function getClientDirectory(
           },
         },
       }),
-      (r) => r?.organization?.jobs,
+      pick: (r) => r?.organization?.jobs,
+    }),
+    jobFieldMap(
+      cfg,
+      jobFields.find((f) => f.name === "Phase"),
     ),
-    jobFieldMap(cfg, jobFields.find((f) => f.name === "Phase")),
-    jobFieldMap(cfg, jobFields.find((f) => f.name === "Status")),
+    jobFieldMap(
+      cfg,
+      jobFields.find((f) => f.name === "Status"),
+    ),
   ]);
 
   const customers: DirectoryCustomer[] = accounts.map((a) => ({
@@ -625,7 +615,9 @@ export async function getJobDetail(
     projectedCost: num(j.projectedCost),
     projectedPrice: num(j.projectedPrice),
     areas: Array.isArray(j.areas) ? j.areas.map((a: unknown) => String(a)) : [],
-    folders: Array.isArray(j.folders) ? j.folders.map((f: unknown) => readableFolder(String(f))) : [],
+    folders: Array.isArray(j.folders)
+      ? j.folders.map((f: unknown) => readableFolder(String(f)))
+      : [],
     counts: {
       documents: count(j.documents),
       tasks: count(j.tasks),
@@ -1058,7 +1050,6 @@ export async function applyPatch(
 /** True when the patch would change nothing — no scalar and no custom field. */
 export function patchIsEmpty(patch: ValidatedPatch): boolean {
   return (
-    Object.keys(patch.fields).length === 0 &&
-    Object.keys(patch.customFieldValues).length === 0
+    Object.keys(patch.fields).length === 0 && Object.keys(patch.customFieldValues).length === 0
   );
 }

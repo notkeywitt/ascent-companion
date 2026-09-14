@@ -85,7 +85,9 @@ export async function pave<T = any>(cfg: PaveConfig, query: Record<string, unkno
     // Transient transport status: the request didn't produce a result. Retry a
     // read, else throw. (A mutation with maxAttempts=1 falls straight through.)
     if (PAVE_RETRY_STATUS.has(res.status)) {
-      lastErr = new Error(`Pave error (HTTP ${res.status}): ${text ? text.slice(0, 300) : "transient"}`);
+      lastErr = new Error(
+        `Pave error (HTTP ${res.status}): ${text ? text.slice(0, 300) : "transient"}`,
+      );
       if (mayRetry && attempt < maxAttempts) {
         await paveSleep(PAVE_BACKOFF_MS[attempt - 1] ?? 1500);
         continue;
@@ -191,6 +193,149 @@ export function clearJobCostCaches(): void {
 }
 
 // ---------------------------------------------------------------------------
+// PAGING
+//
+// Every JobTread connection pages by CURSOR: ask for `nextPage: {}`, then feed
+// the token it returns back as `page`. Size is capped at 100 (`size: 250`
+// silently returns 0, and `offset` 400s — see JT_API_REFERENCE.md).
+//
+// This file used to spell that walk out by hand about forty times, and each copy
+// picked its own stop limit — 10, 20, 50, 100, 200, 1000. Reaching the limit just
+// ended the loop, so a busy job handed back a SHORT list and a total that was
+// quietly too low. Nothing was thrown, logged, or sent to Sentry.
+//
+// `pageAll` / `pageEach` are the one walk now, and they split the two ideas that
+// a bare `page < N` could not tell apart:
+//
+//   maxPages       A RUNAWAY GUARD. Reaching it means the data outgrew what this
+//                  query was built for, so the answer would be wrong. It THROWS.
+//                  A short answer is never returned.
+//   stopAfterPages A DELIBERATE partial read — "the newest page is all I want".
+//                  Reaching it returns quietly, because that is the intent.
+//
+// The rule this generalises was already written here for one function:
+// getOrgTimeEntriesForMonth refuses to report a partial month, "because a
+// SILENTLY short month is the one failure a payroll report must never have."
+// That is now the default for every walk in this file.
+// ---------------------------------------------------------------------------
+
+/** The shape every paged Pave connection answers with. */
+interface PaveConnection<T> {
+  /** Rows of a plain connection. */
+  nodes?: T[] | null;
+  /** Rows of a GROUPED connection (`group: { by, aggs }`) — same walk, other key. */
+  withValues?: T[] | null;
+  /** Cursor for the next page. Absent or null on the last page. */
+  nextPage?: string | null;
+}
+
+export interface PageWalk<T> {
+  /** Names the connection in an error, e.g. `"organization.jobs"`. */
+  label: string;
+  /**
+   * Builds the WHOLE query for one page. `args` already carries `size` and, from
+   * the second page on, `page` — spread it into the connection's `$`.
+   */
+  query: (args: Record<string, unknown>) => Record<string, unknown>;
+  /** Finds the paged connection in the answer. */
+  pick: (answer: any) => PaveConnection<T> | null | undefined;
+  /** Rows per page. JobTread's cap is 100, which is also the default. */
+  size?: number;
+  /**
+   * Runaway guard — the walk THROWS on reaching it rather than returning a short
+   * answer. Raise it for a connection that is genuinely large; do not lower it to
+   * bound a read. Use `stopAfterPages` for that.
+   */
+  maxPages?: number;
+  /**
+   * Read at most this many pages and return what they held, with no error. For a
+   * caller that wants a sample rather than the set — the clock-in page reading
+   * the newest entry, for instance. Wins over `maxPages` when both are set.
+   */
+  stopAfterPages?: number;
+}
+
+/**
+ * Thrown when a walk runs out of pages with rows still to come.
+ *
+ * Its own class so a caller that retries a query with a different field set can
+ * tell "that shape was rejected" (retry) from "there is too much data" (do not
+ * retry — the second attempt overflows too).
+ */
+export class PaveTooManyPagesError extends Error {
+  readonly label: string;
+  constructor(label: string, message: string) {
+    super(message);
+    this.name = "PaveTooManyPagesError";
+    this.label = label;
+  }
+}
+
+/** JobTread's own page-size cap. Asking for more returns nothing at all. */
+const PAVE_PAGE_SIZE = 100;
+
+/** 100 pages × 100 rows = 10,000. Past that, assume the query needs narrowing. */
+const PAVE_MAX_PAGES = 100;
+
+/**
+ * Walk every page of one connection, handing each page's rows to `onPage`.
+ *
+ * Return `"stop"` from `onPage` to end the walk early — that is how a search
+ * loop quits once it has found its row, and it is never an error.
+ *
+ * Throws when `maxPages` is reached with a cursor still outstanding. The message
+ * names the connection and the ceiling, so the fix (narrow the `where`, or raise
+ * the ceiling on purpose) is visible from the error alone.
+ */
+export async function pageEach<T = any>(
+  cfg: PaveConfig,
+  walk: PageWalk<T>,
+  onPage: (rows: T[]) => void | "stop",
+): Promise<void> {
+  const size = walk.size ?? PAVE_PAGE_SIZE;
+  const guard = walk.maxPages ?? PAVE_MAX_PAGES;
+  // A deliberate partial read is not bounded by the runaway guard — it IS a bound.
+  const limit = walk.stopAfterPages ?? guard;
+
+  let cursor: string | null = null;
+
+  for (let page = 0; page < limit; page++) {
+    const args: Record<string, unknown> = { size };
+    if (cursor) args.page = cursor;
+
+    const answer = await pave(cfg, walk.query(args));
+    const conn = walk.pick(answer) ?? {};
+    // `nodes` for a plain connection, `withValues` for a grouped one. A query
+    // asks for exactly one of them, so this never has to choose between two.
+    if (onPage(conn.nodes ?? conn.withValues ?? []) === "stop") return;
+
+    cursor = conn.nextPage ?? null;
+    if (!cursor) return; // last page — the only ordinary way out
+  }
+
+  // Fell out of the loop with a cursor still in hand.
+  if (walk.stopAfterPages != null) return; // asked for a sample, got one
+  throw new PaveTooManyPagesError(
+    walk.label,
+    `JobTread has more than ${limit * size} rows of ${walk.label}. ` +
+      `Returning part of them would give a wrong total, so nothing is returned. ` +
+      `Narrow the query, or raise maxPages on this call if the data really is this large.`,
+  );
+}
+
+/**
+ * The same walk, collecting every row. Use this unless the call site needs to
+ * stop early or accumulate as it goes.
+ */
+export async function pageAll<T = any>(cfg: PaveConfig, walk: PageWalk<T>): Promise<T[]> {
+  const out: T[] = [];
+  await pageEach<T>(cfg, walk, (rows) => {
+    out.push(...rows);
+  });
+  return out;
+}
+
+// ---------------------------------------------------------------------------
 // UNBILLED EXPENSES  (confirmed: documents carry cost/price/priceWithTax and
 // support server-side group/sum by type+status)
 // ---------------------------------------------------------------------------
@@ -204,7 +349,10 @@ export interface DocRollupRow {
 }
 
 /** Job-level cost/price rollup grouped by document type + status. */
-export async function getJobDocumentRollup(cfg: PaveConfig, jobId: string): Promise<DocRollupRow[]> {
+export async function getJobDocumentRollup(
+  cfg: PaveConfig,
+  jobId: string,
+): Promise<DocRollupRow[]> {
   const r = await pave(cfg, {
     job: {
       $: { id: jobId },
@@ -334,14 +482,31 @@ export async function getDraftBills(cfg: PaveConfig, jobId: string): Promise<Dra
       $: { id: jobId },
       id: {},
       documents: {
-        $: { where: { and: [["type", "vendorBill"], ["status", "draft"]] }, size: 100 },
+        $: {
+          where: {
+            and: [
+              ["type", "vendorBill"],
+              ["status", "draft"],
+            ],
+          },
+          size: 100,
+        },
         nextPage: {},
         nodes,
       },
     },
   });
   const rich = {
-    id: {}, name: {}, subject: {}, fromName: {}, number: {}, externalId: {}, status: {}, cost: {}, nonRecoverableTax: {}, issueDate: {},
+    id: {},
+    name: {},
+    subject: {},
+    fromName: {},
+    number: {},
+    externalId: {},
+    status: {},
+    cost: {},
+    nonRecoverableTax: {},
+    issueDate: {},
   };
   const min = { id: {}, name: {}, status: {}, cost: {}, nonRecoverableTax: {}, issueDate: {} };
   let r: any;
@@ -361,15 +526,19 @@ export async function getDraftBills(cfg: PaveConfig, jobId: string): Promise<Dra
  * job's bill view.
  */
 export async function getAllDraftBills(cfg: PaveConfig): Promise<DraftBill[]> {
-  const q = (nodes: Record<string, unknown>, page?: string) => ({
+  const q = (nodes: Record<string, unknown>, args: Record<string, unknown>) => ({
     organization: {
       $: { id: cfg.orgId },
       id: {},
       documents: {
         $: {
-          where: { and: [["type", "vendorBill"], ["status", "draft"]] },
-          size: 100,
-          ...(page ? { page } : {}),
+          where: {
+            and: [
+              ["type", "vendorBill"],
+              ["status", "draft"],
+            ],
+          },
+          ...args,
         },
         nextPage: {},
         nodes,
@@ -377,29 +546,46 @@ export async function getAllDraftBills(cfg: PaveConfig): Promise<DraftBill[]> {
     },
   });
   const rich = {
-    id: {}, name: {}, subject: {}, fromName: {}, number: {}, externalId: {}, status: {}, cost: {}, nonRecoverableTax: {}, issueDate: {},
+    id: {},
+    name: {},
+    subject: {},
+    fromName: {},
+    number: {},
+    externalId: {},
+    status: {},
+    cost: {},
+    nonRecoverableTax: {},
+    issueDate: {},
     job: { id: {}, name: {} },
   };
-  const min = { id: {}, name: {}, status: {}, cost: {}, nonRecoverableTax: {}, issueDate: {}, job: { id: {}, name: {} } };
+  const min = {
+    id: {},
+    name: {},
+    status: {},
+    cost: {},
+    nonRecoverableTax: {},
+    issueDate: {},
+    job: { id: {}, name: {} },
+  };
   const flatten = (nodes: any[]): DraftBill[] =>
     nodes.map((n) => ({ ...n, jobId: n?.job?.id, jobName: n?.job?.name }));
 
-  const out: DraftBill[] = [];
-  let page: string | undefined;
-  let guard = 0;
-  let sel = rich;
-  do {
-    let r: any;
-    try {
-      r = await pave(cfg, q(sel, page));
-    } catch {
-      sel = min as any; // an unconfirmed field name won't break the queue
-      r = await pave(cfg, q(sel, page));
-    }
-    out.push(...flatten(r?.organization?.documents?.nodes ?? []));
-    page = r?.organization?.documents?.nextPage || undefined;
-  } while (page && ++guard < 100);
-  return out;
+  const walkWith = (nodes: Record<string, unknown>) =>
+    pageAll<any>(cfg, {
+      label: "organization.documents (draft vendor bills)",
+      query: (args) => q(nodes, args),
+      pick: (r) => r?.organization?.documents,
+    });
+
+  // An unconfirmed field name won't break the queue: fall back to the minimal
+  // field set. The retry restarts the walk rather than swapping field sets
+  // mid-walk, so every page of one answer carries the same shape. Too much data
+  // is not a shape problem — retrying that would only overflow again.
+  const nodes = await walkWith(rich).catch((e) => {
+    if (e instanceof PaveTooManyPagesError) throw e;
+    return walkWith(min);
+  });
+  return flatten(nodes);
 }
 
 export interface BillLine {
@@ -485,9 +671,20 @@ export async function getBillDetail(cfg: PaveConfig, docId: string): Promise<Bil
   const rich = {
     document: {
       $: { id: docId },
-      id: {}, name: {}, status: {}, cost: {}, issueDate: {}, dueDate: {}, dueDays: {},
-      subject: {}, fromName: {}, number: {}, externalId: {},
-      qboIsIgnored: {}, nonRecoverableTax: {}, nonRecoverableTaxName: {},
+      id: {},
+      name: {},
+      status: {},
+      cost: {},
+      issueDate: {},
+      dueDate: {},
+      dueDays: {},
+      subject: {},
+      fromName: {},
+      number: {},
+      externalId: {},
+      qboIsIgnored: {},
+      nonRecoverableTax: {},
+      nonRecoverableTaxName: {},
       job: { id: {} }, // the bill's own job — lets /api/bill work without ?jobId
       account: { name: {} }, // the actual vendor — see BillDetail.header.vendorName
       ...lineSel,
@@ -496,8 +693,15 @@ export async function getBillDetail(cfg: PaveConfig, docId: string): Promise<Bil
   const min = {
     document: {
       $: { id: docId },
-      id: {}, name: {}, status: {}, cost: {}, issueDate: {}, dueDate: {}, dueDays: {},
-      nonRecoverableTax: {}, nonRecoverableTaxName: {},
+      id: {},
+      name: {},
+      status: {},
+      cost: {},
+      issueDate: {},
+      dueDate: {},
+      dueDays: {},
+      nonRecoverableTax: {},
+      nonRecoverableTaxName: {},
       job: { id: {} },
       account: { name: {} },
       ...lineSel,
@@ -586,8 +790,7 @@ export async function getBillJournalSnapshot(
       externalId: d.externalId ?? undefined,
       name: d.name ?? undefined,
       cost: typeof d.cost === "number" ? d.cost : undefined,
-      nonRecoverableTax:
-        typeof d.nonRecoverableTax === "number" ? d.nonRecoverableTax : undefined,
+      nonRecoverableTax: typeof d.nonRecoverableTax === "number" ? d.nonRecoverableTax : undefined,
       qboIsIgnored: typeof d.qboIsIgnored === "boolean" ? d.qboIsIgnored : undefined,
       qboDocumentType: d.qboDocumentType ?? undefined,
       jobId: d.job?.id ?? "",
@@ -782,7 +985,10 @@ export async function setBillTax(
     if (salesTaxJobCostItemId) $.jobCostItemId = salesTaxJobCostItemId;
     if (taxLine) {
       await pave(cfg, {
-        updateCostItem: { $: { ...$, id: taxLine.id }, costItem: { $: { id: taxLine.id }, id: {} } },
+        updateCostItem: {
+          $: { ...$, id: taxLine.id },
+          costItem: { $: { id: taxLine.id }, id: {} },
+        },
       });
     } else {
       await pave(cfg, {
@@ -848,7 +1054,14 @@ export async function getDraftVendorBillCount(cfg: PaveConfig): Promise<number |
         $: { id: cfg.orgId },
         id: {},
         documents: {
-          $: { where: { and: [["type", "vendorBill"], ["status", "draft"]] } },
+          $: {
+            where: {
+              and: [
+                ["type", "vendorBill"],
+                ["status", "draft"],
+              ],
+            },
+          },
           count: {},
         },
       },
@@ -986,83 +1199,90 @@ export async function getSalesTaxByDoc(
   if (jobId) and.push([["document", "job", "id"], "=", jobId]);
 
   const out = new Map<string, number>();
-  let page: string | undefined;
-  let guard = 0;
-  do {
-    const r: any = await pave(cfg, {
-      organization: {
-        $: { id: cfg.orgId },
-        id: {},
-        costItems: {
-          $: { where: { and }, size: 100, ...(page ? { page } : {}) },
-          nextPage: {},
-          nodes: { cost: {}, document: { id: {} } },
+  await pageEach<any>(
+    cfg,
+    {
+      label: "organization.costItems (sales tax by document)",
+      query: (args) => ({
+        organization: {
+          $: { id: cfg.orgId },
+          id: {},
+          costItems: {
+            $: { where: { and }, ...args },
+            nextPage: {},
+            nodes: { cost: {}, document: { id: {} } },
+          },
         },
-      },
-    });
-    for (const n of (r?.organization?.costItems?.nodes ?? []) as any[]) {
-      const id = n?.document?.id;
-      if (!id) continue;
-      out.set(id, Math.round(((out.get(id) ?? 0) + (Number(n.cost) || 0)) * 100) / 100);
-    }
-    page = r?.organization?.costItems?.nextPage || undefined;
-  } while (page && ++guard < 50);
+      }),
+      pick: (r) => r?.organization?.costItems,
+    },
+    (rows) => {
+      for (const n of rows) {
+        const id = n?.document?.id;
+        if (!id) continue;
+        out.set(id, Math.round(((out.get(id) ?? 0) + (Number(n.cost) || 0)) * 100) / 100);
+      }
+    },
+  );
   return out;
 }
 
 async function _getJobBudgetUncached(cfg: PaveConfig, jobId: string): Promise<BudgetItem[]> {
   const walk = async (where?: unknown): Promise<BudgetItem[]> => {
     const items: BudgetItem[] = [];
-    let cursor: string | null = null;
-    for (let page = 0; page < 50; page++) {
-      const args: Record<string, unknown> = { size: 100 };
-      if (where) args.where = where;
-      if (cursor) args.page = cursor;
-      const r = await pave(cfg, {
-        job: {
-          $: { id: jobId },
-          id: {},
-          costItems: {
-            $: args,
-            nextPage: {},
-            nodes: {
-              id: {},
-              name: {},
-              cost: {},
-              document: { id: {} },
-              costCode: { number: {}, name: {}, parentCostCode: { name: {} } },
-              costType: { name: {}, isTimeTrackable: {} },
+    await pageEach<any>(
+      cfg,
+      {
+        label: "job.costItems (budget leaves)",
+        query: (args) => ({
+          job: {
+            $: { id: jobId },
+            id: {},
+            costItems: {
+              $: { ...(where ? { where } : {}), ...args },
+              nextPage: {},
+              nodes: {
+                id: {},
+                name: {},
+                cost: {},
+                document: { id: {} },
+                costCode: { number: {}, name: {}, parentCostCode: { name: {} } },
+                costType: { name: {}, isTimeTrackable: {} },
+              },
             },
           },
-        },
-      });
-      const co = r?.job?.costItems ?? {};
-      for (const n of co.nodes ?? []) {
-        if (n?.document?.id) continue; // bill-child cost item, not a budget leaf
-        if (/^uncategorized\b/i.test(String(n?.name ?? "").trim())) continue;
-        const number = n?.costCode?.number?.toString().trim();
-        if (!number) continue;
-        items.push({
-          id: n.id,
-          number,
-          name: n?.costCode?.name ?? n?.name ?? "",
-          detail: n?.name ?? "",
-          costType: n?.costType?.name ?? "",
-          timeTrackable: n?.costType?.isTimeTrackable === true,
-          cost: typeof n?.cost === "number" ? n.cost : undefined,
-          division: n?.costCode?.parentCostCode?.name ?? undefined,
-        });
-      }
-      cursor = co.nextPage ?? null;
-      if (!cursor) break;
-    }
+        }),
+        pick: (r) => r?.job?.costItems,
+      },
+      (rows) => {
+        for (const n of rows) {
+          if (n?.document?.id) continue; // bill-child cost item, not a budget leaf
+          if (/^uncategorized\b/i.test(String(n?.name ?? "").trim())) continue;
+          const number = n?.costCode?.number?.toString().trim();
+          if (!number) continue;
+          items.push({
+            id: n.id,
+            number,
+            name: n?.costCode?.name ?? n?.name ?? "",
+            detail: n?.name ?? "",
+            costType: n?.costType?.name ?? "",
+            timeTrackable: n?.costType?.isTimeTrackable === true,
+            cost: typeof n?.cost === "number" ? n.cost : undefined,
+            division: n?.costCode?.parentCostCode?.name ?? undefined,
+          });
+        }
+      },
+    );
     return items;
   };
   let items: BudgetItem[];
   try {
     items = await walk([["document", "id"], null]);
-  } catch {
-    items = await walk(); // filter rejected — fall back to scanning every cost item
+  } catch (e) {
+    // Filter rejected — fall back to scanning every cost item. Too much data is
+    // not a rejected filter, and the unfiltered walk would only overflow harder.
+    if (e instanceof PaveTooManyPagesError) throw e;
+    items = await walk();
   }
   // stable sort by code for the dropdown
   return items.sort((a, b) => a.number.localeCompare(b.number));
@@ -1119,32 +1339,36 @@ async function _sumCostByCostCode(
   where: unknown,
 ): Promise<Record<string, number>> {
   const out: Record<string, number> = {};
-  let page: string | undefined;
-  let guard = 0;
-  do {
-    const r = await pave(cfg, {
-      job: {
-        $: { id: jobId },
-        id: {},
-        costItems: {
-          $: {
-            size: 100, // pages over GROUPS (one per cost code), not raw cost items
-            where,
-            group: { by: [["costCode", "number"]], aggs: { total: { sum: "cost" } } },
-            ...(page ? { page } : {}),
+  await pageEach<any>(
+    cfg,
+    {
+      label: "job.costItems grouped by cost code",
+      query: (args) => ({
+        job: {
+          $: { id: jobId },
+          id: {},
+          costItems: {
+            $: {
+              // pages over GROUPS (one per cost code), not raw cost items
+              where,
+              group: { by: [["costCode", "number"]], aggs: { total: { sum: "cost" } } },
+              ...args,
+            },
+            withValues: {},
+            nextPage: {},
           },
-          withValues: {},
-          nextPage: {},
         },
-      },
-    });
-    for (const row of r?.job?.costItems?.withValues ?? []) {
-      const code = row?.costCode?.number?.toString().trim();
-      if (!code) continue;
-      out[code] = (out[code] ?? 0) + (row.total ?? 0);
-    }
-    page = r?.job?.costItems?.nextPage || undefined;
-  } while (page && ++guard < 20);
+      }),
+      pick: (r) => r?.job?.costItems,
+    },
+    (rows) => {
+      for (const row of rows) {
+        const code = row?.costCode?.number?.toString().trim();
+        if (!code) continue;
+        out[code] = (out[code] ?? 0) + (row.total ?? 0);
+      }
+    },
+  );
   return out;
 }
 
@@ -1157,15 +1381,13 @@ async function _costToCompleteByFullWalk(
   cfg: PaveConfig,
   jobId: string,
 ): Promise<{ budget: Record<string, number>; actual: Record<string, number> }> {
-  let nodes: any[] = [];
-  let page: string | undefined;
-  let guard = 0;
-  do {
-    const r = await pave(cfg, {
+  const nodes = await pageAll<any>(cfg, {
+    label: "job.costItems (full cost-to-complete walk)",
+    query: (args) => ({
       job: {
         $: { id: jobId },
         costItems: {
-          $: { size: 100, ...(page ? { page } : {}) },
+          $: args,
           nextPage: {},
           nodes: {
             cost: {},
@@ -1174,10 +1396,9 @@ async function _costToCompleteByFullWalk(
           },
         },
       },
-    });
-    nodes = nodes.concat(r?.job?.costItems?.nodes ?? []);
-    page = r?.job?.costItems?.nextPage || undefined;
-  } while (page && ++guard < 50);
+    }),
+    pick: (r) => r?.job?.costItems,
+  });
 
   const budget: Record<string, number> = {};
   const actual: Record<string, number> = {};
@@ -1358,37 +1579,41 @@ async function _sumTimeByCostCode(
   where?: unknown,
 ): Promise<Record<string, { cost: number; minutes: number }>> {
   const out: Record<string, { cost: number; minutes: number }> = {};
-  let page: string | undefined;
-  let guard = 0;
-  do {
-    const r = await pave(cfg, {
-      job: {
-        $: { id: jobId },
-        id: {},
-        timeEntries: {
-          $: {
-            size: 100, // pages over GROUPS (one per cost code), not raw entries
-            ...(where ? { where } : {}),
-            group: {
-              by: [["costItem", "costCode", "number"]],
-              aggs: { total: { sum: "cost" }, mins: { sum: "minutes" } },
+  await pageEach<any>(
+    cfg,
+    {
+      label: "job.timeEntries grouped by cost code",
+      query: (args) => ({
+        job: {
+          $: { id: jobId },
+          id: {},
+          timeEntries: {
+            $: {
+              // pages over GROUPS (one per cost code), not raw entries
+              ...(where ? { where } : {}),
+              group: {
+                by: [["costItem", "costCode", "number"]],
+                aggs: { total: { sum: "cost" }, mins: { sum: "minutes" } },
+              },
+              ...args,
             },
-            ...(page ? { page } : {}),
+            withValues: {},
+            nextPage: {},
           },
-          withValues: {},
-          nextPage: {},
         },
-      },
-    });
-    for (const row of r?.job?.timeEntries?.withValues ?? []) {
-      const code = row?.costItem?.costCode?.number?.toString().trim();
-      if (!code) continue;
-      const e = (out[code] ??= { cost: 0, minutes: 0 });
-      e.cost += row.total ?? 0;
-      e.minutes += row.mins ?? 0;
-    }
-    page = r?.job?.timeEntries?.nextPage || undefined;
-  } while (page && ++guard < 20);
+      }),
+      pick: (r) => r?.job?.timeEntries,
+    },
+    (rows) => {
+      for (const row of rows) {
+        const code = row?.costItem?.costCode?.number?.toString().trim();
+        if (!code) continue;
+        const e = (out[code] ??= { cost: 0, minutes: 0 });
+        e.cost += row.total ?? 0;
+        e.minutes += row.mins ?? 0;
+      }
+    },
+  );
   return out;
 }
 
@@ -1403,34 +1628,38 @@ async function _sumTimeByFullWalk(
   approvedOnly = false,
 ): Promise<Record<string, { cost: number; minutes: number }>> {
   const out: Record<string, { cost: number; minutes: number }> = {};
-  let page: string | undefined;
-  let guard = 0;
-  do {
-    const r = await pave(cfg, {
-      job: {
-        $: { id: jobId },
-        timeEntries: {
-          $: { size: 100, ...(page ? { page } : {}) },
-          nextPage: {},
-          nodes: {
-            cost: {},
-            minutes: {},
-            isApproved: {},
-            costItem: { costCode: { number: {} } },
+  await pageEach<any>(
+    cfg,
+    {
+      label: "job.timeEntries (full walk)",
+      query: (args) => ({
+        job: {
+          $: { id: jobId },
+          timeEntries: {
+            $: args,
+            nextPage: {},
+            nodes: {
+              cost: {},
+              minutes: {},
+              isApproved: {},
+              costItem: { costCode: { number: {} } },
+            },
           },
         },
-      },
-    });
-    for (const n of r?.job?.timeEntries?.nodes ?? []) {
-      if (approvedOnly && !n?.isApproved) continue;
-      const code = n?.costItem?.costCode?.number?.toString().trim();
-      if (!code) continue;
-      const e = (out[code] ??= { cost: 0, minutes: 0 });
-      e.cost += n.cost ?? 0;
-      e.minutes += n.minutes ?? 0;
-    }
-    page = r?.job?.timeEntries?.nextPage || undefined;
-  } while (page && ++guard < 20);
+      }),
+      pick: (r) => r?.job?.timeEntries,
+    },
+    (rows) => {
+      for (const n of rows) {
+        if (approvedOnly && !n?.isApproved) continue;
+        const code = n?.costItem?.costCode?.number?.toString().trim();
+        if (!code) continue;
+        const e = (out[code] ??= { cost: 0, minutes: 0 });
+        e.cost += n.cost ?? 0;
+        e.minutes += n.minutes ?? 0;
+      }
+    },
+  );
   return out;
 }
 
@@ -1446,18 +1675,14 @@ async function _sumTimeByFullWalk(
  * with identical totals ($1,326,647.85).
  */
 async function _costItemLines(cfg: PaveConfig, jobId: string, where: unknown): Promise<any[]> {
-  const nodes: any[] = [];
-  let cursor: string | null = null;
-  for (let page = 0; page < 50; page++) {
-    const args: Record<string, unknown> = { size: 100 };
-    if (where) args.where = where;
-    if (cursor) args.page = cursor;
-    const r = await pave(cfg, {
+  return pageAll<any>(cfg, {
+    label: "job.costItems (estimate lines)",
+    query: (args) => ({
       job: {
         $: { id: jobId },
         id: {},
         costItems: {
-          $: args,
+          $: { ...(where ? { where } : {}), ...args },
           nextPage: {},
           nodes: {
             id: {},
@@ -1474,13 +1699,9 @@ async function _costItemLines(cfg: PaveConfig, jobId: string, where: unknown): P
           },
         },
       },
-    });
-    const co = r?.job?.costItems ?? {};
-    nodes.push(...(co.nodes ?? []));
-    cursor = co.nextPage ?? null;
-    if (!cursor) break;
-  }
-  return nodes;
+    }),
+    pick: (r) => r?.job?.costItems,
+  });
 }
 
 /**
@@ -1509,7 +1730,12 @@ async function _approvedCustomerInvoices(
       documents: {
         $: {
           size: 100,
-          where: { and: [["type", "customerInvoice"], ["status", "approved"]] },
+          where: {
+            and: [
+              ["type", "customerInvoice"],
+              ["status", "approved"],
+            ],
+          },
         },
         nodes: { id: {}, name: {}, issueDate: {}, cost: {} },
       },
@@ -1562,132 +1788,137 @@ export async function getUntaxedLines(
   const out: UntaxedLine[] = [];
 
   // ── The month's BILLS ────────────────────────────────────────────────────
-  let page: string | undefined;
-  let guard = 0;
-  do {
-    const r: any = await pave(cfg, {
-      organization: {
-        $: { id: cfg.orgId },
-        costItems: {
-          $: {
-            where: {
-              and: [
-                [["document", "type"], "=", "vendorBill"],
-                [["document", "status"], "in", ["draft", "pending", "approved"]],
-                [["document", "issueDate"], ">=", first],
-                [["document", "issueDate"], "<=", last],
-                [["isTaxable"], "=", false],
-              ],
+  await pageEach<any>(
+    cfg,
+    {
+      label: "organization.costItems (untaxed bill lines)",
+      query: (args) => ({
+        organization: {
+          $: { id: cfg.orgId },
+          costItems: {
+            $: {
+              where: {
+                and: [
+                  [["document", "type"], "=", "vendorBill"],
+                  [["document", "status"], "in", ["draft", "pending", "approved"]],
+                  [["document", "issueDate"], ">=", first],
+                  [["document", "issueDate"], "<=", last],
+                  [["isTaxable"], "=", false],
+                ],
+              },
+              ...args,
             },
-            size: 100,
-            ...(page ? { page } : {}),
+            nextPage: {},
+            nodes: {
+              id: {},
+              name: {},
+              cost: {},
+              costCode: { number: {} },
+              document: {
+                id: {},
+                number: {},
+                issueDate: {},
+                status: {},
+                amountPaid: {},
+                account: { name: {} },
+                job: { id: {}, name: {}, location: { account: { name: {} } } },
+                docLines: { _: "costItems", count: {} },
+              },
+            },
           },
-          nextPage: {},
-          nodes: {
-            id: {},
-            name: {},
-            cost: {},
-            costCode: { number: {} },
-            document: {
+        },
+      }),
+      pick: (r) => r?.organization?.costItems,
+    },
+    (rows) => {
+      for (const n of rows) {
+        const doc = n.document ?? {};
+        const job = doc.job ?? {};
+        out.push({
+          id: String(n.id ?? ""),
+          name: String(n.name ?? ""),
+          cost: Number(n.cost) || 0,
+          price: 0, // a vendor bill's lines carry no price
+          costCode: String(n.costCode?.number ?? "").trim(),
+          docKind: "bill",
+          docId: String(doc.id ?? ""),
+          docNumber: doc.number == null ? "" : String(doc.number),
+          docIssueDate: String(doc.issueDate ?? "").slice(0, 10),
+          docStatus: String(doc.status ?? ""),
+          docLineCount: doc.docLines?.count ?? 0,
+          docAmountPaid: Number(doc.amountPaid) || 0,
+          vendor: String(doc.account?.name ?? "").trim(),
+          jobId: String(job.id ?? ""),
+          jobName: String(job.name ?? "").trim(),
+          customerName: String(job.location?.account?.name ?? "").trim(),
+        });
+      }
+    },
+  );
+
+  // ── The INVOICES those bills reached ─────────────────────────────────────
+  const candidates: any[] = [];
+  await pageEach<any>(
+    cfg,
+    {
+      label: "organization.documents (customer invoices)",
+      // 25: the two aliased aggregates below ride along at this size the way the
+      // invoice review's do; nodes would not.
+      size: 25,
+      query: (args) => ({
+        organization: {
+          $: { id: cfg.orgId },
+          documents: {
+            $: {
+              where: {
+                and: [
+                  [["type"], "customerInvoice"],
+                  [["status"], "in", ["draft", "pending", "approved"]],
+                ],
+              },
+              ...args,
+            },
+            nextPage: {},
+            nodes: {
               id: {},
               number: {},
               issueDate: {},
               status: {},
               amountPaid: {},
-              account: { name: {} },
               job: { id: {}, name: {}, location: { account: { name: {} } } },
               docLines: { _: "costItems", count: {} },
-            },
-          },
-        },
-      },
-    });
-    const conn = r?.organization?.costItems;
-    for (const n of (conn?.nodes ?? []) as any[]) {
-      const doc = n.document ?? {};
-      const job = doc.job ?? {};
-      out.push({
-        id: String(n.id ?? ""),
-        name: String(n.name ?? ""),
-        cost: Number(n.cost) || 0,
-        price: 0, // a vendor bill's lines carry no price
-        costCode: String(n.costCode?.number ?? "").trim(),
-        docKind: "bill",
-        docId: String(doc.id ?? ""),
-        docNumber: doc.number == null ? "" : String(doc.number),
-        docIssueDate: String(doc.issueDate ?? "").slice(0, 10),
-        docStatus: String(doc.status ?? ""),
-        docLineCount: doc.docLines?.count ?? 0,
-        docAmountPaid: Number(doc.amountPaid) || 0,
-        vendor: String(doc.account?.name ?? "").trim(),
-        jobId: String(job.id ?? ""),
-        jobName: String(job.name ?? "").trim(),
-        customerName: String(job.location?.account?.name ?? "").trim(),
-      });
-    }
-    page = conn?.nextPage ?? undefined;
-  } while (page && ++guard < 50);
-
-  // ── The INVOICES those bills reached ─────────────────────────────────────
-  const candidates: any[] = [];
-  page = undefined;
-  guard = 0;
-  do {
-    const r: any = await pave(cfg, {
-      organization: {
-        $: { id: cfg.orgId },
-        documents: {
-          $: {
-            where: {
-              and: [
-                [["type"], "customerInvoice"],
-                [["status"], "in", ["draft", "pending", "approved"]],
-              ],
-            },
-            // 25: the two aliased aggregates below ride along at this size the
-            // way the invoice review's do; nodes would not.
-            size: 25,
-            ...(page ? { page } : {}),
-          },
-          nextPage: {},
-          nodes: {
-            id: {},
-            number: {},
-            issueDate: {},
-            status: {},
-            amountPaid: {},
-            job: { id: {}, name: {}, location: { account: { name: {} } } },
-            docLines: { _: "costItems", count: {} },
-            monthBills: {
-              _: "referencedDocuments",
-              $: {
-                where: {
-                  and: [
-                    [["type"], "vendorBill"],
-                    [["issueDate"], ">=", first],
-                    [["issueDate"], "<=", last],
-                  ],
+              monthBills: {
+                _: "referencedDocuments",
+                $: {
+                  where: {
+                    and: [
+                      [["type"], "vendorBill"],
+                      [["issueDate"], ">=", first],
+                      [["issueDate"], "<=", last],
+                    ],
+                  },
                 },
+                count: {},
               },
-              count: {},
-            },
-            untaxed: {
-              _: "costItems",
-              $: { where: [["isTaxable"], "=", false] },
-              count: {},
+              untaxed: {
+                _: "costItems",
+                $: { where: [["isTaxable"], "=", false] },
+                count: {},
+              },
             },
           },
         },
-      },
-    });
-    const conn = r?.organization?.documents;
-    for (const n of (conn?.nodes ?? []) as any[]) {
-      if (!(n.monthBills?.count > 0)) continue;
-      if (!(n.untaxed?.count > 0)) continue;
-      candidates.push(n);
-    }
-    page = conn?.nextPage ?? undefined;
-  } while (page && ++guard < 50);
+      }),
+      pick: (r) => r?.organization?.documents,
+    },
+    (rows) => {
+      for (const n of rows) {
+        if (!(n.monthBills?.count > 0)) continue;
+        if (!(n.untaxed?.count > 0)) continue;
+        candidates.push(n);
+      }
+    },
+  );
 
   // Phase two: the lines themselves, one read per invoice that has any.
   for (const inv of candidates) {
@@ -2053,78 +2284,62 @@ async function _getJobCostContributorsUncached(
   cfg: PaveConfig,
   jobId: string,
 ): Promise<JobCostContributors> {
-  const billNodes: any[] = [];
-  {
-    let cursor: string | null = null;
-    for (let page = 0; page < 30; page++) {
-      const args: Record<string, unknown> = { size: 100, where: CTC_ACTUAL_WHERE };
-      if (cursor) args.page = cursor;
-      const r = await pave(cfg, {
-        job: {
-          $: { id: jobId },
-          id: {},
-          costItems: {
-            $: args,
-            nextPage: {},
-            nodes: {
+  const billNodes = await pageAll<any>(cfg, {
+    label: "job.costItems (bill contributors)",
+    query: (args) => ({
+      job: {
+        $: { id: jobId },
+        id: {},
+        costItems: {
+          $: { where: CTC_ACTUAL_WHERE, ...args },
+          nextPage: {},
+          nodes: {
+            id: {},
+            name: {},
+            cost: {},
+            costCode: { number: {} },
+            document: {
               id: {},
-              name: {},
-              cost: {},
-              costCode: { number: {} },
-              document: {
-                id: {},
-                status: {},
-                issueDate: {},
-                createdAt: {},
-                externalId: {},
-                number: {},
-                subject: {},
-                fromName: {},
-                account: { name: {} },
-              },
+              status: {},
+              issueDate: {},
+              createdAt: {},
+              externalId: {},
+              number: {},
+              subject: {},
+              fromName: {},
+              account: { name: {} },
             },
           },
         },
-      });
-      const co = r?.job?.costItems ?? {};
-      billNodes.push(...(co.nodes ?? []));
-      cursor = co.nextPage ?? null;
-      if (!cursor) break;
-    }
-  }
+      },
+    }),
+    pick: (r) => r?.job?.costItems,
+  });
 
-  const timeNodes: any[] = [];
-  {
-    let cursor: string | null = null;
-    for (let page = 0; page < 30; page++) {
-      const args: Record<string, unknown> = { size: 100 };
-      if (cursor) args.page = cursor;
-      const r = await pave(cfg, {
-        job: {
-          $: { id: jobId },
-          id: {},
-          timeEntries: {
-            $: args,
-            nextPage: {},
-            nodes: {
-              id: {},
-              cost: {},
-              startedAt: {},
-              minutes: {},
-              notes: {},
-              isApproved: {},
-              user: { name: {} },
-              costItem: { costCode: { number: {} } },
-            },
+  const timeNodes = await pageAll<any>(cfg, {
+    label: "job.timeEntries (labor contributors)",
+    query: (args) => ({
+      job: {
+        $: { id: jobId },
+        id: {},
+        timeEntries: {
+          $: args,
+          nextPage: {},
+          nodes: {
+            id: {},
+            cost: {},
+            startedAt: {},
+            minutes: {},
+            notes: {},
+            isApproved: {},
+            user: { name: {} },
+            costItem: { costCode: { number: {} } },
           },
         },
-      });
-      const tc = r?.job?.timeEntries ?? {};
-      timeNodes.push(...(tc.nodes ?? []));
-      cursor = tc.nextPage ?? null;
-      if (!cursor) break;
-    }
-  }
+      },
+    }),
+    pick: (r) => r?.job?.timeEntries,
+  });
 
   const bills: CostCodeBillContributor[] = billNodes
     .map((n) => {
@@ -2258,16 +2473,15 @@ export async function getJobBillsForMonth(
   const last = `${year}-${mm}-${String(new Date(year, month, 0).getDate()).padStart(2, "0")}`;
   const statuses = includeDrafts ? ["draft", "pending", "approved"] : ["pending", "approved"];
 
-  const walk = async (where: unknown): Promise<any[]> => {
-    const out: any[] = [];
-    let page: string | undefined;
-    let guard = 0;
-    do {
-      const r = await pave(cfg, {
+  const walk = (where: unknown): Promise<any[]> =>
+    pageAll<any>(cfg, {
+      label: "job.documents (the month's bills)",
+      size: 25,
+      query: (args) => ({
         job: {
           $: { id: jobId },
           documents: {
-            $: { where, size: 25, ...(page ? { page } : {}) },
+            $: { where, ...args },
             nextPage: {},
             nodes: {
               id: {},
@@ -2293,12 +2507,9 @@ export async function getJobBillsForMonth(
             },
           },
         },
-      });
-      out.push(...(r?.job?.documents?.nodes ?? []));
-      page = r?.job?.documents?.nextPage || undefined;
-    } while (page && ++guard < 100);
-    return out;
-  };
+      }),
+      pick: (r) => r?.job?.documents,
+    });
 
   let nodes: any[];
   try {
@@ -2310,8 +2521,17 @@ export async function getJobBillsForMonth(
         { "<=": [{ field: "issueDate" }, { value: last }] },
       ],
     });
-  } catch {
-    nodes = await walk({ and: [["type", "vendorBill"], ["status", "in", statuses]] });
+  } catch (e) {
+    // The expression-tree filter was rejected — retry with the tuple form. Too
+    // much data is not a rejected filter, and the wider fallback (no date bound
+    // at all) would only overflow harder.
+    if (e instanceof PaveTooManyPagesError) throw e;
+    nodes = await walk({
+      and: [
+        ["type", "vendorBill"],
+        ["status", "in", statuses],
+      ],
+    });
   }
 
   const inMonth = (d?: string) => {
@@ -2325,48 +2545,50 @@ export async function getJobBillsForMonth(
   // "left off the invoice" stripe exists to catch.
   const monthInvoiceExists = nodes.some((b) => inMonth(b.issueDate) && _isOnAnyInvoice(b));
 
-  return nodes
-    .filter((b) => inMonth(b.issueDate) && (includeInvoiced || !isInvoiced(b)))
-    .map((b) => {
-      const vendor = String(b?.account?.name ?? b?.fromName ?? "").trim() || "Unknown vendor";
-      const ref = String(b?.externalId ?? b?.number ?? "").trim();
-      // Only Sunset bills show their invoice id: a Sunset statement is a stack
-      // of many small invoices, so the invoice # is how you tell them apart.
-      // Every other vendor is shown by name alone.
-      const isSunset = /sunset/i.test(vendor);
-      return {
-        id: b.id,
-        label: ref && isSunset ? `${vendor} · ${ref}` : vendor,
-        externalId: b?.externalId ? String(b.externalId) : null,
-        number: b?.number != null ? String(b.number) : null,
-        vendor,
-        cost: typeof b?.cost === "number" ? b.cost : 0,
-        status: b?.status ?? "",
-        issueDate: b?.issueDate ?? null,
-        dueDate: b?.dueDate ? String(b.dueDate).slice(0, 10) : null,
-        dueDays: typeof b?.dueDays === "number" ? b.dueDays : null,
-        createdAt: b?.createdAt ?? null,
-        name: b?.name ?? "Bill",
-        nonRecoverableTax: typeof b?.nonRecoverableTax === "number" ? b.nonRecoverableTax : 0,
-        recordsTax: b?.nonRecoverableTaxName != null,
-        qboIsIgnored: !!b?.qboIsIgnored,
-        invoiced: isInvoiced(b),
-        onInvoice: _isOnAnyInvoice(b),
-        monthInvoiceExists,
-        fileCount: typeof b?.files?.count === "number" ? b.files.count : 0,
-        amountPaid: typeof b?.amountPaid === "number" ? b.amountPaid : 0,
-        balance: typeof b?.balance === "number" ? b.balance : 0,
-      };
-    })
-    // Newest first: the board is worked as bills arrive, so the ones that just
-    // landed are the ones still needing coding. Falls back to issueDate then
-    // cost so an older record with no createdAt still sorts predictably.
-    .sort(
-      (a, b) =>
-        String(b.createdAt ?? "").localeCompare(String(a.createdAt ?? "")) ||
-        String(b.issueDate ?? "").localeCompare(String(a.issueDate ?? "")) ||
-        b.cost - a.cost,
-    );
+  return (
+    nodes
+      .filter((b) => inMonth(b.issueDate) && (includeInvoiced || !isInvoiced(b)))
+      .map((b) => {
+        const vendor = String(b?.account?.name ?? b?.fromName ?? "").trim() || "Unknown vendor";
+        const ref = String(b?.externalId ?? b?.number ?? "").trim();
+        // Only Sunset bills show their invoice id: a Sunset statement is a stack
+        // of many small invoices, so the invoice # is how you tell them apart.
+        // Every other vendor is shown by name alone.
+        const isSunset = /sunset/i.test(vendor);
+        return {
+          id: b.id,
+          label: ref && isSunset ? `${vendor} · ${ref}` : vendor,
+          externalId: b?.externalId ? String(b.externalId) : null,
+          number: b?.number != null ? String(b.number) : null,
+          vendor,
+          cost: typeof b?.cost === "number" ? b.cost : 0,
+          status: b?.status ?? "",
+          issueDate: b?.issueDate ?? null,
+          dueDate: b?.dueDate ? String(b.dueDate).slice(0, 10) : null,
+          dueDays: typeof b?.dueDays === "number" ? b.dueDays : null,
+          createdAt: b?.createdAt ?? null,
+          name: b?.name ?? "Bill",
+          nonRecoverableTax: typeof b?.nonRecoverableTax === "number" ? b.nonRecoverableTax : 0,
+          recordsTax: b?.nonRecoverableTaxName != null,
+          qboIsIgnored: !!b?.qboIsIgnored,
+          invoiced: isInvoiced(b),
+          onInvoice: _isOnAnyInvoice(b),
+          monthInvoiceExists,
+          fileCount: typeof b?.files?.count === "number" ? b.files.count : 0,
+          amountPaid: typeof b?.amountPaid === "number" ? b.amountPaid : 0,
+          balance: typeof b?.balance === "number" ? b.balance : 0,
+        };
+      })
+      // Newest first: the board is worked as bills arrive, so the ones that just
+      // landed are the ones still needing coding. Falls back to issueDate then
+      // cost so an older record with no createdAt still sorts predictably.
+      .sort(
+        (a, b) =>
+          String(b.createdAt ?? "").localeCompare(String(a.createdAt ?? "")) ||
+          String(b.issueDate ?? "").localeCompare(String(a.issueDate ?? "")) ||
+          b.cost - a.cost,
+      )
+  );
 }
 
 /** One time entry, for the Bills list's "Time & labor" block. */
@@ -2454,21 +2676,19 @@ export async function getJobTimeEntriesForMonth(
     return s >= first && s <= last;
   };
 
-  const walk = async (where: unknown): Promise<any[]> => {
-    const nodes: any[] = [];
-    let cursor: string | null = null;
-    for (let page = 0; page < 30; page++) {
+  const walk = (where: unknown): Promise<any[]> =>
+    pageAll<any>(cfg, {
+      label: "job.timeEntries (the month's entries)",
       // 50, not 100: referencedDocuments nested in a paged timeEntries
       // connection 413s at 100 (probed 2026-09-03, same rule getUninvoicedBills
       // and getInvoiceReconciliation already follow for this connection).
-      const args: Record<string, unknown> = { size: 50, ...(where ? { where } : {}) };
-      if (cursor) args.page = cursor;
-      const r = await pave(cfg, {
+      size: 50,
+      query: (args) => ({
         job: {
           $: { id: jobId },
           id: {},
           timeEntries: {
-            $: args,
+            $: { ...(where ? { where } : {}), ...args },
             nextPage: {},
             nodes: {
               id: {},
@@ -2486,14 +2706,9 @@ export async function getJobTimeEntriesForMonth(
             },
           },
         },
-      });
-      const tc = r?.job?.timeEntries ?? {};
-      nodes.push(...(tc.nodes ?? []));
-      cursor = tc.nextPage ?? null;
-      if (!cursor) break;
-    }
-    return nodes;
-  };
+      }),
+      pick: (r) => r?.job?.timeEntries,
+    });
 
   let nodes: any[];
   try {
@@ -2503,7 +2718,10 @@ export async function getJobTimeEntriesForMonth(
         ["startedAt", "<=", `${last}T23:59:59`],
       ],
     });
-  } catch {
+  } catch (e) {
+    // Date filter rejected — fall back to the whole job, filtered here. Too much
+    // data is not a rejected filter, and the unbounded walk would overflow too.
+    if (e instanceof PaveTooManyPagesError) throw e;
     nodes = (await walk(undefined)).filter((n) => inMonth(n?.startedAt));
   }
 
@@ -2578,25 +2796,20 @@ export async function getOrgTimeEntriesForMonth(
     return s >= first && s <= last;
   };
 
-  // 200 pages × 100 = 20,000 entries. A month has run a few hundred, so this is
-  // a runaway guard, not a limit — but the walk still reports when it stops
-  // early, because a SILENTLY short month is the one failure a payroll report
-  // must never have.
-  const MAX_PAGES = 200;
-
-  const walk = async (where: unknown): Promise<{ nodes: any[]; truncated: boolean }> => {
-    const nodes: any[] = [];
-    let cursor: string | null = null;
-    let truncated = false;
-    for (let page = 0; page < MAX_PAGES; page++) {
-      const args: Record<string, unknown> = { size: 100, ...(where ? { where } : {}) };
-      if (cursor) args.page = cursor;
-      const r = await pave(cfg, {
+  const walk = (where: unknown): Promise<any[]> =>
+    pageAll<any>(cfg, {
+      label: `organization.timeEntries in ${first.slice(0, 7)}`,
+      // 200 pages × 100 = 20,000 entries. A month has run a few hundred, so this
+      // is a runaway guard, not a limit — and pageAll THROWS on reaching it,
+      // because a SILENTLY short month is the one failure a payroll report must
+      // never have.
+      maxPages: 200,
+      query: (args) => ({
         organization: {
           $: { id: cfg.orgId },
           id: {},
           timeEntries: {
-            $: args,
+            $: { ...(where ? { where } : {}), ...args },
             nextPage: {},
             nodes: {
               id: {},
@@ -2614,37 +2827,29 @@ export async function getOrgTimeEntriesForMonth(
             },
           },
         },
-      });
-      const tc = r?.organization?.timeEntries ?? {};
-      nodes.push(...(tc.nodes ?? []));
-      cursor = tc.nextPage ?? null;
-      if (!cursor) break;
-      if (page === MAX_PAGES - 1) truncated = true;
-    }
-    return { nodes, truncated };
-  };
+      }),
+      pick: (r) => r?.organization?.timeEntries,
+    });
 
   // NO UNNARROWED FALLBACK, unlike the per-job twin above. One job's whole
   // history fits in a client-side filter; the ORG's does not, so a fallback
   // walk would hit the page cap somewhere in 2024 and hand back a month that
   // looks empty. If the narrowing shape is ever rejected, say so and stop.
-  const { nodes, truncated } = await walk({
+  const nodes = await walk({
     and: [
       ["startedAt", ">=", first],
       ["startedAt", "<=", `${last}T23:59:59`],
     ],
   }).catch((e) => {
+    // Too many rows is its own answer and already says so. Anything else here
+    // means the filter shape was refused.
+    if (e instanceof PaveTooManyPagesError) throw e;
     throw new Error(
       `JobTread rejected the month filter on organization.timeEntries (${
         e instanceof Error ? e.message : String(e)
       }).`,
     );
   });
-  if (truncated) {
-    throw new Error(
-      `More than ${MAX_PAGES * 100} time entries in ${first.slice(0, 7)} — refusing to report a partial month.`,
-    );
-  }
 
   const jobs = await getJobs(cfg, true);
   const jobById = new Map(jobs.map((j) => [j.id, j]));
@@ -2722,18 +2927,15 @@ export async function getBillLinesForJob(
   const wanted = new Set(docIds);
   if (wanted.size === 0) return [];
 
-  const walk = async (where: unknown): Promise<any[]> => {
-    const nodes: any[] = [];
-    let cursor: string | null = null;
-    for (let page = 0; page < 50; page++) {
-      const args: Record<string, unknown> = { size: 100, where };
-      if (cursor) args.page = cursor;
-      const r = await pave(cfg, {
+  const walk = (where: unknown): Promise<any[]> =>
+    pageAll<any>(cfg, {
+      label: "job.costItems (bill lines)",
+      query: (args) => ({
         job: {
           $: { id: jobId },
           id: {},
           costItems: {
-            $: args,
+            $: { where, ...args },
             nextPage: {},
             nodes: {
               id: {},
@@ -2747,21 +2949,19 @@ export async function getBillLinesForJob(
             },
           },
         },
-      });
-      const co = r?.job?.costItems ?? {};
-      nodes.push(...(co.nodes ?? []));
-      cursor = co.nextPage ?? null;
-      if (!cursor) break;
-    }
-    return nodes;
-  };
+      }),
+      pick: (r) => r?.job?.costItems,
+    });
 
   let nodes: any[];
   try {
     nodes = await walk({
       in: [{ field: ["document", "id"] }, [...wanted].map((v) => ({ value: v }))],
     });
-  } catch {
+  } catch (e) {
+    // The `in` filter was rejected — fall back to every vendor-bill line on the
+    // job. Too much data is not a rejected filter; the wider walk is worse.
+    if (e instanceof PaveTooManyPagesError) throw e;
     nodes = await walk([["document", "type"], "vendorBill"]);
   }
 
@@ -2803,52 +3003,54 @@ export function getJobs(cfg: PaveConfig, includeClosed = false): Promise<JobRef[
 }
 async function _getJobsUncached(cfg: PaveConfig, includeClosed = false): Promise<JobRef[]> {
   const out: JobRef[] = [];
-  let cursor: string | null = null;
-  for (let page = 0; page < 50; page++) {
-    const args: Record<string, unknown> = { size: 100 };
-    if (cursor) args.page = cursor;
-    const r = await pave(cfg, {
-      organization: {
-        $: { id: cfg.orgId },
-        id: {},
-        jobs: {
-          $: args,
-          nextPage: {},
-          nodes: {
-            id: {},
-            name: {},
-            number: {},
-            closedOn: {},
-            location: {
-              account: { name: {} },
-              formattedAddress: {},
-              latitude: {},
-              longitude: {},
+  await pageEach<any>(
+    cfg,
+    {
+      label: "organization.jobs",
+      query: (args) => ({
+        organization: {
+          $: { id: cfg.orgId },
+          id: {},
+          jobs: {
+            $: args,
+            nextPage: {},
+            nodes: {
+              id: {},
+              name: {},
+              number: {},
+              closedOn: {},
+              location: {
+                account: { name: {} },
+                formattedAddress: {},
+                latitude: {},
+                longitude: {},
+              },
             },
           },
         },
-      },
-    });
-    const jc = r?.organization?.jobs ?? {};
-    for (const n of jc.nodes ?? []) {
-      if (!includeClosed && n.closedOn) continue;
-      out.push({
-        id: n.id,
-        name: n.name,
-        number: n.number,
-        customer: n.location?.account?.name ?? "",
-        address: n.location?.formattedAddress ?? "",
-        lat: typeof n.location?.latitude === "number" ? n.location.latitude : null,
-        lng: typeof n.location?.longitude === "number" ? n.location.longitude : null,
-        closedOn: n.closedOn,
-      });
-    }
-    cursor = jc.nextPage ?? null;
-    if (!cursor) break;
-  }
+      }),
+      pick: (r) => r?.organization?.jobs,
+    },
+    (rows) => {
+      for (const n of rows) {
+        if (!includeClosed && n.closedOn) continue;
+        out.push({
+          id: n.id,
+          name: n.name,
+          number: n.number,
+          customer: n.location?.account?.name ?? "",
+          address: n.location?.formattedAddress ?? "",
+          lat: typeof n.location?.latitude === "number" ? n.location.latitude : null,
+          lng: typeof n.location?.longitude === "number" ? n.location.longitude : null,
+          closedOn: n.closedOn,
+        });
+      }
+    },
+  );
   return out.sort(
     (a, b) =>
-      (a.customer ?? "").localeCompare(b.customer ?? "") || (a.name ?? "").localeCompare(b.name ?? ""),
+      (a.customer ?? "").localeCompare(b.customer ?? "") ||
+      (a.name ?? "").localeCompare(b.name ?? ""),
   );
 }
 
@@ -2883,31 +3085,28 @@ async function _getJobPhaseMapUncached(cfg: PaveConfig): Promise<Record<string, 
     fields.find((f) => f?.name === "Phase");
   if (!field?.id) return out; // no Phase field configured — the filter just shows nothing to filter on
 
-  let cursor: string | null = null;
-  for (let page = 0; page < 20; page++) {
-    const args: Record<string, unknown> = { size: 100 };
-    if (cursor) args.page = cursor;
-    const r = await pave(cfg, {
-      customField: {
-        $: { id: field.id },
-        id: {},
-        customFieldValues: {
-          $: args,
-          nextPage: {},
-          nodes: { value: {}, job: { id: {} } },
+  await pageEach<any>(
+    cfg,
+    {
+      label: "customField.customFieldValues (job Phase)",
+      query: (args) => ({
+        customField: {
+          $: { id: field.id },
+          id: {},
+          customFieldValues: { $: args, nextPage: {}, nodes: { value: {}, job: { id: {} } } },
         },
-      },
-    });
-    const conn = r?.customField?.customFieldValues ?? {};
-    for (const n of conn.nodes ?? []) {
-      const jobId = n?.job?.id;
-      if (!jobId || n?.value == null) continue;
-      const v = typeof n.value === "string" ? n.value : String(n.value);
-      if (v.trim()) out[jobId] = v.trim();
-    }
-    cursor = conn.nextPage ?? null;
-    if (!cursor) break;
-  }
+      }),
+      pick: (r) => r?.customField?.customFieldValues,
+    },
+    (rows) => {
+      for (const n of rows) {
+        const jobId = n?.job?.id;
+        if (!jobId || n?.value == null) continue;
+        const v = typeof n.value === "string" ? n.value : String(n.value);
+        if (v.trim()) out[jobId] = v.trim();
+      }
+    },
+  );
   return out;
 }
 
@@ -3087,54 +3286,56 @@ export function getJobGantt(cfg: PaveConfig, jobId: string): Promise<JobGanttDat
 }
 async function _getJobGanttUncached(cfg: PaveConfig, jobId: string): Promise<JobGanttData | null> {
   const bars: GanttBar[] = [];
-  let page: string | undefined;
-  for (let guard = 0; guard < 10; guard++) {
-    const r = await pave(cfg, {
-      organization: {
-        $: { id: cfg.orgId },
-        id: {},
-        tasks: {
-          $: {
-            size: 100,
-            where: {
-              and: [
-                ["isToDo", false],
-                ["isGroup", true],
-                [["job", "id"], jobId],
-                { "!=": [{ field: "startDate" }, { value: null }] },
-                { "!=": [{ field: "endDate" }, { value: null }] },
-              ],
+  await pageEach<any>(
+    cfg,
+    {
+      label: "organization.tasks (job Gantt)",
+      query: (args) => ({
+        organization: {
+          $: { id: cfg.orgId },
+          id: {},
+          tasks: {
+            $: {
+              where: {
+                and: [
+                  ["isToDo", false],
+                  ["isGroup", true],
+                  [["job", "id"], jobId],
+                  { "!=": [{ field: "startDate" }, { value: null }] },
+                  { "!=": [{ field: "endDate" }, { value: null }] },
+                ],
+              },
+              sortBy: [{ field: "startDate", order: "asc" }],
+              ...args,
             },
-            sortBy: [{ field: "startDate", order: "asc" }],
-            ...(page ? { page } : {}),
-          },
-          nextPage: {},
-          nodes: {
-            id: {},
-            name: {},
-            startDate: {},
-            endDate: {},
-            progress: {},
-            parentTask: { id: {} },
+            nextPage: {},
+            nodes: {
+              id: {},
+              name: {},
+              startDate: {},
+              endDate: {},
+              progress: {},
+              parentTask: { id: {} },
+            },
           },
         },
-      },
-    });
-    const conn = r?.organization?.tasks ?? {};
-    for (const n of conn.nodes ?? []) {
-      if (!n?.startDate || !n?.endDate) continue;
-      bars.push({
-        id: n.id,
-        name: n.name || "(untitled)",
-        start: n.startDate,
-        end: n.endDate,
-        progress: typeof n.progress === "number" ? n.progress : null,
-        depth: n.parentTask?.id ? 1 : 0,
-      });
-    }
-    page = conn.nextPage || undefined;
-    if (!page) break;
-  }
+      }),
+      pick: (r) => r?.organization?.tasks,
+    },
+    (rows) => {
+      for (const n of rows) {
+        if (!n?.startDate || !n?.endDate) continue;
+        bars.push({
+          id: n.id,
+          name: n.name || "(untitled)",
+          start: n.startDate,
+          end: n.endDate,
+          progress: typeof n.progress === "number" ? n.progress : null,
+          depth: n.parentTask?.id ? 1 : 0,
+        });
+      }
+    },
+  );
   if (bars.length === 0) return null;
   return {
     start: bars.reduce((min, b) => (b.start < min ? b.start : min), bars[0].start),
@@ -3151,7 +3352,11 @@ export async function getLatestJobForUser(cfg: PaveConfig, userId: string): Prom
       $: { id: cfg.orgId },
       id: {},
       timeEntries: {
-        $: { size: 1, sortBy: [{ field: "startedAt", order: "desc" }], where: [["user", "id"], userId] },
+        $: {
+          size: 1,
+          sortBy: [{ field: "startedAt", order: "desc" }],
+          where: [["user", "id"], userId],
+        },
         nodes: { job: { id: {} } },
       },
     },
@@ -3169,28 +3374,22 @@ export function getVendors(cfg: PaveConfig): Promise<VendorRef[]> {
   return cachedRef(`vendors:${cfg.orgId}`, 30 * 60_000, () => _getVendorsUncached(cfg));
 }
 async function _getVendorsUncached(cfg: PaveConfig): Promise<VendorRef[]> {
-  const out: VendorRef[] = [];
-  let cursor: string | null = null;
-  for (let page = 0; page < 20; page++) {
-    const args: Record<string, unknown> = {
-      where: { and: [["type", "vendor"]] },
-      size: 100,
-      sortBy: [{ field: "name" }],
-    };
-    if (cursor) args.page = cursor;
-    const r = await pave(cfg, {
+  const nodes = await pageAll<any>(cfg, {
+    label: "organization.accounts (vendors)",
+    query: (args) => ({
       organization: {
         $: { id: cfg.orgId },
         id: {},
-        accounts: { $: args, nextPage: {}, nodes: { id: {}, name: {} } },
+        accounts: {
+          $: { where: { and: [["type", "vendor"]] }, sortBy: [{ field: "name" }], ...args },
+          nextPage: {},
+          nodes: { id: {}, name: {} },
+        },
       },
-    });
-    const ac = r?.organization?.accounts ?? {};
-    for (const n of ac.nodes ?? []) out.push({ id: n.id, name: n.name });
-    cursor = ac.nextPage ?? null;
-    if (!cursor) break;
-  }
-  return out;
+    }),
+    pick: (r) => r?.organization?.accounts,
+  });
+  return nodes.map((n) => ({ id: n.id, name: n.name }));
 }
 
 export interface VendorBillRow {
@@ -3215,21 +3414,18 @@ export interface VendorBillRow {
  * vendor like Sunset.
  */
 export async function getVendorBills(cfg: PaveConfig, accountId: string): Promise<VendorBillRow[]> {
-  const out: any[] = [];
-  let cursor: string | null = null;
-  for (let page = 0; page < 50; page++) {
-    const args: Record<string, unknown> = {
-      where: { and: [["type", "vendorBill"]] },
-      size: 100,
-      sortBy: [{ field: "issueDate", order: "desc" }],
-    };
-    if (cursor) args.page = cursor;
-    const r = await pave(cfg, {
+  const out = await pageAll<any>(cfg, {
+    label: "account.documents (one vendor's bills)",
+    query: (args) => ({
       account: {
         $: { id: accountId },
         id: {},
         documents: {
-          $: args,
+          $: {
+            where: { and: [["type", "vendorBill"]] },
+            sortBy: [{ field: "issueDate", order: "desc" }],
+            ...args,
+          },
           nextPage: {},
           nodes: {
             id: {},
@@ -3241,12 +3437,9 @@ export async function getVendorBills(cfg: PaveConfig, accountId: string): Promis
           },
         },
       },
-    });
-    const conn = r?.account?.documents ?? {};
-    out.push(...(conn.nodes ?? []));
-    cursor = conn.nextPage ?? null;
-    if (!cursor) break;
-  }
+    }),
+    pick: (r) => r?.account?.documents,
+  });
   return out.map((b) => ({
     id: b.id,
     number: typeof b?.number === "number" ? b.number : null,
@@ -3269,13 +3462,21 @@ export interface VendorBillMatch extends VendorBillRow {
  * (the org-wide connection; `document.account { name }` resolves directly so
  * no second query is needed to disambiguate the results).
  */
-export async function getBillsByNumber(cfg: PaveConfig, number: number): Promise<VendorBillMatch[]> {
+export async function getBillsByNumber(
+  cfg: PaveConfig,
+  number: number,
+): Promise<VendorBillMatch[]> {
   const r = await pave(cfg, {
     organization: {
       $: { id: cfg.orgId },
       documents: {
         $: {
-          where: { and: [["type", "vendorBill"], ["number", number]] },
+          where: {
+            and: [
+              ["type", "vendorBill"],
+              ["number", number],
+            ],
+          },
           size: 50,
         },
         nodes: {
@@ -3326,40 +3527,41 @@ export interface UserRef {
 
 async function fetchMembers(cfg: PaveConfig, withTypes: boolean): Promise<UserRef[]> {
   const out: UserRef[] = [];
-  let cursor: string | null = null;
-  for (let page = 0; page < 10; page++) {
-    const args: Record<string, unknown> = { size: 100 };
-    if (cursor) args.page = cursor;
-    const nodes: Record<string, unknown> = {
-      id: {},
-      isInternal: {},
-      user: { id: {}, name: {} },
-    };
-    // Array of { name, hourlyRate } — the sub-fields must be selected explicitly;
-    // an empty {} returns the objects with no fields (name comes back undefined).
-    if (withTypes) nodes.timeEntryTypes = { name: {}, hourlyRate: {} };
-    const r = await pave(cfg, {
-      organization: {
-        $: { id: cfg.orgId },
-        id: {},
-        memberships: { $: args, nextPage: {}, nodes },
-      },
-    });
-    const mc = r?.organization?.memberships ?? {};
-    for (const n of mc.nodes ?? []) {
-      const u = n?.user;
-      if (!u?.id) continue;
-      out.push({
-        id: u.id,
-        name: u.name ?? "",
-        isInternal: !!n.isInternal,
-        types: withTypes ? ((n.timeEntryTypes ?? []) as PayType[]) : undefined,
-        membershipId: n.id ?? undefined,
-      });
-    }
-    cursor = mc.nextPage ?? null;
-    if (!cursor) break;
-  }
+  const nodes: Record<string, unknown> = {
+    id: {},
+    isInternal: {},
+    user: { id: {}, name: {} },
+  };
+  // Array of { name, hourlyRate } — the sub-fields must be selected explicitly;
+  // an empty {} returns the objects with no fields (name comes back undefined).
+  if (withTypes) nodes.timeEntryTypes = { name: {}, hourlyRate: {} };
+  await pageEach<any>(
+    cfg,
+    {
+      label: "organization.memberships",
+      query: (args) => ({
+        organization: {
+          $: { id: cfg.orgId },
+          id: {},
+          memberships: { $: args, nextPage: {}, nodes },
+        },
+      }),
+      pick: (r) => r?.organization?.memberships,
+    },
+    (rows) => {
+      for (const n of rows) {
+        const u = n?.user;
+        if (!u?.id) continue;
+        out.push({
+          id: u.id,
+          name: u.name ?? "",
+          isInternal: !!n.isInternal,
+          types: withTypes ? ((n.timeEntryTypes ?? []) as PayType[]) : undefined,
+          membershipId: n.id ?? undefined,
+        });
+      }
+    },
+  );
   // Internal staff first (the people who log labor), then alphabetical.
   return out.sort(
     (a, b) => Number(b.isInternal) - Number(a.isInternal) || a.name.localeCompare(b.name),
@@ -3405,7 +3607,10 @@ async function _getOrgTimeEntryTypeNamesUncached(cfg: PaveConfig): Promise<strin
 
 /** Read ONE membership's current pay types fresh (bypasses the 30-min getOrgUsers
  *  cache) — the read half of a read-modify-write rate update. */
-export async function getMembershipRates(cfg: PaveConfig, membershipId: string): Promise<PayType[]> {
+export async function getMembershipRates(
+  cfg: PaveConfig,
+  membershipId: string,
+): Promise<PayType[]> {
   const r = await pave(cfg, {
     membership: { $: { id: membershipId }, id: {}, timeEntryTypes: { name: {}, hourlyRate: {} } },
   });
@@ -3684,7 +3889,11 @@ export async function combineLines(
 
   // 2) Fold everything onto the kept line: qty 1 × summed cost, concatenated name.
   const $: Record<string, unknown> = {
-    id: keepId, name, quantity: 1, unitCost, isTaxable: BILL_LINE_IS_TAXABLE,
+    id: keepId,
+    name,
+    quantity: 1,
+    unitCost,
+    isTaxable: BILL_LINE_IS_TAXABLE,
   };
   if (args.jobCostItemId) $.jobCostItemId = args.jobCostItemId;
   if (args.description !== undefined) $.description = args.description;
@@ -3770,7 +3979,14 @@ export async function getMonthlyBills(
           size: 100,
         },
         nextPage: {},
-        nodes: { id: {}, cost: {}, fromName: {}, number: {}, externalId: {}, account: { name: {} } },
+        nodes: {
+          id: {},
+          cost: {},
+          fromName: {},
+          number: {},
+          externalId: {},
+          account: { name: {} },
+        },
       },
     },
   });
@@ -4091,25 +4307,35 @@ export async function findBillByExternalId(
 ): Promise<string | null> {
   const target = externalId.trim();
   if (!target) return null;
-  let cursor: string | null = null;
-  for (let page = 0; page < 1000; page++) {
-    const args: Record<string, unknown> = { size: 50 };
-    if (cursor) args.page = cursor;
-    const r = await pave(cfg, {
-      account: {
-        $: { id: accountId },
-        documents: { $: args, nextPage: {}, nodes: { id: {}, externalId: {} } },
-      },
-    });
-    const docs = r?.account?.documents ?? {};
-    const nodes: any[] = docs.nodes ?? [];
-    for (const n of nodes) {
-      if (String(n.externalId ?? "").trim() === target) return n.id;
-    }
-    cursor = docs.nextPage ?? null;
-    if (!cursor || nodes.length === 0) break;
-  }
-  return null;
+  let hit: string | null = null;
+  // 1000 pages is a deliberately high ceiling, not an expectation: a WRONG "not
+  // found" here makes the caller create a duplicate bill, so running out of
+  // pages must throw rather than answer no.
+  await pageEach<any>(
+    cfg,
+    {
+      label: "account.documents (externalId lookup)",
+      size: 50,
+      maxPages: 1000,
+      query: (args) => ({
+        account: {
+          $: { id: accountId },
+          documents: { $: args, nextPage: {}, nodes: { id: {}, externalId: {} } },
+        },
+      }),
+      pick: (r) => r?.account?.documents,
+    },
+    (rows) => {
+      for (const n of rows) {
+        if (String(n.externalId ?? "").trim() === target) {
+          hit = n.id;
+          return "stop";
+        }
+      }
+      if (rows.length === 0) return "stop"; // an empty page ends the scan
+    },
+  );
+  return hit;
 }
 
 /**
@@ -4128,25 +4354,30 @@ export async function findExistingExternalIds(
   const want = new Set(externalIds.map((s) => s.trim()).filter(Boolean));
   if (want.size === 0) return [];
   const found = new Set<string>();
-  let cursor: string | null = null;
-  for (let page = 0; page < 1000; page++) {
-    const args: Record<string, unknown> = { size: 100 };
-    if (cursor) args.page = cursor;
-    const r = await pave(cfg, {
-      account: {
-        $: { id: accountId },
-        documents: { $: args, nextPage: {}, nodes: { id: {}, externalId: {} } },
-      },
-    });
-    const docs = r?.account?.documents ?? {};
-    const nodes: any[] = docs.nodes ?? [];
-    for (const n of nodes) {
-      const ext = String(n.externalId ?? "").trim();
-      if (ext && want.has(ext)) found.add(ext);
-    }
-    cursor = docs.nextPage ?? null;
-    if (!cursor || nodes.length === 0 || found.size === want.size) break;
-  }
+  // Same reasoning as findBillByExternalId: a short scan here reports an
+  // already-ingested order as new, so the ceiling throws rather than answers.
+  await pageEach<any>(
+    cfg,
+    {
+      label: "account.documents (bulk externalId lookup)",
+      maxPages: 1000,
+      query: (args) => ({
+        account: {
+          $: { id: accountId },
+          documents: { $: args, nextPage: {}, nodes: { id: {}, externalId: {} } },
+        },
+      }),
+      pick: (r) => r?.account?.documents,
+    },
+    (rows) => {
+      for (const n of rows) {
+        const ext = String(n.externalId ?? "").trim();
+        if (ext && want.has(ext)) found.add(ext);
+      }
+      // Every wanted id accounted for, or an empty page — either ends the scan.
+      if (rows.length === 0 || found.size === want.size) return "stop";
+    },
+  );
   return [...found];
 }
 
@@ -4182,7 +4413,9 @@ export function resolveShopJobId(cfg: PaveConfig): Promise<string> {
 async function _resolveShopJobIdUncached(cfg: PaveConfig): Promise<string> {
   const jobs = await getJobs(cfg, true); // include closed — fail loud, not silent, if it's ever closed
   const hit = jobs.find(
-    (j) => j.name.trim().toLowerCase() === "shop" && (j.customer ?? "").trim().toLowerCase() === "ascent",
+    (j) =>
+      j.name.trim().toLowerCase() === "shop" &&
+      (j.customer ?? "").trim().toLowerCase() === "ascent",
   );
   if (!hit) throw new Error('Could not find the "Ascent - Shop" job in JobTread.');
   return hit.id;
@@ -4213,25 +4446,35 @@ async function findShopBuybackBill(
   shopJobId: string,
   externalId: string,
 ): Promise<string | null> {
-  let cursor: string | null = null;
-  for (let page = 0; page < 200; page++) {
-    const args: Record<string, unknown> = { size: 100, where: { and: [["type", "vendorBill"]] } };
-    if (cursor) args.page = cursor;
-    const r = await pave(cfg, {
-      job: {
-        $: { id: shopJobId },
-        documents: { $: args, nextPage: {}, nodes: { id: {}, externalId: {} } },
-      },
-    });
-    const docs = r?.job?.documents ?? {};
-    const nodes: any[] = docs.nodes ?? [];
-    for (const n of nodes) {
-      if (String(n.externalId ?? "").trim() === externalId) return n.id;
-    }
-    cursor = docs.nextPage ?? null;
-    if (!cursor || nodes.length === 0) break;
-  }
-  return null;
+  let hit: string | null = null;
+  await pageEach<any>(
+    cfg,
+    {
+      label: "job.documents (Shop buyback lookup)",
+      maxPages: 200,
+      query: (args) => ({
+        job: {
+          $: { id: shopJobId },
+          documents: {
+            $: { where: { and: [["type", "vendorBill"]] }, ...args },
+            nextPage: {},
+            nodes: { id: {}, externalId: {} },
+          },
+        },
+      }),
+      pick: (r) => r?.job?.documents,
+    },
+    (rows) => {
+      for (const n of rows) {
+        if (String(n.externalId ?? "").trim() === externalId) {
+          hit = n.id;
+          return "stop";
+        }
+      }
+      if (rows.length === 0) return "stop";
+    },
+  );
+  return hit;
 }
 
 /** Every buyback line codes to this CSI on the Shop job — the org cost code
@@ -4257,13 +4500,14 @@ async function resolveShopBuybackLeaf(cfg: PaveConfig, shopJobId: string): Promi
   return cachedRef(`shopbuyback:${cfg.orgId}:${shopJobId}`, 5 * 60_000, async () => {
     const find = (items: BudgetItem[]) => items.find((b) => b.number === BUYBACK_CSI)?.id;
     const hit =
-      find(await getJobBudget(cfg, shopJobId)) ??
-      find(await _getJobBudgetUncached(cfg, shopJobId));
+      find(await getJobBudget(cfg, shopJobId)) ?? find(await _getJobBudgetUncached(cfg, shopJobId));
     if (hit) return hit;
 
     const costCodeId = await resolveCostCodeId(cfg, BUYBACK_CSI);
     if (!costCodeId) {
-      throw new Error(`No "${BUYBACK_CSI}" cost code in JobTread — add it, then retry the buyback.`);
+      throw new Error(
+        `No "${BUYBACK_CSI}" cost code in JobTread — add it, then retry the buyback.`,
+      );
     }
     const created = await pave(cfg, {
       createCostItem: {
@@ -4467,18 +4711,21 @@ export async function getUninvoicedBills(
   // isn't fully coded yet (draft bills carry a "Draft" badge in the UI).
   const statuses = includeDrafts ? ["draft", "pending", "approved"] : ["pending", "approved"];
 
-  let bills: any[] = [];
-  let page: string | undefined;
-  let guard = 0;
-  do {
-    const r = await pave(cfg, {
+  const bills = await pageAll<any>(cfg, {
+    label: "job.documents (uninvoiced bills)",
+    size: 25,
+    query: (args) => ({
       job: {
         $: { id: jobId },
         documents: {
           $: {
-            where: { and: [["type", "vendorBill"], ["status", "in", statuses]] },
-            size: 25,
-            ...(page ? { page } : {}),
+            where: {
+              and: [
+                ["type", "vendorBill"],
+                ["status", "in", statuses],
+              ],
+            },
+            ...args,
           },
           nextPage: {},
           nodes: {
@@ -4495,10 +4742,9 @@ export async function getUninvoicedBills(
           },
         },
       },
-    });
-    bills = bills.concat(r?.job?.documents?.nodes ?? []);
-    page = r?.job?.documents?.nextPage || undefined;
-  } while (page && ++guard < 100);
+    }),
+    pick: (r) => r?.job?.documents,
+  });
 
   const isInvoiced = _isInvoicedToClient;
   // includeInvoiced relaxes the uninvoiced filter (shows bills already on a
@@ -4507,15 +4753,14 @@ export async function getUninvoicedBills(
 
   // Uninvoiced time entries — a bare invoice pulls these too, so include them so
   // the preview total matches what JobTread will actually invoice.
-  let timeEntries: any[] = [];
-  page = undefined;
-  guard = 0;
-  do {
-    const r: any = await pave(cfg, {
+  const timeEntries = await pageAll<any>(cfg, {
+    label: "job.timeEntries (uninvoiced time)",
+    size: 50,
+    query: (args) => ({
       job: {
         $: { id: jobId },
         timeEntries: {
-          $: { size: 50, ...(page ? { page } : {}) },
+          $: args,
           nextPage: {},
           nodes: {
             id: {},
@@ -4529,10 +4774,9 @@ export async function getUninvoicedBills(
           },
         },
       },
-    });
-    timeEntries = timeEntries.concat(r?.job?.timeEntries?.nodes ?? []);
-    page = r?.job?.timeEntries?.nextPage || undefined;
-  } while (page && ++guard < 100);
+    }),
+    pick: (r) => r?.job?.timeEntries,
+  });
   const openTime = timeEntries.filter(
     (t) => (includeInvoiced || !isInvoiced(t)) && inMonth(t.startedAt),
   );
@@ -4545,34 +4789,38 @@ export async function getUninvoicedBills(
   // client-side by document id and aggregate the amounts per CSI cost code.
   const openIds = new Set(open.map((b) => b.id));
   const csiByBill = new Map<string, Map<string, { name: string; amount: number }>>();
-  page = undefined;
-  guard = 0;
-  do {
-    const r: any = await pave(cfg, {
-      job: {
-        $: { id: jobId },
-        costItems: {
-          $: { size: 100, ...(page ? { page } : {}) },
-          nextPage: {},
-          nodes: { cost: {}, costCode: { number: {}, name: {} }, document: { id: {}, type: {} } },
+  await pageEach<any>(
+    cfg,
+    {
+      label: "job.costItems (per-bill CSI breakdown)",
+      query: (args) => ({
+        job: {
+          $: { id: jobId },
+          costItems: {
+            $: args,
+            nextPage: {},
+            nodes: { cost: {}, costCode: { number: {}, name: {} }, document: { id: {}, type: {} } },
+          },
         },
-      },
-    });
-    for (const n of (r?.job?.costItems?.nodes ?? []) as any[]) {
-      const doc = n.document;
-      if (!doc || doc.type !== "vendorBill" || !openIds.has(doc.id)) continue;
-      const code = String(n.costCode?.number ?? "").trim();
-      if (!code) continue;
-      let byCode = csiByBill.get(doc.id);
-      if (!byCode) csiByBill.set(doc.id, (byCode = new Map()));
-      const prev = byCode.get(code);
-      byCode.set(code, {
-        name: n.costCode?.name ?? prev?.name ?? "",
-        amount: (prev?.amount ?? 0) + (n.cost ?? 0),
-      });
-    }
-    page = r?.job?.costItems?.nextPage || undefined;
-  } while (page && ++guard < 50);
+      }),
+      pick: (r) => r?.job?.costItems,
+    },
+    (rows) => {
+      for (const n of rows) {
+        const doc = n.document;
+        if (!doc || doc.type !== "vendorBill" || !openIds.has(doc.id)) continue;
+        const code = String(n.costCode?.number ?? "").trim();
+        if (!code) continue;
+        let byCode = csiByBill.get(doc.id);
+        if (!byCode) csiByBill.set(doc.id, (byCode = new Map()));
+        const prev = byCode.get(code);
+        byCode.set(code, {
+          name: n.costCode?.name ?? prev?.name ?? "",
+          amount: (prev?.amount ?? 0) + (n.cost ?? 0),
+        });
+      }
+    },
+  );
 
   const csiOf = (billId: string): CsiAmount[] =>
     Array.from(csiByBill.get(billId)?.entries() ?? [])
@@ -4709,7 +4957,7 @@ export async function getMonthlyInvoiceJobs(
   const last = `${year}-${mm}-${String(new Date(year, month, 0).getDate()).padStart(2, "0")}`;
   const statuses = includeDrafts ? ["draft", "pending", "approved"] : ["pending", "approved"];
 
-  const q = (nodes: Record<string, unknown>, page?: string) => ({
+  const q = (nodes: Record<string, unknown>, args: Record<string, unknown>) => ({
     organization: {
       $: { id: cfg.orgId },
       id: {},
@@ -4723,8 +4971,7 @@ export async function getMonthlyInvoiceJobs(
               ["issueDate", "<=", last],
             ],
           },
-          size: 25,
-          ...(page ? { page } : {}),
+          ...args,
         },
         nextPage: {},
         nodes,
@@ -4735,31 +4982,33 @@ export async function getMonthlyInvoiceJobs(
   // won't break the roster — fall back to job id/name only (same guard as
   // getAllDraftBills). The detail fetch supplies the customer either way.
   const rich = {
-    id: {}, cost: {}, status: {},
+    id: {},
+    cost: {},
+    status: {},
     job: { id: {}, name: {}, location: { account: { id: {}, name: {} } } },
     referencedDocuments: { nodes: { type: {}, status: {} } },
   };
   const min = {
-    id: {}, cost: {}, status: {},
+    id: {},
+    cost: {},
+    status: {},
     job: { id: {}, name: {} },
     referencedDocuments: { nodes: { type: {}, status: {} } },
   };
 
-  let bills: any[] = [];
-  let page: string | undefined;
-  let guard = 0;
-  let sel: Record<string, unknown> = rich;
-  do {
-    let r: any;
-    try {
-      r = await pave(cfg, q(sel, page));
-    } catch {
-      sel = min; // downgrade once; an unconfirmed field name won't break the view
-      r = await pave(cfg, q(sel, page));
-    }
-    bills = bills.concat(r?.organization?.documents?.nodes ?? []);
-    page = r?.organization?.documents?.nextPage || undefined;
-  } while (page && ++guard < 100);
+  const walkWith = (nodes: Record<string, unknown>) =>
+    pageAll<any>(cfg, {
+      label: "organization.documents (the month's bills, all jobs)",
+      size: 25,
+      query: (args) => q(nodes, args),
+      pick: (r) => r?.organization?.documents,
+    });
+  // Downgrade once; an unconfirmed field name won't break the view. Too much
+  // data is not a field-name problem, so that is not retried.
+  const bills = await walkWith(rich).catch((e) => {
+    if (e instanceof PaveTooManyPagesError) throw e;
+    return walkWith(min);
+  });
 
   const isInvoiced = _isInvoicedToClient;
 
@@ -4817,7 +5066,7 @@ export async function getMonthlyInvoiceJobs(
  * getMonthlyInvoiceJobs and getAllDraftBills use.
  */
 export async function getOpenCustomerInvoices(cfg: PaveConfig): Promise<OpenInvoiceRow[]> {
-  const q = (nodes: Record<string, unknown>, page?: string) => ({
+  const q = (nodes: Record<string, unknown>, args: Record<string, unknown>) => ({
     organization: {
       $: { id: cfg.orgId },
       id: {},
@@ -4829,8 +5078,7 @@ export async function getOpenCustomerInvoices(cfg: PaveConfig): Promise<OpenInvo
               ["status", "in", ["pending", "approved"]],
             ],
           },
-          size: 100,
-          ...(page ? { page } : {}),
+          ...args,
         },
         nextPage: {},
         nodes,
@@ -4851,37 +5099,32 @@ export async function getOpenCustomerInvoices(cfg: PaveConfig): Promise<OpenInvo
   const rich = { ...scalars, job: { id: {}, name: {}, location: { account: { name: {} } } } };
   const min = { ...scalars, job: { id: {}, name: {} } };
 
-  const out: OpenInvoiceRow[] = [];
-  let page: string | undefined;
-  let guard = 0;
-  let sel: Record<string, unknown> = rich;
-  do {
-    let r: any;
-    try {
-      r = await pave(cfg, q(sel, page));
-    } catch {
-      sel = min; // downgrade once; an unreadable customer name is not a dead page
-      r = await pave(cfg, q(sel, page));
-    }
-    for (const d of (r?.organization?.documents?.nodes ?? []) as any[]) {
-      out.push({
-        id: d.id,
-        number: d.number != null ? String(d.number) : "",
-        status: d.status ?? "",
-        jobId: d.job?.id ?? "",
-        jobName: d.job?.name ?? "",
-        customerName: d.job?.location?.account?.name ?? "",
-        issueDate: d.issueDate ? String(d.issueDate).slice(0, 10) : "",
-        dueDate: d.dueDate ? String(d.dueDate).slice(0, 10) : "",
-        total: typeof d.priceWithTax === "number" ? d.priceWithTax : (d.price ?? 0),
-        amountPaid: typeof d.amountPaid === "number" ? d.amountPaid : 0,
-        balance: typeof d.balance === "number" ? d.balance : 0,
-      });
-    }
-    page = r?.organization?.documents?.nextPage || undefined;
-  } while (page && ++guard < 100);
+  const walkWith = (nodes: Record<string, unknown>) =>
+    pageAll<any>(cfg, {
+      label: "organization.documents (open client invoices)",
+      query: (args) => q(nodes, args),
+      pick: (r) => r?.organization?.documents,
+    });
+  // Downgrade once; an unreadable customer name is not a dead page. Too much
+  // data is not a field-name problem, so that is not retried.
+  const docs = await walkWith(rich).catch((e) => {
+    if (e instanceof PaveTooManyPagesError) throw e;
+    return walkWith(min);
+  });
 
-  return out;
+  return docs.map((d) => ({
+    id: d.id,
+    number: d.number != null ? String(d.number) : "",
+    status: d.status ?? "",
+    jobId: d.job?.id ?? "",
+    jobName: d.job?.name ?? "",
+    customerName: d.job?.location?.account?.name ?? "",
+    issueDate: d.issueDate ? String(d.issueDate).slice(0, 10) : "",
+    dueDate: d.dueDate ? String(d.dueDate).slice(0, 10) : "",
+    total: typeof d.priceWithTax === "number" ? d.priceWithTax : (d.price ?? 0),
+    amountPaid: typeof d.amountPaid === "number" ? d.amountPaid : 0,
+    balance: typeof d.balance === "number" ? d.balance : 0,
+  }));
 }
 
 /** One open client invoice, as `getOpenCustomerInvoices` returns it. */
@@ -4927,45 +5170,48 @@ export async function getMonthlyInvoiceTime(
   const last = `${year}-${mm}-${String(new Date(year, month, 0).getDate()).padStart(2, "0")}`;
 
   const byJob: Record<string, number> = {};
-  let page: string | undefined;
-  let guard = 0;
-  do {
-    const r: any = await pave(cfg, {
-      organization: {
-        $: { id: cfg.orgId },
-        id: {},
-        timeEntries: {
-          $: {
-            where: {
-              and: [
-                ["startedAt", ">=", first],
-                ["startedAt", "<=", `${last}T23:59:59`],
-              ],
+  await pageEach<any>(
+    cfg,
+    {
+      label: "organization.timeEntries (the month's uninvoiced time)",
+      size: 25,
+      // 200 pages x 25 = 5,000 entries: a runaway guard, not a month's size.
+      maxPages: 200,
+      query: (args) => ({
+        organization: {
+          $: { id: cfg.orgId },
+          id: {},
+          timeEntries: {
+            $: {
+              where: {
+                and: [
+                  ["startedAt", ">=", first],
+                  ["startedAt", "<=", `${last}T23:59:59`],
+                ],
+              },
+              ...args,
             },
-            size: 25,
-            ...(page ? { page } : {}),
-          },
-          nextPage: {},
-          nodes: {
-            id: {},
-            cost: {},
-            job: { id: {} },
-            referencedDocuments: { nodes: { type: {}, status: {} } },
+            nextPage: {},
+            nodes: {
+              id: {},
+              cost: {},
+              job: { id: {} },
+              referencedDocuments: { nodes: { type: {}, status: {} } },
+            },
           },
         },
-      },
-    });
-    const tc = r?.organization?.timeEntries ?? {};
-    for (const t of (tc.nodes ?? []) as any[]) {
-      const jobId = t.job?.id;
-      if (!jobId) continue;
-      const invoiced = _isInvoicedToClient(t);
-      if (invoiced) continue;
-      byJob[jobId] = (byJob[jobId] ?? 0) + (t.cost ?? 0);
-    }
-    page = tc.nextPage || undefined;
-    // 200 pages x 25 = 5,000 entries: a runaway guard, not a month's size.
-  } while (page && ++guard < 200);
+      }),
+      pick: (r) => r?.organization?.timeEntries,
+    },
+    (rows) => {
+      for (const t of rows) {
+        const jobId = t.job?.id;
+        if (!jobId) continue;
+        if (_isInvoicedToClient(t)) continue;
+        byJob[jobId] = (byJob[jobId] ?? 0) + (t.cost ?? 0);
+      }
+    },
+  );
 
   return byJob;
 }
@@ -5017,14 +5263,17 @@ export async function getAllBillsForMonth(
   cfg: PaveConfig,
   year: number,
   month: number,
-  { includeInvoiced = false, includeDrafts = true }: { includeInvoiced?: boolean; includeDrafts?: boolean } = {},
+  {
+    includeInvoiced = false,
+    includeDrafts = true,
+  }: { includeInvoiced?: boolean; includeDrafts?: boolean } = {},
 ): Promise<AllJobsBill[]> {
   const mm = String(month).padStart(2, "0");
   const first = `${year}-${mm}-01`;
   const last = `${year}-${mm}-${String(new Date(year, month, 0).getDate()).padStart(2, "0")}`;
   const statuses = includeDrafts ? ["draft", "pending", "approved"] : ["pending", "approved"];
 
-  const q = (nodes: Record<string, unknown>, page?: string) => ({
+  const q = (nodes: Record<string, unknown>, args: Record<string, unknown>) => ({
     organization: {
       $: { id: cfg.orgId },
       id: {},
@@ -5038,8 +5287,7 @@ export async function getAllBillsForMonth(
               ["issueDate", "<=", last],
             ],
           },
-          size: 25,
-          ...(page ? { page } : {}),
+          ...args,
         },
         nextPage: {},
         nodes,
@@ -5050,34 +5298,44 @@ export async function getAllBillsForMonth(
   // unconfirmed nested field won't break the view — fall back to the minimal
   // selection (same guard as getMonthlyInvoiceJobs / getAllDraftBills).
   const rich = {
-    id: {}, cost: {}, status: {}, issueDate: {}, createdAt: {}, fromName: {},
-    amountPaid: {}, balance: {},
+    id: {},
+    cost: {},
+    status: {},
+    issueDate: {},
+    createdAt: {},
+    fromName: {},
+    amountPaid: {},
+    balance: {},
     account: { name: {} },
     job: { id: {}, name: {}, location: { account: { name: {} } } },
     referencedDocuments: { nodes: { type: {}, status: {} } },
   };
   const min = {
-    id: {}, cost: {}, status: {}, issueDate: {}, createdAt: {}, fromName: {},
-    amountPaid: {}, balance: {},
+    id: {},
+    cost: {},
+    status: {},
+    issueDate: {},
+    createdAt: {},
+    fromName: {},
+    amountPaid: {},
+    balance: {},
     job: { id: {}, name: {} },
     referencedDocuments: { nodes: { type: {}, status: {} } },
   };
 
-  let raw: any[] = [];
-  let page: string | undefined;
-  let guard = 0;
-  let sel: Record<string, unknown> = rich;
-  do {
-    let r: any;
-    try {
-      r = await pave(cfg, q(sel, page));
-    } catch {
-      sel = min; // downgrade once; an unconfirmed field name won't break the view
-      r = await pave(cfg, q(sel, page));
-    }
-    raw = raw.concat(r?.organization?.documents?.nodes ?? []);
-    page = r?.organization?.documents?.nextPage || undefined;
-  } while (page && ++guard < 100);
+  const walkWith = (nodes: Record<string, unknown>) =>
+    pageAll<any>(cfg, {
+      label: "organization.documents (every job's bills this month)",
+      size: 25,
+      query: (args) => q(nodes, args),
+      pick: (r) => r?.organization?.documents,
+    });
+  // Downgrade once; an unconfirmed field name won't break the view. Too much
+  // data is not a field-name problem, so that is not retried.
+  const raw = await walkWith(rich).catch((e) => {
+    if (e instanceof PaveTooManyPagesError) throw e;
+    return walkWith(min);
+  });
 
   const isInvoiced = _isInvoicedToClient;
   // Each bill's sales-tax line, so a caller can net it out of a "to be
@@ -5223,110 +5481,127 @@ export async function getInvoiceReconciliation(
   const monthBills: { cost: number; invIds: string[] }[] = [];
   let draftBillsCost = 0;
   let draftBillCount = 0;
-  let page: string | undefined;
-  let guard = 0;
-  do {
-    const r: any = await pave(cfg, {
-      job: {
-        $: { id: jobId },
-        documents: {
-          $: {
-            where: {
-              and: [["type", "vendorBill"], ["status", "in", ["draft", "pending", "approved"]]],
+  await pageEach<any>(
+    cfg,
+    {
+      label: "job.documents (reconcile: the month's bills)",
+      size: 25,
+      query: (args) => ({
+        job: {
+          $: { id: jobId },
+          documents: {
+            $: {
+              where: {
+                and: [
+                  ["type", "vendorBill"],
+                  ["status", "in", ["draft", "pending", "approved"]],
+                ],
+              },
+              ...args,
             },
-            size: 25,
-            ...(page ? { page } : {}),
-          },
-          nextPage: {},
-          nodes: {
-            id: {},
-            cost: {},
-            issueDate: {},
-            status: {},
-            referencedDocuments: { nodes: { id: {}, type: {}, status: {} } },
+            nextPage: {},
+            nodes: {
+              id: {},
+              cost: {},
+              issueDate: {},
+              status: {},
+              referencedDocuments: { nodes: { id: {}, type: {}, status: {} } },
+            },
           },
         },
-      },
-    });
-    for (const b of (r?.job?.documents?.nodes ?? []) as any[]) {
-      if (!inMonth(b.issueDate)) continue;
-      if (b.status === "draft") {
-        draftBillsCost += netCost(b);
-        draftBillCount++;
-        continue;
+      }),
+      pick: (r) => r?.job?.documents,
+    },
+    (rows) => {
+      for (const b of rows) {
+        if (!inMonth(b.issueDate)) continue;
+        if (b.status === "draft") {
+          draftBillsCost += netCost(b);
+          draftBillCount++;
+          continue;
+        }
+        monthBills.push({ cost: netCost(b), invIds: invRefIds(b) });
       }
-      monthBills.push({ cost: netCost(b), invIds: invRefIds(b) });
-    }
-    page = r?.job?.documents?.nextPage || undefined;
-  } while (page && ++guard < 100);
+    },
+  );
 
   // 2. Time for the month (a bare invoice pulls uninvoiced time too).
   const monthTime: { cost: number; invIds: string[] }[] = [];
-  page = undefined;
-  guard = 0;
-  do {
-    const r: any = await pave(cfg, {
-      job: {
-        $: { id: jobId },
-        timeEntries: {
-          $: { size: 50, ...(page ? { page } : {}) },
-          nextPage: {},
-          nodes: {
-            id: {},
-            cost: {},
-            startedAt: {},
-            referencedDocuments: { nodes: { id: {}, type: {}, status: {} } },
+  await pageEach<any>(
+    cfg,
+    {
+      label: "job.timeEntries (reconcile: the month's time)",
+      size: 50,
+      query: (args) => ({
+        job: {
+          $: { id: jobId },
+          timeEntries: {
+            $: args,
+            nextPage: {},
+            nodes: {
+              id: {},
+              cost: {},
+              startedAt: {},
+              referencedDocuments: { nodes: { id: {}, type: {}, status: {} } },
+            },
           },
         },
-      },
-    });
-    for (const t of (r?.job?.timeEntries?.nodes ?? []) as any[]) {
-      if (inMonth(t.startedAt)) monthTime.push({ cost: t.cost ?? 0, invIds: invRefIds(t) });
-    }
-    page = r?.job?.timeEntries?.nextPage || undefined;
-  } while (page && ++guard < 100);
+      }),
+      pick: (r) => r?.job?.timeEntries,
+    },
+    (rows) => {
+      for (const t of rows) {
+        if (inMonth(t.startedAt)) monthTime.push({ cost: t.cost ?? 0, invIds: invRefIds(t) });
+      }
+    },
+  );
 
   // 3. ALL the job's customer invoices (any status) + the predecessor invoice(s)
   //    each one replaced (referencedDocuments filtered server-side to invoices,
   //    so we never page a big invoice's bill refs).
   const byId = new Map<string, any>();
   const replacedBy = new Map<string, any[]>(); // predecessor id -> invoices that replaced it
-  page = undefined;
-  guard = 0;
-  do {
-    const r: any = await pave(cfg, {
-      job: {
-        $: { id: jobId },
-        documents: {
-          $: { where: { and: [["type", "customerInvoice"]] }, size: 25, ...(page ? { page } : {}) },
-          nextPage: {},
-          nodes: {
-            id: {},
-            number: {},
-            issueDate: {},
-            status: {},
-            cost: {},
-            priceWithTax: {},
-            amountPaid: {},
-            referencedDocuments: {
-              $: { where: { and: [["type", "customerInvoice"]] }, size: 25 },
-              nodes: { id: {} },
+  await pageEach<any>(
+    cfg,
+    {
+      label: "job.documents (reconcile: the job's client invoices)",
+      size: 25,
+      query: (args) => ({
+        job: {
+          $: { id: jobId },
+          documents: {
+            $: { where: { and: [["type", "customerInvoice"]] }, ...args },
+            nextPage: {},
+            nodes: {
+              id: {},
+              number: {},
+              issueDate: {},
+              status: {},
+              cost: {},
+              priceWithTax: {},
+              amountPaid: {},
+              referencedDocuments: {
+                $: { where: { and: [["type", "customerInvoice"]] }, size: 25 },
+                nodes: { id: {} },
+              },
             },
           },
         },
-      },
-    });
-    for (const iv of (r?.job?.documents?.nodes ?? []) as any[]) {
-      byId.set(iv.id, iv);
-      for (const p of (iv.referencedDocuments?.nodes ?? []) as any[]) {
-        if (!p.id) continue;
-        let arr = replacedBy.get(p.id);
-        if (!arr) replacedBy.set(p.id, (arr = []));
-        arr.push(iv);
+      }),
+      pick: (r) => r?.job?.documents,
+    },
+    (rows) => {
+      for (const iv of rows) {
+        byId.set(iv.id, iv);
+        for (const p of (iv.referencedDocuments?.nodes ?? []) as any[]) {
+          if (!p.id) continue;
+          let arr = replacedBy.get(p.id);
+          if (!arr) replacedBy.set(p.id, (arr = []));
+          arr.push(iv);
+        }
       }
-    }
-    page = r?.job?.documents?.nextPage || undefined;
-  } while (page && ++guard < 100);
+    },
+  );
 
   // Resolve a referenced invoice id to the LIVE (non-denied) invoice covering it,
   // following the replacement chain (bill -> denied original -> live re-issue).
@@ -5476,9 +5751,7 @@ function tzOffsetMs(instant: number, tz: string): number {
  * names in `tz`, as the ISO string JobTread should store. "" if unparseable.
  */
 export function orgLocalToJtIso(local: string, tz: string = JT_ORG_TZ): string {
-  const m = (local ?? "")
-    .trim()
-    .match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2}))?$/);
+  const m = (local ?? "").trim().match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2}))?$/);
   if (!m) return "";
   const naive = Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +(m[6] ?? 0));
   // Two passes: the second resolves the offset against the real instant, so a
@@ -5792,59 +6065,66 @@ export async function getUserTimeEntries(
   userId: string,
   opts: { sinceIso?: string; untilIso?: string; sortDesc?: boolean; maxPages?: number } = {},
 ): Promise<UserTimeEntry[]> {
-  const maxPages = opts.maxPages ?? 20;
   const out: UserTimeEntry[] = [];
-  let cursor: string | null = null;
-  for (let page = 0; page < maxPages; page++) {
-    const args: Record<string, unknown> = { size: 100 };
-    if (cursor) args.page = cursor;
-    const range: unknown[] = [];
-    if (opts.sinceIso) range.push(["startedAt", ">=", opts.sinceIso]);
-    if (opts.untilIso) range.push(["startedAt", "<", opts.untilIso]);
-    if (range.length) args.where = range.length === 1 ? range[0] : { and: range };
-    if (opts.sortDesc) args.sortBy = [{ field: "startedAt", order: "desc" }];
-    const r = await pave(cfg, {
-      user: {
-        $: { id: userId },
-        id: {},
-        timeEntries: {
-          $: args,
-          nextPage: {},
-          nodes: {
-            id: {},
-            type: {},
-            startedAt: {},
-            endedAt: {},
-            minutes: {},
-            isApproved: {},
-            notes: {},
-            job: { id: {}, name: {}, location: { account: { name: {} } } },
-            costItem: { id: {}, name: {}, costCode: { number: {}, name: {} } },
+  // `opts.maxPages` is a DELIBERATE bound — readLastUsed asks for one page of
+  // newest-first entries and wants what that page held. Without it the walk is
+  // complete or it throws; it never quietly returns part of a history.
+  const pageLimit = opts.maxPages == null ? {} : { stopAfterPages: opts.maxPages };
+  const range: unknown[] = [];
+  if (opts.sinceIso) range.push(["startedAt", ">=", opts.sinceIso]);
+  if (opts.untilIso) range.push(["startedAt", "<", opts.untilIso]);
+  await pageEach<any>(
+    cfg,
+    {
+      label: "user.timeEntries",
+      ...pageLimit,
+      query: (args) => ({
+        user: {
+          $: { id: userId },
+          id: {},
+          timeEntries: {
+            $: {
+              ...(range.length ? { where: range.length === 1 ? range[0] : { and: range } } : {}),
+              ...(opts.sortDesc ? { sortBy: [{ field: "startedAt", order: "desc" }] } : {}),
+              ...args,
+            },
+            nextPage: {},
+            nodes: {
+              id: {},
+              type: {},
+              startedAt: {},
+              endedAt: {},
+              minutes: {},
+              isApproved: {},
+              notes: {},
+              job: { id: {}, name: {}, location: { account: { name: {} } } },
+              costItem: { id: {}, name: {}, costCode: { number: {}, name: {} } },
+            },
           },
         },
-      },
-    });
-    const tc = r?.user?.timeEntries ?? {};
-    for (const n of tc.nodes ?? []) {
-      out.push({
-        id: n.id,
-        startedAt: n.startedAt,
-        endedAt: n.endedAt ?? null,
-        minutes: Number(n.minutes) || 0,
-        approved: !!n.isApproved,
-        notes: n.notes ?? "",
-        jobId: n.job?.id ?? "",
-        jobName: n.job?.name ?? "",
-        customer: n.job?.location?.account?.name ?? "",
-        costItemId: n.costItem?.id ?? "",
-        costCode: n.costItem?.costCode?.number ?? "",
-        costItemName: n.costItem?.costCode?.name || n.costItem?.name || "",
-        payType: n.type ?? "",
-      });
-    }
-    cursor = tc.nextPage ?? null;
-    if (!cursor) break;
-  }
+      }),
+      pick: (r) => r?.user?.timeEntries,
+    },
+    (rows) => {
+      for (const n of rows) {
+        out.push({
+          id: n.id,
+          startedAt: n.startedAt,
+          endedAt: n.endedAt ?? null,
+          minutes: Number(n.minutes) || 0,
+          approved: !!n.isApproved,
+          notes: n.notes ?? "",
+          jobId: n.job?.id ?? "",
+          jobName: n.job?.name ?? "",
+          customer: n.job?.location?.account?.name ?? "",
+          costItemId: n.costItem?.id ?? "",
+          costCode: n.costItem?.costCode?.number ?? "",
+          costItemName: n.costItem?.costCode?.name || n.costItem?.name || "",
+          payType: n.type ?? "",
+        });
+      }
+    },
+  );
   return out;
 }
 
@@ -5885,57 +6165,60 @@ export async function getOpenTimeEntries(
   userId: string,
   opts: { sinceIso?: string; maxPages?: number } = {},
 ): Promise<OpenTimeEntry[]> {
-  const maxPages = opts.maxPages ?? 5;
   const out: OpenTimeEntry[] = [];
-  let cursor: string | null = null;
-  for (let page = 0; page < maxPages; page++) {
-    const args: Record<string, unknown> = {
-      size: 100,
-      sortBy: [{ field: "startedAt", order: "desc" }],
-    };
-    if (cursor) args.page = cursor;
-    if (opts.sinceIso) args.where = ["startedAt", ">=", opts.sinceIso];
-    const r = await pave(cfg, {
-      user: {
-        $: { id: userId },
-        id: {},
-        timeEntries: {
-          $: args,
-          nextPage: {},
-          nodes: {
-            id: {},
-            type: {},
-            startedAt: {},
-            endedAt: {},
-            notes: {},
-            job: { id: {}, name: {}, location: { account: { name: {} } } },
-            costItem: { id: {}, name: {}, costCode: { number: {}, name: {} } },
+  // `opts.maxPages` is a DELIBERATE bound, not a guard — see getUserTimeEntries.
+  const pageLimit = opts.maxPages == null ? {} : { stopAfterPages: opts.maxPages };
+  await pageEach<any>(
+    cfg,
+    {
+      label: "user.timeEntries (still clocked in)",
+      ...pageLimit,
+      query: (args) => ({
+        user: {
+          $: { id: userId },
+          id: {},
+          timeEntries: {
+            $: {
+              sortBy: [{ field: "startedAt", order: "desc" }],
+              ...(opts.sinceIso ? { where: ["startedAt", ">=", opts.sinceIso] } : {}),
+              ...args,
+            },
+            nextPage: {},
+            nodes: {
+              id: {},
+              type: {},
+              startedAt: {},
+              endedAt: {},
+              notes: {},
+              job: { id: {}, name: {}, location: { account: { name: {} } } },
+              costItem: { id: {}, name: {}, costCode: { number: {}, name: {} } },
+            },
           },
         },
-      },
-    });
-    const tc = r?.user?.timeEntries ?? {};
-    for (const n of tc.nodes ?? []) {
-      if (n.endedAt) continue; // closed — not a running clock
-      const jobName = n.job?.name ?? "";
-      const customer = n.job?.location?.account?.name ?? "";
-      out.push({
-        id: n.id,
-        startedAt: n.startedAt,
-        payType: n.type ?? "",
-        notes: n.notes ?? "",
-        jobId: n.job?.id ?? "",
-        jobName,
-        customer,
-        jobLabel: customer && jobName ? `${customer} - ${jobName}` : jobName,
-        costItemId: n.costItem?.id ?? "",
-        costCode: n.costItem?.costCode?.number ?? "",
-        costItemName: n.costItem?.costCode?.name || n.costItem?.name || "",
-      });
-    }
-    cursor = tc.nextPage ?? null;
-    if (!cursor) break;
-  }
+      }),
+      pick: (r) => r?.user?.timeEntries,
+    },
+    (rows) => {
+      for (const n of rows) {
+        if (n.endedAt) continue; // closed — not a running clock
+        const jobName = n.job?.name ?? "";
+        const customer = n.job?.location?.account?.name ?? "";
+        out.push({
+          id: n.id,
+          startedAt: n.startedAt,
+          payType: n.type ?? "",
+          notes: n.notes ?? "",
+          jobId: n.job?.id ?? "",
+          jobName,
+          customer,
+          jobLabel: customer && jobName ? `${customer} - ${jobName}` : jobName,
+          costItemId: n.costItem?.id ?? "",
+          costCode: n.costItem?.costCode?.number ?? "",
+          costItemName: n.costItem?.costCode?.name || n.costItem?.name || "",
+        });
+      }
+    },
+  );
   // Newest first, so the caller can take [0] as "the" running clock.
   return out.sort((a, b) => (a.startedAt < b.startedAt ? 1 : a.startedAt > b.startedAt ? -1 : 0));
 }
@@ -5983,62 +6266,69 @@ export async function getOrgTimeEntries(
   cfg: PaveConfig,
   opts: { sinceIso?: string; untilIso?: string; openOnly?: boolean; maxPages?: number } = {},
 ): Promise<OrgTimeEntry[]> {
-  const maxPages = opts.maxPages ?? 20;
   const out: OrgTimeEntry[] = [];
-  let cursor: string | null = null;
-  for (let page = 0; page < maxPages; page++) {
-    const args: Record<string, unknown> = { size: 100, sortBy: [{ field: "startedAt", order: "desc" }] };
-    if (cursor) args.page = cursor;
-    const clauses: unknown[] = [];
-    if (opts.sinceIso) clauses.push(["startedAt", ">=", opts.sinceIso]);
-    if (opts.untilIso) clauses.push(["startedAt", "<", opts.untilIso]);
-    if (opts.openOnly) clauses.push({ "=": [{ field: "endedAt" }, { value: null }] });
-    if (clauses.length) args.where = clauses.length === 1 ? clauses[0] : { and: clauses };
-    const r = await pave(cfg, {
-      organization: {
-        $: { id: cfg.orgId },
-        id: {},
-        timeEntries: {
-          $: args,
-          nextPage: {},
-          nodes: {
-            id: {},
-            type: {},
-            startedAt: {},
-            endedAt: {},
-            minutes: {},
-            notes: {},
-            user: { name: {} },
-            job: { id: {}, name: {}, location: { account: { name: {} } } },
-            costItem: { id: {}, name: {}, costCode: { number: {}, name: {} } },
+  // `opts.maxPages` is a DELIBERATE bound, not a guard — see getUserTimeEntries.
+  const pageLimit = opts.maxPages == null ? {} : { stopAfterPages: opts.maxPages };
+  const clauses: unknown[] = [];
+  if (opts.sinceIso) clauses.push(["startedAt", ">=", opts.sinceIso]);
+  if (opts.untilIso) clauses.push(["startedAt", "<", opts.untilIso]);
+  if (opts.openOnly) clauses.push({ "=": [{ field: "endedAt" }, { value: null }] });
+  await pageEach<any>(
+    cfg,
+    {
+      label: "organization.timeEntries",
+      ...pageLimit,
+      query: (args) => ({
+        organization: {
+          $: { id: cfg.orgId },
+          id: {},
+          timeEntries: {
+            $: {
+              sortBy: [{ field: "startedAt", order: "desc" }],
+              ...(clauses.length
+                ? { where: clauses.length === 1 ? clauses[0] : { and: clauses } }
+                : {}),
+              ...args,
+            },
+            nextPage: {},
+            nodes: {
+              id: {},
+              type: {},
+              startedAt: {},
+              endedAt: {},
+              minutes: {},
+              notes: {},
+              user: { name: {} },
+              job: { id: {}, name: {}, location: { account: { name: {} } } },
+              costItem: { id: {}, name: {}, costCode: { number: {}, name: {} } },
+            },
           },
         },
-      },
-    });
-    const tc = r?.organization?.timeEntries ?? {};
-    for (const n of tc.nodes ?? []) {
-      out.push({
-        id: n.id,
-        startedAt: n.startedAt,
-        endedAt: n.endedAt ?? null,
-        minutes: Number(n.minutes) || 0,
-        notes: n.notes ?? "",
-        userName: n.user?.name ?? "",
-        jobId: n.job?.id ?? "",
-        jobName: n.job?.name ?? "",
-        customer: n.job?.location?.account?.name ?? "",
-        costItemId: n.costItem?.id ?? "",
-        costCode: n.costItem?.costCode?.number ?? "",
-        costItemName: n.costItem?.costCode?.name || n.costItem?.name || "",
-        payType: n.type ?? "",
-      });
-    }
-    cursor = tc.nextPage ?? null;
-    if (!cursor) break;
-  }
+      }),
+      pick: (r) => r?.organization?.timeEntries,
+    },
+    (rows) => {
+      for (const n of rows) {
+        out.push({
+          id: n.id,
+          startedAt: n.startedAt,
+          endedAt: n.endedAt ?? null,
+          minutes: Number(n.minutes) || 0,
+          notes: n.notes ?? "",
+          userName: n.user?.name ?? "",
+          jobId: n.job?.id ?? "",
+          jobName: n.job?.name ?? "",
+          customer: n.job?.location?.account?.name ?? "",
+          costItemId: n.costItem?.id ?? "",
+          costCode: n.costItem?.costCode?.number ?? "",
+          costItemName: n.costItem?.costCode?.name || n.costItem?.name || "",
+          payType: n.type ?? "",
+        });
+      }
+    },
+  );
   return out;
 }
-
 
 // ---------------------------------------------------------------------------
 // TASKS — schedule items and to-dos (Daily Digest)
@@ -6073,12 +6363,12 @@ export interface OpenToDo {
  * person without a second lookup.
  */
 async function fetchTasks(cfg: PaveConfig, isToDo: boolean): Promise<OpenToDo[]> {
-  const q = (nodes: Record<string, unknown>, page?: string) => ({
+  const q = (nodes: Record<string, unknown>, args: Record<string, unknown>) => ({
     organization: {
       $: { id: cfg.orgId },
       id: {},
       tasks: {
-        $: { where: { and: [["isToDo", isToDo]] }, size: 100, ...(page ? { page } : {}) },
+        $: { where: { and: [["isToDo", isToDo]] }, ...args },
         nextPage: {},
         nodes,
       },
@@ -6094,21 +6384,29 @@ async function fetchTasks(cfg: PaveConfig, isToDo: boolean): Promise<OpenToDo[]>
     job: { id: {}, name: {}, location: { address: {} } },
     assignedMemberships: { nodes: { user: { id: {}, name: {} } } },
   };
-  const min = { id: {}, name: {}, startDate: {}, endDate: {}, progress: {}, job: { id: {}, name: {} } };
+  const min = {
+    id: {},
+    name: {},
+    startDate: {},
+    endDate: {},
+    progress: {},
+    job: { id: {}, name: {} },
+  };
 
   const out: OpenToDo[] = [];
-  let page: string | undefined;
-  let guard = 0;
-  let sel = rich;
-  do {
-    let r: any;
-    try {
-      r = await pave(cfg, q(sel, page));
-    } catch {
-      sel = min as any; // an unconfirmed field name won't break the digest
-      r = await pave(cfg, q(sel, page));
-    }
-    const nodes = (r?.organization?.tasks?.nodes ?? []) as any[];
+  const walkWith = (nodes: Record<string, unknown>) =>
+    pageAll<any>(cfg, {
+      label: `organization.tasks (${isToDo ? "to-dos" : "schedule"})`,
+      query: (args) => q(nodes, args),
+      pick: (r) => r?.organization?.tasks,
+    });
+  // An unconfirmed field name won't break the digest. Too much data is not a
+  // field-name problem, so that is not retried.
+  const nodes = await walkWith(rich).catch((e) => {
+    if (e instanceof PaveTooManyPagesError) throw e;
+    return walkWith(min);
+  });
+  {
     for (const n of nodes) {
       const progress = typeof n.progress === "number" ? n.progress : null;
       if (progress !== null && progress >= 1) continue; // done
@@ -6133,8 +6431,7 @@ async function fetchTasks(cfg: PaveConfig, isToDo: boolean): Promise<OpenToDo[]>
         assigneeIds,
       });
     }
-    page = r?.organization?.tasks?.nextPage || undefined;
-  } while (page && ++guard < 100);
+  }
   return out;
 }
 
@@ -6169,47 +6466,47 @@ export function getMembersByEmail(cfg: PaveConfig): Promise<Map<string, MemberRe
 }
 async function _getMembersByEmailUncached(cfg: PaveConfig): Promise<Map<string, MemberRef>> {
   const out = new Map<string, MemberRef>();
-  let cursor: string | null = null;
-  for (let page = 0; page < 10; page++) {
-    const args: Record<string, unknown> = { size: 100 };
-    if (cursor) args.page = cursor;
-    const r = await pave(cfg, {
-      organization: {
-        $: { id: cfg.orgId },
-        id: {},
-        memberships: {
-          $: args,
-          nextPage: {},
-          nodes: { id: {}, user: { id: {}, name: {}, emailAddress: {} } },
+  await pageEach<any>(
+    cfg,
+    {
+      label: "organization.memberships (by email)",
+      query: (args) => ({
+        organization: {
+          $: { id: cfg.orgId },
+          id: {},
+          memberships: {
+            $: args,
+            nextPage: {},
+            nodes: { id: {}, user: { id: {}, name: {}, emailAddress: {} } },
+          },
         },
-      },
-    });
-    const mc = r?.organization?.memberships ?? {};
-    for (const n of mc.nodes ?? []) {
-      const email = String(n?.user?.emailAddress ?? "").trim().toLowerCase();
-      if (!email || !n?.user?.id) continue;
-      // First membership wins: one address can hold both an internal seat and a
-      // customer-contact seat, and the internal one is created first.
-      if (!out.has(email)) {
-        out.set(email, {
-          userId: n.user.id,
-          membershipId: n.id ?? "",
-          name: n.user.name ?? "",
-          email,
-        });
+      }),
+      pick: (r) => r?.organization?.memberships,
+    },
+    (rows) => {
+      for (const n of rows) {
+        const email = String(n?.user?.emailAddress ?? "")
+          .trim()
+          .toLowerCase();
+        if (!email || !n?.user?.id) continue;
+        // First membership wins: one address can hold both an internal seat and
+        // a customer-contact seat, and the internal one is created first.
+        if (!out.has(email)) {
+          out.set(email, {
+            userId: n.user.id,
+            membershipId: n.id ?? "",
+            name: n.user.name ?? "",
+            email,
+          });
+        }
       }
-    }
-    cursor = mc.nextPage ?? null;
-    if (!cursor) break;
-  }
+    },
+  );
   return out;
 }
 
 /** The JobTread member who signs in with `email`, or null. */
-export async function findMemberByEmail(
-  cfg: PaveConfig,
-  email: string,
-): Promise<MemberRef | null> {
+export async function findMemberByEmail(cfg: PaveConfig, email: string): Promise<MemberRef | null> {
   const key = (email ?? "").trim().toLowerCase();
   if (!key) return null;
   return (await getMembersByEmail(cfg)).get(key) ?? null;

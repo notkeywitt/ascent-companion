@@ -5,7 +5,10 @@ import {
   createLine,
   getAllBillsForMonth,
   getInvoiceReconciliation,
+  pageAll,
+  pageEach,
   pave,
+  type PageWalk,
   type PaveConfig,
 } from "./jobtread";
 
@@ -32,7 +35,10 @@ afterEach(() => vi.restoreAllMocks());
 
 describe("pave — reads", () => {
   it("returns parsed data", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => reply(200, okBody({ job: { id: "j1" } }))));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => reply(200, okBody({ job: { id: "j1" } }))),
+    );
     await expect(pave(cfg, { job: { $: { id: "j1" }, id: {} } })).resolves.toEqual({
       job: { id: "j1" },
     });
@@ -190,7 +196,10 @@ describe("getAllBillsForMonth — a draft invoice leaves a bill uninvoiced", () 
 
   const stub = (invoiceStatus: string) => {
     const fetchMock = vi.fn(async (_url: string, _init: RequestInit) =>
-      reply(200, okBody({ organization: { documents: { nextPage: null, nodes: [bill(invoiceStatus)] } } })),
+      reply(
+        200,
+        okBody({ organization: { documents: { nextPage: null, nodes: [bill(invoiceStatus)] } } }),
+      ),
     );
     vi.stubGlobal("fetch", fetchMock);
     return fetchMock;
@@ -260,7 +269,9 @@ describe("getInvoiceReconciliation — a draft invoice leaves the bill uninvoice
                     cost: 4163.75,
                     issueDate: "2026-08-31",
                     status: "pending",
-                    referencedDocuments: { nodes: [{ id: "inv1", type: "customerInvoice", status: invoiceStatus }] },
+                    referencedDocuments: {
+                      nodes: [{ id: "inv1", type: "customerInvoice", status: invoiceStatus }],
+                    },
                   },
                 ],
               },
@@ -280,8 +291,13 @@ describe("getInvoiceReconciliation — a draft invoice leaves the bill uninvoice
               nextPage: null,
               nodes: [
                 {
-                  id: "inv1", number: 12, issueDate: null, status: invoiceStatus,
-                  cost: 4163.75, priceWithTax: 4163.75, amountPaid: 0,
+                  id: "inv1",
+                  number: 12,
+                  issueDate: null,
+                  status: invoiceStatus,
+                  cost: 4163.75,
+                  priceWithTax: 4163.75,
+                  amountPaid: 0,
                   referencedDocuments: { nodes: [] },
                 },
               ],
@@ -432,5 +448,129 @@ describe("bill lines are written taxable", () => {
     const flags = sent.filter((a) => "isTaxable" in a).map((a) => a.isTaxable);
     expect(flags.length).toBeGreaterThan(0);
     expect(flags.every((f) => f === true)).toBe(true);
+  });
+});
+
+/**
+ * The paged walk.
+ *
+ * The bug this replaced: about forty hand-written cursor loops, each with its
+ * own stop limit, each ending SILENTLY when it hit that limit. A job with more
+ * bills than its loop allowed handed back a short list and a total that was too
+ * low, and nothing said so. These tests fix the two rules that stop that:
+ * running out of pages throws, and an intentional sample does not.
+ */
+
+/** Serve `pages` in order, each as one Pave answer under `organization.things`. */
+const pagedFetch = (pages: { rows: unknown[]; next?: string | null }[]) => {
+  const seen: (string | undefined)[] = [];
+  let i = 0;
+  const fetchMock = vi.fn(async (_url: string, init: { body: string }) => {
+    const body = JSON.parse(init.body);
+    seen.push(body?.query?.organization?.things?.$?.page);
+    const p = pages[Math.min(i++, pages.length - 1)];
+    return reply(
+      200,
+      okBody({ organization: { things: { nodes: p.rows, nextPage: p.next ?? null } } }),
+    );
+  });
+  vi.stubGlobal("fetch", fetchMock);
+  return { seen, calls: () => fetchMock.mock.calls.length };
+};
+
+const thingWalk = (over: Partial<PageWalk<number>> = {}): PageWalk<number> => ({
+  label: "organization.things",
+  query: (args) => ({ organization: { $: { id: "org1" }, things: { $: args, nextPage: {} } } }),
+  pick: (r) => r?.organization?.things,
+  ...over,
+});
+
+describe("pageAll / pageEach", () => {
+  it("follows the cursor to the last page and returns every row", async () => {
+    const { seen } = pagedFetch([
+      { rows: [1, 2], next: "c1" },
+      { rows: [3, 4], next: "c2" },
+      { rows: [5], next: null },
+    ]);
+    await expect(pageAll<number>(cfg, thingWalk())).resolves.toEqual([1, 2, 3, 4, 5]);
+    // First request carries no cursor; each later one carries the previous token.
+    expect(seen).toEqual([undefined, "c1", "c2"]);
+  });
+
+  it("asks for 100 rows a page — JobTread's cap", async () => {
+    pagedFetch([{ rows: [], next: null }]);
+    let sent: Record<string, unknown> = {};
+    await pageAll(cfg, thingWalk({ query: (args) => ((sent = args), { organization: {} }) }));
+    expect(sent.size).toBe(100);
+  });
+
+  it("THROWS rather than return a short answer when it runs out of pages", async () => {
+    // Every page reports another one after it, so the cursor never clears.
+    pagedFetch([{ rows: [1], next: "more" }]);
+    await expect(pageAll(cfg, thingWalk({ maxPages: 3 }))).rejects.toThrow(
+      /more than 300 rows of organization\.things/,
+    );
+  });
+
+  it("names the connection and the ceiling in that error", async () => {
+    pagedFetch([{ rows: [1], next: "more" }]);
+    await expect(pageAll(cfg, thingWalk({ maxPages: 2, size: 50 }))).rejects.toThrow(
+      /organization\.things.*Narrow the query, or raise maxPages/s,
+    );
+  });
+
+  it("stopAfterPages is a sample, not a failure — it returns quietly", async () => {
+    const { calls } = pagedFetch([{ rows: [7], next: "more" }]);
+    // readLastUsed() reads one page of newest-first entries on purpose.
+    await expect(pageAll(cfg, thingWalk({ stopAfterPages: 1 }))).resolves.toEqual([7]);
+    expect(calls()).toBe(1);
+  });
+
+  it("stopAfterPages wins over maxPages, so a sample never throws", async () => {
+    pagedFetch([{ rows: [7], next: "more" }]);
+    await expect(pageAll(cfg, thingWalk({ stopAfterPages: 1, maxPages: 100 }))).resolves.toEqual([
+      7,
+    ]);
+  });
+
+  it("a walk that ends on its last page does not throw at the ceiling", async () => {
+    // Exactly maxPages pages, the last with no cursor. This is a complete read.
+    pagedFetch([
+      { rows: [1], next: "c1" },
+      { rows: [2], next: null },
+    ]);
+    await expect(pageAll(cfg, thingWalk({ maxPages: 2 }))).resolves.toEqual([1, 2]);
+  });
+
+  it('onPage returning "stop" ends the walk early without an error', async () => {
+    const { calls } = pagedFetch([{ rows: [1], next: "more" }]);
+    const got: number[] = [];
+    await pageEach<number>(cfg, thingWalk(), (rows) => {
+      got.push(...rows);
+      return "stop"; // what a search loop does once it has found its row
+    });
+    expect(got).toEqual([1]);
+    expect(calls()).toBe(1);
+  });
+
+  it("reads withValues for a GROUPED connection", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        reply(
+          200,
+          okBody({ organization: { things: { withValues: [{ total: 5 }], nextPage: null } } }),
+        ),
+      ),
+    );
+    await expect(pageAll(cfg, thingWalk())).resolves.toEqual([{ total: 5 }]);
+  });
+
+  it("treats a missing connection as no rows rather than throwing", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => reply(200, okBody({ organization: {} }))),
+    );
+    await expect(pageAll(cfg, thingWalk())).resolves.toEqual([]);
   });
 });
