@@ -109,7 +109,10 @@ export default function TimeSyncPage() {
       });
       const j = await res.json();
       const posted = j.jtStatus === "pushed" || j.jtPosted;
-      if (posted) setMsg({ tone: "success", text: "Posted to JobTread." });
+      // A posted record can still carry a note — the retry moves a record
+      // JobTread would not take onto the same code's Labor line, and the office
+      // must be told its hours landed somewhere other than the row said.
+      if (posted) setMsg({ tone: j.error ? "info" : "success", text: j.error || "Posted to JobTread." });
       else if (j.jtStatus === "adopted (already in JobTread)")
         // Adoption resolved the record either way. It still needs a person when
         // the entry it found is the open one, and then the route says so.

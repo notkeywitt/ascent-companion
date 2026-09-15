@@ -39,6 +39,7 @@ import {
   getUserTimeEntries,
   jtIsoToOrgLocal,
   orgLocalToJtIso,
+  resolveTimeTrackableLeaf,
 } from "@/lib/jobtread";
 import { callAppsScriptOrThrow } from "@/lib/appsScript";
 import {
@@ -456,6 +457,30 @@ export async function retryWorked(
     return { ok: false, jtStatus: "", error: `Row is missing ${missing.join(", ")} — fix it in the sheet, then retry.` };
   }
 
+  // JobTread refuses an hour on a budget line whose cost type isn't Labor, and
+  // the picker used to offer every line under a code. A record stranded that
+  // way retries into the SAME refusal forever, so move it to the Labor line of
+  // the code the employee picked. Same code, different line — never a different
+  // code, which would put their hours on the wrong budget.
+  let costItemId = row.costItemId;
+  let recoded = false;
+  try {
+    const leaf = await resolveTimeTrackableLeaf(getPaveConfig(), row.jobId, row.costItemId, row.costCode);
+    if (!leaf.costItemId) {
+      return {
+        ok: false,
+        jtStatus: "",
+        error:
+          `JobTread won't take time on this record's budget line, and ${leaf.number || "that cost code"} ` +
+          `has no Labor line on this job. Add one to the job's budget in JobTread, then retry.`,
+      };
+    }
+    costItemId = leaf.costItemId;
+    recoded = leaf.moved;
+  } catch {
+    /* couldn't read the budget — post what the row says, as this always did */
+  }
+
   // Look before you create. A failure between the JobTread write and the sheet
   // write-back leaves exactly this state, and creating here is the duplicate
   // this module exists to prevent. A failed look must not block the retry — a
@@ -489,7 +514,7 @@ export async function retryWorked(
     const { id: jtEntryId } = await createTimeEntry(getPaveConfig(), {
       userId: row.jtUserId,
       jobId: row.jobId,
-      costItemId: row.costItemId,
+      costItemId,
       startedAt,
       endedAt,
       type: row.payType,
@@ -506,7 +531,7 @@ export async function retryWorked(
         action: "finalizeTimeEntryLog",
         clientKey: id,
         jtEntryId,
-        jtStatus: "pushed (retry)",
+        jtStatus: recoded ? "pushed (retry, moved to the Labor line)" : "pushed (retry)",
       });
     } catch (e) {
       const why = e instanceof Error ? e.message : "Unknown error";
@@ -520,7 +545,15 @@ export async function retryWorked(
           `will create a duplicate.`,
       };
     }
-    return { ok: true, jtStatus: "pushed", jtEntryId };
+    return {
+      ok: true,
+      jtStatus: "pushed",
+      jtEntryId,
+      error: recoded
+        ? `Posted. JobTread would not take the hour on the budget line the record named, ` +
+          `so it went to the Labor line of ${row.costCode || "the same cost code"}.`
+        : undefined,
+    };
   } catch (e) {
     const error = e instanceof Error ? e.message : "Unknown error";
     // Best-effort: recording WHY it failed must never replace the real error.

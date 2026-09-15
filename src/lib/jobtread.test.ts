@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   budgetCodeMaps,
+  pickTimeLeaf,
+  timeTrackableLeaves,
   combineLines,
   createLine,
   getAllBillsForMonth,
@@ -382,6 +384,61 @@ describe("budgetCodeMaps — a time entry needs the time-trackable leaf", () => 
 
   it("first wins among several time-trackable leaves", () => {
     expect(budgetCodeMaps(items).timeTrackable["01 31 00"]).toBe("labor-first");
+  });
+});
+
+/**
+ * THE SAME TRAP, ON THE PHONE. The /employee-time cost-code picker offered
+ * every budget line under a code, so an employee could pick "01 51 20 —
+ * Materials" and JobTread refused the hour at write time, long after they had
+ * gone home. These two decide what the picker offers and how a record already
+ * stranded that way is repaired.
+ */
+describe("time-trackable leaves — what a phone may code an hour to", () => {
+  const items = [
+    { id: "mat", number: "01 51 20", name: "Temporary Utilities", detail: "Materials", timeTrackable: false },
+    { id: "lab", number: "01 51 20", name: "Temporary Utilities", detail: "Labor", timeTrackable: true },
+    { id: "sub", number: "01 51 10", name: "Temporary Sanitation", timeTrackable: false },
+  ];
+
+  it("offers only the lines JobTread will accept", () => {
+    const { items: shown, filtered } = timeTrackableLeaves(items);
+    expect(filtered).toBe(true);
+    expect(shown.map((b) => b.id)).toEqual(["lab"]);
+  });
+
+  it("offers EVERY line when nothing reads as trackable, rather than nothing", () => {
+    // "None trackable" almost always means the flag couldn't be read. An empty
+    // dropdown stops a crew logging time at all, which is worse than the
+    // refusal it would prevent — so the old behaviour is the fallback.
+    const unreadable = items.map((b) => ({ ...b, timeTrackable: undefined }));
+    const { items: shown, filtered } = timeTrackableLeaves(unreadable);
+    expect(filtered).toBe(false);
+    expect(shown).toHaveLength(3);
+  });
+
+  it("moves a stranded record to the Labor line of the SAME code", () => {
+    expect(pickTimeLeaf(items, "mat")).toEqual({ costItemId: "lab", moved: true, number: "01 51 20" });
+  });
+
+  it("leaves a record that is already on the Labor line alone", () => {
+    expect(pickTimeLeaf(items, "lab")).toEqual({ costItemId: "lab", moved: false, number: "01 51 20" });
+  });
+
+  it("refuses to guess when the code has no Labor line", () => {
+    // "" is what tells the retry to stop and say so, instead of posting the
+    // hours to whatever line happens to be first.
+    expect(pickTimeLeaf(items, "sub")).toEqual({ costItemId: "", moved: false, number: "01 51 10" });
+  });
+
+  it("falls back to the row's own cost code when the line id is unknown", () => {
+    // A leaf deleted from the budget since the record was written.
+    expect(pickTimeLeaf(items, "gone", "01 51 20")).toMatchObject({ costItemId: "lab", moved: true });
+  });
+
+  it("changes nothing when no line reads as trackable", () => {
+    const unreadable = items.map((b) => ({ ...b, timeTrackable: undefined }));
+    expect(pickTimeLeaf(unreadable, "mat")).toEqual({ costItemId: "mat", moved: false, number: "01 51 20" });
   });
 });
 

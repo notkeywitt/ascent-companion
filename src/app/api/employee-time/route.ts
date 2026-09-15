@@ -2,9 +2,9 @@ import { NextRequest, NextResponse, after } from "next/server";
 
 import { auth } from "@/auth";
 import {
-  getJobBudget,
   getOrgUsers,
   getOrgTimeEntryTypeNames,
+  getTimeTrackableLeaves,
   createTimeEntry,
   orgLocalToJtIso,
 } from "@/lib/jobtread";
@@ -62,7 +62,8 @@ import { resolveJtUserLink } from "@/lib/jtUserLink";
  * makes a double-tap or a replay reconcile to one row instead of two.
  *
  *   GET                → { ok, me, jtUsers, orgTypes }           (page bootstrap)
- *   GET ?jobId=<id>    → { ok, costItems:[{id, number, name}] }  (cost-code list)
+ *   GET ?jobId=<id>    → { ok, laborOnly, costItems:[{id, number, name, detail,
+ *                        costType}] }  (the lines time may be coded to)
  *   POST { userId, jobId, jobLabel?, costItemId, costCode?, payType?, startTime,
  *          endTime, note, employee?, photos:[{base64, mimeType, name}] }
  *        → { ok, accepted, previewed, photoCount }
@@ -96,10 +97,28 @@ export async function GET(req: NextRequest) {
   const jobId = (req.nextUrl.searchParams.get("jobId") ?? "").trim();
   if (jobId) {
     try {
-      const items = await getJobBudget(cfg, jobId);
+      // ONLY the lines JobTread will take an hour on. A cost code is not what
+      // JobTread gates on — the cost ITEM's cost type is — so "01 51 20" can
+      // have a Labor line and a Materials line, and the whole-budget list this
+      // used to return offered both. Picking the wrong one failed at write
+      // time, hours after the employee had gone home.
+      //
+      // `detail` rides along because that is the ONLY thing that tells two
+      // lines under one code apart: `name` is the cost CODE's name and is
+      // identical across them.
+      const { items, filtered } = await getTimeTrackableLeaves(cfg, jobId);
       return NextResponse.json({
         ok: true,
-        costItems: items.map((b) => ({ id: b.id, number: b.number, name: b.name })),
+        // false = the flag could not be read and this is the whole budget, so
+        // the page must not promise that every line here will be accepted.
+        laborOnly: filtered,
+        costItems: items.map((b) => ({
+          id: b.id,
+          number: b.number,
+          name: b.name,
+          detail: b.detail,
+          costType: b.costType,
+        })),
       });
     } catch (e) {
       return NextResponse.json(

@@ -1144,6 +1144,91 @@ export function getJobBudget(cfg: PaveConfig, jobId: string): Promise<BudgetItem
 }
 
 /**
+ * The job's leaves that a TIME ENTRY may be coded to.
+ *
+ * A cost CODE is not the unit JobTread gates on — a cost ITEM is, through its
+ * cost type. One code routinely carries a Materials leaf and a Labor leaf, and
+ * only the second will take an hour. Offering the whole budget therefore offers
+ * codes that are refused at write time, after the employee has gone home.
+ *
+ * WHEN NO LEAF LOOKS TRACKABLE, EVERY LEAF IS RETURNED. "None" almost always
+ * means the flag could not be read (a grant without the permission, a field
+ * JobTread stopped returning), not that a live job has no labor line — and an
+ * empty dropdown stops a crew logging time at all, which is worse than the
+ * refusal it would prevent. `filtered` says which of the two answers this is,
+ * so a caller can word itself honestly.
+ */
+export async function getTimeTrackableLeaves(
+  cfg: PaveConfig,
+  jobId: string,
+): Promise<{ items: BudgetItem[]; filtered: boolean }> {
+  return timeTrackableLeaves(await getJobBudget(cfg, jobId));
+}
+
+/** The decision `getTimeTrackableLeaves` makes, without the fetch. Unit-tested. */
+export function timeTrackableLeaves(all: BudgetItem[]): {
+  items: BudgetItem[];
+  filtered: boolean;
+} {
+  const trackable = all.filter((b) => b.timeTrackable);
+  return trackable.length ? { items: trackable, filtered: true } : { items: all, filtered: false };
+}
+
+/** Where a time entry's cost code ended up, and whether it had to move. */
+export interface TimeLeafResolution {
+  /** The leaf to use. "" when the job carries no time-trackable leaf for the code. */
+  costItemId: string;
+  /** True when this is NOT the leaf that was asked for. */
+  moved: boolean;
+  /** The cost code the answer sits under, for a message. */
+  number: string;
+}
+
+/**
+ * Point a time entry at a leaf JobTread will accept, under the SAME cost code.
+ *
+ * The repair for an entry coded to the wrong row: "01 51 20" may have a Labor
+ * leaf and a Materials leaf, and an entry on the Materials one is refused. The
+ * code the employee picked is right; only the row under it is wrong, so this
+ * moves the entry within the code and never across codes — guessing a different
+ * code would put someone's hours on the wrong budget line.
+ *
+ * Used by the Time Sync retry, NOT by the live logging path: a re-code is a
+ * repair of a known-broken record, and the picker (`getTimeTrackableLeaves`) is
+ * what stops the bad pick happening in the first place.
+ */
+export async function resolveTimeTrackableLeaf(
+  cfg: PaveConfig,
+  jobId: string,
+  costItemId: string,
+  costCode = "",
+): Promise<TimeLeafResolution> {
+  return pickTimeLeaf(await getJobBudget(cfg, jobId), costItemId, costCode);
+}
+
+/** The decision `resolveTimeTrackableLeaf` makes, without the fetch. Unit-tested. */
+export function pickTimeLeaf(
+  all: BudgetItem[],
+  costItemId: string,
+  costCode = "",
+): TimeLeafResolution {
+  const given = all.find((b) => b.id === costItemId);
+  const number = (given?.number ?? costCode).trim();
+
+  // Nothing on this job reads as trackable — see getTimeTrackableLeaves. We
+  // cannot tell a wrong line from an unreadable flag, so change nothing.
+  if (!all.some((b) => b.timeTrackable)) return { costItemId, moved: false, number };
+
+  if (given?.timeTrackable) return { costItemId, moved: false, number };
+
+  const { timeTrackable } = budgetCodeMaps(all);
+  const hit = number ? timeTrackable[number] : undefined;
+  return hit
+    ? { costItemId: hit, moved: hit !== costItemId, number }
+    : { costItemId: "", moved: false, number };
+}
+
+/**
  * The job budget's 88 80 00 leaf — where a bill's sales-tax line is coded.
  *
  * REFRESH-ON-MISS, like the Apps Script budget map: a miss re-reads the budget
@@ -5871,13 +5956,20 @@ export interface CreateTimeEntryArgs {
   isApproved?: boolean; // default false → office reviews before it counts
 }
 
-// JobTread's cost codes carry no queryable "time-trackable" field (7 candidate
-// field names on costCode all rejected in the probe) — it only tells you at
-// write time. Rephrase that specific 400 into something a field employee can
-// act on, instead of the raw API sentence.
+// JobTread gates time tracking on the cost ITEM's cost TYPE, not on the cost
+// code: `costType.isTimeTrackable`, which IS queryable and is read into
+// `BudgetItem.timeTrackable` above. (An older note here said no such field
+// existed — that probe tried `costCode`, which indeed carries none.)
+//
+// So the message must not send anyone looking for a different CODE. One code
+// routinely carries a Materials leaf and a Labor leaf, and the code they picked
+// is usually right — it is the row under it that will not take an hour.
 function rewriteTimeEntryError(message: string): string {
   if (/cost type that is not able to be time tracked/i.test(message)) {
-    return "This cost code doesn't support time tracking in JobTread — pick a different one.";
+    return (
+      "JobTread won't take time on this budget line — its cost type isn't Labor. " +
+      "The cost code may still be right: pick the code's Labor line, or add one to the job's budget."
+    );
   }
   return message;
 }

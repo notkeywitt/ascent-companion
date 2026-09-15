@@ -76,7 +76,13 @@ interface UserRef {
 interface CostItem {
   id: string;
   number: string;
+  /** The cost CODE's name — identical across every line under that code. */
   name: string;
+  /** This LINE's own name ("Wood Decking - Labor"). The only thing that tells
+   *  two lines under one code apart, which is why it is shown. */
+  detail?: string;
+  /** Labor / Materials / Subcontractor / Other. */
+  costType?: string;
 }
 interface Photo {
   base64: string; // data URL
@@ -866,7 +872,7 @@ export function EmployeeTimeClient({
   const jobLabelText = selectedJob ? jobRefLabel(selectedJob) : "";
   const selectedCost = costItems.find((c) => c.id === costItemId) ?? null;
   const costLabelText = selectedCost
-    ? `${selectedCost.number}${selectedCost.name ? ` — ${selectedCost.name}` : ""}`
+    ? `${selectedCost.number}${selectedCost.detail || selectedCost.name ? ` — ${selectedCost.detail || selectedCost.name}` : ""}`
     : "";
   const duration = fmtDuration(startTime, endTime);
 
@@ -1630,7 +1636,7 @@ export function EmployeeTimeClient({
                         ? "Loading cost codes…"
                         : costItems.length
                           ? "Select a cost code"
-                          : "No cost codes on this job")
+                          : "No labor line on this job — ask the office")
                   }
                   placeholder={!costLabelText}
                   onClick={jobId && costItems.length ? () => openSheet("cost") : undefined}
@@ -2016,7 +2022,7 @@ export function EmployeeTimeClient({
                   ? "Loading cost codes…"
                   : costItems.length
                     ? "Select a cost code"
-                    : "No cost codes on this job")
+                    : "No labor line on this job — ask the office")
             }
             placeholder={!costLabelText}
             onClick={jobId && costItems.length ? () => openSheet("cost", "manual") : undefined}
@@ -2121,7 +2127,7 @@ export function EmployeeTimeClient({
                   ? "Loading cost codes…"
                   : editCostItems.length
                     ? "Select a cost code"
-                    : "No cost codes on this job")
+                    : "No labor line on this job — ask the office")
             }
             placeholder={!editCostLabelText}
             onClick={editJobId && editCostItems.length ? () => openSheet("editcost", "edit") : undefined}
@@ -2617,7 +2623,7 @@ function CostSheet({
   }, [open]);
   const query = q.trim().toLowerCase();
   const shown = query
-    ? items.filter((c) => `${c.number} ${c.name}`.toLowerCase().includes(query))
+    ? items.filter((c) => `${c.number} ${c.name} ${c.detail ?? ""}`.toLowerCase().includes(query))
     : items;
   return (
     <Sheet open={open} title="Cost code" onClose={onClose} tall>
@@ -2634,7 +2640,10 @@ function CostSheet({
             key={c.id}
             selected={c.id === selectedId}
             label={c.number}
-            sub={c.name || undefined}
+            // One code can carry several budget lines, so the LINE's own name
+            // is what makes the choice a choice. Fall back to the code's name
+            // when a line has none of its own.
+            sub={c.detail || c.name || undefined}
             onClick={() => onPick(c)}
           />
         ))}
