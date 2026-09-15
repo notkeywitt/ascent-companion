@@ -4,9 +4,9 @@ repo: ascent-companion
 branch: claude/allbills-vendor-collapsed
 status: in-progress
 started: 2026-09-14T17:52:26Z
-updated: 2026-09-14T18:51:23Z
+updated: 2026-09-14T18:59:56Z
 goal: 
-next: open /trackingsheet with no job: check Show=Expenses lists the Aug 13 Expense, Paid=Unpaid keeps part-paid bills, and vendor panes still start shut
+next: open /vendors, pick HOBI Plumbing (account + address), Glacier Window (contact-only email/phone) and a vendor with neither — confirm the Details card renders or hides correctly
 ---
 
 ## Log
@@ -18,5 +18,7 @@ next: open /trackingsheet with no job: check Show=Expenses lists the Aug 13 Expe
   src/app/trackingsheet/AllBills.tsx, src/lib/jobtread.ts
 - 2026-09-14 11:51 · `b7dc159` companion: show a vendor's email, phone and address
   src/app/api/vendor-bills/[id]/route.ts, src/app/vendors/page.tsx, src/lib/jobtread.ts
+- 2026-09-14 11:59 · `2e1734e` companion: fill in a vendor's missing email, phone or address
+  src/app/api/vendor-details/route.ts, src/app/vendors/page.tsx, src/lib/clientDirectory.ts, src/lib/views.ts
 
 ## Notes

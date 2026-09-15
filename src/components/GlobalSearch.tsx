@@ -101,7 +101,7 @@ export function GlobalSearch() {
   /** Where the portalled panel sits, measured off the box. Null until the first
    *  measurement, which is also what keeps it out of the server-rendered
    *  markup. */
-  const [pos, setPos] = useState<{ top: number; right: number; room: number; maxH: number } | null>(
+  const [pos, setPos] = useState<{ top: number; left: number; room: number; maxH: number } | null>(
     null,
   );
 
@@ -236,13 +236,13 @@ export function GlobalSearch() {
       const r = el.getBoundingClientRect();
       const vv = window.visualViewport;
       const vw = document.documentElement.clientWidth;
-      const right = Math.max(GUTTER, vw - r.right);
+      const left = Math.max(GUTTER, r.left);
       setPos({
         top: r.bottom + 4,
-        right,
-        // The width still available between that right inset and the left
-        // gutter. Capping by it is what stops the panel crossing the left edge.
-        room: Math.max(0, vw - right - GUTTER),
+        left,
+        // The width still available between that left inset and the right
+        // gutter. Capping by it is what stops the panel crossing the right edge.
+        room: Math.max(0, vw - left - GUTTER),
         maxH: Math.max(
           180,
           (vv?.height ?? window.innerHeight) - (r.bottom - (vv?.offsetTop ?? 0)) - GUTTER,
@@ -312,8 +312,8 @@ export function GlobalSearch() {
 
           Below sm it spans the screen between two 8px gutters, which is the
           widest it can be — the point, since every row truncates. From sm up it
-          right-aligns to the box again, capped by `room` (the width left between
-          that inset and the left gutter) so it cannot cross the edge a second
+          left-aligns under the box, capped by `room` (the width left between
+          that inset and the right gutter) so it cannot cross the edge a second
           time. */}
       {showPanel &&
         pos &&
@@ -323,10 +323,10 @@ export function GlobalSearch() {
             style={{
               top: pos.top,
               maxHeight: pos.maxH,
-              ["--gs-right" as string]: `${pos.right}px`,
+              ["--gs-left" as string]: `${pos.left}px`,
               ["--gs-room" as string]: `${pos.room}px`,
             }}
-            className="fixed left-2 right-2 z-40 overflow-y-auto overscroll-contain rounded-lg border border-neutral-300 bg-white shadow-lg dark:border-neutral-700 dark:bg-ink-overlay sm:left-auto sm:right-[var(--gs-right)] sm:w-[min(30rem,var(--gs-room))]">
+            className="fixed left-2 right-2 z-40 overflow-y-auto overscroll-contain rounded-lg border border-neutral-300 bg-white shadow-lg dark:border-neutral-700 dark:bg-ink-overlay sm:right-auto sm:left-[var(--gs-left)] sm:w-[min(30rem,var(--gs-room))]">
             {!hasAnything && !billsLoading && (
               <p className="px-3 py-4 text-center text-[13px] text-neutral-500">
                 Nothing matches “{query.trim()}”.
