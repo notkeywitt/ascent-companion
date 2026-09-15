@@ -14,5 +14,6 @@ next: owner decides whether to push this branch to remote main (it touches retry
 <!-- Appended by .githooks/post-commit. Do not hand-write rows here. -->
 - 2026-09-15 21:16 · `2a3914a` companion: catch time entries jobtread has with the wrong hours
   CODEBASE_MAP.md, src/app/api/time-sync/retry/route.ts, src/app/api/time-sync/route.ts, src/app/more/page.tsx, src/app/page.tsx, src/app/time-sync/page.tsx, +12 more
+- 2026-09-15 21:16 · `c551741` companion: set session next step
 
 ## Notes
