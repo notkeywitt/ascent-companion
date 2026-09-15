@@ -626,6 +626,30 @@ export const HELP: HelpSection[] = [
         warn: ["Check each edit before you save. The roster changes at once, with no undo."],
       },
       {
+        id: "view-as-employee",
+        q: "How do I see and fix another employee's time?",
+        view: "employee-time",
+        href: "/employee-time",
+        keywords: ["view as", "another employee", "impersonate", "on behalf", "admin", "dan"],
+        steps: [
+          "Open **Time**.",
+          "Tap **View another employee's time**.",
+          "Select the person.",
+          "Use the **Time clock** and **Timesheets** tabs as they see them.",
+          "Tap **Back to my time** when you finish.",
+        ],
+        notes: [
+          "Admin only. The button is not there for other roles.",
+          "What you save is filed as that employee and recorded as you.",
+          "The **Logged By** column of the Time Entries sheet names you.",
+          "Your own PTO and sick balances are hidden while you view someone else.",
+          "Closing the page puts the person down. It is not remembered.",
+        ],
+        warn: [
+          "Check the name in the banner before you save. The hours go on that person's timesheet.",
+        ],
+      },
+      {
         id: "time-sync",
         q: "An employee says JobTread has the wrong hours. What do I do?",
         view: "time-sync",

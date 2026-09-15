@@ -165,6 +165,9 @@ type SheetId =
   | "out"
   | "manual"
   | "user"
+  // Admin: whose time this screen is showing. Distinct from "user", which asks
+  // who YOU are — see the two sheets at the bottom of this file.
+  | "acting"
   | "edit"
   | "editjob"
   | "editcost"
@@ -511,6 +514,7 @@ export function EmployeeTimeClient({
   initialLinked,
   identityResolved,
   lastUsed,
+  canActAs = false,
 }: {
   initialJobs: JobRef[];
   initialMe: Me | null;
@@ -520,10 +524,32 @@ export function EmployeeTimeClient({
   initialLinked: boolean;
   identityResolved: boolean;
   lastUsed: LastUsed | null;
+  /** Admin: may open this page as another employee. The server enforces it. */
+  canActAs?: boolean;
 }) {
   const [tab, setTab] = useState<"clock" | "sheets">("clock");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+
+  /* ── VIEWING SOMEONE ELSE (admin only) ─────────────────────────────────────
+     The JobTread user whose time this screen is showing, "" for your own. An
+     admin picks a person and the whole page follows: their running clock, their
+     timesheet, and any edit saved from it.
+
+     It is NOT remembered anywhere. It lives for this visit only, so an admin
+     cannot come back tomorrow and file their own hours onto somebody else
+     without noticing — closing the page is how you put it down.
+
+     `canActAs` only draws the control. Every route re-decides it server-side
+     from the session (src/lib/timeSubject.ts), so this state cannot grant
+     anything on its own. */
+  const [actingAsId, setActingAsId] = useState("");
+  const [actingName, setActingName] = useState("");
+  const acting = canActAs && !!actingAsId;
+  // Appended to every /api/employee-time* call while acting. One place, so a
+  // new call site cannot quietly read the admin's own time instead.
+  const actingParam = acting ? `actingAs=${encodeURIComponent(actingAsId)}` : "";
+  const actingBody = acting ? { userId: actingAsId } : {};
 
   // Reference data — all of it preloaded by the server shell (page.tsx), so the
   // screen paints complete. The fetches below are the COLD path only: they run
@@ -791,12 +817,16 @@ export function EmployeeTimeClient({
     } catch {}
   }, [me]);
 
-  const effectiveUserId = (me?.jtUserId || pickedUserId || "").trim();
+  // Acting wins: it is the whole point of the picker, and it is what every
+  // write body already sends as `userId`, so nothing else has to know.
+  const effectiveUserId = (acting ? actingAsId : me?.jtUserId || pickedUserId || "").trim();
   const effectiveUser = useMemo(
     () => jtUsers.find((u) => u.id === effectiveUserId) ?? null,
     [jtUsers, effectiveUserId],
   );
-  const effectiveName = me?.name || me?.jtUserName || effectiveUser?.name || "";
+  const effectiveName = acting
+    ? actingName || effectiveUser?.name || ""
+    : me?.name || me?.jtUserName || effectiveUser?.name || "";
 
   // Open a sheet, optionally remembering the one it covered.
   function openSheet(id: SheetId, from: SheetId = null) {
@@ -995,13 +1025,20 @@ export function EmployeeTimeClient({
       };
       setActiveClock(clock);
       setClockNote("");
-      saveClock(clock);
-      saveLastPick(me?.email, {
-        jobId,
-        costItemId,
-        costCode: selectedCost?.number ?? "",
-        payType,
-      });
+      // The phone's mirror belongs to whoever is signed in. While acting as
+      // someone else the clock is read from JobTread every time instead, so
+      // an admin's device never starts believing it is holding Dan's clock.
+      if (!acting) saveClock(clock);
+      // Remembered for next time — but only for your OWN clock-in. Acting as
+      // someone else must not overwrite the admin's own last job and code.
+      if (!acting) {
+        saveLastPick(me?.email, {
+          jobId,
+          costItemId,
+          costCode: selectedCost?.number ?? "",
+          payType,
+        });
+      }
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Could not clock in.");
     } finally {
@@ -1182,12 +1219,16 @@ export function EmployeeTimeClient({
         return;
       }
       manualKeyRef.current = ""; // clean success → next submission gets a new key
-      saveLastPick(me?.email, {
-        jobId,
-        costItemId,
-        costCode: selectedCost?.number ?? "",
-        payType,
-      });
+      // Remembered for next time — but only for your OWN clock-in. Acting as
+      // someone else must not overwrite the admin's own last job and code.
+      if (!acting) {
+        saveLastPick(me?.email, {
+          jobId,
+          costItemId,
+          costCode: selectedCost?.number ?? "",
+          payType,
+        });
+      }
       setSheet(null);
       setDone({
         result: json,
@@ -1218,6 +1259,10 @@ export function EmployeeTimeClient({
     note,
     photos,
     me,
+    // Whether this is somebody else's time decides where the record is filed
+    // and whether the pick is remembered, so a stale value here would file it
+    // the last person's way.
+    acting,
   ]);
 
   function logAnother() {
@@ -1228,6 +1273,44 @@ export function EmployeeTimeClient({
     resetStart();
   }
 
+  /* Switching who you are viewing rebuilds the clock from JobTread.
+
+     It skips its FIRST run, which is the initial "" — the mount effect above
+     has already reconciled the signed-in person's clock, and re-running that
+     here would race it. Afterwards every change re-reads, including the change
+     back to yourself, so putting someone down restores your own clock. */
+  const actingSettled = useRef(false);
+  useEffect(() => {
+    if (!canActAs) return;
+    if (!actingSettled.current) {
+      actingSettled.current = true;
+      return;
+    }
+    let alive = true;
+    setActiveClock(null);
+    setErr("");
+    setClockNote("");
+    const qs = actingAsId ? `?actingAs=${encodeURIComponent(actingAsId)}` : "";
+    fetch(`/api/employee-time/clock${qs}`, { cache: "no-store" })
+      .then((r) => r.json())
+      .then((j: { ok?: boolean; error?: string; openEntry?: OpenEntry | null }) => {
+        if (!alive) return;
+        if (j.ok === false) {
+          setErr(j.error || "Couldn't read that person's clock.");
+          return;
+        }
+        // Always `resumed: true`: this device did not start the clock, so the
+        // log key is derived from the entry id rather than invented.
+        setActiveClock(j.openEntry ? clockFromOpenEntry(j.openEntry, true) : null);
+      })
+      .catch(() => {
+        if (alive) setErr("Couldn't reach the server.");
+      });
+    return () => {
+      alive = false;
+    };
+  }, [actingAsId, canActAs]);
+
   // --------------------------------------------------------------- Timesheets
   const loadHistory = useCallback(async () => {
     const { start, end } = periodBounds(historyMonth, historyHalf);
@@ -1235,7 +1318,9 @@ export function EmployeeTimeClient({
     setHistoryLoading(true);
     setHistoryErr("");
     try {
-      const res = await fetch(`/api/employee-time/history?start=${start}&end=${end}`);
+      const res = await fetch(
+        `/api/employee-time/history?start=${start}&end=${end}${actingParam ? `&${actingParam}` : ""}`,
+      );
       const json = await res.json();
       if (!res.ok || json.ok === false) {
         setHistoryErr(json.error || "Could not load your time.");
@@ -1250,7 +1335,9 @@ export function EmployeeTimeClient({
     } finally {
       setHistoryLoading(false);
     }
-  }, [historyMonth, historyHalf]);
+    // `actingParam` is a dependency, not a detail: without it the Timesheets
+    // tab would keep showing the previous person's hours after a switch.
+  }, [historyMonth, historyHalf, actingParam]);
 
   useEffect(() => {
     if (tab === "sheets") loadHistory();
@@ -1378,6 +1465,7 @@ export function EmployeeTimeClient({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           op: "edit",
+          ...actingBody,
           entryId: editEntry.id,
           jobId: editJobId,
           jobLabel: editJobLabelText,
@@ -1480,8 +1568,47 @@ export function EmployeeTimeClient({
     <main className="mx-auto max-w-2xl px-4 pb-28 pt-4">
       <PageHeader
         title={EMPLOYEE_TIME_TITLE}
-        description="Clock in and out of a job, and check your timesheet."
+        description={
+          acting
+            ? "You are viewing another employee's time. Everything you save is saved as them."
+            : "Clock in and out of a job, and check your timesheet."
+        }
       />
+
+      {/* ADMIN: open the page as somebody else. The whole screen follows — their
+          running clock, their timesheet, and any edit saved from it. Drawn only
+          for an admin, and re-decided server-side on every request, so hiding
+          this control is the courtesy, not the gate. */}
+      {canActAs && (
+        <div className="mb-3">
+          {acting ? (
+            <Banner tone="warning" className="flex flex-wrap items-center justify-between gap-2">
+              <span>
+                Viewing <strong>{effectiveName || "another employee"}</strong>. Anything you log or
+                edit is filed as them, and recorded as you.
+              </span>
+              <button
+                type="button"
+                className="shrink-0 font-semibold underline underline-offset-2"
+                onClick={() => {
+                  setActingAsId("");
+                  setActingName("");
+                }}
+              >
+                Back to my time
+              </button>
+            </Banner>
+          ) : (
+            <button
+              type="button"
+              className="text-xs font-medium text-accent underline-offset-2 hover:underline"
+              onClick={() => openSheet("acting")}
+            >
+              View another employee&apos;s time →
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Time clock | Timesheets — the app's two halves, one tap apart. */}
       <Segmented
@@ -1499,7 +1626,11 @@ export function EmployeeTimeClient({
           {effectiveName ? (
             <>
               <span className="font-semibold text-neutral-700 dark:text-neutral-200">{effectiveName}</span>
-              {leaveBal.length > 0 &&
+              {/* The balances belong to whoever is signed in, so they are not
+                  shown beside another employee's name — they would read as
+                  that person's. */}
+              {!acting &&
+                leaveBal.length > 0 &&
                 (["sick", "pto"] as const).map((t) => {
                   const b = leaveBal.find((x) => x.leaveType === t);
                   return b ? (
@@ -1779,6 +1910,42 @@ export function EmployeeTimeClient({
       )}
 
       {/* ============================================================= SHEETS */}
+
+      {/* ADMIN: whose time to view. Separate from the sheet below on purpose —
+          that one asks who YOU are, this one asks who you are looking at, and
+          conflating them is how an admin would accidentally re-label themselves. */}
+      {canActAs && (
+        <Sheet open={sheet === "acting"} title="Whose time?" onClose={closeSheet}>
+          <p className="pb-2 text-xs text-neutral-500">
+            Admin only. What you save is filed as that employee and recorded as you.
+          </p>
+          <ul className="pb-2">
+            <OptionRow
+              selected={!actingAsId}
+              label="My own time"
+              onClick={() => {
+                setActingAsId("");
+                setActingName("");
+                closeSheet();
+              }}
+            />
+            {jtUsers
+              .filter((u) => u.id !== (me?.jtUserId ?? ""))
+              .map((u) => (
+                <OptionRow
+                  key={u.id}
+                  selected={u.id === actingAsId}
+                  label={(u.isInternal ? "★ " : "") + u.name}
+                  onClick={() => {
+                    setActingAsId(u.id);
+                    setActingName(u.name);
+                    closeSheet();
+                  }}
+                />
+              ))}
+          </ul>
+        </Sheet>
+      )}
 
       {/* Who you are in JobTread. */}
       <Sheet open={sheet === "user"} title="Who are you in JobTread?" onClose={closeSheet}>

@@ -11,7 +11,8 @@ import {
 import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
 import { callAppsScript } from "@/lib/appsScript";
 import { readOpenClock } from "@/lib/employeeClock";
-import { resolveJtUserLink } from "@/lib/jtUserLink";
+import { resolveTimeIdentity } from "@/lib/actingAs";
+import { openJournal } from "@/lib/financialJournal";
 
 /**
  * Clock in/out — the sibling of ../route.ts's one-shot "log a time range" form.
@@ -101,25 +102,37 @@ function toLocalStamp(v: string): string {
  * GET — the signed-in employee's RUNNING clock straight from JobTread, so the
  * page can resume it on a device that never saw the clock-in.
  */
-export async function GET() {
+export async function GET(req: NextRequest) {
   if (!hasGrant()) {
     return NextResponse.json({ ok: false, error: "JT_GRANT_KEY is not set." }, { status: 400 });
   }
 
-  const session = await auth();
-  const email = session?.user?.email ?? "";
-
-  const link = await resolveJtUserLink(email);
-  const userId = link?.jtUserId ?? "";
-  const name = (link?.name || link?.jtUserName || "").trim();
-  // Not linked to a JobTread user — there's no clock to look up. Not an error
-  // here: the bootstrap route already tells them how to link, and the page must
-  // still fall back to whatever it has locally.
-  if (!userId) return NextResponse.json({ ok: true, openEntry: null, openCount: 0, linked: false });
+  // `?actingAs` reads SOMEONE ELSE's running clock — admin only, refused by
+  // resolveTimeIdentity for every other role. It is how the office sees that a
+  // crew member is still clocked in, and closes the clock they left running.
+  const actingAs = (req.nextUrl.searchParams.get("actingAs") ?? "").trim();
+  const who = await resolveTimeIdentity(actingAs);
+  if (!who.ok) {
+    // A person with no JobTread link has no clock to look up. That is not an
+    // error here: the bootstrap already tells them how to link, and the page
+    // must still fall back to whatever it holds locally.
+    if (who.status === 400) {
+      return NextResponse.json({ ok: true, openEntry: null, openCount: 0, linked: false });
+    }
+    return NextResponse.json({ ok: false, error: who.error }, { status: who.status });
+  }
+  const userId = who.identity.jtUserId;
+  const name = (who.identity.name ?? "").trim();
 
   try {
     const { openEntry, openCount } = await readOpenClock(userId, name);
-    return NextResponse.json({ ok: true, linked: true, openCount, openEntry });
+    return NextResponse.json({
+      ok: true,
+      linked: true,
+      openCount,
+      openEntry,
+      subject: { jtUserId: userId, name, acting: who.identity.acting },
+    });
   } catch (err) {
     return NextResponse.json(
       { ok: false, error: err instanceof Error ? err.message : "Could not check your clock." },
@@ -169,18 +182,27 @@ export async function POST(req: NextRequest) {
 
   // -------------------------------------------------------------- clock IN --
   if (op === "in") {
-    const userId = (body.userId ?? "").trim();
+    // Whose clock. Same rule as every other write here — your own always,
+    // someone else's only as admin (src/lib/actingAs.ts).
+    const who = await resolveTimeIdentity((body.userId ?? "").trim());
+    if (!who.ok) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            who.status === 400
+              ? "No JobTread user — pick who you are in JobTread first."
+              : who.error,
+        },
+        { status: who.status },
+      );
+    }
+    const userId = who.identity.jtUserId;
     const jobId = (body.jobId ?? "").trim();
     const costItemId = (body.costItemId ?? "").trim();
     const payType = (body.payType ?? "").trim();
     const startedAt = orgLocalToJtIso(toLocalStamp(body.startTime ?? ""));
 
-    if (!userId) {
-      return NextResponse.json(
-        { ok: false, error: "No JobTread user — pick who you are in JobTread first." },
-        { status: 400 },
-      );
-    }
     if (!jobId) return NextResponse.json({ ok: false, error: "Pick a job." }, { status: 400 });
     if (!costItemId) return NextResponse.json({ ok: false, error: "Pick a cost code." }, { status: 400 });
     if (!startedAt) return NextResponse.json({ ok: false, error: "Missing clock-in time." }, { status: 400 });
@@ -205,6 +227,23 @@ export async function POST(req: NextRequest) {
         notes: "",
         isApproved: false,
       });
+      if (who.identity.acting) {
+        const j = await openJournal("/api/employee-time/clock", {
+          email: who.identity.email,
+          role: who.identity.role,
+        });
+        await j.record([
+          {
+            action: "time-entry.create",
+            entity: "time-entry",
+            entityId: id,
+            jobId,
+            after: { userId, jobId, costItemId, startedAt, type: payType },
+            beforeSource: "none",
+            meta: { actingAs: who.identity.name, actingAsJtUserId: userId, op: "clock-in" },
+          },
+        ]);
+      }
       return NextResponse.json({ ok: true, previewed: false, entryId: id, jtStatus: "pushed" });
     } catch (e) {
       return NextResponse.json(
@@ -236,6 +275,21 @@ export async function POST(req: NextRequest) {
 
   // ------------------------------------------------------------- clock OUT --
   if (op === "out") {
+    // Whose clock. Same rule as clock-in; an admin may close a clock a crew
+    // member left running, and the log records who really closed it.
+    const who = await resolveTimeIdentity((body.userId ?? "").trim());
+    if (!who.ok) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            who.status === 400
+              ? "No JobTread user — pick who you are in JobTread first."
+              : who.error,
+        },
+        { status: who.status },
+      );
+    }
     const entryId = (body.entryId ?? "").trim();
     const note = (body.note ?? "").trim();
     const startLocal = toLocalStamp(body.startTime ?? "");
@@ -276,9 +330,10 @@ export async function POST(req: NextRequest) {
       const reserved = await callAppsScript({
         action: "logTimeEntry",
         clientKey,
-        employee: body.employee ?? "",
-        employeeEmail: email,
-        jtUserId: (body.userId ?? "").trim(),
+        // The row is about the subject; `loggedBy` below is who really filed it.
+        employee: who.identity.acting ? who.identity.name : (body.employee ?? ""),
+        employeeEmail: who.identity.acting ? who.identity.subjectEmail : email,
+        jtUserId: who.identity.jtUserId,
         jobLabel: body.jobLabel ?? "",
         jobId: (body.jobId ?? "").trim(),
         costCode: body.costCode ?? "",
@@ -322,6 +377,27 @@ export async function POST(req: NextRequest) {
           ...(startEdited ? { startedAt } : {}),
         });
         jtStatus = "pushed";
+        if (who.identity.acting) {
+          const j = await openJournal("/api/employee-time/clock", {
+            email: who.identity.email,
+            role: who.identity.role,
+          });
+          await j.record([
+            {
+              action: "time-entry.update",
+              entity: "time-entry",
+              entityId: entryId,
+              jobId: (body.jobId ?? "").trim(),
+              after: { endedAt, notes: note, ...(startEdited ? { startedAt } : {}) },
+              beforeSource: "none",
+              meta: {
+                actingAs: who.identity.name,
+                actingAsJtUserId: who.identity.jtUserId,
+                op: "clock-out",
+              },
+            },
+          ]);
+        }
       } catch (e) {
         const message = e instanceof Error ? e.message : "Unknown error";
         jtStatus = "JobTread error: " + message;
@@ -349,15 +425,22 @@ export async function POST(req: NextRequest) {
   // competing companion write. No Time Entries log row is appended (that log is
   // for clock-outs / one-shot logs, not edits of time JobTread already holds).
   if (op === "edit") {
-    const link = await resolveJtUserLink(email);
-    const userId = link?.jtUserId ?? "";
-    if (!userId) {
-      return NextResponse.json({
-        ok: false,
-        error:
-          "No linked JobTread user for your login — an admin can link you on the Employees page.",
-      });
+    // Whose entry this may be. An admin editing someone else passes their id;
+    // everyone else gets their own and nothing more (src/lib/actingAs.ts).
+    const who = await resolveTimeIdentity((body.userId ?? "").trim());
+    if (!who.ok) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            who.status === 400
+              ? "No linked JobTread user for your login — an admin can link you on the Employees page."
+              : who.error,
+        },
+        who.status === 400 ? undefined : { status: who.status },
+      );
     }
+    const userId = who.identity.jtUserId;
 
     const entryId = (body.entryId ?? "").trim();
     const jobId = (body.jobId ?? "").trim();
@@ -388,8 +471,9 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Only your own time. The entry id is client-supplied, so re-read the owner
-    // from JobTread and compare it to the resolved session identity.
+    // Only time you may act on. The entry id is client-supplied, so re-read the
+    // owner from JobTread and compare it to the resolved subject — your own
+    // JobTread user, or, for an admin, the person they opened.
     let owner: string | null;
     try {
       owner = await getTimeEntryOwner(getPaveConfig(), entryId);
@@ -403,7 +487,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "That time entry no longer exists." }, { status: 404 });
     }
     if (owner !== userId) {
-      return NextResponse.json({ ok: false, error: "You can only edit your own time." }, { status: 403 });
+      return NextResponse.json(
+        {
+          ok: false,
+          error: who.identity.acting
+            ? "That entry belongs to someone else — reopen the person whose time it is."
+            : "You can only edit your own time.",
+        },
+        { status: 403 },
+      );
     }
 
     // jobId + costItemId are sent together: JobTread rejects a job move without
@@ -416,6 +508,27 @@ export async function POST(req: NextRequest) {
         endedAt,
         notes: note,
       });
+      if (who.identity.acting) {
+        const j = await openJournal("/api/employee-time/clock", {
+          email: who.identity.email,
+          role: who.identity.role,
+        });
+        await j.record([
+          {
+            action: "time-entry.update",
+            entity: "time-entry",
+            entityId: entryId,
+            jobId,
+            after: { jobId, costItemId, startedAt, endedAt, notes: note },
+            beforeSource: "none",
+            meta: {
+              actingAs: who.identity.name,
+              actingAsJtUserId: userId,
+              op: "timesheet-edit",
+            },
+          },
+        ]);
+      }
       return NextResponse.json({
         ok: true,
         previewed: false,

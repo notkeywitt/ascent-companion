@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 
 import { db, ensureDb } from "@/db";
 import { jtUserLinks } from "@/db/schema";
@@ -66,6 +66,35 @@ export async function readJtUserLink(email: string): Promise<JtUserLink | null> 
     return rows[0] ? rowToLink(rows[0]) : null;
   } catch {
     return null; // a DB hiccup must never block a page — the caller falls back
+  }
+}
+
+/**
+ * The reverse lookup: a JobTread user id → the login linked to it.
+ *
+ * The table is keyed by EMAIL, so this scans by the other column. It is used
+ * when an admin files time on someone's behalf and the log wants that person's
+ * own email rather than the admin's. Returns null for a JobTread user who has
+ * never signed into this app — which is a real answer, not a failure.
+ *
+ * Several logins could in principle carry the same JobTread id (a mis-link);
+ * the most recently refreshed one wins, because that is the one an admin most
+ * likely just corrected.
+ */
+export async function readJtUserLinkByJtUserId(jtUserId: string): Promise<JtUserLink | null> {
+  const id = (jtUserId ?? "").trim();
+  if (!id) return null;
+  try {
+    await ensureDb();
+    const rows = await db
+      .select()
+      .from(jtUserLinks)
+      .where(eq(jtUserLinks.jtUserId, id))
+      .orderBy(desc(jtUserLinks.updatedAt))
+      .limit(1);
+    return rows[0] ? rowToLink(rows[0]) : null;
+  } catch {
+    return null; // best-effort, exactly like readJtUserLink
   }
 }
 

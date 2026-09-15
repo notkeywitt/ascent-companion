@@ -28,6 +28,9 @@ import { EmployeeTimeClient } from "./EmployeeTimeClient";
 export default async function EmployeeTimePage() {
   const session = await auth();
   const email = session?.user?.email ?? "";
+  // Only an admin may open the page as another employee. The flag draws the
+  // picker; the SERVER rule (src/lib/timeSubject.ts) is what enforces it.
+  const canActAs = ((session?.user as { role?: string } | undefined)?.role ?? "") === "admin";
 
   // The identity: the token first (stamped at sign-in), then the DB link. Both
   // are cheap; neither touches Apps Script.
@@ -70,6 +73,7 @@ export default async function EmployeeTimePage() {
       // is what lets the client clear a stale local one.
       initialLinked={!!jtUserId && !!clock}
       identityResolved={!!me}
+      canActAs={canActAs}
       lastUsed={lastUsed}
     />
   );

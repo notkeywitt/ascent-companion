@@ -103,7 +103,9 @@ including edge middleware.
 |---|---|
 | `jobtread.ts` | The typed Pave client + the verified read/write calls behind the app. Every call was confirmed live; TODO fields are unverified (probe-first). |
 | `jobsCache.ts` | The org's open jobs in Next's Data Cache (5-min TTL), shared by `/api/jobs` AND any server component that wants to preload the list into its HTML (e.g. `/employee-time`). |
-| `jtUserLink.ts` | **email → JobTread identity, cached in the DB** (`jt_user_links`). The roster answer costs a ~3 s Apps Script round trip, so read it here: `readJtUserLink` (DB only, safe on a render path) / `resolveJtUserLink` (falls back to Apps Script and writes back). |
+| `jtUserLink.ts` | **email → JobTread identity, cached in the DB** (`jt_user_links`). The roster answer costs a ~3 s Apps Script round trip, so read it here: `readJtUserLink` (DB only, safe on a render path) / `resolveJtUserLink` (falls back to Apps Script and writes back). `readJtUserLinkByJtUserId` is the reverse, for naming the person an admin is filing time for. |
+| `actingAs.ts` | **Whose time is this /employee-time request about?** Applies the rule below to a real request: reads the session, resolves the caller's own JobTread user, and checks any other subject against the live org roster before it reaches a write. Acting swaps the SUBJECT, never the attribution — `email` and `role` stay the signed-in admin's, so the log's Logged By and the financial journal both name who really did it. |
+| `timeSubject.ts` ⟂ | The rule itself, with no imports so it is testable without a session: your own JobTread user always, someone else's only as admin, and an UNLINKED person may still identify themselves (the reason `userId` was ever loose in a request body). |
 | `employeeClock.ts` | The running clock (`readOpenClock`) and the last job/cost/pay a person used (`readLastUsed`), shared by `/employee-time`'s server shell and its clock route. |
 | `paveGateway.ts` ⟂ | Policy + query inspection for the generic `/api/pave` gateway (read/write classification, per-role write allowlist). |
 | `paveGatewayClient.ts` | Browser-safe `gatewayQuery(query)` — POSTs to `/api/pave`; no grant key. |

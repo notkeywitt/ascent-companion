@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { auth } from "@/auth";
 import { getUserTimeEntries, jtIsoToOrgLocal } from "@/lib/jobtread";
 import { getPaveConfig, hasGrant } from "@/lib/config";
 import { jtTimeUrl } from "@/lib/jtLinks";
-import { resolveJtUserLink } from "@/lib/jtUserLink";
+import { resolveTimeIdentity } from "@/lib/actingAs";
 
 /**
  * "My time" — the signed-in employee's own JobTread time entries for a date
@@ -25,7 +24,9 @@ import { resolveJtUserLink } from "@/lib/jtUserLink";
  * deep-linkable). The URL shape lives in lib/jtLinks.
  *
  * GET ?start=YYYY-MM-DD&end=YYYY-MM-DD (inclusive, calendar-day range)
- *   → { ok, entries:[{id, date, startTime, endTime, minutes, jobId, jobName,
+ *     &actingAs=<jtUserId>  — ADMIN ONLY: read that person's timesheet instead.
+ *   → { ok, subject:{jtUserId,name,acting},
+ *        entries:[{id, date, startTime, endTime, minutes, jobId, jobName,
  *        customer, costItemId, costCode, costItemName, payType, notes, approved,
  *        open, jtUrl}], totalMinutes, openCount }
  *
@@ -55,19 +56,24 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "start/end must be YYYY-MM-DD." }, { status: 400 });
   }
 
-  const session = await auth();
-  const email = session?.user?.email ?? "";
-
-  // The email → JT user id comes from the shared DB-backed cache; only a cold
-  // or stale link costs the Apps Script round trip.
-  const link = await resolveJtUserLink(email);
-  const userId = link?.jtUserId ?? "";
-  if (!userId) {
-    return NextResponse.json({
-      ok: false,
-      error: "No linked JobTread user for your login — an admin can link you on the Employees page.",
-    });
+  // WHOSE timesheet. Normally the signed-in person's, resolved server-side from
+  // their login; `?actingAs` opens someone else's and is refused for anyone but
+  // an admin (src/lib/actingAs.ts). Nobody can page through a colleague's hours
+  // by editing a query param.
+  const who = await resolveTimeIdentity((req.nextUrl.searchParams.get("actingAs") ?? "").trim());
+  if (!who.ok) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error:
+          who.status === 400
+            ? "No linked JobTread user for your login — an admin can link you on the Employees page."
+            : who.error,
+      },
+      who.status === 400 ? undefined : { status: who.status },
+    );
   }
+  const userId = who.identity.jtUserId;
 
   try {
     // Bound the fetch server-side instead of pulling the worker's whole history
@@ -131,7 +137,15 @@ export async function GET(req: NextRequest) {
       };
     });
 
-    return NextResponse.json({ ok: true, entries, totalMinutes, openCount });
+    return NextResponse.json({
+      ok: true,
+      entries,
+      totalMinutes,
+      openCount,
+      // Who these hours belong to, so the page can say so rather than implying
+      // they are the reader's own.
+      subject: { jtUserId: userId, name: who.identity.name, acting: who.identity.acting },
+    });
   } catch (e) {
     return NextResponse.json(
       { ok: false, error: e instanceof Error ? e.message : "Could not load time entries." },

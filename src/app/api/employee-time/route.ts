@@ -10,7 +10,9 @@ import {
 } from "@/lib/jobtread";
 import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
 import { callAppsScript } from "@/lib/appsScript";
+import { openJournal } from "@/lib/financialJournal";
 import { resolveJtUserLink } from "@/lib/jtUserLink";
+import { resolveTimeIdentity } from "@/lib/actingAs";
 
 /**
  * Backend for the Assistant's /employee-time page — logging a specific time
@@ -135,6 +137,33 @@ export async function GET(req: NextRequest) {
   // learns back to the DB, so the next load skips Apps Script entirely.
   const session = await auth();
   const email = session?.user?.email ?? "";
+  const role = ((session?.user as { role?: string } | undefined)?.role ?? "").trim();
+
+  // ADMIN ONLY: boot the page as someone else, so the whole screen — their
+  // running clock, their timesheet — is theirs. Refused for every other role by
+  // resolveTimeIdentity, not by hiding the parameter.
+  const actingAs = (req.nextUrl.searchParams.get("actingAs") ?? "").trim();
+  if (actingAs) {
+    const who = await resolveTimeIdentity(actingAs);
+    if (!who.ok) return NextResponse.json({ ok: false, error: who.error }, { status: who.status });
+    const [jtUsers, orgTypes] = await Promise.all([
+      getOrgUsers(cfg).catch(() => []),
+      getOrgTimeEntryTypeNames(cfg).catch(() => [] as string[]),
+    ]);
+    return NextResponse.json({
+      ok: true,
+      me: {
+        name: who.identity.name,
+        email: who.identity.subjectEmail,
+        jtUserId: who.identity.jtUserId,
+        jtUserName: who.identity.name,
+      },
+      acting: who.identity.acting,
+      canActAs: role === "admin",
+      jtUsers,
+      orgTypes,
+    });
+  }
 
   const [link, jtUsers, orgTypes] = await Promise.all([
     resolveJtUserLink(email),
@@ -155,6 +184,8 @@ export async function GET(req: NextRequest) {
       jtUserId: link?.jtUserId ?? "",
       jtUserName: link?.jtUserName ?? "",
     },
+    acting: false,
+    canActAs: role === "admin",
     jtUsers,
     orgTypes,
   });
@@ -202,7 +233,23 @@ export async function POST(req: NextRequest) {
   // request id only for older clients that don't send one (no dedupe, old
   // behavior). See the reserve-first flow below.
   const clientKey = (body.clientKey ?? "").trim() || `te-${crypto.randomUUID()}`;
-  const userId = (body.userId ?? "").trim();
+
+  // WHOSE time this is. `userId` used to go straight to createTimeEntry, which
+  // meant anyone could log hours against anyone. It now goes through the one
+  // rule (src/lib/actingAs.ts): your own always, someone else's only as admin.
+  const who = await resolveTimeIdentity((body.userId ?? "").trim());
+  if (!who.ok) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error:
+          who.status === 400 ? "No JobTread user — pick who you are in JobTread first." : who.error,
+      },
+      { status: who.status },
+    );
+  }
+  const userId = who.identity.jtUserId;
+  const acting = who.identity.acting;
   const jobId = (body.jobId ?? "").trim();
   const costItemId = (body.costItemId ?? "").trim();
   const note = (body.note ?? "").trim();
@@ -211,12 +258,6 @@ export async function POST(req: NextRequest) {
   const startedAt = orgLocalToJtIso(startLocal);
   const endedAt = orgLocalToJtIso(endLocal);
 
-  if (!userId) {
-    return NextResponse.json(
-      { ok: false, error: "No JobTread user — pick who you are in JobTread first." },
-      { status: 400 },
-    );
-  }
   if (!jobId) return NextResponse.json({ ok: false, error: "Pick a job." }, { status: 400 });
   if (!costItemId) return NextResponse.json({ ok: false, error: "Pick a cost code." }, { status: 400 });
   if (!note) return NextResponse.json({ ok: false, error: "A note is required." }, { status: 400 });
@@ -246,8 +287,11 @@ export async function POST(req: NextRequest) {
     const reserved = await callAppsScript({
       action: "logTimeEntry",
       clientKey,
-      employee: body.employee ?? "",
-      employeeEmail: email,
+      // The row is about the subject; `loggedBy` below is who really filed it.
+      // An admin logging Dan's Tuesday writes Dan's name and email here and
+      // their own in Logged By, so the sheet never claims Dan did it himself.
+      employee: acting ? who.identity.name : (body.employee ?? ""),
+      employeeEmail: acting ? who.identity.subjectEmail : email,
       jtUserId: userId,
       jobLabel: body.jobLabel ?? "",
       jobId,
@@ -302,6 +346,23 @@ export async function POST(req: NextRequest) {
       });
       jtEntryId = id;
       jtStatus = "pushed";
+      // Hours filed on someone ELSE's behalf add labor cost to a job with no
+      // other trace of who added it. Same reason /api/time-entry/create
+      // journals its writes; an employee logging their own time does not.
+      if (acting) {
+        const j = await openJournal("/api/employee-time", { email, role: who.identity.role });
+        await j.record([
+          {
+            action: "time-entry.create",
+            entity: "time-entry",
+            entityId: id,
+            jobId,
+            after: { userId, jobId, costItemId, startedAt, endedAt, type: payType, notes: note },
+            beforeSource: "none",
+            meta: { actingAs: who.identity.name, actingAsJtUserId: userId },
+          },
+        ]);
+      }
     } catch (e) {
       const message = e instanceof Error ? e.message : "Unknown error";
       jtStatus = "JobTread error: " + message;
