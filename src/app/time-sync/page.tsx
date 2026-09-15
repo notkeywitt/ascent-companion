@@ -1,8 +1,28 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { Banner, Button, Card, EmptyState, Loading, PageHeader, SectionLabel } from "@/components/ui";
+import { jtTimeUrl } from "@/lib/jtLinks";
+import {
+  PROBLEM_FIX,
+  PROBLEM_LABEL,
+  PROBLEM_ORDER,
+  clockOf,
+  type TimeProblem,
+} from "@/lib/timeProblems";
+
+/**
+ * Time Sync — every time record that did not reach JobTread correctly.
+ *
+ * It used to list one thing: records with no JobTread id. That is only half the
+ * failure, and not the half employees report. A clock-out JobTread refuses
+ * leaves the entry OPEN in JobTread — it has an id, so the old filter hid it,
+ * and it counts the wrong hours (usually none) until someone closes it by hand.
+ * The rows are therefore GROUPED BY WHAT IS WRONG, and only the group the app
+ * can fix from here carries a Retry button. The rest link into JobTread, where
+ * the fix actually is; re-posting them would duplicate the entry.
+ */
 
 interface WorkedRow {
   entryId: string;
@@ -13,6 +33,13 @@ interface WorkedRow {
   start: string;
   end: string;
   jtStatus: string;
+  jtUserId: string;
+  jtEntryId: string;
+  jtStart?: string;
+  jtEnd?: string;
+  problem: TimeProblem;
+  detail: string;
+  retryable: boolean;
 }
 interface LeaveRow {
   id: number;
@@ -25,7 +52,17 @@ interface LeaveRow {
 interface Payload {
   ok: boolean;
   writesEnabled: boolean;
-  worked: { rows: WorkedRow[]; total?: number; unsynced?: number; error?: string };
+  worked: {
+    rows: WorkedRow[];
+    total?: number;
+    unsynced?: number;
+    problems?: number;
+    checked?: number;
+    from?: string;
+    to?: string;
+    error?: string;
+    jtError?: string;
+  };
   leave: { rows: LeaveRow[]; error?: string };
 }
 
@@ -73,6 +110,13 @@ export default function TimeSyncPage() {
       const j = await res.json();
       const posted = j.jtStatus === "pushed" || j.jtPosted;
       if (posted) setMsg({ tone: "success", text: "Posted to JobTread." });
+      else if (j.jtStatus === "adopted (already in JobTread)")
+        // Adoption resolved the record either way. It still needs a person when
+        // the entry it found is the open one, and then the route says so.
+        setMsg({
+          tone: j.error ? "warning" : "info",
+          text: j.error || "JobTread already had it — the record now names that entry.",
+        });
       else setMsg({ tone: "warning", text: j.error || `Not posted: ${j.jtStatus || "unknown"}.` });
       await load();
     } catch (e) {
@@ -105,15 +149,32 @@ export default function TimeSyncPage() {
     }
   }
 
-  const worked = data?.worked.rows ?? [];
+  const worked = useMemo(() => data?.worked.rows ?? [], [data]);
   const leave = data?.leave.rows ?? [];
-  const totalUnsynced = worked.length + leave.length;
+  const retryableCount = worked.filter((r) => r.retryable).length + leave.length;
+  const totalProblems = worked.length + leave.length;
+
+  // One group per problem, in PROBLEM_ORDER. Empty groups never render, so the
+  // page grows a heading only when that failure actually happened.
+  const groups = useMemo(
+    () =>
+      PROBLEM_ORDER.map((problem) => ({
+        problem,
+        rows: worked.filter((r) => r.problem === problem),
+      })).filter((g) => g.rows.length > 0),
+    [worked],
+  );
+
+  const windowNote =
+    data?.worked.from && data?.worked.to
+      ? `${data.worked.checked ?? 0} recent entries cross-checked against JobTread (${data.worked.from} to ${data.worked.to}).`
+      : "";
 
   return (
     <main className="mx-auto max-w-3xl px-4 pb-24 pt-6">
       <PageHeader
         title="Time Sync"
-        description="Time records saved here but not yet in JobTread. Nothing is lost — retry any that stranded."
+        description="Time records that did not reach JobTread correctly. Nothing is lost — the record is saved here either way."
       />
 
       {err && <Banner tone="error" className="mb-4">{err}</Banner>}
@@ -133,69 +194,94 @@ export default function TimeSyncPage() {
           {data?.worked.error && (
             <Banner tone="error">Couldn&apos;t read the Time Entries sheet: {data.worked.error}</Banner>
           )}
+          {data?.worked.jtError && (
+            <Banner tone="warning">
+              Couldn&apos;t cross-check against JobTread: {data.worked.jtError} The sheet&apos;s own
+              record is below, so nothing here is missing — but an entry JobTread changed or dropped
+              would not show yet.
+            </Banner>
+          )}
           {data?.leave.error && <Banner tone="error">Couldn&apos;t read leave records: {data.leave.error}</Banner>}
 
-          {totalUnsynced === 0 && !data?.worked.error && !data?.leave.error ? (
+          {totalProblems === 0 && !data?.worked.error ? (
             <EmptyState>
-              All time records are in JobTread.
-              {typeof data?.worked.total === "number" ? ` (${data.worked.total} worked entries checked.)` : ""}
+              Every time record is in JobTread with the hours it was logged with.
+              {typeof data?.worked.total === "number" ? ` ${data.worked.total} records on file.` : ""}
             </EmptyState>
           ) : (
             <>
               <Card className="flex items-center justify-between gap-3">
                 <div>
-                  <div className="text-2xl font-bold tabular-nums">{totalUnsynced}</div>
+                  <div className="text-2xl font-bold tabular-nums">{totalProblems}</div>
                   <div className="text-xs text-neutral-500">
-                    not yet in JobTread — {worked.length} worked · {leave.length} leave
+                    need attention — {worked.length} worked · {leave.length} leave
                   </div>
                 </div>
-                <Button disabled={busyAll || totalUnsynced === 0} onClick={retryAll}>
-                  {busyAll ? "Retrying…" : "Retry all"}
+                <Button disabled={busyAll || retryableCount === 0} onClick={retryAll}>
+                  {busyAll ? "Retrying…" : `Retry ${retryableCount}`}
                 </Button>
               </Card>
 
-              {worked.length > 0 && (
-                <Card>
-                  <SectionLabel>Worked time ({worked.length})</SectionLabel>
-                  <ul className="mt-2 space-y-2">
-                    {worked.map((r) => (
-                      <li
-                        key={r.entryId}
-                        className="flex items-center justify-between gap-3 rounded-lg border border-line px-3 py-2 text-sm "
-                      >
+              {groups.map(({ problem, rows }) => (
+                <Card key={problem} pad={false}>
+                  <div className="px-4 pt-4">
+                    <SectionLabel>
+                      {PROBLEM_LABEL[problem]} ({rows.length})
+                    </SectionLabel>
+                    <p className="mt-1 text-xs text-neutral-500">{PROBLEM_FIX[problem]}</p>
+                  </div>
+                  <ul className="mt-3 divide-y divide-line-soft">
+                    {rows.map((r) => (
+                      <li key={r.entryId} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
                         <div className="min-w-0">
                           <div className="font-medium">
                             {r.employee || "—"} <span className="font-normal text-neutral-500">· {r.date}</span>
                           </div>
                           <div className="truncate text-xs text-neutral-500">
                             {r.jobLabel}
-                            {r.costCode ? ` · ${r.costCode}` : ""} · {r.start}–{r.end}
+                            {r.costCode ? ` · ${r.costCode}` : ""} · {clockOf(r.start)}–{clockOf(r.end)}
                           </div>
-                          {r.jtStatus && <div className="truncate text-xs text-amber-600 dark:text-amber-400">{r.jtStatus}</div>}
+                          {r.detail && (
+                            <div className="text-xs text-amber-600 dark:text-amber-400">{r.detail}</div>
+                          )}
                         </div>
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          disabled={busyId === `worked:${r.entryId}` || busyAll}
-                          onClick={() => retry("worked", r.entryId)}
-                        >
-                          {busyId === `worked:${r.entryId}` ? "…" : "Retry"}
-                        </Button>
+                        {r.retryable ? (
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            disabled={busyId === `worked:${r.entryId}` || busyAll}
+                            onClick={() => retry("worked", r.entryId)}
+                          >
+                            {busyId === `worked:${r.entryId}` ? "…" : "Retry"}
+                          </Button>
+                        ) : (
+                          <a
+                            className="shrink-0 whitespace-nowrap text-xs font-medium text-accent underline-offset-2 hover:underline"
+                            href={jtTimeUrl({
+                              userId: r.jtUserId,
+                              entryId: r.jtEntryId,
+                              from: r.date,
+                            })}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            Fix in JobTread →
+                          </a>
+                        )}
                       </li>
                     ))}
                   </ul>
                 </Card>
-              )}
+              ))}
 
               {leave.length > 0 && (
-                <Card>
-                  <SectionLabel>Leave ({leave.length})</SectionLabel>
-                  <ul className="mt-2 space-y-2">
+                <Card pad={false}>
+                  <div className="px-4 pt-4">
+                    <SectionLabel>Leave not in JobTread ({leave.length})</SectionLabel>
+                  </div>
+                  <ul className="mt-3 divide-y divide-line-soft">
                     {leave.map((r) => (
-                      <li
-                        key={r.id}
-                        className="flex items-center justify-between gap-3 rounded-lg border border-line px-3 py-2 text-sm "
-                      >
+                      <li key={r.id} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
                         <div className="min-w-0">
                           <div className="font-medium">
                             {r.name || "—"}{" "}
@@ -219,6 +305,8 @@ export default function TimeSyncPage() {
                   </ul>
                 </Card>
               )}
+
+              {windowNote && <p className="px-1 text-xs text-neutral-500">{windowNote}</p>}
             </>
           )}
         </div>

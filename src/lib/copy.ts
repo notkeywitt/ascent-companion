@@ -255,7 +255,7 @@ export const COPY: Record<string, CopyEntry> = {
   },
   "home.dest.time-sync.label": { text: "Time Sync", label: "Time Sync — name", group: "Home — Utilities" },
   "home.dest.time-sync.desc": {
-    text: "Records not yet in JobTread — retry",
+    text: "Time records JobTread doesn't have right",
     label: "Time Sync — description",
     group: "Home — Utilities",
   },

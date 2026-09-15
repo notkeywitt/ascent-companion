@@ -2,9 +2,10 @@
 
 import { Suspense, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
-import { ListCard, ListRow, PageHeader } from "@/components/ui";
+import { CountBadge, ListCard, ListRow, PageHeader } from "@/components/ui";
 import { useAccess } from "@/components/AccessProvider";
 import { useCopy } from "@/components/CopyProvider";
+import { useTimeSyncCount } from "@/components/TimeSyncCount";
 import { TILE_LAUNCHERS, tileLauncherFor } from "@/lib/nav";
 
 /**
@@ -30,6 +31,10 @@ function More() {
   const search = useSearchParams();
   const access = useAccess();
   const c = useCopy();
+  // Queue counts, keyed by view id — the same badges the home launcher draws,
+  // because this page IS the launcher on a phone.
+  const timeSync = useTimeSyncCount();
+  const badges: Record<string, number> = timeSync > 0 ? { "time-sync": timeSync } : {};
   const jobId = (search.get("jobId") ?? "").trim();
   const qs = jobId ? `?jobId=${encodeURIComponent(jobId)}` : "";
 
@@ -51,7 +56,13 @@ function More() {
       {rows.length > 0 ? (
         <ListCard>
           {rows.map((d) => (
-            <ListRow key={d.href} href={d.href + qs} label={d.label} desc={d.desc} />
+            <ListRow
+              key={d.href}
+              href={d.href + qs}
+              label={d.label}
+              desc={d.desc}
+              badge={(badges[d.view] ?? 0) > 0 ? <CountBadge n={badges[d.view]} /> : undefined}
+            />
           ))}
         </ListCard>
       ) : (

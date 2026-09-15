@@ -48,7 +48,12 @@ export interface DigestCategory {
 }
 
 export const DIGEST_CATEGORIES: DigestCategory[] = [
-  { id: "crew", label: "Crew Activity", blurb: "Who worked where yesterday, and who's clocked in right now." },
+  {
+    id: "crew",
+    label: "Crew Activity",
+    blurb:
+      "Who worked where yesterday, who's clocked in right now, and any logged time JobTread doesn't have right.",
+  },
   { id: "calendar", label: "Calendar", blurb: "What's on the shared calendars and the JobTread schedule." },
   {
     id: "todo",
@@ -183,6 +188,24 @@ export interface CrewActivityConfig {
   maxJobs: number;
 }
 
+/** Check "time-not-in-jobtread" — time records that didn't reach JobTread right. */
+export interface TimeNotInJobtreadConfig {
+  /**
+   * How far back to cross-check the sheet's records against JobTread.
+   *
+   * Only bounds the JOBTREAD half — a record with no JobTread entry at all is
+   * reported however old it is. Raising this costs one more paged JobTread read
+   * per run, not more accuracy: an employee reports a wrong day within a day or
+   * two, and an entry someone re-times a month later is their edit, not a
+   * failure.
+   */
+  windowDays: number;
+  /** Minutes of start/stop drift that still counts as a match. */
+  toleranceMinutes: number;
+  /** Most records to list. The summary still counts them all. */
+  maxItems: number;
+}
+
 /** Check "digest-todos" — the office's own reminders, set via the reply box. */
 export interface DigestTodosConfig {
   /** Most open reminders to list. */
@@ -311,6 +334,15 @@ export const DIGEST_SETTINGS = {
       maxJobs: 20,
     },
   } satisfies DigestCheckSettings<CrewActivityConfig>,
+
+  "time-not-in-jobtread": {
+    enabled: true,
+    config: {
+      windowDays: 7,
+      toleranceMinutes: 2,
+      maxItems: 25,
+    },
+  } satisfies DigestCheckSettings<TimeNotInJobtreadConfig>,
 
   "digest-todos": {
     enabled: true,

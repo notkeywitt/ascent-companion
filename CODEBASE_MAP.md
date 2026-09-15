@@ -143,7 +143,8 @@ including edge middleware.
 | `leadInquiry.ts` | Web-inquiry lead parsing/normalization. |
 | `leadSettings.ts` | The DB half of the quiet thresholds — read and write the ONE `lead_settings` row. Server-only, which is why it is not in `leadBoard.ts`: the pure half (defaults, validation, banding) has to stay client-safe. Read fresh, never cached; the point of the setting is that moving it shows on the next load. |
 | `leadBoard.ts` ⟂ | **The lead card's shape + the date math both lead surfaces share** — the day arithmetic (`daysSince`, `fmtDate`, `today`), the scope/address fallback chains, and the order-by-last-contact sort the home panel offers. Client-safe, like `jobBoard.ts`. Also the PURE half of the amber/red thresholds — `LEAD_QUIET_DEFAULTS`, `normalizeThresholds` (clamps rather than rejects; a BLANK field is absent, not zero, or it would clamp to 1 day and turn every lead amber) and `quietBand`, the one function both surfaces colour from. The rule worth knowing: a lead with NO touch ever logged is ordered from the day it arrived, so a new lead nobody has called cannot hide at the fresh end of the row. Unit-tested. |
-| `timeSync.ts` | Worked-time reconciliation/retry — surfaces records saved to the sheet but not yet in JobTread. |
+| `timeSync.ts` | Worked-time reconciliation/retry. Two depths: `listTimeProblems` reads the Time Entries sheet's own verdict (cheap — the page and the launcher badge), `auditWorked` adds a JobTread cross-check of the last few days, which is the only thing that finds a record JobTread has with the WRONG hours (a refused clock-out leaves the entry open there, id and all). `retryWorked` re-posts, and adopts an entry that turns out to exist rather than creating a second one. |
+| `timeProblems.ts` ⟂ | What can be wrong with one time record, and what the office does about it — the type, the order, the headings, the one-line fixes. Its own pure module because the server decides the problem and the client draws it. |
 | `appsScript.ts` | The one client for the Apps Script web app — every Sheets/Drive feature POSTs `{action, secret, …}` here. |
 | `anthropic.ts` | Claude chat engine — the server-side tool-use loop behind `/chat` (server-only). |
 | `claudeExtract.ts` | Claude document extraction — invoice/bill reading for `/add-bill` and tool-serial OCR for `/api/ocr-serial`. Port of appscript `Ingestion.js` `callClaude` (server-only). Replaced the Gemini module, deleted 2026-09-09. |
@@ -254,6 +255,7 @@ while its checks are off.
 | `grouping.ts` ⟂ | Stored results → the categories the screen draws, worst status rolled up. Also `categoryTone`, which separates PRESENTATION from status: a check reporting `ok` with items (the calendar) draws as informational with its count, not as a green "Clear". Pure, so "categories are data, not tabs" is testable. |
 | `store.ts` | Read/write the `daily_digest` row and the `digest_dismissals` rows — the ONLY things this feature writes anywhere. |
 | `dismissals.ts` ⟂ | "This one is handled, stop showing it to me." Pure: builds an item's stable dismissal key (`<checkId>::<item key>`, falling back to the title) and filters a set of results by it — the same code the browser, the aggregator and GET `/api/digest` all use, so a dismissal means one thing. Dismissing never closes a JobTread to-do or touches Gmail; the office's own reminders are the one item a dismissal also marks done, in `digest_todos`. |
+| `checks/timeNotInJobtread.ts` | Time records that didn't reach JobTread, or reached it with the wrong hours (`auditWorked`, above). Twice a day, because the failure is silent from every other direction: the phone said saved, the sheet holds the record, and JobTread just shows fewer hours than were worked. Read-only — a retry stays a person's decision, on /time-sync. |
 | `checks/uncapturedBills.ts` | Invoice-looking mail with no matching JobTread bill (sender → vendor account → date/amount window). |
 | `checks/draftBillsPastCutoff.ts` | Draft vendor bills left over from a billing month that already closed. |
 | `checks/reconciliationFlags.ts` | The Expenditure sheet's own `Reconciliation Flags` column, grouped by flag type. Reads the sheet's verdict; never re-derives it. |
@@ -431,7 +433,9 @@ Grouped by domain; each folder is `…/route.ts`.
 - **JobTread pickers / links:** `JobPicker`, `CostCodeSelect`,
   `JtLink`, `LinkPending`, `BillStatusBadge`, `BillingSummary`.
 - **Feature widgets:** `InvoiceReconcile`, `InvoiceSweepResult`,
-  `UncapturedBills`, `StuckVendors`, `NeedsProject`, `Notices` (`NoticeCenter` —
+  `UncapturedBills`, `StuckVendors`, `NeedsProject`, `TimeSyncCount` (the launcher
+  badge's count of time records JobTread doesn't have right — sheet-only, so the
+  home page never pays for a JobTread read), `Notices` (`NoticeCenter` —
   BOTH reader surfaces for a notice, the banner stack under the header and the
   interrupting popup, off ONE feed request; mounted in the root layout, and it
   re-reads the feed on tab focus — and every five minutes whatever the tab is

@@ -10,6 +10,7 @@ import { useCopy } from "@/components/CopyProvider";
 import { AllPagesMenu } from "@/components/AllPagesMenu";
 import { StuckVendorBanner } from "@/components/StuckVendors";
 import { NeedsProjectBanner, useNeedsProjectCount } from "@/components/NeedsProject";
+import { useTimeSyncCount } from "@/components/TimeSyncCount";
 import { HomeTodos } from "@/components/HomeTodos";
 import { TileLauncher } from "@/components/TileLauncher";
 import { HomeLayoutEditor } from "@/components/HomeLayoutEditor";
@@ -205,8 +206,11 @@ function Home() {
   // Queue counts, keyed by view id. Add a future queue here and both the area
   // heading and its row pick it up with no further plumbing.
   const needsProject = useNeedsProjectCount();
-  const badges: Record<string, number> =
-    needsProject.count > 0 ? { "needs-project": needsProject.count } : {};
+  const timeSync = useTimeSyncCount();
+  const badges: Record<string, number> = {
+    ...(needsProject.count > 0 ? { "needs-project": needsProject.count } : {}),
+    ...(timeSync > 0 ? { "time-sync": timeSync } : {}),
+  };
 
   // Field, lead, and office get a different launcher entirely: large buttons
   // ending in "The Rest", instead of the admin area lists. Rendered here rather
@@ -257,7 +261,7 @@ function Home() {
       <HomeTodos />
 
       {tiles ? (
-        <TileLauncher qs={qs} />
+        <TileLauncher qs={qs} badges={badges} />
       ) : editing ? (
         // Admin-only Edit mode: arrange, create, name, and delete menus, page
         // links, and buttons. Replaces the lists while open; Save re-reads the

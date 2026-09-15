@@ -58,7 +58,11 @@ async function retryAll() {
   for (const r of worked.rows) {
     tried++;
     const res = await retryWorked(r.entryId);
-    const ok = res.ok && res.jtStatus === "pushed";
+    // Resolved = JobTread now names an entry for this record. That is "pushed",
+    // and it is also "adopted" — a row whose entry turned out to exist already
+    // (see findExistingEntry). Counting adoption as a failure would send the
+    // office looking for a record that is, in fact, in JobTread.
+    const ok = res.ok && !!res.jtEntryId;
     if (ok) posted++;
     results.push({ kind: "worked", id: r.entryId, ok, jtStatus: res.jtStatus, error: res.error });
   }

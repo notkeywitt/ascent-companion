@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useAccess } from "@/components/AccessProvider";
 import { useCopy } from "@/components/CopyProvider";
 import { LinkPendingOverlay } from "@/components/LinkPending";
-import { ListCard, ListRow, SectionHeading } from "@/components/ui";
+import { CountBadge, ListCard, ListRow, SectionHeading } from "@/components/ui";
 import { MORE_HREF, groupByArea, tileLauncherFor, type Dest } from "@/lib/nav";
 
 /**
@@ -124,11 +124,14 @@ export function FieldTile({
   label,
   Icon,
   className = "",
+  badge = 0,
 }: {
   href: string;
   label: string;
   Icon: () => React.ReactNode;
   className?: string;
+  /** Queued work behind this tile. 0 draws nothing. */
+  badge?: number;
 }) {
   return (
     <Link
@@ -146,13 +149,25 @@ export function FieldTile({
       <span className="text-accent dark:text-accent-soft">
         <Icon />
       </span>
-      <span className="text-[15px] font-semibold leading-tight">{label}</span>
+      <span className="flex items-center justify-center gap-1.5 text-[15px] font-semibold leading-tight">
+        {label}
+        {badge > 0 && <CountBadge n={badge} />}
+      </span>
       <LinkPendingOverlay spinnerClassName="h-6 w-6" />
     </Link>
   );
 }
 
-export function TileLauncher({ qs = "" }: { qs?: string }) {
+export function TileLauncher({
+  qs = "",
+  badges = {},
+}: {
+  qs?: string;
+  /** Queue counts keyed by view id, from the home page (src/app/page.tsx). Kept
+   *  a PROP rather than a hook call here so the count is fetched once per page
+   *  load, not once per launcher. */
+  badges?: Record<string, number>;
+}) {
   const access = useAccess();
   const c = useCopy();
 
@@ -191,6 +206,10 @@ export function TileLauncher({ qs = "" }: { qs?: string }) {
             label={c("home.quick.more.label") || "The Rest"}
             Icon={GridIcon}
             className="pad:hidden"
+            // The door carries whatever is waiting behind it. On a phone this
+            // grid is the whole launcher, so a queue with no badge here is a
+            // queue nobody sees.
+            badge={rest.reduce((n, d) => n + (badges[d.view] ?? 0), 0)}
           />
         )}
       </div>
@@ -219,6 +238,7 @@ export function TileLauncher({ qs = "" }: { qs?: string }) {
                     href={d.href + qs}
                     label={c(`home.dest.${d.view}.label`) || d.label}
                     desc={c(`home.dest.${d.view}.desc`) || d.desc}
+                    badge={(badges[d.view] ?? 0) > 0 ? <CountBadge n={badges[d.view]} /> : undefined}
                   />
                 ))}
               </ListCard>

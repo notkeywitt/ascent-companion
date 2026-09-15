@@ -626,6 +626,38 @@ export const HELP: HelpSection[] = [
         warn: ["Check each edit before you save. The roster changes at once, with no undo."],
       },
       {
+        id: "time-sync",
+        q: "An employee says JobTread has the wrong hours. What do I do?",
+        view: "time-sync",
+        href: "/time-sync",
+        keywords: [
+          "time sync",
+          "hours wrong",
+          "missing time",
+          "not in jobtread",
+          "time entry",
+          "payroll",
+          "clock out failed",
+        ],
+        steps: [
+          "Open **Time Sync**.",
+          "Find the person and the day in the list.",
+          "If the row offers **Retry**, tap it.",
+          "If the row offers **Fix in JobTread**, tap it.",
+          "Correct the entry on the JobTread page that opens.",
+        ],
+        notes: [
+          "The app saves every logged entry before it contacts JobTread. No record is lost.",
+          "**Retry** posts the record to JobTread. The heading over each group says what is wrong.",
+          "**Never reached JobTread** is the only group **Retry** can fix.",
+          "The full record is the **Time Entries** tab of the Project Database sheet.",
+          "An employee sees their own hours as JobTread holds them, on the **Timesheets** tab of **Time**.",
+        ],
+        warn: [
+          "Do not re-post a record JobTread already holds. It makes a second entry and pays the hours twice.",
+        ],
+      },
+      {
         id: "notice",
         q: "How do I tell the whole team something?",
         view: "notices",

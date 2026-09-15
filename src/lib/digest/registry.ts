@@ -31,12 +31,14 @@ import { jobtreadTodosCheck } from "./checks/jobtreadTodos";
 import { emailFollowUpsCheck } from "./checks/emailFollowUps";
 import { emailSignalsCheck } from "./checks/emailSignals";
 import { crewActivityCheck } from "./checks/crewActivity";
+import { timeNotInJobtreadCheck } from "./checks/timeNotInJobtread";
 import { digestTodosCheck } from "./checks/digestTodos";
 
 /** Every check that exists, in the order they run and are displayed within a category. */
 const DECLARED: DigestCheck<never>[] = [
   // Crew
   crewActivityCheck,
+  timeNotInJobtreadCheck,
   // Calendar
   calendarEventsCheck,
   jobtreadScheduleCheck,

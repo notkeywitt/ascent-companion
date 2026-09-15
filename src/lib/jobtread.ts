@@ -6113,6 +6113,41 @@ export async function getTimeEntryOwner(cfg: PaveConfig, id: string): Promise<st
   return r?.timeEntry?.user?.id ?? null;
 }
 
+/** What one time entry actually holds, for comparing against a record of intent. */
+export interface TimeEntrySpan {
+  id: string;
+  startedAt: string;
+  /** null while the entry is still OPEN (clocked in, never clocked out). */
+  endedAt: string | null;
+  /** JobTread's own duration, break-deducted. 0 while running. */
+  minutes: number;
+}
+
+/**
+ * READ — one time entry's span, via the root `timeEntry(id)` accessor. Returns
+ * null when JobTread has no such entry, which is the answer that matters: a
+ * Time Entries row naming an id JobTread does not have is a record that reached
+ * JobTread and then left it (deleted there, or never really created).
+ *
+ * The audit in src/lib/timeSync.ts reads its window with `getOrgTimeEntries` and
+ * only falls back to this for an id that pull didn't cover — an entry re-timed
+ * out of the window, or genuinely gone. So this is the exception path, not the
+ * bulk one; don't loop it over a whole sheet.
+ */
+export async function getTimeEntrySpan(cfg: PaveConfig, id: string): Promise<TimeEntrySpan | null> {
+  const r = await pave(cfg, {
+    timeEntry: { $: { id }, id: {}, startedAt: {}, endedAt: {}, minutes: {} },
+  });
+  const te = r?.timeEntry;
+  if (!te?.id) return null;
+  return {
+    id: String(te.id),
+    startedAt: String(te.startedAt ?? ""),
+    endedAt: te.endedAt ? String(te.endedAt) : null,
+    minutes: Number(te.minutes ?? 0),
+  };
+}
+
 export interface UserTimeEntry {
   id: string;
   startedAt: string;
