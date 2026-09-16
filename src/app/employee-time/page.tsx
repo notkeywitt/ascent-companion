@@ -1,7 +1,7 @@
 import { auth } from "@/auth";
 import { getCachedJobs } from "@/lib/jobsCache";
 import { getPaveConfig, hasGrant } from "@/lib/config";
-import { getOrgTimeEntryTypeNames, getOrgUsers } from "@/lib/jobtread";
+import { findMemberByEmail, getOrgTimeEntryTypeNames, getOrgUsers } from "@/lib/jobtread";
 import { readJtUserLink } from "@/lib/jtUserLink";
 import { readLastUsed, readOpenClock, type LastUsed, type OpenClock } from "@/lib/employeeClock";
 import { EmployeeTimeClient } from "./EmployeeTimeClient";
@@ -35,19 +35,29 @@ export default async function EmployeeTimePage() {
   // The identity: the token first (stamped at sign-in), then the DB link. Both
   // are cheap; neither touches Apps Script.
   const link = await readJtUserLink(email);
-  const jtUserId = (session?.user?.jtUserId || link?.jtUserId || "").trim();
+  const grant = hasGrant();
+  const cfg = grant ? getPaveConfig() : null;
+
+  // The roster link is a hand-typed cell, so a single wrong character (a missing
+  // dot in a Gmail address) leaves an employee resolving to nobody — they can
+  // log time from the phone but their timesheet reads back empty. JobTread's own
+  // membership carries the address they were invited with; ask it when the link
+  // is blank. Same fallback the write/read routes use (lib/actingAs).
+  const member =
+    !link?.jtUserId && !session?.user?.jtUserId && cfg
+      ? await findMemberByEmail(cfg, email).catch(() => null)
+      : null;
+
+  const jtUserId = (session?.user?.jtUserId || link?.jtUserId || member?.userId || "").trim();
   const me =
     link || jtUserId
       ? {
-          name: link?.name || session?.user?.name || "",
+          name: link?.name || session?.user?.name || member?.name || "",
           email: link?.email || email,
           jtUserId,
           jtUserName: link?.jtUserName ?? "",
         }
       : null;
-
-  const grant = hasGrant();
-  const cfg = grant ? getPaveConfig() : null;
   const employeeName = me?.name || me?.jtUserName || "";
 
   const [jobs, jtUsers, orgTypes, clock, lastUsed] = await Promise.all([

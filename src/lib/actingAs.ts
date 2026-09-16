@@ -35,7 +35,7 @@
  */
 import { auth } from "@/auth";
 import { getPaveConfig, hasGrant } from "@/lib/config";
-import { getOrgUsers } from "@/lib/jobtread";
+import { findMemberByEmail, getOrgUsers, type MemberRef } from "@/lib/jobtread";
 import { readJtUserLinkByJtUserId, resolveJtUserLink } from "@/lib/jtUserLink";
 import { decideTimeSubject } from "@/lib/timeSubject";
 
@@ -61,6 +61,26 @@ export type TimeIdentityResult =
   | { ok: false; status: number; error: string };
 
 /**
+ * The signed-in person's OWN JobTread user, asked of JobTread itself.
+ *
+ * The Employee roster is the first answer, but it matches the login against a
+ * hand-typed cell, so one wrong character makes a linked employee resolve to
+ * nobody — `millarddfm@gmail.com` on the roster against the
+ * `millard.dfm@gmail.com` he actually signs in with (found 2026-09-15). That
+ * employee could still LOG time, because a write carries the id the phone
+ * picked, but every READ resolves server-side and came back empty: he filed
+ * hours all week and his timesheet showed none of them.
+ *
+ * A JobTread membership already carries the invite address, so ask it before
+ * giving up. Cached 30 minutes with the roster (`getMembersByEmail`), and only
+ * consulted when the link is blank, so a linked employee pays nothing.
+ */
+async function ownFromJobTread(email: string, linked: string): Promise<MemberRef | null> {
+  if (linked || !hasGrant()) return null;
+  return findMemberByEmail(getPaveConfig(), email).catch(() => null);
+}
+
+/**
  * Resolve the identity for one /employee-time request.
  *
  * `requested` is whichever field the route carries it in — `?actingAs` on a
@@ -79,7 +99,8 @@ export async function resolveTimeIdentity(requested: string): Promise<TimeIdenti
   if (!email) return { ok: false, status: 401, error: "Not signed in." };
 
   const link = await resolveJtUserLink(email);
-  const own = (link?.jtUserId ?? "").trim();
+  const fallback = (await ownFromJobTread(email, (link?.jtUserId ?? "").trim())) ?? null;
+  const own = (link?.jtUserId ?? "").trim() || (fallback?.userId ?? "");
 
   const decided = decideTimeSubject({ requested, ownJtUserId: own, role });
   if ("error" in decided) return { ok: false, status: decided.status, error: decided.error };
@@ -89,7 +110,7 @@ export async function resolveTimeIdentity(requested: string): Promise<TimeIdenti
       ok: true,
       identity: {
         jtUserId: decided.subject,
-        name: link?.name || link?.jtUserName || (session?.user?.name ?? ""),
+        name: link?.name || link?.jtUserName || fallback?.name || (session?.user?.name ?? ""),
         subjectEmail: link?.email || email,
         email,
         role,
