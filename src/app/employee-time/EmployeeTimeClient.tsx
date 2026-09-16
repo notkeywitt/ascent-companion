@@ -10,6 +10,7 @@ import { fmtMiles, useNearestJobs } from "@/lib/nearestJob";
 import {
   Banner,
   Card,
+  Chip,
   EmptyState,
   IconButton,
   Input,
@@ -494,16 +495,46 @@ function downscale(file: File): Promise<Photo> {
   });
 }
 
-// Header title with a large "Beta" tag, shared across every module state
-// (loading, done, main) so the flag reads consistently.
-const EMPLOYEE_TIME_TITLE = (
-  <span className="flex items-center gap-3">
-    Employee Time
-    <span className="rounded-full bg-amber-100 px-3 py-1 text-sm font-extrabold uppercase tracking-wider text-amber-800 dark:bg-amber-950/50 dark:text-amber-300">
-      Beta
+/**
+ * Header title plus the one fact a crew member cannot work out for themselves:
+ * is this sign-in attached to a JobTread user?
+ *
+ * Unattached, the page still works — you can pick a name and log time — but the
+ * app had to be TOLD who you are every time, and the timesheet reads back from
+ * whatever was picked. The old "Beta" tag sat here saying nothing that changed
+ * from one person to the next; this says something different per person, which
+ * is what the space is worth.
+ *
+ * Three states, because "we don't know yet" is not "no": the cold path resolves
+ * the link in the background (see the identityResolved effect), so the chip
+ * says Checking until that answers.
+ */
+function employeeTimeTitle(state: "checking" | "linked" | "unlinked", who: string) {
+  return (
+    <span className="flex items-center gap-3">
+      Employee Time
+      {state === "checking" ? (
+        <Chip tone="neutral" title="Looking up your JobTread account…">
+          Checking
+        </Chip>
+      ) : state === "linked" ? (
+        <Chip
+          tone="success"
+          title={who ? `Signed in as ${who} in JobTread` : "This sign-in is attached to JobTread"}
+        >
+          ✓ JobTread
+        </Chip>
+      ) : (
+        <Chip
+          tone="warning"
+          title="Your sign-in is not attached to a JobTread user — pick your name below, and ask the office to link the account."
+        >
+          Not linked
+        </Chip>
+      )}
     </span>
-  </span>
-);
+  );
+}
 
 export function EmployeeTimeClient({
   initialJobs,
@@ -824,6 +855,16 @@ export function EmployeeTimeClient({
     () => jtUsers.find((u) => u.id === effectiveUserId) ?? null,
     [jtUsers, effectiveUserId],
   );
+  // The indicator in the page title. It describes THIS sign-in, not the person
+  // being viewed — an admin acting as somebody else is still linked or not on
+  // their own account.
+  const linkState: "checking" | "linked" | "unlinked" = resolving
+    ? "checking"
+    : me?.jtUserId
+      ? "linked"
+      : "unlinked";
+  const linkTitle = employeeTimeTitle(linkState, me?.jtUserName || me?.name || me?.email || "");
+
   const effectiveName = acting
     ? actingName || effectiveUser?.name || ""
     : me?.name || me?.jtUserName || effectiveUser?.name || "";
@@ -1501,7 +1542,7 @@ export function EmployeeTimeClient({
     const dur = fmtDuration(done.summary.startTime, done.summary.endTime);
     return (
       <main className="mx-auto max-w-2xl px-4 pb-24 pt-6">
-        <PageHeader title={EMPLOYEE_TIME_TITLE} description="Clock in and out of a job." />
+        <PageHeader title={linkTitle} description="Clock in and out of a job." />
         <div className="space-y-4">
           <Card className="text-center">
             <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
@@ -1567,7 +1608,7 @@ export function EmployeeTimeClient({
   return (
     <main className="mx-auto max-w-2xl px-4 pb-28 pt-4">
       <PageHeader
-        title={EMPLOYEE_TIME_TITLE}
+        title={linkTitle}
         description={
           acting
             ? "You are viewing another employee's time. Everything you save is saved as them."
