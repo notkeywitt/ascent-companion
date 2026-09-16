@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type Dispatch, type SetStateAction } from "react";
 import { CostCodeSelect, type Option } from "@/components/CostCodeSelect";
+import { DocumentAccess } from "@/components/DocumentAccess";
 import { JobPicker, type JobRef } from "@/components/JobPicker";
 import { JtLink } from "@/components/JtLink";
 import {
@@ -411,6 +412,13 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
   // "Recode All Lines" is a BUTTON that opens a dialog, never an open cost-code
   // field sitting above the list — inline, that field read as the first line's
   // own code. The button moved to the top of the list; the picker did not.
+  /**
+   * Client access — open on demand, never on mount. The list costs two JobTread
+   * reads, and a card that opened them for every bill you click would pay for
+   * them on the many bills nobody shares.
+   */
+  const [accessOpen, setAccessOpen] = useState(false);
+
   const [recodeAllOpen, setRecodeAllOpen] = useState(false);
 
   // Buyback is a dialog too, for the same reason. It used to be a bare arrow
@@ -484,9 +492,9 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
     };
   }, [createFileOpen, bill]);
 
-  const setCreateFileField = (key: keyof typeof createFileFields) => (
-    e: React.ChangeEvent<HTMLInputElement>,
-  ) => setCreateFileFields((f) => ({ ...f, [key]: e.target.value }));
+  const setCreateFileField =
+    (key: keyof typeof createFileFields) => (e: React.ChangeEvent<HTMLInputElement>) =>
+      setCreateFileFields((f) => ({ ...f, [key]: e.target.value }));
 
   const createFile = async () => {
     if (!bill || !createFileDesc.trim()) return;
@@ -1299,6 +1307,28 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                 </div>
               )}
 
+              {/* Client access — this bill on the client's "Document Access"
+            list in JobTread, so they can open the vendor invoice behind the
+            line they are asking about. NOT hidden on an invoiced bill, unlike
+            Filing below: an invoiced bill is exactly the one a client asks to
+            see. The whole month at once is the same control on the Tracking
+            Sheets closing row. */}
+              {writes && (
+                <div className="mt-4 border-t border-line-soft pt-3 dark:border-neutral-800">
+                  <div className="flex items-center justify-between gap-2">
+                    <SectionLabel>Client access</SectionLabel>
+                    <Button variant="outline" size="sm" onClick={() => setAccessOpen((o) => !o)}>
+                      {accessOpen ? "Hide" : "Share this bill"}
+                    </Button>
+                  </div>
+                  {accessOpen && (
+                    <div className="mt-2">
+                      <DocumentAccess docId={bill.id} scopeLabel="this bill" />
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Filing — the bill page's Filing card, in the panel where the
             invoice is already on screen: both answers are read off the
             document, so they sit AFTER it, same as on /bill. Writes-
@@ -1549,9 +1579,9 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
           >
             <p className="text-sm font-semibold">Create a file for this bill</p>
             <p className="mb-2 text-[11px] text-neutral-500">
-              Makes an Ascent record PDF — its {lines.length} line{lines.length === 1 ? "" : "s"} and{" "}
-              {money(math.total)} — and attaches it in JobTread. Pre-filled from the bill; change
-              anything before creating it.
+              Makes an Ascent record PDF — its {lines.length} line{lines.length === 1 ? "" : "s"}{" "}
+              and {money(math.total)} — and attaches it in JobTread. Pre-filled from the bill;
+              change anything before creating it.
               {prefillLoading && " Loading…"}
             </p>
             <div className="grid grid-cols-2 gap-2.5">
@@ -1574,7 +1604,11 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
               </div>
               <div>
                 <Label htmlFor="cf-job">Job</Label>
-                <Input id="cf-job" value={createFileFields.job} onChange={setCreateFileField("job")} />
+                <Input
+                  id="cf-job"
+                  value={createFileFields.job}
+                  onChange={setCreateFileField("job")}
+                />
               </div>
               <div>
                 <Label htmlFor="cf-customer">Customer</Label>

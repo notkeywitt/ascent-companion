@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/allbills-vendor-collapsed
 status: in-progress
 started: 2026-09-14T17:52:26Z
-updated: 2026-09-16T00:03:27Z
+updated: 2026-09-16T00:35:36Z
 goal: 
 next: on the deployed /vendors: pick a vendor with no email/phone/address (e.g. Ace Hardware), fill all three, Save, confirm it reads back and check /journal for the vendor.details.set rows
 ---
@@ -25,5 +25,7 @@ next: on the deployed /vendors: pick a vendor with no email/phone/address (e.g. 
 - 2026-09-15 17:00 · `458d6ac` companion: lock field time-entry identity after first pick
   src/app/employee-time/EmployeeTimeClient.tsx
 - 2026-09-15 17:03 · `47de5f1` bunch of updates idk claude did it
+- 2026-09-15 17:35 · `5de852a` companion: resolve time identity from the JobTread membership when the roster link is blank
+  src/app/employee-time/page.tsx, src/lib/actingAs.ts
 
 ## Notes

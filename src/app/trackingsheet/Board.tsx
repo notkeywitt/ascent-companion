@@ -26,6 +26,7 @@ import {
 import { CostCodeSelect, type Option } from "@/components/CostCodeSelect";
 import { JobPicker, jobAddress, jobLabel, type JobRef } from "@/components/JobPicker";
 import { useBillMove } from "@/components/BillMove";
+import { DocumentAccess } from "@/components/DocumentAccess";
 import { JtLink } from "@/components/JtLink";
 import { SplitGrid } from "@/components/SplitGrid";
 import { CostDonuts, type CostDonutRow } from "./CostDonuts";
@@ -445,6 +446,14 @@ export function Board() {
   const [approveMsg, setApproveMsg] = useState<{ tone: "success" | "error"; text: string } | null>(
     null,
   );
+
+  /**
+   * Bulk Document Access — the month's vendor bills added to the client's
+   * "Document Access" list in one press, instead of sharing forty documents one
+   * at a time in JobTread. The list itself is <DocumentAccess>, the same
+   * component the bill card uses for a single bill.
+   */
+  const [accessOpen, setAccessOpen] = useState(false);
 
   // The Tracking Sheet push is its own button in the closing row, never a step
   // inside Save. It still needs target resolution and result state held HERE
@@ -2353,38 +2362,38 @@ export function Board() {
    */
   const billsForCode = useCallback(
     (code: string): DrillBillRow[] => {
-    const committed = (contributors?.data.bills ?? [])
-      .filter((b) => {
-        const leaf = staged.get(b.id);
-        const effective = leaf ? (leafById.get(leaf)?.number ?? b.code) : b.code;
-        return effective === code;
-      })
-      .map((b): DrillBillRow => ({
-        key: b.id,
-        docId: b.docId,
-        vendor: b.vendor,
-        lineName: b.lineName,
-        issueDate: b.issueDate,
-        status: b.status,
-        cost: b.cost,
-        draft: false,
-      }));
-    const drafts = (data?.lines ?? [])
-      .filter((l) => !isCommitted(l.billStatus) && codeOf(l) === code)
-      .map((l): DrillBillRow => ({
-        key: l.id,
-        docId: l.docId,
-        vendor: billsById.get(l.docId)?.vendor ?? l.name,
-        lineName: l.name,
-        issueDate: billsById.get(l.docId)?.issueDate ?? null,
-        status: l.billStatus,
-        cost: l.cost,
-        draft: true,
-      }));
-    return [...committed, ...drafts].sort(
-      (a, b) =>
-        String(b.issueDate ?? "").localeCompare(String(a.issueDate ?? "")) || b.cost - a.cost,
-    );
+      const committed = (contributors?.data.bills ?? [])
+        .filter((b) => {
+          const leaf = staged.get(b.id);
+          const effective = leaf ? (leafById.get(leaf)?.number ?? b.code) : b.code;
+          return effective === code;
+        })
+        .map((b): DrillBillRow => ({
+          key: b.id,
+          docId: b.docId,
+          vendor: b.vendor,
+          lineName: b.lineName,
+          issueDate: b.issueDate,
+          status: b.status,
+          cost: b.cost,
+          draft: false,
+        }));
+      const drafts = (data?.lines ?? [])
+        .filter((l) => !isCommitted(l.billStatus) && codeOf(l) === code)
+        .map((l): DrillBillRow => ({
+          key: l.id,
+          docId: l.docId,
+          vendor: billsById.get(l.docId)?.vendor ?? l.name,
+          lineName: l.name,
+          issueDate: billsById.get(l.docId)?.issueDate ?? null,
+          status: l.billStatus,
+          cost: l.cost,
+          draft: true,
+        }));
+      return [...committed, ...drafts].sort(
+        (a, b) =>
+          String(b.issueDate ?? "").localeCompare(String(a.issueDate ?? "")) || b.cost - a.cost,
+      );
     },
     [contributors, staged, leafById, data, billsById, codeOf],
   );
@@ -3149,6 +3158,14 @@ export function Board() {
         {preSendRunning ? "Checking…" : preSend ? "Check again" : "Check this job"}
       </Button>
       {trackingSheetAction("min-h-11")}
+      <Button
+        variant="secondary"
+        className="min-h-11"
+        title={`Add the client to the Document Access list on every ${monthLabel(ym)} bill`}
+        onClick={() => setAccessOpen(true)}
+      >
+        Give Document Access
+      </Button>
       {showApprove &&
         (allApproved ? (
           /* Every bill is approved, so the next step is JobTread's own invoice
@@ -3161,7 +3178,11 @@ export function Board() {
              duplicate one; the banner's own "Open invoice" link is the way in
              from here. */
           reconReady ? null : dirty ? (
-            <Button disabled title="Save staged coding changes to JobTread first" className="min-h-11">
+            <Button
+              disabled
+              title="Save staged coding changes to JobTread first"
+              className="min-h-11"
+            >
               Create Invoice in JobTread ↗
             </Button>
           ) : (
@@ -3466,9 +3487,7 @@ export function Board() {
               BUTTON does the sticking, with the whole row to travel in. */}
           <section
             className={`min-w-0 ${
-              railHidden
-                ? "lg:pr-3"
-                : "overflow-hidden lg:sticky sticky-below-header lg:self-start"
+              railHidden ? "lg:pr-3" : "overflow-hidden lg:sticky sticky-below-header lg:self-start"
             }`}
           >
             {/* THE WAY BACK, in the column the rail vacated. Desktop only:
@@ -3499,296 +3518,297 @@ export function Board() {
                 below lg `railHidden` means nothing and the rail is still the
                 only budget on the page there. */}
             <div className={railHidden ? "lg:hidden" : ""}>
-            {/* The row keeps a SectionHeading's 28px height on a phone even
+              {/* The row keeps a SectionHeading's 28px height on a phone even
                 though both taps inside it are 44px tall: `-my-2` lets each
                 button's hit area overhang the row instead of inflating it, the
                 way a 44px target normally would. Without it this heading stood
                 16px taller than every other heading on the page, and the
                 collapsed rail left another 8px of dead margin under itself. */}
-            <div
-              className={`flex items-baseline justify-between gap-2 lg:mb-2 ${
-                railCollapsed ? "mb-0" : "mb-2"
-              }`}
-            >
-              {/* On mobile the label itself is the toggle for the whole rail;
+              <div
+                className={`flex items-baseline justify-between gap-2 lg:mb-2 ${
+                  railCollapsed ? "mb-0" : "mb-2"
+                }`}
+              >
+                {/* On mobile the label itself is the toggle for the whole rail;
                   on desktop the rail is always docked, so the tap is disabled.
                   The mark is the ochre dash every other SectionHeading on the
                   page carries, not a rotating chevron — one heading style for
                   the whole page. What the fold is doing is then said by whether
                   the cards below are there, which on a phone is the whole
                   screen. */}
-              <button
-                type="button"
-                onClick={() => setRailCollapsed((v) => !v)}
-                aria-expanded={!railCollapsed}
-                className="-ml-1 -my-2 flex min-h-11 min-w-0 items-center gap-2.5 px-1 text-left lg:pointer-events-none lg:my-0 lg:ml-0 lg:min-h-0 lg:px-0"
-              >
-                <span aria-hidden className="h-0.5 w-5 shrink-0 rounded-full bg-accent" />
-                <SectionLabel>Budget</SectionLabel>
-              </button>
-              <span className="-my-2 flex shrink-0 items-center gap-3 lg:my-0">
-                {/* Which end of the headroom cards leads. Mobile only — the
-                    cards themselves are, and on desktop the full rail below
-                    answers the same question in order. */}
-                {tightestCodes.length > 0 && !railCollapsed && (
-                  <button
-                    type="button"
-                    onClick={() => setHeadroomMostLeft((v) => !v)}
-                    className="inline-flex min-h-11 items-center gap-1 text-[11px] text-neutral-500 transition hover:text-accent dark:text-neutral-400 lg:hidden"
-                  >
-                    {headroomMostLeft ? "most left first" : "least left first"}
-                    <span aria-hidden className="text-[9px]">
-                      ⇅
-                    </span>
-                  </button>
-                )}
                 <button
                   type="button"
-                  onClick={() =>
-                    setCollapsedDivs((prev) =>
-                      prev.size > 0 ? new Set() : new Set(railGroups.map((g) => g.code)),
-                    )
-                  }
-                  className={`-mr-1 inline-flex min-h-11 shrink-0 items-center px-1 text-[11px] text-neutral-500 transition hover:text-accent dark:text-neutral-400 lg:mr-0 lg:min-h-0 lg:px-0 ${
-                    railCollapsed ? "hidden lg:inline-flex" : ""
-                  }`}
+                  onClick={() => setRailCollapsed((v) => !v)}
+                  aria-expanded={!railCollapsed}
+                  className="-ml-1 -my-2 flex min-h-11 min-w-0 items-center gap-2.5 px-1 text-left lg:pointer-events-none lg:my-0 lg:ml-0 lg:min-h-0 lg:px-0"
                 >
-                  {collapsedDivs.size > 0 ? "Expand all" : "Collapse all"}
+                  <span aria-hidden className="h-0.5 w-5 shrink-0 rounded-full bg-accent" />
+                  <SectionLabel>Budget</SectionLabel>
                 </button>
-                {/* Close the whole column. Desktop only — on a phone the
+                <span className="-my-2 flex shrink-0 items-center gap-3 lg:my-0">
+                  {/* Which end of the headroom cards leads. Mobile only — the
+                    cards themselves are, and on desktop the full rail below
+                    answers the same question in order. */}
+                  {tightestCodes.length > 0 && !railCollapsed && (
+                    <button
+                      type="button"
+                      onClick={() => setHeadroomMostLeft((v) => !v)}
+                      className="inline-flex min-h-11 items-center gap-1 text-[11px] text-neutral-500 transition hover:text-accent dark:text-neutral-400 lg:hidden"
+                    >
+                      {headroomMostLeft ? "most left first" : "least left first"}
+                      <span aria-hidden className="text-[9px]">
+                        ⇅
+                      </span>
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setCollapsedDivs((prev) =>
+                        prev.size > 0 ? new Set() : new Set(railGroups.map((g) => g.code)),
+                      )
+                    }
+                    className={`-mr-1 inline-flex min-h-11 shrink-0 items-center px-1 text-[11px] text-neutral-500 transition hover:text-accent dark:text-neutral-400 lg:mr-0 lg:min-h-0 lg:px-0 ${
+                      railCollapsed ? "hidden lg:inline-flex" : ""
+                    }`}
+                  >
+                    {collapsedDivs.size > 0 ? "Expand all" : "Collapse all"}
+                  </button>
+                  {/* Close the whole column. Desktop only — on a phone the
                     heading tap already folds the rail, and a second control
                     that means almost the same thing is two ways to do one
                     thing. A tab on the left edge brings it back. */}
-                <button
-                  type="button"
-                  onClick={toggleRailHidden}
-                  title="Hide the budget column — the bills take the width"
-                  className="hidden shrink-0 items-center gap-1 text-[11px] text-neutral-500 transition hover:text-accent dark:text-neutral-400 lg:inline-flex"
-                >
-                  Hide
-                  <span aria-hidden className="text-[9px]">
-                    ←
-                  </span>
-                </button>
-              </span>
-            </div>
-            {/* Budget headroom, INSIDE the budget fold — same tap, one
+                  <button
+                    type="button"
+                    onClick={toggleRailHidden}
+                    title="Hide the budget column — the bills take the width"
+                    className="hidden shrink-0 items-center gap-1 text-[11px] text-neutral-500 transition hover:text-accent dark:text-neutral-400 lg:inline-flex"
+                  >
+                    Hide
+                    <span aria-hidden className="text-[9px]">
+                      ←
+                    </span>
+                  </button>
+                </span>
+              </div>
+              {/* Budget headroom, INSIDE the budget fold — same tap, one
                 heading. The desktop rail is a docked column; below lg it is
                 folded behind that tap, and these cards are what the budget
                 looks like on the device the month is actually reviewed on.
                 Swipeable; tapping a card opens the same drill-down the rail's
                 rows do. Which end leads is the flip beside the heading. */}
-            {tightestCodes.length > 0 && !railCollapsed && (
-              <div className="mb-2 lg:hidden">
-                <ChipScroller bleed="1rem">
-                  {tightestCodes.map((h) => {
-                    const left = remainingOf(h);
-                    const pct = Math.round((left / h.budget) * 100);
-                    return (
-                      <button
-                        key={h.code}
-                        type="button"
-                        onClick={() => openCodeDrill(h.code)}
-                        className="w-[170px] shrink-0 rounded-xl border border-line bg-white p-2.5 text-left transition hover:border-accent dark:bg-ink-raised"
-                      >
-                        <div className="text-[11px] tabular-nums text-neutral-500 dark:text-neutral-400">
-                          {h.code}
-                        </div>
-                        <div className="truncate text-[12.5px] font-semibold">{h.name}</div>
-                        <div
-                          className={`mt-0.5 text-[15px] font-bold tabular-nums tracking-tight ${
-                            left < 0 ? "text-red-600 dark:text-red-400" : ""
-                          }`}
+              {tightestCodes.length > 0 && !railCollapsed && (
+                <div className="mb-2 lg:hidden">
+                  <ChipScroller bleed="1rem">
+                    {tightestCodes.map((h) => {
+                      const left = remainingOf(h);
+                      const pct = Math.round((left / h.budget) * 100);
+                      return (
+                        <button
+                          key={h.code}
+                          type="button"
+                          onClick={() => openCodeDrill(h.code)}
+                          className="w-[170px] shrink-0 rounded-xl border border-line bg-white p-2.5 text-left transition hover:border-accent dark:bg-ink-raised"
                         >
-                          {money0(left)}
-                        </div>
-                        <Meter
-                          budget={h.budget}
-                          used={usedOf(h)}
-                          label={h.code}
-                          className="mt-1.5 h-1"
-                        />
-                        <div className="mt-1 text-[10.5px] text-neutral-500 dark:text-neutral-400">
-                          {left < 0 ? `over by ${-pct}%` : `${pct}% of budget left`}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </ChipScroller>
-              </div>
-            )}
-            {/* Admin: what this job's Tracking Sheet says the spend is, against
+                          <div className="text-[11px] tabular-nums text-neutral-500 dark:text-neutral-400">
+                            {h.code}
+                          </div>
+                          <div className="truncate text-[12.5px] font-semibold">{h.name}</div>
+                          <div
+                            className={`mt-0.5 text-[15px] font-bold tabular-nums tracking-tight ${
+                              left < 0 ? "text-red-600 dark:text-red-400" : ""
+                            }`}
+                          >
+                            {money0(left)}
+                          </div>
+                          <Meter
+                            budget={h.budget}
+                            used={usedOf(h)}
+                            label={h.code}
+                            className="mt-1.5 h-1"
+                          />
+                          <div className="mt-1 text-[10.5px] text-neutral-500 dark:text-neutral-400">
+                            {left < 0 ? `over by ${-pct}%` : `${pct}% of budget left`}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </ChipScroller>
+                </div>
+              )}
+              {/* Admin: what this job's Tracking Sheet says the spend is, against
                 what JobTread holds — the historical gap, on the job you already
                 have open. Folds with the rail like the headroom cards do. */}
-            {canSheetGap && trackingTarget?.url && (
-              <SheetGap
-                jobId={jobId}
-                url={trackingTarget.url}
-                budgetByCode={budgetByCode}
-                className={railCollapsed ? "hidden lg:block" : ""}
-              />
-            )}
-            <Card
-              pad={false}
-              className={`overflow-hidden ${railCollapsed ? "hidden lg:block" : ""}`}
-            >
-              <input
-                type="search"
-                value={codeQuery}
-                onChange={(e) => setCodeQuery(e.target.value)}
-                placeholder={c("recode.placeholder.filterCodes")}
-                className="h-11 w-full border-b border-line bg-transparent px-3 text-xs outline-none dark:border-white/10 lg:h-auto lg:px-2 lg:py-1.5"
-              />
-              {/* Sized off the viewport, not a %, so the docked rail (label +
+              {canSheetGap && trackingTarget?.url && (
+                <SheetGap
+                  jobId={jobId}
+                  url={trackingTarget.url}
+                  budgetByCode={budgetByCode}
+                  className={railCollapsed ? "hidden lg:block" : ""}
+                />
+              )}
+              <Card
+                pad={false}
+                className={`overflow-hidden ${railCollapsed ? "hidden lg:block" : ""}`}
+              >
+                <input
+                  type="search"
+                  value={codeQuery}
+                  onChange={(e) => setCodeQuery(e.target.value)}
+                  placeholder={c("recode.placeholder.filterCodes")}
+                  className="h-11 w-full border-b border-line bg-transparent px-3 text-xs outline-none dark:border-white/10 lg:h-auto lg:px-2 lg:py-1.5"
+                />
+                {/* Sized off the viewport, not a %, so the docked rail (label +
                   card + footnote) always fits on screen and scrolls internally.
                   `dvh` rather than `vh`, so a phone's collapsing address bar
                   doesn't leave the rail taller than the screen it's in. */}
-              <div className="max-h-[calc(100dvh-16rem)] overflow-y-auto">
-                {railRows.length === 0 ? (
-                  <p className="px-3 py-4 text-xs text-neutral-500">No cost codes match.</p>
-                ) : (
-                  railGroups.map((g) => {
-                    // A filter term force-opens the divisions it matched —
-                    // otherwise searching a collapsed rail looks like it found
-                    // nothing.
-                    const open = !collapsedDivs.has(g.code) || codeQuery.trim() !== "";
-                    return (
-                      <div key={g.code}>
-                        <button
-                          type="button"
-                          onClick={() => toggleDiv(g.code)}
-                          aria-expanded={open}
-                          // A collapsed division hides its codes, and with them
-                          // their drop targets — so dragging onto the header
-                          // opens it instead of dead-ending the drag.
-                          onDragOver={() => {
-                            if (dragLineIds && collapsedDivs.has(g.code)) toggleDiv(g.code);
-                          }}
-                          // Division headers and code rows are tap targets that
-                          // open a drill-down, so on touch they get real height
-                          // (they were ~26px); `lg` restores the dense rail the
-                          // desktop workbench scans dozens of codes in.
-                          className="w-full border-b border-line bg-neutral-50/80 px-3 py-2.5 text-left transition hover:bg-accent/5 dark:border-neutral-800 dark:bg-white/[0.04] dark:hover:bg-white/[0.07] lg:px-2 lg:py-1"
-                        >
-                          <div className="flex items-center gap-1.5 lg:items-baseline">
-                            <span
-                              aria-hidden
-                              className={`shrink-0 text-[9px] text-neutral-500 transition-transform dark:text-neutral-400 ${open ? "rotate-90" : ""}`}
-                            >
-                              ▶
-                            </span>
-                            <span className="min-w-0 flex-1 truncate text-sm font-semibold">
-                              <span className="font-normal tabular-nums text-neutral-500 dark:text-neutral-400">
-                                {g.code}
-                              </span>{" "}
-                              {g.name}
-                            </span>
-                            <span className="shrink-0 text-[10px] tabular-nums text-neutral-500 dark:text-neutral-400">
-                              {g.rows.length}
-                            </span>
-                            <span
-                              className={`shrink-0 text-sm font-semibold tabular-nums ${
-                                g.remaining < 0 ? "text-red-600 dark:text-red-400" : ""
-                              }`}
-                            >
-                              {money0(g.remaining)}
-                            </span>
-                          </div>
-                        </button>
+                <div className="max-h-[calc(100dvh-16rem)] overflow-y-auto">
+                  {railRows.length === 0 ? (
+                    <p className="px-3 py-4 text-xs text-neutral-500">No cost codes match.</p>
+                  ) : (
+                    railGroups.map((g) => {
+                      // A filter term force-opens the divisions it matched —
+                      // otherwise searching a collapsed rail looks like it found
+                      // nothing.
+                      const open = !collapsedDivs.has(g.code) || codeQuery.trim() !== "";
+                      return (
+                        <div key={g.code}>
+                          <button
+                            type="button"
+                            onClick={() => toggleDiv(g.code)}
+                            aria-expanded={open}
+                            // A collapsed division hides its codes, and with them
+                            // their drop targets — so dragging onto the header
+                            // opens it instead of dead-ending the drag.
+                            onDragOver={() => {
+                              if (dragLineIds && collapsedDivs.has(g.code)) toggleDiv(g.code);
+                            }}
+                            // Division headers and code rows are tap targets that
+                            // open a drill-down, so on touch they get real height
+                            // (they were ~26px); `lg` restores the dense rail the
+                            // desktop workbench scans dozens of codes in.
+                            className="w-full border-b border-line bg-neutral-50/80 px-3 py-2.5 text-left transition hover:bg-accent/5 dark:border-neutral-800 dark:bg-white/[0.04] dark:hover:bg-white/[0.07] lg:px-2 lg:py-1"
+                          >
+                            <div className="flex items-center gap-1.5 lg:items-baseline">
+                              <span
+                                aria-hidden
+                                className={`shrink-0 text-[9px] text-neutral-500 transition-transform dark:text-neutral-400 ${open ? "rotate-90" : ""}`}
+                              >
+                                ▶
+                              </span>
+                              <span className="min-w-0 flex-1 truncate text-sm font-semibold">
+                                <span className="font-normal tabular-nums text-neutral-500 dark:text-neutral-400">
+                                  {g.code}
+                                </span>{" "}
+                                {g.name}
+                              </span>
+                              <span className="shrink-0 text-[10px] tabular-nums text-neutral-500 dark:text-neutral-400">
+                                {g.rows.length}
+                              </span>
+                              <span
+                                className={`shrink-0 text-sm font-semibold tabular-nums ${
+                                  g.remaining < 0 ? "text-red-600 dark:text-red-400" : ""
+                                }`}
+                              >
+                                {money0(g.remaining)}
+                              </span>
+                            </div>
+                          </button>
 
-                        {/* Rolled up, the division still shows its own bar, so a
+                          {/* Rolled up, the division still shows its own bar, so a
                             tidy rail is still a readable one. */}
-                        {!open && (
-                          <div className="border-b border-line-soft px-2 pb-1 dark:border-neutral-800">
-                            <Meter budget={g.budget} used={g.used} label={`Division ${g.code}`} />
-                          </div>
-                        )}
+                          {!open && (
+                            <div className="border-b border-line-soft px-2 pb-1 dark:border-neutral-800">
+                              <Meter budget={g.budget} used={g.used} label={`Division ${g.code}`} />
+                            </div>
+                          )}
 
-                        {open && (
-                          <ul>
-                            {g.rows.map((h) => {
-                              const left = remainingOf(h);
-                              const over = left < 0;
-                              // Remaining ÷ budget — undefined without a real budget to
-                              // divide by (a labor-only or bills-only code), same guard
-                              // the Meter's own percentage uses. It is tooltip-only
-                              // now: the row shows the money left and the bar, and
-                              // a percent beside a dollar figure said the same thing
-                              // twice.
-                              const pct = h.budget > 0 ? Math.round((left / h.budget) * 100) : null;
-                              return (
-                                // ONE line and a bar. The name, the money left and
-                                // the meter — the same type scale the bill list
-                                // beside it uses, so the two columns read as one
-                                // page. Everything else (used, budget, percent) is
-                                // in the tooltip and in the drill-down this row
-                                // opens; four lines per code made the rail a wall.
-                                <li
-                                  key={h.code}
-                                  {...dropHandlers(h.code, h.droppable)}
-                                  title={
-                                    `${h.code} ${h.name}\n` +
-                                    `${money(h.spent)} committed` +
-                                    (h.drafts > 0 ? ` + ${money(h.drafts)} draft` : "") +
-                                    (h.labor > 0 ? ` + ${money(h.labor)} labor` : "") +
-                                    ` of ${money(h.budget)} budget\n${money(left)} remaining` +
-                                    (pct !== null ? ` (${pct}% of budget)` : "") +
-                                    (h.droppable ? "" : "\nNo budget line — can't code to this")
-                                  }
-                                  className={`border-b border-line-soft transition dark:border-neutral-800 ${
-                                    dragOverCode === h.code
-                                      ? "bg-accent/10 ring-1 ring-inset ring-accent"
-                                      : dragLineIds && !h.droppable
-                                        ? "opacity-40"
-                                        : ""
-                                  }`}
-                                >
-                                  <button
-                                    type="button"
-                                    onClick={() => openCodeDrill(h.code)}
-                                    className="w-full px-3 py-2.5 pl-5 text-left transition hover:opacity-70 lg:px-2 lg:py-1.5 lg:pl-4"
+                          {open && (
+                            <ul>
+                              {g.rows.map((h) => {
+                                const left = remainingOf(h);
+                                const over = left < 0;
+                                // Remaining ÷ budget — undefined without a real budget to
+                                // divide by (a labor-only or bills-only code), same guard
+                                // the Meter's own percentage uses. It is tooltip-only
+                                // now: the row shows the money left and the bar, and
+                                // a percent beside a dollar figure said the same thing
+                                // twice.
+                                const pct =
+                                  h.budget > 0 ? Math.round((left / h.budget) * 100) : null;
+                                return (
+                                  // ONE line and a bar. The name, the money left and
+                                  // the meter — the same type scale the bill list
+                                  // beside it uses, so the two columns read as one
+                                  // page. Everything else (used, budget, percent) is
+                                  // in the tooltip and in the drill-down this row
+                                  // opens; four lines per code made the rail a wall.
+                                  <li
+                                    key={h.code}
+                                    {...dropHandlers(h.code, h.droppable)}
+                                    title={
+                                      `${h.code} ${h.name}\n` +
+                                      `${money(h.spent)} committed` +
+                                      (h.drafts > 0 ? ` + ${money(h.drafts)} draft` : "") +
+                                      (h.labor > 0 ? ` + ${money(h.labor)} labor` : "") +
+                                      ` of ${money(h.budget)} budget\n${money(left)} remaining` +
+                                      (pct !== null ? ` (${pct}% of budget)` : "") +
+                                      (h.droppable ? "" : "\nNo budget line — can't code to this")
+                                    }
+                                    className={`border-b border-line-soft transition dark:border-neutral-800 ${
+                                      dragOverCode === h.code
+                                        ? "bg-accent/10 ring-1 ring-inset ring-accent"
+                                        : dragLineIds && !h.droppable
+                                          ? "opacity-40"
+                                          : ""
+                                    }`}
                                   >
-                                    <div className="flex items-baseline justify-between gap-3">
-                                      <span className="min-w-0 truncate text-sm font-semibold">
-                                        <span className="font-normal tabular-nums text-neutral-500 dark:text-neutral-400">
-                                          {h.code}
-                                        </span>{" "}
-                                        <span
-                                          className={
-                                            h.droppable
-                                              ? ""
-                                              : "font-normal text-neutral-500 dark:text-neutral-400"
-                                          }
-                                        >
-                                          {h.name}
+                                    <button
+                                      type="button"
+                                      onClick={() => openCodeDrill(h.code)}
+                                      className="w-full px-3 py-2.5 pl-5 text-left transition hover:opacity-70 lg:px-2 lg:py-1.5 lg:pl-4"
+                                    >
+                                      <div className="flex items-baseline justify-between gap-3">
+                                        <span className="min-w-0 truncate text-sm font-semibold">
+                                          <span className="font-normal tabular-nums text-neutral-500 dark:text-neutral-400">
+                                            {h.code}
+                                          </span>{" "}
+                                          <span
+                                            className={
+                                              h.droppable
+                                                ? ""
+                                                : "font-normal text-neutral-500 dark:text-neutral-400"
+                                            }
+                                          >
+                                            {h.name}
+                                          </span>
                                         </span>
-                                      </span>
-                                      <span
-                                        className={`shrink-0 text-base font-semibold tabular-nums ${
-                                          over ? "text-red-600 dark:text-red-400" : ""
-                                        }`}
-                                      >
-                                        {money0(left)}
-                                      </span>
-                                    </div>
-                                    <Meter
-                                      budget={h.budget}
-                                      used={usedOf(h)}
-                                      label={h.code}
-                                      className="mt-1"
-                                    />
-                                  </button>
-                                </li>
-                              );
-                            })}
-                          </ul>
-                        )}
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            </Card>
+                                        <span
+                                          className={`shrink-0 text-base font-semibold tabular-nums ${
+                                            over ? "text-red-600 dark:text-red-400" : ""
+                                          }`}
+                                        >
+                                          {money0(left)}
+                                        </span>
+                                      </div>
+                                      <Meter
+                                        budget={h.budget}
+                                        used={usedOf(h)}
+                                        label={h.code}
+                                        className="mt-1"
+                                      />
+                                    </button>
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                          )}
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </Card>
             </div>
           </section>
 
@@ -4310,43 +4330,45 @@ export function Board() {
                             slice: one filter, two ways in. */}
                         <div className="flex flex-wrap items-end gap-x-3 gap-y-2 border-t border-line-soft bg-neutral-50 px-3 py-2 dark:bg-ink-raised/50">
                           <div className="min-w-[10rem] flex-1">
-                          <Label htmlFor="bill-code">Cost code</Label>
-                          <Select
-                            id="bill-code"
-                            value={billCodeFilter?.key ?? ""}
-                            onChange={(e) => {
-                              const v = e.target.value;
-                              if (!v) return setBillCodeFilter(null);
-                              if (v === UNCODED_KEY)
-                                return setBillCodeFilter({
+                            <Label htmlFor="bill-code">Cost code</Label>
+                            <Select
+                              id="bill-code"
+                              value={billCodeFilter?.key ?? ""}
+                              onChange={(e) => {
+                                const v = e.target.value;
+                                if (!v) return setBillCodeFilter(null);
+                                if (v === UNCODED_KEY)
+                                  return setBillCodeFilter({
+                                    key: v,
+                                    label: "Uncoded",
+                                    codes: [""],
+                                  });
+                                const opt = billCodeOptions.find((o) => o.number === v);
+                                setBillCodeFilter({
                                   key: v,
-                                  label: "Uncoded",
-                                  codes: [""],
+                                  label: opt?.name ? `${v} ${opt.name}` : v,
+                                  codes: [v],
                                 });
-                              const opt = billCodeOptions.find((o) => o.number === v);
-                              setBillCodeFilter({
-                                key: v,
-                                label: opt?.name ? `${v} ${opt.name}` : v,
-                                codes: [v],
-                              });
-                            }}
-                            className="!py-1 !text-xs"
-                          >
-                            <option value="">All codes</option>
-                            {billCodeOptions.map((o) => (
-                              <option key={o.number || UNCODED_KEY} value={o.number || UNCODED_KEY}>
-                                {o.number ? `${o.number} ${o.name}`.trim() : "Uncoded"}
-                              </option>
-                            ))}
-                            {/* A pick made on the ring can name a set of codes
+                              }}
+                              className="!py-1 !text-xs"
+                            >
+                              <option value="">All codes</option>
+                              {billCodeOptions.map((o) => (
+                                <option
+                                  key={o.number || UNCODED_KEY}
+                                  value={o.number || UNCODED_KEY}
+                                >
+                                  {o.number ? `${o.number} ${o.name}`.trim() : "Uncoded"}
+                                </option>
+                              ))}
+                              {/* A pick made on the ring can name a set of codes
                                 ("Other"), which no single row here stands for —
                                 it is listed so the box never reads "All codes"
                                 over a filtered list. */}
-                            {billCodeFilter &&
-                              billCodeFilter.codes.length > 1 && (
+                              {billCodeFilter && billCodeFilter.codes.length > 1 && (
                                 <option value={billCodeFilter.key}>{billCodeFilter.label}</option>
                               )}
-                          </Select>
+                            </Select>
                           </div>
                         </div>
                         <ul className="divide-y divide-line-soft border-t border-line-soft">
@@ -4956,6 +4978,40 @@ export function Board() {
                 {approving
                   ? "Approving…"
                   : `Approve ${draftBills.length} bill${draftBills.length === 1 ? "" : "s"}`}
+              </Button>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {accessOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4"
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setAccessOpen(false)}
+        >
+          <Card
+            className="max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-b-none pb-[max(1rem,env(safe-area-inset-bottom))] !p-4 sm:rounded-b-xl sm:pb-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="text-sm font-semibold">Give Document Access</p>
+            <p className="mb-3 text-xs text-neutral-500 dark:text-neutral-400">
+              {monthLabel(ym)}
+              {jobTitle ? ` · ${jobTitle}` : ""}. The contact is added to the Document Access list
+              on every vendor bill dated in the month, so the client can open the bills behind their
+              invoice. No email is sent.
+            </p>
+
+            <DocumentAccess jobId={jobId} ym={ym} scopeLabel={monthLabel(ym)} />
+
+            <div className="mt-4 flex justify-end">
+              <Button
+                variant="secondary"
+                className="min-h-11 sm:min-h-0"
+                onClick={() => setAccessOpen(false)}
+              >
+                Close
               </Button>
             </div>
           </Card>
