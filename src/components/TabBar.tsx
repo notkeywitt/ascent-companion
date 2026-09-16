@@ -127,6 +127,12 @@ export function TabBar() {
   // button one screen up — see the file header comment.
   if (access.role === "lead") return null;
 
+  // FIELD keeps the bar on every page — it is that role's only way back home,
+  // since the logo is the theme switch and there is no side nav. But ON home it
+  // is a second copy of the three buttons directly above it
+  // (TILE_LAUNCHERS.field is Miles · Time · Tools), so it goes there.
+  if (access.role === "field" && pathname === "/") return null;
+
   const tabs = [HOME_TAB, ...TAB_CANDIDATES.filter((t) => access.can(t.view)).slice(0, 3)];
   // One tab is just Home — a bar with a single destination is decoration, and it
   // would cost every page 56px to say nothing.

@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { CountBadge, ListCard, ListRow, SectionHeading, btn } from "@/components/ui";
 import { useAccess } from "@/components/AccessProvider";
@@ -116,6 +116,22 @@ function LauncherButton({
 function Home() {
   const search = useSearchParams();
   const access = useAccess();
+  const router = useRouter();
+
+  /* A crew member opens this app to clock in, so FIELD lands on Employee Time
+     rather than the launcher. Once per tab: the redirect marks the tab, so the
+     tab bar's Home tab still reaches this page for the rest of the session.
+     Client-side because the role only exists below the server layout. */
+  useEffect(() => {
+    if (access.role !== "field") return;
+    try {
+      if (sessionStorage.getItem("home.landed")) return;
+      sessionStorage.setItem("home.landed", "1");
+    } catch {
+      return; // storage blocked — leave them on the launcher rather than loop.
+    }
+    router.replace("/employee-time");
+  }, [access.role, router]);
   // Office-edited wording (Admin → Page Text); falls back to the English below.
   const c = useCopy();
   const jobId = (search.get("jobId") ?? "").trim();
