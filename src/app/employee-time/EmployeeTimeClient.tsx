@@ -1655,21 +1655,30 @@ export function EmployeeTimeClient({
         </Banner>
       )}
 
-      {/* We couldn't match the login to a JobTread user — one tap fixes it. */}
-      {needsUserPick && (
-        <button
-          type="button"
-          onClick={() => openSheet("user")}
-          className="mb-3 flex w-full items-center justify-between gap-3 rounded-xl border border-amber-300 bg-amber-50 px-3 py-3 text-left text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300"
-        >
-          <span>
-            {effectiveUser
-              ? `Logging as ${effectiveUser.name} — tap to change.`
-              : "Tap to pick who you are in JobTread."}
-          </span>
-          <span aria-hidden>›</span>
-        </button>
-      )}
+      {/* We couldn't match the login to a JobTread user — one tap fixes it.
+          Once picked, the choice is locked: a field login must not be able to
+          reopen this and re-file time as a different employee. Only an admin
+          (who has the separate, gated "acting as" control) can still change it
+          here. Re-linking otherwise requires the Employees page. */}
+      {needsUserPick &&
+        (effectiveUser && !canActAs ? (
+          <div className="mb-3 flex w-full items-center gap-3 rounded-xl border border-amber-300 bg-amber-50 px-3 py-3 text-left text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300">
+            <span>Logging as {effectiveUser.name}.</span>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => openSheet("user")}
+            className="mb-3 flex w-full items-center justify-between gap-3 rounded-xl border border-amber-300 bg-amber-50 px-3 py-3 text-left text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300"
+          >
+            <span>
+              {effectiveUser
+                ? `Logging as ${effectiveUser.name} — tap to change.`
+                : "Tap to pick who you are in JobTread."}
+            </span>
+            <span aria-hidden>›</span>
+          </button>
+        ))}
 
       {/* ========================================================= TIME CLOCK */}
       {tab === "clock" && (
