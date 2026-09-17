@@ -19,6 +19,7 @@ import {
   PageHeader,
   Select,
   Textarea,
+  quietInputCls,
 } from "@/components/ui";
 
 /**
@@ -43,6 +44,13 @@ import {
  *    start/end trip) as the offline fallback and to carry the one thing
  *    JobTread doesn't hold (the log's idempotency key); JobTread wins on any
  *    disagreement.
+ *  - BREAK + SWITCH, both only while the clock runs. The Break row starts and
+ *    ends a break; the minutes bank on the clock record and go out at clock-out
+ *    as JobTread's OWN break deduction (`endNow: { breakDuration }` — the input
+ *    behind the org's 30-minute break setting), so the day stays ONE entry that
+ *    is simply shorter. The Cost code row switches work mid-shift: the running
+ *    entry is closed now on the old code and a new one opens on the new one, so
+ *    the morning's hours stay costed to the morning's work.
  *  - TIMESHEETS: the signed-in employee's own JobTread entries for a bi-monthly
  *    pay period (1st–15th / 16th–end), grouped by day with the day's total and
  *    its JobTread approval state, each row linking to JobTread.
@@ -118,6 +126,10 @@ interface ActiveClock {
   payType: string;
   employee: string;
   resumed?: boolean; // rebuilt from JobTread, not from this device's clock-in
+  /** Minutes already banked on break during THIS entry. */
+  breakMinutes?: number;
+  /** When the break running right now started ("YYYY-MM-DDTHH:MM:SS"), else null. */
+  breakStartedAt?: string | null;
 }
 // GET /api/employee-time/clock — the running clock as JobTread has it.
 interface OpenEntry {
@@ -172,6 +184,8 @@ type SheetId =
   | "edit"
   | "editjob"
   | "editcost"
+  // Change cost code without clocking out — splits the running entry.
+  | "switch"
   | null;
 
 /** One day of the timesheet: its entries, its total, and its approval state. */
@@ -972,6 +986,64 @@ export function EmployeeTimeClient({
     ? fmtElapsed(nowMs - new Date(activeClock.startedAt).getTime())
     : "0:00:00";
 
+  /* ------------------------------------------------------------------ BREAK --
+     A break is TIME NOT WORKED inside one clock-in, so it is counted here and
+     handed to JobTread at clock-out as its own break deduction — one entry for
+     the day, less the break, which is what JobTread's clock-out screen does and
+     what the org's 30-minute break setting is for.
+
+     The count lives on the clock record, so it survives a reload and a phone
+     going to sleep the same way the clock itself does. A break left running is
+     closed by whatever ends the shift, so nobody can bank a break that never
+     ended. */
+  const patchClock = useCallback(
+    (patch: Partial<ActiveClock>) => {
+      setActiveClock((cur) => {
+        if (!cur) return cur;
+        const next = { ...cur, ...patch };
+        // Same rule as clock-in: an admin viewing someone else never writes
+        // that person's clock onto their own device.
+        if (!acting) saveClock(next);
+        return next;
+      });
+    },
+    [acting],
+  );
+
+  // A clock RESUMED from JobTread (a new phone, the office desktop) leaves the
+  // picker's job unset, so the running job's cost codes were never fetched — and
+  // "switch cost code" would open an empty list. Adopt the running job.
+  const runningJobId = activeClock?.jobId ?? "";
+  useEffect(() => {
+    if (!runningJobId) return;
+    setJobId((cur) => cur || runningJobId);
+  }, [runningJobId]);
+  /** The switch list is only honest when the loaded codes belong to the running job. */
+  const canSwitchCode = !!activeClock && jobId === runningJobId && costItems.length > 0;
+
+  const bankedBreak = activeClock?.breakMinutes ?? 0;
+  const onBreakSince = activeClock?.breakStartedAt ?? null;
+  const runningBreakMs = onBreakSince ? Math.max(0, nowMs - new Date(onBreakSince).getTime()) : 0;
+  /** What the clock-out will send: banked minutes plus the break still running. */
+  const breakTotal = bankedBreak + (onBreakSince ? Math.round(runningBreakMs / 60000) : 0);
+
+  function startBreak() {
+    if (!activeClock || onBreakSince) return;
+    setErr("");
+    patchClock({ breakStartedAt: nowLocalSeconds() });
+  }
+
+  /** End the running break and bank it. Returns the new total, for a caller
+      that is about to send it (clocking out, or switching cost code). */
+  function endBreak(): number {
+    if (!activeClock) return 0;
+    if (!onBreakSince) return bankedBreak;
+    const minutes = Math.max(0, Math.round((Date.now() - new Date(onBreakSince).getTime()) / 60000));
+    const total = bankedBreak + minutes;
+    patchClock({ breakStartedAt: null, breakMinutes: total });
+    return total;
+  }
+
   async function addPhotos(list: FileList | null) {
     if (!list || !list.length) return;
     setErr("");
@@ -1013,6 +1085,19 @@ export function EmployeeTimeClient({
   const clockOutDuration = activeClock
     ? fmtDuration(clockOutStart, clockOutEnd || nowLocalSeconds())
     : "";
+  // The span in minutes, and what is left of it once the break comes off — the
+  // second number is the one that gets paid, so it is the one on the button.
+  const clockOutSpanMinutes = activeClock
+    ? Math.max(
+        0,
+        Math.round(
+          (new Date(clockOutEnd || nowLocalSeconds()).getTime() -
+            new Date(clockOutStart).getTime()) /
+            60000,
+        ),
+      )
+    : 0;
+  const clockOutNet = fmtMinutes(Math.max(0, clockOutSpanMinutes - breakTotal));
 
   // ------------------------------------------------------------- Clock in/out
   async function clockIn() {
@@ -1089,6 +1174,9 @@ export function EmployeeTimeClient({
 
   async function confirmClockOut() {
     if (!activeClock) return;
+    // Clocking out ends any break still running — you cannot be on break and
+    // off the clock at the same time.
+    const breakMinutes = endBreak();
     if (!note.trim()) {
       setErr("A note is required.");
       return;
@@ -1119,6 +1207,10 @@ export function EmployeeTimeClient({
       );
       return;
     }
+    if (breakMinutes >= clockOutSpanMinutes) {
+      setErr("Your break is as long as the shift — shorten it in the Break row.");
+      return;
+    }
     setErr("");
     setBusy(true);
     try {
@@ -1141,6 +1233,10 @@ export function EmployeeTimeClient({
           // one is already the entry's own startedAt.
           startEdited: outStartTouched,
           endTime: endedAt,
+          // A corrected stop time cannot be "now", which is what decides how the
+          // server writes the break — see the clock route.
+          endEdited: endTouched,
+          breakMinutes,
           note: note.trim(),
           photos,
         }),
@@ -1200,6 +1296,76 @@ export function EmployeeTimeClient({
     setErr("");
     resetStart();
     setBusy(false);
+  }
+
+  // ------------------------------------------------------- switch cost code
+  // Different work, same shift. The running entry is CLOSED now on the old cost
+  // code and a new one OPENS on the new one (the server does both), so the
+  // morning's hours stay costed to the morning's work. Any break taken so far
+  // goes out with the entry it was taken on; the new one starts clean.
+  async function switchCostCode(c: CostItem) {
+    if (!activeClock) return;
+    const breakMinutes = endBreak();
+    const at = nowLocalSeconds();
+    const fromCode = activeClock.costCode;
+    setErr("");
+    setBusy(true);
+    try {
+      const res = await fetch("/api/employee-time/clock", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          op: "switch",
+          entryId: activeClock.entryId,
+          userId: effectiveUserId,
+          jobId: activeClock.jobId,
+          costItemId: c.id,
+          payType: activeClock.payType,
+          startTime: at,
+          breakMinutes,
+          note: note.trim(),
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok || json.ok === false) {
+        setErr(json.error || "Could not switch the cost code.");
+        // The old entry closed but the new one never started — the crew member
+        // is genuinely off the clock now, so stop drawing one.
+        if (json.closed) {
+          try {
+            localStorage.removeItem(LS_CLOCK);
+          } catch {}
+          setActiveClock(null);
+          closeSheet();
+        }
+        return;
+      }
+      const next: ActiveClock = {
+        ...activeClock,
+        entryId: json.entryId || "",
+        // A new entry is a new clock-out, so a new idempotency key.
+        logKey: newLogKey(),
+        previewed: !!json.previewed,
+        jtStatus: json.jtStatus || "",
+        startedAt: json.startedAt || at,
+        costItemId: c.id,
+        costCode: c.number,
+        costItemName: c.name,
+        breakMinutes: 0,
+        breakStartedAt: null,
+        resumed: false,
+      };
+      setActiveClock(next);
+      if (!acting) saveClock(next);
+      setClockNote(
+        `Now on ${c.number}${c.name ? ` — ${c.name}` : ""}. The hours before ${fmt12h(at.slice(11, 16))} stay on ${fromCode || "the old code"}.`,
+      );
+      closeSheet();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Could not switch the cost code.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   // ---------------------------------------------------------- Log a range
@@ -1732,13 +1898,20 @@ export function EmployeeTimeClient({
 
           {/* The state, big — the one thing a crew member checks at a glance. */}
           <div className="pb-4 pt-2 text-center">
-            <h2 className="text-2xl font-bold">{running ? "Clocked in" : "Clocked out"}</h2>
+            <h2 className="text-2xl font-bold">
+              {running ? (onBreakSince ? "On break" : "Clocked in") : "Clocked out"}
+            </h2>
             {running && (
               <>
                 <div className="mt-1 flex items-center justify-center gap-2">
                   <span className="inline-block h-2.5 w-2.5 animate-pulse rounded-full bg-accent" aria-hidden />
                   <span className="text-4xl font-bold tabular-nums">{elapsed}</span>
                 </div>
+                {onBreakSince && (
+                  <p className="mt-1 text-xs font-semibold text-amber-600 dark:text-amber-400">
+                    On break {fmtElapsed(runningBreakMs)} — the shift clock above still runs.
+                  </p>
+                )}
                 {activeClock?.previewed && (
                   <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
                     JobTread push is OFF — this clock is local-only until writes are enabled.
@@ -1753,10 +1926,33 @@ export function EmployeeTimeClient({
               <>
                 <FieldRow label="Started" value={displayStamp(activeClock.startedAt)} static />
                 <FieldRow label="Job" value={activeClock.jobLabel || "—"} static />
+                {/* Tappable while the clock runs: changing work mid-shift splits
+                    the entry rather than re-coding the hours already worked. */}
                 <FieldRow
                   label="Cost code"
                   value={[activeClock.costCode, activeClock.costItemName].filter(Boolean).join(" — ") || "—"}
-                  static
+                  sub={canSwitchCode ? "Tap to switch — the hours so far stay put" : undefined}
+                  onClick={canSwitchCode && !onBreakSince ? () => openSheet("switch") : undefined}
+                  static={!canSwitchCode || !!onBreakSince}
+                />
+                <FieldRow
+                  label="Break"
+                  value={
+                    onBreakSince
+                      ? `On break — ${fmtElapsed(runningBreakMs)}`
+                      : bankedBreak
+                        ? `${fmtMinutes(bankedBreak)} today`
+                        : "Start a break"
+                  }
+                  placeholder={!onBreakSince && !bankedBreak}
+                  sub={
+                    onBreakSince
+                      ? `Started ${fmt12h(onBreakSince.slice(11, 16))} — tap to go back to work`
+                      : bankedBreak
+                        ? "JobTread deducts it when you clock out"
+                        : undefined
+                  }
+                  onClick={onBreakSince ? endBreak : startBreak}
                 />
                 {activeClock.payType && <FieldRow label="Pay type" value={activeClock.payType} static />}
                 <FieldRow
@@ -2039,6 +2235,15 @@ export function EmployeeTimeClient({
         onClose={closeSheet}
       />
 
+      {/* Switch cost code without clocking out — splits the running entry. */}
+      <CostSheet
+        open={sheet === "switch"}
+        items={costItems}
+        selectedId={activeClock?.costItemId ?? ""}
+        onPick={switchCostCode}
+        onClose={closeSheet}
+      />
+
       {/* Pay type. */}
       <Sheet open={sheet === "type"} title="Pay type" onClose={closeSheet}>
         <ul className="pb-2">
@@ -2094,7 +2299,11 @@ export function EmployeeTimeClient({
             disabled={busy}
             className="w-full rounded-full bg-red-600 px-4 py-3.5 text-base font-bold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-40"
           >
-            {busy ? "Saving…" : `Clock out — ${clockOutDuration || elapsed}`}
+            {busy
+              ? "Saving…"
+              : breakTotal
+                ? `Clock out — ${clockOutNet} (less ${fmtMinutes(breakTotal)} break)`
+                : `Clock out — ${clockOutDuration || elapsed}`}
           </button>
         }
       >
@@ -2178,6 +2387,36 @@ export function EmployeeTimeClient({
                   setEndAt(`${endAt.slice(0, 10)}T${v.slice(0, 5)}`);
                 }}
               />
+            </span>
+          </div>
+          {/* Break — whatever the Break button banked, correctable here for the
+              crew member who took one and never tapped it. JobTread deducts it. */}
+          <div className="flex min-h-[56px] items-center justify-between gap-3 border-t border-line-soft px-3 py-2.5">
+            <span className="text-[13px] text-neutral-500">
+              Break
+              {breakTotal ? <span className="ml-2 text-neutral-400">{clockOutNet} paid</span> : null}
+            </span>
+            <span className="flex items-center gap-2">
+              <input
+                type="number"
+                min={0}
+                max={720}
+                step={5}
+                inputMode="numeric"
+                aria-label="Break minutes"
+                value={breakTotal || ""}
+                placeholder="0"
+                onChange={(e) =>
+                  patchClock({
+                    breakMinutes: Math.max(0, Math.trunc(Number(e.target.value) || 0)),
+                    // Typing a total ends any break still running — the number
+                    // in the box is now the whole answer.
+                    breakStartedAt: null,
+                  })
+                }
+                className={`${quietInputCls} w-16 text-right tabular-nums`}
+              />
+              <span className="text-[13px] text-neutral-500">min</span>
             </span>
           </div>
         </Card>

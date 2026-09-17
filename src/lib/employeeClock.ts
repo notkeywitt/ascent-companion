@@ -85,3 +85,22 @@ export async function readLastUsed(userId: string): Promise<LastUsed | null> {
   if (!e || !e.jobId) return null;
   return { jobId: e.jobId, costItemId: e.costItemId, costCode: e.costCode, payType: e.payType };
 }
+
+/* ------------------------------------------------------------------ BREAKS --
+   A break is time NOT worked inside one clock-in. The phone counts the minutes
+   and the clock route hands them to JobTread's own break input; these two are
+   the arithmetic both sides agree on. */
+
+/** An instant, moved back by N minutes. The break fallback when JobTread's own
+ *  break input is refused, and the only way to deduct a break from a stop time
+ *  the crew member corrected by hand (that one cannot be "now"). */
+export function minusMinutes(iso: string, minutes: number): string {
+  return new Date(Date.parse(iso) - minutes * 60_000).toISOString();
+}
+
+/** Minutes that get PAID: the span, less the break. Never below zero. */
+export function paidMinutes(startIso: string, endIso: string, breakMinutes: number): number {
+  const span = Math.round((Date.parse(endIso) - Date.parse(startIso)) / 60_000);
+  if (!Number.isFinite(span)) return 0;
+  return Math.max(0, span - Math.max(0, Math.trunc(breakMinutes || 0)));
+}
