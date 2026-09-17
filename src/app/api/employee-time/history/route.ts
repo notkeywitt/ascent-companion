@@ -18,10 +18,11 @@ import { resolveTimeIdentity } from "@/lib/actingAs";
  * Reading the digits literally, as this route used to, showed each entry 7 hours
  * off.
  *
- * Each row's jtUrl is the employee's own JobTread time page, narrowed to THAT
- * ROW'S DAY (app.jobtread.com/time?userId=…&startDate=…&endDate=…) — where they
- * review/adjust their hours, and not the job page (an individual entry isn't
- * deep-linkable). The URL shape lives in lib/jtLinks.
+ * Each row's jtUrl opens THAT ENTRY in JobTread —
+ * app.jobtread.com/time?timeEntryId=… (owner-supplied address, 2026-09-17).
+ * It used to be the employee's time page filtered to the row's job and day,
+ * because an entry was thought not to be deep-linkable; it is. The URL shape
+ * lives in lib/jtLinks.
  *
  * GET ?start=YYYY-MM-DD&end=YYYY-MM-DD (inclusive, calendar-day range)
  *     &actingAs=<jtUserId>  — ADMIN ONLY: read that person's timesheet instead.
@@ -131,9 +132,10 @@ export async function GET(req: NextRequest) {
         notes: e.notes,
         approved: e.approved,
         open,
-        // Narrowed to this entry's own JOB and day, so the link opens on the
-        // hours the row is about rather than the employee's whole history.
-        jtUrl: jtTimeUrl({ jobId: e.jobId, userId, from: dateOf(e.startedAt) }),
+        // THE ENTRY ITSELF — `?timeEntryId=` opens JobTread's time page with
+        // this row selected, which beats the job-and-day filter it used to
+        // carry (that landed you on a list to search again).
+        jtUrl: jtTimeUrl({ entryId: e.id }),
       };
     });
 

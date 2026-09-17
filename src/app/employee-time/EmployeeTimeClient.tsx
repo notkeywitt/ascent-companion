@@ -5,6 +5,7 @@ import Link from "next/link";
 
 import { jobAddress, jobLabel as jobRefLabel, type JobRef } from "@/components/JobPicker";
 import { JtLink } from "@/components/JtLink";
+import { jtTimeUrl } from "@/lib/jtLinks";
 import { fmtHM } from "@/lib/leaveFormat";
 import { fmtMiles, useNearestJobs } from "@/lib/nearestJob";
 import {
@@ -2024,6 +2025,20 @@ export function EmployeeTimeClient({
               </>
             )}
           </Card>
+
+          {/* The running entry, in JobTread. Only once it HAS one — a preview
+              clock (writes off) exists on this phone and nowhere else. */}
+          {running && activeClock?.entryId && (
+            <div className="mt-4 text-center">
+              <JtLink
+                href={jtTimeUrl({ entryId: activeClock.entryId })}
+                title="Open this time entry in JobTread"
+                className="text-xs font-semibold text-neutral-500 underline-offset-2 hover:text-accent hover:underline"
+              >
+                View in JobTread ↗
+              </JtLink>
+            </div>
+          )}
 
           {running && (
             <button
