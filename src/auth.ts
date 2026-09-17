@@ -96,11 +96,20 @@ function asRole(v: unknown): Role {
  * existing token kept working, with the role it was issued with, for up to a
  * month. That was finding H-1 of the September 2026 security review.
  *
- * 12 hours is the hard ceiling on that window: a removed account is out by the
- * next working day whatever else fails. `REVALIDATE_MS` below is what usually
- * closes it in minutes instead.
+ * The fix for H-1 is `REVALIDATE_MS` below: the `jwt` callback re-reads the
+ * database every 10 minutes, so a removed or demoted account is out within
+ * minutes however long the session lasts. That check runs on every page render,
+ * because the root layout calls `auth()` in the Node runtime, where the database
+ * is reachable (src/app/layout.tsx).
+ *
+ * `maxAge` was cut to 12 hours in that same commit, as a second ceiling on top
+ * of the re-check. It went back to 30 days on 2026-09-17. The ceiling revoked
+ * nothing the 10-minute check did not already revoke, and it signed field staff
+ * out about once a day: the session is a ROLLING 12 hours from the last request,
+ * so any overnight gap expired it. Lengthening this does not widen the
+ * revocation window. Shortening it again only re-breaks sign-in.
  */
-const SESSION_MAX_AGE_S = 12 * 60 * 60; // 12 hours
+const SESSION_MAX_AGE_S = 30 * 24 * 60 * 60; // 30 days
 const SESSION_UPDATE_AGE_S = 30 * 60; // re-mint the token at most every 30 min
 
 /** How stale the last membership check may be before `jwt` looks again. */
