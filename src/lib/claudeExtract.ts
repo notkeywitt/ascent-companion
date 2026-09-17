@@ -287,3 +287,90 @@ export async function extractBillWithClaude(
   );
   return out && typeof out === "object" && !Array.isArray(out) ? (out as ExtractedBill) : null;
 }
+
+// ---------------------------------------------------------------------------
+// Amazon "Printable Order Summary" → one order
+// ---------------------------------------------------------------------------
+
+/** What one Printable Order Summary PDF yields. Mirrors the CSV's order-level
+ *  columns, so the page can turn either source into the same `AmazonOrder`. */
+export interface ExtractedAmazonOrder {
+  orderId: string;
+  orderDate: string; // MM/DD/YYYY as printed ("Order Placed")
+  poNumber: string;
+  cardLast4: string;
+  paymentDate: string; // the Credit Card transactions date, "" when not charged
+  charged: boolean;
+  subtotal: number;
+  shipping: number;
+  promotion: number; // negative when a discount applied
+  tax: number;
+  netTotal: number; // Grand Total
+  lines: { title: string; quantity: number; ppu: number }[];
+}
+
+const AMAZON_ORDER_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  required: [
+    "orderId", "orderDate", "poNumber", "cardLast4", "paymentDate", "charged",
+    "subtotal", "shipping", "promotion", "tax", "netTotal", "lines",
+  ],
+  properties: {
+    orderId: { type: "string" },
+    orderDate: { type: "string" },
+    poNumber: { type: "string" },
+    cardLast4: { type: "string" },
+    paymentDate: { type: "string" },
+    charged: { type: "boolean" },
+    subtotal: { type: "number" },
+    shipping: { type: "number" },
+    promotion: { type: "number" },
+    tax: { type: "number" },
+    netTotal: { type: "number" },
+    lines: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["title", "quantity", "ppu"],
+        properties: {
+          title: { type: "string" },
+          quantity: { type: "number" },
+          ppu: { type: "number" },
+        },
+      },
+    },
+  },
+} as const;
+
+const AMAZON_ORDER_PROMPT = `Read this Amazon "Final Details for Order" / "Printable Order Summary" page and return its fields as JSON.
+
+RULES:
+1. 'orderId': the value after "Amazon.com order number", e.g. 113-1289109-8305012. Digits and hyphens only.
+2. 'orderDate': the "Order Placed" date, as MM/DD/YYYY.
+3. 'poNumber': the "PO number" exactly as printed; "" when the page shows none.
+4. 'lines': every ORDERED ITEM, once each. 'quantity' is the "N of:" count and 'ppu' is the PRICE PRINTED BESIDE THAT ITEM, which is the price for ONE unit. Do NOT multiply. Do NOT include shipping, promotions, tax, or any subtotal/total row as a line.
+5. 'subtotal' is the order-level "Item(s) Subtotal", 'shipping' the order-level "Shipping & Handling", 'tax' the order-level sales tax ("Sales Tax", "Estimated Tax", or "Estimated tax to be collected"), and 'netTotal' the "Grand Total".
+6. 'promotion': the order-level "Promotion applied" amount as a NEGATIVE number; 0 when none is printed.
+7. An order summary may list SEVERAL shipments, each with its own subtotals. Take the order-level figures from the "Payment information" block at the end, NOT from one shipment. The item lines still come from every shipment.
+8. 'charged': true only if a "Credit Card transactions" row is printed. Then 'paymentDate' is that row's date as MM/DD/YYYY and 'cardLast4' the last 4 digits. When the page says "Not Yet Shipped" and shows no such row, 'charged' is false and 'paymentDate' is "".
+9. AMOUNTS ARE READ, NEVER COMPUTED. Copy each figure exactly as printed. If the parts do not add up, report them as printed anyway.`;
+
+/** Extract one Amazon order from a Printable Order Summary PDF (or an image of
+ *  one). Returns null when the model could not read it as an order. */
+export async function extractAmazonOrderWithClaude(
+  bytes: Buffer,
+  mimeType: string,
+): Promise<ExtractedAmazonOrder | null> {
+  const out = await callClaude(
+    AMAZON_ORDER_PROMPT,
+    AMAZON_ORDER_SCHEMA as unknown as Record<string, unknown>,
+    TIMEOUT_BILL_MS,
+    bytes,
+    mimeType,
+  );
+  if (!out || typeof out !== "object" || Array.isArray(out)) return null;
+  const o = out as ExtractedAmazonOrder;
+  return String(o.orderId ?? "").trim() ? o : null;
+}

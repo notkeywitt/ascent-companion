@@ -36,10 +36,15 @@ export interface AmazonOrder {
   accountUser: string; // who placed the order
   paymentDate: string; // Payment Date (for reference)
   cardLast4: string; // Payment Identifier, e.g. "1468"
-  subtotal: number; // Order Subtotal — pre-tax
+  subtotal: number; // Order Subtotal — pre-tax, items only
+  shipping: number; // Order Shipping & Handling — its own bill line, never folded in
+  promotion: number; // Order Promotion — NEGATIVE when a discount applied
   tax: number; // Order Tax → its own 88 80 00 sales-tax line on the bill
-  netTotal: number; // Order Net Total — the bill amount (subtotal + tax)
+  netTotal: number; // Order Net Total — the bill amount (subtotal + shipping + promotion + tax)
   lines: AmazonLine[];
+  /** True when the document shows the card was actually charged. CSV rows always
+   *  are; a PDF for an unshipped order is not, and must not become a bill. */
+  charged: boolean;
 }
 
 /**
@@ -119,6 +124,8 @@ const COLS = {
   orderId: "Order ID",
   poNumber: "PO Number",
   orderSubtotal: "Order Subtotal",
+  orderShipping: "Order Shipping & Handling",
+  orderPromotion: "Order Promotion",
   orderTax: "Order Tax",
   orderNetTotal: "Order Net Total",
   accountUser: "Account User",
@@ -191,9 +198,12 @@ export function parseAmazonCsv(text: string): ParseResult {
         paymentDate: get(row, "paymentDate"),
         cardLast4: get(row, "cardLast4"),
         subtotal: money(row[idx.orderSubtotal]),
+        shipping: money(row[idx.orderShipping]),
+        promotion: money(row[idx.orderPromotion]),
         tax: money(row[idx.orderTax]),
         netTotal: money(row[idx.orderNetTotal]),
         lines: [],
+        charged: true,
       };
       byOrder.set(orderId, order);
     }
@@ -215,6 +225,8 @@ export function parseAmazonCsv(text: string): ParseResult {
   for (const o of orders) {
     // Fall back to summing line taxes if the order-level tax column was blank.
     if (o.tax === 0) o.tax = o.lines.reduce((s, l) => s + l.tax, 0);
+    const off = reconcileGap(o);
+    if (off) warnings.push(`Order ${o.orderId}: lines + shipping + promotion + tax is ${off} off the order total.`);
   }
   orders.sort((a, b) => {
     const ta = new Date(a.orderDate).getTime() || 0;
@@ -222,6 +234,45 @@ export function parseAmazonCsv(text: string): ParseResult {
     return ta - tb;
   });
   return { orders, warnings };
+}
+
+const round2 = (n: number) => Math.round((Number(n) || 0) * 100) / 100;
+
+/**
+ * The charges an Amazon order carries BESIDES its product lines and its sales
+ * tax: shipping & handling, and a promotion (a negative line). Both are real
+ * money on the card, so both are real bill lines — leaving them off is what made
+ * a bill read $43.20 against a $49.19 charge, and $437.56 against $432.36.
+ *
+ * Sales tax is deliberately NOT here: `createVendorBill` adds it as its own
+ * 88 80 00 line (see src/lib/salesTax.ts).
+ */
+export function orderExtraLines(
+  o: Pick<AmazonOrder, "shipping" | "promotion">,
+): { name: string; unitCost: number; quantity: number }[] {
+  const out: { name: string; unitCost: number; quantity: number }[] = [];
+  const ship = round2(o.shipping);
+  const promo = round2(o.promotion);
+  if (ship !== 0) out.push({ name: "Shipping & handling", unitCost: ship, quantity: 1 });
+  // Amazon prints a discount as a negative; accept a positive and negate it, so
+  // a promotion never lands on the bill as an extra CHARGE.
+  if (promo !== 0) out.push({ name: "Promotion applied", unitCost: -Math.abs(promo), quantity: 1 });
+  return out;
+}
+
+/**
+ * Cents by which the parts fail to add up to the order total, as a signed money
+ * string — "" when they reconcile. The bill is built from the parts, so a gap
+ * here is exactly the amount the bill would be wrong by.
+ */
+export function reconcileGap(o: AmazonOrder): string {
+  const parts =
+    o.lines.reduce((s, l) => s + l.ppu * l.quantity, 0) +
+    o.shipping -
+    Math.abs(o.promotion) +
+    o.tax;
+  const gap = round2(parts - o.netTotal);
+  return gap === 0 ? "" : `${gap > 0 ? "+" : ""}${gap.toFixed(2)}`;
 }
 
 /** Sanitize an Order ID into the bill's idempotency key. Amazon ids are

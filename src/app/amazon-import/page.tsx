@@ -15,7 +15,12 @@ import {
   Toggle,
   btn,
 } from "@/components/ui";
-import { parseAmazonCsv, type AmazonOrder } from "@/lib/amazonImport";
+import {
+  orderExtraLines,
+  parseAmazonCsv,
+  reconcileGap,
+  type AmazonOrder,
+} from "@/lib/amazonImport";
 
 interface JobRef {
   id: string;
@@ -120,6 +125,7 @@ export default function AmazonImportPage() {
   const [applyMonth, setApplyMonth] = useState("");
   const [existing, setExisting] = useState<Record<string, boolean>>({});
   const [checking, setChecking] = useState(false);
+  const [pdfParsing, setPdfParsing] = useState(false);
   const [pdfZipName, setPdfZipName] = useState("");
   const [pdfsByOrder, setPdfsByOrder] = useState<Record<string, PdfFile[]>>({});
   const [unmatchedPdfs, setUnmatchedPdfs] = useState<string[]>([]);
@@ -210,28 +216,84 @@ export default function AmazonImportPage() {
     try {
       const text = await f.text();
       const { orders: parsed, warnings } = parseAmazonCsv(text);
-      setOrders(parsed);
-      setParseWarnings(warnings);
-      // Seed selections: auto-suggest the job, default billing month to the order month.
-      const nextSel: Record<string, RowSel> = {};
-      for (const o of parsed) {
-        const ym =
-          o.orderYear && o.orderMonth
-            ? `${o.orderYear}-${String(o.orderMonth).padStart(2, "0")}`
-            : months[0].ym;
-        nextSel[o.orderId] = {
-          jobId: suggestJob(o.poNumber, jobs),
-          costCode: "",
-          ym,
-          include: true,
-        };
-      }
-      setSel(nextSel);
-      setApplyMonth(parsed[0] && nextSel[parsed[0].orderId] ? nextSel[parsed[0].orderId].ym : months[0].ym);
+      adoptOrders(parsed, warnings);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn't read the file.");
       setOrders([]);
       setSel({});
+    }
+  }
+
+  /** Take a freshly parsed batch as the working set, whatever read it. Seeds each
+   *  row's job guess and billing month; the idempotency pre-check then runs off
+   *  `orders`, so a PDF batch is guarded against duplicates exactly like a CSV. */
+  function adoptOrders(parsed: AmazonOrder[], warnings: string[]) {
+    setOrders(parsed);
+    setParseWarnings(warnings);
+    const nextSel: Record<string, RowSel> = {};
+    for (const o of parsed) {
+      const ym =
+        o.orderYear && o.orderMonth
+          ? `${o.orderYear}-${String(o.orderMonth).padStart(2, "0")}`
+          : months[0].ym;
+      nextSel[o.orderId] = {
+        jobId: suggestJob(o.poNumber, jobs),
+        costCode: "",
+        ym,
+        // An order the card has not been charged for is not a bill yet: it is
+        // listed, but never armed.
+        include: o.charged !== false,
+      };
+    }
+    setSel(nextSel);
+    setApplyMonth(
+      parsed[0] && nextSel[parsed[0].orderId] ? nextSel[parsed[0].orderId].ym : months[0].ym,
+    );
+  }
+
+  /** Read a batch of Amazon "Printable Order Summary" PDFs into the same order
+   *  list the CSV produces. The reading happens server-side (/parse-pdf). */
+  async function onPickOrderPdfs(list: FileList | null) {
+    const files = list ? Array.from(list) : [];
+    setResult(null);
+    setError("");
+    setParseWarnings([]);
+    setExisting({});
+    setAttach({});
+    resetPdfs();
+    if (files.length === 0) return;
+    setPdfParsing(true);
+    setFileName(`${files.length} order summary PDF${files.length === 1 ? "" : "s"}`);
+    try {
+      const fd = new FormData();
+      for (const f of files) fd.append("files", f);
+      const res = await fetch("/api/amazon-import/parse-pdf", { method: "POST", body: fd });
+      const json = (await res.json()) as {
+        orders?: AmazonOrder[];
+        warnings?: string[];
+        error?: string;
+      };
+      if (!res.ok) {
+        setError(json.error ?? "Couldn't read those PDFs.");
+        setOrders([]);
+        setSel({});
+        return;
+      }
+      const parsed = json.orders ?? [];
+      if (parsed.length === 0) {
+        setError("None of those files read as an Amazon order summary.");
+        setParseWarnings(json.warnings ?? []);
+        setOrders([]);
+        setSel({});
+        return;
+      }
+      adoptOrders(parsed, json.warnings ?? []);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn't upload those PDFs.");
+      setOrders([]);
+      setSel({});
+    } finally {
+      setPdfParsing(false);
     }
   }
 
@@ -426,11 +488,17 @@ export default function AmazonImportPage() {
             billingYear: y,
             tax: o.tax,
             amount: o.netTotal,
-            lines: o.lines.map((l) => ({
-              name: l.title,
-              unitCost: l.ppu > 0 ? l.ppu : l.quantity ? l.subtotal / l.quantity : l.subtotal,
-              quantity: l.quantity || 1,
-            })),
+            lines: [
+              ...o.lines.map((l) => ({
+                name: l.title,
+                unitCost: l.ppu > 0 ? l.ppu : l.quantity ? l.subtotal / l.quantity : l.subtotal,
+                quantity: l.quantity || 1,
+              })),
+              // Shipping and any promotion are money on the card, so they are
+              // lines on the bill too (orderExtraLines). Sales tax is not here —
+              // the route/createVendorBill puts it on its own 88 80 00 line.
+              ...orderExtraLines(o),
+            ],
           };
         }),
       };
@@ -484,7 +552,40 @@ export default function AmazonImportPage() {
               Number you typed at checkout.
             </p>
           </Card>
+
+          <Card>
+            <Label>Or: order summary PDFs</Label>
+            <input
+              type="file"
+              multiple
+              accept=".pdf,application/pdf,image/jpeg,image/png,image/webp"
+              disabled={pdfParsing}
+              onChange={(e) => onPickOrderPdfs(e.target.files)}
+              className="block w-full rounded-lg border border-neutral-300 bg-white p-2 text-sm transition file:mr-3 file:rounded-md file:border-0 file:bg-accent file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-accent-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 disabled:opacity-60 dark:border-neutral-600 dark:bg-ink-raised"
+            />
+            {pdfParsing ? (
+              <p className="mt-2 flex items-center gap-1.5 text-xs text-neutral-500">
+                <Spinner /> Reading the order summaries…
+              </p>
+            ) : (
+              <p className="mt-2 text-xs text-neutral-500">
+                Pick several at once. Use these when there is no monthly report — each Amazon
+                &ldquo;Printable Order Summary&rdquo; becomes one order, read the same way and
+                checked against JobTread the same way, so an order already imported cannot be
+                created twice.
+              </p>
+            )}
+          </Card>
           {error && <Banner tone="error">{error}</Banner>}
+          {parseWarnings.length > 0 && orders.length === 0 && (
+            <Banner tone="warning">
+              <ul className="space-y-0.5">
+                {parseWarnings.map((w, i) => (
+                  <li key={i}>{w}</li>
+                ))}
+              </ul>
+            </Banner>
+          )}
         </section>
       ) : (
         <section className="space-y-4">
