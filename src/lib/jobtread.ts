@@ -6135,22 +6135,6 @@ export async function updateTimeEntry(
     jobId?: string;
     isApproved?: boolean;
     type?: string;
-    /**
-     * JobTread's OWN break: minutes to deduct while clocking the entry out NOW.
-     * Sent as `endNow: { breakDuration }` — the same input the JobTread app's
-     * clock-out screen uses, and the reason the org carries
-     * `organization.timeEntryBreakDurations` (ours is [30]).
-     *
-     * ponytail: the exact arithmetic is UNVERIFIED — a live probe was blocked
-     * by the permission classifier on 2026-09-16, so we know the input's shape
-     * (int, 1..1440) but not whether JobTread lands it on `endedAt` or on
-     * `minutes`. Either way the paid minutes come out the same. `endNow` also
-     * ends the entry at the SERVER's now, so never combine it with an `endedAt`
-     * the crew corrected — callers pick one. The clock-out route falls back to
-     * a shortened `endedAt` if this is refused; drop that fallback once a probe
-     * confirms the behaviour.
-     */
-    endNowBreakMinutes?: number;
   },
 ): Promise<{
   id: string;
@@ -6169,9 +6153,6 @@ export async function updateTimeEntry(
   if (fields.jobId !== undefined) $.jobId = fields.jobId;
   if (fields.isApproved !== undefined) $.isApproved = fields.isApproved;
   if (fields.type !== undefined) $.type = fields.type;
-  if (fields.endNowBreakMinutes !== undefined) {
-    $.endNow = { breakDuration: Math.max(1, Math.trunc(fields.endNowBreakMinutes)) };
-  }
   try {
     const r = await pave(cfg, {
       updateTimeEntry: {

@@ -10,7 +10,7 @@ import {
 } from "@/lib/jobtread";
 import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
 import { callAppsScript } from "@/lib/appsScript";
-import { minusMinutes, paidMinutes, readOpenClock } from "@/lib/employeeClock";
+import { readOpenClock } from "@/lib/employeeClock";
 import { resolveTimeIdentity } from "@/lib/actingAs";
 import { openJournal } from "@/lib/financialJournal";
 
@@ -65,11 +65,13 @@ import { openJournal } from "@/lib/financialJournal";
  *      → { ok, accepted, previewed, jtEntryId, photoCount }
  *        `startEdited` means the crew member CORRECTED the clock-in time in the
  *        Clock out sheet; only then does the JobTread update write startedAt.
- *        `breakMinutes` is time on break during the shift, deducted by
- *        JobTread's own break input (`endNow: { breakDuration }`) when the stop
- *        time is "now", and off the stop time itself when it was corrected.
  *        The Time Entries log row always records the startTime as sent.
  * POST { op:"cancel", entryId } → { ok }
+ * POST { op:"pause", entryId, userId, startTime, note? } → { ok, previewed, endedAt }
+ *        Going on BREAK: closes the running entry at `startTime`. Coming back
+ *        is an ordinary op:"in" at the moment work resumes, so the break is the
+ *        GAP between two entries — the same shape JobTread's own "add break"
+ *        leaves behind when it splits an entry.
  * POST { op:"switch", entryId, userId, jobId, costItemId, payType, startTime,
  *        breakMinutes?, note? }
  *      → { ok, previewed, entryId, startedAt }
@@ -170,9 +172,6 @@ interface Body {
   startTime?: string;
   startEdited?: boolean;
   endTime?: string;
-  endEdited?: boolean;
-  /** Minutes on break during the shift — JobTread deducts them (see below). */
-  breakMinutes?: number;
   note?: string;
   photos?: Photo[];
 }
@@ -313,13 +312,6 @@ export async function POST(req: NextRequest) {
     // The crew member corrected the clock-in time on the way out ("started at
     // 7, clocked in at 9"). Only then does the JobTread update carry startedAt.
     const startEdited = body.startEdited === true;
-    // The crew member also corrected the STOP time, which is what decides how
-    // the break below is written: JobTread's own break input clocks the entry
-    // out at the server's now, so it can only be used when "now" is the answer.
-    const endEdited = body.endEdited === true;
-    // Minutes on break. The phone counts them while the crew is on break and
-    // sends the total here; JobTread does the deducting.
-    const breakMinutes = Math.max(0, Math.trunc(Number(body.breakMinutes ?? 0)) || 0);
     // Idempotency key for the clock-out log — the phone generates it at clock-in
     // and resends it on every clock-out retry (bad service drops the response,
     // not the work). Falls back to a per-request id for older clients.
@@ -332,17 +324,6 @@ export async function POST(req: NextRequest) {
     if (endedAt <= startedAt) {
       return NextResponse.json({ ok: false, error: "Stop time must be after the start time." }, { status: 400 });
     }
-    if (breakMinutes > 0 && paidMinutes(startedAt, endedAt, breakMinutes) <= 0) {
-      return NextResponse.json(
-        { ok: false, error: "Your break is as long as the shift — shorten it, or cancel the clock-in." },
-        { status: 400 },
-      );
-    }
-    // The break is not a field JobTread hands back on a read, so it is said in
-    // the note as well — on the entry and on the Time Entries row, where the
-    // clock times stay the real ones.
-    const noteWithBreak = breakMinutes ? `${note} (less ${breakMinutes} min break)` : note;
-
     const pushable = !!entryId && writesEnabled();
     const pendingStatus = !writesEnabled()
       ? "not pushed (writes off)"
@@ -372,7 +353,7 @@ export async function POST(req: NextRequest) {
         payType: body.payType ?? "",
         startTime: startLocal,
         endTime: endLocal,
-        note: noteWithBreak,
+        note,
         jtEntryId: pushable ? "" : entryId, // no-push rows still record the clock-in id if any
         jtStatus: pendingStatus,
         loggedBy: email,
@@ -402,38 +383,11 @@ export async function POST(req: NextRequest) {
       try {
         // startedAt only rides along when the crew member CORRECTED it on the
         // way out. Left alone, the entry keeps the instant its clock-in wrote.
-        const common = { notes: noteWithBreak, ...(startEdited ? { startedAt } : {}) };
-        if (breakMinutes > 0 && !endEdited) {
-          // JobTread's own break, the input its clock-out screen uses. It ends
-          // the entry at now rather than at a time we name, which is exactly
-          // what an uncorrected stop time means. The few seconds this work
-          // takes to reach here are the whole error.
-          try {
-            await updateTimeEntry(getPaveConfig(), entryId, {
-              ...common,
-              endNowBreakMinutes: breakMinutes,
-            });
-          } catch (breakErr) {
-            // The shape is unverified (see updateTimeEntry) — if JobTread
-            // refuses it, deduct the same minutes off the stop time instead, so
-            // a crew member who took a break can still clock out.
-            console.error(
-              `[clock-out] ${clientKey}: endNow break refused, deducting from endedAt:`,
-              breakErr instanceof Error ? breakErr.message : breakErr,
-            );
-            await updateTimeEntry(getPaveConfig(), entryId, {
-              ...common,
-              endedAt: minusMinutes(endedAt, breakMinutes),
-            });
-          }
-        } else {
-          await updateTimeEntry(getPaveConfig(), entryId, {
-            ...common,
-            // A CORRECTED stop time and a break cannot both be "now", so the
-            // break comes off the corrected time here.
-            endedAt: breakMinutes ? minusMinutes(endedAt, breakMinutes) : endedAt,
-          });
-        }
+        await updateTimeEntry(getPaveConfig(), entryId, {
+          endedAt,
+          notes: note,
+          ...(startEdited ? { startedAt } : {}),
+        });
         jtStatus = "pushed";
         if (who.identity.acting) {
           const j = await openJournal("/api/employee-time/clock", {
@@ -446,12 +400,7 @@ export async function POST(req: NextRequest) {
               entity: "time-entry",
               entityId: entryId,
               jobId: (body.jobId ?? "").trim(),
-              after: {
-                endedAt,
-                notes: noteWithBreak,
-                breakMinutes,
-                ...(startEdited ? { startedAt } : {}),
-              },
+              after: { endedAt, notes: note, ...(startEdited ? { startedAt } : {}) },
               beforeSource: "none",
               meta: {
                 actingAs: who.identity.name,
@@ -479,6 +428,93 @@ export async function POST(req: NextRequest) {
       jtEntryId: entryId,
       photoCount: photos.length,
     });
+  }
+
+  // ------------------------------------------------------------- pause ------
+  // GOING ON BREAK. JobTread has no "break" field on a time entry — its own
+  // "add break" control takes a start time and a duration and SPLITS the entry
+  // in two, so a break IS the gap between two entries. This closes the running
+  // entry at the moment the break starts; coming back from the break is an
+  // ordinary clock-in (op "in") at the moment work resumes.
+  //
+  // We tried to model a break as a deduction first (`endNow: { breakDuration }`)
+  // and JobTread simply kept the full span — 2026-09-17, on two live test
+  // entries. Don't go back to it.
+  if (op === "pause") {
+    const who = await resolveTimeIdentity((body.userId ?? "").trim());
+    if (!who.ok) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            who.status === 400
+              ? "No JobTread user — pick who you are in JobTread first."
+              : who.error,
+        },
+        { status: who.status },
+      );
+    }
+    const entryId = (body.entryId ?? "").trim();
+    const note = (body.note ?? "").trim();
+    const atLocal = toLocalStamp(body.startTime ?? "");
+    const at = orgLocalToJtIso(atLocal);
+    if (!at) return NextResponse.json({ ok: false, error: "Missing the break time." }, { status: 400 });
+
+    // Writes off, or a clock that never reached JobTread: the break is a local
+    // fact only, exactly like the preview clock it belongs to.
+    if (!writesEnabled() || !entryId) {
+      return NextResponse.json({ ok: true, previewed: true, endedAt: atLocal });
+    }
+
+    // Your own clock only — the entry id comes from the client (same rule as
+    // "edit" and "switch").
+    let owner: string | null;
+    try {
+      owner = await getTimeEntryOwner(getPaveConfig(), entryId);
+    } catch (e) {
+      return NextResponse.json(
+        { ok: false, error: e instanceof Error ? e.message : "Could not check that entry." },
+        { status: 502 },
+      );
+    }
+    if (!owner) {
+      return NextResponse.json({ ok: false, error: "That time entry no longer exists." }, { status: 404 });
+    }
+    if (owner !== who.identity.jtUserId) {
+      return NextResponse.json({ ok: false, error: "You can only pause your own clock." }, { status: 403 });
+    }
+
+    try {
+      await updateTimeEntry(getPaveConfig(), entryId, {
+        endedAt: at,
+        ...(note ? { notes: note } : {}),
+      });
+    } catch (e) {
+      return NextResponse.json(
+        { ok: false, error: e instanceof Error ? e.message : "Could not start your break." },
+        { status: 502 },
+      );
+    }
+
+    if (who.identity.acting) {
+      const j = await openJournal("/api/employee-time/clock", {
+        email: who.identity.email,
+        role: who.identity.role,
+      });
+      await j.record([
+        {
+          action: "time-entry.update",
+          entity: "time-entry",
+          entityId: entryId,
+          jobId: (body.jobId ?? "").trim(),
+          after: { endedAt: at, notes: note },
+          beforeSource: "none",
+          meta: { actingAs: who.identity.name, actingAsJtUserId: who.identity.jtUserId, op: "break-start" },
+        },
+      ]);
+    }
+
+    return NextResponse.json({ ok: true, previewed: false, endedAt: atLocal });
   }
 
   // ------------------------------------------------------------ switch ------
@@ -514,10 +550,6 @@ export async function POST(req: NextRequest) {
     // new one's start, so the day has no gap and no overlap.
     const atLocal = toLocalStamp(body.startTime ?? "");
     const at = orgLocalToJtIso(atLocal);
-    // Break taken on the entry being closed. It stays with the entry it
-    // happened on; the new entry starts with a clean break count.
-    const breakMinutes = Math.max(0, Math.trunc(Number(body.breakMinutes ?? 0)) || 0);
-
     if (!costItemId) return NextResponse.json({ ok: false, error: "Pick a cost code." }, { status: 400 });
     if (!jobId) return NextResponse.json({ ok: false, error: "Missing the job." }, { status: 400 });
     if (!at) return NextResponse.json({ ok: false, error: "Missing the switch time." }, { status: 400 });
@@ -557,28 +589,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "You can only switch your own clock." }, { status: 403 });
     }
 
-    const notes = breakMinutes ? `${note} (less ${breakMinutes} min break)`.trim() : note;
+    const notes = note;
     try {
-      // Close the old half. A break rides out on JobTread's own break input —
-      // exact here, because this request IS the moment being written.
-      if (breakMinutes > 0) {
-        try {
-          await updateTimeEntry(getPaveConfig(), entryId, {
-            endNowBreakMinutes: breakMinutes,
-            ...(notes ? { notes } : {}),
-          });
-        } catch {
-          await updateTimeEntry(getPaveConfig(), entryId, {
-            endedAt: minusMinutes(at, breakMinutes),
-            ...(notes ? { notes } : {}),
-          });
-        }
-      } else {
-        await updateTimeEntry(getPaveConfig(), entryId, {
-          endedAt: at,
-          ...(notes ? { notes } : {}),
-        });
-      }
+      await updateTimeEntry(getPaveConfig(), entryId, {
+        endedAt: at,
+        ...(notes ? { notes } : {}),
+      });
     } catch (e) {
       return NextResponse.json(
         { ok: false, error: e instanceof Error ? e.message : "Could not close the running entry." },
@@ -624,7 +640,7 @@ export async function POST(req: NextRequest) {
           entity: "time-entry",
           entityId: entryId,
           jobId,
-          after: { endedAt: at, notes, breakMinutes },
+          after: { endedAt: at, notes },
           beforeSource: "none",
           meta: { actingAs: who.identity.name, actingAsJtUserId: userId, op: "switch-close" },
         },

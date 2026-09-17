@@ -20,7 +20,6 @@ import {
   PageHeader,
   Select,
   Textarea,
-  quietInputCls,
 } from "@/components/ui";
 
 /**
@@ -45,13 +44,14 @@ import {
  *    start/end trip) as the offline fallback and to carry the one thing
  *    JobTread doesn't hold (the log's idempotency key); JobTread wins on any
  *    disagreement.
- *  - BREAK + SWITCH, both only while the clock runs. The Break row starts and
- *    ends a break; the minutes bank on the clock record and go out at clock-out
- *    as JobTread's OWN break deduction (`endNow: { breakDuration }` — the input
- *    behind the org's 30-minute break setting), so the day stays ONE entry that
- *    is simply shorter. The Cost code row switches work mid-shift: the running
- *    entry is closed now on the old code and a new one opens on the new one, so
- *    the morning's hours stay costed to the morning's work.
+ *  - BREAK + SWITCH, both only while the clock runs, and both the same move:
+ *    close the running entry now, open a new one when work resumes. The yellow
+ *    pause button beside the docked pill starts a break (the pill then turns
+ *    yellow and reads End Break); the Cost code row switches work mid-shift
+ *    onto a new code. A break is therefore the GAP BETWEEN TWO ENTRIES, which
+ *    is how JobTread models one — its own "add break" takes a start and a
+ *    duration and SPLITS the entry. A first build deducted the minutes instead
+ *    (`endNow: { breakDuration }`) and JobTread kept the full span; don't.
  *  - TIMESHEETS: the signed-in employee's own JobTread entries for a bi-monthly
  *    pay period (1st–15th / 16th–end), grouped by day with the day's total and
  *    its JobTread approval state, each row linking to JobTread.
@@ -988,15 +988,18 @@ export function EmployeeTimeClient({
     : "0:00:00";
 
   /* ------------------------------------------------------------------ BREAK --
-     A break is TIME NOT WORKED inside one clock-in, so it is counted here and
-     handed to JobTread at clock-out as its own break deduction — one entry for
-     the day, less the break, which is what JobTread's clock-out screen does and
-     what the org's 30-minute break setting is for.
+     A break is a GAP BETWEEN TWO ENTRIES, which is how JobTread itself models
+     one: its "add break" control takes a start and a duration and SPLITS the
+     entry in two. So going on break CLOSES the running entry at that moment,
+     and coming back CLOCKS IN again — two entries, the break between them.
 
-     The count lives on the clock record, so it survives a reload and a phone
-     going to sleep the same way the clock itself does. A break left running is
-     closed by whatever ends the shift, so nobody can bank a break that never
-     ended. */
+     (A break was first built as a deduction on one entry, with JobTread's
+     `endNow: { breakDuration }`. JobTread kept the full span — the minutes were
+     never deducted. Don't go back to it.)
+
+     The break's own start is mirrored on the clock record, so a phone that
+     sleeps or reloads mid-break comes back on break: JobTread has no open entry
+     then, and the reconcile above keeps a local clock that carries no entry id. */
   const patchClock = useCallback(
     (patch: Partial<ActiveClock>) => {
       setActiveClock((cur) => {
@@ -1025,24 +1028,83 @@ export function EmployeeTimeClient({
   const bankedBreak = activeClock?.breakMinutes ?? 0;
   const onBreakSince = activeClock?.breakStartedAt ?? null;
   const runningBreakMs = onBreakSince ? Math.max(0, nowMs - new Date(onBreakSince).getTime()) : 0;
-  /** What the clock-out will send: banked minutes plus the break still running. */
-  const breakTotal = bankedBreak + (onBreakSince ? Math.round(runningBreakMs / 60000) : 0);
 
-  function startBreak() {
-    if (!activeClock || onBreakSince) return;
+  /** Go on break: close the running entry now. The next entry starts when the
+      break ends, and the gap between them is the break. */
+  async function startBreak() {
+    if (!activeClock || onBreakSince || busy) return;
+    const at = nowLocalSeconds();
     setErr("");
-    patchClock({ breakStartedAt: nowLocalSeconds() });
+    setBusy(true);
+    try {
+      const res = await fetch("/api/employee-time/clock", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          op: "pause",
+          entryId: activeClock.entryId,
+          userId: effectiveUserId,
+          jobId: activeClock.jobId,
+          startTime: at,
+          note: note.trim(),
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok || json.ok === false) {
+        setErr(json.error || "Could not start your break.");
+        return;
+      }
+      // No entry id while on break — there is no open entry in JobTread to
+      // hold one, and that is what stops the reconcile clearing this clock.
+      patchClock({ entryId: "", breakStartedAt: at });
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Could not start your break.");
+    } finally {
+      setBusy(false);
+    }
   }
 
-  /** End the running break and bank it. Returns the new total, for a caller
-      that is about to send it (clocking out, or switching cost code). */
-  function endBreak(): number {
-    if (!activeClock) return 0;
-    if (!onBreakSince) return bankedBreak;
+  /** Back to work: a fresh entry, starting now, on the same job and code. */
+  async function endBreak() {
+    if (!activeClock || !onBreakSince || busy) return;
+    const at = nowLocalSeconds();
     const minutes = Math.max(0, Math.round((Date.now() - new Date(onBreakSince).getTime()) / 60000));
-    const total = bankedBreak + minutes;
-    patchClock({ breakStartedAt: null, breakMinutes: total });
-    return total;
+    setErr("");
+    setBusy(true);
+    try {
+      const res = await fetch("/api/employee-time/clock", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          op: "in",
+          userId: effectiveUserId,
+          jobId: activeClock.jobId,
+          costItemId: activeClock.costItemId,
+          payType: activeClock.payType,
+          startTime: at,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok || json.ok === false) {
+        setErr(json.error || "Could not end your break.");
+        return;
+      }
+      patchClock({
+        entryId: json.entryId || "",
+        // A new entry is a new clock-out, so a new idempotency key.
+        logKey: newLogKey(),
+        previewed: !!json.previewed,
+        jtStatus: json.jtStatus || "",
+        startedAt: at,
+        breakStartedAt: null,
+        breakMinutes: bankedBreak + minutes,
+        resumed: false,
+      });
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Could not end your break.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function addPhotos(list: FileList | null) {
@@ -1086,19 +1148,6 @@ export function EmployeeTimeClient({
   const clockOutDuration = activeClock
     ? fmtDuration(clockOutStart, clockOutEnd || nowLocalSeconds())
     : "";
-  // The span in minutes, and what is left of it once the break comes off — the
-  // second number is the one that gets paid, so it is the one on the button.
-  const clockOutSpanMinutes = activeClock
-    ? Math.max(
-        0,
-        Math.round(
-          (new Date(clockOutEnd || nowLocalSeconds()).getTime() -
-            new Date(clockOutStart).getTime()) /
-            60000,
-        ),
-      )
-    : 0;
-  const clockOutNet = fmtMinutes(Math.max(0, clockOutSpanMinutes - breakTotal));
 
   // ------------------------------------------------------------- Clock in/out
   async function clockIn() {
@@ -1175,9 +1224,6 @@ export function EmployeeTimeClient({
 
   async function confirmClockOut() {
     if (!activeClock) return;
-    // Clocking out ends any break still running — you cannot be on break and
-    // off the clock at the same time.
-    const breakMinutes = endBreak();
     if (!note.trim()) {
       setErr("A note is required.");
       return;
@@ -1208,10 +1254,6 @@ export function EmployeeTimeClient({
       );
       return;
     }
-    if (breakMinutes >= clockOutSpanMinutes) {
-      setErr("Your break is as long as the shift — shorten it in the Break row.");
-      return;
-    }
     setErr("");
     setBusy(true);
     try {
@@ -1234,10 +1276,6 @@ export function EmployeeTimeClient({
           // one is already the entry's own startedAt.
           startEdited: outStartTouched,
           endTime: endedAt,
-          // A corrected stop time cannot be "now", which is what decides how the
-          // server writes the break — see the clock route.
-          endEdited: endTouched,
-          breakMinutes,
           note: note.trim(),
           photos,
         }),
@@ -1306,7 +1344,6 @@ export function EmployeeTimeClient({
   // goes out with the entry it was taken on; the new one starts clean.
   async function switchCostCode(c: CostItem) {
     if (!activeClock) return;
-    const breakMinutes = endBreak();
     const at = nowLocalSeconds();
     const fromCode = activeClock.costCode;
     setErr("");
@@ -1323,7 +1360,6 @@ export function EmployeeTimeClient({
           costItemId: c.id,
           payType: activeClock.payType,
           startTime: at,
-          breakMinutes,
           note: note.trim(),
         }),
       });
@@ -1352,8 +1388,6 @@ export function EmployeeTimeClient({
         costItemId: c.id,
         costCode: c.number,
         costItemName: c.name,
-        breakMinutes: 0,
-        breakStartedAt: null,
         resumed: false,
       };
       setActiveClock(next);
@@ -1904,17 +1938,27 @@ export function EmployeeTimeClient({
             </h2>
             {running && (
               <>
+                {/* On break the big figure is the BREAK, because the shift
+                    entry is closed — the hours before it are already filed. */}
                 <div className="mt-1 flex items-center justify-center gap-2">
-                  <span className="inline-block h-2.5 w-2.5 animate-pulse rounded-full bg-accent" aria-hidden />
-                  <span className="text-4xl font-bold tabular-nums">{elapsed}</span>
+                  <span
+                    className={`inline-block h-2.5 w-2.5 animate-pulse rounded-full ${
+                      onBreakSince ? "bg-amber-400" : "bg-accent"
+                    }`}
+                    aria-hidden
+                  />
+                  <span className="text-4xl font-bold tabular-nums">
+                    {onBreakSince ? fmtElapsed(runningBreakMs) : elapsed}
+                  </span>
                 </div>
                 {onBreakSince ? (
                   <p className="mt-1 text-xs font-semibold text-amber-600 dark:text-amber-400">
-                    On break {fmtElapsed(runningBreakMs)} — the shift clock above still runs.
+                    Your hours up to {fmt12h(onBreakSince.slice(11, 16))} are filed. End the break to
+                    start the next entry.
                   </p>
                 ) : bankedBreak ? (
                   <p className="mt-1 text-xs text-neutral-500">
-                    {fmtMinutes(bankedBreak)} on break — JobTread deducts it when you clock out.
+                    {fmtMinutes(bankedBreak)} on break today — this entry started after it.
                   </p>
                 ) : null}
                 {activeClock?.previewed && (
@@ -2060,9 +2104,9 @@ export function EmployeeTimeClient({
               <button
                 type="button"
                 onClick={startBreak}
-                disabled={busy}
+                disabled={busy || !activeClock?.entryId}
                 aria-label="Start a break"
-                title="Start a break"
+                title="Start a break — closes this entry and opens a new one when you come back"
                 className="absolute left-0 flex h-14 w-14 items-center justify-center rounded-full bg-amber-400 text-black shadow-lg transition hover:bg-amber-500 active:scale-95 disabled:opacity-40"
               >
                 <svg viewBox="0 0 24 24" className="h-6 w-6" fill="currentColor" aria-hidden>
@@ -2075,9 +2119,7 @@ export function EmployeeTimeClient({
               type="button"
               onClick={
                 onBreakSince
-                  ? () => {
-                      endBreak();
-                    }
+                  ? endBreak
                   : running
                     ? () => {
                         // Always open on "now"; an earlier stop is a deliberate edit.
@@ -2331,11 +2373,7 @@ export function EmployeeTimeClient({
             disabled={busy}
             className="w-full rounded-full bg-red-600 px-4 py-3.5 text-base font-bold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-40"
           >
-            {busy
-              ? "Saving…"
-              : breakTotal
-                ? `Clock out — ${clockOutNet} (less ${fmtMinutes(breakTotal)} break)`
-                : `Clock out — ${clockOutDuration || elapsed}`}
+            {busy ? "Saving…" : `Clock out — ${clockOutDuration || elapsed}`}
           </button>
         }
       >
@@ -2419,36 +2457,6 @@ export function EmployeeTimeClient({
                   setEndAt(`${endAt.slice(0, 10)}T${v.slice(0, 5)}`);
                 }}
               />
-            </span>
-          </div>
-          {/* Break — whatever the Break button banked, correctable here for the
-              crew member who took one and never tapped it. JobTread deducts it. */}
-          <div className="flex min-h-[56px] items-center justify-between gap-3 border-t border-line-soft px-3 py-2.5">
-            <span className="text-[13px] text-neutral-500">
-              Break
-              {breakTotal ? <span className="ml-2 text-neutral-400">{clockOutNet} paid</span> : null}
-            </span>
-            <span className="flex items-center gap-2">
-              <input
-                type="number"
-                min={0}
-                max={720}
-                step={5}
-                inputMode="numeric"
-                aria-label="Break minutes"
-                value={breakTotal || ""}
-                placeholder="0"
-                onChange={(e) =>
-                  patchClock({
-                    breakMinutes: Math.max(0, Math.trunc(Number(e.target.value) || 0)),
-                    // Typing a total ends any break still running — the number
-                    // in the box is now the whole answer.
-                    breakStartedAt: null,
-                  })
-                }
-                className={`${quietInputCls} w-16 text-right tabular-nums`}
-              />
-              <span className="text-[13px] text-neutral-500">min</span>
             </span>
           </div>
         </Card>
