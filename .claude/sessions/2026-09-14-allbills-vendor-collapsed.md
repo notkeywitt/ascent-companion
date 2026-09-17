@@ -4,9 +4,9 @@ repo: ascent-companion
 branch: claude/allbills-vendor-collapsed
 status: in-progress
 started: 2026-09-14T17:52:26Z
-updated: 2026-09-17T21:52:33Z
+updated: 2026-09-17T21:54:15Z
 goal: 
-next: Owner: approve the /employee-time break + switch change (JobTread write path, 4 files, typecheck+build+827 tests pass), then probe endNow:{breakDuration} on one real clock-out to confirm JobTread deducts the minutes.
+next: Session length is back to 30 days (98a9e8b). Confirm on a real device: sign in, close the app overnight, reopen, expect no login. If it still asks, the cause is the other two suspects — Chrome side panel third-party cookie blocking (SameSite=None), or iOS PWA storage eviction after 7 days unused.
 ---
 
 ## Log
@@ -37,6 +37,8 @@ next: Owner: approve the /employee-time break + switch change (JobTread write pa
   src/app/api/employee-time/clock/route.ts, src/app/employee-time/EmployeeTimeClient.tsx, src/lib/employeeClock.test.ts, src/lib/employeeClock.ts, src/lib/jobtread.ts
 - 2026-09-17 17:52 · `c125bfd` companion: put the break on a docked pause button
   src/app/employee-time/EmployeeTimeClient.tsx
+- 2026-09-17 17:54 · `98a9e8b` companion: restore the 30-day session so people stop signing in daily
+  src/auth.ts
 
 ## Notes
 - 2026-09-16 16:01 — Document Access bulk-share: new /api/document-access (GET list + POST grant) + Give Document Access button in the Tracking Sheets closing row. createAce{targetType:document, assignee:{membership}} is the JobTread Document Access list — confirmed by READ (every bill's aces carry the admin membership). The createAce WRITE is unprobed: the live probe was blocked by the permission classifier, so it needs one real click before trusting.
