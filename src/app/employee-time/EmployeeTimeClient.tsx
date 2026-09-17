@@ -1907,11 +1907,15 @@ export function EmployeeTimeClient({
                   <span className="inline-block h-2.5 w-2.5 animate-pulse rounded-full bg-accent" aria-hidden />
                   <span className="text-4xl font-bold tabular-nums">{elapsed}</span>
                 </div>
-                {onBreakSince && (
+                {onBreakSince ? (
                   <p className="mt-1 text-xs font-semibold text-amber-600 dark:text-amber-400">
                     On break {fmtElapsed(runningBreakMs)} — the shift clock above still runs.
                   </p>
-                )}
+                ) : bankedBreak ? (
+                  <p className="mt-1 text-xs text-neutral-500">
+                    {fmtMinutes(bankedBreak)} on break — JobTread deducts it when you clock out.
+                  </p>
+                ) : null}
                 {activeClock?.previewed && (
                   <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
                     JobTread push is OFF — this clock is local-only until writes are enabled.
@@ -1934,25 +1938,6 @@ export function EmployeeTimeClient({
                   sub={canSwitchCode ? "Tap to switch — the hours so far stay put" : undefined}
                   onClick={canSwitchCode && !onBreakSince ? () => openSheet("switch") : undefined}
                   static={!canSwitchCode || !!onBreakSince}
-                />
-                <FieldRow
-                  label="Break"
-                  value={
-                    onBreakSince
-                      ? `On break — ${fmtElapsed(runningBreakMs)}`
-                      : bankedBreak
-                        ? `${fmtMinutes(bankedBreak)} today`
-                        : "Start a break"
-                  }
-                  placeholder={!onBreakSince && !bankedBreak}
-                  sub={
-                    onBreakSince
-                      ? `Started ${fmt12h(onBreakSince.slice(11, 16))} — tap to go back to work`
-                      : bankedBreak
-                        ? "JobTread deducts it when you clock out"
-                        : undefined
-                  }
-                  onClick={onBreakSince ? endBreak : startBreak}
                 />
                 {activeClock.payType && <FieldRow label="Pay type" value={activeClock.payType} static />}
                 <FieldRow
@@ -2053,31 +2038,63 @@ export function EmployeeTimeClient({
 
           {/* The one big action, docked above the tab bar, plus "log a range". */}
           <Dock>
+            {/* Pause — a break, started from where the thumb already is. Hidden
+                while one runs: the pill below IS the way back from a break, so
+                two controls for one state would be two answers to one question. */}
+            {running && !onBreakSince && (
+              <button
+                type="button"
+                onClick={startBreak}
+                disabled={busy}
+                aria-label="Start a break"
+                title="Start a break"
+                className="absolute left-0 flex h-14 w-14 items-center justify-center rounded-full bg-amber-400 text-black shadow-lg transition hover:bg-amber-500 active:scale-95 disabled:opacity-40"
+              >
+                <svg viewBox="0 0 24 24" className="h-6 w-6" fill="currentColor" aria-hidden>
+                  <rect x="6.5" y="5" width="4" height="14" rx="1.2" />
+                  <rect x="13.5" y="5" width="4" height="14" rx="1.2" />
+                </svg>
+              </button>
+            )}
             <button
               type="button"
               onClick={
-                running
+                onBreakSince
                   ? () => {
-                      // Always open on "now"; an earlier stop is a deliberate edit.
-                      setEndAt(nowLocal());
-                      setEndTouched(false);
-                      // The start opens on the clock's own time — correcting it
-                      // is the deliberate edit here.
-                      setOutStartAt((activeClock?.startedAt || nowLocal()).slice(0, 16));
-                      setOutStartTouched(false);
-                      setErr("");
-                      openSheet("out");
+                      endBreak();
                     }
-                  : clockIn
+                  : running
+                    ? () => {
+                        // Always open on "now"; an earlier stop is a deliberate edit.
+                        setEndAt(nowLocal());
+                        setEndTouched(false);
+                        // The start opens on the clock's own time — correcting it
+                        // is the deliberate edit here.
+                        setOutStartAt((activeClock?.startedAt || nowLocal()).slice(0, 16));
+                        setOutStartTouched(false);
+                        setErr("");
+                        openSheet("out");
+                      }
+                    : clockIn
               }
               disabled={busy || resolving}
               className={`min-w-[220px] rounded-full px-10 py-4 text-lg font-bold shadow-lg transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 ${
-                running
-                  ? "bg-red-600 text-white hover:bg-red-700"
-                  : "bg-accent text-accent-fg hover:bg-accent-hover"
+                onBreakSince
+                  ? "bg-amber-400 text-black hover:bg-amber-500"
+                  : running
+                    ? "bg-red-600 text-white hover:bg-red-700"
+                    : "bg-accent text-accent-fg hover:bg-accent-hover"
               }`}
             >
-              {busy ? "Working…" : resolving ? "Checking…" : running ? "Clock out" : "Clock in"}
+              {busy
+                ? "Working…"
+                : resolving
+                  ? "Checking…"
+                  : onBreakSince
+                    ? "End Break"
+                    : running
+                      ? "Clock out"
+                      : "Clock in"}
             </button>
             <button
               type="button"
