@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/allbills-vendor-collapsed
 status: in-progress
 started: 2026-09-14T17:52:26Z
-updated: 2026-09-22T11:57:38Z
+updated: 2026-09-22T11:58:47Z
 goal: 
 next: Live-check the split break on a phone: pause closes the entry in JobTread, End Break opens a new one, and the two show as separate entries with the break as the gap. Also decide what to do with test entries 22PegupKfnmV / 22PegwQFx6jX, whose notes still say '(less 2 min break)'.
 ---
@@ -47,6 +47,8 @@ next: Live-check the split break on a phone: pause closes the entry in JobTread,
 - 2026-09-17 18:33 · `07374a6` companion: bill amazon shipping and promotions, and import from order-summary PDFs
   src/app/amazon-import/page.tsx, src/app/api/amazon-import/parse-pdf/route.ts, src/lib/amazonImport.test.ts, src/lib/amazonImport.ts, src/lib/claudeExtract.ts
 - 2026-09-22 07:57 · `10943ae` companion: register vendor email senders for automatic bill import
+- 2026-09-22 07:57 · `aada910` companion: register vendor email senders for automatic bill import
+  src/app/api/email-senders/route.ts, src/app/email-senders/EmailSenders.tsx, src/app/email-senders/page.tsx, src/lib/copy.ts, src/lib/nav.ts, src/lib/views.ts
 
 ## Notes
 - 2026-09-16 16:01 — Document Access bulk-share: new /api/document-access (GET list + POST grant) + Give Document Access button in the Tracking Sheets closing row. createAce{targetType:document, assignee:{membership}} is the JobTread Document Access list — confirmed by READ (every bill's aces carry the admin membership). The createAce WRITE is unprobed: the live probe was blocked by the permission classifier, so it needs one real click before trusting.

@@ -20,12 +20,16 @@ import {
   Toggle,
 } from "@/components/ui";
 
-// Register vendor-bill email SENDERS for automatic import. Paste a link to one of
-// their emails → the page shows the sender/subject and a dry-run of what would be
-// booked → pick the vendor, assign a cost code, set a subject pattern, and say
-// where the job name lives (subject/body/PDF). The Apps Script scan then auto-logs
-// every matching bill to the right job. All calls proxy through /api/email-senders
-// to the Apps Script registry (the "Email Senders" sheet).
+// Register vendor-bill email SENDERS for automatic import. Type the vendor's email
+// address → the back end finds their newest bill in the office mailbox and shows a
+// dry-run of what would be booked → pick the vendor, assign a cost code, set a
+// subject pattern, and say where the job name lives (subject/body/PDF). The Apps
+// Script scan then auto-logs every matching bill to the right job. All calls proxy
+// through /api/email-senders to the Apps Script registry (the "Email Senders" sheet).
+//
+// It asks for the ADDRESS, not a link to the email, because a Gmail web URL ends in
+// a permalink id ("…#all/FMfcgz…") that no Gmail API call can resolve — and the
+// address is what the registry is keyed on anyway.
 
 interface VendorOpt {
   id: string;
@@ -111,7 +115,7 @@ export default function EmailSenders() {
   const [loadError, setLoadError] = useState("");
 
   // Add / edit form state.
-  const [link, setLink] = useState("");
+  const [lookup, setLookup] = useState("");
   const [resolving, setResolving] = useState(false);
   const [resolveError, setResolveError] = useState("");
   const [preview, setPreview] = useState<Preview | null>(null);
@@ -159,7 +163,7 @@ export default function EmailSenders() {
   function resetForm() {
     setForm(EMPTY_FORM);
     setPreview(null);
-    setLink("");
+    setLookup("");
     setMode("idle");
     setEditing(false);
     setCcFilter("");
@@ -167,15 +171,15 @@ export default function EmailSenders() {
     setSaveError("");
   }
 
-  // Paste a link → resolve the email + show what would be booked, then prefill.
+  // Address in → their newest bill found and dry-run → the form, prefilled.
   async function doPreview() {
-    const gmailLink = link.trim();
-    if (!gmailLink || resolving) return;
+    const senderEmail = lookup.trim();
+    if (!senderEmail || resolving) return;
     setResolving(true);
     setResolveError("");
     setSaveOk("");
     try {
-      const r = await callSenders<Preview>({ action: "resolveEmailLink", gmailLink });
+      const r = await callSenders<Preview>({ action: "previewSenderEmail", senderEmail });
       if (!r.ok) {
         setResolveError(r.error || "Could not read that email.");
         return;
@@ -206,7 +210,7 @@ export default function EmailSenders() {
     setSaveError("");
     setResolveError("");
     setPreview(null);
-    setLink("");
+    setLookup("");
     setForm({
       senderEmail: row.senderEmail,
       subjectPattern: row.subjectPattern || "",
@@ -331,27 +335,34 @@ export default function EmailSenders() {
       <Card className="mb-6 p-4">
         {mode === "idle" ? (
           <>
-            <Label htmlFor="email-link">Paste a link to one of their bill emails</Label>
+            <Label htmlFor="sender-lookup">The vendor&apos;s email address</Label>
             <div className="flex flex-wrap items-center gap-2">
               <Input
-                id="email-link"
-                value={link}
-                placeholder="https://mail.google.com/mail/u/0/#inbox/…"
-                onChange={(e) => setLink(e.target.value)}
+                id="sender-lookup"
+                type="email"
+                inputMode="email"
+                autoCapitalize="none"
+                autoCorrect="off"
+                value={lookup}
+                placeholder="billing@vendor.com"
+                onChange={(e) => setLookup(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") void doPreview();
+                }}
                 disabled={resolving}
                 className="min-w-0 flex-1"
               />
-              <Button className="shrink-0" onClick={() => void doPreview()} disabled={!link.trim() || resolving}>
-                {resolving ? "Reading…" : "Preview"}
+              <Button className="shrink-0" onClick={() => void doPreview()} disabled={!lookup.trim() || resolving}>
+                {resolving ? "Reading…" : "Find their latest bill"}
               </Button>
             </div>
             <p className="mt-2 text-xs text-neutral-500">
-              Open the email in Gmail and copy its URL. We&apos;ll read the sender and subject and show
-              what would be booked before you save anything.
+              We&apos;ll find their most recent bill in the office mailbox and show what it would
+              book before you save anything.
             </p>
             {resolving && (
               <div className="mt-3">
-                <Loading label="Reading the email and testing the extraction…" />
+                <Loading label="Finding their latest bill and testing the extraction…" />
               </div>
             )}
             {resolveError && (
