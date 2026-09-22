@@ -4,9 +4,9 @@ repo: ascent-companion
 branch: claude/allbills-vendor-collapsed
 status: in-progress
 started: 2026-09-14T17:52:26Z
-updated: 2026-09-22T11:58:47Z
+updated: 2026-09-22T19:25:19Z
 goal: 
-next: Live-check the split break on a phone: pause closes the entry in JobTread, End Break opens a new one, and the two show as separate entries with the break as the gap. Also decide what to do with test entries 22PegupKfnmV / 22PegwQFx6jX, whose notes still say '(less 2 min break)'.
+next: Phase 3: owner runs ./deploy.sh in ascent-appscript, then registers one vendor on /email-senders and runs previewRegisteredSenderBills() (dry run, writes nothing) to check the job, total, pinned vendor and CSI.
 ---
 
 ## Log
@@ -49,6 +49,8 @@ next: Live-check the split break on a phone: pause closes the entry in JobTread,
 - 2026-09-22 07:57 · `10943ae` companion: register vendor email senders for automatic bill import
 - 2026-09-22 07:57 · `aada910` companion: register vendor email senders for automatic bill import
   src/app/api/email-senders/route.ts, src/app/email-senders/EmailSenders.tsx, src/app/email-senders/page.tsx, src/lib/copy.ts, src/lib/nav.ts, src/lib/views.ts
+- 2026-09-22 15:25 · `0102c45` companion: find a vendor's example bill by address, not a pasted link
+  src/app/api/email-senders/route.ts, src/app/email-senders/EmailSenders.tsx
 
 ## Notes
 - 2026-09-16 16:01 — Document Access bulk-share: new /api/document-access (GET list + POST grant) + Give Document Access button in the Tracking Sheets closing row. createAce{targetType:document, assignee:{membership}} is the JobTread Document Access list — confirmed by READ (every bill's aces carry the admin membership). The createAce WRITE is unprobed: the live probe was blocked by the permission classifier, so it needs one real click before trusting.

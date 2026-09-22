@@ -293,9 +293,15 @@ describe("local draft storage", () => {
 // ANOTHER device is ever seen.
 // ---------------------------------------------------------------------------
 
+// savedAt is RELATIVE to now, not a fixed date: listDrafts drops anything older
+// than DRAFT_TTL_DAYS, so a hardcoded timestamp turns green into red on the day
+// it ages past the window — which is exactly what happened to a fixture pinned
+// at 2026-08-31. A test that fails by the calendar rather than by the code
+// teaches everyone to ignore it. Tests that pin a SPECIFIC age pass their own
+// savedAt (see "ignores a server draft past its TTL").
 const draft = (over: Partial<CodingDraft> = {}): CodingDraft => ({
   key: "bill:D1",
-  savedAt: "2026-09-01T10:00:00.000Z",
+  savedAt: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
   staged: { L1: "leafB" },
   edits: {},
   taxEdits: {},
@@ -343,7 +349,7 @@ describe("listDrafts", () => {
     );
 
   it("marks a draft only the server has as work left on another device", async () => {
-    serverReturns([draft({ key: "bill:PHONE", savedAt: "2026-08-31T09:00:00.000Z" })]);
+    serverReturns([draft({ key: "bill:PHONE" })]);
     writeLocalDraft("bill:HERE", parts({ staged: { L1: "leafB" } }), "Here");
 
     const rows = await listDrafts();
