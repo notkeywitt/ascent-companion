@@ -4,9 +4,9 @@ repo: ascent-companion
 branch: claude/allbills-vendor-collapsed
 status: in-progress
 started: 2026-09-14T17:52:26Z
-updated: 2026-09-17T22:04:10Z
+updated: 2026-09-22T11:57:38Z
 goal: 
-next: Session length is back to 30 days (98a9e8b). Confirm on a real device: sign in, close the app overnight, reopen, expect no login. If it still asks, the cause is the other two suspects — Chrome side panel third-party cookie blocking (SameSite=None), or iOS PWA storage eviction after 7 days unused.
+next: Live-check the split break on a phone: pause closes the entry in JobTread, End Break opens a new one, and the two show as separate entries with the break as the gap. Also decide what to do with test entries 22PegupKfnmV / 22PegwQFx6jX, whose notes still say '(less 2 min break)'.
 ---
 
 ## Log
@@ -44,8 +44,12 @@ next: Session length is back to 30 days (98a9e8b). Confirm on a real device: sig
   src/app/api/employee-time/history/route.ts, src/app/employee-time/EmployeeTimeClient.tsx
 - 2026-09-17 18:04 · `ef6acdc` companion: make a break a split, the way jobtread models one
   src/app/api/employee-time/clock/route.ts, src/app/employee-time/EmployeeTimeClient.tsx, src/lib/employeeClock.test.ts, src/lib/employeeClock.ts, src/lib/jobtread.ts
+- 2026-09-17 18:33 · `07374a6` companion: bill amazon shipping and promotions, and import from order-summary PDFs
+  src/app/amazon-import/page.tsx, src/app/api/amazon-import/parse-pdf/route.ts, src/lib/amazonImport.test.ts, src/lib/amazonImport.ts, src/lib/claudeExtract.ts
+- 2026-09-22 07:57 · `10943ae` companion: register vendor email senders for automatic bill import
 
 ## Notes
 - 2026-09-16 16:01 — Document Access bulk-share: new /api/document-access (GET list + POST grant) + Give Document Access button in the Tracking Sheets closing row. createAce{targetType:document, assignee:{membership}} is the JobTread Document Access list — confirmed by READ (every bill's aces carry the admin membership). The createAce WRITE is unprobed: the live probe was blocked by the permission classifier, so it needs one real click before trusting.
 - 2026-09-16 16:08 — Per-document access added: DocumentAccess.tsx is one component for both scopes (ym = the month, docId = one bill); the route reads a docId's job off the document, so the contact list can never cross clients. Bill card block is collapsed by default — two JT reads per open otherwise.
 - 2026-09-17 01:47 — Break + mid-shift cost-code switch built on /employee-time. Break banks minutes on the clock record and clock-out sends them as JobTread endNow:{breakDuration}; switch closes the running entry now and opens a new one on the new code. NOT pushed - JobTread write path, needs owner ok. endNow.breakDuration arithmetic is UNVERIFIED: the live probe was refused by the permission classifier, so the route falls back to a shortened endedAt if JobTread rejects it.
+- 2026-09-17 22:04 — JT break is a SPLIT, not a deduction: its add-break UI takes a start time + duration and splits the entry in two. endNow:{breakDuration} was accepted by the API but kept the full span (live proof: entries 22PegupKfnmV and 22PegwQFx6jX, 2026-09-17). Break rebuilt as pause (close entry now) + resume (op in, new entry).

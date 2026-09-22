@@ -313,6 +313,16 @@ export const VIEWS: ViewDef[] = [
     group: "Office",
     paths: ["/labor-rates", "/api/labor-rates"],
   },
+  // Register vendor email senders whose bills import automatically. The API
+  // prefix is listed alongside the page so a role without the view can't read or
+  // edit the registry — or resolve an arbitrary email — through the route
+  // directly. Office/admin by default (not in FIELD/LEAD sets below).
+  {
+    id: "email-senders",
+    label: "Auto-Ingest Senders",
+    group: "Office",
+    paths: ["/email-senders", "/api/email-senders"],
+  },
   // Accrual management APIs — office/admin only (no field grant, not admin-only,
   // so office gets it by default). No page of its own; the office controls live
   // on the shared /time-off page and call these routes.
