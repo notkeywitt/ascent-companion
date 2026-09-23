@@ -3,11 +3,12 @@ import { callAppsScript } from "@/lib/appsScript";
 import { getPaveConfig, hasGrant } from "@/lib/config";
 import { getRecentVendorBills, getVendorEmails, type RecentVendorBill } from "@/lib/jobtread";
 import {
+  SHARED_SENDER_DOMAINS,
   buildAddressIndex,
   captureState,
   classifyKind,
+  effectiveSender,
   indexCoverage,
-  normalizeAddress,
   paymentState,
 } from "@/lib/vendorMail";
 
@@ -53,6 +54,8 @@ interface MailRow {
   threadUrl: string;
   labels: string[];
   capturedExpId?: string;
+  /** Platform mail names the vendor here, not in the From address. */
+  replyTo?: string;
 }
 
 export async function GET(req: NextRequest) {
@@ -103,7 +106,10 @@ export async function GET(req: NextRequest) {
         searched?: number;
         error?: string;
       }>(
-        { action: "listVendorMail", addresses, days },
+        // The platform domains are searched TOO: QuickBooks mails a vendor's
+        // invoice from its own address, so a from:-search over vendor addresses
+        // would miss every one. Their Reply-To names the real vendor.
+        { action: "listVendorMail", addresses, domains: SHARED_SENDER_DOMAINS, days },
         { timeoutMs: 90_000 },
       ),
       getRecentVendorBills(cfg, since),
@@ -125,7 +131,8 @@ export async function GET(req: NextRequest) {
     );
 
     const rows = (mail.data?.emails ?? []).map((e) => {
-      const vendor = byAddress.get(normalizeAddress(e.fromAddress)) ?? null;
+      const sender = effectiveSender({ fromAddress: e.fromAddress, replyTo: e.replyTo });
+      const vendor = sender.address ? (byAddress.get(sender.address) ?? null) : null;
       const candidates = vendor ? (byVendor.get(vendor.vendorId) ?? []) : [];
       const { state, bill } = captureState(
         {
@@ -151,6 +158,10 @@ export async function GET(req: NextRequest) {
         subject: e.subject,
         from: e.from,
         fromAddress: e.fromAddress,
+        // What the vendor was matched ON, and whether a platform relayed it —
+        // a QuickBooks invoice reads as the vendor's, with the route shown.
+        senderAddress: sender.address,
+        viaPlatform: sender.viaPlatform,
         date: e.date,
         attachmentCount: e.attachmentCount,
         subjectAmount: e.subjectAmount,

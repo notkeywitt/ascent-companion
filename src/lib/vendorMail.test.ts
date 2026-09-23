@@ -5,6 +5,7 @@ import {
   captureState,
   chunkAddresses,
   classifyKind,
+  effectiveSender,
   indexCoverage,
   isSharedSender,
   normalizeAddress,
@@ -305,6 +306,41 @@ describe("isSharedSender", () => {
   });
 });
 
+describe("effectiveSender", () => {
+  it("uses the From address for an ordinary vendor", () => {
+    expect(effectiveSender({ fromAddress: "ar@ferguson.com" })).toEqual({
+      address: "ar@ferguson.com",
+      viaPlatform: false,
+    });
+  });
+
+  it("takes the Reply-To off a QuickBooks invoice — the vendor's real mailbox", () => {
+    // The live header, 2026-09-19.
+    expect(
+      effectiveSender({
+        fromAddress: "Naturally Sustained <quickbooks@notification.intuit.com>",
+        replyTo: "store@naturallysustained.com",
+      }),
+    ).toEqual({ address: "store@naturallysustained.com", viaPlatform: true });
+  });
+
+  it("yields nothing when a platform mail has no Reply-To, rather than blaming the platform's owner", () => {
+    expect(effectiveSender({ fromAddress: "quickbooks@notification.intuit.com" })).toEqual({
+      address: "",
+      viaPlatform: true,
+    });
+  });
+
+  it("ignores a Reply-To that points back at the platform", () => {
+    expect(
+      effectiveSender({
+        fromAddress: "quickbooks@notification.intuit.com",
+        replyTo: "noreply@intuit.com",
+      }).address,
+    ).toBe("");
+  });
+});
+
 describe("shared senders never enter the index", () => {
   it("is refused even if someone files it on a vendor account by hand", () => {
     const { byAddress } = buildAddressIndex([
@@ -315,7 +351,7 @@ describe("shared senders never enter the index", () => {
     expect(byAddress.has("ar@beacon.com")).toBe(true);
   });
 
-  it("is never proposed by the seeder, however well the name matches", () => {
+  it("is never proposed by the seeder — the platform address itself is refused", () => {
     const match = () => ({ id: "V1", name: "Beacon" });
     const out = proposeSeeds(
       [
@@ -333,5 +369,28 @@ describe("shared senders never enter the index", () => {
       match,
     );
     expect(out).toEqual([]);
+  });
+
+  it("proposes the vendor's REPLY-TO from a platform email instead", () => {
+    const match = () => ({ id: "V1", name: "Naturally Sustained" });
+    const out = proposeSeeds(
+      [
+        {
+          fromAddress: "quickbooks@notification.intuit.com",
+          fromName: "Naturally Sustained",
+          fromDomain: "notification.intuit.com",
+          replyTo: "store@naturallysustained.com",
+          subject: "Invoice - Reminder: Your payment to Naturally Sustained, LLC is due",
+          date: "2026-09-19T22:06:00Z",
+          threadUrl: "u",
+        },
+      ],
+      new Set(),
+      [{ id: "V1", name: "Naturally Sustained" }],
+      match,
+    );
+    expect(out).toHaveLength(1);
+    expect(out[0].address).toBe("store@naturallysustained.com");
+    expect(out[0].vendorId).toBe("V1");
   });
 });

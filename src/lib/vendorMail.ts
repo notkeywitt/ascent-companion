@@ -48,7 +48,7 @@ export function normalizeAddress(raw: string): string {
  * platform is simply indexed as an ordinary vendor address until it shows up
  * here, which is the same failure we have today and not a new one.
  */
-const SHARED_SENDER_DOMAINS = [
+export const SHARED_SENDER_DOMAINS = [
   "notification.intuit.com",
   "intuit.com",
   "bill.com",
@@ -70,6 +70,32 @@ export function isSharedSender(address: string): boolean {
   if (!addr) return false;
   const domain = addr.slice(addr.indexOf("@") + 1);
   return SHARED_SENDER_DOMAINS.some((d) => domain === d || domain.endsWith("." + d));
+}
+
+/**
+ * The address that identifies the VENDOR, which is not always the From address.
+ *
+ * QuickBooks sends a vendor's invoice from its own notification address and puts
+ * the vendor in the display name — but it also sets Reply-To to the vendor's
+ * real mailbox (confirmed on a live invoice 2026-09-19:
+ * `Naturally Sustained <quickbooks@notification.intuit.com>`, reply-to
+ * `store@naturallysustained.com`). So for a platform sender the Reply-To IS the
+ * vendor's address, which makes the match exact rather than a name guess — and
+ * means one platform email teaches the index a real address.
+ *
+ * A platform mail with no usable Reply-To returns "" rather than falling back to
+ * the platform address, because attributing it to whoever owns that address is
+ * the exact mis-match this whole guard exists to prevent.
+ */
+export function effectiveSender(email: { fromAddress: string; replyTo?: string }): {
+  address: string;
+  viaPlatform: boolean;
+} {
+  const from = normalizeAddress(email.fromAddress);
+  if (!isSharedSender(from)) return { address: from, viaPlatform: false };
+  const reply = normalizeAddress(email.replyTo ?? "");
+  // A platform that replies to itself tells us nothing about the vendor.
+  return { address: isSharedSender(reply) ? "" : reply, viaPlatform: true };
 }
 
 export interface VendorAddress {
@@ -261,6 +287,8 @@ export interface SeedEmail {
   subject: string;
   date: string;
   threadUrl: string;
+  /** Set on platform mail — the vendor's own address (see effectiveSender). */
+  replyTo?: string;
 }
 
 /**
@@ -284,13 +312,17 @@ export function proposeSeeds(
 ): SeedCandidate[] {
   const byAddress = new Map<string, { rows: SeedEmail[] }>();
   for (const e of emails) {
-    const addr = normalizeAddress(e.fromAddress || e.fromName);
+    // Platform mail contributes its REPLY-TO, never the platform address:
+    // matchVendor scores on the display name and QuickBooks puts the vendor's
+    // name there, so proposing the From address would offer
+    // "quickbooks@notification.intuit.com → Beacon Roofing" and attribute every
+    // vendor's QBO mail to Beacon. The Reply-To is that vendor's real mailbox,
+    // which is exactly what the index wants.
+    const { address: addr } = effectiveSender({
+      fromAddress: e.fromAddress || e.fromName,
+      replyTo: e.replyTo,
+    });
     if (!addr || knownAddresses.has(addr)) continue;
-    // Never PROPOSE a shared sender. matchVendor scores on the display name, and
-    // QuickBooks puts the vendor's name there — so without this the seeder
-    // cheerfully offers "quickbooks@notification.intuit.com → Beacon Roofing",
-    // and approving it attributes every vendor's QBO mail to Beacon.
-    if (isSharedSender(addr)) continue;
     const slot = byAddress.get(addr) ?? { rows: [] };
     slot.rows.push(e);
     byAddress.set(addr, slot);

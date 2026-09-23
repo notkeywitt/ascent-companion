@@ -38,6 +38,8 @@ interface Row {
   subject: string;
   from: string;
   fromAddress: string;
+  senderAddress: string;
+  viaPlatform: boolean;
   date: string;
   attachmentCount: number;
   subjectAmount: number | null;
@@ -85,6 +87,15 @@ const dayLabel = (iso: string) => {
     ? iso.slice(0, 10)
     : d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 };
+
+/** "quickbooks@notification.intuit.com" → "intuit". Names the relay without
+ *  claiming it is QuickBooks specifically, since several platforms do this. */
+function platformName(fromAddress: string): string {
+  const at = fromAddress.lastIndexOf("@");
+  const domain = at === -1 ? fromAddress : fromAddress.slice(at + 1);
+  const parts = domain.toLowerCase().split(".").filter(Boolean);
+  return parts.length >= 2 ? parts[parts.length - 2] : domain;
+}
 
 const STATE_LABEL: Record<State, string> = {
   captured: "Captured",
@@ -232,7 +243,9 @@ export default function VendorMail() {
               href={r.threadUrl}
               label={
                 <span className="flex items-center gap-2">
-                  <span className="truncate">{r.vendorName || r.fromAddress}</span>
+                  <span className="truncate">
+                    {r.vendorName || r.senderAddress || r.fromAddress}
+                  </span>
                   {r.state === "new" && <Chip tone="warning">New</Chip>}
                 </span>
               }
@@ -243,6 +256,7 @@ export default function VendorMail() {
                     items={[
                       dayLabel(r.date),
                       STATE_LABEL[r.state],
+                      r.viaPlatform ? `via ${platformName(r.fromAddress)}` : "",
                       r.kind === "receipt" ? "Receipt" : "Invoice",
                       r.bill && r.bill.payment !== "draft"
                         ? r.bill.payment === "paid"
