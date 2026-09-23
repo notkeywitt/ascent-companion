@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { BillStatusBadge } from "@/components/BillStatusBadge";
 import {
   EmptyState,
+  FilterChip,
   Input,
   ListCard,
   ListRow,
@@ -57,6 +58,7 @@ interface VendorDetail {
   name: string;
   email: string;
   phone: string;
+  billType: "Bill" | "Expense";
   addresses: string[];
   contacts: VendorContact[];
 }
@@ -121,14 +123,14 @@ function VendorDetailCard({
 
   const typed = Object.entries(draft).filter(([, v]) => v.trim());
 
-  function save() {
-    if (typed.length === 0) return;
+  function save(fields: Record<string, string> = Object.fromEntries(typed)) {
+    if (Object.keys(fields).length === 0) return;
     setSaving(true);
     setError("");
     fetch("/api/vendor-details", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ accountId: detail.id, ...Object.fromEntries(typed) }),
+      body: JSON.stringify({ accountId: detail.id, ...fields }),
     })
       .then((r) => r.json())
       .then((j) => {
@@ -183,6 +185,25 @@ function VendorDetailCard({
           </div>
         ))}
 
+        {/* What /add-bill files this vendor's bills as. Saves on tap. */}
+        <div className="flex min-h-[56px] items-center gap-3 border-b border-line-soft px-3 py-2.5 last:border-b-0">
+          <span className="w-16 shrink-0 text-[11px] uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
+            Bill type
+          </span>
+          <div className="flex gap-2">
+            {(["Bill", "Expense"] as const).map((t) => (
+              <FilterChip
+                key={t}
+                on={detail.billType === t}
+                onClick={() => !saving && detail.billType !== t && save({ billType: t })}
+                title={t === "Expense" ? "Already paid when it arrives" : "Paid later, on terms"}
+              >
+                {t}
+              </FilterChip>
+            ))}
+          </div>
+        </div>
+
         {contacts.map((c) => (
           <ListRow
             key={`${c.name}-${c.email}-${c.phone}`}
@@ -198,7 +219,7 @@ function VendorDetailCard({
       {error && <p className="text-sm text-red-600">{error}</p>}
 
       {typed.length > 0 && (
-        <button type="button" className={btn("primary", "md")} onClick={save} disabled={saving}>
+        <button type="button" className={btn("primary", "md")} onClick={() => save()} disabled={saving}>
           {saving ? "Saving…" : `Save to JobTread`}
         </button>
       )}

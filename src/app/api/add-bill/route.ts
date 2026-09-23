@@ -10,8 +10,10 @@ import {
   getBillDetail,
   getJobBudget,
   getJobHeaderInfo,
+  getVendorDetail,
   getVendors,
   replaceBillLines,
+  type BillType,
   type NewBillLine,
   type VendorRef,
 } from "@/lib/jobtread";
@@ -60,6 +62,8 @@ import { kickJtSync } from "@/lib/appsScript";
  *               key for Sunset bills, superseded by the extracted Vendor Bill
  *               Number for everyone else
  *   vendorId    optional JT account override (skip/replace the model's match)
+ *   billType    "Bill" | "Expense" (already paid) — omitted = the vendor's
+ *               "Bill Type" custom field, else Bill. Sunset is always a Bill.
  *   replaceDocId  the operator's "replace the original" answer to a dedup hit
  *                 whose amount had changed — the doc id they were shown
  */
@@ -157,6 +161,7 @@ export async function POST(req: NextRequest) {
   // the existing bill next to this upload (see section 7b). Carries the doc id
   // that was compared, so a re-upload can only overwrite the bill it was shown.
   const replaceDocId = String(form.get("replaceDocId") ?? "").trim();
+  const typedBillType = String(form.get("billType") ?? "").trim();
 
   /* ---- the NO-INVOICE path ------------------------------------------------
      A phone order, a counter charge, a vendor who never sends anything: the
@@ -316,6 +321,19 @@ export async function POST(req: NextRequest) {
     const sunsetId = (process.env.JT_SUNSET_VENDOR_ID ?? "").trim();
     const isSunset =
       (sunsetId !== "" && vendor.id === sunsetId) || /sunset builders/i.test(vendor.name);
+    // Bill or Expense: the upload's pick, else the vendor's default. Sunset is
+    // always a Bill — the statement flow pays it on terms (appscript enforces the same).
+    let billType: BillType = "Bill";
+    if (!isSunset) {
+      if (typedBillType === "Bill" || typedBillType === "Expense") billType = typedBillType;
+      else {
+        try {
+          billType = (await getVendorDetail(cfg, vendor.id)).billType;
+        } catch {
+          warnings.push(`Couldn't read ${vendor.name}'s default bill type — filed as a Bill.`);
+        }
+      }
+    }
     const arrival = new Date();
     // The billing month set on the home page overrides the 10th cutoff for
     // everything but Sunset (src/lib/billingMonth.ts).
@@ -495,8 +513,10 @@ export async function POST(req: NextRequest) {
       subject: `${jobInfo.name} - ${vendor.name}${codes ? ` - ${codes}` : ""}`,
       externalId: billNumber,
       issueDate: dates.issueDate,
-      dueDate: dates.dueDate,
+      // An Expense is already paid — due the day it is issued, no terms.
+      dueDate: billType === "Expense" ? dates.issueDate : dates.dueDate,
       dueDays: dates.dueDays,
+      billType,
       taxAmount,
       // The budget leaf the sales-tax line codes to. Undefined when this job's
       // budget has no 88 80 00 leaf — the line then lands uncoded on purpose.
@@ -517,7 +537,8 @@ export async function POST(req: NextRequest) {
       billingMonth: dates.billing.billingMonthNum,
       billingYear: dates.billing.billingYear,
       issueDate: dates.issueDate,
-      dueDate: dates.dueDate ?? `net-${dates.dueDays}`,
+      dueDate: billArgs.dueDate ?? `net-${dates.dueDays}`,
+      billType,
       externalId: billNumber,
       warnings,
     };
@@ -555,7 +576,7 @@ export async function POST(req: NextRequest) {
             job: jobInfo.name,
             customer: jobInfo.customer,
             issueDate: dates.issueDate,
-            dueDate: dates.dueDate ?? `net-${dates.dueDays}`,
+            dueDate: billArgs.dueDate ?? `net-${dates.dueDays}`,
             status: "draft",
             description,
             lines: lines.map((l) => ({

@@ -3626,6 +3626,9 @@ export interface VendorDetail {
   /** The account's own Email / Phone custom fields (targetType `vendor`). */
   email: string;
   phone: string;
+  /** The vendor's "Bill Type" custom field — what /add-bill files its bills as
+   *  unless the upload picks otherwise. Unset, or no such field, reads "Bill". */
+  billType: BillType;
   /** One line per location, JobTread's own `address` string — `formattedAddress`
    *  is null on a vendor address typed by hand, which most of these are. */
   addresses: string[];
@@ -3680,6 +3683,7 @@ export async function getVendorDetail(cfg: PaveConfig, accountId: string): Promi
     name: String(a.name ?? ""),
     email: own.get("Email") ?? "",
     phone: own.get("Phone") ?? "",
+    billType: own.get("Bill Type") === "Expense" ? "Expense" : "Bill",
     addresses: ((a.locations?.nodes ?? []) as any[])
       .map((l) => String(l?.formattedAddress ?? l?.address ?? "").trim())
       .filter(Boolean),
@@ -4462,8 +4466,15 @@ export interface CreateVendorBillArgs {
   jobLocationName?: string;
   jobLocationAddress?: string;
   pushToQuickBooks?: boolean; // default true (qboIsIgnored = !push)
+  /** Default "Bill". An "Expense" is already paid: same vendorBill document, named
+   *  "Expense", due the day it is issued (no payment terms) — the appscript push
+   *  does the same. The bill page then offers "Record payment" instead of approve. */
+  billType?: BillType;
   lines: NewBillLine[];
 }
+
+/** JobTread's two vendorBill document names. The name IS the type. */
+export type BillType = "Bill" | "Expense";
 
 /**
  * WRITE — create a draft vendor bill (createDocument type:vendorBill). No
@@ -4515,7 +4526,7 @@ export async function createVendorBill(
     type: "vendorBill",
     jobId: args.jobId,
     accountId: args.accountId,
-    name: "Bill",
+    name: args.billType ?? "Bill",
     subject: args.subject,
     externalId: args.externalId,
     issueDate: args.issueDate,
@@ -4533,7 +4544,8 @@ export async function createVendorBill(
   };
   if (args.jobLocationName) docArgs.jobLocationName = args.jobLocationName;
   if (args.jobLocationAddress) docArgs.jobLocationAddress = args.jobLocationAddress;
-  if (args.dueDate) docArgs.dueDate = args.dueDate;
+  if (args.billType === "Expense") docArgs.dueDate = args.issueDate;
+  else if (args.dueDate) docArgs.dueDate = args.dueDate;
   else docArgs.dueDays = args.dueDays ?? 30;
 
   const r = await pave(cfg, {

@@ -4,7 +4,9 @@ import {
   findBillByExternalId,
   getJobBudget,
   getJobHeaderInfo,
+  getVendorDetail,
   getVendors,
+  type BillType,
   type BudgetItem,
   type NewBillLine,
 } from "@/lib/jobtread";
@@ -121,6 +123,16 @@ export async function POST(req: NextRequest) {
     const v = vendors.find((x) => x.id === vendorId);
     if (!v) return NextResponse.json({ error: "Unknown vendor id." }, { status: 400 });
     vendorName = v.name;
+  } catch (e) {
+    return NextResponse.json(
+      { error: e instanceof Error ? e.message : "Couldn't load vendors." },
+      { status: 502 },
+    );
+  }
+  // Card orders are often already paid — the vendor's "Bill Type" decides.
+  let billType: BillType = "Bill";
+  try {
+    billType = (await getVendorDetail(cfg, vendorId)).billType;
   } catch (e) {
     return NextResponse.json(
       { error: e instanceof Error ? e.message : "Couldn't load vendors." },
@@ -245,6 +257,7 @@ export async function POST(req: NextRequest) {
         externalId,
         issueDate,
         dueDays: 30,
+        billType,
         taxAmount,
         salesTaxJobCostItemId: salesTaxLeafId,
         // JobTread requires a location name or address on the bill. Pass the job's

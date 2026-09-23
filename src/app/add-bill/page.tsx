@@ -45,6 +45,7 @@ interface AddBillResult {
   billingYear?: number;
   issueDate?: string;
   dueDate?: string;
+  billType?: "Bill" | "Expense";
   externalId?: string;
   syncKicked?: boolean;
   warnings?: string[];
@@ -127,6 +128,7 @@ function AddBill() {
   const [vendors, setVendors] = useState<VendorRef[]>([]);
   const [vendorId, setVendorId] = useState(""); // "" = let the extractor match
   const [singleLine, setSingleLine] = useState(false); // collapse to one cost item
+  const [billType, setBillType] = useState(""); // "" = the vendor's default
   const [needVendor, setNeedVendor] = useState(""); // 422 message when unmatched
   const [mismatch, setMismatch] = useState<TotalsMismatch | null>(null); // 422 lines != invoice
   const [previewUrl, setPreviewUrl] = useState<string | null>(null); // object URL for the picked file
@@ -255,6 +257,7 @@ function AddBill() {
       fd.set("externalId", externalId);
       if (vendorId) fd.set("vendorId", vendorId);
       if (singleLine || opts?.forceSingleLine) fd.set("singleLine", "1");
+      if (billType) fd.set("billType", billType);
       if (opts?.acceptTotals) fd.set("acceptTotals", "1");
       if (opts?.replaceDocId) fd.set("replaceDocId", opts.replaceDocId);
       const res = await fetch("/api/add-bill", { method: "POST", body: fd });
@@ -510,6 +513,15 @@ function AddBill() {
             {needVendor && <p className="mt-1 text-sm text-amber-600">{needVendor}</p>}
           </div>
 
+          <div>
+            <Label>Type</Label>
+            <Select value={billType} disabled={busy} onChange={(e) => setBillType(e.target.value)}>
+              <option value="">The vendor&apos;s default</option>
+              <option value="Bill">Bill — paid later, on terms</option>
+              <option value="Expense">Expense — already paid</option>
+            </Select>
+          </div>
+
           <label className={`flex items-start gap-2 text-sm ${noFile ? "hidden" : ""}`}>
             <input
               type="checkbox"
@@ -611,6 +623,8 @@ function AddBill() {
           <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
             <dt className="text-neutral-500">Vendor</dt>
             <dd className="text-right font-medium">{result.vendor ?? "—"}</dd>
+            <dt className="text-neutral-500">Type</dt>
+            <dd className="text-right">{result.billType ?? "Bill"}</dd>
             <dt className="text-neutral-500">Amount</dt>
             <dd className="text-right font-medium">{money(result.amount)}</dd>
             <dt className="text-neutral-500">Tax</dt>

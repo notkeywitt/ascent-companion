@@ -5,7 +5,9 @@ import { getCustomFields } from "@/lib/clientDirectory";
 import { diffFields, openJournal } from "@/lib/financialJournal";
 
 /**
- * POST — save a vendor's contact details: `{ accountId, email?, phone?, address? }`.
+ * POST — save a vendor's contact details: `{ accountId, email?, phone?, address?, billType? }`.
+ * `billType` ("Bill" | "Expense") is the vendor's "Bill Type" custom field — the
+ * default /add-bill files that vendor's bills as.
  * Only the keys present are touched; "" clears a field.
  *
  * WHY THIS ROUTE EXISTS RATHER THAN /api/clients/update: a vendor's Email and
@@ -28,7 +30,7 @@ import { diffFields, openJournal } from "@/lib/financialJournal";
 export const dynamic = "force-dynamic";
 
 /** The only fields this route will write. Anything else in the body is ignored. */
-const FIELDS = ["email", "phone", "address"] as const;
+const FIELDS = ["email", "phone", "address", "billType"] as const;
 type Field = (typeof FIELDS)[number];
 
 export async function POST(req: NextRequest) {
@@ -57,6 +59,9 @@ export async function POST(req: NextRequest) {
   if (tooLong) {
     return NextResponse.json({ error: `${tooLong[0]} is too long.` }, { status: 400 });
   }
+  if (patch.billType !== undefined && !["Bill", "Expense", ""].includes(patch.billType)) {
+    return NextResponse.json({ error: "billType must be Bill or Expense." }, { status: 400 });
+  }
 
   const cfg = getPaveConfig();
 
@@ -75,6 +80,18 @@ export async function POST(req: NextRequest) {
     const cfv: Record<string, string | null> = {};
     if (patch.email !== undefined && idOf("Email")) cfv[idOf("Email")] = patch.email || null;
     if (patch.phone !== undefined && idOf("Phone")) cfv[idOf("Phone")] = patch.phone || null;
+    if (patch.billType !== undefined) {
+      // The grant cannot create custom fields, so the owner adds this one in
+      // JobTread (Settings → Custom Fields → Vendors: "Bill Type", options Bill,
+      // Expense). Say so rather than silently dropping the choice.
+      if (!idOf("Bill Type")) {
+        return NextResponse.json(
+          { error: 'JobTread has no vendor custom field "Bill Type" (options Bill, Expense). Add it in JobTread settings first.' },
+          { status: 409 },
+        );
+      }
+      cfv[idOf("Bill Type")] = patch.billType || null;
+    }
     if (Object.keys(cfv).length > 0) {
       // `notify` defaults to TRUE on updateAccount — filing a vendor's phone
       // number must not mail the vendor. Same reason /api/clients/update sends
@@ -131,9 +148,9 @@ export async function POST(req: NextRequest) {
   }
 }
 
-/** The journal's view of a vendor: the three fields this route writes. */
-function flat(d: { email: string; phone: string; addresses: string[] }) {
-  return { Email: d.email, Phone: d.phone, Address: d.addresses.join(" | ") };
+/** The journal's view of a vendor: the fields this route writes. */
+function flat(d: { email: string; phone: string; billType: string; addresses: string[] }) {
+  return { Email: d.email, Phone: d.phone, "Bill Type": d.billType, Address: d.addresses.join(" | ") };
 }
 
 /** The vendor's first location, or "" when it has none. */
