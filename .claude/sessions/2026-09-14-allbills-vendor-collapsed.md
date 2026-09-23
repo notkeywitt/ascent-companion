@@ -4,9 +4,9 @@ repo: ascent-companion
 branch: claude/allbills-vendor-collapsed
 status: in-progress
 started: 2026-09-14T17:52:26Z
-updated: 2026-09-23T16:11:01Z
+updated: 2026-09-23T16:24:15Z
 goal: 
-next: Vendor mail is live. Owner: reload /vendor-mail/index, save a proposal, and confirm the address sticks (the updateAccount root->account fix). Then /vendor-mail for the 30-day list. Watch whether the 'Not in JobTread' count is usable or needs a tighter filter.
+next: Stuck-vendor popup can now create the vendor + file its sender email (deployed 2026-09-23 12:11). Owner: next time the popup appears, use Create vendor and confirm the email prefills, the account appears in JT, and the stuck bill pushes on the next run. Still open: appscript GitHub auth broken (4 commits local-only).
 ---
 
 ## Log
@@ -74,6 +74,8 @@ next: Vendor mail is live. Owner: reload /vendor-mail/index, save a proposal, an
   src/app/api/vendor-details/route.ts, src/lib/clientDirectory.ts
 - 2026-09-23 12:11 · `3fc5f0d` companion: create a missing vendor from the alert, with the email its bill came from
   src/app/api/vendor-create/route.ts, src/components/StuckVendors.tsx, src/lib/views.ts
+- 2026-09-23 12:24 · `4ea36d6` companion: file a bill as an expense, with a per-vendor default type
+  src/app/add-bill/page.tsx, src/app/api/add-bill/route.ts, src/app/api/amazon-import/route.ts, src/app/api/vendor-details/route.ts, src/app/vendors/page.tsx, src/lib/jobtread.ts
 
 ## Notes
 - 2026-09-16 16:01 — Document Access bulk-share: new /api/document-access (GET list + POST grant) + Give Document Access button in the Tracking Sheets closing row. createAce{targetType:document, assignee:{membership}} is the JobTread Document Access list — confirmed by READ (every bill's aces carry the admin membership). The createAce WRITE is unprobed: the live probe was blocked by the permission classifier, so it needs one real click before trusting.

@@ -6,6 +6,7 @@ import {
   chunkAddresses,
   classifyKind,
   indexCoverage,
+  isSharedSender,
   normalizeAddress,
   paymentState,
   proposeSeeds,
@@ -279,5 +280,58 @@ describe("paymentState", () => {
 
   it("tolerates a rounding crumb left on the balance", () => {
     expect(paymentState(bill({ amountPaid: 100, balance: 0.004 }))).toBe("paid");
+  });
+});
+
+describe("isSharedSender", () => {
+  it("knows the platforms that mail on behalf of many vendors", () => {
+    expect(isSharedSender("quickbooks@notification.intuit.com")).toBe(true);
+    expect(isSharedSender("noreply@bill.com")).toBe(true);
+    expect(isSharedSender("Invoices <NOREPLY@Melio.com>")).toBe(true);
+  });
+
+  it("catches a platform's per-tenant subdomain sender", () => {
+    expect(isSharedSender("noreply@mail.bill.com")).toBe(true);
+  });
+
+  it("leaves an ordinary vendor address alone", () => {
+    expect(isSharedSender("ar@fergusonsupply.com")).toBe(false);
+    expect(isSharedSender("")).toBe(false);
+  });
+
+  it("does not match a lookalike domain", () => {
+    expect(isSharedSender("ar@notintuit.com")).toBe(false);
+    expect(isSharedSender("ar@intuit.com.co")).toBe(false);
+  });
+});
+
+describe("shared senders never enter the index", () => {
+  it("is refused even if someone files it on a vendor account by hand", () => {
+    const { byAddress } = buildAddressIndex([
+      { vendorId: "V1", vendorName: "Beacon", address: "quickbooks@notification.intuit.com" },
+      { vendorId: "V1", vendorName: "Beacon", address: "ar@beacon.com" },
+    ]);
+    expect(byAddress.has("quickbooks@notification.intuit.com")).toBe(false);
+    expect(byAddress.has("ar@beacon.com")).toBe(true);
+  });
+
+  it("is never proposed by the seeder, however well the name matches", () => {
+    const match = () => ({ id: "V1", name: "Beacon" });
+    const out = proposeSeeds(
+      [
+        {
+          fromAddress: "quickbooks@notification.intuit.com",
+          fromName: "Beacon",
+          fromDomain: "notification.intuit.com",
+          subject: "Invoice 9 from Beacon",
+          date: "2026-09-19T10:00:00Z",
+          threadUrl: "u",
+        },
+      ],
+      new Set(),
+      [{ id: "V1", name: "Beacon" }],
+      match,
+    );
+    expect(out).toEqual([]);
   });
 });

@@ -34,6 +34,44 @@ export function normalizeAddress(raw: string): string {
   return addr.includes("@") ? addr : "";
 }
 
+/**
+ * Senders that front MANY vendors, and must never be indexed to one.
+ *
+ * QuickBooks mails a vendor's invoice from `quickbooks@notification.intuit.com`
+ * with the vendor's name in the display name; the same is true of the other
+ * invoicing platforms. Filing one of these on a vendor account would attribute
+ * every OTHER vendor's platform mail to that one vendor — a wrong answer
+ * delivered confidently, which is worse than the gap it appears to close.
+ *
+ * Matched on the domain, so a platform's per-tenant sender
+ * (`noreply@x.bill.com`) is caught too. The list is additive: an unknown
+ * platform is simply indexed as an ordinary vendor address until it shows up
+ * here, which is the same failure we have today and not a new one.
+ */
+const SHARED_SENDER_DOMAINS = [
+  "notification.intuit.com",
+  "intuit.com",
+  "bill.com",
+  "melio.com",
+  "invoice2go.com",
+  "waveapps.com",
+  "freshbooks.com",
+  "squareup.com",
+  "stripe.com",
+  "paypal.com",
+  "xero.com",
+  "billtrust.com",
+  "coupahost.com",
+];
+
+/** Does this address front many vendors rather than belonging to one? */
+export function isSharedSender(address: string): boolean {
+  const addr = normalizeAddress(address);
+  if (!addr) return false;
+  const domain = addr.slice(addr.indexOf("@") + 1);
+  return SHARED_SENDER_DOMAINS.some((d) => domain === d || domain.endsWith("." + d));
+}
+
 export interface VendorAddress {
   vendorId: string;
   vendorName: string;
@@ -57,7 +95,10 @@ export function buildAddressIndex(rows: VendorAddress[]): {
   const seen = new Map<string, string[]>();
   for (const r of rows) {
     const addr = normalizeAddress(r.address);
-    if (!addr) continue;
+    // A shared sender on a vendor account is a mis-indexing waiting to happen:
+    // it would claim every other vendor's platform mail. Refuse it here so one
+    // bad row can't poison the whole sweep.
+    if (!addr || isSharedSender(addr)) continue;
     const names = seen.get(addr) ?? [];
     if (!names.includes(r.vendorName)) names.push(r.vendorName);
     seen.set(addr, names);
@@ -245,6 +286,11 @@ export function proposeSeeds(
   for (const e of emails) {
     const addr = normalizeAddress(e.fromAddress || e.fromName);
     if (!addr || knownAddresses.has(addr)) continue;
+    // Never PROPOSE a shared sender. matchVendor scores on the display name, and
+    // QuickBooks puts the vendor's name there — so without this the seeder
+    // cheerfully offers "quickbooks@notification.intuit.com → Beacon Roofing",
+    // and approving it attributes every vendor's QBO mail to Beacon.
+    if (isSharedSender(addr)) continue;
     const slot = byAddress.get(addr) ?? { rows: [] };
     slot.rows.push(e);
     byAddress.set(addr, slot);
