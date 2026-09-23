@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/allbills-vendor-collapsed
 status: in-progress
 started: 2026-09-14T17:52:26Z
-updated: 2026-09-23T14:58:03Z
+updated: 2026-09-23T15:06:26Z
 goal: 
 next: Check /needs-project live: the PDF shows inline, tap opens full screen, link opens Drive.
 ---
@@ -57,6 +57,8 @@ next: Check /needs-project live: the PDF shows inline, tap opens full screen, li
   src/app/api/email-senders/route.ts, src/app/email-senders/EmailSenders.tsx, src/lib/appsScript.ts
 - 2026-09-23 10:58 · `679a110` companion: show the needs-project pdf inline instead of a new tab
   src/app/needs-project/page.tsx, src/components/InvoiceViewer.tsx
+- 2026-09-23 11:06 · `ede579f` companion: price invoice-review time at the current rate card
+  src/app/api/email-senders/route.ts, src/app/email-senders/EmailSenders.tsx, src/app/email-senders/page.tsx, src/lib/invoiceReview/checks.test.ts, src/lib/invoiceReview/checks/costBasis.ts
 
 ## Notes
 - 2026-09-16 16:01 — Document Access bulk-share: new /api/document-access (GET list + POST grant) + Give Document Access button in the Tracking Sheets closing row. createAce{targetType:document, assignee:{membership}} is the JobTread Document Access list — confirmed by READ (every bill's aces carry the admin membership). The createAce WRITE is unprobed: the live probe was blocked by the permission classifier, so it needs one real click before trusting.
