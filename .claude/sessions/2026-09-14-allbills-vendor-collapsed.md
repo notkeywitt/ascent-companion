@@ -4,9 +4,9 @@ repo: ascent-companion
 branch: claude/allbills-vendor-collapsed
 status: in-progress
 started: 2026-09-14T17:52:26Z
-updated: 2026-09-23T17:36:09Z
+updated: 2026-09-23T17:49:35Z
 goal: 
-next: Owner: create vendor custom field 'Bill Type' (option: Bill, Expense) in JobTread settings, then OK the push of the expense commit (npm run ship). Verify: set a vendor to Expense on /vendors, upload a bill on /add-bill, confirm JT doc is named Expense and due on its issue date.
+next: Watch the first monthly review after 77bbb2a: confirm email-bill-amount-mismatch fires on a real capture misread and that no invoice that used to read as 'never captured' now goes unreported. Open question left open: MAIL_MATCH.amountTolerance is 12%, so a misread inside that band still matches silently.
 ---
 
 ## Log
@@ -86,6 +86,8 @@ next: Owner: create vendor custom field 'Bill Type' (option: Bill, Expense) in J
   src/app/api/vendor-details/route.ts, src/lib/clientDirectory.ts
 - 2026-09-23 13:36 · `77bbb2a` companion: tell a wrong amount apart from a missing invoice
   src/lib/invoiceReview/checks.test.ts, src/lib/invoiceReview/checks/mailCapture.ts, src/lib/invoiceReview/evidence.ts, src/lib/invoiceReview/settings.ts, src/lib/invoiceReview/types.ts
+- 2026-09-23 13:41 · `4698742` companion: match a Square receipt by display name, since it has no usable address
+  src/app/api/vendor-mail/route.ts, src/app/vendor-mail/VendorMail.tsx, src/lib/vendorMail.test.ts, src/lib/vendorMail.ts
 
 ## Notes
 - 2026-09-16 16:01 — Document Access bulk-share: new /api/document-access (GET list + POST grant) + Give Document Access button in the Tracking Sheets closing row. createAce{targetType:document, assignee:{membership}} is the JobTread Document Access list — confirmed by READ (every bill's aces carry the admin membership). The createAce WRITE is unprobed: the live probe was blocked by the permission classifier, so it needs one real click before trusting.
