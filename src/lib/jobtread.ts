@@ -624,6 +624,9 @@ export interface BillDetail {
     /** Net terms, when the bill has no explicit due date (30 = net-30). */
     dueDays?: number | null;
     qboIsIgnored?: boolean;
+    /** QuickBooks "Push as": "bill" or "purchase" (= Expense). Null = JT's default,
+     *  Bill. Read with `isExpenseDoc`, never alone — see there. */
+    qboDocumentType?: string | null;
     /** Legacy document tax field — non-zero only on a bill pushed before
      *  2026-09-05. A bill's real sales tax is its 88 80 00 line plus this;
      *  `splitSalesTax` in src/lib/salesTax.ts resolves the pair. */
@@ -684,6 +687,7 @@ export async function getBillDetail(cfg: PaveConfig, docId: string): Promise<Bil
       number: {},
       externalId: {},
       qboIsIgnored: {},
+      qboDocumentType: {},
       nonRecoverableTax: {},
       nonRecoverableTaxName: {},
       job: { id: {} }, // the bill's own job — lets /api/bill work without ?jobId
@@ -730,6 +734,7 @@ export async function getBillDetail(cfg: PaveConfig, docId: string): Promise<Bil
       dueDate: d.dueDate ? String(d.dueDate).slice(0, 10) : "",
       dueDays: typeof d.dueDays === "number" ? d.dueDays : null,
       qboIsIgnored: d.qboIsIgnored,
+      qboDocumentType: d.qboDocumentType ?? null,
       nonRecoverableTax: d.nonRecoverableTax,
       recordsTax: d.nonRecoverableTaxName != null,
     },
@@ -812,15 +817,28 @@ export async function setBillFields(
   cfg: PaveConfig,
   docId: string,
   fields: { name?: string; qboIsIgnored?: boolean; qboDocumentType?: string },
-): Promise<{ name?: string; qboIsIgnored?: boolean; qboDocumentType?: string }> {
+): Promise<{
+  saved: { name?: string; qboIsIgnored?: boolean; qboDocumentType?: string };
+  accountId: string;
+}> {
   const r = await pave(cfg, {
     updateDocument: {
       $: { id: docId, ...fields },
-      document: { $: { id: docId }, id: {}, name: {}, qboIsIgnored: {}, qboDocumentType: {} },
+      document: {
+        $: { id: docId },
+        id: {},
+        name: {},
+        qboIsIgnored: {},
+        qboDocumentType: {},
+        account: { id: {} },
+      },
     },
   });
   const d = r?.updateDocument?.document ?? {};
-  return { name: d.name, qboIsIgnored: d.qboIsIgnored, qboDocumentType: d.qboDocumentType };
+  return {
+    saved: { name: d.name, qboIsIgnored: d.qboIsIgnored, qboDocumentType: d.qboDocumentType },
+    accountId: String(d.account?.id ?? ""),
+  };
 }
 
 export interface BillFile {
@@ -4473,8 +4491,22 @@ export interface CreateVendorBillArgs {
   lines: NewBillLine[];
 }
 
-/** JobTread's two vendorBill document names. The name IS the type. */
+/**
+ * A vendorBill is a Bill (paid later, on terms) or an Expense (already paid).
+ * Two JobTread fields carry it and every write here sets BOTH:
+ *   - `name` "Bill" | "Expense" — the document's label, and what the appscript
+ *     sheet mirror reads;
+ *   - `qboDocumentType` "bill" | "purchase" — QuickBooks' "Push as Bill" / "Push
+ *     as Expense", the one that decides what QuickBooks records.
+ * Someone can flip "Push as" in JobTread alone, so a read trusts either.
+ */
 export type BillType = "Bill" | "Expense";
+
+export const qboDocumentTypeFor = (t: BillType) => (t === "Expense" ? "purchase" : "bill");
+
+export function isExpenseDoc(d: { name?: string | null; qboDocumentType?: string | null }): boolean {
+  return d.qboDocumentType === "purchase" || d.name === "Expense";
+}
 
 /**
  * WRITE — create a draft vendor bill (createDocument type:vendorBill). No
@@ -4527,6 +4559,7 @@ export async function createVendorBill(
     jobId: args.jobId,
     accountId: args.accountId,
     name: args.billType ?? "Bill",
+    qboDocumentType: qboDocumentTypeFor(args.billType ?? "Bill"),
     subject: args.subject,
     externalId: args.externalId,
     issueDate: args.issueDate,
@@ -5646,6 +5679,7 @@ export async function getAllBillsForMonth(
     createdAt: {},
     fromName: {},
     name: {},
+    qboDocumentType: {},
     amountPaid: {},
     balance: {},
     account: { name: {} },
@@ -5709,7 +5743,7 @@ export async function getAllBillsForMonth(
       monthInvoiceExists: jobsWithInvoice.has(job.id),
       amountPaid: typeof b.amountPaid === "number" ? b.amountPaid : 0,
       balance: typeof b.balance === "number" ? b.balance : 0,
-      isExpense: String(b.name ?? "") === "Expense",
+      isExpense: isExpenseDoc(b),
       jobId: job.id,
       jobName: job.name ?? "",
       customerName: job.location?.account?.name ?? "",

@@ -172,6 +172,27 @@ export async function getCustomFields(
 }
 
 /**
+ * WRITE — set a vendor's "Bill Type" custom field (Bill | Expense), the default
+ * /add-bill and the appscript Gmail push file that vendor's bills as. Called
+ * whenever a bill of theirs is assigned a type, so the default follows the last
+ * choice. `notify: false` — filing a default must not mail the vendor.
+ */
+export async function setVendorBillType(
+  cfg: PaveConfig,
+  accountId: string,
+  billType: "Bill" | "Expense",
+): Promise<void> {
+  const fieldId = (await getCustomFields(cfg)).vendor.find((f) => f.name === "Bill Type")?.id;
+  if (!fieldId) throw new Error('JobTread has no vendor custom field "Bill Type".');
+  await pave(cfg, {
+    updateAccount: {
+      $: { id: accountId, notify: false, customFieldValues: { [fieldId]: billType } },
+      account: { id: {} },
+    },
+  });
+}
+
+/**
  * Pair a record's `customFieldValues` connection against the org's field list,
  * so a field with nothing set still comes back (with `values: []`) and the page
  * can offer an input for it. A multi-value field yields one NODE PER VALUE with

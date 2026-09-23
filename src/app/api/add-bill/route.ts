@@ -34,6 +34,7 @@ import { readBillingMonthOverride } from "@/lib/billingMonth";
 import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
 import { openJournal } from "@/lib/financialJournal";
 import { kickJtSync } from "@/lib/appsScript";
+import { setVendorBillType } from "@/lib/clientDirectory";
 
 /**
  * Roadmap D — add a bill without the email card: upload a photo/PDF of an
@@ -323,16 +324,17 @@ export async function POST(req: NextRequest) {
       (sunsetId !== "" && vendor.id === sunsetId) || /sunset builders/i.test(vendor.name);
     // Bill or Expense: the upload's pick, else the vendor's default. Sunset is
     // always a Bill — the statement flow pays it on terms (appscript enforces the same).
+    // A pick that differs from the default becomes the new default, after the create.
     let billType: BillType = "Bill";
+    let vendorDefault: BillType | null = null;
     if (!isSunset) {
-      if (typedBillType === "Bill" || typedBillType === "Expense") billType = typedBillType;
-      else {
-        try {
-          billType = (await getVendorDetail(cfg, vendor.id)).billType;
-        } catch {
-          warnings.push(`Couldn't read ${vendor.name}'s default bill type — filed as a Bill.`);
-        }
+      try {
+        vendorDefault = (await getVendorDetail(cfg, vendor.id)).billType;
+      } catch {
+        warnings.push(`Couldn't read ${vendor.name}'s default bill type.`);
       }
+      if (typedBillType === "Bill" || typedBillType === "Expense") billType = typedBillType;
+      else if (vendorDefault) billType = vendorDefault;
     }
     const arrival = new Date();
     // The billing month set on the home page overrides the 10th cutoff for
@@ -876,6 +878,16 @@ export async function POST(req: NextRequest) {
 
     // ---- 8. create the draft bill, then attach the file ---------------------
     const { id: docId } = await createVendorBill(cfg, billArgs);
+    if (vendorDefault && vendorDefault !== billType) {
+      try {
+        await setVendorBillType(cfg, vendor.id, billType);
+      } catch (e) {
+        warnings.push(
+          `Bill filed as ${billType}, but ${vendor.name}'s default type was not updated: ` +
+            (e instanceof Error ? e.message : "unknown error"),
+        );
+      }
+    }
 
     // The bill's own birth certificate: who captured it, from which vendor, for
     // how much, off which file. This is the row every later edit in the journal

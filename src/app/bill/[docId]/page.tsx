@@ -67,6 +67,8 @@ interface Header {
   /** Net terms in days, set only when there is no explicit due date. */
   dueDays?: number | null;
   qboIsIgnored?: boolean;
+  /** QuickBooks "Push as": "bill" | "purchase" (Expense) | null (Bill). */
+  qboDocumentType?: string | null;
   /** Legacy document tax field — non-zero only on a bill pushed before 2026-09-05.
    *  A bill's real sales tax comes off its 88 80 00 line (splitSalesTax). */
   nonRecoverableTax?: number;
@@ -599,11 +601,13 @@ function BillDetail() {
   }) {
     setHeader((h) => (h ? { ...h, ...fields } : h)); // optimistic
     try {
-      await fetch("/api/bill-fields", {
+      const r = await fetch("/api/bill-fields", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ docId, ...fields }),
       });
+      const j = await r.json().catch(() => ({}));
+      if (j.error || j.vendorWarning) setSaveMsg(String(j.error || j.vendorWarning));
     } catch {
       /* optimistic; the reload below reflects the true state */
     }
@@ -611,7 +615,8 @@ function BillDetail() {
     reloadJtWindow(); // refresh JobTread's view of the change
   }
 
-  const isExpense = (header?.name ?? "Bill") === "Expense";
+  // Either field can say Expense — "Push as Expense" may be set in JobTread alone.
+  const isExpense = header?.qboDocumentType === "purchase" || header?.name === "Expense";
   const pushToQb = header?.qboIsIgnored === false;
   // JobTread locks quantity/unitCost/description once a bill leaves draft.
   const linesEditable = (header?.status ?? "draft") === "draft";
@@ -1497,9 +1502,8 @@ function BillDetail() {
           </Banner>
         )}
 
-        {/* Type (Bill/Expense) and Push-to-QB toggles hidden 2026-07-18 per request.
-            Kept commented (with their patchBill/isExpense/pushToQb handlers) for easy restore. */}
-        {/*
+        {/* Type: one tap sets the name AND QuickBooks' Push as Bill/Expense, and makes
+            it this vendor's default (/api/bill-fields). */}
         <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2">
           <div className="flex items-center gap-2">
             <span className="text-[10px] uppercase tracking-wide text-neutral-400">Type</span>
@@ -1510,7 +1514,9 @@ function BillDetail() {
                   <button
                     key={t}
                     type="button"
-                    onClick={() => patchBill({ name: t })}
+                    onClick={() => {
+                      if (!on) patchBill({ name: t, qboDocumentType: t === "Expense" ? "purchase" : "bill" });
+                    }}
                     className={
                       "px-3 py-1 text-sm " +
                       (on
@@ -1524,7 +1530,12 @@ function BillDetail() {
               })}
             </div>
           </div>
+        </div>
 
+        {/* Push-to-QB toggle hidden 2026-07-18 per request. Kept commented (with its
+            patchBill/pushToQb handlers) for easy restore. */}
+        {/*
+        <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2">
           <div className="flex items-center gap-2">
             <span className="text-[10px] uppercase tracking-wide text-neutral-400">Push to QB</span>
             <div className="inline-flex overflow-hidden rounded-lg border border-line-strong">
