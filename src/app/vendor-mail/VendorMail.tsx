@@ -70,6 +70,7 @@ interface Payload {
   coverage: Coverage;
   collisions: { address: string; vendors: string[] }[];
   truncated: boolean;
+  swept: { messages: number; addresses: number };
   rows: Row[];
   unindexed: { id: string; name: string }[];
   error?: string;
@@ -175,8 +176,10 @@ export default function VendorMail() {
             <div className="h-full rounded-full bg-brand" style={{ width: `${data.coverage.pct}%` }} />
           </div>
           <p className="mt-2 text-[11.5px] text-neutral-500 dark:text-neutral-400">
-            The {data.coverage.missing} without one are not searched, so nothing here can speak for
-            them.{" "}
+            Read {data.swept.messages} email{data.swept.messages === 1 ? "" : "s"} from{" "}
+            {data.swept.addresses} address{data.swept.addresses === 1 ? "" : "es"} in the last{" "}
+            {data.days} days. The {data.coverage.missing} vendors without an address are not
+            searched, so nothing here can speak for them.{" "}
             <a href="/vendor-mail/index" className="font-semibold text-accent hover:underline dark:text-accent-soft">
               Fill the gaps →
             </a>
@@ -213,9 +216,11 @@ export default function VendorMail() {
 
       {!loading && !error && shown.length === 0 && (
         <EmptyState>
-          {filter === "new"
-            ? "Nothing unaccounted for in this window."
-            : "No mail matches this filter."}
+          {data && data.swept.messages === 0
+            ? "No vendor mail was found at all in this window — check that before reading it as all-clear."
+            : filter === "new"
+              ? `Nothing unaccounted for in the ${data?.swept.messages ?? 0} emails read.`
+              : "No mail matches this filter."}
         </EmptyState>
       )}
 

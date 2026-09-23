@@ -11,73 +11,80 @@ import { proposeSeeds, type SeedEmail } from "@/lib/vendorMail";
  *
  * The vendor-mail check searches by the addresses on file in JobTread, so a
  * vendor with no address is invisible to it. 136 of 238 vendors were un-indexed
- * when this was written — too many to type by hand, which is the whole reason
- * this exists.
+ * when this was written — too many to type by hand, which is why this exists.
  *
- * It sweeps the last few billing periods with `listPeriodBillEmails` (the same
- * read the monthly invoice review uses — all mail, metadata only, nothing
- * written), matches each un-indexed sender against the vendors that still have
- * no address, and returns PROPOSALS. It writes nothing: the office approves each
- * one and `/api/vendor-details` performs the write, journaled, one vendor at a
- * time.
+ * ONE BILLING PERIOD PER REQUEST. `listPeriodBillEmails` sweeps all mail for a
+ * whole month and routinely takes most of a minute; three of them in one request
+ * blew the function budget and — because the first version skipped a failed
+ * period silently — reported "0 emails across 0 periods" as though the mailbox
+ * were empty. The caller now walks the periods one at a time and a failure says
+ * which period failed and why.
  *
- * The sender→vendor match here is the digest's fuzzy name/domain heuristic —
- * the very thing an exact address index exists to replace. That is precisely why
- * the output is a proposal and not a write.
+ * The sender→vendor match is the digest's fuzzy name/domain heuristic — the very
+ * thing an exact address index exists to replace. That is why the output is a
+ * proposal: the office approves each one and `/api/vendor-details` performs the
+ * write, journaled.
  *
- * GET /api/vendor-mail/seed?months=3
- *   → { ok, coverage:{total,indexed,missing,pct}, candidates:[…], swept:{months,emails} }
+ * GET /api/vendor-mail/seed?back=0
+ *   back=0 is the current billing period, 1 the one before, and so on.
+ *   → { ok, period, coverage, swept:{emails}, candidates:[…] }
  */
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
 
-/** Billing periods to sweep. Three covers a quarterly biller without making the
- *  office wait on six serialized Apps Script calls. */
-const DEFAULT_MONTHS = 3;
-const MAX_MONTHS = 6;
+const MAX_BACK = 11;
 
 export async function GET(req: NextRequest) {
   if (!hasGrant()) {
     return NextResponse.json({ error: "JT_GRANT_KEY is not set." }, { status: 400 });
   }
-  const asked = Number(req.nextUrl.searchParams.get("months"));
-  const months = Math.min(MAX_MONTHS, Math.max(1, Number.isFinite(asked) && asked > 0 ? asked : DEFAULT_MONTHS));
+  const askedBack = Number(req.nextUrl.searchParams.get("back"));
+  const back = Math.min(MAX_BACK, Math.max(0, Number.isFinite(askedBack) ? Math.trunc(askedBack) : 0));
 
   try {
     const vendors = await getVendorEmails(getPaveConfig());
     const known = new Set(vendors.flatMap((v) => v.addresses));
-    const unindexed = vendors.filter((v) => v.addresses.length === 0).map((v) => ({ id: v.id, name: v.name }));
+    const unindexed = vendors
+      .filter((v) => v.addresses.length === 0)
+      .map((v) => ({ id: v.id, name: v.name }));
+    const indexed = vendors.length - unindexed.length;
+    const coverage = {
+      total: vendors.length,
+      indexed,
+      missing: unindexed.length,
+      pct: vendors.length ? Math.round((indexed / vendors.length) * 100) : 0,
+    };
 
-    // Walk back from the current month. Apps Script serializes these, so they run
-    // one at a time by nature — no point firing them in parallel.
     const { year, month } = companyDateParts(new Date());
-    const emails: SeedEmail[] = [];
-    const swept: string[] = [];
-    for (let i = 0; i < months; i++) {
-      const m = ((month - 1 - i) % 12 + 12) % 12 + 1;
-      const y = year + Math.floor((month - 1 - i) / 12);
-      const r = await callAppsScript<{ ok?: boolean; emails?: SeedEmail[]; error?: string }>(
-        { action: "listPeriodBillEmails", month: m, year: y },
-        { timeoutMs: 35_000 },
+    const m = (((month - 1 - back) % 12) + 12) % 12 + 1;
+    const y = year + Math.floor((month - 1 - back) / 12);
+    const period = `${y}-${String(m).padStart(2, "0")}`;
+
+    const r = await callAppsScript<{ ok?: boolean; emails?: SeedEmail[]; error?: string }>(
+      { action: "listPeriodBillEmails", month: m, year: y },
+      // One month of all-mail metadata. Generous, because the failure this
+      // replaces was a timeout reported as an empty mailbox.
+      { timeoutMs: 100_000, retry: false },
+    );
+    // A failed sweep is an ERROR, never an empty result — "nothing found" and
+    // "nothing looked" must not render the same way.
+    if (r.error) {
+      return NextResponse.json({ ok: false, period, coverage, error: r.error }, { status: 502 });
+    }
+    if (r.data?.ok === false) {
+      return NextResponse.json(
+        { ok: false, period, coverage, error: r.data.error ?? "Apps Script reported a failure." },
+        { status: 502 },
       );
-      // One unreadable period shouldn't lose the others — say which were read.
-      if (r.error || r.data?.ok === false) continue;
-      swept.push(`${y}-${String(m).padStart(2, "0")}`);
-      emails.push(...(r.data?.emails ?? []));
     }
 
-    const candidates = proposeSeeds(emails, known, unindexed, matchVendor);
-    const indexed = vendors.length - unindexed.length;
+    const emails = r.data?.emails ?? [];
     return NextResponse.json({
       ok: true,
-      coverage: {
-        total: vendors.length,
-        indexed,
-        missing: unindexed.length,
-        pct: vendors.length ? Math.round((indexed / vendors.length) * 100) : 0,
-      },
-      swept: { months: swept, emails: emails.length },
-      candidates,
+      period,
+      coverage,
+      swept: { emails: emails.length },
+      candidates: proposeSeeds(emails, known, unindexed, matchVendor),
     });
   } catch (e) {
     return NextResponse.json(

@@ -42,33 +42,77 @@ interface Candidate {
 
 interface Payload {
   ok: boolean;
+  period: string;
   coverage: { total: number; indexed: number; missing: number; pct: number };
-  swept: { months: string[]; emails: number };
-  candidates: Candidate[];
+  swept?: { emails: number };
+  candidates?: Candidate[];
   error?: string;
 }
 
+/** How many billing periods back the walk goes. */
+const PERIODS = 3;
+
 export default function VendorMailIndex() {
-  const [data, setData] = useState<Payload | null>(null);
+  const [coverage, setCoverage] = useState<Payload["coverage"] | null>(null);
+  const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [loading, setLoading] = useState(true);
+  const [progress, setProgress] = useState("");
+  const [swept, setSwept] = useState({ emails: 0, periods: [] as string[] });
+  const [failures, setFailures] = useState<{ period: string; error: string }[]>([]);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState("");
   const [done, setDone] = useState<Record<string, string>>({});
   const [edited, setEdited] = useState<Record<string, string>>({});
 
+  /**
+   * One request per billing period. A whole-month all-mail sweep takes most of a
+   * minute, so three in one request timed out — and the first version reported
+   * that as an empty mailbox. Each period now reports for itself, and a failure
+   * is shown rather than counted as "nothing found".
+   */
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
-    try {
-      const res = await fetch("/api/vendor-mail/seed?months=3");
-      const json: Payload = await res.json();
-      if (!json.ok) throw new Error(json.error || "Could not read the mailbox.");
-      setData(json);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Load failed");
-    } finally {
-      setLoading(false);
+    setFailures([]);
+    setCandidates([]);
+    setSwept({ emails: 0, periods: [] });
+
+    const seen = new Set<string>();
+    const found: Candidate[] = [];
+    const failed: { period: string; error: string }[] = [];
+    let emails = 0;
+    const periods: string[] = [];
+
+    for (let back = 0; back < PERIODS; back++) {
+      setProgress(`Reading billing period ${back + 1} of ${PERIODS}…`);
+      try {
+        const res = await fetch(`/api/vendor-mail/seed?back=${back}`);
+        const json: Payload = await res.json();
+        if (json.coverage) setCoverage(json.coverage);
+        if (!json.ok) {
+          failed.push({ period: json.period ?? `#${back}`, error: json.error ?? "Failed." });
+          continue;
+        }
+        periods.push(json.period);
+        emails += json.swept?.emails ?? 0;
+        // One vendor gets one proposal, even across periods.
+        for (const c of json.candidates ?? []) {
+          if (seen.has(c.vendorId)) continue;
+          seen.add(c.vendorId);
+          found.push(c);
+        }
+        setCandidates([...found]);
+        setSwept({ emails, periods: [...periods] });
+      } catch (e) {
+        failed.push({ period: `#${back}`, error: e instanceof Error ? e.message : "Network error" });
+      }
     }
+    setFailures(failed);
+    if (failed.length === PERIODS) {
+      setError("No billing period could be read — the results below mean nothing.");
+    }
+    setProgress("");
+    setLoading(false);
   }, []);
 
   useEffect(() => {
@@ -96,7 +140,7 @@ export default function VendorMailIndex() {
     }
   }
 
-  const pending = (data?.candidates ?? []).filter((c) => !done[c.vendorId]);
+  const pending = candidates.filter((c) => !done[c.vendorId]);
 
   return (
     <main className="mx-auto w-full max-w-2xl px-4 pb-24 pt-6">
@@ -116,31 +160,47 @@ export default function VendorMailIndex() {
         </Banner>
       )}
 
-      {data && (
+      {failures.length > 0 && (
+        <Banner tone="warning" className="mb-3">
+          {failures.length === PERIODS
+            ? "Every billing period failed to read, so nothing below can be trusted:"
+            : `${failures.length} of ${PERIODS} billing periods could not be read, so this list is incomplete:`}
+          {failures.map((f) => (
+            <div key={f.period} className="mt-1">
+              <span className="font-semibold">{f.period}</span> — {f.error}
+            </div>
+          ))}
+        </Banner>
+      )}
+
+      {coverage && (
         <Card className="mb-4">
           <div className="flex items-baseline justify-between gap-3">
             <span className="text-sm font-semibold tracking-tight">
-              {data.coverage.indexed + Object.keys(done).length} of {data.coverage.total} vendors
-              indexed
+              {coverage.indexed + Object.keys(done).length} of {coverage.total} vendors indexed
             </span>
             <span className="text-[11.5px] text-neutral-500 dark:text-neutral-400">
-              {data.coverage.pct}%
+              {coverage.pct}%
             </span>
           </div>
           <p className="mt-1.5 text-[11.5px] text-neutral-500 dark:text-neutral-400">
-            Swept {data.swept.emails} emails across {data.swept.months.length} billing period
-            {data.swept.months.length === 1 ? "" : "s"}.
+            {progress ||
+              (swept.periods.length === 0
+                ? "No mail read yet."
+                : `Read ${swept.emails} invoice-looking email${swept.emails === 1 ? "" : "s"} across ${swept.periods.length} billing period${swept.periods.length === 1 ? "" : "s"} (${swept.periods.join(", ")}).`)}
           </p>
         </Card>
       )}
 
       {loading && <CardSkeletonList rows={3} />}
 
-      {!loading && data && pending.length === 0 && (
+      {!loading && pending.length === 0 && failures.length < PERIODS && (
         <EmptyState>
           {Object.keys(done).length > 0
             ? "Every proposal has been saved."
-            : "No new addresses found in recent mail. The remaining vendors haven't emailed in this window, so they need an address by hand in JobTread."}
+            : swept.emails === 0
+              ? "No invoice-looking mail was found in these periods at all — which is worth checking before trusting it."
+              : `Read ${swept.emails} emails, but none came from an un-indexed vendor we could match by name. The remaining vendors need an address by hand.`}
         </EmptyState>
       )}
 

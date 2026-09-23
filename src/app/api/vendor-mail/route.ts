@@ -83,6 +83,7 @@ export async function GET(req: NextRequest) {
         collisions,
         rows: [],
         truncated: false,
+        swept: { messages: 0, addresses: 0 },
         unindexed: vendors.filter((v) => !v.addresses.length).map((v) => ({ id: v.id, name: v.name })),
       });
     }
@@ -94,7 +95,14 @@ export async function GET(req: NextRequest) {
       .slice(0, 10);
 
     const [mail, bills] = await Promise.all([
-      callAppsScript<{ ok?: boolean; emails?: MailRow[]; truncated?: boolean; error?: string }>(
+      callAppsScript<{
+        ok?: boolean;
+        emails?: MailRow[];
+        truncated?: boolean;
+        count?: number;
+        searched?: number;
+        error?: string;
+      }>(
         { action: "listVendorMail", addresses, days },
         { timeoutMs: 90_000 },
       ),
@@ -172,6 +180,13 @@ export async function GET(req: NextRequest) {
       coverage,
       collisions,
       truncated: mail.data?.truncated === true,
+      // What the sweep actually did. An empty `rows` must be readable as "nothing
+      // was found" rather than "nothing was looked at" — those are opposite
+      // answers and the page has to tell them apart.
+      swept: {
+        messages: mail.data?.count ?? 0,
+        addresses: mail.data?.searched ?? addresses.length,
+      },
       rows,
       unindexed: vendors.filter((v) => !v.addresses.length).map((v) => ({ id: v.id, name: v.name })),
     });
