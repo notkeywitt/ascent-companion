@@ -12,6 +12,7 @@
 
 import { findMutations } from "@/lib/paveGateway";
 import { SALES_TAX_CSI, SALES_TAX_LINE_NAME, isSalesTaxLine } from "@/lib/salesTax";
+import { splitAddresses } from "@/lib/vendorMail";
 import type { UntaxedLine } from "@/lib/taxableLines";
 import {
   byWindow,
@@ -3475,6 +3476,82 @@ async function _getVendorsUncached(cfg: PaveConfig): Promise<VendorRef[]> {
     pick: (r) => r?.organization?.accounts,
   });
   return nodes.map((n) => ({ id: n.id, name: n.name }));
+}
+
+/** A vendor account plus every address its JobTread Email field holds. */
+export interface VendorEmailRow {
+  id: string;
+  name: string;
+  /** Raw field value, as the office typed it — what the editor round-trips. */
+  email: string;
+  /** The addresses parsed out of it, normalized for matching. */
+  addresses: string[];
+}
+
+/**
+ * Every vendor account with the addresses on file — the index the vendor-mail
+ * sweep searches by, and the coverage number it reports.
+ *
+ * Two phases, per the 413 rule: nesting `customFieldValues` inside the paged
+ * `organization.accounts` connection returns HTTP 413, so the Email field is
+ * looked up once by name and its VALUES are paged, each carrying the account it
+ * belongs to. Same inversion as `getJobPhaseMap`, confirmed live 2026-09-23:
+ * 238 vendor accounts, 102 with an address.
+ *
+ * Vendors WITHOUT an address are returned too, with `addresses: []`. They are
+ * the blind spot the page has to show — a vendor nobody indexed cannot be
+ * searched for, and the list would look clean whether or not they sent anything.
+ */
+export function getVendorEmails(cfg: PaveConfig): Promise<VendorEmailRow[]> {
+  return cachedRef(`vendoremails:${cfg.orgId}`, 30 * 60_000, () => _getVendorEmailsUncached(cfg));
+}
+async function _getVendorEmailsUncached(cfg: PaveConfig): Promise<VendorEmailRow[]> {
+  const vendors = await getVendors(cfg);
+  const byId = new Map<string, VendorEmailRow>(
+    vendors.map((v) => [v.id, { id: v.id, name: v.name, email: "", addresses: [] }]),
+  );
+
+  const cf = await pave(cfg, {
+    organization: {
+      $: { id: cfg.orgId },
+      id: {},
+      customFields: { $: { size: 100 }, nodes: { id: {}, name: {}, targetType: {} } },
+    },
+  });
+  const fields: any[] = cf?.organization?.customFields?.nodes ?? [];
+  const field =
+    fields.find((f) => f?.name === "Email" && f?.targetType === "vendor") ??
+    fields.find((f) => f?.name === "Email");
+  // No Email field configured: every vendor reads as un-indexed, which is the
+  // honest answer — the sweep can search for nobody.
+  if (!field?.id) return [...byId.values()];
+
+  await pageEach<any>(
+    cfg,
+    {
+      label: "customField.customFieldValues (vendor Email)",
+      query: (args) => ({
+        customField: {
+          $: { id: field.id },
+          id: {},
+          customFieldValues: { $: args, nextPage: {}, nodes: { value: {}, account: { id: {} } } },
+        },
+      }),
+      pick: (r) => r?.customField?.customFieldValues,
+    },
+    (rows) => {
+      for (const n of rows) {
+        const id = n?.account?.id;
+        const row = id ? byId.get(id) : undefined;
+        if (!row || n?.value == null) continue;
+        const raw = String(n.value).trim();
+        if (!raw) continue;
+        row.email = raw;
+        row.addresses = splitAddresses(raw);
+      }
+    },
+  );
+  return [...byId.values()].sort((a, b) => a.name.localeCompare(b.name));
 }
 
 export interface VendorBillRow {

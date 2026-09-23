@@ -1,0 +1,178 @@
+import { describe, expect, it } from "vitest";
+import {
+  buildAddressIndex,
+  buildMailQuery,
+  captureState,
+  chunkAddresses,
+  classifyKind,
+  indexCoverage,
+  normalizeAddress,
+  splitAddresses,
+  type BillNear,
+} from "./vendorMail";
+
+describe("normalizeAddress", () => {
+  it("unwraps a display name and lower-cases", () => {
+    expect(normalizeAddress("Acme Billing <AR@Acme.COM>")).toBe("ar@acme.com");
+    expect(normalizeAddress("  Billing@Vendor.com ")).toBe("billing@vendor.com");
+  });
+
+  it("refuses anything that isn't an address, rather than indexing junk", () => {
+    expect(normalizeAddress("Accounts Receivable")).toBe("");
+    expect(normalizeAddress("")).toBe("");
+  });
+});
+
+describe("splitAddresses", () => {
+  it("splits the several addresses one Email field can hold", () => {
+    expect(splitAddresses("ar@x.com, billing@x.com")).toEqual(["ar@x.com", "billing@x.com"]);
+    expect(splitAddresses("ar@x.com; BILLING@X.com")).toEqual(["ar@x.com", "billing@x.com"]);
+    expect(splitAddresses("ar@x.com or billing@x.com")).toEqual(["ar@x.com", "billing@x.com"]);
+  });
+
+  it("drops the fragments that aren't addresses", () => {
+    expect(splitAddresses("ar@x.com, (accounting)")).toEqual(["ar@x.com"]);
+    expect(splitAddresses("none on file")).toEqual([]);
+  });
+});
+
+describe("buildAddressIndex", () => {
+  it("maps an address to its vendor", () => {
+    const { byAddress } = buildAddressIndex([
+      { vendorId: "V1", vendorName: "Ferguson", address: "AR@ferguson.com" },
+    ]);
+    expect(byAddress.get("ar@ferguson.com")).toEqual({ vendorId: "V1", vendorName: "Ferguson" });
+  });
+
+  it("names a shared address instead of silently picking one vendor", () => {
+    const { byAddress, collisions } = buildAddressIndex([
+      { vendorId: "V1", vendorName: "Parent Co", address: "ar@group.com" },
+      { vendorId: "V2", vendorName: "Subsidiary", address: "ar@group.com" },
+    ]);
+    expect(byAddress.get("ar@group.com")?.vendorId).toBe("V1"); // first writer wins
+    expect(collisions).toEqual([{ address: "ar@group.com", vendors: ["Parent Co", "Subsidiary"] }]);
+  });
+
+  it("reports no collision when one vendor lists the same address twice", () => {
+    const { collisions } = buildAddressIndex([
+      { vendorId: "V1", vendorName: "Ferguson", address: "ar@ferguson.com" },
+      { vendorId: "V1", vendorName: "Ferguson", address: "AR@Ferguson.com" },
+    ]);
+    expect(collisions).toEqual([]);
+  });
+});
+
+describe("buildMailQuery", () => {
+  it("searches all mail, not just the inbox — an archived invoice is the forgotten one", () => {
+    const q = buildMailQuery(["a@x.com", "b@y.com"], 30);
+    expect(q).toBe("in:anywhere newer_than:30d (from:a@x.com OR from:b@y.com)");
+  });
+
+  it("is empty for an empty index, so a caller can't sweep the whole mailbox by accident", () => {
+    expect(buildMailQuery([], 30)).toBe("");
+  });
+});
+
+describe("chunkAddresses", () => {
+  it("keeps each query under the cap", () => {
+    const many = Array.from({ length: 200 }, (_, i) => `vendor${i}@example.com`);
+    const chunks = chunkAddresses(many, 400);
+    expect(chunks.length).toBeGreaterThan(1);
+    expect(chunks.flat()).toEqual(many); // nothing dropped, nothing duplicated
+    for (const c of chunks) expect(buildMailQuery(c, 30).length).toBeLessThan(600);
+  });
+
+  it("keeps a single over-long address rather than dropping that vendor", () => {
+    const one = ["a".repeat(500) + "@example.com"];
+    expect(chunkAddresses(one, 100)).toEqual([one]);
+  });
+});
+
+describe("captureState", () => {
+  const cfg = { windowDays: 21, tolerance: 1 };
+  const bill = (over: Partial<BillNear> = {}): BillNear => ({
+    id: "B1",
+    vendorId: "V1",
+    issueDate: "2026-09-20",
+    cost: 2840,
+    amountPaid: 0,
+    balance: 2840,
+    ...over,
+  });
+  const email = (over = {}) => ({
+    messageId: "M1",
+    vendorId: "V1",
+    date: "2026-09-19T10:00:00Z",
+    subjectAmount: null as number | null,
+    ...over,
+  });
+
+  it("calls an exact Gmail message id hit proof", () => {
+    const r = captureState(email(), { messageIds: new Set(["M1"]) }, [bill()], cfg);
+    expect(r.state).toBe("captured");
+  });
+
+  it("infers — but does not claim proof — from vendor and date alone", () => {
+    const r = captureState(email(), { messageIds: new Set() }, [bill()], cfg);
+    expect(r.state).toBe("likely");
+    expect(r.bill?.id).toBe("B1");
+  });
+
+  it("reports nothing found when no bill is near", () => {
+    const r = captureState(email(), { messageIds: new Set() }, [bill({ issueDate: "2026-06-01" })], cfg);
+    expect(r.state).toBe("new");
+    expect(r.bill).toBeNull();
+  });
+
+  it("never attributes another vendor's bill to this email", () => {
+    const r = captureState(email(), { messageIds: new Set() }, [bill({ vendorId: "V2" })], cfg);
+    expect(r.state).toBe("new");
+  });
+
+  it("uses a subject amount to reject a same-vendor bill that isn't this invoice", () => {
+    const e = email({ subjectAmount: 2840 });
+    expect(captureState(e, { messageIds: new Set() }, [bill({ cost: 19.99 })], cfg).state).toBe("new");
+    expect(captureState(e, { messageIds: new Set() }, [bill({ cost: 2840.5 })], cfg).state).toBe("likely");
+  });
+
+  it("falls back to vendor and window when the subject printed no amount", () => {
+    const r = captureState(email({ subjectAmount: null }), { messageIds: new Set() }, [bill({ cost: 19.99 })], cfg);
+    expect(r.state).toBe("likely");
+  });
+
+  it("treats an unparseable date as not found rather than matching everything", () => {
+    const r = captureState(email({ date: "" }), { messageIds: new Set() }, [bill()], cfg);
+    expect(r.state).toBe("new");
+  });
+});
+
+describe("classifyKind", () => {
+  it("recognises a receipt", () => {
+    for (const s of [
+      "Your receipt from Home Depot",
+      "Payment received - thank you",
+      "Order confirmation #4821",
+      "Autopay notice",
+      "Thank you for your payment",
+    ]) {
+      expect(classifyKind(s)).toBe("receipt");
+    }
+  });
+
+  it("treats anything else as an invoice — calling an unpaid bill 'paid' loses money", () => {
+    for (const s of ["Invoice 44821", "Statement of account", "Amount due", "Past due notice", ""]) {
+      expect(classifyKind(s)).toBe("invoice");
+    }
+  });
+});
+
+describe("indexCoverage", () => {
+  it("states the scope of the promise", () => {
+    expect(indexCoverage(238, 102)).toEqual({ total: 238, indexed: 102, missing: 136, pct: 43 });
+  });
+
+  it("never reports more indexed than exist, or divides by zero", () => {
+    expect(indexCoverage(10, 99).indexed).toBe(10);
+    expect(indexCoverage(0, 0).pct).toBe(0);
+  });
+});
