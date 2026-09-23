@@ -304,6 +304,15 @@ export const VIEWS: ViewDef[] = [
   // Office/admin by default (not in FIELD/LEAD sets below).
   { id: "leads", label: "Leads", group: "Office", paths: ["/leads", "/api/leads"] },
   { id: "labor-import", label: "Labor Import", group: "Office", paths: ["/labor-import"] },
+  // The vendor-mail completeness check. The API prefix is listed alongside the
+  // page so a role without the view can't read vendor contact details or sweep
+  // the office mailbox through the route directly. Office/admin by default.
+  {
+    id: "vendor-mail",
+    label: "Vendor Mail",
+    group: "Office",
+    paths: ["/vendor-mail", "/api/vendor-mail"],
+  },
   // Per-project labor-rate catalog + apply-to-employees. The API prefix gates all
   // /api/labor-rates/* routes (catalog CRUD, member list, and the JobTread write)
   // so a non-office user can't read or edit pay rates via the routes directly.

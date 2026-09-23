@@ -193,3 +193,109 @@ export function indexCoverage(totalVendors: number, indexed: number): {
     pct: total === 0 ? 0 : Math.round((have / total) * 100),
   };
 }
+
+/**
+ * A proposed address→vendor pair, drawn from mail that actually arrived.
+ *
+ * `messages` and `sampleSubject` are the evidence the office judges it on. This
+ * is a proposal, never a write: the fuzzy sender→vendor match that produced it
+ * is the same heuristic the index exists to replace, so it is good enough to
+ * SUGGEST and not good enough to trust.
+ */
+export interface SeedCandidate {
+  address: string;
+  fromName: string;
+  vendorId: string;
+  vendorName: string;
+  messages: number;
+  sampleSubject: string;
+  sampleDate: string;
+  threadUrl: string;
+}
+
+export interface SeedEmail {
+  fromAddress: string;
+  fromName: string;
+  fromDomain: string;
+  subject: string;
+  date: string;
+  threadUrl: string;
+}
+
+/**
+ * Turn recent mail into address→vendor proposals for vendors with no address.
+ *
+ * Only vendors that are currently UN-indexed are offered, so approving a
+ * proposal can never overwrite an address somebody already curated. Addresses
+ * already in the index are skipped outright — they need no seeding — and the
+ * busiest sender comes first, because the vendor who mails weekly is the one
+ * whose absence from the index costs the most.
+ *
+ * `match` is injected rather than imported so this stays pure and the caller
+ * supplies the digest's sender matcher.
+ */
+export function proposeSeeds(
+  emails: SeedEmail[],
+  knownAddresses: Set<string>,
+  unindexedVendors: { id: string; name: string }[],
+  match: (e: { fromName: string; fromDomain: string }, vendors: { id: string; name: string }[]) =>
+    { id: string; name: string } | null,
+): SeedCandidate[] {
+  const byAddress = new Map<string, { rows: SeedEmail[] }>();
+  for (const e of emails) {
+    const addr = normalizeAddress(e.fromAddress || e.fromName);
+    if (!addr || knownAddresses.has(addr)) continue;
+    const slot = byAddress.get(addr) ?? { rows: [] };
+    slot.rows.push(e);
+    byAddress.set(addr, slot);
+  }
+
+  const out: SeedCandidate[] = [];
+  // One vendor gets at most one proposal — its busiest address — so approving
+  // the list can't write two different addresses onto the same account.
+  const claimed = new Set<string>();
+  const ordered = [...byAddress.entries()].sort((a, b) => b[1].rows.length - a[1].rows.length);
+
+  for (const [address, { rows }] of ordered) {
+    const newest = [...rows].sort((a, b) => String(b.date).localeCompare(String(a.date)))[0];
+    const v = match(
+      { fromName: newest.fromName ?? "", fromDomain: newest.fromDomain ?? "" },
+      unindexedVendors,
+    );
+    if (!v || claimed.has(v.id)) continue;
+    claimed.add(v.id);
+    out.push({
+      address,
+      fromName: newest.fromName ?? "",
+      vendorId: v.id,
+      vendorName: v.name,
+      messages: rows.length,
+      sampleSubject: newest.subject ?? "",
+      sampleDate: String(newest.date ?? "").slice(0, 10),
+      threadUrl: newest.threadUrl ?? "",
+    });
+  }
+  return out;
+}
+
+export type PaymentState = "paid" | "unpaid" | "draft";
+
+/**
+ * Paid, unpaid, or not a real bill yet.
+ *
+ * A DRAFT is none of the above and must not read as "paid": JobTread reports
+ * `amountPaid: 0, balance: 0` on a draft (confirmed live 2026-09-23), which is
+ * indistinguishable from a settled bill on the numbers alone. Calling an
+ * un-issued bill paid is exactly the error this page exists to catch, so draft
+ * status is checked first.
+ */
+export function paymentState(bill: {
+  status: string;
+  amountPaid: number;
+  balance: number;
+  cost: number;
+}): PaymentState {
+  if (String(bill.status ?? "").toLowerCase() === "draft") return "draft";
+  if (bill.amountPaid > 0 && bill.balance <= 0.005) return "paid";
+  return "unpaid";
+}

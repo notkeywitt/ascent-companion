@@ -223,6 +223,12 @@ export const COPY: Record<string, CopyEntry> = {
     label: "Email Invoices — description",
     group: "Home — Utilities",
   },
+  "home.dest.vendor-mail.label": { text: "Vendor Mail", label: "Vendor Mail — name", group: "Home — Utilities" },
+  "home.dest.vendor-mail.desc": {
+    text: "Every vendor email, and whether it was captured",
+    label: "Vendor Mail — description",
+    group: "Home — Utilities",
+  },
   "home.dest.needs-project.label": { text: "Needs Project", label: "Needs Project — name", group: "Home — Utilities" },
   "home.dest.needs-project.desc": {
     text: "Ingested bills with no job yet",

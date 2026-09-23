@@ -7,8 +7,11 @@ import {
   classifyKind,
   indexCoverage,
   normalizeAddress,
+  paymentState,
+  proposeSeeds,
   splitAddresses,
   type BillNear,
+  type SeedEmail,
 } from "./vendorMail";
 
 describe("normalizeAddress", () => {
@@ -174,5 +177,107 @@ describe("indexCoverage", () => {
   it("never reports more indexed than exist, or divides by zero", () => {
     expect(indexCoverage(10, 99).indexed).toBe(10);
     expect(indexCoverage(0, 0).pct).toBe(0);
+  });
+});
+
+describe("proposeSeeds", () => {
+  // A stand-in for the digest's sender matcher: exact-ish name containment.
+  const match = (
+    e: { fromName: string; fromDomain: string },
+    vendors: { id: string; name: string }[],
+  ) => {
+    const n = e.fromName.toLowerCase();
+    const d = e.fromDomain.toLowerCase();
+    return (
+      vendors.find((v) => n.includes(v.name.toLowerCase()) || d.includes(v.name.toLowerCase().replace(/ /g, ""))) ??
+      null
+    );
+  };
+  const mail = (over: Partial<SeedEmail> = {}): SeedEmail => ({
+    fromAddress: "ar@ferguson.com",
+    fromName: "Ferguson",
+    fromDomain: "ferguson.com",
+    subject: "Invoice 44821",
+    date: "2026-09-19T10:00:00Z",
+    threadUrl: "https://mail.google.com/x",
+    ...over,
+  });
+  const vendors = [{ id: "V1", name: "Ferguson" }, { id: "V2", name: "Beacon" }];
+
+  it("proposes an address for an un-indexed vendor, with its evidence", () => {
+    const out = proposeSeeds([mail(), mail({ subject: "Invoice 44822" })], new Set(), vendors, match);
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({ address: "ar@ferguson.com", vendorId: "V1", messages: 2 });
+  });
+
+  it("skips an address already in the index", () => {
+    expect(proposeSeeds([mail()], new Set(["ar@ferguson.com"]), vendors, match)).toEqual([]);
+  });
+
+  it("proposes nothing when no vendor matches, rather than guessing", () => {
+    const out = proposeSeeds(
+      [mail({ fromAddress: "news@unrelated.com", fromName: "Unrelated", fromDomain: "unrelated.com" })],
+      new Set(),
+      vendors,
+      match,
+    );
+    expect(out).toEqual([]);
+  });
+
+  it("gives one vendor a single proposal — its busiest address", () => {
+    const out = proposeSeeds(
+      [
+        mail({ fromAddress: "quiet@ferguson.com" }),
+        mail({ fromAddress: "ar@ferguson.com" }),
+        mail({ fromAddress: "ar@ferguson.com" }),
+      ],
+      new Set(),
+      vendors,
+      match,
+    );
+    expect(out).toHaveLength(1);
+    expect(out[0].address).toBe("ar@ferguson.com");
+    expect(out[0].messages).toBe(2);
+  });
+
+  it("reports the newest message as the sample", () => {
+    const out = proposeSeeds(
+      [
+        mail({ subject: "older", date: "2026-09-01T10:00:00Z" }),
+        mail({ subject: "newest", date: "2026-09-19T10:00:00Z" }),
+      ],
+      new Set(),
+      vendors,
+      match,
+    );
+    expect(out[0].sampleSubject).toBe("newest");
+    expect(out[0].sampleDate).toBe("2026-09-19");
+  });
+
+  it("only ever offers vendors that have no address yet", () => {
+    // Ferguson is indexed already and so isn't in the candidate list.
+    const out = proposeSeeds([mail()], new Set(), [{ id: "V2", name: "Beacon" }], match);
+    expect(out).toEqual([]);
+  });
+});
+
+describe("paymentState", () => {
+  const bill = (over = {}) => ({ status: "approved", amountPaid: 0, balance: 100, cost: 100, ...over });
+
+  it("never calls a draft paid — JobTread reports 0/0 on one, same as settled", () => {
+    expect(paymentState(bill({ status: "draft", amountPaid: 0, balance: 0 }))).toBe("draft");
+  });
+
+  it("reads a settled bill as paid", () => {
+    expect(paymentState(bill({ amountPaid: 100, balance: 0 }))).toBe("paid");
+  });
+
+  it("reads an outstanding or part-paid bill as unpaid", () => {
+    expect(paymentState(bill())).toBe("unpaid");
+    expect(paymentState(bill({ amountPaid: 40, balance: 60 }))).toBe("unpaid");
+  });
+
+  it("tolerates a rounding crumb left on the balance", () => {
+    expect(paymentState(bill({ amountPaid: 100, balance: 0.004 }))).toBe("paid");
   });
 });

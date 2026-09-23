@@ -3697,6 +3697,86 @@ export async function getVendorDetail(cfg: PaveConfig, accountId: string): Promi
   };
 }
 
+/** A recent vendor bill, org-wide, with enough to answer "was this paid?". */
+export interface RecentVendorBill {
+  id: string;
+  number: number | null;
+  vendorId: string;
+  vendorName: string;
+  issueDate: string | null;
+  status: string;
+  cost: number;
+  amountPaid: number;
+  balance: number;
+  jobId: string | null;
+  jobName: string;
+}
+
+/**
+ * Every vendor bill issued on or after `sinceIso`, across the org.
+ *
+ * ONE query rather than a call per vendor: the mail check looks at a few dozen
+ * vendors at a time, and forty round trips to answer "is there a bill near this
+ * email" would dominate the page load. `organization.documents` takes the same
+ * `["type","vendorBill"]` filter used elsewhere here, and `account` and `job`
+ * are plain references, so nothing heavy is nested inside the paged connection.
+ *
+ * Confirmed live 2026-09-23: `amountPaid` and `balance` come back per document,
+ * and a DRAFT reads 0/0 — see `paymentState`, which is why status is carried.
+ */
+export async function getRecentVendorBills(
+  cfg: PaveConfig,
+  sinceIso: string,
+): Promise<RecentVendorBill[]> {
+  const nodes = await pageAll<any>(cfg, {
+    label: "organization.documents (recent vendor bills)",
+    query: (args) => ({
+      organization: {
+        $: { id: cfg.orgId },
+        id: {},
+        documents: {
+          $: {
+            where: {
+              and: [
+                { "=": [{ field: "type" }, { value: "vendorBill" }] },
+                { ">=": [{ field: "issueDate" }, { value: sinceIso }] },
+              ],
+            },
+            sortBy: [{ field: "issueDate", order: "desc" }],
+            ...args,
+          },
+          nextPage: {},
+          nodes: {
+            id: {},
+            number: {},
+            issueDate: {},
+            status: {},
+            cost: {},
+            amountPaid: {},
+            balance: {},
+            account: { id: {}, name: {} },
+            job: { id: {}, name: {} },
+          },
+        },
+      },
+    }),
+    pick: (r) => r?.organization?.documents,
+  });
+  return nodes.map((n) => ({
+    id: String(n?.id ?? ""),
+    number: typeof n?.number === "number" ? n.number : null,
+    vendorId: String(n?.account?.id ?? ""),
+    vendorName: String(n?.account?.name ?? ""),
+    issueDate: n?.issueDate ? String(n.issueDate).slice(0, 10) : null,
+    status: String(n?.status ?? ""),
+    cost: Number(n?.cost) || 0,
+    amountPaid: Number(n?.amountPaid) || 0,
+    balance: Number(n?.balance) || 0,
+    jobId: n?.job?.id ? String(n.job.id) : null,
+    jobName: String(n?.job?.name ?? ""),
+  }));
+}
+
 export interface VendorBillMatch extends VendorBillRow {
   vendorName: string;
 }
