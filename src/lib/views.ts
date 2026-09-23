@@ -206,7 +206,11 @@ export const VIEWS: ViewDef[] = [
     id: "email",
     label: "Email Invoices",
     group: "Financials",
-    paths: ["/email", "/api/email", "/api/stuck-vendors"],
+    // /api/vendor-create rides this gate rather than `vendors`, because the
+    // button that calls it lives in the stuck-vendor popup, which this view
+    // shows — a user who can see the alert must be able to act on it, and one
+    // who can't must not reach the route.
+    paths: ["/email", "/api/email", "/api/stuck-vendors", "/api/vendor-create"],
   },
   // The home-page count badge + banner ride on this gate too, so its API route is
   // listed here (same reasoning as `email` above): a non-billing user can neither

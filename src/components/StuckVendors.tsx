@@ -11,7 +11,7 @@ import {
 } from "react";
 import { JtLink } from "@/components/JtLink";
 import { useAccess } from "@/components/AccessProvider";
-import { Button, btn } from "@/components/ui";
+import { Button, Input, btn } from "@/components/ui";
 
 /**
  * The unmatched-vendor alert — the loud half of a failure that used to be silent.
@@ -26,8 +26,15 @@ import { Button, btn } from "@/components/ui";
  * The fix is always the same and always one step: CREATE THE VENDOR IN JOBTREAD.
  * The next push pulls the new account in and heals every stuck row on its own
  * (the vendor self-heal, JobTread.js section 6A-ii) — no re-tagging, no
- * re-import. So this component's whole job is to name the vendor and hand over a
- * link; it deliberately has no buttons that write anything.
+ * re-import.
+ *
+ * So the popup does exactly that one step, in place: "Create vendor" posts to
+ * /api/vendor-create, which refuses a name JobTread already has, files the
+ * address the bill ARRIVED FROM on the new account, and runs Sync Vendors so the
+ * sheet learns the account id — without which the bill stays stuck however many
+ * vendors exist. Filing the address is what keeps the vendor-mail check able to
+ * see this vendor from day one. The link to JobTread stays for everything this
+ * cannot do (a name that already exists, two rows pointing at two accounts).
  *
  * Three exports, one fetch:
  *   StuckVendorsProvider — mounted in the root layout; fetches once per load.
@@ -53,6 +60,8 @@ export interface StuckBill {
   driveUrl: string;
   /** Came in from Gmail (add-on / "_JT Invoice …" tag) rather than the sweep. */
   fromEmail: boolean;
+  /** The address it arrived from, when the row records a Gmail message. */
+  fromAddress?: string;
 }
 
 export interface StuckVendor {
@@ -68,6 +77,9 @@ export interface StuckVendor {
   count: number;
   taggedCount: number;
   bills: StuckBill[];
+  /** The address most of this vendor's stuck bills came from — what "Create
+   *  vendor" files on the new account. Absent on older script deployments. */
+  senderEmail?: string;
 }
 
 interface StuckVendorsValue {
@@ -156,10 +168,123 @@ export function StuckVendorsProvider({ children }: { children: ReactNode }) {
   return <StuckVendorsContext.Provider value={value}>{children}</StuckVendorsContext.Provider>;
 }
 
+/* -------------------------------------------------------------- create row */
+
+/**
+ * One stuck vendor, with the one action that fixes it.
+ *
+ * The name and the address are both editable before creating: the name is what
+ * a model extracted off an invoice ("ACME SUPPLY CO." / "Acme Supply"), and the
+ * address may be a `noreply@` the office would rather not file. Creating is not
+ * reversible from here, so the office sees exactly what it is about to make.
+ */
+function StuckVendorRow({ v, onCreated }: { v: StuckVendor; onCreated: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState(v.vendor);
+  const [email, setEmail] = useState(v.senderEmail ?? "");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [made, setMade] = useState<{ name: string; synced: boolean; warning?: string } | null>(null);
+
+  async function create() {
+    if (busy || !name.trim()) return;
+    setBusy(true);
+    setError("");
+    try {
+      const res = await fetch("/api/vendor-create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: name.trim(), email: email.trim() }),
+      });
+      const json = await res.json();
+      if (!res.ok || json?.error) throw new Error(json?.error || "Could not create the vendor.");
+      setMade({ name: json.vendor?.name ?? name, synced: json.synced === true, warning: json.warning });
+      onCreated();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Network error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <li className="rounded-xl border border-line px-3 py-2.5">
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="min-w-0 break-words font-semibold">{v.vendor}</span>
+        <span className="shrink-0 text-xs text-neutral-500">
+          {v.count} bill{v.count === 1 ? "" : "s"}
+        </span>
+      </div>
+      {v.reason && <p className="mt-1 text-xs text-neutral-500">{v.reason}</p>}
+      <ul className="mt-1 space-y-0.5">
+        {v.bills.slice(0, 3).map((b) => (
+          <li key={b.expId} className="font-mono text-xs text-neutral-500">
+            {b.expId} · {money(b.amount)}
+            {b.date ? " · " + b.date : ""}
+          </li>
+        ))}
+        {v.bills.length > 3 && <li className="text-xs text-neutral-500">+{v.count - 3} more</li>}
+      </ul>
+
+      {made ? (
+        <p className="mt-2 text-xs font-semibold text-emerald-700 dark:text-emerald-400">
+          ✓ Created {made.name}.{" "}
+          {made.warning ? (
+            <span className="font-normal text-amber-700 dark:text-amber-400">{made.warning}</span>
+          ) : made.synced ? (
+            <span className="font-normal text-neutral-500">
+              Vendors synced — the next push sends {v.count === 1 ? "this bill" : "these bills"}.
+            </span>
+          ) : null}
+        </p>
+      ) : open ? (
+        <div className="mt-2 space-y-2">
+          <label className="block">
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
+              Vendor name
+            </span>
+            <Input value={name} onChange={(e) => setName(e.target.value)} disabled={busy} />
+          </label>
+          <label className="block">
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
+              Email {v.senderEmail ? "(where their bill came from)" : "(optional)"}
+            </span>
+            <Input
+              type="email"
+              inputMode="email"
+              autoCapitalize="none"
+              autoCorrect="off"
+              placeholder="billing@vendor.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              disabled={busy}
+            />
+          </label>
+          {error && (
+            <p className="text-xs font-semibold text-red-600 dark:text-red-400">{error}</p>
+          )}
+          <div className="flex items-center gap-2">
+            <Button size="sm" onClick={() => void create()} disabled={busy || !name.trim()}>
+              {busy ? "Creating…" : "Create in JobTread"}
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => setOpen(false)} disabled={busy}>
+              Cancel
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <Button size="sm" variant="secondary" className="mt-2" onClick={() => setOpen(true)}>
+          Create vendor{v.senderEmail ? " + file their email" : ""}
+        </Button>
+      )}
+    </li>
+  );
+}
+
 /* ------------------------------------------------------------------- popup */
 
 export function StuckVendorPopup() {
-  const { vendors, billCount } = useStuckVendors();
+  const { vendors, billCount, refresh } = useStuckVendors();
   const [dismissedSig, setDismissedSig] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
 
@@ -239,38 +364,14 @@ export function StuckVendorPopup() {
 
         <ul className="mt-4 space-y-2">
           {vendors.map((v) => (
-            <li
-              key={v.vendor}
-              className="rounded-xl border border-line px-3 py-2.5 "
-            >
-              <div className="flex items-baseline justify-between gap-3">
-                <span className="min-w-0 break-words font-semibold">{v.vendor}</span>
-                <span className="shrink-0 text-xs text-neutral-500">
-                  {v.count} bill{v.count === 1 ? "" : "s"}
-                </span>
-              </div>
-              {v.reason && (
-                <p className="mt-1 text-xs text-neutral-500">{v.reason}</p>
-              )}
-              <ul className="mt-1 space-y-0.5">
-                {v.bills.slice(0, 3).map((b) => (
-                  <li key={b.expId} className="font-mono text-xs text-neutral-500">
-                    {b.expId} · {money(b.amount)}
-                    {b.date ? " · " + b.date : ""}
-                  </li>
-                ))}
-                {v.bills.length > 3 && (
-                  <li className="text-xs text-neutral-500">+{v.count - 3} more</li>
-                )}
-              </ul>
-            </li>
+            <StuckVendorRow key={v.vendor} v={v} onCreated={refresh} />
           ))}
         </ul>
 
         <p className="mt-4 text-sm text-neutral-500">
-          {vendors.some((v) => v.reason)
-            ? "Do what each line above says — usually that means creating the vendor in JobTread. The next sync pulls the new account in and pushes those bills on its own; nothing to re-tag or re-import."
-            : "Create each vendor in JobTread. The next sync pulls the new account in and pushes these bills on its own — nothing to re-tag or re-import."}
+          Creating the vendor here files it in JobTread with the address its bill arrived from,
+          then syncs the Vendors sheet — after which the next push sends the stuck bills on its own.
+          Open JobTread for anything this can&apos;t do, like a name that already exists.
         </p>
 
         <div className="mt-4 flex items-center gap-2">

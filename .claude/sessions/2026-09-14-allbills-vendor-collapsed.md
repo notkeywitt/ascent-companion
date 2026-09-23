@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/allbills-vendor-collapsed
 status: in-progress
 started: 2026-09-14T17:52:26Z
-updated: 2026-09-23T15:59:02Z
+updated: 2026-09-23T16:01:39Z
 goal: 
 next: Owner: ./deploy.sh in ascent-appscript (arms listVendorMail AND purges the retired auto-bill actions from the live script). Then open /vendor-mail/index to seed addresses, and /vendor-mail to check the 30-day list.
 ---
@@ -70,6 +70,8 @@ next: Owner: ./deploy.sh in ascent-appscript (arms listVendorMail AND purges the
   src/app/api/vendor-mail/route.ts, src/app/api/vendor-mail/seed/route.ts, src/app/vendor-mail/VendorMail.tsx, src/app/vendor-mail/index/VendorMailIndex.tsx
 - 2026-09-23 11:59 · `d244ff9` companion: bound the seed sweep so a busy month can't time out
   src/app/api/vendor-mail/seed/route.ts, src/app/vendor-mail/index/VendorMailIndex.tsx
+- 2026-09-23 12:01 · `5aafaa1` companion: a vendor's email and phone can actually save now
+  src/app/api/vendor-details/route.ts, src/lib/clientDirectory.ts
 
 ## Notes
 - 2026-09-16 16:01 — Document Access bulk-share: new /api/document-access (GET list + POST grant) + Give Document Access button in the Tracking Sheets closing row. createAce{targetType:document, assignee:{membership}} is the JobTread Document Access list — confirmed by READ (every bill's aces carry the admin membership). The createAce WRITE is unprobed: the live probe was blocked by the permission classifier, so it needs one real click before trusting.
