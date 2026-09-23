@@ -82,7 +82,10 @@ export async function POST(req: NextRequest) {
       await pave(cfg, {
         updateAccount: {
           $: { id: accountId, notify: false, customFieldValues: cfv },
-          root: { id: {} },
+          // `account`, NOT `root`. Introspected live 2026-09-23: updateAccount
+          // answers "The field \"root\" does not exist" and the whole write
+          // fails, which is why this route never once saved an email or phone.
+          account: { id: {} },
         },
       });
     }
@@ -94,7 +97,8 @@ export async function POST(req: NextRequest) {
       const locId = await firstLocationId(cfg, accountId);
       if (locId) {
         await pave(cfg, {
-          updateLocation: { $: { id: locId, address: patch.address || null }, root: { id: {} } },
+          // `location`, not `root` — same introspection, same bug as above.
+          updateLocation: { $: { id: locId, address: patch.address || null }, location: { id: {} } },
         });
       } else if (patch.address) {
         await pave(cfg, {
@@ -106,7 +110,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Re-read, because every mutation above returns a bare `root` and JobTread
+    // Re-read, because a mutation's own return carries only the id, and JobTread
     // derives the tidied address from the text it was given.
     const detail = await getVendorDetail(cfg, accountId);
     const j = await openJournal("/api/vendor-details");

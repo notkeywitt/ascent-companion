@@ -50,10 +50,16 @@
  * Single-value custom fields ARE written, as the keyed `customFieldValues` map
  * (`customFieldId → value`) that `leadPush.ts` already uses in production.
  *
- * Every write here re-reads the record afterwards, because `updateJob`,
- * `updateAccount`, `updateContact` and `updateLocation` all return a bare `root`
- * (the mutation convention in JT_API_REFERENCE.md) — so the value the route
- * journals and the page redraws is JobTread's, never the browser's guess.
+ * Every write here re-reads the record afterwards, because a mutation's own
+ * return carries only the id — so the value the route journals and the page
+ * redraws is JobTread's, never the browser's guess.
+ *
+ * NOT `root`. `updateJob`/`updateAccount`/`updateContact`/`updateLocation` each
+ * answer under their OWN name (`job`, `account`, `contact`, `location`) — see
+ * `getter` in the table below, which is what these writes have always used.
+ * Introspected live 2026-09-23 after the stale "bare root" claim this comment
+ * used to make was copied into /api/vendor-details, where it silently broke
+ * every email, phone and address edit that route made.
  */
 
 import { pageAll, pave, type PaveConfig } from "./jobtread";
