@@ -147,6 +147,8 @@ function mail(partial: Partial<BillEmail> & { threadId: string }): BillEmail {
     subjectAmount: null,
     threadUrl: `https://mail.google.com/mail/u/0/#all/${partial.threadId}`,
     labels: [],
+    nearBillId: "",
+    nearBillCost: 0,
     vendorId: "V1",
     vendorName: "Reggio Register",
     matchedBillId: "b1",
@@ -1034,6 +1036,40 @@ describe("the office mailbox — was every vendor invoice captured?", () => {
   it("carries the subject amount so the finding can be ranked by money", () => {
     const f = runChecks(swept([mail({ threadId: "t1", matchedBillId: "", subjectAmount: 8553.5 })]));
     expect(f.find((x) => x.kind === "email-bill-missed")?.amount).toBe(8553.5);
+  });
+
+  // The TruDoor case, Sept 2026: the capture read $168.83 off a $74.57 invoice.
+  // The bill, its Drive filename and its sheet row were all built from that one
+  // reading, so every comparison between them agreed and the only disagreement
+  // left in the system was the order email.
+  it("separates a wrong amount from a missing invoice", () => {
+    const f = runChecks(
+      swept([
+        mail({
+          threadId: "t1",
+          matchedBillId: "",
+          subjectAmount: 74.57,
+          nearBillId: "b9",
+          nearBillCost: 168.83,
+        }),
+      ]),
+    );
+    const hit = f.find((x) => x.kind === "email-bill-amount-mismatch");
+    expect(hit?.severity).toBe("error");
+    expect(hit?.title).toContain("$74.57");
+    expect(hit?.title).toContain("$168.83");
+    // The gap, so the list ranks by what is actually at stake.
+    expect(hit?.amount).toBe(94.26);
+    // And it must NOT also read as never captured — that is the wrong hunt.
+    expect(kinds(f)).not.toContain("email-bill-missed");
+  });
+
+  it("still reports a miss when no single bill is in the window", () => {
+    const f = runChecks(
+      swept([mail({ threadId: "t1", matchedBillId: "", subjectAmount: 74.57, nearBillId: "" })]),
+    );
+    expect(kinds(f)).toContain("email-bill-missed");
+    expect(kinds(f)).not.toContain("email-bill-amount-mismatch");
   });
 
   it("warns that a truncated sweep proves nothing about what it did not see", () => {

@@ -195,6 +195,10 @@ export const DEFAULT_SETTINGS: InvoiceReviewSettings = {
         // first invoice was never filed is exactly the thing worth catching,
         // and the finding says plainly that it proves nothing.
         reportUnknownSenders: true,
+        // On: "captured, but at the wrong amount" is a real error the office
+        // cannot see any other way, and it REPLACES a false "never captured"
+        // rather than adding a finding beside it.
+        reportAmountMismatch: true,
       },
     },
     "vendor-silent": {

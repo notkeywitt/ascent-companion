@@ -60,6 +60,9 @@ export type FindingKind =
   // ── The office mailbox: did every vendor invoice get captured? ────────────
   /** A vendor invoice arrived in the period and no JobTread bill matches it. */
   | "email-bill-missed"
+  /** A vendor invoice arrived and a bill for it exists, but at a different
+   *  amount — the capture misread the total. */
+  | "email-bill-amount-mismatch"
   /** Invoice-looking mail from a sender that matches no JobTread vendor. */
   | "email-unknown-sender"
   /** The same vendor bill is carried by two different live invoices. */
@@ -370,6 +373,20 @@ export interface BillEmail {
   vendorName: string;
   /** The JobTread bill this invoice became; "" when none was found. */
   matchedBillId: string;
+  /**
+   * The bill this invoice ALMOST matched: same vendor, inside the date window,
+   * but an amount the match rejected — and the only such bill, so there is no
+   * ambiguity about which one it is. "" when there was none.
+   *
+   * This is the capture-misread case. The bill, the Drive filename and the
+   * sheet row are all built from the SAME extraction, so when that extraction
+   * reads the wrong total they all agree with each other and no comparison
+   * between them notices. The email is the one independent witness, which makes
+   * this the only place the error is visible.
+   */
+  nearBillId: string;
+  /** That bill's cost, for the gap the finding reports. */
+  nearBillCost: number;
   /** False when the vendor's bills could not be read, so "no match" is unproven. */
   checked: boolean;
 }

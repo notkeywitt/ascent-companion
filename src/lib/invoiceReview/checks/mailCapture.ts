@@ -35,13 +35,21 @@ export interface MailCaptureConfig {
   /** Report invoice-looking mail from a sender matching no JobTread vendor.
    *  Never a proven miss — see the module note. */
   reportUnknownSenders: boolean;
+  /**
+   * Report an arriving invoice whose bill exists but states a different amount.
+   *
+   * Off makes that case fall back to "never captured", which is what it looked
+   * like before this existed — and sends the office hunting for an invoice that
+   * is not actually missing.
+   */
+  reportAmountMismatch: boolean;
 }
 
 export const mailCaptureCheck = defineMonthCheck<MailCaptureConfig>({
   id: "mail-capture",
   title: "Was every vendor invoice captured?",
   description: "Every vendor invoice that arrived in the billing window became a JobTread bill.",
-  kinds: ["email-bill-missed", "email-unknown-sender"],
+  kinds: ["email-bill-missed", "email-bill-amount-mismatch", "email-unknown-sender"],
   scope: "month",
   run({ config, month }) {
     const out: Finding[] = [];
@@ -87,6 +95,34 @@ export const mailCaptureCheck = defineMonthCheck<MailCaptureConfig>({
       // The vendor's bills couldn't be read — say nothing rather than accuse.
       if (!e.checked) continue;
       if (e.matchedBillId) continue;
+
+      // The invoice IS captured — the bill just says something else. This is a
+      // different failure from a miss, and naming it as a miss is what sent the
+      // office looking for an invoice that was never lost. The email is the only
+      // independent witness: the bill, the Drive filename and the sheet row all
+      // come from the same extraction, so when it misreads a total they agree
+      // with each other and nothing else can see it.
+      if (e.nearBillId && amount) {
+        if (!config.reportAmountMismatch) continue;
+        const gap = Math.round((e.nearBillCost - amount) * 100) / 100;
+        out.push({
+          ...base,
+          key: findingKey("email-bill-amount-mismatch", "", e.threadId),
+          kind: "email-bill-amount-mismatch",
+          severity: "error",
+          title: `Captured at the wrong amount — ${e.vendorName} ${money(amount)} vs ${money(e.nearBillCost)}`,
+          detail:
+            `"${e.subject}" arrived ${arrived} from ${e.from} showing ${money(amount)}, and ` +
+            `JobTread has exactly one ${e.vendorName} bill within three weeks of it — but that ` +
+            `bill is ${money(e.nearBillCost)}, ${money(Math.abs(gap))} ` +
+            `${gap > 0 ? "more" : "less"} than the invoice states. ` +
+            `The bill, its Drive filename and its sheet row are all built from the same reading ` +
+            `of this invoice, so they agree with each other and only the email disagrees. ` +
+            `Open the email, read the total, and correct the bill.`,
+          amount: Math.abs(gap),
+        });
+        continue;
+      }
 
       // A label claiming the invoice was handled, on an invoice that isn't in
       // JobTread, is the most telling version of this finding — say so.

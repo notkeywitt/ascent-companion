@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/allbills-vendor-collapsed
 status: in-progress
 started: 2026-09-14T17:52:26Z
-updated: 2026-09-23T16:52:26Z
+updated: 2026-09-23T17:30:14Z
 goal: 
 next: Owner: create vendor custom field 'Bill Type' (option: Bill, Expense) in JobTread settings, then OK the push of the expense commit (npm run ship). Verify: set a vendor to Expense on /vendors, upload a bill on /add-bill, confirm JT doc is named Expense and due on its issue date.
 ---
@@ -82,6 +82,8 @@ next: Owner: create vendor custom field 'Bill Type' (option: Bill, Expense) in J
   src/app/api/vendor-mail/route.ts, src/app/vendor-mail/VendorMail.tsx, src/lib/vendorMail.test.ts, src/lib/vendorMail.ts
 - 2026-09-23 12:44 · `5acd945` companion: bill/expense switch sets qbo push-as and the vendor default
   src/app/api/add-bill/route.ts, src/app/api/bill-fields/route.ts, src/app/bill/[docId]/page.tsx, src/lib/clientDirectory.ts, src/lib/jobtread.ts
+- 2026-09-23 13:30 · `2da68a9` companion: every update mutation was sending a shape JobTread rejects
+  src/app/api/vendor-details/route.ts, src/lib/clientDirectory.ts
 
 ## Notes
 - 2026-09-16 16:01 — Document Access bulk-share: new /api/document-access (GET list + POST grant) + Give Document Access button in the Tracking Sheets closing row. createAce{targetType:document, assignee:{membership}} is the JobTread Document Access list — confirmed by READ (every bill's aces carry the admin membership). The createAce WRITE is unprobed: the live probe was blocked by the permission classifier, so it needs one real click before trusting.

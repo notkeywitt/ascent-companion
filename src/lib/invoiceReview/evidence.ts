@@ -542,6 +542,8 @@ async function loadPeriodMail(
     vendorId: "",
     vendorName: "",
     matchedBillId: "",
+    nearBillId: "",
+    nearBillCost: 0,
     checked: false,
   });
 
@@ -593,7 +595,22 @@ async function loadPeriodMail(
     for (const row of mine) {
       row.checked = true;
       const hit = bills.find((b) => billMatchesEmail(b, row.date, row.subjectAmount, MAIL_MATCH));
-      if (hit) row.matchedBillId = hit.id;
+      if (hit) {
+        row.matchedBillId = hit.id;
+        continue;
+      }
+      // No match, and the email printed an amount — so the amount is what
+      // rejected it. Re-run the match on the DATE WINDOW ALONE (passing a null
+      // amount is exactly that predicate). One bill in the window and it is
+      // unambiguous which invoice this is; the amounts simply disagree. Two or
+      // more and we cannot say which, so we say nothing and let the ordinary
+      // "never captured" finding stand.
+      if (row.subjectAmount == null || row.subjectAmount <= 0) continue;
+      const inWindow = bills.filter((b) => billMatchesEmail(b, row.date, null, MAIL_MATCH));
+      if (inWindow.length === 1 && inWindow[0].cost > 0) {
+        row.nearBillId = inWindow[0].id;
+        row.nearBillCost = inWindow[0].cost;
+      }
     }
   }
 
