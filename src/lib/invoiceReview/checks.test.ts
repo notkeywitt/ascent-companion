@@ -826,6 +826,36 @@ describe("period & scope", () => {
     expect(finding?.detail).toContain("1 bill and 1 time entry");
   });
 
+  it("prices seen time at the rate card the invoice used, not the entry's stored rate", () => {
+    // Moon Spring / Pole Barn, August 2026: invoice #40 cost $11,973.41 against
+    // one $9,385.08 bill and August time worth $2,295.00 at its stored rates.
+    // The $293.33 gap was three raises applied after the entries were written,
+    // which the invoice had already priced in — not cost from another month.
+    const f = runChecks(
+      month(
+        [
+          job({
+            invoices: [invoice({ id: "i1", cost: 11973.41, price: 11973.41, priceWithTax: 11973.41 })],
+            bills: [bill({ id: "b1", cost: 9385.08, invoiceIds: ["i1"], invoiced: true })],
+            labor: [
+              labor({ id: "t1", employee: "Ty O'Steen", payType: "Moon Spring PM", rate: 75, hours: 15, cost: 1125, invoiceIds: ["i1"] }),
+              labor({ id: "t2", employee: "Casey", payType: "Burgess - Principal", rate: 95, hours: 11, cost: 1045, invoiceIds: ["i1"] }),
+              labor({ id: "t3", employee: "Tommy", payType: "Moon Spring - Electrical PM", rate: 75, hours: 100 / 60, cost: 125, invoiceIds: ["i1"] }),
+            ],
+          }),
+        ],
+        {
+          laborRates: new Map([
+            ["Ty O'Steen", new Map([["Moon Spring PM", 85]])],
+            ["Casey", new Map([["Burgess - Principal", 105]])],
+            ["Tommy", new Map([["Moon Spring - Electrical PM", 95]])],
+          ]),
+        },
+      ),
+    );
+    expect(kinds(f)).not.toContain("math-cost-basis");
+  });
+
   it("does not skip a time-only invoice — no bills is not 'nothing to compare'", () => {
     // The short-circuit used to be `!onThisInvoice.length` alone, which bailed
     // before a time-only invoice's time entries ever got a chance to explain

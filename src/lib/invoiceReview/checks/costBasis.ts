@@ -17,6 +17,27 @@
  * see. The other direction just means the invoice covers part of the month,
  * which is normal for a split invoice, and flagging it would fire on every
  * job that bills in stages.
+ *
+ * ## Time is priced at the CURRENT rate, not the entry's stored rate
+ *
+ * JobTread snapshots an hourly rate onto a time entry and never revisits it,
+ * but it prices an invoice's labor lines at the rate the membership carries
+ * WHEN THE INVOICE IS BUILT. Raise a rate, then raise the invoice, and the two
+ * numbers disagree by the raise — the entry still says the old rate, the
+ * invoice line says the new one.
+ *
+ * Probe-confirmed on Moon Spring / Pole Barn, August 2026: invoice #40's cost
+ * was $11,973.41 against one $9,385.08 bill and 20 August time entries worth
+ * $2,295.00 at their stored rates. Every entry was August's; nothing came from
+ * another month. The $293.33 gap was three raises applied after the entries
+ * were written — Ty O'Steen $75→$85 (15 h), Casey $95→$105 (11 h), Tommy
+ * $75→$95 (1.67 h) — and the invoice had priced all 27.67 hours at the new
+ * rates.
+ *
+ * So the seen time is valued at the rate card (`month.laborRates`, the same
+ * reference `laborRateCheck` uses), falling back to the entry's own cost when
+ * the grant could not read pay types. Reporting the raise is laborRateCheck's
+ * job; this check's only job is to stop calling it "cost from another month".
  */
 import { defineInvoiceCheck } from "../checkTypes";
 import { cents, findingKey, money, type Finding } from "../types";
@@ -36,7 +57,12 @@ export const costBasisCheck = defineInvoiceCheck<CostBasisConfig>({
     const onThisInvoice = job.bills.filter((b) => b.invoiceIds.includes(inv.id));
     const onThisInvoiceTime = job.labor.filter((t) => t.invoiceIds.includes(inv.id));
     const billCost = onThisInvoice.reduce((s, b) => s + (monthBillCost.get(b.id) ?? 0), 0);
-    const timeCost = onThisInvoiceTime.reduce((s, t) => s + t.cost, 0);
+    // The rate the INVOICE used — see the header. Null rate card ⇒ the entry's
+    // own cost, which is the best number available.
+    const timeCost = onThisInvoiceTime.reduce((s, t) => {
+      const current = month.laborRates?.get(t.employee)?.get(t.payType);
+      return s + (typeof current === "number" && t.hours > 0 ? current * t.hours : t.cost);
+    }, 0);
     const seenCost = cents(billCost + timeCost);
     const outside = cents(cents(inv.cost) - seenCost);
     // Nothing to compare against means nothing to say — not "!onThisInvoice
