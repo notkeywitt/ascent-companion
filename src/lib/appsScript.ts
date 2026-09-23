@@ -82,6 +82,7 @@ export interface AppsScriptResult<T = unknown> {
 const EXTRA_READ_ACTIONS = new Set([
   "billDriveLinks", // read-only Drive lookup for one bill; safe to run twice
   "toolsBootstrap",
+  "emailSendersBootstrap", // both pickers + the sender registry; three sheet reads
   "timeEntryBootstrap",
   "sunsetDuplicates", // an org-wide scan; writes nothing
   "historicalCostPreview", // the dry-run half of the import

@@ -136,25 +136,30 @@ export default function EmailSenders() {
     setSenders(r.senders ?? []);
   }, []);
 
+  // ONE call, not three. Apps Script runs a single execution at a time per user,
+  // so separate reads queue instead of overlapping — three of them waited out each
+  // other's cold starts and timed the page out at 25s.
   const load = useCallback(async () => {
     setLoading(true);
     setLoadError("");
     try {
-      const [v, c] = await Promise.all([
-        callSenders<{ ok: boolean; vendors?: VendorOpt[]; error?: string }>({ action: "listVendors" }),
-        callSenders<{ ok: boolean; costCodes?: CostCodeOpt[]; error?: string }>({ action: "listCostCodes" }),
-      ]);
-      if (!v.ok) throw new Error(v.error || "Could not load vendors.");
-      if (!c.ok) throw new Error(c.error || "Could not load cost codes.");
-      setVendors(v.vendors ?? []);
-      setCostCodes(c.costCodes ?? []);
-      await loadSenders();
+      const r = await callSenders<{
+        ok: boolean;
+        vendors?: VendorOpt[];
+        costCodes?: CostCodeOpt[];
+        senders?: SenderRow[];
+        error?: string;
+      }>({ action: "emailSendersBootstrap" });
+      if (!r.ok) throw new Error(r.error || "Could not load the registry.");
+      setVendors(r.vendors ?? []);
+      setCostCodes(r.costCodes ?? []);
+      setSenders(r.senders ?? []);
     } catch (e) {
       setLoadError(e instanceof Error ? e.message : "Load failed");
     } finally {
       setLoading(false);
     }
-  }, [loadSenders]);
+  }, []);
 
   useEffect(() => {
     void load();
