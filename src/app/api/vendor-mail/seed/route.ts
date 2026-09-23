@@ -34,6 +34,11 @@ export const maxDuration = 120;
 
 const MAX_BACK = 11;
 
+/** Threads read per billing period. The action allows 300; a month that large
+ *  outruns the function budget, and seeding wants distinct senders rather than
+ *  every message. */
+const PERIOD_THREAD_LIMIT = 120;
+
 export async function GET(req: NextRequest) {
   if (!hasGrant()) {
     return NextResponse.json({ error: "JT_GRANT_KEY is not set." }, { status: 400 });
@@ -60,10 +65,17 @@ export async function GET(req: NextRequest) {
     const y = year + Math.floor((month - 1 - back) / 12);
     const period = `${y}-${String(m).padStart(2, "0")}`;
 
-    const r = await callAppsScript<{ ok?: boolean; emails?: SeedEmail[]; error?: string }>(
-      { action: "listPeriodBillEmails", month: m, year: y },
-      // One month of all-mail metadata. Generous, because the failure this
-      // replaces was a timeout reported as an empty mailbox.
+    // A busy month hits the action's 300-thread ceiling and takes longer than
+    // the function has (2026-08 timed out at 100s). Seeding does not need every
+    // thread — it needs distinct SENDERS, and the busiest senders appear early —
+    // so the sweep is bounded and the caller is told when the bound bit.
+    const r = await callAppsScript<{
+      ok?: boolean;
+      emails?: SeedEmail[];
+      truncated?: boolean;
+      error?: string;
+    }>(
+      { action: "listPeriodBillEmails", month: m, year: y, limit: PERIOD_THREAD_LIMIT },
       { timeoutMs: 100_000, retry: false },
     );
     // A failed sweep is an ERROR, never an empty result — "nothing found" and
@@ -83,7 +95,7 @@ export async function GET(req: NextRequest) {
       ok: true,
       period,
       coverage,
-      swept: { emails: emails.length },
+      swept: { emails: emails.length, truncated: r.data?.truncated === true },
       candidates: proposeSeeds(emails, known, unindexed, matchVendor),
     });
   } catch (e) {

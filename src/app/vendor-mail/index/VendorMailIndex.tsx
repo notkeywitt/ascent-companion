@@ -44,7 +44,7 @@ interface Payload {
   ok: boolean;
   period: string;
   coverage: { total: number; indexed: number; missing: number; pct: number };
-  swept?: { emails: number };
+  swept?: { emails: number; truncated?: boolean };
   candidates?: Candidate[];
   error?: string;
 }
@@ -57,7 +57,7 @@ export default function VendorMailIndex() {
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [loading, setLoading] = useState(true);
   const [progress, setProgress] = useState("");
-  const [swept, setSwept] = useState({ emails: 0, periods: [] as string[] });
+  const [swept, setSwept] = useState({ emails: 0, periods: [] as string[], truncated: false });
   const [failures, setFailures] = useState<{ period: string; error: string }[]>([]);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState("");
@@ -75,12 +75,13 @@ export default function VendorMailIndex() {
     setError("");
     setFailures([]);
     setCandidates([]);
-    setSwept({ emails: 0, periods: [] });
+    setSwept({ emails: 0, periods: [], truncated: false });
 
     const seen = new Set<string>();
     const found: Candidate[] = [];
     const failed: { period: string; error: string }[] = [];
     let emails = 0;
+    let truncated = false;
     const periods: string[] = [];
 
     for (let back = 0; back < PERIODS; back++) {
@@ -95,6 +96,7 @@ export default function VendorMailIndex() {
         }
         periods.push(json.period);
         emails += json.swept?.emails ?? 0;
+        if (json.swept?.truncated) truncated = true;
         // One vendor gets one proposal, even across periods.
         for (const c of json.candidates ?? []) {
           if (seen.has(c.vendorId)) continue;
@@ -102,7 +104,7 @@ export default function VendorMailIndex() {
           found.push(c);
         }
         setCandidates([...found]);
-        setSwept({ emails, periods: [...periods] });
+        setSwept({ emails, periods: [...periods], truncated });
       } catch (e) {
         failed.push({ period: `#${back}`, error: e instanceof Error ? e.message : "Network error" });
       }
@@ -187,7 +189,7 @@ export default function VendorMailIndex() {
             {progress ||
               (swept.periods.length === 0
                 ? "No mail read yet."
-                : `Read ${swept.emails} invoice-looking email${swept.emails === 1 ? "" : "s"} across ${swept.periods.length} billing period${swept.periods.length === 1 ? "" : "s"} (${swept.periods.join(", ")}).`)}
+                : `Read ${swept.emails} invoice-looking email${swept.emails === 1 ? "" : "s"} across ${swept.periods.length} billing period${swept.periods.length === 1 ? "" : "s"} (${swept.periods.join(", ")}).${swept.truncated ? " A period hit its read limit, so run Rescan again after saving these." : ""}`)}
           </p>
         </Card>
       )}
