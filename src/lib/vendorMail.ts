@@ -98,6 +98,38 @@ export function effectiveSender(email: { fromAddress: string; replyTo?: string }
   return { address: isSharedSender(reply) ? "" : reply, viaPlatform: true };
 }
 
+/**
+ * Resolve a platform email to a vendor by its DISPLAY NAME, when no address can.
+ *
+ * Square sets Reply-To to a per-message relay
+ * (`…@reply2.squareup.com`, live 2026-09-23) rather than the merchant's mailbox,
+ * so there is no address to extract and none to index — a Square vendor will
+ * always be matched by name, every time, and that is not a gap that closes.
+ *
+ * The name is all that is left: `Isabels Espresso <messenger@messaging.squareup.com>`.
+ * So this is INFERENCE and the caller must label it as such, the same way a
+ * capture without message-id proof is labelled "likely". A wrong name match puts
+ * one vendor's receipt under another's name, which is a mis-read the office can
+ * see and correct — unlike an address written into the index, which would be
+ * silently wrong forever. That is why this resolves for DISPLAY only and never
+ * feeds the seeder.
+ */
+export function resolveByDisplayName(
+  email: { fromName: string; fromDomain: string },
+  vendors: { id: string; name: string }[],
+  match: (
+    e: { fromName: string; fromDomain: string },
+    vendors: { id: string; name: string }[],
+  ) => { id: string; name: string } | null,
+): { vendorId: string; vendorName: string } | null {
+  const name = String(email.fromName ?? "").trim();
+  if (!name) return null;
+  // Match on the NAME only. The domain is the platform's, so letting the matcher
+  // score it would match whichever vendor's name looks like "squareup".
+  const v = match({ fromName: name, fromDomain: "" }, vendors);
+  return v ? { vendorId: v.id, vendorName: v.name } : null;
+}
+
 export interface VendorAddress {
   vendorId: string;
   vendorName: string;

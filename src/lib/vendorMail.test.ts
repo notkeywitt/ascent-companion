@@ -11,6 +11,7 @@ import {
   normalizeAddress,
   paymentState,
   proposeSeeds,
+  resolveByDisplayName,
   splitAddresses,
   type BillNear,
   type SeedEmail,
@@ -392,5 +393,54 @@ describe("shared senders never enter the index", () => {
     expect(out).toHaveLength(1);
     expect(out[0].address).toBe("store@naturallysustained.com");
     expect(out[0].vendorId).toBe("V1");
+  });
+});
+
+describe("resolveByDisplayName", () => {
+  // Stand-in for the digest matcher: name containment only.
+  const match = (
+    e: { fromName: string; fromDomain: string },
+    vendors: { id: string; name: string }[],
+  ) => {
+    const n = e.fromName.toLowerCase();
+    return vendors.find((v) => n.includes(v.name.toLowerCase()) || v.name.toLowerCase().includes(n)) ?? null;
+  };
+  const vendors = [
+    { id: "V1", name: "Isabels Espresso" },
+    { id: "V2", name: "Superlost Coffee Roasters" },
+  ];
+
+  it("matches a Square receipt by its display name", () => {
+    // The live header, 2026-09-23.
+    expect(
+      resolveByDisplayName(
+        { fromName: "Isabels Espresso", fromDomain: "messaging.squareup.com" },
+        vendors,
+        match,
+      ),
+    ).toEqual({ vendorId: "V1", vendorName: "Isabels Espresso" });
+  });
+
+  it("never scores the platform's own domain against a vendor name", () => {
+    const seen: string[] = [];
+    resolveByDisplayName(
+      { fromName: "Isabels Espresso", fromDomain: "messaging.squareup.com" },
+      vendors,
+      (e, v) => {
+        seen.push(e.fromDomain);
+        return match(e, v);
+      },
+    );
+    expect(seen).toEqual([""]);
+  });
+
+  it("returns nothing when the display name matches no vendor", () => {
+    expect(
+      resolveByDisplayName({ fromName: "Some Cafe", fromDomain: "x.com" }, vendors, match),
+    ).toBeNull();
+  });
+
+  it("returns nothing when there is no display name to go on", () => {
+    expect(resolveByDisplayName({ fromName: "", fromDomain: "x.com" }, vendors, match)).toBeNull();
   });
 });

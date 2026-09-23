@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { callAppsScript } from "@/lib/appsScript";
 import { getPaveConfig, hasGrant } from "@/lib/config";
+import { matchVendor } from "@/lib/digest/checks/uncapturedBills";
 import { getRecentVendorBills, getVendorEmails, type RecentVendorBill } from "@/lib/jobtread";
 import {
   SHARED_SENDER_DOMAINS,
@@ -10,6 +11,7 @@ import {
   effectiveSender,
   indexCoverage,
   paymentState,
+  resolveByDisplayName,
 } from "@/lib/vendorMail";
 
 /**
@@ -73,6 +75,7 @@ export async function GET(req: NextRequest) {
         v.addresses.map((address) => ({ vendorId: v.id, vendorName: v.name, address })),
       ),
     );
+    const vendorList = vendors.map((v) => ({ id: v.id, name: v.name }));
     const indexed = vendors.filter((v) => v.addresses.length > 0).length;
     const coverage = indexCoverage(vendors.length, indexed);
     const addresses = [...byAddress.keys()];
@@ -132,7 +135,23 @@ export async function GET(req: NextRequest) {
 
     const rows = (mail.data?.emails ?? []).map((e) => {
       const sender = effectiveSender({ fromAddress: e.fromAddress, replyTo: e.replyTo });
-      const vendor = sender.address ? (byAddress.get(sender.address) ?? null) : null;
+      let vendor = sender.address ? (byAddress.get(sender.address) ?? null) : null;
+      // Some platforms relay with a per-message Reply-To (Square:
+      // …@reply2.squareup.com), so no address identifies the vendor and none
+      // ever will. The display name is all that is left — inference, flagged as
+      // such, and never written to the index.
+      let matchedByName = false;
+      if (!vendor && sender.viaPlatform) {
+        const byName = resolveByDisplayName(
+          { fromName: e.fromName, fromDomain: "" },
+          vendorList,
+          matchVendor,
+        );
+        if (byName) {
+          vendor = byName;
+          matchedByName = true;
+        }
+      }
       const candidates = vendor ? (byVendor.get(vendor.vendorId) ?? []) : [];
       const { state, bill } = captureState(
         {
@@ -162,6 +181,7 @@ export async function GET(req: NextRequest) {
         // a QuickBooks invoice reads as the vendor's, with the route shown.
         senderAddress: sender.address,
         viaPlatform: sender.viaPlatform,
+        matchedByName,
         date: e.date,
         attachmentCount: e.attachmentCount,
         subjectAmount: e.subjectAmount,

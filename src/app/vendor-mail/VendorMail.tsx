@@ -40,6 +40,7 @@ interface Row {
   fromAddress: string;
   senderAddress: string;
   viaPlatform: boolean;
+  matchedByName: boolean;
   date: string;
   attachmentCount: number;
   subjectAmount: number | null;
@@ -256,7 +257,9 @@ export default function VendorMail() {
                     items={[
                       dayLabel(r.date),
                       STATE_LABEL[r.state],
-                      r.viaPlatform ? `via ${platformName(r.fromAddress)}` : "",
+                      r.viaPlatform
+                        ? `via ${platformName(r.fromAddress)}${r.matchedByName ? ", matched by name" : ""}`
+                        : "",
                       r.kind === "receipt" ? "Receipt" : "Invoice",
                       r.bill && r.bill.payment !== "draft"
                         ? r.bill.payment === "paid"
