@@ -36,6 +36,9 @@ export interface InvoiceFile {
   type?: string;
   url?: string;
   imageUrl?: string | null;
+  /** `imageUrl` renders page 1 only and ignores `?page=` (a Drive thumbnail), so
+   *  do not probe for more pages — every probe would answer page 1 again. */
+  singlePage?: boolean;
 }
 
 export const isImageFile = (f: InvoiceFile) =>
@@ -77,7 +80,7 @@ const MAX_PAGES = 20;
  */
 function usePageCount(file: InvoiceFile) {
   const src = flatImageSrc(file);
-  const isPdf = !isImageFile(file);
+  const isPdf = !isImageFile(file) && !file.singlePage;
   const [count, setCount] = useState(1);
 
   useEffect(() => {

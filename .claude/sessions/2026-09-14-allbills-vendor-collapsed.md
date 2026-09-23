@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/allbills-vendor-collapsed
 status: in-progress
 started: 2026-09-14T17:52:26Z
-updated: 2026-09-22T23:01:13Z
+updated: 2026-09-23T14:54:35Z
 goal: 
 next: Phase 3: owner runs ./deploy.sh in ascent-appscript, then registers one vendor on /email-senders and runs previewRegisteredSenderBills() (dry run, writes nothing) to check the job, total, pinned vendor and CSI.
 ---
@@ -53,6 +53,8 @@ next: Phase 3: owner runs ./deploy.sh in ascent-appscript, then registers one ve
   src/app/api/email-senders/route.ts, src/app/email-senders/EmailSenders.tsx
 - 2026-09-22 19:01 · `2d1bd5c` companion: stop a draft-list test failing by the calendar
   src/lib/codingDraft.test.ts
+- 2026-09-23 10:54 · `5e5e563` companion: load the sender registry page in one call, not three
+  src/app/api/email-senders/route.ts, src/app/email-senders/EmailSenders.tsx, src/lib/appsScript.ts
 
 ## Notes
 - 2026-09-16 16:01 — Document Access bulk-share: new /api/document-access (GET list + POST grant) + Give Document Access button in the Tracking Sheets closing row. createAce{targetType:document, assignee:{membership}} is the JobTread Document Access list — confirmed by READ (every bill's aces carry the admin membership). The createAce WRITE is unprobed: the live probe was blocked by the permission classifier, so it needs one real click before trusting.

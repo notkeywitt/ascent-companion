@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { InvoiceAttachment } from "@/components/InvoiceViewer";
 import { JobPicker } from "@/components/JobPicker";
 import { Banner, Button, CardSkeletonList, EmptyState, PageHeader } from "@/components/ui";
 
@@ -15,6 +16,14 @@ interface NeedsItem {
 
 const money = (n: number) =>
   "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+/** Drive renders page 1 of a PDF as an image here (see ExpenditureBrowser). It
+ *  works for any viewer signed into an account with access to the file. */
+const driveThumb = (driveUrl: string) => {
+  const id = driveUrl.match(/\/d\/([\w-]+)|[?&]id=([\w-]+)/);
+  const fileId = id?.[1] ?? id?.[2];
+  return fileId ? `https://drive.google.com/thumbnail?id=${fileId}&sz=w1000` : null;
+};
 
 // The queue only lists rows with no JT Doc ID, but the page fetches once on mount
 // — a sync can link a bill to JobTread while you're looking at the stale list.
@@ -139,7 +148,7 @@ export default function NeedsProjectPage() {
     <main className="mx-auto max-w-2xl px-4 pb-24 pt-6">
       <PageHeader
         title="Needs Project"
-        description="Ingested bills held because the job couldn’t be determined automatically. Open the PDF, pick the job, and Assign — it pushes to JobTread and re-files in Drive."
+        description="Ingested bills held because the job couldn’t be determined automatically. Check the PDF, pick the job, and Assign — it pushes to JobTread and re-files in Drive."
         actions={
           <Button variant="secondary" size="sm" onClick={load} disabled={loading}>
             {loading ? "Refreshing…" : "Refresh"}
@@ -183,14 +192,17 @@ export default function NeedsProjectPage() {
             </div>
 
             {it.driveUrl && (
-              <a
-                href={it.driveUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="mt-2 inline-block text-sm font-semibold text-accent hover:underline dark:text-accent-soft"
-              >
-                View PDF ↗
-              </a>
+              <div className="mt-3">
+                <InvoiceAttachment
+                  file={{
+                    id: it.expId,
+                    name: "PDF in Drive",
+                    url: it.driveUrl,
+                    imageUrl: driveThumb(it.driveUrl),
+                    singlePage: true,
+                  }}
+                />
+              </div>
             )}
 
             <div className="mt-3 flex items-center gap-2">
