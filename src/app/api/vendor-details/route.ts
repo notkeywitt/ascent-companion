@@ -99,10 +99,13 @@ export async function POST(req: NextRequest) {
       await pave(cfg, {
         updateAccount: {
           $: { id: accountId, notify: false, customFieldValues: cfv },
-          // `account`, NOT `root`. Introspected live 2026-09-23: updateAccount
-          // answers "The field \"root\" does not exist" and the whole write
-          // fails, which is why this route never once saved an email or phone.
-          account: { id: {} },
+          // `account`, NOT `root` — and it is a SUB-QUERY, so it carries its
+          // own `$` with the id. Both halves were wrong here: `root` answered
+          // "The field \"root\" does not exist", and `account` without `$`
+          // answers "A non-null value is required at updateAccount.account.$".
+          // Probed live 2026-09-23 against a nonexistent id, which reaches a
+          // permission check only once the shape is right.
+          account: { $: { id: accountId }, id: {} },
         },
       });
     }
@@ -114,8 +117,11 @@ export async function POST(req: NextRequest) {
       const locId = await firstLocationId(cfg, accountId);
       if (locId) {
         await pave(cfg, {
-          // `location`, not `root` — same introspection, same bug as above.
-          updateLocation: { $: { id: locId, address: patch.address || null }, location: { id: {} } },
+          // `location`, not `root`, and likewise a sub-query with its own `$`.
+          updateLocation: {
+            $: { id: locId, address: patch.address || null },
+            location: { $: { id: locId }, id: {} },
+          },
         });
       } else if (patch.address) {
         await pave(cfg, {

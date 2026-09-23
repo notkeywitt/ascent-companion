@@ -55,11 +55,15 @@
  * redraws is JobTread's, never the browser's guess.
  *
  * NOT `root`. `updateJob`/`updateAccount`/`updateContact`/`updateLocation` each
- * answer under their OWN name (`job`, `account`, `contact`, `location`) — see
- * `getter` in the table below, which is what these writes have always used.
- * Introspected live 2026-09-23 after the stale "bare root" claim this comment
- * used to make was copied into /api/vendor-details, where it silently broke
- * every email, phone and address edit that route made.
+ * answer under their OWN name (`job`, `account`, `contact`, `location`) — the
+ * `getter` in the table below — and that answer is a sub-query carrying its own
+ * `$` with the record id.
+ *
+ * This comment used to claim they returned a bare `root`. They never did: the
+ * claim was wrong, the write below followed it, and so every write through this
+ * path failed — which also got copied into /api/vendor-details. Probed live
+ * 2026-09-23 against nonexistent ids, where only the correct shape gets as far
+ * as a permission check.
  */
 
 import { pageAll, pave, type PaveConfig } from "./jobtread";
@@ -1074,7 +1078,14 @@ export async function applyPatch(
   if (Object.keys(patch.customFieldValues).length > 0) {
     args.customFieldValues = patch.customFieldValues;
   }
-  await pave(cfg, { [m.mutation]: { $: args, root: { id: {} } } });
+  // The mutation answers under its OWN name (`job`/`account`/`contact`/
+  // `location`) — never `root` — and that answer is a SUB-QUERY carrying its own
+  // `$`. Probed live 2026-09-23 against nonexistent ids: `root` returns
+  // 'The field "root" does not exist', and the named field without `$` returns
+  // 'A non-null value is required at …$'. Only the shape below reaches a real
+  // permission check, so until this was fixed EVERY write through this path
+  // failed — the Clients & Jobs editor included.
+  await pave(cfg, { [m.mutation]: { $: args, [m.getter]: { $: { id }, id: {} } } });
   return readRecordFlat(cfg, kind, id, fieldDefs);
 }
 
