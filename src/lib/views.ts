@@ -120,6 +120,14 @@ export const VIEWS: ViewDef[] = [
     group: "Financials",
     paths: ["/tracking-sheet", "/api/tracking-sheet"],
   },
+  // A tracking sheet's estimate as a JobTread budget import CSV. Read-only: it
+  // hands back a file the office imports in JobTread themselves.
+  {
+    id: "budget-import",
+    label: "Budget Import",
+    group: "Financials",
+    paths: ["/budget-import", "/api/budget-import"],
+  },
   // The month's Invoicing Package doc — the client-billing summary the office
   // reads and edits, written to Drive by Apps Script. The API prefix rides the
   // same gate as the page: the route writes a Google Doc and edits the
