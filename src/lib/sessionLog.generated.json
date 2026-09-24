@@ -1,7 +1,405 @@
 {
-  "generatedAt": "2026-09-14T14:06:57Z",
+  "generatedAt": "2026-09-24T15:50:37Z",
   "repo": "ascent-companion",
   "sessions": [
+    {
+      "slug": "budget",
+      "file": "2026-09-24-budget.md",
+      "branch": "claude/budget-import",
+      "status": "in-progress",
+      "started": "2026-09-24T15:47:03Z",
+      "updated": "2026-09-24T15:50:32Z",
+      "goal": "Tracking sheet estimate to JobTread budget import CSV: /budget-import page over appscript getBudgetImportCsv",
+      "next": "Office: open /budget-import, build Berger's CSV, test-import it on a scratch JobTread job (not job 002, which already has a hand-entered budget). Confirm groups, cost types and cost codes land, and JobTread prices each item. Then Phase 3: diff the import against job 002's budget.",
+      "commits": [
+        {
+          "date": "2026-09-24",
+          "time": "08:50",
+          "sha": "1ed7524",
+          "subject": "companion: add budget import page for tracking sheet estimates",
+          "files": "CODEBASE_MAP.md, src/app/api/budget-import/route.ts, src/app/budget-import/page.tsx, src/lib/nav.ts, src/lib/views.ts"
+        }
+      ]
+    },
+    {
+      "slug": "allbills-vendor-collapsed",
+      "file": "2026-09-14-allbills-vendor-collapsed.md",
+      "branch": "claude/allbills-vendor-collapsed",
+      "status": "in-progress",
+      "started": "2026-09-14T17:52:26Z",
+      "updated": "2026-09-23T17:49:35Z",
+      "goal": "",
+      "next": "Watch the first monthly review after 77bbb2a: confirm email-bill-amount-mismatch fires on a real capture misread and that no invoice that used to read as 'never captured' now goes unreported. Open question left open: MAIL_MATCH.amountTolerance is 12%, so a misread inside that band still matches silently.",
+      "commits": [
+        {
+          "date": "2026-09-14",
+          "time": "10:52",
+          "sha": "1aa2257",
+          "subject": "companion: start every vendor pane collapsed",
+          "files": "src/app/trackingsheet/AllBills.tsx"
+        },
+        {
+          "date": "2026-09-14",
+          "time": "11:34",
+          "sha": "a960ff3",
+          "subject": "companion: filter the month by paid state and bill vs expense",
+          "files": "src/app/trackingsheet/AllBills.tsx, src/lib/jobtread.ts"
+        },
+        {
+          "date": "2026-09-14",
+          "time": "11:51",
+          "sha": "b7dc159",
+          "subject": "companion: show a vendor's email, phone and address",
+          "files": "src/app/api/vendor-bills/[id]/route.ts, src/app/vendors/page.tsx, src/lib/jobtread.ts"
+        },
+        {
+          "date": "2026-09-14",
+          "time": "11:59",
+          "sha": "2e1734e",
+          "subject": "companion: fill in a vendor's missing email, phone or address",
+          "files": "src/app/api/vendor-details/route.ts, src/app/vendors/page.tsx, src/lib/clientDirectory.ts, src/lib/views.ts"
+        },
+        {
+          "date": "2026-09-15",
+          "time": "15:53",
+          "sha": "762eae6",
+          "subject": "companion: anchor search results panel below search bar",
+          "files": "src/components/GlobalSearch.tsx"
+        },
+        {
+          "date": "2026-09-15",
+          "time": "17:00",
+          "sha": "458d6ac",
+          "subject": "companion: lock field time-entry identity after first pick",
+          "files": "src/app/employee-time/EmployeeTimeClient.tsx"
+        },
+        {
+          "date": "2026-09-15",
+          "time": "17:03",
+          "sha": "47de5f1",
+          "subject": "bunch of updates idk claude did it",
+          "files": ""
+        },
+        {
+          "date": "2026-09-15",
+          "time": "17:35",
+          "sha": "5de852a",
+          "subject": "companion: resolve time identity from the JobTread membership when the roster link is blank",
+          "files": "src/app/employee-time/page.tsx, src/lib/actingAs.ts"
+        },
+        {
+          "date": "2026-09-16",
+          "time": "12:21",
+          "sha": "7ecb180",
+          "subject": "companion: share a month's bills, or one bill, with the client",
+          "files": "src/app/api/document-access/route.ts, src/app/trackingsheet/BillCodingCard.tsx, src/app/trackingsheet/Board.tsx, src/components/DocumentAccess.tsx, src/lib/jobtread.ts, src/lib/views.ts"
+        },
+        {
+          "date": "2026-09-16",
+          "time": "18:25",
+          "sha": "138fd45",
+          "subject": "companion: land field users on employee time, drop the duplicate tab bar on their home",
+          "files": "src/app/page.tsx, src/components/TabBar.tsx"
+        },
+        {
+          "date": "2026-09-16",
+          "time": "18:43",
+          "sha": "2ee9323",
+          "subject": "companion: replace the employee time beta tag with a jobtread link indicator",
+          "files": "src/app/employee-time/EmployeeTimeClient.tsx"
+        },
+        {
+          "date": "2026-09-17",
+          "time": "10:48",
+          "sha": "0663588",
+          "subject": "companion: add a break and a mid-shift cost-code switch to employee time",
+          "files": "src/app/api/employee-time/clock/route.ts, src/app/employee-time/EmployeeTimeClient.tsx, src/lib/employeeClock.test.ts, src/lib/employeeClock.ts, src/lib/jobtread.ts"
+        },
+        {
+          "date": "2026-09-17",
+          "time": "17:52",
+          "sha": "c125bfd",
+          "subject": "companion: put the break on a docked pause button",
+          "files": "src/app/employee-time/EmployeeTimeClient.tsx"
+        },
+        {
+          "date": "2026-09-17",
+          "time": "17:54",
+          "sha": "98a9e8b",
+          "subject": "companion: restore the 30-day session so people stop signing in daily",
+          "files": "src/auth.ts"
+        },
+        {
+          "date": "2026-09-17",
+          "time": "17:54",
+          "sha": "4cb308a",
+          "subject": "companion: record the session-length fix in the ledger",
+          "files": ""
+        },
+        {
+          "date": "2026-09-17",
+          "time": "17:58",
+          "sha": "135bb4c",
+          "subject": "companion: link straight to the time entry in jobtread",
+          "files": "src/app/api/employee-time/history/route.ts, src/app/employee-time/EmployeeTimeClient.tsx"
+        },
+        {
+          "date": "2026-09-17",
+          "time": "18:04",
+          "sha": "ef6acdc",
+          "subject": "companion: make a break a split, the way jobtread models one",
+          "files": "src/app/api/employee-time/clock/route.ts, src/app/employee-time/EmployeeTimeClient.tsx, src/lib/employeeClock.test.ts, src/lib/employeeClock.ts, src/lib/jobtread.ts"
+        },
+        {
+          "date": "2026-09-17",
+          "time": "18:33",
+          "sha": "07374a6",
+          "subject": "companion: bill amazon shipping and promotions, and import from order-summary PDFs",
+          "files": "src/app/amazon-import/page.tsx, src/app/api/amazon-import/parse-pdf/route.ts, src/lib/amazonImport.test.ts, src/lib/amazonImport.ts, src/lib/claudeExtract.ts"
+        },
+        {
+          "date": "2026-09-22",
+          "time": "07:57",
+          "sha": "10943ae",
+          "subject": "companion: register vendor email senders for automatic bill import",
+          "files": ""
+        },
+        {
+          "date": "2026-09-22",
+          "time": "07:57",
+          "sha": "aada910",
+          "subject": "companion: register vendor email senders for automatic bill import",
+          "files": "src/app/api/email-senders/route.ts, src/app/email-senders/EmailSenders.tsx, src/app/email-senders/page.tsx, src/lib/copy.ts, src/lib/nav.ts, src/lib/views.ts"
+        },
+        {
+          "date": "2026-09-22",
+          "time": "15:25",
+          "sha": "0102c45",
+          "subject": "companion: find a vendor's example bill by address, not a pasted link",
+          "files": "src/app/api/email-senders/route.ts, src/app/email-senders/EmailSenders.tsx"
+        },
+        {
+          "date": "2026-09-22",
+          "time": "19:01",
+          "sha": "2d1bd5c",
+          "subject": "companion: stop a draft-list test failing by the calendar",
+          "files": "src/lib/codingDraft.test.ts"
+        },
+        {
+          "date": "2026-09-23",
+          "time": "10:54",
+          "sha": "5e5e563",
+          "subject": "companion: load the sender registry page in one call, not three",
+          "files": "src/app/api/email-senders/route.ts, src/app/email-senders/EmailSenders.tsx, src/lib/appsScript.ts"
+        },
+        {
+          "date": "2026-09-23",
+          "time": "10:58",
+          "sha": "679a110",
+          "subject": "companion: show the needs-project pdf inline instead of a new tab",
+          "files": "src/app/needs-project/page.tsx, src/components/InvoiceViewer.tsx"
+        },
+        {
+          "date": "2026-09-23",
+          "time": "11:06",
+          "sha": "ede579f",
+          "subject": "companion: price invoice-review time at the current rate card",
+          "files": "src/app/api/email-senders/route.ts, src/app/email-senders/EmailSenders.tsx, src/app/email-senders/page.tsx, src/lib/invoiceReview/checks.test.ts, src/lib/invoiceReview/checks/costBasis.ts"
+        },
+        {
+          "date": "2026-09-23",
+          "time": "11:07",
+          "sha": "5e949eb",
+          "subject": "companion: log session 2026-09-14-allbills-vendor-collapsed",
+          "files": ""
+        },
+        {
+          "date": "2026-09-23",
+          "time": "11:08",
+          "sha": "84a38ac",
+          "subject": "companion: set the auto-ingest sender registry aside",
+          "files": "src/lib/appsScript.ts, src/lib/copy.ts, src/lib/nav.ts, src/lib/views.ts"
+        },
+        {
+          "date": "2026-09-23",
+          "time": "11:18",
+          "sha": "2bf1731",
+          "subject": "companion: the vendor address index behind the mail check",
+          "files": "src/lib/jobtread.ts, src/lib/vendorMail.test.ts, src/lib/vendorMail.ts"
+        },
+        {
+          "date": "2026-09-23",
+          "time": "11:29",
+          "sha": "8a8c082",
+          "subject": "companion: vendor mail — every vendor email, and whether it was captured",
+          "files": "src/app/api/vendor-mail/route.ts, src/app/api/vendor-mail/seed/route.ts, src/app/vendor-mail/VendorMail.tsx, src/app/vendor-mail/index/VendorMailIndex.tsx, src/app/vendor-mail/index/page.tsx, src/app/vendor-mail/page.tsx, +6 more"
+        },
+        {
+          "date": "2026-09-23",
+          "time": "11:44",
+          "sha": "32d6e9f",
+          "subject": "companion: never report a failed sweep as an empty mailbox",
+          "files": "src/app/api/vendor-mail/route.ts, src/app/api/vendor-mail/seed/route.ts, src/app/vendor-mail/VendorMail.tsx, src/app/vendor-mail/index/VendorMailIndex.tsx"
+        },
+        {
+          "date": "2026-09-23",
+          "time": "11:59",
+          "sha": "d244ff9",
+          "subject": "companion: bound the seed sweep so a busy month can't time out",
+          "files": "src/app/api/vendor-mail/seed/route.ts, src/app/vendor-mail/index/VendorMailIndex.tsx"
+        },
+        {
+          "date": "2026-09-23",
+          "time": "12:01",
+          "sha": "5aafaa1",
+          "subject": "companion: a vendor's email and phone can actually save now",
+          "files": "src/app/api/vendor-details/route.ts, src/lib/clientDirectory.ts"
+        },
+        {
+          "date": "2026-09-23",
+          "time": "12:11",
+          "sha": "3fc5f0d",
+          "subject": "companion: create a missing vendor from the alert, with the email its bill came from",
+          "files": "src/app/api/vendor-create/route.ts, src/components/StuckVendors.tsx, src/lib/views.ts"
+        },
+        {
+          "date": "2026-09-23",
+          "time": "12:24",
+          "sha": "4ea36d6",
+          "subject": "companion: file a bill as an expense, with a per-vendor default type",
+          "files": "src/app/add-bill/page.tsx, src/app/api/add-bill/route.ts, src/app/api/amazon-import/route.ts, src/app/api/vendor-details/route.ts, src/app/vendors/page.tsx, src/lib/jobtread.ts"
+        },
+        {
+          "date": "2026-09-23",
+          "time": "12:29",
+          "sha": "82787ba",
+          "subject": "companion: never index a sender that fronts many vendors",
+          "files": "src/lib/vendorMail.test.ts, src/lib/vendorMail.ts"
+        },
+        {
+          "date": "2026-09-23",
+          "time": "12:40",
+          "sha": "4cda761",
+          "subject": "companion: match a QuickBooks invoice to the vendor it is for",
+          "files": "src/app/api/vendor-mail/route.ts, src/app/vendor-mail/VendorMail.tsx, src/lib/vendorMail.test.ts, src/lib/vendorMail.ts"
+        },
+        {
+          "date": "2026-09-23",
+          "time": "12:44",
+          "sha": "5acd945",
+          "subject": "companion: bill/expense switch sets qbo push-as and the vendor default",
+          "files": "src/app/api/add-bill/route.ts, src/app/api/bill-fields/route.ts, src/app/bill/[docId]/page.tsx, src/lib/clientDirectory.ts, src/lib/jobtread.ts"
+        },
+        {
+          "date": "2026-09-23",
+          "time": "13:30",
+          "sha": "2da68a9",
+          "subject": "companion: every update mutation was sending a shape JobTread rejects",
+          "files": "src/app/api/vendor-details/route.ts, src/lib/clientDirectory.ts"
+        },
+        {
+          "date": "2026-09-23",
+          "time": "13:36",
+          "sha": "77bbb2a",
+          "subject": "companion: tell a wrong amount apart from a missing invoice",
+          "files": "src/lib/invoiceReview/checks.test.ts, src/lib/invoiceReview/checks/mailCapture.ts, src/lib/invoiceReview/evidence.ts, src/lib/invoiceReview/settings.ts, src/lib/invoiceReview/types.ts"
+        },
+        {
+          "date": "2026-09-23",
+          "time": "13:41",
+          "sha": "4698742",
+          "subject": "companion: match a Square receipt by display name, since it has no usable address",
+          "files": "src/app/api/vendor-mail/route.ts, src/app/vendor-mail/VendorMail.tsx, src/lib/vendorMail.test.ts, src/lib/vendorMail.ts"
+        }
+      ]
+    },
+    {
+      "slug": "time-entry-jt-sync",
+      "file": "2026-09-15-time-entry-jt-sync.md",
+      "branch": "claude/time-entry-jt-sync-6q3257",
+      "status": "in-progress",
+      "started": "2026-09-15T21:16:24Z",
+      "updated": "2026-09-15T21:44:11Z",
+      "goal": "",
+      "next": "Verify view-as-employee live: open /employee-time as admin, tap 'View another employee's time', pick Dan, confirm his clock + timesheet load and an edit saves with Logged By = the admin.",
+      "commits": [
+        {
+          "date": "2026-09-15",
+          "time": "21:16",
+          "sha": "2a3914a",
+          "subject": "companion: catch time entries jobtread has with the wrong hours",
+          "files": "CODEBASE_MAP.md, src/app/api/time-sync/retry/route.ts, src/app/api/time-sync/route.ts, src/app/more/page.tsx, src/app/page.tsx, src/app/time-sync/page.tsx, +12 more"
+        },
+        {
+          "date": "2026-09-15",
+          "time": "21:16",
+          "sha": "c551741",
+          "subject": "companion: set session next step",
+          "files": ""
+        },
+        {
+          "date": "2026-09-15",
+          "time": "21:17",
+          "sha": "f7a8ed3",
+          "subject": "companion: log the ledger commit row",
+          "files": ""
+        },
+        {
+          "date": "2026-09-15",
+          "time": "21:24",
+          "sha": "a8cb261",
+          "subject": "companion: only offer cost lines jobtread will take an hour on",
+          "files": "src/app/api/employee-time/route.ts, src/app/employee-time/EmployeeTimeClient.tsx, src/app/time-sync/page.tsx, src/lib/jobtread.test.ts, src/lib/jobtread.ts, src/lib/timeSync.ts"
+        },
+        {
+          "date": "2026-09-15",
+          "time": "21:44",
+          "sha": "392a4e4",
+          "subject": "companion: let an admin open employee time as another employee",
+          "files": "CODEBASE_MAP.md, src/app/api/employee-time/clock/route.ts, src/app/api/employee-time/history/route.ts, src/app/api/employee-time/route.ts, src/app/employee-time/EmployeeTimeClient.tsx, src/app/employee-time/page.tsx, +5 more"
+        }
+      ]
+    },
+    {
+      "slug": "ascent-companion-simplicity-audit",
+      "file": "2026-09-14-ascent-companion-simplicity-audit.md",
+      "branch": "claude/ascent-companion-simplicity-audit-0exndi",
+      "status": "done",
+      "started": "2026-09-14T05:53:39Z",
+      "updated": "2026-09-14T14:28:57Z",
+      "goal": "",
+      "next": "Finding 09 of SIMPLICITY_AUDIT.md: add npm test to .githooks/pre-push, before the build.",
+      "commits": [
+        {
+          "date": "2026-09-14",
+          "time": "05:53",
+          "sha": "64a67e5",
+          "subject": "companion: add SIMPLICITY_AUDIT.md",
+          "files": "CODEBASE_MAP.md, SIMPLICITY_AUDIT.md"
+        },
+        {
+          "date": "2026-09-14",
+          "time": "05:53",
+          "sha": "97ea777",
+          "subject": "companion: log session 2026-09-14-ascent-companion-simplicity-audit",
+          "files": ""
+        },
+        {
+          "date": "2026-09-14",
+          "time": "05:53",
+          "sha": "5669fd8",
+          "subject": "companion: log session commit rows",
+          "files": ""
+        },
+        {
+          "date": "2026-09-14",
+          "time": "14:28",
+          "sha": "04e99db",
+          "subject": "companion: one paged walk that throws instead of truncating",
+          "files": "CLAUDE.md, SIMPLICITY_AUDIT.md, src/lib/billSearch.ts, src/lib/clientDirectory.ts, src/lib/invoiceReview/evidence.ts, src/lib/jobtread.test.ts, +2 more"
+        }
+      ]
+    },
     {
       "slug": "ascent-companion-ci-failure",
       "file": "2026-09-12-ascent-companion-ci-failure.md",
