@@ -7,8 +7,10 @@ import { callAppsScriptResponse } from "@/lib/appsScript";
 // Budget tab themselves.
 //
 //   GET                → { ok, jobs:[{id,label,jtJobId,url}], … }  the projects wired to a sheet
-//   POST { projectId } → { ok, fileName, csv, items, total, sheetTotal, problems }
+//   POST { projectId, markup } → { ok, fileName, csv, items, total, sheetTotal, problems }
 //
+// `markup` is a percent (18 = 18%) set on every item. It passes through as sent:
+// Apps Script validates it, so a blank never quietly becomes 0%.
 // Apps Script reports its own failures as { ok:false, error } in the body.
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -18,10 +20,13 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const body = (await req.json().catch(() => ({}))) as { projectId?: unknown };
+  const body = (await req.json().catch(() => ({}))) as { projectId?: unknown; markup?: unknown };
   const projectId = String(body.projectId || "").trim();
   if (!projectId) return NextResponse.json({ error: "A project is required." }, { status: 400 });
   // One tracking sheet plus two pages of cost codes — seconds, but give Apps
   // Script room under this route's maxDuration.
-  return callAppsScriptResponse({ action: "getBudgetImportCsv", projectId }, { timeoutMs: 55_000 });
+  return callAppsScriptResponse(
+    { action: "getBudgetImportCsv", projectId, markup: body.markup ?? "" },
+    { timeoutMs: 55_000 },
+  );
 }

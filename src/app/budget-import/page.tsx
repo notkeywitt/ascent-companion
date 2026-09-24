@@ -6,6 +6,7 @@ import {
   Button,
   Card,
   EmptyState,
+  Input,
   Label,
   ListCard,
   ListRow,
@@ -22,8 +23,9 @@ import {
  * Budget → Import reads, so a new budget is never typed in by hand.
  *
  * Apps Script (BudgetImport.js) reads the sheet's Contract Estimate columns and
- * maps each priced bucket to one cost item. The CSV carries COSTS only: the
- * sheet is in costs and margins differ by job, so JobTread does the pricing.
+ * maps each priced bucket to one cost item. The CSV carries COSTS plus the one
+ * markup typed here, set on every item. It never carries a price: markups
+ * differ by job, so JobTread computes each price from the cost and the markup.
  * Nothing here writes to JobTread — the office imports the file itself.
  */
 
@@ -50,6 +52,8 @@ interface Result {
   total: number;
   sheetTotal: number | null;
   problems: string[];
+  /** The markup percent this CSV was built with. */
+  markup: number;
 }
 
 const money = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD" });
@@ -75,6 +79,7 @@ function download(filename: string, csv: string) {
 export default function BudgetImportPage() {
   const [jobs, setJobs] = useState<Job[] | null>(null);
   const [projectId, setProjectId] = useState("");
+  const [markup, setMarkup] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState<Result | null>(null);
@@ -97,9 +102,9 @@ export default function BudgetImportPage() {
       const r = await fetch("/api/budget-import", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ projectId }),
+        body: JSON.stringify({ projectId, markup: Number(markup) }),
       });
-      setResult(await readJson(r));
+      setResult({ ...(await readJson(r)), markup: Number(markup) });
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -114,6 +119,7 @@ export default function BudgetImportPage() {
     return [...m];
   }, [result]);
 
+  const markupOk = markup.trim() !== "" && Number(markup) >= 0 && Number(markup) < 1000;
   const matches = result?.sheetTotal != null && Math.abs(result.total - result.sheetTotal) < 0.005;
 
   return (
@@ -134,16 +140,31 @@ export default function BudgetImportPage() {
         </EmptyState>
       ) : (
         <Card className="space-y-3">
-          <div>
-            <Label htmlFor="bi-job">Job</Label>
-            <Select id="bi-job" value={projectId} onChange={(e) => { setProjectId(e.target.value); setResult(null); }}>
-              <option value="">Choose a job…</option>
-              {jobs.map((j) => (
-                <option key={j.id} value={j.id}>{j.label}</option>
-              ))}
-            </Select>
+          <div className="grid gap-3 sm:grid-cols-[1fr_8rem]">
+            <div>
+              <Label htmlFor="bi-job">Job</Label>
+              <Select id="bi-job" value={projectId} onChange={(e) => { setProjectId(e.target.value); setResult(null); }}>
+                <option value="">Choose a job…</option>
+                {jobs.map((j) => (
+                  <option key={j.id} value={j.id}>{j.label}</option>
+                ))}
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="bi-markup">Markup %</Label>
+              <Input
+                id="bi-markup"
+                type="number"
+                inputMode="decimal"
+                min={0}
+                step="any"
+                placeholder="18"
+                value={markup}
+                onChange={(e) => { setMarkup(e.target.value); setResult(null); }}
+              />
+            </div>
           </div>
-          <Button onClick={build} disabled={!projectId || busy}>
+          <Button onClick={build} disabled={!projectId || !markupOk || busy}>
             {busy ? "Reading the sheet…" : "Build CSV"}
           </Button>
         </Card>
@@ -158,6 +179,7 @@ export default function BudgetImportPage() {
               <MetaLine
                 items={[
                   `${result.items.length} items`,
+                  `${result.markup}% markup`,
                   result.sheetTotal == null
                     ? "no sheet Subtotal to check against"
                     : matches
@@ -166,7 +188,7 @@ export default function BudgetImportPage() {
                 ]}
               />
             }
-            footnote="Costs only. JobTread prices each item when you import it on the job's Budget tab."
+            footnote={`Costs from the sheet, with ${result.markup}% markup on every item. JobTread computes each price when you import it on the job's Budget tab.`}
           />
 
           {result.problems.length > 0 && (
