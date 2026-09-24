@@ -108,7 +108,7 @@ export async function POST(req: NextRequest) {
   }
 
   const journal = await openJournal(ROUTE);
-  const result = await applyBudgetImport(cfg, jobId, rows, budget.groups, cat, markup, journal);
+  const result = await applyBudgetImport(cfg, jobId, rows, budget, cat, markup, journal);
   clearJobCostCaches(); // budget lines are the coding targets and the headroom
   return NextResponse.json({ wrote: true, ...result }, { status: result.failed ? 502 : 200 });
 }

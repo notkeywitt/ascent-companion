@@ -64,6 +64,7 @@ export interface BudgetLeaf {
   timeEntries: number;
   /** Sits under the job's "Selections" group — a client pick, not a budget line. */
   selection?: boolean;
+  groupId?: string | null;
 }
 
 export interface BudgetGroup {
@@ -241,6 +242,67 @@ export function planHash(sheet: SheetItem[], leaves: BudgetLeaf[], markupPct: nu
 }
 
 // ---------------------------------------------------------------------------
+// Where a created item goes
+// ---------------------------------------------------------------------------
+
+/** A group name reduced to what it names: no leading code, "&" read as "and", letters and digits only. */
+export const canonGroup = (s: string) =>
+  s.toLowerCase().replace(/&/g, " and ").replace(/^[\d\s]+(?=\D)/, "").replace(/[^a-z0-9]/g, "");
+
+export type Placement = { groupId: string } | { parentId: string | null; create: string[] };
+
+/**
+ * The group a CREATED item belongs in. Gormley Studio (2026-09-24) is why this
+ * exists: its groups are "Concrete", "Openings", "Finishes" — no number — and an
+ * earlier rule that only knew "03 Concrete" built 18 duplicate groups beside
+ * them and split four sheet rows across the two. So the budget's own layout
+ * wins over the sheet's group names:
+ *   1. beside an existing item on the same code — keeps a sheet row together
+ *   2. in the top-level group that already holds most of that division's items
+ *   3. in the top-level group with the same name once numbers and "&"/"and" are set aside
+ *   4. otherwise the sheet's group, created
+ * A row with two or more buckets gets its own sub-group under the division
+ * only when rule 1 did not already place it.
+ */
+export function placeItem(s: SheetItem, leaves: BudgetLeaf[], groups: BudgetGroup[]): Placement {
+  const byId = new Map(groups.map((g) => [g.id, g]));
+  const root = (id: string) => {
+    let g = byId.get(id);
+    for (let hops = 0; g?.parentId && byId.has(g.parentId) && hops < 20; hops++) g = byId.get(g.parentId);
+    return g;
+  };
+  const live = leaves.filter(
+    (l) =>
+      l.groupId &&
+      !l.selection &&
+      !/^uncategorized\b/i.test(l.name) &&
+      !/^uncategorized$/i.test(root(l.groupId)?.name.trim() ?? ""),
+  );
+  const code = norm(s.codeNumber);
+  const sameCode = live.filter((l) => norm(l.code) === code);
+  const beside = sameCode.find((l) => leafCost(l) !== 0) ?? sameCode[0];
+  if (beside) return { groupId: beside.groupId! };
+
+  const [div, sub] = s.costGroup.split("; ");
+  const tally = new Map<string, number>();
+  for (const l of live) {
+    if (norm(l.code).slice(0, 2) !== code.slice(0, 2)) continue;
+    const r = root(l.groupId!);
+    if (r) tally.set(r.id, (tally.get(r.id) ?? 0) + 1);
+  }
+  const division =
+    [...tally].sort((a, b) => b[1] - a[1])[0]?.[0] ??
+    groups.find((g) => !g.parentId && canonGroup(g.name) === canonGroup(div))?.id ??
+    null;
+  if (!sub) return division ? { groupId: division } : { parentId: null, create: [div] };
+  if (!division) return { parentId: null, create: [div, sub] };
+  const child = groups.find(
+    (g) => g.parentId === division && (canonGroup(g.name) === canonGroup(sub) || norm(g.name).startsWith(code + " ")),
+  );
+  return child ? { groupId: child.id } : { parentId: division, create: [sub] };
+}
+
+// ---------------------------------------------------------------------------
 // JobTread reads
 // ---------------------------------------------------------------------------
 
@@ -303,6 +365,7 @@ export async function readJobBudget(
       unitPrice: n.unitPrice ?? null,
       timeEntries: n.timeEntries?.count ?? 0,
       selection: inSelections(n.costGroup?.id),
+      groupId: n.costGroup?.id ?? null,
     })),
     groups: groups.map((g) => ({ id: g.id, name: g.name ?? "", parentId: g.parentCostGroup?.id ?? null })),
   };
@@ -374,31 +437,32 @@ export async function applyBudgetImport(
   cfg: PaveConfig,
   jobId: string,
   rows: PlanRow[],
-  groups: BudgetGroup[],
+  budget: { leaves: BudgetLeaf[]; groups: BudgetGroup[] },
   cat: Catalog,
   markupPct: number,
   journal: Journal,
 ): Promise<ApplyResult> {
   const res: ApplyResult = { updated: 0, created: 0, groupsCreated: 0 };
-  const known = [...groups];
+  // What the budget holds as this run adds to it, so a row's second bucket
+  // lands beside its first.
+  const known = [...budget.groups];
+  const placed = [...budget.leaves];
 
-  // The division group matches on its two-digit prefix ("07 Thermal & Moisture
-  // Protection" is the same division as the sheet's "07 Thermal and Moisture
-  // Protection"); a row's own sub-group matches on its cost code.
-  async function group(name: string, parentId: string | null, prefix: string): Promise<string> {
-    const siblings = known.filter((g) => g.parentId === parentId);
-    const hit =
-      siblings.find((g) => norm(g.name) === norm(name)) ??
-      siblings.find((g) => norm(g.name).startsWith(prefix) && (parentId || !/^\d{2} \d{2} \d{2}/.test(g.name)));
-    if (hit) return hit.id;
-    const $ = parentId ? { parentCostGroupId: parentId, name } : { jobId, name };
-    const r = await pave(cfg, { createCostGroup: { $, createdCostGroup: { id: {} } } });
-    const id = r?.createCostGroup?.createdCostGroup?.id;
-    if (!id) throw new Error(`createCostGroup returned no id for "${name}".`);
-    known.push({ id, name, parentId });
-    res.groupsCreated++;
-    await journal.record([{ action: "budget.group.create", entity: "costGroup", entityId: id, jobId, after: name, beforeSource: "none" }]);
-    return id;
+  async function home(s: SheetItem): Promise<string> {
+    const p = placeItem(s, placed, known);
+    if ("groupId" in p) return p.groupId;
+    let parentId = p.parentId;
+    for (const name of p.create) {
+      const $ = parentId ? { parentCostGroupId: parentId, name } : { jobId, name };
+      const r = await pave(cfg, { createCostGroup: { $, createdCostGroup: { id: {} } } });
+      const id = r?.createCostGroup?.createdCostGroup?.id;
+      if (!id) throw new Error(`createCostGroup returned no id for "${name}".`);
+      known.push({ id, name, parentId });
+      res.groupsCreated++;
+      await journal.record([{ action: "budget.group.create", entity: "costGroup", entityId: id, jobId, after: name, beforeSource: "none" }]);
+      parentId = id;
+    }
+    return parentId!;
   }
 
   for (const r of rows) {
@@ -430,9 +494,7 @@ export async function applyBudgetImport(
           })),
         );
       } else {
-        const [div, sub] = s.costGroup.split("; ");
-        let groupId = await group(div, null, norm(div).slice(0, 3));
-        if (sub) groupId = await group(sub, groupId, norm(s.codeNumber) + " ");
+        const groupId = await home(s);
         const item = {
           costGroupId: groupId,
           name: s.name,
@@ -449,6 +511,10 @@ export async function applyBudgetImport(
         const id = out?.createCostItem?.createdCostItem?.id;
         if (!id) throw new Error("createCostItem returned no id.");
         res.created++;
+        placed.push({
+          id, name: s.name, code: s.codeNumber, costType: s.costType, unit: s.unit,
+          quantity: item.quantity, unitCost: s.unitCost, unitPrice: item.unitPrice, timeEntries: 0, groupId,
+        });
         await journal.record([
           { action: "budget.item.create", entity: "costItem", entityId: id, jobId, after: item, beforeSource: "none", amount: sheetCost(s) },
         ]);

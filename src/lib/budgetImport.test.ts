@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  canonGroup,
+  placeItem,
   planBudgetImport,
   planHash,
   resolveChoices,
@@ -187,5 +189,51 @@ describe("pricing and the stale-preview guard", () => {
     // Someone logging an hour between preview and write must not refuse it.
     expect(planHash(sheet, leaves.map((l) => ({ ...l, timeEntries: l.timeEntries + 1 })), 18)).toBe(h);
     expect(planHash(sheet, leaves.map((l) => (l.id === "c" ? { ...l, unitCost: 1 } : l)), 18)).not.toBe(h);
+  });
+});
+
+describe("placeItem — where a created item goes", () => {
+  // Gormley Studio's own layout: groups carry no number.
+  const groups = [
+    { id: "concrete", name: "Concrete", parentId: null },
+    { id: "footings", name: "Cast-in-Place Concrete Footings & Foundations", parentId: "concrete" },
+    { id: "openings", name: "Openings", parentId: null },
+    { id: "thermal", name: "Thermal & Moisture Protection", parentId: null },
+    { id: "damp", name: "Damp proofing and Waterproofing", parentId: "thermal" },
+    { id: "furnishings", name: "Furnishings", parentId: null },
+    { id: "uncat", name: "Uncategorized", parentId: null },
+  ];
+  const live = [
+    leaf({ id: "lc", name: "03 99 99 Lead Carpenter", code: "03 99 99", unitCost: 3040, groupId: "concrete" }),
+    leaf({ id: "ft", name: "03 30 00 Footings - Sub", code: "03 30 00", unitCost: 15000, groupId: "footings" }),
+    leaf({ id: "win", name: "08 50 00 Windows - Labor", code: "08 50 00", unitCost: 5760, groupId: "openings" }),
+    leaf({ id: "dp", name: "07 10 00 Dampproofing - Labor", code: "07 10 00", unitCost: 7680, groupId: "damp" }),
+    leaf({ id: "u", name: "Uncategorized 12 00 00", code: "12 99 99", groupId: "uncat" }),
+  ];
+  const place = (name: string, codeNumber: string, costGroup: string) =>
+    placeItem(item({ name, codeNumber, costGroup }), live, groups);
+
+  it("sets a row's new bucket beside its existing one", () => {
+    expect(place("08 50 00 Windows - Allowance", "08 50 00", "08 Openings; 08 50 00 Windows")).toEqual({ groupId: "openings" });
+    expect(place("07 10 00 Dampproofing - Allowance", "07 10 00", "07 Thermal and Moisture Protection; 07 10 00 Dampproofing and Waterproofing")).toEqual({ groupId: "damp" });
+  });
+
+  it("uses the division's existing home, never a second '03 Concrete'", () => {
+    expect(place("07 27 00 Air Barriers", "07 27 00", "07 Thermal and Moisture Protection")).toEqual({ groupId: "thermal" });
+    expect(place("03 30 10 Slabs - Sub", "03 30 10", "03 Concrete; 03 30 10 Cast-in-Place Concrete Slabs")).toEqual({
+      parentId: "concrete",
+      create: ["03 30 10 Cast-in-Place Concrete Slabs"],
+    });
+  });
+
+  it("falls back to the same name with the numbers set aside, then creates", () => {
+    // Only an Uncategorized rollup sits in 12 — it is no home.
+    expect(place("12 99 99 Lead Carpenter 12", "12 99 99", "12 Furnishings")).toEqual({ groupId: "furnishings" });
+    expect(place("48 20 00 Solar System", "48 20 00", "48 Electrical Power Generation")).toEqual({
+      parentId: null,
+      create: ["48 Electrical Power Generation"],
+    });
+    expect(canonGroup("07 Thermal and Moisture Protection")).toBe(canonGroup("Thermal & Moisture Protection"));
+    expect(canonGroup("07 10 00 Dampproofing and Waterproofing")).toBe("dampproofingandwaterproofing");
   });
 });
