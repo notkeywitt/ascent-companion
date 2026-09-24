@@ -17,6 +17,7 @@ import {
   Select,
   StatementBlock,
 } from "@/components/ui";
+import JtImport from "./JtImport";
 
 /**
  * Budget Import — a job's tracking-sheet estimate as a CSV that JobTread's
@@ -26,7 +27,8 @@ import {
  * maps each priced bucket to one cost item. The CSV carries COSTS plus the one
  * markup typed here, set on every item. It never carries a price: markups
  * differ by job, so JobTread computes each price from the cost and the markup.
- * Nothing here writes to JobTread — the office imports the file itself.
+ * The CSV path writes nothing. "Import into JT" (JtImport.tsx) is the path that
+ * writes: it updates the job's live budget in place.
  */
 
 interface Job {
@@ -205,6 +207,10 @@ export default function BudgetImportPage() {
           <Button onClick={() => download(result.fileName, result.csv)} disabled={result.items.length === 0}>
             Download CSV
           </Button>
+
+          {/* Changing the job or the markup clears `result`, which unmounts this
+              and drops any preview built for the old pair. */}
+          <JtImport projectId={projectId} markup={result.markup} />
 
           {groups.map(([group, items]) => (
             <section key={group} className="space-y-2">
