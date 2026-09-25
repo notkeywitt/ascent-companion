@@ -33,20 +33,24 @@ export default function NeedsProjectPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [picked, setPicked] = useState<Record<string, string>>({});
-  const [busy, setBusy] = useState<Record<string, boolean>>({});
+  // Which action is running on a row: "assign", "dismiss", or "" for none.
+  const [busy, setBusy] = useState<Record<string, string>>({});
   const [msg, setMsg] = useState<Record<string, string>>({});
   // Cross-tab "bills waiting" flag — fetched independently in the background so
   // a slow/failed JobTread count never blocks or errors the queue above.
   const [draftBillCount, setDraftBillCount] = useState<number | null>(null);
 
-  async function load() {
-    setLoading(true);
+  // `quiet` re-reads the queue without the skeleton flash — used after an assign
+  // whose answer never came back, because the push may still have landed.
+  async function load(quiet = false) {
+    if (!quiet) setLoading(true);
     setError("");
     try {
       const res = await fetch("/api/needs-project");
       const json = await res.json();
-      if (!res.ok || json.ok === false) setError(json.error ?? "Request failed");
-      else setItems(json.items ?? []);
+      if (!res.ok || json.ok === false) {
+        if (!quiet) setError(json.error ?? "Request failed");
+      } else setItems(json.items ?? []);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Network error");
     } finally {
@@ -75,7 +79,7 @@ export default function NeedsProjectPage() {
   async function assign(expId: string) {
     const jobId = picked[expId];
     if (!jobId) return;
-    setBusy((b) => ({ ...b, [expId]: true }));
+    setBusy((b) => ({ ...b, [expId]: "assign" }));
     setMsg((m) => ({ ...m, [expId]: "" }));
     try {
       const res = await fetch("/api/needs-project", {
@@ -90,6 +94,9 @@ export default function NeedsProjectPage() {
           return;
         }
         setMsg((m) => ({ ...m, [expId]: json.error ?? "Assign failed" }));
+        // The job is written to the sheet before the push, so a bill that was
+        // assigned leaves the queue even when the push reply was lost.
+        load(true);
       } else {
         // Pushed to JobTread on the chosen job — drop it from the queue.
         drop(expId);
@@ -97,7 +104,7 @@ export default function NeedsProjectPage() {
     } catch (e) {
       setMsg((m) => ({ ...m, [expId]: e instanceof Error ? e.message : "Network error" }));
     } finally {
-      setBusy((b) => ({ ...b, [expId]: false }));
+      setBusy((b) => ({ ...b, [expId]: "" }));
     }
   }
 
@@ -111,7 +118,7 @@ export default function NeedsProjectPage() {
       )
     )
       return;
-    setBusy((b) => ({ ...b, [expId]: true }));
+    setBusy((b) => ({ ...b, [expId]: "dismiss" }));
     setMsg((m) => ({ ...m, [expId]: "" }));
     try {
       const res = await fetch("/api/needs-project", {
@@ -132,7 +139,7 @@ export default function NeedsProjectPage() {
     } catch (e) {
       setMsg((m) => ({ ...m, [expId]: e instanceof Error ? e.message : "Network error" }));
     } finally {
-      setBusy((b) => ({ ...b, [expId]: false }));
+      setBusy((b) => ({ ...b, [expId]: "" }));
     }
   }
 
@@ -142,7 +149,7 @@ export default function NeedsProjectPage() {
         title="Needs Project"
         description="Ingested bills held because the job couldn’t be determined automatically. Check the PDF, pick the job, and Assign — it pushes to JobTread and re-files in Drive."
         actions={
-          <Button variant="secondary" size="sm" onClick={load} disabled={loading}>
+          <Button variant="secondary" size="sm" onClick={() => load()} disabled={loading}>
             {loading ? "Refreshing…" : "Refresh"}
           </Button>
         }
@@ -171,7 +178,9 @@ export default function NeedsProjectPage() {
         {items.map((it) => (
           <li
             key={it.expId}
-            className="rounded-xl border border-line bg-white p-4 dark:bg-ink-raised"
+            className={`rounded-xl border border-line bg-white p-4 transition-opacity dark:bg-ink-raised ${
+              busy[it.expId] ? "opacity-60" : ""
+            }`}
           >
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
@@ -205,21 +214,26 @@ export default function NeedsProjectPage() {
               <Button
                 className="shrink-0"
                 onClick={() => assign(it.expId)}
-                disabled={!picked[it.expId] || busy[it.expId]}
+                disabled={!picked[it.expId] || !!busy[it.expId]}
               >
-                {busy[it.expId] ? "Assigning…" : "Assign"}
+                {busy[it.expId] === "assign" ? "Assigning…" : "Assign"}
               </Button>
               <Button
                 variant="secondary"
                 size="sm"
                 className="shrink-0 !py-2"
                 onClick={() => dismiss(it.expId)}
-                disabled={busy[it.expId]}
+                disabled={!!busy[it.expId]}
                 title="Already imported / duplicate / not a bill — remove from this queue"
               >
                 Dismiss
               </Button>
             </div>
+            {busy[it.expId] === "assign" && !msg[it.expId] && (
+              <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">
+                Pushing to JobTread and re-filing the PDF in Drive. This can take up to a minute.
+              </p>
+            )}
             {msg[it.expId] && (
               <Banner tone="neutral" className="mt-2 !px-3 !py-2 !text-xs">
                 {msg[it.expId]}

@@ -40,5 +40,10 @@ export async function POST(req: NextRequest) {
   if (!jobId) {
     return NextResponse.json({ error: "jobId is required." }, { status: 400 });
   }
-  return callAppsScriptResponse({ action: "resolveNeedsProject", expId, jobId });
+  // The push + PDF re-file takes longer than the 25s default. Giving up early
+  // told the page "failed" while the push landed anyway, so the card stuck.
+  return callAppsScriptResponse(
+    { action: "resolveNeedsProject", expId, jobId },
+    { timeoutMs: 110_000 },
+  );
 }
