@@ -8,6 +8,7 @@ import { JtLink } from "@/components/JtLink";
 import { SunsetDuplicateScan } from "@/components/SunsetDuplicateScan";
 import { Banner, Button, CardSkeletonList, EmptyState, PageHeader, Spinner } from "@/components/ui";
 import { clearTouchedBills, touchedBillCount } from "@/lib/billTouch";
+import { reconcileState } from "@/lib/sunsetReconcile";
 
 // The TSYS hosted-payment page rejects requests that don't arrive through Sunset's
 // own site, so Pay goes to sunsetbuilderssupply.com and you click through from there.
@@ -524,40 +525,11 @@ export default function PaymentsPage() {
           const fail = !!failed[s.expId];
           const rc = recon[s.expId];
           const billing = billingLabel(s.statementDate, rc?.month, rc?.year);
-          // Net-to-paid: reconcile (invoices − credits) against the statement's NET
-          // (gross − early-pay discount) — the amount actually paid — once the
-          // discount has been read. Until then, fall back to the gross total.
-          const netKnown = !!s.extractedAt && s.net !== "" && Number.isFinite(Number(s.net));
-          const hasRows = !!rc && (rc.invoiceCount > 0 || rc.creditCount > 0);
+          // The green test lives in lib/sunsetReconcile, so the home card counts
+          // the same statements green as this page shows.
+          const { hasRows, useLines, cmpTarget, cmpReady, boughtBackTotal, diff, matchIssues, totalMatches, reconciled } =
+            reconcileState(s, rc);
           const m = rc?.match ?? null;
-          const useLines = !!rc?.hasLineItems;
-          // Comparison basis. When the statement's own invoice list was captured we
-          // reconcile invoice-total → invoice-total: the sum of the statement's
-          // printed lines (its gross) against the sum of the system's invoices. The
-          // early-pay discount is a payment term shown up top, NOT a reconciliation
-          // gap — so this basis needs no discount read and the headline number agrees
-          // with the itemized detail below. Without a captured list, fall back to
-          // net → net (which does need the discount, hence netKnown).
-          const cmpTarget = useLines
-            ? rc?.statementTotal ?? 0
-            : netKnown
-              ? Number(s.net)
-              : Number(s.total);
-          const cmpReady = useLines || netKnown;
-          // netTotal is expectedly short by boughtBackTotal on any bill the office
-          // flagged "Bought Back" (line items recoded to the shop after Sunset
-          // already billed the job) — add it back before comparing to the statement.
-          const boughtBackTotal = rc?.boughtBackTotal ?? 0;
-          const diff = rc && cmpReady && Number.isFinite(cmpTarget)
-            ? Math.round((cmpTarget - rc.netTotal - boughtBackTotal) * 100) / 100
-            : null;
-          // Invoice-number discrepancies: an invoice on the statement but missing
-          // from the system, a $ mismatch, or a system charge the statement doesn't
-          // list. These fail reconciliation even when the totals happen to match
-          // (a missing invoice masked by an offsetting extra one).
-          const matchIssues = m ? m.missing.length + m.mismatched.length + m.extra.length : 0;
-          const totalMatches = hasRows && cmpReady && diff !== null && Math.abs(diff) <= 0.01;
-          const reconciled = totalMatches && matchIssues === 0;
           return (
             <li
               key={s.expId}

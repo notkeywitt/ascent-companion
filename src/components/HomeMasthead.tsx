@@ -6,6 +6,7 @@ import { PeakMark } from "@/components/PageTitle";
 import { useAccess } from "@/components/AccessProvider";
 import { COMPANY_TZ, billingMonthStale } from "@/lib/billing";
 import { billingMonths, monthLabel } from "@/lib/billingMonths";
+import { HomeReminders } from "@/components/HomeReminders";
 
 /**
  * The head of the iPad home console — a dateline, and where the billing month
@@ -127,6 +128,8 @@ export function HomeMasthead() {
             {dateLine}
           </h1>
         </div>
+        {/* The dated to-dos (Amazon, LSWDD, …) — see HomeReminders. */}
+        <HomeReminders />
       </div>
 
       {shows && (

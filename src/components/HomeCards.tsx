@@ -18,6 +18,8 @@ import { useCopy } from "@/components/CopyProvider";
 import { useEffectiveLayout } from "@/components/NavLayoutProvider";
 import { PAGE_CATALOG } from "@/lib/pagesMenu";
 import type { NavItem, NavMenu } from "@/lib/navLayout";
+import { monthLabel } from "@/lib/billingMonths";
+import { lastAmazonMonth, lastLswddMonth, sunsetGreenCounts } from "@/lib/homeFacts";
 
 /**
  * The admin home launcher as CARDS — the same card shape as the job board
@@ -139,6 +141,26 @@ const SIGNALS: Record<string, { gate?: string; load: () => Promise<Signal | null
       }[];
       const n = rows.filter((r) => r.status === "open").length;
       return { text: n ? `${n} open` : "" };
+    },
+  },
+  // The last month imported, the same fact the reminder under the date reads.
+  "amazon-import": {
+    load: async () => {
+      const ym = await lastAmazonMonth();
+      return { text: ym ? `Last: ${monthLabel(ym)}` : "Never imported" };
+    },
+  },
+  lswdd: {
+    load: async () => {
+      const ym = await lastLswddMonth();
+      return { text: ym ? `Last: ${monthLabel(ym)}` : "Never imported" };
+    },
+  },
+  // Unpaid statements by the page's own green (reconciled) test.
+  payments: {
+    load: async () => {
+      const { green, notGreen } = await sunsetGreenCounts();
+      return { text: `${green} green · ${notGreen} not` };
     },
   },
   email: {
@@ -425,7 +447,7 @@ export function HomeCards({
                     aria-label="Card title"
                     value={menu.title}
                     onChange={(e) => patch(menu.id, { title: e.target.value })}
-                    className="text-base font-bold"
+                    className="text-lg font-bold"
                   />
                   <IconButton
                     label="Delete card"
@@ -442,7 +464,7 @@ export function HomeCards({
                   </IconButton>
                 </div>
               ) : (
-                <h2 className="text-base font-bold tracking-tight">{menu.title}</h2>
+                <h2 className="text-lg font-bold tracking-tight">{menu.title}</h2>
               )}
 
               {head && <Headline s={head} />}
