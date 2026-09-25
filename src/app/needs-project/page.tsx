@@ -17,14 +17,6 @@ interface NeedsItem {
 const money = (n: number) =>
   "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-/** Drive renders page 1 of a PDF as an image here (see ExpenditureBrowser). It
- *  works for any viewer signed into an account with access to the file. */
-const driveThumb = (driveUrl: string) => {
-  const id = driveUrl.match(/\/d\/([\w-]+)|[?&]id=([\w-]+)/);
-  const fileId = id?.[1] ?? id?.[2];
-  return fileId ? `https://drive.google.com/thumbnail?id=${fileId}&sz=w1000` : null;
-};
-
 // The queue only lists rows with no JT Doc ID, but the page fetches once on mount
 // — a sync can link a bill to JobTread while you're looking at the stale list.
 // Both backend guards say "already in JobTread"; that means the bill is now
@@ -198,7 +190,7 @@ export default function NeedsProjectPage() {
                     id: it.expId,
                     name: "PDF in Drive",
                     url: it.driveUrl,
-                    imageUrl: driveThumb(it.driveUrl),
+                    imageUrl: `/api/needs-project/thumb?expId=${encodeURIComponent(it.expId)}`,
                     singlePage: true,
                   }}
                 />
