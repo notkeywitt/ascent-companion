@@ -41,6 +41,11 @@ export interface NavMenu {
   blurb: string;
   /** Rows shown before "show more"; defaults to PREVIEW_ROWS when absent. */
   preview?: number;
+  /**
+   * The home card's headline chart: the view id of one of its pages, "" for
+   * none. Absent means automatic — the first page on the card that has one.
+   */
+  summary?: string;
   items: NavItem[];
 }
 
@@ -157,11 +162,13 @@ export function sanitizeLayout(raw: unknown): NavLayout | null {
       typeof previewRaw === "number" && Number.isFinite(previewRaw) && previewRaw > 0
         ? Math.floor(previewRaw)
         : undefined;
+    const summaryRaw = (m as { summary?: unknown }).summary;
     menus.push({
       id,
       title: asString((m as { title?: unknown }).title).trim() || id,
       blurb: asString((m as { blurb?: unknown }).blurb),
       preview,
+      ...(typeof summaryRaw === "string" ? { summary: summaryRaw.trim() } : {}),
       items,
     });
   }

@@ -4,9 +4,8 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signOut } from "next-auth/react";
-import { CountBadge, ListCard, ListRow, SectionHeading, btn } from "@/components/ui";
+import { CountBadge, btn } from "@/components/ui";
 import { useAccess } from "@/components/AccessProvider";
-import { useCopy } from "@/components/CopyProvider";
 import { AllPagesMenu } from "@/components/AllPagesMenu";
 import { StuckVendorBanner } from "@/components/StuckVendors";
 import { NeedsProjectBanner, useNeedsProjectCount } from "@/components/NeedsProject";
@@ -18,8 +17,9 @@ import { HomeJobBoard } from "@/components/HomeJobBoard";
 import { HomeLeadBoard } from "@/components/HomeLeadBoard";
 import { HomeMasthead } from "@/components/HomeMasthead";
 import { useEffectiveLayout } from "@/components/NavLayoutProvider";
-import { PREVIEW_ROWS, tileLauncherFor } from "@/lib/nav";
-import { DEFAULT_COLUMNS, type NavItem } from "@/lib/navLayout";
+import { tileLauncherFor } from "@/lib/nav";
+import type { NavItem } from "@/lib/navLayout";
+import { HomeCards } from "@/components/HomeCards";
 import { AppearanceCard } from "@/components/AppearanceCard";
 import { DesktopAlertsCard } from "@/components/DesktopAlertsCard";
 
@@ -49,38 +49,6 @@ import { DesktopAlertsCard } from "@/components/DesktopAlertsCard";
  * TILE_LAUNCHERS for the buttons) and both gate every entry on the same view
  * ids.
  */
-
-/** Where the launcher remembers which menus you folded away. */
-const COLLAPSED_KEY = "home.collapsedAreas";
-
-/**
- * How many menus sit side by side, per width. STATIC strings on purpose —
- * Tailwind scans the source for class names, so `xl:columns-${n}` would be
- * compiled away to nothing.
- *
- * NEWSPAPER COLUMNS, NOT A GRID. A grid locks every menu in a row to the height
- * of the tallest one in it, and these menus are 5 rows and 14 rows: My Work
- * beside Utilities left a 500px hole under My Work, on the screen with the most
- * to show. CSS multi-column flows them instead, so a short menu is simply
- * followed by the next one. `break-inside-avoid` on each section is what stops
- * a menu being cut in half across the fold.
- *
- * TWO is the widest an iPad goes, and that is a legibility floor, not a
- * guess: a row's second line is one line, and three columns of a 1024px screen
- * give each row LESS width than a phone does — the descriptions start
- * truncating, which is the one thing the extra screen was supposed to fix.
- *
- * The admin's number (Edit home page → Menus per row) is the WIDEST setting;
- * each smaller screen steps down to what fits. ONE column is the exception: it
- * is a deliberate "keep it a list", so it stays a list, capped at reading width
- * rather than stretched across an iPad.
- */
-const COLUMN_CLS: Record<number, string> = {
-  1: "pad:mx-auto pad:max-w-2xl",
-  2: "pad:columns-2 pad:gap-6",
-  3: "pad:columns-2 pad:gap-6 xl:columns-3",
-  4: "pad:columns-2 pad:gap-6 xl:columns-3 2xl:columns-4",
-};
 
 /**
  * A launcher BUTTON — the large tile. Used both inside a menu and, for the
@@ -132,82 +100,21 @@ function Home() {
     }
     router.replace("/employee-time");
   }, [access.role, router]);
-  // Office-edited wording (Admin → Page Text); falls back to the English below.
-  const c = useCopy();
   const jobId = (search.get("jobId") ?? "").trim();
   const qs = jobId ? `?jobId=${encodeURIComponent(jobId)}` : "";
-
-  // Which areas the user has expanded past their preview rows.
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
-
-  /* Which areas the user has FOLDED AWAY entirely. Different from `expanded`,
-     which only reaches past an area's preview rows: this hides the whole
-     section, heading aside. An admin sees every menu here, and most days cares
-     about two of them.
-
-     Remembered per device in localStorage, because a launcher that forgets is
-     one you re-collapse after every trip to a page and back. Read in an effect
-     rather than in the initial state: this component is server-rendered too, and
-     a first render that read `window` would disagree with the server's HTML. */
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(COLLAPSED_KEY);
-      if (raw) setCollapsed(JSON.parse(raw));
-    } catch {
-      /* private mode, or a value written by an older shape — start open */
-    }
-  }, []);
-  const toggleArea = (id: string) =>
-    setCollapsed((prev) => {
-      const next = { ...prev, [id]: !prev[id] };
-      try {
-        localStorage.setItem(COLLAPSED_KEY, JSON.stringify(next));
-      } catch {
-        /* nothing to do — the fold still works for this visit */
-      }
-      return next;
-    });
 
   // The admin launcher's layout — the shipped AREAS default, or the admin's
   // customized menus/links/buttons (Edit mode). `isCustom` tells us whether the
   // stored strings are authoritative or whether we still resolve wording through
   // the copy registry (so office Page-Text edits keep working on the default).
-  const { menus, items: topItemsRaw, columns, isCustom } = useEffectiveLayout();
+  const { menus, items: topItemsRaw } = useEffectiveLayout();
 
   // Home-layout Edit mode (admin only — see the button below).
   const [editing, setEditing] = useState(false);
 
-  // Show only what this user can access; hide an area whose links all filter out.
-  //
-  // Every user-visible string is resolved through `c()` HERE, at the one place
-  // the lists are built, so the rows and the headings read the same
-  // (possibly office-edited) wording — see src/lib/copy.ts. The `|| a.title`
-  // fallbacks mean a destination added to AREAS but not yet registered renders
-  // its inline English instead of going blank.
-  // On the SHIPPED launcher, wording still resolves through the copy registry so
-  // an office Page-Text edit shows here; on a CUSTOM launcher the stored strings
-  // are authoritative (the Edit surface is the naming surface). An item with an
-  // empty `view` is a link everyone with this launcher can see; otherwise it's
-  // gated exactly as before via `access.can`.
-  const areas = useMemo(
-    () =>
-      menus
-        .map((m) => ({
-          id: m.id,
-          title: isCustom ? m.title : c(`home.area.${m.id}.title`) || m.title,
-          blurb: isCustom ? m.blurb : c(`home.area.${m.id}.blurb`) || m.blurb,
-          preview: m.preview,
-          items: m.items
-            .filter((it) => it.view === "" || access.can(it.view))
-            .map((it) => ({
-              ...it,
-              label: isCustom ? it.label : c(`home.dest.${it.view}.label`) || it.label,
-              desc: isCustom ? it.desc : c(`home.dest.${it.view}.desc`) || it.desc,
-            })),
-        }))
-        .filter((a) => a.items.length > 0),
-    [menus, isCustom, access, c],
+  // Whether any card has a page this user can open — the empty state's test.
+  const anyView = menus.some((m) =>
+    m.items.some((it) => it.view === "" || access.can(it.view)),
   );
 
   // Buttons that belong to no menu — the launcher's own top row. Gated exactly
@@ -307,127 +214,11 @@ function Home() {
             </div>
           )}
 
-          {/* One column on a phone; at xl the page is full width, and twenty
-              hairline rows stretched across a desktop monitor read worse than
-              several columns of them. How many is the admin's choice (Edit home
-              page → Menus per row). */}
-          <div className={COLUMN_CLS[columns] ?? COLUMN_CLS[DEFAULT_COLUMNS]}>
-            {areas.map((area) => {
-              const buttons = area.items.filter((it) => it.kind === "button");
-              const links = area.items.filter((it) => it.kind !== "button");
-              const previewRows = area.preview ?? PREVIEW_ROWS;
-              const isExpanded = !!expanded[area.id];
-              const isOpen = !collapsed[area.id];
-              const hidden = Math.max(0, links.length - previewRows);
-              const countOf = (rows: typeof links) =>
-                rows.reduce((n, d) => n + (badges[d.view] ?? 0), 0);
-              // Work behind a fold still shows on the heading, so neither a
-              // folded menu nor a hidden tail buries the one row that needs
-              // attention. TWO counts, because only ONE of the two folds exists
-              // at every width: the tail is hidden on a phone and open from
-              // `pad` up, so its badge hides with the row that reveals it.
-              const foldedCount = countOf(area.items);
-              const tailCount = isExpanded ? 0 : countOf(links.slice(previewRows));
-              return (
-                // `mb-6` rather than the container's `space-y-6`: a
-                // multi-column flow has no "between siblings" to hang a gap on
-                // once a column breaks between two of them.
-                <section key={area.id} className="mb-6 space-y-2 break-inside-avoid">
-                  <SectionHeading
-                    onToggle={() => toggleArea(area.id)}
-                    open={isOpen}
-                    trailing={
-                      <span className="flex items-center gap-2">
-                        {!isOpen && foldedCount > 0 && <CountBadge n={foldedCount} />}
-                        {isOpen && tailCount > 0 && (
-                          <CountBadge n={tailCount} className="pad:hidden" />
-                        )}
-                        <span className="text-[11px] tabular-nums text-neutral-500">
-                          {area.items.length}
-                        </span>
-                      </span>
-                    }
-                  >
-                    {area.title}
-                  </SectionHeading>
-
-                  {/* Buttons first — the prominent tiles, in a 2-across grid. */}
-                  {isOpen && buttons.length > 0 && (
-                    <div className="grid grid-cols-2 gap-2">
-                      {buttons.map((b) => (
-                        <LauncherButton key={b.id} b={b} qs={qs} badge={badges[b.view] ?? 0} />
-                      ))}
-                    </div>
-                  )}
-
-                  {isOpen && links.length > 0 && (
-                    <ListCard>
-                      {/* EVERY row is rendered at every width; a PHONE hides the
-                          ones past the preview count with a class, and the
-                          "show more" row below reveals them. From `pad` up
-                          there is height for the whole menu, so the rows come
-                          back (`pad:flex` beats the base `hidden`, because a
-                          variant is emitted after every unprefixed utility) and
-                          the "show more" row goes away with them.
-
-                          CSS, not state, on purpose: a JS media query would
-                          render the phone's fold first and swap it a frame
-                          later, which is a visible jump on the one screen every
-                          person in the company opens first. */}
-                      {links.map((d, i) => (
-                        <ListRow
-                          key={d.id}
-                          href={d.href + qs}
-                          label={d.label}
-                          desc={d.desc}
-                          className={[
-                            !isExpanded && i >= previewRows ? "hidden pad:flex" : "",
-                            // `last:border-b-0` cannot reach the last ROW while
-                            // the (hidden) "show more" button is the card's last
-                            // child, which would leave a hairline on the card's
-                            // own bottom edge.
-                            hidden > 0 && i === links.length - 1 ? "pad:border-b-0" : "",
-                          ]
-                            .filter(Boolean)
-                            .join(" ")}
-                          badge={
-                            (badges[d.view] ?? 0) > 0 ? (
-                              <CountBadge n={badges[d.view]} />
-                            ) : undefined
-                          }
-                        />
-                      ))}
-                      {hidden > 0 && (
-                        <button
-                          type="button"
-                          onClick={() => setExpanded((e) => ({ ...e, [area.id]: !isExpanded }))}
-                          aria-expanded={isExpanded}
-                          className="min-h-11 w-full px-3 py-2.5 text-left text-[12.5px] font-semibold text-neutral-500 transition hover:text-accent dark:text-neutral-400 pad:hidden"
-                        >
-                          {isExpanded ? "Show fewer" : `Show ${hidden} more in ${area.title}`}
-                        </button>
-                      )}
-                    </ListCard>
-                  )}
-                </section>
-              );
-            })}
-          </div>
-          {access.role === "admin" && (
-            // The one control that opens Edit mode. Admin-only: only admin sees
-            // this launcher, and only admin can write the layout. It sits UNDER
-            // the menus it rearranges — above them it was the first thing on the
-            // page for the one person who almost never wants it.
-            <div className="flex justify-end">
-              <button
-                type="button"
-                onClick={() => setEditing(true)}
-                className="text-[11px] font-semibold text-accent hover:underline dark:text-accent-soft"
-              >
-                Edit home page
-              </button>
-            </div>
-          )}
+          {/* The menus, as cards in the job board's shape: a bold title, the
+              pages as a plain list with each page's count beside it, and an
+              optional headline chart. Drag-to-arrange and renaming live in
+              the cards' own edit mode (see HomeCards). */}
+          <HomeCards qs={qs} badges={badges} onAdvanced={() => setEditing(true)} />
         </div>
       )}
 
@@ -439,16 +230,18 @@ function Home() {
           three rows per menu and the office tile launcher shows four buttons,
           so nothing listed everything.
 
-          OFFICE + ADMIN, by role: a field or lead phone has the tile launcher
-          and "The Rest", and forty rows is not that. Each row is still gated on
+          OFFICE only, by role: a field or lead phone has the tile launcher
+          and "The Rest", and forty rows is not that. ADMIN's cards replaced it
+          (2026-09-25): every page is one "Add a page" pick away in their edit
+          mode, and the header search finds the rest. Each row is still gated on
           its own view id inside the component, so a page office cannot open
           never renders. The ORDER and GROUPING are the admin's (Edit menu). */}
-      {(access.role === "admin" || access.role === "office") && <AllPagesMenu qs={qs} />}
+      {access.role === "office" && <AllPagesMenu qs={qs} />}
 
       {/* No views at all — don't leave a blank page. This happens when the
           session carries no identity/role (e.g. signed in with the temporary
           shared password rather than Google). Offer a way back to Google. */}
-      {!tiles && areas.length === 0 && (
+      {!tiles && !anyView && (
         <div className="rounded-xl border border-dashed border-neutral-300 px-6 py-8 text-center dark:border-neutral-700">
           <p className="text-sm font-semibold">No views are available for your account yet.</p>
           <p className="mx-auto mt-2 max-w-sm text-xs text-neutral-500">
