@@ -337,10 +337,14 @@ function Vendors() {
   }, [initialNumber]);
 
   const q = query.trim().toLowerCase();
-  const matches = useMemo(() => {
-    if (!q) return [];
-    return vendors.filter((v) => v.name.toLowerCase().includes(q)).slice(0, 25);
-  }, [q, vendors]);
+  // No query = every vendor, A–Z. A query narrows the same list.
+  const matches = useMemo(
+    () =>
+      vendors
+        .filter((v) => !q || v.name.toLowerCase().includes(q))
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    [q, vendors],
+  );
 
   const total = bills.reduce((s, b) => s + b.cost, 0);
 
@@ -348,7 +352,7 @@ function Vendors() {
     <main className="mx-auto max-w-xl px-4 pb-24 pt-6">
       <PageHeader
         title="Vendors"
-        description="Search a vendor to see every bill — job, date, amount, status."
+        description="Pick a vendor to see every bill — job, date, amount, status."
       />
 
       {selected ? (
@@ -402,35 +406,6 @@ function Vendors() {
       ) : (
         <div className="space-y-6">
           <div className="space-y-2">
-            <Input
-              type="search"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder={vendorsLoading ? "Loading vendors…" : `Search ${vendors.length} vendors`}
-              aria-label="Search vendors"
-              autoFocus
-            />
-            {vendorsError && <p className="text-sm text-red-600">{vendorsError}</p>}
-
-            {q && (
-              <div className="space-y-2 pt-2">
-                <SectionHeading>
-                  {matches.length === 1 ? "1 match" : `${matches.length} matches`}
-                </SectionHeading>
-                {matches.length === 0 ? (
-                  <EmptyState>Nothing matches “{query.trim()}”.</EmptyState>
-                ) : (
-                  <ListCard>
-                    {matches.map((v) => (
-                      <ListRow key={v.id} onClick={() => loadVendorBills(v)} label={v.name} />
-                    ))}
-                  </ListCard>
-                )}
-              </div>
-            )}
-          </div>
-
-          <div className="space-y-2 border-t border-line pt-5">
             <SectionHeading>Look up a bill by number</SectionHeading>
             <form
               onSubmit={(e) => {
@@ -484,6 +459,39 @@ function Vendors() {
               </div>
             )}
           </div>
+          <div className="space-y-2 border-t border-line pt-5">
+            <Input
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={vendorsLoading ? "Loading vendors…" : `Search ${vendors.length} vendors`}
+              aria-label="Search vendors"
+              autoFocus
+            />
+            {vendorsError && <p className="text-sm text-red-600">{vendorsError}</p>}
+
+            {!vendorsLoading && !vendorsError && (
+              <div className="space-y-2 pt-2">
+                <SectionHeading>
+                  {!q
+                    ? `All vendors · ${matches.length}`
+                    : matches.length === 1
+                      ? "1 match"
+                      : `${matches.length} matches`}
+                </SectionHeading>
+                {matches.length === 0 ? (
+                  <EmptyState>{q ? `Nothing matches “${query.trim()}”.` : "No vendors in JobTread."}</EmptyState>
+                ) : (
+                  <ListCard>
+                    {matches.map((v) => (
+                      <ListRow key={v.id} onClick={() => loadVendorBills(v)} label={v.name} />
+                    ))}
+                  </ListCard>
+                )}
+              </div>
+            )}
+          </div>
+
         </div>
       )}
     </main>
