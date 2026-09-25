@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import Link from "next/link";
 import {
   Card,
@@ -594,6 +594,17 @@ export function HomeJobBoard() {
     };
   }, [access.role]);
 
+  // Whether the cards are a grid (from `pad` up) — where the drilldown goes.
+  // Read on click, not first paint, so a JS media query cannot flash here.
+  const [wide, setWide] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 744px)");
+    const on = () => setWide(mq.matches);
+    on();
+    mq.addEventListener("change", on);
+    return () => mq.removeEventListener("change", on);
+  }, []);
+
   if (access.role === "field") return null;
   if (cards === null) {
     return (
@@ -640,18 +651,33 @@ export function HomeJobBoard() {
               gesture rather than behind a scrollbar. Two across in portrait,
               three once the 12.9" portrait width is reached, four on a desktop
               monitor — each step keeps a card near its natural ~300px. */}
-          <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-1 pad:mx-0 pad:grid pad:grid-cols-2 pad:overflow-x-visible pad:px-0 lg:grid-cols-3 xl:grid-cols-4">
+          {/* THE DRILLDOWN OPENS UNDER ITS OWN ROW from `pad` up. It sits in
+              the grid right after the card that opened it, spanning every
+              column, and `grid-flow-row-dense` lets the cards after it
+              backfill the rest of that card's row — so the row stays whole and
+              the panel lands directly beneath it, at 2, 3 or 4 across alike.
+              A phone's row scrolls sideways, where a full-width panel cannot
+              go, so there it stays below the scroller. */}
+          <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-1 pad:mx-0 pad:grid pad:grid-flow-row-dense pad:grid-cols-2 pad:overflow-x-visible pad:px-0 lg:grid-cols-3 xl:grid-cols-4">
             {cards.map((c) => (
-              <BoardCard
-                key={c.id}
-                c={c}
-                toInvoice={toInvoice?.totals[c.id] ?? 0}
-                expanded={c.id === openId}
-                onToggle={() => toggle(c.id)}
-              />
+              <Fragment key={c.id}>
+                <BoardCard
+                  c={c}
+                  toInvoice={toInvoice?.totals[c.id] ?? 0}
+                  expanded={c.id === openId}
+                  onToggle={() => toggle(c.id)}
+                />
+                {wide && open?.id === c.id && (
+                  <div className="col-span-full">
+                    <BoardDrilldown c={open} state={detail} onClose={() => setOpenId(null)} />
+                  </div>
+                )}
+              </Fragment>
             ))}
           </div>
-          {open && <BoardDrilldown c={open} state={detail} onClose={() => setOpenId(null)} />}
+          {!wide && open && (
+            <BoardDrilldown c={open} state={detail} onClose={() => setOpenId(null)} />
+          )}
         </>
       )}
     </section>
