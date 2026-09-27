@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/lopezrocks-mobile-accessibility-ipd2mx
 status: shipped
 started: 2026-09-27T16:23:00Z
-updated: 2026-09-27T16:43:54Z
+updated: 2026-09-27T16:44:00Z
 goal: LopezRocks, the island community board, as a phone reader page in the app
 next: Watch /lopezrocks in production for 'did not answer' notices; if the firewall turns Vercel away often, ask SalishRocks to allowlist the app, or offer the Safari phone-layout script instead
 ---

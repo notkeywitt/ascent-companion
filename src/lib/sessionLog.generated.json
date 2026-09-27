@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-27T16:23:22Z",
+  "generatedAt": "2026-09-27T16:44:01Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,7 +8,7 @@
       "branch": "claude/lopezrocks-mobile-accessibility-ipd2mx",
       "status": "shipped",
       "started": "2026-09-27T16:23:00Z",
-      "updated": "2026-09-27T16:23:22Z",
+      "updated": "2026-09-27T16:44:00Z",
       "goal": "LopezRocks, the island community board, as a phone reader page in the app",
       "next": "Watch /lopezrocks in production for 'did not answer' notices; if the firewall turns Vercel away often, ask SalishRocks to allowlist the app, or offer the Safari phone-layout script instead",
       "commits": [
@@ -18,6 +18,13 @@
           "sha": "d296423",
           "subject": "companion: add a phone reader for lopezrocks, linked at the bottom of home",
           "files": "CODEBASE_MAP.md, src/app/lopezrocks/LopezRocksViews.tsx, src/app/lopezrocks/page.tsx, src/app/page.tsx, src/components/ui.tsx, src/lib/lopezrocks.ts, +3 more"
+        },
+        {
+          "date": "2026-09-27",
+          "time": "16:43",
+          "sha": "9f3f7c1",
+          "subject": "companion: mark lopezrocks posts that have a photo with a camera icon",
+          "files": "src/app/lopezrocks/LopezRocksViews.tsx, src/lib/lopezrocks.ts, src/lib/lopezrocksParse.test.ts, src/lib/lopezrocksParse.ts"
         }
       ]
     },

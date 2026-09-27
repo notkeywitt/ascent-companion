@@ -31,7 +31,7 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
-| [lopezrocks-mobile-accessibility](.claude/sessions/2026-09-27-lopezrocks-mobile-accessibility.md) | 2026-09-27 | 1 | LopezRocks, the island community board, as a phone reader page in the app |
+| [lopezrocks-mobile-accessibility](.claude/sessions/2026-09-27-lopezrocks-mobile-accessibility.md) | 2026-09-27 | 2 | LopezRocks, the island community board, as a phone reader page in the app |
 | [ascent-companion-ci-failure](.claude/sessions/2026-09-12-ascent-companion-ci-failure.md) | 2026-09-14 | 3 | fix the red CI lint error in trackingsheet/Board.tsx |
 | [vendor-bills-group-by](.claude/sessions/2026-09-11-vendor-bills-group-by.md) | 2026-09-11 | 1 | group the tracking sheet's month of vendor bills by vendor |
 | [billing-month](.claude/sessions/2026-09-10-billing-month.md) | 2026-09-11 | 43 | — |
