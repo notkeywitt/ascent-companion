@@ -4,7 +4,7 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signOut } from "next-auth/react";
-import { CountBadge, btn } from "@/components/ui";
+import { CountBadge, ListCard, ListRow, SectionHeading, btn } from "@/components/ui";
 import { useAccess } from "@/components/AccessProvider";
 import { AllPagesMenu } from "@/components/AllPagesMenu";
 import { StuckVendorBanner } from "@/components/StuckVendors";
@@ -266,6 +266,23 @@ function Home() {
         <AppearanceCard />
         <DesktopAlertsCard />
       </div>
+
+      {/* LopezRocks — the island's community board, re-drawn for a phone
+          (src/app/lopezrocks). For EVERY role, at the owner's request
+          (2026-09-27): the view is in FIELD_VIEWS, which every role inherits.
+          Still gated on its own id, so a per-user denial in /admin hides it. */}
+      {access.can("lopezrocks") && (
+        <section className="mt-8">
+          <SectionHeading className="mb-2">Community</SectionHeading>
+          <ListCard>
+            <ListRow
+              href="/lopezrocks"
+              label="LopezRocks"
+              desc="Lopez Island's community board, easy to read on a phone"
+            />
+          </ListCard>
+        </section>
+      )}
 
       {/* Account / sign out. Access (which menus you see) is baked in at
           sign-in, so signing out and back in is how you pick up a changed

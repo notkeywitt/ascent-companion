@@ -404,6 +404,11 @@ export const VIEWS: ViewDef[] = [
   // there is no API prefix to gate alongside it. The gate exists at all because
   // the launcher and the header's search filter their rows by a view id.
   { id: "help", label: "Help", group: "System", paths: ["/help"] },
+  // LopezRocks — Lopez Island's community board (lopezrocks.org), re-drawn for
+  // a phone. EVERY role holds it (FIELD_VIEWS below), at the owner's request,
+  // and the link to it is at the bottom of the home page. Read-only: it reads
+  // a public website and writes nothing, so there is no API prefix to gate.
+  { id: "lopezrocks", label: "LopezRocks", group: "System", paths: ["/lopezrocks"] },
   // "Reading Your Own App" — the in-app course through this codebase. Read-only,
   // no JobTread/DB access of its own (progress lives in the browser), so it needs
   // no API prefix. Office+admin by default (not in the FIELD/LEAD sets below).
@@ -466,7 +471,8 @@ export const ALL_VIEW_IDS: string[] = VIEWS.map((v) => v.id);
  * Financials menu. Office adds everything except the admin consoles. Admin gets
  * all of it.
  */
-// The four launcher quick buttons + self-service Time Off + Help — granted to all.
+// The four launcher quick buttons + self-service Time Off + Help + LopezRocks
+// (the island's community board) — granted to all.
 const FIELD_VIEWS: string[] = [
   "mileage",
   "employee-time",
@@ -474,6 +480,7 @@ const FIELD_VIEWS: string[] = [
   "requisitions",
   "time-off",
   "help",
+  "lopezrocks",
 ];
 // Leads additionally see the Financials menu (coding, invoicing, Sunset pay).
 // Leads additionally see the Financials menu. "recode" (Tracking Sheets) is

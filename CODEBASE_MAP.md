@@ -96,6 +96,7 @@ matching row here.
 | **A month's labor total not reconciling** | `checks/laborRate.ts` — runs inside "Check this job". The usual cause is JobTread's rate snapshot: a pay rate changed after the entries were written, so the month keeps the old rate with nothing on screen to say so |
 | **Having Claude chase the findings** | `POST /api/invoice-review/investigate` → `src/lib/invoiceReview/investigate.ts` + `investigateTools.ts`; verdicts stored by `dispositions.ts` and drawn on each finding |
 | **Adding a digest check** | write `src/lib/digest/checks/<id>.ts`, add its config block to `src/lib/digest/settings.ts`, add one line to `src/lib/digest/registry.ts` — the aggregator, the cron route and the UI are untouched |
+| **LopezRocks** (the island's community board, re-drawn for a phone) | page `src/app/lopezrocks/` (`page.tsx` picks the shape, `LopezRocksViews.tsx` draws it), the fetch + cache `src/lib/lopezrocks.ts`, reading a page `src/lib/lopezrocksParse.ts`. Every role; the link is at the bottom of Home. Read-only — posting and sign-in open the site itself |
 
 ## `src/lib/` — shared logic (the most-reused code)
 
@@ -124,6 +125,8 @@ including edge middleware.
 | `pagesMenu.ts` ⟂ | **The All Pages menu — every page in the app, grouped by function.** The catalog is DERIVED, not typed out: every `AREAS` destination in its area, then every remaining view that has a real page, filed by the group it declares in `views.ts`. That second rule is what keeps "every page" true as the app grows — a new view appears here the day it is added. A saved layout stores VIEW IDS only, so labels and addresses stay code's; what the admin owns is the ORDER and the GROUPING. It cannot HIDE a page (that is `views.ts`), and any page a saved layout does not name is folded back into its default group. Unit-tested — every test is a way the completeness promise could fail silently. |
 | `nav.ts` ⟂ | **The launcher's destination list** (`AREAS`) — the one place every gateable view is named. Read by BOTH the home launcher and the header's global search, which is why it's a module rather than living in `page.tsx`. |
 | `help.ts` ⟂ | **The in-app instructions, as data** — one topic per question ("How do I clock in?"), each naming the view it belongs to so a topic for a page you can't open is hidden. Read by BOTH the `/help` page and the header's search (`searchHelp`), the same reason `nav.ts` is a module. Written to **ASD-STE100** Simplified Technical English: the rules are in the file header, and `help.test.ts` enforces the countable ones (20 words a step, 25 a note, one sentence per step, no banned words). Every `**bold**` string is the text on a real control — when a page rewords a button, this file changes with it. |
+| `lopezrocksParse.ts` ⟂ | **LopezRocks (lopezrocks.org) pages, read as data** — the pure half of `/lopezrocks`. A small tolerant HTML reader (the whole site is one PHP template, so no library), then one shape per kind of page: a keyword-grouped listing, the calendar, one post / event / business / story / discussion with its comments, the front page's sponsors, and a generic fallback (headings, text, links, tables) for anything else. It returns TEXT and CLASSIFIED LINKS, never HTML, so a post's own markup can never run inside the app. `linkFromQuery` checks every value of the page's address, so the address bar can only ever reach a LopezRocks page. The firewall's "checking your browser" answer throws `LrNotAPage` rather than reading as a page. Unit-tested on synthetic pages (real ones carry islanders' names and phone numbers). |
+| `lopezrocks.ts` | The fetch + cache behind `/lopezrocks`. ONE request per page per 15 minutes (Next's Data Cache, shared by every lambda), with an honest User-Agent. LopezRocks' Sucuri firewall turns some server requests away (2 in 10 in a test); a turned-away fetch throws, a throw is never cached, so a page read once keeps showing and a new one says "try again". It never tries to get past the check. |
 | `pageGuide.ts` ⟂ | **The page guide, as data** — per-element help an admin writes from inside the app, one topic per thing on the screen (`help.ts` answers a question; this names a control). `guidePathKey` is the rule worth knowing: a guide belongs to a PAGE, so a path segment that does not read as a word is folded to `*` and `/bill/22ab9x` shares one guide with every other bill. `selectorFor` builds the anchor from the element an admin TAPPED, so nobody types CSS. Unit-tested. |
 | `preview.ts` ⟂ | **Role preview** — the cookie name + helpers letting an admin view the app AS each role. The layout reads the cookie (honoring it only for a real admin) and hands that role's live view set to the nav, so the launcher/tabs render as that role sees them. Narrows only, never elevates. |
 | `previewClient.ts` | Browser half of the above: `startPreview`/`stopPreview` set/clear the cookie and reload so the server layout re-reads it. |
@@ -287,7 +290,10 @@ does to a check's status and summary).
 Tests live beside their module (`*.test.ts`): `arAging` (the bucket BOUNDARIES,
 exactly — every failure in that module is silent, since an invoice in the wrong
 bucket still shows a correct balance), `billing`, `billLineMath`,
-`jobtread`, `paveGateway`, `leadInquiry`, `taskRunner`, `appsScript`.
+`jobtread`, `paveGateway`, `leadInquiry`, `taskRunner`, `appsScript`,
+`lopezrocksParse` (the address checks first — a malformed `/lopezrocks?…` must
+read as the front page, never as a fetch — then that no post markup survives,
+then each page shape).
 
 ## `src/app/` — pages (grouped by the view group in `views.ts`)
 
@@ -334,7 +340,9 @@ Each page is a server component (`page.tsx`) that hands non-secret context to a
   `help` (the staff instructions — `help/page.tsx` + `help/HelpBrowser.tsx`
   over the topics in `src/lib/help.ts`; the ONE view every role holds, and
   `/help#<topic-id>` opens a single answer, which is what the header's search
-  links to), plus `login`, `privacy` (ungated).
+  links to), `lopezrocks` (LopezRocks — Lopez Island's community board, re-drawn
+  for a phone; read-only; EVERY role, linked from the bottom of Home), plus
+  `login`, `privacy` (ungated).
 - **Root:** `page.tsx` (home launcher — the primary nav), `layout.tsx`,
   `manifest.ts`, `global-error.tsx`.
 

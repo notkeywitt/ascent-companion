@@ -344,6 +344,11 @@ export function ListCard({ className = "", ...props }: React.HTMLAttributes<HTML
  * as the correct element either way, which is what keeps a tappable row from
  * being a <div> with a click handler (invisible to a keyboard and to a screen
  * reader). Rows are 56px tall so a thumb hits one and not its neighbour.
+ *
+ * `wrap` lets the label wrap (and the description run to two lines) instead
+ * of being cut off — for a row that carries a sentence, like a post's title,
+ * rather than a page name. `external` marks an `href` on another website: it
+ * opens in a new tab and the chevron becomes ↗.
  */
 export function ListRow({
   href,
@@ -353,6 +358,8 @@ export function ListRow({
   badge,
   trailing,
   chevron,
+  wrap = false,
+  external = false,
   className = "",
 }: {
   href?: string;
@@ -363,6 +370,8 @@ export function ListRow({
   trailing?: React.ReactNode;
   /** Defaults to true for a row that navigates or acts, false for a static one. */
   chevron?: boolean;
+  wrap?: boolean;
+  external?: boolean;
   className?: string;
 }) {
   const interactive = !!href || !!onClick;
@@ -370,9 +379,15 @@ export function ListRow({
   const inner = (
     <>
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm font-semibold tracking-tight">{label}</span>
+        <span className={`block ${wrap ? "break-words" : "truncate"} text-sm font-semibold tracking-tight`}>
+          {label}
+        </span>
         {desc && (
-          <span className="mt-0.5 block truncate text-[11.5px] text-neutral-500 dark:text-neutral-400">
+          // No `block` beside line-clamp: both set `display`, and Tailwind
+          // emits `block` later, which would switch the clamp off.
+          <span
+            className={`mt-0.5 ${wrap ? "line-clamp-2 break-words" : "block truncate"} text-[11.5px] text-neutral-500 dark:text-neutral-400`}
+          >
             {desc}
           </span>
         )}
@@ -384,7 +399,7 @@ export function ListRow({
           aria-hidden
           className="shrink-0 text-lg leading-none text-neutral-300 transition group-hover:text-accent dark:text-neutral-600"
         >
-          ›
+          {external ? "↗" : "›"}
         </span>
       )}
     </>
@@ -396,6 +411,13 @@ export function ListRow({
     interactive ? "transition hover:bg-accent/5 dark:hover:bg-white/5" : ""
   } ${className}`;
 
+  if (href && external) {
+    return (
+      <a href={href} target="_blank" rel="noopener noreferrer" className={base}>
+        {inner}
+      </a>
+    );
+  }
   if (href) {
     return (
       <Link href={href} className={`relative ${base}`}>
