@@ -42,7 +42,9 @@ async function load(path: string): Promise<LrParsed> {
   return parseLopezRocks(await res.text());
 }
 
-const cachedLoad = unstable_cache(load, ["lopezrocks-page-v1"], { revalidate: 900 });
+// Bump the version whenever the parsed shape changes, so a deploy never draws
+// a page from a copy the old parser made.
+const cachedLoad = unstable_cache(load, ["lopezrocks-page-v2"], { revalidate: 900 });
 
 export type LopezRocksResult =
   | { ok: true; data: LrParsed }

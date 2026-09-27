@@ -65,8 +65,10 @@ export interface LrRow {
   link: LrLink;
   /** A second line: a directory entry's summary, a web address. */
   sub?: string;
-  /** Quiet facts: the date, "Photo", "By …", "2 comments". */
+  /** Quiet facts: the date, "By …", "2 comments", "Sponsor". */
   meta: string[];
+  /** The post has a picture — the site marks it with a small icon in the list. */
+  photo?: boolean;
 }
 
 export interface LrGroup {
@@ -778,11 +780,13 @@ function rowOf(tr: El, cells: El[]): LrRow | null {
     const i = linkCell.kids.indexOf(a);
     meta.push(...tailMeta(linkCell.kids.slice(i + 1).map((k) => (isEl(k) ? text(k) : k)).join(" ")));
   }
-  if (find(tr, (e) => e.tag === "img" && /images\/image\./i.test(e.attrs.src ?? ""))) meta.push("Photo");
   if (find(tr, (e) => e.tag === "img" && /sponsored/i.test(e.attrs.src ?? ""))) meta.push("Sponsor");
 
+  const row: LrRow = { title, link, meta };
   const sub = sumCell ? text(sumCell) : titleCell ? text(a) : "";
-  return sub ? { title, link, sub, meta } : { title, link, meta };
+  if (sub) row.sub = sub;
+  if (find(tr, (e) => e.tag === "img" && /images\/image\./i.test(e.attrs.src ?? ""))) row.photo = true;
+  return row;
 }
 
 const DAY = /^[A-Z][a-z]{2}, ([A-Z][a-z]{2} \d{1,2})$/;

@@ -58,12 +58,39 @@ export function LrAnchor({
   );
 }
 
+/**
+ * "This post has a photo" — a camera in the app's flat 2px line style, in the
+ * row's quiet text colour. The words are there for a screen reader and, as a
+ * tooltip, for a mouse.
+ */
+function PhotoMark() {
+  return (
+    <span title="Has photo" className="shrink-0 text-neutral-500 dark:text-neutral-400">
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className="h-[18px] w-[18px]"
+        aria-hidden
+      >
+        <path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z" />
+        <circle cx="12" cy="13" r="3.5" />
+      </svg>
+      <span className="sr-only">Has photo</span>
+    </span>
+  );
+}
+
 /** A row for any LopezRocks link: inside the app, or out to another site. */
-function LinkRow({ label, link, desc }: { label: string; link: LrLink; desc?: string }) {
+function LinkRow({ label, link, desc, photo }: { label: string; link: LrLink; desc?: string; photo?: boolean }) {
+  const trailing = photo ? <PhotoMark /> : undefined;
   return isReaderLink(link) ? (
-    <ListRow href={readerHref(link)} label={label} desc={desc} wrap />
+    <ListRow href={readerHref(link)} label={label} desc={desc} trailing={trailing} wrap />
   ) : (
-    <ListRow href={link.href} label={label} desc={desc} wrap external />
+    <ListRow href={link.href} label={label} desc={desc} trailing={trailing} wrap external />
   );
 }
 
@@ -169,7 +196,7 @@ export function ListView({ groups, pager }: { groups: LrGroup[]; pager: LrAction
           {g.title && <SectionHeading className="mb-2">{g.title}</SectionHeading>}
           <ListCard>
             {g.rows.map((r, j) => (
-              <LinkRow key={j} label={r.title} link={r.link} desc={rowDesc(r)} />
+              <LinkRow key={j} label={r.title} link={r.link} desc={rowDesc(r)} photo={r.photo} />
             ))}
           </ListCard>
         </section>

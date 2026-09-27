@@ -231,9 +231,15 @@ ${row("Automotive", "103", "1974 Pickup", "(Sep 24)")}
       { label: "Add a New Item", link: { kind: "site", href: "https://lopezrocks.org/page.php?type=login&menu_handle=21" } },
       { label: "Show by date", link: { kind: "section", handle: "21", type: "postit", shuffle: "1" } },
     ]);
-    expect(p.groups.map((g) => [g.title, g.rows.map((r) => [r.title, r.meta])])).toEqual([
-      ["Take It", [["Outdoor Lights", ["Sep 26"]], ["Bubble Wrap 12”w", ["Sep 25", "Photo"]]]],
-      ["Automotive", [["1974 Pickup", ["Sep 24"]]]],
+    expect(p.groups.map((g) => [g.title, g.rows.map((r) => [r.title, r.meta, !!r.photo])])).toEqual([
+      [
+        "Take It",
+        [
+          ["Outdoor Lights", ["Sep 26"], false],
+          ["Bubble Wrap 12”w", ["Sep 25"], true],
+        ],
+      ],
+      ["Automotive", [["1974 Pickup", ["Sep 24"], false]]],
     ]);
     expect(p.pager).toEqual([
       { label: "Next page", link: { kind: "section", handle: "21", type: "postit", offset: "1789834535" } },
