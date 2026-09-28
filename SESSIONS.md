@@ -9,7 +9,6 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Branch | Last active | Commits | Next step |
 |---|---|---|---|---|
-| [budget](.claude/sessions/2026-09-24-budget.md) | `claude/budget-import` | 0m ago | 18 | Owner: open /office on a phone; confirm the to-dos, the Documents folder groupi… |
 | [allbills-vendor-collapsed](.claude/sessions/2026-09-14-allbills-vendor-collapsed.md) | `claude/allbills-vendor-collapsed` | 5d ago | 40 | Watch the first monthly review after 77bbb2a: confirm email-bill-amount-mismatc… |
 | [time-entry-jt-sync](.claude/sessions/2026-09-15-time-entry-jt-sync.md) | `claude/time-entry-jt-sync-6q3257` | 13d ago | 5 | Verify view-as-employee live: open /employee-time as admin, tap 'View another e… |
 | [monthly-invoicing-summary](.claude/sessions/2026-09-10-monthly-invoicing-summary.md) | `claude/monthly-invoicing-summary-mfpunx` | 18d ago | 3 | Deploy the appscript side (./deploy.sh), then open /invoicing-summary and confi… |
@@ -31,6 +30,7 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
+| [budget](.claude/sessions/2026-09-24-budget.md) | 2026-09-28 | 19 | Tracking sheet estimate to JobTread budget import CSV: /budget-import page over… |
 | [lopezrocks-mobile-accessibility](.claude/sessions/2026-09-27-lopezrocks-mobile-accessibility.md) | 2026-09-27 | 2 | LopezRocks, the island community board, as a phone reader page in the app |
 | [ascent-companion-ci-failure](.claude/sessions/2026-09-12-ascent-companion-ci-failure.md) | 2026-09-14 | 3 | fix the red CI lint error in trackingsheet/Board.tsx |
 | [vendor-bills-group-by](.claude/sessions/2026-09-11-vendor-bills-group-by.md) | 2026-09-11 | 1 | group the tracking sheet's month of vendor bills by vendor |
@@ -45,4 +45,3 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 | [daily-digest-to-todos](.claude/sessions/2026-09-08-daily-digest-to-todos.md) | 2026-09-08 | 2 | — |
 | [help-page-ste-100](.claude/sessions/2026-09-08-help-page-ste-100.md) | 2026-09-08 | 2 | — |
 | [leads-panel-admin-home](.claude/sessions/2026-09-08-leads-panel-admin-home.md) | 2026-09-08 | 5 | — |
-| [pwa-push-notifications-phone](.claude/sessions/2026-09-07-pwa-push-notifications-phone.md) | 2026-09-07 | 3 | in-app banner notice system: office+admin authoring, scheduled windows, group +… |
