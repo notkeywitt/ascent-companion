@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-28T18:21:19Z",
+  "generatedAt": "2026-09-28T18:57:05Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "claude/budget-import",
       "status": "shipped",
       "started": "2026-09-24T15:47:03Z",
-      "updated": "2026-09-28T18:21:19Z",
+      "updated": "2026-09-28T18:57:05Z",
       "goal": "Tracking sheet estimate to JobTread budget import CSV: /budget-import page over appscript getBudgetImportCsv",
-      "next": "Office: re-run Import into JT on Gormley (and job 002); the preview should show ~56 description fills and a few replacements. Confirm the notes read right on the JobTread budget's Details panel.",
+      "next": "open /vendors, tap Add vendor, create a real vendor (name + email), confirm it opens with its detail card and appears in JobTread; watch how long Sync Vendors takes",
       "commits": [
         {
           "date": "2026-09-24",
@@ -179,6 +179,20 @@
           "sha": "e218144",
           "subject": "companion: write the sheet's notes into each budget item's description",
           "files": "src/app/budget-import/JtImport.tsx, src/lib/budgetImport.test.ts, src/lib/budgetImport.ts"
+        },
+        {
+          "date": "2026-09-28",
+          "time": "11:52",
+          "sha": "cb5bcbf",
+          "subject": "companion: add a vendor from the vendors page",
+          "files": "src/app/vendors/page.tsx"
+        },
+        {
+          "date": "2026-09-28",
+          "time": "11:57",
+          "sha": "0624276",
+          "subject": "companion: list the billing month's office and shop bills on the office dashboard",
+          "files": "CODEBASE_MAP.md, src/app/office/page.tsx"
         }
       ]
     },
