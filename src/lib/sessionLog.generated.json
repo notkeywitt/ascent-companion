@@ -1,42 +1,16 @@
 {
-  "generatedAt": "2026-09-27T16:44:01Z",
+  "generatedAt": "2026-09-28T17:06:01Z",
   "repo": "ascent-companion",
   "sessions": [
-    {
-      "slug": "lopezrocks-mobile-accessibility",
-      "file": "2026-09-27-lopezrocks-mobile-accessibility.md",
-      "branch": "claude/lopezrocks-mobile-accessibility-ipd2mx",
-      "status": "shipped",
-      "started": "2026-09-27T16:23:00Z",
-      "updated": "2026-09-27T16:44:00Z",
-      "goal": "LopezRocks, the island community board, as a phone reader page in the app",
-      "next": "Watch /lopezrocks in production for 'did not answer' notices; if the firewall turns Vercel away often, ask SalishRocks to allowlist the app, or offer the Safari phone-layout script instead",
-      "commits": [
-        {
-          "date": "2026-09-27",
-          "time": "16:23",
-          "sha": "d296423",
-          "subject": "companion: add a phone reader for lopezrocks, linked at the bottom of home",
-          "files": "CODEBASE_MAP.md, src/app/lopezrocks/LopezRocksViews.tsx, src/app/lopezrocks/page.tsx, src/app/page.tsx, src/components/ui.tsx, src/lib/lopezrocks.ts, +3 more"
-        },
-        {
-          "date": "2026-09-27",
-          "time": "16:43",
-          "sha": "9f3f7c1",
-          "subject": "companion: mark lopezrocks posts that have a photo with a camera icon",
-          "files": "src/app/lopezrocks/LopezRocksViews.tsx, src/lib/lopezrocks.ts, src/lib/lopezrocksParse.test.ts, src/lib/lopezrocksParse.ts"
-        }
-      ]
-    },
     {
       "slug": "budget",
       "file": "2026-09-24-budget.md",
       "branch": "claude/budget-import",
       "status": "in-progress",
       "started": "2026-09-24T15:47:03Z",
-      "updated": "2026-09-25T13:30:03Z",
+      "updated": "2026-09-28T17:04:52Z",
       "goal": "Tracking sheet estimate to JobTread budget import CSV: /budget-import page over appscript getBudgetImportCsv",
-      "next": "Owner: open Home on desktop, Edit home page, arrange cards; say which pages need counts or headlines next (SIGNALS in HomeCards.tsx).",
+      "next": "Owner: on the next unknown-Sold-To Sunset bill, Assign it on /needs-project and confirm the green 'now file to this job' banner; the next invoice with that name should skip the queue. Try '+ New vendor' on /add-bill once.",
       "commits": [
         {
           "date": "2026-09-24",
@@ -142,6 +116,46 @@
           "sha": "ea1d094",
           "subject": "companion: home reminders for amazon/lswdd imports, import-month and sunset-green counts on cards, larger card titles",
           "files": "CODEBASE_MAP.md, src/app/payments/page.tsx, src/components/HomeCards.tsx, src/components/HomeMasthead.tsx, src/components/HomeReminders.tsx, src/lib/homeFacts.ts, +2 more"
+        },
+        {
+          "date": "2026-09-25",
+          "time": "06:30",
+          "sha": "d2b42d4",
+          "subject": "companion: open the job board drilldown directly under the clicked card's row",
+          "files": "src/components/HomeJobBoard.tsx"
+        },
+        {
+          "date": "2026-09-28",
+          "time": "10:04",
+          "sha": "370bb40",
+          "subject": "companion: add new-vendor form to add bill, show what a needs-project assign learned",
+          "files": "src/app/add-bill/page.tsx, src/app/api/add-bill/route.ts, src/app/api/vendor-create/route.ts, src/app/needs-project/page.tsx"
+        }
+      ]
+    },
+    {
+      "slug": "lopezrocks-mobile-accessibility",
+      "file": "2026-09-27-lopezrocks-mobile-accessibility.md",
+      "branch": "claude/lopezrocks-mobile-accessibility-ipd2mx",
+      "status": "shipped",
+      "started": "2026-09-27T16:23:00Z",
+      "updated": "2026-09-27T16:44:00Z",
+      "goal": "LopezRocks, the island community board, as a phone reader page in the app",
+      "next": "Watch /lopezrocks in production for 'did not answer' notices; if the firewall turns Vercel away often, ask SalishRocks to allowlist the app, or offer the Safari phone-layout script instead",
+      "commits": [
+        {
+          "date": "2026-09-27",
+          "time": "16:23",
+          "sha": "d296423",
+          "subject": "companion: add a phone reader for lopezrocks, linked at the bottom of home",
+          "files": "CODEBASE_MAP.md, src/app/lopezrocks/LopezRocksViews.tsx, src/app/lopezrocks/page.tsx, src/app/page.tsx, src/components/ui.tsx, src/lib/lopezrocks.ts, +3 more"
+        },
+        {
+          "date": "2026-09-27",
+          "time": "16:43",
+          "sha": "9f3f7c1",
+          "subject": "companion: mark lopezrocks posts that have a photo with a camera icon",
+          "files": "src/app/lopezrocks/LopezRocksViews.tsx, src/lib/lopezrocks.ts, src/lib/lopezrocksParse.test.ts, src/lib/lopezrocksParse.ts"
         }
       ]
     },
