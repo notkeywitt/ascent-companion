@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-28T17:06:01Z",
+  "generatedAt": "2026-09-28T17:12:48Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "claude/budget-import",
       "status": "in-progress",
       "started": "2026-09-24T15:47:03Z",
-      "updated": "2026-09-28T17:04:52Z",
+      "updated": "2026-09-28T17:12:31Z",
       "goal": "Tracking sheet estimate to JobTread budget import CSV: /budget-import page over appscript getBudgetImportCsv",
-      "next": "Owner: on the next unknown-Sold-To Sunset bill, Assign it on /needs-project and confirm the green 'now file to this job' banner; the next invoice with that name should skip the queue. Try '+ New vendor' on /add-bill once.",
+      "next": "Owner: open /office on a phone; confirm the to-dos, the Documents folder grouping, and whether Office Dashboard should be a button on the office tile launcher.",
       "commits": [
         {
           "date": "2026-09-24",
@@ -130,6 +130,13 @@
           "sha": "370bb40",
           "subject": "companion: add new-vendor form to add bill, show what a needs-project assign learned",
           "files": "src/app/add-bill/page.tsx, src/app/api/add-bill/route.ts, src/app/api/vendor-create/route.ts, src/app/needs-project/page.tsx"
+        },
+        {
+          "date": "2026-09-28",
+          "time": "10:12",
+          "sha": "b43294e",
+          "subject": "companion: add office dashboard with office job to-dos, file browser and hr pages",
+          "files": "CODEBASE_MAP.md, src/app/office/OfficeLinks.tsx, src/app/office/page.tsx, src/lib/copy.ts, src/lib/jobtread.ts, src/lib/nav.ts, +2 more"
         }
       ]
     },

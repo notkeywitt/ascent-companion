@@ -9,7 +9,7 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Branch | Last active | Commits | Next step |
 |---|---|---|---|---|
-| [budget](.claude/sessions/2026-09-24-budget.md) | `claude/budget-import` | 1m ago | 17 | Owner: on the next unknown-Sold-To Sunset bill, Assign it on /needs-project and… |
+| [budget](.claude/sessions/2026-09-24-budget.md) | `claude/budget-import` | 0m ago | 18 | Owner: open /office on a phone; confirm the to-dos, the Documents folder groupi… |
 | [allbills-vendor-collapsed](.claude/sessions/2026-09-14-allbills-vendor-collapsed.md) | `claude/allbills-vendor-collapsed` | 5d ago | 40 | Watch the first monthly review after 77bbb2a: confirm email-bill-amount-mismatc… |
 | [time-entry-jt-sync](.claude/sessions/2026-09-15-time-entry-jt-sync.md) | `claude/time-entry-jt-sync-6q3257` | 13d ago | 5 | Verify view-as-employee live: open /employee-time as admin, tap 'View another e… |
 | [monthly-invoicing-summary](.claude/sessions/2026-09-10-monthly-invoicing-summary.md) | `claude/monthly-invoicing-summary-mfpunx` | 18d ago | 3 | Deploy the appscript side (./deploy.sh), then open /invoicing-summary and confi… |
