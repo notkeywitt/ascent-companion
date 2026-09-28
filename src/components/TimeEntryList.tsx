@@ -565,14 +565,22 @@ export function TimeFilterStrip({
 
 /* ----------------------------------------------------------------- calendar */
 
+/** A day's entries by person, names A–Z, each person's entries in input order. */
+function byEmployee(list: TimeEntryRow[]): [string, TimeEntryRow[]][] {
+  const m = new Map<string, TimeEntryRow[]>();
+  for (const t of list) m.set(t.employee, [...(m.get(t.employee) ?? []), t]);
+  return [...m.entries()].sort(([a], [b]) => a.localeCompare(b));
+}
+
 /**
  * THE MONTH AS A GRID — the same visible entries, laid out by the day they were
  * worked instead of stacked in groups.
  *
  * The list answers "what landed on this cost code"; the calendar answers "who
  * was on site that week", which is the question a crew's hours actually get
- * challenged on. It is deliberately the EXPANDED view: every entry draws its own
- * line, so there is nothing to unfold.
+ * challenged on. It is deliberately the EXPANDED view: a day holds one block per
+ * person, and every entry draws its own code/hours line inside it, so there is
+ * nothing to unfold.
  *
  * Read-and-open, not select: the checkbox column has no place in a 50px cell,
  * and bulk recode belongs to the list. A cell's entry opens the same editor a
@@ -650,46 +658,57 @@ function TimeCalendar({
                       </span>
                     )}
                   </div>
+                  {/* One block per person, one line per code/hours entry: a
+                      crew of four with split days read as a dozen near-identical
+                      blocks, and the name repeated on every one of them. */}
                   <div className="flex flex-col gap-0.5">
-                    {list.map((t) => {
-                      const body = (
-                        <>
-                          <span className="flex items-baseline justify-between gap-1">
-                            <span className="min-w-0 truncate font-semibold">{t.employee}</span>
-                            <span className="shrink-0 tabular-nums">{hrs(t.hours)}</span>
-                          </span>
-                          <span className="block truncate text-neutral-500 dark:text-neutral-400">
-                            {codeOf(t) || "uncoded"}
-                          </span>
-                        </>
-                      );
-                      const cls = `w-full rounded px-1 py-0.5 text-left text-[11px] leading-tight transition ${
-                        isMoved(t)
-                          ? "bg-amber-50 dark:bg-amber-950/30"
-                          : "bg-neutral-100 dark:bg-white/[0.06]"
-                      } ${editingId === t.id ? "ring-1 ring-accent" : ""} ${
-                        onEdit ? "hover:bg-accent/10" : ""
-                      }`;
-                      return onEdit ? (
-                        <button
-                          key={t.id}
-                          type="button"
-                          onClick={() => onEdit(t.id)}
-                          title={`${t.employee} · ${hrs(t.hours)} · ${money(t.cost)}${t.notes ? ` — ${t.notes}` : ""}`}
-                          className={cls}
-                        >
-                          {body}
-                        </button>
-                      ) : (
-                        <span
-                          key={t.id}
-                          title={`${t.employee} · ${hrs(t.hours)} · ${money(t.cost)}`}
-                          className={cls}
-                        >
-                          {body}
+                    {byEmployee(list).map(([employee, rows]) => (
+                      <div
+                        key={employee}
+                        className="rounded bg-neutral-100 px-1 py-0.5 text-[11px] leading-tight dark:bg-white/[0.06]"
+                      >
+                        <span className="flex items-baseline justify-between gap-1 font-semibold">
+                          <span className="min-w-0 truncate">{employee}</span>
+                          {rows.length > 1 && (
+                            <span className="shrink-0 tabular-nums">
+                              {hrs(rows.reduce((n, t) => n + t.hours, 0))}
+                            </span>
+                          )}
                         </span>
-                      );
-                    })}
+                        {rows.map((t) => {
+                          const body = (
+                            <>
+                              <span className="min-w-0 truncate">{codeOf(t) || "uncoded"}</span>
+                              <span className="shrink-0 tabular-nums">{hrs(t.hours)}</span>
+                            </>
+                          );
+                          const cls = `flex w-full items-baseline justify-between gap-1 rounded px-0.5 text-left text-neutral-500 transition dark:text-neutral-400 ${
+                            isMoved(t) ? "bg-amber-50 dark:bg-amber-950/30" : ""
+                          } ${editingId === t.id ? "ring-1 ring-accent" : ""} ${
+                            onEdit ? "hover:bg-accent/10" : ""
+                          }`;
+                          return onEdit ? (
+                            <button
+                              key={t.id}
+                              type="button"
+                              onClick={() => onEdit(t.id)}
+                              title={`${t.employee} · ${hrs(t.hours)} · ${money(t.cost)}${t.notes ? ` — ${t.notes}` : ""}`}
+                              className={cls}
+                            >
+                              {body}
+                            </button>
+                          ) : (
+                            <span
+                              key={t.id}
+                              title={`${t.employee} · ${hrs(t.hours)} · ${money(t.cost)}`}
+                              className={cls}
+                            >
+                              {body}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    ))}
                   </div>
                 </div>
               );
