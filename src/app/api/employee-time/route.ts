@@ -13,6 +13,7 @@ import { callAppsScript } from "@/lib/appsScript";
 import { openJournal } from "@/lib/financialJournal";
 import { resolveJtUserLink } from "@/lib/jtUserLink";
 import { resolveTimeIdentity } from "@/lib/actingAs";
+import { rosterForRole } from "@/lib/payRates";
 
 /**
  * Backend for the Assistant's /employee-time page — logging a specific time
@@ -160,7 +161,7 @@ export async function GET(req: NextRequest) {
       },
       acting: who.identity.acting,
       canActAs: role === "admin",
-      jtUsers,
+      jtUsers: rosterForRole(jtUsers, role),
       orgTypes,
     });
   }
@@ -186,7 +187,7 @@ export async function GET(req: NextRequest) {
     },
     acting: false,
     canActAs: role === "admin",
-    jtUsers,
+    jtUsers: rosterForRole(jtUsers, role),
     orgTypes,
   });
 }

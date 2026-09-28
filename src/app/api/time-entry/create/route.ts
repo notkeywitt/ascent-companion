@@ -10,6 +10,7 @@ import {
 } from "@/lib/jobtread";
 import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
 import { openJournal } from "@/lib/financialJournal";
+import { rosterForRole } from "@/lib/payRates";
 
 /**
  * A NEW time entry, logged for somebody else — the write behind Tracking
@@ -43,13 +44,15 @@ export async function GET() {
     return NextResponse.json({ ok: false, error: "JT_GRANT_KEY is not set." }, { status: 400 });
   }
   const cfg = getPaveConfig();
-  const [users, orgTypes] = await Promise.all([
+  const [session, users, orgTypes] = await Promise.all([
+    auth(),
     getOrgUsers(cfg).catch(() => []),
     // Fallback list, for when the grant can't read each member's own pay types
     // (per-member types 403 → getOrgUsers leaves them undefined).
     getOrgTimeEntryTypeNames(cfg).catch(() => [] as string[]),
   ]);
-  return NextResponse.json({ ok: true, users, orgTypes });
+  const role = (session?.user as { role?: string } | undefined)?.role;
+  return NextResponse.json({ ok: true, users: rosterForRole(users, role), orgTypes });
 }
 
 interface CreateBody {

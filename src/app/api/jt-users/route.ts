@@ -2,6 +2,8 @@ import { unstable_cache } from "next/cache";
 import { NextResponse } from "next/server";
 import { getOrgUsers, getOrgTimeEntryTypeNames } from "@/lib/jobtread";
 import { getPaveConfig, hasGrant } from "@/lib/config";
+import { auth } from "@/auth";
+import { rosterForRole } from "@/lib/payRates";
 
 // Shared Data Cache for the org's JobTread users + pay-type names (reference data used by
 // the labor importer / employee linker, not editable via the Companion). 30-min window,
@@ -37,7 +39,11 @@ export async function GET() {
     return NextResponse.json({ error: "JT_GRANT_KEY is not set." }, { status: 400 });
   }
   try {
-    return NextResponse.json(await getCachedJtUsers());
+    // The cache holds the full roster; each caller gets the rates only if their
+    // role may see them (lib/payRates).
+    const [session, cached] = await Promise.all([auth(), getCachedJtUsers()]);
+    const role = (session?.user as { role?: string } | undefined)?.role;
+    return NextResponse.json({ ...cached, users: rosterForRole(cached.users, role) });
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : "Unknown error";
     return NextResponse.json({ error: message }, { status: 502 });

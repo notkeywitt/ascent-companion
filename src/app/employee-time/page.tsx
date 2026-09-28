@@ -4,6 +4,7 @@ import { getPaveConfig, hasGrant } from "@/lib/config";
 import { findMemberByEmail, getOrgTimeEntryTypeNames, getOrgUsers } from "@/lib/jobtread";
 import { readJtUserLink } from "@/lib/jtUserLink";
 import { readLastUsed, readOpenClock, type LastUsed, type OpenClock } from "@/lib/employeeClock";
+import { rosterForRole } from "@/lib/payRates";
 import { EmployeeTimeClient } from "./EmployeeTimeClient";
 
 /**
@@ -30,7 +31,8 @@ export default async function EmployeeTimePage() {
   const email = session?.user?.email ?? "";
   // Only an admin may open the page as another employee. The flag draws the
   // picker; the SERVER rule (src/lib/timeSubject.ts) is what enforces it.
-  const canActAs = ((session?.user as { role?: string } | undefined)?.role ?? "") === "admin";
+  const role = (session?.user as { role?: string } | undefined)?.role ?? "";
+  const canActAs = role === "admin";
 
   // The identity: the token first (stamped at sign-in), then the DB link. Both
   // are cheap; neither touches Apps Script.
@@ -76,7 +78,7 @@ export default async function EmployeeTimePage() {
     <EmployeeTimeClient
       initialJobs={jobs}
       initialMe={me}
-      initialJtUsers={jtUsers}
+      initialJtUsers={rosterForRole(jtUsers, role)}
       initialOrgTypes={orgTypes}
       initialOpenEntry={clock?.openEntry ?? null}
       // Only a resolved identity can say "JobTread has no clock for you", which
