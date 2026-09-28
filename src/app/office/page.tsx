@@ -3,7 +3,6 @@ import Link from "next/link";
 
 import {
   Banner,
-  Chip,
   EmptyState,
   ListCard,
   ListRow,
@@ -13,7 +12,18 @@ import {
   SectionHeading,
 } from "@/components/ui";
 import { getPaveConfig, hasGrant } from "@/lib/config";
-import { OFFICE_JOB_ID, getJobFiles, getOpenToDos, type JobFile } from "@/lib/jobtread";
+import { monthLabel } from "@/lib/billingMonths";
+import { currentBillingPeriod } from "@/lib/billingMonth";
+import { money } from "@/lib/invoiceReview/types";
+import {
+  OFFICE_JOB_ID,
+  getJobBillsForMonth,
+  getJobFiles,
+  getOpenToDos,
+  resolveShopJobId,
+  type JobFile,
+  type MonthBill,
+} from "@/lib/jobtread";
 import { jtJobUrl } from "@/lib/jtLinks";
 import { orgDay } from "@/lib/orgTime";
 import { shortDay } from "@/lib/timeEntryDates";
@@ -23,8 +33,8 @@ import { OfficeTodos, type OfficeTodo } from "./OfficeTodos";
 
 /**
  * The Office dashboard — the "Office" overhead job in JobTread (job 007), read
- * live: its open to-dos, its Files tab as a folder browser, and links to the
- * other office pages (the old HR menu).
+ * live: its open to-dos, the billing month's bills on Office and Shop, its Files
+ * tab as a folder browser, and links to the other office pages (the old HR menu).
  *
  * Server component. The open folder is the `?folder=` param, so moving through
  * folders is plain navigation. Each JobTread read streams in its own <Suspense>.
@@ -45,6 +55,10 @@ export default async function OfficePage({
 }) {
   const folder = ((await searchParams).folder ?? "").trim().replace(/^\/+|\/+$/g, "");
   const jobUrl = jtJobUrl(OFFICE_JOB_ID);
+  // The billing month set on Home (or the automatic 10th cutoff) — the same
+  // month every bill filed today lands in.
+  const { billingYear, billingMonthNum } = await currentBillingPeriod();
+  const ym = `${billingYear}-${String(billingMonthNum).padStart(2, "0")}`;
 
   return (
     <main className="mx-auto max-w-2xl px-4 pb-24 pt-6">
@@ -61,6 +75,13 @@ export default async function OfficePage({
             <SectionHeading trailing={<JtLink href={`${jobUrl}/to-dos`} />}>To-dos</SectionHeading>
             <Suspense fallback={<Loading label="Loading to-dos…" />}>
               <Todos />
+            </Suspense>
+          </section>
+
+          <section className="mb-6">
+            <SectionHeading>{monthLabel(ym)} bills</SectionHeading>
+            <Suspense fallback={<Loading label="Loading bills…" />}>
+              <Bills year={billingYear} month={billingMonthNum} />
             </Suspense>
           </section>
 
@@ -124,6 +145,61 @@ async function Todos() {
     );
 
   return <OfficeTodos todos={rows} />;
+}
+
+/** The month's bills on the two overhead jobs, each with its total. Drafts included. */
+async function Bills({ year, month }: { year: number; month: number }) {
+  const cfg = getPaveConfig();
+  let jobs: { name: string; bills: MonthBill[] }[];
+  try {
+    const shopJobId = await resolveShopJobId(cfg);
+    const [office, shop] = await Promise.all([
+      getJobBillsForMonth(cfg, OFFICE_JOB_ID, year, month, true, true),
+      getJobBillsForMonth(cfg, shopJobId, year, month, true, true),
+    ]);
+    jobs = [
+      { name: "Ascent Office", bills: office },
+      { name: "Ascent Shop", bills: shop },
+    ];
+  } catch (e) {
+    return <Banner tone="error">{e instanceof Error ? e.message : "Could not read bills."}</Banner>;
+  }
+
+  return (
+    <div className="space-y-4">
+      {jobs.map((j) => (
+        <div key={j.name}>
+          <div className="mb-1.5 flex items-baseline justify-between gap-3 px-1 text-sm font-semibold">
+            <span>{j.name}</span>
+            <span className="tabular-nums">
+              {money(j.bills.reduce((sum, b) => sum + b.cost, 0))}
+            </span>
+          </div>
+          {j.bills.length === 0 ? (
+            <p className="px-1 text-[12.5px] text-neutral-500 dark:text-neutral-400">
+              No bills this month.
+            </p>
+          ) : (
+            <ListCard>
+              {j.bills.map((b) => (
+                <ListRow
+                  key={b.id}
+                  href={`/bill/${encodeURIComponent(b.id)}`}
+                  label={b.vendor || b.label}
+                  desc={<MetaLine items={[b.externalId && `#${b.externalId}`, b.status]} />}
+                  trailing={
+                    <span className="shrink-0 text-sm font-semibold tabular-nums">
+                      {money(b.cost)}
+                    </span>
+                  }
+                />
+              ))}
+            </ListCard>
+          )}
+        </div>
+      ))}
+    </div>
+  );
 }
 
 /** Where a file shows in the browser: its own folder, else Documents for a bill scan, else the top. */

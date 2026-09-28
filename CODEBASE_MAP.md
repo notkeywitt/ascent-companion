@@ -328,7 +328,8 @@ Each page is a server component (`page.tsx`) that hands non-secret context to a
 - **Assistant:** `chat`.
 - **Office:** `office` (the Office dashboard — the "Office" JobTread job's open
   to-dos and its Files tab as a `?folder=` browser, read server-side via
-  `getOpenToDos` + `getJobFiles`; the to-dos are editable — `OfficeTodos.tsx` →
+  `getOpenToDos` + `getJobFiles`; the billing month's bills on Office and Shop
+  via `currentBillingPeriod` + `getJobBillsForMonth` + `resolveShopJobId`; the to-dos are editable — `OfficeTodos.tsx` →
   `/api/office/todos`; images show as a thumbnail grid,
   `OfficeImages.tsx`, opening in the bill scans' `InvoiceLightbox`; plus
   `OfficeLinks.tsx`: the launcher's Office area, which was HR. Admin's bottom
