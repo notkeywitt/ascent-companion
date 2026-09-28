@@ -89,11 +89,10 @@ const WrenchIcon = () => (
     <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
   </IconBase>
 );
-const BriefcaseIcon = () => (
+const ComputerIcon = () => (
   <IconBase>
-    <rect x="3" y="7" width="18" height="13" rx="2" />
-    <path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-    <path d="M3 13h18" />
+    <rect x="2" y="3" width="20" height="14" rx="2" />
+    <path d="M8 21h8M12 17v4" />
   </IconBase>
 );
 const ClipboardIcon = () => (
@@ -125,7 +124,7 @@ const HOME_TAB: Tab = { label: "Home", href: "/", view: "", Icon: HomeIcon };
 
 // ADMIN ONLY, a fifth tab after the three (owner's ask, 2026-09-28). Keyed on
 // the role, not the view: office holds the view too, and its bar stays at four.
-const OFFICE_TAB: Tab = { label: "Office", href: "/office", view: "office", Icon: BriefcaseIcon };
+const OFFICE_TAB: Tab = { label: "Office", href: "/office", view: "office", Icon: ComputerIcon };
 
 export function TabBar() {
   const pathname = usePathname();
