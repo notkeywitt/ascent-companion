@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { clearJobCostCaches, setBillStatus } from "@/lib/jobtread";
+import {
+  clearJobCostCaches,
+  getBillJournalSnapshot,
+  isExpenseDoc,
+  setBillFields,
+  setBillStatus,
+} from "@/lib/jobtread";
 import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
 import { journalBillWrite } from "@/lib/billJournal";
 import { qboLock } from "@/lib/qboLock";
@@ -35,6 +41,34 @@ export async function POST(req: NextRequest) {
   const locked = await qboLock(cfg, { docId });
   if (locked) return locked;
   try {
+    // "Push as" decides what QuickBooks records, and leaving draft is what sends
+    // the bill there. A bill can arrive here named Expense with "Push as" still
+    // Bill — made that way elsewhere, or before the toggle wrote both — and the
+    // bill page reads it as an Expense, so its toggle never re-saves it. Every
+    // approval passes through here, so the two fields are made to agree here.
+    if (status !== "draft") {
+      const snap = await getBillJournalSnapshot(cfg, docId);
+      if (snap && isExpenseDoc(snap) && (snap.qboDocumentType !== "purchase" || snap.name !== "Expense")) {
+        await journalBillWrite({
+          route: "/api/bill-status",
+          action: "bill.fields.set",
+          cfg,
+          docId,
+          field: "qboDocumentType",
+          priorField: "qboDocumentType",
+          attempted: "purchase",
+          run: async () => {
+            const { saved } = await setBillFields(cfg, docId, { name: "Expense", qboDocumentType: "purchase" });
+            // Refuse the approval rather than push an already-paid Expense as a payable Bill.
+            if (saved.qboDocumentType !== "purchase") {
+              throw new Error("JobTread did not take Push as Expense. The bill stays in draft.");
+            }
+            return saved;
+          },
+          after: (saved) => saved.qboDocumentType,
+        });
+      }
+    }
     // "approved" is the moment a bill leaves this app for QuickBooks, so this
     // row is the journal's record of when a cost entered the books, and who
     // sent it.

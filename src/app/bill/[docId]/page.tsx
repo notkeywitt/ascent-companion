@@ -1510,12 +1510,16 @@ function BillDetail() {
             <div className="inline-flex overflow-hidden rounded-lg border border-line-strong">
               {(["Bill", "Expense"] as const).map((t) => {
                 const on = (isExpense ? "Expense" : "Bill") === t;
+                const qbo = t === "Expense" ? "purchase" : "bill";
                 return (
                   <button
                     key={t}
                     type="button"
                     onClick={() => {
-                      if (!on) patchBill({ name: t, qboDocumentType: t === "Expense" ? "purchase" : "bill" });
+                      // "On" trusts either field, so a tap on it still writes when the two disagree.
+                      if (!on || header?.name !== t || header?.qboDocumentType !== qbo) {
+                        patchBill({ name: t, qboDocumentType: qbo });
+                      }
                     }}
                     className={
                       "px-3 py-1 text-sm " +
