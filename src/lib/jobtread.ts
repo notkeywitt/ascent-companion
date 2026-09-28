@@ -885,6 +885,10 @@ export interface JobFile {
   folder: string | null;
   createdAt: string;
   url: string | null;
+  /** JobTread's resized JPEG of an image (a PDF's page 1) — ~512px for a grid tile. */
+  thumbUrl: string | null;
+  /** The same at ~2048px, for the full-screen view. Far lighter than a phone photo's original. */
+  imageUrl: string | null;
   /** Set when the file came in on a bill or other document, not uploaded to the job. */
   document: { id: string } | null;
 }
@@ -912,6 +916,8 @@ export async function getJobFiles(cfg: PaveConfig, jobId: string): Promise<JobFi
             folder: {},
             createdAt: {},
             url: {},
+            thumbUrl: { _: "url", $: { size: 400 } },
+            imageUrl: { _: "url", $: { size: 2048 } },
             document: { id: {} },
           },
         },

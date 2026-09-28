@@ -17,6 +17,7 @@ import { getJobFiles, getOpenToDos, type JobFile } from "@/lib/jobtread";
 import { jtJobUrl, jtToDoUrl } from "@/lib/jtLinks";
 import { orgDay } from "@/lib/orgTime";
 import { dayLabel, shortDay } from "@/lib/timeEntryDates";
+import { OfficeImages } from "./OfficeImages";
 import { OfficeLinks } from "./OfficeLinks";
 
 /**
@@ -49,7 +50,10 @@ export default async function OfficePage({
 
   return (
     <main className="mx-auto max-w-2xl px-4 pb-24 pt-6">
-      <PageHeader title="Office" description="The Office job's to-dos and files, and the office pages." />
+      <PageHeader
+        title="Office"
+        description="The Office job's to-dos and files, and the office pages."
+      />
 
       {!hasGrant() ? (
         <Banner tone="error">JT_GRANT_KEY is not set. Add it to .env.local and restart.</Banner>
@@ -97,7 +101,9 @@ async function Todos() {
   try {
     todos = (await getOpenToDos(getPaveConfig())).filter((t) => t.jobId === OFFICE_JOB_ID);
   } catch (e) {
-    return <Banner tone="error">{e instanceof Error ? e.message : "Could not read to-dos."}</Banner>;
+    return (
+      <Banner tone="error">{e instanceof Error ? e.message : "Could not read to-dos."}</Banner>
+    );
   }
   if (todos.length === 0) return <EmptyState>No open to-dos on the Office job.</EmptyState>;
 
@@ -105,7 +111,9 @@ async function Todos() {
   const rows = todos
     .map((t) => ({ ...t, due: t.endDate || t.startDate || "" }))
     // Overdue and soonest first, undated last.
-    .sort((a, b) => (a.due || "9999").localeCompare(b.due || "9999") || a.name.localeCompare(b.name));
+    .sort(
+      (a, b) => (a.due || "9999").localeCompare(b.due || "9999") || a.name.localeCompare(b.name),
+    );
 
   return (
     <ListCard>
@@ -134,10 +142,13 @@ function pathOf(f: JobFile): string {
 }
 
 function sizeLabel(bytes: number): string {
-  return bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
+  return bytes >= 1024 * 1024
+    ? `${(bytes / 1024 / 1024).toFixed(1)} MB`
+    : `${Math.max(1, Math.round(bytes / 1024))} KB`;
 }
 
-const folderHref = (path: string) => (path ? `/office?folder=${encodeURIComponent(path)}` : "/office");
+const folderHref = (path: string) =>
+  path ? `/office?folder=${encodeURIComponent(path)}` : "/office";
 
 async function Files({ folder }: { folder: string }) {
   let all: JobFile[];
@@ -160,6 +171,9 @@ async function Files({ folder }: { folder: string }) {
     }
   }
   const crumbs = folder ? folder.split("/") : [];
+  // Images show in the app as a thumbnail grid; everything else links out.
+  const images = here.filter((f) => f.type.startsWith("image/"));
+  const others = here.filter((f) => !f.type.startsWith("image/"));
 
   return (
     <>
@@ -170,7 +184,9 @@ async function Files({ folder }: { folder: string }) {
           </Link>
           {crumbs.map((c, i) => (
             <span key={i} className="flex items-center gap-1">
-              <span aria-hidden className="text-neutral-400">/</span>
+              <span aria-hidden className="text-neutral-400">
+                /
+              </span>
               {i === crumbs.length - 1 ? (
                 <span className="font-semibold">{c}</span>
               ) : (
@@ -189,28 +205,33 @@ async function Files({ folder }: { folder: string }) {
       {subfolders.size === 0 && here.length === 0 ? (
         <EmptyState>{folder ? "This folder is empty." : "No files on the Office job."}</EmptyState>
       ) : (
-        <ListCard>
-          {[...subfolders]
-            .sort(([a], [b]) => a.localeCompare(b))
-            .map(([name, n]) => (
-              <ListRow
-                key={`d:${name}`}
-                href={folderHref(prefix + name)}
-                label={name}
-                desc={`Folder · ${n} file${n === 1 ? "" : "s"}`}
-              />
-            ))}
-          {here.map((f) => (
-            <ListRow
-              key={f.id}
-              href={f.url ?? undefined}
-              external
-              wrap
-              label={f.name}
-              desc={<MetaLine items={[shortDay(orgDay(f.createdAt)), sizeLabel(f.size)]} />}
-            />
-          ))}
-        </ListCard>
+        <div className="space-y-3">
+          {(subfolders.size > 0 || others.length > 0) && (
+            <ListCard>
+              {[...subfolders]
+                .sort(([a], [b]) => a.localeCompare(b))
+                .map(([name, n]) => (
+                  <ListRow
+                    key={`d:${name}`}
+                    href={folderHref(prefix + name)}
+                    label={name}
+                    desc={`Folder · ${n} file${n === 1 ? "" : "s"}`}
+                  />
+                ))}
+              {others.map((f) => (
+                <ListRow
+                  key={f.id}
+                  href={f.url ?? undefined}
+                  external
+                  wrap
+                  label={f.name}
+                  desc={<MetaLine items={[shortDay(orgDay(f.createdAt)), sizeLabel(f.size)]} />}
+                />
+              ))}
+            </ListCard>
+          )}
+          {images.length > 0 && <OfficeImages files={images} />}
+        </div>
       )}
     </>
   );

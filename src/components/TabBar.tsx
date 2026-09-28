@@ -89,6 +89,13 @@ const WrenchIcon = () => (
     <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
   </IconBase>
 );
+const BriefcaseIcon = () => (
+  <IconBase>
+    <rect x="3" y="7" width="18" height="13" rx="2" />
+    <path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+    <path d="M3 13h18" />
+  </IconBase>
+);
 const ClipboardIcon = () => (
   <IconBase>
     <rect x="8" y="3" width="8" height="4" rx="1" />
@@ -103,7 +110,8 @@ const ClipboardIcon = () => (
  * nothing else needs touching.
  *
  * As it stands: office/admin get Tracking Sheets · Time · Miles, and a field or lead
- * user (who has no `recode` view) gets Time · Miles · Tools.
+ * user (who has no `recode` view) gets Time · Miles · Tools. Admin adds Office
+ * (OFFICE_TAB below) as a fifth.
  */
 const TAB_CANDIDATES: Tab[] = [
   { label: "Tracking Sheets", href: "/trackingsheet", view: "recode", Icon: BanknoteIcon },
@@ -114,6 +122,10 @@ const TAB_CANDIDATES: Tab[] = [
 ];
 
 const HOME_TAB: Tab = { label: "Home", href: "/", view: "", Icon: HomeIcon };
+
+// ADMIN ONLY, a fifth tab after the three (owner's ask, 2026-09-28). Keyed on
+// the role, not the view: office holds the view too, and its bar stays at four.
+const OFFICE_TAB: Tab = { label: "Office", href: "/office", view: "office", Icon: BriefcaseIcon };
 
 export function TabBar() {
   const pathname = usePathname();
@@ -133,7 +145,11 @@ export function TabBar() {
   // (TILE_LAUNCHERS.field is Miles · Time · Tools), so it goes there.
   if (access.role === "field" && pathname === "/") return null;
 
-  const tabs = [HOME_TAB, ...TAB_CANDIDATES.filter((t) => access.can(t.view)).slice(0, 3)];
+  const tabs = [
+    HOME_TAB,
+    ...TAB_CANDIDATES.filter((t) => access.can(t.view)).slice(0, 3),
+    ...(access.role === "admin" && access.can(OFFICE_TAB.view) ? [OFFICE_TAB] : []),
+  ];
   // One tab is just Home — a bar with a single destination is decoration, and it
   // would cost every page 56px to say nothing.
   if (tabs.length < 2) return null;

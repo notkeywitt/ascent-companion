@@ -327,8 +327,10 @@ Each page is a server component (`page.tsx`) that hands non-secret context to a
 - **Assistant:** `chat`.
 - **Office:** `office` (the Office dashboard — the "Office" JobTread job's open
   to-dos and its Files tab as a `?folder=` browser, read server-side via
-  `getOpenToDos` + `getJobFiles`, plus `OfficeLinks.tsx`: the launcher's Office
-  area, which was HR), `employees`, `leads`, `labor-import`, `labor-rates`,
+  `getOpenToDos` + `getJobFiles`; images show as a thumbnail grid,
+  `OfficeImages.tsx`, opening in the bill scans' `InvoiceLightbox`; plus
+  `OfficeLinks.tsx`: the launcher's Office area, which was HR. Admin's bottom
+  tab bar carries it as a fifth tab — `OFFICE_TAB` in `TabBar.tsx`), `employees`, `leads`, `labor-import`, `labor-rates`,
   `time-sync`, `notices` (post an announcement to the team — banner or popup,
   targeted at groups and/or named people, now or on a schedule; office + admin,
   and the same panel is Admin → Notices).
