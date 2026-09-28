@@ -45,14 +45,21 @@ const leafCost = (l: BudgetLeaf) => (l.quantity ?? 1) * (l.unitCost ?? 0);
 
 const FIELD: Record<Change["field"], string> = {
   name: "Name",
+  description: "Description",
   quantity: "Qty",
   unitCost: "Unit cost",
   unitPrice: "Unit price",
   costType: "Type",
   unit: "Unit",
 };
+// A description can run to paragraphs; the row shows its opening words.
+const clip = (s: string) => (s.length > 60 ? s.slice(0, 57).trimEnd() + "…" : s);
 const fmt = (c: Change, v: Change["before"]) =>
-  v == null || v === "" ? "—" : c.field === "unitCost" || c.field === "unitPrice" ? money(Number(v)) : String(v);
+  v == null || v === ""
+    ? "—"
+    : c.field === "unitCost" || c.field === "unitPrice"
+      ? money(Number(v))
+      : clip(String(v).replace(/\s+/g, " "));
 
 async function post(body: Record<string, unknown>) {
   const r = await fetch("/api/budget-import/jobtread", {

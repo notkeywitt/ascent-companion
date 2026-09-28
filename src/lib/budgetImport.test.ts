@@ -149,6 +149,32 @@ describe("planBudgetImport", () => {
   });
 });
 
+describe("description from the sheet's notes", () => {
+  const one = (sheetNotes: string, jt: string | null) =>
+    planBudgetImport(
+      [item({ name: "01 31 30 Consumables", codeNumber: "01 31 30", unitCost: 3000, description: sheetNotes })],
+      [leaf({ id: "c", name: "01 31 30 Consumables", code: "01 31 30", costType: "Allowance", unitCost: 3000, unitPrice: 3540, description: jt })],
+      18,
+      TT,
+    ).rows[0];
+
+  it("writes the sheet's notes onto an item that has none", () => {
+    const r = one("Allowance for PPE\nVendor: numbers from Bison", null);
+    expect(r.action === "update" && r.changes).toEqual([
+      { field: "description", before: null, after: "Allowance for PPE\nVendor: numbers from Bison" },
+    ]);
+  });
+
+  it("replaces a different description, and ignores line endings and edge spaces", () => {
+    expect(one("New quote 9.9.26", "Old quote").action).toBe("update");
+    expect(one("Allowance for PPE\nROM", "  Allowance for PPE\r\nROM ").action).toBe("unchanged");
+  });
+
+  it("never clears a description when the sheet row has no notes", () => {
+    expect(one("", "Typed into JobTread by the office").action).toBe("unchanged");
+  });
+});
+
 describe("resolveChoices", () => {
   const plan = planBudgetImport(sheet, leaves, 18, TT);
   const key = plan.rows.find((r) => r.action === "choose")!.key;

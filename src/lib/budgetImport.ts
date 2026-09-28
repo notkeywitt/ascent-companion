@@ -16,8 +16,9 @@
  * Whatever is left is a "choose" row: the office picks which JobTread item on
  * that code the sheet item updates, or creates a new one. With nothing left on
  * the JobTread side, the sheet item is created. A matched item takes the sheet's
- * name, so every later re-sync pairs on pass 1. Its description is the
- * office's and is never overwritten.
+ * name, so every later re-sync pairs on pass 1. It also takes the sheet's
+ * notes as its description (owner's call, 2026-09-28) — but a row with no notes
+ * never clears a description someone typed into JobTread.
  *
  * Cost comes before cost type because of job 002's Mobilization: a $4,160 line
  * typed Other beside a $0 Labor placeholder. Pairing on type updated the
@@ -62,6 +63,7 @@ export interface BudgetLeaf {
   unitCost: number | null;
   unitPrice: number | null;
   timeEntries: number;
+  description?: string | null;
   /** Sits under the job's "Selections" group — a client pick, not a budget line. */
   selection?: boolean;
   groupId?: string | null;
@@ -73,7 +75,7 @@ export interface BudgetGroup {
   parentId: string | null;
 }
 
-export type ChangeField = "name" | "quantity" | "unitCost" | "unitPrice" | "costType" | "unit";
+export type ChangeField = "name" | "description" | "quantity" | "unitCost" | "unitPrice" | "costType" | "unit";
 
 export interface Change {
   field: ChangeField;
@@ -120,6 +122,11 @@ function pairRow(
 ): PlanRow {
   const changes: Change[] = [];
   if (s.name !== l.name) changes.push({ field: "name", before: l.name, after: s.name });
+  // Line endings and edge spaces are not a change; a blank sheet note never clears JobTread's.
+  const text = (v: string | null | undefined) => (v ?? "").replace(/\r\n?/g, "\n").trim();
+  if (text(s.description) && text(s.description) !== text(l.description)) {
+    changes.push({ field: "description", before: l.description ?? null, after: text(s.description) });
+  }
   const qty = s.quantity === "" ? null : s.quantity;
   // A lump sum at quantity 1 costs the same as one at no quantity.
   if (!same(l.quantity, qty) && !(qty === null && l.quantity === 1)) {
@@ -236,8 +243,8 @@ export function resolveChoices(
 export function planHash(sheet: SheetItem[], leaves: BudgetLeaf[], markupPct: number): string {
   const l = [...leaves]
     .sort((a, b) => a.id.localeCompare(b.id))
-    .map(({ id, name, code, costType, unit, quantity, unitCost, unitPrice, selection }) =>
-      [id, name, code, costType, unit, quantity, unitCost, unitPrice, !!selection]);
+    .map(({ id, name, description, code, costType, unit, quantity, unitCost, unitPrice, selection }) =>
+      [id, name, description ?? null, code, costType, unit, quantity, unitCost, unitPrice, !!selection]);
   return createHash("sha256").update(JSON.stringify({ sheet, l, markupPct })).digest("hex").slice(0, 16);
 }
 
@@ -322,7 +329,7 @@ export async function readJobBudget(
             $: { ...args, where: NO_DOCUMENT },
             nextPage: {},
             nodes: {
-              id: {}, name: {}, quantity: {}, unitCost: {}, unitPrice: {},
+              id: {}, name: {}, description: {}, quantity: {}, unitCost: {}, unitPrice: {},
               costCode: { number: {} }, costType: { name: {} }, unit: { name: {} },
               costGroup: { id: {} }, timeEntries: { count: {} },
             },
@@ -357,6 +364,7 @@ export async function readJobBudget(
     leaves: items.map((n) => ({
       id: n.id,
       name: n.name ?? "",
+      description: n.description ?? null,
       code: n.costCode?.number ?? "",
       costType: n.costType?.name ?? "",
       unit: n.unit?.name ?? "",
