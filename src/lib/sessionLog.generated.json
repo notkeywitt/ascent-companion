@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-28T18:01:38Z",
+  "generatedAt": "2026-09-28T18:03:17Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,7 +8,7 @@
       "branch": "claude/budget-import",
       "status": "shipped",
       "started": "2026-09-24T15:47:03Z",
-      "updated": "2026-09-28T18:01:38Z",
+      "updated": "2026-09-28T18:03:16Z",
       "goal": "Tracking sheet estimate to JobTread budget import CSV: /budget-import page over appscript getBudgetImportCsv",
       "next": "Owner ok to push the bill-status push-as fix (npm run ship). Then approve draft #412 Precision Fabricators and confirm JobTread shows Push as Expense.",
       "commits": [
@@ -151,6 +151,13 @@
           "sha": "639df46",
           "subject": "companion: approving an expense sets qbo push-as expense",
           "files": "src/app/api/bill-status/route.ts, src/app/bill/[docId]/page.tsx"
+        },
+        {
+          "date": "2026-09-28",
+          "time": "11:03",
+          "sha": "b2b7537",
+          "subject": "companion: use a computer icon for the admin office tab",
+          "files": "src/components/TabBar.tsx"
         }
       ]
     },
