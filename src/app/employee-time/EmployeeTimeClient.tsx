@@ -2533,27 +2533,51 @@ export function EmployeeTimeClient({
           )}
         </Card>
 
-        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <div>
-            <Label htmlFor="et-start">Start</Label>
-            <Input
-              id="et-start"
-              type="datetime-local"
-              value={startTime}
-              onChange={(e) => setStartTime(e.target.value)}
-            />
+        <Card pad={false} className="mt-3 overflow-hidden">
+          <div className="flex min-h-[56px] items-center justify-between gap-3 px-3 py-2.5">
+            <span className="text-[13px] text-neutral-500">
+              Start
+            </span>
+            <span className="flex items-center gap-2">
+              <ChipInput
+                type="date"
+                value={startTime.slice(0, 10)}
+                display={dayChipLabel(startTime.slice(0, 10))}
+                ariaLabel="Start date"
+                onChange={(d) => d && setStartTime(`${d}T${startTime.slice(11, 16)}`)}
+              />
+              <ChipInput
+                type="time"
+                value={startTime.slice(11, 16)}
+                display={fmt12h(startTime.slice(11, 16))}
+                ariaLabel="Start time"
+                onChange={(t) => t && setStartTime(`${startTime.slice(0, 10)}T${t.slice(0, 5)}`)}
+              />
+            </span>
           </div>
-          <div>
-            <Label htmlFor="et-end">Stop</Label>
-            <Input
-              id="et-end"
-              type="datetime-local"
-              value={endTime}
-              onChange={(e) => setEndTime(e.target.value)}
-            />
+          <div className="flex min-h-[56px] items-center justify-between gap-3 border-t border-line-soft px-3 py-2.5">
+            <span className="text-[13px] text-neutral-500">
+              Stop
+              {duration ? <span className="ml-2 text-neutral-400">{duration}</span> : null}
+            </span>
+            <span className="flex items-center gap-2">
+              <ChipInput
+                type="date"
+                value={endTime.slice(0, 10)}
+                display={dayChipLabel(endTime.slice(0, 10))}
+                ariaLabel="Stop date"
+                onChange={(d) => d && setEndTime(`${d}T${endTime.slice(11, 16)}`)}
+              />
+              <ChipInput
+                type="time"
+                value={endTime.slice(11, 16)}
+                display={fmt12h(endTime.slice(11, 16))}
+                ariaLabel="Stop time"
+                onChange={(t) => t && setEndTime(`${endTime.slice(0, 10)}T${t.slice(0, 5)}`)}
+              />
+            </span>
           </div>
-        </div>
-        {duration && <p className="mt-1 text-xs text-neutral-500">{duration}</p>}
+        </Card>
 
         <div className="mt-3">
           <Label htmlFor="et-note">Note (required)</Label>
