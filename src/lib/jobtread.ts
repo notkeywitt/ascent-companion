@@ -875,6 +875,53 @@ export async function getBillFiles(cfg: PaveConfig, docId: string): Promise<Bill
   }
 }
 
+/** One file on a job's Files tab — what the Office dashboard's browser lists. */
+export interface JobFile {
+  id: string;
+  name: string;
+  type: string;
+  size: number;
+  /** Path inside the job, "/"-separated; null at the top level. */
+  folder: string | null;
+  createdAt: string;
+  url: string | null;
+  /** Set when the file came in on a bill or other document, not uploaded to the job. */
+  document: { id: string } | null;
+}
+
+/**
+ * Every file on a job, newest first. `job.files` includes the files attached to
+ * the job's documents (bill scans) as well as the ones uploaded to it; the
+ * `document` link tells them apart. Throws — the page shows the error.
+ */
+export async function getJobFiles(cfg: PaveConfig, jobId: string): Promise<JobFile[]> {
+  const rows = await pageAll<JobFile>(cfg, {
+    label: "job.files",
+    query: (args) => ({
+      job: {
+        $: { id: jobId },
+        id: {},
+        files: {
+          $: args,
+          nextPage: {},
+          nodes: {
+            id: {},
+            name: {},
+            type: {},
+            size: {},
+            folder: {},
+            createdAt: {},
+            url: {},
+            document: { id: {} },
+          },
+        },
+      },
+    }),
+    pick: (r) => r?.job?.files,
+  });
+  return rows.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
 /**
  * WRITE — set a bill's issueDate (used to stamp its billing month as the last day
  * of that month, matching the Apps Script convention). Never touches lineItems

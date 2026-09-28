@@ -44,7 +44,7 @@ export interface PageEntry {
 export const PAGE_GROUPS: { id: string; title: string }[] = [
   { id: "mywork", title: "My Work" },
   { id: "financials", title: "Financials" },
-  { id: "hr", title: "HR" },
+  { id: "hr", title: "Office" },
   { id: "utilities", title: "Utilities" },
   { id: "admin", title: "Admin" },
 ];

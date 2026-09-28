@@ -325,7 +325,10 @@ Each page is a server component (`page.tsx`) that hands non-secret context to a
   everything else that role can open; the lists are `TILE_LAUNCHERS` in
   `src/lib/nav.ts`).
 - **Assistant:** `chat`.
-- **Office:** `employees`, `leads`, `labor-import`, `labor-rates`,
+- **Office:** `office` (the Office dashboard — the "Office" JobTread job's open
+  to-dos and its Files tab as a `?folder=` browser, read server-side via
+  `getOpenToDos` + `getJobFiles`, plus `OfficeLinks.tsx`: the launcher's Office
+  area, which was HR), `employees`, `leads`, `labor-import`, `labor-rates`,
   `time-sync`, `notices` (post an announcement to the team — banner or popup,
   targeted at groups and/or named people, now or on a schedule; office + admin,
   and the same panel is Admin → Notices).

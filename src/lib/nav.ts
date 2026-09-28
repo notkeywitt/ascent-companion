@@ -67,10 +67,13 @@ export const AREAS: Area[] = [
     ],
   },
   {
+    // Was "HR". The id stays "hr": saved home layouts, the pages menu and the
+    // copy registry all key on it.
     id: "hr",
-    title: "HR",
-    blurb: "Roster, labor, and safety.",
+    title: "Office",
+    blurb: "The Office job's to-dos and files, the roster, labor, and safety.",
     dests: [
+      { label: "Office Dashboard", href: "/office", desc: "The Office job's to-dos and files, and every office page", view: "office" },
       { label: "Leads", href: "/leads", desc: "New leads, who's overdue, who's gone quiet", view: "leads" },
       { label: "Employees", href: "/employees", desc: "The Project Database roster", view: "employees" },
       { label: "Labor Import", href: "/labor-import", desc: "QuickBooks labor → JobTread CSV", view: "labor-import" },

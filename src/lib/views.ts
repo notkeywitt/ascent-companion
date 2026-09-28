@@ -301,6 +301,9 @@ export const VIEWS: ViewDef[] = [
   // Assistant
   { id: "chat", label: "Assistant", group: "Assistant", paths: ["/chat"] },
   // Office
+  // The Office dashboard — the "Office" JobTread job's to-dos and files, read
+  // live on the server, plus links to the office pages. Read-only, no API route.
+  { id: "office", label: "Office Dashboard", group: "Office", paths: ["/office"] },
   // The email-blast API is listed here so it inherits the office/admin gate; the
   // page-less /api/employees (read/edit) stays ungated because /safety-meeting
   // (a field view) reads the Active roster through it.
@@ -502,7 +505,7 @@ const ADMIN_MENU: string[] = [
   // note above for why dropping the view is what removes the card.
   "digest",
 ];
-// Office gets Financials, HR, and Utilities ("everything else") — i.e. every
+// Office gets Financials, Office (was HR), and Utilities ("everything else") — i.e. every
 // view except the admin consoles, including the header Sync button.
 const OFFICE_VIEWS: string[] = ALL_VIEW_IDS.filter((id) => !ADMIN_MENU.includes(id));
 
