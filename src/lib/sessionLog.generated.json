@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-28T18:57:05Z",
+  "generatedAt": "2026-09-28T21:55:09Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "claude/budget-import",
       "status": "shipped",
       "started": "2026-09-24T15:47:03Z",
-      "updated": "2026-09-28T18:57:05Z",
+      "updated": "2026-09-28T21:55:09Z",
       "goal": "Tracking sheet estimate to JobTread budget import CSV: /budget-import page over appscript getBudgetImportCsv",
-      "next": "open /vendors, tap Add vendor, create a real vendor (name + email), confirm it opens with its detail card and appears in JobTread; watch how long Sync Vendors takes",
+      "next": "Owner: on /trackingsheet at desktop width, open a draft bill, tap Expense, confirm JobTread shows Push as Expense; confirm the coding panel scrolls with the page.",
       "commits": [
         {
           "date": "2026-09-24",
@@ -193,6 +193,13 @@
           "sha": "0624276",
           "subject": "companion: list the billing month's office and shop bills on the office dashboard",
           "files": "CODEBASE_MAP.md, src/app/office/page.tsx"
+        },
+        {
+          "date": "2026-09-28",
+          "time": "14:55",
+          "sha": "e0be993",
+          "subject": "companion: bill/expense toggle on the tracking sheet, coding panel scrolls with the page",
+          "files": "src/app/trackingsheet/BillCodingCard.tsx, src/app/trackingsheet/Board.tsx, src/lib/jobtread.ts"
         }
       ]
     },
