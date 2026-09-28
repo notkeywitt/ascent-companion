@@ -4,9 +4,12 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { BillStatusBadge } from "@/components/BillStatusBadge";
 import {
+  Banner,
+  Card,
   EmptyState,
   FilterChip,
   Input,
+  Label,
   ListCard,
   ListRow,
   Loading,
@@ -219,10 +222,152 @@ function VendorDetailCard({
       {error && <p className="text-sm text-red-600">{error}</p>}
 
       {typed.length > 0 && (
-        <button type="button" className={btn("primary", "md")} onClick={() => save()} disabled={saving}>
+        <button
+          type="button"
+          className={btn("primary", "md")}
+          onClick={() => save()}
+          disabled={saving}
+        >
           {saving ? "Saving…" : `Save to JobTread`}
         </button>
       )}
+    </div>
+  );
+}
+
+/**
+ * ADD VENDOR — a name, and the address its invoices come from.
+ *
+ * It posts to /api/vendor-create, which the stuck-vendor popup already uses:
+ * that route refuses a name JobTread has under any spelling, files the email on
+ * the new account, and runs Sync Vendors so the Vendors SHEET learns the account
+ * id (without which a Gmail-captured bill for this vendor still cannot push).
+ *
+ * Creating an account is NOT reversible from this app — a duplicate has to be
+ * merged by hand in JobTread — so the dialog asks for the two fields the route
+ * writes and nothing else. Phone, address and bill type are filled in on the
+ * vendor's own card, which opens as soon as this closes.
+ */
+function AddVendorDialog({
+  onClose,
+  onCreated,
+}: {
+  onClose: () => void;
+  onCreated: (v: VendorRef) => void;
+}) {
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  // The vendor was created but Sync Vendors failed. The account exists, so the
+  // dialog reports it and still hands the vendor back when it closes.
+  const [warned, setWarned] = useState<{ vendor: VendorRef; warning: string } | null>(null);
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key !== "Escape" || busy) return;
+      if (warned) onCreated(warned.vendor);
+      else onClose();
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [busy, warned, onClose, onCreated]);
+
+  async function create() {
+    if (busy || !name.trim()) return;
+    setBusy(true);
+    setError("");
+    try {
+      const res = await fetch("/api/vendor-create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: name.trim(), email: email.trim() }),
+      });
+      const json = await res.json();
+      if (!res.ok || json?.error) throw new Error(json?.error || "Could not create the vendor.");
+      const vendor = {
+        id: String(json.vendor?.id ?? ""),
+        name: String(json.vendor?.name ?? name.trim()),
+      };
+      // A Sync Vendors failure is a warning, not a failure: the account exists.
+      if (json.warning) {
+        setWarned({ vendor, warning: String(json.warning) });
+        setBusy(false);
+        return;
+      }
+      onCreated(vendor);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Network error");
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Add vendor"
+      onClick={() => !busy && (warned ? onCreated(warned.vendor) : onClose())}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-md pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:pb-0"
+      >
+        <Card className="space-y-4">
+          <SectionHeading>Add vendor</SectionHeading>
+
+          <div className="space-y-1">
+            <Label htmlFor="add-vendor-name">Vendor name</Label>
+            <Input
+              id="add-vendor-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Acme Supply"
+              autoFocus
+              disabled={busy}
+            />
+          </div>
+
+          <div className="space-y-1">
+            <Label htmlFor="add-vendor-email">Email (optional)</Label>
+            <Input
+              id="add-vendor-email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="billing@acmesupply.com"
+              disabled={busy}
+            />
+            <p className="text-xs text-neutral-500">
+              The address their invoices arrive from. Phone, address and bill type come next, on the
+              vendor&apos;s own card.
+            </p>
+          </div>
+
+          {error && <Banner tone="error">{error}</Banner>}
+          {warned && <Banner tone="warning">{warned.warning}</Banner>}
+
+          <div className="flex gap-2">
+            <button
+              type="button"
+              className={btn("primary", "md")}
+              onClick={create}
+              disabled={busy || !name.trim() || warned !== null}
+            >
+              {busy ? "Creating…" : "Create in JobTread"}
+            </button>
+            <button
+              type="button"
+              className={btn("secondary", "md")}
+              onClick={() => (warned ? onCreated(warned.vendor) : onClose())}
+              disabled={busy}
+            >
+              {warned ? "Done" : "Cancel"}
+            </button>
+          </div>
+        </Card>
+      </div>
     </div>
   );
 }
@@ -256,6 +401,8 @@ function Vendors() {
   const [detail, setDetail] = useState<VendorDetail | null>(null);
   const [billsLoading, setBillsLoading] = useState(false);
   const [billsError, setBillsError] = useState("");
+
+  const [adding, setAdding] = useState(false);
 
   const [numberQuery, setNumberQuery] = useState(initialNumber);
   const [numberMatches, setNumberMatches] = useState<VendorBillMatch[] | null>(null);
@@ -348,12 +495,28 @@ function Vendors() {
 
   const total = bills.reduce((s, b) => s + b.cost, 0);
 
+  /** A new vendor joins the list and opens straight away, so its email, phone,
+   *  address and bill type can be filled in on its own card. */
+  function vendorCreated(v: VendorRef) {
+    setAdding(false);
+    if (!v.id) return;
+    setVendors((prev) => [...prev.filter((x) => x.id !== v.id), v]);
+    loadVendorBills(v);
+  }
+
   return (
     <main className="mx-auto max-w-xl px-4 pb-24 pt-6">
       <PageHeader
         title="Vendors"
         description="Pick a vendor to see every bill — job, date, amount, status."
+        actions={
+          <button type="button" className={btn("secondary", "md")} onClick={() => setAdding(true)}>
+            Add vendor
+          </button>
+        }
       />
+
+      {adding && <AddVendorDialog onClose={() => setAdding(false)} onCreated={vendorCreated} />}
 
       {selected ? (
         <div className="space-y-4">
@@ -480,7 +643,9 @@ function Vendors() {
                       : `${matches.length} matches`}
                 </SectionHeading>
                 {matches.length === 0 ? (
-                  <EmptyState>{q ? `Nothing matches “${query.trim()}”.` : "No vendors in JobTread."}</EmptyState>
+                  <EmptyState>
+                    {q ? `Nothing matches “${query.trim()}”.` : "No vendors in JobTread."}
+                  </EmptyState>
                 ) : (
                   <ListCard>
                     {matches.map((v) => (
@@ -491,7 +656,6 @@ function Vendors() {
               </div>
             )}
           </div>
-
         </div>
       )}
     </main>
