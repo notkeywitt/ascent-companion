@@ -13,12 +13,13 @@ import {
   SectionHeading,
 } from "@/components/ui";
 import { getPaveConfig, hasGrant } from "@/lib/config";
-import { getJobFiles, getOpenToDos, type JobFile } from "@/lib/jobtread";
-import { jtJobUrl, jtToDoUrl } from "@/lib/jtLinks";
+import { OFFICE_JOB_ID, getJobFiles, getOpenToDos, type JobFile } from "@/lib/jobtread";
+import { jtJobUrl } from "@/lib/jtLinks";
 import { orgDay } from "@/lib/orgTime";
-import { dayLabel, shortDay } from "@/lib/timeEntryDates";
+import { shortDay } from "@/lib/timeEntryDates";
 import { OfficeImages } from "./OfficeImages";
 import { OfficeLinks } from "./OfficeLinks";
+import { OfficeTodos, type OfficeTodo } from "./OfficeTodos";
 
 /**
  * The Office dashboard — the "Office" overhead job in JobTread (job 007), read
@@ -27,12 +28,9 @@ import { OfficeLinks } from "./OfficeLinks";
  *
  * Server component. The open folder is the `?folder=` param, so moving through
  * folders is plain navigation. Each JobTread read streams in its own <Suspense>.
- * Read-only — nothing here writes to JobTread.
+ * The to-dos are editable (OfficeTodos.tsx → /api/office/todos); the files are read-only.
  * Gated by the "office" view in src/lib/views.ts (office + admin).
  */
-
-/** The Office job. Same id as getLeaveConfig().jobId and appscript DEFAULT_JOB_ID. */
-const OFFICE_JOB_ID = "22PXevQbM9FQ";
 
 /**
  * Files attached to a bill or other document, with no folder of their own, sit
@@ -105,35 +103,27 @@ async function Todos() {
       <Banner tone="error">{e instanceof Error ? e.message : "Could not read to-dos."}</Banner>
     );
   }
-  if (todos.length === 0) return <EmptyState>No open to-dos on the Office job.</EmptyState>;
 
   const today = orgDay(new Date().toISOString());
-  const rows = todos
-    .map((t) => ({ ...t, due: t.endDate || t.startDate || "" }))
+  const rows: OfficeTodo[] = todos
+    .map((t) => {
+      const due = t.endDate || t.startDate || "";
+      return {
+        id: t.id,
+        name: t.name,
+        description: t.description ?? "",
+        due,
+        overdue: Boolean(due && due < today),
+        assignees: t.assignees,
+        assigneeIds: t.assigneeIds,
+      };
+    })
     // Overdue and soonest first, undated last.
     .sort(
       (a, b) => (a.due || "9999").localeCompare(b.due || "9999") || a.name.localeCompare(b.name),
     );
 
-  return (
-    <ListCard>
-      {rows.map((t) => (
-        <ListRow
-          key={t.id}
-          href={jtToDoUrl(t.id)}
-          external
-          wrap
-          label={t.name}
-          desc={
-            <MetaLine
-              items={[t.due && `Due ${dayLabel(t.due)}`, t.assignees.join(", ") || "Unassigned"]}
-            />
-          }
-          badge={t.due && t.due < today ? <Chip tone="danger">Overdue</Chip> : undefined}
-        />
-      ))}
-    </ListCard>
-  );
+  return <OfficeTodos todos={rows} />;
 }
 
 /** Where a file shows in the browser: its own folder, else Documents for a bill scan, else the top. */

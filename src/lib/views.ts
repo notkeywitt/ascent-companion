@@ -302,8 +302,10 @@ export const VIEWS: ViewDef[] = [
   { id: "chat", label: "Assistant", group: "Assistant", paths: ["/chat"] },
   // Office
   // The Office dashboard — the "Office" JobTread job's to-dos and files, read
-  // live on the server, plus links to the office pages. Read-only, no API route.
-  { id: "office", label: "Office Dashboard", group: "Office", paths: ["/office"] },
+  // live on the server, plus links to the office pages. /api/office carries its
+  // to-do WRITES (create, edit, delete), so it rides the same gate: a role
+  // without the page must not reach them by calling the route directly.
+  { id: "office", label: "Office Dashboard", group: "Office", paths: ["/office", "/api/office"] },
   // The email-blast API is listed here so it inherits the office/admin gate; the
   // page-less /api/employees (read/edit) stays ungated because /safety-meeting
   // (a field view) reads the Active roster through it.

@@ -7065,6 +7065,64 @@ export async function createToDo(cfg: PaveConfig, todo: NewToDo): Promise<{ id: 
   return { id: String(id) };
 }
 
+/** The "Office" overhead job (job 007) — the Office dashboard's to-dos and files. */
+export const OFFICE_JOB_ID = "22PXevQbM9FQ";
+
+/** A change to one to-do. An omitted field is left alone; `null` clears it. */
+export interface ToDoPatch {
+  name?: string;
+  description?: string | null;
+  /** Org-local "YYYY-MM-DD" → `endDate`. `null` clears both endDate and startDate,
+   *  because a to-do's due date reads as endDate, else startDate. */
+  dueDate?: string | null;
+  /** REPLACES the whole assignee set. Membership ids, as for `createToDo`. */
+  membershipIds?: string[];
+  /** true → progress 1 (JobTread's done); false → progress 0 (open again). */
+  done?: boolean;
+}
+
+/** Which job a to-do sits on, or null when the id is not a to-do. */
+export async function getToDoJobId(cfg: PaveConfig, id: string): Promise<string | null | undefined> {
+  const r = await pave(cfg, { task: { $: { id }, id: {}, isToDo: {}, job: { id: {} } } });
+  if (!r?.task?.isToDo) return undefined;
+  return r.task.job?.id ?? null;
+}
+
+/**
+ * WRITE — edit one JobTread to-do (`updateTask`). Input shape confirmed by
+ * introspecting `root.updateTask.$` 2026-09-28 (progress 0–1, endDate/description
+ * nullable); the write itself is NOT live-probed. Callers gate behind
+ * `writesEnabled()` and check the to-do's job first.
+ */
+export async function updateToDo(cfg: PaveConfig, id: string, patch: ToDoPatch): Promise<void> {
+  const args: Record<string, unknown> = { id };
+  if (patch.name !== undefined) {
+    const name = patch.name.trim();
+    if (!name) throw new Error("A to-do needs a name.");
+    args.name = name;
+  }
+  if (patch.description !== undefined) {
+    args.description = (patch.description ?? "").trim().slice(0, 4096) || null;
+  }
+  if (patch.dueDate !== undefined) {
+    args.endDate = patch.dueDate || null;
+    if (!patch.dueDate) args.startDate = null;
+  }
+  if (patch.membershipIds !== undefined) {
+    if (patch.membershipIds.length > 20) {
+      throw new Error(`A to-do can be assigned to at most 20 people (got ${patch.membershipIds.length}).`);
+    }
+    args.assignedMembershipIds = patch.membershipIds;
+  }
+  if (patch.done !== undefined) args.progress = patch.done ? 1 : 0;
+  await pave(cfg, { updateTask: { $: args } });
+}
+
+/** WRITE — delete one JobTread to-do (`deleteTask`). Same gates as `updateToDo`. */
+export async function deleteToDo(cfg: PaveConfig, id: string): Promise<void> {
+  await pave(cfg, { deleteTask: { $: { id } } });
+}
+
 // ---------------------------------------------------------------------------
 // DOCUMENT ACCESS  (the "Document Access" list on a JobTread document)
 // ---------------------------------------------------------------------------
