@@ -138,6 +138,8 @@ interface BillRef {
    *  which the 88 80 00 model forbids, so a Sync turns it off. */
   recordsTax: boolean;
   qboIsIgnored: boolean;
+  /** QuickBooks "Push as": "bill" | "purchase" (Expense) | null (Bill). */
+  qboDocumentType: string | null;
   /** Paid-in-QuickBooks figures JobTread computes — read as a pair, see billPaidState. */
   amountPaid: number;
   balance: number;
@@ -407,6 +409,13 @@ export function Board() {
   /** The merge waiting for Save — see combineRows. */
   const [combinePending, setCombinePending] = useState<CombineRequest | null>(null);
   const [openDocId, setOpenDocId] = useState<string | null>(null);
+  // The coding column scrolls with the page, so a bill opened from further down
+  // the list would render above the viewport. Bring the column's top into view.
+  const codingColRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const el = codingColRef.current;
+    if (openDocId && el && el.getBoundingClientRect().top < 0) el.scrollIntoView({ block: "start" });
+  }, [openDocId]);
   const [mode, setMode] = useState<"bill" | "code" | "summary">("bill");
   /**
    * The client-facing billing summary for this job and month, from the SAME
@@ -1302,7 +1311,8 @@ export function Board() {
   // Mirrors approveBill() on the bill detail page: a Bill is a payable (draft →
   // pending, "approved for payment"); an Expense is already paid (draft →
   // approved, "record payment").
-  const approvalTarget = (b: BillRef) => (b.name === "Expense" ? "approved" : "pending");
+  const approvalTarget = (b: BillRef) =>
+    b.name === "Expense" || b.qboDocumentType === "purchase" ? "approved" : "pending";
 
   // Every time entry counts toward the month's labor, approved or not — each
   // row is tagged with its own approval state so nothing is hidden. The rail's
@@ -1605,6 +1615,7 @@ export function Board() {
   const [deleteLineMsg, setDeleteLineMsg] = useState("");
   const [monthSaving, setMonthSaving] = useState(false);
   const [dueDateSaving, setDueDateSaving] = useState(false);
+  const [billTypeSaving, setBillTypeSaving] = useState(false);
   const [filingMsg, setFilingMsg] = useState("");
   // Vendor Bill Number (JobTread externalId) editor for the open bill. Local draft
   // synced from the bill; committed on blur so we don't write on every keystroke.
@@ -1952,6 +1963,36 @@ export function Board() {
     }
   };
 
+  /**
+   * Set the bill's type — Bill or Expense. The route writes the name AND
+   * QuickBooks' "Push as" together, and makes it the vendor's default. Writes
+   * straight away, like the due date: it moves no money on this board.
+   */
+  const setBillType = async (t: "Bill" | "Expense") => {
+    if (!openBill) return;
+    setBillTypeSaving(true);
+    setFilingMsg("");
+    try {
+      const res = await fetch("/api/bill-fields", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ docId: openBill.id, name: t }),
+      });
+      const json = await res.json();
+      if (!res.ok) setFilingMsg(json.error ?? "Couldn't set the bill type.");
+      else if (json.previewed)
+        setFilingMsg("Preview only — writes are OFF. The bill type wasn't changed.");
+      else {
+        if (json.vendorWarning) setFilingMsg(json.vendorWarning);
+        await load({ preserveStaged: true });
+      }
+    } catch (e) {
+      setFilingMsg(e instanceof Error ? e.message : "Network error");
+    } finally {
+      setBillTypeSaving(false);
+    }
+  };
+
   // Save the Vendor Bill Number (JobTread externalId). Writes immediately, like
   // the billing-month edit, then reloads so the field reflects JobTread's truth.
   // A re-number keeps the bill on this board, so success is reported in the card.
@@ -2236,6 +2277,9 @@ export function Board() {
     toggleReviewed,
     setDueDate: (d) => void setDueDate(d),
     dueDateSaving,
+    setBillType: (t) => void setBillType(t),
+    billTypeSaving,
+    scrollWithPage: true,
     review: {
       flagged: review.flagged,
       note: review.note,
@@ -4420,20 +4464,13 @@ export function Board() {
           </section>
 
           {/* ─────────── RIGHT: coding drawer ─────────── */}
-          {/* `sticky` + `top` live on the SECTION itself (the actual grid
-              item), not on a card nested inside it — a sticky descendant is
-              bounded by its own immediate containing block, and a plain
-              wrapper div only grows to fit its own (short) content, so a
-              sticky child inside one runs out of room to travel almost
-              immediately and just scrolls away past that point. Putting it on
-              the grid item gives it the full row height to stick within,
-              same as the rail. Confirmed with an isolated repro 2026-08-06 —
-              the nested-Card version measurably stopped sticking after
-              ~460px of scroll. `self-start` keeps this item from stretching
-              to the row's height in the first place. Opens level with the top
-              of the screen (not the clicked bill) — simpler and more
-              predictable than tracking the click position. */}
-          <section className="hidden min-w-0 xl:block xl:sticky sticky-below-header xl:self-start">
+          {/* NOT sticky, and the card is not capped (`scrollWithPage`): the
+              owner asked for the bill to scroll with the page rather than
+              inside a window (2026-09-28). A sticky column taller than the
+              viewport would strand its own bottom, so the two go together.
+              Opening a bill from further down the list scrolls this column's
+              top into view instead (the effect on `openDocId`). */}
+          <section ref={codingColRef} className="scroll-below-header hidden min-w-0 xl:block">
             {/* One column, three subjects, in order of how specific the claim
                 is: ONE entry being edited (a row clicked), then a SELECTION
                 being recoded, then the bills. The office codes labor exactly where it

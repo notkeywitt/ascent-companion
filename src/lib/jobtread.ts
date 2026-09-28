@@ -2570,6 +2570,9 @@ export interface MonthBill {
   recordsTax: boolean;
   /** false = this bill will sync to QuickBooks on approval. */
   qboIsIgnored: boolean;
+  /** QuickBooks "Push as": "bill" | "purchase" (Expense) | null (Bill). Read with
+   *  `name` through `isExpenseDoc`. */
+  qboDocumentType: string | null;
   /** Already on a customer invoice — the board renders these read-only. */
   invoiced: boolean;
   /** On a customer invoice of ANY status but denied — draft included. Wider
@@ -2656,6 +2659,7 @@ export async function getJobBillsForMonth(
               nonRecoverableTax: {},
               nonRecoverableTaxName: {},
               qboIsIgnored: {},
+              qboDocumentType: {},
               amountPaid: {},
               balance: {},
               account: { name: {} },
@@ -2728,6 +2732,7 @@ export async function getJobBillsForMonth(
           nonRecoverableTax: typeof b?.nonRecoverableTax === "number" ? b.nonRecoverableTax : 0,
           recordsTax: b?.nonRecoverableTaxName != null,
           qboIsIgnored: !!b?.qboIsIgnored,
+          qboDocumentType: b?.qboDocumentType ?? null,
           invoiced: isInvoiced(b),
           onInvoice: _isOnAnyInvoice(b),
           monthInvoiceExists,

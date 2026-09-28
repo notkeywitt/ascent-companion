@@ -138,6 +138,10 @@ export interface CodingBill {
   dueDate?: string | null;
   /** Net terms in days, set only when there is no explicit due date. */
   dueDays?: number | null;
+  /** "Bill" | "Expense" — with `qboDocumentType`, the bill's type. */
+  name?: string;
+  /** QuickBooks "Push as": "bill" | "purchase" (Expense) | null (Bill). */
+  qboDocumentType?: string | null;
 }
 
 /**
@@ -229,6 +233,13 @@ export interface CodingCardCtl {
   /** A due-date write is in flight on the host. */
   dueDateSaving?: boolean;
 
+  /* ---- bill type (a JobTread write, straight away) ---- */
+  /** Set the bill's type: its name AND QuickBooks' "Push as" (/api/bill-fields).
+      Absent = the host offers no type edit and the toggle does not render. */
+  setBillType?: (t: "Bill" | "Expense") => void;
+  /** A type write is in flight on the host. */
+  billTypeSaving?: boolean;
+
   /* The card carries NO commit of its own. Both hosts dock Save Changes in
      their own action bar — the board's is pinned to the foot of the screen at
      every width, so a copy in this card was a second button for one write,
@@ -316,6 +327,11 @@ export interface CodingCardCtl {
    */
   standalone?: boolean;
 
+  /** Keep the "Coding" label and the bill's name, but drop the height cap and
+      the inner scroll, so the PAGE scrolls the card. The host must not be
+      sticky: a sticky column taller than the viewport strands its own bottom. */
+  scrollWithPage?: boolean;
+
   /** Height cap on the scan thumbnail. The board's panel is STICKY, so a tall
       scan there pins the column's top and strands its bottom — hence the 32rem
       default. A host that is an ordinary scrolling page (the bill page) passes
@@ -361,6 +377,8 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
     toggleReviewed,
     setDueDate,
     dueDateSaving,
+    setBillType,
+    billTypeSaving,
     review,
     approveBill,
     approvingBill,
@@ -393,6 +411,7 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
     files,
     filesLoading,
     standalone = false,
+    scrollWithPage = false,
     scanMaxHClass = "max-h-[32rem]",
     billNumberDraft,
     setBillNumberDraft,
@@ -405,6 +424,10 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
     reassigning,
     filingMsg,
   } = ctl;
+  /** Docked in a sticky column: capped at the viewport, scrolling inside itself. */
+  const boxed = !standalone && !scrollWithPage;
+  // Either field can say Expense — "Push as Expense" may be set in JobTread alone.
+  const isExpense = bill?.qboDocumentType === "purchase" || bill?.name === "Expense";
 
   // The bill's Drive backup, beside the JobTread attachment the hosts fetch.
   const drive = useDriveBackup(bill?.id);
@@ -625,9 +648,9 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
         the Card alone and the card ends one caption's height too low — which is
         how Filing kept landing behind the commit bar. Capping the pair spends
         the same budget the column actually has.
-        Docked only. Standalone the PAGE scrolls, and capping here would put a
-        scrollbox inside a scrollbox. */}
-      <div className={standalone ? "" : "flex max-h-below-header flex-col"}>
+        Docked only. Standalone or scrollWithPage the PAGE scrolls, and capping
+        here would put a scrollbox inside a scrollbox. */}
+      <div className={boxed ? "flex max-h-below-header flex-col" : ""}>
         {!standalone && <SectionLabel className="mb-2">Coding</SectionLabel>}
         {!bill ? (
           <EmptyState>{c("recode.empty.selectBill")}</EmptyState>
@@ -636,7 +659,10 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
           // and a body that scrolls. `min-h-0 flex-1` lets it take what the capped
           // wrapper has left. `pad={false}` because the two parts need their own
           // padding — the header's has to reach the card edge for its hairline.
-          <Card pad={false} className={standalone ? "p-3" : "flex min-h-0 flex-1 flex-col"}>
+          <Card
+            pad={false}
+            className={standalone ? "p-3" : boxed ? "flex min-h-0 flex-1 flex-col" : ""}
+          >
             {/* THE HEADER STAYS PUT. Vendor and total are what you check every
             line against, so they must not scroll away with the bill. */}
             <div
@@ -697,6 +723,44 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                 filled this in" and "30 days from the bill date". */}
                   {!bill.dueDate && bill.dueDays ? <span>net-{bill.dueDays}</span> : null}
                   {dueDateSaving && <Spinner />}
+                  {/* Type: one tap sets the name AND QuickBooks' Push as Bill/Expense,
+                and makes it this vendor's default — the bill page's toggle. */}
+                  {setBillType && (
+                    <>
+                      <span aria-hidden>·</span>
+                      <span className="inline-flex overflow-hidden rounded border border-line-strong">
+                        {(["Bill", "Expense"] as const).map((t) => {
+                          const on = (isExpense ? "Expense" : "Bill") === t;
+                          const qbo = t === "Expense" ? "purchase" : "bill";
+                          return (
+                            <button
+                              key={t}
+                              type="button"
+                              disabled={!writes || Boolean(billTypeSaving)}
+                              onClick={() => {
+                                // "On" trusts either field, so a tap on it still writes when the two disagree.
+                                if (!on || bill.name !== t || bill.qboDocumentType !== qbo) setBillType(t);
+                              }}
+                              title={
+                                t === "Expense"
+                                  ? "Already paid — QuickBooks records it as an Expense"
+                                  : "Paid later, on terms — QuickBooks records it as a Bill"
+                              }
+                              className={
+                                "px-2 py-0.5 disabled:opacity-60 " +
+                                (on
+                                  ? "bg-accent font-semibold text-accent-fg"
+                                  : "hover:text-neutral-800 dark:hover:text-neutral-200")
+                              }
+                            >
+                              {t}
+                            </button>
+                          );
+                        })}
+                      </span>
+                      {billTypeSaving && <Spinner />}
+                    </>
+                  )}
                 </p>
                 <div className="flex shrink-0 items-center gap-1.5">
                   <Button
@@ -732,7 +796,11 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
             slack rather than the fix. A scroll container whose last line stops
             flush with its own bottom edge reads as cut off whether it is or
             not, and Filing is the block that gets read that way. */}
-            <div className={standalone ? "" : "min-h-0 flex-1 overflow-y-auto px-3 pb-8 pt-3"}>
+            <div
+              className={
+                standalone ? "" : boxed ? "min-h-0 flex-1 overflow-y-auto px-3 pb-8 pt-3" : "px-3 pb-3 pt-3"
+              }
+            >
               {/* The scanned invoice, FIRST — the coding decision is read off it,
               so it opens the panel rather than sitting under a long line list.
               It scrolls away with everything else; the vendor and the total
