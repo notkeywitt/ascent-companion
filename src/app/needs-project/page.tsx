@@ -36,6 +36,9 @@ export default function NeedsProjectPage() {
   // Which action is running on a row: "assign", "dismiss", or "" for none.
   const [busy, setBusy] = useState<Record<string, string>>({});
   const [msg, setMsg] = useState<Record<string, string>>({});
+  // What the last assign taught ingestion (Sunset only): the Sold-To name it
+  // learned and the Gmail label it added. The row itself leaves the queue.
+  const [learnedNote, setLearnedNote] = useState("");
   // Cross-tab "bills waiting" flag — fetched independently in the background so
   // a slow/failed JobTread count never blocks or errors the queue above.
   const [draftBillCount, setDraftBillCount] = useState<number | null>(null);
@@ -100,6 +103,15 @@ export default function NeedsProjectPage() {
       } else {
         // Pushed to JobTread on the chosen job — drop it from the queue.
         drop(expId);
+        setLearnedNote(
+          [
+            json.learned &&
+              `Future Sunset invoices sold to "${json.learned}" now file to this job on their own.`,
+            json.tagged && `Email tagged "${json.tagged}".`,
+          ]
+            .filter(Boolean)
+            .join(" "),
+        );
       }
     } catch (e) {
       setMsg((m) => ({ ...m, [expId]: e instanceof Error ? e.message : "Network error" }));
@@ -168,6 +180,11 @@ export default function NeedsProjectPage() {
         </Link>
       )}
 
+      {learnedNote && (
+        <Banner tone="success" className="mb-4">
+          {learnedNote}
+        </Banner>
+      )}
       {loading && <CardSkeletonList rows={3} />}
       {error && <Banner tone="error">{error}</Banner>}
       {!loading && !error && items.length === 0 && (

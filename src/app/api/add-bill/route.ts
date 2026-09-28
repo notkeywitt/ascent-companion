@@ -4,6 +4,7 @@ import { buildBillPdf } from "@/lib/billPdf";
 import { SALES_TAX_CSI, splitSalesTax } from "@/lib/salesTax";
 import {
   attachFileToDocument,
+  clearJtRefCache,
   createVendorBill,
   deleteDocumentFile,
   findBillByExternalId,
@@ -299,6 +300,12 @@ export async function POST(req: NextRequest) {
     if (vendorOverride) {
       vendor = vendors.find((v) => v.id === vendorOverride) ?? null;
       if (!vendor) {
+        // A vendor created a moment ago on this page (/api/vendor-create) is not
+        // in this lambda's 30-minute ref cache yet. Re-read once before refusing.
+        clearJtRefCache();
+        vendor = (await getVendors(cfg)).find((v) => v.id === vendorOverride) ?? null;
+      }
+      if (!vendor) {
         return NextResponse.json({ error: "Unknown vendorId override." }, { status: 400 });
       }
     } else {
@@ -312,7 +319,7 @@ export async function POST(req: NextRequest) {
           extractedVendor: String(extracted.Vendor ?? ""),
           message:
             "Couldn't match the vendor to a JobTread account. Pick one and resubmit " +
-            "(or add the vendor in JobTread first).",
+            "(or add it as a new vendor).",
         },
         { status: 422 },
       );

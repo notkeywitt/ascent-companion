@@ -158,6 +158,7 @@ export async function POST(req: NextRequest) {
       }
     }
     revalidateTag("stuck-vendors");
+    revalidateTag("jt-vendors"); // /api/vendors' shared cache — the Add Bill picker
 
     return NextResponse.json({
       ok: true,

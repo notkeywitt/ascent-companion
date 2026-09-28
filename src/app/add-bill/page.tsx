@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { JobPicker } from "@/components/JobPicker";
 import { confirmLeaveIfDirty, useUnsavedChanges } from "@/lib/useUnsavedChanges";
-import { Banner, Button, Card, Label, PageHeader, Select, btn } from "@/components/ui";
+import { Banner, Button, Card, Input, Label, PageHeader, Select, btn } from "@/components/ui";
 
 interface VendorRef {
   id: string;
@@ -130,6 +130,12 @@ function AddBill() {
   const [singleLine, setSingleLine] = useState(false); // collapse to one cost item
   const [billType, setBillType] = useState(""); // "" = the vendor's default
   const [needVendor, setNeedVendor] = useState(""); // 422 message when unmatched
+  const [readVendor, setReadVendor] = useState(""); // the name the extractor read, to prefill a new vendor
+  // The new-vendor form: null = closed. Creating goes through /api/vendor-create,
+  // which refuses a name JobTread already has — that answer picks the existing one.
+  const [newVendor, setNewVendor] = useState<{ name: string; email: string } | null>(null);
+  const [vendorBusy, setVendorBusy] = useState(false);
+  const [vendorNote, setVendorNote] = useState("");
   const [mismatch, setMismatch] = useState<TotalsMismatch | null>(null); // 422 lines != invoice
   const [previewUrl, setPreviewUrl] = useState<string | null>(null); // object URL for the picked file
   const [busy, setBusy] = useState(false);
@@ -220,6 +226,8 @@ function AddBill() {
     setResult(null);
     setError("");
     setNeedVendor("");
+    setReadVendor("");
+    setVendorNote("");
     setMismatch(null);
     setPreviewUrl((prev) => {
       if (prev) URL.revokeObjectURL(prev);
@@ -263,6 +271,7 @@ function AddBill() {
       const res = await fetch("/api/add-bill", { method: "POST", body: fd });
       const json = await res.json();
       if (res.status === 422 && json.vendorUnresolved) {
+        setReadVendor(String(json.extractedVendor ?? "").replace(/\s*NEW VENDOR\s*$/i, "").trim());
         setNeedVendor(
           `${json.message}${json.extractedVendor ? ` (read as: "${json.extractedVendor}")` : ""}`,
         );
@@ -278,6 +287,42 @@ function AddBill() {
       setError(err instanceof Error ? err.message : "Network error");
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function createVendor() {
+    const name = newVendor?.name.trim() ?? "";
+    if (!name || vendorBusy) return;
+    setVendorBusy(true);
+    setVendorNote("");
+    try {
+      // syncVendors:false — this bill carries the account id straight to
+      // JobTread, and the hourly loop brings the Vendors sheet up to date.
+      const res = await fetch("/api/vendor-create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email: newVendor?.email.trim() ?? "", syncVendors: false }),
+      });
+      const json = await res.json();
+      const v: VendorRef | undefined =
+        res.status === 409 ? json.existing : res.ok && !json.error ? json.vendor : undefined;
+      if (!v?.id) throw new Error(json.error || "Could not create the vendor.");
+      setVendors((prev) =>
+        prev.some((p) => p.id === v.id)
+          ? prev
+          : [...prev, v].sort((a, b) => a.name.localeCompare(b.name)),
+      );
+      setVendorId(v.id);
+      setNewVendor(null);
+      setVendorNote(
+        res.status === 409
+          ? `JobTread already has "${v.name}" — picked it.`
+          : `Created "${v.name}" in JobTread.`,
+      );
+    } catch (e) {
+      setVendorNote(e instanceof Error ? e.message : "Network error");
+    } finally {
+      setVendorBusy(false);
     }
   }
 
@@ -511,6 +556,64 @@ function AddBill() {
               ))}
             </Select>
             {needVendor && <p className="mt-1 text-sm text-amber-600">{needVendor}</p>}
+            {newVendor ? (
+              <div className="mt-2 space-y-2 rounded-lg border border-line p-3">
+                <div>
+                  <Label htmlFor="ab-vname">New vendor name</Label>
+                  <Input
+                    id="ab-vname"
+                    value={newVendor.name}
+                    disabled={vendorBusy}
+                    onChange={(e) => setNewVendor({ ...newVendor, name: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="ab-vemail">Email (optional)</Label>
+                  <Input
+                    id="ab-vemail"
+                    type="email"
+                    inputMode="email"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    placeholder="billing@vendor.com"
+                    value={newVendor.email}
+                    disabled={vendorBusy}
+                    onChange={(e) => setNewVendor({ ...newVendor, email: e.target.value })}
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    onClick={createVendor}
+                    disabled={vendorBusy || !newVendor.name.trim()}
+                  >
+                    {vendorBusy ? "Creating…" : "Create vendor"}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setNewVendor(null)}
+                    disabled={vendorBusy}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="mt-1 !px-0"
+                disabled={busy}
+                onClick={() => {
+                  setVendorNote("");
+                  setNewVendor({ name: readVendor, email: "" });
+                }}
+              >
+                + New vendor
+              </Button>
+            )}
+            {vendorNote && <p className="mt-1 text-xs text-neutral-500">{vendorNote}</p>}
           </div>
 
           <div>
