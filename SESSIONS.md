@@ -1,4 +1,4 @@
-# SESSIONS — ascent-companion
+# SESSIONS — wt
 
 What each Claude session was doing, and where it stopped. **Generated —
 do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
@@ -30,6 +30,7 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
+| [bill-expense-save](.claude/sessions/2026-09-29-bill-expense-save.md) | 2026-09-29 | 1 | Bill/Expense toggle stages until Save on the tracking sheet; Push as Expense se… |
 | [navigation-stage-3](.claude/sessions/2026-09-29-navigation-stage-3.md) | 2026-09-29 | 5 | NAVIGATION_PLAN.md Stage 3: Not in JobTread merge, Code this bill on Email Invo… |
 | [navigation-stage-1](.claude/sessions/2026-09-29-navigation-stage-1.md) | 2026-09-29 | 11 | NAVIGATION_PLAN.md Stage 1: one workspace list feeding bar, menu, search; tab s… |
 | [tracking-bill](.claude/sessions/2026-09-29-tracking-bill.md) | 2026-09-29 | 1 | Tracking Sheets job view: open a bill's coding card beside its row instead of s… |
@@ -44,4 +45,3 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 | [jobtread-qbo-sales-tax](.claude/sessions/2026-09-05-jobtread-qbo-sales-tax.md) | 2026-09-10 | 64 | bill move: background + Drive re-file + real error; buyback picker dialog; appr… |
 | [tracking-sheet-donut-charts](.claude/sessions/2026-09-10-tracking-sheet-donut-charts.md) | 2026-09-10 | 2 | — |
 | [admin-actions-menu](.claude/sessions/2026-09-10-admin-actions-menu.md) | 2026-09-10 | 1 | — |
-| [bill-due-date-selector](.claude/sessions/2026-09-09-bill-due-date-selector.md) | 2026-09-09 | 2 | — |

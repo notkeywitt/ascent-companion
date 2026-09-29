@@ -2,9 +2,9 @@
 slug: bill-expense-save
 repo: wt
 branch: claude/bill-expense-save
-status: in-progress
+status: shipped
 started: 2026-09-29T23:23:03Z
-updated: 2026-09-29T23:26:47Z
+updated: 2026-09-29T23:28:29Z
 goal: Bill/Expense toggle stages until Save on the tracking sheet; Push as Expense sends the QuickBooks paid-from account
 next: Owner ok to push (write path). Then on /trackingsheet flip draft #412 to Expense, Save, and confirm JobTread shows Push as Expense paid from Capital One Sparks.
 ---

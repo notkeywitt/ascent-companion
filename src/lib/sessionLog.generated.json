@@ -1,7 +1,26 @@
 {
-  "generatedAt": "2026-09-29T20:30:23Z",
-  "repo": "ascent-companion",
+  "generatedAt": "2026-09-29T23:28:29Z",
+  "repo": "wt",
   "sessions": [
+    {
+      "slug": "bill-expense-save",
+      "file": "2026-09-29-bill-expense-save.md",
+      "branch": "claude/bill-expense-save",
+      "status": "shipped",
+      "started": "2026-09-29T23:23:03Z",
+      "updated": "2026-09-29T23:28:29Z",
+      "goal": "Bill/Expense toggle stages until Save on the tracking sheet; Push as Expense sends the QuickBooks paid-from account",
+      "next": "Owner ok to push (write path). Then on /trackingsheet flip draft #412 to Expense, Save, and confirm JobTread shows Push as Expense paid from Capital One Sparks.",
+      "commits": [
+        {
+          "date": "2026-09-29",
+          "time": "16:26",
+          "sha": "cdfba14",
+          "subject": "companion: push as expense sends the capital one sparks account, and the board's type toggle saves with save changes",
+          "files": "src/app/api/bill-fields/route.ts, src/app/api/bill-status/route.ts, src/app/bill/[docId]/page.tsx, src/app/trackingsheet/BillCodingCard.tsx, src/app/trackingsheet/Board.tsx, src/lib/jobtread.test.ts, +1 more"
+        }
+      ]
+    },
     {
       "slug": "navigation-stage-3",
       "file": "2026-09-29-navigation-stage-3.md",
