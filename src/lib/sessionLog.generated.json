@@ -1,7 +1,26 @@
 {
-  "generatedAt": "2026-09-29T15:13:21Z",
+  "generatedAt": "2026-09-29T17:53:09Z",
   "repo": "ascent-companion",
   "sessions": [
+    {
+      "slug": "navigation-stage-0",
+      "file": "2026-09-29-navigation-stage-0.md",
+      "branch": "claude/navigation-stage-0",
+      "status": "shipped",
+      "started": "2026-09-29T17:52:54Z",
+      "updated": "2026-09-29T17:53:08Z",
+      "goal": "NAVIGATION_PLAN.md Stage 0: gate /api/time-off/import and /api/labor-report, re-gate + Add bill on recode, hide lead dead ends, month control on phones, carry ym/jobId, fix ?tab=drafts, npm test in pre-push, delete dead components",
+      "next": "",
+      "commits": [
+        {
+          "date": "2026-09-29",
+          "time": "10:52",
+          "sha": "f959d38",
+          "subject": "companion: gate time-off import and labor report routes",
+          "files": "src/components/LaborReportButton.tsx, src/lib/billEditAccess.test.ts, src/lib/views.ts"
+        }
+      ]
+    },
     {
       "slug": "ascent-app-simplify",
       "file": "2026-09-29-ascent-app-simplify.md",
