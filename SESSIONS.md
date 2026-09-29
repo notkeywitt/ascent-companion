@@ -9,16 +9,16 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Branch | Last active | Commits | Next step |
 |---|---|---|---|---|
-| [allbills-vendor-collapsed](.claude/sessions/2026-09-14-allbills-vendor-collapsed.md) | `claude/allbills-vendor-collapsed` | 5d ago | 40 | Watch the first monthly review after 77bbb2a: confirm email-bill-amount-mismatc… |
-| [time-entry-jt-sync](.claude/sessions/2026-09-15-time-entry-jt-sync.md) | `claude/time-entry-jt-sync-6q3257` | 13d ago | 5 | Verify view-as-employee live: open /employee-time as admin, tap 'View another e… |
-| [monthly-invoicing-summary](.claude/sessions/2026-09-10-monthly-invoicing-summary.md) | `claude/monthly-invoicing-summary-mfpunx` | 18d ago | 3 | Deploy the appscript side (./deploy.sh), then open /invoicing-summary and confi… |
-| [billing-month-selector](.claude/sessions/2026-09-10-billing-month-selector.md) | `claude/billing-month-selector-o8rbtx` | 18d ago | 3 | after ./deploy.sh lands on appscript: push this to main, then set a month on ho… |
-| [gemini-claude-transition-status](.claude/sessions/2026-09-09-gemini-claude-transition-status.md) | `claude/gemini-claude-transition-status-cib68c` | 20d ago | 1 | owner: delete GEMINI_KEY + GEMINI_MODEL from Vercel; decide whether ANTHROPIC_M… |
-| [trip-recording-persistence](.claude/sessions/2026-09-08-trip-recording-persistence.md) | `claude/trip-recording-persistence-evilps` | 20d ago | 3 | verify on the phone: start a trip, force-quit the app, reopen — the trip should… |
-| [ci-verify-job-failures](.claude/sessions/2026-09-06-ci-verify-job-failures.md) | `claude/ci-verify-job-failures-wcfpyk` | 22d ago | 1 | push this branch to remote main — main is still red until the Link fix lands th… |
-| [ascent-building-theme](.claude/sessions/2026-09-06-ascent-building-theme.md) | `claude/ascent-building-theme-rz1o6h` | 22d ago | 6 | Tune the palettes in /theme on the phone, then paste the Copy CSS output back s… |
-| [header-layout-redesign](.claude/sessions/2026-09-05-header-layout-redesign.md) | `claude/header-layout-redesign-xid33s` | 23d ago | 15 | rearrange the tracking-sheet action buttons for mobile and desktop — they read … |
-| [timesheet-month-selection](.claude/sessions/2026-09-04-timesheet-month-selection.md) | `claude/timesheet-month-selection-2hih55` | 24d ago | 3 | none — month picker shipped; verify on the phone that the dropdown reads well n… |
+| [allbills-vendor-collapsed](.claude/sessions/2026-09-14-allbills-vendor-collapsed.md) | `claude/allbills-vendor-collapsed` | 6d ago | 40 | Watch the first monthly review after 77bbb2a: confirm email-bill-amount-mismatc… |
+| [time-entry-jt-sync](.claude/sessions/2026-09-15-time-entry-jt-sync.md) | `claude/time-entry-jt-sync-6q3257` | 14d ago | 5 | Verify view-as-employee live: open /employee-time as admin, tap 'View another e… |
+| [monthly-invoicing-summary](.claude/sessions/2026-09-10-monthly-invoicing-summary.md) | `claude/monthly-invoicing-summary-mfpunx` | 19d ago | 3 | Deploy the appscript side (./deploy.sh), then open /invoicing-summary and confi… |
+| [billing-month-selector](.claude/sessions/2026-09-10-billing-month-selector.md) | `claude/billing-month-selector-o8rbtx` | 19d ago | 3 | after ./deploy.sh lands on appscript: push this to main, then set a month on ho… |
+| [gemini-claude-transition-status](.claude/sessions/2026-09-09-gemini-claude-transition-status.md) | `claude/gemini-claude-transition-status-cib68c` | 21d ago | 1 | owner: delete GEMINI_KEY + GEMINI_MODEL from Vercel; decide whether ANTHROPIC_M… |
+| [trip-recording-persistence](.claude/sessions/2026-09-08-trip-recording-persistence.md) | `claude/trip-recording-persistence-evilps` | 21d ago | 3 | verify on the phone: start a trip, force-quit the app, reopen — the trip should… |
+| [ci-verify-job-failures](.claude/sessions/2026-09-06-ci-verify-job-failures.md) | `claude/ci-verify-job-failures-wcfpyk` | 23d ago | 1 | push this branch to remote main — main is still red until the Link fix lands th… |
+| [ascent-building-theme](.claude/sessions/2026-09-06-ascent-building-theme.md) | `claude/ascent-building-theme-rz1o6h` | 23d ago | 6 | Tune the palettes in /theme on the phone, then paste the Copy CSS output back s… |
+| [header-layout-redesign](.claude/sessions/2026-09-05-header-layout-redesign.md) | `claude/header-layout-redesign-xid33s` | 24d ago | 15 | rearrange the tracking-sheet action buttons for mobile and desktop — they read … |
+| [timesheet-month-selection](.claude/sessions/2026-09-04-timesheet-month-selection.md) | `claude/timesheet-month-selection-2hih55` | 25d ago | 3 | none — month picker shipped; verify on the phone that the dropdown reads well n… |
 
 ## Parked
 
@@ -30,6 +30,7 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
+| [ascent-app-simplify](.claude/sessions/2026-09-29-ascent-app-simplify.md) | 2026-09-29 | 1 | Evaluate the app's pages, menus and names; propose a simpler navigation (fewer … |
 | [budget](.claude/sessions/2026-09-24-budget.md) | 2026-09-28 | 27 | Tracking sheet estimate to JobTread budget import CSV: /budget-import page over… |
 | [lopezrocks-mobile-accessibility](.claude/sessions/2026-09-27-lopezrocks-mobile-accessibility.md) | 2026-09-27 | 2 | LopezRocks, the island community board, as a phone reader page in the app |
 | [ascent-companion-ci-failure](.claude/sessions/2026-09-12-ascent-companion-ci-failure.md) | 2026-09-14 | 3 | fix the red CI lint error in trackingsheet/Board.tsx |
@@ -44,4 +45,3 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 | [time-entry-notes-persist](.claude/sessions/2026-09-08-time-entry-notes-persist.md) | 2026-09-08 | 1 | — |
 | [daily-digest-to-todos](.claude/sessions/2026-09-08-daily-digest-to-todos.md) | 2026-09-08 | 2 | — |
 | [help-page-ste-100](.claude/sessions/2026-09-08-help-page-ste-100.md) | 2026-09-08 | 2 | — |
-| [leads-panel-admin-home](.claude/sessions/2026-09-08-leads-panel-admin-home.md) | 2026-09-08 | 5 | — |

@@ -2,9 +2,9 @@
 slug: ascent-app-simplify
 repo: ascent-companion
 branch: claude/ascent-app-simplify-w613c1
-status: in-progress
+status: shipped
 started: 2026-09-29T15:13:06Z
-updated: 2026-09-29T15:13:16Z
+updated: 2026-09-29T15:13:21Z
 goal: Evaluate the app's pages, menus and names; propose a simpler navigation (fewer page changes per task)
 next: Owner answers the 10 decisions in NAVIGATION_PLAN.md; then Stage 0: gate /api/time-off/import on time-off-admin and /api/labor-report, re-gate + Add bill on recode, add npm test to pre-push.
 ---
