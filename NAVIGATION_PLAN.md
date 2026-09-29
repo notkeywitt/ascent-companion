@@ -152,6 +152,21 @@ Also approved: leads get a bar; `nav_layout` rows are archived, not deleted
 (the code stops reading them; the rows stay, so a revert brings them back); the
 admin home cards go.
 
+### Stage 1 status, 2026-09-29
+
+Shipped: `src/lib/workspaces.ts` (one list; `workspaces.test.ts` fails on a page
+on no workspace); the header ☰ menu for every role and width; the bar from
+`BARS` per role, leads included; search over every tab; the tab strip carrying
+`jobId` and `ym` (close pages write `?ym` when a month is picked); the renames.
+Removed: admin home cards and editor, tile launchers, `/more` (redirects home),
+All Pages, the desktop side drawer, the `/office` page list, RFIs from the menus.
+`nav_layout` rows are kept and no longer read.
+
+Not yet done: the iPad left rail and desktop sidebar (the dock stays); Help
+sections grouped by workspace; a per-person pinned bar slot (the side drawer's
+per-device pins went with it); queue counts on menu rows (the launcher's
+Time Sync badge went with it — Today in stage 2 brings counts back).
+
 ## Found along the way
 
 - `POST /api/time-off/import` commits a leave-balance import for any signed-in
