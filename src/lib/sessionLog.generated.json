@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-29T19:16:38Z",
+  "generatedAt": "2026-09-29T19:19:50Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,7 +8,7 @@
       "branch": "claude/navigation-stage-1",
       "status": "shipped",
       "started": "2026-09-29T18:14:02Z",
-      "updated": "2026-09-29T19:16:37Z",
+      "updated": "2026-09-29T19:19:50Z",
       "goal": "NAVIGATION_PLAN.md Stage 1: one workspace list feeding bar, menu, search; tab strips; remove the other menus; label renames",
       "next": "Slice 2 of Stage 1: add src/lib/workspaces.ts (one list), build the header menu, search and TabBar (leads get a bar) from it, remove nav.ts/pagesMenu/navLayout/HomeCards/TileLauncher/AllPagesMenu/SideNav/OfficeLinks//more; stop reading nav_layout (rows stay). Then tab strip, renames, iPad rail.",
       "commits": [
@@ -32,6 +32,13 @@
           "sha": "ec3e41d",
           "subject": "companion: tab strip that carries the job and month",
           "files": "CODEBASE_MAP.md, src/app/invoice-review/InvoiceReview.tsx, src/app/invoice-review/page.tsx, src/app/invoicing-summary/page.tsx, src/app/labor-review/LaborReview.tsx, src/app/layout.tsx, +6 more"
+        },
+        {
+          "date": "2026-09-29",
+          "time": "12:19",
+          "sha": "1ef7de4",
+          "subject": "companion: rename pages to the navigation plan's names",
+          "files": "src/app/clients/ClientsBrowser.tsx, src/app/expenditure-history/ExpenditureBrowser.tsx, src/app/expenditure-history/page.tsx, src/app/global-error.tsx, src/app/help/HelpBrowser.tsx, src/app/jobs/JobsBrowser.tsx, +13 more"
         }
       ]
     },
