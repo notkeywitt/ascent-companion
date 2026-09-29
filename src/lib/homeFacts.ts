@@ -17,7 +17,7 @@ const MIN = 60_000;
 const held = new Map<string, { at: number; p: Promise<unknown> }>();
 
 /** One shared, TTL-bounded load per key — in memory, and in sessionStorage across reloads. */
-function cached<T>(key: string, ttlMs: number, load: () => Promise<T>): Promise<T> {
+export function cached<T>(key: string, ttlMs: number, load: () => Promise<T>): Promise<T> {
   const now = Date.now();
   const hit = held.get(key);
   if (hit && now - hit.at < ttlMs) return hit.p as Promise<T>;

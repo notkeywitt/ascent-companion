@@ -3,7 +3,6 @@
 import { Suspense, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { signOut } from "next-auth/react";
 import { ListCard, ListRow, SectionHeading, btn } from "@/components/ui";
 import { useAccess } from "@/components/AccessProvider";
 import { StuckVendorBanner } from "@/components/StuckVendors";
@@ -12,8 +11,7 @@ import { HomeTodos } from "@/components/HomeTodos";
 import { HomeJobBoard } from "@/components/HomeJobBoard";
 import { HomeLeadBoard } from "@/components/HomeLeadBoard";
 import { HomeMasthead } from "@/components/HomeMasthead";
-import { AppearanceCard } from "@/components/AppearanceCard";
-import { DesktopAlertsCard } from "@/components/DesktopAlertsCard";
+import { TodayQueue } from "@/components/TodayQueue";
 
 /**
  * The Assistant's front page — Today.
@@ -22,8 +20,9 @@ import { DesktopAlertsCard } from "@/components/DesktopAlertsCard";
  * menu and the bottom bar (both from src/lib/workspaces.ts), so the launchers
  * that used to fill this page — the admin cards, the tile grid, All Pages —
  * are gone. What stays is what needs the person today: the billing month, the
- * stuck and unassigned bills, the job and lead boards, and the to-dos. Stage 2
- * of NAVIGATION_PLAN.md turns it into one queue with a count per row.
+ * queue (TodayQueue — a row and a count per thing waiting), the stuck and
+ * unassigned bills, the job and lead boards, and the to-dos. Appearance,
+ * desktop alerts and Sign out live in the ☰ menu.
  */
 
 function Home() {
@@ -55,6 +54,9 @@ function Home() {
           below draws the heading — and stands the billing month on it, which is
           the fact this office checks before it opens anything. */}
       <HomeMasthead />
+
+      {/* What needs this person — one row per queue, each with its count. */}
+      <TodayQueue />
 
       {/* Bills that imported but couldn't push because their vendor isn't in
           JobTread. Self-hiding when there are none; gates itself on `email`. */}
@@ -101,17 +103,6 @@ function Home() {
         </div>
       )}
 
-      {/* The two per-device settings blocks. Side by side from `pad` up: each
-          is a collapsed one-line heading most of the time, and two of those
-          stacked own a slab of an iPad's last screen for nothing.
-
-          Desktop alerts self-hides on any browser without the Notification
-          API — i.e. every iPhone — so it only shows where it can deliver. */}
-      <div className="pad:grid pad:grid-cols-2 pad:items-start pad:gap-7">
-        <AppearanceCard />
-        <DesktopAlertsCard />
-      </div>
-
       {/* LopezRocks — the island's community board, re-drawn for a phone
           (src/app/lopezrocks). For EVERY role, at the owner's request
           (2026-09-27): the view is in FIELD_VIEWS, which every role inherits.
@@ -129,25 +120,6 @@ function Home() {
         </section>
       )}
 
-      {/* Account / sign out. Access (which menus you see) is baked in at
-          sign-in, so signing out and back in is how you pick up a changed
-          role — e.g. if the launcher is missing sections you expect, your
-          session may still be on the default "field" role. */}
-      <div className="mt-8 border-t border-line pt-5 text-center">
-        <p className="text-xs text-neutral-500">
-          Signed in — access level: <span className="font-semibold">{access.role}</span>
-        </p>
-        <button
-          type="button"
-          onClick={() => signOut({ callbackUrl: "/login" })}
-          className={btn("secondary", "md", "mt-3")}
-        >
-          Sign out
-        </button>
-        <p className="mx-auto mt-2 max-w-sm text-xs text-neutral-500">
-          Missing menus you expect? Sign out and back in to refresh your access.
-        </p>
-      </div>
     </main>
   );
 }

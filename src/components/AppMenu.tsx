@@ -6,6 +6,8 @@ import { useEffect, useState } from "react";
 import { signOut } from "next-auth/react";
 
 import { useAccess } from "@/components/AccessProvider";
+import { AppearanceCard } from "@/components/AppearanceCard";
+import { DesktopAlertsCard } from "@/components/DesktopAlertsCard";
 import { useCopy } from "@/components/CopyProvider";
 import { ListCard, ListRow, SectionLabel, btn } from "@/components/ui";
 import {
@@ -29,7 +31,8 @@ import {
  * "Pin" lets a person put one page on the bottom bar, per device (it takes the
  * bar's last slot).
  * The footer carries the pages that belong to no workspace (the Assistant,
- * LopezRocks) and the account.
+ * LopezRocks) and the account: Appearance, desktop alerts, and Sign out — the
+ * per-device settings that used to sit at the foot of the home page.
  *
  * THE DRAWER IS PORTALLED TO <body>, and has to be. It is mounted from inside
  * the header, and the header carries `backdrop-blur` — a filtered element is
@@ -192,6 +195,11 @@ export function AppMenu({ qs = "" }: { qs?: string }) {
                     <ListCard>{extras.map(row)}</ListCard>
                   </div>
                 )}
+
+                <div className="space-y-1">
+                  <AppearanceCard />
+                  <DesktopAlertsCard />
+                </div>
 
                 <div className="border-t border-line pt-4 text-center">
                   <p className="text-xs text-neutral-500">

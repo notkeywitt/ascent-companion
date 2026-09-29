@@ -147,10 +147,10 @@ export const HELP: HelpSection[] = [
         q: "How do I change the light and dark theme?",
         view: null,
         keywords: ["dark mode", "light mode", "colour", "color", "palette", "appearance"],
-        steps: ["Tap the Ascent logo at the top left of the screen."],
+        steps: ["Tap the Ascent logo at the top of the screen."],
         notes: [
           "The logo is the only light and dark control.",
-          "Open **Appearance** on **Home** to change the colour palette.",
+          "Open **Appearance** in the **☰** menu to change the colour palette.",
           "Each device keeps its own theme.",
         ],
       },
