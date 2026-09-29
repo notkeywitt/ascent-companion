@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/navigation-stage-1
 status: shipped
 started: 2026-09-29T18:14:02Z
-updated: 2026-09-29T19:59:54Z
+updated: 2026-09-29T20:08:56Z
 goal: NAVIGATION_PLAN.md Stage 1: one workspace list feeding bar, menu, search; tab strips; remove the other menus; label renames
 next: Stage 1 remainder needs owner go: iPad left rail + desktop sidebar (touches #app-shell and 5 fixed bottom bars), Help sections by workspace, per-person pinned bar slot. Then stage 2 (Today queue).
 ---
@@ -30,6 +30,8 @@ next: Stage 1 remainder needs owner go: iPad left rail + desktop sidebar (touche
   CODEBASE_MAP.md, src/app/page.tsx, src/components/AppMenu.tsx, src/components/TodayQueue.tsx, src/lib/help.ts, src/lib/homeFacts.ts
 - 2026-09-29 12:59 · `6fd0732` companion: delete the retired Coding Review and Invoicing pages
   CLAUDE.md, CODEBASE_MAP.md, next.config.mjs, src/app/bill/[docId]/page.tsx, src/app/coding/page.tsx, src/app/stage/page.tsx, +3 more
+- 2026-09-29 13:08 · `fde568c` companion: the Office job's to-dos on Today
+  CODEBASE_MAP.md, src/app/api/office/todos/route.ts, src/app/office/OfficeTodos.tsx, src/app/office/page.tsx, src/app/office/readOfficeTodos.ts, src/app/page.tsx, +1 more
 
 ## Notes
 - 2026-09-29 19:21 — Stage 1 shipped in 4 slices: app feedback for all roles, workspaces.ts + menu + bar, tab strip with ym/jobId, renames. Headless Chrome screenshots of dev pages hang (live-data fetches); chrome-devtools MCP held by another session, so layout is unverified visually.
