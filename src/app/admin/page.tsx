@@ -22,7 +22,6 @@ import {
 import { ROLE_LABEL, PREVIEW_COOKIE, parsePreviewRole } from "@/lib/preview";
 import { startPreview, stopPreview } from "@/lib/previewClient";
 import { ActivityPanel } from "./ActivityPanel";
-import { NoticesAdmin } from "@/components/NoticesAdmin";
 import { DigestSettingsPanel } from "./DigestSettingsPanel";
 import { BuildFooter } from "./BuildFooter";
 
@@ -50,12 +49,13 @@ const GROUPED = GROUP_ORDER.map((g) => ({
 })).filter((g) => g.views.length > 0);
 
 export default function AdminPage() {
-  const [tab, setTab] = useState<"access" | "activity" | "notices" | "digest">("access");
+  // No Notices tab since 2026-09-29: /notices is the one place to post one.
+  const [tab, setTab] = useState<"access" | "activity" | "digest">("access");
   return (
     <main className="mx-auto max-w-xl px-4 pb-24 pt-6">
       <PageHeader
         title="Admin"
-        description="Who can sign in, what each person can see, how the panel is being used, notices pushed to the team, and the Daily Digest's settings."
+        description="Who can sign in, what each person can see, how the panel is being used, and the Daily Digest's settings."
         className="!mb-4"
       />
       <div className="mb-5 inline-flex rounded-lg border border-line p-0.5 ">
@@ -65,9 +65,6 @@ export default function AdminPage() {
         <TabButton active={tab === "activity"} onClick={() => setTab("activity")}>
           Activity
         </TabButton>
-        <TabButton active={tab === "notices"} onClick={() => setTab("notices")}>
-          Notices
-        </TabButton>
         <TabButton active={tab === "digest"} onClick={() => setTab("digest")}>
           Digest
         </TabButton>
@@ -76,8 +73,6 @@ export default function AdminPage() {
         <AccessPanel />
       ) : tab === "activity" ? (
         <ActivityPanel />
-      ) : tab === "notices" ? (
-        <NoticesAdmin />
       ) : (
         <DigestSettingsPanel />
       )}

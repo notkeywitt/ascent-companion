@@ -6,8 +6,8 @@ import { NoticesAdmin } from "@/components/NoticesAdmin";
  *
  * Gated by the `notices` view id (office + admin by default). The panel is a
  * client component and talks only to /api/admin/notices, so this page hands it
- * no context; it also renders as the Notices tab on /admin, which is why the
- * panel lives in components/ rather than beside this page.
+ * no context. (It was also a tab on /admin until 2026-09-29; this page is now
+ * the one place to post a notice.)
  */
 export default function NoticesPage() {
   return (

@@ -109,6 +109,13 @@ export default function JournalPage() {
   const [nextBeforeId, setNextBeforeId] = useState<number | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
 
+  // A bill's "History" link opens the journal on that bill (?docId=). The first
+  // unfiltered read is dropped by the load effect's `live` flag.
+  useEffect(() => {
+    const d = new URLSearchParams(window.location.search).get("docId")?.trim();
+    if (d) setDocId(d);
+  }, []);
+
   const load = useCallback(
     async (beforeId?: number) => {
       const params = new URLSearchParams();

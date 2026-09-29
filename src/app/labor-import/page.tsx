@@ -10,6 +10,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { Banner, Button, PageHeader } from "@/components/ui";
+import { LaborReportCard } from "@/components/LaborReportButton";
 
 // ---- Editable config -------------------------------------------------------
 
@@ -842,6 +843,9 @@ export default function LaborImportPage() {
         title="Labor Import"
         description="Turn the monthly QuickBooks labor report into a JobTread time-entry import CSV. The file is processed in your browser only."
       />
+
+      {/* The other direction: JobTread's month of hours, filed in Drive. */}
+      <LaborReportCard />
 
       {parseError && (
         <Banner tone="error" className="mb-4">

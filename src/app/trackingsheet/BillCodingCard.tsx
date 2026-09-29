@@ -5,6 +5,7 @@ import { CostCodeSelect, type Option } from "@/components/CostCodeSelect";
 import { DocumentAccess } from "@/components/DocumentAccess";
 import { JobPicker, type JobRef } from "@/components/JobPicker";
 import { JtLink } from "@/components/JtLink";
+import { useAccess } from "@/components/AccessProvider";
 import {
   Banner,
   Button,
@@ -352,6 +353,7 @@ export interface CodingCardCtl {
 }
 
 export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
+  const canJournal = useAccess().can("journal");
   const {
     bill,
     lines,
@@ -692,6 +694,16 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                 >
                   JT ↗
                 </JtLink>
+                {/* Every write the app made to this bill, from the Financial
+                    Journal — only for someone who can open it (admin by default). */}
+                {canJournal && (
+                  <a
+                    href={`/journal?docId=${encodeURIComponent(bill.id)}`}
+                    className="shrink-0 text-xs font-semibold text-neutral-400 transition hover:text-accent"
+                  >
+                    History
+                  </a>
+                )}
               </div>
               <div className="mb-1 flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
                 {/* Line count, status and the payment due date: all three answer

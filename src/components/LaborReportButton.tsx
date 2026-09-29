@@ -1,15 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { Button } from "@/components/ui";
+import { Button, Card, Select } from "@/components/ui";
+import { deriveBillingPeriod, ymOf } from "@/lib/billing";
+import { billingMonths } from "@/lib/billingMonths";
 import { useAccess } from "@/components/AccessProvider";
 
 /**
  * "Create Labor Report in Drive" — the month's COMPANY-WIDE labor, filed as one
  * Google Sheet in the Drive Labor folder.
  *
- * Rendered in BOTH places a month of hours is read: Labor Review's "Time
- * entries" header and the Tracking Sheets board's "Time & labor" card. It is
+ * Rendered where a month of hours is read: Labor Review's "Time entries"
+ * header and the Tracking Sheets board's "Time & labor" card — and, with a
+ * month picker of its own, on Labor Import (`LaborReportCard` below). It is
  * one component for the same reason `TimeEntryList` is — the two were going to
  * be hand-written twins otherwise, and the outcome message is the part that
  * would have drifted.
@@ -101,5 +104,34 @@ export function LaborReportButton({
         </p>
       )}
     </div>
+  );
+}
+
+/**
+ * The same button with its own month, for a page that has none — Labor Import,
+ * in the People workspace (NAVIGATION_PLAN.md stage 3). Defaults to the billing
+ * month by the 10th-of-the-month rule every bill is filed by.
+ */
+export function LaborReportCard() {
+  const canReport = useAccess().can("labor-review");
+  const [ym, setYm] = useState(() => ymOf(deriveBillingPeriod(new Date(), false)));
+  if (!canReport) return null;
+  return (
+    <Card className="mb-5 space-y-2">
+      <div className="text-sm font-semibold">Monthly Labor Report</div>
+      <p className="text-[11.5px] text-neutral-500 dark:text-neutral-400">
+        Every job&apos;s hours for the month, from JobTread, filed as one sheet in the Drive Labor folder.
+      </p>
+      <div className="flex flex-wrap items-start gap-3">
+        <Select aria-label="Month" value={ym} onChange={(e) => setYm(e.target.value)} className="w-48">
+          {billingMonths(15).map((m) => (
+            <option key={m.value} value={m.value}>
+              {m.label}
+            </option>
+          ))}
+        </Select>
+        <LaborReportButton ym={ym} size="md" />
+      </div>
+    </Card>
   );
 }

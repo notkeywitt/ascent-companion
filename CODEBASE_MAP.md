@@ -333,8 +333,7 @@ Each page is a server component (`page.tsx`) that hands non-secret context to a
   `/api/office/todos`; images show as a thumbnail grid,
   `OfficeImages.tsx`, opening in the bill scans' `InvoiceLightbox`), `employees`, `leads`, `labor-import`, `labor-rates`,
   `time-sync`, `notices` (post an announcement to the team — banner or popup,
-  targeted at groups and/or named people, now or on a schedule; office + admin,
-  and the same panel is Admin → Notices).
+  targeted at groups and/or named people, now or on a schedule; office + admin).
 - **System / admin:** `admin`, `logs`, `historical-cost`, `requests`,
   `actions`, `journal` (the financial journal — every write the app has made to a bill, a
     line or a time entry, read-only; admin by default alongside Logs, and
@@ -456,7 +455,7 @@ Grouped by domain; each folder is `…/route.ts`.
   doing, which is what lets a background tab raise a DESKTOP TOAST for a notice
   that arrives while the reader is elsewhere), `NoticesAdmin` (the authoring panel — what it says, banner or popup,
   the schedule window, and the groups/people it targets; rendered by both
-  `/notices` and Admin → Notices), `SunsetDuplicateScan`, `TrackingSheetSync`,
+  `/notices`), `SunsetDuplicateScan`, `TrackingSheetSync`,
   `TrackingSheetRisks`, `TimeEntryList` (**the month's time entries, rendered by
   BOTH Labor Review and the board's Time & labor panel** — the list, its filters,
   its grouping, the selection and the recode drawer, in one place so the two
