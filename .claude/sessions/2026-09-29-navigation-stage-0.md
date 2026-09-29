@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/navigation-stage-0
 status: shipped
 started: 2026-09-29T17:52:54Z
-updated: 2026-09-29T18:03:55Z
+updated: 2026-09-29T18:04:04Z
 goal: NAVIGATION_PLAN.md Stage 0: gate /api/time-off/import and /api/labor-report, re-gate + Add bill on recode, hide lead dead ends, month control on phones, carry ym/jobId, fix ?tab=drafts, npm test in pre-push, delete dead components
 next: Stage 1 of NAVIGATION_PLAN.md needs the owner's 10 decisions first. Optional: delete RefreshProvider + RefreshBoundary (no caller since RefreshButton went).
 ---

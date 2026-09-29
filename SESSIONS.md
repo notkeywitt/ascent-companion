@@ -30,7 +30,7 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
-| [navigation-stage-0](.claude/sessions/2026-09-29-navigation-stage-0.md) | 2026-09-29 | 1 | NAVIGATION_PLAN.md Stage 0: gate /api/time-off/import and /api/labor-report, re… |
+| [navigation-stage-0](.claude/sessions/2026-09-29-navigation-stage-0.md) | 2026-09-29 | 3 | NAVIGATION_PLAN.md Stage 0: gate /api/time-off/import and /api/labor-report, re… |
 | [ascent-app-simplify](.claude/sessions/2026-09-29-ascent-app-simplify.md) | 2026-09-29 | 1 | Evaluate the app's pages, menus and names; propose a simpler navigation (fewer … |
 | [budget](.claude/sessions/2026-09-24-budget.md) | 2026-09-28 | 27 | Tracking sheet estimate to JobTread budget import CSV: /budget-import page over… |
 | [lopezrocks-mobile-accessibility](.claude/sessions/2026-09-27-lopezrocks-mobile-accessibility.md) | 2026-09-27 | 2 | LopezRocks, the island community board, as a phone reader page in the app |
