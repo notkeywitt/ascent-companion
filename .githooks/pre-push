@@ -1,5 +1,5 @@
 #!/bin/sh
-# Blocks a push to main unless typecheck and build pass.
+# Blocks a push to main unless typecheck, tests and build pass.
 #
 # main is production on Vercel: a push deploys straight to the live app, with
 # JobTread writes armed. This hook is the only gate between a bad commit and
@@ -19,7 +19,7 @@ if [ "$pushing_main" -eq 0 ]; then
   exit 0
 fi
 
-echo "pre-push: main is production — running typecheck and build"
+echo "pre-push: main is production — running typecheck, tests and build"
 
 # `next build` rewrites next-env.d.ts and tsconfig.json to point at whatever
 # output dir it used. Both are tracked, so keep a copy and put them back exactly
@@ -36,6 +36,13 @@ trap restore_configs EXIT
 
 if ! npm run typecheck; then
   echo "pre-push: typecheck FAILED — push blocked" >&2
+  exit 1
+fi
+
+# The unit tests hold the access gates (billEditAccess.test.ts and friends).
+# Seconds to run, and cheaper than the build, so they go before it.
+if ! npm test; then
+  echo "pre-push: tests FAILED — push blocked" >&2
   exit 1
 fi
 

@@ -343,11 +343,6 @@ export const COPY: Record<string, CopyEntry> = {
     label: "Page subtitle — “This month” tab",
     group: "Tracking Sheets — header",
   },
-  "recode.header.descNeedsCoding": {
-    text: "Every draft vendor bill in JobTread, across all jobs and any month. Open one to code it.",
-    label: "Page subtitle — “Needs coding” tab",
-    group: "Tracking Sheets — header",
-  },
   "recode.statement.toBeInvoiced": {
     text: "To be invoiced",
     label: "Headline figure caption",
@@ -365,30 +360,6 @@ export const COPY: Record<string, CopyEntry> = {
   "recode.toggle.groupByCsi": {
     text: "Group by CSI code",
     label: "Group by CSI code — toggle",
-    group: "Tracking Sheets — controls",
-    short: true,
-  },
-  "recode.toggle.uninvoicedOnly": {
-    text: "Uninvoiced only",
-    label: "Uninvoiced only — toggle (all-jobs view)",
-    group: "Tracking Sheets — controls",
-    short: true,
-  },
-  "recode.toggle.includeDraftBills": {
-    text: "Include draft bills",
-    label: "Include draft bills — toggle (all-jobs view)",
-    group: "Tracking Sheets — controls",
-    short: true,
-  },
-  "recode.toggle.showReviewed": {
-    text: "Show reviewed",
-    label: "Show reviewed — toggle (needs-coding queue)",
-    group: "Tracking Sheets — controls",
-    short: true,
-  },
-  "recode.toggle.showThisMonth": {
-    text: "Show this month",
-    label: "Show this month — toggle (needs-coding queue)",
     group: "Tracking Sheets — controls",
     short: true,
   },
@@ -441,26 +412,6 @@ export const COPY: Record<string, CopyEntry> = {
     label: "Nothing to stage (all-jobs view)",
     group: "Tracking Sheets — empty states",
     tokens: ["month"],
-  },
-  "recode.empty.noDrafts": {
-    text: "No draft bills anywhere — nothing to code.",
-    label: "No draft bills at all",
-    group: "Tracking Sheets — empty states",
-  },
-  "recode.empty.allFiltered": {
-    text: "Every draft bill here is either reviewed or from this month. Turn on “Show reviewed” or “Show this month” to see them.",
-    label: "All drafts hidden by both filters",
-    group: "Tracking Sheets — empty states",
-  },
-  "recode.empty.allReviewed": {
-    text: "Every draft bill here is marked reviewed. Turn on “Show reviewed” to see them.",
-    label: "All drafts hidden — reviewed",
-    group: "Tracking Sheets — empty states",
-  },
-  "recode.empty.allThisMonth": {
-    text: "Every draft bill here is from this month. Turn on “Show this month” to see them.",
-    label: "All drafts hidden — this month",
-    group: "Tracking Sheets — empty states",
   },
 
   // ── /trackingsheet — loading labels and field placeholders ──────────────────────

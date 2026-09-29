@@ -21,8 +21,8 @@ import { useRouter } from "next/navigation";
  * anything server-rendered (root-layout session/role, server pages) in the same
  * call, so both halves of the page reload from one button.
  *
- * The header's <RefreshButton> is the trigger, but any component can call
- * useRefresh() to reload the current page's data.
+ * Any component can call useRefresh() to reload the current page's data. The
+ * header's RefreshButton, its only caller, was deleted 2026-09-29.
  */
 type RefreshCtx = {
   /** Reload the current page's data (client re-fetch + server refresh). */

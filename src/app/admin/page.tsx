@@ -24,7 +24,6 @@ import { startPreview, stopPreview } from "@/lib/previewClient";
 import { ActivityPanel } from "./ActivityPanel";
 import { NoticesAdmin } from "@/components/NoticesAdmin";
 import { DigestSettingsPanel } from "./DigestSettingsPanel";
-import { DigestInstructionsPanel } from "./DigestInstructionsPanel";
 import { BuildFooter } from "./BuildFooter";
 
 interface Member {
@@ -80,10 +79,7 @@ export default function AdminPage() {
       ) : tab === "notices" ? (
         <NoticesAdmin />
       ) : (
-        <>
-          <DigestInstructionsPanel />
-          <DigestSettingsPanel />
-        </>
+        <DigestSettingsPanel />
       )}
       <BuildFooter />
     </main>

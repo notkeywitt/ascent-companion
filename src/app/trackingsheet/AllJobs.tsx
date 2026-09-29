@@ -10,7 +10,7 @@ import { UncapturedBills } from "@/components/UncapturedBills";
 import { SyncNowButton } from "@/components/SyncNowButton";
 import { LaborReportButton } from "@/components/LaborReportButton";
 import { SyncAllTrackingSheetsFor } from "@/components/TrackingSheetSync";
-import { monthOptions } from "./Roster";
+import { billingMonths } from "@/lib/billingMonths";
 import { AllBills } from "./AllBills";
 import { UnsyncedDrafts } from "./UnsyncedDrafts";
 
@@ -48,7 +48,7 @@ export function AllJobs() {
   // Seeded from the URL so returning from a bill lands on the month you left.
   const [ym, setYmState] = useState(() => {
     const q = params.get("ym") ?? "";
-    return monthOptions().some((o) => o.ym === q) ? q : defaultYm();
+    return billingMonths(15).some((o) => o.value === q) ? q : defaultYm();
   });
 
   /**
@@ -71,7 +71,7 @@ export function AllJobs() {
    * were looking at so you land on the same billing period. Empty id is the
    * "All jobs" row, which is this view — nothing to do.
    */
-  const monthLabel = monthOptions().find((o) => o.ym === ym)?.label ?? ym;
+  const monthLabel = billingMonths(15).find((o) => o.value === ym)?.label ?? ym;
 
   const onPickJob = (id: string) => {
     if (!id) return;

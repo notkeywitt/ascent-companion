@@ -61,8 +61,8 @@ matching row here.
 | **Keeping sales tax OUT of what the client is billed** | It is dropped from the tracking-sheet sync (appscript `TrackingSheets.js`), netted out of every TO BE INVOICED figure (`getSalesTaxByDoc` in `src/lib/jobtread.ts`, used by `getAllBillsForMonth` + `getInvoiceReconciliation`), and flagged if it ever reaches a client invoice (`invoiceReview/checks/salesTaxLine.ts`) |
 | **Unsynced coding surviving a page you left** | `src/lib/codingDraft.ts` (autosave + reconciled restore) + `src/app/api/coding-draft`; wired into `Board.tsx` (scoped per job-month) and, scoped per BILL, `DraftWorkbench.tsx` + `src/app/bill/[docId]/page.tsx` — the same scope key, so a bill started on a phone is waiting at the desk |
 | **"Where did I leave off"** | `src/app/trackingsheet/UnsyncedDrafts.tsx` — the unfinished-coding list on the Tracking Sheets landing, from `listDrafts()` (this device merged with the companion DB, so work left on another device is visible too) |
-| **Coding / Tracking Sheets workflow** | `src/app/trackingsheet/*` (Board, BillCodingCard, TimeCodingCard, ClientInvoicing, DraftQueue, DraftWorkbench,
-  AllJobs, Roster) + `src/app/api/trackingsheet/*`, `src/app/api/code` |
+| **Coding / Tracking Sheets workflow** | `src/app/trackingsheet/*` (Board, BillCodingCard, TimeCodingCard, ClientInvoicing, DraftWorkbench,
+  AllJobs) + `src/app/api/trackingsheet/*`, `src/app/api/code` |
 | **Editing ONE time entry** (code / hours / day / job) | `src/app/trackingsheet/TimeCodingCard.tsx` + `src/app/api/time-entry` — reached from the ✎ on a row |
 | **The month's time-entry list** (either page) | `src/components/TimeEntryList.tsx` — rows, filters, grouping, selection and the recode drawer, shared by `labor-review` and the board's Time & labor panel; date maths in `src/lib/timeEntryDates.ts` |
 | **Recoding several time entries at once** | select rows in that list → `TimeRecodeCard` → staged, then written by the page's Sync (`POST /api/labor-review`) |
@@ -304,7 +304,7 @@ Each page is a server component (`page.tsx`) that hands non-secret context to a
 
 - **Financials:** `trackingsheet` (Tracking Sheets — the billing hub, gated by
   the `recode` view id: Board, BillCodingCard, TimeCodingCard, ClientInvoicing,
-  DraftQueue, DraftWorkbench, AllJobs, Roster), `bill/[docId]`, `add-bill`,
+  DraftWorkbench, AllJobs), `bill/[docId]`, `add-bill`,
   `coding` (retired), `stage` (retired), `labor-review`, `invoice-review`
   (a month's client invoices checked against the bills and the Drive backup),
   `jobs`, `clients` (Clients & Jobs — the customer/job directory, and the one
@@ -447,7 +447,7 @@ Grouped by domain; each folder is `…/route.ts`.
   triggers: `SplashScreen` on app open, `RouteLoadingScreen` on an in-app tap,
   and `src/app/loading.tsx` for hard loads; the last two only fade in past
   180ms, so a fast page swap stays silent),
-  `RefreshButton`/`RefreshProvider`, `SyncNowButton`,
+  `RefreshProvider`, `SyncNowButton`,
   `AllPagesMenu` (the collapsible ALL PAGES menu at the bottom of Home — every
   page, grouped by function, office + admin; replaced `AdminActionBar`, whose
   script-job buttons live on `/actions`) + `PagesMenuEditor` (the admin's Edit

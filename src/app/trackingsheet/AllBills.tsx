@@ -18,7 +18,7 @@ import {
 } from "@/components/ui";
 import { SplitGrid } from "@/components/SplitGrid";
 import { useUnsavedChanges } from "@/lib/useUnsavedChanges";
-import { monthOptions } from "./Roster";
+import { billingMonths } from "@/lib/billingMonths";
 import {
   DraftBudgetRail,
   DraftCodingPanel,
@@ -194,7 +194,7 @@ export function AllBills({ ym, setYm }: { ym: string; setYm: (ym: string) => voi
         .reduce((s, b) => s + b.cost - (b.tax ?? 0), 0),
     [shown],
   );
-  const monthLabel = monthOptions().find((o) => o.ym === ym)?.label ?? ym;
+  const monthLabel = billingMonths(15).find((o) => o.value === ym)?.label ?? ym;
 
   // The list split in two, same as the job board: everything else in the main
   // list, Sunset in its own collapsible pane at the bottom.
@@ -488,8 +488,8 @@ export function AllBills({ ym, setYm }: { ym: string; setYm: (ym: string) => voi
           onChange={(e) => setYm(e.target.value)}
           className={inputCls}
         >
-          {monthOptions().map((o) => (
-            <option key={o.ym} value={o.ym}>
+          {billingMonths(15).map((o) => (
+            <option key={o.value} value={o.value}>
               {o.label}
             </option>
           ))}
