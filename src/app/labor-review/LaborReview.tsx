@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { setUrlParam } from "@/lib/urlParam";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
@@ -597,7 +598,10 @@ export function LaborReview() {
               <Select
                 id="labor-month"
                 value={ym}
-                onChange={(e) => setYm(e.target.value)}
+                onChange={(e) => {
+                  setYm(e.target.value);
+                  setUrlParam("ym", e.target.value);
+                }}
                 className="!h-11 lg:!h-auto lg:w-52"
                 aria-label="Month"
               >

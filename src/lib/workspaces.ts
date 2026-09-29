@@ -171,6 +171,12 @@ export const OUTSIDE_WORKSPACES: Record<string, string> = {
   rfis: "nobody logs RFIs (owner decision 4, 2026-09-29); route kept",
 };
 
+/**
+ * Pages that show no tab strip. The safety meeting is passed around the room
+ * on an iPad; a row of other pages above the sign-in is a way to lose it.
+ */
+export const NO_STRIP = new Set(["safety-meeting"]);
+
 /** Today — the home page. Not a workspace: it is the bar's first slot. */
 export const TODAY: WorkspaceTab = tab("", "/", "Today", "What needs you today");
 

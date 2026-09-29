@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { InvoiceReview } from "./InvoiceReview";
 
 /**
@@ -10,5 +11,10 @@ import { InvoiceReview } from "./InvoiceReview";
  * src/lib/views.ts) and this shell.
  */
 export default function InvoiceReviewPage() {
-  return <InvoiceReview />;
+  // Suspense because InvoiceReview reads ?ym (useSearchParams).
+  return (
+    <Suspense fallback={null}>
+      <InvoiceReview />
+    </Suspense>
+  );
 }

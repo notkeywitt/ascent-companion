@@ -45,7 +45,7 @@ matching row here.
 | **A customer's or job's JobTread RECORD** (name, number, phase, address, contact, price type) | `src/lib/clientDirectory.ts` (reads + the write allowlist) → routes `src/app/api/clients/*` → page `src/app/clients/`. Editing lives HERE; `/jobs` reports a job's cost and changes nothing |
 | **A job's invoice capture email tag** (the `_JT Invoice <Customer> - <Job>` Gmail label) | button on `src/app/clients/` → `src/app/clients/InvoiceTagCard.tsx` → `/api/clients/invoice-tag` → appscript `EmailToJtInvoice.js` (`listInvoiceTags`/`createInvoiceTag`). The label TEXT is always composed on the Apps Script side |
 | **Gating / who sees what** | `src/lib/views.ts` (the single source of truth: `VIEWS`, `ROLE_VIEWS`), enforced by `src/middleware.ts` |
-| **Nav: the workspaces, the ☰ menu, the bottom bar** | `src/lib/workspaces.ts` (`WORKSPACES` — every page by workspace; `BARS` — each role's bar; `OUTSIDE_WORKSPACES` — pages on none, with why), `src/components/AppMenu.tsx` (the ☰ drawer, every role and width), `src/components/TabBar.tsx`. The retired launchers' saved layouts sit untouched in the `nav_layout` table |
+| **Nav: the workspaces, the ☰ menu, the bottom bar** | `src/lib/workspaces.ts` (`WORKSPACES` — every page by workspace; `BARS` — each role's bar; `OUTSIDE_WORKSPACES` — pages on none, with why), `src/components/AppMenu.tsx` (the ☰ drawer, every role and width), `src/components/TabBar.tsx`, `src/components/WorkspaceTabs.tsx` (the tab strip under the header, carrying `jobId` + `ym`; a close page writes `?ym` when the month is picked, via `src/lib/urlParam.ts`). The retired launchers' saved layouts sit untouched in the `nav_layout` table |
 | **Home REMINDERS** (dated to-dos under "Today" — Import Amazon, Import LSWDD) | `src/components/HomeReminders.tsx` (`REMINDERS` — add one there); the facts both reminders and card counts read, cached per tab: `src/lib/homeFacts.ts`. Sunset's green test: `src/lib/sunsetReconcile.ts` (shared with `/payments`) |
 | **The IPAD (tablet) layout** — home console, dock, the wide shape of anything | the `pad` breakpoint in `tailwind.config.ts` (744px, "an iPad in portrait and up"; declared in sorted position so `lg:`/`xl:` still win over it). Home: `src/app/page.tsx` + `src/components/HomeMasthead.tsx`; the dock `src/components/TabBar.tsx`, whose height `--tabbar-h` (`globals.css`) has to match |
 | **The global search box** | `src/components/GlobalSearch.tsx` (the wide item in `AppHeader`'s one row) — matches pages via `src/lib/workspaces.ts`, help topics via `src/lib/help.ts`, vendors via `/api/vendors`, bills/line items via `/api/bill-search` |
@@ -417,7 +417,8 @@ Grouped by domain; each folder is `…/route.ts`.
   in `CLAUDE.md`). Never hand-roll styles.
 - **Chrome / nav:** `AppHeader` (☰ menu, logo, search, Add bill — one row; the
   logo IS the light/dark switch), `AppMenu` (the ☰ drawer — every page by
-  workspace, from `src/lib/workspaces.ts`),
+  workspace, from `src/lib/workspaces.ts`), `WorkspaceTabs` (the workspace's
+  tab strip under the header, mounted once in the root layout),
   `GlobalSearch` (the app's ONE search box, in that
   row — pages + vendors + bills + line items, from any
   page — hidden for the FIELD role), `TabBar` (the bottom bar — each role's

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { setUrlParam, urlYm } from "@/lib/urlParam";
 import {
   Banner,
   Card,
@@ -96,7 +97,9 @@ export function TaxableLinesBrowser() {
   useEffect(() => {
     if (started.current) return;
     started.current = true;
-    void load("");
+    // A month picked on another close tab arrives as ?ym; with none, the route
+    // answers for the billing month in force.
+    void load(urlYm());
   }, [load]);
 
   const toggleDone = (billId: string) => {
@@ -130,6 +133,7 @@ export function TaxableLinesBrowser() {
               value={ym}
               onChange={(e) => {
                 setYm(e.target.value);
+                setUrlParam("ym", e.target.value);
                 void load(e.target.value);
               }}
               disabled={loading}

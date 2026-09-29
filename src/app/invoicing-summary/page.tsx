@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { setUrlParam, urlYm } from "@/lib/urlParam";
 import {
   Banner,
   Button,
@@ -185,12 +186,12 @@ export default function InvoicingSummaryPage() {
     started.current = true;
     // A link from another close page names its month; with none, the route
     // answers for the billing month in force.
-    const asked = new URLSearchParams(window.location.search).get("ym") ?? "";
-    void load(/^\d{4}-\d{2}$/.test(asked) ? asked : "");
+    void load(urlYm());
   }, [load]);
 
   const onPickMonth = (next: string) => {
     setYm(next);
+    setUrlParam("ym", next);
     setBuildNote("");
     void load(next);
   };

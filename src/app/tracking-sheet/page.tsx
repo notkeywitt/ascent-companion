@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { setUrlParam } from "@/lib/urlParam";
 import {
   Banner,
   Button,
@@ -611,7 +612,14 @@ export default function TrackingSheetPage() {
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
               <div>
                 <Label htmlFor="ts-month">Billing month (this job)</Label>
-                <Select id="ts-month" value={ym} onChange={(e) => setYm(e.target.value)}>
+                <Select
+                  id="ts-month"
+                  value={ym}
+                  onChange={(e) => {
+                    setYm(e.target.value);
+                    setUrlParam("ym", e.target.value);
+                  }}
+                >
                   {months.map((m) => (
                     <option key={m.key} value={m.key}>
                       {m.label}

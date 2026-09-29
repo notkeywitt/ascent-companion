@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { setUrlParam } from "@/lib/urlParam";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -2923,7 +2924,11 @@ export function Board() {
     <Select
       id={id}
       value={ym}
-      onChange={(e) => setYm(e.target.value)}
+      onChange={(e) => {
+        setYm(e.target.value);
+        // Into the address too, so the workspace tabs carry the month.
+        setUrlParam("ym", e.target.value);
+      }}
       className={cls}
       aria-label="Billing month"
     >

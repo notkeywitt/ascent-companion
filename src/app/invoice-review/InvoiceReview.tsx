@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { asYm, setUrlParam } from "@/lib/urlParam";
 
 import {
   Banner,
@@ -165,7 +167,10 @@ function whenChecked(iso: string): string {
 
 export function InvoiceReview() {
   const months = useMemo(monthChoices, []);
-  const [ym, setYm] = useState(defaultYm);
+  // A month the person picked on another close tab arrives as ?ym; with none,
+  // this page keeps its own default.
+  const asked = asYm(useSearchParams().get("ym"));
+  const [ym, setYm] = useState(() => (months.some((m) => m.ym === asked) ? asked : defaultYm()));
   const [data, setData] = useState<ReviewPayload | null>(null);
   const [loading, setLoading] = useState(false);
   /** True only while a LIVE sweep is running. Reading a filed run is instant,
@@ -549,7 +554,14 @@ export function InvoiceReview() {
             <span className="mb-1 block text-xs uppercase tracking-wide opacity-70">
               Billing month
             </span>
-            <Select value={ym} onChange={(e) => setYm(e.target.value)} disabled={loading}>
+            <Select
+              value={ym}
+              onChange={(e) => {
+                setYm(e.target.value);
+                setUrlParam("ym", e.target.value);
+              }}
+              disabled={loading}
+            >
               {months.map((m) => (
                 <option key={m.ym} value={m.ym}>
                   {m.label}
