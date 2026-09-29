@@ -1,7 +1,26 @@
 {
-  "generatedAt": "2026-09-29T20:11:46Z",
+  "generatedAt": "2026-09-29T20:17:38Z",
   "repo": "ascent-companion",
   "sessions": [
+    {
+      "slug": "navigation-stage-3",
+      "file": "2026-09-29-navigation-stage-3.md",
+      "branch": "claude/navigation-stage-3",
+      "status": "shipped",
+      "started": "2026-09-29T20:14:05Z",
+      "updated": "2026-09-29T20:17:37Z",
+      "goal": "NAVIGATION_PLAN.md Stage 3: Not in JobTread merge, Code this bill on Email Invoices, Time Off office console path, Labor Report on People, drop the /admin Notices tab, bill History link",
+      "next": "",
+      "commits": [
+        {
+          "date": "2026-09-29",
+          "time": "13:17",
+          "sha": "bca7ad2",
+          "subject": "companion: stage 3 small moves — notices, bill history, labor report",
+          "files": "CODEBASE_MAP.md, src/app/admin/page.tsx, src/app/journal/page.tsx, src/app/labor-import/page.tsx, src/app/notices/page.tsx, src/app/trackingsheet/BillCodingCard.tsx, +1 more"
+        }
+      ]
+    },
     {
       "slug": "navigation-stage-1",
       "file": "2026-09-29-navigation-stage-1.md",

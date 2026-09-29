@@ -30,6 +30,7 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
+| [navigation-stage-3](.claude/sessions/2026-09-29-navigation-stage-3.md) | 2026-09-29 | 1 | NAVIGATION_PLAN.md Stage 3: Not in JobTread merge, Code this bill on Email Invo… |
 | [navigation-stage-1](.claude/sessions/2026-09-29-navigation-stage-1.md) | 2026-09-29 | 11 | NAVIGATION_PLAN.md Stage 1: one workspace list feeding bar, menu, search; tab s… |
 | [tracking-bill](.claude/sessions/2026-09-29-tracking-bill.md) | 2026-09-29 | 1 | Tracking Sheets job view: open a bill's coding card beside its row instead of s… |
 | [specs](.claude/sessions/2026-09-29-specs.md) | 2026-09-29 | 3 | Specifications: import an architect's spec selection list PDF per job, show it … |
@@ -44,4 +45,3 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 | [tracking-sheet-donut-charts](.claude/sessions/2026-09-10-tracking-sheet-donut-charts.md) | 2026-09-10 | 2 | — |
 | [admin-actions-menu](.claude/sessions/2026-09-10-admin-actions-menu.md) | 2026-09-10 | 1 | — |
 | [bill-due-date-selector](.claude/sessions/2026-09-09-bill-due-date-selector.md) | 2026-09-09 | 2 | — |
-| [ipad-vertical-admin-home](.claude/sessions/2026-09-09-ipad-vertical-admin-home.md) | 2026-09-09 | 1 | A vertical iPad layout for the admin and office home screen. |
