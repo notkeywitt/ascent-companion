@@ -1366,3 +1366,22 @@ export const pageGuides = sqliteTable("page_guides", {
 });
 
 export type PageGuideRow = typeof pageGuides.$inferSelect;
+
+/**
+ * SPEC SELECTION LISTS — an architect's finish schedule, read into rows.
+ *
+ * One row per IMPORT, so each revision the architect sends is kept; the page
+ * shows the newest for the job. `value` is the resolved SpecList (see
+ * src/lib/specList.ts) as JSON. Companion data only: nothing here is written to
+ * JobTread.
+ */
+export const specLists = sqliteTable("spec_lists", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  jobId: text("job_id").notNull(), // JobTread job id
+  fileName: text("file_name").notNull().default(""),
+  value: text("value").notNull(), // SpecList serialized as JSON
+  importedAt: text("imported_at").notNull(),
+  importedBy: text("imported_by").notNull().default(""), // signed-in email
+});
+
+export type SpecListRow = typeof specLists.$inferSelect;

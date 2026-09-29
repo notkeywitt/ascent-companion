@@ -85,6 +85,7 @@ matching row here.
 | **The Admin To Dos card** (JobTread to-dos + the morning report on Home) | UI `src/components/HomeTodos.tsx`; the live to-do read + create is `src/app/api/todos/route.ts` → `createToDo` in `src/lib/jobtread.ts`. The report under it is the digest: `src/lib/digest/` — `settings.ts` (EVERY threshold/exclusion), `registry.ts` (the check list), `checks/*` (one file per check), `run.ts` (aggregator); routes `src/app/api/digest/*`; Google data via appscript `DailyDigest.js` |
 | **The Office dashboard's to-dos** (create, edit, tick done, delete — Office job only) | UI `src/app/office/OfficeTodos.tsx` (list read server-side in `src/app/office/page.tsx`); writes `src/app/api/office/todos/route.ts` → `createToDo` / `updateToDo` / `deleteToDo` in `src/lib/jobtread.ts`. Edit and delete read the to-do's job first and refuse any job but `OFFICE_JOB_ID` |
 | **Reviewing a month's client invoices** | `src/lib/invoiceReview/` — `checks/*` (one file per check, pure + tested), `settings.ts` (EVERY threshold), `registry.ts` (the check list + the runner), `evidence.ts` (JobTread + Drive + Gmail), `rulings.ts` (the memory), `runs.ts` (the history), `brief.ts` (the no-API-key hand-off); page `src/app/invoice-review/`; routes `src/app/api/invoice-review` (+ `/run`, callable manually — NOT on a Vercel cron; see the incident note in `INVOICE_ACCURACY_PLAN.md`); Drive + Gmail reads via appscript `ClientInvoiceReview.js`; skill `.claude/skills/invoice-review/` |
+| **An architect's spec selection list (finish schedule)** | page `src/app/specs/`, route `src/app/api/specs/` (companion DB table `spec_lists`, one row per import). The PDF's links come from `src/lib/pdfLinks.ts` (pdf.js), its rows from `extractSpecListWithClaude` in `src/lib/claudeExtract.ts`, joined by `resolveSpecList` in `src/lib/specList.ts` — the model names link ids, never URLs. Writes nothing to JobTread |
 | **A new job's budget from its tracking sheet** | page `src/app/budget-import/`, route `src/app/api/budget-import/` → appscript `BudgetImport.js` (the bucket → cost type mapping, checked by its `scripts/check-budget-import.mjs`). Two outputs: a CSV (costs plus one markup), or "Import into JT" — `JtImport.tsx` → `src/app/api/budget-import/jobtread/` → `src/lib/budgetImport.ts`, which updates the job's live budget IN PLACE (items keep their ids, so time entries and bill lines stay attached), creates what is missing, never deletes, and journals every write. Probe: `scripts/probe-budget-write.mjs` |
 | **The month's Invoicing Package doc** | page `src/app/invoicing-summary/`, route `src/app/api/invoicing-summary/`; every figure and the doc itself come from appscript `MonthlyInvoicingSummary.js`, which the 30-minute tracking-sheet push also calls |
 | **Adding an invoice-review check** | write `src/lib/invoiceReview/checks/<id>.ts`, add its config block to `settings.ts`, add one line to `registry.ts` — the runner, the route, the history and the page are untouched |
@@ -157,7 +158,9 @@ including edge middleware.
 | `timeProblems.ts` ⟂ | What can be wrong with one time record, and what the office does about it — the type, the order, the headings, the one-line fixes. Its own pure module because the server decides the problem and the client draws it. |
 | `appsScript.ts` | The one client for the Apps Script web app — every Sheets/Drive feature POSTs `{action, secret, …}` here. |
 | `anthropic.ts` | Claude chat engine — the server-side tool-use loop behind `/chat` (server-only). |
-| `claudeExtract.ts` | Claude document extraction — invoice/bill reading for `/add-bill` and tool-serial OCR for `/api/ocr-serial`. Port of appscript `Ingestion.js` `callClaude` (server-only). Replaced the Gemini module, deleted 2026-09-09. |
+| `pdfLinks.ts` | A PDF's clickable links, each with the words under it and the row text beside it (pdf.js, server-only). Feeds the spec list import. |
+| `specList.ts` | A spec selection list's types, `resolveSpecList` (link ids → links, unplaced links kept) and `groupByRoom`. Pure. |
+| `claudeExtract.ts` | Claude document extraction — invoice/bill reading for `/add-bill`, tool-serial OCR for `/api/ocr-serial`, Amazon order summaries, and spec selection lists for `/api/specs`. Port of appscript `Ingestion.js` `callClaude` (server-only). Replaced the Gemini module, deleted 2026-09-09. |
 | `chatTools.ts` | Read-only JobTread tool registry exposed to the chat assistant. Phase 1 is READ-ONLY — do not add writes. |
 | `amazonImport.ts` | Amazon Business monthly CSV → JobTread vendor bills. |
 | `taskRunner.ts` | Tiny background scheduler (keyed serialization + parallelism cap) used by the Tracking Sheet page. |
@@ -317,6 +320,7 @@ Each page is a server component (`page.tsx`) that hands non-secret context to a
   `payments` (Sunset Statements), `expenditure-history`, `lswdd`, `amazon-import`,
   `tracking-sheet`, `budget-import` (a tracking sheet's estimate as a JobTread
   budget import CSV, costs only; built by appscript `BudgetImport.js`),
+  `specs` (Specifications — an architect's spec selection list with live links),
   `invoicing-summary` (Invoicing Package — the month's client
   billing summary and the Google Doc it writes; figures and doc both come from
   appscript `MonthlyInvoicingSummary.js`, and the tracking-sheet push rewrites
@@ -399,7 +403,7 @@ Grouped by domain; each folder is `…/route.ts`.
   `tool-tracker`, `safety-meeting`, `requisitions`, `rfis/*`,
   `feature-requests/*`.
 - **Leads:** `leads/*`.
-- **Assistant / misc:** `chat`, `ocr-serial`, `tracking-sheet`, `budget-import`, `vendors`,
+- **Assistant / misc:** `chat`, `ocr-serial`, `tracking-sheet`, `budget-import`, `specs`, `vendors`,
   `bank-details`, `notices/*` (the reader's own feed + dismiss — UNGATED, every
   role must be able to receive a notice; the authoring CRUD is
   `admin/notices`, gated by the `notices` view so office can post too).

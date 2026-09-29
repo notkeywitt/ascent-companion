@@ -998,6 +998,17 @@ async function applySchema() {
       updated_by TEXT NOT NULL DEFAULT ''
     )
   `);
+  // Spec selection lists — one row per import of an architect's finish schedule.
+  await getClient().execute(`
+    CREATE TABLE IF NOT EXISTS spec_lists (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      job_id TEXT NOT NULL,
+      file_name TEXT NOT NULL DEFAULT '',
+      value TEXT NOT NULL,
+      imported_at TEXT NOT NULL,
+      imported_by TEXT NOT NULL DEFAULT ''
+    )
+  `);
   // The journal is read newest-first, and filtered by the record, the job, the
   // person, or the one action a row belonged to.
   for (const idx of [
@@ -1006,6 +1017,7 @@ async function applySchema() {
     `CREATE INDEX IF NOT EXISTS financial_events_job_idx ON financial_events (job_id, at DESC)`,
     `CREATE INDEX IF NOT EXISTS financial_events_actor_idx ON financial_events (actor, at DESC)`,
     `CREATE INDEX IF NOT EXISTS financial_events_request_idx ON financial_events (request_id)`,
+    `CREATE INDEX IF NOT EXISTS spec_lists_job_idx ON spec_lists (job_id, id DESC)`,
   ]) {
     await getClient().execute(idx);
   }

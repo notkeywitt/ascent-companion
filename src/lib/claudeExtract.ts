@@ -94,6 +94,7 @@ async function callClaude(
   timeoutMs: number,
   bytes?: Buffer | null,
   mimeType?: string,
+  maxTokens = MAX_TOKENS,
 ): Promise<unknown | null> {
   const content: Anthropic.ContentBlockParam[] = [];
   if (bytes && mimeType) {
@@ -120,17 +121,20 @@ async function callClaude(
   }
   content.push({ type: "text", text: prompt });
 
+  const params = {
+    model: MODEL,
+    max_tokens: maxTokens,
+    messages: [{ role: "user" as const, content }],
+    output_config: { format: { type: "json_schema" as const, schema } },
+  };
   let res: Anthropic.Message;
   try {
-    res = await client().messages.create(
-      {
-        model: MODEL,
-        max_tokens: MAX_TOKENS,
-        messages: [{ role: "user", content }],
-        output_config: { format: { type: "json_schema", schema } },
-      },
-      { timeout: timeoutMs },
-    );
+    // A ceiling above the default is a long answer, and a long non-streaming
+    // request risks the HTTP timeout — so it streams and waits for the end.
+    res =
+      maxTokens > MAX_TOKENS
+        ? await client().messages.stream(params, { timeout: timeoutMs }).finalMessage()
+        : await client().messages.create(params, { timeout: timeoutMs });
   } catch (e) {
     // A swallowed failure here is indistinguishable from "the document was
     // unreadable", which is what made a rate limit, an expired key and a
@@ -373,4 +377,103 @@ export async function extractAmazonOrderWithClaude(
   if (!out || typeof out !== "object" || Array.isArray(out)) return null;
   const o = out as ExtractedAmazonOrder;
   return String(o.orderId ?? "").trim() ? o : null;
+}
+
+// ---------------------------------------------------------------------------
+// Architect's spec selection list / finish schedule → rows
+// ---------------------------------------------------------------------------
+
+/** The links the PDF carries, as `extractPdfLinks` found them. */
+type LinkRef = { id: string; text: string; context: string };
+
+const SPEC_OPTION = {
+  type: "object",
+  additionalProperties: false,
+  required: ["text", "links"],
+  properties: { text: { type: "string" }, links: { type: "array", items: { type: "string" } } },
+};
+
+const SPEC_LIST_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  required: ["title", "revision", "rows"],
+  properties: {
+    title: { type: "string" },
+    revision: { type: "string" },
+    rows: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: [
+          "room", "item", "qty", "spec", "specLinks", "alternates", "notes", "question",
+          "impact", "answer", "addedBy", "tag", "revised", "other", "status",
+        ],
+        properties: {
+          room: { type: "string" },
+          item: { type: "string" },
+          qty: { type: "string" },
+          spec: { type: "string" },
+          specLinks: { type: "array", items: { type: "string" } },
+          alternates: { type: "array", items: SPEC_OPTION },
+          notes: { type: "string" },
+          question: { type: "string" },
+          impact: { type: "string" },
+          answer: { type: "string" },
+          addedBy: { type: "string" },
+          tag: { type: "string" },
+          revised: { type: "string" },
+          other: {
+            type: "array",
+            items: {
+              type: "object",
+              additionalProperties: false,
+              required: ["label", "value"],
+              properties: { label: { type: "string" }, value: { type: "string" } },
+            },
+          },
+          status: { type: "string", enum: ["open", "decided"] },
+        },
+      },
+    },
+  },
+} as const;
+
+function specListPrompt(links: LinkRef[]): string {
+  const list = links.length
+    ? links.map((l) => `${l.id} | anchor: ${l.text || "(no text)"} | row: ${l.context || "?"}`).join("\n")
+    : "(this document has no links)";
+  return `This is an architect's spec selection list (a finish schedule) for a construction job. Read EVERY row of the table, in order, and return it as JSON.
+
+Schedules differ by architect. Map each column to the closest field:
+- 'room': the room or area heading the row sits under, with its number ("001 Studio", "Exterior Finish"). Repeat it on every row of that room.
+- 'item': what is being specified ("Floor", "Faucet", "Sconce (exterior)").
+- 'qty': the quantity as printed, or "".
+- 'spec': the final or selected specification — manufacturer, product, model, finish — exactly as printed. "" when the cell is empty.
+- 'alternates': each alternate or option column that has text, one entry each.
+- 'notes': the comments / notes column. 'question': an open question to the owner or architect. 'impact': a repercussions / impact column. 'answer': an answers column.
+- 'addedBy', 'tag' (the elevation or finish tag, e.g. F1, CT1, X001), 'revised' (the date added or revised, as printed).
+- 'other': any other column with a value, as {label: the column heading, value}.
+Copy text as printed. Join a cell's wrapped lines with a space. Do not summarize or correct.
+
+'status' is "open" when a choice is still to be made: the row has a question with no answer, or its spec says TBD / by owner / to be selected, or it lists alternates without saying which one wins. Otherwise "decided".
+
+LINKS. The document's clickable links are listed below by id, with the words under each link and the words to its left on the same line. Put a link's id in 'specLinks' when its anchor text is in that row's 'spec', or in that alternate's 'links' when it is in the alternate. One link may belong to several rows. Use ONLY ids from this list, and never write a URL.
+${list}
+
+'title': the schedule's title. 'revision': its date or revision mark, as printed.`;
+}
+
+/** Read a spec selection list PDF into rows. `links` come from lib/pdfLinks. */
+export async function extractSpecListWithClaude(bytes: Buffer, links: LinkRef[]): Promise<unknown | null> {
+  // A schedule is one long table: sixty rows is ~10k tokens of JSON before the
+  // model thinks at all, so the ceiling is well above the bill reader's.
+  return callClaude(
+    specListPrompt(links),
+    SPEC_LIST_SCHEMA as unknown as Record<string, unknown>,
+    240_000,
+    bytes,
+    "application/pdf",
+    64_000,
+  );
 }

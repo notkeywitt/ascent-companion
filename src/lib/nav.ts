@@ -57,6 +57,7 @@ export const AREAS: Area[] = [
       { label: "Labor Review", href: "/labor-review", desc: "Code a month's logged time against the same headroom", view: "labor-review" },
       { label: "Invoice Review", href: "/invoice-review", desc: "Check a month's client invoices against the bills and the backup", view: "invoice-review" },
       { label: "Budget Import", href: "/budget-import", desc: "A tracking sheet's estimate as a JobTread budget CSV", view: "budget-import" },
+      { label: "Specifications", href: "/specs", desc: "An architect's spec selection list, with its product links", view: "specs" },
       { label: "Invoicing Package", href: "/invoicing-summary", desc: "The month's billing summary doc — every job, its labor, bills and total", view: "invoicing-summary" },
       { label: "Sunset Statements", href: "/payments", desc: "Pay a statement & reconcile its invoices", view: "payments" },
       { label: "Bill Search", href: "/bill-search", desc: "Find any bill or line item — “2x4”, a vendor, an invoice #", view: "bill-search" },

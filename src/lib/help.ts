@@ -607,6 +607,26 @@ export const HELP: HelpSection[] = [
     blurb: "The roster, the team's notices, access, and the record of what the app did.",
     topics: [
       {
+        id: "specs",
+        q: "How do I bring in an architect's spec selection list?",
+        view: "specs",
+        href: "/specs",
+        keywords: ["spec", "specification", "selection", "finish schedule", "architect", "links"],
+        steps: [
+          "Open **Specifications**.",
+          "Select the job.",
+          "Select the architect's PDF.",
+          "Tap **Read PDF**.",
+          "Tap a spec to open its product page.",
+        ],
+        notes: [
+          "For a spreadsheet, download it as a PDF first. Its links survive.",
+          "Each import is kept. Select an earlier import from the list above the rows.",
+          "A row is **Open** while a choice is still to be made. Tap **Mark decided** when it is made.",
+          "Reading a long schedule takes about a minute.",
+        ],
+      },
+      {
         id: "employees",
         q: "How do I edit the employee roster?",
         view: "employees",

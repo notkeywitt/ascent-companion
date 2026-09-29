@@ -37,6 +37,9 @@ const nextConfig = {
   // other's manifests, which surfaces as ENOENT on pages-manifest.json during
   // "Collecting page data". `.githooks/pre-push` sets this for that reason.
   distDir: process.env.NEXT_DIST_DIR || '.next',
+  // pdf.js (src/lib/pdfLinks.ts) is loaded from node_modules at run time rather
+  // than bundled: it is a large ESM build that expects its own file layout.
+  serverExternalPackages: ["pdfjs-dist"],
   eslint: {
     // Lint runs in CI (.github/workflows/ci.yml), NOT in the deploy path.
     //

@@ -132,6 +132,11 @@ export const VIEWS: ViewDef[] = [
     group: "Financials",
     paths: ["/budget-import", "/api/budget-import"],
   },
+  // Specifications — an architect's spec selection list (finish schedule), read
+  // out of the PDF into rows with their product links. The API prefix rides the
+  // same gate: its import calls the model and writes the companion DB. Nothing
+  // here writes to JobTread.
+  { id: "specs", label: "Specifications", group: "Financials", paths: ["/specs", "/api/specs"] },
   // The month's Invoicing Package doc — the client-billing summary the office
   // reads and edits, written to Drive by Apps Script. The API prefix rides the
   // same gate as the page: the route writes a Google Doc and edits the
