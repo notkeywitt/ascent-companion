@@ -4,7 +4,10 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { InvoiceAttachment } from "@/components/InvoiceViewer";
 import { JobPicker } from "@/components/JobPicker";
-import { Banner, Button, CardSkeletonList, EmptyState, PageHeader } from "@/components/ui";
+import { Banner, Button, CardSkeletonList, EmptyState, PageHeader, SectionHeading } from "@/components/ui";
+import { useAccess } from "@/components/AccessProvider";
+import { StuckVendorBanner } from "@/components/StuckVendors";
+import { UncapturedBills } from "@/components/UncapturedBills";
 
 interface NeedsItem {
   expId: string;
@@ -29,6 +32,7 @@ const isStale = (err?: string) => /already in JobTread/i.test(err ?? "");
 // disambiguate). Pick the job from the PDF and assign — it pushes to JobTread
 // and re-files in Drive.
 export default function NeedsProjectPage() {
+  const canUncaptured = useAccess().can("recode");
   const [items, setItems] = useState<NeedsItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -159,7 +163,7 @@ export default function NeedsProjectPage() {
     <main className="mx-auto max-w-2xl px-4 pb-24 pt-6">
       <PageHeader
         title="Not in JobTread"
-        description="Ingested bills held because the job couldn’t be determined automatically. Check the PDF, pick the job, and Assign — it pushes to JobTread and re-files in Drive."
+        description="Every bill that has not reached JobTread: no job yet, a vendor JobTread does not have, or a capture that was never pushed."
         actions={
           <Button variant="secondary" size="sm" onClick={() => load()} disabled={loading}>
             {loading ? "Refreshing…" : "Refresh"}
@@ -179,6 +183,11 @@ export default function NeedsProjectPage() {
           <span className="shrink-0 font-semibold">Tracking Sheets →</span>
         </Link>
       )}
+
+      {/* 1. NO JOB YET — ingested bills whose job could not be worked out.
+          Check the PDF, pick the job, and Assign: it pushes to JobTread and
+          re-files in Drive. */}
+      <SectionHeading className="mb-2">No job yet</SectionHeading>
 
       {learnedNote && (
         <Banner tone="success" className="mb-4">
@@ -259,6 +268,20 @@ export default function NeedsProjectPage() {
           </li>
         ))}
       </ul>
+
+      {/* 2. VENDOR NOT IN JOBTREAD — the stuck-vendor list, with its own
+          actions. Self-gating on the "email" view, which its API rides. */}
+      <div className="mt-8">
+        <StuckVendorBanner />
+      </div>
+
+      {/* 3. NEVER PUSHED — captured on the sheet, never reached JobTread. Its
+          API (/api/uncaptured) rides the "recode" gate, so the section does. */}
+      {canUncaptured && (
+        <div className="mt-8">
+          <UncapturedBills />
+        </div>
+      )}
     </main>
   );
 }
