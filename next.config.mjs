@@ -40,11 +40,12 @@ const nextConfig = {
   // pdf.js (src/lib/pdfLinks.ts) is loaded from node_modules at run time rather
   // than bundled: it is a large ESM build that expects its own file layout.
   serverExternalPackages: ["pdfjs-dist"],
-  // Retired routes. /more was "The Rest", the tile launchers' overflow page;
-  // the header menu carries every page since 2026-09-29. Not permanent, so a
-  // browser does not cache it if the route ever comes back.
+  // Retired routes, all to Today. /more was "The Rest", the tile launchers'
+  // overflow page (the header menu carries every page since 2026-09-29);
+  // /coding and /stage were deleted the same day (Today lists the bills to
+  // code). Not permanent, so a browser does not cache it if a route returns.
   async redirects() {
-    return [{ source: "/more", destination: "/", permanent: false }];
+    return ["/more", "/coding", "/stage"].map((source) => ({ source, destination: "/", permanent: false }));
   },
   eslint: {
     // Lint runs in CI (.github/workflows/ci.yml), NOT in the deploy path.

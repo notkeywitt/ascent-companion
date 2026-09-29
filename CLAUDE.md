@@ -205,7 +205,7 @@ branch's record, so the next session can pick the work up cold. Read
    page that is on no workspace.
 4. **Build the UI on `ui.tsx` primitives.** Mobile-first (`max-w-2xl`, thumb-sized
    targets), theme-aware. Match the look of existing pages (`src/app/jobs`,
-   `src/app/unbilled`, `src/app/stage`).
+   `src/app/unbilled`, `src/app/budget-import`).
 5. **Verify** (`npm run typecheck` && `npm run build`) before committing — see
    "Shipping"; the pre-push hook runs both again.
 

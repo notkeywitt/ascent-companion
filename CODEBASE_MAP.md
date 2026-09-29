@@ -304,9 +304,9 @@ Each page is a server component (`page.tsx`) that hands non-secret context to a
 - **Financials:** `trackingsheet` (Tracking Sheets — the billing hub, gated by
   the `recode` view id: Board, BillCodingCard, TimeCodingCard, ClientInvoicing,
   DraftWorkbench, AllJobs), `bill/[docId]`, `add-bill`,
-  `coding` (retired), `stage` (retired), `labor-review`, `invoice-review`
+  `labor-review`, `invoice-review`
   (a month's client invoices checked against the bills and the Drive backup),
-  `jobs`, `clients` (Clients & Jobs — the customer/job directory, and the one
+  `jobs`, `clients` (Directory — the customer/job directory, and the one
   page that EDITS a JobTread record), `unbilled`, `ar-aging` (Receivables — unpaid
   client invoices, aged),
   `vendors`, `bill-search` (fast full-text search over every bill + line item,

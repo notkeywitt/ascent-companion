@@ -166,8 +166,6 @@ export const EXTRA_LINKS: WorkspaceTab[] = [
 export const OUTSIDE_WORKSPACES: Record<string, string> = {
   chat: "menu footer (EXTRA_LINKS)",
   lopezrocks: "menu footer (EXTRA_LINKS) and the home page",
-  coding: "retired 2026-08-10; removed in stage 2",
-  stage: "retired 2026-08-10; removed in stage 2",
   rfis: "nobody logs RFIs (owner decision 4, 2026-09-29); route kept",
 };
 

@@ -204,15 +204,13 @@ function BillDetail() {
   const ym = search.get("ym") ?? "";
   const ymQs = ym ? `&ym=${encodeURIComponent(ym)}` : "";
   const backHref =
-    from === "stage"
-      ? `/stage?jobId=${encodeURIComponent(jobId)}`
-      : from === "invoicing"
-        ? // The roster re-opens the card you left from (?open=), the month-list
-          // equivalent of the workbench's #bill-<id> anchor.
-          `/trackingsheet?open=${encodeURIComponent(jobId)}${ymQs}`
-        : from === "payments"
-          ? "/payments"
-          : `/trackingsheet?jobId=${encodeURIComponent(jobId)}${ymQs}#bill-${docId}`;
+    from === "invoicing"
+      ? // The roster re-opens the card you left from (?open=), the month-list
+        // equivalent of the workbench's #bill-<id> anchor.
+        `/trackingsheet?open=${encodeURIComponent(jobId)}${ymQs}`
+      : from === "payments"
+        ? "/payments"
+        : `/trackingsheet?jobId=${encodeURIComponent(jobId)}${ymQs}#bill-${docId}`;
   // A general Back: return to the previous page via the browser's history when
   // there is one, so Back lands wherever you actually came from (search, the
   // digest, a shared link) instead of always claiming "Tracking Sheets". Falls

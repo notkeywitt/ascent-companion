@@ -35,13 +35,10 @@ export interface ViewDef {
  * routes that share the same gate (e.g. /bill + /add-bill live under Coding).
  */
 export const VIEWS: ViewDef[] = [
-  // Financials / billing — admin-only as a group (see ADMIN_ONLY below).
-  // RETIRED 2026-08-10: the standalone Coding Review page. Its queue is now the
-  // "Needs coding" tab of Tracking Sheets, and nothing links here any more —
-  // the route is left reachable by URL as a transition fallback, so the gate
-  // stays. The bill pages it used to own moved to the "recode" view below,
-  // which is what actually links to them now.
-  { id: "coding", label: "Coding Review (retired)", group: "Financials", paths: ["/coding"] },
+  // Financials / billing. The retired Coding Review (/coding) and Invoicing
+  // (/stage) pages, and their "coding" and "stage" view ids, were DELETED
+  // 2026-09-29 (owner's ok): Today's "Bills to code" list replaced the one,
+  // Tracking Sheets the other. Both routes redirect home (next.config.mjs).
   // Tracking Sheets — the whole billing workflow on one route: the month's
   // invoices across every job, the needs-coding queue, and the per-job coding
   // workbench (which WRITES coding, unlike the read-only pages it absorbed).
@@ -169,12 +166,6 @@ export const VIEWS: ViewDef[] = [
     group: "Financials",
     paths: ["/clients", "/api/clients"],
   },
-  // RETIRED 2026-08-10 alongside "coding": the standalone Invoicing page is now
-  // the "This month" tab of Tracking Sheets. Unlinked but still reachable by
-  // URL, so the gate stays. NOTE the /api/stage routes are deliberately NOT
-  // listed — Tracking Sheets reads them for its roster and billing summary, so
-  // gating them here would lock out anyone without this retired view.
-  { id: "stage", label: "Invoicing (retired)", group: "Financials", paths: ["/stage"] },
   { id: "unbilled", label: "Unbilled", group: "Financials", paths: ["/unbilled"] },
   // Receivables — unpaid client invoices, aged. Read-only, and every figure is
   // JobTread's own (it derives balance/amountPaid from QuickBooks). Office +
@@ -503,12 +494,10 @@ const FIELD_VIEWS: string[] = [
   // office/admin, checked in /api/feature-requests/[id].
   "requests",
 ];
-// Leads additionally see the Financials menu (coding, invoicing, Sunset pay).
-// Leads additionally see the Financials menu. "recode" (Tracking Sheets) is
+// Leads additionally see Sunset statements. "recode" (Tracking Sheets) is
 // deliberately NOT here as of 2026-09-09: it is the coding workbench, so it
 // EDITS bills — and the owner limited bill/invoice editing to office+admin.
-// "coding" and "stage" stay: both are retired, unlinked and read-only.
-const LEAD_VIEWS: string[] = [...FIELD_VIEWS, "coding", "stage", "payments"];
+const LEAD_VIEWS: string[] = [...FIELD_VIEWS, "payments"];
 // The admin-only consoles — access control + the audit log. No one below admin
 // gets these by default (a per-user grant can still hand them to an individual).
 const ADMIN_MENU: string[] = [

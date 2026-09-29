@@ -266,7 +266,7 @@ export function printJob(detail: Detail, monthLabel: string, groupByCsi: boolean
 export function Breakdown({
   detail,
   groupByCsi,
-  from = "stage",
+  from = "recode",
 }: {
   detail: Detail;
   groupByCsi: boolean;
