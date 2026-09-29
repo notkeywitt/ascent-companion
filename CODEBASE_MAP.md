@@ -27,6 +27,7 @@ matching row here.
 | The colour palettes — every value, and the reasoning that fixed it | `THEME.md` |
 | Standing structural review, agreed cleanup checklist | `ARCHITECTURE_REVIEW.md` |
 | Where the app is more complex than the job it does, and how to undo it | `SIMPLICITY_AUDIT.md` |
+| How pages are grouped, named and reached, and the staged plan to regroup them into workspaces | `NAVIGATION_PLAN.md` |
 | The staged plan for ending client invoicing mistakes | `INVOICE_ACCURACY_PLAN.md` |
 | What each screen does, for the owner (end-user manual) | `USER_MANUAL.md` |
 | **The instructions the staff read INSIDE the app** — "how do I clock in?" | `src/lib/help.ts` (the topics) → the `/help` page |
