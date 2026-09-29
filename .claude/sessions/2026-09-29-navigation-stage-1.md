@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/navigation-stage-1
 status: shipped
 started: 2026-09-29T18:14:02Z
-updated: 2026-09-29T19:59:43Z
+updated: 2026-09-29T19:59:54Z
 goal: NAVIGATION_PLAN.md Stage 1: one workspace list feeding bar, menu, search; tab strips; remove the other menus; label renames
 next: Stage 1 remainder needs owner go: iPad left rail + desktop sidebar (touches #app-shell and 5 fixed bottom bars), Help sections by workspace, per-person pinned bar slot. Then stage 2 (Today queue).
 ---

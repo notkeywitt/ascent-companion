@@ -1,47 +1,14 @@
 {
-  "generatedAt": "2026-09-29T19:56:10Z",
+  "generatedAt": "2026-09-29T19:59:54Z",
   "repo": "ascent-companion",
   "sessions": [
-    {
-      "slug": "specs",
-      "file": "2026-09-29-specs.md",
-      "branch": "claude/specs",
-      "status": "shipped",
-      "started": "2026-09-29T18:31:54Z",
-      "updated": "2026-09-29T19:56:10Z",
-      "goal": "Specifications: import an architect's spec selection list PDF per job, show it with live links, then port rows to JobTread as Selections (open) or Specifications (decided)",
-      "next": "Owner: import the Gormley PDF again on /specs so it is kept for the PDF view; check the table at desk width and one Save to JobTread. Open: Selections for open rows?",
-      "commits": [
-        {
-          "date": "2026-09-29",
-          "time": "11:31",
-          "sha": "3d9e080",
-          "subject": "companion: add specifications page for architect spec lists",
-          "files": "CODEBASE_MAP.md, next.config.mjs, package-lock.json, package.json, src/app/api/specs/route.ts, src/app/specs/page.tsx, +9 more"
-        },
-        {
-          "date": "2026-09-29",
-          "time": "11:52",
-          "sha": "4c14158",
-          "subject": "companion: save a spec row onto its JobTread budget line",
-          "files": "CODEBASE_MAP.md, src/app/api/specs/jobtread/route.ts, src/app/specs/page.tsx, src/lib/help.ts, src/lib/specList.test.ts, src/lib/specList.ts"
-        },
-        {
-          "date": "2026-09-29",
-          "time": "12:45",
-          "sha": "212334d",
-          "subject": "companion: specifications as a full-width table, with a PDF view",
-          "files": "CODEBASE_MAP.md, src/app/api/specs/pdf/route.ts, src/app/api/specs/route.ts, src/app/specs/page.tsx, src/db/index.ts, src/db/schema.ts, +1 more"
-        }
-      ]
-    },
     {
       "slug": "navigation-stage-1",
       "file": "2026-09-29-navigation-stage-1.md",
       "branch": "claude/navigation-stage-1",
       "status": "shipped",
       "started": "2026-09-29T18:14:02Z",
-      "updated": "2026-09-29T19:39:02Z",
+      "updated": "2026-09-29T19:59:54Z",
       "goal": "NAVIGATION_PLAN.md Stage 1: one workspace list feeding bar, menu, search; tab strips; remove the other menus; label renames",
       "next": "Stage 1 remainder needs owner go: iPad left rail + desktop sidebar (touches #app-shell and 5 fixed bottom bars), Help sections by workspace, per-person pinned bar slot. Then stage 2 (Today queue).",
       "commits": [
@@ -100,6 +67,46 @@
           "sha": "eadb4f3",
           "subject": "companion: Today shows what needs you, with a count per queue",
           "files": "CODEBASE_MAP.md, src/app/page.tsx, src/components/AppMenu.tsx, src/components/TodayQueue.tsx, src/lib/help.ts, src/lib/homeFacts.ts"
+        },
+        {
+          "date": "2026-09-29",
+          "time": "12:59",
+          "sha": "6fd0732",
+          "subject": "companion: delete the retired Coding Review and Invoicing pages",
+          "files": "CLAUDE.md, CODEBASE_MAP.md, next.config.mjs, src/app/bill/[docId]/page.tsx, src/app/coding/page.tsx, src/app/stage/page.tsx, +3 more"
+        }
+      ]
+    },
+    {
+      "slug": "specs",
+      "file": "2026-09-29-specs.md",
+      "branch": "claude/specs",
+      "status": "shipped",
+      "started": "2026-09-29T18:31:54Z",
+      "updated": "2026-09-29T19:56:10Z",
+      "goal": "Specifications: import an architect's spec selection list PDF per job, show it with live links, then port rows to JobTread as Selections (open) or Specifications (decided)",
+      "next": "Owner: import the Gormley PDF again on /specs so it is kept for the PDF view; check the table at desk width and one Save to JobTread. Open: Selections for open rows?",
+      "commits": [
+        {
+          "date": "2026-09-29",
+          "time": "11:31",
+          "sha": "3d9e080",
+          "subject": "companion: add specifications page for architect spec lists",
+          "files": "CODEBASE_MAP.md, next.config.mjs, package-lock.json, package.json, src/app/api/specs/route.ts, src/app/specs/page.tsx, +9 more"
+        },
+        {
+          "date": "2026-09-29",
+          "time": "11:52",
+          "sha": "4c14158",
+          "subject": "companion: save a spec row onto its JobTread budget line",
+          "files": "CODEBASE_MAP.md, src/app/api/specs/jobtread/route.ts, src/app/specs/page.tsx, src/lib/help.ts, src/lib/specList.test.ts, src/lib/specList.ts"
+        },
+        {
+          "date": "2026-09-29",
+          "time": "12:45",
+          "sha": "212334d",
+          "subject": "companion: specifications as a full-width table, with a PDF view",
+          "files": "CODEBASE_MAP.md, src/app/api/specs/pdf/route.ts, src/app/api/specs/route.ts, src/app/specs/page.tsx, src/db/index.ts, src/db/schema.ts, +1 more"
         }
       ]
     },
