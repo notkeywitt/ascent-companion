@@ -24,14 +24,14 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Branch | Parked | Picks up at |
 |---|---|---|---|
-| [navigation-stage-1](.claude/sessions/2026-09-29-navigation-stage-1.md) | `claude/navigation-stage-1` | 16m ago | Slice 2 of Stage 1: add src/lib/workspaces.ts (one list), build the header menu… |
+| [navigation-stage-1](.claude/sessions/2026-09-29-navigation-stage-1.md) | `claude/navigation-stage-1` | 38m ago | Slice 2 of Stage 1: add src/lib/workspaces.ts (one list), build the header menu… |
 | [ascent-security-analysis](.claude/sessions/2026-09-14-ascent-security-analysis.md) | `claude/ascent-security-analysis-m8fjif` | 16d ago | Owner merges PR #7 (git push origin origin/claude/ascent-security-analysis-m8fj… |
 
 ## Shipped
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
-| [specs](.claude/sessions/2026-09-29-specs.md) | 2026-09-29 | 1 | Specifications: import an architect's spec selection list PDF per job, show it … |
+| [specs](.claude/sessions/2026-09-29-specs.md) | 2026-09-29 | 2 | Specifications: import an architect's spec selection list PDF per job, show it … |
 | [navigation-stage-0](.claude/sessions/2026-09-29-navigation-stage-0.md) | 2026-09-29 | 3 | NAVIGATION_PLAN.md Stage 0: gate /api/time-off/import and /api/labor-report, re… |
 | [ascent-app-simplify](.claude/sessions/2026-09-29-ascent-app-simplify.md) | 2026-09-29 | 1 | Evaluate the app's pages, menus and names; propose a simpler navigation (fewer … |
 | [budget](.claude/sessions/2026-09-24-budget.md) | 2026-09-28 | 27 | Tracking sheet estimate to JobTread budget import CSV: /budget-import page over… |
