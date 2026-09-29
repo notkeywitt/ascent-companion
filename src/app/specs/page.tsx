@@ -18,7 +18,15 @@ import {
   Select,
 } from "@/components/ui";
 import { JobParamPicker, useJobIdParam } from "@/components/JobPicker";
-import { groupByRoom, type SpecLink, type SpecList, type SpecRow } from "@/lib/specList";
+import {
+  groupByRoom,
+  specEntry,
+  suggestBudgetLine,
+  type BudgetLine,
+  type SpecLink,
+  type SpecList,
+  type SpecRow,
+} from "@/lib/specList";
 
 /**
  * Specifications — an architect's spec selection list for one job.
@@ -28,7 +36,11 @@ import { groupByRoom, type SpecLink, type SpecList, type SpecRow } from "@/lib/s
  * cannot hold a sheet, so the office imports the PDF here: /api/specs reads its
  * links and its rows, and this page shows them room by room with every link
  * live. A row is OPEN while a choice is still to be made, and DECIDED once it
- * is — the split that later decides Selection or Specification in JobTread.
+ * is.
+ *
+ * "Save to JobTread" sends ONE row onto the budget line it belongs to (owner's
+ * call: individually, never in bulk). The line becomes a JobTread Specification
+ * with the row added to its description — see /api/specs/jobtread.
  */
 
 interface Current {
@@ -77,7 +89,87 @@ function Linked({ text, links }: { text: string; links: SpecLink[] }) {
   );
 }
 
-function Row({ row, onStatus, saving }: { row: SpecRow; onStatus: () => void; saving: boolean }) {
+/** Pick the budget line, see what will be added, save. */
+function SendPanel({
+  row,
+  lines,
+  onSave,
+  onCancel,
+}: {
+  row: SpecRow;
+  lines: BudgetLine[];
+  onSave: (costItemId: string) => Promise<void>;
+  onCancel: () => void;
+}) {
+  const [choice, setChoice] = useState(() => suggestBudgetLine(row, lines));
+  const [busy, setBusy] = useState(false);
+  const groups = useMemo(() => {
+    const m = new Map<string, BudgetLine[]>();
+    for (const l of lines) m.set(l.group || "No group", [...(m.get(l.group || "No group") ?? []), l]);
+    return [...m];
+  }, [lines]);
+  return (
+    <div className="mt-2 space-y-2 rounded-lg bg-accent/5 p-2.5">
+      <Select aria-label="Budget line" value={choice} onChange={(e) => setChoice(e.target.value)}>
+        <option value="">Choose the budget line…</option>
+        {groups.map(([group, ls]) => (
+          <optgroup key={group} label={group}>
+            {ls.map((l) => (
+              <option key={l.id} value={l.id}>
+                {l.name}
+                {l.isSpecification ? " · Specification" : ""}
+              </option>
+            ))}
+          </optgroup>
+        ))}
+      </Select>
+      <p className="text-[11.5px] text-neutral-500 dark:text-neutral-400">
+        Added to the line&apos;s description, below its estimate note. The line becomes a Specification the client must
+        approve.
+      </p>
+      <pre className="whitespace-pre-wrap break-words rounded bg-white p-2 font-sans text-[12px] dark:bg-ink-raised">
+        {specEntry(row)}
+      </pre>
+      <div className="flex gap-2">
+        <Button
+          size="sm"
+          disabled={!choice || busy}
+          onClick={async () => {
+            setBusy(true);
+            try {
+              await onSave(choice);
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          {busy ? "Saving…" : "Save to JobTread"}
+        </Button>
+        <Button size="sm" variant="secondary" onClick={onCancel} disabled={busy}>
+          Cancel
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function Row({
+  row,
+  onStatus,
+  saving,
+  lines,
+  sending,
+  onSend,
+  onSave,
+}: {
+  row: SpecRow;
+  onStatus: () => void;
+  saving: boolean;
+  lines: BudgetLine[] | null;
+  sending: boolean;
+  onSend: (on: boolean) => void;
+  onSave: (costItemId: string) => Promise<void>;
+}) {
   const open = row.status === "open";
   return (
     <div className="space-y-1 border-b border-line-soft px-3 py-2.5 last:border-b-0">
@@ -129,8 +221,21 @@ function Row({ row, onStatus, saving }: { row: SpecRow; onStatus: () => void; sa
           row.addedBy && `Added by ${row.addedBy}`,
           row.revised && `Revised ${row.revised}`,
           ...row.other.map((o) => `${o.label}: ${o.value}`),
+          row.jt && `In JobTread: ${row.jt.line}`,
         ]}
       />
+      {lines &&
+        (sending ? (
+          <SendPanel row={row} lines={lines} onSave={onSave} onCancel={() => onSend(false)} />
+        ) : (
+          <button
+            type="button"
+            onClick={() => onSend(true)}
+            className="text-[11.5px] font-semibold text-accent hover:underline dark:text-accent-soft"
+          >
+            {row.jt ? "Save to JobTread again" : "Save to JobTread"}
+          </button>
+        ))}
     </div>
   );
 }
@@ -145,6 +250,9 @@ function Specs() {
   const [file, setFile] = useState<File | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
   const [saving, setSaving] = useState(-1);
+  const [lines, setLines] = useState<BudgetLine[] | null>(null);
+  const [sending, setSending] = useState(-1);
+  const [notice, setNotice] = useState("");
 
   const show = (b: { current: Current | null; others: Other[] }) => {
     setCurrent(b.current);
@@ -173,6 +281,46 @@ function Specs() {
     setOthers([]);
     void load();
   }, [load]);
+
+  // The job's budget lines, for "Save to JobTread". Without them the button is
+  // simply not offered.
+  useEffect(() => {
+    setLines(null);
+    setSending(-1);
+    if (!jobId) return;
+    let alive = true;
+    fetch(`/api/specs/jobtread?jobId=${encodeURIComponent(jobId)}`, { cache: "no-store" })
+      .then(readJson)
+      .then((b) => alive && setLines(b.lines ?? []))
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [jobId]);
+
+  async function saveToJobTread(index: number, costItemId: string) {
+    if (!current) return;
+    setError("");
+    setNotice("");
+    try {
+      const b = await readJson(
+        await fetch("/api/specs/jobtread", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ listId: current.id, index, costItemId }),
+        }),
+      );
+      if (!b.wrote) {
+        setNotice(b.message ?? "Nothing was written to JobTread.");
+        return;
+      }
+      const rows = current.list.rows.map((r, i) => (i === index ? { ...r, jt: b.jt } : r));
+      setCurrent({ ...current, list: { ...current.list, rows } });
+      setSending(-1);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  }
 
   async function importPdf() {
     if (!file || !jobId) return;
@@ -237,6 +385,11 @@ function Specs() {
       {error && (
         <Banner tone="error" className="mb-4">
           {error}
+        </Banner>
+      )}
+      {notice && (
+        <Banner tone="warning" className="mb-4">
+          {notice}
         </Banner>
       )}
 
@@ -311,7 +464,16 @@ function Specs() {
                   <SectionHeading>{g.room}</SectionHeading>
                   <ListCard>
                     {g.rows.map(({ row, index }) => (
-                      <Row key={index} row={row} saving={saving === index} onStatus={() => void toggle(index)} />
+                      <Row
+                        key={index}
+                        row={row}
+                        saving={saving === index}
+                        onStatus={() => void toggle(index)}
+                        lines={lines}
+                        sending={sending === index}
+                        onSend={(on) => setSending(on ? index : -1)}
+                        onSave={(costItemId) => saveToJobTread(index, costItemId)}
+                      />
                     ))}
                   </ListCard>
                 </section>

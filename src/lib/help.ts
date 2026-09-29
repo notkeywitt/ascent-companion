@@ -627,6 +627,27 @@ export const HELP: HelpSection[] = [
         ],
       },
       {
+        id: "specs-to-jobtread",
+        q: "How do I send a spec to JobTread?",
+        view: "specs",
+        href: "/specs",
+        keywords: ["specification", "jobtread", "budget line", "approval", "spec"],
+        steps: [
+          "Open **Specifications** and select the job.",
+          "Find the row.",
+          "Tap **Save to JobTread**.",
+          "If the budget line is wrong, select the correct line.",
+          "Tap **Save to JobTread** in the panel.",
+        ],
+        notes: [
+          "The row is added to the line's description, below the estimate note. Nothing above it changes.",
+          "The line becomes a Specification that the client must approve.",
+          "Save a row again after a revision. Its old entry is replaced, not repeated.",
+          "Rows go one at a time. There is no send-all.",
+        ],
+        warn: ["Check the budget line before you save. The description changes in JobTread at once."],
+      },
+      {
         id: "employees",
         q: "How do I edit the employee roster?",
         view: "employees",

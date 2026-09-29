@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { groupByRoom, resolveSpecList, type RawSpecRow } from "@/lib/specList";
+import {
+  SPEC_HEADING,
+  groupByRoom,
+  mergeSpecEntry,
+  resolveSpecList,
+  suggestBudgetLine,
+  type RawSpecRow,
+  type SpecRow,
+} from "@/lib/specList";
 
 const links = [
   { id: "L1", url: "https://www.urbanfloor.com/product/signature-absolute/", text: "Urban Floor, Signature Absolute", context: "001 Studio Floor", page: 1 },
@@ -53,5 +61,55 @@ describe("resolveSpecList", () => {
     const groups = groupByRoom(list.rows);
     expect(groups.map((g) => g.room)).toEqual(["001 Studio", "003 Bath"]);
     expect(groups[1].rows[0].index).toBe(2);
+  });
+});
+
+const spec = (over: Partial<SpecRow>): SpecRow => ({
+  ...resolveSpecList({ title: "", revision: "", rows: [row({ spec: "x" })] }, []).rows[0],
+  ...over,
+});
+
+describe("mergeSpecEntry", () => {
+  const floor = spec({
+    room: "001 Studio",
+    item: "Floor",
+    spec: "Urban Floor, Signature Absolute",
+    specLinks: [{ url: "https://www.urbanfloor.com/p", text: "" }],
+  });
+
+  it("adds the entry under the heading and keeps the estimator's note", () => {
+    const out = mergeSpecEntry("9/1/26 estimate from Montello", floor);
+    expect(out).toBe(
+      `9/1/26 estimate from Montello\n\n${SPEC_HEADING}\n001 Studio · Floor: Urban Floor, Signature Absolute\nhttps://www.urbanfloor.com/p`,
+    );
+  });
+
+  it("replaces a row's own entry on a second save and keeps the others", () => {
+    const hall = spec({ room: "002 Hall", item: "Floor", spec: "Urban Floor", alternates: [{ text: "Oak: wide", links: [] }], question: "Stain?" });
+    let d = mergeSpecEntry(null, floor);
+    d = mergeSpecEntry(d, hall);
+    d = mergeSpecEntry(d, { ...floor, spec: "Urban Floor, Signature Absolute (revised)" });
+    expect(d.split(SPEC_HEADING)).toHaveLength(2);
+    expect(d).toContain("001 Studio · Floor: Urban Floor, Signature Absolute (revised)");
+    expect(d).not.toContain("Absolute\nhttps://www.urbanfloor.com/p\n002");
+    expect(d).toContain("002 Hall · Floor: Urban Floor\nAlternate: Oak: wide\nQuestion: Stain?");
+    expect(d.indexOf("001 Studio")).toBeLessThan(d.indexOf("002 Hall"));
+  });
+});
+
+describe("suggestBudgetLine", () => {
+  const lines = [
+    { id: "a", name: "09 64 00 Wood Flooring", group: "Finishes", isSpecification: true },
+    { id: "b", name: "09 65 19 Tile Flooring", group: "Finishes", isSpecification: true },
+    { id: "c", name: "12 30 00 Casework", group: "Furnishings", isSpecification: true },
+    { id: "d", name: "22 20 00 Plumbing Trim-out - Materials", group: "Plumbing", isSpecification: true },
+  ];
+  it("matches on shared word stems", () => {
+    expect(suggestBudgetLine(spec({ item: "Floor", spec: "Urban Floor, Signature Absolute" }), lines)).toBe("a");
+    expect(suggestBudgetLine(spec({ item: "Floor", spec: "Daltile, 24x24 tile" }), lines)).toBe("b");
+  });
+  it("keeps the line a row was saved to, and gives up when nothing is close", () => {
+    expect(suggestBudgetLine(spec({ item: "Floor", jt: { costItemId: "c", line: "", savedAt: "" } }), lines)).toBe("c");
+    expect(suggestBudgetLine(spec({ item: "Refrigerator", spec: "Monogram 24" }), lines)).toBe("");
   });
 });
