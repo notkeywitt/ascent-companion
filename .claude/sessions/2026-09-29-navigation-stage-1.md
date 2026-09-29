@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/navigation-stage-1
 status: shipped
 started: 2026-09-29T18:14:02Z
-updated: 2026-09-29T19:25:29Z
+updated: 2026-09-29T19:33:03Z
 goal: NAVIGATION_PLAN.md Stage 1: one workspace list feeding bar, menu, search; tab strips; remove the other menus; label renames
 next: Stage 1 remainder needs owner go: iPad left rail + desktop sidebar (touches #app-shell and 5 fixed bottom bars), Help sections by workspace, per-person pinned bar slot. Then stage 2 (Today queue).
 ---
@@ -24,6 +24,8 @@ next: Stage 1 remainder needs owner go: iPad left rail + desktop sidebar (touche
   NAVIGATION_PLAN.md
 - 2026-09-29 12:25 · `cfb19fc` companion: pin one page to the bottom bar
   src/components/AppMenu.tsx, src/components/TabBar.tsx, src/lib/help.ts, src/lib/workspaces.test.ts, src/lib/workspaces.ts
+- 2026-09-29 12:33 · `45c8cd3` companion: left rail on iPad, sidebar on desktop
+  CLAUDE.md, CODEBASE_MAP.md, src/app/amazon-import/page.tsx, src/app/bill/[docId]/page.tsx, src/app/employee-time/EmployeeTimeClient.tsx, src/app/globals.css, +5 more
 
 ## Notes
 - 2026-09-29 19:21 — Stage 1 shipped in 4 slices: app feedback for all roles, workspaces.ts + menu + bar, tab strip with ym/jobId, renames. Headless Chrome screenshots of dev pages hang (live-data fetches); chrome-devtools MCP held by another session, so layout is unverified visually.
