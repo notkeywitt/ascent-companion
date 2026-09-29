@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-29T19:45:10Z",
+  "generatedAt": "2026-09-29T19:56:10Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "claude/specs",
       "status": "shipped",
       "started": "2026-09-29T18:31:54Z",
-      "updated": "2026-09-29T19:45:10Z",
+      "updated": "2026-09-29T19:56:10Z",
       "goal": "Specifications: import an architect's spec selection list PDF per job, show it with live links, then port rows to JobTread as Selections (open) or Specifications (decided)",
-      "next": "Owner: import the Gormley PDF on /specs, check rows and links, then Save one row (Floor to 09 64 00 Wood Flooring) and check the line in JobTread. Open question: should open rows become JobTread Selections (cost group with options) instead of a spec with the question in it?",
+      "next": "Owner: import the Gormley PDF again on /specs so it is kept for the PDF view; check the table at desk width and one Save to JobTread. Open: Selections for open rows?",
       "commits": [
         {
           "date": "2026-09-29",
