@@ -20,6 +20,8 @@ next: Stage 1 remainder needs owner go: iPad left rail + desktop sidebar (touche
   CODEBASE_MAP.md, src/app/invoice-review/InvoiceReview.tsx, src/app/invoice-review/page.tsx, src/app/invoicing-summary/page.tsx, src/app/labor-review/LaborReview.tsx, src/app/layout.tsx, +6 more
 - 2026-09-29 12:19 · `1ef7de4` companion: rename pages to the navigation plan's names
   src/app/clients/ClientsBrowser.tsx, src/app/expenditure-history/ExpenditureBrowser.tsx, src/app/expenditure-history/page.tsx, src/app/global-error.tsx, src/app/help/HelpBrowser.tsx, src/app/jobs/JobsBrowser.tsx, +13 more
+- 2026-09-29 12:21 · `a1bb8df` companion: record stage 1 status in the navigation plan
+  NAVIGATION_PLAN.md
 
 ## Notes
 - 2026-09-29 19:21 — Stage 1 shipped in 4 slices: app feedback for all roles, workspaces.ts + menu + bar, tab strip with ym/jobId, renames. Headless Chrome screenshots of dev pages hang (live-data fetches); chrome-devtools MCP held by another session, so layout is unverified visually.
