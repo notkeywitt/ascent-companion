@@ -407,6 +407,9 @@ export function Board() {
   const [edits, setEdits] = useState<Record<string, LineEdit | undefined>>({});
   /** docId → in-flight sales-tax text, staged the same way as edits/staged. */
   const [taxEdits, setTaxEdits] = useState<Record<string, string>>({});
+  /** docId → the Bill/Expense type staged for it. Save writes it (name AND
+   *  QuickBooks' "Push as"); it is in here only while it differs from JobTread. */
+  const [typeEdits, setTypeEdits] = useState<Record<string, "Bill" | "Expense">>({});
   /** The merge waiting for Save — see combineRows. */
   const [combinePending, setCombinePending] = useState<CombineRequest | null>(null);
   const [openDocId, setOpenDocId] = useState<string | null>(null);
@@ -633,6 +636,7 @@ export function Board() {
     Object.keys(timeEdits).length > 0 ||
     Object.keys(edits).length > 0 ||
     taxDirty ||
+    Object.keys(typeEdits).length > 0 ||
     combinePending !== null;
   /** Every time entry a Save would touch, recodes and corrections together —
    *  counted once each, because an entry moved AND re-timed is one entry. */
@@ -642,7 +646,8 @@ export function Board() {
   );
   /** Everything Sync would write, for the toolbar's chip. A staged merge counts
    *  as one change however many lines it folds together — it is one decision. */
-  const stagedCount = staged.size + timeTouched.size + (combinePending ? 1 : 0);
+  const stagedCount =
+    staged.size + timeTouched.size + Object.keys(typeEdits).length + (combinePending ? 1 : 0);
   // Still worth a prompt — leaving means the coding hasn't reached JobTread —
   // but it no longer says "lose them", because it isn't true any more: the
   // autosave below has already put the work somewhere it survives (see
@@ -790,6 +795,11 @@ export function Board() {
               for (const id of Object.keys(next)) if (!liveDocIds.has(id)) delete next[id];
               return next;
             });
+            setTypeEdits((prev) => {
+              const next = { ...prev };
+              for (const id of Object.keys(next)) if (!liveDocIds.has(id)) delete next[id];
+              return next;
+            });
             setTimeEdits((prev) => {
               const next = { ...prev };
               for (const id of Object.keys(next)) if (!liveTimeIds.has(id)) delete next[id];
@@ -810,6 +820,7 @@ export function Board() {
             setTimeSelected(new Set());
             setEdits({});
             setTaxEdits({});
+            setTypeEdits({});
           }
         }
       } catch (e) {
@@ -1637,7 +1648,6 @@ export function Board() {
   const [deleteLineMsg, setDeleteLineMsg] = useState("");
   const [monthSaving, setMonthSaving] = useState(false);
   const [dueDateSaving, setDueDateSaving] = useState(false);
-  const [billTypeSaving, setBillTypeSaving] = useState(false);
   const [filingMsg, setFilingMsg] = useState("");
   // Vendor Bill Number (JobTread externalId) editor for the open bill. Local draft
   // synced from the bill; committed on blur so we don't write on every keystroke.
@@ -1986,33 +1996,20 @@ export function Board() {
   };
 
   /**
-   * Set the bill's type — Bill or Expense. The route writes the name AND
-   * QuickBooks' "Push as" together, and makes it the vendor's default. Writes
-   * straight away, like the due date: it moves no money on this board.
+   * Stage the bill's type — Bill or Expense. Save writes it. Picking the type
+   * JobTread already has (both fields agreeing) un-stages it.
    */
-  const setBillType = async (t: "Bill" | "Expense") => {
+  const stageBillType = (t: "Bill" | "Expense") => {
     if (!openBill) return;
-    setBillTypeSaving(true);
-    setFilingMsg("");
-    try {
-      const res = await fetch("/api/bill-fields", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ docId: openBill.id, name: t }),
-      });
-      const json = await res.json();
-      if (!res.ok) setFilingMsg(json.error ?? "Couldn't set the bill type.");
-      else if (json.previewed)
-        setFilingMsg("Preview only — writes are OFF. The bill type wasn't changed.");
-      else {
-        if (json.vendorWarning) setFilingMsg(json.vendorWarning);
-        await load({ preserveStaged: true });
-      }
-    } catch (e) {
-      setFilingMsg(e instanceof Error ? e.message : "Network error");
-    } finally {
-      setBillTypeSaving(false);
-    }
+    const qbo = t === "Expense" ? "purchase" : "bill";
+    const inJobTread = openBill.name === t && (openBill.qboDocumentType ?? "bill") === qbo;
+    setTypeEdits((prev) => {
+      const next = { ...prev };
+      if (inJobTread) delete next[openBill.id];
+      else next[openBill.id] = t;
+      return next;
+    });
+    setSyncMsg(null);
   };
 
   // Save the Vendor Bill Number (JobTread externalId). Writes immediately, like
@@ -2261,7 +2258,17 @@ export function Board() {
    */
   const codingCtl: CodingCardCtl = {
     // The board is one job, so its Phase answers for every bill on it.
-    bill: openBill ? { ...openBill, jobPhase: data?.job?.phase ?? "" } : openBill,
+    // A staged type shows as the bill's type until Save writes it.
+    bill: openBill
+      ? {
+          ...openBill,
+          jobPhase: data?.job?.phase ?? "",
+          ...(typeEdits[openBill.id] && {
+            name: typeEdits[openBill.id],
+            qboDocumentType: typeEdits[openBill.id] === "Expense" ? "purchase" : "bill",
+          }),
+        }
+      : openBill,
     lines: openLines,
     math: openMath,
     jobId,
@@ -2299,8 +2306,7 @@ export function Board() {
     toggleReviewed,
     setDueDate: (d) => void setDueDate(d),
     dueDateSaving,
-    setBillType: (t) => void setBillType(t),
-    billTypeSaving,
+    setBillType: stageBillType,
     scrollWithPage: true,
     review: {
       flagged: review.flagged,
@@ -2361,6 +2367,7 @@ export function Board() {
     setTimeSelected(new Set());
     setEdits({});
     setTaxEdits({});
+    setTypeEdits({});
     setCombinePending(null);
     setCombineMsg("");
     setSyncMsg(null);
@@ -2743,6 +2750,28 @@ export function Board() {
     // document field: the line write above sent de-taxed costs, so the tax has to
     // move onto its own 88 80 00 line in the same Sync or the bill's total falls
     // by the tax amount. Re-sending the tax it already has is what migrates it.
+    // Bill/Expense type: one /api/bill-fields write per bill, the name AND
+    // "Push as" together (and the vendor's default follows it).
+    let typeOk = 0;
+    for (const [docId, t] of Object.entries(typeEdits)) {
+      try {
+        const r = await fetch("/api/bill-fields", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ docId, name: t }),
+        });
+        const j = await r.json();
+        if (j.error) failures.push(j.error);
+        else if (j.previewed) failures.push("Writes are disabled.");
+        else {
+          typeOk++;
+          if (j.vendorWarning) failures.push(j.vendorWarning);
+        }
+      } catch (e) {
+        failures.push(e instanceof Error ? e.message : "Type request failed");
+      }
+    }
+
     let taxOk = 0;
     let taxOffCount = 0; // bills whose "Record Tax" toggle this Sync turns back off
     const taxWork = new Map<string, number>();
@@ -2821,6 +2850,7 @@ export function Board() {
     if (timeEditOk > 0)
       parts.push(`${timeEditOk} entry ${timeEditOk === 1 ? "correction" : "corrections"}`);
     if (taxOk > 0) parts.push(`${taxOk} tax edit${taxOk === 1 ? "" : "s"}`);
+    if (typeOk > 0) parts.push(`${typeOk} bill type${typeOk === 1 ? "" : "s"}`);
     if (taxOffCount > 0)
       parts.push(`Record Tax off on ${taxOffCount} bill${taxOffCount === 1 ? "" : "s"}`);
     if (combineOk > 0) parts.push(`${combineOk} lines merged`);

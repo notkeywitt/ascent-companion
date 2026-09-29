@@ -812,6 +812,10 @@ export async function getBillJournalSnapshot(
  * "purchase" = expense) — changing name alone doesn't change the QBO type, so the
  * Bill/Expense toggle sets both. `qboIsIgnored` controls Push to QuickBooks
  * (ignored = NOT pushed, so Push-to-QB = !qboIsIgnored). Never touches lineItems.
+ *
+ * A `qboDocumentType` write carries its paid-from account (QBO_EXPENSE_ACCOUNT_ID
+ * for "purchase", none for "bill"), and throws if JobTread does not keep the
+ * type — it drops an unusable one without an error.
  */
 export async function setBillFields(
   cfg: PaveConfig,
@@ -821,9 +825,13 @@ export async function setBillFields(
   saved: { name?: string; qboIsIgnored?: boolean; qboDocumentType?: string };
   accountId: string;
 }> {
+  const $: Record<string, unknown> = { id: docId, ...fields };
+  if (fields.qboDocumentType) {
+    $.qboAccountId = fields.qboDocumentType === "purchase" ? QBO_EXPENSE_ACCOUNT_ID : null;
+  }
   const r = await pave(cfg, {
     updateDocument: {
-      $: { id: docId, ...fields },
+      $,
       document: {
         $: { id: docId },
         id: {},
@@ -835,6 +843,9 @@ export async function setBillFields(
     },
   });
   const d = r?.updateDocument?.document ?? {};
+  if (fields.qboDocumentType && (d.qboDocumentType ?? "bill") !== fields.qboDocumentType) {
+    throw new Error(`JobTread kept Push as ${d.qboDocumentType === "purchase" ? "Expense" : "Bill"}.`);
+  }
   return {
     saved: { name: d.name, qboIsIgnored: d.qboIsIgnored, qboDocumentType: d.qboDocumentType },
     accountId: String(d.account?.id ?? ""),
@@ -4562,6 +4573,15 @@ export type BillType = "Bill" | "Expense";
 
 export const qboDocumentTypeFor = (t: BillType) => (t === "Expense" ? "purchase" : "bill");
 
+/**
+ * The QuickBooks "paid from" account a Push as Expense is written with —
+ * Capital One Sparks (owner, 2026-09-29). JobTread needs one: sent without it,
+ * "purchase" is silently kept as "bill" (confirmed live 2026-09-29 — every
+ * Push as Expense document carries an account, every Bill carries none). The
+ * account list is `organization.qboIntegration.accounts`.
+ */
+export const QBO_EXPENSE_ACCOUNT_ID = "271";
+
 export function isExpenseDoc(d: { name?: string | null; qboDocumentType?: string | null }): boolean {
   return d.qboDocumentType === "purchase" || d.name === "Expense";
 }
@@ -4618,6 +4638,7 @@ export async function createVendorBill(
     accountId: args.accountId,
     name: args.billType ?? "Bill",
     qboDocumentType: qboDocumentTypeFor(args.billType ?? "Bill"),
+    ...(args.billType === "Expense" ? { qboAccountId: QBO_EXPENSE_ACCOUNT_ID } : {}),
     subject: args.subject,
     externalId: args.externalId,
     issueDate: args.issueDate,

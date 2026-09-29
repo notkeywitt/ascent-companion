@@ -57,14 +57,18 @@ export async function POST(req: NextRequest) {
           field: "qboDocumentType",
           priorField: "qboDocumentType",
           attempted: "purchase",
-          run: async () => {
-            const { saved } = await setBillFields(cfg, docId, { name: "Expense", qboDocumentType: "purchase" });
-            // Refuse the approval rather than push an already-paid Expense as a payable Bill.
-            if (saved.qboDocumentType !== "purchase") {
-              throw new Error("JobTread did not take Push as Expense. The bill stays in draft.");
-            }
-            return saved;
-          },
+          // setBillFields throws if JobTread keeps Push as Bill, which refuses
+          // the approval rather than push an already-paid Expense as a payable.
+          run: async () =>
+            (
+              await setBillFields(
+                cfg,
+                docId,
+                snap.qboDocumentType === "purchase"
+                  ? { name: "Expense" }
+                  : { name: "Expense", qboDocumentType: "purchase" },
+              )
+            ).saved,
           after: (saved) => saved.qboDocumentType,
         });
       }

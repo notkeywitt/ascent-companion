@@ -234,12 +234,11 @@ export interface CodingCardCtl {
   /** A due-date write is in flight on the host. */
   dueDateSaving?: boolean;
 
-  /* ---- bill type (a JobTread write, straight away) ---- */
-  /** Set the bill's type: its name AND QuickBooks' "Push as" (/api/bill-fields).
-      Absent = the host offers no type edit and the toggle does not render. */
+  /* ---- bill type (staged; the host's Save writes it) ---- */
+  /** Pick the bill's type: its name AND QuickBooks' "Push as" (/api/bill-fields).
+      `bill.name`/`bill.qboDocumentType` should show the staged pick. Absent =
+      the host offers no type edit and the toggle does not render. */
   setBillType?: (t: "Bill" | "Expense") => void;
-  /** A type write is in flight on the host. */
-  billTypeSaving?: boolean;
 
   /* The card carries NO commit of its own. Both hosts dock Save Changes in
      their own action bar — the board's is pinned to the foot of the screen at
@@ -380,7 +379,6 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
     setDueDate,
     dueDateSaving,
     setBillType,
-    billTypeSaving,
     review,
     approveBill,
     approvingBill,
@@ -735,8 +733,8 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                 filled this in" and "30 days from the bill date". */}
                   {!bill.dueDate && bill.dueDays ? <span>net-{bill.dueDays}</span> : null}
                   {dueDateSaving && <Spinner />}
-                  {/* Type: one tap sets the name AND QuickBooks' Push as Bill/Expense,
-                and makes it this vendor's default — the bill page's toggle. */}
+                  {/* Type: the name AND QuickBooks' Push as Bill/Expense. The host's
+                Save writes it, and makes it this vendor's default. */}
                   {setBillType && (
                     <>
                       <span aria-hidden>·</span>
@@ -748,10 +746,10 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                             <button
                               key={t}
                               type="button"
-                              disabled={!writes || Boolean(billTypeSaving)}
+                              disabled={!writes}
                               onClick={() => {
                                 // "On" trusts either field, so a tap on it still writes when the two disagree.
-                                if (!on || bill.name !== t || bill.qboDocumentType !== qbo) setBillType(t);
+                                if (!on || bill.name !== t || (bill.qboDocumentType ?? "bill") !== qbo) setBillType(t);
                               }}
                               title={
                                 t === "Expense"
@@ -770,7 +768,6 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                           );
                         })}
                       </span>
-                      {billTypeSaving && <Spinner />}
                     </>
                   )}
                 </p>

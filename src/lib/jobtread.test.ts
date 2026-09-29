@@ -10,6 +10,8 @@ import {
   pageAll,
   pageEach,
   pave,
+  QBO_EXPENSE_ACCOUNT_ID,
+  setBillFields,
   type PageWalk,
   type PaveConfig,
 } from "./jobtread";
@@ -629,5 +631,47 @@ describe("pageAll / pageEach", () => {
       vi.fn(async () => reply(200, okBody({ organization: {} }))),
     );
     await expect(pageAll(cfg, thingWalk())).resolves.toEqual([]);
+  });
+});
+
+/**
+ * "Push as Expense" needs a paid-from account. Sent without one, JobTread keeps
+ * "bill" and answers 200 — which is how Expenses kept reaching QuickBooks as
+ * payable Bills.
+ */
+describe("setBillFields — Push as", () => {
+  /** The updateDocument `$` it sent, answering with `stored` as JobTread's type. */
+  async function write(fields: Parameters<typeof setBillFields>[2], stored: string | null) {
+    let sent: Record<string, unknown> = {};
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_url: string, init: { body: string }) => {
+        sent = JSON.parse(init.body).query.updateDocument.$;
+        return reply(200, okBody({ updateDocument: { document: { id: "doc1", qboDocumentType: stored } } }));
+      }),
+    );
+    await setBillFields(cfg, "doc1", fields);
+    return sent;
+  }
+
+  it("sends the paid-from account with Push as Expense", async () => {
+    const sent = await write({ name: "Expense", qboDocumentType: "purchase" }, "purchase");
+    expect(sent.qboAccountId).toBe(QBO_EXPENSE_ACCOUNT_ID);
+  });
+
+  it("clears the account with Push as Bill", async () => {
+    const sent = await write({ name: "Bill", qboDocumentType: "bill" }, "bill");
+    expect(sent.qboAccountId).toBeNull();
+  });
+
+  it("leaves the account alone when Push as is not being written", async () => {
+    const sent = await write({ name: "Expense" }, "purchase");
+    expect("qboAccountId" in sent).toBe(false);
+  });
+
+  it("throws when JobTread keeps the old type", async () => {
+    await expect(write({ name: "Expense", qboDocumentType: "purchase" }, "bill")).rejects.toThrow(
+      "JobTread kept Push as Bill.",
+    );
   });
 });

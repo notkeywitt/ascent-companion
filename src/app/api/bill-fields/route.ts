@@ -62,6 +62,9 @@ export async function POST(req: NextRequest) {
   if (locked) return locked;
   const j = await openJournal("/api/bill-fields");
   const prior = await getBillJournalSnapshot(cfg, docId);
+  // Already pushing that way: leave "Push as" alone, so re-saving the name
+  // never overwrites the paid-from account someone chose in JobTread.
+  if (prior && (prior.qboDocumentType ?? "bill") === fields.qboDocumentType) delete fields.qboDocumentType;
   const base = {
     action: "bill.fields.set",
     entity: "bill",

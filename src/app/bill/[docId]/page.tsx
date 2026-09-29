@@ -1513,7 +1513,7 @@ function BillDetail() {
                     type="button"
                     onClick={() => {
                       // "On" trusts either field, so a tap on it still writes when the two disagree.
-                      if (!on || header?.name !== t || header?.qboDocumentType !== qbo) {
+                      if (!on || header?.name !== t || (header?.qboDocumentType ?? "bill") !== qbo) {
                         patchBill({ name: t, qboDocumentType: qbo });
                       }
                     }}
