@@ -1,33 +1,14 @@
 {
-  "generatedAt": "2026-09-29T20:04:33Z",
+  "generatedAt": "2026-09-29T20:09:06Z",
   "repo": "ascent-companion",
   "sessions": [
-    {
-      "slug": "tracking-bill",
-      "file": "2026-09-29-tracking-bill.md",
-      "branch": "claude/tracking-bill-beside",
-      "status": "shipped",
-      "started": "2026-09-29T20:02:28Z",
-      "updated": "2026-09-29T20:04:33Z",
-      "goal": "Tracking Sheets job view: open a bill's coding card beside its row instead of scrolling to the top, with previous/next arrows through the bill list",
-      "next": "",
-      "commits": [
-        {
-          "date": "2026-09-29",
-          "time": "13:04",
-          "sha": "fac9f18",
-          "subject": "companion: open a bill beside its row on Tracking Sheets",
-          "files": "src/app/trackingsheet/Board.tsx, src/lib/help.ts"
-        }
-      ]
-    },
     {
       "slug": "navigation-stage-1",
       "file": "2026-09-29-navigation-stage-1.md",
       "branch": "claude/navigation-stage-1",
       "status": "shipped",
       "started": "2026-09-29T18:14:02Z",
-      "updated": "2026-09-29T19:59:54Z",
+      "updated": "2026-09-29T20:09:06Z",
       "goal": "NAVIGATION_PLAN.md Stage 1: one workspace list feeding bar, menu, search; tab strips; remove the other menus; label renames",
       "next": "Stage 1 remainder needs owner go: iPad left rail + desktop sidebar (touches #app-shell and 5 fixed bottom bars), Help sections by workspace, per-person pinned bar slot. Then stage 2 (Today queue).",
       "commits": [
@@ -93,6 +74,32 @@
           "sha": "6fd0732",
           "subject": "companion: delete the retired Coding Review and Invoicing pages",
           "files": "CLAUDE.md, CODEBASE_MAP.md, next.config.mjs, src/app/bill/[docId]/page.tsx, src/app/coding/page.tsx, src/app/stage/page.tsx, +3 more"
+        },
+        {
+          "date": "2026-09-29",
+          "time": "13:08",
+          "sha": "fde568c",
+          "subject": "companion: the Office job's to-dos on Today",
+          "files": "CODEBASE_MAP.md, src/app/api/office/todos/route.ts, src/app/office/OfficeTodos.tsx, src/app/office/page.tsx, src/app/office/readOfficeTodos.ts, src/app/page.tsx, +1 more"
+        }
+      ]
+    },
+    {
+      "slug": "tracking-bill",
+      "file": "2026-09-29-tracking-bill.md",
+      "branch": "claude/tracking-bill-beside",
+      "status": "shipped",
+      "started": "2026-09-29T20:02:28Z",
+      "updated": "2026-09-29T20:05:40Z",
+      "goal": "Tracking Sheets job view: open a bill's coding card beside its row instead of scrolling to the top, with previous/next arrows through the bill list",
+      "next": "Owner: at desk width on a job's Tracking Sheets, click a bill low in the list (card opens beside it), then Next/Previous.",
+      "commits": [
+        {
+          "date": "2026-09-29",
+          "time": "13:04",
+          "sha": "fac9f18",
+          "subject": "companion: open a bill beside its row on Tracking Sheets",
+          "files": "src/app/trackingsheet/Board.tsx, src/lib/help.ts"
         }
       ]
     },
