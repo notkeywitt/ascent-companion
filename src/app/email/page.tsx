@@ -3,6 +3,9 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { Banner, Button, CardSkeletonList, EmptyState, PageHeader, Select } from "@/components/ui";
+import Link from "next/link";
+import { useAccess } from "@/components/AccessProvider";
+import { gatewayQuery } from "@/lib/paveGatewayClient";
 
 // The Assistant's replacement for the Gmail add-on "Log Invoice" card. Lists
 // unprocessed inbox emails (from Apps Script), and for each one you pick a
@@ -38,6 +41,8 @@ interface AttResult {
   kind?: string;
   message?: string;
   error?: string;
+  expId?: string;
+  jtJobId?: string;
 }
 
 interface LogResult {
@@ -45,6 +50,10 @@ interface LogResult {
   kind?: string; // single: logged|already_logged|…; multi: logged (all done) | partial
   message?: string;
   error?: string;
+  /** The sheet row's ExpID — the new bill's externalId in JobTread. */
+  expId?: string;
+  /** The bill's JobTread job; set once the push landed (appscript AddonUI.js). */
+  jtJobId?: string;
   finalized?: boolean; // multi: thread marked Processed (every attachment logged)
   results?: AttResult[]; // multi: one entry per attachment, keyed by index
 }
@@ -385,9 +394,14 @@ export default function EmailPage() {
               )}
 
               {done ? (
-                <p className="mt-3 text-sm font-medium text-emerald-700 dark:text-emerald-400">
-                  ✓ {result?.message}
-                </p>
+                <div className="mt-3 space-y-1">
+                  <p className="text-sm font-medium text-emerald-700 dark:text-emerald-400">✓ {result?.message}</p>
+                  {[result, ...(result?.results ?? [])].map(
+                    (r, i) =>
+                      r?.jtJobId &&
+                      r.expId && <CodeBillLink key={`${r.expId}-${i}`} jtJobId={r.jtJobId} expId={r.expId} />,
+                  )}
+                </div>
               ) : isMulti ? (
                 <>
                   <p className="mt-3 text-xs font-medium text-neutral-600 dark:text-neutral-300">
@@ -603,5 +617,44 @@ export default function EmailPage() {
         </section>
       )}
     </main>
+  );
+}
+
+/**
+ * "Code this bill →" once an invoice is logged: the new draft bill, found on
+ * its job by the ExpID it carries as its externalId. Pave cannot filter on
+ * externalId, so the job's newest bills are read and matched here. Without a
+ * match (the push is still settling) it falls back to the job's Tracking Sheets.
+ * Hidden without the "recode" view, which the bill page rides.
+ */
+function CodeBillLink({ jtJobId, expId }: { jtJobId: string; expId: string }) {
+  const can = useAccess().can("recode");
+  const [docId, setDocId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!can) return;
+    gatewayQuery<{ job: { documents: { nodes: { id: string; externalId?: string }[] } } }>({
+      job: {
+        $: { id: jtJobId },
+        documents: {
+          $: {
+            size: 50,
+            where: { "=": [{ field: "type" }, { value: "vendorBill" }] },
+            sortBy: [{ field: "createdAt", order: "desc" }],
+          },
+          nodes: { id: {}, externalId: {} },
+        },
+      },
+    })
+      .then((r) => setDocId(r.job.documents.nodes.find((d) => (d.externalId ?? "").trim() === expId)?.id ?? ""))
+      .catch(() => setDocId(""));
+  }, [can, jtJobId, expId]);
+  if (!can || docId === null) return null;
+  const href = docId
+    ? `/bill/${docId}?jobId=${encodeURIComponent(jtJobId)}`
+    : `/trackingsheet?jobId=${encodeURIComponent(jtJobId)}`;
+  return (
+    <Link href={href} className="text-sm font-semibold text-accent hover:underline dark:text-accent-soft">
+      Code this bill →
+    </Link>
   );
 }
