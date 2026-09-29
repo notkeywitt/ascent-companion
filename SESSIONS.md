@@ -24,13 +24,13 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Branch | Parked | Picks up at |
 |---|---|---|---|
-| [navigation-stage-1](.claude/sessions/2026-09-29-navigation-stage-1.md) | `claude/navigation-stage-1` | 38m ago | Slice 2 of Stage 1: add src/lib/workspaces.ts (one list), build the header menu… |
 | [ascent-security-analysis](.claude/sessions/2026-09-14-ascent-security-analysis.md) | `claude/ascent-security-analysis-m8fjif` | 16d ago | Owner merges PR #7 (git push origin origin/claude/ascent-security-analysis-m8fj… |
 
 ## Shipped
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
+| [navigation-stage-1](.claude/sessions/2026-09-29-navigation-stage-1.md) | 2026-09-29 | 2 | NAVIGATION_PLAN.md Stage 1: one workspace list feeding bar, menu, search; tab s… |
 | [specs](.claude/sessions/2026-09-29-specs.md) | 2026-09-29 | 2 | Specifications: import an architect's spec selection list PDF per job, show it … |
 | [navigation-stage-0](.claude/sessions/2026-09-29-navigation-stage-0.md) | 2026-09-29 | 3 | NAVIGATION_PLAN.md Stage 0: gate /api/time-off/import and /api/labor-report, re… |
 | [ascent-app-simplify](.claude/sessions/2026-09-29-ascent-app-simplify.md) | 2026-09-29 | 1 | Evaluate the app's pages, menus and names; propose a simpler navigation (fewer … |
@@ -45,4 +45,3 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 | [bill-due-date-selector](.claude/sessions/2026-09-09-bill-due-date-selector.md) | 2026-09-09 | 2 | — |
 | [ipad-vertical-admin-home](.claude/sessions/2026-09-09-ipad-vertical-admin-home.md) | 2026-09-09 | 1 | A vertical iPad layout for the admin and office home screen. |
 | [lead-email-capture-tagging](.claude/sessions/2026-09-08-lead-email-capture-tagging.md) | 2026-09-08 | 3 | — |
-| [time-entry-notes-persist](.claude/sessions/2026-09-08-time-entry-notes-persist.md) | 2026-09-08 | 1 | — |

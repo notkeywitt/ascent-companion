@@ -1,7 +1,33 @@
 {
-  "generatedAt": "2026-09-29T18:53:19Z",
+  "generatedAt": "2026-09-29T19:11:41Z",
   "repo": "ascent-companion",
   "sessions": [
+    {
+      "slug": "navigation-stage-1",
+      "file": "2026-09-29-navigation-stage-1.md",
+      "branch": "claude/navigation-stage-1",
+      "status": "shipped",
+      "started": "2026-09-29T18:14:02Z",
+      "updated": "2026-09-29T19:11:40Z",
+      "goal": "NAVIGATION_PLAN.md Stage 1: one workspace list feeding bar, menu, search; tab strips; remove the other menus; label renames",
+      "next": "Slice 2 of Stage 1: add src/lib/workspaces.ts (one list), build the header menu, search and TabBar (leads get a bar) from it, remove nav.ts/pagesMenu/navLayout/HomeCards/TileLauncher/AllPagesMenu/SideNav/OfficeLinks//more; stop reading nav_layout (rows stay). Then tab strip, renames, iPad rail.",
+      "commits": [
+        {
+          "date": "2026-09-29",
+          "time": "11:14",
+          "sha": "357b9f9",
+          "subject": "companion: give every role app feedback, record owner answers",
+          "files": "NAVIGATION_PLAN.md, src/app/api/feature-requests/[id]/route.ts, src/app/requests/page.tsx, src/lib/views.ts"
+        },
+        {
+          "date": "2026-09-29",
+          "time": "12:11",
+          "sha": "9a19abe",
+          "subject": "companion: one workspace list for the menu, bar and search",
+          "files": "CLAUDE.md, CODEBASE_MAP.md, next.config.mjs, src/app/api/admin/home-layout/route.ts, src/app/api/admin/pages-menu/route.ts, src/app/layout.tsx, +28 more"
+        }
+      ]
+    },
     {
       "slug": "specs",
       "file": "2026-09-29-specs.md",
@@ -25,25 +51,6 @@
           "sha": "4c14158",
           "subject": "companion: save a spec row onto its JobTread budget line",
           "files": "CODEBASE_MAP.md, src/app/api/specs/jobtread/route.ts, src/app/specs/page.tsx, src/lib/help.ts, src/lib/specList.test.ts, src/lib/specList.ts"
-        }
-      ]
-    },
-    {
-      "slug": "navigation-stage-1",
-      "file": "2026-09-29-navigation-stage-1.md",
-      "branch": "claude/navigation-stage-1",
-      "status": "parked",
-      "started": "2026-09-29T18:14:02Z",
-      "updated": "2026-09-29T18:15:45Z",
-      "goal": "NAVIGATION_PLAN.md Stage 1: one workspace list feeding bar, menu, search; tab strips; remove the other menus; label renames",
-      "next": "Slice 2 of Stage 1: add src/lib/workspaces.ts (one list), build the header menu, search and TabBar (leads get a bar) from it, remove nav.ts/pagesMenu/navLayout/HomeCards/TileLauncher/AllPagesMenu/SideNav/OfficeLinks//more; stop reading nav_layout (rows stay). Then tab strip, renames, iPad rail.",
-      "commits": [
-        {
-          "date": "2026-09-29",
-          "time": "11:14",
-          "sha": "357b9f9",
-          "subject": "companion: give every role app feedback, record owner answers",
-          "files": "NAVIGATION_PLAN.md, src/app/api/feature-requests/[id]/route.ts, src/app/requests/page.tsx, src/lib/views.ts"
         }
       ]
     },
