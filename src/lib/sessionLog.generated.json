@@ -1,16 +1,35 @@
 {
-  "generatedAt": "2026-09-29T18:14:10Z",
+  "generatedAt": "2026-09-29T18:32:03Z",
   "repo": "ascent-companion",
   "sessions": [
+    {
+      "slug": "specs",
+      "file": "2026-09-29-specs.md",
+      "branch": "claude/specs",
+      "status": "shipped",
+      "started": "2026-09-29T18:31:54Z",
+      "updated": "2026-09-29T18:32:03Z",
+      "goal": "Specifications: import an architect's spec selection list PDF per job, show it with live links, then port rows to JobTread as Selections (open) or Specifications (decided)",
+      "next": "",
+      "commits": [
+        {
+          "date": "2026-09-29",
+          "time": "11:31",
+          "sha": "3d9e080",
+          "subject": "companion: add specifications page for architect spec lists",
+          "files": "CODEBASE_MAP.md, next.config.mjs, package-lock.json, package.json, src/app/api/specs/route.ts, src/app/specs/page.tsx, +9 more"
+        }
+      ]
+    },
     {
       "slug": "navigation-stage-1",
       "file": "2026-09-29-navigation-stage-1.md",
       "branch": "claude/navigation-stage-1",
-      "status": "shipped",
+      "status": "parked",
       "started": "2026-09-29T18:14:02Z",
-      "updated": "2026-09-29T18:14:10Z",
+      "updated": "2026-09-29T18:15:45Z",
       "goal": "NAVIGATION_PLAN.md Stage 1: one workspace list feeding bar, menu, search; tab strips; remove the other menus; label renames",
-      "next": "",
+      "next": "Slice 2 of Stage 1: add src/lib/workspaces.ts (one list), build the header menu, search and TabBar (leads get a bar) from it, remove nav.ts/pagesMenu/navLayout/HomeCards/TileLauncher/AllPagesMenu/SideNav/OfficeLinks//more; stop reading nav_layout (rows stay). Then tab strip, renames, iPad rail.",
       "commits": [
         {
           "date": "2026-09-29",
