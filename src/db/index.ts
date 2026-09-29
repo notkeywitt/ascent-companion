@@ -1008,6 +1008,14 @@ async function applySchema() {
       imported_by TEXT NOT NULL DEFAULT ''
     )
   `);
+  // The PDF behind each spec list import (see schema.ts specFiles).
+  await getClient().execute(`
+    CREATE TABLE IF NOT EXISTS spec_files (
+      list_id INTEGER PRIMARY KEY,
+      name TEXT NOT NULL DEFAULT '',
+      bytes BLOB NOT NULL
+    )
+  `);
   // The journal is read newest-first, and filtered by the record, the job, the
   // person, or the one action a row belonged to.
   for (const idx of [

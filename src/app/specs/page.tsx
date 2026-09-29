@@ -1,10 +1,9 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { Fragment, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import {
   Banner,
   Button,
-  Card,
   ChipScroller,
   Chip,
   EmptyState,
@@ -45,6 +44,8 @@ import {
 
 interface Current {
   id: number;
+  /** Whether the PDF itself was kept (imports before 2026-09-29 have none). */
+  hasPdf: boolean;
   fileName: string;
   importedAt: string;
   importedBy: string;
@@ -57,6 +58,7 @@ interface Other {
 }
 
 type Filter = "all" | "open" | "decided";
+type ViewMode = "app" | "pdf";
 
 async function readJson(r: Response) {
   const b = await r.json().catch(() => ({}));
@@ -253,6 +255,7 @@ function Specs() {
   const [lines, setLines] = useState<BudgetLine[] | null>(null);
   const [sending, setSending] = useState(-1);
   const [notice, setNotice] = useState("");
+  const [mode, setMode] = useState<ViewMode>("app");
 
   const show = (b: { current: Current | null; others: Other[] }) => {
     setCurrent(b.current);
@@ -362,7 +365,7 @@ function Specs() {
     }
   }
 
-  const rows = current?.list.rows ?? [];
+  const rows = useMemo(() => current?.list.rows ?? [], [current]);
   const openCount = rows.filter((r) => r.status === "open").length;
   const groups = useMemo(
     () =>
@@ -372,15 +375,23 @@ function Specs() {
     [rows, filter],
   );
 
+  const rowProps = (index: number) => ({
+    saving: saving === index,
+    onStatus: () => void toggle(index),
+    lines,
+    sending: sending === index,
+    onSend: (on: boolean) => setSending(on ? index : -1),
+    onSave: (costItemId: string) => saveToJobTread(index, costItemId),
+  });
+
   return (
-    <main className="mx-auto max-w-2xl px-4 pb-24 pt-6 lg:max-w-3xl">
+    // Full width: a finish schedule is a wide table, and this page is mostly
+    // used at a desk (owner, 2026-09-29).
+    <main className="px-4 pb-24 pt-6 pad:px-7">
       <PageHeader
         title="Specifications"
-        description="An architect's spec selection list, room by room, with every product link live."
+        description="An architect's spec selection list, with every product link live."
       />
-      <div className="mb-4">
-        <JobParamPicker includeAll={false} placeholder="Choose a job…" />
-      </div>
 
       {error && (
         <Banner tone="error" className="mb-4">
@@ -393,61 +404,76 @@ function Specs() {
         </Banner>
       )}
 
-      {!jobId ? (
-        <EmptyState>Pick a job to see its spec list.</EmptyState>
-      ) : (
-        <>
-          <Card className="mb-5 space-y-3">
-            <div className="text-sm font-semibold">{current ? "Import a new revision" : "Import the spec list"}</div>
+      {/* The job, and a new revision to read in — one row at a desk. */}
+      <div className="mb-5 flex flex-wrap items-end gap-3">
+        <div className="w-full max-w-sm">
+          <JobParamPicker includeAll={false} placeholder="Choose a job…" />
+        </div>
+        {jobId && (
+          <div className="flex min-w-0 flex-wrap items-center gap-3">
             <input
               type="file"
               accept="application/pdf"
+              aria-label={current ? "New revision PDF" : "Spec list PDF"}
               onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-              className="block w-full text-sm file:mr-3 file:rounded-lg file:border file:border-line-strong file:bg-transparent file:px-3 file:py-2 file:text-sm file:font-semibold"
+              className="block max-w-xs text-sm file:mr-3 file:rounded-lg file:border file:border-line-strong file:bg-transparent file:px-3 file:py-2 file:text-sm file:font-semibold"
             />
-            <p className="text-[11.5px] text-neutral-500 dark:text-neutral-400">
-              The architect&apos;s PDF. For a spreadsheet, download it as a PDF first — its links survive.
-            </p>
             <Button onClick={importPdf} disabled={!file || busy}>
               {busy ? "Reading the schedule… about a minute" : "Read PDF"}
             </Button>
-          </Card>
+            <span className="text-[11.5px] text-neutral-500 dark:text-neutral-400">
+              For a spreadsheet, download it as a PDF first — its links survive.
+            </span>
+          </div>
+        )}
+      </div>
 
-          {loading ? (
-            <Loading label="Loading the spec list…" />
-          ) : !current ? (
-            <EmptyState>No spec list for this job yet.</EmptyState>
-          ) : (
-            <div className="space-y-5">
-              <div className="space-y-2">
-                <div className="text-base font-semibold tracking-tight">
-                  {current.list.title || current.fileName}
-                </div>
-                <MetaLine
-                  items={[
-                    current.list.revision && `Revision ${current.list.revision}`,
-                    `${rows.length} items`,
-                    `imported ${when(current.importedAt)}${current.importedBy ? ` by ${current.importedBy.split("@")[0]}` : ""}`,
-                  ]}
-                />
-                {others.length > 0 && (
-                  <Select
-                    aria-label="Import to show"
-                    value={String(current.id)}
-                    onChange={(e) => void load(Number(e.target.value))}
-                  >
-                    {[current, ...others]
-                      .sort((a, b) => b.id - a.id)
-                      .map((o) => (
-                        <option key={o.id} value={o.id}>
-                          {when(o.importedAt)} — {o.fileName}
-                        </option>
-                      ))}
-                  </Select>
-                )}
-              </div>
-
-              <ChipScroller>
+      {!jobId ? (
+        <EmptyState>Pick a job to see its spec list.</EmptyState>
+      ) : loading ? (
+        <Loading label="Loading the spec list…" />
+      ) : !current ? (
+        <EmptyState>No spec list for this job yet. Read the architect&apos;s PDF above.</EmptyState>
+      ) : (
+        <div className="space-y-4">
+          {/* What is on screen, and the controls over it. */}
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+            <div className="min-w-0">
+              <div className="text-base font-semibold tracking-tight">{current.list.title || current.fileName}</div>
+              <MetaLine
+                items={[
+                  current.list.revision && `Revision ${current.list.revision}`,
+                  `${rows.length} items`,
+                  `imported ${when(current.importedAt)}${current.importedBy ? ` by ${current.importedBy.split("@")[0]}` : ""}`,
+                ]}
+              />
+            </div>
+            {others.length > 0 && (
+              <Select
+                aria-label="Import to show"
+                value={String(current.id)}
+                onChange={(e) => void load(Number(e.target.value))}
+                className="w-auto max-w-xs"
+              >
+                {[current, ...others]
+                  .sort((a, b) => b.id - a.id)
+                  .map((o) => (
+                    <option key={o.id} value={o.id}>
+                      {when(o.importedAt)} — {o.fileName}
+                    </option>
+                  ))}
+              </Select>
+            )}
+            <div className="flex items-center gap-2">
+              <FilterChip on={mode === "app"} onClick={() => setMode("app")}>
+                App view
+              </FilterChip>
+              <FilterChip on={mode === "pdf"} onClick={() => setMode("pdf")}>
+                PDF
+              </FilterChip>
+            </div>
+            {mode === "app" ? (
+              <ChipScroller bleed="0px">
                 <FilterChip on={filter === "all"} onClick={() => setFilter("all")}>
                   All {rows.length}
                 </FilterChip>
@@ -458,26 +484,53 @@ function Specs() {
                   Decided {rows.length - openCount}
                 </FilterChip>
               </ChipScroller>
+            ) : (
+              current.hasPdf && (
+                <a
+                  href={`/api/specs/pdf?id=${current.id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm font-semibold text-accent hover:underline dark:text-accent-soft"
+                >
+                  Open the PDF in a new tab ↗
+                </a>
+              )
+            )}
+          </div>
 
-              {groups.map((g) => (
-                <section key={`${g.room}-${g.rows[0].index}`} className="space-y-2">
-                  <SectionHeading>{g.room}</SectionHeading>
-                  <ListCard>
-                    {g.rows.map(({ row, index }) => (
-                      <Row
-                        key={index}
-                        row={row}
-                        saving={saving === index}
-                        onStatus={() => void toggle(index)}
-                        lines={lines}
-                        sending={sending === index}
-                        onSend={(on) => setSending(on ? index : -1)}
-                        onSave={(costItemId) => saveToJobTread(index, costItemId)}
-                      />
-                    ))}
-                  </ListCard>
-                </section>
-              ))}
+          {mode === "pdf" ? (
+            current.hasPdf ? (
+              // The browser's own PDF viewer — the architect's document as sent,
+              // with its links live.
+              <iframe
+                src={`/api/specs/pdf?id=${current.id}`}
+                title="The architect's spec list PDF"
+                className="h-[calc(100dvh-16rem)] min-h-[560px] w-full rounded-xl border border-line bg-white"
+              />
+            ) : (
+              <EmptyState>
+                This import has no PDF kept (imports before 2026-09-29, or a file over 8 MB). Read the PDF again to see
+                it here.
+              </EmptyState>
+            )
+          ) : (
+            <>
+              {/* DESK: one table, spreadsheet-dense, like the architect's own. */}
+              <SpecTable groups={groups} rowProps={rowProps} />
+
+              {/* PHONE / TABLET: the same rows, stacked, room by room. */}
+              <div className="space-y-5 lg:hidden">
+                {groups.map((g) => (
+                  <section key={`${g.room}-${g.rows[0].index}`} className="space-y-2">
+                    <SectionHeading>{g.room}</SectionHeading>
+                    <ListCard>
+                      {g.rows.map(({ row, index }) => (
+                        <Row key={index} row={row} {...rowProps(index)} />
+                      ))}
+                    </ListCard>
+                  </section>
+                ))}
+              </div>
 
               {current.list.unplaced.length > 0 && (
                 <section className="space-y-2">
@@ -489,11 +542,149 @@ function Specs() {
                   </ListCard>
                 </section>
               )}
-            </div>
+            </>
           )}
-        </>
+        </div>
       )}
     </main>
+  );
+}
+
+type RowProps = {
+  saving: boolean;
+  onStatus: () => void;
+  lines: BudgetLine[] | null;
+  sending: boolean;
+  onSend: (on: boolean) => void;
+  onSave: (costItemId: string) => Promise<void>;
+};
+
+const TH = "sticky z-10 border-b border-line bg-cream px-2 py-1.5 text-left text-[10.5px] font-semibold uppercase tracking-wide text-neutral-500 dark:bg-ink dark:text-neutral-400";
+const TD = "px-2 py-1.5 align-top";
+
+/** The desk view: every row in one dense table, a band per room. */
+function SpecTable({
+  groups,
+  rowProps,
+}: {
+  groups: { room: string; rows: { row: SpecRow; index: number }[] }[];
+  rowProps: (index: number) => RowProps;
+}) {
+  return (
+    <table className="hidden w-full table-fixed border-collapse text-[12.5px] leading-snug lg:table">
+      <colgroup>
+        <col className="w-[11%]" />
+        <col className="w-[3%]" />
+        <col className="w-[20%]" />
+        <col className="w-[14%]" />
+        <col className="w-[15%]" />
+        <col className="w-[14%]" />
+        <col className="w-[8%]" />
+        <col className="w-[4%]" />
+        <col className="w-[5%]" />
+        <col className="w-[6%]" />
+      </colgroup>
+      <thead>
+        <tr>
+          {["Item", "Qty", "Final spec", "Alternate", "Notes", "Question", "Answer", "Tag", "Status", "JobTread"].map((h) => (
+            // Pinned right under the app header as the table scrolls.
+            <th key={h} className={TH} style={{ top: "var(--appheader-h)" }}>
+              {h}
+            </th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {groups.map((g) => (
+          <Fragment key={`${g.room}-${g.rows[0].index}`}>
+            <tr>
+              <td colSpan={10} className="border-b border-line bg-accent/5 px-2 py-1 text-[12px] font-bold tracking-tight">
+                {g.room}
+              </td>
+            </tr>
+            {g.rows.map(({ row, index }) => (
+              <TableRow key={index} row={row} {...rowProps(index)} />
+            ))}
+          </Fragment>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+function TableRow({ row, saving, onStatus, lines, sending, onSend, onSave }: { row: SpecRow } & RowProps) {
+  const open = row.status === "open";
+  return (
+    <>
+      <tr className="border-b border-line-soft transition hover:bg-accent/5">
+        <td className={`${TD} font-semibold`}>{row.item}</td>
+        <td className={`${TD} tabular-nums`}>{row.qty}</td>
+        <td className={TD}>
+          {row.spec || row.specLinks.length ? (
+            <Linked text={row.spec} links={row.specLinks} />
+          ) : (
+            <span className="text-neutral-400">—</span>
+          )}
+        </td>
+        <td className={TD}>
+          {row.alternates.map((a, i) => (
+            <div key={i}>
+              <Linked text={a.text} links={a.links} />
+            </div>
+          ))}
+        </td>
+        <td className={`${TD} text-neutral-500 dark:text-neutral-400`}>
+          {row.notes}
+          {row.other.map((o) => (
+            <div key={o.label}>
+              {o.label}: {o.value}
+            </div>
+          ))}
+        </td>
+        <td className={TD}>
+          {row.question}
+          {row.impact && <div className="text-neutral-500">Impact: {row.impact}</div>}
+        </td>
+        <td className={TD}>{row.answer}</td>
+        <td className={`${TD} text-neutral-500`} title={[row.addedBy && `Added by ${row.addedBy}`, row.revised && `Revised ${row.revised}`].filter(Boolean).join(" · ")}>
+          {row.tag}
+        </td>
+        <td className={TD}>
+          <button
+            type="button"
+            onClick={onStatus}
+            disabled={saving}
+            title={open ? "Mark decided" : "Reopen"}
+            className="disabled:opacity-50"
+          >
+            {open ? <Chip tone="warning">Open</Chip> : <span className="text-[11.5px] text-neutral-500">Decided</span>}
+          </button>
+        </td>
+        <td className={TD}>
+          {row.jt && (
+            <div className="truncate text-[11.5px] text-neutral-500" title={row.jt.line}>
+              ✓ {row.jt.line}
+            </div>
+          )}
+          {lines && !sending && (
+            <button
+              type="button"
+              onClick={() => onSend(true)}
+              className="text-[11.5px] font-semibold text-accent hover:underline dark:text-accent-soft"
+            >
+              {row.jt ? "Save again" : "Save…"}
+            </button>
+          )}
+        </td>
+      </tr>
+      {sending && lines && (
+        <tr>
+          <td colSpan={10} className="border-b border-line-soft px-2 pb-2">
+            <SendPanel row={row} lines={lines} onSave={onSave} onCancel={() => onSend(false)} />
+          </td>
+        </tr>
+      )}
+    </>
   );
 }
 

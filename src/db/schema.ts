@@ -1,4 +1,4 @@
-import { sqliteTable, integer, primaryKey, real, text } from "drizzle-orm/sqlite-core";
+import { blob, sqliteTable, integer, primaryKey, real, text } from "drizzle-orm/sqlite-core";
 
 /**
  * RFIs — assistant-owned (JobTread has no RFI object). Linked to a JobTread job
@@ -1385,3 +1385,14 @@ export const specLists = sqliteTable("spec_lists", {
 });
 
 export type SpecListRow = typeof specLists.$inferSelect;
+
+/**
+ * The PDF each spec list was read from, so the page can show the architect's
+ * own document with its links live. One row per import, keyed by the
+ * spec_lists id; an import over the size cap keeps its rows but no file.
+ */
+export const specFiles = sqliteTable("spec_files", {
+  listId: integer("list_id").primaryKey(),
+  name: text("name").notNull().default(""),
+  bytes: blob("bytes", { mode: "buffer" }).notNull(),
+});

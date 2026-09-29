@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { desc, eq } from "drizzle-orm";
 import { auth } from "@/auth";
 import { db, ensureDb } from "@/db";
-import { specLists } from "@/db/schema";
+import { specFiles, specLists } from "@/db/schema";
 import { extractSpecListWithClaude } from "@/lib/claudeExtract";
 import { extractPdfLinks } from "@/lib/pdfLinks";
 import { resolveSpecList, type RawSpecList, type SpecList } from "@/lib/specList";
@@ -14,6 +14,9 @@ import { resolveSpecList, type RawSpecList, type SpecList } from "@/lib/specList
  *   POST  multipart { jobId, file }     → read the PDF, store it as a new import
  *   PATCH { id, index, status }         → mark one row open or decided
  *
+ * The PDF itself is kept too (spec_files, up to PDF_KEEP_MAX) and served by
+ * /api/specs/pdf, so the page can show the architect's own document.
+ *
  * Gated by the "specs" view (lib/views). Companion DB only: nothing here writes
  * to JobTread.
  */
@@ -22,6 +25,8 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
 const MAX_BYTES = 20 * 1024 * 1024;
+/** The largest PDF kept for the PDF view. Bigger files keep their rows only. */
+const PDF_KEEP_MAX = 8 * 1024 * 1024;
 const JOB_ID = /^[A-Za-z0-9]{6,32}$/;
 
 async function newest(jobId: string, pick = 0) {
@@ -33,10 +38,14 @@ async function newest(jobId: string, pick = 0) {
     .orderBy(desc(specLists.id))
     .limit(20);
   const top = rows.find((r) => r.id === pick) ?? rows[0];
+  const hasPdf = top
+    ? (await db.select({ id: specFiles.listId }).from(specFiles).where(eq(specFiles.listId, top.id)).limit(1)).length > 0
+    : false;
   return {
     current: top
       ? {
           id: top.id,
+          hasPdf,
           fileName: top.fileName,
           importedAt: top.importedAt,
           importedBy: top.importedBy,
@@ -90,13 +99,19 @@ export async function POST(req: NextRequest) {
 
   const session = await auth();
   await ensureDb();
-  await db.insert(specLists).values({
-    jobId,
-    fileName: file.name.slice(0, 200),
-    value: JSON.stringify(list),
-    importedAt: new Date().toISOString(),
-    importedBy: session?.user?.email ?? "",
-  });
+  const [saved] = await db
+    .insert(specLists)
+    .values({
+      jobId,
+      fileName: file.name.slice(0, 200),
+      value: JSON.stringify(list),
+      importedAt: new Date().toISOString(),
+      importedBy: session?.user?.email ?? "",
+    })
+    .returning({ id: specLists.id });
+  if (saved && bytes.length <= PDF_KEEP_MAX) {
+    await db.insert(specFiles).values({ listId: saved.id, name: file.name.slice(0, 200), bytes });
+  }
   return NextResponse.json(await newest(jobId));
 }
 

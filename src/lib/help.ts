@@ -624,6 +624,7 @@ export const HELP: HelpSection[] = [
         notes: [
           "For a spreadsheet, download it as a PDF first. Its links survive.",
           "Each import is kept. Select an earlier import from the list above the rows.",
+          "Tap **PDF** to see the architect's own document, with its links. Tap **App view** to go back.",
           "A row is **Open** while a choice is still to be made. Tap **Mark decided** when it is made.",
           "Reading a long schedule takes about a minute.",
         ],
