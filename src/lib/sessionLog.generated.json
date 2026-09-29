@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-29T20:27:00Z",
+  "generatedAt": "2026-09-29T20:30:23Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "claude/navigation-stage-3",
       "status": "shipped",
       "started": "2026-09-29T20:14:05Z",
-      "updated": "2026-09-29T20:27:00Z",
+      "updated": "2026-09-29T20:30:23Z",
       "goal": "NAVIGATION_PLAN.md Stage 3: Not in JobTread merge, Code this bill on Email Invoices, Time Off office console path, Labor Report on People, drop the /admin Notices tab, bill History link",
-      "next": "",
+      "next": "Owner: run ./deploy.sh in ascent-appscript (ba91749) so Email Invoices shows Code this bill. Next: stage 4 (Month Close in depth) after audit 01's Board split, or decision 7 (read-only Sunset bill view for leads).",
       "commits": [
         {
           "date": "2026-09-29",
@@ -32,6 +32,20 @@
           "sha": "d2b40ce",
           "subject": "companion: Code this bill link after logging an email invoice",
           "files": "src/app/email/page.tsx"
+        },
+        {
+          "date": "2026-09-29",
+          "time": "13:29",
+          "sha": "343360e",
+          "subject": "companion: Not in JobTread holds all three missing-bill queues",
+          "files": "src/app/needs-project/page.tsx"
+        },
+        {
+          "date": "2026-09-29",
+          "time": "13:30",
+          "sha": "f5fb7fd",
+          "subject": "companion: record stage 3 status in the navigation plan",
+          "files": "NAVIGATION_PLAN.md"
         }
       ]
     },
