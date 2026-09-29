@@ -72,3 +72,22 @@ describe("the bottom bar", () => {
     expect(activeBarKey(items, "/")).toBe("today");
   });
 });
+
+describe("a pinned bar slot", () => {
+  const can = (role: (typeof ROLES)[number]) => {
+    const views = resolveAllowedViews(role);
+    return (v: string) => views.has(v);
+  };
+  it("takes the last slot of a full bar", () => {
+    const items = barFor("office", can("office"), "bill-search");
+    expect(items).toHaveLength(5);
+    expect(items[4].key).toBe("bill-search");
+    expect(items[0].key).toBe("today");
+  });
+  it("is ignored when it is already on the bar or cannot be opened", () => {
+    expect(barFor("office", can("office"), "mileage").map((i) => i.key)).toEqual(
+      barFor("office", can("office")).map((i) => i.key),
+    );
+    expect(barFor("field", can("field"), "journal").map((i) => i.key)).not.toContain("journal");
+  });
+});

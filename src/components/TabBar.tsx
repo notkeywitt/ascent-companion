@@ -1,12 +1,13 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useAccess } from "@/components/AccessProvider";
 import { useCopy } from "@/components/CopyProvider";
 import { LinkPendingOverlay } from "@/components/LinkPending";
 import { confirmLeaveIfDirty } from "@/lib/useUnsavedChanges";
-import { activeBarKey, barFor } from "@/lib/workspaces";
+import { BAR_PIN_EVENT, BAR_PIN_KEY, activeBarKey, barFor } from "@/lib/workspaces";
 
 /**
  * Bottom tab bar — up to five slots, docked at thumb height.
@@ -17,6 +18,9 @@ import { activeBarKey, barFor } from "@/lib/workspaces";
  * a slot someone cannot open is simply absent. EVERY role gets a bar, leads
  * included (owner, 2026-09-29): it is the way home from any page, and the
  * header's ☰ menu carries everything else.
+ *
+ * PINNED: a person can pin one page from the ☰ menu (per device). It takes the
+ * bar's last slot; see `barFor`.
  *
  * FROM `pad` UP IT IS A DOCK, not a bar: fixed-width items, a rounded pill,
  * centred, a finger's width off the bottom edge. Same slots, same gates — only
@@ -94,6 +98,12 @@ const CalendarIcon = () => (
     <path d="M3 10h18M8 3v4M16 3v4" />
   </IconBase>
 );
+/** A pinned page, which has no icon of its own. */
+const PinIcon = () => (
+  <IconBase>
+    <path d="M12 17v5M8 3h8l-1 6 3 3v2H6v-2l3-3z" />
+  </IconBase>
+);
 const ClipboardIcon = () => (
   <IconBase>
     <rect x="8" y="3" width="8" height="4" rx="1" />
@@ -122,10 +132,26 @@ export function TabBar() {
   const access = useAccess();
   const c = useCopy();
 
+  // The device's pinned page. Read in an effect, not at render: the bar is
+  // server-rendered, and a first render that read storage would not match it.
+  const [pin, setPin] = useState("");
+  useEffect(() => {
+    const read = () => {
+      try {
+        setPin(localStorage.getItem(BAR_PIN_KEY) ?? "");
+      } catch {
+        /* storage blocked — no pin */
+      }
+    };
+    read();
+    window.addEventListener(BAR_PIN_EVENT, read);
+    return () => window.removeEventListener(BAR_PIN_EVENT, read);
+  }, []);
+
   // The bar is chrome for the signed-in app; these two pages have none.
   if (pathname === "/login" || pathname === "/privacy") return null;
 
-  const items = barFor(access.role, access.can);
+  const items = barFor(access.role, access.can, pin);
   // One slot is decoration, and it would cost every page 56px to say nothing.
   if (items.length < 2) return null;
   const active = activeBarKey(items, pathname);
@@ -151,7 +177,7 @@ export function TabBar() {
     >
       {items.map((t) => {
         const on = t.key === active;
-        const Icon = ICONS[t.key] ?? HomeIcon;
+        const Icon = ICONS[t.key] ?? PinIcon;
         // A single-page slot takes the short bar word the office can reword;
         // a workspace or Today says its own name.
         const label = !t.workspace && t.view ? c(`home.quick.${t.view}.label`) || t.label : t.label;

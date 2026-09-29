@@ -258,7 +258,17 @@ export interface BarItem {
 
 const TAB_BY_VIEW = new Map(WORKSPACES.flatMap((w) => w.tabs.map((t) => [t.view, t] as const)));
 
-export function barFor(role: Role, can: (view: string) => boolean): BarItem[] {
+/** Where the device's pinned page is kept (a view id). Per device, like the old drawer's pins. */
+export const BAR_PIN_KEY = "bar.pin";
+/** Fired on `window` when the pin changes, so the bar updates without a reload. */
+export const BAR_PIN_EVENT = "bar-pin";
+
+/**
+ * The role's bar. `pin` is the page this person pinned from the menu: it takes
+ * the LAST slot (or joins a bar with room), unless it is already on the bar or
+ * they cannot open it.
+ */
+export function barFor(role: Role, can: (view: string) => boolean, pin = ""): BarItem[] {
   const out: BarItem[] = [];
   for (const slot of BARS[role] ?? BARS.field) {
     if (slot.kind === "today") {
@@ -280,6 +290,12 @@ export function barFor(role: Role, can: (view: string) => boolean): BarItem[] {
         });
       }
     }
+  }
+  const t = pin ? TAB_BY_VIEW.get(pin) ?? EXTRA_LINKS.find((e) => e.view === pin) : undefined;
+  if (t && can(t.view) && !out.some((i) => i.view === t.view && !i.workspace)) {
+    const item = { key: t.view, label: t.label, href: t.href, view: t.view, covers: [t.href] };
+    if (out.length >= 5) out[out.length - 1] = item;
+    else out.push(item);
   }
   return out;
 }

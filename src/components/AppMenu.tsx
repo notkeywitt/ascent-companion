@@ -8,7 +8,16 @@ import { signOut } from "next-auth/react";
 import { useAccess } from "@/components/AccessProvider";
 import { useCopy } from "@/components/CopyProvider";
 import { ListCard, ListRow, SectionLabel, btn } from "@/components/ui";
-import { EXTRA_LINKS, TODAY, WORKSPACES, locate, reachableTabs, type WorkspaceTab } from "@/lib/workspaces";
+import {
+  BAR_PIN_EVENT,
+  BAR_PIN_KEY,
+  EXTRA_LINKS,
+  TODAY,
+  WORKSPACES,
+  locate,
+  reachableTabs,
+  type WorkspaceTab,
+} from "@/lib/workspaces";
 
 /**
  * The header's ☰ menu — every page this person can open, by workspace, from
@@ -17,6 +26,8 @@ import { EXTRA_LINKS, TODAY, WORKSPACES, locate, reachableTabs, type WorkspaceTa
  * one list (src/lib/workspaces.ts), one menu.
  *
  * The current workspace opens at the top, so the next step of a job is one tap.
+ * "Pin" lets a person put one page on the bottom bar, per device (it takes the
+ * bar's last slot).
  * The footer carries the pages that belong to no workspace (the Assistant,
  * LopezRocks) and the account.
  *
@@ -45,11 +56,36 @@ export function AppMenu({ qs = "" }: { qs?: string }) {
   const c = useCopy();
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const [pinning, setPinning] = useState(false);
+  const [pin, setPinState] = useState("");
 
   // A menu whose whole job is to navigate has to close when it does.
   useEffect(() => {
     setOpen(false);
+    setPinning(false);
   }, [pathname]);
+
+  useEffect(() => {
+    if (!open) return;
+    try {
+      setPinState(localStorage.getItem(BAR_PIN_KEY) ?? "");
+    } catch {
+      /* storage blocked — pinning just will not stick */
+    }
+  }, [open]);
+
+  const togglePin = (view: string) => {
+    const next = pin === view ? "" : view;
+    try {
+      if (next) localStorage.setItem(BAR_PIN_KEY, next);
+      else localStorage.removeItem(BAR_PIN_KEY);
+    } catch {
+      /* storage blocked — nothing to keep */
+    }
+    setPinState(next);
+    setPinning(false);
+    window.dispatchEvent(new Event(BAR_PIN_EVENT));
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -65,15 +101,31 @@ export function AppMenu({ qs = "" }: { qs?: string }) {
     .filter((w) => w.tabs.length > 0)
     .sort((a, b) => Number(b.id === here) - Number(a.id === here));
   const extras = EXTRA_LINKS.filter((t) => access.can(t.view));
-  const row = (t: WorkspaceTab) => (
-    <ListRow
-      key={t.href}
-      href={t.href + qs}
-      label={c(`home.dest.${t.view}.label`) || t.label}
-      desc={c(`home.dest.${t.view}.desc`) || t.desc}
-      className={pathname === t.href ? "bg-accent/5" : ""}
-    />
-  );
+  const row = (t: WorkspaceTab) =>
+    pinning && t.view ? (
+      <ListRow
+        key={t.href}
+        onClick={() => togglePin(t.view)}
+        label={c(`home.dest.${t.view}.label`) || t.label}
+        chevron={false}
+        trailing={
+          <span
+            aria-hidden
+            className={`shrink-0 text-sm ${pin === t.view ? "text-accent dark:text-accent-soft" : "text-neutral-400 dark:text-neutral-500"}`}
+          >
+            {pin === t.view ? "★" : "☆"}
+          </span>
+        }
+      />
+    ) : (
+      <ListRow
+        key={t.href}
+        href={t.href + qs}
+        label={c(`home.dest.${t.view}.label`) || t.label}
+        desc={c(`home.dest.${t.view}.desc`) || t.desc}
+        className={pathname === t.href ? "bg-accent/5" : ""}
+      />
+    );
 
   return (
     <>
@@ -104,6 +156,13 @@ export function AppMenu({ qs = "" }: { qs?: string }) {
                 <span className="flex-1 text-sm font-semibold tracking-tight">Menu</span>
                 <button
                   type="button"
+                  onClick={() => setPinning((was) => !was)}
+                  className="text-[11px] font-semibold text-accent hover:underline dark:text-accent-soft"
+                >
+                  {pinning ? "Done" : "Pin to bar"}
+                </button>
+                <button
+                  type="button"
                   onClick={() => setOpen(false)}
                   aria-label="Close menu"
                   className="text-lg leading-none text-neutral-500 transition hover:text-accent"
@@ -113,7 +172,12 @@ export function AppMenu({ qs = "" }: { qs?: string }) {
               </div>
 
               <div className="flex-1 space-y-4 overflow-y-auto px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-                <ListCard>{row(TODAY)}</ListCard>
+                {pinning && (
+                  <p className="text-[11.5px] text-neutral-500 dark:text-neutral-400">
+                    Tap a page to put it on the bottom bar, in the last slot. This device only.
+                  </p>
+                )}
+                {!pinning && <ListCard>{row(TODAY)}</ListCard>}
 
                 {workspaces.map((w) => (
                   <div key={w.id} className="space-y-1.5">
