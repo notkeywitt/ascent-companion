@@ -133,6 +133,25 @@ someone.
 9. Confirm the close order: Tracking Sheets, Labor Review, Bill Corrections, Taxable Flags, Invoice Review, Invoicing Package, Finalize.
 10. Check Admin › Activity (30 days) before archiving Course, Changelog, RFIs, Labor Import, Expenditure History or Job Cost.
 
+### Owner answers, 2026-09-29
+
+| # | Answer | What it changes |
+|---|---|---|
+| 1 | Yes | The workbench stays "Tracking Sheets", inside Month Close. |
+| 2 | Yes | Miles replaces Clients on the office bar. |
+| 3 | Yes | The admin home cards and their editor go in stage 1. |
+| 4 | No | RFIs leave every menu. The route and the view stay. |
+| 5 | Yes | Labor Import stays, under People. |
+| 6 | Office | Safety Meeting stays an office view, under People. |
+| 7 | Yes | A lead gets a read-only Sunset bill detail. Needs its own change: the bill page is the coding editor. |
+| 8 | Yes | App Feedback (`requests`) is in FIELD_VIEWS. Changing a request's status stays office/admin. |
+| 9 | Yes | Month Close tabs in that order. |
+| 10 | Not sure | Nothing else is archived until Admin › Activity is checked. |
+
+Also approved: leads get a bar; `nav_layout` rows are archived, not deleted
+(the code stops reading them; the rows stay, so a revert brings them back); the
+admin home cards go.
+
 ## Found along the way
 
 - `POST /api/time-off/import` commits a leave-balance import for any signed-in

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { Button, EmptyState, Loading, PageHeader, inputCls } from "@/components/ui";
+import { useAccess } from "@/components/AccessProvider";
 
 interface FeatureRequest {
   id: number;
@@ -25,6 +26,9 @@ const statusClass: Record<string, string> = {
 };
 
 export default function RequestsPage() {
+  // Status changes are office/admin only (see /api/feature-requests/[id]).
+  const { role } = useAccess();
+  const canTriage = role === "admin" || role === "office";
   const [requests, setRequests] = useState<FeatureRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [showNew, setShowNew] = useState(false);
@@ -120,14 +124,13 @@ export default function RequestsPage() {
       )}
 
       {loading && <Loading label="Loading requests…" />}
-      {!loading && requests.length === 0 && <EmptyState>No requests yet — be the first.</EmptyState>}
+      {!loading && requests.length === 0 && (
+        <EmptyState>No requests yet — be the first.</EmptyState>
+      )}
 
       <ul className="space-y-2">
         {requests.map((r) => (
-          <li
-            key={r.id}
-            className="rounded-xl border border-line bg-white p-3 dark:bg-ink-raised"
-          >
+          <li key={r.id} className="rounded-xl border border-line bg-white p-3 dark:bg-ink-raised">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <div className="font-medium">{r.title}</div>
@@ -146,22 +149,24 @@ export default function RequestsPage() {
                 {r.status}
               </span>
             </div>
-            <div className="mt-2 flex flex-wrap items-center gap-1.5">
-              {STATUS.map((s) => (
-                <button
-                  key={s}
-                  onClick={() => setStatus(r.id, s)}
-                  className={
-                    "rounded-full px-2.5 py-1 text-xs font-semibold transition " +
-                    (r.status === s
-                      ? statusClass[s]
-                      : "text-neutral-500 hover:bg-neutral-100 dark:hover:bg-white/10")
-                  }
-                >
-                  {s}
-                </button>
-              ))}
-            </div>
+            {canTriage && (
+              <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                {STATUS.map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => setStatus(r.id, s)}
+                    className={
+                      "rounded-full px-2.5 py-1 text-xs font-semibold transition " +
+                      (r.status === s
+                        ? statusClass[s]
+                        : "text-neutral-500 hover:bg-neutral-100 dark:hover:bg-white/10")
+                    }
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+            )}
           </li>
         ))}
       </ul>

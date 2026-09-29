@@ -493,6 +493,10 @@ const FIELD_VIEWS: string[] = [
   "time-off",
   "help",
   "lopezrocks",
+  // App Feedback, for every role since 2026-09-29 (owner decision 8): Help
+  // already told field and leads to send it. Changing a request's status stays
+  // office/admin, checked in /api/feature-requests/[id].
+  "requests",
 ];
 // Leads additionally see the Financials menu (coding, invoicing, Sunset pay).
 // Leads additionally see the Financials menu. "recode" (Tracking Sheets) is
