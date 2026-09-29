@@ -12,6 +12,7 @@ import { HomeJobBoard } from "@/components/HomeJobBoard";
 import { HomeLeadBoard } from "@/components/HomeLeadBoard";
 import { HomeMasthead } from "@/components/HomeMasthead";
 import { TodayQueue } from "@/components/TodayQueue";
+import { TodayOfficeTodos } from "@/components/TodayOfficeTodos";
 
 /**
  * The Assistant's front page — Today.
@@ -86,6 +87,11 @@ function Home() {
           nothing for it. Only admin gets "Refresh", which is a separate check —
           see HomeTodos.tsx. */}
       <HomeTodos />
+
+      {/* The Office job's to-dos, under the "office" view — the same list and
+          edits as the Office dashboard. With HomeTodos above, Today holds both
+          to-do lists, each under its own gate. */}
+      <TodayOfficeTodos />
 
       {/* No views at all — don't leave a blank page. This happens when the
           session carries no identity/role (e.g. signed in with the temporary

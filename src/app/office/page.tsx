@@ -19,7 +19,6 @@ import {
   OFFICE_JOB_ID,
   getJobBillsForMonth,
   getJobFiles,
-  getOpenToDos,
   resolveShopJobId,
   type JobFile,
   type MonthBill,
@@ -28,7 +27,8 @@ import { jtJobUrl } from "@/lib/jtLinks";
 import { orgDay } from "@/lib/orgTime";
 import { shortDay } from "@/lib/timeEntryDates";
 import { OfficeImages } from "./OfficeImages";
-import { OfficeTodos, type OfficeTodo } from "./OfficeTodos";
+import { OfficeTodos } from "./OfficeTodos";
+import { readOfficeTodos } from "./readOfficeTodos";
 
 /**
  * The Office dashboard — the "Office" overhead job in JobTread (job 007), read
@@ -110,35 +110,13 @@ function JtLink({ href }: { href: string }) {
 }
 
 async function Todos() {
-  let todos;
   try {
-    todos = (await getOpenToDos(getPaveConfig())).filter((t) => t.jobId === OFFICE_JOB_ID);
+    return <OfficeTodos todos={await readOfficeTodos()} />;
   } catch (e) {
     return (
       <Banner tone="error">{e instanceof Error ? e.message : "Could not read to-dos."}</Banner>
     );
   }
-
-  const today = orgDay(new Date().toISOString());
-  const rows: OfficeTodo[] = todos
-    .map((t) => {
-      const due = t.endDate || t.startDate || "";
-      return {
-        id: t.id,
-        name: t.name,
-        description: t.description ?? "",
-        due,
-        overdue: Boolean(due && due < today),
-        assignees: t.assignees,
-        assigneeIds: t.assigneeIds,
-      };
-    })
-    // Overdue and soonest first, undated last.
-    .sort(
-      (a, b) => (a.due || "9999").localeCompare(b.due || "9999") || a.name.localeCompare(b.name),
-    );
-
-  return <OfficeTodos todos={rows} />;
 }
 
 /** The month's bills on the two overhead jobs, each with its total. Drafts included. */

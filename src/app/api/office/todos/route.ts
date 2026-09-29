@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
+import { readOfficeTodos } from "@/app/office/readOfficeTodos";
 import {
   OFFICE_JOB_ID,
   createToDo,
@@ -64,6 +65,16 @@ async function notOffice(id: string): Promise<NextResponse | null> {
   if (jobId === undefined) return fail("That to-do no longer exists in JobTread.", 404);
   if (jobId !== OFFICE_JOB_ID) return fail("That to-do is not on the Office job.", 403);
   return null;
+}
+
+/** GET → { todos } — the Office job's open to-dos, for Today's list. */
+export async function GET() {
+  if (!hasGrant()) return fail("JT_GRANT_KEY is not set.", 400);
+  try {
+    return NextResponse.json({ todos: await readOfficeTodos() });
+  } catch (e) {
+    return fail(errorText(e), 502);
+  }
 }
 
 export async function POST(req: NextRequest) {

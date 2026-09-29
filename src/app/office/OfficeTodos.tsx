@@ -52,7 +52,15 @@ type Send = (
   body: Record<string, unknown>,
 ) => Promise<boolean>;
 
-export function OfficeTodos({ todos }: { todos: OfficeTodo[] }) {
+export function OfficeTodos({
+  todos,
+  onChanged,
+}: {
+  todos: OfficeTodo[];
+  /** Called after a write. The Office page re-reads through router.refresh();
+   *  Today fetched this list itself, so it passes a reload. */
+  onChanged?: () => void;
+}) {
   const router = useRouter();
   const [users, setUsers] = useState<JtUser[] | null>(null);
   const [editing, setEditing] = useState<string | null>(null); // a to-do id, or "new"
@@ -94,6 +102,7 @@ export function OfficeTodos({ todos }: { todos: OfficeTodo[] }) {
       }
       if (json.previewed) setNotice("Writes are off, so nothing was sent to JobTread.");
       router.refresh();
+      onChanged?.();
       return true;
     } catch {
       setErr("JobTread did not take that change.");
