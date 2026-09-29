@@ -162,10 +162,19 @@ Removed: admin home cards and editor, tile launchers, `/more` (redirects home),
 All Pages, the desktop side drawer, the `/office` page list, RFIs from the menus.
 `nav_layout` rows are kept and no longer read.
 
-Not yet done: the iPad left rail and desktop sidebar (the dock stays); Help
-sections grouped by workspace; a per-person pinned bar slot (the side drawer's
-per-device pins went with it); queue counts on menu rows (the launcher's
-Time Sync badge went with it — Today in stage 2 brings counts back).
+Later the same day: the iPad left rail (every workspace) and the 2xl sidebar
+(plus the current workspace's pages); a per-device pinned bar slot. Not done:
+Help sections grouped by workspace (owner did not pick it).
+
+### Stage 2 status, 2026-09-29
+
+Shipped: Today's "Needs you" queue (`TodayQueue.tsx` — bills to code, which
+opens the draft list in place, Bill Corrections, Time Sync, time off, requisitions,
+Sunset, App Feedback; each read from its page's own API, cached per tab, so no
+new endpoint); the Office job's to-dos beside your own; Appearance, desktop
+alerts and Sign out in the ☰ menu; `/coding` and `/stage` and their view ids
+deleted (routes redirect to Today). The stuck-vendor and Not in JobTread banners
+stay above the queue: they carry actions.
 
 ## Found along the way
 
