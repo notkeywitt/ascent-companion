@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-29T19:25:29Z",
+  "generatedAt": "2026-09-29T19:33:16Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,7 +8,7 @@
       "branch": "claude/navigation-stage-1",
       "status": "shipped",
       "started": "2026-09-29T18:14:02Z",
-      "updated": "2026-09-29T19:25:29Z",
+      "updated": "2026-09-29T19:33:15Z",
       "goal": "NAVIGATION_PLAN.md Stage 1: one workspace list feeding bar, menu, search; tab strips; remove the other menus; label renames",
       "next": "Stage 1 remainder needs owner go: iPad left rail + desktop sidebar (touches #app-shell and 5 fixed bottom bars), Help sections by workspace, per-person pinned bar slot. Then stage 2 (Today queue).",
       "commits": [
@@ -53,6 +53,13 @@
           "sha": "cfb19fc",
           "subject": "companion: pin one page to the bottom bar",
           "files": "src/components/AppMenu.tsx, src/components/TabBar.tsx, src/lib/help.ts, src/lib/workspaces.test.ts, src/lib/workspaces.ts"
+        },
+        {
+          "date": "2026-09-29",
+          "time": "12:33",
+          "sha": "45c8cd3",
+          "subject": "companion: left rail on iPad, sidebar on desktop",
+          "files": "CLAUDE.md, CODEBASE_MAP.md, src/app/amazon-import/page.tsx, src/app/bill/[docId]/page.tsx, src/app/employee-time/EmployeeTimeClient.tsx, src/app/globals.css, +5 more"
         }
       ]
     },
