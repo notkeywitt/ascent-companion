@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui";
+import { useAccess } from "@/components/AccessProvider";
 
 /**
  * "Create Labor Report in Drive" — the month's COMPANY-WIDE labor, filed as one
@@ -35,6 +36,7 @@ export function LaborReportButton({
   className?: string;
   size?: "sm" | "md";
 }) {
+  const canReport = useAccess().can("labor-review");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ tone: "ok" | "error"; text: string; url?: string } | null>(null);
 
@@ -62,6 +64,10 @@ export function LaborReportButton({
       setBusy(false);
     }
   };
+
+  // /api/labor-report rides the "labor-review" gate, so a person without it
+  // would only get a 403. This covers both hosts, Tracking Sheets included.
+  if (!canReport) return null;
 
   return (
     <div className={`flex min-w-0 flex-col items-start gap-1 ${className}`}>

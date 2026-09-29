@@ -46,6 +46,9 @@ const WRITE_ROUTES = [
   "/api/clients",
   "/api/tracking-sheet",
   "/api/labor-review",
+  // Not bill writes, but office/admin writes that were ungated until 2026-09-29.
+  "/api/labor-report",
+  "/api/time-off/import",
 ];
 
 const can = (role: string, path: string) =>

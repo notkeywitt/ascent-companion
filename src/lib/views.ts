@@ -104,7 +104,11 @@ export const VIEWS: ViewDef[] = [
     id: "labor-review",
     label: "Labor Review",
     group: "Financials",
-    paths: ["/labor-review", "/api/labor-review"],
+    // /api/labor-report files the whole org's month of hours as the payroll
+    // sheet in Drive. It was ungated until 2026-09-29 (any signed-in role could
+    // POST it). LaborReportButton hides itself without this view, so the
+    // Tracking Sheets copy of the button follows the same gate.
+    paths: ["/labor-review", "/api/labor-review", "/api/labor-report"],
   },
   // Approving a bill (draft → pending/approved) can push it to QuickBooks, so it
   // sits behind its own gate rather than riding on "recode". (It was split off
@@ -351,6 +355,9 @@ export const VIEWS: ViewDef[] = [
       "/api/time-off/policies",
       "/api/time-off/balances",
       "/api/time-off/ledger",
+      // The leave-balance CSV import. It commits balance adjustments, and was
+      // ungated until 2026-09-29 (any signed-in role could POST it).
+      "/api/time-off/import",
     ],
   },
   // Reconciliation — records captured but not yet in JobTread, with retry.
