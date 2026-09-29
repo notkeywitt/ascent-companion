@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/navigation-stage-1
 status: shipped
 started: 2026-09-29T18:14:02Z
-updated: 2026-09-29T20:10:18Z
+updated: 2026-09-29T20:11:46Z
 goal: NAVIGATION_PLAN.md Stage 1: one workspace list feeding bar, menu, search; tab strips; remove the other menus; label renames
 next: Stages 1-2 shipped. Next: stage 3 of NAVIGATION_PLAN.md (Not in JobTread merge, Code this bill on Email Invoices, Time Off office console path, Labor Report on People, drop /admin Notices tab, bill History link) — needs owner ok for the Time Off path.
 ---
