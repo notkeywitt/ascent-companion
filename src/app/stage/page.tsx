@@ -470,13 +470,16 @@ function Stage() {
                     <>
                       <div className="mb-2 flex justify-end gap-2">
                         {/* Desktop coding workbench — recode these bills against
-                            live budget headroom before the invoice is built. */}
-                        <Link
-                          href={`/trackingsheet?jobId=${encodeURIComponent(r.jobId)}&ym=${ym}`}
-                          className={btn("secondary", "sm")}
-                        >
-                          Tracking Sheets ↗
-                        </Link>
+                            live budget headroom before the invoice is built.
+                            Hidden without "recode": a lead holds this page, not that one. */}
+                        {can("recode") && (
+                          <Link
+                            href={`/trackingsheet?jobId=${encodeURIComponent(r.jobId)}&ym=${ym}`}
+                            className={btn("secondary", "sm")}
+                          >
+                            Tracking Sheets ↗
+                          </Link>
+                        )}
                         <Button
                           variant="secondary"
                           size="sm"

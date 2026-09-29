@@ -232,10 +232,18 @@ export default function TrackingSheetPage() {
         const list: JobRef[] = b.jobs || [];
         setJobs(list);
         setShared(b.shared || []);
-        if (list.length === 1) setProjectId(list[0].id);
+        // A link from Tracking Sheets names its job and month.
+        const asked = new URLSearchParams(window.location.search);
+        const askedJob = list.find((j) => j.jtJobId && j.jtJobId === asked.get("jobId"));
+        if (askedJob) setProjectId(askedJob.id);
+        else if (list.length === 1) setProjectId(list[0].id);
         const key = ymKey(Number(b.defaultMonth), Number(b.defaultYear));
+        const askedYm = asked.get("ym") ?? "";
+        const inList = monthOptions(Number(b.defaultMonth), Number(b.defaultYear)).some(
+          (o) => o.key === askedYm,
+        );
         setDefaultYm(key);
-        setYm(key);
+        setYm(inList ? askedYm : key);
         setPinnedYm(key);
         setPeriodPinned(b.periodPinned === true);
         setSync((b.sync as SyncStatus) || null);

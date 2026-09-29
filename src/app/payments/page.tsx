@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 
+import { useAccess } from "@/components/AccessProvider";
 import { CopyButton } from "@/components/CopyButton";
 import { JtLink } from "@/components/JtLink";
 import { SunsetDuplicateScan } from "@/components/SunsetDuplicateScan";
@@ -48,8 +49,10 @@ const jtDocUrl = (inv: Invoice) =>
 // In-app Bill Details for a reconciled invoice. `from=payments` tells that page
 // to send Back here instead of to the coding queue. Every invoice number below
 // links here; the small JT chip beside it opens the same bill in JobTread.
-const billHref = (inv: { docId?: string; jobId?: string }) =>
-  inv.docId && inv.jobId
+// `canOpen` is the "recode" view that /bill rides: a lead holds this page but
+// not that one, and a link would only bounce them home, so they get plain text.
+const billHref = (inv: { docId?: string; jobId?: string }, canOpen: boolean) =>
+  canOpen && inv.docId && inv.jobId
     ? `/bill/${encodeURIComponent(inv.docId)}?jobId=${encodeURIComponent(inv.jobId)}&from=payments`
     : "";
 const jtChip =
@@ -237,6 +240,7 @@ const validSnapRecon = () =>
   snapRecon && Date.now() - snapRecon.at < SNAP_MAX_MS ? snapRecon : null;
 
 export default function PaymentsPage() {
+  const canOpenBill = useAccess().can("recode");
   const [filter, setFilter] = useState<Filter>(snapFilter);
   // First render only: what the snapshot can put on screen immediately. Reading it
   // in the state initializers (rather than an effect) is the point — an effect
@@ -650,7 +654,7 @@ export default function PaymentsPage() {
                           <ul className="mt-0.5 space-y-0.5 text-[11px]">
                             {m.mismatched.map((x, i) => {
                               const url = jtMatchUrl(x);
-                              const detail = billHref(x);
+                              const detail = billHref(x, canOpenBill);
                               return (
                                 <li key={"mm" + i} className="flex justify-between gap-3 tabular-nums">
                                   <span className="flex min-w-0 items-center gap-1.5 truncate">
@@ -682,7 +686,7 @@ export default function PaymentsPage() {
                           <ul className="mt-0.5 space-y-0.5 text-[11px]">
                             {m.extra.map((x, i) => {
                               const url = jtMatchUrl(x);
-                              const detail = billHref(x);
+                              const detail = billHref(x, canOpenBill);
                               return (
                                 <li key={"ex" + i} className="flex justify-between gap-3 tabular-nums">
                                   <span className="flex min-w-0 items-center gap-1.5 truncate">
@@ -743,7 +747,7 @@ export default function PaymentsPage() {
                     <ul className="mt-1.5 space-y-0.5 border-t border-current/20 pt-1.5">
                       {rc.invoices.map((inv, i) => {
                         const url = jtDocUrl(inv);
-                        const detail = billHref(inv);
+                        const detail = billHref(inv, canOpenBill);
                         return (
                           <li key={inv.number + "-" + i} className="flex justify-between gap-3 tabular-nums">
                             <span className="flex min-w-0 items-center gap-1.5 truncate">

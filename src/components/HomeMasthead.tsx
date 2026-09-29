@@ -12,8 +12,9 @@ import { HomeReminders } from "@/components/HomeReminders";
  * The head of the iPad home console — a dateline, and where the billing month
  * stands.
  *
- * IT EXISTS ONLY AT `pad` AND UP, and that is the whole reason it can exist at
- * all. The home page deliberately carries no <h1> on a phone: a title plus its
+ * THE DATELINE EXISTS ONLY AT `pad` AND UP. The billing month shows at every
+ * width (phones since 2026-09-29: before that nobody on a phone could set it).
+ * The home page deliberately carries no <h1> on a phone: a title plus its
  * description costs the top fifth of the screen to say what the header logo
  * already says (see the note in src/app/page.tsx). An iPad in portrait has
  * ~1180px of height, so the same band costs it nothing and buys two things a
@@ -117,8 +118,13 @@ export function HomeMasthead() {
   }
 
   return (
-    <header className="mb-6 hidden items-end justify-between gap-6 border-b border-line pb-4 pad:flex">
-      <div className="min-w-0">
+    // On a phone only the billing month shows, and only to a role that has one.
+    <header
+      className={`mb-6 items-end justify-between gap-6 border-b border-line pb-4 ${
+        shows ? "flex" : "hidden pad:flex"
+      }`}
+    >
+      <div className="hidden min-w-0 pad:block">
         <SectionLabel>Today</SectionLabel>
         <div className="mt-1 flex items-center gap-2.5">
           <PeakMark className="h-3.5 w-[22px] shrink-0" />
@@ -133,7 +139,7 @@ export function HomeMasthead() {
       </div>
 
       {shows && (
-        <div className="shrink-0 text-right">
+        <div className="ml-auto shrink-0 text-right">
           <SectionLabel>Billing period</SectionLabel>
           {/* A quiet native select: it reads as the heading it replaced until
               you touch it, and on a tablet it opens the OS month wheel. */}

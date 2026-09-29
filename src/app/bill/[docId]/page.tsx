@@ -210,11 +210,9 @@ function BillDetail() {
         ? // The roster re-opens the card you left from (?open=), the month-list
           // equivalent of the workbench's #bill-<id> anchor.
           `/trackingsheet?open=${encodeURIComponent(jobId)}${ymQs}`
-        : from === "drafts"
-          ? "/trackingsheet?tab=drafts"
-          : from === "payments"
-            ? "/payments"
-            : `/trackingsheet?jobId=${encodeURIComponent(jobId)}${ymQs}#bill-${docId}`;
+        : from === "payments"
+          ? "/payments"
+          : `/trackingsheet?jobId=${encodeURIComponent(jobId)}${ymQs}#bill-${docId}`;
   // A general Back: return to the previous page via the browser's history when
   // there is one, so Back lands wherever you actually came from (search, the
   // digest, a shared link) instead of always claiming "Tracking Sheets". Falls

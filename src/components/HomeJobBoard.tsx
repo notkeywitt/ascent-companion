@@ -191,6 +191,9 @@ const basisNote = (c: JobBoardCard) =>
 
 /** The way out of every panel: the page these numbers are actually worked on. */
 function TrackingSheetLink({ c }: { c: JobBoardCard }) {
+  // A lead sees this board but not Tracking Sheets; the link would bounce them home.
+  const canOpen = useAccess().can("recode");
+  if (!canOpen) return null;
   return (
     <Link
       href={`/trackingsheet?jobId=${encodeURIComponent(c.id)}`}

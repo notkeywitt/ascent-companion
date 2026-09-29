@@ -311,7 +311,7 @@ function DocRow({
           Open the {isInvoice ? "invoice" : "bill"} ↗
         </a>
         {!isInvoice && (
-          <a className={btn("ghost", "sm")} href={`/bill/${encodeURIComponent(doc.docId)}`}>
+          <a className={btn("ghost", "sm")} href={`/bill/${encodeURIComponent(doc.docId)}${doc.jobId ? `?jobId=${encodeURIComponent(doc.jobId)}` : ""}`}>
             In the app
           </a>
         )}

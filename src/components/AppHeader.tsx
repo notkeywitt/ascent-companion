@@ -111,9 +111,9 @@ export function AppHeader() {
             spacer keeps the rest right-aligned for the field role, which has no
             search box. */}
         {access.role === "field" ? <div className="min-w-0 flex-1" /> : <GlobalSearch />}
-        {/* /add-bill is part of the (admin-only) Coding Review view — without the
-            gate the middleware would just bounce a non-admin back to home. */}
-        {access.can("coding") && (
+        {/* /add-bill rides the "recode" (Tracking Sheets) gate — without the
+            same check here the middleware bounces the person back to home. */}
+        {access.can("recode") && (
           <Link
             href={addHref}
             aria-label="Add bill"

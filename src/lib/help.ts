@@ -416,7 +416,7 @@ export const HELP: HelpSection[] = [
       {
         id: "add-bill",
         q: "How do I add a vendor bill?",
-        view: "coding",
+        view: "recode",
         href: "/add-bill",
         keywords: ["add bill", "invoice", "photograph", "upload", "vendor bill", "log bill"],
         steps: [

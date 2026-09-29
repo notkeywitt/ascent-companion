@@ -573,7 +573,7 @@ export function LaborReview() {
         </div>
         <EmptyState>
           No job selected. Pick one above to review its labor, or{" "}
-          <Link href="/trackingsheet" className="text-accent underline">
+          <Link href={`/trackingsheet?ym=${ym}`} className="text-accent underline">
             go to Tracking Sheets
           </Link>
           .

@@ -3174,7 +3174,10 @@ export function Board() {
       );
     }
     return (
-      <Link href="/tracking-sheet" className={btn("secondary", "md", `text-center ${cls}`)}>
+      <Link
+        href={`/tracking-sheet?jobId=${encodeURIComponent(jobId)}&ym=${ym}`}
+        className={btn("secondary", "md", `text-center ${cls}`)}
+      >
         Link Google tracking sheet
       </Link>
     );
@@ -3306,7 +3309,7 @@ export function Board() {
               {monthSelect("hidden lg:block w-full", "recode-month")}
               {canPackage && (
                 <Link
-                  href="/invoicing-summary"
+                  href={`/invoicing-summary?ym=${ym}`}
                   onClick={(e) => {
                     if (!confirmLeaveIfDirty()) e.preventDefault();
                   }}

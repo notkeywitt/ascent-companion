@@ -183,7 +183,10 @@ export default function InvoicingSummaryPage() {
   useEffect(() => {
     if (started.current) return;
     started.current = true;
-    void load("");
+    // A link from another close page names its month; with none, the route
+    // answers for the billing month in force.
+    const asked = new URLSearchParams(window.location.search).get("ym") ?? "";
+    void load(/^\d{4}-\d{2}$/.test(asked) ? asked : "");
   }, [load]);
 
   const onPickMonth = (next: string) => {
