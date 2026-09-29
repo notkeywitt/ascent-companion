@@ -32,6 +32,8 @@ next: Stages 1-2 shipped. Next: stage 3 of NAVIGATION_PLAN.md (Not in JobTread m
   CLAUDE.md, CODEBASE_MAP.md, next.config.mjs, src/app/bill/[docId]/page.tsx, src/app/coding/page.tsx, src/app/stage/page.tsx, +3 more
 - 2026-09-29 13:08 · `fde568c` companion: the Office job's to-dos on Today
   CODEBASE_MAP.md, src/app/api/office/todos/route.ts, src/app/office/OfficeTodos.tsx, src/app/office/page.tsx, src/app/office/readOfficeTodos.ts, src/app/page.tsx, +1 more
+- 2026-09-29 13:10 · `7c24f7e` companion: record stage 1 and 2 status in the navigation plan
+  NAVIGATION_PLAN.md
 
 ## Notes
 - 2026-09-29 19:21 — Stage 1 shipped in 4 slices: app feedback for all roles, workspaces.ts + menu + bar, tab strip with ym/jobId, renames. Headless Chrome screenshots of dev pages hang (live-data fetches); chrome-devtools MCP held by another session, so layout is unverified visually.
