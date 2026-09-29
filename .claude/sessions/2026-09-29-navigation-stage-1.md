@@ -2,9 +2,9 @@
 slug: navigation-stage-1
 repo: ascent-companion
 branch: claude/navigation-stage-1
-status: in-progress
+status: shipped
 started: 2026-09-29T18:14:02Z
-updated: 2026-09-29T18:14:03Z
+updated: 2026-09-29T18:14:10Z
 goal: NAVIGATION_PLAN.md Stage 1: one workspace list feeding bar, menu, search; tab strips; remove the other menus; label renames
 next: 
 ---

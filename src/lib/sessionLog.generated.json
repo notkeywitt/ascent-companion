@@ -1,7 +1,26 @@
 {
-  "generatedAt": "2026-09-29T18:04:04Z",
+  "generatedAt": "2026-09-29T18:14:10Z",
   "repo": "ascent-companion",
   "sessions": [
+    {
+      "slug": "navigation-stage-1",
+      "file": "2026-09-29-navigation-stage-1.md",
+      "branch": "claude/navigation-stage-1",
+      "status": "shipped",
+      "started": "2026-09-29T18:14:02Z",
+      "updated": "2026-09-29T18:14:10Z",
+      "goal": "NAVIGATION_PLAN.md Stage 1: one workspace list feeding bar, menu, search; tab strips; remove the other menus; label renames",
+      "next": "",
+      "commits": [
+        {
+          "date": "2026-09-29",
+          "time": "11:14",
+          "sha": "357b9f9",
+          "subject": "companion: give every role app feedback, record owner answers",
+          "files": "NAVIGATION_PLAN.md, src/app/api/feature-requests/[id]/route.ts, src/app/requests/page.tsx, src/lib/views.ts"
+        }
+      ]
+    },
     {
       "slug": "navigation-stage-0",
       "file": "2026-09-29-navigation-stage-0.md",
