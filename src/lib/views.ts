@@ -339,14 +339,16 @@ export const VIEWS: ViewDef[] = [
     group: "Office",
     paths: ["/labor-rates", "/api/labor-rates"],
   },
-  // Accrual management APIs — office/admin only (no field grant, not admin-only,
-  // so office gets it by default). No page of its own; the office controls live
-  // on the shared /time-off page and call these routes.
+  // The office Time Off console and its APIs — office/admin only (no field
+  // grant, not admin-only, so office gets it by default). Its own page since
+  // 2026-09-29, /time-off/office: a longer path wins in viewIdForPath, so it is
+  // gated here and not by the everyone-view "time-off" that holds /time-off.
   {
     id: "time-off-admin",
     label: "Time Off (Office)",
     group: "Office",
     paths: [
+      "/time-off/office",
       "/api/time-off/accrual",
       "/api/time-off/policies",
       "/api/time-off/balances",

@@ -324,7 +324,9 @@ Each page is a server component (`page.tsx`) that hands non-secret context to a
   the doc on its own when a figure moves).
 - **Field:** `safety-meeting`, `mileage-tracker`, `employee-time`, `tools`,
   `tool-tracker`, `rfis` (on no workspace since 2026-09-29 — nobody logs RFIs),
-  `time-off`, `requisitions`. (`/more`, "The Rest", redirects home.)
+  `time-off` (self-service; `/time-off/office` is the office console under the
+  `time-off-admin` view — both pages render `TimeOffView` in `TimeOff.tsx`),
+  `requisitions`. (`/more`, "The Rest", redirects home.)
 - **Assistant:** `chat`.
 - **Office:** `office` (the Office dashboard — the "Office" JobTread job's open
   to-dos and its Files tab as a `?folder=` browser, read server-side via

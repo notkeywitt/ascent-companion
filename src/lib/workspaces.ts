@@ -92,6 +92,7 @@ export const WORKSPACES: Workspace[] = [
     tabs: [
       tab("employees", "/employees", "Employees", "The Project Database roster"),
       tab("labor-rates", "/labor-rates", "Pay Rates", "Per-project pay rates & who has them"),
+      tab("time-off-admin", "/time-off/office", "Time Off (Office)", "Requests to approve, balances, accrual and policy"),
       tab("time-sync", "/time-sync", "Time Sync", "Time records JobTread doesn't have right"),
       tab("labor-import", "/labor-import", "Labor Import", "QuickBooks labor → JobTread CSV"),
       tab("safety-meeting", "/safety-meeting", "Safety Meeting", "Pass the iPad and collect sign-ins"),

@@ -652,6 +652,23 @@ export const HELP: HelpSection[] = [
         warn: ["Check the budget line before you save. The description changes in JobTread at once."],
       },
       {
+        id: "time-off-office",
+        q: "How do I approve a time-off request?",
+        view: "time-off-admin",
+        href: "/time-off/office",
+        keywords: ["time off", "pto", "sick", "approve", "deny", "balance", "accrual"],
+        steps: [
+          "Open **Time Off (Office)**.",
+          "Find the request in the queue.",
+          "Tap **Approve** or **Deny**.",
+        ],
+        notes: [
+          "**Approve** also posts the time off to JobTread.",
+          "**Today** shows how many requests wait.",
+          "Balances, accrual, the balance import and policy are on the same page.",
+        ],
+      },
+      {
         id: "employees",
         q: "How do I edit the employee roster?",
         view: "employees",

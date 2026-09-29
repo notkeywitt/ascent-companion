@@ -107,7 +107,7 @@ const QUEUES: Queue[] = [
     key: "time-off",
     view: "time-off-admin",
     label: "Time off to approve",
-    href: "/time-off",
+    href: "/time-off/office",
     load: async () => {
       const j = await cached("time-off", 5 * MIN, () => getJson("/api/time-off/requests?scope=all"));
       const n = ((j.requests ?? []) as { status?: string }[]).filter((r) => r.status === "pending").length;
