@@ -8,6 +8,7 @@ import {
   activeBarKey,
   barFor,
   locate,
+  railFor,
 } from "@/lib/workspaces";
 
 const tabs = WORKSPACES.flatMap((w) => w.tabs);
@@ -89,5 +90,24 @@ describe("a pinned bar slot", () => {
       barFor("office", can("office")).map((i) => i.key),
     );
     expect(barFor("field", can("field"), "journal").map((i) => i.key)).not.toContain("journal");
+  });
+});
+
+describe("the iPad rail", () => {
+  const can = (role: (typeof ROLES)[number]) => {
+    const views = resolveAllowedViews(role);
+    return (v: string) => views.has(v);
+  };
+  it("starts with the bar, then adds every other workspace once", () => {
+    const rail = railFor("office", can("office")).map((i) => i.key);
+    expect(rail.slice(0, 5)).toEqual(barFor("office", can("office")).map((i) => i.key));
+    expect(rail).toEqual(expect.arrayContaining(["clients", "people", "search", "help", "office"]));
+    expect(rail).not.toContain("admin");
+    expect(new Set(rail).size).toBe(rail.length);
+  });
+  it("still lights one slot per page", () => {
+    const rail = railFor("admin", can("admin"));
+    expect(activeBarKey(rail, "/employees")).toBe("people");
+    expect(activeBarKey(rail, "/mileage-tracker")).toBe("mywork");
   });
 });

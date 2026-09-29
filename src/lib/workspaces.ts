@@ -301,6 +301,23 @@ export function barFor(role: Role, can: (view: string) => boolean, pin = ""): Ba
 }
 
 /**
+ * The iPad rail and desktop sidebar: the bar's slots first, in the bar's order,
+ * then every other workspace this person can open. The rail has the height the
+ * bar lacks, so nothing has to be left for the menu.
+ */
+export function railFor(role: Role, can: (view: string) => boolean, pin = ""): BarItem[] {
+  const out = barFor(role, can, pin);
+  for (const ws of WORKSPACES) {
+    if (out.some((i) => i.workspace === ws.id)) continue;
+    const tabs = reachableTabs(ws, can);
+    if (tabs.length) {
+      out.push({ key: ws.id, label: ws.title, href: tabs[0].href, view: tabs[0].view, workspace: ws.id, covers: tabs.map((t) => t.href) });
+    }
+  }
+  return out;
+}
+
+/**
  * The slot that marks where the person is. A single-page slot beats a workspace
  * that also holds that page (office has Miles AND My Work), and Today is only
  * ever "/".

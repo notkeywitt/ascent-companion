@@ -333,32 +333,41 @@ html .group:hover .group-hover\:text-accent {
 
   /* Where the corner-docked commit bar's BOTTOM edge sits. On a phone the tab
      bar is edge to edge, so the commit bar stacks a gap above it. From `pad` up
-     the tab bar detaches into a centred pill and the commit bar lines up WITH
-     it — same bottom edge, same row, one band of chrome across the foot of the
-     screen instead of two shelves. Overridden in the media query below. */
+     there is no bottom bar, so it sits a gap above the screen edge. Overridden
+     in the media query below. */
   --actionbar-bottom: calc(var(--tabbar-h) + 0.75rem);
 
-  /* …and how wide it may grow before it would reach that centred pill. The
-     pill is at most four 118px tabs, so its right edge never passes
-     `50vw + 236px`; the bar is right-aligned, so capping it here makes it WRAP
-     rather than slide underneath the tabs. Only meaningful from `pad` up. */
+  /* How wide the corner-docked commit bar may grow. It used to be capped short
+     of the floating dock's pill; the dock became a rail, so nothing sits beside
+     it and it may take the whole content width. */
   --actionbar-max-w: 100%;
 }
 
-/* From `pad` up (744px — the narrowest iPad in portrait) the tab bar detaches
-   into a centred, floating dock: see components/TabBar. It stops being edge to
-   edge, so the space a page has to leave for it is the pill PLUS the gap it
-   floats in — its two borders, the 1rem it sits above the screen edge, and the
-   same 1rem again so the page's last row does not end flush against it.
-   Keep this in step with the `pad:` classes on <nav> in TabBar.tsx: they are
-   the two halves of one measurement. */
+/* From `pad` up (744px — the narrowest iPad in portrait) there is no bottom
+   bar: the bar becomes a RAIL down the left edge (components/TabBar), and from
+   2xl (1536px) a wider SIDEBAR that also lists the current workspace's pages.
+   Nothing docks at the foot of the screen any more, so --tabbar-h is only the
+   home-indicator inset, and --rail-w is what the page and every edge-to-edge
+   fixed bar move right by (#app-shell below; a `fixed inset-x-0` bar sets
+   `left: var(--rail-w)` inline, so no utility can out-order it). Keep these in
+   step with the widths on the rail's <nav> in TabBar.tsx. */
+:root {
+  --rail-w: 0px;
+}
 @media (min-width: 744px) {
   :root {
-    --tabbar-h: calc(3.5rem + 2px + 2rem + env(safe-area-inset-bottom));
-    /* In line with the pill, not stacked above it — the pill's own offset. */
+    --tabbar-h: env(safe-area-inset-bottom);
+    --rail-w: 88px;
     --actionbar-bottom: calc(1rem + env(safe-area-inset-bottom));
-    --actionbar-max-w: calc(50vw - 16rem);
   }
+}
+@media (min-width: 1536px) {
+  :root {
+    --rail-w: 232px;
+  }
+}
+#app-shell {
+  padding-left: var(--rail-w);
 }
 
 /* The two things that must clear the top chrome, reading the ONE measured

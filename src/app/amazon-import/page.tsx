@@ -932,7 +932,7 @@ export default function AmazonImportPage() {
           rather than underneath it — both are fixed to the bottom edge. */}
       {orders.length > 0 && (
         <div
-          style={{ bottom: "var(--tabbar-h, 0px)" }}
+          style={{ bottom: "var(--tabbar-h, 0px)", left: "var(--rail-w, 0px)" }}
           className="fixed inset-x-0 z-20 border-t border-line bg-white/95 px-4 py-3 backdrop-blur dark:border-neutral-800 dark:bg-ink/95"
         >
           <div className="mx-auto flex max-w-3xl items-center justify-between gap-3">

@@ -174,7 +174,9 @@ branch's record, so the next session can pick the work up cold. Read
   (`src/components/TabBar.tsx`, slots per role in `BARS`) and the header search.
   A tab keeps its route and its view id. The bar's height is `--tabbar-h`
   (globals.css); anything docking to the bottom of the screen must offset by
-  that variable rather than a hardcoded number.
+  that variable rather than a hardcoded number. From `pad` up the bar is a left
+  rail of width `--rail-w`: a `fixed inset-x-0` element must also set
+  `left: var(--rail-w)` or it runs under the rail.
 - **Search:** one box for the whole app — `src/components/GlobalSearch.tsx`, the
   widest item in the header row. It searches pages (`lib/workspaces`), vendors
   (`/api/vendors`) and bills + line items (`/api/bill-search`), each self-hiding

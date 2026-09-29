@@ -17,6 +17,16 @@ export function urlYm(): string {
   return typeof window === "undefined" ? "" : asYm(new URLSearchParams(window.location.search).get("ym"));
 }
 
+/** "?jobId=…&ym=…" — the job and month a workspace link carries, or "". */
+export function carryJobAndMonth(search: { get(key: string): string | null }): string {
+  const carry = new URLSearchParams();
+  for (const key of ["jobId", "ym"]) {
+    const v = (search.get(key) ?? "").trim();
+    if (v) carry.set(key, v);
+  }
+  return carry.size ? `?${carry}` : "";
+}
+
 export function setUrlParam(key: string, value: string): void {
   const params = new URLSearchParams(window.location.search);
   if (value) params.set(key, value);

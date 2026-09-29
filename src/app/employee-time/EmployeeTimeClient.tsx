@@ -3182,7 +3182,7 @@ function Dock({ children }: { children: React.ReactNode }) {
   return (
     <div
       className="fixed inset-x-0 z-20 px-4 print:hidden"
-      style={{ bottom: "calc(var(--tabbar-h, 0px) + 0.75rem)" }}
+      style={{ bottom: "calc(var(--tabbar-h, 0px) + 0.75rem)", left: "var(--rail-w, 0px)" }}
     >
       <div className="relative mx-auto flex max-w-2xl items-center justify-center">{children}</div>
     </div>

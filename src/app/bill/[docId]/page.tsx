@@ -1635,7 +1635,7 @@ function BillDetail() {
         // sit on top of Save. The variable already carries the safe-area inset,
         // which is why this bar no longer adds its own.
         <div
-          style={{ bottom: "var(--tabbar-h, 0px)" }}
+          style={{ bottom: "var(--tabbar-h, 0px)", left: "var(--rail-w, 0px)" }}
           className="fixed inset-x-0 z-30 border-t border-line bg-cream/95 backdrop-blur dark:border-white/10 dark:bg-ink/95 print:hidden"
         >
           <div className="mx-auto max-w-xl px-4">

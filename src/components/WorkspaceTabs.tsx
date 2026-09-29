@@ -5,6 +5,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { useAccess } from "@/components/AccessProvider";
 import { useCopy } from "@/components/CopyProvider";
 import { ChipScroller } from "@/components/ui";
+import { carryJobAndMonth } from "@/lib/urlParam";
 import { confirmLeaveIfDirty } from "@/lib/useUnsavedChanges";
 import { NO_STRIP, locate, reachableTabs } from "@/lib/workspaces";
 
@@ -19,7 +20,8 @@ import { NO_STRIP, locate, reachableTabs } from "@/lib/workspaces";
  *
  * Rendered once, in the root layout: it finds the workspace from the path, so
  * no page has to mount it. Hidden on a page that is on no workspace, on a
- * workspace this person can open only one tab of, and on NO_STRIP pages.
+ * workspace this person can open only one tab of, on NO_STRIP pages, and from
+ * 2xl up, where the sidebar lists the same tabs.
  */
 export function WorkspaceTabs() {
   const pathname = usePathname();
@@ -32,15 +34,11 @@ export function WorkspaceTabs() {
   const tabs = reachableTabs(here.workspace, access.can);
   if (tabs.length < 2) return null;
 
-  const carry = new URLSearchParams();
-  for (const key of ["jobId", "ym"]) {
-    const v = (search.get(key) ?? "").trim();
-    if (v) carry.set(key, v);
-  }
-  const qs = carry.size ? `?${carry}` : "";
+  const qs = carryJobAndMonth(search);
 
   return (
-    <nav aria-label={here.workspace.title} className="px-4 pt-3 print:hidden pad:px-7">
+    // From 2xl the sidebar lists these same tabs, so the strip steps aside.
+    <nav aria-label={here.workspace.title} className="px-4 pt-3 print:hidden pad:px-7 2xl:hidden">
       <ChipScroller>
         {tabs.map((t) => {
           const on = t.view === here.tab.view;
