@@ -59,7 +59,7 @@ export default function NeedsReviewPage() {
   return (
     <main className="mx-auto max-w-2xl px-4 pb-24 pt-6">
       <PageHeader
-        title="Needs Review"
+        title="Bill Corrections"
         description="Bills flagged for a correction that can't be made in the app — a paid, invoiced, or QuickBooks-pushed bill that needs work in JobTread or QuickBooks. Open one to see the note or clear the flag."
         className="!mb-4"
       />

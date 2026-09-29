@@ -158,7 +158,7 @@ export default function NeedsProjectPage() {
   return (
     <main className="mx-auto max-w-2xl px-4 pb-24 pt-6">
       <PageHeader
-        title="Needs Project"
+        title="Not in JobTread"
         description="Ingested bills held because the job couldn’t be determined automatically. Check the PDF, pick the job, and Assign — it pushes to JobTread and re-files in Drive."
         actions={
           <Button variant="secondary" size="sm" onClick={() => load()} disabled={loading}>

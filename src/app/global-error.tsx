@@ -53,7 +53,7 @@ export default function GlobalError({
           <p style={{ fontSize: "0.95rem", lineHeight: 1.5, margin: "0 0 1.25rem" }}>
             This screen hit an error and couldn&apos;t load. Nothing you were viewing
             was changed. Try again, and if it keeps happening, mention it on the
-            Requests page.
+            App Feedback page.
           </p>
           <button
             type="button"

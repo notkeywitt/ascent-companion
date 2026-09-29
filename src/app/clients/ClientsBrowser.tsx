@@ -214,7 +214,7 @@ export function ClientsBrowser() {
   return (
     <main className="mx-auto max-w-2xl px-4 pb-24 pt-6">
       <PageHeader
-        title="Clients & Jobs"
+        title="Directory"
         description="Every customer and job in JobTread — the record, not the cost. Edit it here."
       />
 

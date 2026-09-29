@@ -360,7 +360,7 @@ export default function LaborRatesPage() {
   return (
     <main className="mx-auto max-w-4xl px-4 pb-24 pt-6">
       <PageHeader
-        title="Labor Rates"
+        title="Pay Rates"
         description="Group per-project pay rates, then choose which employees have each. Pushing writes to JobTread as “Group - Rate”."
         className="!mb-3"
       />

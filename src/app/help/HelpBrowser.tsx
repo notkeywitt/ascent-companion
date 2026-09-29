@@ -226,8 +226,8 @@ export function HelpBrowser() {
       </div>
 
       <p className="mt-6 text-xs text-neutral-400">
-        A question this page does not answer is a gap in it. Ask for the answer on the Requests
-        page, and it lands here.
+        A question this page does not answer is a gap in it. Ask for the answer on the App
+        Feedback page, and it lands here.
       </p>
     </main>
   );

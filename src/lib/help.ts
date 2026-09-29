@@ -473,7 +473,7 @@ export const HELP: HelpSection[] = [
         href: "/needs-project",
         keywords: ["needs project", "no job", "unassigned", "assign", "ingested"],
         steps: [
-          "Open **Needs Project**.",
+          "Open **Not in JobTread**.",
           "Tap **View PDF ↗** to read the bill.",
           "Select the job in that row.",
           "Tap **Assign**.",
@@ -772,7 +772,7 @@ export const HELP: HelpSection[] = [
         href: "/logs",
         keywords: ["logs", "audit", "error", "sync result", "ingestion"],
         steps: [
-          "Open **Logs**.",
+          "Open **System Logs**.",
           "Type a word in the search box.",
           "Select a level.",
           "Tap **Search**.",
@@ -791,7 +791,7 @@ export const HELP: HelpSection[] = [
         keywords: ["actions", "run", "sync", "script", "schedule"],
         steps: ["Open **Actions**.", "Find the job.", "Tap **Run**.", "Read the result note."],
         notes: [
-          "**Logs** records every run.",
+          "**System Logs** records every run.",
           "“Lock busy — nothing ran” means a sync is already running. Wait.",
         ],
         warn: ["Run an action only when you must. Each one acts on production at once."],
@@ -816,7 +816,7 @@ export const HELP: HelpSection[] = [
         href: "/requests",
         keywords: ["request", "feature", "bug", "suggestion", "broken"],
         steps: [
-          "Open **Requests**.",
+          "Open **App Feedback**.",
           "Tap **+ Request**.",
           "Write the title.",
           "Write what you expected and what happened.",
@@ -873,7 +873,7 @@ export const HELP: HelpSection[] = [
         view: "recode",
         href: "/trackingsheet",
         keywords: ["sync", "already running", "drive", "lock", "15 minutes"],
-        steps: ["Wait.", "Read the result in **Logs**."],
+        steps: ["Wait.", "Read the result in **System Logs**."],
         notes: [
           "One sync runs at a time. A full sync takes about 15 minutes.",
           "The button confirms that the sync started, not that it finished.",
@@ -932,7 +932,7 @@ export const HELP: HelpSection[] = [
         view: null,
         keywords: ["help", "support", "who", "ask", "stuck", "problem"],
         steps: [
-          "Open **Requests**.",
+          "Open **App Feedback**.",
           "Write what you did, what you expected, and what happened.",
           "Tap **Submit**.",
         ],

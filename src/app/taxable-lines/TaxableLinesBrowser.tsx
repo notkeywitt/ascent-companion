@@ -124,7 +124,7 @@ export function TaxableLinesBrowser() {
   return (
     <main className="mx-auto max-w-2xl px-4 py-6">
       <PageHeader
-        title="Taxable flags"
+        title="Taxable Flags"
         description="Lines marked non-taxable, which take their cost out of the client invoice's tax base."
         actions={
           <div className="w-44 max-w-[50vw]">

@@ -112,7 +112,7 @@ export function NeedsProjectBanner({ state }: { state: NeedsProjectState }) {
   if (error) {
     return (
       <div className="mb-4 rounded-xl bg-neutral-100 px-4 py-3 text-xs text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400">
-        Couldn’t check the Needs Project queue ({error}).{" "}
+        Couldn’t check the Not in JobTread queue ({error}).{" "}
         <button type="button" onClick={refresh} className="font-semibold underline">
           Retry
         </button>
@@ -149,7 +149,7 @@ export function NeedsProjectBanner({ state }: { state: NeedsProjectState }) {
         </button>
       </div>
       <Link href="/needs-project" className="mt-2 inline-block text-sm font-semibold underline">
-        Open Needs Project →
+        Open Not in JobTread →
       </Link>
     </div>
   );

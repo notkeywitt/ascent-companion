@@ -1,6 +1,6 @@
 import { TaxableLinesBrowser } from "./TaxableLinesBrowser";
 
-export const metadata = { title: "Taxable flags" };
+export const metadata = { title: "Taxable Flags" };
 
 /**
  * The stray `isTaxable: false` worklist. Read-only: it lists and links, and a

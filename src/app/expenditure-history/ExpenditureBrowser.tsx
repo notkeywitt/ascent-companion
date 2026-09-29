@@ -765,7 +765,7 @@ export default function ExpenditureBrowser() {
   return (
     <main className="mx-auto max-w-2xl px-4 pb-24 pt-6">
       <PageHeader
-        title="Expenditure History"
+        title="Bill Archive"
         description="Every bill in the Expenditure sheet, including the years before JobTread."
         actions={
           <Button variant="ghost" size="sm" onClick={() => void load(true)} disabled={loading}>

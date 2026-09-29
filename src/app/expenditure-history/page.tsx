@@ -9,7 +9,7 @@ import ExpenditureBrowser from "./ExpenditureBrowser";
  * ExpenditureBrowser.tsx for the shape and ascent-appscript/ExpenditureHistory.js
  * for where the data comes from.
  */
-export const metadata = { title: "Expenditure History" };
+export const metadata = { title: "Bill Archive" };
 
 export default function ExpenditureHistoryPage() {
   return <ExpenditureBrowser />;

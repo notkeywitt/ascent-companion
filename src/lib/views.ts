@@ -120,7 +120,7 @@ export const VIEWS: ViewDef[] = [
   // route directly.
   {
     id: "tracking-sheet",
-    label: "Tracking Sheet",
+    label: "Finalize",
     group: "Financials",
     paths: ["/tracking-sheet", "/api/tracking-sheet"],
   },
@@ -153,10 +153,10 @@ export const VIEWS: ViewDef[] = [
   // /api/bill-review route is deliberately NOT gated here: any signed-in user
   // looking at a bill can flag it (same as /api/bill-reviewed), but only this
   // group sees the whole queue.
-  { id: "bill-review", label: "Needs Review", group: "Financials", paths: ["/needs-review"] },
+  { id: "bill-review", label: "Bill Corrections", group: "Financials", paths: ["/needs-review"] },
   // Jobs list + budget, built on the generic /api/pave gateway. Office+admin by
   // default (financial data); not in FIELD/LEAD sets below.
-  { id: "jobs", label: "Jobs", group: "Financials", paths: ["/jobs"] },
+  { id: "jobs", label: "Job Cost", group: "Financials", paths: ["/jobs"] },
   // Clients & Jobs — the JobTread customer/job DIRECTORY, and the one page that
   // edits those records rather than reporting on them. The /api/clients prefix
   // rides the same gate as the page: those routes read every customer in the org
@@ -165,7 +165,7 @@ export const VIEWS: ViewDef[] = [
   // default, like the rest of Financials.
   {
     id: "clients",
-    label: "Clients & Jobs",
+    label: "Directory",
     group: "Financials",
     paths: ["/clients", "/api/clients"],
   },
@@ -234,7 +234,7 @@ export const VIEWS: ViewDef[] = [
   // see the indicator nor read the queued bills by calling the route directly.
   {
     id: "needs-project",
-    label: "Needs Project",
+    label: "Not in JobTread",
     group: "Financials",
     paths: ["/needs-project", "/api/needs-project"],
   },
@@ -245,7 +245,7 @@ export const VIEWS: ViewDef[] = [
   // walks the whole org's month, so it is not a thing to leave open.
   {
     id: "taxable-lines",
-    label: "Taxable flags",
+    label: "Taxable Flags",
     group: "Financials",
     paths: ["/taxable-lines", "/api/taxable-lines"],
   },
@@ -267,7 +267,7 @@ export const VIEWS: ViewDef[] = [
   // can't pull the whole spend history by calling the route directly.
   {
     id: "expenditure-history",
-    label: "Expenditure History",
+    label: "Bill Archive",
     group: "Financials",
     paths: ["/expenditure-history", "/api/expenditure-history"],
   },
@@ -335,7 +335,7 @@ export const VIEWS: ViewDef[] = [
   // the office mailbox through the route directly. Office/admin by default.
   {
     id: "vendor-mail",
-    label: "Vendor Mail",
+    label: "Mail Check",
     group: "Office",
     paths: ["/vendor-mail", "/api/vendor-mail"],
   },
@@ -344,7 +344,7 @@ export const VIEWS: ViewDef[] = [
   // so a non-office user can't read or edit pay rates via the routes directly.
   {
     id: "labor-rates",
-    label: "Labor Rates",
+    label: "Pay Rates",
     group: "Office",
     paths: ["/labor-rates", "/api/labor-rates"],
   },
@@ -391,7 +391,7 @@ export const VIEWS: ViewDef[] = [
   // admin-only one (see ADMIN_MENU below) and the chips render only when the
   // route answers. The numbers live in server-only env vars, never in the DB.
   { id: "bank-details", label: "Bank Details", group: "System", paths: ["/api/bank-details"] },
-  { id: "requests", label: "Requests", group: "System", paths: ["/requests"] },
+  { id: "requests", label: "App Feedback", group: "System", paths: ["/requests"] },
   // The Daily Digest card on the home launcher. No page of its own — the card
   // lives on "/", which EVERY role loads, so the gate is what keeps the morning
   // report (unbilled dollars, inbox subject lines, the office calendar) off a
@@ -446,7 +446,7 @@ export const VIEWS: ViewDef[] = [
     group: "System",
     paths: ["/admin/copy", "/api/admin/copy"],
   },
-  { id: "logs", label: "Logs", group: "System", paths: ["/logs"] },
+  { id: "logs", label: "System Logs", group: "System", paths: ["/logs"] },
   // THE FINANCIAL JOURNAL — every write the app has made to a money record.
   // Admin-only by default (it is in ADMIN_MENU, alongside the other audit
   // surface): it names who changed what, so handing it out is handing out an

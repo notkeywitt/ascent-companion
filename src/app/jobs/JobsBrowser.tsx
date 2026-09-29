@@ -394,7 +394,7 @@ export function JobsBrowser() {
   return (
     <main className="mx-auto w-full max-w-2xl px-4 pb-24 pt-6 lg:max-w-[110rem]">
       <PageHeader
-        title="Jobs"
+        title="Job Cost"
         description="Pick a job for its cost by CSI division, cost code, and estimate line."
       />
 

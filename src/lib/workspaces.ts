@@ -49,11 +49,11 @@ export const WORKSPACES: Workspace[] = [
     tabs: [
       tab("recode", "/trackingsheet", "Tracking Sheets", "Code a month's bills against live budget headroom"),
       tab("labor-review", "/labor-review", "Labor Review", "Code a month's logged time against the same headroom"),
-      tab("bill-review", "/needs-review", "Needs Review", "Bills flagged for a billing correction"),
-      tab("taxable-lines", "/taxable-lines", "Taxable flags", "Bill lines the client invoice will not tax"),
+      tab("bill-review", "/needs-review", "Bill Corrections", "Bills flagged for a billing correction"),
+      tab("taxable-lines", "/taxable-lines", "Taxable Flags", "Bill lines the client invoice will not tax"),
       tab("invoice-review", "/invoice-review", "Invoice Review", "Check a month's client invoices against the bills and the backup"),
       tab("invoicing-summary", "/invoicing-summary", "Invoicing Package", "The month's billing summary doc — every job, its labor, bills and total"),
-      tab("tracking-sheet", "/tracking-sheet", "Tracking Sheet", "Push a job's month into its own Google tracking sheet"),
+      tab("tracking-sheet", "/tracking-sheet", "Finalize", "Push a job's month into its own Google tracking sheet"),
     ],
   },
   {
@@ -62,8 +62,8 @@ export const WORKSPACES: Workspace[] = [
     desc: "Bills arriving from the inbox, the mail and the monthly statements.",
     tabs: [
       tab("email", "/email", "Email Invoices", "Log invoices from the office inbox"),
-      tab("vendor-mail", "/vendor-mail", "Vendor Mail", "Every vendor email, and whether it was captured"),
-      tab("needs-project", "/needs-project", "Needs Project", "Ingested bills with no job yet"),
+      tab("vendor-mail", "/vendor-mail", "Mail Check", "Every vendor email, and whether it was captured"),
+      tab("needs-project", "/needs-project", "Not in JobTread", "Ingested bills with no job yet"),
       tab("payments", "/payments", "Sunset Statements", "Pay a statement & reconcile its invoices"),
       tab("lswdd", "/lswdd", "LSWDD Statement", "Split the dump's monthly statement across jobs"),
       tab("amazon-import", "/amazon-import", "Amazon Import", "Monthly Amazon report → batch of bills"),
@@ -77,8 +77,8 @@ export const WORKSPACES: Workspace[] = [
     // The route and the view stay; see OUTSIDE_WORKSPACES.
     tabs: [
       tab("leads", "/leads", "Leads", "New leads, who's overdue, who's gone quiet"),
-      tab("clients", "/clients", "Clients & Jobs", "Every customer and job in JobTread — edit the record"),
-      tab("jobs", "/jobs", "Jobs", "Every job's budget against what it has spent"),
+      tab("clients", "/clients", "Directory", "Every customer and job in JobTread — edit the record"),
+      tab("jobs", "/jobs", "Job Cost", "Every job's budget against what it has spent"),
       tab("unbilled", "/unbilled", "Unbilled", "Uninvoiced expenses by cost code"),
       tab("budget-import", "/budget-import", "Budget Import", "A tracking sheet's estimate as a JobTread budget"),
       tab("specs", "/specs", "Specifications", "An architect's spec selection list, with its product links"),
@@ -91,7 +91,7 @@ export const WORKSPACES: Workspace[] = [
     desc: "The roster, pay rates, time records and the safety meeting.",
     tabs: [
       tab("employees", "/employees", "Employees", "The Project Database roster"),
-      tab("labor-rates", "/labor-rates", "Labor Rates", "Per-project pay rates & who has them"),
+      tab("labor-rates", "/labor-rates", "Pay Rates", "Per-project pay rates & who has them"),
       tab("time-sync", "/time-sync", "Time Sync", "Time records JobTread doesn't have right"),
       tab("labor-import", "/labor-import", "Labor Import", "QuickBooks labor → JobTread CSV"),
       tab("safety-meeting", "/safety-meeting", "Safety Meeting", "Pass the iPad and collect sign-ins"),
@@ -104,7 +104,7 @@ export const WORKSPACES: Workspace[] = [
     tabs: [
       tab("bill-search", "/bill-search", "Bill Search", "Find any bill or line item — “2x4”, a vendor, an invoice #"),
       tab("vendors", "/vendors", "Vendors", "Search a vendor's bills — job, date, amount"),
-      tab("expenditure-history", "/expenditure-history", "Expenditure History", "The sheet's archive, including the years before JobTread"),
+      tab("expenditure-history", "/expenditure-history", "Bill Archive", "The sheet's archive, including the years before JobTread"),
     ],
   },
   {
@@ -136,7 +136,7 @@ export const WORKSPACES: Workspace[] = [
     tabs: [
       tab("help", "/help", "Help", "How to do the things this app does, step by step"),
       tab("changelog", "/changelog", "Changelog", "What changed in the app, and what is still unfinished"),
-      tab("requests", "/requests", "Requests", "Ask for fixes and new features"),
+      tab("requests", "/requests", "App Feedback", "Ask for fixes and new features"),
       tab("course", "/course", "Course", "Learn how this app works, one segment at a time"),
     ],
   },
@@ -148,7 +148,7 @@ export const WORKSPACES: Workspace[] = [
       tab("admin", "/admin", "Admin", "Who can sign in"),
       tab("page-copy", "/admin/copy", "Page Text", "Reword the app's on-screen text"),
       tab("theme-editor", "/theme", "Theme", "Tune the palette with pickers and sliders, and see it live"),
-      tab("logs", "/logs", "Logs", "The automation audit trail"),
+      tab("logs", "/logs", "System Logs", "The automation audit trail"),
       tab("journal", "/journal", "Financial Journal", "Who changed which bill, line or time entry — and from what"),
       tab("historical-cost", "/historical-cost", "Historical Cost Import", "Backfill a job's pre-JobTread costs as one draft bill"),
     ],

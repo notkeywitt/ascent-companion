@@ -78,7 +78,7 @@ export default function RequestsPage() {
   return (
     <main className="mx-auto max-w-xl px-4 pb-24 pt-6">
       <PageHeader
-        title="Requests"
+        title="App Feedback"
         description="Ask for panel updates and new features."
         actions={
           <Button

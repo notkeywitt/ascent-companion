@@ -150,7 +150,7 @@ export default function VendorMail() {
   return (
     <main className="mx-auto w-full max-w-2xl px-4 pb-24 pt-6">
       <PageHeader
-        title="Vendor Mail"
+        title="Mail Check"
         description="Every email from a vendor we have an address for, and whether it reached JobTread."
         actions={
           <Select

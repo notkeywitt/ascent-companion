@@ -92,10 +92,10 @@ export const COPY: Record<string, CopyEntry> = {
     label: "Labor Review — description",
     group: "Home — Financials",
   },
-  "home.dest.tracking-sheet.label": { text: "Tracking Sheet", label: "Tracking Sheet — name", group: "Home — Financials" },
+  "home.dest.tracking-sheet.label": { text: "Finalize", label: "Finalize — name", group: "Home — Financials" },
   "home.dest.tracking-sheet.desc": {
     text: "Push a job's month into its tracking sheet",
-    label: "Tracking Sheet — description",
+    label: "Finalize — description",
     group: "Home — Financials",
   },
   "home.dest.payments.label": { text: "Sunset Statements", label: "Sunset Statements — name", group: "Home — Financials" },
@@ -105,13 +105,13 @@ export const COPY: Record<string, CopyEntry> = {
     group: "Home — Financials",
   },
   "home.dest.clients.label": {
-    text: "Clients & Jobs",
-    label: "Clients & Jobs — name",
+    text: "Directory",
+    label: "Directory — name",
     group: "Home — Financials",
   },
   "home.dest.clients.desc": {
     text: "Every customer and job in JobTread — edit the record",
-    label: "Clients & Jobs — description",
+    label: "Directory — description",
     group: "Home — Financials",
   },
   "home.dest.vendors.label": { text: "Vendors", label: "Vendors — name", group: "Home — Financials" },
@@ -121,13 +121,13 @@ export const COPY: Record<string, CopyEntry> = {
     group: "Home — Financials",
   },
   "home.dest.expenditure-history.label": {
-    text: "Expenditure History",
-    label: "Expenditure History — name",
+    text: "Bill Archive",
+    label: "Bill Archive — name",
     group: "Home — Financials",
   },
   "home.dest.expenditure-history.desc": {
     text: "The sheet's archive, including the years before JobTread",
-    label: "Expenditure History — description",
+    label: "Bill Archive — description",
     group: "Home — Financials",
   },
 
@@ -156,10 +156,10 @@ export const COPY: Record<string, CopyEntry> = {
     label: "Labor Import — description",
     group: "Home — Office",
   },
-  "home.dest.labor-rates.label": { text: "Labor Rates", label: "Labor Rates — name", group: "Home — Office" },
+  "home.dest.labor-rates.label": { text: "Pay Rates", label: "Pay Rates — name", group: "Home — Office" },
   "home.dest.labor-rates.desc": {
     text: "Per-project pay rates & who has them",
-    label: "Labor Rates — description",
+    label: "Pay Rates — description",
     group: "Home — Office",
   },
   "home.dest.time-off.label": { text: "Time Off", label: "Time Off — name", group: "Home — Office" },
@@ -188,16 +188,16 @@ export const COPY: Record<string, CopyEntry> = {
     label: "Email Invoices — description",
     group: "Home — Utilities",
   },
-  "home.dest.vendor-mail.label": { text: "Vendor Mail", label: "Vendor Mail — name", group: "Home — Utilities" },
+  "home.dest.vendor-mail.label": { text: "Mail Check", label: "Mail Check — name", group: "Home — Utilities" },
   "home.dest.vendor-mail.desc": {
     text: "Every vendor email, and whether it was captured",
-    label: "Vendor Mail — description",
+    label: "Mail Check — description",
     group: "Home — Utilities",
   },
-  "home.dest.needs-project.label": { text: "Needs Project", label: "Needs Project — name", group: "Home — Utilities" },
+  "home.dest.needs-project.label": { text: "Not in JobTread", label: "Not in JobTread — name", group: "Home — Utilities" },
   "home.dest.needs-project.desc": {
     text: "Ingested bills with no job yet",
-    label: "Needs Project — description",
+    label: "Not in JobTread — description",
     group: "Home — Utilities",
   },
   "home.dest.amazon-import.label": { text: "Amazon Import", label: "Amazon Import — name", group: "Home — Utilities" },
@@ -236,10 +236,10 @@ export const COPY: Record<string, CopyEntry> = {
     label: "Notices — description",
     group: "Home — Utilities",
   },
-  "home.dest.requests.label": { text: "Requests", label: "Requests — name", group: "Home — Utilities" },
+  "home.dest.requests.label": { text: "App Feedback", label: "App Feedback — name", group: "Home — Utilities" },
   "home.dest.requests.desc": {
     text: "Ask for fixes and new features",
-    label: "Requests — description",
+    label: "App Feedback — description",
     group: "Home — Utilities",
   },
   "home.dest.actions.label": { text: "Actions", label: "Actions — name", group: "Home — Utilities" },
@@ -258,10 +258,10 @@ export const COPY: Record<string, CopyEntry> = {
   // ── Home launcher: Admin destinations ────────────────────────────────────
   "home.dest.admin.label": { text: "Admin", label: "Admin — name", group: "Home — Admin" },
   "home.dest.admin.desc": { text: "Who can sign in", label: "Admin — description", group: "Home — Admin" },
-  "home.dest.logs.label": { text: "Logs", label: "Logs — name", group: "Home — Admin" },
+  "home.dest.logs.label": { text: "System Logs", label: "System Logs — name", group: "Home — Admin" },
   "home.dest.logs.desc": {
     text: "The automation audit trail",
-    label: "Logs — description",
+    label: "System Logs — description",
     group: "Home — Admin",
   },
   "home.dest.historical-cost.label": {
@@ -282,7 +282,7 @@ export const COPY: Record<string, CopyEntry> = {
   },
 
   // ── Page headers ─────────────────────────────────────────────────────────
-  "page.jobs.title": { text: "Jobs", label: "Jobs — page title", group: "Page headers" },
+  "page.jobs.title": { text: "Job Cost", label: "Job Cost — page title", group: "Page headers" },
   "page.chat.title": { text: "Assistant", label: "Assistant — page title", group: "Page headers" },
   "page.chat.placeholder": {
     text: "Ask about a job, bill, budget…",
