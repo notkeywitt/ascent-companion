@@ -24,8 +24,7 @@
 
 /** A group heading in the /admin/copy editor. Order here = order on the page. */
 export const COPY_GROUPS = [
-  "Home — sections",
-  "Home — quick buttons",
+  "Bottom bar",
   "Home — Financials",
   "Home — Office",
   "Home — Utilities",
@@ -64,55 +63,15 @@ export interface CopyEntry {
  * Naming: `<page>.<thing>.<field>` — e.g. `home.dest.recode.label`.
  */
 export const COPY: Record<string, CopyEntry> = {
-  // ── Home launcher: the section headings ──────────────────────────────────
-  "home.area.financials.title": { text: "Financials", label: "Financials — heading", group: "Home — sections" },
-  "home.area.financials.blurb": {
-    text: "Coding, invoicing, and Sunset statements.",
-    label: "Financials — blurb",
-    group: "Home — sections",
-  },
-  "home.area.hr.title": { text: "Office", label: "Office — heading", group: "Home — sections" },
-  "home.area.hr.blurb": {
-    text: "The Office job's to-dos and files, the roster, labor, and safety.",
-    label: "Office — blurb",
-    group: "Home — sections",
-  },
-  "home.area.utilities.title": { text: "Utilities", label: "Utilities — heading", group: "Home — sections" },
-  "home.area.utilities.blurb": {
-    text: "Everything else — imports, assistant, records, and script jobs.",
-    label: "Utilities — blurb",
-    group: "Home — sections",
-  },
-  "home.area.admin.title": { text: "Admin", label: "Admin — heading", group: "Home — sections" },
-  "home.area.admin.blurb": {
-    text: "Access control and the automation audit log.",
-    label: "Admin — blurb",
-    group: "Home — sections",
-  },
-
-  // ── Home launcher: the four one-tap buttons ──────────────────────────────
-  // `label` is the short form the 4-across rail can fit; `full` is what a
-  // screen reader and the tooltip say. Keep the short ones SHORT.
-  "home.quick.mileage.label": { text: "Miles", label: "Mileage — button", group: "Home — quick buttons", short: true },
-  "home.quick.mileage.full": { text: "Mileage tracker", label: "Mileage — full name", group: "Home — quick buttons" },
-  "home.quick.employee-time.label": { text: "Time", label: "Time — button", group: "Home — quick buttons", short: true },
-  "home.quick.employee-time.full": { text: "Employee time", label: "Time — full name", group: "Home — quick buttons" },
-  "home.quick.tools.label": { text: "Tools", label: "Tools — button", group: "Home — quick buttons", short: true },
-  "home.quick.tools.full": { text: "Tools", label: "Tools — full name", group: "Home — quick buttons" },
-  "home.quick.requisitions.label": { text: "Reqs", label: "Requisitions — button", group: "Home — quick buttons", short: true },
-  "home.quick.requisitions.full": { text: "Requisitions", label: "Requisitions — full name", group: "Home — quick buttons" },
-  // Lead-only button (the lead launcher's 4th tile; Reqs above is its 5th).
-  "home.quick.recode.label": { text: "Tracking Sheets", label: "Tracking Sheets — button", group: "Home — quick buttons", short: true },
-  "home.quick.recode.full": { text: "Tracking Sheets", label: "Tracking Sheets — full name", group: "Home — quick buttons" },
-  // Office-only button (the office launcher's 3rd tile).
-  "home.quick.time-off.label": { text: "Time Off", label: "Time Off — button", group: "Home — quick buttons", short: true },
-  "home.quick.time-off.full": { text: "Time off", label: "Time Off — full name", group: "Home — quick buttons" },
-
-  // The last button on the FIELD, LEAD, and OFFICE launchers — it opens /more,
-  // the curated menu of everything else that role can reach (src/lib/nav.ts →
-  // TILE_LAUNCHERS).
-  "home.quick.more.label": { text: "The Rest", label: "The Rest — button", group: "Home — quick buttons", short: true },
-  "home.quick.more.full": { text: "Everything else", label: "The Rest — full name", group: "Home — quick buttons" },
+  // ── The bottom bar: the short word under each single-page slot ──────────
+  // Same keys as the retired launcher buttons, so an office rewording carries
+  // over. Keep them SHORT: five slots share a phone's width. A workspace slot
+  // (Month Close, Incoming Bills …) shows the workspace's own name.
+  "home.quick.mileage.label": { text: "Miles", label: "Mileage — bar", group: "Bottom bar", short: true },
+  "home.quick.employee-time.label": { text: "Time", label: "Time — bar", group: "Bottom bar", short: true },
+  "home.quick.tools.label": { text: "Tools", label: "Tools — bar", group: "Bottom bar", short: true },
+  "home.quick.requisitions.label": { text: "Reqs", label: "Requisitions — bar", group: "Bottom bar", short: true },
+  "home.quick.time-off.label": { text: "Time Off", label: "Time Off — bar", group: "Bottom bar", short: true },
 
   // ── Home launcher: Financials destinations ───────────────────────────────
   "home.dest.recode.label": { text: "Tracking Sheets", label: "Tracking Sheets — name", group: "Home — Financials" },

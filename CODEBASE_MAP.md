@@ -45,13 +45,10 @@ matching row here.
 | **A customer's or job's JobTread RECORD** (name, number, phase, address, contact, price type) | `src/lib/clientDirectory.ts` (reads + the write allowlist) → routes `src/app/api/clients/*` → page `src/app/clients/`. Editing lives HERE; `/jobs` reports a job's cost and changes nothing |
 | **A job's invoice capture email tag** (the `_JT Invoice <Customer> - <Job>` Gmail label) | button on `src/app/clients/` → `src/app/clients/InvoiceTagCard.tsx` → `/api/clients/invoice-tag` → appscript `EmailToJtInvoice.js` (`listInvoiceTags`/`createInvoiceTag`). The label TEXT is always composed on the Apps Script side |
 | **Gating / who sees what** | `src/lib/views.ts` (the single source of truth: `VIEWS`, `ROLE_VIEWS`), enforced by `src/middleware.ts` |
-| **Nav / launcher / tabs** | `src/lib/nav.ts` (`AREAS` — the destination list), `src/app/page.tsx` (renders it), `src/components/TabBar.tsx` |
-| **The ALL PAGES menu** (every page in the app, in one collapsible menu at the bottom of Home — office only; admin has the cards) | `src/lib/pagesMenu.ts` (the derived catalog + the saved order/grouping), `src/components/AllPagesMenu.tsx` (renders it), `src/components/PagesMenuEditor.tsx` (the admin's Edit menu) → `src/app/api/admin/pages-menu` |
-| **The DESKTOP slide-out menu** (the same All Pages catalog, from any page, with per-device pinned buttons — office + admin, `xl` and up) | `src/components/SideNav.tsx` (the drawer + its toggle), mounted in `src/components/AppHeader.tsx`; the catalog is `usePagesMenu()` (`src/lib/pagesMenu.ts`), so the admin's saved order applies here too |
-| **The admin HOME CARDS** (each launcher menu as a card: page list, per-page counts, headline chart, drag-to-arrange edit mode) | `src/components/HomeCards.tsx` (`SIGNALS` = the per-page counts, keyed by view id; `HERO_VIEWS` = which can headline a card); the layout document `src/lib/navLayout.ts` (`NavMenu.summary`); saved via `/api/admin/home-layout`. "More options" opens the older form editor `HomeLayoutEditor.tsx` |
+| **Nav: the workspaces, the ☰ menu, the bottom bar** | `src/lib/workspaces.ts` (`WORKSPACES` — every page by workspace; `BARS` — each role's bar; `OUTSIDE_WORKSPACES` — pages on none, with why), `src/components/AppMenu.tsx` (the ☰ drawer, every role and width), `src/components/TabBar.tsx`. The retired launchers' saved layouts sit untouched in the `nav_layout` table |
 | **Home REMINDERS** (dated to-dos under "Today" — Import Amazon, Import LSWDD) | `src/components/HomeReminders.tsx` (`REMINDERS` — add one there); the facts both reminders and card counts read, cached per tab: `src/lib/homeFacts.ts`. Sunset's green test: `src/lib/sunsetReconcile.ts` (shared with `/payments`) |
-| **The IPAD (tablet) layout** — home console, dock, the wide shape of anything | the `pad` breakpoint in `tailwind.config.ts` (744px, "an iPad in portrait and up"; declared in sorted position so `lg:`/`xl:` still win over it). Home: `src/app/page.tsx` + `src/components/HomeMasthead.tsx`; the office half `src/components/TileLauncher.tsx` (+ `groupByArea` in `lib/nav.ts`); the dock `src/components/TabBar.tsx`, whose height `--tabbar-h` (`globals.css`) has to match |
-| **The global search box** | `src/components/GlobalSearch.tsx` (the wide item in `AppHeader`'s one row) — matches pages via `src/lib/nav.ts`, help topics via `src/lib/help.ts`, vendors via `/api/vendors`, bills/line items via `/api/bill-search` |
+| **The IPAD (tablet) layout** — home console, dock, the wide shape of anything | the `pad` breakpoint in `tailwind.config.ts` (744px, "an iPad in portrait and up"; declared in sorted position so `lg:`/`xl:` still win over it). Home: `src/app/page.tsx` + `src/components/HomeMasthead.tsx`; the dock `src/components/TabBar.tsx`, whose height `--tabbar-h` (`globals.css`) has to match |
+| **The global search box** | `src/components/GlobalSearch.tsx` (the wide item in `AppHeader`'s one row) — matches pages via `src/lib/workspaces.ts`, help topics via `src/lib/help.ts`, vendors via `/api/vendors`, bills/line items via `/api/bill-search` |
 | **The in-app instructions** (a wrong step, a new "how do I…") | `src/lib/help.ts` — the topics as data, written to ASD-STE100 (its header carries the rules, `help.test.ts` enforces the countable ones). Page: `src/app/help/` |
 | **The Pave gateway** (generic JobTread access + write policy) | `src/app/api/pave/route.ts` + `src/lib/paveGateway.ts` (policy) + `src/lib/paveGatewayClient.ts` (browser) |
 | **Verified JobTread reads/writes** (not the generic gateway) | `src/lib/jobtread.ts` |
@@ -125,9 +122,7 @@ including edge middleware.
 | `apiAuth.ts` | **In-handler authorization** (`holdsView`) for the routes middleware cannot gate — one route serving two audiences, like `/api/employees` (an open roster read, a gated full read). Applies the same rule as `views.ts`, so a per-user grant works here too. |
 | `notices.ts` ⟂ | **Who sees a notice, and when** — the audience match (groups OR named people, legacy single-target rows folded in) and the schedule window (`noticeStatus`: off / scheduled / live / ended). The reader's feed, the authoring route and the authoring panel all decide from here, so "it says Live" and "it shows" stay one claim. |
 | `noticeToasts.ts` | **Desktop alerts** — the browser's own Notification API, so a notice that arrives while the app sits in a BACKGROUND tab pops up in the corner of a computer's screen. `planToasts` is the pure rule (nothing toasts while the reader is looking at the app, nothing toasts twice per device, a burst is capped); the rest is the per-device on/off + already-toasted ledger in localStorage. NOT Web Push: nothing arrives with the app closed, and no iPhone has the API at all. |
-| `pagesMenu.ts` ⟂ | **The All Pages menu — every page in the app, grouped by function.** The catalog is DERIVED, not typed out: every `AREAS` destination in its area, then every remaining view that has a real page, filed by the group it declares in `views.ts`. That second rule is what keeps "every page" true as the app grows — a new view appears here the day it is added. A saved layout stores VIEW IDS only, so labels and addresses stay code's; what the admin owns is the ORDER and the GROUPING. It cannot HIDE a page (that is `views.ts`), and any page a saved layout does not name is folded back into its default group. Unit-tested — every test is a way the completeness promise could fail silently. |
-| `nav.ts` ⟂ | **The launcher's destination list** (`AREAS`) — the one place every gateable view is named. Read by BOTH the home launcher and the header's global search, which is why it's a module rather than living in `page.tsx`. |
-| `help.ts` ⟂ | **The in-app instructions, as data** — one topic per question ("How do I clock in?"), each naming the view it belongs to so a topic for a page you can't open is hidden. Read by BOTH the `/help` page and the header's search (`searchHelp`), the same reason `nav.ts` is a module. Written to **ASD-STE100** Simplified Technical English: the rules are in the file header, and `help.test.ts` enforces the countable ones (20 words a step, 25 a note, one sentence per step, no banned words). Every `**bold**` string is the text on a real control — when a page rewords a button, this file changes with it. |
+| `help.ts` ⟂ | **The in-app instructions, as data** — one topic per question ("How do I clock in?"), each naming the view it belongs to so a topic for a page you can't open is hidden. Read by BOTH the `/help` page and the header's search (`searchHelp`), the same reason `workspaces.ts` is a module. Written to **ASD-STE100** Simplified Technical English: the rules are in the file header, and `help.test.ts` enforces the countable ones (20 words a step, 25 a note, one sentence per step, no banned words). Every `**bold**` string is the text on a real control — when a page rewords a button, this file changes with it. |
 | `lopezrocksParse.ts` ⟂ | **LopezRocks (lopezrocks.org) pages, read as data** — the pure half of `/lopezrocks`. A small tolerant HTML reader (the whole site is one PHP template, so no library), then one shape per kind of page: a keyword-grouped listing, the calendar, one post / event / business / story / discussion with its comments, the front page's sponsors, and a generic fallback (headings, text, links, tables) for anything else. It returns TEXT and CLASSIFIED LINKS, never HTML, so a post's own markup can never run inside the app. `linkFromQuery` checks every value of the page's address, so the address bar can only ever reach a LopezRocks page. The firewall's "checking your browser" answer throws `LrNotAPage` rather than reading as a page. Unit-tested on synthetic pages (real ones carry islanders' names and phone numbers). |
 | `lopezrocks.ts` | The fetch + cache behind `/lopezrocks`. ONE request per page per 15 minutes (Next's Data Cache, shared by every lambda), with an honest User-Agent. LopezRocks' Sucuri firewall turns some server requests away (2 in 10 in a test); a turned-away fetch throws, a throw is never cached, so a page read once keeps showing and a new one says "try again". It never tries to get past the check. |
 | `pageGuide.ts` ⟂ | **The page guide, as data** — per-element help an admin writes from inside the app, one topic per thing on the screen (`help.ts` answers a question; this names a control). `guidePathKey` is the rule worth knowing: a guide belongs to a PAGE, so a path segment that does not read as a word is folded to `*` and `/bill/22ab9x` shares one guide with every other bill. `selectorFor` builds the anchor from the element an admin TAPPED, so nobody types CSS. Unit-tested. |
@@ -326,19 +321,15 @@ Each page is a server component (`page.tsx`) that hands non-secret context to a
   appscript `MonthlyInvoicingSummary.js`, and the tracking-sheet push rewrites
   the doc on its own when a figure moves).
 - **Field:** `safety-meeting`, `mileage-tracker`, `employee-time`, `tools`,
-  `tool-tracker`, `rfis`, `time-off`, `requisitions`, `more` ("The Rest" — the
-  last button on the field/lead/office tile launcher: the curated menu of
-  everything else that role can open; the lists are `TILE_LAUNCHERS` in
-  `src/lib/nav.ts`).
+  `tool-tracker`, `rfis` (on no workspace since 2026-09-29 — nobody logs RFIs),
+  `time-off`, `requisitions`. (`/more`, "The Rest", redirects home.)
 - **Assistant:** `chat`.
 - **Office:** `office` (the Office dashboard — the "Office" JobTread job's open
   to-dos and its Files tab as a `?folder=` browser, read server-side via
   `getOpenToDos` + `getJobFiles`; the billing month's bills on Office and Shop
   via `currentBillingPeriod` + `getJobBillsForMonth` + `resolveShopJobId`; the to-dos are editable — `OfficeTodos.tsx` →
   `/api/office/todos`; images show as a thumbnail grid,
-  `OfficeImages.tsx`, opening in the bill scans' `InvoiceLightbox`; plus
-  `OfficeLinks.tsx`: the launcher's Office area, which was HR. Admin's bottom
-  tab bar carries it as a fifth tab — `OFFICE_TAB` in `TabBar.tsx`), `employees`, `leads`, `labor-import`, `labor-rates`,
+  `OfficeImages.tsx`, opening in the bill scans' `InvoiceLightbox`), `employees`, `leads`, `labor-import`, `labor-rates`,
   `time-sync`, `notices` (post an announcement to the team — banner or popup,
   targeted at groups and/or named people, now or on a schedule; office + admin,
   and the same panel is Admin → Notices).
@@ -424,21 +415,18 @@ Grouped by domain; each folder is `…/route.ts`.
 
 - **Design system:** `ui.tsx` — build EVERY UI on these primitives (see the list
   in `CLAUDE.md`). Never hand-roll styles.
-- **Chrome / nav:** `AppHeader` (logo, search, Add bill — one row; the logo IS
-  the light/dark switch),
+- **Chrome / nav:** `AppHeader` (☰ menu, logo, search, Add bill — one row; the
+  logo IS the light/dark switch), `AppMenu` (the ☰ drawer — every page by
+  workspace, from `src/lib/workspaces.ts`),
   `GlobalSearch` (the app's ONE search box, in that
   row — pages + vendors + bills + line items, from any
-  page — hidden for the FIELD role), `TabBar` (bottom shortcut bar; hidden
-  entirely for LEAD, whose home page already carries the same shortcuts as
-  bigger buttons), `TileLauncher` (the field/lead/office home launcher — large
-  buttons in place of the admin area lists: field and office get 4, lead 6;
-  curated in `src/lib/nav.ts` → `TILE_LAUNCHERS`; from the `pad` width up it
-  drops "The Rest" and opens that whole menu in place, grouped by `groupByArea`),
+  page — hidden for the FIELD role), `TabBar` (the bottom bar — each role's
+  slots from `BARS` in `src/lib/workspaces.ts`),
   `HomeMasthead` (the iPad home's head — the date, and the BILLING MONTH as a
   dropdown: office/admin set the month every non-Sunset bill files into, a lead
   only reads it. It goes RED past the 10th while still behind the calendar
-  (`billingMonthStale`); nothing turns over on its own any more. Renders at the
-  `pad` width and up ONLY, because a phone spends that band on the launcher),
+  (`billingMonthStale`); nothing turns over on its own any more. The date line
+  shows from `pad` up; the month shows at every width),
   `PageTitle`, `ThemeToggle` (takes any face as `children` — the header gives it
   the logo), `AppearanceCard` (the home page's Appearance block — picks the
   PALETTE and the theme, both per device, and links admins to the theme editor;
@@ -452,19 +440,13 @@ Grouped by domain; each folder is `…/route.ts`.
   and `src/app/loading.tsx` for hard loads; the last two only fade in past
   180ms, so a fast page swap stays silent),
   `RefreshProvider`, `SyncNowButton`,
-  `AllPagesMenu` (the collapsible ALL PAGES menu at the bottom of Home — every
-  page, grouped by function, office + admin; replaced `AdminActionBar`, whose
-  script-job buttons live on `/actions`) + `PagesMenuEditor` (the admin's Edit
-  menu — rename, reorder, regroup; it deliberately cannot hide a page),
   `AccessProvider`, `CopyProvider` (editable page text —
   `useCopy()`), `UsageBeacon`, `PreviewBanner` (the admin's "viewing as {role}"
   bar + its "Return to my view" link — see `src/lib/preview.ts`).
 - **JobTread pickers / links:** `JobPicker`, `CostCodeSelect`,
   `JtLink`, `LinkPending`, `BillStatusBadge`, `BillingSummary`.
 - **Feature widgets:** `InvoiceReconcile`, `InvoiceSweepResult`,
-  `UncapturedBills`, `StuckVendors`, `NeedsProject`, `TimeSyncCount` (the launcher
-  badge's count of time records JobTread doesn't have right — sheet-only, so the
-  home page never pays for a JobTread read), `Notices` (`NoticeCenter` —
+  `UncapturedBills`, `StuckVendors`, `NeedsProject`, `Notices` (`NoticeCenter` —
   BOTH reader surfaces for a notice, the banner stack under the header and the
   interrupting popup, off ONE feed request; mounted in the root layout, and it
   re-reads the feed on tab focus — and every five minutes whatever the tab is

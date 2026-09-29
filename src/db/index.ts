@@ -559,9 +559,8 @@ async function applySchema() {
       updated_by TEXT NOT NULL DEFAULT ''
     )
   `);
-  // Editable admin home-launcher layout — one JSON row (id='home'). Absent row
-  // means the shipped AREAS launcher renders, so an empty table is the correct
-  // default state (see src/lib/navLayout.ts).
+  // ARCHIVED 2026-09-29: the retired home-launcher layouts. Nothing reads it; the
+  // rows are kept on purpose so a revert restores them (see schema.ts).
   await getClient().execute(`
     CREATE TABLE IF NOT EXISTS nav_layout (
       id TEXT PRIMARY KEY,

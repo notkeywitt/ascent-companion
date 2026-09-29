@@ -2,9 +2,9 @@
 slug: navigation-stage-1
 repo: ascent-companion
 branch: claude/navigation-stage-1
-status: parked
+status: in-progress
 started: 2026-09-29T18:14:02Z
-updated: 2026-09-29T18:15:45Z
+updated: 2026-09-29T18:55:40Z
 goal: NAVIGATION_PLAN.md Stage 1: one workspace list feeding bar, menu, search; tab strips; remove the other menus; label renames
 next: Slice 2 of Stage 1: add src/lib/workspaces.ts (one list), build the header menu, search and TabBar (leads get a bar) from it, remove nav.ts/pagesMenu/navLayout/HomeCards/TileLauncher/AllPagesMenu/SideNav/OfficeLinks//more; stop reading nav_layout (rows stay). Then tab strip, renames, iPad rail.
 ---

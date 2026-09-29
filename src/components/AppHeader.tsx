@@ -5,19 +5,19 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { AscentLogo } from "@/components/AscentLogo";
 import { GlobalSearch } from "@/components/GlobalSearch";
-import { SideNav } from "@/components/SideNav";
+import { AppMenu } from "@/components/AppMenu";
 import { LinkPendingOverlay } from "@/components/LinkPending";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useAccess } from "@/components/AccessProvider";
 import { btn } from "@/components/ui";
 
 /**
- * Sticky top chrome, on one line: the Ascent logo, the app's one search box, and
- * Add bill.
+ * Sticky top chrome, on one line: the ☰ menu (every page, src/lib/workspaces.ts),
+ * the Ascent logo, the app's one search box, and Add bill.
  *
  * THE LOGO IS THE LIGHT/DARK SWITCH. It was a home link beside a separate ☀/☾
- * button; the tab bar's Home tab already carries home from every page, so the
- * mark takes the switch and the row loses a control.
+ * button; the bar's Today slot and the menu both carry home from every page, so
+ * the mark takes the switch and the row loses a control.
  *
  * SEARCH is the widest item because "take me to a thing" is the question you ask
  * before any page can help you. It used to live on a second line under an
@@ -26,11 +26,9 @@ import { btn } from "@/components/ui";
  * still read `?jobId` from the URL — they just don't carry the control that sets
  * it.
  *
- * EXCEPT for the FIELD role. A crew member's whole app is the four buttons on
- * the launcher (see FieldHome/TileLauncher) — a box that searches pages they
- * cannot open, vendors, and bills is a keyboard in the way of the one thing
- * they came to do. Leads keep it: they reach Tracking Sheets and the bills
- * behind it, so there is something to search for.
+ * EXCEPT for the FIELD role. A crew member's whole app is the five pages on the
+ * bottom bar — a box that searches vendors and bills is a keyboard in the way
+ * of the one thing they came to do. Leads keep it.
  */
 export function AppHeader() {
   const pathname = usePathname();
@@ -81,9 +79,8 @@ export function AppHeader() {
           every page as the app's top rule. */}
       <div className="h-0.5 bg-brand" aria-hidden />
       <div className="flex items-center gap-1.5 px-2 py-2 sm:gap-2">
-        {/* The desktop slide-out menu — every page in the app from any page.
-            Self-hiding: office/admin only, and only from `xl` up. */}
-        <SideNav qs={qs} />
+        {/* Every page this person can open, by workspace — every role, every width. */}
+        <AppMenu qs={qs} />
         {/* BACK, on every page but home. A page opened cold (a shared link, a
             new tab) has no history to go back to, so it goes home instead. */}
         {pathname !== "/" && (

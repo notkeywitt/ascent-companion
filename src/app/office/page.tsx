@@ -28,13 +28,12 @@ import { jtJobUrl } from "@/lib/jtLinks";
 import { orgDay } from "@/lib/orgTime";
 import { shortDay } from "@/lib/timeEntryDates";
 import { OfficeImages } from "./OfficeImages";
-import { OfficeLinks } from "./OfficeLinks";
 import { OfficeTodos, type OfficeTodo } from "./OfficeTodos";
 
 /**
  * The Office dashboard — the "Office" overhead job in JobTread (job 007), read
  * live: its open to-dos, the billing month's bills on Office and Shop, its Files
- * tab as a folder browser, and links to the other office pages (the old HR menu).
+ * tab as a folder browser. The other office pages are in the header menu.
  *
  * Server component. The open folder is the `?folder=` param, so moving through
  * folders is plain navigation. Each JobTread read streams in its own <Suspense>.
@@ -64,7 +63,7 @@ export default async function OfficePage({
     <main className="mx-auto max-w-2xl px-4 pb-24 pt-6">
       <PageHeader
         title="Office"
-        description="The Office job's to-dos and files, and the office pages."
+        description="The Office job's to-dos and files."
       />
 
       {!hasGrant() ? (
@@ -83,11 +82,6 @@ export default async function OfficePage({
             <Suspense fallback={<Loading label="Loading bills…" />}>
               <Bills year={billingYear} month={billingMonthNum} />
             </Suspense>
-          </section>
-
-          <section className="mb-6">
-            <SectionHeading>Office pages</SectionHeading>
-            <OfficeLinks />
           </section>
 
           <section>

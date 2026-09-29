@@ -1,7 +1,7 @@
 /**
  * THE HELP TOPICS — the app's own instructions, as data.
  *
- * Pure data (no React, no DB), for the same reason `nav.ts` is: two surfaces
+ * Pure data (no React, no DB), for the same reason `workspaces.ts` is: two surfaces
  * read it. The `/help` page renders every topic a role can use, and the header's
  * global search offers matching topics as a kind of answer. A topic added here
  * appears in both.
@@ -112,16 +112,17 @@ export const HELP: HelpSection[] = [
         id: "find-page",
         q: "How do I find a page?",
         view: null,
-        keywords: ["home", "menu", "navigate", "buttons", "the rest", "where is"],
+        keywords: ["home", "menu", "navigate", "buttons", "the rest", "where is", "today", "workspace"],
         steps: [
-          "Tap **Home** at the bottom of the screen.",
-          "Tap one of the large buttons for the pages you use each day.",
-          "Tap **The Rest** for every other page you can open.",
+          "Tap **☰** at the top left of the screen.",
+          "Find the group for the job you are doing, for example **Month Close**.",
+          "Tap the page.",
         ],
         notes: [
-          "The bottom bar holds up to three shortcuts beside **Home**.",
+          "The bar at the bottom of the screen holds the pages you use most.",
+          "**Today** in the bar takes you back to the home page.",
           "Your role decides which pages you see.",
-          "This help page is in **The Rest**, and in the **Utilities** list.",
+          "This help page is in the **Help** group of the menu.",
         ],
       },
       {

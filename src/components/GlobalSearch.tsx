@@ -7,7 +7,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { inputCls } from "@/components/ui";
 import { useAccess } from "@/components/AccessProvider";
 import { useCopy } from "@/components/CopyProvider";
-import { AREAS } from "@/lib/nav";
+import { EXTRA_LINKS, WORKSPACES } from "@/lib/workspaces";
 import { searchHelp } from "@/lib/help";
 
 /**
@@ -21,7 +21,8 @@ import { searchHelp } from "@/lib/help";
  * is chrome: every page can be searched from every page.
  *
  * FIVE KINDS OF ANSWER, cheapest first, each self-hiding and view-gated:
- *  - PAGES    — client-side over lib/nav's AREAS. Free, instant, always there.
+ *  - PAGES    — client-side over lib/workspaces — every tab of every workspace.
+ *               Free, instant, always there.
  *  - HELP     — client-side over lib/help's topics. "How do I clock in?" is a
  *               question you ask the search box, not a page name you can guess,
  *               so the answer belongs in the same panel. Each row opens the
@@ -131,21 +132,20 @@ export function GlobalSearch() {
   }, [open]);
 
   /* ----------------------------------------------------------------- pages */
-  // Same resolution the launcher does: hide what this role can't reach, and read
+  // Same resolution the menu does: hide what this role can't reach, and read
   // every label through the copy registry so search matches the wording on screen.
   const pageMatches = useMemo(() => {
     if (!q) return [];
-    return AREAS.flatMap((a) => {
-      const title = c(`home.area.${a.id}.title`) || a.title;
-      return a.dests
+    return [...WORKSPACES, { title: "More", tabs: EXTRA_LINKS }].flatMap((w) =>
+      w.tabs
         .filter((d) => access.can(d.view))
         .map((d) => ({
           ...d,
           label: c(`home.dest.${d.view}.label`) || d.label,
           desc: c(`home.dest.${d.view}.desc`) || d.desc,
-          area: title,
-        }));
-    })
+          area: w.title,
+        })),
+    )
       .filter((d) => `${d.label} ${d.desc} ${d.area}`.toLowerCase().includes(q))
       .slice(0, MAX_PAGES);
   }, [q, access, c]);

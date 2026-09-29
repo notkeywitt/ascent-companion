@@ -168,15 +168,15 @@ branch's record, so the next session can pick the work up cold. Read
   colour whatever the CSS says — `font-variant-emoji: text` on `body` cannot
   save it. If the neighbouring words already say it, drop the mark; that is what
   the site does, which uses no icons at all.
-- **Nav:** the home launcher lists EVERY view, from `AREAS` in `src/lib/nav.ts`
-  (a shared module, because the header's search reads the same list);
-  `src/components/TabBar.tsx` is the
-  bottom tab bar carrying Home plus the first three of `TAB_CANDIDATES` the signed-in
-  role can reach. Reorder that array to change the tabs — nothing else needs touching.
-  Its height is `--tabbar-h` (globals.css); anything docking to the bottom of the
-  screen must offset by that variable rather than a hardcoded number.
+- **Nav:** ONE list — `WORKSPACES` in `src/lib/workspaces.ts` groups every page
+  into a workspace named for a recurring job (Month Close, Incoming Bills, …). It
+  feeds the header's ☰ menu (`src/components/AppMenu.tsx`), the bottom bar
+  (`src/components/TabBar.tsx`, slots per role in `BARS`) and the header search.
+  A tab keeps its route and its view id. The bar's height is `--tabbar-h`
+  (globals.css); anything docking to the bottom of the screen must offset by
+  that variable rather than a hardcoded number.
 - **Search:** one box for the whole app — `src/components/GlobalSearch.tsx`, the
-  widest item in the header row. It searches pages (`lib/nav`), vendors
+  widest item in the header row. It searches pages (`lib/workspaces`), vendors
   (`/api/vendors`) and bills + line items (`/api/bill-search`), each self-hiding
   and view-gated. Don't add a second search field to a page; add a kind of answer
   here instead.
@@ -197,9 +197,10 @@ branch's record, so the next session can pick the work up cold. Read
    `"use client"` component that runs `gatewayQuery`. (Pattern: `src/app/jobs/page.tsx`
    → `JobsBrowser.tsx`.)
 3. **Gate it.** Add a `VIEW` entry in `src/lib/views.ts` (choose a group + which
-   roles get it — a new id defaults to office+admin), and a launcher entry in
-   `AREAS` (`src/lib/nav.ts`) so it's reachable — that list feeds both the home
-   launcher and the header's global search.
+   roles get it — a new id defaults to office+admin), and a tab in the right
+   workspace in `src/lib/workspaces.ts` so it's reachable — that list feeds the
+   menu, the bar and the header's global search. `workspaces.test.ts` fails on a
+   page that is on no workspace.
 4. **Build the UI on `ui.tsx` primitives.** Mobile-first (`max-w-2xl`, thumb-sized
    targets), theme-aware. Match the look of existing pages (`src/app/jobs`,
    `src/app/unbilled`, `src/app/stage`).

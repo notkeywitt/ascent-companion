@@ -3,46 +3,27 @@
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useAccess } from "@/components/AccessProvider";
+import { useCopy } from "@/components/CopyProvider";
 import { LinkPendingOverlay } from "@/components/LinkPending";
 import { confirmLeaveIfDirty } from "@/lib/useUnsavedChanges";
+import { activeBarKey, barFor } from "@/lib/workspaces";
 
 /**
- * Bottom tab bar — the app's fast path between the handful of pages a person
- * actually opens all day.
+ * Bottom tab bar — up to five slots, docked at thumb height.
  *
- * Note the history here: the app HAD tabs once, across the top of the header,
- * and they were retired. This is not that. Those tabs sat in the chrome furthest
- * from a thumb and competed with the job picker for the same strip; these are
- * docked at the bottom, thumb-height, and carry at most four destinations. Home
- * stays the full launcher — the tab bar is a shortcut to the busiest pages, not
- * a replacement for the launcher's twenty-odd.
+ * The slots come from BARS in src/lib/workspaces.ts, per role: Today, a whole
+ * WORKSPACE (Month Close goes to its first tab the person can open), or one
+ * page (Miles). Every slot is gated on the same view ids as the middleware, so
+ * a slot someone cannot open is simply absent. EVERY role gets a bar, leads
+ * included (owner, 2026-09-29): it is the way home from any page, and the
+ * header's ☰ menu carries everything else.
  *
- * Every tab is gated through the SAME view ids as the launcher, so a field user
- * never sees a Tracking Sheets tab that the middleware would only bounce them off.
- * The set adapts per role rather than being fixed: TAB_CANDIDATES is scanned in
- * order and the first three the user can reach are shown after Home.
- *
- * FROM `pad` UP IT IS A DOCK, not a bar. Four tabs stretched across a 1024px
- * iPad give each one a quarter of the screen to hold a 19px icon, and the row
- * reads as a phone control that was never looked at on a tablet. So at that
- * width it detaches: fixed-width items, a rounded pill, centred, floating a
- * finger's width off the bottom edge. Same tabs, same gates, same active mark —
- * only the furniture changes, and it changes in CSS, so no page pays for a
- * media query in JavaScript.
- *
- * LEAD gets no bar at all: its home page is already a 6-button grid (see
- * TileLauncher / TILE_LAUNCHERS.lead in src/lib/nav.ts) that carries every one
- * of these candidates a lead can reach — a second copy of the same three
- * buttons one screen down is pure redundancy for that role, so the bar is
- * skipped entirely rather than trimmed. FIELD and OFFICE keep it — field's grid
- * doesn't repeat it (Tracking Sheets isn't a field view), and office's grid
- * deliberately leaves Tracking Sheets/Time/Miles OFF so the bar is where those
- * three live for that role.
+ * FROM `pad` UP IT IS A DOCK, not a bar: fixed-width items, a rounded pill,
+ * centred, a finger's width off the bottom edge. Same slots, same gates — only
+ * the furniture changes, and it changes in CSS.
  */
 
-type Tab = { label: string; href: string; view: string; Icon: () => React.ReactNode };
-
-/* Flat 2px line icons on a 24×24 grid, matching the launcher's set. */
+/* Flat 2px line icons on a 24×24 grid. */
 const IconBase = ({ children }: { children: React.ReactNode }) => (
   <svg
     viewBox="0 0 24 24"
@@ -95,6 +76,24 @@ const ComputerIcon = () => (
     <path d="M8 21h8M12 17v4" />
   </IconBase>
 );
+const InboxIcon = () => (
+  <IconBase>
+    <path d="M3 13h5l1.5 3h5L16 13h5" />
+    <path d="M5.5 5h13L21 13v6H3v-6z" />
+  </IconBase>
+);
+const BriefcaseIcon = () => (
+  <IconBase>
+    <rect x="3" y="7" width="18" height="13" rx="2" />
+    <path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M3 13h18" />
+  </IconBase>
+);
+const CalendarIcon = () => (
+  <IconBase>
+    <rect x="3" y="5" width="18" height="16" rx="2" />
+    <path d="M3 10h18M8 3v4M16 3v4" />
+  </IconBase>
+);
 const ClipboardIcon = () => (
   <IconBase>
     <rect x="8" y="3" width="8" height="4" rx="1" />
@@ -103,58 +102,35 @@ const ClipboardIcon = () => (
   </IconBase>
 );
 
-/**
- * Candidates in priority order — the first three the signed-in user can reach
- * fill the three slots after Home. Reorder this array to change the tab bar;
- * nothing else needs touching.
- *
- * As it stands: office/admin get Tracking Sheets · Time · Miles, and a field or lead
- * user (who has no `recode` view) gets Time · Miles · Tools. Admin adds Office
- * (OFFICE_TAB below) as a fifth.
- */
-const TAB_CANDIDATES: Tab[] = [
-  { label: "Tracking Sheets", href: "/trackingsheet", view: "recode", Icon: BanknoteIcon },
-  { label: "Time", href: "/employee-time", view: "employee-time", Icon: ClockIcon },
-  { label: "Miles", href: "/mileage-tracker", view: "mileage", Icon: RouteIcon },
-  { label: "Tools", href: "/tools", view: "tools", Icon: WrenchIcon },
-  { label: "Reqs", href: "/requisitions", view: "requisitions", Icon: ClipboardIcon },
-];
-
-const HOME_TAB: Tab = { label: "Home", href: "/", view: "", Icon: HomeIcon };
-
-// ADMIN ONLY, a fifth tab after the three (owner's ask, 2026-09-28). Keyed on
-// the role, not the view: office holds the view too, and its bar stays at four.
-const OFFICE_TAB: Tab = { label: "Office", href: "/office", view: "office", Icon: ComputerIcon };
+/** A slot's icon, by its key (a workspace id, a view id, or "today"). */
+const ICONS: Record<string, () => React.ReactNode> = {
+  today: HomeIcon,
+  close: BanknoteIcon,
+  incoming: InboxIcon,
+  office: ComputerIcon,
+  mywork: BriefcaseIcon,
+  "employee-time": ClockIcon,
+  mileage: RouteIcon,
+  tools: WrenchIcon,
+  requisitions: ClipboardIcon,
+  "time-off": CalendarIcon,
+};
 
 export function TabBar() {
   const pathname = usePathname();
   const search = useSearchParams();
   const access = useAccess();
+  const c = useCopy();
 
   // The bar is chrome for the signed-in app; these two pages have none.
   if (pathname === "/login" || pathname === "/privacy") return null;
 
-  // Lead's home page already carries every one of these shortcuts as a bigger
-  // button one screen up — see the file header comment.
-  if (access.role === "lead") return null;
+  const items = barFor(access.role, access.can);
+  // One slot is decoration, and it would cost every page 56px to say nothing.
+  if (items.length < 2) return null;
+  const active = activeBarKey(items, pathname);
 
-  // FIELD keeps the bar on every page — it is that role's only way back home,
-  // since the logo is the theme switch and there is no side nav. But ON home it
-  // is a second copy of the three buttons directly above it
-  // (TILE_LAUNCHERS.field is Miles · Time · Tools), so it goes there.
-  if (access.role === "field" && pathname === "/") return null;
-
-  const tabs = [
-    HOME_TAB,
-    ...TAB_CANDIDATES.filter((t) => access.can(t.view)).slice(0, 3),
-    ...(access.role === "admin" && access.can(OFFICE_TAB.view) ? [OFFICE_TAB] : []),
-  ];
-  // One tab is just Home — a bar with a single destination is decoration, and it
-  // would cost every page 56px to say nothing.
-  if (tabs.length < 2) return null;
-
-  // Carry the selected job across, exactly as the launcher does, so hopping to
-  // Tracking Sheets from a job keeps that job in context.
+  // Carry the selected job across, so hopping to a page from a job keeps it.
   const jobId = (search.get("jobId") ?? "").trim();
   const qs = jobId ? `?jobId=${encodeURIComponent(jobId)}` : "";
 
@@ -171,49 +147,36 @@ export function TabBar() {
       // Whatever this ends up measuring, --tabbar-h in globals.css has to match
       // it — that is the number every docked panel and page offsets by.
       className="fixed inset-x-0 bottom-0 z-30 grid border-t border-line bg-cream/95 pb-[env(safe-area-inset-bottom)] backdrop-blur dark:bg-ink/95 print:hidden pad:inset-x-auto pad:bottom-[calc(1rem_+_env(safe-area-inset-bottom))] pad:left-1/2 pad:w-auto pad:-translate-x-1/2 pad:overflow-hidden pad:rounded-2xl pad:border pad:pb-0 pad:shadow-lg"
-      style={{ gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))` }}
+      style={{ gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))` }}
     >
-      {tabs.map((t) => {
-        // Home is only "current" on exactly "/" — every other route is a page
-        // reached FROM it, and a permanently-lit Home tab tells you nothing.
-        const active = t.href === "/" ? pathname === "/" : pathname.startsWith(t.href);
+      {items.map((t) => {
+        const on = t.key === active;
+        const Icon = ICONS[t.key] ?? HomeIcon;
+        // A single-page slot takes the short bar word the office can reword;
+        // a workspace or Today says its own name.
+        const label = !t.workspace && t.view ? c(`home.quick.${t.view}.label`) || t.label : t.label;
         return (
           <Link
-            key={t.href}
+            key={t.key}
             href={t.href + qs}
-            aria-current={active ? "page" : undefined}
+            aria-current={on ? "page" : undefined}
             // The job picker and the bill editor both guard unsaved work; a tab
             // is a navigation like any other, so it asks the same question.
             onClick={(e) => {
               if (!confirmLeaveIfDirty()) e.preventDefault();
             }}
-            // Two kinds of tap feedback, because they answer different
-            // questions. `active:` is the PRESS — it paints the instant a
-            // finger lands, so the tap never feels ignored, and it needs no
-            // round trip. The overlay below is the WAIT — it appears only while
-            // that link's navigation is actually in flight, which on a slow
-            // connection is the difference between "did that register?" and
-            // "it's working on it".
-            // A fixed width from `pad` up is what makes the dock's items even:
-            // the pill shrinks to fit, so `1fr` has no free space to hand out
-            // and each column would otherwise size to its own longest label.
-            className={`relative flex h-14 flex-col items-center justify-center gap-0.5 text-[10.5px] font-semibold transition active:bg-accent/15 pad:w-[118px] ${
-              active
-                ? "text-accent dark:text-accent-soft"
-                : "text-neutral-500 hover:text-accent dark:text-neutral-400"
+            // `active:` is the PRESS (paints the instant a finger lands); the
+            // overlay below is the WAIT (only while the navigation is in
+            // flight). A fixed width from `pad` up keeps the dock's items even.
+            className={`relative flex h-14 flex-col items-center justify-center gap-0.5 px-0.5 text-center text-[10.5px] font-semibold leading-tight transition active:bg-accent/15 pad:w-[118px] ${
+              on ? "text-accent dark:text-accent-soft" : "text-neutral-500 hover:text-accent dark:text-neutral-400"
             }`}
           >
             {/* The active mark is a short ochre rule above the icon — the same
-                rule <SectionHeading> uses, so "you are here" is drawn in the
-                app's one ornament rather than a second visual language. */}
-            <span
-              aria-hidden
-              className={`h-0.5 w-4 rounded-full ${active ? "bg-accent" : "bg-transparent"}`}
-            />
-            <t.Icon />
-            {t.label}
-            {/* Same tap→loading affordance the launcher rows and quick tiles
-                use, so a tab behaves like every other link in the app. */}
+                rule <SectionHeading> uses. */}
+            <span aria-hidden className={`h-0.5 w-4 shrink-0 rounded-full ${on ? "bg-accent" : "bg-transparent"}`} />
+            <Icon />
+            {label}
             <LinkPendingOverlay spinnerClassName="h-5 w-5" />
           </Link>
         );

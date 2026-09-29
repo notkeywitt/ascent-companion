@@ -6,7 +6,6 @@ import { AppHeader } from "@/components/AppHeader";
 import { TabBar } from "@/components/TabBar";
 import { AccessProvider } from "@/components/AccessProvider";
 import { CopyProvider } from "@/components/CopyProvider";
-import { NavLayoutProvider } from "@/components/NavLayoutProvider";
 import { RefreshBoundary, RefreshProvider } from "@/components/RefreshProvider";
 import { StuckVendorPopup, StuckVendorsProvider } from "@/components/StuckVendors";
 import { BillMoveProvider } from "@/components/BillMove";
@@ -16,7 +15,6 @@ import { cookies } from "next/headers";
 import { auth, roleBaseFor } from "@/auth";
 import { ALL_VIEW_IDS, resolveAllowedViews, type Role } from "@/lib/views";
 import { loadCopyOverrides } from "@/lib/copyService";
-import { loadLaunchers } from "@/lib/navLayoutService";
 import { PREVIEW_COOKIE, parsePreviewRole } from "@/lib/preview";
 import { PreviewBanner } from "@/components/PreviewBanner";
 import { SplashScreen } from "@/components/SplashScreen";
@@ -74,12 +72,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   // edited wording is server-rendered — no client fetch, no flash of old text.
   // Falls back to {} (i.e. the shipped English) if the DB is unreachable.
   const copyOverrides = await loadCopyOverrides();
-  // Both editable launcher documents, in one query: the admin's customized home
-  // launcher (Edit mode on the home page) and the All Pages menu's order and
-  // grouping. Either is null for the shipped default. Read here so both are
-  // server-rendered with no client fetch and no flash; an unreachable DB costs
-  // the customization, never the menu.
-  const launchers = await loadLaunchers();
   const devOpen = noAuthConfigured();
   let role: Role = "field";
   let views: string[] = [];
@@ -147,7 +139,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             no-ops without a session, so it's inert in dev-open mode too. */}
         {session?.user && <UsageBeacon />}
         <CopyProvider overrides={copyOverrides}>
-        <NavLayoutProvider layout={launchers.home} pagesMenu={launchers.pages}>
         <AccessProvider role={role} views={views}>
           {/* Global refresh: the header's button remounts the page subtree
               (RefreshBoundary keys {children}) so every page's mount-time /api
@@ -197,7 +188,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             </StuckVendorsProvider>
           </RefreshProvider>
         </AccessProvider>
-        </NavLayoutProvider>
         </CopyProvider>
       </body>
     </html>

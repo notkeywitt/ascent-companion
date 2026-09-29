@@ -564,14 +564,14 @@ export const pageCopy = sqliteTable("page_copy", {
 export type PageCopyRow = typeof pageCopy.$inferSelect;
 
 /**
- * Editable admin home-launcher layout — the menus, page links, and buttons an
- * admin arranges from the home page's Edit mode (see src/lib/navLayout.ts).
+ * ARCHIVED 2026-09-29 — nothing reads or writes this table any more.
  *
- * Override-only, exactly like page_copy: a single row (`id = 'home'`) holding
- * the whole layout as JSON in `value`. No row → the launcher renders the
- * shipped AREAS default (src/lib/nav.ts), so an empty or unreachable DB can
- * never blank the home page; deleting the row is how you revert to the shipped
- * launcher. Companion-owned UI state — nothing to do with JobTread.
+ * It held the admin's home-launcher layout (`id = 'home'`) and the All Pages
+ * menu's order (`id = 'pages'`), both edited from the home page. Stage 1 of
+ * NAVIGATION_PLAN.md replaced both with one list, src/lib/workspaces.ts. The
+ * owner asked for the rows to be KEPT, not deleted, so reverting that commit
+ * brings the saved layouts back as they were. Do not drop the table or its rows
+ * without asking.
  */
 export const navLayout = sqliteTable("nav_layout", {
   id: text("id").primaryKey(), // "home" — one row today, keyed for future launchers
