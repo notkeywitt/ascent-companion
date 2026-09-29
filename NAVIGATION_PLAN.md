@@ -176,6 +176,17 @@ alerts and Sign out in the ☰ menu; `/coding` and `/stage` and their view ids
 deleted (routes redirect to Today). The stuck-vendor and Not in JobTread banners
 stay above the queue: they carry actions.
 
+### Stage 3 status, 2026-09-29
+
+Shipped: Not in JobTread holds all three queues (no job yet, vendor not in
+JobTread, never pushed), each section under the gate its API rides; "Code this
+bill →" on Email Invoices (needs appscript ba91749 deployed with ./deploy.sh —
+until then the link does not show); the office Time Off console at
+`/time-off/office` under `time-off-admin`; the Labor Report on Labor Import; the
+`/admin` Notices tab removed; a bill's History link to its Financial Journal
+rows. Not done: decision 7 (a read-only Sunset bill view for leads) — it needs
+a read-only mode of the bill page, which is the coding editor.
+
 ## Found along the way
 
 - `POST /api/time-off/import` commits a leave-balance import for any signed-in

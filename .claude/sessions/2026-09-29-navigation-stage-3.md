@@ -4,9 +4,9 @@ repo: ascent-companion
 branch: claude/navigation-stage-3
 status: shipped
 started: 2026-09-29T20:14:05Z
-updated: 2026-09-29T20:27:00Z
+updated: 2026-09-29T20:30:13Z
 goal: NAVIGATION_PLAN.md Stage 3: Not in JobTread merge, Code this bill on Email Invoices, Time Off office console path, Labor Report on People, drop the /admin Notices tab, bill History link
-next: 
+next: Owner: run ./deploy.sh in ascent-appscript (ba91749) so Email Invoices shows Code this bill. Next: stage 4 (Month Close in depth) after audit 01's Board split, or decision 7 (read-only Sunset bill view for leads).
 ---
 
 ## Log
@@ -18,5 +18,7 @@ next:
   CODEBASE_MAP.md, src/app/time-off/TimeOff.tsx, src/app/time-off/office/page.tsx, src/app/time-off/page.tsx, src/components/TodayQueue.tsx, src/lib/help.ts, +2 more
 - 2026-09-29 13:26 · `d2b40ce` companion: Code this bill link after logging an email invoice
   src/app/email/page.tsx
+- 2026-09-29 13:29 · `343360e` companion: Not in JobTread holds all three missing-bill queues
+  src/app/needs-project/page.tsx
 
 ## Notes
