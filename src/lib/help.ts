@@ -458,6 +458,7 @@ export const HELP: HelpSection[] = [
         ],
         notes: [
           "Use **Apply one code to all lines** for a bill with many lines.",
+          "On a computer, the bill opens beside its row. Tap **Next →** or **← Previous** to move through the bills.",
           "Under a code, the page shows the budget left for it. Red means over budget.",
           "The amounts on the page include tax.",
           "Type an amount before tax. The app adds the tax back.",

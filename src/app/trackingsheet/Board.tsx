@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { setUrlParam } from "@/lib/urlParam";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -410,13 +410,7 @@ export function Board() {
   /** The merge waiting for Save — see combineRows. */
   const [combinePending, setCombinePending] = useState<CombineRequest | null>(null);
   const [openDocId, setOpenDocId] = useState<string | null>(null);
-  // The coding column scrolls with the page, so a bill opened from further down
-  // the list would render above the viewport. Bring the column's top into view.
   const codingColRef = useRef<HTMLElement>(null);
-  useEffect(() => {
-    const el = codingColRef.current;
-    if (openDocId && el && el.getBoundingClientRect().top < 0) el.scrollIntoView({ block: "start" });
-  }, [openDocId]);
   const [mode, setMode] = useState<"bill" | "code" | "summary">("bill");
   /**
    * The client-facing billing summary for this job and month, from the SAME
@@ -1289,6 +1283,33 @@ export function Board() {
     () => [...nonSunsetBills, ...sunsetBills],
     [nonSunsetBills, sunsetBills],
   );
+  // THE CARD OPENS BESIDE ITS ROW (owner, 2026-09-29). The coding column
+  // scrolls with the page, and opening a bill used to scroll back to the
+  // column's top — away from the row just clicked. Instead the card is pushed
+  // down to the clicked row's height, so it lands next to it and nothing moves.
+  const [openTop, setOpenTop] = useState(0);
+  useLayoutEffect(() => {
+    const row = openDocId ? document.getElementById(`bill-${openDocId}`) : null;
+    const col = codingColRef.current;
+    setOpenTop(row && col ? Math.max(0, row.getBoundingClientRect().top - col.getBoundingClientRect().top) : 0);
+  }, [openDocId, sunsetBlockOpen, orderedBills]);
+
+  // Previous / next through the list, in the order it reads down the page.
+  // The new row is scrolled to the top, so the card stays put on screen while
+  // the list moves under it.
+  const openIndex = orderedBills.findIndex((b) => b.id === openDocId);
+  const stepBill = (dir: 1 | -1) => {
+    const next = orderedBills[openIndex + dir];
+    if (!next) return;
+    if (sunsetDocIds.has(next.id)) setSunsetBlockOpen(true);
+    driveMainWindowToDoc(jobId, next.id);
+    setOpenTimeId(null);
+    setOpenDocId(next.id);
+    requestAnimationFrame(() =>
+      document.getElementById(`bill-${next.id}`)?.scrollIntoView({ block: "start", behavior: "smooth" }),
+    );
+  };
+
   const sunsetTotal = useMemo(() => sunsetBills.reduce((s, b) => s + b.cost, 0), [sunsetBills]);
   const nonSunsetTotal = useMemo(
     () => nonSunsetBills.reduce((s, b) => s + b.cost, 0),
@@ -4476,8 +4497,7 @@ export function Board() {
               owner asked for the bill to scroll with the page rather than
               inside a window (2026-09-28). A sticky column taller than the
               viewport would strand its own bottom, so the two go together.
-              Opening a bill from further down the list scrolls this column's
-              top into view instead (the effect on `openDocId`). */}
+              An open bill's card is pushed down beside its row (`openTop`). */}
           <section ref={codingColRef} className="scroll-below-header hidden min-w-0 xl:block">
             {/* One column, three subjects, in order of how specific the claim
                 is: ONE entry being edited (a row clicked), then a SELECTION
@@ -4535,7 +4555,32 @@ export function Board() {
                 />
               </>
             ) : (
-              <BillCodingCard ctl={codingCtl} />
+              <div style={{ paddingTop: openTop }}>
+                {openBill && openIndex >= 0 && (
+                  <div className="mb-2 flex items-center justify-between gap-2 text-[12px]">
+                    <button
+                      type="button"
+                      onClick={() => stepBill(-1)}
+                      disabled={openIndex === 0}
+                      className="rounded-lg px-2 py-1 font-semibold text-accent transition hover:bg-accent/10 disabled:opacity-40 dark:text-accent-soft"
+                    >
+                      ← Previous
+                    </button>
+                    <span className="tabular-nums text-neutral-500 dark:text-neutral-400">
+                      Bill {openIndex + 1} of {orderedBills.length}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => stepBill(1)}
+                      disabled={openIndex >= orderedBills.length - 1}
+                      className="rounded-lg px-2 py-1 font-semibold text-accent transition hover:bg-accent/10 disabled:opacity-40 dark:text-accent-soft"
+                    >
+                      Next →
+                    </button>
+                  </div>
+                )}
+                <BillCodingCard ctl={codingCtl} />
+              </div>
             )}
           </section>
         </SplitGrid>
