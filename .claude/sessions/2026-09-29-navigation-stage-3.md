@@ -20,5 +20,7 @@ next: Owner: run ./deploy.sh in ascent-appscript (ba91749) so Email Invoices sho
   src/app/email/page.tsx
 - 2026-09-29 13:29 · `343360e` companion: Not in JobTread holds all three missing-bill queues
   src/app/needs-project/page.tsx
+- 2026-09-29 13:30 · `f5fb7fd` companion: record stage 3 status in the navigation plan
+  NAVIGATION_PLAN.md
 
 ## Notes
