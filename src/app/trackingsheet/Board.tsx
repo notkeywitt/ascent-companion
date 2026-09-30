@@ -486,6 +486,39 @@ export function Board() {
     onStaged: () => setSyncMsg(null),
   });
 
+  // ---- derived: bills + their lines ---------------------------------------
+  // Declared here, ABOVE taxDirty: taxDirty runs during render and calls
+  // billTax, and a `const` read before its line throws (it crashed the board
+  // whenever a sales-tax figure was staged).
+  // Codeable lines per bill, with the 88 80 00 sales-tax line taken OUT — it is
+  // not something the office codes, and leaving it in would let a tax amount be
+  // edited as if it were a material line. `taxByDoc` keeps what each one carried.
+  const { linesByDoc, taxByDoc } = useMemo(() => {
+    const m = new Map<string, JobBillLine[]>();
+    const tax = new Map<string, number>();
+    for (const l of data?.lines ?? []) {
+      if (isSalesTaxLine(l)) {
+        tax.set(l.docId, round2((tax.get(l.docId) ?? 0) + (Number(l.cost) || 0)));
+        continue;
+      }
+      const arr = m.get(l.docId) ?? [];
+      arr.push(l);
+      m.set(l.docId, arr);
+    }
+    return { linesByDoc: m, taxByDoc: tax };
+  }, [data]);
+
+  /**
+   * A bill's sales tax: its 88 80 00 line plus any legacy `nonRecoverableTax`.
+   * Summed, not preferred, so a bill halfway through the migration reports all
+   * of its tax. Exactly one of the two is non-zero in practice.
+   */
+  const billTax = useCallback(
+    (b: { id: string; nonRecoverableTax?: number } | undefined | null) =>
+      b ? round2((taxByDoc.get(b.id) ?? 0) + (Number(b.nonRecoverableTax) || 0)) : 0,
+    [taxByDoc],
+  );
+
   const taxDirty = Object.entries(taxEdits).some(([docId, v]) => {
     if (v === "") return false;
     const bill = data?.bills.find((b) => b.id === docId);
@@ -783,35 +816,6 @@ export function Board() {
     setCollapsedDivs(new Set(railGroups.map((g) => g.code)));
   }, [railGroups, setCollapsedDivs]);
 
-  // ---- derived: bills + their lines ---------------------------------------
-  // Codeable lines per bill, with the 88 80 00 sales-tax line taken OUT — it is
-  // not something the office codes, and leaving it in would let a tax amount be
-  // edited as if it were a material line. `taxByDoc` keeps what each one carried.
-  const { linesByDoc, taxByDoc } = useMemo(() => {
-    const m = new Map<string, JobBillLine[]>();
-    const tax = new Map<string, number>();
-    for (const l of data?.lines ?? []) {
-      if (isSalesTaxLine(l)) {
-        tax.set(l.docId, round2((tax.get(l.docId) ?? 0) + (Number(l.cost) || 0)));
-        continue;
-      }
-      const arr = m.get(l.docId) ?? [];
-      arr.push(l);
-      m.set(l.docId, arr);
-    }
-    return { linesByDoc: m, taxByDoc: tax };
-  }, [data]);
-
-  /**
-   * A bill's sales tax: its 88 80 00 line plus any legacy `nonRecoverableTax`.
-   * Summed, not preferred, so a bill halfway through the migration reports all
-   * of its tax. Exactly one of the two is non-zero in practice.
-   */
-  const billTax = useCallback(
-    (b: { id: string; nonRecoverableTax?: number } | undefined | null) =>
-      b ? round2((taxByDoc.get(b.id) ?? 0) + (Number(b.nonRecoverableTax) || 0)) : 0,
-    [taxByDoc],
-  );
 
   /**
    * Splitting Sunset off is a VIEW convenience and nothing more. Every budget
