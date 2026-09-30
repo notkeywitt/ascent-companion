@@ -74,6 +74,7 @@ matching row here.
 | **Tracking Sheets: drag a line or bill onto a cost code** | `src/app/trackingsheet/useLineDrag.ts` |
 | **Tracking Sheets: the budget rail's markup** (cost codes by division, drop targets) | `src/app/trackingsheet/BudgetRail.tsx` |
 | **Tracking Sheets: the drill-down sheet's markup** | `src/app/trackingsheet/CodeDrillSheet.tsx` |
+| **Tracking Sheets: the centre column's views** (By bill, By cost code, Summary) | `src/app/trackingsheet/BillListView.tsx`, `CodeLanesView.tsx`, `BillingSummaryView.tsx` |
 | **Tracking Sheets: the job's sheet push and "Check this job"** | `src/app/trackingsheet/useTrackingPush.ts` (which sheet, the last push) and `usePreSendCheck.ts` (the invoice review's checks on one job) |
 | **Coding / Tracking Sheets workflow** | `src/app/trackingsheet/*` (Board, BillCodingCard, TimeCodingCard, ClientInvoicing, DraftWorkbench,
   AllJobs) + `src/app/api/trackingsheet/*`, `src/app/api/code` |

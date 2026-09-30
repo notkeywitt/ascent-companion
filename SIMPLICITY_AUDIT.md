@@ -80,10 +80,12 @@ actions — code all, merge, delete, add, buy back (`useLineEdits.ts`) —
 and its scanned invoice (`useBillFiles.ts`). Then the cost-code drill-down
 (`useCodeDrill.ts`) and drag and drop (`useLineDrag.ts`). Then the first
 two pieces of the layout: the budget rail (`BudgetRail.tsx`) and the
-drill-down sheet (`CodeDrillSheet.tsx`). Board.tsx: 3,146 lines. Left in
-Board: the bill-coding state (staged, edits, tax, the open bill's math), the
-coding card's wiring, and the rest of the layout — the centre column is the
-big one, and it reads about 70 of the board's values. Tax is not a block of its own: its one state is read by the draft,
+drill-down sheet (`CodeDrillSheet.tsx`), then the centre column's three
+views: By bill (`BillListView.tsx`), By cost code (`CodeLanesView.tsx`) and
+Summary (`BillingSummaryView.tsx`). Board.tsx: 2,845 lines. Left in Board:
+the bill-coding state (staged, edits, tax, the open bill's math), the coding
+card's wiring, `renderBillCard`, the labor lane (it reads about 30 of the
+board's values), the header and the commit bar. Tax is not a block of its own: its one state is read by the draft,
 the load, the open bill's math and Save.
 
 **Option A — Split the file by job (recommended)**

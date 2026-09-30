@@ -10,7 +10,6 @@ import {
   Card,
   Chip,
   EmptyState,
-  Label,
   Loading,
   MetaLine,
   PageHeader,
@@ -19,7 +18,6 @@ import {
   Spinner,
   StatementBlock,
   StickyActionBar,
-  Toggle,
   btn,
 } from "@/components/ui";
 import type { Option } from "@/components/CostCodeSelect";
@@ -53,6 +51,9 @@ import {
 } from "@/components/TimeEntryList";
 import { AddTimeCard } from "./AddTimeCard";
 import { useTimeCoding } from "./useTimeCoding";
+import { BillListView } from "./BillListView";
+import { CodeLanesView } from "./CodeLanesView";
+import { BillingSummaryView } from "./BillingSummaryView";
 import { BudgetRail } from "./BudgetRail";
 import { CodeDrillSheet } from "./CodeDrillSheet";
 import { useLineDrag } from "./useLineDrag";
@@ -71,13 +72,7 @@ import { usePreSendCheck } from "./usePreSendCheck";
 import { InvoiceReconcile, reconStatus, type Recon } from "@/components/InvoiceReconcile";
 import { UncapturedBills } from "@/components/UncapturedBills";
 import { BILL_STRIPE_COLOR, billInvoiceState } from "@/lib/billInvoiceState";
-import {
-  Breakdown,
-  billPaidState,
-  driveMainWindowToDoc,
-  printJob,
-  type Detail,
-} from "@/components/BillingSummary";
+import { billPaidState, driveMainWindowToDoc, type Detail } from "@/components/BillingSummary";
 import { runTrackingSync } from "@/components/TrackingSheetSync";
 import { TrackingSheetRisks } from "@/components/TrackingSheetRisks";
 import { PreSendCheck } from "./PreSendCheck";
@@ -86,7 +81,7 @@ import { useCopy } from "@/components/CopyProvider";
 import { confirmLeaveIfDirty, useUnsavedChanges } from "@/lib/useUnsavedChanges";
 import { discardDraft, draftSavedAtLabel } from "@/lib/codingDraft";
 import { isSalesTaxLine, SALES_TAX_LINE_NAME } from "@/lib/salesTax";
-import { billingMonths, issueDateFor, monthLabel } from "@/lib/billingMonths";
+import { billingMonths, monthLabel } from "@/lib/billingMonths";
 import type { CombineRequest } from "@/lib/combineLines";
 
 /**
@@ -258,9 +253,6 @@ export interface DrillBillRow {
   cost: number;
   draft: boolean;
 }
-
-/** The dropdown's row for "no cost code at all" — "" is not a usable option value. */
-const UNCODED_KEY = "__uncoded";
 
 
 
@@ -2339,347 +2331,54 @@ export function Board() {
               </Card>
             )}
 
-            {/* ---- the client-facing billing summary ----
-                What this job bills for the month, in the shape the customer
-                sees it: every bill (Sunset grouped, time itemized) or the CSI
-                rollup, plus the printable document and the link into JobTread's
-                invoice builder. It is the LAST step of the workflow this page
-                owns — code the month on the left, then check and print what it
-                adds up to here — which is why it's a mode of this page rather
-                than the separate screen it used to be. */}
-            {mode === "summary" && (
-              <>
-                <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                  <Toggle
-                    checked={summaryByCsi}
-                    onChange={setSummaryByCsi}
-                    label={c("recode.toggle.groupByCsi")}
-                  />
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    disabled={!summary}
-                    onClick={() => summary && printJob(summary, monthLabel(ym), summaryByCsi)}
-                  >
-                    Print / Save PDF
-                  </Button>
-                </div>
+            <BillingSummaryView
+              c={c}
+              jobId={jobId}
+              mode={mode}
+              recon={recon}
+              setSummaryByCsi={setSummaryByCsi}
+              summary={summary}
+              summaryByCsi={summaryByCsi}
+              summaryError={summaryError}
+              summaryLoading={summaryLoading}
+              ym={ym}
+            />
 
-                {summaryLoading && !summary && <Loading label={c("recode.loading.summary")} />}
-                {summaryError && (
-                  <Banner tone="error" className="mb-2">
-                    {summaryError}
-                  </Banner>
-                )}
-                {summary && (
-                  <>
-                    <Breakdown detail={summary} groupByCsi={summaryByCsi} from="recode" />
-                    {/* The month's invoice may already exist — recon knows, and
-                        prompting to "create" one then invites a duplicate. Link
-                        to what's there instead, and keep the create CTA for the
-                        case it's actually for. */}
-                    {recon && recon.invoices.length > 0 ? (
-                      <>
-                        {recon.invoices.map((iv) => (
-                          <JtLink
-                            key={iv.id}
-                            href={`https://app.jobtread.com/jobs/${jobId}/documents/${iv.id}`}
-                            className={btn("secondary", "md", "mt-3 w-full")}
-                          >
-                            Open invoice #{iv.number || iv.id}
-                            {iv.status === "draft" ? " (draft)" : ""} ↗
-                          </JtLink>
-                        ))}
-                        <p className="mt-2 text-xs text-neutral-500">
-                          {recon.invoices.length === 1 ? "An invoice" : "Invoices"} for{" "}
-                          {monthLabel(ym)} already{" "}
-                          {recon.invoices.length === 1 ? "exists" : "exist"}
-                          {recon.remaining - recon.onDraftInvoiceCost > 0.01 ? (
-                            <>
-                              , but {money(recon.remaining - recon.onDraftInvoiceCost)} is on no
-                              invoice at all — add it to the existing invoice rather than raising a
-                              second one.
-                            </>
-                          ) : recon.draftBillCount > 0 ? (
-                            <>
-                              , but {money(recon.draftBillsCost)} in {recon.draftBillCount} draft
-                              bill{recon.draftBillCount === 1 ? "" : "s"} can&apos;t go on it until
-                              approved in JobTread.
-                            </>
-                          ) : (
-                            <>. Everything for the month is on it.</>
-                          )}
-                        </p>
-                      </>
-                    ) : (
-                      /* No BUTTON here. The month has exactly one
-                         create-invoice action and it lives in the closing row
-                         below, gated on every bill being approved and nothing
-                         being staged — a second primary CTA at this spot fired
-                         under neither gate and pointed at the same URL. What is
-                         left is the instruction, which the closing row's button
-                         does not carry. */
-                      <p className="mt-3 text-xs text-neutral-500">
-                        No invoice for {monthLabel(ym)} yet. Approve the month&apos;s draft bills
-                        below, then <b>Create Invoice in JobTread</b> — its builder pulls exactly
-                        these uninvoiced bills (and any uninvoiced time). Date it {issueDateFor(ym)}
-                        , review &amp; send.
-                      </p>
-                    )}
-                  </>
-                )}
-              </>
-            )}
+            <CodeLanesView
+              beginDrag={beginDrag}
+              belowXl={belowXl}
+              c={c}
+              dragLineIds={dragLineIds}
+              dragOverCode={dragOverCode}
+              dropHandlers={dropHandlers}
+              endDrag={endDrag}
+              jobId={jobId}
+              laneRows={laneRows}
+              mode={mode}
+              router={router}
+              setOpenDocId={setOpenDocId}
+              setOpenTimeId={setOpenTimeId}
+              staged={staged}
+              ym={ym}
+            />
 
-            {/* ---- grouped by cost code: the drag surface ---- */}
-            {mode === "code" &&
-              (laneRows.length === 0 ? (
-                <EmptyState>{c("recode.empty.noCodedLines")}</EmptyState>
-              ) : (
-                <ul className="space-y-2">
-                  {laneRows.map(({ code, h, stacks, total }) => (
-                    <li key={code}>
-                      <Card
-                        pad={false}
-                        {...dropHandlers(code, h?.droppable ?? false)}
-                        className={`transition ${
-                          dragOverCode === code ? "ring-2 ring-accent" : ""
-                        } ${dragLineIds && !h?.droppable ? "opacity-40" : ""}`}
-                      >
-                        <div className="flex items-baseline justify-between gap-2 border-b border-line-soft px-3 py-2 dark:border-neutral-800">
-                          <span className="min-w-0 truncate">
-                            <span className="text-xs tabular-nums text-neutral-500">{code}</span>{" "}
-                            <span className="text-sm font-semibold">{h?.name ?? ""}</span>
-                          </span>
-                          <span className="shrink-0 text-xs tabular-nums">
-                            {money0(total)} here ·{" "}
-                            <span
-                              className={
-                                h && remainingOf(h) < 0
-                                  ? "font-semibold text-red-600 dark:text-red-400"
-                                  : "text-neutral-500"
-                              }
-                            >
-                              {h ? money0(remainingOf(h)) : "—"} left
-                            </span>
-                          </span>
-                        </div>
-                        <ul className="flex flex-wrap gap-1.5 p-2">
-                          {stacks.map((s) => {
-                            const moved = s.lines.some((l) => staged.has(l.id));
-                            return (
-                              <li key={s.key}>
-                                <div
-                                  draggable={!s.invoiced}
-                                  onDragStart={beginDrag(s.lines.map((l) => l.id))}
-                                  onDragEnd={endDrag}
-                                  // Same rule the bill list follows: on a phone
-                                  // the coding drawer is hidden, so setOpenDocId
-                                  // would open nothing and the tap would read as
-                                  // dead. Send it to the bill's detail page
-                                  // instead, carrying the same back-context.
-                                  onClick={() => {
-                                    // In the Chrome side panel this app runs in
-                                    // an iframe beside a JobTread tab; opening a
-                                    // bill here drives that window to the same
-                                    // document. No-op when unframed.
-                                    driveMainWindowToDoc(jobId, s.docId);
-                                    // Same rule as the bill list — see there.
-                                    if (belowXl) {
-                                      router.push(
-                                        `/bill/${s.docId}?jobId=${encodeURIComponent(jobId)}` +
-                                          `&from=recode&ym=${encodeURIComponent(ym)}`,
-                                      );
-                                    } else {
-                                      // The coding column shows one thing —
-                                      // claiming it for a bill releases the
-                                      // time entry that had it.
-                                      setOpenTimeId(null);
-                                      setOpenDocId(s.docId);
-                                    }
-                                  }}
-                                  title={s.lines.map((l) => l.name).join("\n")}
-                                  className={`rounded-md border px-2 py-1.5 text-[11px] transition lg:py-1 ${
-                                    s.invoiced ? "" : "cursor-grab active:cursor-grabbing"
-                                  } ${
-                                    moved
-                                      ? "border-amber-400 bg-amber-50 dark:border-amber-700 dark:bg-amber-950/40"
-                                      : "border-line bg-white hover:border-accent dark:border-neutral-700 dark:bg-ink-overlay"
-                                  }`}
-                                >
-                                  <span className="block max-w-[16rem] truncate font-medium">
-                                    {s.label}
-                                    {/* Several lines of ONE bill in one lane stack into a single chip. */}
-                                    {s.lines.length > 1 && (
-                                      <span className="ml-1 rounded bg-neutral-200 px-1 text-[10px] tabular-nums dark:bg-neutral-700">
-                                        ×{s.lines.length}
-                                      </span>
-                                    )}
-                                  </span>
-                                  <span className="block tabular-nums text-neutral-500">
-                                    {money0(s.cost)}
-                                    {s.status === "draft" && " · draft"}
-                                    {s.invoiced && " · invoiced"}
-                                  </span>
-                                </div>
-                              </li>
-                            );
-                          })}
-                        </ul>
-                      </Card>
-                    </li>
-                  ))}
-                </ul>
-              ))}
-
-            {mode === "bill" && filteredBills.length === 0 ? (
-              /* A filter that empties the list takes its own strip down with it,
-                 so the way out has to be here — otherwise the only way back to
-                 the month is finding the right slice of the ring again. */
-              <EmptyState>
-                {billCodeFilter ? (
-                  <>
-                    No bills on {billCodeFilter.label} this month.{" "}
-                    <button
-                      type="button"
-                      onClick={() => setBillCodeFilter(null)}
-                      className="font-semibold text-accent underline"
-                    >
-                      Show every bill
-                    </button>
-                  </>
-                ) : (
-                  c("recode.empty.noBills")
-                )}
-              </EmptyState>
-            ) : mode === "bill" ? (
-              <>
-                {nonSunsetBills.length > 0 && (
-                  <Card pad={false} className="overflow-hidden">
-                    {/* Folds like the Labor block above and the Sunset block
-                        below, so the three panes of the month behave the same
-                        way — but OPEN by default, because this is the list the
-                        page exists to work through. Closing it is what makes
-                        room to read the labor or the Sunset run on one screen. */}
-                    <button
-                      type="button"
-                      onClick={() => setBillBlockOpen((v) => !v)}
-                      aria-expanded={billBlockOpen}
-                      className="flex w-full items-baseline justify-between gap-2 px-3 py-3 text-left transition hover:bg-accent/5 dark:hover:bg-white/5 lg:py-2"
-                    >
-                      <span className="min-w-0 truncate text-sm font-semibold">
-                        <span
-                          aria-hidden
-                          className={`mr-1.5 inline-block text-[9px] text-neutral-500 transition-transform dark:text-neutral-400 ${
-                            billBlockOpen ? "rotate-90" : ""
-                          }`}
-                        >
-                          ▶
-                        </span>
-                        Bills ({nonSunsetBills.length} bill
-                        {nonSunsetBills.length === 1 ? "" : "s"})
-                      </span>
-                      <span className="shrink-0 text-sm font-semibold tabular-nums">
-                        {money(nonSunsetTotal)}
-                      </span>
-                    </button>
-                    {billBlockOpen && (
-                      <>
-                        {/* The list's own way to the cost-code filter — the same
-                            control, in the same place, as the labor list's
-                            (components/TimeEntryList's TimeFilterStrip). The
-                            ring above sets the same state, so picking a slice
-                            moves this select and picking here lights that
-                            slice: one filter, two ways in. */}
-                        <div className="flex flex-wrap items-end gap-x-3 gap-y-2 border-t border-line-soft bg-neutral-50 px-3 py-2 dark:bg-ink-raised/50">
-                          <div className="min-w-[10rem] flex-1">
-                            <Label htmlFor="bill-code">Cost code</Label>
-                            <Select
-                              id="bill-code"
-                              value={billCodeFilter?.key ?? ""}
-                              onChange={(e) => {
-                                const v = e.target.value;
-                                if (!v) return setBillCodeFilter(null);
-                                if (v === UNCODED_KEY)
-                                  return setBillCodeFilter({
-                                    key: v,
-                                    label: "Uncoded",
-                                    codes: [""],
-                                  });
-                                const opt = billCodeOptions.find((o) => o.number === v);
-                                setBillCodeFilter({
-                                  key: v,
-                                  label: opt?.name ? `${v} ${opt.name}` : v,
-                                  codes: [v],
-                                });
-                              }}
-                              className="!py-1 !text-xs"
-                            >
-                              <option value="">All codes</option>
-                              {billCodeOptions.map((o) => (
-                                <option
-                                  key={o.number || UNCODED_KEY}
-                                  value={o.number || UNCODED_KEY}
-                                >
-                                  {o.number ? `${o.number} ${o.name}`.trim() : "Uncoded"}
-                                </option>
-                              ))}
-                              {/* A pick made on the ring can name a set of codes
-                                ("Other"), which no single row here stands for —
-                                it is listed so the box never reads "All codes"
-                                over a filtered list. */}
-                              {billCodeFilter && billCodeFilter.codes.length > 1 && (
-                                <option value={billCodeFilter.key}>{billCodeFilter.label}</option>
-                              )}
-                            </Select>
-                          </div>
-                        </div>
-                        <ul className="divide-y divide-line-soft border-t border-line-soft">
-                          {nonSunsetBills.map(renderBillCard)}
-                        </ul>
-                      </>
-                    )}
-                  </Card>
-                )}
-
-                {/* Sunset bills, folded into their own collapsible pane — the
-                    same treatment as the Labor block above. Sunset's high
-                    invoice count is noise when you're deciding where to move
-                    money, so it's pushed to the bottom of the list and collapsed
-                    by default; its cost is already in every figure on the page,
-                    so folding it away never changes a number. */}
-                {sunsetBills.length > 0 && (
-                  <Card pad={false} className="mt-2 overflow-hidden">
-                    <button
-                      type="button"
-                      onClick={() => setSunsetBlockOpen((v) => !v)}
-                      aria-expanded={sunsetBlockOpen}
-                      className="flex w-full items-baseline justify-between gap-2 px-3 py-3 text-left transition hover:bg-accent/5 dark:hover:bg-white/5 lg:py-2"
-                    >
-                      <span className="min-w-0 truncate text-sm font-semibold">
-                        <span
-                          aria-hidden
-                          className={`mr-1.5 inline-block text-[9px] text-neutral-500 transition-transform dark:text-neutral-400 ${
-                            sunsetBlockOpen ? "rotate-90" : ""
-                          }`}
-                        >
-                          ▶
-                        </span>
-                        Sunset ({sunsetBills.length} bill{sunsetBills.length === 1 ? "" : "s"})
-                      </span>
-                      <span className="shrink-0 text-sm font-semibold tabular-nums">
-                        {money(sunsetTotal)}
-                      </span>
-                    </button>
-                    {sunsetBlockOpen && (
-                      <ul className="divide-y divide-line-soft border-t border-line-soft bg-neutral-50 dark:bg-ink-raised/50">
-                        {sunsetBills.map(renderBillCard)}
-                      </ul>
-                    )}
-                  </Card>
-                )}
-              </>
-            ) : null}
+            <BillListView
+              billBlockOpen={billBlockOpen}
+              billCodeFilter={billCodeFilter}
+              billCodeOptions={billCodeOptions}
+              c={c}
+              filteredBills={filteredBills}
+              mode={mode}
+              nonSunsetBills={nonSunsetBills}
+              nonSunsetTotal={nonSunsetTotal}
+              renderBillCard={renderBillCard}
+              setBillBlockOpen={setBillBlockOpen}
+              setBillCodeFilter={setBillCodeFilter}
+              setSunsetBlockOpen={setSunsetBlockOpen}
+              sunsetBills={sunsetBills}
+              sunsetBlockOpen={sunsetBlockOpen}
+              sunsetTotal={sunsetTotal}
+            />
           </section>
 
           {/* ─────────── RIGHT: coding drawer ─────────── */}
