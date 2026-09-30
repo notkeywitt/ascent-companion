@@ -71,9 +71,12 @@ what the hook returns. Then the tracking-sheet push (`useTrackingPush.ts`) and
 the pre-send check (`usePreSendCheck.ts`), and the rail's screen state
 (`useRailView.ts`). Then, with the owner's ok for the write paths, bill
 approval (`useBillApproval.ts`) and the coding draft's autosave and restore
-(`useCodingDraft.ts`), and the month load (`useMonthLoad.ts`). Left: bill
-coding with its tax edits and Save — tax is not a block of its own: its one
-state is read by the draft, the load, the open bill's math and Save.
+(`useCodingDraft.ts`), the month load (`useMonthLoad.ts`), and Save — the
+board's JobTread write loop — as a plain function (`saveCoding.ts`) with 5
+tests that pin its write order and its draft handling. Board.tsx: 4,286 lines.
+Left in Board: the bill-coding state and the open bill's editor wiring, and
+the JSX. Tax is not a block of its own: its one state is read by the draft,
+the load, the open bill's math and Save.
 
 **Option A — Split the file by job (recommended)**
 
