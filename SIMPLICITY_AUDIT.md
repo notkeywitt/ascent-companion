@@ -61,6 +61,12 @@ cost-code rail and time coding.
 
 The August review flagged this file at 2,704 lines. It has grown 70% since.
 
+**Progress.** 2026-09-29: the budget math (headroom per code, `usedOf`,
+`remainingOf`, both cost-ring scopes) moved to `trackingsheet/headroom.ts`
+with 10 tests — the board's money is pinned before the React blocks move.
+Next block: time coding. It shares state with the rail (`timeCodeOf`), the
+draft autosave and Save, so it moves as one hook with those three wired in.
+
 **Option A — Split the file by job (recommended)**
 
 1. Make one new file for each block of the board. Start with time coding. It is the most separate.

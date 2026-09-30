@@ -32,6 +32,15 @@ import { JtLink } from "@/components/JtLink";
 import { SplitGrid } from "@/components/SplitGrid";
 import { CostDonuts, type CostDonutRow } from "./CostDonuts";
 import {
+  buildHeadroom,
+  isCommitted,
+  jobRingRows,
+  monthRingRows,
+  remainingOf,
+  usedOf,
+  type Headroom,
+} from "./headroom";
+import {
   BillCodingCard,
   isImageFile,
   money,
@@ -268,8 +277,6 @@ const UNCODED_KEY = "__uncoded";
 /** Where a device remembers whether the budget column is closed. */
 const RAIL_HIDDEN_KEY = "ts.railHidden";
 
-/** Draft bills are coded but not yet committed spend — JobTread's own budget math excludes them. */
-const isCommitted = (status: string) => status === "pending" || status === "approved";
 
 /**
  * Sunset Builders Supply, matched the same way the rest of the codebase does
@@ -317,29 +324,8 @@ const hoursLabel = (n: number) => {
 };
 
 /** Per-cost-code money, after staged moves. */
-interface Headroom {
-  code: string;
-  name: string;
-  division: string;
-  budget: number;
-  spent: number; // committed: approved + pending bills (all time), ± staged moves
-  drafts: number; // this month's draft-bill cost coded here (not yet committed)
-  labor: number; // time entries coded here — billed to the customer like a bill
-  droppable: boolean; // has at least one budget leaf to code to
-}
-
-/**
- * Everything that will have been charged against this code, so `remaining` is
- * the room actually left.
- *
- * Labor is in here because a customer invoice bills time entries alongside
- * vendor bills — leaving it out overstated headroom on any code carrying hours
- * (e.g. 01 31 20 read $0 left when it was $976 over). It does NOT move when a
- * bill is recoded: a time entry is coded independently of any bill, so it's a
- * fixed per-code baseline that the staged bill moves add to.
- */
-const usedOf = (h: Headroom) => h.spent + h.drafts + h.labor;
-const remainingOf = (h: Headroom) => h.budget - usedOf(h);
+// The budget math — Headroom, usedOf, remainingOf, isCommitted and the rail /
+// ring builders — lives in ./headroom.ts, with its tests.
 
 /* <Meter> now lives in components/ui — the budget bar is the same object here,
    on the mobile headroom rail, and on any future page that shows spend against
@@ -938,94 +924,18 @@ export function Board() {
   );
 
   // ---- derived: headroom per cost code ------------------------------------
-  const headroom = useMemo(() => {
-    const map = new Map<string, Headroom>();
-    const divisionOf = new Map<string, string>();
-
-    for (const d of data?.costDetail?.divisions ?? []) {
-      for (const c of d.codes) {
-        // The NAME only. Falling back to the number here put "04" in the name
-        // slot, and the rail header renders number + name — hence "04 04".
-        if (d.name) divisionOf.set(c.number, d.name);
-        map.set(c.number, {
-          code: c.number,
-          name: c.name,
-          division: d.name,
-          budget: c.budget,
-          spent: c.bills,
-          drafts: 0,
-          labor: c.labor,
-          droppable: (leavesByCode.get(c.number)?.length ?? 0) > 0,
-        });
-      }
-    }
-    // A code that only exists as a budget leaf (never spent) still needs a row —
-    // it's usually the one WITH headroom, which is exactly what we're hunting for.
-    for (const [code, leaves] of leavesByCode) {
-      if (map.has(code)) continue;
-      map.set(code, {
-        code,
-        name: leaves[0]?.name ?? "",
-        // A code with a budget leaf but no spend never reaches costDetail, so
-        // divisionOf can't name it — the leaf carries its own division name.
-        division: divisionOf.get(code) ?? leaves.find((l) => l.division)?.division ?? "",
-        budget: leaves.reduce((s, l) => s + (l.cost ?? 0), 0),
-        spent: 0,
-        drafts: 0,
-        labor: 0,
-        droppable: true,
-      });
-    }
-
-    const ensure = (code: string): Headroom => {
-      let h = map.get(code);
-      if (!h) {
-        h = {
-          code,
-          name: "",
-          division: divisionOf.get(code) ?? "",
-          budget: 0,
-          spent: 0,
-          drafts: 0,
-          labor: 0,
-          droppable: (leavesByCode.get(code)?.length ?? 0) > 0,
-        };
-        map.set(code, h);
-      }
-      return h;
-    };
-
-    for (const l of data?.lines ?? []) {
-      const now = codeOf(l);
-      const was = l.code;
-      if (isCommitted(l.billStatus)) {
-        // costDetail.bills already counts this line under its ORIGINAL code, so a
-        // staged move is a transfer: take it off the old code, put it on the new.
-        if (now !== was) {
-          if (was) ensure(was).spent -= l.cost;
-          if (now) ensure(now).spent += l.cost;
-        }
-      } else if (now) {
-        // Drafts aren't in costDetail.bills at all, so they're added whole —
-        // under wherever they currently sit.
-        ensure(now).drafts += l.cost;
-      }
-    }
-
-    // …and the same transfer for staged LABOR. costDetail.labor already counts
-    // every entry under its ORIGINAL code, so a staged move subtracts there and
-    // adds here. Without this the rail — and the budget-left chip on every time
-    // row — would sit perfectly still while you recoded a week of hours, which
-    // is the one moment those figures matter most.
-    for (const t of data?.timeEntries ?? []) {
-      const now = timeCodeOf(t);
-      const was = t.code;
-      if (now === was) continue;
-      if (was) ensure(was).labor -= t.cost;
-      if (now) ensure(now).labor += t.cost;
-    }
-    return map;
-  }, [data, codeOf, timeCodeOf, leavesByCode]);
+  const headroom = useMemo(
+    () =>
+      buildHeadroom({
+        divisions: data?.costDetail?.divisions ?? [],
+        leavesByCode,
+        lines: data?.lines ?? [],
+        timeEntries: data?.timeEntries ?? [],
+        codeOf,
+        timeCodeOf,
+      }),
+    [data, codeOf, timeCodeOf, leavesByCode],
+  );
 
   /**
    * cost code → its JobTread budget, for the admin sheet-vs-JobTread panel.
@@ -1045,18 +955,7 @@ export function Board() {
    * committed yet. Codes with no cost at all sit out, so the rings never carry
    * a legend of zeroes.
    */
-  const costDonutRows = useMemo<CostDonutRow[]>(
-    () =>
-      [...headroom.values()]
-        .map((h) => ({
-          code: h.code,
-          name: h.name,
-          bills: h.spent + h.drafts,
-          labor: h.labor,
-        }))
-        .filter((r) => r.bills > 0 || r.labor > 0),
-    [headroom],
-  );
+  const costDonutRows = useMemo<CostDonutRow[]>(() => jobRingRows(headroom), [headroom]);
 
   /**
    * …and the rings' SELECTED-MONTH scope, which is the one they open on. Built
@@ -1072,28 +971,17 @@ export function Board() {
    * same in both scopes, with the line's own `codeName` as the fallback for a
    * code that never reached the budget.
    */
-  const costDonutMonthRows = useMemo<CostDonutRow[]>(() => {
-    const map = new Map<string, CostDonutRow>();
-    const ensure = (code: string, fallbackName: string) => {
-      let r = map.get(code);
-      if (!r) {
-        r = { code, name: headroom.get(code)?.name || fallbackName || "", bills: 0, labor: 0 };
-        map.set(code, r);
-      }
-      return r;
-    };
-    for (const l of data?.lines ?? []) {
-      const code = codeOf(l);
-      if (!code) continue;
-      ensure(code, l.codeName).bills += l.cost;
-    }
-    for (const t of data?.timeEntries ?? []) {
-      const code = timeCodeOf(t);
-      if (!code) continue;
-      ensure(code, t.codeName).labor += t.cost;
-    }
-    return [...map.values()].filter((r) => r.bills > 0 || r.labor > 0);
-  }, [data, codeOf, timeCodeOf, headroom]);
+  const costDonutMonthRows = useMemo<CostDonutRow[]>(
+    () =>
+      monthRingRows({
+        lines: data?.lines ?? [],
+        timeEntries: data?.timeEntries ?? [],
+        codeOf,
+        timeCodeOf,
+        headroom,
+      }),
+    [data, codeOf, timeCodeOf, headroom],
+  );
 
   const railRows = useMemo(() => {
     const q = codeQuery.trim().toLowerCase();
