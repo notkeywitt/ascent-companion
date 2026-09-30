@@ -30,6 +30,7 @@ next: Ship claude/ascent-app-simplify-w613c1 to main (npm run ship) once the lab
   src/app/api/admin/digest-instructions/route.ts, src/components/RefreshProvider.tsx
 - 2026-09-30 13:18 · `0373e79` companion: no tab strip for field and lead, leads open on time, lift the help mark off the bar
   USER_MANUAL.md, src/app/page.tsx, src/components/PageGuide.tsx, src/components/WorkspaceTabs.tsx
+- 2026-09-30 13:18 · `2b80a25` companion: log session 2026-09-29-ascent-app-simplify
 
 ## Notes
 - 2026-09-29 15:13 — Plan: regroup 58 routes into 10 workspaces with tab strips carrying jobId+ym; Home becomes Today (queue); one list (src/lib/workspaces.ts) feeds bar, rail, menu, search. Routes and view ids stay. Full plan NAVIGATION_PLAN.md; web version https://claude.ai/artifact/2RBRreUQTJFzexsFHQyGL1
