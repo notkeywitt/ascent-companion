@@ -67,7 +67,10 @@ with 10 tests — the board's money is pinned before the React blocks move.
 Then time coding: its state, readers and handlers moved to
 `trackingsheet/useTimeCoding.ts` (Board destructures the same names, so no JSX
 moved); the rail, dirty check, draft autosave and Save stay in Board and read
-what the hook returns. Board.tsx: 5,112 → 4,836 lines.
+what the hook returns. Then the tracking-sheet push (`useTrackingPush.ts`) and
+the pre-send check (`usePreSendCheck.ts`). Board.tsx: 5,112 → 4,767 lines.
+Left: the month load, bill coding, the tax panel, invoice approval, the rail's
+filters and folds.
 
 **Option A — Split the file by job (recommended)**
 

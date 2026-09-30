@@ -67,6 +67,8 @@ import {
 } from "@/components/TimeEntryList";
 import { AddTimeCard } from "./AddTimeCard";
 import { useTimeCoding } from "./useTimeCoding";
+import { useTrackingPush } from "./useTrackingPush";
+import { usePreSendCheck } from "./usePreSendCheck";
 import { InvoiceReconcile, reconStatus, type Recon } from "@/components/InvoiceReconcile";
 import { UncapturedBills } from "@/components/UncapturedBills";
 import { BILL_STRIPE_COLOR, billInvoiceState } from "@/lib/billInvoiceState";
@@ -77,15 +79,10 @@ import {
   printJob,
   type Detail,
 } from "@/components/BillingSummary";
-import {
-  runTrackingSync,
-  type TrackingSyncState,
-  type TrackingTarget,
-} from "@/components/TrackingSheetSync";
+import { runTrackingSync } from "@/components/TrackingSheetSync";
 import { TrackingSheetRisks } from "@/components/TrackingSheetRisks";
 import { PreSendCheck } from "./PreSendCheck";
 import { SheetGap } from "./SheetGap";
-import type { PreSendResult } from "@/lib/invoiceReview/preSend";
 import { useAccess } from "@/components/AccessProvider";
 import { useCopy } from "@/components/CopyProvider";
 import { confirmLeaveIfDirty, useUnsavedChanges } from "@/lib/useUnsavedChanges";
@@ -461,80 +458,15 @@ export function Board() {
   // reads /api/historical-cost, which carries the same view gate.
   const canSheetGap = can("historical-cost");
   const canPackage = can("invoicing-summary");
-  const [trackingTarget, setTrackingTarget] = useState<TrackingTarget | null>(null);
-  // Have we finished reading whether THIS job has a tracking sheet? Until we
-  // have, the month-side button renders nothing rather than flashing the wrong
-  // label (a real "Sync" vs a "Link one" for a job that in fact has a sheet).
-  const [trackingChecked, setTrackingChecked] = useState(false);
-  const [trackingSync, setTrackingSync] = useState<TrackingSyncState | undefined>(undefined);
-  // The sheet push runs on its own task runner, so `syncing` (the JobTread write
-  // loop) is already false while it's still going. Without this the button would
-  // re-enable mid-push and a second click would queue a duplicate sync.
-  const trackingBusy = trackingSync?.status === "queued" || trackingSync?.status === "running";
+  // The job's tracking sheet and the last push into it — ./useTrackingPush.
+  const { trackingTarget, trackingChecked, trackingSync, setTrackingSync, trackingBusy } = useTrackingPush({
+    canTrack,
+    jobId,
+    ym,
+  });
 
-  useEffect(() => {
-    // A new job starts unresolved — clear the old job's target so its Sync
-    // button can't linger on the wrong sheet while the new read is in flight.
-    setTrackingTarget(null);
-    setTrackingChecked(false);
-    if (!canTrack || !jobId) return;
-    let alive = true;
-    (async () => {
-      try {
-        const res = await fetch("/api/tracking-sheet", { cache: "no-store" });
-        if (!res.ok) return; // non-fatal — stays unchecked, button stays hidden
-        const b = await res.json();
-        if (!alive) return;
-        const hit = (
-          (b.jobs ?? []) as { id: string; label: string; jtJobId: string; url: string }[]
-        ).find((j) => j.jtJobId === jobId);
-        if (hit) setTrackingTarget({ projectId: hit.id, label: hit.label, url: hit.url });
-        // Only a clean read flips this on: a transient API failure hides the
-        // button rather than wrongly offering to "Link" a sheet that exists.
-        setTrackingChecked(true);
-      } catch {
-        /* non-fatal — stays unchecked */
-      }
-    })();
-    return () => {
-      alive = false;
-    };
-  }, [canTrack, jobId]);
-
-  // A month change invalidates the result on screen — it describes another
-  // billing period.
-  useEffect(() => setTrackingSync(undefined), [ym]);
-
-  // ---- pre-send check (the invoice review's checks, on this job) -----------
-  // State lives here, not inside PreSendCheck, so both triggers — the bottom
-  // action row and the phone's action drawer — sit outside the card, which
-  // stays purely the result.
-  const [preSend, setPreSend] = useState<PreSendResult | null>(null);
-  const [preSendRunning, setPreSendRunning] = useState(false);
-  const [preSendError, setPreSendError] = useState("");
-  const runPreSend = useCallback(async () => {
-    if (!jobId) return;
-    setPreSendRunning(true);
-    setPreSendError("");
-    setPreSend(null);
-    try {
-      const res = await fetch(
-        `/api/invoice-review/job?jobId=${encodeURIComponent(jobId)}&ym=${encodeURIComponent(ym)}`,
-      );
-      const json = await res.json();
-      if (!res.ok) throw new Error(json?.error ?? "The check failed.");
-      setPreSend(json as PreSendResult);
-    } catch (e) {
-      setPreSendError(e instanceof Error ? e.message : "The check failed.");
-    } finally {
-      setPreSendRunning(false);
-    }
-  }, [jobId, ym]);
-  // A month or job change describes another period — drop the stale result.
-  useEffect(() => {
-    setPreSend(null);
-    setPreSendError("");
-  }, [jobId, ym]);
+  // ---- pre-send check (the invoice review's checks, on this job) — ./usePreSendCheck
+  const { preSend, preSendRunning, preSendError, runPreSend } = usePreSendCheck({ jobId, ym });
 
   const [codeQuery, setCodeQuery] = useState("");
   // Divisions the user has rolled up. Empty = all open, so the rail keeps
