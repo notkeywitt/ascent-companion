@@ -70,7 +70,7 @@ export const COPY: Record<string, CopyEntry> = {
   "home.quick.mileage.label": { text: "Miles", label: "Mileage — bar", group: "Bottom bar", short: true },
   "home.quick.employee-time.label": { text: "Time", label: "Time — bar", group: "Bottom bar", short: true },
   "home.quick.tools.label": { text: "Tools", label: "Tools — bar", group: "Bottom bar", short: true },
-  "home.quick.requisitions.label": { text: "Reqs", label: "Requisitions — bar", group: "Bottom bar", short: true },
+  "home.quick.requisitions.label": { text: "Requisitions", label: "Requisitions — bar", group: "Bottom bar", short: true },
   "home.quick.time-off.label": { text: "Time Off", label: "Time Off — bar", group: "Bottom bar", short: true },
 
   // ── Home launcher: Financials destinations ───────────────────────────────
@@ -256,8 +256,8 @@ export const COPY: Record<string, CopyEntry> = {
   },
 
   // ── Home launcher: Admin destinations ────────────────────────────────────
-  "home.dest.admin.label": { text: "Admin", label: "Admin — name", group: "Home — Admin" },
-  "home.dest.admin.desc": { text: "Who can sign in", label: "Admin — description", group: "Home — Admin" },
+  "home.dest.admin.label": { text: "Access", label: "Access — name", group: "Home — Admin" },
+  "home.dest.admin.desc": { text: "Who can sign in, and what each role can open", label: "Access — description", group: "Home — Admin" },
   "home.dest.logs.label": { text: "System Logs", label: "System Logs — name", group: "Home — Admin" },
   "home.dest.logs.desc": {
     text: "The automation audit trail",

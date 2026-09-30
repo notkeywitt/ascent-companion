@@ -62,7 +62,7 @@ export default async function OfficePage({
   return (
     <main className="mx-auto max-w-2xl px-4 pb-24 pt-6">
       <PageHeader
-        title="Office"
+        title="Office Dashboard"
         description="The Office job's to-dos and files."
       />
 

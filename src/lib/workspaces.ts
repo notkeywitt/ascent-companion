@@ -123,8 +123,8 @@ export const WORKSPACES: Workspace[] = [
     title: "My Work",
     desc: "Your time, miles, tools, requisitions and time off.",
     tabs: [
-      tab("employee-time", "/employee-time", "Employee Time", "Log and review your hours"),
-      tab("mileage", "/mileage-tracker", "Mileage", "Track your mileage"),
+      tab("employee-time", "/employee-time", "Time", "Log and review your hours"),
+      tab("mileage", "/mileage-tracker", "Miles", "Track your mileage"),
       tab("tools", "/tools", "Tools", "The tool tracker"),
       tab("requisitions", "/requisitions", "Requisitions", "Request materials & supplies"),
       tab("time-off", "/time-off", "Time Off", "Request time off & see your balance"),
@@ -146,7 +146,7 @@ export const WORKSPACES: Workspace[] = [
     title: "Admin",
     desc: "Access, the app's wording and look, and the audit trails.",
     tabs: [
-      tab("admin", "/admin", "Admin", "Who can sign in"),
+      tab("admin", "/admin", "Access", "Who can sign in, and what each role can open"),
       tab("page-copy", "/admin/copy", "Page Text", "Reword the app's on-screen text"),
       tab("theme-editor", "/theme", "Theme", "Tune the palette with pickers and sliders, and see it live"),
       tab("logs", "/logs", "System Logs", "The automation audit trail"),

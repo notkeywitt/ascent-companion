@@ -120,7 +120,7 @@ export const HELP: HelpSection[] = [
         ],
         notes: [
           "The bar at the bottom of the screen holds the pages you use most.",
-          "**Today** in the bar takes you back to the home page.",
+          "**Today** in the bar takes you back to the home page. A field bar has no Today: its five pages are the whole app.",
           "To put a page on the bar, tap **Pin to bar** in the menu, then tap the page.",
           "Your role decides which pages you see.",
           "This help page is in the **Help** group of the menu.",
@@ -139,7 +139,7 @@ export const HELP: HelpSection[] = [
         notes: [
           "Type a number alone to look up that bill number.",
           "The box searches pages, vendors, bills, line items and this help page.",
-          "Field users have no search box. Use the buttons on **Home**.",
+          "Field users have no search box. Use the bar at the bottom of the screen, or **☰**.",
         ],
       },
       {
@@ -383,27 +383,6 @@ export const HELP: HelpSection[] = [
           "The app needs a topic, a lead, and one signed person minimum.",
           "The app files a signed roster PDF in Drive and gives you the link.",
           "The pad needs no camera and no location.",
-        ],
-      },
-      {
-        id: "rfi",
-        q: "How do I raise an RFI?",
-        view: "rfis",
-        href: "/rfis",
-        keywords: ["rfi", "request for information", "question", "architect"],
-        steps: [
-          "Open **RFIs**.",
-          "Select the job.",
-          "Tap **+ New RFI**.",
-          "Write the **Subject**.",
-          "Write the assignee and the dates.",
-          "Save the form.",
-        ],
-        notes: [
-          "The subject is necessary.",
-          "Tap an RFI to open it, write the **Answer**, and set its status.",
-          "A text field saves when you tap away from it. A date and a status save at once.",
-          "RFIs stay in this app. They do not reach JobTread.",
         ],
       },
     ],
@@ -773,7 +752,7 @@ export const HELP: HelpSection[] = [
         href: "/admin",
         keywords: ["admin", "access", "allowlist", "add user", "remove user", "role"],
         steps: [
-          "Open **Admin**.",
+          "Open **Access** (☰ menu → Admin).",
           "Type the person's Ascent email address.",
           "Tap **Add**.",
           "Set their role.",

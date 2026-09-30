@@ -822,7 +822,7 @@ export default function MileageTrackerPage() {
   return (
     <main className="mx-auto max-w-2xl px-4 pb-24 pt-6">
       <PageHeader
-        title="Mileage"
+        title="Miles"
         description="One tap to start, one tap to end. Miles are figured from where you start and stop."
       />
 

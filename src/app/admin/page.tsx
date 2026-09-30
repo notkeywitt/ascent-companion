@@ -54,7 +54,7 @@ export default function AdminPage() {
   return (
     <main className="mx-auto max-w-xl px-4 pb-24 pt-6">
       <PageHeader
-        title="Admin"
+        title="Access"
         description="Who can sign in, what each person can see, how the panel is being used, and the Daily Digest's settings."
         className="!mb-4"
       />

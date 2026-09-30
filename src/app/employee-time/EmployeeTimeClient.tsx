@@ -527,7 +527,7 @@ function downscale(file: File): Promise<Photo> {
 function employeeTimeTitle(state: "checking" | "linked" | "unlinked", who: string) {
   return (
     <span className="flex items-center gap-3">
-      Employee Time
+      Time
       {state === "checking" ? (
         <Chip tone="neutral" title="Looking up your JobTread account…">
           Checking

@@ -57,8 +57,8 @@ describe("the bottom bar", () => {
   it("gives leads a Today slot, and field staff their five pages", () => {
     expect(barFor("lead", canFor("lead"))[0].key).toBe("today");
     expect(barFor("field", canFor("field")).map((i) => i.label)).toEqual([
-      "Employee Time",
-      "Mileage",
+      "Time",
+      "Miles",
       "Tools",
       "Requisitions",
       "Time Off",
