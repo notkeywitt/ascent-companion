@@ -4,9 +4,9 @@ repo: ascent-companion
 branch: claude/ascent-app-simplify-w613c1
 status: shipped
 started: 2026-09-29T15:13:06Z
-updated: 2026-09-30T13:05:33Z
+updated: 2026-09-30T13:18:53Z
 goal: Fix the Tracking Sheets sales-tax crash, then the loose ends from the 2026-09-30 progress check of NAVIGATION_PLAN.md stages 0-3
-next: Owner answers the 10 decisions in NAVIGATION_PLAN.md; then Stage 0: gate /api/time-off/import on time-off-admin and /api/labor-report, re-gate + Add bill on recode, add npm test to pre-push.
+next: Ship claude/ascent-app-simplify-w613c1 to main (npm run ship) once the labels-help and layout-docs review lenses report clean. Owner still to answer: Push as Expense account (always 271 Capital One Sparks). Owner: ./deploy.sh in ascent-appscript for Code this bill.
 ---
 
 ## Log
@@ -28,6 +28,8 @@ next: Owner answers the 10 decisions in NAVIGATION_PLAN.md; then Stage 0: gate /
   ARCHITECTURE_REVIEW.md, CLAUDE.md, CODEBASE_MAP.md, NAVIGATION_PLAN.md, README.md, SIMPLICITY_AUDIT.md, +2 more
 - 2026-09-30 13:05 · `6db3068` companion: delete the refresh provider and digest-instructions route files
   src/app/api/admin/digest-instructions/route.ts, src/components/RefreshProvider.tsx
+- 2026-09-30 13:18 · `0373e79` companion: no tab strip for field and lead, leads open on time, lift the help mark off the bar
+  USER_MANUAL.md, src/app/page.tsx, src/components/PageGuide.tsx, src/components/WorkspaceTabs.tsx
 
 ## Notes
 - 2026-09-29 15:13 — Plan: regroup 58 routes into 10 workspaces with tab strips carrying jobId+ym; Home becomes Today (queue); one list (src/lib/workspaces.ts) feeds bar, rail, menu, search. Routes and view ids stay. Full plan NAVIGATION_PLAN.md; web version https://claude.ai/artifact/2RBRreUQTJFzexsFHQyGL1
