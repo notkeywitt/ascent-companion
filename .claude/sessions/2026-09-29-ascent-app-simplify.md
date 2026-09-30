@@ -2,9 +2,9 @@
 slug: ascent-app-simplify
 repo: ascent-companion
 branch: claude/ascent-app-simplify-w613c1
-status: in-progress
+status: shipped
 started: 2026-09-29T15:13:06Z
-updated: 2026-09-30T12:50:46Z
+updated: 2026-09-30T12:50:47Z
 goal: Fix the Tracking Sheets sales-tax crash, then the loose ends from the 2026-09-30 progress check of NAVIGATION_PLAN.md stages 0-3
 next: Owner answers the 10 decisions in NAVIGATION_PLAN.md; then Stage 0: gate /api/time-off/import on time-off-admin and /api/labor-report, re-gate + Add bill on recode, add npm test to pre-push.
 ---

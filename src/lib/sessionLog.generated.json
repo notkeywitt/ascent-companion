@@ -1,7 +1,33 @@
 {
-  "generatedAt": "2026-09-30T04:46:04Z",
+  "generatedAt": "2026-09-30T12:50:47Z",
   "repo": "ascent-companion",
   "sessions": [
+    {
+      "slug": "ascent-app-simplify",
+      "file": "2026-09-29-ascent-app-simplify.md",
+      "branch": "claude/ascent-app-simplify-w613c1",
+      "status": "shipped",
+      "started": "2026-09-29T15:13:06Z",
+      "updated": "2026-09-30T12:50:47Z",
+      "goal": "Fix the Tracking Sheets sales-tax crash, then the loose ends from the 2026-09-30 progress check of NAVIGATION_PLAN.md stages 0-3",
+      "next": "Owner answers the 10 decisions in NAVIGATION_PLAN.md; then Stage 0: gate /api/time-off/import on time-off-admin and /api/labor-report, re-gate + Add bill on recode, add npm test to pre-push.",
+      "commits": [
+        {
+          "date": "2026-09-29",
+          "time": "15:13",
+          "sha": "4be25ab",
+          "subject": "companion: add navigation plan — ten workspaces, a today queue, one menu list",
+          "files": "CODEBASE_MAP.md, NAVIGATION_PLAN.md"
+        },
+        {
+          "date": "2026-09-30",
+          "time": "12:50",
+          "sha": "4373647",
+          "subject": "companion: stop tracking sheets crashing when a sales-tax figure is staged",
+          "files": "src/app/trackingsheet/Board.tsx"
+        }
+      ]
+    },
     {
       "slug": "board-split",
       "file": "2026-09-29-board-split.md",
@@ -356,25 +382,6 @@
           "sha": "13faacf",
           "subject": "companion: run tests in pre-push, delete dead navigation code",
           "files": ".githooks/pre-push, CODEBASE_MAP.md, src/app/admin/DigestInstructionsPanel.tsx, src/app/admin/page.tsx, src/app/trackingsheet/AllBills.tsx, src/app/trackingsheet/AllJobs.tsx, +5 more"
-        }
-      ]
-    },
-    {
-      "slug": "ascent-app-simplify",
-      "file": "2026-09-29-ascent-app-simplify.md",
-      "branch": "claude/ascent-app-simplify-w613c1",
-      "status": "shipped",
-      "started": "2026-09-29T15:13:06Z",
-      "updated": "2026-09-29T15:13:21Z",
-      "goal": "Evaluate the app's pages, menus and names; propose a simpler navigation (fewer page changes per task)",
-      "next": "Owner answers the 10 decisions in NAVIGATION_PLAN.md; then Stage 0: gate /api/time-off/import on time-off-admin and /api/labor-report, re-gate + Add bill on recode, add npm test to pre-push.",
-      "commits": [
-        {
-          "date": "2026-09-29",
-          "time": "15:13",
-          "sha": "4be25ab",
-          "subject": "companion: add navigation plan — ten workspaces, a today queue, one menu list",
-          "files": "CODEBASE_MAP.md, NAVIGATION_PLAN.md"
         }
       ]
     },
