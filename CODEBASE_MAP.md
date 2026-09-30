@@ -459,7 +459,7 @@ Grouped by domain; each folder is `…/route.ts`.
   triggers: `SplashScreen` on app open, `RouteLoadingScreen` on an in-app tap,
   and `src/app/loading.tsx` for hard loads; the last two only fade in past
   180ms, so a fast page swap stays silent),
-  `RefreshProvider`, `SyncNowButton`,
+  `SyncNowButton`,
   `AccessProvider`, `CopyProvider` (editable page text —
   `useCopy()`), `UsageBeacon`, `PreviewBanner` (the admin's "viewing as {role}"
   bar + its "Return to my view" link — see `src/lib/preview.ts`).

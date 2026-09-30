@@ -317,7 +317,7 @@ build time. The page renders an empty list.
 2. Keep `pave()` and the cache in one file. Every other file calls it.
 3. Do this after the board split in finding 01. Both touch the same code.
 
-### 09 — The tests run after the deploy, not before · FIGURES
+### 09 — The tests run after the deploy, not before · FIGURES · ✅ FIXED 2026-09-29
 
 `main` is production and a push deploys at once.
 
@@ -345,7 +345,11 @@ the code is live for field staff.
 
 Option A tells you before the code leaves the machine. Option B tells you after.
 
-### 10 — Code that ships and does nothing · DEAD WEIGHT
+**What shipped.** Option A, 2026-09-29 (13faacf): `.githooks/pre-push` runs
+typecheck, then `npm test`, then the build, and stops at the first failure.
+`CLAUDE.md` Shipping item 1 names all three.
+
+### 10 — Code that ships and does nothing · DEAD WEIGHT · ✅ FIXED 2026-09-30
 
 - `/coding` (310 lines) and `/stage` (518 lines) — retired, zero inbound links, still routed, still gated
 - a `RETIRED` set in `lib/pagesMenu.ts` exists only to hide those two from the menu
@@ -363,6 +367,13 @@ digest instructions into it today, save them, and nothing reads them.
 3. Delete their entries in `views.ts` and the `RETIRED` set in `pagesMenu.ts`.
 4. Delete `components/RefreshButton.tsx`.
 5. Keep the `digest_instructions` table. Delete the rows only when you are sure nobody wants them.
+
+**What shipped.** 2026-09-29: `DigestInstructionsPanel`, `RefreshButton`,
+`/coding`, `/stage`, their view ids and `pagesMenu.ts` (with its `RETIRED` set)
+deleted; the two routes redirect to Today. 2026-09-30: the route behind the
+panel, `/api/admin/digest-instructions`, and `RefreshProvider` (inert once
+RefreshButton went) deleted. The `digest_instructions` table stays: the digest
+reply box still writes it.
 
 ### 11 — Six Claude clients, forty-five raw settings · CHANGE COST
 
@@ -438,8 +449,8 @@ Correctness first, then the cheap wins, then the two large splits.
 | # | Finding | Why now | Size |
 |---|---|---|---|
 | 1 | 02 · paging ✅ | Done 2026-09-14 — the only one that can print a wrong total | Half a day |
-| 2 | 09 · test gate | Protects every change after it | One hour |
-| 3 | 10 · dead code | An admin can type into an inert panel today | One hour |
+| 2 | 09 · test gate ✅ | Done 2026-09-29 — protects every change after it | One hour |
+| 3 | 10 · dead code ✅ | Done 2026-09-30 | One hour |
 | 4 | 06 · `format.ts` | Stops the same figure printing two ways | Half a day |
 | 5 | 11 · one Claude client | Small, contained, removes five copies | Two hours |
 | 6 | 04 · remove the gateway | Also closes the bill-delete door | Two hours |

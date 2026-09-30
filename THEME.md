@@ -18,7 +18,7 @@ account — the office desktop and a phone in the field can differ).
 
 | | What it picks | How it is set | Where the user changes it |
 |---|---|---|---|
-| **Palette** | which set of colours | `data-palette` on `<html>` | Appearance, on the home page |
+| **Palette** | which set of colours | `data-palette` on `<html>` | Appearance, in the ☰ menu |
 | **Theme** | light or dark within it | `.dark` on `<html>` | the same card, or tap the header logo |
 
 Every palette defines BOTH themes, so all four combinations are real.
@@ -47,7 +47,7 @@ match it in the layout.tsx script, and record it here. No component changes.
 ## Editing a palette — `/theme`
 
 **Tune it with the editor, then paste the result into `globals.css`.** The
-editor is admin-only and reachable from Appearance on the home page.
+editor is admin-only and reachable from Appearance in the ☰ menu.
 
 Why it works: every value above is a CSS variable on `<html>`, so the editor
 writes them as INLINE styles, which beat any stylesheet rule. One change

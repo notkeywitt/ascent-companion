@@ -57,7 +57,7 @@ you're deciding whether to trust it, here's what matters:
   - The desktop side panel sits *beside* JobTread in its own frame; it does **not** modify
     JobTread's own screens, so it can't interfere with how JobTread works.
 - **Everything is logged.** Every automated action — pushing a bill, syncing, ingesting an
-  invoice — is written to an audit trail (the **Logs** page) with a timestamp and result, so
+  invoice — is written to an audit trail (the **System Logs** page) with a timestamp and result, so
   there's always a record of what happened and when.
 - **Minimal data, plainly stated.** The app reads only what it needs: on JobTread pages the
   side panel reads the job number from the address bar and nothing else, and Google sign-in is
@@ -76,6 +76,9 @@ you're deciding whether to trust it, here's what matters:
 5. [Safety & the field](#safety--the-field)
 6. [Utilities](#utilities)
 7. [Tips, permissions & troubleshooting](#tips-permissions--troubleshooting)
+
+The section names are this manual's. The app groups the same pages into
+workspaces — see *Finding your way around*.
 
 ---
 
@@ -115,75 +118,93 @@ JobTread, the panel **follows along** and shows the same job automatically.
 
 ## Finding your way around
 
-The bar at the very top of every screen follows you everywhere. Left to right:
-the **Ascent logo**, the **search box**, and **➕ Add bill**.
+Every page sits in a **workspace** — a group named for a job the office
+repeats. There are ten: **Today**, **Month Close**, **Incoming Bills**,
+**Clients**, **People**, **Search**, **Office**, **My Work**, **Help** and
+**Admin**. You see only the pages your role can open.
 
-**Tap the Ascent logo to switch between light and dark theme.** It is the only
-light/dark control — there is no separate ☀/☾ button. Use the **Home** tab at the
-bottom of the screen to reach the Home launcher.
+### The top bar
+
+The bar at the top of every screen, left to right:
+
+- **☰** opens the menu (below).
+- **‹** goes back one page. It is absent on Today.
+- **The Ascent logo** switches light and dark theme. It is the only light/dark
+  control.
+- **The search box** (not on a field login — see below).
+- **＋ Add bill** adds a vendor bill (office and admin).
+
+### The ☰ menu
+
+The menu lists every page you can open, grouped by workspace. The workspace
+you are in opens at the top. Its foot holds the pages that belong to no
+workspace (the **Assistant**, **LopezRocks**) and your settings for this device:
+**Appearance**, **Desktop alerts** and **Sign out**.
+
+**Pin to bar** puts one page of your choice on the bottom bar, on this device.
+
+### The bottom bar, and the rail on an iPad
+
+The bottom bar holds up to five slots, set by your role:
+
+| Role | Bar |
+|---|---|
+| Field | Time · Miles · Tools · Requisitions · Time Off |
+| Lead | Today · Time · Miles · Tools · Requisitions |
+| Office | Today · Month Close · Incoming Bills · Miles · My Work |
+| Admin | Today · Month Close · Incoming Bills · Office · My Work |
+
+A workspace slot opens the first page of that workspace. On an iPad, and wider,
+the bar becomes a rail down the left edge with every workspace on it.
+
+### The tab strip
+
+Inside a workspace, a row of tabs sits under the top bar. Each tab is one page
+of that workspace. **The tabs carry the job and the billing month you picked**,
+so Invoice Review opens on the same job and month you were coding on Tracking
+Sheets. Month Close lists its tabs in close order: Tracking Sheets, Labor
+Review, Bill Corrections, Taxable Flags, Invoice Review, Invoicing Package,
+Finalize.
+
+### Today
+
+Today is the home page. It shows what needs you, one row per queue, each with a
+count: **Bills to code**, **Bill Corrections**, **Time Sync**, **Time off to
+approve**, **Requisitions**, **Sunset** and **App Feedback**. A row appears only
+when it has something in it and you can act on it. Tap **Bills to code** to open
+the list of draft bills in place.
+
+Above the rows: the **billing month** control (office and admin, at every
+width), and banners for bills stuck on a missing vendor or not in JobTread.
+Below them: the Office job's to-dos, your own to-dos (admin), **Active jobs** and
+**Leads**.
+
+A field login opens on **Time** instead.
 
 ### Search (important)
 
 The search box answers "take me to the thing I'm thinking of" from any page. Type
-and it offers **pages**, **vendors**, and **bills and line items** (search "2x4" and
-it finds the bill that line is on). A number on its own offers an org-wide bill
-lookup.
+and it offers **pages** (every tab of every workspace), **help topics**,
+**vendors**, and **bills and line items** (search "2x4" and it finds the bill
+that line is on). A number on its own offers an org-wide bill lookup.
 
 ### The job picker (important)
 
 The job picker is the **title of the Tracking Sheets page** — the job's name, with a
-small ▾ beside it. **The job you pick there is the job the financial pages act on.**
-Tap it, then type to search by customer, job number, name, or address, and choose a
-job — or choose **"All jobs"** for the month's every-job view.
+small ▾ beside it. Tap it, then type to search by customer, job number, name, or
+address, and choose a job — or choose **"All jobs"** for the month's every-job view.
 
-- Your choice rides in the address bar, so it is remembered as you move between tabs.
-- Some pages (Coding Review) can show *all* jobs at once; others (Invoicing, Unbilled,
-  Add a Bill) need one specific job and will prompt you to pick one on Tracking Sheets.
+- Your choice rides in the address bar, and the tab strip carries it to the next tab.
 - It warns you first if you have unsaved coding on the job you are leaving.
 
-**➕ Add bill** in the top bar is a shortcut to add a bill to the currently selected
-job from anywhere.
+### Sync Now
 
-### The tabs and the Home launcher
-
-- **Coding Review** and **Invoicing** are always-visible tabs.
-- **More ▾** holds everything else, grouped by purpose (Assistant, Billing, Field,
-  Office, System).
-- The **Home** tab (bottom-left) opens the **Home** launcher — big, thumb-sized buttons
-  for every page, grouped into **Financials, Tools, Safety, Utilities**. This is the
-  easiest way to get around on a phone.
-
-### The panels above the Home launcher (office and admin)
-
-Two panels sit above the buttons, in this order. Each one hides itself when it
-has nothing to say. Admins get a third, the **Daily Digest** (see below), and
-the row of admin action buttons at the very bottom of the page.
-
-- **Active jobs** — a card per job JobTread marks Phase = Active: budget spent, and
-  what is on the calendar today. Tap the card for the job's tracking sheet.
-- **Leads** — the pipeline as the same row of cards, **ordered by last contact**.
-  Each card carries the client name, the address, the date of the last logged
-  contact, the project scope and the next step. Two chips flip the order:
-  **Longest ago** (the default — who has gone quiet) and **Most recent**. Tap the
-  heading to fold the whole panel away; the phone remembers. Tap a card and you
-  land on that lead on the **Leads** page — it scrolls to it and opens it, which
-  is where you write the scope and the next step.
-
-  The day count on each card turns **amber**, then **red**, as a lead goes quiet.
-  You set both points yourself: **Leads → Colour thresholds**. That one setting
-  also drives the quiet marks on the Leads page, its **Gone quiet** filter and its
-  **Quiet** headline count, so nothing can call a lead quiet while the panel
-  paints it calm. It applies to everyone, not just the device you set it on.
-
-### Sync Drive
-
-At the **bottom of Tracking Sheets**, in the closing row with **Sync to Tracking
-Sheet**, **Check this job** and **Approve Draft Bills**. It pushes
-JobTread's latest changes into the Sheets and Drive folders right now, instead of
-waiting for the hourly automatic sync. It confirms the sync was *queued*, not that it
-finished (a full sync takes ~15 minutes). If a sync is already running you'll see
-**"Already running"** in amber — that's normal; nothing new was started, so don't keep
-clicking.
+**Month Close → Tracking Sheets**, with **All jobs** picked, in the **Company tools**
+card. It pushes JobTread's latest changes into the Sheets and Drive folders right
+now, instead of waiting for the hourly automatic sync. It confirms the sync was
+*queued*, not that it finished (a full sync takes ~15 minutes). If a sync is already
+running you'll see **"Already running"** in amber — that's normal; nothing new was
+started, so don't keep clicking.
 
 ---
 
@@ -210,28 +231,27 @@ green **➕ Add bill** button (it carries whichever job is selected).
 > **Good to know:**
 > - If the vendor can't be matched, you'll be asked to pick one and resubmit.
 > - Any line whose cost code isn't in the job's budget lands **uncoded** — a warning tells
->   you to finish it in Coding Review.
+>   you to finish it on Tracking Sheets (**Review coding →** opens the bill).
 > - The billing month comes from the **upload date**, not a date printed on the invoice.
 > - Uploading the same invoice twice won't create a duplicate.
 
-### Coding Review — `/coding`
+### Bills to code — **Today**
 
-Your inbox of draft vendor bills that still need a cost code. This is the main tab.
+Draft vendor bills that still need a cost code, across every job and month. The
+**Bills to code** row on Today shows the count; tap it to open the list.
 
-- Pick a **job** (or stay on **All jobs**) at the top; the list loads automatically.
-- Each card shows the vendor, a status badge, the amount, and the issue date. In All-jobs
-  view it also shows which job the bill is on. A **running count** and **dollar total**
-  sit above the list.
-- Tap any bill to open its **detail page** and code it. (In the desktop side panel,
+- Each row shows the vendor, the job, the issue date and the amount.
+- Tap a bill to open its **detail page** and code it. (In the desktop side panel,
   tapping also opens that bill in JobTread beside the app.)
-- Reviewed bills are hidden by default; use **Show reviewed** to bring them back.
+- To code a job's whole month instead, use **Month Close → Tracking Sheets**.
 
 > Amounts already **include tax** — don't add it again in your head.
 
 ### The bill detail / coding screen — `/bill/…`
 
 The workhorse editing screen: review one bill, assign cost codes, adjust amounts, mark it
-reviewed. You reach it by tapping a bill in Coding Review.
+reviewed. You reach it by tapping a bill on Today's **Bills to code** list, in search, or
+on Tracking Sheets below desk width.
 
 At the top: a **‹ Coding queue** link, **‹ Prev / Next ›** arrows to step through the
 job's draft bills (with a "2 / 7" counter), a **Refresh** button, an **Open in JobTread ↗**
@@ -260,19 +280,20 @@ You can also set the **Billing month**, add a line with **+ Add line**, **Move t
 >   you'll land on the new job's coding queue afterward. It asks you to confirm first.
 > - **Mark reviewed** is an Assistant-only flag — it doesn't change anything in JobTread.
 
-### Needs Project — `/needs-project`
+### Not in JobTread — **Incoming Bills → Not in JobTread**
 
-Bills that were ingested automatically but the system couldn't tell which job they belong
-to. Each row here has its **own** job picker (it doesn't use the Tracking Sheets one).
+Bills the automations captured that never reached JobTread. The page holds three
+lists, each shown only when it has rows:
 
-1. Tap **View PDF ↗** to see what the bill is.
-2. Pick the correct **job** and tap **Assign** — the bill is pushed to that job in
-   JobTread and re-filed in Drive, and the row disappears.
-3. If it's a duplicate, already handled, or not a bill, tap **Dismiss** (this is
-   non-destructive — it keeps the row and PDF and just stops showing it here; it asks you
-   to confirm).
+- **No job yet** — the system could not tell which job the bill belongs to. Tap
+  **View PDF ↗**, pick the correct **job** and tap **Assign**: the bill is pushed to
+  that job in JobTread and re-filed in Drive. If it's a duplicate or not a bill, tap
+  **Dismiss** (non-destructive — it keeps the row and PDF and asks you to confirm).
+- **Vendor not in JobTread** — the vendor has no JobTread account yet, so the push
+  failed. Create the vendor, then the bill goes through.
+- **Never pushed** — the bill has a job but no JobTread document yet. Push it from here.
 
-### Email Invoices — `/email`
+### Email Invoices — **Incoming Bills → Email Invoices**
 
 Files invoice emails from the office inbox to a job in one click. Replaces the old Gmail
 add-on. Each email row has its own job picker.
@@ -289,7 +310,7 @@ add-on. Each email row has its own job picker.
 
 > Logging runs live and takes roughly **15–45 seconds per invoice**.
 
-### Unbilled — `/unbilled`
+### Unbilled — **Clients → Unbilled**
 
 A read-only dashboard: how much approved cost on a job has **not yet** been billed to the
 customer. **Requires a specific job.**
@@ -299,24 +320,19 @@ broken into approved bill cost, invoiced, draft (staged) invoice, and draft bill
 code — with a table rolling everything up by type and status. There's a shortcut link back
 to the coding queue.
 
-### Invoicing — `/stage`
+### Invoicing a job — **Month Close → Tracking Sheets**
 
-Builds a preview of what to bill a customer for a chosen month, then hands off to JobTread
-to create the actual invoice. **Requires a specific job.**
+Pick the job and the billing month on Tracking Sheets. The **Summary** view is the
+client's billing summary (with **Group by CSI** and **Print / Save PDF**). At the
+bottom, **Check this job** runs the pre-send checks, **Approve Draft Bills** approves
+what is left, and **Create Invoice in JobTread ↗** opens JobTread's invoice builder,
+which pulls exactly the uninvoiced bills and time. Date it the last day of the month,
+review, and send.
 
-1. Select the job and the **Invoice date (billing month)** (defaults to last month).
-2. Adjust the toggles if needed — **Uninvoiced only**, **Filter by billing month**,
-   **Include draft bills**, **Group by CSI code**.
-3. Review the line-item table and **Total**.
-4. Use **Print / Save PDF** for a clean Ascent-letterhead billing summary.
-5. Tap **Create invoice in JobTread ↗**, then in JobTread do **New → Customer Invoice** —
-   its builder pulls exactly these uninvoiced bills and time. Date it the last day of the
-   month, review, and send.
+> The app does **not** create the invoice itself — JobTread does. The month-wide checks
+> are **Month Close → Invoice Review**; the month's summary doc is **Invoicing Package**.
 
-> This page does **not** create the invoice itself — JobTread does. If nothing shows, it
-> means every approved bill on the job is already invoiced.
-
-### Payments — `More ▾ → Payments`
+### Sunset Statements — **Incoming Bills → Sunset Statements**
 
 One-click paying of Sunset (fuel/materials) statements at TSYS.
 
@@ -333,7 +349,7 @@ One-click paying of Sunset (fuel/materials) statements at TSYS.
 
 ## Tools
 
-### Tool Inventory — `/tools`
+### Tools — **My Work → Tools**
 
 The master list of every company tool: look one up, edit its details, move it to a job by
 scanning its QR sticker, or register a brand-new tool.
@@ -361,7 +377,7 @@ scanning its QR sticker, or register a brand-new tool.
 
 ## Safety & the field
 
-### Safety Meeting — `/safety-meeting`
+### Safety Meeting — **People → Safety Meeting**
 
 Records attendance and signatures for a toolbox/safety talk, then produces a signed roster
 PDF. Designed to be filled on one iPad passed around the crew.
@@ -375,7 +391,7 @@ PDF. Designed to be filled on one iPad passed around the crew.
 
 > No camera or GPS needed — just the touch/stylus signature pad.
 
-### Mileage — `/mileage-tracker`
+### Miles — **My Work → Miles**
 
 Logs business driving. Because a phone can't track GPS in the background, you tap once when
 you leave and once when you arrive; the app fills in the miles and street addresses.
@@ -391,7 +407,7 @@ you leave and once when you arrive; the app fills in the miles and street addres
 > **Location permission is required** for the Start/End flow. Log each stop of a
 > multi-stop trip as its own leg. Your driver choice is remembered on the device.
 
-### Employee Time — `/employee-time`
+### Time — **My Work → Time**
 
 Your time clock. Two tabs at the top: **Time clock** (clock in and out) and **Timesheets**
 (what you have already logged). Everything is written to JobTread and to the company record.
@@ -444,7 +460,7 @@ entry that day), **Pending**, or **Clocked in**. Tap any entry to open your time
 
 ## Utilities
 
-### Assistant (Chat) — `More ▾ → Chat`
+### Assistant — **☰ menu, at the foot**
 
 Ask plain-English questions about jobs, bills, budgets, and unbilled amounts. It looks the
 answers up live in JobTread.
@@ -456,9 +472,10 @@ answers up live in JobTread.
 > **Read-only.** The Assistant can look things up but **cannot** change, approve, code, or
 > create anything. The conversation isn't saved — refreshing starts over.
 
-### RFIs — `/rfis`
+### RFIs — `/rfis` (not in the menus)
 
-View and manage a job's Requests for Information. **Requires a job.**
+View and manage a job's Requests for Information. **Requires a job.** RFIs left the
+menus on 2026-09-29 because nobody logs them; the page still opens by its address.
 
 - The list shows each RFI's number, subject, assignee, dates, and a status pill (**open /
   answered / closed**).
@@ -469,7 +486,7 @@ View and manage a job's Requests for Information. **Requires a job.**
 > RFIs are stored in the Assistant's own records, not written into JobTread. There's no
 > delete and no confirmation prompt — changes save quietly.
 
-### Employees — `/employees`
+### Employees — **People → Employees**
 
 The company roster (the "Project Database"). Search, filter, sort, edit each person, and
 link them to their JobTread user account.
@@ -483,7 +500,7 @@ link them to their JobTread user account.
 > **This edits the live roster immediately** — there's no confirmation and no undo. Only the
 > fields you change are written.
 
-### Labor Import — `/labor-import`
+### Labor Import — **People → Labor Import**
 
 Turns the monthly QuickBooks Time labor CSV into a CSV formatted for JobTread's "Import
 Time Entries" tool. **It never sends anything to JobTread** — it only produces a file you
@@ -501,25 +518,24 @@ download and import yourself.
 > type — are included; the rest are listed as "held back" or "dropped" with reasons. Your
 > mappings are remembered on that browser.
 
-### Actions — `More ▾ → Actions`
+### Actions — **Office → Actions**
 
 Run a background script job on demand instead of waiting for its schedule. Each card has a
 name, a description, and a **Run** button; the result note appears underneath.
 
 > **These run for real against production** (sync, ingestion, JobTread, the sheets) — no
 > preview and no confirmation. If a sync is already running you'll see "Lock busy — nothing
-> ran." Every run is also recorded in **Logs**.
+> ran." Every run is also recorded in **System Logs** (admin).
 
-### Requests — `/requests`
+### App Feedback — **Help → App Feedback**
 
-A suggestion box for fixes and new features. Tap **+ Request**, give it a title (required)
-and optional detail, and **Submit**. Anyone can reclassify a request's status (**open /
-planned / done / declined**).
+A suggestion box for fixes and new features, open to every role. Tap **+ Request**,
+give it a title (required) and optional detail, and **Submit request**. Office and admin
+set a request's status (**open / planned / done / declined**).
 
-### Notices — `/notices`
+### Notices — **Office → Notices**
 
-Announcements the whole team sees inside the app. Office and admin can post them; it is
-also the **Notices** tab on the Admin page.
+Announcements the whole team sees inside the app. Office and admin can post them.
 
 Tap **New notice** and answer four things:
 
@@ -542,10 +558,10 @@ history); **Delete** removes it and that history for good.
 > A notice that has not started yet is cancelled with the **Off** switch, not by setting an
 > end time — an end time before the start is refused.
 
-#### Desktop alerts — **Home → Desktop alerts**
+#### Desktop alerts — **☰ menu → Desktop alerts**
 
 On a computer, a notice can also pop up in the corner of the screen. Open **Desktop
-alerts** on Home, tap **Turn on**, and allow notifications when the browser asks. **Send a
+alerts** at the foot of the ☰ menu, tap **Turn on**, and allow notifications when the browser asks. **Send a
 test** proves it works.
 
 - It is **per computer**, like the theme — turning it on at the office desk does nothing to
@@ -556,18 +572,18 @@ test** proves it works.
   which the app does not have yet.
 - iPhones and iPads don't offer this at all, so the card hides itself there.
 
-### Admin (Team Access) — `More ▾ → Admin`
+### Access — **Admin → Access**
 
 Controls who can sign in with Google. Type a teammate's email and tap **Add**; tap
 **Remove** to revoke. **Founders** are fixed in the hosting config and can't be removed.
 
 > Add/Remove take effect **immediately** and there's no confirmation on Remove.
 
-### Daily Digest — the card at the top of **Home** (admins only)
+### Daily Digest — the **To Dos** card on **Today** (admins only)
 
 Your morning review, done for you before you open the app. A scheduled job runs at
 **6am Pacific** every day, works through a list of checks, and stores the answer; the
-card just shows what it stored, so opening Home is instant. A short plain-English
+card just shows what it stored, so opening Today is instant. A short plain-English
 paragraph sits at the top — that's the one thing to read if you read nothing else —
 and under it these collapsible sections:
 
@@ -626,14 +642,14 @@ they come back on) which vendors to ignore and the billing cutoff day. Ask for a
 each check can also be switched off individually. New checks get added the same way —
 one new file — so this list is expected to grow.
 
-### Logs — `/logs`
+### System Logs — **Admin → System Logs**
 
 The audit trail — a read-only, newest-first feed of everything the automations do (pushes,
 syncs, ingestion, diagnostics), each with a timestamp, a level (red error / amber warning),
 an action, and details. Type in the search/level boxes and click **Search** (it searches
 the whole log, not just what's on screen); **Refresh** reloads the latest.
 
-### Changelog — `More ▾ → Changelog`
+### Changelog — **Help → Changelog**
 
 What changed in this app, newest first, and what is still half-finished. Each row is one
 working session: the headline says what it set out to do, and tapping it opens the list of
@@ -665,6 +681,6 @@ end (the Google Apps Script half) keeps its own record in its own repository.
   re-dating, reassigning, or deleting a bill in JobTread flows back to the Assistant and
   Drive automatically through the hourly sync (or the **Sync Drive** button).
 - **Sync Drive says "Already running":** that's fine — a full sync takes ~15 minutes and
-  only one runs at a time. Wait and check **Logs** for the result.
+  only one runs at a time. Wait and check **System Logs** for the result.
 - **Side panel won't sign in:** open it in a normal browser tab once (use the "Open in a
   new tab to sign in" button), then return to the panel.

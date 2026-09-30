@@ -43,8 +43,8 @@ environments (CCR) the local `main` ref is often stale or unrelated to
 **Commit and push to `main` when a change is done.** Do not wait to be asked.
 Every one of these must hold first:
 
-1. `npm run typecheck` and `npm run build` both pass. A failure blocks the push.
-   The `.githooks/pre-push` hook enforces this. Never bypass it with
+1. `npm run typecheck`, `npm test` and `npm run build` all pass. A failure blocks
+   the push. The `.githooks/pre-push` hook enforces this. Never bypass it with
    `--no-verify`. Check the hook is armed with `git config core.hooksPath` — it
    must print `.githooks`. On a fresh clone it is empty; run
    `git config core.hooksPath .githooks` once to arm it.
@@ -132,7 +132,7 @@ branch's record, so the next session can pick the work up cold. Read
   all** — the accent AND the mark. `guidelines` is the ochre-on-cream set the
   rules below describe, now the opt-in; its tokens are the bare `:root` block,
   so its attribute value matches no rule and needs none. It is a per-device
-  choice (Appearance, on the home page). What this means when you write a
+  choice (Appearance, in the ☰ menu). What this means when you write a
   component:
   reach for the TOKEN (`accent`, `brand`, `line`, `ink`, `accent-fg`), never the
   literal (`ochre`, `offblack`), or your view will only be right in one palette
@@ -189,25 +189,29 @@ branch's record, so the next session can pick the work up cold. Read
 
 ## How to build a new page (the recipe)
 
-1. **Get JobTread data through the guarded gateway — not directly.** From a client
-   component call `gatewayQuery(query)` (`src/lib/paveGatewayClient.ts`), which
-   POSTs to `/api/pave`. The server injects the grant key; the browser never sees
-   it. Compose the `query` object from **`JT_API_REFERENCE.md`** (in this repo — the
-   complete Pave schema). Worked example end-to-end: **`src/app/jobs/`**.
+1. **Read JobTread through a purpose-built route.** Add the read to
+   `src/lib/jobtread.ts` (the typed Pave client — page with `pageAll`/`pageEach`)
+   and a `src/app/api/<name>/route.ts` that calls it. The route runs on the
+   server, so the grant key never reaches the browser. Compose the query from
+   **`JT_API_REFERENCE.md`** (in this repo — the complete Pave schema). Worked
+   example end-to-end: **`src/app/jobs/`**, which reads `/api/jobs/browser` and
+   `/api/jobs/cost-detail`. The generic gateway (`gatewayQuery` → `/api/pave`,
+   below) is not the pattern pages use; see `SIMPLICITY_AUDIT.md` finding 04.
 2. **Server page → client component.** The `page.tsx` is a server component that
-   passes non-secret context (e.g. `orgId` from `getPaveConfig()`) to a
-   `"use client"` component that runs `gatewayQuery`. (Pattern: `src/app/jobs/page.tsx`
-   → `JobsBrowser.tsx`.)
+   renders a `"use client"` component, and that component fetches the route.
+   (Pattern: `src/app/jobs/page.tsx` → `JobsBrowser.tsx`.)
 3. **Gate it.** Add a `VIEW` entry in `src/lib/views.ts` (choose a group + which
-   roles get it — a new id defaults to office+admin), and a tab in the right
+   roles get it — a new id defaults to office+admin) and list every API route the
+   page calls in that view's `paths`, or any signed-in role can call the route
+   directly. Then add a tab in the right
    workspace in `src/lib/workspaces.ts` so it's reachable — that list feeds the
    menu, the bar and the header's global search. `workspaces.test.ts` fails on a
    page that is on no workspace.
 4. **Build the UI on `ui.tsx` primitives.** Mobile-first (`max-w-2xl`, thumb-sized
    targets), theme-aware. Match the look of existing pages (`src/app/jobs`,
    `src/app/unbilled`, `src/app/budget-import`).
-5. **Verify** (`npm run typecheck` && `npm run build`) before committing — see
-   "Shipping"; the pre-push hook runs both again.
+5. **Verify** (`npm run typecheck`, `npm test`, `npm run build`) before
+   committing — see "Shipping"; the pre-push hook runs all three again.
 
 For the bigger picture of why the gateway exists and where views should go, see
 **`FRONTEND_ARCHITECTURE.md`** (in this repo).
@@ -292,7 +296,8 @@ queries:
   name, and the retry only overflows again.
 - **413 rule:** do NOT nest a heavy connection (`customFieldValues`, `costItems`)
   inside another **paged** connection — it returns HTTP 413. Fetch it in a **second
-  phase** and join by id (example: `loadStatusMap` in `src/app/jobs/JobsBrowser.tsx`).
+  phase** and join by id (examples: `getJobPhaseMap` and `getVendorEmails` in
+  `src/lib/jobtread.ts`).
 - **Budget vs. actual:** a job's budget leaves are `costItems` with `document == null`
   (skip JT's `Uncategorized <code>` rollups); actual spend is the cost of lines on
   **approved** `vendorBill` documents. CSI **division** = first two digits of the

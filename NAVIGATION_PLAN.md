@@ -152,6 +152,16 @@ Also approved: leads get a bar; `nav_layout` rows are archived, not deleted
 (the code stops reading them; the rows stay, so a revert brings them back); the
 admin home cards go.
 
+### Stage 0 status, 2026-09-29
+
+Shipped: `/api/time-off/import` gated on `time-off-admin` and `/api/labor-report`
+on `labor-review` (f959d38, alone); "＋ Add bill" and its help topic on `recode`;
+lead dead ends hidden, not widened; the billing-month control at every width;
+`ym`/`jobId` on the links between close pages; the `?tab=drafts` links fixed;
+`npm test` in pre-push; DraftQueue, the Roster component, RefreshButton and the
+digest-instructions panel deleted. The panel's route and RefreshProvider followed
+on 2026-09-30.
+
 ### Stage 1 status, 2026-09-29
 
 Shipped: `src/lib/workspaces.ts` (one list; `workspaces.test.ts` fails on a page
@@ -187,6 +197,37 @@ until then the link does not show); the office Time Off console at
 rows. Not done: decision 7 (a read-only Sunset bill view for leads) — it needs
 a read-only mode of the bill page, which is the coding editor.
 
+### Stage 4 status, 2026-09-30
+
+Not started as planned. Shipped around it: the Tracking Sheets file split
+(`Board.tsx` 5,059 → 2,845 lines, SIMPLICITY_AUDIT finding 01, the stage's
+precondition), and at desk width a bill's coding card opens beside its row
+(fac9f18). The iPad side sheet with `?bill=` in the address, the labor lane and
+the per-tab done counts are still to do.
+
+### Check of stages 0–3, 2026-09-30
+
+An independent check found stages 0–3 in the code as described, with these
+corrections, all shipped 2026-09-30:
+
+- Tracking Sheets threw when a sales-tax figure was staged (`billTax` read before
+  its declaration; present since 5dc12f1). Fixed alone, first.
+- The Finalize job picker now writes `?jobId`, so the tab strip carries the job
+  picked there.
+- A staged Bill/Expense type is kept in the coding draft and offered back.
+- One label per page: Time, Miles, Requisitions, Access, Office Dashboard.
+- RFIs lost its Help topic (decision 4). `/api/coding-queue` is gated on `recode`.
+  `/api/specs/jobtread` is in the write-route test.
+- Today's draft rows turn the side panel's JobTread tab, as `/coding` did.
+- Docs: `CLAUDE.md` recipe and test gate, `README.md`, `USER_MANUAL.md`,
+  `THEME.md`, the audit ticks.
+
+Still open: Today's first load reads each queue live (office: 15 requests, 5 to
+Apps Script); the plan asked for one cached endpoint. Push as Expense always
+posts Capital One Sparks (271), which 8 of 36 past expenses did not use — waiting
+on the owner. The iPad rail and 2xl sidebar can hide a workspace's other tabs on
+a pinned or single-page slot.
+
 ## Found along the way
 
 - `POST /api/time-off/import` commits a leave-balance import for any signed-in
@@ -197,9 +238,10 @@ a read-only mode of the bill page, which is the coding editor.
   `/api/unbilled`, `/api/rfis`, `/api/jobs/cost-detail` and the full
   `/api/bill-review` GET queue sit behind page-only gates. Security review item
   M-1 (refuse unlisted API routes) closes them together.
-- `USER_MANUAL.md` still describes Coding Review, the Invoicing tab and a
-  "More ▾" menu. Help's find-a-page topic promises leads a Home tab they lack.
-  Budget Import is described as read-only; it writes the live budget.
+- Fixed 2026-09-29/30: the two routes above, the stale `USER_MANUAL.md`, the
+  Help find-a-page topic, and Budget Import's "read-only" description.
+- `/api/coding-queue` listed every job's draft bills to any role; gated on
+  `recode` 2026-09-30.
 
 ## Method and limits
 

@@ -18,66 +18,29 @@ Ascent staff via Google sign-in (allowlist), with a shared-password fallback.
 
 ## What it does
 
-The launcher (`src/app/page.tsx`) groups every screen into four areas:
+Every page sits in one of ten **workspaces**, each named for a job the office
+repeats. `src/lib/workspaces.ts` is the one list: it feeds the header's ☰ menu,
+the bottom bar (a left rail on iPad) and the header search. Inside a workspace a
+tab strip moves between its pages and carries the job and the billing month.
+The plan behind this layout is `NAVIGATION_PLAN.md`.
 
-### Financials — JobTread bills, unbilled costs, and invoicing
-- **Coding Review** (`/coding`) — draft vendor bills waiting to be coded. Fast,
-  flat, touch-friendly cost-code assignment on each line, then approve. This is
-  the thing JobTread buries under nested layers; it was the original reason for
-  the app.
-- **Invoicing** (`/stage`) — assemble a month's draft customer invoice from a
-  job's unbilled costs (owner reviews/sends inside JobTread; we only stage).
-- **Unbilled** (`/unbilled`) — a per-job view of uninvoiced expenses by cost
-  code (cost vs. invoiced). The view JobTread lacks.
-- **Email Invoices** (`/email`) — log an invoice sitting in the office inbox.
-- **Needs Project** (`/needs-project`) — ingested bills that arrived without a
-  matchable job; assign the job here.
-- **Add a Bill** (`/add-bill`) — manual capture: upload a photo/PDF, Claude
-  extracts and codes it against the job's live budget, and a draft vendor bill
-  lands in the coding queue with the file attached.
+| Workspace | Pages |
+|---|---|
+| **Today** (`/`) | What needs you: bills to code, bill corrections, time problems, requests to approve, imports due, to-dos |
+| **Month Close** | Tracking Sheets (`/trackingsheet`, the coding workbench) · Labor Review · Bill Corrections · Taxable Flags · Invoice Review · Invoicing Package · Finalize (`/tracking-sheet`) |
+| **Incoming Bills** | Email Invoices · Mail Check · Not in JobTread · Sunset Statements (`/payments`) · LSWDD Statement · Amazon Import |
+| **Clients** | Leads · Directory (`/clients`) · Job Cost (`/jobs`) · Unbilled · Budget Import · Specifications · Receivables |
+| **People** | Employees · Pay Rates · Time Off (Office) · Time Sync · Labor Import · Safety Meeting |
+| **Search** | Bill Search · Vendors · Bill Archive (`/expenditure-history`) |
+| **Office** | Office Dashboard · Notices · Actions |
+| **My Work** | Time (`/employee-time`) · Miles (`/mileage-tracker`) · Tools · Requisitions · Time Off |
+| **Help** | Help · Changelog · App Feedback (`/requests`) · Course |
+| **Admin** | Access (`/admin`) · Page Text · Theme · System Logs · Financial Journal · Historical Cost Import |
 
-### Tools — the field tool inventory
-- **Tool Inventory** (`/tools`) — search, edit, or scan a tool's QR code to
-  update its location/photo.
-
-### Safety — job-site records
-- **Safety Meeting** (`/safety-meeting`) — pass the iPad and collect drawn
-  sign-ins; a roster PDF is written to Drive.
-- **Mileage** (`/mileage-tracker`) — one-tap start/end captures two GPS points;
-  the server turns them into driving miles + street addresses (Google Maps
-  Routes/Geocoding).
-- **Employee Time** (`/employee-time`) — a phone time clock: clock in/out (the
-  running clock lives in JobTread, so it resumes on any device), a day-grouped
-  Timesheets tab for the pay period, and a "log a range" form for time already
-  worked. Job/cost/pay default to the last one used; the clock-out can be
-  back-dated. Required note, optional photos; creates a JobTread time entry.
-  The page is server-rendered with the jobs, the identity, and the running clock
-  already in it — the email → JobTread link is cached in `jt_user_links` and in
-  the sign-in token, so no page load waits on Apps Script (~3 s per round trip).
-
-### Utilities — assistant, records, imports, and admin
-- **Assistant** (`/chat`) — a read-only Claude chat over a job's bills and
-  budget.
-- **RFIs** (`/rfis`) — view and create a job's RFIs (companion-owned; JobTread
-  has no RFI object).
-- **Employees** (`/employees`) — list/filter/sort/**edit** the Project Database
-  employee roster.
-- **Labor Import** (`/labor-import`) — turn a QuickBooks Time labor CSV into a
-  JobTread time-entry import CSV (client-side; no JT writes).
-- **Actions** (`/actions`) — run an Apps Script job on demand.
-- **Requests** (`/requests`) — coworkers ask for fixes and new features.
-- **Admin** (`/admin`) — manage who can sign in (extra allowed emails on top of
-  the env founders).
-- **Logs** (`/logs`) — the automation audit trail.
-- **Help** (`/help`) — the app's own instructions: one procedure per question,
-  written to ASD-STE100 Simplified Technical English, filtered to the pages the
-  signed-in role can open. Topics are data (`src/lib/help.ts`), so the header's
-  search offers them as answers and `/help#<topic>` links to one. The long-form
-  manual is `USER_MANUAL.md`.
-
-There is also a **Payments** screen (`/payments`) — one-click Sunset statement
-paying at TSYS, showing the printed early-pay discount (model-extracted once and
-cached).
+Outside the workspaces: the bill page (`/bill/<id>`), the header's **＋ Add
+bill** (`/add-bill`), the Assistant (`/chat`) and LopezRocks in the menu footer.
+Each page's purpose is in `CODEBASE_MAP.md`; how to use each one is in `/help`
+(`src/lib/help.ts`) and the long-form `USER_MANUAL.md`.
 
 ## Architecture
 
