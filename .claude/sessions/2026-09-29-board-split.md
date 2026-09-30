@@ -4,9 +4,9 @@ repo: ascent-companion
 branch: claude/board-split
 status: shipped
 started: 2026-09-29T23:22:27Z
-updated: 2026-09-30T04:45:25Z
+updated: 2026-09-30T04:46:02Z
 goal: Audit finding 01: split src/app/trackingsheet/Board.tsx by job, one block per push, starting with time coding; then NAVIGATION_PLAN.md stage 4
-next: Board.tsx split: 2,845 lines (from 5,112), 17 modules out. Left in Board: bill-coding state + open bill math, codingCtl wiring, renderBillCard, the labor lane (~30 inputs; consider passing the useTimeCoding result as one object), header, commit bar, add-time/leaf-picker modals. Then NAVIGATION_PLAN.md stage 4 (iPad bill side sheet needs owner ok, labor lane, done/open counts).
+next: Board.tsx split: 2,845 lines (from 5,112), 20 modules out. Left in Board: bill-coding state + open bill math, codingCtl wiring, renderBillCard, the labor lane (~30 inputs; consider passing the useTimeCoding result as one object), header, commit bar, add-time/leaf-picker modals. Then NAVIGATION_PLAN.md stage 4 (iPad bill side sheet needs owner ok, labor lane, done/open counts).
 ---
 
 ## Log
