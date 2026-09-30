@@ -68,9 +68,9 @@ Then time coding: its state, readers and handlers moved to
 `trackingsheet/useTimeCoding.ts` (Board destructures the same names, so no JSX
 moved); the rail, dirty check, draft autosave and Save stay in Board and read
 what the hook returns. Then the tracking-sheet push (`useTrackingPush.ts`) and
-the pre-send check (`usePreSendCheck.ts`). Board.tsx: 5,112 → 4,767 lines.
-Left: the month load, bill coding, the tax panel, invoice approval, the rail's
-filters and folds.
+the pre-send check (`usePreSendCheck.ts`), and the rail's screen state
+(`useRailView.ts`). Board.tsx: 5,112 → 4,744 lines. Left: the month load,
+bill coding, the tax panel and invoice approval — the parts that write.
 
 **Option A — Split the file by job (recommended)**
 

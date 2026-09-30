@@ -67,6 +67,7 @@ import {
 } from "@/components/TimeEntryList";
 import { AddTimeCard } from "./AddTimeCard";
 import { useTimeCoding } from "./useTimeCoding";
+import { useRailView } from "./useRailView";
 import { useTrackingPush } from "./useTrackingPush";
 import { usePreSendCheck } from "./usePreSendCheck";
 import { InvoiceReconcile, reconStatus, type Recon } from "@/components/InvoiceReconcile";
@@ -272,8 +273,6 @@ interface DrillBillRow {
 /** The dropdown's row for "no cost code at all" — "" is not a usable option value. */
 const UNCODED_KEY = "__uncoded";
 
-/** Where a device remembers whether the budget column is closed. */
-const RAIL_HIDDEN_KEY = "ts.railHidden";
 
 
 /**
@@ -468,41 +467,19 @@ export function Board() {
   // ---- pre-send check (the invoice review's checks, on this job) — ./usePreSendCheck
   const { preSend, preSendRunning, preSendError, runPreSend } = usePreSendCheck({ jobId, ym });
 
-  const [codeQuery, setCodeQuery] = useState("");
-  // Divisions the user has rolled up. Empty = all open, so the rail keeps
-  // showing every code until it's deliberately tidied.
-  const [collapsedDivs, setCollapsedDivs] = useState<Set<string>>(new Set());
-  // Mobile-only: roll the whole cost-code rail away. On a phone it stacks on
-  // top of the bills, so it starts collapsed to land you on the list — tap the
-  // header to open it. The desktop sidebar ignores this (it's always docked,
-  // via the `lg:` overrides), so defaulting to collapsed is a mobile-only cost.
-  const [railCollapsed, setRailCollapsed] = useState(true);
-  /**
-   * …and the DESKTOP fold, which is a different thing: `railCollapsed` folds
-   * the cards away on a phone, this closes the rail's whole COLUMN so the bills
-   * take the width. Remembered per device — someone who codes with the rail
-   * shut wants it shut tomorrow too. Read in an effect rather than at init, so
-   * the server and the first client render agree.
-   */
-  const [railHidden, setRailHidden] = useState(false);
-  useEffect(() => {
-    try {
-      setRailHidden(localStorage.getItem(RAIL_HIDDEN_KEY) === "1");
-    } catch {
-      /* blocked storage just means the rail opens shown */
-    }
-  }, []);
-  const toggleRailHidden = () =>
-    setRailHidden((v) => {
-      try {
-        localStorage.setItem(RAIL_HIDDEN_KEY, v ? "0" : "1");
-      } catch {
-        /* per-session then */
-      }
-      return !v;
-    });
-  /** Which end of the phone's headroom cards leads. They fold with the rail. */
-  const [headroomMostLeft, setHeadroomMostLeft] = useState(false);
+  // The budget column's screen state (search, folds, hide) — ./useRailView.
+  const {
+    codeQuery,
+    setCodeQuery,
+    collapsedDivs,
+    setCollapsedDivs,
+    railCollapsed,
+    setRailCollapsed,
+    railHidden,
+    toggleRailHidden,
+    headroomMostLeft,
+    setHeadroomMostLeft,
+  } = useRailView();
   // ---- time coding: state and handlers live in ./useTimeCoding ---------------
   const leafById = useMemo(() => {
     const m = new Map<string, BudgetItem>();
@@ -987,7 +964,7 @@ export function Board() {
     if (didSeedCollapse.current || railGroups.length === 0) return;
     didSeedCollapse.current = true;
     setCollapsedDivs(new Set(railGroups.map((g) => g.code)));
-  }, [railGroups]);
+  }, [railGroups, setCollapsedDivs]);
 
   // ---- derived: bills + their lines ---------------------------------------
   // Codeable lines per bill, with the 88 80 00 sales-tax line taken OUT — it is
