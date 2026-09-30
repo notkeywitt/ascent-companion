@@ -49,6 +49,10 @@ const WRITE_ROUTES = [
   // Not bill writes, but office/admin writes that were ungated until 2026-09-29.
   "/api/labor-report",
   "/api/time-off/import",
+  // A live updateCostItem on a budget line (Specifications, 2026-09-29).
+  "/api/specs/jobtread",
+  // A read, not a write — but it lists every job's draft bills (2026-09-30).
+  "/api/coding-queue",
 ];
 
 const can = (role: string, path: string) =>

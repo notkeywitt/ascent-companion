@@ -71,8 +71,14 @@ export const VIEWS: ViewDef[] = [
       // themselves did not, so any signed-in role could POST one directly.
       // Listing them here is what makes "bill editing is office+admin" true at
       // the route, not just in the UI. Read-only bill routes (/api/bill,
-      // /api/coding-queue, /api/bill-review, /api/bill-reviewed) stay OFF this
-      // list on purpose: anyone may look at a bill and flag one for review.
+      // /api/bill-review, /api/bill-reviewed) stay OFF this list on purpose:
+      // anyone may look at a bill and flag one for review.
+      //
+      // /api/coding-queue is the exception among the reads, gated 2026-09-30:
+      // it lists EVERY job's draft bills (vendor, amount, job), and its only
+      // callers — Today's "Bills to code" row and the bill page's pager — both
+      // already require this view.
+      "/api/coding-queue",
       "/api/add-bill",
       "/api/add-line",
       "/api/combine-lines",
@@ -121,8 +127,8 @@ export const VIEWS: ViewDef[] = [
     group: "Financials",
     paths: ["/tracking-sheet", "/api/tracking-sheet"],
   },
-  // A tracking sheet's estimate as a JobTread budget import CSV. Read-only: it
-  // hands back a file the office imports in JobTread themselves.
+  // A tracking sheet's estimate as a JobTread budget: a CSV the office imports
+  // in JobTread themselves, or "Import into JT", which WRITES the live budget.
   {
     id: "budget-import",
     label: "Budget Import",
@@ -131,8 +137,10 @@ export const VIEWS: ViewDef[] = [
   },
   // Specifications — an architect's spec selection list (finish schedule), read
   // out of the PDF into rows with their product links. The API prefix rides the
-  // same gate: its import calls the model and writes the companion DB. Nothing
-  // here writes to JobTread.
+  // same gate: its import calls the model and writes the companion DB, and
+  // /api/specs/jobtread WRITES JobTread — a live updateCostItem on one budget
+  // line (description + specification flags), behind writesEnabled(). That
+  // write is why this view must stay off lead and field.
   { id: "specs", label: "Specifications", group: "Financials", paths: ["/specs", "/api/specs"] },
   // The month's Invoicing Package doc — the client-billing summary the office
   // reads and edits, written to Drive by Apps Script. The API prefix rides the
@@ -275,8 +283,8 @@ export const VIEWS: ViewDef[] = [
   },
   // Field
   { id: "safety-meeting", label: "Safety Meeting", group: "Field", paths: ["/safety-meeting"] },
-  { id: "mileage", label: "Mileage", group: "Field", paths: ["/mileage-tracker"] },
-  { id: "employee-time", label: "Employee Time", group: "Field", paths: ["/employee-time"] },
+  { id: "mileage", label: "Miles", group: "Field", paths: ["/mileage-tracker"] },
+  { id: "employee-time", label: "Time", group: "Field", paths: ["/employee-time"] },
   { id: "tools", label: "Tools", group: "Field", paths: ["/tools", "/tool-tracker"] },
   { id: "rfis", label: "RFIs", group: "Field", paths: ["/rfis"] },
   // Time off — the accrual/balance page. Field employees get the self-service
@@ -427,7 +435,7 @@ export const VIEWS: ViewDef[] = [
   // action bar — buttons on a page EVERY role loads — can't be driven by a
   // non-admin who POSTs /api/actions directly.
   { id: "actions", label: "Actions", group: "System", paths: ["/actions", "/api/actions"] },
-  { id: "admin", label: "Admin", group: "System", paths: ["/admin"] },
+  { id: "admin", label: "Access", group: "System", paths: ["/admin"] },
   // Page Text — the office-editable on-screen copy (src/lib/copy.ts). Its own
   // gate rather than riding on "admin": editing wording is a much smaller thing
   // to hand out than the access-control console, so it can be granted to an
