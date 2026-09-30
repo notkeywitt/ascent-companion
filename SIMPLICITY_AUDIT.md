@@ -77,8 +77,10 @@ tests that pin its write order and its draft handling. Then the open bill's
 own fields — billing month, due date, type, bill number, job move
 (`useBillFields.ts`), its review flag (`useBillReview.ts`), and its line
 actions — code all, merge, delete, add, buy back (`useLineEdits.ts`) —
-and its scanned invoice (`useBillFiles.ts`). Board.tsx: 3,834 lines. Left in
-Board: the bill-coding state, drag and drop, and the JSX. Tax is not a block of its own: its one state is read by the draft,
+and its scanned invoice (`useBillFiles.ts`). Then the cost-code drill-down
+(`useCodeDrill.ts`) and drag and drop (`useLineDrag.ts`). Board.tsx: 3,632
+lines. Left in Board: the bill-coding state (staged, edits, tax, the open
+bill's math), the coding card's wiring, and the JSX. Tax is not a block of its own: its one state is read by the draft,
 the load, the open bill's math and Save.
 
 **Option A — Split the file by job (recommended)**

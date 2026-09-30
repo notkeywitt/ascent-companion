@@ -33,7 +33,6 @@ import { SplitGrid } from "@/components/SplitGrid";
 import { CostDonuts, type CostDonutRow } from "./CostDonuts";
 import {
   buildHeadroom,
-  isCommitted,
   jobRingRows,
   monthRingRows,
   remainingOf,
@@ -56,6 +55,8 @@ import {
 } from "@/components/TimeEntryList";
 import { AddTimeCard } from "./AddTimeCard";
 import { useTimeCoding } from "./useTimeCoding";
+import { useLineDrag } from "./useLineDrag";
+import { useCodeDrill } from "./useCodeDrill";
 import { useBillFiles } from "./useBillFiles";
 import { useLineEdits } from "./useLineEdits";
 import { useBillReview } from "./useBillReview";
@@ -243,12 +244,12 @@ interface CostCodeTimeContributor {
   notes: string;
   isApproved: boolean;
 }
-interface JobCostContributors {
+export interface JobCostContributors {
   bills: CostCodeBillContributor[];
   time: CostCodeTimeContributor[];
 }
 /** One row in the drill-down's bill list — a committed bill from JobTread, or a still-open draft. */
-interface DrillBillRow {
+export interface DrillBillRow {
   key: string;
   docId: string;
   vendor: string;
@@ -1321,246 +1322,43 @@ export function Board() {
     if (draftKey) discardDraft(draftKey);
   };
 
-  // ---- drag and drop -------------------------------------------------------
-  // A drag carries the line ids it would move: one for a line chip, all of a
-  // bill's lines for a bill chip. Dropping on a cost code re-points them at that
-  // code's budget leaf.
-  const [dragLineIds, setDragLineIds] = useState<string[] | null>(null);
-  const [dragOverCode, setDragOverCode] = useState<string | null>(null);
-  /** Set when a drop lands on a code with several distinguishable leaves. */
-  const [leafPicker, setLeafPicker] = useState<{ code: string; lineIds: string[] } | null>(null);
 
-  // ---- cost-code drill-down: which bills/time entries make up a total -----
-  /** The rail code currently open in the drill-down modal, or null when closed. */
-  const [codeDrill, setCodeDrill] = useState<string | null>(null);
-  // The whole job's contributors come back in one fetch (see
-  // getJobCostContributors) and are cached here so opening a second code is
-  // instant; tagged with the jobId they belong to so switching jobs can't
-  // serve a stale job's bills under the new job's codes.
-  const [contributors, setContributors] = useState<{
-    jobId: string;
-    data: JobCostContributors;
-  } | null>(null);
-  const [contributorsLoading, setContributorsLoading] = useState(false);
-  const [contributorsError, setContributorsError] = useState("");
+  // Which bills and hours make up a cost code's total: the drill-down and the ring hover cards — ./useCodeDrill
+  const {
+    codeDrill,
+    contributorsError,
+    contributorsLoading,
+    donutDetail,
+    drillBills,
+    drillTime,
+    ensureContributors,
+    openCodeDrill,
+    setCodeDrill,
+  } = useCodeDrill({
+    codeOf,
+    data,
+    jobId,
+    leafById,
+    staged,
+    timeCodeOf,
+  });
 
-  /** One fetch per job, cached — the drill-down and the cost rings both want it. */
-  const ensureContributors = useCallback(() => {
-    if (!jobId || contributorsLoading || contributors?.jobId === jobId) return;
-    setContributorsLoading(true);
-    setContributorsError("");
-    fetch(`/api/trackingsheet/contributors?jobId=${encodeURIComponent(jobId)}`)
-      .then((r) => r.json())
-      .then((j) => {
-        if (j.error) throw new Error(j.error);
-        setContributors({ jobId, data: j as JobCostContributors });
-      })
-      .catch((e) => setContributorsError(e instanceof Error ? e.message : "Failed to load"))
-      .finally(() => setContributorsLoading(false));
-  }, [jobId, contributors, contributorsLoading]);
-
-  const openCodeDrill = useCallback(
-    (code: string) => {
-      setCodeDrill(code);
-      ensureContributors();
-    },
-    [ensureContributors],
-  );
-
-  const billsById = useMemo(() => new Map((data?.bills ?? []).map((b) => [b.id, b])), [data]);
-
-  /**
-   * Committed bills, reconciled against any staged-but-not-synced recode: a
-   * contributor row is JobTread's TRUE current code (`b.code`), but if its line
-   * has been dragged elsewhere in this session, `staged` already moved it in
-   * the rail's own numbers (see the `headroom` memo) — so the drill-down must
-   * follow the same staged code, or it would list a bill under a code the rail
-   * no longer counts it toward.
-   */
-  const billsForCode = useCallback(
-    (code: string): DrillBillRow[] => {
-      const committed = (contributors?.data.bills ?? [])
-        .filter((b) => {
-          const leaf = staged.get(b.id);
-          const effective = leaf ? (leafById.get(leaf)?.number ?? b.code) : b.code;
-          return effective === code;
-        })
-        .map((b): DrillBillRow => ({
-          key: b.id,
-          docId: b.docId,
-          vendor: b.vendor,
-          lineName: b.lineName,
-          issueDate: b.issueDate,
-          status: b.status,
-          cost: b.cost,
-          draft: false,
-        }));
-      const drafts = (data?.lines ?? [])
-        .filter((l) => !isCommitted(l.billStatus) && codeOf(l) === code)
-        .map((l): DrillBillRow => ({
-          key: l.id,
-          docId: l.docId,
-          vendor: billsById.get(l.docId)?.vendor ?? l.name,
-          lineName: l.name,
-          issueDate: billsById.get(l.docId)?.issueDate ?? null,
-          status: l.billStatus,
-          cost: l.cost,
-          draft: true,
-        }));
-      return [...committed, ...drafts].sort(
-        (a, b) =>
-          String(b.issueDate ?? "").localeCompare(String(a.issueDate ?? "")) || b.cost - a.cost,
-      );
-    },
-    [contributors, staged, leafById, data, billsById, codeOf],
-  );
-
-  const drillBills = useMemo(
-    () => (codeDrill ? billsForCode(codeDrill) : []),
-    [codeDrill, billsForCode],
-  );
-
-  // Labor is coded independently of any bill and never moves with a staged
-  // recode (see the `usedOf` note above), so this needs no staged reconciliation.
-  // Every entry counts, approved or not — the same set the rail's labor figure
-  // sums — and each row carries its own approval tag.
-  const drillTime = useMemo(
-    () => (contributors?.data.time ?? []).filter((t) => t.code === codeDrill),
-    [contributors, codeDrill],
-  );
-
-  /**
-   * What one ring slice is made of, for its hover card — the biggest vendors
-   * (bills) or people (labor) behind that cost code, rolled to one row each so
-   * a bill with four lines is one line of the card.
-   *
-   * Scope matters: the MONTH ring reads the month's own lines and time entries,
-   * which are already loaded, so its card opens instantly. The JOB ring needs
-   * the same whole-job contributors the drill-down uses, so it returns null
-   * until that fetch lands and the card says "Loading…" meanwhile.
-   */
-  const donutDetail = useCallback(
-    (
-      code: string,
-      field: "bills" | "labor",
-      scope: "month" | "job",
-    ): { key: string; label: string; value: number }[] | null => {
-      const rolled = new Map<string, { label: string; value: number }>();
-      const add = (key: string, label: string, value: number) => {
-        const e = rolled.get(key) ?? { label, value: 0 };
-        e.value += value;
-        rolled.set(key, e);
-      };
-
-      if (scope === "month") {
-        if (field === "bills") {
-          for (const l of data?.lines ?? []) {
-            if (codeOf(l) !== code) continue;
-            add(l.docId, billsById.get(l.docId)?.vendor || l.name, l.cost);
-          }
-        } else {
-          for (const t of data?.timeEntries ?? []) {
-            if (timeCodeOf(t) !== code) continue;
-            add(t.employee || t.id, t.employee || "—", t.cost);
-          }
-        }
-      } else {
-        if (contributors?.jobId !== jobId) return null;
-        if (field === "bills") {
-          for (const b of billsForCode(code)) add(b.docId, b.vendor || b.lineName, b.cost);
-        } else {
-          for (const t of contributors.data.time) {
-            if (t.code !== code) continue;
-            add(t.employee || t.id, t.employee || "—", t.cost);
-          }
-        }
-      }
-
-      return [...rolled.entries()]
-        .map(([key, v]) => ({ key, ...v }))
-        .filter((r) => r.value > 0)
-        .sort((a, b) => b.value - a.value);
-    },
-    [data, codeOf, timeCodeOf, billsById, contributors, jobId, billsForCode],
-  );
-
-  const beginDrag = (lineIds: string[]) => (e: React.DragEvent) => {
-    setDragLineIds(lineIds);
-    e.dataTransfer.effectAllowed = "move";
-    // Firefox refuses to start a drag without payload.
-    e.dataTransfer.setData("text/plain", lineIds.join(","));
-  };
-  const endDrag = () => {
-    setDragLineIds(null);
-    setDragOverCode(null);
-  };
-
-  const moveLinesToLeaf = useCallback(
-    (lineIds: string[], leafId: string) => {
-      if (!data) return;
-      setStaged((prev) => {
-        const next = new Map(prev);
-        for (const id of lineIds) {
-          const line = data.lines.find((l) => l.id === id);
-          if (!line) continue;
-          if (leafId === (line.jobCostItemId ?? "")) next.delete(id);
-          else next.set(id, leafId);
-        }
-        return next;
-      });
-      setSyncMsg(null);
-    },
-    [data],
-  );
-
-  /**
-   * Resolve a dropped-on cost code to a single budget leaf. One leaf is
-   * unambiguous. Several leaves under one code is normal and meaningful (Labor
-   * vs Materials vs Allowance on the same code), and picking for the user would
-   * be guessing at a real coding decision — so that opens a picker instead.
-   */
-  const dropOnCode = useCallback(
-    (code: string, lineIds: string[]) => {
-      const leaves = leavesByCode.get(code) ?? [];
-      if (leaves.length === 0) return; // not a legal target
-      if (leaves.length === 1) {
-        moveLinesToLeaf(lineIds, leaves[0].id);
-        return;
-      }
-      const distinct = new Set(
-        leaves.map((l) => `${l.detail ?? ""}|${l.costType ?? ""}`.toLowerCase()),
-      );
-      if (distinct.size === 1) {
-        // Indistinguishable rows (estimate revisions piled on one code) — take
-        // the best-funded, the same rule CostCodeSelect applies.
-        const best = [...leaves].sort((a, b) => (b.cost ?? 0) - (a.cost ?? 0))[0];
-        moveLinesToLeaf(lineIds, best.id);
-        return;
-      }
-      setLeafPicker({ code, lineIds });
-    },
-    [leavesByCode, moveLinesToLeaf],
-  );
-
-  const dropHandlers = (code: string, droppable: boolean) =>
-    droppable
-      ? {
-          onDragOver: (e: React.DragEvent) => {
-            e.preventDefault();
-            e.dataTransfer.dropEffect = "move";
-            if (dragOverCode !== code) setDragOverCode(code);
-          },
-          onDragLeave: () => setDragOverCode((c) => (c === code ? null : c)),
-          onDrop: (e: React.DragEvent) => {
-            e.preventDefault();
-            const ids =
-              dragLineIds ??
-              (e.dataTransfer.getData("text/plain") || "").split(",").filter(Boolean);
-            if (ids.length) dropOnCode(code, ids);
-            endDrag();
-          },
-        }
-      : {};
+  // Drag a line or a whole bill onto a cost code — ./useLineDrag
+  const {
+    beginDrag,
+    dragLineIds,
+    dragOverCode,
+    dropHandlers,
+    endDrag,
+    leafPicker,
+    moveLinesToLeaf,
+    setLeafPicker,
+  } = useLineDrag({
+    data,
+    leavesByCode,
+    setStaged,
+    setSyncMsg,
+  });
 
   // ---- save ---------------------------------------------------------------
   /**
