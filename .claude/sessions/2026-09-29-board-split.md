@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/board-split
 status: shipped
 started: 2026-09-29T23:22:27Z
-updated: 2026-09-30T03:54:30Z
+updated: 2026-09-30T03:59:03Z
 goal: Audit finding 01: split src/app/trackingsheet/Board.tsx by job, one block per push, starting with time coding; then NAVIGATION_PLAN.md stage 4
 next: Board.tsx split: 4 blocks shipped (budget math + tests, time coding, sheet push + pre-send, rail view). Left: month load, bill coding, tax panel, invoice approval — all JobTread write paths; owner ok needed per CLAUDE.md before moving them.
 ---
@@ -24,5 +24,7 @@ next: Board.tsx split: 4 blocks shipped (budget math + tests, time coding, sheet
   CODEBASE_MAP.md, SIMPLICITY_AUDIT.md, src/app/trackingsheet/Board.tsx, src/app/trackingsheet/useBillApproval.ts
 - 2026-09-29 20:54 · `aaeccf3` companion: move the coding draft autosave and restore out of Board
   CODEBASE_MAP.md, SIMPLICITY_AUDIT.md, src/app/trackingsheet/Board.tsx, src/app/trackingsheet/useCodingDraft.ts
+- 2026-09-29 20:59 · `2f978a8` companion: move the Tracking Sheets month load out of Board
+  CODEBASE_MAP.md, SIMPLICITY_AUDIT.md, src/app/trackingsheet/Board.tsx, src/app/trackingsheet/useMonthLoad.ts
 
 ## Notes
