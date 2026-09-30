@@ -30,12 +30,16 @@ function Home() {
   const access = useAccess();
   const router = useRouter();
 
-  /* A crew member opens this app to clock in, so FIELD lands on Employee Time
-     rather than here. Once per tab: the redirect marks the tab, so the menu's
-     Today row still reaches this page for the rest of the session.
+  /* A crew member opens this app to clock in, so FIELD and LEAD land on
+     Employee Time rather than here (lead added 2026-09-30, owner). Once per
+     tab: the redirect marks the tab, so a fresh app open lands on Time and the
+     bar's Today slot (lead) or the menu still reaches this page afterwards.
      Client-side because the role only exists below the server layout. */
   useEffect(() => {
-    if (access.role !== "field") return;
+    if (access.role !== "field" && access.role !== "lead") return;
+    // The Chrome side panel opens "/?jobId=…" to follow the JobTread job on
+    // screen; that is a request for this page, not an app open.
+    if (new URLSearchParams(window.location.search).has("jobId")) return;
     try {
       if (sessionStorage.getItem("home.landed")) return;
       sessionStorage.setItem("home.landed", "1");

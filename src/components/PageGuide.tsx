@@ -241,7 +241,10 @@ export function PageGuide() {
         type="button"
         onClick={() => setOpen(true)}
         aria-label="Help for this page"
-        className="fixed bottom-0 left-0 z-40 flex h-8 w-8 items-center justify-center text-sm text-neutral-400/70 transition hover:text-accent"
+        // Above the bottom bar AND any commit bar, and right of the iPad rail:
+        // at bottom-0 it sat on the bar's first tab, one mis-tap from Help.
+        style={{ bottom: "calc(var(--actionbar-bottom) + var(--actionbar-h))", left: "var(--rail-w)" }}
+        className="fixed z-40 flex h-8 w-8 items-center justify-center text-sm text-neutral-400/70 transition hover:text-accent"
       >
         ?
       </button>

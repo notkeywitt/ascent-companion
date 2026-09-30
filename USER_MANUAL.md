@@ -159,7 +159,8 @@ the bar becomes a rail down the left edge with every workspace on it.
 
 ### The tab strip
 
-Inside a workspace, a row of tabs sits under the top bar. Each tab is one page
+Inside a workspace, a row of tabs sits under the top bar (office and admin only —
+a field or lead bar already holds their pages). Each tab is one page
 of that workspace. **The tabs carry the job and the billing month you picked**,
 so Invoice Review opens on the same job and month you were coding on Tracking
 Sheets. Month Close lists its tabs in close order: Tracking Sheets, Labor
@@ -179,7 +180,8 @@ width), and banners for bills stuck on a missing vendor or not in JobTread.
 Below them: the Office job's to-dos, your own to-dos (admin), **Active jobs** and
 **Leads**.
 
-A field login opens on **Time** instead.
+A field or lead login opens on **Time** when the app is opened fresh. A lead
+reaches Today from the **Today** slot on the bar.
 
 ### Search (important)
 

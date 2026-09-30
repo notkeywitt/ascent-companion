@@ -22,6 +22,10 @@ import { NO_STRIP, locate, reachableTabs } from "@/lib/workspaces";
  * no page has to mount it. Hidden on a page that is on no workspace, on a
  * workspace this person can open only one tab of, on NO_STRIP pages, and from
  * 2xl up, where the sidebar lists the same tabs.
+ *
+ * Never shown to FIELD or LEAD (owner, 2026-09-30). Their bottom bar already
+ * holds their few pages, so the strip, the bar and the ☰ menu listed the same
+ * five pages three times on one phone screen.
  */
 export function WorkspaceTabs() {
   const pathname = usePathname();
@@ -29,6 +33,7 @@ export function WorkspaceTabs() {
   const access = useAccess();
   const c = useCopy();
 
+  if (access.role === "field" || access.role === "lead") return null;
   const here = locate(pathname);
   if (!here || NO_STRIP.has(here.tab.view)) return null;
   const tabs = reachableTabs(here.workspace, access.can);
