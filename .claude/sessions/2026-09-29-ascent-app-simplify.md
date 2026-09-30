@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/ascent-app-simplify-w613c1
 status: shipped
 started: 2026-09-29T15:13:06Z
-updated: 2026-09-30T13:45:30Z
+updated: 2026-09-30T14:13:06Z
 goal: Fix the Tracking Sheets sales-tax crash, then the loose ends from the 2026-09-30 progress check of NAVIGATION_PLAN.md stages 0-3
 next: Owner: answer the Push as Expense account question (always 271 Capital One Sparks; 8 of 36 past expenses used 56 Banner Bank). Owner: ./deploy.sh in ascent-appscript for Code this bill. Open: Today's first load reads each queue live (plan wanted one cached endpoint); /api/jobs/browser and cost-detail not on the jobs view.
 ---
@@ -35,6 +35,8 @@ next: Owner: answer the Push as Expense account question (always 271 Capital One
   src/app/mileage-tracker/page.tsx
 - 2026-09-30 13:42 · `a675590` companion: correct the docs the review flagged — sync drive, today order, gateway callers, miles
   ARCHITECTURE_REVIEW.md, CLAUDE.md, NAVIGATION_PLAN.md, README.md, SIMPLICITY_AUDIT.md, USER_MANUAL.md, +3 more
+- 2026-09-30 14:13 · `ef7892e` companion: hide view another employee's time while an admin previews another role
+  src/app/employee-time/page.tsx
 
 ## Notes
 - 2026-09-29 15:13 — Plan: regroup 58 routes into 10 workspaces with tab strips carrying jobId+ym; Home becomes Today (queue); one list (src/lib/workspaces.ts) feeds bar, rail, menu, search. Routes and view ids stay. Full plan NAVIGATION_PLAN.md; web version https://claude.ai/artifact/2RBRreUQTJFzexsFHQyGL1
