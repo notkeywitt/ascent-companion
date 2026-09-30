@@ -66,6 +66,7 @@ import {
   type TimeEntryRow,
 } from "@/components/TimeEntryList";
 import { AddTimeCard } from "./AddTimeCard";
+import { useTimeCoding } from "./useTimeCoding";
 import { InvoiceReconcile, reconStatus, type Recon } from "@/components/InvoiceReconcile";
 import { UncapturedBills } from "@/components/UncapturedBills";
 import { BILL_STRIPE_COLOR, billInvoiceState } from "@/lib/billInvoiceState";
@@ -188,7 +189,7 @@ interface MonthTimeEntry extends TimeEntryRow {
   endedAt: string | null;
   minutes: number;
 }
-interface BudgetItem {
+export interface BudgetItem {
   id: string;
   number: string;
   name: string;
@@ -570,45 +571,50 @@ export function Board() {
     });
   /** Which end of the phone's headroom cards leads. They fold with the rail. */
   const [headroomMostLeft, setHeadroomMostLeft] = useState(false);
-  // The "Labor" block in the bills list starts collapsed to a single
-  // summary row — expand it to see each entry, same collapse-by-default
-  // pattern as the rail's divisions.
-  const [timeBlockOpen, setTimeBlockOpen] = useState(false);
-  /**
-   * The time entry open in the coding column, or null when a bill is.
-   *
-   * The right column shows ONE thing, and clicking either kind of row is a
-   * claim on it — so the two ids are mutually exclusive rather than stacked.
-   * See the guards on the bill list's own clicks.
-   */
-  const [openTimeId, setOpenTimeId] = useState<string | null>(null);
-  /**
-   * The "Add time" dialog — logging an entry that was never clocked, for
-   * somebody else. A dialog rather than a claim on the coding column: it is a
-   * one-off errand with its own Close, and it must not evict a bill the office
-   * is halfway through coding.
-   */
-  const [addTimeOpen, setAddTimeOpen] = useState(false);
-  /**
-   * Filtering and grouping the month's hours is the shared list's — see
-   * useTimeFilters. What stays here is what the PAGE does with a selection.
-   */
-  /** The time entries the coding column is acting on. */
-  const [timeSelected, setTimeSelected] = useState<Set<string>>(new Set());
-  /**
-   * timeEntryId → the budget leaf it's been staged onto. The labor twin of
-   * `staged` above, and it rides the same Sync: recoding a week of hours is now
-   * something this board does, not only Labor Review.
-   */
-  const [timeStaged, setTimeStaged] = useState<Map<string, string>>(new Map());
-  /**
-   * timeEntryId → its staged correction (hours, day, pay type). The entry
-   * panel's twin of `edits` on the bill side: it stages instead of writing, so
-   * fixing three entries and recoding a month of bills is ONE Save. The cost
-   * code is deliberately NOT in here — it rides `timeStaged` above wherever it
-   * was picked, so an entry can never carry two different codes.
-   */
-  const [timeEdits, setTimeEdits] = useState<Record<string, TimeEntryEdit>>({});
+  // ---- time coding: state and handlers live in ./useTimeCoding ---------------
+  const leafById = useMemo(() => {
+    const m = new Map<string, BudgetItem>();
+    for (const b of data?.budget ?? []) m.set(b.id, b);
+    return m;
+  }, [data]);
+  const {
+    timeBlockOpen,
+    setTimeBlockOpen,
+    openTimeId,
+    setOpenTimeId,
+    addTimeOpen,
+    setAddTimeOpen,
+    timeSelected,
+    setTimeSelected,
+    timeStaged,
+    setTimeStaged,
+    timeEdits,
+    setTimeEdits,
+    timeTouched,
+    timeLeafOf,
+    timeCodeOf,
+    monthTime,
+    monthTimeTotal,
+    monthTimeHours,
+    timeFilters,
+    timeSelectedEntries,
+    stageTimeSelection,
+    stageTimeEdit,
+    stageTimeType,
+    timeTypeOf,
+    undoTimeStage,
+    toggleTimeFlag,
+    markTimeApproved,
+    openTime,
+    timeCodeOptions,
+  } = useTimeCoding({
+    data,
+    setData,
+    jobId,
+    ym,
+    leafById,
+    onStaged: () => setSyncMsg(null),
+  });
 
   const taxDirty = Object.entries(taxEdits).some(([docId, v]) => {
     if (v === "") return false;
@@ -624,12 +630,6 @@ export function Board() {
     taxDirty ||
     Object.keys(typeEdits).length > 0 ||
     combinePending !== null;
-  /** Every time entry a Save would touch, recodes and corrections together —
-   *  counted once each, because an entry moved AND re-timed is one entry. */
-  const timeTouched = useMemo(
-    () => new Set([...timeStaged.keys(), ...Object.keys(timeEdits)]),
-    [timeStaged, timeEdits],
-  );
   /** Everything Sync would write, for the toolbar's chip. A staged merge counts
    *  as one change however many lines it folds together — it is one decision. */
   const stagedCount =
@@ -709,7 +709,7 @@ export function Board() {
     return () => {
       alive = false;
     };
-  }, [draftKey, loading, data]);
+  }, [draftKey, loading, data, setTimeEdits, setTimeStaged]);
 
   // …and save it on every change. Cheap: localStorage synchronously, the
   // companion DB on a debounce (and flushed when the tab is hidden or closed).
@@ -816,7 +816,7 @@ export function Board() {
         setRefreshing(false);
       }
     },
-    [jobId, ym],
+    [jobId, ym, setTimeEdits, setTimeSelected, setTimeStaged],
   );
 
   useEffect(() => {
@@ -882,11 +882,6 @@ export function Board() {
   }, [loading, data]);
 
   // ---- derived: coding targets -------------------------------------------
-  const leafById = useMemo(() => {
-    const m = new Map<string, BudgetItem>();
-    for (const b of data?.budget ?? []) m.set(b.id, b);
-    return m;
-  }, [data]);
 
   const leavesByCode = useMemo(() => {
     const m = new Map<string, BudgetItem[]>();
@@ -902,16 +897,6 @@ export function Board() {
   const leafOf = useCallback(
     (l: JobBillLine) => staged.get(l.id) ?? l.jobCostItemId ?? "",
     [staged],
-  );
-  /** The leaf a time entry points at, staged moves winning. */
-  const timeLeafOf = useCallback(
-    (t: TimeEntryRow) => timeStaged.get(t.id) ?? t.costItemId ?? "",
-    [timeStaged],
-  );
-  /** …and the cost code that puts it under. */
-  const timeCodeOf = useCallback(
-    (t: TimeEntryRow) => leafById.get(timeLeafOf(t))?.number ?? t.code,
-    [timeLeafOf, leafById],
   );
 
   /** The cost code a line currently sits under, staged edits winning. */
@@ -1235,31 +1220,6 @@ export function Board() {
   const approvalTarget = (b: BillRef) =>
     b.name === "Expense" || b.qboDocumentType === "purchase" ? "approved" : "pending";
 
-  // Every time entry counts toward the month's labor, approved or not — each
-  // row is tagged with its own approval state so nothing is hidden. The rail's
-  // labor figure counts the same set, so the two always agree.
-  const monthTime = useMemo(() => data?.timeEntries ?? [], [data]);
-  const monthTimeTotal = useMemo(() => monthTime.reduce((s, t) => s + t.cost, 0), [monthTime]);
-  /** The same set's hours, shown beside the money on the card's title line —
-   *  "what did labor cost" and "how much labor was it" are one question. */
-  const monthTimeHours = useMemo(() => monthTime.reduce((s, t) => s + t.hours, 0), [monthTime]);
-
-  /* ---------------- Labor ------------------------------------------------
-     The list, its filters and its grouping are src/components/TimeEntryList —
-     the SAME component Labor Review renders, so a month of hours is narrowed,
-     grouped, selected and read identically wherever you meet it. What lives
-     here is what this page does with it: the budget it measures against, the
-     staged recodes, and the single-entry editor the Edit button opens. */
-
-  const timeFilters = useTimeFilters(monthTime, {
-    codeOf: timeCodeOf,
-    resetKey: `${jobId}|${ym}`,
-    // By cost code, and every group shut: on this page the question is which
-    // codes the month's hours landed on and whether they fit the budget, not
-    // who worked when. Labor Review asks the other question and stays flat.
-    defaultGroupBy: "code",
-  });
-
   /**
    * What a cost code has left, for the chip on every row. Unlike Labor Review's,
    * this counts DRAFT bills — the board loads them, and a code with open drafts
@@ -1272,161 +1232,6 @@ export function Board() {
     },
     [headroom],
   );
-
-  /** The entries the coding column is recoding — the selection, in month order. */
-  const timeSelectedEntries = useMemo(
-    () => monthTime.filter((t) => timeSelected.has(t.id)),
-    [monthTime, timeSelected],
-  );
-
-  /** Stage every selected entry onto one budget leaf. */
-  const stageTimeSelection = (leafId: string) => {
-    if (!leafId) return;
-    setTimeStaged((prev) => {
-      const next = new Map(prev);
-      for (const t of monthTime) {
-        if (!timeSelected.has(t.id)) continue;
-        // Re-picking an entry's ORIGINAL leaf is an un-stage, not a change.
-        if (t.costItemId === leafId) next.delete(t.id);
-        else next.set(t.id, leafId);
-      }
-      return next;
-    });
-    setSyncMsg(null);
-  };
-
-  /**
-   * Stage one entry's correction from the panel. The cost code goes into the
-   * board's labor lane so the rail, the rings and the drawer all move with it;
-   * the rest is the patch a Save sends to /api/time-entry. An EMPTY patch is
-   * the panel's Revert — it clears both lanes for that entry.
-   */
-  const stageTimeEdit = (id: string, patch: TimeEntryEdit & { costItemId?: string }) => {
-    const { costItemId, ...rest } = patch;
-    setTimeStaged((prev) => {
-      const next = new Map(prev);
-      if (costItemId) next.set(id, costItemId);
-      else next.delete(id);
-      return next;
-    });
-    setTimeEdits((prev) => {
-      const next = { ...prev };
-      if (Object.keys(rest).length > 0) next[id] = rest;
-      else delete next[id];
-      return next;
-    });
-  };
-
-  /**
-   * Re-rate the whole selection — the recode's twin, staged the same way. An
-   * empty pick, or the entry's own JobTread type, un-stages it rather than
-   * staging a write that changes nothing.
-   */
-  const stageTimeType = (type: string) => {
-    setTimeEdits((prev) => {
-      const next = { ...prev };
-      for (const t of monthTime) {
-        if (!timeSelected.has(t.id)) continue;
-        if (type && type !== t.type) {
-          next[t.id] = { ...next[t.id], type };
-        } else {
-          const rest = { ...next[t.id] };
-          delete rest.type;
-          if (Object.keys(rest).length > 0) next[t.id] = rest;
-          else delete next[t.id];
-        }
-      }
-      return next;
-    });
-    setSyncMsg(null);
-  };
-
-  /** The pay type an entry reads as now, a staged re-rate winning. */
-  const timeTypeOf = useCallback(
-    (t: { id: string; type: string }) => timeEdits[t.id]?.type ?? t.type,
-    [timeEdits],
-  );
-
-  /** Un-stage one entry from the drawer's Staged list. */
-  const undoTimeStage = (id: string) =>
-    setTimeStaged((prev) => {
-      const next = new Map(prev);
-      next.delete(id);
-      return next;
-    });
-
-  /**
-   * "Flag for review" — the assistant-local mark, identical to Labor Review's
-   * (same endpoint, same table). NOT a JobTread write, so it's independent of
-   * the write gate and of Sync: flagging never syncs, and Sync never clears one.
-   */
-  const toggleTimeFlag = async (id: string, flagged: boolean) => {
-    setData((d) =>
-      d
-        ? { ...d, timeEntries: d.timeEntries.map((t) => (t.id === id ? { ...t, flagged } : t)) }
-        : d,
-    );
-    try {
-      await fetch("/api/labor-review/flag", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, jobId, flagged }),
-      });
-    } catch {
-      /* best-effort — same as the bill list's Reviewed tag */
-    }
-  };
-
-  /**
-   * The drawer approved some entries in JobTread — mark them here rather than
-   * re-pulling the month. A reload would be a second round trip for a change we
-   * already know landed, and the staged bill work has nothing to do with it.
-   */
-  const markTimeApproved = (ids: string[]) => {
-    const done = new Set(ids);
-    setData((d) =>
-      d
-        ? {
-            ...d,
-            timeEntries: d.timeEntries.map((t) =>
-              done.has(t.id) ? { ...t, isApproved: true } : t,
-            ),
-          }
-        : d,
-    );
-  };
-
-  const openTime = monthTime.find((t) => t.id === openTimeId) ?? null;
-
-  /**
-   * Coding targets for LABOR — the job's Labor-typed leaves plus any leaf an
-   * entry already sits on. Deliberately NOT `codeOptions`, which excludes Labor
-   * leaves because bills don't belong there; time is the other half of that
-   * rule.
-   */
-  const timeCodeOptions = useMemo(
-    () =>
-      laborOptions(
-        data?.budget ?? [],
-        (data?.timeEntries ?? []).map((t) => t.costItemId),
-      ),
-    [data],
-  );
-
-  // A filter that hides the entry being edited would otherwise leave the coding
-  // column describing a row that isn't on screen. (The filters themselves reset
-  // on a job/month change inside useTimeFilters — see its `resetKey`.)
-  const timeVisible = timeFilters.visible;
-  useEffect(() => {
-    if (openTimeId && !timeVisible.some((t) => t.id === openTimeId)) setOpenTimeId(null);
-  }, [openTimeId, timeVisible]);
-
-  // A selection is about entries in a particular month on a particular job, so
-  // it can't survive a change of either — nor a fresh pull, where the staged
-  // moves it belongs to are dropped too (see load()).
-  useEffect(() => {
-    setTimeSelected(new Set());
-  }, [jobId, ym]);
 
   const openBill = data?.bills.find((b) => b.id === openDocId) ?? null;
 

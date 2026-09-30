@@ -61,6 +61,7 @@ matching row here.
 | **Unsynced coding surviving a page you left** | `src/lib/codingDraft.ts` (autosave + reconciled restore) + `src/app/api/coding-draft`; wired into `Board.tsx` (scoped per job-month) and, scoped per BILL, `DraftWorkbench.tsx` + `src/app/bill/[docId]/page.tsx` — the same scope key, so a bill started on a phone is waiting at the desk |
 | **"Where did I leave off"** | `src/app/trackingsheet/UnsyncedDrafts.tsx` — the unfinished-coding list on the Tracking Sheets landing, from `listDrafts()` (this device merged with the companion DB, so work left on another device is visible too) |
 | **Tracking Sheets budget math** (the rail's budget / spent / drafts / labor per cost code, "budget left", the cost rings) | `src/app/trackingsheet/headroom.ts` — plain functions, pinned by `headroom.test.ts`; `Board.tsx` passes in the month and its staged-aware `codeOf` / `timeCodeOf` |
+| **Tracking Sheets time coding** (the open entry, the selection, staged recodes and corrections, flags, approvals) | `src/app/trackingsheet/useTimeCoding.ts`, called once by `Board.tsx` |
 | **Coding / Tracking Sheets workflow** | `src/app/trackingsheet/*` (Board, BillCodingCard, TimeCodingCard, ClientInvoicing, DraftWorkbench,
   AllJobs) + `src/app/api/trackingsheet/*`, `src/app/api/code` |
 | **Editing ONE time entry** (code / hours / day / job) | `src/app/trackingsheet/TimeCodingCard.tsx` + `src/app/api/time-entry` — reached from the ✎ on a row |

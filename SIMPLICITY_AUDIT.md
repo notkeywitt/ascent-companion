@@ -64,8 +64,10 @@ The August review flagged this file at 2,704 lines. It has grown 70% since.
 **Progress.** 2026-09-29: the budget math (headroom per code, `usedOf`,
 `remainingOf`, both cost-ring scopes) moved to `trackingsheet/headroom.ts`
 with 10 tests — the board's money is pinned before the React blocks move.
-Next block: time coding. It shares state with the rail (`timeCodeOf`), the
-draft autosave and Save, so it moves as one hook with those three wired in.
+Then time coding: its state, readers and handlers moved to
+`trackingsheet/useTimeCoding.ts` (Board destructures the same names, so no JSX
+moved); the rail, dirty check, draft autosave and Save stay in Board and read
+what the hook returns. Board.tsx: 5,112 → 4,836 lines.
 
 **Option A — Split the file by job (recommended)**
 
