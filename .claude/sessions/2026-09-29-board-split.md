@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/board-split
 status: shipped
 started: 2026-09-29T23:22:27Z
-updated: 2026-09-30T04:27:44Z
+updated: 2026-09-30T04:30:44Z
 goal: Audit finding 01: split src/app/trackingsheet/Board.tsx by job, one block per push, starting with time coding; then NAVIGATION_PLAN.md stage 4
 next: Board.tsx split: 9 blocks shipped (5,112 -> 4,286 lines; 15 new tests). Left: the bill editor's handlers (delete/add/buyback line, billing month, due date, bill number, review flag, combine, drag and drop) and the JSX. Then stage 4 features (iPad bill side sheet — needs owner ok, labor lane, done/open counts).
 ---
@@ -36,5 +36,7 @@ next: Board.tsx split: 9 blocks shipped (5,112 -> 4,286 lines; 15 new tests). Le
   CODEBASE_MAP.md, SIMPLICITY_AUDIT.md, src/app/trackingsheet/Board.tsx, src/app/trackingsheet/useLineEdits.ts
 - 2026-09-29 21:27 · `8126864` companion: move the open bill's files out of Board, drop unused imports
   CODEBASE_MAP.md, SIMPLICITY_AUDIT.md, src/app/trackingsheet/Board.tsx, src/app/trackingsheet/useBillFiles.ts
+- 2026-09-29 21:30 · `d1d6076` companion: move the code drill-down and drag and drop out of Board
+  CODEBASE_MAP.md, SIMPLICITY_AUDIT.md, src/app/trackingsheet/Board.tsx, src/app/trackingsheet/useCodeDrill.ts, src/app/trackingsheet/useLineDrag.ts
 
 ## Notes
