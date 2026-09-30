@@ -1,4 +1,6 @@
+import { cookies } from "next/headers";
 import { auth } from "@/auth";
+import { PREVIEW_COOKIE, parsePreviewRole } from "@/lib/preview";
 import { getCachedJobs } from "@/lib/jobsCache";
 import { getPaveConfig, hasGrant } from "@/lib/config";
 import { findMemberByEmail, getOrgTimeEntryTypeNames, getOrgUsers } from "@/lib/jobtread";
@@ -32,7 +34,10 @@ export default async function EmployeeTimePage() {
   // Only an admin may open the page as another employee. The flag draws the
   // picker; the SERVER rule (src/lib/timeSubject.ts) is what enforces it.
   const role = (session?.user as { role?: string } | undefined)?.role ?? "";
-  const canActAs = role === "admin";
+  // An admin previewing another role sees that role's page, so the act-as
+  // control hides too (same rule as the root layout's preview swap).
+  const preview = role === "admin" ? parsePreviewRole((await cookies()).get(PREVIEW_COOKIE)?.value) : null;
+  const canActAs = role === "admin" && (!preview || preview === "admin");
 
   // The identity: the token first (stamped at sign-in), then the DB link. Both
   // are cheap; neither touches Apps Script.
