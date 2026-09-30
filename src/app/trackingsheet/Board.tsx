@@ -68,6 +68,7 @@ import {
 import { AddTimeCard } from "./AddTimeCard";
 import { useTimeCoding } from "./useTimeCoding";
 import { useCodingDraft } from "./useCodingDraft";
+import { useMonthLoad } from "./useMonthLoad";
 import { useBillApproval } from "./useBillApproval";
 import { useRailView } from "./useRailView";
 import { useTrackingPush } from "./useTrackingPush";
@@ -559,96 +560,23 @@ export function Board() {
     setTimeEdits,
   });
 
-  const load = useCallback(
-    async (opts?: { preserveStaged?: boolean }) => {
-      if (!jobId) return;
-      const key = `${jobId}|${ym}`;
-      const firstPull = shownKey.current !== key;
-      if (firstPull) setLoading(true);
-      else setRefreshing(true);
-      setError("");
-      const [y, m] = ym.split("-");
-      try {
-        const r = await fetch(
-          `/api/trackingsheet?jobId=${encodeURIComponent(jobId)}&year=${y}&month=${Number(m)}` +
-            // Always show the whole month: draft, uninvoiced, and invoiced
-            // bills alike, each tagged with its state in the list below.
-            `&includeDrafts=1&includeInvoiced=1`,
-        );
-        const j = (await r.json()) as BoardPayload;
-        if (j.error) setError(j.error);
-        else {
-          setData(j);
-          shownKey.current = key;
-          if (opts?.preserveStaged) {
-            // Combining deletes lines. Drop any staged pick/edit that pointed at
-            // an id JobTread no longer has, but leave every OTHER bill's staged
-            // work untouched — combining on one bill shouldn't discard work on
-            // another the office hasn't synced yet.
-            const liveIds = new Set(j.lines.map((l) => l.id));
-            const liveDocIds = new Set(j.bills.map((b) => b.id));
-            const liveTimeIds = new Set(j.timeEntries.map((t) => t.id));
-            setTimeStaged((prev) => {
-              const next = new Map(prev);
-              for (const id of next.keys()) if (!liveTimeIds.has(id)) next.delete(id);
-              return next;
-            });
-            setStaged((prev) => {
-              const next = new Map(prev);
-              for (const id of next.keys()) if (!liveIds.has(id)) next.delete(id);
-              return next;
-            });
-            setEdits((prev) => {
-              const next = { ...prev };
-              for (const id of Object.keys(next)) if (!liveIds.has(id)) delete next[id];
-              return next;
-            });
-            setTaxEdits((prev) => {
-              const next = { ...prev };
-              for (const id of Object.keys(next)) if (!liveDocIds.has(id)) delete next[id];
-              return next;
-            });
-            setTypeEdits((prev) => {
-              const next = { ...prev };
-              for (const id of Object.keys(next)) if (!liveDocIds.has(id)) delete next[id];
-              return next;
-            });
-            setTimeEdits((prev) => {
-              const next = { ...prev };
-              for (const id of Object.keys(next)) if (!liveTimeIds.has(id)) delete next[id];
-              return next;
-            });
-          } else {
-            // A fresh pull (month/filter change, or after Sync) invalidates
-            // everything staged against the old data.
-            //
-            // timeEdits BELONGS IN THIS LIST and was missing from it, which is
-            // what made a saved entry correction look unsaved: Save wrote it,
-            // load() cleared every other staged map, and the correction alone
-            // came back — leaving the board dirty, the row marked, and the
-            // autosave re-writing the draft that had just been discarded.
-            setStaged(new Map());
-            setTimeStaged(new Map());
-            setTimeEdits({});
-            setTimeSelected(new Set());
-            setEdits({});
-            setTaxEdits({});
-            setTypeEdits({});
-          }
-        }
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Failed to load");
-      } finally {
-        setLoading(false);
-        setRefreshing(false);
-      }
-    },
-    [jobId, ym, setTimeEdits, setTimeSelected, setTimeStaged],
-  );
-
-  useEffect(() => {
-    load();
-  }, [load]);
+  // The month load — one read, and what it does to staged work — ./useMonthLoad.
+  const load = useMonthLoad({
+    jobId,
+    ym,
+    shownKey,
+    setLoading,
+    setRefreshing,
+    setError,
+    setData,
+    setStaged,
+    setEdits,
+    setTaxEdits,
+    setTypeEdits,
+    setTimeStaged,
+    setTimeEdits,
+    setTimeSelected,
+  });
 
   /**
    * Load the billing summary when Summary mode is open. `data` is a real
