@@ -67,6 +67,7 @@ import {
 } from "@/components/TimeEntryList";
 import { AddTimeCard } from "./AddTimeCard";
 import { useTimeCoding } from "./useTimeCoding";
+import { useBillApproval } from "./useBillApproval";
 import { useRailView } from "./useRailView";
 import { useTrackingPush } from "./useTrackingPush";
 import { usePreSendCheck } from "./usePreSendCheck";
@@ -124,7 +125,7 @@ import { buildCombine, postCombine, type CombineRequest } from "@/lib/combineLin
  * Everything the board reads comes from /api/trackingsheet in one fetch.
  */
 
-interface BillRef {
+export interface BillRef {
   id: string;
   label: string;
   externalId: string | null;
@@ -415,7 +416,6 @@ export function Board() {
   const [syncing, setSyncing] = useState(false);
   const [syncMsg, setSyncMsg] = useState<{ tone: "success" | "error"; text: string } | null>(null);
 
-  const [approveOpen, setApproveOpen] = useState(false);
   /**
    * The open bill's "Needs review" flag and note, for the shared coding card.
    * Fetched per bill rather than carried on the board's payload: the flag is on
@@ -432,10 +432,6 @@ export function Board() {
     msg: "",
   });
 
-  const [approving, setApproving] = useState(false);
-  const [approveMsg, setApproveMsg] = useState<{ tone: "success" | "error"; text: string } | null>(
-    null,
-  );
 
   /**
    * Bulk Document Access — the month's vendor bills added to the client's
@@ -1109,9 +1105,18 @@ export function Board() {
     [nonSunsetBills],
   );
 
-  // Every draft bill on screen — both panes — so "Approve" acts on exactly what
-  // the office can see (Sunset drafts included; they're one tap away in the pane).
-  const draftBills = useMemo(() => (data?.bills ?? []).filter((b) => b.status === "draft"), [data]);
+  // Approving bills — one, or every draft on screen — lives in ./useBillApproval.
+  const {
+    approveOpen,
+    setApproveOpen,
+    approving,
+    approveMsg,
+    setApproveMsg,
+    draftBills,
+    approvalTarget,
+    approveOneBill,
+    approveDraftBills,
+  } = useBillApproval({ data, dirty, orderedBills, setOpenDocId, load });
   /** Nothing left to approve: the month HAS bills and not one of them is still
    *  a draft. That is the moment the row's action stops being "approve these"
    *  and becomes "create the invoice". A month with no bills at all is not
@@ -1123,11 +1128,6 @@ export function Board() {
   /** The reconcile banner reads green: an invoice already holds the whole
    *  month, so "Create Invoice in JobTread" would only raise a duplicate. */
   const reconReady = !!recon && reconStatus(recon).good;
-  // Mirrors approveBill() on the bill detail page: a Bill is a payable (draft →
-  // pending, "approved for payment"); an Expense is already paid (draft →
-  // approved, "record payment").
-  const approvalTarget = (b: BillRef) =>
-    b.name === "Expense" || b.qboDocumentType === "purchase" ? "approved" : "pending";
 
   /**
    * What a cost code has left, for the chip on every row. Unlike Labor Review's,
@@ -1782,55 +1782,6 @@ export function Board() {
     setSyncMsg(null);
   }, []);
 
-  /**
-   * One bill's approve POST. The batch button below loops it; the coding card's
-   * own "Approve in JT" fires it once. Returns the failure line, or the
-   * write-gate's preview flag on success.
-   */
-  const postApproval = async (b: BillRef): Promise<{ failure?: string; previewed?: boolean }> => {
-    try {
-      const r = await fetch("/api/bill-status", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ docId: b.id, status: approvalTarget(b) }),
-      });
-      const j = await r.json();
-      if (!r.ok || j.error) return { failure: `${b.label}: ${j.error ?? "Approve failed"}` };
-      return { previewed: Boolean(j.previewed) };
-    } catch (e) {
-      return { failure: `${b.label}: ${e instanceof Error ? e.message : "Request failed"}` };
-    }
-  };
-
-  /**
-   * Approve ONE bill — the card's button, beside the batch one at the bottom
-   * of the page. Same write, same role gate, no confirmation dialog: the batch
-   * dialog exists to say how many bills one press would move, and here the
-   * answer is one. `dirty` blocks it for the reason it blocks the batch —
-   * approving locks a draft's lines in JobTread, so staged coding syncs first.
-   */
-  const approveOneBill = async (docId: string) => {
-    const b = data?.bills.find((x) => x.id === docId);
-    if (!b || dirty || approving) return;
-    // Read the next bill off the CURRENT order, before the reload: approving
-    // changes a bill's status, never its place in the list, so this is the same
-    // row either way — and reading it after `load()` would use a stale closure.
-    const at = orderedBills.findIndex((x) => x.id === docId);
-    const next = at >= 0 ? orderedBills[at + 1] : undefined;
-    setApproveMsg(null);
-    setApproving(true);
-    const r = await postApproval(b);
-    setApproving(false);
-    setApproveMsg(
-      r.failure
-        ? { tone: "error", text: r.failure }
-        : { tone: "success", text: `${r.previewed ? "Would approve" : "Approved"} ${b.label}.` },
-    );
-    // Approving is queue work, so land on the next bill rather than on the one
-    // just finished. A failure stays put — the message is about THIS bill.
-    if (!r.failure) setOpenDocId(next ? next.id : null);
-    await load();
-  };
 
   /**
    * The Assistant-local "reviewed" flag — not a JobTread write, so it works
@@ -2479,35 +2430,6 @@ export function Board() {
     }
   };
 
-  // Batch-approve every draft bill currently on screen (see draftBills above —
-  // same filters as the visible list). One /api/bill-status POST per bill,
-  // sequentially, same loop shape as sync()'s per-doc /api/code calls.
-  const approveDraftBills = async () => {
-    setApproving(true);
-    let ok = 0;
-    let previewed = false;
-    const failures: string[] = [];
-    for (const b of draftBills) {
-      const r = await postApproval(b);
-      if (r.failure) failures.push(r.failure);
-      else {
-        if (r.previewed) previewed = true;
-        ok++;
-      }
-    }
-    setApproving(false);
-    setApproveOpen(false);
-    const verb = previewed ? "Would approve" : "Approved";
-    if (failures.length === 0) {
-      setApproveMsg({ tone: "success", text: `${verb} ${ok} bill${ok === 1 ? "" : "s"}.` });
-    } else {
-      setApproveMsg({
-        tone: "error",
-        text: `${verb} ${ok} bill(s), ${failures.length} failed: ${[...new Set(failures)].slice(0, 2).join("; ")}`,
-      });
-    }
-    await load();
-  };
 
   /**
    * Is the pointer ON the commit bar? On desktop the month's three closing

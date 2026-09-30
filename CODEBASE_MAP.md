@@ -63,6 +63,7 @@ matching row here.
 | **Tracking Sheets budget math** (the rail's budget / spent / drafts / labor per cost code, "budget left", the cost rings) | `src/app/trackingsheet/headroom.ts` — plain functions, pinned by `headroom.test.ts`; `Board.tsx` passes in the month and its staged-aware `codeOf` / `timeCodeOf` |
 | **Tracking Sheets time coding** (the open entry, the selection, staged recodes and corrections, flags, approvals) | `src/app/trackingsheet/useTimeCoding.ts`, called once by `Board.tsx` |
 | **Tracking Sheets: the budget column's screen state** (search, folded divisions, hide) | `src/app/trackingsheet/useRailView.ts` |
+| **Tracking Sheets: approving bills** (one, or every draft on screen → `/api/bill-status`) | `src/app/trackingsheet/useBillApproval.ts` |
 | **Tracking Sheets: the job's sheet push and "Check this job"** | `src/app/trackingsheet/useTrackingPush.ts` (which sheet, the last push) and `usePreSendCheck.ts` (the invoice review's checks on one job) |
 | **Coding / Tracking Sheets workflow** | `src/app/trackingsheet/*` (Board, BillCodingCard, TimeCodingCard, ClientInvoicing, DraftWorkbench,
   AllJobs) + `src/app/api/trackingsheet/*`, `src/app/api/code` |
