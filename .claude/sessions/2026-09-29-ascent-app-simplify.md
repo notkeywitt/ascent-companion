@@ -33,6 +33,8 @@ next: Ship claude/ascent-app-simplify-w613c1 to main (npm run ship) once the lab
 - 2026-09-30 13:18 · `2b80a25` companion: log session 2026-09-29-ascent-app-simplify
 - 2026-09-30 13:42 · `dd1a6fb` companion: miles records the signed-in person, new description, buttons for manual and history
   src/app/mileage-tracker/page.tsx
+- 2026-09-30 13:42 · `a675590` companion: correct the docs the review flagged — sync drive, today order, gateway callers, miles
+  ARCHITECTURE_REVIEW.md, CLAUDE.md, NAVIGATION_PLAN.md, README.md, SIMPLICITY_AUDIT.md, USER_MANUAL.md, +3 more
 
 ## Notes
 - 2026-09-29 15:13 — Plan: regroup 58 routes into 10 workspaces with tab strips carrying jobId+ym; Home becomes Today (queue); one list (src/lib/workspaces.ts) feeds bar, rail, menu, search. Routes and view ids stay. Full plan NAVIGATION_PLAN.md; web version https://claude.ai/artifact/2RBRreUQTJFzexsFHQyGL1
