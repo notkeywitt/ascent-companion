@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-30T04:43:09Z",
+  "generatedAt": "2026-09-30T04:45:25Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "claude/board-split",
       "status": "shipped",
       "started": "2026-09-29T23:22:27Z",
-      "updated": "2026-09-30T04:43:09Z",
+      "updated": "2026-09-30T04:45:25Z",
       "goal": "Audit finding 01: split src/app/trackingsheet/Board.tsx by job, one block per push, starting with time coding; then NAVIGATION_PLAN.md stage 4",
-      "next": "Board.tsx split: 9 blocks shipped (5,112 -> 4,286 lines; 15 new tests). Left: the bill editor's handlers (delete/add/buyback line, billing month, due date, bill number, review flag, combine, drag and drop) and the JSX. Then stage 4 features (iPad bill side sheet — needs owner ok, labor lane, done/open counts).",
+      "next": "Board.tsx split: 2,845 lines (from 5,112), 17 modules out. Left in Board: bill-coding state + open bill math, codingCtl wiring, renderBillCard, the labor lane (~30 inputs; consider passing the useTimeCoding result as one object), header, commit bar, add-time/leaf-picker modals. Then NAVIGATION_PLAN.md stage 4 (iPad bill side sheet needs owner ok, labor lane, done/open counts).",
       "commits": [
         {
           "date": "2026-09-29",
