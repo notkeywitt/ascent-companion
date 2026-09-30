@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-30T13:42:46Z",
+  "generatedAt": "2026-09-30T14:13:08Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "claude/ascent-app-simplify-w613c1",
       "status": "shipped",
       "started": "2026-09-29T15:13:06Z",
-      "updated": "2026-09-30T13:42:45Z",
+      "updated": "2026-09-30T14:13:07Z",
       "goal": "Fix the Tracking Sheets sales-tax crash, then the loose ends from the 2026-09-30 progress check of NAVIGATION_PLAN.md stages 0-3",
-      "next": "Ship claude/ascent-app-simplify-w613c1 to main (npm run ship) once the labels-help and layout-docs review lenses report clean. Owner still to answer: Push as Expense account (always 271 Capital One Sparks). Owner: ./deploy.sh in ascent-appscript for Code this bill.",
+      "next": "Owner: answer the Push as Expense account question (always 271 Capital One Sparks; 8 of 36 past expenses used 56 Banner Bank). Owner: ./deploy.sh in ascent-appscript for Code this bill. Open: Today's first load reads each queue live (plan wanted one cached endpoint); /api/jobs/browser and cost-detail not on the jobs view.",
       "commits": [
         {
           "date": "2026-09-29",
@@ -95,6 +95,13 @@
           "sha": "a675590",
           "subject": "companion: correct the docs the review flagged — sync drive, today order, gateway callers, miles",
           "files": "ARCHITECTURE_REVIEW.md, CLAUDE.md, NAVIGATION_PLAN.md, README.md, SIMPLICITY_AUDIT.md, USER_MANUAL.md, +3 more"
+        },
+        {
+          "date": "2026-09-30",
+          "time": "14:13",
+          "sha": "ef7892e",
+          "subject": "companion: hide view another employee's time while an admin previews another role",
+          "files": "src/app/employee-time/page.tsx"
         }
       ]
     },

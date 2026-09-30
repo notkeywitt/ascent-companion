@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/ascent-app-simplify-w613c1
 status: shipped
 started: 2026-09-29T15:13:06Z
-updated: 2026-09-30T14:13:06Z
+updated: 2026-09-30T14:13:07Z
 goal: Fix the Tracking Sheets sales-tax crash, then the loose ends from the 2026-09-30 progress check of NAVIGATION_PLAN.md stages 0-3
 next: Owner: answer the Push as Expense account question (always 271 Capital One Sparks; 8 of 36 past expenses used 56 Banner Bank). Owner: ./deploy.sh in ascent-appscript for Code this bill. Open: Today's first load reads each queue live (plan wanted one cached endpoint); /api/jobs/browser and cost-detail not on the jobs view.
 ---
