@@ -4,9 +4,9 @@ repo: ascent-companion
 branch: claude/board-split
 status: shipped
 started: 2026-09-29T23:22:27Z
-updated: 2026-09-30T04:43:09Z
+updated: 2026-09-30T04:44:04Z
 goal: Audit finding 01: split src/app/trackingsheet/Board.tsx by job, one block per push, starting with time coding; then NAVIGATION_PLAN.md stage 4
-next: Board.tsx split: 9 blocks shipped (5,112 -> 4,286 lines; 15 new tests). Left: the bill editor's handlers (delete/add/buyback line, billing month, due date, bill number, review flag, combine, drag and drop) and the JSX. Then stage 4 features (iPad bill side sheet — needs owner ok, labor lane, done/open counts).
+next: Board.tsx split: 2,845 lines (from 5,112), 17 modules out. Left in Board: bill-coding state + open bill math, codingCtl wiring, renderBillCard, the labor lane (~30 inputs; consider passing the useTimeCoding result as one object), header, commit bar, add-time/leaf-picker modals. Then NAVIGATION_PLAN.md stage 4 (iPad bill side sheet needs owner ok, labor lane, done/open counts).
 ---
 
 ## Log
@@ -44,3 +44,4 @@ next: Board.tsx split: 9 blocks shipped (5,112 -> 4,286 lines; 15 new tests). Le
   CODEBASE_MAP.md, SIMPLICITY_AUDIT.md, src/app/trackingsheet/BillListView.tsx, src/app/trackingsheet/BillingSummaryView.tsx, src/app/trackingsheet/Board.tsx, src/app/trackingsheet/CodeLanesView.tsx
 
 ## Notes
+- 2026-09-30 04:44 — Split tools live in the session scratchpad: extract.py (hook blocks) and jsx_extract.py (JSX regions to components), both driven by types.cjs (TS compiler dump of Board's top-level types). Verify each move with a difflib removed-lines check and tsc --noUnusedLocals --noUnusedParameters.
