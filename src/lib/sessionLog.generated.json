@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-30T03:11:46Z",
+  "generatedAt": "2026-09-30T03:18:21Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,7 +8,7 @@
       "branch": "claude/board-split",
       "status": "shipped",
       "started": "2026-09-29T23:22:27Z",
-      "updated": "2026-09-30T03:11:46Z",
+      "updated": "2026-09-30T03:18:21Z",
       "goal": "Audit finding 01: split src/app/trackingsheet/Board.tsx by job, one block per push, starting with time coding; then NAVIGATION_PLAN.md stage 4",
       "next": "",
       "commits": [
@@ -18,6 +18,13 @@
           "sha": "cc5bd2f",
           "subject": "companion: move the Tracking Sheets budget math out of Board, with tests",
           "files": "CODEBASE_MAP.md, SIMPLICITY_AUDIT.md, src/app/trackingsheet/Board.tsx, src/app/trackingsheet/headroom.test.ts, src/app/trackingsheet/headroom.ts"
+        },
+        {
+          "date": "2026-09-29",
+          "time": "20:18",
+          "sha": "c01e8bc",
+          "subject": "companion: move Tracking Sheets time coding into its own hook",
+          "files": "CODEBASE_MAP.md, SIMPLICITY_AUDIT.md, src/app/trackingsheet/Board.tsx, src/app/trackingsheet/useTimeCoding.ts"
         }
       ]
     },
