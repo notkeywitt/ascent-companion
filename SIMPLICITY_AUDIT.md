@@ -76,9 +76,9 @@ board's JobTread write loop — as a plain function (`saveCoding.ts`) with 5
 tests that pin its write order and its draft handling. Then the open bill's
 own fields — billing month, due date, type, bill number, job move
 (`useBillFields.ts`), its review flag (`useBillReview.ts`), and its line
-actions — code all, merge, delete, add, buy back (`useLineEdits.ts`).
-Board.tsx: 3,866 lines. Left in Board: the bill-coding state, the open
-bill's files and drag and drop, and the JSX. Tax is not a block of its own: its one state is read by the draft,
+actions — code all, merge, delete, add, buy back (`useLineEdits.ts`) —
+and its scanned invoice (`useBillFiles.ts`). Board.tsx: 3,834 lines. Left in
+Board: the bill-coding state, drag and drop, and the JSX. Tax is not a block of its own: its one state is read by the draft,
 the load, the open bill's math and Save.
 
 **Option A — Split the file by job (recommended)**

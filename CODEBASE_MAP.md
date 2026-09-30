@@ -69,6 +69,7 @@ matching row here.
 | **Tracking Sheets: the open bill's own fields** (billing month, due date, Bill/Expense type, bill number, move to another job) | `src/app/trackingsheet/useBillFields.ts` |
 | **Tracking Sheets: the open bill's Needs review flag** (companion-local, with its note) | `src/app/trackingsheet/useBillReview.ts` |
 | **Tracking Sheets: the open bill's line actions** (code all, merge, delete / add / buy back a line) | `src/app/trackingsheet/useLineEdits.ts` |
+| **Tracking Sheets: the open bill's scanned invoice** (read-only, cached per bill) | `src/app/trackingsheet/useBillFiles.ts` |
 | **Tracking Sheets: the job's sheet push and "Check this job"** | `src/app/trackingsheet/useTrackingPush.ts` (which sheet, the last push) and `usePreSendCheck.ts` (the invoice review's checks on one job) |
 | **Coding / Tracking Sheets workflow** | `src/app/trackingsheet/*` (Board, BillCodingCard, TimeCodingCard, ClientInvoicing, DraftWorkbench,
   AllJobs) + `src/app/api/trackingsheet/*`, `src/app/api/code` |

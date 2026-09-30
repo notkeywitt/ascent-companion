@@ -24,8 +24,8 @@ import {
   Toggle,
   btn,
 } from "@/components/ui";
-import { CostCodeSelect, type Option } from "@/components/CostCodeSelect";
-import { JobPicker, jobAddress, jobLabel, type JobRef } from "@/components/JobPicker";
+import type { Option } from "@/components/CostCodeSelect";
+import { JobPicker, jobAddress } from "@/components/JobPicker";
 import { useBillMove } from "@/components/BillMove";
 import { DocumentAccess } from "@/components/DocumentAccess";
 import { JtLink } from "@/components/JtLink";
@@ -42,23 +42,21 @@ import {
 } from "./headroom";
 import {
   BillCodingCard,
-  isImageFile,
   money,
   money0,
-  type BillFile,
   type CodingCardCtl,
 } from "./BillCodingCard";
-import { billLineMath, descriptionForCode, round2, type LineEdit } from "@/lib/billLineMath";
-import { TimeCodingCard, laborOptions } from "./TimeCodingCard";
+import { billLineMath, round2, type LineEdit } from "@/lib/billLineMath";
+import { TimeCodingCard } from "./TimeCodingCard";
 import {
   TimeEntryList,
   TimeRecodeCard,
-  useTimeFilters,
   type CodeHeadroom,
   type TimeEntryRow,
 } from "@/components/TimeEntryList";
 import { AddTimeCard } from "./AddTimeCard";
 import { useTimeCoding } from "./useTimeCoding";
+import { useBillFiles } from "./useBillFiles";
 import { useLineEdits } from "./useLineEdits";
 import { useBillReview } from "./useBillReview";
 import { useBillFields } from "./useBillFields";
@@ -89,7 +87,7 @@ import { confirmLeaveIfDirty, useUnsavedChanges } from "@/lib/useUnsavedChanges"
 import { discardDraft, draftSavedAtLabel } from "@/lib/codingDraft";
 import { isSalesTaxLine, SALES_TAX_LINE_NAME } from "@/lib/salesTax";
 import { billingMonths, issueDateFor, monthLabel } from "@/lib/billingMonths";
-import { buildCombine, type CombineRequest } from "@/lib/combineLines";
+import type { CombineRequest } from "@/lib/combineLines";
 
 /**
  * Invoicing coding board — the desktop workbench for deciding which cost code
@@ -1096,43 +1094,13 @@ export function Board() {
     ym,
   });
 
-  // The scanned invoice, fetched only when a bill is opened and then remembered —
-  // stepping back and forth between bills is the normal motion here, and the
-  // attachment doesn't change while you're coding.
-  const [files, setFiles] = useState<BillFile[]>([]);
-  const [filesLoading, setFilesLoading] = useState(false);
-  const fileCache = useRef<Map<string, BillFile[]>>(new Map());
-
-  useEffect(() => {
-    if (!openDocId) {
-      setFiles([]);
-      return;
-    }
-    const cached = fileCache.current.get(openDocId);
-    if (cached) {
-      setFiles(cached);
-      return;
-    }
-    let cancelled = false;
-    setFilesLoading(true);
-    setFiles([]);
-    fetch(`/api/bill/files?docId=${encodeURIComponent(openDocId)}`)
-      .then((r) => r.json())
-      .then((j) => {
-        const got: BillFile[] = j.files ?? [];
-        fileCache.current.set(openDocId, got);
-        if (!cancelled) setFiles(got);
-      })
-      .catch(() => {
-        if (!cancelled) setFiles([]);
-      })
-      .finally(() => {
-        if (!cancelled) setFilesLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [openDocId]);
+  // The open bill's scanned invoice, remembered per bill — ./useBillFiles
+  const {
+    files,
+    filesLoading,
+  } = useBillFiles({
+    openDocId,
+  });
 
   /**
    * The "by cost code" lanes. Within a lane, lines belonging to the SAME bill
