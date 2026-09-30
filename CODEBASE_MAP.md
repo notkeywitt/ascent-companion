@@ -67,6 +67,7 @@ matching row here.
 | **Tracking Sheets: loading the month** (one read of `/api/trackingsheet`, and what a load does to staged work) | `src/app/trackingsheet/useMonthLoad.ts` |
 | **Tracking Sheets: Save** (every staged change to JobTread, in a fixed order: lines, labor, entry fixes, bill type, tax, then the merge) | `src/app/trackingsheet/saveCoding.ts`, pinned by `saveCoding.test.ts` |
 | **Tracking Sheets: the open bill's own fields** (billing month, due date, Bill/Expense type, bill number, move to another job) | `src/app/trackingsheet/useBillFields.ts` |
+| **Tracking Sheets: the open bill's Needs review flag** (companion-local, with its note) | `src/app/trackingsheet/useBillReview.ts` |
 | **Tracking Sheets: the job's sheet push and "Check this job"** | `src/app/trackingsheet/useTrackingPush.ts` (which sheet, the last push) and `usePreSendCheck.ts` (the invoice review's checks on one job) |
 | **Coding / Tracking Sheets workflow** | `src/app/trackingsheet/*` (Board, BillCodingCard, TimeCodingCard, ClientInvoicing, DraftWorkbench,
   AllJobs) + `src/app/api/trackingsheet/*`, `src/app/api/code` |
