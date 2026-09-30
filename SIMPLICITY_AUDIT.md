@@ -70,8 +70,10 @@ moved); the rail, dirty check, draft autosave and Save stay in Board and read
 what the hook returns. Then the tracking-sheet push (`useTrackingPush.ts`) and
 the pre-send check (`usePreSendCheck.ts`), and the rail's screen state
 (`useRailView.ts`). Then, with the owner's ok for the write paths, bill
-approval (`useBillApproval.ts`). Left: the month load, bill coding and the
-tax panel.
+approval (`useBillApproval.ts`) and the coding draft's autosave and restore
+(`useCodingDraft.ts`). Board.tsx: 4,588 lines. Left: the month load, then bill
+coding with its tax edits and Save — tax is not a block of its own: its one
+state is read by the draft, the load, the open bill's math and Save.
 
 **Option A — Split the file by job (recommended)**
 

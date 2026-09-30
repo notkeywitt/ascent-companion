@@ -67,6 +67,7 @@ import {
 } from "@/components/TimeEntryList";
 import { AddTimeCard } from "./AddTimeCard";
 import { useTimeCoding } from "./useTimeCoding";
+import { useCodingDraft } from "./useCodingDraft";
 import { useBillApproval } from "./useBillApproval";
 import { useRailView } from "./useRailView";
 import { useTrackingPush } from "./useTrackingPush";
@@ -88,15 +89,7 @@ import { SheetGap } from "./SheetGap";
 import { useAccess } from "@/components/AccessProvider";
 import { useCopy } from "@/components/CopyProvider";
 import { confirmLeaveIfDirty, useUnsavedChanges } from "@/lib/useUnsavedChanges";
-import {
-  discardDraft,
-  draftSavedAtLabel,
-  jobDraftKey,
-  loadDraft,
-  reconcileDraft,
-  saveDraft,
-  type TimeEntryEdit,
-} from "@/lib/codingDraft";
+import { discardDraft, draftSavedAtLabel } from "@/lib/codingDraft";
 import { isSalesTaxLine, SALES_TAX_LINE_NAME } from "@/lib/salesTax";
 import { billingMonths, issueDateFor, monthLabel } from "@/lib/billingMonths";
 import { buildCombine, postCombine, type CombineRequest } from "@/lib/combineLines";
@@ -213,7 +206,7 @@ interface CostDivisionRow {
   name: string;
   codes: CostCodeRow[];
 }
-interface BoardPayload {
+export interface BoardPayload {
   job: {
     id: string;
     name: string;
@@ -548,94 +541,23 @@ export function Board() {
     "You have staged coding changes that haven't been synced to JobTread. They'll be saved and offered back when you return — leave now?",
   );
 
-  // ---- durable drafts -----------------------------------------------------
-  /**
-   * Staged coding is saved continuously, scoped to this job and month, and
-   * offered back when you return. It is NOT sent to JobTread — see
-   * src/lib/codingDraft.ts for why the Sync button stays the only thing that
-   * writes to the live org.
-   */
-  const draftKey = useMemo(() => (jobId ? jobDraftKey(jobId, ym) : ""), [jobId, ym]);
-  /**
-   * TWO refs, not one, and the difference matters.
-   *
-   * A load empties the staged state, and the restore that follows it is async.
-   * If the autosave were armed the moment the restore STARTED, it would fire on
-   * that empty state — deleting the very draft still being read. So the restore
-   * marks itself started, and only arms the autosave once it has finished (with
-   * work, or with nothing).
-   */
-  const restoreStartedRef = useRef("");
-  const autosaveArmedRef = useRef("");
-  const [restoreMsg, setRestoreMsg] = useState<{
-    kept: number;
-    dropped: number;
-    savedAt: string;
-  } | null>(null);
-
-  // Offer the draft back once the month's data is on screen — reconciled
-  // against it, so a change JobTread has since taken (or a line that no longer
-  // exists) is dropped rather than restored as a phantom edit.
-  useEffect(() => {
-    if (!draftKey || loading || !data) return;
-    if (restoreStartedRef.current === draftKey) return;
-    restoreStartedRef.current = draftKey;
-    let alive = true;
-    (async () => {
-      try {
-        const draft = await loadDraft(draftKey);
-        if (!alive || !draft) return;
-        const r = reconcileDraft(draft, {
-          lines: data.lines,
-          bills: data.bills,
-          budgetIds: data.budget.map((b) => b.id),
-          timeEntries: data.timeEntries,
-        });
-        if (r.kept === 0) {
-          // Everything in it has since landed or gone stale — nothing to offer.
-          if (r.dropped > 0) discardDraft(draftKey);
-          return;
-        }
-        // Only ever ADD to an empty state: the read is async, and work typed
-        // while it was in flight outranks anything stored earlier.
-        setStaged((prev) => (prev.size > 0 ? prev : new Map(Object.entries(r.staged))));
-        setEdits((prev) => (Object.keys(prev).length > 0 ? prev : r.edits));
-        setTaxEdits((prev) => (Object.keys(prev).length > 0 ? prev : r.taxEdits));
-        setTimeStaged((prev) =>
-          prev.size > 0 ? prev : new Map(Object.entries(r.timeStaged ?? {})),
-        );
-        setTimeEdits((prev) => (Object.keys(prev).length > 0 ? prev : (r.timeEdits ?? {})));
-        setRestoreMsg({ kept: r.kept, dropped: r.dropped, savedAt: draft.savedAt });
-      } finally {
-        // Whatever came of it, this scope is now the browser's to save.
-        if (alive) autosaveArmedRef.current = draftKey;
-      }
-    })();
-    return () => {
-      alive = false;
-    };
-  }, [draftKey, loading, data, setTimeEdits, setTimeStaged]);
-
-  // …and save it on every change. Cheap: localStorage synchronously, the
-  // companion DB on a debounce (and flushed when the tab is hidden or closed).
-  useEffect(() => {
-    if (!draftKey || autosaveArmedRef.current !== draftKey) return;
-    const compactEdits: Record<string, LineEdit> = {};
-    for (const [id, e] of Object.entries(edits)) if (e) compactEdits[id] = e;
-    // The label is what the "unfinished work" list on the landing page shows —
-    // that list reads storage alone and has no job to look a name up from.
-    saveDraft(
-      draftKey,
-      {
-        staged: Object.fromEntries(staged),
-        edits: compactEdits,
-        taxEdits,
-        timeStaged: Object.fromEntries(timeStaged),
-        timeEdits,
-      },
-      `${data?.job?.name || "This job"} · ${monthLabel(ym)}`,
-    );
-  }, [draftKey, staged, edits, taxEdits, timeStaged, timeEdits, data?.job?.name, ym]);
+  // ---- durable drafts — saved, offered back and reconciled in ./useCodingDraft
+  const { draftKey, restoreMsg, setRestoreMsg, restoreStartedRef, autosaveArmedRef } = useCodingDraft({
+    jobId,
+    ym,
+    loading,
+    data,
+    staged,
+    setStaged,
+    edits,
+    setEdits,
+    taxEdits,
+    setTaxEdits,
+    timeStaged,
+    setTimeStaged,
+    timeEdits,
+    setTimeEdits,
+  });
 
   const load = useCallback(
     async (opts?: { preserveStaged?: boolean }) => {
