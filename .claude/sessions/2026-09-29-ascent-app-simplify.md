@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/ascent-app-simplify-w613c1
 status: shipped
 started: 2026-09-29T15:13:06Z
-updated: 2026-09-30T13:42:44Z
+updated: 2026-09-30T13:42:45Z
 goal: Fix the Tracking Sheets sales-tax crash, then the loose ends from the 2026-09-30 progress check of NAVIGATION_PLAN.md stages 0-3
 next: Ship claude/ascent-app-simplify-w613c1 to main (npm run ship) once the labels-help and layout-docs review lenses report clean. Owner still to answer: Push as Expense account (always 271 Capital One Sparks). Owner: ./deploy.sh in ascent-appscript for Code this bill.
 ---
