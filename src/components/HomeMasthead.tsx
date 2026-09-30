@@ -31,7 +31,7 @@ import { HomeReminders } from "@/components/HomeReminders";
  * has passed and the month is still behind the calendar, it goes RED and a chip
  * names the month to switch to.
  *
- * Office and admin change it; a lead reads it. It decides where money lands
+ * Office and admin change it; nobody else sees it. It decides where money lands
  * org-wide, so the write is role-checked at /api/billing-month too — this is
  * only which control renders. Gated on `recode` overall: a role that never
  * codes a bill has no decision to make here.

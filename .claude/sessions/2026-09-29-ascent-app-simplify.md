@@ -20,6 +20,8 @@ next: Owner answers the 10 decisions in NAVIGATION_PLAN.md; then Stage 0: gate /
   src/app/tracking-sheet/page.tsx, src/app/trackingsheet/Board.tsx, src/app/trackingsheet/useCodingDraft.ts, src/components/TodayQueue.tsx, src/lib/codingDraft.test.ts, src/lib/codingDraft.ts
 - 2026-09-30 13:05 · `60e69cd` companion: gate the coding queue on tracking sheets, test the specs write route
   src/lib/billEditAccess.test.ts, src/lib/views.ts
+- 2026-09-30 13:05 · `15c71b6` companion: one label per page — time, miles, requisitions, access, office dashboard; drop the rfi help topic
+  src/app/admin/page.tsx, src/app/employee-time/EmployeeTimeClient.tsx, src/app/mileage-tracker/page.tsx, src/app/office/page.tsx, src/lib/copy.ts, src/lib/help.ts, +2 more
 
 ## Notes
 - 2026-09-29 15:13 — Plan: regroup 58 routes into 10 workspaces with tab strips carrying jobId+ym; Home becomes Today (queue); one list (src/lib/workspaces.ts) feeds bar, rail, menu, search. Routes and view ids stay. Full plan NAVIGATION_PLAN.md; web version https://claude.ai/artifact/2RBRreUQTJFzexsFHQyGL1

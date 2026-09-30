@@ -7,7 +7,6 @@ import { TabBar } from "@/components/TabBar";
 import { WorkspaceTabs } from "@/components/WorkspaceTabs";
 import { AccessProvider } from "@/components/AccessProvider";
 import { CopyProvider } from "@/components/CopyProvider";
-import { RefreshBoundary, RefreshProvider } from "@/components/RefreshProvider";
 import { StuckVendorPopup, StuckVendorsProvider } from "@/components/StuckVendors";
 import { BillMoveProvider } from "@/components/BillMove";
 import { NoticeCenter } from "@/components/Notices";
@@ -141,11 +140,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         {session?.user && <UsageBeacon />}
         <CopyProvider overrides={copyOverrides}>
         <AccessProvider role={role} views={views}>
-          {/* Global refresh: the header's button remounts the page subtree
-              (RefreshBoundary keys {children}) so every page's mount-time /api
-              fetch re-runs, plus router.refresh() for anything server-rendered.
-              Wraps the header too, so the button can reach it via context. */}
-          <RefreshProvider>
             {/* Bills whose vendor has no JobTread account are imported but never
                 pushed, and the failure is otherwise invisible. The provider checks
                 once per load (only for users who can act on it); the popup finds
@@ -173,11 +167,13 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                   banner stack sits here, in the flow under the header, so it
                   reads as app chrome on every page rather than as part of the
                   page's own content; the popup surface it also owns is fixed,
-                  so it does not care where it is mounted. Outside
-                  RefreshBoundary on purpose: a refresh remounts the page, not
-                  the chrome. */}
+                  so it does not care where it is mounted. */}
               {session?.user && <NoticeCenter />}
-              <RefreshBoundary>{children}</RefreshBoundary>
+              {/* A box-less wrapper, kept from the retired refresh boundary:
+                  admin-written page guides (src/lib/pageGuide.ts) locate an
+                  element by its tag path under #app-shell, and removing this
+                  level would move every one of them. */}
+              <div className="contents">{children}</div>
               {/* Bottom tab bar — the fast path between the pages opened all
                   day. Gated on the same view ids as the launcher, so it only
                   ever shows destinations this role can actually reach. */}
@@ -191,7 +187,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               <PageGuide />
             </BillMoveProvider>
             </StuckVendorsProvider>
-          </RefreshProvider>
         </AccessProvider>
         </CopyProvider>
       </body>

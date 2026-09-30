@@ -1,8 +1,8 @@
 /**
  * The Daily Digest's STANDING INSTRUCTIONS — the owner's durable "stop telling
  * me about…" / "always do…" preferences that shape how the morning brief is
- * written. Set via the reply box (src/app/api/digest/reply/route.ts) or Admin →
- * Digest, stored in the `digest_instructions` table (src/db/schema.ts).
+ * written. Set via the reply box (src/app/api/digest/reply/route.ts), and
+ * stored in the `digest_instructions` table (src/db/schema.ts).
  *
  * ⚠️ NOTHING READS THEM SINCE 2026-09-04. They existed to shape the brief's
  * prompt; the brief is now built from the check results with no model call

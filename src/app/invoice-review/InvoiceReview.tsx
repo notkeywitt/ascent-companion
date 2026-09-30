@@ -69,10 +69,7 @@ interface InvestigationState {
  * fine", which is why the button says that rather than "dismiss".
  */
 
-/** The last 15 billing months, newest first. (Deliberately a local copy rather
- *  than an import from trackingsheet/Roster: that module is a whole client
- *  component, and pulling it in for ten lines of dates would ship the coding
- *  workbench to this page's bundle.) */
+/** The last 15 billing months, newest first. */
 function monthChoices() {
   const out: { ym: string; label: string }[] = [];
   const now = new Date();
