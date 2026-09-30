@@ -562,6 +562,8 @@ export function Board() {
     setTimeStaged,
     timeEdits,
     setTimeEdits,
+    typeEdits,
+    setTypeEdits,
   });
 
   // The month load — one read, and what it does to staged work — ./useMonthLoad.

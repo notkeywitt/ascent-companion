@@ -630,7 +630,16 @@ export default function TrackingSheetPage() {
               </div>
               <div>
                 <Label htmlFor="ts-job">Job</Label>
-                <Select id="ts-job" value={projectId} onChange={(e) => setProjectId(e.target.value)}>
+                <Select
+                  id="ts-job"
+                  value={projectId}
+                  onChange={(e) => {
+                    setProjectId(e.target.value);
+                    // Keep the address in step, so the tab strip carries THIS job
+                    // to the next tab, not the one the page opened on.
+                    setUrlParam("jobId", jobs.find((j) => j.id === e.target.value)?.jtJobId ?? "");
+                  }}
+                >
                   <option value="">Choose a job…</option>
                   {jobs.map((j) => (
                     <option key={j.id} value={j.id}>{j.label}</option>

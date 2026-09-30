@@ -9,6 +9,7 @@ import {
   loadDraft,
   reconcileDraft,
   saveDraft,
+  type BillType,
   type TimeEntryEdit,
 } from "@/lib/codingDraft";
 import type { BoardPayload } from "./Board";
@@ -38,6 +39,8 @@ export function useCodingDraft({
   setTimeStaged,
   timeEdits,
   setTimeEdits,
+  typeEdits,
+  setTypeEdits,
 }: {
   jobId: string;
   ym: string;
@@ -53,6 +56,8 @@ export function useCodingDraft({
   setTimeStaged: Dispatch<SetStateAction<Map<string, string>>>;
   timeEdits: Record<string, TimeEntryEdit>;
   setTimeEdits: Dispatch<SetStateAction<Record<string, TimeEntryEdit>>>;
+  typeEdits: Record<string, BillType>;
+  setTypeEdits: Dispatch<SetStateAction<Record<string, BillType>>>;
 }) {
   // ---- durable drafts -----------------------------------------------------
   /**
@@ -111,6 +116,7 @@ export function useCodingDraft({
           prev.size > 0 ? prev : new Map(Object.entries(r.timeStaged ?? {})),
         );
         setTimeEdits((prev) => (Object.keys(prev).length > 0 ? prev : (r.timeEdits ?? {})));
+        setTypeEdits((prev) => (Object.keys(prev).length > 0 ? prev : (r.typeEdits ?? {})));
         setRestoreMsg({ kept: r.kept, dropped: r.dropped, savedAt: draft.savedAt });
       } finally {
         // Whatever came of it, this scope is now the browser's to save.
@@ -120,7 +126,7 @@ export function useCodingDraft({
     return () => {
       alive = false;
     };
-  }, [draftKey, loading, data, setEdits, setStaged, setTaxEdits, setTimeEdits, setTimeStaged]);
+  }, [draftKey, loading, data, setEdits, setStaged, setTaxEdits, setTimeEdits, setTimeStaged, setTypeEdits]);
 
   // …and save it on every change. Cheap: localStorage synchronously, the
   // companion DB on a debounce (and flushed when the tab is hidden or closed).
@@ -138,10 +144,11 @@ export function useCodingDraft({
         taxEdits,
         timeStaged: Object.fromEntries(timeStaged),
         timeEdits,
+        typeEdits,
       },
       `${data?.job?.name || "This job"} · ${monthLabel(ym)}`,
     );
-  }, [draftKey, staged, edits, taxEdits, timeStaged, timeEdits, data?.job?.name, ym]);
+  }, [draftKey, staged, edits, taxEdits, timeStaged, timeEdits, typeEdits, data?.job?.name, ym]);
 
   return { draftKey, restoreMsg, setRestoreMsg, restoreStartedRef, autosaveArmedRef };
 }

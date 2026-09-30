@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useAccess } from "@/components/AccessProvider";
+import { driveMainWindowToDoc } from "@/components/BillingSummary";
 import { CountBadge, ListCard, ListRow, MetaLine, SectionHeading } from "@/components/ui";
 import { cached, sunsetGreenCounts } from "@/lib/homeFacts";
 
@@ -229,6 +230,9 @@ function DraftList({ bills }: { bills: Draft[] | null }) {
         <li key={b.id}>
           <Link
             href={`/bill/${b.id}${b.jobId ? `?jobId=${encodeURIComponent(b.jobId)}` : ""}`}
+            // In the Chrome side panel, also turn the docked JobTread tab to this
+            // bill — what the retired /coding list did (extension/panel.js).
+            onClick={() => b.jobId && driveMainWindowToDoc(b.jobId, b.id)}
             className="flex items-baseline gap-3 px-4 py-2 text-[13px] transition hover:bg-accent/10"
           >
             <span className="min-w-0 flex-1 truncate">

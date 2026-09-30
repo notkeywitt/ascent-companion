@@ -80,7 +80,16 @@ export interface CodingDraft {
    * panel staged it, and one entry can never carry two different codes.
    */
   timeEdits?: Record<string, TimeEntryEdit>;
+  /**
+   * docId → the staged Bill / Expense type. Save writes the name and "Push as"
+   * together (/api/bill-fields). Optional: only the job workbench stages a type,
+   * and a draft written before this existed simply has none.
+   */
+  typeEdits?: Record<string, BillType>;
 }
+
+/** A vendor bill's type as the office picks it: JobTread name + "Push as". */
+export type BillType = "Bill" | "Expense";
 
 /**
  * An in-flight correction to one time entry — the fields /api/time-entry takes,
@@ -100,7 +109,7 @@ export interface TimeEntryEdit {
 /** The editable half of a draft — what a caller hands in to be saved. */
 export type DraftParts = Pick<
   CodingDraft,
-  "staged" | "edits" | "taxEdits" | "timeStaged" | "timeEdits"
+  "staged" | "edits" | "taxEdits" | "timeStaged" | "timeEdits" | "typeEdits"
 >;
 
 /** The job workbench: one job, one billing month. */
@@ -120,7 +129,8 @@ export function draftSize(parts: DraftParts): number {
     Object.keys(parts.edits).length +
     Object.keys(parts.taxEdits).length +
     Object.keys(parts.timeStaged ?? {}).length +
-    Object.keys(parts.timeEdits ?? {}).length
+    Object.keys(parts.timeEdits ?? {}).length +
+    Object.keys(parts.typeEdits ?? {}).length
   );
 }
 
@@ -173,7 +183,13 @@ export interface DraftWorld {
    * Every bill on screen with the sales tax it currently carries — the 88 80 00
    * line plus any legacy `nonRecoverableTax`, already resolved by the caller.
    */
-  bills: readonly { id: string; salesTax?: number }[];
+  bills: readonly {
+    id: string;
+    salesTax?: number;
+    /** The type JobTread holds now: its name and "Push as" (qboDocumentType). */
+    name?: string;
+    qboDocumentType?: string | null;
+  }[];
   /** The budget leaves a line — or a time entry — may legally be coded to. */
   budgetIds: readonly string[];
   /** The month's time entries, for a draft that staged labor recodes. */
@@ -262,8 +278,22 @@ export function reconcileDraft(draft: DraftParts, world: DraftWorld): Reconciled
     timeEdits[entryId] = edit;
   }
 
-  const kept = draftSize({ staged, edits, taxEdits, timeStaged, timeEdits });
-  return { staged, edits, taxEdits, timeStaged, timeEdits, kept, dropped };
+  // A staged type survives while its bill is on screen and JobTread does not
+  // already hold that type — the same test the toggle uses to un-stage it.
+  const typeEdits: Record<string, BillType> = {};
+  for (const [docId, t] of Object.entries(draft.typeEdits ?? {})) {
+    const bill = billById.get(docId);
+    const qbo = t === "Expense" ? "purchase" : "bill";
+    const held = bill && bill.name === t && (bill.qboDocumentType ?? "bill") === qbo;
+    if (!bill || (t !== "Bill" && t !== "Expense") || held) {
+      dropped++;
+      continue;
+    }
+    typeEdits[docId] = t;
+  }
+
+  const kept = draftSize({ staged, edits, taxEdits, timeStaged, timeEdits, typeEdits });
+  return { staged, edits, taxEdits, timeStaged, timeEdits, typeEdits, kept, dropped };
 }
 
 // ---------------------------------------------------------------------------
@@ -294,6 +324,7 @@ function parseDraft(raw: string | null): CodingDraft | null {
       taxEdits: (d.taxEdits ?? {}) as Record<string, string>,
       timeStaged: (d.timeStaged ?? {}) as Record<string, string>,
       timeEdits: (d.timeEdits ?? {}) as Record<string, TimeEntryEdit>,
+      typeEdits: (d.typeEdits ?? {}) as Record<string, BillType>,
     };
   } catch {
     return null; // a truncated write from a killed tab — treat as no draft

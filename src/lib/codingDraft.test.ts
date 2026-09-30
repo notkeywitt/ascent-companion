@@ -14,6 +14,7 @@ import {
   writeLocalDraft,
   type CodingDraft,
   type DraftParts,
+  type DraftWorld,
 } from "@/lib/codingDraft";
 
 /**
@@ -173,6 +174,40 @@ describe("reconcileDraft", () => {
     );
     expect(r.kept).toBe(2);
     expect(r.dropped).toBe(2);
+  });
+
+  describe("staged Bill/Expense type", () => {
+    const typed: DraftWorld = {
+      ...world,
+      bills: [
+        { id: "D1", salesTax: 12.5, name: "Bill", qboDocumentType: "bill" },
+        { id: "D2", name: "Expense", qboDocumentType: "purchase" },
+      ],
+    };
+
+    it("keeps a staged type JobTread does not hold yet", () => {
+      const r = reconcileDraft(parts({ typeEdits: { D1: "Expense" } }), typed);
+      expect(r.typeEdits).toEqual({ D1: "Expense" });
+      expect(r.kept).toBe(1);
+    });
+
+    it("drops a type JobTread already holds, and one for a bill that is gone", () => {
+      const r = reconcileDraft(parts({ typeEdits: { D2: "Expense", GONE: "Bill" } }), typed);
+      expect(r.typeEdits).toEqual({});
+      expect(r.dropped).toBe(2);
+    });
+
+    it("keeps a flip back to Bill when only the name was changed in JobTread", () => {
+      const r = reconcileDraft(
+        parts({ typeEdits: { D2: "Bill" } }),
+        { ...typed, bills: [{ id: "D2", name: "Bill", qboDocumentType: "purchase" }] },
+      );
+      expect(r.typeEdits).toEqual({ D2: "Bill" });
+    });
+
+    it("counts a staged type toward the draft's size", () => {
+      expect(draftSize(parts({ typeEdits: { D1: "Expense" } }))).toBe(1);
+    });
   });
 });
 
