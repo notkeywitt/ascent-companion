@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/board-split
 status: shipped
 started: 2026-09-29T23:22:27Z
-updated: 2026-09-30T03:18:21Z
+updated: 2026-09-30T03:21:27Z
 goal: Audit finding 01: split src/app/trackingsheet/Board.tsx by job, one block per push, starting with time coding; then NAVIGATION_PLAN.md stage 4
 next: 
 ---
@@ -16,5 +16,7 @@ next:
   CODEBASE_MAP.md, SIMPLICITY_AUDIT.md, src/app/trackingsheet/Board.tsx, src/app/trackingsheet/headroom.test.ts, src/app/trackingsheet/headroom.ts
 - 2026-09-29 20:18 · `c01e8bc` companion: move Tracking Sheets time coding into its own hook
   CODEBASE_MAP.md, SIMPLICITY_AUDIT.md, src/app/trackingsheet/Board.tsx, src/app/trackingsheet/useTimeCoding.ts
+- 2026-09-29 20:21 · `fd983d8` companion: move the sheet push and pre-send check out of Board
+  CODEBASE_MAP.md, SIMPLICITY_AUDIT.md, src/app/trackingsheet/Board.tsx, src/app/trackingsheet/usePreSendCheck.ts, src/app/trackingsheet/useTrackingPush.ts
 
 ## Notes
