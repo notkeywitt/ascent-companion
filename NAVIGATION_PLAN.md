@@ -200,7 +200,7 @@ a read-only mode of the bill page, which is the coding editor.
 ### Stage 4 status, 2026-09-30
 
 Not started as planned. Shipped around it: the Tracking Sheets file split
-(`Board.tsx` 5,059 → 2,845 lines, SIMPLICITY_AUDIT finding 01, the stage's
+(`Board.tsx` 5,059 → about 2,850 lines, SIMPLICITY_AUDIT finding 01, the stage's
 precondition), and at desk width a bill's coding card opens beside its row
 (fac9f18). The iPad side sheet with `?bill=` in the address, the labor lane and
 the per-tab done counts are still to do.

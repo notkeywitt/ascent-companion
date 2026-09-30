@@ -120,7 +120,7 @@ export const HELP: HelpSection[] = [
         ],
         notes: [
           "The bar at the bottom of the screen holds the pages you use most.",
-          "**Today** in the bar takes you back to the home page. A field bar has no Today: its five pages are the whole app.",
+          "**Today** in the bar takes you back to the home page. A field bar has no Today; open it from **☰**.",
           "To put a page on the bar, tap **Pin to bar** in the menu, then tap the page.",
           "Your role decides which pages you see.",
           "This help page is in the **Help** group of the menu.",

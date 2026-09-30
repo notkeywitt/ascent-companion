@@ -399,7 +399,7 @@ once and eyeball the range → commit.
   magnet: needs a dedicated session with no other companion work in flight, merged the
   same day.
   **Under way, 2026-09-29:** now `src/app/trackingsheet/Board.tsx` (the `recode/` path
-  in finding 2 is gone). 5,059 → 2,845 lines, 20 modules moved out one per push, with
+  in finding 2 is gone). 5,059 → about 2,850 lines, 20 modules moved out one per push, with
   tests for the budget math and Save (`headroom.test.ts`, `saveCoding.test.ts`).
   What is left in `Board()` is listed in `SIMPLICITY_AUDIT.md` finding 01. The pre-push
   hook now runs `npm test` too, so the tests block a production push, not only CI.

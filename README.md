@@ -38,7 +38,8 @@ The plan behind this layout is `NAVIGATION_PLAN.md`.
 | **Admin** | Access (`/admin`) · Page Text · Theme · System Logs · Financial Journal · Historical Cost Import |
 
 Outside the workspaces: the bill page (`/bill/<id>`), the header's **＋ Add
-bill** (`/add-bill`), the Assistant (`/chat`) and LopezRocks in the menu footer.
+bill** (`/add-bill`), the Assistant (`/chat`) and LopezRocks in the menu footer,
+and RFIs (`/rfis`, by address only).
 Each page's purpose is in `CODEBASE_MAP.md`; how to use each one is in `/help`
 (`src/lib/help.ts`) and the long-form `USER_MANUAL.md`.
 

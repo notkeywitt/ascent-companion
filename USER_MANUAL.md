@@ -21,8 +21,7 @@ in JobTread and it flows back — not the other way around.
 The app works two ways:
 
 - **On your phone** — a full mobile web app you can install to your home screen (see
-  *Install it on your phone* below). This is how field staff use Tools, Safety Meeting,
-  Mileage, and Employee Time.
+  *Install it on your phone* below). This is how field staff use Time, Miles and Tools.
 - **On your computer** — in a browser tab, or docked in a **Chrome side panel** right
   next to JobTread (see *The Chrome side panel*).
 
@@ -128,9 +127,9 @@ repeats. There are ten: **Today**, **Month Close**, **Incoming Bills**,
 The bar at the top of every screen, left to right:
 
 - **☰** opens the menu (below).
-- **‹** goes back one page. It is absent on Today.
-- **The Ascent logo** switches light and dark theme. It is the only light/dark
-  control.
+- **←** goes back one page. It is absent on Today.
+- **The Ascent logo** switches light and dark theme. **Appearance** in the ☰ menu
+  does the same, and also picks the palette.
 - **The search box** (not on a field login — see below).
 - **＋ Add bill** adds a vendor bill (office and admin).
 
@@ -162,8 +161,8 @@ the bar becomes a rail down the left edge with every workspace on it.
 Inside a workspace, a row of tabs sits under the top bar (office and admin only —
 a field or lead bar already holds their pages). Each tab is one page
 of that workspace. **The tabs carry the job and the billing month you picked**,
-so Invoice Review opens on the same job and month you were coding on Tracking
-Sheets. Month Close lists its tabs in close order: Tracking Sheets, Labor
+so Labor Review opens on the same job and month you were coding on Tracking
+Sheets. A page that covers every job, such as Invoice Review, takes only the month. Month Close lists its tabs in close order: Tracking Sheets, Labor
 Review, Bill Corrections, Taxable Flags, Invoice Review, Invoicing Package,
 Finalize.
 
@@ -175,10 +174,10 @@ approve**, **Requisitions**, **Sunset** and **App Feedback**. A row appears only
 when it has something in it and you can act on it. Tap **Bills to code** to open
 the list of draft bills in place.
 
-Above the rows: the **billing month** control (office and admin, at every
-width), and banners for bills stuck on a missing vendor or not in JobTread.
-Below them: the Office job's to-dos, your own to-dos (admin), **Active jobs** and
-**Leads**.
+Top to bottom: the **billing month** control (office and admin, at every
+width); the rows; banners for bills stuck on a missing vendor or not in
+JobTread; **Active jobs**; **Leads**; your own to-dos (admin); the Office job's
+to-dos.
 
 A field or lead login opens on **Time** when the app is opened fresh. A lead
 reaches Today from the **Today** slot on the bar.
@@ -199,10 +198,10 @@ address, and choose a job — or choose **"All jobs"** for the month's every-job
 - Your choice rides in the address bar, and the tab strip carries it to the next tab.
 - It warns you first if you have unsaved coding on the job you are leaving.
 
-### Sync Now
+### Sync Drive
 
 **Month Close → Tracking Sheets**, with **All jobs** picked, in the **Company tools**
-card. It pushes JobTread's latest changes into the Sheets and Drive folders right
+card. Tap **Sync Drive**. It pushes JobTread's latest changes into the Sheets and Drive folders right
 now, instead of waiting for the hourly automatic sync. It confirms the sync was
 *queued*, not that it finished (a full sync takes ~15 minutes). If a sync is already
 running you'll see **"Already running"** in amber — that's normal; nothing new was
@@ -285,7 +284,7 @@ You can also set the **Billing month**, add a line with **+ Add line**, **Move t
 ### Not in JobTread — **Incoming Bills → Not in JobTread**
 
 Bills the automations captured that never reached JobTread. The page holds three
-lists, each shown only when it has rows:
+lists. **No job yet** always shows; the other two show only when they have rows:
 
 - **No job yet** — the system could not tell which job the bill belongs to. Tap
   **View PDF ↗**, pick the correct **job** and tap **Assign**: the bill is pushed to
@@ -395,19 +394,21 @@ PDF. Designed to be filled on one iPad passed around the crew.
 
 ### Miles — **My Work → Miles**
 
-Logs business driving. Because a phone can't track GPS in the background, you tap once when
-you leave and once when you arrive; the app fills in the miles and street addresses.
+Logs business driving. Miles are calculated from where you start and stop the trip, and
+the app fills in the street addresses. A trip is always recorded under your own name —
+there is no driver to pick.
 
-1. On the start screen, confirm the **Driver**, optionally pick a **Job** and **Purpose**,
-   and tap **Start trip**. (You can then lock your phone or close the app.)
+1. On the start screen, optionally pick a **Job** and **Purpose**, and tap **Start trip**.
+   With the app left open it tracks the route live; it does not run in the background.
 2. When you arrive, reopen the app and tap **End trip**. It shows the miles, driving time,
    and a from → to summary.
 3. **Add miles manually** handles a forgotten trip — just enter the miles and date.
+   A trip started and stopped at the same place records 0 miles.
 4. **View logged miles** shows your history with a month filter. Admins also get a driver
    filter and a **"Create PDF — all drivers, this month"** export.
 
 > **Location permission is required** for the Start/End flow. Log each stop of a
-> multi-stop trip as its own leg. Your driver choice is remembered on the device.
+> multi-stop trip as its own leg.
 
 ### Time — **My Work → Time**
 
@@ -607,10 +608,10 @@ and under it these collapsible sections:
 **Billing is switched off** (as of 31 Aug 2026). The digest used to open with four
 billing checks; billing now has its own screens (Tracking Sheets, Unbilled,
 Recode), so the digest is a schedule and to-do report instead. The billing checks
-still exist and can be turned back on from **Admin → Digest** (see below) — no
+still exist and can be turned back on from **Admin → Access → Digest** (see below) — no
 need to ask for a code change.
 
-**Tuning the digest — Admin → Digest.** Every check above can be turned on or
+**Tuning the digest — Admin → Access → Digest.** Every check above can be turned on or
 off, and its numbers (how many days back, how many days ahead, how many items)
 and lists (who to watch, whose email to ignore, which calendars to read) can be
 edited from this screen, and take effect on the very next scheduled run — no
@@ -672,8 +673,8 @@ end (the Google Apps Script half) keeps its own record in its own repository.
   looks empty or says "pick a job above," that's usually why.
 - **Amounts include tax** in the bill views; on the coding screen you *enter* amounts
   pre-tax and the app adds tax back. Don't double-count it.
-- **Permissions on the phone:** Tools scanning and Employee Time photos need **camera**;
-  Mileage needs **location**; Tools and Employee Time use **location** (optional) to guess
+- **Permissions on the phone:** Tools scanning and Time photos need **camera**;
+  Miles needs **location**; Tools and Time use **location** (optional) to guess
   the nearest job. If you denied one by accident, re-enable it in your browser's site
   settings.
 - **"Writes are off" warnings:** on some deploys, writing to JobTread is intentionally

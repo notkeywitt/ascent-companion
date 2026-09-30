@@ -195,8 +195,11 @@ branch's record, so the next session can pick the work up cold. Read
    server, so the grant key never reaches the browser. Compose the query from
    **`JT_API_REFERENCE.md`** (in this repo — the complete Pave schema). Worked
    example end-to-end: **`src/app/jobs/`**, which reads `/api/jobs/browser` and
-   `/api/jobs/cost-detail`. The generic gateway (`gatewayQuery` → `/api/pave`,
-   below) is not the pattern pages use; see `SIMPLICITY_AUDIT.md` finding 04.
+   `/api/jobs/cost-detail` (those two routes are not yet on the `jobs` view's
+   `paths` — step 3 — because a lead's job panel also reads cost-detail). The
+   generic gateway (`gatewayQuery` → `/api/pave`, below) is legacy, not the
+   pattern: its two callers are Email Invoices' bill lookup and Today's Sunset
+   count. Move those before removing it (`SIMPLICITY_AUDIT.md` finding 04).
 2. **Server page → client component.** The `page.tsx` is a server component that
    renders a `"use client"` component, and that component fetches the route.
    (Pattern: `src/app/jobs/page.tsx` → `JobsBrowser.tsx`.)

@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/ascent-app-simplify-w613c1
 status: shipped
 started: 2026-09-29T15:13:06Z
-updated: 2026-09-30T13:18:53Z
+updated: 2026-09-30T13:42:44Z
 goal: Fix the Tracking Sheets sales-tax crash, then the loose ends from the 2026-09-30 progress check of NAVIGATION_PLAN.md stages 0-3
 next: Ship claude/ascent-app-simplify-w613c1 to main (npm run ship) once the labels-help and layout-docs review lenses report clean. Owner still to answer: Push as Expense account (always 271 Capital One Sparks). Owner: ./deploy.sh in ascent-appscript for Code this bill.
 ---
@@ -31,6 +31,8 @@ next: Ship claude/ascent-app-simplify-w613c1 to main (npm run ship) once the lab
 - 2026-09-30 13:18 · `0373e79` companion: no tab strip for field and lead, leads open on time, lift the help mark off the bar
   USER_MANUAL.md, src/app/page.tsx, src/components/PageGuide.tsx, src/components/WorkspaceTabs.tsx
 - 2026-09-30 13:18 · `2b80a25` companion: log session 2026-09-29-ascent-app-simplify
+- 2026-09-30 13:42 · `dd1a6fb` companion: miles records the signed-in person, new description, buttons for manual and history
+  src/app/mileage-tracker/page.tsx
 
 ## Notes
 - 2026-09-29 15:13 — Plan: regroup 58 routes into 10 workspaces with tab strips carrying jobId+ym; Home becomes Today (queue); one list (src/lib/workspaces.ts) feeds bar, rail, menu, search. Routes and view ids stay. Full plan NAVIGATION_PLAN.md; web version https://claude.ai/artifact/2RBRreUQTJFzexsFHQyGL1

@@ -82,7 +82,7 @@ and its scanned invoice (`useBillFiles.ts`). Then the cost-code drill-down
 two pieces of the layout: the budget rail (`BudgetRail.tsx`) and the
 drill-down sheet (`CodeDrillSheet.tsx`), then the centre column's three
 views: By bill (`BillListView.tsx`), By cost code (`CodeLanesView.tsx`) and
-Summary (`BillingSummaryView.tsx`). Board.tsx: 2,845 lines. Left in Board:
+Summary (`BillingSummaryView.tsx`). Board.tsx: 2,851 lines. Left in Board:
 the bill-coding state (staged, edits, tax, the open bill's math), the coding
 card's wiring, `renderBillCard`, the labor lane (it reads about 30 of the
 board's values), the header and the commit bar. Tax is not a block of its own: its one state is read by the draft,
@@ -188,7 +188,7 @@ Option B removes the duplication but loses the types. Option A keeps both.
 
 ### 04 — The documented way to build a page has no users · DEAD WEIGHT
 
-`gatewayQuery()` in `src/lib/paveGatewayClient.ts` has **zero** callers in
+`gatewayQuery()` in `src/lib/paveGatewayClient.ts` had **zero** callers in
 `src/`. The stack kept alive for it: `paveGatewayClient.ts` 30 +
 `paveGateway.ts` 202 + its test 123 + `api/pave/route.ts` 164 = **519 lines**,
 plus two environment flags and a section of `CLAUDE.md`.
@@ -199,6 +199,10 @@ gateway, and names `src/app/jobs/` as the worked example. `/jobs` calls
 
 The cost is not the 519 lines. It is that the written instruction sends the next
 person down a path nobody else took.
+
+> **Since 2026-09-29 it has two callers:** Email Invoices' per-job bill lookup
+> (`src/app/email/page.tsx`) and Today's Sunset count (`sunsetGreenCounts` in
+> `src/lib/homeFacts.ts`). Option A must move both to purpose-built routes first.
 
 **Option A — Remove the gateway (recommended)**
 
