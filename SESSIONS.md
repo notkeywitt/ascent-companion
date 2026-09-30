@@ -30,7 +30,7 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
-| [board-split](.claude/sessions/2026-09-29-board-split.md) | 2026-09-30 | 10 | Audit finding 01: split src/app/trackingsheet/Board.tsx by job, one block per p… |
+| [board-split](.claude/sessions/2026-09-29-board-split.md) | 2026-09-30 | 11 | Audit finding 01: split src/app/trackingsheet/Board.tsx by job, one block per p… |
 | [bill-expense-save](.claude/sessions/2026-09-29-bill-expense-save.md) | 2026-09-29 | 1 | Bill/Expense toggle stages until Save on the tracking sheet; Push as Expense se… |
 | [navigation-stage-3](.claude/sessions/2026-09-29-navigation-stage-3.md) | 2026-09-29 | 5 | NAVIGATION_PLAN.md Stage 3: Not in JobTread merge, Code this bill on Email Invo… |
 | [navigation-stage-1](.claude/sessions/2026-09-29-navigation-stage-1.md) | 2026-09-29 | 11 | NAVIGATION_PLAN.md Stage 1: one workspace list feeding bar, menu, search; tab s… |
