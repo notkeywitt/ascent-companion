@@ -19,6 +19,7 @@ import {
 import {
   Banner,
   Card,
+  Button,
   EmptyState,
   Input,
   Label,
@@ -100,7 +101,6 @@ interface TripResult {
   error?: string;
 }
 
-const LS_DRIVER = "mileage.driver";
 // The last job a trip was logged against on this device. It is the job field's
 // default on the next trip — a driver on the same job all week picks nothing.
 // The picker's LIST is location-aware (nearest job first); the field is not.
@@ -278,6 +278,8 @@ export default function MileageTrackerPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [sessionUser, setSessionUser] = useState<{ name?: string; email?: string } | null>(null);
   const [sessionLoaded, setSessionLoaded] = useState(false);
+  // The roster read has settled (loaded or failed) — the driver waits on it.
+  const [employeesLoaded, setEmployeesLoaded] = useState(false);
 
   // Trip fields (kept across idle/active so a mid-trip edit sticks).
   const [driver, setDriver] = useState("");
@@ -343,7 +345,10 @@ export default function MileageTrackerPage() {
         const res = await fetch("/api/employees");
         const json = await res.json();
         if (res.ok && json.ok !== false) setEmployees(json.employees ?? []);
-      } catch {}
+      } catch {
+      } finally {
+        setEmployeesLoaded(true);
+      }
     })();
     fetch("/api/jobs")
       .then((r) => r.json())
@@ -394,35 +399,21 @@ export default function MileageTrackerPage() {
     }
   }, [jobs, jobId]);
 
-  // Default the driver to whoever is signed in, matched to the roster by email
-  // (reliable) then name. Only if that fails do we fall back to the last driver
-  // used on this device. We wait for the session fetch to settle so the
-  // signed-in user always gets first pick over a stale remembered choice.
+  // The driver is ALWAYS the signed-in person (owner, 2026-09-30 — the picker
+  // is gone). Matched to the roster by email, then name, so the trip carries
+  // the roster name the history and the monthly PDF group by; a person not on
+  // the roster is recorded under their sign-in name. A restored trip keeps the
+  // driver it was started with (applyTrip sets it first).
   useEffect(() => {
-    if (driver || !employees.length || !sessionLoaded) return;
+    if (driver || !sessionLoaded || !employeesLoaded) return;
     const email = sessionUser?.email?.trim().toLowerCase();
     const name = sessionUser?.name?.trim().toLowerCase();
     const signedIn =
       (email && employees.find((e) => (e.email ?? "").trim().toLowerCase() === email)) ||
       (name && employees.find((e) => e.name.trim().toLowerCase() === name));
-    if (signedIn) {
-      setDriver(signedIn.name);
-      return;
-    }
-    let remembered = "";
-    try {
-      remembered = localStorage.getItem(LS_DRIVER) ?? "";
-    } catch {}
-    if (remembered && employees.some((e) => e.name === remembered)) setDriver(remembered);
-  }, [employees, sessionUser, sessionLoaded, driver]);
-
-  // Persist the driver choice for next time.
-  useEffect(() => {
-    if (!driver) return;
-    try {
-      localStorage.setItem(LS_DRIVER, driver);
-    } catch {}
-  }, [driver]);
+    const who = signedIn ? signedIn.name : sessionUser?.name?.trim() || sessionUser?.email?.trim() || "";
+    if (who) setDriver(who);
+  }, [employees, employeesLoaded, sessionUser, sessionLoaded, driver]);
 
   // The open trip as one object — what both copies below store.
   const currentTrip = useMemo<ActiveTrip | null>(() => {
@@ -823,7 +814,15 @@ export default function MileageTrackerPage() {
     <main className="mx-auto max-w-2xl px-4 pb-24 pt-6">
       <PageHeader
         title="Miles"
-        description="One tap to start, one tap to end. Miles are figured from where you start and stop."
+        description={
+          <>
+            Miles are calculated based on where you start and stop your trip.
+            <span className="mt-1 block text-xs">
+              If you leave the app open, it will track you live, but it does not run in the
+              background. If you start and stop recording at the same location, miles will be 0.
+            </span>
+          </>
+        }
       />
 
       {err && (
@@ -836,17 +835,11 @@ export default function MileageTrackerPage() {
       {phase === "idle" && (
         <div className="space-y-4">
           <Card className="space-y-3">
-            <div>
-              <Label htmlFor="mlg-driver">Driver</Label>
-              <Select id="mlg-driver" value={driver} onChange={(e) => setDriver(e.target.value)}>
-                <option value="">Select driver…</option>
-                {employees.map((e) => (
-                  <option key={e.id || e.name} value={e.name}>
-                    {e.name}
-                  </option>
-                ))}
-              </Select>
-            </div>
+            {driver && (
+              <p className="text-xs text-neutral-500">
+                Recording as <span className="font-semibold text-neutral-700 dark:text-neutral-300">{driver}</span>
+              </p>
+            )}
 
             <div>
               <Label>Job (optional)</Label>
@@ -876,44 +869,37 @@ export default function MileageTrackerPage() {
           <button
             type="button"
             onClick={startTrip}
-            disabled={busy}
+            disabled={busy || !driver}
             className="w-full rounded-2xl bg-accent px-4 py-6 text-lg font-bold text-accent-fg shadow-sm transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
           >
             {busy ? "Getting your location…" : "Start trip"}
           </button>
 
-          <p className="text-center text-xs text-neutral-500">
-            Tap Start when you leave, then close the app if you like — the trip is saved to your
-            account, so it is still waiting when you reopen it, even on another phone. The route
-            fills in whenever the app is open; tap End when you arrive. Miles cover the whole route.
-          </p>
-
-          <div className="flex items-center justify-center gap-4">
-            <button
+          <div className="grid grid-cols-2 gap-3">
+            <Button
               type="button"
+              variant="secondary"
+              size="lg"
               onClick={() => {
                 setErr("");
                 actedRef.current = true;
                 setManualKey(genKey());
                 setPhase("manual");
               }}
-              className="text-sm font-semibold text-accent underline-offset-2 hover:underline dark:text-accent-soft"
             >
               Add miles manually
-            </button>
-            <span className="text-neutral-300 dark:text-neutral-600" aria-hidden>
-              ·
-            </span>
-            <button
+            </Button>
+            <Button
               type="button"
+              variant="secondary"
+              size="lg"
               onClick={() => {
                 setErr("");
                 setPhase("history");
               }}
-              className="text-sm font-semibold text-accent underline-offset-2 hover:underline dark:text-accent-soft"
             >
               View logged miles
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -947,18 +933,6 @@ export default function MileageTrackerPage() {
             </div>
 
             <div>
-              <Label htmlFor="mlg-driver-m">Driver</Label>
-              <Select id="mlg-driver-m" value={driver} onChange={(e) => setDriver(e.target.value)}>
-                <option value="">Select driver…</option>
-                {employees.map((e) => (
-                  <option key={e.id || e.name} value={e.name}>
-                    {e.name}
-                  </option>
-                ))}
-              </Select>
-            </div>
-
-            <div>
               <Label>Job (optional)</Label>
               <div className="flex">
                 <JobPicker
@@ -986,7 +960,7 @@ export default function MileageTrackerPage() {
           <button
             type="button"
             onClick={saveManual}
-            disabled={busy}
+            disabled={busy || !driver}
             className="w-full rounded-2xl bg-accent px-4 py-6 text-lg font-bold text-accent-fg shadow-sm transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
           >
             {busy ? "Saving…" : "Save miles"}
@@ -1287,9 +1261,13 @@ export default function MileageTrackerPage() {
         </div>
       )}
 
-      {phase === "idle" && !employees.length && !err && (
+      {phase === "idle" && !driver && !err && (
         <div className="mt-4">
-          <Loading label="Loading drivers…" />
+          {sessionLoaded && employeesLoaded && !sessionUser?.email && !sessionUser?.name ? (
+            <Banner tone="error">Sign in with Google to record miles — a trip is recorded under your name.</Banner>
+          ) : (
+            <Loading label="Loading…" />
+          )}
         </div>
       )}
     </main>
