@@ -1,7 +1,26 @@
 {
-  "generatedAt": "2026-09-29T23:28:29Z",
-  "repo": "wt",
+  "generatedAt": "2026-09-30T03:11:46Z",
+  "repo": "ascent-companion",
   "sessions": [
+    {
+      "slug": "board-split",
+      "file": "2026-09-29-board-split.md",
+      "branch": "claude/board-split",
+      "status": "shipped",
+      "started": "2026-09-29T23:22:27Z",
+      "updated": "2026-09-30T03:11:46Z",
+      "goal": "Audit finding 01: split src/app/trackingsheet/Board.tsx by job, one block per push, starting with time coding; then NAVIGATION_PLAN.md stage 4",
+      "next": "",
+      "commits": [
+        {
+          "date": "2026-09-29",
+          "time": "20:11",
+          "sha": "cc5bd2f",
+          "subject": "companion: move the Tracking Sheets budget math out of Board, with tests",
+          "files": "CODEBASE_MAP.md, SIMPLICITY_AUDIT.md, src/app/trackingsheet/Board.tsx, src/app/trackingsheet/headroom.test.ts, src/app/trackingsheet/headroom.ts"
+        }
+      ]
+    },
     {
       "slug": "bill-expense-save",
       "file": "2026-09-29-bill-expense-save.md",
