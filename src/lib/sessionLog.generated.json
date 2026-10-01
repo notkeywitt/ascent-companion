@@ -1,7 +1,26 @@
 {
-  "generatedAt": "2026-10-01T17:08:49Z",
+  "generatedAt": "2026-10-01T20:00:04Z",
   "repo": "ascent-companion",
   "sessions": [
+    {
+      "slug": "time-week",
+      "file": "2026-10-01-time-week.md",
+      "branch": "claude/time-week-compare",
+      "status": "shipped",
+      "started": "2026-10-01T19:59:23Z",
+      "updated": "2026-10-01T20:00:04Z",
+      "goal": "Time page: Compare tab for admin+office — my week beside a picked employee's, customer x day grid, cells open hours+notes (mine editable, theirs read-only)",
+      "next": "Owner checks /employee-time → Compare live: pick an employee, tap a cell, edit own hours+note and confirm JobTread updates",
+      "commits": [
+        {
+          "date": "2026-10-01",
+          "time": "12:59",
+          "sha": "6d79b6d",
+          "subject": "companion: add week compare tab to time page",
+          "files": "src/app/api/employee-time/history/route.ts, src/app/employee-time/EmployeeTimeClient.tsx, src/app/employee-time/WeekCompare.tsx, src/app/employee-time/page.tsx, src/app/employee-time/weekGrid.test.ts, src/app/employee-time/weekGrid.ts, +3 more"
+        }
+      ]
+    },
     {
       "slug": "board-split",
       "file": "2026-09-29-board-split.md",

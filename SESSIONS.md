@@ -24,12 +24,13 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Branch | Parked | Picks up at |
 |---|---|---|---|
-| [ascent-security-analysis](.claude/sessions/2026-09-14-ascent-security-analysis.md) | `claude/ascent-security-analysis-m8fjif` | 17d ago | Owner merges PR #7 (git push origin origin/claude/ascent-security-analysis-m8fj… |
+| [ascent-security-analysis](.claude/sessions/2026-09-14-ascent-security-analysis.md) | `claude/ascent-security-analysis-m8fjif` | 18d ago | Owner merges PR #7 (git push origin origin/claude/ascent-security-analysis-m8fj… |
 
 ## Shipped
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
+| [time-week](.claude/sessions/2026-10-01-time-week.md) | 2026-10-01 | 1 | Time page: Compare tab for admin+office — my week beside a picked employee's, c… |
 | [board-split](.claude/sessions/2026-09-29-board-split.md) | 2026-10-01 | 16 | Audit finding 01: split src/app/trackingsheet/Board.tsx by job, one block per p… |
 | [ascent-app-simplify](.claude/sessions/2026-09-29-ascent-app-simplify.md) | 2026-09-30 | 13 | Fix the Tracking Sheets sales-tax crash, then the loose ends from the 2026-09-3… |
 | [bill-expense-save](.claude/sessions/2026-09-29-bill-expense-save.md) | 2026-09-29 | 1 | Bill/Expense toggle stages until Save on the tracking sheet; Push as Expense se… |
@@ -44,4 +45,3 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 | [vendor-bills-group-by](.claude/sessions/2026-09-11-vendor-bills-group-by.md) | 2026-09-11 | 1 | group the tracking sheet's month of vendor bills by vendor |
 | [billing-month](.claude/sessions/2026-09-10-billing-month.md) | 2026-09-11 | 43 | — |
 | [jobtread-qbo-sales-tax](.claude/sessions/2026-09-05-jobtread-qbo-sales-tax.md) | 2026-09-10 | 64 | bill move: background + Drive re-file + real error; buyback picker dialog; appr… |
-| [tracking-sheet-donut-charts](.claude/sessions/2026-09-10-tracking-sheet-donut-charts.md) | 2026-09-10 | 2 | — |
