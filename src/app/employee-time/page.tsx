@@ -4,7 +4,7 @@ import { PREVIEW_COOKIE, parsePreviewRole } from "@/lib/preview";
 import { getCachedJobs } from "@/lib/jobsCache";
 import { getPaveConfig, hasGrant } from "@/lib/config";
 import { findMemberByEmail, getOrgTimeEntryTypeNames, getOrgUsers } from "@/lib/jobtread";
-import { readJtUserLink } from "@/lib/jtUserLink";
+import { readAppJtUserIds, readJtUserLink } from "@/lib/jtUserLink";
 import { readLastUsed, readOpenClock, type LastUsed, type OpenClock } from "@/lib/employeeClock";
 import { rosterForRole } from "@/lib/payRates";
 import { EmployeeTimeClient } from "./EmployeeTimeClient";
@@ -70,7 +70,7 @@ export default async function EmployeeTimePage() {
       : null;
   const employeeName = me?.name || me?.jtUserName || "";
 
-  const [jobs, jtUsers, orgTypes, clock, lastUsed] = await Promise.all([
+  const [jobs, jtUsers, orgTypes, clock, lastUsed, appUserIds] = await Promise.all([
     grant ? getCachedJobs().catch(() => []) : [],
     cfg ? getOrgUsers(cfg).catch(() => []) : [],
     cfg ? getOrgTimeEntryTypeNames(cfg).catch(() => [] as string[]) : [],
@@ -80,6 +80,8 @@ export default async function EmployeeTimePage() {
         )
       : null,
     cfg && jtUserId ? readLastUsed(jtUserId).catch(() => null as LastUsed | null) : null,
+    // Split View lists only people who use this app, not the whole JT roster.
+    canCompare ? readAppJtUserIds() : ([] as string[]),
   ]);
 
   return (
@@ -95,6 +97,7 @@ export default async function EmployeeTimePage() {
       identityResolved={!!me}
       canActAs={canActAs}
       canCompare={canCompare}
+      appUserIds={appUserIds}
       lastUsed={lastUsed}
     />
   );

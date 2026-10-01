@@ -98,6 +98,20 @@ export async function readJtUserLinkByJtUserId(jtUserId: string): Promise<JtUser
   }
 }
 
+/**
+ * The JobTread users who have signed into this app. A row is written only when
+ * a signed-in person's own login is resolved, so a linked row means an app user.
+ */
+export async function readAppJtUserIds(): Promise<string[]> {
+  try {
+    await ensureDb();
+    const rows = await db.select({ id: jtUserLinks.jtUserId }).from(jtUserLinks);
+    return [...new Set(rows.map((r) => r.id).filter(Boolean))];
+  } catch {
+    return [];
+  }
+}
+
 /** Write (or refresh) one link. Called after any roster read that resolved it. */
 export async function saveJtUserLink(link: Omit<JtUserLink, "updatedAt">): Promise<void> {
   const email = (link.email ?? "").trim().toLowerCase();

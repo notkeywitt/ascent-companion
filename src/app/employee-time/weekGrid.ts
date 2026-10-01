@@ -23,6 +23,8 @@ export interface GridRow<E extends GridEntry> {
   label: string;
   cells: Map<string, E[]>;
   minutes: number;
+  /** A row with no time of yours yet: a customer you added, or one the other side has. */
+  ghost?: boolean;
 }
 
 /** "Kevin Berger › Bunkhouse", the way the reference sheet names a row. */
@@ -33,7 +35,15 @@ export function rowLabel(e: Pick<GridEntry, "customer" | "jobName">): string {
   return j || c || "(no job)";
 }
 
-export function buildGrid<E extends GridEntry>(entries: E[], days: string[]) {
+/**
+ * `extra` adds empty "ghost" rows — a customer added by hand, or a row the
+ * other person has — unless the entries already give that job a row.
+ */
+export function buildGrid<E extends GridEntry>(
+  entries: E[],
+  days: string[],
+  extra: { key: string; label: string }[] = [],
+) {
   const inWeek = new Set(days);
   const rows = new Map<string, GridRow<E>>();
   const dayMinutes = new Map<string, number>(days.map((d) => [d, 0]));
@@ -49,6 +59,9 @@ export function buildGrid<E extends GridEntry>(entries: E[], days: string[]) {
     row.minutes += e.minutes;
     dayMinutes.set(e.date, (dayMinutes.get(e.date) ?? 0) + e.minutes);
     total += e.minutes;
+  }
+  for (const x of extra) {
+    if (!rows.has(x.key)) rows.set(x.key, { key: x.key, label: x.label, cells: new Map(), minutes: 0, ghost: true });
   }
   return {
     rows: [...rows.values()].sort((a, b) => a.label.localeCompare(b.label)),

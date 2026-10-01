@@ -563,6 +563,7 @@ export function EmployeeTimeClient({
   lastUsed,
   canActAs = false,
   canCompare = false,
+  appUserIds = [],
 }: {
   initialJobs: JobRef[];
   initialMe: Me | null;
@@ -576,6 +577,8 @@ export function EmployeeTimeClient({
   canActAs?: boolean;
   /** Admin + office: the week-compare tab. The history route enforces it. */
   canCompare?: boolean;
+  /** JobTread ids of people who sign into this app — Split View's employee list. */
+  appUserIds?: string[];
 }) {
   const [tab, setTab] = useState<"clock" | "sheets" | "compare">("clock");
   const [busy, setBusy] = useState(false);
@@ -1863,7 +1866,7 @@ export function EmployeeTimeClient({
         options={[
           { value: "clock", label: "Time clock" },
           { value: "sheets", label: "Timesheets" },
-          ...(canCompare ? [{ value: "compare", label: "Compare" }] : []),
+          ...(canCompare ? [{ value: "compare", label: "Split View" }] : []),
         ]}
       />
 
@@ -2177,7 +2180,15 @@ export function EmployeeTimeClient({
       )}
 
       {/* ========================================================= TIMESHEETS */}
-      {tab === "compare" && canCompare && <WeekCompare users={jtUsers} myId={me?.jtUserId ?? ""} />}
+      {tab === "compare" && canCompare && (
+        <WeekCompare
+          users={jtUsers}
+          appUserIds={appUserIds}
+          myId={me?.jtUserId ?? ""}
+          jobs={jobs}
+          orgTypes={orgTypes}
+        />
+      )}
 
       {tab === "sheets" && (
         <div className="space-y-3">
@@ -2738,7 +2749,7 @@ export function EmployeeTimeClient({
 
 /* ------------------------------------------------------------------ pieces */
 
-/** iOS-style segmented control — the app's top-level Time clock/Timesheets/Compare switch. */
+/** iOS-style segmented control — the app's top-level Time clock/Timesheets/Split View switch. */
 function Segmented({
   value,
   onChange,

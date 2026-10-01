@@ -51,4 +51,15 @@ describe("weekGrid", () => {
     expect(g.dayMinutes.get("2026-09-29")).toBe(120);
     expect(g.total).toBe(270);
   });
+
+  it("adds ghost rows only for jobs with no row yet", () => {
+    const g = buildGrid([e({})], ["2026-09-28"], [
+      { key: "j1", label: "dup" },
+      { key: "j9", label: "Moon Spring Farm LLC › Pole Barn" },
+    ]);
+    expect(g.rows.map((r) => [r.label, !!r.ghost])).toEqual([
+      ["Kevin Berger › Bunkhouse", false],
+      ["Moon Spring Farm LLC › Pole Barn", true],
+    ]);
+  });
 });
