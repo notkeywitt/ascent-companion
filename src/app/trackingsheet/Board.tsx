@@ -905,10 +905,15 @@ export function Board() {
   // down to the clicked row's height, so it lands next to it and nothing moves.
   const [openTop, setOpenTop] = useState(0);
   useLayoutEffect(() => {
-    const row = openDocId ? document.getElementById(`bill-${openDocId}`) : null;
+    // An open time entry claims the column ahead of a bill, so it wins here too.
+    const row = openTimeId
+      ? document.getElementById(`time-${openTimeId}`)
+      : openDocId
+        ? document.getElementById(`bill-${openDocId}`)
+        : null;
     const col = codingColRef.current;
     setOpenTop(row && col ? Math.max(0, row.getBoundingClientRect().top - col.getBoundingClientRect().top) : 0);
-  }, [openDocId, sunsetBlockOpen, orderedBills]);
+  }, [openDocId, openTimeId, sunsetBlockOpen, orderedBills]);
 
   // Previous / next through the list, in the order it reads down the page.
   // The new row is scrolled to the top, so the card stays put on screen while
@@ -2392,7 +2397,7 @@ export function Board() {
               owner asked for the bill to scroll with the page rather than
               inside a window (2026-09-28). A sticky column taller than the
               viewport would strand its own bottom, so the two go together.
-              An open bill's card is pushed down beside its row (`openTop`). */}
+              An open bill or time entry card is pushed down beside its row (`openTop`). */}
           <section ref={codingColRef} className="scroll-below-header hidden min-w-0 xl:block">
             {/* One column, three subjects, in order of how specific the claim
                 is: ONE entry being edited (a row clicked), then a SELECTION
@@ -2401,7 +2406,7 @@ export function Board() {
                 recode drawer is the same component Labor Review shows, so the
                 two pages move a week of hours identically. */}
             {openTime && !belowXl ? (
-              <>
+              <div style={{ paddingTop: openTop }}>
                 {/* No section title: the card names the person and the entry,
                     and a "Labor" caption over it only repeated the block
                     the entry was clicked in. */}
@@ -2422,7 +2427,7 @@ export function Board() {
                   }}
                   onClose={() => setOpenTimeId(null)}
                 />
-              </>
+              </div>
             ) : timeSelectedEntries.length > 0 ? (
               <>
                 <div className="mb-2 flex items-baseline justify-between gap-2">

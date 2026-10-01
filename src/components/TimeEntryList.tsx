@@ -690,6 +690,7 @@ function TimeCalendar({
                           return onEdit ? (
                             <button
                               key={t.id}
+                              id={`time-${t.id}`}
                               type="button"
                               onClick={() => onEdit(t.id)}
                               title={`${t.employee} · ${hrs(t.hours)} · ${money(t.cost)}${t.notes ? ` — ${t.notes}` : ""}`}
@@ -1035,6 +1036,7 @@ export function TimeEntryList({
                       return (
                         <li
                           key={t.id}
+                          id={`time-${t.id}`}
                           className={`border-b border-line-soft text-[11.5px] last:border-0 ${
                             moved ? "bg-amber-50/60 dark:bg-amber-950/20" : ""
                           } ${editingId === t.id ? "bg-accent/10" : ""}`}
