@@ -4,9 +4,9 @@ repo: ascent-companion
 branch: claude/board-split
 status: shipped
 started: 2026-09-29T23:22:27Z
-updated: 2026-09-30T04:46:03Z
+updated: 2026-10-01T17:08:47Z
 goal: Audit finding 01: split src/app/trackingsheet/Board.tsx by job, one block per push, starting with time coding; then NAVIGATION_PLAN.md stage 4
-next: Board.tsx split: 2,845 lines (from 5,112), 20 modules out. Left in Board: bill-coding state + open bill math, codingCtl wiring, renderBillCard, the labor lane (~30 inputs; consider passing the useTimeCoding result as one object), header, commit bar, add-time/leaf-picker modals. Then NAVIGATION_PLAN.md stage 4 (iPad bill side sheet needs owner ok, labor lane, done/open counts).
+next: Board.tsx split continues: bill-coding state, renderBillCard, labor lane, modals out of Board. Then NAVIGATION_PLAN.md stage 4.
 ---
 
 ## Log
@@ -42,6 +42,8 @@ next: Board.tsx split: 2,845 lines (from 5,112), 20 modules out. Left in Board: 
   CODEBASE_MAP.md, SIMPLICITY_AUDIT.md, src/app/trackingsheet/Board.tsx, src/app/trackingsheet/BudgetRail.tsx, src/app/trackingsheet/CodeDrillSheet.tsx
 - 2026-09-29 21:43 · `e1a30f8` companion: move the board's By bill, By cost code and Summary views out of Board
   CODEBASE_MAP.md, SIMPLICITY_AUDIT.md, src/app/trackingsheet/BillListView.tsx, src/app/trackingsheet/BillingSummaryView.tsx, src/app/trackingsheet/Board.tsx, src/app/trackingsheet/CodeLanesView.tsx
+- 2026-10-01 10:08 · `3de92f7` companion: open time entry card beside its row on tracking sheet
+  src/app/trackingsheet/Board.tsx, src/components/TimeEntryList.tsx
 
 ## Notes
 - 2026-09-30 04:44 — Split tools live in the session scratchpad: extract.py (hook blocks) and jsx_extract.py (JSX regions to components), both driven by types.cjs (TS compiler dump of Board's top-level types). Verify each move with a difflib removed-lines check and tsc --noUnusedLocals --noUnusedParameters.
