@@ -215,8 +215,15 @@ export function CostDonuts({
   const bills = useMemo(() => buildSlices(rows, colorMap, "bills"), [rows, colorMap]);
   const labor = useMemo(() => buildSlices(rows, colorMap, "labor"), [rows, colorMap]);
 
-  const billsTotal = sum(bills);
-  const laborTotal = sum(labor);
+  // A ring cannot draw a negative arc, so a code a credit drove below zero sits
+  // out of the slices. The centre still shows the NET, so it matches the bill
+  // list's own totals instead of silently dropping the credits.
+  const center = (field: "bills" | "labor", drawn: number) => {
+    const net = rows.reduce((n, r) => n + r[field], 0);
+    return Math.abs(net - drawn) < 0.005
+      ? {}
+      : { centerValue: money(net), centerLabel: "net of credits" };
+  };
 
   /** A slice's pick, in the caller's terms: which codes it stands for, and what
    *  to call them. Clicking the picked slice again clears it. */
@@ -232,7 +239,7 @@ export function CostDonuts({
         // "Other" is many — so on that ring the grey arc opens its breakdown
         // and stops there. Pick a named code from the card or the legend.
         if (field === "labor") return;
-        const codes = rows.filter((r) => !colorMap.has(r.code)).map((r) => r.code);
+        const codes = rows.filter((r) => !colorMap.has(r.code) && r.bills > 0).map((r) => r.code);
         return fire({ key, label: "Other cost codes", codes, color: VIZ_OTHER });
       }
       const row = rows.find((r) => r.code === key);
@@ -307,6 +314,7 @@ export function CostDonuts({
         <Donut
           title="Bills"
           slices={bills}
+          {...center("bills", sum(bills))}
           size={120}
           emptyLabel={`No vendor bills ${emptySuffix}`}
           detail={ringDetail && ringDetail("bills")}
@@ -317,6 +325,7 @@ export function CostDonuts({
         <Donut
           title="Labor"
           slices={labor}
+          {...center("labor", sum(labor))}
           size={120}
           emptyLabel={`No labor logged ${emptySuffix}`}
           detail={ringDetail && ringDetail("labor")}

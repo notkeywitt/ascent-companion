@@ -171,12 +171,13 @@ export function buildHeadroom<L extends LineIn, T extends TimeIn>(input: {
 /**
  * The rings' JOB-TO-DATE scope — the SAME headroom map the rail draws, so the
  * rings cannot disagree with the rail beside them. Bills folds drafts in,
- * matching `usedOf`. Codes with no cost at all sit out.
+ * matching `usedOf`. Codes with no cost at all sit out; a code a credit drove
+ * negative stays, so the ring's centre can net it (CostDonuts).
  */
 export function jobRingRows(headroom: Map<string, Headroom>): CostDonutRow[] {
   return [...headroom.values()]
     .map((h) => ({ code: h.code, name: h.name, bills: h.spent + h.drafts, labor: h.labor }))
-    .filter((r) => r.bills > 0 || r.labor > 0);
+    .filter((r) => r.bills !== 0 || r.labor !== 0);
 }
 
 /**
@@ -211,5 +212,5 @@ export function monthRingRows<L extends LineIn, T extends TimeIn>(input: {
     const code = timeCodeOf(t);
     if (code) ensure(code, t.codeName).labor += t.cost;
   }
-  return [...map.values()].filter((r) => r.bills > 0 || r.labor > 0);
+  return [...map.values()].filter((r) => r.bills !== 0 || r.labor !== 0);
 }
