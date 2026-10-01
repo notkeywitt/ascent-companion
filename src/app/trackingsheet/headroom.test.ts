@@ -127,7 +127,7 @@ describe("a credit in the rings", () => {
   it("keeps a code a credit drove negative, so the centre can net it", () => {
     const lines = [line("a", "09 64 00", 200, "approved"), line("b", "06 20 00", -300, "draft")];
     const h = build(lines, []);
-    const rows = monthRingRows({ lines, timeEntries: [], codeOf: (l) => l.code, timeCodeOf: (t) => t.code, headroom: h });
+    const rows = monthRingRows({ lines, timeEntries: [] as ReturnType<typeof time>[], codeOf: (l) => l.code, timeCodeOf: (t) => t.code, headroom: h });
     expect(rows.reduce((n, r) => n + r.bills, 0)).toBe(-100);
   });
 });
