@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-01T20:34:10Z",
+  "generatedAt": "2026-10-01T20:34:20Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,7 +8,7 @@
       "branch": "claude/time-week-compare",
       "status": "shipped",
       "started": "2026-10-01T19:59:23Z",
-      "updated": "2026-10-01T20:34:09Z",
+      "updated": "2026-10-01T20:34:20Z",
       "goal": "Time page: Compare tab for admin+office — my week beside a picked employee's, customer x day grid, cells open hours+notes (mine editable, theirs read-only)",
       "next": "Board.tsx split continues: bill-coding state, renderBillCard, labor lane, modals out of Board. Then NAVIGATION_PLAN.md stage 4.",
       "commits": [
@@ -32,6 +32,13 @@
           "sha": "de7fa57",
           "subject": "companion: net credits in cost ring centre so it matches bill totals",
           "files": "src/app/trackingsheet/CostDonuts.tsx, src/app/trackingsheet/headroom.test.ts, src/app/trackingsheet/headroom.ts"
+        },
+        {
+          "date": "2026-10-01",
+          "time": "13:34",
+          "sha": "8886d88",
+          "subject": "companion: type the empty time list in the ring credit test",
+          "files": "src/app/trackingsheet/headroom.test.ts"
         }
       ]
     },
