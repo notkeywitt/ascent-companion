@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/board-split
 status: shipped
 started: 2026-09-29T23:22:27Z
-updated: 2026-10-01T17:08:47Z
+updated: 2026-10-01T17:08:49Z
 goal: Audit finding 01: split src/app/trackingsheet/Board.tsx by job, one block per push, starting with time coding; then NAVIGATION_PLAN.md stage 4
 next: Board.tsx split continues: bill-coding state, renderBillCard, labor lane, modals out of Board. Then NAVIGATION_PLAN.md stage 4.
 ---

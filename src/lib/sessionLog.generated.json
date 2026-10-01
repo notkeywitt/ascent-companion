@@ -1,119 +1,16 @@
 {
-  "generatedAt": "2026-09-30T14:13:08Z",
+  "generatedAt": "2026-10-01T17:08:49Z",
   "repo": "ascent-companion",
   "sessions": [
-    {
-      "slug": "ascent-app-simplify",
-      "file": "2026-09-29-ascent-app-simplify.md",
-      "branch": "claude/ascent-app-simplify-w613c1",
-      "status": "shipped",
-      "started": "2026-09-29T15:13:06Z",
-      "updated": "2026-09-30T14:13:07Z",
-      "goal": "Fix the Tracking Sheets sales-tax crash, then the loose ends from the 2026-09-30 progress check of NAVIGATION_PLAN.md stages 0-3",
-      "next": "Owner: answer the Push as Expense account question (always 271 Capital One Sparks; 8 of 36 past expenses used 56 Banner Bank). Owner: ./deploy.sh in ascent-appscript for Code this bill. Open: Today's first load reads each queue live (plan wanted one cached endpoint); /api/jobs/browser and cost-detail not on the jobs view.",
-      "commits": [
-        {
-          "date": "2026-09-29",
-          "time": "15:13",
-          "sha": "4be25ab",
-          "subject": "companion: add navigation plan — ten workspaces, a today queue, one menu list",
-          "files": "CODEBASE_MAP.md, NAVIGATION_PLAN.md"
-        },
-        {
-          "date": "2026-09-30",
-          "time": "12:50",
-          "sha": "4373647",
-          "subject": "companion: stop tracking sheets crashing when a sales-tax figure is staged",
-          "files": "src/app/trackingsheet/Board.tsx"
-        },
-        {
-          "date": "2026-09-30",
-          "time": "13:05",
-          "sha": "ba1e0c4",
-          "subject": "companion: keep a staged bill/expense type in the coding draft, carry finalize's job, drive the side panel from today's drafts",
-          "files": "src/app/tracking-sheet/page.tsx, src/app/trackingsheet/Board.tsx, src/app/trackingsheet/useCodingDraft.ts, src/components/TodayQueue.tsx, src/lib/codingDraft.test.ts, src/lib/codingDraft.ts"
-        },
-        {
-          "date": "2026-09-30",
-          "time": "13:05",
-          "sha": "60e69cd",
-          "subject": "companion: gate the coding queue on tracking sheets, test the specs write route",
-          "files": "src/lib/billEditAccess.test.ts, src/lib/views.ts"
-        },
-        {
-          "date": "2026-09-30",
-          "time": "13:05",
-          "sha": "15c71b6",
-          "subject": "companion: one label per page — time, miles, requisitions, access, office dashboard; drop the rfi help topic",
-          "files": "src/app/admin/page.tsx, src/app/employee-time/EmployeeTimeClient.tsx, src/app/mileage-tracker/page.tsx, src/app/office/page.tsx, src/lib/copy.ts, src/lib/help.ts, +2 more"
-        },
-        {
-          "date": "2026-09-30",
-          "time": "13:05",
-          "sha": "d922dc1",
-          "subject": "companion: delete the inert refresh provider and digest-instructions route, fix stale comments",
-          "files": "src/app/invoice-review/InvoiceReview.tsx, src/app/layout.tsx, src/components/HomeMasthead.tsx, src/lib/digest/instructions.ts"
-        },
-        {
-          "date": "2026-09-30",
-          "time": "13:05",
-          "sha": "b259ac1",
-          "subject": "companion: bring the docs up to the workspace navigation, tick audit 09 and 10",
-          "files": "ARCHITECTURE_REVIEW.md, CLAUDE.md, CODEBASE_MAP.md, NAVIGATION_PLAN.md, README.md, SIMPLICITY_AUDIT.md, +2 more"
-        },
-        {
-          "date": "2026-09-30",
-          "time": "13:05",
-          "sha": "6db3068",
-          "subject": "companion: delete the refresh provider and digest-instructions route files",
-          "files": "src/app/api/admin/digest-instructions/route.ts, src/components/RefreshProvider.tsx"
-        },
-        {
-          "date": "2026-09-30",
-          "time": "13:18",
-          "sha": "0373e79",
-          "subject": "companion: no tab strip for field and lead, leads open on time, lift the help mark off the bar",
-          "files": "USER_MANUAL.md, src/app/page.tsx, src/components/PageGuide.tsx, src/components/WorkspaceTabs.tsx"
-        },
-        {
-          "date": "2026-09-30",
-          "time": "13:18",
-          "sha": "2b80a25",
-          "subject": "companion: log session 2026-09-29-ascent-app-simplify",
-          "files": ""
-        },
-        {
-          "date": "2026-09-30",
-          "time": "13:42",
-          "sha": "dd1a6fb",
-          "subject": "companion: miles records the signed-in person, new description, buttons for manual and history",
-          "files": "src/app/mileage-tracker/page.tsx"
-        },
-        {
-          "date": "2026-09-30",
-          "time": "13:42",
-          "sha": "a675590",
-          "subject": "companion: correct the docs the review flagged — sync drive, today order, gateway callers, miles",
-          "files": "ARCHITECTURE_REVIEW.md, CLAUDE.md, NAVIGATION_PLAN.md, README.md, SIMPLICITY_AUDIT.md, USER_MANUAL.md, +3 more"
-        },
-        {
-          "date": "2026-09-30",
-          "time": "14:13",
-          "sha": "ef7892e",
-          "subject": "companion: hide view another employee's time while an admin previews another role",
-          "files": "src/app/employee-time/page.tsx"
-        }
-      ]
-    },
     {
       "slug": "board-split",
       "file": "2026-09-29-board-split.md",
       "branch": "claude/board-split",
       "status": "shipped",
       "started": "2026-09-29T23:22:27Z",
-      "updated": "2026-09-30T04:46:03Z",
+      "updated": "2026-10-01T17:08:49Z",
       "goal": "Audit finding 01: split src/app/trackingsheet/Board.tsx by job, one block per push, starting with time coding; then NAVIGATION_PLAN.md stage 4",
-      "next": "Board.tsx split: 2,845 lines (from 5,112), 20 modules out. Left in Board: bill-coding state + open bill math, codingCtl wiring, renderBillCard, the labor lane (~30 inputs; consider passing the useTimeCoding result as one object), header, commit bar, add-time/leaf-picker modals. Then NAVIGATION_PLAN.md stage 4 (iPad bill side sheet needs owner ok, labor lane, done/open counts).",
+      "next": "Board.tsx split continues: bill-coding state, renderBillCard, labor lane, modals out of Board. Then NAVIGATION_PLAN.md stage 4.",
       "commits": [
         {
           "date": "2026-09-29",
@@ -219,6 +116,116 @@
           "sha": "e1a30f8",
           "subject": "companion: move the board's By bill, By cost code and Summary views out of Board",
           "files": "CODEBASE_MAP.md, SIMPLICITY_AUDIT.md, src/app/trackingsheet/BillListView.tsx, src/app/trackingsheet/BillingSummaryView.tsx, src/app/trackingsheet/Board.tsx, src/app/trackingsheet/CodeLanesView.tsx"
+        },
+        {
+          "date": "2026-10-01",
+          "time": "10:08",
+          "sha": "3de92f7",
+          "subject": "companion: open time entry card beside its row on tracking sheet",
+          "files": "src/app/trackingsheet/Board.tsx, src/components/TimeEntryList.tsx"
+        }
+      ]
+    },
+    {
+      "slug": "ascent-app-simplify",
+      "file": "2026-09-29-ascent-app-simplify.md",
+      "branch": "claude/ascent-app-simplify-w613c1",
+      "status": "shipped",
+      "started": "2026-09-29T15:13:06Z",
+      "updated": "2026-09-30T14:13:07Z",
+      "goal": "Fix the Tracking Sheets sales-tax crash, then the loose ends from the 2026-09-30 progress check of NAVIGATION_PLAN.md stages 0-3",
+      "next": "Owner: answer the Push as Expense account question (always 271 Capital One Sparks; 8 of 36 past expenses used 56 Banner Bank). Owner: ./deploy.sh in ascent-appscript for Code this bill. Open: Today's first load reads each queue live (plan wanted one cached endpoint); /api/jobs/browser and cost-detail not on the jobs view.",
+      "commits": [
+        {
+          "date": "2026-09-29",
+          "time": "15:13",
+          "sha": "4be25ab",
+          "subject": "companion: add navigation plan — ten workspaces, a today queue, one menu list",
+          "files": "CODEBASE_MAP.md, NAVIGATION_PLAN.md"
+        },
+        {
+          "date": "2026-09-30",
+          "time": "12:50",
+          "sha": "4373647",
+          "subject": "companion: stop tracking sheets crashing when a sales-tax figure is staged",
+          "files": "src/app/trackingsheet/Board.tsx"
+        },
+        {
+          "date": "2026-09-30",
+          "time": "13:05",
+          "sha": "ba1e0c4",
+          "subject": "companion: keep a staged bill/expense type in the coding draft, carry finalize's job, drive the side panel from today's drafts",
+          "files": "src/app/tracking-sheet/page.tsx, src/app/trackingsheet/Board.tsx, src/app/trackingsheet/useCodingDraft.ts, src/components/TodayQueue.tsx, src/lib/codingDraft.test.ts, src/lib/codingDraft.ts"
+        },
+        {
+          "date": "2026-09-30",
+          "time": "13:05",
+          "sha": "60e69cd",
+          "subject": "companion: gate the coding queue on tracking sheets, test the specs write route",
+          "files": "src/lib/billEditAccess.test.ts, src/lib/views.ts"
+        },
+        {
+          "date": "2026-09-30",
+          "time": "13:05",
+          "sha": "15c71b6",
+          "subject": "companion: one label per page — time, miles, requisitions, access, office dashboard; drop the rfi help topic",
+          "files": "src/app/admin/page.tsx, src/app/employee-time/EmployeeTimeClient.tsx, src/app/mileage-tracker/page.tsx, src/app/office/page.tsx, src/lib/copy.ts, src/lib/help.ts, +2 more"
+        },
+        {
+          "date": "2026-09-30",
+          "time": "13:05",
+          "sha": "d922dc1",
+          "subject": "companion: delete the inert refresh provider and digest-instructions route, fix stale comments",
+          "files": "src/app/invoice-review/InvoiceReview.tsx, src/app/layout.tsx, src/components/HomeMasthead.tsx, src/lib/digest/instructions.ts"
+        },
+        {
+          "date": "2026-09-30",
+          "time": "13:05",
+          "sha": "b259ac1",
+          "subject": "companion: bring the docs up to the workspace navigation, tick audit 09 and 10",
+          "files": "ARCHITECTURE_REVIEW.md, CLAUDE.md, CODEBASE_MAP.md, NAVIGATION_PLAN.md, README.md, SIMPLICITY_AUDIT.md, +2 more"
+        },
+        {
+          "date": "2026-09-30",
+          "time": "13:05",
+          "sha": "6db3068",
+          "subject": "companion: delete the refresh provider and digest-instructions route files",
+          "files": "src/app/api/admin/digest-instructions/route.ts, src/components/RefreshProvider.tsx"
+        },
+        {
+          "date": "2026-09-30",
+          "time": "13:18",
+          "sha": "0373e79",
+          "subject": "companion: no tab strip for field and lead, leads open on time, lift the help mark off the bar",
+          "files": "USER_MANUAL.md, src/app/page.tsx, src/components/PageGuide.tsx, src/components/WorkspaceTabs.tsx"
+        },
+        {
+          "date": "2026-09-30",
+          "time": "13:18",
+          "sha": "2b80a25",
+          "subject": "companion: log session 2026-09-29-ascent-app-simplify",
+          "files": ""
+        },
+        {
+          "date": "2026-09-30",
+          "time": "13:42",
+          "sha": "dd1a6fb",
+          "subject": "companion: miles records the signed-in person, new description, buttons for manual and history",
+          "files": "src/app/mileage-tracker/page.tsx"
+        },
+        {
+          "date": "2026-09-30",
+          "time": "13:42",
+          "sha": "a675590",
+          "subject": "companion: correct the docs the review flagged — sync drive, today order, gateway callers, miles",
+          "files": "ARCHITECTURE_REVIEW.md, CLAUDE.md, NAVIGATION_PLAN.md, README.md, SIMPLICITY_AUDIT.md, USER_MANUAL.md, +3 more"
+        },
+        {
+          "date": "2026-09-30",
+          "time": "14:13",
+          "sha": "ef7892e",
+          "subject": "companion: hide view another employee's time while an admin previews another role",
+          "files": "src/app/employee-time/page.tsx"
         }
       ]
     },
