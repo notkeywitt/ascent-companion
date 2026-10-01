@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-01T20:34:20Z",
+  "generatedAt": "2026-10-01T22:23:09Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "claude/time-week-compare",
       "status": "shipped",
       "started": "2026-10-01T19:59:23Z",
-      "updated": "2026-10-01T20:34:20Z",
+      "updated": "2026-10-01T22:23:09Z",
       "goal": "Time page: Compare tab for admin+office — my week beside a picked employee's, customer x day grid, cells open hours+notes (mine editable, theirs read-only)",
-      "next": "Board.tsx split continues: bill-coding state, renderBillCard, labor lane, modals out of Board. Then NAVIGATION_PLAN.md stage 4.",
+      "next": "Owner checks live: delete an own entry in Split View (gone in JT, row marked 'deleted in app'); cancel a clock-in still works",
       "commits": [
         {
           "date": "2026-10-01",
@@ -39,6 +39,20 @@
           "sha": "8886d88",
           "subject": "companion: type the empty time list in the ring credit test",
           "files": "src/app/trackingsheet/headroom.test.ts"
+        },
+        {
+          "date": "2026-10-01",
+          "time": "14:56",
+          "sha": "f133a44",
+          "subject": "companion: delete own time entries from split view",
+          "files": "src/app/api/employee-time/clock/route.ts, src/app/employee-time/WeekCompare.tsx, src/lib/timeProblems.ts, src/lib/timeSync.ts"
+        },
+        {
+          "date": "2026-10-01",
+          "time": "15:23",
+          "sha": "3a93dc8",
+          "subject": "companion: cancel deletes only your own running clock-in",
+          "files": "src/app/api/employee-time/clock/route.ts, src/app/employee-time/EmployeeTimeClient.tsx"
         }
       ]
     },
