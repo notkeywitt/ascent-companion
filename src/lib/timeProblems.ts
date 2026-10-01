@@ -72,6 +72,13 @@ export const PROBLEM_RETRYABLE: Record<TimeProblem, boolean> = {
 
 /* ------------------------------------------------- reading a record's verdict */
 
+/**
+ * The status a Time Entries row gets when its entry is deleted from the app on
+ * purpose (Split View). The audit skips it, so a deliberate delete is not
+ * reported as "deleted in JobTread".
+ */
+export const DELETED_STATUS = "deleted in app";
+
 /** The status every push path writes when JobTread itself refused the record. */
 export const isErrorStatus = (status: string) => /^JobTread error/i.test((status ?? "").trim());
 

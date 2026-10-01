@@ -421,6 +421,28 @@ function EntryEditor({ e, label, onSaved }: { e: Entry; label: string; onSaved?:
     }
   }
 
+  // A delete is final in JobTread; the journal keeps what the entry held.
+  async function remove() {
+    if (!confirm(`Delete ${fmtClock(e.minutes)} on ${label}? This cannot be undone.`)) return;
+    setBusy(true);
+    setMsg("");
+    try {
+      const res = await fetch("/api/employee-time/clock", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ op: "delete", entryId: e.id }),
+      });
+      const j = await res.json();
+      if (!res.ok || j.ok === false) return setMsg(j.error || "Could not delete.");
+      if (j.previewed) return setMsg("Writes are off on this deployment — nothing was deleted in JobTread.");
+      onSaved?.();
+    } catch {
+      setMsg("Couldn't reach the server.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const dirty = hours !== fmtClock(e.minutes) || note !== e.notes;
   return (
     <div className="space-y-2">
@@ -439,24 +461,31 @@ function EntryEditor({ e, label, onSaved }: { e: Entry; label: string; onSaved?:
       </div>
       <Textarea aria-label="Note" rows={3} value={note} onChange={(ev) => setNote(ev.target.value)} />
       {msg && <p className="text-xs text-red-700 dark:text-red-400">{msg}</p>}
-      {dirty && (
-        <div className="flex justify-end gap-2">
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => {
-              setHours(fmtClock(e.minutes));
-              setNote(e.notes);
-              setMsg("");
-            }}
-          >
-            Reset
+      <div className="flex justify-end gap-2">
+        {!e.approved && (
+          <Button variant="danger" size="sm" disabled={busy} onClick={remove} className="mr-auto">
+            Delete
           </Button>
-          <Button size="sm" disabled={busy} onClick={save}>
-            {busy ? "Saving…" : "Save"}
-          </Button>
-        </div>
-      )}
+        )}
+        {dirty && (
+          <>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                setHours(fmtClock(e.minutes));
+                setNote(e.notes);
+                setMsg("");
+              }}
+            >
+              Reset
+            </Button>
+            <Button size="sm" disabled={busy} onClick={save}>
+              {busy ? "Saving…" : "Save"}
+            </Button>
+          </>
+        )}
+      </div>
     </div>
   );
 }

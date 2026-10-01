@@ -5,6 +5,7 @@ import {
   createTimeEntry,
   updateTimeEntry,
   deleteTimeEntry,
+  getTimeEntryJournalSnapshot,
   getTimeEntryOwner,
   orgLocalToJtIso,
 } from "@/lib/jobtread";
@@ -13,6 +14,7 @@ import { callAppsScript } from "@/lib/appsScript";
 import { readOpenClock } from "@/lib/employeeClock";
 import { resolveTimeIdentity } from "@/lib/actingAs";
 import { openJournal } from "@/lib/financialJournal";
+import { markWorkedDeleted } from "@/lib/timeSync";
 
 /**
  * Clock in/out — the sibling of ../route.ts's one-shot "log a time range" form.
@@ -89,6 +91,12 @@ import { openJournal } from "@/lib/financialJournal";
  *        client-supplied entryId can't touch someone else's time. The pay type is
  *        NOT edited (its update shape is unverified, and changing it re-rates the
  *        entry) — it rides along for display only.
+ * POST { op:"delete", entryId } → { ok, previewed, wrote }
+ *        Deletes one of the caller's OWN closed entries (Split View). Same owner
+ *        check as an edit. An APPROVED entry is refused: payroll has read it,
+ *        so it is unapproved in JobTread first. The entry is read into the
+ *        financial journal before it goes, and its Time Entries row is marked
+ *        so the audit does not report the delete as a loss.
  */
 export const dynamic = "force-dynamic";
 // Room for the DETACHED clock-out work (Drive upload + Sheet append + JobTread
@@ -789,6 +797,74 @@ export async function POST(req: NextRequest) {
         { status: 502 },
       );
     }
+  }
+
+  // ----------------------------------------------------------- DELETE one --
+  if (op === "delete") {
+    // Your own entry only — no `userId` is read, so not even an admin acts as
+    // someone else here.
+    const who = await resolveTimeIdentity("");
+    if (!who.ok) return NextResponse.json({ ok: false, error: who.error }, { status: who.status });
+    const entryId = (body.entryId ?? "").trim();
+    if (!entryId) return NextResponse.json({ ok: false, error: "Missing the time entry to delete." }, { status: 400 });
+    if (!writesEnabled()) return NextResponse.json({ ok: true, previewed: true, wrote: false });
+
+    const cfg = getPaveConfig();
+    let owner: string | null;
+    try {
+      owner = await getTimeEntryOwner(cfg, entryId);
+    } catch (e) {
+      return NextResponse.json(
+        { ok: false, error: e instanceof Error ? e.message : "Could not check that entry." },
+        { status: 502 },
+      );
+    }
+    if (!owner) return NextResponse.json({ ok: false, error: "That time entry no longer exists." }, { status: 404 });
+    if (owner !== who.identity.jtUserId) {
+      return NextResponse.json({ ok: false, error: "You can only delete your own time." }, { status: 403 });
+    }
+
+    // Read BEFORE the delete: afterwards nothing anywhere says what it held.
+    const prior = await getTimeEntryJournalSnapshot(cfg, entryId);
+    if (prior?.isApproved) {
+      return NextResponse.json(
+        { ok: false, error: "This entry is approved. Unapprove it in JobTread before you delete it." },
+        { status: 409 },
+      );
+    }
+    if (prior && !prior.endedAt) {
+      return NextResponse.json(
+        { ok: false, error: "This entry is still running. Clock out or cancel it on the Time clock." },
+        { status: 409 },
+      );
+    }
+
+    const j = await openJournal("/api/employee-time/clock", { email: who.identity.email, role: who.identity.role });
+    const event = {
+      action: "time-entry.delete",
+      entity: "time-entry",
+      entityId: entryId,
+      jobId: prior?.jobId ?? "",
+      before: prior ?? undefined,
+      beforeSource: (prior ? "read" : "none") as "read" | "none",
+      amount: prior?.cost ?? null,
+      meta: { op: "split-view-delete" },
+    };
+    try {
+      await deleteTimeEntry(cfg, entryId);
+      await j.record([event]);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Could not delete the entry.";
+      await j.record([{ ...event, outcome: "error" as const, error: message }]);
+      return NextResponse.json({ ok: false, error: message }, { status: 502 });
+    }
+    // The sheet read costs seconds, so it finishes after the answer.
+    after(() =>
+      markWorkedDeleted(entryId).catch((e) =>
+        console.error(`[employee-time] ${entryId}: deleted, but the Time Entries row was not marked:`, e),
+      ),
+    );
+    return NextResponse.json({ ok: true, previewed: false, wrote: true });
   }
 
   return NextResponse.json({ ok: false, error: `Unknown op: ${op}` }, { status: 400 });

@@ -43,6 +43,7 @@ import {
 } from "@/lib/jobtread";
 import { callAppsScriptOrThrow } from "@/lib/appsScript";
 import {
+  DELETED_STATUS,
   PROBLEM_ORDER,
   PROBLEM_RETRYABLE,
   clockOf,
@@ -265,6 +266,7 @@ export async function auditWorked(opts: AuditOptions = {}): Promise<AuditResult>
       rows.push(toProblemRow(raw, problem, sheetDetail(toWorkedRow(raw), problem)));
       continue;
     }
+    if (String(raw.jtStatus ?? "").startsWith(DELETED_STATUS)) continue; // deleted on purpose
     const day = String(raw.date ?? "").trim().slice(0, 10) || String(raw.start ?? "").slice(0, 10);
     if (day >= from && day <= today) toCheck.push(raw);
   }
@@ -410,6 +412,27 @@ async function findExistingEntry(
     return Number.isFinite(endAt) && close(Date.parse(e.endedAt), endAt);
   });
   return hit ? { id: hit.id, open: !hit.endedAt } : null;
+}
+
+/**
+ * Mark the Time Entries row behind a deleted JobTread entry, so the audit does
+ * not report the delete as a loss. The id stays on the row: an empty id would
+ * read as "not posted", and a Retry would re-create the entry.
+ *
+ * Best-effort. An entry logged in JobTread itself has no row, and a failure
+ * here only costs a false "deleted in JobTread" on the digest.
+ */
+export async function markWorkedDeleted(jtEntryId: string): Promise<void> {
+  const id = jtEntryId.trim();
+  if (!id) return;
+  const raw = (await allWorkedRows()).find((r) => String(r.jtEntryId ?? "").trim() === id);
+  if (!raw) return;
+  await callAppsScriptOrThrow({
+    action: "finalizeTimeEntryLog",
+    clientKey: String(raw.entryId ?? "").trim(),
+    jtEntryId: id,
+    jtStatus: DELETED_STATUS,
+  });
 }
 
 /** Re-post one worked-time row to JobTread and write the result back to the
