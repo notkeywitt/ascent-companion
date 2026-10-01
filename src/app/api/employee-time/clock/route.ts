@@ -7,6 +7,7 @@ import {
   deleteTimeEntry,
   getTimeEntryJournalSnapshot,
   getTimeEntryOwner,
+  getTimeEntrySpan,
   orgLocalToJtIso,
 } from "@/lib/jobtread";
 import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
@@ -68,7 +69,7 @@ import { markWorkedDeleted } from "@/lib/timeSync";
  *        `startEdited` means the crew member CORRECTED the clock-in time in the
  *        Clock out sheet; only then does the JobTread update write startedAt.
  *        The Time Entries log row always records the startTime as sent.
- * POST { op:"cancel", entryId } → { ok }
+ * POST { op:"cancel", entryId, userId? } → { ok }   (own RUNNING entry only)
  * POST { op:"pause", entryId, userId, startTime, note? } → { ok, previewed, endedAt }
  *        Going on BREAK: closes the running entry at `startTime`. Coming back
  *        is an ordinary op:"in" at the moment work resumes, so the break is the
@@ -278,8 +279,25 @@ export async function POST(req: NextRequest) {
   if (op === "cancel") {
     const entryId = (body.entryId ?? "").trim();
     if (entryId && writesEnabled()) {
+      // The entry id comes from the client, so this used to delete ANY entry it
+      // was sent. Now: your own (or, for an admin, the person opened), and only
+      // a RUNNING one — cancel undoes a clock-in, never finished time.
+      const who = await resolveTimeIdentity((body.userId ?? "").trim());
+      if (!who.ok) return NextResponse.json({ ok: false, error: who.error }, { status: who.status });
       try {
-        await deleteTimeEntry(getPaveConfig(), entryId);
+        const cfg = getPaveConfig();
+        const [owner, span] = await Promise.all([getTimeEntryOwner(cfg, entryId), getTimeEntrySpan(cfg, entryId)]);
+        if (!owner || !span) return NextResponse.json({ ok: true }); // already gone
+        if (owner !== who.identity.jtUserId) {
+          return NextResponse.json({ ok: false, error: "You can only cancel your own clock-in." }, { status: 403 });
+        }
+        if (span.endedAt) {
+          return NextResponse.json(
+            { ok: false, error: "That entry is already clocked out, so it was not cancelled." },
+            { status: 409 },
+          );
+        }
+        await deleteTimeEntry(cfg, entryId);
       } catch (e) {
         // The client clears its local state either way — an undeleted entry is
         // an orphan the office can clean up in JobTread, not a blocking error.

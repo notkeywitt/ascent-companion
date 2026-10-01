@@ -1330,7 +1330,7 @@ export function EmployeeTimeClient({
       await fetch("/api/employee-time/clock", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ op: "cancel", entryId: activeClock.entryId }),
+        body: JSON.stringify({ op: "cancel", ...actingBody, entryId: activeClock.entryId }),
       });
     } catch {}
     try {
