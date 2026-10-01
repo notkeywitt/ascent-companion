@@ -38,6 +38,9 @@ export default async function EmployeeTimePage() {
   // control hides too (same rule as the root layout's preview swap).
   const preview = role === "admin" ? parsePreviewRole((await cookies()).get(PREVIEW_COOKIE)?.value) : null;
   const canActAs = role === "admin" && (!preview || preview === "admin");
+  // Admin + office get the week compare; the history route re-checks the role.
+  const viewRole = preview ?? role;
+  const canCompare = viewRole === "admin" || viewRole === "office";
 
   // The identity: the token first (stamped at sign-in), then the DB link. Both
   // are cheap; neither touches Apps Script.
@@ -91,6 +94,7 @@ export default async function EmployeeTimePage() {
       initialLinked={!!jtUserId && !!clock}
       identityResolved={!!me}
       canActAs={canActAs}
+      canCompare={canCompare}
       lastUsed={lastUsed}
     />
   );

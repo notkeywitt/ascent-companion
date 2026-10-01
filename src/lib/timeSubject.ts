@@ -3,6 +3,9 @@
  *
  *   Your own JobTread user            → always allowed.
  *   Someone else's, and you are ADMIN → allowed, and marked `acting`.
+ *   Someone else's, READ ONLY, OFFICE → allowed, and marked `acting`. The
+ *                                        week compare on /employee-time reads a
+ *                                        colleague's hours beside your own.
  *   Someone else's, and you are not   → refused, 403.
  *
  * ONE EXCEPTION, and it is the reason the field was ever loose: a person whose
@@ -27,6 +30,8 @@ export function decideTimeSubject(args: {
   requested: string;
   ownJtUserId: string;
   role: string;
+  /** A read, never a write. Only the timesheet GET passes it. */
+  readOnly?: boolean;
 }): { subject: string; acting: boolean } | { error: string; status: number } {
   const requested = (args.requested ?? "").trim();
   const own = (args.ownJtUserId ?? "").trim();
@@ -40,7 +45,7 @@ export function decideTimeSubject(args: {
   // No link of their own: this is self-identification, not impersonation.
   if (!own) return { subject, acting: false };
 
-  if (args.role !== "admin") {
+  if (args.role !== "admin" && !(args.readOnly && args.role === "office")) {
     return { error: "You can only log and edit your own time.", status: 403 };
   }
   return { subject, acting: true };

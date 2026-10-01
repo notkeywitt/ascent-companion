@@ -25,7 +25,7 @@ import { resolveTimeIdentity } from "@/lib/actingAs";
  * lives in lib/jtLinks.
  *
  * GET ?start=YYYY-MM-DD&end=YYYY-MM-DD (inclusive, calendar-day range)
- *     &actingAs=<jtUserId>  — ADMIN ONLY: read that person's timesheet instead.
+ *     &actingAs=<jtUserId>  — ADMIN or OFFICE: read that person's timesheet instead.
  *   → { ok, subject:{jtUserId,name,acting},
  *        entries:[{id, date, startTime, endTime, minutes, jobId, jobName,
  *        customer, costItemId, costCode, costItemName, payType, notes, approved,
@@ -59,9 +59,11 @@ export async function GET(req: NextRequest) {
 
   // WHOSE timesheet. Normally the signed-in person's, resolved server-side from
   // their login; `?actingAs` opens someone else's and is refused for anyone but
-  // an admin (src/lib/actingAs.ts). Nobody can page through a colleague's hours
-  // by editing a query param.
-  const who = await resolveTimeIdentity((req.nextUrl.searchParams.get("actingAs") ?? "").trim());
+  // an admin, or the office on this read (src/lib/actingAs.ts). Nobody else
+  // can page through a colleague's hours by editing a query param.
+  const who = await resolveTimeIdentity((req.nextUrl.searchParams.get("actingAs") ?? "").trim(), {
+    readOnly: true,
+  });
   if (!who.ok) {
     return NextResponse.json(
       {

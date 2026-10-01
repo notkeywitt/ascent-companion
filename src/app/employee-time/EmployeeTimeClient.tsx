@@ -5,6 +5,7 @@ import Link from "next/link";
 
 import { jobAddress, jobLabel as jobRefLabel, type JobRef } from "@/components/JobPicker";
 import { JtLink } from "@/components/JtLink";
+import { WeekCompare } from "./WeekCompare";
 import { jtTimeUrl } from "@/lib/jtLinks";
 import { fmtHM } from "@/lib/leaveFormat";
 import { fmtMiles, useNearestJobs } from "@/lib/nearestJob";
@@ -561,6 +562,7 @@ export function EmployeeTimeClient({
   identityResolved,
   lastUsed,
   canActAs = false,
+  canCompare = false,
 }: {
   initialJobs: JobRef[];
   initialMe: Me | null;
@@ -572,8 +574,10 @@ export function EmployeeTimeClient({
   lastUsed: LastUsed | null;
   /** Admin: may open this page as another employee. The server enforces it. */
   canActAs?: boolean;
+  /** Admin + office: the week-compare tab. The history route enforces it. */
+  canCompare?: boolean;
 }) {
-  const [tab, setTab] = useState<"clock" | "sheets">("clock");
+  const [tab, setTab] = useState<"clock" | "sheets" | "compare">("clock");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
 
@@ -1807,7 +1811,7 @@ export function EmployeeTimeClient({
   const running = !!activeClock;
 
   return (
-    <main className="mx-auto max-w-2xl px-4 pb-28 pt-4">
+    <main className={`mx-auto ${tab === "compare" ? "max-w-7xl" : "max-w-2xl"} px-4 pb-28 pt-4`}>
       <PageHeader
         title={linkTitle}
         description={
@@ -1855,10 +1859,11 @@ export function EmployeeTimeClient({
       {/* Time clock | Timesheets — the app's two halves, one tap apart. */}
       <Segmented
         value={tab}
-        onChange={(v) => setTab(v as "clock" | "sheets")}
+        onChange={(v) => setTab(v as "clock" | "sheets" | "compare")}
         options={[
           { value: "clock", label: "Time clock" },
           { value: "sheets", label: "Timesheets" },
+          ...(canCompare ? [{ value: "compare", label: "Compare" }] : []),
         ]}
       />
 
@@ -2172,6 +2177,8 @@ export function EmployeeTimeClient({
       )}
 
       {/* ========================================================= TIMESHEETS */}
+      {tab === "compare" && canCompare && <WeekCompare users={jtUsers} myId={me?.jtUserId ?? ""} />}
+
       {tab === "sheets" && (
         <div className="space-y-3">
           {/* Pay period: pick the month (arrows step it), then the two halves
@@ -2731,7 +2738,7 @@ export function EmployeeTimeClient({
 
 /* ------------------------------------------------------------------ pieces */
 
-/** iOS-style two-up segmented control — the app's top-level Time clock/Timesheets switch. */
+/** iOS-style segmented control — the app's top-level Time clock/Timesheets/Compare switch. */
 function Segmented({
   value,
   onChange,

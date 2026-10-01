@@ -92,7 +92,10 @@ async function ownFromJobTread(email: string, linked: string): Promise<MemberRef
  * reaching `createTimeEntry`, and it is why this is worth a round trip (the
  * roster is cached for 30 minutes — see `getOrgUsers`).
  */
-export async function resolveTimeIdentity(requested: string): Promise<TimeIdentityResult> {
+export async function resolveTimeIdentity(
+  requested: string,
+  opts: { readOnly?: boolean } = {},
+): Promise<TimeIdentityResult> {
   const session = await auth();
   const email = (session?.user?.email ?? "").trim();
   const role = ((session?.user as { role?: string } | undefined)?.role ?? "").trim();
@@ -102,7 +105,7 @@ export async function resolveTimeIdentity(requested: string): Promise<TimeIdenti
   const fallback = (await ownFromJobTread(email, (link?.jtUserId ?? "").trim())) ?? null;
   const own = (link?.jtUserId ?? "").trim() || (fallback?.userId ?? "");
 
-  const decided = decideTimeSubject({ requested, ownJtUserId: own, role });
+  const decided = decideTimeSubject({ requested, ownJtUserId: own, role, readOnly: opts.readOnly });
   if ("error" in decided) return { ok: false, status: decided.status, error: decided.error };
 
   if (!decided.acting) {

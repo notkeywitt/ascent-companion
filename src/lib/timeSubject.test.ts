@@ -41,6 +41,19 @@ describe("decideTimeSubject", () => {
     }
   });
 
+  it("lets the OFFICE read someone else, but never write", () => {
+    expect(decideTimeSubject({ requested: DAN, ownJtUserId: ME, role: "office", readOnly: true })).toEqual({
+      subject: DAN,
+      acting: true,
+    });
+    for (const role of ["field", "lead", ""]) {
+      expect(decideTimeSubject({ requested: DAN, ownJtUserId: ME, role, readOnly: true })).toEqual({
+        error: "You can only log and edit your own time.",
+        status: 403,
+      });
+    }
+  });
+
   it("lets an admin act as someone else, and marks it", () => {
     expect(decideTimeSubject({ requested: DAN, ownJtUserId: ME, role: "admin" })).toEqual({
       subject: DAN,
