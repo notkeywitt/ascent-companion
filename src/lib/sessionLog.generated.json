@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-01T20:00:04Z",
+  "generatedAt": "2026-10-01T20:13:26Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "claude/time-week-compare",
       "status": "shipped",
       "started": "2026-10-01T19:59:23Z",
-      "updated": "2026-10-01T20:00:04Z",
+      "updated": "2026-10-01T20:13:26Z",
       "goal": "Time page: Compare tab for admin+office — my week beside a picked employee's, customer x day grid, cells open hours+notes (mine editable, theirs read-only)",
-      "next": "Owner checks /employee-time → Compare live: pick an employee, tap a cell, edit own hours+note and confirm JobTread updates",
+      "next": "Owner checks Split View live: Ty preselected, click an empty cell, log time, confirm it lands in JobTread and the pending row turns real",
       "commits": [
         {
           "date": "2026-10-01",
@@ -18,6 +18,13 @@
           "sha": "6d79b6d",
           "subject": "companion: add week compare tab to time page",
           "files": "src/app/api/employee-time/history/route.ts, src/app/employee-time/EmployeeTimeClient.tsx, src/app/employee-time/WeekCompare.tsx, src/app/employee-time/page.tsx, src/app/employee-time/weekGrid.test.ts, src/app/employee-time/weekGrid.ts, +3 more"
+        },
+        {
+          "date": "2026-10-01",
+          "time": "13:13",
+          "sha": "0873d38",
+          "subject": "companion: split view adds time from any cell, ghost rows, per-side selection",
+          "files": "src/app/employee-time/EmployeeTimeClient.tsx, src/app/employee-time/WeekCompare.tsx, src/app/employee-time/page.tsx, src/app/employee-time/weekGrid.test.ts, src/app/employee-time/weekGrid.ts, src/lib/jtUserLink.ts"
         }
       ]
     },
