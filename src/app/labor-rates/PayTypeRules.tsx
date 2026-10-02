@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { JobPicker, jobLabel, type JobRef } from "@/components/JobPicker";
-import { Banner, Button, Card, Select } from "@/components/ui";
+import { Banner, Button, Card, MetaLine, Select } from "@/components/ui";
 import type { CostCodeDefault, PayTypeRule } from "@/lib/payTypeMatch";
 
 /**
@@ -39,7 +39,10 @@ export function PayTypeRules({ members }: { members: Member[] }) {
   const [rules, setRules] = useState<PayTypeRule[]>([]);
   const [codeDefaults, setCodeDefaults] = useState<CostCodeDefault[]>([]);
   const [err, setErr] = useState("");
-  const [filter, setFilter] = useState("");
+  // Employees whose defaults are expanded. Collapsed by default: the list runs
+  // to dozens of rows. Saving one opens that employee so the new row shows.
+  const [opened, setOpened] = useState<Set<string>>(new Set());
+  const openFor = (id: string) => setOpened((o) => new Set(o).add(id));
 
   // The add form.
   const [userId, setUserId] = useState("");
@@ -76,14 +79,8 @@ export function PayTypeRules({ members }: { members: Member[] }) {
 
   const byId = useMemo(() => new Map(members.map((m) => [m.userId, m])), [members]);
   const typesOf = (id: string) => byId.get(id)?.types.map((t) => t.name) ?? [];
-  const shown = rules
-    .filter((r) => !filter || r.jtUserId === filter)
-    .sort(
-      (a, b) =>
-        (byId.get(a.jtUserId)?.name ?? "").localeCompare(byId.get(b.jtUserId)?.name ?? "") ||
-        a.jobName.localeCompare(b.jobName) ||
-        a.costCode.localeCompare(b.costCode),
-    );
+  const byJob = <T extends { jobName: string; costCode: string }>(a: T, b: T) =>
+    a.jobName.localeCompare(b.jobName) || a.costCode.localeCompare(b.costCode);
 
   async function save(rule: Omit<PayTypeRule, "id">) {
     setBusy(true);
@@ -100,6 +97,7 @@ export function PayTypeRules({ members }: { members: Member[] }) {
         return false;
       }
       setRules((rs) => [...rs.filter((r) => r.id !== j.rule.id), j.rule]);
+      openFor(j.rule.jtUserId);
       return true;
     } catch {
       setErr("Couldn't reach the server.");
@@ -128,6 +126,7 @@ export function PayTypeRules({ members }: { members: Member[] }) {
       const j = await res.json();
       if (!res.ok) return setErr(j.error || "Save failed.");
       setCodeDefaults((ds) => [...ds.filter((d) => d.id !== j.codeDefault.id), j.codeDefault]);
+      openFor(j.codeDefault.jtUserId);
     } catch {
       setErr("Couldn't reach the server.");
     } finally {
@@ -142,9 +141,10 @@ export function PayTypeRules({ members }: { members: Member[] }) {
   }
 
   const nameOf = (id: string) => byId.get(id)?.name ?? "Unknown employee";
-  const shownCodes = codeDefaults
-    .filter((d) => !filter || d.jtUserId === filter)
-    .sort((a, b) => nameOf(a.jtUserId).localeCompare(nameOf(b.jtUserId)) || a.jobName.localeCompare(b.jobName));
+  // Everyone with at least one default, by name.
+  const people = [...new Set([...codeDefaults, ...rules].map((r) => r.jtUserId))].sort((a, b) =>
+    nameOf(a).localeCompare(nameOf(b)),
+  );
 
   async function remove(r: PayTypeRule) {
     const res = await fetch(`/api/labor-rates/rules?id=${r.id}`, { method: "DELETE" });
@@ -216,75 +216,87 @@ export function PayTypeRules({ members }: { members: Member[] }) {
         </div>
       </Card>
 
-      {(rules.length > 0 || codeDefaults.length > 0) && (
-        <Select aria-label="Show employee" value={filter} onChange={(e) => setFilter(e.target.value)} className="mb-2 w-auto">
-          <option value="">All employees</option>
-          {members
-            .filter((m) => [...rules, ...codeDefaults].some((r) => r.jtUserId === m.userId))
-            .map((m) => (
-              <option key={m.userId} value={m.userId}>
-                {m.name}
-              </option>
-            ))}
-        </Select>
-      )}
-
-      <h3 className="mb-1 mt-3 text-xs font-semibold text-neutral-500">Default cost codes</h3>
-      <Card pad={false} className="mb-3 divide-y divide-line-soft">
-        {shownCodes.length === 0 && <p className="px-3 py-4 text-sm text-neutral-500">No default cost codes yet.</p>}
-        {shownCodes.map((d) => (
-          <div key={d.id} className="flex items-center gap-3 px-3 py-2 text-sm">
-            <span className="min-w-0 flex-1">
-              <span className="font-medium">{nameOf(d.jtUserId)}</span>
-              <span className="block text-xs text-neutral-500">{d.jobName}</span>
-            </span>
-            <span className="tabular-nums">{d.costCode}</span>
-            <button
-              type="button"
-              onClick={() => removeCode(d)}
-              title="Delete default cost code"
-              className="rounded-lg px-2 py-1 text-xs font-semibold text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40"
-            >
-              ✕
-            </button>
-          </div>
-        ))}
-      </Card>
-
-      <h3 className="mb-1 text-xs font-semibold text-neutral-500">Default pay types</h3>
       <Card pad={false} className="divide-y divide-line-soft">
-        {shown.length === 0 && <p className="px-3 py-4 text-sm text-neutral-500">No default pay types yet.</p>}
-        {shown.map((r) => {
-          const types = typesOf(r.jtUserId);
+        {people.length === 0 && <p className="px-3 py-4 text-sm text-neutral-500">No defaults yet.</p>}
+        {people.map((id) => {
+          const codes = codeDefaults.filter((d) => d.jtUserId === id).sort(byJob);
+          const pays = rules.filter((r) => r.jtUserId === id).sort(byJob);
+          const types = typesOf(id);
           return (
-            <div key={r.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 text-sm">
-              <span className="min-w-0 flex-1">
-                <span className="font-medium">{byId.get(r.jtUserId)?.name ?? "Unknown employee"}</span>
-                <span className="block text-xs text-neutral-500">
-                  {r.jobName} · {codeLabel(r.costCode)}
+            <details
+              key={id}
+              open={opened.has(id)}
+              onToggle={(e) => {
+                const isOpen = e.currentTarget.open;
+                setOpened((o) => {
+                  const n = new Set(o);
+                  if (isOpen) n.add(id);
+                  else n.delete(id);
+                  return n;
+                });
+              }}
+              className="group"
+            >
+              <summary className="flex cursor-pointer list-none items-center gap-3 px-3 py-3 text-sm hover:bg-neutral-50 dark:hover:bg-white/5 [&::-webkit-details-marker]:hidden">
+                <span aria-hidden className="inline-block text-neutral-400 transition group-open:rotate-90">
+                  ›
                 </span>
-              </span>
-              <Select
-                aria-label="Pay type"
-                value={r.payType}
-                onChange={(e) => save({ ...r, payType: e.target.value })}
-                className="w-auto max-w-[18rem]"
-              >
-                {/* Kept even when the employee no longer has it, so the row says what it holds. */}
-                {!types.includes(r.payType) && <option value={r.payType}>{r.payType} (not on employee)</option>}
-                {types.map((t) => (
-                  <option key={t}>{t}</option>
+                <span className="flex-1 font-semibold">{nameOf(id)}</span>
+                <MetaLine
+                  items={[
+                    codes.length > 0 && `${codes.length} cost code${codes.length === 1 ? "" : "s"}`,
+                    pays.length > 0 && `${pays.length} pay type${pays.length === 1 ? "" : "s"}`,
+                  ]}
+                />
+              </summary>
+              <div className="divide-y divide-line-soft border-t border-line-soft bg-neutral-50/60 dark:bg-white/[0.02]">
+                {codes.map((d) => (
+                  <div key={`c${d.id}`} className="flex items-center gap-3 py-2 pl-9 pr-3 text-sm">
+                    <span className="min-w-0 flex-1">
+                      {d.jobName}
+                      <span className="block text-xs text-neutral-500">Default cost code</span>
+                    </span>
+                    <span className="tabular-nums">{d.costCode}</span>
+                    <button
+                      type="button"
+                      onClick={() => removeCode(d)}
+                      title="Delete default cost code"
+                      className="rounded-lg px-2 py-1 text-xs font-semibold text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40"
+                    >
+                      ✕
+                    </button>
+                  </div>
                 ))}
-              </Select>
-              <button
-                type="button"
-                onClick={() => remove(r)}
-                title="Delete default"
-                className="rounded-lg px-2 py-1 text-xs font-semibold text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40"
-              >
-                ✕
-              </button>
-            </div>
+                {pays.map((r) => (
+                  <div key={`p${r.id}`} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2 pl-9 pr-3 text-sm">
+                    <span className="min-w-0 flex-1">
+                      {r.jobName}
+                      <span className="block text-xs text-neutral-500">Pay type · {codeLabel(r.costCode)}</span>
+                    </span>
+                    <Select
+                      aria-label="Pay type"
+                      value={r.payType}
+                      onChange={(e) => save({ ...r, payType: e.target.value })}
+                      className="w-auto max-w-[18rem]"
+                    >
+                      {/* Kept even when the employee no longer has it, so the row says what it holds. */}
+                      {!types.includes(r.payType) && <option value={r.payType}>{r.payType} (not on employee)</option>}
+                      {types.map((t) => (
+                        <option key={t}>{t}</option>
+                      ))}
+                    </Select>
+                    <button
+                      type="button"
+                      onClick={() => remove(r)}
+                      title="Delete default pay type"
+                      className="rounded-lg px-2 py-1 text-xs font-semibold text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </details>
           );
         })}
       </Card>
