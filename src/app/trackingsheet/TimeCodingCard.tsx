@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CostCodeSelect, type Option } from "@/components/CostCodeSelect";
 import { JobPicker, jobLabel, type JobRef } from "@/components/JobPicker";
 import { Banner, Button, Card, Chip, Input, Label, Loading, Select } from "@/components/ui";
@@ -27,8 +27,9 @@ import { clockOfMinutes, minutesOfClock, orgParts, prettyClock, spanHours } from
  * own, so approving hours can never also rewrite them — and it is disabled
  * while an edit is pending, because the write reloads the board under it.
  *
- * IT STAGES, like the board around it. Stage Changes puts the correction on the
- * board's staged pile and writes nothing; the page's one Save Changes button
+ * IT STAGES AS YOU EDIT, like the bill card beside it. Every change to a field
+ * lands on the board's staged pile at once and writes nothing; the page's one
+ * Save Changes button
  * commits the month's bill coding and its time edits together. An earlier
  * version wrote on the spot and reloaded the board under itself, which threw
  * away every staged bill move in the process — correcting two entries meant two
@@ -355,9 +356,23 @@ export function TimeCodingCard({
   // has no hours to approve yet.
   const canApprove = writes && !entry.isApproved && !openEntry && !saving && !approving && !dirty;
 
-  /** Stage the correction on the board. Nothing reaches JobTread until the
-   *  page's Save Changes runs — the same deal the bill lines get. */
-  function stage() {
+  /* STAGE AS YOU EDIT — the bill card's deal. Every field change re-stages
+     the entry's whole correction (measured against JobTread, so putting a
+     field back un-stages it). Nothing reaches JobTread until the page's Save
+     Changes runs.
+
+     The card is NOT remounted per entry: clicking another row swaps `entry`
+     and the reset effect above refills the fields one render later. The ref
+     skips the render where the id changes (and the first mount), or the last
+     entry's fields would be staged onto the new one. */
+  const stagedFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (stagedFor.current !== entry.id) {
+      stagedFor.current = entry.id;
+      return;
+    }
+    if (!writes || movingJob || openEntry || !date || !start) return;
+    if (timeChanged && !(spanned != null && spanned > 0)) return; // half-typed time
     const patch: TimeEntryEdit & { costItemId?: string } = {};
     if (codeChanged) patch.costItemId = leafId;
     if (typeChanged) patch.type = payType;
@@ -367,13 +382,9 @@ export function TimeCodingCard({
       if (end) patch.endTime = end;
     }
     onStage(patch);
-    // …and get out of the way. The panel has said everything it has to say once
-    // the correction is staged, and the office usually stages several: a card
-    // that stays open over the list is one extra click per entry. What is
-    // staged shows where the work is — the row marks itself, and the commit bar
-    // counts it.
-    onClose();
-  }
+    // onStage is a new arrow every board render; the fields are the trigger.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entry.id, leafId, date, start, end, payType, movingJob]);
 
   /* A JOB MOVE writes on the spot. It cannot stage with the rest: the entry
      leaves this job the moment it lands, so it has no place on a board scoped
@@ -412,7 +423,6 @@ export function TimeCodingCard({
     }
   }
 
-  const save = () => (movingJob ? void moveJob() : stage());
 
   /* ---- approving the hours ----
      A separate press and a separate write, sending nothing but the flag. The
@@ -736,16 +746,20 @@ export function TimeCodingCard({
       )}
 
       <div className="mt-3 flex items-center gap-2">
-        {/* Stage, not write — the page's Save Changes is what reaches
-            JobTread. A job move is the exception and says so on the button. */}
-        <Button size="sm" onClick={save} disabled={!canSave} className="flex-1">
-          {movingJob ? (saving ? "Moving…" : "Move to job & save") : "Stage changes"}
-        </Button>
+        {/* Edits stage themselves; the page's Save Changes is what reaches
+            JobTread. A job move is the exception — it writes now, so it keeps
+            a button and says so. */}
+        {movingJob && (
+          <Button size="sm" onClick={() => void moveJob()} disabled={!canSave} className="flex-1">
+            {saving ? "Moving…" : "Move to job & save"}
+          </Button>
+        )}
         <Button
           variant="secondary"
           size="sm"
           onClick={revert}
           disabled={(!dirty && !staged && !stagedLeafId) || saving}
+          className={movingJob ? "" : "ml-auto"}
         >
           Revert
         </Button>
