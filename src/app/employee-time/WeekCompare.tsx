@@ -26,7 +26,13 @@ import {
   type GridEntry,
   type GridRow,
 } from "./weekGrid";
-import { PAY_TYPE_CHANGE_WARNING, matchPayType, type PayTypeRule } from "@/lib/payTypeMatch";
+import {
+  PAY_TYPE_CHANGE_WARNING,
+  defaultCostCode,
+  matchPayType,
+  type CostCodeDefault,
+  type PayTypeRule,
+} from "@/lib/payTypeMatch";
 
 /**
  * SPLIT VIEW — the office's two-windows-side-by-side habit, in one screen.
@@ -85,6 +91,7 @@ export function WeekCompare({
   jobs,
   orgTypes,
   payRules,
+  codeDefaults,
 }: {
   users: User[];
   appUserIds: string[];
@@ -93,6 +100,8 @@ export function WeekCompare({
   orgTypes: string[];
   /** Your own job + cost code → pay type rules (/labor-rates). */
   payRules: PayTypeRule[];
+  /** Your own default cost code per job (/labor-rates). */
+  codeDefaults: CostCodeDefault[];
 }) {
   const others = useMemo(() => {
     const app = new Set(appUserIds);
@@ -163,6 +172,7 @@ export function WeekCompare({
       return myTypes.includes(t) ? t : "";
     },
     payHint: myEntries.find((e) => e.payType)?.payType ?? "",
+    codeFor: (jobId) => defaultCostCode(codeDefaults, { jtUserId: myId, jobId }),
     costHint: (jobId) => [...myEntries, ...theirs.entries].find((e) => e.jobId === jobId && e.costItemId)?.costItemId ?? "",
     startHint: (day) =>
       myEntries
@@ -505,6 +515,8 @@ interface NewEntryCtx {
   /** The rules' pay type for this job + cost code, "" when none applies. */
   payFor: (jobId: string, costCode: string) => string;
   payHint: string;
+  /** The office's default cost code NUMBER for you on this job, "" when none. */
+  codeFor: (jobId: string) => string;
   costHint: (jobId: string) => string;
   startHint: (day: string) => string;
   onCreated: (e: Entry) => void;
@@ -564,8 +576,14 @@ function NewEntry({
     loadCosts(jobId).then((items) => {
       if (!alive) return;
       setCosts(items);
+      // The office's default code first, then a code already used on this job.
+      const code = ctx.codeFor(jobId);
+      const byDefault = code ? items.find((c) => c.number === code)?.id : undefined;
       const hint = ctx.costHint(jobId);
-      setCostItemId((cur) => cur || (items.some((c) => c.id === hint) ? hint : items.length === 1 ? items[0].id : ""));
+      setCostItemId(
+        (cur) =>
+          cur || byDefault || (items.some((c) => c.id === hint) ? hint : items.length === 1 ? items[0].id : ""),
+      );
     });
     return () => {
       alive = false;

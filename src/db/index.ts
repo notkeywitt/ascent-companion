@@ -433,6 +433,21 @@ async function applySchema() {
   await getClient().execute(
     `CREATE UNIQUE INDEX IF NOT EXISTS pay_type_rules_set ON pay_type_rules (jt_user_id, job_id, cost_code)`,
   );
+  // Employee + job → the cost code the time page selects first.
+  await getClient().execute(`
+    CREATE TABLE IF NOT EXISTS cost_code_defaults (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      jt_user_id TEXT NOT NULL,
+      job_id TEXT NOT NULL,
+      job_name TEXT NOT NULL DEFAULT '',
+      cost_code TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      updated_by TEXT NOT NULL DEFAULT ''
+    )
+  `);
+  await getClient().execute(
+    `CREATE UNIQUE INDEX IF NOT EXISTS cost_code_defaults_set ON cost_code_defaults (jt_user_id, job_id)`,
+  );
   // Lead tracking on top of JobTread's "New Lead" customers (JT owns the Status
   // custom field that defines the list; these tables hold what we're doing about
   // each one). Keyed by the JT account id — no autoincrement id of our own.

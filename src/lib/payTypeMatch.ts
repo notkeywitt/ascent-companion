@@ -30,5 +30,23 @@ export function matchPayType(
   );
 }
 
+/** An employee's default cost code on one job. */
+export interface CostCodeDefault {
+  id: number;
+  jtUserId: string;
+  jobId: string;
+  jobName: string;
+  costCode: string;
+}
+
+/** The cost code NUMBER this employee starts on for this job, or "". */
+export function defaultCostCode(
+  defaults: Pick<CostCodeDefault, "jtUserId" | "jobId" | "costCode">[],
+  pick: { jtUserId: string; jobId: string },
+): string {
+  if (!pick.jtUserId || !pick.jobId) return "";
+  return defaults.find((d) => d.jtUserId === pick.jtUserId && d.jobId === pick.jobId)?.costCode ?? "";
+}
+
 /** The confirm shown before an employee changes a pay type by hand. */
 export const PAY_TYPE_CHANGE_WARNING = "Are you sure you really want to change your pay type for this time entry?";

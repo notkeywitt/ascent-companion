@@ -6,8 +6,8 @@
 import { and, asc, eq } from "drizzle-orm";
 
 import { db, ensureDb } from "@/db";
-import { payTypeRules } from "@/db/schema";
-import type { PayTypeRule } from "@/lib/payTypeMatch";
+import { costCodeDefaults, payTypeRules } from "@/db/schema";
+import type { CostCodeDefault, PayTypeRule } from "@/lib/payTypeMatch";
 
 const toRule = (r: typeof payTypeRules.$inferSelect): PayTypeRule => ({
   id: r.id,
@@ -59,4 +59,47 @@ export async function savePayTypeRule(
 export async function deletePayTypeRule(id: number): Promise<void> {
   await ensureDb();
   await db.delete(payTypeRules).where(eq(payTypeRules.id, id));
+}
+
+/* ── default cost codes: employee + job → cost code ───────────────────────── */
+
+const toDefault = (r: typeof costCodeDefaults.$inferSelect): CostCodeDefault => ({
+  id: r.id,
+  jtUserId: r.jtUserId,
+  jobId: r.jobId,
+  jobName: r.jobName,
+  costCode: r.costCode,
+});
+
+export async function listCostCodeDefaults(jtUserId?: string): Promise<CostCodeDefault[]> {
+  await ensureDb();
+  const rows = await db
+    .select()
+    .from(costCodeDefaults)
+    .where(jtUserId ? eq(costCodeDefaults.jtUserId, jtUserId) : undefined)
+    .orderBy(asc(costCodeDefaults.jobName));
+  return rows.map(toDefault);
+}
+
+/** Set (or replace) an employee's default cost code on a job. */
+export async function saveCostCodeDefault(d: Omit<CostCodeDefault, "id">, updatedBy: string): Promise<CostCodeDefault> {
+  await ensureDb();
+  const row = { ...d, updatedAt: new Date().toISOString(), updatedBy };
+  await db
+    .insert(costCodeDefaults)
+    .values(row)
+    .onConflictDoUpdate({
+      target: [costCodeDefaults.jtUserId, costCodeDefaults.jobId],
+      set: { costCode: row.costCode, jobName: row.jobName, updatedAt: row.updatedAt, updatedBy },
+    });
+  const [saved] = await db
+    .select()
+    .from(costCodeDefaults)
+    .where(and(eq(costCodeDefaults.jtUserId, d.jtUserId), eq(costCodeDefaults.jobId, d.jobId)));
+  return toDefault(saved);
+}
+
+export async function deleteCostCodeDefault(id: number): Promise<void> {
+  await ensureDb();
+  await db.delete(costCodeDefaults).where(eq(costCodeDefaults.id, id));
 }

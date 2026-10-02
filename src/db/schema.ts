@@ -391,6 +391,22 @@ export const payTypeRules = sqliteTable("pay_type_rules", {
 });
 
 /**
+ * Default cost codes — the code an employee lands on when they pick a job on
+ * the time page. Edited on /labor-rates beside the pay-type rules. `cost_code`
+ * is the code NUMBER; the time page picks that job's labor line carrying it.
+ * Unique on (jt_user_id, job_id).
+ */
+export const costCodeDefaults = sqliteTable("cost_code_defaults", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  jtUserId: text("jt_user_id").notNull(),
+  jobId: text("job_id").notNull(),
+  jobName: text("job_name").notNull().default(""),
+  costCode: text("cost_code").notNull(),
+  updatedAt: text("updated_at").notNull(),
+  updatedBy: text("updated_by").notNull().default(""),
+});
+
+/**
  * Lead tracking — the Companion's layer ON TOP of a JobTread "New Lead" customer.
  *
  * JobTread owns WHICH accounts are leads (the customer "Status" custom field —

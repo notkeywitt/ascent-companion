@@ -6,7 +6,13 @@ import Link from "next/link";
 import { jobAddress, jobLabel as jobRefLabel, type JobRef } from "@/components/JobPicker";
 import { JtLink } from "@/components/JtLink";
 import { WeekCompare } from "./WeekCompare";
-import { PAY_TYPE_CHANGE_WARNING, matchPayType, type PayTypeRule } from "@/lib/payTypeMatch";
+import {
+  PAY_TYPE_CHANGE_WARNING,
+  defaultCostCode,
+  matchPayType,
+  type CostCodeDefault,
+  type PayTypeRule,
+} from "@/lib/payTypeMatch";
 import { jtTimeUrl } from "@/lib/jtLinks";
 import { fmtHM } from "@/lib/leaveFormat";
 import { fmtMiles, useNearestJobs } from "@/lib/nearestJob";
@@ -566,6 +572,7 @@ export function EmployeeTimeClient({
   canCompare = false,
   appUserIds = [],
   initialPayRules = [],
+  initialCodeDefaults = [],
 }: {
   initialJobs: JobRef[];
   initialMe: Me | null;
@@ -583,6 +590,8 @@ export function EmployeeTimeClient({
   appUserIds?: string[];
   /** The signed-in person's pay-type rules (job + cost code → pay type), from /labor-rates. */
   initialPayRules?: PayTypeRule[];
+  /** The signed-in person's default cost code per job, from /labor-rates. */
+  initialCodeDefaults?: CostCodeDefault[];
 }) {
   const [tab, setTab] = useState<"clock" | "sheets" | "compare">("clock");
   const [busy, setBusy] = useState(false);
@@ -929,6 +938,9 @@ export function EmployeeTimeClient({
     if (pick.payType) setPayType((cur) => cur || pick.payType);
   }, [me, lastUsed]);
 
+  // The default-code lookup the cost load below reads. A ref, so the load keys
+  // on the job alone and still sees the latest person and table.
+  const codeDefaultRef = useRef<(jid: string) => string>(() => "");
   // A job's cost codes (its budget cost items). Reload on job change.
   useEffect(() => {
     setCostItemId("");
@@ -941,10 +953,15 @@ export function EmployeeTimeClient({
         const items: CostItem[] = j.ok === false ? [] : (j.costItems ?? []);
         setCostItems(items);
         // Re-select the remembered cost code, but only on the job it belongs to
-        // and only if that job still carries it.
+        // and only if that job still carries it. Otherwise start on the office's
+        // default code for this person on this job (/labor-rates), if any.
         const want = wantedRef.current;
-        if (want && want.jobId === jobId && want.costItemId) {
-          if (items.some((c) => c.id === want.costItemId)) setCostItemId(want.costItemId);
+        if (want && want.jobId === jobId && want.costItemId && items.some((c) => c.id === want.costItemId)) {
+          setCostItemId(want.costItemId);
+        } else {
+          const code = codeDefaultRef.current(jobId);
+          const hit = code ? items.find((c) => c.number === code) : undefined;
+          if (hit) setCostItemId(hit.id);
         }
       })
       .catch(() => setCostItems([]))
@@ -972,17 +989,26 @@ export function EmployeeTimeClient({
      A hand change after that sticks until the job or code changes again: the
      effect keys on the MATCH, not on the pay type. */
   const [payRules, setPayRules] = useState<PayTypeRule[]>(initialPayRules);
+  const [codeDefaults, setCodeDefaults] = useState<CostCodeDefault[]>(initialCodeDefaults);
   useEffect(() => {
     // The shell loaded your own; reload for whoever the page is about.
     if (!acting) {
       setPayRules(initialPayRules);
+      setCodeDefaults(initialCodeDefaults);
       return;
     }
     let alive = true;
     fetch(`/api/employee-time/pay-rules?${actingParam}`)
       .then((r) => r.json())
-      .then((j) => alive && setPayRules(j.ok === false ? [] : (j.rules ?? [])))
-      .catch(() => alive && setPayRules([]));
+      .then((j) => {
+        if (!alive) return;
+        setPayRules(j.ok === false ? [] : (j.rules ?? []));
+        setCodeDefaults(j.ok === false ? [] : (j.codeDefaults ?? []));
+      })
+      .catch(() => {
+        if (alive) setPayRules([]);
+        if (alive) setCodeDefaults([]);
+      });
     return () => {
       alive = false;
     };
@@ -994,6 +1020,7 @@ export function EmployeeTimeClient({
     // Only a pay type this person actually has; a stale rule is ignored.
     return t && payTypes.some((p) => p.name === t) ? t : "";
   };
+  codeDefaultRef.current = (jid) => defaultCostCode(codeDefaults, { jtUserId: effectiveUserId, jobId: jid });
   const ruleMatch = rulePayType(jobId, costItems.find((c) => c.id === costItemId)?.number ?? "");
   useEffect(() => {
     if (ruleMatch) setPayType(ruleMatch);
@@ -2229,6 +2256,7 @@ export function EmployeeTimeClient({
           jobs={jobs}
           orgTypes={orgTypes}
           payRules={initialPayRules}
+          codeDefaults={initialCodeDefaults}
         />
       )}
 
