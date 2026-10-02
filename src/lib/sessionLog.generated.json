@@ -1,7 +1,26 @@
 {
-  "generatedAt": "2026-10-02T17:10:39Z",
+  "generatedAt": "2026-10-02T17:19:06Z",
   "repo": "ascent-companion",
   "sessions": [
+    {
+      "slug": "time-card-autostage",
+      "file": "2026-10-02-time-card-autostage.md",
+      "branch": "claude/time-card-autostage",
+      "status": "shipped",
+      "started": "2026-10-02T17:18:55Z",
+      "updated": "2026-10-02T17:19:06Z",
+      "goal": "Tracking Sheets time card: stage edits as they are made (like bills), remove the Stage changes button",
+      "next": "Owner checks on a tracking sheet: open a time entry, change the code/hours/pay type, confirm the row shows staged without a button press, then Save Changes",
+      "commits": [
+        {
+          "date": "2026-10-02",
+          "time": "10:19",
+          "sha": "04c7149",
+          "subject": "companion: time card stages edits as they are made",
+          "files": "src/app/trackingsheet/TimeCodingCard.tsx"
+        }
+      ]
+    },
     {
       "slug": "cost-code",
       "file": "2026-10-02-cost-code.md",
