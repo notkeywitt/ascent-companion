@@ -151,46 +151,107 @@ function useCostDetail(jobId: string | null) {
 
 /* ----------------------------------------------------------------- pieces */
 
+/** Which pair the donuts compare — a per-device choice, kept in localStorage. */
+type DonutView = "price" | "cost";
+const DONUT_VIEW_KEY = "home.donutView";
+
 /**
- * The billing donut: invoiced against the approved price, with anything
- * invoiced past the price as its own red slice. Two slices, never more — the
- * question is "how much of the price is billed". Cost against budget stays on
- * the drilldown and the lead panel's meter.
+ * The two donuts. PRICE: invoiced (approved + pending, before tax) against the
+ * approved price. COST: bills + labor against the budgeted cost.
  */
-function billingSlices(c: JobBoardCard): DonutSlice[] {
-  if (c.price <= 0) {
-    return c.invoiced > 0
-      ? [
-          {
-            key: "invoiced",
-            label: "Invoiced (no price set)",
-            value: c.invoiced,
-            color: "var(--viz-8)",
-          },
-        ]
-      : [];
-  }
-  const over = c.invoiced - c.price;
-  if (over > 0) {
-    return [
-      { key: "price", label: "Approved price", value: c.price, color: "rgb(var(--accent))" },
-      { key: "over", label: "Invoiced over price", value: over, color: "var(--viz-8)" },
+const DONUT_VIEWS = {
+  price: {
+    used: (c: JobBoardCard) => c.invoiced,
+    total: (c: JobBoardCard) => c.price,
+    usedLabel: "Invoiced",
+    leftLabel: "Left to invoice",
+    totalLabel: "Approved price",
+    overLabel: "Invoiced over price",
+    noTotalLabel: "Invoiced (no price set)",
+    centerLabel: "invoiced",
+    emptyLabel: "No price",
+  },
+  cost: {
+    used: spentOf,
+    total: (c: JobBoardCard) => c.budget,
+    usedLabel: "Spent",
+    leftLabel: "Remaining",
+    totalLabel: "Budget",
+    overLabel: "Over budget",
+    noTotalLabel: "Spent (no budget set)",
+    centerLabel: "of budget",
+    emptyLabel: "No budget",
+  },
+} as const;
+
+/**
+ * One donut's props: used against total, with any overrun as its own red
+ * slice. Two slices, never more — the question is "how much is gone", not "on
+ * what" (the drilldown answers that, by CSI division).
+ */
+function donutProps(c: JobBoardCard, view: DonutView) {
+  const v = DONUT_VIEWS[view];
+  const used = v.used(c);
+  const total = v.total(c);
+  const pct = total > 0 ? `${Math.round((used / total) * 100)}%` : "—";
+  let slices: DonutSlice[];
+  if (total <= 0) {
+    slices =
+      used > 0 ? [{ key: "used", label: v.noTotalLabel, value: used, color: "var(--viz-8)" }] : [];
+  } else if (used > total) {
+    slices = [
+      { key: "total", label: v.totalLabel, value: total, color: "rgb(var(--accent))" },
+      { key: "over", label: v.overLabel, value: used - total, color: "var(--viz-8)" },
+    ];
+  } else {
+    slices = [
+      { key: "used", label: v.usedLabel, value: used, color: "rgb(var(--accent))" },
+      { key: "left", label: v.leftLabel, value: total - used, color: "var(--viz-other)" },
     ];
   }
-  return [
-    { key: "invoiced", label: "Invoiced", value: c.invoiced, color: "rgb(var(--accent))" },
-    {
-      key: "left",
-      label: "Left to invoice",
-      value: c.price - c.invoiced,
-      color: "var(--viz-other)",
-    },
-  ];
+  return { slices, centerValue: pct, centerLabel: v.centerLabel, emptyLabel: v.emptyLabel };
 }
 
-/** Share of the approved price invoiced, as the donut's centre readout. */
-const invoicedPct = (c: JobBoardCard) =>
-  c.price > 0 ? `${Math.round((c.invoiced / c.price) * 100)}%` : "—";
+/** Price | Cost, as two words in the section heading — text, not a pill. */
+function DonutViewSwitch({
+  view,
+  onChange,
+}: {
+  view: DonutView;
+  onChange: (v: DonutView) => void;
+}) {
+  return (
+    <span
+      role="radiogroup"
+      aria-label="Donut view"
+      className="flex items-center gap-1 text-[11.5px] font-semibold"
+    >
+      {(["price", "cost"] as const).map((v, i) => (
+        <Fragment key={v}>
+          {i > 0 && (
+            <span aria-hidden className="text-neutral-400">
+              ·
+            </span>
+          )}
+          <button
+            type="button"
+            role="radio"
+            aria-checked={view === v}
+            onClick={() => onChange(v)}
+            // `-my-2 py-2` keeps a thumb-sized tap area without growing the heading row.
+            className={`-my-2 px-1 py-2 transition ${
+              view === v
+                ? "text-accent dark:text-accent-soft"
+                : "text-neutral-500 hover:text-accent dark:text-neutral-400"
+            }`}
+          >
+            {v === "price" ? "Price" : "Cost"}
+          </button>
+        </Fragment>
+      ))}
+    </span>
+  );
+}
 
 /** Share of budget spent — the drilldown's cost line. */
 const usedPct = (c: JobBoardCard) =>
@@ -344,11 +405,13 @@ function DetailBody({ jobId, state }: { jobId: string; state: DetailState | unde
  */
 function BoardCard({
   c,
+  view,
   toInvoice,
   expanded,
   onToggle,
 }: {
   c: JobBoardCard;
+  view: DonutView;
   toInvoice: number;
   expanded: boolean;
   onToggle: () => void;
@@ -386,13 +449,7 @@ function BoardCard({
             </div>
           )}
         </div>
-        <Donut
-          slices={billingSlices(c)}
-          size={104}
-          centerValue={invoicedPct(c)}
-          centerLabel="invoiced"
-          emptyLabel="No price"
-        />
+        <Donut {...donutProps(c, view)} size={104} />
         <div className="mt-auto border-t border-line-soft pt-2">
           <div
             className="truncate text-[12.5px] font-semibold"
@@ -476,12 +533,14 @@ function BoardDrilldown({
 /** A lead's own job, across the full width: the same numbers, room to spell out. */
 function LeadPanel({
   c,
+  view,
   toInvoice,
   open,
   state,
   onToggle,
 }: {
   c: JobBoardCard;
+  view: DonutView;
   toInvoice: number;
   open: boolean;
   state: DetailState | undefined;
@@ -491,13 +550,7 @@ function LeadPanel({
   return (
     <Card className="space-y-3">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
-        <Donut
-          slices={billingSlices(c)}
-          size={120}
-          centerValue={invoicedPct(c)}
-          centerLabel="invoiced"
-          emptyLabel="No price"
-        />
+        <Donut {...donutProps(c, view)} size={120} />
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline gap-3">
             <div className="min-w-0 flex-1">
@@ -595,6 +648,22 @@ export function HomeJobBoard() {
   const [openId, setOpenId] = useState<string | null>(null);
   const detail = useCostDetail(openId);
   const toInvoice = useToInvoice(access.role !== "field");
+  const [view, setView] = useState<DonutView>("price");
+  useEffect(() => {
+    try {
+      if (localStorage.getItem(DONUT_VIEW_KEY) === "cost") setView("cost");
+    } catch {
+      // storage blocked — the default view stands.
+    }
+  }, []);
+  const changeView = (v: DonutView) => {
+    setView(v);
+    try {
+      localStorage.setItem(DONUT_VIEW_KEY, v);
+    } catch {
+      // storage blocked — the choice lasts until reload.
+    }
+  };
 
   useEffect(() => {
     if (access.role === "field") return; // nothing for this role — don't even ask
@@ -641,9 +710,12 @@ export function HomeJobBoard() {
     <section className="mb-6 space-y-2">
       <SectionHeading
         trailing={
-          lead ? undefined : (
-            <span className="text-[11px] tabular-nums text-neutral-500">{cards.length}</span>
-          )
+          <span className="flex items-center gap-3">
+            <DonutViewSwitch view={view} onChange={changeView} />
+            {!lead && (
+              <span className="text-[11px] tabular-nums text-neutral-500">{cards.length}</span>
+            )}
+          </span>
         }
       >
         {lead ? "Your job" : "Active jobs"}
@@ -651,6 +723,7 @@ export function HomeJobBoard() {
       {lead ? (
         <LeadPanel
           c={cards[0]}
+          view={view}
           toInvoice={toInvoice?.totals[cards[0].id] ?? 0}
           open={openId === cards[0].id}
           state={detail}
@@ -681,6 +754,7 @@ export function HomeJobBoard() {
               <Fragment key={c.id}>
                 <BoardCard
                   c={c}
+                  view={view}
                   toInvoice={toInvoice?.totals[c.id] ?? 0}
                   expanded={c.id === openId}
                   onToggle={() => toggle(c.id)}
