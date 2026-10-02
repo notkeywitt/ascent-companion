@@ -1,7 +1,26 @@
 {
-  "generatedAt": "2026-10-01T22:23:09Z",
+  "generatedAt": "2026-10-02T16:56:14Z",
   "repo": "ascent-companion",
   "sessions": [
+    {
+      "slug": "pay-type",
+      "file": "2026-10-02-pay-type.md",
+      "branch": "claude/pay-type-defaults",
+      "status": "shipped",
+      "started": "2026-10-02T16:56:05Z",
+      "updated": "2026-10-02T16:56:14Z",
+      "goal": "Default pay type per employee + job + cost code: table edited on Pay Rates, applied on clock-in, Log a range, switch and Split View, with a confirm on a hand change",
+      "next": "Owner adds a rule on /labor-rates (e.g. Ty + Bunkhouse + any code), then on /employee-time picks that job and code and confirms the pay type switches; change it by hand and confirm the warning shows",
+      "commits": [
+        {
+          "date": "2026-10-02",
+          "time": "09:56",
+          "sha": "d2b0bc6",
+          "subject": "companion: default pay type by employee, job and cost code",
+          "files": "CODEBASE_MAP.md, src/app/api/employee-time/pay-rules/route.ts, src/app/api/labor-rates/rules/route.ts, src/app/employee-time/EmployeeTimeClient.tsx, src/app/employee-time/WeekCompare.tsx, src/app/employee-time/page.tsx, +7 more"
+        }
+      ]
+    },
     {
       "slug": "time-week",
       "file": "2026-10-01-time-week.md",
