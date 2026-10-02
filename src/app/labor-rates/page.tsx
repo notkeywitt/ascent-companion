@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 
 import { Banner, Button, Loading, PageHeader, inputCls } from "@/components/ui";
 
+import { PayTypeRules } from "./PayTypeRules";
+
 interface Group {
   id: number; // 0 = the virtual Global group
   name: string;
@@ -397,6 +399,9 @@ export default function LaborRatesPage() {
               <Button onClick={addGroup} disabled={busy || !newGroup.trim()}>Add group</Button>
             </div>
           </section>
+
+          {/* ---- Employee + job + cost code → pay type, read by the time page ---- */}
+          {!jtErr && <PayTypeRules members={members} />}
 
           {/* ---- Employees ---- */}
           {jtErr ? (

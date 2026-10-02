@@ -6,6 +6,7 @@ import Link from "next/link";
 import { jobAddress, jobLabel as jobRefLabel, type JobRef } from "@/components/JobPicker";
 import { JtLink } from "@/components/JtLink";
 import { WeekCompare } from "./WeekCompare";
+import { PAY_TYPE_CHANGE_WARNING, matchPayType, type PayTypeRule } from "@/lib/payTypeMatch";
 import { jtTimeUrl } from "@/lib/jtLinks";
 import { fmtHM } from "@/lib/leaveFormat";
 import { fmtMiles, useNearestJobs } from "@/lib/nearestJob";
@@ -564,6 +565,7 @@ export function EmployeeTimeClient({
   canActAs = false,
   canCompare = false,
   appUserIds = [],
+  initialPayRules = [],
 }: {
   initialJobs: JobRef[];
   initialMe: Me | null;
@@ -579,6 +581,8 @@ export function EmployeeTimeClient({
   canCompare?: boolean;
   /** JobTread ids of people who sign into this app — Split View's employee list. */
   appUserIds?: string[];
+  /** The signed-in person's pay-type rules (job + cost code → pay type), from /labor-rates. */
+  initialPayRules?: PayTypeRule[];
 }) {
   const [tab, setTab] = useState<"clock" | "sheets" | "compare">("clock");
   const [busy, setBusy] = useState(false);
@@ -960,6 +964,40 @@ export function EmployeeTimeClient({
     if (payType) return;
     if (payTypes.length === 1) setPayType(payTypes[0].name);
   }, [payTypes, payType]);
+
+  /* ── PAY TYPE FROM THE RULES ──────────────────────────────────────────────
+     The office's table on /labor-rates says which pay type this person gets on
+     a job and cost code. Whenever the pick lands on a combination the table
+     knows — restored from last time, or chosen now — the pay type follows it.
+     A hand change after that sticks until the job or code changes again: the
+     effect keys on the MATCH, not on the pay type. */
+  const [payRules, setPayRules] = useState<PayTypeRule[]>(initialPayRules);
+  useEffect(() => {
+    // The shell loaded your own; reload for whoever the page is about.
+    if (!acting) {
+      setPayRules(initialPayRules);
+      return;
+    }
+    let alive = true;
+    fetch(`/api/employee-time/pay-rules?${actingParam}`)
+      .then((r) => r.json())
+      .then((j) => alive && setPayRules(j.ok === false ? [] : (j.rules ?? [])))
+      .catch(() => alive && setPayRules([]));
+    return () => {
+      alive = false;
+    };
+    // initialPayRules is the server's first answer and does not change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [acting, actingParam]);
+  const rulePayType = (jid: string, code: string) => {
+    const t = matchPayType(payRules, { jtUserId: effectiveUserId, jobId: jid, costCode: code });
+    // Only a pay type this person actually has; a stale rule is ignored.
+    return t && payTypes.some((p) => p.name === t) ? t : "";
+  };
+  const ruleMatch = rulePayType(jobId, costItems.find((c) => c.id === costItemId)?.number ?? "");
+  useEffect(() => {
+    if (ruleMatch) setPayType(ruleMatch);
+  }, [ruleMatch, jobId, costItemId]);
 
   const selectedJob = useMemo(() => jobs.find((j) => j.id === jobId) ?? null, [jobs, jobId]);
   const jobLabelText = selectedJob ? jobRefLabel(selectedJob) : "";
@@ -1351,6 +1389,8 @@ export function EmployeeTimeClient({
   // goes out with the entry it was taken on; the new one starts clean.
   async function switchCostCode(c: CostItem) {
     if (!activeClock) return;
+    // The new code may carry its own pay type in the office's table.
+    const switchPay = rulePayType(activeClock.jobId, c.number) || activeClock.payType;
     const at = nowLocalSeconds();
     const fromCode = activeClock.costCode;
     setErr("");
@@ -1365,7 +1405,7 @@ export function EmployeeTimeClient({
           userId: effectiveUserId,
           jobId: activeClock.jobId,
           costItemId: c.id,
-          payType: activeClock.payType,
+          payType: switchPay,
           startTime: at,
           note: note.trim(),
         }),
@@ -1395,6 +1435,7 @@ export function EmployeeTimeClient({
         costItemId: c.id,
         costCode: c.number,
         costItemName: c.name,
+        payType: switchPay,
         resumed: false,
       };
       setActiveClock(next);
@@ -2187,6 +2228,7 @@ export function EmployeeTimeClient({
           myId={me?.jtUserId ?? ""}
           jobs={jobs}
           orgTypes={orgTypes}
+          payRules={initialPayRules}
         />
       )}
 
@@ -2346,6 +2388,7 @@ export function EmployeeTimeClient({
               label={t.name}
               sub={typeof t.hourlyRate === "number" ? `$${t.hourlyRate}/hr` : undefined}
               onClick={() => {
+                if (payType && t.name !== payType && !confirm(PAY_TYPE_CHANGE_WARNING)) return;
                 setPayType(t.name);
                 closeSheet();
               }}

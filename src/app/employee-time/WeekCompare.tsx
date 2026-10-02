@@ -26,6 +26,7 @@ import {
   type GridEntry,
   type GridRow,
 } from "./weekGrid";
+import { PAY_TYPE_CHANGE_WARNING, matchPayType, type PayTypeRule } from "@/lib/payTypeMatch";
 
 /**
  * SPLIT VIEW — the office's two-windows-side-by-side habit, in one screen.
@@ -83,12 +84,15 @@ export function WeekCompare({
   myId,
   jobs,
   orgTypes,
+  payRules,
 }: {
   users: User[];
   appUserIds: string[];
   myId: string;
   jobs: JobRef[];
   orgTypes: string[];
+  /** Your own job + cost code → pay type rules (/labor-rates). */
+  payRules: PayTypeRule[];
 }) {
   const others = useMemo(() => {
     const app = new Set(appUserIds);
@@ -154,6 +158,10 @@ export function WeekCompare({
     myId,
     myName: mine.name || users.find((u) => u.id === myId)?.name || "",
     payTypes: myTypes,
+    payFor: (jobId, costCode) => {
+      const t = matchPayType(payRules, { jtUserId: myId, jobId, costCode });
+      return myTypes.includes(t) ? t : "";
+    },
     payHint: myEntries.find((e) => e.payType)?.payType ?? "",
     costHint: (jobId) => [...myEntries, ...theirs.entries].find((e) => e.jobId === jobId && e.costItemId)?.costItemId ?? "",
     startHint: (day) =>
@@ -494,6 +502,8 @@ interface NewEntryCtx {
   myId: string;
   myName: string;
   payTypes: string[];
+  /** The rules' pay type for this job + cost code, "" when none applies. */
+  payFor: (jobId: string, costCode: string) => string;
   payHint: string;
   costHint: (jobId: string) => string;
   startHint: (day: string) => string;
@@ -540,6 +550,13 @@ function NewEntry({
   const [msg, setMsg] = useState("");
   // One key per logical entry, so a retry after a dropped answer is one row.
   const keyRef = useRef("");
+
+  // The office's rule for this job + cost code picks the pay type; a hand
+  // change after that sticks until the cost code changes.
+  const rulePay = ctx.payFor(jobId, costs?.find((c) => c.id === costItemId)?.number ?? "");
+  useEffect(() => {
+    if (rulePay) setPayType(rulePay);
+  }, [rulePay, costItemId]);
 
   useEffect(() => {
     if (!open) return;
@@ -647,7 +664,15 @@ function NewEntry({
           ))}
         </Select>
         {ctx.payTypes.length > 1 && (
-          <Select aria-label="Pay type" value={payType} onChange={(e) => setPayType(e.target.value)} className="w-auto">
+          <Select
+            aria-label="Pay type"
+            value={payType}
+            onChange={(e) => {
+              if (payType && e.target.value !== payType && !confirm(PAY_TYPE_CHANGE_WARNING)) return;
+              setPayType(e.target.value);
+            }}
+            className="w-auto"
+          >
             {ctx.payTypes.map((t) => (
               <option key={t}>{t}</option>
             ))}

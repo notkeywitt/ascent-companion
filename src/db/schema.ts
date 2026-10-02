@@ -372,6 +372,25 @@ export type LaborRate = typeof laborRateCatalog.$inferSelect;
 export type NewLaborRate = typeof laborRateCatalog.$inferInsert;
 
 /**
+ * Pay-type rules — which pay type an employee gets on a job and cost code, so
+ * the time page can pick it for them. Edited on /labor-rates; matched by
+ * lib/payTypeMatch (exact cost code first, then `cost_code = ""` = any code on
+ * the job). Companion-only: JobTread has no such mapping. `pay_type` is the
+ * JobTread pay-type NAME, the same string a time entry's `type` carries.
+ * Unique on (jt_user_id, job_id, cost_code).
+ */
+export const payTypeRules = sqliteTable("pay_type_rules", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  jtUserId: text("jt_user_id").notNull(),
+  jobId: text("job_id").notNull(),
+  jobName: text("job_name").notNull().default(""), // display only; the id is the key
+  costCode: text("cost_code").notNull().default(""), // cost code number; "" = any code on the job
+  payType: text("pay_type").notNull(),
+  updatedAt: text("updated_at").notNull(),
+  updatedBy: text("updated_by").notNull().default(""),
+});
+
+/**
  * Lead tracking — the Companion's layer ON TOP of a JobTread "New Lead" customer.
  *
  * JobTread owns WHICH accounts are leads (the customer "Status" custom field —

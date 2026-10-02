@@ -7,6 +7,7 @@ import { findMemberByEmail, getOrgTimeEntryTypeNames, getOrgUsers } from "@/lib/
 import { readAppJtUserIds, readJtUserLink } from "@/lib/jtUserLink";
 import { readLastUsed, readOpenClock, type LastUsed, type OpenClock } from "@/lib/employeeClock";
 import { rosterForRole } from "@/lib/payRates";
+import { listPayTypeRules } from "@/lib/payTypeRules";
 import { EmployeeTimeClient } from "./EmployeeTimeClient";
 
 /**
@@ -70,7 +71,7 @@ export default async function EmployeeTimePage() {
       : null;
   const employeeName = me?.name || me?.jtUserName || "";
 
-  const [jobs, jtUsers, orgTypes, clock, lastUsed, appUserIds] = await Promise.all([
+  const [jobs, jtUsers, orgTypes, clock, lastUsed, appUserIds, payRules] = await Promise.all([
     grant ? getCachedJobs().catch(() => []) : [],
     cfg ? getOrgUsers(cfg).catch(() => []) : [],
     cfg ? getOrgTimeEntryTypeNames(cfg).catch(() => [] as string[]) : [],
@@ -82,6 +83,8 @@ export default async function EmployeeTimePage() {
     cfg && jtUserId ? readLastUsed(jtUserId).catch(() => null as LastUsed | null) : null,
     // Split View lists only people who use this app, not the whole JT roster.
     canCompare ? readAppJtUserIds() : ([] as string[]),
+    // The office's job + cost code → pay type table, so the first pick is right.
+    jtUserId ? listPayTypeRules(jtUserId).catch(() => []) : [],
   ]);
 
   return (
@@ -98,6 +101,7 @@ export default async function EmployeeTimePage() {
       canActAs={canActAs}
       canCompare={canCompare}
       appUserIds={appUserIds}
+      initialPayRules={payRules}
       lastUsed={lastUsed}
     />
   );
