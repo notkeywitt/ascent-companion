@@ -37,6 +37,7 @@ const WRITE_ROUTES = [
   "/api/bill-tax",
   "/api/buyback",
   "/api/reassign-job",
+  "/api/bill-void",
   "/api/bill-status",
   "/api/uncaptured",
   "/api/email",

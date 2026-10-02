@@ -1277,6 +1277,7 @@ function BillDetail() {
 
     approveBill: writes ? () => void approveBill() : undefined,
     approvingBill: approving,
+    onVoided: () => router.push(backHref),
     approveBlocked: null,
 
     isCombinable: (l) => {

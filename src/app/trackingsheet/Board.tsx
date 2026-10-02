@@ -1267,6 +1267,10 @@ export function Board() {
     },
     approveBill: canApprove ? approveOneBill : undefined,
     approvingBill: approving,
+    onVoided: () => {
+      setOpenDocId(null);
+      void load({ preserveStaged: true });
+    },
     approveBlocked: dirty ? "Save staged coding changes to JobTread first" : null,
     isCombinable,
     anyCombinable,

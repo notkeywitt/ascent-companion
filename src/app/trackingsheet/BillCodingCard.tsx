@@ -268,6 +268,12 @@ export interface CodingCardCtl {
   approveBill?: (docId: string) => void;
   /** An approve write is in flight on the host. */
   approvingBill?: boolean;
+
+  /* ---- delete (= void) ---- */
+  /** Called after the bill is voided in JobTread, its sheet rows removed and its
+      PDF binned (/api/bill-void). Absent = no Delete button. The card runs the
+      confirm and the request; the host only decides where to go next. */
+  onVoided?: () => void;
   /** Why approving is blocked right now (staged coding not yet synced), else
       null. Approving locks a draft's descriptions and quantities in JobTread,
       so unsynced coding has to reach JobTread first. */
@@ -383,6 +389,7 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
     approveBill,
     approvingBill,
     approveBlocked,
+    onVoided,
     isCombinable,
     anyCombinable,
     combineSelected,
@@ -441,6 +448,32 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
    * them on the many bills nobody shares.
    */
   const [accessOpen, setAccessOpen] = useState(false);
+
+  const [voiding, setVoiding] = useState(false);
+  const [voidMsg, setVoidMsg] = useState("");
+  const voidBill = async () => {
+    if (!bill) return;
+    const ok = window.confirm(
+      `Delete ${bill.label}?\n\nIt is voided in JobTread (kept there as a void), its rows are removed from the tracking sheet, and its PDF goes to the Drive bin.`,
+    );
+    if (!ok) return;
+    setVoiding(true);
+    setVoidMsg("");
+    try {
+      const r = await fetch("/api/bill-void", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ docId: bill.id }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || j.error) setVoidMsg(j.error ?? "Delete failed.");
+      else onVoided?.();
+    } catch (e) {
+      setVoidMsg(e instanceof Error ? e.message : "Network error");
+    } finally {
+      setVoiding(false);
+    }
+  };
 
   const [recodeAllOpen, setRecodeAllOpen] = useState(false);
 
@@ -797,8 +830,23 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                       {approvingBill ? "Approving…" : "Approve this bill"}
                     </Button>
                   )}
+                  {/* Delete = VOID. Not offered on an invoiced bill: its figures
+                are already on the client's invoice. */}
+                  {onVoided && writes && !bill.invoiced && (
+                    <Button
+                      variant="danger"
+                      size="sm"
+                      className="!px-2 !py-1 !text-[11px]"
+                      onClick={() => void voidBill()}
+                      disabled={voiding}
+                      title="Void in JobTread, remove from the tracking sheet, bin the PDF"
+                    >
+                      {voiding ? "Deleting…" : "Delete"}
+                    </Button>
+                  )}
                 </div>
               </div>
+              {voidMsg && <p className="mt-1 text-[11px] text-red-600 dark:text-red-400">{voidMsg}</p>}
             </div>
 
             {/* pb-8, not pb-3: the card now ENDS above the commit bar, so this is
