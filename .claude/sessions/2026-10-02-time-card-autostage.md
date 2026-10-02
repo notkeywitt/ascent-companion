@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/time-card-autostage
 status: shipped
 started: 2026-10-02T17:18:55Z
-updated: 2026-10-02T18:58:14Z
+updated: 2026-10-02T18:58:16Z
 goal: Tracking Sheets time card: stage edits as they are made (like bills), remove the Stage changes button
 next: Owner checks the home board: Price · Cost switch in the Active jobs heading flips every donut; VelorumVenture reads 98% invoiced on Price, 86% of budget on Cost; choice survives reload
 ---

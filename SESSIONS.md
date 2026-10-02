@@ -9,7 +9,7 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Branch | Last active | Commits | Next step |
 |---|---|---|---|---|
-| [main](.claude/sessions/2026-10-02-main.md) | `(detached)` | 1h ago | 2 | — |
+| [main](.claude/sessions/2026-10-02-main.md) | `(detached)` | 2h ago | 2 | — |
 | [allbills-vendor-collapsed](.claude/sessions/2026-09-14-allbills-vendor-collapsed.md) | `claude/allbills-vendor-collapsed` | 9d ago | 40 | Watch the first monthly review after 77bbb2a: confirm email-bill-amount-mismatc… |
 | [time-entry-jt-sync](.claude/sessions/2026-09-15-time-entry-jt-sync.md) | `claude/time-entry-jt-sync-6q3257` | 17d ago | 5 | Verify view-as-employee live: open /employee-time as admin, tap 'View another e… |
 | [monthly-invoicing-summary](.claude/sessions/2026-09-10-monthly-invoicing-summary.md) | `claude/monthly-invoicing-summary-mfpunx` | 22d ago | 3 | Deploy the appscript side (./deploy.sh), then open /invoicing-summary and confi… |
@@ -31,7 +31,7 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
-| [time-card-autostage](.claude/sessions/2026-10-02-time-card-autostage.md) | 2026-10-02 | 2 | Tracking Sheets time card: stage edits as they are made (like bills), remove th… |
+| [time-card-autostage](.claude/sessions/2026-10-02-time-card-autostage.md) | 2026-10-02 | 3 | Tracking Sheets time card: stage edits as they are made (like bills), remove th… |
 | [vendor-billtype-fix](.claude/sessions/2026-10-02-vendor-billtype-fix.md) | 2026-10-02 | 1 | Fix vendor Bill Type default write: updateAccount read-back needs its id |
 | [cost-code](.claude/sessions/2026-10-02-cost-code.md) | 2026-10-02 | 2 | Default cost code per employee + job, set on Pay Rates, selected when a job is … |
 | [pay-type](.claude/sessions/2026-10-02-pay-type.md) | 2026-10-02 | 1 | Default pay type per employee + job + cost code: table edited on Pay Rates, app… |
