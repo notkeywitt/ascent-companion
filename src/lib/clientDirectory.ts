@@ -191,7 +191,7 @@ export async function setVendorBillType(
   await pave(cfg, {
     updateAccount: {
       $: { id: accountId, notify: false, customFieldValues: { [fieldId]: billType } },
-      account: { id: {} },
+      account: { $: { id: accountId }, id: {} },
     },
   });
 }
