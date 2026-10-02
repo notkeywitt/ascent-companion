@@ -1,4 +1,4 @@
-# SESSIONS — ascent-companion
+# SESSIONS — wt3
 
 What each Claude session was doing, and where it stopped. **Generated —
 do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
@@ -9,7 +9,7 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Branch | Last active | Commits | Next step |
 |---|---|---|---|---|
-| [main](.claude/sessions/2026-10-02-main.md) | `(detached)` | 2h ago | 2 | — |
+| [main](.claude/sessions/2026-10-02-main.md) | `(detached)` | 0m ago | 4 | — |
 | [allbills-vendor-collapsed](.claude/sessions/2026-09-14-allbills-vendor-collapsed.md) | `claude/allbills-vendor-collapsed` | 9d ago | 40 | Watch the first monthly review after 77bbb2a: confirm email-bill-amount-mismatc… |
 | [time-entry-jt-sync](.claude/sessions/2026-09-15-time-entry-jt-sync.md) | `claude/time-entry-jt-sync-6q3257` | 17d ago | 5 | Verify view-as-employee live: open /employee-time as admin, tap 'View another e… |
 | [monthly-invoicing-summary](.claude/sessions/2026-09-10-monthly-invoicing-summary.md) | `claude/monthly-invoicing-summary-mfpunx` | 22d ago | 3 | Deploy the appscript side (./deploy.sh), then open /invoicing-summary and confi… |
@@ -31,6 +31,7 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
+| [bill-void](.claude/sessions/2026-10-02-bill-void.md) | 2026-10-02 | 1 | Delete button on the bill card: void in JobTread, remove sheet rows, trash PDF … |
 | [time-card-autostage](.claude/sessions/2026-10-02-time-card-autostage.md) | 2026-10-02 | 3 | Tracking Sheets time card: stage edits as they are made (like bills), remove th… |
 | [vendor-billtype-fix](.claude/sessions/2026-10-02-vendor-billtype-fix.md) | 2026-10-02 | 1 | Fix vendor Bill Type default write: updateAccount read-back needs its id |
 | [cost-code](.claude/sessions/2026-10-02-cost-code.md) | 2026-10-02 | 2 | Default cost code per employee + job, set on Pay Rates, selected when a job is … |
@@ -45,4 +46,3 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 | [specs](.claude/sessions/2026-09-29-specs.md) | 2026-09-29 | 3 | Specifications: import an architect's spec selection list PDF per job, show it … |
 | [navigation-stage-0](.claude/sessions/2026-09-29-navigation-stage-0.md) | 2026-09-29 | 3 | NAVIGATION_PLAN.md Stage 0: gate /api/time-off/import and /api/labor-report, re… |
 | [budget](.claude/sessions/2026-09-24-budget.md) | 2026-09-28 | 27 | Tracking sheet estimate to JobTread budget import CSV: /budget-import page over… |
-| [lopezrocks-mobile-accessibility](.claude/sessions/2026-09-27-lopezrocks-mobile-accessibility.md) | 2026-09-27 | 2 | LopezRocks, the island community board, as a phone reader page in the app |
