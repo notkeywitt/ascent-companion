@@ -86,7 +86,7 @@ function worthNaming(rows: CostDonutRow[], field: "bills" | "labor"): Set<string
  * job-to-date total but nothing this month would otherwise hold a slot the
  * month's own codes need, and the month view is the one that leads.
  */
-function buildColorMap(rows: CostDonutRow[]): Map<string, string> {
+export function buildColorMap(rows: CostDonutRow[]): Map<string, string> {
   const named = new Set([...worthNaming(rows, "bills"), ...worthNaming(rows, "labor")]);
   const top = rows
     .filter((r) => named.has(r.code))
@@ -102,7 +102,7 @@ function buildColorMap(rows: CostDonutRow[]): Map<string, string> {
 }
 
 /** Slices for one field, folding un-slotted codes into "Other". */
-function buildSlices(
+export function buildSlices(
   rows: CostDonutRow[],
   colorMap: Map<string, string>,
   field: "bills" | "labor",

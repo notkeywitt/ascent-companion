@@ -13,6 +13,7 @@ import { SyncAllTrackingSheetsFor } from "@/components/TrackingSheetSync";
 import { billingMonths } from "@/lib/billingMonths";
 import { AllBills } from "./AllBills";
 import { UnsyncedDrafts } from "./UnsyncedDrafts";
+import { MonthJobDonuts } from "./MonthJobDonuts";
 
 /**
  * Tracking Sheets with no job selected — every vendor bill issued in the
@@ -114,6 +115,10 @@ export function AllJobs() {
           unfinished work from July is exactly the kind the month picker would
           hide. Renders nothing when there is none. */}
       <UnsyncedDrafts />
+
+      {/* Every job with cost this month, as ring cards — above the bills
+          workbench, which the cards' own clicks lead into job by job. */}
+      <MonthJobDonuts ym={ym} monthLabel={monthLabel} />
 
       <AllBills ym={ym} setYm={setYm} />
 
