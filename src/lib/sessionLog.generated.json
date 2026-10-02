@@ -1,7 +1,33 @@
 {
-  "generatedAt": "2026-10-02T17:28:06Z",
-  "repo": "wt2",
+  "generatedAt": "2026-10-02T18:56:20Z",
+  "repo": "ascent-companion",
   "sessions": [
+    {
+      "slug": "time-card-autostage",
+      "file": "2026-10-02-time-card-autostage.md",
+      "branch": "claude/time-card-autostage",
+      "status": "shipped",
+      "started": "2026-10-02T17:18:55Z",
+      "updated": "2026-10-02T18:56:20Z",
+      "goal": "Tracking Sheets time card: stage edits as they are made (like bills), remove the Stage changes button",
+      "next": "Owner checks the home donuts: VelorumVenture - PreCon Budget should read 98% invoiced ($19,619 of $20,000)",
+      "commits": [
+        {
+          "date": "2026-10-02",
+          "time": "10:19",
+          "sha": "04c7149",
+          "subject": "companion: time card stages edits as they are made",
+          "files": "src/app/trackingsheet/TimeCodingCard.tsx"
+        },
+        {
+          "date": "2026-10-02",
+          "time": "11:56",
+          "sha": "dae0b44",
+          "subject": "companion: home donuts show invoiced vs approved price",
+          "files": "src/components/HomeJobBoard.tsx, src/lib/jobBoard.ts, src/lib/jobtread.ts"
+        }
+      ]
+    },
     {
       "slug": "main",
       "file": "2026-10-02-main.md",
@@ -44,25 +70,6 @@
           "sha": "c8f3cb9",
           "subject": "companion: vendor bill type write passes the account id to its read-back",
           "files": "src/lib/clientDirectory.ts"
-        }
-      ]
-    },
-    {
-      "slug": "time-card-autostage",
-      "file": "2026-10-02-time-card-autostage.md",
-      "branch": "claude/time-card-autostage",
-      "status": "shipped",
-      "started": "2026-10-02T17:18:55Z",
-      "updated": "2026-10-02T17:25:24Z",
-      "goal": "Tracking Sheets time card: stage edits as they are made (like bills), remove the Stage changes button",
-      "next": "Owner checks on a tracking sheet: open a time entry, change the code/hours/pay type, confirm the row shows staged without a button press, then Save Changes",
-      "commits": [
-        {
-          "date": "2026-10-02",
-          "time": "10:19",
-          "sha": "04c7149",
-          "subject": "companion: time card stages edits as they are made",
-          "files": "src/app/trackingsheet/TimeCodingCard.tsx"
         }
       ]
     },
