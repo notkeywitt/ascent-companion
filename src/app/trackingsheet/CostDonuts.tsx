@@ -222,7 +222,7 @@ export function CostDonuts({
     const net = rows.reduce((n, r) => n + r[field], 0);
     return Math.abs(net - drawn) < 0.005
       ? {}
-      : { centerValue: money(net), centerLabel: "net of credits" };
+      : { centerValue: money(net) };
   };
 
   /** A slice's pick, in the caller's terms: which codes it stands for, and what
