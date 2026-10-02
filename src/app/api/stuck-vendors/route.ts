@@ -11,7 +11,8 @@ import { callAppsScriptOrThrow } from "@/lib/appsScript";
 // "_JT Invoice ..." Gmail tag scan retries it forever, leaving only an Audit Log
 // line. The Assistant turns this into a popup + home banner naming the vendor.
 //
-// Read-only — nothing here writes to the sheet, Drive, or JobTread.
+// GET is read-only. POST is the one write: "forget this bill" (below). It
+// touches the sheet, Drive and Gmail, never JobTread.
 //
 // Gated by middleware on the `email` view (see lib/views.ts), the same gate the
 // UI checks before it fetches, so visibility and access can't disagree.
@@ -66,5 +67,30 @@ export async function GET(req: NextRequest) {
       { error: e instanceof Error ? e.message : "Unknown error" },
       { status: 502 },
     );
+  }
+}
+
+// POST /api/stuck-vendors { expId }
+//   → forgetStuckBill → { ok, expId, trashed, untagged }
+//
+// "Forget all about this one": takes the "_JT Invoice" tag off the source email,
+// deletes the Expenditure + lineItem rows and bins the PDF. Re-tagging the email
+// later captures it fresh. Destructive, so confirm:true is sent here explicitly —
+// the Apps Script handler refuses without it, and refuses a bill already in JobTread.
+export async function POST(req: NextRequest) {
+  let body: { expId?: unknown } = {};
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Body must be JSON." }, { status: 400 });
+  }
+  const expId = String(body.expId ?? "").trim();
+  if (!expId) return NextResponse.json({ error: "expId is required." }, { status: 400 });
+  try {
+    const res = await callAppsScriptOrThrow({ action: "forgetStuckBill", expId, confirm: true }, { timeoutMs: 50_000 });
+    revalidateTag("stuck-vendors");
+    return NextResponse.json(res, { status: 200 });
+  } catch (e) {
+    return NextResponse.json({ error: e instanceof Error ? e.message : "Unknown error" }, { status: 502 });
   }
 }

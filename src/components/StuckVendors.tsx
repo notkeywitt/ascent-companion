@@ -168,6 +168,64 @@ export function StuckVendorsProvider({ children }: { children: ReactNode }) {
   return <StuckVendorsContext.Provider value={value}>{children}</StuckVendorsContext.Provider>;
 }
 
+/* -------------------------------------------------------------- forget */
+
+/**
+ * "Forget all about this one" — for a bill the office does not want in JobTread
+ * now. Each bill loses its "_JT Invoice" email tag, its sheet rows and its PDF,
+ * as if it was never captured; re-tagging the email later captures it fresh.
+ * Untags first (see forgetStuckBill in WebApp.js), so the 15-minute tag scan
+ * cannot re-import it straight away. Destructive, so it asks first.
+ */
+function ForgetVendorButton({ v, onDone }: { v: StuckVendor; onDone: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const n = v.bills.length;
+
+  async function forget() {
+    const what = n === 1 ? "this bill" : `these ${n} bills`;
+    if (
+      !window.confirm(
+        `Forget ${what} from ${v.vendor}?\n\nRemoves the sheet rows, bins the PDF and takes the ` +
+          `"_JT Invoice" tag off the email. Re-tag the email later to capture it again.`,
+      )
+    )
+      return;
+    setBusy(true);
+    setError("");
+    try {
+      for (const b of v.bills) {
+        const res = await fetch("/api/stuck-vendors", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ expId: b.expId }),
+        });
+        const json = await res.json();
+        if (!res.ok || json?.ok === false || json?.error) throw new Error(`${b.expId}: ${json?.error || "not forgotten"}`);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Network error");
+    } finally {
+      setBusy(false);
+      onDone();
+    }
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => void forget()}
+        disabled={busy || n === 0}
+        className="text-xs font-semibold underline disabled:opacity-50"
+      >
+        {busy ? "Forgetting…" : "Forget"}
+      </button>
+      {error && <span className="ml-2 text-xs font-semibold text-red-600 dark:text-red-400">{error}</span>}
+    </>
+  );
+}
+
 /* -------------------------------------------------------------- create row */
 
 /**
@@ -273,9 +331,12 @@ function StuckVendorRow({ v, onCreated }: { v: StuckVendor; onCreated: () => voi
           </div>
         </div>
       ) : (
-        <Button size="sm" variant="secondary" className="mt-2" onClick={() => setOpen(true)}>
-          Create vendor{v.senderEmail ? " + file their email" : ""}
-        </Button>
+        <div className="mt-2 flex items-center gap-3">
+          <Button size="sm" variant="secondary" onClick={() => setOpen(true)}>
+            Create vendor{v.senderEmail ? " + file their email" : ""}
+          </Button>
+          <ForgetVendorButton v={v} onDone={onCreated} />
+        </div>
       )}
     </li>
   );
@@ -424,9 +485,13 @@ export function StuckVendorBanner() {
               : `${vendors.length} vendors aren’t in JobTread`}{" "}
             — {billCount} bill{billCount === 1 ? "" : "s"} stuck
           </p>
-          <p className="mt-0.5 break-words text-xs opacity-90">
-            {vendors.map((v) => v.vendor).join(", ")}
-          </p>
+          <ul className="mt-0.5 space-y-0.5">
+            {vendors.map((v) => (
+              <li key={v.vendor} className="break-words text-xs opacity-90">
+                {v.vendor} · <ForgetVendorButton v={v} onDone={refresh} />
+              </li>
+            ))}
+          </ul>
           {/* One line per vendor when the script says WHY — "create the vendor"
               is not always the fix, and the banner used to imply it always was. */}
           {vendors.some((v) => v.reason) && (
