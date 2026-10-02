@@ -1,7 +1,26 @@
 {
-  "generatedAt": "2026-10-02T16:56:14Z",
+  "generatedAt": "2026-10-02T17:02:25Z",
   "repo": "ascent-companion",
   "sessions": [
+    {
+      "slug": "cost-code",
+      "file": "2026-10-02-cost-code.md",
+      "branch": "claude/cost-code-defaults",
+      "status": "shipped",
+      "started": "2026-10-02T17:02:23Z",
+      "updated": "2026-10-02T17:02:25Z",
+      "goal": "Default cost code per employee + job, set on Pay Rates, selected when a job is picked on the time page and in Split View",
+      "next": "Owner sets a default cost code on /labor-rates, picks that job on /employee-time and confirms the code (and its pay type) fill in",
+      "commits": [
+        {
+          "date": "2026-10-02",
+          "time": "10:02",
+          "sha": "1bf0f4d",
+          "subject": "companion: default cost code by employee and job",
+          "files": "CODEBASE_MAP.md, src/app/api/employee-time/pay-rules/route.ts, src/app/api/labor-rates/rules/route.ts, src/app/employee-time/EmployeeTimeClient.tsx, src/app/employee-time/WeekCompare.tsx, src/app/employee-time/page.tsx, +6 more"
+        }
+      ]
+    },
     {
       "slug": "pay-type",
       "file": "2026-10-02-pay-type.md",

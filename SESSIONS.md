@@ -30,6 +30,7 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
+| [cost-code](.claude/sessions/2026-10-02-cost-code.md) | 2026-10-02 | 1 | Default cost code per employee + job, set on Pay Rates, selected when a job is … |
 | [pay-type](.claude/sessions/2026-10-02-pay-type.md) | 2026-10-02 | 1 | Default pay type per employee + job + cost code: table edited on Pay Rates, app… |
 | [time-week](.claude/sessions/2026-10-01-time-week.md) | 2026-10-01 | 6 | Time page: Compare tab for admin+office — my week beside a picked employee's, c… |
 | [board-split](.claude/sessions/2026-09-29-board-split.md) | 2026-10-01 | 16 | Audit finding 01: split src/app/trackingsheet/Board.tsx by job, one block per p… |
@@ -44,4 +45,3 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 | [lopezrocks-mobile-accessibility](.claude/sessions/2026-09-27-lopezrocks-mobile-accessibility.md) | 2026-09-27 | 2 | LopezRocks, the island community board, as a phone reader page in the app |
 | [ascent-companion-ci-failure](.claude/sessions/2026-09-12-ascent-companion-ci-failure.md) | 2026-09-14 | 3 | fix the red CI lint error in trackingsheet/Board.tsx |
 | [vendor-bills-group-by](.claude/sessions/2026-09-11-vendor-bills-group-by.md) | 2026-09-11 | 1 | group the tracking sheet's month of vendor bills by vendor |
-| [billing-month](.claude/sessions/2026-09-10-billing-month.md) | 2026-09-11 | 43 | — |
