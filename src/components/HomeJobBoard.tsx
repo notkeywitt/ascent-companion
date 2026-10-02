@@ -152,32 +152,47 @@ function useCostDetail(jobId: string | null) {
 /* ----------------------------------------------------------------- pieces */
 
 /**
- * The budget donut: spent against budget, with the overrun as its own red
- * slice when there is one. Two slices, never more — the question is "how much
- * of the budget is gone", not "on what" (the drilldown below answers that, by
- * CSI division).
+ * The billing donut: invoiced against the approved price, with anything
+ * invoiced past the price as its own red slice. Two slices, never more — the
+ * question is "how much of the price is billed". Cost against budget stays on
+ * the drilldown and the lead panel's meter.
  */
-function budgetSlices(c: JobBoardCard): DonutSlice[] {
-  const spent = spentOf(c);
-  if (c.budget <= 0) {
-    return spent > 0
-      ? [{ key: "spent", label: "Spent (no budget set)", value: spent, color: "var(--viz-8)" }]
+function billingSlices(c: JobBoardCard): DonutSlice[] {
+  if (c.price <= 0) {
+    return c.invoiced > 0
+      ? [
+          {
+            key: "invoiced",
+            label: "Invoiced (no price set)",
+            value: c.invoiced,
+            color: "var(--viz-8)",
+          },
+        ]
       : [];
   }
-  const over = spent - c.budget;
+  const over = c.invoiced - c.price;
   if (over > 0) {
     return [
-      { key: "budget", label: "Budget", value: c.budget, color: "rgb(var(--accent))" },
-      { key: "over", label: "Over budget", value: over, color: "var(--viz-8)" },
+      { key: "price", label: "Approved price", value: c.price, color: "rgb(var(--accent))" },
+      { key: "over", label: "Invoiced over price", value: over, color: "var(--viz-8)" },
     ];
   }
   return [
-    { key: "spent", label: "Spent", value: spent, color: "rgb(var(--accent))" },
-    { key: "left", label: "Remaining", value: c.budget - spent, color: "var(--viz-other)" },
+    { key: "invoiced", label: "Invoiced", value: c.invoiced, color: "rgb(var(--accent))" },
+    {
+      key: "left",
+      label: "Left to invoice",
+      value: c.price - c.invoiced,
+      color: "var(--viz-other)",
+    },
   ];
 }
 
-/** Share of budget spent, as the donut's centre readout. */
+/** Share of the approved price invoiced, as the donut's centre readout. */
+const invoicedPct = (c: JobBoardCard) =>
+  c.price > 0 ? `${Math.round((c.invoiced / c.price) * 100)}%` : "—";
+
+/** Share of budget spent — the drilldown's cost line. */
 const usedPct = (c: JobBoardCard) =>
   c.budget > 0 ? `${Math.round((spentOf(c) / c.budget) * 100)}%` : "—";
 
@@ -372,11 +387,11 @@ function BoardCard({
           )}
         </div>
         <Donut
-          slices={budgetSlices(c)}
+          slices={billingSlices(c)}
           size={104}
-          centerValue={usedPct(c)}
-          centerLabel="of budget"
-          emptyLabel="No budget"
+          centerValue={invoicedPct(c)}
+          centerLabel="invoiced"
+          emptyLabel="No price"
         />
         <div className="mt-auto border-t border-line-soft pt-2">
           <div
@@ -477,11 +492,11 @@ function LeadPanel({
     <Card className="space-y-3">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
         <Donut
-          slices={budgetSlices(c)}
+          slices={billingSlices(c)}
           size={120}
-          centerValue={usedPct(c)}
-          centerLabel="of budget"
-          emptyLabel="No budget"
+          centerValue={invoicedPct(c)}
+          centerLabel="invoiced"
+          emptyLabel="No price"
         />
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline gap-3">

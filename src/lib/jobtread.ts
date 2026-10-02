@@ -3292,11 +3292,16 @@ async function _getJobPhaseMapUncached(cfg: PaveConfig): Promise<Record<string, 
  * job sits on JobTread's own calendar/Gantt chart.
  *
  * ONE Pave request does the lot, because every part of it is an org-wide
- * aggregate that JobTread can sum itself (confirmed live 2026-09-06). The six
+ * aggregate that JobTread can sum itself (confirmed live 2026-09-06). The
  * aliased connections are:
  *   budgetByJob  Σ approved, includeInBudget customerOrder lines  = Budgeted Cost
+ *   priceByJob   the same lines at price                           = Approved Price
  *   leafByJob    Σ budget leaves (document == null) — the fallback basis, for the
  *                8-of-24 jobs whose budget was never issued as a customer order
+ *   leafPriceByJob  the same leaves at price
+ *   invoicedByJob   Σ approved + pending customerInvoice lines at price. Before
+ *                tax, so it compares with the price; JobTread's "Invoiced"
+ *                figure includes tax and reads higher.
  *   billsByJob   Σ approved + pending vendorBill lines            = spend
  *   laborByJob   Σ time-entry cost                                = labor
  *   spanByJob    min startDate / max endDate over the job's schedule tasks
@@ -3312,13 +3317,20 @@ export function getJobBoard(cfg: PaveConfig): Promise<JobBoardCard[]> {
   return cachedRef(`jobboard:${cfg.orgId}`, 5 * 60_000, () => _getJobBoardUncached(cfg));
 }
 
+const BOARD_LEAF_WHERE = { and: [{ "=": [{ field: ["document", "id"] }, { value: null }] }] };
+const BOARD_INVOICED_WHERE = {
+  and: [
+    [["document", "type"], "customerInvoice"],
+    { in: [{ field: ["document", "status"] }, [{ value: "approved" }, { value: "pending" }]] },
+  ],
+};
 const BOARD_TASK_WHERE = [["isToDo", false], { "!=": [{ field: ["job", "id"] }, { value: null }] }];
 
 async function _getJobBoardUncached(cfg: PaveConfig): Promise<JobBoardCard[]> {
   const today = jtIsoToOrgLocal(new Date().toISOString()).slice(0, 10);
-  const groupByJob = (where: unknown) => ({
+  const groupByJob = (where: unknown, sum: "cost" | "price" = "cost") => ({
     _: "costItems",
-    $: { size: 100, where, group: { by: [["job", "id"]], aggs: { total: { sum: "cost" } } } },
+    $: { size: 100, where, group: { by: [["job", "id"]], aggs: { total: { sum } } } },
     withValues: {},
   });
   const taskNodes = { name: {}, startDate: {}, endDate: {}, job: { id: {} } };
@@ -3331,7 +3343,10 @@ async function _getJobBoardUncached(cfg: PaveConfig): Promise<JobBoardCard[]> {
         $: { id: cfg.orgId },
         id: {},
         budgetByJob: groupByJob(CTC_BUDGET_WHERE),
-        leafByJob: groupByJob({ and: [{ "=": [{ field: ["document", "id"] }, { value: null }] }] }),
+        priceByJob: groupByJob(CTC_BUDGET_WHERE, "price"),
+        leafByJob: groupByJob(BOARD_LEAF_WHERE),
+        leafPriceByJob: groupByJob(BOARD_LEAF_WHERE, "price"),
+        invoicedByJob: groupByJob(BOARD_INVOICED_WHERE, "price"),
         billsByJob: groupByJob(CTC_ACTUAL_WHERE),
         laborByJob: {
           _: "timeEntries",
@@ -3394,6 +3409,9 @@ async function _getJobBoardUncached(cfg: PaveConfig): Promise<JobBoardCard[]> {
   };
   const budgets = totals(org.budgetByJob);
   const leaves = totals(org.leafByJob);
+  const prices = totals(org.priceByJob);
+  const leafPrices = totals(org.leafPriceByJob);
+  const invoiced = totals(org.invoicedByJob);
   const bills = totals(org.billsByJob);
   const labor = totals(org.laborByJob);
 
@@ -3428,6 +3446,8 @@ async function _getJobBoardUncached(cfg: PaveConfig): Promise<JobBoardCard[]> {
       // budget IS the base estimate, or there is no budget at all.
       budget: budget || leaf,
       budgetBasis: budget ? "orders" : leaf ? "leaves" : "none",
+      price: budget ? (prices[j.id] ?? 0) : (leafPrices[j.id] ?? 0),
+      invoiced: invoiced[j.id] ?? 0,
       bills: bills[j.id] ?? 0,
       labor: labor[j.id] ?? 0,
       schedule: span

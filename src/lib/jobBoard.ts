@@ -38,6 +38,10 @@ export interface JobBoardCard {
   budget: number;
   /** Whether that budget came from approved customer orders or budget leaves. */
   budgetBasis: "orders" | "leaves" | "none";
+  /** Approved price — the same orders/leaves basis as `budget`, at price. */
+  price: number;
+  /** Approved + pending customer invoices, at price before tax. */
+  invoiced: number;
   bills: number; // approved + pending vendor bills
   labor: number; // time-entry cost
   schedule: JobSchedule | null; // null = nothing dated in JobTread
