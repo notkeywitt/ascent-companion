@@ -435,6 +435,54 @@ export async function markWorkedDeleted(jtEntryId: string): Promise<void> {
   });
 }
 
+/**
+ * The other direction: JobTread is right and the Time Entries row is wrong.
+ * Rewrite the row to match what JobTread holds, so the audit stops flagging it.
+ * Writes the SHEET only — JobTread is never touched.
+ *
+ * JobTread is re-read here rather than trusting the page, because the entry may
+ * have changed since the audit ran.
+ *   - closed entry → the row takes JobTread's start + stop.
+ *   - no entry     → the row is marked deleted, which the audit skips.
+ *   - open entry   → refused. "Still running" has no stop time to copy.
+ */
+export async function acceptJobTread(entryId: string): Promise<{ ok: boolean; error?: string }> {
+  const id = entryId.trim();
+  const raw = (await allWorkedRows()).find((r) => String(r.entryId ?? "").trim() === id);
+  if (!raw) return { ok: false, error: "Row not found." };
+  const jtEntryId = String(raw.jtEntryId ?? "").trim();
+  if (!jtEntryId) return { ok: false, error: "This record never reached JobTread — there is nothing to copy." };
+  if (!hasGrant()) return { ok: false, error: "No JobTread grant configured." };
+
+  const span = await getTimeEntrySpan(getPaveConfig(), jtEntryId);
+  if (!span) {
+    await callAppsScriptOrThrow({
+      action: "finalizeTimeEntryLog",
+      clientKey: id,
+      jtEntryId,
+      jtStatus: `${DELETED_STATUS} (matched to JobTread, which deleted it)`,
+    });
+    return { ok: true };
+  }
+  if (!span.endedAt) {
+    return { ok: false, error: "JobTread still has this entry running. Set its stop time there first." };
+  }
+  const res = (await callAppsScriptOrThrow({
+    action: "finalizeTimeEntryLog",
+    clientKey: id,
+    // The old times go in the status, so the employee's own entry is not lost.
+    jtStatus: `matched to JobTread (was ${String(raw.start ?? "").trim()} – ${String(raw.end ?? "").trim()})`,
+    startTime: jtIsoToOrgLocal(span.startedAt),
+    endTime: jtIsoToOrgLocal(span.endedAt),
+  })) as { timesUpdated?: boolean };
+  // An Apps Script deployment older than this change ignores the times and
+  // still answers ok — so check it actually wrote them.
+  if (!res?.timesUpdated) {
+    return { ok: false, error: "The sheet did not take the new times. The Apps Script web app needs redeploying." };
+  }
+  return { ok: true };
+}
+
 /** Re-post one worked-time row to JobTread and write the result back to the
  *  sheet. Idempotent guard: a row that already carries a JobTread id is skipped,
  *  and a row whose entry turns out to exist anyway is ADOPTED rather than

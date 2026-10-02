@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Banner, Button, Card, EmptyState, Loading, PageHeader, SectionLabel } from "@/components/ui";
 import { jtTimeUrl } from "@/lib/jtLinks";
 import {
+  PROBLEM_ACCEPTABLE,
   PROBLEM_FIX,
   PROBLEM_LABEL,
   PROBLEM_ORDER,
@@ -97,6 +98,30 @@ export default function TimeSyncPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  // JobTread is right: the record here takes JobTread's times. Sheet only.
+  async function accept(id: string) {
+    setBusyId(`accept:${id}`);
+    setMsg(null);
+    try {
+      const res = await fetch("/api/time-sync/retry", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ kind: "accept", id }),
+      });
+      const j = await res.json();
+      setMsg(
+        j.ok
+          ? { tone: "success", text: "Record updated to match JobTread." }
+          : { tone: "warning", text: j.error || "Could not update the record." },
+      );
+      await load();
+    } catch (e) {
+      setMsg({ tone: "warning", text: e instanceof Error ? e.message : "Update failed." });
+    } finally {
+      setBusyId("");
+    }
+  }
 
   async function retry(kind: "worked" | "leave", id: string | number) {
     setBusyId(`${kind}:${id}`);
@@ -258,18 +283,30 @@ export default function TimeSyncPage() {
                             {busyId === `worked:${r.entryId}` ? "…" : "Retry"}
                           </Button>
                         ) : (
-                          <a
-                            className="shrink-0 whitespace-nowrap text-xs font-medium text-accent underline-offset-2 hover:underline"
-                            href={jtTimeUrl({
-                              userId: r.jtUserId,
-                              entryId: r.jtEntryId,
-                              from: r.date,
-                            })}
-                            target="_blank"
-                            rel="noreferrer"
-                          >
-                            Fix in JobTread →
-                          </a>
+                          <div className="flex shrink-0 flex-col items-end gap-2">
+                            {PROBLEM_ACCEPTABLE[r.problem] && (
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                disabled={busyId === `accept:${r.entryId}` || busyAll}
+                                onClick={() => accept(r.entryId)}
+                              >
+                                {busyId === `accept:${r.entryId}` ? "…" : "JobTread is right"}
+                              </Button>
+                            )}
+                            <a
+                              className="shrink-0 whitespace-nowrap text-xs font-medium text-accent underline-offset-2 hover:underline"
+                              href={jtTimeUrl({
+                                userId: r.jtUserId,
+                                entryId: r.jtEntryId,
+                                from: r.date,
+                              })}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              Fix in JobTread →
+                            </a>
+                          </div>
                         )}
                       </li>
                     ))}

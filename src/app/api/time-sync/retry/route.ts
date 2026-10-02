@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { listUnsyncedLeave, retryLeavePost } from "@/lib/leaveService";
-import { listUnsyncedWorked, retryWorked } from "@/lib/timeSync";
+import { acceptJobTread, listUnsyncedWorked, retryWorked } from "@/lib/timeSync";
 
 /**
  * Office/admin — re-post stranded records to JobTread. One at a time
@@ -12,6 +12,9 @@ import { listUnsyncedWorked, retryWorked } from "@/lib/timeSync";
  * POST { kind:"worked", id:"<entryId>" }        → { ok, jtStatus, jtEntryId? }
  * POST { kind:"leave",  id:<requestId> }        → { ok, jtPosted, jtStatus }
  * POST { all:true }                             → { ok, summary, results }
+ * POST { kind:"accept", id:"<entryId>" }        → { ok, error? }
+ *      The reverse fix: JobTread is right, so the sheet row takes JobTread's
+ *      times. A sheet write only, never a JobTread write.
  */
 export const dynamic = "force-dynamic";
 // "Retry all" walks every stranded record, each costing a JobTread create plus a
@@ -20,7 +23,7 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 120;
 
 interface Body {
-  kind?: "worked" | "leave";
+  kind?: "worked" | "leave" | "accept";
   id?: string | number;
   all?: boolean;
 }
@@ -40,6 +43,11 @@ export async function POST(req: NextRequest) {
     const id = String(body.id ?? "").trim();
     if (!id) return NextResponse.json({ ok: false, error: "id is required." }, { status: 400 });
     return NextResponse.json(await retryWorked(id));
+  }
+  if (kind === "accept") {
+    const id = String(body.id ?? "").trim();
+    if (!id) return NextResponse.json({ ok: false, error: "id is required." }, { status: 400 });
+    return NextResponse.json(await acceptJobTread(id).catch((e) => ({ ok: false, error: String(e?.message ?? e) })));
   }
   if (kind === "leave") {
     const id = Number(body.id);

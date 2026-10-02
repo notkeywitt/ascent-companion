@@ -55,10 +55,23 @@ export const PROBLEM_FIX: Record<TimeProblem, string> = {
   "push-failed":
     "JobTread already has the entry — its stop time is what didn't land, so the hours read short. " +
     "Set the stop time in JobTread; do not re-post, it would duplicate.",
-  "missing-in-jt": "Someone deleted the entry in JobTread. Re-enter it there if the time was worked.",
+  "missing-in-jt":
+    "Someone deleted the entry in JobTread. Re-enter it there if the time was worked. " +
+    "If the delete was right, tap JobTread is right to close the record here.",
   "open-in-jt": "The entry never closed in JobTread, so it counts no hours. Set its stop time there.",
   "time-mismatch":
-    "JobTread holds different times than the employee logged. Either someone edited it there, or the push landed wrong.",
+    "JobTread holds different times than the employee logged. If JobTread is wrong, fix it there. " +
+    "If JobTread is right, tap JobTread is right and the record here takes its times.",
+};
+
+/** Whether "JobTread is right" can rewrite the record here to match. Needs a
+ *  JobTread entry that is closed (or gone) — see `acceptJobTread`. */
+export const PROBLEM_ACCEPTABLE: Record<TimeProblem, boolean> = {
+  "not-posted": false,
+  "push-failed": false,
+  "missing-in-jt": true,
+  "open-in-jt": false,
+  "time-mismatch": true,
 };
 
 /** Whether this problem is fixed by re-posting from here, or by hand in JobTread. */
