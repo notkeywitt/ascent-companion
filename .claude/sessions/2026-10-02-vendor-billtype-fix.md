@@ -2,9 +2,9 @@
 slug: vendor-billtype-fix
 repo: wt2
 branch: claude/vendor-billtype-fix
-status: in-progress
+status: shipped
 started: 2026-10-02T17:21:39Z
-updated: 2026-10-02T17:21:56Z
+updated: 2026-10-02T17:28:06Z
 goal: Fix vendor Bill Type default write: updateAccount read-back needs its id
 next: Owner ok to push (write path), then npm run ship from this worktree.
 ---

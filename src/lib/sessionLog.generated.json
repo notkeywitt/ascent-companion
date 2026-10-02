@@ -1,7 +1,52 @@
 {
-  "generatedAt": "2026-10-02T17:25:24Z",
-  "repo": "ascent-companion",
+  "generatedAt": "2026-10-02T17:28:06Z",
+  "repo": "wt2",
   "sessions": [
+    {
+      "slug": "main",
+      "file": "2026-10-02-main.md",
+      "branch": "(detached)",
+      "status": "in-progress",
+      "started": "2026-10-02T17:28:06Z",
+      "updated": "2026-10-02T17:28:06Z",
+      "goal": "",
+      "next": "",
+      "commits": [
+        {
+          "date": "2026-10-02",
+          "time": "10:21",
+          "sha": "b7bd079",
+          "subject": "companion: vendor bill type write passes the account id to its read-back",
+          "files": "src/lib/clientDirectory.ts"
+        },
+        {
+          "date": "2026-10-02",
+          "time": "10:28",
+          "sha": "ac18ebc",
+          "subject": "companion: log session 2026-10-02-vendor-billtype-fix",
+          "files": ""
+        }
+      ]
+    },
+    {
+      "slug": "vendor-billtype-fix",
+      "file": "2026-10-02-vendor-billtype-fix.md",
+      "branch": "claude/vendor-billtype-fix",
+      "status": "shipped",
+      "started": "2026-10-02T17:21:39Z",
+      "updated": "2026-10-02T17:28:06Z",
+      "goal": "Fix vendor Bill Type default write: updateAccount read-back needs its id",
+      "next": "Owner ok to push (write path), then npm run ship from this worktree.",
+      "commits": [
+        {
+          "date": "2026-10-02",
+          "time": "10:21",
+          "sha": "c8f3cb9",
+          "subject": "companion: vendor bill type write passes the account id to its read-back",
+          "files": "src/lib/clientDirectory.ts"
+        }
+      ]
+    },
     {
       "slug": "time-card-autostage",
       "file": "2026-10-02-time-card-autostage.md",
