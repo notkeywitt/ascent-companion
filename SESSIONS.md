@@ -9,7 +9,7 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Branch | Last active | Commits | Next step |
 |---|---|---|---|---|
-| [main](.claude/sessions/2026-10-02-main.md) | `(detached)` | 18h ago | 4 | — |
+| [main](.claude/sessions/2026-10-02-main.md) | `(detached)` | 19h ago | 4 | — |
 | [allbills-vendor-collapsed](.claude/sessions/2026-09-14-allbills-vendor-collapsed.md) | `claude/allbills-vendor-collapsed` | 10d ago | 40 | Watch the first monthly review after 77bbb2a: confirm email-bill-amount-mismatc… |
 | [time-entry-jt-sync](.claude/sessions/2026-09-15-time-entry-jt-sync.md) | `claude/time-entry-jt-sync-6q3257` | 18d ago | 5 | Verify view-as-employee live: open /employee-time as admin, tap 'View another e… |
 | [monthly-invoicing-summary](.claude/sessions/2026-09-10-monthly-invoicing-summary.md) | `claude/monthly-invoicing-summary-mfpunx` | 23d ago | 3 | Deploy the appscript side (./deploy.sh), then open /invoicing-summary and confi… |
@@ -31,7 +31,7 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
-| [today-home-label-change](.claude/sessions/2026-10-03-today-home-label-change.md) | 2026-10-03 | 5 | — |
+| [today-home-label-change](.claude/sessions/2026-10-03-today-home-label-change.md) | 2026-10-03 | 6 | — |
 | [time-card-autostage](.claude/sessions/2026-10-02-time-card-autostage.md) | 2026-10-02 | 6 | Tracking Sheets time card: stage edits as they are made (like bills), remove th… |
 | [bill-void](.claude/sessions/2026-10-02-bill-void.md) | 2026-10-02 | 1 | Delete button on the bill card: void in JobTread, remove sheet rows, trash PDF … |
 | [vendor-billtype-fix](.claude/sessions/2026-10-02-vendor-billtype-fix.md) | 2026-10-02 | 1 | Fix vendor Bill Type default write: updateAccount read-back needs its id |
