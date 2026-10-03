@@ -87,6 +87,7 @@ matching row here.
 | **PTO / sick accrual** | pure math `src/lib/leave.ts`; server orchestration `src/lib/leaveService.ts`; UI `src/app/time-off/` + `src/app/api/time-off/*` |
 | **Employee time / clock** | `src/app/employee-time/` + `src/app/api/employee-time/*`; back end is appscript `EmployeeTime.js` |
 | **Default pay type per employee + job + cost code**, and **default cost code per employee + job** | tables `pay_type_rules` and `cost_code_defaults`; match `src/lib/payTypeMatch.ts` (exact code, then job-wide); DB `src/lib/payTypeRules.ts`; editor `src/app/labor-rates/PayTypeRules.tsx` → `/api/labor-rates/rules`; read by `/employee-time` (shell preload + `/api/employee-time/pay-rules`) on clock-in, Log a range, switch and Split View |
+| **The Jobs page** (Active jobs, PreCon jobs and leads as kanban rows — schedule now, newest 3 open to-dos) | page `src/app/job-board/` → `/api/job-board`; card shape, `PRECON_PHASES` and the to-do grouping in `src/lib/jobBoard.ts`; the to-do read is `getRecentJobToDos` in `src/lib/jobtread.ts`; the leads row is `HomeLeadBoard` (`storeAs="jobs"`) |
 | **Leads / lead board** | read `src/lib/leads.ts`; the one write `src/lib/leadPush.ts`; UI `src/app/leads/` + `src/app/api/leads/*`; the home page's Leads panel `src/components/HomeLeadBoard.tsx` + `src/lib/leadBoard.ts`; the org's amber/red thresholds `src/lib/leadSettings.ts` + `/api/leads/settings` |
 | **The chat assistant** | engine `src/lib/anthropic.ts`, tools `src/lib/chatTools.ts`, UI `src/app/chat/` + `src/app/api/chat` |
 | **Anything Sheets/Drive-backed** (employees, tools, mileage, safety, requisitions, Sunset, tracking sheets, audit log) | `src/lib/appsScript.ts` (the one client over the shared secret) → the matching appscript `.js` file |
@@ -350,7 +351,9 @@ Each page is a server component (`page.tsx`) that hands non-secret context to a
   `getOpenToDos` + `getJobFiles`; the billing month's bills on Office and Shop
   via `currentBillingPeriod` + `getJobBillsForMonth` + `resolveShopJobId`; the to-dos are editable — `OfficeTodos.tsx` →
   `/api/office/todos`; images show as a thumbnail grid,
-  `OfficeImages.tsx`, opening in the bill scans' `InvoiceLightbox`), `employees`, `leads`, `labor-import`, `labor-rates`,
+  `OfficeImages.tsx`, opening in the bill scans' `InvoiceLightbox`), `employees`, `leads`,
+  `job-board` (Jobs — Active jobs, PreCon jobs and leads as kanban rows; the
+  route is `/job-board` because `/jobs` is Job Cost), `labor-import`, `labor-rates`,
   `time-sync`, `notices` (post an announcement to the team — banner or popup,
   targeted at groups and/or named people, now or on a schedule; office + admin).
 - **System / admin:** `admin`, `logs`, `historical-cost`, `requests`,
@@ -414,6 +417,8 @@ Grouped by domain; each folder is `…/route.ts`.
   `tool-tracker`, `safety-meeting`, `requisitions`, `rfis/*`,
   `feature-requests/*`.
 - **Leads:** `leads/*`.
+- **Jobs page:** `job-board` (the Active and PreCon rows — `getJobBoard` +
+  `getJobs` + `getRecentJobToDos`, all cached; read-only).
 - **Assistant / misc:** `chat`, `ocr-serial`, `tracking-sheet`, `budget-import`, `specs`, `vendors`,
   `bank-details`, `notices/*` (the reader's own feed + dismiss — UNGATED, every
   role must be able to receive a notice; the authoring CRUD is

@@ -76,6 +76,7 @@ export const WORKSPACES: Workspace[] = [
     // RFIs left every menu 2026-09-29: nobody logs them (owner decision 4).
     // The route and the view stay; see OUTSIDE_WORKSPACES.
     tabs: [
+      tab("job-board", "/job-board", "Jobs", "Active jobs, PreCon jobs and leads — the schedule now and the newest to-dos"),
       tab("leads", "/leads", "Leads", "New leads, who's overdue, who's gone quiet"),
       tab("clients", "/clients", "Directory", "Every customer and job in JobTread — edit the record"),
       tab("jobs", "/jobs", "Job Cost", "Every job's budget against what it has spent"),
@@ -230,17 +231,19 @@ export const BARS: Record<Role, BarSlot[]> = {
     { kind: "tab", view: "tools" },
     { kind: "tab", view: "requisitions" },
   ],
+  // Jobs took Incoming Bills' slot on 2026-10-03 (owner). Incoming Bills is
+  // still in the ☰ menu and on the iPad rail.
   office: [
     { kind: "today" },
     { kind: "workspace", id: "close" },
-    { kind: "workspace", id: "incoming" },
+    { kind: "tab", view: "job-board" },
     { kind: "tab", view: "mileage" },
     { kind: "workspace", id: "mywork" },
   ],
   admin: [
     { kind: "today" },
     { kind: "workspace", id: "close" },
-    { kind: "workspace", id: "incoming" },
+    { kind: "tab", view: "job-board" },
     { kind: "workspace", id: "office" },
     { kind: "workspace", id: "mywork" },
   ],

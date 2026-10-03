@@ -16,9 +16,11 @@ import { splitAddresses } from "@/lib/vendorMail";
 import type { UntaxedLine } from "@/lib/taxableLines";
 import {
   byWindow,
+  groupRecentToDos,
   spanPct,
   type GanttBar,
   type JobBoardCard,
+  type JobToDo,
   type JobGanttData,
   type ScheduleTask,
 } from "@/lib/jobBoard";
@@ -7034,6 +7036,72 @@ export async function findMemberByEmail(cfg: PaveConfig, email: string): Promise
 /** Every open to-do across the org, for the Daily Digest — the `isToDo=true` half. */
 export async function getOpenToDos(cfg: PaveConfig): Promise<OpenToDo[]> {
   return fetchTasks(cfg, true);
+}
+
+/**
+ * Each job's newest OPEN to-dos, at most `perJob` per job — the Jobs page
+ * cards. "Open" is the digest's rule: progress null or under 1.
+ *
+ * ONE org-wide walk, newest first, filtered in the query. The org held 248
+ * to-dos and 33 open ones on a job (2026-10-03), so one page covers it; a
+ * per-job read would cost a request per card. Cached 60 s — a to-do is a
+ * quick human edit, and the page should show it on the next load or two.
+ */
+export function getRecentJobToDos(cfg: PaveConfig, perJob = 3): Promise<Record<string, JobToDo[]>> {
+  return cachedRef(`jobtodos:${cfg.orgId}:${perJob}`, 60_000, async () => {
+    const nodes = await pageAll<any>(cfg, {
+      label: "organization.tasks (open job to-dos)",
+      query: (args) => ({
+        organization: {
+          $: { id: cfg.orgId },
+          id: {},
+          tasks: {
+            $: {
+              where: {
+                and: [
+                  ["isToDo", true],
+                  { "!=": [{ field: ["job", "id"] }, { value: null }] },
+                  {
+                    or: [
+                      { "=": [{ field: "progress" }, { value: null }] },
+                      { "<": [{ field: "progress" }, { value: 1 }] },
+                    ],
+                  },
+                ],
+              },
+              sortBy: [{ field: "createdAt", order: "desc" }],
+              ...args,
+            },
+            nextPage: {},
+            nodes: {
+              id: {},
+              name: {},
+              createdAt: {},
+              endDate: {},
+              job: { id: {} },
+              assignedMemberships: { nodes: { user: { name: {} } } },
+            },
+          },
+        },
+      }),
+      pick: (r) => r?.organization?.tasks,
+    });
+    return groupRecentToDos(
+      nodes
+        .filter((n) => n?.job?.id)
+        .map((n) => ({
+          jobId: n.job.id as string,
+          id: n.id,
+          name: n.name || "(untitled)",
+          createdAt: n.createdAt ?? "",
+          due: n.endDate ?? null,
+          assignees: ((n.assignedMemberships?.nodes ?? []) as any[])
+            .map((m) => m?.user?.name)
+            .filter((x): x is string => typeof x === "string" && x.length > 0),
+        })),
+      perJob,
+    );
+  });
 }
 
 /**

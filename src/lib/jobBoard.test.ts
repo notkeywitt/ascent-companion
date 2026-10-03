@@ -4,11 +4,14 @@ import {
   barPct,
   byWindow,
   dateRange,
+  groupRecentToDos,
   scheduleHeadline,
   scheduleMeta,
   shortDate,
+  sortJobsPageCards,
   spanPct,
   type JobSchedule,
+  type JobsPageCard,
 } from "./jobBoard";
 
 const task = (name: string, start: string, end: string) => ({ name, start, end });
@@ -117,5 +120,61 @@ describe("gantt geometry", () => {
 
   it("has nothing to label when the span is a single day", () => {
     expect(axisTicks("2026-09-06", "2026-09-06")).toEqual([]);
+  });
+});
+
+describe("groupRecentToDos", () => {
+  const todo = (jobId: string, id: string, createdAt: string) => ({
+    jobId,
+    id,
+    name: id,
+    createdAt,
+    due: null,
+    assignees: [],
+  });
+
+  it("keeps each job's newest to-dos, newest first, up to the cap", () => {
+    const out = groupRecentToDos(
+      [
+        todo("a", "a1", "2026-09-01T00:00:00Z"),
+        todo("a", "a4", "2026-09-04T00:00:00Z"),
+        todo("b", "b1", "2026-09-02T00:00:00Z"),
+        todo("a", "a3", "2026-09-03T00:00:00Z"),
+        todo("a", "a2", "2026-09-02T00:00:00Z"),
+      ],
+      3,
+    );
+    expect(out.a.map((t) => t.id)).toEqual(["a4", "a3", "a2"]);
+    expect(out.b.map((t) => t.id)).toEqual(["b1"]);
+  });
+});
+
+describe("sortJobsPageCards", () => {
+  const card = (name: string, customer: string, onSite: boolean): JobsPageCard => ({
+    id: name,
+    name,
+    number: "",
+    customer,
+    address: "",
+    phase: "Active",
+    schedule: onSite
+      ? {
+          start: "2026-09-01",
+          end: "2026-12-01",
+          pctElapsed: 0.1,
+          now: [task("Framing", "2026-09-01", "2026-09-30")],
+          next: null,
+        }
+      : null,
+    todos: [],
+  });
+
+  it("puts jobs with work on the calendar today first, then by customer", () => {
+    const sorted = sortJobsPageCards([
+      card("Studio", "Berger", false),
+      card("Shed", "Adams", false),
+      card("Barn", "Ferron", true),
+    ]);
+    expect(sorted.map((c) => c.name)).toEqual(["Barn", "Shed", "Studio"]);
   });
 });

@@ -55,6 +55,59 @@ export interface JobBoardCard {
  */
 export const ACTIVE_PHASE = "Active";
 
+/**
+ * The Phase values the Jobs page files under PreCon. "PreCon Budget" is an
+ * option on the field that no job carried on 2026-10-03 — the PreCon budget
+ * jobs themselves are marked Active, because they are billed.
+ */
+export const PRECON_PHASES: readonly string[] = ["PreCon", "PreCon Budget"];
+
+/* ---------------------------------------------------------------- jobs page */
+
+/** One open JobTread to-do, as a line on a Jobs page card. */
+export interface JobToDo {
+  id: string;
+  name: string;
+  createdAt: string; // ISO
+  due: string | null; // YYYY-MM-DD
+  assignees: string[];
+}
+
+/** A card on the Jobs page: who and where, the schedule now, the newest to-dos. */
+export interface JobsPageCard {
+  id: string;
+  name: string;
+  number: string;
+  customer: string;
+  address: string;
+  phase: string | null;
+  schedule: JobSchedule | null;
+  todos: JobToDo[];
+}
+
+/** Each job's newest to-dos, newest first, at most `perJob` per job. */
+export function groupRecentToDos(
+  rows: (JobToDo & { jobId: string })[],
+  perJob: number,
+): Record<string, JobToDo[]> {
+  const out: Record<string, JobToDo[]> = {};
+  const newest = [...rows].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  for (const { jobId, ...t } of newest) {
+    const list = (out[jobId] ??= []);
+    if (list.length < perJob) list.push(t);
+  }
+  return out;
+}
+
+/** Jobs with work on the calendar today first, then by customer and job name. */
+export const sortJobsPageCards = (cards: JobsPageCard[]) =>
+  [...cards].sort(
+    (a, b) =>
+      Number((b.schedule?.now.length ?? 0) > 0) - Number((a.schedule?.now.length ?? 0) > 0) ||
+      a.customer.localeCompare(b.customer) ||
+      a.name.localeCompare(b.name),
+  );
+
 /** Spent = the same two actuals the /jobs browser adds up. */
 export const spentOf = (c: { bills: number; labor: number }) => c.bills + c.labor;
 

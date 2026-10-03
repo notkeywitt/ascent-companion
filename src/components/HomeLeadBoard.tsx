@@ -46,10 +46,13 @@ import {
  * lead phone never fetches customer contact data it may not see.
  */
 
-/** Where the panel remembers whether it is folded away. */
-const OPEN_KEY = "home.leadsOpen";
-/** Where it remembers which end of the contact timeline comes first. */
-const ORDER_KEY = "home.leadsOrder";
+/**
+ * Where the panel remembers whether it is folded away, and which end of the
+ * contact timeline comes first. Per page (`storeAs`), so folding it on the Jobs
+ * page leaves Home alone.
+ */
+const openKey = (page: string) => `${page}.leadsOpen`;
+const orderKey = (page: string) => `${page}.leadsOrder`;
 
 /**
  * The figure's colour, from the org's own thresholds (Leads → Colour
@@ -145,8 +148,10 @@ function LeadBoardCard({ c, thresholds }: { c: LeadCard; thresholds: LeadQuietTh
   );
 }
 
-export function HomeLeadBoard() {
+export function HomeLeadBoard({ storeAs = "home" }: { storeAs?: string } = {}) {
   const access = useAccess();
+  const OPEN_KEY = openKey(storeAs);
+  const ORDER_KEY = orderKey(storeAs);
   const allowed = access.can("leads");
 
   const [leads, setLeads] = useState<LeadLike[] | null>(null);
@@ -169,7 +174,7 @@ export function HomeLeadBoard() {
     } catch {
       /* private mode — the panel still folds for this visit */
     }
-  }, []);
+  }, [OPEN_KEY, ORDER_KEY]);
 
   const remember = useCallback((key: string, value: string) => {
     try {

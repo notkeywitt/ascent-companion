@@ -154,6 +154,14 @@ const ClipboardIcon = () => (
   </IconBase>
 );
 
+/** Three kanban columns of cards. */
+const BoardIcon = () => (
+  <IconBase>
+    <rect x="3" y="3" width="18" height="18" rx="2" />
+    <path d="M9 3v18M15 3v18" />
+  </IconBase>
+);
+
 /** A slot's icon, by its key (a workspace id, a view id, or "today"). */
 const ICONS: Record<string, () => React.ReactNode> = {
   today: HomeIcon,
@@ -170,6 +178,7 @@ const ICONS: Record<string, () => React.ReactNode> = {
   mileage: RouteIcon,
   tools: WrenchIcon,
   requisitions: ClipboardIcon,
+  "job-board": BoardIcon,
   "time-off": CalendarIcon,
 };
 
