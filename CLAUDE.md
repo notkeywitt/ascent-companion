@@ -169,7 +169,7 @@ branch's record, so the next session can pick the work up cold. Read
   save it. If the neighbouring words already say it, drop the mark; that is what
   the site does, which uses no icons at all.
 - **Nav:** ONE list — `WORKSPACES` in `src/lib/workspaces.ts` groups every page
-  into a workspace named for a recurring job (Month Close, Incoming Bills, …). It
+  into a workspace named for a recurring job (Invoicing, Incoming Bills, …). It
   feeds the header's ☰ menu (`src/components/AppMenu.tsx`), the bottom bar
   (`src/components/TabBar.tsx`, slots per role in `BARS`) and the header search.
   A tab keeps its route and its view id. The bar's height is `--tabbar-h`

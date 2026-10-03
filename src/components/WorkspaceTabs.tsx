@@ -7,7 +7,7 @@ import { useCopy } from "@/components/CopyProvider";
 import { ChipScroller } from "@/components/ui";
 import { carryJobAndMonth } from "@/lib/urlParam";
 import { confirmLeaveIfDirty } from "@/lib/useUnsavedChanges";
-import { NO_STRIP, locate, reachableTabs } from "@/lib/workspaces";
+import { NO_STRIP, NO_STRIP_WORKSPACES, locate, reachableTabs } from "@/lib/workspaces";
 
 /**
  * The workspace's tabs, one row under the header — the next step of the job
@@ -20,7 +20,8 @@ import { NO_STRIP, locate, reachableTabs } from "@/lib/workspaces";
  *
  * Rendered once, in the root layout: it finds the workspace from the path, so
  * no page has to mount it. Hidden on a page that is on no workspace, on a
- * workspace this person can open only one tab of, on NO_STRIP pages, and from
+ * workspace this person can open only one tab of, on NO_STRIP pages and
+ * NO_STRIP_WORKSPACES workspaces (Invoicing), and from
  * 2xl up, where the sidebar lists the same tabs.
  *
  * Never shown to FIELD or LEAD (owner, 2026-09-30). Their bottom bar already
@@ -35,7 +36,7 @@ export function WorkspaceTabs() {
 
   if (access.role === "field" || access.role === "lead") return null;
   const here = locate(pathname);
-  if (!here || NO_STRIP.has(here.tab.view)) return null;
+  if (!here || NO_STRIP.has(here.tab.view) || NO_STRIP_WORKSPACES.has(here.workspace.id)) return null;
   const tabs = reachableTabs(here.workspace, access.can);
   if (tabs.length < 2) return null;
 

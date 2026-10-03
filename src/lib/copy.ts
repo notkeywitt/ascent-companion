@@ -66,7 +66,7 @@ export const COPY: Record<string, CopyEntry> = {
   // ── The bottom bar: the short word under each single-page slot ──────────
   // Same keys as the retired launcher buttons, so an office rewording carries
   // over. Keep them SHORT: five slots share a phone's width. A workspace slot
-  // (Month Close, Incoming Bills …) shows the workspace's own name.
+  // (Invoicing, Incoming Bills …) shows the workspace's own name.
   "home.quick.mileage.label": { text: "Miles", label: "Miles — bar", group: "Bottom bar", short: true },
   "home.quick.employee-time.label": { text: "Time", label: "Time — bar", group: "Bottom bar", short: true },
   "home.quick.tools.label": { text: "Tools", label: "Tools — bar", group: "Bottom bar", short: true },

@@ -115,7 +115,7 @@ export const HELP: HelpSection[] = [
         keywords: ["home", "menu", "navigate", "buttons", "the rest", "where is", "today", "workspace"],
         steps: [
           "Tap **☰** at the top left of the screen.",
-          "Find the group for the job you are doing, for example **Month Close**.",
+          "Find the group for the job you are doing, for example **Invoicing**.",
           "Tap the page.",
         ],
         notes: [

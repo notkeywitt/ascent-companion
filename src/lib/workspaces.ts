@@ -43,7 +43,7 @@ const tab = (view: string, href: string, label: string, desc: string): Workspace
 export const WORKSPACES: Workspace[] = [
   {
     id: "close",
-    title: "Month Close",
+    title: "Invoicing",
     desc: "Code the month, check it, bill it — in close order.",
     // The close order, confirmed by the owner 2026-09-29 (decision 9).
     tabs: [
@@ -175,6 +175,10 @@ export const OUTSIDE_WORKSPACES: Record<string, string> = {
  * on an iPad; a row of other pages above the sign-in is a way to lose it.
  */
 export const NO_STRIP = new Set(["safety-meeting"]);
+
+/** Workspaces that show no tab strip on any of their pages. Invoicing dropped
+ * its strip at the owner's ask (2026-10-03); the ☰ menu still lists its pages. */
+export const NO_STRIP_WORKSPACES = new Set(["close"]);
 
 /** Today — the home page. Not a workspace: it is the bar's first slot. */
 export const TODAY: WorkspaceTab = tab("", "/", "Home", "What needs you today");

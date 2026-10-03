@@ -23,7 +23,7 @@ import {
  * Bottom tab bar — up to five slots, docked at thumb height.
  *
  * The slots come from BARS in src/lib/workspaces.ts, per role: Today, a whole
- * WORKSPACE (Month Close goes to its first tab the person can open), or one
+ * WORKSPACE (Invoicing goes to its first tab the person can open), or one
  * page (Miles). Every slot is gated on the same view ids as the middleware, so
  * a slot someone cannot open is simply absent. EVERY role gets a bar, leads
  * included (owner, 2026-09-29): it is the way home from any page, and the
