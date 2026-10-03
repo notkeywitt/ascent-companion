@@ -1,7 +1,80 @@
 {
-  "generatedAt": "2026-10-02T19:14:18Z",
-  "repo": "wt3",
+  "generatedAt": "2026-10-03T13:14:05Z",
+  "repo": "ascent-companion",
   "sessions": [
+    {
+      "slug": "today-home-label-change",
+      "file": "2026-10-03-today-home-label-change.md",
+      "branch": "claude/today-home-label-change-cem6l4",
+      "status": "shipped",
+      "started": "2026-10-03T13:11:46Z",
+      "updated": "2026-10-03T13:14:05Z",
+      "goal": "",
+      "next": "none — Today to Home rename shipped",
+      "commits": [
+        {
+          "date": "2026-10-03",
+          "time": "13:11",
+          "sha": "ed56d20",
+          "subject": "companion: rename Today to Home in the menu, bar and home masthead",
+          "files": "src/components/HomeMasthead.tsx, src/lib/help.ts, src/lib/workspaces.test.ts, src/lib/workspaces.ts"
+        }
+      ]
+    },
+    {
+      "slug": "time-card-autostage",
+      "file": "2026-10-02-time-card-autostage.md",
+      "branch": "claude/time-card-autostage",
+      "status": "shipped",
+      "started": "2026-10-02T17:18:55Z",
+      "updated": "2026-10-02T19:43:29Z",
+      "goal": "Tracking Sheets time card: stage edits as they are made (like bills), remove the Stage changes button",
+      "next": "Open /trackingsheet with no job on a phone and an iPad: check the per-job ring cards read right. Then decide how /unbilled treats hand-built invoices (rebuild still uncommitted in the working tree)",
+      "commits": [
+        {
+          "date": "2026-10-02",
+          "time": "10:19",
+          "sha": "04c7149",
+          "subject": "companion: time card stages edits as they are made",
+          "files": "src/app/trackingsheet/TimeCodingCard.tsx"
+        },
+        {
+          "date": "2026-10-02",
+          "time": "11:56",
+          "sha": "dae0b44",
+          "subject": "companion: home donuts show invoiced vs approved price",
+          "files": "src/components/HomeJobBoard.tsx, src/lib/jobBoard.ts, src/lib/jobtread.ts"
+        },
+        {
+          "date": "2026-10-02",
+          "time": "11:58",
+          "sha": "574c970",
+          "subject": "companion: price/cost switch on home donuts",
+          "files": "src/components/HomeJobBoard.tsx"
+        },
+        {
+          "date": "2026-10-02",
+          "time": "12:19",
+          "sha": "5b11555",
+          "subject": "companion: time sync can match a record to jobtread when jobtread is right",
+          "files": "src/app/api/time-sync/retry/route.ts, src/app/time-sync/page.tsx, src/lib/timeProblems.ts, src/lib/timeSync.ts"
+        },
+        {
+          "date": "2026-10-02",
+          "time": "12:25",
+          "sha": "0750cfc",
+          "subject": "companion: forget button on the stuck-vendor notice untags the email and removes the bill's rows",
+          "files": "src/app/api/stuck-vendors/route.ts, src/components/StuckVendors.tsx"
+        },
+        {
+          "date": "2026-10-02",
+          "time": "12:42",
+          "sha": "f90e68b",
+          "subject": "companion: tracking sheets all-jobs view shows each job's month bill and labor rings",
+          "files": "src/app/api/trackingsheet/month-donuts/route.ts, src/app/trackingsheet/AllJobs.tsx, src/app/trackingsheet/CostDonuts.tsx, src/app/trackingsheet/MonthJobDonuts.tsx, src/lib/monthCostByJob.ts"
+        }
+      ]
+    },
     {
       "slug": "bill-void",
       "file": "2026-10-02-bill-void.md",
@@ -58,39 +131,6 @@
           "sha": "8619dbc",
           "subject": "companion: log session 2026-10-02-bill-void",
           "files": ""
-        }
-      ]
-    },
-    {
-      "slug": "time-card-autostage",
-      "file": "2026-10-02-time-card-autostage.md",
-      "branch": "claude/time-card-autostage",
-      "status": "shipped",
-      "started": "2026-10-02T17:18:55Z",
-      "updated": "2026-10-02T18:58:16Z",
-      "goal": "Tracking Sheets time card: stage edits as they are made (like bills), remove the Stage changes button",
-      "next": "Owner checks the home board: Price · Cost switch in the Active jobs heading flips every donut; VelorumVenture reads 98% invoiced on Price, 86% of budget on Cost; choice survives reload",
-      "commits": [
-        {
-          "date": "2026-10-02",
-          "time": "10:19",
-          "sha": "04c7149",
-          "subject": "companion: time card stages edits as they are made",
-          "files": "src/app/trackingsheet/TimeCodingCard.tsx"
-        },
-        {
-          "date": "2026-10-02",
-          "time": "11:56",
-          "sha": "dae0b44",
-          "subject": "companion: home donuts show invoiced vs approved price",
-          "files": "src/components/HomeJobBoard.tsx, src/lib/jobBoard.ts, src/lib/jobtread.ts"
-        },
-        {
-          "date": "2026-10-02",
-          "time": "11:58",
-          "sha": "574c970",
-          "subject": "companion: price/cost switch on home donuts",
-          "files": "src/components/HomeJobBoard.tsx"
         }
       ]
     },
