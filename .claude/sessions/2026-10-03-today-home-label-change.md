@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/today-home-label-change-cem6l4
 status: shipped
 started: 2026-10-03T13:11:46Z
-updated: 2026-10-03T13:18:46Z
+updated: 2026-10-03T13:18:47Z
 goal: 
 next: none — Today to Home rename shipped
 ---
