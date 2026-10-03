@@ -177,7 +177,7 @@ export const OUTSIDE_WORKSPACES: Record<string, string> = {
 export const NO_STRIP = new Set(["safety-meeting"]);
 
 /** Today — the home page. Not a workspace: it is the bar's first slot. */
-export const TODAY: WorkspaceTab = tab("", "/", "Today", "What needs you today");
+export const TODAY: WorkspaceTab = tab("", "/", "Home", "What needs you today");
 
 /** The tabs of a workspace this person can open. */
 export function reachableTabs(ws: Workspace, can: (view: string) => boolean): WorkspaceTab[] {

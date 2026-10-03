@@ -126,7 +126,7 @@ export function HomeMasthead() {
       }`}
     >
       <div className="hidden min-w-0 pad:block">
-        <SectionLabel>Today</SectionLabel>
+        <SectionLabel>Home</SectionLabel>
         <div className="mt-1 flex items-center gap-2.5">
           <PeakMark className="h-3.5 w-[22px] shrink-0" />
           {/* min-h keeps the band's height across the one frame before the
