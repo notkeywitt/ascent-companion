@@ -7078,8 +7078,9 @@ export function getRecentJobToDos(cfg: PaveConfig, perJob = 3): Promise<Record<s
               name: {},
               createdAt: {},
               endDate: {},
+              // No assignedMemberships: nesting it in this paged walk returns
+              // HTTP 413 at size 100 (probed live 2026-10-03).
               job: { id: {} },
-              assignedMemberships: { nodes: { user: { name: {} } } },
             },
           },
         },
@@ -7095,9 +7096,6 @@ export function getRecentJobToDos(cfg: PaveConfig, perJob = 3): Promise<Record<s
           name: n.name || "(untitled)",
           createdAt: n.createdAt ?? "",
           due: n.endDate ?? null,
-          assignees: ((n.assignedMemberships?.nodes ?? []) as any[])
-            .map((m) => m?.user?.name)
-            .filter((x): x is string => typeof x === "string" && x.length > 0),
         })),
       perJob,
     );

@@ -70,7 +70,6 @@ export interface JobToDo {
   name: string;
   createdAt: string; // ISO
   due: string | null; // YYYY-MM-DD
-  assignees: string[];
 }
 
 /** A card on the Jobs page: who and where, the schedule now, the newest to-dos. */

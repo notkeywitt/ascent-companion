@@ -80,9 +80,7 @@ function ToDoLine({ t }: { t: JobToDo }) {
       >
         {t.name}
       </a>
-      <MetaLine
-        items={[t.due ? `due ${shortDate(t.due)}` : null, t.assignees.join(", ") || null]}
-      />
+      {t.due && <MetaLine items={[`due ${shortDate(t.due)}`]} />}
     </li>
   );
 }
