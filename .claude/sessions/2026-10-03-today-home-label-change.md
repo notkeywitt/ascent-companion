@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/today-home-label-change-cem6l4
 status: shipped
 started: 2026-10-03T13:11:46Z
-updated: 2026-10-03T13:38:35Z
+updated: 2026-10-03T13:38:36Z
 goal: 
 next: owner: check /job-board on a phone and iPad; decide if Prospective jobs belong on it
 ---
