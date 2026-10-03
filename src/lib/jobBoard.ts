@@ -70,6 +70,8 @@ export interface JobToDo {
   name: string;
   createdAt: string; // ISO
   due: string | null; // YYYY-MM-DD
+  /** Display names. Empty when nobody is assigned, or the second read failed. */
+  assignees: string[];
 }
 
 /** A card on the Jobs page: who and where, the schedule now, the newest to-dos. */

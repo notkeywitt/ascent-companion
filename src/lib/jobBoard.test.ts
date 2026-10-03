@@ -130,6 +130,7 @@ describe("groupRecentToDos", () => {
     name: id,
     createdAt,
     due: null,
+    assignees: [],
   });
 
   it("keeps each job's newest to-dos, newest first, up to the cap", () => {

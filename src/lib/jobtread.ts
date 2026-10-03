@@ -7046,6 +7046,14 @@ export async function getOpenToDos(cfg: PaveConfig): Promise<OpenToDo[]> {
  * to-dos and 33 open ones on a job (2026-10-03), so one page covers it; a
  * per-job read would cost a request per card. Cached 60 s — a to-do is a
  * quick human edit, and the page should show it on the next load or two.
+ *
+ * TWO PHASES, for the assignee names. Nesting `assignedMemberships` in the
+ * walk returns HTTP 413, even with an inner `size: 5`: JobTread sizes the
+ * request by the page sizes asked for, not by the data (probed live
+ * 2026-10-03 — outer size 40 passes, 50 fails, on a one-id filter). So the
+ * walk reads the to-dos bare, and a second read fetches assignees for only
+ * the to-dos that made a card, by id, 25 at a time. If that second read
+ * fails, the cards still show their to-dos, without names.
  */
 export function getRecentJobToDos(cfg: PaveConfig, perJob = 3): Promise<Record<string, JobToDo[]>> {
   return cachedRef(`jobtodos:${cfg.orgId}:${perJob}`, 60_000, async () => {
@@ -7078,16 +7086,14 @@ export function getRecentJobToDos(cfg: PaveConfig, perJob = 3): Promise<Record<s
               name: {},
               createdAt: {},
               endDate: {},
-              // No assignedMemberships: nesting it in this paged walk returns
-              // HTTP 413 at size 100 (probed live 2026-10-03).
-              job: { id: {} },
+              job: { id: {} }, // no assignedMemberships here — see the 413 note above
             },
           },
         },
       }),
       pick: (r) => r?.organization?.tasks,
     });
-    return groupRecentToDos(
+    const byJob = groupRecentToDos(
       nodes
         .filter((n) => n?.job?.id)
         .map((n) => ({
@@ -7096,10 +7102,64 @@ export function getRecentJobToDos(cfg: PaveConfig, perJob = 3): Promise<Record<s
           name: n.name || "(untitled)",
           createdAt: n.createdAt ?? "",
           due: n.endDate ?? null,
+          assignees: [],
         })),
       perJob,
     );
+    const shown = Object.values(byJob).flat();
+    const names = await _getToDoAssignees(
+      cfg,
+      shown.map((t) => t.id),
+    ).catch((e) => {
+      console.warn("getRecentJobToDos: assignee read failed —", e);
+      return new Map<string, string[]>();
+    });
+    for (const t of shown) t.assignees = names.get(t.id) ?? [];
+    return byJob;
   });
+}
+
+/** Page size for the assignee read — under the 413 limit (40 passed, 50 failed). */
+const TODO_ASSIGNEE_CHUNK = 25;
+
+/** to-do id → assignee display names, for a known list of to-do ids. */
+async function _getToDoAssignees(cfg: PaveConfig, ids: string[]): Promise<Map<string, string[]>> {
+  const out = new Map<string, string[]>();
+  const chunks: string[][] = [];
+  for (let i = 0; i < ids.length; i += TODO_ASSIGNEE_CHUNK) {
+    chunks.push(ids.slice(i, i + TODO_ASSIGNEE_CHUNK));
+  }
+  // Each chunk is ONE page: the filter names at most `size` ids, so there is
+  // never a second page to walk.
+  const results = await Promise.all(
+    chunks.map((chunk) =>
+      pave(cfg, {
+        organization: {
+          $: { id: cfg.orgId },
+          id: {},
+          tasks: {
+            $: {
+              size: TODO_ASSIGNEE_CHUNK,
+              where: { in: [{ field: "id" }, chunk.map((value) => ({ value }))] },
+            },
+            nodes: { id: {}, assignedMemberships: { nodes: { user: { name: {} } } } },
+          },
+        },
+      }),
+    ),
+  );
+  for (const r of results) {
+    for (const n of (r?.organization?.tasks?.nodes ?? []) as any[]) {
+      if (!n?.id) continue;
+      out.set(
+        n.id,
+        ((n.assignedMemberships?.nodes ?? []) as any[])
+          .map((m) => m?.user?.name)
+          .filter((x): x is string => typeof x === "string" && x.length > 0),
+      );
+    }
+  }
+  return out;
 }
 
 /**
