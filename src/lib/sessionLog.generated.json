@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-03T13:18:47Z",
+  "generatedAt": "2026-10-03T13:32:12Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "claude/today-home-label-change-cem6l4",
       "status": "shipped",
       "started": "2026-10-03T13:11:46Z",
-      "updated": "2026-10-03T13:18:47Z",
+      "updated": "2026-10-03T13:32:12Z",
       "goal": "",
-      "next": "none — Today to Home rename shipped",
+      "next": "owner: check /job-board on a phone and iPad; decide if Prospective jobs belong on it",
       "commits": [
         {
           "date": "2026-10-03",
@@ -25,6 +25,13 @@
           "sha": "6f81268",
           "subject": "companion: rename Month Close to Invoicing and drop its tab strip",
           "files": "CLAUDE.md, src/components/TabBar.tsx, src/components/WorkspaceTabs.tsx, src/lib/copy.ts, src/lib/help.ts, src/lib/workspaces.ts"
+        },
+        {
+          "date": "2026-10-03",
+          "time": "13:32",
+          "sha": "2e43b17",
+          "subject": "companion: add jobs page under clients and put it on the bar in place of incoming bills",
+          "files": "CODEBASE_MAP.md, src/app/api/job-board/route.ts, src/app/job-board/JobBoardPage.tsx, src/app/job-board/page.tsx, src/components/HomeLeadBoard.tsx, src/components/TabBar.tsx, +6 more"
         }
       ]
     },
