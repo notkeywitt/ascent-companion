@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/today-home-label-change-cem6l4
 status: shipped
 started: 2026-10-03T13:11:46Z
-updated: 2026-10-03T13:38:36Z
+updated: 2026-10-03T13:43:45Z
 goal: 
 next: owner: check /job-board on a phone and iPad; decide if Prospective jobs belong on it
 ---
@@ -19,6 +19,8 @@ next: owner: check /job-board on a phone and iPad; decide if Prospective jobs be
 - 2026-10-03 13:32 · `2e43b17` companion: add jobs page under clients and put it on the bar in place of incoming bills
   CODEBASE_MAP.md, src/app/api/job-board/route.ts, src/app/job-board/JobBoardPage.tsx, src/app/job-board/page.tsx, src/components/HomeLeadBoard.tsx, src/components/TabBar.tsx, +6 more
 - 2026-10-03 13:38 · `bf43de1` companion: fix jobs page 413 by dropping to-do assignees from the paged read
+  src/app/job-board/JobBoardPage.tsx, src/lib/jobBoard.test.ts, src/lib/jobBoard.ts, src/lib/jobtread.ts
+- 2026-10-03 13:43 · `7d7e4dd` companion: read jobs page to-do assignees in a second by-id pass
   src/app/job-board/JobBoardPage.tsx, src/lib/jobBoard.test.ts, src/lib/jobBoard.ts, src/lib/jobtread.ts
 
 ## Notes
