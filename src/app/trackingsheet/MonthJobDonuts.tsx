@@ -65,6 +65,8 @@ export function MonthJobDonuts({ ym, monthLabel }: { ym: string; monthLabel: str
 
 function JobCard({ j, ym }: { j: MonthJobCost; ym: string }) {
   const rows = withoutSalesTax(j.rows);
+  // Off the same rows as the rings, so the total leaves out 88 80 00 too.
+  const total = rows.reduce((n, r) => n + r.bills + r.labor, 0);
   const colorMap = buildColorMap(rows);
   return (
     // `w-80` is the scroller's card; `pad:w-auto` lets the grid cell decide.
@@ -82,7 +84,7 @@ function JobCard({ j, ym }: { j: MonthJobCost; ym: string }) {
           </div>
           <div className="shrink-0 text-right">
             <div className="text-[13px] font-bold tabular-nums text-accent dark:text-accent-soft">
-              {money0(j.bills + j.labor)}
+              {money0(total)}
             </div>
             <div className="text-[9.5px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
               This month
