@@ -54,6 +54,7 @@ import { useTimeCoding } from "./useTimeCoding";
 import { BillListView } from "./BillListView";
 import { CodeLanesView } from "./CodeLanesView";
 import { BillingSummaryView } from "./BillingSummaryView";
+import { DepositCard } from "./DepositCard";
 import { BudgetRail } from "./BudgetRail";
 import { CodeDrillSheet } from "./CodeDrillSheet";
 import { useLineDrag } from "./useLineDrag";
@@ -2041,6 +2042,7 @@ export function Board() {
       {jobId && !loading && (
         <div className="order-last mt-4 lg:order-none lg:mb-4 lg:mt-0">
           <InvoiceReconcile jobId={jobId} ym={ym} onData={setRecon} />
+          <DepositCard jobId={jobId} recon={recon} />
         </div>
       )}
 

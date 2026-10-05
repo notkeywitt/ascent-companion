@@ -75,6 +75,7 @@ matching row here.
 | **Tracking Sheets: drag a line or bill onto a cost code** | `src/app/trackingsheet/useLineDrag.ts` |
 | **Tracking Sheets: the budget rail's markup** (cost codes by division, drop targets) | `src/app/trackingsheet/BudgetRail.tsx` |
 | **Tracking Sheets: the drill-down sheet's markup** | `src/app/trackingsheet/CodeDrillSheet.tsx` |
+| **Tracking Sheets: the job's deposit and client payments** (balance, draws, the assign-payment and opening-balance forms) | `src/app/trackingsheet/DepositCard.tsx` → `/api/deposits` |
 | **Tracking Sheets: the centre column's views** (By bill, By cost code, Summary) | `src/app/trackingsheet/BillListView.tsx`, `CodeLanesView.tsx`, `BillingSummaryView.tsx` |
 | **Tracking Sheets: the job's sheet push and "Check this job"** | `src/app/trackingsheet/useTrackingPush.ts` (which sheet, the last push) and `usePreSendCheck.ts` (the invoice review's checks on one job) |
 | **Coding / Tracking Sheets workflow** | `src/app/trackingsheet/*` (Board, BillCodingCard, TimeCodingCard, ClientInvoicing, DraftWorkbench,
@@ -111,6 +112,7 @@ matching row here.
 | **Is a check any good?** | `GET /api/invoice-review/accuracy` — precision derived in `src/lib/invoiceReview/lifecycle.ts` from what the office did next, not from anyone scoring anything |
 | **Checking one job before its invoice goes out** | the "Before you send" card on `/trackingsheet?jobId=…` → `src/app/trackingsheet/PreSendCheck.tsx` → `GET /api/invoice-review/job` → `src/lib/invoiceReview/preSend.ts` |
 | **The same vendor bill captured twice** | `checks/duplicateDraft.ts` (a draft copying another bill — runs in "Check this job") vs `checks/duplicateBill.ts` (one finalized bill on two client invoices). Different questions; neither sees the other's case |
+| **A job's deposit and client payments** (the balance, what drew it down, which payments paid which invoices) | rules `src/lib/deposits.ts` (pure, pinned to six real jobs by `deposits.test.ts`), JobTread read `getJobDepositInputs` in `src/lib/jobtread.ts`, the facts JobTread has no field for in table `deposit_links` (`src/lib/depositLinks.ts`), route `/api/deposits`, card `src/app/trackingsheet/DepositCard.tsx` beside the board's invoice panel. Nothing writes to JobTread yet; the staged plan is `DEPOSITS_PLAN.md` |
 | **What a client owes, and how late** | `src/lib/arAging.ts` (the buckets, pure + tested), route `/api/ar-aging` (one org-wide `getOpenCustomerInvoices` walk), page `/ar-aging` |
 | **Who changed this bill / line / time entry** | `src/lib/financialJournal.ts` (the recorder + reader), `src/lib/billJournal.ts` (the bill-header wrapper), page `/journal`, route `/api/journal`, table `financial_events`. Append-only and never trimmed |
 | **A captured cost that never reached QuickBooks** | `checks/qboPush.ts` — QBO is the general ledger, and `qboIsIgnored` turns the push off in one tap. Also runs in "Check this job", which is the useful moment: the fix is one tap before the invoice goes out |
@@ -154,6 +156,8 @@ including edge middleware.
 | `billingMonth.ts` | The DB half of the billing month — the ONE `billing_month_setting` row, and `currentBillingPeriod()`, which every "current billing month" server read should use. Server-only, which is why the rule stays in `billing.ts`. No row means the automatic cutoff. `mirrorBillingMonth()` PUSHES the value into the appscript project (action `setBillingMonth`), which is what carries it to the bills captured there — the `_JT Invoice` Gmail scan, the LSWDD split and the uncaptured push. |
 | `taxableLines.ts` ⟂ | **The stray `isTaxable: false` worklist** behind `/taxable-lines`, in TWO lists because the fix is: the CLIENT INVOICE line is what actually bills the client (and the only side reachable once the bill behind it is pushed or paid — a bill with `amountPaid > 0` is marked `locked`), the VENDOR BILL line is the source that stops the next invoice inheriting it. Create Invoice COPIES the flag, so the two are separate records and clearing one never moves the other. An invoice figure is EXACT (`price × rate`); a bill has no price, so its figure adds the markup and is flagged `estimated`. READ-ONLY by design — a bulk update across live documents is the wrong shape for a tax decision. Two exclusions carry the risk: overhead jobs (58 of August's 75 bill lines) and sales-tax lines matched MORE strictly than `isSalesTaxLine` matches them, because that helper checks the code first and a line named "Sales Tax" coded `01 00 00` would otherwise read as ordinary and get taxed. Pure; the JobTread walk is `getUntaxedLines`, which finds bills by date and invoices by the month's bills they CARRY (a draft invoice has no issue date). Unit-tested. |
 | `arAging.ts` ⟂ | **Accounts receivable ageing** — the buckets behind `/ar-aging`. Pure arithmetic over rows the caller fetched; every money figure is JobTread's own (it derives `balance`/`amountPaid` from QuickBooks) and nothing here recomputes one. The rule worth knowing: an invoice ages from its DUE date where it has one and its ISSUE date where it does not — never whichever is later — and each row carries `basis` so the page can say which it used. An invoice with no usable date counts toward what is OUTSTANDING and never toward what is OVERDUE. |
+| `deposits.ts` ⟂ | **Job deposits** — one balance per job from what JobTread holds: CD ("Contract Deposit") lines on customer invoices (positive = a deposit billed, negative = a draw), deposit payments and their applications, CD budget leaves (agreed, never counted). Decides which job an account-level deposit payment belongs to (`paymentOwner`). Rules only; `deposits.test.ts` pins them to Velorum, Ruhmann-Warren, Thomas, Berger, Ferron and Studio as they stood 2026-10-05. Plan: `DEPOSITS_PLAN.md`. |
+| `depositLinks.ts` | The DB half of job deposits — the `deposit_links` row per job: which deposit payments the office assigned to it (one payment, one job), the opening balance for a deposit older than JobTread, the draw rule. |
 | `billLineMath.ts` ⟂ | Money math for editing a vendor bill's lines. Identity now; still de-taxes a pre-2026-09-05 bill. |
 | `salesTax.ts` ⟂ | Sales tax is a bill LINE coded 88 80 00, not the document tax field: the constants, the line matcher, and the job-derived recoverable/consumed split. Mirrors `CONFIG.JOBTREAD.SALES_TAX_*` in appscript `Config.js`. |
 | `billInvoiceState.ts` ⟂ | **What the edge stripe on a bill row means** — one bill's place in the monthly invoicing lifecycle (flagged / reviewed-but-draft / on an invoice / left off the month's invoice), plus the colour per state. One axis on purpose: the stripe used to mix budget headroom, coding progress and invoiced state, which made it unreadable. `missing` depends on `monthInvoiceExists`, which `jobtread.ts` derives from the whole month BEFORE already-invoiced bills are filtered out. Unit-tested. |
@@ -400,7 +404,9 @@ Grouped by domain; each folder is `…/route.ts`.
   `vendor-bills/*`, `vendor-bill-count`, `stuck-vendors`, `needs-project`,
   `reassign-job`, `coding-draft` (the cross-device backup for staged, not-yet-
   synced coding — companion DB only, never JobTread; see `lib/codingDraft.ts`).
-- **Invoicing surfaces:** `ar-aging` (GET — every open client invoice, bucketed
+- **Invoicing surfaces:** `deposits` (GET — one job's deposit ledger and client
+  payments; POST edits only the companion's `deposit_links` row, never JobTread),
+  `ar-aging` (GET — every open client invoice, bucketed
   by age; "today" is resolved in the ORG timezone, because a UTC lambda would
   age a boundary invoice a day early), `stage/*`, `invoice-review` (GET runs a month's
   client-invoice review, or `?format=brief` for the paste-into-Claude version;
@@ -529,6 +535,9 @@ cross-device backup for the phone's copy; a finished trip goes to the Mileage
 sheet instead, see `src/lib/mileageTrip.ts`),
 `invoice_review_dispositions` (Claude's verdict on each finding — a reading, not
 a ruling),
+`deposit_links` (one row per job with a deposit — the facts JobTread has no
+field for: which deposit payments are this job's, the opening balance, the draw
+rule; see `src/lib/depositLinks.ts`),
 `financial_events` (**the financial journal** — every write the app makes to a
 money record: actor from the session, field, before, after, and which of
 read/client/none that before-value is. Append-only, never trimmed; see

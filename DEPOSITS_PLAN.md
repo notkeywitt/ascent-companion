@@ -5,7 +5,23 @@ Assistant, and for applying part of a deposit to a client invoice.
 
 Read 2026-10-05 against the live JobTread org, the Pave schema and both repos.
 Every figure below came from a live query or the code, not from memory.
-**Nothing in this plan is built yet.** Read `CODEBASE_MAP.md` first.
+Read `CODEBASE_MAP.md` first.
+
+## Status
+
+| Stage | State |
+|---|---|
+| 1 — the read | **Built 2026-10-05.** `src/lib/deposits.ts` (+ 19 tests on the six jobs), `getJobDepositInputs`, `deposit_links`, `GET`/`POST /api/deposits` |
+| 1b — deposits out of work totals | Not started |
+| 2 — the board card | **Built 2026-10-05.** `src/app/trackingsheet/DepositCard.tsx`, beside the invoice panel. Shows client payments on every job that has them |
+| 3 — the tracking sheet's Deposit row | Not started (appscript; `WebApp.js` needs the owner's ok) |
+| 4 — apply a deposit (the JobTread write) | Not started. Needs the probe and the owner's ok (section 6) |
+| 5 — review checks | Not started |
+
+Built as planned, with two refinements: Left reads "—" (null) when money was
+drawn with nothing recorded to draw from (Ferron until its opening balance is
+entered), and a deposit invoice billed but unpaid shows on the card without
+counting toward Left.
 
 ---
 

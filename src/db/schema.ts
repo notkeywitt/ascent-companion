@@ -1431,3 +1431,32 @@ export const specFiles = sqliteTable("spec_files", {
   name: text("name").notNull().default(""),
   bytes: blob("bytes", { mode: "buffer" }).notNull(),
 });
+
+/**
+ * JOB DEPOSITS — the facts about a deposit that JobTread has no field for.
+ * One row per job; see DEPOSITS_PLAN.md and src/lib/depositLinks.ts.
+ *
+ *   payment_ids     JobTread payment ids the office assigned to this job. A
+ *                   payment belongs to a customer ACCOUNT, and an account with
+ *                   two open jobs (Berger) cannot say which one a deposit is for.
+ *   opening_amount  The deposit LEFT when the job moved into JobTread, with the
+ *   opening_as_of   date it was true on. Draws made before then live only in
+ *                   the tracking sheet.
+ *   draw_rule       "whole" | "fixed" | "" — how the office draws it down. Only
+ *   draw_amount     sets the amount the app suggests.
+ *
+ * Every dollar of the balance itself is read live from JobTread.
+ */
+export const depositLinks = sqliteTable("deposit_links", {
+  jobId: text("job_id").primaryKey(),
+  paymentIds: text("payment_ids").notNull().default("[]"), // JSON string[]
+  openingAmount: real("opening_amount"),
+  openingAsOf: text("opening_as_of"), // YYYY-MM-DD
+  drawRule: text("draw_rule").notNull().default(""),
+  drawAmount: real("draw_amount"),
+  note: text("note").notNull().default(""),
+  updatedAt: text("updated_at").notNull().default(""),
+  updatedBy: text("updated_by").notNull().default(""),
+});
+
+export type DepositLinksRow = typeof depositLinks.$inferSelect;
