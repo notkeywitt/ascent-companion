@@ -2,9 +2,9 @@
 slug: jobtread-deposits-payments
 repo: ascent-companion
 branch: claude/jobtread-deposits-payments-0tc6pf
-status: in-progress
+status: shipped
 started: 2026-10-05T06:08:48Z
-updated: 2026-10-05T06:26:02Z
+updated: 2026-10-05T06:26:10Z
 goal: Plan deposit and client-payment handling: what Pave offers, what each job does today, staged build plan
 next: Stage 1b (DEPOSITS_PLAN.md): keep CD lines out of computeUnbilled, getJobBoard invoicedByJob/leafPriceByJob, the board rail, and the review's costBasis/margin/norms checks — one test per figure. Then open /trackingsheet on Bunkhouse and Otis Perkins to check the deposit card live (assign Berger's $128,842 payment, enter Ferron's opening balance once the owner gives it).
 ---
