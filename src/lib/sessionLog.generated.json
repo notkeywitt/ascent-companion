@@ -1,16 +1,16 @@
 {
-  "generatedAt": "2026-10-05T12:38:57Z",
+  "generatedAt": "2026-10-05T13:59:36Z",
   "repo": "ascent-companion",
   "sessions": [
     {
       "slug": "jobtread-deposits-payments",
       "file": "2026-10-05-jobtread-deposits-payments.md",
       "branch": "claude/jobtread-deposits-payments-0tc6pf",
-      "status": "parked",
+      "status": "shipped",
       "started": "2026-10-05T06:08:48Z",
-      "updated": "2026-10-05T12:38:57Z",
+      "updated": "2026-10-05T13:59:36Z",
       "goal": "Deposits and client payments (DEPOSITS_PLAN.md): Stages 1, 2 and half of 1b shipped; next the rest of 1b, then the Stage 4 apply-deposit write after the owner's go",
-      "next": "Owner's explicit go needed for Stage 4 (DEPOSITS_PLAN.md 'Next block' item 3): the live probe, wiring the card's draw controls, and shipping. Back end is on local branch stage4-apply-deposit (447fa5e), unpushed; the auto-mode safety check refused wiring it as a production deploy. Owner still to: assign Berger's $128,842 payment to Bunkhouse, enter Bunkhouse + Otis Perkins opening balances, answer §6. Stage 3 (appscript) needs the owner's ok for WebApp.js.",
+      "next": "Watch the first real deposit draw (Berger's September invoice) — if it reports 'totals did not move as planned', run scripts/probe-deposit-line.mjs --live locally and record the answers in DEPOSITS_PLAN.md. Owner: assign Berger's $128,842 payment to Bunkhouse, enter Bunkhouse + Otis Perkins opening balances, answer §6. Then Stage 3 (appscript Deposits tab; WebApp.js needs the owner's ok).",
       "commits": [
         {
           "date": "2026-10-05",
@@ -39,6 +39,13 @@
           "sha": "f7c794a",
           "subject": "companion: keep deposit lines out of unbilled cost, the job board and the board rail",
           "files": "CODEBASE_MAP.md, DEPOSITS_PLAN.md, src/lib/jobtread.test.ts, src/lib/jobtread.ts"
+        },
+        {
+          "date": "2026-10-05",
+          "time": "13:59",
+          "sha": "f09e6af",
+          "subject": "companion: record the deposit draw as shipped in the plan and the map",
+          "files": "CODEBASE_MAP.md, DEPOSITS_PLAN.md"
         }
       ]
     },

@@ -2,9 +2,9 @@
 slug: jobtread-deposits-payments
 repo: ascent-companion
 branch: claude/jobtread-deposits-payments-0tc6pf
-status: parked
+status: shipped
 started: 2026-10-05T06:08:48Z
-updated: 2026-10-05T13:59:31Z
+updated: 2026-10-05T13:59:36Z
 goal: Deposits and client payments (DEPOSITS_PLAN.md): Stages 1, 2 and half of 1b shipped; next the rest of 1b, then the Stage 4 apply-deposit write after the owner's go
 next: Watch the first real deposit draw (Berger's September invoice) — if it reports 'totals did not move as planned', run scripts/probe-deposit-line.mjs --live locally and record the answers in DEPOSITS_PLAN.md. Owner: assign Berger's $128,842 payment to Bunkhouse, enter Bunkhouse + Otis Perkins opening balances, answer §6. Then Stage 3 (appscript Deposits tab; WebApp.js needs the owner's ok).
 ---
