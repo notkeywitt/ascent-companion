@@ -10,6 +10,9 @@ import {
   buildDepositLedger,
   NO_LINKS,
   paymentOwner,
+  planDepositDraw,
+  suggestDraw,
+  type DrawInvoice,
   type CustomerPayment,
   type DepositInputs,
   type DepositInvoice,
@@ -341,5 +344,84 @@ describe("paymentOwner", () => {
     const paid = p([app("a", 1, true, inv({ id: "i", jobId: "A" }))]);
     expect(paymentOwner(paid, "B", ["A", "B"], links({ paymentIds: ["p"] }))).toBe("mine");
     expect(paymentOwner(paid, "A", ["A", "B"], links({ elsewherePaymentIds: ["p"] }))).toBe("other");
+  });
+});
+
+describe("planDepositDraw — a draw on a draft invoice (Stage 4)", () => {
+  // Berger with the $128,842 deposit assigned to Bunkhouse: $108,842 left.
+  const ledger = () => buildDepositLedger(berger({ paymentIds: [BERGER_DEPOSIT] }));
+  const draft = (o: Partial<DrawInvoice> = {}): DrawInvoice => ({
+    id: "iSep",
+    number: 400,
+    status: "draft",
+    priceWithTax: 95000,
+    inQbo: false,
+    depositLines: [],
+    ...o,
+  });
+
+  it("adds one deposit line for a fresh draw", () => {
+    expect(planDepositDraw(ledger(), draft(), 20000)).toEqual({
+      ok: true, mode: "create", lineId: null, from: 0, to: 20000, max: 95000,
+    });
+  });
+
+  it("changes the line an invoice already carries, and 0 removes it", () => {
+    const inv = draft({ priceWithTax: 75000, depositLines: [{ id: "cd1", price: -20000 }] });
+    expect(planDepositDraw(ledger(), inv, 25000)).toMatchObject({ ok: true, mode: "update", lineId: "cd1", from: 20000, to: 25000 });
+    expect(planDepositDraw(ledger(), inv, 0)).toMatchObject({ ok: true, mode: "delete", lineId: "cd1" });
+    expect(planDepositDraw(ledger(), inv, 20000)).toMatchObject({ ok: true, mode: "noop" });
+  });
+
+  it("refuses more than is left", () => {
+    const r = planDepositDraw(ledger(), draft({ priceWithTax: 500000 }), 108842.01);
+    expect(r).toEqual({ ok: false, error: "Only $108,842.00 of the deposit is left to draw." });
+  });
+
+  it("counts other drafts' draws as already spoken for", () => {
+    const l = ledger();
+    l.entries.push({ key: "x", kind: "draft", method: "invoice", date: "2026-09-30", amount: 100000, invoiceId: "iOther" });
+    expect(planDepositDraw(l, draft(), 10000)).toEqual({ ok: false, error: "Only $8,842.00 of the deposit is left to draw." });
+  });
+
+  it("refuses more than the invoice total, so the invoice never goes negative", () => {
+    expect(planDepositDraw(ledger(), draft({ priceWithTax: 6750.68 }), 7000)).toEqual({
+      ok: false, error: "That is more than #400's total of $6,750.68.",
+    });
+  });
+
+  it("refuses anything but a draft that QuickBooks has not seen", () => {
+    expect(planDepositDraw(ledger(), draft({ status: "pending" }), 100)).toMatchObject({ ok: false });
+    expect(planDepositDraw(ledger(), draft({ inQbo: true }), 100)).toMatchObject({ ok: false });
+  });
+
+  it("refuses a deposit invoice, and an invoice with two deposit lines", () => {
+    expect(planDepositDraw(ledger(), draft({ depositLines: [{ id: "d", price: 17000 }] }), 100)).toMatchObject({ ok: false });
+    const two = draft({ depositLines: [{ id: "a", price: -1 }, { id: "b", price: -2 }] });
+    expect(planDepositDraw(ledger(), two, 100)).toMatchObject({ ok: false });
+  });
+
+  it("refuses a draw on a job with no deposit recorded (Ferron before its opening balance)", () => {
+    const r = planDepositDraw(buildDepositLedger(ferron()), draft(), 20000);
+    expect(r).toEqual({ ok: false, error: "No deposit is recorded for this job yet. Enter its opening balance first." });
+  });
+
+  it("refuses a negative or non-numeric amount", () => {
+    expect(planDepositDraw(ledger(), draft(), -5)).toMatchObject({ ok: false });
+    expect(planDepositDraw(ledger(), draft(), Number.NaN)).toMatchObject({ ok: false });
+  });
+});
+
+describe("suggestDraw", () => {
+  const inv: DrawInvoice = { id: "i", number: 1, status: "draft", priceWithTax: 12000, inQbo: false, depositLines: [] };
+
+  it("whole invoice by default, never above what is left", () => {
+    expect(suggestDraw(buildDepositLedger(thomas()), inv)).toBe(12000);
+    expect(suggestDraw(buildDepositLedger(thomas()), { ...inv, priceWithTax: 30000 })).toBe(17000);
+  });
+
+  it("the job's fixed draw when it has one", () => {
+    const l = buildDepositLedger(berger({ paymentIds: [BERGER_DEPOSIT], drawRule: { kind: "fixed", amount: 20000 } }));
+    expect(suggestDraw(l, { ...inv, priceWithTax: 95000 })).toBe(20000);
   });
 });

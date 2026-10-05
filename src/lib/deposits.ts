@@ -52,6 +52,8 @@ export interface DepositLine {
   id: string;
   price: number;
   isTaxable: boolean;
+  /** The budget leaf the line is linked to, when JobTread says. */
+  jobCostItemId?: string | null;
   invoice: DepositInvoice;
 }
 
@@ -356,3 +358,100 @@ export function buildDepositLedger(input: DepositInputs): DepositLedger {
     hasDeposit,
   };
 }
+
+// ── drawing the deposit on a draft invoice (Stage 4) ─────────────────────────
+
+/** The draft invoice a draw is about to land on, as JobTread holds it now. */
+export interface DrawInvoice {
+  id: string;
+  number: number | null;
+  status: string;
+  /** The invoice total as it stands, after any draw it already carries. */
+  priceWithTax: number;
+  /** Already pushed to QuickBooks (`qboId` set). */
+  inQbo: boolean;
+  /** The CD lines on THIS invoice. */
+  depositLines: { id: string; price: number }[];
+}
+
+export type DrawPlan =
+  | {
+      ok: true;
+      mode: "create" | "update" | "delete" | "noop";
+      /** The existing draw line, for update and delete. */
+      lineId: string | null;
+      /** The draw before and after, as positive dollars. */
+      from: number;
+      to: number;
+      /** The most this invoice could take. */
+      max: number;
+    }
+  | { ok: false; error: string };
+
+/** What the deposit can still give this invoice: Left, less other drafts' draws. */
+function availableFor(ledger: DepositLedger, invoiceId: string): number | null {
+  if (ledger.left == null) return null;
+  const otherDrafts = ledger.entries
+    .filter((e) => e.kind === "draft" && !e.beforeOpening && e.invoiceId !== invoiceId)
+    .reduce((s, e) => s + e.amount, 0);
+  return round2(ledger.left - otherDrafts);
+}
+
+/** The invoice's total before any draw it carries. */
+function totalBeforeDraw(inv: DrawInvoice): number {
+  const existing = inv.depositLines.filter((l) => l.price < 0).reduce((s, l) => s - l.price, 0);
+  return round2(inv.priceWithTax + existing);
+}
+
+/**
+ * Decide whether drawing `amount` from the deposit onto this invoice is
+ * allowed, and how: add the one deposit line, change it, or remove it (amount
+ * 0). Every refusal names the reason in the office's words. The route runs
+ * this on a ledger it has JUST read, never on what the browser sent.
+ */
+export function planDepositDraw(ledger: DepositLedger, inv: DrawInvoice, amount: number): DrawPlan {
+  const num = inv.number != null ? `#${inv.number}` : "This invoice";
+  if (!Number.isFinite(amount) || amount < 0) return { ok: false, error: "Enter the amount to draw as dollars." };
+  const to = round2(amount);
+  if (inv.status !== "draft") {
+    return { ok: false, error: `${num} is ${inv.status}, not a draft. Change a sent invoice in JobTread.` };
+  }
+  if (inv.inQbo) return { ok: false, error: `${num} is already in QuickBooks. Change it in JobTread.` };
+  if (inv.depositLines.some((l) => l.price > 0)) {
+    return { ok: false, error: `${num} is a deposit invoice. A deposit is drawn on the invoices after it.` };
+  }
+  const draws = inv.depositLines.filter((l) => l.price < 0);
+  if (draws.length > 1) {
+    return { ok: false, error: `${num} carries ${draws.length} deposit lines. Leave one in JobTread, then try again.` };
+  }
+  const line = draws[0] ?? null;
+  const from = line ? round2(-line.price) : 0;
+  const available = availableFor(ledger, inv.id);
+  const invoiceMax = totalBeforeDraw(inv);
+  const max = Math.max(0, Math.min(available ?? 0, invoiceMax));
+  if (to === from) return { ok: true, mode: "noop", lineId: line?.id ?? null, from, to, max };
+  if (to > 0 && available == null) {
+    return { ok: false, error: "No deposit is recorded for this job yet. Enter its opening balance first." };
+  }
+  if (to > (available ?? 0) + CENT) {
+    return { ok: false, error: `Only ${usd(available ?? 0)} of the deposit is left to draw.` };
+  }
+  if (to > invoiceMax + CENT) {
+    return { ok: false, error: `That is more than ${num}'s total of ${usd(invoiceMax)}.` };
+  }
+  const mode = !line ? "create" : to === 0 ? "delete" : "update";
+  return { ok: true, mode, lineId: line?.id ?? null, from, to, max };
+}
+
+/**
+ * The amount the card suggests for a draft invoice: the whole invoice, or the
+ * job's fixed draw, never above what is left.
+ */
+export function suggestDraw(ledger: DepositLedger, inv: DrawInvoice): number {
+  const available = availableFor(ledger, inv.id) ?? 0;
+  const invoiceMax = totalBeforeDraw(inv);
+  const want = ledger.drawRule?.kind === "fixed" ? ledger.drawRule.amount : invoiceMax;
+  return round2(Math.max(0, Math.min(want, available, invoiceMax)));
+}
+
+const usd = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD" });

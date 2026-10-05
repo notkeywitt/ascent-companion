@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getJobDepositInputs, pave } from "@/lib/jobtread";
+import { pave } from "@/lib/jobtread";
 import { getPaveConfig, hasGrant } from "@/lib/config";
-import { buildDepositLedger } from "@/lib/deposits";
+import { readDeposits as readAll } from "@/lib/depositRead";
 import {
   assignDepositPayment,
   readDepositLinks,
@@ -21,21 +21,6 @@ import { openJournal } from "@/lib/financialJournal";
  * Gated by the `recode` (Tracking Sheets) view's paths. Rules: src/lib/deposits.ts.
  * Plan: DEPOSITS_PLAN.md.
  */
-
-async function readAll(jobId: string) {
-  const links = await readDepositLinks(jobId);
-  const read = await getJobDepositInputs(getPaveConfig(), jobId, links.paymentIds);
-  return {
-    jobId: read.jobId,
-    jobName: read.jobName,
-    account: read.accountId ? { id: read.accountId, name: read.accountName ?? "" } : null,
-    ledger: buildDepositLedger({ ...read.inputs, links }),
-    clientPayments: read.clientPayments,
-    note: links.note,
-    updatedAt: links.updatedAt,
-    updatedBy: links.updatedBy,
-  };
-}
 
 const fail = (e: unknown, status = 502) =>
   NextResponse.json({ error: e instanceof Error ? e.message : String(e) }, { status });
