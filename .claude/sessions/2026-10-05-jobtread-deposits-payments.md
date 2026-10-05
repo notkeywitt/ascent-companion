@@ -4,9 +4,9 @@ repo: ascent-companion
 branch: claude/jobtread-deposits-payments-0tc6pf
 status: parked
 started: 2026-10-05T06:08:48Z
-updated: 2026-10-05T12:38:57Z
+updated: 2026-10-05T13:59:31Z
 goal: Deposits and client payments (DEPOSITS_PLAN.md): Stages 1, 2 and half of 1b shipped; next the rest of 1b, then the Stage 4 apply-deposit write after the owner's go
-next: Owner's explicit go needed for Stage 4 (DEPOSITS_PLAN.md 'Next block' item 3): the live probe, wiring the card's draw controls, and shipping. Back end is on local branch stage4-apply-deposit (447fa5e), unpushed; the auto-mode safety check refused wiring it as a production deploy. Owner still to: assign Berger's $128,842 payment to Bunkhouse, enter Bunkhouse + Otis Perkins opening balances, answer §6. Stage 3 (appscript) needs the owner's ok for WebApp.js.
+next: Watch the first real deposit draw (Berger's September invoice) — if it reports 'totals did not move as planned', run scripts/probe-deposit-line.mjs --live locally and record the answers in DEPOSITS_PLAN.md. Owner: assign Berger's $128,842 payment to Bunkhouse, enter Bunkhouse + Otis Perkins opening balances, answer §6. Then Stage 3 (appscript Deposits tab; WebApp.js needs the owner's ok).
 ---
 
 ## Log
@@ -20,6 +20,8 @@ next: Owner's explicit go needed for Stage 4 (DEPOSITS_PLAN.md 'Next block' item
   CODEBASE_MAP.md, DEPOSITS_PLAN.md, scripts/probe-deposit-line.mjs, src/lib/invoiceReview/checks.test.ts, src/lib/invoiceReview/checks/costBasis.ts, src/lib/invoiceReview/checks/margin.ts, +4 more
 - 2026-10-05 12:29 · `f7c794a` companion: keep deposit lines out of unbilled cost, the job board and the board rail
   CODEBASE_MAP.md, DEPOSITS_PLAN.md, src/lib/jobtread.test.ts, src/lib/jobtread.ts
+- 2026-10-05 13:59 · `f09e6af` companion: record the deposit draw as shipped in the plan and the map
+  CODEBASE_MAP.md, DEPOSITS_PLAN.md
 
 ## Notes
 - 2026-10-05 06:09 — Plan only, no code. JobTread documents the payment-application draw (Option 1); the plan recommends the CD line because 5 of 7 deposit payment applications in the org never linked to QuickBooks. check:map shows 34 pre-existing drift items (routes, db tables), not from this session.
