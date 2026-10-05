@@ -1,7 +1,26 @@
 {
-  "generatedAt": "2026-10-05T18:25:40Z",
+  "generatedAt": "2026-10-05T18:28:52Z",
   "repo": "wt",
   "sessions": [
+    {
+      "slug": "month-total-no-tax",
+      "file": "2026-10-05-month-total-no-tax.md",
+      "branch": "claude/month-total-no-tax",
+      "status": "shipped",
+      "started": "2026-10-05T18:28:51Z",
+      "updated": "2026-10-05T18:28:52Z",
+      "goal": "Tracking Sheets job card month total excludes 88 80 00 sales tax",
+      "next": "None — shipped. Check /trackingsheet with no job: card total equals bills ring plus labor ring.",
+      "commits": [
+        {
+          "date": "2026-10-05",
+          "time": "11:28",
+          "sha": "521b907",
+          "subject": "companion: leave 88 80 00 sales tax out of the tracking sheets job card month total",
+          "files": "src/app/trackingsheet/MonthJobDonuts.tsx"
+        }
+      ]
+    },
     {
       "slug": "bills-donut-no-tax",
       "file": "2026-10-05-bills-donut-no-tax.md",
