@@ -50,6 +50,7 @@ import { db, ensureDb } from "@/db";
 import { invoiceReviewRuns } from "@/db/schema";
 
 import type { CustomerNorm, MonthEvidence, ReviewNorms, VendorNorm } from "./types";
+import { depositPart } from "./checks/shared";
 
 /** Below this many months on record, there is no baseline — say nothing. */
 export const MIN_MONTHS = 3;
@@ -201,8 +202,11 @@ export async function learnNorms(ym: string): Promise<ReviewNorms | null> {
         if (!key) continue;
         const t = totals.get(key) ?? { name: job.customerName, cost: 0, price: 0 };
         for (const inv of job.invoices) {
-          t.cost += inv.cost;
-          t.price += inv.price;
+          // Deposit lines move cost and price by the same draw, which skews
+          // the ratio; they are no part of the markup (DEPOSITS_PLAN.md).
+          const dep = depositPart(inv);
+          t.cost += inv.cost - dep.cost;
+          t.price += inv.price - dep.price;
         }
         totals.set(key, t);
       }

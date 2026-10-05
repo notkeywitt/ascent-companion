@@ -8,7 +8,27 @@
  *
  * Pure. Nothing here fetches, writes, or reads a clock.
  */
-import { cents, withinTolerance, type BackupFile, type BillRef } from "../types";
+import { DEPOSIT_CSI } from "@/lib/deposits";
+import { cents, withinTolerance, type BackupFile, type BillRef, type InvoiceLine } from "../types";
+
+/**
+ * A CD ("Contract Deposit") line: a deposit billed (positive) or drawn
+ * (negative). Deposit money is not work, so it carries no cost basis and no
+ * markup. See DEPOSITS_PLAN.md, Stage 1b.
+ */
+export const isDepositLine = (l: Pick<InvoiceLine, "code">): boolean => l.code === DEPOSIT_CSI;
+
+/** The deposit part of an invoice's cost and price, for every figure that takes it out. */
+export function depositPart(inv: { lines?: InvoiceLine[] }): { cost: number; price: number } {
+  let cost = 0;
+  let price = 0;
+  for (const l of inv.lines ?? []) {
+    if (!isDepositLine(l)) continue;
+    cost += l.cost;
+    price += l.price;
+  }
+  return { cost: cents(cost), price: cents(price) };
+}
 
 /** Words that carry no identity in a vendor name, so they must not create a match. */
 const NOISE_TOKENS = new Set([

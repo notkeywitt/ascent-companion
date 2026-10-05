@@ -38,6 +38,7 @@
  */
 import { defineInvoiceCheck } from "../checkTypes";
 import { cents, centsGap, findingKey, money, type Finding } from "../types";
+import { isDepositLine } from "./shared";
 
 export interface MarginConfig {
   /** A line must have cost and price above this to be judged. Keeps rounding
@@ -85,6 +86,9 @@ export const marginCheck = defineInvoiceCheck<MarginConfig>({
     const label = `Invoice #${inv.number || inv.id}`;
 
     for (const line of inv.lines) {
+      // A deposit line is not work: Thomas's deposit invoice carries $16,079.69
+      // of "cost" against $17,000, and that is no markup at all.
+      if (isDepositLine(line)) continue;
       const cost = cents(line.cost);
       const price = cents(line.price);
 

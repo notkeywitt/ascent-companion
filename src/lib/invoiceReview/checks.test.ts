@@ -9,7 +9,7 @@ import { describe, expect, it } from "vitest";
 
 import { buildBrief } from "./brief";
 import { runChecks } from "./registry";
-import { billLink, matchBackup } from "./checks/shared";
+import { billLink, depositPart, matchBackup } from "./checks/shared";
 import { fallbackSummary } from "./summary";
 import { isNeverInvoiced } from "./types";
 import type {
@@ -1249,5 +1249,50 @@ describe("the links a finding hands the office", () => {
     const billLinks = f.map((x) => x.sourceLink).filter((l) => l?.startsWith("/bill/"));
     expect(billLinks.length).toBeGreaterThan(0);
     for (const l of billLinks) expect(l).toContain("jobId=");
+  });
+});
+
+// ── deposit lines (cost code CD) — DEPOSITS_PLAN.md, Stage 1b ────────────────
+
+describe("deposit lines are not work", () => {
+  const draw = (cost: number) =>
+    line({ id: "cd", name: "Deposit", code: "CD", codeName: "Contract Deposit", cost, unitCost: cost, price: cost, unitPrice: cost });
+
+  it("a draw's negative cost no longer hides cost from outside the month", () => {
+    // $400 of bills, $500 from elsewhere, −$20,000 drawn (Berger #320's shape).
+    // Before the fix the draw pushed the invoice's cost below the bills and
+    // the $500 vanished.
+    const f = runChecks(
+      month([
+        job({
+          invoices: [invoice({ id: "i1", cost: -19100, price: -19100, priceWithTax: -19100, lines: [draw(-20000)] })],
+          bills: [bill({ id: "b1", cost: 400, invoiceIds: ["i1"], invoiced: true })],
+        }),
+      ]),
+    );
+    expect(kinds(f)).toContain("math-cost-basis");
+  });
+
+  it("a draw alone on an invoice with its bills raises nothing", () => {
+    const f = runChecks(
+      month([
+        job({
+          invoices: [invoice({ id: "i1", cost: -19600, price: -19600, priceWithTax: -19600, lines: [draw(-20000)] })],
+          bills: [bill({ id: "b1", cost: 400, invoiceIds: ["i1"], invoiced: true })],
+        }),
+      ]),
+    );
+    expect(kinds(f)).not.toContain("math-cost-basis");
+  });
+
+  it("depositPart sums only the CD lines", () => {
+    const inv = {
+      lines: [
+        draw(-20000),
+        line({ id: "w", price: 1180, cost: 1000, code: "06 10 10" }),
+      ],
+    };
+    expect(depositPart(inv)).toEqual({ cost: -20000, price: -20000 });
+    expect(depositPart({})).toEqual({ cost: 0, price: 0 });
   });
 });

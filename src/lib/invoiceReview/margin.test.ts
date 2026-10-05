@@ -252,3 +252,14 @@ describe("markup-rate-drift", () => {
     expect(run(m)).toEqual([]);
   });
 });
+
+describe("deposit lines (cost code CD)", () => {
+  it("never judges a deposit line's markup", () => {
+    // Thomas #22: a $17,000 deposit line holding $16,079.69 of "cost".
+    const deposit = { name: "Deposit", code: "CD", codeName: "Contract Deposit" };
+    expect(margin([line({ id: "d1", ...deposit, cost: 17000, price: 17000 })])).toEqual([]);
+    expect(margin([line({ id: "d2", ...deposit, cost: 16079.69, price: 17000 })])).toEqual([]);
+    // The same figures on a work line are billed at cost.
+    expect(margin([line({ id: "w1", cost: 17000, price: 17000 })])).toEqual(["markup-missing"]);
+  });
+});

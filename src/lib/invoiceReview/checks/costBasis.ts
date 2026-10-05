@@ -41,6 +41,7 @@
  */
 import { defineInvoiceCheck } from "../checkTypes";
 import { cents, findingKey, money, type Finding } from "../types";
+import { depositPart } from "./shared";
 
 export type CostBasisConfig = Record<string, never>;
 
@@ -64,7 +65,10 @@ export const costBasisCheck = defineInvoiceCheck<CostBasisConfig>({
       return s + (typeof current === "number" && t.hours > 0 ? current * t.hours : t.cost);
     }, 0);
     const seenCost = cents(billCost + timeCost);
-    const outside = cents(cents(inv.cost) - seenCost);
+    // Deposit lines carry cost in JobTread (a draw at −$20,000 on Berger #320),
+    // and none of it is bills or time. Left in, a draw hides that much real
+    // outside cost.
+    const outside = cents(cents(inv.cost) - depositPart(inv).cost - seenCost);
     // Nothing to compare against means nothing to say — not "!onThisInvoice
     // .length" alone, or a time-only (or time-heavy) invoice would short-
     // circuit before its time entries even get a chance to explain the cost.

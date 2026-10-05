@@ -43,6 +43,7 @@
 import { defineMonthCheck } from "../checkTypes";
 import { customerKey } from "../norms";
 import { cents, findingKey, money, type Finding } from "../types";
+import { depositPart } from "./shared";
 
 export interface MarkupDriftConfig {
   /** The customer must have been invoiced in at least this many prior months. */
@@ -89,8 +90,11 @@ export const markupDriftCheck = defineMonthCheck<MarkupDriftConfig>({
       if (!key) continue;
       const t = thisMonth.get(key) ?? { name: job.customerName, cost: 0, price: 0 };
       for (const inv of job.invoices) {
-        t.cost += inv.cost;
-        t.price += inv.price;
+        // Deposit lines move cost and price by the same draw, which skews the
+        // ratio; they are no part of the markup (DEPOSITS_PLAN.md).
+        const dep = depositPart(inv);
+        t.cost += inv.cost - dep.cost;
+        t.price += inv.price - dep.price;
       }
       thisMonth.set(key, t);
     }
