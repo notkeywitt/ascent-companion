@@ -15,7 +15,7 @@ Read `CODEBASE_MAP.md` first.
 | 1b — deposits out of work totals | **Built 2026-10-05.** The review's cost-basis, margin, markup-drift and norms figures skip CD lines (`depositPart`/`isDepositLine` in `invoiceReview/checks/shared.ts`); `getJobDocumentRollup` nets CD lines out of the invoice rows (`netDepositLines`, so `/unbilled`, the digest and chat read work only); the job board's leaf and invoiced figures use `NOT_DEPOSIT_LINE`; the board rail skips CD |
 | 2 — the board card | **Built 2026-10-05.** `src/app/trackingsheet/DepositCard.tsx`, beside the invoice panel. Shows client payments on every job that has them |
 | 3 — the tracking sheet's Deposit row | Not started (appscript; `WebApp.js` needs the owner's ok) |
-| 4 — apply a deposit (the JobTread write) | Probe written, NOT run: `scripts/probe-deposit-line.mjs` (dry by default, `--live` on the Office job). Needs the owner's ok for the live run and the route (section 6) |
+| 4 — apply a deposit (the JobTread write) | **Back end written 2026-10-05, held unpushed** on local branch `stage4-apply-deposit` (commit 447fa5e, in that session's container only): `planDepositDraw`/`suggestDraw` (+11 tests), `getInvoiceForDraw`, `resolveDepositLeaf`, `writeDepositDraw` (verify, undo on mismatch), `POST /api/deposits/apply`. NOT wired to the card — the session's safety check refused that step as a production deploy without the owner's explicit go. Probe written, NOT run: `scripts/probe-deposit-line.mjs`. If the container is gone, rebuild from §7 |
 | 5 — review checks | Not started |
 
 Built as planned, with two refinements: Left reads "—" (null) when money was
@@ -30,9 +30,13 @@ counting toward Left.
    and Otis Perkins, enter the deposit left when the job moved to JobTread
    (from the tracking sheet). Answer section 6, items 1, 2, 5 and 7.
 2. ~~Stage 1b, the rest~~ — done 2026-10-05.
-3. **Stage 4,** once the owner says go: run the probe live, record its answers
-   here, then build `POST /api/deposits/apply` and the card's "Apply to invoice
-   #N" exactly as section 7 says. Stop and ask before shipping it.
+3. **Stage 4, on the owner's explicit go** (all three are JobTread writes):
+   (a) run the probe live on the Office job and record its answers here;
+   (b) wire the card's draw controls (a draft invoice from `recon.invoices`,
+   amount from `suggestDraw`, a confirm, then `POST /api/deposits/apply`);
+   (c) ship. The back end is on `stage4-apply-deposit` if that container still
+   exists. The probe's second attempt should send `jobCostItemId` only, the way
+   `writeDepositDraw` does.
 4. **Stage 3** (appscript) after Stage 4, so the Deposits tab carries real draws.
 
 ---

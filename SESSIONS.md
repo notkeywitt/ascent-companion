@@ -25,7 +25,7 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Branch | Parked | Picks up at |
 |---|---|---|---|
-| [jobtread-deposits-payments](.claude/sessions/2026-10-05-jobtread-deposits-payments.md) | `claude/jobtread-deposits-payments-0tc6pf` | 0m ago | Stage 4 (apply a deposit to a draft invoice) is being built on branch claude/jo… |
+| [jobtread-deposits-payments](.claude/sessions/2026-10-05-jobtread-deposits-payments.md) | `claude/jobtread-deposits-payments-0tc6pf` | 0m ago | Owner's explicit go needed for Stage 4 (DEPOSITS_PLAN.md 'Next block' item 3): … |
 | [ascent-security-analysis](.claude/sessions/2026-09-14-ascent-security-analysis.md) | `claude/ascent-security-analysis-m8fjif` | 21d ago | Owner merges PR #7 (git push origin origin/claude/ascent-security-analysis-m8fj… |
 
 ## Shipped

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-05T12:29:44Z",
+  "generatedAt": "2026-10-05T12:38:57Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "claude/jobtread-deposits-payments-0tc6pf",
       "status": "parked",
       "started": "2026-10-05T06:08:48Z",
-      "updated": "2026-10-05T12:29:43Z",
+      "updated": "2026-10-05T12:38:57Z",
       "goal": "Deposits and client payments (DEPOSITS_PLAN.md): Stages 1, 2 and half of 1b shipped; next the rest of 1b, then the Stage 4 apply-deposit write after the owner's go",
-      "next": "Stage 4 (apply a deposit to a draft invoice) is being built on branch claude/jobtread-deposits-payments-0tc6pf, NOT on main. It needs the owner's go to (a) run node scripts/probe-deposit-line.mjs --live on the Office job and (b) ship. Then Stage 3 (appscript Deposits tab; WebApp.js needs the owner's ok). Owner still to: assign Berger's $128,842 payment to Bunkhouse, enter Bunkhouse + Otis Perkins opening balances, answer DEPOSITS_PLAN.md §6.",
+      "next": "Owner's explicit go needed for Stage 4 (DEPOSITS_PLAN.md 'Next block' item 3): the live probe, wiring the card's draw controls, and shipping. Back end is on local branch stage4-apply-deposit (447fa5e), unpushed; the auto-mode safety check refused wiring it as a production deploy. Owner still to: assign Berger's $128,842 payment to Bunkhouse, enter Bunkhouse + Otis Perkins opening balances, answer §6. Stage 3 (appscript) needs the owner's ok for WebApp.js.",
       "commits": [
         {
           "date": "2026-10-05",
