@@ -31,6 +31,7 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
+| [labor-report](.claude/sessions/2026-10-05-labor-report.md) | 2026-10-05 | 1 | Tracking Sheets job workbench: Create Labor Report in Drive in the save bar's c… |
 | [month-total-no-tax](.claude/sessions/2026-10-05-month-total-no-tax.md) | 2026-10-05 | 1 | Tracking Sheets job card month total excludes 88 80 00 sales tax |
 | [bills-donut-no-tax](.claude/sessions/2026-10-05-bills-donut-no-tax.md) | 2026-10-05 | 1 | Tracking Sheets bills ring excludes 88 80 00 sales tax |
 | [jobtread-deposits-payments](.claude/sessions/2026-10-05-jobtread-deposits-payments.md) | 2026-10-05 | 5 | Deposits and client payments (DEPOSITS_PLAN.md): Stages 1, 2 and half of 1b shi… |
@@ -45,4 +46,3 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 | [ascent-app-simplify](.claude/sessions/2026-09-29-ascent-app-simplify.md) | 2026-09-30 | 13 | Fix the Tracking Sheets sales-tax crash, then the loose ends from the 2026-09-3… |
 | [bill-expense-save](.claude/sessions/2026-09-29-bill-expense-save.md) | 2026-09-29 | 1 | Bill/Expense toggle stages until Save on the tracking sheet; Push as Expense se… |
 | [navigation-stage-3](.claude/sessions/2026-09-29-navigation-stage-3.md) | 2026-09-29 | 5 | NAVIGATION_PLAN.md Stage 3: Not in JobTread merge, Code this bill on Email Invo… |
-| [navigation-stage-1](.claude/sessions/2026-09-29-navigation-stage-1.md) | 2026-09-29 | 11 | NAVIGATION_PLAN.md Stage 1: one workspace list feeding bar, menu, search; tab s… |

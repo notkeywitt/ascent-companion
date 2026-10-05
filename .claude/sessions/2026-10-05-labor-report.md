@@ -2,9 +2,9 @@
 slug: labor-report
 repo: wt
 branch: claude/labor-report-button
-status: done
+status: shipped
 started: 2026-10-05T18:52:50Z
-updated: 2026-10-05T18:52:50Z
+updated: 2026-10-05T18:52:52Z
 goal: Tracking Sheets job workbench: Create Labor Report in Drive in the save bar's closing actions
 next: Open a job on /trackingsheet at desktop width, hover the save bar, run Create Labor Report in Drive; check the button is greyed while edits are staged and the result line survives moving the pointer away.
 ---
