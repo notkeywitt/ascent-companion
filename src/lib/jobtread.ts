@@ -359,7 +359,14 @@ export interface DocRollupRow {
   count: number;
 }
 
-/** Job-level cost/price rollup grouped by document type + status. */
+/**
+ * Job-level cost/price rollup grouped by document type + status.
+ *
+ * The customer-invoice rows come back NET of deposit lines (cost code CD): a
+ * deposit is not work, so its line cost is no part of what was billed. Left
+ * in, Berger #320's −$20,000 draw read as $20,000 of work still unbilled, and
+ * Thomas's $16,079.69 deposit invoice as that much work billed. DEPOSITS_PLAN.md.
+ */
 export async function getJobDocumentRollup(
   cfg: PaveConfig,
   jobId: string,
@@ -381,9 +388,42 @@ export async function getJobDocumentRollup(
         },
         withValues: {},
       },
+      // Confirmed live 2026-10-05 (Otis Perkins: approved −20000, denied −20000).
+      depositLines: {
+        _: "costItems",
+        $: {
+          where: {
+            and: [
+              { "=": [{ field: ["document", "type"] }, { value: "customerInvoice" }] },
+              { "=": [{ field: ["costCode", "number"] }, { value: DEPOSIT_CSI }] },
+            ],
+          },
+          group: { by: [["document", "status"]], aggs: { total: { sum: "cost" } } },
+        },
+        withValues: {},
+      },
     },
   });
-  return (r?.job?.documents?.withValues ?? []) as DocRollupRow[];
+  const depositCost: Record<string, number> = {};
+  for (const row of r?.job?.depositLines?.withValues ?? []) {
+    const status = row?.document?.status;
+    if (status) depositCost[status] = (depositCost[status] ?? 0) + (Number(row.total) || 0);
+  }
+  return netDepositLines((r?.job?.documents?.withValues ?? []) as DocRollupRow[], depositCost);
+}
+
+/**
+ * Take deposit-line cost out of the customer-invoice rows, by status. Pure —
+ * exported for its test.
+ */
+export function netDepositLines(
+  rows: DocRollupRow[],
+  depositCostByStatus: Record<string, number>,
+): DocRollupRow[] {
+  return rows.map((r) => {
+    const dep = r.type === "customerInvoice" ? depositCostByStatus[r.status] ?? 0 : 0;
+    return dep ? { ...r, cost: Math.round(((r.cost ?? 0) - dep) * 100) / 100 } : r;
+  });
 }
 
 /**
@@ -1496,6 +1536,20 @@ export interface CostToComplete {
  * (Otis Perkins: 1,408 ms → 321 ms). Falls back to the old walk if either
  * aggregate ever 400s, so the CTC column can't silently go blank.
  */
+/**
+ * Every cost item that is NOT a deposit line (cost code CD). An uncoded line has
+ * no cost code, and a bare `!=` would drop it along with the deposits, so the
+ * null case is kept explicitly. Confirmed live 2026-10-05: it moves Bunkhouse
+ * and Otis Perkins invoiced price up by their −$20,000 draws, and Patio Repair
+ * from $17,000 (its deposit invoice) to $0.
+ */
+const NOT_DEPOSIT_LINE = {
+  or: [
+    { "=": [{ field: ["costCode", "id"] }, { value: null }] },
+    { "!=": [{ field: ["costCode", "number"] }, { value: DEPOSIT_CSI }] },
+  ],
+};
+
 const CTC_BUDGET_WHERE = {
   and: [
     [["document", "type"], "customerOrder"],
@@ -2305,6 +2359,8 @@ async function _getJobCostDetailUncached(cfg: PaveConfig, jobId: string): Promis
   for (const n of lineNodes) {
     const number = n?.costCode?.number?.toString().trim();
     if (!number) continue;
+    // The deposit is shown on its own card, never as a budget row (DEPOSITS_PLAN.md).
+    if (number === DEPOSIT_CSI) continue;
     if (/^uncategorized\b/i.test(String(n?.name ?? "").trim())) continue;
     const row = codeRow(
       number,
@@ -2345,10 +2401,14 @@ async function _getJobCostDetailUncached(cfg: PaveConfig, jobId: string): Promis
     row.laborApproved += t.cost;
     row.laborApprovedHours += t.minutes / 60;
   }
+  // Deposit lines are not invoiced work: a −$20,000 draw is no credit against
+  // any cost code. The deposit card shows them instead.
   for (const [number, amount] of Object.entries(invoiced)) {
+    if (number === DEPOSIT_CSI) continue;
     codeRow(number, "").invoiced += amount;
   }
   for (const [number, amount] of Object.entries(currentInvoice)) {
+    if (number === DEPOSIT_CSI) continue;
     codeRow(number, "").currentInvoice += amount;
   }
 
@@ -3327,11 +3387,17 @@ export function getJobBoard(cfg: PaveConfig): Promise<JobBoardCard[]> {
   return cachedRef(`jobboard:${cfg.orgId}`, 5 * 60_000, () => _getJobBoardUncached(cfg));
 }
 
-const BOARD_LEAF_WHERE = { and: [{ "=": [{ field: ["document", "id"] }, { value: null }] }] };
+// Both leave deposit lines out (NOT_DEPOSIT_LINE): a CD budget leaf carries the
+// deposit amount (Ferron's $123,000), which is not contract price, and a CD
+// invoice line is a deposit billed or drawn, not work invoiced.
+const BOARD_LEAF_WHERE = {
+  and: [{ "=": [{ field: ["document", "id"] }, { value: null }] }, NOT_DEPOSIT_LINE],
+};
 const BOARD_INVOICED_WHERE = {
   and: [
     [["document", "type"], "customerInvoice"],
     { in: [{ field: ["document", "status"] }, [{ value: "approved" }, { value: "pending" }]] },
+    NOT_DEPOSIT_LINE,
   ],
 };
 const BOARD_TASK_WHERE = [["isToDo", false], { "!=": [{ field: ["job", "id"] }, { value: null }] }];

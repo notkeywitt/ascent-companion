@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   budgetCodeMaps,
+  computeUnbilled,
+  netDepositLines,
   pickTimeLeaf,
   timeTrackableLeaves,
   combineLines,
@@ -673,5 +675,32 @@ describe("setBillFields — Push as", () => {
     await expect(write({ name: "Expense", qboDocumentType: "purchase" }, "bill")).rejects.toThrow(
       "JobTread kept Push as Bill.",
     );
+  });
+});
+
+describe("netDepositLines — deposit lines are not billed work (DEPOSITS_PLAN.md)", () => {
+  // Berger #320 as JobTread holds it: document cost $79,138.19, of which a
+  // −$20,000 "Deposit" CD line. The work billed cost $99,138.19.
+  const rows = [
+    { type: "vendorBill", status: "approved", cost: 100000, priceWithTax: 100000, count: 12 },
+    { type: "customerInvoice", status: "approved", cost: 79138.19, priceWithTax: 106750.68, count: 1 },
+    { type: "customerInvoice", status: "denied", cost: -20000, priceWithTax: 0, count: 1 },
+  ];
+
+  it("takes deposit-line cost out of the customer-invoice rows, by status", () => {
+    const net = netDepositLines(rows, { approved: -20000, denied: -20000 });
+    expect(net[1].cost).toBe(99138.19);
+    expect(net[2].cost).toBe(0);
+    // A vendor bill row is never touched.
+    expect(net[0]).toBe(rows[0]);
+  });
+
+  it("so unbilled cost reads the work, not the draw", () => {
+    expect(computeUnbilled(rows).unbilled).toBeCloseTo(20861.81, 2);
+    expect(computeUnbilled(netDepositLines(rows, { approved: -20000 })).unbilled).toBeCloseTo(861.81, 2);
+  });
+
+  it("leaves every row alone on a job with no deposit lines", () => {
+    expect(netDepositLines(rows, {})).toEqual(rows);
   });
 });

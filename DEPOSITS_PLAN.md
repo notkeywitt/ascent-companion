@@ -12,7 +12,7 @@ Read `CODEBASE_MAP.md` first.
 | Stage | State |
 |---|---|
 | 1 — the read | **Built 2026-10-05.** `src/lib/deposits.ts` (+ 19 tests on the six jobs), `getJobDepositInputs`, `deposit_links`, `GET`/`POST /api/deposits` |
-| 1b — deposits out of work totals | **Half built 2026-10-05.** The review's cost-basis, margin, markup-drift and norms figures skip CD lines (`depositPart`/`isDepositLine` in `invoiceReview/checks/shared.ts`). Still open: `computeUnbilled`, `getJobBoard`, the board rail |
+| 1b — deposits out of work totals | **Built 2026-10-05.** The review's cost-basis, margin, markup-drift and norms figures skip CD lines (`depositPart`/`isDepositLine` in `invoiceReview/checks/shared.ts`); `getJobDocumentRollup` nets CD lines out of the invoice rows (`netDepositLines`, so `/unbilled`, the digest and chat read work only); the job board's leaf and invoiced figures use `NOT_DEPOSIT_LINE`; the board rail skips CD |
 | 2 — the board card | **Built 2026-10-05.** `src/app/trackingsheet/DepositCard.tsx`, beside the invoice panel. Shows client payments on every job that has them |
 | 3 — the tracking sheet's Deposit row | Not started (appscript; `WebApp.js` needs the owner's ok) |
 | 4 — apply a deposit (the JobTread write) | Probe written, NOT run: `scripts/probe-deposit-line.mjs` (dry by default, `--live` on the Office job). Needs the owner's ok for the live run and the route (section 6) |
@@ -29,11 +29,7 @@ counting toward Left.
    press "It's this job's deposit" on Berger's $128,842 payment; on Bunkhouse
    and Otis Perkins, enter the deposit left when the job moved to JobTread
    (from the tracking sheet). Answer section 6, items 1, 2, 5 and 7.
-2. **Stage 1b, the rest:** `computeUnbilled` (subtract CD line cost on approved
-   invoices), `getJobBoard` (`invoicedByJob`, `leafPriceByJob`: exclude CD —
-   keep uncoded lines, so use an `or` with `costCode` null, and check it live
-   first), the board rail (CD out of budget and invoiced; `getJobBudget` itself
-   must keep the CD leaf, because the Stage 4 line codes to it).
+2. ~~Stage 1b, the rest~~ — done 2026-10-05.
 3. **Stage 4,** once the owner says go: run the probe live, record its answers
    here, then build `POST /api/deposits/apply` and the card's "Apply to invoice
    #N" exactly as section 7 says. Stop and ask before shipping it.
