@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { Donut, type DonutDetailRow, type DonutSlice } from "@/components/Donut";
 import { SectionLabel } from "@/components/ui";
+import { SALES_TAX_CSI } from "@/lib/salesTax";
 import { money } from "./BillCodingCard";
 
 /**
@@ -99,6 +100,13 @@ export function buildColorMap(rows: CostDonutRow[]): Map<string, string> {
   const map = new Map<string, string>();
   top.forEach((code, i) => map.set(code, VIZ_SLOTS[i]));
   return map;
+}
+
+/** The rows with 88 80 00's bill money taken out. Sales tax paid rides on
+ *  nearly every bill, so on the Bills ring it is a slice that says nothing
+ *  about where the job's money went — and it would claim a colour slot. */
+export function withoutSalesTax(rows: CostDonutRow[]): CostDonutRow[] {
+  return rows.map((r) => (r.code === SALES_TAX_CSI ? { ...r, bills: 0 } : r));
 }
 
 /** Slices for one field, folding un-slotted codes into "Other". */
@@ -209,7 +217,10 @@ export function CostDonuts({
   const [collapsed, setCollapsed] = useState(true);
   const [scope, setScope] = useState<"month" | "job">("month");
 
-  const rows = scope === "month" ? month : jobToDate;
+  const rows = useMemo(
+    () => withoutSalesTax(scope === "month" ? month : jobToDate),
+    [scope, month, jobToDate],
+  );
 
   const colorMap = useMemo(() => buildColorMap(rows), [rows]);
   const bills = useMemo(() => buildSlices(rows, colorMap, "bills"), [rows, colorMap]);

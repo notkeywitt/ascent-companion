@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Banner, Card, SectionHeading, Skeleton } from "@/components/ui";
 import { Donut } from "@/components/Donut";
 import type { MonthJobCost } from "@/lib/monthCostByJob";
-import { buildColorMap, buildSlices } from "./CostDonuts";
+import { buildColorMap, buildSlices, withoutSalesTax } from "./CostDonuts";
 import { money0 } from "./BillCodingCard";
 
 /**
@@ -64,7 +64,8 @@ export function MonthJobDonuts({ ym, monthLabel }: { ym: string; monthLabel: str
 }
 
 function JobCard({ j, ym }: { j: MonthJobCost; ym: string }) {
-  const colorMap = buildColorMap(j.rows);
+  const rows = withoutSalesTax(j.rows);
+  const colorMap = buildColorMap(rows);
   return (
     // `w-80` is the scroller's card; `pad:w-auto` lets the grid cell decide.
     <Card className="flex h-full w-80 shrink-0 flex-col gap-2 pad:w-auto">
@@ -91,13 +92,13 @@ function JobCard({ j, ym }: { j: MonthJobCost; ym: string }) {
         <div className="grid grid-cols-2 gap-3">
           <Donut
             title="Bills"
-            slices={buildSlices(j.rows, colorMap, "bills")}
+            slices={buildSlices(rows, colorMap, "bills")}
             size={96}
             emptyLabel="No bills"
           />
           <Donut
             title="Labor"
-            slices={buildSlices(j.rows, colorMap, "labor")}
+            slices={buildSlices(rows, colorMap, "labor")}
             size={96}
             emptyLabel="No labor"
           />
