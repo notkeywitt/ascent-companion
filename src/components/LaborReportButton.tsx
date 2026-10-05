@@ -11,8 +11,10 @@ import { useAccess } from "@/components/AccessProvider";
  * Google Sheet in the Drive Labor folder.
  *
  * Rendered where a month of hours is read: Labor Review's "Time entries"
- * header and the Tracking Sheets board's "Time & labor" card — and, with a
- * month picker of its own, on Labor Import (`LaborReportCard` below). It is
+ * header, the Tracking Sheets all-jobs view, and a job workbench's closing
+ * actions (Board.tsx), so a labor fix made on a job reaches the sheet without
+ * leaving the page — and, with a month picker of its own, on Labor Import
+ * (`LaborReportCard` below). It is
  * one component for the same reason `TimeEntryList` is — the two were going to
  * be hand-written twins otherwise, and the outcome message is the part that
  * would have drifted.
@@ -33,11 +35,17 @@ export function LaborReportButton({
   ym,
   className = "",
   size = "sm",
+  disabled = false,
+  buttonClassName = "",
 }: {
   /** The billing month to report, "YYYY-MM". */
   ym: string;
   className?: string;
   size?: "sm" | "md";
+  /** The host has staged edits JobTread does not hold yet. The report reads
+   *  JobTread, so running it now would file the month without them. */
+  disabled?: boolean;
+  buttonClassName?: string;
 }) {
   const canReport = useAccess().can("labor-review");
   const [busy, setBusy] = useState(false);
@@ -78,8 +86,13 @@ export function LaborReportButton({
         variant="secondary"
         size={size}
         onClick={run}
-        disabled={busy || !ym}
-        title="File the whole COMPANY's labor for this month as a Google Sheet in the Drive Labor folder — every job, not just this one, and not the on-screen filters. One file per month, overwritten each time."
+        disabled={busy || !ym || disabled}
+        className={buttonClassName}
+        title={
+          disabled
+            ? "Save staged changes to JobTread first — the report reads JobTread"
+            : "File the whole COMPANY's labor for this month as a Google Sheet in the Drive Labor folder — every job, not just this one, and not the on-screen filters. One file per month, overwritten each time."
+        }
       >
         {busy ? "Writing…" : "Create Labor Report in Drive"}
       </Button>

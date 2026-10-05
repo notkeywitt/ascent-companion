@@ -77,6 +77,7 @@ import { billPaidState, driveMainWindowToDoc, type Detail } from "@/components/B
 import { runTrackingSync } from "@/components/TrackingSheetSync";
 import { TrackingSheetRisks } from "@/components/TrackingSheetRisks";
 import { PreSendCheck } from "./PreSendCheck";
+import { LaborReportButton } from "@/components/LaborReportButton";
 import { useAccess } from "@/components/AccessProvider";
 import { useCopy } from "@/components/CopyProvider";
 import { confirmLeaveIfDirty, useUnsavedChanges } from "@/lib/useUnsavedChanges";
@@ -1766,6 +1767,17 @@ export function Board() {
       >
         Give Document Access
       </Button>
+      {/* Company-wide, not this job — see LaborReportButton. It sits here so a
+          labor fix made on this job reaches the Drive Labor sheet without a
+          trip to the all-jobs view. Held while anything is staged: the report
+          reads JobTread, so it would file the month without the unsaved edit. */}
+      <LaborReportButton
+        ym={ym}
+        size="md"
+        disabled={dirty || syncing}
+        buttonClassName="min-h-11"
+        className="items-center text-center"
+      />
       {showApprove &&
         (allApproved ? (
           /* Every bill is approved, so the next step is JobTread's own invoice
@@ -2268,10 +2280,9 @@ export function Board() {
                   </span>
                 </div>
                 {/* The month's COMPANY-WIDE Labor Report used to sit here, on
-                    its own hairline row. It takes only the month and reports
-                    EVERY job's hours, so a job workbench was the wrong host for
-                    it — it now sits with the other company-wide tools on the
-                    all-jobs view (AllJobs.tsx), beside the Drive sync. */}
+                    its own hairline row. It now rides in the closing actions
+                    (`closingActions`), beside the commit bar's Save Changes, and
+                    on the all-jobs view (AllJobs.tsx). */}
                 {timeBlockOpen && monthTime.length > 0 && (
                   <>
                     {/* The list, its filters and its grouping are the SAME
@@ -2547,11 +2558,13 @@ export function Board() {
           {/* The month's closing actions, revealed while the pointer is on the
               bar — see `barHover`. `hidden lg:flex` keeps them out of the bar on
               touch, where they have their own row under the columns. */}
-          {barHover && (
-            <div className="hidden flex-wrap items-center justify-end gap-2 lg:flex">
-              {closingActions}
-            </div>
-          )}
+          {/* Hidden, not unmounted, when the pointer leaves: the Labor Report
+              runs for up to four minutes, and unmounting would drop its result. */}
+          <div
+            className={`hidden flex-wrap items-center justify-end gap-2 ${barHover ? "lg:flex" : ""}`}
+          >
+            {closingActions}
+          </div>
           {dirty && (
             <span className="text-xs font-bold tabular-nums text-amber-700 dark:text-amber-300">
               {stagedCount} staged change{stagedCount === 1 ? "" : "s"}
