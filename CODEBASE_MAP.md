@@ -29,6 +29,7 @@ matching row here.
 | Where the app is more complex than the job it does, and how to undo it | `SIMPLICITY_AUDIT.md` |
 | How pages are grouped, named and reached, and the staged plan to regroup them into workspaces | `NAVIGATION_PLAN.md` |
 | The staged plan for ending client invoicing mistakes | `INVOICE_ACCURACY_PLAN.md` |
+| Job deposits and client payments: what Pave offers, what each job does today, and the staged plan to show and apply deposits (nothing built yet) | `DEPOSITS_PLAN.md` |
 | What each screen does, for the owner (end-user manual) | `USER_MANUAL.md` |
 | **The instructions the staff read INSIDE the app** — "how do I clock in?" | `src/lib/help.ts` (the topics) → the `/help` page |
 | How to deploy / env vars / Vercel | `DEPLOY.md` |
