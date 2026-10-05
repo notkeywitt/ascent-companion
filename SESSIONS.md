@@ -9,23 +9,23 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Branch | Last active | Commits | Next step |
 |---|---|---|---|---|
-| [main](.claude/sessions/2026-10-02-main.md) | `(detached)` | 2d ago | 4 | — |
+| [main](.claude/sessions/2026-10-02-main.md) | `(detached)` | 3d ago | 4 | — |
 | [allbills-vendor-collapsed](.claude/sessions/2026-09-14-allbills-vendor-collapsed.md) | `claude/allbills-vendor-collapsed` | 12d ago | 40 | Watch the first monthly review after 77bbb2a: confirm email-bill-amount-mismatc… |
-| [time-entry-jt-sync](.claude/sessions/2026-09-15-time-entry-jt-sync.md) | `claude/time-entry-jt-sync-6q3257` | 19d ago | 5 | Verify view-as-employee live: open /employee-time as admin, tap 'View another e… |
+| [time-entry-jt-sync](.claude/sessions/2026-09-15-time-entry-jt-sync.md) | `claude/time-entry-jt-sync-6q3257` | 20d ago | 5 | Verify view-as-employee live: open /employee-time as admin, tap 'View another e… |
 | [monthly-invoicing-summary](.claude/sessions/2026-09-10-monthly-invoicing-summary.md) | `claude/monthly-invoicing-summary-mfpunx` | 25d ago | 3 | Deploy the appscript side (./deploy.sh), then open /invoicing-summary and confi… |
 | [billing-month-selector](.claude/sessions/2026-09-10-billing-month-selector.md) | `claude/billing-month-selector-o8rbtx` | 25d ago | 3 | after ./deploy.sh lands on appscript: push this to main, then set a month on ho… |
 | [gemini-claude-transition-status](.claude/sessions/2026-09-09-gemini-claude-transition-status.md) | `claude/gemini-claude-transition-status-cib68c` | 26d ago | 1 | owner: delete GEMINI_KEY + GEMINI_MODEL from Vercel; decide whether ANTHROPIC_M… |
-| [trip-recording-persistence](.claude/sessions/2026-09-08-trip-recording-persistence.md) | `claude/trip-recording-persistence-evilps` | 26d ago | 3 | verify on the phone: start a trip, force-quit the app, reopen — the trip should… |
-| [ci-verify-job-failures](.claude/sessions/2026-09-06-ci-verify-job-failures.md) | `claude/ci-verify-job-failures-wcfpyk` | 28d ago | 1 | push this branch to remote main — main is still red until the Link fix lands th… |
+| [trip-recording-persistence](.claude/sessions/2026-09-08-trip-recording-persistence.md) | `claude/trip-recording-persistence-evilps` | 27d ago | 3 | verify on the phone: start a trip, force-quit the app, reopen — the trip should… |
+| [ci-verify-job-failures](.claude/sessions/2026-09-06-ci-verify-job-failures.md) | `claude/ci-verify-job-failures-wcfpyk` | 29d ago | 1 | push this branch to remote main — main is still red until the Link fix lands th… |
 | [ascent-building-theme](.claude/sessions/2026-09-06-ascent-building-theme.md) | `claude/ascent-building-theme-rz1o6h` | 29d ago | 6 | Tune the palettes in /theme on the phone, then paste the Copy CSS output back s… |
-| [header-layout-redesign](.claude/sessions/2026-09-05-header-layout-redesign.md) | `claude/header-layout-redesign-xid33s` | 29d ago | 15 | rearrange the tracking-sheet action buttons for mobile and desktop — they read … |
-| [timesheet-month-selection](.claude/sessions/2026-09-04-timesheet-month-selection.md) | `claude/timesheet-month-selection-2hih55` | 30d ago | 3 | none — month picker shipped; verify on the phone that the dropdown reads well n… |
+| [header-layout-redesign](.claude/sessions/2026-09-05-header-layout-redesign.md) | `claude/header-layout-redesign-xid33s` | 30d ago | 15 | rearrange the tracking-sheet action buttons for mobile and desktop — they read … |
+| [timesheet-month-selection](.claude/sessions/2026-09-04-timesheet-month-selection.md) | `claude/timesheet-month-selection-2hih55` | 31d ago | 3 | none — month picker shipped; verify on the phone that the dropdown reads well n… |
 
 ## Parked
 
 | Session | Branch | Parked | Picks up at |
 |---|---|---|---|
-| [jobtread-deposits-payments](.claude/sessions/2026-10-05-jobtread-deposits-payments.md) | `claude/jobtread-deposits-payments-0tc6pf` | 0m ago | Follow DEPOSITS_PLAN.md 'Next block, in order': (1) owner assigns Berger's $128… |
+| [jobtread-deposits-payments](.claude/sessions/2026-10-05-jobtread-deposits-payments.md) | `claude/jobtread-deposits-payments-0tc6pf` | 0m ago | Stage 4 (apply a deposit to a draft invoice) is being built on branch claude/jo… |
 | [ascent-security-analysis](.claude/sessions/2026-09-14-ascent-security-analysis.md) | `claude/ascent-security-analysis-m8fjif` | 21d ago | Owner merges PR #7 (git push origin origin/claude/ascent-security-analysis-m8fj… |
 
 ## Shipped

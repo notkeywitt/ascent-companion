@@ -4,9 +4,9 @@ repo: ascent-companion
 branch: claude/jobtread-deposits-payments-0tc6pf
 status: parked
 started: 2026-10-05T06:08:48Z
-updated: 2026-10-05T06:37:02Z
+updated: 2026-10-05T12:29:43Z
 goal: Deposits and client payments (DEPOSITS_PLAN.md): Stages 1, 2 and half of 1b shipped; next the rest of 1b, then the Stage 4 apply-deposit write after the owner's go
-next: Follow DEPOSITS_PLAN.md 'Next block, in order': (1) owner assigns Berger's $128,842 payment to Bunkhouse and enters Bunkhouse + Otis Perkins opening balances on the live deposit card, answers §6 items 1,2,5,7; (2) Stage 1b rest: computeUnbilled, getJobBoard invoicedByJob/leafPriceByJob (or-null on costCode, verify live via MCP), board rail; (3) with the owner's go: node scripts/probe-deposit-line.mjs --live, record answers in the plan, build POST /api/deposits/apply + Apply button, stop and ask before shipping; (4) Stage 3 appscript Deposits tab.
+next: Stage 4 (apply a deposit to a draft invoice) is being built on branch claude/jobtread-deposits-payments-0tc6pf, NOT on main. It needs the owner's go to (a) run node scripts/probe-deposit-line.mjs --live on the Office job and (b) ship. Then Stage 3 (appscript Deposits tab; WebApp.js needs the owner's ok). Owner still to: assign Berger's $128,842 payment to Bunkhouse, enter Bunkhouse + Otis Perkins opening balances, answer DEPOSITS_PLAN.md §6.
 ---
 
 ## Log
@@ -18,6 +18,8 @@ next: Follow DEPOSITS_PLAN.md 'Next block, in order': (1) owner assigns Berger's
   CODEBASE_MAP.md, DEPOSITS_PLAN.md, src/app/api/deposits/route.ts, src/app/trackingsheet/Board.tsx, src/app/trackingsheet/DepositCard.tsx, src/db/index.ts, +6 more
 - 2026-10-05 06:33 · `5a1a2ec` companion: keep deposit lines out of the invoice review's cost and markup figures
   CODEBASE_MAP.md, DEPOSITS_PLAN.md, scripts/probe-deposit-line.mjs, src/lib/invoiceReview/checks.test.ts, src/lib/invoiceReview/checks/costBasis.ts, src/lib/invoiceReview/checks/margin.ts, +4 more
+- 2026-10-05 12:29 · `f7c794a` companion: keep deposit lines out of unbilled cost, the job board and the board rail
+  CODEBASE_MAP.md, DEPOSITS_PLAN.md, src/lib/jobtread.test.ts, src/lib/jobtread.ts
 
 ## Notes
 - 2026-10-05 06:09 — Plan only, no code. JobTread documents the payment-application draw (Option 1); the plan recommends the CD line because 5 of 7 deposit payment applications in the org never linked to QuickBooks. check:map shows 34 pre-existing drift items (routes, db tables), not from this session.
