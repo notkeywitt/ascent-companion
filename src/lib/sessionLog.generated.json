@@ -1,7 +1,26 @@
 {
-  "generatedAt": "2026-10-03T13:45:49Z",
+  "generatedAt": "2026-10-05T06:09:21Z",
   "repo": "ascent-companion",
   "sessions": [
+    {
+      "slug": "jobtread-deposits-payments",
+      "file": "2026-10-05-jobtread-deposits-payments.md",
+      "branch": "claude/jobtread-deposits-payments-0tc6pf",
+      "status": "shipped",
+      "started": "2026-10-05T06:08:48Z",
+      "updated": "2026-10-05T06:09:21Z",
+      "goal": "Plan deposit and client-payment handling: what Pave offers, what each job does today, staged build plan",
+      "next": "Owner answers DEPOSITS_PLAN.md section 6 (draw method, QuickBooks item 38 account, Berger and Ferron opening balances, Thomas deposit amount); then build Stage 1: src/lib/deposits.ts with the six jobs as golden vectors, getJobDepositInputs, GET /api/deposits",
+      "commits": [
+        {
+          "date": "2026-10-05",
+          "time": "06:09",
+          "sha": "36ad69e",
+          "subject": "companion: add the deposits and client payments plan",
+          "files": "CODEBASE_MAP.md, DEPOSITS_PLAN.md"
+        }
+      ]
+    },
     {
       "slug": "today-home-label-change",
       "file": "2026-10-03-today-home-label-change.md",

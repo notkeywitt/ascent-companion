@@ -2,9 +2,9 @@
 slug: jobtread-deposits-payments
 repo: ascent-companion
 branch: claude/jobtread-deposits-payments-0tc6pf
-status: in-progress
+status: shipped
 started: 2026-10-05T06:08:48Z
-updated: 2026-10-05T06:09:12Z
+updated: 2026-10-05T06:09:21Z
 goal: Plan deposit and client-payment handling: what Pave offers, what each job does today, staged build plan
 next: Owner answers DEPOSITS_PLAN.md section 6 (draw method, QuickBooks item 38 account, Berger and Ferron opening balances, Thomas deposit amount); then build Stage 1: src/lib/deposits.ts with the six jobs as golden vectors, getJobDepositInputs, GET /api/deposits
 ---
