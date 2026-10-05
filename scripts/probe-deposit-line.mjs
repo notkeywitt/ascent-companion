@@ -116,6 +116,13 @@ const created = await pave({
       name: "ZZ probe — deposit line",
       fromName: "Ascent Building Co.",
       toName: "ZZ probe",
+      // JobTread refuses a new invoice without a job location, and wants exactly
+      // one of dueDate/dueDays (both learned 2026-10-05 through the connector).
+      jobLocationName: "The Shop",
+      jobLocationAddress: "4223 Center Rd, Lopez Island, WA 98261, USA",
+      dueDays: 30,
+      // Never reaches QuickBooks, whatever happens below.
+      qboIsIgnored: true,
       taxRate: TAX_RATE,
       lineItems: [
         { _type: "costItem", name: "ZZ probe work", jobCostItemId: workLeaf, quantity: 1, unitCost: 1000, unitPrice: 1180, isTaxable: true },
@@ -135,7 +142,9 @@ try {
   answers["1 jobCostItemId required"] = "no — accepted without it";
 } catch (e) {
   answers["1 jobCostItemId required"] = `yes — ${e.message}`;
-  const r = await pave({ createCostItem: { $: { ...lineFields, jobCostItemId: cdLeaf }, createdCostItem: { id: {} } } });
+  // The second try sends exactly what writeDepositDraw sends: the leaf, no cost code.
+  const { costCodeId: _omit, ...routeFields } = lineFields;
+  const r = await pave({ createCostItem: { $: { ...routeFields, jobCostItemId: cdLeaf }, createdCostItem: { id: {} } } });
   lineId = r.createCostItem.createdCostItem.id;
 }
 

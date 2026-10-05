@@ -14,16 +14,24 @@ import {
   StatementBlock,
 } from "@/components/ui";
 import type { Recon } from "@/components/InvoiceReconcile";
-import type { DepositEntry, DepositFlag, DepositLedger } from "@/lib/deposits";
+import {
+  suggestDraw,
+  type DepositEntry,
+  type DepositFlag,
+  type DepositLedger,
+  type DrawInvoice,
+} from "@/lib/deposits";
 import type { ClientPaymentRow } from "@/lib/jobtread";
 
 /**
  * The job's DEPOSIT and its client payments, beside the month's invoice panel.
  *
  * Every figure is read live from JobTread through `/api/deposits`; the rules are
- * `src/lib/deposits.ts`. The two forms here (assign a deposit payment, enter the
- * opening balance) write only the companion's `deposit_links` row — nothing on
- * this card writes to JobTread. Plan: DEPOSITS_PLAN.md.
+ * `src/lib/deposits.ts`. Two forms (assign a deposit payment, enter the opening
+ * balance) write only the companion's `deposit_links` row. ONE control writes
+ * to JobTread: "Draw from the deposit" sets the month's DRAFT invoice's one
+ * Deposit line, through `/api/deposits/apply`, after a confirm — and only when
+ * the app's JobTread writes are on. Plan: DEPOSITS_PLAN.md.
  *
  * Hidden on a job with no deposit and no client payment.
  */
@@ -70,12 +78,23 @@ function FlagLine({ chip, tone, children }: { chip: string; tone: "warning" | "d
   );
 }
 
-export function DepositCard({ jobId, recon }: { jobId: string; recon: Recon | null }) {
+export function DepositCard({
+  jobId,
+  recon,
+  writes = false,
+}: {
+  jobId: string;
+  recon: Recon | null;
+  /** The app's JobTread writes are on: show the draw controls. */
+  writes?: boolean;
+}) {
   const [data, setData] = useState<DepositsPayload | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [showPayments, setShowPayments] = useState(false);
   const [opening, setOpening] = useState<{ amount: string; asOf: string; note: string } | null>(null);
+  /** Typed draw amounts, per draft invoice id. Unset = the suggested amount. */
+  const [drawInput, setDrawInput] = useState<Record<string, string>>({});
 
   useEffect(() => {
     let live = true;
@@ -120,6 +139,37 @@ export function DepositCard({ jobId, recon }: { jobId: string; recon: Recon | nu
     },
     [jobId],
   );
+
+  /** Draw `amount` from the deposit onto a draft invoice — a JobTread write. */
+  const applyDraw = async (inv: DrawInvoice, amount: number, current: number) => {
+    const num = inv.number ?? "?";
+    const what =
+      amount === 0
+        ? `Remove the ${money(current)} Deposit line from draft #${num} in JobTread?`
+        : `${current ? "Change" : "Add"} the Deposit line on draft #${num} to −${money(amount)} in JobTread?`;
+    if (!window.confirm(what)) return;
+    setBusy(true);
+    setError("");
+    try {
+      const res = await fetch("/api/deposits/apply", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ invoiceId: inv.id, amount }),
+      });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j.error ?? "Failed");
+      setData(j);
+      setDrawInput((d) => {
+        const next = { ...d };
+        delete next[inv.id];
+        return next;
+      });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed");
+    } finally {
+      setBusy(false);
+    }
+  };
 
   if (error && !data) {
     return (
@@ -250,8 +300,8 @@ export function DepositCard({ jobId, recon }: { jobId: string; recon: Recon | nu
                 onChange={(e) => setOpening({ ...opening, asOf: e.target.value })}
               />
               <Input
-                placeholder="Where the figure came from"
-                aria-label="Note"
+                placeholder="Source, e.g. tracking sheet, Sept '26 block"
+                aria-label="Where you got this number"
                 value={opening.note}
                 onChange={(e) => setOpening({ ...opening, note: e.target.value })}
               />
@@ -265,6 +315,59 @@ export function DepositCard({ jobId, recon }: { jobId: string; recon: Recon | nu
               </div>
             </form>
           )}
+
+          {writes &&
+            (recon?.invoices ?? [])
+              .filter((i) => i.status === "draft")
+              .map((i) => {
+                // What this draft already draws: a CD line counted as "draft".
+                const current = ledger.entries
+                  .filter((e) => e.kind === "draft" && e.invoiceId === i.id)
+                  .reduce((s, e) => s + e.amount, 0);
+                if (ledger.left == null && !current) return null;
+                const inv: DrawInvoice = {
+                  id: i.id,
+                  number: Number(i.number) || null,
+                  status: i.status,
+                  priceWithTax: i.total,
+                  inQbo: false, // a draft never is; the server checks again
+                  depositLines: current ? [{ id: "current", price: -current }] : [],
+                };
+                const value = drawInput[i.id] ?? String(suggestDraw(ledger, inv));
+                const amount = Number(value);
+                return (
+                  <div key={i.id} className="mt-3 rounded-lg border border-line-soft p-2.5">
+                    <MetaLine
+                      items={[
+                        `Draft #${i.number}`,
+                        `total ${money(i.total)}`,
+                        current ? `draws ${money(current)} now` : "no deposit drawn yet",
+                      ]}
+                    />
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <Input
+                        inputMode="decimal"
+                        className="w-36"
+                        aria-label={`Deposit to draw on draft #${i.number}`}
+                        value={value}
+                        onChange={(e) => setDrawInput((d) => ({ ...d, [i.id]: e.target.value }))}
+                      />
+                      <Button
+                        size="sm"
+                        disabled={busy || value.trim() === "" || !Number.isFinite(amount) || amount < 0 || amount === current}
+                        onClick={() => applyDraw(inv, amount, current)}
+                      >
+                        {current ? "Change the draw" : "Draw from the deposit"}
+                      </Button>
+                      {current > 0 && (
+                        <Button size="sm" variant="ghost" disabled={busy} onClick={() => applyDraw(inv, 0, current)}>
+                          Remove
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
 
           {ledger.entries.length > 0 && (
             <ListCard className="mt-3">

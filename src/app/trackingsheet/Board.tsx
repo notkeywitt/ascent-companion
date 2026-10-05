@@ -2042,7 +2042,7 @@ export function Board() {
       {jobId && !loading && (
         <div className="order-last mt-4 lg:order-none lg:mb-4 lg:mt-0">
           <InvoiceReconcile jobId={jobId} ym={ym} onData={setRecon} />
-          <DepositCard jobId={jobId} recon={recon} />
+          <DepositCard jobId={jobId} recon={recon} writes={Boolean(data?.writesEnabled)} />
         </div>
       )}
 
