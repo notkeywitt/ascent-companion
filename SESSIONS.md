@@ -25,13 +25,13 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Branch | Parked | Picks up at |
 |---|---|---|---|
+| [jobtread-deposits-payments](.claude/sessions/2026-10-05-jobtread-deposits-payments.md) | `claude/jobtread-deposits-payments-0tc6pf` | 0m ago | Follow DEPOSITS_PLAN.md 'Next block, in order': (1) owner assigns Berger's $128… |
 | [ascent-security-analysis](.claude/sessions/2026-09-14-ascent-security-analysis.md) | `claude/ascent-security-analysis-m8fjif` | 21d ago | Owner merges PR #7 (git push origin origin/claude/ascent-security-analysis-m8fj… |
 
 ## Shipped
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
-| [jobtread-deposits-payments](.claude/sessions/2026-10-05-jobtread-deposits-payments.md) | 2026-10-05 | 3 | Plan deposit and client-payment handling: what Pave offers, what each job does … |
 | [today-home-label-change](.claude/sessions/2026-10-03-today-home-label-change.md) | 2026-10-03 | 6 | — |
 | [time-card-autostage](.claude/sessions/2026-10-02-time-card-autostage.md) | 2026-10-02 | 6 | Tracking Sheets time card: stage edits as they are made (like bills), remove th… |
 | [bill-void](.claude/sessions/2026-10-02-bill-void.md) | 2026-10-02 | 1 | Delete button on the bill card: void in JobTread, remove sheet rows, trash PDF … |
@@ -46,3 +46,4 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 | [navigation-stage-1](.claude/sessions/2026-09-29-navigation-stage-1.md) | 2026-09-29 | 11 | NAVIGATION_PLAN.md Stage 1: one workspace list feeding bar, menu, search; tab s… |
 | [tracking-bill](.claude/sessions/2026-09-29-tracking-bill.md) | 2026-09-29 | 1 | Tracking Sheets job view: open a bill's coding card beside its row instead of s… |
 | [specs](.claude/sessions/2026-09-29-specs.md) | 2026-09-29 | 3 | Specifications: import an architect's spec selection list PDF per job, show it … |
+| [navigation-stage-0](.claude/sessions/2026-09-29-navigation-stage-0.md) | 2026-09-29 | 3 | NAVIGATION_PLAN.md Stage 0: gate /api/time-off/import and /api/labor-report, re… |
