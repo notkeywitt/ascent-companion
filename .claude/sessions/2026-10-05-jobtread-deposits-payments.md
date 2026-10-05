@@ -2,9 +2,9 @@
 slug: jobtread-deposits-payments
 repo: ascent-companion
 branch: claude/jobtread-deposits-payments-0tc6pf
-status: parked
+status: shipped
 started: 2026-10-05T06:08:48Z
-updated: 2026-10-05T06:33:45Z
+updated: 2026-10-05T06:33:49Z
 goal: Plan deposit and client-payment handling: what Pave offers, what each job does today, staged build plan
 next: Follow DEPOSITS_PLAN.md 'Next block, in order': (1) owner assigns Berger's $128,842 payment to Bunkhouse and enters Bunkhouse + Otis Perkins opening balances on the live deposit card, answers §6 items 1,2,5,7; (2) Stage 1b rest: computeUnbilled, getJobBoard invoicedByJob/leafPriceByJob (or-null on costCode, verify live via MCP), board rail; (3) with the owner's go: node scripts/probe-deposit-line.mjs --live, record answers in the plan, build POST /api/deposits/apply + Apply button, stop and ask before shipping; (4) Stage 3 appscript Deposits tab.
 ---
