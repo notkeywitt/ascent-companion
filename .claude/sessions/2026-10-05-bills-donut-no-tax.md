@@ -2,9 +2,9 @@
 slug: bills-donut-no-tax
 repo: wt
 branch: claude/bills-donut-no-tax
-status: done
+status: shipped
 started: 2026-10-05T18:24:55Z
-updated: 2026-10-05T18:25:38Z
+updated: 2026-10-05T18:25:40Z
 goal: Tracking Sheets bills ring excludes 88 80 00 sales tax
 next: None — shipped. Check a job with sales tax on /trackingsheet: Bills ring has no 88 80 00 slice.
 ---

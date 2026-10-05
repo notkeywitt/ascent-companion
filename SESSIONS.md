@@ -1,4 +1,4 @@
-# SESSIONS — ascent-companion
+# SESSIONS — wt
 
 What each Claude session was doing, and where it stopped. **Generated —
 do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
@@ -25,12 +25,13 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Branch | Parked | Picks up at |
 |---|---|---|---|
-| [ascent-security-analysis](.claude/sessions/2026-09-14-ascent-security-analysis.md) | `claude/ascent-security-analysis-m8fjif` | 21d ago | Owner merges PR #7 (git push origin origin/claude/ascent-security-analysis-m8fj… |
+| [ascent-security-analysis](.claude/sessions/2026-09-14-ascent-security-analysis.md) | `claude/ascent-security-analysis-m8fjif` | 22d ago | Owner merges PR #7 (git push origin origin/claude/ascent-security-analysis-m8fj… |
 
 ## Shipped
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
+| [bills-donut-no-tax](.claude/sessions/2026-10-05-bills-donut-no-tax.md) | 2026-10-05 | 1 | Tracking Sheets bills ring excludes 88 80 00 sales tax |
 | [jobtread-deposits-payments](.claude/sessions/2026-10-05-jobtread-deposits-payments.md) | 2026-10-05 | 5 | Deposits and client payments (DEPOSITS_PLAN.md): Stages 1, 2 and half of 1b shi… |
 | [today-home-label-change](.claude/sessions/2026-10-03-today-home-label-change.md) | 2026-10-03 | 6 | — |
 | [time-card-autostage](.claude/sessions/2026-10-02-time-card-autostage.md) | 2026-10-02 | 6 | Tracking Sheets time card: stage edits as they are made (like bills), remove th… |
@@ -45,4 +46,3 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 | [navigation-stage-3](.claude/sessions/2026-09-29-navigation-stage-3.md) | 2026-09-29 | 5 | NAVIGATION_PLAN.md Stage 3: Not in JobTread merge, Code this bill on Email Invo… |
 | [navigation-stage-1](.claude/sessions/2026-09-29-navigation-stage-1.md) | 2026-09-29 | 11 | NAVIGATION_PLAN.md Stage 1: one workspace list feeding bar, menu, search; tab s… |
 | [tracking-bill](.claude/sessions/2026-09-29-tracking-bill.md) | 2026-09-29 | 1 | Tracking Sheets job view: open a bill's coding card beside its row instead of s… |
-| [specs](.claude/sessions/2026-09-29-specs.md) | 2026-09-29 | 3 | Specifications: import an architect's spec selection list PDF per job, show it … |
