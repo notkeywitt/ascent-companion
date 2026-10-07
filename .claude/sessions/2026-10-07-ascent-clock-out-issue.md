@@ -2,9 +2,9 @@
 slug: ascent-clock-out-issue
 repo: ascent-companion
 branch: claude/ascent-clock-out-issue-yslhbe
-status: in-progress
+status: shipped
 started: 2026-10-07T02:25:33Z
-updated: 2026-10-07T02:28:20Z
+updated: 2026-10-07T02:28:21Z
 goal: stop a clock-in from closing a running JobTread clock
 next: watch the first clock-ins after deploy; follow-up: pause/switch/clock-out still write endedAt onto an entry already closed elsewhere
 ---

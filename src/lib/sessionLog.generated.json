@@ -1,7 +1,26 @@
 {
-  "generatedAt": "2026-10-05T18:52:52Z",
-  "repo": "wt",
+  "generatedAt": "2026-10-07T02:28:21Z",
+  "repo": "ascent-companion",
   "sessions": [
+    {
+      "slug": "ascent-clock-out-issue",
+      "file": "2026-10-07-ascent-clock-out-issue.md",
+      "branch": "claude/ascent-clock-out-issue-yslhbe",
+      "status": "shipped",
+      "started": "2026-10-07T02:25:33Z",
+      "updated": "2026-10-07T02:28:21Z",
+      "goal": "stop a clock-in from closing a running JobTread clock",
+      "next": "watch the first clock-ins after deploy; follow-up: pause/switch/clock-out still write endedAt onto an entry already closed elsewhere",
+      "commits": [
+        {
+          "date": "2026-10-07",
+          "time": "02:28",
+          "sha": "cc4a738",
+          "subject": "companion: refuse a clock-in while jobtread holds a running clock",
+          "files": "src/app/api/employee-time/clock/route.ts, src/app/employee-time/EmployeeTimeClient.tsx, src/app/employee-time/page.tsx, src/lib/employeeClock.test.ts, src/lib/employeeClock.ts, src/lib/help.ts, +1 more"
+        }
+      ]
+    },
     {
       "slug": "labor-report",
       "file": "2026-10-05-labor-report.md",
