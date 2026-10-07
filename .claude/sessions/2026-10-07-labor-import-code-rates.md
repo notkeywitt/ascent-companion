@@ -12,6 +12,8 @@ next: Load a month's QuickBooks labor CSV on /labor-import: check each electrici
 ## Log
 
 <!-- Appended by .githooks/post-commit. Do not hand-write rows here. -->
+- 2026-10-07 12:39 · `83a1a4e` companion: labor import picks pay type per worker, job and cost code, with each combination's time entries listed
+  src/app/labor-import/page.tsx
 
 ## Notes
 - 2026-10-07 16:39 — Pay type picks re-keyed per worker x job x cost code (localStorage laborImport.typeMap.v2). v1 picks (per worker x job) deliberately not carried over: one pick would stamp one rate on every code.
