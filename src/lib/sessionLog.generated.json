@@ -1,7 +1,33 @@
 {
-  "generatedAt": "2026-10-07T20:48:10Z",
-  "repo": "ascent-companion-alljobs",
+  "generatedAt": "2026-10-07T21:29:35Z",
+  "repo": "ascent-companion",
   "sessions": [
+    {
+      "slug": "desktop-icon-iphone-chrome",
+      "file": "2026-10-07-desktop-icon-iphone-chrome.md",
+      "branch": "claude/desktop-icon-iphone-chrome-2ogoil",
+      "status": "shipped",
+      "started": "2026-10-07T21:28:28Z",
+      "updated": "2026-10-07T21:29:35Z",
+      "goal": "",
+      "next": "owner ok to push middleware matcher fix to main, then re-add icon on iPhone",
+      "commits": [
+        {
+          "date": "2026-10-07",
+          "time": "21:28",
+          "sha": "09c4cb6",
+          "subject": "companion: serve home-screen icons and manifest without sign-in",
+          "files": "src/middleware.ts"
+        },
+        {
+          "date": "2026-10-07",
+          "time": "21:28",
+          "sha": "1e930b6",
+          "subject": "companion: log session 2026-10-07-desktop-icon-iphone-chrome",
+          "files": ""
+        }
+      ]
+    },
     {
       "slug": "alljobs",
       "file": "2026-10-07-alljobs.md",

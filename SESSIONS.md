@@ -1,4 +1,4 @@
-# SESSIONS — ascent-companion-alljobs
+# SESSIONS — ascent-companion
 
 What each Claude session was doing, and where it stopped. **Generated —
 do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
@@ -31,6 +31,7 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
+| [desktop-icon-iphone-chrome](.claude/sessions/2026-10-07-desktop-icon-iphone-chrome.md) | 2026-10-07 | 2 | — |
 | [alljobs](.claude/sessions/2026-10-07-alljobs.md) | 2026-10-07 | 1 | Tracking Sheets all-jobs view: a top row of buttons — Sync to Tracking Sheets (… |
 | [labor-import-code-rates](.claude/sessions/2026-10-07-labor-import-code-rates.md) | 2026-10-07 | 1 | Labor Import: pick pay type per worker x job x cost code, with the time entries… |
 | [ascent-clock-out-issue](.claude/sessions/2026-10-07-ascent-clock-out-issue.md) | 2026-10-07 | 2 | stop a clock-in from closing a running JobTread clock |
@@ -45,4 +46,3 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 | [cost-code](.claude/sessions/2026-10-02-cost-code.md) | 2026-10-02 | 2 | Default cost code per employee + job, set on Pay Rates, selected when a job is … |
 | [pay-type](.claude/sessions/2026-10-02-pay-type.md) | 2026-10-02 | 1 | Default pay type per employee + job + cost code: table edited on Pay Rates, app… |
 | [time-week](.claude/sessions/2026-10-01-time-week.md) | 2026-10-01 | 6 | Time page: Compare tab for admin+office — my week beside a picked employee's, c… |
-| [board-split](.claude/sessions/2026-09-29-board-split.md) | 2026-10-01 | 16 | Audit finding 01: split src/app/trackingsheet/Board.tsx by job, one block per p… |

@@ -2,9 +2,9 @@
 slug: desktop-icon-iphone-chrome
 repo: ascent-companion
 branch: claude/desktop-icon-iphone-chrome-2ogoil
-status: in-progress
+status: shipped
 started: 2026-10-07T21:28:28Z
-updated: 2026-10-07T21:28:44Z
+updated: 2026-10-07T21:29:35Z
 goal: 
 next: owner ok to push middleware matcher fix to main, then re-add icon on iPhone
 ---
