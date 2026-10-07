@@ -94,6 +94,12 @@ export default auth(async (req) => {
   return unauthenticated();
 });
 
+// The install icons and the manifest skip the middleware. Chrome on iPhone and
+// Android fetch them WITHOUT the session cookie when a page is added to the home
+// screen, so the sign-in redirect handed back the /login HTML instead of a PNG
+// and the home screen showed a blank tile. They hold the logo and app name only.
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|apple-icon.png|icon.png|icon-192.png|icon-512.png|manifest.webmanifest).*)",
+  ],
 };
