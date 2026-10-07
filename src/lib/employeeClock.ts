@@ -1,4 +1,4 @@
-import { getOpenTimeEntries, getUserTimeEntries, jtIsoToOrgLocal } from "@/lib/jobtread";
+import { getOpenTimeEntries, getUserTimeEntries, jtIsoToOrgLocal, type OpenTimeEntry } from "@/lib/jobtread";
 import { getPaveConfig } from "@/lib/config";
 
 /**
@@ -27,6 +27,23 @@ export interface OpenClock {
  */
 export const RESUME_WINDOW_DAYS = 7;
 
+function toOpenClock(e: OpenTimeEntry, employeeName: string): OpenClock {
+  return {
+    entryId: e.id,
+    // JobTread stores a real UTC instant; the client works in org-local
+    // wall clock (that's what it sends at clock-in and what the elapsed
+    // timer and the Time Entries log expect).
+    startedAt: jtIsoToOrgLocal(e.startedAt),
+    jobId: e.jobId,
+    jobLabel: e.jobLabel,
+    costItemId: e.costItemId,
+    costCode: e.costCode,
+    costItemName: e.costItemName,
+    payType: e.payType,
+    employee: employeeName,
+  };
+}
+
 /** The newest open (never clocked out) entry for a user, plus how many exist. */
 export async function readOpenClock(
   userId: string,
@@ -35,25 +52,40 @@ export async function readOpenClock(
   const since = new Date(Date.now() - RESUME_WINDOW_DAYS * 86_400_000).toISOString();
   const open = await getOpenTimeEntries(getPaveConfig(), userId, { sinceIso: since });
   const e = open[0]; // newest-first
-  return {
-    openCount: open.length,
-    openEntry: e
-      ? {
-          entryId: e.id,
-          // JobTread stores a real UTC instant; the client works in org-local
-          // wall clock (that's what it sends at clock-in and what the elapsed
-          // timer and the Time Entries log expect).
-          startedAt: jtIsoToOrgLocal(e.startedAt),
-          jobId: e.jobId,
-          jobLabel: e.jobLabel,
-          costItemId: e.costItemId,
-          costCode: e.costCode,
-          costItemName: e.costItemName,
-          payType: e.payType,
-          employee: employeeName,
-        }
-      : null,
-  };
+  return { openCount: open.length, openEntry: e ? toOpenClock(e, employeeName) : null };
+}
+
+/* ── ONE RUNNING CLOCK PER PERSON ──────────────────────────────────────────
+   JobTread enforces this itself, and silently: creating an OPEN entry closes
+   the person's running one at that same instant. Its event log shows the close
+   under our own grant, a few milliseconds before the create.
+
+   So a clock-in from a screen that missed the running clock (a page left open
+   since before the clock-in, or a JobTread read that failed at load) cut the
+   real shift short and opened an overlapping one. On 2026-10-05 that turned a
+   crew member's 9-hour day into 13h38m across three entries; it happened six
+   times between 2026-09-08 and 2026-10-05.
+
+   The clock-in therefore checks first, at ANY age. The resume window above
+   does not apply here: a clock forgotten three weeks ago would be closed now,
+   as a three-week entry. */
+
+/** Every running entry for a user, newest first, at any age. */
+export async function readRunningClocks(userId: string, employeeName: string): Promise<OpenClock[]> {
+  const open = await getOpenTimeEntries(getPaveConfig(), userId);
+  return open.map((e) => toOpenClock(e, employeeName));
+}
+
+/**
+ * The running clock a new clock-in would close, or null when it is safe.
+ *
+ * `justClosed` holds the entries this device clocked out a moment ago. The
+ * clock-out is detached, so JobTread can still show one running for a few
+ * seconds. Letting JobTread close it is harmless: the clock-out's own update
+ * then writes the real end time over JobTread's.
+ */
+export function blockingClock(running: OpenClock[], justClosed: readonly string[]): OpenClock | null {
+  return running.find((c) => !justClosed.includes(c.entryId)) ?? null;
 }
 
 /**

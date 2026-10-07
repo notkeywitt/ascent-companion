@@ -6750,11 +6750,16 @@ export interface OpenTimeEntry {
  * log the same cost item) that the bi-monthly "My Time" list doesn't need, and
  * keeping them apart means a change here can't break that view.
  *
- * `endedAt` is filtered CLIENT-side — the `where` grammar's null handling isn't
- * probe-confirmed, and `startedAt` bounding (which IS confirmed, see
- * getUserTimeEntries) already keeps the pull to one small page. `opts.sinceIso`
- * should be a few days back: it bounds the fetch AND stops a long-forgotten
- * clock-in from resurfacing weeks later as if it were live.
+ * `endedAt` is filtered SERVER-side, so the answer is only the running entries
+ * — normally none or one — at any age. The `{"=":[endedAt, null]}` form is the
+ * one getOrgTimeEntries probe-confirmed; it was re-confirmed on a user's own
+ * connection 2026-10-06, alone and combined with `startedAt`. The loop below
+ * still skips a closed row, as a guard.
+ *
+ * `opts.sinceIso` is now a choice, not a cost. The page's resume passes a few
+ * days back, so a long-forgotten clock-in does not resurface weeks later as if
+ * it were live. The clock-in guard passes none: JobTread closes ANY running
+ * entry when a new one opens, however old (see employeeClock.ts).
  */
 export async function getOpenTimeEntries(
   cfg: PaveConfig,
@@ -6764,6 +6769,8 @@ export async function getOpenTimeEntries(
   const out: OpenTimeEntry[] = [];
   // `opts.maxPages` is a DELIBERATE bound, not a guard — see getUserTimeEntries.
   const pageLimit = opts.maxPages == null ? {} : { stopAfterPages: opts.maxPages };
+  const running = { "=": [{ field: "endedAt" }, { value: null }] };
+  const where = opts.sinceIso ? { and: [running, ["startedAt", ">=", opts.sinceIso]] } : running;
   await pageEach<any>(
     cfg,
     {
@@ -6776,7 +6783,7 @@ export async function getOpenTimeEntries(
           timeEntries: {
             $: {
               sortBy: [{ field: "startedAt", order: "desc" }],
-              ...(opts.sinceIso ? { where: ["startedAt", ">=", opts.sinceIso] } : {}),
+              where,
               ...args,
             },
             nextPage: {},

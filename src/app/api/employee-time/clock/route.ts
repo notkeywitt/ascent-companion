@@ -12,7 +12,7 @@ import {
 } from "@/lib/jobtread";
 import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
 import { callAppsScript } from "@/lib/appsScript";
-import { readOpenClock } from "@/lib/employeeClock";
+import { blockingClock, readOpenClock, readRunningClocks } from "@/lib/employeeClock";
 import { resolveTimeIdentity } from "@/lib/actingAs";
 import { openJournal } from "@/lib/financialJournal";
 import { markWorkedDeleted } from "@/lib/timeSync";
@@ -60,8 +60,14 @@ import { markWorkedDeleted } from "@/lib/timeSync";
  *          costCode, costItemName, payType, employee} | null, openCount }
  *        startedAt is the org-LOCAL wall clock ("YYYY-MM-DDTHH:MM:SS"), the same
  *        shape the client sends at clock-in.
- * POST { op:"in",  userId, jobId, costItemId, payType, startTime }
+ * POST { op:"in",  userId, jobId, costItemId, payType, startTime, justClosed? }
  *      → { ok, previewed, entryId, jtStatus, jtError? }
+ *      | 409 { ok:false, alreadyRunning:true, openEntry, error }
+ *        Refused when JobTread already has a clock running for this person —
+ *        JobTread would close it silently (lib/employeeClock.ts). `openEntry`
+ *        is that clock, shaped like GET's, for the screen to show instead.
+ *        `justClosed` lists entries this device clocked out a moment ago; see
+ *        blockingClock.
  * POST { op:"out", entryId, userId, jobId, jobLabel?, costItemId, costCode?,
  *        payType?, employee?, startTime, startEdited?, endTime, note,
  *        photos:[{base64, mimeType, name}] }
@@ -183,6 +189,7 @@ interface Body {
   endTime?: string;
   note?: string;
   photos?: Photo[];
+  justClosed?: unknown;
 }
 
 
@@ -238,6 +245,37 @@ export async function POST(req: NextRequest) {
       });
     }
     if (!payType) return NextResponse.json({ ok: false, error: "Pick a pay type." }, { status: 400 });
+
+    // One running clock per person — see lib/employeeClock.ts. A JobTread read
+    // that fails refuses the clock-in: a guess here is what cut shifts short.
+    const justClosed = Array.isArray(body.justClosed)
+      ? body.justClosed.filter((v): v is string => typeof v === "string").slice(0, 20)
+      : [];
+    let running;
+    try {
+      running = blockingClock(await readRunningClocks(userId, (who.identity.name ?? "").trim()), justClosed);
+    } catch (e) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: `Couldn't check JobTread for a clock already running, so you were not clocked in. Try again. (${
+            e instanceof Error ? e.message : "Unknown error"
+          })`,
+        },
+        { status: 502 },
+      );
+    }
+    if (running) {
+      return NextResponse.json(
+        {
+          ok: false,
+          alreadyRunning: true,
+          openEntry: running,
+          error: "JobTread already has a clock running for you, so a second one was not started.",
+        },
+        { status: 409 },
+      );
+    }
 
     try {
       const { id } = await createTimeEntry(getPaveConfig(), {

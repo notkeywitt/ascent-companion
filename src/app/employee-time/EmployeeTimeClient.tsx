@@ -566,6 +566,7 @@ export function EmployeeTimeClient({
   initialOrgTypes,
   initialOpenEntry,
   initialLinked,
+  initialClockFailed = false,
   identityResolved,
   lastUsed,
   canActAs = false,
@@ -580,6 +581,8 @@ export function EmployeeTimeClient({
   initialOrgTypes: string[];
   initialOpenEntry: OpenEntry | null;
   initialLinked: boolean;
+  /** The shell's JobTread read failed, so `initialOpenEntry: null` means "unknown". */
+  initialClockFailed?: boolean;
   identityResolved: boolean;
   lastUsed: LastUsed | null;
   /** Admin: may open this page as another employee. The server enforces it. */
@@ -665,9 +668,18 @@ export function EmployeeTimeClient({
   );
   const [nowMs, setNowMs] = useState(0);
   const [clockNote, setClockNote] = useState("");
-  // True only while the COLD path is still asking who you are. The clock button
-  // stays off until it answers, so a mis-tap cannot start a second entry.
-  const [resolving, setResolving] = useState(!identityResolved);
+  // True only while the page is still asking who you are, or asking JobTread
+  // again after the shell's read failed. The clock button stays off until it
+  // answers, so a mis-tap cannot start a second entry.
+  const [resolving, setResolving] = useState(!identityResolved || initialClockFailed);
+  // The last check of JobTread for a running clock failed. Clock in is still
+  // safe — the server checks again and refuses a second clock — but the screen
+  // cannot say whether you are on the clock, so it says that instead.
+  const [clockUnknown, setClockUnknown] = useState(false);
+  // Entries this page clocked out. The clock-out finishes on the server a few
+  // seconds later, so JobTread can still show one running; these are never
+  // picked back up, and the clock-in guard lets JobTread close them.
+  const closedHereRef = useRef<Set<string>>(new Set());
   // The end time used when clocking out. It follows the wall clock until you
   // change it — that is the "we forgot to clock out at 3" case.
   const [endAt, setEndAt] = useState(nowLocal());
@@ -798,6 +810,22 @@ export function EmployeeTimeClient({
 
     if (identityResolved) {
       reconcile(initialOpenEntry, initialLinked);
+      if (initialClockFailed) {
+        // The shell could not read JobTread. Ask once more before Clock in is
+        // offered: a screen that wrongly shows "clocked out" invites a second
+        // clock-in, and JobTread closes the real one when that lands.
+        fetch("/api/employee-time/clock", { cache: "no-store" })
+          .then((r) => r.json())
+          .then((j: { ok?: boolean; linked?: boolean; openEntry?: OpenEntry | null }) => {
+            if (j.ok === false) {
+              setClockUnknown(true);
+              return;
+            }
+            reconcile(j.openEntry ?? null, !!j.linked);
+          })
+          .catch(() => setClockUnknown(true))
+          .finally(() => setResolving(false));
+      }
     } else {
       // COLD path: the roster link was not cached, so the shell could not name
       // you. Show the screen anyway (the local clock stands) and resolve in the
@@ -819,11 +847,15 @@ export function EmployeeTimeClient({
       fetch("/api/employee-time/clock")
         .then((r) => r.json())
         .then((j: { ok?: boolean; linked?: boolean; openEntry?: OpenEntry | null }) => {
-          if (j.ok === false) return; // can't tell — leave the local record alone
+          if (j.ok === false) {
+            setClockUnknown(true); // can't tell — leave the local record alone
+            return;
+          }
           reconcile(j.openEntry ?? null, !!j.linked);
         })
         .catch(() => {
           /* offline: the localStorage record stands */
+          setClockUnknown(true);
         })
         .finally(() => setResolving(false));
     }
@@ -1154,9 +1186,15 @@ export function EmployeeTimeClient({
           costItemId: activeClock.costItemId,
           payType: activeClock.payType,
           startTime: at,
+          justClosed: Array.from(closedHereRef.current),
         }),
       });
       const json = await res.json();
+      // Clocked in somewhere else during the break: that clock is the real one.
+      if (json.alreadyRunning && json.openEntry) {
+        adoptRunning(json.openEntry);
+        return;
+      }
       if (!res.ok || json.ok === false) {
         setErr(json.error || "Could not end your break.");
         return;
@@ -1221,6 +1259,20 @@ export function EmployeeTimeClient({
     ? fmtDuration(clockOutStart, clockOutEnd || nowLocalSeconds())
     : "";
 
+  /** The server refused a second clock because JobTread already had one
+      running (see lib/employeeClock.ts). That clock is the real one: show it. */
+  function adoptRunning(e: OpenEntry) {
+    const c = clockFromOpenEntry(e, true);
+    setActiveClock(c);
+    if (!acting) saveClock(c);
+    setErr("");
+    setClockUnknown(false);
+    const day = dayChipLabel(e.startedAt.slice(0, 10));
+    const at = fmt12h(e.startedAt.slice(11, 16));
+    const since = day === "Today" ? at : `${day === "Yesterday" ? "yesterday" : day} at ${at}`;
+    setClockNote(`You were already clocked in, since ${since}. No second clock was started. This is your running clock.`);
+  }
+
   // ------------------------------------------------------------- Clock in/out
   async function clockIn() {
     setErr("");
@@ -1250,9 +1302,21 @@ export function EmployeeTimeClient({
       const res = await fetch("/api/employee-time/clock", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ op: "in", userId: effectiveUserId, jobId, costItemId, payType, startTime: startedAt }),
+        body: JSON.stringify({
+          op: "in",
+          userId: effectiveUserId,
+          jobId,
+          costItemId,
+          payType,
+          startTime: startedAt,
+          justClosed: Array.from(closedHereRef.current),
+        }),
       });
       const json = await res.json();
+      if (json.alreadyRunning && json.openEntry) {
+        adoptRunning(json.openEntry);
+        return;
+      }
       if (!res.ok || json.ok === false) {
         setErr(json.error || "Could not clock in.");
         return;
@@ -1368,6 +1432,8 @@ export function EmployeeTimeClient({
           note: note.trim(),
         },
       });
+      // The JobTread update lands a few seconds after this answer.
+      if (activeClock.entryId) closedHereRef.current.add(activeClock.entryId);
       try {
         localStorage.removeItem(LS_CLOCK);
       } catch {}
@@ -1627,6 +1693,73 @@ export function EmployeeTimeClient({
       alive = false;
     };
   }, [actingAsId, canActAs]);
+
+  /* Back on the page — the phone woke, or the crew member came back from
+     another app. Ask JobTread again. A page left open keeps what it last
+     showed, so one opened before a clock-in elsewhere (another tab, the
+     JobTread app) went on offering Clock in, and a second clock-in makes
+     JobTread close the real one. Same rules as the mount reconcile: JobTread
+     wins, and only a clock JobTread could have seen is cleared. An admin's
+     view of someone else re-reads through the effect above instead. */
+  const activeClockRef = useRef(activeClock);
+  activeClockRef.current = activeClock;
+  const busyRef = useRef(false);
+  busyRef.current = busy || resolving;
+  useEffect(() => {
+    if (acting) return;
+    let inFlight = false;
+    function recheck() {
+      if (document.visibilityState !== "visible" || inFlight || busyRef.current) return;
+      inFlight = true;
+      fetch("/api/employee-time/clock", { cache: "no-store" })
+        .then((r) => r.json())
+        .then((j: { ok?: boolean; linked?: boolean; openEntry?: OpenEntry | null }) => {
+          if (j.ok === false) {
+            setClockUnknown(true);
+            return;
+          }
+          setClockUnknown(false);
+          // Something started on this screen meanwhile; its own answer wins.
+          if (busyRef.current) return;
+          const cur = activeClockRef.current;
+          const remote = j.openEntry && !closedHereRef.current.has(j.openEntry.entryId) ? j.openEntry : null;
+          if (remote) {
+            if (cur?.entryId === remote.entryId) return;
+            const resumed = clockFromOpenEntry(remote, true);
+            setActiveClock(resumed);
+            saveClock(resumed);
+            setClockNote("Picked up from JobTread — you were already clocked in.");
+            return;
+          }
+          // A clock on break carries no entry id, so it is never cleared here.
+          if (cur?.entryId && j.linked && !j.openEntry) {
+            try {
+              localStorage.removeItem(LS_CLOCK);
+            } catch {}
+            const saved = readSavedNote();
+            if (saved && saved.entryId === cur.entryId) {
+              clearSavedNote();
+              setNote("");
+            }
+            setActiveClock(null);
+            setClockNote("That clock-in is already closed in JobTread — starting fresh.");
+          }
+        })
+        .catch(() => setClockUnknown(true))
+        .finally(() => {
+          inFlight = false;
+        });
+    }
+    function onPageShow(e: PageTransitionEvent) {
+      if (e.persisted) recheck(); // restored from the back/forward cache
+    }
+    document.addEventListener("visibilitychange", recheck);
+    window.addEventListener("pageshow", onPageShow);
+    return () => {
+      document.removeEventListener("visibilitychange", recheck);
+      window.removeEventListener("pageshow", onPageShow);
+    };
+  }, [acting]);
 
   // --------------------------------------------------------------- Timesheets
   const loadHistory = useCallback(async () => {
@@ -2005,6 +2138,13 @@ export function EmployeeTimeClient({
             <p className="mb-3 rounded-xl bg-neutral-100 px-3 py-2 text-xs text-neutral-600 dark:bg-neutral-800/60 dark:text-neutral-300">
               {clockNote}
             </p>
+          )}
+
+          {clockUnknown && !activeClock && (
+            <Banner tone="warning" className="mb-3">
+              Couldn&apos;t check JobTread for a running clock, so this screen may be out of date. Reopen the
+              page in a minute.
+            </Banner>
           )}
 
           {/* The state, big — the one thing a crew member checks at a glance. */}

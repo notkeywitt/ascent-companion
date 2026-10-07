@@ -200,6 +200,7 @@ export const HELP: HelpSection[] = [
           "The clock starts at the current time.",
           "To clock in for an earlier time, tap the day chip or the time chip.",
           "Your clock is in JobTread. You can clock out on a different phone.",
+          "If a clock is already running, the app shows that clock. It does not start a second one.",
         ],
       },
       {
