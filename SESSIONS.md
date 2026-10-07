@@ -1,4 +1,4 @@
-# SESSIONS — ascent-companion-labor-import
+# SESSIONS — ascent-companion-alljobs
 
 What each Claude session was doing, and where it stopped. **Generated —
 do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
@@ -25,12 +25,13 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Branch | Parked | Picks up at |
 |---|---|---|---|
-| [ascent-security-analysis](.claude/sessions/2026-09-14-ascent-security-analysis.md) | `claude/ascent-security-analysis-m8fjif` | 23d ago | Owner merges PR #7 (git push origin origin/claude/ascent-security-analysis-m8fj… |
+| [ascent-security-analysis](.claude/sessions/2026-09-14-ascent-security-analysis.md) | `claude/ascent-security-analysis-m8fjif` | 24d ago | Owner merges PR #7 (git push origin origin/claude/ascent-security-analysis-m8fj… |
 
 ## Shipped
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
+| [alljobs](.claude/sessions/2026-10-07-alljobs.md) | 2026-10-07 | 1 | Tracking Sheets all-jobs view: a top row of buttons — Sync to Tracking Sheets (… |
 | [labor-import-code-rates](.claude/sessions/2026-10-07-labor-import-code-rates.md) | 2026-10-07 | 1 | Labor Import: pick pay type per worker x job x cost code, with the time entries… |
 | [ascent-clock-out-issue](.claude/sessions/2026-10-07-ascent-clock-out-issue.md) | 2026-10-07 | 2 | stop a clock-in from closing a running JobTread clock |
 | [labor-report](.claude/sessions/2026-10-05-labor-report.md) | 2026-10-05 | 1 | Tracking Sheets job workbench: Create Labor Report in Drive in the save bar's c… |
@@ -45,4 +46,3 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 | [pay-type](.claude/sessions/2026-10-02-pay-type.md) | 2026-10-02 | 1 | Default pay type per employee + job + cost code: table edited on Pay Rates, app… |
 | [time-week](.claude/sessions/2026-10-01-time-week.md) | 2026-10-01 | 6 | Time page: Compare tab for admin+office — my week beside a picked employee's, c… |
 | [board-split](.claude/sessions/2026-09-29-board-split.md) | 2026-10-01 | 16 | Audit finding 01: split src/app/trackingsheet/Board.tsx by job, one block per p… |
-| [ascent-app-simplify](.claude/sessions/2026-09-29-ascent-app-simplify.md) | 2026-09-30 | 13 | Fix the Tracking Sheets sales-tax crash, then the loose ends from the 2026-09-3… |

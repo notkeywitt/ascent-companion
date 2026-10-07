@@ -1,7 +1,26 @@
 {
-  "generatedAt": "2026-10-07T16:40:01Z",
-  "repo": "ascent-companion-labor-import",
+  "generatedAt": "2026-10-07T20:48:10Z",
+  "repo": "ascent-companion-alljobs",
   "sessions": [
+    {
+      "slug": "alljobs",
+      "file": "2026-10-07-alljobs.md",
+      "branch": "claude/alljobs-actions",
+      "status": "shipped",
+      "started": "2026-10-07T20:47:57Z",
+      "updated": "2026-10-07T20:48:10Z",
+      "goal": "Tracking Sheets all-jobs view: a top row of buttons — Sync to Tracking Sheets (labor report + every sheet's bills), Check all Jobs, Import Labor",
+      "next": "Open /trackingsheet with All jobs on a phone: press Check all Jobs and Sync to Tracking Sheets for September, confirm the results card and the labor report line read right",
+      "commits": [
+        {
+          "date": "2026-10-07",
+          "time": "16:48",
+          "sha": "34c7ffb",
+          "subject": "companion: add sync, check all jobs and import labor buttons to the tracking sheets all-jobs view",
+          "files": "CODEBASE_MAP.md, src/app/trackingsheet/AllJobs.tsx, src/app/trackingsheet/CheckAllJobs.tsx, src/app/trackingsheet/MonthJobDonuts.tsx, src/app/trackingsheet/PreSendCheck.tsx, src/app/trackingsheet/usePreSendCheck.ts, +2 more"
+        }
+      ]
+    },
     {
       "slug": "labor-import-code-rates",
       "file": "2026-10-07-labor-import-code-rates.md",
