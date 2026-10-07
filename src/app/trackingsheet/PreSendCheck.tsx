@@ -68,27 +68,32 @@ export function PreSendCheck({
           )}
 
           {live.length ? (
-            <ul className="mb-3 divide-y divide-line-soft border-y border-line-soft">
-              {live.map((f) => (
-                <li key={f.key} className="flex items-start gap-3 py-2">
-                  <Chip tone={f.severity === "error" ? "danger" : "warning"}>
-                    {f.severity === "error" ? "Fix" : "Look"}
-                  </Chip>
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-sm font-medium">{f.title}</span>
-                    <span className="block text-xs leading-relaxed opacity-70">{f.detail}</span>
-                  </span>
-                  {f.amount == null ? null : (
-                    <span className="shrink-0 text-sm tabular-nums opacity-70">
-                      {money(f.amount)}
-                    </span>
-                  )}
-                </li>
-              ))}
-            </ul>
+            <FindingList findings={live} className="mb-3 border-y border-line-soft" />
           ) : null}
         </>
       ) : null}
     </Card>
+  );
+}
+
+/** The live findings, worst first — one row each. Also used by "Check all Jobs". */
+export function FindingList({ findings, className = "" }: { findings: Finding[]; className?: string }) {
+  return (
+    <ul className={`divide-y divide-line-soft ${className}`}>
+      {findings.map((f) => (
+        <li key={f.key} className="flex items-start gap-3 py-2">
+          <Chip tone={f.severity === "error" ? "danger" : "warning"}>
+            {f.severity === "error" ? "Fix" : "Look"}
+          </Chip>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-medium">{f.title}</span>
+            <span className="block text-xs leading-relaxed opacity-70">{f.detail}</span>
+          </span>
+          {f.amount == null ? null : (
+            <span className="shrink-0 text-sm tabular-nums opacity-70">{money(f.amount)}</span>
+          )}
+        </li>
+      ))}
+    </ul>
   );
 }

@@ -1,19 +1,20 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Card, PageHeader, SectionHeading } from "@/components/ui";
+import { Button, Card, PageHeader, SectionHeading, btn } from "@/components/ui";
 import { JobPicker } from "@/components/JobPicker";
 import { useAccess } from "@/components/AccessProvider";
 import { useCopy } from "@/components/CopyProvider";
 import { UncapturedBills } from "@/components/UncapturedBills";
 import { SyncNowButton } from "@/components/SyncNowButton";
-import { LaborReportButton } from "@/components/LaborReportButton";
 import { SyncAllTrackingSheetsFor } from "@/components/TrackingSheetSync";
 import { billingMonths } from "@/lib/billingMonths";
 import { AllBills } from "./AllBills";
 import { UnsyncedDrafts } from "./UnsyncedDrafts";
-import { MonthJobDonuts } from "./MonthJobDonuts";
+import { MonthJobDonuts, useMonthJobs } from "./MonthJobDonuts";
+import { CheckAllResults, useCheckAllJobs } from "./CheckAllJobs";
 
 /**
  * Tracking Sheets with no job selected — every vendor bill issued in the
@@ -74,6 +75,9 @@ export function AllJobs() {
    */
   const monthLabel = billingMonths(15).find((o) => o.value === ym)?.label ?? ym;
 
+  const month = useMonthJobs(ym);
+  const check = useCheckAllJobs(month.jobs, ym);
+
   const onPickJob = (id: string) => {
     if (!id) return;
     router.push(`/trackingsheet?jobId=${encodeURIComponent(id)}&ym=${encodeURIComponent(ym)}`);
@@ -99,6 +103,36 @@ export function AllJobs() {
         className="!mb-4"
       />
 
+      {/* THE MONTH'S ACTIONS — the all-jobs twins of the workbench's closing
+          row. Sync files the Labor Report and pushes every sheet; Check runs
+          "Check this job" on each job with cost; Import Labor is the
+          QuickBooks → JobTread page. */}
+      <div className="mb-4 flex flex-wrap items-start gap-2">
+        <SyncAllTrackingSheetsFor ym={ym} />
+        {can("invoice-review") && (
+          <Button
+            variant="secondary"
+            className="min-h-11"
+            onClick={check.run}
+            disabled={check.running || !month.jobs?.length}
+            title={`Run "Check this job" on every job with cost in ${monthLabel}`}
+          >
+            {check.running
+              ? `Checking ${check.finished}/${check.total}…`
+              : check.total
+                ? "Check all Jobs again"
+                : "Check all Jobs"}
+          </Button>
+        )}
+        {can("labor-import") && (
+          <Link href="/labor-import" className={btn("secondary", "md", "min-h-11")}>
+            Import Labor
+          </Link>
+        )}
+      </div>
+
+      <CheckAllResults jobs={month.jobs} {...check} ym={ym} monthLabel={monthLabel} />
+
       {/* Ingested bills that never reached JobTread at all — the step before the
           list. They're on no invoice and aren't even a JobTread draft yet, so
           the month view can't surface them; nothing in the hourly sync touches
@@ -118,50 +152,28 @@ export function AllJobs() {
 
       {/* Every job with cost this month, as ring cards — above the bills
           workbench, which the cards' own clicks lead into job by job. */}
-      <MonthJobDonuts ym={ym} monthLabel={monthLabel} />
+      <MonthJobDonuts jobs={month.jobs} error={month.error} ym={ym} monthLabel={monthLabel} />
 
       <AllBills ym={ym} setYm={setYm} />
 
-      {/* COMPANY-WIDE TOOLS — the two actions that take no job at all. Both used
-          to sit on the job workbench: the Drive sync in its closing row beside
-          two job-and-month buttons, and the Labor Report inside that job's own
-          "Time & labor" card. Neither reads the job on screen, and sitting among
-          controls that do is what made them read as job actions. This is the
-          all-jobs view, so it is the one place on this page where "every job" is
-          already the subject.
-
-          Each is a row with its scope written beside it, rather than a bare
-          button: what they touch is exactly the thing a label on a pill cannot
-          say. */}
-      <section className="mt-6">
-        <SectionHeading className="mb-2">Company tools</SectionHeading>
-        <Card pad={false} className="overflow-hidden">
-          {can("sync") && (
-            <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-line-soft px-4 py-3 last:border-b-0">
+      {/* COMPANY-WIDE TOOLS — the Drive sync takes no job and no month, so it
+          stays down here with its scope written beside it. The tracking-sheet
+          push and the Labor Report it used to sit with are now the one "Sync to
+          Tracking Sheets" button at the top. */}
+      {can("sync") && (
+        <section className="mt-6">
+          <SectionHeading className="mb-2">Company tools</SectionHeading>
+          <Card pad={false} className="overflow-hidden">
+            <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 py-3">
               <span className="min-w-0 flex-1 text-[11.5px] text-neutral-500 dark:text-neutral-400">
                 Pull all of JobTread into the Sheet and Drive tree now. Runs hourly on its own;
                 this only asks for it early.
               </span>
               <SyncNowButton className="min-h-11 shrink-0" />
             </div>
-          )}
-          {can("tracking-sheet") && (
-            <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-line-soft px-4 py-3 last:border-b-0">
-              <span className="min-w-0 flex-1 text-[11.5px] text-neutral-500 dark:text-neutral-400">
-                Push every job&apos;s {monthLabel} coding into its own Google Tracking Sheet.
-              </span>
-              <SyncAllTrackingSheetsFor ym={ym} className="shrink-0" />
-            </div>
-          )}
-          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 py-3">
-            <span className="min-w-0 flex-1 text-[11.5px] text-neutral-500 dark:text-neutral-400">
-              Every job&apos;s hours for the selected month, filed as one sheet in the Drive Labor
-              folder. Not scoped to a job or to the list above.
-            </span>
-            <LaborReportButton ym={ym} size="md" className="shrink-0 items-end text-right" />
-          </div>
-        </Card>
-      </section>
+          </Card>
+        </section>
+      )}
     </main>
   );
 }

@@ -15,9 +15,44 @@ import { money0 } from "./BillCodingCard";
  * board's (HomeJobBoard): a sideways row on a phone, a grid from `pad` up. A
  * card opens that job's workbench on the same month.
  *
- * Read-only, one fetch for every job. Self-hiding when the month has no cost.
+ * Read-only, one fetch for every job (`useMonthJobs`, called by the page).
+ * Self-hiding when the month has no cost.
  */
-export function MonthJobDonuts({ ym, monthLabel }: { ym: string; monthLabel: string }) {
+export function MonthJobDonuts({
+  jobs,
+  error,
+  ym,
+  monthLabel,
+}: {
+  jobs: MonthJobCost[] | null;
+  error: string;
+  ym: string;
+  monthLabel: string;
+}) {
+  if (error) return <Banner tone="error" className="mb-6">Job rings: {error}</Banner>;
+  if (jobs === null) return <Skeleton className="mb-6 h-40 w-full rounded-xl" />;
+  if (jobs.length === 0) return null;
+
+  return (
+    <section className="mb-6 space-y-2">
+      <SectionHeading
+        trailing={<span className="text-[11px] tabular-nums text-neutral-500">{jobs.length}</span>}
+      >
+        {`Jobs with cost · ${monthLabel}`}
+      </SectionHeading>
+      {/* The home board's row: sideways on a phone, bleeding to the screen edge
+          so the next card shows cut off; a grid from `pad` up. */}
+      <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-1 pad:mx-0 pad:grid pad:grid-cols-2 pad:overflow-x-visible pad:px-0 xl:grid-cols-3 2xl:grid-cols-4">
+        {jobs.map((j) => (
+          <JobCard key={j.jobId} j={j} ym={ym} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/** Every job with cost in the month — the ring cards and "Check all Jobs" share this one read. */
+export function useMonthJobs(ym: string) {
   const [jobs, setJobs] = useState<MonthJobCost[] | null>(null);
   const [error, setError] = useState("");
 
@@ -41,26 +76,7 @@ export function MonthJobDonuts({ ym, monthLabel }: { ym: string; monthLabel: str
     };
   }, [ym]);
 
-  if (error) return <Banner tone="error" className="mb-6">Job rings: {error}</Banner>;
-  if (jobs === null) return <Skeleton className="mb-6 h-40 w-full rounded-xl" />;
-  if (jobs.length === 0) return null;
-
-  return (
-    <section className="mb-6 space-y-2">
-      <SectionHeading
-        trailing={<span className="text-[11px] tabular-nums text-neutral-500">{jobs.length}</span>}
-      >
-        {`Jobs with cost · ${monthLabel}`}
-      </SectionHeading>
-      {/* The home board's row: sideways on a phone, bleeding to the screen edge
-          so the next card shows cut off; a grid from `pad` up. */}
-      <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-1 pad:mx-0 pad:grid pad:grid-cols-2 pad:overflow-x-visible pad:px-0 xl:grid-cols-3 2xl:grid-cols-4">
-        {jobs.map((j) => (
-          <JobCard key={j.jobId} j={j} ym={ym} />
-        ))}
-      </div>
-    </section>
-  );
+  return { jobs, error };
 }
 
 function JobCard({ j, ym }: { j: MonthJobCost; ym: string }) {

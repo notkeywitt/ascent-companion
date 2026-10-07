@@ -78,6 +78,7 @@ matching row here.
 | **Tracking Sheets: the job's deposit and client payments** (balance, draws, the assign-payment and opening-balance forms) | `src/app/trackingsheet/DepositCard.tsx` → `/api/deposits` |
 | **Tracking Sheets: the centre column's views** (By bill, By cost code, Summary) | `src/app/trackingsheet/BillListView.tsx`, `CodeLanesView.tsx`, `BillingSummaryView.tsx` |
 | **Tracking Sheets: the job's sheet push and "Check this job"** | `src/app/trackingsheet/useTrackingPush.ts` (which sheet, the last push) and `usePreSendCheck.ts` (the invoice review's checks on one job) |
+| **Tracking Sheets all-jobs actions** (Sync to Tracking Sheets = every sheet's bill push + the month's Labor Report; Check all Jobs; Import Labor) | `src/app/trackingsheet/AllJobs.tsx` (the row), `SyncAllTrackingSheetsFor` in `src/components/TrackingSheetSync.tsx`, `src/app/trackingsheet/CheckAllJobs.tsx` (the workbench's check, once per job with cost) |
 | **Coding / Tracking Sheets workflow** | `src/app/trackingsheet/*` (Board, BillCodingCard, TimeCodingCard, ClientInvoicing, DraftWorkbench,
   AllJobs) + `src/app/api/trackingsheet/*`, `src/app/api/code` |
 | **Editing ONE time entry** (code / hours / day / job) | `src/app/trackingsheet/TimeCodingCard.tsx` + `src/app/api/time-entry` — reached from the ✎ on a row |

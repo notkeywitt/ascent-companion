@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Banner, Button, Spinner } from "@/components/ui";
 import { TrackingSheetRisks } from "@/components/TrackingSheetRisks";
 import { useAccess } from "@/components/AccessProvider";
+import { runLaborReport } from "@/components/LaborReportButton";
 import { createTaskRunner } from "@/lib/taskRunner";
 
 /**
@@ -266,10 +267,15 @@ export function TrackingSheetSyncFor({
 }
 
 /**
- * Self-contained "Sync All Tracking Sheets" button — every job wired to a
+ * Self-contained "Sync to Tracking Sheets" button — every job wired to a
  * tracking sheet (all of `/api/tracking-sheet`'s list, not just jobs with a
  * bill this month), for the given billing month. Renders nothing without the
  * "tracking-sheet" view or when no job has a sheet wired up.
+ *
+ * It files the month's Labor Report in the same press. The tracking sheets
+ * read their labor out of that Drive file (IMPORTRANGE), so a bill push alone
+ * leaves the sheet's labor columns a month behind. Skipped without the
+ * "labor-review" view, which gates `/api/labor-report`.
  */
 export function SyncAllTrackingSheetsFor({
   ym,
@@ -280,8 +286,10 @@ export function SyncAllTrackingSheetsFor({
 }) {
   const access = useAccess();
   const canTrack = access.can("tracking-sheet");
+  const canReport = access.can("labor-review");
   const [targets, setTargets] = useState<TrackingTarget[]>([]);
   const [states, setStates] = useState<Record<string, TrackingSyncState>>({});
+  const [labor, setLabor] = useState<{ busy?: boolean; error?: string; text?: string; url?: string }>({});
 
   useEffect(() => {
     if (!canTrack) return;
@@ -308,7 +316,10 @@ export function SyncAllTrackingSheetsFor({
 
   // A month change invalidates every result on screen — they describe another
   // billing period.
-  useEffect(() => setStates({}), [ym]);
+  useEffect(() => {
+    setStates({});
+    setLabor({});
+  }, [ym]);
 
   const start = useCallback(() => {
     const [y, m] = ym.split("-").map(Number);
@@ -316,7 +327,14 @@ export function SyncAllTrackingSheetsFor({
       const key = t.projectId;
       runTrackingSync(key, m, y, (s) => setStates((prev) => ({ ...prev, [key]: s })));
     }
-  }, [targets, ym]);
+    if (canReport) {
+      setLabor({ busy: true });
+      runLaborReport(ym).then(
+        (r) => setLabor(r),
+        (e) => setLabor({ error: e instanceof Error ? e.message : "Labor report failed" }),
+      );
+    }
+  }, [targets, ym, canReport]);
 
   const summary = useMemo(() => {
     let queued = 0,
@@ -342,26 +360,50 @@ export function SyncAllTrackingSheetsFor({
     return { queued, running, done, error, total: targets.length };
   }, [targets, states]);
 
-  const busy = summary.queued + summary.running > 0;
+  const busy = summary.queued + summary.running > 0 || !!labor.busy;
 
   if (!canTrack || targets.length === 0) return null;
   return (
     <div className={className}>
-      <Button variant="secondary" size="sm" disabled={busy} onClick={start}>
+      <Button
+        variant="secondary"
+        disabled={busy}
+        onClick={start}
+        className="min-h-11"
+        title="Create or update the month's Labor Report in Drive, and push every job's month of bills into its own Google Tracking Sheet."
+      >
         {busy ? (
           <>
             <Spinner className="mr-1.5" />
             Syncing {summary.done + summary.error}/{summary.total}…
           </>
         ) : (
-          "Sync All Tracking Sheets"
+          "Sync to Tracking Sheets"
         )}
       </Button>
       {!busy && (summary.done > 0 || summary.error > 0) && (
         <p className="mt-1.5 text-xs text-neutral-500">
-          {summary.done} synced
+          {summary.done} sheets synced
           {summary.error > 0 && (
             <span className="text-red-600 dark:text-red-400"> · {summary.error} failed</span>
+          )}
+        </p>
+      )}
+      {labor.error && (
+        <p role="alert" className="mt-1 text-xs text-red-600 dark:text-red-400">
+          Labor Report: {labor.error}
+        </p>
+      )}
+      {labor.text && (
+        <p className="mt-1 text-xs text-neutral-500">
+          {labor.text}
+          {labor.url && (
+            <>
+              {" "}
+              <a href={labor.url} target="_blank" rel="noreferrer" className="text-accent underline">
+                Open the sheet
+              </a>
+            </>
           )}
         </p>
       )}

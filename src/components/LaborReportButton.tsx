@@ -31,6 +31,28 @@ import { useAccess } from "@/components/AccessProvider";
  * Writes nothing to JobTread — the sheet mirrors what JobTread already holds,
  * so staged, unsynced recodes are deliberately absent from it.
  */
+/**
+ * File the month's Labor Report (`POST /api/labor-report`) and say what it did.
+ * Throws with the route's error. Shared with Tracking Sheets' "Sync to Tracking
+ * Sheets", which files the report beside the bill push because the tracking
+ * sheets read their labor out of this file.
+ */
+export async function runLaborReport(ym: string): Promise<{ text: string; url?: string }> {
+  const res = await fetch("/api/labor-report", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ym }),
+  });
+  const j = await res.json();
+  if (!res.ok || j?.error) throw new Error(j?.error ?? `HTTP ${res.status}`);
+  return {
+    text: `${j.created ? "Created" : "Updated"} “${j.title}” — ${j.entries} time ${
+      j.entries === 1 ? "entry" : "entries"
+    } across ${j.jobs} ${j.jobs === 1 ? "job" : "jobs"}.`,
+    url: typeof j.url === "string" ? j.url : undefined,
+  };
+}
+
 export function LaborReportButton({
   ym,
   className = "",
@@ -55,20 +77,7 @@ export function LaborReportButton({
     setBusy(true);
     setMsg(null);
     try {
-      const res = await fetch("/api/labor-report", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ym }),
-      });
-      const j = await res.json();
-      if (!res.ok || j?.error) throw new Error(j?.error ?? `HTTP ${res.status}`);
-      setMsg({
-        tone: "ok",
-        text: `${j.created ? "Created" : "Updated"} “${j.title}” — ${j.entries} time ${
-          j.entries === 1 ? "entry" : "entries"
-        } across ${j.jobs} ${j.jobs === 1 ? "job" : "jobs"}.`,
-        url: typeof j.url === "string" ? j.url : undefined,
-      });
+      setMsg({ tone: "ok", ...(await runLaborReport(ym)) });
     } catch (e) {
       setMsg({ tone: "error", text: e instanceof Error ? e.message : "Report failed" });
     } finally {

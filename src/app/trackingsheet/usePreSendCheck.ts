@@ -3,6 +3,16 @@
 import { useCallback, useEffect, useState } from "react";
 import type { PreSendResult } from "@/lib/invoiceReview/preSend";
 
+/** One job's check. Throws with the route's error. Also run per job by "Check all Jobs". */
+export async function fetchPreSend(jobId: string, ym: string): Promise<PreSendResult> {
+  const res = await fetch(
+    `/api/invoice-review/job?jobId=${encodeURIComponent(jobId)}&ym=${encodeURIComponent(ym)}`,
+  );
+  const json = await res.json();
+  if (!res.ok) throw new Error(json?.error ?? "The check failed.");
+  return json as PreSendResult;
+}
+
 /**
  * "Check this job" on the Tracking Sheets board — the invoice review's checks,
  * run on one job and month. Moved out of Board.tsx on 2026-09-29
@@ -22,12 +32,7 @@ export function usePreSendCheck({ jobId, ym }: { jobId: string; ym: string }) {
     setPreSendError("");
     setPreSend(null);
     try {
-      const res = await fetch(
-        `/api/invoice-review/job?jobId=${encodeURIComponent(jobId)}&ym=${encodeURIComponent(ym)}`,
-      );
-      const json = await res.json();
-      if (!res.ok) throw new Error(json?.error ?? "The check failed.");
-      setPreSend(json as PreSendResult);
+      setPreSend(await fetchPreSend(jobId, ym));
     } catch (e) {
       setPreSendError(e instanceof Error ? e.message : "The check failed.");
     } finally {
