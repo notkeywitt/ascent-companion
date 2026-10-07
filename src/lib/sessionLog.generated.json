@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-07T02:28:21Z",
+  "generatedAt": "2026-10-07T02:58:24Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,7 +8,7 @@
       "branch": "claude/ascent-clock-out-issue-yslhbe",
       "status": "shipped",
       "started": "2026-10-07T02:25:33Z",
-      "updated": "2026-10-07T02:28:21Z",
+      "updated": "2026-10-07T02:58:24Z",
       "goal": "stop a clock-in from closing a running JobTread clock",
       "next": "watch the first clock-ins after deploy; follow-up: pause/switch/clock-out still write endedAt onto an entry already closed elsewhere",
       "commits": [
@@ -18,6 +18,13 @@
           "sha": "cc4a738",
           "subject": "companion: refuse a clock-in while jobtread holds a running clock",
           "files": "src/app/api/employee-time/clock/route.ts, src/app/employee-time/EmployeeTimeClient.tsx, src/app/employee-time/page.tsx, src/lib/employeeClock.test.ts, src/lib/employeeClock.ts, src/lib/help.ts, +1 more"
+        },
+        {
+          "date": "2026-10-07",
+          "time": "02:58",
+          "sha": "7e67f05",
+          "subject": "companion: let only a fresh jobtread read clear the running clock",
+          "files": "src/app/employee-time/EmployeeTimeClient.tsx, src/app/employee-time/page.tsx"
         }
       ]
     },
