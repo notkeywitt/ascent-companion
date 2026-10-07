@@ -95,13 +95,9 @@ export default async function EmployeeTimePage() {
       initialMe={me}
       initialJtUsers={rosterForRole(jtUsers, role)}
       initialOrgTypes={orgTypes}
+      // The first paint only. The client re-reads the clock itself on every
+      // load, because Next.js can replay this answer hours later on Back.
       initialOpenEntry={clock?.openEntry ?? null}
-      // Only a resolved identity can say "JobTread has no clock for you", which
-      // is what lets the client clear a stale local one.
-      initialLinked={!!jtUserId && !!clock}
-      // The read above FAILED: no open entry here means "unknown", not "clocked
-      // out". The client asks again before it offers Clock in.
-      initialClockFailed={!!cfg && !!jtUserId && !clock}
       identityResolved={!!me}
       canActAs={canActAs}
       canCompare={canCompare}

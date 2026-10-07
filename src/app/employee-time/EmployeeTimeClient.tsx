@@ -565,8 +565,6 @@ export function EmployeeTimeClient({
   initialJtUsers,
   initialOrgTypes,
   initialOpenEntry,
-  initialLinked,
-  initialClockFailed = false,
   identityResolved,
   lastUsed,
   canActAs = false,
@@ -579,10 +577,8 @@ export function EmployeeTimeClient({
   initialMe: Me | null;
   initialJtUsers: UserRef[];
   initialOrgTypes: string[];
+  /** The shell's answer — first paint only; it can be old (see the mount effect). */
   initialOpenEntry: OpenEntry | null;
-  initialLinked: boolean;
-  /** The shell's JobTread read failed, so `initialOpenEntry: null` means "unknown". */
-  initialClockFailed?: boolean;
   identityResolved: boolean;
   lastUsed: LastUsed | null;
   /** Admin: may open this page as another employee. The server enforces it. */
@@ -668,10 +664,13 @@ export function EmployeeTimeClient({
   );
   const [nowMs, setNowMs] = useState(0);
   const [clockNote, setClockNote] = useState("");
-  // True only while the page is still asking who you are, or asking JobTread
-  // again after the shell's read failed. The clock button stays off until it
-  // answers, so a mis-tap cannot start a second entry.
-  const [resolving, setResolving] = useState(!identityResolved || initialClockFailed);
+  // True only while the COLD path is still asking who you are. The clock button
+  // stays off until it answers, so a mis-tap cannot start a second entry.
+  const [resolving, setResolving] = useState(!identityResolved);
+  // True until this page has asked JobTread for the running clock ITSELF. The
+  // shell's answer may be hours old (see the mount effect), so the clock button
+  // waits for a fresh one — a single JobTread read.
+  const [checkingClock, setCheckingClock] = useState(true);
   // The last check of JobTread for a running clock failed. Clock in is still
   // safe — the server checks again and refuses a second clock — but the screen
   // cannot say whether you are on the clock, so it says that instead.
@@ -729,6 +728,63 @@ export function EmployeeTimeClient({
   // user hasn't changed the pick themselves.
   const editWantCostRef = useRef<{ jobId: string; costItemId: string } | null>(null);
 
+  /* JobTread's answer, read JUST NOW, applied to the clock on screen. JobTread
+     wins: a clock it holds is shown, and a clock it has closed is cleared. Only
+     a clock JobTread could have seen is ever cleared — one on break or a preview
+     clock carries no entry id — and never one this page just clocked out, whose
+     update can still be on its way. Used on load and when the page comes back
+     to the foreground; never fed the server shell's answer, which can be old. */
+  const activeClockRef = useRef(activeClock);
+  activeClockRef.current = activeClock;
+  const busyRef = useRef(false);
+  busyRef.current = busy || resolving || checkingClock;
+  const actingRef = useRef(acting);
+  actingRef.current = acting;
+  function applyFreshClock(fresh: OpenEntry | null, linked: boolean) {
+    // Your own clock only: an admin who opened someone else meanwhile is
+    // looking at THEIR clock, which the acting effect reads.
+    if (actingRef.current) return;
+    const cur = activeClockRef.current;
+    const remote = fresh && !closedHereRef.current.has(fresh.entryId) ? fresh : null;
+    if (remote) {
+      if (cur?.entryId === remote.entryId) {
+        // Same clock. Keep what only this device knows (the log key, a banked
+        // break) and take JobTread's copy of the rest — it carries office edits.
+        const merged: ActiveClock = {
+          ...cur,
+          startedAt: remote.startedAt || cur.startedAt,
+          jobId: remote.jobId || cur.jobId,
+          jobLabel: remote.jobLabel || cur.jobLabel,
+          costItemId: remote.costItemId || cur.costItemId,
+          costCode: remote.costCode || cur.costCode,
+          costItemName: remote.costItemName || cur.costItemName,
+          payType: remote.payType || cur.payType,
+        };
+        setActiveClock(merged);
+        saveClock(merged);
+        return;
+      }
+      const resumed = clockFromOpenEntry(remote, true);
+      setActiveClock(resumed);
+      saveClock(resumed);
+      setClockNote("Picked up from JobTread — you were already clocked in.");
+      return;
+    }
+    if (cur?.entryId && linked && !fresh) {
+      try {
+        localStorage.removeItem(LS_CLOCK);
+      } catch {}
+      // The note belonged to that closed clock, so it goes with it.
+      const saved = readSavedNote();
+      if (saved && saved.entryId === cur.entryId) {
+        clearSavedNote();
+        setNote("");
+      }
+      setActiveClock(null);
+      setClockNote("That clock-in is already closed in JobTread — starting fresh.");
+    }
+  }
+
   // --- Mount: reconcile the local clock, then fill any gap the shell left. ---
   //
   // The server shell already carries the identity, the reference data, the jobs
@@ -756,7 +812,15 @@ export function EmployeeTimeClient({
     // (no endedAt) IS the running clock — so a clock resumes on ANY device.
     // Deliberately does NOT touch jobId/costItemId/payType: the clocked-in
     // context is rendered read-only from the resolved record itself.
-    function reconcile(remote: OpenEntry | null, linked: boolean) {
+    //
+    // This paints from the SHELL's answer, and it may resume a clock but never
+    // clear one. Next.js replays a page it already fetched when you go Back to
+    // it, props and all, so that answer can be hours old. On 2026-10-05 a copy
+    // rendered at 7:57, just before a crew member clocked in, came back at 12:31
+    // and again at 12:39 still saying "no clock running". This page believed it:
+    // it wiped the phone's record of the running clock, said the clock-in was
+    // already closed, and offered Clock in. Only the fresh read below may clear.
+    function reconcile(remote: OpenEntry | null) {
       if (remote) {
         if (local && local.entryId === remote.entryId) {
           // Same clock, seen from the device that started it. Keep what only
@@ -788,44 +852,33 @@ export function EmployeeTimeClient({
         return;
       }
 
-      // JobTread has no running clock. Only clear a local one that JobTread
-      // could actually have seen: a preview clock (writes off) has no entry id
-      // and lives here alone, and an unresolved identity means we never looked.
-      if (local && local.entryId && linked) {
-        try {
-          localStorage.removeItem(LS_CLOCK);
-        } catch {}
-        // The note belonged to that closed clock, so it goes with it.
-        const saved = readSavedNote();
-        if (saved && saved.entryId === local.entryId) {
-          clearSavedNote();
-          setNote("");
-        }
-        setActiveClock(null);
-        setClockNote("That clock-in is already closed in JobTread — starting fresh.");
-      } else if (local) {
-        setActiveClock(local);
-      }
+      if (local) setActiveClock(local);
+    }
+
+    // The fresh read. It decides, and the clock button waits for it.
+    function confirmClock() {
+      fetch("/api/employee-time/clock", { cache: "no-store" })
+        .then((r) => r.json())
+        .then((j: { ok?: boolean; linked?: boolean; openEntry?: OpenEntry | null }) => {
+          if (j.ok === false) {
+            setClockUnknown(true); // can't tell — leave the clock on screen alone
+            return;
+          }
+          setClockUnknown(false);
+          applyFreshClock(j.openEntry ?? null, !!j.linked);
+        })
+        .catch(() => {
+          /* offline: the localStorage record stands */
+          setClockUnknown(true);
+        })
+        .finally(() => {
+          setResolving(false);
+          setCheckingClock(false);
+        });
     }
 
     if (identityResolved) {
-      reconcile(initialOpenEntry, initialLinked);
-      if (initialClockFailed) {
-        // The shell could not read JobTread. Ask once more before Clock in is
-        // offered: a screen that wrongly shows "clocked out" invites a second
-        // clock-in, and JobTread closes the real one when that lands.
-        fetch("/api/employee-time/clock", { cache: "no-store" })
-          .then((r) => r.json())
-          .then((j: { ok?: boolean; linked?: boolean; openEntry?: OpenEntry | null }) => {
-            if (j.ok === false) {
-              setClockUnknown(true);
-              return;
-            }
-            reconcile(j.openEntry ?? null, !!j.linked);
-          })
-          .catch(() => setClockUnknown(true))
-          .finally(() => setResolving(false));
-      }
+      reconcile(initialOpenEntry);
     } else {
       // COLD path: the roster link was not cached, so the shell could not name
       // you. Show the screen anyway (the local clock stands) and resolve in the
@@ -843,22 +896,8 @@ export function EmployeeTimeClient({
           setOrgTypes(j.orgTypes ?? []);
         })
         .catch(() => setErr("Couldn't reach the server."));
-
-      fetch("/api/employee-time/clock")
-        .then((r) => r.json())
-        .then((j: { ok?: boolean; linked?: boolean; openEntry?: OpenEntry | null }) => {
-          if (j.ok === false) {
-            setClockUnknown(true); // can't tell — leave the local record alone
-            return;
-          }
-          reconcile(j.openEntry ?? null, !!j.linked);
-        })
-        .catch(() => {
-          /* offline: the localStorage record stands */
-          setClockUnknown(true);
-        })
-        .finally(() => setResolving(false));
     }
+    confirmClock();
 
     // Fallback only: the server preload covers the normal case, so this fires
     // just when it failed or the grant was missing at render time.
@@ -1701,10 +1740,6 @@ export function EmployeeTimeClient({
      JobTread close the real one. Same rules as the mount reconcile: JobTread
      wins, and only a clock JobTread could have seen is cleared. An admin's
      view of someone else re-reads through the effect above instead. */
-  const activeClockRef = useRef(activeClock);
-  activeClockRef.current = activeClock;
-  const busyRef = useRef(false);
-  busyRef.current = busy || resolving;
   useEffect(() => {
     if (acting) return;
     let inFlight = false;
@@ -1721,29 +1756,7 @@ export function EmployeeTimeClient({
           setClockUnknown(false);
           // Something started on this screen meanwhile; its own answer wins.
           if (busyRef.current) return;
-          const cur = activeClockRef.current;
-          const remote = j.openEntry && !closedHereRef.current.has(j.openEntry.entryId) ? j.openEntry : null;
-          if (remote) {
-            if (cur?.entryId === remote.entryId) return;
-            const resumed = clockFromOpenEntry(remote, true);
-            setActiveClock(resumed);
-            saveClock(resumed);
-            setClockNote("Picked up from JobTread — you were already clocked in.");
-            return;
-          }
-          // A clock on break carries no entry id, so it is never cleared here.
-          if (cur?.entryId && j.linked && !j.openEntry) {
-            try {
-              localStorage.removeItem(LS_CLOCK);
-            } catch {}
-            const saved = readSavedNote();
-            if (saved && saved.entryId === cur.entryId) {
-              clearSavedNote();
-              setNote("");
-            }
-            setActiveClock(null);
-            setClockNote("That clock-in is already closed in JobTread — starting fresh.");
-          }
+          applyFreshClock(j.openEntry ?? null, !!j.linked);
         })
         .catch(() => setClockUnknown(true))
         .finally(() => {
@@ -1759,6 +1772,8 @@ export function EmployeeTimeClient({
       document.removeEventListener("visibilitychange", recheck);
       window.removeEventListener("pageshow", onPageShow);
     };
+    // applyFreshClock reads the clock through refs, so the first one is current.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [acting]);
 
   // --------------------------------------------------------------- Timesheets
@@ -2320,7 +2335,7 @@ export function EmployeeTimeClient({
               <button
                 type="button"
                 onClick={startBreak}
-                disabled={busy || !activeClock?.entryId}
+                disabled={busy || checkingClock || !activeClock?.entryId}
                 aria-label="Start a break"
                 title="Start a break — closes this entry and opens a new one when you come back"
                 className="absolute left-0 flex h-14 w-14 items-center justify-center rounded-full bg-amber-400 text-black shadow-lg transition hover:bg-amber-500 active:scale-95 disabled:opacity-40"
@@ -2350,7 +2365,7 @@ export function EmployeeTimeClient({
                       }
                     : clockIn
               }
-              disabled={busy || resolving}
+              disabled={busy || resolving || checkingClock}
               className={`min-w-[220px] rounded-full px-10 py-4 text-lg font-bold shadow-lg transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 ${
                 onBreakSince
                   ? "bg-amber-400 text-black hover:bg-amber-500"
@@ -2361,7 +2376,7 @@ export function EmployeeTimeClient({
             >
               {busy
                 ? "Working…"
-                : resolving
+                : resolving || checkingClock
                   ? "Checking…"
                   : onBreakSince
                     ? "End Break"
