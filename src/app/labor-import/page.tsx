@@ -24,7 +24,8 @@ const DEFAULT_START_HOUR = 8;
 // NOTE: there is deliberately no default `Type`. A time entry's type is a PAY
 // TYPE, each member has their own set, and they're job-scoped (different rates on
 // different jobs) — e.g. "Regular Pay" isn't even available to Ty O'Steen. So it
-// is chosen per (worker × job), never assumed.
+// is chosen per (worker × job × cost code), never assumed: one electrician on one
+// job is paid one rate for field work and another for PM or office time.
 
 // The output header row, named to match JobTread's importer fields exactly.
 // `User ID` is the one to map in JobTread — it's unambiguous. `User Name` is
@@ -44,10 +45,13 @@ const JT_HEADERS = [
 
 const JOB_ID_STORE = "laborImport.jobIdMap.v1";
 const WORKER_ID_STORE = "laborImport.workerIdMap.v1";
-const TYPE_STORE = "laborImport.typeMap.v1";
+// v2: keyed per cost code too. v1 picks (per worker × job) are not carried over —
+// reusing one would put a single rate on every code, the error v2 exists to stop.
+const TYPE_STORE = "laborImport.typeMap.v2";
 
-// A pay type is picked per worker AND per job, so key the choice on both.
-const typeKey = (worker: string, jobRaw: string) => `${worker}|||${jobRaw}`;
+// A pay type is picked per worker, job AND cost code, so key the choice on all three.
+const typeKey = (worker: string, jobRaw: string, code: string) =>
+  `${worker}|||${jobRaw}|||${code}`;
 const PROJECTS_MAP_STORE = "laborImport.projectsMap.v2"; // v2: ProjectLink (multi-id), not a bare id
 
 // A JobTread job from the read-only /api/jobs endpoint (for the picker).
@@ -405,7 +409,7 @@ export default function LaborImportPage() {
   const [orgTypes, setOrgTypes] = useState<string[]>([]);
   const [usersError, setUsersError] = useState("");
   const [workerIdMap, setWorkerIdMap] = useState<Record<string, string>>({});
-  // (worker|||job) → pay-type name.
+  // (worker|||job|||code) → pay-type name.
   const [typeMap, setTypeMap] = useState<Record<string, string>>({});
 
   // jobcode_1 → the JobTread job(s) it points at, from the exported Projects tab CSV.
@@ -459,9 +463,9 @@ export default function LaborImportPage() {
     });
   }
 
-  function setType(worker: string, jobRaw: string, name: string) {
+  function setType(key: string, name: string) {
     setTypeMap((prev) => {
-      const next = { ...prev, [typeKey(worker, jobRaw)]: name };
+      const next = { ...prev, [key]: name };
       try {
         localStorage.setItem(TYPE_STORE, JSON.stringify(next));
       } catch {}
@@ -559,12 +563,13 @@ export default function LaborImportPage() {
   };
 
   /**
-   * A row's `type`. Chosen per (worker × job) — types are job-scoped and vary by
-   * person, so nothing is assumed. Auto-filled only when the worker has exactly
+   * A row's `type`. Chosen per (worker × job × cost code) — types are job-scoped,
+   * vary by person, and one job can pay field, PM and office time at different
+   * rates, so nothing is assumed. Auto-filled only when the worker has exactly
    * one option (then there's nothing to choose).
    */
-  const typeFor = (e: Entry) => {
-    const picked = (typeMap[typeKey(e.worker, e.jobRaw)] ?? "").trim();
+  const typeFor = (e: Pick<Entry, "worker" | "jobRaw" | "serviceItem">) => {
+    const picked = (typeMap[typeKey(e.worker, e.jobRaw, e.serviceItem)] ?? "").trim();
     if (picked) return picked;
     const opts = typeOptionsFor(e.worker);
     return opts.length === 1 ? opts[0].name : "";
@@ -757,23 +762,28 @@ export default function LaborImportPage() {
     [selected, jobIdMap, projectsMap, jobInfo, budgets, ttBudgets, workerIdMap, typeMap, jtUsers, orgTypes],
   );
 
-  // (worker × job) pairs in play, and those still missing a pay type.
-  const typePairs = useMemo(() => {
-    const m = new Map<string, { worker: string; jobRaw: string }>();
+  // (worker × job × cost code) combinations in play, each with its time entries,
+  // sorted worker → job → code so the Pay type list reads as a nested outline.
+  const typeCombos = useMemo(() => {
+    const m = new Map<string, { key: string; worker: string; jobRaw: string; code: string; entries: Entry[] }>();
     for (const e of selected) {
-      if (!m.has(typeKey(e.worker, e.jobRaw))) {
-        m.set(typeKey(e.worker, e.jobRaw), { worker: e.worker, jobRaw: e.jobRaw });
-      }
+      const key = typeKey(e.worker, e.jobRaw, e.serviceItem);
+      const c = m.get(key) ?? { key, worker: e.worker, jobRaw: e.jobRaw, code: e.serviceItem, entries: [] };
+      c.entries.push(e);
+      m.set(key, c);
     }
     return [...m.values()].sort(
-      (a, b) => a.worker.localeCompare(b.worker) || a.jobRaw.localeCompare(b.jobRaw),
+      (a, b) =>
+        a.worker.localeCompare(b.worker) ||
+        a.jobRaw.localeCompare(b.jobRaw) ||
+        a.code.localeCompare(b.code),
     );
   }, [selected]);
 
   const typesNeeded = useMemo(
-    () => typePairs.filter((p) => !typeFor({ worker: p.worker, jobRaw: p.jobRaw } as Entry)),
+    () => typeCombos.filter((c) => !typeFor({ worker: c.worker, jobRaw: c.jobRaw, serviceItem: c.code })),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [typePairs, typeMap, workerIdMap, jtUsers, orgTypes],
+    [typeCombos, typeMap, workerIdMap, jtUsers, orgTypes],
   );
 
   // Mapped to a job, but the CSI has no time-trackable cost item in that job's
@@ -1099,8 +1109,8 @@ export default function LaborImportPage() {
             </div>
           )}
 
-          {/* Pay type — per worker AND per job */}
-          {typePairs.length > 0 && (
+          {/* Pay type — per worker × job × cost code, each with its time entries */}
+          {typeCombos.length > 0 && (
             <div className="mb-5 rounded-xl border border-line bg-white p-3 dark:bg-ink-raised">
               <div className="mb-2 text-sm font-semibold">
                 Pay type
@@ -1112,10 +1122,10 @@ export default function LaborImportPage() {
               </div>
               <p className="mb-3 text-xs text-neutral-500">
                 JobTread requires a <code>Type</code> on every time entry, and it&apos;s a{" "}
-                <b>pay rate</b>: each person has their own set, scoped per job (different rates on
-                different jobs) — so &quot;Regular Pay&quot; isn&apos;t even an option for everyone.
-                Nothing is assumed: pick one per worker × job (auto-set only when someone has a
-                single option). Remembered on this device.
+                <b>pay rate</b>: each person has their own set, and one job can pay field, PM and
+                office work at different rates. So the pick is per worker × job ×{" "}
+                <b>cost code</b> — one row per combination, with its time entries underneath.
+                Auto-set only when someone has a single option. Remembered on this device.
                 {jtUsers && !jtUsers.some((u) => u.types) && (
                   <span className="block text-amber-600 dark:text-amber-400">
                     Showing all {orgTypes.length} org pay types — the JT grant can&apos;t read each
@@ -1124,43 +1134,73 @@ export default function LaborImportPage() {
                   </span>
                 )}
               </p>
-              <div className="space-y-2">
-                {typePairs.map((p) => {
-                  const opts = typeOptionsFor(p.worker);
-                  const cur = typeFor({ worker: p.worker, jobRaw: p.jobRaw } as Entry);
-                  const mapped = !!userIdFor(p.worker);
+              <div>
+                {typeCombos.map((c, i) => {
+                  const prev = typeCombos[i - 1];
+                  const newWorker = c.worker !== prev?.worker;
+                  const newJob = newWorker || c.jobRaw !== prev?.jobRaw;
+                  const opts = typeOptionsFor(c.worker);
+                  const cur = typeFor({ worker: c.worker, jobRaw: c.jobRaw, serviceItem: c.code });
+                  const mapped = !!userIdFor(c.worker);
+                  const hours = c.entries.reduce((s, e) => s + e.hours, 0);
                   return (
-                    <div key={typeKey(p.worker, p.jobRaw)} className="flex items-center gap-2">
-                      <span
-                        className="w-48 shrink-0 truncate text-sm"
-                        title={`${p.worker} · ${p.jobRaw}`}
-                      >
-                        {p.worker}
-                        <span className="block truncate text-xs text-neutral-400">{p.jobRaw}</span>
-                      </span>
-                      <select
-                        value={typeMap[typeKey(p.worker, p.jobRaw)] ?? cur ?? ""}
-                        onChange={(e) => setType(p.worker, p.jobRaw, e.target.value)}
-                        className="flex-1 rounded-md border border-neutral-300 bg-white px-2 py-1 text-sm transition focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 dark:border-neutral-600 dark:bg-ink"
-                      >
-                        <option value="">
-                          {mapped ? "— pick a pay type —" : "— map this worker first —"}
-                        </option>
-                        {opts.map((t) => (
-                          <option key={t.name} value={t.name}>
-                            {t.name +
-                              (typeof t.hourlyRate === "number" ? ` ($${t.hourlyRate}/hr)` : "")}
+                    <div key={c.key}>
+                      {newWorker && (
+                        <div
+                          className={
+                            "text-sm font-semibold" + (i > 0 ? " mt-4 border-t border-line-soft pt-3" : "")
+                          }
+                        >
+                          {c.worker}
+                        </div>
+                      )}
+                      {newJob && (
+                        <div className="mt-2 text-xs font-medium text-neutral-500 dark:text-neutral-400">
+                          {c.jobRaw || "(no job)"}
+                        </div>
+                      )}
+                      <div className="mt-1 flex items-center gap-2 pl-3">
+                        <span className="w-44 shrink-0 truncate text-sm" title={c.code}>
+                          {c.code}
+                        </span>
+                        <select
+                          value={typeMap[c.key] ?? cur ?? ""}
+                          onChange={(e) => setType(c.key, e.target.value)}
+                          className="min-w-0 flex-1 rounded-md border border-neutral-300 bg-white px-2 py-1 text-sm transition focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 dark:border-neutral-600 dark:bg-ink"
+                        >
+                          <option value="">
+                            {mapped ? "— pick a pay type —" : "— map this worker first —"}
                           </option>
-                        ))}
-                      </select>
-                      <span
-                        className={
-                          "w-24 shrink-0 whitespace-nowrap text-right text-xs " +
-                          (cur ? "text-accent dark:text-accent-soft" : "text-amber-500")
-                        }
-                      >
-                        {cur ? "✓ set" : "unset"}
-                      </span>
+                          {opts.map((t) => (
+                            <option key={t.name} value={t.name}>
+                              {t.name +
+                                (typeof t.hourlyRate === "number" ? ` ($${t.hourlyRate}/hr)` : "")}
+                            </option>
+                          ))}
+                        </select>
+                        <span
+                          className={
+                            "w-16 shrink-0 whitespace-nowrap text-right text-xs " +
+                            (cur ? "text-accent dark:text-accent-soft" : "text-amber-500")
+                          }
+                        >
+                          {cur ? "✓ set" : "unset"}
+                        </span>
+                      </div>
+                      <details className="pl-3 text-xs text-neutral-500">
+                        <summary className="cursor-pointer py-1">
+                          {c.entries.length} {c.entries.length === 1 ? "entry" : "entries"} ·{" "}
+                          {fmtHours(hours)} h
+                        </summary>
+                        <ul className="mb-1 space-y-0.5 pl-3">
+                          {c.entries.map((e) => (
+                            <li key={e.idx}>
+                              {e.start.slice(0, 10)} · {fmtHours(e.hours)} h
+                              {e.notes && ` · ${e.notes}`}
+                            </li>
+                          ))}
+                        </ul>
+                      </details>
                     </div>
                   );
                 })}
@@ -1303,6 +1343,8 @@ export default function LaborImportPage() {
 }
 
 // ---- Small presentational helpers ------------------------------------------
+
+const fmtHours = (h: number) => String(Math.round(h * 100) / 100);
 
 function tally(entries: Entry[] | null, key: (e: Entry) => string): [string, number][] {
   const m = new Map<string, number>();
