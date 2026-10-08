@@ -77,6 +77,7 @@ export const uninvoicedCheck = defineJobCheck<UninvoicedConfig>({
             `invoiced this month. That cost is absorbed unless it was held back on purpose.`,
           amount: bill.cost,
           sourceLink: billLink(job.jobId, bill.id),
+          target: { kind: "bill", billId: bill.id },
           sourceLabel: "Open the bill",
         });
       }
@@ -98,6 +99,11 @@ export const uninvoicedCheck = defineJobCheck<UninvoicedConfig>({
         amount: job.uninvoicedTimeCost,
         sourceLink: `/labor-review?jobId=${encodeURIComponent(job.jobId)}&ym=${month.ym}`,
         sourceLabel: "Open labor review",
+        // The same test uninvoicedTimeCost sums over — on no invoice, draft included.
+        target: {
+          kind: "labor",
+          entryIds: job.labor.filter((t) => t.invoiceIds.length === 0).map((t) => t.id),
+        },
       });
     }
 

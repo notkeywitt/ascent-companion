@@ -119,7 +119,7 @@ export function AllJobs() {
           >
             {check.running
               ? `Checking ${check.finished}/${check.total}…`
-              : check.total
+              : Object.keys(check.runs).length
                 ? "Check all Jobs again"
                 : "Check all Jobs"}
           </Button>
@@ -131,7 +131,7 @@ export function AllJobs() {
         )}
       </div>
 
-      <CheckAllResults jobs={month.jobs} {...check} ym={ym} monthLabel={monthLabel} />
+      <CheckAllResults jobs={month.jobs} check={check} ym={ym} monthLabel={monthLabel} />
 
       {/* Ingested bills that never reached JobTread at all — the step before the
           list. They're on no invoice and aren't even a JobTread draft yet, so

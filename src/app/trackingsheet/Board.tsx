@@ -76,7 +76,11 @@ import { BILL_STRIPE_COLOR, billInvoiceState } from "@/lib/billInvoiceState";
 import { billPaidState, driveMainWindowToDoc, type Detail } from "@/components/BillingSummary";
 import { runTrackingSync } from "@/components/TrackingSheetSync";
 import { TrackingSheetRisks } from "@/components/TrackingSheetRisks";
-import { PreSendCheck } from "./PreSendCheck";
+import { PreSendCheck, sourceLinkOf, type FindingLink } from "./PreSendCheck";
+import { BillPopup } from "./BillPopup";
+import type { Selection } from "./DraftWorkbench";
+import { readLaborFocus, withoutFocus, type LaborFocus } from "./findingFocus";
+import type { Finding } from "@/lib/invoiceReview/types";
 import { LaborReportButton } from "@/components/LaborReportButton";
 import { useAccess } from "@/components/AccessProvider";
 import { useCopy } from "@/components/CopyProvider";
@@ -428,7 +432,7 @@ export function Board() {
   });
 
   // ---- pre-send check (the invoice review's checks, on this job) — ./usePreSendCheck
-  const { preSend, preSendRunning, preSendError, runPreSend } = usePreSendCheck({ jobId, ym });
+  const { preSend, preSendRunning, runPreSend, recheck, clear, unclear } = usePreSendCheck({ jobId, ym });
 
   // The budget column's screen state (search, folds, hide) — ./useRailView.
   const {
@@ -1420,6 +1424,47 @@ export function Board() {
    */
   const [barHover, setBarHover] = useState(false);
 
+  // ---- the check's findings: the hooks, above the no-job guard -------------
+  /** The bill a finding opened, below xl — see openFindingBill. */
+  const [billPopup, setBillPopup] = useState<Selection | null>(null);
+
+  /**
+   * A labor finding opens the labor list, narrowed to the person and/or cost
+   * code it names, with its entries ticked — so the recode drawer is already
+   * holding them. A finding naming neither (unbilled labor) ungroups the list,
+   * because a ticked entry inside a shut group is a tick nobody sees.
+   */
+  const focusLabor = (t: LaborFocus) => {
+    if (mode === "summary") setMode("bill");
+    setTimeBlockOpen(true);
+    timeFilters.clear();
+    if (t.employee) timeFilters.setEmployees(new Set([t.employee]));
+    if (t.code) timeFilters.setCode(t.code);
+    if (!t.employee && !t.code) timeFilters.setGroupBy("none");
+    const here = new Set(monthTime.map((x) => x.id));
+    setTimeSelected(new Set(t.entryIds.filter((id) => here.has(id))));
+    setOpenTimeId(null);
+    requestAnimationFrame(() =>
+      document.getElementById("labor-block")?.scrollIntoView({ block: "start", behavior: "smooth" }),
+    );
+  };
+
+  /**
+   * "Check all Jobs" hands a labor finding over in the URL (findingFocus.ts).
+   * Applied once, after the month's entries are on screen, then taken out of
+   * the URL so a reload or a Back does not re-apply it.
+   */
+  const urlFocus = useRef<LaborFocus | null>(readLaborFocus(params));
+  useEffect(() => {
+    const f = urlFocus.current;
+    if (!f || !data) return;
+    urlFocus.current = null;
+    focusLabor(f);
+    router.replace(`/trackingsheet?${withoutFocus(params.toString())}`, { scroll: false });
+    // Fires on the first load only — the ref is spent after it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data]);
+
   // Defensive only: ClientInvoicing.tsx routes the no-job case to <AllJobs />
   // before this component ever mounts, so this is the guard for a direct render,
   // not a state the office can reach.
@@ -1737,6 +1782,41 @@ export function Board() {
     );
   };
 
+  // ---- the check's findings, opened where they are -------------------------
+  /**
+   * A bill finding opens its bill. From xl up that is THIS board's coding
+   * column, beside its row — the card the office codes in. Below xl the column
+   * does not exist, and leaving for /bill would cost the results card, so the
+   * bill opens in a popup over the board instead, and the board re-reads the
+   * month when it closes (the popup saves straight to JobTread).
+   */
+  const openFindingBill = (billId: string, label: string) => {
+    const b = data?.bills.find((x) => x.id === billId);
+    if (!belowXl && b) {
+      setMode("bill");
+      setBillCodeFilter(null);
+      if (sunsetDocIds.has(b.id)) setSunsetBlockOpen(true);
+      else setBillBlockOpen(true);
+      driveMainWindowToDoc(jobId, b.id);
+      setOpenTimeId(null);
+      setOpenDocId(b.id);
+      requestAnimationFrame(() =>
+        document.getElementById(`bill-${b.id}`)?.scrollIntoView({ block: "center", behavior: "smooth" }),
+      );
+      return;
+    }
+    setBillPopup({ docId: billId, jobId, label, jobName: jobTitle });
+  };
+
+  /** Where each finding row goes. A link back to this same board is dropped. */
+  const findingLink = (f: Finding): FindingLink | null => {
+    const t = f.target;
+    if (t?.kind === "bill") return { label: "Open the bill", onClick: () => openFindingBill(t.billId, f.title) };
+    if (t?.kind === "labor") return { label: "Open the labor list", onClick: () => focusLabor(t) };
+    if (f.sourceLink?.startsWith(`/trackingsheet?jobId=${encodeURIComponent(jobId)}`)) return null;
+    return sourceLinkOf(f);
+  };
+
   /**
    * The month's three closing actions, in the order you do them: check the job,
    * push the sheet, approve the drafts. ONE definition, rendered in two places
@@ -1756,7 +1836,7 @@ export function Board() {
         disabled={preSendRunning}
         className="min-h-11"
       >
-        {preSendRunning ? "Checking…" : preSend ? "Check again" : "Check this job"}
+        {preSendRunning ? "Checking…" : preSend.mem ? "Check again" : "Check this job"}
       </Button>
       {trackingSheetAction("min-h-11")}
       <Button
@@ -2241,7 +2321,7 @@ export function Board() {
                 there's no second layout to learn); tap a row to fix its hours,
                 day, code or job without leaving the month. ---- */}
             {mode !== "summary" && (
-              <Card pad={false} className="mb-2 overflow-hidden">
+              <Card id="labor-block" pad={false} className="mb-2 scroll-mt-20 overflow-hidden">
                 {/* The header is a ROW, not one button: the chevron toggles the
                     list and "Add time" opens the dialog, and a button inside a
                     button is invalid markup (the inner click would also fire the
@@ -2507,10 +2587,26 @@ export function Board() {
           spot in the DOM so it lands above the workbench on desktop (the grid
           below is `lg:order-1`) and below it on a phone, and it renders only
           once there is something to report. */}
-      {jobId && (preSend || preSendError || preSendRunning) && (
+      {jobId && (preSend.mem || preSend.error || preSendRunning) && (
         <div className="order-last mt-4 lg:order-none lg:mb-4">
-          <PreSendCheck result={preSend} error={preSendError} />
+          <PreSendCheck
+            run={preSend}
+            linkFor={findingLink}
+            onRecheck={recheck}
+            onClear={clear}
+            onUnclear={unclear}
+          />
         </div>
+      )}
+
+      {billPopup && (
+        <BillPopup
+          sel={billPopup}
+          onClose={() => {
+            setBillPopup(null);
+            load({ preserveStaged: true });
+          }}
+        />
       )}
 
       {/* THE MONTH'S LAST STEP, on touch: approve the month's draft bills, then

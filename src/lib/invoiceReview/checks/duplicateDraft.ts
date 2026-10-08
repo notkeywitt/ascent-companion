@@ -126,6 +126,7 @@ export const duplicateDraftCheck = defineJobCheck<DuplicateDraftConfig>({
           `the rest. Bills: ${group.map((b) => b.label).join(", ")}.`,
         amount: surplus,
         sourceLink: billLink(job.jobId, drafts[0].id),
+        target: { kind: "bill", billId: drafts[0].id },
         sourceLabel: "Open the draft",
       });
     }

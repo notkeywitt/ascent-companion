@@ -181,6 +181,7 @@ export const laborRateCheck = defineJobCheck<LaborRateConfig>({
           amount: g.cost,
           sourceLink: link,
           sourceLabel: "Open Labor Review",
+          target: { kind: "labor", employee: g.employee, entryIds: g.entries.map((e) => e.id) },
         });
         continue;
       }
@@ -213,6 +214,7 @@ export const laborRateCheck = defineJobCheck<LaborRateConfig>({
             amount: variance,
             sourceLink: link,
             sourceLabel: "Open Labor Review",
+            target: { kind: "labor", employee: g.employee, entryIds: g.entries.map((e) => e.id) },
           });
           willBecome.set(subjectOf(g.employee, g.payType), current);
           continue; // a split already says everything a stale finding would
@@ -256,6 +258,14 @@ export const laborRateCheck = defineJobCheck<LaborRateConfig>({
         amount: variance,
         sourceLink: link,
         sourceLabel: "Open Labor Review",
+        // Only the entries at a rate that is not the current one — the ones to re-save.
+        target: {
+          kind: "labor",
+          employee: g.employee,
+          entryIds: g.entries
+            .filter((e) => !withinTolerance(e.rate, current, global.tolerance))
+            .map((e) => e.id),
+        },
       });
       willBecome.set(subjectOf(g.employee, g.payType), current);
     }
@@ -274,6 +284,8 @@ export const laborRateCheck = defineJobCheck<LaborRateConfig>({
       byRate: Map<number, number>;
       /** rate → who worked at it, for the detail line. */
       whoByRate: Map<number, Set<string>>;
+      /** Each entry and the rate it is counted at, for the finding's target. */
+      entries: { id: string; rate: number }[];
     }
     const byCode = new Map<string, CodeGroup>();
     for (const e of job.labor) {
@@ -285,6 +297,7 @@ export const laborRateCheck = defineJobCheck<LaborRateConfig>({
         cost: 0,
         byRate: new Map<number, number>(),
         whoByRate: new Map<number, Set<string>>(),
+        entries: [],
       };
       // The rate this entry will carry once the per-person findings above are
       // acted on. Reasoning on that, not on what is recorded today, is what
@@ -297,6 +310,7 @@ export const laborRateCheck = defineJobCheck<LaborRateConfig>({
       const who = g.whoByRate.get(rate) ?? new Set<string>();
       who.add(e.employee);
       g.whoByRate.set(rate, who);
+      g.entries.push({ id: e.id, rate });
       byCode.set(e.code, g);
     }
 
@@ -339,6 +353,12 @@ export const laborRateCheck = defineJobCheck<LaborRateConfig>({
         amount: variance,
         sourceLink: link,
         sourceLabel: "Open Labor Review",
+        // The code, and the entries OFF its dominant rate — the ones to look at.
+        target: {
+          kind: "labor",
+          code: g.code,
+          entryIds: g.entries.filter((x) => x.rate !== dominant).map((x) => x.id),
+        },
       });
     }
 

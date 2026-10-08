@@ -102,6 +102,7 @@ export const backupCheck = defineJobCheck<BackupConfig>({
             `off. The client is billed from the JobTread figure.`,
           amount: Math.abs(gap),
           sourceLink: billLink(job.jobId, bill.id),
+          target: { kind: "bill", billId: bill.id },
           sourceLabel: "Open the bill",
         });
       }
@@ -122,6 +123,7 @@ export const backupCheck = defineJobCheck<BackupConfig>({
           `Either the backup was never filed or it is filed under the wrong job.`,
         amount: bill.cost,
         sourceLink: billLink(job.jobId, bill.id),
+        target: { kind: "bill", billId: bill.id },
         sourceLabel: "Open the bill",
       });
     }

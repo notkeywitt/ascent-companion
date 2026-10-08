@@ -39,6 +39,7 @@ export const duplicateBillCheck = defineJobCheck<DuplicateBillConfig>({
           `for it more than once.`,
         amount: bill.cost,
         sourceLink: billLink(job.jobId, bill.id),
+        target: { kind: "bill", billId: bill.id },
         sourceLabel: "Open the bill",
       });
     }

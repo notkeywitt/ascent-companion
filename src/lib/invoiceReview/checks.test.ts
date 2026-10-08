@@ -1250,6 +1250,25 @@ describe("the links a finding hands the office", () => {
     expect(billLinks.length).toBeGreaterThan(0);
     for (const l of billLinks) expect(l).toContain("jobId=");
   });
+
+  it("names the bill itself on every bill-level finding, so the board can open it", () => {
+    const f = runChecks(
+      month([
+        job({
+          invoices: [invoice({ id: "i1" })],
+          bills: [
+            bill({ id: "b1", cost: 900, invoiced: false }),
+            bill({ id: "b2", cost: 400, invoiceIds: ["i1", "i2"] }),
+          ],
+        }),
+      ]),
+    );
+    for (const x of f.filter((y) => y.sourceLink?.startsWith("/bill/"))) {
+      expect(x.target?.kind).toBe("bill");
+      expect(x.sourceLink).toContain(`/bill/${x.target?.kind === "bill" ? x.target.billId : "?"}`);
+    }
+    expect(f.find((x) => x.kind === "bill-uninvoiced")?.target).toEqual({ kind: "bill", billId: "b1" });
+  });
 });
 
 // ── deposit lines (cost code CD) — DEPOSITS_PLAN.md, Stage 1b ────────────────

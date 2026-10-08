@@ -334,3 +334,48 @@ describe("laborRateCheck", () => {
     expect(out[1].title).toContain("Wyatt Weisman");
   });
 });
+
+// The board opens a labor finding by narrowing its list to the person or code
+// and ticking the entries named — so the target must name the RIGHT entries.
+describe("laborRateCheck — what each finding points the board at", () => {
+  it("a stale rate names the person and only that pay type's entries", () => {
+    const out = run(
+      [
+        entry({ id: "old", rate: 65, hours: 40, cost: 2600 }),
+        // Another pay type, at its current rate — not part of the finding.
+        entry({ id: "ot", payType: "Overtime", rate: 97.5, hours: 4, cost: 390 }),
+      ],
+      card([
+        ["Eric Johnson", "Regular Pay", 75],
+        ["Eric Johnson", "Overtime", 97.5],
+      ]),
+    );
+    const stale = out.find((f) => f.kind === "labor-rate-stale");
+    expect(stale?.target).toEqual({ kind: "labor", employee: "Eric Johnson", entryIds: ["old"] });
+  });
+
+  it("a split names the person and every entry of the pay type", () => {
+    const out = run(
+      [
+        entry({ id: "a", employee: "Seth June", code: "06 20 13", rate: 75, hours: 24.72, cost: 1854 }),
+        entry({ id: "b", employee: "Seth June", code: "06 15 00", rate: 85, hours: 15.25, cost: 1296.25 }),
+      ],
+      card([["Seth June", "Regular Pay", 75]]),
+    );
+    expect(out[0].target).toEqual({ kind: "labor", employee: "Seth June", entryIds: ["a", "b"] });
+  });
+
+  it("a code spread names the code and the entries off its dominant rate", () => {
+    const out = run(
+      [
+        entry({ id: "a", employee: "Ty O'Steen", code: "01 31 10", rate: 85, hours: 26.5, cost: 2252.5 }),
+        entry({ id: "b", employee: "Cedar", code: "01 31 10", rate: 75, hours: 22.93, cost: 1719.75 }),
+      ],
+      card([
+        ["Ty O'Steen", "Regular Pay", 85],
+        ["Cedar", "Regular Pay", 75],
+      ]),
+    );
+    expect(out[0].target).toEqual({ kind: "labor", code: "01 31 10", entryIds: ["b"] });
+  });
+});

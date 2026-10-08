@@ -102,6 +102,7 @@ export const taxableFlagCheck = defineJobCheck<TaxableFlagConfig>({
           `not, clear it and re-pull the invoice.`,
         amount: shortfall,
         sourceLink: `/bill/${encodeURIComponent(bill.id)}`,
+        target: { kind: "bill", billId: bill.id },
         sourceLabel: "Open the bill",
       });
     }

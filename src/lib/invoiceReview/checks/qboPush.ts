@@ -100,6 +100,7 @@ export const qboPushCheck = defineJobCheck<QboPushConfig>({
             ` Un-tick it on the bill unless it is excluded on purpose.`,
           amount: bill.cost,
           sourceLink: `/bill/${encodeURIComponent(bill.id)}`,
+          target: { kind: "bill", billId: bill.id },
           sourceLabel: "Open the bill",
         });
         continue; // one finding per bill: the flag is the bigger problem
@@ -132,6 +133,7 @@ export const qboPushCheck = defineJobCheck<QboPushConfig>({
             `ledger has not recorded.`,
           amount: bill.cost,
           sourceLink: `/bill/${encodeURIComponent(bill.id)}`,
+          target: { kind: "bill", billId: bill.id },
           sourceLabel: "Open the bill",
         });
       }

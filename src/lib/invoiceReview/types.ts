@@ -125,6 +125,14 @@ export interface Finding {
   amount?: number;
   sourceLink?: string;
   sourceLabel?: string;
+  /**
+   * The ONE thing on the job's board this finding is about, when there is one.
+   * `sourceLink` is a URL for any page; this is the subject itself, so the
+   * Tracking Sheets board can open the bill in place or narrow its labor list
+   * to the entries named. Absent on invoice-, file- and job-level findings —
+   * their `sourceLink` is already the place to go.
+   */
+  target?: FindingTarget;
   /** Set when a standing ruling suppresses this finding — see rulings.ts. */
   suppressedBy?: SuppressionNote;
   /**
@@ -147,6 +155,19 @@ export interface Finding {
    */
   disposition?: FindingDisposition;
 }
+
+/**
+ * What a finding points at on the job's board.
+ *
+ *   bill   one vendor bill, by JobTread document id.
+ *   labor  time entries, by id — plus the person and/or cost code they share,
+ *          which is what the board's labor filter narrows to. Either may be
+ *          absent: a cost-code spread names no one person, and unbilled labor
+ *          names neither.
+ */
+export type FindingTarget =
+  | { kind: "bill"; billId: string }
+  | { kind: "labor"; employee?: string; code?: string; entryIds: string[] };
 
 /** Claude's reading of one finding after chasing it. See investigate.ts. */
 export interface FindingDisposition {
