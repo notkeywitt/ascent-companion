@@ -1,7 +1,26 @@
 {
-  "generatedAt": "2026-10-07T21:29:35Z",
+  "generatedAt": "2026-10-08T02:48:24Z",
   "repo": "ascent-companion",
   "sessions": [
+    {
+      "slug": "finding-row",
+      "file": "2026-10-08-finding-row.md",
+      "branch": "claude/finding-row-actions",
+      "status": "shipped",
+      "started": "2026-10-08T02:48:11Z",
+      "updated": "2026-10-08T02:48:23Z",
+      "goal": "Job check results (Check this job / Check all Jobs): each finding links to its bill (popup or the board's coding column) or the board's labor list narrowed and ticked, with per-item Re-check and Clear",
+      "next": "On a phone and a desktop: run Check all Jobs for September, open a bill finding (popup), a labor-rate finding (board labor list narrowed + ticked), then Re-check and Clear a row and confirm the list survives the trip to the board and back",
+      "commits": [
+        {
+          "date": "2026-10-08",
+          "time": "02:48",
+          "sha": "f6c07f9",
+          "subject": "companion: link job check findings to their bill or labor entries, with re-check and clear",
+          "files": "CODEBASE_MAP.md, src/app/trackingsheet/AllJobs.tsx, src/app/trackingsheet/BillPopup.tsx, src/app/trackingsheet/Board.tsx, src/app/trackingsheet/CheckAllJobs.tsx, src/app/trackingsheet/PreSendCheck.tsx, +15 more"
+        }
+      ]
+    },
     {
       "slug": "desktop-icon-iphone-chrome",
       "file": "2026-10-07-desktop-icon-iphone-chrome.md",

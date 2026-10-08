@@ -2,9 +2,9 @@
 slug: finding-row
 repo: ascent-companion
 branch: claude/finding-row-actions
-status: in-progress
+status: shipped
 started: 2026-10-08T02:48:11Z
-updated: 2026-10-08T02:48:18Z
+updated: 2026-10-08T02:48:23Z
 goal: Job check results (Check this job / Check all Jobs): each finding links to its bill (popup or the board's coding column) or the board's labor list narrowed and ticked, with per-item Re-check and Clear
 next: On a phone and a desktop: run Check all Jobs for September, open a bill finding (popup), a labor-rate finding (board labor list narrowed + ticked), then Re-check and Clear a row and confirm the list survives the trip to the board and back
 ---
