@@ -1153,7 +1153,14 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                         </p>
                       ) : (
                         <CostCodeSelect
-                          options={codeOptions}
+                          // The budget list leaves out Labor leaves and JobTread's
+                          // "Uncategorized" items, but JT still codes bill lines to
+                          // them. Add the line's own leaf back so the box names it.
+                          options={
+                            l.jobCostItemId && !codeOptions.some((o) => o.id === l.jobCostItemId)
+                              ? [...codeOptions, { id: l.jobCostItemId, number: l.code, name: l.codeName }]
+                              : codeOptions
+                          }
                           value={current}
                           onChange={(leafId) => stageLine(l.id, leafId, l.jobCostItemId)}
                         />

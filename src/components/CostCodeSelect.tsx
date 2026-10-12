@@ -205,7 +205,11 @@ export function CostCodeSelect({
         className="flex w-full items-center justify-between gap-2 rounded-lg border border-neutral-300 bg-neutral-50 px-2 py-2 text-left font-mono text-xs transition hover:border-accent dark:border-neutral-600 dark:bg-ink"
       >
         <span className={"truncate " + (selected ? "" : "text-neutral-400")}>
-          {selected ? `${selected.number} — ${selected.name}` : "— uncoded —"}
+          {selected
+            ? `${selected.number} — ${selected.name}`
+            : value
+              ? "— coded to a line not on this list —"
+              : "— uncoded —"}
           {selectedLabel && <span className="text-neutral-500"> · {selectedLabel}</span>}
         </span>
         <span className="text-neutral-400">▾</span>
