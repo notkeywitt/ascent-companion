@@ -1,7 +1,26 @@
 {
-  "generatedAt": "2026-10-08T02:48:24Z",
-  "repo": "ascent-companion",
+  "generatedAt": "2026-10-12T02:22:32Z",
+  "repo": "wt",
   "sessions": [
+    {
+      "slug": "coding-card-top",
+      "file": "2026-10-11-coding-card-top.md",
+      "branch": "claude/coding-card-top",
+      "status": "shipped",
+      "started": "2026-10-12T02:22:26Z",
+      "updated": "2026-10-12T02:22:32Z",
+      "goal": "Tracking Sheets: open the coding card at the top of the window, not beside its row",
+      "next": "On a wide screen, scroll /trackingsheet?job=… down, click a bill and a time entry: card should land at the window top. Check Previous/Next keep it there.",
+      "commits": [
+        {
+          "date": "2026-10-11",
+          "time": "22:22",
+          "sha": "6a2f290",
+          "subject": "companion: tracking sheet coding card opens at the top of the window, not beside its row",
+          "files": "src/app/trackingsheet/Board.tsx, src/lib/leadBoard.test.ts"
+        }
+      ]
+    },
     {
       "slug": "finding-row",
       "file": "2026-10-08-finding-row.md",
