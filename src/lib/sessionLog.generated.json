@@ -1,7 +1,26 @@
 {
-  "generatedAt": "2026-10-12T02:38:44Z",
+  "generatedAt": "2026-10-12T14:46:03Z",
   "repo": "ascent-companion-deposits",
   "sessions": [
+    {
+      "slug": "deposit-card",
+      "file": "2026-10-12-deposit-card.md",
+      "branch": "claude/deposit-card-bottom",
+      "status": "shipped",
+      "started": "2026-10-12T14:46:02Z",
+      "updated": "2026-10-12T14:46:03Z",
+      "goal": "Move the deposit card to the foot of the Tracking Sheets page",
+      "next": "None — check the card sits at the foot on a phone.",
+      "commits": [
+        {
+          "date": "2026-10-12",
+          "time": "10:46",
+          "sha": "bbf7960",
+          "subject": "companion: tracking sheet deposit card sits at the foot of the page",
+          "files": "src/app/trackingsheet/Board.tsx"
+        }
+      ]
+    },
     {
       "slug": "deposit-parse",
       "file": "2026-10-11-deposit-parse.md",
