@@ -24,15 +24,7 @@ import {
   type JobGanttData,
   type ScheduleTask,
 } from "@/lib/jobBoard";
-import {
-  DEPOSIT_CSI,
-  describesDeposit,
-  type CustomerPayment,
-  type DepositInputs,
-  type DepositInvoice,
-  type DrawInvoice,
-  type PaymentApplication,
-} from "@/lib/deposits";
+import { DEPOSIT_CSI, type DepositInputs, type DepositInvoice, type DrawInvoice } from "@/lib/deposits";
 
 const PAVE_URL = "https://api.jobtread.com/pave";
 
@@ -7595,10 +7587,8 @@ export interface ClientPaymentRow {
 export interface JobDepositRead {
   jobId: string;
   jobName: string;
-  accountId: string | null;
-  accountName: string | null;
-  /** Everything `buildDepositLedger` needs except the companion's own links. */
-  inputs: Omit<DepositInputs, "links">;
+  /** Everything `buildDepositLedger` needs except the deposit entered by hand. */
+  lines: DepositInputs["lines"];
   clientPayments: ClientPaymentRow[];
 }
 
@@ -7614,7 +7604,7 @@ const DEPOSIT_INVOICE_FIELDS = {
 
 const pEq = (field: string | string[], value: unknown) => ({ "=": [{ field }, { value }] });
 
-function toDepositInvoice(d: any, fallbackJobId: string | null): DepositInvoice {
+function toDepositInvoice(d: any, jobId: string): DepositInvoice {
   return {
     id: String(d?.id ?? ""),
     number: typeof d?.number === "number" ? d.number : null,
@@ -7623,36 +7613,18 @@ function toDepositInvoice(d: any, fallbackJobId: string | null): DepositInvoice 
     issueDate: d?.issueDate ?? null,
     priceWithTax: Number(d?.priceWithTax) || 0,
     amountPaid: Number(d?.amountPaid) || 0,
-    jobId: d?.job?.id ? String(d.job.id) : fallbackJobId,
+    jobId,
   };
 }
 
 /**
- * What JobTread holds about one job's deposit, and every client payment on its
- * invoices.
- *
- * A payment belongs to the customer ACCOUNT, so the account's payments are read
- * too — that is where an unapplied deposit (Berger's $128,842) sits. Only the
- * ones that look like deposits, or that the office assigned (`extraPaymentIds`),
- * get their applications read, in a second phase: a `documentPayments`
- * connection nested inside the paged `payments` one would hit the 413 rule.
+ * One job's CD lines on its customer invoices, and every client payment
+ * applied to its invoices. The payments that paid a deposit invoice are the
+ * deposit's link to JobTread (Gormley Studio #8).
  */
-export async function getJobDepositInputs(
-  cfg: PaveConfig,
-  jobId: string,
-  extraPaymentIds: string[] = [],
-): Promise<JobDepositRead> {
-  const head = await pave(cfg, {
-    job: { $: { id: jobId }, id: {}, name: {}, location: { account: { id: {}, name: {} } } },
-  });
-  const job = head?.job;
-  if (!job?.id) throw new Error("That job does not exist in JobTread.");
-  const accountId: string | null = job.location?.account?.id ? String(job.location.account.id) : null;
-  const org = (conn: string, where: unknown, nodes: Record<string, unknown>) => (args: Record<string, unknown>) => ({
-    organization: { $: { id: cfg.orgId }, [conn]: { $: { ...args, where }, nextPage: {}, nodes } },
-  });
-
-  const [cdItems, applied, accountPayments, accountJobs] = await Promise.all([
+export async function getJobDepositInputs(cfg: PaveConfig, jobId: string): Promise<JobDepositRead> {
+  const [head, cdItems, applied] = await Promise.all([
+    pave(cfg, { job: { $: { id: jobId }, id: {}, name: {} } }),
     pageAll<any>(cfg, {
       label: "job.costItems (CD)",
       query: (args) => ({
@@ -7661,14 +7633,7 @@ export async function getJobDepositInputs(
           costItems: {
             $: { ...args, where: pEq(["costCode", "number"], DEPOSIT_CSI) },
             nextPage: {},
-            nodes: {
-              id: {},
-              name: {},
-              price: {},
-              isTaxable: {},
-              jobCostItem: { id: {} },
-              document: { type: {}, ...DEPOSIT_INVOICE_FIELDS },
-            },
+            nodes: { id: {}, price: {}, isTaxable: {}, document: { type: {}, ...DEPOSIT_INVOICE_FIELDS } },
           },
         },
       }),
@@ -7676,90 +7641,30 @@ export async function getJobDepositInputs(
     }),
     pageAll<any>(cfg, {
       label: "organization.documentPayments (job)",
-      query: org(
-        "documentPayments",
-        { and: [pEq(["document", "job", "id"], jobId), pEq(["document", "type"], "customerInvoice")] },
-        {
-          id: {},
-          amount: {},
-          isLinkedToQbo: {},
-          document: DEPOSIT_INVOICE_FIELDS,
-          payment: { id: {}, amount: {}, paidAt: {}, description: {}, source: {}, qboId: {} },
+      query: (args) => ({
+        organization: {
+          $: { id: cfg.orgId },
+          documentPayments: {
+            $: {
+              ...args,
+              where: { and: [pEq(["document", "job", "id"], jobId), pEq(["document", "type"], "customerInvoice")] },
+            },
+            nextPage: {},
+            nodes: {
+              id: {},
+              amount: {},
+              isLinkedToQbo: {},
+              document: DEPOSIT_INVOICE_FIELDS,
+              payment: { id: {}, amount: {}, paidAt: {}, description: {}, source: {}, qboId: {} },
+            },
+          },
         },
-      ),
+      }),
       pick: (a) => a?.organization?.documentPayments,
     }),
-    accountId
-      ? pageAll<any>(cfg, {
-          label: "organization.payments (account)",
-          query: org(
-            "payments",
-            { and: [pEq(["account", "id"], accountId), pEq("type", "credit")] },
-            { id: {}, amount: {}, paidAt: {}, description: {}, source: {}, qboId: {} },
-          ),
-          pick: (a) => a?.organization?.payments,
-        })
-      : Promise.resolve([] as any[]),
-    accountId
-      ? pageAll<any>(cfg, {
-          label: "organization.jobs (account)",
-          query: org(
-            "jobs",
-            { and: [pEq(["location", "account", "id"], accountId), pEq("closedOn", null)] },
-            { id: {} },
-          ),
-          pick: (a) => a?.organization?.jobs,
-        })
-      : Promise.resolve([] as any[]),
   ]);
-
-  const candidates = accountPayments.filter(
-    (p) => describesDeposit(p?.description) || extraPaymentIds.includes(String(p?.id)),
-  );
-  const candidateIds = candidates.map((p) => String(p.id));
-  const apps = candidateIds.length
-    ? await pageAll<any>(cfg, {
-        label: "organization.documentPayments (deposits)",
-        query: org(
-          "documentPayments",
-          { in: [{ field: ["payment", "id"] }, candidateIds.map((value) => ({ value }))] },
-          {
-            id: {},
-            amount: {},
-            isLinkedToQbo: {},
-            createdAt: {},
-            payment: { id: {} },
-            document: { type: {}, ...DEPOSIT_INVOICE_FIELDS, job: { id: {} } },
-          },
-        ),
-        pick: (a) => a?.organization?.documentPayments,
-      })
-    : [];
-
-  const appsByPayment = new Map<string, PaymentApplication[]>();
-  for (const a of apps) {
-    if (a?.document?.type !== "customerInvoice") continue;
-    const pid = String(a?.payment?.id ?? "");
-    const list = appsByPayment.get(pid) ?? [];
-    list.push({
-      id: String(a.id),
-      amount: Number(a.amount) || 0,
-      isLinkedToQbo: Boolean(a.isLinkedToQbo),
-      createdAt: String(a.createdAt ?? ""),
-      invoice: toDepositInvoice(a.document, null),
-    });
-    appsByPayment.set(pid, list);
-  }
-
-  const payments: CustomerPayment[] = candidates.map((p) => ({
-    id: String(p.id),
-    amount: Number(p.amount) || 0,
-    paidAt: String(p.paidAt ?? ""),
-    description: p.description ?? null,
-    source: p.source ?? null,
-    qboId: p.qboId ?? null,
-    applications: appsByPayment.get(String(p.id)) ?? [],
-  }));
+  const job = head?.job;
+  if (!job?.id) throw new Error("That job does not exist in JobTread.");
 
   const clientPayments: ClientPaymentRow[] = applied
     .map((a) => ({
@@ -7782,31 +7687,20 @@ export async function getJobDepositInputs(
   return {
     jobId: String(job.id),
     jobName: String(job.name ?? ""),
-    accountId,
-    accountName: job.location?.account?.name ?? null,
-    inputs: {
-      jobId: String(job.id),
-      leaves: cdItems
-        .filter((c) => !c?.document)
-        .map((c) => ({ id: String(c.id), name: String(c.name ?? ""), price: Number(c.price) || 0 })),
-      lines: cdItems
-        .filter((c) => c?.document?.type === "customerInvoice")
-        .map((c) => ({
-          id: String(c.id),
-          price: Number(c.price) || 0,
-          isTaxable: Boolean(c.isTaxable),
-          jobCostItemId: c?.jobCostItem?.id ? String(c.jobCostItem.id) : null,
-          invoice: toDepositInvoice(c.document, String(job.id)),
-        })),
-      payments,
-      accountOpenJobIds: accountJobs.map((j) => String(j.id)),
-    },
+    lines: cdItems
+      .filter((c) => c?.document?.type === "customerInvoice")
+      .map((c) => ({
+        id: String(c.id),
+        price: Number(c.price) || 0,
+        isTaxable: Boolean(c.isTaxable),
+        invoice: toDepositInvoice(c.document, String(job.id)),
+      })),
     clientPayments,
   };
 }
 
 // ---------------------------------------------------------------------------
-// DEPOSIT DRAWS  (WRITE — DEPOSITS_PLAN.md, Stage 4). A draw is ONE line on a
+// DEPOSIT DRAWS  (WRITE). A draw is ONE line on a
 // DRAFT customer invoice: name "Deposit", linked to the job's CD budget leaf,
 // unitPrice and unitCost −X, not taxable — the shape of Berger #320 and Ferron
 // #386. The rules that allow it are planDepositDraw (src/lib/deposits.ts); the

@@ -1,22 +1,18 @@
 /**
- * JOB DEPOSITS — the ledger rules, pinned to the six real jobs they were
- * written from (live JobTread, read 2026-10-05; see DEPOSITS_PLAN.md §4).
+ * JOB DEPOSITS — the ledger rules, pinned to real jobs (live JobTread, read
+ * 2026-10-11). Deposit left = Deposit − Previously applied − Draws.
  *
- * Each job exercises one way the office records a deposit. If a rule change
- * moves one of these balances, the change is wrong or the plan must say why.
+ * If a rule change moves one of these balances, the change is wrong or this
+ * file must say why.
  */
 import { describe, expect, it } from "vitest";
 import {
   buildDepositLedger,
-  NO_LINKS,
-  paymentOwner,
   planDepositDraw,
   suggestDraw,
-  type DrawInvoice,
-  type CustomerPayment,
   type DepositInputs,
   type DepositInvoice,
-  type DepositLinks,
+  type DrawInvoice,
 } from "./deposits";
 
 const inv = (o: Partial<DepositInvoice> & { id: string }): DepositInvoice => ({
@@ -26,330 +22,89 @@ const inv = (o: Partial<DepositInvoice> & { id: string }): DepositInvoice => ({
   issueDate: null,
   priceWithTax: 0,
   amountPaid: 0,
-  jobId: null,
+  jobId: "j",
   ...o,
 });
 
-const app = (id: string, amount: number, linked: boolean, invoice: DepositInvoice) => ({
-  id,
-  amount,
-  isLinkedToQbo: linked,
-  createdAt: `${invoice.issueDate ?? "2026-01-01"}T12:00:00.000Z`,
-  invoice,
-});
-
-const qboPayment = (id: string, amount: number, apps: CustomerPayment["applications"]): CustomerPayment => ({
-  id,
-  amount,
-  paidAt: "2026-09-17T07:00:00.000Z",
-  description: "Payment received in QuickBooks Online",
-  source: "qbo",
-  qboId: "1",
-  applications: apps,
-});
-
-const links = (o: Partial<DepositLinks> = {}): DepositLinks => ({ ...NO_LINKS, ...o });
-
-// ── the six jobs ─────────────────────────────────────────────────────────────
-
-const VELORUM_PRECON = "22PYuNAh6Agh";
-const velorum = (): DepositInputs => {
-  const job = (o: Partial<DepositInvoice> & { id: string }) => inv({ jobId: VELORUM_PRECON, ...o });
-  return {
-    jobId: VELORUM_PRECON,
-    leaves: [{ id: "leaf", name: "Contract Deposit", price: 20000 }],
-    lines: [],
-    payments: [
-      {
-        id: "22PYrQkLNwDQ",
-        amount: 20000,
-        paidAt: "2026-06-10T00:21:49.812Z",
-        description: "Deposit for Pre Construction Services",
-        source: "Check",
-        qboId: "40745",
-        applications: [
-          app("a16", 2543.15, true, job({ id: "i16", number: 16, issueDate: "2026-06-12", priceWithTax: 2543.15, amountPaid: 2543.15 })),
-          app("a38", 10872.9, false, job({ id: "i38", number: 38, issueDate: "2026-06-30", priceWithTax: 10872.9, amountPaid: 10872.9 })),
-          app("a42", 6583.95, false, job({ id: "i42", number: 42, name: "Monthly Statement", issueDate: "2026-07-31", priceWithTax: 6583.95, amountPaid: 6583.95 })),
-        ],
-      },
-      // The Service job's QuickBooks payments: not deposits, never counted.
-      qboPayment("svc6", 10310.19, [app("s6", 10310.19, true, inv({ id: "i6", number: 6, jobId: "22PaXuiFuCuy" }))]),
-    ],
-    accountOpenJobIds: ["22PY5mDzPaFK", VELORUM_PRECON, "22PaXuiFuCuy"],
-    links: links(),
-  };
-};
-
-const BEACH_SHACK_PRECON = "22PXbuYW5YRe";
-const ruhmannWarren = (): DepositInputs => {
-  const job = (o: Partial<DepositInvoice> & { id: string }) => inv({ jobId: BEACH_SHACK_PRECON, ...o });
-  return {
-    jobId: BEACH_SHACK_PRECON,
-    leaves: [{ id: "leaf", name: "Contract Deposit", price: 0 }],
-    lines: [],
-    payments: [
-      {
-        id: "22PYuQdCX4AY",
-        amount: 20000,
-        paidAt: "2026-05-27T22:18:28.740Z",
-        description: "PreConstruction Retainer",
-        source: "Check",
-        qboId: "40743",
-        applications: [
-          app("a22", 1061.18, true, job({ id: "i22", number: 22, issueDate: "2026-06-12" })),
-          app("a27", 4615.23, false, job({ id: "i27", number: 27, issueDate: "2026-06-30" })),
-          app("a38", 1863.46, false, job({ id: "i38", number: 38, issueDate: "2026-08-12" })),
-          app("a39", 2074.41, false, job({ id: "i39", number: 39, name: "Monthly Statement", issueDate: "2026-09-11" })),
-        ],
-      },
-    ],
-    accountOpenJobIds: [BEACH_SHACK_PRECON],
-    links: links(),
-  };
-};
-
-const PATIO_REPAIR = "22PdguyBXLD5";
-const thomas = (): DepositInputs => {
-  const deposit22 = inv({ id: "i22", number: 22, name: "Deposit", issueDate: "2026-09-02", priceWithTax: 17000, amountPaid: 17000, jobId: PATIO_REPAIR });
-  return {
-    jobId: PATIO_REPAIR,
-    leaves: [{ id: "leaf", name: "Deposit", price: 32159.37 }],
-    lines: [
-      { id: "l22", price: 17000, isTaxable: false, invoice: deposit22 },
-      // The first attempt, voided.
-      { id: "l17", price: 17000, isTaxable: false, invoice: inv({ id: "i17", number: 17, name: "Deposit", status: "denied", issueDate: "2026-09-02", jobId: PATIO_REPAIR }) },
-    ],
-    // The payment that paid #22 has no description: it is the deposit
-    // invoice's payment, already counted through the invoice.
-    payments: [
-      { id: "p17000", amount: 17000, paidAt: "2026-09-14T21:21:21.335Z", description: null, source: null, qboId: "44491", applications: [app("a22", 17000, true, deposit22)] },
-    ],
-    accountOpenJobIds: [PATIO_REPAIR],
-    links: links(),
-  };
-};
-
-const BUNKHOUSE = "22PXGG97EiV4";
-const MAIN_HOUSE = "22PaFQzY2UNw";
-const BERGER_DEPOSIT = "22PawiXG2b5N";
-const berger = (l: Partial<DepositLinks> = {}): DepositInputs => {
-  const i320 = inv({ id: "i320", number: 320, issueDate: "2026-08-31", priceWithTax: 106750.68, amountPaid: 106750.68, jobId: BUNKHOUSE });
-  return {
-    jobId: BUNKHOUSE,
-    leaves: [{ id: "leaf", name: "Deposit", price: 0 }],
-    lines: [{ id: "l320", price: -20000, isTaxable: false, invoice: i320 }],
-    payments: [
-      { id: BERGER_DEPOSIT, amount: 128842, paidAt: "2026-01-01T20:10:09.461Z", description: "Deposit", source: "Check", qboId: null, applications: [] },
-      qboPayment("p100k", 100000, [app("a320", 100000, true, i320)]),
-      qboPayment("p19607", 19607.86, [app("a5", 17459.93, true, inv({ id: "i5", number: 5, jobId: MAIN_HOUSE }))]),
-    ],
-    accountOpenJobIds: [BUNKHOUSE, MAIN_HOUSE],
-    links: links(l),
-  };
-};
-
-const OTIS_PERKINS = "22PXejdnU4hm";
-const ferron = (l: Partial<DepositLinks> = {}): DepositInputs => ({
-  jobId: OTIS_PERKINS,
-  leaves: [
-    { id: "leafA", name: "Contract Deposit", price: 123000 },
-    { id: "leafB", name: "Deposit", price: 0 },
-  ],
+// Berger — Bunkhouse. $128,842 paid before JobTread; one draw in JobTread so
+// far: −$20,000 on #320. The office enters the deposit and what was applied
+// before JobTread.
+const berger = (previouslyApplied = 72000): DepositInputs => ({
+  entered: { amount: 128842, previouslyApplied },
   lines: [
-    { id: "l386", price: -20000, isTaxable: false, invoice: inv({ id: "i386", number: 386, issueDate: "2026-08-31", priceWithTax: 149529.72, amountPaid: 149529.72, jobId: OTIS_PERKINS }) },
-    { id: "l385", price: -20000, isTaxable: false, invoice: inv({ id: "i385", number: 385, status: "denied", issueDate: "2026-09-11", jobId: OTIS_PERKINS }) },
+    { id: "l320", price: -20000, isTaxable: false, invoice: inv({ id: "i320", number: 320, issueDate: "2026-08-31", priceWithTax: 106750.68, amountPaid: 106750.68 }) },
   ],
-  payments: [qboPayment("p51913", 51913.49, [])],
-  accountOpenJobIds: [OTIS_PERKINS],
-  links: links(l),
 });
 
-const STUDIO = "22PfLYbZq4Jt";
-const studio = (): DepositInputs => ({
-  jobId: STUDIO,
-  leaves: [{ id: "leaf", name: "Deposit", price: 0 }],
+// Gormley — Studio. Deposit invoice #8, $270,975, paid in full by three
+// QuickBooks payments on 2026-10-08. Its line is (wrongly) taxable.
+const studio = (amountPaid = 270975): DepositInputs => ({
+  entered: null,
   lines: [
-    { id: "l8", price: 270975, isTaxable: true, invoice: inv({ id: "i8", number: 8, name: "Deposit", status: "pending", issueDate: "2026-10-01", priceWithTax: 270975, amountPaid: 0, jobId: STUDIO }) },
+    { id: "l8", price: 270975, isTaxable: true, invoice: inv({ id: "i8", number: 8, name: "Deposit", issueDate: "2026-10-01", priceWithTax: 270975, amountPaid }) },
   ],
-  payments: [],
-  accountOpenJobIds: [STUDIO],
-  links: links(),
 });
 
-// ── tests ────────────────────────────────────────────────────────────────────
+// Ferron — Otis Perkins. A draw in JobTread, no deposit entered yet. #385 is void.
+const ferron = (): DepositInputs => ({
+  entered: null,
+  lines: [
+    { id: "l386", price: -20000, isTaxable: false, invoice: inv({ id: "i386", number: 386, issueDate: "2026-08-31" }) },
+    { id: "l385", price: -20000, isTaxable: false, invoice: inv({ id: "i385", number: 385, status: "denied", issueDate: "2026-09-11" }) },
+  ],
+});
 
-describe("buildDepositLedger — the six jobs as they stood on 2026-10-05", () => {
-  it("Velorum: a deposit payment applied to whole invoices until it ran out", () => {
-    const l = buildDepositLedger(velorum());
-    expect(l).toMatchObject({ agreed: 20000, received: 20000, drawn: 20000, left: 0, hasDeposit: true });
-    expect(l.entries.map((e) => [e.kind, e.invoiceNumber ?? null, e.amount])).toEqual([
-      ["received", null, 20000],
-      ["drawn", 16, 2543.15],
-      ["drawn", 38, 10872.9],
-      ["drawn", 42, 6583.95],
-    ]);
-    // JobTread never linked the later two applications to QuickBooks.
-    expect(l.flags).toEqual([
-      { kind: "unlinked-application", invoiceNumber: 38, amount: 10872.9 },
-      { kind: "unlinked-application", invoiceNumber: 42, amount: 6583.95 },
-    ]);
+describe("buildDepositLedger", () => {
+  it("Berger: entered deposit, less previously applied, less JobTread draws", () => {
+    expect(buildDepositLedger(berger())).toMatchObject({
+      source: "entered",
+      deposit: 128842,
+      previouslyApplied: 72000,
+      drawn: 20000,
+      left: 36842,
+      flags: [],
+      hasDeposit: true,
+    });
   });
 
-  it("Ruhmann-Warren: a retainer drawn in parts, money still left", () => {
-    const l = buildDepositLedger(ruhmannWarren());
-    expect(l).toMatchObject({ received: 20000, drawn: 9614.28, left: 10385.72 });
-    expect(l.flags.filter((f) => f.kind === "unlinked-application")).toHaveLength(3);
-  });
-
-  it("Thomas: a paid deposit invoice is the receipt; its payment is not counted twice", () => {
-    const l = buildDepositLedger(thomas());
-    expect(l).toMatchObject({ agreed: 32159.37, received: 17000, billedUnpaid: 0, drawn: 0, left: 17000, flags: [] });
-    // The voided first attempt (#17) drops out.
-    expect(l.entries).toHaveLength(1);
-    expect(l.entries[0]).toMatchObject({ kind: "received", method: "invoice", invoiceNumber: 22 });
-  });
-
-  it("Berger: the deposit payment has no job until the office picks one", () => {
-    const l = buildDepositLedger(berger());
-    expect(l.unassigned).toEqual([
-      { id: BERGER_DEPOSIT, amount: 128842, paidAt: "2026-01-01T20:10:09.461Z", description: "Deposit" },
-    ]);
-    // Drawn with nothing recorded to draw from: the balance is unknown, not −$20,000.
-    expect(l).toMatchObject({ received: 0, drawn: 20000, left: null });
-    expect(l.flags).toContainEqual({ kind: "no-receipt", drawn: 20000 });
-    expect(l.flags).toContainEqual({ kind: "unassigned-payment", paymentId: BERGER_DEPOSIT, amount: 128842 });
-  });
-
-  it("Berger, assigned to Bunkhouse: the payment is the receipt, the CD line the draw", () => {
-    const l = buildDepositLedger(berger({ paymentIds: [BERGER_DEPOSIT] }));
-    expect(l).toMatchObject({ received: 128842, drawn: 20000, left: 108842, unassigned: [], flags: [] });
-  });
-
-  it("Berger, assigned elsewhere: Main House's card counts nothing from it", () => {
-    const l = buildDepositLedger({ ...berger({ elsewherePaymentIds: [BERGER_DEPOSIT] }) });
-    expect(l).toMatchObject({ received: 0, unassigned: [] });
-  });
-
-  it("Berger, with an opening balance: entries on or before it are already covered", () => {
-    const l = buildDepositLedger(
-      berger({ paymentIds: [BERGER_DEPOSIT], opening: { amount: 100000, asOf: "2026-05-29" } }),
-    );
-    expect(l).toMatchObject({ opening: 100000, received: 0, drawn: 20000, left: 80000 });
-    expect(l.entries.find((e) => e.paymentId === BERGER_DEPOSIT)?.beforeOpening).toBe(true);
-  });
-
-  it("Ferron: drawn on a JobTread invoice, received before JobTread", () => {
-    const l = buildDepositLedger(ferron());
-    expect(l).toMatchObject({ agreed: 123000, received: 0, drawn: 20000, left: null });
-    expect(l.flags).toEqual([{ kind: "no-receipt", drawn: 20000 }]);
-    // #385 is the voided duplicate of #386.
-    expect(l.entries.map((e) => e.invoiceNumber)).toEqual([386]);
-  });
-
-  it("Ferron, with the opening balance entered: the balance is known", () => {
-    const l = buildDepositLedger(ferron({ opening: { amount: 102473.87, asOf: "2026-05-29" } }));
-    expect(l).toMatchObject({ left: 82473.87, flags: [] });
-  });
-
-  it("Studio: a deposit billed and not paid is not received, and its taxable line is flagged", () => {
+  it("Studio: the deposit is the paid part of the deposit invoice", () => {
     const l = buildDepositLedger(studio());
-    expect(l).toMatchObject({ received: 0, billedUnpaid: 270975, drawn: 0, left: 0 });
+    expect(l).toMatchObject({ source: "jobtread", deposit: 270975, previouslyApplied: 0, drawn: 0, left: 270975 });
     expect(l.flags).toEqual([{ kind: "taxable-line", invoiceNumber: 8 }]);
   });
-});
 
-describe("buildDepositLedger — rules beyond the six jobs", () => {
-  it("drawing one deposit by CD line AND by payment application is flagged", () => {
-    const input = berger({ paymentIds: [BERGER_DEPOSIT] });
-    input.payments[0].applications = [
-      app("x", 5000, true, inv({ id: "i400", number: 400, issueDate: "2026-09-30", jobId: BUNKHOUSE })),
-    ];
-    const l = buildDepositLedger(input);
-    expect(l.drawn).toBe(25000);
-    expect(l.flags).toContainEqual({ kind: "double-draw" });
+  it("a deposit invoice half paid counts half, and shows the rest unpaid", () => {
+    const l = buildDepositLedger(studio(135487.5));
+    expect(l.deposit).toBe(135487.5);
+    expect(l.entries[0]).toMatchObject({ kind: "deposit", amount: 135487.5, unpaid: 135487.5 });
   });
 
-  it("a draw on a draft invoice is shown, not counted", () => {
-    const input = thomas();
-    input.lines.push({
-      id: "lDraft",
-      price: -4000,
-      isTaxable: false,
-      invoice: inv({ id: "iD", number: 30, status: "draft", issueDate: "2026-09-30", jobId: PATIO_REPAIR }),
-    });
-    const l = buildDepositLedger(input);
-    expect(l).toMatchObject({ drawn: 0, onDraft: 4000, left: 17000 });
+  it("a hand-entered deposit replaces the deposit invoice", () => {
+    const l = buildDepositLedger({ ...studio(), entered: { amount: 300000, previouslyApplied: 0 } });
+    expect(l).toMatchObject({ source: "entered", deposit: 300000, left: 300000 });
   });
 
-  it("drawing more than was received is flagged with the excess", () => {
-    const input = thomas();
-    input.lines.push({
-      id: "lBig",
-      price: -18000.5,
-      isTaxable: false,
-      invoice: inv({ id: "iB", number: 31, issueDate: "2026-10-31", jobId: PATIO_REPAIR }),
-    });
-    const l = buildDepositLedger(input);
-    expect(l.left).toBe(-1000.5);
-    expect(l.flags).toContainEqual({ kind: "overdrawn", by: 1000.5 });
+  it("Ferron: a draw with no deposit recorded leaves Left unknown; the void drops out", () => {
+    expect(buildDepositLedger(ferron())).toMatchObject({ source: null, drawn: 20000, left: null, hasDeposit: true });
   });
 
-  it("a half-paid deposit invoice is half received, half billed", () => {
-    const input = studio();
-    input.lines[0].invoice.amountPaid = 135487.5;
-    const l = buildDepositLedger(input);
-    expect(l).toMatchObject({ received: 135487.5, billedUnpaid: 135487.5 });
+  it("a draft's draw is shown, not counted", () => {
+    const input = berger();
+    input.lines.push({ id: "lD", price: -20000, isTaxable: false, invoice: inv({ id: "iD", number: 400, status: "draft", issueDate: "2026-09-30" }) });
+    expect(buildDepositLedger(input)).toMatchObject({ drawn: 20000, onDraft: 20000, left: 36842 });
   });
 
-  it("a job with only a $0 deposit leaf has no deposit, so the card hides", () => {
-    const l = buildDepositLedger({
-      jobId: "j",
-      leaves: [{ id: "leaf", name: "Deposit", price: 0 }],
-      lines: [],
-      payments: [],
-      accountOpenJobIds: ["j"],
-      links: NO_LINKS,
-    });
-    expect(l.hasDeposit).toBe(false);
+  it("flags a deposit drawn past zero", () => {
+    expect(buildDepositLedger(berger(120000)).flags).toEqual([{ kind: "overdrawn", by: 11158 }]);
+  });
+
+  it("a job with nothing deposit-shaped has no deposit, so the card collapses", () => {
+    expect(buildDepositLedger({ entered: null, lines: [] }).hasDeposit).toBe(false);
   });
 });
 
-describe("paymentOwner", () => {
-  const p = (apps: CustomerPayment["applications"]): CustomerPayment => ({
-    id: "p",
-    amount: 1,
-    paidAt: "2026-01-01",
-    description: "Deposit",
-    source: null,
-    qboId: null,
-    applications: apps,
-  });
-
-  it("follows the invoices it paid", () => {
-    expect(paymentOwner(p([app("a", 1, true, inv({ id: "i", jobId: "A" }))]), "A", ["A", "B"], NO_LINKS)).toBe("mine");
-    expect(paymentOwner(p([app("a", 1, true, inv({ id: "i", jobId: "A" }))]), "B", ["A", "B"], NO_LINKS)).toBe("other");
-  });
-
-  it("ignores invoices that were voided", () => {
-    const voided = app("a", 1, true, inv({ id: "i", jobId: "A", status: "denied" }));
-    expect(paymentOwner(p([voided]), "B", ["A", "B"], NO_LINKS)).toBe("unassigned");
-  });
-
-  it("falls back to the account's only open job", () => {
-    expect(paymentOwner(p([]), "A", ["A"], NO_LINKS)).toBe("mine");
-  });
-
-  it("lets the office's assignment win over every rule", () => {
-    const paid = p([app("a", 1, true, inv({ id: "i", jobId: "A" }))]);
-    expect(paymentOwner(paid, "B", ["A", "B"], links({ paymentIds: ["p"] }))).toBe("mine");
-    expect(paymentOwner(paid, "A", ["A", "B"], links({ elsewherePaymentIds: ["p"] }))).toBe("other");
-  });
-});
-
-describe("planDepositDraw — a draw on a draft invoice (Stage 4)", () => {
-  // Berger with the $128,842 deposit assigned to Bunkhouse: $108,842 left.
-  const ledger = () => buildDepositLedger(berger({ paymentIds: [BERGER_DEPOSIT] }));
+describe("planDepositDraw — a draw on a draft invoice", () => {
+  const ledger = () => buildDepositLedger(berger()); // $36,842 left
   const draft = (o: Partial<DrawInvoice> = {}): DrawInvoice => ({
     id: "iSep",
     number: 400,
@@ -362,7 +117,7 @@ describe("planDepositDraw — a draw on a draft invoice (Stage 4)", () => {
 
   it("adds one deposit line for a fresh draw", () => {
     expect(planDepositDraw(ledger(), draft(), 20000)).toEqual({
-      ok: true, mode: "create", lineId: null, from: 0, to: 20000, max: 95000,
+      ok: true, mode: "create", lineId: null, from: 0, to: 20000, max: 36842,
     });
   });
 
@@ -374,14 +129,15 @@ describe("planDepositDraw — a draw on a draft invoice (Stage 4)", () => {
   });
 
   it("refuses more than is left", () => {
-    const r = planDepositDraw(ledger(), draft({ priceWithTax: 500000 }), 108842.01);
-    expect(r).toEqual({ ok: false, error: "Only $108,842.00 of the deposit is left to draw." });
+    expect(planDepositDraw(ledger(), draft(), 36842.01)).toEqual({
+      ok: false, error: "Only $36,842.00 of the deposit is left to draw.",
+    });
   });
 
   it("counts other drafts' draws as already spoken for", () => {
     const l = ledger();
-    l.entries.push({ key: "x", kind: "draft", method: "invoice", date: "2026-09-30", amount: 100000, invoiceId: "iOther" });
-    expect(planDepositDraw(l, draft(), 10000)).toEqual({ ok: false, error: "Only $8,842.00 of the deposit is left to draw." });
+    l.entries.push({ key: "x", kind: "draft", date: "2026-09-30", amount: 30000, invoiceId: "iOther", invoiceNumber: 401, invoiceName: "", invoiceStatus: "draft" });
+    expect(planDepositDraw(l, draft(), 10000)).toEqual({ ok: false, error: "Only $6,842.00 of the deposit is left to draw." });
   });
 
   it("refuses more than the invoice total, so the invoice never goes negative", () => {
@@ -401,9 +157,10 @@ describe("planDepositDraw — a draw on a draft invoice (Stage 4)", () => {
     expect(planDepositDraw(ledger(), two, 100)).toMatchObject({ ok: false });
   });
 
-  it("refuses a draw on a job with no deposit recorded (Ferron before its opening balance)", () => {
-    const r = planDepositDraw(buildDepositLedger(ferron()), draft(), 20000);
-    expect(r).toEqual({ ok: false, error: "No deposit is recorded for this job yet. Enter its opening balance first." });
+  it("refuses a draw on a job with no deposit recorded", () => {
+    expect(planDepositDraw(buildDepositLedger(ferron()), draft(), 20000)).toEqual({
+      ok: false, error: "No deposit is recorded for this job yet. Enter the deposit first.",
+    });
   });
 
   it("refuses a negative or non-numeric amount", () => {
@@ -413,15 +170,14 @@ describe("planDepositDraw — a draw on a draft invoice (Stage 4)", () => {
 });
 
 describe("suggestDraw", () => {
-  const inv: DrawInvoice = { id: "i", number: 1, status: "draft", priceWithTax: 12000, inQbo: false, depositLines: [] };
+  const inv: DrawInvoice = { id: "i", number: 1, status: "draft", priceWithTax: 95000, inQbo: false, depositLines: [] };
 
-  it("whole invoice by default, never above what is left", () => {
-    expect(suggestDraw(buildDepositLedger(thomas()), inv)).toBe(12000);
-    expect(suggestDraw(buildDepositLedger(thomas()), { ...inv, priceWithTax: 30000 })).toBe(17000);
+  it("repeats the job's last draw", () => {
+    expect(suggestDraw(buildDepositLedger(berger()), inv)).toBe(20000);
   });
 
-  it("the job's fixed draw when it has one", () => {
-    const l = buildDepositLedger(berger({ paymentIds: [BERGER_DEPOSIT], drawRule: { kind: "fixed", amount: 20000 } }));
-    expect(suggestDraw(l, { ...inv, priceWithTax: 95000 })).toBe(20000);
+  it("whole invoice when nothing was drawn yet, never above what is left", () => {
+    expect(suggestDraw(buildDepositLedger(studio()), { ...inv, priceWithTax: 12000 })).toBe(12000);
+    expect(suggestDraw(buildDepositLedger(studio(10000)), inv)).toBe(10000);
   });
 });

@@ -1433,27 +1433,20 @@ export const specFiles = sqliteTable("spec_files", {
 });
 
 /**
- * JOB DEPOSITS — the facts about a deposit that JobTread has no field for.
- * One row per job; see DEPOSITS_PLAN.md and src/lib/depositLinks.ts.
+ * JOB DEPOSITS — the deposit the office enters by hand, for a deposit taken
+ * before JobTread (Berger). One row per job; see src/lib/depositLinks.ts.
  *
- *   payment_ids     JobTread payment ids the office assigned to this job. A
- *                   payment belongs to a customer ACCOUNT, and an account with
- *                   two open jobs (Berger) cannot say which one a deposit is for.
- *   opening_amount  The deposit LEFT when the job moved into JobTread, with the
- *   opening_as_of   date it was true on. Draws made before then live only in
- *                   the tracking sheet.
- *   draw_rule       "whole" | "fixed" | "" — how the office draws it down. Only
- *   draw_amount     sets the amount the app suggests.
+ *   deposit_amount      what the client paid up front.
+ *   previously_applied  what was drawn from it before JobTread.
  *
- * Every dollar of the balance itself is read live from JobTread.
+ * The table also holds five retired columns (payment_ids, opening_amount,
+ * opening_as_of, draw_rule, draw_amount) from the first deposit model. Nothing
+ * reads them.
  */
 export const depositLinks = sqliteTable("deposit_links", {
   jobId: text("job_id").primaryKey(),
-  paymentIds: text("payment_ids").notNull().default("[]"), // JSON string[]
-  openingAmount: real("opening_amount"),
-  openingAsOf: text("opening_as_of"), // YYYY-MM-DD
-  drawRule: text("draw_rule").notNull().default(""),
-  drawAmount: real("draw_amount"),
+  depositAmount: real("deposit_amount"),
+  previouslyApplied: real("previously_applied").notNull().default(0),
   note: text("note").notNull().default(""),
   updatedAt: text("updated_at").notNull().default(""),
   updatedBy: text("updated_by").notNull().default(""),

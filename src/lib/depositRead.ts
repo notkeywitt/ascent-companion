@@ -1,25 +1,24 @@
 /**
  * JOB DEPOSITS — the one read both deposit routes answer with: the job's ledger
- * (JobTread, read live), its client payments, and the companion's own links.
- * Server only (database + grant key). Rules: src/lib/deposits.ts.
+ * (JobTread draws, read live, plus the deposit entered by hand) and its client
+ * payments. Server only (database + grant key). Rules: src/lib/deposits.ts.
  */
 import { getPaveConfig } from "@/lib/config";
 import { buildDepositLedger } from "@/lib/deposits";
-import { readDepositLinks } from "@/lib/depositLinks";
+import { readEnteredDeposit } from "@/lib/depositLinks";
 import { getJobDepositInputs } from "@/lib/jobtread";
 
 export async function readDeposits(jobId: string) {
-  const links = await readDepositLinks(jobId);
-  const read = await getJobDepositInputs(getPaveConfig(), jobId, links.paymentIds);
+  const [stored, read] = await Promise.all([readEnteredDeposit(jobId), getJobDepositInputs(getPaveConfig(), jobId)]);
   return {
     jobId: read.jobId,
     jobName: read.jobName,
-    account: read.accountId ? { id: read.accountId, name: read.accountName ?? "" } : null,
-    ledger: buildDepositLedger({ ...read.inputs, links }),
+    ledger: buildDepositLedger({ lines: read.lines, entered: stored.entered }),
+    entered: stored.entered,
     clientPayments: read.clientPayments,
-    note: links.note,
-    updatedAt: links.updatedAt,
-    updatedBy: links.updatedBy,
+    note: stored.note,
+    updatedAt: stored.updatedAt,
+    updatedBy: stored.updatedBy,
   };
 }
 

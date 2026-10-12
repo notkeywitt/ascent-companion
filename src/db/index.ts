@@ -1047,7 +1047,7 @@ async function applySchema() {
       bytes BLOB NOT NULL
     )
   `);
-  // Job deposits: the facts JobTread has no field for (see schema.ts depositLinks).
+  // Job deposits entered by hand (see schema.ts depositLinks).
   await getClient().execute(`
     CREATE TABLE IF NOT EXISTS deposit_links (
       job_id TEXT PRIMARY KEY,
@@ -1061,6 +1061,16 @@ async function applySchema() {
       updated_by TEXT NOT NULL DEFAULT ''
     )
   `);
+  for (const alter of [
+    "ALTER TABLE deposit_links ADD COLUMN deposit_amount REAL",
+    "ALTER TABLE deposit_links ADD COLUMN previously_applied REAL NOT NULL DEFAULT 0",
+  ]) {
+    try {
+      await getClient().execute(alter);
+    } catch {
+      /* column already exists */
+    }
+  }
   // The journal is read newest-first, and filtered by the record, the job, the
   // person, or the one action a row belonged to.
   for (const idx of [

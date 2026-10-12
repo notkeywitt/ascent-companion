@@ -8,14 +8,14 @@ import {
 } from "@/lib/jobtread";
 import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
 import { buildDepositLedger, planDepositDraw } from "@/lib/deposits";
-import { readDepositLinks } from "@/lib/depositLinks";
+import { readEnteredDeposit } from "@/lib/depositLinks";
 import { readDeposits } from "@/lib/depositRead";
 import { openJournal } from "@/lib/financialJournal";
 import { qboLock } from "@/lib/qboLock";
 
 /**
  * APPLY PART OF A DEPOSIT TO A DRAFT INVOICE — the one JobTread write behind the
- * deposit card (DEPOSITS_PLAN.md, Stage 4).
+ * deposit card.
  *
  * POST { invoiceId, amount } sets the invoice's ONE deposit line to −amount:
  * adds it, changes it, or (amount 0) removes it. Every limit is checked on a
@@ -53,9 +53,8 @@ export async function POST(req: NextRequest) {
   let plan;
   try {
     inv = await getInvoiceForDraw(cfg, invoiceId);
-    const links = await readDepositLinks(inv.jobId);
-    const read = await getJobDepositInputs(cfg, inv.jobId, links.paymentIds);
-    plan = planDepositDraw(buildDepositLedger({ ...read.inputs, links }), inv, amount);
+    const [stored, read] = await Promise.all([readEnteredDeposit(inv.jobId), getJobDepositInputs(cfg, inv.jobId)]);
+    plan = planDepositDraw(buildDepositLedger({ lines: read.lines, entered: stored.entered }), inv, amount);
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : String(e) }, { status: 502 });
   }

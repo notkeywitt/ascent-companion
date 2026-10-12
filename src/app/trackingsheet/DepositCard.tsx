@@ -17,30 +17,31 @@ import type { Recon } from "@/components/InvoiceReconcile";
 import {
   suggestDraw,
   type DepositEntry,
-  type DepositFlag,
   type DepositLedger,
   type DrawInvoice,
+  type EnteredDeposit,
 } from "@/lib/deposits";
 import type { ClientPaymentRow } from "@/lib/jobtread";
 
 /**
  * The job's DEPOSIT and its client payments, beside the month's invoice panel.
  *
- * Every figure is read live from JobTread through `/api/deposits`; the rules are
- * `src/lib/deposits.ts`. Two forms (assign a deposit payment, enter the opening
- * balance) write only the companion's `deposit_links` row. ONE control writes
- * to JobTread: "Draw from the deposit" sets the month's DRAFT invoice's one
- * Deposit line, through `/api/deposits/apply`, after a confirm — and only when
- * the app's JobTread writes are on. Plan: DEPOSITS_PLAN.md.
+ *   Deposit left = Deposit − Previously applied − Draws
  *
- * Hidden on a job with no deposit and no client payment.
+ * The deposit is read from JobTread when the job has a paid deposit invoice
+ * (Gormley Studio), or entered by hand for one taken before JobTread (Berger).
+ * Draws are the negative Deposit lines on the job's client invoices. Rules:
+ * `src/lib/deposits.ts`. ONE control writes to JobTread: "Draw from the
+ * deposit" sets the month's DRAFT invoice's one Deposit line, through
+ * `/api/deposits/apply`, after a confirm — and only when the app's JobTread
+ * writes are on.
  */
 
 interface DepositsPayload {
   jobId: string;
   jobName: string;
-  account: { id: string; name: string } | null;
   ledger: DepositLedger;
+  entered: EnteredDeposit | null;
   clientPayments: ClientPaymentRow[];
   note: string;
   updatedAt: string;
@@ -53,21 +54,14 @@ const day = (iso: string | null | undefined) => (iso ? String(iso).slice(0, 10) 
 function entryLabel(e: DepositEntry): string {
   const inv = e.invoiceNumber != null ? `#${e.invoiceNumber}` : "an invoice";
   switch (e.kind) {
-    case "received":
-      return e.method === "invoice" ? `Deposit invoice ${inv}` : "Deposit payment";
-    case "billed":
-      return `Deposit invoice ${inv}, not paid yet`;
-    case "billed-draft":
-      return `Deposit invoice ${inv} (draft)`;
+    case "deposit":
+      return `Deposit invoice ${inv}`;
     case "drawn":
-      return e.method === "invoice" ? `Drawn on ${inv}` : `Applied to ${inv}`;
+      return `Drawn on ${inv}`;
     case "draft":
       return `Drawn on draft ${inv}`;
   }
 }
-
-/** "+" adds to the balance, "−" draws it; a deposit billed but unpaid does neither yet. */
-const signOf = (e: DepositEntry) => (e.kind === "received" ? "+" : e.kind === "drawn" || e.kind === "draft" ? "−" : "");
 
 function FlagLine({ chip, tone, children }: { chip: string; tone: "warning" | "danger"; children: React.ReactNode }) {
   return (
@@ -92,7 +86,8 @@ export function DepositCard({
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [showPayments, setShowPayments] = useState(false);
-  const [opening, setOpening] = useState<{ amount: string; asOf: string; note: string } | null>(null);
+  /** The hand-entered deposit form, open. */
+  const [form, setForm] = useState<{ amount: string; applied: string; note: string } | null>(null);
   /** Typed draw amounts, per draft invoice id. Unset = the suggested amount. */
   const [drawInput, setDrawInput] = useState<Record<string, string>>({});
 
@@ -100,7 +95,7 @@ export function DepositCard({
     let live = true;
     setData(null);
     setError("");
-    setOpening(null);
+    setForm(null);
     (async () => {
       try {
         const res = await fetch(`/api/deposits?jobId=${encodeURIComponent(jobId)}`);
@@ -130,7 +125,7 @@ export function DepositCard({
         const j = await res.json();
         if (!res.ok) throw new Error(j.error ?? "Failed");
         setData(j);
-        setOpening(null);
+        setForm(null);
       } catch (e) {
         setError(e instanceof Error ? e.message : "Failed");
       } finally {
@@ -180,26 +175,90 @@ export function DepositCard({
   }
   if (!data) return null;
 
-  const { ledger, clientPayments, account } = data;
-  if (!ledger.hasDeposit && clientPayments.length === 0) return null;
+  const { ledger, clientPayments, entered } = data;
 
   const thisMonth = new Set((recon?.invoices ?? []).map((i) => i.id));
   const paidTotal = clientPayments.reduce((s, p) => s + p.amount, 0);
-  const unlinked = ledger.flags.filter(
-    (f): f is Extract<DepositFlag, { kind: "unlinked-application" }> => f.kind === "unlinked-application",
-  );
-  const openOpening = () =>
-    setOpening({
-      amount: ledger.opening != null ? String(ledger.opening) : "",
-      asOf: ledger.openingAsOf ?? "",
+  const openForm = () =>
+    setForm({
+      amount: entered ? String(entered.amount) : "",
+      applied: entered ? String(entered.previouslyApplied) : "",
       note: data.note,
     });
+  /** The payments that paid a deposit invoice: the deposit's link to JobTread. */
+  const paidBy = (invoiceId: string) => clientPayments.filter((p) => p.invoiceId === invoiceId);
+
+  const enterForm = form && (
+    <form
+      className="mt-3 grid gap-2 rounded-lg border border-line-soft p-2.5 pad:grid-cols-[1fr_1fr_2fr_auto]"
+      onSubmit={(ev) => {
+        ev.preventDefault();
+        post({
+          action: "set-deposit",
+          amount: Number(form.amount),
+          previouslyApplied: Number(form.applied || 0),
+          note: form.note,
+        });
+      }}
+    >
+      <Input
+        inputMode="decimal"
+        placeholder="Deposit ($)"
+        aria-label="Deposit the client paid"
+        value={form.amount}
+        onChange={(e) => setForm({ ...form, amount: e.target.value })}
+      />
+      <Input
+        inputMode="decimal"
+        placeholder="Previously applied ($)"
+        aria-label="Deposit applied to invoices before JobTread"
+        value={form.applied}
+        onChange={(e) => setForm({ ...form, applied: e.target.value })}
+      />
+      <Input
+        placeholder="Note, e.g. from the tracking sheet"
+        aria-label="Note"
+        value={form.note}
+        onChange={(e) => setForm({ ...form, note: e.target.value })}
+      />
+      <div className="flex gap-1.5">
+        <Button size="sm" type="submit" disabled={busy || !(Number(form.amount) > 0)}>
+          Save
+        </Button>
+        <Button size="sm" variant="ghost" onClick={() => setForm(null)}>
+          Cancel
+        </Button>
+      </div>
+      <p className="text-xs text-neutral-500 dark:text-neutral-400 pad:col-span-4">
+        Previously applied is what was drawn outside JobTread. Draws on JobTread invoices are counted below — do not
+        include them.
+      </p>
+    </form>
+  );
+
+  if (!ledger.hasDeposit && clientPayments.length === 0) {
+    return (
+      <div className="mt-3">
+        {form ? (
+          <Card>{enterForm}</Card>
+        ) : (
+          <MetaLine
+            items={[
+              <button key="e" type="button" className="underline" onClick={openForm}>
+                Enter a deposit
+              </button>,
+            ]}
+          />
+        )}
+      </div>
+    );
+  }
 
   return (
     <Card className="mt-3">
-      {ledger.hasDeposit && (
+      {ledger.hasDeposit || form ? (
         <>
-          <SectionHeading trailing={account ? <MetaLine items={[account.name]} /> : undefined}>Deposit</SectionHeading>
+          <SectionHeading>Deposit</SectionHeading>
           <StatementBlock
             rule={false}
             className="mt-2"
@@ -208,113 +267,37 @@ export function DepositCard({
             sub={
               <MetaLine
                 items={[
-                  ledger.agreed ? `agreed ${money(ledger.agreed)}` : null,
-                  ledger.opening != null ? `opening ${money(ledger.opening)} on ${ledger.openingAsOf}` : null,
-                  ledger.received ? `received ${money(ledger.received)}` : null,
+                  ledger.source ? `deposit ${money(ledger.deposit)}` : "no deposit recorded",
+                  ledger.previouslyApplied ? `previously applied ${money(ledger.previouslyApplied)}` : null,
                   `drawn ${money(ledger.drawn)}`,
                   ledger.onDraft ? `${money(ledger.onDraft)} on a draft` : null,
-                  ledger.billedUnpaid ? `${money(ledger.billedUnpaid)} billed, unpaid` : null,
                 ]}
               />
             }
           />
 
           <div className="mt-3 space-y-1.5">
-            {ledger.unassigned.map((u) => (
-              <div key={u.id} className="flex flex-wrap items-center gap-2">
-                <FlagLine chip="No job" tone="warning">
-                  A {money(u.amount)} deposit{u.description ? ` (“${u.description}”)` : ""} paid {day(u.paidAt)} sits
-                  on {account?.name ?? "the customer"}&apos;s account. JobTread cannot say which job it is for.
-                </FlagLine>
-                <Button size="sm" variant="outline" disabled={busy} onClick={() => post({ action: "assign-payment", paymentId: u.id })}>
-                  It&apos;s this job&apos;s deposit
-                </Button>
-              </div>
-            ))}
-            {ledger.flags.map((f, i) => {
-              switch (f.kind) {
-                case "no-receipt":
-                  return (
-                    <div key={i} className="flex flex-wrap items-center gap-2">
-                      <FlagLine chip="No receipt" tone="warning">
-                        {money(f.drawn)} drawn with no deposit recorded in JobTread. Enter the deposit left when the job
-                        moved to JobTread (from the tracking sheet).
-                      </FlagLine>
-                      {!opening && (
-                        <Button size="sm" variant="outline" onClick={openOpening}>
-                          Enter opening balance
-                        </Button>
-                      )}
-                    </div>
-                  );
-                case "overdrawn":
-                  return (
-                    <FlagLine key={i} chip="Overdrawn" tone="danger">
-                      Drawn {money(f.by)} more than the deposit received.
-                    </FlagLine>
-                  );
-                case "double-draw":
-                  return (
-                    <FlagLine key={i} chip="Drawn twice" tone="danger">
-                      This deposit is drawn by invoice line AND by payment. One of them double-counts.
-                    </FlagLine>
-                  );
-                case "taxable-line":
-                  return (
-                    <FlagLine key={i} chip="Taxable" tone="warning">
-                      The deposit line on {f.invoiceNumber != null ? `#${f.invoiceNumber}` : "an invoice"} is marked
-                      taxable. Deposit lines are not taxed.
-                    </FlagLine>
-                  );
-                default:
-                  return null;
-              }
-            })}
-            {unlinked.length > 0 && (
-              <FlagLine chip="Not in QuickBooks" tone="warning">
-                {unlinked.map((u) => `#${u.invoiceNumber ?? "?"} ${money(u.amount)}`).join(", ")} applied from the
-                deposit in JobTread only. Check QuickBooks shows these invoices paid.
+            {ledger.source == null && ledger.drawn > 0 && (
+              <FlagLine chip="No deposit" tone="warning">
+                {money(ledger.drawn)} drawn, but no deposit is recorded. Enter the deposit and what was applied before
+                JobTread.
               </FlagLine>
+            )}
+            {ledger.flags.map((f, i) =>
+              f.kind === "overdrawn" ? (
+                <FlagLine key={i} chip="Overdrawn" tone="danger">
+                  Drawn {money(f.by)} more than the deposit.
+                </FlagLine>
+              ) : (
+                <FlagLine key={i} chip="Taxable" tone="warning">
+                  The deposit line on {f.invoiceNumber != null ? `#${f.invoiceNumber}` : "an invoice"} is marked
+                  taxable. Deposit lines are not taxed.
+                </FlagLine>
+              ),
             )}
           </div>
 
-          {opening && (
-            <form
-              className="mt-3 grid gap-2 rounded-lg border border-line-soft p-2.5 pad:grid-cols-[1fr_1fr_2fr_auto]"
-              onSubmit={(ev) => {
-                ev.preventDefault();
-                post({ action: "set-opening", amount: Number(opening.amount), asOf: opening.asOf, note: opening.note });
-              }}
-            >
-              <Input
-                inputMode="decimal"
-                placeholder="Deposit left ($)"
-                aria-label="Deposit left when the job moved to JobTread"
-                value={opening.amount}
-                onChange={(e) => setOpening({ ...opening, amount: e.target.value })}
-              />
-              <Input
-                type="date"
-                aria-label="Date that balance was true on"
-                value={opening.asOf}
-                onChange={(e) => setOpening({ ...opening, asOf: e.target.value })}
-              />
-              <Input
-                placeholder="Source, e.g. tracking sheet, Sept '26 block"
-                aria-label="Where you got this number"
-                value={opening.note}
-                onChange={(e) => setOpening({ ...opening, note: e.target.value })}
-              />
-              <div className="flex gap-1.5">
-                <Button size="sm" type="submit" disabled={busy || !opening.amount || !opening.asOf}>
-                  Save
-                </Button>
-                <Button size="sm" variant="ghost" onClick={() => setOpening(null)}>
-                  Cancel
-                </Button>
-              </div>
-            </form>
-          )}
+          {enterForm}
 
           {writes &&
             (recon?.invoices ?? [])
@@ -369,63 +352,102 @@ export function DepositCard({
                 );
               })}
 
-          {ledger.entries.length > 0 && (
+          {(ledger.entries.length > 0 || ledger.previouslyApplied > 0) && (
             <ListCard className="mt-3">
-              {ledger.entries.map((e) => (
+              {ledger.source === "entered" && (
                 <ListRow
-                  key={e.key}
-                  label={<span className={e.beforeOpening ? "text-neutral-400" : ""}>{entryLabel(e)}</span>}
+                  label="Deposit, entered by hand"
                   desc={
                     <MetaLine
-                      items={[
-                        day(e.date),
-                        e.invoiceName || null,
-                        e.method === "payment" && e.kind === "drawn" ? "payment applied" : null,
-                        e.invoiceId && thisMonth.has(e.invoiceId) ? "this month" : null,
-                        e.beforeOpening ? "before the opening balance" : null,
-                      ]}
+                      items={[data.updatedBy || null, day(data.updatedAt), data.note || null]}
                     />
                   }
-                  trailing={
-                    <span className={`tabular-nums text-sm ${e.beforeOpening ? "text-neutral-400" : ""}`}>
-                      {signOf(e)}
-                      {money(e.amount)}
-                    </span>
-                  }
+                  trailing={<span className="tabular-nums text-sm">+{money(ledger.deposit)}</span>}
                 />
-              ))}
+              )}
+              {ledger.previouslyApplied > 0 && (
+                <ListRow
+                  label="Previously applied"
+                  desc={<MetaLine items={["before JobTread"]} />}
+                  trailing={<span className="tabular-nums text-sm">−{money(ledger.previouslyApplied)}</span>}
+                />
+              )}
+              {ledger.entries.map((e) => {
+                // A deposit invoice counts only when the deposit comes from JobTread.
+                const muted = e.kind === "deposit" && ledger.source !== "jobtread";
+                const payments = e.kind === "deposit" ? paidBy(e.invoiceId) : [];
+                return (
+                  <ListRow
+                    key={e.key}
+                    label={<span className={muted ? "text-neutral-400" : ""}>{entryLabel(e)}</span>}
+                    desc={
+                      <MetaLine
+                        items={[
+                          day(e.date),
+                          e.invoiceName || null,
+                          payments.length
+                            ? `paid by ${payments.length === 1 ? "1 payment" : `${payments.length} payments`}, ${day(payments.at(-1)?.paidAt)}`
+                            : null,
+                          e.unpaid ? `${money(e.unpaid)} not paid yet` : null,
+                          muted ? "not counted: the deposit is entered by hand" : null,
+                          thisMonth.has(e.invoiceId) ? "this month" : null,
+                        ]}
+                      />
+                    }
+                    trailing={
+                      <span className={`tabular-nums text-sm ${muted ? "text-neutral-400" : ""}`}>
+                        {e.kind === "deposit" ? "+" : "−"}
+                        {money(e.amount)}
+                      </span>
+                    }
+                  />
+                );
+              })}
             </ListCard>
           )}
 
-          {ledger.opening != null && !opening && (
+          {!form && ledger.source !== "jobtread" && (
             <MetaLine
               className="mt-2"
-              items={[
-                `Opening balance from ${data.updatedBy || "the office"}${data.note ? `: ${data.note}` : ""}`,
-                <button key="c" type="button" className="underline" onClick={openOpening}>
-                  Change
-                </button>,
-                <button key="x" type="button" className="underline" disabled={busy} onClick={() => post({ action: "clear-opening" })}>
-                  Clear
-                </button>,
-              ]}
-            />
-          )}
-          {ledger.opening == null && !opening && !ledger.flags.some((f) => f.kind === "no-receipt") && (
-            <MetaLine
-              className="mt-2"
-              items={[
-                <button key="o" type="button" className="underline" onClick={openOpening}>
-                  Deposit older than JobTread? Enter its opening balance
-                </button>,
-              ]}
+              items={
+                entered
+                  ? [
+                      <button key="c" type="button" className="underline" onClick={openForm}>
+                        Change the deposit
+                      </button>,
+                      <button
+                        key="x"
+                        type="button"
+                        className="underline"
+                        disabled={busy}
+                        onClick={() => window.confirm("Clear the deposit entered by hand?") && post({ action: "clear-deposit" })}
+                      >
+                        Clear
+                      </button>,
+                    ]
+                  : [
+                      <button key="e" type="button" className="underline" onClick={openForm}>
+                        Enter a deposit
+                      </button>,
+                    ]
+              }
             />
           )}
         </>
+      ) : (
+        !form && (
+          <MetaLine
+            items={[
+              <button key="e" type="button" className="underline" onClick={openForm}>
+                Enter a deposit
+              </button>,
+            ]}
+          />
+        )
       )}
 
       {clientPayments.length > 0 && (
-        <div className={ledger.hasDeposit ? "mt-4" : ""}>
+        <div className="mt-4">
           <SectionHeading
             onToggle={() => setShowPayments((v) => !v)}
             open={showPayments}

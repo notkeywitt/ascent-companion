@@ -7,6 +7,15 @@ Read 2026-10-05 against the live JobTread org, the Pave schema and both repos.
 Every figure below came from a live query or the code, not from memory.
 Read `CODEBASE_MAP.md` first.
 
+> **Superseded 2026-10-11 by the owner's simpler model.** A job's deposit is
+> either read from JobTread (the paid part of its deposit invoices, e.g. Gormley
+> Studio #8) or entered by hand with a "previously applied" figure (Berger:
+> $128,842, linked to nothing). Draws are negative CD lines only.
+> Deposit left = Deposit − Previously applied − Draws. Payment-application
+> draws, deposit-payment detection, opening-balance dates, draw rules and
+> agreed (budget leaf) figures are gone. `src/lib/deposits.ts` is the current
+> rule set; the history below is kept for the research.
+
 ## Status
 
 | Stage | State |

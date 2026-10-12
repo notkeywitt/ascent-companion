@@ -1,25 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
-import { pave } from "@/lib/jobtread";
-import { getPaveConfig, hasGrant } from "@/lib/config";
+import { hasGrant } from "@/lib/config";
 import { readDeposits as readAll } from "@/lib/depositRead";
-import {
-  assignDepositPayment,
-  readDepositLinks,
-  setDepositOpening,
-  unassignDepositPayment,
-} from "@/lib/depositLinks";
+import { readEnteredDeposit, setEnteredDeposit } from "@/lib/depositLinks";
 import { openJournal } from "@/lib/financialJournal";
 
 /**
  * JOB DEPOSITS — one job's deposit balance and its client payments.
  *
- * GET  ?jobId=  → { ledger, clientPayments, … }. Read-only against JobTread.
- * POST { jobId, action, … } edits the companion's `deposit_links` row — the
- *      facts JobTread has no field for — and answers with the fresh GET body.
- *      Nothing here writes to JobTread.
+ * GET  ?jobId=  → { ledger, entered, clientPayments, … }. Read-only against JobTread.
+ * POST { jobId, action: "set-deposit", amount, previouslyApplied, note }
+ *      or { jobId, action: "clear-deposit" } edits the deposit entered by hand
+ *      (the companion's `deposit_links` row) and answers with the fresh GET
+ *      body. Nothing here writes to JobTread.
  *
  * Gated by the `recode` (Tracking Sheets) view's paths. Rules: src/lib/deposits.ts.
- * Plan: DEPOSITS_PLAN.md.
  */
 
 const fail = (e: unknown, status = 502) =>
@@ -36,7 +30,11 @@ export async function GET(req: NextRequest) {
   }
 }
 
-const DAY = /^\d{4}-\d{2}-\d{2}$/;
+const MAX = 50_000_000;
+const dollars = (v: unknown) => {
+  const n = Number(v ?? 0);
+  return Number.isFinite(n) && n >= 0 && n <= MAX ? n : null;
+};
 
 export async function POST(req: NextRequest) {
   if (!hasGrant()) return NextResponse.json({ error: "JT_GRANT_KEY is not set." }, { status: 400 });
@@ -49,75 +47,40 @@ export async function POST(req: NextRequest) {
   const jobId = String(body?.jobId ?? "").trim();
   const action = String(body?.action ?? "");
   if (!jobId) return NextResponse.json({ error: "Pass jobId" }, { status: 400 });
+  if (action !== "set-deposit" && action !== "clear-deposit") {
+    return NextResponse.json({ error: `Unknown action "${action}".` }, { status: 400 });
+  }
+
+  let entered = null;
+  if (action === "set-deposit") {
+    const amount = dollars(body?.amount);
+    const previouslyApplied = dollars(body?.previouslyApplied);
+    if (amount == null || amount === 0) {
+      return NextResponse.json({ error: "Enter the deposit as a dollar amount." }, { status: 400 });
+    }
+    if (previouslyApplied == null) {
+      return NextResponse.json({ error: "Enter what was previously applied as a dollar amount (0 if none)." }, { status: 400 });
+    }
+    entered = { amount, previouslyApplied };
+  }
 
   const j = await openJournal("/api/deposits");
-  const by = j.actor.email;
-  const before = await readDepositLinks(jobId);
-
+  const before = await readEnteredDeposit(jobId);
   try {
-    if (action === "assign-payment" || action === "unassign-payment") {
-      const paymentId = String(body?.paymentId ?? "").trim();
-      if (!paymentId) return NextResponse.json({ error: "Pass paymentId" }, { status: 400 });
-      if (action === "assign-payment") {
-        // Only a client payment on THIS job's customer account can be its deposit.
-        const r = await pave(getPaveConfig(), {
-          payment: { $: { id: paymentId }, id: {}, type: {}, account: { id: {} } },
-          job: { $: { id: jobId }, id: {}, location: { account: { id: {} } } },
-        });
-        const payAcct = r?.payment?.account?.id;
-        if (!r?.payment?.id || r.payment.type !== "credit" || !payAcct || payAcct !== r?.job?.location?.account?.id) {
-          return NextResponse.json(
-            { error: "That payment is not a client payment on this job's customer account." },
-            { status: 400 },
-          );
-        }
-        await assignDepositPayment(jobId, paymentId, by);
-      } else {
-        await unassignDepositPayment(jobId, paymentId, by);
-      }
-      await j.record([
-        {
-          action: action === "assign-payment" ? "deposit.payment.assign" : "deposit.payment.unassign",
-          entity: "deposit",
-          entityId: jobId,
-          jobId,
-          field: "paymentIds",
-          before: before.paymentIds,
-          after: paymentId,
-          beforeSource: "read",
-        },
-      ]);
-    } else if (action === "set-opening" || action === "clear-opening") {
-      let opening: { amount: number; asOf: string } | null = null;
-      if (action === "set-opening") {
-        const amount = Number(body?.amount);
-        const asOf = String(body?.asOf ?? "");
-        const today = new Date().toISOString().slice(0, 10);
-        if (!Number.isFinite(amount) || amount < 0 || amount > 50_000_000) {
-          return NextResponse.json({ error: "Enter the deposit left as a dollar amount." }, { status: 400 });
-        }
-        if (!DAY.test(asOf) || Number.isNaN(Date.parse(asOf)) || asOf > today) {
-          return NextResponse.json({ error: "Enter the date that balance was true on (not in the future)." }, { status: 400 });
-        }
-        opening = { amount, asOf };
-      }
-      await setDepositOpening(jobId, opening, String(body?.note ?? before.note), by);
-      await j.record([
-        {
-          action: opening ? "deposit.opening.set" : "deposit.opening.clear",
-          entity: "deposit",
-          entityId: jobId,
-          jobId,
-          field: "opening",
-          before: before.opening,
-          after: opening,
-          beforeSource: "read",
-          amount: opening?.amount ?? null,
-        },
-      ]);
-    } else {
-      return NextResponse.json({ error: `Unknown action "${action}".` }, { status: 400 });
-    }
+    await setEnteredDeposit(jobId, entered, String(body?.note ?? before.note), j.actor.email);
+    await j.record([
+      {
+        action: entered ? "deposit.entered.set" : "deposit.entered.clear",
+        entity: "deposit",
+        entityId: jobId,
+        jobId,
+        field: "entered",
+        before: before.entered,
+        after: entered,
+        beforeSource: "read",
+        amount: entered?.amount ?? null,
+      },
+    ]);
     return NextResponse.json(await readAll(jobId));
   } catch (e) {
     await j.record([
