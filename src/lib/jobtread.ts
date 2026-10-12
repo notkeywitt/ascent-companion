@@ -340,108 +340,9 @@ export async function pageAll<T = any>(cfg: PaveConfig, walk: PageWalk<T>): Prom
 }
 
 // ---------------------------------------------------------------------------
-// UNBILLED EXPENSES  (confirmed: documents carry cost/price/priceWithTax and
-// support server-side group/sum by type+status)
+// UNBILLED EXPENSES  — per bill / time entry, by its invoice link. The /unbilled
+// page, the chat tool and the digest check all read getUninvoicedBills.
 // ---------------------------------------------------------------------------
-
-export interface DocRollupRow {
-  type: string; // vendorBill | customerInvoice | customerOrder | ...
-  status: string; // draft | pending | approved | denied
-  cost: number;
-  priceWithTax: number;
-  count: number;
-}
-
-/**
- * Job-level cost/price rollup grouped by document type + status.
- *
- * The customer-invoice rows come back NET of deposit lines (cost code CD): a
- * deposit is not work, so its line cost is no part of what was billed. Left
- * in, Berger #320's −$20,000 draw read as $20,000 of work still unbilled, and
- * Thomas's $16,079.69 deposit invoice as that much work billed. DEPOSITS_PLAN.md.
- */
-export async function getJobDocumentRollup(
-  cfg: PaveConfig,
-  jobId: string,
-): Promise<DocRollupRow[]> {
-  const r = await pave(cfg, {
-    job: {
-      $: { id: jobId },
-      id: {},
-      documents: {
-        $: {
-          group: {
-            by: ["type", "status"],
-            aggs: {
-              cost: { sum: "cost" },
-              priceWithTax: { sum: "priceWithTax" },
-              count: { count: [] },
-            },
-          },
-        },
-        withValues: {},
-      },
-      // Confirmed live 2026-10-05 (Otis Perkins: approved −20000, denied −20000).
-      depositLines: {
-        _: "costItems",
-        $: {
-          where: {
-            and: [
-              { "=": [{ field: ["document", "type"] }, { value: "customerInvoice" }] },
-              { "=": [{ field: ["costCode", "number"] }, { value: DEPOSIT_CSI }] },
-            ],
-          },
-          group: { by: [["document", "status"]], aggs: { total: { sum: "cost" } } },
-        },
-        withValues: {},
-      },
-    },
-  });
-  const depositCost: Record<string, number> = {};
-  for (const row of r?.job?.depositLines?.withValues ?? []) {
-    const status = row?.document?.status;
-    if (status) depositCost[status] = (depositCost[status] ?? 0) + (Number(row.total) || 0);
-  }
-  return netDepositLines((r?.job?.documents?.withValues ?? []) as DocRollupRow[], depositCost);
-}
-
-/**
- * Take deposit-line cost out of the customer-invoice rows, by status. Pure —
- * exported for its test.
- */
-export function netDepositLines(
-  rows: DocRollupRow[],
-  depositCostByStatus: Record<string, number>,
-): DocRollupRow[] {
-  return rows.map((r) => {
-    const dep = r.type === "customerInvoice" ? depositCostByStatus[r.status] ?? 0 : 0;
-    return dep ? { ...r, cost: Math.round(((r.cost ?? 0) - dep) * 100) / 100 } : r;
-  });
-}
-
-/**
- * Unbilled cost = Σ approved vendorBill.cost − Σ customerInvoice.cost
- * (draft invoices count as "in progress" — surfaced separately).
- */
-export function computeUnbilled(rollup: DocRollupRow[]) {
-  const sum = (type: string, statuses: string[]) =>
-    rollup
-      .filter((r) => r.type === type && statuses.includes(r.status))
-      .reduce((s, r) => s + (r.cost ?? 0), 0);
-
-  const billedCost = sum("vendorBill", ["approved"]);
-  const invoicedCost = sum("customerInvoice", ["approved"]);
-  const draftInvoiceCost = sum("customerInvoice", ["draft"]);
-  const draftBillCost = sum("vendorBill", ["draft"]); // = the coding queue value
-
-  return {
-    billedCost,
-    invoicedCost,
-    draftInvoiceCost,
-    draftBillCost,
-    unbilled: billedCost - invoicedCost, // approved cost not yet on an approved invoice
-  };
-}
 
 /**
  * Is this vendor bill / time entry already invoiced to the client?
@@ -451,8 +352,6 @@ export function computeUnbilled(rollup: DocRollupRow[]) {
  * "to be invoiced" total until the invoice leaves draft (pending, approved,
  * paid). Staging a draft used to drop a job's monthly total straight to $0,
  * which read as "nothing left to bill" at exactly the moment there was.
- * `computeUnbilled` above has always drawn the line this way; these callers had
- * not.
  *
  * Every other status counts, `denied` included — a denied invoice is a
  * reconciliation question (see `getInvoiceReconciliation`, which follows the

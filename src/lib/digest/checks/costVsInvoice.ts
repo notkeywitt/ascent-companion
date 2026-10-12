@@ -2,13 +2,11 @@
  * Check "cost-vs-invoice" (Billing) — jobs where what we've SPENT has outrun
  * what the client has been BILLED.
  *
- * THE MATH is the same one the /unbilled page shows, so the digest and that
- * page can never disagree: Σ approved vendorBill cost − Σ approved
- * customerInvoice cost, per job, from JobTread's own document rollup
- * (`getJobDocumentRollup` + `computeUnbilled`). Draft invoices are deliberately
- * excluded from the credit side — an invoice nobody approved has not billed
- * anybody — but a job's draft invoice total is mentioned in the detail so
- * "it's already staged" is visible rather than looking like a surprise.
+ * THE MATH is the /unbilled page's, so the digest and that page can never
+ * disagree: `getUninvoicedBills` over the whole job — every finalized vendor
+ * bill and time entry with no link to a client invoice, at cost. A draft
+ * invoice does not count as invoiced: an invoice nobody sent has not billed
+ * anybody.
  *
  * "LARGE AND UNEXPECTED" is two settings, not a judgment in code:
  *   • `gapThreshold` — how many dollars of unbilled cost is worth a mention, and
@@ -17,13 +15,13 @@
  *     began and were never reconciled historically. That list is DATA in
  *     settings.ts because it changes; it is never a job name buried in code.
  *
- * COST CONTROL: one rollup query per open job, run `concurrency` at a time and
- * capped at `maxJobs`. A job whose rollup fails is skipped and logged — one bad
+ * COST CONTROL: one getUninvoicedBills walk per open job, run `concurrency` at a time and
+ * capped at `maxJobs`. A job whose walk fails is skipped and logged — one bad
  * job must not cost the whole check.
  *
  * READ-ONLY throughout.
  */
-import { computeUnbilled, getJobDocumentRollup, getJobs, type JobRef } from "@/lib/jobtread";
+import { getJobs, getUninvoicedBills, type JobRef } from "@/lib/jobtread";
 import { defineCheck, allClear, checkError, type CheckResult, type DigestItem } from "../types";
 import type { CostVsInvoiceConfig } from "../settings";
 
@@ -88,8 +86,9 @@ export const costVsInvoiceCheck = defineCheck<CostVsInvoiceConfig>({
     let failed = 0;
     const priced = await mapWithLimit(considered, config.concurrency, async (job) => {
       try {
-        const rollup = await getJobDocumentRollup(pave, job.id);
-        return { job, ...computeUnbilled(rollup) };
+        const d = await getUninvoicedBills(pave, job.id);
+        const labor = d.lines.find((l) => l.key === "time")?.cost ?? 0;
+        return { job, unbilled: d.total, bills: d.total - labor, labor };
       } catch (e) {
         failed++;
         log(`couldn't price ${job.name}: ${e instanceof Error ? e.message : String(e)}`);
@@ -106,10 +105,7 @@ export const costVsInvoiceCheck = defineCheck<CostVsInvoiceConfig>({
 
     const items: DigestItem[] = over.map((p) => ({
       title: `${p.job.customer ? `${p.job.customer} — ` : ""}${p.job.name} · ${money(p.unbilled)} unbilled`,
-      detail:
-        `${money(p.billedCost)} of approved vendor bills against ${money(p.invoicedCost)} of approved client invoices. ` +
-        (p.draftInvoiceCost > 0 ? `${money(p.draftInvoiceCost)} is already on a draft invoice. ` : "") +
-        (p.draftBillCost > 0 ? `${money(p.draftBillCost)} of bills are still in the coding queue.` : ""),
+      detail: `${money(p.bills)} of vendor bills and ${money(p.labor)} of labor are on no client invoice.`,
       sourceLink: `/unbilled?jobId=${encodeURIComponent(p.job.id)}`,
       sourceLabel: "Open unbilled view",
       amount: p.unbilled,

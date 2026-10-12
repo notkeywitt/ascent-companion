@@ -18,8 +18,7 @@ import {
   type PaveConfig,
   getJobs,
   getJobBudget,
-  getJobDocumentRollup,
-  computeUnbilled,
+  getUninvoicedBills,
   getDraftBills,
   getAllDraftBills,
   getBillDetail,
@@ -91,9 +90,10 @@ export const CHAT_TOOLS: ChatTool[] = [
   {
     name: "get_unbilled",
     description:
-      "Get a job's billing rollup: total approved vendor-bill cost, invoiced cost, " +
-      "draft (uncoded) bill cost, draft invoice cost, and the resulting unbilled " +
-      "amount (approved cost not yet on an approved customer invoice). Requires a job_id.",
+      "Get a job's unbilled cost: every finalized vendor bill and time entry on no " +
+      "client invoice, over the life of the job (a draft invoice does not count as " +
+      "invoiced). Returns the total, the bill and labor parts, and one line per vendor " +
+      "plus a Time & labor line. Requires a job_id.",
     input_schema: {
       type: "object",
       properties: { job_id: { type: "string", description: "The JobTread job id." } },
@@ -101,8 +101,14 @@ export const CHAT_TOOLS: ChatTool[] = [
       additionalProperties: false,
     },
     handler: async (cfg, input) => {
-      const rollup = await getJobDocumentRollup(cfg, String(input.job_id));
-      return computeUnbilled(rollup);
+      const d = await getUninvoicedBills(cfg, String(input.job_id));
+      const labor = d.lines.find((l) => l.key === "time")?.cost ?? 0;
+      return {
+        unbilled: d.total,
+        bills: d.total - labor,
+        labor,
+        lines: d.lines.map((l) => ({ label: l.label, cost: l.cost })),
+      };
     },
   },
   {

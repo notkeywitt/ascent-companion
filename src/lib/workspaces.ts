@@ -80,7 +80,7 @@ export const WORKSPACES: Workspace[] = [
       tab("leads", "/leads", "Leads", "New leads, who's overdue, who's gone quiet"),
       tab("clients", "/clients", "Directory", "Every customer and job in JobTread — edit the record"),
       tab("jobs", "/jobs", "Job Cost", "Every job's budget against what it has spent"),
-      tab("unbilled", "/unbilled", "Unbilled", "Uninvoiced expenses by cost code"),
+      tab("unbilled", "/unbilled", "Unbilled", "Bills and time not yet invoiced"),
       tab("budget-import", "/budget-import", "Budget Import", "A tracking sheet's estimate as a JobTread budget"),
       tab("specs", "/specs", "Specifications", "An architect's spec selection list, with its product links"),
       tab("ar-aging", "/ar-aging", "Receivables", "Unpaid client invoices, oldest first"),
