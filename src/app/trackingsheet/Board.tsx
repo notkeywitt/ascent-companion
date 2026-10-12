@@ -2127,7 +2127,6 @@ export function Board() {
       {jobId && !loading && (
         <div className="order-last mt-4 lg:order-none lg:mb-4 lg:mt-0">
           <InvoiceReconcile jobId={jobId} ym={ym} onData={setRecon} />
-          <DepositCard jobId={jobId} recon={recon} writes={Boolean(data?.writesEnabled)} />
         </div>
       )}
 
@@ -2637,6 +2636,16 @@ export function Board() {
           column even though the reconcile block above also claims that order on
           a phone; both are last in DOM order here, so they stack in source
           order. */}
+      {/* The deposit card, at the foot of the page on every width. `order-last`
+          puts it after the workbench (`lg:order-1`); it is DOM-before the
+          sticky action bar, which also claims `order-last`, so the bar stays
+          the last thing in the column. */}
+      {jobId && !loading && (
+        <div className="order-last">
+          <DepositCard jobId={jobId} recon={recon} writes={Boolean(data?.writesEnabled)} />
+        </div>
+      )}
+
       {jobId && (
         <StickyActionBar
           dock="right"
