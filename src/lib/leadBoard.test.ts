@@ -105,16 +105,11 @@ describe("toLeadCard", () => {
 });
 
 describe("sortLeadCards", () => {
-  // Built in beforeAll, not at collection time: the fake clock starts there,
-  // and a card's quiet days are measured from "now".
-  let cards: ReturnType<typeof toLeadCard>[] = [];
-  beforeAll(() => {
-    cards = [
-      lead({ id: "fresh", tracking: { lastContactDate: "2026-09-07" } as LeadLike["tracking"] }),
-      lead({ id: "old", tracking: { lastContactDate: "2026-08-01" } as LeadLike["tracking"] }),
-      lead({ id: "middle", tracking: { lastContactDate: "2026-09-01" } as LeadLike["tracking"] }),
-    ].map(toLeadCard);
-  });
+  const cards = [
+    lead({ id: "fresh", tracking: { lastContactDate: "2026-09-07" } as LeadLike["tracking"] }),
+    lead({ id: "old", tracking: { lastContactDate: "2026-08-01" } as LeadLike["tracking"] }),
+    lead({ id: "middle", tracking: { lastContactDate: "2026-09-01" } as LeadLike["tracking"] }),
+  ].map(toLeadCard);
 
   it("puts the longest-quiet lead first by default", () => {
     expect(sortLeadCards(cards, "quiet").map((c) => c.id)).toEqual(["old", "middle", "fresh"]);
