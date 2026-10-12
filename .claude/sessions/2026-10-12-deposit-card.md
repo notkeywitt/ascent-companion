@@ -12,5 +12,7 @@ next: None — check the card sits at the foot on a phone.
 ## Log
 
 <!-- Appended by .githooks/post-commit. Do not hand-write rows here. -->
+- 2026-10-12 10:46 · `bbf7960` companion: tracking sheet deposit card sits at the foot of the page
+  src/app/trackingsheet/Board.tsx
 
 ## Notes
