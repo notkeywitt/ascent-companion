@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { afterAll, describe, expect, it, vi } from "vitest";
 import {
   LEAD_QUIET_DEFAULTS,
   LEAD_QUIET_MAX,
@@ -14,11 +14,11 @@ import {
   type LeadLike,
 } from "./leadBoard";
 
-// Every expectation here is measured from today, so pin the clock.
-beforeAll(() => {
-  vi.useFakeTimers();
-  vi.setSystemTime(new Date("2026-09-08T12:00:00Z"));
-});
+// Every expectation here is measured from today, so pin the clock. At module
+// level, not in beforeAll: `describe` bodies build fixtures (sortLeadCards'
+// `cards`) at collection time, before any beforeAll runs.
+vi.useFakeTimers();
+vi.setSystemTime(new Date("2026-09-08T12:00:00Z"));
 afterAll(() => vi.useRealTimers());
 
 const lead = (over: Partial<LeadLike> & { id: string }): LeadLike => ({

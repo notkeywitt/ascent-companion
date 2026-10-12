@@ -905,25 +905,21 @@ export function Board() {
     () => [...nonSunsetBills, ...sunsetBills],
     [nonSunsetBills, sunsetBills],
   );
-  // THE CARD OPENS BESIDE ITS ROW (owner, 2026-09-29). The coding column
-  // scrolls with the page, and opening a bill used to scroll back to the
-  // column's top — away from the row just clicked. Instead the card is pushed
-  // down to the clicked row's height, so it lands next to it and nothing moves.
+  // THE CARD OPENS AT THE TOP OF THE WINDOW (owner, 2026-10-11). The coding
+  // column scrolls with the page, so the card is pushed down to whatever part
+  // of the column is on screen when a bill or time entry is opened. It used to
+  // land beside the clicked row (2026-09-29). Measured on open only: a refresh
+  // while you work down a long card must not move it.
   const [openTop, setOpenTop] = useState(0);
   useLayoutEffect(() => {
-    // An open time entry claims the column ahead of a bill, so it wins here too.
-    const row = openTimeId
-      ? document.getElementById(`time-${openTimeId}`)
-      : openDocId
-        ? document.getElementById(`bill-${openDocId}`)
-        : null;
     const col = codingColRef.current;
-    setOpenTop(row && col ? Math.max(0, row.getBoundingClientRect().top - col.getBoundingClientRect().top) : 0);
-  }, [openDocId, openTimeId, sunsetBlockOpen, orderedBills]);
+    if (!col || (!openDocId && !openTimeId)) return setOpenTop(0);
+    const header = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--appheader-h")) || 0;
+    setOpenTop(Math.max(0, header + 8 - col.getBoundingClientRect().top));
+  }, [openDocId, openTimeId]);
 
   // Previous / next through the list, in the order it reads down the page.
-  // The new row is scrolled to the top, so the card stays put on screen while
-  // the list moves under it.
+  // The page does not scroll, so the card and its buttons stay put on screen.
   const openIndex = orderedBills.findIndex((b) => b.id === openDocId);
   const stepBill = (dir: 1 | -1) => {
     const next = orderedBills[openIndex + dir];
@@ -932,9 +928,6 @@ export function Board() {
     driveMainWindowToDoc(jobId, next.id);
     setOpenTimeId(null);
     setOpenDocId(next.id);
-    requestAnimationFrame(() =>
-      document.getElementById(`bill-${next.id}`)?.scrollIntoView({ block: "start", behavior: "smooth" }),
-    );
   };
 
   const sunsetTotal = useMemo(() => sunsetBills.reduce((s, b) => s + b.cost, 0), [sunsetBills]);
@@ -2494,7 +2487,7 @@ export function Board() {
               owner asked for the bill to scroll with the page rather than
               inside a window (2026-09-28). A sticky column taller than the
               viewport would strand its own bottom, so the two go together.
-              An open bill or time entry card is pushed down beside its row (`openTop`). */}
+              An open bill or time entry card is pushed down to the top of the window (`openTop`). */}
           <section ref={codingColRef} className="scroll-below-header hidden min-w-0 xl:block">
             {/* One column, three subjects, in order of how specific the claim
                 is: ONE entry being edited (a row clicked), then a SELECTION
