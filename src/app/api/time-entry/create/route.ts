@@ -6,11 +6,14 @@ import {
   getJobBudget,
   getOrgTimeEntryTypeNames,
   getOrgUsers,
+  getUserTimeEntries,
+  jtIsoToOrgLocal,
   orgLocalToJtIso,
 } from "@/lib/jobtread";
 import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
 import { openJournal } from "@/lib/financialJournal";
 import { rosterForRole } from "@/lib/payRates";
+import { clockOf, overlappingEntry } from "@/lib/timeProblems";
 
 /**
  * A NEW time entry, logged for somebody else — the write behind Tracking
@@ -122,6 +125,28 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       { error: "That cost code doesn't belong to the job you picked." },
       { status: 400 },
+    );
+  }
+
+  // One person can't work two shifts at once. An overlap means this hour is
+  // already in JobTread, and adding it again pays it twice. Look back a day so
+  // a long shift that began before this one still counts.
+  const prior = await getUserTimeEntries(getPaveConfig(), userId, {
+    sinceIso: new Date(Date.parse(startedAt) - 86_400_000).toISOString(),
+    untilIso: endedAt,
+  });
+  const clash = overlappingEntry(prior, startedAt, endedAt);
+  if (clash) {
+    const from = jtIsoToOrgLocal(clash.startedAt);
+    const to = clash.endedAt ? clockOf(jtIsoToOrgLocal(clash.endedAt)) : "still running";
+    return NextResponse.json(
+      {
+        error:
+          `This employee already has ${from.slice(0, 10)} ${clockOf(from)}–${to} on ` +
+          `${clash.jobName || "a job"}${clash.costItemName ? ` (${clash.costItemName})` : ""}. ` +
+          `Edit that entry, or pick times that don't overlap it.`,
+      },
+      { status: 409 },
     );
   }
 

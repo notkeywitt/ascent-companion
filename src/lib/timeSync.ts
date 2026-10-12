@@ -38,6 +38,7 @@ import {
   getTimeEntrySpan,
   getUserTimeEntries,
   jtIsoToOrgLocal,
+  type UserTimeEntry,
   orgLocalToJtIso,
   resolveTimeTrackableLeaf,
 } from "@/lib/jobtread";
@@ -49,6 +50,7 @@ import {
   clockOf,
   driftMinutes,
   isErrorStatus,
+  overlappingEntry,
   sheetProblem,
   type TimeProblem,
 } from "@/lib/timeProblems";
@@ -388,20 +390,26 @@ export async function auditWorked(opts: AuditOptions = {}): Promise<AuditResult>
  *     `open-in-jt` until someone sets its stop time); or
  *   - it is closed and its stop time matches too — the same shift, twice.
  * A closed entry that starts at the same minute but ends elsewhere is a
- * DIFFERENT record (a split shift, a correction), so it is left alone.
+ * DIFFERENT record (a split shift, a correction), so it is not adopted.
+ *
+ * But it is not ignored either. Any other entry that OVERLAPS the row comes
+ * back as a `clash`, and the retry refuses: the employee logged that time in
+ * JobTread too, and re-posting would pay it twice (Seth, 9/16 — 8:40–4:30 in
+ * JobTread, a 9:00–4:30 record re-posted beside it).
  */
 async function findExistingEntry(
   row: WorkedRow,
   toleranceMinutes = 5,
-): Promise<{ id: string; open: boolean } | null> {
+): Promise<{ id: string; open: boolean } | { clash: UserTimeEntry } | null> {
   const startedAt = orgLocalToJtIso(row.start);
   if (!startedAt || !row.jtUserId) return null;
   const at = Date.parse(startedAt);
   if (!Number.isFinite(at)) return null;
   const endAt = Date.parse(orgLocalToJtIso(row.end));
-  const pad = 6 * 3_600_000; // a generous half-day either side; the match is on the minute
+  const pad = 6 * 3_600_000; // a generous half-day ahead; the match is on the minute
   const near = await getUserTimeEntries(getPaveConfig(), row.jtUserId, {
-    sinceIso: new Date(at - pad).toISOString(),
+    // A day back, so a long shift that began well before this one still clashes.
+    sinceIso: new Date(at - 24 * 3_600_000).toISOString(),
     untilIso: new Date(at + pad).toISOString(),
   });
   const close = (a: number, b: number) => Math.abs(a - b) / 60_000 <= toleranceMinutes;
@@ -411,7 +419,9 @@ async function findExistingEntry(
     if (!e.endedAt) return true;
     return Number.isFinite(endAt) && close(Date.parse(e.endedAt), endAt);
   });
-  return hit ? { id: hit.id, open: !hit.endedAt } : null;
+  if (hit) return { id: hit.id, open: !hit.endedAt };
+  const clash = Number.isFinite(endAt) ? overlappingEntry(near, startedAt, new Date(endAt).toISOString()) : undefined;
+  return clash ? { clash } : null;
 }
 
 /**
@@ -558,6 +568,19 @@ export async function retryWorked(
   // stranded record is the bigger harm — so it falls through to the create.
   try {
     const existing = await findExistingEntry(row);
+    if (existing && "clash" in existing) {
+      const c = existing.clash;
+      const from = jtIsoToOrgLocal(c.startedAt);
+      const to = c.endedAt ? clockOf(jtIsoToOrgLocal(c.endedAt)) : "still running";
+      return {
+        ok: false,
+        jtStatus: "",
+        error:
+          `JobTread already has ${clockOf(from)}–${to} for this employee on ${from.slice(0, 10)} ` +
+          `(entry ${c.id}), which overlaps this record. Re-posting would pay those hours twice. ` +
+          `If it is the same shift, paste ${c.id} into the row's JobTread Entry ID.`,
+      };
+    }
     if (existing) {
       await callAppsScriptOrThrow({
         action: "finalizeTimeEntryLog",

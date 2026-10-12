@@ -108,6 +108,32 @@ export function sheetProblem(jtEntryId: string, jtStatus: string): TimeProblem |
   return isErrorStatus(jtStatus) ? "push-failed" : null;
 }
 
+/**
+ * The first entry whose span overlaps [startIso, endIso), or undefined. Both
+ * paths that create an entry for someone else ask this before they write: one
+ * person cannot work two shifts at once, so an overlap is a duplicate. Seth's
+ * 9/16 was the case — 8:40–4:30 in JobTread, a 9:00–4:30 added beside it, and
+ * both reached payroll.
+ *
+ * An OPEN entry (no stop time) is still running, so it overlaps anything after
+ * its start. Touching edges (one ends at 12:00, the next starts at 12:00) are a
+ * split shift, not an overlap. Real instants in, so plain Date.parse.
+ */
+export function overlappingEntry<T extends { startedAt: string; endedAt: string | null }>(
+  entries: T[],
+  startIso: string,
+  endIso: string,
+): T | undefined {
+  const start = Date.parse(startIso);
+  const end = Date.parse(endIso);
+  if (!Number.isFinite(start) || !Number.isFinite(end)) return undefined;
+  return entries.find((e) => {
+    const s = Date.parse(e.startedAt);
+    const f = e.endedAt ? Date.parse(e.endedAt) : Infinity;
+    return Number.isFinite(s) && s < end && start < f;
+  });
+}
+
 /* --------------------------------------------------------- local wall clocks */
 
 /**

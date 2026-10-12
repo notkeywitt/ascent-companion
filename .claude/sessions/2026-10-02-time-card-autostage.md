@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/time-card-autostage
 status: shipped
 started: 2026-10-02T17:18:55Z
-updated: 2026-10-02T19:43:29Z
+updated: 2026-10-12T13:00:54Z
 goal: Tracking Sheets time card: stage edits as they are made (like bills), remove the Stage changes button
 next: Open /trackingsheet with no job on a phone and an iPad: check the per-job ring cards read right. Then decide how /unbilled treats hand-built invoices (rebuild still uncommitted in the working tree)
 ---
@@ -24,6 +24,8 @@ next: Open /trackingsheet with no job on a phone and an iPad: check the per-job 
   src/app/api/stuck-vendors/route.ts, src/components/StuckVendors.tsx
 - 2026-10-02 12:42 · `f90e68b` companion: tracking sheets all-jobs view shows each job's month bill and labor rings
   src/app/api/trackingsheet/month-donuts/route.ts, src/app/trackingsheet/AllJobs.tsx, src/app/trackingsheet/CostDonuts.tsx, src/app/trackingsheet/MonthJobDonuts.tsx, src/lib/monthCostByJob.ts
+- 2026-10-12 09:00 · `f16c581` companion: bill coding dropdown names a line coded to an uncategorized or labor leaf instead of saying uncoded
+  src/app/trackingsheet/BillCodingCard.tsx, src/components/CostCodeSelect.tsx
 
 ## Notes
 - 2026-10-02 18:56 — Home board donuts now read invoiced (approved+pending customerInvoice, pre-tax) against approved price, not spent vs budget. JT's Invoiced figure includes tax, so it reads higher.

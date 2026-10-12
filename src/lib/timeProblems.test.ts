@@ -8,9 +8,30 @@ import {
   clockOf,
   driftMinutes,
   isErrorStatus,
+  overlappingEntry,
   sheetProblem,
   wallClock,
 } from "./timeProblems";
+
+describe("overlappingEntry", () => {
+  // Seth, 9/16: 8:40–4:30 PDT already in JobTread.
+  const seth = [{ id: "a", startedAt: "2026-09-16T15:40:00Z", endedAt: "2026-09-16T23:30:00Z" }];
+
+  it("finds the shift a second entry would sit inside", () => {
+    expect(overlappingEntry(seth, "2026-09-16T16:00:00Z", "2026-09-16T23:30:00Z")?.id).toBe("a");
+  });
+
+  it("lets a split shift touch at the edge", () => {
+    expect(overlappingEntry(seth, "2026-09-16T23:30:00Z", "2026-09-17T01:00:00Z")).toBeUndefined();
+    expect(overlappingEntry(seth, "2026-09-16T14:00:00Z", "2026-09-16T15:40:00Z")).toBeUndefined();
+  });
+
+  it("treats a running clock-in as covering everything after its start", () => {
+    const open = [{ id: "b", startedAt: "2026-09-16T15:40:00Z", endedAt: null }];
+    expect(overlappingEntry(open, "2026-09-16T20:00:00Z", "2026-09-16T21:00:00Z")?.id).toBe("b");
+    expect(overlappingEntry(open, "2026-09-16T14:00:00Z", "2026-09-16T15:00:00Z")).toBeUndefined();
+  });
+});
 
 /**
  * The two judgment calls behind Time Sync, and the stamp parsing both sides of
