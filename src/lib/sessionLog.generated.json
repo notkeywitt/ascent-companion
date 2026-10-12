@@ -1,7 +1,26 @@
 {
-  "generatedAt": "2026-10-12T02:30:39Z",
+  "generatedAt": "2026-10-12T02:38:44Z",
   "repo": "ascent-companion-deposits",
   "sessions": [
+    {
+      "slug": "deposit-parse",
+      "file": "2026-10-11-deposit-parse.md",
+      "branch": "claude/deposit-parse",
+      "status": "shipped",
+      "started": "2026-10-12T02:38:43Z",
+      "updated": "2026-10-12T02:38:44Z",
+      "goal": "Deposit form: accept typed dollar figures with commas and $",
+      "next": "Owner saves Berger's deposit on Bunkhouse; if Save still fails, read the error banner under the form.",
+      "commits": [
+        {
+          "date": "2026-10-11",
+          "time": "22:38",
+          "sha": "9ac8129",
+          "subject": "companion: deposit form reads amounts typed with commas or a dollar sign",
+          "files": "src/app/api/deposits/route.ts, src/app/trackingsheet/DepositCard.tsx, src/lib/deposits.test.ts, src/lib/deposits.ts"
+        }
+      ]
+    },
     {
       "slug": "unbilled",
       "file": "2026-10-11-unbilled.md",

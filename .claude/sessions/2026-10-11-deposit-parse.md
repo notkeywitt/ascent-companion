@@ -4,7 +4,7 @@ repo: ascent-companion-deposits
 branch: claude/deposit-parse
 status: shipped
 started: 2026-10-12T02:38:43Z
-updated: 2026-10-12T02:38:43Z
+updated: 2026-10-12T02:38:44Z
 goal: Deposit form: accept typed dollar figures with commas and $
 next: Owner saves Berger's deposit on Bunkhouse; if Save still fails, read the error banner under the form.
 ---
