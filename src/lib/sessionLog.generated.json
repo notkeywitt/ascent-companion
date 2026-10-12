@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-12T02:28:40Z",
+  "generatedAt": "2026-10-12T02:28:55Z",
   "repo": "ascent-companion-deposits",
   "sessions": [
     {
@@ -8,7 +8,7 @@
       "branch": "claude/deposit-simplify",
       "status": "shipped",
       "started": "2026-10-12T02:22:44Z",
-      "updated": "2026-10-12T02:28:40Z",
+      "updated": "2026-10-12T02:28:55Z",
       "goal": "Simplify job deposits: Deposit (JobTread deposit invoice, or entered by hand) minus Previously applied minus Draws",
       "next": "Owner ok to push (touches /api/deposits/apply, a JobTread write path). Then on /trackingsheet Bunkhouse: Enter a deposit 128842, previously applied = 92000 minus any draws already on JobTread invoices (#320 = 20000).",
       "commits": [
@@ -18,6 +18,13 @@
           "sha": "057b6b8",
           "subject": "companion: simplify job deposits to deposit minus previously applied minus draws",
           "files": "CODEBASE_MAP.md, DEPOSITS_PLAN.md, src/app/api/deposits/apply/route.ts, src/app/api/deposits/route.ts, src/app/trackingsheet/DepositCard.tsx, src/db/index.ts, +8 more"
+        },
+        {
+          "date": "2026-10-11",
+          "time": "22:28",
+          "sha": "533c96a",
+          "subject": "companion: keep main's lead board clock fix",
+          "files": "src/lib/leadBoard.test.ts"
         }
       ]
     },

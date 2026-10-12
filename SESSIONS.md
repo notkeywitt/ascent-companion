@@ -32,7 +32,7 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
-| [deposit](.claude/sessions/2026-10-11-deposit.md) | 2026-10-12 | 1 | Simplify job deposits: Deposit (JobTread deposit invoice, or entered by hand) m… |
+| [deposit](.claude/sessions/2026-10-11-deposit.md) | 2026-10-12 | 2 | Simplify job deposits: Deposit (JobTread deposit invoice, or entered by hand) m… |
 | [coding-card-top](.claude/sessions/2026-10-11-coding-card-top.md) | 2026-10-12 | 1 | Tracking Sheets: open the coding card at the top of the window, not beside its … |
 | [finding-row](.claude/sessions/2026-10-08-finding-row.md) | 2026-10-08 | 1 | Job check results (Check this job / Check all Jobs): each finding links to its … |
 | [desktop-icon-iphone-chrome](.claude/sessions/2026-10-07-desktop-icon-iphone-chrome.md) | 2026-10-07 | 2 | — |
