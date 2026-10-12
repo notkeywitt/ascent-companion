@@ -30,6 +30,11 @@ const CENT = 0.005;
 
 const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 
+/** A typed dollar figure: "$128,842.00" and "128842" both read 128842. Blank reads 0. */
+export function parseDollars(v: unknown): number {
+  return Number(String(v ?? "").replace(/[$,\s]/g, "") || 0);
+}
+
 // ── inputs ───────────────────────────────────────────────────────────────────
 
 /** The customer invoice a deposit line sits on. */

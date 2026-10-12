@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { hasGrant } from "@/lib/config";
+import { parseDollars } from "@/lib/deposits";
 import { readDeposits as readAll } from "@/lib/depositRead";
 import { readEnteredDeposit, setEnteredDeposit } from "@/lib/depositLinks";
 import { openJournal } from "@/lib/financialJournal";
@@ -32,7 +33,7 @@ export async function GET(req: NextRequest) {
 
 const MAX = 50_000_000;
 const dollars = (v: unknown) => {
-  const n = Number(v ?? 0);
+  const n = parseDollars(v);
   return Number.isFinite(n) && n >= 0 && n <= MAX ? n : null;
 };
 

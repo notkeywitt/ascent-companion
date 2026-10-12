@@ -8,6 +8,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildDepositLedger,
+  parseDollars,
   planDepositDraw,
   suggestDraw,
   type DepositInputs,
@@ -179,5 +180,15 @@ describe("suggestDraw", () => {
   it("whole invoice when nothing was drawn yet, never above what is left", () => {
     expect(suggestDraw(buildDepositLedger(studio()), { ...inv, priceWithTax: 12000 })).toBe(12000);
     expect(suggestDraw(buildDepositLedger(studio(10000)), inv)).toBe(10000);
+  });
+});
+
+describe("parseDollars", () => {
+  it("reads what the office types", () => {
+    expect(parseDollars("$128,842.00")).toBe(128842);
+    expect(parseDollars(" 92,000 ")).toBe(92000);
+    expect(parseDollars("")).toBe(0);
+    expect(parseDollars(5)).toBe(5);
+    expect(parseDollars("abc")).toBeNaN();
   });
 });

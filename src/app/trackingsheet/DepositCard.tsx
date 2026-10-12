@@ -15,6 +15,7 @@ import {
 } from "@/components/ui";
 import type { Recon } from "@/components/InvoiceReconcile";
 import {
+  parseDollars,
   suggestDraw,
   type DepositEntry,
   type DepositLedger,
@@ -195,8 +196,8 @@ export function DepositCard({
         ev.preventDefault();
         post({
           action: "set-deposit",
-          amount: Number(form.amount),
-          previouslyApplied: Number(form.applied || 0),
+          amount: parseDollars(form.amount),
+          previouslyApplied: parseDollars(form.applied),
           note: form.note,
         });
       }}
@@ -222,7 +223,7 @@ export function DepositCard({
         onChange={(e) => setForm({ ...form, note: e.target.value })}
       />
       <div className="flex gap-1.5">
-        <Button size="sm" type="submit" disabled={busy || !(Number(form.amount) > 0)}>
+        <Button size="sm" type="submit" disabled={busy || !(parseDollars(form.amount) > 0)}>
           Save
         </Button>
         <Button size="sm" variant="ghost" onClick={() => setForm(null)}>
@@ -317,7 +318,7 @@ export function DepositCard({
                   depositLines: current ? [{ id: "current", price: -current }] : [],
                 };
                 const value = drawInput[i.id] ?? String(suggestDraw(ledger, inv));
-                const amount = Number(value);
+                const amount = parseDollars(value);
                 return (
                   <div key={i.id} className="mt-3 rounded-lg border border-line-soft p-2.5">
                     <MetaLine
