@@ -1,7 +1,52 @@
 {
-  "generatedAt": "2026-10-12T02:22:32Z",
-  "repo": "wt",
+  "generatedAt": "2026-10-12T02:28:40Z",
+  "repo": "ascent-companion-deposits",
   "sessions": [
+    {
+      "slug": "deposit",
+      "file": "2026-10-11-deposit.md",
+      "branch": "claude/deposit-simplify",
+      "status": "shipped",
+      "started": "2026-10-12T02:22:44Z",
+      "updated": "2026-10-12T02:28:40Z",
+      "goal": "Simplify job deposits: Deposit (JobTread deposit invoice, or entered by hand) minus Previously applied minus Draws",
+      "next": "Owner ok to push (touches /api/deposits/apply, a JobTread write path). Then on /trackingsheet Bunkhouse: Enter a deposit 128842, previously applied = 92000 minus any draws already on JobTread invoices (#320 = 20000).",
+      "commits": [
+        {
+          "date": "2026-10-11",
+          "time": "22:24",
+          "sha": "057b6b8",
+          "subject": "companion: simplify job deposits to deposit minus previously applied minus draws",
+          "files": "CODEBASE_MAP.md, DEPOSITS_PLAN.md, src/app/api/deposits/apply/route.ts, src/app/api/deposits/route.ts, src/app/trackingsheet/DepositCard.tsx, src/db/index.ts, +8 more"
+        }
+      ]
+    },
+    {
+      "slug": "main",
+      "file": "2026-10-11-main.md",
+      "branch": "(detached)",
+      "status": "in-progress",
+      "started": "2026-10-12T02:28:40Z",
+      "updated": "2026-10-12T02:28:40Z",
+      "goal": "",
+      "next": "",
+      "commits": [
+        {
+          "date": "2026-10-11",
+          "time": "22:24",
+          "sha": "68241d2",
+          "subject": "companion: simplify job deposits to deposit minus previously applied minus draws",
+          "files": "CODEBASE_MAP.md, DEPOSITS_PLAN.md, src/app/api/deposits/apply/route.ts, src/app/api/deposits/route.ts, src/app/trackingsheet/DepositCard.tsx, src/db/index.ts, +8 more"
+        },
+        {
+          "date": "2026-10-11",
+          "time": "22:28",
+          "sha": "a01f27c",
+          "subject": "companion: log session 2026-10-11-deposit",
+          "files": ""
+        }
+      ]
+    },
     {
       "slug": "coding-card-top",
       "file": "2026-10-11-coding-card-top.md",
