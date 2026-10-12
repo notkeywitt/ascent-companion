@@ -9,7 +9,7 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Branch | Last active | Commits | Next step |
 |---|---|---|---|---|
-| [main](.claude/sessions/2026-10-11-main.md) | `(detached)` | 0m ago | 2 | — |
+| [main](.claude/sessions/2026-10-11-main.md) | `(detached)` | 2m ago | 2 | — |
 | [main](.claude/sessions/2026-10-02-main.md) | `(detached)` | 9d ago | 4 | — |
 | [allbills-vendor-collapsed](.claude/sessions/2026-09-14-allbills-vendor-collapsed.md) | `claude/allbills-vendor-collapsed` | 18d ago | 40 | Watch the first monthly review after 77bbb2a: confirm email-bill-amount-mismatc… |
 | [time-entry-jt-sync](.claude/sessions/2026-09-15-time-entry-jt-sync.md) | `claude/time-entry-jt-sync-6q3257` | 26d ago | 5 | Verify view-as-employee live: open /employee-time as admin, tap 'View another e… |
@@ -32,6 +32,7 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
+| [unbilled](.claude/sessions/2026-10-11-unbilled.md) | 2026-10-12 | 1 | Ship the /unbilled rebuild: unbilled = bills and time on no client invoice |
 | [deposit](.claude/sessions/2026-10-11-deposit.md) | 2026-10-12 | 2 | Simplify job deposits: Deposit (JobTread deposit invoice, or entered by hand) m… |
 | [coding-card-top](.claude/sessions/2026-10-11-coding-card-top.md) | 2026-10-12 | 1 | Tracking Sheets: open the coding card at the top of the window, not beside its … |
 | [finding-row](.claude/sessions/2026-10-08-finding-row.md) | 2026-10-08 | 1 | Job check results (Check this job / Check all Jobs): each finding links to its … |
@@ -46,4 +47,3 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 | [today-home-label-change](.claude/sessions/2026-10-03-today-home-label-change.md) | 2026-10-03 | 6 | — |
 | [time-card-autostage](.claude/sessions/2026-10-02-time-card-autostage.md) | 2026-10-02 | 6 | Tracking Sheets time card: stage edits as they are made (like bills), remove th… |
 | [bill-void](.claude/sessions/2026-10-02-bill-void.md) | 2026-10-02 | 1 | Delete button on the bill card: void in JobTread, remove sheet rows, trash PDF … |
-| [vendor-billtype-fix](.claude/sessions/2026-10-02-vendor-billtype-fix.md) | 2026-10-02 | 1 | Fix vendor Bill Type default write: updateAccount read-back needs its id |

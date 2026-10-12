@@ -1,7 +1,26 @@
 {
-  "generatedAt": "2026-10-12T02:28:55Z",
+  "generatedAt": "2026-10-12T02:30:39Z",
   "repo": "ascent-companion-deposits",
   "sessions": [
+    {
+      "slug": "unbilled",
+      "file": "2026-10-11-unbilled.md",
+      "branch": "claude/unbilled-rebuild",
+      "status": "shipped",
+      "started": "2026-10-12T02:30:38Z",
+      "updated": "2026-10-12T02:30:39Z",
+      "goal": "Ship the /unbilled rebuild: unbilled = bills and time on no client invoice",
+      "next": "Open /unbilled on a job with labor and a draft invoice: check the total matches the home card's To invoice figure.",
+      "commits": [
+        {
+          "date": "2026-10-11",
+          "time": "22:30",
+          "sha": "069e18d",
+          "subject": "companion: unbilled reads bills and time on no client invoice",
+          "files": "CODEBASE_MAP.md, src/app/api/unbilled/route.ts, src/app/unbilled/page.tsx, src/lib/chatTools.ts, src/lib/digest/checks/costVsInvoice.ts, src/lib/jobtread.test.ts, +2 more"
+        }
+      ]
+    },
     {
       "slug": "deposit",
       "file": "2026-10-11-deposit.md",
