@@ -234,6 +234,16 @@ export function JobPicker({
     return () => document.removeEventListener("mousedown", onDoc);
   }, []);
 
+  // The full-screen list owns the scroll while it is open, not the page under it.
+  useEffect(() => {
+    if (!open || variant !== "title") return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [open, variant]);
+
   const selected = jobs.find((j) => j.id === value);
 
   // Report the resolved selection upward. Keyed on the job's ID rather than the
@@ -331,7 +341,9 @@ export function JobPicker({
         onClick={toggle}
         className="flex w-full items-center justify-between gap-2 rounded-lg border border-neutral-300 bg-white px-3 py-2 text-left text-sm transition hover:border-accent dark:border-neutral-600 dark:bg-ink-raised"
       >
-        <span className={"truncate " + (selected ? "font-medium" : "text-neutral-400")}>{label}</span>
+        <span className={"truncate " + (selected ? "font-medium" : "text-neutral-400")}>
+          {label}
+        </span>
         <span className="text-neutral-400">▾</span>
       </button>
     );
@@ -349,125 +361,146 @@ export function JobPicker({
     >
       {trigger}
 
-      {/* A title is only as wide as the job's name, and the toolbar beside it
-          can leave that narrow — so the panel keeps its own floor there rather
-          than inheriting a width that clips every address. */}
+      {/* A title opens FULL SCREEN: it is the page's one way to change job,
+          so the list gets the whole screen and scrolls far less. Inside the
+          picker's own div on purpose — the outside-click check reads the DOM,
+          so a portal would count every tap in the list as outside. */}
       {open && (
         <div
-          className={`absolute z-30 mt-1 flex max-h-80 w-full flex-col overflow-hidden rounded-lg border border-neutral-300 bg-white shadow-lg dark:border-neutral-700 dark:bg-ink-overlay ${
-            variant === "title" ? "min-w-[min(24rem,calc(100vw-2rem))]" : ""
-          }`}
+          className={
+            variant === "title"
+              ? "fixed inset-0 z-50 flex flex-col bg-white pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)] dark:bg-ink-overlay"
+              : "absolute z-30 mt-1 flex max-h-80 w-full flex-col overflow-hidden rounded-lg border border-neutral-300 bg-white shadow-lg dark:border-neutral-700 dark:bg-ink-overlay"
+          }
         >
-          <input
-            autoFocus
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search jobs…"
-            className="border-b border-line bg-transparent px-3 py-2 text-sm outline-none dark:border-white/10"
-          />
-          {showPhaseFilter && phases.length > 0 && (
-            <select
-              value={phaseFilter}
-              onChange={(e) => setPhaseFilter(e.target.value)}
-              aria-label="Filter by phase"
-              className="border-b border-line bg-transparent px-3 py-1.5 text-xs text-neutral-500 outline-none dark:border-white/10"
-            >
-              <option value="">All phases</option>
-              {defaultPhases.length > 1 && (
-                <option value={presetPhases}>{defaultPhases.join(" + ")}</option>
+          <div
+            className={`flex min-h-0 flex-1 flex-col ${variant === "title" ? "mx-auto w-full max-w-2xl" : ""}`}
+          >
+            <div className="flex items-center border-b border-line dark:border-white/10">
+              <input
+                autoFocus
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search jobs…"
+                // 16px on the full-screen search: iOS zooms the page into a smaller field.
+                className={`min-w-0 flex-1 bg-transparent px-3 outline-none ${
+                  variant === "title" ? "py-3 text-base" : "py-2 text-sm"
+                }`}
+              />
+              {variant === "title" && (
+                <button
+                  type="button"
+                  onClick={() => setOpen(false)}
+                  className="min-h-11 shrink-0 px-4 text-sm text-neutral-500 hover:text-accent dark:text-neutral-400"
+                >
+                  Close
+                </button>
               )}
-              {phases.map((p) => (
-                <option key={p} value={p}>
-                  {p}
-                </option>
-              ))}
-              {hasNoPhase && <option value={NO_PHASE}>(No phase)</option>}
-            </select>
-          )}
-          {/* What the amounts on the right ARE. Without this line the figure is
+            </div>
+            {showPhaseFilter && phases.length > 0 && (
+              <select
+                value={phaseFilter}
+                onChange={(e) => setPhaseFilter(e.target.value)}
+                aria-label="Filter by phase"
+                className="border-b border-line bg-transparent px-3 py-1.5 text-xs text-neutral-500 outline-none dark:border-white/10"
+              >
+                <option value="">All phases</option>
+                {defaultPhases.length > 1 && (
+                  <option value={presetPhases}>{defaultPhases.join(" + ")}</option>
+                )}
+                {phases.map((p) => (
+                  <option key={p} value={p}>
+                    {p}
+                  </option>
+                ))}
+                {hasNoPhase && <option value={NO_PHASE}>(No phase)</option>}
+              </select>
+            )}
+            {/* What the amounts on the right ARE. Without this line the figure is
               a naked number: it is one month's uninvoiced bills and time, not
               the job's balance and not its budget. */}
-          {showToBeInvoiced && (
-            <div className="flex items-center justify-between gap-2 border-b border-line px-3 py-1.5 text-[11px] text-neutral-500 dark:border-white/10 dark:text-neutral-400">
-              <span>
-                To be invoiced{toInvoice?.ym ? ` · ${monthLabel(toInvoice.ym)}` : ""}
-              </span>
-              <span>
-                {toInvoiceLoading
-                  ? "checking JobTread…"
-                  : !toInvoice
-                    ? "unavailable"
-                    : toInvoice.includesTime
-                      ? "bills + time"
-                      : "bills only"}
-              </span>
-            </div>
-          )}
-          <ul className="overflow-auto">
-            {/* The job under your feet, lifted to the TOP of the list. Only on a
+            {showToBeInvoiced && (
+              <div className="flex items-center justify-between gap-2 border-b border-line px-3 py-1.5 text-[11px] text-neutral-500 dark:border-white/10 dark:text-neutral-400">
+                <span>To be invoiced{toInvoice?.ym ? ` · ${monthLabel(toInvoice.ym)}` : ""}</span>
+                <span>
+                  {toInvoiceLoading
+                    ? "checking JobTread…"
+                    : !toInvoice
+                      ? "unavailable"
+                      : toInvoice.includesTime
+                        ? "bills + time"
+                        : "bills only"}
+                </span>
+              </div>
+            )}
+            <ul className="overflow-auto">
+              {/* The job under your feet, lifted to the TOP of the list. Only on a
                 showNearest picker, only with the list unfiltered (a search is a
                 deliberate answer to "which job", and outranks the GPS), and
                 only once a fix has landed — a denied or absent location leaves
                 the picker exactly as it was. */}
-            {showNearest && !q && (geoStatus === "locating" || nearest) && (
-              <>
-                <li
-                  className="flex items-center justify-between gap-2 border-b border-line px-3 py-1.5 text-[11px] uppercase tracking-wide text-neutral-500 dark:border-white/10 dark:text-neutral-400"
-                  aria-hidden
-                >
-                  <span>Nearest</span>
-                  <span className="normal-case tracking-normal">
-                    {nearest ? fmtMiles(nearestMiles ?? NaN) : "locating…"}
-                  </span>
+              {showNearest && !q && (geoStatus === "locating" || nearest) && (
+                <>
+                  <li
+                    className="flex items-center justify-between gap-2 border-b border-line px-3 py-1.5 text-[11px] uppercase tracking-wide text-neutral-500 dark:border-white/10 dark:text-neutral-400"
+                    aria-hidden
+                  >
+                    <span>Nearest</span>
+                    <span className="normal-case tracking-normal">
+                      {nearest ? fmtMiles(nearestMiles ?? NaN) : "locating…"}
+                    </span>
+                  </li>
+                  {nearest && (
+                    <JobOption
+                      job={nearest}
+                      selected={nearest.id === value}
+                      onPick={pick}
+                      miles={milesById[nearest.id]}
+                      amount={showToBeInvoiced ? toInvoice?.totals[nearest.id] : undefined}
+                      // The rule under the pinned row is what stops it reading as
+                      // a duplicate of the same job further down the list.
+                      className="border-b border-line dark:border-white/10"
+                    />
+                  )}
+                </>
+              )}
+              {!q && includeAll && (
+                <li>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onChange("");
+                      onSelect?.(null);
+                      setOpen(false);
+                    }}
+                    className={`w-full px-3 py-2 text-left hover:bg-neutral-100 dark:hover:bg-white/5 ${
+                      value ? "" : "bg-neutral-100 dark:bg-white/10"
+                    }`}
+                  >
+                    <span className="block truncate text-sm font-medium">{allLabel}</span>
+                    <span className="block truncate text-xs text-neutral-500">
+                      {allDescription}
+                    </span>
+                  </button>
                 </li>
-                {nearest && (
-                  <JobOption
-                    job={nearest}
-                    selected={nearest.id === value}
-                    onPick={pick}
-                    miles={milesById[nearest.id]}
-                    amount={showToBeInvoiced ? toInvoice?.totals[nearest.id] : undefined}
-                    // The rule under the pinned row is what stops it reading as
-                    // a duplicate of the same job further down the list.
-                    className="border-b border-line dark:border-white/10"
-                  />
-                )}
-              </>
-            )}
-            {!q && includeAll && (
-              <li>
-                <button
-                  type="button"
-                  onClick={() => {
-                    onChange("");
-                    onSelect?.(null);
-                    setOpen(false);
-                  }}
-                  className={`w-full px-3 py-2 text-left hover:bg-neutral-100 dark:hover:bg-white/5 ${
-                    value ? "" : "bg-neutral-100 dark:bg-white/10"
-                  }`}
-                >
-                  <span className="block truncate text-sm font-medium">{allLabel}</span>
-                  <span className="block truncate text-xs text-neutral-500">{allDescription}</span>
-                </button>
-              </li>
-            )}
-            {filtered.map((j) => (
-              <JobOption
-                key={j.id}
-                job={j}
-                selected={j.id === value}
-                onPick={pick}
-                miles={showNearest ? milesById[j.id] : undefined}
-                amount={showToBeInvoiced ? toInvoice?.totals[j.id] : undefined}
-              />
-            ))}
-            {filtered.length === 0 && (
-              <li className="px-3 py-3 text-xs text-neutral-500">
-                {loading ? "Loading…" : "No matching job"}
-              </li>
-            )}
-          </ul>
+              )}
+              {filtered.map((j) => (
+                <JobOption
+                  key={j.id}
+                  job={j}
+                  selected={j.id === value}
+                  onPick={pick}
+                  miles={showNearest ? milesById[j.id] : undefined}
+                  amount={showToBeInvoiced ? toInvoice?.totals[j.id] : undefined}
+                />
+              ))}
+              {filtered.length === 0 && (
+                <li className="px-3 py-3 text-xs text-neutral-500">
+                  {loading ? "Loading…" : "No matching job"}
+                </li>
+              )}
+            </ul>
+          </div>
         </div>
       )}
     </div>
