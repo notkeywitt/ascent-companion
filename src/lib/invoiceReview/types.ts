@@ -506,6 +506,12 @@ export interface JobEvidence {
    * business. This list exists for the checks whose business it IS.
    */
   draftBills: BillRef[];
+  /**
+   * The month's VOIDED vendor bills (status `denied`). Read only so the backup
+   * check can say a filed PDF belongs to a void, rather than "filed but not
+   * billed". Optional: a run that could not read them simply says less.
+   */
+  voidedBills?: BillRef[];
   /** The job's time entries for the month, each with the rate it was costed at. */
   labor: LaborEntryRef[];
 }

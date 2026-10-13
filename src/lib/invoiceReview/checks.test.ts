@@ -473,6 +473,28 @@ describe("backup coverage", () => {
     expect(hit?.amount).toBeCloseTo(44.24, 2);
   });
 
+  it("names a filed PDF whose bill was voided, instead of 'filed but not billed'", () => {
+    const f = runChecks(
+      month([
+        job({
+          invoices: [invoice({ id: "i1", cost: 10970, price: 10970, priceWithTax: 10970 })],
+          bills: [bill({ id: "b22", cost: 10970, taxAmount: 0, vendor: "JR Granite & Tile", invoiced: true })],
+          voidedBills: [bill({ id: "b17", cost: 32010, taxAmount: 0, vendor: "JR Granite & Tile", status: "denied" })],
+          folder: {
+            path: "/x/", found: true, folderId: "F", truncated: false,
+            files: [
+              file({ id: "f22", amount: 10970, tail: "JR Granite & Tile Kevin Berger Pushed to JT" }),
+              file({ id: "f17", amount: 32010, tail: "JR Granite & Tile Kevin Berger Pushed to JT" }),
+              file({ id: "fx", amount: 500, tail: "Sunset Kevin Berger Pushed to JT" }),
+            ],
+          },
+        }),
+      ]),
+    );
+    const titles = f.filter((x) => x.kind === "backup-unmatched").map((x) => x.title);
+    expect(titles).toEqual(["Filed for a void bill — $32,010.00", "Filed but not billed — $500.00"]);
+  });
+
   it("flags an invoiced bill with no backup on file", () => {
     const f = runChecks(
       month([

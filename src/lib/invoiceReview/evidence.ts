@@ -800,7 +800,7 @@ export async function loadMonthEvidence(
       );
     }
 
-    const [bills, drafts, invoices, folder, labor] = await Promise.all([
+    const [bills, drafts, voided, invoices, folder, labor] = await Promise.all([
       loadMonthBills(cfg, row.jobId, year, month, liveIds, sentIds).catch((e) => {
         warnings.push(
           `${row.jobName || row.jobId}: could not read the month's bills — ` +
@@ -817,6 +817,12 @@ export async function loadMonthEvidence(
         );
         return [] as BillRef[];
       }),
+      // The month's voided bills — so a PDF still filed for one reads as "void,
+      // delete the PDF" rather than "filed but not billed". Quiet on failure:
+      // without them the backup check falls back to its plain finding.
+      loadMonthBills(cfg, row.jobId, year, month, liveIds, sentIds, ["denied"]).catch(
+        () => [] as BillRef[],
+      ),
       mapWithLimit(Array.from(liveIds), 2, (id) =>
         loadInvoice(cfg, row.jobId, id).catch((e) => {
           warnings.push(
@@ -839,6 +845,7 @@ export async function loadMonthEvidence(
     if (folder.warning) warnings.push(folder.warning);
     shell.bills = bills;
     shell.draftBills = drafts;
+    shell.voidedBills = voided;
     shell.invoices = invoices.filter((i): i is InvoiceEvidence => i !== null);
     shell.folder = folder.folder;
     shell.labor = labor;

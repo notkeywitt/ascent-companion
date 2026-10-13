@@ -129,7 +129,34 @@ export const backupCheck = defineJobCheck<BackupConfig>({
     }
 
     if (config.reportUnmatchedFiles) {
+      // A leftover PDF whose amount matches a bill VOIDED this month is that
+      // void's backup, still on file. Berger Main House, September 2026: two
+      // JR Granite PDFs ($32,010, $17,300) for bills #17 and #20, both voided
+      // and replaced by #22. Say so, instead of "filed but not billed".
+      const voidOf = matchBackup(job.voidedBills ?? [], unmatchedFiles, global.tolerance).matched;
+      const voidByFile = new Map(Array.from(voidOf, ([billId, f]) => [f.id, billId]));
+      const voidBills = new Map((job.voidedBills ?? []).map((b) => [b.id, b]));
       for (const f of unmatchedFiles) {
+        const vb = voidBills.get(voidByFile.get(f.id) ?? "");
+        if (vb) {
+          out.push({
+            ...base,
+            key: findingKey("backup-unmatched", job.jobId, f.name),
+            kind: "backup-unmatched",
+            severity: "warning",
+            invoiceId: "",
+            invoiceNumber: "",
+            title: `Filed for a void bill — ${money(f.amount)}`,
+            detail:
+              `${f.name} is filed in ${job.folder.path} for ${money(f.amount)}, but the ` +
+              `${vb.vendor || vb.label} bill it backs is void in JobTread. The bill no longer ` +
+              `counts, so delete the PDF from the billing folder.`,
+            amount: f.amount,
+            sourceLink: f.url,
+            sourceLabel: "Open the PDF",
+          });
+          continue;
+        }
         out.push({
           ...base,
           key: findingKey("backup-unmatched", job.jobId, f.name),
