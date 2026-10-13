@@ -4,7 +4,7 @@ import { useCallback, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button, Card, PageHeader, SectionHeading, btn } from "@/components/ui";
-import { JobPicker } from "@/components/JobPicker";
+import { JobPicker, WORKING_PHASES } from "@/components/JobPicker";
 import { useAccess } from "@/components/AccessProvider";
 import { useCopy } from "@/components/CopyProvider";
 import { UncapturedBills } from "@/components/UncapturedBills";
@@ -96,6 +96,7 @@ export function AllJobs() {
               allLabel="All jobs"
               allDescription="Every job's month, side by side"
               showPhaseFilter
+              defaultPhases={WORKING_PHASES}
               showToBeInvoiced={can("recode")}
             />
           </div>

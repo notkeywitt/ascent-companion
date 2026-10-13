@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Banner, Card, SectionHeading, Skeleton } from "@/components/ui";
 import { Donut } from "@/components/Donut";
+import { WORKING_PHASES, type JobRef } from "@/components/JobPicker";
 import type { MonthJobCost } from "@/lib/monthCostByJob";
 import { buildColorMap, buildSlices, withoutSalesTax } from "./CostDonuts";
 import { money0 } from "./BillCodingCard";
@@ -16,7 +17,10 @@ import { money0 } from "./BillCodingCard";
  * card opens that job's workbench on the same month.
  *
  * Read-only, one fetch for every job (`useMonthJobs`, called by the page).
- * Self-hiding when the month has no cost.
+ * Every job in a WORKING_PHASES phase also gets a card, cost or not, after the
+ * jobs with cost — read from the job picker's cached list. Those idle cards
+ * stay here: "Check all Jobs" still runs on the jobs with cost only.
+ * Self-hiding when there is no job to show.
  */
 export function MonthJobDonuts({
   jobs,
@@ -29,21 +33,43 @@ export function MonthJobDonuts({
   ym: string;
   monthLabel: string;
 }) {
+  const [open, setOpen] = useState<JobRef[] | null>(null);
+  useEffect(() => {
+    fetch("/api/jobs?withPhase=1")
+      .then((r) => r.json())
+      .then((j) => setOpen(j.jobs ?? []))
+      .catch(() => setOpen([])); // the cards with cost still show
+  }, []);
+
   if (error) return <Banner tone="error" className="mb-6">Job rings: {error}</Banner>;
-  if (jobs === null) return <Skeleton className="mb-6 h-40 w-full rounded-xl" />;
-  if (jobs.length === 0) return null;
+  if (jobs === null || open === null) return <Skeleton className="mb-6 h-40 w-full rounded-xl" />;
+
+  const seen = new Set(jobs.map((j) => j.jobId));
+  const idle: MonthJobCost[] = open
+    .filter((o) => !seen.has(o.id) && WORKING_PHASES.includes(o.phase ?? ""))
+    .map((o) => ({
+      jobId: o.id,
+      jobName: o.name,
+      customerName: o.customer ?? "",
+      bills: 0,
+      labor: 0,
+      rows: [],
+    }))
+    .sort((a, b) => a.jobName.localeCompare(b.jobName));
+  const all = [...jobs, ...idle];
+  if (all.length === 0) return null;
 
   return (
     <section className="mb-6 space-y-2">
       <SectionHeading
-        trailing={<span className="text-[11px] tabular-nums text-neutral-500">{jobs.length}</span>}
+        trailing={<span className="text-[11px] tabular-nums text-neutral-500">{all.length}</span>}
       >
-        {`Jobs with cost · ${monthLabel}`}
+        {`Jobs · ${monthLabel}`}
       </SectionHeading>
       {/* The home board's row: sideways on a phone, bleeding to the screen edge
           so the next card shows cut off; a grid from `pad` up. */}
       <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-1 pad:mx-0 pad:grid pad:grid-cols-2 pad:overflow-x-visible pad:px-0 xl:grid-cols-3 2xl:grid-cols-4">
-        {jobs.map((j) => (
+        {all.map((j) => (
           <JobCard key={j.jobId} j={j} ym={ym} />
         ))}
       </div>

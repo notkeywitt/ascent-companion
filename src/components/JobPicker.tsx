@@ -21,6 +21,9 @@ export interface JobRef {
 /** Sentinel for "jobs with no Phase set", so it can sit in a plain <select> alongside real values. */
 const NO_PHASE = "__no_phase__";
 
+/** The phases a job is still being worked in — Tracking Sheets' default scope. */
+export const WORKING_PHASES = ["Active", "PreCon", "PreCon Budget"];
+
 export const jobLabel = (j: JobRef) => (j.customer ? `${j.customer} - ${j.name}` : j.name);
 /** Drop the trailing ", USA" Google tacks on — every job is domestic. */
 export const jobAddress = (j: JobRef) => (j.address ?? "").replace(/,\s*USA$/i, "").trim();
@@ -98,7 +101,9 @@ export function useJobIdParam() {
  * job control. When on and no `jobs` prop is supplied, it fetches
  * /api/jobs?withPhase=1 instead of the plain /api/jobs — same "open jobs"
  * scope, with the Phase join added server-side as a separate cache entry so
- * the far more common plain read doesn't pay for it.
+ * the far more common plain read doesn't pay for it. `defaultPhases` is the
+ * filter's starting value (default Active alone); more than one phase becomes
+ * one combined option, its value the phases joined by commas.
  *
  * `showToBeInvoiced` prints, beside each job, what that job still has to invoice
  * this billing month — so choosing a job to work is a decision made with the
@@ -140,6 +145,7 @@ export interface JobPickerProps {
   placeholder?: string;
   fallbackLabel?: string;
   showPhaseFilter?: boolean;
+  defaultPhases?: string[];
   showToBeInvoiced?: boolean;
   showNearest?: boolean;
   variant?: "control" | "title";
@@ -157,6 +163,7 @@ export function JobPicker({
   placeholder,
   fallbackLabel,
   showPhaseFilter = false,
+  defaultPhases = ["Active"],
   showToBeInvoiced = false,
   showNearest = false,
   variant = "control",
@@ -168,7 +175,8 @@ export function JobPicker({
   // people are picking day to day are active ones, and PreCon/Prospective/
   // Complete jobs would otherwise clutter the list. Only meaningful (and only
   // ever populated with real phases) when showPhaseFilter fetched them.
-  const [phaseFilter, setPhaseFilter] = useState(showPhaseFilter ? "Active" : "");
+  const presetPhases = defaultPhases.join(",");
+  const [phaseFilter, setPhaseFilter] = useState(showPhaseFilter ? presetPhases : "");
   const [loading, setLoading] = useState(!jobsProp);
   // jobId → what that job still has to invoice this billing month, plus the
   // month it covers. Null until the dropdown has been opened once.
@@ -262,7 +270,9 @@ export function JobPicker({
   // The phase filter alone. It is also what the nearest job is ranked over, so
   // the pinned row can never name a job the list below has filtered out.
   const inPhase = phaseFilter
-    ? jobs.filter((j) => (phaseFilter === NO_PHASE ? !j.phase : j.phase === phaseFilter))
+    ? jobs.filter((j) =>
+        phaseFilter === NO_PHASE ? !j.phase : phaseFilter.split(",").includes(j.phase ?? ""),
+      )
     : jobs;
   const filtered = q
     ? inPhase.filter((j) =>
@@ -363,6 +373,9 @@ export function JobPicker({
               className="border-b border-line bg-transparent px-3 py-1.5 text-xs text-neutral-500 outline-none dark:border-white/10"
             >
               <option value="">All phases</option>
+              {defaultPhases.length > 1 && (
+                <option value={presetPhases}>{defaultPhases.join(" + ")}</option>
+              )}
               {phases.map((p) => (
                 <option key={p} value={p}>
                   {p}

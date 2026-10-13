@@ -21,7 +21,7 @@ import {
   btn,
 } from "@/components/ui";
 import type { Option } from "@/components/CostCodeSelect";
-import { JobPicker, jobAddress } from "@/components/JobPicker";
+import { JobPicker, WORKING_PHASES, jobAddress } from "@/components/JobPicker";
 import { useBillMove } from "@/components/BillMove";
 import { DocumentAccess } from "@/components/DocumentAccess";
 import { JtLink } from "@/components/JtLink";
@@ -1914,6 +1914,7 @@ export function Board() {
                 allLabel="All jobs"
                 allDescription="Every job's month, side by side"
                 showPhaseFilter
+                defaultPhases={WORKING_PHASES}
                 showToBeInvoiced={can("recode")}
               />
               {/* The month, in the empty half of the title line — it used to
