@@ -11,6 +11,7 @@ import { confirmLeaveIfDirty } from "@/lib/useUnsavedChanges";
 import {
   BAR_PIN_EVENT,
   BAR_PIN_KEY,
+  MENU_SINGLE_WORKSPACES,
   WORKSPACES,
   activeBarKey,
   barFor,
@@ -274,7 +275,10 @@ export function TabBar() {
         {rail.map((t) => {
           const on = t.key === railActive;
           const Icon = ICONS[t.key] ?? PinIcon;
-          const ws = on && t.workspace ? WORKSPACES.find((w) => w.id === t.workspace) : undefined;
+          const ws =
+            on && t.workspace && !MENU_SINGLE_WORKSPACES.has(t.workspace)
+              ? WORKSPACES.find((w) => w.id === t.workspace)
+              : undefined;
           return (
             <div key={t.key}>
               <Link
