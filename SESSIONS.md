@@ -1,4 +1,4 @@
-# SESSIONS — wt3
+# SESSIONS — wt4
 
 What each Claude session was doing, and where it stopped. **Generated —
 do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
@@ -32,6 +32,7 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
+| [invoicing-rail](.claude/sessions/2026-10-13-invoicing-rail.md) | 2026-10-14 | 1 | — |
 | [invoicing-menu](.claude/sessions/2026-10-13-invoicing-menu.md) | 2026-10-14 | 1 | — |
 | [jobcard](.claude/sessions/2026-10-13-jobcard.md) | 2026-10-14 | 1 | — |
 | [deposit-card](.claude/sessions/2026-10-12-deposit-card.md) | 2026-10-12 | 1 | Move the deposit card to the foot of the Tracking Sheets page |
@@ -46,4 +47,3 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 | [labor-import-code-rates](.claude/sessions/2026-10-07-labor-import-code-rates.md) | 2026-10-07 | 1 | Labor Import: pick pay type per worker x job x cost code, with the time entries… |
 | [ascent-clock-out-issue](.claude/sessions/2026-10-07-ascent-clock-out-issue.md) | 2026-10-07 | 2 | stop a clock-in from closing a running JobTread clock |
 | [labor-report](.claude/sessions/2026-10-05-labor-report.md) | 2026-10-05 | 1 | Tracking Sheets job workbench: Create Labor Report in Drive in the save bar's c… |
-| [month-total-no-tax](.claude/sessions/2026-10-05-month-total-no-tax.md) | 2026-10-05 | 1 | Tracking Sheets job card month total excludes 88 80 00 sales tax |

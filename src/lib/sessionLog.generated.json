@@ -1,7 +1,26 @@
 {
-  "generatedAt": "2026-10-14T03:18:24Z",
-  "repo": "wt3",
+  "generatedAt": "2026-10-14T03:21:31Z",
+  "repo": "wt4",
   "sessions": [
+    {
+      "slug": "invoicing-rail",
+      "file": "2026-10-13-invoicing-rail.md",
+      "branch": "claude/invoicing-rail",
+      "status": "shipped",
+      "started": "2026-10-14T03:21:30Z",
+      "updated": "2026-10-14T03:21:31Z",
+      "goal": "",
+      "next": "",
+      "commits": [
+        {
+          "date": "2026-10-13",
+          "time": "23:21",
+          "sha": "577d8ae",
+          "subject": "companion: sidebar shows invoicing with no sub-pages, like the menu",
+          "files": "src/components/TabBar.tsx, src/lib/workspaces.ts"
+        }
+      ]
+    },
     {
       "slug": "invoicing-menu",
       "file": "2026-10-13-invoicing-menu.md",

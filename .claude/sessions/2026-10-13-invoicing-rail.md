@@ -2,9 +2,9 @@
 slug: invoicing-rail
 repo: wt4
 branch: claude/invoicing-rail
-status: in-progress
+status: shipped
 started: 2026-10-14T03:21:30Z
-updated: 2026-10-14T03:21:30Z
+updated: 2026-10-14T03:21:31Z
 goal: 
 next: 
 ---
