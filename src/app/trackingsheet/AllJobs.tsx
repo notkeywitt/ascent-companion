@@ -132,8 +132,6 @@ export function AllJobs() {
         )}
       </div>
 
-      <CheckAllResults jobs={month.jobs} check={check} ym={ym} monthLabel={monthLabel} />
-
       {/* Ingested bills that never reached JobTread at all — the step before the
           list. They're on no invoice and aren't even a JobTread draft yet, so
           the month view can't surface them; nothing in the hourly sync touches
@@ -175,6 +173,12 @@ export function AllJobs() {
           </Card>
         </section>
       )}
+
+      {/* "Check all Jobs" results — last on the page, so a long run of findings
+          does not push the cards and bills down. */}
+      <div className="mt-6">
+        <CheckAllResults jobs={month.jobs} check={check} ym={ym} monthLabel={monthLabel} />
+      </div>
     </main>
   );
 }

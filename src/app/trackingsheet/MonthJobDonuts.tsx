@@ -134,7 +134,7 @@ function JobCard({ j, ym }: { j: MonthJobCost; ym: string }) {
               This month
             </div>
             {/* The month's client invoices, net of applied deposits — smaller
-                than the cost figure above, and absent until one is sent. */}
+                than the cost figure above, and absent until one exists (drafts count). */}
             {(j.invoiced !== 0 || j.deposits !== 0) && (
               <div className="mt-1 text-[11px] tabular-nums text-neutral-500 dark:text-neutral-400">
                 <span className="font-semibold">{money0(j.invoiced)}</span> invoiced

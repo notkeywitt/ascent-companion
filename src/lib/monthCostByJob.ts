@@ -15,7 +15,7 @@ export interface MonthJobCost {
   customerName: string;
   bills: number;
   labor: number;
-  /** The month's client invoices (sent: pending or approved), with tax, NET of
+  /** The month's client invoices (draft, pending or approved), with tax, NET of
    *  any deposit applied to them. See monthInvoices below. */
   invoiced: number;
   /** The deposits applied to those invoices: negative CD (Contract Deposit)
@@ -164,7 +164,7 @@ export async function getMonthCostByJob(
                 where: {
                   and: [
                     ["type", "=", "customerInvoice"],
-                    ["status", "in", ["pending", "approved"]],
+                    ["status", "in", ["draft", "pending", "approved"]],
                     ["issueDate", ">=", first],
                   ],
                 },
