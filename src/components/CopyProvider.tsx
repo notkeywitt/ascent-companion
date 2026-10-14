@@ -1,6 +1,14 @@
 "use client";
 
-import { createContext, useContext, useMemo, type ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { resolveCopy } from "@/lib/copy";
 
 /**
@@ -14,23 +22,87 @@ import { resolveCopy } from "@/lib/copy";
  * Usage in a client component:
  *   const c = useCopy();
  *   <PageHeader title={c("page.jobs.title")} />
+ *
+ * EDIT IN PLACE (admin only, `canEdit`): the overrides are held in state so a
+ * save from CopyInPlace re-renders every `c()` at once, and `c()` records what
+ * it rendered for each key (`rendered`) so the editor can find that text on
+ * the page. `editing` is per device, kept in localStorage like the theme.
  */
-const CopyContext = createContext<Record<string, string>>({});
+interface CopyContextValue {
+  overrides: Record<string, string>;
+  setOverride: (key: string, value: string | null) => void;
+  /** key → the text c() last rendered for it, tokens filled. Admins only. */
+  rendered: Map<string, string>;
+  canEdit: boolean;
+  editing: boolean;
+  setEditing: (on: boolean) => void;
+}
+
+const EDIT_KEY = "copyEdit";
+
+const CopyContext = createContext<CopyContextValue>({
+  overrides: {},
+  setOverride: () => {},
+  rendered: new Map(),
+  canEdit: false,
+  editing: false,
+  setEditing: () => {},
+});
 
 export function CopyProvider({
-  overrides,
+  overrides: initial,
+  canEdit = false,
   children,
 }: {
   overrides: Record<string, string>;
+  canEdit?: boolean;
   children: ReactNode;
 }) {
-  // Re-memo only when the override set actually changes, not on every render of
-  // the layout (same trick AccessProvider uses with its joined key).
-  const key = JSON.stringify(overrides);
-  const value = useMemo(
-    () => overrides,
+  // A server refresh brings a new set; take it (same joined-key trick
+  // AccessProvider uses, so an unchanged set is not a new render).
+  const key = JSON.stringify(initial);
+  const [overrides, setOverrides] = useState(initial);
+  useEffect(() => {
+    setOverrides(initial);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [key],
+  }, [key]);
+
+  const [editing, setEditingState] = useState(false);
+  useEffect(() => {
+    if (!canEdit) return;
+    try {
+      setEditingState(localStorage.getItem(EDIT_KEY) === "1");
+    } catch {
+      /* storage blocked — starts off */
+    }
+  }, [canEdit]);
+
+  const rendered = useRef(new Map<string, string>()).current;
+
+  const value = useMemo<CopyContextValue>(
+    () => ({
+      overrides,
+      setOverride: (k, v) =>
+        setOverrides((was) => {
+          const next = { ...was };
+          if (v === null) delete next[k];
+          else next[k] = v;
+          return next;
+        }),
+      rendered,
+      canEdit,
+      editing: canEdit && editing,
+      setEditing: (on) => {
+        setEditingState(on);
+        try {
+          if (on) localStorage.setItem(EDIT_KEY, "1");
+          else localStorage.removeItem(EDIT_KEY);
+        } catch {
+          /* storage blocked — this visit only */
+        }
+      },
+    }),
+    [overrides, rendered, canEdit, editing],
   );
   return <CopyContext.Provider value={value}>{children}</CopyContext.Provider>;
 }
@@ -44,9 +116,18 @@ export function CopyProvider({
  * { month: monthLabel })`.
  */
 export function useCopy(): (key: string, vars?: Record<string, string | number>) => string {
-  const overrides = useContext(CopyContext);
+  const { overrides, rendered, canEdit } = useContext(CopyContext);
   return useMemo(
-    () => (key: string, vars?: Record<string, string | number>) => resolveCopy(overrides, key, vars),
-    [overrides],
+    () => (key: string, vars?: Record<string, string | number>) => {
+      const text = resolveCopy(overrides, key, vars);
+      if (canEdit && text) rendered.set(key, text);
+      return text;
+    },
+    [overrides, rendered, canEdit],
   );
+}
+
+/** The edit-in-place controls: CopyInPlace and the menu's switch. */
+export function useCopyEdit() {
+  return useContext(CopyContext);
 }

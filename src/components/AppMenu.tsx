@@ -8,7 +8,7 @@ import { signOut } from "next-auth/react";
 import { useAccess } from "@/components/AccessProvider";
 import { AppearanceCard } from "@/components/AppearanceCard";
 import { DesktopAlertsCard } from "@/components/DesktopAlertsCard";
-import { useCopy } from "@/components/CopyProvider";
+import { useCopy, useCopyEdit } from "@/components/CopyProvider";
 import { ListCard, ListRow, SectionLabel, btn } from "@/components/ui";
 import {
   BAR_PIN_EVENT,
@@ -78,6 +78,7 @@ const AccountIcon = () => (
 export function AppMenu({ qs = "", account = false }: { qs?: string; account?: boolean }) {
   const access = useAccess();
   const c = useCopy();
+  const copyEdit = useCopyEdit();
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [pinning, setPinning] = useState(false);
@@ -248,6 +249,20 @@ export function AppMenu({ qs = "", account = false }: { qs?: string; account?: b
                     <SectionLabel>More</SectionLabel>
                     <ListCard>{extras.map(row)}</ListCard>
                   </div>
+                )}
+
+                {copyEdit.canEdit && (
+                  <ListCard>
+                    <ListRow
+                      onClick={() => {
+                        copyEdit.setEditing(!copyEdit.editing);
+                        setOpen(false);
+                      }}
+                      label={copyEdit.editing ? "Stop editing page text" : "Edit page text"}
+                      desc="Tap any outlined text on a page to reword it. Admin only."
+                      chevron={false}
+                    />
+                  </ListCard>
                 )}
 
                 <div className="space-y-1">

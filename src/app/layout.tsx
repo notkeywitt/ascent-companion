@@ -7,6 +7,7 @@ import { TabBar } from "@/components/TabBar";
 import { WorkspaceTabs } from "@/components/WorkspaceTabs";
 import { AccessProvider } from "@/components/AccessProvider";
 import { CopyProvider } from "@/components/CopyProvider";
+import { CopyInPlace } from "@/components/CopyInPlace";
 import { StuckVendorPopup, StuckVendorsProvider } from "@/components/StuckVendors";
 import { BillMoveProvider } from "@/components/BillMove";
 import { NoticeCenter } from "@/components/Notices";
@@ -93,6 +94,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   // live view set (role defaults included) so the launcher renders exactly as
   // that role would see it.
   let previewRole: Role | null = null;
+  // The REAL role, before any preview narrows it: editing page text in place
+  // stays an admin's tool whichever role they are looking through.
+  const isAdmin = role === "admin";
   if (role === "admin") {
     const store = await cookies();
     previewRole = parsePreviewRole(store.get(PREVIEW_COOKIE)?.value);
@@ -138,7 +142,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         {/* Track page views for signed-in users (Admin → Activity). The route
             no-ops without a session, so it's inert in dev-open mode too. */}
         {session?.user && <UsageBeacon />}
-        <CopyProvider overrides={copyOverrides}>
+        <CopyProvider overrides={copyOverrides} canEdit={isAdmin}>
+        {/* Admin: edit registry text where it sits (the menu's "Edit page text"). */}
+        <CopyInPlace />
         <AccessProvider role={role} views={views}>
             {/* Bills whose vendor has no JobTread account are imported but never
                 pushed, and the failure is otherwise invisible. The provider checks
