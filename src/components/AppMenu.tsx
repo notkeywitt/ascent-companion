@@ -35,6 +35,11 @@ import {
  * LopezRocks) and the account: Appearance, desktop alerts, and Sign out — the
  * per-device settings that used to sit at the foot of the home page.
  *
+ * `account` is the sidebar's version (from `pad` up, where ☰ is hidden): an
+ * "Account" item that opens the same drawer with only the footer — the
+ * Assistant, Appearance, alerts and Sign out. The sidebar already lists the
+ * pages, and pinning is a phone-bar thing.
+ *
  * THE DRAWER IS PORTALLED TO <body>, and has to be. It is mounted from inside
  * the header, and the header carries `backdrop-blur` — a filtered element is
  * the containing block for every `position: fixed` descendant, so the overlay
@@ -55,7 +60,22 @@ const MenuIcon = () => (
   </svg>
 );
 
-export function AppMenu({ qs = "" }: { qs?: string }) {
+const AccountIcon = () => (
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth={2}
+    strokeLinecap="round"
+    className="h-[19px] w-[19px]"
+    aria-hidden
+  >
+    <circle cx="12" cy="8" r="4" />
+    <path d="M4 21a8 8 0 0 1 16 0" />
+  </svg>
+);
+
+export function AppMenu({ qs = "", account = false }: { qs?: string; account?: boolean }) {
   const access = useAccess();
   const c = useCopy();
   const pathname = usePathname();
@@ -133,15 +153,28 @@ export function AppMenu({ qs = "" }: { qs?: string }) {
 
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        aria-label="Menu"
-        aria-expanded={open}
-        className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-neutral-500 transition hover:text-accent active:bg-accent/10"
-      >
-        <MenuIcon />
-      </button>
+      {account ? (
+        // Styled as one of the sidebar's own items (TabBar's rail links).
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          aria-expanded={open}
+          className="flex w-full flex-col items-center gap-1 rounded-xl px-1 py-2 text-center text-[10.5px] font-semibold leading-tight text-neutral-500 transition hover:text-accent active:bg-accent/15 dark:text-neutral-400 2xl:flex-row 2xl:gap-3 2xl:px-3 2xl:text-left 2xl:text-[13px]"
+        >
+          <AccountIcon />
+          <span className="min-w-0">Account</span>
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          aria-label="Menu"
+          aria-expanded={open}
+          className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-neutral-500 transition hover:text-accent active:bg-accent/10"
+        >
+          <MenuIcon />
+        </button>
+      )}
 
       {open &&
         createPortal(
@@ -153,18 +186,22 @@ export function AppMenu({ qs = "" }: { qs?: string }) {
               className="absolute inset-0 bg-black/40"
             />
             <aside
-              aria-label="Menu"
+              aria-label={account ? "Account" : "Menu"}
               className="sidenav-in absolute inset-y-0 left-0 flex w-[min(340px,88vw)] flex-col border-r border-line bg-cream shadow-xl dark:bg-ink"
             >
               <div className="flex items-center gap-3 border-b border-line px-3 py-2.5 pt-[max(0.625rem,env(safe-area-inset-top))]">
-                <span className="flex-1 text-sm font-semibold tracking-tight">Menu</span>
-                <button
-                  type="button"
-                  onClick={() => setPinning((was) => !was)}
-                  className="text-[11px] font-semibold text-accent hover:underline dark:text-accent-soft"
-                >
-                  {pinning ? "Done" : "Pin to bar"}
-                </button>
+                <span className="flex-1 text-sm font-semibold tracking-tight">
+                  {account ? "Account" : "Menu"}
+                </span>
+                {!account && (
+                  <button
+                    type="button"
+                    onClick={() => setPinning((was) => !was)}
+                    className="text-[11px] font-semibold text-accent hover:underline dark:text-accent-soft"
+                  >
+                    {pinning ? "Done" : "Pin to bar"}
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => setOpen(false)}
@@ -181,29 +218,30 @@ export function AppMenu({ qs = "" }: { qs?: string }) {
                     Tap a page to put it on the bottom bar, in the last slot. This device only.
                   </p>
                 )}
-                {!pinning && <ListCard>{row(TODAY)}</ListCard>}
+                {!pinning && !account && <ListCard>{row(TODAY)}</ListCard>}
 
-                {workspaces.map((w) =>
-                  MENU_SINGLE_WORKSPACES.has(w.id) ? (
-                    <ListCard key={w.id}>
-                      {pinning ? (
-                        row(w.tabs[0])
-                      ) : (
-                        <ListRow
-                          href={w.tabs[0].href + qs}
-                          label={w.title}
-                          desc={w.desc}
-                          className={pathname === w.tabs[0].href ? "bg-accent/5" : ""}
-                        />
-                      )}
-                    </ListCard>
-                  ) : (
-                    <div key={w.id} className="space-y-1.5">
-                      <SectionLabel>{w.title}</SectionLabel>
-                      <ListCard>{w.tabs.map(row)}</ListCard>
-                    </div>
-                  ),
-                )}
+                {!account &&
+                  workspaces.map((w) =>
+                    MENU_SINGLE_WORKSPACES.has(w.id) ? (
+                      <ListCard key={w.id}>
+                        {pinning ? (
+                          row(w.tabs[0])
+                        ) : (
+                          <ListRow
+                            href={w.tabs[0].href + qs}
+                            label={w.title}
+                            desc={w.desc}
+                            className={pathname === w.tabs[0].href ? "bg-accent/5" : ""}
+                          />
+                        )}
+                      </ListCard>
+                    ) : (
+                      <div key={w.id} className="space-y-1.5">
+                        <SectionLabel>{w.title}</SectionLabel>
+                        <ListCard>{w.tabs.map(row)}</ListCard>
+                      </div>
+                    ),
+                  )}
 
                 {extras.length > 0 && (
                   <div className="space-y-1.5">

@@ -79,8 +79,12 @@ export function AppHeader() {
           every page as the app's top rule. */}
       <div className="h-0.5 bg-brand" aria-hidden />
       <div className="flex items-center gap-1.5 px-2 py-2 sm:gap-2">
-        {/* Every page this person can open, by workspace — every role, every width. */}
-        <AppMenu qs={qs} />
+        {/* Every page this person can open, by workspace — on a phone only. From
+            `pad` up the sidebar lists the workspaces and carries the Account
+            item, so ☰ went away there (owner, 2026-10-13). */}
+        <div className="pad:hidden">
+          <AppMenu qs={qs} />
+        </div>
         {/* BACK, on every page but home. A page opened cold (a shared link, a
             new tab) has no history to go back to, so it goes home instead. */}
         {pathname !== "/" && (

@@ -6,6 +6,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { useAccess } from "@/components/AccessProvider";
 import { useCopy } from "@/components/CopyProvider";
 import { LinkPendingOverlay } from "@/components/LinkPending";
+import { AppMenu } from "@/components/AppMenu";
 import { carryJobAndMonth } from "@/lib/urlParam";
 import { confirmLeaveIfDirty } from "@/lib/useUnsavedChanges";
 import {
@@ -321,6 +322,11 @@ export function TabBar() {
             </div>
           );
         })}
+        {/* Account — Appearance, alerts, the Assistant and Sign out. The ☰ menu
+            held them, and it is hidden from `pad` up. */}
+        <div className="mt-auto pt-2">
+          <AppMenu account />
+        </div>
       </nav>
     </>
   );
