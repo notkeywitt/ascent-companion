@@ -2,9 +2,9 @@
 slug: invoicing-menu
 repo: wt3
 branch: claude/invoicing-menu
-status: in-progress
+status: shipped
 started: 2026-10-14T03:18:23Z
-updated: 2026-10-14T03:18:23Z
+updated: 2026-10-14T03:18:24Z
 goal: 
 next: Owner confirms the Invoicing menu row; the six other close pages are now reached by search and links only
 ---

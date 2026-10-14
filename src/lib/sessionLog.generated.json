@@ -1,7 +1,26 @@
 {
-  "generatedAt": "2026-10-14T03:14:59Z",
-  "repo": "wt2",
+  "generatedAt": "2026-10-14T03:18:24Z",
+  "repo": "wt3",
   "sessions": [
+    {
+      "slug": "invoicing-menu",
+      "file": "2026-10-13-invoicing-menu.md",
+      "branch": "claude/invoicing-menu",
+      "status": "shipped",
+      "started": "2026-10-14T03:18:23Z",
+      "updated": "2026-10-14T03:18:24Z",
+      "goal": "",
+      "next": "Owner confirms the Invoicing menu row; the six other close pages are now reached by search and links only",
+      "commits": [
+        {
+          "date": "2026-10-13",
+          "time": "23:18",
+          "sha": "7f4e2e6",
+          "subject": "companion: menu shows invoicing as one row that opens tracking sheets",
+          "files": "src/components/AppMenu.tsx, src/lib/workspaces.ts"
+        }
+      ]
+    },
     {
       "slug": "jobcard",
       "file": "2026-10-13-jobcard.md",
