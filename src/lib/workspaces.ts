@@ -181,6 +181,11 @@ export const NO_STRIP = new Set(["safety-meeting"]);
  * its strip at the owner's ask (2026-10-03); the ☰ menu still lists its pages. */
 export const NO_STRIP_WORKSPACES = new Set(["close"]);
 
+/** Workspaces the ☰ menu shows as ONE row, named for the workspace, opening its
+ * first page. Invoicing went to a single row at the owner's ask (2026-10-13):
+ * its pages are reached from Tracking Sheets and the header search. */
+export const MENU_SINGLE_WORKSPACES = new Set(["close"]);
+
 /** Today — the home page. Not a workspace: it is the bar's first slot. */
 export const TODAY: WorkspaceTab = tab("", "/", "Home", "What needs you today");
 

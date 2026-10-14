@@ -14,6 +14,7 @@ import {
   BAR_PIN_EVENT,
   BAR_PIN_KEY,
   EXTRA_LINKS,
+  MENU_SINGLE_WORKSPACES,
   TODAY,
   WORKSPACES,
   locate,
@@ -182,12 +183,27 @@ export function AppMenu({ qs = "" }: { qs?: string }) {
                 )}
                 {!pinning && <ListCard>{row(TODAY)}</ListCard>}
 
-                {workspaces.map((w) => (
-                  <div key={w.id} className="space-y-1.5">
-                    <SectionLabel>{w.title}</SectionLabel>
-                    <ListCard>{w.tabs.map(row)}</ListCard>
-                  </div>
-                ))}
+                {workspaces.map((w) =>
+                  MENU_SINGLE_WORKSPACES.has(w.id) ? (
+                    <ListCard key={w.id}>
+                      {pinning ? (
+                        row(w.tabs[0])
+                      ) : (
+                        <ListRow
+                          href={w.tabs[0].href + qs}
+                          label={w.title}
+                          desc={w.desc}
+                          className={pathname === w.tabs[0].href ? "bg-accent/5" : ""}
+                        />
+                      )}
+                    </ListCard>
+                  ) : (
+                    <div key={w.id} className="space-y-1.5">
+                      <SectionLabel>{w.title}</SectionLabel>
+                      <ListCard>{w.tabs.map(row)}</ListCard>
+                    </div>
+                  ),
+                )}
 
                 {extras.length > 0 && (
                   <div className="space-y-1.5">
