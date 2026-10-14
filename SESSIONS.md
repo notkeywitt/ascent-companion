@@ -1,4 +1,4 @@
-# SESSIONS — wt5
+# SESSIONS — wt6
 
 What each Claude session was doing, and where it stopped. **Generated —
 do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
@@ -32,6 +32,7 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
+| [copy](.claude/sessions/2026-10-13-copy.md) | 2026-10-14 | 1 | — |
 | [rail](.claude/sessions/2026-10-13-rail.md) | 2026-10-14 | 1 | — |
 | [invoicing-rail](.claude/sessions/2026-10-13-invoicing-rail.md) | 2026-10-14 | 1 | — |
 | [invoicing-menu](.claude/sessions/2026-10-13-invoicing-menu.md) | 2026-10-14 | 1 | — |
@@ -46,4 +47,3 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 | [desktop-icon-iphone-chrome](.claude/sessions/2026-10-07-desktop-icon-iphone-chrome.md) | 2026-10-07 | 2 | — |
 | [alljobs](.claude/sessions/2026-10-07-alljobs.md) | 2026-10-07 | 1 | Tracking Sheets all-jobs view: a top row of buttons — Sync to Tracking Sheets (… |
 | [labor-import-code-rates](.claude/sessions/2026-10-07-labor-import-code-rates.md) | 2026-10-07 | 1 | Labor Import: pick pay type per worker x job x cost code, with the time entries… |
-| [ascent-clock-out-issue](.claude/sessions/2026-10-07-ascent-clock-out-issue.md) | 2026-10-07 | 2 | stop a clock-in from closing a running JobTread clock |
