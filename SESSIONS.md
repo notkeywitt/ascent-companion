@@ -1,4 +1,4 @@
-# SESSIONS — wt
+# SESSIONS — wt2
 
 What each Claude session was doing, and where it stopped. **Generated —
 do not hand-edit.** Run `node scripts/session.mjs board --write`, or let

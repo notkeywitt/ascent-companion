@@ -1,23 +1,23 @@
 {
-  "generatedAt": "2026-10-14T03:03:32Z",
-  "repo": "wt",
+  "generatedAt": "2026-10-14T03:14:59Z",
+  "repo": "wt2",
   "sessions": [
     {
       "slug": "jobcard",
       "file": "2026-10-13-jobcard.md",
-      "branch": "claude/jobcard-invoice",
+      "branch": "claude/jobcard-drafts",
       "status": "shipped",
-      "started": "2026-10-14T03:03:30Z",
-      "updated": "2026-10-14T03:03:31Z",
+      "started": "2026-10-14T03:14:58Z",
+      "updated": "2026-10-14T03:14:59Z",
       "goal": "",
-      "next": "Watch the all-jobs cards for a month invoice landing in the wrong month (bill-less invoices fall back to issue date)",
+      "next": "Confirm draft invoices show on the all-jobs cards for September once invoicing starts",
       "commits": [
         {
           "date": "2026-10-13",
-          "time": "23:03",
-          "sha": "50c14a9",
-          "subject": "companion: tracking sheets all-jobs cards show the month's invoice total net of applied deposits",
-          "files": "src/app/trackingsheet/MonthJobDonuts.tsx, src/lib/monthCostByJob.ts"
+          "time": "23:14",
+          "sha": "289167b",
+          "subject": "companion: tracking sheets all-jobs cards count draft invoices, job checks move to the foot of the page",
+          "files": "src/app/trackingsheet/AllJobs.tsx, src/app/trackingsheet/MonthJobDonuts.tsx, src/lib/monthCostByJob.ts"
         }
       ]
     },
