@@ -19,7 +19,7 @@ import { money0 } from "./BillCodingCard";
  * Read-only, one fetch for every job (`useMonthJobs`, called by the page).
  * Every job in a WORKING_PHASES phase also gets a card, cost or not, after the
  * jobs with cost — read from the job picker's cached list. Those idle cards
- * stay here: "Check all Jobs" still runs on the jobs with cost only.
+ * stay here: "Check all Jobs" still runs on the jobs with cost or an invoice only.
  * Self-hiding when there is no job to show.
  */
 export function MonthJobDonuts({
@@ -53,6 +53,8 @@ export function MonthJobDonuts({
       customerName: o.customer ?? "",
       bills: 0,
       labor: 0,
+      invoiced: 0,
+      deposits: 0,
       rows: [],
     }))
     .sort((a, b) => a.jobName.localeCompare(b.jobName));
@@ -131,6 +133,16 @@ function JobCard({ j, ym }: { j: MonthJobCost; ym: string }) {
             <div className="text-[9.5px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
               This month
             </div>
+            {/* The month's client invoices, net of applied deposits — smaller
+                than the cost figure above, and absent until one is sent. */}
+            {(j.invoiced !== 0 || j.deposits !== 0) && (
+              <div className="mt-1 text-[11px] tabular-nums text-neutral-500 dark:text-neutral-400">
+                <span className="font-semibold">{money0(j.invoiced)}</span> invoiced
+                {j.deposits !== 0 && (
+                  <div className="text-[9.5px]">after {money0(j.deposits)} deposit</div>
+                )}
+              </div>
+            )}
           </div>
         </div>
         <div className="grid grid-cols-2 gap-3">
