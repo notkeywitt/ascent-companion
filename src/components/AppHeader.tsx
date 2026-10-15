@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { AscentLogo } from "@/components/AscentLogo";
@@ -36,6 +36,21 @@ export function AppHeader() {
   const search = useSearchParams();
   const access = useAccess();
   const jobId = search.get("jobId") ?? "";
+
+  // Admin-only deploy stamp: when the bundle in THIS tab was built, frozen in
+  // by next.config.mjs (same source as the /admin build footer). A tab opened
+  // before a deploy keeps its old stamp until it reloads — which is the point.
+  // Formatted after mount: the server renders UTC, the phone Pacific, and a
+  // differing string is a hydration error.
+  const [deployedAt, setDeployedAt] = useState("");
+  useEffect(() => {
+    const d = new Date(process.env.APP_BUILD_TIME || "");
+    if (!Number.isNaN(d.getTime())) {
+      setDeployedAt(
+        d.toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }),
+      );
+    }
+  }, []);
 
   /* THIS BAR'S HEIGHT IS NOT A CONSTANT — the row's controls are view-gated, and
      the browser's own font settings move it. Anything that has to start below it
@@ -127,6 +142,14 @@ export function AppHeader() {
           </Link>
         )}
       </div>
+      {access.role === "admin" && deployedAt && (
+        <p
+          title={process.env.APP_BUILD_SHA?.slice(0, 7)}
+          className="-mt-1.5 px-3 pb-1 text-right text-[10px] leading-none text-neutral-500 dark:text-neutral-400"
+        >
+          deployed {deployedAt}
+        </p>
+      )}
     </div>
   );
 }
