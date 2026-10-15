@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { callAppsScript } from "@/lib/appsScript";
 import { getPaveConfig, hasGrant } from "@/lib/config";
 import { getOrgTimeEntriesForMonth } from "@/lib/jobtread";
+import { recordMonthAction } from "@/lib/monthActions";
 import { QB_LABOR_COLUMN_TYPES, buildQbLaborRows, laborReportTitle } from "@/lib/qbLaborCsv";
 
 /**
@@ -103,6 +104,8 @@ export async function POST(req: NextRequest) {
         { status: 502 },
       );
     }
+
+    await recordMonthAction("labor-report", "", `${m[1]}-${m[2]}`, session.user.email ?? "");
 
     return NextResponse.json({
       ok: true,

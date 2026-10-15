@@ -61,8 +61,8 @@ const money = (n: number) =>
  */
 const trackingRunner = createTaskRunner(3);
 
-/** What the sync reported — shared by both layouts below. */
-function SyncOutcome({
+/** What the sync reported — shared by both layouts below and the all-jobs cards. */
+export function SyncOutcome({
   status,
   result,
   error,
@@ -280,9 +280,12 @@ export function TrackingSheetSyncFor({
 export function SyncAllTrackingSheetsFor({
   ym,
   className,
+  onDone,
 }: {
   ym: string;
   className?: string;
+  /** Called as each sheet and the Labor Report finish — the all-jobs cards re-read their stamps. */
+  onDone?: () => void;
 }) {
   const access = useAccess();
   const canTrack = access.can("tracking-sheet");
@@ -325,16 +328,22 @@ export function SyncAllTrackingSheetsFor({
     const [y, m] = ym.split("-").map(Number);
     for (const t of targets) {
       const key = t.projectId;
-      runTrackingSync(key, m, y, (s) => setStates((prev) => ({ ...prev, [key]: s })));
+      runTrackingSync(key, m, y, (s) => {
+        setStates((prev) => ({ ...prev, [key]: s }));
+        if (s.status === "done") onDone?.();
+      });
     }
     if (canReport) {
       setLabor({ busy: true });
       runLaborReport(ym).then(
-        (r) => setLabor(r),
+        (r) => {
+          setLabor(r);
+          onDone?.();
+        },
         (e) => setLabor({ error: e instanceof Error ? e.message : "Labor report failed" }),
       );
     }
-  }, [targets, ym, canReport]);
+  }, [targets, ym, canReport, onDone]);
 
   const summary = useMemo(() => {
     let queued = 0,

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Banner, Button, EmptyState, Loading, MetaLine } from "@/components/ui";
+import { Banner, Button, Card, EmptyState, Loading, MetaLine } from "@/components/ui";
 
 /**
  * The client's "Document Access" list on vendor bills, added to in one press.
@@ -173,5 +173,53 @@ export function DocumentAccess({
         </p>
       )}
     </>
+  );
+}
+
+/**
+ * The month's Document Access list in a dialog — the Tracking Sheets closing
+ * row and each all-jobs card open this one.
+ */
+export function DocumentAccessDialog({
+  jobId,
+  ym,
+  monthLabel,
+  jobTitle,
+  onClose,
+}: {
+  jobId: string;
+  ym: string;
+  monthLabel: string;
+  jobTitle?: string;
+  onClose: () => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4"
+      role="dialog"
+      aria-modal="true"
+      onClick={onClose}
+    >
+      <Card
+        className="max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-b-none pb-[max(1rem,env(safe-area-inset-bottom))] !p-4 sm:rounded-b-xl sm:pb-4"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <p className="text-sm font-semibold">Give Document Access</p>
+        <p className="mb-3 text-xs text-neutral-500 dark:text-neutral-400">
+          {monthLabel}
+          {jobTitle ? ` · ${jobTitle}` : ""}. The contact is added to the Document Access list on
+          every vendor bill dated in the month, so the client can open the bills behind their
+          invoice. No email is sent.
+        </p>
+
+        <DocumentAccess jobId={jobId} ym={ym} scopeLabel={monthLabel} />
+
+        <div className="mt-4 flex justify-end">
+          <Button variant="secondary" className="min-h-11 sm:min-h-0" onClick={onClose}>
+            Close
+          </Button>
+        </div>
+      </Card>
+    </div>
   );
 }

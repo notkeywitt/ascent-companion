@@ -3,7 +3,7 @@
 import { useCallback, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Button, Card, PageHeader, SectionHeading, btn } from "@/components/ui";
+import { Button, Card, PageHeader, SectionHeading, Select, btn } from "@/components/ui";
 import { JobPicker, WORKING_PHASES } from "@/components/JobPicker";
 import { useAccess } from "@/components/AccessProvider";
 import { useCopy } from "@/components/CopyProvider";
@@ -15,6 +15,7 @@ import { AllBills } from "./AllBills";
 import { UnsyncedDrafts } from "./UnsyncedDrafts";
 import { MonthJobDonuts, useMonthJobs } from "./MonthJobDonuts";
 import { CheckAllResults, useCheckAllJobs } from "./CheckAllJobs";
+import { useMonthActions } from "./JobMonthActions";
 
 /**
  * Tracking Sheets with no job selected — every vendor bill issued in the
@@ -77,6 +78,7 @@ export function AllJobs() {
 
   const month = useMonthJobs(ym);
   const check = useCheckAllJobs(month.jobs, ym);
+  const actions = useMonthActions(ym);
 
   const onPickJob = (id: string) => {
     if (!id) return;
@@ -105,11 +107,28 @@ export function AllJobs() {
       />
 
       {/* THE MONTH'S ACTIONS — the all-jobs twins of the workbench's closing
-          row. Sync files the Labor Report and pushes every sheet; Check runs
+          row, led by the billing month every card, stamp and bill below reads.
+          Sync files the Labor Report and pushes every sheet; Check runs
           "Check this job" on each job with cost; Import Labor is the
           QuickBooks → JobTread page. */}
       <div className="mb-4 flex flex-wrap items-start gap-2">
-        <SyncAllTrackingSheetsFor ym={ym} />
+        {/* Width on a wrapper: inputCls carries w-full, which beats a w-48
+            beside it by stylesheet order. */}
+        <div className="w-48">
+          <Select
+            aria-label="Billing month"
+            value={ym}
+            onChange={(e) => setYm(e.target.value)}
+            className="min-h-11"
+          >
+            {billingMonths(15).map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </Select>
+        </div>
+        <SyncAllTrackingSheetsFor ym={ym} onDone={actions.reload} />
         {can("invoice-review") && (
           <Button
             variant="secondary"
@@ -151,9 +170,15 @@ export function AllJobs() {
 
       {/* Every job with cost this month, as ring cards — above the bills
           workbench, which the cards' own clicks lead into job by job. */}
-      <MonthJobDonuts jobs={month.jobs} error={month.error} ym={ym} monthLabel={monthLabel} />
+      <MonthJobDonuts
+        jobs={month.jobs}
+        error={month.error}
+        ym={ym}
+        monthLabel={monthLabel}
+        actions={actions}
+      />
 
-      <AllBills ym={ym} setYm={setYm} />
+      <AllBills ym={ym} />
 
       {/* COMPANY-WIDE TOOLS — the Drive sync takes no job and no month, so it
           stays down here with its scope written beside it. The tracking-sheet

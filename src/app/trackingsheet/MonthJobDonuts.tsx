@@ -8,6 +8,7 @@ import { WORKING_PHASES, type JobRef } from "@/components/JobPicker";
 import type { MonthJobCost } from "@/lib/monthCostByJob";
 import { buildColorMap, buildSlices, withoutSalesTax } from "./CostDonuts";
 import { money0 } from "./BillCodingCard";
+import { JobMonthActions, type MonthActions } from "./JobMonthActions";
 
 /**
  * Tracking Sheets with no job selected — one card per job with cost in the
@@ -27,11 +28,13 @@ export function MonthJobDonuts({
   error,
   ym,
   monthLabel,
+  actions,
 }: {
   jobs: MonthJobCost[] | null;
   error: string;
   ym: string;
   monthLabel: string;
+  actions: MonthActions;
 }) {
   const [open, setOpen] = useState<JobRef[] | null>(null);
   useEffect(() => {
@@ -72,7 +75,7 @@ export function MonthJobDonuts({
           so the next card shows cut off; a grid from `pad` up. */}
       <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-1 pad:mx-0 pad:grid pad:grid-cols-2 pad:overflow-x-visible pad:px-0 xl:grid-cols-3 2xl:grid-cols-4">
         {all.map((j) => (
-          <JobCard key={j.jobId} j={j} ym={ym} />
+          <JobCard key={j.jobId} j={j} ym={ym} monthLabel={monthLabel} actions={actions} />
         ))}
       </div>
     </section>
@@ -107,7 +110,17 @@ export function useMonthJobs(ym: string) {
   return { jobs, error };
 }
 
-function JobCard({ j, ym }: { j: MonthJobCost; ym: string }) {
+function JobCard({
+  j,
+  ym,
+  monthLabel,
+  actions,
+}: {
+  j: MonthJobCost;
+  ym: string;
+  monthLabel: string;
+  actions: MonthActions;
+}) {
   const rows = withoutSalesTax(j.rows);
   // Off the same rows as the rings, so the total leaves out 88 80 00 too.
   const total = rows.reduce((n, r) => n + r.bills + r.labor, 0);
@@ -160,6 +173,14 @@ function JobCard({ j, ym }: { j: MonthJobCost; ym: string }) {
           />
         </div>
       </Link>
+      {/* Outside the link: a button press must not open the workbench. */}
+      <JobMonthActions
+        jobId={j.jobId}
+        jobName={j.jobName}
+        ym={ym}
+        monthLabel={monthLabel}
+        actions={actions}
+      />
     </Card>
   );
 }

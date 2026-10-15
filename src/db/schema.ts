@@ -1453,3 +1453,28 @@ export const depositLinks = sqliteTable("deposit_links", {
 });
 
 export type DepositLinksRow = typeof depositLinks.$inferSelect;
+
+/**
+ * MONTH ACTION STAMPS — the last time a month-closing action ran, for the
+ * "ran Oct 3" stamps on the Tracking Sheets all-jobs cards. One row per
+ * (action, scope, ym), overwritten by the next run: a stamp, not a journal.
+ * See src/lib/monthActions.ts.
+ *
+ * `scope` is the id the action ran on — the JobTread job id for
+ * "document-access", the tracking-sheet project id for "tracking-sync", and ""
+ * for the company-wide "labor-report".
+ */
+export const monthActionRuns = sqliteTable(
+  "month_action_runs",
+  {
+    action: text("action").notNull(),
+    scope: text("scope").notNull().default(""),
+    ym: text("ym").notNull(), // "2026-09"
+    at: text("at").notNull(), // ISO timestamp
+    by: text("by").notNull().default(""), // signed-in email
+    note: text("note").notNull().default(""),
+  },
+  (t) => [primaryKey({ columns: [t.action, t.scope, t.ym] })],
+);
+
+export type MonthActionRunRow = typeof monthActionRuns.$inferSelect;

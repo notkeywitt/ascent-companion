@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/auth";
 import { callAppsScript } from "@/lib/appsScript";
+import { recordMonthAction } from "@/lib/monthActions";
 
 // Proxy to the Apps Script web app's per-project tracking-sheet actions
 // (TrackingSheets.js). Apps Script holds the Sheets grants — the Assistant is UI
@@ -108,6 +110,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       { error: String(b.error || "The tracking-sheet action failed.") },
       { status: 502 },
+    );
+  }
+  if (op === "sync" && body.dryRun !== true) {
+    const session = await auth();
+    await recordMonthAction(
+      "tracking-sync",
+      projectId,
+      `${year}-${String(month).padStart(2, "0")}`,
+      session?.user?.email ?? "",
     );
   }
   return NextResponse.json(b);

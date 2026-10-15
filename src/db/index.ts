@@ -1071,6 +1071,18 @@ async function applySchema() {
       /* column already exists */
     }
   }
+  // The last run of each month-closing action (see schema.ts monthActionRuns).
+  await getClient().execute(`
+    CREATE TABLE IF NOT EXISTS month_action_runs (
+      action TEXT NOT NULL,
+      scope TEXT NOT NULL DEFAULT '',
+      ym TEXT NOT NULL,
+      at TEXT NOT NULL,
+      by TEXT NOT NULL DEFAULT '',
+      note TEXT NOT NULL DEFAULT '',
+      PRIMARY KEY (action, scope, ym)
+    )
+  `);
   // The journal is read newest-first, and filtered by the record, the job, the
   // person, or the one action a row belonged to.
   for (const idx of [

@@ -7,6 +7,8 @@ import {
   type DocAccessRow,
 } from "@/lib/jobtread";
 import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
+import { auth } from "@/auth";
+import { recordMonthAction } from "@/lib/monthActions";
 
 /**
  * The "Document Access" list on vendor bills, read and added to without opening
@@ -137,6 +139,19 @@ export async function POST(req: NextRequest) {
       } catch (e) {
         failed.push(`${bill.label}: ${e instanceof Error ? e.message : "failed"}`);
       }
+    }
+    // A month run with nothing failed means every bill in the month now lists
+    // the contact — that is what the all-jobs card stamps. One bill is not a
+    // month, and a partial run is not done.
+    if (!(body.docId ?? "").trim() && failed.length === 0) {
+      const session = await auth();
+      await recordMonthAction(
+        "document-access",
+        scope.jobId,
+        (body.ym ?? "").trim(),
+        session?.user?.email ?? "",
+        contact.name,
+      );
     }
     return NextResponse.json({ added, already, failed, name: contact.name });
   } catch (e) {

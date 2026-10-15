@@ -97,6 +97,8 @@ export const VIEWS: ViewDef[] = [
       // month's vendor bills, so it must not be callable by a role that cannot
       // see the month.
       "/api/document-access",
+      // When each month-closing action last ran — the all-jobs cards' stamps.
+      "/api/month-actions",
       // The job's deposit card: the balance (read), the deposit entered by
       // hand, and (/api/deposits/apply) the draw line on a draft invoice.
       "/api/deposits",

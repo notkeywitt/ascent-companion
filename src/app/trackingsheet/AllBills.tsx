@@ -11,10 +11,8 @@ import {
   Chip,
   EmptyState,
   FilterChip,
-  Label,
   Loading,
   SectionLabel,
-  inputCls,
 } from "@/components/ui";
 import { SplitGrid } from "@/components/SplitGrid";
 import { useUnsavedChanges } from "@/lib/useUnsavedChanges";
@@ -105,7 +103,8 @@ const shortDate = (iso: string) => {
   return new Date(y, m - 1, d).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 };
 
-export function AllBills({ ym, setYm }: { ym: string; setYm: (ym: string) => void }) {
+/** The month's bills, all jobs. The billing month picker is the page's (AllJobs). */
+export function AllBills({ ym }: { ym: string }) {
   const [bills, setBills] = useState<AllBill[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -480,21 +479,6 @@ export function AllBills({ ym, setYm }: { ym: string; setYm: (ym: string) => voi
 
   return (
     <>
-      <div className="mb-3">
-        <Label htmlFor="allbills-month">Billing month</Label>
-        <select
-          id="allbills-month"
-          value={ym}
-          onChange={(e) => setYm(e.target.value)}
-          className={inputCls}
-        >
-          {billingMonths(15).map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </select>
-      </div>
 
       {error && (
         <Banner tone="error" className="mb-4">

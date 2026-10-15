@@ -59,6 +59,7 @@ export function LaborReportButton({
   size = "sm",
   disabled = false,
   buttonClassName = "",
+  onDone,
 }: {
   /** The billing month to report, "YYYY-MM". */
   ym: string;
@@ -68,6 +69,8 @@ export function LaborReportButton({
    *  JobTread, so running it now would file the month without them. */
   disabled?: boolean;
   buttonClassName?: string;
+  /** Called after the report is filed — the all-jobs cards re-read their stamps. */
+  onDone?: () => void;
 }) {
   const canReport = useAccess().can("labor-review");
   const [busy, setBusy] = useState(false);
@@ -78,6 +81,7 @@ export function LaborReportButton({
     setMsg(null);
     try {
       setMsg({ tone: "ok", ...(await runLaborReport(ym)) });
+      onDone?.();
     } catch (e) {
       setMsg({ tone: "error", text: e instanceof Error ? e.message : "Report failed" });
     } finally {
