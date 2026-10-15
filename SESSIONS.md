@@ -1,4 +1,4 @@
-# SESSIONS — ascent-doc-access
+# SESSIONS — ascent-deploy-stamp
 
 What each Claude session was doing, and where it stopped. **Generated —
 do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
@@ -32,6 +32,7 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
+| [deploy-stamp](.claude/sessions/2026-10-15-deploy-stamp.md) | 2026-10-15 | 1 | — |
 | [doc-access](.claude/sessions/2026-10-15-doc-access.md) | 2026-10-15 | 1 | — |
 | [copy](.claude/sessions/2026-10-13-copy.md) | 2026-10-14 | 1 | — |
 | [rail](.claude/sessions/2026-10-13-rail.md) | 2026-10-14 | 1 | — |
@@ -46,4 +47,3 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 | [coding-card-top](.claude/sessions/2026-10-11-coding-card-top.md) | 2026-10-12 | 1 | Tracking Sheets: open the coding card at the top of the window, not beside its … |
 | [finding-row](.claude/sessions/2026-10-08-finding-row.md) | 2026-10-08 | 1 | Job check results (Check this job / Check all Jobs): each finding links to its … |
 | [desktop-icon-iphone-chrome](.claude/sessions/2026-10-07-desktop-icon-iphone-chrome.md) | 2026-10-07 | 2 | — |
-| [alljobs](.claude/sessions/2026-10-07-alljobs.md) | 2026-10-07 | 1 | Tracking Sheets all-jobs view: a top row of buttons — Sync to Tracking Sheets (… |
