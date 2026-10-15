@@ -9,7 +9,7 @@ const job = (over: Partial<PackageJob>): PackageJob => ({
   note: "",
   invoiceNumber: "379",
   trackingSheetUrl: "https://docs.google.com/spreadsheets/d/abc/edit",
-  links: { jtDocuments: "https://app.jobtread.com/jobs/j1/documents" },
+  links: { jtInvoice: "https://app.jobtread.com/jobs/j1/documents/d1", jtDocuments: "https://app.jobtread.com/jobs/j1/documents" },
   ...over,
 });
 
@@ -35,13 +35,13 @@ describe("composeInvoicingEmail", () => {
     expect(out.html).toContain("QBO — not pushed to QuickBooks yet");
   });
 
-  it("attaches each JobTread invoice PDF in place of a link", () => {
+  it("links each JobTread invoice and attaches its PDF", () => {
     expect(out.invoices).toEqual([
       { id: "d379", name: "Monthly Invoice 002-379.pdf" },
       { id: "d22", name: "Monthly Invoice 22-22.pdf" },
     ]);
     expect(out.html).toContain("Monthly Invoice 002-379.pdf (attached)");
-    expect(out.html).not.toContain("documents/d");
+    expect(out.html).toContain('href="https://app.jobtread.com/jobs/j1/documents/d1">JobTread invoice #379</a>');
   });
 
   it("attaches the Pre-con tab for a precon job and the Tracking Sheet tab otherwise", () => {

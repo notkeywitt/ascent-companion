@@ -1,7 +1,7 @@
 /**
  * The month's Invoicing Package EMAIL — the list the office sends once the
  * month's client invoices are in QuickBooks: one item per job, linking its
- * tracking sheet and its QuickBooks invoice. Each tracking sheet (the file Ty
+ * tracking sheet, its QuickBooks invoice and its JobTread invoice. Each tracking sheet (the file Ty
  * attaches to the client follow-ups) and each JobTread invoice is attached as
  * a PDF. Modelled on the October '26 package, sent 2026-10-14.
  *
@@ -30,7 +30,7 @@ export interface PackageJob {
   note: string;
   invoiceNumber: string;
   trackingSheetUrl: string;
-  links: { jtDocuments: string };
+  links: { jtInvoice: string; jtDocuments: string };
 }
 
 export interface SheetPdf {
@@ -98,6 +98,7 @@ export function composeInvoicingEmail({
           ? a(`https://qbo.intuit.com/app/invoice?txnId=${inv.qboId}`, "QBO")
           : "QBO — not pushed to QuickBooks yet",
       );
+      subs.push(a(j.links.jtInvoice, `JobTread invoice #${j.invoiceNumber}`));
     }
     if (inv) {
       pdfs.push({ id: inv.id, name: inv.pdfName });
