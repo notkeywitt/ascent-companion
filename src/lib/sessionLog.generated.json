@@ -1,7 +1,26 @@
 {
-  "generatedAt": "2026-10-15T11:16:25Z",
-  "repo": "ascent-alljobs",
+  "generatedAt": "2026-10-15T11:40:33Z",
+  "repo": "ascent-companion-vendor-link",
   "sessions": [
+    {
+      "slug": "vendor-link",
+      "file": "2026-10-15-vendor-link.md",
+      "branch": "claude/vendor-link",
+      "status": "shipped",
+      "started": "2026-10-15T11:35:11Z",
+      "updated": "2026-10-15T11:40:33Z",
+      "goal": "Stuck vendor: link a bill's unmatched vendor name to an existing JobTread vendor, and remember the alias for future captures",
+      "next": "Owner runs ./deploy.sh in ascent-appscript (linkVendor action). Then open Tracking Sheets > Not in JobTread, expand a1_septic_on_lopez_llc, pick A1 Septic, Link, Push as-is. Confirm the Vendor Aliases tab got a row.",
+      "commits": [
+        {
+          "date": "2026-10-15",
+          "time": "07:40",
+          "sha": "e753139",
+          "subject": "companion: link a stuck bill's vendor to an existing jobtread vendor, remembered for the next invoice",
+          "files": "src/app/api/stuck-vendors/route.ts, src/app/api/uncaptured/route.ts, src/components/LinkVendor.tsx, src/components/StuckVendors.tsx, src/components/UncapturedBills.tsx"
+        }
+      ]
+    },
     {
       "slug": "alljobs-card",
       "file": "2026-10-15-alljobs-card.md",

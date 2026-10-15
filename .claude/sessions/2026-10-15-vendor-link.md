@@ -2,9 +2,9 @@
 slug: vendor-link
 repo: ascent-companion-vendor-link
 branch: claude/vendor-link
-status: in-progress
+status: shipped
 started: 2026-10-15T11:35:11Z
-updated: 2026-10-15T11:40:32Z
+updated: 2026-10-15T11:40:33Z
 goal: Stuck vendor: link a bill's unmatched vendor name to an existing JobTread vendor, and remember the alias for future captures
 next: Owner runs ./deploy.sh in ascent-appscript (linkVendor action). Then open Tracking Sheets > Not in JobTread, expand a1_septic_on_lopez_llc, pick A1 Septic, Link, Push as-is. Confirm the Vendor Aliases tab got a row.
 ---
