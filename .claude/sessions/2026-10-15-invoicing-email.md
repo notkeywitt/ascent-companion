@@ -4,9 +4,9 @@ repo: ascent-companion-invoice-email
 branch: claude/invoicing-email
 status: shipped
 started: 2026-10-15T21:15:42Z
-updated: 2026-10-15T22:02:49Z
+updated: 2026-10-15T22:15:27Z
 goal: One button on Tracking Sheets all-jobs that drafts the monthly Invoicing Package email in Gmail, each job's tracking sheet attached as a PDF
-next: Owner runs ./deploy.sh in ascent-appscript (invoice PDFs from JobTread's pdf mutation), then presses Update invoicing email on /trackingsheet for September: draft should carry each Monthly Invoice PDF next to its tracking sheet
+next: Owner presses Draft invoicing email again and reports the step-labelled error, and which billing month was picked. Decide: let _misPullInvoices accept a bill-less invoice CREATED in the invoicing month (fixes #51/#64/#45 dated 9/30).
 ---
 
 ## Log
@@ -25,3 +25,4 @@ next: Owner runs ./deploy.sh in ascent-appscript (invoice PDFs from JobTread's p
 ## Notes
 - 2026-10-15 21:15 — Invoice PDFs from JobTread are links, not attachments: JT's pdf mutation would attach them but is an unprobed mutation; needs owner OK.
 - 2026-10-15 21:56 — JobTread pdf mutation (isWrite in schema) answers with the PDF bytes, filename 'Monthly Invoice 002-379.pdf', and saves nothing to the document: probed on Berger #379, file count unchanged. Owner asked for it 2026-10-15.
+- 2026-10-15 22:15 — Invoicing email error 'Cannot read properties of undefined (reading filter)' not reproduced: the September draft built fine at 18:07. Route now names the failing step. Separate: Pole Barn #51, Pottery Barn #64, Velorum #45 are dated 9/30 with no linked bills, so appscript _misPullInvoices drops them (bill-less invoices must be dated in the invoicing month).

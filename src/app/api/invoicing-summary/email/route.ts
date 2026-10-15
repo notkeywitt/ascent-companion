@@ -37,9 +37,14 @@ export async function POST(req: NextRequest) {
     invoiceMonthLabel: string;
     jobs: PackageJob[];
   }>({ action: "invoicingSummary", month: Number(m[2]), year: Number(m[1]) }, { timeoutMs: 110_000 });
-  if (sum.error) return NextResponse.json({ error: sum.error }, { status: sum.status });
-  if (sum.data?.ok !== true) {
-    return NextResponse.json({ error: sum.data?.error || "The Invoicing Package could not be read." }, { status: 502 });
+  // Each failure names its step: reading the month (Apps Script), building the
+  // email (JobTread), or saving the draft (Apps Script).
+  if (sum.error) return NextResponse.json({ error: `Reading the month: ${sum.error}` }, { status: sum.status });
+  if (sum.data?.ok !== true || !Array.isArray(sum.data.jobs)) {
+    return NextResponse.json(
+      { error: `Reading the month: ${sum.data?.error || "Apps Script sent no job list."}` },
+      { status: 502 },
+    );
   }
   const pkg = sum.data;
 
@@ -63,9 +68,12 @@ export async function POST(req: NextRequest) {
       attached: number;
       warnings: string[];
     }>({ action: "draftInvoicingEmail", ym, to: PACKAGE_EMAIL_TO, ...email }, { timeoutMs: 110_000 });
-    if (res.error) return NextResponse.json({ error: res.error }, { status: res.status });
+    if (res.error) return NextResponse.json({ error: `Saving the draft: ${res.error}` }, { status: res.status });
     if (res.data?.ok !== true) {
-      return NextResponse.json({ error: res.data?.error || "The draft could not be saved." }, { status: 502 });
+      return NextResponse.json(
+        { error: `Saving the draft: ${res.data?.error || "Apps Script did not say why."}` },
+        { status: 502 },
+      );
     }
     return NextResponse.json({
       draftUrl: res.data.draftUrl,
@@ -75,6 +83,10 @@ export async function POST(req: NextRequest) {
       warnings: res.data.warnings ?? [],
     });
   } catch (e) {
-    return NextResponse.json({ error: e instanceof Error ? e.message : "Unknown error" }, { status: 502 });
+    console.error("[invoicing-email]", e);
+    return NextResponse.json(
+      { error: `Building the email: ${e instanceof Error ? e.message : "Unknown error"}` },
+      { status: 502 },
+    );
   }
 }
