@@ -8,8 +8,9 @@ import { composeInvoicingEmail, PACKAGE_EMAIL_TO, type PackageJob } from "@/lib/
  * POST { ym } — the month's Invoicing Package email as a Gmail draft in the
  * office mailbox, each job's tracking sheet attached as a PDF. The "Draft
  * invoicing email" button on Tracking Sheets' all-jobs view. Saves a draft and
- * never sends. Gated by the `invoicing-summary` view's /api/invoicing-summary
- * prefix.
+ * never sends. Pressed again for the same month, it replaces that month's draft
+ * with the latest (Apps Script keeps the draft id). Gated by the
+ * `invoicing-summary` view's /api/invoicing-summary prefix.
  *
  * Three reads, then one write to Gmail: the month's package (Apps Script's
  * cached read, the one /invoicing-summary shows — so its include/exclude, labels
@@ -56,15 +57,17 @@ export async function POST(req: NextRequest) {
       ok?: boolean;
       error?: string;
       draftUrl: string;
+      updated: boolean;
       attached: number;
       warnings: string[];
-    }>({ action: "draftInvoicingEmail", to: PACKAGE_EMAIL_TO, ...email }, { timeoutMs: 110_000 });
+    }>({ action: "draftInvoicingEmail", ym, to: PACKAGE_EMAIL_TO, ...email }, { timeoutMs: 110_000 });
     if (res.error) return NextResponse.json({ error: res.error }, { status: res.status });
     if (res.data?.ok !== true) {
       return NextResponse.json({ error: res.data?.error || "The draft could not be saved." }, { status: 502 });
     }
     return NextResponse.json({
       draftUrl: res.data.draftUrl,
+      updated: res.data.updated === true,
       attached: res.data.attached,
       sheets: email.sheets.length,
       warnings: res.data.warnings ?? [],

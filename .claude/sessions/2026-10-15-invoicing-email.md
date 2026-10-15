@@ -2,11 +2,11 @@
 slug: invoicing-email
 repo: ascent-companion-invoice-email
 branch: claude/invoicing-email
-status: shipped
+status: in-progress
 started: 2026-10-15T21:15:42Z
-updated: 2026-10-15T21:27:41Z
+updated: 2026-10-15T21:32:45Z
 goal: One button on Tracking Sheets all-jobs that drafts the monthly Invoicing Package email in Gmail, each job's tracking sheet attached as a PDF
-next: Owner runs ./deploy.sh in ascent-appscript (new draftInvoicingEmail action + docs.google.com fetch allowance), then presses Draft invoicing email on /trackingsheet for September and checks the draft in Gmail
+next: Owner runs ./deploy.sh in ascent-appscript (draft now updates in place per month), then presses Draft invoicing email twice on /trackingsheet for September: second press should say Updated and keep one draft in Gmail
 ---
 
 ## Log
