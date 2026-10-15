@@ -2,11 +2,11 @@
 slug: time-card-autostage
 repo: ascent-companion
 branch: claude/time-card-autostage
-status: shipped
+status: done
 started: 2026-10-02T17:18:55Z
-updated: 2026-10-12T13:00:54Z
+updated: 2026-10-15T22:00:00Z
 goal: Tracking Sheets time card: stage edits as they are made (like bills), remove the Stage changes button
-next: Open /trackingsheet with no job on a phone and an iPad: check the per-job ring cards read right. Then decide how /unbilled treats hand-built invoices (rebuild still uncommitted in the working tree)
+next: Clean up the Seth 9/16 and Wyatt 9/14 duplicate time entries in JobTread (the overlap guard stops new ones; it does not remove these).
 ---
 
 ## Log
@@ -31,3 +31,5 @@ next: Open /trackingsheet with no job on a phone and an iPad: check the per-job 
 - 2026-10-02 18:56 — Home board donuts now read invoiced (approved+pending customerInvoice, pre-tax) against approved price, not spent vs budget. JT's Invoiced figure includes tax, so it reads higher.
 - 2026-10-02 19:10 — Unbilled rebuild (uncommitted): per-document method reads Velorum at $12,985 because invoices #16/#38/#42 were built by hand with no links to the bills/time they cover. Waiting on owner before shipping.
 - 2026-10-02 19:26 — Shipped Time Sync 'JobTread is right' (f209c7d) and stuck-vendor Forget button (0750cfc). Both need appscript ./deploy.sh (d8b5f2c finalizeTimeEntryLog times, 4eccbeb forgetStuckBill).
+- 2026-10-13 10:40 — a08a32d (phase default) shipped to main as a390004 via cherry-pick.
+- 2026-10-15 — Branch closed. Every commit is on main: f16c581 = b67ba8c, a08a32d = a390004, 46d0c91 (overlap guard) = d45f4e8. The uncommitted /unbilled rebuild shipped as 069e18d; the leftover working-tree copy was discarded.
