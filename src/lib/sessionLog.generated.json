@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-15T21:33:03Z",
+  "generatedAt": "2026-10-15T21:56:40Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -69,9 +69,9 @@
       "branch": "claude/invoicing-email",
       "status": "shipped",
       "started": "2026-10-15T21:15:42Z",
-      "updated": "2026-10-15T21:33:02Z",
+      "updated": "2026-10-15T21:56:40Z",
       "goal": "One button on Tracking Sheets all-jobs that drafts the monthly Invoicing Package email in Gmail, each job's tracking sheet attached as a PDF",
-      "next": "Owner runs ./deploy.sh in ascent-appscript (draft now updates in place per month), then presses Draft invoicing email twice on /trackingsheet for September: second press should say Updated and keep one draft in Gmail",
+      "next": "Owner runs ./deploy.sh in ascent-appscript (invoice PDFs from JobTread's pdf mutation), then presses Update invoicing email on /trackingsheet for September: draft should carry each Monthly Invoice PDF next to its tracking sheet",
       "commits": [
         {
           "date": "2026-10-15",
@@ -93,6 +93,13 @@
           "sha": "c80bfe2",
           "subject": "companion: draft invoicing email again replaces that month's gmail draft with the latest instead of adding a second one",
           "files": "src/app/api/invoicing-summary/email/route.ts, src/app/trackingsheet/AllJobs.tsx"
+        },
+        {
+          "date": "2026-10-15",
+          "time": "17:56",
+          "sha": "c8fb129",
+          "subject": "companion: invoicing email attaches each jobtread invoice pdf instead of linking to the invoice",
+          "files": "src/app/api/invoicing-summary/email/route.ts, src/app/trackingsheet/AllJobs.tsx, src/lib/invoicingEmail.test.ts, src/lib/invoicingEmail.ts, src/lib/jobtread.ts"
         }
       ]
     },
