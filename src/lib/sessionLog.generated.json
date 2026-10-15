@@ -1,7 +1,54 @@
 {
-  "generatedAt": "2026-10-15T21:56:40Z",
+  "generatedAt": "2026-10-15T22:02:49Z",
   "repo": "ascent-companion",
   "sessions": [
+    {
+      "slug": "invoicing-email",
+      "file": "2026-10-15-invoicing-email.md",
+      "branch": "claude/invoicing-email",
+      "status": "shipped",
+      "started": "2026-10-15T21:15:42Z",
+      "updated": "2026-10-15T22:02:49Z",
+      "goal": "One button on Tracking Sheets all-jobs that drafts the monthly Invoicing Package email in Gmail, each job's tracking sheet attached as a PDF",
+      "next": "Owner runs ./deploy.sh in ascent-appscript (invoice PDFs from JobTread's pdf mutation), then presses Update invoicing email on /trackingsheet for September: draft should carry each Monthly Invoice PDF next to its tracking sheet",
+      "commits": [
+        {
+          "date": "2026-10-15",
+          "time": "17:15",
+          "sha": "bd771f2",
+          "subject": "companion: tracking sheets all-jobs drafts the month's invoicing package email in gmail, each job's tracking sheet attached as a pdf",
+          "files": "src/app/api/invoicing-summary/email/route.ts, src/app/trackingsheet/AllJobs.tsx, src/lib/invoicingEmail.test.ts, src/lib/invoicingEmail.ts, src/lib/jobtread.ts"
+        },
+        {
+          "date": "2026-10-15",
+          "time": "17:27",
+          "sha": "a4f246f",
+          "subject": "companion: close session 2026-10-02-time-card-autostage",
+          "files": ""
+        },
+        {
+          "date": "2026-10-15",
+          "time": "17:33",
+          "sha": "c80bfe2",
+          "subject": "companion: draft invoicing email again replaces that month's gmail draft with the latest instead of adding a second one",
+          "files": "src/app/api/invoicing-summary/email/route.ts, src/app/trackingsheet/AllJobs.tsx"
+        },
+        {
+          "date": "2026-10-15",
+          "time": "17:56",
+          "sha": "c8fb129",
+          "subject": "companion: invoicing email attaches each jobtread invoice pdf instead of linking to the invoice",
+          "files": "src/app/api/invoicing-summary/email/route.ts, src/app/trackingsheet/AllJobs.tsx, src/lib/invoicingEmail.test.ts, src/lib/invoicingEmail.ts, src/lib/jobtread.ts"
+        },
+        {
+          "date": "2026-10-15",
+          "time": "18:02",
+          "sha": "7c4a916",
+          "subject": "companion: invoicing email keeps the jobtread invoice link beside the attached pdf",
+          "files": "src/lib/invoicingEmail.test.ts, src/lib/invoicingEmail.ts"
+        }
+      ]
+    },
     {
       "slug": "time-card-autostage",
       "file": "2026-10-02-time-card-autostage.md",
@@ -60,46 +107,6 @@
           "sha": "f16c581",
           "subject": "companion: bill coding dropdown names a line coded to an uncategorized or labor leaf instead of saying uncoded",
           "files": "src/app/trackingsheet/BillCodingCard.tsx, src/components/CostCodeSelect.tsx"
-        }
-      ]
-    },
-    {
-      "slug": "invoicing-email",
-      "file": "2026-10-15-invoicing-email.md",
-      "branch": "claude/invoicing-email",
-      "status": "shipped",
-      "started": "2026-10-15T21:15:42Z",
-      "updated": "2026-10-15T21:56:40Z",
-      "goal": "One button on Tracking Sheets all-jobs that drafts the monthly Invoicing Package email in Gmail, each job's tracking sheet attached as a PDF",
-      "next": "Owner runs ./deploy.sh in ascent-appscript (invoice PDFs from JobTread's pdf mutation), then presses Update invoicing email on /trackingsheet for September: draft should carry each Monthly Invoice PDF next to its tracking sheet",
-      "commits": [
-        {
-          "date": "2026-10-15",
-          "time": "17:15",
-          "sha": "bd771f2",
-          "subject": "companion: tracking sheets all-jobs drafts the month's invoicing package email in gmail, each job's tracking sheet attached as a pdf",
-          "files": "src/app/api/invoicing-summary/email/route.ts, src/app/trackingsheet/AllJobs.tsx, src/lib/invoicingEmail.test.ts, src/lib/invoicingEmail.ts, src/lib/jobtread.ts"
-        },
-        {
-          "date": "2026-10-15",
-          "time": "17:27",
-          "sha": "a4f246f",
-          "subject": "companion: close session 2026-10-02-time-card-autostage",
-          "files": ""
-        },
-        {
-          "date": "2026-10-15",
-          "time": "17:33",
-          "sha": "c80bfe2",
-          "subject": "companion: draft invoicing email again replaces that month's gmail draft with the latest instead of adding a second one",
-          "files": "src/app/api/invoicing-summary/email/route.ts, src/app/trackingsheet/AllJobs.tsx"
-        },
-        {
-          "date": "2026-10-15",
-          "time": "17:56",
-          "sha": "c8fb129",
-          "subject": "companion: invoicing email attaches each jobtread invoice pdf instead of linking to the invoice",
-          "files": "src/app/api/invoicing-summary/email/route.ts, src/app/trackingsheet/AllJobs.tsx, src/lib/invoicingEmail.test.ts, src/lib/invoicingEmail.ts, src/lib/jobtread.ts"
         }
       ]
     },
