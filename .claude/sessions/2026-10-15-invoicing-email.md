@@ -4,7 +4,7 @@ repo: ascent-companion-invoice-email
 branch: claude/invoicing-email
 status: shipped
 started: 2026-10-15T21:15:42Z
-updated: 2026-10-15T22:24:32Z
+updated: 2026-10-15T22:24:33Z
 goal: One button on Tracking Sheets all-jobs that drafts the monthly Invoicing Package email in Gmail, each job's tracking sheet attached as a PDF
 next: Owner runs ./deploy.sh in ascent-appscript, presses Refresh figures on /invoicing-summary for September, then Update invoicing email: Pole Barn #51, Pottery Barn #64 and Velorum #45 should show QBO + PDF. If the 'filter' error returns, read its step label.
 ---

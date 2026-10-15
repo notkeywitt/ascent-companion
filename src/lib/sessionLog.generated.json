@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-15T22:15:29Z",
+  "generatedAt": "2026-10-15T22:24:34Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "claude/invoicing-email",
       "status": "shipped",
       "started": "2026-10-15T21:15:42Z",
-      "updated": "2026-10-15T22:15:29Z",
+      "updated": "2026-10-15T22:24:33Z",
       "goal": "One button on Tracking Sheets all-jobs that drafts the monthly Invoicing Package email in Gmail, each job's tracking sheet attached as a PDF",
-      "next": "Owner presses Draft invoicing email again and reports the step-labelled error, and which billing month was picked. Decide: let _misPullInvoices accept a bill-less invoice CREATED in the invoicing month (fixes #51/#64/#45 dated 9/30).",
+      "next": "Owner runs ./deploy.sh in ascent-appscript, presses Refresh figures on /invoicing-summary for September, then Update invoicing email: Pole Barn #51, Pottery Barn #64 and Velorum #45 should show QBO + PDF. If the 'filter' error returns, read its step label.",
       "commits": [
         {
           "date": "2026-10-15",
@@ -53,6 +53,13 @@
           "sha": "7c34baf",
           "subject": "companion: invoicing email errors name the step that failed",
           "files": "src/app/api/invoicing-summary/email/route.ts"
+        },
+        {
+          "date": "2026-10-15",
+          "time": "18:24",
+          "sha": "7de0d74",
+          "subject": "companion: log session 2026-10-15-invoicing-email",
+          "files": ""
         }
       ]
     },
