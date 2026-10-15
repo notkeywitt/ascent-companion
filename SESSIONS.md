@@ -1,4 +1,4 @@
-# SESSIONS — ascent-deploy-stamp
+# SESSIONS — ascent-alljobs
 
 What each Claude session was doing, and where it stopped. **Generated —
 do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
@@ -32,6 +32,7 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
+| [alljobs-card](.claude/sessions/2026-10-15-alljobs-card.md) | 2026-10-15 | 1 | — |
 | [deploy-stamp](.claude/sessions/2026-10-15-deploy-stamp.md) | 2026-10-15 | 1 | — |
 | [doc-access](.claude/sessions/2026-10-15-doc-access.md) | 2026-10-15 | 1 | — |
 | [copy](.claude/sessions/2026-10-13-copy.md) | 2026-10-14 | 1 | — |
@@ -46,4 +47,3 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 | [deposit](.claude/sessions/2026-10-11-deposit.md) | 2026-10-12 | 2 | Simplify job deposits: Deposit (JobTread deposit invoice, or entered by hand) m… |
 | [coding-card-top](.claude/sessions/2026-10-11-coding-card-top.md) | 2026-10-12 | 1 | Tracking Sheets: open the coding card at the top of the window, not beside its … |
 | [finding-row](.claude/sessions/2026-10-08-finding-row.md) | 2026-10-08 | 1 | Job check results (Check this job / Check all Jobs): each finding links to its … |
-| [desktop-icon-iphone-chrome](.claude/sessions/2026-10-07-desktop-icon-iphone-chrome.md) | 2026-10-07 | 2 | — |

@@ -2,9 +2,9 @@
 slug: alljobs-card
 repo: ascent-alljobs
 branch: claude/alljobs-card-actions
-status: in-progress
+status: shipped
 started: 2026-10-15T11:06:45Z
-updated: 2026-10-15T11:06:45Z
+updated: 2026-10-15T11:16:25Z
 goal: 
 next: Owner OK to push (document-access route now stamps runs). Then on /trackingsheet pick a month, run each card action, confirm its stamp updates.
 ---
