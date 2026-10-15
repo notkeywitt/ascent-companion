@@ -77,8 +77,13 @@ export async function GET(req: NextRequest) {
 // deletes the Expenditure + lineItem rows and bins the PDF. Re-tagging the email
 // later captures it fresh. Destructive, so confirm:true is sent here explicitly —
 // the Apps Script handler refuses without it, and refuses a bill already in JobTread.
+//
+// POST /api/stuck-vendors { expId, linkAccountId }
+//   → linkVendor → { ok, vendorId, vendor, moved }
+// The vendor is in JobTread under another name (components/LinkVendor.tsx).
+// Sheet only: learns the alias and moves the vendor's unpushed bills onto it.
 export async function POST(req: NextRequest) {
-  let body: { expId?: unknown } = {};
+  let body: { expId?: unknown; linkAccountId?: unknown } = {};
   try {
     body = await req.json();
   } catch {
@@ -86,8 +91,11 @@ export async function POST(req: NextRequest) {
   }
   const expId = String(body.expId ?? "").trim();
   if (!expId) return NextResponse.json({ error: "expId is required." }, { status: 400 });
+  const linkAccountId = String(body.linkAccountId ?? "").trim();
   try {
-    const res = await callAppsScriptOrThrow({ action: "forgetStuckBill", expId, confirm: true }, { timeoutMs: 50_000 });
+    const res = linkAccountId
+      ? await callAppsScriptOrThrow({ action: "linkVendor", expId, accountId: linkAccountId }, { timeoutMs: 50_000 })
+      : await callAppsScriptOrThrow({ action: "forgetStuckBill", expId, confirm: true }, { timeoutMs: 50_000 });
     revalidateTag("stuck-vendors");
     return NextResponse.json(res, { status: 200 });
   } catch (e) {

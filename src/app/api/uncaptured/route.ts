@@ -1,3 +1,4 @@
+import { revalidateTag } from "next/cache";
 import { NextRequest, NextResponse } from "next/server";
 import { callAppsScriptResponse } from "@/lib/appsScript";
 
@@ -34,6 +35,7 @@ export async function GET() {
 //   { expId, lines?, jobId?, dateReceived? } → pushUncaptured    → { ok, docId, amount }
 //   { expId, dismiss: true }                 → dismissUncaptured → { ok, expId }
 //   { expId, delete: true }                  → deleteUncaptured  → { ok, expId, trashed }
+//   { expId, linkAccountId }                 → linkVendor        → { ok, vendorId, vendor, moved }
 export async function POST(req: NextRequest) {
   let body: Record<string, unknown> = {};
   try {
@@ -49,6 +51,14 @@ export async function POST(req: NextRequest) {
 
   if (body.dismiss === true) {
     return callAppsScriptResponse({ action: "dismissUncaptured", expId });
+  }
+
+  // The vendor is in JobTread under another name (components/LinkVendor.tsx).
+  // Sheet only; it also clears the stuck-vendor alert, so drop that cache.
+  if (body.linkAccountId) {
+    const res = await callAppsScriptResponse({ action: "linkVendor", expId, accountId: String(body.linkAccountId) });
+    revalidateTag("stuck-vendors");
+    return res;
   }
 
   // Destructive: the Apps Script handler refuses without confirm:true. We send it

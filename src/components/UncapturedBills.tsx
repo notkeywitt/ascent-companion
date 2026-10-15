@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { JobPicker } from "@/components/JobPicker";
+import { LinkVendor } from "@/components/LinkVendor";
 import { Banner, Button, Chip, CountBadge, Input, Select, Spinner } from "@/components/ui";
 
 /**
@@ -34,6 +35,8 @@ interface Item {
   expId: string;
   vendor: string;
   vendorId: string;
+  /** No JobTread account behind the vendor — the push fails until it's linked. */
+  vendorUnmatched?: boolean;
   amount: number;
   date: string;
   status: string;
@@ -375,6 +378,27 @@ export function UncapturedBills({ jobId }: { jobId?: string } = {}) {
                         >
                           View PDF ↗
                         </a>
+                      )}
+
+                      {it.vendorUnmatched && (
+                        <div className="mb-3">
+                          <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
+                            Vendor — not in JobTread under this name
+                          </label>
+                          <LinkVendor
+                            expId={it.expId}
+                            endpoint="/api/uncaptured"
+                            onLinked={(l) =>
+                              setItems((prev) =>
+                                (prev ?? []).map((i) =>
+                                  l.moved.includes(i.expId)
+                                    ? { ...i, vendor: l.vendor, vendorId: l.vendorId, vendorUnmatched: false }
+                                    : i,
+                                ),
+                              )
+                            }
+                          />
+                        </div>
                       )}
 
                       <div className="mb-3 grid gap-2 sm:grid-cols-2">

@@ -10,6 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import { JtLink } from "@/components/JtLink";
+import { LinkVendor } from "@/components/LinkVendor";
 import { useAccess } from "@/components/AccessProvider";
 import { Button, Input, btn } from "@/components/ui";
 
@@ -33,8 +34,9 @@ import { Button, Input, btn } from "@/components/ui";
  * address the bill ARRIVED FROM on the new account, and runs Sync Vendors so the
  * sheet learns the account id — without which the bill stays stuck however many
  * vendors exist. Filing the address is what keeps the vendor-mail check able to
- * see this vendor from day one. The link to JobTread stays for everything this
- * cannot do (a name that already exists, two rows pointing at two accounts).
+ * see this vendor from day one. A vendor JobTread already has under another name
+ * is LINKED instead ("Already in JobTread", components/LinkVendor.tsx). The link
+ * to JobTread stays for the rest (two rows pointing at two accounts).
  *
  * Three exports, one fetch:
  *   StuckVendorsProvider — mounted in the root layout; fetches once per load.
@@ -243,6 +245,9 @@ function StuckVendorRow({ v, onCreated }: { v: StuckVendor; onCreated: () => voi
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [made, setMade] = useState<{ name: string; synced: boolean; warning?: string } | null>(null);
+  // "Already in JobTread" — under another name. Link instead of creating a duplicate.
+  const [linking, setLinking] = useState(false);
+  const [linked, setLinked] = useState("");
 
   async function create() {
     if (busy || !name.trim()) return;
@@ -330,11 +335,37 @@ function StuckVendorRow({ v, onCreated }: { v: StuckVendor; onCreated: () => voi
             </Button>
           </div>
         </div>
+      ) : linked ? (
+        <p className="mt-2 text-xs font-semibold text-emerald-700 dark:text-emerald-400">
+          ✓ Linked to {linked}.{" "}
+          <span className="font-normal text-neutral-500">
+            Remembered for the next invoice — the next push sends {v.count === 1 ? "this bill" : "these bills"}.
+          </span>
+        </p>
+      ) : linking ? (
+        <div className="mt-2 space-y-2">
+          <LinkVendor
+            expId={v.bills[0]?.expId ?? ""}
+            endpoint="/api/stuck-vendors"
+            onLinked={(l) => {
+              setLinked(l.vendor);
+              onCreated();
+            }}
+          />
+          <Button variant="ghost" size="sm" onClick={() => setLinking(false)}>
+            Cancel
+          </Button>
+        </div>
       ) : (
-        <div className="mt-2 flex items-center gap-3">
+        <div className="mt-2 flex flex-wrap items-center gap-3">
           <Button size="sm" variant="secondary" onClick={() => setOpen(true)}>
             Create vendor{v.senderEmail ? " + file their email" : ""}
           </Button>
+          {v.bills.length > 0 && (
+            <Button size="sm" variant="ghost" onClick={() => setLinking(true)}>
+              Already in JobTread
+            </Button>
+          )}
           <ForgetVendorButton v={v} onDone={onCreated} />
         </div>
       )}
@@ -432,7 +463,8 @@ export function StuckVendorPopup() {
         <p className="mt-4 text-sm text-neutral-500">
           Creating the vendor here files it in JobTread with the address its bill arrived from,
           then syncs the Vendors sheet — after which the next push sends the stuck bills on its own.
-          Open JobTread for anything this can&apos;t do, like a name that already exists.
+          If JobTread already has the vendor under another name, tap Already in JobTread and pick
+          it — the name is remembered for the next invoice.
         </p>
 
         <div className="mt-4 flex items-center gap-2">
