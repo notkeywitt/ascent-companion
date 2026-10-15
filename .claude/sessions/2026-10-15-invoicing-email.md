@@ -4,7 +4,7 @@ repo: ascent-companion-invoice-email
 branch: claude/invoicing-email
 status: shipped
 started: 2026-10-15T21:15:42Z
-updated: 2026-10-15T22:15:28Z
+updated: 2026-10-15T22:15:29Z
 goal: One button on Tracking Sheets all-jobs that drafts the monthly Invoicing Package email in Gmail, each job's tracking sheet attached as a PDF
 next: Owner presses Draft invoicing email again and reports the step-labelled error, and which billing month was picked. Decide: let _misPullInvoices accept a bill-less invoice CREATED in the invoicing month (fixes #51/#64/#45 dated 9/30).
 ---

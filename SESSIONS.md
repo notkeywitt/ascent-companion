@@ -32,7 +32,7 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
-| [invoicing-email](.claude/sessions/2026-10-15-invoicing-email.md) | 2026-10-15 | 5 | One button on Tracking Sheets all-jobs that drafts the monthly Invoicing Packag… |
+| [invoicing-email](.claude/sessions/2026-10-15-invoicing-email.md) | 2026-10-15 | 6 | One button on Tracking Sheets all-jobs that drafts the monthly Invoicing Packag… |
 | [vendor-link](.claude/sessions/2026-10-15-vendor-link.md) | 2026-10-15 | 1 | Stuck vendor: link a bill's unmatched vendor name to an existing JobTread vendo… |
 | [alljobs-card](.claude/sessions/2026-10-15-alljobs-card.md) | 2026-10-15 | 1 | — |
 | [deploy-stamp](.claude/sessions/2026-10-15-deploy-stamp.md) | 2026-10-15 | 1 | — |
