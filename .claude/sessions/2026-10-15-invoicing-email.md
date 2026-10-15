@@ -4,9 +4,9 @@ repo: ascent-companion-invoice-email
 branch: claude/invoicing-email
 status: shipped
 started: 2026-10-15T21:15:42Z
-updated: 2026-10-15T22:15:29Z
+updated: 2026-10-15T22:24:32Z
 goal: One button on Tracking Sheets all-jobs that drafts the monthly Invoicing Package email in Gmail, each job's tracking sheet attached as a PDF
-next: Owner presses Draft invoicing email again and reports the step-labelled error, and which billing month was picked. Decide: let _misPullInvoices accept a bill-less invoice CREATED in the invoicing month (fixes #51/#64/#45 dated 9/30).
+next: Owner runs ./deploy.sh in ascent-appscript, presses Refresh figures on /invoicing-summary for September, then Update invoicing email: Pole Barn #51, Pottery Barn #64 and Velorum #45 should show QBO + PDF. If the 'filter' error returns, read its step label.
 ---
 
 ## Log
@@ -28,3 +28,4 @@ next: Owner presses Draft invoicing email again and reports the step-labelled er
 - 2026-10-15 21:15 — Invoice PDFs from JobTread are links, not attachments: JT's pdf mutation would attach them but is an unprobed mutation; needs owner OK.
 - 2026-10-15 21:56 — JobTread pdf mutation (isWrite in schema) answers with the PDF bytes, filename 'Monthly Invoice 002-379.pdf', and saves nothing to the document: probed on Berger #379, file count unchanged. Owner asked for it 2026-10-15.
 - 2026-10-15 22:15 — Invoicing email error 'Cannot read properties of undefined (reading filter)' not reproduced: the September draft built fine at 18:07. Route now names the failing step. Separate: Pole Barn #51, Pottery Barn #64, Velorum #45 are dated 9/30 with no linked bills, so appscript _misPullInvoices drops them (bill-less invoices must be dated in the invoicing month).
+- 2026-10-15 22:24 — Owner rule 2026-10-15: client invoices are dated the last day of the billing month (9/30 for September billing); slips happen. Appscript e68dd3a: _misPullInvoices counts the month's time entries + bills, accepts the rule date or a slip into the invoicing month, rule date wins ties. Pinned by scripts/check-invoice-match.mjs.
