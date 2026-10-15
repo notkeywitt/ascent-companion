@@ -17,6 +17,8 @@ next: Owner runs ./deploy.sh in ascent-appscript (invoice PDFs from JobTread's p
 - 2026-10-15 17:27 · `a4f246f` companion: close session 2026-10-02-time-card-autostage
 - 2026-10-15 17:33 · `c80bfe2` companion: draft invoicing email again replaces that month's gmail draft with the latest instead of adding a second one
   src/app/api/invoicing-summary/email/route.ts, src/app/trackingsheet/AllJobs.tsx
+- 2026-10-15 17:56 · `c8fb129` companion: invoicing email attaches each jobtread invoice pdf instead of linking to the invoice
+  src/app/api/invoicing-summary/email/route.ts, src/app/trackingsheet/AllJobs.tsx, src/lib/invoicingEmail.test.ts, src/lib/invoicingEmail.ts, src/lib/jobtread.ts
 
 ## Notes
 - 2026-10-15 21:15 — Invoice PDFs from JobTread are links, not attachments: JT's pdf mutation would attach them but is an unprobed mutation; needs owner OK.
