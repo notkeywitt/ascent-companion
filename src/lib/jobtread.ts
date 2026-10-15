@@ -7770,3 +7770,47 @@ export async function writeDepositDraw(
   }
   return { lineId, before, after };
 }
+
+// ---------------------------------------------------------------------------
+// QUICKBOOKS IDS OF CLIENT INVOICES — the Invoicing Package email's QBO links.
+// ---------------------------------------------------------------------------
+
+/**
+ * The QuickBooks id of every client invoice on the given jobs, keyed
+ * `${jobId}:${number}`. JobTread's `qboId` IS the txnId in a QBO invoice link
+ * (qbo.intuit.com/app/invoice?txnId=…) — Berger #379 ↔ 46097, checked
+ * 2026-10-15. An invoice not yet pushed to QuickBooks has none and is left out.
+ */
+export async function getInvoiceQboIds(
+  cfg: PaveConfig,
+  jobIds: string[],
+): Promise<Record<string, string>> {
+  if (jobIds.length === 0) return {};
+  const nodes = await pageAll<{ number: number | string | null; qboId: string | null; job: { id: string } | null }>(cfg, {
+    label: "organization.documents (client invoice QBO ids)",
+    query: (args) => ({
+      organization: {
+        $: { id: cfg.orgId },
+        documents: {
+          $: {
+            ...args,
+            where: {
+              and: [
+                { "=": [{ field: "type" }, { value: "customerInvoice" }] },
+                { in: [{ field: ["job", "id"] }, jobIds.map((value) => ({ value }))] },
+              ],
+            },
+          },
+          nextPage: {},
+          nodes: { number: {}, qboId: {}, job: { id: {} } },
+        },
+      },
+    }),
+    pick: (r) => r?.organization?.documents,
+  });
+  const out: Record<string, string> = {};
+  for (const n of nodes) {
+    if (n.qboId && n.job?.id) out[`${n.job.id}:${n.number}`] = n.qboId;
+  }
+  return out;
+}

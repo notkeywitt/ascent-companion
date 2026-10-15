@@ -1,0 +1,17 @@
+---
+slug: invoicing-email
+repo: ascent-companion-invoice-email
+branch: claude/invoicing-email
+status: in-progress
+started: 2026-10-15T21:15:42Z
+updated: 2026-10-15T21:15:42Z
+goal: One button on Tracking Sheets all-jobs that drafts the monthly Invoicing Package email in Gmail, each job's tracking sheet attached as a PDF
+next: Owner runs ./deploy.sh in ascent-appscript (new draftInvoicingEmail action + docs.google.com fetch allowance), then presses Draft invoicing email on /trackingsheet for September and checks the draft in Gmail
+---
+
+## Log
+
+<!-- Appended by .githooks/post-commit. Do not hand-write rows here. -->
+
+## Notes
+- 2026-10-15 21:15 — Invoice PDFs from JobTread are links, not attachments: JT's pdf mutation would attach them but is an unprobed mutation; needs owner OK.
