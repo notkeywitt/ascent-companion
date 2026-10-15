@@ -4,7 +4,7 @@ repo: ascent-companion-invoice-email
 branch: claude/invoicing-email
 status: shipped
 started: 2026-10-15T21:15:42Z
-updated: 2026-10-15T21:56:40Z
+updated: 2026-10-15T22:02:48Z
 goal: One button on Tracking Sheets all-jobs that drafts the monthly Invoicing Package email in Gmail, each job's tracking sheet attached as a PDF
 next: Owner runs ./deploy.sh in ascent-appscript (invoice PDFs from JobTread's pdf mutation), then presses Update invoicing email on /trackingsheet for September: draft should carry each Monthly Invoice PDF next to its tracking sheet
 ---
@@ -19,6 +19,8 @@ next: Owner runs ./deploy.sh in ascent-appscript (invoice PDFs from JobTread's p
   src/app/api/invoicing-summary/email/route.ts, src/app/trackingsheet/AllJobs.tsx
 - 2026-10-15 17:56 · `c8fb129` companion: invoicing email attaches each jobtread invoice pdf instead of linking to the invoice
   src/app/api/invoicing-summary/email/route.ts, src/app/trackingsheet/AllJobs.tsx, src/lib/invoicingEmail.test.ts, src/lib/invoicingEmail.ts, src/lib/jobtread.ts
+- 2026-10-15 18:02 · `7c4a916` companion: invoicing email keeps the jobtread invoice link beside the attached pdf
+  src/lib/invoicingEmail.test.ts, src/lib/invoicingEmail.ts
 
 ## Notes
 - 2026-10-15 21:15 — Invoice PDFs from JobTread are links, not attachments: JT's pdf mutation would attach them but is an unprobed mutation; needs owner OK.
