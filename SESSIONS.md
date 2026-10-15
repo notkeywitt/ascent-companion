@@ -1,4 +1,4 @@
-# SESSIONS — ascent-companion-vendor-link
+# SESSIONS — ascent-companion-invoice-email
 
 What each Claude session was doing, and where it stopped. **Generated —
 do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
@@ -9,13 +9,13 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Branch | Last active | Commits | Next step |
 |---|---|---|---|---|
-| [main](.claude/sessions/2026-10-11-main.md) | `(detached)` | 3d ago | 2 | — |
+| [main](.claude/sessions/2026-10-11-main.md) | `(detached)` | 4d ago | 2 | — |
 | [main](.claude/sessions/2026-10-02-main.md) | `(detached)` | 13d ago | 4 | — |
 | [allbills-vendor-collapsed](.claude/sessions/2026-09-14-allbills-vendor-collapsed.md) | `claude/allbills-vendor-collapsed` | 22d ago | 40 | Watch the first monthly review after 77bbb2a: confirm email-bill-amount-mismatc… |
 | [time-entry-jt-sync](.claude/sessions/2026-09-15-time-entry-jt-sync.md) | `claude/time-entry-jt-sync-6q3257` | 30d ago | 5 | Verify view-as-employee live: open /employee-time as admin, tap 'View another e… |
 | [monthly-invoicing-summary](.claude/sessions/2026-09-10-monthly-invoicing-summary.md) | `claude/monthly-invoicing-summary-mfpunx` | 35d ago | 3 | Deploy the appscript side (./deploy.sh), then open /invoicing-summary and confi… |
 | [billing-month-selector](.claude/sessions/2026-09-10-billing-month-selector.md) | `claude/billing-month-selector-o8rbtx` | 35d ago | 3 | after ./deploy.sh lands on appscript: push this to main, then set a month on ho… |
-| [gemini-claude-transition-status](.claude/sessions/2026-09-09-gemini-claude-transition-status.md) | `claude/gemini-claude-transition-status-cib68c` | 36d ago | 1 | owner: delete GEMINI_KEY + GEMINI_MODEL from Vercel; decide whether ANTHROPIC_M… |
+| [gemini-claude-transition-status](.claude/sessions/2026-09-09-gemini-claude-transition-status.md) | `claude/gemini-claude-transition-status-cib68c` | 37d ago | 1 | owner: delete GEMINI_KEY + GEMINI_MODEL from Vercel; decide whether ANTHROPIC_M… |
 | [trip-recording-persistence](.claude/sessions/2026-09-08-trip-recording-persistence.md) | `claude/trip-recording-persistence-evilps` | 37d ago | 3 | verify on the phone: start a trip, force-quit the app, reopen — the trip should… |
 | [ci-verify-job-failures](.claude/sessions/2026-09-06-ci-verify-job-failures.md) | `claude/ci-verify-job-failures-wcfpyk` | 39d ago | 1 | push this branch to remote main — main is still red until the Link fix lands th… |
 | [ascent-building-theme](.claude/sessions/2026-09-06-ascent-building-theme.md) | `claude/ascent-building-theme-rz1o6h` | 39d ago | 6 | Tune the palettes in /theme on the phone, then paste the Copy CSS output back s… |
@@ -26,12 +26,13 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Branch | Parked | Picks up at |
 |---|---|---|---|
-| [ascent-security-analysis](.claude/sessions/2026-09-14-ascent-security-analysis.md) | `claude/ascent-security-analysis-m8fjif` | 31d ago | Owner merges PR #7 (git push origin origin/claude/ascent-security-analysis-m8fj… |
+| [ascent-security-analysis](.claude/sessions/2026-09-14-ascent-security-analysis.md) | `claude/ascent-security-analysis-m8fjif` | 32d ago | Owner merges PR #7 (git push origin origin/claude/ascent-security-analysis-m8fj… |
 
 ## Shipped
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
+| [invoicing-email](.claude/sessions/2026-10-15-invoicing-email.md) | 2026-10-15 | 1 | One button on Tracking Sheets all-jobs that drafts the monthly Invoicing Packag… |
 | [vendor-link](.claude/sessions/2026-10-15-vendor-link.md) | 2026-10-15 | 1 | Stuck vendor: link a bill's unmatched vendor name to an existing JobTread vendo… |
 | [alljobs-card](.claude/sessions/2026-10-15-alljobs-card.md) | 2026-10-15 | 1 | — |
 | [deploy-stamp](.claude/sessions/2026-10-15-deploy-stamp.md) | 2026-10-15 | 1 | — |
@@ -46,4 +47,3 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 | [deposit-parse](.claude/sessions/2026-10-11-deposit-parse.md) | 2026-10-12 | 1 | Deposit form: accept typed dollar figures with commas and $ |
 | [unbilled](.claude/sessions/2026-10-11-unbilled.md) | 2026-10-12 | 1 | Ship the /unbilled rebuild: unbilled = bills and time on no client invoice |
 | [deposit](.claude/sessions/2026-10-11-deposit.md) | 2026-10-12 | 2 | Simplify job deposits: Deposit (JobTread deposit invoice, or entered by hand) m… |
-| [coding-card-top](.claude/sessions/2026-10-11-coding-card-top.md) | 2026-10-12 | 1 | Tracking Sheets: open the coding card at the top of the window, not beside its … |
