@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { callAppsScript } from "@/lib/appsScript";
 import { getPaveConfig, hasGrant } from "@/lib/config";
-import { getInvoiceQboIds, getJobPhaseMap } from "@/lib/jobtread";
+import { getInvoiceRefs, getJobPhaseMap } from "@/lib/jobtread";
 import { composeInvoicingEmail, PACKAGE_EMAIL_TO, type PackageJob } from "@/lib/invoicingEmail";
 
 /**
  * POST { ym } — the month's Invoicing Package email as a Gmail draft in the
- * office mailbox, each job's tracking sheet attached as a PDF. The "Draft
+ * office mailbox, each job's tracking sheet and JobTread invoice attached as
+ * PDFs. The "Draft
  * invoicing email" button on Tracking Sheets' all-jobs view. Saves a draft and
  * never sends. Pressed again for the same month, it replaces that month's draft
  * with the latest (Apps Script keeps the draft id). Gated by the
@@ -14,8 +15,9 @@ import { composeInvoicingEmail, PACKAGE_EMAIL_TO, type PackageJob } from "@/lib/
  *
  * Three reads, then one write to Gmail: the month's package (Apps Script's
  * cached read, the one /invoicing-summary shows — so its include/exclude, labels
- * and notes carry into the email), the invoices' QuickBooks ids and the jobs'
- * phases (JobTread), then Apps Script exports each sheet tab and saves the draft.
+ * and notes carry into the email), the invoices' ids and QuickBooks ids and the
+ * jobs' phases (JobTread), then Apps Script fetches each sheet tab and invoice
+ * as a PDF and saves the draft.
  */
 export const dynamic = "force-dynamic";
 export const maxDuration = 240;
@@ -44,12 +46,12 @@ export async function POST(req: NextRequest) {
   try {
     const cfg = getPaveConfig();
     const invoiced = pkg.jobs.filter((j) => j.include && j.invoiceNumber).map((j) => j.jtJobId);
-    const [qboIds, phases] = await Promise.all([getInvoiceQboIds(cfg, invoiced), getJobPhaseMap(cfg)]);
+    const [invoices, phases] = await Promise.all([getInvoiceRefs(cfg, invoiced), getJobPhaseMap(cfg)]);
     const email = composeInvoicingEmail({
       docTitle: pkg.docTitle,
       monthName: pkg.invoiceMonthLabel,
       jobs: pkg.jobs,
-      qboIds,
+      invoices,
       phases,
     });
 
@@ -69,7 +71,7 @@ export async function POST(req: NextRequest) {
       draftUrl: res.data.draftUrl,
       updated: res.data.updated === true,
       attached: res.data.attached,
-      sheets: email.sheets.length,
+      expected: email.sheets.length + email.invoices.length,
       warnings: res.data.warnings ?? [],
     });
   } catch (e) {

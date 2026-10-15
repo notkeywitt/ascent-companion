@@ -7772,22 +7772,37 @@ export async function writeDepositDraw(
 }
 
 // ---------------------------------------------------------------------------
-// QUICKBOOKS IDS OF CLIENT INVOICES — the Invoicing Package email's QBO links.
+// CLIENT INVOICE REFERENCES — the Invoicing Package email's QBO links and PDFs.
 // ---------------------------------------------------------------------------
 
+export interface PackageInvoice {
+  id: string;
+  /** QuickBooks txnId, or "" when the invoice is not pushed to QuickBooks yet. */
+  qboId: string;
+  /** "Monthly Invoice 002-379.pdf" — JobTread's own name for the invoice PDF. */
+  pdfName: string;
+}
+
 /**
- * The QuickBooks id of every client invoice on the given jobs, keyed
- * `${jobId}:${number}`. JobTread's `qboId` IS the txnId in a QBO invoice link
+ * Every client invoice on the given jobs, keyed `${jobId}:${number}`.
+ * JobTread's `qboId` IS the txnId in a QBO invoice link
  * (qbo.intuit.com/app/invoice?txnId=…) — Berger #379 ↔ 46097, checked
- * 2026-10-15. An invoice not yet pushed to QuickBooks has none and is left out.
+ * 2026-10-15. `pdfName` copies the filename JobTread's `pdf` mutation sends:
+ * document name, job number, invoice number.
  */
-export async function getInvoiceQboIds(
+export async function getInvoiceRefs(
   cfg: PaveConfig,
   jobIds: string[],
-): Promise<Record<string, string>> {
+): Promise<Record<string, PackageInvoice>> {
   if (jobIds.length === 0) return {};
-  const nodes = await pageAll<{ number: number | string | null; qboId: string | null; job: { id: string } | null }>(cfg, {
-    label: "organization.documents (client invoice QBO ids)",
+  const nodes = await pageAll<{
+    id: string;
+    name: string | null;
+    number: number | string | null;
+    qboId: string | null;
+    job: { id: string; number: string | null } | null;
+  }>(cfg, {
+    label: "organization.documents (client invoice refs)",
     query: (args) => ({
       organization: {
         $: { id: cfg.orgId },
@@ -7802,15 +7817,20 @@ export async function getInvoiceQboIds(
             },
           },
           nextPage: {},
-          nodes: { number: {}, qboId: {}, job: { id: {} } },
+          nodes: { id: {}, name: {}, number: {}, qboId: {}, job: { id: {}, number: {} } },
         },
       },
     }),
     pick: (r) => r?.organization?.documents,
   });
-  const out: Record<string, string> = {};
+  const out: Record<string, PackageInvoice> = {};
   for (const n of nodes) {
-    if (n.qboId && n.job?.id) out[`${n.job.id}:${n.number}`] = n.qboId;
+    if (!n.job?.id) continue;
+    out[`${n.job.id}:${n.number}`] = {
+      id: n.id,
+      qboId: n.qboId ?? "",
+      pdfName: `${n.name || "Invoice"} ${n.job.number ? `${n.job.number}-` : ""}${n.number}.pdf`,
+    };
   }
   return out;
 }

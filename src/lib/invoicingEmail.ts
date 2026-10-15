@@ -1,14 +1,15 @@
 /**
  * The month's Invoicing Package EMAIL — the list the office sends once the
  * month's client invoices are in QuickBooks: one item per job, linking its
- * tracking sheet, its QuickBooks invoice and its JobTread invoice, with each
- * tracking sheet attached as a PDF (the file Ty attaches to the client
- * follow-ups). Modelled on the October '26 package, sent 2026-10-14.
+ * tracking sheet and its QuickBooks invoice. Each tracking sheet (the file Ty
+ * attaches to the client follow-ups) and each JobTread invoice is attached as
+ * a PDF. Modelled on the October '26 package, sent 2026-10-14.
  *
  * Pure: the route (`/api/invoicing-summary/email`) gathers the inputs, and
- * Apps Script (`_companionDraftInvoicingEmail`) exports the sheet tabs and saves
- * the Gmail draft. The office reads and sends the draft by hand.
+ * Apps Script (`_companionDraftInvoicingEmail`) fetches the PDFs and saves the
+ * Gmail draft. The office reads and sends the draft by hand.
  */
+import type { PackageInvoice } from "./jobtread";
 
 export const PACKAGE_EMAIL_TO = [
   "casey@ascentbuildingco.com",
@@ -29,7 +30,7 @@ export interface PackageJob {
   note: string;
   invoiceNumber: string;
   trackingSheetUrl: string;
-  links: { jtInvoice: string; jtDocuments: string };
+  links: { jtDocuments: string };
 }
 
 export interface SheetPdf {
@@ -47,7 +48,7 @@ export function composeInvoicingEmail({
   docTitle,
   monthName,
   jobs,
-  qboIds,
+  invoices,
   phases,
 }: {
   /** "October '26 Invoicing Package" — the subject, same name as the doc. */
@@ -55,11 +56,16 @@ export function composeInvoicingEmail({
   /** "October" — the month the invoices go out in. */
   monthName: string;
   jobs: PackageJob[];
-  /** `${jobId}:${invoiceNumber}` → QuickBooks txnId (getInvoiceQboIds). */
-  qboIds: Record<string, string>;
+  /** `${jobId}:${invoiceNumber}` → the invoice (getInvoiceRefs). */
+  invoices: Record<string, PackageInvoice>;
   /** jobId → JobTread Phase (getJobPhaseMap). */
   phases: Record<string, string>;
-}): { subject: string; html: string; sheets: SheetPdf[] } {
+}): {
+  subject: string;
+  html: string;
+  sheets: SheetPdf[];
+  invoices: { id: string; name: string }[];
+} {
   // Invoiced jobs first, the rest after with their notes — the October order.
   const included = jobs.filter((j) => j.include);
   const ordered = [
@@ -68,6 +74,7 @@ export function composeInvoicingEmail({
   ];
 
   const sheets: SheetPdf[] = [];
+  const pdfs: { id: string; name: string }[] = [];
   const items = ordered.map((j) => {
     const precon = PRECON_PHASES.includes(phases[j.jtJobId] ?? "");
     const tab = precon ? "Pre-con" : "Tracking Sheet";
@@ -84,14 +91,17 @@ export function composeInvoicingEmail({
       (precon && j.trackingSheetUrl ? " <b>(PRE-CON tab)</b>" : "");
 
     const subs: string[] = [];
+    const inv = j.invoiceNumber ? invoices[`${j.jtJobId}:${j.invoiceNumber}`] : undefined;
     if (j.invoiceNumber) {
-      const qbo = qboIds[`${j.jtJobId}:${j.invoiceNumber}`];
       subs.push(
-        qbo
-          ? a(`https://qbo.intuit.com/app/invoice?txnId=${qbo}`, "QBO")
+        inv?.qboId
+          ? a(`https://qbo.intuit.com/app/invoice?txnId=${inv.qboId}`, "QBO")
           : "QBO — not pushed to QuickBooks yet",
       );
-      subs.push(a(j.links.jtInvoice, `JobTread invoice #${j.invoiceNumber}`));
+    }
+    if (inv) {
+      pdfs.push({ id: inv.id, name: inv.pdfName });
+      subs.push(`${esc(inv.pdfName)} (attached)`);
     }
     if (j.note) subs.push(esc(j.note));
     if (!subs.length) subs.push("No client invoice yet.");
@@ -102,12 +112,12 @@ export function composeInvoicingEmail({
   const html =
     `<div>Hello,</div><br>` +
     `<div>Below are links to the customer invoices in QBO for ${esc(monthName)}, along with the ` +
-    `JobTread invoice and each job's tracking sheet. The tracking sheets are attached as PDFs.</div><br>` +
+    `JobTread invoice PDF and each job's tracking sheet. Both are attached as PDFs.</div><br>` +
     `<div>Thanks!</div><br>` +
     `<ol>${items.join("")}</ol><br>` +
     `<div>-Keillor</div><br>` +
     `<div><i>Office &amp; Administration</i></div><div><b>Ascent Building Co. LLC</b></div>` +
     `<div>PO Box 664</div><div>Lopez Island, WA 98261</div><div>(360) 209 4033</div>`;
 
-  return { subject: docTitle, html, sheets };
+  return { subject: docTitle, html, sheets, invoices: pdfs };
 }

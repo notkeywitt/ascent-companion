@@ -156,7 +156,7 @@ export function AllJobs() {
             className="min-h-11"
             onClick={email.run}
             disabled={email.running}
-            title="Save the Invoicing Package email as a Gmail draft, each job's tracking sheet attached as a PDF. Pressed again, it replaces this month's draft with the latest."
+            title="Save the Invoicing Package email as a Gmail draft, each job's tracking sheet and JobTread invoice attached as PDFs. Pressed again, it replaces this month's draft with the latest."
           >
             {email.running ? "Drafting email…" : email.done ? "Update invoicing email" : "Draft invoicing email"}
           </Button>
@@ -174,7 +174,8 @@ export function AllJobs() {
             Open the draft in Gmail ↗
           </a>{" "}
           · {email.done.updated ? "Updated this month's draft with the latest" : "New draft"} ·{" "}
-          {email.done.attached} of {email.done.sheets} tracking sheets attached. Nothing is sent until you send it.
+          {email.done.attached} of {email.done.expected} PDFs attached (tracking sheets and JobTread invoices).
+          Nothing is sent until you send it.
           {email.done.warnings.map((w) => (
             <div key={w} className="mt-1 text-[12px]">
               {w}
@@ -243,7 +244,7 @@ export function AllJobs() {
 /**
  * "Draft invoicing email" — POST /api/invoicing-summary/email, which saves the
  * month's Invoicing Package email as a Gmail draft with each job's tracking
- * sheet attached. A second run replaces that month's draft with the latest,
+ * sheet and JobTread invoice attached. A second run replaces that month's draft with the latest,
  * overwriting edits made in Gmail. One run at a time; the result stays until
  * the next run.
  */
@@ -254,7 +255,7 @@ function usePackageEmail(ym: string) {
     draftUrl: string;
     updated: boolean;
     attached: number;
-    sheets: number;
+    expected: number;
     warnings: string[];
   } | null>(null);
 

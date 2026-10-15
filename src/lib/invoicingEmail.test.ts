@@ -9,7 +9,7 @@ const job = (over: Partial<PackageJob>): PackageJob => ({
   note: "",
   invoiceNumber: "379",
   trackingSheetUrl: "https://docs.google.com/spreadsheets/d/abc/edit",
-  links: { jtInvoice: "https://app.jobtread.com/jobs/j1/documents/d1", jtDocuments: "https://app.jobtread.com/jobs/j1/documents" },
+  links: { jtDocuments: "https://app.jobtread.com/jobs/j1/documents" },
   ...over,
 });
 
@@ -23,13 +23,25 @@ describe("composeInvoicingEmail", () => {
       job({ jtJobId: "moon", jobLabel: "Main House/Precon", invoiceNumber: "22" }),
       job({ jtJobId: "office", jobLabel: "Office", include: false }),
     ],
-    qboIds: { "j1:379": "46097" },
+    invoices: {
+      "j1:379": { id: "d379", qboId: "46097", pdfName: "Monthly Invoice 002-379.pdf" },
+      "moon:22": { id: "d22", qboId: "", pdfName: "Monthly Invoice 22-22.pdf" },
+    },
     phases: { moon: "PreCon" },
   });
 
   it("links QBO by txnId, and says so when the invoice is not in QuickBooks", () => {
     expect(out.html).toContain('href="https://qbo.intuit.com/app/invoice?txnId=46097"');
     expect(out.html).toContain("QBO — not pushed to QuickBooks yet");
+  });
+
+  it("attaches each JobTread invoice PDF in place of a link", () => {
+    expect(out.invoices).toEqual([
+      { id: "d379", name: "Monthly Invoice 002-379.pdf" },
+      { id: "d22", name: "Monthly Invoice 22-22.pdf" },
+    ]);
+    expect(out.html).toContain("Monthly Invoice 002-379.pdf (attached)");
+    expect(out.html).not.toContain("documents/d");
   });
 
   it("attaches the Pre-con tab for a precon job and the Tracking Sheet tab otherwise", () => {
