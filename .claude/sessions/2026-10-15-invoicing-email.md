@@ -4,7 +4,7 @@ repo: ascent-companion-invoice-email
 branch: claude/invoicing-email
 status: shipped
 started: 2026-10-15T21:15:42Z
-updated: 2026-10-15T22:15:27Z
+updated: 2026-10-15T22:15:28Z
 goal: One button on Tracking Sheets all-jobs that drafts the monthly Invoicing Package email in Gmail, each job's tracking sheet attached as a PDF
 next: Owner presses Draft invoicing email again and reports the step-labelled error, and which billing month was picked. Decide: let _misPullInvoices accept a bill-less invoice CREATED in the invoicing month (fixes #51/#64/#45 dated 9/30).
 ---
@@ -21,6 +21,8 @@ next: Owner presses Draft invoicing email again and reports the step-labelled er
   src/app/api/invoicing-summary/email/route.ts, src/app/trackingsheet/AllJobs.tsx, src/lib/invoicingEmail.test.ts, src/lib/invoicingEmail.ts, src/lib/jobtread.ts
 - 2026-10-15 18:02 · `7c4a916` companion: invoicing email keeps the jobtread invoice link beside the attached pdf
   src/lib/invoicingEmail.test.ts, src/lib/invoicingEmail.ts
+- 2026-10-15 18:15 · `7c34baf` companion: invoicing email errors name the step that failed
+  src/app/api/invoicing-summary/email/route.ts
 
 ## Notes
 - 2026-10-15 21:15 — Invoice PDFs from JobTread are links, not attachments: JT's pdf mutation would attach them but is an unprobed mutation; needs owner OK.
