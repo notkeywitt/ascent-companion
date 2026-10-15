@@ -2,9 +2,9 @@
 slug: doc-access
 repo: ascent-doc-access
 branch: claude/doc-access-assignee
-status: in-progress
+status: shipped
 started: 2026-10-15T10:47:36Z
-updated: 2026-10-15T10:47:40Z
+updated: 2026-10-15T10:47:41Z
 goal: 
 next: Owner retries Give Document Access on Bunkhouse September 2026 (Kevin Berger, 55 bills) and confirms bills show him on Document Access
 ---

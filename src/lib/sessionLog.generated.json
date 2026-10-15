@@ -1,7 +1,26 @@
 {
-  "generatedAt": "2026-10-14T03:28:39Z",
-  "repo": "wt6",
+  "generatedAt": "2026-10-15T10:47:41Z",
+  "repo": "ascent-doc-access",
   "sessions": [
+    {
+      "slug": "doc-access",
+      "file": "2026-10-15-doc-access.md",
+      "branch": "claude/doc-access-assignee",
+      "status": "shipped",
+      "started": "2026-10-15T10:47:36Z",
+      "updated": "2026-10-15T10:47:41Z",
+      "goal": "",
+      "next": "Owner retries Give Document Access on Bunkhouse September 2026 (Kevin Berger, 55 bills) and confirms bills show him on Document Access",
+      "commits": [
+        {
+          "date": "2026-10-15",
+          "time": "06:47",
+          "sha": "d000551",
+          "subject": "companion: give document access sends the contact as a bare membershipId so createAce stops failing on every bill",
+          "files": "src/lib/jobtread.ts"
+        }
+      ]
+    },
     {
       "slug": "copy",
       "file": "2026-10-13-copy.md",
