@@ -23,6 +23,7 @@ next: Owner runs ./deploy.sh in ascent-appscript, presses Refresh figures on /in
   src/lib/invoicingEmail.test.ts, src/lib/invoicingEmail.ts
 - 2026-10-15 18:15 · `7c34baf` companion: invoicing email errors name the step that failed
   src/app/api/invoicing-summary/email/route.ts
+- 2026-10-15 18:24 · `7de0d74` companion: log session 2026-10-15-invoicing-email
 
 ## Notes
 - 2026-10-15 21:15 — Invoice PDFs from JobTread are links, not attachments: JT's pdf mutation would attach them but is an unprobed mutation; needs owner OK.
