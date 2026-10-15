@@ -7414,7 +7414,11 @@ export async function grantDocumentAccess(
   await pave(cfg, {
     createAce: {
       $: {
-        assignee: { membership: { membershipId } },
+        // `assignee` is an untagged oneOf: Pave picks the variant by its keys,
+        // so the membership branch is a bare `{ membershipId }`. Nesting it
+        // under `membership` matches nothing and Pave reports the user branch's
+        // missing `emailAddress` (probed live 2026-10-15).
+        assignee: { membershipId },
         targetId: docId,
         targetType: "document",
         notify: false,
