@@ -32,7 +32,7 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
-| [invoicing-email](.claude/sessions/2026-10-15-invoicing-email.md) | 2026-10-15 | 1 | One button on Tracking Sheets all-jobs that drafts the monthly Invoicing Packag… |
+| [invoicing-email](.claude/sessions/2026-10-15-invoicing-email.md) | 2026-10-15 | 2 | One button on Tracking Sheets all-jobs that drafts the monthly Invoicing Packag… |
 | [vendor-link](.claude/sessions/2026-10-15-vendor-link.md) | 2026-10-15 | 1 | Stuck vendor: link a bill's unmatched vendor name to an existing JobTread vendo… |
 | [alljobs-card](.claude/sessions/2026-10-15-alljobs-card.md) | 2026-10-15 | 1 | — |
 | [deploy-stamp](.claude/sessions/2026-10-15-deploy-stamp.md) | 2026-10-15 | 1 | — |
@@ -43,7 +43,7 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 | [invoicing-menu](.claude/sessions/2026-10-13-invoicing-menu.md) | 2026-10-14 | 1 | — |
 | [jobcard](.claude/sessions/2026-10-13-jobcard.md) | 2026-10-14 | 1 | — |
 | [deposit-card](.claude/sessions/2026-10-12-deposit-card.md) | 2026-10-12 | 1 | Move the deposit card to the foot of the Tracking Sheets page |
-| [time-card-autostage](.claude/sessions/2026-10-02-time-card-autostage.md) | 2026-10-12 | 7 | Tracking Sheets time card: stage edits as they are made (like bills), remove th… |
 | [deposit-parse](.claude/sessions/2026-10-11-deposit-parse.md) | 2026-10-12 | 1 | Deposit form: accept typed dollar figures with commas and $ |
 | [unbilled](.claude/sessions/2026-10-11-unbilled.md) | 2026-10-12 | 1 | Ship the /unbilled rebuild: unbilled = bills and time on no client invoice |
 | [deposit](.claude/sessions/2026-10-11-deposit.md) | 2026-10-12 | 2 | Simplify job deposits: Deposit (JobTread deposit invoice, or entered by hand) m… |
+| [coding-card-top](.claude/sessions/2026-10-11-coding-card-top.md) | 2026-10-12 | 1 | Tracking Sheets: open the coding card at the top of the window, not beside its … |

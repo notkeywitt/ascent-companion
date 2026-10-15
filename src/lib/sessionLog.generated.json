@@ -1,14 +1,75 @@
 {
-  "generatedAt": "2026-10-15T21:15:47Z",
+  "generatedAt": "2026-10-15T21:27:41Z",
   "repo": "ascent-companion-invoice-email",
   "sessions": [
+    {
+      "slug": "time-card-autostage",
+      "file": "2026-10-02-time-card-autostage.md",
+      "branch": "claude/time-card-autostage",
+      "status": "done",
+      "started": "2026-10-02T17:18:55Z",
+      "updated": "2026-10-15T22:00:00Z",
+      "goal": "Tracking Sheets time card: stage edits as they are made (like bills), remove the Stage changes button",
+      "next": "Clean up the Seth 9/16 and Wyatt 9/14 duplicate time entries in JobTread (the overlap guard stops new ones; it does not remove these).",
+      "commits": [
+        {
+          "date": "2026-10-02",
+          "time": "10:19",
+          "sha": "04c7149",
+          "subject": "companion: time card stages edits as they are made",
+          "files": "src/app/trackingsheet/TimeCodingCard.tsx"
+        },
+        {
+          "date": "2026-10-02",
+          "time": "11:56",
+          "sha": "dae0b44",
+          "subject": "companion: home donuts show invoiced vs approved price",
+          "files": "src/components/HomeJobBoard.tsx, src/lib/jobBoard.ts, src/lib/jobtread.ts"
+        },
+        {
+          "date": "2026-10-02",
+          "time": "11:58",
+          "sha": "574c970",
+          "subject": "companion: price/cost switch on home donuts",
+          "files": "src/components/HomeJobBoard.tsx"
+        },
+        {
+          "date": "2026-10-02",
+          "time": "12:19",
+          "sha": "5b11555",
+          "subject": "companion: time sync can match a record to jobtread when jobtread is right",
+          "files": "src/app/api/time-sync/retry/route.ts, src/app/time-sync/page.tsx, src/lib/timeProblems.ts, src/lib/timeSync.ts"
+        },
+        {
+          "date": "2026-10-02",
+          "time": "12:25",
+          "sha": "0750cfc",
+          "subject": "companion: forget button on the stuck-vendor notice untags the email and removes the bill's rows",
+          "files": "src/app/api/stuck-vendors/route.ts, src/components/StuckVendors.tsx"
+        },
+        {
+          "date": "2026-10-02",
+          "time": "12:42",
+          "sha": "f90e68b",
+          "subject": "companion: tracking sheets all-jobs view shows each job's month bill and labor rings",
+          "files": "src/app/api/trackingsheet/month-donuts/route.ts, src/app/trackingsheet/AllJobs.tsx, src/app/trackingsheet/CostDonuts.tsx, src/app/trackingsheet/MonthJobDonuts.tsx, src/lib/monthCostByJob.ts"
+        },
+        {
+          "date": "2026-10-12",
+          "time": "09:00",
+          "sha": "f16c581",
+          "subject": "companion: bill coding dropdown names a line coded to an uncategorized or labor leaf instead of saying uncoded",
+          "files": "src/app/trackingsheet/BillCodingCard.tsx, src/components/CostCodeSelect.tsx"
+        }
+      ]
+    },
     {
       "slug": "invoicing-email",
       "file": "2026-10-15-invoicing-email.md",
       "branch": "claude/invoicing-email",
       "status": "shipped",
       "started": "2026-10-15T21:15:42Z",
-      "updated": "2026-10-15T21:15:47Z",
+      "updated": "2026-10-15T21:27:41Z",
       "goal": "One button on Tracking Sheets all-jobs that drafts the monthly Invoicing Package email in Gmail, each job's tracking sheet attached as a PDF",
       "next": "Owner runs ./deploy.sh in ascent-appscript (new draftInvoicingEmail action + docs.google.com fetch allowance), then presses Draft invoicing email on /trackingsheet for September and checks the draft in Gmail",
       "commits": [
@@ -18,6 +79,13 @@
           "sha": "bd771f2",
           "subject": "companion: tracking sheets all-jobs drafts the month's invoicing package email in gmail, each job's tracking sheet attached as a pdf",
           "files": "src/app/api/invoicing-summary/email/route.ts, src/app/trackingsheet/AllJobs.tsx, src/lib/invoicingEmail.test.ts, src/lib/invoicingEmail.ts, src/lib/jobtread.ts"
+        },
+        {
+          "date": "2026-10-15",
+          "time": "17:27",
+          "sha": "a4f246f",
+          "subject": "companion: close session 2026-10-02-time-card-autostage",
+          "files": ""
         }
       ]
     },
@@ -246,67 +314,6 @@
           "sha": "bbf7960",
           "subject": "companion: tracking sheet deposit card sits at the foot of the page",
           "files": "src/app/trackingsheet/Board.tsx"
-        }
-      ]
-    },
-    {
-      "slug": "time-card-autostage",
-      "file": "2026-10-02-time-card-autostage.md",
-      "branch": "claude/time-card-autostage",
-      "status": "shipped",
-      "started": "2026-10-02T17:18:55Z",
-      "updated": "2026-10-12T13:00:54Z",
-      "goal": "Tracking Sheets time card: stage edits as they are made (like bills), remove the Stage changes button",
-      "next": "Open /trackingsheet with no job on a phone and an iPad: check the per-job ring cards read right. Then decide how /unbilled treats hand-built invoices (rebuild still uncommitted in the working tree)",
-      "commits": [
-        {
-          "date": "2026-10-02",
-          "time": "10:19",
-          "sha": "04c7149",
-          "subject": "companion: time card stages edits as they are made",
-          "files": "src/app/trackingsheet/TimeCodingCard.tsx"
-        },
-        {
-          "date": "2026-10-02",
-          "time": "11:56",
-          "sha": "dae0b44",
-          "subject": "companion: home donuts show invoiced vs approved price",
-          "files": "src/components/HomeJobBoard.tsx, src/lib/jobBoard.ts, src/lib/jobtread.ts"
-        },
-        {
-          "date": "2026-10-02",
-          "time": "11:58",
-          "sha": "574c970",
-          "subject": "companion: price/cost switch on home donuts",
-          "files": "src/components/HomeJobBoard.tsx"
-        },
-        {
-          "date": "2026-10-02",
-          "time": "12:19",
-          "sha": "5b11555",
-          "subject": "companion: time sync can match a record to jobtread when jobtread is right",
-          "files": "src/app/api/time-sync/retry/route.ts, src/app/time-sync/page.tsx, src/lib/timeProblems.ts, src/lib/timeSync.ts"
-        },
-        {
-          "date": "2026-10-02",
-          "time": "12:25",
-          "sha": "0750cfc",
-          "subject": "companion: forget button on the stuck-vendor notice untags the email and removes the bill's rows",
-          "files": "src/app/api/stuck-vendors/route.ts, src/components/StuckVendors.tsx"
-        },
-        {
-          "date": "2026-10-02",
-          "time": "12:42",
-          "sha": "f90e68b",
-          "subject": "companion: tracking sheets all-jobs view shows each job's month bill and labor rings",
-          "files": "src/app/api/trackingsheet/month-donuts/route.ts, src/app/trackingsheet/AllJobs.tsx, src/app/trackingsheet/CostDonuts.tsx, src/app/trackingsheet/MonthJobDonuts.tsx, src/lib/monthCostByJob.ts"
-        },
-        {
-          "date": "2026-10-12",
-          "time": "09:00",
-          "sha": "f16c581",
-          "subject": "companion: bill coding dropdown names a line coded to an uncategorized or labor leaf instead of saying uncoded",
-          "files": "src/app/trackingsheet/BillCodingCard.tsx, src/components/CostCodeSelect.tsx"
         }
       ]
     },
