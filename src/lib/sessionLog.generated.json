@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-16T11:54:31Z",
+  "generatedAt": "2026-10-16T16:25:18Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-10-16T11:54:31Z",
+      "updated": "2026-10-16T16:25:18Z",
       "goal": "",
-      "next": "Owner checks a phone and desktop open on Website · Dark after the one-time appearance reset",
+      "next": "Approve DD 1363 bill 22PdXJXyCA7Y after moving its issue date into the open period; fix appscript _dedupeLineItems so only a whole repeated invoice dedupes; clear the 3 stale 8/28 Office drafts",
       "commits": [
         {
           "date": "2026-09-03",
@@ -312,6 +312,13 @@
           "sha": "958273f",
           "subject": "companion: website dark is the default on every device, reset once for all",
           "files": "THEME.md, src/app/layout.tsx, src/lib/help.ts"
+        },
+        {
+          "date": "2026-10-16",
+          "time": "12:25",
+          "sha": "9e782b8",
+          "subject": "companion: turn the draft-bills-past-cutoff digest check back on",
+          "files": "src/lib/digest/settings.ts"
         }
       ]
     },
