@@ -151,6 +151,7 @@ interface OpenEntry {
   costItemName: string;
   payType: string;
   employee: string;
+  notes?: string; // the JobTread description, when one was typed there
 }
 interface DoneSummary {
   jobLabel: string;
@@ -740,6 +741,16 @@ export function EmployeeTimeClient({
   busyRef.current = busy || resolving || checkingClock;
   const actingRef = useRef(acting);
   actingRef.current = acting;
+  /* A description typed at clock-in on JobTread fills an EMPTY note box. The
+     clock-out writes the box over the entry's notes, so an empty box would make
+     the crew member retype it, and whatever they typed would replace it. A note
+     already in the box (typed here) wins. */
+  function seedNoteFromJobTread(e: OpenEntry | null) {
+    const jt = e?.notes ?? "";
+    if (!jt.trim()) return;
+    setNote((prev) => (prev.trim() ? prev : jt));
+  }
+
   function applyFreshClock(fresh: OpenEntry | null, linked: boolean) {
     // Your own clock only: an admin who opened someone else meanwhile is
     // looking at THEIR clock, which the acting effect reads.
@@ -762,11 +773,13 @@ export function EmployeeTimeClient({
         };
         setActiveClock(merged);
         saveClock(merged);
+        seedNoteFromJobTread(remote);
         return;
       }
       const resumed = clockFromOpenEntry(remote, true);
       setActiveClock(resumed);
       saveClock(resumed);
+      seedNoteFromJobTread(remote);
       setClockNote("Picked up from JobTread — you were already clocked in.");
       return;
     }
@@ -933,6 +946,7 @@ export function EmployeeTimeClient({
       if (onThisClock || Date.now() - saved.savedAt < NOTE_TTL_MS) setNote(saved.note);
       else clearSavedNote();
     }
+    seedNoteFromJobTread(initialOpenEntry);
     noteRestoredRef.current = true;
     // Mount-only: initialOpenEntry is a render-time constant from the server.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1304,6 +1318,7 @@ export function EmployeeTimeClient({
     const c = clockFromOpenEntry(e, true);
     setActiveClock(c);
     if (!acting) saveClock(c);
+    seedNoteFromJobTread(e);
     setErr("");
     setClockUnknown(false);
     const day = dayChipLabel(e.startedAt.slice(0, 10));
@@ -1724,6 +1739,7 @@ export function EmployeeTimeClient({
         // Always `resumed: true`: this device did not start the clock, so the
         // log key is derived from the entry id rather than invented.
         setActiveClock(j.openEntry ? clockFromOpenEntry(j.openEntry, true) : null);
+        seedNoteFromJobTread(j.openEntry ?? null);
       })
       .catch(() => {
         if (alive) setErr("Couldn't reach the server.");

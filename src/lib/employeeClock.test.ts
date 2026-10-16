@@ -21,6 +21,7 @@ function clock(entryId: string, startedAt = "2026-10-05T07:57:41"): OpenClock {
     costItemName: "Wood Decking",
     payType: "Regular Pay",
     employee: "Crew Member",
+    notes: "",
   };
 }
 

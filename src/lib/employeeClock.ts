@@ -18,6 +18,8 @@ export interface OpenClock {
   costItemName: string;
   payType: string;
   employee: string;
+  /** The entry's JobTread description, typed at clock-in on JobTread itself. */
+  notes: string;
 }
 
 /**
@@ -41,6 +43,7 @@ function toOpenClock(e: OpenTimeEntry, employeeName: string): OpenClock {
     costItemName: e.costItemName,
     payType: e.payType,
     employee: employeeName,
+    notes: e.notes,
   };
 }
 
