@@ -58,10 +58,10 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#FAF7EE" },
-    { media: "(prefers-color-scheme: dark)", color: "#1B1B17" },
-  ],
+  // The default is Website · Dark on every device, so the status bar is its
+  // ground (#0A0A0A) whatever the OS prefers. The server cannot see a device
+  // that chose light, so that device keeps a dark status bar.
+  themeColor: "#0A0A0A",
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
@@ -119,11 +119,17 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             The draft loop writes the same inline custom properties `applyDraft`
             does, which is what carries an open draft across a navigation. It
             validates each value as a 6-digit hex before writing, so a hand-
-            mangled localStorage entry cannot inject a declaration. */}
+            mangled localStorage entry cannot inject a declaration.
+
+            Website · Dark is the default for every device (owner, 2026-10-16):
+            no stored theme means dark, whatever the OS prefers. The
+            `appearanceReset` stamp cleared every device's stored theme and
+            palette ONCE, so everyone started there; a choice made after it
+            sticks. Bump the date to reset everyone again. */}
         <script
           dangerouslySetInnerHTML={{
             __html:
-              "(function(){try{var e=document.documentElement;var t=localStorage.getItem('theme');var d=t?t==='dark':matchMedia('(prefers-color-scheme:dark)').matches;if(d)e.classList.add('dark');var p=localStorage.getItem('palette')==='guidelines'?'guidelines':'website';e.setAttribute('data-palette',p);var j=localStorage.getItem('paletteDraft');if(j){var s=JSON.parse(j)[p];if(s){var v=Object.assign({},s.shared,s[d?'dark':'light']);for(var k in v){var m=/^#?([0-9a-f]{6})$/i.exec(v[k]);if(m){var n=parseInt(m[1],16);e.style.setProperty('--'+k,(n>>16&255)+' '+(n>>8&255)+' '+(n&255));}}}}}catch(e){}})();",
+              "(function(){try{var e=document.documentElement;if(localStorage.getItem('appearanceReset')!=='2026-10-16'){localStorage.removeItem('theme');localStorage.removeItem('palette');localStorage.setItem('appearanceReset','2026-10-16');}var t=localStorage.getItem('theme');var d=t!=='light';if(d)e.classList.add('dark');var p=localStorage.getItem('palette')==='guidelines'?'guidelines':'website';e.setAttribute('data-palette',p);var j=localStorage.getItem('paletteDraft');if(j){var s=JSON.parse(j)[p];if(s){var v=Object.assign({},s.shared,s[d?'dark':'light']);for(var k in v){var m=/^#?([0-9a-f]{6})$/i.exec(v[k]);if(m){var n=parseInt(m[1],16);e.style.setProperty('--'+k,(n>>16&255)+' '+(n>>8&255)+' '+(n&255));}}}}}catch(e){}})();",
           }}
         />
       </head>

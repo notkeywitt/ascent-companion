@@ -151,7 +151,7 @@ export const HELP: HelpSection[] = [
         notes: [
           "The logo is the only light and dark control.",
           "Open **Appearance** in the **☰** menu to change the colour palette.",
-          "Each device keeps its own theme.",
+          "Each device keeps its own theme. A new device starts on Website, dark.",
         ],
       },
       {

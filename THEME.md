@@ -23,8 +23,10 @@ account — the office desktop and a phone in the field can differ).
 
 Every palette defines BOTH themes, so all four combinations are real.
 
-**Website is the default** (2026-09-06). A device with no stored choice gets it;
-Guidelines is the opt-in. Two constants say so, and they are not the same thing:
+**Website · Dark is the default** (palette 2026-09-06, dark 2026-10-16). A device
+with no stored choice gets it, whatever the OS prefers; Guidelines and light are the
+opt-ins. On 2026-10-16 the `appearanceReset` stamp in `layout.tsx`'s pre-paint
+script cleared every device's stored choice once, so everyone started there. Two constants say so, and they are not the same thing:
 
 | Constant | Answers |
 |---|---|
