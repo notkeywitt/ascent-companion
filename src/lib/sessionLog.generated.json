@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-16T11:29:21Z",
+  "generatedAt": "2026-10-16T11:43:05Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-10-16T11:29:21Z",
+      "updated": "2026-10-16T11:43:05Z",
       "goal": "",
-      "next": "Owner deploys ascent-appscript (./deploy.sh), then adds Alexandra via /employees > New employee",
+      "next": "Awaiting owner OK to push the job-access write (createAce on jobs) and pay-type edit on /employees; commit is local only",
       "commits": [
         {
           "date": "2026-09-03",
@@ -284,6 +284,13 @@
           "sha": "d045ffd",
           "subject": "companion: add new employee form to /employees",
           "files": "src/app/api/employees/jt-members/route.ts, src/app/api/employees/route.ts, src/app/employees/AddEmployee.tsx, src/app/employees/page.tsx, src/lib/views.ts"
+        },
+        {
+          "date": "2026-10-16",
+          "time": "07:42",
+          "sha": "5dfc935",
+          "subject": "companion: employees gets its own menu row; edit form adds pay types and job access",
+          "files": "src/app/api/employees/job-access/route.ts, src/app/api/labor-rates/apply/route.ts, src/app/employees/JobTreadSections.tsx, src/app/employees/page.tsx, src/components/TabBar.tsx, src/lib/jobtread.ts, +3 more"
         }
       ]
     },
