@@ -1,3 +1,4 @@
+import { revalidateTag } from "next/cache";
 import { NextRequest, NextResponse } from "next/server";
 import {
   clearJtRefCache,
@@ -120,6 +121,7 @@ export async function POST(req: NextRequest) {
     );
   } finally {
     clearJtRefCache(); // roster re-reads fresh rates next load
+    revalidateTag("jt-users"); // and so does /api/jt-users (/employees reads rates there)
   }
 
   return NextResponse.json({ wrote: true, results });

@@ -115,7 +115,8 @@ describe("the iPad rail", () => {
   });
   it("still lights one slot per page", () => {
     const rail = railFor("admin", can("admin"));
-    expect(activeBarKey(rail, "/employees")).toBe("people");
+    expect(activeBarKey(rail, "/employees")).toBe("employees");
+    expect(activeBarKey(rail, "/labor-rates")).toBe("people");
     expect(activeBarKey(rail, "/mileage-tracker")).toBe("mywork");
   });
 });

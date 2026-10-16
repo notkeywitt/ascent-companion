@@ -87,11 +87,17 @@ export const WORKSPACES: Workspace[] = [
     ],
   },
   {
+    // Its own menu row at the owner's ask (2026-10-16), out of People.
+    id: "employees",
+    title: "Employees",
+    desc: "The roster — details, JobTread jobs and pay types.",
+    tabs: [tab("employees", "/employees", "Employees", "The Project Database roster")],
+  },
+  {
     id: "people",
     title: "People",
-    desc: "The roster, pay rates, time records and the safety meeting.",
+    desc: "Pay rates, time records and the safety meeting.",
     tabs: [
-      tab("employees", "/employees", "Employees", "The Project Database roster"),
       tab("labor-rates", "/labor-rates", "Pay Rates", "Per-project pay rates & who has them"),
       tab("time-off-admin", "/time-off/office", "Time Off (Office)", "Requests to approve, balances, accrual and policy"),
       tab("time-sync", "/time-sync", "Time Sync", "Time records JobTread doesn't have right"),
@@ -183,8 +189,9 @@ export const NO_STRIP_WORKSPACES = new Set(["close"]);
 
 /** Workspaces the ☰ menu shows as ONE row, named for the workspace, opening its
  * first page — and the desktop sidebar shows with no second level. Invoicing went to a single row at the owner's ask (2026-10-13):
- * its pages are reached from Tracking Sheets and the header search. */
-export const MENU_SINGLE_WORKSPACES = new Set(["close"]);
+ * its pages are reached from Tracking Sheets and the header search. Employees has
+ * one page, so a second level would only repeat it. */
+export const MENU_SINGLE_WORKSPACES = new Set(["close", "employees"]);
 
 /** Today — the home page. Not a workspace: it is the bar's first slot. */
 export const TODAY: WorkspaceTab = tab("", "/", "Home", "What needs you today");

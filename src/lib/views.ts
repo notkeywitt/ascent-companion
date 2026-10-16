@@ -327,7 +327,7 @@ export const VIEWS: ViewDef[] = [
     id: "employees",
     label: "Employees",
     group: "Office",
-    paths: ["/employees", "/api/employees/email", "/api/employees/jt-members"],
+    paths: ["/employees", "/api/employees/email", "/api/employees/jt-members", "/api/employees/job-access"],
   },
   // Lead pipeline — JobTread's "New Lead" customers plus the Companion's
   // follow-up tracking. The API prefix is listed alongside the page so a role

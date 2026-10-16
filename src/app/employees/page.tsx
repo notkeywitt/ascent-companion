@@ -13,12 +13,14 @@ import {
 } from "@/components/ui";
 
 import { AddEmployee, type Employee } from "./AddEmployee";
+import { JobAccess, PayTypes, type PayType } from "./JobTreadSections";
 
 interface JtUser {
   id: string;
   name: string;
   isInternal: boolean;
-  types?: { name: string; hourlyRate?: number }[]; // this member's own pay types
+  membershipId?: string; // the id JobTread's pay-type and job-access writes need
+  types?: PayType[]; // this member's own pay types
 }
 
 type EditableKey = keyof Omit<Employee, "id" | "jtUserId" | "jtUserName">;
@@ -569,58 +571,34 @@ export default function EmployeesPage() {
               )}
             </div>
 
-            {/* Labor rates — read-only, pulled live from JobTread. Rates/types
-                are set in JobTread; this is a review surface only. */}
-            <div className="mb-4 rounded-lg border border-line p-3 ">
-              <Label>Labor rates (from JobTread)</Label>
-              {(() => {
-                if (!form.jtUserId) {
-                  return (
-                    <p className="text-sm text-neutral-500">
-                      Link a JobTread user above to see their pay rates.
-                    </p>
-                  );
-                }
-                if (jtErr) {
-                  return (
-                    <p className="text-sm text-neutral-500">
-                      Unavailable — JobTread users didn&apos;t load.
-                    </p>
-                  );
-                }
-                const linked = jtById.get(form.jtUserId);
-                const withRates = (linked?.types ?? []).filter((t) => t.hourlyRate != null);
-                if (!withRates.length) {
-                  return (
-                    <p className="text-sm text-neutral-500">
-                      No rates available for this user — the JobTread grant may not expose
-                      per-member rates.
-                    </p>
-                  );
-                }
+            {/* Pay types and job access write to JobTread on their own,
+                at once — the Save button below covers the roster fields only. */}
+            {(() => {
+              const linked = jtById.get(form.jtUserId);
+              if (!form.jtUserId || jtErr || !linked?.membershipId) {
                 return (
-                  <>
-                    <ul className="divide-y divide-neutral-100 dark:divide-neutral-800/70">
-                      {withRates.map((t, i) => (
-                        <li
-                          key={`${t.name}-${i}`}
-                          className="flex items-baseline justify-between gap-3 py-1.5 text-sm"
-                        >
-                          <span className="text-neutral-700 dark:text-neutral-300">{t.name}</span>
-                          <span className="whitespace-nowrap font-semibold tabular-nums">
-                            ${t.hourlyRate}/hr
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                    <p className="mt-2 text-[11px] text-neutral-400">
-                      Read-only. Pay types are often job-scoped, so several rates per person is
-                      normal. Edit rates in JobTread.
-                    </p>
-                  </>
+                  <p className="mb-4 rounded-lg border border-line p-3 text-sm text-neutral-500">
+                    {jtErr
+                      ? "Pay types and jobs are unavailable — JobTread users didn't load."
+                      : "Link a JobTread user above to set their pay types and jobs."}
+                  </p>
                 );
-              })()}
-            </div>
+              }
+              const mid = linked.membershipId;
+              return (
+                <>
+                  <PayTypes
+                    membershipId={mid}
+                    types={linked.types ?? []}
+                    orgTypes={orgTypes}
+                    onChange={(types) =>
+                      setJtUsers((list) => list.map((u) => (u.id === linked.id ? { ...u, types } : u)))
+                    }
+                  />
+                  <JobAccess membershipId={mid} />
+                </>
+              );
+            })()}
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {FIELDS.map((f) => (

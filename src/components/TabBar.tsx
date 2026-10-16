@@ -125,6 +125,12 @@ const BadgeIcon = () => (
     <path d="M8 17a4 4 0 0 1 8 0" />
   </IconBase>
 );
+const UserIcon = () => (
+  <IconBase>
+    <circle cx="12" cy="8" r="4" />
+    <path d="M4 21a8 8 0 0 1 16 0" />
+  </IconBase>
+);
 const SearchIcon = () => (
   <IconBase>
     <circle cx="11" cy="11" r="7" />
@@ -174,6 +180,7 @@ const ICONS: Record<string, () => React.ReactNode> = {
   mywork: BriefcaseIcon,
   clients: UsersIcon,
   people: BadgeIcon,
+  employees: UserIcon,
   search: SearchIcon,
   help: HelpIcon,
   admin: ShieldIcon,
