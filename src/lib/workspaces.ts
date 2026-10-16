@@ -57,17 +57,11 @@ export const WORKSPACES: Workspace[] = [
     ],
   },
   {
-    id: "incoming",
-    title: "Incoming Bills",
-    desc: "Bills arriving from the inbox, the mail and the monthly statements.",
-    tabs: [
-      tab("email", "/email", "Email Invoices", "Log invoices from the office inbox"),
-      tab("vendor-mail", "/vendor-mail", "Mail Check", "Every vendor email, and whether it was captured"),
-      tab("needs-project", "/needs-project", "Not in JobTread", "Ingested bills with no job yet"),
-      tab("payments", "/payments", "Sunset Statements", "Pay a statement & reconcile its invoices"),
-      tab("lswdd", "/lswdd", "LSWDD Statement", "Split the dump's monthly statement across jobs"),
-      tab("amazon-import", "/amazon-import", "Amazon Import", "Monthly Amazon report → batch of bills"),
-    ],
+    // Its own menu row at the owner's ask (2026-10-16), out of People.
+    id: "employees",
+    title: "Employees",
+    desc: "The roster — details, JobTread jobs and pay types.",
+    tabs: [tab("employees", "/employees", "Employees", "The Project Database roster")],
   },
   {
     id: "clients",
@@ -87,11 +81,24 @@ export const WORKSPACES: Workspace[] = [
     ],
   },
   {
-    // Its own menu row at the owner's ask (2026-10-16), out of People.
-    id: "employees",
-    title: "Employees",
-    desc: "The roster — details, JobTread jobs and pay types.",
-    tabs: [tab("employees", "/employees", "Employees", "The Project Database roster")],
+    // Its own menu row at the owner's ask (2026-10-16), out of My Work.
+    id: "time",
+    title: "Time",
+    desc: "Log and review your hours.",
+    tabs: [tab("employee-time", "/employee-time", "Time", "Log and review your hours")],
+  },
+  {
+    id: "incoming",
+    title: "Incoming Bills",
+    desc: "Bills arriving from the inbox, the mail and the monthly statements.",
+    tabs: [
+      tab("email", "/email", "Email Invoices", "Log invoices from the office inbox"),
+      tab("vendor-mail", "/vendor-mail", "Mail Check", "Every vendor email, and whether it was captured"),
+      tab("needs-project", "/needs-project", "Not in JobTread", "Ingested bills with no job yet"),
+      tab("payments", "/payments", "Sunset Statements", "Pay a statement & reconcile its invoices"),
+      tab("lswdd", "/lswdd", "LSWDD Statement", "Split the dump's monthly statement across jobs"),
+      tab("amazon-import", "/amazon-import", "Amazon Import", "Monthly Amazon report → batch of bills"),
+    ],
   },
   {
     id: "people",
@@ -128,9 +135,8 @@ export const WORKSPACES: Workspace[] = [
   {
     id: "mywork",
     title: "My Work",
-    desc: "Your time, miles, tools, requisitions and time off.",
+    desc: "Your miles, tools, requisitions and time off.",
     tabs: [
-      tab("employee-time", "/employee-time", "Time", "Log and review your hours"),
       tab("mileage", "/mileage-tracker", "Miles", "Track your mileage"),
       tab("tools", "/tools", "Tools", "The tool tracker"),
       tab("requisitions", "/requisitions", "Requisitions", "Request materials & supplies"),
@@ -189,9 +195,9 @@ export const NO_STRIP_WORKSPACES = new Set(["close"]);
 
 /** Workspaces the ☰ menu shows as ONE row, named for the workspace, opening its
  * first page — and the desktop sidebar shows with no second level. Invoicing went to a single row at the owner's ask (2026-10-13):
- * its pages are reached from Tracking Sheets and the header search. Employees has
- * one page, so a second level would only repeat it. */
-export const MENU_SINGLE_WORKSPACES = new Set(["close", "employees"]);
+ * its pages are reached from Tracking Sheets and the header search. Employees and
+ * Time have one page each, so a second level would only repeat it. */
+export const MENU_SINGLE_WORKSPACES = new Set(["close", "employees", "time"]);
 
 /** Today — the home page. Not a workspace: it is the bar's first slot. */
 export const TODAY: WorkspaceTab = tab("", "/", "Home", "What needs you today");
@@ -272,6 +278,8 @@ export interface BarItem {
   workspace?: string;
   /** Routes that mark the slot as the current one. */
   covers: string[];
+  /** Rail only: the first item after the top group, drawn after a space. */
+  gap?: boolean;
 }
 
 const TAB_BY_VIEW = new Map(WORKSPACES.flatMap((w) => w.tabs.map((t) => [t.view, t] as const)));
@@ -281,14 +289,10 @@ export const BAR_PIN_KEY = "bar.pin";
 /** Fired on `window` when the pin changes, so the bar updates without a reload. */
 export const BAR_PIN_EVENT = "bar-pin";
 
-/**
- * The role's bar. `pin` is the page this person pinned from the menu: it takes
- * the LAST slot (or joins a bar with room), unless it is already on the bar or
- * they cannot open it.
- */
-export function barFor(role: Role, can: (view: string) => boolean, pin = ""): BarItem[] {
+/** Slots → items, skipping any this person cannot open. */
+function resolveSlots(slots: BarSlot[], can: (view: string) => boolean): BarItem[] {
   const out: BarItem[] = [];
-  for (const slot of BARS[role] ?? BARS.field) {
+  for (const slot of slots) {
     if (slot.kind === "today") {
       out.push({ key: "today", label: TODAY.label, href: "/", view: "", covers: ["/"] });
     } else if (slot.kind === "tab") {
@@ -309,9 +313,25 @@ export function barFor(role: Role, can: (view: string) => boolean, pin = ""): Ba
       }
     }
   }
+  return out;
+}
+
+/** The pinned page as an item, or null when it is unknown, closed to them, or already a page slot. */
+function pinItem(items: BarItem[], can: (view: string) => boolean, pin: string): BarItem | null {
   const t = pin ? TAB_BY_VIEW.get(pin) ?? EXTRA_LINKS.find((e) => e.view === pin) : undefined;
-  if (t && can(t.view) && !out.some((i) => i.view === t.view && !i.workspace)) {
-    const item = { key: t.view, label: t.label, href: t.href, view: t.view, covers: [t.href] };
+  if (!t || !can(t.view) || items.some((i) => i.view === t.view && !i.workspace)) return null;
+  return { key: t.view, label: t.label, href: t.href, view: t.view, covers: [t.href] };
+}
+
+/**
+ * The role's bar. `pin` is the page this person pinned from the menu: it takes
+ * the LAST slot (or joins a bar with room), unless it is already on the bar or
+ * they cannot open it.
+ */
+export function barFor(role: Role, can: (view: string) => boolean, pin = ""): BarItem[] {
+  const out = resolveSlots(BARS[role] ?? BARS.field, can);
+  const item = pinItem(out, can, pin);
+  if (item) {
     if (out.length >= 5) out[out.length - 1] = item;
     else out.push(item);
   }
@@ -319,19 +339,38 @@ export function barFor(role: Role, can: (view: string) => boolean, pin = ""): Ba
 }
 
 /**
- * The iPad rail and desktop sidebar: the bar's slots first, in the bar's order,
- * then every other workspace this person can open. The rail has the height the
- * bar lacks, so nothing has to be left for the menu.
+ * The top of the iPad rail and desktop sidebar, for the roles that run the
+ * office — the owner's order (2026-10-16). Every other workspace follows after a
+ * space. A role with no entry here keeps its bar as the top group.
+ */
+const DESK_TOP: BarSlot[] = [
+  { kind: "today" },
+  { kind: "workspace", id: "close" },
+  { kind: "workspace", id: "employees" },
+  { kind: "workspace", id: "clients" },
+  { kind: "workspace", id: "time" },
+];
+export const RAIL_TOP: Partial<Record<Role, BarSlot[]>> = { admin: DESK_TOP, office: DESK_TOP };
+
+/**
+ * The iPad rail and desktop sidebar: the top group (RAIL_TOP, else the bar),
+ * the pinned page, then — after a space — every other workspace this person can
+ * open. The rail has the height the bar lacks, so nothing is left for the menu.
  */
 export function railFor(role: Role, can: (view: string) => boolean, pin = ""): BarItem[] {
-  const out = barFor(role, can, pin);
+  const top = RAIL_TOP[role];
+  const out = top ? resolveSlots(top, can) : barFor(role, can, pin);
+  const item = top ? pinItem(out, can, pin) : null;
+  if (item && !out.some((i) => i.view === item.view)) out.push(item);
+  const topCount = out.length;
   for (const ws of WORKSPACES) {
-    if (out.some((i) => i.workspace === ws.id)) continue;
     const tabs = reachableTabs(ws, can);
-    if (tabs.length) {
-      out.push({ key: ws.id, label: ws.title, href: tabs[0].href, view: tabs[0].view, workspace: ws.id, covers: tabs.map((t) => t.href) });
-    }
+    // Skip a workspace already on the rail, or one whose every page already is.
+    if (!tabs.length || out.some((i) => i.workspace === ws.id)) continue;
+    if (tabs.every((t) => out.some((i) => i.view === t.view && !i.workspace))) continue;
+    out.push({ key: ws.id, label: ws.title, href: tabs[0].href, view: tabs[0].view, workspace: ws.id, covers: tabs.map((t) => t.href) });
   }
+  if (out.length > topCount) out[topCount] = { ...out[topCount], gap: true };
   return out;
 }
 

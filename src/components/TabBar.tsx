@@ -184,6 +184,7 @@ const ICONS: Record<string, () => React.ReactNode> = {
   search: SearchIcon,
   help: HelpIcon,
   admin: ShieldIcon,
+  time: ClockIcon,
   "employee-time": ClockIcon,
   mileage: RouteIcon,
   tools: WrenchIcon,
@@ -288,7 +289,7 @@ export function TabBar() {
               ? WORKSPACES.find((w) => w.id === t.workspace)
               : undefined;
           return (
-            <div key={t.key}>
+            <div key={t.key} className={t.gap ? "mt-5" : ""}>
               <Link
                 href={t.href + qs}
                 aria-current={on ? "page" : undefined}

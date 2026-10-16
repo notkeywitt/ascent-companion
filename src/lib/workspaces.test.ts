@@ -106,17 +106,30 @@ describe("the iPad rail", () => {
     const views = resolveAllowedViews(role);
     return (v: string) => views.has(v);
   };
-  it("starts with the bar, then adds every other workspace once", () => {
-    const rail = railFor("office", can("office")).map((i) => i.key);
-    expect(rail.slice(0, 5)).toEqual(barFor("office", can("office")).map((i) => i.key));
-    expect(rail).toEqual(expect.arrayContaining(["clients", "people", "search", "help", "office"]));
+  it("starts the office's rail with the owner's five, then a space, then every other workspace once", () => {
+    const items = railFor("office", can("office"));
+    const rail = items.map((i) => i.key);
+    expect(rail.slice(0, 5)).toEqual(["today", "close", "employees", "clients", "time"]);
+    expect(items[5].gap).toBe(true);
+    expect(items.filter((i) => i.gap)).toHaveLength(1);
+    expect(rail).toEqual(expect.arrayContaining(["incoming", "people", "search", "help", "office", "mywork"]));
     expect(rail).not.toContain("admin");
     expect(new Set(rail).size).toBe(rail.length);
+  });
+  it("keeps field staff's rail on their bar, with no second Time", () => {
+    const rail = railFor("field", can("field"));
+    expect(rail.slice(0, 5).map((i) => i.key)).toEqual(barFor("field", can("field")).map((i) => i.key));
+    expect(rail.map((i) => i.key)).not.toContain("time");
+  });
+  it("does not repeat a pinned page that is already a top item", () => {
+    const keys = railFor("admin", can("admin"), "employees").map((i) => i.key);
+    expect(keys.filter((k) => k === "employees")).toHaveLength(1);
   });
   it("still lights one slot per page", () => {
     const rail = railFor("admin", can("admin"));
     expect(activeBarKey(rail, "/employees")).toBe("employees");
     expect(activeBarKey(rail, "/labor-rates")).toBe("people");
     expect(activeBarKey(rail, "/mileage-tracker")).toBe("mywork");
+    expect(activeBarKey(rail, "/employee-time")).toBe("time");
   });
 });
