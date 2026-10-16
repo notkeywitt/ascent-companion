@@ -1,7 +1,26 @@
 {
-  "generatedAt": "2026-10-16T16:25:18Z",
+  "generatedAt": "2026-10-16T18:46:10Z",
   "repo": "ascent-companion",
   "sessions": [
+    {
+      "slug": "jobtread-clock-in-description",
+      "file": "2026-10-16-jobtread-clock-in-description.md",
+      "branch": "claude/jobtread-clock-in-description-nxupu5",
+      "status": "shipped",
+      "started": "2026-10-16T18:46:08Z",
+      "updated": "2026-10-16T18:46:09Z",
+      "goal": "",
+      "next": "confirm on a phone: clock in on JobTread with a description, open the app, the note box shows it",
+      "commits": [
+        {
+          "date": "2026-10-16",
+          "time": "18:46",
+          "sha": "15d0c79",
+          "subject": "companion: keep a jobtread clock-in description through clock-out",
+          "files": "src/app/employee-time/EmployeeTimeClient.tsx, src/lib/employeeClock.test.ts, src/lib/employeeClock.ts"
+        }
+      ]
+    },
     {
       "slug": "main",
       "file": "2026-09-03-main.md",

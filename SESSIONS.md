@@ -26,12 +26,13 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Branch | Parked | Picks up at |
 |---|---|---|---|
-| [ascent-security-analysis](.claude/sessions/2026-09-14-ascent-security-analysis.md) | `claude/ascent-security-analysis-m8fjif` | 32d ago | Owner merges PR #7 (git push origin origin/claude/ascent-security-analysis-m8fj… |
+| [ascent-security-analysis](.claude/sessions/2026-09-14-ascent-security-analysis.md) | `claude/ascent-security-analysis-m8fjif` | 33d ago | Owner merges PR #7 (git push origin origin/claude/ascent-security-analysis-m8fj… |
 
 ## Shipped
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
+| [jobtread-clock-in-description](.claude/sessions/2026-10-16-jobtread-clock-in-description.md) | 2026-10-16 | 1 | — |
 | [main](.claude/sessions/2026-09-03-main.md) | 2026-10-16 | 44 | — |
 | [invoicing-email](.claude/sessions/2026-10-15-invoicing-email.md) | 2026-10-15 | 7 | One button on Tracking Sheets all-jobs that drafts the monthly Invoicing Packag… |
 | [vendor-link](.claude/sessions/2026-10-15-vendor-link.md) | 2026-10-15 | 1 | Stuck vendor: link a bill's unmatched vendor name to an existing JobTread vendo… |
@@ -46,4 +47,3 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 | [deposit-card](.claude/sessions/2026-10-12-deposit-card.md) | 2026-10-12 | 1 | Move the deposit card to the foot of the Tracking Sheets page |
 | [deposit-parse](.claude/sessions/2026-10-11-deposit-parse.md) | 2026-10-12 | 1 | Deposit form: accept typed dollar figures with commas and $ |
 | [unbilled](.claude/sessions/2026-10-11-unbilled.md) | 2026-10-12 | 1 | Ship the /unbilled rebuild: unbilled = bills and time on no client invoice |
-| [deposit](.claude/sessions/2026-10-11-deposit.md) | 2026-10-12 | 2 | Simplify job deposits: Deposit (JobTread deposit invoice, or entered by hand) m… |

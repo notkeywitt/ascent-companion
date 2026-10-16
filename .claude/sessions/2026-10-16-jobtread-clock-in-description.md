@@ -2,9 +2,9 @@
 slug: jobtread-clock-in-description
 repo: ascent-companion
 branch: claude/jobtread-clock-in-description-nxupu5
-status: in-progress
+status: shipped
 started: 2026-10-16T18:46:08Z
-updated: 2026-10-16T18:46:08Z
+updated: 2026-10-16T18:46:09Z
 goal: 
 next: confirm on a phone: clock in on JobTread with a description, open the app, the note box shows it
 ---
