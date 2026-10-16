@@ -12,23 +12,7 @@ import {
   inputCls,
 } from "@/components/ui";
 
-interface Employee {
-  id: string;
-  firstName: string;
-  lastName: string;
-  position: string;
-  hireDate: string;
-  status: string;
-  phone: string;
-  email: string;
-  address: string;
-  birthday: string;
-  dl: string;
-  role: string;
-  leavePayType: string;
-  jtUserId: string;
-  jtUserName: string;
-}
+import { AddEmployee, type Employee } from "./AddEmployee";
 
 interface JtUser {
   id: string;
@@ -100,6 +84,7 @@ export default function EmployeesPage() {
   const [saving, setSaving] = useState(false);
   const [saveErr, setSaveErr] = useState("");
   const [linkingId, setLinkingId] = useState(""); // employee id being one-click linked
+  const [adding, setAdding] = useState(false);
 
   // Email composer — send one message from office@ to a chosen set of employees.
   const [composing, setComposing] = useState(false);
@@ -414,6 +399,9 @@ export default function EmployeesPage() {
         <Button variant="secondary" onClick={openComposer} disabled={loading || !!loadErr}>
           ✉ Email employees
         </Button>
+        <Button onClick={() => setAdding(true)} disabled={loading || !!loadErr}>
+          + New employee
+        </Button>
       </div>
 
       {loadErr && (
@@ -719,6 +707,15 @@ export default function EmployeesPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {adding && (
+        <AddEmployee
+          employees={employees}
+          statuses={statuses}
+          onAdded={(e) => setEmployees((list) => [...list, e])}
+          onClose={() => setAdding(false)}
+        />
       )}
 
       {/* Email composer */}

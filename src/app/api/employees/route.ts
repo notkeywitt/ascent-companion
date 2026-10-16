@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { callAppsScriptResponse } from "@/lib/appsScript";
+import { callAppsScript, callAppsScriptResponse } from "@/lib/appsScript";
 import { FORBIDDEN, holdsView } from "@/lib/apiAuth";
+import { clearJtUserLink } from "@/lib/jtUserLink";
 
 // Proxy to the Apps Script web app's employee actions. Apps Script holds the
 // Google Sheets grant (it reads/writes the Project Database "Employee" tab); the
@@ -34,6 +35,9 @@ import { FORBIDDEN, holdsView } from "@/lib/apiAuth";
 //                          GATED on `employees` — the /employees management page.
 //   PATCH { id, fields } → { ok, employee, changed }
 //                          GATED on `employees` — edit one employee.
+//   POST { fields }      → { ok, employee }
+//                          GATED on `employees` — add one employee. Apps Script
+//                          mints the Employee ID and refuses a duplicate email.
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
@@ -59,4 +63,22 @@ export async function PATCH(req: NextRequest) {
   // `action` is set LAST so a caller cannot supply their own and route this
   // request at a different Apps Script handler.
   return callAppsScriptResponse({ ...body, action: "updateEmployee" });
+}
+
+export async function POST(req: NextRequest) {
+  if (!(await holdsView("employees"))) return FORBIDDEN();
+  const body = await req.json().catch(() => null);
+  if (!body?.fields || typeof body.fields !== "object") {
+    return NextResponse.json({ error: "Body must carry a fields object." }, { status: 400 });
+  }
+  const r = await callAppsScript<{ ok?: boolean; error?: string }>({
+    fields: body.fields,
+    action: "addEmployee",
+  });
+  if (r.error) return NextResponse.json({ error: r.error }, { status: r.status });
+  // A person who signed in before they had a roster row may hold a cached
+  // "nobody" link for up to a day. Drop it so their next load finds the new row.
+  const email = String(body.fields.email ?? "");
+  if (r.data?.ok !== false && email) await clearJtUserLink(email);
+  return NextResponse.json(r.data);
 }
