@@ -65,6 +65,18 @@ describe("the bottom bar", () => {
     ]);
   });
 
+  it("gives office and admin the same bar: Home, Invoicing, Jobs, Miles, Time", () => {
+    for (const role of ["office", "admin"] as const) {
+      expect(barFor(role, canFor(role)).map((i) => i.label), role).toEqual([
+        "Home",
+        "Invoicing",
+        "Jobs",
+        "Miles",
+        "Time",
+      ]);
+    }
+  });
+
   it("gives office and admin a Jobs slot in place of Incoming Bills", () => {
     for (const role of ["office", "admin"] as const) {
       const keys = barFor(role, canFor(role)).map((i) => i.key);
@@ -76,7 +88,7 @@ describe("the bottom bar", () => {
   it("lights the single page over the workspace that also holds it", () => {
     const items = barFor("office", canFor("office"));
     expect(activeBarKey(items, "/mileage-tracker")).toBe("mileage");
-    expect(activeBarKey(items, "/tools")).toBe("mywork");
+    expect(activeBarKey(items, "/employee-time")).toBe("employee-time");
     expect(activeBarKey(items, "/needs-review")).toBe("close");
     expect(activeBarKey(items, "/")).toBe("today");
   });

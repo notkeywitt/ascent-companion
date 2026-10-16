@@ -250,20 +250,21 @@ export const BARS: Record<Role, BarSlot[]> = {
     { kind: "tab", view: "requisitions" },
   ],
   // Jobs took Incoming Bills' slot on 2026-10-03 (owner). Incoming Bills is
-  // still in the ☰ menu and on the iPad rail.
+  // still in the ☰ menu and on the iPad rail. Time took My Work's slot, and
+  // admin's Office slot went to Miles, on 2026-10-16 (owner): one bar for both.
   office: [
     { kind: "today" },
     { kind: "workspace", id: "close" },
     { kind: "tab", view: "job-board" },
     { kind: "tab", view: "mileage" },
-    { kind: "workspace", id: "mywork" },
+    { kind: "tab", view: "employee-time" },
   ],
   admin: [
     { kind: "today" },
     { kind: "workspace", id: "close" },
     { kind: "tab", view: "job-board" },
-    { kind: "workspace", id: "office" },
-    { kind: "workspace", id: "mywork" },
+    { kind: "tab", view: "mileage" },
+    { kind: "tab", view: "employee-time" },
   ],
 };
 
