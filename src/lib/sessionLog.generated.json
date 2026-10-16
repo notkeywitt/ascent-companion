@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-16T11:53:02Z",
+  "generatedAt": "2026-10-16T11:54:31Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-10-16T11:53:02Z",
+      "updated": "2026-10-16T11:54:31Z",
       "goal": "",
-      "next": "Owner checks the admin/office phone bar (Home, Invoicing, Jobs, Miles, Time)",
+      "next": "Owner checks a phone and desktop open on Website · Dark after the one-time appearance reset",
       "commits": [
         {
           "date": "2026-09-03",
@@ -305,6 +305,13 @@
           "sha": "c27b259",
           "subject": "companion: admin and office phone bar swaps my work for time, office for miles",
           "files": "src/lib/workspaces.test.ts, src/lib/workspaces.ts"
+        },
+        {
+          "date": "2026-10-16",
+          "time": "07:54",
+          "sha": "958273f",
+          "subject": "companion: website dark is the default on every device, reset once for all",
+          "files": "THEME.md, src/app/layout.tsx, src/lib/help.ts"
         }
       ]
     },
