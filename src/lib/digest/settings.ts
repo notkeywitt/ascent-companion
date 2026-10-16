@@ -327,6 +327,11 @@ export interface DigestCheckSettings<C> {
 // Sheets, /unbilled), so the digest no longer duplicates it. Config values are
 // left in place, not deleted, so turning one back on is `enabled: true` and
 // nothing else.
+//
+// Exception: draft-bills-past-cutoff is back ON (2026-10-16). No billing screen
+// covers it, because each one is scoped to a single billing month. Dirt Doctors
+// 1363 ($7,072.63) was logged 8/28 with a July issue date, after July had been
+// invoiced, and sat as a draft until the vendor chased it on 10/16.
 export const DIGEST_SETTINGS = {
   "crew-activity": {
     enabled: true,
@@ -370,7 +375,7 @@ export const DIGEST_SETTINGS = {
   } satisfies DigestCheckSettings<UncapturedBillsConfig>,
 
   "draft-bills-past-cutoff": {
-    enabled: false,
+    enabled: true,
     config: {
       minAmount: 0,
       maxMonthsBack: 12,
