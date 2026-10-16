@@ -6,6 +6,7 @@ import Link from "next/link";
 import { jobAddress, jobLabel as jobRefLabel, type JobRef } from "@/components/JobPicker";
 import { JtLink } from "@/components/JtLink";
 import { WeekCompare } from "./WeekCompare";
+import { TimeEntriesEmailButton } from "./TimeEntriesEmailButton";
 import {
   PAY_TYPE_CHANGE_WARNING,
   defaultCostCode,
@@ -584,7 +585,8 @@ export function EmployeeTimeClient({
   lastUsed: LastUsed | null;
   /** Admin: may open this page as another employee. The server enforces it. */
   canActAs?: boolean;
-  /** Admin + office: the week-compare tab. The history route enforces it. */
+  /** Admin + office: the week-compare tab and the Timesheets tab's "Email time
+   *  entries" button. The history and email routes enforce it. */
   canCompare?: boolean;
   /** JobTread ids of people who sign into this app — Split View's employee list. */
   appUserIds?: string[];
@@ -2466,6 +2468,12 @@ export function EmployeeTimeClient({
               Still clocked in{historyOpenCount ? ` (${historyOpenCount})` : ""}
             </PillTab>
           </div>
+
+          {/* Admin + office: the pay period's email to the bookkeeper. It covers
+              every employee, whoever this tab is showing. */}
+          {canCompare && (
+            <TimeEntriesEmailButton key={`${historyMonth}-${historyHalf}`} ym={historyMonth} half={historyHalf} />
+          )}
 
           <Card className="flex items-baseline justify-between">
             <span className="text-xs font-semibold uppercase tracking-wide text-neutral-500">

@@ -6824,6 +6824,128 @@ export async function getOrgTimeEntries(
   return out;
 }
 
+/** One time entry with every field JobTread's own time-entries CSV export carries. */
+export interface ExportTimeEntry {
+  id: string;
+  startedAt: string;
+  endedAt: string | null;
+  minutes: number;
+  isApproved: boolean;
+  type: string;
+  notes: string;
+  userName: string;
+  userEmail: string;
+  customer: string;
+  location: string;
+  locationCountry: string;
+  locationState: string;
+  jobName: string;
+  itemName: string;
+  itemGroup: string;
+  codeNumber: string;
+  codeName: string;
+  /** The entry's comment messages, oldest first. Almost always empty. */
+  comments: string[];
+}
+
+/**
+ * EVERY employee's time entries that START in [sinceIso, untilIso) — the
+ * pay-period CSV the office emails to the bookkeeper (lib/timeEntriesEmail).
+ * No filters: approved and unapproved, every job, every person.
+ *
+ * TWO PHASES. A nested `comments { nodes }` inside this paged connection is
+ * the 413 rule (probed 2026-10-16: "Request Entity Too Large"), but
+ * `comments { count }` is not. So the walk reads the count, and only an entry
+ * that has comments is read again on its own. Most periods have none.
+ *
+ * Throws rather than returning a short period (pageAll), because the CSV is
+ * what payroll reads.
+ */
+export async function getTimeEntriesForExport(
+  cfg: PaveConfig,
+  sinceIso: string,
+  untilIso: string,
+): Promise<ExportTimeEntry[]> {
+  const nodes = await pageAll<any>(cfg, {
+    label: `organization.timeEntries from ${sinceIso.slice(0, 10)}`,
+    query: (args) => ({
+      organization: {
+        $: { id: cfg.orgId },
+        id: {},
+        timeEntries: {
+          $: {
+            sortBy: [{ field: "startedAt", order: "desc" }],
+            where: {
+              and: [
+                ["startedAt", ">=", sinceIso],
+                ["startedAt", "<", untilIso],
+              ],
+            },
+            ...args,
+          },
+          nextPage: {},
+          nodes: {
+            id: {},
+            type: {},
+            startedAt: {},
+            endedAt: {},
+            minutes: {},
+            isApproved: {},
+            notes: {},
+            comments: { count: {} },
+            user: { name: {}, emailAddress: {} },
+            job: { name: {}, location: { name: {}, country: {}, state: {}, account: { name: {} } } },
+            costItem: { name: {}, costGroup: { name: {} }, costCode: { number: {}, name: {} } },
+          },
+        },
+      },
+    }),
+    pick: (r) => r?.organization?.timeEntries,
+  });
+
+  const commentsById = new Map<string, string[]>();
+  for (const n of nodes) {
+    if (!(Number(n?.comments?.count) > 0)) continue;
+    const r = await pave<any>(cfg, {
+      timeEntry: {
+        $: { id: n.id },
+        comments: {
+          $: { size: 100, sortBy: [{ field: "createdAt" }] },
+          nodes: { message: {} },
+        },
+      },
+    });
+    commentsById.set(
+      n.id,
+      (r?.timeEntry?.comments?.nodes ?? [])
+        .map((c: any) => String(c?.message ?? "").trim())
+        .filter(Boolean),
+    );
+  }
+
+  return nodes.map((n) => ({
+    id: n.id,
+    startedAt: n.startedAt,
+    endedAt: n.endedAt ?? null,
+    minutes: Number(n.minutes) || 0,
+    isApproved: Boolean(n.isApproved),
+    type: String(n.type ?? ""),
+    notes: String(n.notes ?? ""),
+    userName: n.user?.name ?? "",
+    userEmail: n.user?.emailAddress ?? "",
+    customer: n.job?.location?.account?.name ?? "",
+    location: n.job?.location?.name ?? "",
+    locationCountry: n.job?.location?.country ?? "",
+    locationState: n.job?.location?.state ?? "",
+    jobName: n.job?.name ?? "",
+    itemName: n.costItem?.name ?? "",
+    itemGroup: n.costItem?.costGroup?.name ?? "",
+    codeNumber: String(n.costItem?.costCode?.number ?? ""),
+    codeName: n.costItem?.costCode?.name ?? "",
+    comments: commentsById.get(n.id) ?? [],
+  }));
+}
+
 // ---------------------------------------------------------------------------
 // TASKS — schedule items and to-dos (Daily Digest)
 // ---------------------------------------------------------------------------
