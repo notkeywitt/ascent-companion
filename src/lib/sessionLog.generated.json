@@ -1,7 +1,26 @@
 {
-  "generatedAt": "2026-10-16T18:46:10Z",
+  "generatedAt": "2026-10-16T23:24:00Z",
   "repo": "ascent-companion",
   "sessions": [
+    {
+      "slug": "automate-timesheet-email",
+      "file": "2026-10-16-automate-timesheet-email.md",
+      "branch": "claude/automate-timesheet-email-cshzx9",
+      "status": "shipped",
+      "started": "2026-10-16T23:14:04Z",
+      "updated": "2026-10-16T23:24:00Z",
+      "goal": "Draft the pay-period time entries email (JobTread CSV attached) from a button on the Timesheets tab",
+      "next": "Press 'Email Oct 16-31 time entries' on the Timesheets tab on Nov 1 and check the draft; confirm the Apps Script deploy carries draftTimeEntriesEmail first",
+      "commits": [
+        {
+          "date": "2026-10-16",
+          "time": "23:23",
+          "sha": "105c0d3",
+          "subject": "companion: draft the pay-period time entries email from the timesheets tab",
+          "files": "CODEBASE_MAP.md, src/app/api/employee-time/email/route.ts, src/app/employee-time/EmployeeTimeClient.tsx, src/app/employee-time/TimeEntriesEmailButton.tsx, src/lib/jobtread.ts, src/lib/timeEntriesEmail.test.ts, +1 more"
+        }
+      ]
+    },
     {
       "slug": "jobtread-clock-in-description",
       "file": "2026-10-16-jobtread-clock-in-description.md",

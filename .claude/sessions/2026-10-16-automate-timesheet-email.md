@@ -2,9 +2,9 @@
 slug: automate-timesheet-email
 repo: ascent-companion
 branch: claude/automate-timesheet-email-cshzx9
-status: in-progress
+status: shipped
 started: 2026-10-16T23:14:04Z
-updated: 2026-10-16T23:23:40Z
+updated: 2026-10-16T23:24:00Z
 goal: Draft the pay-period time entries email (JobTread CSV attached) from a button on the Timesheets tab
 next: Press 'Email Oct 16-31 time entries' on the Timesheets tab on Nov 1 and check the draft; confirm the Apps Script deploy carries draftTimeEntriesEmail first
 ---
