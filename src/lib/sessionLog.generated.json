@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-17T14:05:24Z",
+  "generatedAt": "2026-10-17T14:15:35Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "claude/billing-picker-text",
       "status": "shipped",
       "started": "2026-10-17T12:57:13Z",
-      "updated": "2026-10-17T14:05:23Z",
+      "updated": "2026-10-17T14:15:35Z",
       "goal": "remove billing period label and caption from home picker",
-      "next": "none — still clocked in filter hidden when idle",
+      "next": "none — work label and leave-last order shipped",
       "commits": [
         {
           "date": "2026-10-17",
@@ -74,6 +74,13 @@
           "sha": "f0010f0",
           "subject": "companion: hide still clocked in filter when nothing is running",
           "files": "src/app/employee-time/EmployeeTimeClient.tsx"
+        },
+        {
+          "date": "2026-10-17",
+          "time": "14:15",
+          "sha": "0e0ce0b",
+          "subject": "companion: call cost code work on the time clock, list pto and sick last",
+          "files": "src/app/api/employee-time/route.ts, src/app/employee-time/EmployeeTimeClient.tsx, src/lib/leaveLast.test.ts, src/lib/leaveLast.ts"
         }
       ]
     },
