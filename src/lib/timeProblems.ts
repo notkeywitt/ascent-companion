@@ -139,19 +139,21 @@ export function overlappingEntry<T extends { startedAt: string; endedAt: string 
 
 /**
  * Read a local wall clock in either shape the two sides write it. The Apps
- * Script log stores "YYYY-MM-DD HH:MM" (a space, no seconds — `_tetWallClock`
- * in EmployeeTime.js); the routes and `jtIsoToOrgLocal` produce
- * "YYYY-MM-DDTHH:MM:SS". Both name the same minute, so both parse here.
+ * Script log stores "YYYY-MM-DD H:MM" (a space, no seconds, and NO leading zero
+ * on the hour — the sheet's display value reads "2026-09-23 7:00"); the routes
+ * and `jtIsoToOrgLocal` produce "YYYY-MM-DDTHH:MM:SS". Both name the same
+ * minute, so both parse here. A two-digit-only hour once made every morning
+ * entry before 10:00 unreadable, and the audit skipped it in silence.
  *
  * `ms` is the digits read as UTC. That is NOT the real instant, and doesn't need
  * to be: it is only ever compared against another stamp read the same way.
  */
 export function wallClock(v: string): { date: string; hhmm: string; ms: number } | null {
-  const m = (v ?? "").trim().match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2}))?/);
+  const m = (v ?? "").trim().match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{1,2}):(\d{2})(?::(\d{2}))?/);
   if (!m) return null;
   return {
     date: `${m[1]}-${m[2]}-${m[3]}`,
-    hhmm: `${m[4]}:${m[5]}`,
+    hhmm: `${m[4].padStart(2, "0")}:${m[5]}`,
     ms: Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +(m[6] ?? 0)),
   };
 }

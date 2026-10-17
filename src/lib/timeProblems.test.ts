@@ -89,6 +89,10 @@ describe("wall clocks — the sheet and the app write the same minute two ways",
     expect(wallClock("2026-09-14 07:30")).toMatchObject({ date: "2026-09-14", hhmm: "07:30" });
     expect(wallClock("2026-09-14T07:30:00")).toMatchObject({ date: "2026-09-14", hhmm: "07:30" });
     expect(wallClock("2026-09-14 07:30")?.ms).toBe(wallClock("2026-09-14T07:30:00")?.ms);
+    // The sheet's display value drops the hour's leading zero.
+    expect(wallClock("2026-09-23 7:00")).toMatchObject({ date: "2026-09-23", hhmm: "07:00" });
+    expect(driftMinutes("2026-09-23 7:00", "2026-09-23T07:00:00")).toBe(0);
+    expect(clockOf("2026-07-24 9:24")).toBe("09:24");
   });
 
   it("refuses anything that isn't a date and a time", () => {
