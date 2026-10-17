@@ -424,7 +424,6 @@ export function Board() {
   // Admin-only: the tracking-sheet-vs-JobTread gap panel in the budget rail
   // reads /api/historical-cost, which carries the same view gate.
   const canSheetGap = can("historical-cost");
-  const canPackage = can("invoicing-summary");
   // The job's tracking sheet and the last push into it — ./useTrackingPush.
   const { trackingTarget, trackingChecked, trackingSync, setTrackingSync, trackingBusy } = useTrackingPush({
     canTrack,
@@ -1944,26 +1943,9 @@ export function Board() {
           // the commit belongs where the coding happens, and the top of the
           // page is the one place you are not looking after dragging a line.
           <div className="flex w-full min-w-0 flex-col gap-3 lg:w-auto lg:flex-row lg:flex-wrap lg:items-center lg:justify-end">
-            {/* The desktop copy of the month, and under it the month's other
-                destination. Stacked rather than side by side: the month is what
-                this page is scoped to, and the package is that same month read
-                across every job — a step out, not a second control. */}
+            {/* The desktop copy of the month. */}
             <div className="flex w-full min-w-0 flex-col gap-1.5 lg:w-52">
               {monthSelect("hidden lg:block w-full", "recode-month")}
-              {canPackage && (
-                <Link
-                  href={`/invoicing-summary?ym=${ym}`}
-                  onClick={(e) => {
-                    if (!confirmLeaveIfDirty()) e.preventDefault();
-                  }}
-                  className="inline-flex min-h-11 items-center justify-center gap-1 rounded-lg border border-line px-3 text-xs font-semibold text-neutral-500 transition hover:border-accent hover:text-accent dark:text-neutral-400 lg:min-h-0 lg:py-1.5"
-                >
-                  Invoicing Package
-                  <span aria-hidden className="text-[10px]">
-                    →
-                  </span>
-                </Link>
-              )}
             </div>
           </div>
         }

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { AscentLogo } from "@/components/AscentLogo";
 import { GlobalSearch } from "@/components/GlobalSearch";
 import { AppMenu } from "@/components/AppMenu";
@@ -32,7 +32,6 @@ import { btn } from "@/components/ui";
  */
 export function AppHeader() {
   const pathname = usePathname();
-  const router = useRouter();
   const search = useSearchParams();
   const access = useAccess();
   const jobId = search.get("jobId") ?? "";
@@ -100,19 +99,8 @@ export function AppHeader() {
         <div className="pad:hidden">
           <AppMenu qs={qs} />
         </div>
-        {/* BACK, on every page but home. A page opened cold (a shared link, a
-            new tab) has no history to go back to, so it goes home instead. */}
-        {pathname !== "/" && (
-          <button
-            type="button"
-            onClick={() => (window.history.length > 1 ? router.back() : router.push("/"))}
-            aria-label="Back"
-            title="Back"
-            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-xl transition active:bg-accent/10"
-          >
-            ←
-          </button>
-        )}
+        {/* No back button: back is a swipe right from the screen's left
+            edge (SwipeBack, installed app). A browser tab has its own. */}
         {/* `inline-flex` on the BUTTON, not just the logo: a <button> lays its
             child out in a line box, and an inline-level logo then sits on that
             box's text baseline. The line-height strut adds its descender space
