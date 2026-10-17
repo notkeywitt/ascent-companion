@@ -280,3 +280,26 @@ export function reconcileGap(o: AmazonOrder): string {
 export function orderExternalId(orderId: string): string {
   return "AMZ-" + orderId.trim().replace(/[^0-9A-Za-z\-]/g, "");
 }
+
+/**
+ * Best-effort job guess from the PO Number the office typed at checkout, e.g.
+ * "Berger - Bunkhouse". The part before the dash must appear in a job's
+ * customer or name; each later part narrows to the jobs whose name contains it.
+ * Returns a job only when exactly one fits. Several customers own more than
+ * one job, and two of them each have a "Main House" — taking the first of
+ * several put the bill on the wrong job. Anything still ambiguous stays blank.
+ */
+export function suggestJob(
+  po: string,
+  jobs: { id: string; name: string; customer?: string }[],
+): string {
+  const [first = "", ...rest] = po.split(/[-–—/]/).map((p) => p.trim().toLowerCase());
+  if (first.length < 3) return "";
+  let hits = jobs.filter((j) => `${j.customer ?? ""} ${j.name}`.toLowerCase().includes(first));
+  for (const part of rest) {
+    if (hits.length <= 1 || part.length < 3) continue;
+    const narrowed = hits.filter((j) => j.name.toLowerCase().includes(part));
+    if (narrowed.length) hits = narrowed;
+  }
+  return hits.length === 1 ? hits[0].id : "";
+}

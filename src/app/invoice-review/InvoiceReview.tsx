@@ -873,7 +873,15 @@ export function InvoiceReview() {
                                         label: `Everything like this for ${f.customerName || "this customer"}, on every job`,
                                       },
                                     ] as { id: RulingScope; label: string }[]
-                                  ).map((opt) => (
+                                  )
+                                    // No job or no customer: that wider scope
+                                    // has nothing to key on (the route refuses it).
+                                    .filter(
+                                      (opt) =>
+                                        (opt.id !== "job-kind" || f.jobId) &&
+                                        (opt.id !== "customer-kind" || f.customerName),
+                                    )
+                                    .map((opt) => (
                                     <label
                                       key={opt.id}
                                       className="flex items-start gap-2 text-sm"

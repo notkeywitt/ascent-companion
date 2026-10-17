@@ -141,10 +141,13 @@ export function applyRulings(findings: Finding[], rulings: Ruling[]): Finding[] 
   return findings.map((f) => {
     // Narrowest first, so the note the office reads is the most specific one
     // they actually wrote about this finding.
+    // A finding with no job (markup drift, a missed email) or no customer has
+    // no wildcard to match: an empty part would make the key match that kind
+    // on EVERY job or customer, which is how one ruling silenced them all.
     const hit =
       byKey.get(f.key) ??
-      byKey.get(jobKindKey(f.kind, f.jobId)) ??
-      byKey.get(customerKindKey(f.kind, f.customerName));
+      (f.jobId ? byKey.get(jobKindKey(f.kind, f.jobId)) : undefined) ??
+      (f.customerName ? byKey.get(customerKindKey(f.kind, f.customerName)) : undefined);
     if (!hit) return f;
     const note: SuppressionNote = {
       reason: hit.reason,

@@ -77,6 +77,14 @@ describe("a 'job-kind' ruling", () => {
     // different job, so a job-scoped ruling must not touch it.
     expect(suppressed([finding({ jobId: "J2" })], [r])).toEqual([false]);
   });
+
+  it("stored for a finding with NO job, reaches no other jobless finding", () => {
+    // Markup drift and missed-email findings carry jobId "". A job-kind ruling
+    // on one used to key on "kind||*" and silence that kind for every customer.
+    const blank = ruling({ key: jobKindKey("markup-rate-drift", ""), kind: "markup-rate-drift", jobId: "", scope: "job-kind" });
+    const other = finding({ kind: "markup-rate-drift", jobId: "", customerName: "Kevin Berger" });
+    expect(suppressed([other], [blank])).toEqual([false]);
+  });
 });
 
 describe("a 'customer-kind' ruling", () => {

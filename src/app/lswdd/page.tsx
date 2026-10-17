@@ -132,7 +132,10 @@ export default function LswddPage() {
             // A name the sweep already knows needs no re-teaching; an
             // unrecognised one defaults to being remembered, since typing the
             // same mapping every month is the thing this page exists to stop.
-            learnAlias: !l.knownAlias,
+            // Not when it matched several jobs: that name is a multi-job
+            // customer ("Berger"), and remembering one pick would pre-fill
+            // every later charge to that job.
+            learnAlias: !l.knownAlias && l.candidates.length < 2,
           };
         }
       }

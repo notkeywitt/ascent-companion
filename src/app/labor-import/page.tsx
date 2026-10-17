@@ -396,6 +396,8 @@ export default function LaborImportPage() {
   const [selJobs, setSelJobs] = useState<Set<string>>(new Set());
   const [selWorkers, setSelWorkers] = useState<Set<string>>(new Set());
   const [jobIdMap, setJobIdMap] = useState<Record<string, string>>({});
+  // Picks for customer-only rows: this session only (see setJobId).
+  const [sessionPicks, setSessionPicks] = useState<Record<string, string>>({});
 
   // JobTread jobs for the picker (read-only). Falls back to manual entry if the
   // fetch fails (no grant, offline) or a job isn't in the open-jobs list.
@@ -474,6 +476,13 @@ export default function LaborImportPage() {
   }
 
   function setJobId(jobRaw: string, id: string) {
+    // A row naming only a multi-job customer (no jobcode_2) can be a different
+    // job next month. Remembering its pick filed every later month's hours on
+    // that job without asking, so the pick lasts this session only.
+    if (customerOnly(jobRaw)) {
+      setSessionPicks((prev) => ({ ...prev, [jobRaw]: id }));
+      return;
+    }
     setJobIdMap((prev) => {
       const next = { ...prev, [jobRaw]: id };
       try {
@@ -637,12 +646,27 @@ export default function LaborImportPage() {
 
   // The Projects rows this job could point at: an exact "Customer — Job" hit if
   // the tab ever gets per-job jobcode_1 values, else the customer's row(s).
+  // When QuickBooks names the job (jobcode_2), only the customer's rows for
+  // THAT job count. One row for another job — a job not in the tab yet, or a
+  // map cached before it existed — is not this job, so it never auto-fills.
   const projectsLink = (jobRaw: string): ProjectLink | undefined => {
     const direct = projectsMap[keyOf(jobRaw)];
     if (direct) return direct;
     const info = jobInfo.get(jobRaw);
-    return info ? projectsMap[keyOf(info.job1)] : undefined;
+    const link = info ? projectsMap[keyOf(info.job1)] : undefined;
+    if (!link || !info?.job2) return link;
+    const want = keyOf(info.job2);
+    const keep = link.ids.map((_, i) => i).filter((i) => keyOf(link.labels[i]) === want);
+    if (keep.length) return { ids: keep.map((i) => link.ids[i]), labels: keep.map((i) => link.labels[i]) };
+    return link.ids.length > 1 ? link : undefined;
   };
+
+  // A row with no jobcode_2 whose customer owns more than one job.
+  const customerOnly = (jobRaw: string) =>
+    !jobInfo.get(jobRaw)?.job2 && (projectsLink(jobRaw)?.ids.length ?? 0) > 1;
+  // A row's own pick: remembered on the device, except a customer-only row's.
+  const pickFor = (jobRaw: string) =>
+    ((customerOnly(jobRaw) ? sessionPicks[jobRaw] : jobIdMap[jobRaw]) ?? "").trim();
 
   /**
    * Auto-fill ONLY when the link is unambiguous — exactly one JobTread job.
@@ -659,14 +683,14 @@ export default function LaborImportPage() {
 
   // Non-null when the customer maps to >1 JT job and you haven't picked yet.
   const ambiguousLink = (jobRaw: string): ProjectLink | null => {
-    if ((jobIdMap[jobRaw] ?? "").trim()) return null; // already picked
+    if (pickFor(jobRaw)) return null; // already picked
     const link = projectsLink(jobRaw);
     return link && link.ids.length > 1 ? link : null;
   };
 
-  const effectiveId = (jobRaw: string) => (jobIdMap[jobRaw] ?? "").trim() || projectsId(jobRaw);
+  const effectiveId = (jobRaw: string) => pickFor(jobRaw) || projectsId(jobRaw);
   const idSource = (jobRaw: string): "manual" | "projects" | "" =>
-    (jobIdMap[jobRaw] ?? "").trim() ? "manual" : projectsId(jobRaw) ? "projects" : "";
+    pickFor(jobRaw) ? "manual" : projectsId(jobRaw) ? "projects" : "";
 
   // A row's JT Cost Item ID: its CSI looked up in ITS OWN job's TIME-TRACKABLE
   // budget leaves. Never the plain budget — see the ttBudgets note above.
@@ -696,7 +720,7 @@ export default function LaborImportPage() {
     }
     return [...s].sort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selJobs, jobIdMap, projectsMap, jobInfo]);
+  }, [selJobs, jobIdMap, sessionPicks, projectsMap, jobInfo]);
 
   // Fetch each job's cost-code → costItemId map. Jobs that fail are recorded as
   // {} so we mark them attempted and don't spin re-fetching them.
@@ -759,7 +783,7 @@ export default function LaborImportPage() {
         (e) => userIdFor(e.worker) && effectiveId(e.jobRaw) && costItemIdFor(e) && typeFor(e),
       ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [selected, jobIdMap, projectsMap, jobInfo, budgets, ttBudgets, workerIdMap, typeMap, jtUsers, orgTypes],
+    [selected, jobIdMap, sessionPicks, projectsMap, jobInfo, budgets, ttBudgets, workerIdMap, typeMap, jtUsers, orgTypes],
   );
 
   // (worker × job × cost code) combinations in play, each with its time entries,
@@ -792,7 +816,7 @@ export default function LaborImportPage() {
   const held = useMemo(
     () => selected.filter((e) => effectiveId(e.jobRaw) && !costItemIdFor(e)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [selected, jobIdMap, projectsMap, jobInfo, budgets, ttBudgets],
+    [selected, jobIdMap, sessionPicks, projectsMap, jobInfo, budgets, ttBudgets],
   );
   const wrongCostType = useMemo(
     () => held.filter(notTimeTrackable),
@@ -818,7 +842,7 @@ export default function LaborImportPage() {
   const jobsNeedingId = useMemo(
     () => [...selJobs].filter((j) => !effectiveId(j)).sort(),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [selJobs, jobIdMap, projectsMap, jobInfo],
+    [selJobs, jobIdMap, sessionPicks, projectsMap, jobInfo],
   );
 
   const dropped = useMemo(

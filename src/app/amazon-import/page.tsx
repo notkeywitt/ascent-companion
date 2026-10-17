@@ -19,6 +19,7 @@ import {
   orderExtraLines,
   parseAmazonCsv,
   reconcileGap,
+  suggestJob,
   type AmazonOrder,
 } from "@/lib/amazonImport";
 
@@ -88,19 +89,6 @@ function monthOptions() {
     opts.push({ ym, label: d.toLocaleString("en-US", { month: "long", year: "numeric" }) });
   }
   return opts;
-}
-
-// Best-effort job guess from the PO Number the office typed at checkout. Takes
-// the token before a dash ("Ferron - Masonry" → "Ferron") and finds a job whose
-// customer or name contains it. The user confirms/overrides every guess.
-function suggestJob(po: string, jobs: JobRef[]): string {
-  const token = po.split(/[-–—/]/)[0].trim().toLowerCase();
-  if (token.length < 3) return "";
-  const hit = jobs.find(
-    (j) =>
-      (j.customer ?? "").toLowerCase().includes(token) || j.name.toLowerCase().includes(token),
-  );
-  return hit?.id ?? "";
 }
 
 const STATUS_STYLE: Record<OrderStatus, { label: string; cls: string }> = {

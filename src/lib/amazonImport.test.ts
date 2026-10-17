@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { orderExtraLines, parseAmazonCsv, reconcileGap } from "./amazonImport";
+import { orderExtraLines, parseAmazonCsv, reconcileGap, suggestJob } from "./amazonImport";
 
 /**
  * The bug these cover: the import built a bill from product lines + sales tax
@@ -110,5 +110,28 @@ describe("parseAmazonCsv", () => {
     const { orders, warnings } = parseAmazonCsv(csv);
     expect(reconcileGap(orders[0])).toBe("-5.00");
     expect(warnings.join(" ")).toContain("113-3765828-7819460");
+  });
+});
+
+describe("suggestJob", () => {
+  // Real multi-job customers: Berger and Moon Spring each own a "Main House".
+  const jobs = [
+    { id: "bunk", name: "Bunkhouse", customer: "Kevin Berger" },
+    { id: "bgmh", name: "Main House", customer: "Kevin Berger" },
+    { id: "pole", name: "Pole Barn", customer: "Moon Spring Farm LLC" },
+    { id: "msmh", name: "Main House", customer: "Moon Spring Farm LLC" },
+    { id: "ferr", name: "Otis Perkins Addition", customer: "Ferron" },
+  ];
+  it("uses the job part to pick one of a customer's jobs", () => {
+    expect(suggestJob("Berger - Bunkhouse", jobs)).toBe("bunk");
+    expect(suggestJob("Moon Spring - Main House", jobs)).toBe("msmh");
+  });
+  it("leaves a customer-only or shared-name PO blank", () => {
+    expect(suggestJob("Berger", jobs)).toBe("");
+    expect(suggestJob("Main House", jobs)).toBe("");
+  });
+  it("still guesses a one-job customer", () => {
+    expect(suggestJob("Ferron - Masonry", jobs)).toBe("ferr");
+    expect(suggestJob("JR", jobs)).toBe("");
   });
 });

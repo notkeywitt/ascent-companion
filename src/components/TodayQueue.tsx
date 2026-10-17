@@ -78,7 +78,8 @@ const QUEUES: Queue[] = [
     href: "",
     load: async () => {
       const bills = await drafts();
-      const jobs = new Set(bills.map((b) => b.jobName || "No job")).size;
+      // By id: two customers each have a "Main House".
+      const jobs = new Set(bills.map((b) => b.jobId || b.jobName || "No job")).size;
       return { count: bills.length, detail: `${plural(bills.length, "draft bill")} on ${plural(jobs, "job")}` };
     },
   },

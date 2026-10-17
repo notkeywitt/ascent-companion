@@ -182,6 +182,15 @@ export async function POST(req: NextRequest) {
         { status: 400 },
       );
     }
+    // A job-wide ruling on a finding with no job (markup drift, a missed email)
+    // would be stored under an empty wildcard and silence that kind on EVERY
+    // job. Refuse it, as the customer-wide case below does.
+    if (scope === "job-kind" && !String(body.jobId ?? "").trim()) {
+      return NextResponse.json(
+        { error: "This finding has no job. Rule on just this one, or customer-wide." },
+        { status: 400 },
+      );
+    }
     const customerName = String(body.customerName ?? "").trim();
     // A customer-kind ruling with no customer would be stored under an empty
     // wildcard and then silence that kind for EVERY customer. Refuse it.
