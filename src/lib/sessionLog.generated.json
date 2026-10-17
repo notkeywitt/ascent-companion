@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-17T13:37:18Z",
+  "generatedAt": "2026-10-17T13:41:12Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "claude/billing-picker-text",
       "status": "shipped",
       "started": "2026-10-17T12:57:13Z",
-      "updated": "2026-10-17T13:37:18Z",
+      "updated": "2026-10-17T13:41:12Z",
       "goal": "remove billing period label and caption from home picker",
-      "next": "none — job and month pickers match",
+      "next": "none — check swipe back on a phone home-screen app",
       "commits": [
         {
           "date": "2026-10-17",
@@ -53,6 +53,13 @@
           "sha": "73a0909",
           "subject": "companion: drop logo from job picker title, match month caret to it",
           "files": "src/components/JobPicker.tsx, src/components/MonthPicker.tsx"
+        },
+        {
+          "date": "2026-10-17",
+          "time": "13:41",
+          "sha": "78b4ab5",
+          "subject": "companion: swap header back button for edge swipe, drop package link from tracking sheet",
+          "files": "CODEBASE_MAP.md, src/app/layout.tsx, src/app/trackingsheet/Board.tsx, src/components/AppHeader.tsx, src/components/SwipeBack.tsx, src/lib/swipeBack.test.ts, +1 more"
         }
       ]
     },
