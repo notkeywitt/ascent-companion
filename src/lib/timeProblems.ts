@@ -55,7 +55,8 @@ export const PROBLEM_FIX: Record<TimeProblem, string> = {
     "Nothing was lost. Retry posts the record to JobTread. If JobTread refused it, tap Edit, correct what it names, and post.",
   "push-failed":
     "JobTread already has the entry — its stop time is what didn't land, so the hours read short. " +
-    "Set the stop time in JobTread; do not re-post, it would duplicate.",
+    "Set the stop time in JobTread; do not re-post, it would duplicate. " +
+    "Once JobTread is right, tap JobTread is right to clear the record here.",
   "missing-in-jt":
     "Someone deleted the entry in JobTread. Re-enter it there if the time was worked. " +
     "If the delete was right, tap JobTread is right to close the record here.",
@@ -66,10 +67,15 @@ export const PROBLEM_FIX: Record<TimeProblem, string> = {
 };
 
 /** Whether "JobTread is right" can rewrite the record here to match. Needs a
- *  JobTread entry that is closed (or gone) — see `acceptJobTread`. */
+ *  JobTread entry that is closed (or gone) — see `acceptJobTread`, which
+ *  re-reads it and refuses one still running.
+ *
+ *  `push-failed` is on because its status never clears by itself: the sheet
+ *  keeps "JobTread error: …" after someone fixes the entry in JobTread by hand
+ *  (Keillor's 7/24, stop time set and approved and paid, still listed). */
 export const PROBLEM_ACCEPTABLE: Record<TimeProblem, boolean> = {
   "not-posted": false,
-  "push-failed": false,
+  "push-failed": true,
   "missing-in-jt": true,
   "open-in-jt": false,
   "time-mismatch": true,

@@ -4,6 +4,7 @@ import {
   PROBLEM_FIX,
   PROBLEM_LABEL,
   PROBLEM_ORDER,
+  PROBLEM_ACCEPTABLE,
   PROBLEM_RETRYABLE,
   clockOf,
   driftMinutes,
@@ -66,6 +67,9 @@ describe("sheetProblem — what the Time Entries row says about itself", () => {
     // the one JobTread already has open.
     expect(row("22_abc", "JobTread error: something went wrong")).toBe("push-failed");
     expect(PROBLEM_RETRYABLE["push-failed"]).toBe(false);
+    // Fixed by hand in JobTread, the row's error status never clears itself —
+    // "JobTread is right" is the way out.
+    expect(PROBLEM_ACCEPTABLE["push-failed"]).toBe(true);
     expect(PROBLEM_RETRYABLE["not-posted"]).toBe(true);
   });
 
