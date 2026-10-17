@@ -141,13 +141,12 @@ export function HomeMasthead() {
 
       {shows && (
         <div className="ml-auto shrink-0 text-right">
-          <SectionLabel>Billing period</SectionLabel>
           {/* A quiet native select: it reads as the heading it replaced until
               you touch it, and on a tablet it opens the OS month wheel. */}
           {canSet ? (
             <div className="mt-1 flex min-h-[26px] items-center justify-end gap-1.5">
               {/* The caret sits LEFT of the month so the month's last character
-                  still lines up with the label above it and the chip below —
+                  still lines up with the chip below —
                   a native select's own chevron would inset the text instead. */}
               <span aria-hidden className="text-[10px] text-neutral-400 dark:text-neutral-500">
                 ▾
@@ -182,21 +181,23 @@ export function HomeMasthead() {
               {ym ? monthLabel(ym) : ""}
             </p>
           )}
-          <div className="mt-1 flex items-center justify-end gap-2">
-            {err ? (
-              <span role="alert" className="text-[11.5px] text-red-600 dark:text-red-400">
-                {err}
-              </span>
-            ) : stale ? (
-              <Chip tone="danger">
-                Switch to {monthLabel(nextMonth(ym)).replace(/ \d{4}$/, "")}
-              </Chip>
-            ) : (
-              // "Automatic" is the state before anyone picks a month: the 10th
-              // still rolls it over on its own. Picking one ends that for good.
-              <MetaLine items={[auto ? "Automatic — rolls on the 10th" : "Bills arriving today"]} />
-            )}
-          </div>
+          {(err || stale || auto) && (
+            <div className="mt-1 flex items-center justify-end gap-2">
+              {err ? (
+                <span role="alert" className="text-[11.5px] text-red-600 dark:text-red-400">
+                  {err}
+                </span>
+              ) : stale ? (
+                <Chip tone="danger">
+                  Switch to {monthLabel(nextMonth(ym)).replace(/ \d{4}$/, "")}
+                </Chip>
+              ) : (
+                // "Automatic" is the state before anyone picks a month: the 10th
+                // still rolls it over on its own. Picking one ends that for good.
+                <MetaLine items={["Automatic — rolls on the 10th"]} />
+              )}
+            </div>
+          )}
         </div>
       )}
     </header>
