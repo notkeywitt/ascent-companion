@@ -6196,7 +6196,9 @@ function tzOffsetMs(instant: number, tz: string): number {
  * names in `tz`, as the ISO string JobTread should store. "" if unparseable.
  */
 export function orgLocalToJtIso(local: string, tz: string = JT_ORG_TZ): string {
-  const m = (local ?? "").trim().match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2}))?$/);
+  // One-digit hours too: the Time Entries sheet reads "2026-09-23 7:00", and a
+  // two-digit-only pattern turned every morning record into "no start time".
+  const m = (local ?? "").trim().match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{1,2}):(\d{2})(?::(\d{2}))?$/);
   if (!m) return "";
   const naive = Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +(m[6] ?? 0));
   // Two passes: the second resolves the offset against the real instant, so a

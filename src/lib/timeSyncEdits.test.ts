@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { orgLocalToJtIso } from "./jobtread";
 import { applyEdits, type WorkedRow } from "./timeSync";
 
 // Casey's 9/15 record — JobTread refused it: "Unknown time entry type 'Thomas - PM'".
@@ -52,5 +53,14 @@ describe("applyEdits", () => {
   it("refuses a stop at or before the start", () => {
     expect(applyEdits(row, { end: "2026-09-15T10:00" }).error).toMatch(/after the start/);
     expect(applyEdits(row, { start: "nonsense" }).error).toMatch(/unreadable/);
+  });
+});
+
+describe("orgLocalToJtIso", () => {
+  // Casey's 9/23 record: the sheet's "7:00" read as no start time, so the
+  // retry refused with "Row is missing start time, end time".
+  it("reads the sheet's one-digit hour", () => {
+    expect(orgLocalToJtIso("2026-09-23 7:00")).not.toBe("");
+    expect(orgLocalToJtIso("2026-09-23 7:00")).toBe(orgLocalToJtIso("2026-09-23T07:00:00"));
   });
 });

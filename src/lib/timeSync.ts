@@ -596,6 +596,10 @@ export async function retryWorked(
   if (!hasGrant()) return { ok: false, jtStatus: "", error: "No JobTread grant configured." };
 
   let row = toWorkedRow(raw);
+  // The sheet reads "2026-09-23 7:00". Pad it once here, so every reader after
+  // this — the JobTread conversion, the duplicate check, the write-back that
+  // Apps Script parses with a two-digit hour — sees the same minute.
+  row = { ...row, start: editStamp(row.start) || row.start, end: editStamp(row.end) || row.end };
   let changed: string[] = [];
   if (edits) {
     const applied = applyEdits(row, edits);
