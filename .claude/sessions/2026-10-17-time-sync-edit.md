@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/time-sync-edit
 status: shipped
 started: 2026-10-17T03:18:33Z
-updated: 2026-10-17T11:45:26Z
+updated: 2026-10-17T11:58:03Z
 goal: 
 next: verify the Time Sync pay-type add on Casey's three Jim Thomas records
 ---
@@ -22,5 +22,7 @@ next: verify the Time Sync pay-type add on Casey's three Jim Thomas records
   src/app/api/time-sync/options/route.ts, src/app/api/time-sync/pay-type/route.ts, src/app/time-sync/TimeSyncEditor.tsx, src/lib/timeSync.ts
 - 2026-10-17 11:43 · `4113ac9` companion: read one-digit sheet hours when retrying a time record
   src/lib/jobtread.ts, src/lib/timeSync.ts, src/lib/timeSyncEdits.test.ts
+- 2026-10-17 11:58 · `4333e05` companion: let jobtread is right clear a refused time record
+  src/lib/timeProblems.test.ts, src/lib/timeProblems.ts
 
 ## Notes
