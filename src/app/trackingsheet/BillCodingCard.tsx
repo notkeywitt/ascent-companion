@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type Dispatch, type SetStateAction } from "react";
+import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { CostCodeSelect, type Option } from "@/components/CostCodeSelect";
 import { DocumentAccess } from "@/components/DocumentAccess";
 import { JobPicker, type JobRef } from "@/components/JobPicker";
@@ -433,6 +433,8 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
   } = ctl;
   /** Docked in a sticky column: capped at the viewport, scrolling inside itself. */
   const boxed = !standalone && !scrollWithPage;
+  /** The zoomed scan opens to the left of this, so the lines stay beside it. */
+  const cardRef = useRef<HTMLDivElement>(null);
   // Either field can say Expense — "Push as Expense" may be set in JobTread alone.
   const isExpense = bill?.qboDocumentType === "purchase" || bill?.name === "Expense";
 
@@ -683,7 +685,7 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
         the same budget the column actually has.
         Docked only. Standalone or scrollWithPage the PAGE scrolls, and capping
         here would put a scrollbox inside a scrollbox. */}
-      <div className={boxed ? "flex max-h-below-header flex-col" : ""}>
+      <div ref={cardRef} className={boxed ? "flex max-h-below-header flex-col" : ""}>
         {!standalone && <SectionLabel className="mb-2">Coding</SectionLabel>}
         {!bill ? (
           <EmptyState>{c("recode.empty.selectBill")}</EmptyState>
@@ -901,7 +903,7 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                 )}
                 <div className="space-y-2">
                   {shownFiles.map((f) => (
-                    <InvoiceAttachment key={f.id} file={f} maxHClass={scanMaxHClass} />
+                    <InvoiceAttachment key={f.id} file={f} maxHClass={scanMaxHClass} dockLeftOf={cardRef} />
                   ))}
                 </div>
               </div>

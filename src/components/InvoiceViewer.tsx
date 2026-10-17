@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type RefObject } from "react";
 
 /**
  * THE INVOICE VIEWER — how a bill's attached scan is shown, everywhere.
@@ -119,21 +119,43 @@ function usePageCount(file: InvoiceFile) {
  *
  * `page` is which page of a multi-page PDF to open on — the one that was tapped
  * in the strip. ← and → walk the rest.
+ *
+ * DOCKED. Given `dockLeftOf` (the coding panel), the lightbox fills only the
+ * screen to the LEFT of that element, so the bill's lines stay in view beside
+ * the scan for coding. The page is not frozen then: the panel still scrolls.
+ * With too little room to its left (a phone, a narrow window) it goes full
+ * screen as before.
  */
 export function InvoiceLightbox({
   file,
   page = 1,
   onClose,
+  dockLeftOf,
 }: {
   file: InvoiceFile;
   page?: number;
   onClose: () => void;
+  dockLeftOf?: RefObject<HTMLElement | null>;
 }) {
   const [actual, setActual] = useState(false);
   const [n, setN] = useState(page);
   const pages = usePageCount(file);
   const src = pageSrc(file, n);
   const isPdf = !isImageFile(file);
+  /** px from the viewport's right edge to the docked lightbox's right edge, or null for full screen. */
+  const [dockRight, setDockRight] = useState<number | null>(null);
+
+  useEffect(() => {
+    const measure = () => {
+      const left = dockLeftOf?.current?.getBoundingClientRect().left ?? 0;
+      // ponytail: 420px is the narrowest scan worth reading beside the panel.
+      setDockRight(left >= 420 ? window.innerWidth - left + 8 : null);
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [dockLeftOf]);
+  const docked = dockRight !== null;
 
   // A page change re-fits: actual size on page 1 says nothing about page 2.
   useEffect(() => setActual(false), [n]);
@@ -141,19 +163,22 @@ export function InvoiceLightbox({
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
+      // Arrows inside a field move the caret — docked, the panel's fields are live.
+      if ((e.target as HTMLElement | null)?.closest?.("input, textarea, select, [contenteditable]")) return;
       if (e.key === "ArrowRight") setN((v) => Math.min(v + 1, pages));
       if (e.key === "ArrowLeft") setN((v) => Math.max(v - 1, 1));
     };
     window.addEventListener("keydown", onKey);
     // Freeze the page underneath: without this the wheel falls through to the
     // page once a fit-to-screen image has no scroll of its own to consume.
+    // Not when docked — the panel beside it scrolls with the page.
     const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    if (!docked) document.body.style.overflow = "hidden";
     return () => {
       window.removeEventListener("keydown", onKey);
       document.body.style.overflow = prev;
     };
-  }, [onClose, pages]);
+  }, [onClose, pages, docked]);
 
   const stepBtn =
     "shrink-0 rounded-lg px-2 py-1 text-sm leading-none text-white/80 hover:text-white disabled:opacity-30 disabled:hover:text-white/80";
@@ -161,8 +186,9 @@ export function InvoiceLightbox({
   return (
     <div
       className="fixed inset-0 z-[60] flex flex-col bg-black/85"
+      style={docked ? { left: "var(--rail-w)", right: dockRight } : undefined}
       role="dialog"
-      aria-modal="true"
+      aria-modal={!docked}
       aria-label={file.name ?? "Invoice"}
       onClick={onClose}
     >
@@ -223,7 +249,7 @@ export function InvoiceLightbox({
       {/* `items-start` once zoomed, so a tall image starts at its top edge
           instead of being centred with its head off screen. */}
       <div
-        className={`flex min-h-0 flex-1 justify-center overflow-auto p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] ${
+        className={`flex min-h-0 flex-1 justify-center overflow-auto overscroll-contain p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] ${
           actual ? "items-start" : "items-center"
         }`}
       >
@@ -264,10 +290,13 @@ export function InvoiceAttachment({
   file,
   maxHClass = "max-h-[32rem]",
   radiusClass = "rounded-lg",
+  dockLeftOf,
 }: {
   file: InvoiceFile;
   maxHClass?: string;
   radiusClass?: string;
+  /** Open the lightbox beside this element instead of over it. See InvoiceLightbox. */
+  dockLeftOf?: RefObject<HTMLElement | null>;
 }) {
   /** The page the lightbox opens on, or 0 for closed — pages are 1-based. */
   const [open, setOpen] = useState(0);
@@ -329,7 +358,7 @@ export function InvoiceAttachment({
           Open {file.name || "the PDF"} ↗
         </a>
       )}
-      {open > 0 && <InvoiceLightbox file={file} page={open} onClose={close} />}
+      {open > 0 && <InvoiceLightbox file={file} page={open} onClose={close} dockLeftOf={dockLeftOf} />}
     </div>
   );
 }
