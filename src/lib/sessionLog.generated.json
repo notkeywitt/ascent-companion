@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-17T02:55:39Z",
+  "generatedAt": "2026-10-17T03:04:57Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-10-17T02:55:39Z",
+      "updated": "2026-10-17T03:04:57Z",
       "goal": "",
-      "next": "Check on a wide screen that the docked scan sits flush left of the coding panel; tune the 420px threshold if needed",
+      "next": "Pick jobs for the 10 Needs-Project bills (picking Pole Barn on a Moon Spring Pole Barn bill teaches the Sunset alias); check jobcode_1 on Moon Spring/Berger/Velorum Projects rows.",
       "commits": [
         {
           "date": "2026-09-03",
@@ -333,6 +333,13 @@
           "sha": "bb2586b",
           "subject": "companion: zoomed bill scan opens beside the coding panel, not over it",
           "files": "src/app/trackingsheet/BillCodingCard.tsx, src/components/InvoiceViewer.tsx"
+        },
+        {
+          "date": "2026-10-16",
+          "time": "23:04",
+          "sha": "3cd22ea",
+          "subject": "companion: stop guessing one job for multi-job customers",
+          "files": "src/app/amazon-import/page.tsx, src/app/api/invoice-review/route.ts, src/app/invoice-review/InvoiceReview.tsx, src/app/labor-import/page.tsx, src/app/lswdd/page.tsx, src/components/TodayQueue.tsx, +4 more"
         }
       ]
     },
