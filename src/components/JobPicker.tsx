@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { PeakMark } from "@/components/PageTitle";
 import { fmtMiles, useNearestJobs } from "@/lib/nearestJob";
 import { confirmLeaveIfDirty } from "@/lib/useUnsavedChanges";
 
@@ -123,7 +122,7 @@ export function useJobIdParam() {
  * never on mount, so a page that merely renders the picker prompts nobody.
  *
  * `variant="title"` draws the trigger as the PAGE HEADING instead of a form
- * control — peak mark, `<h1>`, one chevron — for a job-scoped page whose title
+ * control — `<h1>` and one chevron, no peak mark — for a job-scoped page whose title
  * IS the job (Tracking Sheets). Same dropdown; only the closed state changes.
  * Pass it through `PageHeader`'s `titleSlot`, which skips the `PageTitle` this
  * variant renders itself.
@@ -312,8 +311,7 @@ export function JobPicker({
   // title just wears the page heading's type instead of a field's border.
   const trigger =
     variant === "title" ? (
-      <h1 className="flex min-w-0 items-center gap-2.5 text-xl font-bold tracking-tight">
-        <PeakMark className="h-3.5 w-[22px] shrink-0" />
+      <h1 className="flex min-w-0 items-center text-xl font-bold tracking-tight">
         <button
           type="button"
           aria-haspopup="listbox"
@@ -324,6 +322,7 @@ export function JobPicker({
           {/* No grey-out for the empty state here: with no job picked the label
               is the PAGE'S NAME, which is not placeholder text. */}
           <span className="truncate">{label}</span>
+          {/* The same caret as MonthPicker, so the two title-line pickers match. */}
           <span className="shrink-0 text-base font-normal text-neutral-400">▾</span>
         </button>
       </h1>

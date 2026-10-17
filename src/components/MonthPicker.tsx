@@ -10,8 +10,8 @@ import { monthLabel } from "@/lib/billingMonths";
  * Why the select is invisible rather than styled: a native select is as wide
  * as its LONGEST option, which left a gap between the caret and a short month.
  * The visible text sizes to the month in force; the select only catches the
- * tap and opens the OS month wheel. The caret sits LEFT of the month so the
- * month's last character stays flush with whatever is right-aligned below it.
+ * tap and opens the OS month wheel. The caret follows the month, in the same
+ * size and colour as JobPicker's title caret.
  */
 export function MonthPicker({
   value,
@@ -35,11 +35,12 @@ export function MonthPicker({
     <label
       className={`relative flex items-center gap-1.5 rounded focus-within:ring-2 focus-within:ring-accent/25 ${className}`}
     >
-      <span aria-hidden className="text-[10px] text-neutral-400 dark:text-neutral-500">
-        ▾
-      </span>
       <span aria-hidden className="whitespace-nowrap text-[21px] font-bold leading-tight tracking-tight">
         {value ? current : ""}
+      </span>
+      {/* The same caret as JobPicker's title, so the two pickers match. */}
+      <span aria-hidden className="shrink-0 text-base font-normal text-neutral-400">
+        ▾
       </span>
       <select
         value={value}
