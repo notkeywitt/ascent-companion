@@ -7,6 +7,7 @@ import { useAccess } from "@/components/AccessProvider";
 import { COMPANY_TZ, billingMonthStale } from "@/lib/billing";
 import { billingMonths, monthLabel } from "@/lib/billingMonths";
 import { HomeReminders } from "@/components/HomeReminders";
+import { MonthPicker } from "@/components/MonthPicker";
 
 /**
  * The head of the iPad home console — a dateline, and where the billing month
@@ -145,41 +146,14 @@ export function HomeMasthead() {
               you touch it, and on a tablet it opens the OS month wheel. */}
           {canSet ? (
             <div className="flex min-h-[26px] items-center justify-end">
-              {/* The month is plain text with the select laid over it,
-                  invisible. A native select is as wide as its LONGEST option,
-                  which left a gap between the caret and a short month. The
-                  caret sits LEFT of the month so the month's last character
-                  lines up with the chip below. */}
-              <label
-                className={`relative flex items-center gap-1.5 rounded focus-within:ring-2 focus-within:ring-accent/25 ${
-                  stale ? "text-red-600 dark:text-red-400" : ""
-                }`}
-              >
-                <span aria-hidden className="text-[10px] text-neutral-400 dark:text-neutral-500">
-                  ▾
-                </span>
-                <span aria-hidden className="text-[21px] font-bold leading-tight tracking-tight">
-                  {ym ? monthLabel(ym) : ""}
-                </span>
-                <select
-                  value={ym}
-                  disabled={saving || !ym}
-                  onChange={(e) => set(e.target.value)}
-                  aria-label="Billing month — every non-Sunset bill files into this month"
-                  className="absolute inset-0 h-full w-full cursor-pointer appearance-none opacity-0 disabled:cursor-default"
-                >
-                  {/* The month in force first, so a set month that has scrolled off
-                    the 15-month list still shows what it is. */}
-                  {ym && !months.some((m) => m.value === ym) && (
-                    <option value={ym}>{monthLabel(ym)}</option>
-                  )}
-                  {months.map((m) => (
-                    <option key={m.value} value={m.value}>
-                      {m.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <MonthPicker
+                value={ym}
+                options={months}
+                onChange={set}
+                disabled={saving}
+                ariaLabel="Billing month — every non-Sunset bill files into this month"
+                className={stale ? "text-red-600 dark:text-red-400" : ""}
+              />
             </div>
           ) : (
             <p

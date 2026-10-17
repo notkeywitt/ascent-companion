@@ -89,6 +89,7 @@ import { discardDraft, draftSavedAtLabel } from "@/lib/codingDraft";
 import { isSalesTaxLine, SALES_TAX_LINE_NAME } from "@/lib/salesTax";
 import { billingMonths, monthLabel } from "@/lib/billingMonths";
 import type { CombineRequest } from "@/lib/combineLines";
+import { MonthPicker } from "@/components/MonthPicker";
 
 /**
  * Invoicing coding board — the desktop workbench for deciding which cost code
@@ -1499,13 +1500,10 @@ export function Board() {
   // push: it's a change of subject, not a step deeper. The staged-coding guard
   // has to be asked by hand — a router call isn't an anchor click it can catch.
   /**
-   * The billing month, as a control. It renders TWICE and only ever one of the
-   * two is visible: inline beside the page title on a phone (the title line has
-   * room to its right and the month is the control changed most often here), and
-   * in the desktop toolbar from lg up, where the row has space for it. CSS can
-   * hide a box but it cannot move one between two parents, so the alternative
-   * was a single select in the wrong place at one width or the other. Only the
-   * desktop copy carries the id, since two elements cannot share one.
+   * The billing month, as the desktop toolbar's control (lg up). Below lg the
+   * title line carries Home's MonthPicker instead. CSS can hide a box but it
+   * cannot move one between two parents, so the month renders twice and only
+   * one copy is ever visible.
    */
   const monthSelect = (cls: string, id?: string) => (
     <Select
@@ -1919,11 +1917,17 @@ export function Board() {
               />
               {/* The month, in the empty half of the title line — it used to
                   take a labelled full-width row of its own under the address,
-                  which is a lot of phone for one word and a year. The width is
-                  on the WRAPPER: `inputCls` carries `w-full`, which Tailwind
-                  emits after any fixed width, so a `w-[8.5rem]` on the select
-                  itself would silently lose. */}
-              <div className="w-[8.5rem] shrink-0 lg:hidden">{monthSelect("!h-11")}</div>
+                  which is a lot of phone for one word and a year. Home's
+                  picker, so the month reads the same on both pages. */}
+              <MonthPicker
+                value={ym}
+                options={billingMonths()}
+                onChange={(next) => {
+                  setYm(next);
+                  setUrlParam("ym", next);
+                }}
+                className="ml-auto min-h-11 shrink-0 lg:hidden"
+              />
             </div>
             {headerAddress && (
               <p className="mt-1 truncate text-sm text-neutral-500 dark:text-neutral-400">

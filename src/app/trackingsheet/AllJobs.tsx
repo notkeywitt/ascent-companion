@@ -11,6 +11,7 @@ import { UncapturedBills } from "@/components/UncapturedBills";
 import { SyncNowButton } from "@/components/SyncNowButton";
 import { SyncAllTrackingSheetsFor } from "@/components/TrackingSheetSync";
 import { billingMonths } from "@/lib/billingMonths";
+import { MonthPicker } from "@/components/MonthPicker";
 import { AllBills } from "./AllBills";
 import { UnsyncedDrafts } from "./UnsyncedDrafts";
 import { MonthJobDonuts, useMonthJobs } from "./MonthJobDonuts";
@@ -90,7 +91,7 @@ export function AllJobs() {
     <main className="mx-auto max-w-2xl px-4 pb-24 pt-6 xl:max-w-[110rem]">
       <PageHeader
         titleSlot={
-          <div className="flex min-w-0 flex-1 flex-col">
+          <div className="flex min-w-0 flex-1 items-center gap-2">
             <JobPicker
               variant="title"
               value=""
@@ -101,6 +102,15 @@ export function AllJobs() {
               showPhaseFilter
               defaultPhases={WORKING_PHASES}
               showToBeInvoiced={can("recode")}
+            />
+            {/* Below lg the month sits on the title line as Home's picker,
+                the same as a single job's sheet. The select in the actions
+                row below is the desktop copy. */}
+            <MonthPicker
+              value={ym}
+              options={billingMonths(15)}
+              onChange={setYm}
+              className="ml-auto min-h-11 shrink-0 lg:hidden"
             />
           </div>
         }
@@ -114,8 +124,9 @@ export function AllJobs() {
           QuickBooks → JobTread page. */}
       <div className="mb-4 flex flex-wrap items-start gap-2">
         {/* Width on a wrapper: inputCls carries w-full, which beats a w-48
-            beside it by stylesheet order. */}
-        <div className="w-48">
+            beside it by stylesheet order. Desktop only — below lg the month
+            is on the title line. */}
+        <div className="hidden w-48 lg:block">
           <Select
             aria-label="Billing month"
             value={ym}
