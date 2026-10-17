@@ -1,7 +1,40 @@
 {
-  "generatedAt": "2026-10-17T03:04:57Z",
+  "generatedAt": "2026-10-17T03:21:06Z",
   "repo": "ascent-companion",
   "sessions": [
+    {
+      "slug": "time-sync-edit",
+      "file": "2026-10-17-time-sync-edit.md",
+      "branch": "claude/time-sync-edit",
+      "status": "shipped",
+      "started": "2026-10-17T03:18:33Z",
+      "updated": "2026-10-17T03:21:06Z",
+      "goal": "",
+      "next": "owner approves; then push claude/time-sync-edit to main (adds a JobTread write path)",
+      "commits": [
+        {
+          "date": "2026-10-17",
+          "time": "03:18",
+          "sha": "89de4a0",
+          "subject": "companion: edit a refused time record and post it from time sync",
+          "files": "src/app/api/time-sync/options/route.ts, src/app/api/time-sync/retry/route.ts, src/app/time-sync/TimeSyncEditor.tsx, src/app/time-sync/page.tsx, src/lib/timeProblems.ts, src/lib/timeSync.ts, +1 more"
+        },
+        {
+          "date": "2026-10-17",
+          "time": "03:18",
+          "sha": "4d96a7b",
+          "subject": "companion: log session 2026-10-17-time-sync-edit",
+          "files": ""
+        },
+        {
+          "date": "2026-10-17",
+          "time": "03:18",
+          "sha": "1757544",
+          "subject": "companion: log session 2026-10-17-time-sync-edit",
+          "files": ""
+        }
+      ]
+    },
     {
       "slug": "main",
       "file": "2026-09-03-main.md",

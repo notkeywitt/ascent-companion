@@ -2,9 +2,9 @@
 slug: time-sync-edit
 repo: ascent-companion
 branch: claude/time-sync-edit
-status: in-progress
+status: shipped
 started: 2026-10-17T03:18:33Z
-updated: 2026-10-17T03:18:40Z
+updated: 2026-10-17T03:21:06Z
 goal: 
 next: owner approves; then push claude/time-sync-edit to main (adds a JobTread write path)
 ---

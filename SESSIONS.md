@@ -32,6 +32,7 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
+| [time-sync-edit](.claude/sessions/2026-10-17-time-sync-edit.md) | 2026-10-17 | 3 | — |
 | [main](.claude/sessions/2026-09-03-main.md) | 2026-10-17 | 47 | — |
 | [automate-timesheet-email](.claude/sessions/2026-10-16-automate-timesheet-email.md) | 2026-10-16 | 1 | Draft the pay-period time entries email (JobTread CSV attached) from a button o… |
 | [jobtread-clock-in-description](.claude/sessions/2026-10-16-jobtread-clock-in-description.md) | 2026-10-16 | 1 | — |
@@ -46,4 +47,3 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 | [invoicing-menu](.claude/sessions/2026-10-13-invoicing-menu.md) | 2026-10-14 | 1 | — |
 | [jobcard](.claude/sessions/2026-10-13-jobcard.md) | 2026-10-14 | 1 | — |
 | [deposit-card](.claude/sessions/2026-10-12-deposit-card.md) | 2026-10-12 | 1 | Move the deposit card to the foot of the Tracking Sheets page |
-| [deposit-parse](.claude/sessions/2026-10-11-deposit-parse.md) | 2026-10-12 | 1 | Deposit form: accept typed dollar figures with commas and $ |
