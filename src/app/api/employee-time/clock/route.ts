@@ -88,7 +88,7 @@ import { markWorkedDeleted } from "@/lib/timeSync";
  *        `startTime` and opens a new one at the same instant on the new cost
  *        code, so the morning's hours stay on the morning's code. The returned
  *        `entryId` is the NEW running entry.
- * POST { op:"edit", entryId, jobId, costItemId, startTime, endTime, note }
+ * POST { op:"edit", entryId, jobId, costItemId, startTime, endTime, note, payType? }
  *      → { ok, previewed, wrote, jtStatus, minutes? }
  *        Edits an existing (closed) entry from the Timesheets tab — re-times it
  *        (JobTread recomputes minutes/cost from the new span), moves the job/cost
@@ -757,6 +757,11 @@ export async function POST(req: NextRequest) {
     const jobId = (body.jobId ?? "").trim();
     const costItemId = (body.costItemId ?? "").trim();
     const note = (body.note ?? "").trim();
+    // Optional, and sent only when the person changed it: writing `type` re-rates
+    // the entry (cost = minutes × that type's rate, probed 2026-09-08 — see
+    // updateTimeEntry). The same person picks it at clock-in, so the same person
+    // may correct it here; JobTread refuses a type their membership lacks.
+    const payType = (body.payType ?? "").trim();
     const startLocal = toLocalStamp(body.startTime ?? "");
     const endLocal = toLocalStamp(body.endTime ?? "");
     const startedAt = orgLocalToJtIso(startLocal);
@@ -818,6 +823,7 @@ export async function POST(req: NextRequest) {
         startedAt,
         endedAt,
         notes: note,
+        ...(payType ? { type: payType } : {}),
       });
       if (who.identity.acting) {
         const j = await openJournal("/api/employee-time/clock", {
@@ -830,7 +836,7 @@ export async function POST(req: NextRequest) {
             entity: "time-entry",
             entityId: entryId,
             jobId,
-            after: { jobId, costItemId, startedAt, endedAt, notes: note },
+            after: { jobId, costItemId, startedAt, endedAt, notes: note, ...(payType ? { type: payType } : {}) },
             beforeSource: "none",
             meta: {
               actingAs: who.identity.name,

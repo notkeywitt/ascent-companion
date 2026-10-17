@@ -195,6 +195,7 @@ type SheetId =
   | "edit"
   | "editjob"
   | "editcost"
+  | "edittype"
   // Change cost code without clocking out — splits the running entry.
   | "switch"
   | null;
@@ -727,6 +728,7 @@ export function EmployeeTimeClient({
   const [editStart, setEditStart] = useState(""); // "YYYY-MM-DDTHH:MM"
   const [editEnd, setEditEnd] = useState("");
   const [editNote, setEditNote] = useState("");
+  const [editPayType, setEditPayType] = useState("");
   const [editBusy, setEditBusy] = useState(false);
   const [editErr, setEditErr] = useState("");
   const [editMsg, setEditMsg] = useState(""); // e.g. the writes-off preview notice
@@ -1914,6 +1916,7 @@ export function EmployeeTimeClient({
     setEditErr("");
     setEditMsg("");
     setEditNote(e.notes ?? "");
+    setEditPayType(e.payType ?? "");
     setEditStart(`${e.date}T${e.startTime || "00:00"}`);
     setEditEnd(`${e.date}T${e.endTime || "00:00"}`);
     editWantCostRef.current = { jobId: e.jobId, costItemId: e.costItemId };
@@ -1948,6 +1951,18 @@ export function EmployeeTimeClient({
     ? `${editSelectedCost.number}${editSelectedCost.name ? ` — ${editSelectedCost.name}` : ""}`
     : "";
   const editDuration = fmtDuration(editStart, editEnd);
+  // The pay types the edit sheet offers: the person's own set (the same list
+  // the clock offers), plus the entry's current type if their membership no
+  // longer carries it, so the row never shows a value the list can't.
+  const editPayTypes: PayType[] = useMemo(
+    () =>
+      editEntry?.payType && !payTypes.some((t) => t.name === editEntry.payType)
+        ? [...payTypes, { name: editEntry.payType }]
+        : payTypes,
+    [payTypes, editEntry],
+  );
+  const editPayTypeChanged = !!editEntry && !!editPayType && editPayType !== editEntry.payType;
+  const editRate = editPayTypes.find((t) => t.name === editPayType)?.hourlyRate;
 
   // Save the edit — an updateTimeEntry on the entry's own id. Re-times, re-jobs
   // and re-codes it in one write; the note is required, same as everywhere else.
@@ -1991,6 +2006,9 @@ export function EmployeeTimeClient({
           startTime: editStart,
           endTime: editEnd,
           note: editNote.trim(),
+          // Only a CHANGED type is sent: writing `type` re-rates the entry at the
+          // membership's current rate, so an untouched one is left alone.
+          ...(editPayTypeChanged ? { payType: editPayType } : {}),
         }),
       });
       const json = await res.json();
@@ -2961,7 +2979,17 @@ export function EmployeeTimeClient({
             placeholder={!editCostLabelText}
             onClick={editJobId && editCostItems.length ? () => openSheet("editcost", "edit") : undefined}
           />
-          {editEntry?.payType && <FieldRow label="Pay type" value={editEntry.payType} static />}
+          {editPayTypes.length > 1 ? (
+            <FieldRow
+              label="Pay type"
+              value={editPayType || "Select a pay type"}
+              placeholder={!editPayType}
+              sub={typeof editRate === "number" ? `$${editRate}/hr` : undefined}
+              onClick={() => openSheet("edittype", "edit")}
+            />
+          ) : (
+            editEntry?.payType && <FieldRow label="Pay type" value={editEntry.payType} static />
+          )}
         </Card>
 
         <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -2987,6 +3015,12 @@ export function EmployeeTimeClient({
         {editDuration && (
           <p className="mt-1 text-xs text-neutral-500">
             {editDuration} — changing the times updates the hours (and the entry&apos;s cost).
+          </p>
+        )}
+        {editPayTypeChanged && (
+          <p className="mt-1 text-xs text-neutral-500">
+            Saving re-rates the entry at {editPayType}
+            {typeof editRate === "number" ? ` ($${editRate}/hr)` : ""}.
           </p>
         )}
 
@@ -3034,6 +3068,25 @@ export function EmployeeTimeClient({
         }}
         onClose={closeSheet}
       />
+
+      {/* Edit's own pay-type picker. */}
+      <Sheet open={sheet === "edittype"} title="Pay type" onClose={closeSheet}>
+        <ul className="pb-2">
+          {editPayTypes.map((t) => (
+            <OptionRow
+              key={t.name}
+              selected={t.name === editPayType}
+              label={t.name}
+              sub={typeof t.hourlyRate === "number" ? `$${t.hourlyRate}/hr` : undefined}
+              onClick={() => {
+                if (editPayType && t.name !== editPayType && !confirm(PAY_TYPE_CHANGE_WARNING)) return;
+                setEditPayType(t.name);
+                closeSheet();
+              }}
+            />
+          ))}
+        </ul>
+      </Sheet>
     </main>
   );
 }
