@@ -9,7 +9,7 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Branch | Last active | Commits | Next step |
 |---|---|---|---|---|
-| [main](.claude/sessions/2026-10-11-main.md) | `(detached)` | 5d ago | 2 | — |
+| [main](.claude/sessions/2026-10-11-main.md) | `(detached)` | 6d ago | 2 | — |
 | [main](.claude/sessions/2026-10-02-main.md) | `(detached)` | 15d ago | 4 | — |
 | [allbills-vendor-collapsed](.claude/sessions/2026-09-14-allbills-vendor-collapsed.md) | `claude/allbills-vendor-collapsed` | 24d ago | 40 | Watch the first monthly review after 77bbb2a: confirm email-bill-amount-mismatc… |
 | [time-entry-jt-sync](.claude/sessions/2026-09-15-time-entry-jt-sync.md) | `claude/time-entry-jt-sync-6q3257` | 32d ago | 5 | Verify view-as-employee live: open /employee-time as admin, tap 'View another e… |
@@ -32,7 +32,7 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
-| [main](.claude/sessions/2026-10-17-main.md) | 2026-10-17 | 8 | remove billing period label and caption from home picker |
+| [main](.claude/sessions/2026-10-17-main.md) | 2026-10-17 | 9 | remove billing period label and caption from home picker |
 | [time-sync-edit](.claude/sessions/2026-10-17-time-sync-edit.md) | 2026-10-17 | 7 | — |
 | [main](.claude/sessions/2026-09-03-main.md) | 2026-10-17 | 47 | — |
 | [automate-timesheet-email](.claude/sessions/2026-10-16-automate-timesheet-email.md) | 2026-10-16 | 1 | Draft the pay-period time entries email (JobTread CSV attached) from a button o… |

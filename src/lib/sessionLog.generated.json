@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-17T13:57:47Z",
+  "generatedAt": "2026-10-17T14:05:24Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "claude/billing-picker-text",
       "status": "shipped",
       "started": "2026-10-17T12:57:13Z",
-      "updated": "2026-10-17T13:57:47Z",
+      "updated": "2026-10-17T14:05:23Z",
       "goal": "remove billing period label and caption from home picker",
-      "next": "none — time page header trimmed",
+      "next": "none — still clocked in filter hidden when idle",
       "commits": [
         {
           "date": "2026-10-17",
@@ -66,6 +66,13 @@
           "time": "13:57",
           "sha": "8c2d484",
           "subject": "companion: drop logo and description from time page header",
+          "files": "src/app/employee-time/EmployeeTimeClient.tsx"
+        },
+        {
+          "date": "2026-10-17",
+          "time": "14:05",
+          "sha": "f0010f0",
+          "subject": "companion: hide still clocked in filter when nothing is running",
           "files": "src/app/employee-time/EmployeeTimeClient.tsx"
         }
       ]
