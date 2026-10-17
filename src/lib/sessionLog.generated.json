@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-17T14:15:35Z",
+  "generatedAt": "2026-10-17T14:44:52Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "claude/billing-picker-text",
       "status": "shipped",
       "started": "2026-10-17T12:57:13Z",
-      "updated": "2026-10-17T14:15:35Z",
+      "updated": "2026-10-17T14:44:52Z",
       "goal": "remove billing period label and caption from home picker",
-      "next": "none — work label and leave-last order shipped",
+      "next": "none — check an employee sees only their jobs on /employee-time",
       "commits": [
         {
           "date": "2026-10-17",
@@ -81,6 +81,13 @@
           "sha": "0e0ce0b",
           "subject": "companion: call cost code work on the time clock, list pto and sick last",
           "files": "src/app/api/employee-time/route.ts, src/app/employee-time/EmployeeTimeClient.tsx, src/lib/leaveLast.test.ts, src/lib/leaveLast.ts"
+        },
+        {
+          "date": "2026-10-17",
+          "time": "14:44",
+          "sha": "990aefe",
+          "subject": "companion: limit time clock jobs to the employee's active, precon and ascent jobs",
+          "files": "CODEBASE_MAP.md, src/app/api/employee-time/jobs/route.ts, src/app/employee-time/EmployeeTimeClient.tsx, src/app/employee-time/page.tsx, src/lib/jobsCache.ts, src/lib/jobtread.ts, +2 more"
         }
       ]
     },
