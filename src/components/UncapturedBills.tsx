@@ -241,7 +241,7 @@ export function UncapturedBills({ jobId }: { jobId?: string } = {}) {
   function remove(it: Item) {
     if (
       !window.confirm(
-        `Delete ${it.vendor} ${money(it.amount)}?\n\nThis removes the sheet row, its line items, and moves the PDF to the Drive bin. Use it for a payment receipt, a duplicate, or a junk extraction — not for a real unbilled cost.`,
+        `Delete ${it.vendor} ${money(it.amount)}?\n\nThis removes the sheet row, its line items, moves the PDF to the Drive bin, and takes the "_JT Invoice" tag off the email so it isn't captured again. Use it for a payment receipt, a duplicate, or a junk extraction — not for a real unbilled cost.`,
       )
     )
       return;

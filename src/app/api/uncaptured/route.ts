@@ -34,7 +34,7 @@ export async function GET() {
 // POST /api/uncaptured
 //   { expId, lines?, jobId?, dateReceived? } → pushUncaptured    → { ok, docId, amount }
 //   { expId, dismiss: true }                 → dismissUncaptured → { ok, expId }
-//   { expId, delete: true }                  → deleteUncaptured  → { ok, expId, trashed }
+//   { expId, delete: true }                  → forgetStuckBill   → { ok, expId, trashed, untagged }
 //   { expId, linkAccountId }                 → linkVendor        → { ok, vendorId, vendor, moved }
 export async function POST(req: NextRequest) {
   let body: Record<string, unknown> = {};
@@ -63,8 +63,13 @@ export async function POST(req: NextRequest) {
 
   // Destructive: the Apps Script handler refuses without confirm:true. We send it
   // explicitly rather than defaulting it on, so an accidental POST can't delete.
+  // forgetStuckBill, not deleteUncaptured: it takes the "_JT Invoice" tag off the
+  // email first. A bare delete left the tag on, and the next 15-minute scan
+  // imported the bill again (Lopez Septic invoice 516, 2026-10-15).
   if (body.delete === true) {
-    return callAppsScriptResponse({ action: "deleteUncaptured", expId, confirm: true });
+    const res = await callAppsScriptResponse({ action: "forgetStuckBill", expId, confirm: true });
+    revalidateTag("stuck-vendors");
+    return res;
   }
 
   // Push. `lines` is optional — omitted means "push what's already on the row".
