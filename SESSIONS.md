@@ -26,12 +26,13 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Branch | Parked | Picks up at |
 |---|---|---|---|
-| [ascent-security-analysis](.claude/sessions/2026-09-14-ascent-security-analysis.md) | `claude/ascent-security-analysis-m8fjif` | 33d ago | Owner merges PR #7 (git push origin origin/claude/ascent-security-analysis-m8fj… |
+| [ascent-security-analysis](.claude/sessions/2026-09-14-ascent-security-analysis.md) | `claude/ascent-security-analysis-m8fjif` | 34d ago | Owner merges PR #7 (git push origin origin/claude/ascent-security-analysis-m8fj… |
 
 ## Shipped
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
+| [manual-mileage-recording](.claude/sessions/2026-10-17-manual-mileage-recording.md) | 2026-10-17 | 1 | — |
 | [main](.claude/sessions/2026-10-17-main.md) | 2026-10-17 | 11 | remove billing period label and caption from home picker |
 | [time-sync-edit](.claude/sessions/2026-10-17-time-sync-edit.md) | 2026-10-17 | 7 | — |
 | [main](.claude/sessions/2026-09-03-main.md) | 2026-10-17 | 47 | — |
@@ -46,4 +47,3 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 | [rail](.claude/sessions/2026-10-13-rail.md) | 2026-10-14 | 1 | — |
 | [invoicing-rail](.claude/sessions/2026-10-13-invoicing-rail.md) | 2026-10-14 | 1 | — |
 | [invoicing-menu](.claude/sessions/2026-10-13-invoicing-menu.md) | 2026-10-14 | 1 | — |
-| [jobcard](.claude/sessions/2026-10-13-jobcard.md) | 2026-10-14 | 1 | — |

@@ -1,7 +1,26 @@
 {
-  "generatedAt": "2026-10-17T14:44:52Z",
+  "generatedAt": "2026-10-17T22:53:55Z",
   "repo": "ascent-companion",
   "sessions": [
+    {
+      "slug": "manual-mileage-recording",
+      "file": "2026-10-17-manual-mileage-recording.md",
+      "branch": "claude/manual-mileage-recording-6gh84y",
+      "status": "shipped",
+      "started": "2026-10-17T22:53:50Z",
+      "updated": "2026-10-17T22:53:55Z",
+      "goal": "",
+      "next": "owner: clasp push ascent-appscript so manual trips save From/To; check Get miles on a phone",
+      "commits": [
+        {
+          "date": "2026-10-17",
+          "time": "22:53",
+          "sha": "719c584",
+          "subject": "companion: let a hand-entered trip figure its miles from from and to",
+          "files": "CODEBASE_MAP.md, src/app/api/mileage/route-miles/route.ts, src/app/api/mileage/route.ts, src/app/mileage-tracker/page.tsx, src/lib/mileageRoute.test.ts, src/lib/mileageRoute.ts"
+        }
+      ]
+    },
     {
       "slug": "main",
       "file": "2026-10-17-main.md",

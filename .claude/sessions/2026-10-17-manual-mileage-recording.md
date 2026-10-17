@@ -2,9 +2,9 @@
 slug: manual-mileage-recording
 repo: ascent-companion
 branch: claude/manual-mileage-recording-6gh84y
-status: in-progress
+status: shipped
 started: 2026-10-17T22:53:50Z
-updated: 2026-10-17T22:53:50Z
+updated: 2026-10-17T22:53:55Z
 goal: 
 next: owner: clasp push ascent-appscript so manual trips save From/To; check Get miles on a phone
 ---
