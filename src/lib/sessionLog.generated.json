@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-17T11:45:26Z",
+  "generatedAt": "2026-10-17T11:58:04Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,7 +8,7 @@
       "branch": "claude/time-sync-edit",
       "status": "shipped",
       "started": "2026-10-17T03:18:33Z",
-      "updated": "2026-10-17T11:45:26Z",
+      "updated": "2026-10-17T11:58:04Z",
       "goal": "",
       "next": "verify the Time Sync pay-type add on Casey's three Jim Thomas records",
       "commits": [
@@ -53,6 +53,13 @@
           "sha": "4113ac9",
           "subject": "companion: read one-digit sheet hours when retrying a time record",
           "files": "src/lib/jobtread.ts, src/lib/timeSync.ts, src/lib/timeSyncEdits.test.ts"
+        },
+        {
+          "date": "2026-10-17",
+          "time": "11:58",
+          "sha": "4333e05",
+          "subject": "companion: let jobtread is right clear a refused time record",
+          "files": "src/lib/timeProblems.test.ts, src/lib/timeProblems.ts"
         }
       ]
     },
