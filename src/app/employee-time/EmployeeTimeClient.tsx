@@ -1984,7 +1984,8 @@ export function EmployeeTimeClient({
     const dur = fmtDuration(done.summary.startTime, done.summary.endTime);
     return (
       <main className="mx-auto max-w-2xl px-4 pb-24 pt-6">
-        <PageHeader title={linkTitle} description="Clock in and out of a job." />
+        {/* A bare <h1>: no peak mark and no description on this page. */}
+        <PageHeader titleSlot={<h1 className="text-xl font-bold tracking-tight">{linkTitle}</h1>} />
         <div className="space-y-4">
           <Card className="text-center">
             <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
@@ -2049,12 +2050,14 @@ export function EmployeeTimeClient({
 
   return (
     <main className={`mx-auto ${tab === "compare" ? "max-w-7xl" : "max-w-2xl"} px-4 pb-28 pt-4`}>
+      {/* A bare <h1>: no peak mark on this page, and a description only
+          while an admin is acting as someone else. */}
       <PageHeader
-        title={linkTitle}
+        titleSlot={<h1 className="text-xl font-bold tracking-tight">{linkTitle}</h1>}
         description={
           acting
             ? "You are viewing another employee's time. Everything you save is saved as them."
-            : "Clock in and out of a job, and check your timesheet."
+            : undefined
         }
       />
 
