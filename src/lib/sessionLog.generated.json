@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-17T12:57:25Z",
+  "generatedAt": "2026-10-17T13:01:43Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "claude/billing-picker-text",
       "status": "shipped",
       "started": "2026-10-17T12:57:13Z",
-      "updated": "2026-10-17T12:57:25Z",
+      "updated": "2026-10-17T13:01:43Z",
       "goal": "remove billing period label and caption from home picker",
-      "next": "none — done",
+      "next": "none — pull to refresh shipped; check it on a phone home-screen app",
       "commits": [
         {
           "date": "2026-10-17",
@@ -25,6 +25,13 @@
           "sha": "719cc77",
           "subject": "companion: session ledger",
           "files": ""
+        },
+        {
+          "date": "2026-10-17",
+          "time": "13:01",
+          "sha": "b66d005",
+          "subject": "companion: add pull down to refresh in the installed app",
+          "files": "CODEBASE_MAP.md, src/app/layout.tsx, src/components/PullToRefresh.tsx, src/lib/pullToRefresh.test.ts, src/lib/pullToRefresh.ts"
         }
       ]
     },
