@@ -1831,7 +1831,9 @@ export function EmployeeTimeClient({
 
   // The period's entries as day groups — newest day first, the API's own order.
   const dayGroups: DayGroup[] = useMemo(() => {
-    const shown = openOnly ? historyEntries.filter((e) => e.open) : historyEntries;
+    // The filter counts only while its pill shows (something is open), so a
+    // clock stopped with the filter on cannot strand an empty list.
+    const shown = openOnly && historyOpenCount > 0 ? historyEntries.filter((e) => e.open) : historyEntries;
     const byDay = new Map<string, HistoryEntry[]>();
     for (const e of shown) {
       const list = byDay.get(e.date);
@@ -1845,7 +1847,7 @@ export function EmployeeTimeClient({
       approved: entries.every((e) => e.approved),
       anyOpen: entries.some((e) => e.open),
     }));
-  }, [historyEntries, openOnly]);
+  }, [historyEntries, openOnly, historyOpenCount]);
 
   // The edit sheet's cost codes — the picked job's budget cost items, reloaded
   // whenever the edited entry's job changes. Mirrors the clock form's own cost
@@ -2467,9 +2469,13 @@ export function EmployeeTimeClient({
             <PillTab active={historyHalf === "b"} onClick={() => setHistoryHalf("b")}>
               16–end
             </PillTab>
-            <PillTab active={openOnly} onClick={() => setOpenOnly((v) => !v)} className="ml-auto">
-              Still clocked in{historyOpenCount ? ` (${historyOpenCount})` : ""}
-            </PillTab>
+            {/* Only while this period holds a running entry: a filter with
+                nothing to find is a button that does nothing. */}
+            {historyOpenCount > 0 && (
+              <PillTab active={openOnly} onClick={() => setOpenOnly((v) => !v)} className="ml-auto">
+                Still clocked in{historyOpenCount ? ` (${historyOpenCount})` : ""}
+              </PillTab>
+            )}
           </div>
 
           {/* Admin + office: the pay period's email to the bookkeeper. It covers
@@ -2491,7 +2497,7 @@ export function EmployeeTimeClient({
             <Loading label="Loading your time…" />
           ) : dayGroups.length === 0 ? (
             <EmptyState>
-              {openOnly ? "Nothing is running right now." : "No time logged for this period."}
+              {openOnly && historyOpenCount > 0 ? "Nothing is running right now." : "No time logged for this period."}
             </EmptyState>
           ) : (
             dayGroups.map((g) => <DaySection key={g.date} group={g} onEdit={openEdit} />)
