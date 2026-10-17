@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-17T13:30:42Z",
+  "generatedAt": "2026-10-17T13:37:18Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "claude/billing-picker-text",
       "status": "shipped",
       "started": "2026-10-17T12:57:13Z",
-      "updated": "2026-10-17T13:30:41Z",
+      "updated": "2026-10-17T13:37:18Z",
       "goal": "remove billing period label and caption from home picker",
-      "next": "none — tracking sheet month picker matches home",
+      "next": "none — job and month pickers match",
       "commits": [
         {
           "date": "2026-10-17",
@@ -46,6 +46,13 @@
           "sha": "0fe5245",
           "subject": "companion: use home's month picker on tracking sheets mobile",
           "files": "src/app/trackingsheet/AllJobs.tsx, src/app/trackingsheet/Board.tsx, src/components/HomeMasthead.tsx, src/components/MonthPicker.tsx"
+        },
+        {
+          "date": "2026-10-17",
+          "time": "13:37",
+          "sha": "73a0909",
+          "subject": "companion: drop logo from job picker title, match month caret to it",
+          "files": "src/components/JobPicker.tsx, src/components/MonthPicker.tsx"
         }
       ]
     },
