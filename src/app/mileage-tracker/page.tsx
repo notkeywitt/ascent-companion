@@ -16,6 +16,7 @@ import {
   type ActiveTrip,
   type TripPoint,
 } from "@/lib/mileageTrip";
+import { tripMiles } from "@/lib/mileageRoute";
 import {
   Banner,
   Card,
@@ -27,6 +28,7 @@ import {
   PageHeader,
   Select,
   Textarea,
+  Toggle,
 } from "@/components/ui";
 
 /**
@@ -55,6 +57,7 @@ interface JobRef {
   id: string;
   name: string;
   customer?: string;
+  address?: string;
 }
 
 interface Project {
@@ -123,6 +126,28 @@ function saveLastJob(id: string, label: string) {
     localStorage.setItem(LS_LAST_JOB, JSON.stringify({ id, label }));
   } catch {}
 }
+
+// Where this device's last hand-entered trip started. It is the From field's
+// default next time — most drives start at the shop or at home.
+const LS_LAST_FROM = "mileage.lastFrom";
+
+function readLastFrom(): string {
+  try {
+    return localStorage.getItem(LS_LAST_FROM) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+function saveLastFrom(place: string) {
+  if (!place || isLatLng(place.replace(/\s+/g, ""))) return;
+  try {
+    localStorage.setItem(LS_LAST_FROM, place);
+  } catch {}
+}
+
+/** A job's street address without Google's trailing ", USA". */
+const jobAddr = (j: JobRef | null | undefined) => (j?.address ?? "").replace(/,\s*USA$/i, "").trim();
 
 // Auto-tracking: drop a breadcrumb only when it's this far from the last one (km)
 // — filters GPS jitter and idling. The Routes API caps intermediates at 25, so
@@ -247,8 +272,7 @@ function TripMap({
 }
 
 // Local date as YYYY-MM-DD for the manual-entry <input type="date"> default.
-function today(): string {
-  const d = new Date();
+function today(d: Date = new Date()): string {
   const p = (n: number) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
@@ -309,6 +333,18 @@ export default function MileageTrackerPage() {
   const [miles, setMiles] = useState("");
   const [manualDate, setManualDate] = useState(today());
   const [manualKey, setManualKey] = useState(""); // idempotency key for a manual save
+  // Optional From/To: Google figures the miles from them (/api/mileage/route-miles).
+  const [fromPlace, setFromPlace] = useState("");
+  const [toPlace, setToPlace] = useState("");
+  const [roundTrip, setRoundTrip] = useState(false);
+  // The one-way route miles from the last lookup. Null once the driver types
+  // the miles or changes a place, so the round-trip switch never overwrites them.
+  const [oneWay, setOneWay] = useState<number | null>(null);
+  const [routeBusy, setRouteBusy] = useState(false);
+  const [routeErr, setRouteErr] = useState("");
+  // The To that a job pick filled in, so a later job pick may replace it but
+  // never replaces an address the driver typed.
+  const autoToRef = useRef("");
 
   // History view. isAdmin/users come from the server (which enforces access).
   const [trips, setTrips] = useState<Record<string, string>[]>([]);
@@ -662,6 +698,87 @@ export default function MileageTrackerPage() {
     }
   }
 
+  // Open the hand-entry form. From defaults to where the last one started, To to
+  // the selected job's address.
+  function openManual() {
+    setErr("");
+    actedRef.current = true;
+    setManualKey(genKey());
+    if (!fromPlace) setFromPlace(readLastFrom());
+    if (!toPlace) {
+      const addr = jobAddr(jobs.find((j) => j.id === jobId));
+      setToPlace(addr);
+      autoToRef.current = addr;
+    }
+    setPhase("manual");
+  }
+
+  function onPickManualJob(job: JobRef | null) {
+    const addr = jobAddr(job);
+    if (!addr || (toPlace && toPlace !== autoToRef.current)) return;
+    setToPlace(addr);
+    autoToRef.current = addr;
+    setOneWay(null);
+  }
+
+  async function useHereAsFrom() {
+    setRouteErr("");
+    setRouteBusy(true);
+    try {
+      const pos = await getTripFix();
+      setFromPlace(`${pos.coords.latitude.toFixed(5)},${pos.coords.longitude.toFixed(5)}`);
+      setOneWay(null);
+    } catch (e) {
+      setRouteErr(geoError(e));
+    } finally {
+      setRouteBusy(false);
+    }
+  }
+
+  async function lookUpMiles() {
+    setRouteErr("");
+    if (!fromPlace.trim() || !toPlace.trim()) {
+      setRouteErr("Fill in both From and To.");
+      return;
+    }
+    setRouteBusy(true);
+    try {
+      const res = await fetch("/api/mileage/route-miles", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ from: fromPlace, to: toPlace }),
+      });
+      const json = (await res.json()) as {
+        ok?: boolean;
+        oneWayMiles?: number;
+        startAddress?: string;
+        endAddress?: string;
+        error?: string;
+      };
+      if (!res.ok || !json.ok || json.oneWayMiles == null) {
+        setRouteErr(json.error || "Could not get the miles. Type them instead.");
+        return;
+      }
+      // "Here" comes back as a street address; a typed one stays as typed.
+      if (json.startAddress) setFromPlace(json.startAddress);
+      if (json.endAddress) {
+        if (toPlace === autoToRef.current) autoToRef.current = json.endAddress;
+        setToPlace(json.endAddress);
+      }
+      setOneWay(json.oneWayMiles);
+      setMiles(String(tripMiles(json.oneWayMiles, roundTrip)));
+    } catch (e) {
+      setRouteErr(e instanceof Error ? e.message : "Could not get the miles. Type them instead.");
+    } finally {
+      setRouteBusy(false);
+    }
+  }
+
+  function onRoundTrip(on: boolean) {
+    setRoundTrip(on);
+    if (oneWay != null) setMiles(String(tripMiles(oneWay, on)));
+  }
+
   async function saveManual() {
     setErr("");
     actedRef.current = true;
@@ -683,6 +800,9 @@ export default function MileageTrackerPage() {
           jobId,
           jobLabel,
           purpose: purpose.trim(),
+          startAddress: fromPlace.trim(),
+          endAddress: toPlace.trim(),
+          roundTrip,
           clientKey: manualKey,
         }),
       });
@@ -692,11 +812,15 @@ export default function MileageTrackerPage() {
         return;
       }
       saveLastJob(jobId, jobLabel);
+      saveLastFrom(fromPlace.trim());
+      const from = fromPlace.trim();
+      const to = toPlace.trim();
+      const loop = roundTrip && !!from && !!to;
       setSummary({
         miles: json.miles ?? m,
-        startAddress: "",
-        endAddress: "",
-        via: "",
+        startAddress: from,
+        endAddress: loop ? from : to,
+        via: loop ? to : "",
         stops: 0,
         durationMin: 0,
         jobLabel,
@@ -723,6 +847,12 @@ export default function MileageTrackerPage() {
     setJobLabel(last?.label ?? "");
     setMiles("");
     setManualDate(today());
+    setFromPlace("");
+    setToPlace("");
+    autoToRef.current = "";
+    setRoundTrip(false);
+    setOneWay(null);
+    setRouteErr("");
     setWaypoints([]);
     setTrail([]);
     setErr("");
@@ -880,14 +1010,9 @@ export default function MileageTrackerPage() {
               type="button"
               variant="secondary"
               size="lg"
-              onClick={() => {
-                setErr("");
-                actedRef.current = true;
-                setManualKey(genKey());
-                setPhase("manual");
-              }}
+              onClick={openManual}
             >
-              Add miles manually
+              Add miles by hand
             </Button>
             <Button
               type="button"
@@ -909,25 +1034,12 @@ export default function MileageTrackerPage() {
         <div className="space-y-4">
           <Card className="space-y-3">
             <div>
-              <Label htmlFor="mlg-miles">Miles</Label>
-              <Input
-                id="mlg-miles"
-                type="number"
-                inputMode="decimal"
-                min="0"
-                step="0.1"
-                value={miles}
-                onChange={(e) => setMiles(e.target.value)}
-                placeholder="e.g. 24.5"
-              />
-            </div>
-
-            <div>
               <Label htmlFor="mlg-date">Date</Label>
               <Input
                 id="mlg-date"
                 type="date"
                 value={manualDate}
+                max={today()}
                 onChange={(e) => setManualDate(e.target.value)}
               />
             </div>
@@ -938,23 +1050,101 @@ export default function MileageTrackerPage() {
                 <JobPicker
                   value={jobId}
                   onChange={onPickJob}
+                  onSelect={onPickManualJob}
                   showNearest
                   allLabel="No job"
                   allDescription="Leave this trip unassigned"
                 />
               </div>
             </div>
+          </Card>
 
+          <Card className="space-y-3">
+            <p className="text-xs text-neutral-500">
+              Fill in From and To and tap Get miles, or type the miles below.
+            </p>
             <div>
-              <Label htmlFor="mlg-purpose-m">Purpose (optional)</Label>
-              <Textarea
-                id="mlg-purpose-m"
-                rows={2}
-                value={purpose}
-                onChange={(e) => setPurpose(e.target.value)}
-                placeholder="e.g. material pickup, client meeting"
+              <div className="flex items-baseline justify-between">
+                <Label htmlFor="mlg-from">From</Label>
+                <button
+                  type="button"
+                  onClick={useHereAsFrom}
+                  disabled={routeBusy}
+                  className="text-xs font-semibold text-accent underline-offset-2 hover:underline disabled:opacity-40 dark:text-accent-soft"
+                >
+                  Use where I am
+                </button>
+              </div>
+              <Input
+                id="mlg-from"
+                value={fromPlace}
+                onChange={(e) => {
+                  setFromPlace(e.target.value);
+                  setOneWay(null);
+                }}
+                placeholder="Address or place"
+                autoComplete="street-address"
               />
             </div>
+
+            <div>
+              <Label htmlFor="mlg-to">To</Label>
+              <Input
+                id="mlg-to"
+                value={toPlace}
+                onChange={(e) => {
+                  setToPlace(e.target.value);
+                  setOneWay(null);
+                }}
+                placeholder="Address or place — a job fills this in"
+              />
+            </div>
+
+            <div className="flex items-center justify-between gap-3">
+              <Toggle checked={roundTrip} onChange={onRoundTrip} label="Round trip" />
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={lookUpMiles}
+                disabled={routeBusy || !fromPlace.trim() || !toPlace.trim()}
+              >
+                {routeBusy ? "Working…" : "Get miles"}
+              </Button>
+            </div>
+            {routeErr && <Banner tone="error">{routeErr}</Banner>}
+            {oneWay != null && (
+              <p className="text-xs text-neutral-500">
+                Google route: {oneWay} mi one way{roundTrip ? `, ${tripMiles(oneWay, true)} mi there and back` : ""}.
+              </p>
+            )}
+
+            <div>
+              <Label htmlFor="mlg-miles">Miles</Label>
+              <Input
+                id="mlg-miles"
+                type="number"
+                inputMode="decimal"
+                min="0"
+                step="0.1"
+                value={miles}
+                onChange={(e) => {
+                  setMiles(e.target.value);
+                  setOneWay(null);
+                }}
+                placeholder="e.g. 24.5"
+              />
+            </div>
+          </Card>
+
+          <Card>
+            <Label htmlFor="mlg-purpose-m">Purpose (optional)</Label>
+            <Textarea
+              id="mlg-purpose-m"
+              rows={2}
+              value={purpose}
+              onChange={(e) => setPurpose(e.target.value)}
+              placeholder="e.g. material pickup, client meeting"
+            />
           </Card>
 
           <button
@@ -998,7 +1188,19 @@ export default function MileageTrackerPage() {
                 hour: "numeric",
                 minute: "2-digit",
               })}
-              . If you forgot to end it, cancel it and add the miles by hand.
+              . If you forgot to end it, log it by hand instead.
+              <button
+                type="button"
+                onClick={() => {
+                  const day = today(new Date(start.startTime));
+                  cancelTrip();
+                  openManual();
+                  setManualDate(day);
+                }}
+                className="mt-2 block font-semibold underline underline-offset-2"
+              >
+                Cancel this trip and log it by hand
+              </button>
             </Banner>
           )}
 

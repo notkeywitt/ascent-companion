@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { auth } from "@/auth";
 import { callAppsScript } from "@/lib/appsScript";
+import { reverseGeocode } from "@/lib/mileageRoute";
 
 // Proxy to the Apps Script web app's mileage actions. The one-tap flow captures
 // two GPS points + timestamps on the phone; this route turns them into an
@@ -21,8 +22,11 @@ import { callAppsScript } from "@/lib/appsScript";
 //   POST { startLat,startLng,startTime, endLat,endLng,endTime,
 //          jobId?, jobLabel?, purpose?, driver? }              (GPS trip)
 //        → { ok, tripId, miles, date, startAddress, endAddress, warning? }
-//   POST { manual:true, miles, date?, jobId?, jobLabel?, purpose?, driver? }
-//        → { ok, tripId, miles, date }                         (hand-entered — no GPS/Directions)
+//   POST { manual:true, miles, date?, jobId?, jobLabel?, purpose?, driver?,
+//          startAddress?, endAddress?, roundTrip? }
+//        → { ok, tripId, miles, date }                         (hand-entered — no GPS)
+//        The addresses come from /api/mileage/route-miles when the driver had
+//        Google figure the miles. A round trip saves as From → To → From.
 //
 // Distance is the route Google would drive between the two endpoints — accurate
 // for a simple A→B trip, not a traced path. If Directions is unavailable the
@@ -108,19 +112,14 @@ async function drivingDistance(
   }
 }
 
-// Reverse-geocode a lat/lng to a street address (Geocoding API). Best-effort:
-// returns "" on any failure (e.g. the Geocoding API isn't enabled), so a missing
-// address never blocks the trip or its miles.
-async function reverseGeocode(pt: { lat: number; lng: number }, key: string): Promise<string> {
-  try {
-    const params = new URLSearchParams({ latlng: `${pt.lat},${pt.lng}`, key });
-    const res = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?${params}`);
-    const data = (await res.json()) as { status?: string; results?: { formatted_address?: string }[] };
-    const addr = data.status === "OK" ? data.results?.[0]?.formatted_address : "";
-    return (addr || "").replace(/,\s*USA$/i, "").trim();
-  } catch {
-    return "";
-  }
+// The From/To of a hand-entered trip, in the sheet's Start/Via/End columns. A
+// round trip goes out and comes back, so it reads From → To → From.
+function manualRoute(body: Record<string, unknown>) {
+  const from = String(body.startAddress ?? "").trim().slice(0, 300);
+  const to = String(body.endAddress ?? "").trim().slice(0, 300);
+  if (!from && !to) return {};
+  if (body.roundTrip === true && from && to) return { startAddress: from, via: to, endAddress: from };
+  return { startAddress: from, endAddress: to };
 }
 
 export async function GET(req: NextRequest) {
@@ -165,6 +164,8 @@ export async function POST(req: NextRequest) {
       jobId: body.jobId ?? "",
       jobLabel: body.jobLabel ?? "",
       purpose: body.purpose ?? "",
+      ...manualRoute(body),
+      clientKey: String(body.clientKey ?? ""),
     });
     if (manual.error) return NextResponse.json({ error: manual.error }, { status: manual.status });
     return NextResponse.json(manual.data, { status: 200 });
@@ -218,6 +219,7 @@ export async function POST(req: NextRequest) {
     stops,
     via: dir.via,
     polyline: dir.polyline,
+    clientKey: String(body.clientKey ?? ""),
   });
   if (result.error) return NextResponse.json({ error: result.error }, { status: result.status });
 
