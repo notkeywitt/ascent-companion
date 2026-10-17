@@ -563,6 +563,7 @@ function employeeTimeTitle(state: "checking" | "linked" | "unlinked", who: strin
 
 export function EmployeeTimeClient({
   initialJobs,
+  compareJobs,
   initialMe,
   initialJtUsers,
   initialOrgTypes,
@@ -576,6 +577,9 @@ export function EmployeeTimeClient({
   initialCodeDefaults = [],
 }: {
   initialJobs: JobRef[];
+  /** Every open job, for Split View (office/admin). The clock's own list is
+   *  narrowed to the person's jobs; this one is not. */
+  compareJobs: JobRef[];
   initialMe: Me | null;
   initialJtUsers: UserRef[];
   initialOrgTypes: string[];
@@ -914,14 +918,6 @@ export function EmployeeTimeClient({
     }
     confirmClock();
 
-    // Fallback only: the server preload covers the normal case, so this fires
-    // just when it failed or the grant was missing at render time.
-    if (!initialJobs.length) {
-      fetch("/api/jobs")
-        .then((r) => r.json())
-        .then((j) => setJobs(j.jobs ?? []))
-        .catch(() => {});
-    }
 
     // Own PTO/sick balances for the summary strip (own-balance view).
     fetch("/api/time-off/me")
@@ -1112,6 +1108,42 @@ export function EmployeeTimeClient({
   useEffect(() => {
     if (ruleMatch) setPayType(ruleMatch);
   }, [ruleMatch, jobId, costItemId]);
+
+  // The job list: only the jobs this person is added to in JobTread, in a
+  // phase that takes time (lib/timeClockJobs). The shell preloads your own;
+  // this reloads it for whoever the page is about, and retries a failed or
+  // identity-less preload.
+  const [jobsReady, setJobsReady] = useState(initialJobs.length > 0 && !!initialMe?.jtUserId);
+  useEffect(() => {
+    if (!acting && initialJobs.length && initialMe?.jtUserId) {
+      setJobs(initialJobs);
+      setJobsReady(true);
+      return;
+    }
+    let alive = true;
+    setJobsReady(false);
+    fetch(`/api/employee-time/jobs?${actingParam}`)
+      .then((r) => r.json())
+      .then((j) => {
+        if (!alive || j.ok === false) return;
+        setJobs(j.jobs ?? []);
+        setJobsReady(true);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+    // initialJobs/initialMe are the server's first answer and do not change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [acting, actingParam, me?.jtUserId]);
+
+  // A remembered job this person is no longer on is not a pick: clear it, so
+  // the clock cannot start on a job the list does not offer. A running clock
+  // keeps its job — it was valid when it started.
+  useEffect(() => {
+    if (!jobsReady || activeClock || !jobId) return;
+    if (!jobs.some((j) => j.id === jobId)) setJobId("");
+  }, [jobsReady, jobs, jobId, activeClock]);
 
   const selectedJob = useMemo(() => jobs.find((j) => j.id === jobId) ?? null, [jobs, jobId]);
   const jobLabelText = selectedJob ? jobRefLabel(selectedJob) : "";
@@ -2431,7 +2463,7 @@ export function EmployeeTimeClient({
           users={jtUsers}
           appUserIds={appUserIds}
           myId={me?.jtUserId ?? ""}
-          jobs={jobs}
+          jobs={compareJobs}
           orgTypes={orgTypes}
           payRules={initialPayRules}
           codeDefaults={initialCodeDefaults}

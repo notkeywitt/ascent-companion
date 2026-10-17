@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { auth } from "@/auth";
 import { PREVIEW_COOKIE, parsePreviewRole } from "@/lib/preview";
-import { getCachedJobs } from "@/lib/jobsCache";
+import { getCachedJobs, getTimeClockJobs } from "@/lib/jobsCache";
 import { getPaveConfig, hasGrant } from "@/lib/config";
 import { findMemberByEmail, getOrgTimeEntryTypeNames, getOrgUsers } from "@/lib/jobtread";
 import { readAppJtUserIds, readJtUserLink } from "@/lib/jtUserLink";
@@ -71,8 +71,11 @@ export default async function EmployeeTimePage() {
       : null;
   const employeeName = me?.name || me?.jtUserName || "";
 
-  const [jobs, jtUsers, orgTypes, clock, lastUsed, appUserIds, payRules, codeDefaults] = await Promise.all([
-    grant ? getCachedJobs().catch(() => []) : [],
+  const [jobs, allJobs, jtUsers, orgTypes, clock, lastUsed, appUserIds, payRules, codeDefaults] = await Promise.all([
+    // Only the jobs this person is added to, in a phase that takes time.
+    grant ? getTimeClockJobs(jtUserId).catch(() => []) : [],
+    // Split View covers every employee, so it keeps every open job.
+    grant && canCompare ? getCachedJobs().catch(() => []) : [],
     cfg ? getOrgUsers(cfg).catch(() => []) : [],
     cfg ? getOrgTimeEntryTypeNames(cfg).catch(() => [] as string[]) : [],
     cfg && jtUserId
@@ -92,6 +95,7 @@ export default async function EmployeeTimePage() {
   return (
     <EmployeeTimeClient
       initialJobs={jobs}
+      compareJobs={allJobs}
       initialMe={me}
       initialJtUsers={rosterForRole(jtUsers, role)}
       initialOrgTypes={orgTypes}

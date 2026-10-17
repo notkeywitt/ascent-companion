@@ -5,7 +5,9 @@ import {
   getJobs,
   getMonthlyInvoiceJobs,
   getMonthlyInvoiceTime,
+  getUserJobIds,
 } from "@/lib/jobtread";
+import { timeClockJobs } from "@/lib/timeClockJobs";
 import { getPaveConfig } from "@/lib/config";
 
 /**
@@ -41,6 +43,19 @@ export const getCachedJobsWithPhase = unstable_cache(
   ["api-jobs-open-with-phase"],
   { revalidate: 300, tags: ["jt-jobs"] },
 );
+
+/**
+ * The time clock's job list for one JobTread user: open jobs they are added to,
+ * in a phase that takes time (lib/timeClockJobs). An empty `userId` (identity
+ * not resolved yet) filters by phase only.
+ */
+export async function getTimeClockJobs(userId: string) {
+  const [jobs, mine] = await Promise.all([
+    getCachedJobsWithPhase(),
+    userId ? getUserJobIds(getPaveConfig(), userId) : Promise.resolve(null),
+  ]);
+  return timeClockJobs(jobs, mine);
+}
 
 /**
  * Per-job uninvoiced BILL totals for one billing month — half of the figure the

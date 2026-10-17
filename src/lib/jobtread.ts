@@ -3190,6 +3190,53 @@ async function _getJobsUncached(cfg: PaveConfig, includeClosed = false): Promise
 }
 
 /**
+ * The open jobs one JobTread user is ADDED to — on the job's member list in
+ * JobTread (job.aces → membership.user). The time clock lists only these.
+ *
+ * Every open job adds its people by name, none by role (checked live
+ * 2026-10-17), so a membership match is the whole test.
+ *
+ * One aliased count per job, filtered to this user. Fetching each job's full
+ * member list inside the paged jobs connection returns HTTP 413 (the 413 rule
+ * in JT_API_REFERENCE.md); a filtered count does not.
+ */
+export function getUserJobIds(cfg: PaveConfig, userId: string): Promise<Set<string>> {
+  return cachedRef(`userjobs:${cfg.orgId}:${userId}`, 5 * 60_000, () => _getUserJobIdsUncached(cfg, userId));
+}
+async function _getUserJobIdsUncached(cfg: PaveConfig, userId: string): Promise<Set<string>> {
+  const out = new Set<string>();
+  await pageEach<any>(
+    cfg,
+    {
+      label: "organization.jobs (user membership)",
+      query: (args) => ({
+        organization: {
+          $: { id: cfg.orgId },
+          id: {},
+          jobs: {
+            $: { ...args, where: { "=": [{ field: ["closedOn"] }, { value: null }] } },
+            nextPage: {},
+            nodes: {
+              id: {},
+              mine: {
+                _: "aces",
+                $: { where: { "=": [{ field: ["membership", "user", "id"] }, { value: userId }] } },
+                count: {},
+              },
+            },
+          },
+        },
+      }),
+      pick: (r) => r?.organization?.jobs,
+    },
+    (rows) => {
+      for (const n of rows) if ((n?.mine?.count ?? 0) > 0) out.add(n.id);
+    },
+  );
+  return out;
+}
+
+/**
  * jobId → the job's "Phase" custom-field value, for the /jobs filter.
  *
  * Two phases on purpose: nesting `customFieldValues` inside the paged
