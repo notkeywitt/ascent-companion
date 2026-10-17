@@ -20,6 +20,7 @@ import { PREVIEW_COOKIE, parsePreviewRole } from "@/lib/preview";
 import { PreviewBanner } from "@/components/PreviewBanner";
 import { SplashScreen } from "@/components/SplashScreen";
 import { PageGuide } from "@/components/PageGuide";
+import { PullToRefresh } from "@/components/PullToRefresh";
 import { RouteLoadingScreen } from "@/components/RouteLoadingScreen";
 import { noAuthConfigured } from "@/lib/authMode";
 
@@ -197,6 +198,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               {/* The help mark, bottom-left of every page, and the overlay it
                   opens. Outside #app-shell on purpose. */}
               <PageGuide />
+              {/* Pull down from the top to reload — installed app only. Outside
+                  #app-shell for the same reason as the help mark. */}
+              <PullToRefresh />
             </BillMoveProvider>
             </StuckVendorsProvider>
         </AccessProvider>
