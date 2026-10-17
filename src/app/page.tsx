@@ -51,7 +51,7 @@ function Home() {
   const needsProject = useNeedsProjectCount();
 
   return (
-    <main className="mx-auto max-w-2xl px-4 pb-10 pt-5 pad:max-w-none pad:px-7 xl:px-8">
+    <main className="mx-auto max-w-2xl px-4 pb-10 pt-3 pad:max-w-none pad:pt-5 pad:px-7 xl:px-8">
       {/* No page title here ON A PHONE, on purpose: the logo in the header
           already says where you are, and an <h1>Home</h1> plus its description
           cost the top fifth of a phone screen to repeat it. From `pad` up the

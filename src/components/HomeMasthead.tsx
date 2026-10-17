@@ -121,7 +121,7 @@ export function HomeMasthead() {
   return (
     // On a phone only the billing month shows, and only to a role that has one.
     <header
-      className={`mb-6 items-end justify-between gap-6 border-b border-line pb-4 ${
+      className={`mb-3 items-end justify-between gap-6 border-b border-line pb-2 pad:mb-6 pad:pb-4 ${
         shows ? "flex" : "hidden pad:flex"
       }`}
     >
@@ -144,37 +144,46 @@ export function HomeMasthead() {
           {/* A quiet native select: it reads as the heading it replaced until
               you touch it, and on a tablet it opens the OS month wheel. */}
           {canSet ? (
-            <div className="mt-1 flex min-h-[26px] items-center justify-end gap-1.5">
-              {/* The caret sits LEFT of the month so the month's last character
-                  still lines up with the chip below —
-                  a native select's own chevron would inset the text instead. */}
-              <span aria-hidden className="text-[10px] text-neutral-400 dark:text-neutral-500">
-                ▾
-              </span>
-              <select
-                value={ym}
-                disabled={saving || !ym}
-                onChange={(e) => set(e.target.value)}
-                aria-label="Billing month — every non-Sunset bill files into this month"
-                className={`cursor-pointer appearance-none rounded bg-transparent p-0 text-right text-[21px] font-bold leading-tight tracking-tight focus:outline-none focus:ring-2 focus:ring-accent/25 disabled:cursor-default ${
+            <div className="flex min-h-[26px] items-center justify-end">
+              {/* The month is plain text with the select laid over it,
+                  invisible. A native select is as wide as its LONGEST option,
+                  which left a gap between the caret and a short month. The
+                  caret sits LEFT of the month so the month's last character
+                  lines up with the chip below. */}
+              <label
+                className={`relative flex items-center gap-1.5 rounded focus-within:ring-2 focus-within:ring-accent/25 ${
                   stale ? "text-red-600 dark:text-red-400" : ""
                 }`}
               >
-                {/* The month in force first, so a set month that has scrolled off
-                  the 15-month list still shows what it is. */}
-                {ym && !months.some((m) => m.value === ym) && (
-                  <option value={ym}>{monthLabel(ym)}</option>
-                )}
-                {months.map((m) => (
-                  <option key={m.value} value={m.value}>
-                    {m.label}
-                  </option>
-                ))}
-              </select>
+                <span aria-hidden className="text-[10px] text-neutral-400 dark:text-neutral-500">
+                  ▾
+                </span>
+                <span aria-hidden className="text-[21px] font-bold leading-tight tracking-tight">
+                  {ym ? monthLabel(ym) : ""}
+                </span>
+                <select
+                  value={ym}
+                  disabled={saving || !ym}
+                  onChange={(e) => set(e.target.value)}
+                  aria-label="Billing month — every non-Sunset bill files into this month"
+                  className="absolute inset-0 h-full w-full cursor-pointer appearance-none opacity-0 disabled:cursor-default"
+                >
+                  {/* The month in force first, so a set month that has scrolled off
+                    the 15-month list still shows what it is. */}
+                  {ym && !months.some((m) => m.value === ym) && (
+                    <option value={ym}>{monthLabel(ym)}</option>
+                  )}
+                  {months.map((m) => (
+                    <option key={m.value} value={m.value}>
+                      {m.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
             </div>
           ) : (
             <p
-              className={`mt-1 min-h-[26px] text-[21px] font-bold leading-tight tracking-tight ${
+              className={`min-h-[26px] text-[21px] font-bold leading-tight tracking-tight ${
                 stale ? "text-red-600 dark:text-red-400" : ""
               }`}
             >
