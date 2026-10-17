@@ -32,6 +32,7 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
+| [main](.claude/sessions/2026-10-17-main.md) | 2026-10-17 | 2 | remove billing period label and caption from home picker |
 | [time-sync-edit](.claude/sessions/2026-10-17-time-sync-edit.md) | 2026-10-17 | 7 | — |
 | [main](.claude/sessions/2026-09-03-main.md) | 2026-10-17 | 47 | — |
 | [automate-timesheet-email](.claude/sessions/2026-10-16-automate-timesheet-email.md) | 2026-10-16 | 1 | Draft the pay-period time entries email (JobTread CSV attached) from a button o… |
@@ -46,4 +47,3 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 | [invoicing-rail](.claude/sessions/2026-10-13-invoicing-rail.md) | 2026-10-14 | 1 | — |
 | [invoicing-menu](.claude/sessions/2026-10-13-invoicing-menu.md) | 2026-10-14 | 1 | — |
 | [jobcard](.claude/sessions/2026-10-13-jobcard.md) | 2026-10-14 | 1 | — |
-| [deposit-card](.claude/sessions/2026-10-12-deposit-card.md) | 2026-10-12 | 1 | Move the deposit card to the foot of the Tracking Sheets page |

@@ -1,7 +1,33 @@
 {
-  "generatedAt": "2026-10-17T11:58:04Z",
+  "generatedAt": "2026-10-17T12:57:25Z",
   "repo": "ascent-companion",
   "sessions": [
+    {
+      "slug": "main",
+      "file": "2026-10-17-main.md",
+      "branch": "claude/billing-picker-text",
+      "status": "shipped",
+      "started": "2026-10-17T12:57:13Z",
+      "updated": "2026-10-17T12:57:25Z",
+      "goal": "remove billing period label and caption from home picker",
+      "next": "none — done",
+      "commits": [
+        {
+          "date": "2026-10-17",
+          "time": "12:57",
+          "sha": "cf0c4a2",
+          "subject": "companion: drop billing period label and caption from home picker",
+          "files": "src/components/HomeMasthead.tsx"
+        },
+        {
+          "date": "2026-10-17",
+          "time": "12:57",
+          "sha": "719cc77",
+          "subject": "companion: session ledger",
+          "files": ""
+        }
+      ]
+    },
     {
       "slug": "time-sync-edit",
       "file": "2026-10-17-time-sync-edit.md",
