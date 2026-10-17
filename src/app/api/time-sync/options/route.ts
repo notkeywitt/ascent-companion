@@ -2,13 +2,16 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { getPaveConfig, hasGrant } from "@/lib/config";
 import { getTimeTrackableLeaves } from "@/lib/jobtread";
-import { payTypesFor } from "@/lib/timeSync";
+import { payTypeChoices } from "@/lib/timeSync";
 
 /**
  * Office/admin — the choices the Time Sync editor offers. Read-only.
  *
- *   GET ?userId=<jtUserId>  → { ok, payTypes:[name] }   the pay types JobTread
- *                             takes on that person's entries
+ *   GET ?userId=<jtUserId>  → { ok, payTypes:[name], ownTypes, rates:{name:$} }
+ *                             the pay types JobTread takes on that person's
+ *                             entries; ownTypes false = the org's whole list,
+ *                             because the grant cannot read theirs. `rates` is
+ *                             the usual rate per name (office/admin view only).
  *   GET ?jobId=<id>         → { ok, laborOnly, costItems:[{id, number, name,
  *                             detail, costType}] }      the lines time may be coded to
  *
@@ -23,12 +26,12 @@ export async function GET(req: NextRequest) {
   const jobId = (q.get("jobId") ?? "").trim();
   try {
     const [payTypes, leaves] = await Promise.all([
-      userId ? payTypesFor(userId) : Promise.resolve(undefined),
+      userId ? payTypeChoices(userId) : Promise.resolve(undefined),
       jobId ? getTimeTrackableLeaves(getPaveConfig(), jobId) : Promise.resolve(undefined),
     ]);
     return NextResponse.json({
       ok: true,
-      ...(payTypes ? { payTypes } : {}),
+      ...(payTypes ? { payTypes: payTypes.names, ownTypes: payTypes.own, rates: payTypes.rates } : {}),
       ...(leaves
         ? {
             laborOnly: leaves.filtered,

@@ -35,6 +35,7 @@ import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
 import {
   createTimeEntry,
   getOrgTimeEntries,
+  getMembershipRates,
   getOrgTimeEntryTypeNames,
   getOrgUsers,
   getTimeEntrySpan,
@@ -43,6 +44,7 @@ import {
   type UserTimeEntry,
   orgLocalToJtIso,
   resolveTimeTrackableLeaf,
+  updateMembershipRates,
 } from "@/lib/jobtread";
 import { callAppsScriptOrThrow } from "@/lib/appsScript";
 import {
@@ -779,13 +781,97 @@ function sheetFields(row: WorkedRow) {
 
 /**
  * The pay types JobTread will take on this person's entries. Their own list when
- * the grant can read it, else the org's. Empty when neither read works — then
- * nothing is checked here and JobTread has the last word.
+ * the grant can read it (`own: true`), else the org's every name. Empty when
+ * neither read works — then nothing is checked here and JobTread has the last word.
+ *
+ * `rates` suggests an hourly rate per name: the rate most members holding that
+ * name carry. Office/admin only — it is pay data.
  */
-export async function payTypesFor(jtUserId: string): Promise<string[]> {
+export async function payTypeChoices(
+  jtUserId: string,
+): Promise<{ names: string[]; own: boolean; rates: Record<string, number> }> {
   const cfg = getPaveConfig();
   const users = await getOrgUsers(cfg).catch(() => []);
+  const rates = commonRates(users);
   const own = users.find((u) => u.id === jtUserId)?.types;
-  if (own?.length) return own.map((t) => t.name);
-  return getOrgTimeEntryTypeNames(cfg).catch(() => [] as string[]);
+  if (own) return { names: own.map((t) => t.name), own: true, rates };
+  const names = await getOrgTimeEntryTypeNames(cfg).catch(() => [] as string[]);
+  return { names, own: false, rates };
+}
+
+export async function payTypesFor(jtUserId: string): Promise<string[]> {
+  return (await payTypeChoices(jtUserId)).names;
+}
+
+/** Per pay-type name, the hourly rate most members holding it carry. */
+function commonRates(users: Array<{ types?: Array<{ name: string; hourlyRate?: number }> }>): Record<string, number> {
+  const tally = new Map<string, Map<number, number>>();
+  for (const u of users) {
+    for (const t of u.types ?? []) {
+      const r = Number(t.hourlyRate);
+      if (!t.name || !Number.isFinite(r) || r <= 0) continue;
+      const m = tally.get(t.name) ?? new Map<number, number>();
+      m.set(r, (m.get(r) ?? 0) + 1);
+      tally.set(t.name, m);
+    }
+  }
+  const out: Record<string, number> = {};
+  for (const [name, m] of tally) out[name] = [...m.entries()].sort((a, b) => b[1] - a[1] || b[0] - a[0])[0][0];
+  return out;
+}
+
+/**
+ * Add one pay type to a person's JobTread membership — the fix for "Unknown time
+ * entry type 'Thomas - PM' for user Casey".
+ *
+ * JobTread's `timeEntryTypes` write REPLACES the whole list (see
+ * `updateMembershipRates`), so this is a read-modify-write on a FRESH read, and
+ * it refuses whenever the read cannot be trusted: a list it cannot read, or an
+ * empty read for someone the roster says has types. Either would wipe the
+ * person's other rates.
+ *
+ * Only a name the org already uses may be added, so a typo cannot invent a new
+ * pay type on someone's payroll.
+ */
+export async function addPayType(
+  jtUserId: string,
+  name: string,
+  hourlyRate: number,
+): Promise<{ ok: boolean; error?: string; names?: string[] }> {
+  const typeName = name.trim();
+  if (!typeName) return { ok: false, error: "Name the pay type." };
+  if (!Number.isFinite(hourlyRate) || hourlyRate <= 0) return { ok: false, error: "Enter an hourly rate above $0." };
+  if (!writesEnabled()) return { ok: false, error: "JobTread writes are off." };
+  if (!hasGrant()) return { ok: false, error: "No JobTread grant configured." };
+
+  const cfg = getPaveConfig();
+  const orgNames = await getOrgTimeEntryTypeNames(cfg).catch(() => [] as string[]);
+  if (orgNames.length && !orgNames.includes(typeName)) {
+    return { ok: false, error: `"${typeName}" is not a pay type anyone in JobTread holds. Add it on Pay Rates first.` };
+  }
+  const user = (await getOrgUsers(cfg)).find((u) => u.id === jtUserId);
+  if (!user?.membershipId) return { ok: false, error: "That employee has no JobTread membership the app can update." };
+  if (user.types === undefined) {
+    return {
+      ok: false,
+      error:
+        "The app's JobTread grant cannot read members' pay types, so adding one would erase the others. " +
+        "Add it in JobTread, or allow createTimeEntryForMembership on the grant.",
+    };
+  }
+
+  const current = await getMembershipRates(cfg, user.membershipId);
+  if (current.some((t) => t.name === typeName)) return { ok: true, names: current.map((t) => t.name) };
+  if (!current.length && user.types.length) {
+    return { ok: false, error: "JobTread returned no pay types for this person, which does not match the roster. Nothing was changed." };
+  }
+  const next = [
+    ...current.map((t) => ({ name: t.name, hourlyRate: Number(t.hourlyRate ?? 0) })),
+    { name: typeName, hourlyRate },
+  ];
+  const saved = await updateMembershipRates(cfg, user.membershipId, next);
+  if (!saved.some((t) => t.name === typeName)) {
+    return { ok: false, error: "JobTread did not keep the new pay type. Check the person's pay types in JobTread." };
+  }
+  return { ok: true, names: saved.map((t) => t.name) };
 }
