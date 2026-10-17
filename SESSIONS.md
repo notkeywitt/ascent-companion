@@ -32,7 +32,7 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
-| [main](.claude/sessions/2026-09-03-main.md) | 2026-10-17 | 45 | — |
+| [main](.claude/sessions/2026-09-03-main.md) | 2026-10-17 | 46 | — |
 | [automate-timesheet-email](.claude/sessions/2026-10-16-automate-timesheet-email.md) | 2026-10-16 | 1 | Draft the pay-period time entries email (JobTread CSV attached) from a button o… |
 | [jobtread-clock-in-description](.claude/sessions/2026-10-16-jobtread-clock-in-description.md) | 2026-10-16 | 1 | — |
 | [invoicing-email](.claude/sessions/2026-10-15-invoicing-email.md) | 2026-10-15 | 7 | One button on Tracking Sheets all-jobs that drafts the monthly Invoicing Packag… |

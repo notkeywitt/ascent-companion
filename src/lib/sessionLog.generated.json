@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-17T02:48:26Z",
+  "generatedAt": "2026-10-17T02:55:39Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-10-17T02:48:26Z",
+      "updated": "2026-10-17T02:55:39Z",
       "goal": "",
-      "next": "Approve DD 1363 bill 22PdXJXyCA7Y after moving its issue date into the open period; fix appscript _dedupeLineItems so only a whole repeated invoice dedupes; clear the 3 stale 8/28 Office drafts",
+      "next": "Check on a wide screen that the docked scan sits flush left of the coding panel; tune the 420px threshold if needed",
       "commits": [
         {
           "date": "2026-09-03",
@@ -326,6 +326,13 @@
           "sha": "de59c9c",
           "subject": "companion: delete in not in jobtread takes the invoice tag off the email so the scan can't re-import it",
           "files": "src/app/api/uncaptured/route.ts, src/components/UncapturedBills.tsx"
+        },
+        {
+          "date": "2026-10-16",
+          "time": "22:55",
+          "sha": "bb2586b",
+          "subject": "companion: zoomed bill scan opens beside the coding panel, not over it",
+          "files": "src/app/trackingsheet/BillCodingCard.tsx, src/components/InvoiceViewer.tsx"
         }
       ]
     },
