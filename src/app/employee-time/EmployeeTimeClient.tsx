@@ -1342,7 +1342,7 @@ export function EmployeeTimeClient({
       return;
     }
     if (!costItemId) {
-      setErr("Pick a cost code.");
+      setErr("Pick the work.");
       return;
     }
     // An edited start time is used as typed (to the minute); an untouched one is
@@ -1561,7 +1561,7 @@ export function EmployeeTimeClient({
       });
       const json = await res.json();
       if (!res.ok || json.ok === false) {
-        setErr(json.error || "Could not switch the cost code.");
+        setErr(json.error || "Could not switch the work.");
         // The old entry closed but the new one never started — the crew member
         // is genuinely off the clock now, so stop drawing one.
         if (json.closed) {
@@ -1594,7 +1594,7 @@ export function EmployeeTimeClient({
       );
       closeSheet();
     } catch (e) {
-      setErr(e instanceof Error ? e.message : "Could not switch the cost code.");
+      setErr(e instanceof Error ? e.message : "Could not switch the work.");
     } finally {
       setBusy(false);
     }
@@ -1612,7 +1612,7 @@ export function EmployeeTimeClient({
       return;
     }
     if (!costItemId) {
-      setErr("Pick a cost code.");
+      setErr("Pick the work.");
       return;
     }
     if (!note.trim()) {
@@ -1928,7 +1928,7 @@ export function EmployeeTimeClient({
       return;
     }
     if (!editCostItemId) {
-      setEditErr("Pick a cost code.");
+      setEditErr("Pick the work.");
       return;
     }
     if (!editNote.trim()) {
@@ -2232,7 +2232,7 @@ export function EmployeeTimeClient({
                 {/* Tappable while the clock runs: changing work mid-shift splits
                     the entry rather than re-coding the hours already worked. */}
                 <FieldRow
-                  label="Cost code"
+                  label="Work"
                   value={[activeClock.costCode, activeClock.costItemName].filter(Boolean).join(" — ") || "—"}
                   sub={canSwitchCode ? "Tap to switch — the hours so far stay put" : undefined}
                   onClick={canSwitchCode && !onBreakSince ? () => openSheet("switch") : undefined}
@@ -2288,15 +2288,15 @@ export function EmployeeTimeClient({
                 />
 
                 <FieldRow
-                  label="Cost code"
+                  label="Work"
                   value={
                     costLabelText ||
                     (!jobId
                       ? "Pick a job first"
                       : loadingCosts
-                        ? "Loading cost codes…"
+                        ? "Loading…"
                         : costItems.length
-                          ? "Select a cost code"
+                          ? "Select work"
                           : "No labor line on this job — ask the office")
                   }
                   placeholder={!costLabelText}
@@ -2786,15 +2786,15 @@ export function EmployeeTimeClient({
             onClear={jobId ? () => setJobId("") : undefined}
           />
           <FieldRow
-            label="Cost code"
+            label="Work"
             value={
               costLabelText ||
               (!jobId
                 ? "Pick a job first"
                 : loadingCosts
-                  ? "Loading cost codes…"
+                  ? "Loading…"
                   : costItems.length
-                    ? "Select a cost code"
+                    ? "Select work"
                     : "No labor line on this job — ask the office")
             }
             placeholder={!costLabelText}
@@ -2915,15 +2915,15 @@ export function EmployeeTimeClient({
             onClick={() => openSheet("editjob", "edit")}
           />
           <FieldRow
-            label="Cost code"
+            label="Work"
             value={
               editCostLabelText ||
               (!editJobId
                 ? "Pick a job first"
                 : editLoadingCosts
-                  ? "Loading cost codes…"
+                  ? "Loading…"
                   : editCostItems.length
-                    ? "Select a cost code"
+                    ? "Select work"
                     : "No labor line on this job — ask the office")
             }
             placeholder={!editCostLabelText}
@@ -3423,12 +3423,12 @@ function CostSheet({
     ? items.filter((c) => `${c.number} ${c.name} ${c.detail ?? ""}`.toLowerCase().includes(query))
     : items;
   return (
-    <Sheet open={open} title="Cost code" onClose={onClose} tall>
+    <Sheet open={open} title="Work" onClose={onClose} tall>
       <Input
         autoFocus
         value={q}
         onChange={(e) => setQ(e.target.value)}
-        placeholder="Search cost codes…"
+        placeholder="Search work…"
         className="mb-2"
       />
       <ul className="pb-2">
@@ -3444,7 +3444,7 @@ function CostSheet({
             onClick={() => onPick(c)}
           />
         ))}
-        {shown.length === 0 && <li className="px-1 py-4 text-sm text-neutral-500">No matching cost code.</li>}
+        {shown.length === 0 && <li className="px-1 py-4 text-sm text-neutral-500">No match.</li>}
       </ul>
     </Sheet>
   );

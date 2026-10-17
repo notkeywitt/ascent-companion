@@ -8,7 +8,8 @@ import {
   createTimeEntry,
   orgLocalToJtIso,
 } from "@/lib/jobtread";
-import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
+import { getLeaveConfig, getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
+import { leaveLast } from "@/lib/leaveLast";
 import { callAppsScript } from "@/lib/appsScript";
 import { openJournal } from "@/lib/financialJournal";
 import { resolveJtUserLink } from "@/lib/jtUserLink";
@@ -115,7 +116,8 @@ export async function GET(req: NextRequest) {
         // false = the flag could not be read and this is the whole budget, so
         // the page must not promise that every line here will be accepted.
         laborOnly: filtered,
-        costItems: items.map((b) => ({
+        // PTO and Sick Time last — see src/lib/leaveLast.ts.
+        costItems: leaveLast(items, Object.values(getLeaveConfig().costItemId)).map((b) => ({
           id: b.id,
           number: b.number,
           name: b.name,
