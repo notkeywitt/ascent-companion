@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { listUnsyncedLeave, retryLeavePost } from "@/lib/leaveService";
-import { acceptJobTread, listUnsyncedWorked, retryWorked } from "@/lib/timeSync";
+import { acceptJobTread, listUnsyncedWorked, retryWorked, type WorkedEdits } from "@/lib/timeSync";
 
 /**
  * Office/admin — re-post stranded records to JobTread. One at a time
@@ -12,6 +12,9 @@ import { acceptJobTread, listUnsyncedWorked, retryWorked } from "@/lib/timeSync"
  * POST { kind:"worked", id:"<entryId>" }        → { ok, jtStatus, jtEntryId? }
  * POST { kind:"leave",  id:<requestId> }        → { ok, jtPosted, jtStatus }
  * POST { all:true }                             → { ok, summary, results }
+ * POST { kind:"edit", id:"<entryId>", edits }  → same as "worked"
+ *      The Time Sync editor's save: the office's corrections (job, cost code,
+ *      pay type, times, note) laid over the row, then posted like a Retry.
  * POST { kind:"accept", id:"<entryId>" }        → { ok, error? }
  *      The reverse fix: JobTread is right, so the sheet row takes JobTread's
  *      times. A sheet write only, never a JobTread write.
@@ -23,8 +26,9 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 120;
 
 interface Body {
-  kind?: "worked" | "leave" | "accept";
+  kind?: "worked" | "leave" | "accept" | "edit";
   id?: string | number;
+  edits?: WorkedEdits;
   all?: boolean;
 }
 
@@ -43,6 +47,14 @@ export async function POST(req: NextRequest) {
     const id = String(body.id ?? "").trim();
     if (!id) return NextResponse.json({ ok: false, error: "id is required." }, { status: 400 });
     return NextResponse.json(await retryWorked(id));
+  }
+  if (kind === "edit") {
+    const id = String(body.id ?? "").trim();
+    if (!id) return NextResponse.json({ ok: false, error: "id is required." }, { status: 400 });
+    if (!body.edits || typeof body.edits !== "object") {
+      return NextResponse.json({ ok: false, error: "edits are required." }, { status: 400 });
+    }
+    return NextResponse.json(await retryWorked(id, body.edits));
   }
   if (kind === "accept") {
     const id = String(body.id ?? "").trim();

@@ -51,7 +51,8 @@ export const PROBLEM_LABEL: Record<TimeProblem, string> = {
 
 /** What the office should do about it — one line, under the heading. */
 export const PROBLEM_FIX: Record<TimeProblem, string> = {
-  "not-posted": "Nothing was lost. Retry posts the record to JobTread.",
+  "not-posted":
+    "Nothing was lost. Retry posts the record to JobTread. If JobTread refused it, tap Edit, correct what it names, and post.",
   "push-failed":
     "JobTread already has the entry — its stop time is what didn't land, so the hours read short. " +
     "Set the stop time in JobTread; do not re-post, it would duplicate.",

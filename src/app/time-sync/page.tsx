@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { Banner, Button, Card, EmptyState, Loading, PageHeader, SectionLabel } from "@/components/ui";
 import { jtTimeUrl } from "@/lib/jtLinks";
+import { TimeSyncEditor } from "./TimeSyncEditor";
 import {
   PROBLEM_ACCEPTABLE,
   PROBLEM_FIX,
@@ -21,7 +22,8 @@ import {
  * leaves the entry OPEN in JobTread — it has an id, so the old filter hid it,
  * and it counts the wrong hours (usually none) until someone closes it by hand.
  * The rows are therefore GROUPED BY WHAT IS WRONG, and only the group the app
- * can fix from here carries a Retry button. The rest link into JobTread, where
+ * can fix from here carries a Retry button, and an Edit link that opens
+ * TimeSyncEditor for a record JobTread refused as it stands. The rest link into JobTread, where
  * the fix actually is; re-posting them would duplicate the entry.
  */
 
@@ -30,7 +32,11 @@ interface WorkedRow {
   date: string;
   employee: string;
   jobLabel: string;
+  jobId: string;
   costCode: string;
+  costItemId: string;
+  payType: string;
+  note: string;
   start: string;
   end: string;
   jtStatus: string;
@@ -79,6 +85,7 @@ export default function TimeSyncPage() {
   const [msg, setMsg] = useState<{ tone: "success" | "info" | "warning"; text: string } | null>(null);
   const [busyId, setBusyId] = useState<string>("");
   const [busyAll, setBusyAll] = useState(false);
+  const [editing, setEditing] = useState<WorkedRow | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -274,14 +281,27 @@ export default function TimeSyncPage() {
                           )}
                         </div>
                         {r.retryable ? (
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            disabled={busyId === `worked:${r.entryId}` || busyAll}
-                            onClick={() => retry("worked", r.entryId)}
-                          >
-                            {busyId === `worked:${r.entryId}` ? "…" : "Retry"}
-                          </Button>
+                          <div className="flex shrink-0 flex-col items-end gap-2">
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              disabled={busyId === `worked:${r.entryId}` || busyAll}
+                              onClick={() => retry("worked", r.entryId)}
+                            >
+                              {busyId === `worked:${r.entryId}` ? "…" : "Retry"}
+                            </Button>
+                            <button
+                              type="button"
+                              className="whitespace-nowrap text-xs font-medium text-accent underline-offset-2 hover:underline disabled:opacity-50"
+                              disabled={busyAll}
+                              onClick={() => {
+                                setMsg(null);
+                                setEditing(r);
+                              }}
+                            >
+                              Edit →
+                            </button>
+                          </div>
                         ) : (
                           <div className="flex shrink-0 flex-col items-end gap-2">
                             {PROBLEM_ACCEPTABLE[r.problem] && (
@@ -347,6 +367,18 @@ export default function TimeSyncPage() {
               )}
 
               {windowNote && <p className="px-1 text-xs text-neutral-500">{windowNote}</p>}
+
+              {editing && (
+                <TimeSyncEditor
+                  row={editing}
+                  onClose={() => setEditing(null)}
+                  onSaved={async (note) => {
+                    setEditing(null);
+                    setMsg({ tone: note === "Posted to JobTread." ? "success" : "info", text: note });
+                    await load();
+                  }}
+                />
+              )}
             </>
           )}
         </div>

@@ -35,6 +35,8 @@ import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
 import {
   createTimeEntry,
   getOrgTimeEntries,
+  getOrgTimeEntryTypeNames,
+  getOrgUsers,
   getTimeEntrySpan,
   getUserTimeEntries,
   jtIsoToOrgLocal,
@@ -52,6 +54,7 @@ import {
   isErrorStatus,
   overlappingEntry,
   sheetProblem,
+  wallClock,
   type TimeProblem,
 } from "@/lib/timeProblems";
 
@@ -493,12 +496,79 @@ export async function acceptJobTread(entryId: string): Promise<{ ok: boolean; er
   return { ok: true };
 }
 
+/**
+ * The office's corrections to a stranded record, from the Time Sync editor.
+ * Every field is optional; an absent one keeps what the row says. Times are
+ * local wall clocks, "YYYY-MM-DDTHH:MM" as a datetime-local input gives them.
+ */
+export interface WorkedEdits {
+  jobId?: string;
+  jobLabel?: string;
+  costItemId?: string;
+  costCode?: string;
+  payType?: string;
+  start?: string;
+  end?: string;
+  note?: string;
+}
+
+/** datetime-local → the zoneless "YYYY-MM-DDTHH:MM:SS" the rest of this module reads. "" if unreadable. */
+function editStamp(v: string | undefined): string {
+  const m = (v ?? "").trim().match(/^(\d{4}-\d{2}-\d{2})[T ](\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+  return m ? `${m[1]}T${m[2].padStart(2, "0")}:${m[3]}:${m[4] ?? "00"}` : "";
+}
+
+/**
+ * The row with the office's corrections laid over it, plus one line naming what
+ * changed. The line goes in the row's status, so the employee's own entry is
+ * still on record after the sheet takes the corrected values. Exported for the
+ * unit suite.
+ */
+export function applyEdits(row: WorkedRow, edits: WorkedEdits): { row: WorkedRow; changed: string[]; error?: string } {
+  const next = { ...row };
+  const changed: string[] = [];
+  const set = (key: "jobId" | "costItemId" | "payType" | "note", label: string, shown: (r: WorkedRow) => string) => {
+    const v = edits[key];
+    if (v === undefined) return;
+    const t = String(v).trim();
+    if (t === row[key]) return;
+    const before = shown(row);
+    next[key] = t;
+    if (key === "jobId") next.jobLabel = String(edits.jobLabel ?? "").trim() || t;
+    if (key === "costItemId") next.costCode = String(edits.costCode ?? "").trim() || t;
+    changed.push(`${label} "${before}" → "${shown(next)}"`);
+  };
+  set("jobId", "job", (r) => r.jobLabel || r.jobId);
+  set("costItemId", "cost code", (r) => r.costCode || r.costItemId);
+  set("payType", "pay type", (r) => r.payType);
+  set("note", "note", (r) => r.note);
+
+  for (const key of ["start", "end"] as const) {
+    if (edits[key] === undefined) continue;
+    const stamp = editStamp(edits[key]);
+    if (!stamp) return { row, changed, error: `The ${key === "start" ? "start" : "stop"} time is unreadable.` };
+    // The sheet writes "2026-09-23 7:00" — normalise it the same way before comparing.
+    if (stamp === editStamp(row[key])) continue;
+    changed.push(`${key === "start" ? "start" : "stop"} ${row[key] || "—"} → ${stamp.slice(0, 16).replace("T", " ")}`);
+    next[key] = stamp;
+  }
+  const s = wallClock(editStamp(next.start));
+  const e = wallClock(editStamp(next.end));
+  if (s && e && e.ms <= s.ms) return { row, changed, error: "The stop time must be after the start time." };
+  return { row: next, changed };
+}
+
 /** Re-post one worked-time row to JobTread and write the result back to the
  *  sheet. Idempotent guard: a row that already carries a JobTread id is skipped,
  *  and a row whose entry turns out to exist anyway is ADOPTED rather than
- *  re-created (see `findExistingEntry`). */
+ *  re-created (see `findExistingEntry`).
+ *
+ *  `edits` are the office's corrections from the Time Sync editor. They pass
+ *  through the same guards, and they reach the sheet only once JobTread takes
+ *  the entry — a refused edit leaves the employee's original values in place. */
 export async function retryWorked(
   entryId: string,
+  edits?: WorkedEdits,
 ): Promise<{ ok: boolean; jtStatus: string; jtEntryId?: string; error?: string }> {
   const id = entryId.trim();
   if (!id) return { ok: false, jtStatus: "", error: "No entryId." };
@@ -523,7 +593,27 @@ export async function retryWorked(
   if (!writesEnabled()) return { ok: false, jtStatus: "not posted (writes off)", error: "JobTread writes are off." };
   if (!hasGrant()) return { ok: false, jtStatus: "", error: "No JobTread grant configured." };
 
-  const row = toWorkedRow(raw);
+  let row = toWorkedRow(raw);
+  let changed: string[] = [];
+  if (edits) {
+    const applied = applyEdits(row, edits);
+    if (applied.error) return { ok: false, jtStatus: "", error: applied.error };
+    row = applied.row;
+    changed = applied.changed;
+    // JobTread names the pay types each person may use, and refuses any other
+    // ("Unknown time entry type"). Check here so the editor can say which ones
+    // are allowed instead of relaying JobTread's refusal.
+    if (row.payType && row.jtUserId) {
+      const allowed = await payTypesFor(row.jtUserId).catch(() => [] as string[]);
+      if (allowed.length && !allowed.includes(row.payType)) {
+        return {
+          ok: false,
+          jtStatus: "",
+          error: `"${row.payType}" is not one of ${row.employee || "this employee"}'s pay types in JobTread. Pick one of: ${allowed.join(", ")}.`,
+        };
+      }
+    }
+  }
   const startedAt = orgLocalToJtIso(row.start);
   const endedAt = orgLocalToJtIso(row.end);
   const missing = [
@@ -535,7 +625,7 @@ export async function retryWorked(
     !endedAt && "end time",
   ].filter(Boolean);
   if (missing.length) {
-    return { ok: false, jtStatus: "", error: `Row is missing ${missing.join(", ")} — fix it in the sheet, then retry.` };
+    return { ok: false, jtStatus: "", error: `Row is missing ${missing.join(", ")} — tap Edit to fill it in.` };
   }
 
   // JobTread refuses an hour on a budget line whose cost type isn't Labor, and
@@ -620,13 +710,24 @@ export async function retryWorked(
     // next retry would create a SECOND entry, the exact duplication this module
     // exists to prevent. So report success and name the id, with a status that
     // tells the user the sheet still needs it.
+    let sheetNote = "";
     try {
-      await callAppsScriptOrThrow({
+      const res = (await callAppsScriptOrThrow({
         action: "finalizeTimeEntryLog",
         clientKey: id,
         jtEntryId,
-        jtStatus: recoded ? "pushed (retry, moved to the Labor line)" : "pushed (retry)",
-      });
+        jtStatus:
+          (recoded ? "pushed (retry, moved to the Labor line)" : "pushed (retry)") +
+          (changed.length ? ` — edited: ${changed.join("; ")}` : ""),
+        ...(changed.length ? sheetFields(row) : {}),
+      })) as { fieldsUpdated?: boolean };
+      // An Apps Script deployment older than the editor ignores the fields and
+      // still answers ok. The entry is in JobTread and its id is on the row, so
+      // nothing duplicates — the row just keeps its old values until redeployed.
+      if (changed.length && !res?.fieldsUpdated) {
+        sheetNote =
+          " The sheet row still shows the old values: the Apps Script web app needs redeploying to take edits.";
+      }
     } catch (e) {
       const why = e instanceof Error ? e.message : "Unknown error";
       return {
@@ -639,15 +740,12 @@ export async function retryWorked(
           `will create a duplicate.`,
       };
     }
-    return {
-      ok: true,
-      jtStatus: "pushed",
-      jtEntryId,
-      error: recoded
+    const note =
+      (recoded
         ? `Posted. JobTread would not take the hour on the budget line the record named, ` +
           `so it went to the Labor line of ${row.costCode || "the same cost code"}.`
-        : undefined,
-    };
+        : "") + sheetNote;
+    return { ok: true, jtStatus: "pushed", jtEntryId, error: note.trim() || undefined };
   } catch (e) {
     const error = e instanceof Error ? e.message : "Unknown error";
     // Best-effort: recording WHY it failed must never replace the real error.
@@ -663,4 +761,31 @@ export async function retryWorked(
     }
     return { ok: false, jtStatus: "JobTread error", error };
   }
+}
+
+/** The row's editable columns, as `finalizeTimeEntryLog` takes them. */
+function sheetFields(row: WorkedRow) {
+  return {
+    jobLabel: row.jobLabel,
+    jobId: row.jobId,
+    costCode: row.costCode,
+    costItemId: row.costItemId,
+    payType: row.payType,
+    note: row.note,
+    startTime: row.start,
+    endTime: row.end,
+  };
+}
+
+/**
+ * The pay types JobTread will take on this person's entries. Their own list when
+ * the grant can read it, else the org's. Empty when neither read works — then
+ * nothing is checked here and JobTread has the last word.
+ */
+export async function payTypesFor(jtUserId: string): Promise<string[]> {
+  const cfg = getPaveConfig();
+  const users = await getOrgUsers(cfg).catch(() => []);
+  const own = users.find((u) => u.id === jtUserId)?.types;
+  if (own?.length) return own.map((t) => t.name);
+  return getOrgTimeEntryTypeNames(cfg).catch(() => [] as string[]);
 }
