@@ -49,9 +49,9 @@ export const WORKSPACES: Workspace[] = [
     tabs: [
       tab("recode", "/trackingsheet", "Tracking Sheets", "Code a month's bills against live budget headroom"),
       tab("labor-review", "/labor-review", "Labor Review", "Code a month's logged time against the same headroom"),
-      tab("bill-review", "/needs-review", "Bill Corrections", "Bills flagged for a billing correction"),
-      tab("taxable-lines", "/taxable-lines", "Taxable Flags", "Bill lines the client invoice will not tax"),
-      tab("invoice-review", "/invoice-review", "Invoice Review", "Check a month's client invoices against the bills and the backup"),
+      // Checks holds Bill Corrections and Taxable Flags as sections since
+      // 2026-10-18 (CONSOLIDATION_PLAN.md stage 2); their routes redirect.
+      tab("invoice-review", "/invoice-review", "Checks", "Findings, flagged bills and non-taxable lines for the month"),
       tab("invoicing-summary", "/invoicing-summary", "Invoicing Package", "The month's billing summary doc — every job, its labor, bills and total"),
       tab("tracking-sheet", "/tracking-sheet", "Finalize", "Push a job's month into its own Google tracking sheet"),
     ],
@@ -181,6 +181,8 @@ export const OUTSIDE_WORKSPACES: Record<string, string> = {
   chat: "menu footer (EXTRA_LINKS)",
   lopezrocks: "menu footer (EXTRA_LINKS) and the home page",
   rfis: "nobody logs RFIs (owner decision 4, 2026-09-29); route kept",
+  "bill-review": "a section of Checks (/invoice-review?section=flagged); /needs-review redirects",
+  "taxable-lines": "a section of Checks (/invoice-review?section=taxable); /taxable-lines redirects",
 };
 
 /**

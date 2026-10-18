@@ -534,9 +534,9 @@ export const HELP: HelpSection[] = [
         q: "How do I check a month of client invoices?",
         view: "invoice-review",
         href: "/invoice-review",
-        keywords: ["invoice review", "audit", "findings", "backup", "check"],
+        keywords: ["invoice review", "checks", "audit", "findings", "backup", "check", "bill corrections", "flagged", "taxable"],
         steps: [
-          "Open **Invoice Review**.",
+          "Open **Invoicing**, then tap the **Checks** tab.",
           "Select the month.",
           "Tap **Run review**.",
           "Read each finding.",
@@ -544,6 +544,7 @@ export const HELP: HelpSection[] = [
           "Tap **Check again**.",
         ],
         notes: [
+          "**Flagged bills** lists the bills marked Needs review. **Taxable lines** lists the lines the client invoice will not tax.",
           "The review takes about a minute.",
           "The review cross-checks the invoices, the bills behind them, the Drive backup and the mailbox.",
           "**Investigate** has Claude chase each finding and report what it found.",

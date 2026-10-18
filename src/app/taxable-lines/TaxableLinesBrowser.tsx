@@ -62,7 +62,7 @@ function readDone(): Set<string> {
   }
 }
 
-export function TaxableLinesBrowser() {
+export function TaxableLinesBrowser({ embedded = false }: { embedded?: boolean } = {}) {
   const [ym, setYm] = useState("");
   const [data, setData] = useState<TaxableLinesReport | null>(null);
   const [loading, setLoading] = useState(true);
@@ -122,9 +122,10 @@ export function TaxableLinesBrowser() {
   const sum = (docs: UntaxedDoc[]) => docs.reduce((n, d) => n + d.taxAtStake, 0);
 
   return (
-    <main className="mx-auto max-w-2xl px-4 py-6">
+    <Wrap embedded={embedded}>
       <PageHeader
         title="Taxable Flags"
+        titleSlot={embedded ? <h2 className="text-lg font-bold tracking-tight">Taxable lines</h2> : undefined}
         description="Lines marked non-taxable, which take their cost out of the client invoice's tax base."
         actions={
           <div className="w-44 max-w-[50vw]">
@@ -242,7 +243,7 @@ export function TaxableLinesBrowser() {
           )}
         </div>
       )}
-    </main>
+    </Wrap>
   );
 }
 
@@ -342,4 +343,9 @@ function DocRow({
       </p>
     </Card>
   );
+}
+
+/** A page of its own, or a section of Checks (/invoice-review). */
+function Wrap({ embedded, children }: { embedded: boolean; children: React.ReactNode }) {
+  return embedded ? <div>{children}</div> : <main className="mx-auto max-w-2xl px-4 py-6">{children}</main>;
 }

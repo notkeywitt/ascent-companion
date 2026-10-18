@@ -45,7 +45,12 @@ const nextConfig = {
   // /coding and /stage were deleted the same day (Today lists the bills to
   // code). Not permanent, so a browser does not cache it if a route returns.
   async redirects() {
-    return ["/more", "/coding", "/stage"].map((source) => ({ source, destination: "/", permanent: false }));
+    return [
+      ...["/more", "/coding", "/stage"].map((source) => ({ source, destination: "/", permanent: false })),
+      // Folded into Checks, 2026-10-18 (CONSOLIDATION_PLAN.md stage 2).
+      { source: "/needs-review", destination: "/invoice-review?section=flagged", permanent: false },
+      { source: "/taxable-lines", destination: "/invoice-review?section=taxable", permanent: false },
+    ];
   },
   eslint: {
     // Lint runs in CI (.github/workflows/ci.yml), NOT in the deploy path.

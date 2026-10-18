@@ -1,5 +1,6 @@
 "use client";
 
+import { InvoicingTabs } from "@/components/InvoicingTabs";
 import { useCallback, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -89,6 +90,7 @@ export function AllJobs() {
 
   return (
     <main className="mx-auto max-w-2xl px-4 pb-24 pt-6 xl:max-w-[110rem]">
+      <InvoicingTabs />
       <PageHeader
         titleSlot={
           <div className="flex min-w-0 flex-1 items-center gap-2">

@@ -133,6 +133,22 @@ Dropped from stage 1: Add Bill as a sheet. With "Review coding" in place the
 page no longer costs a round trip, so a sheet would move code without saving a
 page change. `Sheet`/`Tabs` primitives wait for stage 2, which needs tabs.
 
+### Stage 2 status, 2026-10-18 (first slice)
+
+Shipped: the Invoicing tab row (`InvoicingTabs`: Tracking Sheets · Checks ·
+Package, carrying `?ym`) on Tracking Sheets (both views), Checks and Package.
+Invoice Review is renamed **Checks** and holds three sections — Findings,
+Flagged bills (was Bill Corrections) and Taxable lines (was Taxable Flags) —
+picked by `?section=`. `/needs-review` and `/taxable-lines` redirect there; their
+view ids stay, now in `OUTSIDE_WORKSPACES`. Home's Bill Corrections row opens
+the Flagged bills section.
+
+Not done in stage 2: Package's email button (still on Tracking Sheets); Check
+all Jobs merged into Checks; one dismissal model; one taxable rule; Labor
+Review, Finalize and Historical Cost into the workbench; the shared month
+default. A production Page Text override of `home.dest.invoice-review.label`
+would still say "Invoice Review" in the menu.
+
 ## Look rules (apply as each page merges)
 
 1. A list is one hairline card (`Card pad={false}`, `divide-y divide-line-soft`).

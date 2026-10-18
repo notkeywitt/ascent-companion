@@ -87,7 +87,7 @@ const QUEUES: Queue[] = [
     key: "corrections",
     view: "bill-review",
     label: "Bill Corrections",
-    href: "/needs-review",
+    href: "/invoice-review?section=flagged",
     load: async () => {
       const n = ((await cached("corrections", 5 * MIN, () => getJson("/api/bill-review"))).bills ?? []).length;
       return { count: n, detail: `${plural(n, "bill")} flagged for a billing correction` };

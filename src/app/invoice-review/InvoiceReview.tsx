@@ -2,6 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { InvoicingTabs } from "@/components/InvoicingTabs";
+import { useAccess } from "@/components/AccessProvider";
+import { FlaggedBills } from "@/app/needs-review/FlaggedBills";
+import { TaxableLinesBrowser } from "@/app/taxable-lines/TaxableLinesBrowser";
 import { asYm, setUrlParam } from "@/lib/urlParam";
 
 import {
@@ -166,7 +170,21 @@ export function InvoiceReview() {
   const months = useMemo(monthChoices, []);
   // A month the person picked on another close tab arrives as ?ym; with none,
   // this page keeps its own default.
-  const asked = asYm(useSearchParams().get("ym"));
+  const search = useSearchParams();
+  const asked = asYm(search.get("ym"));
+  // Checks has three sections (stage 2): the month's findings, the bills
+  // flagged for a correction (was Bill Corrections) and the non-taxable lines
+  // (was Taxable Flags). Each shows only to someone who holds its view.
+  const { can } = useAccess();
+  const sections = [
+    { id: "findings", label: "Findings", show: true },
+    { id: "flagged", label: "Flagged bills", show: can("bill-review") },
+    { id: "taxable", label: "Taxable lines", show: can("taxable-lines") },
+  ].filter((x) => x.show);
+  const [section, setSection] = useState(() => {
+    const want = search.get("section") ?? "";
+    return sections.some((x) => x.id === want) ? want : "findings";
+  });
   const [ym, setYm] = useState(() => (months.some((m) => m.ym === asked) ? asked : defaultYm()));
   const [data, setData] = useState<ReviewPayload | null>(null);
   const [loading, setLoading] = useState(false);
@@ -540,10 +558,39 @@ export function InvoiceReview() {
 
   return (
     <div className="mx-auto w-full max-w-2xl px-4 pb-24 pt-4">
+      <InvoicingTabs />
       <PageHeader
-        title="Invoice Review"
-        description="Cross-check a month's client invoices against the bills behind them and the backup filed in Drive."
+        title="Checks"
+        description="Everything to fix before the month's invoices go out."
       />
+      {sections.length > 1 && (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {sections.map((x) => (
+            <FilterChip
+              key={x.id}
+              on={section === x.id}
+              onClick={() => {
+                setSection(x.id);
+                setUrlParam("section", x.id === "findings" ? "" : x.id);
+              }}
+            >
+              {x.label}
+            </FilterChip>
+          ))}
+        </div>
+      )}
+      {section === "flagged" && (
+        <div className="mt-4">
+          <FlaggedBills />
+        </div>
+      )}
+      {section === "taxable" && (
+        <div className="mt-4">
+          <TaxableLinesBrowser embedded />
+        </div>
+      )}
+      {section === "findings" && (
+      <>
 
       <Card className="mt-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
@@ -929,6 +976,8 @@ export function InvoiceReview() {
           <MissBox ym={ym} />
         </>
       ) : null}
+      </>
+      )}
     </div>
   );
 }

@@ -89,7 +89,7 @@ describe("the bottom bar", () => {
     const items = barFor("office", canFor("office"));
     expect(activeBarKey(items, "/mileage-tracker")).toBe("mileage");
     expect(activeBarKey(items, "/employee-time")).toBe("employee-time");
-    expect(activeBarKey(items, "/needs-review")).toBe("close");
+    expect(activeBarKey(items, "/invoice-review")).toBe("close");
     expect(activeBarKey(items, "/")).toBe("today");
   });
 });

@@ -1,5 +1,6 @@
 "use client";
 
+import { InvoicingTabs } from "@/components/InvoicingTabs";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { setUrlParam, urlYm } from "@/lib/urlParam";
 import {
@@ -318,6 +319,7 @@ export default function InvoicingSummaryPage() {
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-6">
+      <InvoicingTabs />
       <PageHeader
         title="Invoicing Package"
         description={

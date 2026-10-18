@@ -78,6 +78,7 @@ import { runTrackingSync } from "@/components/TrackingSheetSync";
 import { TrackingSheetRisks } from "@/components/TrackingSheetRisks";
 import { PreSendCheck, sourceLinkOf, type FindingLink } from "./PreSendCheck";
 import { BillPopup } from "./BillPopup";
+import { InvoicingTabs } from "@/components/InvoicingTabs";
 import type { Selection } from "./DraftWorkbench";
 import { readLaborFocus, withoutFocus, type LaborFocus } from "./findingFocus";
 import type { Finding } from "@/lib/invoiceReview/types";
@@ -1909,6 +1910,7 @@ export function Board() {
 
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-col px-4 pb-[calc(6rem+env(safe-area-inset-bottom))] pt-6 lg:max-w-[110rem]">
+      <InvoicingTabs />
       {/* The title IS the picker — this page's subject is one job, so the name
           of the job and the control that changes it are the same thing. The
           address is INSIDE the title slot, not the header's `description`: the
