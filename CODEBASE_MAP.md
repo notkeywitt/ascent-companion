@@ -28,6 +28,7 @@ matching row here.
 | Standing structural review, agreed cleanup checklist | `ARCHITECTURE_REVIEW.md` |
 | Where the app is more complex than the job it does, and how to undo it | `SIMPLICITY_AUDIT.md` |
 | How pages are grouped, named and reached, and the staged plan to regroup them into workspaces | `NAVIGATION_PLAN.md` |
+| Which pages merge into which hub (month, job, inbox, pay period, person), and the staged plan (proposed 2026-10-18) | `CONSOLIDATION_PLAN.md` |
 | The staged plan for ending client invoicing mistakes | `INVOICE_ACCURACY_PLAN.md` |
 | Job deposits and client payments: what Pave offers, what each job does today, and the staged plan to show and apply deposits (nothing built yet) | `DEPOSITS_PLAN.md` |
 | What each screen does, for the owner (end-user manual) | `USER_MANUAL.md` |

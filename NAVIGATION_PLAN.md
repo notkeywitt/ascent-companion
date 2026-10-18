@@ -5,6 +5,9 @@ code, not carried over. Web version, with mockups, the page-change chart and a
 "where did my page go?" lookup:
 <https://claude.ai/artifact/2RBRreUQTJFzexsFHQyGL1>
 
+**Next step (proposed 2026-10-18):** `CONSOLIDATION_PLAN.md` merges the pages
+themselves into five hubs and a bill drawer. This plan kept every page.
+
 `SIMPLICITY_AUDIT.md` covers the code. This plan covers the pages: how they are
 grouped, named and reached. Nothing here re-opens a settled stack decision.
 
