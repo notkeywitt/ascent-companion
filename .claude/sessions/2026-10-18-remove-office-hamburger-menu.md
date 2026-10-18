@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/remove-office-hamburger-menu-8cquxy
 status: shipped
 started: 2026-10-18T16:14:41Z
-updated: 2026-10-18T16:25:25Z
+updated: 2026-10-18T16:54:02Z
 goal: 
 next: owner to confirm office view-only time is enough, or whether office should also edit as others
 ---
@@ -16,5 +16,7 @@ next: owner to confirm office view-only time is enough, or whether office should
   src/components/AppHeader.tsx
 - 2026-10-18 16:25 · `f980657` companion: let the office view another employee's time, read only
   src/app/api/employee-time/clock/route.ts, src/app/api/employee-time/route.ts, src/app/employee-time/EmployeeTimeClient.tsx, src/app/employee-time/page.tsx, src/lib/actingAs.ts
+- 2026-10-18 16:54 · `1f3b4eb` companion: let the office log and edit time as another employee
+  src/app/api/employee-time/clock/route.ts, src/app/api/employee-time/history/route.ts, src/app/api/employee-time/jobs/route.ts, src/app/api/employee-time/pay-rules/route.ts, src/app/api/employee-time/route.ts, src/app/employee-time/EmployeeTimeClient.tsx, +4 more
 
 ## Notes
