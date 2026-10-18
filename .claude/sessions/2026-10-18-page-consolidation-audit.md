@@ -4,9 +4,9 @@ repo: ascent-companion
 branch: claude/page-consolidation-audit
 status: shipped
 started: 2026-10-18T17:20:28Z
-updated: 2026-10-18T23:37:10Z
+updated: 2026-10-18T23:42:28Z
 goal: audit admin and office pages, recommend merges
-next: stage 5 rest (period picker, email + miles PDF on Payroll, rates into Employees record); stage 6 small merges (RFIs/Actions retire, Course removed, Help What's new, Admin Look & Text + Audit)
+next: stage 6 rest: Changelog into Help, Admin Look & Text + Audit, Search tidy-up; stage 5 rest (pay-period picker)
 ---
 
 ## Log
@@ -50,6 +50,8 @@ next: stage 5 rest (period picker, email + miles PDF on Payroll, rates into Empl
   CONSOLIDATION_PLAN.md, src/components/GlobalSearch.tsx
 - 2026-10-18 23:37 · `072e734` companion: payroll page — time off, sync gaps and labor import as sections; people workspace dissolves
   CONSOLIDATION_PLAN.md, next.config.mjs, src/app/labor-import/LaborImport.tsx, src/app/payroll/Payroll.tsx, src/app/payroll/page.tsx, src/app/time-off/TimeOff.tsx, +10 more
+- 2026-10-18 23:42 · `dc79e17` companion: retire actions, rfis and course; script buttons move beside what they update
+  CONSOLIDATION_PLAN.md, next.config.mjs, src/app/course/CourseHome.tsx, src/app/course/[seg]/page.tsx, src/app/course/page.tsx, src/app/course/segments.tsx, +10 more
 
 ## Notes
 - 2026-10-18 17:21 — audit: 6 readers over every admin/office page; usage = Vercel server renders 30d (Web Analytics off). Report https://claude.ai/artifact/9i159BFud4dbuvjwVcgTbj
