@@ -59,7 +59,11 @@ export const WORKSPACES: Workspace[] = [
     id: "employees",
     title: "Employees",
     desc: "The roster — details, JobTread jobs and pay types.",
-    tabs: [tab("employees", "/employees", "Employees", "The Project Database roster")],
+    tabs: [
+      tab("employees", "/employees", "Employees", "The Project Database roster"),
+      tab("labor-rates", "/labor-rates", "Pay Rates", "Per-project pay rates & who has them"),
+      tab("safety-meeting", "/safety-meeting", "Safety Meeting", "Pass the iPad and collect sign-ins"),
+    ],
   },
   {
     id: "clients",
@@ -83,7 +87,11 @@ export const WORKSPACES: Workspace[] = [
     id: "time",
     title: "Time",
     desc: "Log and review your hours.",
-    tabs: [tab("employee-time", "/employee-time", "Time", "Log and review your hours")],
+    tabs: [
+      tab("employee-time", "/employee-time", "Time", "Log and review your hours"),
+      // Payroll: time off, sync gaps and labor import as sections (stage 5).
+      tab("time-sync", "/payroll", "Payroll", "Time off to approve, time JobTread doesn't have right, and the month's labor"),
+    ],
   },
   {
     id: "incoming",
@@ -97,18 +105,6 @@ export const WORKSPACES: Workspace[] = [
       tab("payments", "/payments", "Sunset Statements", "Pay a statement & reconcile its invoices"),
       tab("lswdd", "/lswdd", "LSWDD Statement", "Split the dump's monthly statement across jobs"),
       tab("amazon-import", "/amazon-import", "Amazon Import", "Monthly Amazon report → batch of bills"),
-    ],
-  },
-  {
-    id: "people",
-    title: "People",
-    desc: "Pay rates, time records and the safety meeting.",
-    tabs: [
-      tab("labor-rates", "/labor-rates", "Pay Rates", "Per-project pay rates & who has them"),
-      tab("time-off-admin", "/time-off/office", "Time Off (Office)", "Requests to approve, balances, accrual and policy"),
-      tab("time-sync", "/time-sync", "Time Sync", "Time records JobTread doesn't have right"),
-      tab("labor-import", "/labor-import", "Labor Import", "QuickBooks labor → JobTread CSV"),
-      tab("safety-meeting", "/safety-meeting", "Safety Meeting", "Pass the iPad and collect sign-ins"),
     ],
   },
   {
@@ -185,6 +181,8 @@ export const JOB_PAGES: WorkspaceTab[] = [
   tab("unbilled", "/unbilled", "Unbilled", "A job's bills and time not yet invoiced"),
 ];
 export const OUTSIDE_WORKSPACES: Record<string, string> = {
+  "time-off-admin": "a section of Payroll (/payroll?section=timeoff); /time-off/office redirects",
+  "labor-import": "a section of Payroll (/payroll?section=labor); /labor-import redirects",
   clients: "Customers' All customers section (/leads?section=all), and a job's Record tab (/clients?jobId)",
   jobs: "a job's tab row (JobTabs) and the header search (JOB_PAGES)",
   "budget-import": "a job's tab row (JobTabs) and the header search (JOB_PAGES)",
@@ -215,7 +213,7 @@ export const NO_STRIP_WORKSPACES = new Set(["close"]);
  * first page — and the desktop sidebar shows with no second level. Invoicing went to a single row at the owner's ask (2026-10-13):
  * its pages are reached from Tracking Sheets and the header search. Employees and
  * Time have one page each, so a second level would only repeat it. */
-export const MENU_SINGLE_WORKSPACES = new Set(["close", "employees", "time"]);
+export const MENU_SINGLE_WORKSPACES = new Set(["close"]);
 
 /** Today — the home page. Not a workspace: it is the bar's first slot. */
 export const TODAY: WorkspaceTab = tab("", "/", "Home", "What needs you today");

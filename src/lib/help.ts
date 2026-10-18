@@ -642,10 +642,10 @@ export const HELP: HelpSection[] = [
         id: "time-off-office",
         q: "How do I approve a time-off request?",
         view: "time-off-admin",
-        href: "/time-off/office",
+        href: "/payroll?section=timeoff",
         keywords: ["time off", "pto", "sick", "approve", "deny", "balance", "accrual"],
         steps: [
-          "Open **Time Off (Office)**.",
+          "Open **Payroll**, then tap **Time off**.",
           "Find the request in the queue.",
           "Tap **Approve** or **Deny**.",
         ],
@@ -702,7 +702,7 @@ export const HELP: HelpSection[] = [
         id: "time-sync",
         q: "An employee says JobTread has the wrong hours. What do I do?",
         view: "time-sync",
-        href: "/time-sync",
+        href: "/payroll?section=sync",
         keywords: [
           "time sync",
           "hours wrong",
@@ -713,7 +713,7 @@ export const HELP: HelpSection[] = [
           "clock out failed",
         ],
         steps: [
-          "Open **Time Sync**.",
+          "Open **Payroll**, then tap **Sync gaps**.",
           "Find the person and the day in the list.",
           "If the row offers **Retry**, tap it.",
           "If the row offers **Fix in JobTread**, tap it.",

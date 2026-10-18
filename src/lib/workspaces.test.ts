@@ -124,7 +124,7 @@ describe("the iPad rail", () => {
     expect(rail.slice(0, 5)).toEqual(["today", "close", "employees", "clients", "time"]);
     expect(items[5].gap).toBe(true);
     expect(items.filter((i) => i.gap)).toHaveLength(1);
-    expect(rail).toEqual(expect.arrayContaining(["incoming", "people", "search", "help", "office", "mywork"]));
+    expect(rail).toEqual(expect.arrayContaining(["incoming", "search", "help", "office", "mywork"]));
     expect(rail).not.toContain("admin");
     expect(new Set(rail).size).toBe(rail.length);
   });
@@ -140,7 +140,8 @@ describe("the iPad rail", () => {
   it("still lights one slot per page", () => {
     const rail = railFor("admin", can("admin"));
     expect(activeBarKey(rail, "/employees")).toBe("employees");
-    expect(activeBarKey(rail, "/labor-rates")).toBe("people");
+    expect(activeBarKey(rail, "/labor-rates")).toBe("employees");
+    expect(activeBarKey(rail, "/payroll")).toBe("time");
     expect(activeBarKey(rail, "/mileage-tracker")).toBe("mywork");
     expect(activeBarKey(rail, "/employee-time")).toBe("time");
   });

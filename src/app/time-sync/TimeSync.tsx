@@ -78,7 +78,7 @@ const hrs = (v: string) => {
   return Number.isFinite(n) ? Math.round(n * 100) / 100 : v;
 };
 
-export default function TimeSyncPage() {
+export function TimeSync({ embedded = false }: { embedded?: boolean } = {}) {
   const [data, setData] = useState<Payload | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
@@ -206,9 +206,10 @@ export default function TimeSyncPage() {
       : "";
 
   return (
-    <main className="mx-auto max-w-3xl px-4 pb-24 pt-6">
+    <Wrap embedded={embedded}>
       <PageHeader
         title="Time Sync"
+        titleSlot={embedded ? <h2 className="text-lg font-bold tracking-tight">Sync gaps</h2> : undefined}
         description="Time records that did not reach JobTread correctly. Nothing is lost — the record is saved here either way."
       />
 
@@ -383,6 +384,11 @@ export default function TimeSyncPage() {
           )}
         </div>
       )}
-    </main>
+    </Wrap>
   );
+}
+
+/** A page of its own, or a section of Payroll (/payroll). */
+function Wrap({ embedded, children }: { embedded: boolean; children: React.ReactNode }) {
+  return embedded ? <div>{children}</div> : <main className="mx-auto max-w-3xl px-4 pb-24 pt-6">{children}</main>;
 }

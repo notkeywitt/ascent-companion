@@ -105,7 +105,7 @@ const TIME_OFF_TITLE = (
  *                     own path under the "time-off-admin" view, so it has its
  *                     own place in the menu and its own gate.
  */
-export function TimeOffView({ office }: { office: boolean }) {
+export function TimeOffView({ office, embedded = false }: { office: boolean; embedded?: boolean }) {
   const access = useAccess();
   const isOffice = office && access.can("time-off-admin");
   const canConsole = access.can("time-off-admin");
@@ -154,9 +154,10 @@ export function TimeOffView({ office }: { office: boolean }) {
   }, [balances]);
 
   return (
-    <main className="mx-auto max-w-3xl px-4 pb-24 pt-6">
+    <Wrap embedded={embedded}>
       <PageHeader
         title={office ? "Time Off (Office)" : TIME_OFF_TITLE}
+        titleSlot={embedded ? <h2 className="text-lg font-bold tracking-tight">Time off</h2> : undefined}
         description={
           office
             ? "Requests to approve, accrual, balances, the balance import, and policy."
@@ -164,7 +165,7 @@ export function TimeOffView({ office }: { office: boolean }) {
         }
         actions={
           !office && canConsole ? (
-            <Link href="/time-off/office" className="text-xs font-semibold text-accent dark:text-accent-soft">
+            <Link href="/payroll?section=timeoff" className="text-xs font-semibold text-accent dark:text-accent-soft">
               Office console →
             </Link>
           ) : undefined
@@ -196,7 +197,7 @@ export function TimeOffView({ office }: { office: boolean }) {
           )}
         </>
       )}
-    </main>
+    </Wrap>
   );
 }
 
@@ -1266,4 +1267,9 @@ function PolicyRow({ policy, onSaved }: { policy: Policy; onSaved: () => void })
       </div>
     </div>
   );
+}
+
+/** A page of its own, or a section of Payroll (/payroll). */
+function Wrap({ embedded, children }: { embedded: boolean; children: React.ReactNode }) {
+  return embedded ? <div>{children}</div> : <main className="mx-auto max-w-3xl px-4 pb-24 pt-6">{children}</main>;
 }

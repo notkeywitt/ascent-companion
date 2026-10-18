@@ -36,7 +36,7 @@ function toItem(r: ProblemRow): DigestItem {
     detail: `${PROBLEM_LABEL[r.problem]}. ${r.detail}`,
     date: r.date,
     group: PROBLEM_LABEL[r.problem],
-    sourceLink: "/time-sync",
+    sourceLink: "/payroll?section=sync",
     sourceLabel: "Open Time Sync",
   };
 }

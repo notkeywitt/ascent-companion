@@ -387,7 +387,7 @@ function download(filename: string, csv: string) {
 
 // ---- Page ------------------------------------------------------------------
 
-export default function LaborImportPage() {
+export function LaborImport({ embedded = false }: { embedded?: boolean } = {}) {
   const [fileName, setFileName] = useState("");
   const [entries, setEntries] = useState<Entry[] | null>(null);
   const [parseError, setParseError] = useState("");
@@ -872,9 +872,10 @@ export default function LaborImportPage() {
   }
 
   return (
-    <main className="mx-auto max-w-3xl px-4 pb-24 pt-6">
+    <Wrap embedded={embedded}>
       <PageHeader
         title="Labor Import"
+        titleSlot={embedded ? <h2 className="text-lg font-bold tracking-tight">Labor import</h2> : undefined}
         description="Turn the monthly QuickBooks labor report into a JobTread time-entry import CSV. The file is processed in your browser only."
       />
 
@@ -1362,7 +1363,7 @@ export default function LaborImportPage() {
           )}
         </>
       )}
-    </main>
+    </Wrap>
   );
 }
 
@@ -1488,4 +1489,9 @@ function CheckRow({
       <span className="text-xs text-neutral-400">{count}</span>
     </label>
   );
+}
+
+/** A page of its own, or a section of Payroll (/payroll). */
+function Wrap({ embedded, children }: { embedded: boolean; children: React.ReactNode }) {
+  return embedded ? <div>{children}</div> : <main className="mx-auto max-w-3xl px-4 pb-24 pt-6">{children}</main>;
 }

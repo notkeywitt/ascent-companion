@@ -119,7 +119,7 @@ const QUEUES: Queue[] = [
     key: "time-sync",
     view: "time-sync",
     label: "Time Sync",
-    href: "/time-sync",
+    href: "/payroll?section=sync",
     // Short-lived: a retry on /time-sync empties the queue at once, and a count
     // that kept claiming work was waiting would teach the office to ignore it.
     load: async () => {
@@ -131,7 +131,7 @@ const QUEUES: Queue[] = [
     key: "time-off",
     view: "time-off-admin",
     label: "Time off to approve",
-    href: "/time-off/office",
+    href: "/payroll?section=timeoff",
     load: async () => {
       const j = await cached("time-off", 5 * MIN, () => getJson("/api/time-off/requests?scope=all"));
       const n = ((j.requests ?? []) as { status?: string }[]).filter((r) => r.status === "pending").length;

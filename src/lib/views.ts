@@ -392,7 +392,11 @@ export const VIEWS: ViewDef[] = [
   },
   // Reconciliation — records captured but not yet in JobTread, with retry.
   // Office/admin (not field, not admin-only).
-  { id: "time-sync", label: "Time Sync", group: "Office", paths: ["/time-sync", "/api/time-sync"] },
+  // /payroll rides this gate (stage 5): a NEW view id would reach a signed-in
+  // person only at their next sign-in (the role base is fixed in the token), so
+  // the page borrows the one its first-loaded section already needs. Each
+  // section still checks its own view.
+  { id: "time-sync", label: "Payroll", group: "Office", paths: ["/payroll", "/time-sync", "/api/time-sync"] },
   // Notices — AUTHORING the announcements every user sees (banner under the
   // header, or popup). Office + admin: telling the team something is office
   // work, so this is deliberately NOT in ADMIN_MENU, unlike the access console.

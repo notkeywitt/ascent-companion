@@ -224,10 +224,10 @@ export const COPY: Record<string, CopyEntry> = {
     label: "RFIs — description",
     group: "Home — Utilities",
   },
-  "home.dest.time-sync.label": { text: "Time Sync", label: "Time Sync — name", group: "Home — Utilities" },
+  "home.dest.time-sync.label": { text: "Payroll", label: "Payroll — name", group: "Home — Utilities" },
   "home.dest.time-sync.desc": {
-    text: "Time records JobTread doesn't have right",
-    label: "Time Sync — description",
+    text: "Time off to approve, time JobTread doesn't have right, and the month's labor",
+    label: "Payroll — description",
     group: "Home — Utilities",
   },
   "home.dest.notices.label": { text: "Notices", label: "Notices — name", group: "Home — Utilities" },

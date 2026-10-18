@@ -1,0 +1,60 @@
+"use client";
+
+import { useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { useAccess } from "@/components/AccessProvider";
+import { FilterChip, PageHeader } from "@/components/ui";
+import { setUrlParam } from "@/lib/urlParam";
+import { TimeOffView } from "@/app/time-off/TimeOff";
+import { TimeSync } from "@/app/time-sync/TimeSync";
+import { LaborImport } from "@/app/labor-import/LaborImport";
+
+/**
+ * PAYROLL (CONSOLIDATION_PLAN.md stage 5) — the pay-period work that used to
+ * be three pages:
+ *   Time off      — requests to approve, accrual, balances (was Time Off (Office))
+ *   Sync gaps     — time records JobTread doesn't have right (was Time Sync)
+ *   Labor import  — the Labor Report and the QuickBooks labor CSV (was Labor Import)
+ * Each section keeps its own gate and shows only to someone who holds it; only
+ * the open one loads. /time-off/office, /time-sync and /labor-import redirect.
+ */
+const SECTIONS = [
+  { id: "timeoff", label: "Time off", view: "time-off-admin" },
+  { id: "sync", label: "Sync gaps", view: "time-sync" },
+  { id: "labor", label: "Labor import", view: "labor-import" },
+];
+
+export function Payroll() {
+  const { can } = useAccess();
+  const search = useSearchParams();
+  const sections = SECTIONS.filter((x) => can(x.view));
+  const [section, setSection] = useState(() => {
+    const want = search.get("section") ?? "";
+    return sections.some((x) => x.id === want) ? want : sections[0]?.id ?? "timeoff";
+  });
+
+  return (
+    <main className="mx-auto max-w-3xl px-4 pb-24 pt-6">
+      <PageHeader title="Payroll" description="Time off, time that did not reach JobTread, and the month's labor." />
+      {sections.length > 1 && (
+        <div className="mb-4 mt-3 flex flex-wrap gap-2">
+          {sections.map((x) => (
+            <FilterChip
+              key={x.id}
+              on={section === x.id}
+              onClick={() => {
+                setSection(x.id);
+                setUrlParam("section", x.id === sections[0].id ? "" : x.id);
+              }}
+            >
+              {x.label}
+            </FilterChip>
+          ))}
+        </div>
+      )}
+      {section === "timeoff" && can("time-off-admin") && <TimeOffView office embedded />}
+      {section === "sync" && can("time-sync") && <TimeSync embedded />}
+      {section === "labor" && can("labor-import") && <LaborImport embedded />}
+    </main>
+  );
+}

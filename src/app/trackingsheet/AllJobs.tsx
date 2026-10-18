@@ -173,7 +173,7 @@ export function AllJobs() {
           </Link>
         )}
         {can("labor-import") && (
-          <Link href="/labor-import" className={btn("secondary", "md", "min-h-11")}>
+          <Link href="/payroll?section=labor" className={btn("secondary", "md", "min-h-11")}>
             Import Labor
           </Link>
         )}

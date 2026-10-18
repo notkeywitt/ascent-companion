@@ -55,6 +55,10 @@ const nextConfig = {
       // One Incoming Bills inbox (CONSOLIDATION_PLAN.md stage 3).
       { source: "/needs-project", destination: "/email?section=stuck", permanent: false },
       { source: "/vendor-mail", destination: "/email?section=mail", permanent: false },
+      // Payroll (CONSOLIDATION_PLAN.md stage 5).
+      { source: "/time-off/office", destination: "/payroll?section=timeoff", permanent: false },
+      { source: "/time-sync", destination: "/payroll?section=sync", permanent: false },
+      { source: "/labor-import", destination: "/payroll?section=labor", permanent: false },
     ];
   },
   eslint: {

@@ -212,6 +212,23 @@ job's Record.
 Not done in stage 4: an Overview tab (Home's job card, Gantt, cost rings);
 search by customer name opens a job, not the customer; RFIs retire (stage 6).
 
+### Stage 5 status, 2026-10-18 (first slice)
+
+Shipped: **Payroll** (`/payroll`, `src/app/payroll/`) with three sections —
+Time off (was Time Off (Office), `TimeOffView office embedded`), Sync gaps (was
+Time Sync, `TimeSync.tsx`) and Labor import (was Labor Import,
+`LaborImport.tsx`). `/time-off/office`, `/time-sync` and `/labor-import`
+redirect. `/payroll` rides the `time-sync` view (relabelled Payroll): a new
+view id would reach a signed-in person only at their next sign-in, because the
+role base is fixed in the session token. The People workspace is gone — Pay
+Rates and Safety Meeting joined Employees; Payroll sits under Time.
+
+Not done in stage 5: one pay-period picker driving every section; each
+employee's period total linked to their timesheet; the time-entries email and
+the miles PDF on Payroll; Pay Rates' per-person editing moved into the
+Employees record; Time Sync's 7-day window widened to the period; the Employees
+table that fits a phone.
+
 ## Look rules (apply as each page merges)
 
 1. A list is one hairline card (`Card pad={false}`, `divide-y divide-line-soft`).
