@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-18T23:42:30Z",
+  "generatedAt": "2026-10-18T23:46:26Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "claude/page-consolidation-audit",
       "status": "shipped",
       "started": "2026-10-18T17:20:28Z",
-      "updated": "2026-10-18T23:42:30Z",
+      "updated": "2026-10-18T23:46:26Z",
       "goal": "audit admin and office pages, recommend merges",
-      "next": "stage 6 rest: Changelog into Help, Admin Look & Text + Audit, Search tidy-up; stage 5 rest (pay-period picker)",
+      "next": "remaining: stage 5 pay-period picker + email/miles on Payroll + rates into Employees; stage 6 Search tidy-up + Historical Cost drawer; look rules sweep; 'handled' meaning in appscript",
       "commits": [
         {
           "date": "2026-10-18",
@@ -151,6 +151,13 @@
           "sha": "dc79e17",
           "subject": "companion: retire actions, rfis and course; script buttons move beside what they update",
           "files": "CONSOLIDATION_PLAN.md, next.config.mjs, src/app/course/CourseHome.tsx, src/app/course/[seg]/page.tsx, src/app/course/page.tsx, src/app/course/segments.tsx, +10 more"
+        },
+        {
+          "date": "2026-10-18",
+          "time": "23:46",
+          "sha": "9d6c906",
+          "subject": "companion: audit, look and text, and help as one menu row each, joined by tab rows",
+          "files": "CONSOLIDATION_PLAN.md, src/app/admin/copy/page.tsx, src/app/changelog/page.tsx, src/app/help/HelpBrowser.tsx, src/app/journal/page.tsx, src/app/logs/page.tsx, +4 more"
         }
       ]
     },
