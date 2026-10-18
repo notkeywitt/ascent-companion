@@ -16,7 +16,6 @@ import { MonthPicker } from "@/components/MonthPicker";
 import { AllBills } from "./AllBills";
 import { UnsyncedDrafts } from "./UnsyncedDrafts";
 import { MonthJobDonuts, useMonthJobs } from "./MonthJobDonuts";
-import { CheckAllResults, useCheckAllJobs } from "./CheckAllJobs";
 import { useMonthActions } from "./JobMonthActions";
 
 /**
@@ -99,7 +98,6 @@ export function AllJobs() {
   const monthLabel = billingMonths(15).find((o) => o.value === ym)?.label ?? ym;
 
   const month = useMonthJobs(ym);
-  const check = useCheckAllJobs(month.jobs, ym);
   const actions = useMonthActions(ym);
 
   const onPickJob = (id: string) => {
@@ -163,19 +161,16 @@ export function AllJobs() {
         </div>
         <SyncAllTrackingSheetsFor ym={ym} onDone={actions.reload} />
         {can("invoice-review") && (
-          <Button
-            variant="secondary"
-            className="min-h-11"
-            onClick={check.run}
-            disabled={check.running || !month.jobs?.length}
-            title={`Run "Check this job" on every job with cost in ${monthLabel}`}
+          // Opens Checks for this month (owner, 2026-10-18): one findings list,
+          // with "Not an issue" remembered for everyone, instead of a second
+          // list at the foot of this page.
+          <Link
+            href={`/invoice-review?ym=${encodeURIComponent(ym)}`}
+            className={btn("secondary", "md", "min-h-11")}
+            title={`Open Checks for ${monthLabel}`}
           >
-            {check.running
-              ? `Checking ${check.finished}/${check.total}…`
-              : Object.keys(check.runs).length
-                ? "Check all Jobs again"
-                : "Check all Jobs"}
-          </Button>
+            Check all Jobs
+          </Link>
         )}
         {can("labor-import") && (
           <Link href="/labor-import" className={btn("secondary", "md", "min-h-11")}>
@@ -243,12 +238,6 @@ export function AllJobs() {
           </Card>
         </section>
       )}
-
-      {/* "Check all Jobs" results — last on the page, so a long run of findings
-          does not push the cards and bills down. */}
-      <div className="mt-6">
-        <CheckAllResults jobs={month.jobs} check={check} ym={ym} monthLabel={monthLabel} />
-      </div>
     </main>
   );
 }
