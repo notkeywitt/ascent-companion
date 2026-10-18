@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-18T22:03:41Z",
+  "generatedAt": "2026-10-18T22:07:55Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,7 +8,7 @@
       "branch": "claude/page-consolidation-audit",
       "status": "shipped",
       "started": "2026-10-18T17:20:28Z",
-      "updated": "2026-10-18T22:03:41Z",
+      "updated": "2026-10-18T22:07:55Z",
       "goal": "audit admin and office pages, recommend merges",
       "next": "stage 2 rest: email button onto Package, Check all Jobs into Checks, Labor Review + Finalize into the workbench, shared month default",
       "commits": [
@@ -60,6 +60,13 @@
           "sha": "9c09644",
           "subject": "companion: invoicing tab row; fold bill corrections and taxable flags into checks",
           "files": "CODEBASE_MAP.md, CONSOLIDATION_PLAN.md, next.config.mjs, src/app/invoice-review/InvoiceReview.tsx, src/app/invoicing-summary/page.tsx, src/app/needs-review/FlaggedBills.tsx, +10 more"
+        },
+        {
+          "date": "2026-10-18",
+          "time": "22:07",
+          "sha": "93b97ae",
+          "subject": "companion: move the invoicing email button onto the package tab",
+          "files": "CONSOLIDATION_PLAN.md, src/app/invoicing-summary/page.tsx, src/app/trackingsheet/AllJobs.tsx, src/components/PackageEmail.tsx"
         }
       ]
     },
