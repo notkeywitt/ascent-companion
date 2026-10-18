@@ -4,9 +4,9 @@ repo: ascent-companion
 branch: claude/page-consolidation-audit
 status: shipped
 started: 2026-10-18T17:20:28Z
-updated: 2026-10-18T22:17:05Z
+updated: 2026-10-18T22:20:35Z
 goal: audit admin and office pages, recommend merges
-next: stage 2 rest: email button onto Package, Check all Jobs into Checks, Labor Review + Finalize into the workbench, shared month default
+next: owner: Labor Review fold (unapproved switch, cost codes in view) and Check all Jobs vs Checks; then stage 3 (Incoming Bills inbox)
 ---
 
 ## Log
@@ -30,6 +30,8 @@ next: stage 2 rest: email button onto Package, Check all Jobs into Checks, Labor
   CONSOLIDATION_PLAN.md, src/app/invoicing-summary/page.tsx, src/app/trackingsheet/AllJobs.tsx, src/components/PackageEmail.tsx
 - 2026-10-18 22:17 · `6a3b328` companion: finalize a job's sheet from its workbench; sheet sync settings move to company tools
   CONSOLIDATION_PLAN.md, src/app/tracking-sheet/page.tsx, src/app/trackingsheet/AllJobs.tsx, src/app/trackingsheet/Board.tsx, src/lib/workspaces.ts
+- 2026-10-18 22:20 · `80403af` companion: invoicing tabs carry the month on screen; tracking sheets honours the set billing month
+  CONSOLIDATION_PLAN.md, src/app/invoice-review/InvoiceReview.tsx, src/app/invoicing-summary/page.tsx, src/app/trackingsheet/AllJobs.tsx, src/app/trackingsheet/Board.tsx, src/components/InvoicingTabs.tsx
 
 ## Notes
 - 2026-10-18 17:21 — audit: 6 readers over every admin/office page; usage = Vercel server renders 30d (Web Analytics off). Report https://claude.ai/artifact/9i159BFud4dbuvjwVcgTbj
