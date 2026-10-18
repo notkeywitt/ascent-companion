@@ -1564,11 +1564,7 @@ export function Board() {
     // hidden, so a tapped bill opens its full detail page instead of
     // the (invisible) drawer. `from=recode` + `ym` + the `#bill-…`
     // anchor let its back arrow return to this exact spot.
-    const openBillDetail = () =>
-      router.push(
-        `/bill/${b.id}?jobId=${encodeURIComponent(jobId)}&from=recode` +
-          `&ym=${encodeURIComponent(ym)}`,
-      );
+    const openBillDetail = () => openBillInPlace(b.id);
     // Ordinary state — what stage the bill is at, whether it's paid, whether
     // anyone has been through it — reads as one quiet line of text. It used to
     // be six or seven coloured pills per bill, and once "uninvoiced" (the
@@ -1790,6 +1786,13 @@ export function Board() {
    * bill opens in a popup over the board instead, and the board re-reads the
    * month when it closes (the popup saves straight to JobTread).
    */
+  /** Below xl a bill opens in the popup over the board — no page change. The
+   *  popup steps through the month's bills in list order. */
+  const billOrder = (data?.bills ?? []).map((x) => x.id);
+  const openBillInPlace = (billId: string) => {
+    const b = data?.bills.find((x) => x.id === billId);
+    setBillPopup({ docId: billId, jobId, label: b?.vendor ?? "Bill", jobName: jobTitle });
+  };
   const openFindingBill = (billId: string, label: string) => {
     const b = data?.bills.find((x) => x.id === billId);
     if (!belowXl && b) {
@@ -2447,6 +2450,7 @@ export function Board() {
             <CodeLanesView
               beginDrag={beginDrag}
               belowXl={belowXl}
+              onOpenBill={openBillInPlace}
               c={c}
               dragLineIds={dragLineIds}
               dragOverCode={dragOverCode}
@@ -2455,7 +2459,6 @@ export function Board() {
               jobId={jobId}
               laneRows={laneRows}
               mode={mode}
-              router={router}
               setOpenDocId={setOpenDocId}
               setOpenTimeId={setOpenTimeId}
               staged={staged}
@@ -2593,7 +2596,28 @@ export function Board() {
 
       {billPopup && (
         <BillPopup
+          key={billPopup.docId}
           sel={billPopup}
+          fullPageHref={
+            `/bill/${billPopup.docId}?jobId=${encodeURIComponent(jobId)}&from=recode` +
+            `&ym=${encodeURIComponent(ym)}`
+          }
+          nav={
+            billOrder.includes(billPopup.docId)
+              ? {
+                  position: billOrder.indexOf(billPopup.docId) + 1,
+                  count: billOrder.length,
+                  onPrev: () => {
+                    const i = billOrder.indexOf(billPopup.docId);
+                    if (i > 0) openBillInPlace(billOrder[i - 1]);
+                  },
+                  onNext: () => {
+                    const i = billOrder.indexOf(billPopup.docId);
+                    if (i < billOrder.length - 1) openBillInPlace(billOrder[i + 1]);
+                  },
+                }
+              : undefined
+          }
           onClose={() => {
             setBillPopup(null);
             load({ preserveStaged: true });

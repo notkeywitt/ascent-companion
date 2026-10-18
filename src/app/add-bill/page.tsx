@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useRef, useState } from "react";
-import Link from "next/link";
+import { BillPopup } from "@/app/trackingsheet/BillPopup";
 import { useRouter, useSearchParams } from "next/navigation";
 import { JobPicker } from "@/components/JobPicker";
 import { confirmLeaveIfDirty, useUnsavedChanges } from "@/lib/useUnsavedChanges";
@@ -120,6 +120,9 @@ function AddBill() {
   // an app-wide picker — so without one on the page there was no way to set it.
   const router = useRouter();
   const [jobId, setJobId] = useState((search.get("jobId") ?? "").trim());
+  // The new bill opens in a popup here, so the result (and Add another) stays
+  // on screen — leaving for /bill and coming Back used to land on a blank form.
+  const [reviewOpen, setReviewOpen] = useState(false);
 
   const [file, setFile] = useState<File | null>(null);
   // Idempotency key — generated ONCE per chosen file so a retry of the same
@@ -786,22 +789,31 @@ function AddBill() {
 
           <div className="mt-2 flex gap-2">
             {result.docId && (
-              <Link
-                href={`/bill/${encodeURIComponent(result.docId)}?jobId=${encodeURIComponent(jobId)}`}
+              <button
+                type="button"
+                onClick={() => setReviewOpen(true)}
                 className={btn(
                   result.duplicateChanged ? "secondary" : "primary",
                   "md",
                   "flex-1",
                 )}
               >
-                {result.wrote ? "Review coding →" : "Open the bill on file →"}
-              </Link>
+                {result.wrote ? "Review coding" : "Open the bill on file"}
+              </button>
             )}
             <Button variant="secondary" className="flex-1" onClick={reset}>
               {result.duplicateChanged ? "Cancel this upload" : "Add another"}
             </Button>
           </div>
         </Card>
+      )}
+
+      {reviewOpen && result?.docId && (
+        <BillPopup
+          sel={{ docId: result.docId, jobId, label: result.vendor ?? "New bill", jobName: "" }}
+          fullPageHref={`/bill/${encodeURIComponent(result.docId)}?jobId=${encodeURIComponent(jobId)}`}
+          onClose={() => setReviewOpen(false)}
+        />
       )}
     </main>
   );

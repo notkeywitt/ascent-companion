@@ -116,6 +116,21 @@ month handling changes anyway); the Employees phone list (stage 5);
 acting-as header is now right (the office can edit as another employee since
 1f3b4eb); Add bill → Back (stage 1).
 
+### Stage 1 status, 2026-10-18
+
+Shipped: below xl a bill opens in the board's popup (`BillPopup`) instead of
+`/bill` — from the job board's bill list, the cost-code view and the all-jobs
+month list — with ‹ › paging through the list and a "Full page" link for what
+the popup does not carry (approve, void, flag). Add Bill's "Review coding"
+opens the new bill in the same popup, so the result and Add another stay on
+screen. The popup saves a bill at a time, straight to JobTread, as `/bill`
+does; no write path changed.
+
+Not done: Summary mode still navigates to `/bill`; the popup lacks approve,
+void and the review flag (the Full page link covers them); Add Bill is still its
+own page, not a sheet; `Sheet`/`Tabs` primitives not yet added (BillPopup was
+reused instead).
+
 ## Look rules (apply as each page merges)
 
 1. A list is one hairline card (`Card pad={false}`, `divide-y divide-line-soft`).

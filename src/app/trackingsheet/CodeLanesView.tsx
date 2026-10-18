@@ -1,7 +1,6 @@
 "use client";
 
 import type { Dispatch, SetStateAction } from "react";
-import type { useRouter } from "next/navigation";
 import { Card, EmptyState } from "@/components/ui";
 import { remainingOf, type Headroom } from "./headroom";
 import { money0 } from "./BillCodingCard";
@@ -19,6 +18,7 @@ import type { JobBillLine } from "./Board";
 export function CodeLanesView({
   beginDrag,
   belowXl,
+  onOpenBill,
   c,
   dragLineIds,
   dragOverCode,
@@ -27,7 +27,6 @@ export function CodeLanesView({
   jobId,
   laneRows,
   mode,
-  router,
   setOpenDocId,
   setOpenTimeId,
   staged,
@@ -35,6 +34,8 @@ export function CodeLanesView({
 }: {
   beginDrag: (lineIds: string[]) => (e: React.DragEvent) => void;
   belowXl: boolean;
+  /** Below xl: open the bill in place (the board's popup). */
+  onOpenBill: (docId: string) => void;
   c: (key: string, vars?: Record<string, string | number>) => string;
   dragLineIds: string[] | null;
   dragOverCode: string | null;
@@ -43,7 +44,6 @@ export function CodeLanesView({
   jobId: string;
   laneRows: { code: string; h: Headroom | undefined; stacks: { key: string; docId: string; lines: JobBillLine[]; cost: number; label: string; status: string; invoiced: boolean; }[]; total: number; }[];
   mode: "bill" | "code" | "summary";
-  router: ReturnType<typeof useRouter>;
   setOpenDocId: Dispatch<SetStateAction<string | null>>;
   setOpenTimeId: Dispatch<SetStateAction<string | null>>;
   staged: Map<string, string>;
@@ -106,10 +106,7 @@ export function CodeLanesView({
                                     driveMainWindowToDoc(jobId, s.docId);
                                     // Same rule as the bill list — see there.
                                     if (belowXl) {
-                                      router.push(
-                                        `/bill/${s.docId}?jobId=${encodeURIComponent(jobId)}` +
-                                          `&from=recode&ym=${encodeURIComponent(ym)}`,
-                                      );
+                                      onOpenBill(s.docId);
                                     } else {
                                       // The coding column shows one thing —
                                       // claiming it for a bill releases the

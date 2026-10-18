@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
 import { JtLink } from "@/components/JtLink";
 import { BILL_STRIPE_COLOR, billInvoiceState } from "@/lib/billInvoiceState";
 import { billPaidState, driveMainWindowToDoc, money } from "@/components/BillingSummary";
@@ -15,6 +14,7 @@ import {
   SectionLabel,
 } from "@/components/ui";
 import { SplitGrid } from "@/components/SplitGrid";
+import { BillPopup } from "./BillPopup";
 import { useUnsavedChanges } from "@/lib/useUnsavedChanges";
 import { billingMonths } from "@/lib/billingMonths";
 import {
@@ -111,6 +111,12 @@ export function AllBills({ ym }: { ym: string }) {
   // Sunset folds into its own collapsible pane, collapsed by default — same as
   // the per-job board.
   const [sunsetOpen, setSunsetOpen] = useState(false);
+  // Below xl a bill opens in a popup over the list — no page change. `reload`
+  // re-reads the month when it closes (the popup saves straight to JobTread).
+  const [popupId, setPopupId] = useState<string | null>(null);
+  const [reload, setReload] = useState(0);
+  // A re-read after the popup closes keeps the list on screen (and the scroll).
+  const quietReload = useRef(false);
 
   const [groupBy, setGroupBy] = useState<GroupBy>("none");
   // Not remembered per device, unlike the grouping: a filter HIDES bills, and a
@@ -140,7 +146,8 @@ export function AllBills({ ym }: { ym: string }) {
   useEffect(() => {
     let alive = true;
     const [y, m] = ym.split("-");
-    setLoading(true);
+    if (!quietReload.current) setLoading(true);
+    quietReload.current = false;
     setError("");
     // Always show the whole month: draft, uninvoiced, and already-invoiced bills
     // alike, each tagged with its state below.
@@ -162,7 +169,7 @@ export function AllBills({ ym }: { ym: string }) {
     return () => {
       alive = false;
     };
-  }, [ym]);
+  }, [ym, reload]);
 
   /**
    * The month after both filters — EVERY list, count, total and pane below
@@ -415,12 +422,16 @@ export function AllBills({ ym }: { ym: string }) {
               {body}
             </button>
           ) : (
-            <Link
-              href={`/bill/${b.id}?jobId=${encodeURIComponent(b.jobId)}`}
+            <button
+              type="button"
+              onClick={() => {
+                driveMainWindowToDoc(b.jobId, b.id);
+                setPopupId(b.id);
+              }}
               className="min-w-0 flex-1 p-3 text-left transition hover:bg-accent/5 dark:hover:bg-white/5"
             >
               {body}
-            </Link>
+            </button>
           )}
           <span className="flex shrink-0 items-start border-l border-line-soft">
             <JtLink
@@ -629,6 +640,40 @@ export function AllBills({ ym }: { ym: string }) {
           </section>
         </SplitGrid>
       )}
+
+      {popupId &&
+        (() => {
+          const i = orderedBills.findIndex((x) => x.id === popupId);
+          const pb = i >= 0 ? orderedBills[i] : bills?.find((x) => x.id === popupId);
+          if (!pb) return null;
+          const open = (id: string) => {
+            const nb = orderedBills.find((x) => x.id === id);
+            if (nb) driveMainWindowToDoc(nb.jobId, nb.id);
+            setPopupId(id);
+          };
+          return (
+            <BillPopup
+              key={pb.id}
+              sel={{ docId: pb.id, jobId: pb.jobId, label: pb.vendor, jobName: jobLabel(pb) }}
+              fullPageHref={`/bill/${pb.id}?jobId=${encodeURIComponent(pb.jobId)}`}
+              nav={
+                i >= 0
+                  ? {
+                      position: i + 1,
+                      count: orderedBills.length,
+                      onPrev: () => i > 0 && open(orderedBills[i - 1].id),
+                      onNext: () => i < orderedBills.length - 1 && open(orderedBills[i + 1].id),
+                    }
+                  : undefined
+              }
+              onClose={() => {
+                setPopupId(null);
+                quietReload.current = true;
+                setReload((n) => n + 1);
+              }}
+            />
+          );
+        })()}
     </>
   );
 }
