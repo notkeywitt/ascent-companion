@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/page-consolidation-audit
 status: shipped
 started: 2026-10-18T17:20:28Z
-updated: 2026-10-18T22:20:36Z
+updated: 2026-10-18T22:55:34Z
 goal: audit admin and office pages, recommend merges
 next: owner: Labor Review fold (unapproved switch, cost codes in view) and Check all Jobs vs Checks; then stage 3 (Incoming Bills inbox)
 ---
@@ -32,6 +32,8 @@ next: owner: Labor Review fold (unapproved switch, cost codes in view) and Check
   CONSOLIDATION_PLAN.md, src/app/tracking-sheet/page.tsx, src/app/trackingsheet/AllJobs.tsx, src/app/trackingsheet/Board.tsx, src/lib/workspaces.ts
 - 2026-10-18 22:20 · `80403af` companion: invoicing tabs carry the month on screen; tracking sheets honours the set billing month
   CONSOLIDATION_PLAN.md, src/app/invoice-review/InvoiceReview.tsx, src/app/invoicing-summary/page.tsx, src/app/trackingsheet/AllJobs.tsx, src/app/trackingsheet/Board.tsx, src/components/InvoicingTabs.tsx
+- 2026-10-18 22:55 · `c1c4b2f` companion: fold labor review into the tracking sheets labor panel
+  CODEBASE_MAP.md, CONSOLIDATION_PLAN.md, next.config.mjs, src/app/labor-review/LaborReview.tsx, src/app/labor-review/page.tsx, src/app/trackingsheet/Board.tsx, +3 more
 
 ## Notes
 - 2026-10-18 17:21 — audit: 6 readers over every admin/office page; usage = Vercel server renders 30d (Web Analytics off). Report https://claude.ai/artifact/9i159BFud4dbuvjwVcgTbj
