@@ -4,9 +4,9 @@ repo: ascent-companion
 branch: claude/page-consolidation-audit
 status: shipped
 started: 2026-10-18T17:20:28Z
-updated: 2026-10-18T17:59:28Z
+updated: 2026-10-18T21:48:48Z
 goal: audit admin and office pages, recommend merges
-next: stage 1 of CONSOLIDATION_PLAN.md: Sheet + Tabs primitives, then the bill drawer (needs owner ok: coding writes from the drawer at every width)
+next: stage 1 rest: approve/void/flag in BillPopup, Summary mode in place; then stage 2 (Checks + Package tabs)
 ---
 
 ## Log
@@ -20,6 +20,8 @@ next: stage 1 of CONSOLIDATION_PLAN.md: Sheet + Tabs primitives, then the bill d
   src/components/AppHeader.tsx, src/components/AppMenu.tsx, src/lib/help.ts
 - 2026-10-18 17:59 · `48e603e` companion: stage 0 fixes — gate eight routes, void wording, touch closing actions, admin tab colour
   CONSOLIDATION_PLAN.md, src/app/admin/page.tsx, src/app/amazon-import/page.tsx, src/app/bill/[docId]/page.tsx, src/app/historical-cost/page.tsx, src/app/requisitions/page.tsx, +8 more
+- 2026-10-18 21:48 · `90f8a27` companion: open bills in place below xl and from add bill, with paging and a full page link
+  CONSOLIDATION_PLAN.md, src/app/add-bill/page.tsx, src/app/trackingsheet/AllBills.tsx, src/app/trackingsheet/BillPopup.tsx, src/app/trackingsheet/Board.tsx, src/app/trackingsheet/CodeLanesView.tsx
 
 ## Notes
 - 2026-10-18 17:21 — audit: 6 readers over every admin/office page; usage = Vercel server renders 30d (Web Analytics off). Report https://claude.ai/artifact/9i159BFud4dbuvjwVcgTbj
