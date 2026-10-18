@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-18T21:58:24Z",
+  "generatedAt": "2026-10-18T22:03:41Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "claude/page-consolidation-audit",
       "status": "shipped",
       "started": "2026-10-18T17:20:28Z",
-      "updated": "2026-10-18T21:58:24Z",
+      "updated": "2026-10-18T22:03:41Z",
       "goal": "audit admin and office pages, recommend merges",
-      "next": "stage 2: Checks tab (Invoice Review + Check all Jobs + Bill Corrections + Taxable Flags), Package tab",
+      "next": "stage 2 rest: email button onto Package, Check all Jobs into Checks, Labor Review + Finalize into the workbench, shared month default",
       "commits": [
         {
           "date": "2026-10-18",
@@ -53,6 +53,13 @@
           "sha": "6b9906c",
           "subject": "companion: approve, void and review flag in the bill popup; summary mode opens bills in place",
           "files": "CONSOLIDATION_PLAN.md, src/app/trackingsheet/BillPopup.tsx, src/app/trackingsheet/BillingSummaryView.tsx, src/app/trackingsheet/Board.tsx, src/app/trackingsheet/DraftWorkbench.tsx, src/components/BillingSummary.tsx"
+        },
+        {
+          "date": "2026-10-18",
+          "time": "22:03",
+          "sha": "9c09644",
+          "subject": "companion: invoicing tab row; fold bill corrections and taxable flags into checks",
+          "files": "CODEBASE_MAP.md, CONSOLIDATION_PLAN.md, next.config.mjs, src/app/invoice-review/InvoiceReview.tsx, src/app/invoicing-summary/page.tsx, src/app/needs-review/FlaggedBills.tsx, +10 more"
         }
       ]
     },
