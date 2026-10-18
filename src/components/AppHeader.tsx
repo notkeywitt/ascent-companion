@@ -12,7 +12,8 @@ import { useAccess } from "@/components/AccessProvider";
 import { btn } from "@/components/ui";
 
 /**
- * Sticky top chrome, on one line: the ☰ menu (every page, src/lib/workspaces.ts),
+ * Sticky top chrome, on one line: the ☰ menu (every page, src/lib/workspaces.ts;
+ * the office role gets the Account item instead),
  * the Ascent logo, the app's one search box, and Add bill.
  *
  * THE LOGO IS THE LIGHT/DARK SWITCH. It was a home link beside a separate ☀/☾
@@ -95,9 +96,11 @@ export function AppHeader() {
       <div className="flex items-center gap-1.5 px-2 py-2 sm:gap-2">
         {/* Every page this person can open, by workspace — on a phone only. From
             `pad` up the sidebar lists the workspaces and carries the Account
-            item, so ☰ went away there (owner, 2026-10-13). */}
+            item, so ☰ went away there (owner, 2026-10-13). The OFFICE role has
+            no ☰ at any width (owner, 2026-10-18): it gets the sidebar's Account
+            item instead, so Appearance and Sign out stay one tap away. */}
         <div className="pad:hidden">
-          <AppMenu qs={qs} />
+          {access.role === "office" ? <AppMenu account /> : <AppMenu qs={qs} />}
         </div>
         {/* No back button: back is a swipe right from the screen's left
             edge (SwipeBack, installed app). A browser tab has its own. */}
