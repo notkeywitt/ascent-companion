@@ -143,7 +143,10 @@ picked by `?section=`. `/needs-review` and `/taxable-lines` redirect there; thei
 view ids stay, now in `OUTSIDE_WORKSPACES`. Home's Bill Corrections row opens
 the Flagged bills section.
 
-Not done in stage 2: Package's email button (still on Tracking Sheets); Check
+Later the same day: "Draft invoicing email" moved from Tracking Sheets' all-jobs
+row to Package's action bar (`src/components/PackageEmail.tsx`).
+
+Not done in stage 2: Check
 all Jobs merged into Checks; one dismissal model; one taxable rule; Labor
 Review, Finalize and Historical Cost into the workbench; the shared month
 default. A production Page Text override of `home.dest.invoice-review.label`

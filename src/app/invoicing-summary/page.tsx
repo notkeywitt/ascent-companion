@@ -1,6 +1,7 @@
 "use client";
 
 import { InvoicingTabs } from "@/components/InvoicingTabs";
+import { PackageEmailButton, PackageEmailResult, usePackageEmail } from "@/components/PackageEmail";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { setUrlParam, urlYm } from "@/lib/urlParam";
 import {
@@ -137,6 +138,7 @@ const plural = (n: number, one: string, many = one + "s") => `${n} ${n === 1 ? o
 
 export default function InvoicingSummaryPage() {
   const [ym, setYm] = useState("");
+  const email = usePackageEmail(ym);
   const [data, setData] = useState<Summary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -491,10 +493,13 @@ export default function InvoicingSummaryPage() {
 
           {saveError && <Banner tone="error">{saveError}</Banner>}
 
+          <PackageEmailResult email={email} />
+
           <StickyActionBar>
             <Button onClick={() => void build()} disabled={building}>
               {building ? "Writing the doc…" : data.written ? "Rewrite the doc" : "Write the doc"}
             </Button>
+            <PackageEmailButton email={email} ym={ym} />
             <button
               type="button"
               className={btn("ghost", "md")}
