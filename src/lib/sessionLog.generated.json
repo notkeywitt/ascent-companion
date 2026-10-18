@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-18T23:00:37Z",
+  "generatedAt": "2026-10-18T23:04:11Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "claude/page-consolidation-audit",
       "status": "shipped",
       "started": "2026-10-18T17:20:28Z",
-      "updated": "2026-10-18T23:00:37Z",
+      "updated": "2026-10-18T23:04:11Z",
       "goal": "audit admin and office pages, recommend merges",
-      "next": "stage 3 rest: Home 'Invoices to log' row, Statement Import (LSWDD+Amazon), one meaning of handled; Check all Jobs question to owner",
+      "next": "owner: Check all Jobs option; then stage 4 (job page + Customers)",
       "commits": [
         {
           "date": "2026-10-18",
@@ -95,6 +95,20 @@
           "sha": "8e66be9",
           "subject": "companion: one incoming bills inbox — to log, stuck and check mail as sections",
           "files": "CONSOLIDATION_PLAN.md, next.config.mjs, src/app/email/EmailInvoices.tsx, src/app/email/Inbox.tsx, src/app/email/page.tsx, src/app/needs-project/NotInJobTread.tsx, +7 more"
+        },
+        {
+          "date": "2026-10-18",
+          "time": "23:03",
+          "sha": "921af53",
+          "subject": "companion: add an invoices to log row to home",
+          "files": "src/components/TodayQueue.tsx"
+        },
+        {
+          "date": "2026-10-18",
+          "time": "23:04",
+          "sha": "d3378e3",
+          "subject": "companion: record stage 3 status",
+          "files": "CONSOLIDATION_PLAN.md"
         }
       ]
     },
