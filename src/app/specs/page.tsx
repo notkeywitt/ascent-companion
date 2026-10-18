@@ -17,6 +17,7 @@ import {
   Select,
 } from "@/components/ui";
 import { JobParamPicker, useJobIdParam } from "@/components/JobPicker";
+import { JobTabs } from "@/components/JobTabs";
 import {
   groupByRoom,
   specEntry,
@@ -392,6 +393,7 @@ function Specs() {
         title="Specifications"
         description="An architect's spec selection list, with every product link live."
       />
+      <JobTabs jobId={jobId} />
 
       {error && (
         <Banner tone="error" className="mb-4">

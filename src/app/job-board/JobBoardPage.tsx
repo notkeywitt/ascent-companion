@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
   Banner,
@@ -94,17 +95,26 @@ function JobCard({ c }: { c: JobsPageCard }) {
     <Card className="flex h-full w-72 shrink-0 flex-col gap-2 pad:w-auto">
       <div className="min-w-0">
         <div className="flex items-baseline gap-2">
+          {/* The name opens the job's own pages (record, cost, specs …) through
+              the job tab row (stage 4); JobTread is the ↗ beside it. */}
+          <Link
+            href={`/clients?jobId=${encodeURIComponent(c.id)}`}
+            className="min-w-0 flex-1 truncate text-sm font-semibold tracking-tight hover:text-accent dark:hover:text-accent-soft"
+          >
+            {c.name}
+          </Link>
+          {c.number && (
+            <span className="shrink-0 text-[11px] tabular-nums text-neutral-500">#{c.number}</span>
+          )}
           <a
             href={jtJobUrl(c.id)}
             target="_blank"
             rel="noreferrer"
-            className="min-w-0 flex-1 truncate text-sm font-semibold tracking-tight hover:text-accent dark:hover:text-accent-soft"
+            aria-label={`${c.name} in JobTread`}
+            className="shrink-0 text-[11px] font-semibold text-neutral-500 hover:text-accent dark:text-neutral-400"
           >
-            {c.name}
+            JT ↗
           </a>
-          {c.number && (
-            <span className="shrink-0 text-[11px] tabular-nums text-neutral-500">#{c.number}</span>
-          )}
         </div>
         <div className="truncate text-[12px] text-neutral-700 dark:text-neutral-300">
           {c.customer || "No customer"}

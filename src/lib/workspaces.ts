@@ -63,18 +63,18 @@ export const WORKSPACES: Workspace[] = [
   },
   {
     id: "clients",
-    title: "Clients",
-    desc: "Leads, clients and jobs — budgets, specs and what is owed.",
+    // "Jobs" since 2026-10-18 (owner, decision 5), so the bar and the rail say
+    // the same thing. The workspace id stays "clients".
+    title: "Jobs",
+    desc: "Jobs, leads and customers, and what is owed.",
     // RFIs left every menu 2026-09-29: nobody logs them (owner decision 4).
-    // The route and the view stay; see OUTSIDE_WORKSPACES.
+    // A job's own pages (Cost, Budget Import, Specs, Unbilled) left the menu
+    // 2026-10-18: they open from the job's tab row (JobTabs) and JOB_PAGES
+    // keeps them in the header search.
     tabs: [
-      tab("job-board", "/job-board", "Jobs", "Active jobs, PreCon jobs and leads — the schedule now and the newest to-dos"),
+      tab("job-board", "/job-board", "Job Board", "Active jobs, PreCon jobs and leads — the schedule now and the newest to-dos"),
       tab("leads", "/leads", "Leads", "New leads, who's overdue, who's gone quiet"),
       tab("clients", "/clients", "Directory", "Every customer and job in JobTread — edit the record"),
-      tab("jobs", "/jobs", "Job Cost", "Every job's budget against what it has spent"),
-      tab("unbilled", "/unbilled", "Unbilled", "Bills and time not yet invoiced"),
-      tab("budget-import", "/budget-import", "Budget Import", "A tracking sheet's estimate as a JobTread budget"),
-      tab("specs", "/specs", "Specifications", "An architect's spec selection list, with its product links"),
       tab("ar-aging", "/ar-aging", "Receivables", "Unpaid client invoices, oldest first"),
     ],
   },
@@ -176,7 +176,19 @@ export const EXTRA_LINKS: WorkspaceTab[] = [
   tab("chat", "/chat", "Assistant", "Ask about a job's bills or budget"),
   tab("lopezrocks", "/lopezrocks", "LopezRocks", "Lopez Island's community board"),
 ];
+/** A job's own pages: on no menu (the job's tab row reaches them), but still
+ *  found by the header search. */
+export const JOB_PAGES: WorkspaceTab[] = [
+  tab("jobs", "/jobs", "Job Cost", "A job's budget against what it has spent"),
+  tab("budget-import", "/budget-import", "Budget Import", "A tracking sheet's estimate as a JobTread budget"),
+  tab("specs", "/specs", "Specifications", "An architect's spec selection list, with its product links"),
+  tab("unbilled", "/unbilled", "Unbilled", "A job's bills and time not yet invoiced"),
+];
 export const OUTSIDE_WORKSPACES: Record<string, string> = {
+  jobs: "a job's tab row (JobTabs) and the header search (JOB_PAGES)",
+  "budget-import": "a job's tab row (JobTabs) and the header search (JOB_PAGES)",
+  specs: "a job's tab row (JobTabs) and the header search (JOB_PAGES)",
+  unbilled: "a job's tab row (JobTabs) and the header search (JOB_PAGES)",
   chat: "menu footer (EXTRA_LINKS)",
   lopezrocks: "menu footer (EXTRA_LINKS) and the home page",
   rfis: "nobody logs RFIs (owner decision 4, 2026-09-29); route kept",
@@ -260,14 +272,14 @@ export const BARS: Record<Role, BarSlot[]> = {
   office: [
     { kind: "today" },
     { kind: "workspace", id: "close" },
-    { kind: "tab", view: "job-board" },
+    { kind: "workspace", id: "clients" },
     { kind: "tab", view: "mileage" },
     { kind: "tab", view: "employee-time" },
   ],
   admin: [
     { kind: "today" },
     { kind: "workspace", id: "close" },
-    { kind: "tab", view: "job-board" },
+    { kind: "workspace", id: "clients" },
     { kind: "tab", view: "mileage" },
     { kind: "tab", view: "employee-time" },
   ],

@@ -18,6 +18,7 @@ import {
 } from "@/components/ui";
 import { CustomerPanel } from "./CustomerPanel";
 import { JobPanel } from "./JobPanel";
+import { JobTabs } from "@/components/JobTabs";
 import type { ClientDirectory, DirectoryCustomer, DirectoryJob, InvoiceTag, InvoiceTagList } from "./types";
 
 /**
@@ -115,6 +116,11 @@ export function ClientsBrowser() {
   const [showClosed, setShowClosed] = useState(false);
   const [needsTagOnly, setNeedsTagOnly] = useState(false);
   const [view, setView] = useState<View>({ kind: "list" });
+  // ?jobId opens that job's record — the job tab row's "Record" (stage 4).
+  useEffect(() => {
+    const id = (new URLSearchParams(window.location.search).get("jobId") ?? "").trim();
+    if (id) setView({ kind: "job", id });
+  }, []);
 
   const loadDirectory = useCallback(() => {
     setLoading(true);
@@ -228,6 +234,7 @@ export function ClientsBrowser() {
         </button>
       )}
 
+      {view.kind === "job" && <JobTabs jobId={view.id} />}
       {view.kind === "job" && (
         <JobPanel
           jobId={view.id}

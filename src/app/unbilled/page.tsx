@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { billStatusLabel } from "@/components/BillStatusBadge";
 import { JobParamPicker } from "@/components/JobPicker";
+import { JobTabs } from "@/components/JobTabs";
 import {
   Banner,
   EmptyState,
@@ -44,17 +45,8 @@ export default async function UnbilledPage({
             ? "Bills and time not yet on a client invoice, over the life of the job."
             : "Pick a job to see its unbilled expenses."
         }
-        actions={
-          jobId ? (
-            <Link
-              href={`/trackingsheet?jobId=${encodeURIComponent(jobId)}`}
-              className="text-xs font-semibold text-accent dark:text-accent-soft"
-            >
-              ← Tracking Sheets
-            </Link>
-          ) : undefined
-        }
       />
+      <JobTabs jobId={jobId} />
 
       <div className="mb-4">
         <JobParamPicker includeAll={false} placeholder="Choose a job…" />

@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/page-consolidation-audit
 status: shipped
 started: 2026-10-18T17:20:28Z
-updated: 2026-10-18T23:04:11Z
+updated: 2026-10-18T23:08:58Z
 goal: audit admin and office pages, recommend merges
 next: owner: Check all Jobs option; then stage 4 (job page + Customers)
 ---
@@ -40,6 +40,8 @@ next: owner: Check all Jobs option; then stage 4 (job page + Customers)
   src/components/TodayQueue.tsx
 - 2026-10-18 23:04 · `d3378e3` companion: record stage 3 status
   CONSOLIDATION_PLAN.md
+- 2026-10-18 23:08 · `eab0077` companion: check all jobs opens checks; drop the second findings list from tracking sheets
+  src/app/trackingsheet/AllJobs.tsx, src/app/trackingsheet/CheckAllJobs.tsx
 
 ## Notes
 - 2026-10-18 17:21 — audit: 6 readers over every admin/office page; usage = Vercel server renders 30d (Web Analytics off). Report https://claude.ai/artifact/9i159BFud4dbuvjwVcgTbj

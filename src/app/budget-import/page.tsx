@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { JobTabs } from "@/components/JobTabs";
 import {
   Banner,
   Button,
@@ -34,6 +35,7 @@ import JtImport from "./JtImport";
 interface Job {
   id: string;
   label: string;
+  jtJobId?: string;
 }
 
 interface Item {
@@ -89,7 +91,14 @@ export default function BudgetImportPage() {
   useEffect(() => {
     fetch("/api/budget-import")
       .then(readJson)
-      .then((b) => setJobs(b.jobs || []))
+      .then((b) => {
+        const list: Job[] = b.jobs || [];
+        setJobs(list);
+        // ?jobId (a JobTread id, from the job tab row) picks the wired project.
+        const want = (new URLSearchParams(window.location.search).get("jobId") ?? "").trim();
+        const hit = want ? list.find((j) => j.jtJobId === want) : undefined;
+        if (hit) setProjectId(hit.id);
+      })
       .catch((e) => {
         setError(e.message);
         setJobs([]);
@@ -130,6 +139,7 @@ export default function BudgetImportPage() {
         title="Budget Import"
         description="Turn a job's tracking-sheet estimate into a CSV for JobTread's Budget → Import."
       />
+      <JobTabs jobId={jobs?.find((j) => j.id === projectId)?.jtJobId ?? ""} />
 
       {error && <Banner tone="error" className="mb-4">{error}</Banner>}
 

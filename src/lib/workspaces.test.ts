@@ -80,7 +80,7 @@ describe("the bottom bar", () => {
   it("gives office and admin a Jobs slot in place of Incoming Bills", () => {
     for (const role of ["office", "admin"] as const) {
       const keys = barFor(role, canFor(role)).map((i) => i.key);
-      expect(keys, role).toContain("job-board");
+      expect(keys, role).toContain("clients");
       expect(keys, role).not.toContain("incoming");
     }
   });

@@ -7,7 +7,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { inputCls } from "@/components/ui";
 import { useAccess } from "@/components/AccessProvider";
 import { useCopy } from "@/components/CopyProvider";
-import { EXTRA_LINKS, WORKSPACES } from "@/lib/workspaces";
+import { EXTRA_LINKS, JOB_PAGES, WORKSPACES } from "@/lib/workspaces";
 import { searchHelp } from "@/lib/help";
 
 /**
@@ -136,7 +136,7 @@ export function GlobalSearch() {
   // every label through the copy registry so search matches the wording on screen.
   const pageMatches = useMemo(() => {
     if (!q) return [];
-    return [...WORKSPACES, { title: "More", tabs: EXTRA_LINKS }].flatMap((w) =>
+    return [...WORKSPACES, { title: "A job", tabs: JOB_PAGES }, { title: "More", tabs: EXTRA_LINKS }].flatMap((w) =>
       w.tabs
         .filter((d) => access.can(d.view))
         .map((d) => ({

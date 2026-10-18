@@ -12,6 +12,8 @@ import {
   Toggle,
 } from "@/components/ui";
 import { JobPicker, type JobRef } from "@/components/JobPicker";
+import { JobTabs } from "@/components/JobTabs";
+import { setUrlParam } from "@/lib/urlParam";
 import { Donut, type DonutSlice } from "@/components/Donut";
 
 /**
@@ -279,6 +281,19 @@ export function JobsBrowser() {
   const [phaseFilter, setPhaseFilter] = useState("");
   const [hideAscent, setHideAscent] = useState(true);
   const [jobId, setJobId] = useState("");
+  // The job rides in ?jobId so the job tab row can carry it (stage 4).
+  const pickJob = (id: string) => {
+    setJobId(id);
+    setUrlParam("jobId", id);
+  };
+  useEffect(() => {
+    const id = (new URLSearchParams(window.location.search).get("jobId") ?? "").trim();
+    if (!id) return;
+    // A job handed over by link must not be hidden by the default filters.
+    setPhaseFilter("");
+    setHideAscent(false);
+    setJobId(id);
+  }, []);
 
   const [detail, setDetail] = useState<JobCostDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -397,6 +412,7 @@ export function JobsBrowser() {
         title="Job Cost"
         description="Pick a job for its cost by CSI division, cost code, and estimate line."
       />
+      <JobTabs jobId={jobId} />
 
       {jobsError && (
         <Banner tone="error" className="mb-4">
@@ -413,7 +429,7 @@ export function JobsBrowser() {
               <div className="flex min-w-0 flex-1 items-stretch">
                 <JobPicker
                   value={jobId}
-                  onChange={setJobId}
+                  onChange={pickJob}
                   jobs={filtered}
                   includeAll={false}
                   placeholder="Select a job…"

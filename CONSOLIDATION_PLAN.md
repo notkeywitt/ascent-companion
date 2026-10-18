@@ -183,6 +183,28 @@ Not done in stage 3: one meaning of "handled" (Processed is still a Gmail label
 Check mail ignores; the fix is in appscript `VendorMail.js` and needs a deploy);
 the email-scan buttons from Actions (stage 6).
 
+### Stage 2 addendum, 2026-10-18
+
+"Check all Jobs" on Tracking Sheets opens Checks for the month (owner: option
+B); the second findings list at the foot of Tracking Sheets and
+`CheckAllJobs.tsx` are gone. "Check this job" on each job stays.
+
+### Stage 4 status, 2026-10-18 (first slice)
+
+Shipped, without a new route: a job tab row (`src/components/JobTabs.tsx`:
+Record · Cost · Budget Import · Specs · Unbilled · This month) on Directory's
+job record, Job Cost, Budget Import, Specifications and Unbilled. Each tab keeps
+its own route and gate and opens on `?jobId`; Directory, Job Cost and Budget
+Import now read it. Jobs board card names open the job's Record (JobTread is
+the ↗ beside them). The Clients workspace is titled **Jobs**, its menu holds
+Job Board · Leads · Directory · Receivables, and the bar's Jobs slot is the
+whole workspace. Job Cost, Budget Import, Specs and Unbilled left the menu;
+`JOB_PAGES` keeps them in the header search.
+
+Not done in stage 4: Customers (Leads + Directory's customers on one list); an
+Overview tab (Home's job card, Gantt, cost rings); header search finding jobs
+and customers; RFIs retire (stage 6).
+
 ## Look rules (apply as each page merges)
 
 1. A list is one hairline card (`Card pad={false}`, `divide-y divide-line-soft`).
