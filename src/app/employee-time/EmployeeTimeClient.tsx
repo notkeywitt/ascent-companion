@@ -571,7 +571,6 @@ export function EmployeeTimeClient({
   identityResolved,
   lastUsed,
   canActAs = false,
-  actAsReadOnly = false,
   canCompare = false,
   appUserIds = [],
   initialPayRules = [],
@@ -590,9 +589,6 @@ export function EmployeeTimeClient({
   lastUsed: LastUsed | null;
   /** Admin + office: may open this page as another employee. The server enforces it. */
   canActAs?: boolean;
-  /** Office: that view is LOOK ONLY — no clock, no log, no edit. The server
-   *  refuses those writes for the office anyway; this hides the controls. */
-  actAsReadOnly?: boolean;
   /** Admin + office: the week-compare tab and the Timesheets tab's "Email time
    *  entries" button. The history and email routes enforce it. */
   canCompare?: boolean;
@@ -609,12 +605,11 @@ export function EmployeeTimeClient({
 
   /* ── VIEWING SOMEONE ELSE (admin + office) ─────────────────────────────────
      The JobTread user whose time this screen is showing, "" for your own. An
-     admin picks a person and the whole page follows: their running clock, their
-     timesheet, and any edit saved from it. The office gets the same view with
-     every write control hidden (`viewOnly`).
+     admin or the office picks a person and the whole page follows: their
+     running clock, their timesheet, and any edit saved from it.
 
-     It is NOT remembered anywhere. It lives for this visit only, so an admin
-     cannot come back tomorrow and file their own hours onto somebody else
+     It is NOT remembered anywhere. It lives for this visit only, so nobody
+     can come back tomorrow and file their own hours onto somebody else
      without noticing — closing the page is how you put it down.
 
      `canActAs` only draws the control. Every route re-decides it server-side
@@ -623,7 +618,6 @@ export function EmployeeTimeClient({
   const [actingAsId, setActingAsId] = useState("");
   const [actingName, setActingName] = useState("");
   const acting = canActAs && !!actingAsId;
-  const viewOnly = acting && actAsReadOnly;
   // Appended to every /api/employee-time* call while acting. One place, so a
   // new call site cannot quietly read the admin's own time instead.
   const actingParam = acting ? `actingAs=${encodeURIComponent(actingAsId)}` : "";
@@ -2102,18 +2096,16 @@ export function EmployeeTimeClient({
       />
 
       {/* ADMIN + OFFICE: open the page as somebody else. The whole screen
-          follows — their running clock, their timesheet, and (admin only) any
-          edit saved from it. Re-decided server-side on every request, so hiding
+          follows — their running clock, their timesheet, and any edit saved
+          from it. Re-decided server-side on every request, so hiding
           this control is the courtesy, not the gate. */}
       {canActAs && (
         <div className="mb-3">
           {acting ? (
             <Banner tone="warning" className="flex flex-wrap items-center justify-between gap-2">
               <span>
-                Viewing <strong>{effectiveName || "another employee"}</strong>.{" "}
-                {viewOnly
-                  ? "View only — nothing here can be changed."
-                  : "Anything you log or edit is filed as them, and recorded as you."}
+                Viewing <strong>{effectiveName || "another employee"}</strong>. Anything you log or
+                edit is filed as them, and recorded as you.
               </span>
               <button
                 type="button"
@@ -2186,12 +2178,11 @@ export function EmployeeTimeClient({
 
       {/* We couldn't match the login to a JobTread user — one tap fixes it.
           Once picked, the choice is locked: a field login must not be able to
-          reopen this and re-file time as a different employee. Only an admin
-          (who has the separate, gated "acting as" control) can still change it
-          here — the office's view-only control does not count. Re-linking
-          otherwise requires the Employees page. */}
+          reopen this and re-file time as a different employee. Only an admin or
+          the office (who have the separate, gated "acting as" control) can
+          still change it here. Re-linking otherwise requires the Employees page. */}
       {needsUserPick &&
-        (effectiveUser && (!canActAs || actAsReadOnly) ? (
+        (effectiveUser && !canActAs ? (
           <div className="mb-3 flex w-full items-center gap-3 rounded-xl border border-amber-300 bg-amber-50 px-3 py-3 text-left text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300">
             <span>Logging as {effectiveUser.name}.</span>
           </div>
@@ -2265,112 +2256,105 @@ export function EmployeeTimeClient({
             )}
           </div>
 
-          {/* View only: the running entry's fields, never the clock-in form. */}
-          {(!viewOnly || (running && activeClock)) && (
-            <Card pad={false} className="overflow-hidden">
-              {running && activeClock ? (
-                <>
-                  <FieldRow label="Started" value={displayStamp(activeClock.startedAt)} static />
-                  <FieldRow label="Job" value={activeClock.jobLabel || "—"} static />
-                  {/* Tappable while the clock runs: changing work mid-shift splits
-                      the entry rather than re-coding the hours already worked. */}
-                  <FieldRow
-                    label="Work"
-                    value={[activeClock.costCode, activeClock.costItemName].filter(Boolean).join(" — ") || "—"}
-                    sub={canSwitchCode && !viewOnly ? "Tap to switch — the hours so far stay put" : undefined}
-                    onClick={canSwitchCode && !onBreakSince && !viewOnly ? () => openSheet("switch") : undefined}
-                    static={!canSwitchCode || !!onBreakSince || viewOnly}
-                  />
-                  {activeClock.payType && <FieldRow label="Pay type" value={activeClock.payType} static />}
-                  {viewOnly ? (
-                    <FieldRow label="Note" value={note.trim() || "—"} static />
-                  ) : (
-                    <FieldRow
-                      label="Note"
-                      value={note.trim() || "Add a note"}
-                      placeholder={!note.trim()}
-                      sub={note.trim() ? undefined : "Required to clock out"}
-                      onClick={() => openSheet("note")}
+          <Card pad={false} className="overflow-hidden">
+            {running && activeClock ? (
+              <>
+                <FieldRow label="Started" value={displayStamp(activeClock.startedAt)} static />
+                <FieldRow label="Job" value={activeClock.jobLabel || "—"} static />
+                {/* Tappable while the clock runs: changing work mid-shift splits
+                    the entry rather than re-coding the hours already worked. */}
+                <FieldRow
+                  label="Work"
+                  value={[activeClock.costCode, activeClock.costItemName].filter(Boolean).join(" — ") || "—"}
+                  sub={canSwitchCode ? "Tap to switch — the hours so far stay put" : undefined}
+                  onClick={canSwitchCode && !onBreakSince ? () => openSheet("switch") : undefined}
+                  static={!canSwitchCode || !!onBreakSince}
+                />
+                {activeClock.payType && <FieldRow label="Pay type" value={activeClock.payType} static />}
+                <FieldRow
+                  label="Note"
+                  value={note.trim() || "Add a note"}
+                  placeholder={!note.trim()}
+                  sub={note.trim() ? undefined : "Required to clock out"}
+                  onClick={() => openSheet("note")}
+                />
+              </>
+            ) : (
+              <>
+                {/* Start time — "now" unless you say otherwise. */}
+                <div className="flex min-h-[56px] items-center justify-between gap-3 border-b border-line-soft px-3 py-2.5">
+                  <span className="text-[13px] text-neutral-500">Start time</span>
+                  <span className="flex items-center gap-2">
+                    <ChipInput
+                      type="date"
+                      value={startAt.slice(0, 10)}
+                      display={dayChipLabel(startAt.slice(0, 10))}
+                      ariaLabel="Start date"
+                      onChange={(v) => {
+                        if (!v) return;
+                        setStartTouched(true);
+                        setStartAt(`${v}T${startAt.slice(11, 16)}`);
+                      }}
                     />
-                  )}
-                </>
-              ) : (
-                <>
-                  {/* Start time — "now" unless you say otherwise. */}
-                  <div className="flex min-h-[56px] items-center justify-between gap-3 border-b border-line-soft px-3 py-2.5">
-                    <span className="text-[13px] text-neutral-500">Start time</span>
-                    <span className="flex items-center gap-2">
-                      <ChipInput
-                        type="date"
-                        value={startAt.slice(0, 10)}
-                        display={dayChipLabel(startAt.slice(0, 10))}
-                        ariaLabel="Start date"
-                        onChange={(v) => {
-                          if (!v) return;
-                          setStartTouched(true);
-                          setStartAt(`${v}T${startAt.slice(11, 16)}`);
-                        }}
-                      />
-                      <ChipInput
-                        type="time"
-                        value={startAt.slice(11, 16)}
-                        display={fmt12h(startAt.slice(11, 16))}
-                        ariaLabel="Start time"
-                        onChange={(v) => {
-                          if (!v) return;
-                          setStartTouched(true);
-                          setStartAt(`${startAt.slice(0, 10)}T${v.slice(0, 5)}`);
-                        }}
-                      />
-                    </span>
-                  </div>
-
-                  <FieldRow
-                    label="Job"
-                    value={jobLabelText || "Select a job"}
-                    placeholder={!jobLabelText}
-                    sub={selectedJob ? jobAddress(selectedJob) || undefined : undefined}
-                    onClick={() => openSheet("job")}
-                    onClear={jobId ? () => setJobId("") : undefined}
-                  />
-
-                  <FieldRow
-                    label="Work"
-                    value={
-                      costLabelText ||
-                      (!jobId
-                        ? "Pick a job first"
-                        : loadingCosts
-                          ? "Loading…"
-                          : costItems.length
-                            ? "Select work"
-                            : "No labor line on this job — ask the office")
-                    }
-                    placeholder={!costLabelText}
-                    onClick={jobId && costItems.length ? () => openSheet("cost") : undefined}
-                  />
-
-                  {payTypes.length > 1 && (
-                    <FieldRow
-                      label="Pay type"
-                      value={payType || "Select a pay type"}
-                      placeholder={!payType}
-                      sub={typesAreFallback ? "All pay types — pick your rate for this job" : undefined}
-                      onClick={() => openSheet("type")}
+                    <ChipInput
+                      type="time"
+                      value={startAt.slice(11, 16)}
+                      display={fmt12h(startAt.slice(11, 16))}
+                      ariaLabel="Start time"
+                      onChange={(v) => {
+                        if (!v) return;
+                        setStartTouched(true);
+                        setStartAt(`${startAt.slice(0, 10)}T${v.slice(0, 5)}`);
+                      }}
                     />
-                  )}
+                  </span>
+                </div>
 
+                <FieldRow
+                  label="Job"
+                  value={jobLabelText || "Select a job"}
+                  placeholder={!jobLabelText}
+                  sub={selectedJob ? jobAddress(selectedJob) || undefined : undefined}
+                  onClick={() => openSheet("job")}
+                  onClear={jobId ? () => setJobId("") : undefined}
+                />
+
+                <FieldRow
+                  label="Work"
+                  value={
+                    costLabelText ||
+                    (!jobId
+                      ? "Pick a job first"
+                      : loadingCosts
+                        ? "Loading…"
+                        : costItems.length
+                          ? "Select work"
+                          : "No labor line on this job — ask the office")
+                  }
+                  placeholder={!costLabelText}
+                  onClick={jobId && costItems.length ? () => openSheet("cost") : undefined}
+                />
+
+                {payTypes.length > 1 && (
                   <FieldRow
-                    label="Note"
-                    value={note.trim() || "Add a note"}
-                    placeholder={!note.trim()}
-                    sub={note.trim() ? undefined : "Required when you clock out"}
-                    onClick={() => openSheet("note")}
+                    label="Pay type"
+                    value={payType || "Select a pay type"}
+                    placeholder={!payType}
+                    sub={typesAreFallback ? "All pay types — pick your rate for this job" : undefined}
+                    onClick={() => openSheet("type")}
                   />
-                </>
-              )}
-            </Card>
-          )}
+                )}
+
+                <FieldRow
+                  label="Note"
+                  value={note.trim() || "Add a note"}
+                  placeholder={!note.trim()}
+                  sub={note.trim() ? undefined : "Required when you clock out"}
+                  onClick={() => openSheet("note")}
+                />
+              </>
+            )}
+          </Card>
 
           {/* The running entry, in JobTread. Only once it HAS one — a preview
               clock (writes off) exists on this phone and nowhere else. */}
@@ -2386,7 +2370,7 @@ export function EmployeeTimeClient({
             </div>
           )}
 
-          {running && !viewOnly && (
+          {running && (
             <button
               type="button"
               onClick={cancelClockIn}
@@ -2398,80 +2382,78 @@ export function EmployeeTimeClient({
           )}
 
           {/* The one big action, docked above the tab bar, plus "log a range". */}
-          {!viewOnly && (
-            <Dock>
-              {/* Pause — a break, started from where the thumb already is. Hidden
-                  while one runs: the pill below IS the way back from a break, so
-                  two controls for one state would be two answers to one question. */}
-              {running && !onBreakSince && (
-                <button
-                  type="button"
-                  onClick={startBreak}
-                  disabled={busy || checkingClock || !activeClock?.entryId}
-                  aria-label="Start a break"
-                  title="Start a break — closes this entry and opens a new one when you come back"
-                  className="absolute left-0 flex h-14 w-14 items-center justify-center rounded-full bg-amber-400 text-black shadow-lg transition hover:bg-amber-500 active:scale-95 disabled:opacity-40"
-                >
-                  <svg viewBox="0 0 24 24" className="h-6 w-6" fill="currentColor" aria-hidden>
-                    <rect x="6.5" y="5" width="4" height="14" rx="1.2" />
-                    <rect x="13.5" y="5" width="4" height="14" rx="1.2" />
-                  </svg>
-                </button>
-              )}
+          <Dock>
+            {/* Pause — a break, started from where the thumb already is. Hidden
+                while one runs: the pill below IS the way back from a break, so
+                two controls for one state would be two answers to one question. */}
+            {running && !onBreakSince && (
               <button
                 type="button"
-                onClick={
-                  onBreakSince
-                    ? endBreak
-                    : running
-                      ? () => {
-                          // Always open on "now"; an earlier stop is a deliberate edit.
-                          setEndAt(nowLocal());
-                          setEndTouched(false);
-                          // The start opens on the clock's own time — correcting it
-                          // is the deliberate edit here.
-                          setOutStartAt((activeClock?.startedAt || nowLocal()).slice(0, 16));
-                          setOutStartTouched(false);
-                          setErr("");
-                          openSheet("out");
-                        }
-                      : clockIn
-                }
-                disabled={busy || resolving || checkingClock}
-                className={`min-w-[220px] rounded-full px-10 py-4 text-lg font-bold shadow-lg transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 ${
-                  onBreakSince
-                    ? "bg-amber-400 text-black hover:bg-amber-500"
-                    : running
-                      ? "bg-red-600 text-white hover:bg-red-700"
-                      : "bg-accent text-accent-fg hover:bg-accent-hover"
-                }`}
+                onClick={startBreak}
+                disabled={busy || checkingClock || !activeClock?.entryId}
+                aria-label="Start a break"
+                title="Start a break — closes this entry and opens a new one when you come back"
+                className="absolute left-0 flex h-14 w-14 items-center justify-center rounded-full bg-amber-400 text-black shadow-lg transition hover:bg-amber-500 active:scale-95 disabled:opacity-40"
               >
-                {busy
-                  ? "Working…"
-                  : resolving || checkingClock
-                    ? "Checking…"
-                    : onBreakSince
-                      ? "End Break"
-                      : running
-                        ? "Clock out"
-                        : "Clock in"}
+                <svg viewBox="0 0 24 24" className="h-6 w-6" fill="currentColor" aria-hidden>
+                  <rect x="6.5" y="5" width="4" height="14" rx="1.2" />
+                  <rect x="13.5" y="5" width="4" height="14" rx="1.2" />
+                </svg>
               </button>
-              <button
-                type="button"
-                aria-label="Log a range of time"
-                title="Log a range"
-                onClick={() => {
-                  setErr("");
-                  setStartTime(nowLocal());
-                  setEndTime(nowLocal());
-                  openSheet("manual");
-                }}
-                className="absolute right-0 flex h-14 w-14 items-center justify-center rounded-full border border-line bg-white text-2xl font-bold text-accent shadow-lg transition active:scale-95 dark:bg-ink-raised dark:text-accent-soft"
-              >
-                +
-              </button>
-            </Dock>
-          )}
+            )}
+            <button
+              type="button"
+              onClick={
+                onBreakSince
+                  ? endBreak
+                  : running
+                    ? () => {
+                        // Always open on "now"; an earlier stop is a deliberate edit.
+                        setEndAt(nowLocal());
+                        setEndTouched(false);
+                        // The start opens on the clock's own time — correcting it
+                        // is the deliberate edit here.
+                        setOutStartAt((activeClock?.startedAt || nowLocal()).slice(0, 16));
+                        setOutStartTouched(false);
+                        setErr("");
+                        openSheet("out");
+                      }
+                    : clockIn
+              }
+              disabled={busy || resolving || checkingClock}
+              className={`min-w-[220px] rounded-full px-10 py-4 text-lg font-bold shadow-lg transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 ${
+                onBreakSince
+                  ? "bg-amber-400 text-black hover:bg-amber-500"
+                  : running
+                    ? "bg-red-600 text-white hover:bg-red-700"
+                    : "bg-accent text-accent-fg hover:bg-accent-hover"
+              }`}
+            >
+              {busy
+                ? "Working…"
+                : resolving || checkingClock
+                  ? "Checking…"
+                  : onBreakSince
+                    ? "End Break"
+                    : running
+                      ? "Clock out"
+                      : "Clock in"}
+            </button>
+            <button
+              type="button"
+              aria-label="Log a range of time"
+              title="Log a range"
+              onClick={() => {
+                setErr("");
+                setStartTime(nowLocal());
+                setEndTime(nowLocal());
+                openSheet("manual");
+              }}
+              className="absolute right-0 flex h-14 w-14 items-center justify-center rounded-full border border-line bg-white text-2xl font-bold text-accent shadow-lg transition active:scale-95 dark:bg-ink-raised dark:text-accent-soft"
+            >
+              +
+            </button>
+          </Dock>
         </>
       )}
 
@@ -2550,9 +2532,7 @@ export function EmployeeTimeClient({
               {openOnly && historyOpenCount > 0 ? "Nothing is running right now." : "No time logged for this period."}
             </EmptyState>
           ) : (
-            dayGroups.map((g) => (
-              <DaySection key={g.date} group={g} onEdit={viewOnly ? undefined : openEdit} />
-            ))
+            dayGroups.map((g) => <DaySection key={g.date} group={g} onEdit={openEdit} />)
           )}
         </div>
       )}
@@ -2565,9 +2545,7 @@ export function EmployeeTimeClient({
       {canActAs && (
         <Sheet open={sheet === "acting"} title="Whose time?" onClose={closeSheet}>
           <p className="pb-2 text-xs text-neutral-500">
-            {actAsReadOnly
-              ? "View only. You see their clock and timesheet; you cannot change them."
-              : "Admin only. What you save is filed as that employee and recorded as you."}
+            Admin and office only. What you save is filed as that employee and recorded as you.
           </p>
           <ul className="pb-2">
             <OptionRow
@@ -3582,7 +3560,7 @@ function Row({ label, value }: { label: string; value: string }) {
 }
 
 /** One day of the timesheet: the heading (date · state · total) and its rows. */
-function DaySection({ group, onEdit }: { group: DayGroup; onEdit?: (e: HistoryEntry) => void }) {
+function DaySection({ group, onEdit }: { group: DayGroup; onEdit: (e: HistoryEntry) => void }) {
   return (
     <section>
       <div className="flex items-baseline justify-between gap-3 px-1 pb-1.5 pt-3">
@@ -3642,10 +3620,9 @@ function EntryBody({ e }: { e: HistoryEntry }) {
  * A timesheet row. A CLOSED entry taps into the companion editor (openEdit) so
  * the crew member can fix its time/job/cost/note on the phone instead of being
  * bounced to JobTread. A still-RUNNING entry has no span to edit yet — it's
- * closed out from the Time clock tab — so it keeps the JobTread deep-link. With
- * no `onEdit` (the office viewing someone else) a closed row is plain text.
+ * closed out from the Time clock tab — so it keeps the JobTread deep-link.
  */
-function EntryRow({ e, onEdit }: { e: HistoryEntry; onEdit?: (e: HistoryEntry) => void }) {
+function EntryRow({ e, onEdit }: { e: HistoryEntry; onEdit: (e: HistoryEntry) => void }) {
   const rowClass =
     "flex w-full items-start justify-between gap-3 border-b border-line-soft px-3 py-3 text-left last:border-b-0";
   if (e.open) {
@@ -3653,13 +3630,6 @@ function EntryRow({ e, onEdit }: { e: HistoryEntry; onEdit?: (e: HistoryEntry) =
       <JtLink href={e.jtUrl} className={rowClass}>
         <EntryBody e={e} />
       </JtLink>
-    );
-  }
-  if (!onEdit) {
-    return (
-      <div className={rowClass}>
-        <EntryBody e={e} />
-      </div>
     );
   }
   return (

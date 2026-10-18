@@ -59,11 +59,9 @@ export async function GET(req: NextRequest) {
 
   // WHOSE timesheet. Normally the signed-in person's, resolved server-side from
   // their login; `?actingAs` opens someone else's and is refused for anyone but
-  // an admin, or the office on this read (src/lib/actingAs.ts). Nobody else
-  // can page through a colleague's hours by editing a query param.
-  const who = await resolveTimeIdentity((req.nextUrl.searchParams.get("actingAs") ?? "").trim(), {
-    readOnly: true,
-  });
+  // an admin or the office (src/lib/actingAs.ts). Nobody else can page through
+  // a colleague's hours by editing a query param.
+  const who = await resolveTimeIdentity((req.nextUrl.searchParams.get("actingAs") ?? "").trim());
   if (!who.ok) {
     return NextResponse.json(
       {

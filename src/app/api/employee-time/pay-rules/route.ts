@@ -13,9 +13,7 @@ import { listCostCodeDefaults, listPayTypeRules } from "@/lib/payTypeRules";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
-  const who = await resolveTimeIdentity((req.nextUrl.searchParams.get("actingAs") ?? "").trim(), {
-    readOnly: true,
-  });
+  const who = await resolveTimeIdentity((req.nextUrl.searchParams.get("actingAs") ?? "").trim());
   if (!who.ok) return NextResponse.json({ ok: false, error: who.error }, { status: who.status });
   const [rules, codeDefaults] = await Promise.all([
     listPayTypeRules(who.identity.jtUserId),

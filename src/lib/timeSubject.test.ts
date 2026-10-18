@@ -31,9 +31,9 @@ describe("decideTimeSubject", () => {
     });
   });
 
-  it("REFUSES a linked non-admin asking for someone else", () => {
+  it("REFUSES a linked field, lead or unknown role asking for someone else", () => {
     // The hole this closes: a field phone posting { userId: "<Dan>" }.
-    for (const role of ["field", "lead", "office", ""]) {
+    for (const role of ["field", "lead", ""]) {
       expect(decideTimeSubject({ requested: DAN, ownJtUserId: ME, role })).toEqual({
         error: "You can only log and edit your own time.",
         status: 403,
@@ -41,24 +41,13 @@ describe("decideTimeSubject", () => {
     }
   });
 
-  it("lets the OFFICE read someone else, but never write", () => {
-    expect(decideTimeSubject({ requested: DAN, ownJtUserId: ME, role: "office", readOnly: true })).toEqual({
-      subject: DAN,
-      acting: true,
-    });
-    for (const role of ["field", "lead", ""]) {
-      expect(decideTimeSubject({ requested: DAN, ownJtUserId: ME, role, readOnly: true })).toEqual({
-        error: "You can only log and edit your own time.",
-        status: 403,
+  it("lets an admin or the office act as someone else, and marks it", () => {
+    for (const role of ["admin", "office"]) {
+      expect(decideTimeSubject({ requested: DAN, ownJtUserId: ME, role })).toEqual({
+        subject: DAN,
+        acting: true,
       });
     }
-  });
-
-  it("lets an admin act as someone else, and marks it", () => {
-    expect(decideTimeSubject({ requested: DAN, ownJtUserId: ME, role: "admin" })).toEqual({
-      subject: DAN,
-      acting: true,
-    });
   });
 
   it("does not mark an admin acting as themselves", () => {

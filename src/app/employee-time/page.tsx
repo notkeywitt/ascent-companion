@@ -32,16 +32,14 @@ import { EmployeeTimeClient } from "./EmployeeTimeClient";
 export default async function EmployeeTimePage() {
   const session = await auth();
   const email = session?.user?.email ?? "";
-  // An admin may open the page as another employee and work it; the office may
-  // open it to LOOK. The flags draw the picker; the SERVER rule
-  // (src/lib/timeSubject.ts) is what enforces both.
+  // An admin or the office may open the page as another employee. The flag
+  // draws the picker; the SERVER rule (src/lib/timeSubject.ts) enforces it.
   const role = (session?.user as { role?: string } | undefined)?.role ?? "";
   // An admin previewing another role sees that role's page, act-as control
   // included (same rule as the root layout's preview swap).
   const preview = role === "admin" ? parsePreviewRole((await cookies()).get(PREVIEW_COOKIE)?.value) : null;
   const viewRole = preview ?? role;
   const canActAs = viewRole === "admin" || viewRole === "office";
-  const actAsReadOnly = viewRole === "office";
   // Admin + office get the week compare; the history route re-checks the role.
   const canCompare = viewRole === "admin" || viewRole === "office";
 
@@ -106,7 +104,6 @@ export default async function EmployeeTimePage() {
       initialOpenEntry={clock?.openEntry ?? null}
       identityResolved={!!me}
       canActAs={canActAs}
-      actAsReadOnly={actAsReadOnly}
       canCompare={canCompare}
       appUserIds={appUserIds}
       initialPayRules={payRules}

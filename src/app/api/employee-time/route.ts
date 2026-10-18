@@ -143,12 +143,11 @@ export async function GET(req: NextRequest) {
   const role = ((session?.user as { role?: string } | undefined)?.role ?? "").trim();
 
   // ADMIN + OFFICE: boot the page as someone else, so the whole screen — their
-  // running clock, their timesheet — is theirs. A read, so the office may; every
-  // write re-decides without `readOnly`, so only an admin can file as them.
-  // Refused for every other role by resolveTimeIdentity, not by hiding the param.
+  // running clock, their timesheet — is theirs. Refused for every other role by
+  // resolveTimeIdentity, not by hiding the parameter.
   const actingAs = (req.nextUrl.searchParams.get("actingAs") ?? "").trim();
   if (actingAs) {
-    const who = await resolveTimeIdentity(actingAs, { readOnly: true });
+    const who = await resolveTimeIdentity(actingAs);
     if (!who.ok) return NextResponse.json({ ok: false, error: who.error }, { status: who.status });
     const [jtUsers, orgTypes] = await Promise.all([
       getOrgUsers(cfg).catch(() => []),
@@ -163,7 +162,7 @@ export async function GET(req: NextRequest) {
         jtUserName: who.identity.name,
       },
       acting: who.identity.acting,
-      canActAs: role === "admin",
+      canActAs: role === "admin" || role === "office",
       jtUsers: rosterForRole(jtUsers, role),
       orgTypes,
     });
@@ -189,7 +188,7 @@ export async function GET(req: NextRequest) {
       jtUserName: link?.jtUserName ?? "",
     },
     acting: false,
-    canActAs: role === "admin",
+    canActAs: role === "admin" || role === "office",
     jtUsers: rosterForRole(jtUsers, role),
     orgTypes,
   });

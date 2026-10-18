@@ -136,9 +136,9 @@ export async function GET(req: NextRequest) {
 
   // `?actingAs` reads SOMEONE ELSE's running clock — admin and office, refused
   // by resolveTimeIdentity for every other role. It is how the office sees that
-  // a crew member is still clocked in. Closing that clock is a write: admin only.
+  // a crew member is still clocked in, and closes the clock they left running.
   const actingAs = (req.nextUrl.searchParams.get("actingAs") ?? "").trim();
-  const who = await resolveTimeIdentity(actingAs, { readOnly: true });
+  const who = await resolveTimeIdentity(actingAs);
   if (!who.ok) {
     // A person with no JobTread link has no clock to look up. That is not an
     // error here: the bootstrap already tells them how to link, and the page

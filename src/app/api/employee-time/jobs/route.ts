@@ -21,9 +21,7 @@ export async function GET(req: NextRequest) {
   if (!hasGrant()) {
     return NextResponse.json({ ok: false, error: "JT_GRANT_KEY is not set." }, { status: 400 });
   }
-  const who = await resolveTimeIdentity((req.nextUrl.searchParams.get("actingAs") ?? "").trim(), {
-    readOnly: true,
-  });
+  const who = await resolveTimeIdentity((req.nextUrl.searchParams.get("actingAs") ?? "").trim());
   // No linked JobTread user yet: filter by phase only, like the shell does.
   if (!who.ok && who.status !== 400) {
     return NextResponse.json({ ok: false, error: who.error }, { status: who.status });

@@ -14,8 +14,7 @@
  * ── THE RULE ────────────────────────────────────────────────────────────────
  *
  *   Your own JobTread user            → always allowed.
- *   Someone else's, and you are ADMIN → allowed, and marked `acting`.
- *   Someone else's, READ ONLY, OFFICE → allowed, and marked `acting`.
+ *   Someone else's, ADMIN or OFFICE   → allowed, and marked `acting`.
  *   Someone else's, and you are not   → refused, 403.
  *
  * ONE EXCEPTION, and it is the reason the loose field existed: a person whose
@@ -53,7 +52,7 @@ export interface TimeIdentity {
   /** The SIGNED-IN person. Attribution, always — never the subject. */
   email: string;
   role: string;
-  /** True when the subject is not the signed-in person. Admin only. */
+  /** True when the subject is not the signed-in person. Admin and office only. */
   acting: boolean;
 }
 
@@ -93,10 +92,7 @@ async function ownFromJobTread(email: string, linked: string): Promise<MemberRef
  * reaching `createTimeEntry`, and it is why this is worth a round trip (the
  * roster is cached for 30 minutes — see `getOrgUsers`).
  */
-export async function resolveTimeIdentity(
-  requested: string,
-  opts: { readOnly?: boolean } = {},
-): Promise<TimeIdentityResult> {
+export async function resolveTimeIdentity(requested: string): Promise<TimeIdentityResult> {
   const session = await auth();
   const email = (session?.user?.email ?? "").trim();
   const role = ((session?.user as { role?: string } | undefined)?.role ?? "").trim();
@@ -106,7 +102,7 @@ export async function resolveTimeIdentity(
   const fallback = (await ownFromJobTread(email, (link?.jtUserId ?? "").trim())) ?? null;
   const own = (link?.jtUserId ?? "").trim() || (fallback?.userId ?? "");
 
-  const decided = decideTimeSubject({ requested, ownJtUserId: own, role, readOnly: opts.readOnly });
+  const decided = decideTimeSubject({ requested, ownJtUserId: own, role });
   if ("error" in decided) return { ok: false, status: decided.status, error: decided.error };
 
   if (!decided.acting) {
@@ -172,5 +168,6 @@ async function emailForJtUser(jtUserId: string): Promise<string> {
 /** Is the signed-in person allowed to open someone else's time at all? */
 export async function canActAsOthers(): Promise<boolean> {
   const session = await auth();
-  return ((session?.user as { role?: string } | undefined)?.role ?? "") === "admin";
+  const role = (session?.user as { role?: string } | undefined)?.role ?? "";
+  return role === "admin" || role === "office";
 }
