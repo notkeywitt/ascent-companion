@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-18T23:12:05Z",
+  "generatedAt": "2026-10-18T23:15:21Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "claude/page-consolidation-audit",
       "status": "shipped",
       "started": "2026-10-18T17:20:28Z",
-      "updated": "2026-10-18T23:12:05Z",
+      "updated": "2026-10-18T23:15:21Z",
       "goal": "audit admin and office pages, recommend merges",
-      "next": "stage 4 rest: Customers (Leads + Directory customers), search finds jobs/customers; then stage 5 (Employees + Payroll)",
+      "next": "stage 4 rest: search finds jobs/customers, Overview tab; then stage 5 (Employees + Payroll)",
       "commits": [
         {
           "date": "2026-10-18",
@@ -123,6 +123,13 @@
           "sha": "aae85a2",
           "subject": "companion: job tab row across a job's pages; clients workspace becomes jobs",
           "files": "CONSOLIDATION_PLAN.md, src/app/budget-import/page.tsx, src/app/clients/ClientsBrowser.tsx, src/app/job-board/JobBoardPage.tsx, src/app/jobs/JobsBrowser.tsx, src/app/specs/page.tsx, +5 more"
+        },
+        {
+          "date": "2026-10-18",
+          "time": "23:15",
+          "sha": "d639935",
+          "subject": "companion: customers page — leads and all customers as sections; directory off the menu",
+          "files": "CONSOLIDATION_PLAN.md, src/app/clients/ClientsBrowser.tsx, src/app/leads/Customers.tsx, src/app/leads/LeadsBoard.tsx, src/app/leads/page.tsx, src/lib/copy.ts, +2 more"
         }
       ]
     },
