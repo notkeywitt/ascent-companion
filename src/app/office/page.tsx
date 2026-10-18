@@ -27,8 +27,6 @@ import { jtJobUrl } from "@/lib/jtLinks";
 import { orgDay } from "@/lib/orgTime";
 import { shortDay } from "@/lib/timeEntryDates";
 import { OfficeImages } from "./OfficeImages";
-import { OfficeTodos } from "./OfficeTodos";
-import { readOfficeTodos } from "./readOfficeTodos";
 
 /**
  * The Office dashboard — the "Office" overhead job in JobTread (job 007), read
@@ -63,20 +61,15 @@ export default async function OfficePage({
     <main className="mx-auto max-w-2xl px-4 pb-24 pt-6">
       <PageHeader
         title="Office Dashboard"
-        description="The Office job's to-dos and files."
+        description="The Office job's bills and files. Its to-dos are on Home."
       />
 
       {!hasGrant() ? (
         <Banner tone="error">JT_GRANT_KEY is not set. Add it to .env.local and restart.</Banner>
       ) : (
         <>
-          <section className="mb-6">
-            <SectionHeading trailing={<JtLink href={`${jobUrl}/to-dos`} />}>To-dos</SectionHeading>
-            <Suspense fallback={<Loading label="Loading to-dos…" />}>
-              <Todos />
-            </Suspense>
-          </section>
-
+          {/* The to-do list left 2026-10-18 (CONSOLIDATION_PLAN.md stage 6):
+              Home shows the same list, editable, under the same view. */}
           <section className="mb-6">
             <SectionHeading>{monthLabel(ym)} bills</SectionHeading>
             <Suspense fallback={<Loading label="Loading bills…" />}>
@@ -109,15 +102,7 @@ function JtLink({ href }: { href: string }) {
   );
 }
 
-async function Todos() {
-  try {
-    return <OfficeTodos todos={await readOfficeTodos()} />;
-  } catch (e) {
-    return (
-      <Banner tone="error">{e instanceof Error ? e.message : "Could not read to-dos."}</Banner>
-    );
-  }
-}
+
 
 /** The month's bills on the two overhead jobs, each with its total. Drafts included. */
 async function Bills({ year, month }: { year: number; month: number }) {

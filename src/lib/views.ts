@@ -455,10 +455,8 @@ export const VIEWS: ViewDef[] = [
   // and the link to it is at the bottom of the home page. Read-only: it reads
   // a public website and writes nothing, so there is no API prefix to gate.
   { id: "lopezrocks", label: "LopezRocks", group: "System", paths: ["/lopezrocks"] },
-  // "Reading Your Own App" — the in-app course through this codebase. Read-only,
-  // no JobTread/DB access of its own (progress lives in the browser), so it needs
-  // no API prefix. Office+admin by default (not in the FIELD/LEAD sets below).
-  { id: "course", label: "Course", group: "System", paths: ["/course"] },
+  // The in-app Course and its "course" view id were deleted 2026-10-18 at the
+  // owner's ask (CONSOLIDATION_PLAN.md stage 6); /course redirects to /help.
   // The API route is listed alongside the page so the Home launcher's admin
   // action bar — buttons on a page EVERY role loads — can't be driven by a
   // non-admin who POSTs /api/actions directly.

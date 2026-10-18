@@ -8,6 +8,7 @@ import { setUrlParam } from "@/lib/urlParam";
 import { EmailInvoices } from "./EmailInvoices";
 import { NotInJobTread } from "@/app/needs-project/NotInJobTread";
 import VendorMail from "@/app/vendor-mail/VendorMail";
+import { ScriptJobs } from "@/components/ScriptJobs";
 
 /**
  * INCOMING BILLS — ONE INBOX (CONSOLIDATION_PLAN.md stage 3). Three stages of
@@ -54,6 +55,15 @@ export function Inbox() {
         </div>
       )}
       {section === "log" && can("email") && <EmailInvoices embedded />}
+      {/* The email scans, from the retired Actions page (stage 6). */}
+      {section === "log" && can("actions") && (
+        <div className="mt-8">
+          <ScriptJobs
+            title="Scan the mailbox now"
+            keys={["frequentEmailScan", "scanJtInvoiceCaptureTags", "scanJtTodoCaptureTags"]}
+          />
+        </div>
+      )}
       {section === "stuck" && can("needs-project") && <NotInJobTread embedded />}
       {section === "mail" && can("vendor-mail") && <VendorMail embedded />}
     </main>

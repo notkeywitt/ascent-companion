@@ -124,7 +124,6 @@ export const WORKSPACES: Workspace[] = [
     tabs: [
       tab("office", "/office", "Office Dashboard", "The Office job's to-dos and files"),
       tab("notices", "/notices", "Notices", "Post a banner to the team — now or scheduled"),
-      tab("actions", "/actions", "Actions", "Run a script job on demand"),
     ],
   },
   {
@@ -146,7 +145,6 @@ export const WORKSPACES: Workspace[] = [
       tab("help", "/help", "Help", "How to do the things this app does, step by step"),
       tab("changelog", "/changelog", "Changelog", "What changed in the app, and what is still unfinished"),
       tab("requests", "/requests", "App Feedback", "Ask for fixes and new features"),
-      tab("course", "/course", "Course", "Learn how this app works, one segment at a time"),
     ],
   },
   {
@@ -181,6 +179,7 @@ export const JOB_PAGES: WorkspaceTab[] = [
   tab("unbilled", "/unbilled", "Unbilled", "A job's bills and time not yet invoiced"),
 ];
 export const OUTSIDE_WORKSPACES: Record<string, string> = {
+  actions: "retired 2026-10-18; its buttons are on Inbox (email scans) and Tracking Sheets' Company tools (syncs); /actions redirects",
   "time-off-admin": "a section of Payroll (/payroll?section=timeoff); /time-off/office redirects",
   "labor-import": "a section of Payroll (/payroll?section=labor); /labor-import redirects",
   clients: "Customers' All customers section (/leads?section=all), and a job's Record tab (/clients?jobId)",
@@ -190,7 +189,7 @@ export const OUTSIDE_WORKSPACES: Record<string, string> = {
   unbilled: "a job's tab row (JobTabs) and the header search (JOB_PAGES)",
   chat: "menu footer (EXTRA_LINKS)",
   lopezrocks: "menu footer (EXTRA_LINKS) and the home page",
-  rfis: "nobody logs RFIs (owner decision 4, 2026-09-29); route kept",
+  rfis: "retired 2026-10-18 (owner); the page is deleted and /rfis redirects home. The view still gates /api/rfis and its stored rows",
   "labor-review": "folded into the Tracking Sheets job workbench's labor panel 2026-10-18; /labor-review redirects; the view still gates /api/labor-review and /api/labor-report",
   "needs-project": "a section of Inbox (/email?section=stuck); /needs-project redirects",
   "vendor-mail": "a section of Inbox (/email?section=mail); /vendor-mail redirects",

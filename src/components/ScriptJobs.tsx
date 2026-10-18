@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import { Banner, Button, Card, Loading, PageHeader, SectionLabel, Spinner } from "@/components/ui";
+import { Banner, Button, Card, Loading, SectionLabel, Spinner } from "@/components/ui";
 import {
   InvoiceSweepResultModal,
   isSweepResult,
@@ -29,7 +29,14 @@ type RunState = {
   lockBusy?: boolean;
 };
 
-export default function ActionsPage() {
+/**
+ * Run-now buttons for Apps Script jobs, filtered by key. The Actions page that
+ * listed all six retired 2026-10-18 (CONSOLIDATION_PLAN.md stage 6): each
+ * button now sits beside the thing it updates — the email scans on Inbox, the
+ * project, vendor and expenditure-summary syncs in Tracking Sheets' Company
+ * tools.
+ */
+export function ScriptJobs({ keys, title }: { keys: string[]; title?: string }) {
   const [tasks, setTasks] = useState<Task[] | null>(null);
   const [loadError, setLoadError] = useState("");
   const [runs, setRuns] = useState<Record<string, RunState>>({});
@@ -42,7 +49,7 @@ export default function ActionsPage() {
         const res = await fetch("/api/actions");
         const j = await res.json();
         if (!res.ok || j.ok === false) setLoadError(j.error ?? `HTTP ${res.status}`);
-        else setTasks(j.tasks ?? []);
+        else setTasks(((j.tasks ?? []) as Task[]).filter((t) => keys.includes(t.key)));
       } catch (e) {
         setLoadError(e instanceof Error ? e.message : "Network error");
       }
@@ -93,23 +100,20 @@ export default function ActionsPage() {
   }
 
   return (
-    <main className="mx-auto max-w-xl px-4 pb-24 pt-6">
-      <PageHeader
-        title="Actions"
-        description="Run a script job on demand. Each runs immediately in Apps Script; the outcome also lands in Logs."
-      />
+    <div>
+      {title && <SectionLabel className="mb-2">{title}</SectionLabel>}
 
       {loadError && <Banner tone="error">{loadError}</Banner>}
-      {!tasks && !loadError && <Loading label="Loading actions…" />}
+      {!tasks && !loadError && <Loading label="Loading…" />}
 
       {groups.map(({ group, tasks: groupTasks }) => (
-        <section key={group} className="mb-6">
-          <SectionLabel className="mb-2">{group}</SectionLabel>
-          <div className="space-y-2">
+        <section key={group} className="mb-4">
+          {!title && <SectionLabel className="mb-2">{group}</SectionLabel>}
+          <Card pad={false} className="divide-y divide-line-soft overflow-hidden">
             {groupTasks.map((t) => {
               const st: RunState = runs[t.key] ?? { status: "idle" };
               return (
-                <Card key={t.key} className="flex items-center justify-between gap-3">
+                <div key={t.key} className="flex items-center justify-between gap-3 px-4 py-3">
                   <div className="min-w-0">
                     <div className="font-medium">{t.label}</div>
                     {t.description && (
@@ -149,14 +153,14 @@ export default function ActionsPage() {
                       "Run"
                     )}
                   </Button>
-                </Card>
+                </div>
               );
             })}
-          </div>
+          </Card>
         </section>
       ))}
 
       <InvoiceSweepResultModal result={sweep} onClose={() => setSweep(null)} />
-    </main>
+    </div>
   );
 }

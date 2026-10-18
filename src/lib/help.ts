@@ -794,9 +794,14 @@ export const HELP: HelpSection[] = [
         id: "actions",
         q: "How do I run a script job now?",
         view: "actions",
-        href: "/actions",
-        keywords: ["actions", "run", "sync", "script", "schedule"],
-        steps: ["Open **Actions**.", "Find the job.", "Tap **Run**.", "Read the result note."],
+        href: "/email",
+        keywords: ["actions", "run", "sync", "script", "schedule", "scan"],
+        steps: [
+          "For an email scan, open **Inbox** and go to **Scan the mailbox now**.",
+          "For a project, vendor or summary sync, open **Tracking Sheets** and go to **Company tools**.",
+          "Tap **Run**.",
+          "Read the result note.",
+        ],
         notes: [
           "**System Logs** records every run.",
           "“Lock busy — nothing ran” means a sync is already running. Wait.",

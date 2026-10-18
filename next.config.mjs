@@ -59,6 +59,12 @@ const nextConfig = {
       { source: "/time-off/office", destination: "/payroll?section=timeoff", permanent: false },
       { source: "/time-sync", destination: "/payroll?section=sync", permanent: false },
       { source: "/labor-import", destination: "/payroll?section=labor", permanent: false },
+      // Stage 6: Actions' buttons moved beside what they update; RFIs and
+      // Course retired (owner, 2026-10-18).
+      { source: "/actions", destination: "/email", permanent: false },
+      { source: "/rfis", destination: "/", permanent: false },
+      { source: "/course", destination: "/help", permanent: false },
+      { source: "/course/:seg*", destination: "/help", permanent: false },
     ];
   },
   eslint: {

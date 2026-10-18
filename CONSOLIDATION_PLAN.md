@@ -229,6 +229,20 @@ the miles PDF on Payroll; Pay Rates' per-person editing moved into the
 Employees record; Time Sync's 7-day window widened to the period; the Employees
 table that fits a phone.
 
+### Stage 6 status, 2026-10-18 (first slice)
+
+Shipped: **Actions** retired — its page became `src/components/ScriptJobs.tsx`
+(run-now buttons filtered by task key); the three email scans sit on Inbox's
+To log section, the project, vendor and expenditure-summary syncs in Tracking
+Sheets' Company tools; `/actions` redirects to Inbox. **RFIs** page deleted
+(`/rfis` → Home; the view still gates `/api/rfis`). **Course** deleted with its
+view id (owner: remove, not move); `/course` → Help. The Office Dashboard lost
+its to-do list (Home has it).
+
+Not done in stage 6: Changelog → Help "What's new"; Admin's Look & Text (Page
+Text + Theme) and Audit (System Logs + Financial Journal + Activity); Search
+tidy-up (Vendors' bill-number box, Archive reading `?q`).
+
 ## Look rules (apply as each page merges)
 
 1. A list is one hairline card (`Card pad={false}`, `divide-y divide-line-soft`).

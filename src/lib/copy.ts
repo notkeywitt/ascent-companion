@@ -134,7 +134,7 @@ export const COPY: Record<string, CopyEntry> = {
   // ── Home launcher: Office destinations (the "hr" area) ───────────────────
   "home.dest.office.label": { text: "Office Dashboard", label: "Office Dashboard — name", group: "Home — Office" },
   "home.dest.office.desc": {
-    text: "The Office job's to-dos and files, and every office page",
+    text: "The Office job's bills and files",
     label: "Office Dashboard — description",
     group: "Home — Office",
   },
