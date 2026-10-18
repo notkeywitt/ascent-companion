@@ -114,12 +114,15 @@ export const HELP: HelpSection[] = [
         view: null,
         keywords: ["home", "menu", "navigate", "buttons", "the rest", "where is", "today", "workspace"],
         steps: [
-          "Tap **☰** at the top left of the screen.",
+          "On a phone, tap **☰** at the top left of the screen.",
+          "Office staff: on a phone, tap **Account** at the top left, then look under **Pages**.",
+          "On an iPad or a computer, use the list on the left side of the screen.",
           "Find the group for the job you are doing, for example **Invoicing**.",
           "Tap the page.",
         ],
         notes: [
           "The bar at the bottom of the screen holds the pages you use most.",
+          "You can also type the name of a page in the search box at the top.",
           "**Home** in the bar takes you back to the home page. A field bar has no Home; open it from **☰**.",
           "To put a page on the bar, tap **Pin to bar** in the menu, then tap the page.",
           "Your role decides which pages you see.",

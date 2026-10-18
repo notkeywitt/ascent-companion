@@ -100,7 +100,7 @@ export function AppHeader() {
             no ☰ at any width (owner, 2026-10-18): it gets the sidebar's Account
             item instead, so Appearance and Sign out stay one tap away. */}
         <div className="pad:hidden">
-          {access.role === "office" ? <AppMenu account /> : <AppMenu qs={qs} />}
+          {access.role === "office" ? <AppMenu account pages qs={qs} /> : <AppMenu qs={qs} />}
         </div>
         {/* No back button: back is a swipe right from the screen's left
             edge (SwipeBack, installed app). A browser tab has its own. */}

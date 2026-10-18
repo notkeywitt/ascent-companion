@@ -75,7 +75,17 @@ const AccountIcon = () => (
   </svg>
 );
 
-export function AppMenu({ qs = "", account = false }: { qs?: string; account?: boolean }) {
+export function AppMenu({
+  qs = "",
+  account = false,
+  pages = false,
+}: {
+  qs?: string;
+  account?: boolean;
+  /** Account drawer only: also list one row per workspace. The office phone has
+   *  no ☰ (owner, 2026-10-18), so this is its way to an off-bar page. */
+  pages?: boolean;
+}) {
   const access = useAccess();
   const c = useCopy();
   const copyEdit = useCopyEdit();
@@ -243,6 +253,23 @@ export function AppMenu({ qs = "", account = false }: { qs?: string; account?: b
                       </div>
                     ),
                   )}
+
+                {account && pages && !pinning && (
+                  <div className="space-y-1.5">
+                    <SectionLabel>Pages</SectionLabel>
+                    <ListCard>
+                      {workspaces.map((w) => (
+                        <ListRow
+                          key={w.id}
+                          href={w.tabs[0].href + qs}
+                          label={w.title}
+                          desc={w.desc}
+                          className={here === w.id ? "bg-accent/5" : ""}
+                        />
+                      ))}
+                    </ListCard>
+                  </div>
+                )}
 
                 {extras.length > 0 && (
                   <div className="space-y-1.5">
