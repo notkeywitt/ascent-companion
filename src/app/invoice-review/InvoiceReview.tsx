@@ -558,7 +558,7 @@ export function InvoiceReview() {
 
   return (
     <div className="mx-auto w-full max-w-2xl px-4 pb-24 pt-4">
-      <InvoicingTabs />
+      <InvoicingTabs ym={ym} />
       <PageHeader
         title="Checks"
         description="Everything to fix before the month's invoices go out."

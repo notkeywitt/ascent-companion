@@ -1,7 +1,7 @@
 "use client";
 
 import { InvoicingTabs } from "@/components/InvoicingTabs";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Banner, Button, Card, PageHeader, SectionHeading, Select, btn } from "@/components/ui";
@@ -71,6 +71,26 @@ export function AllJobs() {
     [params, router],
   );
 
+  // With no ?ym, honour the billing month the office SET on Home (an override
+  // of the 10th cutoff), so Tracking Sheets opens where Taxable lines and the
+  // Package already do. Only an override moves it; otherwise the cutoff stands.
+  useEffect(() => {
+    if (params.get("ym")) return;
+    let cancelled = false;
+    fetch("/api/billing-month")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (cancelled || !j?.override || !j.ym) return;
+        if (j.ym !== ym && billingMonths(15).some((o) => o.value === j.ym)) setYm(j.ym);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+    // Once, on arrival — a month picked afterwards must not be overridden.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   /**
    * Picking a job from the title opens its workbench, carrying the month you
    * were looking at so you land on the same billing period. Empty id is the
@@ -89,7 +109,7 @@ export function AllJobs() {
 
   return (
     <main className="mx-auto max-w-2xl px-4 pb-24 pt-6 xl:max-w-[110rem]">
-      <InvoicingTabs />
+      <InvoicingTabs ym={ym} />
       <PageHeader
         titleSlot={
           <div className="flex min-w-0 flex-1 items-center gap-2">

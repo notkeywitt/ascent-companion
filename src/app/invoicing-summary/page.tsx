@@ -321,7 +321,7 @@ export default function InvoicingSummaryPage() {
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-6">
-      <InvoicingTabs />
+      <InvoicingTabs ym={ym} />
       <PageHeader
         title="Invoicing Package"
         description={

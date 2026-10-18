@@ -150,10 +150,16 @@ Then: "Finalize sheet" sits beside "Sync to Tracking Sheet" on each job's
 workbench. `/tracking-sheet` is renamed "Sheet sync settings" (pause, pin the
 month), off the menu, linked from Tracking Sheets' Company tools.
 
+Then: the tab row hands on the month on screen, not only one in the address;
+Tracking Sheets (all jobs) opens on the month the office set on Home when one is
+set.
+
 Not done in stage 2: Check
 all Jobs merged into Checks; one dismissal model; one taxable rule; Labor
-Review and Historical Cost into the workbench; the shared month
-default. A production Page Text override of `home.dest.invoice-review.label`
+Review and Historical Cost into the workbench. The job workbench and Labor Review still default by the 10th cutoff when
+opened with no month (links from Tracking Sheets always carry one). Labor Review
+waits on the owner: it has an "include unapproved" switch and a "Cost codes in
+view" list the workbench lacks. A production Page Text override of `home.dest.invoice-review.label`
 would still say "Invoice Review" in the menu.
 
 ## Look rules (apply as each page merges)

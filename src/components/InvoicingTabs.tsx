@@ -16,10 +16,13 @@ const TABS = [
   { view: "invoicing-summary", href: "/invoicing-summary", label: "Package" },
 ];
 
-export function InvoicingTabs({ className = "" }: { className?: string }) {
+/** `ym` is the month on screen; the address's ?ym is the fallback. Pass it so
+ *  a page opened on its default month still hands that month to the next tab. */
+export function InvoicingTabs({ className = "", ym: shown = "" }: { className?: string; ym?: string }) {
   const { can } = useAccess();
   const pathname = usePathname();
-  const ym = useSearchParams().get("ym") ?? "";
+  const fromUrl = useSearchParams().get("ym") ?? "";
+  const ym = shown || fromUrl;
   const tabs = TABS.filter((t) => can(t.view));
   if (tabs.length < 2) return null;
   return (
