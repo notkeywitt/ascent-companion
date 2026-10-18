@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-18T21:48:49Z",
+  "generatedAt": "2026-10-18T21:58:24Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "claude/page-consolidation-audit",
       "status": "shipped",
       "started": "2026-10-18T17:20:28Z",
-      "updated": "2026-10-18T21:48:48Z",
+      "updated": "2026-10-18T21:58:24Z",
       "goal": "audit admin and office pages, recommend merges",
-      "next": "stage 1 rest: approve/void/flag in BillPopup, Summary mode in place; then stage 2 (Checks + Package tabs)",
+      "next": "stage 2: Checks tab (Invoice Review + Check all Jobs + Bill Corrections + Taxable Flags), Package tab",
       "commits": [
         {
           "date": "2026-10-18",
@@ -46,6 +46,13 @@
           "sha": "90f8a27",
           "subject": "companion: open bills in place below xl and from add bill, with paging and a full page link",
           "files": "CONSOLIDATION_PLAN.md, src/app/add-bill/page.tsx, src/app/trackingsheet/AllBills.tsx, src/app/trackingsheet/BillPopup.tsx, src/app/trackingsheet/Board.tsx, src/app/trackingsheet/CodeLanesView.tsx"
+        },
+        {
+          "date": "2026-10-18",
+          "time": "21:58",
+          "sha": "6b9906c",
+          "subject": "companion: approve, void and review flag in the bill popup; summary mode opens bills in place",
+          "files": "CONSOLIDATION_PLAN.md, src/app/trackingsheet/BillPopup.tsx, src/app/trackingsheet/BillingSummaryView.tsx, src/app/trackingsheet/Board.tsx, src/app/trackingsheet/DraftWorkbench.tsx, src/components/BillingSummary.tsx"
         }
       ]
     },
