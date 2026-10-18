@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useBillReview } from "./useBillReview";
 import { DraftCodingPanel, useBillEditor, type Selection } from "./DraftWorkbench";
 
 /**
@@ -27,6 +28,36 @@ export function BillPopup({
   fullPageHref?: string;
 }) {
   const editor = useBillEditor(sel);
+
+  // The bill page's three extra actions, so "Full page" is rarely needed.
+  const { review, saveReview, setReview } = useBillReview({
+    data: null,
+    load: async () => {},
+    openDocId: sel.docId,
+  });
+  const [approving, setApproving] = useState(false);
+  const [approveMsg, setApproveMsg] = useState("");
+  const approveBill = async (docId: string) => {
+    if (approving) return;
+    setApproving(true);
+    setApproveMsg("");
+    try {
+      // Same write as the board's per-bill approve (useBillApproval). The route
+      // corrects an Expense's QuickBooks type itself.
+      const r = await fetch("/api/bill-status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ docId, status: editor.header?.name === "Expense" ? "approved" : "pending" }),
+      });
+      const j = await r.json();
+      setApproveMsg(!r.ok || j.error ? j.error ?? "Approve failed" : j.previewed ? "Would approve (saving is off)." : "Approved.");
+      await editor.reload();
+    } catch (e) {
+      setApproveMsg(e instanceof Error ? e.message : "Approve failed");
+    } finally {
+      setApproving(false);
+    }
+  };
 
   // Unsaved coding is autosaved on this device (src/lib/codingDraft.ts) and
   // offered back when the bill is reopened, so leaving it loses nothing.
@@ -80,6 +111,7 @@ export function BillPopup({
             Close
           </button>
         </div>
+        {approveMsg && <p className="mb-2 text-xs text-neutral-500 dark:text-neutral-400">{approveMsg}</p>}
         <DraftCodingPanel
           editor={editor}
           sel={sel}
@@ -89,6 +121,17 @@ export function BillPopup({
           onNext={() => nav && okToLeave() && nav.onNext()}
           // Re-filed to another job: the bill no longer lives where it was opened.
           onBillMoved={onClose}
+          actions={{
+            review: {
+              ...review,
+              setNote: (v: string) => setReview((p) => ({ ...p, note: v })),
+              save: (flagged: boolean) => void saveReview(flagged),
+            },
+            approveBill: (id: string) => void approveBill(id),
+            approvingBill: approving,
+            approveBlocked: editor.changeCount > 0 ? "Save the coding first — approving locks the lines." : null,
+            onVoided: onClose,
+          }}
         />
       </div>
     </div>

@@ -27,7 +27,9 @@ export function BillingSummaryView({
   summaryError,
   summaryLoading,
   ym,
+  onOpenBill,
 }: {
+  onOpenBill: (docId: string) => void;
   c: (key: string, vars?: Record<string, string | number>) => string;
   jobId: string;
   mode: "bill" | "code" | "summary";
@@ -75,7 +77,7 @@ export function BillingSummaryView({
                 )}
                 {summary && (
                   <>
-                    <Breakdown detail={summary} groupByCsi={summaryByCsi} from="recode" />
+                    <Breakdown detail={summary} groupByCsi={summaryByCsi} from="recode" onOpenBill={onOpenBill} />
                     {/* The month's invoice may already exist — recon knows, and
                         prompting to "create" one then invites a duplicate. Link
                         to what's there instead, and keep the create CTA for the

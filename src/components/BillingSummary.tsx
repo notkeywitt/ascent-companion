@@ -267,10 +267,13 @@ export function Breakdown({
   detail,
   groupByCsi,
   from = "recode",
+  onOpenBill,
 }: {
   detail: Detail;
   groupByCsi: boolean;
   from?: string;
+  /** Open a bill in place (the board's popup) instead of going to /bill. */
+  onOpenBill?: (docId: string) => void;
 }) {
   const jobId = detail.job?.id ?? "";
   const csiGrouped = useMemo(
@@ -286,7 +289,13 @@ export function Breakdown({
     <>
       <Link
         href={`/bill/${id}?jobId=${encodeURIComponent(jobId)}&from=${encodeURIComponent(from)}`}
-        onClick={() => driveMainWindowToDoc(jobId, id)}
+        onClick={(e) => {
+          driveMainWindowToDoc(jobId, id);
+          if (onOpenBill) {
+            e.preventDefault();
+            onOpenBill(id);
+          }
+        }}
         className="text-accent hover:underline dark:text-accent-soft"
       >
         {text}

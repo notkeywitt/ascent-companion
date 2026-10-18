@@ -2435,6 +2435,7 @@ export function Board() {
             )}
 
             <BillingSummaryView
+              onOpenBill={openBillInPlace}
               c={c}
               jobId={jobId}
               mode={mode}

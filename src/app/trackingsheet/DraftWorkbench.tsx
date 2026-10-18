@@ -897,8 +897,12 @@ export function DraftCodingPanel({
   onPrev,
   onNext,
   onBillMoved,
+  actions,
 }: {
   editor: BillEditor;
+  /** Approve, void and the review flag, when the host offers them (the popup
+   *  does; the docked all-jobs panel does not). */
+  actions?: Pick<CodingCardCtl, "review" | "approveBill" | "approvingBill" | "approveBlocked" | "onVoided">;
   sel: Selection | null;
   /** 1-based place in the visible queue, for the ‹ n / total › readout. */
   position: number;
@@ -1521,7 +1525,7 @@ export function DraftCodingPanel({
         </div>
       )}
 
-      <BillCodingCard ctl={ctl} />
+      <BillCodingCard ctl={actions ? { ...ctl, ...actions } : ctl} />
     </>
   );
 }

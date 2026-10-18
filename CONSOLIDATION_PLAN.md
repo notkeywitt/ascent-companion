@@ -126,10 +126,12 @@ opens the new bill in the same popup, so the result and Add another stay on
 screen. The popup saves a bill at a time, straight to JobTread, as `/bill`
 does; no write path changed.
 
-Not done: Summary mode still navigates to `/bill`; the popup lacks approve,
-void and the review flag (the Full page link covers them); Add Bill is still its
-own page, not a sheet; `Sheet`/`Tabs` primitives not yet added (BillPopup was
-reused instead).
+Later the same day: the popup carries Approve, Void and the Needs review flag
+(blocked while coding is unsaved), and Summary mode opens bills in the popup.
+
+Dropped from stage 1: Add Bill as a sheet. With "Review coding" in place the
+page no longer costs a round trip, so a sheet would move code without saving a
+page change. `Sheet`/`Tabs` primitives wait for stage 2, which needs tabs.
 
 ## Look rules (apply as each page merges)
 
