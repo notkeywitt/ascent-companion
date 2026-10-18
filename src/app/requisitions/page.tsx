@@ -76,7 +76,8 @@ function Requisitions() {
   const [isOffice, setIsOffice] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadErr, setLoadErr] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
+  // ?status= opens the list filtered (Home's Requisitions row sends "Requested").
+  const [statusFilter, setStatusFilter] = useState(() => search.get("status") ?? "");
 
   // Job id → label, so the submit can send a human label alongside the id (the
   // JobPicker only surfaces the id). Fetched once; cheap + browser-cached.

@@ -71,14 +71,18 @@ export const VIEWS: ViewDef[] = [
       // themselves did not, so any signed-in role could POST one directly.
       // Listing them here is what makes "bill editing is office+admin" true at
       // the route, not just in the UI. Read-only bill routes (/api/bill,
-      // /api/bill-review, /api/bill-reviewed) stay OFF this list on purpose:
-      // anyone may look at a bill and flag one for review.
+      // /api/bill-reviewed) stay OFF this list on purpose: anyone may look at
+      // a bill. /api/bill-review is the exception, gated below.
       //
       // /api/coding-queue is the exception among the reads, gated 2026-09-30:
       // it lists EVERY job's draft bills (vendor, amount, job), and its only
       // callers — Today's "Bills to code" row and the bill page's pager — both
       // already require this view.
       "/api/coding-queue",
+      // The Bill Corrections queue. Gated 2026-10-18: GET returned the whole
+      // queue to any signed-in role. Every caller (the bill page, the board,
+      // Bill Corrections, Today) already requires this view.
+      "/api/bill-review",
       "/api/add-bill",
       "/api/add-line",
       "/api/combine-lines",
@@ -161,13 +165,15 @@ export const VIEWS: ViewDef[] = [
   },
   // The queue of bills flagged "Needs review" — billing corrections the app
   // can't make (paid / invoiced / QuickBooks-pushed bills). Office+admin. The
-  // /api/bill-review route is deliberately NOT gated here: any signed-in user
-  // looking at a bill can flag it (same as /api/bill-reviewed), but only this
-  // group sees the whole queue.
+  // /api/bill-review route rides "recode", not this view: every surface that
+  // flags a bill is a Tracking Sheets surface.
   { id: "bill-review", label: "Bill Corrections", group: "Financials", paths: ["/needs-review"] },
   // Jobs list + budget, built on the generic /api/pave gateway. Office+admin by
   // default (financial data); not in FIELD/LEAD sets below.
-  { id: "jobs", label: "Job Cost", group: "Financials", paths: ["/jobs"] },
+  // /api/jobs/browser gated 2026-10-18 (every job's budget vs spend). Its other
+  // caller, Historical Cost, is admin-only. /api/jobs/cost-detail stays OFF this
+  // list: a lead's job panel on Home reads it.
+  { id: "jobs", label: "Job Cost", group: "Financials", paths: ["/jobs", "/api/jobs/browser"] },
   // Clients & Jobs — the JobTread customer/job DIRECTORY, and the one page that
   // edits those records rather than reporting on them. The /api/clients prefix
   // rides the same gate as the page: those routes read every customer in the org
@@ -243,7 +249,14 @@ export const VIEWS: ViewDef[] = [
     group: "Financials",
     paths: ["/needs-project", "/api/needs-project"],
   },
-  { id: "payments", label: "Sunset Statements", group: "Financials", paths: ["/payments"] },
+  {
+    id: "payments",
+    label: "Sunset Statements",
+    group: "Financials",
+    // The statement routes were ungated until 2026-10-18: any signed-in role
+    // could read every statement or mark one paid.
+    paths: ["/payments", "/api/sunset-statements", "/api/sunset-duplicates"],
+  },
   // The stray-isTaxable worklist. READ-ONLY — it lists bill lines whose flag
   // takes their cost out of a client invoice's tax base, and links out so a
   // person makes each change. The API route is gated alongside the page: it
@@ -292,7 +305,7 @@ export const VIEWS: ViewDef[] = [
   { id: "mileage", label: "Miles", group: "Field", paths: ["/mileage-tracker"] },
   { id: "employee-time", label: "Time", group: "Field", paths: ["/employee-time"] },
   { id: "tools", label: "Tools", group: "Field", paths: ["/tools", "/tool-tracker"] },
-  { id: "rfis", label: "RFIs", group: "Field", paths: ["/rfis"] },
+  { id: "rfis", label: "RFIs", group: "Field", paths: ["/rfis", "/api/rfis"] },
   // Time off — the accrual/balance page. Field employees get the self-service
   // view (own balance + request time off, via /api/time-off/me and POST/GET
   // /api/time-off/requests); office/admin additionally get the management
@@ -313,7 +326,7 @@ export const VIEWS: ViewDef[] = [
     paths: ["/requisitions", "/api/requisitions"],
   },
   // Assistant
-  { id: "chat", label: "Assistant", group: "Assistant", paths: ["/chat"] },
+  { id: "chat", label: "Assistant", group: "Assistant", paths: ["/chat", "/api/chat"] },
   // Office
   // The Office dashboard — the "Office" JobTread job's to-dos and files, read
   // live on the server, plus links to the office pages. /api/office carries its
@@ -458,7 +471,7 @@ export const VIEWS: ViewDef[] = [
     group: "System",
     paths: ["/admin/copy", "/api/admin/copy"],
   },
-  { id: "logs", label: "System Logs", group: "System", paths: ["/logs"] },
+  { id: "logs", label: "System Logs", group: "System", paths: ["/logs", "/api/logs"] },
   // THE FINANCIAL JOURNAL — every write the app has made to a money record.
   // Admin-only by default (it is in ADMIN_MENU, alongside the other audit
   // surface): it names who changed what, so handing it out is handing out an

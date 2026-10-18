@@ -716,7 +716,7 @@ export default function AmazonImportPage() {
             <Banner tone={result.counts.failed > 0 || attachedFail > 0 ? "warning" : "success"}>
               {result.previewed ? (
                 <>
-                  Preview only — writes are OFF (COMPANION_WRITES_ENABLED not set).{" "}
+                  Preview only — saving to JobTread is switched off.{" "}
                   {result.counts.preview} order(s) would be created.
                 </>
               ) : (

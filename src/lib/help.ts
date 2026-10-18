@@ -153,7 +153,7 @@ export const HELP: HelpSection[] = [
         steps: ["Tap the Ascent logo at the top of the screen."],
         notes: [
           "The logo is the only light and dark control.",
-          "Open **Appearance** in the **☰** menu to change the colour palette.",
+          "Open **Appearance** in the **☰** menu (office staff: **Account**) to change the colour palette.",
           "Each device keeps its own theme. A new device starts on Website, dark.",
         ],
       },
@@ -759,7 +759,7 @@ export const HELP: HelpSection[] = [
         href: "/admin",
         keywords: ["admin", "access", "allowlist", "add user", "remove user", "role"],
         steps: [
-          "Open **Access** (☰ menu → Admin).",
+          "Open **Access** in the **Admin** group of the menu.",
           "Type the person's Ascent email address.",
           "Tap **Add**.",
           "Set their role.",

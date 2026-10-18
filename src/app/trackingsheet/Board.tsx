@@ -1416,6 +1416,17 @@ export function Board() {
    * forbids.
    */
   const [barHover, setBarHover] = useState(false);
+  // A touch screen 1024px+ wide (an iPad in landscape) has no hover, so the
+  // commit bar never reveals the closing actions. Show the row under the
+  // columns there instead, as on a phone.
+  const [noHover, setNoHover] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(hover: none)");
+    const on = () => setNoHover(mq.matches);
+    on();
+    mq.addEventListener("change", on);
+    return () => mq.removeEventListener("change", on);
+  }, []);
 
   // ---- the check's findings: the hooks, above the no-job guard -------------
   /** The bill a finding opened, below xl — see openFindingBill. */
@@ -1762,13 +1773,12 @@ export function Board() {
         </Button>
       );
     }
+    // Not a link: Finalize lists only jobs that already have a sheet, so it was
+    // a dead end. A sheet is linked by its row in the Projects sheet.
     return (
-      <Link
-        href={`/tracking-sheet?jobId=${encodeURIComponent(jobId)}&ym=${ym}`}
-        className={btn("secondary", "md", `text-center ${cls}`)}
-      >
-        Link Google tracking sheet
-      </Link>
+      <p className={`text-center text-xs text-neutral-500 dark:text-neutral-400 ${cls}`}>
+        No tracking sheet linked. Add its link to this job&apos;s row in the Projects sheet.
+      </p>
     );
   };
 
@@ -1820,14 +1830,17 @@ export function Board() {
    */
   const closingActions = (
     <>
-      <Button
-        variant="secondary"
-        onClick={runPreSend}
-        disabled={preSendRunning}
-        className="min-h-11"
-      >
-        {preSendRunning ? "Checking…" : preSend.mem ? "Check again" : "Check this job"}
-      </Button>
+      {/* Its route rides the invoice-review gate, so the button does too. */}
+      {can("invoice-review") && (
+        <Button
+          variant="secondary"
+          onClick={runPreSend}
+          disabled={preSendRunning}
+          className="min-h-11"
+        >
+          {preSendRunning ? "Checking…" : preSend.mem ? "Check again" : "Check this job"}
+        </Button>
+      )}
       {trackingSheetAction("min-h-11")}
       <Button
         variant="secondary"
@@ -2595,7 +2608,7 @@ export function Board() {
           commit bar below and appear when the pointer comes for that corner.
           Keeping both would put the month's terminal action on screen twice. */}
       {jobId && (
-        <div className="order-last mt-4 border-t border-line pt-4 lg:hidden">
+        <div className={`order-last mt-4 border-t border-line pt-4 ${noHover ? "" : "lg:hidden"}`}>
           <div className="mx-auto flex max-w-2xl flex-wrap items-center justify-center gap-2">
             {closingActions}
           </div>
@@ -2646,7 +2659,7 @@ export function Board() {
           {/* Hidden, not unmounted, when the pointer leaves: the Labor Report
               runs for up to four minutes, and unmounting would drop its result. */}
           <div
-            className={`hidden flex-wrap items-center justify-end gap-2 ${barHover ? "lg:flex" : ""}`}
+            className={`hidden flex-wrap items-center justify-end gap-2 ${barHover && !noHover ? "lg:flex" : ""}`}
           >
             {closingActions}
           </div>

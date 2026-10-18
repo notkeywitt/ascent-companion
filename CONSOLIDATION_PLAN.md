@@ -98,6 +98,24 @@ is off). The bill page is first (1,214), Tracking Sheets second (1,067).
 - Today's Requisitions row opens unfiltered (`TodayQueue.tsx:124`). Employees
   table is 58rem minimum (`employees/page.tsx:430`).
 
+### Stage 0 status, 2026-10-18
+
+Shipped: the office Pages list; ☰ help topics; "Void" for the void buttons and
+the Sunset legend; the Admin tab colour; closing actions under the columns on a
+touch screen 1024px+ (`(hover: none)`); plain words for the writes-off banners;
+the dead "Link Google tracking sheet" link replaced by a note; Home's
+Requisitions row opens on Requested; the bar lights a slot for its whole
+workspace; "Check this job" gated on `invoice-review`; routes gated —
+`/api/bill-review` (recode), `/api/sunset-statements` and
+`/api/sunset-duplicates` (payments), `/api/logs`, `/api/chat`, `/api/rfis`,
+`/api/jobs/browser` (jobs).
+
+Not done: the shared month default (moves to stage 2, where Tracking Sheets'
+month handling changes anyway); the Employees phone list (stage 5);
+`/api/jobs/cost-detail` stays open because a lead's Home job panel reads it; the
+acting-as header is now right (the office can edit as another employee since
+1f3b4eb); Add bill → Back (stage 1).
+
 ## Look rules (apply as each page merges)
 
 1. A list is one hairline card (`Card pad={false}`, `divide-y divide-line-soft`).

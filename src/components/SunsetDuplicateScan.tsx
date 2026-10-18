@@ -196,8 +196,8 @@ export function SunsetDuplicateScan() {
 
           <div className="px-0.5 text-[11px] text-neutral-500">
             Legend: <span className="font-medium">#n</span> = from a Sunset email (invoice #) ·{" "}
-            <span className="font-medium">JT-n</span> = keyed straight into JobTread. Fix in JobTread: delete or deny the
-            redundant bill so one representation of each charge remains.
+            <span className="font-medium">JT-n</span> = keyed straight into JobTread. void the redundant bill (never delete
+            it) so one representation of each charge remains.
           </div>
         </div>
       )}

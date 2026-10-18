@@ -843,7 +843,7 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                       disabled={voiding}
                       title="Void in JobTread, remove from the tracking sheet, bin the PDF"
                     >
-                      {voiding ? "Deleting…" : "Delete"}
+                      {voiding ? "Voiding…" : "Void"}
                     </Button>
                   )}
                 </div>

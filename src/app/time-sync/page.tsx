@@ -221,8 +221,8 @@ export default function TimeSyncPage() {
         <div className="space-y-5">
           {data && !data.writesEnabled && (
             <Banner tone="warning">
-              JobTread writes are currently OFF (COMPANION_WRITES_ENABLED). Records are safely saved, but
-              retries won&apos;t post until writes are enabled.
+              Saving to JobTread is switched off. Records are safely kept, but retries won&apos;t post until
+              an admin switches it back on.
             </Banner>
           )}
 

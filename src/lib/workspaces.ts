@@ -279,6 +279,9 @@ export interface BarItem {
   workspace?: string;
   /** Routes that mark the slot as the current one. */
   covers: string[];
+  /** A single-page slot's whole workspace: it lights the slot when no slot
+   *  covers the route exactly (office on /leads lights Jobs). */
+  area?: string[];
   /** Rail only: the first item after the top group, drawn after a space. */
   gap?: boolean;
 }
@@ -298,7 +301,11 @@ function resolveSlots(slots: BarSlot[], can: (view: string) => boolean): BarItem
       out.push({ key: "today", label: TODAY.label, href: "/", view: "", covers: ["/"] });
     } else if (slot.kind === "tab") {
       const t = TAB_BY_VIEW.get(slot.view);
-      if (t && can(t.view)) out.push({ key: t.view, label: t.label, href: t.href, view: t.view, covers: [t.href] });
+      if (t && can(t.view)) {
+        const ws = WORKSPACES.find((w) => w.tabs.includes(t));
+        const area = ws ? reachableTabs(ws, can).map((x) => x.href) : [];
+        out.push({ key: t.view, label: t.label, href: t.href, view: t.view, covers: [t.href], area });
+      }
     } else {
       const ws = WORKSPACES.find((w) => w.id === slot.id);
       const tabs = ws ? reachableTabs(ws, can) : [];
@@ -384,5 +391,7 @@ export function activeBarKey(items: BarItem[], pathname: string): string {
   const hits = items.filter((i) =>
     i.key === "today" ? pathname === "/" : i.covers.some((href) => within(pathname, href)),
   );
-  return (hits.find((i) => !i.workspace) ?? hits[0])?.key ?? "";
+  const hit = hits.find((i) => !i.workspace) ?? hits[0];
+  if (hit) return hit.key;
+  return items.find((i) => i.area?.some((href) => within(pathname, href)))?.key ?? "";
 }

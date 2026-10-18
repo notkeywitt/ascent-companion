@@ -1615,9 +1615,8 @@ function BillDetail() {
               it. */}
           {!writes && (
             <Banner tone="warning" className="mb-3 !px-3 !py-2.5 !text-xs">
-              Writes are OFF (COMPANION_WRITES_ENABLED not <span className="font-mono">true</span> on
-              this deploy). Save shows a preview and sends nothing to JobTread. Set it in Vercel and{" "}
-              <b>redeploy</b>.
+              Saving to JobTread is switched off. Save shows a preview and sends nothing to JobTread.
+              Ask an admin to switch it back on.
             </Banner>
           )}
           <BillCodingCard ctl={codingCtl} />

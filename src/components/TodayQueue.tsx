@@ -121,7 +121,7 @@ const QUEUES: Queue[] = [
     view: "requisitions",
     officeOnly: true,
     label: "Requisitions",
-    href: "/requisitions",
+    href: "/requisitions?status=Requested",
     load: async () => {
       const j = await cached("requisitions", 5 * MIN, () => getJson("/api/requisitions"));
       const n = ((j.requisitions ?? []) as Record<string, string>[]).filter((r) => !r.Status || r.Status === "Requested").length;
