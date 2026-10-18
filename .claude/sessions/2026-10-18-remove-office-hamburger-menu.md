@@ -2,9 +2,9 @@
 slug: remove-office-hamburger-menu
 repo: ascent-companion
 branch: claude/remove-office-hamburger-menu-8cquxy
-status: in-progress
+status: shipped
 started: 2026-10-18T16:14:41Z
-updated: 2026-10-18T16:14:41Z
+updated: 2026-10-18T16:14:43Z
 goal: 
 next: confirm with owner whether office phones need a way to reach pages off the bar
 ---

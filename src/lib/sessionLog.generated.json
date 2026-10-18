@@ -1,7 +1,26 @@
 {
-  "generatedAt": "2026-10-17T22:53:55Z",
+  "generatedAt": "2026-10-18T16:14:43Z",
   "repo": "ascent-companion",
   "sessions": [
+    {
+      "slug": "remove-office-hamburger-menu",
+      "file": "2026-10-18-remove-office-hamburger-menu.md",
+      "branch": "claude/remove-office-hamburger-menu-8cquxy",
+      "status": "shipped",
+      "started": "2026-10-18T16:14:41Z",
+      "updated": "2026-10-18T16:14:43Z",
+      "goal": "",
+      "next": "confirm with owner whether office phones need a way to reach pages off the bar",
+      "commits": [
+        {
+          "date": "2026-10-18",
+          "time": "16:14",
+          "sha": "1e2362f",
+          "subject": "companion: drop the ☰ menu for the office role, keep the account item",
+          "files": "src/components/AppHeader.tsx"
+        }
+      ]
+    },
     {
       "slug": "manual-mileage-recording",
       "file": "2026-10-17-manual-mileage-recording.md",
