@@ -84,6 +84,28 @@ const QUEUES: Queue[] = [
     },
   },
   {
+    // The busiest page of the three inbox stages had no row here.
+    key: "to-log",
+    view: "email",
+    officeOnly: true,
+    label: "Invoices to log",
+    href: "/email",
+    load: async () => {
+      const j = await cached("to-log", 10 * MIN, async () => {
+        const r = await fetch("/api/email", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "listEmails" }),
+        });
+        const body = await r.json();
+        if (!r.ok || !body?.ok) throw new Error(String(body?.error ?? r.status));
+        return body;
+      });
+      const n = ((j.emails ?? []) as unknown[]).length;
+      return { count: n, detail: `${plural(n, "invoice email")} to log` };
+    },
+  },
+  {
     key: "corrections",
     view: "bill-review",
     label: "Bill Corrections",
