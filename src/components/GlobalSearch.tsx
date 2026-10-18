@@ -176,6 +176,30 @@ export function GlobalSearch() {
     return vendors.filter((v) => v.name.toLowerCase().includes(q)).slice(0, MAX_VENDORS);
   }, [q, vendors, canSeeVendors]);
 
+  /* ------------------------------------------------------------------ jobs */
+  // A job by name, number or customer → its Record, where the job tab row
+  // reaches cost, budget, specs and this month (stage 4). /api/jobs is the
+  // server-cached open-jobs list every job picker already reads.
+  const canSeeJobs = access.can("clients");
+  const [jobs, setJobs] = useState<{ id: string; name: string; number?: string; customer?: string }[]>([]);
+  useEffect(() => {
+    if (!canSeeJobs) return;
+    let alive = true;
+    fetch("/api/jobs")
+      .then((r) => r.json())
+      .then((j) => alive && setJobs(Array.isArray(j.jobs) ? j.jobs : []))
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [canSeeJobs]);
+  const jobMatches = useMemo(() => {
+    if (!q || !canSeeJobs) return [];
+    return jobs
+      .filter((j) => [j.name, j.number, j.customer].some((x) => x && x.toLowerCase().includes(q)))
+      .slice(0, MAX_VENDORS);
+  }, [q, jobs, canSeeJobs]);
+
   /* ----------------------------------------------------------------- bills */
   // The one networked kind. Debounced, gated, and abort-on-retype so a fast
   // typist can't have an older response land after a newer one.
@@ -212,6 +236,7 @@ export function GlobalSearch() {
     pageMatches.length > 0 ||
     helpMatches.length > 0 ||
     vendorMatches.length > 0 ||
+    jobMatches.length > 0 ||
     bills.length > 0 ||
     !!billNumberQuery;
   const showPanel = open && q.length > 0;
@@ -285,7 +310,7 @@ export function GlobalSearch() {
             (e.target as HTMLInputElement).blur();
           }
         }}
-        placeholder="Search pages, vendors, bills…"
+        placeholder="Search pages, jobs, vendors, bills…"
         aria-label="Search pages, help topics, vendors, bills and line items"
         className={`${inputCls} h-9 pl-8 text-[13px]`}
       />
@@ -360,6 +385,20 @@ export function GlobalSearch() {
                         ? `${t.steps.length} steps · ${t.steps[0].replace(/\*\*/g, "")}`
                         : "Read the answer"
                     }
+                  />
+                ))}
+              </Group>
+            )}
+
+            {jobMatches.length > 0 && (
+              <Group label="Jobs">
+                {jobMatches.map((j) => (
+                  <Row
+                    key={j.id}
+                    href={`/clients?jobId=${encodeURIComponent(j.id)}`}
+                    onNavigate={close}
+                    label={j.number ? `${j.name} · #${j.number}` : j.name}
+                    desc={j.customer || "Open the job's record, cost and specs"}
                   />
                 ))}
               </Group>

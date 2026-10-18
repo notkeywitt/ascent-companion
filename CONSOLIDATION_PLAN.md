@@ -206,9 +206,11 @@ board, `LeadsBoard.tsx`) and All customers (Directory's list, `ClientsBrowser`
 embedded). Directory left the menu; `/clients?jobId` stays the job's Record
 tab. The Jobs menu is Job Board · Customers · Receivables.
 
-Not done in stage 4: an
-Overview tab (Home's job card, Gantt, cost rings); header search finding jobs
-and customers; RFIs retire (stage 6).
+Then: the header search finds jobs by name, number or customer and opens the
+job's Record.
+
+Not done in stage 4: an Overview tab (Home's job card, Gantt, cost rings);
+search by customer name opens a job, not the customer; RFIs retire (stage 6).
 
 ## Look rules (apply as each page merges)
 
