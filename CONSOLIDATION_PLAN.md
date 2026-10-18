@@ -239,9 +239,15 @@ Sheets' Company tools; `/actions` redirects to Inbox. **RFIs** page deleted
 view id (owner: remove, not move); `/course` → Help. The Office Dashboard lost
 its to-do list (Home has it).
 
-Not done in stage 6: Changelog → Help "What's new"; Admin's Look & Text (Page
-Text + Theme) and Audit (System Logs + Financial Journal + Activity); Search
-tidy-up (Vendors' bill-number box, Archive reading `?q`).
+Then: pairs joined by a tab row (`src/components/PageTabs.tsx`), each pair one
+menu row — Help (Help · What's new, was Changelog), Look & Text (Page Text ·
+Theme), Audit (System Logs · Financial Journal). The pages and gates are
+unchanged; the partner pages left the menu. The Admin menu is Access · Look &
+Text · Audit · Historical Cost Import.
+
+Not done in stage 6: Access's Activity tab into Audit; Historical Cost as a
+Tracking Sheets drawer; Search tidy-up (Vendors' bill-number box, Archive
+reading `?q`).
 
 ## Look rules (apply as each page merges)
 

@@ -143,7 +143,6 @@ export const WORKSPACES: Workspace[] = [
     desc: "How the app works, what changed, and where to ask for more.",
     tabs: [
       tab("help", "/help", "Help", "How to do the things this app does, step by step"),
-      tab("changelog", "/changelog", "Changelog", "What changed in the app, and what is still unfinished"),
       tab("requests", "/requests", "App Feedback", "Ask for fixes and new features"),
     ],
   },
@@ -153,10 +152,10 @@ export const WORKSPACES: Workspace[] = [
     desc: "Access, the app's wording and look, and the audit trails.",
     tabs: [
       tab("admin", "/admin", "Access", "Who can sign in, and what each role can open"),
-      tab("page-copy", "/admin/copy", "Page Text", "Reword the app's on-screen text"),
-      tab("theme-editor", "/theme", "Theme", "Tune the palette with pickers and sliders, and see it live"),
-      tab("logs", "/logs", "System Logs", "The automation audit trail"),
-      tab("journal", "/journal", "Financial Journal", "Who changed which bill, line or time entry — and from what"),
+      // Pairs joined by a PageTabs row (stage 6): Look & Text opens Page Text
+      // (Theme beside it), Audit opens System Logs (Financial Journal beside it).
+      tab("page-copy", "/admin/copy", "Look & Text", "Reword the app's on-screen text, and tune the palette"),
+      tab("logs", "/logs", "Audit", "The automation log and the financial journal — who changed what"),
       tab("historical-cost", "/historical-cost", "Historical Cost Import", "Backfill a job's pre-JobTread costs as one draft bill"),
     ],
   },
@@ -179,6 +178,9 @@ export const JOB_PAGES: WorkspaceTab[] = [
   tab("unbilled", "/unbilled", "Unbilled", "A job's bills and time not yet invoiced"),
 ];
 export const OUTSIDE_WORKSPACES: Record<string, string> = {
+  changelog: "Help's What's new tab (PageTabs on /help)",
+  "theme-editor": "Look & Text's Theme tab (PageTabs on /admin/copy), and Appearance",
+  journal: "Audit's Financial Journal tab (PageTabs on /logs), and a bill's History link",
   actions: "retired 2026-10-18; its buttons are on Inbox (email scans) and Tracking Sheets' Company tools (syncs); /actions redirects",
   "time-off-admin": "a section of Payroll (/payroll?section=timeoff); /time-off/office redirects",
   "labor-import": "a section of Payroll (/payroll?section=labor); /labor-import redirects",

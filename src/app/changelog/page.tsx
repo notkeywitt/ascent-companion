@@ -17,6 +17,7 @@
  * expanding a session, which `<details>` does with no JavaScript at all — so
  * the page costs one HTML response and works before hydration.
  */
+import { PageTabs, HELP_TABS } from "@/components/PageTabs";
 import type { Metadata } from "next";
 
 import {
@@ -195,6 +196,7 @@ export default function ChangelogPage() {
 
   return (
     <main className="mx-auto max-w-2xl px-4 pb-24 pt-6">
+      <PageTabs tabs={HELP_TABS} />
       <PageHeader
         title="Changelog"
         description="What each working session changed, and what is still unfinished. Written as the work happens, so an interrupted session still leaves a record."

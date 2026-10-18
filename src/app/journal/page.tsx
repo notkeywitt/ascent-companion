@@ -1,5 +1,6 @@
 "use client";
 
+import { PageTabs, AUDIT_TABS } from "@/components/PageTabs";
 import { useCallback, useEffect, useState } from "react";
 import { money } from "@/components/BillingSummary";
 import {
@@ -170,6 +171,7 @@ export default function JournalPage() {
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-6">
+      <PageTabs tabs={AUDIT_TABS} />
       <PageHeader
         title="Financial journal"
         description="Every change this app has made to a bill, a line, or a time entry — who, when, from what, to what. Read-only and never trimmed."

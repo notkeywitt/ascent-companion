@@ -1,5 +1,6 @@
 "use client";
 
+import { PageTabs, AUDIT_TABS } from "@/components/PageTabs";
 import { useCallback, useEffect, useState } from "react";
 
 import { Banner, Button, EmptyState, Loading, PageHeader, inputCls } from "@/components/ui";
@@ -63,6 +64,7 @@ export default function LogsPage() {
 
   return (
     <main className="mx-auto max-w-3xl px-4 pb-24 pt-6">
+      <PageTabs tabs={AUDIT_TABS} />
       <PageHeader
         title="System Logs"
         description="The audit trail every automation writes — pushes, syncs, ingestion, diagnostics — newest first. Read-only."

@@ -258,10 +258,10 @@ export const COPY: Record<string, CopyEntry> = {
   // ── Home launcher: Admin destinations ────────────────────────────────────
   "home.dest.admin.label": { text: "Access", label: "Access — name", group: "Home — Admin" },
   "home.dest.admin.desc": { text: "Who can sign in, and what each role can open", label: "Access — description", group: "Home — Admin" },
-  "home.dest.logs.label": { text: "System Logs", label: "System Logs — name", group: "Home — Admin" },
+  "home.dest.logs.label": { text: "Audit", label: "Audit — name", group: "Home — Admin" },
   "home.dest.logs.desc": {
-    text: "The automation audit trail",
-    label: "System Logs — description",
+    text: "The automation log and the financial journal — who changed what",
+    label: "Audit — description",
     group: "Home — Admin",
   },
   "home.dest.historical-cost.label": {
@@ -274,10 +274,10 @@ export const COPY: Record<string, CopyEntry> = {
     label: "Historical Cost Import — description",
     group: "Home — Admin",
   },
-  "home.dest.page-copy.label": { text: "Page Text", label: "Page Text — name", group: "Home — Admin" },
+  "home.dest.page-copy.label": { text: "Look & Text", label: "Look & Text — name", group: "Home — Admin" },
   "home.dest.page-copy.desc": {
-    text: "Reword the app's on-screen text",
-    label: "Page Text — description",
+    text: "Reword the app's on-screen text, and tune the palette",
+    label: "Look & Text — description",
     group: "Home — Admin",
   },
 

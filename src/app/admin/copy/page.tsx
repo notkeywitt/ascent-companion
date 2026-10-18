@@ -1,5 +1,6 @@
 "use client";
 
+import { PageTabs, LOOK_TABS } from "@/components/PageTabs";
 import { useCallback, useEffect, useState } from "react";
 
 import {
@@ -105,6 +106,7 @@ export default function PageTextEditor() {
 
   return (
     <main className="mx-auto max-w-2xl px-4 pb-24">
+      <PageTabs tabs={LOOK_TABS} />
       <PageHeader
         title="Page Text"
         description="Reword what the app says. Changes go live immediately — no deploy."

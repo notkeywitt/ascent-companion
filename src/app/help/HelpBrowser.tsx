@@ -1,5 +1,6 @@
 "use client";
 
+import { PageTabs, HELP_TABS } from "@/components/PageTabs";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
@@ -182,6 +183,7 @@ export function HelpBrowser() {
 
   return (
     <main className="mx-auto max-w-2xl px-4 pb-24 pt-6">
+      <PageTabs tabs={HELP_TABS} />
       <PageHeader
         title="Help"
         description="How to do the things this app does. Tap a question to read the steps."

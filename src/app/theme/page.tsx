@@ -1,5 +1,6 @@
 "use client";
 
+import { PageTabs, LOOK_TABS } from "@/components/PageTabs";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -198,6 +199,7 @@ export default function ThemeEditorPage() {
 
   return (
     <main className="mx-auto max-w-3xl px-4 pb-10 pt-5">
+      <PageTabs tabs={LOOK_TABS} />
       <PageHeader
         title="Theme"
         description="Pickers and sliders over the live palette. Every change repaints the whole app at once — this page is not a mock of it."
