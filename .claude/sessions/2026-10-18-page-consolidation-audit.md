@@ -4,9 +4,9 @@ repo: ascent-companion
 branch: claude/page-consolidation-audit
 status: shipped
 started: 2026-10-18T17:20:28Z
-updated: 2026-10-18T22:55:35Z
+updated: 2026-10-18T23:00:36Z
 goal: audit admin and office pages, recommend merges
-next: owner: Labor Review fold (unapproved switch, cost codes in view) and Check all Jobs vs Checks; then stage 3 (Incoming Bills inbox)
+next: stage 3 rest: Home 'Invoices to log' row, Statement Import (LSWDD+Amazon), one meaning of handled; Check all Jobs question to owner
 ---
 
 ## Log
@@ -34,6 +34,8 @@ next: owner: Labor Review fold (unapproved switch, cost codes in view) and Check
   CONSOLIDATION_PLAN.md, src/app/invoice-review/InvoiceReview.tsx, src/app/invoicing-summary/page.tsx, src/app/trackingsheet/AllJobs.tsx, src/app/trackingsheet/Board.tsx, src/components/InvoicingTabs.tsx
 - 2026-10-18 22:55 · `c1c4b2f` companion: fold labor review into the tracking sheets labor panel
   CODEBASE_MAP.md, CONSOLIDATION_PLAN.md, next.config.mjs, src/app/labor-review/LaborReview.tsx, src/app/labor-review/page.tsx, src/app/trackingsheet/Board.tsx, +3 more
+- 2026-10-18 23:00 · `8e66be9` companion: one incoming bills inbox — to log, stuck and check mail as sections
+  CONSOLIDATION_PLAN.md, next.config.mjs, src/app/email/EmailInvoices.tsx, src/app/email/Inbox.tsx, src/app/email/page.tsx, src/app/needs-project/NotInJobTread.tsx, +7 more
 
 ## Notes
 - 2026-10-18 17:21 — audit: 6 readers over every admin/office page; usage = Vercel server renders 30d (Web Analytics off). Report https://claude.ai/artifact/9i159BFud4dbuvjwVcgTbj
