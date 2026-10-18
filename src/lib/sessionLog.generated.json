@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-18T16:14:43Z",
+  "generatedAt": "2026-10-18T16:25:25Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "claude/remove-office-hamburger-menu-8cquxy",
       "status": "shipped",
       "started": "2026-10-18T16:14:41Z",
-      "updated": "2026-10-18T16:14:43Z",
+      "updated": "2026-10-18T16:25:25Z",
       "goal": "",
-      "next": "confirm with owner whether office phones need a way to reach pages off the bar",
+      "next": "owner to confirm office view-only time is enough, or whether office should also edit as others",
       "commits": [
         {
           "date": "2026-10-18",
@@ -18,6 +18,13 @@
           "sha": "1e2362f",
           "subject": "companion: drop the ☰ menu for the office role, keep the account item",
           "files": "src/components/AppHeader.tsx"
+        },
+        {
+          "date": "2026-10-18",
+          "time": "16:25",
+          "sha": "f980657",
+          "subject": "companion: let the office view another employee's time, read only",
+          "files": "src/app/api/employee-time/clock/route.ts, src/app/api/employee-time/route.ts, src/app/employee-time/EmployeeTimeClient.tsx, src/app/employee-time/page.tsx, src/lib/actingAs.ts"
         }
       ]
     },
