@@ -4,9 +4,9 @@ repo: ascent-companion
 branch: claude/page-consolidation-audit
 status: shipped
 started: 2026-10-18T17:20:28Z
-updated: 2026-10-18T21:58:24Z
+updated: 2026-10-18T22:03:40Z
 goal: audit admin and office pages, recommend merges
-next: stage 2: Checks tab (Invoice Review + Check all Jobs + Bill Corrections + Taxable Flags), Package tab
+next: stage 2 rest: email button onto Package, Check all Jobs into Checks, Labor Review + Finalize into the workbench, shared month default
 ---
 
 ## Log
@@ -24,6 +24,8 @@ next: stage 2: Checks tab (Invoice Review + Check all Jobs + Bill Corrections + 
   CONSOLIDATION_PLAN.md, src/app/add-bill/page.tsx, src/app/trackingsheet/AllBills.tsx, src/app/trackingsheet/BillPopup.tsx, src/app/trackingsheet/Board.tsx, src/app/trackingsheet/CodeLanesView.tsx
 - 2026-10-18 21:58 · `6b9906c` companion: approve, void and review flag in the bill popup; summary mode opens bills in place
   CONSOLIDATION_PLAN.md, src/app/trackingsheet/BillPopup.tsx, src/app/trackingsheet/BillingSummaryView.tsx, src/app/trackingsheet/Board.tsx, src/app/trackingsheet/DraftWorkbench.tsx, src/components/BillingSummary.tsx
+- 2026-10-18 22:03 · `9c09644` companion: invoicing tab row; fold bill corrections and taxable flags into checks
+  CODEBASE_MAP.md, CONSOLIDATION_PLAN.md, next.config.mjs, src/app/invoice-review/InvoiceReview.tsx, src/app/invoicing-summary/page.tsx, src/app/needs-review/FlaggedBills.tsx, +10 more
 
 ## Notes
 - 2026-10-18 17:21 — audit: 6 readers over every admin/office page; usage = Vercel server renders 30d (Web Analytics off). Report https://claude.ai/artifact/9i159BFud4dbuvjwVcgTbj
