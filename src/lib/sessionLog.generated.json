@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-18T23:18:12Z",
+  "generatedAt": "2026-10-18T23:37:10Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "claude/page-consolidation-audit",
       "status": "shipped",
       "started": "2026-10-18T17:20:28Z",
-      "updated": "2026-10-18T23:18:12Z",
+      "updated": "2026-10-18T23:37:10Z",
       "goal": "audit admin and office pages, recommend merges",
-      "next": "stage 5: Employees (rates, time-off balance in the record) + Payroll page; stage 6 small merges",
+      "next": "stage 5 rest (period picker, email + miles PDF on Payroll, rates into Employees record); stage 6 small merges (RFIs/Actions retire, Course removed, Help What's new, Admin Look & Text + Audit)",
       "commits": [
         {
           "date": "2026-10-18",
@@ -137,6 +137,13 @@
           "sha": "c5a6385",
           "subject": "companion: header search finds jobs and opens their record",
           "files": "CONSOLIDATION_PLAN.md, src/components/GlobalSearch.tsx"
+        },
+        {
+          "date": "2026-10-18",
+          "time": "23:37",
+          "sha": "072e734",
+          "subject": "companion: payroll page — time off, sync gaps and labor import as sections; people workspace dissolves",
+          "files": "CONSOLIDATION_PLAN.md, next.config.mjs, src/app/labor-import/LaborImport.tsx, src/app/payroll/Payroll.tsx, src/app/payroll/page.tsx, src/app/time-off/TimeOff.tsx, +10 more"
         }
       ]
     },
