@@ -4,9 +4,9 @@ repo: ascent-companion
 branch: claude/page-consolidation-audit
 status: shipped
 started: 2026-10-18T17:20:28Z
-updated: 2026-10-18T23:12:05Z
+updated: 2026-10-18T23:15:20Z
 goal: audit admin and office pages, recommend merges
-next: stage 4 rest: Customers (Leads + Directory customers), search finds jobs/customers; then stage 5 (Employees + Payroll)
+next: stage 4 rest: search finds jobs/customers, Overview tab; then stage 5 (Employees + Payroll)
 ---
 
 ## Log
@@ -44,6 +44,8 @@ next: stage 4 rest: Customers (Leads + Directory customers), search finds jobs/c
   src/app/trackingsheet/AllJobs.tsx, src/app/trackingsheet/CheckAllJobs.tsx
 - 2026-10-18 23:12 · `aae85a2` companion: job tab row across a job's pages; clients workspace becomes jobs
   CONSOLIDATION_PLAN.md, src/app/budget-import/page.tsx, src/app/clients/ClientsBrowser.tsx, src/app/job-board/JobBoardPage.tsx, src/app/jobs/JobsBrowser.tsx, src/app/specs/page.tsx, +5 more
+- 2026-10-18 23:15 · `d639935` companion: customers page — leads and all customers as sections; directory off the menu
+  CONSOLIDATION_PLAN.md, src/app/clients/ClientsBrowser.tsx, src/app/leads/Customers.tsx, src/app/leads/LeadsBoard.tsx, src/app/leads/page.tsx, src/lib/copy.ts, +2 more
 
 ## Notes
 - 2026-10-18 17:21 — audit: 6 readers over every admin/office page; usage = Vercel server renders 30d (Web Analytics off). Report https://claude.ai/artifact/9i159BFud4dbuvjwVcgTbj
