@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-18T16:25:25Z",
+  "generatedAt": "2026-10-18T17:20:03Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,7 +8,7 @@
       "branch": "claude/remove-office-hamburger-menu-8cquxy",
       "status": "shipped",
       "started": "2026-10-18T16:14:41Z",
-      "updated": "2026-10-18T16:25:25Z",
+      "updated": "2026-10-18T17:20:03Z",
       "goal": "",
       "next": "owner to confirm office view-only time is enough, or whether office should also edit as others",
       "commits": [
@@ -25,6 +25,13 @@
           "sha": "f980657",
           "subject": "companion: let the office view another employee's time, read only",
           "files": "src/app/api/employee-time/clock/route.ts, src/app/api/employee-time/route.ts, src/app/employee-time/EmployeeTimeClient.tsx, src/app/employee-time/page.tsx, src/lib/actingAs.ts"
+        },
+        {
+          "date": "2026-10-18",
+          "time": "16:54",
+          "sha": "1f3b4eb",
+          "subject": "companion: let the office log and edit time as another employee",
+          "files": "src/app/api/employee-time/clock/route.ts, src/app/api/employee-time/history/route.ts, src/app/api/employee-time/jobs/route.ts, src/app/api/employee-time/pay-rules/route.ts, src/app/api/employee-time/route.ts, src/app/employee-time/EmployeeTimeClient.tsx, +4 more"
         }
       ]
     },
