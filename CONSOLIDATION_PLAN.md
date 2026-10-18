@@ -1,7 +1,7 @@
 # CONSOLIDATION_PLAN.md — `ascent-companion`
 
-Read 2026-10-18 against the working tree. Status: **proposed**. The owner
-decisions at the end are open. Web version, with the before/after chart and a
+Read 2026-10-18 against the working tree. Status: **agreed 2026-10-18** (owner answers
+below). Stage 0 is next. Web version, with the before/after chart and a
 "where did my page go?" lookup: <https://claude.ai/artifact/9i159BFud4dbuvjwVcgTbj>
 
 `NAVIGATION_PLAN.md` (2026-09-29) laid one menu over the pages and kept every
@@ -19,7 +19,7 @@ on every screen.
 
 | | Today | Proposed |
 |---|---|---|
-| Pages on the menus (admin) | 48 | 29 |
+| Pages on the menus (admin) | 48 | 28 |
 | Pages on the menus (office) | 42 | 25 |
 | Page changes to close a month | ~10 (4 by search) | 1 |
 | Page changes per bill coded, iPad | 2 | 0 |
@@ -73,8 +73,8 @@ is off). The bill page is first (1,214), Tracking Sheets second (1,067).
 | **Search** | Bills · Vendors · Archive | Vendor Addresses → a Vendors filter. Archive reads `?q`. Header search also finds jobs and customers. |
 | **Office** | Office Dashboard · Notices | Dashboard loses its to-dos (Home has them). Actions dissolves: each button moves beside what it updates. |
 | **My Work** | Miles · Tools · Requisitions · Time Off | No change for the office. |
-| **Help** | Help · App Feedback | Changelog → a short "What's new". Course → Admin. |
-| **Admin** | Access · Look & Text · Audit · Course | Look & Text = Page Text + Theme. Audit = System Logs + Financial Journal + Activity. Digest settings → Home's To-dos card. |
+| **Help** | Help · App Feedback | Changelog → a short "What's new". Course is removed (owner, 2026-10-18). |
+| **Admin** | Access · Look & Text · Audit | Look & Text = Page Text + Theme. Audit = System Logs + Financial Journal + Activity. Digest settings → Home's To-dos card. |
 
 ## Fix first (broken today)
 
@@ -119,7 +119,7 @@ is off). The bill page is first (1,214), Tracking Sheets second (1,067).
 | 3 | Incoming Bills: Inbox, Statement Import | 2–3 | One meaning of "handled"; one job list (four today) |
 | 4 | Job page + Customers; RFIs retire; search finds jobs and customers | 3–4 | Decisions 4, 5 |
 | 5 | Employees + Payroll | 3–4 | Decision 3 |
-| 6 | Office, Help, Admin, Search; Actions dissolves | 1–2 | Decision 6 |
+| 6 | Office, Help, Admin, Search; Actions dissolves; RFIs and Course removed | 1–2 | — |
 
 ## Owner decisions
 
@@ -133,6 +133,20 @@ is off). The bill page is first (1,214), Tracking Sheets second (1,067).
 5. Rename the Clients workspace "Jobs"? Recommended: yes.
 6. Retire RFIs and Actions, move Course to Admin? Check Admin › Activity first.
 7. Sunset stays its own page (leads hold it). Confirm.
+
+### Owner answers, 2026-10-18
+
+| # | Answer | What it changes |
+|---|---|---|
+| 1 | Yes | The office Account drawer gets a "Pages" list, one row per workspace. Stage 0. |
+| 2 | Yes | Checks tab replaces Bill Corrections, Taxable Flags and Invoice Review as pages. The 3-tab strip was not asked separately; confirm it at the start of stage 2. |
+| 3 | Yes | Payroll, on the half month of the time-entries email. |
+| 4, 5 | Yes | Add `/job/[id]`. Rename the Clients workspace "Jobs". |
+| 6 | Yes, and remove Course | Retire RFIs and Actions. Course is removed, not moved to Admin. |
+| 7 | Not asked | Sunset stays its own page, as recommended. |
+
+Still open: the owner's ok for coding writes from the bill drawer at every width
+(stage 1).
 
 ## Found along the way
 
