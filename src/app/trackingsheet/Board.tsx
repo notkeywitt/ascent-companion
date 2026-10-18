@@ -1417,6 +1417,9 @@ export function Board() {
    * forbids.
    */
   const [barHover, setBarHover] = useState(false);
+  // Finalize (moved here from /tracking-sheet) — see finalizeSheet.
+  const [finalizing, setFinalizing] = useState(false);
+  const [finalizeMsg, setFinalizeMsg] = useState("");
   // A touch screen 1024px+ wide (an iPad in landscape) has no hover, so the
   // commit bar never reveals the closing actions. Show the row under the
   // columns there instead, as on a phone.
@@ -1744,10 +1747,32 @@ export function Board() {
    * Rendered nothing until we've read whether the job has a sheet, so the label
    * is never wrong. `cls` carries whatever width the row it sits in wants.
    */
+  const finalizeSheet = async (projectId: string) => {
+    if (finalizing) return;
+    if (!window.confirm(`Finalize ${monthLabel(ym)} into this job's tracking sheet? Sync the sheet first if anything changed.`)) return;
+    const [y, m] = ym.split("-").map(Number);
+    setFinalizing(true);
+    setFinalizeMsg("");
+    try {
+      const res = await fetch("/api/tracking-sheet", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ op: "finalize", projectId, month: m, year: y }),
+      });
+      const j = await res.json();
+      if (!res.ok || j?.ok === false) throw new Error(j?.error || `Request failed (${res.status})`);
+      setFinalizeMsg(`Finalized into the ${j.monthLabel ?? monthLabel(ym)} block.`);
+    } catch (e) {
+      setFinalizeMsg(e instanceof Error ? e.message : "Finalize failed.");
+    } finally {
+      setFinalizing(false);
+    }
+  };
   const trackingSheetAction = (cls: string) => {
     if (!canTrack || !trackingChecked) return null;
     if (trackingTarget) {
       return (
+        <>
         <Button
           variant="secondary"
           className={cls}
@@ -1768,6 +1793,20 @@ export function Board() {
         >
           {trackingBusy ? "Syncing sheet…" : "Sync to Tracking Sheet"}
         </Button>
+        {/* Finalize, moved here from its own page (CONSOLIDATION_PLAN stage 2):
+            copies the sheet's CURRENT INVOICE column into the month's reserved
+            block. Re-running overwrites that block, never adds a second. */}
+        <Button
+          variant="secondary"
+          className={cls}
+          disabled={syncing || trackingBusy || finalizing}
+          title={`Copy the sheet's CURRENT INVOICE column into the ${monthLabel(ym)} block`}
+          onClick={() => void finalizeSheet(trackingTarget.projectId)}
+        >
+          {finalizing ? "Finalizing…" : "Finalize sheet"}
+        </Button>
+        {finalizeMsg && <span className="basis-full text-center text-xs text-neutral-500 dark:text-neutral-400">{finalizeMsg}</span>}
+        </>
       );
     }
     // Not a link: Finalize lists only jobs that already have a sheet, so it was

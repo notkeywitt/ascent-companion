@@ -419,8 +419,8 @@ export default function TrackingSheetPage() {
     // a phone — the only page besides Historical Cost Import that wasn't on it.
     <main className="mx-auto max-w-2xl px-4 pb-24 pt-6">
       <PageHeader
-        title="Finalize"
-        description="Push a job's month of sub/vendor invoices into its Google tracking sheet, then finalize the month."
+        title="Sheet sync settings"
+        description="Pause the automatic tracking-sheet sync, pin its month, or sync and finalize one job. Finalize is also on each job in Tracking Sheets."
       />
 
       {bootError && <Banner tone="error" className="mb-4">{bootError}</Banner>}

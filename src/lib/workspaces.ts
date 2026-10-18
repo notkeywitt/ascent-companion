@@ -53,7 +53,6 @@ export const WORKSPACES: Workspace[] = [
       // 2026-10-18 (CONSOLIDATION_PLAN.md stage 2); their routes redirect.
       tab("invoice-review", "/invoice-review", "Checks", "Findings, flagged bills and non-taxable lines for the month"),
       tab("invoicing-summary", "/invoicing-summary", "Invoicing Package", "The month's billing summary doc — every job, its labor, bills and total"),
-      tab("tracking-sheet", "/tracking-sheet", "Finalize", "Push a job's month into its own Google tracking sheet"),
     ],
   },
   {
@@ -181,6 +180,7 @@ export const OUTSIDE_WORKSPACES: Record<string, string> = {
   chat: "menu footer (EXTRA_LINKS)",
   lopezrocks: "menu footer (EXTRA_LINKS) and the home page",
   rfis: "nobody logs RFIs (owner decision 4, 2026-09-29); route kept",
+  "tracking-sheet": "Sheet sync settings, linked from Tracking Sheets' Company tools; Finalize is on each job since 2026-10-18",
   "bill-review": "a section of Checks (/invoice-review?section=flagged); /needs-review redirects",
   "taxable-lines": "a section of Checks (/invoice-review?section=taxable); /taxable-lines redirects",
 };

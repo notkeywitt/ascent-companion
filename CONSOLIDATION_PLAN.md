@@ -146,9 +146,13 @@ the Flagged bills section.
 Later the same day: "Draft invoicing email" moved from Tracking Sheets' all-jobs
 row to Package's action bar (`src/components/PackageEmail.tsx`).
 
+Then: "Finalize sheet" sits beside "Sync to Tracking Sheet" on each job's
+workbench. `/tracking-sheet` is renamed "Sheet sync settings" (pause, pin the
+month), off the menu, linked from Tracking Sheets' Company tools.
+
 Not done in stage 2: Check
 all Jobs merged into Checks; one dismissal model; one taxable rule; Labor
-Review, Finalize and Historical Cost into the workbench; the shared month
+Review and Historical Cost into the workbench; the shared month
 default. A production Page Text override of `home.dest.invoice-review.label`
 would still say "Invoice Review" in the menu.
 
