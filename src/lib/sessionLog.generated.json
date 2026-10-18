@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-18T22:17:05Z",
+  "generatedAt": "2026-10-18T22:20:36Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "claude/page-consolidation-audit",
       "status": "shipped",
       "started": "2026-10-18T17:20:28Z",
-      "updated": "2026-10-18T22:17:05Z",
+      "updated": "2026-10-18T22:20:36Z",
       "goal": "audit admin and office pages, recommend merges",
-      "next": "stage 2 rest: email button onto Package, Check all Jobs into Checks, Labor Review + Finalize into the workbench, shared month default",
+      "next": "owner: Labor Review fold (unapproved switch, cost codes in view) and Check all Jobs vs Checks; then stage 3 (Incoming Bills inbox)",
       "commits": [
         {
           "date": "2026-10-18",
@@ -74,6 +74,13 @@
           "sha": "6a3b328",
           "subject": "companion: finalize a job's sheet from its workbench; sheet sync settings move to company tools",
           "files": "CONSOLIDATION_PLAN.md, src/app/tracking-sheet/page.tsx, src/app/trackingsheet/AllJobs.tsx, src/app/trackingsheet/Board.tsx, src/lib/workspaces.ts"
+        },
+        {
+          "date": "2026-10-18",
+          "time": "22:20",
+          "sha": "80403af",
+          "subject": "companion: invoicing tabs carry the month on screen; tracking sheets honours the set billing month",
+          "files": "CONSOLIDATION_PLAN.md, src/app/invoice-review/InvoiceReview.tsx, src/app/invoicing-summary/page.tsx, src/app/trackingsheet/AllJobs.tsx, src/app/trackingsheet/Board.tsx, src/components/InvoicingTabs.tsx"
         }
       ]
     },
