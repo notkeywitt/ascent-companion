@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-18T22:07:55Z",
+  "generatedAt": "2026-10-18T22:17:05Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,7 +8,7 @@
       "branch": "claude/page-consolidation-audit",
       "status": "shipped",
       "started": "2026-10-18T17:20:28Z",
-      "updated": "2026-10-18T22:07:55Z",
+      "updated": "2026-10-18T22:17:05Z",
       "goal": "audit admin and office pages, recommend merges",
       "next": "stage 2 rest: email button onto Package, Check all Jobs into Checks, Labor Review + Finalize into the workbench, shared month default",
       "commits": [
@@ -67,6 +67,13 @@
           "sha": "93b97ae",
           "subject": "companion: move the invoicing email button onto the package tab",
           "files": "CONSOLIDATION_PLAN.md, src/app/invoicing-summary/page.tsx, src/app/trackingsheet/AllJobs.tsx, src/components/PackageEmail.tsx"
+        },
+        {
+          "date": "2026-10-18",
+          "time": "22:17",
+          "sha": "6a3b328",
+          "subject": "companion: finalize a job's sheet from its workbench; sheet sync settings move to company tools",
+          "files": "CONSOLIDATION_PLAN.md, src/app/tracking-sheet/page.tsx, src/app/trackingsheet/AllJobs.tsx, src/app/trackingsheet/Board.tsx, src/lib/workspaces.ts"
         }
       ]
     },
