@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/page-consolidation-audit
 status: shipped
 started: 2026-10-18T17:20:28Z
-updated: 2026-10-18T22:07:55Z
+updated: 2026-10-18T22:17:04Z
 goal: audit admin and office pages, recommend merges
 next: stage 2 rest: email button onto Package, Check all Jobs into Checks, Labor Review + Finalize into the workbench, shared month default
 ---
@@ -28,6 +28,8 @@ next: stage 2 rest: email button onto Package, Check all Jobs into Checks, Labor
   CODEBASE_MAP.md, CONSOLIDATION_PLAN.md, next.config.mjs, src/app/invoice-review/InvoiceReview.tsx, src/app/invoicing-summary/page.tsx, src/app/needs-review/FlaggedBills.tsx, +10 more
 - 2026-10-18 22:07 · `93b97ae` companion: move the invoicing email button onto the package tab
   CONSOLIDATION_PLAN.md, src/app/invoicing-summary/page.tsx, src/app/trackingsheet/AllJobs.tsx, src/components/PackageEmail.tsx
+- 2026-10-18 22:17 · `6a3b328` companion: finalize a job's sheet from its workbench; sheet sync settings move to company tools
+  CONSOLIDATION_PLAN.md, src/app/tracking-sheet/page.tsx, src/app/trackingsheet/AllJobs.tsx, src/app/trackingsheet/Board.tsx, src/lib/workspaces.ts
 
 ## Notes
 - 2026-10-18 17:21 — audit: 6 readers over every admin/office page; usage = Vercel server renders 30d (Web Analytics off). Report https://claude.ai/artifact/9i159BFud4dbuvjwVcgTbj
