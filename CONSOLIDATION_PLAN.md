@@ -174,9 +174,14 @@ one loads. `/needs-project` and `/vendor-mail` redirect; `/vendor-mail/index`
 stays. The Page Text defaults for Inbox and Checks were renamed too — the
 Checks rename had not reached the menu because the copy default won.
 
+Then: an "Invoices to log" row on Home (TodayQueue, cached 10 minutes).
+
+Dropped: Statement Import. LSWDD and Amazon are already one tap apart in the
+Incoming Bills tab strip; one page with a source picker would only rename them.
+
 Not done in stage 3: one meaning of "handled" (Processed is still a Gmail label
-Check mail ignores); an "Invoices to log" row on Home; Statement Import (LSWDD +
-Amazon on one page); the email-scan buttons from Actions.
+Check mail ignores; the fix is in appscript `VendorMail.js` and needs a deploy);
+the email-scan buttons from Actions (stage 6).
 
 ## Look rules (apply as each page merges)
 
