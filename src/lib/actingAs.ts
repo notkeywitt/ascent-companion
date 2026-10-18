@@ -15,6 +15,7 @@
  *
  *   Your own JobTread user            → always allowed.
  *   Someone else's, and you are ADMIN → allowed, and marked `acting`.
+ *   Someone else's, READ ONLY, OFFICE → allowed, and marked `acting`.
  *   Someone else's, and you are not   → refused, 403.
  *
  * ONE EXCEPTION, and it is the reason the loose field existed: a person whose

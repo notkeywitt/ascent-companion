@@ -32,15 +32,17 @@ import { EmployeeTimeClient } from "./EmployeeTimeClient";
 export default async function EmployeeTimePage() {
   const session = await auth();
   const email = session?.user?.email ?? "";
-  // Only an admin may open the page as another employee. The flag draws the
-  // picker; the SERVER rule (src/lib/timeSubject.ts) is what enforces it.
+  // An admin may open the page as another employee and work it; the office may
+  // open it to LOOK. The flags draw the picker; the SERVER rule
+  // (src/lib/timeSubject.ts) is what enforces both.
   const role = (session?.user as { role?: string } | undefined)?.role ?? "";
-  // An admin previewing another role sees that role's page, so the act-as
-  // control hides too (same rule as the root layout's preview swap).
+  // An admin previewing another role sees that role's page, act-as control
+  // included (same rule as the root layout's preview swap).
   const preview = role === "admin" ? parsePreviewRole((await cookies()).get(PREVIEW_COOKIE)?.value) : null;
-  const canActAs = role === "admin" && (!preview || preview === "admin");
-  // Admin + office get the week compare; the history route re-checks the role.
   const viewRole = preview ?? role;
+  const canActAs = viewRole === "admin" || viewRole === "office";
+  const actAsReadOnly = viewRole === "office";
+  // Admin + office get the week compare; the history route re-checks the role.
   const canCompare = viewRole === "admin" || viewRole === "office";
 
   // The identity: the token first (stamped at sign-in), then the DB link. Both
@@ -104,6 +106,7 @@ export default async function EmployeeTimePage() {
       initialOpenEntry={clock?.openEntry ?? null}
       identityResolved={!!me}
       canActAs={canActAs}
+      actAsReadOnly={actAsReadOnly}
       canCompare={canCompare}
       appUserIds={appUserIds}
       initialPayRules={payRules}

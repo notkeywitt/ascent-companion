@@ -142,12 +142,13 @@ export async function GET(req: NextRequest) {
   const email = session?.user?.email ?? "";
   const role = ((session?.user as { role?: string } | undefined)?.role ?? "").trim();
 
-  // ADMIN ONLY: boot the page as someone else, so the whole screen — their
-  // running clock, their timesheet — is theirs. Refused for every other role by
-  // resolveTimeIdentity, not by hiding the parameter.
+  // ADMIN + OFFICE: boot the page as someone else, so the whole screen — their
+  // running clock, their timesheet — is theirs. A read, so the office may; every
+  // write re-decides without `readOnly`, so only an admin can file as them.
+  // Refused for every other role by resolveTimeIdentity, not by hiding the param.
   const actingAs = (req.nextUrl.searchParams.get("actingAs") ?? "").trim();
   if (actingAs) {
-    const who = await resolveTimeIdentity(actingAs);
+    const who = await resolveTimeIdentity(actingAs, { readOnly: true });
     if (!who.ok) return NextResponse.json({ ok: false, error: who.error }, { status: who.status });
     const [jtUsers, orgTypes] = await Promise.all([
       getOrgUsers(cfg).catch(() => []),

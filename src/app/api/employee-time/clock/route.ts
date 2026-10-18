@@ -134,11 +134,11 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "JT_GRANT_KEY is not set." }, { status: 400 });
   }
 
-  // `?actingAs` reads SOMEONE ELSE's running clock — admin only, refused by
-  // resolveTimeIdentity for every other role. It is how the office sees that a
-  // crew member is still clocked in, and closes the clock they left running.
+  // `?actingAs` reads SOMEONE ELSE's running clock — admin and office, refused
+  // by resolveTimeIdentity for every other role. It is how the office sees that
+  // a crew member is still clocked in. Closing that clock is a write: admin only.
   const actingAs = (req.nextUrl.searchParams.get("actingAs") ?? "").trim();
-  const who = await resolveTimeIdentity(actingAs);
+  const who = await resolveTimeIdentity(actingAs, { readOnly: true });
   if (!who.ok) {
     // A person with no JobTread link has no clock to look up. That is not an
     // error here: the bootstrap already tells them how to link, and the page
