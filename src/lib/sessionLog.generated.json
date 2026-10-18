@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-18T23:15:21Z",
+  "generatedAt": "2026-10-18T23:18:12Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "claude/page-consolidation-audit",
       "status": "shipped",
       "started": "2026-10-18T17:20:28Z",
-      "updated": "2026-10-18T23:15:21Z",
+      "updated": "2026-10-18T23:18:12Z",
       "goal": "audit admin and office pages, recommend merges",
-      "next": "stage 4 rest: search finds jobs/customers, Overview tab; then stage 5 (Employees + Payroll)",
+      "next": "stage 5: Employees (rates, time-off balance in the record) + Payroll page; stage 6 small merges",
       "commits": [
         {
           "date": "2026-10-18",
@@ -130,6 +130,13 @@
           "sha": "d639935",
           "subject": "companion: customers page — leads and all customers as sections; directory off the menu",
           "files": "CONSOLIDATION_PLAN.md, src/app/clients/ClientsBrowser.tsx, src/app/leads/Customers.tsx, src/app/leads/LeadsBoard.tsx, src/app/leads/page.tsx, src/lib/copy.ts, +2 more"
+        },
+        {
+          "date": "2026-10-18",
+          "time": "23:18",
+          "sha": "c5a6385",
+          "subject": "companion: header search finds jobs and opens their record",
+          "files": "CONSOLIDATION_PLAN.md, src/components/GlobalSearch.tsx"
         }
       ]
     },
