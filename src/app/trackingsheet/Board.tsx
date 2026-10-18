@@ -421,7 +421,6 @@ export function Board() {
   const { can } = useAccess();
   const canTrack = can("tracking-sheet");
   const canApprove = can("bill-approve");
-  const canLaborReview = can("labor-review");
   // Admin-only: the tracking-sheet-vs-JobTread gap panel in the budget rail
   // reads /api/historical-cost, which carries the same view gate.
   const canSheetGap = can("historical-cost");
@@ -2459,17 +2458,6 @@ export function Board() {
                       </div>
                     )}
 
-                    {/* Labor Review shows the same list against a whole-job
-                        budget rail and a "cost codes in view" readout — the
-                        wider view of the same work, not a different tool. */}
-                    {canLaborReview && (
-                      <Link
-                        href={`/labor-review?jobId=${encodeURIComponent(jobId)}&ym=${ym}`}
-                        className="block border-t border-line-soft px-3 py-2.5 text-xs font-semibold text-accent transition hover:bg-accent/5 dark:border-neutral-800 dark:hover:bg-white/5"
-                      >
-                        Open this month in Labor Review →
-                      </Link>
-                    )}
                   </>
                 )}
               </Card>

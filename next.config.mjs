@@ -50,6 +50,8 @@ const nextConfig = {
       // Folded into Checks, 2026-10-18 (CONSOLIDATION_PLAN.md stage 2).
       { source: "/needs-review", destination: "/invoice-review?section=flagged", permanent: false },
       { source: "/taxable-lines", destination: "/invoice-review?section=taxable", permanent: false },
+      // The job workbench's labor panel holds the same list (owner, 2026-10-18).
+      { source: "/labor-review", destination: "/trackingsheet", permanent: false },
     ];
   },
   eslint: {

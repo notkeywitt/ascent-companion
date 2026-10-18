@@ -427,7 +427,7 @@ Grouped by domain; each folder is `…/route.ts`.
   `invoicing-summary` (GET reads a billing month — every job billed, its labor,
   bills and total, plus the office's edits and where the doc is; POST saves one
   edit or writes the doc. Both proxy appscript, which holds the Docs grant).
-- **Labor / time:** `employee-time/*`, `labor-rates/*`, `labor-review/*`,
+- **Labor / time:** `employee-time/*`, `labor-rates/*`, `labor-review/*` (the API only; the page folded into Tracking Sheets 2026-10-18),
   `labor-report` (the month's company-wide Drive sheet),
   `time-entry` (one entry, edited in place — gated under `recode`),
   `time-off/*`, `time-sync/*`, `expenditure-history`.

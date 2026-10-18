@@ -48,7 +48,6 @@ export const WORKSPACES: Workspace[] = [
     // The close order, confirmed by the owner 2026-09-29 (decision 9).
     tabs: [
       tab("recode", "/trackingsheet", "Tracking Sheets", "Code a month's bills against live budget headroom"),
-      tab("labor-review", "/labor-review", "Labor Review", "Code a month's logged time against the same headroom"),
       // Checks holds Bill Corrections and Taxable Flags as sections since
       // 2026-10-18 (CONSOLIDATION_PLAN.md stage 2); their routes redirect.
       tab("invoice-review", "/invoice-review", "Checks", "Findings, flagged bills and non-taxable lines for the month"),
@@ -180,6 +179,7 @@ export const OUTSIDE_WORKSPACES: Record<string, string> = {
   chat: "menu footer (EXTRA_LINKS)",
   lopezrocks: "menu footer (EXTRA_LINKS) and the home page",
   rfis: "nobody logs RFIs (owner decision 4, 2026-09-29); route kept",
+  "labor-review": "folded into the Tracking Sheets job workbench's labor panel 2026-10-18; /labor-review redirects; the view still gates /api/labor-review and /api/labor-report",
   "tracking-sheet": "Sheet sync settings, linked from Tracking Sheets' Company tools; Finalize is on each job since 2026-10-18",
   "bill-review": "a section of Checks (/invoice-review?section=flagged); /needs-review redirects",
   "taxable-lines": "a section of Checks (/invoice-review?section=taxable); /taxable-lines redirects",

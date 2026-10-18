@@ -97,7 +97,7 @@ export const uninvoicedCheck = defineJobCheck<UninvoicedConfig>({
           `${money(job.uninvoicedTimeCost)} of time logged in ${month.monthLabel} sits on no ` +
           `live client invoice, even though this job WAS invoiced this month.`,
         amount: job.uninvoicedTimeCost,
-        sourceLink: `/labor-review?jobId=${encodeURIComponent(job.jobId)}&ym=${month.ym}`,
+        sourceLink: `/trackingsheet?jobId=${encodeURIComponent(job.jobId)}&ym=${month.ym}`,
         sourceLabel: "Open labor review",
         // The same test uninvoicedTimeCost sums over — on no invoice, draft included.
         target: {

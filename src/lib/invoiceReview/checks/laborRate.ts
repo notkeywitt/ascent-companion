@@ -144,7 +144,7 @@ export const laborRateCheck = defineJobCheck<LaborRateConfig>({
       groups.set(k, g);
     }
 
-    const link = `/labor-review?jobId=${encodeURIComponent(job.jobId)}&ym=${month.ym}`;
+    const link = `/trackingsheet?jobId=${encodeURIComponent(job.jobId)}&ym=${month.ym}`;
 
     /**
      * (person|pay type) → the rate it will carry once the per-person finding
