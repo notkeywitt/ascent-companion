@@ -104,7 +104,7 @@ function JobTagChip({
   return null;
 }
 
-export function ClientsBrowser() {
+export function ClientsBrowser({ embedded = false }: { embedded?: boolean } = {}) {
   const [directory, setDirectory] = useState<ClientDirectory | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -218,9 +218,10 @@ export function ClientsBrowser() {
   }, []);
 
   return (
-    <main className="mx-auto max-w-2xl px-4 pb-24 pt-6">
+    <Wrap embedded={embedded}>
       <PageHeader
         title="Directory"
+        titleSlot={embedded ? <h2 className="text-lg font-bold tracking-tight">All customers</h2> : undefined}
         description="Every customer and job in JobTread — the record, not the cost. Edit it here."
       />
 
@@ -373,6 +374,11 @@ export function ClientsBrowser() {
           )}
         </div>
       )}
-    </main>
+    </Wrap>
   );
+}
+
+/** A page of its own, or a section of Customers (/leads). */
+function Wrap({ embedded, children }: { embedded: boolean; children: React.ReactNode }) {
+  return embedded ? <div>{children}</div> : <main className="mx-auto max-w-2xl px-4 pb-24 pt-6">{children}</main>;
 }

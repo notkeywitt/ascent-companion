@@ -346,7 +346,7 @@ export const VIEWS: ViewDef[] = [
   // follow-up tracking. The API prefix is listed alongside the page so a role
   // without the view can't read customer contact details via the route directly.
   // Office/admin by default (not in FIELD/LEAD sets below).
-  { id: "leads", label: "Leads", group: "Office", paths: ["/leads", "/api/leads"] },
+  { id: "leads", label: "Customers", group: "Office", paths: ["/leads", "/api/leads"] },
   // Jobs — Active jobs, PreCon jobs and leads as kanban rows (schedule now and
   // the newest to-dos per job). Read-only. Its own route, not "/jobs", which is
   // Job Cost. The API prefix rides the same gate, so a role without the page

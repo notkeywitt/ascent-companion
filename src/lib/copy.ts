@@ -138,10 +138,10 @@ export const COPY: Record<string, CopyEntry> = {
     label: "Office Dashboard — description",
     group: "Home — Office",
   },
-  "home.dest.leads.label": { text: "Leads", label: "Leads — name", group: "Home — Office" },
+  "home.dest.leads.label": { text: "Customers", label: "Customers — name", group: "Home — Office" },
   "home.dest.leads.desc": {
-    text: "New leads, who's overdue, who's gone quiet",
-    label: "Leads — description",
+    text: "Leads to follow up, and every customer and job",
+    label: "Customers — description",
     group: "Home — Office",
   },
   "home.dest.employees.label": { text: "Employees", label: "Employees — name", group: "Home — Office" },

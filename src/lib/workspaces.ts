@@ -73,8 +73,8 @@ export const WORKSPACES: Workspace[] = [
     // keeps them in the header search.
     tabs: [
       tab("job-board", "/job-board", "Job Board", "Active jobs, PreCon jobs and leads — the schedule now and the newest to-dos"),
-      tab("leads", "/leads", "Leads", "New leads, who's overdue, who's gone quiet"),
-      tab("clients", "/clients", "Directory", "Every customer and job in JobTread — edit the record"),
+      // Customers = Leads + Directory's list, as sections (stage 4).
+      tab("leads", "/leads", "Customers", "Leads to follow up, and every customer and job"),
       tab("ar-aging", "/ar-aging", "Receivables", "Unpaid client invoices, oldest first"),
     ],
   },
@@ -185,6 +185,7 @@ export const JOB_PAGES: WorkspaceTab[] = [
   tab("unbilled", "/unbilled", "Unbilled", "A job's bills and time not yet invoiced"),
 ];
 export const OUTSIDE_WORKSPACES: Record<string, string> = {
+  clients: "Customers' All customers section (/leads?section=all), and a job's Record tab (/clients?jobId)",
   jobs: "a job's tab row (JobTabs) and the header search (JOB_PAGES)",
   "budget-import": "a job's tab row (JobTabs) and the header search (JOB_PAGES)",
   specs: "a job's tab row (JobTabs) and the header search (JOB_PAGES)",
