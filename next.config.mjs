@@ -52,6 +52,9 @@ const nextConfig = {
       { source: "/taxable-lines", destination: "/invoice-review?section=taxable", permanent: false },
       // The job workbench's labor panel holds the same list (owner, 2026-10-18).
       { source: "/labor-review", destination: "/trackingsheet", permanent: false },
+      // One Incoming Bills inbox (CONSOLIDATION_PLAN.md stage 3).
+      { source: "/needs-project", destination: "/email?section=stuck", permanent: false },
+      { source: "/vendor-mail", destination: "/email?section=mail", permanent: false },
     ];
   },
   eslint: {

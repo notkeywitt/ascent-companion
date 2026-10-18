@@ -164,6 +164,20 @@ Review and Historical Cost into the workbench. The job workbench and Labor Revie
 opened with no month (links from Tracking Sheets always carry one). A production Page Text override of `home.dest.invoice-review.label`
 would still say "Invoice Review" in the menu.
 
+### Stage 3 status, 2026-10-18 (first slice)
+
+Shipped: `/email` is **Inbox**, with three sections picked by `?section=` —
+To log (was Email Invoices, `EmailInvoices.tsx`), Stuck (was Not in JobTread,
+`src/app/needs-project/NotInJobTread.tsx`) and Check mail (was Mail Check,
+`src/app/vendor-mail/VendorMail.tsx`). Each shows only to its view; only the open
+one loads. `/needs-project` and `/vendor-mail` redirect; `/vendor-mail/index`
+stays. The Page Text defaults for Inbox and Checks were renamed too — the
+Checks rename had not reached the menu because the copy default won.
+
+Not done in stage 3: one meaning of "handled" (Processed is still a Gmail label
+Check mail ignores); an "Invoices to log" row on Home; Statement Import (LSWDD +
+Amazon on one page); the email-scan buttons from Actions.
+
 ## Look rules (apply as each page merges)
 
 1. A list is one hairline card (`Card pad={false}`, `divide-y divide-line-soft`).

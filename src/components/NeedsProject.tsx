@@ -148,7 +148,7 @@ export function NeedsProjectBanner({ state }: { state: NeedsProjectState }) {
           {loading ? "Checking…" : "Refresh"}
         </button>
       </div>
-      <Link href="/needs-project" className="mt-2 inline-block text-sm font-semibold underline">
+      <Link href="/email?section=stuck" className="mt-2 inline-block text-sm font-semibold underline">
         Open Not in JobTread →
       </Link>
     </div>

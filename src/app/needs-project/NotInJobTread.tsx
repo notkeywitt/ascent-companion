@@ -31,7 +31,7 @@ const isStale = (err?: string) => /already in JobTread/i.test(err ?? "");
 // "Sold-To" that names a customer with more than one job, and no PO# to
 // disambiguate). Pick the job from the PDF and assign — it pushes to JobTread
 // and re-files in Drive.
-export default function NeedsProjectPage() {
+export function NotInJobTread({ embedded = false }: { embedded?: boolean } = {}) {
   const canUncaptured = useAccess().can("recode");
   const [items, setItems] = useState<NeedsItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -160,9 +160,10 @@ export default function NeedsProjectPage() {
   }
 
   return (
-    <main className="mx-auto max-w-2xl px-4 pb-24 pt-6">
+    <Wrap embedded={embedded}>
       <PageHeader
         title="Not in JobTread"
+        titleSlot={embedded ? <h2 className="text-lg font-bold tracking-tight">Stuck</h2> : undefined}
         description="Every bill that has not reached JobTread: no job yet, a vendor JobTread does not have, or a capture that was never pushed."
         actions={
           <Button variant="secondary" size="sm" onClick={() => load()} disabled={loading}>
@@ -282,6 +283,11 @@ export default function NeedsProjectPage() {
           <UncapturedBills />
         </div>
       )}
-    </main>
+    </Wrap>
   );
+}
+
+/** A page of its own, or a section of the Incoming Bills inbox (/email). */
+function Wrap({ embedded, children }: { embedded: boolean; children: React.ReactNode }) {
+  return embedded ? <div>{children}</div> : <main className="mx-auto max-w-2xl px-4 pb-24 pt-6">{children}</main>;
 }

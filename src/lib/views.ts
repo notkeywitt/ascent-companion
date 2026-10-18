@@ -207,7 +207,7 @@ export const VIEWS: ViewDef[] = [
   // companion DB and never reaches JobTread.
   {
     id: "invoice-review",
-    label: "Invoice Review",
+    label: "Checks",
     group: "Financials",
     paths: ["/invoice-review", "/api/invoice-review"],
   },
@@ -232,7 +232,7 @@ export const VIEWS: ViewDef[] = [
   // it was ungated, and `/email` does not prefix-match it.
   {
     id: "email",
-    label: "Email Invoices",
+    label: "Inbox",
     group: "Financials",
     // /api/vendor-create rides this gate rather than `vendors`, because the
     // button that calls it lives in the stuck-vendor popup, which this view

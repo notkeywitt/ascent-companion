@@ -90,9 +90,10 @@ export const WORKSPACES: Workspace[] = [
     title: "Incoming Bills",
     desc: "Bills arriving from the inbox, the mail and the monthly statements.",
     tabs: [
-      tab("email", "/email", "Email Invoices", "Log invoices from the office inbox"),
-      tab("vendor-mail", "/vendor-mail", "Mail Check", "Every vendor email, and whether it was captured"),
-      tab("needs-project", "/needs-project", "Not in JobTread", "Ingested bills with no job yet"),
+      // One inbox since 2026-10-18 (CONSOLIDATION_PLAN.md stage 3): To log,
+      // Stuck (was Not in JobTread) and Check mail (was Mail Check) are its
+      // sections; /needs-project and /vendor-mail redirect.
+      tab("email", "/email", "Inbox", "Invoice emails to log, stuck bills, and the vendor mail check"),
       tab("payments", "/payments", "Sunset Statements", "Pay a statement & reconcile its invoices"),
       tab("lswdd", "/lswdd", "LSWDD Statement", "Split the dump's monthly statement across jobs"),
       tab("amazon-import", "/amazon-import", "Amazon Import", "Monthly Amazon report → batch of bills"),
@@ -180,6 +181,8 @@ export const OUTSIDE_WORKSPACES: Record<string, string> = {
   lopezrocks: "menu footer (EXTRA_LINKS) and the home page",
   rfis: "nobody logs RFIs (owner decision 4, 2026-09-29); route kept",
   "labor-review": "folded into the Tracking Sheets job workbench's labor panel 2026-10-18; /labor-review redirects; the view still gates /api/labor-review and /api/labor-report",
+  "needs-project": "a section of Inbox (/email?section=stuck); /needs-project redirects",
+  "vendor-mail": "a section of Inbox (/email?section=mail); /vendor-mail redirects",
   "tracking-sheet": "Sheet sync settings, linked from Tracking Sheets' Company tools; Finalize is on each job since 2026-10-18",
   "bill-review": "a section of Checks (/invoice-review?section=flagged); /needs-review redirects",
   "taxable-lines": "a section of Checks (/invoice-review?section=taxable); /taxable-lines redirects",

@@ -81,10 +81,10 @@ export const COPY: Record<string, CopyEntry> = {
     group: "Home — Financials",
   },
   "home.dest.labor-review.label": { text: "Labor Review", label: "Labor Review — name", group: "Home — Financials" },
-  "home.dest.invoice-review.label": { text: "Invoice Review", label: "Invoice Review — name", group: "Home — Financials" },
+  "home.dest.invoice-review.label": { text: "Checks", label: "Checks — name", group: "Home — Financials" },
   "home.dest.invoice-review.desc": {
-    text: "Check a month's client invoices against the bills and the backup",
-    label: "Invoice Review — description",
+    text: "Findings, flagged bills and non-taxable lines for the month",
+    label: "Checks — description",
     group: "Home — Financials",
   },
   "home.dest.labor-review.desc": {
@@ -182,10 +182,10 @@ export const COPY: Record<string, CopyEntry> = {
     label: "Unbilled — description",
     group: "Home — Utilities",
   },
-  "home.dest.email.label": { text: "Email Invoices", label: "Email Invoices — name", group: "Home — Utilities" },
+  "home.dest.email.label": { text: "Inbox", label: "Inbox — name", group: "Home — Utilities" },
   "home.dest.email.desc": {
-    text: "Log invoices from the office inbox",
-    label: "Email Invoices — description",
+    text: "Invoice emails to log, stuck bills, and the vendor mail check",
+    label: "Inbox — description",
     group: "Home — Utilities",
   },
   "home.dest.vendor-mail.label": { text: "Mail Check", label: "Mail Check — name", group: "Home — Utilities" },

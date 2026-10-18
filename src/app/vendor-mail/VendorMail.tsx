@@ -106,7 +106,7 @@ const STATE_LABEL: Record<State, string> = {
 
 type Filter = "all" | "new" | "likely" | "captured";
 
-export default function VendorMail() {
+export default function VendorMail({ embedded = false }: { embedded?: boolean } = {}) {
   const [data, setData] = useState<Payload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -148,9 +148,10 @@ export default function VendorMail() {
   }, [data, filter]);
 
   return (
-    <main className="mx-auto w-full max-w-2xl px-4 pb-24 pt-6">
+    <Wrap embedded={embedded}>
       <PageHeader
         title="Mail Check"
+        titleSlot={embedded ? <h2 className="text-lg font-bold tracking-tight">Check mail</h2> : undefined}
         description="Every email from a vendor we have an address for, and whether it reached JobTread."
         actions={
           <Select
@@ -286,6 +287,11 @@ export default function VendorMail() {
           nothing.
         </p>
       )}
-    </main>
+    </Wrap>
   );
+}
+
+/** A page of its own, or a section of the Incoming Bills inbox (/email). */
+function Wrap({ embedded, children }: { embedded: boolean; children: React.ReactNode }) {
+  return embedded ? <div>{children}</div> : <main className="mx-auto max-w-2xl px-4 pb-24 pt-6">{children}</main>;
 }
