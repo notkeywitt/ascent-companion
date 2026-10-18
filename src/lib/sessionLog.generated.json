@@ -1,7 +1,26 @@
 {
-  "generatedAt": "2026-10-18T17:20:03Z",
+  "generatedAt": "2026-10-18T17:25:12Z",
   "repo": "ascent-companion",
   "sessions": [
+    {
+      "slug": "page-consolidation-audit",
+      "file": "2026-10-18-page-consolidation-audit.md",
+      "branch": "claude/page-consolidation-audit",
+      "status": "shipped",
+      "started": "2026-10-18T17:20:28Z",
+      "updated": "2026-10-18T17:21:49Z",
+      "goal": "audit admin and office pages, recommend merges",
+      "next": "owner answers the 7 decisions in CONSOLIDATION_PLAN.md; then stage 0 (fix-first list)",
+      "commits": [
+        {
+          "date": "2026-10-18",
+          "time": "17:21",
+          "sha": "4771107",
+          "subject": "companion: add page consolidation plan from the admin and office page audit",
+          "files": "CODEBASE_MAP.md, CONSOLIDATION_PLAN.md, NAVIGATION_PLAN.md"
+        }
+      ]
+    },
     {
       "slug": "remove-office-hamburger-menu",
       "file": "2026-10-18-remove-office-hamburger-menu.md",

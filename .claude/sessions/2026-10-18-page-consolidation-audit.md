@@ -2,9 +2,9 @@
 slug: page-consolidation-audit
 repo: ascent-companion
 branch: claude/page-consolidation-audit
-status: in-progress
+status: shipped
 started: 2026-10-18T17:20:28Z
-updated: 2026-10-18T17:21:33Z
+updated: 2026-10-18T17:21:49Z
 goal: audit admin and office pages, recommend merges
 next: owner answers the 7 decisions in CONSOLIDATION_PLAN.md; then stage 0 (fix-first list)
 ---

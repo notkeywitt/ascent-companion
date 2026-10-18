@@ -32,6 +32,7 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
+| [page-consolidation-audit](.claude/sessions/2026-10-18-page-consolidation-audit.md) | 2026-10-18 | 1 | audit admin and office pages, recommend merges |
 | [remove-office-hamburger-menu](.claude/sessions/2026-10-18-remove-office-hamburger-menu.md) | 2026-10-18 | 3 | — |
 | [manual-mileage-recording](.claude/sessions/2026-10-17-manual-mileage-recording.md) | 2026-10-17 | 1 | — |
 | [main](.claude/sessions/2026-10-17-main.md) | 2026-10-17 | 11 | remove billing period label and caption from home picker |
@@ -46,4 +47,3 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 | [doc-access](.claude/sessions/2026-10-15-doc-access.md) | 2026-10-15 | 1 | — |
 | [copy](.claude/sessions/2026-10-13-copy.md) | 2026-10-14 | 1 | — |
 | [rail](.claude/sessions/2026-10-13-rail.md) | 2026-10-14 | 1 | — |
-| [invoicing-rail](.claude/sessions/2026-10-13-invoicing-rail.md) | 2026-10-14 | 1 | — |
