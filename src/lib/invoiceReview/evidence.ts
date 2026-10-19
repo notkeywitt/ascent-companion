@@ -627,9 +627,12 @@ async function loadPeriodMail(
     emails?: RawEmail[];
   }>(
     { action: "listPeriodBillEmails", month, year },
-    // A month of All Mail is a few hundred threads, each one a metadata fetch.
-    // The default 25s budget is far too short; the route allows 300s.
-    { timeoutMs: 120_000 },
+    // A month of All Mail is a few hundred threads. 120s was not enough for a
+    // full month (2026-10-19: "Apps Script timed out after 120000ms"), so the
+    // sweep now starts alongside the JobTread reads (see loadMonthEvidence) and
+    // may use most of the route's 300s. The Apps Script side was sped up at
+    // the same time — batched reads, no attachment downloads.
+    { timeoutMs: 240_000 },
   );
 
   if (r.error) {
@@ -856,6 +859,19 @@ export async function loadMonthEvidence(
   // The roster: every job with bills in the billing month, invoiced or not,
   // drafts included — a job whose whole month is still in draft is precisely
   // the one the review needs to shout about.
+  // The mailbox sweep is the slowest single read and needs nothing from the
+  // jobs, so it starts now and runs alongside them instead of after them.
+  // Awaited at the end; it never rejects (failures come back as `warning`).
+  const mailPending =
+    opts.email !== false
+      ? loadPeriodMail(cfg, year, month).catch((e) => ({
+          emails: [] as BillEmail[],
+          window: null,
+          truncated: false,
+          warning: `The office mailbox could not be searched: ${e instanceof Error ? e.message : "unknown error"}`,
+        }))
+      : null;
+
   const fullRoster = await getMonthlyInvoiceJobs(cfg, year, month, true, true);
   const only = opts.onlyJobIds?.length ? new Set(opts.onlyJobIds) : null;
   const roster = only ? fullRoster.filter((r) => only.has(r.jobId)) : fullRoster;
@@ -1029,8 +1045,8 @@ export async function loadMonthEvidence(
   let emails: BillEmail[] = [];
   let mailWindow: { first: string; last: string } | null = null;
   let mailTruncated = false;
-  if (opts.email !== false) {
-    const mail = await loadPeriodMail(cfg, year, month);
+  if (mailPending) {
+    const mail = await mailPending;
     mailWindow = mail.window;
     mailTruncated = mail.truncated;
     if (mail.warning) {

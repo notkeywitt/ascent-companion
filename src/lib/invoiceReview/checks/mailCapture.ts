@@ -145,8 +145,10 @@ export const mailCaptureCheck = defineMonthCheck<MailCaptureConfig>({
             ? ` The email is labelled "${claimed.join('", "')}", so something believed it was ` +
               `filed — that belief is what this check exists to test.`
             : "") +
+          // The sweep reports whether a thread has an attachment, not how many
+          // (counting meant downloading every PDF — see ClientInvoiceReview.js).
           (e.attachmentCount
-            ? ` ${e.attachmentCount} attachment${e.attachmentCount > 1 ? "s" : ""}.`
+            ? ` It has an attachment.`
             : ` No attachment — may be a portal notice rather than the invoice itself.`),
       });
     }
