@@ -29,7 +29,7 @@ import {
  * tucked in a corner, because an all-clear over a half-built index is a lie.
  */
 
-type State = "captured" | "likely" | "new";
+type State = "captured" | "likely" | "new" | "handled";
 type Kind = "invoice" | "receipt";
 type Payment = "paid" | "unpaid" | "draft";
 
@@ -102,9 +102,10 @@ const STATE_LABEL: Record<State, string> = {
   captured: "Captured",
   likely: "Likely captured",
   new: "Not in JobTread",
+  handled: "Marked handled",
 };
 
-type Filter = "all" | "new" | "likely" | "captured";
+type Filter = "all" | "new" | "likely" | "captured" | "handled";
 
 export default function VendorMail({ embedded = false }: { embedded?: boolean } = {}) {
   const [data, setData] = useState<Payload | null>(null);
@@ -139,6 +140,7 @@ export default function VendorMail({ embedded = false }: { embedded?: boolean } 
       new: rows.filter((r) => r.state === "new").length,
       likely: rows.filter((r) => r.state === "likely").length,
       captured: rows.filter((r) => r.state === "captured").length,
+      handled: rows.filter((r) => r.state === "handled").length,
     };
   }, [data]);
 
@@ -218,7 +220,7 @@ export default function VendorMail({ embedded = false }: { embedded?: boolean } 
       )}
 
       <ChipScroller className="mb-3">
-        {(["new", "likely", "captured", "all"] as Filter[]).map((f) => (
+        {(["new", "likely", "captured", "handled", "all"] as Filter[]).map((f) => (
           <FilterChip key={f} on={filter === f} onClick={() => setFilter(f)}>
             {f === "all" ? "Everything" : STATE_LABEL[f as State]} ({counts[f]})
           </FilterChip>

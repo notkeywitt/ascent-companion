@@ -34,6 +34,11 @@ import {
  *
  * GET /api/vendor-mail?days=30
  */
+
+/** The Gmail labels To log applies (appscript AddonUI.js ADDON_LABEL_PROCESSED,
+ *  ADDON_LABEL_NOT_INVOICE). */
+const HANDLED_LABELS = new Set(["Processed", "Not an Invoice"]);
+
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
 
@@ -153,7 +158,7 @@ export async function GET(req: NextRequest) {
         }
       }
       const candidates = vendor ? (byVendor.get(vendor.vendorId) ?? []) : [];
-      const { state, bill } = captureState(
+      const { state: matched, bill } = captureState(
         {
           messageId: e.messageId,
           vendorId: vendor?.vendorId ?? "",
@@ -171,6 +176,11 @@ export async function GET(req: NextRequest) {
         })),
         { windowDays: MATCH_WINDOW_DAYS, tolerance: AMOUNT_TOLERANCE },
       );
+      // One meaning of "handled" across the inbox (stage 3): an email the office
+      // marked Processed or Not an Invoice in To log (Gmail labels set by Apps
+      // Script) is handled, not "Not in JobTread". Proof of capture still wins.
+      const marked = (e.labels ?? []).some((l) => HANDLED_LABELS.has(l));
+      const state = matched !== "captured" && marked ? "handled" : matched;
       const full = bill ? candidates.find((b) => b.id === bill.id) ?? null : null;
       return {
         messageId: e.messageId,

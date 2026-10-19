@@ -288,6 +288,13 @@ view id) shows the job's budget line, schedule, Gantt and cost by division
 (`JobOverview` in `HomeJobBoard.tsx`). It is the job tab row's first tab;
 Jobs board cards and the header search's job hits open it.
 
+### One meaning of "handled", 2026-10-19
+
+Check mail now reads the Gmail labels Apps Script already returned with each
+message: an email To log marked Processed or Not an Invoice shows as "Marked
+handled", not "Not in JobTread". Proof of capture (the message id on a sheet
+row) still wins. Companion-only — no Apps Script change or deploy.
+
 ## Look rules (apply as each page merges)
 
 1. A list is one hairline card (`Card pad={false}`, `divide-y divide-line-soft`).
