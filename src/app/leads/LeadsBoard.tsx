@@ -1144,18 +1144,28 @@ function LeadCard({
                 Not in JT
               </Chip>
             )}
-            {quiet !== null && (
-              <Chip
-                tone={staleTone(quiet, thresholds)}
-                title={
-                  derived.neverContacted
-                    ? "No contact ever logged — measured from when JobTread created the account"
-                    : "Days since the last logged contact"
-                }
-              >
-                {quiet}d {derived.neverContacted ? "no contact" : "quiet"}
-              </Chip>
-            )}
+            {/* A pill only once the lead has gone quiet past the amber line (look
+                rule 2); below it the days are quiet text. */}
+            {quiet !== null &&
+              (staleTone(quiet, thresholds) === "neutral" ? (
+                <span
+                  className="text-[11px] text-neutral-500 dark:text-neutral-400"
+                  title="Days since the last logged contact"
+                >
+                  {quiet}d {derived.neverContacted ? "no contact" : "quiet"}
+                </span>
+              ) : (
+                <Chip
+                  tone={staleTone(quiet, thresholds)}
+                  title={
+                    derived.neverContacted
+                      ? "No contact ever logged — measured from when JobTread created the account"
+                      : "Days since the last logged contact"
+                  }
+                >
+                  {quiet}d {derived.neverContacted ? "no contact" : "quiet"}
+                </Chip>
+              ))}
           </div>
         </div>
 
