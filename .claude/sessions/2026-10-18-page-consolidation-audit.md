@@ -4,9 +4,9 @@ repo: ascent-companion
 branch: claude/page-consolidation-audit
 status: shipped
 started: 2026-10-18T17:20:28Z
-updated: 2026-10-19T00:09:26Z
+updated: 2026-10-19T00:12:26Z
 goal: audit admin and office pages, recommend merges
-next: remaining: stage 5 pay-period picker + email/miles on Payroll + rates into Employees; stage 6 Search tidy-up + Historical Cost drawer; look rules sweep; 'handled' meaning in appscript
+next: owner: pay-rate editor rule (Employees add/remove vs Pay Rates replace list); remaining look pass (Leads, Sunset, LSWDD, Amazon, Not in JobTread), Historical Cost drawer, 'handled' in appscript
 ---
 
 ## Log
@@ -58,6 +58,8 @@ next: remaining: stage 5 pay-period picker + email/miles on Payroll + rates into
   CONSOLIDATION_PLAN.md, src/app/payroll/PayPeriod.tsx, src/app/payroll/Payroll.tsx
 - 2026-10-19 00:09 · `29c313a` companion: look pass — hairline lists and fewer pills on requisitions, feedback, logs, employees, tools
   CONSOLIDATION_PLAN.md, src/app/employees/page.tsx, src/app/logs/page.tsx, src/app/requests/page.tsx, src/app/requisitions/page.tsx, src/app/tools/page.tsx
+- 2026-10-19 00:12 · `66891b2` companion: bill search as one hairline list; archive reads ?q
+  CONSOLIDATION_PLAN.md, src/app/bill-search/BillSearch.tsx, src/app/expenditure-history/ExpenditureBrowser.tsx
 
 ## Notes
 - 2026-10-18 17:21 — audit: 6 readers over every admin/office page; usage = Vercel server renders 30d (Web Analytics off). Report https://claude.ai/artifact/9i159BFud4dbuvjwVcgTbj
