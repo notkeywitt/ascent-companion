@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/kevin-berger-invoice-review-gktmtf
 status: shipped
 started: 2026-10-19T10:34:29Z
-updated: 2026-10-19T11:26:12Z
+updated: 2026-10-19T11:26:13Z
 goal: Turn Kevin Berger's invoice disputes into review checks, and run the review on the 10th-to-15th timeline
 next: After the 2026-11-11 scheduled run: read the November digest card and the review history (ranBy schedule) to confirm the nightly run fired; tune any noisy new check with a ruling or settings. Owner decision pending on the /api/bill-tax guard.
 ---
