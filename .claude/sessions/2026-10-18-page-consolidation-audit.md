@@ -4,9 +4,9 @@ repo: ascent-companion
 branch: claude/page-consolidation-audit
 status: shipped
 started: 2026-10-18T17:20:28Z
-updated: 2026-10-19T03:25:42Z
+updated: 2026-10-19T10:48:29Z
 goal: audit admin and office pages, recommend merges
-next: desktop polish stage 3: Dialog, Segmented, Checkbox, FileDrop, Button xs, one table style (only on the owner's go)
+next: desktop polish stage 4: page sweep — type sizes, money/date formats, colour literals (only on the owner's go)
 ---
 
 ## Log
@@ -74,6 +74,8 @@ next: desktop polish stage 3: Dialog, Segmented, Checkbox, FileDrop, Button xs, 
   CONSOLIDATION_PLAN.md, src/app/globals.css, src/app/time-off/TimeOff.tsx, src/app/trackingsheet/MonthJobDonuts.tsx, src/components/HomeJobBoard.tsx, src/components/Spinner.tsx, +1 more
 - 2026-10-19 03:25 · `342d3e1` companion: desktop polish stage 2 — one tab style, one left edge, sidebar states
   CONSOLIDATION_PLAN.md, src/app/add-bill/page.tsx, src/app/admin/copy/page.tsx, src/app/admin/page.tsx, src/app/amazon-import/page.tsx, src/app/ar-aging/page.tsx, +58 more
+- 2026-10-19 10:48 · `55df24f` companion: desktop polish stage 3 — one dialog, segmented, checkbox, file drop, table style
+  CLAUDE.md, CODEBASE_MAP.md, CONSOLIDATION_PLAN.md, src/app/add-bill/page.tsx, src/app/amazon-import/page.tsx, src/app/email/EmailInvoices.tsx, +27 more
 
 ## Notes
 - 2026-10-18 17:21 — audit: 6 readers over every admin/office page; usage = Vercel server renders 30d (Web Analytics off). Report https://claude.ai/artifact/9i159BFud4dbuvjwVcgTbj
