@@ -13,6 +13,7 @@ import {
   StickyActionBar,
 } from "@/components/ui";
 import type { BudgetLeaf, BudgetPlan, Change, PlanRow, SheetItem } from "@/lib/budgetImport";
+import { money } from "@/lib/money";
 
 /**
  * "Import into JT" — previews how the sheet lands on the job's LIVE budget,
@@ -39,7 +40,6 @@ interface ApplyAnswer {
   failed?: { name: string; error: string };
 }
 
-const money = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD" });
 const sheetCost = (s: SheetItem) => (s.quantity === "" ? 1 : s.quantity) * s.unitCost;
 const leafCost = (l: BudgetLeaf) => (l.quantity ?? 1) * (l.unitCost ?? 0);
 

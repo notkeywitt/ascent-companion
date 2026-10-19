@@ -8,6 +8,7 @@ import { JtLink } from "@/components/JtLink";
 import { jtTimeUrl } from "@/lib/jtLinks";
 import type { TimeEntryEdit } from "@/lib/codingDraft";
 import { clockOfMinutes, minutesOfClock, orgParts, prettyClock, spanHours } from "@/lib/orgTime";
+import { money } from "@/lib/money";
 
 /**
  * THE TIME & LABOR PANEL — the bill coding card's twin, for one time entry.
@@ -91,9 +92,6 @@ interface BudgetLeaf {
   costType?: string;
   cost?: number;
 }
-
-const money = (n: number) =>
-  `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 /**
  * The coding targets for LABOR: the job's Labor-typed leaves, plus whatever
@@ -722,7 +720,7 @@ export function TimeCodingCard({
             includeAll={false}
           />
           {movingJob && job && (
-            <p className="mt-1 text-[11px] text-amber-700 dark:text-amber-300">
+            <p className="mt-1 text-[11px] text-warn">
               Moving to {jobLabel(job)} — pick a cost code on that job above. The entry leaves this
               month&apos;s board.
             </p>

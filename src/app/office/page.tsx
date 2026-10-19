@@ -133,7 +133,7 @@ async function Bills({ year, month }: { year: number; month: number }) {
             </span>
           </div>
           {j.bills.length === 0 ? (
-            <p className="px-1 text-[12.5px] text-neutral-500 dark:text-neutral-400">
+            <p className="px-1 text-[13px] text-neutral-500 dark:text-neutral-400">
               No bills this month.
             </p>
           ) : (

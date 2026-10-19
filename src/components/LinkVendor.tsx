@@ -73,7 +73,7 @@ export function LinkVendor({
           {busy ? "Linking…" : "Link"}
         </Button>
       </div>
-      {error && <p className="mt-1 text-xs font-semibold text-red-600 dark:text-red-400">{error}</p>}
+      {error && <p className="mt-1 text-xs font-semibold text-danger">{error}</p>}
     </div>
   );
 }

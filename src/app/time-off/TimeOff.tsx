@@ -228,7 +228,7 @@ interface Request {
 const LEAVE_LABEL: Record<string, string> = { sick: "Sick", pto: "PTO" };
 const STATUS_CLS: Record<string, string> = {
   pending: "text-accent-fg bg-accent",
-  approved: "text-green-700 bg-green-100 dark:text-green-300 dark:bg-green-950/50",
+  approved: "text-ok bg-green-100 dark:bg-green-950/50",
   denied: "text-neutral-600 bg-neutral-200 dark:text-neutral-300 dark:bg-neutral-800",
   cancelled: "text-neutral-600 bg-neutral-200 dark:text-neutral-300 dark:bg-neutral-800",
 };
@@ -574,9 +574,9 @@ function RequestsQueueCard({ onChanged }: { onChanged: () => void }) {
                   <span className="text-neutral-500">· {r.startDate}{r.endDate && r.endDate !== r.startDate ? `–${r.endDate}` : ""}</span>
                   <div className="text-xs">
                     {r.jtEntryId ? (
-                      <span className="text-green-700 dark:text-green-400">✓ Posted to JobTread</span>
+                      <span className="text-ok">✓ Posted to JobTread</span>
                     ) : (
-                      <span className="text-amber-600 dark:text-amber-500">Not posted to JobTread</span>
+                      <span className="text-warn">Not posted to JobTread</span>
                     )}
                   </div>
                 </div>
@@ -854,7 +854,7 @@ function ImportBalancesCard({ roster, onChanged }: { roster: RosterEmp[]; onChan
                   <span>{plan.counts.matched} matched</span>
                   <span className="font-medium">{plan.counts.changes} balance change{plan.counts.changes === 1 ? "" : "s"}</span>
                   {plan.counts.unmatched > 0 && (
-                    <span className="text-amber-700 dark:text-amber-400">{plan.counts.unmatched} unmatched</span>
+                    <span className="text-warn">{plan.counts.unmatched} unmatched</span>
                   )}
                   {plan.counts.skipped > 0 && <span className="text-neutral-500">{plan.counts.skipped} skipped</span>}
                 </div>
@@ -940,7 +940,7 @@ function ImportBalancesCard({ roster, onChanged }: { roster: RosterEmp[]; onChan
                                   <>
                                     <span className="text-neutral-500 line-through">{fmtHM(c.current)}</span>{" "}
                                     <span className="font-medium">{fmtHM(c.target)}</span>{" "}
-                                    <span className={c.delta > 0 ? "text-green-700 dark:text-green-400" : "text-red-700 dark:text-red-400"}>
+                                    <span className={c.delta > 0 ? "text-ok" : "text-danger"}>
                                       ({SIGNED(c.delta)})
                                     </span>
                                   </>
@@ -1263,7 +1263,7 @@ function PolicyRow({ policy, onSaved }: { policy: Policy; onSaved: () => void })
       </div>
       {err && <Banner tone="error" className="mt-2">{err}</Banner>}
       <div className="mt-2 flex items-center justify-end gap-2">
-        {saved && <span className="text-xs text-emerald-600 dark:text-emerald-400">Saved</span>}
+        {saved && <span className="text-xs text-ok">Saved</span>}
         <Button size="sm" disabled={busy} onClick={save}>
           {busy ? "Saving…" : "Save"}
         </Button>

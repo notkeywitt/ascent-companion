@@ -41,6 +41,7 @@ import {
   saveDraft,
 } from "@/lib/codingDraft";
 import { isTaxRecoverable, SALES_TAX_LINE_NAME, splitSalesTax } from "@/lib/salesTax";
+import { money } from "@/lib/money";
 
 interface Line {
   id: string;
@@ -139,11 +140,6 @@ function cachedBillPayload(docId: string, jobId: string): BillPayload | null {
   }
   return hit.payload;
 }
-
-const money = (n?: number) =>
-  typeof n === "number"
-    ? "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-    : "—";
 
 // In the side panel, ask the extension to open a bill in the docked JobTread
 // window (no-op on mobile / standalone).
@@ -1445,7 +1441,7 @@ function BillDetail() {
               <span
                 key="saved"
                 title="Save has been clicked on this bill"
-                className="font-semibold text-emerald-700 dark:text-emerald-400"
+                className="font-semibold text-ok"
               >
                 ✓ Saved
               </span>
@@ -1568,15 +1564,15 @@ function BillDetail() {
         {/*
         <div className="mt-4">
           {header?.status === "approved" ? (
-            <div className="inline-flex items-center gap-2 rounded-lg bg-emerald-50 px-3 py-1.5 text-sm font-semibold text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
+            <div className="inline-flex items-center gap-2 rounded-lg bg-emerald-50 px-3 py-1.5 text-sm font-semibold text-ok dark:bg-emerald-950/40">
               ✓ Payment recorded
             </div>
           ) : header?.status === "pending" ? (
-            <div className="inline-flex items-center gap-2 rounded-lg bg-emerald-50 px-3 py-1.5 text-sm font-semibold text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
+            <div className="inline-flex items-center gap-2 rounded-lg bg-emerald-50 px-3 py-1.5 text-sm font-semibold text-ok dark:bg-emerald-950/40">
               ✓ Approved for payment
             </div>
           ) : header?.status === "denied" ? (
-            <div className="inline-flex items-center gap-2 rounded-lg bg-red-50 px-3 py-1.5 text-sm font-semibold text-red-700 dark:bg-red-950/40 dark:text-red-300">
+            <div className="inline-flex items-center gap-2 rounded-lg bg-red-50 px-3 py-1.5 text-sm font-semibold text-danger dark:bg-red-950/40">
               ✕ Denied
             </div>
           ) : (
@@ -1713,7 +1709,7 @@ function BillDetail() {
                 {changeCount === 0 ? (
                   <span className="text-neutral-500 dark:text-neutral-400">No unsaved changes</span>
                 ) : (
-                  <span className="font-semibold text-amber-600 dark:text-amber-400">
+                  <span className="font-semibold text-warn">
                     {changeCount} unsaved change{changeCount === 1 ? "" : "s"}
                   </span>
                 )}

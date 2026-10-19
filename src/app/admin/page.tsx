@@ -350,7 +350,7 @@ function MemberRow({
           </button>
           <button
             onClick={() => remove(member.email)}
-            className="text-xs font-semibold text-red-600 hover:underline dark:text-red-400"
+            className="text-xs font-semibold text-danger hover:underline"
           >
             Remove
           </button>

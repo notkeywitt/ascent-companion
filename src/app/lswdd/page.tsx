@@ -15,6 +15,7 @@ import {
   StickyActionBar,
   Toggle,
 } from "@/components/ui";
+import { money } from "@/lib/money";
 
 interface Line {
   ref: string;
@@ -59,9 +60,6 @@ interface SubmitBill {
   jtDocId?: string;
   error?: string;
 }
-
-const money = (n: number) =>
-  "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 /** Per-line edits, keyed by the LSWDD reference number. */
 interface Edit {
@@ -422,7 +420,7 @@ export default function LswddPage() {
                     </div>
 
                     {l.notes && !e.projectId && (
-                      <div className="mt-2 text-xs text-amber-700 dark:text-amber-400">
+                      <div className="mt-2 text-xs text-warn">
                         {l.notes}
                       </div>
                     )}

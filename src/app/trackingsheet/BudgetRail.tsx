@@ -223,10 +223,10 @@ export function BudgetRail({
                           <div className="text-[11px] tabular-nums text-neutral-500 dark:text-neutral-400">
                             {h.code}
                           </div>
-                          <div className="truncate text-[12.5px] font-semibold">{h.name}</div>
+                          <div className="truncate text-[13px] font-semibold">{h.name}</div>
                           <div
                             className={`mt-0.5 text-[15px] font-bold tabular-nums tracking-tight ${
-                              left < 0 ? "text-red-600 dark:text-red-400" : ""
+                              left < 0 ? "text-danger" : ""
                             }`}
                           >
                             {money0(left)}
@@ -237,7 +237,7 @@ export function BudgetRail({
                             label={h.code}
                             className="mt-1.5 h-1"
                           />
-                          <div className="mt-1 text-[10.5px] text-neutral-500 dark:text-neutral-400">
+                          <div className="mt-1 text-[11px] text-neutral-500 dark:text-neutral-400">
                             {left < 0 ? `over by ${-pct}%` : `${pct}% of budget left`}
                           </div>
                         </button>
@@ -317,7 +317,7 @@ export function BudgetRail({
                               </span>
                               <span
                                 className={`shrink-0 text-sm font-semibold tabular-nums ${
-                                  g.remaining < 0 ? "text-red-600 dark:text-red-400" : ""
+                                  g.remaining < 0 ? "text-danger" : ""
                                 }`}
                               >
                                 {money0(g.remaining)}
@@ -395,7 +395,7 @@ export function BudgetRail({
                                         </span>
                                         <span
                                           className={`shrink-0 text-base font-semibold tabular-nums ${
-                                            over ? "text-red-600 dark:text-red-400" : ""
+                                            over ? "text-danger" : ""
                                           }`}
                                         >
                                           {money0(left)}

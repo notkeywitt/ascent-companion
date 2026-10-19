@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import { JtLink } from "./JtLink";
 import { Banner, Button, Spinner } from "./ui";
+import { money as moneyN } from "@/lib/money";
 
 // Inline "duplicate bill" scanner for the Sunset Statements page. On demand it
 // runs the Apps Script Sunset duplicate scan (GET /api/sunset-duplicates → the
@@ -47,11 +48,6 @@ interface ScanResult {
   jobs: Job[];
 }
 
-const moneyN = (n: number) =>
-  Number.isFinite(n)
-    ? "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-    : "—";
-
 const jtDocUrl = (m: Member) =>
   m.docId && m.jobId
     ? `https://app.jobtread.com/jobs/${encodeURIComponent(m.jobId)}/documents/${encodeURIComponent(m.docId)}`
@@ -65,9 +61,9 @@ const findingHead = (f: Finding) =>
 const statusCls = (s: string) => {
   const v = s.toLowerCase();
   if (v === "denied") return "text-neutral-400 line-through";
-  if (v === "draft") return "text-amber-600 dark:text-amber-400";
+  if (v === "draft") return "text-warn";
   if (v === "pending") return "text-sky-600 dark:text-sky-400";
-  return "text-emerald-600 dark:text-emerald-400"; // approved
+  return "text-ok"; // approved
 };
 
 // The last scan, kept at module scope so leaving the page to fix a duplicate and
@@ -160,7 +156,7 @@ export function SunsetDuplicateScan() {
 
               {job.findings.map((f, fi) => (
                 <div key={fi} className="mt-2">
-                  <div className="text-xs font-medium text-amber-700 dark:text-amber-400">⚠ {findingHead(f)}</div>
+                  <div className="text-xs font-medium text-warn">⚠ {findingHead(f)}</div>
                   <ul className="mt-1 space-y-0.5">
                     {f.members.map((m, mi) => {
                       const url = jtDocUrl(m);

@@ -389,14 +389,14 @@ export function EmailInvoices({ embedded = false }: { embedded?: boolean } = {})
                 Open in Gmail ↗
               </a>
               {!done && row.hasPdf === false && (
-                <p className="mt-0.5 text-xs text-amber-600">
+                <p className="mt-0.5 text-xs text-warn">
                   No PDF — the email body will be saved as the PDF.
                 </p>
               )}
 
               {done ? (
                 <div className="mt-3 space-y-1">
-                  <p className="text-sm font-medium text-emerald-700 dark:text-emerald-400">✓ {result?.message}</p>
+                  <p className="text-sm font-medium text-ok">✓ {result?.message}</p>
                   {[result, ...(result?.results ?? [])].map(
                     (r, i) =>
                       r?.jtJobId &&
@@ -448,8 +448,8 @@ export function EmailInvoices({ embedded = false }: { embedded?: boolean } = {})
                               className={
                                 "mt-1.5 text-xs " +
                                 (attRes.ok
-                                  ? "text-emerald-700 dark:text-emerald-400"
-                                  : "text-red-600")
+                                  ? "text-ok"
+                                  : "text-danger")
                               }
                             >
                               {attRes.ok ? "✓ " : ""}
@@ -496,10 +496,10 @@ export function EmailInvoices({ embedded = false }: { embedded?: boolean } = {})
                   </div>
 
                   {result && !result.ok && (
-                    <p className="mt-2 text-sm text-red-600">{result.error || result.message}</p>
+                    <p className="mt-2 text-sm text-danger">{result.error || result.message}</p>
                   )}
                   {result && result.ok && !done && result.message && (
-                    <p className="mt-2 text-sm text-amber-600">{result.message}</p>
+                    <p className="mt-2 text-sm text-warn">{result.message}</p>
                   )}
                 </>
               ) : (
@@ -567,10 +567,10 @@ export function EmailInvoices({ embedded = false }: { embedded?: boolean } = {})
                   </div>
 
                   {result && !result.ok && (
-                    <p className="mt-2 text-sm text-red-600">{result.error || result.message}</p>
+                    <p className="mt-2 text-sm text-danger">{result.error || result.message}</p>
                   )}
                   {result && result.ok && !done && result.message && (
-                    <p className="mt-2 text-sm text-amber-600">{result.message}</p>
+                    <p className="mt-2 text-sm text-warn">{result.message}</p>
                   )}
                 </>
               )}
@@ -594,7 +594,7 @@ export function EmailInvoices({ embedded = false }: { embedded?: boolean } = {})
                 >
                   <span className="min-w-0 truncate">
                     {info.type === "processed" ? (
-                      <span className="text-emerald-700 dark:text-emerald-400">✓ Processed</span>
+                      <span className="text-ok">✓ Processed</span>
                     ) : (
                       <span>✕ Not relevant</span>
                     )}

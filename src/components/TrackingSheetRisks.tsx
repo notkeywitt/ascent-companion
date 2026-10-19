@@ -1,6 +1,7 @@
 "use client";
 
 import { Banner } from "@/components/ui";
+import { money } from "@/lib/money";
 
 /**
  * The "this money won't reach the Tracking Sheet" warning, shared by the Tracking
@@ -25,9 +26,6 @@ export interface RiskCode {
   column?: string;
   missing?: string[];
 }
-
-const money = (n: number) =>
-  "$" + (Number(n) || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 function Group({
   codes,

@@ -984,7 +984,7 @@ export function LaborImport({ embedded = false }: { embedded?: boolean } = {}) {
             <div className="mb-2 text-sm font-semibold">
               JobTread users
               {workersNeedingId.length > 0 && (
-                <span className="ml-2 font-normal text-amber-600 dark:text-amber-400">
+                <span className="ml-2 font-normal text-warn">
                   {workersNeedingId.length} unmapped — those rows are held back
                 </span>
               )}
@@ -995,7 +995,7 @@ export function LaborImport({ embedded = false }: { embedded?: boolean } = {}) {
               <b>User ID</b> read from JobTread rather than guessing a name. Exact name matches
               auto-fill; anyone else (Tyler → Ty, Thomas → Tommy) you pick once.
               {usersError && (
-                <span className="block text-amber-600 dark:text-amber-400">
+                <span className="block text-warn">
                   Couldn&apos;t load JobTread users ({usersError}).
                 </span>
               )}
@@ -1038,7 +1038,7 @@ export function LaborImport({ embedded = false }: { embedded?: boolean } = {}) {
                 <div className="text-sm font-semibold">
                   JobTread Job IDs
                   {jobsNeedingId.length > 0 && (
-                    <span className="ml-2 font-normal text-amber-600 dark:text-amber-400">
+                    <span className="ml-2 font-normal text-warn">
                       {jobsNeedingId.length} unmapped — those rows are held back
                     </span>
                   )}
@@ -1065,7 +1065,7 @@ export function LaborImport({ embedded = false }: { embedded?: boolean } = {}) {
                     {projectsMeta.count} links loaded from {projectsMeta.name}.
                   </span>
                 ) : (
-                  <span className="text-amber-600 dark:text-amber-400">None loaded yet.</span>
+                  <span className="text-warn">None loaded yet.</span>
                 )}{" "}
                 That tab is <b>customer-level</b>, so a customer with several JobTread jobs (Moon
                 Spring Farm → Pole Barn + Main House; Velorum → 3 jobs) resolves to more than one
@@ -1074,7 +1074,7 @@ export function LaborImport({ embedded = false }: { embedded?: boolean } = {}) {
                 budget. The dropdown floats that customer&apos;s jobs (★) to the top. Picks are
                 remembered on this device.
                 {projectsErr && (
-                  <span className="block text-red-600 dark:text-red-400">{projectsErr}</span>
+                  <span className="block text-danger">{projectsErr}</span>
                 )}
               </p>
               <div className="space-y-2">
@@ -1087,7 +1087,7 @@ export function LaborImport({ embedded = false }: { embedded?: boolean } = {}) {
                         {job || "(blank)"}
                         {amb && (
                           <span
-                            className="block truncate text-xs text-amber-600 dark:text-amber-400"
+                            className="block truncate text-xs text-warn"
                             title={amb.labels.join(" · ")}
                           >
                             {amb.ids.length} JT jobs: {amb.labels.join(" · ")}
@@ -1125,7 +1125,7 @@ export function LaborImport({ embedded = false }: { embedded?: boolean } = {}) {
                 <p className="mt-2 text-xs text-neutral-500">
                   {jobsLoading && "Loading JobTread jobs for the picker…"}
                   {jobsError && (
-                    <span className="text-amber-600 dark:text-amber-400">
+                    <span className="text-warn">
                       JobTread job picker unavailable ({jobsError}) — type IDs or load the Projects map.
                     </span>
                   )}
@@ -1140,7 +1140,7 @@ export function LaborImport({ embedded = false }: { embedded?: boolean } = {}) {
               <div className="mb-2 text-sm font-semibold">
                 Pay type
                 {typesNeeded.length > 0 && (
-                  <span className="ml-2 font-normal text-amber-600 dark:text-amber-400">
+                  <span className="ml-2 font-normal text-warn">
                     {typesNeeded.length} unset — those rows are held back
                   </span>
                 )}
@@ -1152,7 +1152,7 @@ export function LaborImport({ embedded = false }: { embedded?: boolean } = {}) {
                 <b>cost code</b> — one row per combination, with its time entries underneath.
                 Auto-set only when someone has a single option. Remembered on this device.
                 {jtUsers && !jtUsers.some((u) => u.types) && (
-                  <span className="block text-amber-600 dark:text-amber-400">
+                  <span className="block text-warn">
                     Showing all {orgTypes.length} org pay types — the JT grant can&apos;t read each
                     member&apos;s own set (needs the <code>createTimeEntryForMembership</code> action),
                     so pick carefully.
@@ -1283,12 +1283,12 @@ export function LaborImport({ embedded = false }: { embedded?: boolean } = {}) {
                   .slice(0, 50)
                   .map((s) => (
                     <li key={s}>
-                      <span className="text-amber-600 dark:text-amber-400">{s}</span>
+                      <span className="text-warn">{s}</span>
                     </li>
                   ))}
               </ul>
               {budgetsErr && (
-                <p className="mt-2 text-xs text-red-600 dark:text-red-400">{budgetsErr}</p>
+                <p className="mt-2 text-xs text-danger">{budgetsErr}</p>
               )}
             </details>
           )}
@@ -1303,7 +1303,7 @@ export function LaborImport({ embedded = false }: { embedded?: boolean } = {}) {
                 {dropped.slice(0, 50).map((e) => (
                   <li key={e.idx}>
                     {e.worker} · {e.jobRaw || "(no job)"} · {e.notes.slice(0, 40)} —{" "}
-                    <span className="text-amber-600 dark:text-amber-400">{e.invalidReason}</span>
+                    <span className="text-warn">{e.invalidReason}</span>
                   </li>
                 ))}
                 {dropped.length > 50 && <li>… and {dropped.length - 50} more</li>}

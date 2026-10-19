@@ -73,7 +73,7 @@ export function HomeReminders() {
         <li key={d.id}>
           <Link
             href={d.href}
-            className="inline-flex items-center gap-1.5 text-[12.5px] font-semibold text-neutral-700 transition hover:text-accent dark:text-neutral-300"
+            className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-neutral-700 transition hover:text-accent dark:text-neutral-300"
           >
             <span aria-hidden className="text-accent">
               →

@@ -28,6 +28,7 @@ import {
   shortDay,
   weekStart,
 } from "@/lib/timeEntryDates";
+import { money, money0 } from "@/lib/money";
 
 /**
  * THE MONTH'S TIME ENTRIES — one list, rendered by both surfaces that show it.
@@ -99,10 +100,6 @@ export {
   weekStart,
 } from "@/lib/timeEntryDates";
 
-const money = (n: number) =>
-  `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-const money0 = (n: number) =>
-  `$${n.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 const hrs = (n: number) => `${n.toFixed(1)}h`;
 /**
  * What an entry is charged at, read back off the money: JobTread keeps the rate
@@ -527,7 +524,7 @@ export function TimeFilterStrip({
           {/* A backwards range matches nothing and looks like a bug in the list
               rather than in the dates. */}
           {f.from && f.to && f.from > f.to ? (
-            <p className="pb-1 text-[11px] font-semibold text-amber-700 dark:text-amber-300">
+            <p className="pb-1 text-[11px] font-semibold text-warn">
               From is after To — nothing can match.
             </p>
           ) : (
@@ -719,7 +716,7 @@ function TimeCalendar({
       {/* An entry with no start time has no square to sit in, and dropping it
           silently would hide hours. */}
       {undated.length > 0 && (
-        <p className="border-t border-line-soft px-3 py-2 text-[11.5px] text-neutral-500 dark:text-neutral-400">
+        <p className="border-t border-line-soft px-3 py-2 text-[12px] text-neutral-500 dark:text-neutral-400">
           {undated.length} entr{undated.length === 1 ? "y has" : "ies have"} no date and cannot be
           placed — switch to the list to see {undated.length === 1 ? "it" : "them"}.
         </p>
@@ -1020,7 +1017,7 @@ export function TimeEntryList({
                         <li
                           key={t.id}
                           id={`time-${t.id}`}
-                          className={`border-b border-line-soft text-[11.5px] last:border-0 ${
+                          className={`border-b border-line-soft text-[12px] last:border-0 ${
                             moved ? "bg-amber-50/60 dark:bg-amber-950/20" : ""
                           } ${editingId === t.id ? "bg-accent/10" : ""}`}
                         >
@@ -1061,7 +1058,7 @@ export function TimeEntryList({
                                     </span>
                                   </span>
                                 </span>
-                                <span className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[11.5px] text-neutral-500 dark:text-neutral-400">
+                                <span className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[12px] text-neutral-500 dark:text-neutral-400">
                                   {/* The RATE, where the cost used to sit. The
                                       cost moved up beside the hours it comes
                                       from, and what belongs next to the pay
@@ -1087,11 +1084,11 @@ export function TimeEntryList({
                                 left there. Reads red once the code is over.
                                 A staged entry shows it for the code it would
                                 move TO, with the old one struck through. */}
-                                <span className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11.5px]">
+                                <span className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[12px]">
                                   <span
                                     className={`inline-flex items-baseline gap-1.5 rounded-md px-2 py-1 ${
                                       over
-                                        ? "bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300"
+                                        ? "bg-red-50 text-danger dark:bg-red-950/40"
                                         : "bg-neutral-100 text-neutral-600 dark:bg-white/10 dark:text-neutral-300"
                                     }`}
                                     title={`${head?.name ?? ""} — ${
@@ -1154,7 +1151,7 @@ export function TimeEntryList({
                                 <span
                                   aria-hidden
                                   className={`text-sm ${
-                                    t.flagged ? "text-amber-600 dark:text-amber-400" : "opacity-50"
+                                    t.flagged ? "text-warn" : "opacity-50"
                                   }`}
                                 >
                                   ⚑

@@ -152,13 +152,13 @@ export function HomeMasthead() {
                 onChange={set}
                 disabled={saving}
                 ariaLabel="Billing month — every non-Sunset bill files into this month"
-                className={stale ? "text-red-600 dark:text-red-400" : ""}
+                className={stale ? "text-danger" : ""}
               />
             </div>
           ) : (
             <p
               className={`min-h-[26px] text-[21px] font-bold leading-tight tracking-tight ${
-                stale ? "text-red-600 dark:text-red-400" : ""
+                stale ? "text-danger" : ""
               }`}
             >
               {ym ? monthLabel(ym) : ""}
@@ -167,7 +167,7 @@ export function HomeMasthead() {
           {(err || stale || auto) && (
             <div className="mt-1 flex items-center justify-end gap-2">
               {err ? (
-                <span role="alert" className="text-[11.5px] text-red-600 dark:text-red-400">
+                <span role="alert" className="text-[12px] text-danger">
                   {err}
                 </span>
               ) : stale ? (

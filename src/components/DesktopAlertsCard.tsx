@@ -118,7 +118,7 @@ export function DesktopAlertsCard() {
           </p>
 
           {state === "blocked" && (
-            <p className="mt-2.5 text-xs text-amber-700 dark:text-amber-300">
+            <p className="mt-2.5 text-xs text-warn">
               This browser is blocking notifications for the app. Turn them back on in the
               browser&rsquo;s site settings (the icon at the left of the address bar), then come
               back here.

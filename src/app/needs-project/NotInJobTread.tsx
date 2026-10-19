@@ -8,6 +8,7 @@ import { Banner, Button, CardSkeletonList, EmptyState, PageHeader, SectionHeadin
 import { useAccess } from "@/components/AccessProvider";
 import { StuckVendorBanner } from "@/components/StuckVendors";
 import { UncapturedBills } from "@/components/UncapturedBills";
+import { money } from "@/lib/money";
 
 interface NeedsItem {
   expId: string;
@@ -16,9 +17,6 @@ interface NeedsItem {
   date: string;
   driveUrl: string;
 }
-
-const money = (n: number) =>
-  "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 // The queue only lists rows with no JT Doc ID, but the page fetches once on mount
 // — a sync can link a bill to JobTread while you're looking at the stale list.

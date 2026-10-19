@@ -24,6 +24,8 @@ import { InvoiceAttachment } from "@/components/InvoiceViewer";
 import type { LineEdit } from "@/lib/billLineMath";
 import { round2 } from "@/lib/billLineMath";
 import { isTaxRecoverable, SALES_TAX_LINE_NAME } from "@/lib/salesTax";
+import { money, money0 } from "@/lib/money";
+export { money, money0 };
 
 /**
  * THE CODING CARD — the one place a vendor bill gets coded, wherever you
@@ -57,11 +59,6 @@ export interface BillFile {
    *  src/lib/jobtread.ts. Null when JobTread cannot rasterise the file. */
   imageUrl?: string | null;
 }
-
-export const money = (n: number) =>
-  `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-export const money0 = (n: number) =>
-  `$${n.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 
 /**
  * The panel's field style: a soft fill instead of a stroke, with the border
@@ -847,7 +844,7 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                   )}
                 </div>
               </div>
-              {voidMsg && <p className="mt-1 text-[11px] text-red-600 dark:text-red-400">{voidMsg}</p>}
+              {voidMsg && <p className="mt-1 text-[11px] text-danger">{voidMsg}</p>}
             </div>
 
             {/* pb-8, not pb-3: the card now ENDS above the commit bar, so this is
@@ -1009,7 +1006,7 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                     </p>
                   )}
                   {combinePending && (
-                    <p className="mt-1.5 text-right text-[11px] font-semibold text-amber-600 dark:text-amber-400">
+                    <p className="mt-1.5 text-right text-[11px] font-semibold text-warn">
                       {combinePending.deleteIds.length + 1} lines merge on Save.
                     </p>
                   )}
@@ -1096,7 +1093,7 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                             disabled={deletingLineId === l.id}
                             aria-label="Delete line"
                             title="Delete this line"
-                            className="mt-0.5 shrink-0 rounded p-1 text-neutral-400 transition hover:bg-red-50 hover:text-red-600 disabled:opacity-40 dark:hover:bg-red-950/40 dark:hover:text-red-400"
+                            className="mt-0.5 shrink-0 rounded p-1 text-neutral-400 transition hover:bg-red-50 hover:text-danger disabled:opacity-40 dark:hover:bg-red-950/40"
                           >
                             {deletingLineId === l.id ? (
                               <span className="block h-3.5 w-3.5 text-center text-[10px] leading-[14px]">
@@ -1172,7 +1169,7 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                         <span
                           className={
                             mergeInto || mergeKeeps || moved
-                              ? "text-amber-600 dark:text-amber-400"
+                              ? "text-warn"
                               : "text-neutral-400"
                           }
                         >
@@ -1189,7 +1186,7 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                         {left !== null && (
                           <span
                             className={
-                              left < 0 ? "text-red-600 dark:text-red-400" : "text-neutral-400"
+                              left < 0 ? "text-danger" : "text-neutral-400"
                             }
                           >
                             {money0(left)} left on {code}
@@ -1379,7 +1376,7 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                   {review.flagged && review.by && (
                     <p className="mt-2 text-[11px] text-neutral-400 dark:text-neutral-500">
                       Flagged by {review.by}
-                      {review.at ? ` · ${new Date(review.at).toLocaleDateString()}` : ""}
+                      {review.at ? ` · ${new Date(review.at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}` : ""}
                     </p>
                   )}
                 </div>
@@ -1773,7 +1770,7 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
               />
             </div>
             {createFileMsg && (
-              <p className="mt-1.5 text-[11px] text-red-600 dark:text-red-400">{createFileMsg}</p>
+              <p className="mt-1.5 text-[11px] text-danger">{createFileMsg}</p>
             )}
         </Dialog>
       )}

@@ -6,6 +6,7 @@ import { useAccess } from "@/components/AccessProvider";
 import { driveMainWindowToDoc } from "@/components/BillingSummary";
 import { CountBadge, ListCard, ListRow, MetaLine, SectionHeading } from "@/components/ui";
 import { cached, sunsetGreenCounts } from "@/lib/homeFacts";
+import { money0 as money } from "@/lib/money";
 
 /**
  * TODAY — what needs this person, one row per queue, each with its count.
@@ -64,7 +65,6 @@ async function getJson(url: string) {
 }
 
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
-const money = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 
 /** The draft bills, shared by the row's count and its list. */
 const drafts = () =>

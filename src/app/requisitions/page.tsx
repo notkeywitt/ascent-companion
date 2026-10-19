@@ -41,8 +41,8 @@ const statusClass: Record<string, string> = {
   // tinted; Received is done-green; Denied/Canceled are muted.
   Requested: "text-accent-fg bg-accent",
   Ordered: "text-accent bg-accent/10",
-  Received: "text-green-700 bg-green-100 dark:text-green-300 dark:bg-green-950/50",
-  Denied: "text-red-700 bg-red-100 dark:text-red-300 dark:bg-red-950/40",
+  Received: "text-ok bg-green-100 dark:bg-green-950/50",
+  Denied: "text-danger bg-red-100 dark:bg-red-950/40",
   Canceled: "text-neutral-600 bg-neutral-200 dark:text-neutral-300 dark:bg-neutral-800",
 };
 

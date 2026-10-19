@@ -76,7 +76,7 @@ export function CodeLanesView({
                             <span
                               className={
                                 h && remainingOf(h) < 0
-                                  ? "font-semibold text-red-600 dark:text-red-400"
+                                  ? "font-semibold text-danger"
                                   : "text-neutral-500"
                               }
                             >

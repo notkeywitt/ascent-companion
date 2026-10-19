@@ -224,7 +224,7 @@ function DonutViewSwitch({
     <span
       role="radiogroup"
       aria-label="Donut view"
-      className="flex items-center gap-1 text-[11.5px] font-semibold"
+      className="flex items-center gap-1 text-[12px] font-semibold"
     >
       {(["price", "cost"] as const).map((v, i) => (
         <Fragment key={v}>
@@ -273,7 +273,7 @@ function TrackingSheetLink({ c }: { c: JobBoardCard }) {
   return (
     <Link
       href={`/trackingsheet?jobId=${encodeURIComponent(c.id)}`}
-      className="shrink-0 text-[11.5px] font-semibold text-accent hover:underline dark:text-accent-soft"
+      className="shrink-0 text-[12px] font-semibold text-accent hover:underline dark:text-accent-soft"
     >
       Tracking sheet →
     </Link>
@@ -285,14 +285,14 @@ function ScheduleBlock({ c }: { c: JobBoardCard }) {
   const s = c.schedule;
   return (
     <div>
-      <div className="text-[12.5px] font-semibold">{scheduleHeadline(s)}</div>
+      <div className="text-[13px] font-semibold">{scheduleHeadline(s)}</div>
       <MetaLine items={scheduleMeta(s)} />
       {/* Everything else open on the calendar, then what starts next — "what am
           I on" is the whole open window, not one bar. */}
       {s && s.now.length > 1 && (
         <ul className="mt-2 space-y-0.5">
           {s.now.slice(1).map((t) => (
-            <li key={`${t.name}${t.start}`} className="flex justify-between gap-3 text-[11.5px]">
+            <li key={`${t.name}${t.start}`} className="flex justify-between gap-3 text-[12px]">
               <span className="min-w-0 truncate text-neutral-600 dark:text-neutral-300">
                 {t.name}
               </span>
@@ -302,7 +302,7 @@ function ScheduleBlock({ c }: { c: JobBoardCard }) {
         </ul>
       )}
       {s?.next && s.now.length > 0 && (
-        <p className="mt-2 text-[11.5px] text-neutral-500 dark:text-neutral-400">
+        <p className="mt-2 text-[12px] text-neutral-500 dark:text-neutral-400">
           Next: {s.next.name} · starts {shortDate(s.next.start)}
         </p>
       )}
@@ -324,7 +324,7 @@ function DivisionList({ jobId, detail }: { jobId: string; detail: CostDetail }) 
 
   if (rows.length === 0) {
     return (
-      <p className="px-3 py-2 text-[11.5px] text-neutral-500 dark:text-neutral-400">
+      <p className="px-3 py-2 text-[12px] text-neutral-500 dark:text-neutral-400">
         No coded cost on this job yet.
       </p>
     );
@@ -342,7 +342,7 @@ function DivisionList({ jobId, detail }: { jobId: string; detail: CostDetail }) 
             className="flex items-start gap-3 px-3 py-2"
           >
             <div className="min-w-0 flex-1">
-              <div className="truncate text-[12.5px] font-semibold">
+              <div className="truncate text-[13px] font-semibold">
                 {d.division}
                 {d.name ? ` · ${d.name}` : ""}
               </div>
@@ -355,13 +355,13 @@ function DivisionList({ jobId, detail }: { jobId: string; detail: CostDetail }) 
               />
             </div>
             <div className="shrink-0 text-right">
-              <div className="text-[12.5px] font-semibold tabular-nums">{money0(d.spent)}</div>
+              <div className="text-[13px] font-semibold tabular-nums">{money0(d.spent)}</div>
               <div className="text-[11px] tabular-nums text-neutral-500 dark:text-neutral-400">
                 of {money0(d.budget)}
               </div>
               <div
                 className={`text-[11px] tabular-nums ${
-                  left < 0 ? "font-semibold text-red-600 dark:text-red-400" : "text-neutral-500"
+                  left < 0 ? "font-semibold text-danger" : "text-neutral-500"
                 }`}
               >
                 {money0(Math.abs(left))} {left < 0 ? "over" : "left"}
@@ -386,7 +386,7 @@ function DetailBody({ jobId, state }: { jobId: string; state: DetailState | unde
       {!state || state.status === "loading" ? (
         <Loading label="Loading cost detail…" />
       ) : state.status === "error" ? (
-        <p className="text-[11.5px] text-neutral-500 dark:text-neutral-400">
+        <p className="text-[12px] text-neutral-500 dark:text-neutral-400">
           Couldn&apos;t load this job&apos;s cost detail.
         </p>
       ) : (
@@ -452,7 +452,7 @@ function BoardCard({
         <Donut {...donutProps(c, view)} size={104} />
         <div className="mt-auto border-t border-line-soft pt-2">
           <div
-            className="truncate text-[12.5px] font-semibold"
+            className="truncate text-[13px] font-semibold"
             title={scheduleHeadline(c.schedule)}
           >
             {scheduleHeadline(c.schedule)}
@@ -476,7 +476,7 @@ function DrilldownToggle({ open, onToggle }: { open: boolean; onToggle: () => vo
       type="button"
       onClick={onToggle}
       aria-expanded={open}
-      className="-mx-1 flex min-h-9 items-center justify-between gap-2 rounded-lg border-t border-line-soft px-1 pt-2 text-left text-[11.5px] font-semibold text-neutral-500 transition hover:text-accent dark:text-neutral-400"
+      className="-mx-1 flex min-h-9 items-center justify-between gap-2 rounded-lg border-t border-line-soft px-1 pt-2 text-left text-[12px] font-semibold text-neutral-500 transition hover:text-accent dark:text-neutral-400"
     >
       Schedule & cost by division
       {/* Same mark and rotation SectionHeading uses, so a fold reads the same
@@ -519,7 +519,7 @@ function BoardDrilldown({
         <button
           type="button"
           onClick={onClose}
-          className="shrink-0 text-[11.5px] font-semibold text-neutral-500 hover:text-accent"
+          className="shrink-0 text-[12px] font-semibold text-neutral-500 hover:text-accent"
         >
           Close
         </button>
@@ -560,7 +560,7 @@ function LeadPanel({
             <TrackingSheetLink c={c} />
           </div>
 
-          <div className="mt-3 flex items-baseline justify-between text-[12.5px]">
+          <div className="mt-3 flex items-baseline justify-between text-[13px]">
             <span className="font-semibold">{money0(spent)} spent</span>
             <span className="tabular-nums text-neutral-500 dark:text-neutral-400">
               of {money0(c.budget)}

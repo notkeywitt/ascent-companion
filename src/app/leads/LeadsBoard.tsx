@@ -1006,7 +1006,7 @@ function QuietThresholdEditor({
 
       {open && (
         <Card className="space-y-3">
-          <p className="text-[11.5px] text-neutral-500 dark:text-neutral-400">
+          <p className="text-[12px] text-neutral-500 dark:text-neutral-400">
             Days of silence before a lead turns amber, then red. Applies to the quiet marks
             here, the “Gone quiet” filter, and the Leads panel on the home page — for
             everyone, not just this device.
@@ -1078,9 +1078,9 @@ function Stat({
 }) {
   const color =
     tone === "danger"
-      ? "text-red-600 dark:text-red-400"
+      ? "text-danger"
       : tone === "warning"
-        ? "text-amber-600 dark:text-amber-400"
+        ? "text-warn"
         : "text-neutral-800 dark:text-neutral-100";
   return (
     <Card className="text-center">

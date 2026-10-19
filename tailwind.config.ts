@@ -112,6 +112,12 @@ export default {
         // flips with the theme and no page has to spell out the
         // `border-neutral-200 dark:border-neutral-700/60` pair again.
         // `line` edges a card; `line-soft` divides rows INSIDE one.
+        // Status text, one token per meaning. Pages wrote the pair by hand
+        // (`text-amber-600 dark:text-amber-400`) in eight shades; amber-600 on
+        // cream is 3.2:1, below AA. Values live in globals.css.
+        warn: "rgb(var(--warn) / <alpha-value>)",
+        danger: "rgb(var(--danger) / <alpha-value>)",
+        ok: "rgb(var(--ok) / <alpha-value>)",
         line: {
           DEFAULT: "rgb(var(--line) / <alpha-value>)",
           soft: "rgb(var(--line-soft) / <alpha-value>)",

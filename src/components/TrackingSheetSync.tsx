@@ -6,6 +6,7 @@ import { TrackingSheetRisks } from "@/components/TrackingSheetRisks";
 import { useAccess } from "@/components/AccessProvider";
 import { runLaborReport } from "@/components/LaborReportButton";
 import { createTaskRunner } from "@/lib/taskRunner";
+import { money } from "@/lib/money";
 
 /**
  * "Push this job's month into its Google Tracking Sheet."
@@ -50,9 +51,6 @@ export interface TrackingSyncState {
   result?: TrackingSyncResult;
   error?: string;
 }
-
-const money = (n: number) =>
-  `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 /**
  * Bounded concurrency, shared across every caller in the tab: the sync is a long
@@ -394,12 +392,12 @@ export function SyncAllTrackingSheetsFor({
         <p className="mt-1.5 text-xs text-neutral-500">
           {summary.done} sheets synced
           {summary.error > 0 && (
-            <span className="text-red-600 dark:text-red-400"> · {summary.error} failed</span>
+            <span className="text-danger"> · {summary.error} failed</span>
           )}
         </p>
       )}
       {labor.error && (
-        <p role="alert" className="mt-1 text-xs text-red-600 dark:text-red-400">
+        <p role="alert" className="mt-1 text-xs text-danger">
           Labor Report: {labor.error}
         </p>
       )}

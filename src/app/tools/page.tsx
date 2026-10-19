@@ -57,10 +57,10 @@ const TEXT_FIELDS: { key: Exclude<EditableKey, "location">; label: string; wide?
 const conditionClass = (c: string) => {
   const k = c.toLowerCase();
   if (k === "new" || k === "good")
-    return "text-green-700 bg-green-100 dark:text-green-300 dark:bg-green-950/50";
-  if (k === "fair") return "text-amber-700 bg-amber-100 dark:text-amber-300 dark:bg-amber-950/50";
+    return "text-ok bg-green-100 dark:bg-green-950/50";
+  if (k === "fair") return "text-warn bg-amber-100 dark:bg-amber-950/50";
   if (k === "poor" || k === "broken" || k === "retired")
-    return "text-red-700 bg-red-100 dark:text-red-300 dark:bg-red-950/50";
+    return "text-danger bg-red-100 dark:bg-red-950/50";
   return "text-neutral-600 bg-neutral-200 dark:text-neutral-300 dark:bg-neutral-800";
 };
 
@@ -882,7 +882,7 @@ export default function ToolsPage() {
         <Dialog onClose={closeScan} busy={relocating} label={relocDone ? "Location updated" : "Set tool location"}>
             {relocDone ? (
               <>
-                <div className="text-lg font-semibold text-green-700 dark:text-green-400">
+                <div className="text-lg font-semibold text-ok">
                   Updated ✓
                 </div>
                 <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
@@ -981,7 +981,7 @@ export default function ToolsPage() {
         <Dialog onClose={closeScan} busy={creating} label={createDone ? "Tool added" : "New tool"}>
             {createDone ? (
               <>
-                <div className="text-lg font-semibold text-green-700 dark:text-green-400">
+                <div className="text-lg font-semibold text-ok">
                   Tool added ✓
                 </div>
                 <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">

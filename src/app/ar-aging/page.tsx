@@ -116,7 +116,7 @@ export default function ArAgingPage() {
                   <div key={b.id} className="flex items-baseline justify-between gap-3 px-3 py-2.5">
                     <p className="min-w-0 text-sm">
                       {b.label}
-                      <span className="ml-2 text-[11.5px] text-neutral-500 dark:text-neutral-400">
+                      <span className="ml-2 text-[12px] text-neutral-500 dark:text-neutral-400">
                         {b.count} invoice{b.count === 1 ? "" : "s"}
                       </span>
                     </p>

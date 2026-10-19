@@ -75,7 +75,7 @@ export function SyncNowButton({ className = "" }: { className?: string }) {
   // shape either way, so a row of actions doesn't change size when one reports.
   const tone =
     state === "error"
-      ? " !text-red-600 dark:!text-red-400"
+      ? " !text-danger"
       : state === "done"
         ? mode === "queued"
           ? " !text-green-700 dark:!text-green-400"

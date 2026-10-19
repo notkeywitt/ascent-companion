@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { JobPicker } from "@/components/JobPicker";
 import { confirmLeaveIfDirty, useUnsavedChanges } from "@/lib/useUnsavedChanges";
 import { Banner, Button, Card, Checkbox, FileDrop, Input, Label, PageHeader, Select, btn } from "@/components/ui";
+import { money } from "@/lib/money";
 
 interface VendorRef {
   id: string;
@@ -77,11 +78,6 @@ interface TotalsMismatch {
   delta: number;
   lines: PreviewLine[];
 }
-
-const money = (n?: number) =>
-  typeof n === "number"
-    ? "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-    : "—";
 
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
@@ -559,7 +555,7 @@ function AddBill() {
                 </option>
               ))}
             </Select>
-            {needVendor && <p className="mt-1 text-sm text-amber-600">{needVendor}</p>}
+            {needVendor && <p className="mt-1 text-sm text-warn">{needVendor}</p>}
             {newVendor ? (
               <div className="mt-2 space-y-2 rounded-lg border border-line p-3">
                 <div>
@@ -717,7 +713,7 @@ function AddBill() {
                 {compare.delta >= 0 ? "Increase" : "Decrease"} of {money(Math.abs(compare.delta))}
               </p>
               {!result.replaceable && (
-                <p className="mt-1 text-sm text-amber-600">
+                <p className="mt-1 text-sm text-warn">
                   The bill on file is {compare.status} — it is already in the cost reports and may sit
                   behind a client invoice, so this page won&apos;t rewrite it. Set it back to draft in
                   JobTread first, or edit it there.
@@ -750,15 +746,15 @@ function AddBill() {
           </dl>
 
           {result.wrote && result.fileAttached === false && (
-            <p className="mt-2 text-sm text-amber-600">File attach failed — add it in JobTread.</p>
+            <p className="mt-2 text-sm text-warn">File attach failed — add it in JobTread.</p>
           )}
           {result.wrote && result.syncKicked && (
-            <p className="mt-2 text-sm text-emerald-600">
+            <p className="mt-2 text-sm text-ok">
               Syncing to the sheet &amp; Drive now — it&apos;ll appear within a minute or two.
             </p>
           )}
           {(result.warnings ?? []).map((w, i) => (
-            <p key={i} className="mt-2 text-sm text-amber-600">
+            <p key={i} className="mt-2 text-sm text-warn">
               {w}
             </p>
           ))}

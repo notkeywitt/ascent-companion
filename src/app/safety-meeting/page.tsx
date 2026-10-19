@@ -154,7 +154,7 @@ export default function SafetyMeetingPage() {
       <main className="w-full max-w-2xl px-4 pad:px-7 pb-24 pt-6">
         <PageHeader title="Safety Meeting" className="!mb-0" />
         <div className={"mt-4 " + cardCls}>
-          <div className="text-lg font-semibold text-green-700 dark:text-green-400">
+          <div className="text-lg font-semibold text-ok">
             Saved ✓ {result.count} signature{result.count === 1 ? "" : "s"}
           </div>
           <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
@@ -269,7 +269,7 @@ export default function SafetyMeetingPage() {
                 </span>
                 <button
                   onClick={() => removeAttendee(a.name)}
-                  className="shrink-0 text-xs font-semibold text-red-600 hover:underline"
+                  className="shrink-0 text-xs font-semibold text-danger hover:underline"
                 >
                   Remove
                 </button>

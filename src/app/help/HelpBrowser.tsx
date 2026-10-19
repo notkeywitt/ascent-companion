@@ -63,7 +63,7 @@ function TopicBody({ t }: { t: HelpTopic }) {
   return (
     <div className="space-y-3 border-t border-line-soft px-3 pb-3.5 pt-3">
       {t.steps && t.steps.length > 0 && (
-        <ol className="ml-4 list-decimal space-y-1.5 text-[14.5px] leading-relaxed text-neutral-700 marker:text-neutral-400 dark:text-neutral-300">
+        <ol className="ml-4 list-decimal space-y-1.5 text-sm leading-relaxed text-neutral-700 marker:text-neutral-400 dark:text-neutral-300">
           {t.steps.map((s, i) => (
             <li key={i}>
               <Rich text={s} />
@@ -73,7 +73,7 @@ function TopicBody({ t }: { t: HelpTopic }) {
       )}
 
       {t.notes && t.notes.length > 0 && (
-        <ul className="ml-4 list-disc space-y-1.5 text-[13.5px] leading-relaxed text-neutral-500 marker:text-neutral-300 dark:text-neutral-400 dark:marker:text-neutral-600">
+        <ul className="ml-4 list-disc space-y-1.5 text-[13px] leading-relaxed text-neutral-500 marker:text-neutral-300 dark:text-neutral-400 dark:marker:text-neutral-600">
           {t.notes.map((n, i) => (
             <li key={i}>
               <Rich text={n} />
@@ -88,7 +88,7 @@ function TopicBody({ t }: { t: HelpTopic }) {
         // is right in both palettes and both themes.
         <p
           key={i}
-          className="flex gap-2 border-l-2 border-accent pl-2.5 text-[13.5px] leading-relaxed text-neutral-700 dark:text-neutral-300"
+          className="flex gap-2 border-l-2 border-accent pl-2.5 text-[13px] leading-relaxed text-neutral-700 dark:text-neutral-300"
         >
           <span aria-hidden className="shrink-0 text-accent">
             ⚠
@@ -133,7 +133,7 @@ function TopicRow({
         >
           +
         </span>
-        <span className="text-[14.5px] font-semibold tracking-tight">{t.q}</span>
+        <span className="text-sm font-semibold tracking-tight">{t.q}</span>
       </button>
       {open && <TopicBody t={t} />}
     </div>
@@ -190,7 +190,7 @@ export function HelpBrowser() {
       />
 
       <Card className="mb-5">
-        <p className="text-[13.5px] leading-relaxed text-neutral-700 dark:text-neutral-300">
+        <p className="text-[13px] leading-relaxed text-neutral-700 dark:text-neutral-300">
           Each answer is a list of steps. Do one step at a time. A word in{" "}
           <b className="font-semibold">bold</b> is the text on the button or the field.
         </p>

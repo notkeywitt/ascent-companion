@@ -293,7 +293,7 @@ export function SheetGap({
                         </span>
                         <span
                           className={`shrink-0 text-xs font-semibold tabular-nums ${
-                            l.diff < 0 ? "text-red-600 dark:text-red-400" : ""
+                            l.diff < 0 ? "text-danger" : ""
                           }`}
                         >
                           {money0(l.diff)}

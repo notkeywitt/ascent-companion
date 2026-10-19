@@ -13,6 +13,7 @@ import { JtLink } from "@/components/JtLink";
 import { LinkVendor } from "@/components/LinkVendor";
 import { useAccess } from "@/components/AccessProvider";
 import { Button, Dialog, Input, btn } from "@/components/ui";
+import { money } from "@/lib/money";
 
 /**
  * The unmatched-vendor alert — the loud half of a failure that used to be silent.
@@ -105,9 +106,6 @@ const StuckVendorsContext = createContext<StuckVendorsValue>(EMPTY);
 export function useStuckVendors(): StuckVendorsValue {
   return useContext(StuckVendorsContext);
 }
-
-const money = (n: number) =>
-  "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 /** Session key for the popup dismissal, keyed to WHICH vendors are stuck. */
 const DISMISS_KEY = "ascent.stuckVendors.dismissed";
@@ -223,7 +221,7 @@ function ForgetVendorButton({ v, onDone }: { v: StuckVendor; onDone: () => void 
       >
         {busy ? "Forgetting…" : "Forget"}
       </button>
-      {error && <span className="ml-2 text-xs font-semibold text-red-600 dark:text-red-400">{error}</span>}
+      {error && <span className="ml-2 text-xs font-semibold text-danger">{error}</span>}
     </>
   );
 }
@@ -290,10 +288,10 @@ function StuckVendorRow({ v, onCreated }: { v: StuckVendor; onCreated: () => voi
       </ul>
 
       {made ? (
-        <p className="mt-2 text-xs font-semibold text-emerald-700 dark:text-emerald-400">
+        <p className="mt-2 text-xs font-semibold text-ok">
           ✓ Created {made.name}.{" "}
           {made.warning ? (
-            <span className="font-normal text-amber-700 dark:text-amber-400">{made.warning}</span>
+            <span className="font-normal text-warn">{made.warning}</span>
           ) : made.synced ? (
             <span className="font-normal text-neutral-500">
               Vendors synced — the next push sends {v.count === 1 ? "this bill" : "these bills"}.
@@ -324,7 +322,7 @@ function StuckVendorRow({ v, onCreated }: { v: StuckVendor; onCreated: () => voi
             />
           </label>
           {error && (
-            <p className="text-xs font-semibold text-red-600 dark:text-red-400">{error}</p>
+            <p className="text-xs font-semibold text-danger">{error}</p>
           )}
           <div className="flex items-center gap-2">
             <Button size="sm" onClick={() => void create()} disabled={busy || !name.trim()}>
@@ -336,7 +334,7 @@ function StuckVendorRow({ v, onCreated }: { v: StuckVendor; onCreated: () => voi
           </div>
         </div>
       ) : linked ? (
-        <p className="mt-2 text-xs font-semibold text-emerald-700 dark:text-emerald-400">
+        <p className="mt-2 text-xs font-semibold text-ok">
           ✓ Linked to {linked}.{" "}
           <span className="font-normal text-neutral-500">
             Remembered for the next invoice — the next push sends {v.count === 1 ? "this bill" : "these bills"}.
@@ -426,7 +424,7 @@ export function StuckVendorPopup() {
         <div className="flex items-start gap-3">
           <span
             aria-hidden
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-warn dark:bg-amber-950/50"
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
               <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />

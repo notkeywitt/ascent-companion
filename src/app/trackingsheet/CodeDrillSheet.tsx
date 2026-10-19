@@ -74,7 +74,7 @@ export function CodeDrillSheet({
                       {` of ${money(h.budget)} budget · `}
                       <span
                         className={
-                          remainingOf(h) < 0 ? "font-semibold text-red-600 dark:text-red-400" : ""
+                          remainingOf(h) < 0 ? "font-semibold text-danger" : ""
                         }
                       >
                         {money(remainingOf(h))} remaining

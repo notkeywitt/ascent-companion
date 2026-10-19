@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Spinner } from "@/components/ui";
 import { JtLink } from "@/components/JtLink";
 import type { InvoiceRef } from "@/lib/jobtread";
+import { money } from "@/lib/money";
 
 /**
  * "Is this month actually invoiced?" — the reconciliation rectangle.
@@ -33,9 +34,6 @@ export interface Recon {
   draftBillsCost: number;
   draftBillCount: number;
 }
-
-const money = (n: number) =>
-  `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 /**
  * The banner's own green/amber call, pulled out so a caller (the job board's

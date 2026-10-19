@@ -323,7 +323,7 @@ export function ItemView({ item, siteUrl }: { item: LrItem; siteUrl: string }) {
               <ActionButton key={i} action={a} />
             ))}
           </div>
-          <p className="mt-2 text-[11.5px] text-neutral-500 dark:text-neutral-400">
+          <p className="mt-2 text-[12px] text-neutral-500 dark:text-neutral-400">
             Messages, comments and Agree need a LopezRocks sign-in, so they open on the site.
           </p>
         </Card>

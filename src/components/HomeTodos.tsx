@@ -506,7 +506,7 @@ export function HomeTodos() {
                   </button>
                   {open.__log && (
                     <div className="border-t border-line-soft px-3 py-2">
-                      <pre className="overflow-x-auto whitespace-pre-wrap break-words font-mono text-[10.5px] leading-relaxed text-neutral-500">
+                      <pre className="overflow-x-auto whitespace-pre-wrap break-words font-mono text-[11px] leading-relaxed text-neutral-500">
                         {digest.log.join("\n")}
                       </pre>
                     </div>
@@ -570,7 +570,7 @@ function TodoList({
   return (
     <ListCard className="divide-y divide-line-soft">
       {data.mine.length === 0 && (
-        <p className="px-3 py-2 text-[11.5px] text-neutral-500">
+        <p className="px-3 py-2 text-[12px] text-neutral-500">
           Nothing assigned to you. These are unclaimed:
         </p>
       )}
@@ -578,7 +578,7 @@ function TodoList({
         <TodoRowView key={t.id} t={t} />
       ))}
       {moreMine > 0 && (
-        <p className="px-3 py-2 text-[11.5px] text-neutral-500">
+        <p className="px-3 py-2 text-[12px] text-neutral-500">
           {moreMine} more of yours — the rest are in JobTread.
         </p>
       )}
@@ -592,7 +592,7 @@ function TodoList({
         <TodoRowView key={t.id} t={t} />
       ))}
       {data.unclaimed.length > 0 && moreUnclaimed > 0 && (
-        <p className="px-3 py-2 text-[11.5px] text-neutral-500">
+        <p className="px-3 py-2 text-[12px] text-neutral-500">
           {moreUnclaimed} more unclaimed in JobTread.
         </p>
       )}
@@ -609,7 +609,7 @@ function TodoRowView({ t }: { t: TodoRow }) {
           href={jtToDoUrl(t.id)}
           target="_blank"
           rel="noreferrer"
-          className="min-w-0 flex-1 text-[13.5px] font-semibold leading-snug hover:text-accent dark:hover:text-accent-soft"
+          className="min-w-0 flex-1 text-[13px] font-semibold leading-snug hover:text-accent dark:hover:text-accent-soft"
         >
           {t.name}
         </a>
@@ -623,7 +623,7 @@ function TodoRowView({ t }: { t: TodoRow }) {
         ]}
       />
       {t.description && (
-        <p className="mt-1 line-clamp-2 text-[11.5px] leading-relaxed text-neutral-500">
+        <p className="mt-1 line-clamp-2 text-[12px] leading-relaxed text-neutral-500">
           {t.description}
         </p>
       )}
@@ -717,7 +717,7 @@ function CreateTodo({ onCreated }: { onCreated: () => void }) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="w-full rounded-xl border border-dashed border-line px-3 py-2.5 text-left text-[12.5px] font-semibold text-neutral-500 transition hover:border-accent hover:text-accent dark:text-neutral-400"
+        className="w-full rounded-xl border border-dashed border-line px-3 py-2.5 text-left text-[13px] font-semibold text-neutral-500 transition hover:border-accent hover:text-accent dark:text-neutral-400"
       >
         + New to-do
       </button>
@@ -802,7 +802,7 @@ function CreateTodo({ onCreated }: { onCreated: () => void }) {
       </div>
 
       {err && <Banner tone="error">{err}</Banner>}
-      {done && <p className="text-[12.5px] text-neutral-500">✓ {done}</p>}
+      {done && <p className="text-[13px] text-neutral-500">✓ {done}</p>}
 
       <button
         type="button"
@@ -860,7 +860,7 @@ function CheckBlock({
           <span className="text-[11px] tabular-nums text-neutral-500">{result.items.length}</span>
         )}
       </div>
-      <p className="ml-5 mt-0.5 text-[11.5px] leading-relaxed text-neutral-500">{result.summary}</p>
+      <p className="ml-5 mt-0.5 text-[12px] leading-relaxed text-neutral-500">{result.summary}</p>
 
       {[...groups.entries()].map(([group, items]) => (
         <div key={group || "_"} className="ml-5 mt-1.5">
@@ -884,7 +884,7 @@ function CheckBlock({
                       type="button"
                       onClick={() => expandable && toggleItem(key)}
                       aria-expanded={expandable ? isOpen : undefined}
-                      className={`flex min-w-0 flex-1 items-start gap-2 rounded py-1 text-left text-[12.5px] leading-snug ${
+                      className={`flex min-w-0 flex-1 items-start gap-2 rounded py-1 text-left text-[13px] leading-snug ${
                         expandable ? "hover:text-accent dark:hover:text-accent-soft" : "cursor-default"
                       }`}
                     >
@@ -904,7 +904,7 @@ function CheckBlock({
                         onClick={() => onDismiss(item)}
                         disabled={!!busy[dismissKey]}
                         aria-label={`Dismiss: ${item.title}`}
-                        className="shrink-0 rounded px-1.5 py-1 text-[11px] font-semibold text-neutral-400 transition hover:text-red-600 disabled:opacity-50 dark:hover:text-red-400"
+                        className="shrink-0 rounded px-1.5 py-1 text-[11px] font-semibold text-neutral-400 transition hover:text-danger disabled:opacity-50"
                       >
                         {busy[dismissKey] ? "…" : "Dismiss"}
                       </button>
@@ -913,7 +913,7 @@ function CheckBlock({
                   {isOpen && (
                     <div className="mb-1 ml-4 border-l-2 border-line pl-2.5">
                       {item.detail && (
-                        <p className="text-[11.5px] leading-relaxed text-neutral-500">{item.detail}</p>
+                        <p className="text-[12px] leading-relaxed text-neutral-500">{item.detail}</p>
                       )}
                       {item.sourceLink && (
                         <a
@@ -940,7 +940,7 @@ function CheckBlock({
       {dismissedHere.length > 0 && (
         <ul className="ml-5 mt-1.5 space-y-0.5">
           {dismissedHere.map((d) => (
-            <li key={d.key} className="flex items-start gap-2 py-0.5 text-[11.5px] text-neutral-400">
+            <li key={d.key} className="flex items-start gap-2 py-0.5 text-[12px] text-neutral-400">
               <span className="min-w-0 flex-1 truncate line-through">{d.title}</span>
               <button
                 type="button"

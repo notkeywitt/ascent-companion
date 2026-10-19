@@ -261,7 +261,7 @@ export function PayTypeRules({ members }: { members: Member[] }) {
                       type="button"
                       onClick={() => removeCode(d)}
                       title="Delete default cost code"
-                      className="rounded-lg px-2 py-1 text-xs font-semibold text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40"
+                      className="rounded-lg px-2 py-1 text-xs font-semibold text-danger hover:bg-red-50 dark:hover:bg-red-950/40"
                     >
                       ✕
                     </button>
@@ -289,7 +289,7 @@ export function PayTypeRules({ members }: { members: Member[] }) {
                       type="button"
                       onClick={() => remove(r)}
                       title="Delete default pay type"
-                      className="rounded-lg px-2 py-1 text-xs font-semibold text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40"
+                      className="rounded-lg px-2 py-1 text-xs font-semibold text-danger hover:bg-red-50 dark:hover:bg-red-950/40"
                     >
                       ✕
                     </button>

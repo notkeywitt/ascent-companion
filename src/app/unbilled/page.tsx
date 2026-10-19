@@ -14,9 +14,7 @@ import {
 } from "@/components/ui";
 import { getUninvoicedBills, type UninvoicedBills } from "@/lib/jobtread";
 import { getPaveConfig, hasGrant } from "@/lib/config";
-
-const money = (n: number) =>
-  "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+import { money } from "@/lib/money";
 
 /**
  * Server component. `jobId` comes from the URL — set by this page's own picker

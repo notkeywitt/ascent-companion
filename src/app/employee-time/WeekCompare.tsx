@@ -479,7 +479,7 @@ function EntryEditor({ e, label, onSaved }: { e: Entry; label: string; onSaved?:
         />
       </div>
       <Textarea aria-label="Note" rows={3} value={note} onChange={(ev) => setNote(ev.target.value)} />
-      {msg && <p className="text-xs text-red-700 dark:text-red-400">{msg}</p>}
+      {msg && <p className="text-xs text-danger">{msg}</p>}
       <div className="flex justify-end gap-2">
         {!e.approved && (
           <Button variant="danger" size="sm" disabled={busy} onClick={remove} className="mr-auto">
@@ -722,7 +722,7 @@ function NewEntry({
         </label>
       </div>
       <Textarea aria-label="Note" rows={3} placeholder="Note" value={note} onChange={(e) => setNote(e.target.value)} />
-      {msg && <p className="text-xs text-red-700 dark:text-red-400">{msg}</p>}
+      {msg && <p className="text-xs text-danger">{msg}</p>}
       <div className="flex justify-end gap-2">
         <Button variant="secondary" size="sm" onClick={() => setOpen(false)}>
           Cancel

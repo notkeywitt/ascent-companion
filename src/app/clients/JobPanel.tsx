@@ -6,6 +6,7 @@ import { Banner, Loading, MetaLine, btn } from "@/components/ui";
 import { InvoiceTagCard } from "./InvoiceTagCard";
 import { RecordEditor, type ReadOnlyRow, type ScalarSpec } from "./RecordEditor";
 import type { InvoiceTag, JobDetail } from "./types";
+import { money0 as money } from "@/lib/money";
 
 /**
  * ONE JOB, in full — its editable JobTread record, everything JobTread holds
@@ -36,11 +37,6 @@ const JOB_SCALARS: ScalarSpec[] = [
   },
   { name: "description", label: "Description", kind: "textarea", maxLength: 32768 },
 ];
-
-const money = (n: number | null) =>
-  n == null
-    ? "—"
-    : `$${n.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 
 const dateLabel = (iso: string | null) => {
   if (!iso) return "";

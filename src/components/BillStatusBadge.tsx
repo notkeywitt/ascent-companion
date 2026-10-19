@@ -11,9 +11,9 @@ const STATUS_LABELS: Record<string, string> = {
 
 const STATUS_STYLES: Record<string, string> = {
   draft: "bg-neutral-200 text-neutral-600 dark:bg-neutral-700 dark:text-neutral-300",
-  pending: "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300",
-  approved: "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300",
-  denied: "bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300",
+  pending: "bg-amber-50 text-warn dark:bg-amber-950/40",
+  approved: "bg-emerald-50 text-ok dark:bg-emerald-950/40",
+  denied: "bg-red-50 text-danger dark:bg-red-950/40",
 };
 
 export function billStatusLabel(status?: string): string {

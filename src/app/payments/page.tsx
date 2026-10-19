@@ -10,6 +10,7 @@ import { SunsetDuplicateScan } from "@/components/SunsetDuplicateScan";
 import { Banner, Button, CardSkeletonList, EmptyState, PageHeader, Spinner } from "@/components/ui";
 import { clearTouchedBills, touchedBillCount } from "@/lib/billTouch";
 import { reconcileState } from "@/lib/sunsetReconcile";
+import { money as moneyN } from "@/lib/money";
 
 // The TSYS hosted-payment page rejects requests that don't arrive through Sunset's
 // own site, so Pay goes to sunsetbuilderssupply.com and you click through from there.
@@ -134,11 +135,6 @@ const money = (s: string) => {
     ? "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
     : "—";
 };
-
-const moneyN = (n: number) =>
-  Number.isFinite(n)
-    ? "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-    : "—";
 
 // ---------------------------------------------------------------------------
 // PAGE SNAPSHOT
@@ -518,7 +514,7 @@ export default function PaymentsPage() {
       )}
 
       {!reconLoading && !reconLive && (
-        <div className="mb-2 text-xs text-amber-600 dark:text-amber-400">
+        <div className="mb-2 text-xs text-warn">
           Couldn&apos;t reach JobTread to verify — showing the hourly sheet mirror, so a just-deleted or voided bill may still appear.
         </div>
       )}
@@ -767,13 +763,13 @@ export default function PaymentsPage() {
                                 </JtLink>
                               )}
                               {inv.isCredit && (
-                                <span className="rounded bg-rose-500/15 px-1 text-[10px] font-semibold uppercase tracking-wide text-rose-600 dark:text-rose-300">
+                                <span className="rounded bg-rose-500/15 px-1 text-[10px] font-semibold uppercase tracking-wide text-danger">
                                   credit
                                 </span>
                               )}
                               {inv.date ? <span className="opacity-60"> · {inv.date}</span> : null}
                             </span>
-                            <span className={inv.isCredit ? "text-rose-600 dark:text-rose-400" : ""}>
+                            <span className={inv.isCredit ? "text-danger" : ""}>
                               {inv.isCredit ? "−" + moneyN(Math.abs(inv.amount)) : moneyN(inv.amount)}
                             </span>
                           </li>
@@ -830,8 +826,8 @@ export default function PaymentsPage() {
               </div>
 
               {s.status === "paid" && s.paidAt && (
-                <div className="mt-1.5 text-[11px] text-emerald-600 dark:text-emerald-400">
-                  Paid {new Date(s.paidAt).toLocaleDateString()}
+                <div className="mt-1.5 text-[11px] text-ok">
+                  Paid {new Date(s.paidAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
                 </div>
               )}
             </li>

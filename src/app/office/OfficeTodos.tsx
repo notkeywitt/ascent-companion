@@ -117,7 +117,7 @@ export function OfficeTodos({
       {err && <Banner tone="error">{err}</Banner>}
       {notice && <Banner>{notice}</Banner>}
       {lastDone && (
-        <p className="flex items-center gap-2 text-[12.5px] text-neutral-500 dark:text-neutral-400">
+        <p className="flex items-center gap-2 text-[13px] text-neutral-500 dark:text-neutral-400">
           ✓ Marked &ldquo;{lastDone.name}&rdquo; done.
           <button
             type="button"
@@ -170,7 +170,7 @@ export function OfficeTodos({
         <button
           type="button"
           onClick={() => setEditing("new")}
-          className="w-full rounded-xl border border-dashed border-line px-3 py-2.5 text-left text-[12.5px] font-semibold text-neutral-500 transition hover:border-accent hover:text-accent dark:text-neutral-400"
+          className="w-full rounded-xl border border-dashed border-line px-3 py-2.5 text-left text-[13px] font-semibold text-neutral-500 transition hover:border-accent hover:text-accent dark:text-neutral-400"
         >
           + New to-do
         </button>
@@ -304,9 +304,9 @@ function TodoForm({
       <div>
         <Label>Assigned to</Label>
         {users === null ? (
-          <p className="text-[12.5px] text-neutral-500">Loading people…</p>
+          <p className="text-[13px] text-neutral-500">Loading people…</p>
         ) : users.length === 0 ? (
-          <p className="text-[12.5px] text-neutral-500">Couldn&rsquo;t load the employee list.</p>
+          <p className="text-[13px] text-neutral-500">Couldn&rsquo;t load the employee list.</p>
         ) : (
           <div className="flex flex-wrap gap-1.5">
             {users.map((u) => (

@@ -20,7 +20,7 @@ interface LogItem {
 function toneClass(text: string): string {
   const t = text.toLowerCase();
   if (/error|fail|denied|unmatched|critical/.test(t))
-    return "bg-red-100 text-red-700 dark:bg-red-950/50 dark:text-red-300";
+    return "bg-red-100 text-danger dark:bg-red-950/50";
   if (/warn|skip|retry|defer|mismatch/.test(t))
     return "bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-300";
   return "bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300";

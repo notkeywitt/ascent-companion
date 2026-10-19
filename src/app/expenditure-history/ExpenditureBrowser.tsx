@@ -17,6 +17,7 @@ import {
   StatementBlock,
   Toggle,
 } from "@/components/ui";
+import { money, money0 as moneyShort } from "@/lib/money";
 
 /**
  * Expenditure History — the whole Expenditure sheet, searchable on a phone.
@@ -157,13 +158,7 @@ const MONTHS = [
   "July", "August", "September", "October", "November", "December",
 ];
 
-const money = (n: number) =>
-  (n < 0 ? "-$" : "$") +
-  Math.abs(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
 /** Compact form for group headers, where the cents are noise. */
-const moneyShort = (n: number) =>
-  (n < 0 ? "-$" : "$") + Math.abs(Math.round(n)).toLocaleString("en-US");
 
 const NO_PERIOD = "No billing period";
 const NO_JOB = "No job";
@@ -367,7 +362,7 @@ function BillImage({ fileId }: { fileId: string }) {
   const [failed, setFailed] = useState(false);
 
   if (!fileId) {
-    return <p className="text-[11.5px] text-neutral-500">No file on this row.</p>;
+    return <p className="text-[12px] text-neutral-500">No file on this row.</p>;
   }
   return (
     <div className="space-y-1.5">
@@ -383,7 +378,7 @@ function BillImage({ fileId }: { fileId: string }) {
         />
       )}
       {failed && (
-        <p className="text-[11.5px] text-neutral-500">
+        <p className="text-[12px] text-neutral-500">
           Couldn&apos;t render a preview — open it in Drive instead.
         </p>
       )}
@@ -454,7 +449,7 @@ function BillRow({
 
       {open && (
         <div className={`space-y-3 pb-4 pr-3 pt-1 ${depth === 2 ? "pl-9" : "pl-12"}`}>
-          <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[11.5px]">
+          <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[12px]">
             <Detail label="Bill" value={bill.expId} />
             <Detail label="Invoice #" value={bill.invoiceId || "—"} />
             <Detail label="Vendor" value={bill.vendorName} />
@@ -466,9 +461,9 @@ function BillRow({
           <div>
             <SectionLabel className="mb-1">Line items</SectionLabel>
             {linesLoading && <Loading label="Loading line items…" />}
-            {linesError && <p className="text-[11.5px] text-red-600">{linesError}</p>}
+            {linesError && <p className="text-[12px] text-danger">{linesError}</p>}
             {!linesLoading && !linesError && (!lines || lines.length === 0) && (
-              <p className="text-[11.5px] text-neutral-500">
+              <p className="text-[12px] text-neutral-500">
                 No line items were recorded for this bill.
               </p>
             )}

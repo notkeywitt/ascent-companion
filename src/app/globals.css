@@ -76,9 +76,18 @@
   --ink: 27 27 23; /* #1B1B17 */
   --ink-raised: 35 35 30; /* #23231E */
   --ink-overlay: 43 43 37; /* #2B2B25 */
+
+  /* Status text — `text-warn`, `text-danger`, `text-ok`. Chosen for AA on the
+     light ground: amber-700, red-600, emerald-700. Both palettes share them. */
+  --warn: 180 83 9; /* #B45309 */
+  --danger: 220 38 38; /* #DC2626 */
+  --ok: 4 120 87; /* #047857 */
 }
 .dark {
   color-scheme: dark;
+  --warn: 251 191 36; /* #FBBF24 amber-400 */
+  --danger: 248 113 113; /* #F87171 red-400 */
+  --ok: 52 211 153; /* #34D399 emerald-400 */
   --accent: 207 152 3; /* #CF9803 BRAND ochre — 6.70:1 on off-black, so unlike
                           light this one value is both the fill and the text */
   --accent-hover: 229 172 23; /* #E5AC17 — brighter gold for fill hover */

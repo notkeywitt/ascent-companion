@@ -278,7 +278,7 @@ export function TimeSync({ embedded = false }: { embedded?: boolean } = {}) {
                             {r.costCode ? ` · ${r.costCode}` : ""} · {clockOf(r.start)}–{clockOf(r.end)}
                           </div>
                           {r.detail && (
-                            <div className="text-xs text-amber-600 dark:text-amber-400">{r.detail}</div>
+                            <div className="text-xs text-warn">{r.detail}</div>
                           )}
                         </div>
                         {r.retryable ? (

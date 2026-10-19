@@ -9,6 +9,7 @@ import { useAccess } from "@/components/AccessProvider";
 import { useCopy } from "@/components/CopyProvider";
 import { EXTRA_LINKS, JOB_PAGES, WORKSPACES } from "@/lib/workspaces";
 import { searchHelp } from "@/lib/help";
+import { money } from "@/lib/money";
 
 /**
  * The app's one search box — the widest item in the header row.
@@ -78,9 +79,6 @@ interface BillHit {
   matchedLines: BillLine[];
   lines: BillLine[];
 }
-
-const money = (n: number) =>
-  `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 /** How many of each kind to show — the panel is a shortlist, not a report. */
 const MAX_PAGES = 6;

@@ -98,7 +98,7 @@ export function UnsyncedDrafts() {
               <button
                 type="button"
                 onClick={() => discard(row)}
-                className="shrink-0 px-4 text-xs font-semibold text-neutral-500 underline-offset-2 hover:text-red-600 hover:underline dark:text-neutral-400 dark:hover:text-red-400"
+                className="shrink-0 px-4 text-xs font-semibold text-neutral-500 underline-offset-2 hover:text-danger hover:underline dark:text-neutral-400"
               >
                 Discard
               </button>

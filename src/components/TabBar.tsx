@@ -259,7 +259,7 @@ export function TabBar() {
               onClick={guard}
               // `active:` is the PRESS (paints the instant a finger lands); the
               // overlay below is the WAIT (only while the navigation is in flight).
-              className={`relative flex h-14 flex-col items-center justify-center gap-0.5 px-0.5 text-center text-[10.5px] font-semibold leading-tight transition active:bg-accent/15 ${
+              className={`relative flex h-14 flex-col items-center justify-center gap-0.5 px-0.5 text-center text-[11px] font-semibold leading-tight transition active:bg-accent/15 ${
                 on ? "text-accent dark:text-accent-soft" : "text-neutral-500 hover:text-accent dark:text-neutral-400"
               }`}
             >
@@ -298,7 +298,7 @@ export function TabBar() {
                 href={t.href + qs}
                 aria-current={on ? "page" : undefined}
                 onClick={guard}
-                className={`relative flex flex-col items-center gap-1 rounded-xl px-1 py-2 text-center text-[10.5px] font-semibold leading-tight transition active:bg-accent/15 2xl:flex-row 2xl:gap-3 2xl:px-3 2xl:text-left 2xl:text-[13px] ${
+                className={`relative flex flex-col items-center gap-1 rounded-xl px-1 py-2 text-center text-[11px] font-semibold leading-tight transition active:bg-accent/15 2xl:flex-row 2xl:gap-3 2xl:px-3 2xl:text-left 2xl:text-[13px] ${
                   on
                     ? `bg-accent/10 text-accent dark:text-accent-soft ${childLit ? "2xl:bg-transparent" : ""}`
                     : "text-neutral-500 hover:text-accent dark:text-neutral-400"
@@ -319,7 +319,7 @@ export function TabBar() {
                         href={tab.href + carryJobAndMonth(search)}
                         onClick={guard}
                         aria-current={here ? "page" : undefined}
-                        className={`block truncate rounded-lg px-2 py-1.5 text-[12.5px] transition ${
+                        className={`block truncate rounded-lg px-2 py-1.5 text-[13px] transition ${
                           here
                             ? "bg-accent/10 font-semibold text-accent dark:text-accent-soft"
                             : "text-neutral-500 hover:text-accent dark:text-neutral-400"

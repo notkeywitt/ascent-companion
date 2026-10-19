@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useAccess } from "@/components/AccessProvider";
+import { money } from "@/lib/money";
 
 /**
  * The "bills are waiting for a job" indicator on the Home launcher.
@@ -41,9 +42,6 @@ export interface NeedsProjectState {
   error: string;
   refresh: () => void;
 }
-
-const money = (n: number) =>
-  "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 /**
  * Read the Needs-Project queue once per page load. Deliberately uncached

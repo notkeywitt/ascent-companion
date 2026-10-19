@@ -416,5 +416,20 @@ Left on purpose: Employee Time's own bottom sheet (field design), the photo
 viewer, the page guide and the menu overlay (not dialogs), `!` overrides that
 are not a shrunk Button.
 
-Next: stage 4, the page sweep (type sizes, money and date formats, colour
-literals), only on the owner's go.
+## Desktop polish, stage 4 (page sweep), 2026-10-19
+
+- **Type sizes** 23 → 16. Half-pixel steps folded into whole ones (10.5→11,
+  11.5→12, 12.5→13, 13.5→13, 14.5→14). Kept: 9px disclosure arrows, 15px
+  field rows on Employee Time, and the display figures (17, 21, 32px).
+- **Status colours** are three tokens, `text-warn`, `text-danger`, `text-ok`
+  (`globals.css`), at 180 sites. Light warn moved from amber-600 (3.2:1 on
+  cream) to amber-700, which passes AA. Colours that were light-only now have a
+  dark value.
+- **Money**: 40 local formatters are one, `src/lib/money.ts`. The hand-built
+  ones printed a negative as "$-1,234.00"; it now reads "-$1,234.00". Unknown
+  amounts read "—", not "$0.00".
+- **Dates**: the five places that printed the browser's default ("10/19/2026")
+  read "Oct 19, 2026". Locale-default formats are `en-US`.
+
+Not done, on purpose: tinted status boxes written by hand (`bg-amber-50 …`,
+about 140 sites) — each wants judging as a Banner or a quiet line, page by page.

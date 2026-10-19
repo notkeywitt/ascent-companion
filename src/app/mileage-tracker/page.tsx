@@ -1272,7 +1272,7 @@ export default function MileageTrackerPage() {
             type="button"
             onClick={cancelTrip}
             disabled={busy}
-            className="mx-auto block text-xs text-neutral-500 underline-offset-2 hover:text-red-600 hover:underline disabled:opacity-40"
+            className="mx-auto block text-xs text-neutral-500 underline-offset-2 hover:text-danger hover:underline disabled:opacity-40"
           >
             Cancel this trip
           </button>

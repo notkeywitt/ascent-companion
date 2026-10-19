@@ -56,7 +56,7 @@ export function WorkspaceTabs() {
               onClick={(e) => {
                 if (!confirmLeaveIfDirty()) e.preventDefault();
               }}
-              className={`inline-flex min-h-10 shrink-0 items-center whitespace-nowrap rounded-full border px-3.5 text-[12.5px] font-semibold transition ${
+              className={`inline-flex min-h-10 shrink-0 items-center whitespace-nowrap rounded-full border px-3.5 text-[13px] font-semibold transition ${
                 on
                   ? "border-accent bg-accent text-accent-fg"
                   : "border-line bg-white text-neutral-500 hover:border-accent dark:bg-ink-raised dark:text-neutral-400"

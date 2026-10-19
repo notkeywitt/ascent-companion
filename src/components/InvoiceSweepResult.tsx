@@ -105,9 +105,9 @@ function Group({
 }) {
   if (items.length === 0) return null;
   const head: Record<typeof tone, string> = {
-    success: "text-emerald-700 dark:text-emerald-300",
+    success: "text-ok",
     warning: "text-amber-800 dark:text-amber-300",
-    error: "text-red-700 dark:text-red-300",
+    error: "text-danger",
     neutral: "text-neutral-600 dark:text-neutral-300",
   };
   return (
@@ -164,8 +164,8 @@ export function InvoiceSweepResultModal({
             aria-hidden
             className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
               anyProblem
-                ? "bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300"
-                : "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300"
+                ? "bg-amber-100 text-warn dark:bg-amber-950/50"
+                : "bg-emerald-100 text-ok dark:bg-emerald-950/50"
             }`}
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">

@@ -112,9 +112,9 @@ export function LaborReportButton({
       {msg && (
         <p
           role={msg.tone === "error" ? "alert" : "status"}
-          className={`text-[11.5px] ${
+          className={`text-[12px] ${
             msg.tone === "error"
-              ? "text-red-600 dark:text-red-400"
+              ? "text-danger"
               : "text-neutral-500 dark:text-neutral-400"
           }`}
         >
@@ -145,7 +145,7 @@ export function LaborReportCard() {
   return (
     <Card className="mb-5 space-y-2">
       <div className="text-sm font-semibold">Monthly Labor Report</div>
-      <p className="text-[11.5px] text-neutral-500 dark:text-neutral-400">
+      <p className="text-[12px] text-neutral-500 dark:text-neutral-400">
         Every job&apos;s hours for the month, from JobTread, filed as one sheet in the Drive Labor folder.
       </p>
       <div className="flex flex-wrap items-start gap-3">

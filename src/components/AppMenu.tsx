@@ -170,7 +170,7 @@ export function AppMenu({
           type="button"
           onClick={() => setOpen(true)}
           aria-expanded={open}
-          className="flex w-full flex-col items-center gap-1 rounded-xl px-1 py-2 text-center text-[10.5px] font-semibold leading-tight text-neutral-500 transition hover:text-accent active:bg-accent/15 dark:text-neutral-400 2xl:flex-row 2xl:gap-3 2xl:px-3 2xl:text-left 2xl:text-[13px]"
+          className="flex w-full flex-col items-center gap-1 rounded-xl px-1 py-2 text-center text-[11px] font-semibold leading-tight text-neutral-500 transition hover:text-accent active:bg-accent/15 dark:text-neutral-400 2xl:flex-row 2xl:gap-3 2xl:px-3 2xl:text-left 2xl:text-[13px]"
         >
           <AccountIcon />
           <span className="min-w-0">Account</span>
@@ -225,7 +225,7 @@ export function AppMenu({
 
               <div className="flex-1 space-y-4 overflow-y-auto px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
                 {pinning && (
-                  <p className="text-[11.5px] text-neutral-500 dark:text-neutral-400">
+                  <p className="text-[12px] text-neutral-500 dark:text-neutral-400">
                     Tap a page to put it on the bottom bar, in the last slot. This device only.
                   </p>
                 )}

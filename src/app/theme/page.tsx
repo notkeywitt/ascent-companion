@@ -219,7 +219,7 @@ export default function ThemeEditorPage() {
                   type="button"
                   onClick={() => switchPalette(p)}
                   aria-pressed={palette === p}
-                  className={`min-h-11 rounded-full border px-4 text-[12.5px] font-semibold transition ${
+                  className={`min-h-11 rounded-full border px-4 text-[13px] font-semibold transition ${
                     palette === p
                       ? "border-accent bg-accent text-accent-fg"
                       : "border-line text-neutral-500 hover:border-accent dark:text-neutral-400"
@@ -239,7 +239,7 @@ export default function ThemeEditorPage() {
                   type="button"
                   onClick={() => switchTheme(t)}
                   aria-pressed={theme === t}
-                  className={`min-h-11 rounded-full border px-4 text-[12.5px] font-semibold capitalize transition ${
+                  className={`min-h-11 rounded-full border px-4 text-[13px] font-semibold capitalize transition ${
                     theme === t
                       ? "border-accent bg-accent text-accent-fg"
                       : "border-line text-neutral-500 hover:border-accent dark:text-neutral-400"

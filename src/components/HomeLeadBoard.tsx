@@ -62,8 +62,8 @@ const orderKey = (page: string) => `${page}.leadsOrder`;
 const QUIET_COLOR: Record<QuietBand, string> = {
   unknown: "text-neutral-500",
   ok: "text-neutral-800 dark:text-neutral-100",
-  warn: "text-amber-600 dark:text-amber-400",
-  alert: "text-red-600 dark:text-red-400",
+  warn: "text-warn",
+  alert: "text-danger",
 };
 
 const STAGE_LABELS: Record<string, string> = {

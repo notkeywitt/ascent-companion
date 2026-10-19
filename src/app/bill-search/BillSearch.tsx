@@ -12,6 +12,7 @@ import {
   Loading,
   SectionLabel,
 } from "@/components/ui";
+import { money } from "@/lib/money";
 
 /**
  * The Bill Search screen.
@@ -64,9 +65,6 @@ interface IndexStatus {
   refreshing: boolean;
   seedDone: boolean;
 }
-
-const money = (n: number) =>
-  `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 /** A JobTread bill opens in the in-app bill view; the jobId lets it load fast. */
 const billHref = (r: Result) =>
@@ -346,7 +344,7 @@ function ResultCard({ r, terms }: { r: Result; terms: string[] }) {
           <p className="truncate text-sm font-semibold tracking-tight">
             <Highlight text={r.vendor} terms={terms} />
           </p>
-          <p className="mt-0.5 truncate text-[11.5px] text-neutral-500">
+          <p className="mt-0.5 truncate text-[12px] text-neutral-500">
             {[r.jobName || r.customer, r.issueDate].filter(Boolean).join(" · ") || "No job / date"}
             {r.invoiceId ? (
               <>
@@ -375,7 +373,7 @@ function ResultCard({ r, terms }: { r: Result; terms: string[] }) {
       {shown.length > 0 && (
         <ul className="mt-2 space-y-0.5 border-t border-line-soft pt-2">
           {shown.map((l) => (
-            <li key={l.lineId} className="flex items-baseline gap-2 text-[11.5px] text-neutral-500">
+            <li key={l.lineId} className="flex items-baseline gap-2 text-[12px] text-neutral-500">
               {l.csi && <span className="shrink-0 tabular-nums text-neutral-400">{l.csi}</span>}
               <span className="min-w-0 flex-1 truncate">
                 <Highlight text={l.description || "(no description)"} terms={terms} />

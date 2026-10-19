@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { money0 as money } from "@/lib/money";
 
 /**
  * Donut chart — a small, dependency-free SVG ring for part-to-whole money
@@ -32,9 +33,6 @@ export interface DonutDetailRow {
   label: string;
   value: number;
 }
-
-const money = (n: number) =>
-  `$${n.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 
 const pct = (n: number, total: number) => (total > 0 ? Math.round((n / total) * 100) : 0);
 

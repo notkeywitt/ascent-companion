@@ -69,7 +69,7 @@ async function readJson(r: Response) {
 }
 
 const when = (iso: string) =>
-  new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+  new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 
 /** A spec's text, as a link when the schedule linked it. */
 function Linked({ text, links }: { text: string; links: SpecLink[] }) {
@@ -127,7 +127,7 @@ function SendPanel({
           </optgroup>
         ))}
       </Select>
-      <p className="text-[11.5px] text-neutral-500 dark:text-neutral-400">
+      <p className="text-[12px] text-neutral-500 dark:text-neutral-400">
         Added to the line&apos;s description, below its estimate note. The line becomes a Specification the client must
         approve.
       </p>
@@ -187,7 +187,7 @@ function Row({
           type="button"
           onClick={onStatus}
           disabled={saving}
-          className="shrink-0 text-[11.5px] font-semibold text-neutral-500 hover:text-accent disabled:opacity-50"
+          className="shrink-0 text-[12px] font-semibold text-neutral-500 hover:text-accent disabled:opacity-50"
         >
           {open ? "Mark decided" : "Reopen"}
         </button>
@@ -235,7 +235,7 @@ function Row({
           <button
             type="button"
             onClick={() => onSend(true)}
-            className="text-[11.5px] font-semibold text-accent hover:underline dark:text-accent-soft"
+            className="text-[12px] font-semibold text-accent hover:underline dark:text-accent-soft"
           >
             {row.jt ? "Save to JobTread again" : "Save to JobTread"}
           </button>
@@ -425,7 +425,7 @@ function Specs() {
             <Button onClick={importPdf} disabled={!file || busy}>
               {busy ? "Reading the schedule… about a minute" : "Read PDF"}
             </Button>
-            <span className="text-[11.5px] text-neutral-500 dark:text-neutral-400">
+            <span className="text-[12px] text-neutral-500 dark:text-neutral-400">
               For a spreadsheet, download it as a PDF first — its links survive.
             </span>
           </div>
@@ -575,7 +575,7 @@ function SpecTable({
   rowProps: (index: number) => RowProps;
 }) {
   return (
-    <table className="hidden w-full table-fixed border-collapse text-[12.5px] leading-snug lg:table">
+    <table className="hidden w-full table-fixed border-collapse text-[13px] leading-snug lg:table">
       <colgroup>
         <col className="w-[11%]" />
         <col className="w-[3%]" />
@@ -661,12 +661,12 @@ function TableRow({ row, saving, onStatus, lines, sending, onSend, onSave }: { r
             title={open ? "Mark decided" : "Reopen"}
             className="disabled:opacity-50"
           >
-            {open ? <Chip tone="warning">Open</Chip> : <span className="text-[11.5px] text-neutral-500">Decided</span>}
+            {open ? <Chip tone="warning">Open</Chip> : <span className="text-[12px] text-neutral-500">Decided</span>}
           </button>
         </td>
         <td className={TD}>
           {row.jt && (
-            <div className="truncate text-[11.5px] text-neutral-500" title={row.jt.line}>
+            <div className="truncate text-[12px] text-neutral-500" title={row.jt.line}>
               ✓ {row.jt.line}
             </div>
           )}
@@ -674,7 +674,7 @@ function TableRow({ row, saving, onStatus, lines, sending, onSend, onSave }: { r
             <button
               type="button"
               onClick={() => onSend(true)}
-              className="text-[11.5px] font-semibold text-accent hover:underline dark:text-accent-soft"
+              className="text-[12px] font-semibold text-accent hover:underline dark:text-accent-soft"
             >
               {row.jt ? "Save again" : "Save…"}
             </button>

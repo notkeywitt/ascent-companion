@@ -18,6 +18,7 @@ import {
   SectionHeading,
   btn,
 } from "@/components/ui";
+import { money } from "@/lib/money";
 
 /**
  * Vendor bill search — job, date, amount, status, per vendor or per bill
@@ -65,9 +66,6 @@ interface VendorDetail {
   addresses: string[];
   contacts: VendorContact[];
 }
-
-const money = (n: number) =>
-  "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 const dateLabel = (d: string | null) => {
   if (!d) return "No date";
@@ -219,7 +217,7 @@ function VendorDetailCard({
         ))}
       </ListCard>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-danger">{error}</p>}
 
       {typed.length > 0 && (
         <button
@@ -540,7 +538,7 @@ function Vendors() {
 
           {detail && <VendorDetailCard detail={detail} onSaved={setDetail} />}
 
-          {billsError && <p className="text-sm text-red-600">{billsError}</p>}
+          {billsError && <p className="text-sm text-danger">{billsError}</p>}
           {billsLoading && <Loading label="Loading bills…" />}
           {!billsLoading && !billsError && bills.length === 0 && (
             <EmptyState>No bills for {selected.name}.</EmptyState>
@@ -590,7 +588,7 @@ function Vendors() {
               Org-wide, not per vendor — bill numbers repeat, so this can return more than one.
             </p>
 
-            {numberError && <p className="text-sm text-red-600">{numberError}</p>}
+            {numberError && <p className="text-sm text-danger">{numberError}</p>}
             {numberLoading && <Loading label="Looking up bill…" />}
             {numberMatches && (
               <div className="space-y-2 pt-2">
@@ -624,7 +622,7 @@ function Vendors() {
               aria-label="Search vendors"
               autoFocus
             />
-            {vendorsError && <p className="text-sm text-red-600">{vendorsError}</p>}
+            {vendorsError && <p className="text-sm text-danger">{vendorsError}</p>}
 
             {!vendorsLoading && !vendorsError && (
               <div className="space-y-2 pt-2">

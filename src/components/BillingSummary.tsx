@@ -4,6 +4,8 @@ import { Fragment, useMemo } from "react";
 import Link from "next/link";
 import { JtLink } from "@/components/JtLink";
 import { BillStatusBadge } from "@/components/BillStatusBadge";
+import { money } from "@/lib/money";
+export { money };
 
 /**
  * The client-facing billing summary for ONE job in ONE month: the breakdown
@@ -61,9 +63,6 @@ export interface Detail {
   lines: Line[];
   total: number;
 }
-
-export const money = (n: number) =>
-  "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 /**
  * Has the bill been paid? JobTread computes `amountPaid` and `balance` from

@@ -181,11 +181,11 @@ export default function VendorMailIndex() {
             <span className="text-sm font-semibold tracking-tight">
               {coverage.indexed + Object.keys(done).length} of {coverage.total} vendors indexed
             </span>
-            <span className="text-[11.5px] text-neutral-500 dark:text-neutral-400">
+            <span className="text-[12px] text-neutral-500 dark:text-neutral-400">
               {coverage.pct}%
             </span>
           </div>
-          <p className="mt-1.5 text-[11.5px] text-neutral-500 dark:text-neutral-400">
+          <p className="mt-1.5 text-[12px] text-neutral-500 dark:text-neutral-400">
             {progress ||
               (swept.periods.length === 0
                 ? "No mail read yet."
@@ -260,7 +260,7 @@ export default function VendorMailIndex() {
       )}
 
       {Object.keys(done).length > 0 && (
-        <p className="mt-4 text-[11.5px] text-neutral-500 dark:text-neutral-400">
+        <p className="mt-4 text-[12px] text-neutral-500 dark:text-neutral-400">
           Saved {Object.keys(done).length} address
           {Object.keys(done).length === 1 ? "" : "es"} to JobTread. The mail check picks them up on
           its next load.

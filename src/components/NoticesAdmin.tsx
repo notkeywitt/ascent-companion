@@ -357,7 +357,7 @@ function NoticeForm({
                           ✓
                         </span>
                         <span className="min-w-0 flex-1 truncate text-sm">{p.email}</span>
-                        <span className="shrink-0 text-[11.5px] text-neutral-500 dark:text-neutral-400">
+                        <span className="shrink-0 text-[12px] text-neutral-500 dark:text-neutral-400">
                           {ROLE_PLURAL[p.role as Role] ?? p.role}
                         </span>
                       </button>
@@ -367,7 +367,7 @@ function NoticeForm({
               )}
             </div>
             {targetsNobody && (
-              <p className="text-xs text-amber-700 dark:text-amber-300">
+              <p className="text-xs text-warn">
                 Pick at least one group or person, or choose Everyone.
               </p>
             )}
@@ -554,7 +554,7 @@ export function NoticesAdmin() {
                       onClick={() =>
                         send({ url: `/api/admin/notices?id=${n.id}`, method: "DELETE" })
                       }
-                      className="text-red-600 hover:underline dark:text-red-400"
+                      className="text-danger hover:underline"
                     >
                       Delete
                     </button>

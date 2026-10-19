@@ -396,14 +396,14 @@ function dayChipLabel(ymd: string): string {
   if (diff === 0) return "Today";
   if (diff === -1) return "Yesterday";
   if (diff === 1) return "Tomorrow";
-  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
 // "2026-07-03" → "Fri, Jul 03" — the timesheet day heading.
 function dayHeading(ymd: string): string {
   const d = ymdToDate(ymd);
   return d
-    ? d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "2-digit" })
+    ? d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "2-digit" })
     : ymd;
 }
 
@@ -465,7 +465,7 @@ function shiftMonth(month: string, delta: number): string {
 }
 function monthLabel(month: string): string {
   const d = ymdToDate(`${month}-01`);
-  return d ? d.toLocaleDateString(undefined, { month: "long", year: "numeric" }) : month;
+  return d ? d.toLocaleDateString("en-US", { month: "long", year: "numeric" }) : month;
 }
 
 // The months the timesheet's month picker offers: this month back through two
@@ -2243,7 +2243,7 @@ export function EmployeeTimeClient({
                   </span>
                 </div>
                 {onBreakSince ? (
-                  <p className="mt-1 text-xs font-semibold text-amber-600 dark:text-amber-400">
+                  <p className="mt-1 text-xs font-semibold text-warn">
                     Your hours up to {fmt12h(onBreakSince.slice(11, 16))} are filed. End the break to
                     start the next entry.
                   </p>
@@ -2253,7 +2253,7 @@ export function EmployeeTimeClient({
                   </p>
                 ) : null}
                 {activeClock?.previewed && (
-                  <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
+                  <p className="mt-1 text-xs text-warn">
                     JobTread push is OFF — this clock is local-only until writes are enabled.
                   </p>
                 )}
@@ -2380,7 +2380,7 @@ export function EmployeeTimeClient({
               type="button"
               onClick={cancelClockIn}
               disabled={busy}
-              className="mx-auto mt-4 block text-xs text-neutral-500 underline-offset-2 hover:text-red-600 hover:underline disabled:opacity-40"
+              className="mx-auto mt-4 block text-xs text-neutral-500 underline-offset-2 hover:text-danger hover:underline disabled:opacity-40"
             >
               Cancel this clock-in
             </button>
@@ -2712,7 +2712,7 @@ export function EmployeeTimeClient({
               <span className="text-[13px] text-neutral-500">
                 Start time
                 {outStartTouched ? (
-                  <span className="ml-2 text-amber-600 dark:text-amber-400">edited</span>
+                  <span className="ml-2 text-warn">edited</span>
                 ) : null}
               </span>
               <span className="flex items-center gap-2">
@@ -3534,11 +3534,11 @@ function DaySection({ group, onEdit }: { group: DayGroup; onEdit: (e: HistoryEnt
         <h3 className="text-sm font-bold">
           {dayHeading(group.date)}
           {group.anyOpen ? (
-            <span className="ml-2 text-sm font-semibold text-amber-600 dark:text-amber-400">
+            <span className="ml-2 text-sm font-semibold text-warn">
               · Clocked in
             </span>
           ) : group.approved ? (
-            <span className="ml-2 text-sm font-semibold text-emerald-600 dark:text-emerald-400">
+            <span className="ml-2 text-sm font-semibold text-ok">
               · Approved
             </span>
           ) : (

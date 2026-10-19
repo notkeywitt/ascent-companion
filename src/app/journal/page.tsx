@@ -258,7 +258,7 @@ export default function JournalPage() {
                 )}
 
                 {r.outcome === "error" && (
-                  <p className="mt-1 text-[12px] leading-relaxed text-red-700 dark:text-red-400">
+                  <p className="mt-1 text-[12px] leading-relaxed text-danger">
                     Rejected — {r.error || "no reason recorded"}
                   </p>
                 )}

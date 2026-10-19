@@ -168,7 +168,7 @@ export function DocumentAccess({
       )}
 
       {!access.writesEnabled && (
-        <p className="mt-2 text-[11px] text-amber-600 dark:text-amber-400">
+        <p className="mt-2 text-[11px] text-warn">
           Writes are disabled on this deployment — this will preview only.
         </p>
       )}

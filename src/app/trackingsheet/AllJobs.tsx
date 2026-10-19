@@ -219,7 +219,7 @@ export function AllJobs() {
           <SectionHeading className="mb-2">Company tools</SectionHeading>
           <Card pad={false} className="overflow-hidden">
             <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 py-3">
-              <span className="min-w-0 flex-1 text-[11.5px] text-neutral-500 dark:text-neutral-400">
+              <span className="min-w-0 flex-1 text-[12px] text-neutral-500 dark:text-neutral-400">
                 Pull all of JobTread into the Sheet and Drive tree now. Runs hourly on its own;
                 this only asks for it early.
               </span>
@@ -236,7 +236,7 @@ export function AllJobs() {
             )}
             {can("tracking-sheet") && (
               <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-t border-line-soft px-4 py-3">
-                <span className="min-w-0 flex-1 text-[11.5px] text-neutral-500 dark:text-neutral-400">
+                <span className="min-w-0 flex-1 text-[12px] text-neutral-500 dark:text-neutral-400">
                   Pause the automatic tracking-sheet sync, or pin the month the sheets hold. Finalize
                   is on each job now, beside Sync.
                 </span>

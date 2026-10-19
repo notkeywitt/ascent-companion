@@ -331,7 +331,7 @@ function DocRow({
         <button
           type="button"
           onClick={onToggle}
-          className="ml-auto text-[11.5px] text-neutral-500 underline dark:text-neutral-400"
+          className="ml-auto text-[12px] text-neutral-500 underline dark:text-neutral-400"
         >
           {done ? "Not done" : "Mark done"}
         </button>

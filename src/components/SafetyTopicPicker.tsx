@@ -174,7 +174,7 @@ export function TopicPoints({ topic }: { topic: SafetyTopic }) {
   return (
     <>
       {topic.rule && (
-        <p className="mb-1.5 text-[11.5px] font-medium text-amber-700 dark:text-amber-400">
+        <p className="mb-1.5 text-[12px] font-medium text-warn">
           {topic.rule}
         </p>
       )}
@@ -188,7 +188,7 @@ export function TopicPoints({ topic }: { topic: SafetyTopic }) {
           href={topic.source.url}
           target="_blank"
           rel="noreferrer"
-          className="mt-1.5 inline-block text-[11.5px] font-semibold text-accent hover:underline dark:text-accent-soft"
+          className="mt-1.5 inline-block text-[12px] font-semibold text-accent hover:underline dark:text-accent-soft"
         >
           {topic.source.label} ↗
         </a>

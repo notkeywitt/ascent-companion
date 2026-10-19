@@ -58,14 +58,14 @@ function fromNow(iso: string | null): string {
   if (h < 24) return `${h}h ago`;
   const d = Math.round(h / 24);
   if (d < 30) return `${d}d ago`;
-  return new Date(iso).toLocaleDateString();
+  return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
 /** Full local timestamp for hover/title. */
 function fullTime(iso: string | null): string {
   if (!iso) return "";
   const t = new Date(iso);
-  return Number.isNaN(t.getTime()) ? "" : t.toLocaleString();
+  return Number.isNaN(t.getTime()) ? "" : t.toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
 }
 
 export function ActivityPanel() {
@@ -208,7 +208,7 @@ export function ActivityPanel() {
                         <span className="min-w-0 flex-1 truncate">
                           <span className="text-neutral-500">{r.email.split("@")[0]}</span>{" "}
                           {r.kind === "login" ? (
-                            <span className="font-medium text-emerald-600 dark:text-emerald-400">
+                            <span className="font-medium text-ok">
                               signed in
                             </span>
                           ) : r.kind === "coding" ? (

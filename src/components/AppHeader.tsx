@@ -47,7 +47,7 @@ export function AppHeader() {
     const d = new Date(process.env.APP_BUILD_TIME || "");
     if (!Number.isNaN(d.getTime())) {
       setDeployedAt(
-        d.toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }),
+        d.toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }),
       );
     }
   }, []);

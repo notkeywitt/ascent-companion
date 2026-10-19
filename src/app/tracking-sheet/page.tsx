@@ -731,8 +731,8 @@ function QueueRow({ item }: { item: QueueItem }) {
               <Spinner /> Working
             </span>
           )}
-          {item.status === "done" && <span className="font-semibold text-emerald-600">Done</span>}
-          {item.status === "error" && <span className="font-semibold text-red-600">Failed</span>}
+          {item.status === "done" && <span className="font-semibold text-ok">Done</span>}
+          {item.status === "error" && <span className="font-semibold text-danger">Failed</span>}
         </div>
       </div>
 

@@ -230,9 +230,9 @@ function NoticePopup({
   const remaining = queue.length - 1;
   const badge =
     current.tone === "warning"
-      ? "bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300"
+      ? "bg-amber-100 text-warn dark:bg-amber-950/50"
       : current.tone === "success"
-        ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300"
+        ? "bg-emerald-100 text-ok dark:bg-emerald-950/50"
         : "bg-accent/10 text-accent dark:bg-accent/15 dark:text-accent-soft";
 
   return (

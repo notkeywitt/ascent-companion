@@ -15,6 +15,7 @@ import { JobPicker, type JobRef } from "@/components/JobPicker";
 import { JobTabs } from "@/components/JobTabs";
 import { setUrlParam } from "@/lib/urlParam";
 import { Donut, type DonutSlice } from "@/components/Donut";
+import { money, money0 } from "@/lib/money";
 
 /**
  * Jobs cost browser — pick a job, see its cost laid out like the office's
@@ -108,11 +109,7 @@ interface JobCostDetail {
 /** Actual (spent + committed) = vendor bills + logged labor. */
 const actualOf = (r: { bills: number; labor: number }) => r.bills + r.labor;
 
-const money = (n: number) =>
-  `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 /** Compact money for the wide grid, where two decimals on 14 columns is noise. */
-const money0 = (n: number) =>
-  `$${n.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 const num = (n: number, dp = 1) =>
   n.toLocaleString(undefined, { minimumFractionDigits: dp, maximumFractionDigits: dp });
 /** A zero cell reads as "—" so the eye lands only on real numbers. */
@@ -219,7 +216,7 @@ function ProgressBar({ actual, budget, pct }: { actual: number; budget: number; 
         <SectionLabel>Budget used</SectionLabel>
         {budget > 0 ? (
           <span
-            className={`text-xs font-semibold tabular-nums ${over ? "text-red-600 dark:text-red-400" : "text-neutral-500"}`}
+            className={`text-xs font-semibold tabular-nums ${over ? "text-danger" : "text-neutral-500"}`}
           >
             {rounded}%
           </span>
@@ -256,9 +253,9 @@ function Kpi({ label, value, tone }: { label: string; value: string; tone?: "ove
       <p
         className={`mt-0.5 truncate text-lg font-semibold tabular-nums ${
           tone === "over"
-            ? "text-red-600 dark:text-red-400"
+            ? "text-danger"
             : tone === "under"
-              ? "text-emerald-600 dark:text-emerald-400"
+              ? "text-ok"
               : ""
         }`}
       >
@@ -626,7 +623,7 @@ export function JobsBrowser() {
                                   </td>
                                   <td className={`${TD} font-semibold`}>{cell(dActual)}</td>
                                   <td
-                                    className={`${TD} font-semibold ${dLeft < 0 ? "text-red-600 dark:text-red-400" : ""}`}
+                                    className={`${TD} font-semibold ${dLeft < 0 ? "text-danger" : ""}`}
                                   >
                                     {cell(dLeft)}
                                   </td>
@@ -697,7 +694,7 @@ export function JobsBrowser() {
                                           </td>
                                           <td className={TD}>{cell(cActual)}</td>
                                           <td
-                                            className={`${TD} ${cLeft < 0 ? "font-semibold text-red-600 dark:text-red-400" : ""}`}
+                                            className={`${TD} ${cLeft < 0 ? "font-semibold text-danger" : ""}`}
                                           >
                                             {cell(cLeft)}
                                           </td>
@@ -788,7 +785,7 @@ export function JobsBrowser() {
                             <td className={`${TD} ${WIDE} text-neutral-500`}>{cell(billsTotal)}</td>
                             <td className={TD}>{cell(actualTotal)}</td>
                             <td
-                              className={`${TD} ${budgetTotal - actualTotal < 0 ? "text-red-600 dark:text-red-400" : ""}`}
+                              className={`${TD} ${budgetTotal - actualTotal < 0 ? "text-danger" : ""}`}
                             >
                               {cell(budgetTotal - actualTotal)}
                             </td>

@@ -21,7 +21,7 @@ const statusClass: Record<string, string> = {
   // is the same accent tinted. The rest keep distinct semantic hues.
   open: "text-accent-fg bg-accent",
   planned: "text-accent bg-accent/10",
-  done: "text-green-700 bg-green-100 dark:text-green-300 dark:bg-green-950/50",
+  done: "text-ok bg-green-100 dark:bg-green-950/50",
   declined: "text-neutral-600 bg-neutral-200 dark:text-neutral-300 dark:bg-neutral-800",
 };
 

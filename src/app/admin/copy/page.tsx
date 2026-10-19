@@ -165,7 +165,7 @@ export default function PageTextEditor() {
                     <p className="mt-1.5 text-xs text-neutral-500">
                       Keep {e.tokens.map((t) => `{${t}}`).join(", ")} — it fills in the real value.
                       {missing.length > 0 && (
-                        <span className="ml-1 font-medium text-amber-700 dark:text-amber-500">
+                        <span className="ml-1 font-medium text-warn">
                           Missing {missing.map((t) => `{${t}}`).join(", ")}.
                         </span>
                       )}

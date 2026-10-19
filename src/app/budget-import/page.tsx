@@ -19,6 +19,7 @@ import {
   StatementBlock,
 } from "@/components/ui";
 import JtImport from "./JtImport";
+import { money } from "@/lib/money";
 
 /**
  * Budget Import — a job's tracking-sheet estimate as a CSV that JobTread's
@@ -60,7 +61,6 @@ interface Result {
   markup: number;
 }
 
-const money = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD" });
 const cost = (it: Item) => (it.quantity === "" ? 1 : it.quantity) * it.unitCost;
 
 async function readJson(r: Response) {

@@ -75,7 +75,7 @@ function GroupSection({
               className={inputCls + " max-w-[16rem] flex-1 font-semibold"}
             />
             <span className="text-[11px] text-neutral-400">pushes as “{group.name} - …”</span>
-            <button onClick={() => onDeleteGroup(group.id)} title="Delete group" className="ml-auto rounded-lg px-2 py-1 text-xs font-semibold text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40">
+            <button onClick={() => onDeleteGroup(group.id)} title="Delete group" className="ml-auto rounded-lg px-2 py-1 text-xs font-semibold text-danger hover:bg-red-50 dark:hover:bg-red-950/40">
               Delete group
             </button>
           </>
@@ -98,7 +98,7 @@ function GroupSection({
               className={inputCls + " pl-5"}
             />
           </div>
-          <button onClick={() => onDeleteRate(r.id)} title="Delete rate" className="rounded-lg px-2 py-1 text-xs font-semibold text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40">✕</button>
+          <button onClick={() => onDeleteRate(r.id)} title="Delete rate" className="rounded-lg px-2 py-1 text-xs font-semibold text-danger hover:bg-red-50 dark:hover:bg-red-950/40">✕</button>
         </div>
       ))}
       {rates.length === 0 && <p className="px-3 py-2 text-sm text-neutral-400">No rates in this group yet.</p>}
@@ -518,7 +518,7 @@ export default function LaborRatesPage() {
                       setDraft((d) => d.filter((_, j) => j !== i));
                     }}
                     title="Remove"
-                    className="rounded-lg px-2 py-1 text-xs font-semibold text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40"
+                    className="rounded-lg px-2 py-1 text-xs font-semibold text-danger hover:bg-red-50 dark:hover:bg-red-950/40"
                   >
                     ✕
                   </button>
@@ -540,7 +540,7 @@ export default function LaborRatesPage() {
               + Add a custom rate
             </button>
 
-            {draft.length > 20 && <p className="mt-3 text-[11px] text-red-600">JobTread allows at most 20 pay types per employee.</p>}
+            {draft.length > 20 && <p className="mt-3 text-[11px] text-danger">JobTread allows at most 20 pay types per employee.</p>}
         </Dialog>
       )}
     </main>

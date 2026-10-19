@@ -197,7 +197,7 @@ export function TimeSyncEditor({
       }
     >
         {row.detail && (
-          <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">JobTread said: {row.detail}</p>
+          <p className="mt-2 text-xs text-warn">JobTread said: {row.detail}</p>
         )}
 
         <div className="mt-4 space-y-3">
@@ -241,7 +241,7 @@ export function TimeSyncEditor({
             </Select>
             {payTypes === null && <p className="mt-1 text-xs text-neutral-500">Loading pay types…</p>}
             {!payTypeKnown && !offerAdd && (
-              <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
+              <p className="mt-1 text-xs text-warn">
                 JobTread does not have this pay type for {row.employee || "this employee"}. Pick one of theirs.
               </p>
             )}

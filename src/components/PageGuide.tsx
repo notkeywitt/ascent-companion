@@ -283,7 +283,7 @@ export function PageGuide() {
             <button
               type="button"
               aria-label={`Delete ${t.label}`}
-              className="px-1 text-neutral-500 hover:text-red-600"
+              className="px-1 text-neutral-500 hover:text-danger"
               onClick={() => {
                 setTopics((l) => l.filter((x) => x.id !== t.id));
                 setDirty(true);

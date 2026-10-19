@@ -783,7 +783,7 @@ export function DraftBudgetRail({ editor, sel }: { editor: BillEditor; sel: Sele
                         </span>
                         <span
                           className={`shrink-0 text-xs font-semibold tabular-nums ${
-                            g.remaining < 0 ? "text-red-600 dark:text-red-400" : ""
+                            g.remaining < 0 ? "text-danger" : ""
                           }`}
                         >
                           {money0(g.remaining)}
@@ -824,7 +824,7 @@ export function DraftBudgetRail({ editor, sel }: { editor: BillEditor; sel: Sele
                                   </span>
                                   <span
                                     className={`shrink-0 text-xs font-semibold tabular-nums ${
-                                      left < 0 ? "text-red-600 dark:text-red-400" : ""
+                                      left < 0 ? "text-danger" : ""
                                     }`}
                                   >
                                     {money0(left)}

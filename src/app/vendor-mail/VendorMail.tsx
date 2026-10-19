@@ -15,6 +15,7 @@ import {
   PageHeader,
   Select,
 } from "@/components/ui";
+import { money } from "@/lib/money";
 
 /**
  * VENDOR MAIL — every email a known vendor sent, and whether it was captured.
@@ -78,9 +79,6 @@ interface Payload {
   unindexed: { id: string; name: string }[];
   error?: string;
 }
-
-const money = (n: number) =>
-  "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 const dayLabel = (iso: string) => {
   const d = new Date(iso);
@@ -183,14 +181,14 @@ export default function VendorMail({ embedded = false }: { embedded?: boolean } 
             <span className="text-sm font-semibold tracking-tight">
               {data.coverage.indexed} of {data.coverage.total} vendors have an email on file
             </span>
-            <span className="text-[11.5px] text-neutral-500 dark:text-neutral-400">
+            <span className="text-[12px] text-neutral-500 dark:text-neutral-400">
               {data.coverage.pct}%
             </span>
           </div>
           <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-700">
             <div className="h-full rounded-full bg-brand" style={{ width: `${data.coverage.pct}%` }} />
           </div>
-          <p className="mt-2 text-[11.5px] text-neutral-500 dark:text-neutral-400">
+          <p className="mt-2 text-[12px] text-neutral-500 dark:text-neutral-400">
             Read {data.swept.messages} email{data.swept.messages === 1 ? "" : "s"} from{" "}
             {data.swept.addresses} address{data.swept.addresses === 1 ? "" : "es"} in the last{" "}
             {data.days} days. The {data.coverage.missing} vendors without an address are not
@@ -283,7 +281,7 @@ export default function VendorMail({ embedded = false }: { embedded?: boolean } 
       )}
 
       {data && (
-        <p className="mt-4 text-[11.5px] text-neutral-500 dark:text-neutral-400">
+        <p className="mt-4 text-[12px] text-neutral-500 dark:text-neutral-400">
           Captured is proof — the email&apos;s Gmail id is recorded against a bill. Likely captured is
           inference — a bill from that vendor near that date. This page reads only; it captures
           nothing.

@@ -23,6 +23,7 @@ import {
   suggestJob,
   type AmazonOrder,
 } from "@/lib/amazonImport";
+import { money } from "@/lib/money";
 
 interface JobRef {
   id: string;
@@ -75,9 +76,6 @@ interface AttachState {
 // it rather than on Amazon's exact naming scheme.
 const ORDER_ID_RE = /\d{3}-\d{7}-\d{7}/g;
 
-const money = (n: number) =>
-  "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
 const jobLabel = (j: JobRef) => (j.customer ? `${j.customer} — ${j.name}` : j.name);
 
 // Last 18 months as {ym, label} options for the billing-month dropdown.
@@ -93,11 +91,11 @@ function monthOptions() {
 }
 
 const STATUS_STYLE: Record<OrderStatus, { label: string; cls: string }> = {
-  created: { label: "Created", cls: "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300" },
+  created: { label: "Created", cls: "bg-emerald-100 text-ok dark:bg-emerald-950/50" },
   exists: { label: "Already in JT", cls: "bg-neutral-200 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300" },
   preview: { label: "Preview", cls: "bg-accent/15 text-accent dark:text-accent-soft" },
   skipped: { label: "Skipped", cls: "bg-neutral-200 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300" },
-  failed: { label: "Failed", cls: "bg-red-100 text-red-700 dark:bg-red-950/50 dark:text-red-300" },
+  failed: { label: "Failed", cls: "bg-red-100 text-danger dark:bg-red-950/50" },
 };
 
 export default function AmazonImportPage() {
@@ -625,7 +623,7 @@ export default function AmazonImportPage() {
                 onChange={(e) => onPickPdfZip(e.target.files?.[0] ?? null)}
               />
               {pdfError ? (
-                <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">{pdfError}</p>
+                <p className="mt-1 text-xs text-warn">{pdfError}</p>
               ) : havePdfZip ? (
                 <p className="mt-1 text-xs text-neutral-500">
                   {pdfZipName} · matched {matchedCount}/{orders.length} orders
@@ -794,7 +792,7 @@ export default function AmazonImportPage() {
                             if (att) {
                               return (
                                 <div
-                                  className={`mt-0.5 text-xs ${att.fail > 0 ? "text-amber-600 dark:text-amber-400" : "text-emerald-600 dark:text-emerald-400"}`}
+                                  className={`mt-0.5 text-xs ${att.fail > 0 ? "text-warn" : "text-ok"}`}
                                 >
                                   {att.ok} attached{att.fail > 0 ? `, ${att.fail} failed` : ""}
                                 </div>
@@ -808,7 +806,7 @@ export default function AmazonImportPage() {
                               );
                             }
                             return (
-                              <div className="mt-0.5 text-xs text-amber-600 dark:text-amber-400">
+                              <div className="mt-0.5 text-xs text-warn">
                                 no PDF matched — won&apos;t be created
                               </div>
                             );
@@ -892,7 +890,7 @@ export default function AmazonImportPage() {
                     </div>
 
                     {res?.message && (
-                      <p className="text-xs text-amber-600 dark:text-amber-400">{res.message}</p>
+                      <p className="text-xs text-warn">{res.message}</p>
                     )}
                     {res?.docId && (
                       <Link
@@ -929,12 +927,12 @@ export default function AmazonImportPage() {
               <span className="font-semibold">{ready.length}</span> bill
               {ready.length === 1 ? "" : "s"} · {money(totalReady)}
               {missingJob > 0 && (
-                <span className="ml-2 text-xs text-amber-600 dark:text-amber-400">
+                <span className="ml-2 text-xs text-warn">
                   {missingJob} selected order{missingJob === 1 ? "" : "s"} need a job
                 </span>
               )}
               {missingPdf > 0 && (
-                <span className="ml-2 text-xs text-amber-600 dark:text-amber-400">
+                <span className="ml-2 text-xs text-warn">
                   {missingPdf} without a PDF — held back
                 </span>
               )}
@@ -954,12 +952,12 @@ export default function AmazonImportPage() {
             </Button>
           </div>
           {!vendorId && (
-            <p className="mx-auto mt-1 max-w-3xl text-xs text-amber-600 dark:text-amber-400">
+            <p className="mx-auto mt-1 max-w-3xl text-xs text-warn">
               Pick the Amazon vendor above first.
             </p>
           )}
           {!havePdfZip && (
-            <p className="mx-auto mt-1 max-w-3xl text-xs text-amber-600 dark:text-amber-400">
+            <p className="mx-auto mt-1 max-w-3xl text-xs text-warn">
               Drop the invoice zip above — a bill can&apos;t be created without its PDF, and there is no
               way to attach one later.
             </p>

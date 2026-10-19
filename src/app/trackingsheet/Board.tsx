@@ -1684,7 +1684,7 @@ export function Board() {
                 list and the headroom strip above it are FOR. Over-budget codes
                 still turn red here, so the warning survives the diet. */}
             {codes.size > 0 && (
-              <span className="mt-1 block line-clamp-2 text-[11.5px] tabular-nums text-neutral-500 dark:text-neutral-400">
+              <span className="mt-1 block line-clamp-2 text-[12px] tabular-nums text-neutral-500 dark:text-neutral-400">
                 {[...codes.entries()]
                   .sort((x, y) => y[1] - x[1])
                   .map(([code, amt], i) => {
@@ -1698,7 +1698,7 @@ export function Board() {
                           </span>
                         )}
                         <span
-                          className={over ? "font-semibold text-red-600 dark:text-red-400" : ""}
+                          className={over ? "font-semibold text-danger" : ""}
                           title={
                             h
                               ? `${h.name} — ${money(remainingOf(h))} remaining`
@@ -2050,7 +2050,7 @@ export function Board() {
       {jobId && !loading && <UncapturedBills jobId={jobId} />}
 
       {data && !data.writesEnabled && (
-        <p className="mb-4 text-[11px] text-amber-600 dark:text-amber-400">
+        <p className="mb-4 text-[11px] text-warn">
           Writes are disabled on this deployment — Sync will preview only.
         </p>
       )}
@@ -2701,9 +2701,9 @@ export function Board() {
             {closingActions}
           </div>
           {dirty && (
-            <span className="text-xs font-bold tabular-nums text-amber-700 dark:text-amber-300">
+            <span className="text-xs font-bold tabular-nums text-warn">
               {stagedCount} staged change{stagedCount === 1 ? "" : "s"}
-              <span className="block text-[10.5px] font-medium text-neutral-500 dark:text-neutral-400">
+              <span className="block text-[11px] font-medium text-neutral-500 dark:text-neutral-400">
                 Nothing is written until you save
               </span>
             </span>
@@ -2904,7 +2904,7 @@ export function Board() {
                       <span
                         className={
                           pushQb
-                            ? "text-emerald-600 dark:text-emerald-400"
+                            ? "text-ok"
                             : "text-neutral-500 dark:text-neutral-400"
                         }
                       >
@@ -2913,7 +2913,7 @@ export function Board() {
                       <span
                         className={
                           taxOn
-                            ? "text-amber-600 dark:text-amber-400"
+                            ? "text-warn"
                             : "text-neutral-500 dark:text-neutral-400"
                         }
                       >
@@ -2931,7 +2931,7 @@ export function Board() {
               </span>
             </div>
             {data && !data.writesEnabled && (
-              <p className="mt-2 text-[11px] text-amber-600 dark:text-amber-400">
+              <p className="mt-2 text-[11px] text-warn">
                 Writes are disabled on this deployment — this will preview only.
               </p>
             )}

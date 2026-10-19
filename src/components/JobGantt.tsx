@@ -107,7 +107,7 @@ export function JobGantt({
               className={`${ROW} py-[2px]`}
             >
               <span
-                className={`truncate text-[11.5px] ${
+                className={`truncate text-[12px] ${
                   b.depth > 0
                     ? "pl-3 text-neutral-500 dark:text-neutral-400"
                     : "font-semibold text-neutral-700 dark:text-neutral-200"
@@ -146,7 +146,7 @@ export function JobGantt({
         })}
       </div>
 
-      <p className="mt-1.5 text-[10.5px] text-neutral-400 dark:text-neutral-500">
+      <p className="mt-1.5 text-[11px] text-neutral-400 dark:text-neutral-500">
         Each bar is a JobTread schedule phase; the fill is its progress. The line is today. A row
         opens that phase in JobTread.
       </p>

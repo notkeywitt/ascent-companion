@@ -124,7 +124,7 @@ export function PayTypes({
                   setDraft((d) => d.filter((_, j) => j !== i));
                 }}
                 title={`Remove ${t.name}`}
-                className="px-1 text-neutral-400 hover:text-red-600"
+                className="px-1 text-neutral-400 hover:text-danger"
               >
                 ✕
               </button>

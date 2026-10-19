@@ -23,6 +23,7 @@ import {
   type EnteredDeposit,
 } from "@/lib/deposits";
 import type { ClientPaymentRow } from "@/lib/jobtread";
+import { money } from "@/lib/money";
 
 /**
  * The job's DEPOSIT and its client payments, beside the month's invoice panel.
@@ -49,7 +50,6 @@ interface DepositsPayload {
   updatedBy: string;
 }
 
-const money = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD" });
 const day = (iso: string | null | undefined) => (iso ? String(iso).slice(0, 10) : "");
 
 function entryLabel(e: DepositEntry): string {

@@ -30,7 +30,7 @@ export function OfficeImages({ files }: { files: JobFile[] }) {
               loading="lazy"
               className="aspect-square w-full cursor-zoom-in rounded-lg border border-line object-cover"
             />
-            <span className="mt-1 block truncate text-[11.5px] text-neutral-500 dark:text-neutral-400">
+            <span className="mt-1 block truncate text-[12px] text-neutral-500 dark:text-neutral-400">
               {f.name}
             </span>
           </button>

@@ -72,7 +72,7 @@ function MultiChips({
             type="button"
             aria-pressed={on.has(option)}
             onClick={() => onChange(toggleMulti(value, option, options))}
-            className={`inline-flex min-h-11 items-center rounded-full border px-3.5 text-[12.5px] font-semibold transition ${
+            className={`inline-flex min-h-11 items-center rounded-full border px-3.5 text-[13px] font-semibold transition ${
               on.has(option)
                 ? "border-accent bg-accent text-accent-fg"
                 : "border-line bg-white text-neutral-500 hover:border-accent dark:bg-ink-raised dark:text-neutral-400"

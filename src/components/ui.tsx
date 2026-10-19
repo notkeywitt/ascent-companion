@@ -54,7 +54,7 @@ const BTN_VARIANT: Record<BtnVariant, string> = {
   outline: "border border-accent text-accent hover:bg-accent/10",
   ghost: "text-neutral-500 hover:text-accent dark:hover:text-accent-soft",
   danger:
-    "border border-red-300 text-red-600 hover:bg-red-50 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950/40",
+    "border border-red-300 text-danger hover:bg-red-50 dark:border-red-900 dark:hover:bg-red-950/40",
 };
 
 const BTN_SIZE: Record<BtnSize, string> = {
@@ -111,7 +111,7 @@ export function IconButton({
       title={title ?? label}
       className={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100 ${
         tone === "danger"
-          ? "text-neutral-500 hover:bg-red-50 hover:text-red-600 dark:text-neutral-400 dark:hover:bg-red-950/40 dark:hover:text-red-400"
+          ? "text-neutral-500 hover:bg-red-50 hover:text-danger dark:text-neutral-400 dark:hover:bg-red-950/40"
           : "text-neutral-500 hover:bg-accent/10 hover:text-accent dark:text-neutral-400 dark:hover:bg-accent/20 dark:hover:text-accent-soft"
       } ${className}`}
     >
@@ -398,7 +398,7 @@ export function ListRow({
           // No `block` beside line-clamp: both set `display`, and Tailwind
           // emits `block` later, which would switch the clamp off.
           <span
-            className={`mt-0.5 ${wrap ? "line-clamp-2 break-words" : "block truncate"} text-[11.5px] text-neutral-500 dark:text-neutral-400`}
+            className={`mt-0.5 ${wrap ? "line-clamp-2 break-words" : "block truncate"} text-[12px] text-neutral-500 dark:text-neutral-400`}
           >
             {desc}
           </span>
@@ -499,8 +499,8 @@ const CHIP_TONE: Record<ChipTone, string> = {
   neutral: "bg-neutral-200 text-neutral-600 dark:bg-neutral-700 dark:text-neutral-300",
   warning: "bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-300",
   info: "bg-sky-100 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300",
-  success: "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300",
-  danger: "bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-300",
+  success: "bg-emerald-100 text-ok dark:bg-emerald-950/40",
+  danger: "bg-red-100 text-danger dark:bg-red-950/40",
   accent: "bg-accent/15 text-accent dark:text-accent-soft",
 };
 
@@ -569,7 +569,7 @@ export function MetaLine({
   if (shown.length === 0) return null;
   return (
     <span
-      className={`flex flex-wrap items-center gap-x-1.5 text-[11.5px] text-neutral-500 dark:text-neutral-400 ${className}`}
+      className={`flex flex-wrap items-center gap-x-1.5 text-[12px] text-neutral-500 dark:text-neutral-400 ${className}`}
     >
       {shown.map((item, i) => (
         <span key={i} className="inline-flex items-center gap-1.5">
@@ -632,7 +632,7 @@ export function FilterChip({
       onClick={onClick}
       aria-pressed={on}
       title={title}
-      className={`inline-flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3.5 text-[12.5px] font-semibold transition ${
+      className={`inline-flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3.5 text-[13px] font-semibold transition ${
         on
           ? "border-accent bg-accent text-accent-fg"
           : "border-line bg-white text-neutral-500 hover:border-accent dark:bg-ink-raised dark:text-neutral-400"
@@ -703,9 +703,9 @@ export type BannerTone = "error" | "warning" | "success" | "info" | "neutral";
 const BANNER_TONE: Record<BannerTone, string> = {
   // A hairline in the tone on every coloured banner: without one the pale fill
   // vanished on the cream page (light) and the error read as page furniture.
-  error: "border border-red-200 bg-red-50 text-red-700 dark:border-red-900/70 dark:bg-red-950/40 dark:text-red-300",
+  error: "border border-red-200 bg-red-50 text-danger dark:border-red-900/70 dark:bg-red-950/40",
   warning: "border border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-300",
-  success: "border border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-300",
+  success: "border border-emerald-200 bg-emerald-50 text-ok dark:border-emerald-900/60 dark:bg-emerald-950/40",
   info: "bg-accent/10 text-accent dark:bg-accent/15 dark:text-accent-soft",
   neutral: "bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300",
 };

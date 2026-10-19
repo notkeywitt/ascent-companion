@@ -23,6 +23,7 @@ import {
 } from "@/components/ui";
 import { StickyActionBar } from "@/components/StickyActionBar";
 import { billingMonths, monthLabel } from "@/lib/billingMonths";
+import { money } from "@/lib/money";
 
 /**
  * Invoicing Package — the month's client-billing summary, and the Google Doc it
@@ -129,10 +130,6 @@ interface Summary {
   warnings: string[];
   jobs: JobRow[];
 }
-
-const money = (n: number) =>
-  (n < 0 ? "-$" : "$") +
-  Math.abs(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 const plural = (n: number, one: string, many = one + "s") => `${n} ${n === 1 ? one : many}`;
 
@@ -632,7 +629,7 @@ function JobCard({
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        className="mt-2 text-[11.5px] text-neutral-500 underline dark:text-neutral-400"
+        className="mt-2 text-[12px] text-neutral-500 underline dark:text-neutral-400"
       >
         {open ? "Done editing" : "Edit wording"}
       </button>

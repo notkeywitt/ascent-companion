@@ -124,10 +124,10 @@ export function ScriptJobs({ keys, title }: { keys: string[]; title?: string }) 
                         className={
                           "mt-1 text-xs " +
                           (st.status === "error"
-                            ? "text-red-600 dark:text-red-400"
+                            ? "text-danger"
                             : st.lockBusy
-                              ? "text-amber-600 dark:text-amber-400"
-                              : "text-emerald-600 dark:text-emerald-400")
+                              ? "text-warn"
+                              : "text-ok")
                         }
                       >
                         {st.note}

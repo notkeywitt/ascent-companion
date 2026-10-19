@@ -15,6 +15,7 @@ import {
   tableCls,
 } from "@/components/ui";
 import { JobPicker, type JobRef } from "@/components/JobPicker";
+import { money } from "@/lib/money";
 
 /**
  * Admin utility: capture a job's historical costs — the spend its Google
@@ -91,9 +92,6 @@ interface UpsertResult {
   unmappedCount?: number;
   note: string;
 }
-
-const money = (n: number) =>
-  "$" + (Number(n) || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export function HistoricalCost({
   embedded = false,

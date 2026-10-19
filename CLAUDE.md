@@ -116,6 +116,10 @@ branch's record, so the next session can pick the work up cold. Read
   (the file picker), `Dialog` (every modal — never a hand-rolled `fixed inset-0`
   overlay), Button `size="xs"` (never `!py-… !text-xs`), and `tableCls` (one
   table style).
+- **Status text is a token: `text-warn`, `text-danger`, `text-ok`** — never
+  `text-amber-600 dark:text-amber-400` by hand. Values in `globals.css`. Money
+  goes through `money` / `money0` (`src/lib/money.ts`); dates read
+  "Oct 19, 2026" (`en-US`, short month), never the browser's default format.
 - **Prefer a hairline to a box, and text to a pill.** A list of records is ONE
   `Card pad={false}` with `divide-y divide-line-soft` rows — never a bordered card
   per record. Ordinary state goes in a `MetaLine`; a `Chip` is spent only on the

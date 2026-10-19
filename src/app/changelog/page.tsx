@@ -131,7 +131,7 @@ function SessionRow({ session }: { session: Session }) {
             ]}
           />
           {session.next && session.status !== "shipped" && (
-            <span className="mt-1.5 block border-l-2 border-line pl-2.5 text-[11.5px] leading-relaxed text-neutral-500 dark:text-neutral-400">
+            <span className="mt-1.5 block border-l-2 border-line pl-2.5 text-[12px] leading-relaxed text-neutral-500 dark:text-neutral-400">
               Next: {session.next}
             </span>
           )}
@@ -146,14 +146,14 @@ function SessionRow({ session }: { session: Session }) {
 
       <div className="border-t border-line-soft bg-neutral-50/60 px-4 py-3 dark:bg-neutral-800/30">
         {n === 0 ? (
-          <p className="text-[12.5px] text-neutral-500 dark:text-neutral-400">
+          <p className="text-[13px] text-neutral-500 dark:text-neutral-400">
             No commits recorded yet.
           </p>
         ) : (
           <ul className="space-y-2.5">
             {session.commits.map((c) => (
               <li key={c.sha}>
-                <p className="text-[12.5px] leading-snug">{c.subject}</p>
+                <p className="text-[13px] leading-snug">{c.subject}</p>
                 <MetaLine
                   className="mt-0.5"
                   items={[
@@ -236,7 +236,7 @@ export default function ChangelogPage() {
         )}
       </section>
 
-      <p className="mt-8 text-[11.5px] text-neutral-500 dark:text-neutral-400">
+      <p className="mt-8 text-[12px] text-neutral-500 dark:text-neutral-400">
         Updated {longDate(ledger.generatedAt)}. The back end keeps its own record
         in <span className="font-mono">ascent-appscript/SESSIONS.md</span>.
       </p>

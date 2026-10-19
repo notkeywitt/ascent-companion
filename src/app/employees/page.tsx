@@ -47,8 +47,8 @@ type SortKey = "name" | "position" | "status";
 
 const statusClass = (s: string) => {
   const k = s.toLowerCase();
-  if (k === "active") return "text-green-700 bg-green-100 dark:text-green-300 dark:bg-green-950/50";
-  if (k === "on leave") return "text-amber-700 bg-amber-100 dark:text-amber-300 dark:bg-amber-950/50";
+  if (k === "active") return "text-ok bg-green-100 dark:bg-green-950/50";
+  if (k === "on leave") return "text-warn bg-amber-100 dark:bg-amber-950/50";
   if (k === "retired") return "text-neutral-600 bg-neutral-200 dark:text-neutral-300 dark:bg-neutral-800";
   return "text-accent bg-accent/10";
 };
@@ -344,7 +344,7 @@ export default function EmployeesPage() {
           className={
             live || !jtUsers.length
               ? "text-[12px] text-neutral-600 dark:text-neutral-400"
-              : "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold text-amber-700 bg-amber-100 dark:text-amber-300 dark:bg-amber-950/50"
+              : "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold text-warn bg-amber-100 dark:bg-amber-950/50"
           }
         >
           ✓ {name}
@@ -358,7 +358,7 @@ export default function EmployeesPage() {
           onClick={() => quickLink(e, sug)}
           disabled={linkingId === e.id}
           title={`Link to JobTread user "${sug.name}"`}
-          className="inline-flex items-center gap-1 rounded-full border border-amber-400 px-2 py-0.5 text-[11px] font-semibold text-amber-700 hover:bg-amber-50 disabled:opacity-40 dark:text-amber-300 dark:hover:bg-amber-950/40"
+          className="inline-flex items-center gap-1 rounded-full border border-amber-400 px-2 py-0.5 text-[11px] font-semibold text-warn hover:bg-amber-50 disabled:opacity-40 dark:hover:bg-amber-950/40"
         >
           {linkingId === e.id ? "Linking…" : `Link: ${sug.name}`}
         </button>

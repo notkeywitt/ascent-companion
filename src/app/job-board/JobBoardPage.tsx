@@ -58,7 +58,7 @@ function ScheduleNow({ c }: { c: JobsPageCard }) {
           href={jtScheduleUrl(c.id)}
           target="_blank"
           rel="noreferrer"
-          className="block text-[12.5px] font-semibold leading-snug hover:text-accent dark:hover:text-accent-soft"
+          className="block text-[13px] font-semibold leading-snug hover:text-accent dark:hover:text-accent-soft"
         >
           {scheduleHeadline(s)}
         </a>
