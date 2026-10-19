@@ -4,9 +4,9 @@ repo: ascent-companion
 branch: claude/page-consolidation-audit
 status: shipped
 started: 2026-10-18T17:20:28Z
-updated: 2026-10-19T00:12:28Z
+updated: 2026-10-19T00:37:24Z
 goal: audit admin and office pages, recommend merges
-next: owner: pay-rate editor rule (Employees add/remove vs Pay Rates replace list); remaining look pass (Leads, Sunset, LSWDD, Amazon, Not in JobTread), Historical Cost drawer, 'handled' in appscript
+next: remaining: look pass (Leads, Sunset, LSWDD, Amazon, Not in JobTread), Historical Cost drawer, job Overview tab, 'handled' meaning in appscript (needs owner deploy)
 ---
 
 ## Log
@@ -60,6 +60,8 @@ next: owner: pay-rate editor rule (Employees add/remove vs Pay Rates replace lis
   CONSOLIDATION_PLAN.md, src/app/employees/page.tsx, src/app/logs/page.tsx, src/app/requests/page.tsx, src/app/requisitions/page.tsx, src/app/tools/page.tsx
 - 2026-10-19 00:12 · `66891b2` companion: bill search as one hairline list; archive reads ?q
   CONSOLIDATION_PLAN.md, src/app/bill-search/BillSearch.tsx, src/app/expenditure-history/ExpenditureBrowser.tsx
+- 2026-10-19 00:37 · `ac1754f` companion: employee pay types edit as one ordered list, saved like pay rates
+  CONSOLIDATION_PLAN.md, src/app/employees/JobTreadSections.tsx
 
 ## Notes
 - 2026-10-18 17:21 — audit: 6 readers over every admin/office page; usage = Vercel server renders 30d (Web Analytics off). Report https://claude.ai/artifact/9i159BFud4dbuvjwVcgTbj
