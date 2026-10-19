@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import { Banner, Button, Loading, PageHeader, inputCls } from "@/components/ui";
+import { Banner, Button, Checkbox, Dialog, Loading, PageHeader, inputCls, tableCls } from "@/components/ui";
 
 import { PayTypeRules } from "./PayTypeRules";
 
@@ -426,23 +426,23 @@ export default function LaborRatesPage() {
               </div>
 
               <div className="overflow-x-auto rounded-xl border border-line bg-white dark:bg-ink-raised">
-                <table className="w-full min-w-[40rem] text-sm">
-                  <thead className="bg-neutral-50 text-neutral-500 dark:bg-white/5">
+                <table className={`${tableCls.root} min-w-[40rem]`}>
+                  <thead>
                     <tr>
-                      <th className="w-8 px-3 py-2" />
-                      <th className="px-3 py-2 text-left font-semibold">Employee</th>
-                      <th className="px-3 py-2 text-left font-semibold">Rates (in push order)</th>
-                      <th className="px-3 py-2" />
+                      <th className={`${tableCls.th} w-8`} />
+                      <th className={tableCls.th}>Employee</th>
+                      <th className={tableCls.th}>Rates (in push order)</th>
+                      <th className={tableCls.th} />
                     </tr>
                   </thead>
                   <tbody>
                     {members.map((m) => (
-                      <tr key={m.membershipId} className="border-t border-line-soft align-top dark:border-neutral-800/70">
-                        <td className="px-3 py-2">
-                          <input type="checkbox" checked={selected.has(m.membershipId)} onChange={() => toggle(m.membershipId)} className="h-4 w-4 accent-accent" />
+                      <tr key={m.membershipId} className={tableCls.tr}>
+                        <td className={tableCls.td}>
+                          <Checkbox checked={selected.has(m.membershipId)} onChange={() => toggle(m.membershipId)} aria-label={`Select ${m.name}`} />
                         </td>
-                        <td className="px-3 py-2 font-medium">{m.name}</td>
-                        <td className="px-3 py-2">
+                        <td className={`${tableCls.td} font-medium`}>{m.name}</td>
+                        <td className={tableCls.td}>
                           {m.types.length === 0 ? (
                             <span className="text-neutral-400">—</span>
                           ) : (
@@ -456,7 +456,7 @@ export default function LaborRatesPage() {
                             </div>
                           )}
                         </td>
-                        <td className="px-3 py-2 text-right">
+                        <td className={`${tableCls.td} text-right`}>
                           <button onClick={() => openEditor(m)} className="rounded-lg border border-neutral-300 px-3 py-1 text-xs font-semibold transition hover:border-accent hover:text-accent dark:border-neutral-600">
                             Edit rates
                           </button>
@@ -476,15 +476,20 @@ export default function LaborRatesPage() {
 
       {/* ---- per-member editor modal (exact replace, ordered) ---- */}
       {editing && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4" onClick={() => !busy && setEditing(null)}>
-          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-t-2xl bg-white p-4 dark:bg-ink-overlay sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
-            <div className="mb-1 flex items-baseline justify-between">
-              <h2 className="text-lg font-bold">{editing.name}</h2>
-              <span className="text-xs text-neutral-500">rates in JobTread</span>
-            </div>
-            <p className="mb-3 text-[11px] text-neutral-400">
-              Saving sets this employee’s pay types to exactly this list, in this order (removing any you delete here). Use ↑/↓ to set the push order.
-            </p>
+        <Dialog
+          onClose={() => setEditing(null)}
+          busy={busy}
+          title={editing.name}
+          description="Rates in JobTread. Saving sets this employee’s pay types to exactly this list, in this order (removing any you delete here). Use ↑/↓ to set the push order."
+          footer={
+            <>
+              <Button variant="secondary" onClick={() => setEditing(null)} disabled={busy}>Cancel</Button>
+              <Button onClick={saveEditor} disabled={busy || draft.length > 20}>
+                {busy ? "Saving…" : "Save to JobTread"}
+              </Button>
+            </>
+          }
+        >
 
             <div className="space-y-2">
               {draft.map((t, i) => (
@@ -535,15 +540,8 @@ export default function LaborRatesPage() {
               + Add a custom rate
             </button>
 
-            <div className="mt-4 flex gap-2">
-              <Button variant="secondary" className="flex-1" onClick={() => setEditing(null)} disabled={busy}>Cancel</Button>
-              <Button className="flex-1" onClick={saveEditor} disabled={busy || draft.length > 20}>
-                {busy ? "Saving…" : "Save to JobTread"}
-              </Button>
-            </div>
-            {draft.length > 20 && <p className="mt-2 text-center text-[11px] text-red-600">JobTread allows at most 20 pay types per employee.</p>}
-          </div>
-        </div>
+            {draft.length > 20 && <p className="mt-3 text-[11px] text-red-600">JobTread allows at most 20 pay types per employee.</p>}
+        </Dialog>
       )}
     </main>
   );

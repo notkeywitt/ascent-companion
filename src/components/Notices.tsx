@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Banner, Button, type BannerTone } from "@/components/ui";
+import { Banner, Button, Dialog, type BannerTone } from "@/components/ui";
 import { planToasts, readToasted, showToast, toastState, writeToasted } from "@/lib/noticeToasts";
 
 /**
@@ -24,8 +24,8 @@ import { planToasts, readToasted, showToast, toastState, writeToasted } from "@/
  * Both surfaces live in one component because they share one feed. Two
  * components would mean two requests for the same answer on every page load.
  *
- * The popup renders as `fixed inset-0`, so its position on screen does not
- * depend on where in the tree this sits — only the banner stack does.
+ * The popup is a `Dialog`, which renders into <body>, so its position on screen
+ * does not depend on where in the tree this sits — only the banner stack does.
  *
  *  - **desktop toast** — the OS notification in the corner, for a notice that
  *    arrives while the app is in the BACKGROUND on a computer. Off until the
@@ -226,16 +226,6 @@ function NoticePopup({
     if (current) onDismiss(current.id);
   }, [current, onDismiss]);
 
-  // Escape closes the current notice, matching the backdrop click.
-  useEffect(() => {
-    if (!current) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") dismiss();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [current, dismiss]);
-
   if (!current) return null;
   const remaining = queue.length - 1;
   const badge =
@@ -246,17 +236,19 @@ function NoticePopup({
         : "bg-accent/10 text-accent dark:bg-accent/15 dark:text-accent-soft";
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-4 sm:items-center"
-      onClick={dismiss}
+    <Dialog
+      onClose={dismiss}
+      role="alertdialog"
+      label={current.title}
+      footer={
+        <>
+          <span className="mr-auto text-xs text-neutral-400">
+            {remaining > 0 ? `${remaining} more notice${remaining === 1 ? "" : "s"}` : ""}
+          </span>
+          <Button onClick={dismiss}>{remaining > 0 ? "Next" : "Got it"}</Button>
+        </>
+      }
     >
-      <div
-        role="alertdialog"
-        aria-modal="true"
-        aria-labelledby="notice-title"
-        onClick={(e) => e.stopPropagation()}
-        className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-2xl border border-line bg-white p-5 shadow-xl dark:bg-ink-raised"
-      >
         <div className="flex items-start gap-3">
           <span
             aria-hidden
@@ -265,7 +257,7 @@ function NoticePopup({
             <ToneMark tone={current.tone} />
           </span>
           <div className="min-w-0">
-            <h2 id="notice-title" className="text-base font-bold tracking-tight">
+            <h2 className="text-base font-bold tracking-tight">
               {current.title}
             </h2>
             {current.body && (
@@ -273,14 +265,6 @@ function NoticePopup({
             )}
           </div>
         </div>
-
-        <div className="mt-4 flex items-center justify-between gap-2">
-          <span className="text-xs text-neutral-400">
-            {remaining > 0 ? `${remaining} more notice${remaining === 1 ? "" : "s"}` : ""}
-          </span>
-          <Button onClick={dismiss}>{remaining > 0 ? "Next" : "Got it"}</Button>
-        </div>
-      </div>
-    </div>
+    </Dialog>
   );
 }

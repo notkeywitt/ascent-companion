@@ -12,7 +12,7 @@ import {
 import { JtLink } from "@/components/JtLink";
 import { LinkVendor } from "@/components/LinkVendor";
 import { useAccess } from "@/components/AccessProvider";
-import { Button, Input, btn } from "@/components/ui";
+import { Button, Dialog, Input, btn } from "@/components/ui";
 
 /**
  * The unmatched-vendor alert — the loud half of a failure that used to be silent.
@@ -403,32 +403,26 @@ export function StuckVendorPopup() {
     setDismissedSig(sig);
   }, [sig]);
 
-  // Escape closes, matching the backdrop click.
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") dismiss();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open, dismiss]);
-
   if (!open) return null;
 
   const taggedTotal = vendors.reduce((n, v) => n + v.taggedCount, 0);
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-4 sm:items-center"
-      onClick={dismiss}
+    <Dialog
+      onClose={dismiss}
+      role="alertdialog"
+      label={vendors.length === 1 ? "A vendor isn’t in JobTread" : `${vendors.length} vendors aren’t in JobTread`}
+      footer={
+        <>
+          <JtLink href={JT_VENDORS_URL} className={btn("primary", "md", "flex-1")}>
+            Open JobTread Vendors ↗
+          </JtLink>
+          <Button variant="secondary" onClick={dismiss}>
+            Later
+          </Button>
+        </>
+      }
     >
-      <div
-        role="alertdialog"
-        aria-modal="true"
-        aria-labelledby="stuck-vendor-title"
-        onClick={(e) => e.stopPropagation()}
-        className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-2xl border border-line bg-white p-5 shadow-xl dark:bg-ink-raised"
-      >
         <div className="flex items-start gap-3">
           <span
             aria-hidden
@@ -440,7 +434,7 @@ export function StuckVendorPopup() {
             </svg>
           </span>
           <div className="min-w-0">
-            <h2 id="stuck-vendor-title" className="text-base font-bold tracking-tight">
+            <h2 className="text-base font-bold tracking-tight">
               {vendors.length === 1
                 ? "A vendor isn’t in JobTread"
                 : `${vendors.length} vendors aren’t in JobTread`}
@@ -466,17 +460,7 @@ export function StuckVendorPopup() {
           If JobTread already has the vendor under another name, tap Already in JobTread and pick
           it — the name is remembered for the next invoice.
         </p>
-
-        <div className="mt-4 flex items-center gap-2">
-          <JtLink href={JT_VENDORS_URL} className={btn("primary", "md", "flex-1")}>
-            Open JobTread Vendors ↗
-          </JtLink>
-          <Button variant="secondary" onClick={dismiss}>
-            Later
-          </Button>
-        </div>
-      </div>
-    </div>
+    </Dialog>
   );
 }
 

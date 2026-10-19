@@ -18,6 +18,8 @@ import { PageTitle, PeakMark } from "@/components/PageTitle";
 import { LinkPendingOverlay } from "@/components/LinkPending";
 import { Spinner } from "@/components/Spinner";
 import { StickyActionBar } from "@/components/StickyActionBar";
+import { Dialog } from "@/components/Dialog";
+import { FileDrop } from "@/components/FileDrop";
 
 // Spinner moved to its own module to keep ui → LinkPending a one-way import
 // (see components/Spinner.tsx). Re-exported so existing call sites are unchanged.
@@ -26,11 +28,14 @@ export { Spinner };
 // ResizeObserver, so it has to be a client module and ui.tsx is imported by
 // server components too. Re-exported, so no call site changes.
 export { StickyActionBar };
+// Dialog and FileDrop hold state (focus, drag-over), so they are client modules
+// too. Re-exported so a page imports every part from one place.
+export { Dialog, FileDrop };
 
 /* ------------------------------------------------------------------ buttons */
 
 export type BtnVariant = "primary" | "secondary" | "outline" | "ghost" | "danger";
-export type BtnSize = "sm" | "md" | "lg";
+export type BtnSize = "xs" | "sm" | "md" | "lg";
 
 // `ui-btn` is a styling HOOK, not a class that paints anything here: it is what
 // a palette reaches for to restyle every button at once (globals.css gives the
@@ -53,6 +58,9 @@ const BTN_VARIANT: Record<BtnVariant, string> = {
 };
 
 const BTN_SIZE: Record<BtnSize, string> = {
+  // A dense row's button (a dialog footer beside a line list, a card's corner).
+  // Pages used to reach it with `size="sm" className="!py-1.5 !text-xs"`.
+  xs: "px-2.5 py-1.5 text-xs",
   sm: "px-3 py-1.5 text-sm",
   md: "px-4 py-2 text-sm",
   lg: "px-4 py-2.5 text-sm",
@@ -871,3 +879,127 @@ export function Tabs({
     </nav>
   );
 }
+
+/* ---------------------------------------------------------------- Segmented */
+
+/**
+ * A choice of two to four views of the SAME content (List / Calendar, By bill /
+ * By cost code). One soft track, the chosen segment raised on it. Seven pages
+ * drew their own, three of them as a solid accent fill that read as a primary
+ * button. Not for navigation (that is `Tabs`) and not for a filter that can be
+ * off (that is `FilterChip`).
+ */
+export function Segmented<T extends string>({
+  value,
+  onChange,
+  options,
+  label,
+  size = "sm",
+  fill = false,
+  className = "",
+}: {
+  value: T;
+  onChange: (value: T) => void;
+  options: readonly { value: T; label: React.ReactNode }[];
+  label: string;
+  size?: "sm" | "md";
+  /** Stretch across the row, each segment an equal share. */
+  fill?: boolean;
+  className?: string;
+}) {
+  const seg =
+    size === "md" ? "min-h-11 px-3 text-sm" : "min-h-9 px-2.5 text-xs lg:min-h-7";
+  return (
+    <div
+      role="radiogroup"
+      aria-label={label}
+      className={`${fill ? "flex w-full" : "inline-flex"} shrink-0 gap-0.5 rounded-lg bg-neutral-100 p-0.5 dark:bg-white/[0.07] ${className}`}
+    >
+      {options.map((o) => {
+        const on = o.value === value;
+        return (
+          <button
+            key={o.value}
+            type="button"
+            role="radio"
+            aria-checked={on}
+            onClick={() => onChange(o.value)}
+            className={`inline-flex items-center justify-center whitespace-nowrap rounded-md transition ${seg} ${fill ? "flex-1" : ""} ${
+              on
+                ? "bg-white font-semibold text-neutral-900 shadow-sm dark:bg-ink-raised dark:text-neutral-100"
+                : "text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100"
+            }`}
+          >
+            {o.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ----------------------------------------------------------------- Checkbox */
+
+/**
+ * A tick box drawn in the theme: a hairline square that fills with the accent.
+ * The browser's own box ignored the palette (blue on some devices, white on
+ * white in the Website dark theme). Takes every `<input>` prop, so it is a
+ * drop-in for `<input type="checkbox">`; `className` lands on the wrapper.
+ * With `label`, the whole line is the hit area.
+ */
+export function Checkbox({
+  label,
+  className = "",
+  ref,
+  ...input
+}: Omit<React.ComponentProps<"input">, "type" | "className"> & {
+  label?: React.ReactNode;
+  className?: string;
+}) {
+  const box = (
+    <span className="relative inline-flex h-4 w-4 shrink-0">
+      <input
+        {...input}
+        ref={ref}
+        type="checkbox"
+        className="peer h-4 w-4 cursor-pointer appearance-none rounded border border-line-strong bg-transparent transition checked:border-accent checked:bg-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-40"
+      />
+      <svg
+        aria-hidden
+        viewBox="0 0 16 16"
+        className="pointer-events-none absolute inset-0 hidden h-4 w-4 text-accent-fg peer-checked:block"
+      >
+        <path d="M4 8.5 6.8 11 12 5.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    </span>
+  );
+  if (label == null) return <span className={`inline-flex ${className}`}>{box}</span>;
+  return (
+    <label className={`inline-flex cursor-pointer items-center gap-2 text-sm ${className}`}>
+      {box}
+      {label}
+    </label>
+  );
+}
+
+/* ------------------------------------------------------------------- tables */
+
+/**
+ * One table style. A table is for comparing numbers across columns; a list of
+ * records is a `ListCard`. Header: an 11px caption over a hairline, no fill.
+ * Rows: a soft hairline between them, numbers right-aligned in tabular figures
+ * (`tableCls.tdNum`). Class strings, not components, because tables carry sticky
+ * columns, colspans and print rules a wrapper would have to re-expose.
+ */
+export const tableCls = {
+  /** Put on the <table>. Wrap it in `overflow-x-auto` when it can outgrow a phone. */
+  root: "w-full border-collapse text-sm",
+  th: "border-b border-line px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400",
+  thNum: "border-b border-line px-3 py-2 text-right text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400",
+  /** Put on each body <tr>: the hairline between rows. */
+  tr: "border-b border-line-soft last:border-0",
+  td: "px-3 py-2 align-top",
+  tdNum: "px-3 py-2 text-right align-top tabular-nums",
+  /** A totals row: a firmer rule above, semibold. */
+  foot: "border-t border-line font-semibold",
+} as const;

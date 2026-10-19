@@ -13,6 +13,7 @@ import {
   Select,
   Textarea,
   quietInputCls,
+  tableCls,
 } from "@/components/ui";
 import { addDays, shortDay, weekStart } from "@/lib/timeEntryDates";
 import { orgDay } from "@/lib/orgTime";
@@ -304,31 +305,31 @@ function WeekSheet({
             <Loading />
           </div>
         ) : (
-          <table className="w-full min-w-[38rem] border-collapse text-[13px] tabular-nums">
+          <table className={`${tableCls.root} min-w-[38rem] tabular-nums`}>
             <thead>
-              <tr className="border-b border-line text-neutral-500">
-                <th className="px-2.5 py-2 text-left font-semibold">Customer</th>
+              <tr>
+                <th className={tableCls.th}>Customer</th>
                 {days.map((d) => (
-                  <th key={d} className={`${cell} px-2 py-2 text-right font-semibold`}>
+                  <th key={d} className={`${cell} ${tableCls.thNum}`}>
                     {new Date(`${d}T00:00:00Z`).toLocaleDateString(undefined, { timeZone: "UTC", weekday: "short" })}
-                    <span className="block font-normal">{d.slice(5).replace("-", "/")}</span>
+                    <span className="block font-normal normal-case">{d.slice(5).replace("-", "/")}</span>
                   </th>
                 ))}
-                <th className={`${cell} px-2.5 py-2 text-right font-semibold`}>Total</th>
+                <th className={`${cell} ${tableCls.thNum}`}>Total</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-line-soft">
+            <tbody>
               {grid.rows.length === 0 && (
                 <tr>
-                  <td colSpan={9} className="px-2 py-5 text-center text-neutral-500">
+                  <td colSpan={9} className="py-5 text-center text-neutral-500">
                     No time this week.
                   </td>
                 </tr>
               )}
               {grid.rows.map((r) => (
-                <tr key={r.key}>
+                <tr key={r.key} className={tableCls.tr}>
                   <td
-                    className={`max-w-[12rem] px-2.5 py-2 text-left leading-snug ${
+                    className={`${tableCls.td} max-w-[12rem] leading-snug ${
                       r.ghost ? "italic text-neutral-400 dark:text-neutral-500" : ""
                     }`}
                   >
@@ -353,19 +354,19 @@ function WeekSheet({
                       </td>
                     );
                   })}
-                  <td className={`${cell} px-2.5 py-2 text-right font-semibold`}>{fmtClock(r.minutes)}</td>
+                  <td className={`${cell} ${tableCls.tdNum} font-semibold`}>{fmtClock(r.minutes)}</td>
                 </tr>
               ))}
             </tbody>
             <tfoot>
-              <tr className="border-t border-line bg-neutral-100 font-bold dark:bg-white/5">
-                <td className="px-2.5 py-2.5 text-left">Totals</td>
+              <tr className={tableCls.foot}>
+                <td className={tableCls.td}>Totals</td>
                 {days.map((d) => (
-                  <td key={d} className={`${cell} px-2 py-2.5 text-right`}>
+                  <td key={d} className={`${cell} ${tableCls.tdNum}`}>
                     {fmtClock(grid.dayMinutes.get(d) ?? 0) || "0:00"}
                   </td>
                 ))}
-                <td className={`${cell} px-2.5 py-2.5 text-right`}>{fmtClock(grid.total) || "0:00"}</td>
+                <td className={`${cell} ${tableCls.tdNum}`}>{fmtClock(grid.total) || "0:00"}</td>
               </tr>
             </tfoot>
           </table>

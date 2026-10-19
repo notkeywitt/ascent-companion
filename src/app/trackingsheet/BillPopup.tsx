@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
+import { Dialog } from "@/components/ui";
 import { useBillReview } from "./useBillReview";
 import { DraftCodingPanel, useBillEditor, type Selection } from "./DraftWorkbench";
 
@@ -69,29 +70,10 @@ export function BillPopup({
   const close = () => {
     if (okToLeave()) onClose();
   };
-  const closeRef = useRef(close);
-  closeRef.current = close;
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") closeRef.current();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
-
+  // Escape and the scrim both run `close`, so the unsaved-coding question
+  // guards every way out.
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-label={`Bill — ${sel.label}`}
-      onClick={close}
-    >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        className="max-h-[92dvh] w-full max-w-xl overflow-y-auto rounded-t-2xl border border-line bg-cream p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-xl dark:bg-ink sm:rounded-2xl sm:pb-3"
-      >
+    <Dialog label={`Bill — ${sel.label}`} size="lg" onClose={close}>
         <div className="mb-2 flex items-center justify-between gap-3">
           <p className="min-w-0 truncate text-sm font-semibold">{sel.label}</p>
           {fullPageHref && (
@@ -133,7 +115,6 @@ export function BillPopup({
             onVoided: onClose,
           }}
         />
-      </div>
-    </div>
+    </Dialog>
   );
 }

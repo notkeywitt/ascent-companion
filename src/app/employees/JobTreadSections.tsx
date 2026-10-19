@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import { Banner, Button, Input, Label, Select } from "@/components/ui";
+import { Banner, Button, Checkbox, Input, Label, Select } from "@/components/ui";
 
 export type PayType = { name: string; hourlyRate?: number };
 
@@ -286,9 +286,7 @@ export function JobAccess({ membershipId }: { membershipId: string }) {
                       (j.hasAccess ? "opacity-60" : "cursor-pointer hover:bg-neutral-50 dark:hover:bg-white/5")
                     }
                   >
-                    <input
-                      type="checkbox"
-                      className="h-4 w-4 accent-accent"
+                    <Checkbox
                       checked={j.hasAccess || picked.has(j.id)}
                       disabled={j.hasAccess || busy}
                       onChange={() => toggle(j.id)}

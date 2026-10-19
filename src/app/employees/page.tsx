@@ -5,11 +5,14 @@ import { useEffect, useMemo, useState } from "react";
 import {
   Banner,
   Button,
+  Checkbox,
+  Dialog,
   Label,
   Loading,
   PageHeader,
   Textarea,
   inputCls,
+  tableCls,
 } from "@/components/ui";
 
 import { AddEmployee, type Employee } from "./AddEmployee";
@@ -318,7 +321,7 @@ export default function EmployeesPage() {
   }
 
   const SortHead = ({ label, k }: { label: string; k: SortKey }) => (
-    <th className="px-3 py-2 text-left font-semibold">
+    <th className={tableCls.th}>
       <button onClick={() => toggleSort(k)} className="inline-flex items-center gap-1 hover:text-accent">
         {label}
         <span className="text-[10px] text-neutral-400">
@@ -428,27 +431,27 @@ export default function EmployeesPage() {
             <span>{linkedCount} linked to JobTread</span>
           </div>
           <div className="overflow-x-auto rounded-xl border border-line bg-white dark:bg-ink-raised">
-            <table className="w-full min-w-[58rem] text-sm">
-              <thead className="bg-neutral-50 text-neutral-500 dark:bg-white/5">
+            <table className={`${tableCls.root} min-w-[58rem]`}>
+              <thead>
                 <tr>
                   <SortHead label="Name" k="name" />
                   <SortHead label="Position" k="position" />
                   <SortHead label="Status" k="status" />
-                  <th className="px-3 py-2 text-left font-semibold">JobTread</th>
-                  <th className="px-3 py-2 text-left font-semibold">Rate</th>
-                  <th className="px-3 py-2 text-left font-semibold">Phone</th>
-                  <th className="px-3 py-2 text-left font-semibold">Email</th>
-                  <th className="px-3 py-2" />
+                  <th className={tableCls.th}>JobTread</th>
+                  <th className={tableCls.th}>Rate</th>
+                  <th className={tableCls.th}>Phone</th>
+                  <th className={tableCls.th}>Email</th>
+                  <th className={tableCls.th} />
                 </tr>
               </thead>
               <tbody>
                 {view.map((e) => (
-                  <tr key={e.id} className="border-t border-line-soft/70">
-                    <td className="px-3 py-2 font-medium">
+                  <tr key={e.id} className={tableCls.tr}>
+                    <td className={`${tableCls.td} font-medium`}>
                       {e.firstName} {e.lastName}
                     </td>
-                    <td className="px-3 py-2 text-neutral-600 dark:text-neutral-400">{e.position}</td>
-                    <td className="px-3 py-2">
+                    <td className={`${tableCls.td} text-neutral-600 dark:text-neutral-400`}>{e.position}</td>
+                    <td className={tableCls.td}>
                       {e.status && (
                         <span
                           className={
@@ -461,10 +464,10 @@ export default function EmployeesPage() {
                         </span>
                       )}
                     </td>
-                    <td className="px-3 py-2">
+                    <td className={tableCls.td}>
                       <JtCell e={e} />
                     </td>
-                    <td className="px-3 py-2">
+                    <td className={tableCls.td}>
                       {(() => {
                         const sum = e.jtUserId ? rateSummary(jtById.get(e.jtUserId)) : null;
                         if (!sum) return <span className="text-neutral-400">—</span>;
@@ -483,8 +486,8 @@ export default function EmployeesPage() {
                         );
                       })()}
                     </td>
-                    <td className="px-3 py-2 text-neutral-600 dark:text-neutral-400">{e.phone}</td>
-                    <td className="px-3 py-2">
+                    <td className={`${tableCls.td} text-neutral-600 dark:text-neutral-400`}>{e.phone}</td>
+                    <td className={tableCls.td}>
                       {e.email ? (
                         <a
                           href={`mailto:${e.email}`}
@@ -497,7 +500,7 @@ export default function EmployeesPage() {
                         <span className="text-neutral-400">—</span>
                       )}
                     </td>
-                    <td className="px-3 py-2 text-right">
+                    <td className={`${tableCls.td} text-right`}>
                       <button
                         onClick={() => openEdit(e)}
                         className="rounded-lg border border-neutral-300 px-3 py-1 text-xs font-semibold transition hover:border-accent hover:text-accent dark:border-neutral-600"
@@ -522,20 +525,22 @@ export default function EmployeesPage() {
 
       {/* Edit modal */}
       {editing && form && (
-        <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4"
-          onClick={() => !saving && setEditing(null)}
+        <Dialog
+          onClose={() => setEditing(null)}
+          busy={saving}
+          title={`${editing.firstName} ${editing.lastName}`}
+          description={`ID: ${editing.id}`}
+          footer={
+            <>
+              <Button variant="secondary" onClick={() => setEditing(null)} disabled={saving}>
+                Cancel
+              </Button>
+              <Button onClick={save} disabled={saving}>
+                {saving ? "Saving…" : "Save"}
+              </Button>
+            </>
+          }
         >
-          <div
-            className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-t-2xl bg-white p-4 dark:bg-ink-overlay sm:rounded-2xl"
-            onClick={(ev) => ev.stopPropagation()}
-          >
-            <div className="mb-3 flex items-baseline justify-between">
-              <h2 className="text-lg font-bold">
-                {editing.firstName} {editing.lastName}
-              </h2>
-              <span className="text-xs text-neutral-500">ID: {editing.id}</span>
-            </div>
 
             {/* JobTread link */}
             <div className="mb-4 rounded-lg border border-line p-3 ">
@@ -674,22 +679,7 @@ export default function EmployeesPage() {
                 {saveErr}
               </Banner>
             )}
-
-            <div className="mt-4 flex gap-2">
-              <Button
-                variant="secondary"
-                className="flex-1"
-                onClick={() => setEditing(null)}
-                disabled={saving}
-              >
-                Cancel
-              </Button>
-              <Button className="flex-1" onClick={save} disabled={saving}>
-                {saving ? "Saving…" : "Save"}
-              </Button>
-            </div>
-          </div>
-        </div>
+        </Dialog>
       )}
 
       {adding && (
@@ -703,18 +693,13 @@ export default function EmployeesPage() {
 
       {/* Email composer */}
       {composing && (
-        <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4"
-          onClick={() => !sending && setComposing(false)}
+        <Dialog
+          onClose={() => setComposing(false)}
+          busy={sending}
+          pad={false}
+          title="Email employees"
+          description="from office@ascentbuildingco.com"
         >
-          <div
-            className="flex max-h-[92vh] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl bg-white dark:bg-ink-overlay sm:rounded-2xl"
-            onClick={(ev) => ev.stopPropagation()}
-          >
-            <div className="flex items-baseline justify-between border-b border-line p-4 ">
-              <h2 className="text-lg font-bold">Email employees</h2>
-              <span className="text-xs text-neutral-500">from office@ascentbuildingco.com</span>
-            </div>
 
             {sendResult ? (
               // Success / result state
@@ -771,12 +756,10 @@ export default function EmployeesPage() {
                             (emailable ? "cursor-pointer hover:bg-neutral-50 dark:hover:bg-white/5" : "opacity-50")
                           }
                         >
-                          <input
-                            type="checkbox"
+                          <Checkbox
                             disabled={!emailable}
                             checked={selectedIds.has(e.id)}
                             onChange={() => toggleRecipient(e.id)}
-                            className="h-4 w-4 accent-accent"
                           />
                           <span className="font-medium">
                             {e.firstName} {e.lastName}
@@ -847,8 +830,7 @@ export default function EmployeesPage() {
                 </div>
               </>
             )}
-          </div>
-        </div>
+        </Dialog>
       )}
     </main>
   );

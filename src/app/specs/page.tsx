@@ -15,6 +15,7 @@ import {
   PageHeader,
   SectionHeading,
   Select,
+  FileDrop,
 } from "@/components/ui";
 import { JobParamPicker, useJobIdParam } from "@/components/JobPicker";
 import { JobTabs } from "@/components/JobTabs";
@@ -413,12 +414,13 @@ function Specs() {
         </div>
         {jobId && (
           <div className="flex min-w-0 flex-wrap items-center gap-3">
-            <input
-              type="file"
+            <FileDrop
+              label={current ? "Choose the new revision PDF" : "Choose the spec list PDF"}
+              hint="PDF"
               accept="application/pdf"
               aria-label={current ? "New revision PDF" : "Spec list PDF"}
               onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-              className="block max-w-xs text-sm file:mr-3 file:rounded-lg file:border file:border-line-strong file:bg-transparent file:px-3 file:py-2 file:text-sm file:font-semibold"
+              className="w-full max-w-xs"
             />
             <Button onClick={importPdf} disabled={!file || busy}>
               {busy ? "Reading the schedule… about a minute" : "Read PDF"}
@@ -561,7 +563,7 @@ type RowProps = {
   onSave: (costItemId: string) => Promise<void>;
 };
 
-const TH = "sticky z-10 border-b border-line bg-cream px-2 py-1.5 text-left text-[10.5px] font-semibold uppercase tracking-wide text-neutral-500 dark:bg-ink dark:text-neutral-400";
+const TH = "sticky z-10 border-b border-line bg-cream px-2 py-1.5 text-left text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:bg-ink dark:text-neutral-400";
 const TD = "px-2 py-1.5 align-top";
 
 /** The desk view: every row in one dense table, a band per room. */

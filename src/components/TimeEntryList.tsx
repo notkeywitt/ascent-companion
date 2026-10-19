@@ -1,7 +1,18 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Banner, Button, Card, Chip, FilterChip, IconButton, Label, Select } from "@/components/ui";
+import {
+  Banner,
+  Button,
+  Card,
+  Checkbox,
+  Chip,
+  FilterChip,
+  IconButton,
+  Label,
+  Segmented,
+  Select,
+} from "@/components/ui";
 import { CostCodeSelect, type Option } from "@/components/CostCodeSelect";
 import { JtLink } from "@/components/JtLink";
 import { jtTimeUrl } from "@/lib/jtLinks";
@@ -530,30 +541,17 @@ export function TimeFilterStrip({
 
       <div className="mt-2 flex flex-wrap items-center gap-2">
         <span className="text-[10px] uppercase tracking-wide text-neutral-400">Group</span>
-        <div className="flex rounded-md bg-neutral-100 p-0.5 text-[11px] dark:bg-white/5">
-          {(
-            [
-              ["none", "None"],
-              ["date", "Date"],
-              ["employee", "Employee"],
-              ["code", "Cost code"],
-            ] as const
-          ).map(([g, label]) => (
-            <button
-              key={g}
-              type="button"
-              onClick={() => f.setGroupBy(g)}
-              aria-pressed={f.groupBy === g}
-              className={`inline-flex min-h-9 items-center rounded px-2 transition lg:min-h-0 lg:py-1 ${
-                f.groupBy === g
-                  ? "bg-accent text-accent-fg font-semibold"
-                  : "text-neutral-500 hover:text-accent dark:text-neutral-400"
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+        <Segmented
+          label="Group by"
+          value={f.groupBy}
+          onChange={f.setGroupBy}
+          options={[
+            { value: "none", label: "None" },
+            { value: "date", label: "Date" },
+            { value: "employee", label: "Employee" },
+            { value: "code", label: "Cost code" },
+          ]}
+        />
       </div>
     </div>
   );
@@ -920,14 +918,12 @@ export function TimeEntryList({
           {/* Select-all, and what's selected — the header of a list you ACT on. */}
           <div className="flex items-center justify-between gap-2 border-t border-line-soft px-3 py-2">
             <label className="flex min-w-0 items-center gap-2 text-xs">
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={allShownSelected}
                 onChange={toggleAllShown}
                 // Nothing drawn, nothing to tick — a box that looks live and
                 // does nothing is worse than one that says why.
                 disabled={shown.length === 0 && selected.size === 0}
-                className="h-4 w-4 shrink-0 accent-[var(--accent)] disabled:opacity-40"
               />
               <span className="truncate">
                 {selected.size > 0
@@ -940,28 +936,15 @@ export function TimeEntryList({
               </span>
             </label>
             <span className="flex shrink-0 items-center gap-3">
-              <span className="flex rounded-md bg-neutral-100 p-0.5 text-[11px] dark:bg-white/5">
-                {(
-                  [
-                    ["list", "List"],
-                    ["calendar", "Calendar"],
-                  ] as const
-                ).map(([v, label]) => (
-                  <button
-                    key={v}
-                    type="button"
-                    onClick={() => setView(v)}
-                    aria-pressed={view === v}
-                    className={`inline-flex min-h-8 items-center rounded px-2 transition lg:min-h-0 lg:py-1 ${
-                      view === v
-                        ? "bg-accent font-semibold text-accent-fg"
-                        : "text-neutral-500 hover:text-accent dark:text-neutral-400"
-                    }`}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </span>
+              <Segmented
+                label="Show as"
+                value={view}
+                onChange={setView}
+                options={[
+                  { value: "list", label: "List" },
+                  { value: "calendar", label: "Calendar" },
+                ]}
+              />
               {selected.size > 0 && (
                 <button
                   type="button"
@@ -1051,12 +1034,11 @@ export function TimeEntryList({
                               htmlFor={`tel-sel-${t.id}`}
                               className="flex shrink-0 cursor-pointer items-start self-stretch py-2.5 pl-3 pr-2 transition hover:bg-accent/5 dark:hover:bg-white/5"
                             >
-                              <input
+                              <Checkbox
                                 id={`tel-sel-${t.id}`}
-                                type="checkbox"
                                 checked={selected.has(t.id)}
                                 onChange={() => toggleOne(t.id)}
-                                className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--accent)]"
+                                className="mt-0.5"
                               />
                               <span className="sr-only">Select this entry</span>
                             </label>

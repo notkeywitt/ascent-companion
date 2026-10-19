@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import { Banner, Button, FilterChip, Label, Select, inputCls } from "@/components/ui";
+import { Banner, Button, Dialog, FilterChip, Label, Select, inputCls } from "@/components/ui";
 import { ROLES, type Role } from "@/lib/views";
 
 export interface Employee {
@@ -194,15 +194,21 @@ export function AddEmployee({
   const set = (k: keyof Draft, v: string) => setDraft((d) => ({ ...d, [k]: v }));
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4"
-      onClick={() => !saving && onClose()}
+    <Dialog
+      onClose={onClose}
+      busy={saving}
+      title="New employee"
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose} disabled={saving}>
+            Cancel
+          </Button>
+          <Button onClick={save} disabled={saving}>
+            {saving ? "Adding…" : done ? "Close" : "Add employee"}
+          </Button>
+        </>
+      }
     >
-      <div
-        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-t-2xl bg-white p-4 dark:bg-ink-overlay sm:rounded-2xl"
-        onClick={(ev) => ev.stopPropagation()}
-      >
-        <h2 className="mb-3 text-lg font-bold">New employee</h2>
 
         {suggestions.length > 0 && (
           <div className="mb-4">
@@ -324,16 +330,6 @@ export function AddEmployee({
             {err}
           </Banner>
         )}
-
-        <div className="mt-4 flex gap-2">
-          <Button variant="secondary" className="flex-1" onClick={onClose} disabled={saving}>
-            Cancel
-          </Button>
-          <Button className="flex-1" onClick={save} disabled={saving}>
-            {saving ? "Adding…" : done ? "Close" : "Add employee"}
-          </Button>
-        </div>
-      </div>
-    </div>
+    </Dialog>
   );
 }

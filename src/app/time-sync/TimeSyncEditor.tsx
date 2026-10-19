@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 
 import { CostCodeSelect, type Option } from "@/components/CostCodeSelect";
 import { JobPicker, jobLabel } from "@/components/JobPicker";
-import { Banner, Button, Input, Label, Select, Textarea } from "@/components/ui";
+import { Banner, Button, Dialog, Input, Label, Select, Textarea } from "@/components/ui";
 
 /**
  * The Time Sync editor — a pop-up over one record JobTread refused, so the
@@ -180,23 +180,22 @@ export function TimeSyncEditor({
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-4 sm:items-center"
-      onClick={() => !saving && onClose()}
+    <Dialog
+      onClose={onClose}
+      busy={saving}
+      title="Edit and post to JobTread"
+      description={`${row.employee || "—"} · ${row.date}`}
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose} disabled={saving}>
+            Cancel
+          </Button>
+          <Button onClick={save} disabled={!canSave}>
+            {saving ? "Posting…" : "Save and post"}
+          </Button>
+        </>
+      }
     >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="time-sync-edit-title"
-        onClick={(e) => e.stopPropagation()}
-        className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl border border-line bg-white p-5 shadow-xl dark:bg-ink-raised"
-      >
-        <h2 id="time-sync-edit-title" className="text-base font-bold tracking-tight">
-          Edit and post to JobTread
-        </h2>
-        <p className="mt-0.5 text-sm text-neutral-500 dark:text-neutral-400">
-          {row.employee || "—"} · {row.date}
-        </p>
         {row.detail && (
           <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">JobTread said: {row.detail}</p>
         )}
@@ -311,16 +310,6 @@ export function TimeSyncEditor({
             {err}
           </Banner>
         )}
-
-        <div className="mt-5 flex justify-end gap-2">
-          <Button variant="secondary" onClick={onClose} disabled={saving}>
-            Cancel
-          </Button>
-          <Button onClick={save} disabled={!canSave}>
-            {saving ? "Posting…" : "Save and post"}
-          </Button>
-        </div>
-      </div>
-    </div>
+    </Dialog>
   );
 }

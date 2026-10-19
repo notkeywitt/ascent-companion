@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { HistoricalCost } from "@/app/historical-cost/HistoricalCost";
-import { Banner, Card, MetaLine, Spinner, Toggle, btn } from "@/components/ui";
+import { Banner, Card, Dialog, MetaLine, Segmented, Spinner, Toggle, btn } from "@/components/ui";
 import { money, money0 } from "./BillCodingCard";
 
 /**
@@ -176,22 +176,6 @@ export function SheetGap({
         { sheet: 0, jt: 0, diff: 0 },
       );
 
-  const seg = (m: Mode, label: string) => (
-    <button
-      key={m}
-      type="button"
-      onClick={() => setMode(m)}
-      aria-pressed={mode === m}
-      className={`min-h-8 rounded-md px-2 text-[11px] transition ${
-        mode === m
-          ? "bg-white font-semibold shadow-sm dark:bg-ink-raised"
-          : "text-neutral-500 hover:text-accent dark:text-neutral-400"
-      }`}
-    >
-      {label}
-    </button>
-  );
-
   return (
     <div className={`mb-2 ${className}`}>
       <Toggle
@@ -222,10 +206,16 @@ export function SheetGap({
           {gap && totals && (
             <Card pad={false} className="overflow-hidden">
               <div className="border-b border-line-soft px-3 py-2">
-                <div className="mb-1.5 inline-flex gap-0.5 rounded-lg bg-neutral-100 p-0.5 dark:bg-white/5">
-                  {seg("spend", "Spend")}
-                  {seg("estimate", "Estimate")}
-                </div>
+                <Segmented<Mode>
+                  label="Compare"
+                  value={mode}
+                  onChange={setMode}
+                  options={[
+                    { value: "spend", label: "Spend" },
+                    { value: "estimate", label: "Estimate" },
+                  ]}
+                  className="mb-1.5"
+                />
                 <div className="flex items-baseline justify-between gap-2">
                   <span className="text-xs font-semibold">
                     {mode === "spend" ? "Difference" : "Estimate difference"}
@@ -335,17 +325,7 @@ export function SheetGap({
         </div>
       )}
       {creating && (
-        <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center sm:p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Historical cost bill"
-          onClick={() => setCreating(false)}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="max-h-[92dvh] w-full max-w-3xl overflow-y-auto rounded-t-2xl border border-line bg-cream p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-xl dark:bg-ink sm:rounded-2xl"
-          >
+        <Dialog label="Historical cost bill" size="xl" onClose={() => setCreating(false)}>
             <div className="mb-2 flex justify-end">
               <button
                 type="button"
@@ -359,8 +339,7 @@ export function SheetGap({
               </button>
             </div>
             <HistoricalCost embedded presetJob={jobId} presetUrl={url} />
-          </div>
-        </div>
+        </Dialog>
       )}
     </div>
   );
