@@ -775,3 +775,41 @@ export function HomeJobBoard() {
     </section>
   );
 }
+
+/**
+ * ONE JOB'S OVERVIEW — the job tab row's first tab (/job-board/[id],
+ * CONSOLIDATION_PLAN.md stage 4). The same pieces as a Home card's drilldown:
+ * name, budget line and schedule when the job is on the active board, then the
+ * schedule chart and cost by division for any job.
+ */
+export function JobOverview({ jobId }: { jobId: string }) {
+  const [cards, setCards] = useState<JobBoardCard[] | null>(null);
+  const detail = useCostDetail(jobId);
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/home/board")
+      .then((r) => r.json())
+      .then((j) => !cancelled && setCards(j.error ? [] : (j.cards ?? [])))
+      .catch(() => !cancelled && setCards([]));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  const c = cards?.find((x) => x.id === jobId);
+  return (
+    <div className="space-y-3">
+      {c && (
+        <Card className="space-y-2">
+          <div className="text-sm font-semibold tracking-tight">{c.name}</div>
+          <MetaLine
+            items={[c.customer, `${money0(spentOf(c))} of ${money0(c.budget)}`, `${usedPct(c)} of budget`, basisNote(c)]}
+          />
+          <ScheduleBlock c={c} />
+        </Card>
+      )}
+      <Card>
+        <DetailBody jobId={jobId} state={detail} />
+      </Card>
+    </div>
+  );
+}

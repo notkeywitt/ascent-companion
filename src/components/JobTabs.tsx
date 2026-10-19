@@ -11,6 +11,7 @@ import { useAccess } from "@/components/AccessProvider";
  * someone who holds its view. "This month" hands over to Tracking Sheets.
  */
 const TABS = [
+  { view: "job-board", href: "/job-board/", label: "Overview" },
   { view: "clients", href: "/clients", label: "Record" },
   { view: "jobs", href: "/jobs", label: "Cost" },
   { view: "budget-import", href: "/budget-import", label: "Budget Import" },
@@ -29,11 +30,11 @@ export function JobTabs({ jobId, className = "" }: { jobId: string; className?: 
     <nav aria-label="This job" className={`mb-4 -mx-4 overflow-x-auto px-4 ${className}`}>
       <div className="flex w-max gap-1 border-b border-line">
         {tabs.map((t) => {
-          const here = pathname === t.href;
+          const here = t.href.endsWith("/") ? pathname === `${t.href}${jobId}` : pathname === t.href;
           return (
             <Link
               key={t.href}
-              href={`${t.href}?jobId=${encodeURIComponent(jobId)}`}
+              href={t.href.endsWith("/") ? `${t.href}${encodeURIComponent(jobId)}` : `${t.href}?jobId=${encodeURIComponent(jobId)}`}
               aria-current={here ? "page" : undefined}
               className={`-mb-px inline-flex min-h-11 items-center whitespace-nowrap border-b-2 px-3 text-sm font-semibold transition ${
                 here

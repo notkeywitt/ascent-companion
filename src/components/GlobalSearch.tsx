@@ -395,7 +395,7 @@ export function GlobalSearch() {
                 {jobMatches.map((j) => (
                   <Row
                     key={j.id}
-                    href={`/clients?jobId=${encodeURIComponent(j.id)}`}
+                    href={`/job-board/${encodeURIComponent(j.id)}`}
                     onNavigate={close}
                     label={j.number ? `${j.name} · #${j.number}` : j.name}
                     desc={j.customer || "Open the job's record, cost and specs"}

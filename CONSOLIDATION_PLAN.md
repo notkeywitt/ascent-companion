@@ -277,6 +277,17 @@ add, remove, ▲▼ order, the first marked "default" — and Save writes it wit
 Nothing is written until Save. Pay Rates keeps its editor (same rule) and the
 catalog.
 
+### Historical Cost and job Overview, 2026-10-19
+
+Historical Cost: the budget rail's "Create the bill" (SheetGap) opens the
+catch-up bill in a popup over the board (`HistoricalCost` embedded, job and
+sheet filled in); the page stays for a sheet not yet wired to a job.
+
+Job Overview: `/job-board/[id]` (rides the `job-board` view by prefix — no new
+view id) shows the job's budget line, schedule, Gantt and cost by division
+(`JobOverview` in `HomeJobBoard.tsx`). It is the job tab row's first tab;
+Jobs board cards and the header search's job hits open it.
+
 ## Look rules (apply as each page merges)
 
 1. A list is one hairline card (`Card pad={false}`, `divide-y divide-line-soft`).

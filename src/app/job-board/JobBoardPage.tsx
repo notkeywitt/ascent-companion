@@ -98,7 +98,7 @@ function JobCard({ c }: { c: JobsPageCard }) {
           {/* The name opens the job's own pages (record, cost, specs …) through
               the job tab row (stage 4); JobTread is the ↗ beside it. */}
           <Link
-            href={`/clients?jobId=${encodeURIComponent(c.id)}`}
+            href={`/job-board/${encodeURIComponent(c.id)}`}
             className="min-w-0 flex-1 truncate text-sm font-semibold tracking-tight hover:text-accent dark:hover:text-accent-soft"
           >
             {c.name}
