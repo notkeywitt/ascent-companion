@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/page-consolidation-audit
 status: shipped
 started: 2026-10-18T17:20:28Z
-updated: 2026-10-19T00:12:26Z
+updated: 2026-10-19T00:12:28Z
 goal: audit admin and office pages, recommend merges
 next: owner: pay-rate editor rule (Employees add/remove vs Pay Rates replace list); remaining look pass (Leads, Sunset, LSWDD, Amazon, Not in JobTread), Historical Cost drawer, 'handled' in appscript
 ---
