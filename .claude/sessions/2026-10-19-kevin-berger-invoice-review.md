@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/kevin-berger-invoice-review-gktmtf
 status: shipped
 started: 2026-10-19T10:34:29Z
-updated: 2026-10-19T11:26:13Z
+updated: 2026-10-19T11:35:29Z
 goal: Turn Kevin Berger's invoice disputes into review checks, and run the review on the 10th-to-15th timeline
 next: After the 2026-11-11 scheduled run: read the November digest card and the review history (ranBy schedule) to confirm the nightly run fired; tune any noisy new check with a ruling or settings. Owner decision pending on the /api/bill-tax guard.
 ---
@@ -21,6 +21,8 @@ next: After the 2026-11-11 scheduled run: read the November digest card and the 
   src/lib/invoiceReview/checks/mailCapture.ts, src/lib/invoiceReview/evidence.ts
 - 2026-10-19 11:26 · `4350530` companion: record what every claude call costs and show it on checks and an ai cost page
   CODEBASE_MAP.md, src/app/ai-cost/page.tsx, src/app/api/ai-usage/route.ts, src/app/invoice-review/InvoiceReview.tsx, src/components/PageTabs.tsx, src/db/index.ts, +13 more
+- 2026-10-19 11:35 · `21cb358` companion: merge the apps script invoice reader's claude usage into ai cost
+  CODEBASE_MAP.md, src/app/ai-cost/page.tsx, src/app/api/ai-usage/route.ts
 
 ## Notes
 - 2026-10-19 10:34 — Audit of Kevin Berger threads (Oct 2025-Oct 2026): 12 real errors (6 billing, 6 Drive backup), 13 process gaps. Checks built: tax-doubled, duplicate-wide, invoice-lines, line-code-mismatch. Schedule rides the digest's scheduler call (Hobby 2-cron cap).
