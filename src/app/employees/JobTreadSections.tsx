@@ -9,12 +9,14 @@ export type PayType = { name: string; hourlyRate?: number };
 const NEW = "__new";
 
 /**
- * A linked employee's JobTread pay types — the same write as /labor-rates
- * (POST /api/labor-rates/apply), one type at a time: `applyRate` adds a type or
- * replaces its rate by name, `removeRate` drops it. Both read the member's
- * current set fresh on the server, so this can never clobber the other types.
- * Each change saves to JobTread at once; the form's Save button is not involved.
+ * The employee's JobTread pay types as ONE ORDERED LIST — the same rule as Pay
+ * Rates' editor (owner, 2026-10-18, option B): edit rates, add, remove and
+ * reorder here, then Save writes exactly this list, in this order, to JobTread
+ * (/api/labor-rates/apply, mode "set"). The first rate is the Time page's
+ * default. Nothing is written until Save.
  */
+const PROTECTED = new Set(["paid time off", "sick pay"]);
+
 export function PayTypes({
   membershipId,
   types,
@@ -26,74 +28,105 @@ export function PayTypes({
   orgTypes: string[];
   onChange: (types: PayType[]) => void;
 }) {
+  const [draft, setDraft] = useState<{ name: string; hourlyRate: string }[]>(() =>
+    types.map((t) => ({ name: t.name, hourlyRate: t.hourlyRate != null ? String(t.hourlyRate) : "" })),
+  );
   const [pick, setPick] = useState("");
   const [newName, setNewName] = useState("");
-  const [rate, setRate] = useState("");
-  const [busy, setBusy] = useState("");
+  const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [saved, setSaved] = useState("");
 
-  const have = useMemo(() => new Set(types.map((t) => t.name)), [types]);
+  const have = useMemo(() => new Set(draft.map((t) => t.name)), [draft]);
   const choices = useMemo(() => orgTypes.filter((n) => !have.has(n)).sort(), [orgTypes, have]);
-  const name = pick === NEW ? newName.trim() : pick;
+  const dirty =
+    draft.length !== types.length ||
+    draft.some((d, i) => d.name !== types[i]?.name || Number(d.hourlyRate) !== Number(types[i]?.hourlyRate ?? NaN));
 
-  async function apply(body: Record<string, unknown>, label: string) {
-    setBusy(label);
+  const move = (i: number, dir: -1 | 1) =>
+    setDraft((d) => {
+      const n = [...d];
+      const j = i + dir;
+      if (j < 0 || j >= n.length) return n;
+      [n[i], n[j]] = [n[j], n[i]];
+      return n;
+    });
+
+  function add() {
+    const name = pick === NEW ? newName.trim() : pick;
+    if (!name) return setErr("Pick a pay type or name a new one.");
     setErr("");
+    setDraft((d) => [...d, { name, hourlyRate: "" }]);
+    setPick("");
+    setNewName("");
+  }
+
+  async function save() {
+    const out: PayType[] = [];
+    for (const d of draft) {
+      const r = Number(d.hourlyRate.replace(/[$,\s]/g, ""));
+      if (!d.name.trim()) return setErr("Every pay type needs a name.");
+      if (!d.hourlyRate.trim() || !Number.isFinite(r) || r < 0) return setErr(`Enter an hourly rate for "${d.name}".`);
+      out.push({ name: d.name.trim(), hourlyRate: r });
+    }
+    if (out.length > 20) return setErr("JobTread allows at most 20 pay types per employee.");
+    setBusy(true);
+    setErr("");
+    setSaved("");
     try {
       const res = await fetch("/api/labor-rates/apply", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...body, membershipIds: [membershipId] }),
+        body: JSON.stringify({ mode: "set", membershipId, types: out }),
       });
       const json = await res.json();
       if (json.previewed) throw new Error(json.message);
       const r = json.results?.[0];
       if (!res.ok || !r?.ok) throw new Error(r?.error || json.error || "JobTread did not save it.");
-      onChange(r.types ?? []);
-      return true;
+      const fresh: PayType[] = r.types ?? out;
+      onChange(fresh);
+      setDraft(fresh.map((t) => ({ name: t.name, hourlyRate: t.hourlyRate != null ? String(t.hourlyRate) : "" })));
+      setSaved("Saved to JobTread.");
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Save failed.");
-      return false;
     } finally {
-      setBusy("");
+      setBusy(false);
     }
-  }
-
-  async function add() {
-    const hourlyRate = Number(rate.replace(/[$,\s]/g, ""));
-    if (!name) return setErr("Pick a pay type or name a new one.");
-    if (!rate.trim() || !Number.isFinite(hourlyRate) || hourlyRate < 0) return setErr("Enter an hourly rate.");
-    if (await apply({ mode: "applyRate", rate: { name, hourlyRate } }, "add")) {
-      setPick("");
-      setNewName("");
-      setRate("");
-    }
-  }
-
-  async function remove(n: string) {
-    if (!confirm(`Remove the pay type "${n}" from this employee in JobTread?`)) return;
-    await apply({ mode: "removeRate", name: n }, n);
   }
 
   return (
-    <div className="mb-4 rounded-lg border border-line p-3">
+    <div>
       <Label>Pay types (JobTread)</Label>
-      {types.length ? (
+      {draft.length ? (
         <ul className="divide-y divide-line-soft">
-          {types.map((t) => (
-            <li key={t.name} className="flex items-center justify-between gap-3 py-1.5 text-sm">
-              <span className="text-neutral-700 dark:text-neutral-300">{t.name}</span>
-              <span className="ml-auto whitespace-nowrap font-semibold tabular-nums">
-                {t.hourlyRate != null ? `$${t.hourlyRate}/hr` : "—"}
+          {draft.map((t, i) => (
+            <li key={`${t.name}-${i}`} className="flex items-center gap-2 py-1.5 text-sm">
+              <span className="flex flex-col">
+                <button type="button" onClick={() => move(i, -1)} disabled={i === 0} title="Move up" className="px-1 text-xs text-neutral-500 hover:text-accent disabled:opacity-30">▲</button>
+                <button type="button" onClick={() => move(i, 1)} disabled={i === draft.length - 1} title="Move down" className="px-1 text-xs text-neutral-500 hover:text-accent disabled:opacity-30">▼</button>
               </span>
+              <span className="min-w-0 flex-1 truncate text-neutral-700 dark:text-neutral-300">
+                {t.name}
+                {i === 0 && <span className="ml-1.5 text-[11px] text-neutral-500">default</span>}
+              </span>
+              <Input
+                value={t.hourlyRate}
+                onChange={(e) => setDraft((d) => d.map((x, j) => (j === i ? { ...x, hourlyRate: e.target.value } : x)))}
+                placeholder="$/hr"
+                inputMode="decimal"
+                aria-label={`${t.name} hourly rate`}
+                className="!w-20"
+              />
               <button
                 type="button"
-                onClick={() => remove(t.name)}
-                disabled={!!busy}
+                onClick={() => {
+                  if (PROTECTED.has(t.name.trim().toLowerCase()) && !confirm(`"${t.name}" is used to post time off. Remove it anyway?`)) return;
+                  setDraft((d) => d.filter((_, j) => j !== i));
+                }}
                 title={`Remove ${t.name}`}
-                className="px-1 text-neutral-400 hover:text-red-600 disabled:opacity-40"
+                className="px-1 text-neutral-400 hover:text-red-600"
               >
-                {busy === t.name ? "…" : "✕"}
+                ✕
               </button>
             </li>
           ))}
@@ -102,7 +135,7 @@ export function PayTypes({
         <p className="text-sm text-neutral-500">No pay types yet.</p>
       )}
 
-      <div className="mt-3 grid grid-cols-[1fr_6rem_auto] items-end gap-2">
+      <div className="mt-3 grid grid-cols-[1fr_auto] items-end gap-2">
         <Select value={pick} onChange={(e) => setPick(e.target.value)} aria-label="Pay type">
           <option value="">Add a pay type…</option>
           {choices.map((n) => (
@@ -112,21 +145,28 @@ export function PayTypes({
           ))}
           <option value={NEW}>+ New pay type</option>
         </Select>
-        <Input value={rate} onChange={(e) => setRate(e.target.value)} placeholder="$/hr" inputMode="decimal" aria-label="Hourly rate" />
-        <Button size="sm" onClick={add} disabled={!!busy || !pick}>
-          {busy === "add" ? "Adding…" : "Add"}
+        <Button size="sm" variant="secondary" onClick={add} disabled={!pick}>
+          Add
         </Button>
         {pick === NEW && (
           <Input
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
             placeholder="New pay type name"
-            className="col-span-3"
+            className="col-span-2"
             autoFocus
           />
         )}
       </div>
-      <p className="mt-2 text-[11px] text-neutral-400">Saves to JobTread right away. Same pay types as Pay Rates.</p>
+      <div className="mt-3 flex items-center gap-2">
+        <Button size="sm" onClick={save} disabled={busy || !dirty}>
+          {busy ? "Saving…" : "Save pay types to JobTread"}
+        </Button>
+        {saved && !dirty && <span className="text-xs text-neutral-500">{saved}</span>}
+      </div>
+      <p className="mt-2 text-[11px] text-neutral-400">
+        Saves this exact list, in this order. The first is the default on the Time page. Same rule as Pay Rates.
+      </p>
       {err && (
         <Banner tone="error" className="mt-2">
           {err}

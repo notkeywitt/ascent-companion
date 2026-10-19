@@ -267,6 +267,16 @@ Still card-per-record: Email Invoices (each card carries a form), Not in
 JobTread, Sunset, LSWDD, Amazon, Leads, Taxable lines, Invoicing
 Package, the Tracking Sheets month list.
 
+### Pay types, 2026-10-19
+
+One rule for editing an employee's pay types (owner: option B, the ordered
+list): the Employees record's editor (`PayTypes` in
+`src/app/employees/JobTreadSections.tsx`) now drafts the whole list — rates,
+add, remove, ▲▼ order, the first marked "default" — and Save writes it with
+`/api/labor-rates/apply` mode `set`, the same write as Pay Rates' editor.
+Nothing is written until Save. Pay Rates keeps its editor (same rule) and the
+catalog.
+
 ## Look rules (apply as each page merges)
 
 1. A list is one hairline card (`Card pad={false}`, `divide-y divide-line-soft`).
