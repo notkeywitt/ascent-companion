@@ -4,9 +4,9 @@ repo: ascent-companion
 branch: claude/page-consolidation-audit
 status: shipped
 started: 2026-10-18T17:20:28Z
-updated: 2026-10-19T01:24:50Z
+updated: 2026-10-19T03:12:06Z
 goal: audit admin and office pages, recommend merges
-next: consolidation plan done except optional card-per-record pages with forms (Email Invoices, Not in JobTread, Sunset, LSWDD, Amazon); owner to check on phone/iPad
+next: desktop polish stage 2: Page widths + header + one Tabs + sidebar active + names (show screenshots before shipping)
 ---
 
 ## Log
@@ -70,6 +70,8 @@ next: consolidation plan done except optional card-per-record pages with forms (
   CONSOLIDATION_PLAN.md, src/app/job-board/JobBoardPage.tsx, src/app/job-board/[id]/page.tsx, src/components/GlobalSearch.tsx, src/components/HomeJobBoard.tsx, src/components/JobTabs.tsx
 - 2026-10-19 01:24 · `cf207f3` companion: check mail counts processed and not-an-invoice mail as handled
   CONSOLIDATION_PLAN.md, src/app/api/vendor-mail/route.ts, src/app/vendor-mail/VendorMail.tsx
+- 2026-10-19 03:12 · `0d04566` companion: polish foundation — no stretched buttons, readable quiet text in dark, visible spinner, bordered banners, outline disabled buttons
+  CONSOLIDATION_PLAN.md, src/app/globals.css, src/app/time-off/TimeOff.tsx, src/app/trackingsheet/MonthJobDonuts.tsx, src/components/HomeJobBoard.tsx, src/components/Spinner.tsx, +1 more
 
 ## Notes
 - 2026-10-18 17:21 — audit: 6 readers over every admin/office page; usage = Vercel server renders 30d (Web Analytics off). Report https://claude.ai/artifact/9i159BFud4dbuvjwVcgTbj
