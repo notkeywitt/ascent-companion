@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-19T18:48:51Z",
+  "generatedAt": "2026-10-19T18:49:28Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,7 +8,7 @@
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-10-19T18:48:51Z",
+      "updated": "2026-10-19T18:49:27Z",
       "goal": "",
       "next": "Confirm header search finds bill 682089 after the stale-index refresh; if not, check /api/bill-search/refresh for a failing sweep.",
       "commits": [
