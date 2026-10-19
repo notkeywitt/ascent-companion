@@ -4,9 +4,9 @@ repo: ascent-companion
 branch: claude/page-consolidation-audit
 status: shipped
 started: 2026-10-18T17:20:28Z
-updated: 2026-10-19T10:48:33Z
+updated: 2026-10-19T11:02:12Z
 goal: audit admin and office pages, recommend merges
-next: desktop polish stage 4: page sweep — type sizes, money/date formats, colour literals (only on the owner's go)
+next: desktop polish done; optional: judge the ~140 hand-tinted status boxes (Banner or quiet line), page by page
 ---
 
 ## Log
@@ -76,6 +76,8 @@ next: desktop polish stage 4: page sweep — type sizes, money/date formats, col
   CONSOLIDATION_PLAN.md, src/app/add-bill/page.tsx, src/app/admin/copy/page.tsx, src/app/admin/page.tsx, src/app/amazon-import/page.tsx, src/app/ar-aging/page.tsx, +58 more
 - 2026-10-19 10:48 · `55df24f` companion: desktop polish stage 3 — one dialog, segmented, checkbox, file drop, table style
   CLAUDE.md, CODEBASE_MAP.md, CONSOLIDATION_PLAN.md, src/app/add-bill/page.tsx, src/app/amazon-import/page.tsx, src/app/email/EmailInvoices.tsx, +27 more
+- 2026-10-19 11:02 · `dc13ad2` companion: desktop polish stage 4 — type scale, status colour tokens, one money format, en-US dates
+  CLAUDE.md, CONSOLIDATION_PLAN.md, src/app/add-bill/page.tsx, src/app/admin/ActivityPanel.tsx, src/app/admin/copy/page.tsx, src/app/admin/page.tsx, +101 more
 
 ## Notes
 - 2026-10-18 17:21 — audit: 6 readers over every admin/office page; usage = Vercel server renders 30d (Web Analytics off). Report https://claude.ai/artifact/9i159BFud4dbuvjwVcgTbj
