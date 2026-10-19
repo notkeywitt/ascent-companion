@@ -1478,3 +1478,25 @@ export const monthActionRuns = sqliteTable(
 );
 
 export type MonthActionRunRow = typeof monthActionRuns.$inferSelect;
+
+/**
+ * AI USAGE — one row per Claude call the app makes, priced when recorded.
+ * Written by `trackClaudeUsage` (src/lib/aiUsage.ts), best-effort; read by the
+ * AI Cost admin page and the Checks page's per-run cost. `cost_usd` is null for
+ * a model with no price on file, so its tokens are kept and never misread as
+ * free.
+ */
+export const aiUsage = sqliteTable("ai_usage", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  at: text("at").notNull(),
+  /** What the call was for — "invoice-review.summary", "bill-extract", "chat". */
+  feature: text("feature").notNull(),
+  model: text("model").notNull().default(""),
+  /** What it was about — a billing month, a bill id. "" when nothing narrower fits. */
+  ref: text("ref").notNull().default(""),
+  inputTokens: integer("input_tokens").notNull().default(0),
+  outputTokens: integer("output_tokens").notNull().default(0),
+  cacheWriteTokens: integer("cache_write_tokens").notNull().default(0),
+  cacheReadTokens: integer("cache_read_tokens").notNull().default(0),
+  costUsd: real("cost_usd"),
+});

@@ -36,6 +36,7 @@
  * digest/claude.ts and claudeExtract.ts — each keeps its own client and model var).
  */
 import Anthropic from "@anthropic-ai/sdk";
+import { trackClaudeUsage } from "@/lib/aiUsage";
 
 import { ALL_CHECKS } from "./registry";
 import type { ReviewMiss } from "./misses";
@@ -175,6 +176,7 @@ export async function proposeChecks(misses: ReviewMiss[]): Promise<LearnResult> 
   } catch (e) {
     throw new Error(`model "${MODEL}" — ${e instanceof Error ? e.message : String(e)}`);
   }
+  trackClaudeUsage("invoice-review.learn", MODEL, res.usage);
   if (res.stop_reason === "refusal") throw new Error("Claude declined to answer");
 
   const text = res.content

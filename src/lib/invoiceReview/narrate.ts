@@ -27,6 +27,7 @@
  * Same fix, same reasoning as src/lib/digest/claude.ts.
  */
 import Anthropic from "@anthropic-ai/sdk";
+import { trackClaudeUsage } from "@/lib/aiUsage";
 
 import type { Finding, MonthEvidence } from "./types";
 
@@ -120,6 +121,8 @@ export async function narrateReview(
   /** The owner's standing instructions (instructions.ts). Read by the caller,
    *  not here, so this file stays free of database imports. */
   instructions: string[] = [],
+  /** Hands the caller the call's model and token usage, for the run's cost line. */
+  onUsage?: (model: string, usage: Anthropic.Usage) => void,
 ): Promise<string> {
   if (!process.env.ANTHROPIC_API_KEY?.trim()) {
     throw new Error("ANTHROPIC_API_KEY is not set");
@@ -175,6 +178,8 @@ export async function narrateReview(
     throw new Error(`model "${MODEL}" — ${e instanceof Error ? e.message : String(e)}`);
   }
 
+  trackClaudeUsage("invoice-review.summary", MODEL, res.usage, month.ym);
+  onUsage?.(MODEL, res.usage);
   if (res.stop_reason === "refusal") throw new Error("Claude declined to write the summary");
   const text = res.content
     .filter((b): b is Anthropic.TextBlock => b.type === "text")

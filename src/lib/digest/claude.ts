@@ -13,6 +13,7 @@
  * its own client and its own model env var, deliberately not shared).
  */
 import Anthropic from "@anthropic-ai/sdk";
+import { trackClaudeUsage } from "@/lib/aiUsage";
 
 /** Sonnet by default: same reasoning as narrate.ts's ANTHROPIC_MODEL_REVIEW —
  *  a dedicated knob so a future /chat model change can't silently re-price or
@@ -173,6 +174,7 @@ ${listing}`;
   } catch {
     return null;
   }
+  trackClaudeUsage("digest.email-signals", MODEL, res.usage);
   if (res.stop_reason === "refusal" || res.stop_reason === "max_tokens") return null;
 
   const text = res.content
@@ -365,6 +367,7 @@ empty array.`;
   } catch {
     return null;
   }
+  trackClaudeUsage("digest.reply", MODEL, res.usage);
   if (res.stop_reason === "refusal" || res.stop_reason === "max_tokens") return null;
 
   const raw = res.content

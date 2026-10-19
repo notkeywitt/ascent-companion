@@ -37,6 +37,7 @@
  * learn.ts, digest/claude.ts and claudeExtract.ts.
  */
 import Anthropic from "@anthropic-ai/sdk";
+import { trackClaudeUsage } from "@/lib/aiUsage";
 
 import type { PaveConfig } from "@/lib/jobtread";
 
@@ -199,6 +200,7 @@ export async function investigateReview(
   const toolCalls: Record<string, number> = {};
   const usage = { input: 0, output: 0, cacheWrite: 0, cacheRead: 0 };
   const tally = (u: Anthropic.Usage) => {
+    trackClaudeUsage("invoice-review.investigate", MODEL, u, payload.evidence.ym);
     usage.input += u.input_tokens ?? 0;
     usage.output += u.output_tokens ?? 0;
     usage.cacheWrite += u.cache_creation_input_tokens ?? 0;

@@ -17,6 +17,7 @@
  * Server-side only (ANTHROPIC_API_KEY). Never import from client components.
  */
 import Anthropic from "@anthropic-ai/sdk";
+import { trackClaudeUsage } from "@/lib/aiUsage";
 
 export interface ExtractedItem {
   description?: string;
@@ -144,6 +145,18 @@ async function callClaude(
     console.error(`[claudeExtract] ${MODEL} call failed: ${why}`);
     throw new Error(`The reader (${MODEL}) could not be reached: ${why}`);
   }
+  // Which reader this was, for the cost log — the schema names the job.
+  const feature =
+    schema === SERIAL_SCHEMA
+      ? "tool-serial-ocr"
+      : schema === BILL_SCHEMA
+        ? "bill-extract"
+        : schema === (AMAZON_ORDER_SCHEMA as unknown)
+          ? "amazon-import"
+          : schema === (SPEC_LIST_SCHEMA as unknown)
+            ? "spec-list"
+            : "extract";
+  trackClaudeUsage(feature, MODEL, res.usage);
   if (res.stop_reason === "refusal" || res.stop_reason === "max_tokens") {
     console.error(`[claudeExtract] stop_reason=${res.stop_reason}`);
     throw new Error(

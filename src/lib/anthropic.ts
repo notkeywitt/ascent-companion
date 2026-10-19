@@ -14,6 +14,7 @@
  */
 
 import Anthropic from "@anthropic-ai/sdk";
+import { trackClaudeUsage } from "@/lib/aiUsage";
 
 import { getPaveConfig } from "@/lib/config";
 import { anthropicToolDefs, toolByName } from "@/lib/chatTools";
@@ -97,6 +98,7 @@ export async function runChat({ messages, jobId, onEvent }: RunChatOptions): Pro
     stream.on("text", (delta) => onEvent({ type: "text", text: delta }));
 
     const message = await stream.finalMessage();
+    trackClaudeUsage("chat", MODEL, message.usage, jobId ?? "");
     convo.push({ role: "assistant", content: message.content });
 
     if (message.stop_reason !== "tool_use") {

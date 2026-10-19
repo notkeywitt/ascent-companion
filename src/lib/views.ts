@@ -487,6 +487,10 @@ export const VIEWS: ViewDef[] = [
     group: "System",
     paths: ["/journal", "/api/journal"],
   },
+  // What the app's Claude calls cost (src/lib/aiUsage.ts). Admin-only by
+  // default, alongside the other audit surfaces; the API route is listed so a
+  // non-admin cannot read it directly.
+  { id: "ai-cost", label: "AI Cost", group: "System", paths: ["/ai-cost", "/api/ai-usage"] },
   // What each working session changed — the session ledger, rendered. Read-only
   // and self-contained: the data is a generated JSON module imported at build
   // time, so there is no API route to gate alongside it. Office + admin by
@@ -540,6 +544,7 @@ const ADMIN_MENU: string[] = [
   "admin",
   "logs",
   "journal",
+  "ai-cost",
   "historical-cost",
   "bank-details",
   "page-copy",

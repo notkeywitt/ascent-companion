@@ -17,6 +17,7 @@ import { attachDispositions, readDispositions } from "./dispositions";
 import { activeInstructions } from "./instructions";
 import { attachHistory, readFindingState, recordFindings } from "./lifecycle";
 import { narrateReview } from "./narrate";
+import { costOf, tokensOf } from "@/lib/aiUsage";
 import { learnNorms } from "./norms";
 import { applyRulings, listRulings } from "./rulings";
 import { runChecks } from "./registry";
@@ -80,6 +81,7 @@ export async function runInvoiceReview(
   // payload and drawn on the page. See narrate.ts.
   let narrated = "";
   let summaryNote = "";
+  let aiCost: ReviewPayload["aiCost"];
   if (opts.narrate === false) {
     summaryNote = "The summary was skipped for this run.";
   } else {
@@ -87,7 +89,15 @@ export async function runInvoiceReview(
       // The owner's standing instructions shape the paragraph — never what was
       // found. Read here rather than in narrate.ts, which stays DB-free.
       const instructions = (await activeInstructions()).map((i) => i.text);
-      narrated = await narrateReview(evidence, findings, instructions);
+      narrated = await narrateReview(evidence, findings, instructions, (model, usage) => {
+        const t = tokensOf(usage);
+        aiCost = {
+          usd: costOf(model, t),
+          model,
+          inputTokens: t.input + t.cacheWrite + t.cacheRead,
+          outputTokens: t.output,
+        };
+      });
     } catch (e) {
       summaryNote = `Claude didn't write the summary (${
         e instanceof Error ? e.message : "unknown error"
@@ -101,6 +111,7 @@ export async function runInvoiceReview(
     summary: narrated || fallbackSummary(evidence, findings),
     summarySource: narrated ? "claude" : "fallback",
     summaryNote,
+    aiCost,
     generatedAt: ranAt,
     durationMs: Date.now() - started,
   };

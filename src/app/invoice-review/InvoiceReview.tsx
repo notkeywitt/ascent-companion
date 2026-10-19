@@ -151,6 +151,11 @@ function ageNote(f: Finding): string {
  * Deliberately coarse. The exact minute a sweep ran is never the question; the
  * question is only ever whether what's on screen is current enough to act on.
  */
+/** A Claude cost: cents below a dollar ("4.2¢"), dollars above it. */
+function usdCents(usd: number): string {
+  return usd < 1 ? `${(usd * 100).toFixed(usd < 0.1 ? 2 : 1)}¢` : `$${usd.toFixed(2)}`;
+}
+
 function whenChecked(iso: string): string {
   const then = new Date(iso);
   if (Number.isNaN(then.getTime())) return "earlier";
@@ -682,6 +687,7 @@ export function InvoiceReview() {
             {data.storedAt
               ? `Last checked ${whenChecked(data.storedAt)} — press “Check again” to sweep it now. `
               : "Checked just now. "}
+            {data.aiCost?.usd != null ? `Claude cost ${usdCents(data.aiCost.usd)} for this run. ` : ""}
             Backup is filed in {data.evidence.folderRoot}
           </p>
         ) : null}

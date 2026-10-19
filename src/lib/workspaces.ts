@@ -181,6 +181,7 @@ export const OUTSIDE_WORKSPACES: Record<string, string> = {
   changelog: "Help's What's new tab (PageTabs on /help)",
   "theme-editor": "Look & Text's Theme tab (PageTabs on /admin/copy), and Appearance",
   journal: "Audit's Financial Journal tab (PageTabs on /logs), and a bill's History link",
+  "ai-cost": "Audit's AI Cost tab (PageTabs on /logs)",
   actions: "retired 2026-10-18; its buttons are on Inbox (email scans) and Tracking Sheets' Company tools (syncs); /actions redirects",
   "time-off-admin": "a section of Payroll (/payroll?section=timeoff); /time-off/office redirects",
   "labor-import": "a section of Payroll (/payroll?section=labor); /labor-import redirects",

@@ -712,6 +712,12 @@ export interface ReviewPayload {
    * the reason is the whole point; see narrate.ts.
    */
   summaryNote?: string;
+  /**
+   * What Claude cost for this run — the summary call. Absent on a run with no
+   * Claude summary, and on runs filed before 2026-10-19. Investigations are
+   * priced separately (lib/aiUsage.ts records every call).
+   */
+  aiCost?: { usd: number | null; model: string; inputTokens: number; outputTokens: number };
   generatedAt: string;
   durationMs: number;
   /**

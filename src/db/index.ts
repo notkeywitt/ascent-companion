@@ -1071,6 +1071,27 @@ async function applySchema() {
       /* column already exists */
     }
   }
+  // Every Claude call the app makes, priced when recorded (see lib/aiUsage.ts).
+  await getClient().execute(`
+    CREATE TABLE IF NOT EXISTS ai_usage (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      at TEXT NOT NULL,
+      feature TEXT NOT NULL,
+      model TEXT NOT NULL DEFAULT '',
+      ref TEXT NOT NULL DEFAULT '',
+      input_tokens INTEGER NOT NULL DEFAULT 0,
+      output_tokens INTEGER NOT NULL DEFAULT 0,
+      cache_write_tokens INTEGER NOT NULL DEFAULT 0,
+      cache_read_tokens INTEGER NOT NULL DEFAULT 0,
+      cost_usd REAL
+    )
+  `);
+  await getClient().execute(
+    `CREATE INDEX IF NOT EXISTS ai_usage_at_idx ON ai_usage (at DESC)`,
+  );
+  await getClient().execute(
+    `CREATE INDEX IF NOT EXISTS ai_usage_feature_ref_idx ON ai_usage (feature, ref)`,
+  );
   // The last run of each month-closing action (see schema.ts monthActionRuns).
   await getClient().execute(`
     CREATE TABLE IF NOT EXISTS month_action_runs (

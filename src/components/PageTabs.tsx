@@ -19,6 +19,7 @@ export interface PageTab {
 export const AUDIT_TABS: PageTab[] = [
   { view: "logs", href: "/logs", label: "System Logs" },
   { view: "journal", href: "/journal", label: "Financial Journal" },
+  { view: "ai-cost", href: "/ai-cost", label: "AI Cost" },
 ];
 export const LOOK_TABS: PageTab[] = [
   { view: "page-copy", href: "/admin/copy", label: "Page Text" },
