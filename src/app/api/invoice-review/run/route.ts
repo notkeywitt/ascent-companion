@@ -6,6 +6,8 @@ import { currentBillingPeriod } from "@/lib/billingMonth";
 import { getPaveConfig, hasGrant } from "@/lib/config";
 import { parseYm } from "@/lib/invoiceReview/evidence";
 import { runInvoiceReview } from "@/lib/invoiceReview/run";
+import { listRuns } from "@/lib/invoiceReview/runs";
+import { orgDay } from "@/lib/orgTime";
 import { noAuthConfigured } from "@/lib/authMode";
 
 /**
@@ -23,10 +25,10 @@ import { noAuthConfigured } from "@/lib/authMode";
  * adding a third appears to make Vercel reject the whole `crons` array for the
  * deployment rather than just the extra one: the digest went silent the same
  * night this route's cron entry shipped, with no code of its own touched. The
- * entry was reverted; this route still works, called manually or from a admin
- * button, but nothing calls it on a timer right now. Recovering the schedule
- * needs either a Pro-tier project (raises the cap) or folding this call inside
- * one of the digest's existing two firings rather than claiming a third slot.
+ * entry was reverted. The schedule now rides one of the digest's existing two
+ * firings instead of claiming a third slot: on review days the digest's
+ * scheduler call requests this route with ?scheduled=1 (see
+ * src/lib/invoiceReview/schedule.ts and /api/digest/run).
  *
  * ?ym=YYYY-MM picks the billing month; the default is the one currently being
  * accumulated, per `deriveBillingPeriod` (the same 10th-to-10th rule the rest
@@ -39,6 +41,11 @@ import { noAuthConfigured } from "@/lib/authMode";
  * in the PUBLIC list removes the session requirement, not the authorization —
  * don't relax what's below without thinking about who could then trigger an
  * org-wide JobTread sweep.
+ *
+ * ?scheduled=1 marks a call from the digest's scheduler (see
+ * src/lib/invoiceReview/schedule.ts — the 11th-to-15th timeline). A scheduled
+ * call files at most ONE run per day per month: both digest firings call it,
+ * and the second only runs when the first did not file. `&phase=` is logged.
  *
  * STILL READ-ONLY where it counts. The run reads JobTread, Drive and Gmail and
  * writes exactly one row to the companion's own database. It cannot change an
@@ -108,15 +115,29 @@ async function handle(req: NextRequest) {
     return NextResponse.json({ error: "Pass ym=YYYY-MM (the billing month)." }, { status: 400 });
   }
 
+  const ym = `${parsed.year}-${String(parsed.month).padStart(2, "0")}`;
+  const scheduled = req.nextUrl.searchParams.get("scheduled") === "1";
+  const phase = req.nextUrl.searchParams.get("phase")?.trim() || "";
+  if (scheduled) {
+    const today = orgDay(new Date().toISOString());
+    const recent = await listRuns(ym, 10);
+    const already = recent.find((r) => r.ranBy === "schedule" && orgDay(r.ranAt) === today);
+    if (already) {
+      return NextResponse.json({ ok: true, skipped: true, ym, reason: "already filed today", runId: already.id });
+    }
+  }
+
   try {
     const payload = await runInvoiceReview(getPaveConfig(), parsed.year, parsed.month, {
-      saveAs: authorized.who,
+      // "schedule" is how the once-a-day guard above recognises its own runs.
+      saveAs: scheduled ? "schedule" : authorized.who,
     });
     const live = payload.findings.filter((f) => !f.suppressedBy);
     // A summary, not the review — the scheduler has nobody to read a payload,
     // and the run is on the page by the time anyone looks.
     console.log(
-      `[invoice-review] ${payload.evidence.ym} by ${authorized.who}: ` +
+      `[invoice-review] ${payload.evidence.ym} by ${authorized.who}` +
+        `${scheduled ? ` (scheduled${phase ? `, ${phase}` : ""})` : ""}: ` +
         `${live.filter((f) => f.severity === "error").length} to fix, ` +
         `${live.filter((f) => f.severity === "warning").length} to look at, ` +
         `${payload.evidence.warnings.length} evidence warning(s), ${payload.durationMs}ms`,

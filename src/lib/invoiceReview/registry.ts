@@ -31,6 +31,10 @@ import { costBasisCheck } from "./checks/costBasis";
 import { draftBillsCheck } from "./checks/draftBills";
 import { duplicateBillCheck } from "./checks/duplicateBill";
 import { duplicateDraftCheck } from "./checks/duplicateDraft";
+import { duplicateWideCheck } from "./checks/duplicateWide";
+import { invoiceLinesCheck } from "./checks/invoiceLines";
+import { lineCodeMismatchCheck } from "./checks/lineCodeMismatch";
+import { taxDoubledCheck } from "./checks/taxDoubled";
 import { invoiceMathCheck } from "./checks/invoiceMath";
 import { issueDateCheck } from "./checks/issueDate";
 import { laborRateCheck } from "./checks/laborRate";
@@ -53,6 +57,8 @@ const JOB_CHECKS: JobCheck<never>[] = [
   laborRateCheck,
   qboPushCheck,
   taxableFlagCheck,
+  taxDoubledCheck,
+  duplicateWideCheck,
 ] as unknown as JobCheck<never>[];
 
 /** Once per client invoice. */
@@ -62,6 +68,8 @@ const INVOICE_CHECKS: InvoiceCheck<never>[] = [
   issueDateCheck,
   costBasisCheck,
   salesTaxLineCheck,
+  invoiceLinesCheck,
+  lineCodeMismatchCheck,
 ] as unknown as InvoiceCheck<never>[];
 
 /** Once per review. */

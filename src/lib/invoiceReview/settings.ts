@@ -34,12 +34,17 @@
  * file reaches JobTread, Drive, Gmail or the Sheet by itself.
  */
 import type { InvoiceReviewGlobalSettings } from "./checkTypes";
+import type { ReviewScheduleSettings } from "./schedule";
 
 import type { BackupConfig } from "./checks/backup";
 import type { CostBasisConfig } from "./checks/costBasis";
 import type { DraftBillsConfig } from "./checks/draftBills";
 import type { DuplicateBillConfig } from "./checks/duplicateBill";
 import type { DuplicateDraftConfig } from "./checks/duplicateDraft";
+import type { DuplicateWideConfig } from "./checks/duplicateWide";
+import type { InvoiceLinesConfig } from "./checks/invoiceLines";
+import type { LineCodeMismatchConfig } from "./checks/lineCodeMismatch";
+import type { TaxDoubledConfig } from "./checks/taxDoubled";
 import type { InvoiceMathConfig } from "./checks/invoiceMath";
 import type { IssueDateConfig } from "./checks/issueDate";
 import type { LaborRateConfig } from "./checks/laborRate";
@@ -60,6 +65,8 @@ export interface SettingsBlock<C> {
 
 export interface InvoiceReviewSettings {
   global: InvoiceReviewGlobalSettings;
+  /** When the review runs on its own. See schedule.ts. */
+  schedule: ReviewScheduleSettings;
   checks: {
     backup: SettingsBlock<BackupConfig>;
     "invoice-math": SettingsBlock<InvoiceMathConfig>;
@@ -77,6 +84,10 @@ export interface InvoiceReviewSettings {
     "markup-drift": SettingsBlock<MarkupDriftConfig>;
     "qbo-push": SettingsBlock<QboPushConfig>;
     "taxable-flag": SettingsBlock<TaxableFlagConfig>;
+    "tax-doubled": SettingsBlock<TaxDoubledConfig>;
+    "duplicate-wide": SettingsBlock<DuplicateWideConfig>;
+    "invoice-lines": SettingsBlock<InvoiceLinesConfig>;
+    "line-code-mismatch": SettingsBlock<LineCodeMismatchConfig>;
   };
 }
 
@@ -86,6 +97,14 @@ export const DEFAULT_SETTINGS: InvoiceReviewSettings = {
     // under it. Shared by every check on purpose — two checks disagreeing about
     // what "equal" means is how a review starts contradicting itself.
     tolerance: 0.01,
+  },
+  schedule: {
+    enabled: true,
+    // Two looks while bills are still arriving — enough to chase a missed
+    // vendor invoice before the 10th, few enough not to become noise.
+    earlyDays: [5, 8],
+    // Invoices go out on the 15th. Runs go nightly from the 11th to here.
+    sendDay: 15,
   },
   checks: {
     backup: {
@@ -167,6 +186,43 @@ export const DEFAULT_SETTINGS: InvoiceReviewSettings = {
         fallbackTaxRate: 0.0835,
       },
     },
+    // ── Kevin Berger's points, made checks (2026-10) ──────────────────────
+    // Each of these was an error a client found before the review did. See
+    // the header of each check for the invoice it came from.
+    "tax-doubled": {
+      enabled: true,
+      config: {
+        // San Juan County. Delivered goods are taxed where they land, so this
+        // covers Home Depot and Fasteners Plus as well as the island. Add a
+        // vendor's counter rate here when it bills a different one.
+        rates: [0.0835],
+        // A dollar of tax. Under that, one cent of rounding fits both readings.
+        minTax: 1,
+      },
+    },
+    "duplicate-wide": {
+      enabled: true,
+      config: {
+        // Dirt Doctors was a month apart; a revised invoice arrives within weeks.
+        amountWindowDays: 45,
+        // A $40 hardware run bought twice is a habit, not a duplicate.
+        minCost: 100,
+        reportAmountMatches: true,
+      },
+    },
+    "invoice-lines": {
+      enabled: true,
+      config: {
+        // A dollar. Below it a code's gap is two systems rounding differently.
+        minGap: 1,
+        minNoCostPrice: 1,
+        reportShort: true,
+        // More codes than this out at once means a rebuilt invoice, not five
+        // separate problems.
+        maxCodesBeforeSummary: 4,
+      },
+    },
+    "line-code-mismatch": { enabled: true, config: {} },
     // ── Labor rates ───────────────────────────────────────────────────────
     // JobTread snapshots the hourly rate onto a time entry and never re-costs
     // it, so a rate changed today leaves every entry already logged behind.

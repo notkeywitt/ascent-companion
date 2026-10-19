@@ -97,7 +97,22 @@ export type FindingKind =
   /** An approved bill is flagged "don't push", so the GL never sees the cost. */
   | "qbo-not-pushed"
   /** A bill was billed to the client but never approved, so it never pushed. */
-  | "qbo-never-approved";
+  | "qbo-never-approved"
+  // ── Kevin Berger's points, made checks (2026-10) ─────────────────────────
+  /** A bill's lines already include the tax its 88 80 00 line adds again. */
+  | "bill-tax-doubled"
+  /** Two bills on a job carry the same vendor invoice number. */
+  | "bill-duplicate-number"
+  /** Two finalized bills on a job are the same vendor and amount, weeks apart. */
+  | "bill-duplicate-amount"
+  /** Invoice cost on a cost code that no bill or time entry behind it accounts for. */
+  | "invoice-line-unsourced"
+  /** Bills or time on the invoice carry cost on a code the invoice does not bill. */
+  | "invoice-line-short"
+  /** A priced invoice line with no cost behind it — typed by hand. */
+  | "invoice-line-no-cost"
+  /** An invoice line's text names a different cost code than the one it is billed under. */
+  | "invoice-line-code-mismatch";
 
 /** One thing the review wants a human to look at. */
 export interface Finding {
@@ -343,6 +358,30 @@ export interface BillRef {
    * The check skips a null rather than reporting a bill it could not see.
    */
   qboIsIgnored: boolean | null;
+  /**
+   * The vendor's own invoice number where the capture stored it (NS1866), or
+   * the capture's hash (INV-7ecda753). The wide duplicate check compares it.
+   * Optional: absent on evidence built before 2026-10-19.
+   */
+  externalId?: string;
+}
+
+/**
+ * One cost item behind a client invoice — a line on a vendor bill the invoice
+ * references, or a time entry on it. What `invoice-lines` reconciles against.
+ */
+export interface InvoiceSourceItem {
+  /** "bill" for a vendor-bill line, "time" for a time entry. */
+  kind: "bill" | "time";
+  /** The bill or time entry id. */
+  sourceId: string;
+  code: string;
+  /**
+   * Every cost this item could carry on the invoice. One value for a bill line.
+   * Two for time: the entry's stored cost, and hours × today's rate — JobTread
+   * prices labor at the rate in force when the invoice is BUILT (costBasis.ts).
+   */
+  costs: number[];
 }
 
 /** A backup PDF filed in the job's billing folder, as parsed by the Apps Script
@@ -434,6 +473,12 @@ export interface InvoiceEvidence {
   /** Bills this invoice references directly. */
   billIds: string[];
   jtUrl: string;
+  /**
+   * The bill lines behind this invoice (bills it references, any month) —
+   * sales-tax lines excluded. Undefined when they could not be read, which
+   * makes the line reconciliation say nothing rather than guess.
+   */
+  billSources?: InvoiceSourceItem[];
 }
 
 /** One job's slice of the month. */
@@ -514,6 +559,18 @@ export interface JobEvidence {
   voidedBills?: BillRef[];
   /** The job's time entries for the month, each with the rate it was costed at. */
   labor: LaborEntryRef[];
+  /**
+   * The previous month's time entries. An invoice built early in a month often
+   * pulls the tail of the month before; without these the line reconciliation
+   * would call that labor unsourced. Optional: absent on older evidence.
+   */
+  priorLabor?: LaborEntryRef[];
+  /**
+   * Non-denied bills (draft included) issued in the lookback window before the
+   * month — what the wide duplicate check compares this month's bills against.
+   * Undefined when they could not be read.
+   */
+  priorBills?: BillRef[];
 }
 
 /** A whole month of client invoices, as reviewed. */

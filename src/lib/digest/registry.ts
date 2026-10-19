@@ -23,6 +23,7 @@ import type { DigestCheck } from "./types";
 
 import { uncapturedBillsCheck } from "./checks/uncapturedBills";
 import { draftBillsPastCutoffCheck } from "./checks/draftBillsPastCutoff";
+import { invoiceReviewWindowCheck } from "./checks/invoiceReviewWindow";
 import { reconciliationFlagsCheck } from "./checks/reconciliationFlags";
 import { costVsInvoiceCheck } from "./checks/costVsInvoice";
 import { calendarEventsCheck } from "./checks/calendarEvents";
@@ -50,6 +51,7 @@ const DECLARED: DigestCheck<never>[] = [
   emailFollowUpsCheck,
   // Billing — OFF by default (settings.ts); billing has its own screens.
   uncapturedBillsCheck,
+  invoiceReviewWindowCheck,
   draftBillsPastCutoffCheck,
   reconciliationFlagsCheck,
   costVsInvoiceCheck,
