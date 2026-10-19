@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-19T11:26:13Z",
+  "generatedAt": "2026-10-19T11:37:37Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,7 +8,7 @@
       "branch": "claude/kevin-berger-invoice-review-gktmtf",
       "status": "shipped",
       "started": "2026-10-19T10:34:29Z",
-      "updated": "2026-10-19T11:26:13Z",
+      "updated": "2026-10-19T11:37:37Z",
       "goal": "Turn Kevin Berger's invoice disputes into review checks, and run the review on the 10th-to-15th timeline",
       "next": "After the 2026-11-11 scheduled run: read the November digest card and the review history (ranBy schedule) to confirm the nightly run fired; tune any noisy new check with a ruling or settings. Owner decision pending on the /api/bill-tax guard.",
       "commits": [
@@ -46,6 +46,13 @@
           "sha": "4350530",
           "subject": "companion: record what every claude call costs and show it on checks and an ai cost page",
           "files": "CODEBASE_MAP.md, src/app/ai-cost/page.tsx, src/app/api/ai-usage/route.ts, src/app/invoice-review/InvoiceReview.tsx, src/components/PageTabs.tsx, src/db/index.ts, +13 more"
+        },
+        {
+          "date": "2026-10-19",
+          "time": "11:35",
+          "sha": "21cb358",
+          "subject": "companion: merge the apps script invoice reader's claude usage into ai cost",
+          "files": "CODEBASE_MAP.md, src/app/ai-cost/page.tsx, src/app/api/ai-usage/route.ts"
         }
       ]
     },
