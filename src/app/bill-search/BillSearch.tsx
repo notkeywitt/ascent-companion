@@ -294,7 +294,8 @@ export function BillSearch({ initialQuery = "" }: { initialQuery?: string }) {
             {results.length}
             {results.length === 200 ? "+" : ""} match{results.length === 1 ? "" : "es"}
           </p>
-          <div className="flex flex-col gap-3">
+          {/* One hairline list, not a box per hit (CONSOLIDATION_PLAN look rule 1). */}
+          <div className="divide-y divide-line-soft overflow-hidden rounded-xl border border-line bg-white dark:bg-ink-raised">
             {results.map((r) => (
               <ResultCard key={r.id} r={r} terms={terms} />
             ))}
@@ -363,7 +364,8 @@ function ResultCard({ r, terms }: { r: Result; terms: string[] }) {
                 Historical
               </Chip>
             ) : r.status ? (
-              <Chip tone={r.status === "approved" ? "success" : "info"}>{r.status}</Chip>
+              // The bill's status is ordinary state: quiet text, not a pill.
+              <span className="text-[11px] text-neutral-500 dark:text-neutral-400">{r.status}</span>
             ) : null}
             {r.isSunset && <Chip tone="warning">Sunset</Chip>}
           </div>
@@ -387,25 +389,16 @@ function ResultCard({ r, terms }: { r: Result; terms: string[] }) {
         </ul>
       )}
 
-      {r.isSunset && (
-        <a
-          href="/payments"
-          className="mt-2 inline-block text-[11px] font-semibold text-accent hover:underline"
-          onClick={(e) => e.stopPropagation()}
-        >
-          Sunset statements →
-        </a>
-      )}
     </>
   );
 
-  if (!href) return <Card>{body}</Card>;
+  if (!href) return <div className="p-4">{body}</div>;
 
   return (
     <a
       href={href}
       {...(external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
-      className="group block rounded-xl border border-line bg-white p-4 transition hover:border-accent/40 hover:shadow-sm dark:bg-ink-raised"
+      className="group block p-4 transition hover:bg-accent/5 dark:hover:bg-white/5"
     >
       {body}
     </a>

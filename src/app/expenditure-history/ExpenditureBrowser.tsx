@@ -535,6 +535,12 @@ export default function ExpenditureBrowser() {
   const [loadError, setLoadError] = useState("");
 
   const [q, setQ] = useState("");
+  // ?q= opens the Archive already searched — a link from the header search or
+  // Bill Search can hand a query over (CONSOLIDATION_PLAN stage 6).
+  useEffect(() => {
+    const asked = new URLSearchParams(window.location.search).get("q");
+    if (asked) setQ(asked);
+  }, []);
   const [year, setYear] = useState("all");
   const [jobFilter, setJobFilter] = useState("all");
   const [vendorFilter, setVendorFilter] = useState("all");

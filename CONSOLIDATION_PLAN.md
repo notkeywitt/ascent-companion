@@ -259,8 +259,12 @@ exception: Requisitions shows one only for "Requested"; Employees shows plain
 text for an Active status and a live JobTread link; Tools drops the "Good" pill.
 App Feedback no longer says "panel".
 
+Then: Bill Search results are one hairline list, the status is quiet text,
+and the link nested inside each result (invalid HTML) is gone. Archive reads
+`?q`.
+
 Still card-per-record: Email Invoices (each card carries a form), Not in
-JobTread, Sunset, LSWDD, Amazon, Bill Search, Leads, Taxable lines, Invoicing
+JobTread, Sunset, LSWDD, Amazon, Leads, Taxable lines, Invoicing
 Package, the Tracking Sheets month list.
 
 ## Look rules (apply as each page merges)
