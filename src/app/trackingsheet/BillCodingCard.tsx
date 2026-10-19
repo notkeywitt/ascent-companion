@@ -10,6 +10,8 @@ import {
   Banner,
   Button,
   Card,
+  Checkbox,
+  Dialog,
   EmptyState,
   Input,
   Label,
@@ -809,8 +811,7 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                 <div className="flex shrink-0 items-center gap-1.5">
                   <Button
                     variant={bill.reviewed ? "primary" : "secondary"}
-                    size="sm"
-                    className="!px-2 !py-1 !text-[11px]"
+                    size="xs"
                     onClick={() => toggleReviewed(bill.id, !bill.reviewed)}
                   >
                     {bill.reviewed ? "✓ Reviewed" : "Mark reviewed"}
@@ -823,8 +824,7 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                   {approveBill && bill.status === "draft" && (
                     <Button
                       variant="secondary"
-                      size="sm"
-                      className="!px-2 !py-1 !text-[11px]"
+                      size="xs"
                       onClick={() => approveBill(bill.id)}
                       disabled={Boolean(approvingBill) || Boolean(approveBlocked)}
                       title={approveBlocked ?? undefined}
@@ -837,8 +837,7 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                   {onVoided && writes && !bill.invoiced && (
                     <Button
                       variant="danger"
-                      size="sm"
-                      className="!px-2 !py-1 !text-[11px]"
+                      size="xs"
                       onClick={() => void voidBill()}
                       disabled={voiding}
                       title="Void in JobTread, remove from the tracking sheet, bin the PDF"
@@ -888,8 +887,7 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                     {bill && writes && (
                       <Button
                         variant="secondary"
-                        size="sm"
-                        className="!py-1.5 !text-xs"
+                        size="xs"
                         onClick={() => setCreateFileOpen(true)}
                         title="Create an Ascent record PDF for this bill and attach it"
                       >
@@ -932,8 +930,8 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                     {showRecodeAll && (
                       <Button
                         variant="secondary"
-                        size="sm"
-                        className="shrink-0 !py-1.5 !text-xs"
+                        size="xs"
+                        className="shrink-0"
                         onClick={() => setRecodeAllOpen(true)}
                         title={`Apply one code to all ${lines.length} lines`}
                       >
@@ -947,8 +945,8 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                     {showCombine && !combineOpen && !combinePending && (
                       <Button
                         variant="secondary"
-                        size="sm"
-                        className="shrink-0 !py-1.5 !text-xs"
+                        size="xs"
+                        className="shrink-0"
                         onClick={() => setCombineOpen(true)}
                         title="Merge lines that share a cost code"
                       >
@@ -959,8 +957,8 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                       <>
                         <Button
                           variant="secondary"
-                          size="sm"
-                          className="shrink-0 !py-1.5 !text-xs"
+                          size="xs"
+                          className="shrink-0"
                           onClick={() => {
                             setCombineOpen(false);
                             combineSelected.forEach(toggleCombineSel);
@@ -969,8 +967,8 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                           Cancel
                         </Button>
                         <Button
-                          size="sm"
-                          className="shrink-0 !py-1.5 !text-xs"
+                          size="xs"
+                          className="shrink-0"
                           onClick={() => {
                             combineRows();
                             setCombineOpen(false);
@@ -987,8 +985,8 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                     {combinePending && cancelCombine && (
                       <Button
                         variant="secondary"
-                        size="sm"
-                        className="shrink-0 !py-1.5 !text-xs"
+                        size="xs"
+                        className="shrink-0"
                         onClick={cancelCombine}
                       >
                         Undo merge
@@ -1053,13 +1051,12 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                     drafts; re-coding still works in any status. */}
                       <div className="flex items-start gap-1.5">
                         {combineOpen && !bill.invoiced && writes && isCombinable(l) && (
-                          <input
-                            type="checkbox"
+                          <Checkbox
                             checked={combineSelected.includes(l.id)}
                             onChange={() => toggleCombineSel(l.id)}
                             aria-label="Select line to combine"
                             title="Combine with other lines that share this code"
-                            className="mt-1.5 h-3.5 w-3.5 shrink-0 cursor-pointer accent-accent"
+                            className="mt-1.5"
                           />
                         )}
                         <div className="min-w-0 flex-1">
@@ -1298,8 +1295,7 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                       </div>
                       <div className="mt-2 flex items-center gap-1.5">
                         <Button
-                          size="sm"
-                          className="!py-1.5 !text-xs"
+                          size="xs"
                           onClick={addLine}
                           disabled={addLineSaving || !newLine.name.trim()}
                         >
@@ -1307,8 +1303,7 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                         </Button>
                         <Button
                           variant="secondary"
-                          size="sm"
-                          className="!py-1.5 !text-xs"
+                          size="xs"
                           onClick={() => {
                             setAddingLine(false);
                             setAddLineMsg("");
@@ -1544,26 +1539,48 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
         )}
       </div>
 
-      {/* Buy back — pick the lines. Same modal shape as Recode All: a bottom
-        sheet on a phone, a centred dialog from sm up. The tick boxes are the
-        whole point; nothing writes until the button at the foot is pressed. */}
+      {/* Buy back — pick the lines. A Dialog, like Recode All. The tick boxes
+        are the whole point; nothing writes until the button at the foot is
+        pressed. */}
       {buybackOpen && showBuyback && (
-        <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Buy back lines"
-          onClick={() => !buybackRunning && setBuybackOpen(false)}
-        >
-          <Card
-            className="flex max-h-[85vh] w-full max-w-sm flex-col rounded-b-none pb-[max(0.75rem,env(safe-area-inset-bottom))] !p-4 sm:rounded-b-xl sm:pb-4"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <p className="text-sm font-semibold">Buy back to Ascent - Shop</p>
-            <p className="mb-2 text-[11px] text-neutral-500">
+        <Dialog
+          label="Buy back lines"
+          size="sm"
+          busy={buybackRunning}
+          onClose={() => setBuybackOpen(false)}
+          title="Buy back to Ascent - Shop"
+          description={
+            <>
               Ticked lines move onto a draft bill on the Shop job and come off this bill. They all
               land on the SAME Shop bill. This writes to JobTread straight away.
-            </p>
+            </>
+          }
+          footer={
+            <>
+              <span className="mr-auto text-[11px] tabular-nums text-neutral-500">
+                {buybackSel.length === 0
+                  ? "Nothing selected"
+                  : `${buybackSel.length} line${buybackSel.length === 1 ? "" : "s"} · ${money(buybackTotal)}`}
+              </span>
+              <Button
+                variant="secondary"
+                size="xs"
+                disabled={buybackRunning}
+                onClick={() => setBuybackOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                size="xs"
+                disabled={buybackSel.length === 0 || buybackRunning}
+                onClick={() => void runBuyback()}
+              >
+                {buybackRunning ? <Spinner className="mr-1.5" /> : null}
+                {buybackRunning ? "Buying back…" : `Buy back ${buybackSel.length || ""}`.trim()}
+              </Button>
+            </>
+          }
+        >
 
             {/* The WHOLE bill is a different operation, not "tick every line".
               Moving every line one at a time would leave an empty bill behind on
@@ -1588,15 +1605,14 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
               </button>
             )}
 
-            <ul className="-mx-1 min-h-0 flex-1 overflow-y-auto px-1">
+            <ul className="-mx-1 px-1">
               {buybackRows.map((r) => (
                 <li
                   key={r.line.id}
                   className="border-t border-line-soft first:border-0 dark:border-neutral-800"
                 >
                   <label className="flex cursor-pointer items-start gap-2 py-2">
-                    <input
-                      type="checkbox"
+                    <Checkbox
                       checked={buybackSel.includes(r.line.id)}
                       disabled={buybackRunning}
                       onChange={() =>
@@ -1606,7 +1622,7 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                             : [...sel, r.line.id],
                         )
                       }
-                      className="mt-0.5 h-3.5 w-3.5 shrink-0 accent-accent"
+                      className="mt-0.5"
                     />
                     <span className="min-w-0 flex-1 text-xs">{r.name}</span>
                     <span className="shrink-0 text-xs font-semibold tabular-nums">
@@ -1616,71 +1632,31 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                 </li>
               ))}
             </ul>
-            <div className="mt-3 flex items-center justify-between gap-1.5">
-              <span className="text-[11px] tabular-nums text-neutral-500">
-                {buybackSel.length === 0
-                  ? "Nothing selected"
-                  : `${buybackSel.length} line${buybackSel.length === 1 ? "" : "s"} · ${money(buybackTotal)}`}
-              </span>
-              <span className="flex items-center gap-1.5">
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  className="!py-1.5 !text-xs"
-                  disabled={buybackRunning}
-                  onClick={() => setBuybackOpen(false)}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  size="sm"
-                  className="!py-1.5 !text-xs"
-                  disabled={buybackSel.length === 0 || buybackRunning}
-                  onClick={() => void runBuyback()}
-                >
-                  {buybackRunning ? <Spinner className="mr-1.5" /> : null}
-                  {buybackRunning ? "Buying back…" : `Buy back ${buybackSel.length || ""}`.trim()}
-                </Button>
-              </span>
-            </div>
-          </Card>
-        </div>
+        </Dialog>
       )}
 
-      {/* Recode All Lines. A modal at every width — a bottom sheet on a phone,
-        a centred dialog from sm up, like the board's other dialogs — so the
-        one code it asks for is the only thing on screen, and picking it can't
-        be mistaken for coding the line it sat above. */}
+      {/* Recode All Lines. A Dialog at every width — a bottom sheet on a
+        phone, a centred dialog from sm up, like the board's other dialogs — so
+        the one code it asks for is the only thing on screen, and picking it
+        can't be mistaken for coding the line it sat above. */}
       {recodeAllOpen && showRecodeAll && (
-        <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Recode all lines"
-          onClick={() => setRecodeAllOpen(false)}
-        >
-          <Card
-            className="w-full max-w-sm rounded-b-none pb-[max(0.75rem,env(safe-area-inset-bottom))] !p-4 sm:rounded-b-xl sm:pb-4"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <p className="text-sm font-semibold">Recode all lines</p>
-            <p className="mb-2 text-[11px] text-neutral-500">
+        <Dialog
+          size="sm"
+          onClose={() => setRecodeAllOpen(false)}
+          title="Recode all lines"
+          description={
+            <>
               One cost code for all {lines.length} lines of this bill. Staged like any other recode
               — nothing writes until you sync.
-            </p>
-            <CostCodeSelect options={codeOptions} value={bulkCode} onChange={setBulkCode} />
-            <div className="mt-3 flex items-center justify-end gap-1.5">
-              <Button
-                variant="secondary"
-                size="sm"
-                className="!py-1.5 !text-xs"
-                onClick={() => setRecodeAllOpen(false)}
-              >
+            </>
+          }
+          footer={
+            <>
+              <Button variant="secondary" size="xs" onClick={() => setRecodeAllOpen(false)}>
                 Cancel
               </Button>
               <Button
-                size="sm"
-                className="!py-1.5 !text-xs"
+                size="xs"
                 disabled={!bulkCode}
                 onClick={() => {
                   applyCodeToAll(bulkCode);
@@ -1689,35 +1665,50 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
               >
                 Apply to all {lines.length}
               </Button>
-            </div>
-          </Card>
-        </div>
+            </>
+          }
+        >
+          <CostCodeSelect options={codeOptions} value={bulkCode} onChange={setBulkCode} />
+        </Dialog>
       )}
 
-      {/* Create File. Same modal shape as the two above — a bottom sheet on a
-        phone, a centred dialog from sm up. Every field on the record is
+      {/* Create File. A Dialog, like the two above. Every field on the record is
         pre-filled from the bill and editable: a hand-entered bill can carry a
         misspelled vendor or the wrong job label, and the ONE fact the bill
         can't supply — what the charge was for — is the field below them. */}
       {createFileOpen && bill && (
-        <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Create a file for this bill"
-          onClick={() => !creatingFile && setCreateFileOpen(false)}
-        >
-          <Card
-            className="w-full max-w-md rounded-b-none pb-[max(0.75rem,env(safe-area-inset-bottom))] !p-4 sm:rounded-b-xl sm:pb-4"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <p className="text-sm font-semibold">Create a file for this bill</p>
-            <p className="mb-2 text-[11px] text-neutral-500">
+        <Dialog
+          busy={creatingFile}
+          onClose={() => setCreateFileOpen(false)}
+          title="Create a file for this bill"
+          description={
+            <>
               Makes an Ascent record PDF — its {lines.length} line{lines.length === 1 ? "" : "s"}{" "}
               and {money(math.total)} — and attaches it in JobTread. Pre-filled from the bill;
               change anything before creating it.
               {prefillLoading && " Loading…"}
-            </p>
+            </>
+          }
+          footer={
+            <>
+              <Button
+                variant="secondary"
+                size="xs"
+                disabled={creatingFile}
+                onClick={() => setCreateFileOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                size="xs"
+                disabled={creatingFile || !createFileDesc.trim()}
+                onClick={createFile}
+              >
+                {creatingFile ? "Creating…" : "Create File"}
+              </Button>
+            </>
+          }
+        >
             <div className="grid grid-cols-2 gap-2.5">
               <div>
                 <Label htmlFor="cf-vendor">Vendor</Label>
@@ -1784,27 +1775,7 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
             {createFileMsg && (
               <p className="mt-1.5 text-[11px] text-red-600 dark:text-red-400">{createFileMsg}</p>
             )}
-            <div className="mt-3 flex items-center justify-end gap-1.5">
-              <Button
-                variant="secondary"
-                size="sm"
-                className="!py-1.5 !text-xs"
-                disabled={creatingFile}
-                onClick={() => setCreateFileOpen(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                size="sm"
-                className="!py-1.5 !text-xs"
-                disabled={creatingFile || !createFileDesc.trim()}
-                onClick={createFile}
-              >
-                {creatingFile ? "Creating…" : "Create File"}
-              </Button>
-            </div>
-          </Card>
-        </div>
+        </Dialog>
       )}
     </>
   );

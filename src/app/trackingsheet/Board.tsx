@@ -9,11 +9,13 @@ import {
   Button,
   Card,
   Chip,
+  Dialog,
   EmptyState,
   Loading,
   MetaLine,
   PageHeader,
   SectionLabel,
+  Segmented,
   Select,
   Spinner,
   StatementBlock,
@@ -2311,39 +2313,20 @@ export function Board() {
               ) : (
                 <span />
               )}
-              {
-                /* Grouping switch, as a segmented control: one soft-filled track
-                 so the three options read as a set, with 44px-tall segments on
-                 touch (they were 26px) and the desktop density restored at
-                 lg. Filled rather than bordered — the same trade the quiet
-                 fields make, and one less rectangle beside the heading. */
-                <div className="flex shrink-0 gap-1 rounded-lg bg-neutral-100 p-0.5 text-xs dark:bg-white/[0.07] lg:bg-transparent lg:p-0 lg:dark:bg-transparent">
-                  {(
-                    [
-                      ["bill", "By bill"],
-                      ["code", "By cost code"],
-                      // The client-facing rollup — what the month bills, in the
-                      // shape the customer sees it, and the source of the printed
-                      // summary. Not a drag surface.
-                      ["summary", "Summary"],
-                    ] as const
-                  ).map(([m, label]) => (
-                    <button
-                      key={m}
-                      type="button"
-                      onClick={() => setMode(m)}
-                      aria-pressed={mode === m}
-                      className={`inline-flex min-h-10 items-center rounded-md px-2.5 transition lg:min-h-0 lg:py-1 ${
-                        mode === m
-                          ? "bg-accent text-accent-fg font-semibold"
-                          : "text-neutral-500 hover:text-accent dark:text-neutral-400"
-                      }`}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              }
+              {/* Grouping switch: one Segmented control, so the three options
+                  read as a set. The third is the client-facing rollup — what
+                  the month bills, in the shape the customer sees it, and the
+                  source of the printed summary. Not a drag surface. */}
+              <Segmented
+                label="Group bills"
+                value={mode}
+                onChange={setMode}
+                options={[
+                  { value: "bill", label: "By bill" },
+                  { value: "code", label: "By cost code" },
+                  { value: "summary", label: "Summary" },
+                ]}
+              />
             </div>
 
             {/* ---- this month's time entries ----
@@ -2759,19 +2742,8 @@ export function Board() {
           in the column, never both: two mounts would duplicate its field ids
           and its state. */}
       {openTime && belowXl && (
-        <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Edit time entry"
-          onClick={() => setOpenTimeId(null)}
-        >
-          {/* No background of its own: TimeCodingCard IS a Card, so the sheet
-              only sizes and pads it. */}
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-lg pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:pb-0"
-          >
+        // No panel of its own: TimeCodingCard IS a Card.
+        <Dialog label="Edit time entry" bare onClose={() => setOpenTimeId(null)}>
             <TimeCodingCard
               entry={openTime}
               jobId={jobId}
@@ -2786,8 +2758,7 @@ export function Board() {
               }}
               onClose={() => setOpenTimeId(null)}
             />
-          </div>
-        </div>
+        </Dialog>
       )}
 
       {/* The Add time dialog. A modal at EVERY width, unlike the edit panel:
@@ -2795,17 +2766,7 @@ export function Board() {
           open there), while adding time is a short errand that ends in a Close
           — and it must not push the bill being coded out of that column. */}
       {addTimeOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Add time"
-          onClick={() => setAddTimeOpen(false)}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-lg pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:pb-0"
-          >
+        <Dialog label="Add time" bare onClose={() => setAddTimeOpen(false)}>
             <AddTimeCard
               jobId={jobId}
               jobLabel={jobTitle}
@@ -2819,8 +2780,7 @@ export function Board() {
               }}
               onClose={() => setAddTimeOpen(false)}
             />
-          </div>
-        </div>
+        </Dialog>
       )}
 
       <CodeDrillSheet
@@ -2838,21 +2798,25 @@ export function Board() {
       {/* A dropped-on code with several MEANINGFUL budget rows (Labor vs
           Materials vs Allowance) is a real coding decision — ask, don't guess. */}
       {leafPicker && (
-        <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4"
-          role="dialog"
-          aria-modal="true"
-          onClick={() => setLeafPicker(null)}
-        >
-          <Card
-            className="max-h-[85dvh] w-full max-w-md overflow-y-auto rounded-b-none pb-[max(1rem,env(safe-area-inset-bottom))] !p-4 sm:rounded-b-xl sm:pb-4"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <p className="text-sm font-semibold">Which budget line under {leafPicker.code}?</p>
-            <p className="mb-3 text-xs text-neutral-500 dark:text-neutral-400">
+        <Dialog
+          onClose={() => setLeafPicker(null)}
+          title={`Which budget line under ${leafPicker.code}?`}
+          description={
+            <>
               This cost code has several budget rows. Moving{" "}
               {leafPicker.lineIds.length === 1 ? "1 line" : `${leafPicker.lineIds.length} lines`}.
-            </p>
+            </>
+          }
+          footer={
+            <Button
+              variant="secondary"
+              className="min-h-11 sm:min-h-0"
+              onClick={() => setLeafPicker(null)}
+            >
+              Cancel
+            </Button>
+          }
+        >
             {/* Each option is a decision you commit with one tap, so they get
                 full-height rows rather than 34px slivers. */}
             <ul className="space-y-2">
@@ -2881,39 +2845,47 @@ export function Board() {
                 </li>
               ))}
             </ul>
-            <div className="mt-4 flex justify-end">
-              <Button
-                variant="secondary"
-                className="min-h-11 sm:min-h-0"
-                onClick={() => setLeafPicker(null)}
-              >
-                Cancel
-              </Button>
-            </div>
-          </Card>
-        </div>
+        </Dialog>
       )}
 
       {approveOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4"
-          role="dialog"
-          aria-modal="true"
-          onClick={() => !approving && setApproveOpen(false)}
-        >
-          <Card
-            className="max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-b-none pb-[max(1rem,env(safe-area-inset-bottom))] !p-4 sm:rounded-b-xl sm:pb-4"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <p className="text-sm font-semibold">
-              Approve {draftBills.length} draft bill{draftBills.length === 1 ? "" : "s"}?
-            </p>
-            <p className="mb-3 text-xs text-neutral-500 dark:text-neutral-400">
+        <Dialog
+          busy={approving}
+          onClose={() => setApproveOpen(false)}
+          title={`Approve ${draftBills.length} draft bill${draftBills.length === 1 ? "" : "s"}?`}
+          description={
+            <>
               {billingMonths().find((o) => o.value === ym)?.label ?? ym}
               {jobTitle ? ` · ${jobTitle}` : ""}. Bills move to Pending (approved for payment);
               Expenses move straight to Approved (paid).
-            </p>
-            <ul className="max-h-[40dvh] space-y-2 overflow-y-auto">
+            </>
+          }
+          footer={
+            // This posts real writes to JobTread, so the confirm button is
+            // full-width in the sheet's thumb zone with Cancel beside it — not
+            // two small pills tucked into a corner.
+            <div className="grid w-full grid-cols-2 gap-2">
+              <Button
+                variant="secondary"
+                className="min-h-11 w-full"
+                onClick={() => setApproveOpen(false)}
+                disabled={approving}
+              >
+                Cancel
+              </Button>
+              <Button
+                className="min-h-11 w-full"
+                onClick={approveDraftBills}
+                disabled={approving || draftBills.length === 0}
+              >
+                {approving
+                  ? "Approving…"
+                  : `Approve ${draftBills.length} bill${draftBills.length === 1 ? "" : "s"}`}
+              </Button>
+            </div>
+          }
+        >
+            <ul className="space-y-2">
               {draftBills.map((b) => {
                 const target = approvalTarget(b);
                 const taxOn = billTax(b) > 0;
@@ -2963,30 +2935,7 @@ export function Board() {
                 Writes are disabled on this deployment — this will preview only.
               </p>
             )}
-            {/* This posts real writes to JobTread, so the confirm button is
-                full-width in the sheet's thumb zone with Cancel beside it —
-                not two small pills tucked into a corner. */}
-            <div className="mt-4 grid grid-cols-2 gap-2">
-              <Button
-                variant="secondary"
-                className="min-h-11 w-full"
-                onClick={() => setApproveOpen(false)}
-                disabled={approving}
-              >
-                Cancel
-              </Button>
-              <Button
-                className="min-h-11 w-full"
-                onClick={approveDraftBills}
-                disabled={approving || draftBills.length === 0}
-              >
-                {approving
-                  ? "Approving…"
-                  : `Approve ${draftBills.length} bill${draftBills.length === 1 ? "" : "s"}`}
-              </Button>
-            </div>
-          </Card>
-        </div>
+        </Dialog>
       )}
 
       {accessOpen && (

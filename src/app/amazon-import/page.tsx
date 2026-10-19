@@ -8,6 +8,7 @@ import {
   Button,
   Card,
   EmptyState,
+  FileDrop,
   Label,
   PageHeader,
   Select,
@@ -528,11 +529,11 @@ export default function AmazonImportPage() {
         <section className="space-y-4">
           <Card>
             <Label>Amazon Business order report (CSV)</Label>
-            <input
-              type="file"
+            <FileDrop
+              label="Choose the order report CSV"
+              hint="CSV"
               accept=".csv,text/csv"
               onChange={(e) => onPickFile(e.target.files?.[0] ?? null)}
-              className="block w-full rounded-lg border border-neutral-300 bg-white p-2 text-sm transition file:mr-3 file:rounded-md file:border-0 file:bg-accent file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-accent-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 dark:border-neutral-600 dark:bg-ink-raised"
             />
             <p className="mt-2 text-xs text-neutral-500">
               In Amazon Business: <span className="font-medium">Reports → Order history</span>, export
@@ -543,13 +544,13 @@ export default function AmazonImportPage() {
 
           <Card>
             <Label>Or: order summary PDFs</Label>
-            <input
-              type="file"
+            <FileDrop
+              label="Choose order summary PDFs"
+              hint="PDF or photo, several at once"
               multiple
               accept=".pdf,application/pdf,image/jpeg,image/png,image/webp"
               disabled={pdfParsing}
               onChange={(e) => onPickOrderPdfs(e.target.files)}
-              className="block w-full rounded-lg border border-neutral-300 bg-white p-2 text-sm transition file:mr-3 file:rounded-md file:border-0 file:bg-accent file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-accent-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 disabled:opacity-60 dark:border-neutral-600 dark:bg-ink-raised"
             />
             {pdfParsing ? (
               <p className="mt-2 flex items-center gap-1.5 text-xs text-neutral-500">
@@ -617,11 +618,11 @@ export default function AmazonImportPage() {
             {/* Invoice PDFs — REQUIRED zip, matched to orders by order id in the filename */}
             <div className="border-t border-line pt-3 dark:border-neutral-800">
               <Label>Invoice PDFs (zip, required)</Label>
-              <input
-                type="file"
+              <FileDrop
+                label="Choose the invoice PDFs zip"
+                hint="ZIP"
                 accept=".zip,application/zip"
                 onChange={(e) => onPickPdfZip(e.target.files?.[0] ?? null)}
-                className="block w-full rounded-lg border border-neutral-300 bg-white p-2 text-sm transition file:mr-3 file:rounded-md file:border-0 file:bg-accent/90 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-accent-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 dark:border-neutral-600 dark:bg-ink-raised"
               />
               {pdfError ? (
                 <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">{pdfError}</p>

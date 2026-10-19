@@ -102,7 +102,7 @@ matching row here.
 | **Auth / session / roles** | `src/auth.ts`, `src/middleware.ts`, `src/lib/auth.ts` |
 | **Env, gates, Pave config** | `src/lib/config.ts` |
 | **Companion DB tables** | `src/db/schema.ts` |
-| **The design system** | `src/components/ui.tsx` (build every UI on these primitives) |
+| **The design system** | `src/components/ui.tsx` (build every UI on these primitives). Client-side parts it re-exports: `src/components/Dialog.tsx` (the one modal — bottom sheet on a phone, centred from `sm`), `src/components/FileDrop.tsx` (the file picker), `src/components/StickyActionBar.tsx` |
 | **Per-element help on a page** (the ? mark, bottom-left) | `src/components/PageGuide.tsx` (the overlay: the live page scaled into a stage, the element list, the arrow) → `src/lib/pageGuide.ts` (the topic type, the path key, the selector builder) → `/api/page-guide` → table `page_guides`. An admin writes the topics IN the overlay: Edit → Add element → tap the thing |
 | **Pull down to reload** (installed app only) | `src/components/PullToRefresh.tsx` (touch handling, the indicator; mounted in `layout.tsx`) → `src/lib/pullToRefresh.ts` (distance and threshold). `data-no-pull` opts an element out |
 | **Swipe right to go back** (installed app only; replaced the header's back button) | `src/components/SwipeBack.tsx` (touch handling, the indicator; mounted in `layout.tsx`) → `src/lib/swipeBack.ts` (edge, threshold, direction). `data-no-swipe` opts an element out |

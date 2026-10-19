@@ -28,6 +28,7 @@ import {
   Loading,
   PageHeader,
   Select,
+  Segmented,
   Textarea,
 } from "@/components/ui";
 
@@ -2132,12 +2133,16 @@ export function EmployeeTimeClient({
 
       {/* Time clock | Timesheets — the app's two halves, one tap apart. */}
       <Segmented
+        label="Time view"
+        size="md"
+        fill
+        className="mb-3"
         value={tab}
-        onChange={(v) => setTab(v as "clock" | "sheets" | "compare")}
+        onChange={setTab}
         options={[
-          { value: "clock", label: "Time clock" },
-          { value: "sheets", label: "Timesheets" },
-          ...(canCompare ? [{ value: "compare", label: "Split View" }] : []),
+          { value: "clock" as const, label: "Time clock" },
+          { value: "sheets" as const, label: "Timesheets" },
+          ...(canCompare ? [{ value: "compare" as const, label: "Split View" }] : []),
         ]}
       />
 
@@ -3039,44 +3044,6 @@ export function EmployeeTimeClient({
 }
 
 /* ------------------------------------------------------------------ pieces */
-
-/** iOS-style segmented control — the app's top-level Time clock/Timesheets/Split View switch. */
-function Segmented({
-  value,
-  onChange,
-  options,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  options: { value: string; label: string }[];
-}) {
-  return (
-    <div
-      role="tablist"
-      className="mb-3 flex rounded-full bg-neutral-200/80 p-1 dark:bg-white/10"
-    >
-      {options.map((o) => {
-        const active = o.value === value;
-        return (
-          <button
-            key={o.value}
-            type="button"
-            role="tab"
-            aria-selected={active}
-            onClick={() => onChange(o.value)}
-            className={`min-h-11 flex-1 rounded-full text-sm font-bold transition ${
-              active
-                ? "bg-white text-neutral-900 shadow-sm dark:bg-ink-raised dark:text-neutral-100"
-                : "text-neutral-500 dark:text-neutral-400"
-            }`}
-          >
-            {o.label}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
 
 /** A pay-period / filter pill (the timesheet's own filter chips). */
 function PillTab({

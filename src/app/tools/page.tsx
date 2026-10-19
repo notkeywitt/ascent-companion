@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { Banner, Button, Label, Loading, PageHeader, inputCls } from "@/components/ui";
+import { Banner, Button, Dialog, Label, Loading, PageHeader, inputCls } from "@/components/ui";
 
 // The QR scanner pulls in jsQR (a sizeable pure-JS decoder) and only appears after a
 // "Scan a tool" tap, so load it on demand — this keeps jsQR out of the initial /tools
@@ -861,41 +861,25 @@ export default function ToolsPage() {
 
       {/* Scan camera overlay */}
       {scanning && (
-        <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4"
-          onClick={() => setScanning(false)}
-        >
-          <div
-            className="w-full max-w-lg rounded-t-2xl bg-white p-4 dark:bg-ink-overlay sm:rounded-2xl"
-            onClick={(ev) => ev.stopPropagation()}
-          >
-            <h2 className="mb-3 text-lg font-bold">Scan a tool</h2>
-            <div className="space-y-3">
-              <QrScanner
-                onDetect={onScan}
-                onError={(m) => {
-                  setScanErr(m);
-                  setScanning(false);
-                }}
-              />
-              <Button variant="secondary" className="w-full" onClick={() => setScanning(false)}>
-                Cancel
-              </Button>
-            </div>
+        <Dialog onClose={() => setScanning(false)} title="Scan a tool">
+          <div className="space-y-3">
+            <QrScanner
+              onDetect={onScan}
+              onError={(m) => {
+                setScanErr(m);
+                setScanning(false);
+              }}
+            />
+            <Button variant="secondary" className="w-full" onClick={() => setScanning(false)}>
+              Cancel
+            </Button>
           </div>
-        </div>
+        </Dialog>
       )}
 
       {/* Relocate confirm / success overlay (after a scan) */}
       {scanTool && (
-        <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4"
-          onClick={() => !relocating && closeScan()}
-        >
-          <div
-            className="w-full max-w-lg rounded-t-2xl bg-white p-4 dark:bg-ink-overlay sm:rounded-2xl"
-            onClick={(ev) => ev.stopPropagation()}
-          >
+        <Dialog onClose={closeScan} busy={relocating} label={relocDone ? "Location updated" : "Set tool location"}>
             {relocDone ? (
               <>
                 <div className="text-lg font-semibold text-green-700 dark:text-green-400">
@@ -989,20 +973,12 @@ export default function ToolsPage() {
                 </button>
               </>
             )}
-          </div>
-        </div>
+        </Dialog>
       )}
 
       {/* New-tool overlay (scanned an unknown sticker) */}
       {newForm && (
-        <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4"
-          onClick={() => !creating && closeScan()}
-        >
-          <div
-            className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-t-2xl bg-white p-4 dark:bg-ink-overlay sm:rounded-2xl"
-            onClick={(ev) => ev.stopPropagation()}
-          >
+        <Dialog onClose={closeScan} busy={creating} label={createDone ? "Tool added" : "New tool"}>
             {createDone ? (
               <>
                 <div className="text-lg font-semibold text-green-700 dark:text-green-400">
@@ -1165,24 +1141,28 @@ export default function ToolsPage() {
                 </div>
               </>
             )}
-          </div>
-        </div>
+        </Dialog>
       )}
 
       {/* Edit modal */}
       {editing && form && (
-        <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4"
-          onClick={() => !saving && closeEdit()}
+        <Dialog
+          onClose={closeEdit}
+          busy={saving}
+          label={`Edit ${editing.name || editing.id}`}
+          title={editing.name || editing.id}
+          description={`ID: ${editing.id}`}
+          footer={
+            <>
+              <Button variant="secondary" onClick={closeEdit} disabled={saving}>
+                Cancel
+              </Button>
+              <Button onClick={save} disabled={saving}>
+                {saving ? "Saving…" : "Save"}
+              </Button>
+            </>
+          }
         >
-          <div
-            className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-t-2xl bg-white p-4 dark:bg-ink-overlay sm:rounded-2xl"
-            onClick={(ev) => ev.stopPropagation()}
-          >
-            <div className="mb-3 flex items-baseline justify-between">
-              <h2 className="text-lg font-bold">{editing.name || editing.id}</h2>
-              <span className="text-xs text-neutral-500">ID: {editing.id}</span>
-            </div>
 
             {/* Photo */}
             <div className="mb-4 flex items-center gap-3">
@@ -1286,17 +1266,7 @@ export default function ToolsPage() {
                 {saveErr}
               </Banner>
             )}
-
-            <div className="mt-4 flex gap-2">
-              <Button variant="secondary" className="flex-1" onClick={closeEdit} disabled={saving}>
-                Cancel
-              </Button>
-              <Button className="flex-1" onClick={save} disabled={saving}>
-                {saving ? "Saving…" : "Save"}
-              </Button>
-            </div>
-          </div>
-        </div>
+        </Dialog>
       )}
     </main>
   );

@@ -9,7 +9,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import { Banner, Button, PageHeader } from "@/components/ui";
+import { Banner, Button, Checkbox, PageHeader } from "@/components/ui";
 import { LaborReportCard } from "@/components/LaborReportButton";
 
 // ---- Editable config -------------------------------------------------------
@@ -1314,10 +1314,14 @@ export function LaborImport({ embedded = false }: { embedded?: boolean } = {}) {
           {/* Preview */}
           <div className="overflow-x-auto rounded-xl border border-line bg-white dark:bg-ink-raised">
             <table className="w-full text-left text-xs">
-              <thead className="bg-neutral-50 dark:bg-white/5">
+              <thead>
                 <tr>
+                  {/* JobTread's own column names, so not upper-cased. */}
                   {JT_HEADERS.map((h) => (
-                    <th key={h} className="whitespace-nowrap px-2 py-2 font-semibold">
+                    <th
+                      key={h}
+                      className="whitespace-nowrap border-b border-line px-2 py-2 text-[11px] font-semibold text-neutral-500 dark:text-neutral-400"
+                    >
                       {h}
                     </th>
                   ))}
@@ -1482,7 +1486,7 @@ function CheckRow({
 }) {
   return (
     <label className="flex cursor-pointer items-center gap-2 text-sm">
-      <input type="checkbox" checked={checked} onChange={onChange} className="accent-accent" />
+      <Checkbox checked={checked} onChange={onChange} />
       <span className={"flex-1 truncate " + (muted ? "text-neutral-400" : "")} title={label}>
         {label}
       </span>

@@ -1,7 +1,7 @@
 "use client";
 
 import type { Dispatch, SetStateAction } from "react";
-import { Banner, Button, Card, Chip, Loading, SectionLabel } from "@/components/ui";
+import { Banner, Button, Chip, Dialog, Loading, SectionLabel } from "@/components/ui";
 import { JtLink } from "@/components/JtLink";
 import { remainingOf, type Headroom } from "./headroom";
 import { money } from "./BillCodingCard";
@@ -43,22 +43,9 @@ export function CodeDrillSheet({
           total, so "why is this over budget" doesn't require a trip to the
           Tracking Sheet. */}
       {codeDrill && (
-        // Bottom sheet on a phone, centred dialog from sm up: anchored to the
-        // bottom edge it opens inside the thumb's reach and its Close button
-        // lands where the hand already is, instead of at the top of a box
-        // floating mid-screen. `dvh` keeps it inside the visible viewport when
-        // the browser chrome collapses, and the safe-area pad keeps the last
-        // row clear of the home indicator.
-        <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4"
-          role="dialog"
-          aria-modal="true"
-          onClick={() => setCodeDrill(null)}
-        >
-          <Card
-            className="max-h-[85dvh] w-full max-w-lg overflow-y-auto rounded-b-none pb-[max(0.75rem,env(safe-area-inset-bottom))] !p-4 sm:rounded-b-xl sm:pb-4"
-            onClick={(e) => e.stopPropagation()}
-          >
+        // A Dialog: a bottom sheet on a phone, so its Close button lands
+        // where the hand already is; a centred dialog from sm up.
+        <Dialog label={`Cost code ${codeDrill}`} onClose={() => setCodeDrill(null)}>
             {(() => {
               const h = headroom.get(codeDrill);
               return (
@@ -203,8 +190,7 @@ export function CodeDrillSheet({
                 </>
               );
             })()}
-          </Card>
-        </div>
+        </Dialog>
       )}
 
     </>

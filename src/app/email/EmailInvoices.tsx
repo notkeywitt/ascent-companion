@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-import { Banner, Button, CardSkeletonList, EmptyState, PageHeader, Select } from "@/components/ui";
+import { Banner, Button, CardSkeletonList, Checkbox, EmptyState, PageHeader, Select } from "@/components/ui";
 import Link from "next/link";
 import { useAccess } from "@/components/AccessProvider";
 import { gatewayQuery } from "@/lib/paveGatewayClient";
@@ -435,12 +435,10 @@ export function EmailInvoices({ embedded = false }: { embedded?: boolean } = {})
                               ))}
                             </Select>
                             <label className="flex shrink-0 items-center gap-1.5 text-sm">
-                              <input
-                                type="checkbox"
+                              <Checkbox
                                 checked={!!paid[k]}
                                 disabled={busy}
                                 onChange={(e) => setPaid((p) => ({ ...p, [k]: e.target.checked }))}
-                                className="h-4 w-4 rounded border-neutral-300 accent-accent"
                               />
                               PAID
                             </label>
@@ -524,14 +522,12 @@ export function EmailInvoices({ embedded = false }: { embedded?: boolean } = {})
                     </Select>
 
                     <label className="flex shrink-0 items-center gap-1.5 text-sm">
-                      <input
-                        type="checkbox"
+                      <Checkbox
                         checked={!!paid[row.messageId]}
                         disabled={busy}
                         onChange={(e) =>
                           setPaid((p) => ({ ...p, [row.messageId]: e.target.checked }))
                         }
-                        className="h-4 w-4 rounded border-neutral-300 accent-accent"
                       />
                       PAID
                     </label>

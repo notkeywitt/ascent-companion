@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
-import { btn } from "@/components/ui";
+import { btn, Dialog } from "@/components/ui";
 
 /**
  * The post-run notice for the "Import tagged email invoices" sweep (the Apps
@@ -133,15 +132,6 @@ export function InvoiceSweepResultModal({
   result: SweepResult | null;
   onClose: () => void;
 }) {
-  useEffect(() => {
-    if (!result) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [result, onClose]);
-
   if (!result) return null;
 
   const items = result.items ?? [];
@@ -160,17 +150,15 @@ export function InvoiceSweepResultModal({
       : "Nothing new imported";
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-4 sm:items-center"
-      onClick={onClose}
+    <Dialog
+      onClose={onClose}
+      label={title}
+      footer={
+        <button type="button" onClick={onClose} className={btn("primary", "md")}>
+          Done
+        </button>
+      }
     >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="sweep-title"
-        onClick={(e) => e.stopPropagation()}
-        className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-2xl border border-line bg-white p-5 shadow-xl dark:bg-ink-raised"
-      >
         <div className="flex items-start gap-3">
           <span
             aria-hidden
@@ -192,7 +180,7 @@ export function InvoiceSweepResultModal({
             </svg>
           </span>
           <div className="min-w-0">
-            <h2 id="sweep-title" className="text-base font-bold tracking-tight">
+            <h2 className="text-base font-bold tracking-tight">
               {title}
             </h2>
             <p className="mt-1 text-sm text-neutral-500">
@@ -230,12 +218,6 @@ export function InvoiceSweepResultModal({
           items={skipped}
         />
 
-        <div className="mt-5 flex justify-end">
-          <button type="button" onClick={onClose} className={btn("primary", "md")}>
-            Done
-          </button>
-        </div>
-      </div>
-    </div>
+    </Dialog>
   );
 }

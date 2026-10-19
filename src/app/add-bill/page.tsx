@@ -5,7 +5,7 @@ import { BillPopup } from "@/app/trackingsheet/BillPopup";
 import { useRouter, useSearchParams } from "next/navigation";
 import { JobPicker } from "@/components/JobPicker";
 import { confirmLeaveIfDirty, useUnsavedChanges } from "@/lib/useUnsavedChanges";
-import { Banner, Button, Card, Input, Label, PageHeader, Select, btn } from "@/components/ui";
+import { Banner, Button, Card, Checkbox, FileDrop, Input, Label, PageHeader, Select, btn } from "@/components/ui";
 
 interface VendorRef {
   id: string;
@@ -505,13 +505,15 @@ function AddBill() {
           ) : (
             <div>
               <Label>Invoice (PDF or photo)</Label>
-              <input
+              <FileDrop
+                // Remounts when the file clears, so the zone forgets the old name.
+                key={file ? "picked" : "empty"}
                 ref={fileRef}
-                type="file"
+                label="Choose the invoice"
+                hint={file?.name || "PDF or photo"}
                 accept="application/pdf,image/*"
                 disabled={busy}
                 onChange={(e) => onPickFile(e.target.files?.[0] ?? null)}
-                className="block w-full rounded-lg border border-neutral-300 bg-white p-2 text-sm transition file:mr-3 file:rounded-md file:border-0 file:bg-accent file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-accent-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 dark:border-neutral-600 dark:bg-ink-raised"
               />
               {file && previewUrl && !mismatch && !error && (
                 <BillPreview file={file} url={previewUrl} className="mt-2 h-64" />
@@ -522,8 +524,7 @@ function AddBill() {
           {/* The switch between the two ways a bill arrives. Under the input it
               replaces, because it is the answer to "I have nothing to upload". */}
           <label className="flex items-start gap-2 text-sm">
-            <input
-              type="checkbox"
+            <Checkbox
               checked={noFile}
               disabled={busy}
               onChange={(e) => {
@@ -532,7 +533,7 @@ function AddBill() {
                 setError("");
                 setResult(null);
               }}
-              className="mt-0.5 h-4 w-4 rounded border-neutral-300"
+              className="mt-0.5"
             />
             <span>
               No invoice to upload
@@ -629,12 +630,11 @@ function AddBill() {
           </div>
 
           <label className={`flex items-start gap-2 text-sm ${noFile ? "hidden" : ""}`}>
-            <input
-              type="checkbox"
+            <Checkbox
               checked={singleLine}
               disabled={busy}
               onChange={(e) => setSingleLine(e.target.checked)}
-              className="mt-0.5 h-4 w-4 rounded border-neutral-300"
+              className="mt-0.5"
             />
             <span>
               Single line — don&apos;t itemize

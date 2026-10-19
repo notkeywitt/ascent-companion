@@ -12,6 +12,7 @@ import {
   SectionLabel,
   Spinner,
   btn,
+  tableCls,
 } from "@/components/ui";
 import { JobPicker, type JobRef } from "@/components/JobPicker";
 
@@ -309,22 +310,22 @@ export function HistoricalCost({
             <p className="mt-3 text-sm text-neutral-500">No cost codes in range.</p>
           ) : (
             <div className="mt-3 max-h-80 overflow-y-auto">
-              <table className="w-full text-sm">
+              <table className={tableCls.root}>
                 <thead>
-                  <tr className="text-left text-[11px] uppercase tracking-wide text-neutral-500">
-                    <th className="pb-1">CSI</th>
-                    <th className="pb-1 text-right">Sheet</th>
-                    <th className="pb-1 text-right">In JT</th>
-                    <th className="pb-1 text-right">Gap</th>
+                  <tr>
+                    <th className={`${tableCls.th} pl-0`}>CSI</th>
+                    <th className={tableCls.thNum}>Sheet</th>
+                    <th className={tableCls.thNum}>In JT</th>
+                    <th className={`${tableCls.thNum} pr-0`}>Gap</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-neutral-200 dark:divide-neutral-700/60">
+                <tbody>
                   {gap.rows.map((r) => (
-                    <tr key={r.csi} className={r.gap === 0 ? "opacity-50" : ""}>
-                      <td className="py-1 font-mono text-xs">{r.csi}</td>
-                      <td className="py-1 text-right">{money(r.sheetTotal)}</td>
-                      <td className="py-1 text-right">{money(r.alreadyInJt)}</td>
-                      <td className="py-1 text-right font-semibold">{money(r.gap)}</td>
+                    <tr key={r.csi} className={`${tableCls.tr} ${r.gap === 0 ? "opacity-50" : ""}`}>
+                      <td className={`${tableCls.td} pl-0 font-mono text-xs`}>{r.csi}</td>
+                      <td className={tableCls.tdNum}>{money(r.sheetTotal)}</td>
+                      <td className={tableCls.tdNum}>{money(r.alreadyInJt)}</td>
+                      <td className={`${tableCls.tdNum} pr-0 font-semibold`}>{money(r.gap)}</td>
                     </tr>
                   ))}
                 </tbody>

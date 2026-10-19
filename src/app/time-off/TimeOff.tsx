@@ -10,6 +10,7 @@ import {
   Button,
   Card,
   EmptyState,
+  FileDrop,
   Input,
   Label,
   Loading,
@@ -17,6 +18,7 @@ import {
   SectionLabel,
   Select,
   Toggle,
+  tableCls,
 } from "@/components/ui";
 
 // ── Types (mirror the /api/time-off payloads) ────────────────────────────────
@@ -658,24 +660,24 @@ function AccrualCard({
           </Banner>
           {result.lines.length > 0 && (
             <div className="mt-2 overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className={tableCls.root}>
                 <thead>
-                  <tr className="text-left text-[11px] uppercase tracking-wide text-neutral-500">
-                    <th className="py-1 pr-3">Employee</th>
-                    <th className="py-1 pr-3">Period</th>
-                    <th className="py-1 pr-3">Type</th>
-                    <th className="py-1 pr-3 text-right">Worked</th>
-                    <th className="py-1 pr-3 text-right">Earned</th>
+                  <tr>
+                    <th className={`${tableCls.th} first:pl-0`}>Employee</th>
+                    <th className={`${tableCls.th} first:pl-0`}>Period</th>
+                    <th className={`${tableCls.th} first:pl-0`}>Type</th>
+                    <th className={`${tableCls.thNum} first:pl-0`}>Worked</th>
+                    <th className={`${tableCls.thNum} first:pl-0`}>Earned</th>
                   </tr>
                 </thead>
                 <tbody>
                   {result.lines.map((l, i) => (
-                    <tr key={i} className="border-t border-line-soft">
-                      <td className="py-1 pr-3">{l.name}</td>
-                      <td className="py-1 pr-3 tabular-nums">{l.period}</td>
-                      <td className="py-1 pr-3 uppercase">{l.leaveType}</td>
-                      <td className="py-1 pr-3 text-right tabular-nums">{hrs(l.workedHours)}</td>
-                      <td className="py-1 pr-3 text-right tabular-nums">{fmtHM(l.hours)}</td>
+                    <tr key={i} className={tableCls.tr}>
+                      <td className={`${tableCls.td} first:pl-0`}>{l.name}</td>
+                      <td className={`${tableCls.td} first:pl-0 tabular-nums`}>{l.period}</td>
+                      <td className={`${tableCls.td} first:pl-0 uppercase`}>{l.leaveType}</td>
+                      <td className={`${tableCls.tdNum} first:pl-0`}>{hrs(l.workedHours)}</td>
+                      <td className={`${tableCls.tdNum} first:pl-0`}>{fmtHM(l.hours)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -831,14 +833,13 @@ function ImportBalancesCard({ roster, onChanged }: { roster: RosterEmp[]; onChan
 
           <div>
             <Label htmlFor="bal-csv">Balance CSV</Label>
-            <input
+            <FileDrop
               id="bal-csv"
-              type="file"
+              label="Choose the balance CSV"
+              hint={fileName || "CSV from TSheets"}
               accept=".csv,text/csv"
-              className="block w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-neutral-200 file:px-3 file:py-1.5 file:text-sm file:font-medium dark:file:bg-neutral-800"
               onChange={(e) => void onFile(e.target.files?.[0])}
             />
-            {fileName && <div className="mt-1 text-xs text-neutral-500">{fileName}</div>}
           </div>
 
           {busy && <Loading label="Reading…" />}
@@ -910,18 +911,18 @@ function ImportBalancesCard({ roster, onChanged }: { roster: RosterEmp[]; onChan
                 <EmptyState>Every balance already matches the file. Nothing to import.</EmptyState>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
+                  <table className={tableCls.root}>
                     <thead>
-                      <tr className="text-left text-[11px] uppercase tracking-wide text-neutral-500">
-                        <th className="py-1 pr-3">Employee</th>
-                        <th className="py-1 pr-3 text-right">Sick</th>
-                        <th className="py-1 pr-3 text-right">PTO</th>
+                      <tr>
+                        <th className={`${tableCls.th} first:pl-0`}>Employee</th>
+                        <th className={`${tableCls.thNum} first:pl-0`}>Sick</th>
+                        <th className={`${tableCls.thNum} first:pl-0`}>PTO</th>
                       </tr>
                     </thead>
                     <tbody>
                       {shown.map((r) => (
-                        <tr key={r.key} className="border-t border-line-soft align-top">
-                          <td className="py-1.5 pr-3">
+                        <tr key={r.key} className={tableCls.tr}>
+                          <td className={`${tableCls.td} first:pl-0`}>
                             {r.employeeName || r.csvName || r.key}
                             {r.status !== "change" && (
                               <span className="ml-2 text-[11px] uppercase tracking-wide text-neutral-500">{r.status}</span>
@@ -930,7 +931,7 @@ function ImportBalancesCard({ roster, onChanged }: { roster: RosterEmp[]; onChan
                           {(["sick", "pto"] as const).map((t) => {
                             const c = r.changes.find((x) => x.leaveType === t);
                             return (
-                              <td key={t} className="py-1.5 pr-3 text-right tabular-nums">
+                              <td key={t} className={tableCls.tdNum}>
                                 {!c ? (
                                   "—"
                                 ) : Math.abs(c.delta) < 0.01 ? (
@@ -1006,23 +1007,23 @@ function BalancesCard({
         <EmptyState className="mt-3">No balances yet. Run accrual or import opening balances.</EmptyState>
       ) : (
         <div className="mt-3 overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className={tableCls.root}>
             <thead>
-              <tr className="text-left text-[11px] uppercase tracking-wide text-neutral-500">
-                <th className="py-1 pr-3">Employee</th>
-                <th className="py-1 pr-3 text-right">Sick</th>
-                <th className="py-1 pr-3 text-right">PTO</th>
-                <th className="py-1" />
+              <tr>
+                <th className={`${tableCls.th} first:pl-0`}>Employee</th>
+                <th className={`${tableCls.thNum} first:pl-0`}>Sick</th>
+                <th className={`${tableCls.thNum} first:pl-0`}>PTO</th>
+                <th className={tableCls.th} />
               </tr>
             </thead>
             <tbody>
               {byEmployee.map(([empId, e]) => (
                 <Fragment key={empId}>
-                  <tr className="border-t border-line-soft">
-                    <td className="py-1.5 pr-3">{e.name}</td>
-                    <td className="py-1.5 pr-3 text-right tabular-nums">{e.sick ? fmtHM(e.sick.balance) : "—"}</td>
-                    <td className="py-1.5 pr-3 text-right tabular-nums">{e.pto ? fmtHM(e.pto.balance) : "—"}</td>
-                    <td className="py-1.5 text-right">
+                  <tr className={tableCls.tr}>
+                    <td className={`${tableCls.td} first:pl-0`}>{e.name}</td>
+                    <td className={`${tableCls.tdNum} first:pl-0`}>{e.sick ? fmtHM(e.sick.balance) : "—"}</td>
+                    <td className={`${tableCls.tdNum} first:pl-0`}>{e.pto ? fmtHM(e.pto.balance) : "—"}</td>
+                    <td className={`${tableCls.td} pr-0 text-right`}>
                       <button
                         type="button"
                         className="text-xs text-accent hover:underline"
@@ -1149,26 +1150,26 @@ function LedgerView({ employeeId }: { employeeId: string }) {
   if (rows.length === 0) return <p className="px-1 py-2 text-xs text-neutral-500">No ledger entries.</p>;
   return (
     <div className="overflow-x-auto rounded-lg bg-neutral-50 p-2 dark:bg-white/5">
-      <table className="w-full text-xs">
+      <table className="w-full border-collapse text-xs">
         <thead>
-          <tr className="text-left uppercase tracking-wide text-neutral-500">
-            <th className="py-1 pr-3">Date</th>
-            <th className="py-1 pr-3">Type</th>
-            <th className="py-1 pr-3">Kind</th>
-            <th className="py-1 pr-3">Period</th>
-            <th className="py-1 pr-3 text-right">Hours</th>
-            <th className="py-1 pr-3">Note</th>
+          <tr>
+            <th className={`${tableCls.th} first:pl-0`}>Date</th>
+            <th className={`${tableCls.th} first:pl-0`}>Type</th>
+            <th className={`${tableCls.th} first:pl-0`}>Kind</th>
+            <th className={`${tableCls.th} first:pl-0`}>Period</th>
+            <th className={`${tableCls.thNum} first:pl-0`}>Hours</th>
+            <th className={`${tableCls.th} first:pl-0`}>Note</th>
           </tr>
         </thead>
         <tbody>
           {rows.map((r) => (
-            <tr key={r.id} className="border-t border-line/70 ">
-              <td className="py-1 pr-3 tabular-nums">{String(r.createdAt).slice(0, 10)}</td>
-              <td className="py-1 pr-3 uppercase">{r.leaveType}</td>
-              <td className="py-1 pr-3">{r.kind}</td>
-              <td className="py-1 pr-3 tabular-nums">{r.period || "—"}</td>
-              <td className="py-1 pr-3 text-right tabular-nums">{fmtHM(r.hours)}</td>
-              <td className="py-1 pr-3">{r.note}</td>
+            <tr key={r.id} className={tableCls.tr}>
+              <td className={`${tableCls.td} first:pl-0 tabular-nums`}>{String(r.createdAt).slice(0, 10)}</td>
+              <td className={`${tableCls.td} first:pl-0 uppercase`}>{r.leaveType}</td>
+              <td className={`${tableCls.td} first:pl-0`}>{r.kind}</td>
+              <td className={`${tableCls.td} first:pl-0 tabular-nums`}>{r.period || "—"}</td>
+              <td className={`${tableCls.tdNum} first:pl-0`}>{fmtHM(r.hours)}</td>
+              <td className={`${tableCls.td} first:pl-0`}>{r.note}</td>
             </tr>
           ))}
         </tbody>

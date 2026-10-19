@@ -271,7 +271,8 @@ function Kpi({ label, value, tone }: { label: string; value: string; tone?: "ove
 /* Column visibility: `wide` cells exist only at lg+, where the grid opens up to
    the full Tracking-Sheet column set. */
 const WIDE = "hidden lg:table-cell";
-const TH = "whitespace-nowrap py-1.5 pr-3 text-right text-[11px] font-semibold";
+// The caption style of `tableCls.thNum`, at this grid's denser padding.
+const TH = "whitespace-nowrap py-1.5 pr-3 text-right text-[11px] font-semibold uppercase tracking-wide";
 const TD = "whitespace-nowrap py-1.5 pr-3 text-right tabular-nums";
 
 export function JobsBrowser() {
@@ -536,32 +537,32 @@ export function JobsBrowser() {
                     <div className="overflow-x-auto">
                       <table className="w-full min-w-full text-sm">
                         <thead>
-                          <tr className="border-b border-line text-neutral-400 ">
+                          <tr className="border-b border-line text-neutral-500 dark:text-neutral-400">
                             <th className="py-1.5 pl-3 pr-3 text-left text-[11px] font-semibold uppercase tracking-wide">
                               Code / Item
                             </th>
-                            <th className={`${TH} ${WIDE} uppercase tracking-wide`}>Qty</th>
-                            <th className={`${TH} ${WIDE} uppercase tracking-wide`}>Unit</th>
-                            <th className={`${TH} ${WIDE} uppercase tracking-wide`}>Price</th>
-                            <th className={`${TH} ${WIDE} uppercase tracking-wide`}>Labor</th>
-                            <th className={`${TH} ${WIDE} uppercase tracking-wide`}>Allow.</th>
-                            <th className={`${TH} ${WIDE} uppercase tracking-wide`}>Sub</th>
-                            <th className={`${TH} ${WIDE} uppercase tracking-wide`}>Vendor</th>
-                            <th className={`${TH} uppercase tracking-wide`}>Budget</th>
-                            <th className={`${TH} ${WIDE} uppercase tracking-wide`}>Act. hrs</th>
-                            <th className={`${TH} ${WIDE} uppercase tracking-wide`}>Act. labor</th>
-                            <th className={`${TH} ${WIDE} uppercase tracking-wide`}>Bills</th>
-                            <th className={`${TH} uppercase tracking-wide`}>Actual</th>
-                            <th className={`${TH} uppercase tracking-wide`}>To complete</th>
-                            <th className={`${TH} ${WIDE} uppercase tracking-wide`}>Prev. inv.</th>
+                            <th className={`${TH} ${WIDE}`}>Qty</th>
+                            <th className={`${TH} ${WIDE}`}>Unit</th>
+                            <th className={`${TH} ${WIDE}`}>Price</th>
+                            <th className={`${TH} ${WIDE}`}>Labor</th>
+                            <th className={`${TH} ${WIDE}`}>Allow.</th>
+                            <th className={`${TH} ${WIDE}`}>Sub</th>
+                            <th className={`${TH} ${WIDE}`}>Vendor</th>
+                            <th className={`${TH}`}>Budget</th>
+                            <th className={`${TH} ${WIDE}`}>Act. hrs</th>
+                            <th className={`${TH} ${WIDE}`}>Act. labor</th>
+                            <th className={`${TH} ${WIDE}`}>Bills</th>
+                            <th className={`${TH}`}>Actual</th>
+                            <th className={`${TH}`}>To complete</th>
+                            <th className={`${TH} ${WIDE}`}>Prev. inv.</th>
                             <th
-                              className={`${TH} ${WIDE} uppercase tracking-wide`}
+                              className={`${TH} ${WIDE}`}
                               title={detail.currentInvoiceLabel ?? undefined}
                             >
                               Current inv.
                             </th>
-                            <th className={`${TH} ${WIDE} uppercase tracking-wide`}>Invoiced</th>
-                            <th className={`${TH} ${WIDE} uppercase tracking-wide`}>% inv.</th>
+                            <th className={`${TH} ${WIDE}`}>Invoiced</th>
+                            <th className={`${TH} ${WIDE}`}>% inv.</th>
                           </tr>
                         </thead>
 

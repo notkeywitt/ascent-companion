@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { BillStatusBadge } from "@/components/BillStatusBadge";
 import {
   Banner,
-  Card,
+  Dialog,
   EmptyState,
   FilterChip,
   Input,
@@ -303,19 +303,32 @@ function AddVendorDialog({
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Add vendor"
-      onClick={() => !busy && (warned ? onCreated(warned.vendor) : onClose())}
+    <Dialog
+      onClose={() => (warned ? onCreated(warned.vendor) : onClose())}
+      busy={busy}
+      title="Add vendor"
+      footer={
+        <>
+          <button
+            type="button"
+            className={btn("secondary", "md")}
+            onClick={() => (warned ? onCreated(warned.vendor) : onClose())}
+            disabled={busy}
+          >
+            {warned ? "Done" : "Cancel"}
+          </button>
+          <button
+            type="button"
+            className={btn("primary", "md")}
+            onClick={create}
+            disabled={busy || !name.trim() || warned !== null}
+          >
+            {busy ? "Creating…" : "Create in JobTread"}
+          </button>
+        </>
+      }
     >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-md pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:pb-0"
-      >
-        <Card className="space-y-4">
-          <SectionHeading>Add vendor</SectionHeading>
+        <div className="space-y-4">
 
           <div className="space-y-1">
             <Label htmlFor="add-vendor-name">Vendor name</Label>
@@ -347,28 +360,8 @@ function AddVendorDialog({
 
           {error && <Banner tone="error">{error}</Banner>}
           {warned && <Banner tone="warning">{warned.warning}</Banner>}
-
-          <div className="flex gap-2">
-            <button
-              type="button"
-              className={btn("primary", "md")}
-              onClick={create}
-              disabled={busy || !name.trim() || warned !== null}
-            >
-              {busy ? "Creating…" : "Create in JobTread"}
-            </button>
-            <button
-              type="button"
-              className={btn("secondary", "md")}
-              onClick={() => (warned ? onCreated(warned.vendor) : onClose())}
-              disabled={busy}
-            >
-              {warned ? "Done" : "Cancel"}
-            </button>
-          </div>
-        </Card>
-      </div>
-    </div>
+        </div>
+    </Dialog>
   );
 }
 

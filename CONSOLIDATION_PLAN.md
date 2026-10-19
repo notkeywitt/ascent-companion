@@ -394,5 +394,27 @@ the tab rows and section pills, sidebar active states, one name per page.
 - **One name per page.** Job Board, Overview, Record, Job Cost and
   Specifications read the same in the tab row and the page title.
 
-Next: stage 3 — Dialog, Segmented, Checkbox, FileDrop, an xs Button and one
-table style. Then stage 4, the page sweep.
+## Desktop polish, stage 3 (controls), 2026-10-19
+
+- **Dialog** (`src/components/Dialog.tsx`): every modal is one part — a bottom
+  sheet on a phone, centred from `sm`. Escape and the scrim close it unless
+  `busy`; the page behind stops scrolling; focus moves in and back. 25 modals
+  moved onto it. Escape closes only the top dialog when one opens inside
+  another. `bare` lets a Card be the panel (Edit time, Add time).
+- **Segmented**: one soft track for view switches (Board's By bill / By cost
+  code / Summary, Spend / Estimate, time entries' Group and List / Calendar,
+  Employee Time's tabs). None is an accent fill any more.
+- **Checkbox**: a hairline box that fills with the accent, at every tick box.
+- **FileDrop** (`src/components/FileDrop.tsx`): a dashed drop zone in place of
+  the browser's file control (Add bill, Specifications, Time Off, Amazon).
+- **Button `size="xs"`** replaces 17 `!py-1.5 !text-xs` overrides.
+- **`tableCls`**: one table style — 11px caption over a hairline, no filled
+  header, soft rules between rows. On Employees, Labor Rates, Time Off,
+  Historical Cost, Specifications, Job Cost, Labor Import and Week Compare.
+
+Left on purpose: Employee Time's own bottom sheet (field design), the photo
+viewer, the page guide and the menu overlay (not dialogs), `!` overrides that
+are not a shrunk Button.
+
+Next: stage 4, the page sweep (type sizes, money and date formats, colour
+literals), only on the owner's go.

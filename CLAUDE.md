@@ -110,7 +110,12 @@ branch's record, so the next session can pick the work up cold. Read
   (status marks), `MetaLine` (dot-separated quiet state — the reason chips stay rare),
   `QuietInput`/`quietInputCls` (a field with no border until focus, for dense editing
   rows), `CountBadge`, `FilterChip`/`ChipScroller` (swipeable filter pills),
-  `Meter` (spend vs budget), `StickyActionBar` (a page's commit action, docked).
+  `Meter` (spend vs budget), `StickyActionBar` (a page's commit action, docked),
+  and the controls: `Tabs` (sibling pages above the title, sections below it),
+  `Segmented` (two to four views of the same content), `Checkbox`, `FileDrop`
+  (the file picker), `Dialog` (every modal — never a hand-rolled `fixed inset-0`
+  overlay), Button `size="xs"` (never `!py-… !text-xs`), and `tableCls` (one
+  table style).
 - **Prefer a hairline to a box, and text to a pill.** A list of records is ONE
   `Card pad={false}` with `divide-y divide-line-soft` rows — never a bordered card
   per record. Ordinary state goes in a `MetaLine`; a `Chip` is spent only on the
