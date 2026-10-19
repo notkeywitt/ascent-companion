@@ -14,6 +14,8 @@ next: After the 2026-11-11 scheduled run: read the November digest card and the 
 <!-- Appended by .githooks/post-commit. Do not hand-write rows here. -->
 - 2026-10-19 10:34 · `c42fd65` companion: add berger invoice checks and run the review on the 10th-to-15th timeline
   .claude/skills/invoice-review/SKILL.md, CODEBASE_MAP.md, src/app/api/digest/run/route.ts, src/app/api/invoice-review/run/route.ts, src/lib/digest/checks/invoiceReviewWindow.ts, src/lib/digest/registry.ts, +13 more
+- 2026-10-19 10:43 · `c213adc` companion: tune berger checks against live data and add cross-job duplicates
+  CODEBASE_MAP.md, src/lib/invoiceReview/bergerChecks.test.ts, src/lib/invoiceReview/checks/duplicateCrossJob.ts, src/lib/invoiceReview/checks/duplicateWide.ts, src/lib/invoiceReview/checks/invoiceLines.ts, src/lib/invoiceReview/evidence.ts, +3 more
 
 ## Notes
 - 2026-10-19 10:34 — Audit of Kevin Berger threads (Oct 2025-Oct 2026): 12 real errors (6 billing, 6 Drive backup), 13 process gaps. Checks built: tax-doubled, duplicate-wide, invoice-lines, line-code-mismatch. Schedule rides the digest's scheduler call (Hobby 2-cron cap).
