@@ -202,6 +202,10 @@ export function GlobalSearch() {
   // The one networked kind. Debounced, gated, and abort-on-retype so a fast
   // typist can't have an older response land after a newer one.
   const canSearchBills = access.can("bill-search");
+  // Same rule as the Bill Search page: a stale index is rebuilt once in the
+  // background, then the box searches again so new bills appear.
+  const indexRefreshing = useRef(false);
+  const [indexTick, setIndexTick] = useState(0);
   useEffect(() => {
     if (!canSearchBills || q.length < 2) {
       setBills([]);
@@ -213,7 +217,20 @@ export function GlobalSearch() {
     const t = setTimeout(() => {
       fetch(`/api/bill-search?q=${encodeURIComponent(q)}`, { signal: ctrl.signal })
         .then((r) => r.json())
-        .then((j) => setBills(Array.isArray(j.results) ? j.results.slice(0, MAX_BILLS) : []))
+        .then((j) => {
+          setBills(Array.isArray(j.results) ? j.results.slice(0, MAX_BILLS) : []);
+          if (j.status?.stale && !j.status?.refreshing && !indexRefreshing.current) {
+            indexRefreshing.current = true;
+            fetch("/api/bill-search/refresh", { method: "POST" })
+              .then((r) => {
+                if (r.ok) setIndexTick((n) => n + 1); // a failed rebuild must not loop
+              })
+              .catch(() => {})
+              .finally(() => {
+                indexRefreshing.current = false;
+              });
+          }
+        })
         .catch(() => {
           /* aborted or failed — leave the last good list up */
         })
@@ -223,7 +240,7 @@ export function GlobalSearch() {
       clearTimeout(t);
       ctrl.abort();
     };
-  }, [q, canSearchBills]);
+  }, [q, canSearchBills, indexTick]);
 
   /* --------------------------------------------------------------- bill # */
   const billNumberQuery = canSeeVendors && /^\d+$/.test(query.trim()) ? query.trim() : null;
